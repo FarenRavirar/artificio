@@ -80,6 +80,9 @@ export interface CatalogNodeWrite {
   logo_media_id?: string | null;
   status?: CatalogNodeStatus;
   aliases?: string[];
+  // DEB-088-04 — acréscimo atômico, alternativa a `aliases` (substituição).
+  // Só faz sentido no PATCH: quem cria já manda a lista inteira em `aliases`.
+  add_aliases?: string[];
 }
 
 const NODE_TYPES = new Set<CatalogNodeType>(["system", "edition", "variant"]);
@@ -248,7 +251,18 @@ export async function updateNode(id: string, input: Partial<CatalogNodeWrite>, a
         next.description, next.official_website_url, next.logo_media_id, next.status, actorId, id,
       ],
     )).rows[0]!;
+    // DEB-088-04 — os dois campos são MUTUAMENTE EXCLUSIVOS, alinhado com
+    // catalog_material_types (achado CodeRabbit na PR #218): substituir e
+    // acrescentar na mesma chamada não tem leitura óbvia, e escolher um
+    // apagaria vocabulário sem o chamador pedir. Aqui não daria erro de SQL
+    // (são dois statements), o que é pior: passaria silenciosamente com uma
+    // semântica que ninguém especificou.
+    // O `catch` abaixo já faz o ROLLBACK — lançar aqui basta.
+    if (input.aliases && input.add_aliases?.length) {
+      throw new Error("aliases_conflict");
+    }
     if (input.aliases) await replaceAliases(client, id, input.aliases, actorId);
+    if (input.add_aliases) await addAliases(client, id, input.add_aliases, actorId);
     await bumpVersion(client, "catalog_node_updated", actorId, id, { node_type: row.node_type });
     await client.query("COMMIT");
     const [withAliases] = await attachAliases([row], await listAliases([id]));
@@ -330,6 +344,32 @@ export async function replaceAliases(client: DbClient, nodeId: string, aliases: 
   for (const alias of cleanAliases(aliases)) {
     await client.query(
       "INSERT INTO catalog_aliases (node_id, alias, created_by) VALUES ($1,$2,$3)",
+      [nodeId, alias, actorId],
+    );
+  }
+}
+
+// DEB-088-04 — ACRESCENTA sem apagar, ao contrário de replaceAliases.
+//
+// O consumidor que só quer ensinar um alias novo (triagem de sugestão de
+// sistema, em apps/downloads) tinha de ler a lista atual, concatenar e reenviar
+// tudo por `aliases` — read-modify-write. Duas aprovações simultâneas para o
+// MESMO node liam a mesma lista e a última gravação apagava o alias da
+// primeira: as duas sugestões ficavam `approved`, um alias sumia, e o raw_value
+// perdido voltava para a fila na ingestão seguinte.
+//
+// `ON CONFLICT DO NOTHING` sobre idx_catalog_aliases_node_alias_locale
+// (node_id, lower(alias), COALESCE(locale,'')) torna cada INSERT idempotente e
+// independente dos demais — sem DELETE, não há o que uma transação concorrente
+// apague. Nenhuma migration nova: o índice único já existe desde a 006.
+//
+// Simétrico ao `add_aliases` de catalog_material_types (spec 088, requisito 56d),
+// que resolveu o mesmo defeito no vocabulário de TIPO.
+export async function addAliases(client: DbClient, nodeId: string, aliases: string[], actorId: string | null): Promise<void> {
+  for (const alias of cleanAliases(aliases)) {
+    await client.query(
+      `INSERT INTO catalog_aliases (node_id, alias, created_by) VALUES ($1,$2,$3)
+       ON CONFLICT (node_id, lower(alias), COALESCE(locale, '')) DO NOTHING`,
       [nodeId, alias, actorId],
     );
   }

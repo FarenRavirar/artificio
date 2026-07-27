@@ -396,6 +396,27 @@ As ferramentas locais abaixo foram adotadas para reduzir retrabalho, detectar er
 - **Pegadinhas conhecidas:** `rtk grep <dir>` sem `-r` falha (proxy pro grep nativo, não ripgrep — usar `rtk rg`); `rtk diff <arquivo>` sozinho não é o uso certo — usar `rtk git diff <arquivo>`. Comando novo do rtk sem uso prévio confirmado: testar antes de assumir que roda igual aos outros.
 - **Trava anti-hábito:** ferramenta instalada e no PATH não é ferramenta indisponível — se uma sessão inteira de diagnóstico rodou sem usar `rtk` onde cabia, é falha de execução do agente, não ausência de ferramenta.
 
+**Forçamento automático (instalado 2026-07-27, após ~50 esquecimentos na semana).** A regra deixou de depender da memória do agente. Três camadas, em ordem de execução:
+
+1. **`rtk hook claude`** (`PreToolUse` em `Bash`, config global do Claude Code) — reescreve o comando cru para o equivalente `rtk` de forma transparente. Cobre `cat`/`head`/`grep`/`rg`/`find`/`git`/`gh`/`tsc`/`eslint`/`vitest`/`jest`/`ls`/`npx …`/`pnpm run …`. **Não é opcional nem visível**: quando funciona, o agente nem percebe.
+2. **`rtk-enforce.js`** (`PreToolUse` em `Bash`, roda logo depois) — **bloqueia** (`permissionDecision: deny`) o que a camada 1 deixa passar. Medido com `rtk hook check` em rtk 0.44.0: `pnpm <script>` sem `run` (`pnpm verify:api`, `pnpm test`) e `pnpm --filter <pkg> <script>` **não são reescritos**. O deny devolve o comando corrigido pronto, então o custo é reemitir na mesma volta.
+3. **`rtk-read-gate.js`** (`PreToolUse` em `Read`) — o hook do rtk **só intercepta o tool `Bash`**; `Read`/`Grep`/`Glob` são nativos e passam por fora dele, que é por onde "esqueci o `rtk read`" escapava. O gate bloqueia leitura **integral** de arquivo com mais de 600 linhas e de lockfile, sempre sugerindo `rtk read`, `offset`/`limit` ou LSP. Leitura com `offset`/`limit` passa direto — ler trecho de arquivo grande é o comportamento desejado, não a violação.
+
+Consequência prática: **não existe mais "esqueci"**. Ou o comando é reescrito sem o agente notar, ou é bloqueado com a correção no motivo. O que o agente ainda precisa fazer por conta própria é escolher LSP/`codebase-memory-mcp` antes de busca textual — isso nenhum hook decide.
+
+**Comando obrigatório para lint/build/test/verify, na raiz do monorepo:**
+
+| Fazer | Nunca |
+|---|---|
+| `rtk pnpm run lint` | `pnpm run lint`, `pnpm lint`, `rtk lint` |
+| `rtk pnpm run build` | `pnpm run build`, `rtk tsc` |
+| `rtk pnpm run test` | `pnpm run test`, `pnpm test` |
+| `rtk pnpm verify:api` | `pnpm verify:api` |
+
+`rtk lint`/`rtk tsc` (subcomandos dedicados) falham **na raiz** com `JSON parse failed` — o turbo não entrega o formato que eles esperam (DEB-088-01). Dentro de um app (`cd apps/x && rtk tsc -p tsconfig.json`) funcionam normalmente, porque não passam pelo turbo. Cair no `pnpm` cru **não** é o contorno: perde a compressão inteira.
+
+Esta tabela **não depende de o agente lembrar dela**: as regras `script-pesado-sem-rtk` e `rtk-subcomando-quebrado-no-turbo` do `rtk-enforce.js` bloqueiam cada linha da coluna "Nunca" e devolvem a da coluna "Fazer" já montada. A tabela existe para explicar o *porquê* — o cumprimento é mecânico.
+
 **Erros cometidos em smoke test (2026-07-25, build develop `bee2178`) — não repetir:**
 - `rtk gain --graph` truncado com `| head -20`: gráfico ASCII de 30 dias vem DEPOIS da tabela "By Command", que já ocupa ~15 linhas — `head` curto corta o gráfico fora e parece bug no rtk quando não é. **Nunca concluir "comando não fez X" a partir de saída truncada por `head`/`tail`/pipe curto — rodar sem corte antes de reportar falha.**
 - `rtk cargo test --lib` no repo `rtk` (binário puro, sem lib target) falhou com `no library targets found in package`: erro é do argumento `--lib`, não do rtk. **Antes de passar flag de escopo (`--lib`, `--bin`, `-p`), confirmar a estrutura do pacote (`Cargo.toml`/`cargo metadata`) — não assumir que todo crate Rust tem lib target.**

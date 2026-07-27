@@ -71,6 +71,10 @@ export interface DownloadMaterialTable {
   // do apps/mesas). Material nunca perde essa informacao; limpo quando uma
   // download_system_suggestion e aprovada ou uma re-tentativa de match casa.
   raw_system_hint: string | null;
+  // Spec 088 (migration_030) — simetrico ao raw_system_hint: texto bruto do
+  // TIPO quando o hint da fonte nao casa contra a taxonomia central. Alimenta
+  // a triagem admin; escrever no catalogo continua exclusivo dela.
+  raw_material_type_hint: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
@@ -323,6 +327,35 @@ export type DownloadSystemSuggestion = Selectable<DownloadSystemSuggestionTable>
 export type NewDownloadSystemSuggestion = Insertable<DownloadSystemSuggestionTable>;
 export type DownloadSystemSuggestionUpdate = Updateable<DownloadSystemSuggestionTable>;
 
+// Spec 088 (migration_031) — fila de triagem do hint de TIPO, simetrica a
+// download_system_suggestion. A taxonomia de tipo e uma lista PLANA
+// (catalog_material_types), nao uma arvore: por isso resolution_action tem so
+// merge_existing/create_type — nao existe create_child (sem parent) nem
+// create_alias separado de merge_existing (apontar pra um tipo existente JA e
+// registrar o alias; sem essa escrita a mesma sugestao volta pra fila).
+export type DownloadMaterialTypeSuggestionSource = 'scraper' | 'user';
+export type DownloadMaterialTypeSuggestionStatus = 'pending' | 'approved' | 'rejected';
+export type DownloadMaterialTypeSuggestionResolutionAction = 'merge_existing' | 'create_type';
+
+export interface DownloadMaterialTypeSuggestionTable {
+  id: Generated<string>;
+  material_id: string;
+  raw_value: string;
+  source: DownloadMaterialTypeSuggestionSource;
+  status: Generated<DownloadMaterialTypeSuggestionStatus>;
+  suggested_by_user_id: string | null;
+  resolution_action: DownloadMaterialTypeSuggestionResolutionAction | null;
+  resolved_material_type_id: string | null;
+  rejection_reason: string | null;
+  reviewed_by: string | null;
+  reviewed_at: Date | null;
+  created_at: Generated<Date>;
+}
+
+export type DownloadMaterialTypeSuggestion = Selectable<DownloadMaterialTypeSuggestionTable>;
+export type NewDownloadMaterialTypeSuggestion = Insertable<DownloadMaterialTypeSuggestionTable>;
+export type DownloadMaterialTypeSuggestionUpdate = Updateable<DownloadMaterialTypeSuggestionTable>;
+
 export interface DownloadMetricDailyTable {
   material_id: string;
   metric_date: Date;
@@ -526,4 +559,5 @@ export interface Database {
   download_scraper_parse_log: DownloadScraperParseLogTable;
   download_scraper_platform: DownloadScraperPlatformTable;
   download_system_suggestion: DownloadSystemSuggestionTable;
+  download_material_type_suggestion: DownloadMaterialTypeSuggestionTable;
 }

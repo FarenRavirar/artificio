@@ -60,6 +60,11 @@ function parsePatch(body: unknown): Partial<MaterialTypes.MaterialTypeWrite> {
   if ('name' in value) patch.name = readString(value, 'name');
   if ('slug' in value) patch.slug = readString(value, 'slug');
   if ('aliases' in value) patch.aliases = readStringArray(value, 'aliases');
+  // Achado real (review PR #218, Codex, P2): `aliases` SUBSTITUI a lista, o que
+  // obriga quem só quer acrescentar a fazer read-modify-write — e duas
+  // aprovações simultâneas de sugestão para o mesmo tipo perdiam um dos
+  // aliases. `add_aliases` acrescenta atomicamente, no próprio UPDATE.
+  if ('add_aliases' in value) patch.add_aliases = readStringArray(value, 'add_aliases');
   if ('status' in value) patch.status = readString(value, 'status') as MaterialTypes.MaterialTypeStatus;
   return patch;
 }
@@ -89,7 +94,7 @@ function actorOf(req: unknown): string | null {
 
 function handleError(error: unknown, res: { status: (code: number) => { json: (body: unknown) => void } }): void {
   const message = error instanceof Error ? error.message : 'catalog_write_failed';
-  if (['bad_payload', 'name_required', 'slug_required', 'bad_status'].includes(message)) {
+  if (['bad_payload', 'name_required', 'slug_required', 'bad_status', 'aliases_conflict'].includes(message)) {
     res.status(400).json({ error: message });
     return;
   }

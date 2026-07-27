@@ -323,26 +323,77 @@ export async function createCatalogNode(input: CatalogNodeCreateInput): Promise<
 }
 
 // T4.9 — registra raw_value como alias de um node ja existente (merge_existing/
-// create_alias). PUT nao pode mandar aliases:[] quando so quer ADICIONAR um
-// alias novo sem apagar os existentes (mesmo achado do CodeRabbit PR #145 no
-// catalogClient do mesas) — busca os aliases atuais do node antes de decidir
-// o payload final. node_type/name reenviados porque parseNodeWrite do site
-// exige os dois no PUT mesmo quando so a lista de aliases muda.
+// create_alias).
+//
+// DEB-088-04: a versao anterior lia os aliases atuais e reenviava a lista
+// concatenada (`aliases: [...existentes, novo]`) — read-modify-write. Duas
+// aprovacoes simultaneas pro MESMO node liam a mesma lista e a ultima gravacao
+// apagava o alias da primeira: as duas sugestoes ficavam 'approved', um alias
+// sumia, e o raw_value perdido voltava pra fila na proxima ingestao.
+//
+// `add_aliases` (apps/site) faz INSERT ... ON CONFLICT DO NOTHING por alias,
+// dentro da transacao do UPDATE: sem DELETE, nao ha o que uma transacao
+// concorrente apague, e alias repetido e no-op. Nao ha mais leitura previa pra
+// ficar obsoleta — some junto a checagem de existencia (o ON CONFLICT ja
+// cobre) e o reenvio de node_type/name, que so existiam porque o payload
+// anterior precisava reconstruir a lista inteira.
 export async function addCatalogNodeAlias(nodeId: string, alias: string): Promise<void> {
-  const node = await getCatalogNodeById(nodeId);
-  if (!node) {
-    throw new Error(`catalog_node_not_found: ${nodeId}`);
-  }
-  const existingAliases = (node.aliases ?? []).map((a) => a.alias);
-  if (existingAliases.includes(alias)) return;
-
   await catalogFetch<unknown>(`/api/admin/v1/catalog/nodes/${encodeURIComponent(nodeId)}`, {
     method: 'PUT',
-    body: JSON.stringify({
-      node_type: node.node_type,
-      name: node.name,
-      aliases: [...existingAliases, alias],
-    }),
+    body: JSON.stringify({ add_aliases: [alias] }),
   });
   invalidateCatalogSnapshotCache();
+}
+
+// Spec 088 (achado de review PR #218, Codex P2) — escrita de TIPO no catalogo
+// central, mesma regra da escrita de sistema: so por acao admin na triagem,
+// nunca pelo scraper (requisito 8). Chamado so por
+// routes/materialTypeSuggestionsAdmin.ts.
+//
+// O contrato do Site (catalog-material-types-admin-api.ts) e mais simples que o
+// de nodes: POST exige `name` e deriva o slug quando ausente; PUT e um PATCH
+// parcial de verdade (so toca as chaves presentes no corpo), entao mandar
+// apenas `aliases` nao apaga name/slug/status.
+export async function createCatalogMaterialType(name: string, aliases: string[] = []): Promise<CatalogMaterialType> {
+  const created = catalogMaterialTypeSchema.parse(await catalogFetch<unknown>('/api/admin/v1/catalog/material-types', {
+    method: 'POST',
+    body: JSON.stringify({ name, aliases, status: 'active' }),
+  }));
+  invalidateCatalogMaterialTypesCache();
+  return created;
+}
+
+// Achado de review PR #218 (Codex, P2) — compensacao de tipo orfao, equivalente
+// a archiveCatalogNode do fluxo de sistema. Se o POST central concluir e a
+// escrita local (applyResolution) falhar depois, a transacao do Downloads
+// reverte e a sugestao volta a 'pending', mas o tipo recem-criado continua no
+// catalogo central: o retry colidiria no slug UNIQUE e devolveria 500 pra
+// sempre, travando a fila. `merged` (nao `rejected`) porque e o status que
+// `listMaterialTypes` filtra fora sem sugerir juizo sobre o valor — o tipo nao
+// foi recusado por um humano, so nunca chegou a existir de fato.
+export async function archiveCatalogMaterialType(materialTypeId: string): Promise<void> {
+  await catalogFetch<unknown>(`/api/admin/v1/catalog/material-types/${encodeURIComponent(materialTypeId)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ status: 'merged' }),
+  });
+  invalidateCatalogMaterialTypesCache();
+}
+
+// Aprovar merge_existing ENSINA o vocabulario, senao o mesmo raw_value volta
+// pra fila em todo reprocessamento.
+//
+// Achado de review PR #218 (Codex, P2): a primeira versao lia os aliases atuais
+// e reenviava a lista concatenada (`aliases: [...atuais, novo]`), o mesmo
+// read-modify-write que addCatalogNodeAlias faz no fluxo de sistema. Duas
+// aprovacoes simultaneas pro MESMO tipo liam a mesma lista e a ultima gravacao
+// apagava o alias da primeira — as duas sugestoes ficavam 'approved', mas so um
+// alias sobrevivia, e o raw_value perdido voltava pra fila na proxima ingestao.
+// `add_aliases` (apps/site) concatena DENTRO do UPDATE, sem janela entre ler e
+// escrever, e deduplica em SQL. Nao ha mais leitura previa pra ficar obsoleta.
+export async function addCatalogMaterialTypeAlias(materialTypeId: string, alias: string): Promise<void> {
+  await catalogFetch<unknown>(`/api/admin/v1/catalog/material-types/${encodeURIComponent(materialTypeId)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ add_aliases: [alias] }),
+  });
+  invalidateCatalogMaterialTypesCache();
 }

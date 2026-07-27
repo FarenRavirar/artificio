@@ -19,7 +19,13 @@ import { toJsonColumnValue } from '../db/jsonColumn';
 // qualquer outra checagem: material nao-portugues nunca deve "quase" entrar
 // no catalogo por falha de ordem (ex.: dedupe rodando antes esconderia o
 // filtro de idioma numa 2a execucao do mesmo item).
-const DEFAULT_MATERIAL_TYPE_SLUG = 'aventura';
+// Spec 088 (T2.9e, requisito 55) — o default era 'aventura', o que rotulava
+// como Aventura todo material que ninguem classificou: afirmacao falsa sobre
+// o conteudo, e a causa da distribuicao de 103 materiais numa linha so.
+// Agora e um tipo NEUTRO da taxonomia central (seed em
+// site/db/migrations/016), pra que "caiu no default" seja distinguivel de
+// classificacao real — consulta pelo slug lista exatamente o que falta triar.
+const DEFAULT_MATERIAL_TYPE_SLUG = 'nao-classificado';
 
 export interface ScraperIngestResult {
   itemsFound: number;
@@ -132,6 +138,36 @@ async function resolveSystemHint(systemHint: string | null | undefined): Promise
   return { systemId: null, editionId: null, rawSystemHint: hint };
 }
 
+// Spec 088 (T2.9d, requisitos 52/53/54) — resolve o hint de TIPO contra a
+// taxonomia central, por ITEM (antes era uma unica resolucao por execucao,
+// aplicada a todos). `getCatalogMaterialTypeBySlug` ja aceita slug OU alias
+// com normalizacao pt-BR, entao o vocabulario proprio da fonte ("Regras
+// basicas", "Core Rulebooks") casa sem taxonomia nova.
+//
+// Nao casou -> preserva o valor bruto e cai no tipo neutro, no mesmo padrao
+// do raw_system_hint: o material nunca perde a informacao nem finge que ela
+// nao existe. Escrever no catalogo central continua exclusivo da triagem
+// admin (requisito 48/56) — aqui so se LE.
+interface MaterialTypeResolution {
+  materialType: { id: string; name: string };
+  rawMaterialTypeHint: string | null;
+}
+
+async function resolveMaterialTypeHint(
+  materialTypeHint: string | null | undefined,
+  defaultMaterialType: { id: string; name: string },
+): Promise<MaterialTypeResolution> {
+  const hint = materialTypeHint?.trim() || null;
+  if (!hint) return { materialType: defaultMaterialType, rawMaterialTypeHint: null };
+
+  const matched = await getCatalogMaterialTypeBySlug(hint);
+  if (matched && matched.status === 'active') {
+    return { materialType: { id: matched.id, name: matched.name }, rawMaterialTypeHint: null };
+  }
+
+  return { materialType: defaultMaterialType, rawMaterialTypeHint: hint };
+}
+
 // T4.5 — abre a fila de triagem quando o scraper nao casou o hint contra o
 // catalogo (source='scraper', sempre 'pending'). Nunca escreve no catalogo
 // central diretamente — so a triagem admin faz isso (requisito 8).
@@ -153,11 +189,31 @@ async function openSystemSuggestion(trx: Kysely<Database> | Transaction<Database
     .execute();
 }
 
+// Spec 088 (achado de review PR #218, Codex P2) — espelha openSystemSuggestion,
+// inclusive na trava de idempotencia: migration_031 tem o mesmo indice unico
+// parcial (source='scraper' AND status='pending'), entao reprocessar o mesmo
+// item nao empilha pending duplicada pro mesmo (material_id, raw_value).
+async function openMaterialTypeSuggestion(trx: Kysely<Database> | Transaction<Database>, materialId: string, rawValue: string): Promise<void> {
+  await trx
+    .insertInto('download_material_type_suggestion')
+    .values({
+      material_id: materialId,
+      raw_value: rawValue,
+      source: 'scraper',
+      status: 'pending',
+    })
+    .onConflict((oc) => oc.columns(['material_id', 'raw_value']).where('source', '=', 'scraper').where('status', '=', 'pending').doNothing())
+    .execute();
+}
+
 async function processItem(
   runId: string,
   sourcePlatform: DownloadSourcePlatform,
   scraperCreatorId: string,
-  materialType: { id: string; name: string },
+  // T2.9d/T2.9e — este e o tipo NEUTRO de fallback, nao o tipo do item: cada
+  // item resolve o proprio a partir do hint da fonte, e so cai aqui quando
+  // nao ha hint ou ele nao casa contra a taxonomia central.
+  defaultMaterialType: { id: string; name: string },
   item: ScrapedItem,
 ): Promise<DownloadScraperItemOutcome> {
   // 1. Idioma primeiro (D119) — nunca avalia preco/dedupe antes disso.
@@ -206,6 +262,10 @@ async function processItem(
     // cacheada por loadCatalogSystemsFlat; nao faz sentido segurar a
     // transacao do Postgres esperando fetch externo).
     const systemResolution = await resolveSystemHint(item.systemHint);
+    // T2.9d — resolucao POR ITEM (antes: uma vez por execucao, fora do laco,
+    // aplicada a todos indistintamente). Fora da transacao pela mesma razao
+    // do systemHint: consulta o catalogo central por rede, cacheada.
+    const typeResolution = await resolveMaterialTypeHint(item.materialTypeHint, defaultMaterialType);
     const materialId = await db.transaction().execute(async (trx) => {
       const material = await trx
         .insertInto('download_material')
@@ -216,8 +276,8 @@ async function processItem(
           // em metadata. summary nunca pode cortar HTML no meio de uma tag.
           summary: item.description?.slice(0, 500) ?? null,
           description: item.description ?? null,
-          material_type_id: materialType.id,
-          material_type: materialType.name,
+          material_type_id: typeResolution.materialType.id,
+          material_type: typeResolution.materialType.name,
           creator_id: scraperCreatorId,
           editorial_state: 'published',
           access_kind: 'external_link',
@@ -232,6 +292,11 @@ async function processItem(
           system_id: systemResolution.systemId,
           edition_id: systemResolution.editionId,
           raw_system_hint: systemResolution.rawSystemHint,
+          // T2.9d (requisito 54) — hint de tipo que a fonte publicou mas o
+          // catalogo ainda nao conhece: preservado bruto e o item fica no
+          // tipo neutro, nunca descartado nem gravado no catalogo central
+          // pelo scraper (essa escrita e exclusiva da triagem admin).
+          raw_material_type_hint: typeResolution.rawMaterialTypeHint,
         })
         .returning('id')
         .executeTakeFirstOrThrow();
@@ -241,6 +306,14 @@ async function processItem(
       // mesas: "nao achei sistema, mas tenho o texto".
       if (systemResolution.rawSystemHint) {
         await openSystemSuggestion(trx, material.id, systemResolution.rawSystemHint);
+      }
+
+      // Spec 088 (achado de review PR #218, Codex P2) — simetrico ao bloco
+      // acima: gravar raw_material_type_hint sem abrir a fila deixava o dado
+      // invisivel, sem nenhum caminho administrativo pra resolve-lo. O tipo
+      // nao reconhecido agora chega na triagem pelo mesmo mecanismo do sistema.
+      if (typeResolution.rawMaterialTypeHint) {
+        await openMaterialTypeSuggestion(trx, material.id, typeResolution.rawMaterialTypeHint);
       }
 
       await trx
@@ -306,8 +379,14 @@ export async function runScraperIngest(
   // Achado real (review PR #205, Codex, nitpick): resolver o tipo dentro de
   // processItem repetia lookup/cache e convertia ausência canônica em um erro
   // por item. Falha uma vez antes do loop e reutiliza a referência no run.
-  const materialType = await getCatalogMaterialTypeBySlug(DEFAULT_MATERIAL_TYPE_SLUG);
-  if (!materialType || materialType.status !== 'active') {
+  //
+  // Spec 088 (T2.9d): isto continua valendo para o tipo NEUTRO de fallback —
+  // ausência dele é falha de configuração do catálogo e deve abortar a run
+  // inteira, não item a item. O que mudou é que ele deixou de ser o tipo de
+  // TODOS os itens: cada item resolve o próprio hint dentro do laço, e só cai
+  // aqui quando a fonte não expõe tipo ou o valor não casa.
+  const defaultMaterialType = await getCatalogMaterialTypeBySlug(DEFAULT_MATERIAL_TYPE_SLUG);
+  if (!defaultMaterialType || defaultMaterialType.status !== 'active') {
     throw new Error(`catalog_material_type_not_found: ${DEFAULT_MATERIAL_TYPE_SLUG}`);
   }
 
@@ -318,7 +397,7 @@ export async function runScraperIngest(
 
   for await (const item of items) {
     result.itemsFound += 1;
-    const outcome = await processItem(runId, sourcePlatform, scraperCreatorId, materialType, item);
+    const outcome = await processItem(runId, sourcePlatform, scraperCreatorId, defaultMaterialType, item);
 
     switch (outcome) {
       case 'created':

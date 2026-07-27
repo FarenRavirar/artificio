@@ -17,6 +17,9 @@ export interface MaterialTypeWrite {
   name: string;
   slug?: string;
   aliases?: string[];
+  // Acréscimo atômico, alternativa a `aliases` (substituição). Só faz sentido
+  // no PATCH: quem cria já manda a lista inteira em `aliases`.
+  add_aliases?: string[];
   status?: MaterialTypeStatus;
 }
 
@@ -39,7 +42,11 @@ function cleanAliases(value: unknown): string[] {
   return [...new Set(value.filter((item): item is string => typeof item === "string").map((item) => item.trim()).filter(Boolean))];
 }
 
-export function normalizeMaterialTypeWrite(input: MaterialTypeWrite): Required<MaterialTypeWrite> {
+// `add_aliases` fica de fora do retorno de propósito: é operação de PATCH
+// (acréscimo atômico sobre uma lista existente), e a criação sempre grava a
+// lista inteira de uma vez — não há o que acrescentar a um registro que ainda
+// não existe.
+export function normalizeMaterialTypeWrite(input: MaterialTypeWrite): Required<Omit<MaterialTypeWrite, "add_aliases">> {
   const name = input.name.trim();
   const slug = (input.slug?.trim() || slugifyMaterialType(name)).slice(0, 80);
   if (!name) throw new Error("name_required");
@@ -92,6 +99,37 @@ export async function updateMaterialType(id: string, input: Partial<MaterialType
   }
   if (Object.hasOwn(input, "aliases")) {
     set("aliases", JSON.stringify(cleanAliases(input.aliases)), "::jsonb");
+  }
+  // Achado real (review PR #218, Codex, P2): o consumidor que só quer
+  // ACRESCENTAR um alias (triagem de sugestão do Downloads) tinha de ler a
+  // lista, concatenar e reenviar tudo — read-modify-write. Duas aprovações
+  // simultâneas para o mesmo tipo liam a mesma lista e a última gravação
+  // apagava o alias da primeira, com ambas as sugestões marcadas aprovadas.
+  // `add_aliases` faz a concatenação DENTRO do UPDATE, então a leitura e a
+  // escrita acontecem no mesmo statement e não há janela entre elas. O dedupe
+  // também é feito em SQL: alias repetido não entra duas vezes.
+  if (Object.hasOwn(input, "add_aliases")) {
+    const additions = cleanAliases(input.add_aliases);
+    // Achado real (review PR #218, CodeRabbit): `aliases` e `add_aliases` no
+    // MESMO patch produziam duas atribuições à mesma coluna. Verificado contra
+    // Postgres real: não é "a última vence" silenciosamente, é erro duro —
+    // `multiple assignments to same column "aliases"` — que chegaria ao cliente
+    // como 500. Um comentário anterior neste arquivo afirmava que os dois
+    // "podem vir juntos"; era falso e foi removido.
+    //
+    // 400 em vez de escolher um: a intenção é ambígua de verdade. Substituir e
+    // acrescentar na mesma chamada não tem leitura óbvia, e adivinhar apagaria
+    // vocabulário sem o chamador pedir.
+    if (additions.length > 0 && Object.hasOwn(input, "aliases")) {
+      throw new Error("aliases_conflict");
+    }
+    if (additions.length > 0) {
+      values.push(JSON.stringify(additions));
+      assignments.push(`aliases=(
+        SELECT COALESCE(jsonb_agg(DISTINCT value), '[]'::jsonb)
+        FROM jsonb_array_elements(aliases || $${values.length}::jsonb)
+      )`);
+    }
   }
   if (Object.hasOwn(input, "status")) {
     const status = input.status;

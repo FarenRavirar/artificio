@@ -41,11 +41,29 @@ describe('OperaRpgScraper', () => {
     expect(items[0]).toMatchObject({
       sourceUrl: 'https://arquivos.operarpg.com.br/aventuras/AOAsesFlp.pdf',
       title: 'Ases das Filipinas',
-      publisherName: 'Intruder',
+      // Spec 088 (requisito 40) — "por Intruder" é AUTORIA. Antes ia pra
+      // `publisherName`, afirmando que a pessoa era a editora do material.
+      authorsCredits: 'Intruder',
       description: 'Após o ataque japonês contra Pearl Harbor.',
       isFreeOrPwyw: true,
       sourceLanguageHint: null,
     });
+  });
+
+  // Requisito 38/40 — a listagem não expõe editora em lugar nenhum, então
+  // `publisherName` é `null` explícito. Reaproveitar o autor aqui era a
+  // origem de 77 dos 103 `publisher_name` preenchidos no acervo de beta,
+  // enquanto `credits` ficava zerado.
+  it('nunca grava o autor como se fosse a editora', async () => {
+    fetchSimpleMock.mockResolvedValue({ html: SECTION_HTML_FIXTURE, status: 200 });
+
+    const items = [];
+    for await (const item of new OperaRpgScraper().discoverItems()) {
+      items.push(item);
+    }
+
+    expect(items.every((item) => item.publisherName === null)).toBe(true);
+    expect(items.map((item) => item.authorsCredits)).toEqual(['Intruder', 'Roj Ventura']);
   });
 
   it('pula seção bloqueada (403) sem interromper as demais', async () => {
@@ -74,7 +92,8 @@ describe('OperaRpgScraper', () => {
     expect(items[0]).toMatchObject({
       sourceUrl: 'https://arquivos.operarpg.com.br/aventuras/Teste.pdf',
       title: 'Item Teste',
-      publisherName: 'Autor Teste',
+      authorsCredits: 'Autor Teste',
+      publisherName: null,
     });
   });
 

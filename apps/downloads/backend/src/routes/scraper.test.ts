@@ -435,7 +435,11 @@ describe('POST /api/v1/admin/scraper/parse-html', () => {
       fileSizeText: '44,49 MB',
       format: 'PDF',
       pageCount: 15,
-      sourceCategory: 'N / D',
+      // Spec 088 (T2.3c) — esta asserção fixava o bug: a loja escreve
+      // "N / D" no lugar de omitir a linha, e o valor chegava à ficha como
+      // se fosse a categoria real da obra. Ausência agora vira `null`
+      // explícito, que é o que os consumidores já tratam.
+      sourceCategory: null,
     });
     expect(res.body.preview.descriptionHtml).toContain('<ul>');
     expect(res.body.preview.description).not.toContain('<');

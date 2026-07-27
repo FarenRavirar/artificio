@@ -85,6 +85,18 @@ export function parseItchIsFreeOrPwyw(gameHtml: string): boolean | null {
   return null;
 }
 
+// Spec 088 (requisito 40) — o itch.io expõe UM nome só: a conta que hospeda
+// o jogo (`<a href="https://<dev>.itch.io">Nome</a>`). Diferente do OPERA RPG
+// (que escreve "por Fulano", autoria explícita) e do OneBookShelf (que tem
+// linhas separadas de `authors`, `artists` e `Editor/a`), aqui a página não
+// distingue quem escreveu de quem publicou — no modelo do itch.io, o próprio
+// dev/studio é a conta publicadora.
+//
+// Por isso o nome vai para `publisherName` e `authorsCredits` fica `null`:
+// duplicar o mesmo valor nos dois campos faria a ficha exibir o nome duas
+// vezes, uma sob "Editora" e outra sob "Por", sem acrescentar informação — e
+// afirmaria autoria que a fonte não declara (requisito 38). Quando a página
+// não expõe um papel, o campo é `null` explícito, não uma cópia do outro.
 export function parseItchGameDetail(gameHtml: string): { description: string | null; coverImageUrl: string | null; publisherName: string | null } {
   const description = OG_DESCRIPTION_RE.exec(gameHtml)?.[1] ?? null;
   const coverImageUrl = OG_IMAGE_RE.exec(gameHtml)?.[1] ?? null;
@@ -127,6 +139,12 @@ export async function* discoverItchGames(
       isFreeOrPwyw: true,
       coverImageUrl: detail.coverImageUrl,
       publisherName: detail.publisherName,
+      // `null` explícito, não campo omitido: a página do itch.io não declara
+      // autoria nem arte separadas da conta publicadora, e ausência declarada
+      // é o contrato (requisito 38). Omitir deixaria `undefined`, que lê como
+      // "não extraído ainda" em vez de "a fonte não afirma isso".
+      authorsCredits: null,
+      artistsCredits: null,
       sourceLanguageHint,
     };
   }

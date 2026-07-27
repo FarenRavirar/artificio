@@ -303,8 +303,23 @@ router.post('/:id/resolve', writeRateLimiter, authMiddleware, requireRole('admin
   }
 
   try {
+    // Achado real (review PR #218, CodeRabbit, encontrado na rota de TIPO e
+    // aplicado aqui pela mesma causa): passar `req.body` cru fazia os resolvers
+    // lerem o valor ORIGINAL por `readTrimmed(ctx.body.name)`, ignorando a
+    // normalização do schema.
+    //
+    // Correção da justificativa (2ª passada do CodeRabbit): o defeito NÃO era
+    // payload acima do limite chegar a `createCatalogNode` — `safeParse` acima
+    // rejeita esse caso com 400 antes de qualquer resolver rodar. O que
+    // escapava era o payload VÁLIDO chegar sem transformação: `.trim()` do
+    // schema não se aplicava ao valor efetivamente usado, então nome com
+    // espaços nas pontas ia para o catálogo central como veio.
+    //
+    // `resolveBodySchema` é `looseObject`, então `parsed.data` preserva as
+    // chaves extras que cada resolver consome; o que muda é que os campos
+    // declarados chegam normalizados.
     const outcome = await withSuggestionLock(req.params.id, (trx, suggestion) =>
-      RESOLVERS[parsed.data.resolution_type]({ trx, suggestion, adminId: req.user!.userId, body: req.body ?? {} }));
+      RESOLVERS[parsed.data.resolution_type]({ trx, suggestion, adminId: req.user!.userId, body: parsed.data }));
 
     const suggestionAfter = await db
       .selectFrom('download_system_suggestion')

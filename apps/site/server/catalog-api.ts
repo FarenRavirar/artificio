@@ -165,6 +165,11 @@ function parseNodePatch(body: unknown): Partial<Catalog.CatalogNodeWrite> {
   if ("logo_media_id" in value) patch.logo_media_id = stringOrNull(value.logo_media_id);
   if ("status" in value) patch.status = optionalString(value.status) as Catalog.CatalogNodeStatus | undefined;
   if ("aliases" in value) patch.aliases = stringArray(value.aliases);
+  // DEB-088-04: `aliases` SUBSTITUI a lista, o que obriga quem só quer
+  // acrescentar a fazer read-modify-write — e duas aprovações simultâneas de
+  // sugestão para o mesmo node perdiam um dos aliases. `add_aliases`
+  // acrescenta atomicamente (INSERT ... ON CONFLICT DO NOTHING).
+  if ("add_aliases" in value) patch.add_aliases = stringArray(value.add_aliases);
   return patch;
 }
 

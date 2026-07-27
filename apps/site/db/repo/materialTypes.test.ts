@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
 
@@ -8,6 +8,12 @@ vi.mock('../connection.js', () => ({
 }));
 
 import { normalizeMaterialTypeWrite, slugifyMaterialType, updateMaterialType } from './materialTypes';
+
+// `dbQueryMock` é criado uma vez por arquivo, então `mock.calls[0]` sem reset
+// devolveria a chamada do PRIMEIRO teste que gravou, não a do teste corrente.
+beforeEach(() => {
+  dbQueryMock.mockReset();
+});
 
 describe('material type vocabulary', () => {
   it('gera slug estável e normaliza aliases duplicados', () => {
@@ -44,6 +50,111 @@ describe('material type vocabulary', () => {
     expect(sql.split(' WHERE')[0]).not.toContain('status=');
     expect(values).toEqual(['Novo nome', 'actor-1', 'type-1']);
   });
+});
+
+// Achado real (review PR #218, Codex, P2): `aliases` SUBSTITUI a lista, e quem
+// só quer acrescentar tinha de ler/concatenar/reenviar. Duas aprovações
+// simultâneas de sugestão para o mesmo tipo perdiam um dos aliases.
+describe('add_aliases — acréscimo atômico', () => {
+  it('concatena dentro do UPDATE, sem ler a lista antes', async () => {
+    dbQueryMock.mockResolvedValueOnce({ rows: [{
+      id: 'type-1', slug: 'suplemento', name: 'Suplemento', aliases: ['supplement', 'novo'], status: 'active',
+      created_at: '2026-07-27', updated_at: '2026-07-27',
+    }] });
+
+    await updateMaterialType('type-1', { add_aliases: ['novo'] }, 'actor-1');
+
+    const [sql, values] = dbQueryMock.mock.calls[0];
+    // A leitura de `aliases` acontece DENTRO do statement — é isso que fecha a
+    // janela entre ler e escrever. Substituição direta seria `aliases=$1`.
+    expect(sql).toContain('jsonb_array_elements(aliases ||');
+    expect(sql).not.toMatch(/aliases=\$\d+::jsonb/);
+    expect(values).toEqual([JSON.stringify(['novo']), 'actor-1', 'type-1']);
+  });
+
+  // Achado real (review PR #218, CodeRabbit). O bot supôs perda silenciosa
+  // ("a última gravação vence"); contra Postgres real o efeito é pior — erro
+  // duro `multiple assignments to same column "aliases"`, que chegaria ao
+  // cliente como 500 em vez de 400.
+  it('rejeita aliases + add_aliases no mesmo patch, sem montar SQL inválido', async () => {
+    await expect(
+      updateMaterialType('type-1', { aliases: ['a'], add_aliases: ['b'] }, 'actor-1'),
+    ).rejects.toThrow('aliases_conflict');
+
+    expect(dbQueryMock).not.toHaveBeenCalled();
+  });
+
+  it('add_aliases vazio não conflita — não há acréscimo a fazer', async () => {
+    dbQueryMock.mockResolvedValueOnce({ rows: [{
+      id: 'type-1', slug: 's', name: 'S', aliases: ['a'], status: 'active',
+      created_at: '2026-07-27', updated_at: '2026-07-27',
+    }] });
+
+    // `add_aliases: []` é ausência de intenção, não intenção conflitante:
+    // bloquear aqui quebraria um PATCH legítimo que só troca a lista.
+    await updateMaterialType('type-1', { aliases: ['a'], add_aliases: [] }, 'actor-1');
+
+    const [sql] = dbQueryMock.mock.calls[0];
+    expect(sql).toMatch(/aliases=\$\d+::jsonb/);
+    expect(sql).not.toContain('jsonb_array_elements');
+  });
+
+  it('lista vazia não gera atribuição alguma', async () => {
+    dbQueryMock.mockResolvedValueOnce({ rows: [{
+      id: 'type-1', slug: 's', name: 'S', aliases: [], status: 'active',
+      created_at: '2026-07-27', updated_at: '2026-07-27',
+    }] });
+
+    await updateMaterialType('type-1', { add_aliases: [] }, 'actor-1');
+
+    const [sql] = dbQueryMock.mock.calls[0];
+    expect(sql).not.toContain('jsonb_array_elements');
+  });
+
+  it('SQL real: dois acréscimos concorrentes preservam AMBOS os aliases', async () => {
+    const db = new PGlite();
+    try {
+      await db.exec(readFileSync(new URL('../migrations/015_catalog_material_types.sql', import.meta.url), 'utf8'));
+
+      const addAlias = `UPDATE catalog_material_types SET aliases=(
+        SELECT COALESCE(jsonb_agg(DISTINCT value), '[]'::jsonb)
+        FROM jsonb_array_elements(aliases || $1::jsonb)
+      ) WHERE id='b071ab5e-2d16-4c58-8f0e-086000000001'`;
+
+      // É este o cenário que o read-modify-write perdia: cada aprovação lia a
+      // mesma lista base e a última gravação apagava o alias da primeira.
+      await db.query(addAlias, [JSON.stringify(['modulo'])]);
+      await db.query(addAlias, [JSON.stringify(['cenario-solo'])]);
+
+      const result = await db.query<{ aliases: string[] }>(
+        "SELECT aliases FROM catalog_material_types WHERE slug='aventura'",
+      );
+      expect([...result.rows[0]!.aliases].sort()).toEqual(['adventure', 'aventuras', 'cenario-solo', 'modulo']);
+    } finally {
+      await db.close();
+    }
+  }, 15_000);
+
+  it('SQL real: alias repetido não duplica', async () => {
+    const db = new PGlite();
+    try {
+      await db.exec(readFileSync(new URL('../migrations/015_catalog_material_types.sql', import.meta.url), 'utf8'));
+
+      const addAlias = `UPDATE catalog_material_types SET aliases=(
+        SELECT COALESCE(jsonb_agg(DISTINCT value), '[]'::jsonb)
+        FROM jsonb_array_elements(aliases || $1::jsonb)
+      ) WHERE slug='aventura'`;
+
+      await db.query(addAlias, [JSON.stringify(['adventure'])]);
+
+      const result = await db.query<{ aliases: string[] }>(
+        "SELECT aliases FROM catalog_material_types WHERE slug='aventura'",
+      );
+      expect([...result.rows[0]!.aliases].sort()).toEqual(['adventure', 'aventuras']);
+    } finally {
+      await db.close();
+    }
+  }, 15_000);
 });
 
 describe('015_catalog_material_types.sql', () => {
