@@ -252,11 +252,15 @@ router.post('/:id/resolve', writeRateLimiter, authMiddleware, requireRole('admin
 
   try {
     // Achado real (review PR #218, CodeRabbit): passava `req.body` CRU aos
-    // resolvers, então `.trim()`/`.max()` do schema validavam mas nunca
-    // chegavam ao uso — os resolvers liam o valor original via
-    // `readTrimmed(ctx.body.name)`, e uma string de 10 mil caracteres passava a
-    // validação e seguia para `createCatalogMaterialType`. `parsed.data` é o
-    // valor já normalizado; o schema deixa de ser decorativo.
+    // resolvers, que liam o valor ORIGINAL via `readTrimmed(ctx.body.name)` —
+    // a normalização do schema não alcançava o valor efetivamente usado.
+    //
+    // Correção da justificativa (2ª passada do CodeRabbit): o `.max()` NÃO era
+    // burlado — `safeParse` acima rejeita payload acima do limite com 400 antes
+    // de qualquer resolver rodar. O que escapava era o `.trim()` sobre payload
+    // VÁLIDO: nome com espaços nas pontas seguia para
+    // `createCatalogMaterialType` exatamente como veio. `parsed.data` é o valor
+    // já normalizado.
     const outcome = await withSuggestionLock(req.params.id, (trx, suggestion) =>
       RESOLVERS[parsed.data.resolution_type]({ trx, suggestion, adminId: req.user!.userId, body: parsed.data }));
 

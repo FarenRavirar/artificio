@@ -176,9 +176,10 @@ describe('POST /api/v1/admin/system-suggestions/:id/resolve', () => {
   });
 
   // Achado real (review PR #218, CodeRabbit): a rota passava `req.body` cru
-  // aos resolvers, então o schema validava sem que o valor normalizado
-  // chegasse ao catálogo central. Mesmo defeito da rota de tipo.
-  it('usa o valor NORMALIZADO pelo schema, não o corpo cru', async () => {
+  // aos resolvers, então a normalização do schema não alcançava o valor
+  // efetivamente usado. Mesmo defeito da rota de tipo.
+  //
+  it('normaliza o valor que chega ao catálogo central', async () => {
     const trx = makeTrx();
     dbMocks.transaction.mockReturnValue({ execute: async (cb: (t: unknown) => Promise<unknown>) => cb(trx) });
     createCatalogNodeMock.mockResolvedValue({ id: 'novo-node' });
@@ -198,6 +199,41 @@ describe('POST /api/v1/admin/system-suggestions/:id/resolve', () => {
 
     expect(response.status).toBe(400);
     expect(createCatalogNodeMock).not.toHaveBeenCalled();
+  });
+
+  // O CodeRabbit (2ª passada) pediu um seam que FALHE se a rota voltar a passar
+  // `req.body`. Ele NÃO existe hoje sem mudar código de produção, e isso foi
+  // medido, não suposto: revertendo a linha para `req.body` e rodando a suíte,
+  // 23/23 continuavam passando.
+  //
+  // A razão é estrutural: todo campo string de `resolveBodySchema` tem
+  // `.trim()`, e `readTrimmed` dentro de cada resolver apara de novo — os dois
+  // caminhos convergem para o MESMO valor em todos os campos. `node_type`
+  // (enum, sem trim) também não discrimina: `safeParse` rejeita ' edition '
+  // com 400 antes de o corpo chegar a qualquer resolver, então o 400 aparece
+  // nos dois casos.
+  //
+  // Consequência prática: `parsed.data` aqui é defesa em profundidade, não
+  // correção de bug observável — a normalização já acontecia por acidente do
+  // `readTrimmed`. O valor da mudança é o contrato (a rota entrega dado
+  // validado, e resolver novo não precisa lembrar de aparar). Deixar isso
+  // explícito evita que alguém "simplifique" de volta achando que é redundante.
+  //
+  // Um seam de verdade exigiria remover `readTrimmed` dos resolvers, passando a
+  // confiar só no schema. Não foi feito nesta PR por ser refactor amplo em
+  // rota de produção, fora do que o achado pedia.
+  it('normaliza reason ao rejeitar (cobre o caminho, não distingue a origem do body)', async () => {
+    const trx = makeTrx();
+    dbMocks.transaction.mockReturnValue({ execute: async (cb: (t: unknown) => Promise<unknown>) => cb(trx) });
+    dbMocks.selectFrom.mockReturnValueOnce(selectChain({ material_id: 'material-1', raw_value: 'D&D 5e', source: 'scraper', suggested_by_user_id: null }));
+
+    await request(app())
+      .post('/api/v1/admin/system-suggestions/s1/resolve')
+      .send({ resolution_type: 'reject', reason: '  Fora do escopo  ' });
+
+    expect(trx.suggestionUpdate.set).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'rejected', rejection_reason: 'Fora do escopo' }),
+    );
   });
 
   it('create_system: cria node novo com o raw_value como alias, nunca chama addCatalogNodeAlias', async () => {

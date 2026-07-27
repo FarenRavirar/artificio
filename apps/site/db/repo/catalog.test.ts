@@ -1,7 +1,22 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { PGlite } from '@electric-sql/pglite';
-import { addAliases, replaceAliases, validateCatalogHierarchyShape } from './catalog';
+
+// `updateNode` resolve a conexão por `getDb()`, não recebe client por
+// parâmetro. Para exercitar o caminho real (BEGIN/ROLLBACK incluídos) o mock
+// devolve o PGlite do teste corrente, guardado em `activeDb`.
+let activeDb: PGlite | null = null;
+vi.mock('../connection.js', () => ({
+  getDb: async () => ({
+    query: (sql: string, values?: unknown[]) => activeDb!.query(sql, values),
+    getClient: async () => ({
+      query: (sql: string, values?: unknown[]) => activeDb!.query(sql, values),
+      release: () => {},
+    }),
+  }),
+}));
+
+import { addAliases, replaceAliases, updateNode, validateCatalogHierarchyShape } from './catalog';
 
 describe('validateCatalogHierarchyShape', () => {
   it.each([
@@ -82,20 +97,31 @@ describe('addAliases — acréscimo atômico (DEB-088-04)', () => {
     }
   }, 20_000);
 
-  it('os dois campos são mutuamente exclusivos, alinhado com material types', async () => {
-    // Aqui não daria erro de SQL (replaceAliases e addAliases são statements
-    // separados), o que é pior que o caso de material type: passaria em
-    // silêncio com uma semântica que ninguém especificou.
+  // Achado real (review PR #218, CodeRabbit, 2ª passada): a versão anterior
+  // deste teste chamava `replaceAliases` e `addAliases` em SEQUÊNCIA e
+  // asseverava o resultado combinado — ou seja, testava exatamente o caminho
+  // que `updateCatalogNode` passou a proibir, sem nunca exercitar a proibição.
+  // Agora chama `updateCatalogNode` com os dois campos e prova as duas coisas
+  // que importam: rejeita com `aliases_conflict`, e o banco fica INTACTO
+  // (rollback), sem o `replaceAliases` ter apagado nada antes do erro.
+  it('updateNode rejeita aliases + add_aliases e faz rollback', async () => {
     const db = new PGlite();
+    activeDb = db;
     try {
-      const client = await seedNode(db);
-      await replaceAliases(client as never, 'dd5e', ['Só Este'], 'admin-1');
-      await addAliases(client as never, 'dd5e', ['E Este'], 'admin-1');
-      // Aplicados em sequência o resultado seria este — e é exatamente a
-      // ambiguidade que updateCatalogNode agora rejeita com `aliases_conflict`
-      // antes de chegar ao banco.
-      expect(await aliasesOf(db)).toEqual(['E Este', 'Só Este']);
+      await seedNode(db);
+      const antes = await aliasesOf(db);
+
+      await expect(
+        updateNode('dd5e', { node_type: 'system', name: 'D&D 5e', aliases: ['Substituto'], add_aliases: ['Extra'] }, 'admin-1'),
+      ).rejects.toThrow('aliases_conflict');
+
+      // Sem o guard, `replaceAliases` rodaria primeiro e o DELETE já teria
+      // apagado 'DnD' — o rollback é o que garante que uma requisição inválida
+      // não destrói vocabulário pelo caminho.
+      expect(await aliasesOf(db)).toEqual(antes);
+      expect(await aliasesOf(db)).toEqual(['DnD']);
     } finally {
+      activeDb = null;
       await db.close();
     }
   }, 20_000);
