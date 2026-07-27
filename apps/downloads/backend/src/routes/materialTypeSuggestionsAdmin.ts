@@ -6,7 +6,7 @@ import type { Database, DownloadMaterialTypeSuggestion, DownloadMaterialTypeSugg
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
 import { logModerationAudit } from '../services/moderationAuditLog';
-import { loadCatalogMaterialTypes, createCatalogMaterialType, addCatalogMaterialTypeAlias, type CatalogMaterialType } from '../services/catalogClient';
+import { loadCatalogMaterialTypes, createCatalogMaterialType, addCatalogMaterialTypeAlias, archiveCatalogMaterialType, type CatalogMaterialType } from '../services/catalogClient';
 
 // Spec 088 (achado de review PR #218, Codex P2) — triagem admin da fila de
 // sugestão de TIPO, espelhando routes/systemSuggestionsAdmin.ts. Antes desta
@@ -182,7 +182,23 @@ async function resolveCreateType(ctx: ResolveContext): Promise<ResolveOutcome> {
   const name = readTrimmed(ctx.body.name) ?? ctx.suggestion.raw_value;
 
   const created = await createCatalogMaterialType(name, [ctx.suggestion.raw_value]);
-  await applyResolution(ctx.trx, ctx.suggestion, created, 'create_type', ctx.adminId);
+
+  // Achado de review PR #218 (Codex, P2), mesmo padrão do resolveCreateSystem
+  // (achado Codex PR #204): o POST acima persiste no catálogo central, que é
+  // outro serviço — a transação local não o desfaz. Se a escrita local falhar
+  // depois, a sugestão volta a 'pending' mas o tipo fica órfão lá, e o retry
+  // colide no slug UNIQUE, devolvendo 500 para sempre. Compensa arquivando
+  // antes de relançar o erro original, deixando o catálogo limpo para um retry
+  // real criar de novo.
+  try {
+    await applyResolution(ctx.trx, ctx.suggestion, created, 'create_type', ctx.adminId);
+  } catch (error) {
+    await archiveCatalogMaterialType(created.id).catch((archiveError: unknown) => {
+      console.error('[resolveCreateType] Falha ao compensar (arquivar) tipo órfão após falha local:', created.id, archiveError);
+    });
+    throw error;
+  }
+
   return { resolution_action: 'create_type', resolved_material_type_id: created.id };
 }
 

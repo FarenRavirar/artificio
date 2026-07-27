@@ -57,7 +57,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/admin/material-type-suggestions` | ✅ high | `apps/downloads/backend/src/routes/materialTypeSuggestionsAdmin.ts` | 26 |
 | USE | `/api/v1/admin/material-type-suggestions` | ✅ high | `apps/downloads/backend/src/server.ts` | 112 |
 | GET | `/api/v1/admin/material-type-suggestions/:id/candidates` | ✅ high | `apps/downloads/backend/src/routes/materialTypeSuggestionsAdmin.ts` | 55 |
-| POST | `/api/v1/admin/material-type-suggestions/:id/resolve` | ✅ high | `apps/downloads/backend/src/routes/materialTypeSuggestionsAdmin.ts` | 231 |
+| POST | `/api/v1/admin/material-type-suggestions/:id/resolve` | ✅ high | `apps/downloads/backend/src/routes/materialTypeSuggestionsAdmin.ts` | 247 |
 | POST | `/api/v1/admin/materials/:id/check-link` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 64 |
 | POST | `/api/v1/admin/materials/:id/evidence/upload` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 152 |
 | GET | `/api/v1/admin/materials/:id/link-history` | ✅ high | `apps/downloads/backend/src/routes/admin.ts` | 48 |

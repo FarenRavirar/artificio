@@ -28,10 +28,12 @@ vi.mock('kysely', async () => {
 const loadCatalogMaterialTypesMock = vi.hoisted(() => vi.fn());
 const createCatalogMaterialTypeMock = vi.hoisted(() => vi.fn());
 const addCatalogMaterialTypeAliasMock = vi.hoisted(() => vi.fn());
+const archiveCatalogMaterialTypeMock = vi.hoisted(() => vi.fn());
 vi.mock('../services/catalogClient', () => ({
   loadCatalogMaterialTypes: loadCatalogMaterialTypesMock,
   createCatalogMaterialType: createCatalogMaterialTypeMock,
   addCatalogMaterialTypeAlias: addCatalogMaterialTypeAliasMock,
+  archiveCatalogMaterialType: archiveCatalogMaterialTypeMock,
 }));
 
 let currentUser = { userId: 'admin-1', role: 'admin' as const };
@@ -98,10 +100,12 @@ beforeEach(() => {
   loadCatalogMaterialTypesMock.mockReset();
   createCatalogMaterialTypeMock.mockReset();
   addCatalogMaterialTypeAliasMock.mockReset();
+  archiveCatalogMaterialTypeMock.mockReset();
   currentUser = { userId: 'admin-1', role: 'admin' };
 
   loadCatalogMaterialTypesMock.mockResolvedValue([SUPLEMENTO]);
   addCatalogMaterialTypeAliasMock.mockResolvedValue(undefined);
+  archiveCatalogMaterialTypeMock.mockResolvedValue(undefined);
 });
 
 function mockTransaction(trx: ReturnType<typeof makeTrx>) {
@@ -219,6 +223,53 @@ describe('POST /api/v1/admin/material-type-suggestions/:id/resolve', () => {
     // bruto case na próxima ingestão sem passar pela fila de novo.
     expect(createCatalogMaterialTypeMock).toHaveBeenCalledWith('Classe/Arquétipo', ['Classe/Arquétipo']);
     expect(trx.materialUpdate.set).toHaveBeenCalledWith(expect.objectContaining({ material_type_id: 'type-novo' }));
+  });
+
+  // Achado de review PR #218 (Codex, P2): o POST ao catálogo central persiste
+  // em OUTRO serviço, que a transação local não desfaz.
+  it('create_type: falha local ARQUIVA o tipo recém-criado, para o retry não colidir de slug', async () => {
+    const created = { id: 'type-novo', slug: 'classe-arquetipo', name: 'Classe/Arquétipo', aliases: [], status: 'active' as const };
+    createCatalogMaterialTypeMock.mockResolvedValue(created);
+    const trx = makeTrx();
+    trx.suggestionUpdate.execute.mockRejectedValue(new Error('deadlock detected'));
+    mockTransaction(trx);
+
+    const response = await request(app())
+      .post('/api/v1/admin/material-type-suggestions/s1/resolve')
+      .send({ resolution_type: 'create_type' });
+
+    expect(response.status).toBe(500);
+    // Sem a compensação o tipo ficaria órfão no catálogo e todo retry morreria
+    // em 500 por colisão de slug UNIQUE, travando a fila para sempre.
+    expect(archiveCatalogMaterialTypeMock).toHaveBeenCalledWith('type-novo');
+  });
+
+  it('create_type bem-sucedido nunca arquiva nada', async () => {
+    createCatalogMaterialTypeMock.mockResolvedValue({ id: 'type-novo', slug: 'c', name: 'C', aliases: [], status: 'active' as const });
+    mockTransaction(makeTrx());
+    dbMocks.selectFrom.mockReturnValue(selectChain({ material_id: 'material-1' }));
+
+    await request(app())
+      .post('/api/v1/admin/material-type-suggestions/s1/resolve')
+      .send({ resolution_type: 'create_type' });
+
+    expect(archiveCatalogMaterialTypeMock).not.toHaveBeenCalled();
+  });
+
+  it('create_type: falha ao arquivar não engole o erro original', async () => {
+    createCatalogMaterialTypeMock.mockResolvedValue({ id: 'type-novo', slug: 'c', name: 'C', aliases: [], status: 'active' as const });
+    archiveCatalogMaterialTypeMock.mockRejectedValue(new Error('catalog_503'));
+    const trx = makeTrx();
+    trx.suggestionUpdate.execute.mockRejectedValue(new Error('deadlock detected'));
+    mockTransaction(trx);
+
+    const response = await request(app())
+      .post('/api/v1/admin/material-type-suggestions/s1/resolve')
+      .send({ resolution_type: 'create_type' });
+
+    // A compensação é best-effort: se ela também falhar, o que sobe é a falha
+    // real (500), não um erro de limpeza que esconderia a causa.
+    expect(response.status).toBe(500);
   });
 
   it('create_type: aceita nome curado pelo revisor, mantendo o raw_value como alias', async () => {

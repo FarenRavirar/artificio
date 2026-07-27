@@ -70,6 +70,25 @@ describe('catalog material types admin API', () => {
     })).status).toBe(404);
   });
 
+  // Achado de review PR #218 (Codex, P2): acréscimo atômico de alias, para o
+  // consumidor não precisar de read-modify-write.
+  it('repassa add_aliases ao repo sem confundir com substituição', async () => {
+    materialTypeMocks.updateMaterialType.mockResolvedValueOnce({ id: 'type-1', name: 'Suplemento' });
+
+    const response = await call('/type-1', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ add_aliases: ['classe-arquetipo'] }),
+    });
+
+    expect(response.status).toBe(200);
+    const [, patch] = materialTypeMocks.updateMaterialType.mock.calls.at(-1)!;
+    expect(patch).toEqual({ add_aliases: ['classe-arquetipo'] });
+    // `aliases` ausente é o ponto: se vazasse como [] aqui, o PATCH apagaria
+    // todo o vocabulário já aprendido em vez de acrescentar um termo.
+    expect(patch).not.toHaveProperty('aliases');
+  });
+
   it.each([
     ['POST', '/', { name: 42 }],
     ['POST', '/', { name: 'Aventura', slug: {} }],
@@ -77,6 +96,8 @@ describe('catalog material types admin API', () => {
     ['POST', '/', { name: 'Aventura', aliases: ['ok', 7] }],
     ['PUT', '/type-1', { name: null }],
     ['PUT', '/type-1', { aliases: 'adventure' }],
+    ['PUT', '/type-1', { add_aliases: 'adventure' }],
+    ['PUT', '/type-1', { add_aliases: ['ok', 7] }],
   ])('rejeita payload malformado em %s %s', async (method, path, body) => {
     const response = await call(path, {
       method,
