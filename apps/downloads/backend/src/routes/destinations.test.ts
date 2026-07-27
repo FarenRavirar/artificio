@@ -26,6 +26,10 @@ vi.mock('../db', () => ({
   db: { selectFrom: dbMocks.selectFrom },
 }));
 
+vi.mock('../middleware/rateLimit', () => ({
+  readRateLimiter: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
+}));
+
 vi.mock('../services/downloadRegistry', () => ({
   registerMaterialDownload: registryMocks.registerMaterialDownload,
 }));

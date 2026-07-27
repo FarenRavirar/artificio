@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { db } from '../db';
 import { authMiddleware, optionalAuth } from '../middleware/auth';
-import { writeRateLimiter } from '../middleware/rateLimit';
+import { readRateLimiter, writeRateLimiter } from '../middleware/rateLimit';
 import { assertCanRate, RatingNotAllowedError } from '../services/ratingGuard';
 
 const router = Router();
@@ -37,7 +37,12 @@ const hasDownloaded = async (userId: string, materialId: string): Promise<boolea
 //
 // `optionalAuth` (nao `authMiddleware`): visitante sem sessao continua lendo a
 // lista normalmente, com `is_mine: false` em tudo.
-router.get('/:materialId', optionalAuth, async (req: Request, res: Response) => {
+// `readRateLimiter` (achado CodeQL, PR #217): a rota passou a fazer
+// autorizacao (`optionalAuth`, pra marcar `is_mine`), entao entra na mesma
+// disciplina das outras rotas autenticadas. Limiter ANTES do middleware de
+// auth — mesmo padrao de `creators.ts`/`favorites.ts` — pra barrar rajada
+// antes de verificar token.
+router.get('/:materialId', readRateLimiter, optionalAuth, async (req: Request, res: Response) => {
   const rows = await db
     .selectFrom('download_rating')
     .select(['id', 'material_id', 'user_id', 'score', 'comment', 'created_at'])

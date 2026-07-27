@@ -265,7 +265,11 @@ describe('MaterialPage - acesso ao material', () => {
       mutate,
     } as unknown as ReturnType<typeof useRegisterDownloadModule.useRegisterDownload>);
     vi.spyOn(analyticsModule, 'trackEvent').mockImplementation(() => undefined);
-    mockSession({ user: { id: 'user-1' } } as never);
+    // `as unknown as ...` e o idioma do arquivo (ver `mockSession` acima);
+    // `as never` silenciava a checagem em vez de declarar o shape parcial.
+    mockSession({ user: { id: 'user-1' } } as unknown as Partial<
+      ReturnType<typeof authClientModule.useSession>
+    >);
     mockMaterial(baseMaterial());
     mockMetadata(null);
     mockFavorites();

@@ -38,6 +38,7 @@ vi.mock('../middleware/auth', () => ({
 }));
 
 vi.mock('../middleware/rateLimit', () => ({
+  readRateLimiter: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
   writeRateLimiter: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
 }));
 

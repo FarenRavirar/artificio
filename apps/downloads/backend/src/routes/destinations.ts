@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { db } from '../db';
 import { optionalAuth } from '../middleware/auth';
+import { readRateLimiter } from '../middleware/rateLimit';
 import { registerMaterialDownload } from '../services/downloadRegistry';
 
 const router = Router();
@@ -15,7 +16,12 @@ const router = Router();
 // segue o `href` direto. Registrar so no clique primario perderia metrica
 // nesses fluxos e deixaria o usuario inelegivel pra avaliar (o guard exige
 // download registrado). Esta rota e o unico ponto que TODA abertura atravessa.
-router.get('/:id', optionalAuth, async (req: Request, res: Response) => {
+// `readRateLimiter` (achado CodeQL, PR #217): a rota faz autorizacao e agora
+// ESCREVE no banco (registro de download), entao rajada nao-limitada aqui
+// custa insercao/UPDATE de metrica, nao so leitura. Limiter antes do
+// `optionalAuth` — mesmo padrao de `creators.ts`/`favorites.ts` — pra que a
+// rajada seja barrada antes de verificar token e tocar o banco.
+router.get('/:id', readRateLimiter, optionalAuth, async (req: Request, res: Response) => {
   const destination = await db
     .selectFrom('download_destination')
     .innerJoin('download_material', 'download_material.id', 'download_destination.material_id')

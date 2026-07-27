@@ -93,7 +93,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/creators/:slug` | ✅ high | `apps/downloads/backend/src/routes/creators.ts` | 22 |
 | GET | `/api/v1/creators/me` | ✅ high | `apps/downloads/backend/src/routes/creators.ts` | 13 |
 | USE | `/api/v1/destinations` | ✅ high | `apps/downloads/backend/src/server.ts` | 98 |
-| GET | `/api/v1/destinations/:id` | ✅ high | `apps/downloads/backend/src/routes/destinations.ts` | 18 |
+| GET | `/api/v1/destinations/:id` | ✅ high | `apps/downloads/backend/src/routes/destinations.ts` | 24 |
 | POST | `/api/v1/downloads` | ✅ high | `apps/downloads/backend/src/routes/downloads.ts` | 19 |
 | USE | `/api/v1/downloads` | ✅ high | `apps/downloads/backend/src/server.ts` | 99 |
 | GET | `/api/v1/favorites` | ✅ high | `apps/downloads/backend/src/routes/favorites.ts` | 14 |
@@ -127,9 +127,9 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | POST | `/api/v1/organizations` | ✅ high | `apps/downloads/backend/src/routes/organizations.ts` | 27 |
 | USE | `/api/v1/organizations` | ✅ high | `apps/downloads/backend/src/server.ts` | 103 |
 | GET | `/api/v1/organizations/:id/members` | ✅ high | `apps/downloads/backend/src/routes/organizations.ts` | 51 |
-| PUT | `/api/v1/ratings` | ✅ high | `apps/downloads/backend/src/routes/ratings.ts` | 57 |
+| PUT | `/api/v1/ratings` | ✅ high | `apps/downloads/backend/src/routes/ratings.ts` | 62 |
 | USE | `/api/v1/ratings` | ✅ high | `apps/downloads/backend/src/server.ts` | 100 |
-| GET | `/api/v1/ratings/:materialId` | ✅ high | `apps/downloads/backend/src/routes/ratings.ts` | 40 |
+| GET | `/api/v1/ratings/:materialId` | ✅ high | `apps/downloads/backend/src/routes/ratings.ts` | 45 |
 | GET | `/api/v1/reports` | ✅ high | `apps/downloads/backend/src/routes/reports.ts` | 142 |
 | POST | `/api/v1/reports` | ✅ high | `apps/downloads/backend/src/routes/reports.ts` | 34 |
 | USE | `/api/v1/reports` | ✅ high | `apps/downloads/backend/src/server.ts` | 95 |
