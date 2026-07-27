@@ -479,6 +479,28 @@ jobs:
             done
           done < <(printf '%s' "$HEALTH_CONTAINERS" | jq -r '.[]')
 
+          # Drift de migrations pos-deploy (E018, achado do Codex na PR #219).
+          # Container healthy NAO prova schema em dia: modulo que migra por fluxo
+          # proprio (site, no entrypoint) passava batido porque
+          # apply_required_migrations.sh recebe o diretorio "database", que no site
+          # nao existe — o script imprime "nada a aplicar" e sai verde. Foi assim
+          # que 015/016 ficaram ausentes em beta e prod por 7 dias sem alarme.
+          # Roda DEPOIS do deploy de proposito: verifica o resultado, nao a intencao.
+          if [ "$MODULE" = "site" ]; then
+            DRIFT_DIR="apps/site/db/migrations"; DRIFT_COL="version"; DRIFT_GLOB="*.sql"; DRIFT_STRIP="true"
+          else
+            DRIFT_DIR="apps/${MODULE}/database"; DRIFT_COL="migration_name"; DRIFT_GLOB="migration_*.sql"; DRIFT_STRIP="false"
+          fi
+          if ! bash ../../scripts/deploy/check_migration_drift.sh \
+                 "$DB_SERVICE" "$DB_NAME" "$DB_USER" "../../${DRIFT_DIR}" \
+                 "$DRIFT_COL" "$DRIFT_GLOB" "$DRIFT_STRIP"; then
+            echo "ERRO: drift de migrations apos o deploy"
+            # Achado real (E017): exit 1 explicito nao dispara trap ERR
+            # (mesma nota das checagens de banco/health acima).
+            rollback
+            exit 1
+          fi
+
           CRITICAL_ROUTES=$(printf '%s' "$CRITICAL_ROUTES_B64" | base64 -d)
           while IFS= read -r route; do
             name=$(echo "$route" | jq -r '.name')

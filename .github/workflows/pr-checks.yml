@@ -33,3 +33,17 @@ jobs:
           persist-credentials: false
       - name: ENTRYPOINT scripts executaveis (100755)
         run: bash scripts/ci/check_entrypoint_exec_bit.sh
+
+  # E016/E017: pacote @artificio/* novo virava dependency de um app sem entrar no
+  # `COPY` do stage production do Dockerfile. Build e CI passavam verdes e o container
+  # crashava com MODULE_NOT_FOUND direto em beta/prod. Aconteceu DUAS vezes — a
+  # prevencao documentada em E016 dependia de alguem lembrar de auditar, e nao foi
+  # seguida quando `@artificio/catalog-matching` entrou (E017). Agora e mecanico.
+  guard-dockerfile-workspace-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - name: Imports @artificio/* x COPY do stage production
+        run: node scripts/ci/check_dockerfile_workspace_deps.mjs
