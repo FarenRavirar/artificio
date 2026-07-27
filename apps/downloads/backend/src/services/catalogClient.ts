@@ -110,6 +110,14 @@ const MATERIAL_TYPES_ROLLOUT_FALLBACK: CatalogMaterialType[] = [{
   name: 'Aventura',
   aliases: ['adventure', 'aventuras'],
   status: 'active',
+}, {
+  // Spec 089 T3.6: o ingest cai neste tipo quando não há hint ou casamento.
+  // Sem ele, um 404 temporário do catálogo transforma fallback em aborto.
+  id: 'b071ab5e-2d16-4c58-8f0e-086000000007',
+  slug: 'nao-classificado',
+  name: 'Não classificado',
+  aliases: ['outros'],
+  status: 'active',
 }];
 
 export interface FlatCatalogSystem {

@@ -18,7 +18,7 @@ describe('política semântica de ScrapedItem', () => {
       isFreeOrPwyw: true,
       coverImageUrl: 'https://example.com/capa?a=1&amp;b=2',
       publisherName: 'Grimórios &amp; Dados',
-      sourceLanguageHint: 'pt',
+      sourceLanguageEvidence: 'pt',
       scenario: 'Cenário &amp; mundo',
       systemHint: 'D&amp;D',
       materialTypeHint: 'Regras &amp; fichas',
@@ -67,7 +67,7 @@ describe('política semântica de ScrapedItem', () => {
       isFreeOrPwyw: true,
       coverImageUrl: null,
       publisherName: null,
-      sourceLanguageHint: null,
+      sourceLanguageEvidence: null,
       systemHint: null,
       materialTypeHint: null,
     });

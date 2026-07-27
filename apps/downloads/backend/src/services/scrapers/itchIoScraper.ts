@@ -20,8 +20,8 @@ export class ItchIoScraper implements ScraperAdapter {
   private readonly rateLimiter = new ScraperRateLimiter();
 
   discoverItems(): AsyncIterable<ScrapedItem> {
-    // Filtro nativo da propria URL de descoberta ja confirma pt-BR — fonte
-    // primaria de decisao de idioma pra esta fonte (spec.md).
+    // O filtro nativo só declara disponibilidade pt-BR; não aprova o texto.
+    // O ingest sempre executa o detector (spec 089 T2.1).
     return discoverItchGames(LISTING_URL, this.rateLimiter, 'pt');
   }
 }

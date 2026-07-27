@@ -151,7 +151,7 @@ const ingestItemSchema = z.object({
   isFreeOrPwyw: z.boolean(),
   coverImageUrl: z.url().nullable(),
   publisherName: z.string().nullable(),
-  sourceLanguageHint: z.enum(['pt', 'not_pt']).nullable(),
+  sourceLanguageEvidence: z.enum(['pt', 'not_pt']).nullable(),
   scenario: z.string().max(100).nullable().optional(),
   // Spec 086 (Fase 4): texto bruto de sistema/regra extraído pelo scraper
   // ("Universo de jogo" no OneBookShelf). Ponto 3 da cadeia de propagação —
@@ -347,7 +347,7 @@ router.post('/parse-html', writeRateLimiter, authMiddleware, requireRole('admin'
       description: preview.description !== null,
       coverImageUrl: preview.coverImageUrl !== null,
       publisherName: preview.publisherName !== null,
-      sourceLanguageHint: preview.sourceLanguageHint !== null,
+      sourceLanguageEvidence: preview.sourceLanguageEvidence !== null,
       extractedPriceValue: preview.extractedPriceValue !== null,
       isFreeOrPwyw: preview.isFreeOrPwyw !== null,
     };

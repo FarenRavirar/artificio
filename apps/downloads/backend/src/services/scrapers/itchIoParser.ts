@@ -3,13 +3,13 @@ import { PatchrightEngine } from '../headlessEngine/patchrightClient';
 import { CamoufoxEngine } from '../headlessEngine/camoufoxClient';
 import { ScraperRateLimiter } from '../scraperRateLimiter';
 import type { ScrapedItem } from './types';
-import { normalizeScrapedItemPlainText } from './plainTextPolicy';
+import { decodeHtml5PlainText, normalizeScrapedItemPlainText } from './plainTextPolicy';
 
 // Parsing compartilhado entre ItchIoScraper (T3.1) e GrimoriosEDadosScraper
 // (T3.2, storefront de dev dentro do mesmo dominio itch.io) — mesmo motor de
-// paginas, so muda a URL de listagem e o sourceLanguageHint (itch.io geral
+// paginas, so muda a URL de listagem e a sourceLanguageEvidence (itch.io geral
 // confirma pt-BR via filtro nativo da URL; storefront de dev individual nao
-// tem esse filtro, sourceLanguageHint fica null pro languageDetector decidir).
+// tem esse filtro, sourceLanguageEvidence fica null pro languageDetector decidir).
 
 // Ordem dos atributos href/class varia entre paginas itch.io (listagem geral
 // tem href antes de class; storefront de dev individual tem class antes de
@@ -30,8 +30,20 @@ const AUTHOR_LINK_RE = /<a href="https:\/\/[a-z0-9.-]+\.itch\.io"[^>]*>([^<]*)</
 const NAME_YOUR_PRICE_RE = /Name your own price/;
 const BUNDLE_ROW_RE = /class="bundle_row"/;
 const HEADER_BUY_ROW_RE = /class="header_buy_row"/;
-const PHYSICAL_GAME_CATEGORY_RE = /href="https:\/\/itch\.io\/physical-games"[^>]*>Physical game<\/a>/i;
-const TABLETOP_RPG_SIGNAL_RE = /href="https:\/\/itch\.io\/(?:games\/genre-rpg|physical-games\/tag-(?:ttrpg|rpg-de-mesa))"/i;
+const GAME_INFO_TABLE_RE = /<div[^>]*class="[^"]*\bgame_info_panel_widget\b[^"]*"[^>]*>\s*<table[^>]*>([\s\S]*?)<\/table>/i;
+const INFO_ROW_RE = /<tr[^>]*>\s*<td[^>]*>([^<]*)<\/td>\s*<td[^>]*>(.*?)<\/td>\s*<\/tr>/gis;
+const INFO_LINK_TEXT_RE = /<a[^>]*>([^<]*)<\/a>/gi;
+
+// Spec 089 T3.3 — allowlists pequenas, baseadas nos valores observados em
+// DOM real. OSR/PbtA/TTRPG são estilos/categorias, não sistemas. `One-shot`
+// é gameplay, não tipo de material. Sinal fora da lista fica `null`.
+const SYSTEM_TAG_HINTS = new Map([
+  ['dungeons & dragons', 'Dungeons & Dragons'],
+  ['cairn', 'Cairn'],
+]);
+const MATERIAL_TYPE_TAG_HINTS = new Map([
+  ['supplement', 'Suplemento'],
+]);
 
 export async function fetchItchPageHtml(url: string, rateLimiter: ScraperRateLimiter): Promise<string> {
   const simple = await fetchSimple(url);
@@ -93,7 +105,15 @@ export function parseItchIsFreeOrPwyw(gameHtml: string): boolean | null {
 // declarar Category=Physical game e um sinal inequívoco de RPG de mesa.
 // Ausência/ambiguidade falha fechado; não inferimos pelo título/descrição.
 export function parseItchIsTabletopRpg(gameHtml: string): boolean {
-  return PHYSICAL_GAME_CATEGORY_RE.test(gameHtml) && TABLETOP_RPG_SIGNAL_RE.test(gameHtml);
+  const rows = parseInformationRows(gameHtml);
+  const category = rows.get('category') ?? [];
+  const genre = rows.get('genre') ?? [];
+  const tags = rows.get('tags') ?? [];
+  const normalize = (value: string) => decodeHtml5PlainText(value).trim().toLocaleLowerCase('en-US');
+  const isPhysicalGame = category.some((value) => normalize(value) === 'physical game');
+  const hasTabletopRpgSignal = genre.some((value) => normalize(value) === 'role playing')
+    || tags.some((value) => ['tabletop role-playing game', 'ttrpg', 'rpg-de-mesa'].includes(normalize(value)));
+  return isPhysicalGame && hasTabletopRpgSignal;
 }
 
 // Spec 088 (requisito 40) — o itch.io expõe UM nome só: a conta que hospeda
@@ -108,17 +128,62 @@ export function parseItchIsTabletopRpg(gameHtml: string): boolean {
 // vezes, uma sob "Editora" e outra sob "Por", sem acrescentar informação — e
 // afirmaria autoria que a fonte não declara (requisito 38). Quando a página
 // não expõe um papel, o campo é `null` explícito, não uma cópia do outro.
-export function parseItchGameDetail(gameHtml: string): { description: string | null; coverImageUrl: string | null; publisherName: string | null } {
+function parseInformationRows(gameHtml: string): Map<string, string[]> {
+  const rows = new Map<string, string[]>();
+  const infoTable = GAME_INFO_TABLE_RE.exec(gameHtml)?.[1];
+  if (!infoTable) return rows;
+  for (const match of infoTable.matchAll(INFO_ROW_RE)) {
+    const label = decodeHtml5PlainText(match[1]).trim().toLocaleLowerCase('en-US');
+    // Mantém o valor cru para a fronteira única de decode na saída do
+    // parser. A classificação abaixo usa uma cópia decodificada.
+    const values = [...match[2].matchAll(INFO_LINK_TEXT_RE)]
+      .map((link) => link[1].trim())
+      .filter(Boolean);
+    rows.set(label, values);
+  }
+  return rows;
+}
+
+function selectSingleMappedHint(values: string[], hints: Map<string, string>): string | null {
+  const candidates = new Set(
+    values
+      .map((value) => hints.get(decodeHtml5PlainText(value).toLocaleLowerCase('en-US')))
+      .filter((value): value is string => value !== undefined),
+  );
+  return candidates.size === 1 ? [...candidates][0] : null;
+}
+
+export function parseItchTaxonomyHints(gameHtml: string): {
+  systemHint: string | null;
+  materialTypeHint: string | null;
+  tags: string[];
+} {
+  const tags = parseInformationRows(gameHtml).get('tags') ?? [];
+  return {
+    systemHint: selectSingleMappedHint(tags, SYSTEM_TAG_HINTS),
+    materialTypeHint: selectSingleMappedHint(tags, MATERIAL_TYPE_TAG_HINTS),
+    tags,
+  };
+}
+
+export function parseItchGameDetail(gameHtml: string): {
+  description: string | null;
+  coverImageUrl: string | null;
+  publisherName: string | null;
+  systemHint: string | null;
+  materialTypeHint: string | null;
+  tags: string[];
+} {
   const description = OG_DESCRIPTION_RE.exec(gameHtml)?.[1] ?? null;
   const coverImageUrl = OG_IMAGE_RE.exec(gameHtml)?.[1] ?? null;
   const publisherName = AUTHOR_LINK_RE.exec(gameHtml)?.[1]?.trim() ?? null;
-  return { description, coverImageUrl, publisherName };
+  return { description, coverImageUrl, publisherName, ...parseItchTaxonomyHints(gameHtml) };
 }
 
 export async function* discoverItchGames(
   listingUrl: string,
   rateLimiter: ScraperRateLimiter,
-  sourceLanguageHint: ScrapedItem['sourceLanguageHint'],
+  sourceLanguageEvidence: ScrapedItem['sourceLanguageEvidence'],
 ): AsyncIterable<ScrapedItem> {
   const listingHtml = await fetchItchPageHtml(listingUrl, rateLimiter);
   const games = parseItchListing(listingHtml);
@@ -156,12 +221,10 @@ export async function* discoverItchGames(
       // "não extraído ainda" em vez de "a fonte não afirma isso".
       authorsCredits: null,
       artistsCredits: null,
-      sourceLanguageHint,
-      // Spec 089 T0.5: o contrato interno exige veredito explícito. A Fase
-      // 0 observou Category/Genre/Tags no produto real, mas nenhuma regra de
-      // extração entra antes da política da Fase 3.
-      systemHint: null,
-      materialTypeHint: null,
+      sourceLanguageEvidence,
+      tags: detail.tags,
+      systemHint: detail.systemHint,
+      materialTypeHint: detail.materialTypeHint,
     });
   }
 }

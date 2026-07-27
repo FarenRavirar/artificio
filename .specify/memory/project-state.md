@@ -9,17 +9,20 @@
 
 **Todos os 5 apps em prod** (2026-06-21). **Último promote `dev→main`: 2026-06-24 (`2756346`, ff via `promote-prod-fast-forward.yml`)** — promoveu specs 044-049 (PRs #93/#94 + acumulado). `main == dev`. **⚠️ Deploy prod mesas falhou e fez rollback** (run `28125222995`): guard de migration barrou `migration_128` (falso-positivo `online-safe`). **Spec 050 corrigiu o guard** (regex estreito + teste shell 28/28 no CI + cópia órfã removida). Mesas em prod segue no código pré-049. **Pronto para re-deploy prod** (gated por aprovação nominal do mantenedor).
 
-**Spec 089 — Fases 0 e 1 concluídas localmente (2026-07-27):** branch existente
-`fix/089-fases-0-1`, baseada diretamente em `origin/dev`. DOM real, matriz de
-templates e fixtures com proveniência registrados; contrato interno tornou
-`systemHint`/`materialTypeHint` obrigatórios e explícitos como `string | null`. Validação:
-`tsc` verde, 365/365 testes do backend verdes, build e lint verdes, `verify:api` verde.
-Endpoint itch.io mudou para
-`/physical-games/genre-rpg/lang-pt-BR`, com corte conservador por produto. T0.7 decidido:
-133 itens dedicados usam `OPERA RPG`; `Gaia 400X` usa `Multi-sistema`, sistema válido.
-Fase 1 adicionou política semântica exaustiva para todo `ScrapedItem`, decoder HTML5 único
-na saída dos parsers e provas de persistência/ordem sem alterar URL ou HTML rico. Fase 2
-ainda não iniciada.
+**Spec 089 — Fases 0/1 mergeadas; implementação das Fases 2/3 concluída localmente (2026-07-27):** PR #221
+mergeada em `dev`; branch atual `fix/089-fases-2-3`, criada de `origin/dev` atualizado.
+Fase 2 removeu bypass de idioma por evidência positiva da fonte, adotou ISO 639-3,
+diagnóstico `method`/`reason`, corpus rotulado e persistência das colunas de detecção; falha
+externa continua fechada. Fase 3 aplica a decisão “compatível com”: 133 itens dedicados do
+OPERA usam `OPERA RPG`, `Gaia 400X` usa `null`; tipos OPERA só saem de seções homogêneas.
+itch.io/Grimórios extraem hints somente da tabela real “More information”, por allowlists
+versionadas; zero ou múltiplos candidatos ficam `null`. Fallback do catálogo preserva
+`Aventura` e `Não classificado`. T3.0a permanece aberto como falha processual histórica: a
+releitura específica da fase ocorreu depois do início e não pode ser satisfeita retroativamente;
+o T0 foi relido e o diff reauditado. Validação local: 97 testes focados e backend 387/387 testes,
+TypeScript, build e lint verdes; `verify:api` exit 0, com 3 warnings ambíguos e 1 advisory
+`site path.remove` vazio no modo inicial. T3.7 segue aberto para smoke com serviço real
+na Fase 5. Fase 4 ainda não iniciada.
 
 **PRs:** PR #73 (dependabot) **merged** em `dev` (`09773fc`, 2026-06-22). PR #80 **(spec 041 shell)** mergeada. Corrigido via **PR #82**. **PR #83 (spec 042)** mergeada. **PR #84 (spec 043)** mergeada em `dev` (`39d2c7c`). **PR #85 (spec 045)** mergeada + promovida a `main` (`c269a46`). **PR #86 (chore 044/045/ecosystem)** mergeada (`560131f`). **PR #87/#88/#89/#90 (spec 047)** mergeadas em `dev`; última #90 (`f0e2e56`, 2026-06-23) removeu DeepSeek acidental da 047 e deixou CI verde. **Último promote a `main`: PR #85**. Spec 047 fechada em `dev`, ainda não promovida a `main`.
 

@@ -12,7 +12,7 @@ export const SCRAPED_ITEM_FIELD_POLICY = {
   isFreeOrPwyw: 'opaque',
   coverImageUrl: 'url',
   publisherName: 'plainText',
-  sourceLanguageHint: 'opaque',
+  sourceLanguageEvidence: 'opaque',
   scenario: 'plainText',
   systemHint: 'plainText',
   materialTypeHint: 'plainText',

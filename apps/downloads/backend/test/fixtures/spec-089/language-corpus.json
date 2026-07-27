@@ -1,0 +1,23 @@
+[
+  {
+    "id": "itch-the-tusus-mine",
+    "sourcePlatform": "itch_io",
+    "sourceUrl": "https://gontijo.itch.io/thetususmine",
+    "text": "The Tusu's Mine\nPamphlet dungeon for tabletop rpgs",
+    "isPortuguese": false
+  },
+  {
+    "id": "grimorios-machados-e-bruxarias",
+    "sourcePlatform": "grimorios_e_dados",
+    "sourceUrl": "https://grimorios-e-dados.itch.io/machados-e-bruxarias",
+    "text": "Machados & Bruxarias\nUm mundo violento e decadente",
+    "isPortuguese": true
+  },
+  {
+    "id": "itch-you-will-never-be-a-dragon",
+    "sourcePlatform": "itch_io",
+    "sourceUrl": "https://bibitenco.itch.io/you-will-never-be-a-dragon",
+    "text": "You Will Never Be a Dragon",
+    "isPortuguese": false
+  }
+]

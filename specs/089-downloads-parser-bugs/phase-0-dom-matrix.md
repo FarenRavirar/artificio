@@ -7,11 +7,11 @@ Captura: 2026-07-27. Modo: HTTP GET sem renderização, com mesmo User-Agent do
 
 | Fonte | Endpoint/template | Status/amostra | Elegibilidade | Sistema | Tipo |
 |---|---|---:|---|---|---|
-| `opera_rpg` | seis listagens `/downloads/{aventuras,cenarios,personagens,personagens-digitais,regras-e-fichas,outros}` | 200; 13/38/31/2/42/8 itens | elegível; site dedicado ao OPERA RPG | 133 itens dedicados recebem `OPERA RPG`; o item explicitamente multi-sistema recebe `Multi-sistema`, sistema válido por decisão T0.7 | seção `aventuras` e `cenarios` é homogênea; `personagens`/`personagens-digitais` são fichas; `regras-e-fichas` mistura Regras e Ficha; `outros` é heterogênea |
+| `opera_rpg` | seis listagens `/downloads/{aventuras,cenarios,personagens,personagens-digitais,regras-e-fichas,outros}` | 200; 13/38/31/2/42/8 itens | elegível; site dedicado ao OPERA RPG | 133 itens dedicados recebem `OPERA RPG`; o item explicitamente multi-sistema recebe `null` por decisão T0.7 | seção `aventuras` e `cenarios` é homogênea; `personagens`/`personagens-digitais` são fichas; `regras-e-fichas` mistura Regras e Ficha; `outros` é heterogênea |
 | `opera_rpg` | `<a class="download-item">` | fixture real | elegível | sem campo estruturado por item; descrição às vezes cita OPERA/outro/multi-sistema | seção ou subseção, nunca título/descrição aberta |
 | `opera_rpg` | arquivo direto (`pdf`, `zip`, `rar`, link externo) | HEAD de PDF 200, `application/pdf` | não aplicável: destino do material já descoberto na listagem | ausente | ausente |
 | `itch_io` | `/physical-games/genre-rpg/lang-pt-BR` | 200; 77 resultados | parcial: físico + RPG, mas a lista ainda contém sinais de card/board; validar produto | ausente na listagem | ausente na listagem |
-| `itch_io` | página individual | 200; fixture The Tusu's Mine | elegível só quando `Category=Physical game` e `Genre=Role Playing` ou tag inequívoca TTRPG/RPG de mesa | `Genre`/`Tags` podem trazer sistema, mas a fixture não traz sistema inequívoco | `Category`/`Tags` existem; `pamphlet`/`zine` não casam sozinhos com taxonomia central |
+| `itch_io` | página individual | 200; fixtures The Tusu's Mine, D&D Supplement e Cairn | elegível só quando o painel estruturado traz `Category=Physical game` e `Genre=Role Playing` ou tag inequívoca TTRPG/RPG de mesa | `Tags` prova `Dungeons & Dragons` e `Cairn`; Tusu não traz sistema inequívoco | `Supplement` casa `Suplemento`; `pamphlet`/`zine` não casam sozinhos com taxonomia central |
 | `grimorios_e_dados` | storefront do autor | 200; 25 cards | parcial: mistura RPG, wargame e páginas inglesas | ausente na listagem | agrupamentos visuais não são estrutura consumida pelo parser |
 | `grimorios_e_dados` | página individual itch.io | 200; fixture Machados & Bruxarias | mesmo corte por produto do `itch_io` | tags `OSR`/`rpg-de-mesa` descrevem estilo/categoria, não sistema exclusivo | `Category=Physical game`; tags não dão tipo central inequívoco nesta fixture |
 
@@ -19,25 +19,26 @@ Rotas OPERA da implementação estão vivas. A suspeita da task não procede:
 `/downloads/regras-e-fichas` e `/downloads/personagens-digitais` respondem 200;
 `/downloads/regras/` responde 404 e não substitui rota alguma.
 
-## Cadeia runtime de idioma
+## Cadeia runtime de idioma observada antes da Fase 2
 
-| URL real | Classificação itch.io | Idiomas declarados | Hint do adapter | Detector | Desfecho atual |
+| URL real | Classificação itch.io | Idiomas declarados | Hint do adapter | Detector | Desfecho no diagnóstico |
 |---|---|---|---|---|---|
 | `https://gontijo.itch.io/thetususmine` | Physical game; Genre Role Playing; tag TTRPG | English + Portuguese (Brazil) | `pt` fixo pela listagem | pulado por `if (sourceLanguageHint !== 'pt')` | pode criar, apesar de título/descrição da página em inglês |
 | `https://grimorios-e-dados.itch.io/machados-e-bruxarias` | Physical game; tags `rpg-de-mesa`/TTRPG | nenhum campo Languages na fixture | `null` | executado | texto real português segue para preço/dedupe/criação |
 
-Prova executável existente cruza os dois pontos da cadeia:
+Esta foi a prova executável do defeito antes da correção:
 `itchIoScraper.test.ts` prova que listagem/adaptor produz `sourceLanguageHint: 'pt'`;
 `scraperIngest.test.ts` prova que esse valor pula `detectPortuguese` e alcança as
-etapas seguintes. Não é falha do detector: ele não roda.
+etapas seguintes. A Fase 2 renomeou o campo para `sourceLanguageEvidence` e removeu o bypass;
+os três caminhos agora convergem no detector.
 
 ## T0.7 — OPERA
 
 Corpus observado: 134 itens. Busca por declaração explícita de
 `multi-sistema|diversos sistemas|qualquer sistema|vários sistemas` encontrou 1:
-`Gaia 400X`. Decisão do mantenedor em 2026-07-27: `Multi-sistema` é sistema
-válido, não ausência. Os 133 itens dedicados recebem `OPERA RPG`; `Gaia 400X`
-recebe `Multi-sistema`. A extração continua reservada à Fase 3.
+`Gaia 400X`. Decisão do mantenedor em 2026-07-27: `systemHint` significa
+“compatível com” e guarda um único sistema. Os 133 itens dedicados recebem
+`OPERA RPG`; `Gaia 400X` recebe `null`. A extração continua reservada à Fase 3.
 
 ## Validação local
 
