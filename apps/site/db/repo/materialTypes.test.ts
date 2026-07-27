@@ -72,6 +72,33 @@ describe('add_aliases — acréscimo atômico', () => {
     expect(values).toEqual([JSON.stringify(['novo']), 'actor-1', 'type-1']);
   });
 
+  // Achado real (review PR #218, CodeRabbit). O bot supôs perda silenciosa
+  // ("a última gravação vence"); contra Postgres real o efeito é pior — erro
+  // duro `multiple assignments to same column "aliases"`, que chegaria ao
+  // cliente como 500 em vez de 400.
+  it('rejeita aliases + add_aliases no mesmo patch, sem montar SQL inválido', async () => {
+    await expect(
+      updateMaterialType('type-1', { aliases: ['a'], add_aliases: ['b'] }, 'actor-1'),
+    ).rejects.toThrow('aliases_conflict');
+
+    expect(dbQueryMock).not.toHaveBeenCalled();
+  });
+
+  it('add_aliases vazio não conflita — não há acréscimo a fazer', async () => {
+    dbQueryMock.mockResolvedValueOnce({ rows: [{
+      id: 'type-1', slug: 's', name: 'S', aliases: ['a'], status: 'active',
+      created_at: '2026-07-27', updated_at: '2026-07-27',
+    }] });
+
+    // `add_aliases: []` é ausência de intenção, não intenção conflitante:
+    // bloquear aqui quebraria um PATCH legítimo que só troca a lista.
+    await updateMaterialType('type-1', { aliases: ['a'], add_aliases: [] }, 'actor-1');
+
+    const [sql] = dbQueryMock.mock.calls[0];
+    expect(sql).toMatch(/aliases=\$\d+::jsonb/);
+    expect(sql).not.toContain('jsonb_array_elements');
+  });
+
   it('lista vazia não gera atribuição alguma', async () => {
     dbQueryMock.mockResolvedValueOnce({ rows: [{
       id: 'type-1', slug: 's', name: 'S', aliases: [], status: 'active',

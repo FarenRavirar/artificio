@@ -164,31 +164,41 @@ describe('createCatalogNode', () => {
   });
 });
 
+// DEB-088-04 — o contrato mudou de read-modify-write para acréscimo atômico.
+// Estes testes descreviam o comportamento antigo (ler a lista, concatenar,
+// reenviar tudo) e foram reescritos para o novo, não removidos: a garantia que
+// importa continua sendo "nunca apagar o vocabulário já aprendido", só que
+// agora ela vem do banco (ON CONFLICT DO NOTHING) e não de uma leitura prévia
+// que duas aprovações concorrentes podiam ler idêntica.
 describe('addCatalogNodeAlias', () => {
-  it('adiciona alias novo preservando os existentes (nunca aliases:[])', async () => {
-    catalogFetchMock.mockResolvedValueOnce({ id: 'dd', name: 'D&D', name_pt: null, canonical_slug: 'dnd', node_type: 'system', aliases: [{ alias: 'DnD' }] });
+  it('envia add_aliases, nunca a lista inteira em aliases', async () => {
     catalogFetchMock.mockResolvedValueOnce({});
 
     await addCatalogNodeAlias('dd', 'Hint Novo');
 
     const putCall = catalogFetchMock.mock.calls.find((call) => call[1]?.method === 'PUT');
     const body = JSON.parse((putCall?.[1] as { body: string }).body);
-    expect(body.aliases).toEqual(['DnD', 'Hint Novo']);
-    expect(body.node_type).toBe('system');
-    expect(body.name).toBe('D&D');
+    expect(body).toEqual({ add_aliases: ['Hint Novo'] });
+    // `aliases` presente reescreveria a lista inteira no site (replaceAliases
+    // faz DELETE+INSERT) — é exatamente o que causava a perda concorrente.
+    expect(body).not.toHaveProperty('aliases');
   });
 
-  it('não duplica alias já existente (não chama PUT)', async () => {
-    catalogFetchMock.mockResolvedValueOnce({ id: 'dd', name: 'D&D', name_pt: null, canonical_slug: 'dnd', node_type: 'system', aliases: [{ alias: 'DnD' }] });
+  it('não lê o node antes de escrever — uma requisição só', async () => {
+    catalogFetchMock.mockResolvedValueOnce({});
 
-    await addCatalogNodeAlias('dd', 'DnD');
+    await addCatalogNodeAlias('dd', 'Hint Novo');
 
+    // A leitura prévia era metade do defeito: entre ela e o PUT havia janela
+    // para outra aprovação gravar, e a lista lida virava obsoleta.
     expect(catalogFetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('lança erro descritivo quando o node não existe', async () => {
+  it('propaga falha do catálogo em vez de engolir', async () => {
     catalogFetchMock.mockRejectedValue(new Error('catalog_404: not_found'));
 
-    await expect(addCatalogNodeAlias('inexistente', 'Alias')).rejects.toThrow('catalog_node_not_found');
+    // Node inexistente agora é 404 do próprio PUT, não uma checagem local: o
+    // erro real do catálogo sobe sem ser reembalado.
+    await expect(addCatalogNodeAlias('inexistente', 'Alias')).rejects.toThrow('catalog_404');
   });
 });

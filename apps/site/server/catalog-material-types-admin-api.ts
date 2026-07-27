@@ -94,7 +94,7 @@ function actorOf(req: unknown): string | null {
 
 function handleError(error: unknown, res: { status: (code: number) => { json: (body: unknown) => void } }): void {
   const message = error instanceof Error ? error.message : 'catalog_write_failed';
-  if (['bad_payload', 'name_required', 'slug_required', 'bad_status'].includes(message)) {
+  if (['bad_payload', 'name_required', 'slug_required', 'bad_status', 'aliases_conflict'].includes(message)) {
     res.status(400).json({ error: message });
     return;
   }

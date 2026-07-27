@@ -110,6 +110,19 @@ export async function updateMaterialType(id: string, input: Partial<MaterialType
   // também é feito em SQL: alias repetido não entra duas vezes.
   if (Object.hasOwn(input, "add_aliases")) {
     const additions = cleanAliases(input.add_aliases);
+    // Achado real (review PR #218, CodeRabbit): `aliases` e `add_aliases` no
+    // MESMO patch produziam duas atribuições à mesma coluna. Verificado contra
+    // Postgres real: não é "a última vence" silenciosamente, é erro duro —
+    // `multiple assignments to same column "aliases"` — que chegaria ao cliente
+    // como 500. Um comentário anterior neste arquivo afirmava que os dois
+    // "podem vir juntos"; era falso e foi removido.
+    //
+    // 400 em vez de escolher um: a intenção é ambígua de verdade. Substituir e
+    // acrescentar na mesma chamada não tem leitura óbvia, e adivinhar apagaria
+    // vocabulário sem o chamador pedir.
+    if (additions.length > 0 && Object.hasOwn(input, "aliases")) {
+      throw new Error("aliases_conflict");
+    }
     if (additions.length > 0) {
       values.push(JSON.stringify(additions));
       assignments.push(`aliases=(

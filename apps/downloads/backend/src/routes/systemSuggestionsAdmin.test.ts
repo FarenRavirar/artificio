@@ -175,6 +175,31 @@ describe('POST /api/v1/admin/system-suggestions/:id/resolve', () => {
     expect(emitNotificationMock).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1', kind: 'system_suggestion_resolved' }));
   });
 
+  // Achado real (review PR #218, CodeRabbit): a rota passava `req.body` cru
+  // aos resolvers, então o schema validava sem que o valor normalizado
+  // chegasse ao catálogo central. Mesmo defeito da rota de tipo.
+  it('usa o valor NORMALIZADO pelo schema, não o corpo cru', async () => {
+    const trx = makeTrx();
+    dbMocks.transaction.mockReturnValue({ execute: async (cb: (t: unknown) => Promise<unknown>) => cb(trx) });
+    createCatalogNodeMock.mockResolvedValue({ id: 'novo-node' });
+    dbMocks.selectFrom.mockReturnValueOnce(selectChain({ material_id: 'material-1', raw_value: 'D&D 5e', source: 'scraper', suggested_by_user_id: null }));
+
+    await request(app())
+      .post('/api/v1/admin/system-suggestions/s1/resolve')
+      .send({ resolution_type: 'create_system', name: '   Tormenta   ' });
+
+    expect(createCatalogNodeMock).toHaveBeenCalledWith(expect.objectContaining({ name: 'Tormenta' }));
+  });
+
+  it('rejeita name acima do limite em vez de repassá-lo ao catálogo', async () => {
+    const response = await request(app())
+      .post('/api/v1/admin/system-suggestions/s1/resolve')
+      .send({ resolution_type: 'create_system', name: 'x'.repeat(201) });
+
+    expect(response.status).toBe(400);
+    expect(createCatalogNodeMock).not.toHaveBeenCalled();
+  });
+
   it('create_system: cria node novo com o raw_value como alias, nunca chama addCatalogNodeAlias', async () => {
     const trx = makeTrx({ ...SUGGESTION, source: 'scraper', suggested_by_user_id: null, raw_value: 'Sistema Novo XYZ' });
     dbMocks.transaction.mockReturnValue({ execute: async (cb: (trx: unknown) => Promise<unknown>) => cb(trx) });

@@ -303,8 +303,16 @@ router.post('/:id/resolve', writeRateLimiter, authMiddleware, requireRole('admin
   }
 
   try {
+    // Achado real (review PR #218, CodeRabbit, encontrado na rota de TIPO e
+    // aplicado aqui pela mesma causa): passar `req.body` cru fazia o
+    // `.trim()`/`.max()` do schema validar sem nunca chegar ao uso — os
+    // resolvers liam o valor original por `readTrimmed(ctx.body.name)`, e uma
+    // string acima do limite passava a validação e seguia para
+    // `createCatalogNode`. `resolveBodySchema` é `looseObject`, então
+    // `parsed.data` preserva as chaves extras que cada resolver consome; o que
+    // muda é que os campos declarados chegam normalizados.
     const outcome = await withSuggestionLock(req.params.id, (trx, suggestion) =>
-      RESOLVERS[parsed.data.resolution_type]({ trx, suggestion, adminId: req.user!.userId, body: req.body ?? {} }));
+      RESOLVERS[parsed.data.resolution_type]({ trx, suggestion, adminId: req.user!.userId, body: parsed.data }));
 
     const suggestionAfter = await db
       .selectFrom('download_system_suggestion')

@@ -284,6 +284,32 @@ describe('POST /api/v1/admin/material-type-suggestions/:id/resolve', () => {
     expect(createCatalogMaterialTypeMock).toHaveBeenCalledWith('Classe', ['Classe/Arquétipo']);
   });
 
+  // Achado real (review PR #218, CodeRabbit): a rota passava `req.body` cru
+  // aos resolvers, então o `.trim()` do schema validava mas nunca chegava ao
+  // uso — o valor original seguia para o catálogo central.
+  it('create_type: usa o valor NORMALIZADO pelo schema, não o corpo cru', async () => {
+    createCatalogMaterialTypeMock.mockResolvedValue({ id: 'type-novo', slug: 'c', name: 'C', aliases: [], status: 'active' as const });
+    mockTransaction(makeTrx());
+    dbMocks.selectFrom.mockReturnValue(selectChain({ material_id: 'material-1' }));
+
+    await request(app())
+      .post('/api/v1/admin/material-type-suggestions/s1/resolve')
+      .send({ resolution_type: 'create_type', name: '   Classe   ' });
+
+    expect(createCatalogMaterialTypeMock).toHaveBeenCalledWith('Classe', ['Classe/Arquétipo']);
+  });
+
+  it('rejeita name acima do limite em vez de repassá-lo ao catálogo', async () => {
+    mockTransaction(makeTrx());
+
+    const response = await request(app())
+      .post('/api/v1/admin/material-type-suggestions/s1/resolve')
+      .send({ resolution_type: 'create_type', name: 'x'.repeat(201) });
+
+    expect(response.status).toBe(400);
+    expect(createCatalogMaterialTypeMock).not.toHaveBeenCalled();
+  });
+
   it('reject: marca rejeitada com o motivo e nunca escreve no catálogo central', async () => {
     const trx = makeTrx();
     mockTransaction(trx);

@@ -251,8 +251,14 @@ router.post('/:id/resolve', writeRateLimiter, authMiddleware, requireRole('admin
   }
 
   try {
+    // Achado real (review PR #218, CodeRabbit): passava `req.body` CRU aos
+    // resolvers, então `.trim()`/`.max()` do schema validavam mas nunca
+    // chegavam ao uso — os resolvers liam o valor original via
+    // `readTrimmed(ctx.body.name)`, e uma string de 10 mil caracteres passava a
+    // validação e seguia para `createCatalogMaterialType`. `parsed.data` é o
+    // valor já normalizado; o schema deixa de ser decorativo.
     const outcome = await withSuggestionLock(req.params.id, (trx, suggestion) =>
-      RESOLVERS[parsed.data.resolution_type]({ trx, suggestion, adminId: req.user!.userId, body: req.body ?? {} }));
+      RESOLVERS[parsed.data.resolution_type]({ trx, suggestion, adminId: req.user!.userId, body: parsed.data }));
 
     const suggestionAfter = await db
       .selectFrom('download_material_type_suggestion')

@@ -323,26 +323,24 @@ export async function createCatalogNode(input: CatalogNodeCreateInput): Promise<
 }
 
 // T4.9 — registra raw_value como alias de um node ja existente (merge_existing/
-// create_alias). PUT nao pode mandar aliases:[] quando so quer ADICIONAR um
-// alias novo sem apagar os existentes (mesmo achado do CodeRabbit PR #145 no
-// catalogClient do mesas) — busca os aliases atuais do node antes de decidir
-// o payload final. node_type/name reenviados porque parseNodeWrite do site
-// exige os dois no PUT mesmo quando so a lista de aliases muda.
+// create_alias).
+//
+// DEB-088-04: a versao anterior lia os aliases atuais e reenviava a lista
+// concatenada (`aliases: [...existentes, novo]`) — read-modify-write. Duas
+// aprovacoes simultaneas pro MESMO node liam a mesma lista e a ultima gravacao
+// apagava o alias da primeira: as duas sugestoes ficavam 'approved', um alias
+// sumia, e o raw_value perdido voltava pra fila na proxima ingestao.
+//
+// `add_aliases` (apps/site) faz INSERT ... ON CONFLICT DO NOTHING por alias,
+// dentro da transacao do UPDATE: sem DELETE, nao ha o que uma transacao
+// concorrente apague, e alias repetido e no-op. Nao ha mais leitura previa pra
+// ficar obsoleta — some junto a checagem de existencia (o ON CONFLICT ja
+// cobre) e o reenvio de node_type/name, que so existiam porque o payload
+// anterior precisava reconstruir a lista inteira.
 export async function addCatalogNodeAlias(nodeId: string, alias: string): Promise<void> {
-  const node = await getCatalogNodeById(nodeId);
-  if (!node) {
-    throw new Error(`catalog_node_not_found: ${nodeId}`);
-  }
-  const existingAliases = (node.aliases ?? []).map((a) => a.alias);
-  if (existingAliases.includes(alias)) return;
-
   await catalogFetch<unknown>(`/api/admin/v1/catalog/nodes/${encodeURIComponent(nodeId)}`, {
     method: 'PUT',
-    body: JSON.stringify({
-      node_type: node.node_type,
-      name: node.name,
-      aliases: [...existingAliases, alias],
-    }),
+    body: JSON.stringify({ add_aliases: [alias] }),
   });
   invalidateCatalogSnapshotCache();
 }
