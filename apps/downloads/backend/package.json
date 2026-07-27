@@ -30,6 +30,7 @@
     "express": "^5.2.1",
     "express-rate-limit": "8.5.2",
     "franc-min": "^6.2.0",
+    "html-entities": "^2.6.0",
     "ipaddr.js": "^2.4.0",
     "isomorphic-dompurify": "^3.19.0",
     "jsonwebtoken": "^9.0.3",

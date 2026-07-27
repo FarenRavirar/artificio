@@ -22,9 +22,12 @@ export interface ScrapedItem {
   // o catalogo (scraperIngest.ts) e alimentar download_material.raw_system_hint
   // quando nao casa. 'scenario' continua so cenario de ambientacao (ex. "Forgotten
   // Realms"), nunca mais recebe sistema.
-  systemHint?: string | null;
+  // Spec 089 (T0.5): obrigatório no contrato interno. `null` afirma que a
+  // fonte foi avaliada e não expõe um sinal inequívoco; omissão significa
+  // adapter incompleto e deve falhar em compilação.
+  systemHint: string | null;
   // Spec 088 (T2.9b, requisito 50) — hint de TIPO de material, mesmo desenho
-  // do systemHint: opcional, `null` explicito quando a fonte nao expoe.
+  // do systemHint: obrigatório, `null` explicito quando a fonte nao expoe.
   // Antes deste campo a classificacao nunca existiu: `ScrapedItem` nao tinha
   // como carregar tipo, e o ingest resolvia DEFAULT_MATERIAL_TYPE_SLUG uma
   // vez por execucao e aplicava a todos os itens — 103 materiais rotulados
@@ -32,7 +35,7 @@ export interface ScrapedItem {
   // lacuna desde a origem do pipeline.
   // Valor bruto da fonte, no vocabulario dela ("Core Rulebooks", "Regras
   // basicas"); quem resolve contra a taxonomia central e o ingest.
-  materialTypeHint?: string | null;
+  materialTypeHint: string | null;
   authorsCredits?: string | null;
   artistsCredits?: string | null;
   creationMethod?: string | null;

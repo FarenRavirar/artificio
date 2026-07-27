@@ -39,6 +39,7 @@ vi.mock('../db', () => ({ db: dbMocks }));
 
 import { runScraperIngest } from './scraperIngest';
 import type { ScrapedItem } from './scrapers/types';
+import { normalizeScrapedItemPlainText } from './scrapers/plainTextPolicy';
 
 function makeItem(overrides: Partial<ScrapedItem> = {}): ScrapedItem {
   return {
@@ -49,6 +50,8 @@ function makeItem(overrides: Partial<ScrapedItem> = {}): ScrapedItem {
     coverImageUrl: null,
     publisherName: 'Autor Teste',
     sourceLanguageHint: null,
+    systemHint: null,
+    materialTypeHint: null,
     ...overrides,
   };
 }
@@ -364,6 +367,63 @@ describe('runScraperIngest', () => {
         description_html: '<p>Descrição <strong>rica</strong></p>',
       }),
     );
+  });
+
+  it('persiste texto decodificado antes de idioma, slug e taxonomia', async () => {
+    dbMocks.selectFrom
+      .mockReturnValueOnce(selectChain(undefined))
+      .mockReturnValueOnce(selectChain([]));
+    detectPortugueseMock.mockResolvedValue({ isPortuguese: true, detectedLanguage: 'por', confident: true });
+    getOrCreateScraperCreatorIdMock.mockResolvedValue('scraper-creator-id');
+    loadCatalogSystemsFlatMock.mockResolvedValue([{
+      id: 'dnd',
+      name: 'Dungeons & Dragons',
+      name_pt: null,
+      slug: 'dnd',
+      path_slug: 'dnd',
+      node_type: 'system',
+      parent_id: null,
+      aliases: ['D&D'],
+    }]);
+
+    const materialInsert = { values: vi.fn().mockReturnThis(), returning: vi.fn().mockReturnThis(), executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'material-entidades' }) };
+    const metadataInsert = { values: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
+    const trxInsertInto = vi.fn()
+      .mockReturnValueOnce(materialInsert)
+      .mockReturnValueOnce(metadataInsert);
+    dbMocks.transaction.mockReturnValue({
+      execute: async (cb: (trx: { insertInto: typeof trxInsertInto }) => Promise<string>) =>
+        cb({ insertInto: trxInsertInto }),
+    });
+
+    const item = normalizeScrapedItemPlainText(makeItem({
+      title: 'Guia de D&amp;D',
+      description: 'Descrição de D&#38;D suficientemente longa para o detector.',
+      publisherName: 'Editora &amp; Dados',
+      authorsCredits: 'Autora &amp; Coautora',
+      artistsCredits: 'Artista &#38; Ilustradora',
+      systemHint: 'D&amp;D',
+      materialTypeHint: 'Regr&#97;s',
+      sourceLanguageHint: null,
+    }));
+
+    await runScraperIngest('run-entities', 'itch_io', asyncIterableOf([item]));
+
+    expect(detectPortugueseMock).toHaveBeenCalledWith(expect.stringContaining('Guia de D&D'));
+    const materialValues = materialInsert.values.mock.calls[0][0];
+    expect(materialValues).toMatchObject({
+      title: 'Guia de D&D',
+      slug: 'guia-de-d-d',
+      summary: 'Descrição de D&D suficientemente longa para o detector.',
+      system_id: 'dnd',
+      raw_system_hint: null,
+      material_type: 'Regras',
+      raw_material_type_hint: null,
+    });
+    expect(metadataInsert.values).toHaveBeenCalledWith(expect.objectContaining({
+      publisher_name: 'Editora & Dados',
+      credits: 'Autora & Coautora\nArtista & Ilustradora',
+    }));
   });
 
   it('violação do índice UNIQUE (corrida entre runs concorrentes): outcome=skipped_duplicate, não skipped_error', async () => {

@@ -15,6 +15,8 @@ vi.mock('./httpFetch', () => ({
 }));
 
 import { OperaRpgScraper } from './operaRpgScraper';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const SECTION_HTML_FIXTURE = `
 <a class="download-item" href="https://arquivos.operarpg.com.br/aventuras/AOAsesFlp.pdf" target="_blank" rel="noopener noreferrer"><span><b>Ases das Filipinas</b><br/><small>por Intruder · Após o ataque japonês contra Pearl Harbor.</small></span><span>Abrir ↗</span></a>
@@ -27,6 +29,21 @@ beforeEach(() => {
 });
 
 describe('OperaRpgScraper', () => {
+  it('decodifica entidade do DOM real antes de entregar o item', async () => {
+    const html = fs.readFileSync(
+      path.resolve(__dirname, '../../../test/fixtures/spec-089/opera-regras-section.html'),
+      'utf8',
+    );
+    fetchSimpleMock.mockResolvedValue({ html, status: 200 });
+
+    const items = [];
+    for await (const item of new OperaRpgScraper().discoverItems()) items.push(item);
+
+    expect(items[0]?.title).toBe('Raças D&D');
+    expect(items[0]?.description).toContain('D&D para OPERA RPG');
+    expect(items[0]?.sourceUrl).toContain('RRacasDD.pdf');
+  });
+
   it('descobre itens de todas as seções, extraindo título/autor/descrição', async () => {
     fetchSimpleMock.mockResolvedValue({ html: SECTION_HTML_FIXTURE, status: 200 });
 

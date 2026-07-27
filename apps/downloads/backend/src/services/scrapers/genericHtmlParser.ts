@@ -10,7 +10,8 @@
 
 import { z } from 'zod';
 import ipaddr from 'ipaddr.js';
-import { sanitizeText } from '../sanitizeText';
+import { richHtmlToEncodedPlainText } from '../sanitizeRichHtml';
+import { normalizeFieldsByPolicy, type ScrapedFieldPolicy } from './plainTextPolicy';
 import { applyPlatformOverride, type PlatformOverrideInput } from './platformOverrides';
 import { POSTGRES_INTEGER_MAX, type DownloadScraperPlatform } from '../../db/types';
 
@@ -114,6 +115,34 @@ export const genericParsePreviewSchema = z
   .strict();
 
 export type GenericParsePreview = z.infer<typeof genericParsePreviewSchema>;
+
+// O parser HTML manual também termina na fronteira única de decode. O mapa
+// próprio cobre os campos extras de preview sem enfraquecer o contrato
+// exaustivo de ScrapedItem.
+const GENERIC_PARSE_PREVIEW_FIELD_POLICY = {
+  sourceUrl: 'url',
+  title: 'plainText',
+  description: 'plainText',
+  isFreeOrPwyw: 'opaque',
+  coverImageUrl: 'url',
+  publisherName: 'plainText',
+  sourceLanguageHint: 'opaque',
+  extractedPriceValue: 'opaque',
+  priceSignal: 'opaque',
+  scenario: 'plainText',
+  systemHint: 'plainText',
+  materialTypeHint: 'plainText',
+  authorsCredits: 'plainText',
+  artistsCredits: 'plainText',
+  creationMethod: 'plainText',
+  sourceFilters: 'plainText',
+  tags: 'plainText',
+  fileSizeText: 'plainText',
+  format: 'plainText',
+  pageCount: 'opaque',
+  sourceCategory: 'plainText',
+  descriptionHtml: 'richHtml',
+} as const satisfies Record<keyof GenericParsePreview, ScrapedFieldPolicy>;
 
 export type GenericParseErrorCode =
   | 'html_too_large'
@@ -335,7 +364,8 @@ export async function parseHtml(html: string, findPlatformByDomain: FindPlatform
   const basePreview: PlatformOverrideInput = {
     sourceUrl,
     title: jsonLd.name,
-    description: jsonLd.description ? sanitizeText(jsonLd.description) : null,
+    // Remove marcação, mas preserva entidades até a fronteira única abaixo.
+    description: jsonLd.description ? richHtmlToEncodedPlainText(jsonLd.description) : null,
     isFreeOrPwyw: defaultSignal.isFreeOrPwyw,
     coverImageUrl,
     publisherName: jsonLd.brand?.name ?? null,
@@ -361,5 +391,6 @@ export async function parseHtml(html: string, findPlatformByDomain: FindPlatform
   // Fase 2; revisão PR #203). Title, publisher e imagem seguem JSON-LD.
   const finalPreview = applyPlatformOverride(platform.parser_kind, basePreview, html);
 
-  return genericParsePreviewSchema.parse(finalPreview);
+  const parsedPreview = genericParsePreviewSchema.parse(finalPreview);
+  return normalizeFieldsByPolicy(parsedPreview, GENERIC_PARSE_PREVIEW_FIELD_POLICY);
 }

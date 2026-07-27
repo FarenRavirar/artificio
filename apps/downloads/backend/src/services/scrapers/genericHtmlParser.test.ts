@@ -144,6 +144,29 @@ describe('parseHtml', () => {
     expect(result.isFreeOrPwyw).toBe(true);
   });
 
+  it('decodifica HTML5 uma vez na saída sem alterar URL', async () => {
+    const syntheticHtml = `<!DOCTYPE html>
+<html lang="pt-BR"><head>
+<link rel="canonical" href="https://entidades.exemplo.com/item?a=1&amp;b=2">
+<meta property="og:image" content="https://entidades.exemplo.com/capa?a=1&amp;b=2">
+<script type="application/ld+json">{"@type":"Product","name":"D&amp;D &#38; RPG","description":"Texto &amp;lt;seguro&amp;gt; &copy;","brand":{"name":"Editora &amp; Dados"},"offers":{"price":0}}</script>
+</head><body></body></html>`;
+    const platform = makePlatform({
+      slug: 'entidades',
+      name: 'Entidades',
+      domain: 'entidades.exemplo.com',
+      parser_kind: 'json_ld_generic',
+    });
+
+    const result = await parseHtml(syntheticHtml, registryOf([platform]));
+
+    expect(result.title).toBe('D&D & RPG');
+    expect(result.description).toBe('Texto &lt;seguro&gt; ©');
+    expect(result.publisherName).toBe('Editora & Dados');
+    expect(result.sourceUrl).toBe('https://entidades.exemplo.com/item?a=1&amp;b=2');
+    expect(result.coverImageUrl).toBe('https://entidades.exemplo.com/capa?a=1&amp;b=2');
+  });
+
   // Achado real (review PR #201, Codex, P2): regex original exigia
   // <script type="..."> e <link rel="..." href="..."> nessa ordem exata de
   // atributos — HTML real de terceiros pode ter nonce/id/outros atributos

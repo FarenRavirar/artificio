@@ -23,6 +23,15 @@ contra estrutura não observada foi explicitamente proibido, e a proibição con
 
 Prioridade por impacto: `opera_rpg` (118 de 141 materiais, 84%) antes das outras duas.
 
+**Decisão T0.7 (mantenedor, 2026-07-27):** `Multi-sistema` é sistema válido, não ausência.
+No OPERA, itens dedicados recebem `OPERA RPG`; item explicitamente multi-sistema recebe
+`Multi-sistema`. A extração continua na Fase 3.
+
+**Elegibilidade do itch.io:** a listagem correta é
+`/physical-games/genre-rpg/lang-pt-BR`, mas continua parcial. O parser valida cada página:
+`Category=Physical game` mais `Genre=Role Playing` ou tag inequívoca `ttrpg`/`rpg-de-mesa`.
+Sinal ausente ou categoria diferente falha fechado. Título e descrição não decidem.
+
 ### Eixo B — idioma (defeito 3)
 
 A causa está estabelecida, não é mais hipótese: **o detector nunca roda**. `scraperIngest.ts:223`
@@ -49,19 +58,20 @@ Quatro frentes:
 
 ### Eixo C — entidades HTML (defeito 4)
 
-`decodeHtmlEntities` já existe (`sanitizeRichHtml.ts:100`) mas só a descrição rica passa por
-ela. A correção é aplicá-la a **todo campo textual** que o parser extrai — título, resumo,
-descrição, editora, créditos — antes de qualquer uso, e em especial antes de `slugify`.
+O decoder local de cinco entidades era incompleto. A Fase 1 usa `html-entities` em modo HTML5
+e classifica **todo campo de `ScrapedItem`** como `plainText`, `url`, `richHtml` ou `opaque`
+num mapa `satisfies Record<keyof ScrapedItem, Policy>`. Campo novo sem política quebra o
+`tsc`; não existe default silencioso.
 
-Decodificar por padrão, e não campo a campo (decisão do mantenedor), muda o desenho: em vez de
-chamar `decodeHtmlEntities` em cada atribuição, o parser passa o objeto extraído por uma
-função de saneamento única. Campo novo acrescentado depois já nasce coberto — enumerar campos
-deixaria o próximo esquecido, que é exatamente como `summary` e `publisher_name` escaparam.
+Uma função central percorre o objeto e decodifica recursivamente só `plainText`, incluindo
+arrays/JSON (`sourceFilters`, `tags`). URLs permanecem byte a byte; `descriptionHtml` continua
+exclusivo do DOMPurify; booleanos, números e sinais ficam opacos. Assim a enumeração é única e
+exaustiva sem espalhar chamadas campo a campo.
 
-Decodificar no parser (e não no ingest) é deliberado: o texto chega limpo a todos os
-consumidores, e o ingest não precisa saber que a fonte era HTML. E precisa ser **exatamente
-uma** passagem — `routes/scraper.ts:147` já decodifica `description` no `/ingest`, e decode não
-é idempotente (`&amp;lt;` → `&lt;` → `<`).
+A passagem ocorre na saída de cada parser, depois de JSON-LD/override convergirem e antes de
+idioma, slug e taxonomia. `/ingest` não decodifica: apenas remove eventual marcação de
+`description` preservando entidades. Isso mantém `parse-html → ingest` em uma passagem —
+`&amp;lt;` vira `&lt;`, nunca `<`.
 
 **Correção dos registros de beta foi descartada** (decisão do mantenedor, 2026-07-27, após a
 revisão do Codex). A versão anterior deste plano afirmava que "beta não tem SEO a preservar" —

@@ -1,12 +1,10 @@
 import DOMPurify from 'isomorphic-dompurify';
+import { decodeHtml5PlainText } from './scrapers/plainTextPolicy';
 
 const ALLOWED_TAGS = ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'ul', 'ol', 'li', 'a', 'img', 'h2', 'h3', 'h4', 'blockquote', 'hr'];
 const ALLOWED_ATTR = ['href', 'title', 'target', 'rel', 'src', 'alt', 'width', 'height'];
 const HTTP_URL_RE = /^https?:/i;
 const BLOCK_TAGS = new Set(['p', 'div', 'section', 'article', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'pre', 'table', 'tr', 'hr']);
-const NAMED_ENTITIES: Readonly<Record<string, string>> = {
-  amp: '&', apos: "'", gt: '>', lt: '<', nbsp: ' ', quot: '"',
-};
 
 // Spec 086, Fase 2: HTML vindo de marketplace/edição é hostil. Achado real
 // (review PR #203, Codex, P2): AGENTS.md exige DOMPurify na fronteira de
@@ -91,26 +89,10 @@ export function sanitizeRichHtml(html: string): string {
   return DOMPurify.sanitize(withoutIframe, { ALLOWED_TAGS, ALLOWED_ATTR, ALLOWED_URI_REGEXP: HTTP_URL_RE });
 }
 
-function decodeNumericEntity(token: string): number {
-  if (token.startsWith('#x')) return Number.parseInt(token.slice(2), 16);
-  if (token.startsWith('#')) return Number.parseInt(token.slice(1), 10);
-  return Number.NaN;
-}
-
-function decodeHtmlEntities(value: string): string {
-  return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (entity, token: string) => {
-    const normalizedToken = token.toLowerCase();
-    if (normalizedToken in NAMED_ENTITIES) return NAMED_ENTITIES[normalizedToken]!;
-    const codePoint = decodeNumericEntity(normalizedToken);
-    if (!Number.isInteger(codePoint) || codePoint < 0 || codePoint > 0x10ffff) return entity;
-    return String.fromCodePoint(codePoint);
-  });
-}
-
 // Achado real (review PR #203, Codex, P2): sanitizeText remove tags e
 // entidades, juntando parágrafos como "D&amp;D5e". Texto derivado de HTML rico
 // preserva separadores de bloco e decodifica entidades antes de busca/SEO.
-export function richHtmlToPlainText(html: string): string {
+export function richHtmlToEncodedPlainText(html: string): string {
   const sanitizedHtml = sanitizeRichHtml(html);
   // Achado CodeQL (github-advanced-security, PR #203): mesma classe do fix acima
   // — strip de tag em cadeia única deixa resíduo reconstruído por sobreposição;
@@ -121,10 +103,14 @@ export function richHtmlToPlainText(html: string): string {
     previousStripPass = stripped;
     stripped = stripHtmlTags(stripped);
   } while (stripped !== previousStripPass);
-  return decodeHtmlEntities(stripped)
+  return stripped
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n[ \t]+/g, '\n')
     .replace(/[ \t]{2,}/g, ' ')
     .replace(/\n{2,}/g, '\n')
     .trim();
+}
+
+export function richHtmlToPlainText(html: string): string {
+  return decodeHtml5PlainText(richHtmlToEncodedPlainText(html));
 }
