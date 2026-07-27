@@ -76,12 +76,35 @@ beforeEach(() => {
   loadCatalogSystemsFlatMock.mockReset();
   loadCatalogSystemsFlatMock.mockResolvedValue([]);
   getCatalogMaterialTypeBySlugMock.mockReset();
-  getCatalogMaterialTypeBySlugMock.mockResolvedValue({
-    id: 'b071ab5e-2d16-4c58-8f0e-086000000001',
-    slug: 'aventura',
-    name: 'Aventura',
-    aliases: ['adventure'],
-    status: 'active',
+  // Spec 088 (T2.9d) — o mock responde CONFORME o slug pedido. Devolver
+  // sempre o mesmo tipo mascararia a resolução por item: o teste passaria
+  // mesmo se o ingest voltasse a resolver uma vez por execução e aplicar a
+  // todos. Aqui, o tipo neutro e um tipo real são objetos distintos.
+  getCatalogMaterialTypeBySlugMock.mockImplementation(async (slug: string) => {
+    const catalog: Record<string, { id: string; slug: string; name: string; aliases: string[]; status: string }> = {
+      'nao-classificado': {
+        id: 'b071ab5e-2d16-4c58-8f0e-086000000007',
+        slug: 'nao-classificado',
+        name: 'Não classificado',
+        aliases: ['outros'],
+        status: 'active',
+      },
+      aventura: {
+        id: 'b071ab5e-2d16-4c58-8f0e-086000000001',
+        slug: 'aventura',
+        name: 'Aventura',
+        aliases: ['adventure'],
+        status: 'active',
+      },
+      regras: {
+        id: 'b071ab5e-2d16-4c58-8f0e-086000000006',
+        slug: 'regras',
+        name: 'Regras',
+        aliases: ['core rulebooks'],
+        status: 'active',
+      },
+    };
+    return catalog[slug.toLocaleLowerCase('pt-BR')] ?? null;
   });
 
   dbMocks.updateTable.mockReturnValue({
@@ -153,6 +176,73 @@ describe('runScraperIngest', () => {
 
     expect(result.itemsSkippedDuplicate).toBe(1);
     expect(dbMocks.transaction).not.toHaveBeenCalled();
+  });
+
+  // Spec 088 (T2.9d/T2.9e, requisitos 52-55) — a classificação de tipo nunca
+  // existiu: `DEFAULT_MATERIAL_TYPE_SLUG` era 'aventura' e resolvia UMA vez
+  // por execução, fora do laço, aplicado a todos os itens. Resultado real em
+  // beta: 103 materiais, todos "Aventura", nenhum classificado de fato.
+  describe('T2.9d/T2.9e — resolução de tipo por item', () => {
+    function setupCreate() {
+      dbMocks.selectFrom
+        .mockReturnValueOnce(selectChain(undefined))
+        .mockReturnValueOnce(selectChain([]));
+      getOrCreateScraperCreatorIdMock.mockResolvedValue('scraper-creator-id');
+      const materialInsert = { values: vi.fn().mockReturnThis(), returning: vi.fn().mockReturnThis(), executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'material-novo' }) };
+      const metadataInsert = { values: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
+      const trxInsertInto = vi.fn().mockReturnValueOnce(materialInsert).mockReturnValueOnce(metadataInsert);
+      dbMocks.transaction.mockReturnValue({
+        execute: async (cb: (trx: { insertInto: typeof trxInsertInto }) => Promise<string>) => cb({ insertInto: trxInsertInto }),
+      });
+      return materialInsert;
+    }
+
+    it('resolve o hint da fonte contra a taxonomia, em vez do default', async () => {
+      const materialInsert = setupCreate();
+
+      await runScraperIngest('run-1', 'itch_io', asyncIterableOf([
+        makeItem({ sourceLanguageHint: 'pt', materialTypeHint: 'regras' }),
+      ]));
+
+      expect(materialInsert.values).toHaveBeenCalledWith(expect.objectContaining({
+        material_type: 'Regras',
+        material_type_id: 'b071ab5e-2d16-4c58-8f0e-086000000006',
+        // Casou: nada de bruto preservado.
+        raw_material_type_hint: null,
+      }));
+    });
+
+    it('hint que não casa preserva o valor bruto e cai no tipo neutro', async () => {
+      const materialInsert = setupCreate();
+
+      await runScraperIngest('run-1', 'itch_io', asyncIterableOf([
+        makeItem({ sourceLanguageHint: 'pt', materialTypeHint: 'Grimório de Feitiços' }),
+      ]));
+
+      // Requisito 54 — o material nunca perde a informação que a fonte
+      // publicou, e o scraper nunca escreve na taxonomia central: o valor
+      // bruto fica guardado e vira fila de triagem.
+      expect(materialInsert.values).toHaveBeenCalledWith(expect.objectContaining({
+        material_type: 'Não classificado',
+        raw_material_type_hint: 'Grimório de Feitiços',
+      }));
+    });
+
+    it('item sem hint cai no tipo NEUTRO, nunca em "Aventura"', async () => {
+      const materialInsert = setupCreate();
+
+      await runScraperIngest('run-1', 'itch_io', asyncIterableOf([
+        makeItem({ sourceLanguageHint: 'pt' }),
+      ]));
+
+      // Requisito 55 — rotular como Aventura quem ninguém classificou é
+      // afirmação falsa sobre o conteúdo. E "caiu no default" precisa ser
+      // distinguível de classificação real.
+      expect(materialInsert.values).toHaveBeenCalledWith(expect.objectContaining({
+        material_type: 'Não classificado',
+        raw_material_type_hint: null,
+      }));
+    });
   });
 
   it('item novo: cria material+metadata em transação, log outcome=created', async () => {
@@ -291,17 +381,19 @@ describe('runScraperIngest', () => {
     await runScraperIngest('run-1', 'itch_io', asyncIterableOf(items));
 
     expect(dbMocks.updateTable).toHaveBeenCalledTimes(2);
+    // Itens SEM hint de tipo não consultam o catálogo por item — usam o tipo
+    // neutro já resolvido antes do laço. A única chamada é a do default.
     expect(getCatalogMaterialTypeBySlugMock).toHaveBeenCalledTimes(1);
   });
 
-  it('falha uma vez antes do loop quando o tipo canônico não existe', async () => {
+  it('falha uma vez antes do loop quando o tipo neutro de fallback não existe', async () => {
     getCatalogMaterialTypeBySlugMock.mockResolvedValue(null);
 
     await expect(runScraperIngest(
       'run-1',
       'itch_io',
       asyncIterableOf([makeItem({ sourceLanguageHint: 'pt' }), makeItem({ sourceLanguageHint: 'pt' })]),
-    )).rejects.toThrow('catalog_material_type_not_found: aventura');
+    )).rejects.toThrow('catalog_material_type_not_found: nao-classificado');
 
     expect(getCatalogMaterialTypeBySlugMock).toHaveBeenCalledTimes(1);
     expect(getOrCreateScraperCreatorIdMock).not.toHaveBeenCalled();

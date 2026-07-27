@@ -21,6 +21,8 @@ export interface PlatformOverrideInput {
   scenario?: string | null;
   // Achado real (spec 086, Fase 4) — ver mesmo comentario em services/scrapers/types.ts.
   systemHint?: string | null;
+  // Spec 088 (T2.9b) — ver mesmo comentário em services/scrapers/types.ts.
+  materialTypeHint?: string | null;
   authorsCredits?: string | null;
   artistsCredits?: string | null;
   creationMethod?: string | null;

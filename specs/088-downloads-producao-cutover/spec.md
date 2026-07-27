@@ -15,7 +15,7 @@
 | Volume `downloads_pgdata_downloads_prod` | **não existe** |
 | `/opt/artificio/apps/downloads/.env` | **não existe** (mesas, site e glossário têm o seu) |
 | `https://downloads.artificiorpg.com/` | **502** |
-| `https://downloadsbeta.artificiorpg.com/api/v1/health` | 200 (beta saudável, 29 migrations aplicadas) |
+| `https://downloadsbeta.artificiorpg.com/api/v1/health` | 200 (beta saudável, 30 migrations aplicadas) |
 | Clone prod `/opt/artificio` | `main` em `90ec6ee`, **8 commits atrás de `dev`** |
 | `apps/downloads/database/` no clone prod | **20 arquivos** — disco desatualizado; `dev` tem 29 |
 
@@ -90,6 +90,8 @@ E o acervo atual é inteiramente do pipeline automático:
 
 Fica claro também por que `publisher_name` é a exceção com 87: é um dos poucos campos que os adapters de descoberta já emitem por conta própria.
 
+> **Correção apurada na Fase 2 (2026-07-27).** Os 87 não são todos editora de verdade. **77 vêm de `opera_rpg`, onde o adapter gravava o AUTOR nesse campo** — a listagem publica `"por Fulano"` e o valor ia para `publisherName`, afirmando que a pessoa era a editora do material. Isso explica o par de números que parecia contraditório (`credits` zerado e `publisher_name` em 87): não eram campos independentes, era autoria ocupando o lugar da editora. Corrigido no requisito 40a; o número de `publisher_name` legítimo deve **cair** no reprocessamento, e isso é o resultado esperado, não regressão.
+
 **"Acervo Artifício" aparece como autoria falsa.** `MaterialCard.tsx:41` usa `material.credits?.trim() || 'Acervo Artifício'` — quando o material não tem crédito, o card afirma que a autoria é do Artifício. O propósito declarado do produto (D107/D119) é **mandar o usuário para o site do autor**, o oposto de uma loja que esconde quem fez. Assumir autoria de material de terceiro contradiz isso frontalmente: o Artifício não é autor de material importado de DriveThruRPG ou itch.io. O comentário no código admite a intenção ("sem crédito, o acervo assume a autoria em vez de deixar buraco") — o problema é que evitar um buraco visual não justifica uma afirmação falsa de autoria.
 
 ### O que já está pronto (e não faz parte do problema)
@@ -104,10 +106,12 @@ Fica claro também por que `publisher_name` é a exceção com 87: é um dos pou
 
 1. O banco de produção do Downloads roda em **container e volume próprios**, fisicamente separados do beta: `downloads-db` sobre `pgdata_downloads_prod`, enquanto o beta permanece em `downloads-beta-db` sobre `downloads-beta_pgdata_downloads_beta`. Nenhum dos dois compartilha volume, container ou processo com o outro.
 2. O banco de produção **nasce vazio**. Nenhum dado é copiado do beta — nem material, nem usuário, nem métrica, nem log. Beta permanece como ambiente de teste independente e descartável; produção recebe conteúdo apenas pelo fluxo normal de submissão e aprovação.
-3. As **29 migrations** de `apps/downloads/database/` são aplicadas ao banco de produção pelo **script oficial** `scripts/deploy/apply_required_migrations.sh`, nunca por `psql` avulso, arquivo por arquivo, ou SQL colado à mão.
-4. Como 29 pendências excedem o guard `MAX_AUTO_PENDING=5`, a aplicação é feita em **uma execução manual controlada e única** com `MAX_AUTO_PENDING` elevado ao total pendente — o script compara o conjunto inteiro de uma vez, então **fatiar em lotes é proibido**.
+3. As **30 migrations** de `apps/downloads/database/` são aplicadas ao banco de produção pelo **script oficial** `scripts/deploy/apply_required_migrations.sh`, nunca por `psql` avulso, arquivo por arquivo, ou SQL colado à mão.
+
+   > **Eram 29 até 2026-07-27.** A Fase 2 acrescentou `migration_030_download_raw_material_type_hint.sql` (requisito 55b), então toda contagem desta spec passou de 29 para 30 — incluindo o critério de aceite, o `MAX_AUTO_PENDING` da execução manual e a conferência de arquivos no clone da VM. Deixar 29 faria o guard abortar o deploy em 30 pendências e o critério de aceite comparar contra um número errado.
+4. Como 30 pendências excedem o guard `MAX_AUTO_PENDING=5`, a aplicação é feita em **uma execução manual controlada e única** com `MAX_AUTO_PENDING` elevado ao total pendente — o script compara o conjunto inteiro de uma vez, então **fatiar em lotes é proibido**.
 5. Um `pg_dump` do banco de produção é gerado **antes** da aplicação das migrations, mesmo o banco estando vazio, e guardado fora do container. É o único rollback manual disponível se algo falhar no meio.
-6. Ao final, `schema_migrations` do banco de produção contém **as mesmas 29 linhas** que o beta, e nenhuma migration fica pendente ou parcialmente aplicada.
+6. Ao final, `schema_migrations` do banco de produção contém **as mesmas 30 linhas** que o beta, e nenhuma migration fica pendente ou parcialmente aplicada.
 
 ### Ambiente e segredos
 
@@ -169,12 +173,39 @@ Fica claro também por que `publisher_name` é a exceção com 87: é um dos pou
 
 39. Os cinco adapters passam a extrair **autoria** (`authorsCredits`/`artistsCredits`) quando a fonte a expõe, a partir de fixture real da plataforma.
 40. `publisher_name` (**editora**) continua sendo extraído e gravado como campo próprio, sem se misturar a autoria em nenhum ponto do pipeline.
+
+40b. **A regra de papéis é por fonte, decidida pelo que a página de fato afirma.** Não existe mapeamento único aplicável aos cinco adapters: cada plataforma declara autoria e editora de um jeito, e forçar um padrão comum produziria afirmação falsa em pelo menos uma delas. O critério é o resultado agregado fazer sentido na ficha — nome no papel que a fonte declara, `null` no papel que ela não declara, nunca cópia de um campo no outro para "preencher".
+
+| fonte | o que a página expõe | `publisher_name` | `credits` |
+|---|---|---|---|
+| OPERA RPG | `"por Fulano · Descrição"` — só autoria | `null` | autor |
+| itch.io / Grimórios & Dados | um nome só: a conta que hospeda, que no modelo da plataforma **é** a publicadora | conta/studio | `null` |
+| OneBookShelf (DriveThruRPG, DMs Guild, StorytellersVault) | linhas separadas de `authors`, `artists` e `Editor/a` | editora | autor + artista |
+
+No itch.io, copiar a conta para `credits` faria a ficha exibir o mesmo nome duas vezes — uma sob "Editora", outra sob "Por" — sem acrescentar informação e afirmando autoria que a fonte não declara. Ambas as decisões estão travadas por teste (`não inventa autoria a partir do nome da conta publicadora`, `nunca grava o autor como se fosse a editora`), para que uma leitura futura não "corrija" o vazio duplicando o campo vizinho.
+
+40a. **Violação do requisito 40 encontrada na origem, corrigida nesta fase.** `operaRpgScraper` lia `"por Fulano · Descrição"` da listagem e gravava o nome em **`publisherName`**, afirmando que a pessoa era a *editora* do material. É autoria, e passa a ir para `authorsCredits`. O site não expõe editora em ponto algum dessa listagem, então `publisherName` agora é `null` explícito (requisito 38: dado ausente é melhor que dado inventado). Esta era a origem do descompasso da baseline — 87 de 103 com `publisher_name` preenchido e `credits` **zerado**: 77 desses vinham de `opera_rpg`, com o autor ocupando o campo da editora. Coberto por teste dedicado (`nunca grava o autor como se fosse a editora`).
 41. A correção é comprovada em beta: `count(credits)` sai de **zero** após reprocessamento. Se uma plataforma específica de fato não publica autoria, isso é registrado como constatação da fonte — não confundido com falha de extração.
 
 ### Parser: sistema e edição
 
 42. **Sintoma e causa.** `raw_system_hint` zerado nos 103 prova que `systemHint` não chega ao ingest — a falha é anterior ao matcher. Cinco scrapers (`driveThruRpgScraper`, `dmsGuildScraper`, `itchIoScraper`, `grimoriosEDadosScraper`, `operaRpgScraper`) **não emitem `systemHint` em nenhum ponto**; apenas o override do OneBookShelf o faz, lendo `details.get('ruleSystem')` — e o acervo não tem nenhum material dessa origem.
-43. Cada um dos cinco scrapers passa a extrair o sistema quando a fonte o expõe, a partir de fixture real da plataforma — não de suposição sobre o HTML dela.
+
+42a. **Correção ao requisito 42, apurada na Fase 2 (2026-07-26).** Os cinco não estão no mesmo estado. **Três têm parser real** (`operaRpgScraper`, `itchIoScraper`, `grimoriosEDadosScraper` — os dois últimos compartilhando `itchIoParser.ts`) e de fato deixam de emitir `systemHint` por omissão, que é o caso previsto no requisito 42. **Dois nunca tiveram parser algum:** `driveThruRpgScraper.ts` e `dmsGuildScraper.ts` delegam a `blockedSourceScraper.ts`, cuja função `attemptAllModesAndFail` retorna `Promise<never>` — tenta fetch simples, Patchright e Camoufox, e **lança em qualquer desfecho**, inclusive quando um modo passa (`"respondeu sem bloqueio ... mas nenhum parser de listagem foi implementado ainda"`). O que falta nesses dois **não** é o parser — ele existe e funciona (ver 43a) — e sim a **fiação** até ele, mais o acesso ao HTML (42b). Os 4 materiais de `dms_guild` na baseline não vieram deste caminho — vieram de importação manual por URL (`genericHtmlParser`), a única rota que alcança os `platformOverrides`.
+
+42b. **O bloqueio de OneBookShelf é atual, não histórico.** Verificado em 2026-07-26, `GET` com User-Agent de browser nas duas URLs de listagem: **403 em ambas** (`drivethrurpg.com/en/browse` e `dmsguild.com/browse`, ~5,7 KB de corpo de desafio). O WAF que a spec 084 registrou continua de pé. Consequência prática: mesmo com o parser pronto e comprovado (43a), essas duas fontes **não coletam em runtime** — o scraper roda na VM sem browser com sessão, e `attemptAllModesAndFail` lança antes de chegar a qualquer parsing. DOM exportado manualmente pelo mantenedor resolve o critério de **teste**, não a coleta automática: é por isso que o gargalo real dessas duas fontes é obter o HTML, não interpretá-lo.
+
+43. Cada um dos **três scrapers com parser** passa a extrair o sistema quando a fonte o expõe, a partir de fixture real da plataforma — não de suposição sobre o HTML dela. Para os dois de OneBookShelf, ver 43a.
+
+43a. **DriveThruRPG e DMs Guild: o parser já existe e funciona — o que falta é a fiação e o acesso.** Correção a uma leitura anterior desta própria spec, que supunha parser a escrever do zero. Validado em 2026-07-26 contra **quatro DOMs reais** exportados pelo mantenedor (as duas plataformas × grátis e pague-quanto-quiser), executando `applyOneBookShelfOverride` sem nenhuma linha nova: extraiu `systemHint` (`"Other unique systems"`, `"Inespecífico/Qualquer mundo"`), autoria (`"Thiago Gomes"`, `"Octavius Knorr, +4"`, `"Pedro H Ewald"`, `"Felix Klaus"`), artistas, formato, tamanho e método de criação nos quatro. O sinal de preço discriminou corretamente nos quatro casos: `pwyw_tag_present` nos dois PWYW, `zero_price_no_pwyw_tag` nos dois grátis — via `obs-product-format-pwyw-options`, marcador estrutural que o parser já usava, e não pelo texto "Pague quanto quiser" (presente em toda página, inclusive gratuita, portanto falso positivo). Confirma também que `price` do JSON-LD **não** serve como critério: nos PWYW ele traz o preço *sugerido* (`0.99`, `2`), não zero — filtrar por `price > 0` descartaria todo o acervo PWYW, que é gratuito legítimo.
+
+43b. **Consequência: o trabalho é de fiação, não de parsing.** `applyOneBookShelfOverride` só é alcançado por `genericHtmlParser` (importação manual por URL); `blockedSourceScraper` nunca o invoca. O gargalo real dessas duas fontes é **obter o HTML** — o 403 de 42b —, não interpretá-lo. Enquanto o bloqueio persistir, nenhuma métrica de T2.10 pode ser atribuída a essas plataformas e nenhuma conclusão de "extração corrigida" as inclui; a distinção entre *parser pronto*, *fiação feita* e *fonte coletando* fica explícita em qualquer registro de fechamento da fase.
+
+43c. **Dois defeitos reais do parser existente, achados na mesma validação — corrigidos nesta fase.** (i) `N/A` (en) e `N / D` (pt) eram preservados como **texto literal**: a loja escreve isso em vez de omitir a linha, e o valor chegava à ficha como se fosse categoria/artista real — afirmação falsa sobre a obra, o que o requisito 38 proíbe. Corrigido em `nullableText`, com âncora de string inteira para que nome legítimo que apenas *comece* assim (ex. "N/A Studios") seja preservado. (ii) `tags`/`sourceFilters` saíam **vazios em toda página em inglês**: `FILTER_FACETS` só listava os facets em português (`tipoDeProduto`, `edicao`, `cenario`, `conteudo`), e o DriveThruRPG serve `?genre=`/`?productType=`. Falha silenciosa — a linha `filters` existe e é encontrada, só nenhum href dela casava. Corrigido acrescentando os facets em inglês e o `tema` do DMs Guild, que também faltava. Efeito medido nos DOMs reais: DriveThruRPG saiu de `[]` para `["Modern","Core Rulebooks"]`; DMs Guild ganhou `Urbano`/`Região selvagem`. Ambos em `platformOverrides/onebookshelf.ts`, e ambos afetavam **também** a importação manual por URL — o caminho por onde os 4 materiais `dms_guild` do acervo entraram.
+
+43d. **Efeito colateral da correção (i), tratado junto.** Com `N / D` virando `null`, um tile cujo valor é ausente colapsa para um único parágrafo — e `extractTileMetadata` usava `paragraphs.at(-1)`, que passaria a devolver o próprio **rótulo** como valor ("Categoria" gravado no lugar da categoria). Corrigido exigindo duas posições distintas antes de aceitar o valor. Coberto por teste.
+
+43e. **Um terceiro defeito reportado inicialmente NÃO existe.** A primeira validação indicou `pageCount` falhando no DMs Guild; a causa era o arquivo ter sido lido como `latin1` na sondagem, corrompendo o rótulo "Número de páginas". Relido em UTF-8 — o encoding real dos DOMs —, `pageCount` resolve nas quatro páginas (38, 8, 67, 8). Registrado para que a suposição não seja reintroduzida como bug.
 44. Quando a fonte **não** expõe sistema de forma confiável, o scraper emite `null` explicitamente. Inventar hint a partir de título ou descrição é proibido: alimentaria o matcher com ruído e produziria vínculo errado, pior que vínculo ausente.
 45. Hint extraído que **não casa** contra o catálogo central preserva o texto bruto em `raw_system_hint` e abre entrada na fila de triagem admin — comportamento que `resolveSystemHint` já implementa e que hoje nunca é exercitado por falta de entrada.
 46. O matcher permanece **conservador**: igualdade exata normalizada contra nome/`name_pt`/aliases. Fuzzy continua reservado à triagem admin, onde um humano decide (decisão registrada na spec 086, T4.5). Esta spec corrige a alimentação, não afrouxa o casamento.
@@ -190,7 +221,15 @@ Fica claro também por que `publisher_name` é a exceção com 87: é um dos pou
 53. A resolução acontece **por item**, dentro do laço — não uma vez por execução como hoje.
 54. Hint que **não casa** contra a taxonomia preserva o valor bruto e abre triagem, no mesmo padrão de `raw_system_hint`: o material nunca perde a informação nem finge que ela não existe.
 55. Item sem hint ou com hint não resolvido cai num **default explícito**, e esse default deixa de ser "Aventura" — rotular como aventura um material não classificado é afirmação falsa. O default é um tipo neutro da taxonomia central, e o fato de ser default fica registrado, não confundido com classificação real.
+55a. **A taxonomia central estava praticamente vazia — bloqueio real, destravado por decisão do mantenedor (2026-07-27).** `catalog_material_types` tinha **um único registro**: `aventura` (seed da spec 086/migration 015, o mínimo para o backfill do que o Downloads já persistia). Isso impedia os requisitos 52/54/55 de qualquer forma: com vocabulário de um item, todo hint legítimo (`suplemento`, `cenário`, `ficha`, `mapa`, `regras`) cairia em não-casado e abriria triagem para 100% do acervo — e o "tipo neutro" que o requisito 55 exige como default **não existia**. O item "Criar tipos novos na taxonomia central" em *Fora de escopo* pressupunha uma taxonomia povoada, o que não era o caso. Decisão do mantenedor: semear, já que o acervo de beta é descartável e produção nasce vazia. Materializado em `apps/site/db/migrations/016`, com os seis slugs que o `CoverPlaceholder` (Fase 1) já desenha — não é vocabulário novo inventado, é a materialização do conjunto que a UI já assumia — mais `nao-classificado` como neutro. Aliases cobrem plural, grafia sem acento e o termo em inglês que as fontes estrangeiras usam.
+
+55b. **`raw_material_type_hint` (`migration_030`), simétrico ao `raw_system_hint`.** Sem essa coluna, o hint não-casado teria só dois destinos: ser descartado (perda silenciosa de dado que a fonte publicou) ou ser gravado no catálogo central pelo próprio scraper — o que violaria os requisitos 48/56, que reservam a escrita na taxonomia à triagem admin com humano decidindo. Índice parcial, porque a única consulta relevante é "liste o que precisa de triagem", que lê apenas as linhas preenchidas.
+
 56. Inventar tipo a partir de título ou descrição é proibido, pela mesma razão do hint de sistema: classificação errada contamina filtro e badge, e é pior que classificação ausente.
+
+56a. **Propagação por schema `.strict()` — armadilha encontrada e fechada.** `materialTypeHint` precisou ser declarado em **dois** schemas Zod `.strict()` (`genericHtmlParser.ts` e `routes/scraper.ts`): sem isso o campo seria **rejeitado**, não apenas ignorado, e o ingest cairia sempre no tipo neutro como se a fonte nunca tivesse publicado a classificação. É exatamente a armadilha que o comentário do `systemHint` já documentava na spec 086 ("o Zod removeria o campo em silêncio").
+
+56b. **Vereditos por fonte quanto ao hint de tipo.** OneBookShelf: **extrai**, do facet `tipoDeProduto`/`productType`, usando a folha do caminho. OPERA RPG: **a fonte não expõe** — a listagem tem só título, autoria e descrição; `null` explícito é o comportamento correto. itch.io / Grimórios & Dados: **adiado** por decisão do mantenedor (2026-07-27), por falta de DOM real da página de jogo — o parser atual lê apenas `og:image`, `og:description` e o link da conta, e escrever extração contra estrutura não observada violaria o requisito 43.
 57. A correção é comprovada por **reprocessamento real em beta**: a distribuição de `material_type` deixa de ser uma única linha com 100% do acervo.
 
 ### Acesso ao material em nova aba
@@ -231,13 +270,15 @@ A spec só está concluída quando **todos** os itens abaixo têm evidência rea
 
 1. `docker ps` na VM lista `downloads-app`, `downloads-api` e `downloads-db` como `Up ... (healthy)`.
 2. `docker volume ls` lista `downloads_pgdata_downloads_prod`, e `downloads-beta_pgdata_downloads_beta` continua existindo, intacto.
-3. `SELECT count(*) FROM schema_migrations` no banco de produção retorna **29**, idêntico ao beta.
+3. `SELECT count(*) FROM schema_migrations` no banco de produção retorna **30**, idêntico ao beta.
 4. As três `critical_routes` de produção retornam os códigos do Requisito 12, verificadas por `curl` contra o hostname público.
 5. Nenhuma rota pública responde 5xx.
 6. O run de `deploy.yml` em `--ref main` com `env=prod` conclui com `conclusion: success`.
 7. `origin/main` aponta para o mesmo commit que `origin/dev` apontava no momento da promoção, alcançado por fast-forward.
 8. Login real via `accounts.` conclui e a sessão é reconhecida pelo Downloads em produção.
-9. Suíte de testes do frontend e do backend do Downloads verde, incluindo os testes novos de canonical, placeholder de capa, ausência de eyebrow sem crédito e extração de `systemHint` por scraper.
+9. Suíte de testes do frontend e do backend do Downloads verde, incluindo os testes novos de canonical, placeholder de capa, ausência de eyebrow sem crédito, e a extração por scraper.
+
+   > **Precisão da Fase 2 (2026-07-27).** A redação original pedia "extração de `systemHint` por scraper", o que sugere os cinco. O veredito real, apurado contra o código e contra DOM real, é: **OneBookShelf extrai** (sistema, autoria e tipo — comprovado em 4 DOMs); **OPERA RPG não tem o que extrair** (a fonte não publica sistema nem tipo — `null` explícito é o comportamento correto, requisitos 44/56); **itch.io/Grimórios adiados** por decisão do mantenedor. O critério verificável é a suíte verde com os testes de extração que existem — não a presença de `systemHint` nos cinco adapters, que a própria spec proíbe fabricar.
 10. `pnpm run lint` e `pnpm run build` verdes.
 11. `pnpm verify:api` verde (a spec toca `apps/**`).
 12. `specs/backlog.md` e `.specify/memory/project-state.md` atualizados; débito residual da 087 fechado ou explicitamente reaberto com motivo.
@@ -274,7 +315,7 @@ A spec só está concluída quando **todos** os itens abaixo têm evidência rea
 
 ### Risco alto
 
-**Guard de migrations abortando o deploy (E012).** 29 pendências contra um limite de 5 fazem o deploy automático abortar com `Muitas migrations pendentes`. O rollback automático preserva o estado, sem dano — não é bug, é a proteção funcionando. Mitigação: aplicar as migrations manualmente **antes** de disparar o deploy, pelo script oficial, com `MAX_AUTO_PENDING=29` numa execução única. Depois disso o deploy encontra zero pendências e passa direto.
+**Guard de migrations abortando o deploy (E012).** 30 pendências contra um limite de 5 fazem o deploy automático abortar com `Muitas migrations pendentes`. O rollback automático preserva o estado, sem dano — não é bug, é a proteção funcionando. Mitigação: aplicar as migrations manualmente **antes** de disparar o deploy, pelo script oficial, com `MAX_AUTO_PENDING=30` numa execução única. Depois disso o deploy encontra zero pendências e passa direto.
 
 **Ausência de `.env` em produção derruba o boot.** Seis variáveis usam `:?` no compose e abortam o container se faltarem. Sem o `.env` posto na VM **antes** do deploy, `downloads-api` nem sobe e o 502 persiste — agora com container em crash loop em vez de container ausente. Mitigação: criar e conferir o `.env` como passo bloqueante anterior ao deploy, validando chave por chave contra o compose.
 
@@ -286,9 +327,9 @@ A spec só está concluída quando **todos** os itens abaixo têm evidência rea
 
 **Reprocessar scraper em beta pode duplicar material.** O dedupe é por `(source_platform, source_url)` e existe justamente para isso, mas um scraper alterado que mude a URL de origem escaparia da chave e criaria duplicata. Mitigação: conferir a contagem de materiais antes e depois do reprocessamento; crescimento inesperado indica dedupe furado, não sucesso de extração.
 
-**Drift de migrations por intervenção manual.** A aplicação manual das 29 é feita pelo script oficial justamente para registrar tudo em `schema_migrations` e não gerar drift. Qualquer `psql` avulso fora do script criaria divergência entre banco e disco, bloqueando o próximo deploy automático. Mitigação: script oficial sempre; se houver qualquer intervenção fora dele, reconciliar com `reconcile_migrations.sh --mark-applied` antes de considerar a fase fechada.
+**Drift de migrations por intervenção manual.** A aplicação manual das 30 é feita pelo script oficial justamente para registrar tudo em `schema_migrations` e não gerar drift. Qualquer `psql` avulso fora do script criaria divergência entre banco e disco, bloqueando o próximo deploy automático. Mitigação: script oficial sempre; se houver qualquer intervenção fora dele, reconciliar com `reconcile_migrations.sh --mark-applied` antes de considerar a fase fechada.
 
-**Clone de produção desatualizado.** `/opt/artificio` está 8 commits atrás e tem só 20 dos 29 arquivos de migration em disco. O deploy faz `git fetch/reset`, o que resolve — mas se a aplicação manual das migrations rodar **antes** do clone ser atualizado, ela só enxergaria 20 arquivos e aplicaria um schema incompleto, sem erro aparente. Mitigação: atualizar o clone de produção **antes** de contar ou aplicar migrations, e conferir que `ls apps/downloads/database/migration_*.sql | wc -l` retorna 29 na VM.
+**Clone de produção desatualizado.** `/opt/artificio` está 8 commits atrás e tem só 20 dos 30 arquivos de migration em disco. O deploy faz `git fetch/reset`, o que resolve — mas se a aplicação manual das migrations rodar **antes** do clone ser atualizado, ela só enxergaria 20 arquivos e aplicaria um schema incompleto, sem erro aparente. Mitigação: atualizar o clone de produção **antes** de contar ou aplicar migrations, e conferir que `ls apps/downloads/database/migration_*.sql | wc -l` retorna 30 na VM.
 
 **Dependência de `packages/ui` fora do `deploy_paths` do Downloads.** O manifesto declara `deploy_paths: ["apps/downloads"]`, sem `packages/ui`. Mudanças no Header compartilhado feitas na spec 087 chegam ao Downloads porque o build é do monorepo inteiro, mas **não** disparam deploy dos outros consumidores. O contrato é aditivo, então consumidores não migrados não quebram — mas mesas, glossário e site só recebem o Header novo no próprio deploy. Impacto benigno, registrado para não virar surpresa.
 

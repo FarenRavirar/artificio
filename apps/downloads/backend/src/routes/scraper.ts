@@ -155,6 +155,10 @@ const ingestItemSchema = z.object({
   // sem isto, o Zod removeria o campo em silêncio e Fase 4 nunca teria dado
   // pra resolver contra o catálogo nem preencher raw_system_hint.
   systemHint: z.string().max(200).nullable().optional(),
+  // Spec 088 (T2.9b): mesma cadeia de propagação, mesmo risco — sem declarar
+  // aqui, o Zod removeria o hint de tipo em silêncio e o ingest cairia sempre
+  // no tipo neutro, como se a fonte nunca tivesse publicado a classificação.
+  materialTypeHint: z.string().max(200).nullable().optional(),
   // credits é TEXT na migration: 10k por autoria/artista é limite explícito
   // de ingest em lote, sem impor largura inexistente ao campo persistido.
   authorsCredits: z.string().max(SCRAPER_CREDITS_MAX_LENGTH).nullable().optional(),

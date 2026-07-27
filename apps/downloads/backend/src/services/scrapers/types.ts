@@ -23,6 +23,16 @@ export interface ScrapedItem {
   // quando nao casa. 'scenario' continua so cenario de ambientacao (ex. "Forgotten
   // Realms"), nunca mais recebe sistema.
   systemHint?: string | null;
+  // Spec 088 (T2.9b, requisito 50) — hint de TIPO de material, mesmo desenho
+  // do systemHint: opcional, `null` explicito quando a fonte nao expoe.
+  // Antes deste campo a classificacao nunca existiu: `ScrapedItem` nao tinha
+  // como carregar tipo, e o ingest resolvia DEFAULT_MATERIAL_TYPE_SLUG uma
+  // vez por execucao e aplicava a todos os itens — 103 materiais rotulados
+  // "Aventura" sem ninguem ter classificado nenhum. Nao e regressao: e
+  // lacuna desde a origem do pipeline.
+  // Valor bruto da fonte, no vocabulario dela ("Core Rulebooks", "Regras
+  // basicas"); quem resolve contra a taxonomia central e o ingest.
+  materialTypeHint?: string | null;
   authorsCredits?: string | null;
   artistsCredits?: string | null;
   creationMethod?: string | null;

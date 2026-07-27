@@ -26,7 +26,7 @@ downloads-db       →  volume pgdata_downloads_prod                →  POSTGRE
 A sequência de execução é rígida porque cada passo é pré-requisito do seguinte, e inverter dois deles produz falhas silenciosas:
 
 ```
-1. Atualizar clone prod  ──►  disco passa a ter as 29 migrations
+1. Atualizar clone prod  ──►  disco passa a ter as 30 migrations
         │                     (sem isso, o passo 3 aplicaria só 20 e o schema
         │                      sairia incompleto SEM ERRO APARENTE)
         ▼
@@ -37,7 +37,7 @@ A sequência de execução é rígida porque cada passo é pré-requisito do seg
 3. Subir SÓ downloads-db ──►  volume criado, banco vazio, healthy
         │
         ▼
-4. pg_dump + aplicar 29  ──►  script oficial, MAX_AUTO_PENDING=29, execução única
+4. pg_dump + aplicar 30  ──►  script oficial, MAX_AUTO_PENDING=30, execução única
         │                     (fatiar em lotes é proibido: o script compara o
         │                      conjunto inteiro de uma vez)
         ▼
@@ -86,6 +86,8 @@ E o acervo inteiro veio do caminho automático:
 ```
 
 Zero materiais de OneBookShelf, a única plataforma com override rico. **Não é que a extração falhe — ela não é chamada nesse caminho.** `publisher_name` é a exceção com 87 justamente por ser um dos poucos campos que os adapters de descoberta já emitem sozinhos.
+
+> **Correção da Fase 2 (2026-07-27):** desses 87, **77 são autor gravado no campo da editora** — `operaRpgScraper` lia `"por Fulano"` e escrevia em `publisherName`. Não eram campos independentes: era autoria ocupando o lugar da editora, o que explica `credits` zerado ao lado de 87 publicantes. Corrigido (requisito 40a); no reprocessamento `com_publicante` deve CAIR e `com_credito` subir.
 
 Isso reorganiza a correção: em vez de três consertos independentes, é **um** conserto — fechar a assimetria entre os dois caminhos — com três campos como beneficiários. Onde a plataforma já tem override, a lógica é reaproveitada, não reescrita em paralelo: duas implementações do mesmo parsing divergem no primeiro ajuste.
 
@@ -138,6 +140,8 @@ Mesma família de falha do hint de sistema, um grau pior. Consulta em beta:
 A investigação do histórico mostra que **nunca funcionou**, e a evidência é estrutural, não anedótica: a interface `ScrapedItem`, contrato de saída de todo adapter, **não tem campo de tipo**. Tem `systemHint`, `scenario`, `sourceCategory`, `tags`, `sourceFilters`, `format`, `pageCount` — nada de tipo de material. A constante entrou junto com o pipeline (`ef9efd6`) e ficou.
 
 O agravante é que a peça que falta **já foi construída**. A spec 086, requisito 25, tirou `material_type` de texto livre e o transformou em taxonomia central com ID, slug, aliases e status — precisamente para acabar com "aventura"/"Aventura"/"aventuras" como valores distintos. E `getCatalogMaterialTypeBySlug` já resolve por slug **ou alias**, com normalização `pt-BR`. A infraestrutura de classificação está pronta, testada e nunca foi ligada ao scraper.
+
+> **Ressalva apurada na Fase 2 (2026-07-27):** a infraestrutura estava pronta, mas a taxonomia estava **praticamente vazia** — `catalog_material_types` tinha um único registro (`aventura`), e nenhum tipo neutro para servir de default. Ligar o scraper sem semear faria todo hint legítimo cair em não-casado. Resolvido em `apps/site/db/migrations/016` por decisão do mantenedor (ver `spec.md` 55a).
 
 Consequências que só se manifestam em produção: o filtro por tipo da spec 086 (requisito 23, endpoint de facetas) oferece uma única opção contendo todo o acervo — inútil; e o rótulo é uma afirmação falsa sobre 103 materiais.
 
@@ -308,7 +312,11 @@ Cada linha dessa tabela é uma aprovação **separada**. Autorizar o `.env` não
 
 **Subdomínio / DNS / tunnel:** **nenhuma mudança**. `downloads.artificiorpg.com` já resolve para o Cloudflare e o tunnel já tem ingress para o hostname — é precisamente por isso que a resposta é 502 (roteia, não encontra origem) e não erro de DNS. Nenhum registro é criado ou alterado, o que mantém esta spec fora da trava de aprovação de DNS de produção. Se o 502 persistir com containers saudáveis, aí sim existe problema de roteamento — e mexer no tunnel exigiria aprovação nominal própria, fora do escopo atual.
 
-**Schema de banco:** as 29 migrations são aplicadas a um banco **novo e vazio**. Nenhuma altera schema de outro módulo; todas vivem em `apps/downloads/database/` e o runner é escopado por `MIGRATIONS_DIR`. A `migration_029` é `online-safe` e idempotente. Nenhuma migration nova é escrita nesta spec.
+**Schema de banco:** as 30 migrations são aplicadas a um banco **novo e vazio**. Nenhuma altera schema de outro módulo; todas vivem em `apps/downloads/database/` e o runner é escopado por `MIGRATIONS_DIR`. A `migration_029` é `online-safe` e idempotente.
+
+> **Correção da Fase 2 (2026-07-27) — esta seção dizia "nenhuma migration nova é escrita nesta spec", e isso deixou de ser verdade.** A Fase 2 escreveu **duas**, ambas `online-safe` e idempotentes:
+> - `apps/downloads/database/migration_030_download_raw_material_type_hint.sql` — coluna `raw_material_type_hint`, simétrica a `raw_system_hint` (requisito 55b). É o que eleva a contagem do Downloads de 29 para 30 e obriga `MAX_AUTO_PENDING=30` na Fase 5.
+> - `apps/site/db/migrations/016_catalog_material_types_seed.sql` — semeia a taxonomia central (requisito 55a). **Fica no banco do Site, não no do Downloads**, portanto **não** entra na contagem das 30 nem no runner do Downloads. Vai pela esteira própria do site (migração no entrypoint do container, ver `AGENTS.md` §Migrations item 7), o que significa que a Fase 5 **não** a aplica — se ela não estiver aplicada no Site, o ingest do Downloads falha com `catalog_material_type_not_found: nao-classificado`.
 
 **API:** nenhuma rota criada, removida ou alterada. `pnpm verify:api` roda por obrigação de path (`apps/**`), não porque o contrato muda.
 
@@ -341,6 +349,10 @@ O contrato é **aditivo** — `hasEmbeddedSearch` só liga com `showSearch && on
 **O que torna todo o rollback barato:** produção nasce vazia. Não há dado de usuário em risco em nenhum passo. O pior cenário realista é voltar ao 502 de hoje.
 
 **O que não tem rollback:** o `promote` de `main`. Fast-forward de `dev` para `main` é apenas movimento de ponteiro e não dispara deploy — reverter exigiria `push --force` em `main`, que é proibido. Mitigação: promover só com o código já validado verde em beta, que é o caso.
+
+> **Ressalva da Fase 3 (2026-07-27) — a mitigação vale integralmente para as Fases 0 e 1, não para a 2.** "Validado verde em beta" descreve o código já mergeado pela PR #217, que rodou em beta. O trabalho da **Fase 2 (parser, taxonomia, migrations `030` e `016`) ainda NÃO foi exercitado em beta**: T2.10 (reprocessar o scraper e comparar contra a baseline) está bloqueada por depender de aplicar as migrations e disparar o scraper, ambos escrita em ambiente. O que existe hoje é validação **local** completa — 331 testes de backend, 255 de frontend, lint, build e `verify:api`, todos verdes.
+>
+> Consequência prática para a ordem das fases: promover `main` antes de T2.10 significaria levar para `main` código de scraper que nunca processou um item real. Isso não quebra produção — produção nasce vazia e o scraper não roda no cutover —, mas desfaz a premissa desta mitigação. **Decisão do mantenedor:** ou T2.10 roda em beta antes da promoção, ou a promoção acontece assumindo explicitamente que a Fase 2 vai a `main` validada só localmente.
 
 ## Validação (como provo que funciona)
 

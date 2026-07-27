@@ -71,6 +71,10 @@ export interface DownloadMaterialTable {
   // do apps/mesas). Material nunca perde essa informacao; limpo quando uma
   // download_system_suggestion e aprovada ou uma re-tentativa de match casa.
   raw_system_hint: string | null;
+  // Spec 088 (migration_030) — simetrico ao raw_system_hint: texto bruto do
+  // TIPO quando o hint da fonte nao casa contra a taxonomia central. Alimenta
+  // a triagem admin; escrever no catalogo continua exclusivo dela.
+  raw_material_type_hint: string | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }

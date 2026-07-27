@@ -55,14 +55,23 @@ function parseSection(html: string): ParsedDownloadItem[] {
 }
 
 // Formato confirmado: "por Autor · Descrição" ou "por Autor · Descrição · mais texto".
-function splitAuthorAndDescription(raw: string): { publisherName: string | null; description: string | null } {
+//
+// Spec 088 (requisito 40) — o valor após "por" é AUTORIA, e vai para
+// `authorsCredits`. Antes desta correção ia para `publisherName`, o que
+// afirmava que a pessoa era a EDITORA do material. São papéis distintos:
+// editora é quem publicou, autoria é quem escreveu — um nunca é fallback do
+// outro. O site não expõe editora em lugar nenhum desta listagem, então
+// `publisherName` fica `null` explícito (requisito 38: dado ausente é melhor
+// que dado inventado). Era a origem de 77 dos 103 `publisher_name`
+// preenchidos no acervo de beta, com `credits` zerado.
+function splitAuthorAndDescription(raw: string): { authorsCredits: string | null; description: string | null } {
   const authorMatch = /^por\s+([^·]+)·?\s*(.*)$/.exec(raw.trim());
   if (!authorMatch) {
-    return { publisherName: null, description: raw.trim() || null };
+    return { authorsCredits: null, description: raw.trim() || null };
   }
-  const publisherName = authorMatch[1].trim() || null;
+  const authorsCredits = authorMatch[1].trim() || null;
   const description = authorMatch[2].trim() || null;
-  return { publisherName, description };
+  return { authorsCredits, description };
 }
 
 export class OperaRpgScraper implements ScraperAdapter {
@@ -84,7 +93,7 @@ export class OperaRpgScraper implements ScraperAdapter {
         if (seenUrls.has(item.url)) continue;
         seenUrls.add(item.url);
 
-        const { publisherName, description } = splitAuthorAndDescription(item.authorAndDescription);
+        const { authorsCredits, description } = splitAuthorAndDescription(item.authorAndDescription);
 
         yield {
           sourceUrl: item.url,
@@ -96,7 +105,11 @@ export class OperaRpgScraper implements ScraperAdapter {
           // explicita. Pipeline (Fase 4) ainda valida antes de publicar.
           isFreeOrPwyw: true,
           coverImageUrl: null,
-          publisherName,
+          // Requisito 40 — a listagem do OPERA RPG não expõe editora em
+          // ponto algum; só autoria ("por Fulano"). `null` explícito em vez
+          // de reaproveitar o autor como se fosse a editora.
+          publisherName: null,
+          authorsCredits,
           // Site 100% pt-BR confirmado na pesquisa (spec.md), mas sem
           // metadado nativo por item — deixa null pro languageDetector
           // decidir por titulo/descricao (Fase 4), nao assume cegamente.

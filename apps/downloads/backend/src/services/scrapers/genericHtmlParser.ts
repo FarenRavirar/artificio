@@ -96,6 +96,10 @@ export const genericParsePreviewSchema = z
     scenario: z.string().nullable().optional(),
     // Spec 086 (Fase 4) — ver comentário em routes/scraper.ts ingestItemSchema.
     systemHint: z.string().nullable().optional(),
+    // Spec 088 (T2.9b) — schema é `.strict()`: sem declarar aqui, o hint de
+    // tipo produzido pelo override seria REJEITADO (não apenas ignorado) na
+    // importação manual por URL.
+    materialTypeHint: z.string().nullable().optional(),
     authorsCredits: z.string().nullable().optional(),
     artistsCredits: z.string().nullable().optional(),
     creationMethod: z.string().nullable().optional(),

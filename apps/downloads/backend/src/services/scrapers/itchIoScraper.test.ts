@@ -99,6 +99,29 @@ describe('ItchIoScraper', () => {
     expect(camoufoxFetchMock).not.toHaveBeenCalled();
   });
 
+  // Spec 088 (requisitos 38/40) — cada fonte declara papéis do seu jeito, e a
+  // regra segue o que a página de fato afirma. O itch.io expõe um nome só: a
+  // conta que hospeda o jogo, que no modelo da plataforma É a publicadora.
+  // Copiá-lo para `authorsCredits` faria a ficha repetir o mesmo nome sob
+  // "Editora" e "Por", sem informar nada, e afirmaria uma autoria que a fonte
+  // não declara. Contraste deliberado com o OPERA RPG, onde a listagem escreve
+  // "por Fulano" e portanto o valor é autoria, não editora.
+  it('não inventa autoria a partir do nome da conta publicadora', async () => {
+    fetchSimpleMock
+      .mockResolvedValueOnce({ html: LISTING_HTML_FIXTURE, status: 200 })
+      .mockResolvedValueOnce({ html: PWYW_GAME_HTML_FIXTURE, status: 200 })
+      .mockResolvedValueOnce({ html: PAID_GAME_HTML_FIXTURE, status: 200 });
+
+    const items = [];
+    for await (const item of new ItchIoScraper().discoverItems()) {
+      items.push(item);
+    }
+
+    expect(items[0].publisherName).toBe('Twist And Scream');
+    expect(items[0].authorsCredits ?? null).toBeNull();
+    expect(items[0].artistsCredits ?? null).toBeNull();
+  });
+
   it('escalona pra patchright quando Modo 1 da listagem e bloqueado (403)', async () => {
     fetchSimpleMock.mockResolvedValueOnce({ html: '', status: 403 });
     patchrightFetchMock.mockResolvedValueOnce({ html: LISTING_HTML_FIXTURE, status: 200 });
