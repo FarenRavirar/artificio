@@ -605,7 +605,7 @@
       "method": "GET",
       "path": "/api/v1/destinations/:id",
       "sourceFile": "apps/downloads/backend/src/routes/destinations.ts",
-      "line": 10,
+      "line": 18,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -614,7 +614,7 @@
       "method": "POST",
       "path": "/api/v1/downloads",
       "sourceFile": "apps/downloads/backend/src/routes/downloads.ts",
-      "line": 18,
+      "line": 19,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -911,7 +911,7 @@
       "method": "PUT",
       "path": "/api/v1/ratings",
       "sourceFile": "apps/downloads/backend/src/routes/ratings.ts",
-      "line": 39,
+      "line": 57,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -929,7 +929,7 @@
       "method": "GET",
       "path": "/api/v1/ratings/:materialId",
       "sourceFile": "apps/downloads/backend/src/routes/ratings.ts",
-      "line": 28,
+      "line": 40,
       "confidence": "high",
       "kind": "express-route"
     },

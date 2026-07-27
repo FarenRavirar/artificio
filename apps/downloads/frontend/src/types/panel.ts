@@ -59,12 +59,17 @@ export const materialVersionSchema = z.object({
 });
 export type MaterialVersion = z.infer<typeof materialVersionSchema>;
 
+// Spec 088 — `user_id` saiu do contrato: a rota publica de avaliacoes nunca o
+// devolveu, entao o schema exigia um campo inexistente e o `.parse()` LANCAVA
+// em toda resposta com avaliacao real (a lista so "funcionava" quando vinha
+// vazia). No lugar dele, `is_mine` — o backend compara internamente e publica
+// so o booleano, sem expor identificador de conta em endpoint publico.
 export const ratingSchema = z.object({
   id: z.string(),
   material_id: z.string(),
-  user_id: z.string(),
   score: z.number(),
   comment: z.string().nullable(),
   created_at: z.string(),
+  is_mine: z.boolean().optional(),
 });
 export type Rating = z.infer<typeof ratingSchema>;

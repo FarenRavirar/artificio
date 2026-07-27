@@ -254,7 +254,12 @@ describe('MaterialPage - acesso ao material', () => {
     );
   });
 
-  it('registra o download quando ha usuario logado', () => {
+  // Spec 088 — o registro NAO acontece mais no clique: `onClick` so dispara no
+  // clique primario, entao botao do meio e "Abrir em nova aba" perderiam a
+  // metrica e deixariam o usuario inelegivel pra avaliar. Quem registra agora
+  // e a rota `/ir/:destinationId` no backend, que toda abertura atravessa
+  // (coberto em `routes/destinations.test.ts`).
+  it('nao registra download no clique — quem registra e a rota de destino', () => {
     const mutate = vi.fn();
     vi.spyOn(useRegisterDownloadModule, 'useRegisterDownload').mockReturnValue({
       mutate,
@@ -268,7 +273,7 @@ describe('MaterialPage - acesso ao material', () => {
 
     fireEvent.click(screen.getByRole('link', { name: 'Acessar material' }));
 
-    expect(mutate).toHaveBeenCalledWith('material-1');
+    expect(mutate).not.toHaveBeenCalled();
   });
 
   it('material sem destino segue mostrando aviso, sem link clicavel', () => {

@@ -18,7 +18,7 @@ function makeRating(overrides: Partial<Rating> = {}): Rating {
   return {
     id: 'rating-1',
     material_id: 'material-1',
-    user_id: 'user-1',
+    is_mine: false,
     score: 3,
     comment: null,
     created_at: '2026-07-01T00:00:00.000Z',
@@ -151,7 +151,7 @@ describe('RatingSection', () => {
   // a pessoa ja enviou, pra ela reavaliar a partir do que escolheu.
   it('reflete a nota ja enviada pelo usuario ao carregar', () => {
     mockSession({ id: 'user-1' });
-    mockRatings([makeRating({ user_id: 'user-1', score: 2 })]);
+    mockRatings([makeRating({ is_mine: true, score: 2 })]);
     mockSubmit();
 
     renderSection();
@@ -159,14 +159,98 @@ describe('RatingSection', () => {
     expect(screen.getByRole('radio', { name: '2 de 5 estrelas' })).toHaveAttribute('aria-checked', 'true');
   });
 
+  // O backend marca `is_mine` comparando internamente — `user_id` nao e
+  // exposto nesta rota publica, pra nao permitir correlacionar a atividade de
+  // uma conta entre materiais.
   it('ignora avaliacao de outra conta ao preencher o controle', () => {
     mockSession({ id: 'user-1' });
-    mockRatings([makeRating({ id: 'rating-2', user_id: 'outro-usuario', score: 1 })]);
+    mockRatings([makeRating({ id: 'rating-2', is_mine: false, score: 1 })]);
     mockSubmit();
 
     renderSection();
 
     expect(screen.getByRole('radio', { name: '1 de 5 estrelas' })).toHaveAttribute('aria-checked', 'false');
+  });
+
+  // Padrao WAI-ARIA de radiogroup. Anunciar `role="radio"` sem implementar o
+  // comportamento seria pior que nao anunciar: o leitor de tela promete radio
+  // e entrega botao.
+  it('grupo inteiro e UMA parada de Tab (roving tabIndex)', () => {
+    mockSession();
+    mockRatings();
+    mockSubmit();
+
+    renderSection();
+
+    const stars = screen.getAllByRole('radio');
+    const tabbable = stars.filter((star) => star.getAttribute('tabindex') === '0');
+    // Cinco paradas de Tab seriam regressao em relacao ao `<select>`.
+    expect(tabbable).toHaveLength(1);
+    expect(tabbable[0]).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('setas trocam a selecao e movem o foco', () => {
+    mockSession();
+    mockRatings();
+    mockSubmit();
+
+    renderSection();
+
+    const group = screen.getByRole('radiogroup');
+    fireEvent.keyDown(group, { key: 'ArrowLeft' });
+
+    const fourth = screen.getByRole('radio', { name: '4 de 5 estrelas' });
+    expect(fourth).toHaveAttribute('aria-checked', 'true');
+    expect(fourth).toHaveFocus();
+
+    fireEvent.keyDown(group, { key: 'ArrowRight' });
+    expect(screen.getByRole('radio', { name: '5 de 5 estrelas' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('setas dao wrap nos extremos', () => {
+    mockSession();
+    mockRatings();
+    mockSubmit();
+
+    renderSection();
+
+    const group = screen.getByRole('radiogroup');
+    // Comeca em 5 (default); avancar volta pro 1.
+    fireEvent.keyDown(group, { key: 'ArrowRight' });
+    expect(screen.getByRole('radio', { name: '1 de 5 estrelas' })).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.keyDown(group, { key: 'ArrowLeft' });
+    expect(screen.getByRole('radio', { name: '5 de 5 estrelas' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('Home e End vao aos extremos', () => {
+    mockSession();
+    mockRatings();
+    mockSubmit();
+
+    renderSection();
+
+    const group = screen.getByRole('radiogroup');
+    fireEvent.keyDown(group, { key: 'Home' });
+    expect(screen.getByRole('radio', { name: '1 de 5 estrelas' })).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.keyDown(group, { key: 'End' });
+    expect(screen.getByRole('radio', { name: '5 de 5 estrelas' })).toHaveAttribute('aria-checked', 'true');
+  });
+
+  it('envia a nota escolhida por teclado', async () => {
+    mockSession();
+    mockRatings();
+    const mutateAsync = mockSubmit();
+
+    renderSection();
+
+    fireEvent.keyDown(screen.getByRole('radiogroup'), { key: 'Home' });
+    fireEvent.click(screen.getByRole('button', { name: 'Avaliar' }));
+
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledWith({ score: 1 });
+    });
   });
 
   it('envia a nota escolhida', async () => {

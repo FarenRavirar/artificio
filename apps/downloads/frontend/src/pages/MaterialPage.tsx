@@ -10,7 +10,6 @@ import { RatingSection } from '../components/RatingSection';
 import { SystemChainBadge } from '../components/SystemChainBadge';
 import { useMaterial } from '../hooks/useMaterial';
 import { useMaterialMetadata } from '../hooks/useMaterialMetadata';
-import { useRegisterDownload } from '../hooks/useRegisterDownload';
 import { useAddFavorite, useRemoveFavorite, useFavorites } from '../hooks/useFavorites';
 
 function Tile({ icon, label, value }: Readonly<{ icon: React.ReactNode; label: string; value: string }>) {
@@ -43,7 +42,6 @@ export function MaterialPage() {
   const { user } = useSession();
   const { data: material, isLoading, isError } = useMaterial(materialSlug);
   const { data: metadata } = useMaterialMetadata(material?.id);
-  const registerDownload = useRegisterDownload();
   const favoritesQuery = useFavorites();
   const addFavorite = useAddFavorite();
   const removeFavorite = useRemoveFavorite();
@@ -73,22 +71,25 @@ export function MaterialPage() {
 
   const isFavorite = favoritesQuery.data?.some((favorite) => favorite.id === material.id) ?? false;
 
-  // Spec 088 (T1.11) — o handler PERDEU o `navigate` final, mas mantem
-  // integralmente a instrumentacao de funil: trocar o elemento nao pode custar
-  // a metrica. A navegacao agora e nativa (ancora), disparada pelo proprio
-  // clique — ver T1.9 no JSX.
+  // Spec 088 (T1.11) — o handler perdeu o `navigate` final (a navegacao agora
+  // e nativa, ver T1.9 no JSX) e tambem o registro de download.
+  //
+  // O REGISTRO migrou pro backend, na resolucao de `/ir/:destinationId`. Razao:
+  // `onClick` so dispara no clique primario — botao do meio, `Ctrl+clique` e
+  // "Abrir em nova aba" seguem o `href` sem passar por aqui. Registrar no
+  // handler perderia metrica nesses fluxos e deixaria o usuario inelegivel pra
+  // avaliar (o guard exige download registrado). A rota de destino e o unico
+  // ponto que toda abertura atravessa.
+  //
+  // `trackEvent` FICA no clique: e telemetria de front (contexto de UI, sessao
+  // de analytics) e mede intencao no CTA, nao o acesso consumado — que o
+  // backend agora contabiliza de forma autoritativa.
   const handleAccess = () => {
-    // Criterio de aceite 3: evento de funil dispara ANTES do redirecionamento;
     trackEvent('download_cta_click', {
       material_id: material.id,
       material_slug: material.slug,
       material_type: material.material_type,
     });
-    // T3.1/T3.2 (spec 074) — registra download (dedup por conta no backend)
-    // se logado; se nao, backend responde 401 e so o redirect acontece.
-    if (user) {
-      registerDownload.mutate(material.id);
-    }
   };
 
   const handleToggleFavorite = () => {

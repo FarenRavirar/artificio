@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
+import { registerMaterialDownload } from '../services/downloadRegistry';
 
 const router = Router();
 
@@ -32,29 +33,12 @@ router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Res
     return res.status(404).json({ error: 'Material não encontrado.' });
   }
 
-  const inserted = await db
-    .insertInto('download_user_material_download')
-    .values({ user_id: req.user!.userId, material_id: material.id })
-    .onConflict((oc) => oc.columns(['user_id', 'material_id']).doNothing())
-    .returning('user_id')
-    .executeTakeFirst();
+  // Spec 088 — logica movida pra `services/downloadRegistry.ts`: a resolucao
+  // de destino tambem precisa registrar (ancora nativa nao dispara `onClick`
+  // em botao do meio / "Abrir em nova aba"), e duas copias divergiriam.
+  const { countedNow } = await registerMaterialDownload(req.user!.userId, material.id);
 
-  const isFirstDownload = Boolean(inserted);
-
-  if (isFirstDownload) {
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-
-    await db
-      .insertInto('download_metric_daily')
-      .values({ material_id: material.id, metric_date: today, download_count: 1 })
-      .onConflict((oc) => oc.columns(['material_id', 'metric_date']).doUpdateSet((eb) => ({
-        download_count: eb('download_metric_daily.download_count', '+', 1),
-      })))
-      .execute();
-  }
-
-  return res.status(200).json({ already_counted: !isFirstDownload });
+  return res.status(200).json({ already_counted: !countedNow });
 });
 
 export default router;
