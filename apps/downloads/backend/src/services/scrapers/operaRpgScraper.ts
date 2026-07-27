@@ -1,6 +1,7 @@
 import { fetchSimple, looksBlocked } from './httpFetch';
 import { ScraperRateLimiter } from '../scraperRateLimiter';
 import type { ScraperAdapter, ScrapedItem } from './types';
+import { normalizeScrapedItemPlainText } from './plainTextPolicy';
 
 // T3.2 (spec 084) — OPERA RPG: dominio proprio pequeno, PDFs hospedados em
 // arquivos.operarpg.com.br (subdominio proprio, nao Google Drive/Mediafire),
@@ -95,7 +96,7 @@ export class OperaRpgScraper implements ScraperAdapter {
 
         const { authorsCredits, description } = splitAuthorAndDescription(item.authorAndDescription);
 
-        yield {
+        yield normalizeScrapedItemPlainText({
           sourceUrl: item.url,
           title: item.title.trim(),
           description,
@@ -114,7 +115,12 @@ export class OperaRpgScraper implements ScraperAdapter {
           // metadado nativo por item — deixa null pro languageDetector
           // decidir por titulo/descricao (Fase 4), nao assume cegamente.
           sourceLanguageHint: null,
-        };
+          // Spec 089 T0.5: diagnóstico da Fase 0 ainda não autoriza
+          // extração. `null` explícito distingue fonte avaliada de campo
+          // esquecido; a Fase 3 preencherá só conforme fixtures reais.
+          systemHint: null,
+          materialTypeHint: null,
+        });
       }
     }
   }

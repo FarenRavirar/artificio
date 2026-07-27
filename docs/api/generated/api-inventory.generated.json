@@ -389,7 +389,7 @@
       "method": "POST",
       "path": "/api/v1/admin/scraper/ingest",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 226,
+      "line": 229,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -398,7 +398,7 @@
       "method": "POST",
       "path": "/api/v1/admin/scraper/parse-html",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 312,
+      "line": 322,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -407,7 +407,7 @@
       "method": "GET",
       "path": "/api/v1/admin/scraper/platforms",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 409,
+      "line": 419,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -416,7 +416,7 @@
       "method": "POST",
       "path": "/api/v1/admin/scraper/platforms",
       "sourceFile": "apps/downloads/backend/src/routes/scraper.ts",
-      "line": 419,
+      "line": 429,
       "confidence": "high",
       "kind": "express-route"
     },

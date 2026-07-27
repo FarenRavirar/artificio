@@ -471,6 +471,7 @@ a nada. Sem mudar o contrato, "esqueci de extrair" e "a fonte não tem" ficam in
 7b. Seção de origem heterogênea **não** recebe tipo global. No OPERA, `/aventuras` e `/cenarios` são homogêneas, mas `/regras/`, `/personagens` e `/outros` reúnem naturezas diferentes: descem à subseção ou ficam `null`.
 7c. `sourceCategory`, `tags` e `materialTypeHint` são campos distintos e não viram sinônimos. O alvo válido é só a taxonomia do catálogo (`016_catalog_material_types_seed.sql`): Aventura, Suplemento, Cenário, Ficha, Mapa, Regras, Não classificado.
 7d. As rotas de seção do OPERA são validadas contra o site real antes da extração. Rota morta significa seção nunca coletada — e o OPERA é 118 dos 141 materiais.
+7e. `Multi-sistema` é um sistema válido da taxonomia e pode ocupar `systemHint`; não significa ausência de sistema. Decisão do mantenedor em 2026-07-27. Na origem OPERA, item explicitamente multi-sistema recebe esse hint; os demais recebem `OPERA RPG` quando a origem sustenta compatibilidade.
 8. `detectPortuguese` decide com confiança sobre os textos do `itch_io`, ou a causa da indecisão é identificada e corrigida.
 9. A evidência da detecção de idioma é persistida no material criado pelo scraper (`detected_language`, `language_confident`, `language_checked_at` — colunas já existentes), hoje gravada só no log do item. `download_material_metadata.language` **continua `'pt'`**: aceita exclusivamente esse valor por regra pétrea D119 (`CHECK` na migration 022), e é a marca do catálogo, não o resultado da detecção.
 10. Existe **política exaustiva por semântica** dos campos de `ScrapedItem` — `plainText`, `url`, `richHtml`, `opaque` — de modo que campo novo **quebre a compilação** até ser classificado (via `satisfies Record<keyof ScrapedItem, Policy>` ou equivalente). Só `plainText` é decodificado.
@@ -533,7 +534,8 @@ a nada. Sem mudar o contrato, "esqueci de extrair" e "a fonte não tem" ficam in
 39. O fluxo do autor é guiado por **checklist por material derivado dos dados reais**, não por tour modal nem wizard rígido: o fluxo é interrompível e não linear, e o autor sai e retoma sem perder progresso. Cobre criação curta (título e tipo, slug automático), enriquecimento (descrição e créditos, sistema, capa, destino), prévia, envio para revisão, e pós-publicação com link público, comentários, avaliações e downloads. Estado persistente inclui rejeitado **com motivo**.
 39a. A validação de usabilidade é por **cenário executado**, não por checklist conferido: primeira publicação, abandonar e retomar, corrigir rejeição, acompanhar publicação, moderar comentário. Cada achado registra evidência, heurística, severidade e correção. Acessibilidade verificada junto (WCAG 2.2): navegação só por teclado, foco visível e não encoberto, erro associado ao campo e descrito em texto, mudança de estado anunciada. Eficácia, eficiência e satisfação medidas (ISO 9241-11).
 40. Cada fonte tem endpoint validado quanto à **elegibilidade semântica**: devolve material de RPG de mesa, não videogame nem outro tipo de projeto.
-41. O `itch_io` coleta de rota de RPG de mesa, verificada em DOM real antes da troca.
+40a. Fonte parcial aplica corte conservador **por produto**: itch.io exige `Category=Physical game` e `Genre=Role Playing` ou tag inequívoca `ttrpg`/`rpg-de-mesa`. Card game, board game, wargame ou produto sem sinal inequívoco não entra; título e descrição não servem de chute.
+41. O `itch_io` coleta de `https://itch.io/physical-games/genre-rpg/lang-pt-BR`, rota verificada em DOM real antes da troca.
 42. Material cuja página está em inglês **não entra**, mesmo com tradução portuguesa declarada pela fonte (decisão do mantenedor sobre o defeito 3b).
 43. Nenhuma fonte confia em filtro de URL como prova de idioma: o texto real é verificado, sem bypass por `sourceLanguageHint`. Sinal da fonte **nunca aprova, só pode rejeitar** — vale para todos os caminhos (adapter, `<html lang>` do parser genérico, e `/ingest` direto), não só o `itch_io`.
 43a. O código de idioma é **ISO 639-3** em todo o pipeline de detecção e log. Hoje `franc-min` devolve 639-3 (`por`) e o desempate DeepSeek devolve 639-1 (`pt`) — a mesma língua grava com dois códigos.
@@ -571,7 +573,7 @@ Verificados na interface do catálogo de beta, com o acervo recoletado:
 - **Nenhum card exibe "Editora Editora"** ou duplicação equivalente no label.
 - **Formulário de novo material não exibe campo de slug**, e o material criado recebe slug derivado do título.
 - **`<select>` de tipo de material legível nos dois temas** — verificado no tema escuro, que é onde o defeito aparece.
-- **Nav exibe `Catálogo` e `Perfil`**, e `Perfil` leva à página existente.
+- **Nav principal exibe só `Catálogo`**: sai o `Início` duplicado e não entra `Perfil`, que já tem caminho próprio no painel e não representa perfil público de criador.
 - **O autor vê e responde, pelo painel, comentário recebido no próprio material.**
 - **Comentário de autor do material, moderador ou admin exibe o papel**; usuário comum não recebe rótulo.
 - **Admin edita material alheio e retira comentário pela UI**, sem chamada manual à API.

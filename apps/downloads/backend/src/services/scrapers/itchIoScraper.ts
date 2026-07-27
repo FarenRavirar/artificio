@@ -12,7 +12,7 @@ import type { ScraperAdapter, ScrapedItem } from './types';
 // `<span class="sub">Name your own price</span>` ou preco fixo em
 // `bundle_row`/`header_buy_row` — qualquer coisa que nao seja "grátis"
 // inequivoco fica ambigua e e pulada, nunca assumida).
-const LISTING_URL = 'https://itch.io/games/genre-rpg/lang-pt-BR';
+const LISTING_URL = 'https://itch.io/physical-games/genre-rpg/lang-pt-BR';
 
 export class ItchIoScraper implements ScraperAdapter {
   sourcePlatform = 'itch_io';

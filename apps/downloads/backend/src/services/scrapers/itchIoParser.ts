@@ -3,6 +3,7 @@ import { PatchrightEngine } from '../headlessEngine/patchrightClient';
 import { CamoufoxEngine } from '../headlessEngine/camoufoxClient';
 import { ScraperRateLimiter } from '../scraperRateLimiter';
 import type { ScrapedItem } from './types';
+import { normalizeScrapedItemPlainText } from './plainTextPolicy';
 
 // Parsing compartilhado entre ItchIoScraper (T3.1) e GrimoriosEDadosScraper
 // (T3.2, storefront de dev dentro do mesmo dominio itch.io) — mesmo motor de
@@ -29,6 +30,8 @@ const AUTHOR_LINK_RE = /<a href="https:\/\/[a-z0-9.-]+\.itch\.io"[^>]*>([^<]*)</
 const NAME_YOUR_PRICE_RE = /Name your own price/;
 const BUNDLE_ROW_RE = /class="bundle_row"/;
 const HEADER_BUY_ROW_RE = /class="header_buy_row"/;
+const PHYSICAL_GAME_CATEGORY_RE = /href="https:\/\/itch\.io\/physical-games"[^>]*>Physical game<\/a>/i;
+const TABLETOP_RPG_SIGNAL_RE = /href="https:\/\/itch\.io\/(?:games\/genre-rpg|physical-games\/tag-(?:ttrpg|rpg-de-mesa))"/i;
 
 export async function fetchItchPageHtml(url: string, rateLimiter: ScraperRateLimiter): Promise<string> {
   const simple = await fetchSimple(url);
@@ -85,6 +88,14 @@ export function parseItchIsFreeOrPwyw(gameHtml: string): boolean | null {
   return null;
 }
 
+// Spec 089 T0.1a/T0.1e — o endpoint físico ainda mistura cards, wargames e
+// outros projetos. Só a URL da listagem não basta: cada produto precisa
+// declarar Category=Physical game e um sinal inequívoco de RPG de mesa.
+// Ausência/ambiguidade falha fechado; não inferimos pelo título/descrição.
+export function parseItchIsTabletopRpg(gameHtml: string): boolean {
+  return PHYSICAL_GAME_CATEGORY_RE.test(gameHtml) && TABLETOP_RPG_SIGNAL_RE.test(gameHtml);
+}
+
 // Spec 088 (requisito 40) — o itch.io expõe UM nome só: a conta que hospeda
 // o jogo (`<a href="https://<dev>.itch.io">Nome</a>`). Diferente do OPERA RPG
 // (que escreve "por Fulano", autoria explícita) e do OneBookShelf (que tem
@@ -126,13 +137,13 @@ export async function* discoverItchGames(
     }
 
     const isFreeOrPwyw = parseItchIsFreeOrPwyw(gameHtml);
-    if (isFreeOrPwyw !== true) {
+    if (isFreeOrPwyw !== true || !parseItchIsTabletopRpg(gameHtml)) {
       continue;
     }
 
     const detail = parseItchGameDetail(gameHtml);
 
-    yield {
+    yield normalizeScrapedItemPlainText({
       sourceUrl: game.url,
       title: game.title,
       description: detail.description,
@@ -146,6 +157,11 @@ export async function* discoverItchGames(
       authorsCredits: null,
       artistsCredits: null,
       sourceLanguageHint,
-    };
+      // Spec 089 T0.5: o contrato interno exige veredito explícito. A Fase
+      // 0 observou Category/Genre/Tags no produto real, mas nenhuma regra de
+      // extração entra antes da política da Fase 3.
+      systemHint: null,
+      materialTypeHint: null,
+    });
   }
 }

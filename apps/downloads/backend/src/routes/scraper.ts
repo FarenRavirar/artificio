@@ -4,7 +4,7 @@ import { db } from '../db';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
 import { runScraperIngest } from '../services/scraperIngest';
-import { richHtmlToPlainText, sanitizeRichHtml } from '../services/sanitizeRichHtml';
+import { richHtmlToEncodedPlainText, sanitizeRichHtml } from '../services/sanitizeRichHtml';
 import { ItchIoScraper } from '../services/scrapers/itchIoScraper';
 import { GrimoriosEDadosScraper } from '../services/scrapers/grimoriosEDadosScraper';
 import { OperaRpgScraper } from '../services/scrapers/operaRpgScraper';
@@ -144,7 +144,10 @@ const ingestItemSchema = z.object({
   // Achado CodeQL/review (PR #203): richHtmlToPlainText roda regex sobre o
   // valor bruto; mesmo teto de descriptionHtml evita DoS por payload gigante
   // antes de processar.
-  description: z.string().max(SCRAPER_DESCRIPTION_HTML_MAX_LENGTH).nullable().transform((value) => (value === null ? null : richHtmlToPlainText(value))),
+  // Fase 1 da spec 089: /ingest não decodifica entidades. O parser já fez
+  // a única passagem; aqui só removemos HTML de payload manual, preservando
+  // `&amp;lt;`/`&lt;` exatamente como chegaram para impedir decode duplo.
+  description: z.string().max(SCRAPER_DESCRIPTION_HTML_MAX_LENGTH).nullable().transform((value) => (value === null ? null : richHtmlToEncodedPlainText(value))),
   isFreeOrPwyw: z.boolean(),
   coverImageUrl: z.url().nullable(),
   publisherName: z.string().nullable(),
@@ -251,7 +254,14 @@ router.post('/ingest', writeRateLimiter, authMiddleware, requireRole('admin'), a
   const items: ScrapedItem[] = parsed.data.items.map((item) => {
     if (item.parse_case_id) parseCaseIdBySourceUrl.set(item.sourceUrl, item.parse_case_id);
     const { parse_case_id: _parseCaseId, ...scrapedItem } = item;
-    return scrapedItem;
+    // Spec 089 T0.5: payload externo continua retrocompatível e pode omitir
+    // hints; a fronteira converte omissão em `null` antes de entrar no
+    // contrato interno obrigatório.
+    return {
+      ...scrapedItem,
+      systemHint: scrapedItem.systemHint ?? null,
+      materialTypeHint: scrapedItem.materialTypeHint ?? null,
+    };
   });
   async function* asyncIterableOfItems(): AsyncIterable<ScrapedItem> {
     for (const item of items) yield item;

@@ -9,8 +9,7 @@
 // padrao, generic Schema.org).
 
 import type { PlatformOverrideInput } from './index';
-import { richHtmlToPlainText, sanitizeRichHtml } from '../../sanitizeRichHtml';
-import { sanitizeText } from '../../sanitizeText';
+import { richHtmlToEncodedPlainText, sanitizeRichHtml } from '../../sanitizeRichHtml';
 import type { SourceFilter } from '../types';
 
 const PWYW_TAG_MARKER = 'obs-product-format-pwyw-options';
@@ -43,7 +42,9 @@ type Anchor = { href: string; content: string };
 type SourceFilterEntry = { facet: string; text: string };
 
 function normalizedText(html: string): string {
-  return sanitizeText(html.replace(/<br\b[^>]*>/gi, ' ')).replace(/\s+/g, ' ').trim();
+  // Entidades permanecem codificadas aqui; o parser faz o único decode
+  // depois que override e JSON-LD convergem no objeto final.
+  return richHtmlToEncodedPlainText(html.replace(/<br\b[^>]*>/gi, ' ')).replace(/\s+/g, ' ').trim();
 }
 
 // Spec 088 (T2.3c) — a loja escreve "N/A" (en) ou "N / D" (pt) quando o
@@ -225,7 +226,7 @@ export function applyOneBookShelfOverride(preview: PlatformOverrideInput, html: 
   const descriptionHtml = extractedDescriptionHtml ? sanitizeRichHtml(extractedDescriptionHtml) : null;
   const sourceFilters = extractSourceFilters(details.get('filters'));
   const tiles = extractTileMetadata(html);
-  const description = descriptionHtml ? richHtmlToPlainText(descriptionHtml) : preview.description;
+  const description = descriptionHtml ? richHtmlToEncodedPlainText(descriptionHtml) : preview.description;
   const richFields: Pick<PlatformOverrideInput, 'systemHint' | 'materialTypeHint' | 'authorsCredits' | 'artistsCredits' | 'creationMethod' | 'sourceFilters' | 'tags' | 'fileSizeText' | 'format' | 'pageCount' | 'sourceCategory' | 'descriptionHtml' | 'description'> = {
     // Achado real (spec 086, Fase 4): data-codeid="ruleSystem" (label real
     // do site: "Universo de jogo") e o SISTEMA/regra do material (ex.

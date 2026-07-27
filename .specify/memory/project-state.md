@@ -9,6 +9,18 @@
 
 **Todos os 5 apps em prod** (2026-06-21). **Último promote `dev→main`: 2026-06-24 (`2756346`, ff via `promote-prod-fast-forward.yml`)** — promoveu specs 044-049 (PRs #93/#94 + acumulado). `main == dev`. **⚠️ Deploy prod mesas falhou e fez rollback** (run `28125222995`): guard de migration barrou `migration_128` (falso-positivo `online-safe`). **Spec 050 corrigiu o guard** (regex estreito + teste shell 28/28 no CI + cópia órfã removida). Mesas em prod segue no código pré-049. **Pronto para re-deploy prod** (gated por aprovação nominal do mantenedor).
 
+**Spec 089 — Fases 0 e 1 concluídas localmente (2026-07-27):** branch existente
+`fix/089-fases-0-1`, baseada diretamente em `origin/dev`. DOM real, matriz de
+templates e fixtures com proveniência registrados; contrato interno tornou
+`systemHint`/`materialTypeHint` obrigatórios e explícitos como `string | null`. Validação:
+`tsc` verde, 365/365 testes do backend verdes, build e lint verdes, `verify:api` verde.
+Endpoint itch.io mudou para
+`/physical-games/genre-rpg/lang-pt-BR`, com corte conservador por produto. T0.7 decidido:
+133 itens dedicados usam `OPERA RPG`; `Gaia 400X` usa `Multi-sistema`, sistema válido.
+Fase 1 adicionou política semântica exaustiva para todo `ScrapedItem`, decoder HTML5 único
+na saída dos parsers e provas de persistência/ordem sem alterar URL ou HTML rico. Fase 2
+ainda não iniciada.
+
 **PRs:** PR #73 (dependabot) **merged** em `dev` (`09773fc`, 2026-06-22). PR #80 **(spec 041 shell)** mergeada. Corrigido via **PR #82**. **PR #83 (spec 042)** mergeada. **PR #84 (spec 043)** mergeada em `dev` (`39d2c7c`). **PR #85 (spec 045)** mergeada + promovida a `main` (`c269a46`). **PR #86 (chore 044/045/ecosystem)** mergeada (`560131f`). **PR #87/#88/#89/#90 (spec 047)** mergeadas em `dev`; última #90 (`f0e2e56`, 2026-06-23) removeu DeepSeek acidental da 047 e deixou CI verde. **Último promote a `main`: PR #85**. Spec 047 fechada em `dev`, ainda não promovida a `main`.
 
 ## Destaque: Spec 041 — Shell unificado (merge 2026-06-21)

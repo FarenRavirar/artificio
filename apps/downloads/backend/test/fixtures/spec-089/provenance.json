@@ -1,0 +1,57 @@
+{
+  "capturedAt": "2026-07-27",
+  "mode": "fetchSimple-equivalent: HTTP GET, browser User-Agent, unrendered response",
+  "captures": [
+    {
+      "fixture": "opera-regras-section.html",
+      "url": "https://operarpg.com.br/downloads/regras-e-fichas",
+      "status": 200,
+      "sourceBytes": 49531,
+      "sourceSha256": "8993b0ec50f9411f21bf721afa8ed92b29b1bc79475ee31d188715bb43178bbe"
+    },
+    {
+      "fixture": "opera-cenarios-section.html",
+      "url": "https://operarpg.com.br/downloads/cenarios",
+      "status": 200,
+      "sourceBytes": 59024,
+      "sourceSha256": "e0c16e07931b7f5888e4773183ad0ca5e93329ba9da98ec57610894f53615762"
+    },
+    {
+      "fixture": "itch-physical-listing.html",
+      "url": "https://itch.io/physical-games/genre-rpg/lang-pt-BR",
+      "status": 200,
+      "sourceBytes": 77440,
+      "sourceSha256": "600b0082649911339d965866fe52645894aed28f7f90f0e91726d1283dd230b2"
+    },
+    {
+      "fixture": "grimorios-storefront-listing.html",
+      "url": "https://grimorios-e-dados.itch.io",
+      "status": 200,
+      "sourceBytes": 36811,
+      "sourceSha256": "e287c144e3b9c65e034f29a47f7f17a904b07ba8e0434b23793ef113388ce7dd"
+    },
+    {
+      "fixture": "itch-product-the-tusus-mine.html",
+      "url": "https://gontijo.itch.io/thetususmine",
+      "status": 200,
+      "sourceBytes": 32218,
+      "sourceSha256": "dc0170b19886086ff84282a241926036ea8c60e7b32666d13fa277e724edcab9"
+    },
+    {
+      "fixture": "grimorios-product-machados.html",
+      "url": "https://grimorios-e-dados.itch.io/machados-e-bruxarias",
+      "status": 200,
+      "sourceBytes": 23788,
+      "sourceSha256": "13cb4c74faaf522e15906ea259ae2f64d6361fabd15b7ce9414a35e18e6ebaea"
+    },
+    {
+      "fixture": null,
+      "url": "https://arquivos.operarpg.com.br/regras_e_fichas/RRacasDD.pdf",
+      "method": "HEAD",
+      "status": 200,
+      "contentType": "application/pdf",
+      "contentLength": 95647,
+      "note": "Destino direto; não há template HTML nem campo de sistema/tipo a observar."
+    }
+  ]
+}

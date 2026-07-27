@@ -260,9 +260,11 @@ describe('POST /api/v1/admin/scraper/ingest', () => {
       .mockReturnValueOnce(parseLogInsertChain('parse-rich-preview'))
       .mockReturnValueOnce(insertChain({ id: 'run-rich-preview' }));
 
+    const htmlWithNestedEntity = loadFixtureHtml('dms-guild-product-1.html')
+      .replace('"name": "Classe O Lutador', '"name": "Classe &amp;lt; O Lutador');
     const parsed = await request(app())
       .post('/api/v1/admin/scraper/parse-html')
-      .send({ html: loadFixtureHtml('dms-guild-product-1.html') })
+      .send({ html: htmlWithNestedEntity })
       .expect(200);
 
     await request(app())
@@ -273,6 +275,9 @@ describe('POST /api/v1/admin/scraper/ingest', () => {
     const items = runScraperIngestMock.mock.calls[0][2] as AsyncIterable<Record<string, unknown>>;
     const forwarded: Record<string, unknown>[] = [];
     for await (const item of items) forwarded.push(item);
+    expect(parsed.body.preview.title).toContain('&lt;');
+    expect(parsed.body.preview.title).not.toContain('<');
+    expect(forwarded[0]?.title).toBe(parsed.body.preview.title);
     expect(forwarded[0]?.scenario).toBe(parsed.body.preview.scenario);
     expect(forwarded[0]?.authorsCredits).toBe(parsed.body.preview.authorsCredits);
     expect(forwarded[0]?.artistsCredits).toBe(parsed.body.preview.artistsCredits);

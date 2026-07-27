@@ -26,6 +26,8 @@ vi.mock('../headlessEngine/camoufoxClient', () => ({
 }));
 
 import { ItchIoScraper } from './itchIoScraper';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const LISTING_HTML_FIXTURE = `
 <div dir="auto" class="game_cell has_cover lazy_images" data-game_id="4754247">
@@ -41,10 +43,17 @@ const PWYW_GAME_HTML_FIXTURE = `
 <meta content="Exorcise your possessed daughter" property="og:description"/>
 <div class="header_buy_row"><p>A downloadable game for Windows</p><div class="buy_row"><div class="button_message"><a class="button buy_btn" href="https://twistandscream.itch.io/exorcist-candy/purchase">Download Now</a><span class="buy_message"><span class="sub">Name your own price</span></span></div></div></div>
 <a href="https://twistandscream.itch.io">Twist And Scream</a>
+<table><tr><td>Category</td><td><a href="https://itch.io/physical-games">Physical game</a></td></tr><tr><td>Tags</td><td><a href="https://itch.io/physical-games/tag-ttrpg">Tabletop role-playing game</a></td></tr></table>
 `;
 
 const PAID_GAME_HTML_FIXTURE = `
 <div class="header_buy_row"><p>A downloadable game</p><div class="bundle_row"><div class="bundle_info"><div class="bundle_label">Get this game and 1 more for $7.48 USD</div></div></div></div>
+<table><tr><td>Category</td><td><a href="https://itch.io/physical-games">Physical game</a></td></tr><tr><td>Genre</td><td><a href="https://itch.io/games/genre-rpg">Role Playing</a></td></tr></table>
+`;
+
+const PWYW_CARD_GAME_HTML_FIXTURE = `
+<span class="sub">Name your own price</span>
+<table><tr><td>Category</td><td><a href="https://itch.io/physical-games">Physical game</a></td></tr><tr><td>Genre</td><td><a href="https://itch.io/physical-games/genre-card-game">Card Game</a></td></tr></table>
 `;
 
 beforeEach(() => {
@@ -59,6 +68,27 @@ const LISTING_HTML_CLASS_BEFORE_HREF_FIXTURE = `
 `;
 
 describe('ItchIoScraper', () => {
+  it('usa fixtures reais e decodifica título/editora sem tocar URL', async () => {
+    const fixtureDir = path.resolve(__dirname, '../../../test/fixtures/spec-089');
+    const listing = fs.readFileSync(path.join(fixtureDir, 'itch-physical-listing.html'), 'utf8');
+    const tusu = fs.readFileSync(path.join(fixtureDir, 'itch-product-the-tusus-mine.html'), 'utf8');
+    const paidEligible = `${PAID_GAME_HTML_FIXTURE}`;
+    fetchSimpleMock
+      .mockResolvedValueOnce({ html: listing, status: 200 })
+      .mockResolvedValueOnce({ html: paidEligible, status: 200 })
+      .mockResolvedValueOnce({ html: tusu, status: 200 })
+      .mockResolvedValueOnce({ html: paidEligible, status: 200 });
+
+    const items = [];
+    for await (const item of new ItchIoScraper().discoverItems()) items.push(item);
+
+    expect(fetchSimpleMock.mock.calls[0]?.[0]).toBe('https://itch.io/physical-games/genre-rpg/lang-pt-BR');
+    expect(items).toHaveLength(1);
+    expect(items[0]?.title).toBe("The Tusu's Mine");
+    expect(items[0]?.publisherName).toBe('Guilherme Gontijo');
+    expect(items[0]?.sourceUrl).toBe('https://gontijo.itch.io/thetususmine');
+  });
+
   it('descobre jogo quando class vem antes de href (storefront de dev, ordem de atributo diferente da listagem geral)', async () => {
     fetchSimpleMock
       .mockResolvedValueOnce({ html: LISTING_HTML_CLASS_BEFORE_HREF_FIXTURE, status: 200 })
@@ -97,6 +127,20 @@ describe('ItchIoScraper', () => {
     });
     expect(patchrightFetchMock).not.toHaveBeenCalled();
     expect(camoufoxFetchMock).not.toHaveBeenCalled();
+  });
+
+  it('pula produto físico PWYW sem sinal inequívoco de RPG de mesa', async () => {
+    fetchSimpleMock
+      .mockResolvedValueOnce({ html: LISTING_HTML_FIXTURE, status: 200 })
+      .mockResolvedValueOnce({ html: PWYW_CARD_GAME_HTML_FIXTURE, status: 200 })
+      .mockResolvedValueOnce({ html: PAID_GAME_HTML_FIXTURE, status: 200 });
+
+    const items = [];
+    for await (const item of new ItchIoScraper().discoverItems()) {
+      items.push(item);
+    }
+
+    expect(items).toHaveLength(0);
   });
 
   // Spec 088 (requisitos 38/40) — cada fonte declara papéis do seu jeito, e a
