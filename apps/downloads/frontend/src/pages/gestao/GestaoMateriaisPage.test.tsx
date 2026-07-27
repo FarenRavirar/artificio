@@ -4,31 +4,27 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestaoMateriaisPage } from './GestaoMateriaisPage';
 import * as useMaterialsCatalogModule from '../../hooks/useMaterialsCatalog';
 import type { Material } from '../../types/material';
+import { makeMaterial as baseMaterial } from '../../test/fixtures';
 
 // T4.x (spec 075) — cobertura de teste do débito (páginas sem teste de
 // componente): render de loading/lista vazia/lista com itens, rótulo de
 // editorial_state e link de auditoria por item.
 
 
+// Spec 088 — usa a fixture compartilhada (`src/test/fixtures`), so trocando o
+// que as assercoes deste arquivo esperam.
 function makeMaterial(overrides: Partial<Material> = {}): Material {
-  return { ...baseMaterial(), ...overrides };
-}
-
-function baseMaterial(): Material {
-  return {
+  return baseMaterial({
     id: 'material-1',
     slug: 'manual-do-aventureiro',
     title: 'Manual do Aventureiro',
-    summary: null,
-    description: null,
     material_type: 'pdf',
-    access_kind: 'external_link',
     external_url: 'https://example.com/manual.pdf',
     creator_id: 'creator-1',
-    editorial_state: 'published',
     created_at: '2026-07-01T00:00:00.000Z',
     updated_at: '2026-07-01T00:00:00.000Z',
-  };
+    ...overrides,
+  });
 }
 
 function makeListResponse(items: Material[]) {

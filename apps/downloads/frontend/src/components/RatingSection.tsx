@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useSession } from '@artificio/auth/client';
 import toast from 'react-hot-toast';
 import { useRatings, useSubmitRating } from '../hooks/useRating';
@@ -12,6 +12,47 @@ export function RatingSection({ materialId }: Readonly<{ materialId: string }>) 
   const submitMutation = useSubmitRating(materialId);
   const [score, setScore] = useState(5);
   const [blockedReason, setBlockedReason] = useState<string | null>(null);
+
+  // Spec 088 (T1.17) — o controle reflete a nota que o usuario JA enviou, em
+  // vez do `useState(5)` fixo de antes: a pessoa ve o que avaliou e reavalia a
+  // partir desse estado, nao de um 5 que ela nunca escolheu.
+  const myRating = user ? ratings?.find((rating) => rating.is_mine) : undefined;
+  const [lastSyncedRatingId, setLastSyncedRatingId] = useState<string | null>(null);
+  if (myRating && myRating.id !== lastSyncedRatingId) {
+    setLastSyncedRatingId(myRating.id);
+    setScore(myRating.score);
+  }
+
+  // Refs das cinco estrelas: mover a selecao por teclado tem que mover o FOCO
+  // junto, senao o usuario perde a referencia de onde esta no grupo.
+  const starRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  const focusScore = (next: number) => {
+    setScore(next);
+    starRefs.current[next - 1]?.focus();
+  };
+
+  // Padrao WAI-ARIA de radiogroup: setas trocam a selecao (com wrap nos
+  // extremos), Home/End vao ao primeiro/ultimo. Sem isso, `role="radio"`
+  // anunciaria um comportamento que o controle nao tem.
+  const handleStarKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    let next: number | null = null;
+
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      next = score === 5 ? 1 : score + 1;
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      next = score === 1 ? 5 : score - 1;
+    } else if (event.key === 'Home') {
+      next = 1;
+    } else if (event.key === 'End') {
+      next = 5;
+    }
+
+    if (next === null) return;
+    // Sem isto, as setas tambem rolariam a pagina.
+    event.preventDefault();
+    focusScore(next);
+  };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -38,17 +79,58 @@ export function RatingSection({ materialId }: Readonly<{ materialId: string }>) 
 
       {user && (
         <form onSubmit={handleSubmit} className="mt-4 flex items-center gap-2">
-          <select
-            value={score}
-            onChange={(e) => setScore(Number(e.target.value))}
-            className="min-h-[44px] rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
+          {/* Spec 088 (T1.14-T1.16) — cinco estrelas clicaveis no lugar do
+              `<select>` de 1 a 5.
+              Trocar controle nativo por glifo e exatamente onde acessibilidade
+              se perde, entao o grupo reimplementa o que o `<select>` dava de
+              graca: `radiogroup` com nome, `aria-checked` expondo a selecao a
+              tecnologia assistiva, e nome acessivel comunicando o VALOR
+              ("3 de 5 estrelas"), nao a posicao.
+              O alvo de toque e 44px (`h-11 w-11`) sem colisao visual entre as
+              estrelas, e o estado selecionado difere por PREENCHIMENTO
+              (`★` vs `☆`), nao so por cor — a distincao sobrevive em escala de
+              cinza (T1.16).
+
+              NAVEGACAO POR TECLADO (padrao WAI-ARIA de radiogroup): anunciar
+              `role="radio"` sem implementar o comportamento seria pior que nao
+              anunciar nada — o leitor de tela promete rádio e entrega botao.
+              Duas partes:
+              1. Roving tabIndex — o grupo INTEIRO e uma unica parada de Tab
+                 (so a estrela selecionada tem `tabIndex=0`), igual ao
+                 `<select>` que este controle substitui. Cinco paradas seriam
+                 uma regressao pra quem navega so por teclado.
+              2. Setas movem a selecao dentro do grupo, com wrap; Home/End vao
+                 aos extremos. `preventDefault` impede a pagina de rolar. */}
+          <div
+            role="radiogroup"
+            aria-label="Sua nota"
+            className="flex items-center"
+            onKeyDown={handleStarKeyDown}
           >
-            {[1, 2, 3, 4, 5].map((value) => (
-              <option key={value} value={value} className="bg-[var(--surface)]">
-                {value}
-              </option>
-            ))}
-          </select>
+            {[1, 2, 3, 4, 5].map((value) => {
+              const selected = value === score;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  aria-label={`${value} de 5 estrelas`}
+                  // Roving tabIndex: so a opcao ativa e alcancavel por Tab.
+                  tabIndex={selected ? 0 : -1}
+                  ref={(node) => {
+                    starRefs.current[value - 1] = node;
+                  }}
+                  onClick={() => setScore(value)}
+                  className={`flex h-11 w-11 items-center justify-center rounded-md text-2xl leading-none transition focus:outline-none focus-visible:ring-2 focus-visible:ring-artificio-orange ${
+                    value <= score ? 'text-artificio-orange' : 'text-[var(--fg-muted)]'
+                  }`}
+                >
+                  <span aria-hidden="true">{value <= score ? '★' : '☆'}</span>
+                </button>
+              );
+            })}
+          </div>
           <button
             type="submit"
             disabled={submitMutation.isPending}

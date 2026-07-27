@@ -1,8 +1,8 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { db } from '../db';
-import { authMiddleware } from '../middleware/auth';
-import { writeRateLimiter } from '../middleware/rateLimit';
+import { authMiddleware, optionalAuth } from '../middleware/auth';
+import { readRateLimiter, writeRateLimiter } from '../middleware/rateLimit';
 import { assertCanRate, RatingNotAllowedError } from '../services/ratingGuard';
 
 const router = Router();
@@ -25,13 +25,36 @@ const hasDownloaded = async (userId: string, materialId: string): Promise<boolea
   return Boolean(record);
 };
 
-router.get('/:materialId', async (req: Request, res: Response) => {
-  const ratings = await db
+// Spec 088 — a rota e publica (sem auth obrigatoria), mas a ficha precisa
+// saber QUAL das avaliacoes e do proprio usuario pra preencher o controle de
+// nota com o que ele ja enviou.
+//
+// `user_id` NAO e exposto: e identificador de conta, e devolve-lo num endpoint
+// publico permitiria correlacionar avaliacoes entre materiais e mapear a
+// atividade de qualquer pessoa. O backend faz a comparacao internamente e
+// publica so o booleano `is_mine` — a informacao que a UI precisa, sem o dado
+// que ela nao precisa.
+//
+// `optionalAuth` (nao `authMiddleware`): visitante sem sessao continua lendo a
+// lista normalmente, com `is_mine: false` em tudo.
+// `readRateLimiter` (achado CodeQL, PR #217): a rota passou a fazer
+// autorizacao (`optionalAuth`, pra marcar `is_mine`), entao entra na mesma
+// disciplina das outras rotas autenticadas. Limiter ANTES do middleware de
+// auth — mesmo padrao de `creators.ts`/`favorites.ts` — pra barrar rajada
+// antes de verificar token.
+router.get('/:materialId', readRateLimiter, optionalAuth, async (req: Request, res: Response) => {
+  const rows = await db
     .selectFrom('download_rating')
-    .select(['id', 'material_id', 'score', 'comment', 'created_at'])
+    .select(['id', 'material_id', 'user_id', 'score', 'comment', 'created_at'])
     .where('material_id', '=', req.params.materialId)
     .orderBy('created_at', 'desc')
     .execute();
+
+  const currentUserId = req.user?.userId ?? null;
+  const ratings = rows.map(({ user_id, ...rating }) => ({
+    ...rating,
+    is_mine: currentUserId !== null && user_id === currentUserId,
+  }));
 
   return res.json(ratings);
 });

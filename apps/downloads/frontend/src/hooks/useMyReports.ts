@@ -16,6 +16,12 @@ const myReportSchema = z.object({
 
 const myReportsSchema = z.array(myReportSchema);
 
+// Spec 088 — exportado pra que a fixture de teste se ancore no schema real em
+// vez de inferir o tipo do proprio valor de exemplo (`ReturnType<typeof ...>`
+// com `as const` congelava `case_state` em `'open'` e `resolution_note` em
+// `null`, rejeitando qualquer outro estado valido do enum).
+export type MyReport = z.infer<typeof myReportSchema>;
+
 // DEB-074-02 (spec 074/075) — denuncias abertas pelo proprio usuario.
 export function useMyReports() {
   return useQuery({

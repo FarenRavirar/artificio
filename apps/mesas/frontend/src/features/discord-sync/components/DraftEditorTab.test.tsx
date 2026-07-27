@@ -27,6 +27,10 @@ const form: DraftForm = {
   frequency: 'semanal',
   contact_url: 'https://forms.gle/teste',
   contact_discord: '',
+  // Requisito 7 (spec 079) — campo entrou no `DraftForm` depois deste teste;
+  // a fixture ficou desatualizada sem ninguem notar porque os testes estavam
+  // fora de qualquer tsconfig (corrigido na spec 088).
+  raw_gm_name: '',
   cover_url: '',
   cover_url_source: '',
   cover_quality: '',
@@ -68,6 +72,11 @@ function renderTab(overrides: Partial<ComponentProps<typeof DraftEditorTab>> = {
       savingFields={false}
       onUpdateForm={vi.fn()}
       onSystemChange={vi.fn()}
+      // Spec 088 — prop OBRIGATORIA que a fixture nunca passava: so chegaria
+      // via `overrides`, que e `Partial`. Como o componente a chama em 3
+      // handlers de clique, um teste que exercitasse esses botoes quebraria
+      // com "onRefreshSystems is not a function".
+      onRefreshSystems={vi.fn()}
       onCoverUpload={vi.fn()}
       onRemoveCover={vi.fn()}
       onSetCoverUrl={vi.fn()}
@@ -136,8 +145,10 @@ describe('DraftEditorTab', () => {
         total: 3,
         extraction: 2,
         completeness_audit: 1,
+        // Spec 088 — `rows` foi removido: nao existe em `LlmActivity` nem no
+        // payload do backend. Era campo morto que a fixture carregava sem
+        // ninguem notar (testes fora de qualquer tsconfig).
         by_status: { success: 3 },
-        rows: [],
       },
       fieldInsights: {
         system_name: {

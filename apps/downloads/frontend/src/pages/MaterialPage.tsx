@@ -1,15 +1,15 @@
 import { ClipboardList, Clock, Dices } from 'lucide-react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { trackEvent } from '@artificio/analytics';
 import { useSession } from '@artificio/auth/client';
 import { AppShell } from '../components/AppShell';
 import { AddToCollectionButton } from '../components/AddToCollectionButton';
 import { CommentSection } from '../components/CommentSection';
+import { MaterialCover } from '../components/MaterialCover';
 import { RatingSection } from '../components/RatingSection';
 import { SystemChainBadge } from '../components/SystemChainBadge';
 import { useMaterial } from '../hooks/useMaterial';
 import { useMaterialMetadata } from '../hooks/useMaterialMetadata';
-import { useRegisterDownload } from '../hooks/useRegisterDownload';
 import { useAddFavorite, useRemoveFavorite, useFavorites } from '../hooks/useFavorites';
 
 function Tile({ icon, label, value }: Readonly<{ icon: React.ReactNode; label: string; value: string }>) {
@@ -39,11 +39,9 @@ function DetailRow({ label, value }: Readonly<{ label: string; value: React.Reac
 // tiles com icone, bloco DETALHES 2 colunas, descricao rica.
 export function MaterialPage() {
   const { materialSlug } = useParams<{ materialSlug: string }>();
-  const navigate = useNavigate();
   const { user } = useSession();
   const { data: material, isLoading, isError } = useMaterial(materialSlug);
   const { data: metadata } = useMaterialMetadata(material?.id);
-  const registerDownload = useRegisterDownload();
   const favoritesQuery = useFavorites();
   const addFavorite = useAddFavorite();
   const removeFavorite = useRemoveFavorite();
@@ -73,21 +71,25 @@ export function MaterialPage() {
 
   const isFavorite = favoritesQuery.data?.some((favorite) => favorite.id === material.id) ?? false;
 
+  // Spec 088 (T1.11) — o handler perdeu o `navigate` final (a navegacao agora
+  // e nativa, ver T1.9 no JSX) e tambem o registro de download.
+  //
+  // O REGISTRO migrou pro backend, na resolucao de `/ir/:destinationId`. Razao:
+  // `onClick` so dispara no clique primario — botao do meio, `Ctrl+clique` e
+  // "Abrir em nova aba" seguem o `href` sem passar por aqui. Registrar no
+  // handler perderia metrica nesses fluxos e deixaria o usuario inelegivel pra
+  // avaliar (o guard exige download registrado). A rota de destino e o unico
+  // ponto que toda abertura atravessa.
+  //
+  // `trackEvent` FICA no clique: e telemetria de front (contexto de UI, sessao
+  // de analytics) e mede intencao no CTA, nao o acesso consumado — que o
+  // backend agora contabiliza de forma autoritativa.
   const handleAccess = () => {
-    // Criterio de aceite 3: evento de funil dispara ANTES do redirecionamento;
     trackEvent('download_cta_click', {
       material_id: material.id,
       material_slug: material.slug,
       material_type: material.material_type,
     });
-    // T3.1/T3.2 (spec 074) — registra download (dedup por conta no backend)
-    // se logado; se nao, backend responde 401 e so o redirect acontece.
-    if (user) {
-      registerDownload.mutate(material.id);
-    }
-    // DEB-073-02 — destination_id opaco (download_destination), desacoplado
-    // do slug do material; sobrevive a troca futura de slug.
-    navigate(`/ir/${material.destination_id}`);
   };
 
   const handleToggleFavorite = () => {
@@ -119,17 +121,19 @@ export function MaterialPage() {
       <div className="mx-auto max-w-5xl px-4 py-8">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
           <div>
-            {material.cover_image_url ? (
-              <img
-                src={material.cover_image_url}
-                alt={`Capa de ${material.title}`}
-                className="w-full rounded-lg border border-[var(--admin-border)] object-cover"
-              />
-            ) : (
-              <div className="flex aspect-[3/4] w-full items-center justify-center rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface)] text-sm text-[var(--fg-muted)]">
-                Sem capa
-              </div>
-            )}
+            {/* Spec 088 (T1.4b) — MESMA regra do card, nao uma segunda
+                implementacao: duas copias divergem no primeiro ajuste. Antes
+                aqui havia uma incoerencia interna — o placeholder ja usava
+                `aspect-[3/4]`, mas a imagem real ao lado nao tinha trava de
+                altura nenhuma nem tratamento de `onError`. Na ficha o corte
+                custa ainda mais caro, porque a capa e o elemento principal. */}
+            <MaterialCover
+              src={material.cover_image_url}
+              title={material.title}
+              materialType={material.material_type}
+              size="detail"
+              className="rounded-lg border border-[var(--admin-border)]"
+            />
           </div>
 
           <div>
@@ -164,13 +168,32 @@ export function MaterialPage() {
 
             <div className="mt-6 flex flex-wrap items-center gap-3">
               {hasDestination ? (
-                <button
-                  type="button"
+                /* Spec 088 (T1.9/T1.10/T1.12) — ancora nativa, nao botao.
+                   Tres razoes, todas materiais:
+                   1. Nova aba preserva a ficha na aba de origem: o usuario
+                      volta ao material que estava lendo em vez de perder o
+                      contexto.
+                   2. `window.open` NAO serve: chamado depois do `await` da API
+                      perde o gesto do usuario e e bloqueado por popup blocker.
+                      Navegacao nativa nunca e bloqueada — e de quebra
+                      `Ctrl+clique` e botao do meio voltam a funcionar.
+                   3. `rel="noopener noreferrer"` e seguranca, nao formalidade:
+                      sem `noopener` a pagina de destino recebe `window.opener`
+                      e pode manipular a aba de origem; sem `noreferrer` o
+                      `Referer` entrega a URL de origem ao site de terceiro.
+                   O `href` aponta pra rota INTERNA opaca (DEB-073-02): a URL
+                   externa nunca e pre-resolvida no HTML da ficha, o que faz o
+                   link sobreviver a troca futura de slug e mantem o desenho
+                   fail-closed de `/ir/:destinationId` intacto. */
+                <a
+                  href={`/ir/${material.destination_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   onClick={handleAccess}
-                  className="min-h-[44px] rounded-md bg-artificio-orange px-6 py-2 font-semibold text-white hover:bg-artificio-orange-hover"
+                  className="inline-flex min-h-[44px] items-center rounded-md bg-artificio-orange px-6 py-2 font-semibold text-white hover:bg-artificio-orange-hover"
                 >
                   Acessar material
-                </button>
+                </a>
               ) : (
                 <p role="alert" className="artificio-banner-warning rounded-md border px-4 py-3">
                   Este material está temporariamente indisponível. O destino de acesso não pôde ser confirmado.

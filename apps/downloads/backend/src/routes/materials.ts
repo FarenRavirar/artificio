@@ -78,6 +78,11 @@ const PUBLIC_MATERIAL_FIELDS = [
 const CARD_METADATA_FIELDS = [
   'download_material_metadata.cover_image_url',
   'download_material_metadata.credits',
+  // Spec 088 (requisito 31) — editora e AUTORIA sao campos distintos e o card
+  // exibe os dois, publicante primeiro. `publisher_name` ja existia na tabela
+  // e na rota de metadados (ficha), mas nao era projetado aqui, entao o card
+  // nao tinha como exibi-lo. Aditivo: nenhum consumidor perde campo.
+  'download_material_metadata.publisher_name',
   'download_material_metadata.scenario',
 ] as const;
 

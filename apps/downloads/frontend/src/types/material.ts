@@ -23,6 +23,10 @@ export const materialSchema = z.object({
   // debito de contrato) e cenario/ambientacao do material.
   cover_image_url: z.string().nullable().optional(),
   credits: z.string().nullable().optional(),
+  // Spec 088 (requisito 30) — EDITORA, campo distinto de `credits` (autoria).
+  // Um nunca serve de fallback do outro: exibir a editora sob rotulo de autor
+  // seria a mesma afirmacao falsa que o antigo "Acervo Artificio".
+  publisher_name: z.string().nullable().optional(),
   scenario: z.string().nullable().optional(),
   variant_name: z.string().nullable().optional(),
   system_path_slug: z.string().nullable().optional(),

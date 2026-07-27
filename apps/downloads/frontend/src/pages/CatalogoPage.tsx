@@ -6,6 +6,7 @@ import { CatalogFilterSidebar } from '../components/CatalogFilterSidebar';
 import { CatalogShowcase, type ShelfDefinition } from '../components/CatalogShowcase';
 import { FilterPills } from '../components/FilterPills';
 import { MaterialCard } from '../components/MaterialCard';
+import { useCanonicalUrl } from '../hooks/useCanonicalUrl';
 import { useCatalogSystems } from '../hooks/useCatalogSystems';
 import { useMaterialFacets } from '../hooks/useMaterialFacets';
 import { useMaterialsCatalog } from '../hooks/useMaterialsCatalog';
@@ -37,6 +38,14 @@ const SHELVES: readonly ShelfDefinition[] = [
 // query params, compartilhavel via link.
 export function CatalogoPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Spec 088 (T0.3) — canonical fixa na raiz, decisao do mantenedor
+  // (2026-07-26). Alvo NAO e route-aware de proposito: `/` e `/catalogo`
+  // servem o mesmo conteudo (este componente atende as duas rotas desde a
+  // spec 087) e as query strings sao recortes da mesma listagem. Consolidar
+  // tudo em `/` e o que preserva o sinal de indexacao — apontar cada recorte
+  // pra si mesmo diluiria o dominio entre dezenas de URLs equivalentes.
+  useCanonicalUrl('/');
 
   const q = searchParams.get('q') ?? '';
   const materialType = searchParams.get('material_type') ?? '';

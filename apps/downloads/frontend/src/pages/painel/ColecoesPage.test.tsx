@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { ColecoesPage } from './ColecoesPage';
 import * as useCollectionsModule from '../../hooks/useCollections';
+import type { Collection } from '../../types/panel';
 
 // Débito (27 páginas sem teste de componente) — cobertura de ColecoesPage
 // (painel do usuário comum, spec 074): listagem de coleções e criação via form.
@@ -13,12 +14,19 @@ vi.mock('react-hot-toast', () => ({
   default: { success: vi.fn(), error: vi.fn() },
 }));
 
-function makeCollection(overrides: Partial<{ id: string; title: string; is_public: boolean }> = {}) {
+// Spec 088 — fixture tipada contra `Collection` (schema real), nao contra um
+// objeto ad-hoc: o helper omitia `user_id`/`created_at`/`updated_at` e ninguem
+// percebia porque os testes estavam fora de qualquer tsconfig. Tipar o retorno
+// faz o proximo campo novo do schema quebrar aqui, em vez de passar silencioso.
+function makeCollection(overrides: Partial<Collection> = {}): Collection {
   return {
     id: 'col-1',
+    user_id: 'user-1',
     slug: 'col-1',
     title: 'Coleção 1',
     is_public: true,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
     ...overrides,
   };
 }
