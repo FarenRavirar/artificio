@@ -17,10 +17,8 @@ services:
       - NODE_ENV=production
       - PORT=4322
       - DATABASE_URL=${DATABASE_URL}
-      - WP_BASE=${WP_BASE:-https://artificiorpg.com/wp-json/wp/v2}
-      # OFF por padrao pos-cutover (spec 029): migracao WP concluida, store e a fonte de verdade.
-      # Ligar so com opt-in explicito e WP vivo. Ver docker-entrypoint.sh.
-      - SITE_IMPORT_ON_START=${SITE_IMPORT_ON_START:-false}
+      # WP_BASE e SITE_IMPORT_ON_START removidos em 2026-07-27 junto com o importador do WordPress
+      # (WP fora do ar; store Postgres e a fonte de verdade desde D074/spec 029).
       # Cloudinary: aceita a forma URL única OU as 3 vars (mesmas que o mesas já usa na VM).
       - CLOUDINARY_URL=${CLOUDINARY_URL:-}
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}

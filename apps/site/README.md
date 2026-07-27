@@ -1,16 +1,17 @@
 # `@artificio/site` — portal + blog (Astro SSG)
 
-Módulo `site` do Artifício RPG. Blog estático (SSG) saindo do WordPress. Spec: `specs/008-site-foundation/`.
+Módulo `site` do Artifício RPG. Blog estático (SSG). Spec: `specs/008-site-foundation/`.
+
+> **Importador WordPress removido em 2026-07-27.** Era one-shot e descartável por desenho; o cutover terminou (D074/spec 029), o WP saiu do ar e o store Postgres é a fonte de verdade. Saíram `importer/` inteiro, os scripts `import`/`inventory`/`prep`, a rota `POST /admin/import` e as env `WP_BASE`/`SITE_IMPORT_ON_START`. Os helpers de HTML que moravam em `importer/sanitize.ts` **não** eram do importador (servem o runtime) e viraram `server/lib/content-html.ts`.
 
 ## Arquitetura
 
 ```
-WP REST (read-only) ──importer──> store Postgres ──export──> src/data/posts.json ──astro build──> dist/ (estático)
-                                   (fonte da verdade)         (snapshot/artefato)        + Pagefind index
+store Postgres ──export──> src/data/posts.json ──astro build──> dist/ (estático)
+(fonte da verdade)          (snapshot/artefato)        + Pagefind index
 ```
 
-- **Store nativo Postgres** = fonte da verdade pós-import (D005). Schema: `db/migrations/`.
-- **Importador WP** (`importer/`) = one-shot, **descartável** pós-cutover, **read-only** sobre o WP. Idempotente por id/slug. DRY-RUN mantém URLs de mídia do WP (Cloudinary entra depois).
+- **Store nativo Postgres** = fonte da verdade (D005). Schema: `db/migrations/`.
 - **Export** (`db/export.ts`) = gera `src/data/posts.json` do store. Desacopla o build do banco (sem driver no bundle Astro). É o "Content Layer" pragmático; rebuild incremental (D006) = `export` + `astro build`.
 - **Astro** lê `posts.json` → 1 página por rota (`/blog/<slug>/`, arquivos de categoria/tag, home), zero-JS, marca `@artificio/ui`.
 
@@ -26,9 +27,8 @@ WP REST (read-only) ──importer──> store Postgres ──export──> src
 
 ```bash
 pnpm --filter @artificio/site migrate      # aplica db/migrations (schema_migrations + lock + transacional)
-pnpm --filter @artificio/site run import    # WP REST -> store (dry-run). 'run' evita o builtin pnpm import
 pnpm --filter @artificio/site export        # store -> src/data/posts.json
-pnpm --filter @artificio/site sync          # migrate + import + export (pipeline completo)
+pnpm --filter @artificio/site sync          # migrate + export
 pnpm --filter @artificio/site rebuild       # export + astro build + pagefind (gatilho SSG, D006)
 pnpm --filter @artificio/site build         # astro build + pagefind index
 pnpm --filter @artificio/site serve         # backend HTTP (admin + rebuild webhook) :4322
@@ -41,19 +41,14 @@ Express + `@artificio/auth` (cookie `artificio_session`, SSO compartilhado). Est
 - `GET /healthz` — `{ ok, posts }` (deploy/smoke, sem auth).
 - `GET /admin/status` — stats do store + último job (**role=admin**).
 - `POST /admin/rebuild` — dispara `rebuild` (export+build+pagefind) — gatilho de publicação SSG incremental (D006). **role=admin**.
-- `POST /admin/import` — re-import WP→store. **role=admin**.
 
 Jobs = single-flight (um por vez, lock em memória; `server/jobs.ts`). Smoke verificado: health 200, admin 401 sem cookie.
 
-`posts.json` versionado = **seed pequeno** (amostra). `pnpm sync` regenera o conteúdo completo do WP (125 posts) localmente; `.pgdata/` é gitignored.
+`posts.json` versionado = **seed pequeno** (amostra); `.pgdata/` é gitignored.
 
 ## Mídia (Cloudinary)
 
-O importador migra mídia **env-gated** (`importer/media.ts`, D025/R8):
-- **`CLOUDINARY_URL`** (ou `CLOUDINARY_CLOUD_NAME`+`API_KEY`+`API_SECRET`) presente → faz upload do original WP, reescreve `src` (featured + inline) p/ URL Cloudinary, cacheia em `media_map` (idempotente).
-- ausente → **dry-run**: mantém URLs do WP (zero credencial, zero rede). É o default local.
-
-Creds = segredo (mantenedor/VM), nunca versionado. Rodar a migração real de mídia = setar `CLOUDINARY_URL` no `.env` e `pnpm sync`.
+A migração de mídia era feita pelo importador (`importer/media.ts`, D025/R8), removido junto com ele: as imagens já estão no Cloudinary, com o mapeamento persistido em `media_map`. As credenciais seguem no compose porque o **upload de imagem do admin** continua usando Cloudinary com signed preset (regra pétrea: upload sempre pelo backend, nunca credencial hardcoded).
 
 ## Deploy beta (D044/D049)
 

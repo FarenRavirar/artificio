@@ -126,11 +126,9 @@ app.post("/admin/rebuild", requireAuth, requireAdmin, (_req, res) => {
   res.status(r.started ? 202 : 409).json(r);
 });
 
-// Re-import do WP -> store (one-shot). Admin.
-app.post("/admin/import", requireAuth, requireAdmin, (_req, res) => {
-  const r = runJob("import", "import");
-  res.status(r.started ? 202 : 409).json(r);
-});
+// `POST /admin/import` (re-import do WP -> store) foi REMOVIDA em 2026-07-27 junto com o importador.
+// Disparava `pnpm run import`, script que deixou de existir — manter a rota daria 500 em vez de 404,
+// e o WP que ela importava está fora do ar desde o cutover (D074/spec 029).
 
 // ===== Feedback público (Spec 021) — anônimo permitido, SEM auth =====
 // Rate-limit simples em memória por IP (sem nova dependência): janela de 15min, 20 envios.

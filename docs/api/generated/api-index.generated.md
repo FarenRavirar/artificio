@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **400 operações**.
+Total: **399 operações**.
 
 ## accounts (12)
 
@@ -381,11 +381,10 @@ Total: **400 operações**.
 | GET | `/og/{type}/{slug}` | media | none | active | — | Consulta og type slug |
 | GET | `/sitemap.xml` | public | none | active | — | Consulta sitemap.xml |
 
-## site (50)
+## site (49)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
-| POST | `/admin/import` | admin | admin | active | — | Cria ou executa admin import |
 | GET | `/admin/preview/{type}/{id}` | admin | admin | active | — | Consulta admin preview type id |
 | POST | `/admin/rebuild` | admin | admin | active | — | Cria ou executa admin rebuild |
 | GET | `/admin/status` | admin | admin | active | — | Consulta admin status |

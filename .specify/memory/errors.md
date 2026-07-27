@@ -220,3 +220,35 @@
 - **Prevenção:** ao adicionar novo ponto de `exit 1` num script que depende de `trap ... ERR` para cleanup/rollback, sempre chamar a função de cleanup explicitamente antes do `exit` — nunca assumir que o trap cobre saída manual do script.
 - **Relacionados:** [[E016]] (mesmo Dockerfile, mesmo tipo de gap, mesma prevenção não seguida a tempo).
 - **Data:** 2026-07-26
+
+---
+
+### E018 — migration nova do `apps/site` fica pendente indefinidamente: guard de restart do entrypoint pula `pnpm run migrate`
+- **Módulo/Pacote:** `apps/site` (`docker-entrypoint.sh`) · banco do Site (`site-prod-db`, `site-beta-db`)
+- **Sintoma:** migration nova commitada e mergeada em `dev`/`main` **não** aparece no banco, sem nenhum erro em log de deploy ou de container. Descoberto na spec 088 (2026-07-27) ao verificar a dependência cruzada da taxonomia central: `select slug from catalog_material_types` retornou `ERROR: relation "catalog_material_types" does not exist` em **beta E prod**, embora `apps/site/db/migrations/015_catalog_material_types.sql` e `016_catalog_material_types_seed.sql` existissem em disco e estivessem mergeadas. `select version from schema_migrations order by version desc limit 1` devolveu `014_promote_beta_system_extras` nos dois ambientes. Container `site-prod-app` e `site-beta-app` `Up (healthy)` o tempo todo — nada indicava pendência.
+- **Causa raiz:** o `apps/site` **não** usa o runner de migrations do monorepo (`scripts/deploy/apply_required_migrations.sh`); migra no próprio entrypoint. E o entrypoint tem um guard de resiliência de restart (spec 009 R6, D049) que **retorna antes** da migração:
+  ```sh
+  if [ -f dist/index.html ] && [ "${SITE_FORCE_REBUILD:-false}" != "true" ]; then
+    echo "[site] dist presente — serve direto (restart sem rebuild)"
+    exec pnpm run serve
+  fi
+  echo "[site] migrate (store)"
+  pnpm run migrate
+  ```
+  O guard é **correto para o que foi desenhado**: evita re-importar WP e rebuildar Astro a cada OOM/reboot/`restart: always`, dando restart instantâneo. O efeito colateral não previsto é que `pnpm run migrate` mora **depois** do `exec`, então todo restart de container existente pula a migração. Só container **novo** (deploy/recreate, sem `dist`) ou `SITE_FORCE_REBUILD=true` aplica migration.
+  Agravante que esconde o problema: os containers do site sobem uma vez e ficam semanas no ar (`site-prod-app` e `site-beta-app` de 2026-07-20 quando o erro foi descoberto, 7 dias depois). Além disso, `deploy.yml` só deploya se `deploy_paths` do manifesto mudar — mudança que toca **só** `apps/site/db/migrations/` pode não disparar deploy nenhum, e mesmo disparando, se o container não for recriado o `dist` continua lá.
+- **Solução (correção estrutural, aplicada 2026-07-27):** `pnpm run migrate` foi movido no `docker-entrypoint.sh` para **antes** do guard de `dist`. Migrar sempre não custa o restart instantâneo que o guard protege — `db/migrate.ts` consulta `schema_migrations` e é no-op sem pendência; o que o guard evita é o **rebuild** (export + `astro build` + pagefind), que segue condicional. Verificado por smoke que discrimina: com a ordem antiga o `migrate` não executa (defeito reproduzido); com a nova executa **e** o serve direto continua funcionando.
+- **⚠️ Armadilha: `docker exec <app> pnpm run migrate` NÃO resolve sozinho.** Foi a primeira tentativa e **falhou em silêncio aparente** — saída `migrate: 0 new, 14 total (driver=pg)`, exit 0, nada aplicado. Causa: o container roda a **imagem** buildada no último deploy, e os arquivos `015`/`016` não existem nela (`site-beta-app` era de 2026-07-20, anterior às migrations). `migrate.ts` lista `db/migrations/` de dentro do container — não vê arquivo que o deploy não levou. **`0 new` num container defasado não significa "nada pendente", significa "nada visível".** Sempre conferir `docker exec <app> ls db/migrations/ | tail` antes de concluir que está em dia.
+- **Aplicação pontual, quando o container está defasado e não se quer deploy só para migrar:** enviar o SQL do clone da VM para dentro do banco, sem depender da imagem, e registrar a versão manualmente (senão vira drift):
+  ```bash
+  cd /opt/artificio-beta && git fetch origin          # só fetch; NÃO mexe no working tree
+  git show origin/<ref>:apps/site/db/migrations/<arquivo>.sql \
+    | docker exec -i site-<env>-db psql -U admin -d site -v ON_ERROR_STOP=1
+  docker exec site-<env>-db psql -U admin -d site \
+    -c "INSERT INTO schema_migrations (version) VALUES ('<arquivo-sem-.sql>') ON CONFLICT (version) DO NOTHING;"
+  ```
+  O nome registrado tem de ser **exatamente** `file.replace(/\.sql$/, "")` (`db/migrate.ts:28`) — divergir faz o runner reaplicar no próximo boot. `ON_ERROR_STOP=1` é obrigatório: sem ele o `psql` segue após erro e reporta sucesso com schema pela metade.
+- **Ordem entre ambientes:** aplicar em beta primeiro e conferir, depois prod. E **respeitar o fluxo `dev`→`main`** — em 2026-07-27, `015` (spec 086) já estava em `main` e foi aplicada em prod, mas `016` (spec 088) só existia em `dev` e **não** foi aplicada em prod: colocar no banco de produção migration que ainda não passou por `main` inverte a ordem de promoção. Ela entra quando a spec 088 for promovida.
+- **Prevenção:** migration nova em `apps/site/db/migrations/` **não** está aplicada só porque o PR foi mergeado — o caminho de aplicação do site é diferente do dos outros módulos. Depois de mergear migration do site, **verificar no banco**, nunca no log de deploy: `docker exec site-<env>-db psql -U admin -d site -t -c "select version from schema_migrations order by version desc limit 1"` tem de mostrar a nova. Se não mostrar, aplicar pelo procedimento pontual acima (o `docker exec ... pnpm run migrate` só resolve se o container já tiver o arquivo). A correção do entrypoint fecha a causa **para os deploys futuros**; container que já estava no ar antes dela continua defasado até o próximo deploy. Vale em dobro quando outro módulo **depende** do schema do site (spec 088: o ingest do Downloads lê a taxonomia central por HTTP e falharia com `catalog_material_type_not_found` em todo material, aparentando scraper quebrado quando o defeito é a migração ausente).
+- **Relacionados:** [[E003]] (também sobre módulo cujo DB é migrado por fluxo próprio e não pelo runner do monorepo — ali a consequência era o runner tentar aplicar o que não devia; aqui é ninguém aplicar o que devia).
+- **Data:** 2026-07-27

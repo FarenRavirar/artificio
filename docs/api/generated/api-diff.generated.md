@@ -11,6 +11,7 @@
 | App | Breaking | Non-breaking | Unclassified |
 |-----|:--------:|:------------:|:------------:|
 | downloads | ✅ 0 | ✅ 4 | ⚪ 0 |
+| site | ❌ 1 | ✅ 0 | ⚪ 0 |
 
 ---
 
@@ -24,4 +25,14 @@
 | `` |  | add |
 | `` |  | add |
 | `` |  | add |
+
+---
+
+### site
+
+#### ❌ Breaking Changes (1)
+
+| Path | Method | Ação | Código |
+|------|--------|------|--------|
+| `` |  | remove | `path.remove` |
 

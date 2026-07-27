@@ -1,5 +1,5 @@
-// Helpers de autoria: slugify PT, slug único, excerpt. Reusa sanitize/toc do importador.
-import { stripTags, withToc, readingTime } from "../../importer/sanitize.js";
+// Helpers de autoria: slugify PT, slug único, excerpt. Reusa sanitize/toc de `content-html.ts`.
+import { stripTags, withToc, readingTime } from "./content-html.js";
 import { cleanHtml } from "./sanitize-html.js";
 
 export { stripTags, withToc, readingTime, cleanHtml };

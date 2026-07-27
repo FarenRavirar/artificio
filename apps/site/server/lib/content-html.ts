@@ -1,24 +1,29 @@
-// Helpers do importador: decode de entidades, sanitização allowlist (regra pétrea — HTML WP hostil),
-// extração de TOC (ids em h2/h3), reading time, datas. Compartilhado entre importer e prep.
-import { cleanHtml } from "../server/lib/sanitize-html.js";
+// Helpers de HTML de conteúdo: decode de entidades, extração de TOC (ids em h2/h3), reading time.
+//
+// Morava em `importer/sanitize.ts` até 2026-07-27. O importador do WordPress foi removido (o WP saiu
+// do ar; o store Postgres é a fonte de verdade desde o cutover da spec 029/D074), mas estes helpers
+// nunca foram do importador: servem o runtime do site, via `server/lib/content.ts`. Mudaram de lugar,
+// não de comportamento.
+//
+// Saíram junto com o importador, por ficarem sem consumidor: `toDate` (normalizava a data localizada
+// MM/DD/YYYY da REST do WP) e `sanitize` (wrapper de uma linha sobre `cleanHtml`, que os chamadores
+// usam direto de `sanitize-html.ts`). A sanitização de rich-text continua obrigatória — mudou o
+// caminho do import, não a regra.
 export interface TocItem {
   id: string;
   text: string;
   level: number;
 }
 
-export const decode = (s = ""): string =>
+// Não exportado: só `stripTags` consome. Era público quando o importador do WP decodificava títulos
+// e excerpts vindos da REST; sem esse consumidor, exportar seria superfície morta.
+const decode = (s = ""): string =>
   s
     .replace(/&amp;/g, "&").replace(/&#038;/g, "&").replace(/&#8217;/g, "’")
     .replace(/&#8216;/g, "‘").replace(/&#8220;/g, "“").replace(/&#8221;/g, "”")
     .replace(/&#8211;/g, "–").replace(/&#8212;/g, "—").replace(/&#8230;/g, "…")
     .replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, " ")
     .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#8594;/g, "→");
-
-/** Sanitização defensiva allowlist; HTML do WP é hostil. */
-export function sanitize(html: string): string {
-  return cleanHtml(html);
-}
 
 export const stripTags = (h: string): string =>
   decode(h.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
@@ -28,11 +33,6 @@ export const readingTime = (h: string): number =>
 
 const escapeAttr = (s: string): string =>
   s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-/** WP REST devolve data localizada (MM/DD/YYYY ...) ou ISO. Normaliza p/ Date. */
-export function toDate(s: string): Date {
-  return new Date(s.includes("/") ? s.replace(/(\d+)\/(\d+)\/(\d+)/, "$3-$1-$2") : s);
-}
 
 /** Injeta ids em h2/h3 e devolve {html, toc}. */
 export function withToc(html: string): { html: string; toc: TocItem[] } {

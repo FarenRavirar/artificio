@@ -12,42 +12,6 @@ servers:
     description: Desenvolvimento
 security: []
 paths:
-  /admin/import:
-    post:
-      operationId: postadmin_import
-      summary: "Cria ou executa admin import"
-      x-artificio-owner: site
-      x-artificio-scope: admin
-      x-artificio-status: active
-      x-artificio-auth: admin
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "400":
-          description: Requisição inválida
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "401":
-          description: Não autenticado
-        "403":
-          description: Sem permissão
-        "500":
-          description: Erro interno
   /admin/preview/{type}/{id}:
     get:
       operationId: getadmin_preview_type_id
