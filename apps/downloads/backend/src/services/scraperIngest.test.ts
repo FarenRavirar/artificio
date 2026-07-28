@@ -564,6 +564,43 @@ describe('runScraperIngest', () => {
     expect(result.itemsSkippedError).toBe(0);
   });
 
+  it('falha no maior outcome preserva a rejeicao e deixa rastro persistente na run', async () => {
+    detectPortugueseMock.mockResolvedValue({
+      isPortuguese: false,
+      detectedLanguage: 'eng',
+      confident: true,
+      method: 'franc',
+      reason: 'franc_confident',
+    });
+
+    // Regressão de T5.5b/DEB-089-19: skipped_not_portuguese é o maior
+    // outcome do contrato e estourava o VARCHAR(20). O catch continua
+    // best-effort, mas precisa persistir uma falha auditável na própria run.
+    dbMocks.insertInto.mockReturnValueOnce({
+      values: vi.fn().mockReturnThis(),
+      execute: vi.fn().mockRejectedValue(new Error('value too long for type character varying(20)')),
+    });
+    const runUpdateSet = vi.fn().mockReturnThis();
+    dbMocks.updateTable.mockReturnValue({
+      set: runUpdateSet,
+      where: vi.fn().mockReturnThis(),
+      execute: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const result = await runScraperIngest(
+      'run-language-log-failure',
+      'opera_rpg',
+      asyncIterableOf([makeItem({ sourceLanguageEvidence: null })]),
+    );
+
+    expect(result.itemsSkippedNotPortuguese).toBe(1);
+    expect(result.itemsSkippedError).toBe(0);
+    expect(runUpdateSet).toHaveBeenCalledWith(expect.objectContaining({
+      item_log_failures: expect.anything(),
+      item_log_error_detail: 'value too long for type character varying(20)',
+    }));
+  });
+
   it('atualiza contadores de download_scraper_run incrementalmente, um update por item', async () => {
     dbMocks.selectFrom.mockReturnValue(selectChain({ id: 'dup' }));
     const items = [makeItem({ sourceLanguageEvidence: 'pt' }), makeItem({ sourceLanguageEvidence: 'pt', sourceUrl: 'https://example.itch.io/game-2' })];

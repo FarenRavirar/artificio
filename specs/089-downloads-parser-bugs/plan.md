@@ -267,7 +267,7 @@ saída e retomada livres.
 | `apps/downloads/frontend/src/hooks/useMaterialFacets.ts` | D | consumir editora/autor das facetas |
 | `apps/downloads/frontend/src/components/MaterialCard.tsx` | D | links em camada própria sobre o link estendido (`:92`), remoção do rótulo de idioma (`:111`), label de editora |
 | `apps/downloads/frontend/src/components/SystemChainBadge.tsx` | D | `<span>` (`:24`) vira link para o `system_id` raiz, com nome acessível |
-| `specs/089-downloads-parser-bugs/phase-5-measurement.sql` | medição | runs mais recentes, métricas por fonte/template, ground truth, entidades, slug e facetas |
+| `specs/089-downloads-parser-bugs/phase-5-measurement.sql` | medição | runs mais recentes, métricas por fonte/template, sistema casado ou preservado na fila humana, ground truth, entidades, slug e facetas |
 | `apps/downloads/backend/src/routes/comments.ts` | E (spec 090; leitura apenas na 089) | identidade do autor, papel, `parent_id` |
 | `apps/downloads/database/migration_032_download_material_facets.sql` | D/medição | autores/artistas estruturados, chaves de faceta e evidência de template/hints no log de ingestão; comentários foram movidos integralmente para a spec 090 |
 | `apps/downloads/frontend/src/pages/painel/EditarMaterialPage.tsx` | F | campo de sistema, envio de capa |
@@ -357,9 +357,16 @@ Sequência obrigatória, sem pular etapa:
    em runs **sequenciais**, validando os contadores de cada run — `status='completed'` não
    prova run saudável (`scraper.ts:64` marca sem olhar contador).
 8. Executar o **SQL canônico versionado**, uma linha por regra com `pass`/`fail`, por fonte e
-   agregado.
+   agregado. Sistema inexistente no catálogo passa pelo caminho válido `raw_system_hint` +
+   sugestão pendente; só vira falha se nem casar nem chegar íntegro à fila humana.
 9. Aguardar ou invalidar o cache de 30s de `/facets` antes da evidência de UI.
 10. Qualquer regra crítica falhando mantém a Fase 5 **aberta**.
+
+**Loop corretivo T5.5b, obrigatório após a primeira medição revelar o log truncado:** aplicar
+`migration_033` em Beta → entregar contador/detalhe persistente da falha de `logItem`, mantendo o
+`try/catch` best-effort → recoletar as três fontes pelo painel → exigir
+`log_rows = items_found` por run → só então repetir medição, comparação e smoke. A ordem não é
+intercambiável: medir antes da recoleta produz percentuais falsos com aparência válida.
 
 Os passos 6-7 exigem autorização nominal **separada** da do deploy (escrita destrutiva em
 banco). O passo 8 é a prova real — código verde sem esses números não fecha a spec, pelo mesmo

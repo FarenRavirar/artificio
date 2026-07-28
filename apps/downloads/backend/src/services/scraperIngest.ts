@@ -1,4 +1,4 @@
-import type { Kysely, Transaction } from 'kysely';
+import { sql, type Kysely, type Transaction } from 'kysely';
 import { matchSystemNameExact, type MatchableSystemEntry } from '@artificio/catalog-matching';
 import { db } from '../db';
 import { detectPortuguese, type LanguageDetectionResult } from './languageDetector';
@@ -121,7 +121,30 @@ async function logItem(
       })
       .execute();
   } catch (error: unknown) {
-    console.error('[scraperIngest] falha ao gravar log de item (outcome real preservado):', error instanceof Error ? error.message : error);
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('[scraperIngest] falha ao gravar log de item (outcome real preservado):', message);
+
+    // DEB-089-19/T5.5b: o catch continua best-effort por decisão da PR #193:
+    // falha de auditoria não muda a classificação já concluída nem aborta a
+    // run. Porém ela precisa sobreviver ao stderr do container. Contador
+    // atômico + último erro tornam a run reprovável e diagnosticável pelo
+    // painel/SQL. Se até este rastro falhar, console.error permanece como
+    // último recurso sem mascarar o outcome original.
+    try {
+      await db
+        .updateTable('download_scraper_run')
+        .set({
+          item_log_failures: sql<number>`item_log_failures + 1`,
+          item_log_error_detail: message.slice(0, 2_000),
+        })
+        .where('id', '=', runId)
+        .execute();
+    } catch (traceError: unknown) {
+      console.error(
+        '[scraperIngest] falha ao persistir diagnóstico da falha de log:',
+        traceError instanceof Error ? traceError.message : traceError,
+      );
+    }
   }
 }
 

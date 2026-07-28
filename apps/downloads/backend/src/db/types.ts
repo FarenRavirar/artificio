@@ -28,7 +28,13 @@ export type KnownSourcePlatform =
 export type DownloadSourcePlatform = KnownSourcePlatform | (string & {});
 export type DownloadScraperTriggerKind = 'manual' | 'cron' | 'local_ingest';
 export type DownloadScraperRunStatus = 'running' | 'completed' | 'failed';
-export type DownloadScraperItemOutcome = 'created' | 'skipped_duplicate' | 'skipped_not_portuguese' | 'skipped_error';
+export const DOWNLOAD_SCRAPER_ITEM_OUTCOMES = [
+  'created',
+  'skipped_duplicate',
+  'skipped_not_portuguese',
+  'skipped_error',
+] as const;
+export type DownloadScraperItemOutcome = typeof DOWNLOAD_SCRAPER_ITEM_OUTCOMES[number];
 
 export type JSONColumnType<T> = ColumnType<T, T | undefined, T>;
 // Achado real (review PR #203, CodeRabbit, P2): Zod não pode aceitar valor
@@ -242,6 +248,8 @@ export interface DownloadScraperRunTable {
   items_skipped_duplicate: Generated<number>;
   items_skipped_not_portuguese: Generated<number>;
   items_skipped_error: Generated<number>;
+  item_log_failures: Generated<number>;
+  item_log_error_detail: string | null;
   error_detail: string | null;
   started_at: Generated<Date>;
   finished_at: Date | null;

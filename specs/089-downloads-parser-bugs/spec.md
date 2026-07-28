@@ -561,9 +561,26 @@ de tipo exige hint presente, ausência de `raw_material_type_hint` e tipo final 
 taxa usa como denominador somente itens **criados com hint**; hints de itens corretamente
 rejeitados continuam na métrica bruta, mas não podem reprovar o casamento dos criados.
 
+**Integridade do próprio instrumento é regra crítica:** para cada run,
+`download_scraper_item_log` precisa ter exatamente `items_found` linhas e
+`item_log_failures = 0`. Falha de log continua best-effort — não muda a classificação do item
+nem aborta a run, conforme decisão preservada da PR #193 — mas incrementa contador atômico e
+grava detalhe recuperável na run. O schema comporta o maior outcome do contrato
+(`skipped_not_portuguese`, 22 caracteres). Sem essa reconciliação, taxas por fonte/template e
+ground truth são inválidos, mesmo que o SQL termine com exit 0.
+
+Sistema ausente do catálogo central segue o fluxo humano já entregue pela Fase 4: o ingest
+preserva `raw_system_hint` e abre `download_system_suggestion` pendente; aprovar uma sugestão
+como `create_system` cria o nó no catálogo Central e religa, no mesmo commit, todas as sugestões
+pendentes com o mesmo valor bruto. Portanto, sistema **contabilizado** significa uma das duas
+formas válidas: casamento automático em `system_id`, ou hint preservado com sugestão de scraper
+pendente. Exigir `system_id` antes da triagem reprovaria justamente o comportamento fail-closed
+que impede o scraper de escrever taxonomia sem aprovação humana.
+
 Limites declarados antes da medição:
 
-- OPERA `aventuras`: sistema 100%, tipo 100%; `cenarios`: sistema mínimo 95% por Gaia 400X,
+- OPERA `aventuras`: sistema contabilizado 100%, tipo 100%; `cenarios`: sistema contabilizado
+  mínimo 95% por Gaia 400X,
   tipo 100%; demais templates: sistema 100%, sem taxa de tipo quando a seção não o expõe.
 - itch.io/Grimórios: ground truth das fixtures decide hint presente ou `null`; ausência
   estrutural correta não é falha nem vira taxa inventada.
@@ -594,7 +611,7 @@ Medidos no banco de beta, após recoleta completa das três fontes acessíveis:
 > comparar contra `90/23` reprovaria melhoria ou aprovaria regressão. Além disso, os limiares
 > `> 0` e `> 1` não provavam o que afirmavam: um item basta para satisfazer três fontes.
 
-- **Taxas por fonte e por template**, contra limites declarados **antes** da medição, derivados da matriz T0 e das fixtures — nunca de números históricos. Por fonte: encontrados, criados, rejeitados, sistema casado, sistema bruto, tipo casado, tipo bruto, neutros, e os percentuais.
+- **Taxas por fonte e por template**, contra limites declarados **antes** da medição, derivados da matriz T0 e das fixtures — nunca de números históricos. Por fonte: encontrados, criados, rejeitados, sistema casado, sistema pendente, sistema contabilizado, sistema bruto, tipo casado, tipo bruto, neutros, e os percentuais.
 - **Regra crítica que falha reprova o conjunto** — não há aprovação por agregado favorável.
 - **Cobertura de sistema e tipo por template**, não contagem global: cada template da matriz T0 que T0.2 declarou expor o campo produz casamento; template que não expõe produz `null` — e isso é o resultado correto.
 - **`nao-classificado` é minoria**, medido como percentual do acervo, não como "existe mais de um tipo distinto" (140 neutros e 1 classificado satisfariam o critério antigo).

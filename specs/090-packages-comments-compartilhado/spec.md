@@ -1,7 +1,15 @@
-# 090 — Comentários, notificações e papéis unificados no `accounts.`
+# 090 — Comentários, notificações e papéis unificados no `accounts.` + ampliação do catálogo `downloads`
 
 - **Módulo/Pacote:** `apps/accounts` (dono) + `packages/comments` (cliente/UI) + `apps/downloads`, `apps/site`, `apps/mesas`
 - **Gate relacionado:** B (SSO) e D (bloqueia a entrega de comentários do downloads, hoje na spec 089)
+
+> **Esta spec tem duas frentes independentes.** Requisitos **1-28** são a unificação de
+> comentários/notificações/papéis no `accounts.` — bloqueados atrás de aprovação nominal e SDD
+> Completo, porque tocam `accounts.` e `packages/auth`. Requisitos **29-32** são a ampliação do
+> catálogo do `downloads` (parser, detector de idioma, facetas, ficha de material), acrescentados
+> em 2026-07-28 por decisão do mantenedor; não tocam `accounts.`, `packages/auth` nem
+> `packages/comments`, e podem ser executados sem a aprovação que trava a frente 1-28. **R32 é
+> P0** — bug corrente que já contaminou o acervo de beta.
 
 ## Problema
 
@@ -124,6 +132,96 @@ coisas diferentes em cada módulo, e não haveria como autorizar uma tela centra
 27. **A validação da mudança central não passa por deploy de beta do `accounts.`, que não existe.** O módulo é PROD-ONLY (`env_override: "prod"`) e o workflow bloqueia `env=beta` (`.github/deploy-manifest.json:147`); beta reusa o `accounts.` de produção. O caminho é: mudança **aditiva, compatível e inicialmente desabilitada**; ativação limitada a `realm=beta` com credenciais allowlisted; comparação de erro, latência e autenticação contra controle; habilitação produtiva em passo separado. População, duração, métricas e rollback definidos antes de ligar.
 28. **O rollback preserva dado.** Desligar feature e credenciais dos módulos, manter o schema aditivo e o que já foi escrito, restaurar os consumidores anteriores, e comprovar que a autenticação central segue saudável. Apagar tabela não é rollback.
 
+### Catálogo do `downloads` — ampliação de 2026-07-28
+
+Bloco acrescentado por decisão do mantenedor (2026-07-28), durante a Fase 5 da spec 089. Os
+quatro requisitos abaixo tocam **`apps/downloads`** (parser, detector de idioma, facetas e
+ficha de material) e **não dependem** do `accounts.`, de `packages/comments` nem de
+`packages/auth`. Numeração continua a da spec para não renumerar 1-28.
+
+> **Dependência de sequência:** R32 é P0 e corrige um furo do D119 que já contaminou o acervo
+> de beta. Enquanto ele não fechar, qualquer medição de taxa de rejeição por idioma (incluindo
+> T5.6 da spec 089) mede um acervo com material inglês aprovado como português — o número sai,
+> mas não prova o que promete. O mantenedor optou (2026-07-28) por manter a correção aqui e
+> registrar a contaminação como ressalva do gate da 089, em vez de corrigir dentro dela.
+
+29. **Autoria é buscável, não facetada.** `authors` sai do conjunto de facetas de seleção do
+    catálogo e passa a ser alcançável por busca textual. Motivo medido no acervo recoletado de
+    beta (2026-07-28): 80 materiais `opera_rpg`, dos quais 61 com autoria preenchida, e a
+    autoria é majoritariamente única por material — como faceta viraria uma lista de dezenas de
+    entradas com contagem 1, que não filtra nada e ocupa a sidebar inteira. Editora/selo
+    **continua** faceta: é cardinalidade baixa e agrupa de fato.
+29a. **A remoção não deixa faceta órfã.** `authors` e `author_keys` permanecem na tabela e
+    continuam sendo gravados pelo ingest — o que muda é a exposição em `/facets` e na sidebar.
+    Removê-los do schema quebraria R30 e a busca do próprio R29.
+
+30. **A extração aproveita o que o parser já lê e descarta.** `parseInformationRows`
+    (`services/scrapers/itchIoParser.ts:133`) já percorre a tabela de informações inteira da
+    página do itch.io, mas `parseItchGameDetail` (`:171`) devolve apenas `tags`, `description`,
+    `coverImageUrl` e `publisherName` — o resto é lido e jogado fora no mesmo escopo. Passam a
+    ser extraídos e persistidos, quando a fonte os declarar: `genre`, `file_format`,
+    `page_count`, `license_kind`, `scenario`, `target_audience`, `creation_method` e
+    `description_html`.
+30a. **Campo ausente na fonte permanece nulo explícito, nunca inventado nem copiado de outro.**
+    Mesmo contrato já firmado para `authorsCredits` no itch (`itchIoParser.ts:121-132`, spec
+    088 requisito 38): ausência declarada é dado, não lacuna a preencher por inferência.
+30b. **`description_html` entra pela mesma fronteira de sanitização do resto do rich text**
+    (`sanitizeRichHtml`, spec 086 Fase 2), sanitizado no backend antes de persistir e antes de
+    servir. Hoje o parser só extrai `og:description` (meta curta, texto puro) e
+    `description_html` está vazio em **todos** os 90 materiais do acervo; passar a extrair o
+    corpo da página cria superfície de HTML hostil que hoje não existe nesse campo.
+30c. **A cobertura é medida antes e depois, por plataforma.** Baseline de 2026-07-28 no acervo
+    recoletado: `file_format`, `license_kind`, `page_count`, `genre`, `scenario`,
+    `target_audience`, `creation_method` e `description_html` em **0 de 90** materiais;
+    `publisher_name` em 10 (só `itch_io` e `grimorios_e_dados`); `authors` em 61 (só
+    `opera_rpg`). Sem medir, "melhorou" não é verificável.
+
+31. **Editora/selo ganha apresentação e afordância de clique.** Hoje é um parágrafo solto no fim
+    da ficha (`frontend/src/pages/MaterialPage.tsx:315-319`), depois do bloco Detalhes,
+    renderizado como `text-sm` com `--fg-muted` sobre fundo neutro — cinza sobre cinza, sem
+    link, sem destaque, no ponto de menor atenção da página. Passa a aparecer **abaixo do
+    título**, em cor de link, clicável para o catálogo filtrado por aquela editora, no padrão
+    que Amazon e Mercado Livre usam para marca/vendedor (referência do mantenedor, 2026-07-28).
+31a. **O destino do clique é o catálogo filtrado pela faceta de editora**, não busca textual
+    solta — a editora continua sendo faceta real (R29), então o link leva ao filtro
+    estruturado.
+31b. **Contraste e alvo de toque atendem o mínimo já exigido no projeto:** contraste de texto
+    conforme a paleta de `packages/ui` e alvo clicável de 44px, mesma régua aplicada aos demais
+    CTAs da ficha. A mudança é de hierarquia visual e usabilidade (Nielsen: visibilidade e
+    reconhecimento em vez de recordação), não só de cor.
+31c. **Material sem editora não deixa espaço morto nem rótulo vazio** abaixo do título.
+
+32. **[P0] Bug — o detector de idioma aprova inglês como "português confiante".**
+    `detectWithFranc` (`services/languageDetector.ts:60`) calcula
+    `confident = runnerUpScore < CONFIDENT_RUNNER_UP_THRESHOLD` olhando **apenas a margem para o
+    segundo colocado**, sem verificar se o primeiro colocado é `por`. Quando franc erra o topo,
+    a margem folgada faz o guarda-corpo de baixa confiança não disparar justamente no caso em
+    que ele deveria.
+    Reproduzido com o texto real do acervo (2026-07-28):
+    ```
+    francAll("Cat5Crew A party game ready to take you to space.")
+      → [['por', 1], ['eng', 0.82], ['spa', 0.81]]
+    ```
+    `0.82 < 0.95`, logo `confident: true`, `isPortuguese: true`, e o gate de
+    `scraperIngest.ts:278` (`!detection.isPortuguese || !detection.confident`) deixa passar.
+    Resultado em beta: `cat5crew` ("A party game ready to take you to space.") e `minihex`
+    ("Tribute to the game The Mini Quest") gravados com `detected_language='por'` e
+    `language_confident=true` — **2 dos 3 materiais do `itch_io`**. Furo direto do D119
+    ("somente material em português").
+32a. **A causa é a faixa de texto curto, e a correção precisa cobri-la.** Os dois casos têm 49 e
+    42 caracteres, passando o piso `MIN_TEXT_LENGTH_FOR_FRANC = 40` por pouco — faixa em que
+    franc é reconhecidamente instável. Elevar o piso sozinho apenas empurra os dois para o
+    fallback; a confiança precisa deixar de ser derivada só da margem.
+32b. **A correção é fail-closed, no padrão que o resto do detector já segue:** idioma não
+    comprovadamente português não entra, e indeterminação rejeita em vez de aprovar. Nenhuma
+    mudança pode transformar rejeição atual em aprovação silenciosa.
+32c. **Regressão coberta por teste com os textos reais de `cat5crew` e `minihex`**, não com
+    fixture sintética — foram eles que passaram pelo gate em produção de beta.
+32d. **O acervo contaminado é corrigido, não só o código.** Após a correção, os materiais de
+    beta aprovados indevidamente são reavaliados e removidos do acervo público. Beta é
+    descartável (decisão do mantenedor, 2026-07-28), então recoleta limpa é caminho aceito;
+    prod ainda não está populado, logo não há dado real a migrar.
+
 ## Critérios de aceite
 
 - Usuário logado comenta, responde e vê nome/avatar corretos nos **três** módulos.
@@ -145,6 +243,30 @@ coisas diferentes em cada módulo, e não haveria como autorizar uma tela centra
 - **Remoção de comentário preserva os filhos**; usuário removendo o próprio comentário recebe 403.
 - **Nenhum comentário legado órfão ou em ciclo é copiado silenciosamente** — detectados antes da cópia.
 - **Smoke de SSO completo:** login, `/me`, logout funcionando em todos os consumidores após a mudança no `accounts.`
+
+### Catálogo do `downloads` (requisitos 29-32)
+
+- **Texto em inglês é rejeitado pelo gate de idioma.** Os textos reais de `cat5crew` ("A party
+  game ready to take you to space.") e `minihex` ("Tribute to the game The Mini Quest") não
+  entram no acervo, com teste que falha contra o código atual e passa depois da correção.
+- **Nenhum material do acervo tem `detected_language='por'` sobre texto não português**, medido
+  por varredura do acervo recoletado, não por amostra.
+- **Nenhuma rejeição que hoje ocorre vira aprovação** depois da mudança no detector — a
+  correção só aperta, nunca afrouxa.
+- **`authors` não aparece como faceta selecionável** em `/facets` nem na sidebar do catálogo, e
+  a busca textual por nome de autor continua encontrando o material.
+- **Editora/selo continua faceta funcional** depois da remoção de `authors` — uma coisa não
+  levou a outra junto.
+- **Os campos do requisito 30 saem de 0 e passam a ser preenchidos** quando a página da fonte os
+  declara, com cobertura por plataforma medida antes e depois (baseline em 30c).
+- **Campo ausente na fonte permanece nulo**, sem valor inventado nem copiado de outro campo —
+  provado com material cuja página não declara o dado.
+- **`description_html` extraído passa pelo sanitizador** antes de persistir e antes de servir,
+  testado contra script, atributo de evento, link `javascript:` e SVG/MathML.
+- **Editora/selo aparece abaixo do título, em cor de link, e o clique leva ao catálogo filtrado
+  por aquela editora** — verificado na ficha real, não só em teste de unidade.
+- **Ficha de material sem editora não exibe rótulo vazio nem espaço morto** abaixo do título.
+- **Contraste e alvo de 44px conferidos** no novo elemento de editora/selo.
 - `rtk pnpm run lint`, `rtk pnpm run build`, `rtk pnpm run test` e `rtk pnpm verify:api` verdes.
 
 ## Fora de escopo
