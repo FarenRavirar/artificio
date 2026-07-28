@@ -153,7 +153,7 @@ describe('POST /api/v1/admin/scraper/ingest', () => {
     isFreeOrPwyw: true,
     coverImageUrl: null,
     publisherName: null,
-    sourceLanguageHint: 'pt',
+    sourceLanguageEvidence: 'pt',
   };
 
   it('400 quando payload inválido (source_platform ausente)', async () => {
@@ -198,6 +198,57 @@ describe('POST /api/v1/admin/scraper/ingest', () => {
 
     expect(res.body.id).toBe('run-2');
     expect(runScraperIngestMock).toHaveBeenCalledTimes(1);
+    const forwardedItems = runScraperIngestMock.mock.calls[0][2] as AsyncIterable<Record<string, unknown>>;
+    const forwarded = [];
+    for await (const item of forwardedItems) forwarded.push(item);
+    expect(forwarded[0]?.sourceLanguageEvidence).toBe('pt');
+  });
+
+  it('adapta sourceLanguageHint legado antes da validação do ingest', async () => {
+    dbMocks.insertInto.mockReturnValueOnce(insertChain({ id: 'run-legacy-language' }));
+    dbMocks.selectFrom
+      .mockReturnValueOnce(platformExistsChain())
+      .mockReturnValueOnce({
+        selectAll: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'run-legacy-language', status: 'completed' }),
+      });
+
+    const { sourceLanguageEvidence: _evidence, ...legacyItem } = validItem;
+    await request(app())
+      .post('/api/v1/admin/scraper/ingest')
+      .send({ source_platform: 'itch_io', items: [{ ...legacyItem, sourceLanguageHint: 'not_pt' }] })
+      .expect(200);
+
+    const forwardedItems = runScraperIngestMock.mock.calls[0][2] as AsyncIterable<Record<string, unknown>>;
+    const forwarded = [];
+    for await (const item of forwardedItems) forwarded.push(item);
+    expect(forwarded[0]?.sourceLanguageEvidence).toBe('not_pt');
+    expect(forwarded[0]).not.toHaveProperty('sourceLanguageHint');
+  });
+
+  it('preserva sourceLanguageEvidence explícito quando o alias legado também existe', async () => {
+    dbMocks.insertInto.mockReturnValueOnce(insertChain({ id: 'run-explicit-language' }));
+    dbMocks.selectFrom
+      .mockReturnValueOnce(platformExistsChain())
+      .mockReturnValueOnce({
+        selectAll: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'run-explicit-language', status: 'completed' }),
+      });
+
+    await request(app())
+      .post('/api/v1/admin/scraper/ingest')
+      .send({
+        source_platform: 'itch_io',
+        items: [{ ...validItem, sourceLanguageEvidence: 'pt', sourceLanguageHint: 'not_pt' }],
+      })
+      .expect(200);
+
+    const forwardedItems = runScraperIngestMock.mock.calls[0][2] as AsyncIterable<Record<string, unknown>>;
+    const forwarded = [];
+    for await (const item of forwardedItems) forwarded.push(item);
+    expect(forwarded[0]?.sourceLanguageEvidence).toBe('pt');
   });
 
   it('sanitiza descriptionHtml reenviado manualmente antes de entregar ao pipeline', async () => {
@@ -275,9 +326,9 @@ describe('POST /api/v1/admin/scraper/ingest', () => {
     const items = runScraperIngestMock.mock.calls[0][2] as AsyncIterable<Record<string, unknown>>;
     const forwarded: Record<string, unknown>[] = [];
     for await (const item of items) forwarded.push(item);
-    expect(parsed.body.preview.title).toContain('&lt;');
-    expect(parsed.body.preview.title).not.toContain('<');
+    expect(parsed.body.preview.title).toBe('Classe &lt; O Lutador (5E)- Playtest');
     expect(forwarded[0]?.title).toBe(parsed.body.preview.title);
+    expect(forwarded[0]?.sourceLanguageEvidence).toBe(parsed.body.preview.sourceLanguageEvidence);
     expect(forwarded[0]?.scenario).toBe(parsed.body.preview.scenario);
     expect(forwarded[0]?.authorsCredits).toBe(parsed.body.preview.authorsCredits);
     expect(forwarded[0]?.artistsCredits).toBe(parsed.body.preview.artistsCredits);

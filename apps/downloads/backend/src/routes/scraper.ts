@@ -151,7 +151,7 @@ const ingestItemSchema = z.object({
   isFreeOrPwyw: z.boolean(),
   coverImageUrl: z.url().nullable(),
   publisherName: z.string().nullable(),
-  sourceLanguageHint: z.enum(['pt', 'not_pt']).nullable(),
+  sourceLanguageEvidence: z.enum(['pt', 'not_pt']).nullable(),
   scenario: z.string().max(100).nullable().optional(),
   // Spec 086 (Fase 4): texto bruto de sistema/regra extraído pelo scraper
   // ("Universo de jogo" no OneBookShelf). Ponto 3 da cadeia de propagação —
@@ -186,6 +186,25 @@ const ingestBodySchema = z.object({
   source_platform: z.string().min(1),
   items: z.array(ingestItemSchema).min(1).max(500),
 });
+
+function adaptLegacyLanguageEvidence(body: unknown): unknown {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) return body;
+  const payload = body as Record<string, unknown>;
+  if (!Array.isArray(payload.items)) return body;
+
+  return {
+    ...payload,
+    items: payload.items.map((item) => {
+      if (item === null || typeof item !== 'object' || Array.isArray(item)) return item;
+      const record = item as Record<string, unknown>;
+      if (
+        Object.hasOwn(record, 'sourceLanguageEvidence')
+        || !Object.hasOwn(record, 'sourceLanguageHint')
+      ) return item;
+      return { ...record, sourceLanguageEvidence: record.sourceLanguageHint };
+    }),
+  };
+}
 
 // Achado real (review PR #201, Codex, P1): /ingest validava source_platform
 // contra IMPLEMENTED_SOURCE_PLATFORMS (Object.keys(ADAPTERS), só as 5
@@ -227,7 +246,7 @@ async function linkParseCaseIdsToMaterials(runId: string, parseCaseIdBySourceUrl
 }
 
 router.post('/ingest', writeRateLimiter, authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
-  const parsed = ingestBodySchema.safeParse(req.body ?? {});
+  const parsed = ingestBodySchema.safeParse(adaptLegacyLanguageEvidence(req.body ?? {}));
   if (!parsed.success) {
     return res.status(400).json({ error: 'Payload de ingest inválido.', details: z.treeifyError(parsed.error) });
   }
@@ -347,7 +366,7 @@ router.post('/parse-html', writeRateLimiter, authMiddleware, requireRole('admin'
       description: preview.description !== null,
       coverImageUrl: preview.coverImageUrl !== null,
       publisherName: preview.publisherName !== null,
-      sourceLanguageHint: preview.sourceLanguageHint !== null,
+      sourceLanguageEvidence: preview.sourceLanguageEvidence !== null,
       extractedPriceValue: preview.extractedPriceValue !== null,
       isFreeOrPwyw: preview.isFreeOrPwyw !== null,
     };

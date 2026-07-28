@@ -15,7 +15,7 @@ export interface PlatformOverrideInput {
   isFreeOrPwyw: boolean | null;
   coverImageUrl: string | null;
   publisherName: string | null;
-  sourceLanguageHint: 'pt' | 'not_pt' | null;
+  sourceLanguageEvidence: 'pt' | 'not_pt' | null;
   extractedPriceValue: number | null;
   priceSignal: 'pwyw_tag_present' | 'zero_price_no_pwyw_tag' | 'nonzero_price_no_pwyw_tag';
   scenario?: string | null;

@@ -18,7 +18,7 @@ function preview(): PlatformOverrideInput {
     isFreeOrPwyw: null,
     coverImageUrl: null,
     publisherName: null,
-    sourceLanguageHint: 'pt',
+    sourceLanguageEvidence: 'pt',
     extractedPriceValue: 0,
     priceSignal: 'zero_price_no_pwyw_tag',
   };

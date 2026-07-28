@@ -1,0 +1,79 @@
+[
+  {
+    "id": "itch-the-tusus-mine",
+    "sourcePlatform": "itch_io",
+    "sourceUrl": "https://gontijo.itch.io/thetususmine",
+    "text": "The Tusu's Mine\nPamphlet dungeon for tabletop rpgs",
+    "isPortuguese": false
+  },
+  {
+    "id": "grimorios-machados-e-bruxarias",
+    "sourcePlatform": "grimorios_e_dados",
+    "sourceUrl": "https://grimorios-e-dados.itch.io/machados-e-bruxarias",
+    "text": "Machados & Bruxarias\nUm mundo violento e decadente",
+    "isPortuguese": true
+  },
+  {
+    "id": "itch-you-will-never-be-a-dragon",
+    "sourcePlatform": "itch_io",
+    "sourceUrl": "https://bibitenco.itch.io/you-will-never-be-a-dragon",
+    "text": "You Will Never Be a Dragon",
+    "isPortuguese": false
+  },
+  {
+    "id": "opera-ases-das-filipinas",
+    "sourcePlatform": "opera_rpg",
+    "sourceUrl": "https://arquivos.operarpg.com.br/aventuras/AOAsesFlp.pdf",
+    "text": "Ases das Filipinas\nApós o ataque japonês contra Pearl Harbor em 7 de dezembro a América se viu forçada a ingressar no maior conflito armado da história do século XX. Enfrentando um inimigo poderoso e motivado as forças americanas vivem seu maior pesadelo.",
+    "isPortuguese": true
+  },
+  {
+    "id": "opera-gaia-400x",
+    "sourcePlatform": "opera_rpg",
+    "sourceUrl": "https://arquivos.operarpg.com.br/cenarios/DB114-GaiaOpera.pdf",
+    "text": "Gaia 400X\nGaia 400X é um cenário techno-fantasy multi-sistema. Enquanto na revista apresentamos a descrição do cenário, trazemos como web-enhacement para o OPERA RPG.",
+    "isPortuguese": true
+  },
+  {
+    "id": "opera-racas-dnd",
+    "sourcePlatform": "opera_rpg",
+    "sourceUrl": "https://arquivos.operarpg.com.br/regras_e_fichas/RRacasDD.pdf",
+    "text": "Raças D&D\nAdaptação das raças do D&D para OPERA RPG.",
+    "isPortuguese": true
+  },
+  {
+    "id": "itch-cairn-versao-brasileira",
+    "sourcePlatform": "itch_io",
+    "sourceUrl": "https://rafaarruda.itch.io/cairn-pt-br",
+    "text": "Cairn 1e - Versão Brasileira PT-BR",
+    "isPortuguese": true
+  },
+  {
+    "id": "grimorios-naraka",
+    "sourcePlatform": "grimorios_e_dados",
+    "sourceUrl": "https://grimorios-e-dados.itch.io/naraka-space",
+    "text": "Naraka - O Inferno no Limiar da Galáxia",
+    "isPortuguese": true
+  },
+  {
+    "id": "grimorios-horror-axaxilha",
+    "sourcePlatform": "grimorios_e_dados",
+    "sourceUrl": "https://grimorios-e-dados.itch.io/o-horror-de-axaxilha",
+    "text": "O Horror de Axaxilha",
+    "isPortuguese": true
+  },
+  {
+    "id": "grimorios-iron-man-returns",
+    "sourcePlatform": "grimorios_e_dados",
+    "sourceUrl": "https://grimorios-e-dados.itch.io/the-iron-man-returns",
+    "text": "The Iron Man Returns",
+    "isPortuguese": false
+  },
+  {
+    "id": "itch-a-perfect-rock",
+    "sourcePlatform": "itch_io",
+    "sourceUrl": "https://deep-dark-games.itch.io/a-perfect-rock-one-page",
+    "text": "A Perfect Rock - One Page Edition",
+    "isPortuguese": false
+  }
+]

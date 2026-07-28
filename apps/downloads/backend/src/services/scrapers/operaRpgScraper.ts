@@ -19,6 +19,11 @@ import { normalizeScrapedItemPlainText } from './plainTextPolicy';
 // "Name your own price" explicito).
 const BASE_URL = 'https://operarpg.com.br';
 const SECTIONS = ['/downloads/aventuras', '/downloads/cenarios', '/downloads/personagens', '/downloads/personagens-digitais', '/downloads/regras-e-fichas', '/downloads/outros'];
+const GAIA_400X_URL = 'https://arquivos.operarpg.com.br/cenarios/DB114-GaiaOpera.pdf';
+const HOMOGENEOUS_SECTION_TYPE_HINTS = new Map([
+  ['/downloads/aventuras', 'aventura'],
+  ['/downloads/cenarios', 'cenario'],
+]);
 
 // Achado de review PR #193 (codeRabbit): mesma licao do itch.io
 // (itchIoParser.ts) — aceita href/class em qualquer ordem no <a> e <br>
@@ -75,6 +80,20 @@ function splitAuthorAndDescription(raw: string): { authorsCredits: string | null
   return { authorsCredits, description };
 }
 
+function resolveOperaSystemHint(sourceUrl: string): string | null {
+  // Decisão T0.7: o hint significa “compatível com”. Gaia 400X é o único
+  // item explicitamente multi-sistema do corpus observado e não cabe num
+  // campo singular; os outros 133 itens dedicados recebem OPERA RPG.
+  return sourceUrl === GAIA_400X_URL ? null : 'OPERA RPG';
+}
+
+export function resolveOperaMaterialTypeHint(section: string): string | null {
+  // Só duas seções são homogêneas no DOM real. As demais misturam ficha,
+  // regra, guia, bestiário ou conteúdo sem subseção estrutural estável;
+  // atribuir tipo global seria classificação inventada.
+  return HOMOGENEOUS_SECTION_TYPE_HINTS.get(section) ?? null;
+}
+
 export class OperaRpgScraper implements ScraperAdapter {
   sourcePlatform = 'opera_rpg';
 
@@ -114,12 +133,9 @@ export class OperaRpgScraper implements ScraperAdapter {
           // Site 100% pt-BR confirmado na pesquisa (spec.md), mas sem
           // metadado nativo por item — deixa null pro languageDetector
           // decidir por titulo/descricao (Fase 4), nao assume cegamente.
-          sourceLanguageHint: null,
-          // Spec 089 T0.5: diagnóstico da Fase 0 ainda não autoriza
-          // extração. `null` explícito distingue fonte avaliada de campo
-          // esquecido; a Fase 3 preencherá só conforme fixtures reais.
-          systemHint: null,
-          materialTypeHint: null,
+          sourceLanguageEvidence: null,
+          systemHint: resolveOperaSystemHint(item.url),
+          materialTypeHint: resolveOperaMaterialTypeHint(section),
         });
       }
     }

@@ -91,7 +91,7 @@ export const genericParsePreviewSchema = z
     isFreeOrPwyw: z.boolean().nullable(),
     coverImageUrl: publicHttpUrlSchema.nullable(),
     publisherName: z.string().nullable(),
-    sourceLanguageHint: z.enum(['pt', 'not_pt']).nullable(),
+    sourceLanguageEvidence: z.enum(['pt', 'not_pt']).nullable(),
     extractedPriceValue: z.number().nullable(),
     priceSignal: z.enum(['pwyw_tag_present', 'zero_price_no_pwyw_tag', 'nonzero_price_no_pwyw_tag']),
     scenario: z.string().nullable().optional(),
@@ -126,7 +126,7 @@ const GENERIC_PARSE_PREVIEW_FIELD_POLICY = {
   isFreeOrPwyw: 'opaque',
   coverImageUrl: 'url',
   publisherName: 'plainText',
-  sourceLanguageHint: 'opaque',
+  sourceLanguageEvidence: 'opaque',
   extractedPriceValue: 'opaque',
   priceSignal: 'opaque',
   scenario: 'plainText',
@@ -287,7 +287,7 @@ function findOgImageUrl(html: string): string | null {
 
 // Achado real (review PR #201, Sonar): ternário aninhado — extraído em
 // função nomeada só pra deixar a intenção explícita (pt / not_pt / null).
-function resolveSourceLanguageHint(langMatch: RegExpExecArray | null): 'pt' | 'not_pt' | null {
+function resolveSourceLanguageEvidence(langMatch: RegExpExecArray | null): 'pt' | 'not_pt' | null {
   if (!langMatch) return null;
   return langMatch[2]?.toLowerCase().startsWith('pt') ? 'pt' : 'not_pt';
 }
@@ -349,7 +349,7 @@ export async function parseHtml(html: string, findPlatformByDomain: FindPlatform
   const rawCoverImageUrl = findOgImageUrl(html);
   const coverImageUrl = rawCoverImageUrl && isPublicHttpUrl(rawCoverImageUrl) ? rawCoverImageUrl : null;
   const langMatch = HTML_LANG_RE.exec(html);
-  const sourceLanguageHint = resolveSourceLanguageHint(langMatch);
+  const sourceLanguageEvidence = resolveSourceLanguageEvidence(langMatch);
 
   // Schema.org offers.price aceita Number ou Text (achado review PR #199,
   // preservado): sites podem emitir string numérica ("4.00"); só rejeita
@@ -369,7 +369,7 @@ export async function parseHtml(html: string, findPlatformByDomain: FindPlatform
     isFreeOrPwyw: defaultSignal.isFreeOrPwyw,
     coverImageUrl,
     publisherName: jsonLd.brand?.name ?? null,
-    sourceLanguageHint,
+    sourceLanguageEvidence,
     extractedPriceValue,
     priceSignal: defaultSignal.priceSignal,
     scenario: null,

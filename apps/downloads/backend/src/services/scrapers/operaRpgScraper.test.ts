@@ -14,14 +14,12 @@ vi.mock('./httpFetch', () => ({
   looksBlocked: (result: { status: number }) => result.status === 403 || result.status === 429,
 }));
 
-import { OperaRpgScraper } from './operaRpgScraper';
+import { OperaRpgScraper, resolveOperaMaterialTypeHint } from './operaRpgScraper';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const SECTION_HTML_FIXTURE = `
-<a class="download-item" href="https://arquivos.operarpg.com.br/aventuras/AOAsesFlp.pdf" target="_blank" rel="noopener noreferrer"><span><b>Ases das Filipinas</b><br/><small>por Intruder · Após o ataque japonês contra Pearl Harbor.</small></span><span>Abrir ↗</span></a>
-<a class="download-item" href="https://arquivos.operarpg.com.br/aventuras/ABariloche.pdf" target="_blank" rel="noopener noreferrer"><span><b>Inverno em Bariloche</b><br/><small>por Roj Ventura · Aventura de mistério e horror.</small></span><span>Abrir ↗</span></a>
-`;
+const FIXTURE_DIR = path.resolve(__dirname, '../../../test/fixtures/spec-089');
+const SECTION_HTML_FIXTURE = fs.readFileSync(path.join(FIXTURE_DIR, 'opera-aventuras-section.html'), 'utf8');
 
 beforeEach(() => {
   fetchSimpleMock.mockReset();
@@ -31,10 +29,13 @@ beforeEach(() => {
 describe('OperaRpgScraper', () => {
   it('decodifica entidade do DOM real antes de entregar o item', async () => {
     const html = fs.readFileSync(
-      path.resolve(__dirname, '../../../test/fixtures/spec-089/opera-regras-section.html'),
+      path.join(FIXTURE_DIR, 'opera-regras-section.html'),
       'utf8',
     );
-    fetchSimpleMock.mockResolvedValue({ html, status: 200 });
+    fetchSimpleMock.mockImplementation(async (url: string) => ({
+      html: url.endsWith('/downloads/regras-e-fichas') ? html : '',
+      status: 200,
+    }));
 
     const items = [];
     for await (const item of new OperaRpgScraper().discoverItems()) items.push(item);
@@ -42,6 +43,8 @@ describe('OperaRpgScraper', () => {
     expect(items[0]?.title).toBe('Raças D&D');
     expect(items[0]?.description).toContain('D&D para OPERA RPG');
     expect(items[0]?.sourceUrl).toContain('RRacasDD.pdf');
+    expect(items[0]?.systemHint).toBe('OPERA RPG');
+    expect(items[0]?.materialTypeHint).toBeNull();
   });
 
   it('descobre itens de todas as seções, extraindo título/autor/descrição', async () => {
@@ -52,19 +55,53 @@ describe('OperaRpgScraper', () => {
       items.push(item);
     }
 
-    // 6 seções * 2 itens fixos (mock retorna a mesma fixture pra todas) —
-    // mas dedupe por sourceUrl garante que so 2 itens unicos sobrevivem.
-    expect(items).toHaveLength(2);
+    // Mesmo fixture real devolvido às seis rotas; dedupe prova que um URL não
+    // vira seis materiais.
+    expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
       sourceUrl: 'https://arquivos.operarpg.com.br/aventuras/AOAsesFlp.pdf',
       title: 'Ases das Filipinas',
       // Spec 088 (requisito 40) — "por Intruder" é AUTORIA. Antes ia pra
       // `publisherName`, afirmando que a pessoa era a editora do material.
       authorsCredits: 'Intruder',
-      description: 'Após o ataque japonês contra Pearl Harbor.',
+      description: expect.stringContaining('Após o ataque japonês contra Pearl Harbor'),
       isFreeOrPwyw: true,
-      sourceLanguageHint: null,
+      sourceLanguageEvidence: null,
+      systemHint: 'OPERA RPG',
+      materialTypeHint: 'aventura',
     });
+  });
+
+  it('Gaia 400X fica sem sistema singular e mantém tipo da seção Cenários', async () => {
+    const html = fs.readFileSync(
+      path.join(FIXTURE_DIR, 'opera-cenarios-section.html'),
+      'utf8',
+    );
+    fetchSimpleMock.mockImplementation(async (url: string) => ({
+      html: url.endsWith('/downloads/cenarios') ? html : '',
+      status: 200,
+    }));
+
+    const items = [];
+    for await (const item of new OperaRpgScraper().discoverItems()) items.push(item);
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      title: 'Gaia 400X',
+      systemHint: null,
+      materialTypeHint: 'cenario',
+    });
+  });
+
+  it.each([
+    ['/downloads/aventuras', 'aventura'],
+    ['/downloads/cenarios', 'cenario'],
+    ['/downloads/personagens', null],
+    ['/downloads/personagens-digitais', null],
+    ['/downloads/regras-e-fichas', null],
+    ['/downloads/outros', null],
+  ])('classifica seção OPERA %s sem tipo global inventado', (section, expected) => {
+    expect(resolveOperaMaterialTypeHint(section)).toBe(expected);
   });
 
   // Requisito 38/40 — a listagem não expõe editora em lugar nenhum, então
@@ -80,7 +117,7 @@ describe('OperaRpgScraper', () => {
     }
 
     expect(items.every((item) => item.publisherName === null)).toBe(true);
-    expect(items.map((item) => item.authorsCredits)).toEqual(['Intruder', 'Roj Ventura']);
+    expect(items.map((item) => item.authorsCredits)).toEqual(['Intruder']);
   });
 
   it('pula seção bloqueada (403) sem interromper as demais', async () => {

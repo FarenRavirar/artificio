@@ -3,6 +3,13 @@
   "mode": "fetchSimple-equivalent: HTTP GET, browser User-Agent, unrendered response",
   "captures": [
     {
+      "fixture": "opera-aventuras-section.html",
+      "url": "https://operarpg.com.br/downloads/aventuras",
+      "status": 200,
+      "sourceBytes": 29934,
+      "sourceSha256": "493dbd83533c573052ab4a17af32a72173a7140d34160be9d43f5a6bafd1b5c6"
+    },
+    {
       "fixture": "opera-regras-section.html",
       "url": "https://operarpg.com.br/downloads/regras-e-fichas",
       "status": 200,
@@ -43,6 +50,20 @@
       "status": 200,
       "sourceBytes": 23788,
       "sourceSha256": "13cb4c74faaf522e15906ea259ae2f64d6361fabd15b7ce9414a35e18e6ebaea"
+    },
+    {
+      "fixture": "itch-product-dnd-supplement.html",
+      "url": "https://bibitenco.itch.io/you-will-never-be-a-dragon",
+      "status": 200,
+      "sourceBytes": 26411,
+      "sourceSha256": "de0ac366eccec54b38985f8e9216d4b4e788fdc49921163ffa9e467448f249b7"
+    },
+    {
+      "fixture": "itch-product-cairn.html",
+      "url": "https://rafaarruda.itch.io/cairn-pt-br",
+      "status": 200,
+      "sourceBytes": 42524,
+      "sourceSha256": "3bcf84dba95e6e0043159f54558e422519a75de649450eef430d1819fedbb00a"
     },
     {
       "fixture": null,

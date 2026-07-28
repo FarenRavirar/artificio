@@ -49,7 +49,7 @@ function makeItem(overrides: Partial<ScrapedItem> = {}): ScrapedItem {
     isFreeOrPwyw: true,
     coverImageUrl: null,
     publisherName: 'Autor Teste',
-    sourceLanguageHint: null,
+    sourceLanguageEvidence: null,
     systemHint: null,
     materialTypeHint: null,
     ...overrides,
@@ -75,6 +75,13 @@ beforeEach(() => {
   dbMocks.updateTable.mockReset();
   dbMocks.transaction.mockReset();
   detectPortugueseMock.mockReset();
+  detectPortugueseMock.mockResolvedValue({
+    isPortuguese: true,
+    detectedLanguage: 'por',
+    confident: true,
+    method: 'franc',
+    reason: 'franc_confident',
+  });
   getOrCreateScraperCreatorIdMock.mockReset();
   loadCatalogSystemsFlatMock.mockReset();
   loadCatalogSystemsFlatMock.mockResolvedValue([]);
@@ -122,8 +129,8 @@ beforeEach(() => {
 });
 
 describe('runScraperIngest', () => {
-  it('sourceLanguageHint=not_pt: pula por idioma SEM chamar detectPortuguese nem checar preço/dedupe', async () => {
-    const item = makeItem({ sourceLanguageHint: 'not_pt' });
+  it('sourceLanguageEvidence=not_pt: pula por idioma SEM chamar detectPortuguese nem checar preço/dedupe', async () => {
+    const item = makeItem({ sourceLanguageEvidence: 'not_pt' });
 
     const result = await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
 
@@ -133,9 +140,15 @@ describe('runScraperIngest', () => {
     expect(dbMocks.selectFrom).not.toHaveBeenCalled();
   });
 
-  it('sourceLanguageHint=null e detectPortuguese não confiante: pula por idioma, nunca cria', async () => {
-    detectPortugueseMock.mockResolvedValue({ isPortuguese: false, detectedLanguage: 'eng', confident: true });
-    const item = makeItem({ sourceLanguageHint: null });
+  it('sourceLanguageEvidence=null e detecção confiante não-portuguesa: pula por idioma, nunca cria', async () => {
+    detectPortugueseMock.mockResolvedValue({
+      isPortuguese: false,
+      detectedLanguage: 'eng',
+      confident: true,
+      method: 'franc',
+      reason: 'franc_confident',
+    });
+    const item = makeItem({ sourceLanguageEvidence: null });
 
     const result = await runScraperIngest('run-1', 'opera_rpg', asyncIterableOf([item]));
 
@@ -144,26 +157,76 @@ describe('runScraperIngest', () => {
   });
 
   it('detectPortuguese retorna isPortuguese=true mas confident=false: ainda pula (nunca assume na dúvida)', async () => {
-    detectPortugueseMock.mockResolvedValue({ isPortuguese: true, detectedLanguage: 'por', confident: false });
-    const item = makeItem({ sourceLanguageHint: null });
+    detectPortugueseMock.mockResolvedValue({
+      isPortuguese: true,
+      detectedLanguage: 'por',
+      confident: false,
+      method: 'indeterminate',
+      reason: 'deepseek_missing_api_key_after:franc_low_margin',
+    });
+    const item = makeItem({ sourceLanguageEvidence: null });
 
     const result = await runScraperIngest('run-1', 'opera_rpg', asyncIterableOf([item]));
 
     expect(result.itemsSkippedNotPortuguese).toBe(1);
   });
 
-  it('sourceLanguageHint=pt: pula detectPortuguese inteiramente (confia no sinal nativo da fonte)', async () => {
-    const item = makeItem({ sourceLanguageHint: 'pt', isFreeOrPwyw: false });
+  it('sourceLanguageEvidence=pt ainda executa detector e rejeita página inglesa', async () => {
+    detectPortugueseMock.mockResolvedValue({
+      isPortuguese: false,
+      detectedLanguage: 'eng',
+      confident: true,
+      method: 'franc',
+      reason: 'franc_confident',
+    });
+    const item = makeItem({ sourceLanguageEvidence: 'pt', isFreeOrPwyw: false });
 
     const result = await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
 
-    expect(detectPortugueseMock).not.toHaveBeenCalled();
-    // isFreeOrPwyw=false ainda deve barrar na etapa de preço (idioma passou).
-    expect(result.itemsSkippedError).toBe(1);
+    expect(detectPortugueseMock).toHaveBeenCalledOnce();
+    expect(result.itemsSkippedNotPortuguese).toBe(1);
+    expect(result.itemsSkippedError).toBe(0);
+  });
+
+  it('log de idioma registra método, motivo e evidência da fonte', async () => {
+    detectPortugueseMock.mockResolvedValue({
+      isPortuguese: false,
+      detectedLanguage: 'eng',
+      confident: true,
+      method: 'franc',
+      reason: 'franc_confident',
+    });
+    const logValues = vi.fn().mockReturnThis();
+    dbMocks.insertInto.mockReturnValue({
+      values: logValues,
+      execute: vi.fn().mockResolvedValue(undefined),
+    });
+
+    await runScraperIngest(
+      'run-language-audit',
+      'itch_io',
+      asyncIterableOf([makeItem({ sourceLanguageEvidence: 'pt' })]),
+    );
+
+    expect(dbMocks.insertInto).toHaveBeenCalledWith('download_scraper_item_log');
+    expect(logValues).toHaveBeenCalledWith(expect.objectContaining({
+      detected_language: 'eng',
+      outcome: 'skipped_not_portuguese',
+      error_detail: expect.stringContaining('"language_method":"franc"'),
+    }));
+    expect(logValues).toHaveBeenCalledWith(expect.objectContaining({
+      error_detail: expect.stringContaining('"language_reason":"franc_confident"'),
+    }));
+    expect(logValues).toHaveBeenCalledWith(expect.objectContaining({
+      error_detail: expect.stringContaining('"source_evidence":"pt"'),
+    }));
+    expect(logValues).toHaveBeenCalledWith(expect.objectContaining({
+      error_detail: expect.stringContaining('"language_confident":true'),
+    }));
   });
 
   it('isFreeOrPwyw=false: pula por preço, nunca chega no dedupe/criação', async () => {
-    const item = makeItem({ sourceLanguageHint: 'pt', isFreeOrPwyw: false });
+    const item = makeItem({ sourceLanguageEvidence: 'pt', isFreeOrPwyw: false });
 
     const result = await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
 
@@ -173,7 +236,7 @@ describe('runScraperIngest', () => {
 
   it('item já existe (dedupe por source_platform+source_url): skipped_duplicate, nunca cria', async () => {
     dbMocks.selectFrom.mockReturnValueOnce(selectChain({ id: 'material-existente' }));
-    const item = makeItem({ sourceLanguageHint: 'pt' });
+    const item = makeItem({ sourceLanguageEvidence: 'pt' });
 
     const result = await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
 
@@ -215,7 +278,7 @@ describe('runScraperIngest', () => {
       const materialInsert = setupCreate();
 
       await runScraperIngest('run-1', 'itch_io', asyncIterableOf([
-        makeItem({ sourceLanguageHint: 'pt', materialTypeHint: 'regras' }),
+        makeItem({ sourceLanguageEvidence: 'pt', materialTypeHint: 'regras' }),
       ]));
 
       expect(materialInsert.values).toHaveBeenCalledWith(expect.objectContaining({
@@ -230,7 +293,7 @@ describe('runScraperIngest', () => {
       const materialInsert = setupCreate();
 
       await runScraperIngest('run-1', 'itch_io', asyncIterableOf([
-        makeItem({ sourceLanguageHint: 'pt', materialTypeHint: 'Grimório de Feitiços' }),
+        makeItem({ sourceLanguageEvidence: 'pt', materialTypeHint: 'Grimório de Feitiços' }),
       ]));
 
       // Requisito 54 — o material nunca perde a informação que a fonte
@@ -250,7 +313,7 @@ describe('runScraperIngest', () => {
       const materialInsert = setupCreate();
 
       await runScraperIngest('run-1', 'itch_io', asyncIterableOf([
-        makeItem({ sourceLanguageHint: 'pt', materialTypeHint: 'Grimório de Feitiços' }),
+        makeItem({ sourceLanguageEvidence: 'pt', materialTypeHint: 'Grimório de Feitiços' }),
       ]));
 
       expect(materialInsert.typeSuggestionInsert.values).toHaveBeenCalledWith(expect.objectContaining({
@@ -267,7 +330,7 @@ describe('runScraperIngest', () => {
       const materialInsert = setupCreate();
 
       await runScraperIngest('run-1', 'itch_io', asyncIterableOf([
-        makeItem({ sourceLanguageHint: 'pt', materialTypeHint: 'regras' }),
+        makeItem({ sourceLanguageEvidence: 'pt', materialTypeHint: 'regras' }),
       ]));
 
       expect(materialInsert.typeSuggestionInsert.values).not.toHaveBeenCalled();
@@ -277,7 +340,7 @@ describe('runScraperIngest', () => {
       const materialInsert = setupCreate();
 
       await runScraperIngest('run-1', 'itch_io', asyncIterableOf([
-        makeItem({ sourceLanguageHint: 'pt' }),
+        makeItem({ sourceLanguageEvidence: 'pt' }),
       ]));
 
       expect(materialInsert.typeSuggestionInsert.values).not.toHaveBeenCalled();
@@ -287,7 +350,7 @@ describe('runScraperIngest', () => {
       const materialInsert = setupCreate();
 
       await runScraperIngest('run-1', 'itch_io', asyncIterableOf([
-        makeItem({ sourceLanguageHint: 'pt' }),
+        makeItem({ sourceLanguageEvidence: 'pt' }),
       ]));
 
       // Requisito 55 — rotular como Aventura quem ninguém classificou é
@@ -319,7 +382,7 @@ describe('runScraperIngest', () => {
     });
 
     const item = makeItem({
-      sourceLanguageHint: 'pt',
+      sourceLanguageEvidence: 'pt',
       scenario: 'Qualquer mundo',
       authorsCredits: 'Autora',
       artistsCredits: 'Artista',
@@ -341,6 +404,9 @@ describe('runScraperIngest', () => {
         editorial_state: 'published',
         access_kind: 'external_link',
         source_platform: 'itch_io',
+        detected_language: 'por',
+        language_confident: true,
+        language_checked_at: expect.any(Date),
       }),
     );
     const materialValues = materialInsert.values.mock.calls[0][0];
@@ -404,7 +470,7 @@ describe('runScraperIngest', () => {
       artistsCredits: 'Artista &#38; Ilustradora',
       systemHint: 'D&amp;D',
       materialTypeHint: 'Regr&#97;s',
-      sourceLanguageHint: null,
+      sourceLanguageEvidence: null,
     }));
 
     await runScraperIngest('run-entities', 'itch_io', asyncIterableOf([item]));
@@ -435,7 +501,7 @@ describe('runScraperIngest', () => {
       execute: async () => { throw Object.assign(new Error('duplicate key value violates unique constraint'), { code: '23505' }); },
     });
 
-    const item = makeItem({ sourceLanguageHint: 'pt' });
+    const item = makeItem({ sourceLanguageEvidence: 'pt' });
     const result = await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
 
     expect(result.itemsSkippedDuplicate).toBe(1);
@@ -452,7 +518,7 @@ describe('runScraperIngest', () => {
       execute: async () => { throw new Error('constraint violation'); },
     });
 
-    const item = makeItem({ sourceLanguageHint: 'pt' });
+    const item = makeItem({ sourceLanguageEvidence: 'pt' });
     const result = await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
 
     expect(result.itemsSkippedError).toBe(1);
@@ -479,7 +545,7 @@ describe('runScraperIngest', () => {
     // download_scraper_item_log insert falha — nao deve propagar nem mudar outcome.
     dbMocks.insertInto.mockReturnValueOnce({ values: vi.fn().mockReturnThis(), execute: vi.fn().mockRejectedValue(new Error('log write failed')) });
 
-    const item = makeItem({ sourceLanguageHint: 'pt' });
+    const item = makeItem({ sourceLanguageEvidence: 'pt' });
     const result = await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
 
     expect(result.itemsCreated).toBe(1);
@@ -488,7 +554,7 @@ describe('runScraperIngest', () => {
 
   it('atualiza contadores de download_scraper_run incrementalmente, um update por item', async () => {
     dbMocks.selectFrom.mockReturnValue(selectChain({ id: 'dup' }));
-    const items = [makeItem({ sourceLanguageHint: 'pt' }), makeItem({ sourceLanguageHint: 'pt', sourceUrl: 'https://example.itch.io/game-2' })];
+    const items = [makeItem({ sourceLanguageEvidence: 'pt' }), makeItem({ sourceLanguageEvidence: 'pt', sourceUrl: 'https://example.itch.io/game-2' })];
 
     await runScraperIngest('run-1', 'itch_io', asyncIterableOf(items));
 
@@ -504,7 +570,7 @@ describe('runScraperIngest', () => {
     await expect(runScraperIngest(
       'run-1',
       'itch_io',
-      asyncIterableOf([makeItem({ sourceLanguageHint: 'pt' }), makeItem({ sourceLanguageHint: 'pt' })]),
+      asyncIterableOf([makeItem({ sourceLanguageEvidence: 'pt' }), makeItem({ sourceLanguageEvidence: 'pt' })]),
     )).rejects.toThrow('catalog_material_type_not_found: nao-classificado');
 
     expect(getCatalogMaterialTypeBySlugMock).toHaveBeenCalledTimes(1);
@@ -542,7 +608,7 @@ describe('runScraperIngest', () => {
         execute: async (cb: (trx: { insertInto: typeof trxInsertInto }) => Promise<string>) => cb({ insertInto: trxInsertInto }),
       });
 
-      const item = makeItem({ sourceLanguageHint: 'pt' });
+      const item = makeItem({ sourceLanguageEvidence: 'pt' });
       await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
 
       expect(loadCatalogSystemsFlatMock).not.toHaveBeenCalled();
@@ -566,7 +632,7 @@ describe('runScraperIngest', () => {
         execute: async (cb: (trx: { insertInto: typeof trxInsertInto }) => Promise<string>) => cb({ insertInto: trxInsertInto }),
       });
 
-      const item = makeItem({ sourceLanguageHint: 'pt', systemHint: 'D&D 5e' });
+      const item = makeItem({ sourceLanguageEvidence: 'pt', systemHint: 'D&D 5e' });
       await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
 
       expect(trxInsertInto).toHaveBeenCalledTimes(2);
@@ -590,7 +656,7 @@ describe('runScraperIngest', () => {
         execute: async (cb: (trx: { insertInto: typeof trxInsertInto }) => Promise<string>) => cb({ insertInto: trxInsertInto }),
       });
 
-      const item = makeItem({ sourceLanguageHint: 'pt', systemHint: 'Dungeons & Dragons' });
+      const item = makeItem({ sourceLanguageEvidence: 'pt', systemHint: 'Dungeons & Dragons' });
       await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
 
       const materialValues = materialInsert.values.mock.calls[0][0];
@@ -616,7 +682,7 @@ describe('runScraperIngest', () => {
         execute: async (cb: (trx: { insertInto: typeof trxInsertInto }) => Promise<string>) => cb({ insertInto: trxInsertInto }),
       });
 
-      const item = makeItem({ sourceLanguageHint: 'pt', systemHint: 'Sistema Totalmente Desconhecido XYZ' });
+      const item = makeItem({ sourceLanguageEvidence: 'pt', systemHint: 'Sistema Totalmente Desconhecido XYZ' });
       await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
 
       expect(trxInsertInto).toHaveBeenCalledTimes(3);
@@ -650,7 +716,7 @@ describe('runScraperIngest', () => {
         execute: async (cb: (trx: { insertInto: typeof trxInsertInto }) => Promise<string>) => cb({ insertInto: trxInsertInto }),
       });
 
-      const item = makeItem({ sourceLanguageHint: 'pt', systemHint: 'CAIN' });
+      const item = makeItem({ sourceLanguageEvidence: 'pt', systemHint: 'CAIN' });
       await runScraperIngest('run-1', 'itch_io', asyncIterableOf([item]));
 
       const materialValues = materialInsert.values.mock.calls[0][0];

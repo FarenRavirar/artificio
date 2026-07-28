@@ -1,7 +1,7 @@
 import type { Kysely, Transaction } from 'kysely';
 import { matchSystemNameExact, type MatchableSystemEntry } from '@artificio/catalog-matching';
 import { db } from '../db';
-import { detectPortuguese } from './languageDetector';
+import { detectPortuguese, type LanguageDetectionResult } from './languageDetector';
 import { getOrCreateScraperCreatorId } from './scraperCreator';
 import {
   getCatalogMaterialTypeBySlug,
@@ -26,6 +26,24 @@ import { toJsonColumnValue } from '../db/jsonColumn';
 // site/db/migrations/016), pra que "caiu no default" seja distinguivel de
 // classificacao real — consulta pelo slug lista exatamente o que falta triar.
 const DEFAULT_MATERIAL_TYPE_SLUG = 'nao-classificado';
+
+interface LanguageAudit {
+  detectedLanguage: string;
+  confident: boolean;
+  method: LanguageDetectionResult['method'] | 'source_signal';
+  reason: string;
+  sourceEvidence: ScrapedItem['sourceLanguageEvidence'];
+}
+
+function languageAuditDetail(audit: LanguageAudit, error?: string): string {
+  return JSON.stringify({
+    language_method: audit.method,
+    language_reason: audit.reason,
+    language_confident: audit.confident,
+    source_evidence: audit.sourceEvidence,
+    ...(error ? { error } : {}),
+  });
+}
 
 export interface ScraperIngestResult {
   itemsFound: number;
@@ -217,27 +235,62 @@ async function processItem(
   item: ScrapedItem,
 ): Promise<DownloadScraperItemOutcome> {
   // 1. Idioma primeiro (D119) — nunca avalia preco/dedupe antes disso.
-  if (item.sourceLanguageHint === 'not_pt') {
-    await logItem(runId, item, 'skipped_not_portuguese', null, 'not_pt (sinal nativo da fonte)', null);
+  if (item.sourceLanguageEvidence === 'not_pt') {
+    const sourceAudit: LanguageAudit = {
+      detectedLanguage: 'und',
+      confident: true,
+      method: 'source_signal',
+      reason: 'source_evidence_not_pt',
+      sourceEvidence: 'not_pt',
+    };
+    await logItem(
+      runId,
+      item,
+      'skipped_not_portuguese',
+      null,
+      sourceAudit.detectedLanguage,
+      languageAuditDetail(sourceAudit),
+    );
     return 'skipped_not_portuguese';
   }
 
-  let detectedLanguage = 'pt';
-  if (item.sourceLanguageHint !== 'pt') {
-    const combinedText = `${item.title}\n${item.description ?? ''}`;
-    const detection = await detectPortuguese(combinedText);
-    detectedLanguage = detection.detectedLanguage;
-    if (!detection.isPortuguese || !detection.confident) {
-      await logItem(runId, item, 'skipped_not_portuguese', null, detectedLanguage, null);
-      return 'skipped_not_portuguese';
-    }
+  // Spec 089 T2.1: sinal positivo da fonte nunca aprova. `pt` e ausência
+  // passam pelo detector exatamente como qualquer outra entrada.
+  const combinedText = `${item.title}\n${item.description ?? ''}`;
+  const detection = await detectPortuguese(combinedText);
+  const languageCheckedAt = new Date();
+  const languageAudit: LanguageAudit = {
+    detectedLanguage: detection.detectedLanguage,
+    confident: detection.confident,
+    method: detection.method,
+    reason: detection.reason,
+    sourceEvidence: item.sourceLanguageEvidence,
+  };
+  const detectedLanguage = detection.detectedLanguage;
+  if (!detection.isPortuguese || !detection.confident) {
+    await logItem(
+      runId,
+      item,
+      'skipped_not_portuguese',
+      null,
+      detectedLanguage,
+      languageAuditDetail(languageAudit),
+    );
+    return 'skipped_not_portuguese';
   }
 
   // 2. Preco realmente zero/PWYW — rejeita se ambiguo (adapter ja filtrou
   // isFreeOrPwyw!==true antes de produzir o item, mas o pipeline revalida
   // porque e a ultima linha de defesa antes de criar material publicado).
   if (!item.isFreeOrPwyw) {
-    await logItem(runId, item, 'skipped_error', null, detectedLanguage, 'Preço não confirmado como zero/PWYW.');
+    await logItem(
+      runId,
+      item,
+      'skipped_error',
+      null,
+      detectedLanguage,
+      languageAuditDetail(languageAudit, 'Preço não confirmado como zero/PWYW.'),
+    );
     return 'skipped_error';
   }
 
@@ -250,7 +303,7 @@ async function processItem(
     .executeTakeFirst();
 
   if (existing) {
-    await logItem(runId, item, 'skipped_duplicate', existing.id, detectedLanguage, null);
+    await logItem(runId, item, 'skipped_duplicate', existing.id, detectedLanguage, languageAuditDetail(languageAudit));
     return 'skipped_duplicate';
   }
 
@@ -285,6 +338,9 @@ async function processItem(
           source_platform: sourcePlatform,
           source_url: item.sourceUrl,
           source_scraped_at: new Date(),
+          detected_language: detectedLanguage,
+          language_confident: detection.confident,
+          language_checked_at: languageCheckedAt,
           // T4.5 — casou por igualdade exata contra o catalogo -> system_id
           // (raiz) + edition_id (folha, se o node casado nao for a raiz);
           // nao casou -> preserva o texto bruto em raw_system_hint (nunca
@@ -345,7 +401,7 @@ async function processItem(
       return material.id;
     });
 
-    await logItem(runId, item, 'created', materialId, detectedLanguage, null);
+    await logItem(runId, item, 'created', materialId, detectedLanguage, languageAuditDetail(languageAudit));
     return 'created';
   } catch (error: unknown) {
     // Achado de review PR #193 (codeRabbit): violacao do indice UNIQUE
@@ -354,11 +410,11 @@ async function processItem(
     // duplicata, nao como erro generico (o SELECT de dedupe acima ja cobre
     // o caso sequencial; isso fecha so a janela de corrida concorrente).
     if (isUniqueViolation(error)) {
-      await logItem(runId, item, 'skipped_duplicate', null, detectedLanguage, null);
+      await logItem(runId, item, 'skipped_duplicate', null, detectedLanguage, languageAuditDetail(languageAudit));
       return 'skipped_duplicate';
     }
     const message = error instanceof Error ? error.message : 'Falha desconhecida ao criar material.';
-    await logItem(runId, item, 'skipped_error', null, detectedLanguage, message);
+    await logItem(runId, item, 'skipped_error', null, detectedLanguage, languageAuditDetail(languageAudit, message));
     return 'skipped_error';
   }
 }

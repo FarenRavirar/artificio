@@ -8,7 +8,7 @@ import type { ScraperAdapter, ScrapedItem } from './types';
 // listingUrl. Diferente da fonte itch.io geral: essa pagina NAO tem filtro
 // nativo de idioma na URL (e o storefront inteiro de um dev, nao uma busca
 // filtrada) — spec.md registra "maioria pt-BR confirmado", nao garantia por
-// item, entao sourceLanguageHint fica null (languageDetector decide, Fase 4).
+// item, então sourceLanguageEvidence fica null (languageDetector decide).
 const LISTING_URL = 'https://grimorios-e-dados.itch.io';
 
 export class GrimoriosEDadosScraper implements ScraperAdapter {

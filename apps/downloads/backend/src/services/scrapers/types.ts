@@ -10,11 +10,9 @@ export interface ScrapedItem {
   isFreeOrPwyw: boolean;
   coverImageUrl: string | null;
   publisherName: string | null;
-  // Sinal de idioma proprio da fonte, quando existir (ex.: itch.io tem
-  // filtro nativo lang-pt-BR na URL de descoberta — ja resolve aqui, sem
-  // precisar do fallback franc-min/DeepSeek da Fase 4). null quando a fonte
-  // nao oferece nenhum sinal proprio — languageDetector decide sozinho.
-  sourceLanguageHint: 'pt' | 'not_pt' | null;
+  // Evidência de idioma declarada pela fonte. Nunca é decisão positiva:
+  // `not_pt` rejeita cedo; `pt` e `null` ainda passam pelo detector textual.
+  sourceLanguageEvidence: 'pt' | 'not_pt' | null;
   scenario?: string | null;
   // Achado real (spec 086, Fase 4): onebookshelf.ts mapeava details.get('ruleSystem')
   // (texto bruto de SISTEMA/regra, ex. "D&D 5e") para 'scenario' — campo errado,

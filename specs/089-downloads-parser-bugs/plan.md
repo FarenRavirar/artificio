@@ -23,9 +23,10 @@ contra estrutura não observada foi explicitamente proibido, e a proibição con
 
 Prioridade por impacto: `opera_rpg` (118 de 141 materiais, 84%) antes das outras duas.
 
-**Decisão T0.7 (mantenedor, 2026-07-27):** `Multi-sistema` é sistema válido, não ausência.
-No OPERA, itens dedicados recebem `OPERA RPG`; item explicitamente multi-sistema recebe
-`Multi-sistema`. A extração continua na Fase 3.
+**Decisão T0.7 (mantenedor, 2026-07-27):** `systemHint` significa “compatível com”.
+No OPERA, 133 itens dedicados recebem `OPERA RPG`; `Gaia 400X`, explicitamente
+multi-sistema, recebe `null`, pois o campo guarda um único sistema. A extração continua na
+Fase 3.
 
 **Elegibilidade do itch.io:** a listagem correta é
 `/physical-games/genre-rpg/lang-pt-BR`, mas continua parcial. O parser valida cada página:
@@ -34,14 +35,14 @@ Sinal ausente ou categoria diferente falha fechado. Título e descrição não d
 
 ### Eixo B — idioma (defeito 3)
 
-A causa está estabelecida, não é mais hipótese: **o detector nunca roda**. `scraperIngest.ts:223`
-pula a detecção inteira quando `sourceLanguageHint === 'pt'`. As hipóteses antigas (texto curto,
+A causa estava estabelecida: **o detector não rodava**. O ingest pulava a detecção inteira
+quando `sourceLanguageHint === 'pt'`. As hipóteses antigas (texto curto,
 campo errado, `confident=false` tratado como aprovação) estão **descartadas** — nenhuma delas
 chega a ser exercida.
 
 Quatro frentes:
 
-- **Fechar o bypass em todos os caminhos.** Não é só o `itchIoScraper.ts:25`. O hint `'pt'`
+- **Fechar o bypass em todos os caminhos.** Não é só o `itchIoScraper.ts`. A evidência `'pt'`
   também nasce de `<html lang>` no parser genérico (`genericHtmlParser.ts:261`) e pode chegar
   direto pelo `/ingest`. Regra: **sinal da fonte nunca aprova, só rejeita** — `not_pt` corta
   cedo, `pt` e ausente caem no detector.
@@ -55,6 +56,21 @@ Quatro frentes:
   instruído a devolver `pt`/`en`. A mesma língua grava com dois códigos.
 - **Medir contra corpus rotulado do endpoint certo.** O "0 de 14" não mede o detector: veio do
   bypass, e do endpoint de videogame. Otimizar **precisão** — zero falso positivo.
+
+**Implementação Fase 2:** o campo interno/API chama-se `sourceLanguageEvidence`; `not_pt`
+rejeita e nenhum valor aprova. O detector retorna método/motivo, usa ISO 639-3 e aplica
+heurística curta versionada com dois sinais pt-específicos antes do desempate. Documentação
+oficial de 2026-07-27 confirmou `deepseek-chat` depreciado; o fallback usa
+`deepseek-v4-flash` com JSON mode e só aceita códigos presentes no conjunto ISO 639-3
+suportado pelo detector. O detector recebe texto já normalizado na fronteira do parser e não
+decodifica novamente. Matriz e consumidores: `phase-2-language.md`.
+
+**Implementação Fase 3:** OPERA atribui `OPERA RPG` aos 133 itens dedicados e `null` à URL
+real de Gaia 400X; tipo global só em `/aventuras` e `/cenarios`. itch.io/Grimórios extraem
+uma vez no parser compartilhado, por allowlists de tags inequívocas dentro do painel
+estruturado “More information”; conteúdo livre fora dele não participa. Regex foi mantida:
+tabela curta/regular, fixtures reais e limite de HTML já reduzem o risco; `cheerio` não se justifica.
+Detalhe: `phase-3-hints.md`.
 
 ### Eixo C — entidades HTML (defeito 4)
 
@@ -220,10 +236,10 @@ saída e retomada livres.
 | `apps/downloads/backend/src/services/scrapers/grimoriosEDadosScraper.ts` | A, C | idem |
 | `apps/downloads/backend/src/services/languageDetector.ts` | B | ISO 639-3 no desempate, fallback de texto curto, modelo DeepSeek + JSON mode |
 | `apps/downloads/backend/src/services/scraperIngest.ts` | B | fim do bypass (`:223`), evidência de detecção no material, método/motivo no log |
-| `apps/downloads/backend/src/services/scrapers/types.ts` | B | renomear o hint para explicitar que é evidência da fonte, não decisão |
+| `apps/downloads/backend/src/services/scrapers/types.ts` | B | `sourceLanguageEvidence`: evidência da fonte, nunca decisão positiva |
 | `apps/downloads/backend/src/services/scrapers/genericHtmlParser.ts` | B | `<html lang>` deixa de aprovar (`:261`) |
 | `apps/downloads/backend/src/routes/scraper.ts` | B | schema do `/ingest` — hint recebido não pode aprovar |
-| testes que hoje passam `sourceLanguageHint: 'pt'` | B | vários: usam o hint justamente para pular a detecção; passam a exercer o detector |
+| testes que passavam `sourceLanguageHint: 'pt'` | B | migrados para `sourceLanguageEvidence`; sinal positivo agora exerce o detector |
 | `apps/downloads/backend/src/services/scraperIngest.test.ts` | — | fixture que exercite catálogo real, não mock permissivo |
 | `apps/downloads/backend/src/services/scrapers/itchIoParser.ts` | A, C | **parser compartilhado** por `itch_io` e `grimorios_e_dados` — omitido na versão anterior deste plano |
 | fixtures de teste dos 2 parsers | A, C | DOM real observado, com proveniência |

@@ -143,7 +143,7 @@ listar campos deixaria o próximo esquecido.
 | `title`, `description`, `publisherName`, `systemHint`, `materialTypeHint`, `scenario` | texto humano | decodificar |
 | `sourceUrl`, `coverImageUrl` | URL | **não** decodificar — decode altera a URL |
 | `descriptionHtml` (metadata) | HTML rico | **só** DOMPurify; decode aqui pode transformar `&lt;script&gt;` em markup ativo |
-| `isFreeOrPwyw`, `sourceLanguageHint` | booleano/enum | não se aplica |
+| `isFreeOrPwyw`, `sourceLanguageEvidence` | booleano/enum | não se aplica |
 
 Decode não é controle de XSS — é normalização de texto. Aplicá-lo a HTML rico depois do
 DOMPurify desfaz a sanitização.
@@ -467,11 +467,11 @@ a nada. Sem mudar o contrato, "esqueci de extrair" e "a fonte não tem" ficam in
 5. `itchIoScraper` extrai `materialTypeHint` quando o DOM real expuser tipo.
 6. `grimoriosEDadosScraper` extrai `materialTypeHint` quando o DOM real expuser tipo.
 7. Todo `systemHint`/`materialTypeHint` extraído vem de estrutura **observada em DOM real**, nunca de suposição sobre o HTML (mesma trava do requisito 43 da spec 088).
-7a. Um sinal só vira hint quando é **inequívoco**, nesta ordem: campo estruturado explícito; tag inequivocamente de sistema ou tipo; seção de origem comprovadamente homogênea. Múltiplos candidatos ou dúvida resultam em `null`; título e descrição nunca viram heurística aberta. `null` é resultado correto — hint inventado, não.
+7a. Um sinal só vira hint quando é **inequívoco**, nesta ordem: campo estruturado explícito; tag inequivocamente de sistema ou tipo; seção de origem comprovadamente homogênea. No itch.io, somente a tabela do painel estruturado “More information” participa; tabelas ou texto em conteúdo livre do usuário são ignorados. Múltiplos candidatos ou dúvida resultam em `null`; título e descrição nunca viram heurística aberta. `null` é resultado correto — hint inventado, não.
 7b. Seção de origem heterogênea **não** recebe tipo global. No OPERA, `/aventuras` e `/cenarios` são homogêneas, mas `/regras/`, `/personagens` e `/outros` reúnem naturezas diferentes: descem à subseção ou ficam `null`.
 7c. `sourceCategory`, `tags` e `materialTypeHint` são campos distintos e não viram sinônimos. O alvo válido é só a taxonomia do catálogo (`016_catalog_material_types_seed.sql`): Aventura, Suplemento, Cenário, Ficha, Mapa, Regras, Não classificado.
 7d. As rotas de seção do OPERA são validadas contra o site real antes da extração. Rota morta significa seção nunca coletada — e o OPERA é 118 dos 141 materiais.
-7e. `Multi-sistema` é um sistema válido da taxonomia e pode ocupar `systemHint`; não significa ausência de sistema. Decisão do mantenedor em 2026-07-27. Na origem OPERA, item explicitamente multi-sistema recebe esse hint; os demais recebem `OPERA RPG` quando a origem sustenta compatibilidade.
+7e. `systemHint` significa “compatível com” e guarda um único sistema. Decisão do mantenedor em 2026-07-27: na origem OPERA, os 133 itens dedicados recebem `OPERA RPG`; `Gaia 400X`, explicitamente multi-sistema, recebe `null`.
 8. `detectPortuguese` decide com confiança sobre os textos do `itch_io`, ou a causa da indecisão é identificada e corrigida.
 9. A evidência da detecção de idioma é persistida no material criado pelo scraper (`detected_language`, `language_confident`, `language_checked_at` — colunas já existentes), hoje gravada só no log do item. `download_material_metadata.language` **continua `'pt'`**: aceita exclusivamente esse valor por regra pétrea D119 (`CHECK` na migration 022), e é a marca do catálogo, não o resultado da detecção.
 10. Existe **política exaustiva por semântica** dos campos de `ScrapedItem` — `plainText`, `url`, `richHtml`, `opaque` — de modo que campo novo **quebre a compilação** até ser classificado (via `satisfies Record<keyof ScrapedItem, Policy>` ou equivalente). Só `plainText` é decodificado.
@@ -537,8 +537,8 @@ a nada. Sem mudar o contrato, "esqueci de extrair" e "a fonte não tem" ficam in
 40a. Fonte parcial aplica corte conservador **por produto**: itch.io exige `Category=Physical game` e `Genre=Role Playing` ou tag inequívoca `ttrpg`/`rpg-de-mesa`. Card game, board game, wargame ou produto sem sinal inequívoco não entra; título e descrição não servem de chute.
 41. O `itch_io` coleta de `https://itch.io/physical-games/genre-rpg/lang-pt-BR`, rota verificada em DOM real antes da troca.
 42. Material cuja página está em inglês **não entra**, mesmo com tradução portuguesa declarada pela fonte (decisão do mantenedor sobre o defeito 3b).
-43. Nenhuma fonte confia em filtro de URL como prova de idioma: o texto real é verificado, sem bypass por `sourceLanguageHint`. Sinal da fonte **nunca aprova, só pode rejeitar** — vale para todos os caminhos (adapter, `<html lang>` do parser genérico, e `/ingest` direto), não só o `itch_io`.
-43a. O código de idioma é **ISO 639-3** em todo o pipeline de detecção e log. Hoje `franc-min` devolve 639-3 (`por`) e o desempate DeepSeek devolve 639-1 (`pt`) — a mesma língua grava com dois códigos.
+43. Nenhuma fonte confia em filtro de URL como prova de idioma: o texto real é verificado, sem bypass por `sourceLanguageEvidence`. Sinal da fonte **nunca aprova, só pode rejeitar** — vale para todos os caminhos (adapter, `<html lang>` do parser genérico, e `/ingest` direto), não só o `itch_io`.
+43a. O código de idioma é **ISO 639-3** em todo o pipeline de detecção e log. Hoje `franc-min` devolve 639-3 (`por`) e o desempate DeepSeek devolve 639-1 (`pt`) — a mesma língua grava com dois códigos. Resposta externa de três letras só é aceita se pertencer ao conjunto ISO 639-3 suportado pelo detector; formato sozinho não valida código inexistente.
 43b. O log do item registra **método e motivo** da decisão de idioma (sinal negativo da fonte, franc, heurística de texto curto, desempate externo, baixa confiança ou indisponibilidade), não só o veredito.
 43c. A qualidade do detector é medida contra **corpus rotulado à mão** do endpoint correto, com matriz de confusão, otimizando **precisão**: zero falso positivo (material não-português aprovado). Falso negativo é aceitável — vai para revisão manual.
 44. `systemHint` e `materialTypeHint` deixam de ser opcionais no contrato **interno** (`string | null` obrigatórios) — omitir passa a ser erro de tipo, não silêncio (requisito derivado do defeito 16). Entrada externa (`/ingest`) pode seguir opcional, normalizada com `?? null` na fronteira. Teste contratual **não** substitui o contrato: decisão do mantenedor (2026-07-27).

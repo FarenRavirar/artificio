@@ -51,7 +51,7 @@ describe('parseHtml', () => {
     expect(result.sourceUrl).toBe('https://www.dmsguild.com/pt/product/472734/classe-o-lutador-5e-playtest');
     expect(result.publisherName).toBe('Dungeon Masters Guild');
     expect(result.coverImageUrl).toBe('https://d1vzi28wh99zvq.cloudfront.net/images/8957/472734.png');
-    expect(result.sourceLanguageHint).toBe('pt');
+    expect(result.sourceLanguageEvidence).toBe('pt');
     expect(result.extractedPriceValue).toBe(4);
     expect(result.priceSignal).toBe('pwyw_tag_present');
     expect(result.isFreeOrPwyw).toBe(true);
@@ -136,7 +136,7 @@ describe('parseHtml', () => {
     expect(result.title).toBe('Aventura Genérica');
     expect(result.publisherName).toBe('Editora Exemplo');
     expect(result.coverImageUrl).toBe('https://loja.exemplo.com.br/img/capa.jpg');
-    expect(result.sourceLanguageHint).toBe('pt');
+    expect(result.sourceLanguageEvidence).toBe('pt');
     expect(result.extractedPriceValue).toBe(0);
     // Sem override onebookshelf: sinal padrão (resolveDefaultPriceSignal),
     // não a lógica de tag PWYW — preço 0 já basta pra sinalizar gratuito.
@@ -195,7 +195,7 @@ describe('parseHtml', () => {
     expect(result.title).toBe('Outra Aventura');
     expect(result.sourceUrl).toBe('https://loja2.exemplo.com.br/produto/outra-aventura');
     expect(result.coverImageUrl).toBe('https://loja2.exemplo.com.br/img/capa2.jpg');
-    expect(result.sourceLanguageHint).toBe('pt');
+    expect(result.sourceLanguageEvidence).toBe('pt');
   });
 
   // Achado real (review PR #201, Codex, P1): JSON-LD raiz nem sempre é um
