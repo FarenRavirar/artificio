@@ -87,9 +87,19 @@ function getBaseVersion(filePath: string, baseBranch: string): string | null {
   // `git fetch origin <base>` sem refspec de destino so popula FETCH_HEAD —
   // nao cria as refs 'dev'/'origin/dev' tentadas abaixo. FETCH_HEAD entra como
   // ultimo fallback pra cobrir esse caso sem depender do fetch ter criado a ref.
+  //
+  // Spec 089 (2026-07-28): `origin/<base>` vem ANTES de `<base>`. A ordem
+  // anterior parava na primeira ref existente, e numa maquina local a branch
+  // `dev` existe mas envelhece — o diff era calculado contra um `dev` de 19
+  // commits atras e reportava como "breaking" mudancas ja mergeadas em
+  // `origin/dev` (medido: `POST /api/v1/materials` request.body.scope.remove e
+  // `path.remove` no site, ambos falsos). Falso positivo recorrente treina o
+  // desenvolvedor a ignorar o relatorio, e o breaking real passa junto. O
+  // remoto e a base correta: e contra ele que a PR sera aberta. Em CI a troca
+  // e inocua — `origin/<base>` e exatamente a ref que o fetch cria.
   const refs = baseBranch.includes('/')
     ? [baseBranch, 'FETCH_HEAD']
-    : [baseBranch, `origin/${baseBranch}`, 'FETCH_HEAD'];
+    : [`origin/${baseBranch}`, baseBranch, 'FETCH_HEAD'];
   for (const ref of refs) {
     try {
       return execFileSync('git', ['show', `${ref}:${repoRelative}`], {
