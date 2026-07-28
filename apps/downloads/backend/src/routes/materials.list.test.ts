@@ -70,6 +70,7 @@ function makeQueryBuilder(items: unknown[], count: number) {
     return builder;
   });
   builder.leftJoin = vi.fn().mockReturnValue(builder);
+  builder.innerJoin = vi.fn().mockReturnValue(builder);
   builder.groupBy = vi.fn().mockReturnValue(builder);
   builder.orderBy = vi.fn().mockReturnValue(builder);
   // `sort=popular` monta uma subquery agregada e a nomeia com `.as(...)`
@@ -167,6 +168,30 @@ describe('GET /api/v1/materials — listagem publica', () => {
     expect(builder.where).toHaveBeenCalled();
   });
 
+  it('filtra editora e autoria por chave antes de contar e paginar', async () => {
+    const builder = makeQueryBuilder([], 0);
+    dbMocks.selectFrom.mockReturnValue(builder);
+
+    await request(app()).get('/api/v1/materials').query({
+      publisher: 'Grimórios & Dados Editora',
+      author: 'Ágata',
+      page: 2,
+    }).expect(200);
+
+    expect(builder.leftJoin).toHaveBeenCalledBefore(builder.select as ReturnType<typeof vi.fn>);
+    expect(builder.where).toHaveBeenCalledWith('download_material_metadata.publisher_key', '=', 'grimorios e dados');
+    expect(builder.where).toHaveBeenCalledWith('download_material_metadata.author_keys', '@>', ['agata']);
+    expect(builder.where).toHaveBeenCalledTimes(3);
+    expect(builder.offset).toHaveBeenCalledWith(20);
+  });
+
+  it('rejeita faceta que normaliza para chave vazia em vez de ignorar o filtro', async () => {
+    dbMocks.selectFrom.mockReturnValue(makeQueryBuilder([], 0));
+    const response = await request(app()).get('/api/v1/materials').query({ publisher: 'Editora' }).expect(400);
+
+    expect(response.body.error).toMatch(/inválidos/i);
+  });
+
   // Achado de review PR #214 (Codex, P2): o placeholder prometia busca por
   // "título, autor ou sistema" mas a query so cobria title/summary.
   it('busca textual consulta a taxonomia pelo termo, para casar nome de sistema', async () => {
@@ -256,7 +281,12 @@ describe('GET /api/v1/materials — listagem publica', () => {
     dbMocks.selectFrom
       .mockReturnValueOnce(makeQueryBuilder([{ material_type_id: typeId, count: '2' }], 0))
       .mockReturnValueOnce(makeQueryBuilder([{ system_id: 'sys', count: '2' }], 0))
-      .mockReturnValueOnce(makeQueryBuilder([{ edition_id: 'ed', count: '1' }], 0));
+      .mockReturnValueOnce(makeQueryBuilder([{ edition_id: 'ed', count: '1' }], 0))
+      .mockReturnValueOnce(makeQueryBuilder([{ value: 'grimorios e dados', label: 'Grimórios & Dados Editora', count: '2' }], 0))
+      .mockReturnValueOnce(makeQueryBuilder([
+        { value: 'agata', label: 'Ágata', count: '2' },
+        { value: 'bruno', label: 'Bruno', count: '1' },
+      ], 0));
     catalogMocks.loadCatalogMaterialTypes.mockResolvedValue([
       { id: typeId, slug: 'aventura', name: 'Aventura', aliases: ['adventure'], status: 'active' },
     ]);
@@ -267,10 +297,21 @@ describe('GET /api/v1/materials — listagem publica', () => {
       material_types: [{ id: typeId, slug: 'aventura', name: 'Aventura', count: 2 }],
       systems: [{ id: 'sys', count: 2 }],
       editions: [{ id: 'ed', count: 1 }],
+      publishers: [{ value: 'grimorios e dados', label: 'Grimórios & Dados Editora', count: 2 }],
+      authors: [
+        { value: 'agata', label: 'Ágata', count: 2 },
+        { value: 'bruno', label: 'Bruno', count: 1 },
+      ],
     });
-    for (const builder of dbMocks.selectFrom.mock.results.map((result) => result.value)) {
+    for (const builder of dbMocks.selectFrom.mock.results.slice(0, 4).map((result) => result.value)) {
       expect(builder.where).toHaveBeenCalledWith('editorial_state', '=', 'published');
     }
+    const authorFacetSource = dbMocks.selectFrom.mock.calls[4][0] as (eb: {
+      selectFrom: ReturnType<typeof vi.fn>;
+    }) => unknown;
+    const authorFacetInnerBuilder = makeQueryBuilder([], 0);
+    authorFacetSource({ selectFrom: vi.fn().mockReturnValue(authorFacetInnerBuilder) });
+    expect(authorFacetInnerBuilder.where).toHaveBeenCalledWith('editorial_state', '=', 'published');
   });
 
   it('expõe sistemas/edições do Central achatados para a sidebar de filtro (T8.1)', async () => {

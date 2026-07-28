@@ -2,13 +2,15 @@ import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '../services/apiClient';
 import { materialListResponseSchema, type MaterialListFilters, type MaterialListResponse } from '../types/material';
 
-function buildQueryString(filters: MaterialListFilters): string {
+export function buildQueryString(filters: MaterialListFilters): string {
   const params = new URLSearchParams();
   if (filters.q) params.set('q', filters.q);
   if (filters.system_id) params.set('system_id', filters.system_id);
   if (filters.edition_id) params.set('edition_id', filters.edition_id);
   if (filters.material_type) params.set('material_type', filters.material_type);
   if (filters.access_kind) params.set('access_kind', filters.access_kind);
+  if (filters.publisher) params.set('publisher', filters.publisher);
+  if (filters.author) params.set('author', filters.author);
   if (filters.sort) params.set('sort', filters.sort);
   if (filters.page) params.set('page', String(filters.page));
   return params.toString();

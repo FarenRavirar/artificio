@@ -274,18 +274,45 @@ function appendDownloadsRequestBody(lines: string[], method: string, path: strin
       `          application/json:`,
       `            schema:`,
       `              type: object`,
-      `              required: [slug, title, material_type]`,
+      `              required: [slug, title, material_type_id]`,
       `              properties:`,
       `                slug:`,
       `                  type: string`,
       `                title:`,
       `                  type: string`,
-      `                material_type:`,
+      `                material_type_id:`,
       `                  type: string`,
+      `                  format: uuid`,
     ]);
     return true;
   }
   return false;
+}
+
+function appendDownloadsQueryParameters(lines: string[], method: string, path: string): boolean {
+  if (method !== 'get' || path !== '/api/v1/materials') return false;
+  const parameters: Array<{ name: string; description: string; schema: string[] }> = [
+    { name: 'q', description: 'Busca textual por título, resumo, autoria, criador ou sistema.', schema: ['type: string', 'maxLength: 200'] },
+    { name: 'system_id', description: 'ID canônico do sistema. Igualdade exata.', schema: ['type: string'] },
+    { name: 'edition_id', description: 'ID canônico da edição. Igualdade exata.', schema: ['type: string'] },
+    { name: 'material_type', description: 'UUID canônico do tipo de material.', schema: ['type: string', 'format: uuid'] },
+    { name: 'access_kind', description: 'Forma de acesso.', schema: ['type: string', 'enum: [external_link, managed_upload]'] },
+    { name: 'publisher', description: 'Nome ou chave da editora/selo; normalizado no backend para igualdade exata.', schema: ['type: string', 'minLength: 1', 'maxLength: 200'] },
+    { name: 'author', description: 'Nome ou chave da autoria; normalizado no backend para igualdade exata.', schema: ['type: string', 'minLength: 1', 'maxLength: 200'] },
+    { name: 'sort', description: 'Ordenação do catálogo.', schema: ['type: string', 'enum: [relevance, recent, popular, name, rating, trending]', 'default: recent'] },
+    { name: 'page', description: 'Página, começando em 1.', schema: ['type: integer', 'minimum: 1', 'default: 1'] },
+    { name: 'page_size', description: 'Itens por página.', schema: ['type: integer', 'minimum: 1', 'maximum: 60', 'default: 20'] },
+  ];
+  lines.push('      parameters:');
+  for (const parameter of parameters) {
+    lines.push(`        - name: ${parameter.name}`);
+    lines.push('          in: query');
+    lines.push('          required: false');
+    lines.push(`          description: "${parameter.description}"`);
+    lines.push('          schema:');
+    for (const schemaLine of parameter.schema) lines.push(`            ${schemaLine}`);
+  }
+  return true;
 }
 
 function appendAccountRequestBody(lines: string[], method: string, path: string): boolean {
@@ -472,7 +499,8 @@ servers:
         lines.push(`      x-artificio-consumers:`);
         for (const c of cls.consumers) lines.push(`        - ${c}`);
       }
-      if (oaPath.includes('{')) {
+      const hasDownloadsQueryParameters = appendDownloadsQueryParameters(lines, method, oaPath);
+      if (oaPath.includes('{') && !hasDownloadsQueryParameters) {
         const paramNames = [...oaPath.matchAll(/\{([^}]+)\}/g)].map(m => m[1]);
         if (paramNames.length > 0) {
           lines.push(`      parameters:`);

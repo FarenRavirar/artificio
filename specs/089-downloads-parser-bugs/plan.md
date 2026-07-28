@@ -103,22 +103,32 @@ corrigido antes do cutover.
 Único eixo que toca frontend e contrato de API. Ordem obrigatória — o link não existe antes da
 busca que ele abre:
 
-1. **Normalizar `publisher_name`/`credits` na gravação** (trim, decode, colapso de espaço),
-   para que grafias equivalentes casem como uma faceta só. Sem tabela nova: decisão do
-   mantenedor foi normalizar o texto, não promover editora a entidade.
-2. **Filtro de editora e autor na API** (`GET /materials`), no mesmo padrão dos filtros já
-   existentes.
-3. **Filtro no catálogo** (`CatalogoPage`), somando-se a `q`/`material_type`/`system_id`/
-   `edition_id`/`sort`/`page`.
-4. **Links no card** — editora, autor e sistema viram `<a>` para o catálogo filtrado.
-   `system_id` já tem filtro pronto; só este passo o afeta.
-5. **Remover o rótulo de idioma do card** e corrigir a duplicação de "Editora" no label.
+1. **Estruturar os papéis sem reinterpretar o blob legado.** `authors` e `artists` são arrays
+   distintos; `credits` permanece fallback quando o papel histórico não pode ser inferido.
+   Delimitador ambíguo, especialmente vírgula em nome real, nunca é dividido no chute.
+2. **Criar chave separada de editora.** `publisher_name` preserva exibição; `publisher_key`
+   aplica Unicode, caixa, espaço, pontuação, `&`/`e` e palavras societárias de borda. Sem
+   `decode`: a Fase 1 já decodificou HTML, e entrada manual não é HTML.
+3. **Aplicar uma função nas duas fronteiras de escrita:** scraper e PUT de metadata. Migration
+   faz backfill equivalente e preserva `credits`; não inventa autoria/artista onde não sabe.
+4. **Filtrar por chave na API antes de count/paginação** e expor `/facets` com valor, rótulo e
+   contagem. Editora usa B-tree; autoria usa GIN sobre `author_keys`.
+5. **Completar o frontend:** serialização, deep link, modo resultado, sidebar/drawer, chips,
+   limpeza e back/forward.
+6. **Criar links no card** — editora, autor e sistema viram `<a>` para recorte limpo. Link só
+   existe quando a chave normalizada existe; fica acima do link estendido, com foco visível.
+7. **Remover o rótulo de idioma**, evitar “Editora Editora”, bloquear crawl de todos os query
+   params de filtro e atualizar gerador/OpenAPI sem ampliar outros contratos do monorepo.
 
-Os passos 1-3 precisam considerar o acervo já gravado: normalizar só na gravação deixa os 141
-materiais atuais com o valor antigo. Recoletar (Fase 4) resolve, já que o acervo de beta é
-descartável e será limpo de qualquer forma para a medição.
+O acervo existente só recebe chave de editora automaticamente. `credits` histórico permanece
+intacto e arrays ficam vazios quando o papel não é separável. Fase 5 faz dump, aplica migration,
+limpa e recoleta; nenhum dado humano pode ser descartado por inferência.
 
-### Eixo E — comentários: identidade e threads (defeitos 7, 7b, 14)
+### Eixo E — comentários: ➡️ movido para a spec 090
+
+Este eixo não é implementado pela 089. O diagnóstico abaixo permanece como contexto histórico;
+contrato, tarefas, migration e implementação canônicos vivem em
+`specs/090-packages-comments-compartilhado/`.
 
 Primeiro eixo com migration e com dependência de serviço externo.
 
@@ -244,9 +254,11 @@ saída e retomada livres.
 | `apps/downloads/backend/src/services/scrapers/itchIoParser.ts` | A, C | **parser compartilhado** por `itch_io` e `grimorios_e_dados` — omitido na versão anterior deste plano |
 | fixtures de teste dos 2 parsers | A, C | DOM real observado, com proveniência |
 | `apps/downloads/backend/src/routes/materials.ts` | D | filtro exato por chave, `leftJoin` antes do count (`:227`), editora/autor em `/facets` (`:108`) |
+| `apps/downloads/backend/src/services/facetNormalization.ts` | D | função única de chaves e nomes; delimitadores conservadores |
 | `apps/downloads/backend/src/routes/materialMetadata.ts` | D | **2ª fronteira de escrita** (`:118`) — omitida na versão anterior; normalizar só o scraper deixa material humano divergente |
 | `apps/downloads/backend/src/services/scraperIngest.ts` | D | 1ª fronteira (`:324`) + fim do `combineCredits` (`:48`) |
 | `apps/downloads/database/migration_*.sql` | D | chave normalizada de editora + índice; campos estruturados de autor/artista |
+| `download_scraper_item_log` na migration da Fase 4 | D/medição | preserva template e hints também para itens rejeitados; sem isso Fase 5 não mede por template |
 | `scripts/api/**` | D | gerador de OpenAPI — `GET /materials` não documenta nenhum query param, e o `POST` está com contrato antigo |
 | `apps/downloads/frontend/public/robots.txt` | D | **não existe**; nginx já o espera (`nginx.conf:40`) e devolve 404 |
 | `apps/downloads/frontend/src/pages/CatalogoPage.tsx` | D | leitura dos filtros novos + `isBrowsing` (`:88`), que hoje ignora filtro novo e desliga a consulta |
@@ -255,8 +267,9 @@ saída e retomada livres.
 | `apps/downloads/frontend/src/hooks/useMaterialFacets.ts` | D | consumir editora/autor das facetas |
 | `apps/downloads/frontend/src/components/MaterialCard.tsx` | D | links em camada própria sobre o link estendido (`:92`), remoção do rótulo de idioma (`:111`), label de editora |
 | `apps/downloads/frontend/src/components/SystemChainBadge.tsx` | D | `<span>` (`:24`) vira link para o `system_id` raiz, com nome acessível |
-| `apps/downloads/backend/src/routes/comments.ts` | E | identidade do autor, papel, `parent_id` |
-| `apps/downloads/database/migration_032_*.sql` | E | `parent_id` em `download_comment` — **não é a única migration da spec**: a Fase 4 traz chave de editora + autores/artistas estruturados, e a Fase 7 traz identidade do ativo de capa (`public_id`/provedor) |
+| `specs/089-downloads-parser-bugs/phase-5-measurement.sql` | medição | runs mais recentes, métricas por fonte/template, ground truth, entidades, slug e facetas |
+| `apps/downloads/backend/src/routes/comments.ts` | E (spec 090; leitura apenas na 089) | identidade do autor, papel, `parent_id` |
+| `apps/downloads/database/migration_032_download_material_facets.sql` | D/medição | autores/artistas estruturados, chaves de faceta e evidência de template/hints no log de ingestão; comentários foram movidos integralmente para a spec 090 |
 | `apps/downloads/frontend/src/pages/painel/EditarMaterialPage.tsx` | F | campo de sistema, envio de capa |
 | `apps/downloads/frontend/src/pages/painel/NovoMaterialPage.tsx` | F | slug automático, contraste do `<select>` |
 | `packages/ui` | F | editor rich text extraído — **aprovação nominal própria** |

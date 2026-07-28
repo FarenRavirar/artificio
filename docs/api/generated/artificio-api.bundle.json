@@ -735,7 +735,123 @@
       "status": "active",
       "auth": "none",
       "consumers": [],
-      "operationId": "getapi_v1_materials"
+      "operationId": "getapi_v1_materials",
+      "parameters": [
+        {
+          "name": "q",
+          "in": "query",
+          "required": false,
+          "description": "Busca textual por título, resumo, autoria, criador ou sistema.",
+          "schema": {
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        {
+          "name": "system_id",
+          "in": "query",
+          "required": false,
+          "description": "ID canônico do sistema. Igualdade exata.",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "edition_id",
+          "in": "query",
+          "required": false,
+          "description": "ID canônico da edição. Igualdade exata.",
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "material_type",
+          "in": "query",
+          "required": false,
+          "description": "UUID canônico do tipo de material.",
+          "schema": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        {
+          "name": "access_kind",
+          "in": "query",
+          "required": false,
+          "description": "Forma de acesso.",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "external_link",
+              "managed_upload"
+            ]
+          }
+        },
+        {
+          "name": "publisher",
+          "in": "query",
+          "required": false,
+          "description": "Nome ou chave da editora/selo; normalizado no backend para igualdade exata.",
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        {
+          "name": "author",
+          "in": "query",
+          "required": false,
+          "description": "Nome ou chave da autoria; normalizado no backend para igualdade exata.",
+          "schema": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        {
+          "name": "sort",
+          "in": "query",
+          "required": false,
+          "description": "Ordenação do catálogo.",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "relevance",
+              "recent",
+              "popular",
+              "name",
+              "rating",
+              "trending"
+            ],
+            "default": "recent"
+          }
+        },
+        {
+          "name": "page",
+          "in": "query",
+          "required": false,
+          "description": "Página, começando em 1.",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1
+          }
+        },
+        {
+          "name": "page_size",
+          "in": "query",
+          "required": false,
+          "description": "Itens por página.",
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60,
+            "default": 20
+          }
+        }
+      ]
     },
     {
       "app": "downloads",

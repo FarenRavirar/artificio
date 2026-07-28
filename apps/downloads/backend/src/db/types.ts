@@ -108,6 +108,10 @@ export interface DownloadMaterialMetadataTable {
   license_kind: string | null;
   license_url: string | null;
   credits: string | null;
+  authors: Generated<string[]>;
+  author_keys: Generated<string[]>;
+  artists: Generated<string[]>;
+  artist_keys: Generated<string[]>;
   target_audience: string | null;
   age_rating: string | null;
   content_warnings: Generated<JSONColumnType<string[]>>;
@@ -115,6 +119,7 @@ export interface DownloadMaterialMetadataTable {
   // T-editora (spec 075, migration_019) — credito de editora/selo, texto
   // livre (nao e conta/entidade de login, so credito estruturado).
   publisher_name: string | null;
+  publisher_key: string | null;
   // T2.7 (spec 082, migration_020) — MVP de Gestao de Midias: URL de texto
   // (sem upload/storage novo), coerente com T2.3 (MVP somente-link-externo).
   cover_image_url: string | null;
@@ -253,6 +258,9 @@ export interface DownloadScraperItemLogTable {
   source_url: string;
   outcome: DownloadScraperItemOutcome;
   detected_language: string | null;
+  source_category: string | null;
+  system_hint: string | null;
+  material_type_hint: string | null;
   error_detail: string | null;
   created_at: Generated<Date>;
 }

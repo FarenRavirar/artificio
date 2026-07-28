@@ -14,10 +14,18 @@ const idCountFacetSchema = z.object({
   count: z.number(),
 });
 
+const namedFacetSchema = z.object({
+  value: z.string(),
+  label: z.string(),
+  count: z.number(),
+});
+
 const materialFacetsSchema = z.object({
   material_types: z.array(materialTypeFacetSchema),
   systems: z.array(idCountFacetSchema),
   editions: z.array(idCountFacetSchema),
+  publishers: z.array(namedFacetSchema).default([]),
+  authors: z.array(namedFacetSchema).default([]),
 });
 
 export type MaterialFacets = z.infer<typeof materialFacetsSchema>;

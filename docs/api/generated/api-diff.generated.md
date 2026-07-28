@@ -10,14 +10,20 @@
 
 | App | Breaking | Non-breaking | Unclassified |
 |-----|:--------:|:------------:|:------------:|
-| downloads | ✅ 0 | ✅ 4 | ⚪ 0 |
+| downloads | ❌ 1 | ✅ 5 | ⚪ 0 |
 | site | ❌ 1 | ✅ 0 | ⚪ 0 |
 
 ---
 
 ### downloads
 
-#### ✅ Non-breaking (4)
+#### ❌ Breaking Changes (1)
+
+| Path | Method | Ação | Código |
+|------|--------|------|--------|
+| `/api/v1/materials` | POST | remove | `request.body.scope.remove` |
+
+#### ✅ Non-breaking (5)
 
 | Path | Method | Ação |
 |------|--------|------|
@@ -25,6 +31,7 @@
 | `` |  | add |
 | `` |  | add |
 | `` |  | add |
+| `/api/v1/materials` | POST | add |
 
 ---
 

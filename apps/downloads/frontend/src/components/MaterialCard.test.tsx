@@ -145,25 +145,38 @@ describe('MaterialCard', () => {
   // de terceiro, e afirmar isso contradiz o proposito do produto (D107/D119).
   // Os casos abaixo quebram se alguem reintroduzir o fallback OU passar a
   // exibir editora sob rotulo de autoria.
-  it('mostra o autor rotulado quando há credits', () => {
+  it('preserva credits legado sem afirmar papel de autoria', () => {
     renderCard({ ...baseMaterial, credits: 'Autora Exemplo' });
     expect(screen.getByText('Autora Exemplo')).toBeInTheDocument();
-    expect(screen.getByText('Por')).toBeInTheDocument();
+    expect(screen.getByText('Créditos:')).toBeInTheDocument();
   });
 
   it('mostra a editora rotulada quando há publisher_name', () => {
     renderCard({ ...baseMaterial, publisher_name: 'Editora Exemplo' });
     expect(screen.getByText('Editora Exemplo')).toBeInTheDocument();
-    expect(screen.getByText('Editora')).toBeInTheDocument();
+    expect(screen.getByText('Editora/selo:')).toBeInTheDocument();
     // Editora NUNCA aparece como autoria — nao existe rotulo "Por" aqui.
     expect(screen.queryByText('Por')).not.toBeInTheDocument();
+  });
+
+  it('usa um único separador entre editora e crédito somente de arte', () => {
+    const { container } = renderCard({
+      ...baseMaterial,
+      publisher_name: 'Editora Exemplo',
+      artists: ['Artista Exemplo'],
+    });
+
+    expect(container.querySelector('p')?.textContent).toBe(
+      'Editora/selo: Editora Exemplo · Arte: Artista Exemplo',
+    );
   });
 
   it('mostra editora e autor juntos, publicante primeiro', () => {
     renderCard({
       ...baseMaterial,
       publisher_name: 'Editora Exemplo',
-      credits: 'Autora Exemplo',
+      authors: ['Autora Exemplo'],
+      author_keys: ['autora exemplo'],
     });
 
     const eyebrow = screen.getByText('Editora Exemplo').closest('p');
@@ -172,6 +185,36 @@ describe('MaterialCard', () => {
     expect(eyebrow?.textContent?.indexOf('Editora Exemplo')).toBeLessThan(
       eyebrow?.textContent?.indexOf('Autora Exemplo') ?? -1,
     );
+  });
+
+  it('facetas estruturadas são links independentes e não exibem idioma', () => {
+    renderCard({
+      ...baseMaterial,
+      publisher_name: 'Grimórios & Dados Editora',
+      publisher_key: 'grimorios e dados',
+      authors: ['Ágata'],
+      author_keys: ['agata'],
+      system_id: 'opera-rpg',
+      system_name: 'OPERA RPG',
+    });
+
+    const publisherLink = screen.getByRole('link', { name: 'Grimórios & Dados Editora' });
+    const authorLink = screen.getByRole('link', { name: 'Ágata' });
+    const systemLink = screen.getByRole('link', { name: 'Ver materiais de OPERA RPG' });
+    expect(publisherLink).toHaveAttribute('href', '/catalogo?publisher=grimorios%20e%20dados');
+    expect(authorLink).toHaveAttribute('href', '/catalogo?author=agata');
+    expect(systemLink).toHaveAttribute('href', '/catalogo?system_id=opera-rpg');
+    for (const link of [publisherLink, authorLink, systemLink]) {
+      expect(link).toHaveClass('relative', 'z-10');
+      expect(link.className).toContain('focus-visible:');
+    }
+    expect(screen.queryByText('Em português')).not.toBeInTheDocument();
+  });
+
+  it('não inventa link de faceta quando a chave normalizada está ausente', () => {
+    renderCard({ ...baseMaterial, authors: ['Autora sem chave'], author_keys: [] });
+    expect(screen.getByText('Autora sem chave')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Autora sem chave' })).not.toBeInTheDocument();
   });
 
   it('não renderiza eyebrow quando não há editora nem autor', () => {

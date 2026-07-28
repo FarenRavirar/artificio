@@ -1,0 +1,10 @@
+User-agent: *
+Disallow: /*?*q=
+Disallow: /*?*material_type=
+Disallow: /*?*system_id=
+Disallow: /*?*edition_id=
+Disallow: /*?*access_kind=
+Disallow: /*?*publisher=
+Disallow: /*?*author=
+Disallow: /*?*sort=
+Disallow: /*?*page=

@@ -42,8 +42,12 @@ export function MaterialCard({ material }: Readonly<MaterialCardProps>) {
   // null-check ingenuo, renderizando eyebrow em branco (achado de review da
   // PR #214, CodeRabbit).
   const publisher = material.publisher_name?.trim();
-  const author = material.credits?.trim();
-  const hasCredit = Boolean(publisher) || Boolean(author);
+  const authors = Array.isArray(material.authors) ? material.authors : [];
+  const authorKeys = Array.isArray(material.author_keys) ? material.author_keys : [];
+  const artists = Array.isArray(material.artists) ? material.artists : [];
+  const legacyCredits = authors.length === 0 && artists.length === 0 ? material.credits?.trim() : null;
+  const hasCredit = Boolean(publisher) || authors.length > 0 || artists.length > 0 || Boolean(legacyCredits);
+  const facetHref = (key: 'publisher' | 'author', value: string) => `/catalogo?${key}=${encodeURIComponent(value)}`;
 
   return (
     <article className="relative overflow-hidden rounded-lg border border-[var(--line)] bg-[var(--surface-subtle)] transition hover:border-artificio-orange focus-within:ring-2 focus-within:ring-artificio-orange">
@@ -71,15 +75,39 @@ export function MaterialCard({ material }: Readonly<MaterialCardProps>) {
           >
             {publisher && (
               <span>
-                <span className="text-[var(--fg-muted)]">Editora </span>
-                {publisher}
+                <span className="text-[var(--fg-muted)]">Editora/selo: </span>
+                {material.publisher_key ? (
+                  <Link className="relative z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-artificio-orange" to={facetHref('publisher', material.publisher_key)}>{publisher}</Link>
+                ) : publisher}
               </span>
             )}
-            {publisher && author && <span className="text-[var(--fg-muted)]"> · </span>}
-            {author && (
+            {authors.length > 0 && (
               <span>
+                {publisher && <span className="text-[var(--fg-muted)]"> · </span>}
                 <span className="text-[var(--fg-muted)]">Por </span>
-                {author}
+                {authors.map((author, index) => {
+                  const authorKey = authorKeys[index];
+                  return (
+                    <span key={`${author}-${index}`}>
+                      {index > 0 ? ', ' : ''}
+                      {authorKey
+                        ? <Link className="relative z-10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-artificio-orange" to={facetHref('author', authorKey)}>{author}</Link>
+                        : author}
+                    </span>
+                  );
+                })}
+              </span>
+            )}
+            {artists.length > 0 && (
+              <span>
+                {(publisher || authors.length > 0) && <span className="text-[var(--fg-muted)]"> · </span>}
+                <span className="text-[var(--fg-muted)]">Arte: </span>{artists.join(', ')}
+              </span>
+            )}
+            {legacyCredits && (
+              <span>
+                {(publisher || authors.length > 0 || artists.length > 0) && <span className="text-[var(--fg-muted)]"> · </span>}
+                <span className="text-[var(--fg-muted)]">Créditos: </span>{legacyCredits}
               </span>
             )}
           </p>
@@ -106,15 +134,11 @@ export function MaterialCard({ material }: Readonly<MaterialCardProps>) {
         <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold tracking-[0.02em] text-[var(--fg-muted)]">
           <span className="rounded-full border border-[var(--line)] px-2 py-0.5">{material.material_type}</span>
           <span className="rounded-full border border-[var(--line)] px-2 py-0.5">{ACCESS_LABEL[material.access_kind]}</span>
-          {/* T9.4 (spec 084) — D119 garante que TODO material publicado e
-              portugues; selo estatico, sem depender de campo dinamico (idioma
-              vive em download_material_metadata, join separado nao presente
-              nesta listagem). */}
-          <span className="rounded-full border border-[var(--line)] px-2 py-0.5">Em português</span>
           <SystemChainBadge
             systemName={material.system_name}
             editionName={material.edition_name}
             variantName={material.variant_name}
+            systemId={material.system_id}
           />
         </div>
       </div>

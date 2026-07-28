@@ -136,6 +136,10 @@ export class OperaRpgScraper implements ScraperAdapter {
           sourceLanguageEvidence: null,
           systemHint: resolveOperaSystemHint(item.url),
           materialTypeHint: resolveOperaMaterialTypeHint(section),
+          // Evidência operacional para a medição por template da spec 089
+          // F5. Sem a seção persistida, o banco só conhece a URL do arquivo
+          // final e não consegue distinguir templates homogêneos/heterogêneos.
+          sourceCategory: section.slice('/downloads/'.length),
         });
       }
     }

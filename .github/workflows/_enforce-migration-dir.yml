@@ -58,6 +58,14 @@ jobs:
             echo "::error::self-test allowlist permitiu path proibido"
             exit 1
           fi
+          if ! is_allowed_sql_path "specs/999-selftest/phase-5-measurement.sql"; then
+            echo "::error::self-test allowlist falhou para evidência de medição permitida"
+            exit 1
+          fi
+          if is_allowed_sql_path "specs/999-selftest/consulta-arbitraria.sql"; then
+            echo "::error::self-test allowlist permitiu SQL arbitrário em specs"
+            exit 1
+          fi
           echo "Self-test allowlist: permitido/bloqueado OK."
 
           git fetch origin "$BASE_REF" --depth=1
@@ -81,13 +89,13 @@ jobs:
             if [ "$ok" -eq 1 ]; then
               echo "permitido: $f"
             else
-              echo "::error file=$f::migration fora dos diretórios allowlisted em .github/migration-dir-allowlist"
+              echo "::error file=$f::SQL fora dos caminhos allowlisted em .github/migration-dir-allowlist"
               fail=1
             fi
           done
 
           if [ "$fail" -ne 0 ]; then
-            echo "BLOCKED: mova as migrations para um diretório allowlisted em .github/migration-dir-allowlist."
+            echo "BLOCKED: mova o SQL para um caminho allowlisted em .github/migration-dir-allowlist."
             exit 1
           fi
           echo "Todas as migrations dentro do contrato. OK."

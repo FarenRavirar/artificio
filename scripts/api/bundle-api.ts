@@ -37,11 +37,17 @@ interface Operation {
   auth: string;
   consumers: string[];
   operationId: string;
+  parameters?: Array<Record<string, unknown>>;
 }
 
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((v): v is string => typeof v === 'string');
+}
+
+function asObjectArray(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object' && !Array.isArray(item));
 }
 
 function str(value: unknown, fallback = ''): string {
@@ -80,10 +86,18 @@ function collectOperations(): Operation[] {
     for (const [routePath, methodsRaw] of Object.entries(paths as Record<string, unknown>)) {
       if (!methodsRaw || typeof methodsRaw !== 'object') continue;
       const methods = methodsRaw as Record<string, unknown>;
+      const pathParameters = asObjectArray(methods.parameters);
       for (const method of HTTP_METHODS) {
         const opRaw = methods[method];
         if (!opRaw || typeof opRaw !== 'object') continue;
         const op = opRaw as Record<string, unknown>;
+        // O path já carrega seus placeholders; o bundle precisa preservar os
+        // parâmetros de consulta, que não são descobríveis pelo path e eram
+        // perdidos completamente até a spec 089 T4.9.
+        const parameters = app === 'downloads' && routePath === '/api/v1/materials'
+          ? [...pathParameters, ...asObjectArray(op.parameters)]
+            .filter((parameter) => parameter.in === 'query')
+          : [];
         ops.push({
           app,
           method: method.toUpperCase(),
@@ -95,6 +109,7 @@ function collectOperations(): Operation[] {
           auth: str(op['x-artificio-auth']),
           consumers: asStringArray(op['x-artificio-consumers']),
           operationId: str(op.operationId),
+          ...(parameters.length > 0 ? { parameters } : {}),
         });
       }
     }
