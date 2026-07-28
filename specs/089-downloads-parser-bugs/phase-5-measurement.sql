@@ -231,17 +231,28 @@ WITH expected_sources(source_platform) AS (
   FROM selected_runs
   UNION ALL
   SELECT 'run:' || source_platform || ':zero_errors',
-    CASE WHEN items_skipped_error = 0 THEN 'pass' ELSE 'fail' END,
+    -- Mesma guarda de `:item_logs_reconciled`: sem `id IS NOT NULL`, fonte que
+    -- não rodou zera por `coalesce` e `0 = 0` passa.
+    CASE WHEN id IS NOT NULL AND items_skipped_error = 0 THEN 'pass' ELSE 'fail' END,
     items_found - items_skipped_error, items_found
   FROM selected_runs
   UNION ALL
   SELECT 'run:' || source_platform || ':item_logs_reconciled',
-    CASE WHEN item_log_failures = 0 AND item_log_rows = items_found THEN 'pass' ELSE 'fail' END,
+    -- `id IS NOT NULL` é o que impede fonte SEM run de passar: `selected_runs`
+    -- é LEFT JOIN sobre `expected_sources`, então fonte que não rodou vira
+    -- linha com contadores zerados por `coalesce` e `item_log_rows = 0` (a
+    -- subquery conta `run_id = NULL`, devolvendo 0, não NULL). Sem esta
+    -- guarda, `0 = 0 AND 0 = 0` reportaria `pass` sobre run inexistente —
+    -- justamente o caso em que a medição precisa reprovar (achado de review
+    -- da PR #225).
+    CASE WHEN id IS NOT NULL AND item_log_failures = 0 AND item_log_rows = items_found THEN 'pass' ELSE 'fail' END,
     item_log_rows, items_found
   FROM selected_runs
   UNION ALL
   SELECT 'run:' || source_platform || ':reconciled',
-    CASE WHEN items_found = items_created + items_skipped_duplicate + items_skipped_not_portuguese + items_skipped_error THEN 'pass' ELSE 'fail' END,
+    -- Mesma guarda de `:item_logs_reconciled`: sem `id IS NOT NULL`, fonte que
+    -- não rodou zera por `coalesce` e `0 = 0+0+0+0` passa.
+    CASE WHEN id IS NOT NULL AND items_found = items_created + items_skipped_duplicate + items_skipped_not_portuguese + items_skipped_error THEN 'pass' ELSE 'fail' END,
     items_created + items_skipped_duplicate + items_skipped_not_portuguese + items_skipped_error, items_found
   FROM selected_runs
   UNION ALL
