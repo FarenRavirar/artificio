@@ -21,8 +21,8 @@ const BASE_URL = 'https://operarpg.com.br';
 const SECTIONS = ['/downloads/aventuras', '/downloads/cenarios', '/downloads/personagens', '/downloads/personagens-digitais', '/downloads/regras-e-fichas', '/downloads/outros'];
 const GAIA_400X_URL = 'https://arquivos.operarpg.com.br/cenarios/DB114-GaiaOpera.pdf';
 const HOMOGENEOUS_SECTION_TYPE_HINTS = new Map([
-  ['/downloads/aventuras', 'Aventura'],
-  ['/downloads/cenarios', 'Cenário'],
+  ['/downloads/aventuras', 'aventura'],
+  ['/downloads/cenarios', 'cenario'],
 ]);
 
 // Achado de review PR #193 (codeRabbit): mesma licao do itch.io

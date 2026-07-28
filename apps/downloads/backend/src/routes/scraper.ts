@@ -187,6 +187,25 @@ const ingestBodySchema = z.object({
   items: z.array(ingestItemSchema).min(1).max(500),
 });
 
+function adaptLegacyLanguageEvidence(body: unknown): unknown {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) return body;
+  const payload = body as Record<string, unknown>;
+  if (!Array.isArray(payload.items)) return body;
+
+  return {
+    ...payload,
+    items: payload.items.map((item) => {
+      if (item === null || typeof item !== 'object' || Array.isArray(item)) return item;
+      const record = item as Record<string, unknown>;
+      if (
+        Object.hasOwn(record, 'sourceLanguageEvidence')
+        || !Object.hasOwn(record, 'sourceLanguageHint')
+      ) return item;
+      return { ...record, sourceLanguageEvidence: record.sourceLanguageHint };
+    }),
+  };
+}
+
 // Achado real (review PR #201, Codex, P1): /ingest validava source_platform
 // contra IMPLEMENTED_SOURCE_PLATFORMS (Object.keys(ADAPTERS), só as 5
 // fontes com scraper automático) — vestígio da Fase 5. Depois da Fase 6
@@ -227,7 +246,7 @@ async function linkParseCaseIdsToMaterials(runId: string, parseCaseIdBySourceUrl
 }
 
 router.post('/ingest', writeRateLimiter, authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
-  const parsed = ingestBodySchema.safeParse(req.body ?? {});
+  const parsed = ingestBodySchema.safeParse(adaptLegacyLanguageEvidence(req.body ?? {}));
   if (!parsed.success) {
     return res.status(400).json({ error: 'Payload de ingest inválido.', details: z.treeifyError(parsed.error) });
   }

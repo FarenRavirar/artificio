@@ -80,13 +80,13 @@ node scripts/scraper-local/fetch-and-ingest.mjs \
       "isFreeOrPwyw": true,
       "coverImageUrl": "https://... ou null",
       "publisherName": "Nome da editora ou null",
-      "sourceLanguageHint": null
+      "sourceLanguageEvidence": null
     }
   ]
 }
 ```
 
-`sourceLanguageHint` deve ser `"pt"` só se a própria fonte confirma
+`sourceLanguageEvidence` deve ser `"pt"` só se a própria fonte confirma
 explicitamente o idioma (ex.: filtro nativo como no itch.io); caso contrário,
 sempre `null` — o pipeline (`scraperIngest.ts`) roda `languageDetector.ts`
 (franc-min + fallback DeepSeek) automaticamente antes de criar qualquer

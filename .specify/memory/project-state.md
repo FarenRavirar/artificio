@@ -19,7 +19,7 @@ itch.io/Grimórios extraem hints somente da tabela real “More information”, 
 versionadas; zero ou múltiplos candidatos ficam `null`. Fallback do catálogo preserva
 `Aventura` e `Não classificado`. T3.0a permanece aberto como falha processual histórica: a
 releitura específica da fase ocorreu depois do início e não pode ser satisfeita retroativamente;
-o T0 foi relido e o diff reauditado. Validação local: 97 testes focados e backend 387/387 testes,
+o T0 foi relido e o diff reauditado. Validação local: 99 testes focados e backend 389/389 testes,
 TypeScript, build e lint verdes; `verify:api` exit 0, com 3 warnings ambíguos e 1 advisory
 `site path.remove` vazio no modo inicial. T3.7 segue aberto para smoke com serviço real
 na Fase 5. Fase 4 ainda não iniciada.

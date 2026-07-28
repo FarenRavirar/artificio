@@ -98,7 +98,7 @@ function extractItemsFromPage() {
         isFreeOrPwyw: /\bfree\b|pay what you want|\$0\.00/i.test(priceText),
         coverImageUrl: imgEl?.getAttribute('src') ?? null,
         publisherName: null,
-        sourceLanguageHint: null,
+        sourceLanguageEvidence: null,
       };
     })
     .filter((item) => item !== null);

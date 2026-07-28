@@ -77,7 +77,7 @@ export function GestaoImportarPage() {
             isFreeOrPwyw,
             coverImageUrl: coverImageUrl.trim() || null,
             publisherName: publisherName.trim() || null,
-            sourceLanguageHint: preview.sourceLanguageHint,
+            sourceLanguageEvidence: preview.sourceLanguageEvidence,
             parse_case_id: parseCaseId ?? undefined,
           },
         ],

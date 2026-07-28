@@ -8,7 +8,7 @@ export interface IngestItemPayload {
   isFreeOrPwyw: boolean;
   coverImageUrl: string | null;
   publisherName: string | null;
-  sourceLanguageHint: 'pt' | 'not_pt' | null;
+  sourceLanguageEvidence: 'pt' | 'not_pt' | null;
   parse_case_id?: string;
 }
 

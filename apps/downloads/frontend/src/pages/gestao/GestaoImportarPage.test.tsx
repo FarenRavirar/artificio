@@ -44,7 +44,7 @@ function makeParseResponse(overrides: Partial<ParseHtmlResponse['preview']> = {}
       isFreeOrPwyw: true,
       coverImageUrl: 'https://example.test/capa.jpg',
       publisherName: 'Editora Teste',
-      sourceLanguageHint: 'pt',
+      sourceLanguageEvidence: 'pt',
       extractedPriceValue: 4,
       priceSignal: 'pwyw_tag_present',
       ...overrides,
@@ -113,9 +113,10 @@ describe('GestaoImportarPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /confirmar e publicar/i }));
 
     await waitFor(() => expect(ingestMutateAsync).toHaveBeenCalled());
-    expect(ingestMutateAsync).toHaveBeenCalledWith(
-      expect.objectContaining({ source_platform: 'dms_guild' }),
-    );
+    expect(ingestMutateAsync).toHaveBeenCalledWith({
+      source_platform: 'dms_guild',
+      items: [expect.objectContaining({ sourceLanguageEvidence: 'pt' })],
+    });
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Item pulado: já existe material duplicado.'));
     expect(toast.success).not.toHaveBeenCalled();
     // formulario nao deve ser limpo quando nada foi criado

@@ -12,7 +12,7 @@ export const parsePreviewSchema = z.object({
   isFreeOrPwyw: z.boolean().nullable(),
   coverImageUrl: z.string().nullable(),
   publisherName: z.string().nullable(),
-  sourceLanguageHint: z.enum(['pt', 'not_pt']).nullable(),
+  sourceLanguageEvidence: z.enum(['pt', 'not_pt']).nullable(),
   extractedPriceValue: z.number().nullable(),
   priceSignal: priceSignalSchema,
 });

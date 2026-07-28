@@ -104,8 +104,10 @@ export function parseItchIsFreeOrPwyw(gameHtml: string): boolean | null {
 // outros projetos. Só a URL da listagem não basta: cada produto precisa
 // declarar Category=Physical game e um sinal inequívoco de RPG de mesa.
 // Ausência/ambiguidade falha fechado; não inferimos pelo título/descrição.
-export function parseItchIsTabletopRpg(gameHtml: string): boolean {
-  const rows = parseInformationRows(gameHtml);
+export function parseItchIsTabletopRpg(
+  gameHtml: string,
+  rows = parseInformationRows(gameHtml),
+): boolean {
   const category = rows.get('category') ?? [];
   const genre = rows.get('genre') ?? [];
   const tags = rows.get('tags') ?? [];
@@ -153,12 +155,12 @@ function selectSingleMappedHint(values: string[], hints: Map<string, string>): s
   return candidates.size === 1 ? [...candidates][0] : null;
 }
 
-export function parseItchTaxonomyHints(gameHtml: string): {
+export function parseItchTaxonomyHints(gameHtml: string, rows = parseInformationRows(gameHtml)): {
   systemHint: string | null;
   materialTypeHint: string | null;
   tags: string[];
 } {
-  const tags = parseInformationRows(gameHtml).get('tags') ?? [];
+  const tags = rows.get('tags') ?? [];
   return {
     systemHint: selectSingleMappedHint(tags, SYSTEM_TAG_HINTS),
     materialTypeHint: selectSingleMappedHint(tags, MATERIAL_TYPE_TAG_HINTS),
@@ -166,7 +168,7 @@ export function parseItchTaxonomyHints(gameHtml: string): {
   };
 }
 
-export function parseItchGameDetail(gameHtml: string): {
+export function parseItchGameDetail(gameHtml: string, rows = parseInformationRows(gameHtml)): {
   description: string | null;
   coverImageUrl: string | null;
   publisherName: string | null;
@@ -177,7 +179,7 @@ export function parseItchGameDetail(gameHtml: string): {
   const description = OG_DESCRIPTION_RE.exec(gameHtml)?.[1] ?? null;
   const coverImageUrl = OG_IMAGE_RE.exec(gameHtml)?.[1] ?? null;
   const publisherName = AUTHOR_LINK_RE.exec(gameHtml)?.[1]?.trim() ?? null;
-  return { description, coverImageUrl, publisherName, ...parseItchTaxonomyHints(gameHtml) };
+  return { description, coverImageUrl, publisherName, ...parseItchTaxonomyHints(gameHtml, rows) };
 }
 
 export async function* discoverItchGames(
@@ -202,11 +204,12 @@ export async function* discoverItchGames(
     }
 
     const isFreeOrPwyw = parseItchIsFreeOrPwyw(gameHtml);
-    if (isFreeOrPwyw !== true || !parseItchIsTabletopRpg(gameHtml)) {
+    const informationRows = parseInformationRows(gameHtml);
+    if (isFreeOrPwyw !== true || !parseItchIsTabletopRpg(gameHtml, informationRows)) {
       continue;
     }
 
-    const detail = parseItchGameDetail(gameHtml);
+    const detail = parseItchGameDetail(gameHtml, informationRows);
 
     yield normalizeScrapedItemPlainText({
       sourceUrl: game.url,

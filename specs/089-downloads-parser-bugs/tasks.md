@@ -116,8 +116,8 @@ Primeira a implementar por ser a que contamina dado permanente (slug é URL púb
 
 **Evidência Fase 2:** `phase-2-language.md`; contrato renomeado em parser/rota/ingest;
 detector com ISO 639-3 validado contra o conjunto suportado, allowlist curta e DeepSeek V4
-JSON mode; corpus real TP=1, TN=1, FP=0, FN=0, indeterminado=1; persistência das três colunas e metadata `'pt'` cobertas por teste. 97 testes
-focados; backend completo 387/387 testes; TypeScript, build e lint verdes;
+JSON mode; corpus real TP=4, TN=1, FP=0, FN=0, indeterminado=6; persistência das três colunas e metadata `'pt'` cobertas por teste. 99 testes
+focados; backend completo 389/389 testes; TypeScript, build e lint verdes;
 `verify:api` exit 0, com 3 warnings ambíguos e advisory `site path.remove` vazio no modo inicial.
 
 ## Fase 3 — Extração de sistema e tipo (defeitos 1 e 2)
@@ -165,7 +165,7 @@ parser isolado à tabela estruturada real, com allowlist inequívoca e fixtures 
 conteúdo livre é ignorado e múltiplos candidatos/irrelevantes ficam `null`;
 fallback inclui `nao-classificado`. A implementação inicial começou antes da releitura T3.0a;
 foi tratada como inválida, T0 foi relido integralmente e todo diff F3 foi reauditado/corrigido
-antes desta evidência. 97 testes focados; backend completo 387/387 testes;
+antes desta evidência. 99 testes focados; backend completo 389/389 testes;
 TypeScript, build e lint verdes; `verify:api` exit 0, com 3 warnings ambíguos e advisory
 `site path.remove` vazio no modo inicial.
 - [ ] T3.7 — **Smoke na Fase 5**: confirmar no serviço real que `GET /api/catalog/v1/material-types` devolve `nao-classificado`. Contrato unitário (T3.6) não prova o serviço em pé — foi exatamente essa lacuna que derrubou o deploy do downloads em beta. · feito quando: resposta real registrada, com o tipo neutro presente.

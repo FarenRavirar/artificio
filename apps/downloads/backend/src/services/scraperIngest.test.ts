@@ -140,7 +140,7 @@ describe('runScraperIngest', () => {
     expect(dbMocks.selectFrom).not.toHaveBeenCalled();
   });
 
-  it('sourceLanguageEvidence=null e detectPortuguese não confiante: pula por idioma, nunca cria', async () => {
+  it('sourceLanguageEvidence=null e detecção confiante não-portuguesa: pula por idioma, nunca cria', async () => {
     detectPortugueseMock.mockResolvedValue({
       isPortuguese: false,
       detectedLanguage: 'eng',
@@ -219,6 +219,9 @@ describe('runScraperIngest', () => {
     }));
     expect(logValues).toHaveBeenCalledWith(expect.objectContaining({
       error_detail: expect.stringContaining('"source_evidence":"pt"'),
+    }));
+    expect(logValues).toHaveBeenCalledWith(expect.objectContaining({
+      error_detail: expect.stringContaining('"language_confident":true'),
     }));
   });
 

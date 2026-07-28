@@ -35,11 +35,11 @@ fixtures reais com proveniência. Resultado sem chave externa:
 
 | | Previsto pt | Previsto não-pt | Indeterminado |
 |---|---:|---:|---:|
-| Real pt | 1 | 0 | 0 |
-| Real não-pt | 0 | 1 | 1 |
+| Real pt | 4 | 0 | 3 |
+| Real não-pt | 0 | 1 | 3 |
 
-Precisão entre itens aprovados: 1,0. Falsos positivos: 0. Um caso não-português curto
-abstém e falha fechado; não é contado falsamente como negativo correto. Casos contratuais separados cobrem português com/sem
+Precisão entre itens aprovados: 1,0. Falsos positivos: 0. Seis casos curtos ou ambíguos
+abstêm e falham fechado; não são contados falsamente como negativos corretos. Casos contratuais separados cobrem português com/sem
 acento, espanhol, galego, texto misto, título próprio e descrição ausente.
 
 ## Consumidores
@@ -50,8 +50,8 @@ corretos porque `download_material_metadata.language` permanece `'pt'`.
 
 ## Validação
 
-- 97 testes focados verdes (idioma, ingest, rotas e scrapers afetados).
-- Backend completo: 387/387 testes.
+- 99 testes focados verdes (idioma, ingest, rotas e scrapers afetados).
+- Backend completo: 389/389 testes.
 - TypeScript verde.
 - build verde.
 - lint verde.

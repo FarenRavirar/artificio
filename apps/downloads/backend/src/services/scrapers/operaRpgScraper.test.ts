@@ -68,7 +68,7 @@ describe('OperaRpgScraper', () => {
       isFreeOrPwyw: true,
       sourceLanguageEvidence: null,
       systemHint: 'OPERA RPG',
-      materialTypeHint: 'Aventura',
+      materialTypeHint: 'aventura',
     });
   });
 
@@ -89,13 +89,13 @@ describe('OperaRpgScraper', () => {
     expect(items[0]).toMatchObject({
       title: 'Gaia 400X',
       systemHint: null,
-      materialTypeHint: 'Cenário',
+      materialTypeHint: 'cenario',
     });
   });
 
   it.each([
-    ['/downloads/aventuras', 'Aventura'],
-    ['/downloads/cenarios', 'Cenário'],
+    ['/downloads/aventuras', 'aventura'],
+    ['/downloads/cenarios', 'cenario'],
     ['/downloads/personagens', null],
     ['/downloads/personagens-digitais', null],
     ['/downloads/regras-e-fichas', null],

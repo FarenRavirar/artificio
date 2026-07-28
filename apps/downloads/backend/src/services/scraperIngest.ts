@@ -39,6 +39,7 @@ function languageAuditDetail(audit: LanguageAudit, error?: string): string {
   return JSON.stringify({
     language_method: audit.method,
     language_reason: audit.reason,
+    language_confident: audit.confident,
     source_evidence: audit.sourceEvidence,
     ...(error ? { error } : {}),
   });

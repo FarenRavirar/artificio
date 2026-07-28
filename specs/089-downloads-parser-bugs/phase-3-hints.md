@@ -7,9 +7,9 @@ Execução local: 2026-07-27. Branch: `fix/089-fases-2-3`.
 | Origem | `systemHint` | `materialTypeHint` |
 |---|---|---|
 | 133 itens dedicados | `OPERA RPG` | conforme seção abaixo |
-| `Gaia 400X` | `null` | `Cenário` |
-| `/aventuras` | — | `Aventura` |
-| `/cenarios` | — | `Cenário` |
+| `Gaia 400X` | `null` | `cenario` |
+| `/aventuras` | — | `aventura` |
+| `/cenarios` | — | `cenario` |
 | `/personagens`, `/personagens-digitais`, `/regras-e-fichas`, `/outros` | — | `null` |
 
 As quatro últimas seções são heterogêneas ou não têm subseção estrutural estável no DOM.
@@ -50,8 +50,8 @@ falhando fechado.
 
 ## Validação
 
-- 97 testes focados verdes (idioma, ingest, rotas e scrapers afetados).
-- Backend completo: 387/387 testes.
+- 99 testes focados verdes (idioma, ingest, rotas e scrapers afetados).
+- Backend completo: 389/389 testes.
 - TypeScript verde.
 - build verde.
 - lint verde.

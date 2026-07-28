@@ -152,6 +152,7 @@ describe('detectPortuguese', () => {
       text: string;
       isPortuguese: boolean;
     }>;
+    expect(corpus).toHaveLength(11);
     const matrix = {
       truePositive: 0,
       trueNegative: 0,
@@ -172,11 +173,11 @@ describe('detectPortuguese', () => {
 
     expect(matrix.falsePositive).toBe(0);
     expect(matrix).toEqual({
-      truePositive: 1,
+      truePositive: 4,
       trueNegative: 1,
       falsePositive: 0,
       falseNegative: 0,
-      indeterminate: 1,
+      indeterminate: 6,
     });
   });
 });

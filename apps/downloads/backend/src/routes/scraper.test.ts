@@ -204,6 +204,53 @@ describe('POST /api/v1/admin/scraper/ingest', () => {
     expect(forwarded[0]?.sourceLanguageEvidence).toBe('pt');
   });
 
+  it('adapta sourceLanguageHint legado antes da validação do ingest', async () => {
+    dbMocks.insertInto.mockReturnValueOnce(insertChain({ id: 'run-legacy-language' }));
+    dbMocks.selectFrom
+      .mockReturnValueOnce(platformExistsChain())
+      .mockReturnValueOnce({
+        selectAll: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'run-legacy-language', status: 'completed' }),
+      });
+
+    const { sourceLanguageEvidence: _evidence, ...legacyItem } = validItem;
+    await request(app())
+      .post('/api/v1/admin/scraper/ingest')
+      .send({ source_platform: 'itch_io', items: [{ ...legacyItem, sourceLanguageHint: 'not_pt' }] })
+      .expect(200);
+
+    const forwardedItems = runScraperIngestMock.mock.calls[0][2] as AsyncIterable<Record<string, unknown>>;
+    const forwarded = [];
+    for await (const item of forwardedItems) forwarded.push(item);
+    expect(forwarded[0]?.sourceLanguageEvidence).toBe('not_pt');
+    expect(forwarded[0]).not.toHaveProperty('sourceLanguageHint');
+  });
+
+  it('preserva sourceLanguageEvidence explícito quando o alias legado também existe', async () => {
+    dbMocks.insertInto.mockReturnValueOnce(insertChain({ id: 'run-explicit-language' }));
+    dbMocks.selectFrom
+      .mockReturnValueOnce(platformExistsChain())
+      .mockReturnValueOnce({
+        selectAll: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'run-explicit-language', status: 'completed' }),
+      });
+
+    await request(app())
+      .post('/api/v1/admin/scraper/ingest')
+      .send({
+        source_platform: 'itch_io',
+        items: [{ ...validItem, sourceLanguageEvidence: 'pt', sourceLanguageHint: 'not_pt' }],
+      })
+      .expect(200);
+
+    const forwardedItems = runScraperIngestMock.mock.calls[0][2] as AsyncIterable<Record<string, unknown>>;
+    const forwarded = [];
+    for await (const item of forwardedItems) forwarded.push(item);
+    expect(forwarded[0]?.sourceLanguageEvidence).toBe('pt');
+  });
+
   it('sanitiza descriptionHtml reenviado manualmente antes de entregar ao pipeline', async () => {
     dbMocks.insertInto.mockReturnValueOnce(insertChain({ id: 'run-rich-html' }));
     dbMocks.selectFrom
