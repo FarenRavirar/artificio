@@ -6,6 +6,7 @@ import { publicRateLimiter, authRateLimiter } from '../middleware/rateLimit.js';
 import { isValidEmail } from '../utils/validation.js';
 import { generateEmbedUrl, LinkType } from '../services/linkService.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
+import { sanitizeNullableUserMarkdown } from '../utils/userMarkdown.js';
 import { upgradeGoogleImageQuality } from '../utils/urlValidation.js';
 import { getSystemCatalogProvider, hydrateTableSystemFields } from '../services/systemCatalogProvider.js';
 import { processPendingLinks } from '../scripts/processLinkMetadataJobs.js';
@@ -320,7 +321,7 @@ router.get('/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: 
     const closed_group = {
       enabled: !!gm.closed_group_enabled,
       systems: closedGroupSystems,
-      description: gm.closed_group_description,
+      description: sanitizeNullableUserMarkdown(gm.closed_group_description),
       min_price_cents: gm.closed_group_min_price_cents,
     };
 
@@ -342,6 +343,7 @@ router.get('/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: 
     return res.json({
       data: {
         ...gmPublic,
+        bio_long: sanitizeNullableUserMarkdown(gm.bio_long),
         closed_group,
         preferred_vtt_platforms: preferredVttPlatforms,
         tables: tablesWithContacts,

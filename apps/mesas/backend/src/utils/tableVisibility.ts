@@ -20,3 +20,18 @@ export function isImportedTableExpired(table: {
 
   return new Date() >= validadeFinal;
 }
+
+/**
+ * Regra única de visibilidade pública. Mantém catálogo, detalhe e interações
+ * coerentes: rascunho, arquivada ou importada expirada não é pública
+ * (spec 089, T6B.1 + achado das rotas de interação).
+ */
+export function isPublicTable(table: {
+  status: string;
+  archived_at: Date | string | null;
+  origin: string | null;
+  created_at: Date | string;
+  starts_at: Date | string | null;
+}): boolean {
+  return table.status === 'active' && !table.archived_at && !isImportedTableExpired(table);
+}

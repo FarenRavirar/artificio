@@ -21,6 +21,11 @@ import { notifyAdmins } from '../services/adminNotifications.js';
 import { isValidEmail } from '../utils/validation.js';
 import { triggerMetaScrape, triggerMetaScrapeOnPublish } from '../services/metaScrapeClient.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
+import {
+  sanitizeNullableUserMarkdown,
+  sanitizeOptionalUserMarkdown,
+  sanitizeUserMarkdown,
+} from '../utils/userMarkdown.js';
 import { parseTextForPreview } from '../discord/parseTextForPreview.js';
 import { loadSystemsForParser } from '../discord/shared.js';
 import { z } from 'zod';
@@ -192,7 +197,11 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
         (value) => typeof value === 'string' && /^[0-9a-fA-F-]{36}$/.test(value)
       )
     : [];
-  const safeClosedGroupDescription = typeof closed_group_description === 'string' ? closed_group_description.trim() : null;
+  const safeBioLong = typeof bio_long === 'string' ? sanitizeUserMarkdown(bio_long) : null;
+  const safeClosedGroupDescription =
+    typeof closed_group_description === 'string'
+      ? sanitizeUserMarkdown(closed_group_description.trim())
+      : null;
   const safeClosedGroupMinPriceCents =
     typeof closed_group_min_price_cents === 'number' && Number.isInteger(closed_group_min_price_cents) && closed_group_min_price_cents >= 0
       ? closed_group_min_price_cents
@@ -215,7 +224,7 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
         user_id: userId,
         slug,
         nickname: nickname.trim(),
-        bio_long: bio_long ?? null,
+        bio_long: safeBioLong,
         languages: safeLanguages,
         specialties: safeSpecialties,
         badges: safeBadges,
@@ -255,7 +264,13 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
       .where('role', '=', 'player')
       .execute();
 
-    return res.status(201).json({ data: gmProfile });
+    return res.status(201).json({
+      data: {
+        ...gmProfile,
+        bio_long: sanitizeNullableUserMarkdown(gmProfile.bio_long),
+        closed_group_description: sanitizeNullableUserMarkdown(gmProfile.closed_group_description),
+      },
+    });
   } catch (error) {
     console.error('[POST /gm/profile]', error);
     return res.status(500).json({ error: 'Erro ao criar perfil de mestre.' });
@@ -320,7 +335,7 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
     : undefined;
   const safeClosedGroupDescription =
     typeof closed_group_description === 'string'
-      ? closed_group_description.trim()
+      ? sanitizeUserMarkdown(closed_group_description.trim())
       : closed_group_description === null
         ? null
         : undefined;
@@ -409,7 +424,7 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
       .updateTable('gm_profiles')
       .set({
         nickname: safeNickname,
-        bio_long: bio_long ?? undefined,
+        bio_long: sanitizeOptionalUserMarkdown(bio_long),
         languages: safeLanguages,
         specialties: safeSpecialties,
         badges: safeBadges,
@@ -447,7 +462,13 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
       ])
       .execute();
 
-    return res.json({ data: updated });
+    return res.json({
+      data: {
+        ...updated,
+        bio_long: sanitizeNullableUserMarkdown(updated.bio_long),
+        closed_group_description: sanitizeNullableUserMarkdown(updated.closed_group_description),
+      },
+    });
   } catch (error) {
     console.error('[PUT /gm/profile]', error);
     return res.status(500).json({ error: 'Erro ao atualizar perfil de mestre.' });

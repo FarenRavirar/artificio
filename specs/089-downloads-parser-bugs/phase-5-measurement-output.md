@@ -126,3 +126,10 @@ runs antigas irrecuperáveis, terminou com exit 0 e `ROLLBACK`, falhando como es
 fontes: OPERA 80/137, Grimórios 7/11 e itch 3/25. Esses dados continuam inválidos para taxas de
 rejeição; servem somente como prova de que o gate agora detecta o buraco. A saída final deste
 artefato só pode ser substituída depois do deploy do rastro persistente e da nova recoleta.
+
+O rastro persistente foi implantado em Beta em 2026-07-28 pelo workflow oficial, run
+`30396262824`, a partir de `dev` no SHA `509b5075939e189d88015370311efce3413e7138`.
+O workflow fechou verde; clone Beta confirmou o mesmo SHA; `downloads-beta-api` e
+`downloads-beta-app` ficaram `healthy`; `/api/v1/health` e `/` responderam 200, e
+`/api/v1/materials/mine` respondeu 401 sem cookie. Resta recoletar as três fontes antes de
+substituir a saída inválida acima.
