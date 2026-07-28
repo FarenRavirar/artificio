@@ -12,6 +12,11 @@ import {
 import type { ScrapedItem } from './scrapers/types';
 import type { Database, DownloadSourcePlatform, DownloadScraperItemOutcome } from '../db/types';
 import { toJsonColumnValue } from '../db/jsonColumn';
+import {
+  normalizeCreditNames,
+  normalizePublisherKey,
+  splitCreditNames,
+} from './facetNormalization';
 
 // T4.2 (spec 084) — pipeline unico de criacao/dedupe, reusado por todo
 // adapter (Fase 3) e pelo Modo 3 (payload de ingest manual, Fase 6). Ordem
@@ -109,6 +114,9 @@ async function logItem(
         source_url: item.sourceUrl,
         outcome,
         detected_language: detectedLanguage,
+        source_category: item.sourceCategory ?? null,
+        system_hint: item.systemHint,
+        material_type_hint: item.materialTypeHint,
         error_detail: errorDetail,
       })
       .execute();
@@ -372,15 +380,23 @@ async function processItem(
         await openMaterialTypeSuggestion(trx, material.id, typeResolution.rawMaterialTypeHint);
       }
 
+      const authors = normalizeCreditNames(splitCreditNames(item.authorsCredits));
+      const artists = normalizeCreditNames(splitCreditNames(item.artistsCredits));
+
       await trx
         .insertInto('download_material_metadata')
         .values({
           material_id: material.id,
           language: 'pt',
           publisher_name: item.publisherName,
+          publisher_key: item.publisherName ? normalizePublisherKey(item.publisherName) : null,
           cover_image_url: item.coverImageUrl,
           scenario: item.scenario ?? null,
           credits: combineCredits(item.authorsCredits, item.artistsCredits),
+          authors: authors.labels,
+          author_keys: authors.keys,
+          artists: artists.labels,
+          artist_keys: artists.keys,
           file_format: item.format ?? null,
           // Achado real (mesmo bug de materialMetadata.ts, smoke pós-deploy
           // spec 086, 2026-07-26): node-postgres sem type hint serializa

@@ -106,4 +106,30 @@ describe('PUT /api/v1/material-metadata/:materialId', () => {
       source_filters: expect.anything(),
     }));
   });
+
+  it('normaliza editora e estrutura autores/artistas na fronteira manual', async () => {
+    dbMocks.selectFrom.mockReturnValueOnce(materialQuery({ id: 'material-1', creator_id: 'creator-1', system_id: null }));
+    const insert = {
+      values: vi.fn().mockReturnThis(),
+      onConflict: vi.fn().mockImplementation(() => insert),
+      returningAll: vi.fn().mockReturnThis(),
+      executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ material_id: 'material-1' }),
+    };
+    dbMocks.insertInto.mockReturnValueOnce(insert);
+
+    await request(app()).put('/api/v1/material-metadata/material-1').send({
+      publisher_name: ' Grimórios & Dados Editora ',
+      authors: ['Ágata', 'Agata', ' Bruno '],
+      artists: ['Ilustradora Exemplo'],
+    }).expect(200);
+
+    expect(insert.values).toHaveBeenCalledWith(expect.objectContaining({
+      publisher_name: 'Grimórios & Dados Editora',
+      publisher_key: 'grimorios e dados',
+      authors: ['Ágata', 'Bruno'],
+      author_keys: ['agata', 'bruno'],
+      artists: ['Ilustradora Exemplo'],
+      artist_keys: ['ilustradora exemplo'],
+    }));
+  });
 });

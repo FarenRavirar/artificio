@@ -418,6 +418,10 @@ describe('runScraperIngest', () => {
         language: 'pt',
         scenario: 'Qualquer mundo',
         credits: 'Autora\nArtista',
+        authors: ['Autora'],
+        author_keys: ['autora'],
+        artists: ['Artista'],
+        artist_keys: ['artista'],
         file_format: 'PDF',
         // Achado real (smoke visual pós-deploy, 2026-07-26): node-postgres
         // sem type hint serializa array JS como array literal do Postgres
@@ -433,6 +437,14 @@ describe('runScraperIngest', () => {
         description_html: '<p>Descrição <strong>rica</strong></p>',
       }),
     );
+    const logInsert = dbMocks.insertInto.mock.results
+      .map((result) => result.value)
+      .find((chain) => chain?.values && chain !== materialInsert && chain !== metadataInsert);
+    expect(logInsert?.values).toHaveBeenCalledWith(expect.objectContaining({
+      source_category: 'Linha de produto',
+      system_hint: null,
+      material_type_hint: null,
+    }));
   });
 
   it('persiste texto decodificado antes de idioma, slug e taxonomia', async () => {

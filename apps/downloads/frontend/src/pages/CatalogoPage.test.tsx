@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CatalogoPage } from './CatalogoPage';
 import { SobreEUsoPage } from './SobreEUsoPage';
@@ -18,9 +18,15 @@ function renderPage(initialEntries: string[] = ['/catalogo']) {
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={initialEntries}>
         <CatalogoPage />
+        <HistoryProbe />
       </MemoryRouter>
     </QueryClientProvider>,
   );
+}
+
+function HistoryProbe() {
+  const navigate = useNavigate();
+  return <button type="button" onClick={() => navigate(-1)}>Voltar no histórico</button>;
 }
 
 // Spec 087 (T2.2) — a rota e uma so; o que muda e o MODO. Sem busca e sem
@@ -185,6 +191,54 @@ describe('CatalogoPage', () => {
       expect(screen.queryByRole('button', { name: /remover filtro busca/i })).not.toBeInTheDocument();
       expect(screen.queryByLabelText('Ordenar por')).not.toBeInTheDocument();
     }, { timeout: 1000 });
+  });
+
+  it('deep link de editora ativa resultado, chip removível e filtro exato', async () => {
+    const spy = vi.spyOn(useMaterialsCatalogModule, 'useMaterialsCatalog').mockReturnValue({
+      data: { items: [], page: 1, page_size: 20, total: 0, total_pages: 1 },
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useMaterialsCatalogModule.useMaterialsCatalog>);
+    vi.spyOn(useMaterialFacetsModule, 'useMaterialFacets').mockReturnValue({
+      data: {
+        material_types: [], systems: [], editions: [], authors: [],
+        publishers: [{ value: 'grimorios e dados', label: 'Grimórios & Dados Editora', count: 2 }],
+      },
+    } as unknown as ReturnType<typeof useMaterialFacetsModule.useMaterialFacets>);
+
+    renderPage(['/catalogo?publisher=grimorios%20e%20dados']);
+
+    expect(await screen.findByRole('button', { name: /remover filtro editora\/selo/i })).toHaveTextContent('Grimórios & Dados Editora');
+    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ publisher: 'grimorios e dados' }), { enabled: true });
+    fireEvent.click(screen.getByRole('button', { name: /remover filtro editora\/selo/i }));
+    await waitFor(() => expect(screen.queryByLabelText('Ordenar por')).not.toBeInTheDocument());
+  });
+
+  it('back preserva o estado anterior das facetas pela URL', async () => {
+    const spy = vi.spyOn(useMaterialsCatalogModule, 'useMaterialsCatalog').mockReturnValue({
+      data: { items: [], page: 1, page_size: 20, total: 0, total_pages: 1 },
+      isLoading: false,
+      isError: false,
+    } as unknown as ReturnType<typeof useMaterialsCatalogModule.useMaterialsCatalog>);
+    renderPage(['/catalogo?author=agata', '/catalogo?publisher=grimorios%20e%20dados']);
+
+    await waitFor(() => expect(spy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ publisher: 'grimorios e dados', author: undefined }),
+      { enabled: true },
+    ));
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar no histórico' }));
+    await waitFor(() => expect(spy).toHaveBeenLastCalledWith(
+      expect.objectContaining({ publisher: undefined, author: 'agata' }),
+      { enabled: true },
+    ));
+  });
+
+  it('mantém caminho de erro textual com faceta ativa', async () => {
+    vi.spyOn(useMaterialsCatalogModule, 'useMaterialsCatalog').mockReturnValue({
+      data: undefined, isLoading: false, isError: true,
+    } as unknown as ReturnType<typeof useMaterialsCatalogModule.useMaterialsCatalog>);
+    renderPage(['/catalogo?author=agata']);
+    expect(await screen.findByText('Falha ao carregar materiais. Tente novamente.')).toBeInTheDocument();
   });
 
   // Achado real (review PR #208, CodeRabbit): trocar de sistema sem limpar

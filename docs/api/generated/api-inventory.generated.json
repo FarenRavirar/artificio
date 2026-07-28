@@ -722,7 +722,7 @@
       "method": "GET",
       "path": "/api/v1/material-metadata/:materialId",
       "sourceFile": "apps/downloads/backend/src/routes/materialMetadata.ts",
-      "line": 54,
+      "line": 57,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -731,7 +731,7 @@
       "method": "PUT",
       "path": "/api/v1/material-metadata/:materialId",
       "sourceFile": "apps/downloads/backend/src/routes/materialMetadata.ts",
-      "line": 82,
+      "line": 85,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -740,7 +740,7 @@
       "method": "GET",
       "path": "/api/v1/materials",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 129,
+      "line": 144,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -749,7 +749,7 @@
       "method": "POST",
       "path": "/api/v1/materials",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 522,
+      "line": 595,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -767,7 +767,7 @@
       "method": "PATCH",
       "path": "/api/v1/materials/:id",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 626,
+      "line": 699,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -776,7 +776,7 @@
       "method": "GET",
       "path": "/api/v1/materials/:id/history",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 412,
+      "line": 485,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -785,7 +785,7 @@
       "method": "GET",
       "path": "/api/v1/materials/:slug",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 442,
+      "line": 515,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -794,7 +794,7 @@
       "method": "GET",
       "path": "/api/v1/materials/catalog-systems",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 325,
+      "line": 359,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -803,7 +803,7 @@
       "method": "GET",
       "path": "/api/v1/materials/facets",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 346,
+      "line": 380,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -812,7 +812,7 @@
       "method": "GET",
       "path": "/api/v1/materials/mine",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 398,
+      "line": 471,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -821,7 +821,7 @@
       "method": "GET",
       "path": "/api/v1/materials/types",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 306,
+      "line": 340,
       "confidence": "high",
       "kind": "express-route"
     },

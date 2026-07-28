@@ -180,10 +180,13 @@ busca antes; não é ligar um link a uma rota pronta.
 
 `system_id` é o caso mais simples: o filtro já existe no catálogo, falta apenas o link.
 
-**Complicador de modelagem:** `publisher_name` é texto solto na tabela de metadata. Sem
-normalização, "Grimórios & Dados Editora" e "Grimorios e Dados" viram facetas distintas para
-a mesma editora. Decisão do mantenedor (2026-07-27): **normalizar na gravação** (trim, decode,
-colapsar espaço) e casar o normalizado — sem criar tabela/entidade própria nesta spec.
+**Complicador de modelagem:** `publisher_name` é texto solto na tabela de metadata. Sem uma
+chave separada, "Grimórios & Dados Editora" e "Grimorios e Dados" viram facetas distintas para
+a mesma editora. Decisão revista do mantenedor (2026-07-27): preservar o nome oficial para
+exibição e gerar `publisher_key` com Unicode, caixa, espaço, pontuação, `&`/`e` e sufixos
+societários. **Sem `decode` na gravação**: a fronteira HTML já foi tratada na Fase 1, e texto
+manual não é HTML. Autores e artistas ficam estruturados separadamente; `credits` permanece
+fallback quando o papel histórico não puder ser inferido.
 
 ### Defeito 6 — rótulo "Em português" em 100% dos cards, inclusive nos que não estão
 
@@ -548,6 +551,38 @@ a nada. Sem mudar o contrato, "esqueci de extrair" e "a fonte não tem" ficam in
 
 ## Critérios de aceite
 
+### Contrato fechado da medição das Fases 4–5
+
+O SQL canônico é `phase-5-measurement.sql`. Ele lê somente a run mais recente de cada uma das
+três fontes, falha quando uma fonte não tem run, reconcilia contadores e preserva
+`source_category`, `system_hint` e `material_type_hint` no log inclusive para rejeitados.
+`material_type_id IS NOT NULL` **não** prova casamento: o tipo neutro também tem ID. Casamento
+de tipo exige hint presente, ausência de `raw_material_type_hint` e tipo final não neutro.
+
+Limites declarados antes da medição:
+
+- OPERA `aventuras`: sistema 100%, tipo 100%; `cenarios`: sistema mínimo 95% por Gaia 400X,
+  tipo 100%; demais templates: sistema 100%, sem taxa de tipo quando a seção não o expõe.
+- itch.io/Grimórios: ground truth das fixtures decide hint presente ou `null`; ausência
+  estrutural correta não é falha nem vira taxa inventada.
+- Corpus de idioma: todos os 11 URLs precisam aparecer nas runs; falso positivo = zero.
+- `nao-classificado`: menos de 50% dos criados.
+- Entidade HTML crua em qualquer campo `plainText`: zero. Inclui `file_format` e
+  `creation_method`, arrays e JSON. Slug de fixture com entidade compara valor esperado.
+- Forma de faceta inválida: zero; nomes e chaves têm cardinalidade idêntica.
+
+As 16 tabelas atingidas pelo `TRUNCATE download_material CASCADE` são:
+`download_material_version`, `download_material_metadata`, `download_evidence`,
+`download_report`, `download_favorite`, `download_collection_item`, `download_link_check`,
+`download_metric_daily`, `download_comment`, `download_destination`,
+`download_scraper_item_log`, `download_email_log`, `download_scraper_parse_log`,
+`download_system_suggestion`, `download_material_view` e
+`download_material_type_suggestion`. Inclui FKs `ON DELETE SET NULL`; `TRUNCATE CASCADE`
+esvazia essas tabelas. Inventário real encontrou `manual=1` e `download_comment=1`.
+**Decisão do mantenedor (2026-07-28): ambos eram dados de teste e podem ser descartados.**
+A limpeza permanece condicionada ao dump `-Fc` validado, deploy correto e aprovação
+destrutiva própria.
+
 Medidos no banco de beta, após recoleta completa das três fontes acessíveis:
 
 > **Critérios reescritos após a revisão do Codex (2026-07-27).** Os anteriores eram absolutos
@@ -607,6 +642,6 @@ Verificados na interface do catálogo de beta, com o acervo recoletado:
 - **Dependência de deploy do site.** O downloads lê a taxonomia via `GET /api/catalog/v1/material-types` do site. Se o site responder 404, o downloads cai em `MATERIAL_TYPES_ROLLOUT_FALLBACK`, que contém apenas `aventura` — foi essa a causa do primeiro `catalog_material_type_not_found` em 2026-07-27, resolvido deployando o site beta. **O mesmo risco existe em produção** e precisa de ordem de deploy explícita: site antes de downloads.
 - **O teste esconde o defeito.** `scraperIngest.test.ts:85` mocka o catálogo com `nao-classificado` presente, então passa verde enquanto o runtime quebra por ausência do tipo. Qualquer correção precisa de teste que exercite o caminho real, não o mock permissivo.
 - **Dependência nova do `accounts.` para exibir comentário.** Hoje a listagem não depende de serviço externo; passar a depender cria acoplamento em rota pública. Daí o requisito 19: indisponibilidade degrada a identidade, nunca derruba a lista. Vale considerar cache, pelo mesmo motivo que `catalogClient` cacheia a taxonomia por 60s.
-- **Migration nova para `parent_id`** (threads). Primeira desta spec — as demais correções não tocam schema. Segue o checklist pétreo de migrations (header de 5 campos, idempotência, diretório allowlisted).
+- **Migrations da 089.** A Fase 4 cria a estrutura de facetas e a evidência de medição. A migration de `parent_id` pertence à spec 090, para onde a Fase 6 foi movida; identidade do ativo de capa continua prevista na Fase 7. Todas seguem o checklist pétreo de migrations (header de 5 campos, idempotência, diretório allowlisted).
 - **`packages/ui` pode entrar no escopo.** Decisão do mantenedor foi investigar primeiro se o defeito de contraste do `<select>` atinge outros módulos. Se atingir, corrigir na origem compartilhada **exige aprovação própria + verificação de impacto nos consumidores** (`AGENTS.md` §Autorização) — não está coberto pela abertura desta spec.
 - **Profundidade de thread não limitada** quebra layout e dificulta retirada por denúncia. Daí o limite explícito no requisito 21.

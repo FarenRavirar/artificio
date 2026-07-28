@@ -51,6 +51,8 @@ export function CatalogoPage() {
   const materialType = searchParams.get('material_type') ?? '';
   const systemId = searchParams.get('system_id') ?? '';
   const editionId = searchParams.get('edition_id') ?? '';
+  const publisher = searchParams.get('publisher') ?? '';
+  const author = searchParams.get('author') ?? '';
   const sort = (searchParams.get('sort') as SortOption | null) ?? 'recent';
   const page = Number(searchParams.get('page') ?? '1');
 
@@ -85,7 +87,7 @@ export function CatalogoPage() {
   //
   // Testado por `has`, nao pelo valor: `sort` tem default 'recent', entao
   // comparar valor nao distinguiria "/catalogo" de "/catalogo?sort=recent".
-  const isBrowsing = !q && !materialType && !systemId && !editionId && !searchParams.has('sort');
+  const isBrowsing = !q && !materialType && !systemId && !editionId && !publisher && !author && !searchParams.has('sort');
 
   const { data, isLoading, isError } = useMaterialsCatalog(
     {
@@ -93,6 +95,8 @@ export function CatalogoPage() {
       material_type: materialType || undefined,
       system_id: systemId || undefined,
       edition_id: editionId || undefined,
+      publisher: publisher || undefined,
+      author: author || undefined,
       sort,
       page,
     },
@@ -107,7 +111,7 @@ export function CatalogoPage() {
   // unico); remover um chip so atualiza a URL (updateParam), que ja dispara
   // o refetch da lista.
   const activeFilters: ActiveFilter[] = [];
-  const activePillLabels: Partial<Record<'material_type' | 'system_id' | 'edition_id', string>> = {};
+  const activePillLabels: Partial<Record<'material_type' | 'system_id' | 'edition_id' | 'publisher' | 'author', string>> = {};
   if (q) {
     activeFilters.push({ key: 'q', label: 'Busca', value: q });
   }
@@ -125,6 +129,14 @@ export function CatalogoPage() {
     const label = systemsById.get(editionId)?.name ?? editionId;
     activeFilters.push({ key: 'edition_id', label: 'Edição', value: label });
     activePillLabels.edition_id = label;
+  }
+  if (publisher) {
+    const label = facets?.publishers?.find((option) => option.value === publisher)?.label ?? publisher;
+    activeFilters.push({ key: 'publisher', label: 'Editora/selo', value: label });
+  }
+  if (author) {
+    const label = facets?.authors?.find((option) => option.value === author)?.label ?? author;
+    activeFilters.push({ key: 'author', label: 'Autoria', value: label });
   }
 
   return (
@@ -158,7 +170,7 @@ export function CatalogoPage() {
           <>
             <div className="mb-8">
               <FilterPills
-                values={{ material_type: materialType, system_id: systemId, edition_id: editionId }}
+                values={{ material_type: materialType, system_id: systemId, edition_id: editionId, publisher, author }}
                 onChange={updateParam}
                 activeLabels={activePillLabels}
               />
@@ -168,7 +180,7 @@ export function CatalogoPage() {
         ) : (
           <div className="flex flex-col gap-6 lg:flex-row">
             <CatalogFilterSidebar
-              values={{ material_type: materialType, system_id: systemId, edition_id: editionId }}
+              values={{ material_type: materialType, system_id: systemId, edition_id: editionId, publisher, author }}
               onChange={updateParam}
             />
 

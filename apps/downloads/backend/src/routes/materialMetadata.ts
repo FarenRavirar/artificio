@@ -6,6 +6,7 @@ import { writeRateLimiter } from '../middleware/rateLimit';
 import { POSTGRES_INTEGER_MAX } from '../db/types';
 import { toJsonColumnValue } from '../db/jsonColumn';
 import { sanitizeRichHtml } from '../services/sanitizeRichHtml';
+import { normalizeCreditNames, normalizePublisherKey } from '../services/facetNormalization';
 
 const router = Router();
 
@@ -29,6 +30,8 @@ const upsertMetadataSchema = z.object({
   license_kind: z.string().trim().max(60).nullable().optional(),
   license_url: z.url().trim().nullable().optional(),
   credits: z.string().trim().nullable().optional(),
+  authors: z.array(z.string().trim().min(1).max(200)).max(50).optional(),
+  artists: z.array(z.string().trim().min(1).max(200)).max(50).optional(),
   publisher_name: z.string().trim().max(120).nullable().optional(),
   cover_image_url: z.url({ protocol: /^https?$/ }).trim().nullable().optional(),
   target_audience: z.string().trim().max(60).nullable().optional(),
@@ -109,6 +112,8 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
   }
 
   const patch = parsed.data;
+  const authors = normalizeCreditNames(patch.authors ?? []);
+  const artists = normalizeCreditNames(patch.artists ?? []);
   // Insert usa default null/[] pra linha nova; update so toca as chaves que
   // vieram no body — PUT parcial (ex.: so publisher_name) nao pode apagar
   // cover_image_url/scenario/etc. salvos por outra tela (achado de review,
@@ -124,7 +129,12 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
     license_kind: patch.license_kind ?? null,
     license_url: patch.license_url ?? null,
     credits: patch.credits ?? null,
+    authors: authors.labels,
+    author_keys: authors.keys,
+    artists: artists.labels,
+    artist_keys: artists.keys,
     publisher_name: patch.publisher_name ?? null,
+    publisher_key: patch.publisher_name ? normalizePublisherKey(patch.publisher_name) : null,
     cover_image_url: patch.cover_image_url ?? null,
     target_audience: patch.target_audience ?? null,
     age_rating: patch.age_rating ?? null,
@@ -157,6 +167,15 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
   const updateFields = Object.fromEntries(
     Object.entries({ ...commonFields, ...jsonFields }).filter(([key]) => bodyKeys.has(key)),
   );
+  if (bodyKeys.has('publisher_name')) updateFields.publisher_key = commonFields.publisher_key;
+  if (bodyKeys.has('authors')) {
+    updateFields.authors = commonFields.authors;
+    updateFields.author_keys = commonFields.author_keys;
+  }
+  if (bodyKeys.has('artists')) {
+    updateFields.artists = commonFields.artists;
+    updateFields.artist_keys = commonFields.artist_keys;
+  }
 
   const updated = await db
     .insertInto('download_material_metadata')

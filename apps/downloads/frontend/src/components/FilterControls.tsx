@@ -5,6 +5,8 @@ export interface CatalogFilterValues {
   material_type: string;
   system_id: string;
   edition_id: string;
+  publisher?: string;
+  author?: string;
 }
 
 export interface FilterControlsProps {
@@ -146,6 +148,42 @@ export function FilterControls({ values, onChange, groups }: Readonly<FilterCont
                   onChange={() => onChange('edition_id', edition.id)}
                 />
                 <span>{edition.name}</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+
+      {shows('publisher') && (facets?.publishers?.length ?? 0) > 0 && (
+        <fieldset>
+          <legend className={GROUP_TITLE_CLASS}>Editora ou selo</legend>
+          <div className="flex flex-col gap-1">
+            <label className={RADIO_CLASS}>
+              <input type="radio" name="publisher" checked={!values.publisher} onChange={() => onChange('publisher', '')} />
+              <span>Todas</span>
+            </label>
+            {facets?.publishers?.map((option) => (
+              <label key={option.value} className={RADIO_CLASS}>
+                <input type="radio" name="publisher" checked={values.publisher === option.value} onChange={() => onChange('publisher', option.value)} />
+                <span>{option.label} ({option.count})</span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+
+      {shows('author') && (facets?.authors?.length ?? 0) > 0 && (
+        <fieldset>
+          <legend className={GROUP_TITLE_CLASS}>Autoria</legend>
+          <div className="flex flex-col gap-1">
+            <label className={RADIO_CLASS}>
+              <input type="radio" name="author" checked={!values.author} onChange={() => onChange('author', '')} />
+              <span>Todas</span>
+            </label>
+            {facets?.authors?.map((option) => (
+              <label key={option.value} className={RADIO_CLASS}>
+                <input type="radio" name="author" checked={values.author === option.value} onChange={() => onChange('author', option.value)} />
+                <span>{option.label} ({option.count})</span>
               </label>
             ))}
           </div>

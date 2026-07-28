@@ -23,10 +23,14 @@ export const materialSchema = z.object({
   // debito de contrato) e cenario/ambientacao do material.
   cover_image_url: z.string().nullable().optional(),
   credits: z.string().nullable().optional(),
+  authors: z.array(z.string()).optional(),
+  author_keys: z.array(z.string()).optional(),
+  artists: z.array(z.string()).optional(),
   // Spec 088 (requisito 30) — EDITORA, campo distinto de `credits` (autoria).
   // Um nunca serve de fallback do outro: exibir a editora sob rotulo de autor
   // seria a mesma afirmacao falsa que o antigo "Acervo Artificio".
   publisher_name: z.string().nullable().optional(),
+  publisher_key: z.string().nullable().optional(),
   scenario: z.string().nullable().optional(),
   variant_name: z.string().nullable().optional(),
   system_path_slug: z.string().nullable().optional(),
@@ -72,6 +76,8 @@ export interface MaterialListFilters {
   /** ID canônico; nome do query param permanece por compatibilidade de URL. */
   material_type?: string;
   access_kind?: 'external_link' | 'managed_upload';
+  publisher?: string;
+  author?: string;
   sort?: SortOption;
   page?: number;
 }

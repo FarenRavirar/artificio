@@ -18,6 +18,7 @@ import {
   loadTrendingOrder,
   registerMaterialView,
 } from '../services/materialMetrics';
+import { normalizeAuthorKey, normalizePublisherKey } from '../services/facetNormalization';
 
 const router = Router();
 
@@ -37,6 +38,14 @@ const listMaterialsQuerySchema = z.object({
   // Nome do query param fica retrocompatível; valor agora é ID Central.
   material_type: z.string().uuid().optional(),
   access_kind: z.enum(['external_link', 'managed_upload']).optional(),
+  publisher: z.string().trim().min(1).max(200)
+    .refine((value) => normalizePublisherKey(value).length > 0)
+    .transform(normalizePublisherKey)
+    .optional(),
+  author: z.string().trim().min(1).max(200)
+    .refine((value) => normalizeAuthorKey(value).length > 0)
+    .transform(normalizeAuthorKey)
+    .optional(),
   sort: z.enum(SORT_OPTIONS).optional(),
   page: z.coerce.number().int().min(1).optional(),
   page_size: z.coerce.number().int().min(1).max(MAX_PAGE_SIZE).optional(),
@@ -78,11 +87,15 @@ const PUBLIC_MATERIAL_FIELDS = [
 const CARD_METADATA_FIELDS = [
   'download_material_metadata.cover_image_url',
   'download_material_metadata.credits',
+  'download_material_metadata.authors',
+  'download_material_metadata.author_keys',
+  'download_material_metadata.artists',
   // Spec 088 (requisito 31) — editora e AUTORIA sao campos distintos e o card
   // exibe os dois, publicante primeiro. `publisher_name` ja existia na tabela
   // e na rota de metadados (ficha), mas nao era projetado aqui, entao o card
   // nao tinha como exibi-lo. Aditivo: nenhum consumidor perde campo.
   'download_material_metadata.publisher_name',
+  'download_material_metadata.publisher_key',
   'download_material_metadata.scenario',
 ] as const;
 
@@ -109,6 +122,8 @@ interface MaterialFacetsResponse {
   material_types: MaterialTypeFacet[];
   systems: FacetCount[];
   editions: FacetCount[];
+  publishers: Array<{ value: string; label: string; count: number }>;
+  authors: Array<{ value: string; label: string; count: number }>;
 }
 
 // Campos editaveis por publicador; toda mudanca grava download_material_version
@@ -132,19 +147,32 @@ router.get('/', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Parâmetros de busca inválidos.', details: z.treeifyError(parsed.error) });
   }
 
-  const { q, system_id: systemId, edition_id: editionId, material_type: materialType, access_kind: accessKind } = parsed.data;
+  const {
+    q,
+    system_id: systemId,
+    edition_id: editionId,
+    material_type: materialType,
+    access_kind: accessKind,
+    publisher,
+    author,
+  } = parsed.data;
   const sort: SortOption = parsed.data.sort ?? 'recent';
   const page = parsed.data.page ?? 1;
   const pageSize = parsed.data.page_size ?? DEFAULT_PAGE_SIZE;
 
   let baseQuery = db
     .selectFrom('download_material')
+    .leftJoin('download_material_metadata', 'download_material_metadata.material_id', 'download_material.id')
     .where('editorial_state', '=', 'published');
 
   if (systemId) baseQuery = baseQuery.where('system_id', '=', systemId);
   if (editionId) baseQuery = baseQuery.where('edition_id', '=', editionId);
   if (materialType) baseQuery = baseQuery.where('material_type_id', '=', materialType);
   if (accessKind) baseQuery = baseQuery.where('access_kind', '=', accessKind);
+  if (publisher) baseQuery = baseQuery.where('download_material_metadata.publisher_key', '=', publisher);
+  if (author) {
+    baseQuery = baseQuery.where(sql<boolean>`download_material_metadata.author_keys @> ARRAY[${author}]::text[]`);
+  }
   if (q) {
     // Spec 087 (achado de review PR #214, Codex P2): a busca prometia "título,
     // autor ou sistema" no placeholder mas so cobria title/summary, entao
@@ -176,6 +204,14 @@ router.get('/', async (req: Request, res: Response) => {
               inner('download_creator.id', '=', inner.ref('download_material.creator_id')),
             ])),
         ),
+        // Autoria estruturada é distinta do criador/publicador. A busca
+        // textual prometida pela API precisa cobrir ambos sem voltar ao blob
+        // legado `credits` (spec 089, requisito 13b).
+        sql<boolean>`EXISTS (
+          SELECT 1
+          FROM unnest(COALESCE(download_material_metadata.authors, ARRAY[]::text[])) AS structured_author(name)
+          WHERE structured_author.name ILIKE ${`%${q}%`}
+        )`,
       ];
 
       if (matchedTaxonomyIds.length > 0) {
@@ -223,9 +259,7 @@ router.get('/', async (req: Request, res: Response) => {
 
   // Fase 5: metadata e opcional. leftJoin preserva material publicado antigo
   // sem linha metadata; innerJoin faria esse material desaparecer do catálogo.
-  let resultsQuery = baseQuery
-    .leftJoin('download_material_metadata', 'download_material_metadata.material_id', 'download_material.id')
-    .select([...PUBLIC_MATERIAL_FIELDS, ...CARD_METADATA_FIELDS]);
+  let resultsQuery = baseQuery.select([...PUBLIC_MATERIAL_FIELDS, ...CARD_METADATA_FIELDS]);
 
   if (sort === 'popular') {
     resultsQuery = resultsQuery
@@ -350,7 +384,7 @@ router.get('/facets', async (_req: Request, res: Response) => {
   }
 
   try {
-    const [materialTypeRows, systemRows, editionRows, centralTypes] = await Promise.all([
+    const [materialTypeRows, systemRows, editionRows, publisherRows, authorRows, centralTypes] = await Promise.all([
       db.selectFrom('download_material')
         .select(['material_type_id', ({ fn }) => fn.countAll<number>().as('count')])
         .where('editorial_state', '=', 'published')
@@ -371,8 +405,43 @@ router.get('/facets', async (_req: Request, res: Response) => {
         .groupBy('edition_id')
         .orderBy('count', 'desc')
         .execute(),
+      db.selectFrom('download_material')
+        .innerJoin('download_material_metadata', 'download_material_metadata.material_id', 'download_material.id')
+        .select([
+          'download_material_metadata.publisher_key as value',
+          ({ fn }) => fn.min('download_material_metadata.publisher_name').as('label'),
+          ({ fn }) => fn.countAll<number>().as('count'),
+        ])
+        .where('editorial_state', '=', 'published')
+        .where('download_material_metadata.publisher_key', 'is not', null)
+        .groupBy('download_material_metadata.publisher_key')
+        .orderBy('count', 'desc')
+        .execute(),
+      db.selectFrom('download_material')
+        .innerJoin('download_material_metadata', 'download_material_metadata.material_id', 'download_material.id')
+        .select(['download_material_metadata.authors', 'download_material_metadata.author_keys'])
+        .where('editorial_state', '=', 'published')
+        .execute(),
       loadCatalogMaterialTypes(),
     ]);
+
+    const authorsByKey = new Map<string, { value: string; label: string; count: number }>();
+    for (const row of authorRows) {
+      const authorKeys = Array.isArray(row.author_keys)
+        ? row.author_keys.filter((value): value is string => typeof value === 'string')
+        : [];
+      const authors = Array.isArray(row.authors)
+        ? row.authors.filter((value): value is string => typeof value === 'string')
+        : [];
+      const seen = new Set<string>();
+      for (const [index, value] of authorKeys.entries()) {
+        if (!value || seen.has(value)) continue;
+        seen.add(value);
+        const existing = authorsByKey.get(value);
+        if (existing) existing.count += 1;
+        else authorsByKey.set(value, { value, label: authors[index] ?? value, count: 1 });
+      }
+    }
 
     const centralById = new Map(centralTypes.map((item) => [item.id, item]));
     const data: MaterialFacetsResponse = {
@@ -382,6 +451,10 @@ router.get('/facets', async (_req: Request, res: Response) => {
       }),
       systems: systemRows.flatMap((row) => row.system_id ? [{ id: row.system_id, count: Number(row.count) }] : []),
       editions: editionRows.flatMap((row) => row.edition_id ? [{ id: row.edition_id, count: Number(row.count) }] : []),
+      publishers: publisherRows.flatMap((row) => row.value && row.label
+        ? [{ value: row.value, label: row.label, count: Number(row.count) }]
+        : []),
+      authors: [...authorsByKey.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'pt-BR')),
     };
     facetsCache = { data, expiresAt: Date.now() + FACETS_CACHE_TTL_MS };
     res.json(data);

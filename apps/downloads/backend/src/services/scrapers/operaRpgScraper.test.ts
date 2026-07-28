@@ -69,6 +69,7 @@ describe('OperaRpgScraper', () => {
       sourceLanguageEvidence: null,
       systemHint: 'OPERA RPG',
       materialTypeHint: 'aventura',
+      sourceCategory: 'aventuras',
     });
   });
 
@@ -90,6 +91,7 @@ describe('OperaRpgScraper', () => {
       title: 'Gaia 400X',
       systemHint: null,
       materialTypeHint: 'cenario',
+      sourceCategory: 'cenarios',
     });
   });
 
