@@ -10,10 +10,18 @@ const dbMocks = vi.hoisted(() => ({
   selectFrom: vi.fn(),
   insertInto: vi.fn(),
   updateTable: vi.fn(),
+  // POST /run monta `INSERT ... SELECT ... WHERE NOT EXISTS` via
+  // db.selectNoFrom (guarda de run concorrente, review PR #224).
+  selectNoFrom: vi.fn(() => ({ where: vi.fn().mockReturnThis() })),
 }));
 
 vi.mock('../db', () => ({
-  db: { selectFrom: dbMocks.selectFrom, insertInto: dbMocks.insertInto, updateTable: dbMocks.updateTable },
+  db: {
+    selectFrom: dbMocks.selectFrom,
+    insertInto: dbMocks.insertInto,
+    updateTable: dbMocks.updateTable,
+    selectNoFrom: dbMocks.selectNoFrom,
+  },
 }));
 
 vi.mock('../middleware/auth', () => ({
@@ -26,6 +34,7 @@ vi.mock('../middleware/auth', () => ({
 
 vi.mock('../middleware/rateLimit', () => ({
   writeRateLimiter: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
+  readRateLimiter: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
 }));
 
 const runScraperIngestMock = vi.hoisted(() => vi.fn().mockResolvedValue({ itemsFound: 0, itemsCreated: 0, itemsSkippedDuplicate: 0, itemsSkippedNotPortuguese: 0, itemsSkippedError: 0 }));
@@ -70,6 +79,17 @@ function insertChain(result: unknown) {
   };
 }
 
+// POST /run usa `.columns().expression().returning().executeTakeFirst()` — o
+// insert condicional devolve undefined quando ja ha run ativa, em vez de lancar.
+function conditionalInsertChain(result: unknown) {
+  return {
+    columns: vi.fn().mockReturnThis(),
+    expression: vi.fn().mockReturnThis(),
+    returning: vi.fn().mockReturnThis(),
+    executeTakeFirst: vi.fn().mockResolvedValue(result),
+  };
+}
+
 function updateChain() {
   return { set: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
 }
@@ -90,11 +110,24 @@ describe('POST /api/v1/admin/scraper/run', () => {
   });
 
   it('202 com run_id — fire-and-forget, não aguarda execução completa', async () => {
-    dbMocks.insertInto.mockReturnValueOnce(insertChain({ id: 'run-1' }));
+    dbMocks.insertInto.mockReturnValueOnce(conditionalInsertChain({ id: 'run-1' }));
 
     const res = await request(app()).post('/api/v1/admin/scraper/run').send({ source_platform: 'itch_io' }).expect(202);
 
     expect(res.body.run_id).toBe('run-1');
+  });
+
+  // Achado de review PR #224 (Codex, P2): o `disabled` do painel protege só a
+  // renderização local — duas abas, dois admins, ou o cron entre dois polls
+  // observam "sem run ativa" ao mesmo tempo. A exclusão precisa ser atômica no
+  // backend, senão o pipeline roda em paralelo contra o requisito sequencial.
+  it('409 quando já existe run ativa — insert condicional não insere linha', async () => {
+    dbMocks.insertInto.mockReturnValueOnce(conditionalInsertChain(undefined));
+
+    const res = await request(app()).post('/api/v1/admin/scraper/run').send({ source_platform: 'itch_io' }).expect(409);
+
+    expect(res.body.error).toMatch(/coleta em andamento/i);
+    expect(runScraperIngestMock).not.toHaveBeenCalled();
   });
 });
 

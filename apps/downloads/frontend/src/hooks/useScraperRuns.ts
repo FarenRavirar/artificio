@@ -39,6 +39,17 @@ const startRunResponseSchema = z.object({
 
 const POLL_INTERVAL_MS = 3000;
 
+// Polling só ENQUANTO houver run ativa — achado de review PR #224 (Codex, P1):
+// polling perpétuo de 3s gera 300 req/15min e estoura o rate limiter da rota,
+// congelando a tela justamente quando ela importa. Sem run ativa a lista só
+// muda por ação do próprio admin, que já invalida a query. Enquanto a lista
+// ainda não carregou (`undefined`), mantém o poll: pode haver run em curso
+// iniciada por outra aba ou pelo cron.
+export function resolvePollInterval(rows: ScraperRun[] | undefined): number | false {
+  if (!Array.isArray(rows)) return POLL_INTERVAL_MS;
+  return rows.some((run) => run.status === 'running') ? POLL_INTERVAL_MS : false;
+}
+
 export function useScraperRuns(options?: { poll?: boolean }) {
   return useQuery({
     queryKey: ['downloads', 'admin', 'scraper', 'runs'],
@@ -49,9 +60,10 @@ export function useScraperRuns(options?: { poll?: boolean }) {
       }
       return listRunsResponseSchema.parse(await response.json()).items;
     },
-    // Run é fire-and-forget (scraper.ts:77): o POST devolve 202 e a execução
-    // segue assíncrona. Sem polling a tela mentiria "running" pra sempre.
-    refetchInterval: options?.poll === false ? false : POLL_INTERVAL_MS,
+    // Run é fire-and-forget (scraper.ts): o POST devolve 202 e a execução segue
+    // assíncrona, então a tela precisa de polling para não mentir "running" pra
+    // sempre. A cadência em si vive em resolvePollInterval.
+    refetchInterval: (query) => (options?.poll === false ? false : resolvePollInterval(query.state.data)),
   });
 }
 

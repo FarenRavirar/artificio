@@ -34,10 +34,16 @@ interface PlatformRow {
 // porque o registry de plataformas já é a fonte da lista: "onde se cadastra a
 // fonte" e "onde se dispara a coleta dela" são a mesma pergunta pro admin.
 function ColetaSection() {
-  const { data: platforms } = usePlatforms();
+  const { data: platforms, isLoading: platformsLoading } = usePlatforms();
   const { data: runs, isLoading: runsLoading } = useScraperRuns();
   const startRun = useStartScraperRun();
   const [selected, setSelected] = useState('');
+  // A lista de runs só reflete o disparo no próximo refetch, e até lá
+  // `hasRunning` continua false — o botão reabriria por até um ciclo de poll,
+  // permitindo disparo duplo. O backend agora rejeita o segundo com 409
+  // (scraper.ts, INSERT ... WHERE NOT EXISTS), mas a tela não deve oferecer uma
+  // ação que ela sabe que vai falhar.
+  const [disparoConfirmadoPendente, setDisparoConfirmadoPendente] = useState(false);
 
   // Só plataforma com scraper automático implementado pode ser disparada. O
   // backend valida o mesmo (scraper.ts:433 exige supports_auto_scrape contra
@@ -47,13 +53,23 @@ function ColetaSection() {
 
   const handleRun = async () => {
     if (!selected) return;
+    setDisparoConfirmadoPendente(true);
     try {
       const runId = await startRun.mutateAsync(selected);
       toast.success(`Run disparada: ${runId.slice(0, 8)}`);
     } catch (error) {
+      // Falha no disparo não deixa run ativa — reabrir o botão de imediato,
+      // senão o admin fica travado esperando uma confirmação que não vem.
+      setDisparoConfirmadoPendente(false);
       toast.error(error instanceof Error ? error.message : 'Falha ao disparar run.');
     }
   };
+
+  // Derivado, não sincronizado por efeito: assim que a lista confirma a run, a
+  // espera deixa de valer sozinha — `setState` dentro de `useEffect` para isso
+  // dispara render em cascata e é barrado por `react-hooks/set-state-in-effect`.
+  const aguardandoConfirmacao = disparoConfirmadoPendente && !hasRunning;
+  const disparoBloqueado = startRun.isPending || hasRunning || aguardandoConfirmacao;
 
   const columns: Array<AdminColumn<ScraperRun>> = [
     { key: 'source_platform', header: 'Fonte', render: (row) => row.source_platform },
@@ -118,20 +134,20 @@ function ColetaSection() {
           <button
             type="button"
             onClick={handleRun}
-            disabled={!selected || startRun.isPending || hasRunning}
+            disabled={!selected || disparoBloqueado}
             className="min-h-[44px] rounded-md bg-artificio-orange px-6 py-2 font-semibold text-white hover:bg-artificio-orange-hover disabled:opacity-50"
           >
             {startRun.isPending ? 'Disparando...' : 'Coletar agora'}
           </button>
         </div>
 
-        {hasRunning && (
+        {(hasRunning || aguardandoConfirmacao) && (
           <p className="text-sm text-amber-700">
             Há uma run em andamento. Espere concluir antes de disparar a próxima.
           </p>
         )}
 
-        {runnable.length === 0 && (
+        {!platformsLoading && runnable.length === 0 && (
           <p className="text-sm text-[var(--admin-fg-low)]">
             Nenhuma plataforma com coleta automática habilitada. Marque{' '}
             <span className="font-semibold">Coleta automática</span> no cadastro abaixo — só slug com scraper

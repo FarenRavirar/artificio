@@ -1,4 +1,4 @@
-import { evaluateRunAcceptance, type ScraperRun } from './useScraperRuns';
+import { evaluateRunAcceptance, resolvePollInterval, type ScraperRun } from './useScraperRuns';
 
 // Spec 089 (T5.4) — os seis critérios de aceite por run. O caso que motiva o
 // teste é o da run que "completa" sem ter criado nada: executeScraperRun
@@ -22,6 +22,27 @@ function makeRun(overrides: Partial<ScraperRun> = {}): ScraperRun {
     ...overrides,
   };
 }
+
+// Achado de review PR #224 (Codex, P1): GET /runs compartilhava o orçamento de
+// escrita (60 req/15min) e o polling perpétuo de 3s o esgotava em ~3min.
+describe('resolvePollInterval', () => {
+  it('mantém o polling enquanto há run ativa', () => {
+    expect(resolvePollInterval([makeRun({ status: 'running' })])).toBe(3000);
+  });
+
+  it('para o polling quando nenhuma run está ativa', () => {
+    expect(resolvePollInterval([makeRun({ status: 'completed' }), makeRun({ status: 'failed' })])).toBe(false);
+  });
+
+  it('para o polling com lista vazia', () => {
+    expect(resolvePollInterval([])).toBe(false);
+  });
+
+  // Outra aba ou o cron podem ter iniciado run antes da primeira carga.
+  it('mantém o polling enquanto a lista não carregou', () => {
+    expect(resolvePollInterval(undefined)).toBe(3000);
+  });
+});
 
 describe('evaluateRunAcceptance', () => {
   it('aprova run saudável com a soma fechando', () => {

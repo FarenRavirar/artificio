@@ -206,6 +206,63 @@ describe('GestaoPlataformasPage', () => {
       expect(screen.getByText(/run em andamento/i)).toBeInTheDocument();
     });
 
+    // Achado de review PR #224 (Codex, P2 / inline): entre o 202 e o próximo
+    // poll, `hasRunning` ainda é false e o botão reabriria — janela de disparo
+    // duplo. O flag local segura até a lista confirmar a run.
+    it('mantém o disparo bloqueado entre o 202 e a confirmação na lista', async () => {
+      mockPlatforms();
+      const mutateAsync = vi.fn().mockResolvedValue('run-abc12345');
+      vi.spyOn(useScraperRunsModule, 'useStartScraperRun').mockReturnValue({
+        mutateAsync,
+        isPending: false,
+      } as unknown as ReturnType<typeof useScraperRunsModule.useStartScraperRun>);
+
+      renderPage();
+
+      fireEvent.change(await screen.findByRole('combobox', { name: /fonte/i }), {
+        target: { value: 'opera_rpg' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /coletar agora/i }));
+
+      // A lista mockada segue vazia (nenhuma run confirmada), simulando a
+      // janela antes do refetch.
+      await waitFor(() => expect(screen.getByRole('button', { name: /coletar agora/i })).toBeDisabled());
+      expect(screen.getByText(/run em andamento/i)).toBeInTheDocument();
+    });
+
+    it('reabre o disparo quando o start falha, sem travar o admin', async () => {
+      mockPlatforms();
+      const mutateAsync = vi.fn().mockRejectedValue(new Error('backend fora'));
+      vi.spyOn(useScraperRunsModule, 'useStartScraperRun').mockReturnValue({
+        mutateAsync,
+        isPending: false,
+      } as unknown as ReturnType<typeof useScraperRunsModule.useStartScraperRun>);
+
+      renderPage();
+
+      fireEvent.change(await screen.findByRole('combobox', { name: /fonte/i }), {
+        target: { value: 'opera_rpg' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /coletar agora/i }));
+
+      await waitFor(() => expect(screen.getByRole('button', { name: /coletar agora/i })).toBeEnabled());
+    });
+
+    it('não anuncia "nenhuma plataforma" enquanto a lista carrega', async () => {
+      vi.spyOn(usePlatformsModule, 'usePlatforms').mockReturnValue({
+        data: undefined,
+        isLoading: true,
+      } as unknown as ReturnType<typeof usePlatformsModule.usePlatforms>);
+      vi.spyOn(usePlatformsModule, 'useCreatePlatform').mockReturnValue({
+        mutateAsync: vi.fn(),
+        isPending: false,
+      } as unknown as ReturnType<typeof usePlatformsModule.useCreatePlatform>);
+
+      renderPage();
+
+      expect(screen.queryByText(/nenhuma plataforma com coleta automática/i)).not.toBeInTheDocument();
+    });
+
     it('marca como reprovada a run que completou sem criar nada', async () => {
       mockPlatforms();
       vi.spyOn(useScraperRunsModule, 'useScraperRuns').mockReturnValue({

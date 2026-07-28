@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { db } from '../db';
 import { authMiddleware, requireRole } from '../middleware/auth';
-import { writeRateLimiter } from '../middleware/rateLimit';
+import { readRateLimiter, writeRateLimiter } from '../middleware/rateLimit';
 import { runScraperIngest } from '../services/scraperIngest';
 import { richHtmlToEncodedPlainText, sanitizeRichHtml } from '../services/sanitizeRichHtml';
 import { ItchIoScraper } from '../services/scrapers/itchIoScraper';
@@ -80,11 +80,39 @@ router.post('/run', writeRateLimiter, authMiddleware, requireRole('admin'), asyn
     return res.status(400).json({ error: 'source_platform inválido ou ausente.', details: z.treeifyError(parsed.error) });
   }
 
+  // Achado de review PR #224 (Codex, P2): a exclusao de runs concorrentes nao
+  // pode viver no `disabled` do botao — duas abas, dois admins, ou o cron
+  // disparando entre dois polls observam "nenhuma run ativa" ao mesmo tempo e
+  // o pipeline roda em paralelo, contra o requisito sequencial do T5.4 (spec
+  // 089). O advisory lock de scraperScheduler.ts:51 tambem nao cobre: ele
+  // impede dois CRONS concorrentes, nao cron + rota manual.
+  //
+  // `INSERT ... SELECT ... WHERE NOT EXISTS` resolve na propria instrucao: sem
+  // janela entre checar e inserir, ao contrario de um SELECT seguido de INSERT.
+  // Quando ja existe run ativa, zero linhas sao inseridas e `run` vem undefined.
   const run = await db
     .insertInto('download_scraper_run')
-    .values({ source_platform: parsed.data.source_platform, trigger_kind: 'manual' })
+    .columns(['source_platform', 'trigger_kind'])
+    .expression(
+      db
+        .selectNoFrom((eb) => [
+          eb.val(parsed.data.source_platform).as('source_platform'),
+          eb.val('manual').as('trigger_kind'),
+        ])
+        .where((eb) =>
+          eb.not(
+            eb.exists(eb.selectFrom('download_scraper_run').select('id').where('status', '=', 'running')),
+          ),
+        ),
+    )
     .returning('id')
-    .executeTakeFirstOrThrow();
+    .executeTakeFirst();
+
+  if (!run) {
+    return res.status(409).json({
+      error: 'Já existe uma coleta em andamento. Aguarde ela concluir antes de disparar outra.',
+    });
+  }
 
   // Fire-and-forget: nao aguarda a execucao completa antes de responder.
   // executeScraperRun ja captura toda excecao internamente e grava
@@ -98,7 +126,13 @@ router.post('/run', writeRateLimiter, authMiddleware, requireRole('admin'), asyn
   return res.status(202).json({ run_id: run.id });
 });
 
-router.get('/run/:id', writeRateLimiter, authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+// Achado de review PR #224 (Codex, P1): GET de leitura usava o orcamento de
+// ESCRITA (60 req/15min). O painel de coleta faz polling enquanto a run roda, e
+// esse limite se esgota em ~3min — os polls passam a receber 429, a tela congela
+// com estado obsoleto e o proprio POST /run perde orcamento junto. `/runs` e
+// `/run/:id` sao leitura pura: orcamento de leitura (300 req/15min), igual ja
+// fazem creators/favorites/ratings.
+router.get('/run/:id', readRateLimiter, authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
   const run = await db
     .selectFrom('download_scraper_run')
     .selectAll()
@@ -119,7 +153,7 @@ router.get('/run/:id', writeRateLimiter, authMiddleware, requireRole('admin'), a
   return res.json({ ...run, item_logs: itemLogs });
 });
 
-router.get('/runs', writeRateLimiter, authMiddleware, requireRole('admin'), async (_req: Request, res: Response) => {
+router.get('/runs', readRateLimiter, authMiddleware, requireRole('admin'), async (_req: Request, res: Response) => {
   const runs = await db
     .selectFrom('download_scraper_run')
     .selectAll()
