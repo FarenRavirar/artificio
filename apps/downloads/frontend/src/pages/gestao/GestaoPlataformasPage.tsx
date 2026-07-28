@@ -90,6 +90,13 @@ function ColetaSection() {
     { key: 'items_skipped_not_portuguese', header: 'Não-PT', render: (row) => row.items_skipped_not_portuguese ?? 0 },
     { key: 'items_skipped_error', header: 'Erros', render: (row) => row.items_skipped_error ?? 0 },
     {
+      key: 'item_log_failures',
+      header: 'Falhas de log',
+      render: (row) => (
+        <span title={row.item_log_error_detail ?? undefined}>{row.item_log_failures ?? 0}</span>
+      ),
+    },
+    {
       key: 'aceite',
       header: 'Aceite',
       render: (row) => {

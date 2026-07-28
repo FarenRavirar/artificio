@@ -21,6 +21,9 @@ WITH expected_sources(source_platform) AS (
     coalesce(r.items_skipped_duplicate, 0) AS items_skipped_duplicate,
     coalesce(r.items_skipped_not_portuguese, 0) AS items_skipped_not_portuguese,
     coalesce(r.items_skipped_error, 0) AS items_skipped_error,
+    coalesce(r.item_log_failures, 0) AS item_log_failures,
+    r.item_log_error_detail,
+    (SELECT count(*) FROM download_scraper_item_log logs WHERE logs.run_id = r.id) AS item_log_rows,
     r.started_at,
     r.finished_at
   FROM expected_sources e
@@ -36,6 +39,9 @@ WITH expected_sources(source_platform) AS (
     r.items_skipped_duplicate,
     r.items_skipped_not_portuguese,
     r.items_skipped_error,
+    r.item_log_failures,
+    r.item_log_error_detail,
+    r.item_log_rows,
     r.started_at,
     r.finished_at,
     l.id AS log_id,
@@ -58,6 +64,14 @@ WITH expected_sources(source_platform) AS (
     m.material_type,
     m.system_id,
     m.raw_system_hint,
+    EXISTS (
+      SELECT 1
+      FROM download_system_suggestion s
+      WHERE s.material_id = m.id
+        AND s.source = 'scraper'
+        AND s.status = 'pending'
+        AND s.raw_value = m.raw_system_hint
+    ) AS system_pending,
     m.material_type_id,
     m.raw_material_type_hint,
     m.language_confident,
@@ -92,6 +106,18 @@ WITH expected_sources(source_platform) AS (
     count(*) FILTER (WHERE outcome = 'skipped_error') AS errors,
     count(*) FILTER (WHERE system_hint IS NOT NULL) AS system_raw,
     count(*) FILTER (WHERE outcome = 'created' AND system_id IS NOT NULL) AS system_matched,
+    count(*) FILTER (
+      WHERE outcome = 'created'
+        AND system_id IS NULL
+        AND raw_system_hint IS NOT NULL
+        AND system_pending
+    ) AS system_pending,
+    count(*) FILTER (
+      WHERE outcome = 'created'
+        AND (system_id IS NOT NULL OR (
+          raw_system_hint IS NOT NULL AND system_pending
+        ))
+    ) AS system_accounted,
     count(*) FILTER (WHERE material_type_hint IS NOT NULL) AS type_raw,
     count(*) FILTER (
       WHERE outcome = 'created' AND material_type_hint IS NOT NULL
@@ -209,16 +235,21 @@ WITH expected_sources(source_platform) AS (
     items_found - items_skipped_error, items_found
   FROM selected_runs
   UNION ALL
+  SELECT 'run:' || source_platform || ':item_logs_reconciled',
+    CASE WHEN item_log_failures = 0 AND item_log_rows = items_found THEN 'pass' ELSE 'fail' END,
+    item_log_rows, items_found
+  FROM selected_runs
+  UNION ALL
   SELECT 'run:' || source_platform || ':reconciled',
     CASE WHEN items_found = items_created + items_skipped_duplicate + items_skipped_not_portuguese + items_skipped_error THEN 'pass' ELSE 'fail' END,
     items_created + items_skipped_duplicate + items_skipped_not_portuguese + items_skipped_error, items_found
   FROM selected_runs
   UNION ALL
-  SELECT 'opera_rpg:' || t.template || ':system_match',
+  SELECT 'opera_rpg:' || t.template || ':system_accounted',
     CASE WHEN m.template IS NOT NULL
-      AND m.system_matched::numeric / NULLIF(m.created, 0) >= t.min_system_rate
+      AND m.system_accounted::numeric / NULLIF(m.created, 0) >= t.min_system_rate
       THEN 'pass' ELSE 'fail' END,
-    coalesce(m.system_matched, 0), coalesce(m.created, 0)
+    coalesce(m.system_accounted, 0), coalesce(m.created, 0)
   FROM opera_thresholds t
   LEFT JOIN template_metrics m
     ON m.source_platform = 'opera_rpg' AND m.template = t.template
@@ -285,6 +316,8 @@ SELECT
   duplicate,
   errors,
   system_matched,
+  system_pending,
+  system_accounted,
   system_raw,
   type_matched,
   type_raw,
@@ -301,6 +334,8 @@ SELECT
   NULL,
   rule,
   verdict,
+  NULL,
+  NULL,
   NULL,
   NULL,
   NULL,

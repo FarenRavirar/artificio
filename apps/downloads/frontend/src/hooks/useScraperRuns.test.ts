@@ -16,6 +16,8 @@ function makeRun(overrides: Partial<ScraperRun> = {}): ScraperRun {
     items_skipped_duplicate: 2,
     items_skipped_not_portuguese: 1,
     items_skipped_error: 0,
+    item_log_failures: 0,
+    item_log_error_detail: null,
     error_detail: null,
     started_at: '2026-07-28T10:00:00.000Z',
     finished_at: '2026-07-28T10:05:00.000Z',
@@ -74,6 +76,15 @@ describe('evaluateRunAcceptance', () => {
     expect(result.failures).toContain('items_skipped_error = 1');
   });
 
+  it('reprova run concluída quando a auditoria por item perdeu linhas', () => {
+    const result = evaluateRunAcceptance(makeRun({
+      item_log_failures: 3,
+      item_log_error_detail: 'value too long for type character varying(20)',
+    }));
+    expect(result.passed).toBe(false);
+    expect(result.failures).toContain('item_log_failures = 3');
+  });
+
   it('reprova quando a soma não fecha — item sumiu sem categoria', () => {
     const result = evaluateRunAcceptance(
       makeRun({ items_found: 10, items_created: 5, items_skipped_duplicate: 1, items_skipped_not_portuguese: 1 }),
@@ -90,7 +101,7 @@ describe('evaluateRunAcceptance', () => {
 
   it('trata contador nulo de run antiga como zero, sem quebrar', () => {
     const result = evaluateRunAcceptance(
-      makeRun({ items_found: null, items_created: null, items_skipped_duplicate: null, items_skipped_not_portuguese: null, items_skipped_error: null }),
+      makeRun({ items_found: null, items_created: null, items_skipped_duplicate: null, items_skipped_not_portuguese: null, items_skipped_error: null, item_log_failures: null }),
     );
     expect(result.passed).toBe(false);
     expect(result.failures).toContain('items_found = 0');

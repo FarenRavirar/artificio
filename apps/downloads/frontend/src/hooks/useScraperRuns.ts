@@ -23,6 +23,8 @@ const scraperRunSchema = z.object({
   items_skipped_duplicate: z.number().nullable().catch(0),
   items_skipped_not_portuguese: z.number().nullable().catch(0),
   items_skipped_error: z.number().nullable().catch(0),
+  item_log_failures: z.number().nullable().catch(0),
+  item_log_error_detail: z.string().nullable(),
   error_detail: z.string().nullable(),
   started_at: z.string(),
   finished_at: z.string().nullable(),
@@ -101,12 +103,14 @@ export function evaluateRunAcceptance(run: ScraperRun): RunAcceptance {
   const duplicate = run.items_skipped_duplicate ?? 0;
   const notPortuguese = run.items_skipped_not_portuguese ?? 0;
   const errored = run.items_skipped_error ?? 0;
+  const logFailures = run.item_log_failures ?? 0;
 
   const failures: string[] = [];
   if (run.status !== 'completed') failures.push(`status = ${run.status}`);
   if (found <= 0) failures.push('items_found = 0');
   if (created <= 0) failures.push('items_created = 0');
   if (errored > 0) failures.push(`items_skipped_error = ${errored}`);
+  if (logFailures > 0) failures.push(`item_log_failures = ${logFailures}`);
 
   const sum = created + duplicate + notPortuguese + errored;
   if (found !== sum) failures.push(`found (${found}) ≠ created+duplicate+not_portuguese+error (${sum})`);
