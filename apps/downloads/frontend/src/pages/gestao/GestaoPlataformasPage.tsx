@@ -3,6 +3,12 @@ import toast from 'react-hot-toast';
 import { AdminTable, PageHeader, SectionCard, type AdminColumn } from '@artificio/ui/admin';
 import { GestaoShell } from '../../components/GestaoShell';
 import { usePlatforms, useCreatePlatform } from '../../hooks/usePlatforms';
+import {
+  evaluateRunAcceptance,
+  useScraperRuns,
+  useStartScraperRun,
+  type ScraperRun,
+} from '../../hooks/useScraperRuns';
 
 // Espelha backend/src/services/scrapers/platformOverrides (KNOWN_PARSER_KINDS)
 // — fonte real fica lá (código), este array é só a lista pro <select>;
@@ -24,6 +30,128 @@ interface PlatformRow {
 // override em código (T7.2), nunca configurável aqui — só domínio+nome são
 // exigidos, o resto é opcional/default. Fase 5C (spec 086): reconstruida
 // sobre PageHeader/SectionCard/AdminTable do kit compartilhado (T5C.5).
+// Spec 089 (T5.4) — bloco de coleta. Fica nesta página, e não numa rota nova,
+// porque o registry de plataformas já é a fonte da lista: "onde se cadastra a
+// fonte" e "onde se dispara a coleta dela" são a mesma pergunta pro admin.
+function ColetaSection() {
+  const { data: platforms } = usePlatforms();
+  const { data: runs, isLoading: runsLoading } = useScraperRuns();
+  const startRun = useStartScraperRun();
+  const [selected, setSelected] = useState('');
+
+  // Só plataforma com scraper automático implementado pode ser disparada. O
+  // backend valida o mesmo (scraper.ts:433 exige supports_auto_scrape contra
+  // IMPLEMENTED_SOURCE_PLATFORMS) — aqui é pra não oferecer o que dá 400.
+  const runnable = (platforms ?? []).filter((p) => p.supports_auto_scrape);
+  const hasRunning = (runs ?? []).some((run) => run.status === 'running');
+
+  const handleRun = async () => {
+    if (!selected) return;
+    try {
+      const runId = await startRun.mutateAsync(selected);
+      toast.success(`Run disparada: ${runId.slice(0, 8)}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Falha ao disparar run.');
+    }
+  };
+
+  const columns: Array<AdminColumn<ScraperRun>> = [
+    { key: 'source_platform', header: 'Fonte', render: (row) => row.source_platform },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (row) => {
+        if (row.status === 'running') return <span className="text-amber-600">Executando…</span>;
+        if (row.status === 'failed') {
+          return <span className="text-red-600" title={row.error_detail ?? undefined}>Falhou</span>;
+        }
+        return <span className="text-emerald-700">Concluída</span>;
+      },
+    },
+    { key: 'items_found', header: 'Achados', render: (row) => row.items_found ?? 0 },
+    { key: 'items_created', header: 'Criados', render: (row) => row.items_created ?? 0 },
+    { key: 'items_skipped_duplicate', header: 'Duplicados', render: (row) => row.items_skipped_duplicate ?? 0 },
+    { key: 'items_skipped_not_portuguese', header: 'Não-PT', render: (row) => row.items_skipped_not_portuguese ?? 0 },
+    { key: 'items_skipped_error', header: 'Erros', render: (row) => row.items_skipped_error ?? 0 },
+    {
+      key: 'aceite',
+      header: 'Aceite',
+      render: (row) => {
+        if (row.status === 'running') return <span className="text-[var(--admin-fg-low)]">—</span>;
+        const { passed, failures } = evaluateRunAcceptance(row);
+        if (passed) return <span className="text-emerald-700">Passou</span>;
+        return (
+          <span className="text-red-600" title={failures.join('; ')}>
+            Reprovou ({failures.length})
+          </span>
+        );
+      },
+    },
+  ];
+
+  return (
+    <SectionCard title="Coletar de uma fonte" className="mt-6">
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-[var(--admin-fg-low)]">
+          Dispara a coleta automática da fonte escolhida. A execução é assíncrona: a tabela abaixo
+          atualiza sozinha a cada 3 segundos. Rode <span className="font-semibold">uma fonte por vez</span> e
+          espere a anterior concluir — runs simultâneas disputam o mesmo pipeline de ingestão.
+        </p>
+
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1 text-sm text-[var(--admin-fg-low)]">
+            <span>Fonte</span>
+            <select
+              value={selected}
+              onChange={(e) => setSelected(e.target.value)}
+              className="min-h-[44px] min-w-[16rem] rounded-md border border-[var(--admin-border)] bg-transparent px-3 py-2 text-[var(--admin-fg)]"
+            >
+              <option value="">Selecione…</option>
+              {runnable.map((platform) => (
+                <option key={platform.slug} value={platform.slug}>
+                  {platform.name} ({platform.slug})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <button
+            type="button"
+            onClick={handleRun}
+            disabled={!selected || startRun.isPending || hasRunning}
+            className="min-h-[44px] rounded-md bg-artificio-orange px-6 py-2 font-semibold text-white hover:bg-artificio-orange-hover disabled:opacity-50"
+          >
+            {startRun.isPending ? 'Disparando...' : 'Coletar agora'}
+          </button>
+        </div>
+
+        {hasRunning && (
+          <p className="text-sm text-amber-700">
+            Há uma run em andamento. Espere concluir antes de disparar a próxima.
+          </p>
+        )}
+
+        {runnable.length === 0 && (
+          <p className="text-sm text-[var(--admin-fg-low)]">
+            Nenhuma plataforma com coleta automática habilitada. Marque{' '}
+            <span className="font-semibold">Coleta automática</span> no cadastro abaixo — só slug com scraper
+            implementado aceita a marcação.
+          </p>
+        )}
+
+        <AdminTable<ScraperRun>
+          tableId="gestao-scraper-runs"
+          rows={runs ?? []}
+          getRowId={(row) => row.id}
+          columns={columns}
+          loading={runsLoading}
+          emptyTitle="Nenhuma run registrada."
+        />
+      </div>
+    </SectionCard>
+  );
+}
+
 export function GestaoPlataformasPage() {
   const { data: platforms, isLoading } = usePlatforms();
   const createMutation = useCreatePlatform();
@@ -80,6 +208,8 @@ export function GestaoPlataformasPage() {
           </>
         }
       />
+
+      <ColetaSection />
 
       <SectionCard title="Cadastrar plataforma" className="mt-6">
         <form onSubmit={handleSubmit} className="flex max-w-xl flex-col gap-4">
