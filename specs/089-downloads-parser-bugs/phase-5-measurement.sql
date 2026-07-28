@@ -79,6 +79,8 @@ WITH expected_sources(source_platform) AS (
   LEFT JOIN download_scraper_item_log l ON l.run_id = r.id
   LEFT JOIN download_material m ON m.id = l.material_id
   LEFT JOIN download_material_metadata md ON md.material_id = m.id
+), neutral_material_types(value) AS (
+  VALUES ('nao classificado'), ('não classificado'), ('nao-classificado')
 ), template_metrics AS (
   SELECT
     source_platform,
@@ -92,14 +94,17 @@ WITH expected_sources(source_platform) AS (
     count(*) FILTER (WHERE outcome = 'created' AND system_id IS NOT NULL) AS system_matched,
     count(*) FILTER (WHERE material_type_hint IS NOT NULL) AS type_raw,
     count(*) FILTER (
+      WHERE outcome = 'created' AND material_type_hint IS NOT NULL
+    ) AS type_eligible,
+    count(*) FILTER (
       WHERE outcome = 'created'
         AND material_type_hint IS NOT NULL
         AND raw_material_type_hint IS NULL
-        AND lower(material_type) NOT IN ('nao classificado', 'não classificado', 'nao-classificado')
+        AND lower(material_type) NOT IN (SELECT value FROM neutral_material_types)
     ) AS type_matched,
     count(*) FILTER (
       WHERE outcome = 'created'
-        AND lower(material_type) IN ('nao classificado', 'não classificado', 'nao-classificado')
+        AND lower(material_type) IN (SELECT value FROM neutral_material_types)
     ) AS neutral
   FROM run_items
   GROUP BY source_platform, template
@@ -136,7 +141,8 @@ WITH expected_sources(source_platform) AS (
         AND ri.outcome = 'created'
         AND ri.detected_language = 'por'
         AND ri.language_confident IS true
-    ) AS portuguese_approved
+    ) AS portuguese_approved,
+    count(*) FILTER (WHERE gt.is_portuguese IS true) AS portuguese_total
   FROM language_ground_truth gt
   LEFT JOIN run_items ri ON ri.source_url = gt.source_url
 ), taxonomy_ground_truth(source_url, expected_system_hint, expected_type_hint) AS (
@@ -164,7 +170,8 @@ WITH expected_sources(source_platform) AS (
   LEFT JOIN run_items ri ON ri.source_url = gt.source_url
 ), entity_evaluation AS (
   SELECT count(*) FILTER (
-    WHERE concat_ws(' ', title, summary, description, raw_system_hint,
+    WHERE outcome = 'created'
+      AND concat_ws(' ', title, summary, description, raw_system_hint,
       raw_material_type_hint, scenario, credits, publisher_name,
       file_size_text, file_format, creation_method, source_category,
       array_to_string(authors, ' '), array_to_string(artists, ' '),
@@ -175,9 +182,10 @@ WITH expected_sources(source_platform) AS (
   FROM run_items
 ), facet_shape_evaluation AS (
   SELECT count(*) FILTER (
-    WHERE cardinality(authors) <> cardinality(author_keys)
-      OR cardinality(artists) <> cardinality(artist_keys)
-      OR (publisher_name IS NOT NULL AND publisher_key IS NULL)
+    WHERE outcome = 'created'
+      AND (cardinality(authors) IS DISTINCT FROM cardinality(author_keys)
+        OR cardinality(artists) IS DISTINCT FROM cardinality(artist_keys)
+        OR (publisher_name IS NOT NULL AND publisher_key IS NULL))
   ) AS failures,
   count(*) FILTER (WHERE outcome = 'created') AS total
   FROM run_items
@@ -206,19 +214,24 @@ WITH expected_sources(source_platform) AS (
     items_created + items_skipped_duplicate + items_skipped_not_portuguese + items_skipped_error, items_found
   FROM selected_runs
   UNION ALL
-  SELECT 'opera_rpg:' || m.template || ':system_match',
-    CASE WHEN m.system_matched::numeric / NULLIF(m.created, 0) >= t.min_system_rate THEN 'pass' ELSE 'fail' END,
-    m.system_matched, m.created
-  FROM template_metrics m
-  JOIN opera_thresholds t ON t.template = m.template
-  WHERE m.source_platform = 'opera_rpg'
+  SELECT 'opera_rpg:' || t.template || ':system_match',
+    CASE WHEN m.template IS NOT NULL
+      AND m.system_matched::numeric / NULLIF(m.created, 0) >= t.min_system_rate
+      THEN 'pass' ELSE 'fail' END,
+    coalesce(m.system_matched, 0), coalesce(m.created, 0)
+  FROM opera_thresholds t
+  LEFT JOIN template_metrics m
+    ON m.source_platform = 'opera_rpg' AND m.template = t.template
   UNION ALL
-  SELECT 'opera_rpg:' || m.template || ':type_match',
-    CASE WHEN m.type_matched::numeric / NULLIF(m.type_raw, 0) >= t.min_type_rate THEN 'pass' ELSE 'fail' END,
-    m.type_matched, m.type_raw
-  FROM template_metrics m
-  JOIN opera_thresholds t ON t.template = m.template
-  WHERE m.source_platform = 'opera_rpg' AND t.min_type_rate IS NOT NULL
+  SELECT 'opera_rpg:' || t.template || ':type_match',
+    CASE WHEN m.template IS NOT NULL
+      AND m.type_matched::numeric / NULLIF(m.type_eligible, 0) >= t.min_type_rate
+      THEN 'pass' ELSE 'fail' END,
+    coalesce(m.type_matched, 0), coalesce(m.type_eligible, 0)
+  FROM opera_thresholds t
+  LEFT JOIN template_metrics m
+    ON m.source_platform = 'opera_rpg' AND m.template = t.template
+  WHERE t.min_type_rate IS NOT NULL
   UNION ALL
   SELECT 'language:ground_truth_observed',
     CASE WHEN observed = total THEN 'pass' ELSE 'fail' END, observed, total
@@ -227,6 +240,11 @@ WITH expected_sources(source_platform) AS (
   SELECT 'language:false_positives',
     CASE WHEN false_positives = 0 THEN 'pass' ELSE 'fail' END,
     total - false_positives, total
+  FROM language_evaluation
+  UNION ALL
+  SELECT 'language:portuguese_approved',
+    CASE WHEN portuguese_approved = portuguese_total THEN 'pass' ELSE 'fail' END,
+    portuguese_approved, portuguese_total
   FROM language_evaluation
   UNION ALL
   SELECT 'taxonomy:fixture_ground_truth',
@@ -241,10 +259,10 @@ WITH expected_sources(source_platform) AS (
   UNION ALL
   SELECT 'catalog:neutral_type_minority',
     CASE WHEN count(*) FILTER (
-      WHERE outcome = 'created' AND lower(material_type) IN ('nao classificado', 'não classificado', 'nao-classificado')
+      WHERE outcome = 'created' AND lower(material_type) IN (SELECT value FROM neutral_material_types)
     )::numeric / NULLIF(count(*) FILTER (WHERE outcome = 'created'), 0) < 0.5 THEN 'pass' ELSE 'fail' END,
     count(*) FILTER (
-      WHERE outcome = 'created' AND lower(material_type) NOT IN ('nao classificado', 'não classificado', 'nao-classificado')
+      WHERE outcome = 'created' AND lower(material_type) NOT IN (SELECT value FROM neutral_material_types)
     ),
     count(*) FILTER (WHERE outcome = 'created')
   FROM run_items
@@ -270,6 +288,7 @@ SELECT
   system_raw,
   type_matched,
   type_raw,
+  type_eligible,
   neutral,
   NULL::bigint AS matched,
   NULL::bigint AS total,
@@ -282,6 +301,7 @@ SELECT
   NULL,
   rule,
   verdict,
+  NULL,
   NULL,
   NULL,
   NULL,

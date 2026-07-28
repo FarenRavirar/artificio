@@ -1639,6 +1639,7 @@ paths:
           description: "Nome ou chave da editora/selo; normalizado no backend para igualdade exata."
           schema:
             type: string
+            minLength: 1
             maxLength: 200
         - name: author
           in: query
@@ -1646,6 +1647,7 @@ paths:
           description: "Nome ou chave da autoria; normalizado no backend para igualdade exata."
           schema:
             type: string
+            minLength: 1
             maxLength: 200
         - name: sort
           in: query

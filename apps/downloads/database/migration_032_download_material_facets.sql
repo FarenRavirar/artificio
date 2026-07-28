@@ -66,10 +66,32 @@ CREATE INDEX IF NOT EXISTS idx_download_material_metadata_publisher_key
 CREATE INDEX IF NOT EXISTS idx_download_material_metadata_author_keys
   ON download_material_metadata USING GIN (author_keys);
 
-ALTER TABLE download_material_metadata
-  DROP CONSTRAINT IF EXISTS download_material_metadata_author_shape_check,
-  ADD CONSTRAINT download_material_metadata_author_shape_check
-    CHECK (cardinality(authors) = cardinality(author_keys)),
-  DROP CONSTRAINT IF EXISTS download_material_metadata_artist_shape_check,
-  ADD CONSTRAINT download_material_metadata_artist_shape_check
-    CHECK (cardinality(artists) = cardinality(artist_keys));
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'download_material_metadata_author_shape_check'
+      AND conrelid = 'download_material_metadata'::regclass
+  ) THEN
+    ALTER TABLE download_material_metadata
+      ADD CONSTRAINT download_material_metadata_author_shape_check
+      CHECK (cardinality(authors) = cardinality(author_keys));
+  END IF;
+END
+$$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'download_material_metadata_artist_shape_check'
+      AND conrelid = 'download_material_metadata'::regclass
+  ) THEN
+    ALTER TABLE download_material_metadata
+      ADD CONSTRAINT download_material_metadata_artist_shape_check
+      CHECK (cardinality(artists) = cardinality(artist_keys));
+  END IF;
+END
+$$;

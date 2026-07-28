@@ -795,6 +795,7 @@
           "description": "Nome ou chave da editora/selo; normalizado no backend para igualdade exata.",
           "schema": {
             "type": "string",
+            "minLength": 1,
             "maxLength": 200
           }
         },
@@ -805,6 +806,7 @@
           "description": "Nome ou chave da autoria; normalizado no backend para igualdade exata.",
           "schema": {
             "type": "string",
+            "minLength": 1,
             "maxLength": 200
           }
         },

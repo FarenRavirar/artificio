@@ -180,13 +180,16 @@ describe('GET /api/v1/materials — listagem publica', () => {
 
     expect(builder.leftJoin).toHaveBeenCalledBefore(builder.select as ReturnType<typeof vi.fn>);
     expect(builder.where).toHaveBeenCalledWith('download_material_metadata.publisher_key', '=', 'grimorios e dados');
+    expect(builder.where).toHaveBeenCalledWith('download_material_metadata.author_keys', '@>', ['agata']);
     expect(builder.where).toHaveBeenCalledTimes(3);
     expect(builder.offset).toHaveBeenCalledWith(20);
   });
 
   it('rejeita faceta que normaliza para chave vazia em vez de ignorar o filtro', async () => {
     dbMocks.selectFrom.mockReturnValue(makeQueryBuilder([], 0));
-    await request(app()).get('/api/v1/materials').query({ publisher: 'Editora' }).expect(400);
+    const response = await request(app()).get('/api/v1/materials').query({ publisher: 'Editora' }).expect(400);
+
+    expect(response.body.error).toMatch(/inválidos/i);
   });
 
   // Achado de review PR #214 (Codex, P2): o placeholder prometia busca por
@@ -281,8 +284,8 @@ describe('GET /api/v1/materials — listagem publica', () => {
       .mockReturnValueOnce(makeQueryBuilder([{ edition_id: 'ed', count: '1' }], 0))
       .mockReturnValueOnce(makeQueryBuilder([{ value: 'grimorios e dados', label: 'Grimórios & Dados Editora', count: '2' }], 0))
       .mockReturnValueOnce(makeQueryBuilder([
-        { authors: ['Ágata', 'Bruno'], author_keys: ['agata', 'bruno'] },
-        { authors: ['Agata'], author_keys: ['agata'] },
+        { value: 'agata', label: 'Ágata', count: '2' },
+        { value: 'bruno', label: 'Bruno', count: '1' },
       ], 0));
     catalogMocks.loadCatalogMaterialTypes.mockResolvedValue([
       { id: typeId, slug: 'aventura', name: 'Aventura', aliases: ['adventure'], status: 'active' },
@@ -300,9 +303,15 @@ describe('GET /api/v1/materials — listagem publica', () => {
         { value: 'bruno', label: 'Bruno', count: 1 },
       ],
     });
-    for (const builder of dbMocks.selectFrom.mock.results.map((result) => result.value)) {
+    for (const builder of dbMocks.selectFrom.mock.results.slice(0, 4).map((result) => result.value)) {
       expect(builder.where).toHaveBeenCalledWith('editorial_state', '=', 'published');
     }
+    const authorFacetSource = dbMocks.selectFrom.mock.calls[4][0] as (eb: {
+      selectFrom: ReturnType<typeof vi.fn>;
+    }) => unknown;
+    const authorFacetInnerBuilder = makeQueryBuilder([], 0);
+    authorFacetSource({ selectFrom: vi.fn().mockReturnValue(authorFacetInnerBuilder) });
+    expect(authorFacetInnerBuilder.where).toHaveBeenCalledWith('editorial_state', '=', 'published');
   });
 
   it('expõe sistemas/edições do Central achatados para a sidebar de filtro (T8.1)', async () => {

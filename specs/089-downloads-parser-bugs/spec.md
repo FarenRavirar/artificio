@@ -557,7 +557,9 @@ O SQL canônico é `phase-5-measurement.sql`. Ele lê somente a run mais recente
 três fontes, falha quando uma fonte não tem run, reconcilia contadores e preserva
 `source_category`, `system_hint` e `material_type_hint` no log inclusive para rejeitados.
 `material_type_id IS NOT NULL` **não** prova casamento: o tipo neutro também tem ID. Casamento
-de tipo exige hint presente, ausência de `raw_material_type_hint` e tipo final não neutro.
+de tipo exige hint presente, ausência de `raw_material_type_hint` e tipo final não neutro. A
+taxa usa como denominador somente itens **criados com hint**; hints de itens corretamente
+rejeitados continuam na métrica bruta, mas não podem reprovar o casamento dos criados.
 
 Limites declarados antes da medição:
 
@@ -565,7 +567,8 @@ Limites declarados antes da medição:
   tipo 100%; demais templates: sistema 100%, sem taxa de tipo quando a seção não o expõe.
 - itch.io/Grimórios: ground truth das fixtures decide hint presente ou `null`; ausência
   estrutural correta não é falha nem vira taxa inventada.
-- Corpus de idioma: todos os 11 URLs precisam aparecer nas runs; falso positivo = zero.
+- Corpus de idioma: todos os 11 URLs precisam aparecer nas runs; falso positivo = zero e todas
+  as fixtures portuguesas precisam ser criadas com detecção `por` confiante.
 - `nao-classificado`: menos de 50% dos criados.
 - Entidade HTML crua em qualquer campo `plainText`: zero. Inclui `file_format` e
   `creation_method`, arrays e JSON. Slug de fixture com entidade compara valor esperado.
@@ -645,3 +648,10 @@ Verificados na interface do catálogo de beta, com o acervo recoletado:
 - **Migrations da 089.** A Fase 4 cria a estrutura de facetas e a evidência de medição. A migration de `parent_id` pertence à spec 090, para onde a Fase 6 foi movida; identidade do ativo de capa continua prevista na Fase 7. Todas seguem o checklist pétreo de migrations (header de 5 campos, idempotência, diretório allowlisted).
 - **`packages/ui` pode entrar no escopo.** Decisão do mantenedor foi investigar primeiro se o defeito de contraste do `<select>` atinge outros módulos. Se atingir, corrigir na origem compartilhada **exige aprovação própria + verificação de impacto nos consumidores** (`AGENTS.md` §Autorização) — não está coberto pela abertura desta spec.
 - **Profundidade de thread não limitada** quebra layout e dificulta retirada por denúncia. Daí o limite explícito no requisito 21.
+
+## Limpeza de governança ao encerrar a spec
+
+- **Remover a permissão temporária `specs/*/phase-*-measurement.sql` de
+  `.github/migration-dir-allowlist` quando a Fase 5 e a spec 089 forem concluídas.** O SQL
+  canônico permanece versionado como evidência histórica; a exceção de CI não permanece aberta
+  para specs futuras sem nova decisão nominal do mantenedor.

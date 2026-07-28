@@ -12,7 +12,7 @@ function baseFacetKey(value: string): string {
     .normalize('NFKD')
     .replace(/\p{M}/gu, '')
     .toLocaleLowerCase('pt-BR')
-    .replace(/&/g, ' e ')
+    .replaceAll('&', ' e ')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim()
     .replace(/\s+/g, ' ');
@@ -43,5 +43,5 @@ export function splitCreditNames(value: string | null | undefined): string[] {
   if (!value) return [];
   // Vírgula não é separador seguro: fontes reais trazem nomes como
   // "Angevine, Dall.e". Só delimitadores inequívocos viram múltiplos valores.
-  return value.split(/\s*(?:\r?\n|;)\s*/).filter(Boolean);
+  return value.split(/[\r\n;]+/).map((part) => part.trim()).filter(Boolean);
 }

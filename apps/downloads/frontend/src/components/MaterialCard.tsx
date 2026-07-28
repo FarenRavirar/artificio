@@ -81,9 +81,9 @@ export function MaterialCard({ material }: Readonly<MaterialCardProps>) {
                 ) : publisher}
               </span>
             )}
-            {publisher && (authors.length > 0 || artists.length > 0 || legacyCredits) && <span className="text-[var(--fg-muted)]"> · </span>}
             {authors.length > 0 && (
               <span>
+                {publisher && <span className="text-[var(--fg-muted)]"> · </span>}
                 <span className="text-[var(--fg-muted)]">Por </span>
                 {authors.map((author, index) => {
                   const authorKey = authorKeys[index];
@@ -98,8 +98,18 @@ export function MaterialCard({ material }: Readonly<MaterialCardProps>) {
                 })}
               </span>
             )}
-            {artists.length > 0 && <span><span className="text-[var(--fg-muted)]"> · Arte: </span>{artists.join(', ')}</span>}
-            {legacyCredits && <span><span className="text-[var(--fg-muted)]">Créditos: </span>{legacyCredits}</span>}
+            {artists.length > 0 && (
+              <span>
+                {(publisher || authors.length > 0) && <span className="text-[var(--fg-muted)]"> · </span>}
+                <span className="text-[var(--fg-muted)]">Arte: </span>{artists.join(', ')}
+              </span>
+            )}
+            {legacyCredits && (
+              <span>
+                {(publisher || authors.length > 0 || artists.length > 0) && <span className="text-[var(--fg-muted)]"> · </span>}
+                <span className="text-[var(--fg-muted)]">Créditos: </span>{legacyCredits}
+              </span>
+            )}
           </p>
         )}
         <h3

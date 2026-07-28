@@ -159,6 +159,18 @@ describe('MaterialCard', () => {
     expect(screen.queryByText('Por')).not.toBeInTheDocument();
   });
 
+  it('usa um único separador entre editora e crédito somente de arte', () => {
+    const { container } = renderCard({
+      ...baseMaterial,
+      publisher_name: 'Editora Exemplo',
+      artists: ['Artista Exemplo'],
+    });
+
+    expect(container.querySelector('p')?.textContent).toBe(
+      'Editora/selo: Editora Exemplo · Arte: Artista Exemplo',
+    );
+  });
+
   it('mostra editora e autor juntos, publicante primeiro', () => {
     renderCard({
       ...baseMaterial,

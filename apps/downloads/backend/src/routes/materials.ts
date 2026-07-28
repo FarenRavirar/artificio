@@ -126,6 +126,36 @@ interface MaterialFacetsResponse {
   authors: Array<{ value: string; label: string; count: number }>;
 }
 
+interface NamedFacetRow {
+  value: string | null;
+  label: string | null;
+  count: unknown;
+}
+
+function toFacetCount(id: string | null, count: unknown): FacetCount[] {
+  return id ? [{ id, count: Number(count) }] : [];
+}
+
+function toNamedFacet(row: NamedFacetRow): MaterialFacetsResponse['authors'] {
+  return row.value && row.label
+    ? [{ value: row.value, label: row.label, count: Number(row.count) }]
+    : [];
+}
+
+function toMaterialTypeFacet(
+  row: { material_type_id: string; count: unknown },
+  centralById: ReadonlyMap<string, { id: string; slug: string; name: string }>,
+): MaterialTypeFacet[] {
+  const type = centralById.get(row.material_type_id);
+  return type ? [{ id: type.id, slug: type.slug, name: type.name, count: Number(row.count) }] : [];
+}
+
+async function loadRankedIds(sort: SortOption): Promise<string[] | null> {
+  if (sort === 'trending') return loadTrendingOrder();
+  if (sort === 'rating') return loadRatingOrder();
+  return null;
+}
+
 // Campos editaveis por publicador; toda mudanca grava download_material_version
 // por campo (D111 item 7 — historico desde o primeiro commit, incl. link).
 const EDITABLE_FIELDS = [
@@ -171,7 +201,7 @@ router.get('/', async (req: Request, res: Response) => {
   if (accessKind) baseQuery = baseQuery.where('access_kind', '=', accessKind);
   if (publisher) baseQuery = baseQuery.where('download_material_metadata.publisher_key', '=', publisher);
   if (author) {
-    baseQuery = baseQuery.where(sql<boolean>`download_material_metadata.author_keys @> ARRAY[${author}]::text[]`);
+    baseQuery = baseQuery.where('download_material_metadata.author_keys', '@>', [author]);
   }
   if (q) {
     // Spec 087 (achado de review PR #214, Codex P2): a busca prometia "título,
@@ -233,12 +263,7 @@ router.get('/', async (req: Request, res: Response) => {
   // Para 'trending' o corte de elegibilidade (download_count >= 1 na janela)
   // ja vem aplicado na lista de IDs — material so-visualizado nao esta la, e
   // por isso desaparece da ordenacao em vez de ir pro fim dela (Requisito 15).
-  let rankedIds: string[] | null = null;
-  if (sort === 'trending') {
-    rankedIds = await loadTrendingOrder();
-  } else if (sort === 'rating') {
-    rankedIds = await loadRatingOrder();
-  }
+  const rankedIds = await loadRankedIds(sort);
 
   if (rankedIds !== null) {
     if (rankedIds.length === 0) {
@@ -417,44 +442,34 @@ router.get('/facets', async (_req: Request, res: Response) => {
         .groupBy('download_material_metadata.publisher_key')
         .orderBy('count', 'desc')
         .execute(),
-      db.selectFrom('download_material')
+      db.selectFrom((eb) => eb
+        .selectFrom('download_material')
         .innerJoin('download_material_metadata', 'download_material_metadata.material_id', 'download_material.id')
-        .select(['download_material_metadata.authors', 'download_material_metadata.author_keys'])
+        .select([
+          sql<string>`unnest(download_material_metadata.author_keys)`.as('value'),
+          sql<string>`unnest(download_material_metadata.authors)`.as('label'),
+        ])
         .where('editorial_state', '=', 'published')
+        .as('published_author_facets'))
+        .select([
+          'published_author_facets.value',
+          ({ fn }) => fn.min('published_author_facets.label').as('label'),
+          ({ fn }) => fn.countAll<number>().as('count'),
+        ])
+        .where('published_author_facets.value', 'is not', null)
+        .groupBy('published_author_facets.value')
+        .orderBy('count', 'desc')
         .execute(),
       loadCatalogMaterialTypes(),
     ]);
 
-    const authorsByKey = new Map<string, { value: string; label: string; count: number }>();
-    for (const row of authorRows) {
-      const authorKeys = Array.isArray(row.author_keys)
-        ? row.author_keys.filter((value): value is string => typeof value === 'string')
-        : [];
-      const authors = Array.isArray(row.authors)
-        ? row.authors.filter((value): value is string => typeof value === 'string')
-        : [];
-      const seen = new Set<string>();
-      for (const [index, value] of authorKeys.entries()) {
-        if (!value || seen.has(value)) continue;
-        seen.add(value);
-        const existing = authorsByKey.get(value);
-        if (existing) existing.count += 1;
-        else authorsByKey.set(value, { value, label: authors[index] ?? value, count: 1 });
-      }
-    }
-
     const centralById = new Map(centralTypes.map((item) => [item.id, item]));
     const data: MaterialFacetsResponse = {
-      material_types: materialTypeRows.flatMap((row) => {
-        const type = centralById.get(row.material_type_id);
-        return type ? [{ id: type.id, slug: type.slug, name: type.name, count: Number(row.count) }] : [];
-      }),
-      systems: systemRows.flatMap((row) => row.system_id ? [{ id: row.system_id, count: Number(row.count) }] : []),
-      editions: editionRows.flatMap((row) => row.edition_id ? [{ id: row.edition_id, count: Number(row.count) }] : []),
-      publishers: publisherRows.flatMap((row) => row.value && row.label
-        ? [{ value: row.value, label: row.label, count: Number(row.count) }]
-        : []),
-      authors: [...authorsByKey.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'pt-BR')),
+      material_types: materialTypeRows.flatMap((row) => toMaterialTypeFacet(row, centralById)),
+      systems: systemRows.flatMap((row) => toFacetCount(row.system_id, row.count)),
+      editions: editionRows.flatMap((row) => toFacetCount(row.edition_id, row.count)),
+      publishers: publisherRows.flatMap(toNamedFacet),
+      authors: authorRows.flatMap(toNamedFacet),
     };
     facetsCache = { data, expiresAt: Date.now() + FACETS_CACHE_TTL_MS };
     res.json(data);
