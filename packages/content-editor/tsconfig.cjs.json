@@ -1,0 +1,18 @@
+{
+  "extends": "../config/tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "node10",
+    "rootDir": "src",
+    "outDir": "dist-cjs",
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": true,
+    "ignoreDeprecations": "6.0"
+  },
+  // Só o sanitizador entra no build CJS: é o único subpath consumido pelos
+  // backends (downloads compila com module: "CommonJS"). A raiz do pacote é
+  // React/TSX e só é consumida por frontends ESM, então ficar fora do CJS
+  // evita arrastar JSX e dependências de browser para a imagem do backend.
+  "include": ["src/sanitize.ts"]
+}

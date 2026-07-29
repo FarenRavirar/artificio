@@ -5,6 +5,21 @@ import { resolveActorName } from '../services/actorNameResolver.js';
 import type { SuggestionStatus } from '../db/types.js';
 import { sanitizeNullableUserMarkdown, sanitizeUserMarkdown } from '../utils/userMarkdown.js';
 
+/**
+ * Aplica o boundary de sanitização nos campos Markdown de uma sugestão antes de
+ * devolvê-la na resposta. Extraído porque os dois handlers de listagem (admin e
+ * /mine) repetiam o mesmo mapeamento (review PR #227).
+ */
+function withSanitizedMarkdown<T extends { description: string | null; rejection_reason: string | null }>(
+  suggestion: T,
+): T {
+  return {
+    ...suggestion,
+    description: sanitizeNullableUserMarkdown(suggestion.description),
+    rejection_reason: sanitizeNullableUserMarkdown(suggestion.rejection_reason),
+  };
+}
+
 export interface RejectConfig {
   tableName: 'scenario_suggestions' | 'system_suggestions';
   suggestionKind: 'scenario' | 'system';
@@ -117,11 +132,7 @@ export async function listAdminHandler(config: ListAdminConfig, req: Request, re
     }
 
     const suggestions = await query.execute();
-    res.json({ data: suggestions.map((suggestion) => ({
-      ...suggestion,
-      description: sanitizeNullableUserMarkdown(suggestion.description),
-      rejection_reason: sanitizeNullableUserMarkdown(suggestion.rejection_reason),
-    })) });
+    res.json({ data: suggestions.map(withSanitizedMarkdown) });
   } catch (error: unknown) {
     console.error(`[GET /admin/${config.logTag}]`, error);
     res.status(500).json({ error: 'Erro ao listar sugestões.' });
@@ -148,11 +159,7 @@ export async function listMineHandler(config: ListMineConfig, req: Request, res:
       .orderBy('created_at', 'desc')
       .execute();
 
-    res.json({ data: suggestions.map((suggestion) => ({
-      ...suggestion,
-      description: sanitizeNullableUserMarkdown(suggestion.description),
-      rejection_reason: sanitizeNullableUserMarkdown(suggestion.rejection_reason),
-    })) });
+    res.json({ data: suggestions.map(withSanitizedMarkdown) });
   } catch (error: unknown) {
     console.error(`[GET /${config.logTag}/mine]`, error);
     res.status(500).json({ error: 'Erro ao listar sugestões.' });

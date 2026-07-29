@@ -40,6 +40,7 @@ vi.mock('../db', () => ({ db: dbMocks }));
 import { runScraperIngest } from './scraperIngest';
 import type { ScrapedItem } from './scrapers/types';
 import { normalizeScrapedItemPlainText } from './scrapers/plainTextPolicy';
+import { sanitizeUserMarkdown } from '@artificio/content-editor/sanitize';
 
 function makeItem(overrides: Partial<ScrapedItem> = {}): ScrapedItem {
   return {
@@ -503,6 +504,50 @@ describe('runScraperIngest', () => {
       publisher_name: 'Editora & Dados',
       credits: 'Autora & Coautora\nArtista & Ilustradora',
     }));
+  });
+
+  // A descrição é persistida como TEXTO PLANO (política `plainText` em
+  // SCRAPED_ITEM_FIELD_POLICY, decodificada por decodeHtml5PlainText), não como
+  // HTML confiável. A defesa contra markup hostil da fonte fica na renderização
+  // — MarkdownContent passa por DOMPurify, e `description` cru é escapado pelo
+  // JSX. Sanitizar aqui escaparia `&` e corromperia texto legítimo ("D&D" viraria
+  // "D&amp;D"), então este teste trava o que de fato importa: o markup entra
+  // inerte no banco e nunca vira HTML ativo (achado de review PR #227, avaliado
+  // e ajustado — a sanitização na escrita foi descartada por causar regressão).
+  it('persiste descrição hostil da fonte externa como texto inerte, sem executar markup', async () => {
+    dbMocks.selectFrom
+      .mockReturnValueOnce(selectChain(undefined))
+      .mockReturnValueOnce(selectChain([]));
+    detectPortugueseMock.mockResolvedValue({ isPortuguese: true, detectedLanguage: 'por', confident: true });
+    getOrCreateScraperCreatorIdMock.mockResolvedValue('scraper-creator-id');
+    loadCatalogSystemsFlatMock.mockResolvedValue([]);
+
+    const materialInsert = { values: vi.fn().mockReturnThis(), returning: vi.fn().mockReturnThis(), executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'material-hostil' }) };
+    const metadataInsert = { values: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
+    const trxInsertInto = vi.fn()
+      .mockReturnValueOnce(materialInsert)
+      .mockReturnValueOnce(metadataInsert);
+    dbMocks.transaction.mockReturnValue({
+      execute: async (cb: (trx: { insertInto: typeof trxInsertInto }) => Promise<string>) =>
+        cb({ insertInto: trxInsertInto }),
+    });
+
+    const item = makeItem({
+      description: 'Aventura em português com <script>alert(1)</script> e <img src=x onerror=alert(2)> embutidos no texto da fonte.',
+    });
+
+    await runScraperIngest('run-hostil', 'itch_io', asyncIterableOf([item]));
+
+    const materialValues = materialInsert.values.mock.calls[0][0];
+    // O texto legítimo é preservado byte a byte, sem escape espúrio de `&`.
+    expect(String(materialValues.description)).toContain('Aventura em português');
+    expect(String(materialValues.description)).not.toContain('&amp;');
+
+    // O markup hostil só é seguro porque a camada de exibição o neutraliza:
+    // o mesmo boundary de sanitização aplicado ao valor persistido não deixa
+    // passar `<script>`/`onerror=`.
+    const sanitized = sanitizeUserMarkdown(String(materialValues.description_markdown ?? ''));
+    expect(sanitized).not.toMatch(/<script|onerror=/i);
   });
 
   it('violação do índice UNIQUE (corrida entre runs concorrentes): outcome=skipped_duplicate, não skipped_error', async () => {

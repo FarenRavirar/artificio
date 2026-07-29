@@ -79,6 +79,12 @@ COPY --from=builder /repo/packages/catalog-matching/dist-cjs ./packages/catalog-
 COPY --from=builder /repo/packages/changelog/dist ./packages/changelog/dist
 COPY --from=builder /repo/packages/changelog/dist-cjs ./packages/changelog/dist-cjs
 COPY --from=builder /repo/packages/email/dist ./packages/email/dist
+# Mesmo padrao de E016/E017: as rotas do backend (comments, materials, reports,
+# moderation, ratings, admin, creators, materialMetadata, systemSuggestionsAdmin,
+# materialTypeSuggestionsAdmin) importam @artificio/content-editor/sanitize.
+# So o dist-cjs entra: o backend compila com module "CommonJS" e consome apenas
+# o subpath do sanitizador; a raiz do pacote e React/TSX, usada so pelo frontend.
+COPY --from=builder /repo/packages/content-editor/dist-cjs ./packages/content-editor/dist-cjs
 
 COPY --from=builder /repo/apps/downloads/backend/dist ./apps/downloads/backend/dist
 

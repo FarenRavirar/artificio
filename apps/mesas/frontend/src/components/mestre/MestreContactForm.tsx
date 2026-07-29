@@ -113,6 +113,7 @@ export function MestreContactForm({ mestreSlug }: MestreContactFormProps) {
             value={message}
             onChange={setMessage}
             label="Mensagem"
+            labelledByExternal
             required
             maxLength={1000}
             minHeight={176}

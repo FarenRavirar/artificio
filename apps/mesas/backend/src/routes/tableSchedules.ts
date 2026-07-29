@@ -55,6 +55,18 @@ function validateScheduleFields(input: { day_of_week?: string; frequency?: strin
   return null;
 }
 
+// `req.body` é atribuído a um tipo sem validação de runtime, então `notes` podia
+// chegar como objeto/array/número. O sanitizador chama `.slice`/`.startsWith` no
+// valor e lançava TypeError, devolvendo 500 onde o correto é 400 (achado de
+// review PR #227). Aceita apenas string, null ou ausente.
+function validateScheduleNotes(notes: unknown): string | null {
+  if (notes === undefined || notes === null) return null;
+  if (typeof notes !== 'string') {
+    return 'notes deve ser texto ou nulo.';
+  }
+  return null;
+}
+
 function buildScheduleUpdateData(input: Partial<TableScheduleUpdate>): Partial<TableScheduleUpdate> {
   const updateData: Partial<TableScheduleUpdate> = {};
   const fields: Array<keyof TableScheduleUpdate> = [
@@ -130,6 +142,11 @@ router.post('/:tableId/schedules', publicRateLimiter, authMiddleware, async (req
       return res.status(400).json({ error: fieldError });
     }
 
+    const notesError = validateScheduleNotes(input.notes);
+    if (notesError) {
+      return res.status(400).json({ error: notesError });
+    }
+
     // Validar end_time > start_time (se preenchido)
     if (input.end_time && input.end_time <= input.start_time) {
       return res.status(400).json({
@@ -196,6 +213,11 @@ router.put('/:tableId/schedules/:id', publicRateLimiter, authMiddleware, async (
     const fieldError = validateScheduleFields(input);
     if (fieldError) {
       return res.status(400).json({ error: fieldError });
+    }
+
+    const notesError = validateScheduleNotes(input.notes);
+    if (notesError) {
+      return res.status(400).json({ error: notesError });
     }
 
     const updateData = buildScheduleUpdateData(input);

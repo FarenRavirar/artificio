@@ -340,11 +340,20 @@ export function ComunidadeSection() {
                     {suggestion.description && (
                       <MarkdownContent value={suggestion.description} className="text-white/60 text-sm mt-1" />
                     )}
+                    {/* MarkdownContent renderiza um <div>, que é inválido dentro
+                        de <p> — o browser fecharia o parágrafo antes dele e
+                        quebraria a árvore na hidratação (review PR #227).
+                        O motivo saiu para um wrapper irmão. */}
                     <p className="text-white/40 text-xs mt-2">
                       Tipo: {suggestion.kind === 'system' ? suggestion.node_type : 'cenário'} | Status: {suggestion.status}
                       {suggestion.reviewed_at && <> | Revisado: {new Date(suggestion.reviewed_at).toLocaleDateString('pt-BR')}{suggestion.reviewed_by ? ` por ${suggestion.reviewed_by}` : ''}</>}
-                      {suggestion.rejection_reason && <><span> | Motivo:</span><MarkdownContent value={suggestion.rejection_reason} /></>}
                     </p>
+                    {suggestion.rejection_reason && (
+                      <div className="text-white/40 text-xs mt-1">
+                        <span>Motivo:</span>
+                        <MarkdownContent value={suggestion.rejection_reason} />
+                      </div>
+                    )}
                   </div>
                 </div>
                 {suggestion.status === 'pending' && (

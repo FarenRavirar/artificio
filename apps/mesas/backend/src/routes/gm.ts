@@ -538,14 +538,16 @@ router.post('/:slug/contact', publicRateLimiter, async (req: Request, res: Respo
     }
 
     // TODO: Implementar envio de email
-    // Por enquanto, apenas registrar no console
+    // Por enquanto, apenas registrar no console.
+    // O log NÃO carrega PII (e-mail do mestre, e-mail/nome do remetente ou o
+    // corpo da mensagem): é log de aplicação sem política de retenção definida
+    // e o contato é dado pessoal de terceiro (achado de review PR #227).
+    // Só o slug do mestre, que já é identificador público da rota, e o tamanho
+    // da mensagem, útil para diagnosticar o envio quando o e-mail for implementado.
     const safeMessage = sanitizeNullableUserMarkdown(message);
     console.log('[CONTACT FORM]', {
-      to: profile.email,
-      from: email,
-      name,
-      message: safeMessage,
-      masterName: profile.display_name,
+      gmSlug: slug,
+      messageLength: safeMessage?.length ?? 0,
     });
 
     // Retornar sucesso

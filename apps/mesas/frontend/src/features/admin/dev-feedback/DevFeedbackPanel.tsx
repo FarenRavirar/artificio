@@ -360,7 +360,11 @@ export const DevFeedbackPanel = () => {
                   </select>
                 </div>
                 <div className="min-w-[260px] flex-1">
+                  {/* id derivado do item: sem ele, todos os editores da lista
+                      compartilhavam o mesmo id gerado e o label deixava de
+                      identificar um campo único (review PR #227). */}
                   <MarkdownEditor
+                    id={`dev-feedback-notes-${item.id}`}
                     label="Notas da equipe"
                     value={notesDraft[item.id] ?? item.admin_notes ?? ''}
                     onChange={(value) => setNotesDraft((draft) => ({ ...draft, [item.id]: value }))}

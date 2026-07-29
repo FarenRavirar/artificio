@@ -166,6 +166,11 @@ export function CreateTableForm({
     if (savedDraft.sessionZeroFree !== undefined) formHook.setSessionZeroFree(savedDraft.sessionZeroFree);
     if (savedDraft.synopsis) formHook.setSynopsis(savedDraft.synopsis);
     if (savedDraft.styleText) formHook.setStyleText(savedDraft.styleText);
+    // benefitsText/tableGmBio são autosalvos (fazem parte de formState) e vão no
+    // submit, mas não eram reatribuídos aqui: restaurar o rascunho apagava os
+    // dois campos que o usuário havia preenchido (review PR #227).
+    if (savedDraft.benefitsText) formHook.setBenefitsText(savedDraft.benefitsText);
+    if (savedDraft.tableGmBio) formHook.setTableGmBio(savedDraft.tableGmBio);
     if (savedDraft.listingExcerpt) formHook.setListingExcerpt(savedDraft.listingExcerpt);
     if (savedDraft.technicalRequirements) formHook.setTechnicalRequirements(savedDraft.technicalRequirements);
     if (savedDraft.requiresPc !== undefined) formHook.setRequiresPc(savedDraft.requiresPc);

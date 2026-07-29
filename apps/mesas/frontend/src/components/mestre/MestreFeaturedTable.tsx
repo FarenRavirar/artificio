@@ -3,7 +3,7 @@ import { CheckCircle2, Star, Globe, MapPin } from 'lucide-react';
 import type { TableCard } from '../../types/tables';
 import { SlotsIndicator } from '../SlotsIndicator';
 import { SystemBadge } from '../SystemBadge';
-import { MarkdownContent } from '@artificio/content-editor';
+import { markdownToPlainText } from '@artificio/content-editor/sanitize';
 import { CertificationBadges } from '../CertificationBadges';
 import { getSlotsVisualState } from '../../utils/slots';
 import { applyTableImageFallback, resolveTableImageSource } from '../../utils/tableImage';
@@ -112,8 +112,14 @@ export function MestreFeaturedTable({ table }: Props) {
 
           <h3 className="mestre-featured-table-title">{table.title}</h3>
 
+          {/* O card inteiro é um <Link>, então a descrição não pode renderizar
+              Markdown: um link no texto viraria <a> dentro de <a>, que é HTML
+              inválido e quebra a hidratação. Como aqui é só um excerto, o
+              Markdown é achatado em texto plano (review PR #227). */}
           {table.description && (
-            <MarkdownContent value={table.description} className="mestre-featured-table-description" />
+            <p className="mestre-featured-table-description">
+              {markdownToPlainText(table.description, 240)}
+            </p>
           )}
 
           {features.length > 0 && (

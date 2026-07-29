@@ -82,11 +82,25 @@ function extendLastRange(ranges: LiteralRange[], start: number, end: number): vo
   if (previousRange?.end === start) previousRange.end = end;
 }
 
+// Uma linha abre container de bloco quando é item de lista (`- `, `* `, `+ `,
+// `1. `) ou citação (`> `). Enquanto um container está aberto, 4 espaços NÃO
+// iniciam bloco de código indentado: para o markdown-it aquilo é continuação do
+// item (vira parágrafo, não <pre><code>). Tratar como literal deixava
+// `- item\n\n    <img src=x onerror=...>` sair sem sanitizar (review PR #227).
+const BLOCK_CONTAINER_RE = /^ {0,3}(?:[-*+]\s|\d{1,9}[.)]\s|>)/;
+
+function opensBlockContainer(content: string): boolean {
+  return BLOCK_CONTAINER_RE.test(content);
+}
+
 function findMarkdownBlockLiteralRanges(value: string): LiteralRange[] {
   const ranges: LiteralRange[] = [];
   let openFence: { marker: '`' | '~'; length: number; start: number } | null = null;
   let inIndentedBlock = false;
   let previousLineIsBlank = true;
+  // Container de lista/citação aberto: só é fechado por uma linha não-indentada
+  // que não continua o container (o próprio markdown-it segue essa regra).
+  let insideBlockContainer = false;
 
   for (const { start, end, content } of scanMarkdownLines(value)) {
     if (openFence) {
@@ -109,7 +123,17 @@ function findMarkdownBlockLiteralRanges(value: string): LiteralRange[] {
     const isBlank = containsOnlySpacesOrTabs(content);
     const isIndented = content.startsWith('    ') || content.startsWith('\t');
 
-    if (isIndented && (previousLineIsBlank || inIndentedBlock)) {
+    if (opensBlockContainer(content)) {
+      insideBlockContainer = true;
+    } else if (!isBlank && !isIndented) {
+      // Linha de texto na coluna 0 encerra a lista/citação anterior.
+      insideBlockContainer = false;
+    }
+
+    // Dentro de lista/citação, linha indentada é continuação do item — o
+    // markdown-it a renderiza como parágrafo, não como bloco de código —, então
+    // não pode ser marcada como literal ou o HTML embutido escaparia da limpeza.
+    if (isIndented && !insideBlockContainer && (previousLineIsBlank || inIndentedBlock)) {
       if (inIndentedBlock) extendLastRange(ranges, start, end);
       else ranges.push({ start, end });
       inIndentedBlock = true;

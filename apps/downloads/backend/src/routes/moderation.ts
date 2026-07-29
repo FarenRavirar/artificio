@@ -127,7 +127,15 @@ router.post('/:id/reject', writeRateLimiter, authMiddleware, requireRole(['moder
     throw error;
   }
 
-  const safeReason = sanitizeNullableUserMarkdown(parsed.data.reason)!;
+  // O `min(1)` do Zod roda antes da sanitização, então entrada só-markup
+  // (`<script>alert(1)</script>`, `<div></div>`) passa na validação e sai vazia
+  // daqui — gravava motivo de reprovação em branco. Rejeitar com 400 em vez de
+  // usar `!` para silenciar o null (achado de review PR #227).
+  const safeReason = sanitizeNullableUserMarkdown(parsed.data.reason);
+  if (!safeReason?.trim()) {
+    return res.status(400).json({ error: 'Motivo de reprovação é obrigatório.' });
+  }
+
   const updated = await db
     .updateTable('download_material')
     .set({
@@ -294,6 +302,12 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
 
   const targetState = ACTION_TARGET_STATE[action];
   const safeBatchReason = sanitizeNullableUserMarkdown(parsed.data.reason ?? null);
+  // O guard acima checa o valor cru; a sanitização pode esvaziar entrada
+  // só-markup e gravaria motivo em branco no lote inteiro (mesmo achado da
+  // reprovação individual, review PR #227).
+  if (action === 'reject' && !safeBatchReason?.trim()) {
+    return res.status(400).json({ error: 'Motivo de reprovação é obrigatório para ação em lote de reprovar.' });
+  }
   const results: Array<{ id: string; status: 'updated' | 'skipped'; reason?: string }> = [];
 
   for (const id of parsed.data.ids) {

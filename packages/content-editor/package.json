@@ -3,6 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "types": "./dist/index.d.ts",
+  "module": "./dist/index.js",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -10,11 +12,12 @@
     },
     "./sanitize": {
       "types": "./dist/sanitize.d.ts",
-      "import": "./dist/sanitize.js"
+      "import": "./dist/sanitize.js",
+      "require": "./dist-cjs/sanitize.js"
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && node -e \"require('node:fs').copyFileSync('src/content-editor.css','dist/content-editor.css')\"",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.cjs.json && node -e \"require('node:fs').writeFileSync('dist-cjs/package.json', JSON.stringify({type:'commonjs'}))\" && node -e \"require('node:fs').copyFileSync('src/content-editor.css','dist/content-editor.css')\"",
     "lint": "eslint .",
     "test": "vitest run"
   },

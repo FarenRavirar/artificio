@@ -12,8 +12,9 @@ import * as analyticsModule from '@artificio/analytics';
 // Fase 7 (spec 086, T7.8) — primeiro teste da ficha (MaterialPage nunca teve
 // .test.tsx antes desta spec). Cobre: com/sem metadata rica, com/sem
 // descrição rica, com/sem capa, ficha legada (json_ld_generic, sem os
-// campos novos) sem seção vazia nem "undefined", e HTML da descrição
-// renderizado (não escapado como texto).
+// campos novos) sem seção vazia nem "undefined", e Markdown da descrição
+// renderizado com formatação (spec 089 unificou a autoria em Markdown; antes
+// este comentário ainda falava em HTML).
 
 function baseMaterial(overrides: Partial<ReturnType<typeof useMaterialModule.useMaterial>['data']> = {}) {
   return {

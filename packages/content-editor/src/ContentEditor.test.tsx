@@ -29,6 +29,70 @@ describe('ContentEditor', () => {
 
     expect(onChange).toHaveBeenCalledWith('**forte**');
   });
+
+  it('prefixa a linha inteira quando o cursor está no meio dela e não há seleção', () => {
+    const onChange = vi.fn();
+    render(<ContentEditor value="parágrafo" onChange={onChange} label="Comentário" />);
+
+    const editor = screen.getByRole('textbox', { name: 'Comentário' }) as HTMLTextAreaElement;
+    editor.setSelectionRange(6, 6);
+    fireEvent.click(screen.getByRole('button', { name: 'Inserir título nível 2' }));
+
+    expect(onChange).toHaveBeenCalledWith('## parágrafo');
+  });
+
+  it('prefixa apenas a linha do cursor em texto multilinha', () => {
+    const onChange = vi.fn();
+    render(<ContentEditor value={'primeira\nsegunda\nterceira'} onChange={onChange} label="Comentário" />);
+
+    const editor = screen.getByRole('textbox', { name: 'Comentário' }) as HTMLTextAreaElement;
+    const cursor = 'primeira\nseg'.length;
+    editor.setSelectionRange(cursor, cursor);
+    fireEvent.click(screen.getByRole('button', { name: 'Lista com marcadores' }));
+
+    expect(onChange).toHaveBeenCalledWith('primeira\n- segunda\nterceira');
+  });
+
+  it('labelledByExternal omite o aria-label para o <label> visível do consumidor nomear o campo', () => {
+    render(
+      <>
+        <label htmlFor="campo-externo">Mensagem visível</label>
+        <ContentEditor id="campo-externo" value="" onChange={vi.fn()} label="Mensagem" labelledByExternal />
+      </>,
+    );
+
+    expect(screen.getByRole('textbox', { name: 'Mensagem visível' })).toBeDefined();
+  });
+
+  it('mantém o textarea required montado durante a prévia para não perder a validação nativa', () => {
+    render(<ContentEditor value="conteúdo" onChange={vi.fn()} label="Mensagem" required />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Prévia' }));
+
+    const editor = screen.getByRole('textbox', { name: 'Mensagem', hidden: true }) as HTMLTextAreaElement;
+    expect(editor.isConnected).toBe(true);
+    expect(editor.required).toBe(true);
+  });
+
+  it('bloqueia o submit nativo quando o campo required está vazio na prévia', () => {
+    const onSubmit = vi.fn();
+    render(
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit();
+        }}
+      >
+        <ContentEditor value="" onChange={vi.fn()} label="Mensagem" required />
+        <button type="submit">Enviar</button>
+      </form>,
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Prévia' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
 });
 
 describe('renderMarkdown', () => {
@@ -45,5 +109,13 @@ describe('renderMarkdown', () => {
 
     expect(output).toContain('<input type="checkbox" disabled="" checked="">');
     expect(output).toContain('<input type="checkbox" disabled="">');
+  });
+
+  it('renderiza checkboxes também em lista solta, onde o item vem embrulhado em <p>', () => {
+    const output = renderMarkdown('- [x] Feito\n\n- [ ] Pendente');
+
+    expect(output).toContain('<input type="checkbox" disabled="" checked="">');
+    expect(output).toContain('<input type="checkbox" disabled="">');
+    expect(output).not.toMatch(/\[[ xX]\]/);
   });
 });

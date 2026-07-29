@@ -839,7 +839,7 @@
       "method": "POST",
       "path": "/api/v1/moderation/:id/approve",
       "sourceFile": "apps/downloads/backend/src/routes/moderation.ts",
-      "line": 182,
+      "line": 190,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -866,7 +866,7 @@
       "method": "PATCH",
       "path": "/api/v1/moderation/batch/:action",
       "sourceFile": "apps/downloads/backend/src/routes/moderation.ts",
-      "line": 263,
+      "line": 271,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3143,7 +3143,7 @@
       "method": "POST",
       "path": "/api/v1/gm/:slug/contact-click",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 563,
+      "line": 565,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3161,7 +3161,7 @@
       "method": "GET",
       "path": "/api/v1/gm/:slug/reviews",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 609,
+      "line": 611,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3170,7 +3170,7 @@
       "method": "POST",
       "path": "/api/v1/gm/:slug/reviews",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 651,
+      "line": 653,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3683,7 +3683,7 @@
       "method": "POST",
       "path": "/api/v1/system-suggestions",
       "sourceFile": "apps/mesas/backend/src/routes/systemSuggestions.ts",
-      "line": 72,
+      "line": 74,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3701,7 +3701,7 @@
       "method": "GET",
       "path": "/api/v1/system-suggestions/mine",
       "sourceFile": "apps/mesas/backend/src/routes/systemSuggestions.ts",
-      "line": 187,
+      "line": 189,
       "confidence": "high",
       "kind": "express-route"
     },

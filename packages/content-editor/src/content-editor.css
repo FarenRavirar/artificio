@@ -62,6 +62,20 @@
   font-size: 0.875rem;
 }
 
+/* Oculta o painel de escrita durante a Prévia sem removê-lo do DOM nem da
+   constraint validation do browser. `display: none`, `visibility: hidden` e o
+   atributo `hidden` fariam o campo `required` ser ignorado no submit — que era
+   exatamente o bug do achado de review PR #227. Tirar da viewport preserva a
+   validação nativa e o foco programático da toolbar. */
+.artificio-content-editor__panel--hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .artificio-content-editor__textarea {
   display: block;
   width: 100%;

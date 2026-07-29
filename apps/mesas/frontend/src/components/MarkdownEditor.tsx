@@ -9,6 +9,7 @@ interface MarkdownEditorProps {
   id?: string;
   maxLength?: number;
   disabled?: boolean;
+  labelledByExternal?: boolean;
 }
 
 /**
@@ -24,6 +25,7 @@ export function MarkdownEditor({
   id,
   maxLength,
   disabled,
+  labelledByExternal,
 }: Readonly<MarkdownEditorProps>) {
   return (
     <ContentEditor
@@ -35,6 +37,7 @@ export function MarkdownEditor({
       id={id}
       maxLength={maxLength}
       disabled={disabled}
+      labelledByExternal={labelledByExternal}
     />
   );
 }
