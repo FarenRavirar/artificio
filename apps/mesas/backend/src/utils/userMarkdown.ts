@@ -10,53 +10,122 @@ const MARKDOWN_ONLY_OPTIONS: sanitizeHtml.IOptions = {
 // variável e não podem ser modeladas corretamente por uma regex fixa.
 const MARKDOWN_INLINE_LITERAL_RE = new RegExp(
   [
-    '(?<!`)(`+)(?!`)[\\s\\S]*?(?<!`)\\1(?!`)',
-    '<(?:https?|ftp|mailto):[^\\s<>]*>',
-    '<[^\\s<>@]+@[^\\s<>@]+\\.[^\\s<>@]+>',
+    String.raw`(?<!\`)(\`+)(?!\`)[\s\S]*?(?<!\`)\1(?!\`)`,
+    String.raw`<(?:https?|ftp|mailto):[^\s<>]*>`,
+    String.raw`<[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+>`,
   ].join('|'),
   'g',
 );
 
 type LiteralRange = { start: number; end: number };
+type MarkdownLine = LiteralRange & { content: string };
+type Fence = { marker: '`' | '~'; length: number; trailing: string };
+
+function* scanMarkdownLines(value: string): Generator<MarkdownLine> {
+  let start = 0;
+
+  while (start < value.length) {
+    let contentEnd = start;
+    while (contentEnd < value.length && !'\r\n'.includes(value[contentEnd])) contentEnd += 1;
+
+    let end = contentEnd;
+    if (value.startsWith('\r\n', end)) end += 2;
+    else if (end < value.length) end += 1;
+
+    yield { start, end, content: value.slice(start, contentEnd) };
+    start = end;
+  }
+}
+
+function readFence(content: string): Fence | null {
+  let markerStart = 0;
+  while (markerStart < 3 && content.startsWith(' ', markerStart)) markerStart += 1;
+
+  let marker: '`' | '~';
+  if (content.startsWith('`', markerStart)) marker = '`';
+  else if (content.startsWith('~', markerStart)) marker = '~';
+  else return null;
+
+  let markerEnd = markerStart;
+  while (content.startsWith(marker, markerEnd)) markerEnd += 1;
+
+  return {
+    marker,
+    length: markerEnd - markerStart,
+    trailing: content.slice(markerEnd),
+  };
+}
+
+function readOpeningFence(content: string): Pick<Fence, 'marker' | 'length'> | null {
+  const fence = readFence(content);
+  if (!fence || fence.length < 3) return null;
+  if (fence.marker === '`' && fence.trailing.includes('`')) return null;
+  return { marker: fence.marker, length: fence.length };
+}
+
+function containsOnlySpacesOrTabs(value: string): boolean {
+  for (const character of value) {
+    if (character !== ' ' && character !== '\t') return false;
+  }
+  return true;
+}
+
+function closesFence(content: string, openFence: Pick<Fence, 'marker' | 'length'>): boolean {
+  const fence = readFence(content);
+  return Boolean(
+    fence &&
+    fence.marker === openFence.marker &&
+    fence.length >= openFence.length &&
+    containsOnlySpacesOrTabs(fence.trailing),
+  );
+}
+
+function extendLastRange(ranges: LiteralRange[], start: number, end: number): void {
+  const previousRange = ranges.at(-1);
+  if (previousRange?.end === start) previousRange.end = end;
+}
 
 function findMarkdownBlockLiteralRanges(value: string): LiteralRange[] {
   const ranges: LiteralRange[] = [];
   let openFence: { marker: '`' | '~'; length: number; start: number } | null = null;
+  let inIndentedBlock = false;
+  let previousLineIsBlank = true;
 
-  for (const match of value.matchAll(/[^\r\n]*(?:\r\n|\n|\r|$)/g)) {
-    const line = match[0];
-    if (!line) continue;
-
-    const start = match.index;
-    const end = start + line.length;
-    const content = line.replace(/(?:\r\n|\n|\r)$/, '');
-
+  for (const { start, end, content } of scanMarkdownLines(value)) {
     if (openFence) {
-      const closing = content.match(/^ {0,3}(`+|~+)[ \t]*$/);
-      if (
-        closing &&
-        closing[1][0] === openFence.marker &&
-        closing[1].length >= openFence.length
-      ) {
+      if (closesFence(content, openFence)) {
         ranges.push({ start: openFence.start, end });
         openFence = null;
       }
+      previousLineIsBlank = false;
       continue;
     }
 
-    const opening = content.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    const opening = readOpeningFence(content);
     if (opening) {
-      const marker = opening[1][0] as '`' | '~';
-      const info = opening[2];
-      // CommonMark não aceita crase na info string de cerca por crases.
-      if (marker === '~' || !info.includes('`')) {
-        openFence = { marker, length: opening[1].length, start };
-        continue;
-      }
+      openFence = { ...opening, start };
+      inIndentedBlock = false;
+      previousLineIsBlank = false;
+      continue;
     }
 
-    // Bloco de código indentado: o HTML da linha é texto literal no CommonMark.
-    if (/^(?: {4}|\t)/.test(content)) ranges.push({ start, end });
+    const isBlank = containsOnlySpacesOrTabs(content);
+    const isIndented = content.startsWith('    ') || content.startsWith('\t');
+
+    // Achado real (review do commit 684fbfd, Codex, P2): bloco indentado não
+    // interrompe parágrafo CommonMark. Só começa no documento/após linha vazia;
+    // depois disso, linhas indentadas e vazias contíguas pertencem ao bloco.
+    if (isIndented && (previousLineIsBlank || inIndentedBlock)) {
+      if (inIndentedBlock) extendLastRange(ranges, start, end);
+      else ranges.push({ start, end });
+      inIndentedBlock = true;
+    } else if (isBlank && inIndentedBlock) {
+      extendLastRange(ranges, start, end);
+    } else if (!isBlank) {
+      inIndentedBlock = false;
+    }
+
+    previousLineIsBlank = isBlank;
   }
 
   // Cerca sem fechamento não é preservada deliberadamente: mantém a fronteira
@@ -132,7 +201,11 @@ type TableMarkdownFields = {
   rules_notes?: string | null;
   synopsis?: string | null;
   style_text?: string | null;
+  listing_excerpt?: string | null;
   technical_requirements?: string | null;
+  synopsis_narrative?: string | null;
+  benefits_text?: string | null;
+  table_gm_bio?: string | null;
 };
 
 export function sanitizeTableMarkdownFields<T extends TableMarkdownFields>(table: T): T {
@@ -142,6 +215,10 @@ export function sanitizeTableMarkdownFields<T extends TableMarkdownFields>(table
     rules_notes: sanitizeOptionalUserMarkdown(table.rules_notes),
     synopsis: sanitizeOptionalUserMarkdown(table.synopsis),
     style_text: sanitizeOptionalUserMarkdown(table.style_text),
+    listing_excerpt: sanitizeOptionalUserMarkdown(table.listing_excerpt),
     technical_requirements: sanitizeOptionalUserMarkdown(table.technical_requirements),
+    synopsis_narrative: sanitizeOptionalUserMarkdown(table.synopsis_narrative),
+    benefits_text: sanitizeOptionalUserMarkdown(table.benefits_text),
+    table_gm_bio: sanitizeOptionalUserMarkdown(table.table_gm_bio),
   };
 }

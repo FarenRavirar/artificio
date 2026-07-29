@@ -23,6 +23,7 @@ import { triggerMetaScrape, triggerMetaScrapeOnPublish } from '../services/metaS
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
 import {
   sanitizeNullableUserMarkdown,
+  sanitizeTableMarkdownFields,
   sanitizeUserMarkdown,
 } from '../utils/userMarkdown.js';
 import { parseTextForPreview } from '../discord/parseTextForPreview.js';
@@ -66,6 +67,21 @@ const isSellingPoint = (point: unknown): point is SellingPoint => {
     typeof candidate.description === 'string'
   );
 };
+
+function normalizeNullableString(
+  value: unknown,
+  normalize: (input: string) => string,
+): string | null | undefined {
+  if (typeof value === 'string') return normalize(value);
+  if (value === null) return null;
+  return undefined;
+}
+
+function normalizeNullableNonNegativeInteger(value: unknown): number | null | undefined {
+  if (value === null) return null;
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) return value;
+  return undefined;
+}
 
 const getPgErrorCode = (error: unknown): string | undefined =>
   (error && typeof error === 'object' && 'code' in error)
@@ -320,13 +336,13 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
   const safeLanguages = Array.isArray(languages) ? languages.filter((v) => typeof v === 'string') : undefined;
   const safeSpecialties = Array.isArray(specialties) ? specialties.filter((v) => typeof v === 'string') : undefined;
   const safeBadges = Array.isArray(badges) ? badges.filter((v) => typeof v === 'string') : undefined;
-  const safeTagline = typeof tagline === 'string' ? tagline.trim().slice(0, 200) : tagline === null ? null : undefined;
-  const safePromoBadgeText =
-    typeof promo_badge_text === 'string'
-      ? promo_badge_text.trim().slice(0, 120)
-      : promo_badge_text === null
-        ? null
-        : undefined;
+  // Achado real (Sonar, Medium, fase 7 da spec 089): normalizadores explícitos
+  // preservam string/null/undefined sem ternários aninhados nos handlers.
+  const safeTagline = normalizeNullableString(tagline, (value) => value.trim().slice(0, 200));
+  const safePromoBadgeText = normalizeNullableString(
+    promo_badge_text,
+    (value) => value.trim().slice(0, 120),
+  );
   const safeSellingPoints = Array.isArray(selling_points)
     ? selling_points.filter(isSellingPoint)
     : undefined;
@@ -336,29 +352,17 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
         (value) => typeof value === 'string' && /^[0-9a-fA-F-]{36}$/.test(value)
       )
     : undefined;
-  const safeClosedGroupDescription =
-    typeof closed_group_description === 'string'
-      ? sanitizeUserMarkdown(closed_group_description.trim())
-      : closed_group_description === null
-        ? null
-        : undefined;
+  const safeClosedGroupDescription = normalizeNullableString(
+    closed_group_description,
+    (value) => sanitizeUserMarkdown(value.trim()),
+  );
   // Mesmo padrão de closed_group_description acima: `req.body` é `unknown` até
   // ser validado (regra pétrea de normalização), e sanitize-html espera string —
   // número ou objeto chegariam nele sem esta guarda (achado de review, P2).
-  const safeBioLong =
-    typeof bio_long === 'string'
-      ? sanitizeUserMarkdown(bio_long)
-      : bio_long === null
-        ? null
-        : undefined;
-  const safeClosedGroupMinPriceCents =
-    typeof closed_group_min_price_cents === 'number' &&
-    Number.isInteger(closed_group_min_price_cents) &&
-    closed_group_min_price_cents >= 0
-      ? closed_group_min_price_cents
-      : closed_group_min_price_cents === null
-        ? null
-        : undefined;
+  const safeBioLong = normalizeNullableString(bio_long, sanitizeUserMarkdown);
+  const safeClosedGroupMinPriceCents = normalizeNullableNonNegativeInteger(
+    closed_group_min_price_cents,
+  );
   const safePreferredVttPlatforms = Array.isArray(preferred_vtt_platforms)
     ? preferred_vtt_platforms.filter(
         (value) => typeof value === 'string' && /^[0-9a-fA-F-]{36}$/.test(value)
@@ -513,6 +517,8 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
     return res.json({
       data: {
         ...gmProfile,
+        bio_long: sanitizeNullableUserMarkdown(gmProfile.bio_long),
+        closed_group_description: sanitizeNullableUserMarkdown(gmProfile.closed_group_description),
         tables_count: tablesCount,
         avg_rating: null,
       },
@@ -557,7 +563,7 @@ router.get('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
     const schedules = await TableRepository.findSchedulesByTableId(id);
 
     const responseData = {
-      ...tableData,
+      ...sanitizeTableMarkdownFields(tableData),
       // Achado do mantenedor (2026-07-14): mesa importada via Discord pode ter
       // banner_url ainda apontando pra CDN efêmero do Discord (URL assinada com
       // expiração, ex=/is=/hm=) quando o upload retroativo pro Cloudinary nunca
@@ -1154,7 +1160,7 @@ router.get('/tables', authMiddleware, async (req: Request, res: Response) => {
 
     const tablesWithSystem = await hydrateTableSystemFields(tables);
     const tablesWithData = tablesWithSystem.map((table) => ({
-      ...table,
+      ...sanitizeTableMarkdownFields(table),
       contacts: contactsByTable.get(table.id) ?? [],
       schedules: schedulesByTable.get(table.id) ?? [],
     }));

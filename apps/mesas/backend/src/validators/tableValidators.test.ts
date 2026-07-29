@@ -6,7 +6,11 @@ describe('updateTableSchema — Markdown de usuário', () => {
     'rules_notes',
     'synopsis',
     'style_text',
+    'listing_excerpt',
     'technical_requirements',
+    'synopsis_narrative',
+    'benefits_text',
+    'table_gm_bio',
   ] as const)('remove HTML executável de %s antes da escrita', (field) => {
     const result = updateTableSchema.parse({
       [field]: '**Markdown** <script>alert(1)</script><img src=x onerror=alert(2)>',

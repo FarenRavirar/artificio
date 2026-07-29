@@ -15,8 +15,6 @@ overrides:
   "postcss@<8.5.18": ">=8.5.18"
   # Snyk SNYK-JS-LINKIFYIT-17901217 / CVE-2026-59887 (CWE-407, CVSS 8.7): ReDoS
   # no validador `mailto:`. Transitiva de markdown-it, usado no editor do mesas.
-  # Snyk SNYK-JS-LINKIFYIT-17901217 / CVE-2026-59887 (CWE-407, CVSS 8.7): ReDoS
-  # no validador `mailto:`. Transitiva de markdown-it (editor do mesas).
   #
   # O teto `<6` NÃO deixa o CVE aberto — a correção é o 5.0.2, que é o que fica
   # instalado. Ele impede um major que nenhum consumidor suporta: `markdown-it`

@@ -4,7 +4,7 @@ import { db } from '../db/index.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { logDatabaseError } from '../middleware/requestLogger.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
-import { isPublicTable } from '../utils/tableVisibility.js';
+import { importedTableIsCurrentSql, isPublicTable } from '../utils/tableVisibility.js';
 import {
   sanitizeNullableUserMarkdown,
   sanitizeTableMarkdownFields,
@@ -153,12 +153,7 @@ router.get('/', async (req: Request, res: Response) => {
       // Precisa ser filtro de banco, não de memória — senão a expirada entra na
       // contagem e na paginação e some da página, deixando buraco no resultado
       // (achado de review, P2). Mesa não importada nunca expira.
-      .where(
-        sql<boolean>`(
-          t.origin IS DISTINCT FROM 'imported'
-          OR LEAST(COALESCE(t.starts_at, t.created_at + INTERVAL '5 days'), t.created_at + INTERVAL '5 days') > NOW()
-        )`,
-      )
+      .where(importedTableIsCurrentSql('t'))
       .orderBy('t.created_at', 'desc');
 
     if (system) {
@@ -359,6 +354,7 @@ router.get('/style-facets', async (_req: Request, res: Response) => {
       CROSS JOIN LATERAL unnest(t.setting_styles) AS style
       WHERE t.status = 'active'
         AND t.archived_at IS NULL
+        AND ${importedTableIsCurrentSql('t')}
         AND t.setting_styles IS NOT NULL
       GROUP BY style
       ORDER BY COUNT(*) DESC

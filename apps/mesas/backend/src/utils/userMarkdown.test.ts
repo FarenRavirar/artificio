@@ -20,27 +20,13 @@ describe('sanitizeUserMarkdown', () => {
   // legítimo, e como isso roda na escrita, a perda era permanente. Estes casos
   // falham contra a implementação anterior.
   describe('preserva trechos que o Markdown trata como literais', () => {
-    it('mantém HTML dentro de código inline', () => {
-      expect(sanitizeUserMarkdown('Use `<button>` aqui')).toBe('Use `<button>` aqui');
-    });
-
-    it('mantém HTML dentro de bloco cercado', () => {
-      const input = '```html\n<div>x</div>\n```';
-      expect(sanitizeUserMarkdown(input)).toBe(input);
-    });
-
-    it('mantém bloco cercado com til', () => {
-      const input = '~~~\n<span>y</span>\n~~~';
-      expect(sanitizeUserMarkdown(input)).toBe(input);
-    });
-
-    it('rastreia o comprimento da cerca e não fecha no trio interno', () => {
-      const input = '````md\n```html\n<div>x</div>\n```\n````';
-      expect(sanitizeUserMarkdown(input)).toBe(input);
-    });
-
-    it('aceita fechamento maior que a abertura e indentado até três espaços', () => {
-      const input = '  ~~~\n<span>y</span>\n ~~~~';
+    it.each([
+      ['código inline', 'Use `<button>` aqui'],
+      ['bloco cercado por crases', '```html\n<div>x</div>\n```'],
+      ['bloco cercado por til', '~~~\n<span>y</span>\n~~~'],
+      ['cerca externa maior que a interna', '````md\n```html\n<div>x</div>\n```\n````'],
+      ['fechamento maior e indentado', '  ~~~\n<span>y</span>\n ~~~~'],
+    ])('mantém %s', (_case, input) => {
       expect(sanitizeUserMarkdown(input)).toBe(input);
     });
 
@@ -51,6 +37,18 @@ describe('sanitizeUserMarkdown', () => {
       expect(output).toContain('    <div>espaços</div>');
       expect(output).toContain('\t<span>tab</span>');
       expect(output).not.toMatch(/script|alert\(/i);
+    });
+
+    it('não deixa bloco indentado interromper parágrafo CommonMark', () => {
+      const output = sanitizeUserMarkdown('Parágrafo\n    <script>alert(1)</script>');
+
+      expect(output).toBe('Parágrafo\n    ');
+    });
+
+    it('mantém bloco indentado após linha vazia e em linhas contíguas', () => {
+      const input = 'Parágrafo\n\n    <div>linha 1</div>\n    <span>linha 2</span>';
+
+      expect(sanitizeUserMarkdown(input)).toBe(input);
     });
 
     it('mantém autolink de URL e de e-mail', () => {
@@ -119,6 +117,10 @@ describe('sanitizeUserMarkdown', () => {
       description: '<img src=x onerror=alert(1)> **segura**',
       rules_notes: '<script>alert(2)</script>',
       synopsis: null,
+      listing_excerpt: '<b>chamada</b>',
+      synopsis_narrative: '<i>narrativa</i>',
+      benefits_text: '<img src=x onerror=alert(3)>benefícios',
+      table_gm_bio: '<script>alert(4)</script>bio',
     });
 
     expect(table).toMatchObject({
@@ -126,6 +128,10 @@ describe('sanitizeUserMarkdown', () => {
       description: ' **segura**',
       rules_notes: '',
       synopsis: null,
+      listing_excerpt: 'chamada',
+      synopsis_narrative: 'narrativa',
+      benefits_text: 'benefícios',
+      table_gm_bio: 'bio',
     });
   });
 });

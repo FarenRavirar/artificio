@@ -1,6 +1,23 @@
+import { sql, type RawBuilder } from 'kysely';
+
 // Achado real (Sonar, Low, fase 7 da spec 089): um alias mantém uniforme o
 // contrato aceito pelas projeções do banco e pelos fixtures serializados.
 type DateValue = Date | string;
+
+/** Predicado SQL equivalente a `isImportedTableExpired`, para queries públicas. */
+export function importedTableIsCurrentSql(tableAlias: string): RawBuilder<boolean> {
+  const origin = sql.ref(`${tableAlias}.origin`);
+  const startsAt = sql.ref(`${tableAlias}.starts_at`);
+  const createdAt = sql.ref(`${tableAlias}.created_at`);
+
+  return sql<boolean>`(
+    ${origin} IS DISTINCT FROM 'imported'
+    OR LEAST(
+      COALESCE(${startsAt}, ${createdAt} + INTERVAL '5 days'),
+      ${createdAt} + INTERVAL '5 days'
+    ) > NOW()
+  )`;
+}
 
 /**
  * Mesa importada expira 5 dias após criação, ou na data do evento

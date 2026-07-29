@@ -6,13 +6,17 @@ import { publicRateLimiter, authRateLimiter } from '../middleware/rateLimit.js';
 import { isValidEmail } from '../utils/validation.js';
 import { generateEmbedUrl, LinkType } from '../services/linkService.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
-import { sanitizeNullableUserMarkdown } from '../utils/userMarkdown.js';
+import {
+  sanitizeNullableUserMarkdown,
+  sanitizeTableMarkdownFields,
+} from '../utils/userMarkdown.js';
 import { upgradeGoogleImageQuality } from '../utils/urlValidation.js';
 import { getSystemCatalogProvider, hydrateTableSystemFields } from '../services/systemCatalogProvider.js';
 import { processPendingLinks } from '../scripts/processLinkMetadataJobs.js';
 import { logDatabaseError } from '../middleware/requestLogger.js';
 import { GM_REVIEW_TAGS } from '../db/types.js';
 import type { GmReviewTag } from '../db/types.js';
+import { importedTableIsCurrentSql } from '../utils/tableVisibility.js';
 
 const router = Router();
 
@@ -125,7 +129,14 @@ router.get('/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: 
         'gm.closed_group_systems',
         'gm.closed_group_description',
         'gm.closed_group_min_price_cents',
-        sql<number>`(SELECT COUNT(*)::int FROM tables WHERE gm_id = gm.id AND status = 'active')`.as('tables_count'),
+        sql<number>`(
+          SELECT COUNT(*)::int
+          FROM tables public_table
+          WHERE public_table.gm_id = gm.id
+            AND public_table.status = 'active'
+            AND public_table.archived_at IS NULL
+            AND ${importedTableIsCurrentSql('public_table')}
+        )`.as('tables_count'),
         // T9.1 (spec 081): "mesas hospedadas" = total histórico (inclui encerradas/canceladas),
         // diferente de tables_count acima (só ativas, usado na sidebar de detalhes rápidos).
         sql<number>`(SELECT COUNT(*)::int FROM tables WHERE gm_id = gm.id)`.as('tables_hosted_count'),
@@ -221,19 +232,14 @@ router.get('/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: 
       // Mesma regra de isPublicTable aplicada no catálogo (routes/tables.ts):
       // mesa importada expirada não é pública, e o perfil do mestre é superfície
       // pública igual (achado de review, P2).
-      .where(
-        sql<boolean>`(
-          t.origin IS DISTINCT FROM 'imported'
-          OR LEAST(COALESCE(t.starts_at, t.created_at + INTERVAL '5 days'), t.created_at + INTERVAL '5 days') > NOW()
-        )`,
-      )
+      .where(importedTableIsCurrentSql('t'))
       .orderBy('t.featured', 'desc')
       .orderBy('t.created_at', 'desc')
       .execute();
 
     const tablesWithSystem = await hydrateTableSystemFields(tables);
     const publicTables = tablesWithSystem.map((table) => ({
-      ...table,
+      ...sanitizeTableMarkdownFields(table),
       cover_url: sanitizePublicImageUrl(table.cover_url),
     }));
 
