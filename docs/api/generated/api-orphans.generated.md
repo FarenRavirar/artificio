@@ -10,7 +10,7 @@
 
 | Categoria | Quantidade | Bloqueia? |
 |-----------|:----------:|:---------:|
-| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 46 | ❌ |
+| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 48 | ❌ |
 
 ## Rotas órfãs suspeitas
 
@@ -21,7 +21,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
 | GET | `/internal/users/:id` | ✅ | public | Scope "public" sem consumidor |
-### downloads (35 rota(s))
+### downloads (38 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
@@ -47,6 +47,9 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | GET | `/api/v1/organizations` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/organizations/:id/members` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/ratings/:materialId` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/materiais/:slug` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/robots.txt` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/sitemap.xml` | ✅ | public | Scope "public" sem consumidor |
 | PATCH | `/api/v1/materials/:id` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/collections` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/collections/:id/items` | ✅ | public | Scope "public" sem consumidor |
@@ -60,11 +63,6 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | POST | `/api/v1/reports` | ✅ | public | Scope "public" sem consumidor |
 | PUT | `/api/v1/material-metadata/:materialId` | ✅ | public | Scope "public" sem consumidor |
 | PUT | `/api/v1/ratings` | ✅ | public | Scope "public" sem consumidor |
-### glossario (1 rota(s))
-
-| Method | Path | Tem OpenAPI? | Scope | Razão |
-|--------|------|:-----------:|-------|-------|
-| GET | `/sitemap.xml` | ✅ | public | Scope "public" sem consumidor |
 ### mesas (2 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |

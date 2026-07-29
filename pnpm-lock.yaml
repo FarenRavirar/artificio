@@ -166,6 +166,9 @@ importers:
       '@artificio/config':
         specifier: workspace:*
         version: link:../../../packages/config
+      '@artificio/content':
+        specifier: workspace:*
+        version: link:../../../packages/content
       '@artificio/content-editor':
         specifier: workspace:*
         version: link:../../../packages/content-editor

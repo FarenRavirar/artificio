@@ -4,13 +4,13 @@
   "generatedAt": "1970-01-01T00:00:00.000Z",
   "apps": {
     "accounts": 12,
-    "downloads": 79,
+    "downloads": 82,
     "glossario": 49,
     "links": 22,
     "mesas": 192,
     "site": 49
   },
-  "total": 403,
+  "total": 406,
   "operations": [
     {
       "app": "accounts",
@@ -1236,6 +1236,42 @@
       "auth": "user",
       "consumers": [],
       "operationId": "getapi_v1_system_suggestions_mine"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/materiais/{slug}",
+      "summary": "Consulta materiais slug",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getmateriais_slug"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/robots.txt",
+      "summary": "Consulta robots.txt",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getrobots_txt"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/sitemap.xml",
+      "summary": "Consulta sitemap.xml",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getsitemap_xml"
     },
     {
       "app": "glossario",

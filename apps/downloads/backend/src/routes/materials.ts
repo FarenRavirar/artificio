@@ -28,6 +28,11 @@ import {
   MaterialTaxonomyValidationError,
   resolveMaterialTaxonomyPatch,
 } from '../services/materialTaxonomy';
+import {
+  CARD_METADATA_FIELDS,
+  PUBLIC_MATERIAL_FIELDS,
+  findPublishedMaterialBySlug,
+} from '../services/publicMaterial';
 
 const router = Router();
 
@@ -72,41 +77,6 @@ const patchMaterialSchema = z.object({
   system_id: z.uuid().nullable().optional(),
   edition_id: z.uuid().nullable().optional(),
 });
-
-// Campos publicos da ficha; exclui storage_provider/storage_key (achado
-// chatgpt-codex-connector P2 — vazamento de detalhes internos de storage).
-const PUBLIC_MATERIAL_FIELDS = [
-  'download_material.id',
-  'download_material.slug',
-  'download_material.title',
-  'download_material.summary',
-  'download_material.description',
-  'download_material.material_type',
-  'download_material.material_type_id',
-  'download_material.access_kind',
-  'download_material.external_url',
-  'download_material.system_id',
-  'download_material.edition_id',
-  'download_material.creator_id',
-  'download_material.editorial_state',
-  'download_material.created_at',
-  'download_material.updated_at',
-] as const;
-
-const CARD_METADATA_FIELDS = [
-  'download_material_metadata.cover_image_url',
-  'download_material_metadata.credits',
-  'download_material_metadata.authors',
-  'download_material_metadata.author_keys',
-  'download_material_metadata.artists',
-  // Spec 088 (requisito 31) — editora e AUTORIA sao campos distintos e o card
-  // exibe os dois, publicante primeiro. `publisher_name` ja existia na tabela
-  // e na rota de metadados (ficha), mas nao era projetado aqui, entao o card
-  // nao tinha como exibi-lo. Aditivo: nenhum consumidor perde campo.
-  'download_material_metadata.publisher_name',
-  'download_material_metadata.publisher_key',
-  'download_material_metadata.scenario',
-] as const;
 
 const createMaterialSchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -557,26 +527,9 @@ router.get('/:id/history', writeRateLimiter, authMiddleware, async (req: Request
 // T2.1 — leitura publica de ficha, sem sessao. Fluxo completo de descoberta
 // (busca/filtro/facetas) fica na spec 073; aqui so a leitura por slug.
 router.get('/:slug', async (req: Request, res: Response) => {
-  const material = await db
-    .selectFrom('download_material')
-    // Spec 084 — material de origem scraper grava creator_id = download_creator.id
-    // (ator de sistema, sem user_id/SSO real); material humano continua
-    // gravando creator_id = user_id do SSO. OR cobre os 2 casos no mesmo JOIN
-    // sem mudar o contrato do fluxo humano ja existente.
-    .leftJoin('download_creator', (join) =>
-      join.on((eb) => eb.or([
-        eb('download_creator.user_id', '=', eb.ref('download_material.creator_id')),
-        eb('download_creator.id', '=', eb.ref('download_material.creator_id')),
-      ])),
-    )
-    // Achado real (review PR #208, Codex P1): ficha nao devolvia cover_image_url
-    // (so a listagem fazia esse join); mesmo leftJoin + CARD_METADATA_FIELDS
-    // da listagem, replicado aqui.
-    .leftJoin('download_material_metadata', 'download_material_metadata.material_id', 'download_material.id')
-    .select([...PUBLIC_MATERIAL_FIELDS, ...CARD_METADATA_FIELDS, 'download_creator.slug as creator_slug'])
-    .where('download_material.slug', '=', req.params.slug)
-    .where('download_material.editorial_state', '=', 'published')
-    .executeTakeFirst();
+  // Spec 089 Fase 8: shell HTML e API JSON compartilham esta consulta. Manter
+  // aqui só os efeitos próprios da API (view, destino e hidratação taxonômica).
+  const material = await findPublishedMaterialBySlug(req.params.slug);
 
   if (!material) {
     return res.status(404).json({ error: 'Material não encontrado.' });

@@ -41,6 +41,7 @@ COPY patches ./patches
 RUN pnpm install --prod --filter @artificio/downloads-backend --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/media --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/email --frozen-lockfile --ignore-scripts \
+  && pnpm install --prod --filter @artificio/content --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/content-editor --frozen-lockfile --ignore-scripts \
   && test -d packages/media/node_modules/cloudinary \
   && test -d packages/content-editor/node_modules/sanitize-html \
@@ -70,6 +71,7 @@ RUN apt-get update \
 
 # Workspace packages sao linkados em producao; copiar so o dist que exportam em runtime.
 COPY --from=builder /repo/packages/config/dist ./packages/config/dist
+COPY --from=builder /repo/packages/content/dist-cjs ./packages/content/dist-cjs
 COPY --from=builder /repo/packages/auth/dist ./packages/auth/dist
 COPY --from=builder /repo/packages/auth/dist-cjs ./packages/auth/dist-cjs
 COPY --from=builder /repo/packages/media/dist ./packages/media/dist

@@ -18,6 +18,12 @@ services:
     environment:
       - API_UPSTREAM=downloads-api
       - TRUSTED_REAL_IP_FROM=${TRUSTED_REAL_IP_FROM:-172.18.0.0/16}
+    command:
+      - /bin/sh
+      - -c
+      - rm -rf /frontend-dist/* && cp -r /usr/share/nginx/html/. /frontend-dist/ && exec /docker-entrypoint.sh nginx -g 'daemon off;'
+    volumes:
+      - frontend_dist_downloads_prod:/frontend-dist
     depends_on:
       downloads-api:
         condition: service_healthy
@@ -41,6 +47,8 @@ services:
       - NODE_ENV=production
       - APP_ENV=production
       - PORT=3000
+      - PUBLIC_SITE_URL=https://downloads.artificiorpg.com
+      - INDEX_HTML_PATH=/app/frontend-dist/index.html
       - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET is required}
       - FRONTEND_URL=https://downloads.artificiorpg.com
@@ -72,6 +80,7 @@ services:
         condition: service_healthy
     volumes:
       - ./logs:/app/logs
+      - frontend_dist_downloads_prod:/app/frontend-dist:ro
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/v1/health || exit 1"]
       interval: 30s
@@ -105,6 +114,7 @@ services:
 
 volumes:
   pgdata_downloads_prod:
+  frontend_dist_downloads_prod:
 
 networks:
   artificio_net:
