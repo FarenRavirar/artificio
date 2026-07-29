@@ -33,11 +33,18 @@ COPY packages ./packages
 COPY apps/downloads/backend/package.json ./apps/downloads/backend/package.json
 COPY patches ./patches
 
+# `pnpm --prod` filtrando so o app nao instala as deps dos pacotes workspace
+# (mesmo motivo ja documentado em apps/mesas/backend/Dockerfile): content-editor
+# depende de sanitize-html e markdown-it, e dist-cjs/sanitize.js faz require nos
+# dois no boot. Sem este filtro a imagem cai com MODULE_NOT_FOUND antes de
+# servir qualquer rota (achado de review PR #227).
 RUN pnpm install --prod --filter @artificio/downloads-backend --frozen-lockfile \
   && pnpm install --prod --filter @artificio/media --frozen-lockfile \
   && pnpm install --prod --filter @artificio/email --frozen-lockfile \
+  && pnpm install --prod --filter @artificio/content-editor --frozen-lockfile \
   && test -d packages/media/node_modules/cloudinary \
-  || (echo "ERRO: cloudinary nao encontrado em packages/media/node_modules/" && exit 1)
+  && test -d packages/content-editor/node_modules/sanitize-html \
+  || (echo "ERRO: dependencia de pacote workspace ausente em packages/*/node_modules/" && exit 1)
 
 # Achado de review PR #193 (codex) — scraper de spec 084 (Modo 2a/2b) precisa
 # de runtime headless real na imagem: patchright exige Chromium instalado
@@ -79,6 +86,12 @@ COPY --from=builder /repo/packages/catalog-matching/dist-cjs ./packages/catalog-
 COPY --from=builder /repo/packages/changelog/dist ./packages/changelog/dist
 COPY --from=builder /repo/packages/changelog/dist-cjs ./packages/changelog/dist-cjs
 COPY --from=builder /repo/packages/email/dist ./packages/email/dist
+# Mesmo padrao de E016/E017: as rotas do backend (comments, materials, reports,
+# moderation, ratings, admin, creators, materialMetadata, systemSuggestionsAdmin,
+# materialTypeSuggestionsAdmin) importam @artificio/content-editor/sanitize.
+# So o dist-cjs entra: o backend compila com module "CommonJS" e consome apenas
+# o subpath do sanitizador; a raiz do pacote e React/TSX, usada so pelo frontend.
+COPY --from=builder /repo/packages/content-editor/dist-cjs ./packages/content-editor/dist-cjs
 
 COPY --from=builder /repo/apps/downloads/backend/dist ./apps/downloads/backend/dist
 

@@ -9,6 +9,7 @@ import { logModerationAudit } from '../services/moderationAuditLog';
 import { sendModerationEmail } from '../services/moderationEmail';
 import { detectPortuguese } from '../services/languageDetector';
 import type { DownloadEditorialState } from '../db/types';
+import { sanitizeNullableUserMarkdown } from '@artificio/content-editor/sanitize';
 
 const router = Router();
 
@@ -76,7 +77,10 @@ router.get('/queue', writeRateLimiter, authMiddleware, requireRole(['moderator',
     .orderBy('updated_at', 'asc')
     .execute();
 
-  return res.json(queue);
+  return res.json(queue.map((material) => ({
+    ...material,
+    rejection_reason: sanitizeNullableUserMarkdown(material.rejection_reason),
+  })));
 });
 
 const rejectSchema = z.object({
@@ -123,11 +127,20 @@ router.post('/:id/reject', writeRateLimiter, authMiddleware, requireRole(['moder
     throw error;
   }
 
+  // O `min(1)` do Zod roda antes da sanitização, então entrada só-markup
+  // (`<script>alert(1)</script>`, `<div></div>`) passa na validação e sai vazia
+  // daqui — gravava motivo de reprovação em branco. Rejeitar com 400 em vez de
+  // usar `!` para silenciar o null (achado de review PR #227).
+  const safeReason = sanitizeNullableUserMarkdown(parsed.data.reason);
+  if (!safeReason?.trim()) {
+    return res.status(400).json({ error: 'Motivo de reprovação é obrigatório.' });
+  }
+
   const updated = await db
     .updateTable('download_material')
     .set({
       editorial_state: 'rejected',
-      rejection_reason: parsed.data.reason,
+      rejection_reason: safeReason,
       rejection_category_id: category.id,
       updated_at: new Date(),
     })
@@ -140,7 +153,7 @@ router.post('/:id/reject', writeRateLimiter, authMiddleware, requireRole(['moder
       userId: updated.creator_id,
       kind: 'material_rejected',
       materialId: updated.id,
-      body: `Seu material "${updated.title}" foi rejeitado. Motivo: ${parsed.data.reason}`,
+      body: `Seu material "${updated.title}" foi rejeitado. Motivo: ${safeReason}`,
     });
   } catch (error) {
     console.error('[POST /moderation/:id/reject] Falha ao emitir notificação:', error);
@@ -156,7 +169,7 @@ router.post('/:id/reject', writeRateLimiter, authMiddleware, requireRole(['moder
     materialTitle: updated.title,
     categoryLabel: category.label,
     legalBasis: category.legal_basis,
-    reason: parsed.data.reason,
+    reason: safeReason,
   }).catch((error: unknown) => {
     console.error('[POST /moderation/:id/reject] Falha ao enviar e-mail:', error);
   });
@@ -165,7 +178,7 @@ router.post('/:id/reject', writeRateLimiter, authMiddleware, requireRole(['moder
     action: 'reject',
     actorUserId: req.user!.userId,
     materialId: updated.id,
-    reason: `${category.slug}: ${parsed.data.reason}`,
+    reason: `${category.slug}: ${safeReason}`,
   });
 
   return res.json(updated);
@@ -288,6 +301,13 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
   }
 
   const targetState = ACTION_TARGET_STATE[action];
+  const safeBatchReason = sanitizeNullableUserMarkdown(parsed.data.reason ?? null);
+  // O guard acima checa o valor cru; a sanitização pode esvaziar entrada
+  // só-markup e gravaria motivo em branco no lote inteiro (mesmo achado da
+  // reprovação individual, review PR #227).
+  if (action === 'reject' && !safeBatchReason?.trim()) {
+    return res.status(400).json({ error: 'Motivo de reprovação é obrigatório para ação em lote de reprovar.' });
+  }
   const results: Array<{ id: string; status: 'updated' | 'skipped'; reason?: string }> = [];
 
   for (const id of parsed.data.ids) {
@@ -323,7 +343,7 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
       .updateTable('download_material')
       .set({
         editorial_state: targetState,
-        rejection_reason: action === 'reject' ? (parsed.data.reason ?? null) : null,
+        rejection_reason: action === 'reject' ? safeBatchReason : null,
         rejection_category_id: action === 'reject' ? (rejectCategory?.id ?? null) : null,
         updated_at: new Date(),
       })
@@ -338,7 +358,7 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
           materialId: material.id,
           body: action === 'approve'
             ? `Seu material "${material.title}" foi aprovado e publicado.`
-            : `Seu material "${material.title}" foi rejeitado. Motivo: ${parsed.data.reason}`,
+            : `Seu material "${material.title}" foi rejeitado. Motivo: ${safeBatchReason}`,
         });
       } catch (error) {
         console.error(`[PATCH /moderation/batch/${action}] Falha ao emitir notificação para material ${material.id}:`, error);
@@ -363,7 +383,7 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
               materialTitle: material.title,
               categoryLabel: rejectCategory.label,
               legalBasis: rejectCategory.legal_basis,
-              reason: parsed.data.reason ?? '',
+              reason: safeBatchReason ?? '',
             })
           : null;
 
@@ -376,7 +396,7 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
       action,
       actorUserId: req.user!.userId,
       materialId: material.id,
-      reason: action === 'reject' ? `${rejectCategory?.slug ?? '?'}: ${parsed.data.reason}` : undefined,
+      reason: action === 'reject' ? `${rejectCategory?.slug ?? '?'}: ${safeBatchReason}` : undefined,
     });
 
     results.push({ id, status: 'updated' });

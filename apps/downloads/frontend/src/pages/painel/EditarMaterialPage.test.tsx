@@ -156,13 +156,12 @@ describe('EditarMaterialPage', () => {
     renderPage();
 
     expect(screen.getByLabelText('Título')).toHaveValue('Material Original');
-    expect(screen.getByLabelText('Resumo')).toHaveValue('Resumo original');
-    expect(screen.getByLabelText('Descrição')).toHaveValue('Descrição original');
+    expect(screen.getByLabelText('Descrição do material')).toHaveValue('Descrição original');
     expect(screen.getByLabelText('Link de destino')).toHaveValue('https://exemplo.com/original');
   });
 
   it('preenche a editora quando os metadados carregam', () => {
-    mockMyMaterials();
+    mockMyMaterials({ data: [makeMaterial({ publisher_name: 'Editora Exemplo' })] });
     mockUpdateMaterial();
     mockSubmitMaterial();
     mockMaterialHistory();
@@ -216,8 +215,6 @@ describe('EditarMaterialPage', () => {
 
     expect(updateMutateAsync).toHaveBeenCalledWith({
       title: 'Título Editado',
-      summary: 'Resumo original',
-      description: 'Descrição original',
       external_url: 'https://exemplo.com/original',
     });
 
@@ -226,7 +223,10 @@ describe('EditarMaterialPage', () => {
     // waitFor que só espera o primeiro não garante que os efeitos
     // posteriores já rodaram (flaky). waitFor aqui cobre o fim da cadeia.
     await waitFor(() => {
-      expect(updateMetadataMutateAsync).toHaveBeenCalledWith({ publisher_name: null });
+      expect(updateMetadataMutateAsync).toHaveBeenCalledWith({
+        publisher_name: null,
+        description_markdown: 'Descrição original',
+      });
       expect(toast.success).toHaveBeenCalledWith('Material atualizado.');
     });
   });

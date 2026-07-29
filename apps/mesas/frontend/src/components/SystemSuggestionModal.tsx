@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/useAuth';
 import { useSystemsCatalog } from '../hooks/useSystemsCatalog';
 import { authPost } from '../services/apiClient';
 import type { SystemTreeNode } from '../types/systems';
+import { MarkdownEditor } from './MarkdownEditor';
 
 interface SystemSuggestionModalProps {
   isOpen: boolean;
@@ -392,15 +393,13 @@ export const SystemSuggestionModal = ({
             </div>
 
             <div className={user?.role !== 'admin' ? 'hidden' : ''}>
-              <label className="block text-white font-semibold mb-2 text-sm">
-                Descrição (opcional)
-              </label>
-              <textarea
+              <MarkdownEditor
+                label="Descrição (opcional)"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={setDescription}
                 placeholder="Informações adicionais sobre o sistema..."
-                rows={4}
-                className="w-full px-4 py-2 bg-[#0F1A2E] border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--color-artificio-orange)] resize-none"
+                maxLength={4_000}
+                height={160}
               />
             </div>
 

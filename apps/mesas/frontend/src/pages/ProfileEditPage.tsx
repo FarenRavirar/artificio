@@ -491,6 +491,7 @@ function TabGeral() {
           <MarkdownEditor
             value={bio}
             onChange={(text) => { setBio(text); updateProfile({ bio: text }); }}
+            label="Bio"
             placeholder="Conte um pouco sobre você..."
             height={200}
           />
@@ -754,6 +755,7 @@ function TabMestre({
           <MarkdownEditor
             value={bioLong}
             onChange={(text) => { setBioLong(text); updateGm({ bio_long: text }); }}
+            label="Bio detalhada"
             placeholder="Conte sobre sua experiência como mestre..."
             height={300}
           />

@@ -1,62 +1,32 @@
 import { useState, type FormEvent } from 'react';
+import { ContentEditor } from '@artificio/content-editor';
+import { PageHeader, SectionCard } from '@artificio/ui/admin';
 import { useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { PageHeader, SectionCard } from '@artificio/ui/admin';
 import { GestaoShell } from '../../components/GestaoShell';
-import { RichTextEditor } from '../../components/RichTextEditor';
 import { useAdminMedia } from '../../hooks/useAdminMedia';
 import { useUpdateMaterialMetadata } from '../../hooks/useUpdateMaterialMetadata';
 
-// Achado real (review PR #209, GitHub Advanced Security/CodeQL, high):
-// strip de tag por regex (/<[^>]*>/g) é sanitização incompleta — string com
-// tag quebrada/aninhada pode manter "<script" de fora do match e o linter
-// sinaliza injeção potencial. Isto aqui só decide se o HTML é "vazio" pra
-// gravar null (não é a sanitização real: essa é sempre no servidor,
-// sanitizeRichHtml.ts, AGENTS.md). Troca pra DOMParser: extrai texto via
-// árvore DOM real, sem regex tentando emular parser de HTML.
-// Tags sem texto próprio que ainda assim são conteúdo real (o TipTap emite
-// <p></p> pra documento genuinamente vazio, e isso continua devendo virar
-// null — só as tags abaixo contam como "tem algo" sem precisar de texto).
-const STRUCTURAL_EMPTY_TAGS = new Set(['img', 'hr']);
-
-function normalizedRichHtml(value: string): string | null {
-  const parsed = new DOMParser().parseFromString(value, 'text/html');
-  // Achado real (review PR #209, GitHub Advanced Security/CodeQL): fix
-  // anterior tinha o caractere non-breaking space literal digitado direto
-  // no regex em vez do escape unicode \u2014 replace virava no-op (mesmo
-  // caractere nos dois lados). Escape expl\u00EDcito, alvo \u00E9 o non-breaking
-  // space (\u00A0) que vira espa\u00E7o normal.
-  const text = (parsed.body.textContent ?? '').replace(/\u00A0/g, ' ').trim();
-  // Achado real (review PR #209, Codex, nitpick): checar só <img> descartava
-  // descrição com outro conteúdo estrutural sem texto próprio (ex.: só
-  // <hr>) como se fosse vazia. Generaliza pra qualquer tag da lista acima,
-  // em vez de checar só <img> — mas continua exigindo texto ou uma dessas
-  // tags: <p></p> sozinho (documento vazio real do TipTap) segue virando
-  // null.
-  const hasStructuralContent = parsed.body.querySelector([...STRUCTURAL_EMPTY_TAGS].join(',')) !== null;
-  return hasStructuralContent || text ? value : null;
-}
-
-// Spec 086, T9.3: editor vive na gestão. Painel do criador mantém descrição
-// simples; isso cumpre requisito 4 sem espalhar dois contratos de HTML rico.
 export function GestaoEditarDescricaoPage() {
   const { materialId } = useParams<{ materialId: string }>();
   const { data, isLoading } = useAdminMedia();
   const material = data?.items.find((item) => item.material_id === materialId);
   const updateMetadata = useUpdateMaterialMetadata(materialId ?? '');
-  const [descriptionHtml, setDescriptionHtml] = useState('');
+  const [descriptionMarkdown, setDescriptionMarkdown] = useState('');
   const [loadedMaterialId, setLoadedMaterialId] = useState<string | undefined>();
 
   if (material && loadedMaterialId !== material.material_id) {
     setLoadedMaterialId(material.material_id);
-    setDescriptionHtml(material.description_html ?? '');
+    setDescriptionMarkdown(material.description_markdown ?? '');
   }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     try {
-      await updateMetadata.mutateAsync({ description_html: normalizedRichHtml(descriptionHtml) });
-      toast.success('Descrição rica atualizada.');
+      await updateMetadata.mutateAsync({
+        description_markdown: descriptionMarkdown.trim() || null,
+      });
+      toast.success('Descrição atualizada.');
     } catch (caught) {
       toast.error(caught instanceof Error ? caught.message : 'Falha ao salvar descrição.');
     }
@@ -74,17 +44,18 @@ export function GestaoEditarDescricaoPage() {
     <GestaoShell>
       <PageHeader
         breadcrumb={['Materiais', material.material_title]}
-        title="Editar descrição rica"
-        description="Formatação visual exibida na ficha pública. O servidor sanitiza o HTML antes de persistir e ao servir."
+        title="Editar descrição"
+        description="Markdown GFM exibido na ficha pública. O servidor sanitiza o texto antes de persistir e ao servir."
       />
 
       <form onSubmit={handleSubmit} className="mt-6">
         <SectionCard title={material.material_title} description={`Estado: ${material.editorial_state}`}>
-          <RichTextEditor
-            value={descriptionHtml}
-            onChange={setDescriptionHtml}
+          <ContentEditor
+            value={descriptionMarkdown}
+            onChange={setDescriptionMarkdown}
             disabled={updateMetadata.isPending}
-            label={`Descrição rica de ${material.material_title}`}
+            label={`Descrição de ${material.material_title}`}
+            maxLength={50000}
           />
           <div className="mt-4 flex justify-end">
             <button

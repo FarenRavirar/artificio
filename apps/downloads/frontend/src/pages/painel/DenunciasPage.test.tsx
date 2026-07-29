@@ -95,6 +95,7 @@ describe('DenunciasPage', () => {
     renderPage();
 
     expect(screen.getByText('Resolvida')).toBeInTheDocument();
-    expect(screen.getByText('Resolução: Verificado, conteúdo removido')).toBeInTheDocument();
+    expect(screen.getByText('Resolução:')).toBeInTheDocument();
+    expect(screen.getByText('Verificado, conteúdo removido')).toBeInTheDocument();
   });
 });

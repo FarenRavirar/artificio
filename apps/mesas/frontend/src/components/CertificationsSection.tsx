@@ -1,6 +1,7 @@
 import { Crown, Sparkles } from 'lucide-react';
 import { MetaField } from './MetaField';
 import type { TableDetail } from '../types/tables';
+import { MarkdownContent } from '@artificio/content-editor';
 
 interface CertificationsSectionProps {
   table: TableDetail;
@@ -65,7 +66,7 @@ export function CertificationsSection({ table }: CertificationsSectionProps) {
               {table.ddal_rules_notes && (
                 <div className="rounded-xl border border-amber-200/15 bg-[#13213f]/70 p-3 md:col-span-2">
                   <p className="text-amber-100/80 text-xs uppercase tracking-wide">Notas de regras da temporada</p>
-                  <p className="text-white/85 mt-1 leading-relaxed">{table.ddal_rules_notes}</p>
+                  <MarkdownContent value={table.ddal_rules_notes} className="text-white/85 mt-1 leading-relaxed" />
                 </div>
               )}
             </div>

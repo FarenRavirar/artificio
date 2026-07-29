@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { ContentEditor } from '@artificio/content-editor';
 import { GestaoShell } from '../../components/GestaoShell';
 import { useParseHtml, type ParsePreview, type DetectedPlatform, type DuplicateCandidate } from '../../hooks/useParseHtml';
 import { useIngestScrapedItems, describeIngestOutcome } from '../../hooks/useIngestScrapedItems';
@@ -184,15 +185,13 @@ export function GestaoImportarPage() {
               />
             </label>
 
-            <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
-              <span>Descrição</span>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                className="rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
-              />
-            </label>
+            <ContentEditor
+              label="Descrição"
+              value={description}
+              onChange={setDescription}
+              maxLength={50_000}
+              minHeight={160}
+            />
 
             <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
               <span>URL da capa</span>

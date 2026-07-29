@@ -1,5 +1,6 @@
 import { User, Gamepad2 } from 'lucide-react';
 import { GmReviewSummary } from '@artificio/ui';
+import { MarkdownContent } from '@artificio/content-editor';
 
 interface MasterCardProps {
   readonly masterName?: string;
@@ -77,9 +78,7 @@ export function MasterCard({ masterName, masterSlug, masterAvatar, masterBio, ma
         </div>
 
         {masterBio && (
-          <p className="text-sm text-[var(--fg-muted)] line-clamp-2 mb-3 whitespace-pre-wrap">
-            {masterBio}
-          </p>
+          <MarkdownContent value={masterBio} className="text-sm text-[var(--fg-muted)] line-clamp-2 mb-3" />
         )}
 
         {/* Plataformas VTT */}

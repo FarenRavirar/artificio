@@ -63,6 +63,10 @@ interface StepFinalProps {
   setSynopsis: (synopsis: string) => void;
   styleText: string;
   setStyleText: (text: string) => void;
+  benefitsText: string;
+  setBenefitsText: (text: string) => void;
+  tableGmBio: string;
+  setTableGmBio: (text: string) => void;
   listingExcerpt: string;
   setListingExcerpt: (excerpt: string) => void;
   technicalRequirements: string;
@@ -166,6 +170,8 @@ export function StepFinal(props: StepFinalProps) {
         <MarkdownEditor
           value={props.rulesNotes}
           onChange={(text) => props.setRulesNotes(text.slice(0, 1500))}
+          label="Regras e observações da mesa"
+          maxLength={1500}
           placeholder="Ex: Usamos regras homebrew para combate, proibido PvP, etc."
           height={200}
         />
@@ -228,13 +234,13 @@ export function StepFinal(props: StepFinalProps) {
                 <label htmlFor="billing_text" className="text-sm font-medium text-white/70">
                   Texto Descritivo sobre Cobrança
                 </label>
-                <textarea
+                <MarkdownEditor
                   id="billing_text"
                   value={props.billingText}
-                  onChange={(e) => props.setBillingText(e.target.value)}
-                  rows={2}
+                  onChange={props.setBillingText}
+                  label="Texto descritivo sobre cobrança"
+                  height={112}
                   placeholder="Ex: Pagamento via PIX após cada sessão, Mensalidade com desconto para trimestre"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 outline-none focus:border-[var(--color-artificio-orange)]/60 transition-all resize-none"
                 />
               </div>
               <div className="flex items-center gap-2">
@@ -261,17 +267,39 @@ export function StepFinal(props: StepFinalProps) {
               <MarkdownEditor
                 value={props.synopsis}
                 onChange={(text) => props.setSynopsis(text.slice(0, 2000))}
+                label="Sinopse narrativa"
+                maxLength={2000}
                 placeholder="Uma sinopse mais longa e imersiva da campanha..."
                 height={250}
               />
               <p className="text-xs text-white/40 text-right">{props.synopsis.length}/2000</p>
             </div>
 
+            <MarkdownEditor
+              label="Benefícios e diferenciais (opcional)"
+              value={props.benefitsText}
+              onChange={props.setBenefitsText}
+              maxLength={2_000}
+              height={180}
+              placeholder="Materiais inclusos, suporte entre sessões e outros diferenciais"
+            />
+
+            <MarkdownEditor
+              label="Bio do mestre nesta mesa (opcional)"
+              value={props.tableGmBio}
+              onChange={props.setTableGmBio}
+              maxLength={2_000}
+              height={180}
+              placeholder="Apresentação específica para esta mesa"
+            />
+
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-white/70">Descrição do Estilo de Jogo (opcional)</label>
               <MarkdownEditor
                 value={props.styleText}
                 onChange={(text) => props.setStyleText(text.slice(0, 500))}
+                label="Descrição do estilo de jogo"
+                maxLength={500}
                 placeholder="Ex: Roleplay pesado, Combate tático, Sandbox político"
                 height={180}
               />
@@ -302,6 +330,8 @@ export function StepFinal(props: StepFinalProps) {
               <MarkdownEditor
                 value={props.technicalRequirements}
                 onChange={(text) => props.setTechnicalRequirements(text.slice(0, 1000))}
+                label="Requisitos técnicos detalhados"
+                maxLength={1000}
                 placeholder="Ex: Roll20 + Discord, Foundry VTT com módulos X, Y"
                 height={180}
               />
@@ -470,13 +500,12 @@ export function StepFinal(props: StepFinalProps) {
                 <label htmlFor="ddal_rules_notes" className="text-sm font-medium text-white/70">
                   Notas de regras da temporada
                 </label>
-                <textarea
+                <MarkdownEditor
                   id="ddal_rules_notes"
-                  name="ddal_rules_notes"
                   value={props.ddal.ddal_rules_notes}
-                  onChange={handleDdalChange}
-                  rows={3}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 outline-none focus:border-[var(--color-artificio-orange)]/60 transition-all resize-none"
+                  onChange={(value) => props.setDdal((prev) => ({ ...prev, ddal_rules_notes: value }))}
+                  label="Notas de regras da temporada"
+                  height={128}
                   placeholder="Observações úteis para jogadores e organização"
                 />
               </div>

@@ -7,6 +7,7 @@ import { assertValidTransition, InvalidEditorialTransitionError } from '../servi
 import { ABUSE_DISMISSED_STREAK_THRESHOLD, isReporterAbusive } from '../services/reportAbuseGuard';
 import { emitNotification } from '../services/notify';
 import { logModerationAudit } from '../services/moderationAuditLog';
+import { sanitizeNullableUserMarkdown } from '@artificio/content-editor/sanitize';
 
 const router = Router();
 
@@ -56,7 +57,7 @@ router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Res
       reporter_user_id: req.user!.userId,
       category: parsed.data.category,
       priority,
-      details: parsed.data.details ?? null,
+      details: sanitizeNullableUserMarkdown(parsed.data.details ?? null),
     })
     .returningAll()
     .executeTakeFirstOrThrow();
@@ -88,7 +89,10 @@ router.get('/mine', writeRateLimiter, authMiddleware, async (req: Request, res: 
     .orderBy('created_at', 'desc')
     .execute();
 
-  return res.json(reports);
+  return res.json(reports.map((report) => ({
+    ...report,
+    details: sanitizeNullableUserMarkdown(report.details),
+  })));
 });
 
 // T5.4 — retirada voluntária: o próprio autor da denúncia pode cancelar,
@@ -148,7 +152,11 @@ router.get('/', writeRateLimiter, authMiddleware, requireRole(['moderator', 'adm
     .orderBy('created_at', 'asc')
     .execute();
 
-  return res.json(reports);
+  return res.json(reports.map((report) => ({
+    ...report,
+    details: sanitizeNullableUserMarkdown(report.details),
+    resolution_note: sanitizeNullableUserMarkdown(report.resolution_note),
+  })));
 });
 
 const decisionSchema = z.object({
@@ -180,12 +188,13 @@ router.patch('/:id', writeRateLimiter, authMiddleware, requireRole(['moderator',
   }
 
   const isTerminal = parsed.data.case_state === 'resolved' || parsed.data.case_state === 'dismissed';
+  const safeResolutionNote = sanitizeNullableUserMarkdown(parsed.data.resolution_note ?? null);
 
   const updated = await db
     .updateTable('download_report')
     .set({
       case_state: parsed.data.case_state,
-      resolution_note: parsed.data.resolution_note ?? undefined,
+      resolution_note: safeResolutionNote ?? undefined,
       resolved_at: isTerminal ? new Date() : null,
     })
     .where('id', '=', req.params.id)
@@ -213,11 +222,15 @@ router.patch('/:id', writeRateLimiter, authMiddleware, requireRole(['moderator',
       actorUserId: req.user!.userId,
       materialId: report.material_id,
       reportId: report.id,
-      reason: parsed.data.resolution_note ?? undefined,
+      reason: safeResolutionNote ?? undefined,
     });
   }
 
-  return res.json(updated);
+  return res.json({
+    ...updated,
+    details: sanitizeNullableUserMarkdown(updated.details),
+    resolution_note: sanitizeNullableUserMarkdown(updated.resolution_note),
+  });
 });
 
 export default router;

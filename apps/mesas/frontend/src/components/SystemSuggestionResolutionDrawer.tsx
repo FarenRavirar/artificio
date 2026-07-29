@@ -4,6 +4,8 @@ import { useConfirm } from "@artificio/ui";
 import { TagInput } from './TagInput';
 import { SearchableSelect, type SearchableOption } from './SearchableSelect';
 import { authGet, authPost } from '../services/apiClient';
+import { MarkdownEditor } from './MarkdownEditor';
+import { MarkdownContent } from '@artificio/content-editor';
 
 const NODE_TYPE_LABELS: Record<string, string> = {
   system: 'Sistema',
@@ -738,7 +740,7 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
         <div className="rounded-lg bg-white/5 border border-white/10 p-3 mb-4">
           <p className="text-white/40 text-xs uppercase tracking-wide">Sugestão original</p>
           <p className="text-white font-medium mt-1">{suggestion.name}</p>
-          {suggestion.description && <p className="text-white/60 text-sm mt-1">{suggestion.description}</p>}
+          {suggestion.description && <MarkdownContent value={suggestion.description} className="text-white/60 text-sm mt-1" />}
         </div>
 
         {/* 2. Candidatos */}
@@ -1026,15 +1028,15 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
                   onChange={(e) => setNamePt(e.target.value)}
                 />
               </label>
-              <label className="block">
-                <span className="text-white/70 text-sm">Descrição (opcional)</span>
-                <textarea
-                  className="w-full mt-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white"
-                  rows={2}
+              <div>
+                <MarkdownEditor
+                  label="Descrição (opcional)"
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={setDescription}
+                  maxLength={4_000}
+                  height={128}
                 />
-              </label>
+              </div>
               <label className="block">
                 <span className="text-white/70 text-sm">Apelidos (opcional)</span>
                 <TagInput
@@ -1101,26 +1103,27 @@ export const SystemSuggestionResolutionDrawer = ({ suggestion, onClose, onResolv
           )}
 
           {resolutionType === 'reject' && (
-            <label className="block">
-              <span className="text-white/70 text-sm">Motivo (opcional)</span>
-              <textarea
-                className="w-full mt-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white"
-                rows={2}
+            <div>
+              <MarkdownEditor
+                label="Motivo (opcional)"
                 value={reason}
-                onChange={(e) => setReason(e.target.value)}
+                onChange={setReason}
+                maxLength={2_000}
+                height={128}
               />
-            </label>
+            </div>
           )}
 
           {(resolutionType === 'create_alias' || resolutionType === 'merge_existing' || resolutionType === 'create_child' || resolutionType === 'create_system') && (
-            <label className="block">
-              <span className="text-white/70 text-sm">Notas internas (opcional)</span>
-              <input
-                className="w-full mt-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white"
+            <div>
+              <MarkdownEditor
+                label="Notas internas (opcional)"
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                onChange={setNotes}
+                maxLength={2_000}
+                height={128}
               />
-            </label>
+            </div>
           )}
         </div>
 

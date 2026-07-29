@@ -3,6 +3,7 @@ import { db } from '../db/index.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { flattenTree } from '../services/catalogClient.js';
 import { getSystemCatalogProvider } from '../services/systemCatalogProvider.js';
+import { sanitizeNullableUserMarkdown } from '../utils/userMarkdown.js';
 
 const router = Router();
 
@@ -64,7 +65,10 @@ router.get('/', optionalAuth, async (req: Request, res: Response) => {
     return res.json({
       data: {
         user,
-        profile: profile ?? null,
+        profile: profile ? {
+          ...profile,
+          bio: sanitizeNullableUserMarkdown(profile.bio),
+        } : null,
         preferences: normalizedPreferences,
         onboarding_completed: getOnboardingCompleted(normalizedPreferences),
       },
@@ -130,6 +134,7 @@ router.put('/preferences', authMiddleware, async (req: Request, res: Response) =
   const safePlatforms = sanitizeStringArray(platforms);
   const safeLanguages = sanitizeStringArray(languages);
   const safeWeekdays = sanitizeNumberArray(weekdays);
+  const safeBio = typeof bio === 'string' ? sanitizeNullableUserMarkdown(bio.trim()) : null;
 
   try {
     const validIds = new Set((await getSystemCatalogProvider().loadFlat()).map((node) => node.id));
@@ -151,7 +156,7 @@ router.put('/preferences', authMiddleware, async (req: Request, res: Response) =
           .updateTable('profiles')
           .set({
             display_name: display_name.trim(),
-            bio: typeof bio === 'string' ? bio.trim() : null,
+            bio: safeBio,
             languages: safeLanguages,
           })
           .where('user_id', '=', userId)
@@ -162,7 +167,7 @@ router.put('/preferences', authMiddleware, async (req: Request, res: Response) =
           .values({
             user_id: userId,
             display_name: display_name.trim(),
-            bio: typeof bio === 'string' ? bio.trim() : null,
+            bio: safeBio,
             languages: safeLanguages,
           })
           .execute();

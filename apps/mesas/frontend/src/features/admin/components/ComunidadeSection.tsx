@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../../../contexts/useAuth';
 import { authGet, authPatch, authPost } from '../../../services/apiClient';
 import { SystemSuggestionResolutionDrawer } from '../../../components/SystemSuggestionResolutionDrawer';
+import { MarkdownContent } from '@artificio/content-editor';
 import toast from 'react-hot-toast';
 
 interface SystemSuggestion {
@@ -337,13 +338,22 @@ export function ComunidadeSection() {
                   <div className="min-w-0">
                     <h3 className="text-white font-semibold">{suggestion.name}</h3>
                     {suggestion.description && (
-                      <p className="text-white/60 text-sm mt-1">{suggestion.description}</p>
+                      <MarkdownContent value={suggestion.description} className="text-white/60 text-sm mt-1" />
                     )}
+                    {/* MarkdownContent renderiza um <div>, que é inválido dentro
+                        de <p> — o browser fecharia o parágrafo antes dele e
+                        quebraria a árvore na hidratação (review PR #227).
+                        O motivo saiu para um wrapper irmão. */}
                     <p className="text-white/40 text-xs mt-2">
                       Tipo: {suggestion.kind === 'system' ? suggestion.node_type : 'cenário'} | Status: {suggestion.status}
                       {suggestion.reviewed_at && <> | Revisado: {new Date(suggestion.reviewed_at).toLocaleDateString('pt-BR')}{suggestion.reviewed_by ? ` por ${suggestion.reviewed_by}` : ''}</>}
-                      {suggestion.rejection_reason && <> | Motivo: {suggestion.rejection_reason}</>}
                     </p>
+                    {suggestion.rejection_reason && (
+                      <div className="text-white/40 text-xs mt-1">
+                        <span>Motivo:</span>
+                        <MarkdownContent value={suggestion.rejection_reason} />
+                      </div>
+                    )}
                   </div>
                 </div>
                 {suggestion.status === 'pending' && (

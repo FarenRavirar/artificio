@@ -276,14 +276,25 @@ escrita e na leitura (`materialMetadata.ts:48,79`). O que falta é estendê-la a
 `description` e trazer um editor ao frontend — `mesas` tem `RichTextArea.tsx` e
 `MarkdownEditor.tsx` prontos, mas em `apps/mesas`, não em `packages/ui`.
 
-Decisões do mantenedor (2026-07-27):
+Decisões do mantenedor (2026-07-27, formato do editor atualizado em 2026-07-28):
 
-- **`summary` e `description` ficam ricos**, mas card do catálogo e meta description consomem
-  versão **sem tags** — HTML vazando em snippet de busca ou em card é regressão de SEO e de
-  layout, não recurso.
-- **O editor é extraído para `packages/ui`**, em vez de duplicado no downloads. Isso torna
-  `mesas` consumidor de um componente compartilhado e **exige aprovação própria + verificação
-  de impacto** (`AGENTS.md` §Autorização), fora do que a abertura desta spec cobre.
+- **`description_markdown` é a fonte rica; `summary` e `description` permanecem texto plano**,
+  derivados pelo backend. Card do catálogo e meta description consomem somente a projeção sem
+  marcação — Markdown ou HTML vazando em snippet de busca ou card é regressão de SEO e layout,
+  não recurso.
+- **Um único editor e um único formato são compartilhados por `downloads` e `mesas`: Markdown
+  GFM, no modelo do GitHub, com abas Escrever/Prévia.** O destino é o pacote dedicado
+  `packages/content-editor`, não `packages/ui`, para centralizar componente, contrato,
+  renderização e acessibilidade sem levar o editor ao bundle de consumidores alheios. A API do
+  componente recebe e devolve `string` Markdown; HTML cru não integra o contrato. O mantenedor
+  autorizou nominalmente o pacote, migrations, testes e manifests em 2026-07-28 e ampliou o
+  escopo para todo texto livre autoral dos dois projetos; campos curtos estruturados e fontes
+  brutas permanecem literais.
+- **`downloads` migra de TipTap/HTML para Markdown GFM.** A implementação local faz backfill
+  deliberadamente lossy pela projeção plana e preserva `description_html` para
+  rollback/auditoria; não converte HTML por regex nem silenciosamente no frontend. A migration
+  ainda exige ensaio real. `mesas` já persiste Markdown e consome componente, renderer e
+  sanitizer centrais.
 
 ### Defeito 11 — edição de material não cobre sistema nem capa
 
@@ -502,11 +513,11 @@ a nada. Sem mudar o contrato, "esqueci de extrair" e "a fonte não tem" ficam in
 22. A interface exibe a hierarquia de resposta de forma legível, sem aninhamento infinito.
 23. Slug de material novo é derivado do título automaticamente, sem campo visível ao usuário no formulário.
 24. `<select>` e `<option>` são legíveis nos temas claro **e** escuro, com contraste conforme a meta de acessibilidade do projeto.
-25. O conteúdo rico vive em `description_html` (já sanitizado na escrita e na leitura); `summary` e `description` permanecem **texto plano**, derivados do rico pelo backend na mesma operação. Aceitar HTML neles vazaria tag para a detecção de idioma (`moderation.ts:47`), o card (`MaterialCard.tsx:100`), a página do criador (`CreatorPage.tsx:46`) e integrações. Correção da versão anterior deste requisito, que mandava o oposto.
+25. O conteúdo rico canônico vive em `description_markdown`, como Markdown GFM; `summary` e `description` permanecem **texto plano**, derivados do Markdown pelo backend na mesma operação. A renderização produz HTML sanitizado somente na fronteira de apresentação. Aceitar Markdown ou HTML nos campos planos vazaria marcação para a detecção de idioma (`moderation.ts:47`), o card (`MaterialCard.tsx:100`), a página do criador (`CreatorPage.tsx:46`) e integrações. O `description_html` existente é legado de transição e requer migration explícita para Markdown, com verificação e rollback; não pode ser reinterpretado silenciosamente.
 25a. Os três campos de conteúdo têm limite de tamanho **no backend** — hoje o `PATCH` não tem teto (`materials.ts:51`), e conteúdo rico sem limite incha histórico e custo de sanitização. Contador visual no formulário não substitui validação no schema.
 25b. O slug tem limite **único** entre API e banco. Hoje a API aceita 200 (`materials.ts:90`) e o banco 160 (`migration_001:13`): entrada entre 161 e 200 estoura. Slug é gerado só na criação — editar título não muda URL publicada (SEO).
 26. Card do catálogo e meta description consomem `summary` **sem tags** — nenhuma tag HTML chega a snippet de busca ou a layout de card.
-27. O destino do editor rico é **decidido antes de implementado**, não pressuposto. O `downloads` já tem editor TipTap/HTML em produção (`RichTextEditor.tsx:71`) e o `mesas` usa Markdown (`MarkdownEditor.tsx`) — dois formatos incompatíveis, e unificar muda contrato **persistido**, não só componente. Pôr TipTap em `packages/ui` afeta o bundle de **todos** os consumidores; a alternativa é pacote dedicado. Requisito reescrito: a versão anterior já dava a resposta ("vive em `packages/ui`") sem a decisão ter sido tomada.
+27. O destino e o formato do editor rico estão **decididos pelo mantenedor em 2026-07-28**: um único `ContentEditor` em `packages/content-editor`, compartilhado por `downloads` e `mesas`, com contrato `string` em Markdown GFM e UX no modelo do GitHub (Escrever/Prévia). Não haverá implementações `/html` e `/markdown` paralelas. O `downloads` abandona TipTap/HTML mediante migration explícita; o `mesas` preserva seus dados Markdown. O pacote dedicado evita afetar o bundle de todos os consumidores de `packages/ui`, mas sua criação continua sujeita à aprovação nominal de pacote compartilhado.
 27a. O `mesas` sanitiza rich text **na escrita e defensivamente na leitura**, antes desta spec tocar conteúdo rico. A correção vive na **Fase 6B desta spec** (ampliação nominal de escopo decidida pelo mantenedor em 2026-07-28) e absorve as antigas `T7.1`/`T7.1b` da spec 090. O contrato preserva Markdown, descarta HTML, desliga `markdown-it` com `html: true` e remove o `RichTextArea.tsx` morto. Medição read-only em Beta e Prod encontrou zero HTML/entidade nos campos persistidos; há Markdown legítimo em descrições de mesa. Decisão do mantenedor: **sem migration retroativa**, com sanitização nas duas fronteiras. A Fase 7 continua dependente de a correção estar mergeada em `dev`; implementação apenas local não satisfaz a trava.
 28. O autor edita o sistema do próprio material em `/painel/materiais/:id/editar`, com seleção contra o catálogo central.
 29. O autor envia e substitui a capa do próprio material, via backend com signed preset do Cloudinary (nunca credencial no frontend). A infra citada na versão anterior **não serve**: `storage/cloudinaryAdapter.ts` gerencia arquivo raw/PDF (`resourceType: 'raw'`), e `@artificio/media` não recebe `upload_preset` (`packages/media/src/index.ts:65`). Hoje o metadata aceita qualquer URL HTTP (`materialMetadata.ts:33`).

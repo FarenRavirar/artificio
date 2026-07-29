@@ -1,4 +1,5 @@
 import type { TableViewModel } from '../types/tableView.types';
+import { MarkdownContent } from '@artificio/content-editor';
 import { MetaField } from '../../../components/MetaField';
 import { Sparkles, Monitor, Video, Mic } from 'lucide-react';
 
@@ -51,7 +52,7 @@ export function TableTechnical({ vm }: TableTechnicalProps) {
         <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
           <h2 className="text-lg font-bold mb-4">💰 Sobre a Cobrança</h2>
           {vm.billingText && (
-            <p className="text-white/80 leading-relaxed mb-3">{vm.billingText}</p>
+            <MarkdownContent value={vm.billingText} className="text-white/80 leading-relaxed mb-3" />
           )}
           {vm.sessionZeroFree && (
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/20 text-green-300 text-sm font-medium">
@@ -66,7 +67,7 @@ export function TableTechnical({ vm }: TableTechnicalProps) {
         <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
           <h2 className="text-lg font-bold mb-4">💻 Requisitos Técnicos</h2>
           {vm.technicalRequirements && (
-            <p className="text-white/80 leading-relaxed mb-3">{vm.technicalRequirements}</p>
+            <MarkdownContent value={vm.technicalRequirements} className="text-white/80 leading-relaxed mb-3" />
           )}
           <div className="flex flex-wrap gap-3">
             {vm.requiresPC && (
@@ -132,7 +133,7 @@ export function TableTechnical({ vm }: TableTechnicalProps) {
             {vm.certifications.ddal.rulesNotes && (
               <div className="rounded-xl border border-amber-200/15 bg-[var(--surface-input)]/70 p-3 md:col-span-2">
                 <p className="text-amber-100/80 text-xs uppercase tracking-wide">Notas de regras da temporada</p>
-                <p className="text-white/85 mt-1 leading-relaxed">{vm.certifications.ddal.rulesNotes}</p>
+                <MarkdownContent value={vm.certifications.ddal.rulesNotes} className="text-white/85 mt-1 leading-relaxed" />
               </div>
             )}
           </div>

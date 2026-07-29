@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, ChevronLeft, ChevronRight, Compass, Sparkles } from 'lucide-react';
+import { ContentEditor } from '@artificio/content-editor';
 import { useAuth } from '../contexts/useAuth';
 import { SystemPicker } from '../components/SystemPicker';
 import { SystemSuggestionModal } from '../components/SystemSuggestionModal';
@@ -269,12 +270,12 @@ export const OnboardingPage = () => {
                 </div>
                 <div className="md:col-span-2">
                   <label htmlFor="onboarding-bio" className="text-sm text-white/70 block mb-1">Bio curta</label>
-                  <textarea
+                  <ContentEditor
                     id="onboarding-bio"
                     value={form.bio}
-                    onChange={(e) => setForm((prev) => ({ ...prev, bio: e.target.value }))}
-                    rows={4}
-                    className="w-full rounded-xl border border-white/15 bg-[var(--surface-input)] px-4 py-3 outline-none focus:border-[var(--color-artificio-orange)]"
+                    onChange={(value) => setForm((prev) => ({ ...prev, bio: value }))}
+                    label="Bio curta"
+                    minHeight={144}
                     placeholder="Conte rapidamente o que você curte em RPG"
                   />
                 </div>

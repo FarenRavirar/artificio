@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
 import { AppShell } from '../components/AppShell';
 import { useCreator } from '../hooks/useCreator';
+import { MarkdownContent } from '@artificio/content-editor';
 
 // T4.1 (spec 073) — /criadores/:slug, aceitando credito sem conta associada.
 export function CreatorPage() {
@@ -29,7 +30,7 @@ export function CreatorPage() {
     <AppShell>
       <div className="mx-auto max-w-3xl px-4 py-8">
         <h1 className="text-2xl font-bold text-[var(--fg)]">{creator.display_name}</h1>
-        {creator.bio && <p className="mt-2 text-[var(--fg-muted)]">{creator.bio}</p>}
+        {creator.bio && <MarkdownContent value={creator.bio} className="mt-2 text-[var(--fg-muted)]" />}
 
         <h2 className="mt-8 mb-4 text-lg font-semibold text-[var(--fg)]">Materiais publicados</h2>
         {creator.materials.length === 0 ? (

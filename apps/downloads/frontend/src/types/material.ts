@@ -11,6 +11,7 @@ export const materialSchema = z.object({
   title: z.string(),
   summary: z.string().nullable(),
   description: z.string().nullable(),
+  description_markdown: z.string().nullable().optional(),
   material_type: z.string(),
   material_type_id: z.uuid().nullable().optional(),
   access_kind: z.enum(['external_link', 'managed_upload']),

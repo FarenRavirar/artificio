@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { useAuth } from '../contexts/useAuth';
 
 import { authPost } from '../services/apiClient';
+import { MarkdownEditor } from './MarkdownEditor';
 
 interface ScenarioSuggestionModalProps {
   isOpen: boolean;
@@ -112,15 +113,13 @@ export const ScenarioSuggestionModal = ({ isOpen, onClose, onSuccess }: Scenario
             </div>
 
             <div>
-              <label className="block text-white font-semibold mb-2 text-sm">
-                Descrição (opcional)
-              </label>
-              <textarea
+              <MarkdownEditor
+                label="Descrição (opcional)"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={setDescription}
                 placeholder="Contexto adicional sobre o cenário..."
-                rows={4}
-                className="w-full px-4 py-2 bg-[#0F1A2E] border border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--color-artificio-orange)] resize-none"
+                maxLength={4_000}
+                height={160}
               />
             </div>
 

@@ -46,6 +46,7 @@
     "@artificio/changelog": "workspace:*",
     "@artificio/config": "workspace:*",
     "@artificio/content": "workspace:*",
+    "@artificio/content-editor": "workspace:*",
     "@artificio/feedback": "workspace:*",
     "@artificio/media": "workspace:*",
     "@types/he": "^1.2.3",
@@ -64,7 +65,6 @@
     "kysely": "^0.29.2",
     "multer": "^2.2.0",
     "pg": "^8.20.0",
-    "sanitize-html": "^2.17.5",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -75,7 +75,6 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24",
     "@types/pg": "^8.11.6",
-    "@types/sanitize-html": "^2.16.1",
     "@types/supertest": "^7.2.0",
     "@vitest/coverage-v8": "^3.2.4",
     "nodemon": "^3.1.0",

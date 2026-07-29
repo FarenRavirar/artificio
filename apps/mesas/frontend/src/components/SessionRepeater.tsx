@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PlusCircle, Trash2 } from 'lucide-react';
+import { ContentEditor } from '@artificio/content-editor';
 
 export interface SessionSchedule {
   id?: string;
@@ -240,13 +241,13 @@ export function SessionRepeater({ sessions, onChange, disabled = false }: Sessio
               <label className="text-xs font-black uppercase tracking-widest text-white/70">
                 Observações (opcional)
               </label>
-              <textarea
-                value={session.notes}
-                onChange={(e) => handleUpdateSession(index, 'notes', e.target.value)}
+              <ContentEditor
+                value={session.notes ?? ''}
+                onChange={(value) => handleUpdateSession(index, 'notes', value)}
+                label={`Observações da sessão ${index + 1}`}
                 placeholder="Ex: Vagas limitadas para jogadores experientes"
-                rows={2}
+                minHeight={112}
                 disabled={disabled}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/30 outline-none focus:border-[var(--color-artificio-orange)]/60 focus:ring-1 focus:ring-[var(--color-artificio-orange)]/30 transition-all resize-none disabled:opacity-50"
               />
             </div>
           </div>

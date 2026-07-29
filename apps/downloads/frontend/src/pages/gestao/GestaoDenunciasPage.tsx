@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { PageHeader, SectionCard, StatusPill, type PillTone } from '@artificio/ui/admin';
 import { GestaoShell } from '../../components/GestaoShell';
 import { useReportDecision, useReportsQueue } from '../../hooks/useReportsQueue';
+import { ContentEditor, MarkdownContent } from '@artificio/content-editor';
 
 const PRIORITY_ICON: Record<string, string> = {
   P0: '⛔',
@@ -48,16 +49,18 @@ export function GestaoDenunciasPage() {
               </span>
             }
           >
-            {report.details && <p className="text-sm text-[var(--admin-fg-low)]">{report.details}</p>}
+            {report.details && <MarkdownContent value={report.details} className="text-sm text-[var(--admin-fg-low)]" />}
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <input
-                type="text"
+            <div className="mt-3 flex flex-col gap-2">
+              <ContentEditor
+                label="Nota de resolução"
                 value={notes[report.id] ?? ''}
-                onChange={(e) => setNotes((prev) => ({ ...prev, [report.id]: e.target.value }))}
+                onChange={(value) => setNotes((prev) => ({ ...prev, [report.id]: value }))}
                 placeholder="Nota de resolução"
-                className="min-h-[44px] flex-1 rounded-md border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-fg)]"
+                maxLength={4_000}
+                minHeight={128}
               />
+              <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() =>
@@ -80,6 +83,7 @@ export function GestaoDenunciasPage() {
               >
                 Dispensar
               </button>
+              </div>
             </div>
           </SectionCard>
         ))}

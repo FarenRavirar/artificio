@@ -1,4 +1,5 @@
 import { Users, Dices, Tag } from 'lucide-react';
+import { MarkdownContent } from '@artificio/content-editor';
 
 interface ClosedGroupInfo {
   enabled: boolean;
@@ -43,10 +44,11 @@ export function MestreClosedGroupSection({ closedGroup }: Props) {
 
         <h2 className="section-title">Disponível para grupos fechados</h2>
 
-        <p className="closed-group-description">
-          {closedGroup.description ||
-            'Tem um grupo fechado de amigos? Mestro campanhas exclusivas com horários flexíveis e experiência personalizada para o seu grupo.'}
-        </p>
+        {closedGroup.description ? (
+          <MarkdownContent value={closedGroup.description} className="closed-group-description" />
+        ) : (
+          <p className="closed-group-description">Tem um grupo fechado de amigos? Mestro campanhas exclusivas com horários flexíveis e experiência personalizada para o seu grupo.</p>
+        )}
 
         {closedGroup.systems.length > 0 && (
           <div className="closed-group-systems">

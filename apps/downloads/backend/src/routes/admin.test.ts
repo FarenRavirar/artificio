@@ -70,7 +70,7 @@ describe('GET /api/v1/admin/media', () => {
     dbMocks.selectFrom.mockReset();
   });
 
-  it('serve description_html sanitizado para o editor da gestão', async () => {
+  it('serve description_markdown sanitizado para o editor da gestão', async () => {
     dbMocks.selectFrom.mockReturnValueOnce({
       leftJoin: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
@@ -81,13 +81,13 @@ describe('GET /api/v1/admin/media', () => {
         material_title: 'Manual',
         editorial_state: 'published',
         cover_image_url: null,
-        description_html: '<p onclick="alert(1)">Seguro</p><script>alert(1)</script>',
+        description_markdown: '**Seguro** <script>alert(1)</script>',
       }]),
     });
 
     const response = await request(app()).get('/api/v1/admin/media').expect(200);
 
-    expect(response.body.items[0].description_html).toBe('<p>Seguro</p>');
+    expect(response.body.items[0].description_markdown).toBe('**Seguro** ');
   });
 });
 

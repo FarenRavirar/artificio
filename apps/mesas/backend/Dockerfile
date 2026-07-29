@@ -62,6 +62,7 @@ COPY patches ./patches
 RUN pnpm install --prod --filter @artificio/mesas-backend --filter @artificio/config \
   --filter @artificio/content --filter @artificio/auth --filter @artificio/changelog \
   --filter @artificio/feedback --filter @artificio/media --filter @artificio/catalog-client \
+  --filter @artificio/content-editor \
   --frozen-lockfile \
   && test -d packages/media/node_modules/cloudinary \
   || (echo "ERRO: cloudinary nao encontrado em packages/media/node_modules/" && exit 1)
@@ -80,6 +81,12 @@ COPY --from=builder /repo/packages/media/dist ./packages/media/dist
 # MODULE_NOT_FOUND em runtime (dist-cjs so existia no estagio builder).
 COPY --from=builder /repo/packages/catalog-client/dist ./packages/catalog-client/dist
 COPY --from=builder /repo/packages/catalog-client/dist-cjs ./packages/catalog-client/dist-cjs
+# Mesmo padrao de E016/E017: utils/userMarkdown.ts importa
+# @artificio/content-editor/sanitize. Aqui entra o `dist` (ESM), nao o
+# dist-cjs: este backend e "type": "module" + moduleResolution NodeNext, entao
+# resolve o subpath pela condicao `import`. O filtro no pnpm install acima e
+# necessario porque o pacote tem deps proprias (sanitize-html, markdown-it).
+COPY --from=builder /repo/packages/content-editor/dist ./packages/content-editor/dist
 
 # Copiar build compilado
 COPY --from=builder /repo/apps/mesas/backend/dist ./apps/mesas/backend/dist

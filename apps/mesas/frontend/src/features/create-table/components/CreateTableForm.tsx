@@ -166,6 +166,15 @@ export function CreateTableForm({
     if (savedDraft.sessionZeroFree !== undefined) formHook.setSessionZeroFree(savedDraft.sessionZeroFree);
     if (savedDraft.synopsis) formHook.setSynopsis(savedDraft.synopsis);
     if (savedDraft.styleText) formHook.setStyleText(savedDraft.styleText);
+    // benefitsText/tableGmBio são autosalvos (fazem parte de formState) e vão no
+    // submit, mas não eram reatribuídos aqui: restaurar o rascunho apagava os
+    // dois campos que o usuário havia preenchido (review PR #227).
+    // Comparação com undefined, não truthiness: o usuário pode ter apagado o
+    // campo de propósito, e uma string vazia salva precisa sobrescrever o estado
+    // atual. `undefined` só ocorre em rascunho legado, gravado antes destes
+    // campos existirem — aí o valor corrente é preservado.
+    if (savedDraft.benefitsText !== undefined) formHook.setBenefitsText(savedDraft.benefitsText);
+    if (savedDraft.tableGmBio !== undefined) formHook.setTableGmBio(savedDraft.tableGmBio);
     if (savedDraft.listingExcerpt) formHook.setListingExcerpt(savedDraft.listingExcerpt);
     if (savedDraft.technicalRequirements) formHook.setTechnicalRequirements(savedDraft.technicalRequirements);
     if (savedDraft.requiresPc !== undefined) formHook.setRequiresPc(savedDraft.requiresPc);
@@ -371,6 +380,10 @@ export function CreateTableForm({
             setSynopsis={formHook.setSynopsis}
             styleText={formHook.styleText}
             setStyleText={formHook.setStyleText}
+            benefitsText={formHook.benefitsText}
+            setBenefitsText={formHook.setBenefitsText}
+            tableGmBio={formHook.tableGmBio}
+            setTableGmBio={formHook.setTableGmBio}
             listingExcerpt={formHook.listingExcerpt}
             setListingExcerpt={formHook.setListingExcerpt}
             technicalRequirements={formHook.technicalRequirements}

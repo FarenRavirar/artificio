@@ -4,6 +4,8 @@ import express from 'express';
 const dbMocks = vi.hoisted(() => ({
   selectFrom: vi.fn(),
   insertInto: vi.fn(),
+  updateTable: vi.fn(),
+  transaction: vi.fn(),
 }));
 
 vi.mock('../db', () => ({ db: dbMocks }));
@@ -38,6 +40,11 @@ describe('PUT /api/v1/material-metadata/:materialId', () => {
   beforeEach(() => {
     dbMocks.selectFrom.mockReset();
     dbMocks.insertInto.mockReset();
+    dbMocks.updateTable.mockReset();
+    dbMocks.transaction.mockReset();
+    dbMocks.transaction.mockReturnValue({
+      execute: (callback: (trx: typeof dbMocks) => unknown) => callback(dbMocks),
+    });
   });
 
   it('aceita metadata rica, limpa HTML hostil colado no editor e preserva source_filters como array', async () => {
@@ -52,6 +59,12 @@ describe('PUT /api/v1/material-metadata/:materialId', () => {
       executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ material_id: 'material-1' }),
     };
     dbMocks.insertInto.mockReturnValueOnce(insert);
+    const materialUpdate = {
+      set: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      executeTakeFirst: vi.fn().mockResolvedValue({ id: 'material-1' }),
+    };
+    dbMocks.updateTable.mockReturnValueOnce(materialUpdate);
 
     await request(app())
       .put('/api/v1/material-metadata/material-1')
@@ -61,7 +74,7 @@ describe('PUT /api/v1/material-metadata/:materialId', () => {
         creation_method: 'Human-Created Without AI',
         source_category: 'Linha de produto',
         source_filters: [{ facet: 'tipoDeProduto', path: ['Aventura', 'Campanha'] }],
-        description_html: '<p onclick="alert(1)">Seguro</p><a href="javascript:alert(1)">link</a><img src="https://example.com/capa.png" onerror="alert(1)"><iframe src="https://evil.example"></iframe><script>alert(1)</script>',
+        description_markdown: '**Seguro** <script>alert(1)</script>',
       })
       .expect(200);
 
@@ -77,7 +90,11 @@ describe('PUT /api/v1/material-metadata/:materialId', () => {
       // JSON.stringify explícito antes do Kysely — o valor aqui é a STRING
       // serializada, não o array em si.
       source_filters: JSON.stringify([{ facet: 'tipoDeProduto', path: ['Aventura', 'Campanha'] }]),
-      description_html: '<p>Seguro</p><a>link</a><img src="https://example.com/capa.png">',
+      description_markdown: '**Seguro** ',
+    }));
+    expect(materialUpdate.set).toHaveBeenCalledWith(expect.objectContaining({
+      description: 'Seguro',
+      summary: 'Seguro',
     }));
   });
 
@@ -102,7 +119,7 @@ describe('PUT /api/v1/material-metadata/:materialId', () => {
 
     expect(insert.values).toHaveBeenCalledWith(expect.objectContaining({ source_filters: JSON.stringify([]) }));
     expect(doUpdateSet).toHaveBeenCalledWith(expect.not.objectContaining({
-      description_html: expect.anything(),
+      description_markdown: expect.anything(),
       source_filters: expect.anything(),
     }));
   });
@@ -116,7 +133,6 @@ describe('PUT /api/v1/material-metadata/:materialId', () => {
       executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ material_id: 'material-1' }),
     };
     dbMocks.insertInto.mockReturnValueOnce(insert);
-
     await request(app()).put('/api/v1/material-metadata/material-1').send({
       publisher_name: ' Grimórios & Dados Editora ',
       authors: ['Ágata', 'Agata', ' Bruno '],

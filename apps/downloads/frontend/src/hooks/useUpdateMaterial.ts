@@ -3,8 +3,6 @@ import { apiPatch } from '../services/apiClient';
 
 export interface MaterialPatch {
   title?: string;
-  summary?: string | null;
-  description?: string | null;
   external_url?: string | null;
 }
 

@@ -12,8 +12,9 @@ import * as analyticsModule from '@artificio/analytics';
 // Fase 7 (spec 086, T7.8) — primeiro teste da ficha (MaterialPage nunca teve
 // .test.tsx antes desta spec). Cobre: com/sem metadata rica, com/sem
 // descrição rica, com/sem capa, ficha legada (json_ld_generic, sem os
-// campos novos) sem seção vazia nem "undefined", e HTML da descrição
-// renderizado (não escapado como texto).
+// campos novos) sem seção vazia nem "undefined", e Markdown da descrição
+// renderizado com formatação (spec 089 unificou a autoria em Markdown; antes
+// este comentário ainda falava em HTML).
 
 function baseMaterial(overrides: Partial<ReturnType<typeof useMaterialModule.useMaterial>['data']> = {}) {
   return {
@@ -150,6 +151,7 @@ describe('MaterialPage', () => {
       source_category: 'Warhammer Fantasy Roleplay Fourth Edition',
       source_filters: [{ facet: 'tipoDeProduto', path: ['Aventuras', '3.ª Categoria (Níveis 11-16)'] }],
       description_html: null,
+      description_markdown: null,
       language: 'pt',
     });
     mockFavorites();
@@ -163,7 +165,7 @@ describe('MaterialPage', () => {
     expect(screen.getByText('3.ª Categoria (Níveis 11-16)')).toBeInTheDocument();
   });
 
-  it('renderiza a descrição rica como HTML, não como texto escapado', () => {
+  it('renderiza a descrição Markdown com formatação', () => {
     mockSession();
     mockMaterial(baseMaterial());
     mockMetadata({
@@ -179,7 +181,8 @@ describe('MaterialPage', () => {
       creation_method: null,
       source_category: null,
       source_filters: null,
-      description_html: '<p>Descrição <strong>rica</strong>.</p>',
+      description_html: null,
+      description_markdown: 'Descrição **rica**.',
       language: 'pt',
     });
     mockFavorites();
@@ -188,7 +191,7 @@ describe('MaterialPage', () => {
 
     const strong = screen.getByText('rica');
     expect(strong.tagName).toBe('STRONG');
-    expect(screen.queryByText('<p>Descrição <strong>rica</strong>.</p>')).not.toBeInTheDocument();
+    expect(screen.queryByText('Descrição **rica**.')).not.toBeInTheDocument();
   });
 });
 

@@ -2,6 +2,7 @@ import { ClipboardList, Clock, Dices } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { trackEvent } from '@artificio/analytics';
 import { useSession } from '@artificio/auth/client';
+import { MarkdownContent } from '@artificio/content-editor';
 import { AppShell } from '../components/AppShell';
 import { AddToCollectionButton } from '../components/AddToCollectionButton';
 import { CommentSection } from '../components/CommentSection';
@@ -235,21 +236,10 @@ export function MaterialPage() {
           />
         </div>
 
-        {metadata?.description_html ? (
+        {metadata?.description_markdown ? (
           <div className="mt-8">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--fg-muted)]">Descrição</h2>
-            {/*
-              T7.5 — HTML ja sanitizado no backend (sanitizeRichHtml, Fase 2)
-              antes de persistir E antes de servir (routes/materialMetadata.ts).
-              Seguro renderizar cru aqui porque a fronteira de seguranca e o
-              servidor, nunca o cliente (regra petrea AGENTS.md: HTML de
-              usuario e hostil). Quebraria se alguem passasse a aceitar HTML
-              de outra rota/writer sem passar pelo mesmo sanitizador.
-            */}
-            <div
-              className="prose prose-sm mt-2 max-w-none text-[var(--fg-muted)]"
-              dangerouslySetInnerHTML={{ __html: metadata.description_html }}
-            />
+            <MarkdownContent value={metadata.description_markdown} className="mt-2 text-[var(--fg-muted)]" />
           </div>
         ) : (
           material.description && (

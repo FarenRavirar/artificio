@@ -5,6 +5,7 @@ import { logActivity } from '../services/activityLogger.js';
 import { deleteFromCloudinary } from '../services/cloudinary.js';
 import { buildMerge, MAX_MERGE_SOURCES, type MergeableFeedback } from '../services/devFeedbackMerge.js';
 import type { DevFeedbackStatus } from '../db/types.js';
+import { sanitizeNullableUserMarkdown, sanitizeUserMarkdown } from '../utils/userMarkdown.js';
 
 const router = Router();
 
@@ -93,6 +94,8 @@ router.get('/dev-feedback', async (req: Request, res: Response) => {
     );
     const data = rows.map((row) => ({
       ...row,
+      description: sanitizeUserMarkdown(row.description),
+      admin_notes: sanitizeNullableUserMarkdown(row.admin_notes),
       reporter_name: row.user_id ? (names.get(row.user_id) ?? 'Anonimo') : 'Anonimo',
     }));
 
@@ -136,7 +139,7 @@ router.patch('/dev-feedback/:id', async (req: Request, res: Response) => {
 
     if (typeof body.admin_notes === 'string') {
       const notes = body.admin_notes.trim();
-      update.admin_notes = notes.length > 0 ? notes.slice(0, 4000) : null;
+      update.admin_notes = notes.length > 0 ? sanitizeUserMarkdown(notes.slice(0, 4000)) : null;
     }
 
     let archivedChange: boolean | null = null;
@@ -169,7 +172,10 @@ router.patch('/dev-feedback/:id', async (req: Request, res: Response) => {
       metadata: { status: updated.status, archived: updated.archived_at !== null },
     });
 
-    return res.json({ data: updated });
+    return res.json({ data: {
+      ...updated,
+      admin_notes: sanitizeNullableUserMarkdown(updated.admin_notes),
+    } });
   } catch (error) {
     console.error('[PATCH /admin/dev-feedback/:id]', error);
     return res.status(500).json({ error: 'Erro ao atualizar feedback.' });

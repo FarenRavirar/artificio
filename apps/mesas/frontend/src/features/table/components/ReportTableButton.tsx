@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Flag } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { MarkdownEditor } from '../../../components/MarkdownEditor';
 
 const REASON_LABELS: Record<string, string> = {
   golpe: 'Golpe / fraude',
@@ -82,15 +83,14 @@ export function ReportTableButton({ slug }: ReportTableButtonProps) {
         ))}
       </fieldset>
 
-      <label htmlFor="report-table-details" className="sr-only">Detalhes da denúncia (opcional)</label>
-      <textarea
+      <MarkdownEditor
         id="report-table-details"
+        label="Detalhes da denúncia (opcional)"
         value={details}
-        onChange={(e) => setDetails(e.target.value.slice(0, 2000))}
+        onChange={setDetails}
         placeholder="Detalhes (opcional)"
         maxLength={2000}
-        rows={3}
-        className="w-full rounded-lg border border-white/10 bg-[var(--surface-input)] p-2 text-sm text-white outline-none focus:border-[var(--color-artificio-orange)]"
+        height={128}
       />
 
       <div className="flex gap-2">

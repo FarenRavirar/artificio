@@ -435,6 +435,7 @@ describe('runScraperIngest', () => {
         source_category: 'Linha de produto',
         source_filters: JSON.stringify([{ facet: 'tipoDeProduto', path: ['Aventura', 'Campanha'] }]),
         description_html: '<p>Descrição <strong>rica</strong></p>',
+        description_markdown: 'Uma aventura de RPG em português para testes automatizados completos.',
       }),
     );
     const logInsert = dbMocks.insertInto.mock.results
@@ -502,6 +503,57 @@ describe('runScraperIngest', () => {
       publisher_name: 'Editora & Dados',
       credits: 'Autora & Coautora\nArtista & Ilustradora',
     }));
+  });
+
+  // A descrição de fonte externa é sanitizada ANTES de persistir (fronteira
+  // obrigatória do AGENTS.md): não basta os leitores atuais sanitizarem, porque
+  // qualquer exportador ou consulta nova lê a coluna direto. A sanitização é
+  // seguida de decodificação de entidades porque o campo é texto plano por
+  // política — sem isso `D&D` legítimo viraria `D&amp;D` (review PR #227).
+  it('sanitiza descrição hostil da fonte externa antes de persistir, preservando texto legítimo', async () => {
+    dbMocks.selectFrom
+      .mockReturnValueOnce(selectChain(undefined))
+      .mockReturnValueOnce(selectChain([]));
+    detectPortugueseMock.mockResolvedValue({ isPortuguese: true, detectedLanguage: 'por', confident: true });
+    getOrCreateScraperCreatorIdMock.mockResolvedValue('scraper-creator-id');
+    loadCatalogSystemsFlatMock.mockResolvedValue([]);
+
+    const materialInsert = { values: vi.fn().mockReturnThis(), returning: vi.fn().mockReturnThis(), executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'material-hostil' }) };
+    const metadataInsert = { values: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
+    const trxInsertInto = vi.fn()
+      .mockReturnValueOnce(materialInsert)
+      .mockReturnValueOnce(metadataInsert);
+    dbMocks.transaction.mockReturnValue({
+      execute: async (cb: (trx: { insertInto: typeof trxInsertInto }) => Promise<string>) =>
+        cb({ insertInto: trxInsertInto }),
+    });
+
+    const item = makeItem({
+      // Inclui `&` legítimo junto do markup hostil: a limpeza não pode escapá-lo.
+      description: 'Aventura de D&D com <script>alert(1)</script> e <img src=x onerror=alert(2)> embutidos na fonte.',
+    });
+
+    await runScraperIngest('run-hostil', 'itch_io', asyncIterableOf([item]));
+
+    const materialValues = materialInsert.values.mock.calls[0][0];
+    const metadataValues = metadataInsert.values.mock.calls[0][0];
+
+    // description/summary vivem no material; description_markdown, na metadata.
+    const persisted = {
+      description: String(materialValues.description ?? ''),
+      summary: String(materialValues.summary ?? ''),
+      description_markdown: String(metadataValues.description_markdown ?? ''),
+    };
+
+    for (const [field, value] of Object.entries(persisted)) {
+      expect(value, `${field} deve estar sanitizado no banco`).not.toMatch(/<script|<img|onerror=/i);
+    }
+
+    // Texto legítimo sobrevive, e o `&` não vira entidade escapada.
+    expect(persisted.description).toContain('Aventura de D&D');
+    expect(persisted.description_markdown).toContain('Aventura de D&D');
+    expect(persisted.description).not.toContain('&amp;');
+    expect(persisted.description_markdown).not.toContain('&amp;');
   });
 
   it('violação do índice UNIQUE (corrida entre runs concorrentes): outcome=skipped_duplicate, não skipped_error', async () => {

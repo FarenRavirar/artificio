@@ -1,4 +1,5 @@
 import type { TableViewModel } from '../types/tableView.types';
+import { MarkdownContent } from '@artificio/content-editor';
 
 interface TableContentProps {
   vm: TableViewModel;
@@ -16,9 +17,7 @@ export function TableContent({ vm }: TableContentProps) {
       {vm.description && (
         <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
           <h2 className="text-lg font-bold mb-3">📖 Sobre a Mesa</h2>
-          <p className="text-white/80 leading-relaxed whitespace-pre-wrap">
-            {vm.description}
-          </p>
+          <MarkdownContent value={vm.description} className="text-white/80 leading-relaxed" />
         </section>
       )}
 
@@ -26,9 +25,7 @@ export function TableContent({ vm }: TableContentProps) {
       {vm.narrative && (
         <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
           <h2 className="text-lg font-bold mb-3">🎭 História</h2>
-          <p className="text-white/80 leading-relaxed whitespace-pre-wrap">
-            {vm.narrative}
-          </p>
+          <MarkdownContent value={vm.narrative} className="text-white/80 leading-relaxed" />
         </section>
       )}
 
@@ -36,9 +33,7 @@ export function TableContent({ vm }: TableContentProps) {
       {vm.benefits && (
         <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
           <h2 className="text-lg font-bold mb-3">✨ O que esperar</h2>
-          <p className="text-white/80 leading-relaxed whitespace-pre-wrap">
-            {vm.benefits}
-          </p>
+          <MarkdownContent value={vm.benefits} className="text-white/80 leading-relaxed" />
         </section>
       )}
 
@@ -46,9 +41,7 @@ export function TableContent({ vm }: TableContentProps) {
       {vm.styleText && (
         <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
           <h2 className="text-lg font-bold mb-3">🎲 Estilo de Jogo</h2>
-          <p className="text-white/80 leading-relaxed whitespace-pre-wrap">
-            {vm.styleText}
-          </p>
+          <MarkdownContent value={vm.styleText} className="text-white/80 leading-relaxed" />
         </section>
       )}
 

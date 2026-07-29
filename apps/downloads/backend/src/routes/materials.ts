@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { db } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
+import { sanitizeNullableUserMarkdown } from '@artificio/content-editor/sanitize';
 import {
   getCatalogMaterialTypeById,
   loadCatalogMaterialTypes,
@@ -59,8 +60,6 @@ const listMaterialsQuerySchema = z.object({
 
 const patchMaterialSchema = z.object({
   title: z.string().trim().min(1).optional(),
-  summary: z.string().trim().nullable().optional(),
-  description: z.string().trim().nullable().optional(),
   external_url: z.url().trim().nullable().optional(),
 });
 
@@ -160,8 +159,6 @@ async function loadRankedIds(sort: SortOption): Promise<string[] | null> {
 // por campo (D111 item 7 — historico desde o primeiro commit, incl. link).
 const EDITABLE_FIELDS = [
   'title',
-  'summary',
-  'description',
   'external_url',
 ] as const;
 
@@ -499,12 +496,20 @@ router.get('/facets', async (_req: Request, res: Response) => {
 router.get('/mine', writeRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   const materials = await db
     .selectFrom('download_material')
-    .select(PUBLIC_MATERIAL_FIELDS)
-    .where('creator_id', '=', req.user!.userId)
-    .orderBy('updated_at', 'desc')
+    .leftJoin('download_material_metadata', 'download_material_metadata.material_id', 'download_material.id')
+    .select([
+      ...PUBLIC_MATERIAL_FIELDS,
+      'download_material_metadata.description_markdown',
+      'download_material_metadata.publisher_name',
+    ])
+    .where('download_material.creator_id', '=', req.user!.userId)
+    .orderBy('download_material.updated_at', 'desc')
     .execute();
 
-  return res.json(materials);
+  return res.json(materials.map((material) => ({
+    ...material,
+    description_markdown: sanitizeNullableUserMarkdown(material.description_markdown),
+  })));
 });
 
 // T2.3/criterio de aceite 2 e 3 (spec 074) — historico completo por campo,

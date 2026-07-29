@@ -21,6 +21,7 @@
     "@artificio/catalog-matching": "workspace:*",
     "@artificio/changelog": "workspace:*",
     "@artificio/config": "workspace:*",
+    "@artificio/content-editor": "workspace:*",
     "@artificio/email": "workspace:*",
     "@artificio/media": "workspace:*",
     "@aws-sdk/client-s3": "^3.1085.0",

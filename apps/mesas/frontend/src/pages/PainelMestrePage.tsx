@@ -248,10 +248,16 @@ function CreateGmProfileForm({ onSuccess }: { onSuccess: () => void }) {
         </button>
       )}
       <div className="flex flex-col gap-1">
-        <label className="text-sm font-medium text-white/70">Bio (opcional)</label>
+        {/* O <label> antes não tinha htmlFor: não associava nada e o aria-label
+            interno era o único nome acessível, perdendo o "(opcional)" visível.
+            Agora rotula o campo de verdade (review PR #227). */}
+        <label htmlFor="painel-mestre-bio" className="text-sm font-medium text-white/70">Bio (opcional)</label>
         <MarkdownEditor
+          id="painel-mestre-bio"
           value={bio}
           onChange={setBio}
+          label="Bio do mestre"
+          labelledByExternal
           placeholder="Conte um pouco sobre você como mestre..."
           height={200}
         />

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Sparkles, Globe, Languages } from 'lucide-react';
 import type { MestrePublicData } from '../../hooks/useMestre';
+import { MarkdownContent } from '@artificio/content-editor';
 
 interface Props {
   profile: MestrePublicData;
@@ -14,11 +15,6 @@ export function MestreBio({ profile }: Props) {
   const hasBio = !!profile.bio_long?.trim();
 
   if (!hasSpecialties && !hasLanguages && !hasTagline && !hasBio) return null;
-
-  // Split bio em parágrafos para preservar quebras
-  const bioParagraphs = hasBio
-    ? profile.bio_long!.split(/\n\s*\n|\n/).map((p) => p.trim()).filter(Boolean)
-    : [];
 
   return (
     <section className="mestre-bio-section">
@@ -37,11 +33,9 @@ export function MestreBio({ profile }: Props) {
           )}
 
           <div className="mestre-bio-content">
-            {bioParagraphs.length > 0 && (
+            {hasBio && (
               <div className="mestre-bio-text">
-                {bioParagraphs.map((p, i) => (
-                  <p key={i}>{p}</p>
-                ))}
+                <MarkdownContent value={profile.bio_long!} />
               </div>
             )}
 

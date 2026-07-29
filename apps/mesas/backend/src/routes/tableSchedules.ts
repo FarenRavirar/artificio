@@ -3,6 +3,7 @@ import { authMiddleware } from '../middleware/auth.js';
 import { publicRateLimiter } from '../middleware/rateLimit.js';
 import { db } from '../db/index.js';
 import type { NewTableSchedule, TableScheduleUpdate } from '../db/types.js';
+import { sanitizeNullableUserMarkdown } from '../utils/userMarkdown.js';
 
 const router = Router();
 
@@ -54,6 +55,18 @@ function validateScheduleFields(input: { day_of_week?: string; frequency?: strin
   return null;
 }
 
+// `req.body` é atribuído a um tipo sem validação de runtime, então `notes` podia
+// chegar como objeto/array/número. O sanitizador chama `.slice`/`.startsWith` no
+// valor e lançava TypeError, devolvendo 500 onde o correto é 400 (achado de
+// review PR #227). Aceita apenas string, null ou ausente.
+function validateScheduleNotes(notes: unknown): string | null {
+  if (notes === undefined || notes === null) return null;
+  if (typeof notes !== 'string') {
+    return 'notes deve ser texto ou nulo.';
+  }
+  return null;
+}
+
 function buildScheduleUpdateData(input: Partial<TableScheduleUpdate>): Partial<TableScheduleUpdate> {
   const updateData: Partial<TableScheduleUpdate> = {};
   const fields: Array<keyof TableScheduleUpdate> = [
@@ -62,7 +75,9 @@ function buildScheduleUpdateData(input: Partial<TableScheduleUpdate>): Partial<T
   ];
   for (const field of fields) {
     if (input[field] !== undefined) {
-      (updateData as Record<string, unknown>)[field] = input[field];
+      (updateData as Record<string, unknown>)[field] = field === 'notes'
+        ? sanitizeNullableUserMarkdown(input[field] as string | null)
+        : input[field];
     }
   }
   return updateData;
@@ -86,7 +101,10 @@ router.get('/:tableId/schedules', publicRateLimiter, async (req, res) => {
       .orderBy('start_time', 'asc')
       .execute();
     
-    res.json({ data: schedules });
+    res.json({ data: schedules.map((schedule) => ({
+      ...schedule,
+      notes: sanitizeNullableUserMarkdown(schedule.notes),
+    })) });
   } catch (error) {
     console.error('Error fetching table schedules:', error);
     res.status(500).json({ error: 'Erro ao buscar horários da mesa' });
@@ -124,6 +142,11 @@ router.post('/:tableId/schedules', publicRateLimiter, authMiddleware, async (req
       return res.status(400).json({ error: fieldError });
     }
 
+    const notesError = validateScheduleNotes(input.notes);
+    if (notesError) {
+      return res.status(400).json({ error: notesError });
+    }
+
     // Validar end_time > start_time (se preenchido)
     if (input.end_time && input.end_time <= input.start_time) {
       return res.status(400).json({
@@ -142,7 +165,7 @@ router.post('/:tableId/schedules', publicRateLimiter, authMiddleware, async (req
         frequency: input.frequency,
         slots_per_session: input.slots_per_session ?? null,
         is_ongoing: input.is_ongoing ?? false,
-        notes: input.notes ?? null,
+        notes: sanitizeNullableUserMarkdown(input.notes ?? null),
         sort_order: input.sort_order ?? 0
       })
       .returningAll()
@@ -192,6 +215,11 @@ router.put('/:tableId/schedules/:id', publicRateLimiter, authMiddleware, async (
       return res.status(400).json({ error: fieldError });
     }
 
+    const notesError = validateScheduleNotes(input.notes);
+    if (notesError) {
+      return res.status(400).json({ error: notesError });
+    }
+
     const updateData = buildScheduleUpdateData(input);
 
     if (Object.keys(updateData).length === 0) {
@@ -205,7 +233,10 @@ router.put('/:tableId/schedules/:id', publicRateLimiter, authMiddleware, async (
       .returningAll()
       .execute();
     
-    res.json({ data: updated });
+    res.json({ data: updated ? {
+      ...updated,
+      notes: sanitizeNullableUserMarkdown(updated.notes),
+    } : updated });
   } catch (error) {
     console.error('Error updating table schedule:', error);
     res.status(500).json({ error: 'Erro ao atualizar horário' });

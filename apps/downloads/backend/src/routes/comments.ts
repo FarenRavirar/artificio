@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db } from '../db';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
+import { sanitizeUserMarkdown } from '@artificio/content-editor/sanitize';
 
 const router = Router();
 
@@ -17,6 +18,14 @@ router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Res
   const parsed = createCommentSchema.safeParse(req.body ?? {});
   if (!parsed.success) {
     return res.status(400).json({ error: 'Payload inválido.', details: z.treeifyError(parsed.error) });
+  }
+
+  // O `min(1)` do Zod roda antes da sanitização: entrada só-markup
+  // (`<script>alert(1)</script>`) passava na validação, saía vazia daqui e
+  // criava comentário invisível com 201 (review PR #227).
+  const safeBody = sanitizeUserMarkdown(parsed.data.body);
+  if (!safeBody.trim()) {
+    return res.status(400).json({ error: 'Comentário não pode ser vazio.' });
   }
 
   const material = await db
@@ -35,7 +44,7 @@ router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Res
     .values({
       material_id: parsed.data.material_id,
       user_id: req.user!.userId,
-      body: parsed.data.body,
+      body: safeBody,
     })
     .returningAll()
     .executeTakeFirstOrThrow();
@@ -52,7 +61,10 @@ router.get('/:materialId', async (req: Request, res: Response) => {
     .orderBy('created_at', 'asc')
     .execute();
 
-  return res.json(comments);
+  return res.json(comments.map((comment) => ({
+    ...comment,
+    body: sanitizeUserMarkdown(comment.body),
+  })));
 });
 
 // T6.1 — retirada so por denuncia/moderacao, nunca autoexclusao livre nem

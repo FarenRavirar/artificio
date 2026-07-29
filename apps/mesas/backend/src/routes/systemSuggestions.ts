@@ -9,6 +9,7 @@ import { resolveActorName } from '../services/actorNameResolver.js';
 import { listMineHandler } from './suggestionHelpers.js';
 import { loadSystemCatalogFlat } from '../services/systemCatalogProvider.js';
 import { validateSystemSuggestionHierarchy } from '../services/systemHierarchy.js';
+import { sanitizeUserMarkdown } from '../utils/userMarkdown.js';
 
 const router = Router();
 
@@ -49,10 +50,14 @@ const normalizeSuggestionPayload = (payload: SuggestionPayload, index: number) =
     throw new Error(`Use parent_id ou parent_suggestion_index no item ${index + 1}, não ambos.`);
   }
 
+  // readTrimmed chamado uma vez só: a versão anterior chamava duas e precisava
+  // de `!` para convencer o compilador de que o segundo retorno não era null.
+  const description = readTrimmed(payload.description);
+
   return {
     name,
     name_pt: readTrimmed(payload.name_pt),
-    description: readTrimmed(payload.description),
+    description: description ? sanitizeUserMarkdown(description.slice(0, 4000)) : null,
     parent_id: parentId,
     node_type: suggestionType as typeof VALID_NODE_TYPES[number],
     parent_suggestion_index: parentSuggestionIndex,
