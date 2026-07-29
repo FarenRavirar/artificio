@@ -1,8 +1,28 @@
 import request from 'supertest';
 import express from 'express';
+import {
+  DummyDriver,
+  Kysely,
+  PostgresAdapter,
+  PostgresIntrospector,
+  PostgresQueryCompiler,
+  type RawBuilder,
+} from 'kysely';
 
 // T4.3 (spec 073) — teste de integracao da listagem publica: filtro,
 // paginacao e que so material publicado aparece.
+
+// Compilador do dialeto real, sem conexão: serve para assertar o SQL que o
+// Postgres receberia de um fragmento `sql\`\``, em vez de inspecionar a estrutura
+// interna do Kysely (opaca e sem contrato estável). Usado no teste do DEB-089-20.
+const compilerDb = new Kysely<Record<string, never>>({
+  dialect: {
+    createAdapter: () => new PostgresAdapter(),
+    createDriver: () => new DummyDriver(),
+    createIntrospector: (database) => new PostgresIntrospector(database),
+    createQueryCompiler: () => new PostgresQueryCompiler(),
+  },
+});
 
 const dbMocks = vi.hoisted(() => ({
   selectFrom: vi.fn(),
@@ -180,9 +200,34 @@ describe('GET /api/v1/materials — listagem publica', () => {
 
     expect(builder.leftJoin).toHaveBeenCalledBefore(builder.select as ReturnType<typeof vi.fn>);
     expect(builder.where).toHaveBeenCalledWith('download_material_metadata.publisher_key', '=', 'grimorios e dados');
-    expect(builder.where).toHaveBeenCalledWith('download_material_metadata.author_keys', '@>', ['agata']);
     expect(builder.where).toHaveBeenCalledTimes(3);
     expect(builder.offset).toHaveBeenCalledWith(20);
+  });
+
+  // DEB-089-20: a versão anterior passava `['agata']` como valor de `@>`, e o
+  // Kysely serializava o array JS como parâmetro escalar — o Postgres tentava
+  // lê-lo como literal de array e a rota devolvia 500 para QUALQUER autor
+  // (`malformed array literal`, SQLSTATE 22P02). O array precisa ser montado no
+  // servidor, com o valor ainda como bind.
+  it('monta o array de autoria em SQL, não como parâmetro escalar', async () => {
+    const builder = makeQueryBuilder([], 0);
+    dbMocks.selectFrom.mockReturnValue(builder);
+
+    await request(app()).get('/api/v1/materials').query({ author: 'Ágata' }).expect(200);
+
+    const authorCall = (builder.where as ReturnType<typeof vi.fn>).mock.calls.find(
+      (call) => call.length === 1 && typeof call[0] === 'object' && call[0] !== null,
+    );
+
+    expect(authorCall).toBeDefined();
+
+    // Compila o fragmento pelo dialeto real: é o que o Postgres receberia.
+    const compiled = (authorCall?.[0] as RawBuilder<boolean>).compile(compilerDb);
+
+    expect(compiled.sql).toBe('download_material_metadata.author_keys @> ARRAY[$1]');
+    // A chave normalizada viaja como bind, nunca interpolada no texto do SQL.
+    expect(compiled.parameters).toEqual(['agata']);
+    expect(compiled.sql).not.toContain('agata');
   });
 
   it('rejeita faceta que normaliza para chave vazia em vez de ignorar o filtro', async () => {

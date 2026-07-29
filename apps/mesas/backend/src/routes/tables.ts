@@ -148,6 +148,17 @@ router.get('/', async (req: Request, res: Response) => {
       ])
       .where('t.status', '=', 'active')
       .where('t.archived_at', 'is', null) // D-MESAS1: arquivadas somem do catalogo publico
+      // Espelha isPublicTable (utils/tableVisibility.ts) em SQL: mesa importada
+      // expira em `starts_at` ou 5 dias após a criação, o que vencer primeiro.
+      // Precisa ser filtro de banco, não de memória — senão a expirada entra na
+      // contagem e na paginação e some da página, deixando buraco no resultado
+      // (achado de review, P2). Mesa não importada nunca expira.
+      .where(
+        sql<boolean>`(
+          t.origin IS DISTINCT FROM 'imported'
+          OR LEAST(COALESCE(t.starts_at, t.created_at + INTERVAL '5 days'), t.created_at + INTERVAL '5 days') > NOW()
+        )`,
+      )
       .orderBy('t.created_at', 'desc');
 
     if (system) {
@@ -604,7 +615,14 @@ router.post('/:slug/click', async (req: Request, res: Response) => {
   const { slug } = req.params;
   // `variant` é opcional; requisição sem body também é válida.
   // Achado durante T6B.1 (spec 089): destructuring de undefined devolvia 500.
-  const { variant } = (req.body ?? {}) as { variant?: string };
+  // `req.body` é `unknown` até ser normalizado (regra pétrea): o `as` anterior
+  // afirmava `variant?: string` sobre payload que pode ser array, número ou
+  // `{variant: {}}` (achado de review, P2). Aqui a afirmação vira verificação.
+  const body: unknown = req.body;
+  const variant =
+    typeof body === 'object' && body !== null && !Array.isArray(body)
+      ? (body as Record<string, unknown>).variant
+      : undefined;
 
   // CORREÇÃO UX-SENIOR-02: Validar formato do slug
   if (!slug || slug.length > 200 || !/^[a-z0-9-]+$/i.test(slug)) {

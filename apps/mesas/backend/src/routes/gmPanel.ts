@@ -23,7 +23,6 @@ import { triggerMetaScrape, triggerMetaScrapeOnPublish } from '../services/metaS
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
 import {
   sanitizeNullableUserMarkdown,
-  sanitizeOptionalUserMarkdown,
   sanitizeUserMarkdown,
 } from '../utils/userMarkdown.js';
 import { parseTextForPreview } from '../discord/parseTextForPreview.js';
@@ -339,6 +338,15 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
       : closed_group_description === null
         ? null
         : undefined;
+  // Mesmo padrão de closed_group_description acima: `req.body` é `unknown` até
+  // ser validado (regra pétrea de normalização), e sanitize-html espera string —
+  // número ou objeto chegariam nele sem esta guarda (achado de review, P2).
+  const safeBioLong =
+    typeof bio_long === 'string'
+      ? sanitizeUserMarkdown(bio_long)
+      : bio_long === null
+        ? null
+        : undefined;
   const safeClosedGroupMinPriceCents =
     typeof closed_group_min_price_cents === 'number' &&
     Number.isInteger(closed_group_min_price_cents) &&
@@ -424,7 +432,7 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
       .updateTable('gm_profiles')
       .set({
         nickname: safeNickname,
-        bio_long: sanitizeOptionalUserMarkdown(bio_long),
+        bio_long: safeBioLong,
         languages: safeLanguages,
         specialties: safeSpecialties,
         badges: safeBadges,

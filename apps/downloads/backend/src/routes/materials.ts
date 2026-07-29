@@ -201,24 +201,20 @@ router.get('/', async (req: Request, res: Response) => {
   if (accessKind) baseQuery = baseQuery.where('access_kind', '=', accessKind);
   if (publisher) baseQuery = baseQuery.where('download_material_metadata.publisher_key', '=', publisher);
   if (author) {
-    // BUG CONHECIDO — DEB-089-20, NÃO CORRIGIDO POR DECISÃO DO MANTENEDOR (2026-07-28).
-    // Esta linha devolve HTTP 500 para QUALQUER valor de `author`, não lista vazia.
-    // Kysely serializa `[author]` como parâmetro escalar e o Postgres tenta lê-lo
-    // como literal de array:
+    // DEB-089-20 — corrigido em 2026-07-28 (autorização nominal do mantenedor).
+    // A versão anterior era `.where('...author_keys', '@>', [author])`, que
+    // devolvia HTTP 500 para QUALQUER valor: o Kysely serializa `[author]` como
+    // parâmetro escalar e o Postgres tenta lê-lo como literal de array —
     //   error: malformed array literal: "leo andrade"  (SQLSTATE 22P02)
-    //   detail: Array value must start with "{" or dimension information.
-    // Medido em Beta (T5.8, 2026-07-28): `?author=intruder` e `?author=leo andrade`
-    // → 500; sem o parâmetro → 200. O banco tem os dados (9 materiais publicados
-    // com `author_keys @> ARRAY['leo andrade']`), e `/facets` anuncia 30 entradas de
-    // autoria — todas quebram ao clicar.
+    // Medido em Beta (T5.8): `?author=intruder` → 500; sem o parâmetro → 200,
+    // enquanto o banco tinha 9 materiais com `author_keys @> ARRAY['leo andrade']`
+    // e `/facets` anunciava 30 entradas de autoria, todas quebrando ao clicar.
     //
-    // Correção conhecida: passar o array por SQL cru, p.ex.
-    //   .where(sql`author_keys @> ARRAY[${author}]`)
-    // Não aplicada aqui porque a spec 090 R29 decide remover `authors` das facetas
-    // (autoria vira busca textual), e o mantenedor optou por decidir depois se
-    // corrige a query ou se ela sai junto com a faceta. Enquanto isso, é 500 em
-    // rota pública — não tratar como "faceta vazia".
-    baseQuery = baseQuery.where('download_material_metadata.author_keys', '@>', [author]);
+    // `ARRAY[${author}]` monta o literal no servidor, com `author` ainda como
+    // bind ($1) — não é interpolação de string, então não abre injeção.
+    baseQuery = baseQuery.where(
+      sql<boolean>`download_material_metadata.author_keys @> ARRAY[${author}]`,
+    );
   }
   if (q) {
     // Spec 087 (achado de review PR #214, Codex P2): a busca prometia "título,
