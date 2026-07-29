@@ -194,6 +194,17 @@ describe('POST /api/v1/materials/:id/cover', () => {
     }));
   });
 
+  it('rejeita filename duplicado antes de consultar material ou enviar arquivo', async () => {
+    await request(app())
+      .post('/api/v1/materials/material-1/cover?filename=capa.png&filename=outra.png')
+      .set('Content-Type', 'image/png')
+      .send(png())
+      .expect(400);
+
+    expect(dbMocks.selectFrom).not.toHaveBeenCalled();
+    expect(mediaMocks.uploadBuffer).not.toHaveBeenCalled();
+  });
+
   it('rejeita conteúdo hostil antes do upload', async () => {
     await request(app())
       .post('/api/v1/materials/material-1/cover?filename=capa.png')

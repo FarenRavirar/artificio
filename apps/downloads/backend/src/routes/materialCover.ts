@@ -38,11 +38,17 @@ router.post(
   authMiddleware,
   express.raw({ type: '*/*', limit: '6mb' }),
   async (req: Request, res: Response) => {
-    const filenameRaw: unknown = Array.isArray(req.query.filename) ? undefined : req.query.filename;
-    const parsedQuery = coverQuerySchema.safeParse({ filename: filenameRaw });
+    // Achado CodeQL PR #228: estreitar o parâmetro na própria fronteira HTTP.
+    // Query repetida pode virar string[]; objeto também não é nome de arquivo.
+    const filenameParam = req.query.filename;
+    if (typeof filenameParam !== 'string') {
+      return res.status(400).json({ error: 'Parâmetro "filename" é obrigatório.' });
+    }
+    const parsedQuery = coverQuerySchema.safeParse({ filename: filenameParam });
     if (!parsedQuery.success) {
       return res.status(400).json({ error: 'Parâmetro "filename" é obrigatório.' });
     }
+    const filename: string = parsedQuery.data.filename;
 
     const material = await db
       .selectFrom('download_material')
@@ -67,7 +73,7 @@ router.post(
     }
     const coverBuffer: Buffer = req.body;
     try {
-      const result = await storeCoverBuffer(material.id, coverBuffer, parsedQuery.data.filename, declaredMimeType);
+      const result = await storeCoverBuffer(material.id, coverBuffer, filename, declaredMimeType);
       return res.status(201).json(result);
     } catch (error) {
       if (error instanceof CoverImageValidationError) {
