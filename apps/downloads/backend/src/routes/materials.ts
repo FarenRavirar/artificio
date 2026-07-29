@@ -20,6 +20,14 @@ import {
   registerMaterialView,
 } from '../services/materialMetrics';
 import { normalizeAuthorKey, normalizePublisherKey } from '../services/facetNormalization';
+import {
+  createWithUniqueMaterialSlug,
+  MaterialSlugExhaustedError,
+} from '../services/materialSlug';
+import {
+  MaterialTaxonomyValidationError,
+  resolveMaterialTaxonomyPatch,
+} from '../services/materialTaxonomy';
 
 const router = Router();
 
@@ -61,6 +69,8 @@ const listMaterialsQuerySchema = z.object({
 const patchMaterialSchema = z.object({
   title: z.string().trim().min(1).optional(),
   external_url: z.url().trim().nullable().optional(),
+  system_id: z.uuid().nullable().optional(),
+  edition_id: z.uuid().nullable().optional(),
 });
 
 // Campos publicos da ficha; exclui storage_provider/storage_key (achado
@@ -99,7 +109,6 @@ const CARD_METADATA_FIELDS = [
 ] as const;
 
 const createMaterialSchema = z.object({
-  slug: z.string().trim().min(1).max(200),
   title: z.string().trim().min(1).max(200),
   material_type_id: z.string().uuid(),
 });
@@ -160,6 +169,8 @@ async function loadRankedIds(sort: SortOption): Promise<string[] | null> {
 const EDITABLE_FIELDS = [
   'title',
   'external_url',
+  'system_id',
+  'edition_id',
 ] as const;
 
 type EditableField = (typeof EDITABLE_FIELDS)[number];
@@ -628,7 +639,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
 router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   const parsed = createMaterialSchema.safeParse(req.body ?? {});
   if (!parsed.success) {
-    return res.status(400).json({ error: 'slug, title e material_type_id são obrigatórios.', details: z.treeifyError(parsed.error) });
+    return res.status(400).json({ error: 'title e material_type_id são obrigatórios.', details: z.treeifyError(parsed.error) });
   }
 
   let materialType;
@@ -645,19 +656,27 @@ router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Res
     return res.status(503).json({ error: 'Catálogo de tipos de material indisponível.' });
   }
 
-  const created = await db
-    .insertInto('download_material')
-    .values({
-      slug: parsed.data.slug,
-      title: parsed.data.title,
-      material_type_id: materialType.id,
-      material_type: materialType.name,
-      creator_id: req.user!.userId,
-      editorial_state: 'draft',
-      access_kind: 'external_link',
-    })
-    .returningAll()
-    .executeTakeFirstOrThrow();
+  let created;
+  try {
+    created = await createWithUniqueMaterialSlug(parsed.data.title, (slug) => db
+      .insertInto('download_material')
+      .values({
+        slug,
+        title: parsed.data.title,
+        material_type_id: materialType.id,
+        material_type: materialType.name,
+        creator_id: req.user!.userId,
+        editorial_state: 'draft',
+        access_kind: 'external_link',
+      })
+      .returningAll()
+      .executeTakeFirstOrThrow());
+  } catch (error) {
+    if (error instanceof MaterialSlugExhaustedError) {
+      return res.status(409).json({ error: error.message });
+    }
+    throw error;
+  }
 
   return res.status(201).json(created);
 });
@@ -752,7 +771,23 @@ router.patch('/:id', writeRateLimiter, authMiddleware, async (req: Request, res:
     return res.status(400).json({ error: 'Payload inválido.', details: z.treeifyError(parsed.error) });
   }
 
-  const patch = parsed.data;
+  let patch = parsed.data;
+  if (Object.hasOwn(patch, 'system_id') || Object.hasOwn(patch, 'edition_id')) {
+    try {
+      const taxonomyPatch = resolveMaterialTaxonomyPatch(
+        { system_id: material.system_id, edition_id: material.edition_id },
+        patch,
+        await loadCatalogSystemsFlat(),
+      );
+      patch = { ...patch, ...taxonomyPatch };
+    } catch (error) {
+      if (error instanceof MaterialTaxonomyValidationError) {
+        return res.status(400).json({ error: error.message });
+      }
+      console.error('[materials] taxonomy validation unavailable', error);
+      return res.status(503).json({ error: 'Catálogo de sistemas indisponível.' });
+    }
+  }
   const changes = EDITABLE_FIELDS.filter((field) => field in patch) as EditableField[];
 
   if (changes.length === 0) {

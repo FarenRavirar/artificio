@@ -6,5 +6,29 @@
 
 ---
 
-✅ **Nenhuma mudança detectada entre a versão atual e dev.**
+## Sumário
+
+| App | Breaking | Non-breaking | Unclassified |
+|-----|:--------:|:------------:|:------------:|
+| downloads | ❌ 1 | ✅ 5 | ⚪ 0 |
+
+---
+
+### downloads
+
+#### ❌ Breaking Changes (1)
+
+| Path | Method | Ação | Código |
+|------|--------|------|--------|
+| `/api/v1/materials` | POST | remove | `request.body.scope.remove` |
+
+#### ✅ Non-breaking (5)
+
+| Path | Method | Ação |
+|------|--------|------|
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `/api/v1/materials` | POST | add |
 

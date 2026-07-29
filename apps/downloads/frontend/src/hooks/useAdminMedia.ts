@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
-import { apiGet, apiPut } from '../services/apiClient';
+import { apiGet, apiPost, apiPut } from '../services/apiClient';
 
 const mediaItemSchema = z.object({
   material_id: z.string(),
@@ -8,6 +8,7 @@ const mediaItemSchema = z.object({
   material_title: z.string(),
   editorial_state: z.string(),
   cover_image_url: z.string().nullable(),
+  cover_storage_provider: z.string().nullable(),
   description_html: z.string().nullable().optional(),
   description_markdown: z.string().nullable().optional(),
 });
@@ -49,5 +50,20 @@ export function useUpdateCoverImage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['downloads', 'admin', 'media'] });
     },
+  });
+}
+
+export function useMigrateCover() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (materialId: string) => {
+      const response = await apiPost(`/api/v1/admin/media/${materialId}/migrate-cover`);
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error ?? `Falha ao migrar capa: HTTP ${response.status}`);
+      }
+      return response.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['downloads', 'admin', 'media'] }),
   });
 }

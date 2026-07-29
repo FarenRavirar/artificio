@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Select } from '@artificio/ui';
 import { AppShell } from '../components/AppShell';
 import { ActiveFilterChips, type ActiveFilter } from '../components/ActiveFilterChips';
 import { CatalogFilterSidebar } from '../components/CatalogFilterSidebar';
@@ -151,17 +152,17 @@ export function CatalogoPage() {
           <div className="mb-6 flex justify-end">
             <label className="w-full sm:w-auto sm:min-w-[160px]">
               <span className="sr-only">Ordenar por</span>
-              <select
+              <Select
                 value={sort}
                 onChange={(event) => updateParam('sort', event.target.value)}
-                className="min-h-[44px] w-full rounded-md border border-[var(--line)] bg-[var(--surface-subtle)] px-3 py-2 text-[var(--fg)] focus:border-artificio-orange focus:outline-none"
+                className="w-full"
               >
                 {SORT_OPTIONS.map((option) => (
                   <option key={option} value={option}>
                     {SORT_LABELS[option]}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
           </div>
         )}

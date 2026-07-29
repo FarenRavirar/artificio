@@ -7,7 +7,7 @@ import * as useCreateMaterialModule from '../../hooks/useCreateMaterial';
 import * as useMaterialTypesModule from '../../hooks/useMaterialTypes';
 
 // Débito (27 páginas sem teste de componente) — cobertura de NovoMaterialPage
-// (T2.1 spec 082): criação de rascunho de material (slug/title/material_type_id),
+// (T2.1 spec 082): criação de rascunho de material (title/material_type_id),
 // navegação para edição em caso de sucesso e toast de erro em caso de falha.
 // Achado real (review PR #205, Codex): comentário anterior ainda nomeava o
 // campo livre removido, contrariando o contrato canônico exercitado abaixo.
@@ -71,7 +71,7 @@ describe('NovoMaterialPage', () => {
 
     expect(screen.getByText('Novo material')).toBeInTheDocument();
     expect(screen.getByText('Título')).toBeInTheDocument();
-    expect(screen.getByText('Slug')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Slug')).not.toBeInTheDocument();
     expect(screen.getByText('Tipo de material')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Criar rascunho' })).toBeInTheDocument();
   });
@@ -93,13 +93,11 @@ describe('NovoMaterialPage', () => {
     renderPage();
 
     fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Meu Material' } });
-    fireEvent.change(screen.getByLabelText('Slug'), { target: { value: 'meu-material' } });
     fireEvent.change(screen.getByLabelText('Tipo de material'), { target: { value: ADVENTURE_ID } });
     fireEvent.click(screen.getByRole('button', { name: 'Criar rascunho' }));
 
     await waitFor(() => {
       expect(mutateAsync).toHaveBeenCalledWith({
-        slug: 'meu-material',
         title: 'Meu Material',
         material_type_id: ADVENTURE_ID,
       });
@@ -111,17 +109,16 @@ describe('NovoMaterialPage', () => {
 
   it('mostra toast de erro quando a criação falha', async () => {
     const mutateAsync = mockCreateMaterial();
-    mutateAsync.mockRejectedValue(new Error('slug já existe'));
+    mutateAsync.mockRejectedValue(new Error('falha ao criar'));
 
     renderPage();
 
     fireEvent.change(screen.getByLabelText('Título'), { target: { value: 'Meu Material' } });
-    fireEvent.change(screen.getByLabelText('Slug'), { target: { value: 'meu-material' } });
     fireEvent.change(screen.getByLabelText('Tipo de material'), { target: { value: ADVENTURE_ID } });
     fireEvent.click(screen.getByRole('button', { name: 'Criar rascunho' }));
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith('slug já existe');
+      expect(toast.error).toHaveBeenCalledWith('falha ao criar');
     });
 
     expect(navigateMock).not.toHaveBeenCalled();

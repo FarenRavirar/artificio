@@ -9,7 +9,7 @@
 
 **Todos os 5 apps em prod** (2026-06-21). **Último promote `dev→main`: 2026-06-24 (`2756346`, ff via `promote-prod-fast-forward.yml`)** — promoveu specs 044-049 (PRs #93/#94 + acumulado). `main == dev`. **⚠️ Deploy prod mesas falhou e fez rollback** (run `28125222995`): guard de migration barrou `migration_128` (falso-positivo `online-safe`). **Spec 050 corrigiu o guard** (regex estreito + teste shell 28/28 no CI + cópia órfã removida). Mesas em prod segue no código pré-049. **Pronto para re-deploy prod** (gated por aprovação nominal do mantenedor).
 
-**Spec 089 — Fase 7 em implementação local na branch `feat/089-fase-7` (2026-07-28):** Fase 6B mergeada via PR #226
+**Spec 089 — Fase 7 em implementação local na branch `feat/089-fase-7-conclusao` (2026-07-29):** Fase 6B mergeada via PR #226
 (`feat/089-fases-7-8` → `dev`), merge commit `353d95f`. Fase 5 permanece **fechada como
 reprovada** (28 pass / 5 fail); não reabrir para “passar”. A Fase 6B entregou: política pública
 única no detalhe e nas interações de mesa; Markdown de usuário sanitizado na escrita e na
@@ -18,15 +18,30 @@ leitura; preview sem HTML cru; `RichTextArea.tsx` removido. Três CVEs fechados 
 `markdown-it@14.3.0`, o mais recente, ainda declara `^5.0.2`). Segunda rodada de review do Codex
 extraiu o predicado de visibilidade para `apps/mesas/backend/src/utils/tableVisibility.ts`,
 eliminando a duplicação entre `tables.ts` e `gm.ts`. Medição read-only Beta/Prod encontrou zero
-HTML/entidade persistido; decisão do mantenedor: sem migration retroativa. `T7.0d` aberta.
+HTML/entidade persistido; decisão do mantenedor: sem migration retroativa. A primeira entrega da
+Fase 7 foi mergeada em `dev` pela PR #227 (`b29dd15`).
 O mantenedor autorizou `packages/content-editor` e ampliou o escopo para todo texto livre de
 `downloads` e `mesas`. Pacote GFM, adoção nos dois projetos, `description_markdown` e projeções
-planas estão implementados localmente; lint/build/testes focados e `verify:api` verdes.
-**T7.3 continua aberta** até migration 034 ser ensaiada e rollback provado em banco descartável.
+planas estão em `dev`. Na branch nova, T7.5 entregou slug automático centralizado, limite 160,
+retry no índice UNIQUE e contrato OpenAPI atualizado; formulário/hook não exibem nem enviam slug,
+com frontend 6/6 e backend helper+rota 33/33 verdes. T7.6 adotou o `Select` compartilhado nos seis controles crus do
+Downloads (48/48 nas páginas; primitive UI 8/8). T7.7 centraliza `color-scheme` e cores de option
+em `packages/ui`, removendo duplicação de Mesas/Glossário, mas o smoke do picker segue aberto por
+falha do Browser interno. T7.8 fechou edição de sistema/edição pelo autor com validação Central,
+limpeza transacional de edição incompatível e histórico; backend 10/10, frontend 19/19, lint/build
+e `verify:api` verdes. Revalidação completa ocorrerá no gate final.
+**T7.3 continua aberta.** Docker/PostgreSQL local não funcionam; o ensaio foi transformado em gate explícito no PostgreSQL 16 descartável do CI. O script aplica baseline, confere conteúdo/contagem, prova rollback e rerun da 034. Falta a primeira execução real na PR.
 **Ainda não deployado:** beta e prod seguem no código anterior — a correção do `?author=`
 (DEB-089-20) e as sanitizações só valem em runtime após deploy, que exige autorização própria.
-**Próximo:** concluir ensaio da migration 034 e demais tarefas do formulário do autor; depois
-Fase 8. O editor não toca `packages/ui`; destino aprovado = `packages/content-editor`.
+T7.9-T7.16 têm implementação local: upload autenticado, validação JPEG/PNG/WebP por assinatura,
+preset opcional no Media, rollback, identidade/exclusão pendente na migration 035 e orientação UI.
+T7.12-T7.16 fecharam localmente: todas as escritas marcam origem; URL colada usa downloader
+SSRF-safe compartilhado com Mesas; scraper copia com fallback externo; lote administrativo pega
+somente publicados, mostra custo máximo, é retomável/idempotente; substituição usa helper único e
+preserva exclusão pendente. `DOWNLOADS_CLOUDINARY_COVERS_ENABLED=false` é fail-closed em código,
+env e compose; ligar exige autorização nominal própria. `DEB-091-01` cobre órfãos fora da troca.
+T7.11 fechou; T7.9 aguarda preset assinado real/smoke Cloudinary; T7.10 tem gate que aplica 035 duas vezes e confere constraints, mas aguarda a primeira execução real no CI.
+**Próximo:** terminar gates locais antes da PR; na PR, confirmar o gate PostgreSQL 16. Depois configurar/smokar preset Cloudinary sem ligar a chave e concluir T7.7 com Chrome autorizado; depois Fase 8. O editor não toca `packages/ui`; destino aprovado = `packages/content-editor`.
 T8.1 [P0] (`og-default.png` ausente — reconfirmado em 2026-07-28, `public/` só tem
 `robots.txt`) precede todas as demais tasks da Fase 8.
 

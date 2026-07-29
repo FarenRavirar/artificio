@@ -402,17 +402,116 @@ editor GFM; campos curtos/estruturados continuam inputs e fontes brutas continua
 - [x] T7.0c — Comunicação mantida em português, caveman ultra.
 - [x] T7.0d — **Trava aberta em 2026-07-28: fix da Fase 6B mergeado em `dev`.** PR #226 (`feat/089-fases-7-8` → `dev`), merge commit `353d95f`. Entram na `dev` `bf501ad` (visibilidade uniforme + sanitização), `27fe800` (CVEs `sanitize-html`/`postcss`/`linkify-it` + achados de review) e `684fbfd`/`9a3777b` (segunda rodada de review: predicado de visibilidade extraído para `utils/tableVisibility.ts`, fronteiras do Markdown endurecidas). **Deploy ainda não feito** — beta e prod seguem no código anterior; a trava desta fase era o merge, não o deploy.
 - [x] T7.1 — **Formato e centralização decididos pelo mantenedor em 2026-07-28** (requisito 27): um único `ContentEditor`, um único contrato `string` e um único formato persistido, Markdown GFM, com UX Escrever/Prévia no modelo do GitHub. Destino: `packages/content-editor`, não `packages/ui`; não criar implementações `/html` e `/markdown`. Custo registrado: `mesas` preserva o acervo Markdown; `downloads` abandona TipTap/HTML e precisa de migration HTML→GFM explícita, potencialmente lossy, verificável e com rollback. · feito quando: formato decidido por módulo, com o custo de migração de cada opção registrado.
-- [x] T7.2 — Aprovação nominal recebida. `packages/content-editor` criado com dependências já presentes (`react`, `markdown-it`, `dompurify`, `sanitize-html`), GFM, Escrever/Prévia, toolbar e task lists. TipTap/editor local removidos ou adaptados. Lint/build verdes nos cinco pacotes; focados `12/12`, `25/25`, `10/10`, `23/23`; `verify:api` exit 0. Bundle `downloads` 384,45 KB; `mesas` 1.216,30 KB mantém warning >500 KB, pendente de decisão.
+- [x] T7.2 — Aprovação nominal recebida. `packages/content-editor` criado com dependências já presentes (`react`, `markdown-it`, `dompurify`, `sanitize-html`), GFM, Escrever/Prévia, toolbar e task lists. TipTap/editor local removidos ou adaptados. Lint/build verdes nos cinco pacotes; focados `12/12`, `25/25`, `10/10`, `23/23`; `verify:api` exit 0. Bundle `downloads` 384,45 KB; `mesas` 1.216,30 KB mantém warning >500 KB, pendente de decisão. **Follow-up Sonar 2026-07-29:** finding da PR #227 confirmado; os quatro `pnpm install --prod` do estágio production agora usam `--ignore-scripts`. Builder permanece com lifecycle habilitado para build; Patchright instala Chromium explicitamente depois.
 - [x] T7.2a — Escopo ampliado aplicado: descrições, bios/perfis, reviews, comentários, avaliações, sessões, contato, denúncias, feedback e sugestões usam editor/renderer compartilhado e sanitização na escrita/leitura. Aliases, título/nome/URL/slug e fontes HTML/Discord permanecem literais/estruturados.
-- [ ] T7.3 — **Implementação local concluída; ensaio real da migration pendente.** `description_markdown` é a fonte rica; `description`/`summary` são projeções planas atômicas; limite 50.000 e payload hostil cobertos. Migration 034 é `manual-risk`/backup obrigatório: faz backfill deliberadamente lossy de `download_material.description` e preserva `description_html` para rollback/auditoria; não converte HTML por regex. Falta executar em banco descartável, conferir conteúdo/contagens e provar rollback. Docker/PostgreSQL local indisponíveis nesta sessão; não usar Beta/Prod sem autorização própria.
+- [ ] T7.3 — **Implementação local concluída; ensaio real da migration pendente.** `description_markdown` é a fonte rica; `description`/`summary` são projeções planas atômicas; limite 50.000 e payload hostil cobertos. Migration 034 é `manual-risk`/backup obrigatório: faz backfill deliberadamente lossy de `download_material.description` e preserva `description_html` para rollback/auditoria; não converte HTML por regex. Docker/PostgreSQL local estão indisponíveis. O gate `test:migrations:postgres`, ligado ao PostgreSQL 16 descartável do CI, aplica baseline 001–033, semeia conteúdo, aplica 034, confere conteúdo/contagem, prova rollback e reaplica duas vezes. Falta a primeira execução real no CI da PR; não usar Beta/Prod para substituir esse aceite.
 - [x] T7.4 — `markdownToPlainText` deriva `description` e `summary` (320 caracteres) na mesma transação; cards/SEO continuam consumindo projeção sem marcação. `<head>` fica na Fase 8.
-- [ ] T7.5 — **Slug automático, com helper reutilizável no backend** (requisito 23). `generateUniqueSlug` é função **privada** do scraper (`scraperIngest.ts:55`) e exige `sourceUrl` — não serve à criação manual, que hoje ainda exige slug no payload (`materials.ts:90`) e no formulário (`NovoMaterialPage.tsx:17`). Corrigir junto a **divergência de limite** (decisão do mantenedor): a API aceita 200 caracteres (`materials.ts:90`) e o banco 160 (`migration_001:13`) — entrada entre 161 e 200 estoura no banco. Exigir: limite único, fallback para título sem caractere útil, colisão com retry apoiado no índice `UNIQUE`, testes de Unicode e concorrência. Slug gerado **só na criação** — editar título não muda URL (SEO: slug publicado é URL permanente; mudança futura exige 301). · feito quando: formulário não exibe slug, material criado tem slug derivado e único, limite consistente entre API e banco, e teste de concorrência passa.
-- [ ] T7.6 — **Testar primeiro o `Select` que já existe** em `packages/ui` (`primitives.tsx:208`, com fundo e cor em `styles.css:910`). O `downloads` usa `<select className="... bg-transparent">` direto (`NovoMaterialPage.tsx:67` e outras telas) — o defeito pode ser não-adoção do componente, não bug do pacote. Só mexer em `packages/ui` se o defeito persistir **com** o componente adotado — e aí com aprovação nominal própria. · feito quando: adoção testada e o veredito registrado.
-- [ ] T7.7 — Corrigir o contraste do `<select>`/`<option>` no escopo decidido em T7.6. Aceite: Windows/Chrome, temas claro e escuro, **picker aberto** (é onde o defeito aparece), navegação por teclado, e contraste mínimo **4,5:1** (WCAG 2.2). · feito quando: os cinco pontos verificados, não só "legível na tela".
-- [ ] T7.8 — **Campo de sistema exige mudança de backend, não só UI** (requisito 28). `patchMaterialSchema` e `EDITABLE_FIELDS` **não incluem** `system_id` nem `edition_id` (`materials.ts:51`) — a UI não teria onde gravar. Validar o nó contra o catálogo central, aceitar só taxonomia permitida, e resolver a invariante: trocar de sistema torna `edition_id` incompatível — limpar na mesma transação, ou a UI edita os dois juntos. Decisão a registrar antes de implementar. Permissão **já está correta** (`materials.ts:637`: dono, moderador ou admin) — o defeito é de contrato e UI. · feito quando: backend aceita os campos com validação de taxonomia, a invariante de edição está resolvida, e o autor altera o sistema do próprio material.
-- [ ] T7.9 — **Upload de capa: a infra apontada não serve** (requisito 29). `storage/cloudinaryAdapter.ts` gerencia **arquivo raw/PDF** (`resourceType: 'raw'`), não imagem; e `@artificio/media` não recebe `upload_preset` (`packages/media/src/index.ts:65`). Hoje o metadata aceita **qualquer URL HTTP** (`materialMetadata.ts:33`). Construir: endpoint backend autenticado; signed preset explícito; validação combinada de extensão, MIME, **assinatura real do arquivo**, dimensão e tamanho (Content-Type sozinho não basta); pasta e `public_id` definidos; rollback se o upload passar e o banco falhar; remoção segura da capa anterior; URL e `public_id` persistidos **separadamente**. **Nunca credencial no frontend** (`AGENTS.md`). · feito quando: os oito pontos implementados, com teste de arquivo hostil (extensão válida, conteúdo não-imagem).
-- [ ] T7.10 — **Migration para identidade do ativo de capa.** Guardar só a URL impede saber se o ativo pertence ao projeto e se pode ser apagado — sem `public_id` e provedor, a remoção da capa anterior (T7.9) não é segura. É migration distinta da estrutura de facetas da Fase 4; `parent_id` pertence à spec 090. · feito quando: colunas criadas, com header válido e idempotência (`AGENTS.md` §Migrations).
-- [ ] T7.11 — Orientação de formato, dimensão recomendada e limite de tamanho no formulário de capa (requisito 30). · feito quando: o usuário sabe o que enviar antes de tentar.
+- [x] T7.5 — **Slug automático, com helper reutilizável no backend** (requisito 23). `generateUniqueSlug` é função **privada** do scraper (`scraperIngest.ts:55`) e exige `sourceUrl` — não serve à criação manual, que hoje ainda exige slug no payload (`materials.ts:90`) e no formulário (`NovoMaterialPage.tsx:17`). Corrigir junto a **divergência de limite** (decisão do mantenedor): a API aceita 200 caracteres (`materials.ts:90`) e o banco 160 (`migration_001:13`) — entrada entre 161 e 200 estoura no banco. Exigir: limite único, fallback para título sem caractere útil, colisão com retry apoiado no índice `UNIQUE`, testes de Unicode e concorrência. Slug gerado **só na criação** — editar título não muda URL (SEO: slug publicado é URL permanente; mudança futura exige 301). · feito quando: formulário não exibe slug, material criado tem slug derivado e único, limite consistente entre API e banco, e teste de concorrência passa. **Evidência real 2026-07-29:** helper backend centraliza limite 160, Unicode, fallback, sufixo e retry no índice; scraper reutiliza a regra; formulário/hook não exibem, tipam nem enviam slug; OpenAPI recebe só título/tipo. Frontend 6/6 e backend helper+rota 33/33 verdes.
+- [x] T7.6 — **Testar primeiro o `Select` que já existe** em `packages/ui` (`primitives.tsx:208`, com fundo e cor em `styles.css:910`). O `downloads` usa `<select className="... bg-transparent">` direto (`NovoMaterialPage.tsx:67` e outras telas) — o defeito pode ser não-adoção do componente, não bug do pacote. Só mexer em `packages/ui` se o defeito persistir **com** o componente adotado — e aí com aprovação nominal própria. · feito quando: adoção testada e o veredito registrado. **Evidência real 2026-07-29:** os seis `<select>` crus dos cinco arquivos Downloads adotaram `Select`; classes locais de aparência foram removidas, preservando somente `w-full`/`min-w` de layout. Não entrou `Field`: seu contrato aceita erro textual, mas não a ação de retry exigida pelo formulário. Suites das cinco páginas 48/48 e primitive UI 8/8 verdes.
+- [ ] T7.7 — Corrigir o contraste do `<select>`/`<option>` no escopo decidido em T7.6. Aceite: Windows/Chrome, temas claro e escuro, **picker aberto** (é onde o defeito aparece), navegação por teclado, e contraste mínimo **4,5:1** (WCAG 2.2). · feito quando: os cinco pontos verificados, não só "legível na tela". **Implementação real 2026-07-29:** contrato central em `packages/ui/src/styles.css` define `color-scheme` por tema e cores de `option`/`optgroup`; os seis controles Downloads agora o recebem via `Select`. CSS duplicado foi removido de Mesas/Glossário. Aceite visual/teclado segue aberto: Browser interno falhou antes de inicializar (`failed to write kernel assets ... path not found`); Chrome real exige autorização nominal.
+- [x] T7.8 — **Campo de sistema exige mudança de backend, não só UI** (requisito 28). `patchMaterialSchema` e `EDITABLE_FIELDS` **não incluem** `system_id` nem `edition_id` (`materials.ts:51`) — a UI não teria onde gravar. Validar o nó contra o catálogo central, aceitar só taxonomia permitida, e resolver a invariante: trocar de sistema torna `edition_id` incompatível — limpar na mesma transação, ou a UI edita os dois juntos. Decisão a registrar antes de implementar. Permissão **já está correta** (`materials.ts:637`: dono, moderador ou admin) — o defeito é de contrato e UI. · feito quando: backend aceita os campos com validação de taxonomia, a invariante de edição está resolvida, e o autor altera o sistema do próprio material. **Decisão/evidência 2026-07-29:** mantenedor decidiu que trocar sistema limpa edição incompatível. Backend valida UUID, raiz e pertencimento no snapshot Central, faz limpeza e histórico na mesma transação e devolve 503 se o catálogo estiver indisponível. UI oferece sistema e edição/variante, limpa edição ao trocar raiz e só envia taxonomia quando mudou. Backend 10/10, frontend 19/19, lint/build dos dois pacotes e `verify:api` verdes.
+- [ ] T7.9 — **Upload de capa: a infra apontada não serve** (requisito 29). `storage/cloudinaryAdapter.ts` gerencia **arquivo raw/PDF** (`resourceType: 'raw'`), não imagem; e `@artificio/media` não recebe `upload_preset` (`packages/media/src/index.ts:65`). Hoje o metadata aceita **qualquer URL HTTP** (`materialMetadata.ts:33`). Construir: endpoint backend autenticado; signed preset explícito; validação combinada de extensão, MIME, **assinatura real do arquivo**, dimensão e tamanho (Content-Type sozinho não basta); pasta e `public_id` definidos; rollback se o upload passar e o banco falhar; remoção segura da capa anterior; URL e `public_id` persistidos **separadamente**. **Nunca credencial no frontend** (`AGENTS.md`). · feito quando: os oito pontos implementados, com teste de arquivo hostil (extensão válida, conteúdo não-imagem). **Implementação local 2026-07-29:** endpoint raw autenticado aceita JPEG/PNG/WebP até 5 MB, cruza extensão+MIME+assinatura, lê dimensões e limita 8000 px; `@artificio/media` recebe preset opcional; pasta/public_id são próprios; falha DB tenta apagar upload novo; substituição preserva exclusão pendente para retry e só apaga IDs da pasta do projeto. Teste hostil/ownership/rollback/substituição 11/11, Media 1/1 e frontend 14/14. Falta criar/configurar preset assinado real e executar smoke Cloudinary; task permanece aberta.
+- [ ] T7.10 — **Migration para identidade do ativo de capa.** Guardar só a URL impede saber se o ativo pertence ao projeto e se pode ser apagado — sem `public_id` e provedor, a remoção da capa anterior (T7.9) não é segura. É migration distinta da estrutura de facetas da Fase 4; `parent_id` pertence à spec 090. · feito quando: colunas criadas, com header válido e idempotência (`AGENTS.md` §Migrations). **Implementação local 2026-07-29:** migration 035 única adiciona provedor, public_id, dimensões, MIME e exclusão pendente; header de 5 campos e guard 47/47 verdes. O gate PostgreSQL 16 aplica 035 duas vezes, confere as seis colunas, unicidade da constraint e rejeição de dimensões negativas/parciais. Falta a primeira execução real no CI da PR; task permanece aberta.
+- [x] T7.11 — Orientação de formato, dimensão recomendada e limite de tamanho no formulário de capa (requisito 30). · feito quando: o usuário sabe o que enviar antes de tentar. **Evidência 2026-07-29:** formulário informa JPEG/PNG/WebP, máximo 5 MB e recomendação 1200×630 antes do input; `accept` restringe o picker e o backend continua autoridade. Teste de página verde 14/14.
+
+### T7.12–T7.16 — Toda capa passa a ser nossa (decisão do mantenedor, 2026-07-29)
+
+**Desenho decidido:** toda capa acaba hospedada no nosso Cloudinary, e a que deixa de ser
+usada é apagada. URL externa deixa de ser forma de guardar capa e passa a ser só o ponto de
+partida do download. Três caminhos de entrada continuam existindo (upload de arquivo, colar
+link, scraper), mas os três terminam no mesmo lugar.
+
+**Achado que originou o bloco** (investigação 2026-07-29, sobre a implementação da T7.9):
+`materialMetadata.ts:41` aceita `cover_image_url` livre, e o `commonFields` (`:132`) **não
+carrega** as colunas de identidade da migration 035. Salvar a URL por lá deixa
+`cover_public_id`/`cover_storage_provider` apontando para o ativo anterior — URL e identidade
+dessincronizam, e a "remoção segura" da T7.9 passa a apagar o ativo errado. Tirar
+`cover_image_url` do PATCH **não é opção**: `useAdminMedia.ts:41` (Gestão de Mídias) e
+`scraperIngest.ts:419` dependem dele.
+
+**Referência obrigatória — reusar, não reimplementar.** `mesas` já tem colar-link-que-sobe em
+produção: `uploadRemoteImageToCloudinary` (`apps/mesas/backend/src/services/cloudinary.ts:240`)
+com `assertPublicHttpUrl` (`:142`), que barra host local/interno, segue redirect com limite,
+corta o corpo ao estourar 5 MB durante o download e confere `content-type`. `@artificio/media`
+tem a versão simples (`uploadFromUrl`, `packages/media/src/index.ts:87`). Copiar qualquer uma
+para dentro do `downloads` cria um terceiro lugar para esquecer de corrigir.
+
+**Trava pétrea deste bloco — Cloudinary fica escrito e DESLIGADO.** Decisão nominal do
+mantenedor: enquanto `downloads` estiver em desenvolvimento, **nenhum** dos três caminhos
+sobe arquivo para o Cloudinary. Código pronto, testado, sem efeito. Com a chave desligada o
+comportamento observável é o de hoje: colar link guarda o endereço externo, o scraper guarda
+o endereço da fonte, o lote não roda. Ligar exige palavra própria do mantenedor.
+**Fora da trava:** a marcação de origem (T7.12) grava só no nosso banco, não consome
+Cloudinary, e fica ligada desde já — é ela que forma a lista de trabalho da migração.
+
+- [x] T7.12 — **Origem da capa registrada em toda escrita** (base dos demais). Hoje `commonFields`
+  não toca as colunas de capa, então a identidade sobrevive a uma troca de URL e passa a mentir.
+  Corrigir: toda escrita de `cover_image_url` grava junto o estado da capa. Capa que ainda mora
+  no servidor de outro nasce marcada como externa, com `cover_public_id` nulo; só o upload para
+  o nosso Cloudinary marca como nossa. `cover_storage_provider IS NULL` (todo material anterior
+  à migration 035, sem backfill) conta como externa — a lógica de exclusão já compara
+  `=== 'cloudinary'`, então o default seguro já existe; garantir que continue. **Não é estado
+  temporário:** capa cuja fonte recusar o download (T7.15) permanece externa depois da migração,
+  e é essa marcação que a Gestão de Mídias usa para mostrar o que sobrou. · feito quando: PATCH,
+  endpoint de capa e scraper gravam origem coerente com a URL; teste prova que trocar a URL por
+  PATCH não deixa `public_id` órfão apontando para o ativo anterior.
+- [x] T7.13 — **Colar link passa a baixar a imagem** nas duas telas que aceitam URL: formulário do
+  autor e Gestão de Mídias (`GestaoMidiasPage.tsx:67` / `useAdminMedia.ts:41`). O endereço colado
+  vira origem do download, não o valor persistido. Reusar o caminho do `mesas` (ver Referência
+  acima) — SSRF, redirect e corte por tamanho já resolvidos lá. Validar o conteúdo baixado com
+  `validateCoverImage` (`services/coverImage.ts`), o mesmo do upload de arquivo: assinatura real,
+  não `content-type` da resposta. **Discord não é bloqueado** — decisão do mantenedor: o link
+  expirar era problema porque o link era guardado; baixando na hora, a cópia é nossa antes de o
+  endereço morrer, e barrar recusaria justamente o caso onde copiar salva a capa. A defesa do
+  `mesas` (`sanitizePublicImageUrl`) é consequência de lá guardar o link, não padrão a herdar.
+  **Com a chave desligada, colar link continua guardando o endereço externo.** · feito quando:
+  com a chave ligada, colar link em qualquer das duas telas resulta em ativo nosso com identidade
+  gravada; com ela desligada, o comportamento é idêntico ao de hoje; teste cobre os dois estados.
+- [x] T7.14 — **Scraper copia a capa na importação** (`scraperIngest.ts:419` hoje só guarda
+  `item.coverImageUrl`). Fonte confiável e volume alto: `uploadFromUrl` do `@artificio/media`
+  serve, não precisa do caminho defensivo do `mesas`. Falha de download **não pode** derrubar a
+  ingestão do item — material entra com capa externa e fica marcado como pendente de migração.
+  **Mudança de comportamento a registrar:** hoje, se a fonte trocar a imagem, a nossa troca junto;
+  passando a copiar, congela no que foi baixado. É o efeito desejado, mas é mudança.
+  **Com a chave desligada, o scraper continua guardando o endereço da fonte.** · feito quando:
+  com a chave ligada a importação traz a capa; falha de download não aborta o item; com ela
+  desligada o comportamento é o de hoje.
+- [x] T7.15 — **Migração do acervo publicado, disparada por botão** na Gestão de Mídias. Escopo
+  decidido pelo mantenedor: **só material publicado** — rascunho e reprovado ficam de fora, não se
+  paga armazenamento por capa que talvez nunca apareça. Lê a lista formada pela T7.12. Nunca roda
+  sozinha; sem cron, sem gatilho de deploy. Mostrar progresso e o resultado por item.
+  **Falha da fonte mantém o link externo** (decisão do mantenedor) — não zera a capa. Fonte fora
+  do ar, imagem removida e servidor que recusa download automático são resultado esperado numa
+  parte do acervo, não bug do lote. O que falhar continua marcado como externo e **visível na
+  Gestão de Mídias**, com o motivo, para alguém resolver na mão depois; sem isso vira pilha
+  invisível. **Custo a medir ANTES de disparar:** hoje a maior parte do acervo é hospedada por
+  outro; migrar transfere esse armazenamento para nós, de uma vez. A lista da T7.12 permite ver o
+  tamanho do lote antes, não pela fatura depois. · feito quando: botão dispara o lote sobre
+  publicados, o que falha mantém link externo e aparece na tela com motivo, e o lote é retomável
+  sem duplicar ativo do que já subiu.
+- [x] T7.16 — **Trocar capa apaga a anterior**, por qualquer caminho (upload, link colado, lote da
+  T7.15). Só apaga o que é nosso: `provider === 'cloudinary'` e `public_id` sob a pasta do
+  projeto — `isOwnedCoverPublicId` (`materialCover.ts`) já implementa a checagem, e a coluna
+  `cover_pending_delete_public_id` com retry já existe; é extrair para helper compartilhado, não
+  inventar. Sem isso o `downloads` reproduz o vazamento do `mesas`, que não tem `banner_public_id`
+  e por isso deixa órfão a cada troca de banner — tendo a informação para evitá-lo.
+  **Limite conhecido:** cobre só a substituição. Material apagado, upload abandonado antes de
+  salvar e órfão anterior a este controle **não** são cobertos — vão para a spec 091
+  (`specs/backlog.md`). Sem o cron o lixo antigo continua lá, mas para de crescer.
+  **Segue a chave:** desligado, não existe capa nossa para apagar. · feito quando: as três formas
+  de troca apagam o ativo anterior quando ele é nosso, nunca tocam ativo externo, e a falha de
+  exclusão fica pendente para retry em vez de perder o rastro.
+
+**Evidência local T7.12–T7.16 (2026-07-29):** `coverStorage.ts` centraliza chave, origem,
+persistência, ownership, rollback e exclusão pendente. `DOWNLOADS_CLOUDINARY_COVERS_ENABLED`
+é `false` por padrão no código, env e dois Compose; preset deixa de ser obrigatório enquanto
+desligado. `downloadPublicImage` SSRF-safe foi movido para `@artificio/media`, e Mesas passou a
+consumi-lo; testes bloqueiam localhost, IPv4, IPv6 e IPv4-mapped. PATCH, endpoint, scraper e lote
+gravam provedor/identidade coerentes. O lote lista apenas publicados externos, mostra quantidade,
+máximo de armazenamento e zero transformações explícitas; rerun ignora `cloudinary`. Focados:
+backend 51/51, frontend 21/21, Media 5/5; lint dos quatro consumidores/pacotes, builds e
+`verify:api` verdes. O verify registra o breaking intencional já conhecido da remoção de slug no
+POST de criação e cinco operações aditivas; três warnings ambíguos preexistentes permanecem.
 
 ## Fase 8 — Open Graph por material (defeito 15)
 

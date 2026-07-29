@@ -942,6 +942,65 @@
   resize: vertical;
 }
 
+/* ============================================================================
+   <select> — CONTRATO ÚNICO DO REPO
+   ----------------------------------------------------------------------------
+   Os apps nasceram em momentos diferentes e cada um tinha a própria correção de
+   picker (downloads, glossario e mesas repetiam variações do mesmo hack), então
+   todo <select> novo renascia ilegível no tema escuro. A partir daqui a regra é
+   uma só, vale para o primitive e para <select> cru, e os apps NÃO redefinem
+   color-scheme/option localmente.
+
+   Duas coisas separadas resolvem o problema:
+   1. `color-scheme` diz ao SO em que tema pintar o popup nativo. Sem ele o
+      browser assume claro e o menu abre branco sobre texto branco.
+   2. As cores de <option> precisam ser declaradas mesmo assim, porque parte dos
+      browsers (Firefox, Chrome/Linux) não herda a cor do <select> na lista.
+
+   O tema é SEMPRE explícito via [data-theme] no <html>. App que dependia da
+   ausência do atributo para "ser dark" declara o atributo — não se cria exceção
+   aqui.
+   ============================================================================ */
+select,
+.artificio-control {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] .artificio-control {
+  color-scheme: dark;
+}
+
+select option,
+select optgroup,
+.artificio-control option,
+.artificio-control optgroup {
+  background: var(--surface);
+  color: var(--fg);
+}
+
+/* Hover/seleção da lista. Sem isto o browser aplica o realce do SO, que no tema
+   escuro costuma pintar fundo claro MANTENDO o texto claro — item highlightado
+   fica invisível (fundo e texto na mesma cor). `--surface-subtle` contrasta com
+   `--surface` nos dois temas, e `--fg` é preservado de propósito: o realce muda
+   o fundo, nunca o texto, então o contraste do item nunca colapsa. */
+select option:hover,
+select option:focus,
+select option:checked,
+.artificio-control option:hover,
+.artificio-control option:focus,
+.artificio-control option:checked {
+  background: var(--surface-subtle);
+  color: var(--fg);
+}
+
+/* Chrome/Windows ignora :hover em <option> e usa este par para o item ativo.
+   Declarado junto para o realce ser o mesmo em todos os browsers. */
+select option:checked,
+.artificio-control option:checked {
+  box-shadow: inset 0 0 0 100vh var(--surface-subtle);
+}
+
 .artificio-control::placeholder {
   color: var(--fg-muted);
 }

@@ -27,6 +27,11 @@ vi.mock('../middleware/rateLimit', () => ({
 
 const checkLinkMock = vi.hoisted(() => vi.fn());
 vi.mock('../services/linkChecker', () => ({ checkLink: checkLinkMock }));
+const coverStorageMocks = vi.hoisted(() => ({
+  isCloudinaryCoverEnabled: vi.fn(),
+  storeCoverFromPublicUrl: vi.fn(),
+}));
+vi.mock('../services/coverStorage', () => coverStorageMocks);
 
 import adminRoutes from './admin';
 
@@ -88,6 +93,49 @@ describe('GET /api/v1/admin/media', () => {
     const response = await request(app()).get('/api/v1/admin/media').expect(200);
 
     expect(response.body.items[0].description_markdown).toBe('**Seguro** ');
+  });
+});
+
+describe('POST /api/v1/admin/media/:id/migrate-cover', () => {
+  beforeEach(() => {
+    dbMocks.selectFrom.mockReset();
+    coverStorageMocks.isCloudinaryCoverEnabled.mockReset().mockReturnValue(true);
+    coverStorageMocks.storeCoverFromPublicUrl.mockReset().mockResolvedValue({ cover_image_url: 'https://cdn.test/capa.png' });
+  });
+
+  function mediaQuery(result: unknown) {
+    return {
+      leftJoin: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      executeTakeFirst: vi.fn().mockResolvedValue(result),
+    };
+  }
+
+  it('migra somente material publicado com capa externa', async () => {
+    dbMocks.selectFrom.mockReturnValueOnce(mediaQuery({
+      id: 'material-1', editorial_state: 'published', cover_image_url: 'https://source.test/capa.png', cover_storage_provider: 'external',
+    }));
+    const response = await request(app()).post('/api/v1/admin/media/material-1/migrate-cover').expect(200);
+    expect(coverStorageMocks.storeCoverFromPublicUrl).toHaveBeenCalledWith('material-1', 'https://source.test/capa.png');
+    expect(response.body.status).toBe('migrated');
+  });
+
+  it('não duplica ativo já migrado', async () => {
+    dbMocks.selectFrom.mockReturnValueOnce(mediaQuery({
+      id: 'material-1', editorial_state: 'published', cover_image_url: 'https://cdn.test/capa.png', cover_storage_provider: 'cloudinary',
+    }));
+    const response = await request(app()).post('/api/v1/admin/media/material-1/migrate-cover').expect(200);
+    expect(response.body.status).toBe('already_migrated');
+    expect(coverStorageMocks.storeCoverFromPublicUrl).not.toHaveBeenCalled();
+  });
+
+  it('recusa material não publicado', async () => {
+    dbMocks.selectFrom.mockReturnValueOnce(mediaQuery({
+      id: 'material-1', editorial_state: 'draft', cover_image_url: 'https://source.test/capa.png', cover_storage_provider: 'external',
+    }));
+    await request(app()).post('/api/v1/admin/media/material-1/migrate-cover').expect(409);
+    expect(coverStorageMocks.storeCoverFromPublicUrl).not.toHaveBeenCalled();
   });
 });
 

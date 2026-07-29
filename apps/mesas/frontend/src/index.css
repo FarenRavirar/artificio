@@ -108,15 +108,10 @@
     opacity: 1 !important;
   }
 
-  select {
-    color-scheme: dark;
-  }
-
-  select option,
-  select optgroup {
-    background: #ffffff;
-    color: #0f172a;
-  }
+  /* color-scheme e cores de <option> saíram daqui: o contrato de <select> é
+     único e vive em @artificio/ui/styles.css. O par fixo #ffffff/#0f172a que
+     existia aqui contradizia o `color-scheme: dark` da linha acima e era a
+     causa do item ilegível no popup. */
 }
 
 @layer components {
@@ -175,11 +170,10 @@
     opacity: 0.5;
   }
 
-  .app-select option,
-  .app-select optgroup {
-    background: #ffffff;
-    color: #0f172a;
-  }
+  /* `.app-select` mantém só a APARÊNCIA do controle fechado (borda, fundo,
+     padding). As cores da lista aberta vêm do contrato único de <select> em
+     @artificio/ui — repetir #ffffff/#0f172a aqui reintroduziria o item
+     ilegível no tema escuro. */
 }
 
 /* ============================================================================
@@ -244,7 +238,9 @@
     color: rgba(11, 18, 32, 0.55) !important;
   }
 }
-[data-theme="light"] select { color-scheme: light; }
+/* `[data-theme="light"] select { color-scheme }` saiu daqui: o contrato único
+   de @artificio/ui já alterna o esquema pelos dois temas. Abaixo fica só a
+   aparência do controle fechado no tema claro. */
 [data-theme="light"] .app-select {
   background: rgba(2, 7, 64, 0.04);
   color: var(--fg);

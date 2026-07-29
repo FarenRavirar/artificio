@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import materialsRoutes from './routes/materials';
 import materialMetadataRoutes from './routes/materialMetadata';
+import materialCoverRoutes from './routes/materialCover';
 import moderationRoutes from './routes/moderation';
 import reportsRoutes from './routes/reports';
 import commentsRoutes from './routes/comments';
@@ -91,6 +92,7 @@ app.get('/api/v1/health', async (_req, res) => {
 });
 
 app.use('/api/v1/materials', materialsRoutes);
+app.use('/api/v1/materials', materialCoverRoutes);
 app.use('/api/v1/material-metadata', materialMetadataRoutes);
 app.use('/api/v1/moderation', moderationRoutes);
 app.use('/api/v1/reports', reportsRoutes);

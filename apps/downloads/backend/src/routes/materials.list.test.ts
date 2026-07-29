@@ -410,10 +410,11 @@ describe('GET /api/v1/materials — listagem publica', () => {
     dbMocks.insertInto.mockReturnValue(insert);
 
     await request(app()).post('/api/v1/materials').send({
-      slug: 'meu-material', title: 'Meu material', material_type_id: typeId,
+      title: 'Meu material', material_type_id: typeId,
     }).expect(201);
 
     expect(insert.values).toHaveBeenCalledWith(expect.objectContaining({
+      slug: 'meu-material',
       material_type_id: typeId,
       material_type: 'Aventura',
     }));
@@ -421,12 +422,12 @@ describe('GET /api/v1/materials — listagem publica', () => {
 
   it('rejeita material_type livre e ID Central inexistente', async () => {
     await request(app()).post('/api/v1/materials').send({
-      slug: 'livre', title: 'Livre', material_type: 'aventura inventada',
+      title: 'Livre', material_type: 'aventura inventada',
     }).expect(400);
 
     catalogMocks.getCatalogMaterialTypeById.mockResolvedValue(null);
     await request(app()).post('/api/v1/materials').send({
-      slug: 'inexistente', title: 'Inexistente', material_type_id: 'b071ab5e-2d16-4c58-8f0e-086000000099',
+      title: 'Inexistente', material_type_id: 'b071ab5e-2d16-4c58-8f0e-086000000099',
     }).expect(400);
     expect(dbMocks.insertInto).not.toHaveBeenCalled();
   });
@@ -437,12 +438,12 @@ describe('GET /api/v1/materials — listagem publica', () => {
       id: typeId, slug: 'aventura', name: 'Aventura', aliases: [], status: 'rejected',
     });
     await request(app()).post('/api/v1/materials').send({
-      slug: 'inativo', title: 'Inativo', material_type_id: typeId,
+      title: 'Inativo', material_type_id: typeId,
     }).expect(400);
 
     catalogMocks.getCatalogMaterialTypeById.mockRejectedValue(new Error('catalog_503'));
     const response = await request(app()).post('/api/v1/materials').send({
-      slug: 'indisponivel', title: 'Indisponível', material_type_id: typeId,
+      title: 'Indisponível', material_type_id: typeId,
     }).expect(503);
     expect(response.body).toEqual({ error: 'Catálogo de tipos de material indisponível.' });
     expect(dbMocks.insertInto).not.toHaveBeenCalled();

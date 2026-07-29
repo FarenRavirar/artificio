@@ -63,6 +63,8 @@ services:
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - DOWNLOADS_CLOUDINARY_COVERS_ENABLED=${DOWNLOADS_CLOUDINARY_COVERS_ENABLED:-false}
+      - CLOUDINARY_COVER_UPLOAD_PRESET=${CLOUDINARY_COVER_UPLOAD_PRESET:-}
       # Catalogo canonico de sistemas (spec 062): downloads consome catalogo
       # central do site via rede Docker interna, mesmo padrao mesas/glossario.
       - CATALOG_API_URL=${CATALOG_API_URL:-http://site-beta-app:4322}

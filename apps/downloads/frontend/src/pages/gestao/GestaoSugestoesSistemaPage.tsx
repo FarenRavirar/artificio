@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { ContentEditor } from '@artificio/content-editor';
+import { Select } from '@artificio/ui';
 import {
   AdminTable,
   PageHeader,
@@ -184,10 +185,10 @@ export function GestaoSugestoesSistemaPage() {
                 <h3 className="font-semibold text-[var(--admin-fg)]">Filho do candidato selecionado</h3>
                 <label className="flex flex-col gap-1 text-sm text-[var(--admin-fg-low)]">
                   Tipo
-                  <select value={childType} onChange={(event) => setChildType(event.target.value as 'edition' | 'variant')} className={inputClass}>
+                  <Select value={childType} onChange={(event) => setChildType(event.target.value as 'edition' | 'variant')}>
                     <option value="edition">Edição</option>
                     <option value="variant">Variante</option>
-                  </select>
+                  </Select>
                 </label>
                 <label className="flex flex-col gap-1 text-sm text-[var(--admin-fg-low)]">
                   Nome do filho

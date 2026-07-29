@@ -129,6 +129,12 @@ export interface DownloadMaterialMetadataTable {
   // T2.7 (spec 082, migration_020) — MVP de Gestao de Midias: URL de texto
   // (sem upload/storage novo), coerente com T2.3 (MVP somente-link-externo).
   cover_image_url: string | null;
+  cover_storage_provider: Generated<string | null>;
+  cover_public_id: Generated<string | null>;
+  cover_width: Generated<number | null>;
+  cover_height: Generated<number | null>;
+  cover_mime_type: Generated<string | null>;
+  cover_pending_delete_public_id: Generated<string | null>;
   // Spec 086 (migration_026) — metadados preservados da fonte. source_filters
   // mantém facet + caminho; tags continua a versão achatada para busca simples.
   file_size_text: string | null;

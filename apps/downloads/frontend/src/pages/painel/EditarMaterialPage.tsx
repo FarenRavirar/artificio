@@ -2,19 +2,39 @@ import { useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { ContentEditor } from '@artificio/content-editor';
+import { Select } from '@artificio/ui';
 import { PainelShell } from '../../components/PainelShell';
 import { useMyMaterials } from '../../hooks/useMyMaterials';
 import { useUpdateMaterial } from '../../hooks/useUpdateMaterial';
 import { useSubmitMaterial } from '../../hooks/useSubmitMaterial';
 import { useMaterialHistory } from '../../hooks/useMaterialHistory';
 import { useUpdateMaterialMetadata } from '../../hooks/useUpdateMaterialMetadata';
+import { useCatalogSystems, type CatalogSystem } from '../../hooks/useCatalogSystems';
+import { useCoverCapabilities, useImportMaterialCoverUrl, useUploadMaterialCover } from '../../hooks/useUploadMaterialCover';
 
 const FIELD_LABEL: Record<string, string> = {
   title: 'Título',
   summary: 'Resumo',
   description: 'Descrição',
   external_url: 'Link de destino',
+  system_id: 'Sistema',
+  edition_id: 'Edição',
 };
+
+function belongsToSystem(
+  node: CatalogSystem,
+  systemId: string,
+  byId: ReadonlyMap<string, CatalogSystem>,
+): boolean {
+  const visited = new Set<string>();
+  let parentId = node.parent_id;
+  while (parentId && !visited.has(parentId)) {
+    if (parentId === systemId) return true;
+    visited.add(parentId);
+    parentId = byId.get(parentId)?.parent_id ?? null;
+  }
+  return false;
+}
 
 // T2.1/T2.2/T2.3 (spec 074) — edicao reaproveitando o mesmo PATCH de
 // submissao (spec 070/072), incluindo link de destino; historico por campo
@@ -27,11 +47,19 @@ export function EditarMaterialPage() {
   const submitMutation = useSubmitMaterial(materialId ?? '');
   const { data: history } = useMaterialHistory(materialId);
   const updateMetadataMutation = useUpdateMaterialMetadata(materialId ?? '');
+  const catalogSystemsQuery = useCatalogSystems();
+  const uploadCoverMutation = useUploadMaterialCover(materialId ?? '');
+  const importCoverUrlMutation = useImportMaterialCoverUrl(materialId ?? '');
+  const coverCapabilities = useCoverCapabilities();
 
   const [title, setTitle] = useState('');
   const [descriptionMarkdown, setDescriptionMarkdown] = useState('');
   const [externalUrl, setExternalUrl] = useState('');
   const [publisherName, setPublisherName] = useState('');
+  const [systemId, setSystemId] = useState('');
+  const [editionId, setEditionId] = useState('');
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverUrl, setCoverUrl] = useState('');
   const [lastLoadedMaterialId, setLastLoadedMaterialId] = useState<string | undefined>(undefined);
 
   // Reajusta os campos durante o render quando o material carrega ou muda —
@@ -44,6 +72,9 @@ export function EditarMaterialPage() {
     setDescriptionMarkdown(material.description_markdown ?? material.description ?? '');
     setExternalUrl(material.external_url ?? '');
     setPublisherName(material.publisher_name ?? '');
+    setSystemId(material.system_id ?? '');
+    setEditionId(material.edition_id ?? '');
+    setCoverUrl(material.cover_image_url ?? '');
   }
 
   if (isLoading) {
@@ -65,9 +96,15 @@ export function EditarMaterialPage() {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     try {
+      const taxonomyChanged = systemId !== (material.system_id ?? '')
+        || editionId !== (material.edition_id ?? '');
       await updateMutation.mutateAsync({
         title,
         external_url: externalUrl || null,
+        ...(taxonomyChanged ? {
+          system_id: systemId || null,
+          edition_id: editionId || null,
+        } : {}),
       });
       await updateMetadataMutation.mutateAsync({
         publisher_name: publisherName || null,
@@ -80,6 +117,12 @@ export function EditarMaterialPage() {
   };
 
   const canSubmitForReview = material.editorial_state === 'draft' || material.editorial_state === 'rejected';
+  const catalogNodes = catalogSystemsQuery.data ?? [];
+  const catalogById = new Map(catalogNodes.map((node) => [node.id, node]));
+  const systemOptions = catalogNodes.filter((node) => node.node_type === 'system');
+  const editionOptions = systemId
+    ? catalogNodes.filter((node) => node.node_type !== 'system' && belongsToSystem(node, systemId, catalogById))
+    : [];
 
   const handleSubmitForReview = async () => {
     try {
@@ -87,6 +130,31 @@ export function EditarMaterialPage() {
       toast.success('Material enviado para revisão.');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Falha ao enviar para revisão.');
+    }
+  };
+
+  const handleCoverUpload = async () => {
+    if (!coverFile) return;
+    if (coverFile.size > 5 * 1024 * 1024) {
+      toast.error('A capa deve ter no máximo 5 MB.');
+      return;
+    }
+    try {
+      await uploadCoverMutation.mutateAsync(coverFile);
+      setCoverFile(null);
+      toast.success('Capa atualizada.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Falha ao enviar capa.');
+    }
+  };
+
+  const handleCoverUrl = async () => {
+    if (!coverUrl.trim()) return;
+    try {
+      await importCoverUrlMutation.mutateAsync(coverUrl.trim());
+      toast.success(coverCapabilities.data?.cloudinary_enabled ? 'Capa copiada.' : 'URL de capa salva.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Falha ao importar capa.');
     }
   };
 
@@ -103,6 +171,103 @@ export function EditarMaterialPage() {
             className="min-h-[44px] rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
           />
         </label>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]" htmlFor="material-system">
+            <span>Sistema</span>
+            <Select
+              id="material-system"
+              value={systemId}
+              onChange={(event) => {
+                setSystemId(event.target.value);
+                setEditionId('');
+              }}
+              disabled={catalogSystemsQuery.isPending || catalogSystemsQuery.isError}
+            >
+              <option value="">Não informado</option>
+              {systemOptions.map((system) => (
+                <option key={system.id} value={system.id}>{system.name}</option>
+              ))}
+            </Select>
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]" htmlFor="material-edition">
+            <span>Edição ou variante</span>
+            <Select
+              id="material-edition"
+              value={editionId}
+              onChange={(event) => setEditionId(event.target.value)}
+              disabled={!systemId || catalogSystemsQuery.isPending || catalogSystemsQuery.isError}
+            >
+              <option value="">Não informada</option>
+              {editionOptions.map((edition) => (
+                <option key={edition.id} value={edition.id}>{edition.name}</option>
+              ))}
+            </Select>
+          </label>
+        </div>
+
+        {catalogSystemsQuery.isError && (
+          <div role="alert" className="flex items-center gap-2 text-xs text-red-600">
+            <span>Sistemas indisponíveis.</span>
+            <button
+              type="button"
+              onClick={() => void catalogSystemsQuery.refetch()}
+              disabled={catalogSystemsQuery.isFetching}
+              className="min-h-[44px] rounded-md border border-current px-3 font-semibold disabled:opacity-50"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2 rounded-md border border-[var(--line)] p-4">
+          <label htmlFor="material-cover" className="text-sm font-semibold text-[var(--fg)]">
+            Capa do material
+          </label>
+          <p id="material-cover-guidance" className="text-xs text-[var(--fg-muted)]">
+            JPEG, PNG ou WebP; até 5 MB. Dimensão recomendada: 1200 × 630 px. O arquivo é validado antes do envio.
+          </p>
+          <label htmlFor="material-cover-url" className="text-sm text-[var(--fg-muted)]">URL da capa</label>
+          <div className="flex flex-wrap gap-2">
+            <input
+              id="material-cover-url"
+              type="url"
+              value={coverUrl}
+              onChange={(event) => setCoverUrl(event.target.value)}
+              placeholder="https://…"
+              className="min-h-[44px] min-w-[220px] flex-1 rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
+            />
+            <button
+              type="button"
+              onClick={() => void handleCoverUrl()}
+              disabled={!coverUrl.trim() || importCoverUrlMutation.isPending}
+              className="min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 font-semibold text-[var(--fg)] disabled:opacity-50"
+            >
+              {importCoverUrlMutation.isPending ? 'Salvando...' : 'Usar URL'}
+            </button>
+          </div>
+          <input
+            key={coverFile ? coverFile.name : 'empty-cover'}
+            id="material-cover"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            aria-describedby="material-cover-guidance"
+            onChange={(event) => setCoverFile(event.target.files?.[0] ?? null)}
+            className="text-sm text-[var(--fg-muted)] file:mr-3 file:min-h-[44px] file:rounded-md file:border file:border-[var(--line)] file:bg-[var(--surface)] file:px-3 file:text-[var(--fg)]"
+          />
+          <button
+            type="button"
+            onClick={() => void handleCoverUpload()}
+            disabled={!coverCapabilities.data?.cloudinary_enabled || !coverFile || uploadCoverMutation.isPending}
+            className="min-h-[44px] w-fit rounded-md border border-[var(--line)] px-4 py-2 font-semibold text-[var(--fg)] disabled:opacity-50"
+          >
+            {uploadCoverMutation.isPending ? 'Enviando capa...' : 'Enviar capa'}
+          </button>
+          {!coverCapabilities.data?.cloudinary_enabled && (
+            <span className="text-xs text-[var(--fg-muted)]">Upload de arquivo desligado durante o desenvolvimento.</span>
+          )}
+        </div>
 
         <div className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
           <span>Descrição</span>

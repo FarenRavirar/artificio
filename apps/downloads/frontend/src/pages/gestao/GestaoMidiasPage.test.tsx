@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { GestaoMidiasPage } from './GestaoMidiasPage';
 import * as useAdminMediaModule from '../../hooks/useAdminMedia';
+import * as useUploadMaterialCoverModule from '../../hooks/useUploadMaterialCover';
 
 // T2.7 (spec 082) — cobre loading, erro com retry, lista vazia e o fluxo de
 // editar URL de capa + salvar (sucesso e falha), coerente com o MVP
@@ -45,6 +46,16 @@ function mockUpdateCover(overrides: Partial<ReturnType<typeof useAdminMediaModul
 }
 
 describe('GestaoMidiasPage', () => {
+  beforeEach(() => {
+    vi.spyOn(useUploadMaterialCoverModule, 'useCoverCapabilities').mockReturnValue({
+      data: { cloudinary_enabled: false },
+    } as unknown as ReturnType<typeof useUploadMaterialCoverModule.useCoverCapabilities>);
+    vi.spyOn(useAdminMediaModule, 'useMigrateCover').mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useAdminMediaModule.useMigrateCover>);
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     (toast.success as ReturnType<typeof vi.fn>).mockClear();
@@ -95,6 +106,7 @@ describe('GestaoMidiasPage', () => {
             material_title: 'Aventura Teste',
             editorial_state: 'published',
             cover_image_url: 'https://example.test/capa.jpg',
+            cover_storage_provider: 'external',
           },
         ],
       },
@@ -118,6 +130,7 @@ describe('GestaoMidiasPage', () => {
             material_title: 'Aventura Teste',
             editorial_state: 'draft',
             cover_image_url: null,
+            cover_storage_provider: null,
           },
         ],
       },
@@ -152,6 +165,7 @@ describe('GestaoMidiasPage', () => {
             material_title: 'Aventura Teste',
             editorial_state: 'draft',
             cover_image_url: null,
+            cover_storage_provider: null,
           },
         ],
       },
@@ -168,5 +182,38 @@ describe('GestaoMidiasPage', () => {
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith('Falha ao salvar capa: HTTP 500'),
     );
+  });
+
+  it('migra lote somente de publicados externos e mostra progresso', async () => {
+    mockAdminMedia({
+      data: {
+        items: [
+          {
+            material_id: 'published-1', material_slug: 'publicado', material_title: 'Publicado externo',
+            editorial_state: 'published', cover_image_url: 'https://source.test/1.png', cover_storage_provider: 'external',
+          },
+          {
+            material_id: 'draft-1', material_slug: 'rascunho', material_title: 'Rascunho externo',
+            editorial_state: 'draft', cover_image_url: 'https://source.test/2.png', cover_storage_provider: 'external',
+          },
+        ],
+      },
+    });
+    mockUpdateCover();
+    vi.spyOn(useUploadMaterialCoverModule, 'useCoverCapabilities').mockReturnValue({
+      data: { cloudinary_enabled: true },
+    } as unknown as ReturnType<typeof useUploadMaterialCoverModule.useCoverCapabilities>);
+    const mutateAsync = vi.fn().mockResolvedValue({ status: 'migrated' });
+    vi.spyOn(useAdminMediaModule, 'useMigrateCover').mockReturnValue({
+      mutateAsync,
+      isPending: false,
+    } as unknown as ReturnType<typeof useAdminMediaModule.useMigrateCover>);
+
+    renderPage();
+    fireEvent.click(screen.getByRole('button', { name: 'Migrar capas publicadas' }));
+
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
+    expect(mutateAsync).toHaveBeenCalledWith('published-1');
+    expect(await screen.findByText('Publicado externo: migrada')).toBeInTheDocument();
   });
 });

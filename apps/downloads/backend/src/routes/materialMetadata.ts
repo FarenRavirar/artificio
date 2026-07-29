@@ -7,6 +7,7 @@ import { POSTGRES_INTEGER_MAX } from '../db/types';
 import { toJsonColumnValue } from '../db/jsonColumn';
 import { sanitizeRichHtml } from '../services/sanitizeRichHtml';
 import { normalizeCreditNames, normalizePublisherKey } from '../services/facetNormalization';
+import { persistExternalCover, storeCoverFromPublicUrl } from '../services/coverStorage';
 import {
   markdownToPlainText,
   sanitizeNullableUserMarkdown,
@@ -129,6 +130,15 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
   // ver PR #190).
   const bodyKeys = new Set(Object.keys(req.body ?? {}));
 
+  if (bodyKeys.has('cover_image_url')) {
+    try {
+      if (patch.cover_image_url) await storeCoverFromPublicUrl(material.id, patch.cover_image_url);
+      else await persistExternalCover(material.id, null);
+    } catch (error) {
+      return res.status(422).json({ error: error instanceof Error ? error.message : 'Falha ao atualizar capa.' });
+    }
+  }
+
   const commonFields = {
     scenario: patch.scenario ?? null,
     genre: patch.genre ?? null,
@@ -144,7 +154,6 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
     artist_keys: artists.keys,
     publisher_name: patch.publisher_name ?? null,
     publisher_key: patch.publisher_name ? normalizePublisherKey(patch.publisher_name) : null,
-    cover_image_url: patch.cover_image_url ?? null,
     target_audience: patch.target_audience ?? null,
     age_rating: patch.age_rating ?? null,
     file_size_text: patch.file_size_text ?? null,
