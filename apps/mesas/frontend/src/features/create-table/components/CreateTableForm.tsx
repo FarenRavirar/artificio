@@ -169,8 +169,12 @@ export function CreateTableForm({
     // benefitsText/tableGmBio são autosalvos (fazem parte de formState) e vão no
     // submit, mas não eram reatribuídos aqui: restaurar o rascunho apagava os
     // dois campos que o usuário havia preenchido (review PR #227).
-    if (savedDraft.benefitsText) formHook.setBenefitsText(savedDraft.benefitsText);
-    if (savedDraft.tableGmBio) formHook.setTableGmBio(savedDraft.tableGmBio);
+    // Comparação com undefined, não truthiness: o usuário pode ter apagado o
+    // campo de propósito, e uma string vazia salva precisa sobrescrever o estado
+    // atual. `undefined` só ocorre em rascunho legado, gravado antes destes
+    // campos existirem — aí o valor corrente é preservado.
+    if (savedDraft.benefitsText !== undefined) formHook.setBenefitsText(savedDraft.benefitsText);
+    if (savedDraft.tableGmBio !== undefined) formHook.setTableGmBio(savedDraft.tableGmBio);
     if (savedDraft.listingExcerpt) formHook.setListingExcerpt(savedDraft.listingExcerpt);
     if (savedDraft.technicalRequirements) formHook.setTechnicalRequirements(savedDraft.technicalRequirements);
     if (savedDraft.requiresPc !== undefined) formHook.setRequiresPc(savedDraft.requiresPc);

@@ -91,8 +91,8 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | DELETE | `/api/v1/collections/:id/items/:materialId` | ✅ high | `apps/downloads/backend/src/routes/collections.ts` | 107 |
 | POST | `/api/v1/comments` | ✅ high | `apps/downloads/backend/src/routes/comments.ts` | 17 |
 | USE | `/api/v1/comments` | ✅ high | `apps/downloads/backend/src/server.ts` | 97 |
-| DELETE | `/api/v1/comments/:id` | ✅ high | `apps/downloads/backend/src/routes/comments.ts` | 65 |
-| GET | `/api/v1/comments/:materialId` | ✅ high | `apps/downloads/backend/src/routes/comments.ts` | 47 |
+| DELETE | `/api/v1/comments/:id` | ✅ high | `apps/downloads/backend/src/routes/comments.ts` | 73 |
+| GET | `/api/v1/comments/:materialId` | ✅ high | `apps/downloads/backend/src/routes/comments.ts` | 55 |
 | USE | `/api/v1/creators` | ✅ high | `apps/downloads/backend/src/server.ts` | 98 |
 | GET | `/api/v1/creators/:slug` | ✅ high | `apps/downloads/backend/src/routes/creators.ts` | 23 |
 | GET | `/api/v1/creators/me` | ✅ high | `apps/downloads/backend/src/routes/creators.ts` | 14 |

@@ -20,6 +20,14 @@ router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Res
     return res.status(400).json({ error: 'Payload inválido.', details: z.treeifyError(parsed.error) });
   }
 
+  // O `min(1)` do Zod roda antes da sanitização: entrada só-markup
+  // (`<script>alert(1)</script>`) passava na validação, saía vazia daqui e
+  // criava comentário invisível com 201 (review PR #227).
+  const safeBody = sanitizeUserMarkdown(parsed.data.body);
+  if (!safeBody.trim()) {
+    return res.status(400).json({ error: 'Comentário não pode ser vazio.' });
+  }
+
   const material = await db
     .selectFrom('download_material')
     .select('id')
@@ -36,7 +44,7 @@ router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Res
     .values({
       material_id: parsed.data.material_id,
       user_id: req.user!.userId,
-      body: sanitizeUserMarkdown(parsed.data.body),
+      body: safeBody,
     })
     .returningAll()
     .executeTakeFirstOrThrow();

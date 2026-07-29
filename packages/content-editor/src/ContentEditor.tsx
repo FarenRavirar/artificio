@@ -64,13 +64,24 @@ type WrapSelection = {
 interface ToolbarButtonProps {
   label: string;
   disabled: boolean;
+  focusable: boolean;
   onClick: () => void;
   children: ReactNode;
 }
 
-function ToolbarButton({ label, disabled, onClick, children }: Readonly<ToolbarButtonProps>) {
+function ToolbarButton({ label, disabled, focusable, onClick, children }: Readonly<ToolbarButtonProps>) {
   return (
-    <button type="button" className="artificio-content-editor__tool" aria-label={label} disabled={disabled} onClick={onClick}>
+    <button
+      type="button"
+      className="artificio-content-editor__tool"
+      aria-label={label}
+      disabled={disabled}
+      // Fora da ordem de tabulação junto com o painel oculto: o container segue
+      // no DOM por causa da validação nativa, mas nada dentro dele pode receber
+      // foco por teclado enquanto a Prévia está ativa (review PR #227).
+      tabIndex={focusable ? undefined : -1}
+      onClick={onClick}
+    >
       {children}
     </button>
   );
@@ -181,14 +192,14 @@ export function ContentEditor({
         aria-hidden={activeTab === 'write' ? undefined : true}
       >
         <div role="toolbar" aria-label={`Formatação de ${label}`} className="artificio-content-editor__toolbar">
-          <ToolbarButton label="Negrito" disabled={disabled} onClick={() => replaceSelection({ before: '**', fallback: 'texto em negrito' })}>B</ToolbarButton>
-          <ToolbarButton label="Itálico" disabled={disabled} onClick={() => replaceSelection({ before: '_', fallback: 'texto em itálico' })}><em>I</em></ToolbarButton>
-          <ToolbarButton label="Inserir título nível 2" disabled={disabled} onClick={() => prefixLines('## ', 'Título')}>H2</ToolbarButton>
-          <ToolbarButton label="Citação" disabled={disabled} onClick={() => prefixLines('> ', 'Citação')}>❝</ToolbarButton>
-          <ToolbarButton label="Lista com marcadores" disabled={disabled} onClick={() => prefixLines('- ', 'Item')}>•</ToolbarButton>
-          <ToolbarButton label="Lista numerada" disabled={disabled} onClick={() => prefixLines('1. ', 'Item')}>1.</ToolbarButton>
-          <ToolbarButton label="Código" disabled={disabled} onClick={() => replaceSelection({ before: '`', fallback: 'código' })}>{'<>'}</ToolbarButton>
-          <ToolbarButton label="Link" disabled={disabled} onClick={() => replaceSelection({ before: '[', after: '](https://)', fallback: 'texto do link' })}>Link</ToolbarButton>
+          <ToolbarButton focusable={activeTab === 'write'} label="Negrito" disabled={disabled} onClick={() => replaceSelection({ before: '**', fallback: 'texto em negrito' })}>B</ToolbarButton>
+          <ToolbarButton focusable={activeTab === 'write'} label="Itálico" disabled={disabled} onClick={() => replaceSelection({ before: '_', fallback: 'texto em itálico' })}><em>I</em></ToolbarButton>
+          <ToolbarButton focusable={activeTab === 'write'} label="Inserir título nível 2" disabled={disabled} onClick={() => prefixLines('## ', 'Título')}>H2</ToolbarButton>
+          <ToolbarButton focusable={activeTab === 'write'} label="Citação" disabled={disabled} onClick={() => prefixLines('> ', 'Citação')}>❝</ToolbarButton>
+          <ToolbarButton focusable={activeTab === 'write'} label="Lista com marcadores" disabled={disabled} onClick={() => prefixLines('- ', 'Item')}>•</ToolbarButton>
+          <ToolbarButton focusable={activeTab === 'write'} label="Lista numerada" disabled={disabled} onClick={() => prefixLines('1. ', 'Item')}>1.</ToolbarButton>
+          <ToolbarButton focusable={activeTab === 'write'} label="Código" disabled={disabled} onClick={() => replaceSelection({ before: '`', fallback: 'código' })}>{'<>'}</ToolbarButton>
+          <ToolbarButton focusable={activeTab === 'write'} label="Link" disabled={disabled} onClick={() => replaceSelection({ before: '[', after: '](https://)', fallback: 'texto do link' })}>Link</ToolbarButton>
         </div>
         <textarea
           ref={textareaRef}
@@ -201,6 +212,10 @@ export function ContentEditor({
           placeholder={placeholder}
           disabled={disabled}
           required={required}
+          // Continua montado e `required` na Prévia (a validação nativa depende
+          // disso), mas sai da ordem de tabulação: campo fora da viewport dentro
+          // de aria-hidden não pode receber foco por teclado (review PR #227).
+          tabIndex={activeTab === 'write' ? undefined : -1}
           maxLength={maxLength}
           style={{ minHeight }}
         />

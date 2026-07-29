@@ -72,6 +72,15 @@ describe('ContentEditor', () => {
     const editor = screen.getByRole('textbox', { name: 'Mensagem', hidden: true }) as HTMLTextAreaElement;
     expect(editor.isConnected).toBe(true);
     expect(editor.required).toBe(true);
+    expect(editor.disabled).toBe(false);
+    // Montado e validável, mas fora da ordem de tabulação enquanto oculto.
+    expect(editor.tabIndex).toBe(-1);
+
+    for (const tool of screen.getAllByRole('button', { hidden: true })) {
+      if (tool.classList.contains('artificio-content-editor__tool')) {
+        expect(tool.tabIndex).toBe(-1);
+      }
+    }
   });
 
   it('bloqueia o submit nativo quando o campo required está vazio na prévia', () => {

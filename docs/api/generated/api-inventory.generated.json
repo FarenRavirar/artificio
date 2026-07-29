@@ -587,7 +587,7 @@
       "method": "DELETE",
       "path": "/api/v1/comments/:id",
       "sourceFile": "apps/downloads/backend/src/routes/comments.ts",
-      "line": 65,
+      "line": 73,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -596,7 +596,7 @@
       "method": "GET",
       "path": "/api/v1/comments/:materialId",
       "sourceFile": "apps/downloads/backend/src/routes/comments.ts",
-      "line": 47,
+      "line": 55,
       "confidence": "high",
       "kind": "express-route"
     },

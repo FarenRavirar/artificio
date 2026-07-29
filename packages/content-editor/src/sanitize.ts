@@ -69,11 +69,10 @@ function containsOnlySpacesOrTabs(value: string): boolean {
 
 function closesFence(content: string, openFence: Pick<Fence, 'marker' | 'length'>): boolean {
   const fence = readFence(content);
-  return Boolean(
-    fence &&
-    fence.marker === openFence.marker &&
+  return (
+    fence?.marker === openFence.marker &&
     fence.length >= openFence.length &&
-    containsOnlySpacesOrTabs(fence.trailing),
+    containsOnlySpacesOrTabs(fence.trailing)
   );
 }
 
@@ -93,16 +92,59 @@ function opensBlockContainer(content: string): boolean {
   return BLOCK_CONTAINER_RE.test(content);
 }
 
+// Container de lista/citação aberto: só é fechado por uma linha não-indentada
+// que não continua o container (o próprio markdown-it segue essa regra).
+function nextBlockContainerState(
+  current: boolean,
+  content: string,
+  isBlank: boolean,
+  isIndented: boolean,
+): boolean {
+  if (opensBlockContainer(content)) return true;
+  // Linha de texto na coluna 0 encerra a lista/citação anterior.
+  if (!isBlank && !isIndented) return false;
+  return current;
+}
+
+type IndentedBlockState = { inIndentedBlock: boolean };
+
+// Dentro de lista/citação, linha indentada é continuação do item — o markdown-it
+// a renderiza como parágrafo, não como bloco de código —, então não pode ser
+// marcada como literal ou o HTML embutido escaparia da limpeza.
+function trackIndentedBlock(
+  ranges: LiteralRange[],
+  state: IndentedBlockState,
+  line: MarkdownLine,
+  flags: { isBlank: boolean; isIndented: boolean; insideContainer: boolean; previousLineIsBlank: boolean },
+): void {
+  const { start, end } = line;
+  const { isBlank, isIndented, insideContainer, previousLineIsBlank } = flags;
+
+  if (isIndented && !insideContainer && (previousLineIsBlank || state.inIndentedBlock)) {
+    if (state.inIndentedBlock) extendLastRange(ranges, start, end);
+    else ranges.push({ start, end });
+    state.inIndentedBlock = true;
+    return;
+  }
+
+  if (isBlank && state.inIndentedBlock) {
+    extendLastRange(ranges, start, end);
+    return;
+  }
+
+  if (!isBlank) state.inIndentedBlock = false;
+}
+
 function findMarkdownBlockLiteralRanges(value: string): LiteralRange[] {
   const ranges: LiteralRange[] = [];
   let openFence: { marker: '`' | '~'; length: number; start: number } | null = null;
-  let inIndentedBlock = false;
+  const indentedState: IndentedBlockState = { inIndentedBlock: false };
   let previousLineIsBlank = true;
-  // Container de lista/citação aberto: só é fechado por uma linha não-indentada
-  // que não continua o container (o próprio markdown-it segue essa regra).
   let insideBlockContainer = false;
 
-  for (const { start, end, content } of scanMarkdownLines(value)) {
+  for (const line of scanMarkdownLines(value)) {
+    const { start, end, content } = line;
+
     if (openFence) {
       if (closesFence(content, openFence)) {
         ranges.push({ start: openFence.start, end });
@@ -115,7 +157,7 @@ function findMarkdownBlockLiteralRanges(value: string): LiteralRange[] {
     const opening = readOpeningFence(content);
     if (opening) {
       openFence = { ...opening, start };
-      inIndentedBlock = false;
+      indentedState.inIndentedBlock = false;
       previousLineIsBlank = false;
       continue;
     }
@@ -123,25 +165,13 @@ function findMarkdownBlockLiteralRanges(value: string): LiteralRange[] {
     const isBlank = containsOnlySpacesOrTabs(content);
     const isIndented = content.startsWith('    ') || content.startsWith('\t');
 
-    if (opensBlockContainer(content)) {
-      insideBlockContainer = true;
-    } else if (!isBlank && !isIndented) {
-      // Linha de texto na coluna 0 encerra a lista/citação anterior.
-      insideBlockContainer = false;
-    }
-
-    // Dentro de lista/citação, linha indentada é continuação do item — o
-    // markdown-it a renderiza como parágrafo, não como bloco de código —, então
-    // não pode ser marcada como literal ou o HTML embutido escaparia da limpeza.
-    if (isIndented && !insideBlockContainer && (previousLineIsBlank || inIndentedBlock)) {
-      if (inIndentedBlock) extendLastRange(ranges, start, end);
-      else ranges.push({ start, end });
-      inIndentedBlock = true;
-    } else if (isBlank && inIndentedBlock) {
-      extendLastRange(ranges, start, end);
-    } else if (!isBlank) {
-      inIndentedBlock = false;
-    }
+    insideBlockContainer = nextBlockContainerState(insideBlockContainer, content, isBlank, isIndented);
+    trackIndentedBlock(ranges, indentedState, line, {
+      isBlank,
+      isIndented,
+      insideContainer: insideBlockContainer,
+      previousLineIsBlank,
+    });
 
     previousLineIsBlank = isBlank;
   }

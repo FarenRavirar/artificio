@@ -1,5 +1,6 @@
 import { sql, type Kysely, type Transaction } from 'kysely';
 import { matchSystemNameExact, type MatchableSystemEntry } from '@artificio/catalog-matching';
+import { sanitizeUserMarkdown } from '@artificio/content-editor/sanitize';
 import { db } from '../db';
 import { detectPortuguese, type LanguageDetectionResult } from './languageDetector';
 import { getOrCreateScraperCreatorId } from './scraperCreator';
@@ -10,6 +11,7 @@ import {
   type FlatCatalogSystem,
 } from './catalogClient';
 import type { ScrapedItem } from './scrapers/types';
+import { decodeHtml5PlainText } from './scrapers/plainTextPolicy';
 import type { Database, DownloadSourcePlatform, DownloadScraperItemOutcome } from '../db/types';
 import { toJsonColumnValue } from '../db/jsonColumn';
 import {
@@ -350,6 +352,16 @@ async function processItem(
     // aplicada a todos indistintamente). Fora da transacao pela mesma razao
     // do systemHint: consulta o catalogo central por rede, cacheada.
     const typeResolution = await resolveMaterialTypeHint(item.materialTypeHint, defaultMaterialType);
+    // `item.description` vem de scraping de terceiro. Persistir markup cru na
+    // coluna viola a fronteira de sanitização do AGENTS.md: mesmo que os dois
+    // consumidores atuais sanitizem na leitura, qualquer exportador ou consulta
+    // nova receberia o payload hostil direto do banco (review PR #227).
+    // A sanitização é seguida de decodificação de entidades porque o campo é
+    // texto plano por política (SCRAPED_ITEM_FIELD_POLICY): sem isso, `D&D`
+    // legítimo seria persistido como `D&amp;D`.
+    const safeDescription = item.description == null
+      ? null
+      : decodeHtml5PlainText(sanitizeUserMarkdown(item.description));
     const materialId = await db.transaction().execute(async (trx) => {
       const material = await trx
         .insertInto('download_material')
@@ -358,8 +370,8 @@ async function processItem(
           title: item.title.slice(0, 200),
           // Spec 086: description já é texto plano; descriptionHtml fica só
           // em metadata. summary nunca pode cortar HTML no meio de uma tag.
-          summary: item.description?.slice(0, 500) ?? null,
-          description: item.description ?? null,
+          summary: safeDescription?.slice(0, 500) ?? null,
+          description: safeDescription,
           material_type_id: typeResolution.materialType.id,
           material_type: typeResolution.materialType.name,
           creator_id: scraperCreatorId,
@@ -436,7 +448,7 @@ async function processItem(
           description_html: item.descriptionHtml ?? null,
           // Texto plano é Markdown válido e evita converter HTML externo por
           // heurística. description_html fica preservado somente como legado.
-          description_markdown: item.description ?? null,
+          description_markdown: safeDescription,
         })
         .execute();
 

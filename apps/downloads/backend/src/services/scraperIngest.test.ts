@@ -40,7 +40,6 @@ vi.mock('../db', () => ({ db: dbMocks }));
 import { runScraperIngest } from './scraperIngest';
 import type { ScrapedItem } from './scrapers/types';
 import { normalizeScrapedItemPlainText } from './scrapers/plainTextPolicy';
-import { sanitizeUserMarkdown } from '@artificio/content-editor/sanitize';
 
 function makeItem(overrides: Partial<ScrapedItem> = {}): ScrapedItem {
   return {
@@ -506,15 +505,12 @@ describe('runScraperIngest', () => {
     }));
   });
 
-  // A descrição é persistida como TEXTO PLANO (política `plainText` em
-  // SCRAPED_ITEM_FIELD_POLICY, decodificada por decodeHtml5PlainText), não como
-  // HTML confiável. A defesa contra markup hostil da fonte fica na renderização
-  // — MarkdownContent passa por DOMPurify, e `description` cru é escapado pelo
-  // JSX. Sanitizar aqui escaparia `&` e corromperia texto legítimo ("D&D" viraria
-  // "D&amp;D"), então este teste trava o que de fato importa: o markup entra
-  // inerte no banco e nunca vira HTML ativo (achado de review PR #227, avaliado
-  // e ajustado — a sanitização na escrita foi descartada por causar regressão).
-  it('persiste descrição hostil da fonte externa como texto inerte, sem executar markup', async () => {
+  // A descrição de fonte externa é sanitizada ANTES de persistir (fronteira
+  // obrigatória do AGENTS.md): não basta os leitores atuais sanitizarem, porque
+  // qualquer exportador ou consulta nova lê a coluna direto. A sanitização é
+  // seguida de decodificação de entidades porque o campo é texto plano por
+  // política — sem isso `D&D` legítimo viraria `D&amp;D` (review PR #227).
+  it('sanitiza descrição hostil da fonte externa antes de persistir, preservando texto legítimo', async () => {
     dbMocks.selectFrom
       .mockReturnValueOnce(selectChain(undefined))
       .mockReturnValueOnce(selectChain([]));
@@ -533,21 +529,31 @@ describe('runScraperIngest', () => {
     });
 
     const item = makeItem({
-      description: 'Aventura em português com <script>alert(1)</script> e <img src=x onerror=alert(2)> embutidos no texto da fonte.',
+      // Inclui `&` legítimo junto do markup hostil: a limpeza não pode escapá-lo.
+      description: 'Aventura de D&D com <script>alert(1)</script> e <img src=x onerror=alert(2)> embutidos na fonte.',
     });
 
     await runScraperIngest('run-hostil', 'itch_io', asyncIterableOf([item]));
 
     const materialValues = materialInsert.values.mock.calls[0][0];
-    // O texto legítimo é preservado byte a byte, sem escape espúrio de `&`.
-    expect(String(materialValues.description)).toContain('Aventura em português');
-    expect(String(materialValues.description)).not.toContain('&amp;');
+    const metadataValues = metadataInsert.values.mock.calls[0][0];
 
-    // O markup hostil só é seguro porque a camada de exibição o neutraliza:
-    // o mesmo boundary de sanitização aplicado ao valor persistido não deixa
-    // passar `<script>`/`onerror=`.
-    const sanitized = sanitizeUserMarkdown(String(materialValues.description_markdown ?? ''));
-    expect(sanitized).not.toMatch(/<script|onerror=/i);
+    // description/summary vivem no material; description_markdown, na metadata.
+    const persisted = {
+      description: String(materialValues.description ?? ''),
+      summary: String(materialValues.summary ?? ''),
+      description_markdown: String(metadataValues.description_markdown ?? ''),
+    };
+
+    for (const [field, value] of Object.entries(persisted)) {
+      expect(value, `${field} deve estar sanitizado no banco`).not.toMatch(/<script|<img|onerror=/i);
+    }
+
+    // Texto legítimo sobrevive, e o `&` não vira entidade escapada.
+    expect(persisted.description).toContain('Aventura de D&D');
+    expect(persisted.description_markdown).toContain('Aventura de D&D');
+    expect(persisted.description).not.toContain('&amp;');
+    expect(persisted.description_markdown).not.toContain('&amp;');
   });
 
   it('violação do índice UNIQUE (corrida entre runs concorrentes): outcome=skipped_duplicate, não skipped_error', async () => {
