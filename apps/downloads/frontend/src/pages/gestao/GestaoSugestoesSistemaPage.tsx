@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { ContentEditor } from '@artificio/content-editor';
 import {
   AdminTable,
   PageHeader,
@@ -203,10 +204,13 @@ export function GestaoSugestoesSistemaPage() {
 
           <SectionCard title="Recusar sugestão">
             <div className="flex flex-col gap-3">
-              <label className="flex flex-col gap-1 text-sm text-[var(--admin-fg-low)]">
-                Motivo
-                <textarea value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} rows={3} className={inputClass} />
-              </label>
+              <ContentEditor
+                label="Motivo"
+                value={rejectReason}
+                onChange={setRejectReason}
+                maxLength={2_000}
+                minHeight={128}
+              />
               <button type="button" disabled={resolveMutation.isPending} onClick={() => void resolve({ resolution_type: 'reject', reason: rejectReason.trim() || undefined })} className="min-h-11 w-fit rounded-md border border-[var(--admin-danger)] px-4 py-2 font-semibold text-[var(--admin-danger-soft)] disabled:opacity-50">Recusar</button>
             </div>
           </SectionCard>

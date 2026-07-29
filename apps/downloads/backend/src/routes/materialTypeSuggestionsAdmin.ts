@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { sql, type Transaction } from 'kysely';
 import { z } from 'zod';
+import { sanitizeNullableUserMarkdown } from '@artificio/content-editor/sanitize';
 import { db } from '../db';
 import type { Database, DownloadMaterialTypeSuggestion, DownloadMaterialTypeSuggestionResolutionAction } from '../db/types';
 import { authMiddleware, requireRole } from '../middleware/auth';
@@ -30,7 +31,10 @@ router.get('/', writeRateLimiter, authMiddleware, requireRole('admin'), async (r
     query = query.where('status', '=', status as 'pending' | 'approved' | 'rejected');
   }
   const suggestions = await query.execute();
-  return res.json({ items: suggestions });
+  return res.json({ items: suggestions.map((suggestion) => ({
+    ...suggestion,
+    rejection_reason: sanitizeNullableUserMarkdown(suggestion.rejection_reason ?? null),
+  })) });
 });
 
 // Candidatos por casamento textual simples sobre a lista plana: nome, slug e
@@ -64,7 +68,10 @@ router.get('/:id/candidates', writeRateLimiter, authMiddleware, requireRole('adm
   }
 
   const materialTypes = await loadCatalogMaterialTypes();
-  return res.json({ suggestion, candidates: scoreMaterialTypeCandidates(suggestion.raw_value, materialTypes) });
+  return res.json({ suggestion: {
+    ...suggestion,
+    rejection_reason: sanitizeNullableUserMarkdown(suggestion.rejection_reason ?? null),
+  }, candidates: scoreMaterialTypeCandidates(suggestion.raw_value, materialTypes) });
 });
 
 // Mesmo TOCTOU que systemSuggestionsAdmin resolveu (achado CodeRabbit PR #145,
@@ -203,7 +210,7 @@ async function resolveCreateType(ctx: ResolveContext): Promise<ResolveOutcome> {
 }
 
 async function resolveReject(ctx: ResolveContext): Promise<ResolveOutcome> {
-  const reason = readTrimmed(ctx.body.reason);
+  const reason = sanitizeNullableUserMarkdown(readTrimmed(ctx.body.reason));
   await ctx.trx
     .updateTable('download_material_type_suggestion')
     .set({ status: 'rejected', rejection_reason: reason, reviewed_by: ctx.adminId, reviewed_at: new Date() })

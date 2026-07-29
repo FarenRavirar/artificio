@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { db } from '../db';
 import { authMiddleware } from '../middleware/auth';
 import { readRateLimiter } from '../middleware/rateLimit';
+import { sanitizeNullableUserMarkdown } from '@artificio/content-editor/sanitize';
 
 const router = Router();
 
@@ -44,7 +45,7 @@ router.get('/:slug', readRateLimiter, async (req: Request, res: Response) => {
     id: creator.id,
     slug: creator.slug,
     display_name: creator.display_name,
-    bio: creator.bio,
+    bio: sanitizeNullableUserMarkdown(creator.bio),
     materials,
   });
 });

@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useSession } from '@artificio/auth/client';
 import toast from 'react-hot-toast';
+import { ContentEditor, MarkdownContent } from '@artificio/content-editor';
 import { useRatings, useSubmitRating } from '../hooks/useRating';
 
 // D111 item 5 (spec 074) — avaliacao so disponivel apos download registrado
@@ -11,6 +12,7 @@ export function RatingSection({ materialId }: Readonly<{ materialId: string }>) 
   const { data: ratings } = useRatings(materialId);
   const submitMutation = useSubmitRating(materialId);
   const [score, setScore] = useState(5);
+  const [comment, setComment] = useState('');
   const [blockedReason, setBlockedReason] = useState<string | null>(null);
 
   // Spec 088 (T1.17) — o controle reflete a nota que o usuario JA enviou, em
@@ -21,6 +23,7 @@ export function RatingSection({ materialId }: Readonly<{ materialId: string }>) 
   if (myRating && myRating.id !== lastSyncedRatingId) {
     setLastSyncedRatingId(myRating.id);
     setScore(myRating.score);
+    setComment(myRating.comment ?? '');
   }
 
   // Refs das cinco estrelas: mover a selecao por teclado tem que mover o FOCO
@@ -58,7 +61,7 @@ export function RatingSection({ materialId }: Readonly<{ materialId: string }>) 
     event.preventDefault();
     setBlockedReason(null);
     try {
-      await submitMutation.mutateAsync({ score });
+      await submitMutation.mutateAsync({ score, comment: comment.trim() || null });
       toast.success('Avaliação enviada.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Falha ao avaliar.';
@@ -78,7 +81,7 @@ export function RatingSection({ materialId }: Readonly<{ materialId: string }>) 
       {!user && <p className="mt-4 text-sm text-[var(--fg-muted)]">Entre com sua conta para avaliar.</p>}
 
       {user && (
-        <form onSubmit={handleSubmit} className="mt-4 flex items-center gap-2">
+        <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
           {/* Spec 088 (T1.14-T1.16) — cinco estrelas clicaveis no lugar do
               `<select>` de 1 a 5.
               Trocar controle nativo por glifo e exatamente onde acessibilidade
@@ -131,10 +134,11 @@ export function RatingSection({ materialId }: Readonly<{ materialId: string }>) 
               );
             })}
           </div>
+          <ContentEditor label="Comentário da avaliação (opcional)" value={comment} onChange={setComment} maxLength={1_000} minHeight={128} />
           <button
             type="submit"
             disabled={submitMutation.isPending}
-            className="min-h-[44px] rounded-md bg-artificio-orange px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            className="min-h-[44px] w-fit rounded-md bg-artificio-orange px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             Avaliar
           </button>
@@ -145,6 +149,17 @@ export function RatingSection({ materialId }: Readonly<{ materialId: string }>) 
         <p role="alert" className="mt-3 rounded-md border border-amber-400/40 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
           {blockedReason}
         </p>
+      )}
+
+      {ratings?.some((rating) => rating.comment) && (
+        <div className="mt-6 space-y-3">
+          {ratings.filter((rating) => rating.comment).map((rating) => (
+            <div key={rating.id} className="rounded-md border border-[var(--line)] p-3">
+              <p className="mb-2 text-sm text-amber-300">{'★'.repeat(rating.score)}{'☆'.repeat(5 - rating.score)}</p>
+              <MarkdownContent value={rating.comment!} className="text-sm text-[var(--fg-muted)]" />
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

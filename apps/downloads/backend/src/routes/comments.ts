@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { db } from '../db';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
+import { sanitizeUserMarkdown } from '@artificio/content-editor/sanitize';
 
 const router = Router();
 
@@ -35,7 +36,7 @@ router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Res
     .values({
       material_id: parsed.data.material_id,
       user_id: req.user!.userId,
-      body: parsed.data.body,
+      body: sanitizeUserMarkdown(parsed.data.body),
     })
     .returningAll()
     .executeTakeFirstOrThrow();
@@ -52,7 +53,10 @@ router.get('/:materialId', async (req: Request, res: Response) => {
     .orderBy('created_at', 'asc')
     .execute();
 
-  return res.json(comments);
+  return res.json(comments.map((comment) => ({
+    ...comment,
+    body: sanitizeUserMarkdown(comment.body),
+  })));
 });
 
 // T6.1 — retirada so por denuncia/moderacao, nunca autoexclusao livre nem

@@ -1,0 +1,36 @@
+{
+  "name": "@artificio/content-editor",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./sanitize": {
+      "types": "./dist/sanitize.d.ts",
+      "import": "./dist/sanitize.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node -e \"require('node:fs').copyFileSync('src/content-editor.css','dist/content-editor.css')\"",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "dompurify": "^3.4.11",
+    "markdown-it": "^14.1.1",
+    "react": "^19.2.7",
+    "sanitize-html": "^2.17.5"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/markdown-it": "^14.1.2",
+    "@types/react": "^19.2.17",
+    "@types/sanitize-html": "^2.16.1",
+    "jsdom": "^29.1.1",
+    "vitest": "^4.1.10"
+  }
+}

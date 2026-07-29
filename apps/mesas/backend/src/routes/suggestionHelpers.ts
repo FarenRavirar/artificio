@@ -3,6 +3,7 @@ import { db } from '../db/index.js';
 import { logActivity } from '../services/activityLogger.js';
 import { resolveActorName } from '../services/actorNameResolver.js';
 import type { SuggestionStatus } from '../db/types.js';
+import { sanitizeNullableUserMarkdown, sanitizeUserMarkdown } from '../utils/userMarkdown.js';
 
 export interface RejectConfig {
   tableName: 'scenario_suggestions' | 'system_suggestions';
@@ -14,7 +15,7 @@ export async function rejectHandler(config: RejectConfig, req: Request, res: Res
   try {
     const { id } = req.params;
     const rawReason = typeof req.body?.reason === 'string' ? req.body.reason.trim() : '';
-    const reason = rawReason.length > 0 ? rawReason : null;
+    const reason = rawReason.length > 0 ? sanitizeUserMarkdown(rawReason.slice(0, 2000)) : null;
     const adminId = req.user?.userId;
 
     if (!adminId) {
@@ -116,7 +117,11 @@ export async function listAdminHandler(config: ListAdminConfig, req: Request, re
     }
 
     const suggestions = await query.execute();
-    res.json({ data: suggestions });
+    res.json({ data: suggestions.map((suggestion) => ({
+      ...suggestion,
+      description: sanitizeNullableUserMarkdown(suggestion.description),
+      rejection_reason: sanitizeNullableUserMarkdown(suggestion.rejection_reason),
+    })) });
   } catch (error: unknown) {
     console.error(`[GET /admin/${config.logTag}]`, error);
     res.status(500).json({ error: 'Erro ao listar sugestões.' });
@@ -143,7 +148,11 @@ export async function listMineHandler(config: ListMineConfig, req: Request, res:
       .orderBy('created_at', 'desc')
       .execute();
 
-    res.json({ data: suggestions });
+    res.json({ data: suggestions.map((suggestion) => ({
+      ...suggestion,
+      description: sanitizeNullableUserMarkdown(suggestion.description),
+      rejection_reason: sanitizeNullableUserMarkdown(suggestion.rejection_reason),
+    })) });
   } catch (error: unknown) {
     console.error(`[GET /${config.logTag}/mine]`, error);
     res.status(500).json({ error: 'Erro ao listar sugestões.' });

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { InlineDeleteConfirmation } from '../../../components/InlineDeleteConfirmation';
+import { MarkdownContent } from '@artificio/content-editor';
+import { MarkdownEditor } from '../../../components/MarkdownEditor';
 import {
   fetchDevFeedback,
   updateDevFeedback,
@@ -259,7 +261,7 @@ export const DevFeedbackPanel = () => {
                       )}
                     </div>
                     <h3 className="font-semibold text-white">{item.title}</h3>
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-white/70">{item.description}</p>
+                    <MarkdownContent value={item.description} className="mt-1 text-sm text-white/70" />
                   </div>
                 </div>
                 <div className="text-right text-xs text-white/40">
@@ -319,7 +321,7 @@ export const DevFeedbackPanel = () => {
                     {item.merged_sources.map((s, i) => (
                       <div key={`${s.id}-${i}`} className="rounded border border-white/10 bg-black/20 p-2 text-xs text-white/70">
                         <div className="font-semibold text-white/80">{s.title}</div>
-                        {s.description && <div className="mt-0.5 whitespace-pre-wrap">{s.description}</div>}
+                        {s.description && <MarkdownContent value={s.description} className="mt-0.5" />}
                         <div className="mt-1 text-white/40">
                           {s.route_path && <span>Pagina: {s.route_path} · </span>}
                           {s.contact_email && <span>Contato: {s.contact_email} · </span>}
@@ -357,13 +359,13 @@ export const DevFeedbackPanel = () => {
                     ))}
                   </select>
                 </div>
-                <div className="min-w-[200px] flex-1">
-                  <label className="mb-1 block text-xs text-white/60">Notas da equipe</label>
-                  <textarea
-                    rows={2}
-                    defaultValue={item.admin_notes ?? ''}
-                    onChange={(e) => setNotesDraft((d) => ({ ...d, [item.id]: e.target.value }))}
-                    className="w-full resize-y rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white"
+                <div className="min-w-[260px] flex-1">
+                  <MarkdownEditor
+                    label="Notas da equipe"
+                    value={notesDraft[item.id] ?? item.admin_notes ?? ''}
+                    onChange={(value) => setNotesDraft((draft) => ({ ...draft, [item.id]: value }))}
+                    maxLength={4_000}
+                    height={128}
                   />
                 </div>
                 <button

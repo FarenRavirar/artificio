@@ -6,6 +6,7 @@ import { logActivity } from '../services/activityLogger.js';
 import { notifyAdmins } from '../services/adminNotifications.js';
 import { resolveActorName } from '../services/actorNameResolver.js';
 import { listMineHandler } from './suggestionHelpers.js';
+import { sanitizeUserMarkdown } from '../utils/userMarkdown.js';
 
 const router = Router();
 
@@ -46,7 +47,9 @@ router.post('/', async (req: Request, res: Response) => {
           user_id: userId,
           name: name.trim(),
           name_pt: typeof name_pt === 'string' && name_pt.trim().length > 0 ? name_pt.trim() : null,
-          description: typeof description === 'string' && description.trim().length > 0 ? description.trim() : null,
+          description: typeof description === 'string' && description.trim().length > 0
+            ? sanitizeUserMarkdown(description.trim().slice(0, 4000))
+            : null,
           status: 'pending',
         })
         .returningAll()

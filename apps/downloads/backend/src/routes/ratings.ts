@@ -4,6 +4,7 @@ import { db } from '../db';
 import { authMiddleware, optionalAuth } from '../middleware/auth';
 import { readRateLimiter, writeRateLimiter } from '../middleware/rateLimit';
 import { assertCanRate, RatingNotAllowedError } from '../services/ratingGuard';
+import { sanitizeNullableUserMarkdown } from '@artificio/content-editor/sanitize';
 
 const router = Router();
 
@@ -53,6 +54,7 @@ router.get('/:materialId', readRateLimiter, optionalAuth, async (req: Request, r
   const currentUserId = req.user?.userId ?? null;
   const ratings = rows.map(({ user_id, ...rating }) => ({
     ...rating,
+    comment: sanitizeNullableUserMarkdown(rating.comment),
     is_mine: currentUserId !== null && user_id === currentUserId,
   }));
 
@@ -80,11 +82,11 @@ router.put('/', writeRateLimiter, authMiddleware, async (req: Request, res: Resp
       material_id: parsed.data.material_id,
       user_id: req.user!.userId,
       score: parsed.data.score,
-      comment: parsed.data.comment ?? null,
+      comment: sanitizeNullableUserMarkdown(parsed.data.comment ?? null),
     })
     .onConflict((oc) => oc.columns(['user_id', 'material_id']).doUpdateSet({
       score: parsed.data.score,
-      comment: parsed.data.comment ?? null,
+      comment: sanitizeNullableUserMarkdown(parsed.data.comment ?? null),
     }))
     .returningAll()
     .executeTakeFirstOrThrow();

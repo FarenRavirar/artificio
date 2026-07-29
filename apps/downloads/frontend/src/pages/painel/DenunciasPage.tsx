@@ -1,5 +1,6 @@
 import { PainelShell } from '../../components/PainelShell';
 import { useMyReports } from '../../hooks/useMyReports';
+import { MarkdownContent } from '@artificio/content-editor';
 
 const STATE_LABEL: Record<string, string> = {
   open: 'Aberta',
@@ -28,9 +29,9 @@ export function DenunciasPage() {
             <p className="font-semibold text-[var(--fg)]">
               {report.category} — <span className="text-[var(--fg-muted)]">{STATE_LABEL[report.case_state]}</span>
             </p>
-            {report.details && <p className="mt-1 text-sm text-[var(--fg-muted)]">{report.details}</p>}
+            {report.details && <MarkdownContent value={report.details} className="mt-1 text-sm text-[var(--fg-muted)]" />}
             {report.resolution_note && (
-              <p className="mt-1 text-sm text-[var(--fg-muted)]">Resolução: {report.resolution_note}</p>
+              <div className="mt-1 text-sm text-[var(--fg-muted)]"><strong>Resolução:</strong><MarkdownContent value={report.resolution_note} /></div>
             )}
             <p className="mt-1 text-xs text-[var(--fg-muted)]">
               Aberta em {new Date(report.created_at).toLocaleDateString('pt-BR')}

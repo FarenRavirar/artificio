@@ -539,11 +539,12 @@ router.post('/:slug/contact', publicRateLimiter, async (req: Request, res: Respo
 
     // TODO: Implementar envio de email
     // Por enquanto, apenas registrar no console
+    const safeMessage = sanitizeNullableUserMarkdown(message);
     console.log('[CONTACT FORM]', {
       to: profile.email,
       from: email,
       name,
-      message,
+      message: safeMessage,
       masterName: profile.display_name,
     });
 
@@ -636,7 +637,10 @@ router.get('/:slug/reviews', publicRateLimiter, async (req: Request, res: Respon
       .orderBy('r.created_at', 'desc')
       .execute();
 
-    res.json({ data: reviews });
+    res.json({ data: reviews.map((review) => ({
+      ...review,
+      comment: sanitizeNullableUserMarkdown(review.comment),
+    })) });
   } catch (error) {
     logDatabaseError(req, error, { route: '/gm/:slug/reviews', operation: 'select' });
     res.status(500).json({ error: 'Erro ao buscar reviews.' });
@@ -698,12 +702,12 @@ router.post('/:slug/reviews', authRateLimiter, authMiddleware, async (req: Reque
           author_user_id: authorUserId,
           rating,
           tags: validTags,
-          comment: comment?.trim() || null,
+          comment: comment?.trim() ? sanitizeNullableUserMarkdown(comment.trim()) : null,
         })
         .onConflict((oc) => oc.columns(['gm_user_id', 'author_user_id']).doUpdateSet({
           rating,
           tags: validTags,
-          comment: comment?.trim() || null,
+          comment: comment?.trim() ? sanitizeNullableUserMarkdown(comment.trim()) : null,
           updated_at: sql`NOW()`,
         }))
         .execute();

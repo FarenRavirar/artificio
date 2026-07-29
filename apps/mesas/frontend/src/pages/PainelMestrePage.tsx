@@ -252,6 +252,7 @@ function CreateGmProfileForm({ onSuccess }: { onSuccess: () => void }) {
         <MarkdownEditor
           value={bio}
           onChange={setBio}
+          label="Bio do mestre"
           placeholder="Conte um pouco sobre você como mestre..."
           height={200}
         />

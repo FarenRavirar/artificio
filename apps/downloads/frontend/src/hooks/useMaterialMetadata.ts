@@ -27,6 +27,7 @@ export const materialMetadataSchema = z.object({
   source_category: z.string().nullable().optional(),
   source_filters: z.array(sourceFilterSchema).nullable().optional(),
   description_html: z.string().nullable().optional(),
+  description_markdown: z.string().nullable().optional(),
   // D119 (spec 084) — sempre 'pt' para material publicado.
   language: z.literal('pt').nullable(),
 });

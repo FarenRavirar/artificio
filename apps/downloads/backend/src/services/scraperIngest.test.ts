@@ -435,6 +435,7 @@ describe('runScraperIngest', () => {
         source_category: 'Linha de produto',
         source_filters: JSON.stringify([{ facet: 'tipoDeProduto', path: ['Aventura', 'Campanha'] }]),
         description_html: '<p>Descrição <strong>rica</strong></p>',
+        description_markdown: 'Uma aventura de RPG em português para testes automatizados completos.',
       }),
     );
     const logInsert = dbMocks.insertInto.mock.results

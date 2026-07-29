@@ -5,6 +5,7 @@ import { GestaoShell } from '../../components/GestaoShell';
 import { useModerationBatchAction, useModerationQueue, useModerationSingleAction } from '../../hooks/useModerationQueue';
 import { useAdminRejectionCategories } from '../../hooks/useAdminRejectionCategories';
 import { EmailLogPanel } from '../../components/EmailLogPanel';
+import { ContentEditor } from '@artificio/content-editor';
 
 interface ModerationRow {
   id: string;
@@ -101,7 +102,7 @@ export function GestaoModeracaoPage() {
       <PageHeader title="Moderação" />
 
       {queue && queue.length > 0 && (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div className="mt-4 flex flex-col gap-2">
           <label htmlFor="reject-category" className="sr-only">Categoria de reprovação</label>
           <select
             id="reject-category"
@@ -114,14 +115,14 @@ export function GestaoModeracaoPage() {
               <option key={category.id} value={category.id}>{category.label}</option>
             ))}
           </select>
-          <label htmlFor="reject-reason" className="sr-only">Motivo da reprovação</label>
-          <input
+          <ContentEditor
             id="reject-reason"
-            type="text"
+            label="Motivo da reprovação"
             value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
+            onChange={setRejectReason}
             placeholder="Motivo (obrigatório para reprovar)"
-            className="min-h-[44px] flex-1 rounded-md border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-fg)]"
+            maxLength={4_000}
+            minHeight={128}
           />
         </div>
       )}

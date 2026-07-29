@@ -7,6 +7,11 @@ import { POSTGRES_INTEGER_MAX } from '../db/types';
 import { toJsonColumnValue } from '../db/jsonColumn';
 import { sanitizeRichHtml } from '../services/sanitizeRichHtml';
 import { normalizeCreditNames, normalizePublisherKey } from '../services/facetNormalization';
+import {
+  markdownToPlainText,
+  sanitizeNullableUserMarkdown,
+  sanitizeUserMarkdown,
+} from '@artificio/content-editor/sanitize';
 
 const router = Router();
 
@@ -46,9 +51,9 @@ const upsertMetadataSchema = z.object({
     facet: z.string().trim().min(1).max(100),
     path: z.array(z.string().trim().min(1).max(200)).min(1),
   })).optional(),
-  // HTML rico pode vir do editor da Fase 9 ou de PUT administrativo: ambos
-  // cruzam a mesma fronteira de segurança antes de chegar ao banco.
-  description_html: z.string().nullable().optional().transform((value) => (value === null || value === undefined ? value : sanitizeRichHtml(value))),
+  description_markdown: z.string().max(50_000).nullable().optional().transform((value) => (
+    value === null || value === undefined ? value : sanitizeUserMarkdown(value)
+  )),
 });
 
 // Leitura publica so para material ja aprovado — draft/rejected/withdrawn
@@ -79,7 +84,11 @@ router.get('/:materialId', async (req: Request, res: Response) => {
   // leitura impede XSS armazenado se outro writer ignorar a fronteira de PUT.
   // Achado real (review PR #203, Codex, P2): importação/migration/SQL pode
   // contornar o PUT. Re-sanitiza a leitura na fronteira de renderização.
-  return res.json({ ...metadata, description_html: metadata.description_html ? sanitizeRichHtml(metadata.description_html) : null });
+  return res.json({
+    ...metadata,
+    description_html: metadata.description_html ? sanitizeRichHtml(metadata.description_html) : null,
+    description_markdown: sanitizeNullableUserMarkdown(metadata.description_markdown),
+  });
 });
 
 router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request, res: Response) => {
@@ -142,7 +151,10 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
     page_count: patch.page_count ?? null,
     creation_method: patch.creation_method ?? null,
     source_category: patch.source_category ?? null,
-    description_html: patch.description_html ?? null,
+    // Legado preservado somente para rollback da migration 034; novas
+    // escritas nunca persistem HTML rico.
+    description_html: null,
+    description_markdown: patch.description_markdown ?? null,
   };
   // Achado real (smoke visual pós-deploy da spec 086, 2026-07-26): a premissa
   // anterior deste comentário ("driver pg serializa pra jsonb automaticamente")
@@ -177,19 +189,38 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
     updateFields.artist_keys = commonFields.artist_keys;
   }
 
-  const updated = await db
-    .insertInto('download_material_metadata')
-    .values({ material_id: material.id, ...commonFields, ...jsonFields })
-    .onConflict((oc) => oc.column('material_id').doUpdateSet({
-      ...updateFields,
-      // Achado de review PR #193 (codeRabbit): D119 e regra petrea — mesmo
-      // em PUT parcial que nao envia "language" no body, forca 'pt' no
-      // UPDATE (nao so no INSERT), nunca deixa linha existente divergir.
-      language: 'pt',
-      updated_at: new Date(),
-    }))
-    .returningAll()
-    .executeTakeFirstOrThrow();
+  const updated = await db.transaction().execute(async (trx) => {
+    const metadata = await trx
+      .insertInto('download_material_metadata')
+      .values({ material_id: material.id, ...commonFields, ...jsonFields })
+      .onConflict((oc) => oc.column('material_id').doUpdateSet({
+        ...updateFields,
+        // Achado de review PR #193 (codeRabbit): D119 e regra petrea — mesmo
+        // em PUT parcial que nao envia "language" no body, forca 'pt' no
+        // UPDATE (nao so no INSERT), nunca deixa linha existente divergir.
+        language: 'pt',
+        updated_at: new Date(),
+      }))
+      .returningAll()
+      .executeTakeFirstOrThrow();
+
+    if (bodyKeys.has('description_markdown')) {
+      const plainDescription = patch.description_markdown
+        ? markdownToPlainText(patch.description_markdown, 50_000)
+        : null;
+      const summary = patch.description_markdown
+        ? markdownToPlainText(patch.description_markdown, 320)
+        : null;
+
+      await trx
+        .updateTable('download_material')
+        .set({ description: plainDescription, summary, updated_at: new Date() })
+        .where('id', '=', material.id)
+        .executeTakeFirst();
+    }
+
+    return metadata;
+  });
 
   return res.json(updated);
 });

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useSession } from '@artificio/auth/client';
+import { ContentEditor, MarkdownContent } from '@artificio/content-editor';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
@@ -58,12 +59,13 @@ export function CommentSection({ materialId }: Readonly<{ materialId: string }>)
 
       {user ? (
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-2">
-          <textarea
+          <ContentEditor
             value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={3}
+            onChange={setBody}
+            label="Comentário"
             placeholder="Escreva um comentário..."
-            className="rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
+            minHeight={132}
+            maxLength={2000}
           />
           <button
             type="submit"
@@ -83,7 +85,7 @@ export function CommentSection({ materialId }: Readonly<{ materialId: string }>)
       <ul className="mt-6 space-y-3">
         {commentsQuery.data?.map((comment) => (
           <li key={comment.id} className="rounded-md border border-[var(--line)] px-3 py-2 text-sm text-[var(--fg-muted)]">
-            {comment.body}
+            <MarkdownContent value={comment.body} />
           </li>
         ))}
       </ul>

@@ -33,6 +33,7 @@ export function StepBasic({ form, setForm }: StepBasicProps) {
         <MarkdownEditor
           value={form.description}
           onChange={(text) => setForm({ ...form, description: text })}
+          label="Descrição da mesa"
           placeholder="Descreva sua campanha, o tom da história, o que esperar..."
           height={300}
         />

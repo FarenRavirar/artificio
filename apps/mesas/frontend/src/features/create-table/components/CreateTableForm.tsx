@@ -371,6 +371,10 @@ export function CreateTableForm({
             setSynopsis={formHook.setSynopsis}
             styleText={formHook.styleText}
             setStyleText={formHook.setStyleText}
+            benefitsText={formHook.benefitsText}
+            setBenefitsText={formHook.setBenefitsText}
+            tableGmBio={formHook.tableGmBio}
+            setTableGmBio={formHook.setTableGmBio}
             listingExcerpt={formHook.listingExcerpt}
             setListingExcerpt={formHook.setListingExcerpt}
             technicalRequirements={formHook.technicalRequirements}

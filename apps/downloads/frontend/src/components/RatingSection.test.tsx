@@ -249,7 +249,7 @@ describe('RatingSection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Avaliar' }));
 
     await waitFor(() => {
-      expect(mutateAsync).toHaveBeenCalledWith({ score: 1 });
+      expect(mutateAsync).toHaveBeenCalledWith({ score: 1, comment: null });
     });
   });
 
@@ -264,7 +264,7 @@ describe('RatingSection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Avaliar' }));
 
     await waitFor(() => {
-      expect(mutateAsync).toHaveBeenCalledWith({ score: 4 });
+      expect(mutateAsync).toHaveBeenCalledWith({ score: 4, comment: null });
     });
   });
 

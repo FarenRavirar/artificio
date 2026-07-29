@@ -9,16 +9,26 @@
 
 **Todos os 5 apps em prod** (2026-06-21). **Último promote `dev→main`: 2026-06-24 (`2756346`, ff via `promote-prod-fast-forward.yml`)** — promoveu specs 044-049 (PRs #93/#94 + acumulado). `main == dev`. **⚠️ Deploy prod mesas falhou e fez rollback** (run `28125222995`): guard de migration barrou `migration_128` (falso-positivo `online-safe`). **Spec 050 corrigiu o guard** (regex estreito + teste shell 28/28 no CI + cópia órfã removida). Mesas em prod segue no código pré-049. **Pronto para re-deploy prod** (gated por aprovação nominal do mantenedor).
 
-**Spec 089 — Fase 6B corrigida e validada localmente; Fase 7 bloqueada por merge (2026-07-28):**
-branch `feat/089-fases-7-8`, baseada em `origin/dev` `509b507`, preservando todo o diff prévio.
-Fase 5 permanece **fechada como reprovada** (28 pass / 5 fail); não reabrir para “passar”. Na
-Fase 6B, detalhe e interações de mesa aplicam política pública única; Markdown de usuário é
-sanitizado na escrita/leitura, preview não aceita HTML cru e `RichTextArea.tsx` foi removido.
-Medição read-only Beta/Prod encontrou zero HTML/entidade persistido e Markdown legítimo em
-descrições; decisão do mantenedor: sem migration retroativa. Validação local: backend 626 testes,
-frontend 191, testes focados 19/19, lint/build raiz e `verify:api` verdes. **Não entregue ainda:**
-sem commit, push, PR, merge ou deploy. `T7.0d` exige a Fase 6B mergeada em `dev`; portanto nenhuma
-task da Fase 7 começa antes da autorização e conclusão dessa sequência.
+**Spec 089 — Fase 7 em implementação local na branch `feat/089-fase-7` (2026-07-28):** Fase 6B mergeada via PR #226
+(`feat/089-fases-7-8` → `dev`), merge commit `353d95f`. Fase 5 permanece **fechada como
+reprovada** (28 pass / 5 fail); não reabrir para “passar”. A Fase 6B entregou: política pública
+única no detalhe e nas interações de mesa; Markdown de usuário sanitizado na escrita e na
+leitura; preview sem HTML cru; `RichTextArea.tsx` removido. Três CVEs fechados no mesmo PR
+(`sanitize-html` 2.17.6, `postcss` 8.5.23, `linkify-it` 5.0.2 — este com teto `<6` porque
+`markdown-it@14.3.0`, o mais recente, ainda declara `^5.0.2`). Segunda rodada de review do Codex
+extraiu o predicado de visibilidade para `apps/mesas/backend/src/utils/tableVisibility.ts`,
+eliminando a duplicação entre `tables.ts` e `gm.ts`. Medição read-only Beta/Prod encontrou zero
+HTML/entidade persistido; decisão do mantenedor: sem migration retroativa. `T7.0d` aberta.
+O mantenedor autorizou `packages/content-editor` e ampliou o escopo para todo texto livre de
+`downloads` e `mesas`. Pacote GFM, adoção nos dois projetos, `description_markdown` e projeções
+planas estão implementados localmente; lint/build/testes focados e `verify:api` verdes.
+**T7.3 continua aberta** até migration 034 ser ensaiada e rollback provado em banco descartável.
+**Ainda não deployado:** beta e prod seguem no código anterior — a correção do `?author=`
+(DEB-089-20) e as sanitizações só valem em runtime após deploy, que exige autorização própria.
+**Próximo:** concluir ensaio da migration 034 e demais tarefas do formulário do autor; depois
+Fase 8. O editor não toca `packages/ui`; destino aprovado = `packages/content-editor`.
+T8.1 [P0] (`og-default.png` ausente — reconfirmado em 2026-07-28, `public/` só tem
+`robots.txt`) precede todas as demais tasks da Fase 8.
 
 **PRs:** PR #73 (dependabot) **merged** em `dev` (`09773fc`, 2026-06-22). PR #80 **(spec 041 shell)** mergeada. Corrigido via **PR #82**. **PR #83 (spec 042)** mergeada. **PR #84 (spec 043)** mergeada em `dev` (`39d2c7c`). **PR #85 (spec 045)** mergeada + promovida a `main` (`c269a46`). **PR #86 (chore 044/045/ecosystem)** mergeada (`560131f`). **PR #87/#88/#89/#90 (spec 047)** mergeadas em `dev`; última #90 (`f0e2e56`, 2026-06-23) removeu DeepSeek acidental da 047 e deixou CI verde. **Último promote a `main`: PR #85**. Spec 047 fechada em `dev`, ainda não promovida a `main`.
 

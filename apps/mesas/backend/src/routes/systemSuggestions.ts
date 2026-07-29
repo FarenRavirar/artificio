@@ -9,6 +9,7 @@ import { resolveActorName } from '../services/actorNameResolver.js';
 import { listMineHandler } from './suggestionHelpers.js';
 import { loadSystemCatalogFlat } from '../services/systemCatalogProvider.js';
 import { validateSystemSuggestionHierarchy } from '../services/systemHierarchy.js';
+import { sanitizeUserMarkdown } from '../utils/userMarkdown.js';
 
 const router = Router();
 
@@ -52,7 +53,9 @@ const normalizeSuggestionPayload = (payload: SuggestionPayload, index: number) =
   return {
     name,
     name_pt: readTrimmed(payload.name_pt),
-    description: readTrimmed(payload.description),
+    description: readTrimmed(payload.description)
+      ? sanitizeUserMarkdown(readTrimmed(payload.description)!.slice(0, 4000))
+      : null,
     parent_id: parentId,
     node_type: suggestionType as typeof VALID_NODE_TYPES[number],
     parent_suggestion_index: parentSuggestionIndex,

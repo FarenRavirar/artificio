@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../../contexts/useAuth';
 import { collectPageContext, getDiagnosticsSnapshot } from '../../lib/diagnostics';
 import { submitDevFeedback, type DevFeedbackKind } from './devFeedbackApi';
+import { MarkdownEditor } from '../../components/MarkdownEditor';
 
 interface FeedbackModalProps {
   onClose: () => void;
@@ -158,15 +159,14 @@ export const FeedbackModal = ({ onClose }: FeedbackModalProps) => {
           className="mb-4 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder-white/40 focus:border-artificio-orange focus:outline-none"
         />
 
-        <label className="mb-1 block text-sm text-white/80" htmlFor="feedback-description">Descricao</label>
-        <textarea
+        <MarkdownEditor
           id="feedback-description"
+          label="Descrição"
           value={description}
           maxLength={4000}
-          rows={4}
-          onChange={(e) => setDescription(e.target.value)}
+          onChange={setDescription}
           placeholder={kind === 'bug' ? 'Descreva o passo a passo que levou ao problema.' : 'Descreva sua ideia com detalhes.'}
-          className="mb-4 w-full resize-y rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-white placeholder-white/40 focus:border-artificio-orange focus:outline-none"
+          height={160}
         />
 
         {!isAuthenticated && (

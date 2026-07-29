@@ -7,7 +7,7 @@ import { writeRateLimiter } from '../middleware/rateLimit';
 import { checkLink } from '../services/linkChecker';
 import { detectAllowedFileType } from '../storage/fileTypeGuard';
 import { sanitizeText } from '../services/sanitizeText';
-import { sanitizeRichHtml } from '../services/sanitizeRichHtml';
+import { sanitizeNullableUserMarkdown } from '@artificio/content-editor/sanitize';
 
 const router = Router();
 
@@ -216,7 +216,7 @@ router.get('/media', writeRateLimiter, authMiddleware, requireRole(['moderator',
       'download_material.title as material_title',
       'download_material.editorial_state as editorial_state',
       'download_material_metadata.cover_image_url as cover_image_url',
-      'download_material_metadata.description_html as description_html',
+      'download_material_metadata.description_markdown as description_markdown',
     ])
     .orderBy('download_material.updated_at', 'desc')
     .execute();
@@ -224,10 +224,7 @@ router.get('/media', writeRateLimiter, authMiddleware, requireRole(['moderator',
   return res.json({
     items: materials.map((material) => ({
       ...material,
-      // Spec 086, Fase 9: editor admin lê HTML pelo backend; banco continua
-      // hostil mesmo após writes sanitizados, então a fronteira de leitura
-      // repete sanitizeRichHtml antes de devolver ao TipTap.
-      description_html: material.description_html ? sanitizeRichHtml(material.description_html) : null,
+      description_markdown: sanitizeNullableUserMarkdown(material.description_markdown),
     })),
   });
 });

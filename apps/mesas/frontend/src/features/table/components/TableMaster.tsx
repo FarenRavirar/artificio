@@ -1,4 +1,5 @@
 import type { TableViewModel } from '../types/tableView.types';
+import { MarkdownContent } from '@artificio/content-editor';
 
 interface TableMasterProps {
   vm: TableViewModel;
@@ -54,9 +55,7 @@ export function TableMaster({ vm }: TableMasterProps) {
 
           {/* Bio */}
           {vm.masterBio && (
-            <p className="text-[var(--fg-muted)] text-sm leading-relaxed whitespace-pre-wrap">
-              {vm.masterBio}
-            </p>
+            <MarkdownContent value={vm.masterBio} className="text-[var(--fg-muted)] text-sm leading-relaxed" />
           )}
 
           {/* Link para perfil (futuro) */}

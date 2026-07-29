@@ -9,6 +9,7 @@ const mediaItemSchema = z.object({
   editorial_state: z.string(),
   cover_image_url: z.string().nullable(),
   description_html: z.string().nullable().optional(),
+  description_markdown: z.string().nullable().optional(),
 });
 
 const mediaListSchema = z.object({ items: z.array(mediaItemSchema) });

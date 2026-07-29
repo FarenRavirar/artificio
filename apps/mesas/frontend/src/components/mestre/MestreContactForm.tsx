@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Send, CheckCircle } from 'lucide-react';
+import { ContentEditor } from '@artificio/content-editor';
 
 interface MestreContactFormProps {
   mestreSlug: string;
@@ -107,15 +108,15 @@ export function MestreContactForm({ mestreSlug }: MestreContactFormProps) {
           <label htmlFor="contact-message" className="block text-sm font-medium text-white/80 mb-1">
             Mensagem *
           </label>
-          <textarea
+          <ContentEditor
             id="contact-message"
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={setMessage}
+            label="Mensagem"
             required
             maxLength={1000}
-            rows={5}
+            minHeight={176}
             placeholder="Conte um pouco sobre você e por que gostaria de participar das mesas deste mestre..."
-            className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder:text-white/40 focus:outline-none focus:border-purple-500/50 resize-none"
           />
           <p className="text-xs text-white/40 mt-1">
             {message.length}/1000 caracteres

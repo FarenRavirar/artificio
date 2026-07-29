@@ -6,6 +6,7 @@ import type { SystemTreeNode } from '../../../types/systems';
 import { CatalogSearchSelect } from './CatalogSearchSelect';
 import { SystemSuggestionModal } from '../../../components/SystemSuggestionModal';
 import { SystemPicker } from '../../../components/SystemPicker';
+import { MarkdownEditor } from '../../../components/MarkdownEditor';
 
 interface DraftEditorTabProps {
   form: DraftForm;
@@ -522,11 +523,16 @@ export function DraftEditorTab({
             Sem preencher, "Mestre responsável" usa quem postou o anúncio no Discord — nem sempre é o mestre de fato.
           </span>
         </label>
-        <label className="md:col-span-2">
-          <span className={labelClass}>Descrição</span>
-          <textarea value={form.description} onChange={(e) => onUpdateForm('description', e.target.value)} className={`${inputClass} min-h-28 resize-y`} />
+        <div className="md:col-span-2">
+          <MarkdownEditor
+            label="Descrição"
+            value={form.description}
+            onChange={(value) => onUpdateForm('description', value)}
+            maxLength={50_000}
+            height={180}
+          />
           <FieldInsightNote field="description" insight={fieldInsights?.description} onApply={onApplySuggestion} onAuditField={onAuditField} auditingThisField={auditingFields?.has('description') ?? false} />
-        </label>
+        </div>
 
         {/* Fase D (spec 058): campos de auto-preenchimento ampliado — ver auto-preenchimento-draft.md */}
         <label>

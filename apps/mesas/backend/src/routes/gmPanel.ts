@@ -971,7 +971,7 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
     const updated = await TableRepository.updateTableWithRelations(
       id,
       updaterGmProfileId,
-      updateData,
+      sanitizeTableMarkdownFields(updateData),
       data.contacts,
       data.schedules
     );

@@ -3,6 +3,7 @@ import { CheckCircle2, Star, Globe, MapPin } from 'lucide-react';
 import type { TableCard } from '../../types/tables';
 import { SlotsIndicator } from '../SlotsIndicator';
 import { SystemBadge } from '../SystemBadge';
+import { MarkdownContent } from '@artificio/content-editor';
 import { CertificationBadges } from '../CertificationBadges';
 import { getSlotsVisualState } from '../../utils/slots';
 import { applyTableImageFallback, resolveTableImageSource } from '../../utils/tableImage';
@@ -112,7 +113,7 @@ export function MestreFeaturedTable({ table }: Props) {
           <h3 className="mestre-featured-table-title">{table.title}</h3>
 
           {table.description && (
-            <p className="mestre-featured-table-description">{table.description}</p>
+            <MarkdownContent value={table.description} className="mestre-featured-table-description" />
           )}
 
           {features.length > 0 && (

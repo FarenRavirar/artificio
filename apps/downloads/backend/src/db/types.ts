@@ -137,6 +137,7 @@ export interface DownloadMaterialMetadataTable {
   source_category: string | null;
   source_filters: Generated<JSONColumnType<Array<{ facet: string; path: string[] }>>>;
   description_html: string | null;
+  description_markdown: string | null;
   updated_at: Generated<Date>;
 }
 

@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { ContentEditor } from '@artificio/content-editor';
 import { PainelShell } from '../../components/PainelShell';
 import { useMyMaterials } from '../../hooks/useMyMaterials';
 import { useUpdateMaterial } from '../../hooks/useUpdateMaterial';
 import { useSubmitMaterial } from '../../hooks/useSubmitMaterial';
 import { useMaterialHistory } from '../../hooks/useMaterialHistory';
-import { useMaterialMetadata } from '../../hooks/useMaterialMetadata';
 import { useUpdateMaterialMetadata } from '../../hooks/useUpdateMaterialMetadata';
 
 const FIELD_LABEL: Record<string, string> = {
@@ -26,16 +26,13 @@ export function EditarMaterialPage() {
   const updateMutation = useUpdateMaterial(materialId ?? '');
   const submitMutation = useSubmitMaterial(materialId ?? '');
   const { data: history } = useMaterialHistory(materialId);
-  const { data: metadata } = useMaterialMetadata(materialId);
   const updateMetadataMutation = useUpdateMaterialMetadata(materialId ?? '');
 
   const [title, setTitle] = useState('');
-  const [summary, setSummary] = useState('');
-  const [description, setDescription] = useState('');
+  const [descriptionMarkdown, setDescriptionMarkdown] = useState('');
   const [externalUrl, setExternalUrl] = useState('');
   const [publisherName, setPublisherName] = useState('');
   const [lastLoadedMaterialId, setLastLoadedMaterialId] = useState<string | undefined>(undefined);
-  const [lastLoadedMetadataMaterialId, setLastLoadedMetadataMaterialId] = useState<string | undefined>(undefined);
 
   // Reajusta os campos durante o render quando o material carrega ou muda —
   // padrao React de "ajustar estado durante o render" (sem effect), mesmo
@@ -44,18 +41,9 @@ export function EditarMaterialPage() {
   if (material && lastLoadedMaterialId !== material.id) {
     setLastLoadedMaterialId(material.id);
     setTitle(material.title);
-    setSummary(material.summary ?? '');
-    setDescription(material.description ?? '');
+    setDescriptionMarkdown(material.description_markdown ?? material.description ?? '');
     setExternalUrl(material.external_url ?? '');
-  }
-
-  // Metadata chega depois do material (query separada); preenche
-  // publisherName quando resolver, sem sobrescrever com vazio no meio tempo
-  // (mesmo padrao de ajuste durante o render usado acima, evita
-  // react-hooks/set-state-in-effect).
-  if (metadata && lastLoadedMetadataMaterialId !== materialId) {
-    setLastLoadedMetadataMaterialId(materialId);
-    setPublisherName(metadata.publisher_name ?? '');
+    setPublisherName(material.publisher_name ?? '');
   }
 
   if (isLoading) {
@@ -79,11 +67,12 @@ export function EditarMaterialPage() {
     try {
       await updateMutation.mutateAsync({
         title,
-        summary: summary || null,
-        description: description || null,
         external_url: externalUrl || null,
       });
-      await updateMetadataMutation.mutateAsync({ publisher_name: publisherName || null });
+      await updateMetadataMutation.mutateAsync({
+        publisher_name: publisherName || null,
+        description_markdown: descriptionMarkdown.trim() || null,
+      });
       toast.success('Material atualizado.');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Falha ao salvar.');
@@ -115,25 +104,16 @@ export function EditarMaterialPage() {
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
-          <span>Resumo</span>
-          <textarea
-            value={summary}
-            onChange={(e) => setSummary(e.target.value)}
-            className="rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
-            rows={2}
-          />
-        </label>
-
-        <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
+        <div className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
           <span>Descrição</span>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
-            rows={5}
+          <ContentEditor
+            value={descriptionMarkdown}
+            onChange={setDescriptionMarkdown}
+            label="Descrição do material"
+            maxLength={50000}
           />
-        </label>
+          <span className="text-xs">Resumo e texto plano são derivados automaticamente.</span>
+        </div>
 
         <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
           <span>Link de destino</span>

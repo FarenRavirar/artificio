@@ -808,7 +808,7 @@ router.post('/:slug/report', optionalAuth, async (req: Request, res: Response) =
         table_id: table.id,
         reporter_user_id: req.user?.userId ?? null,
         reason: reason as TableReportReason,
-        details: details ?? null,
+        details: details?.trim() ? sanitizeNullableUserMarkdown(details.trim()) : null,
       })
       .execute();
 

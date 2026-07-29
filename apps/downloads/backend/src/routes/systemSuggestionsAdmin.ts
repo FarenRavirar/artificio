@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { sql, type Transaction } from 'kysely';
 import { z } from 'zod';
+import { sanitizeNullableUserMarkdown } from '@artificio/content-editor/sanitize';
 import { scoreSystemCandidates, type CandidateSystemInput, type CandidateAliasInput } from '@artificio/catalog-matching';
 import { db } from '../db';
 import type { Database, DownloadSystemSuggestion, DownloadSystemSuggestionResolutionAction } from '../db/types';
@@ -29,7 +30,10 @@ router.get('/', writeRateLimiter, authMiddleware, requireRole('admin'), async (r
     query = query.where('status', '=', status as 'pending' | 'approved' | 'rejected');
   }
   const suggestions = await query.execute();
-  return res.json({ items: suggestions });
+  return res.json({ items: suggestions.map((suggestion) => ({
+    ...suggestion,
+    rejection_reason: sanitizeNullableUserMarkdown(suggestion.rejection_reason ?? null),
+  })) });
 });
 
 function toCandidateInputs(nodes: FlatCatalogSystem[]): { systems: CandidateSystemInput[]; aliases: CandidateAliasInput[] } {
@@ -58,7 +62,10 @@ router.get('/:id/candidates', writeRateLimiter, authMiddleware, requireRole('adm
   const { systems, aliases } = toCandidateInputs(catalogNodes);
   const result = scoreSystemCandidates(suggestion.raw_value, systems, aliases);
 
-  return res.json({ suggestion, ...result });
+  return res.json({ suggestion: {
+    ...suggestion,
+    rejection_reason: sanitizeNullableUserMarkdown(suggestion.rejection_reason ?? null),
+  }, ...result });
 });
 
 // Achado CodeRabbit (PR #145, apps/mesas): approve/resolve tinham TOCTOU
@@ -237,7 +244,7 @@ async function resolveCreateSystem(ctx: ResolveContext): Promise<ResolveOutcome>
 }
 
 async function resolveReject(ctx: ResolveContext): Promise<ResolveOutcome> {
-  const reason = readTrimmed(ctx.body.reason);
+  const reason = sanitizeNullableUserMarkdown(readTrimmed(ctx.body.reason));
   await ctx.trx
     .updateTable('download_system_suggestion')
     .set({ status: 'rejected', rejection_reason: reason, reviewed_by: ctx.adminId, reviewed_at: new Date() })

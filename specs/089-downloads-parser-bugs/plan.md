@@ -158,14 +158,23 @@ HTML e preserva Markdown; o preview deixa `html: false`; o componente morto `Ric
 legítimo em descrições; por decisão do mantenedor, não há migration retroativa. O fix precisa
 estar mergeado em `dev` antes de iniciar a Fase 7.
 
-Extrair o editor de `apps/mesas` para `packages/ui`
-torna o `mesas` consumidor de componente compartilhado — **exige aprovação nominal própria e
-verificação de impacto**, fora do que a abertura desta spec cobre. Mesmo se o defeito de
-contraste do `<select>` se provar compartilhado.
+**Decisão do mantenedor (2026-07-28): centralizar tipo e implementação.** Criar um único
+`ContentEditor` em `packages/content-editor`, compartilhado por `downloads` e `mesas`, com
+contrato `string` em Markdown GFM e UX Escrever/Prévia no modelo do GitHub. Não criar variantes
+HTML e Markdown nem colocar dependências do editor em `packages/ui`. A criação foi
+**autorizada nominalmente pelo mantenedor em 2026-07-28**, junto da migração dos consumidores,
+migrations, testes e manifests. Todo texto livre autoral usa este contrato; campos curtos
+estruturados e fontes brutas permanecem controles literais.
 
-Só `description_html` fica rico. `summary` e `description` permanecem texto plano, derivados pelo
-backend na mesma operação; card, idioma e meta description consomem esses valores sem tags.
-HTML vazando em snippet, card ou detector é regressão, não recurso.
+O `mesas` preserva o acervo Markdown. O `downloads` deixa TipTap/HTML e migra explicitamente
+para `description_markdown`. A migration local faz backfill deliberadamente lossy pela
+projeção plana existente e preserva `description_html` para rollback/auditoria; não há
+conversor HTML→GFM por regex nem conversão silenciosa no frontend. O ensaio real da migration
+em banco descartável continua obrigatório.
+`summary` e `description` permanecem texto plano, derivados pelo backend na mesma operação;
+card, idioma e meta description consomem valores sem marcação. Markdown ou HTML vazando em
+snippet, card ou detector é regressão, não recurso. HTML sanitizado nasce somente na fronteira
+de renderização.
 
 Slug e capa são o caminho oposto — o backend já tem tudo (`generateUniqueSlug`,
 `storage/cloudinaryAdapter.ts`); falta só UI que use.
@@ -281,7 +290,8 @@ saída e retomada livres.
 | `apps/downloads/database/migration_032_download_material_facets.sql` | D/medição | autores/artistas estruturados, chaves de faceta e evidência de template/hints no log de ingestão; comentários foram movidos integralmente para a spec 090 |
 | `apps/downloads/frontend/src/pages/painel/EditarMaterialPage.tsx` | F | campo de sistema, envio de capa |
 | `apps/downloads/frontend/src/pages/painel/NovoMaterialPage.tsx` | F | slug automático, contraste do `<select>` |
-| `packages/ui` | F | editor rich text extraído — **aprovação nominal própria** |
+| `packages/content-editor` | F | `ContentEditor` único em Markdown GFM, Escrever/Prévia — **aprovação nominal própria obrigatória** |
+| `packages/ui` | F | sem editor; correção do select só se a adoção do componente existente não resolver, com aprovação nominal se houver mudança |
 | `apps/mesas/backend/src/routes/{tables,gm,gmPanel}.ts`, `services/profileService.ts`, `validators/tableValidators.ts` | F/6B | visibilidade pública uniforme + sanitização de Markdown na escrita/leitura |
 | `apps/mesas/backend/src/utils/{tableVisibility,userMarkdown}.ts` | F/6B | políticas únicas, testáveis, de publicação e sanitização |
 | `apps/mesas/frontend/src/components/MarkdownEditor.tsx` | F/6B | preview Markdown com HTML cru desativado |

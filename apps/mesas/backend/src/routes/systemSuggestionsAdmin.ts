@@ -11,6 +11,7 @@ import { slugify } from './systems.js';
 import { validateSystemParentType } from '../services/systemHierarchy.js';
 import type { Database, SystemNodeType } from '../db/types.js';
 import { normalizeDraftPayload } from '../discord/index.js';
+import { sanitizeNullableUserMarkdown } from '../utils/userMarkdown.js';
 // Achado CodeRabbit (PR #145): esta rota aprovava/resolvia sugestoes gravando
 // direto em systems/system_aliases LOCAIS, enquanto GET /api/v1/systems ja le
 // so do catalogo central (spec 062). Sistema aprovado por sugestao ficava
@@ -497,7 +498,7 @@ type ResolveOutcome = {
 async function resolveReject(ctx: ResolveContext): Promise<{ resolution_type: string; pending_drafts: [] }> {
   const { id, adminId, trx, suggestion, body } = ctx;
   const adminName = await resolveActorName(adminId, { trx, fallback: 'Admin', logTag: 'systemSuggestionsAdmin' });
-  const reason = readTrimmed(body.reason);
+  const reason = sanitizeNullableUserMarkdown(readTrimmed(body.reason));
 
   await trx
     .updateTable('system_suggestions')
@@ -547,7 +548,7 @@ async function resolveReject(ctx: ResolveContext): Promise<{ resolution_type: st
 async function resolveMergeExisting(ctx: ResolveContext): Promise<ResolveOutcome> {
   const { id, adminId, trx, suggestion, body } = ctx;
   const targetSystemId = readTrimmed(body.target_system_id);
-  const notes = readTrimmed(body.notes);
+  const notes = sanitizeNullableUserMarkdown(readTrimmed(body.notes));
   if (!targetSystemId) {
     throw new Error('TARGET_REQUIRED');
   }
@@ -612,7 +613,7 @@ async function resolveCreateAlias(ctx: ResolveContext): Promise<ResolveOutcome> 
   const { id, adminId, trx, suggestion, body } = ctx;
   const targetSystemId = readTrimmed(body.target_system_id);
   const aliasText = readTrimmed(body.alias) ?? suggestion.name;
-  const notes = readTrimmed(body.notes);
+  const notes = sanitizeNullableUserMarkdown(readTrimmed(body.notes));
   if (!targetSystemId) {
     throw new Error('TARGET_REQUIRED');
   }
@@ -708,7 +709,7 @@ async function resolveCreateAlias(ctx: ResolveContext): Promise<ResolveOutcome> 
 
 async function resolveCreateChain(ctx: ResolveContext): Promise<ResolveOutcome> {
   const { id, adminId, trx, suggestion, body } = ctx;
-  const notes = readTrimmed(body.notes);
+  const notes = sanitizeNullableUserMarkdown(readTrimmed(body.notes));
   const sourceRows = suggestion.batch_id
     ? await trx
       .selectFrom('system_suggestions')
@@ -837,7 +838,7 @@ async function resolveCreateChild(ctx: ResolveContext): Promise<ResolveOutcome> 
   const parentId = readTrimmed(body.parent_id);
   const name = readTrimmed(body.name) ?? suggestion.name;
   const namePt = readTrimmed(body.name_pt) ?? suggestion.name_pt;
-  const description = readTrimmed(body.description) ?? suggestion.description;
+  const description = sanitizeNullableUserMarkdown(readTrimmed(body.description) ?? suggestion.description);
 
   if (!nodeType || !['edition', 'variant'].includes(nodeType)) {
     throw new Error('NODE_TYPE_INVALID');
@@ -877,7 +878,7 @@ async function resolveCreateChild(ctx: ResolveContext): Promise<ResolveOutcome> 
       resolution_type: 'create_child',
       resolved_system_id: parent.id,
       created_system_id: newSystem.id,
-      resolution_notes: readTrimmed(body.notes),
+      resolution_notes: sanitizeNullableUserMarkdown(readTrimmed(body.notes)),
       resolution_payload: JSON.stringify({
         node_type: nodeType,
         parent_id: parent.id,
@@ -937,7 +938,7 @@ async function resolveCreateSystem(ctx: ResolveContext): Promise<ResolveOutcome>
   const { id, adminId, trx, suggestion, body, extraAliases } = ctx;
   const name = readTrimmed(body.name) ?? suggestion.name;
   const namePt = readTrimmed(body.name_pt) ?? suggestion.name_pt;
-  const description = readTrimmed(body.description) ?? suggestion.description;
+  const description = sanitizeNullableUserMarkdown(readTrimmed(body.description) ?? suggestion.description);
   const editionName = readTrimmed(body.edition_name);
   const force = body.force === true;
 
@@ -986,7 +987,7 @@ async function resolveCreateSystem(ctx: ResolveContext): Promise<ResolveOutcome>
       resolution_type: 'create_system',
       resolved_system_id: createdEditionId ? newSystem.id : null,
       created_system_id: createdNode.id,
-      resolution_notes: readTrimmed(body.notes),
+      resolution_notes: sanitizeNullableUserMarkdown(readTrimmed(body.notes)),
       resolution_payload: JSON.stringify({
         path_slug: createdNode.path_slug,
         root_id: newSystem.id,

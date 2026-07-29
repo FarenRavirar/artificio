@@ -7,6 +7,7 @@ import { uploadScreenshotToCloudinary, deleteFromCloudinary } from '../services/
 import { notifyAdmins } from '../services/adminNotifications.js';
 import { logActivity } from '../services/activityLogger.js';
 import type { UserRole, DevFeedbackKind, DevFeedbackStatus } from '../db/types.js';
+import { sanitizeUserMarkdown } from '../utils/userMarkdown.js';
 
 type CreatedDevFeedback = {
   id: string;
@@ -52,7 +53,7 @@ router.post('/', strictRateLimiter, optionalAuth, async (req: Request, res: Resp
           contact_email: input.contact_email,
           kind: input.kind,
           title: input.title,
-          description: input.description,
+          description: sanitizeUserMarkdown(input.description),
           page_url: input.page_url,
           route_path: input.route_path,
           page_title: input.page_title,

@@ -434,6 +434,9 @@ async function processItem(
           source_category: item.sourceCategory ?? null,
           source_filters: toJsonColumnValue(item.sourceFilters ?? []),
           description_html: item.descriptionHtml ?? null,
+          // Texto plano é Markdown válido e evita converter HTML externo por
+          // heurística. description_html fica preservado somente como legado.
+          description_markdown: item.description ?? null,
         })
         .execute();
 

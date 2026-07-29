@@ -150,6 +150,7 @@ describe('MaterialPage', () => {
       source_category: 'Warhammer Fantasy Roleplay Fourth Edition',
       source_filters: [{ facet: 'tipoDeProduto', path: ['Aventuras', '3.ª Categoria (Níveis 11-16)'] }],
       description_html: null,
+      description_markdown: null,
       language: 'pt',
     });
     mockFavorites();
@@ -163,7 +164,7 @@ describe('MaterialPage', () => {
     expect(screen.getByText('3.ª Categoria (Níveis 11-16)')).toBeInTheDocument();
   });
 
-  it('renderiza a descrição rica como HTML, não como texto escapado', () => {
+  it('renderiza a descrição Markdown com formatação', () => {
     mockSession();
     mockMaterial(baseMaterial());
     mockMetadata({
@@ -179,7 +180,8 @@ describe('MaterialPage', () => {
       creation_method: null,
       source_category: null,
       source_filters: null,
-      description_html: '<p>Descrição <strong>rica</strong>.</p>',
+      description_html: null,
+      description_markdown: 'Descrição **rica**.',
       language: 'pt',
     });
     mockFavorites();
@@ -188,7 +190,7 @@ describe('MaterialPage', () => {
 
     const strong = screen.getByText('rica');
     expect(strong.tagName).toBe('STRONG');
-    expect(screen.queryByText('<p>Descrição <strong>rica</strong>.</p>')).not.toBeInTheDocument();
+    expect(screen.queryByText('Descrição **rica**.')).not.toBeInTheDocument();
   });
 });
 
