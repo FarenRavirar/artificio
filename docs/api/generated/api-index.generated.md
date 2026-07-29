@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **399 operações**.
+Total: **403 operações**.
 
 ## accounts (12)
 
@@ -23,7 +23,7 @@ Total: **399 operações**.
 | GET | `/internal/users/{id}` | public | none | active | — | Consulta internal users id |
 | GET | `/login` | public-page | none | active | — | Consulta login |
 
-## downloads (75)
+## downloads (79)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -38,6 +38,7 @@ Total: **399 operações**.
 | POST | `/api/v1/admin/materials/{id}/evidence/upload` | admin | admin | active | — | Cria ou executa api v1 admin materials id evidence upload |
 | GET | `/api/v1/admin/materials/{id}/link-history` | admin | admin | active | — | Consulta api v1 admin materials id link-history |
 | GET | `/api/v1/admin/media` | admin | admin | active | — | Consulta api v1 admin media |
+| POST | `/api/v1/admin/media/{id}/migrate-cover` | admin | admin | active | — | Cria ou executa api v1 admin media id migrate-cover |
 | GET | `/api/v1/admin/metrics` | admin | admin | active | — | Consulta api v1 admin metrics |
 | GET | `/api/v1/admin/rejection-categories` | admin | admin | active | — | Consulta api v1 admin rejection-categories |
 | POST | `/api/v1/admin/rejection-categories` | admin | admin | active | — | Cria ou executa api v1 admin rejection-categories |
@@ -76,9 +77,12 @@ Total: **399 operações**.
 | GET | `/api/v1/materials` | public | none | active | — | Consulta api v1 materials |
 | POST | `/api/v1/materials` | public | user | active | — | Cria ou executa api v1 materials |
 | PATCH | `/api/v1/materials/{id}` | public | user | active | — | Atualiza api v1 materials id |
+| POST | `/api/v1/materials/{id}/cover` | public | user | active | — | Cria ou executa api v1 materials id cover |
+| POST | `/api/v1/materials/{id}/cover-url` | public | user | active | — | Cria ou executa api v1 materials id cover-url |
 | GET | `/api/v1/materials/{id}/history` | public | none | active | — | Consulta api v1 materials id history |
 | GET | `/api/v1/materials/{slug}` | public | none | active | — | Consulta api v1 materials slug |
 | GET | `/api/v1/materials/catalog-systems` | public | none | active | — | Consulta api v1 materials catalog-systems |
+| GET | `/api/v1/materials/cover-capabilities` | public | none | active | — | Consulta api v1 materials cover-capabilities |
 | GET | `/api/v1/materials/facets` | public | none | active | — | Consulta api v1 materials facets |
 | GET | `/api/v1/materials/mine` | self-service | user | active | — | Consulta api v1 materials mine |
 | GET | `/api/v1/materials/types` | public | none | active | — | Consulta api v1 materials types |

@@ -8,6 +8,7 @@ import { checkLink } from '../services/linkChecker';
 import { detectAllowedFileType } from '../storage/fileTypeGuard';
 import { sanitizeText } from '../services/sanitizeText';
 import { sanitizeNullableUserMarkdown } from '@artificio/content-editor/sanitize';
+import { isCloudinaryCoverEnabled, storeCoverFromPublicUrl } from '../services/coverStorage';
 
 const router = Router();
 
@@ -216,6 +217,7 @@ router.get('/media', writeRateLimiter, authMiddleware, requireRole(['moderator',
       'download_material.title as material_title',
       'download_material.editorial_state as editorial_state',
       'download_material_metadata.cover_image_url as cover_image_url',
+      'download_material_metadata.cover_storage_provider as cover_storage_provider',
       'download_material_metadata.description_markdown as description_markdown',
     ])
     .orderBy('download_material.updated_at', 'desc')
@@ -227,6 +229,31 @@ router.get('/media', writeRateLimiter, authMiddleware, requireRole(['moderator',
       description_markdown: sanitizeNullableUserMarkdown(material.description_markdown),
     })),
   });
+});
+
+router.post('/media/:id/migrate-cover', writeRateLimiter, authMiddleware, requireRole(['moderator', 'admin']), async (req: Request, res: Response) => {
+  if (!isCloudinaryCoverEnabled()) return res.status(503).json({ error: 'Migração de capas está desligada.' });
+  const material = await db
+    .selectFrom('download_material')
+    .leftJoin('download_material_metadata', 'download_material_metadata.material_id', 'download_material.id')
+    .select([
+      'download_material.id',
+      'download_material.editorial_state',
+      'download_material_metadata.cover_image_url',
+      'download_material_metadata.cover_storage_provider',
+    ])
+    .where('download_material.id', '=', req.params.id)
+    .executeTakeFirst();
+  if (!material) return res.status(404).json({ error: 'Material não encontrado.' });
+  if (material.editorial_state !== 'published') return res.status(409).json({ error: 'Somente materiais publicados entram no lote.' });
+  if (material.cover_storage_provider === 'cloudinary') return res.json({ status: 'already_migrated' });
+  if (!material.cover_image_url) return res.status(409).json({ error: 'Material não tem capa externa.' });
+  try {
+    const cover = await storeCoverFromPublicUrl(material.id, material.cover_image_url);
+    return res.json({ status: 'migrated', cover });
+  } catch (error) {
+    return res.status(422).json({ error: error instanceof Error ? error.message : 'Falha ao migrar capa.' });
+  }
 });
 
 const MAX_CREATORS_PAGE_SIZE = 60;

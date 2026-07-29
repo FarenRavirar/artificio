@@ -15,9 +15,14 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "vitest run"
   },
   "dependencies": {
-    "cloudinary": "^2.9.0"
+    "cloudinary": "^2.9.0",
+    "ipaddr.js": "^2.4.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.2"
   }
 }

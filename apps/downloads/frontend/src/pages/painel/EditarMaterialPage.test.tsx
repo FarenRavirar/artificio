@@ -12,6 +12,12 @@ import type { Material } from '../../types/material';
 import { makeMaterial as baseMaterial } from '../../test/fixtures';
 import * as useMaterialMetadataModule from '../../hooks/useMaterialMetadata';
 import * as useUpdateMaterialMetadataModule from '../../hooks/useUpdateMaterialMetadata';
+import * as useCatalogSystemsModule from '../../hooks/useCatalogSystems';
+import * as useUploadMaterialCoverModule from '../../hooks/useUploadMaterialCover';
+
+const SYSTEM_A = '11111111-1111-4111-8111-111111111111';
+const EDITION_A = '22222222-2222-4222-8222-222222222222';
+const SYSTEM_B = '33333333-3333-4333-8333-333333333333';
 
 // Débito (27 páginas sem teste de componente) — cobertura de EditarMaterialPage
 // (T2.1/T2.2/T2.3 spec 074): carregamento dos campos a partir do material
@@ -107,6 +113,37 @@ function mockUpdateMaterialMetadata(
   return mutateAsync;
 }
 
+function mockCatalogSystems() {
+  vi.spyOn(useCatalogSystemsModule, 'useCatalogSystems').mockReturnValue({
+    data: [
+      { id: SYSTEM_A, name: 'Sistema A', slug: 'a', node_type: 'system', parent_id: null },
+      { id: EDITION_A, name: 'Edição A', slug: 'ed-a', node_type: 'edition', parent_id: SYSTEM_A },
+      { id: SYSTEM_B, name: 'Sistema B', slug: 'b', node_type: 'system', parent_id: null },
+    ],
+    isPending: false,
+    isError: false,
+    isFetching: false,
+    refetch: vi.fn(),
+  } as unknown as ReturnType<typeof useCatalogSystemsModule.useCatalogSystems>);
+}
+
+function mockUploadMaterialCover(
+  overrides: Partial<ReturnType<typeof useUploadMaterialCoverModule.useUploadMaterialCover>> = {},
+) {
+  const mutateAsync = vi.fn().mockResolvedValue({
+    cover_image_url: 'https://cdn.example.test/capa.png',
+    width: 1200,
+    height: 630,
+    mime_type: 'image/png',
+  });
+  vi.spyOn(useUploadMaterialCoverModule, 'useUploadMaterialCover').mockReturnValue({
+    mutateAsync,
+    isPending: false,
+    ...overrides,
+  } as unknown as ReturnType<typeof useUploadMaterialCoverModule.useUploadMaterialCover>);
+  return mutateAsync;
+}
+
 function mockDefaults() {
   mockMyMaterials();
   const updateMutateAsync = mockUpdateMaterial();
@@ -118,6 +155,18 @@ function mockDefaults() {
 }
 
 describe('EditarMaterialPage', () => {
+  beforeEach(() => {
+    mockCatalogSystems();
+    mockUploadMaterialCover();
+    vi.spyOn(useUploadMaterialCoverModule, 'useCoverCapabilities').mockReturnValue({
+      data: { cloudinary_enabled: true },
+    } as unknown as ReturnType<typeof useUploadMaterialCoverModule.useCoverCapabilities>);
+    vi.spyOn(useUploadMaterialCoverModule, 'useImportMaterialCoverUrl').mockReturnValue({
+      mutateAsync: vi.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useUploadMaterialCoverModule.useImportMaterialCoverUrl>);
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
     (toast.success as ReturnType<typeof vi.fn>).mockClear();
@@ -229,6 +278,47 @@ describe('EditarMaterialPage', () => {
       });
       expect(toast.success).toHaveBeenCalledWith('Material atualizado.');
     });
+  });
+
+  it('limpa a edição ao trocar o sistema e envia a taxonomia nova', async () => {
+    mockMyMaterials({ data: [makeMaterial({ system_id: SYSTEM_A, edition_id: EDITION_A })] });
+    const updateMutateAsync = mockUpdateMaterial();
+    mockSubmitMaterial();
+    mockMaterialHistory();
+    mockMaterialMetadata();
+    const updateMetadataMutateAsync = mockUpdateMaterialMetadata();
+
+    renderPage();
+
+    fireEvent.change(screen.getByLabelText('Sistema'), { target: { value: SYSTEM_B } });
+    expect(screen.getByLabelText('Edição ou variante')).toHaveValue('');
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    expect(updateMutateAsync).toHaveBeenCalledWith({
+      title: 'Material Original',
+      external_url: 'https://exemplo.com/original',
+      system_id: SYSTEM_B,
+      edition_id: null,
+    });
+    await waitFor(() => expect(updateMetadataMutateAsync).toHaveBeenCalled());
+  });
+
+  it('orienta e envia a capa selecionada', async () => {
+    mockDefaults();
+    const uploadCover = mockUploadMaterialCover();
+    const file = new File([new Uint8Array([1, 2, 3])], 'capa.png', { type: 'image/png' });
+
+    renderPage();
+
+    expect(screen.getByText(/JPEG, PNG ou WebP; até 5 MB/i)).toBeInTheDocument();
+    expect(screen.getByText(/1200 × 630 px/i)).toBeInTheDocument();
+    const input = screen.getByLabelText('Capa do material');
+    expect(input).toHaveAttribute('accept', 'image/jpeg,image/png,image/webp');
+    fireEvent.change(input, { target: { files: [file] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar capa' }));
+
+    await waitFor(() => expect(uploadCover).toHaveBeenCalledWith(file));
+    expect(toast.success).toHaveBeenCalledWith('Capa atualizada.');
   });
 
   it('mostra toast de erro quando a atualização do material falha', async () => {

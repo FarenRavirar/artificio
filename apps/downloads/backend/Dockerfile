@@ -38,10 +38,10 @@ COPY patches ./patches
 # depende de sanitize-html e markdown-it, e dist-cjs/sanitize.js faz require nos
 # dois no boot. Sem este filtro a imagem cai com MODULE_NOT_FOUND antes de
 # servir qualquer rota (achado de review PR #227).
-RUN pnpm install --prod --filter @artificio/downloads-backend --frozen-lockfile \
-  && pnpm install --prod --filter @artificio/media --frozen-lockfile \
-  && pnpm install --prod --filter @artificio/email --frozen-lockfile \
-  && pnpm install --prod --filter @artificio/content-editor --frozen-lockfile \
+RUN pnpm install --prod --filter @artificio/downloads-backend --frozen-lockfile --ignore-scripts \
+  && pnpm install --prod --filter @artificio/media --frozen-lockfile --ignore-scripts \
+  && pnpm install --prod --filter @artificio/email --frozen-lockfile --ignore-scripts \
+  && pnpm install --prod --filter @artificio/content-editor --frozen-lockfile --ignore-scripts \
   && test -d packages/media/node_modules/cloudinary \
   && test -d packages/content-editor/node_modules/sanitize-html \
   || (echo "ERRO: dependencia de pacote workspace ausente em packages/*/node_modules/" && exit 1)

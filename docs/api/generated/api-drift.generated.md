@@ -14,8 +14,8 @@
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 4 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
-| 🕳️ UNUSED_ROUTE | 125 | ❌ |
-| 👻 ORPHAN_SUSPECT | 43 | ❌ |
+| 🕳️ UNUSED_ROUTE | 126 | ❌ |
+| 👻 ORPHAN_SUSPECT | 46 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
 ## Detalhamento por app
@@ -37,7 +37,7 @@
 | POST | `/api/auth/logout` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/admin/secrets/:name` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 
-### downloads (75 rotas no inventário)
+### downloads (79 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
@@ -74,6 +74,7 @@
 | GET | `/api/v1/materials/:slug` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/materials/:id/history` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/materials/catalog-systems` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/materials/cover-capabilities` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/materials/facets` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/materials/mine` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/materials/types` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -95,6 +96,7 @@
 | POST | `/api/v1/admin/material-type-suggestions/:id/resolve` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/materials/:id/check-link` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/materials/:id/evidence/upload` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/admin/media/:id/migrate-cover` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/rejection-categories` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/sanitize-preview` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/scraper/ingest` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -108,6 +110,8 @@
 | POST | `/api/v1/downloads` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/favorites` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/materials` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/materials/:id/cover` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/materials/:id/cover-url` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/moderation/:id/approve` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/moderation/:id/reject` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/moderation/:id/submit` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -472,7 +476,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
 | GET | `/internal/users/:id` | ✅ | public | Sem consumidor e scope não justifica |
-### downloads (32 rota(s))
+### downloads (35 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
@@ -492,6 +496,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | GET | `/api/v1/materials/:slug` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/materials/:id/history` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/materials/catalog-systems` | ✅ | public | Sem consumidor e scope não justifica |
+| GET | `/api/v1/materials/cover-capabilities` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/materials/facets` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/materials/types` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/organizations` | ✅ | public | Sem consumidor e scope não justifica |
@@ -504,6 +509,8 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | POST | `/api/v1/downloads` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/favorites` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/materials` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/api/v1/materials/:id/cover` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/api/v1/materials/:id/cover-url` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/organizations` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/reports` | ✅ | public | Sem consumidor e scope não justifica |
 | PUT | `/api/v1/material-metadata/:materialId` | ✅ | public | Sem consumidor e scope não justifica |

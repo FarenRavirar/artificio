@@ -91,6 +91,11 @@ jobs:
           CLOUDINARY_API_SECRET: ci
         run: pnpm -w turbo run test --env-mode=loose --cache-dir=.turbo
 
+      - name: Downloads migrations 034/035 on PostgreSQL 16
+        env:
+          MIGRATION_POSTGRES_TEST_URL: postgres://admin:admin@localhost:5432/artificio_test
+        run: pnpm --filter @artificio/downloads-backend test:migrations:postgres
+
   api-governance:
     name: api-governance
     runs-on: ubuntu-latest

@@ -4,13 +4,13 @@
   "generatedAt": "1970-01-01T00:00:00.000Z",
   "apps": {
     "accounts": 12,
-    "downloads": 75,
+    "downloads": 79,
     "glossario": 49,
     "links": 22,
     "mesas": 192,
     "site": 49
   },
-  "total": 399,
+  "total": 403,
   "operations": [
     {
       "app": "accounts",
@@ -304,6 +304,18 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "getapi_v1_admin_media"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/admin/media/{id}/migrate-cover",
+      "summary": "Cria ou executa api v1 admin media id migrate-cover",
+      "owner": "downloads",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_media_id_migrate_cover"
     },
     {
       "app": "downloads",
@@ -879,6 +891,30 @@
     },
     {
       "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/materials/{id}/cover",
+      "summary": "Cria ou executa api v1 materials id cover",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_materials_id_cover"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/materials/{id}/cover-url",
+      "summary": "Cria ou executa api v1 materials id cover-url",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_materials_id_cover_url"
+    },
+    {
+      "app": "downloads",
       "method": "GET",
       "path": "/api/v1/materials/{id}/history",
       "summary": "Consulta api v1 materials id history",
@@ -912,6 +948,18 @@
       "auth": "none",
       "consumers": [],
       "operationId": "getapi_v1_materials_catalog_systems"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/materials/cover-capabilities",
+      "summary": "Consulta api v1 materials cover-capabilities",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_v1_materials_cover_capabilities"
     },
     {
       "app": "downloads",

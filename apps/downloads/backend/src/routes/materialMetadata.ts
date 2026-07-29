@@ -7,6 +7,7 @@ import { POSTGRES_INTEGER_MAX } from '../db/types';
 import { toJsonColumnValue } from '../db/jsonColumn';
 import { sanitizeRichHtml } from '../services/sanitizeRichHtml';
 import { normalizeCreditNames, normalizePublisherKey } from '../services/facetNormalization';
+import { persistExternalCover, storeCoverFromPublicUrl } from '../services/coverStorage';
 import {
   markdownToPlainText,
   sanitizeNullableUserMarkdown,
@@ -144,7 +145,6 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
     artist_keys: artists.keys,
     publisher_name: patch.publisher_name ?? null,
     publisher_key: patch.publisher_name ? normalizePublisherKey(patch.publisher_name) : null,
-    cover_image_url: patch.cover_image_url ?? null,
     target_audience: patch.target_audience ?? null,
     age_rating: patch.age_rating ?? null,
     file_size_text: patch.file_size_text ?? null,
@@ -222,7 +222,41 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
     return metadata;
   });
 
-  return res.json(updated);
+  // Achado real (review PR #228, Sonar): resposta da capa isolada para manter
+  // o handler principal abaixo do teto de complexidade, sem mudar o 422.
+  return respondAfterCoverUpdate(
+    res,
+    material.id,
+    bodyKeys.has('cover_image_url'),
+    patch.cover_image_url,
+    updated,
+  );
 });
+
+async function respondAfterCoverUpdate(
+  res: Response,
+  materialId: string,
+  coverRequested: boolean,
+  coverImageUrl: string | null | undefined,
+  updated: unknown,
+): Promise<Response> {
+  if (!coverRequested) return res.json(updated);
+
+  // Achado de review PR #228: metadados comuns precisam confirmar primeiro.
+  // Se esta escrita falhar, nenhuma troca Cloudinary já terá sido commitada.
+  try {
+    if (coverImageUrl) await storeCoverFromPublicUrl(materialId, coverImageUrl);
+    else await persistExternalCover(materialId, null);
+  } catch (error) {
+    return res.status(422).json({ error: error instanceof Error ? error.message : 'Falha ao atualizar capa.' });
+  }
+
+  const metadataWithCover = await db
+    .selectFrom('download_material_metadata')
+    .selectAll()
+    .where('material_id', '=', materialId)
+    .executeTakeFirstOrThrow();
+  return res.json(metadataWithCover);
+}
 
 export default router;

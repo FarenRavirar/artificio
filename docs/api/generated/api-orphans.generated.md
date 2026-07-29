@@ -10,7 +10,7 @@
 
 | Categoria | Quantidade | Bloqueia? |
 |-----------|:----------:|:---------:|
-| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 43 | ❌ |
+| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 46 | ❌ |
 
 ## Rotas órfãs suspeitas
 
@@ -21,7 +21,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
 | GET | `/internal/users/:id` | ✅ | public | Scope "public" sem consumidor |
-### downloads (32 rota(s))
+### downloads (35 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
@@ -41,6 +41,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | GET | `/api/v1/materials/:slug` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/materials/:id/history` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/materials/catalog-systems` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/materials/cover-capabilities` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/materials/facets` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/materials/types` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/organizations` | ✅ | public | Scope "public" sem consumidor |
@@ -53,6 +54,8 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | POST | `/api/v1/downloads` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/favorites` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/materials` | ✅ | public | Scope "public" sem consumidor |
+| POST | `/api/v1/materials/:id/cover` | ✅ | public | Scope "public" sem consumidor |
+| POST | `/api/v1/materials/:id/cover-url` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/organizations` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/reports` | ✅ | public | Scope "public" sem consumidor |
 | PUT | `/api/v1/material-metadata/:materialId` | ✅ | public | Scope "public" sem consumidor |

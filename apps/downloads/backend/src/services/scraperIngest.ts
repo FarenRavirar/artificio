@@ -1,6 +1,7 @@
 import { sql, type Kysely, type Transaction } from 'kysely';
 import { matchSystemNameExact, type MatchableSystemEntry } from '@artificio/catalog-matching';
 import { sanitizeUserMarkdown } from '@artificio/content-editor/sanitize';
+import { destroyAssetResult } from '@artificio/media';
 import { db } from '../db';
 import { detectPortuguese, type LanguageDetectionResult } from './languageDetector';
 import { getOrCreateScraperCreatorId } from './scraperCreator';
@@ -19,6 +20,8 @@ import {
   normalizePublisherKey,
   splitCreditNames,
 } from './facetNormalization';
+import { appendMaterialSlugSuffix, slugifyMaterialTitle } from './materialSlug';
+import { prepareScrapedCover } from './coverStorage';
 
 // T4.2 (spec 084) — pipeline unico de criacao/dedupe, reusado por todo
 // adapter (Fase 3) e pelo Modo 3 (payload de ingest manual, Fase 6). Ordem
@@ -60,16 +63,6 @@ export interface ScraperIngestResult {
   itemsSkippedError: number;
 }
 
-function slugify(title: string): string {
-  return title
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 140);
-}
-
 function combineCredits(authors: string | null | undefined, artists: string | null | undefined): string | null {
   const values = [authors, artists]
     .filter((value): value is string => Boolean(value?.trim()))
@@ -78,7 +71,7 @@ function combineCredits(authors: string | null | undefined, artists: string | nu
 }
 
 async function generateUniqueSlug(title: string, sourceUrl: string): Promise<string> {
-  const base = slugify(title) || 'material';
+  const base = slugifyMaterialTitle(title);
   const existing = await db
     .selectFrom('download_material')
     .select('slug')
@@ -92,7 +85,7 @@ async function generateUniqueSlug(title: string, sourceUrl: string): Promise<str
   // curto e deterministico da sourceUrl como sufixo, nunca numero sequencial
   // (evita corrida entre runs concorrentes lendo a "proxima" contagem).
   const suffix = Buffer.from(sourceUrl).toString('base64url').slice(0, 8).toLowerCase();
-  return `${base}-${suffix}`.slice(0, 140);
+  return appendMaterialSlugSuffix(base, suffix);
 }
 
 // Achado de review PR #193 (codeRabbit): falha ao GRAVAR o log de auditoria
@@ -342,6 +335,7 @@ async function processItem(
 
   // 4. Cria material + metadata, dentro de transacao (nunca material orfao
   // sem metadata, nunca metadata sem material).
+  let uploadedCoverPublicId: string | null = null;
   try {
     const slug = await generateUniqueSlug(item.title, item.sourceUrl);
     // T4.5 — resolve fora da transacao (chamada de rede ao catalogo central,
@@ -362,6 +356,8 @@ async function processItem(
     const safeDescription = item.description == null
       ? null
       : decodeHtml5PlainText(sanitizeUserMarkdown(item.description));
+    const preparedCover = await prepareScrapedCover(item.coverImageUrl);
+    uploadedCoverPublicId = preparedCover.uploadedPublicId;
     const materialId = await db.transaction().execute(async (trx) => {
       const material = await trx
         .insertInto('download_material')
@@ -425,7 +421,12 @@ async function processItem(
           language: 'pt',
           publisher_name: item.publisherName,
           publisher_key: item.publisherName ? normalizePublisherKey(item.publisherName) : null,
-          cover_image_url: item.coverImageUrl,
+          cover_image_url: preparedCover.cover_image_url,
+          cover_storage_provider: preparedCover.cover_storage_provider,
+          cover_public_id: preparedCover.cover_public_id,
+          cover_width: preparedCover.cover_width,
+          cover_height: preparedCover.cover_height,
+          cover_mime_type: preparedCover.cover_mime_type,
           scenario: item.scenario ?? null,
           credits: combineCredits(item.authorsCredits, item.artistsCredits),
           authors: authors.labels,
@@ -455,9 +456,18 @@ async function processItem(
       return material.id;
     });
 
+    // Achado de review PR #228 (Codex P1): a partir daqui o material já está
+    // commitado referenciando a capa, então ela deixa de ser lixo órfão e
+    // passa a ser asset em uso. Falha do `logItem` abaixo não pode mais
+    // disparar a limpeza do `catch` — apagaria a capa de um material vivo,
+    // deixando-o publicado com imagem quebrada.
+    uploadedCoverPublicId = null;
     await logItem(runId, item, 'created', materialId, detectedLanguage, languageAuditDetail(languageAudit));
     return 'created';
   } catch (error: unknown) {
+    // Só limpa capa de material que não chegou a existir: depois do commit da
+    // transação `uploadedCoverPublicId` é zerado acima (achado PR #228).
+    if (uploadedCoverPublicId) await destroyAssetResult(uploadedCoverPublicId);
     // Achado de review PR #193 (codeRabbit): violacao do indice UNIQUE
     // parcial (migration_022) e corrida real entre 2 runs concorrentes
     // processando a mesma (source_platform, source_url) — trata como

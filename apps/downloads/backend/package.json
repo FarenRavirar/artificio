@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "dev": "nodemon src/server.ts",
     "test": "vitest run",
+    "test:migrations:postgres": "tsx src/db/testMigrationsPostgres.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },

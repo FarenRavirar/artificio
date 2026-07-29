@@ -274,15 +274,64 @@ function appendDownloadsRequestBody(lines: string[], method: string, path: strin
       `          application/json:`,
       `            schema:`,
       `              type: object`,
-      `              required: [slug, title, material_type_id]`,
+      `              required: [title, material_type_id]`,
       `              properties:`,
-      `                slug:`,
-      `                  type: string`,
       `                title:`,
       `                  type: string`,
+      `                  minLength: 1`,
+      `                  maxLength: 200`,
       `                material_type_id:`,
       `                  type: string`,
       `                  format: uuid`,
+    ]);
+    return true;
+  }
+  if (method === 'patch' && path === '/api/v1/materials/{id}') {
+    appendIndented(lines, ``, [
+      `      requestBody:`,
+      `        required: true`,
+      `        content:`,
+      `          application/json:`,
+      `            schema:`,
+      `              type: object`,
+      `              minProperties: 1`,
+      `              additionalProperties: false`,
+      `              properties:`,
+      `                title:`,
+      `                  type: string`,
+      `                  minLength: 1`,
+      `                external_url:`,
+      `                  type: string`,
+      `                  format: uri`,
+      `                  nullable: true`,
+      `                system_id:`,
+      `                  type: string`,
+      `                  format: uuid`,
+      `                  nullable: true`,
+      `                edition_id:`,
+      `                  type: string`,
+      `                  format: uuid`,
+      `                  nullable: true`,
+    ]);
+    return true;
+  }
+  if (method === 'post' && path === '/api/v1/materials/{id}/cover') {
+    appendIndented(lines, ``, [
+      `      requestBody:`,
+      `        required: true`,
+      `        content:`,
+      `          image/jpeg:`,
+      `            schema:`,
+      `              type: string`,
+      `              format: binary`,
+      `          image/png:`,
+      `            schema:`,
+      `              type: string`,
+      `              format: binary`,
+      `          image/webp:`,
+      `            schema:`,
+      `              type: string`,
+      `              format: binary`,
     ]);
     return true;
   }
@@ -290,6 +339,19 @@ function appendDownloadsRequestBody(lines: string[], method: string, path: strin
 }
 
 function appendDownloadsQueryParameters(lines: string[], method: string, path: string): boolean {
+  if (method === 'post' && path === '/api/v1/materials/{id}/cover') {
+    appendIndented(lines, ``, [
+      `      parameters:`,
+      `        - name: filename`,
+      `          in: query`,
+      `          required: true`,
+      `          schema:`,
+      `            type: string`,
+      `            minLength: 1`,
+      `            maxLength: 255`,
+    ]);
+    return true;
+  }
   if (method !== 'get' || path !== '/api/v1/materials') return false;
   const parameters: Array<{ name: string; description: string; schema: string[] }> = [
     { name: 'q', description: 'Busca textual por título, resumo, autoria, criador ou sistema.', schema: ['type: string', 'maxLength: 200'] },

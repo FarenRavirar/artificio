@@ -395,6 +395,48 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /api/v1/admin/media/{id}/migrate-cover:
+    post:
+      operationId: postapi_v1_admin_media_id_migrate_cover
+      summary: "Cria ou executa api v1 admin media id migrate-cover"
+      x-artificio-owner: downloads
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/v1/admin/metrics:
     get:
       operationId: getapi_v1_admin_metrics
@@ -1708,12 +1750,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [slug, title, material_type_id]
+              required: [title, material_type_id]
               properties:
-                slug:
-                  type: string
                 title:
                   type: string
+                  minLength: 1
+                  maxLength: 200
                 material_type_id:
                   type: string
                   format: uuid
@@ -1742,6 +1784,117 @@ paths:
     patch:
       operationId: patchapi_v1_materials_id
       summary: "Atualiza api v1 materials id"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              additionalProperties: false
+              properties:
+                title:
+                  type: string
+                  minLength: 1
+                external_url:
+                  type: string
+                  format: uri
+                  nullable: true
+                system_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+                edition_id:
+                  type: string
+                  format: uuid
+                  nullable: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/materials/{id}/cover:
+    post:
+      operationId: postapi_v1_materials_id_cover
+      summary: "Cria ou executa api v1 materials id cover"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: filename
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 255
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+          image/png:
+            schema:
+              type: string
+              format: binary
+          image/webp:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/materials/{id}/cover-url:
+    post:
+      operationId: postapi_v1_materials_id_cover_url
+      summary: "Cria ou executa api v1 materials id cover-url"
       x-artificio-owner: downloads
       x-artificio-scope: public
       x-artificio-status: active
@@ -1854,6 +2007,35 @@ paths:
     get:
       operationId: getapi_v1_materials_catalog_systems
       summary: "Consulta api v1 materials catalog-systems"
+      x-artificio-owner: downloads
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/materials/cover-capabilities:
+    get:
+      operationId: getapi_v1_materials_cover_capabilities
+      summary: "Consulta api v1 materials cover-capabilities"
       x-artificio-owner: downloads
       x-artificio-scope: public
       x-artificio-status: active

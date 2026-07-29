@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "total": 498,
+    "total": 503,
     "byApp": {
       "accounts": {
         "total": 12,
@@ -14,17 +14,17 @@
         }
       },
       "downloads": {
-        "total": 96,
+        "total": 101,
         "byMethod": {
-          "GET": 41,
-          "POST": 23,
-          "USE": 21,
+          "GET": 42,
+          "POST": 26,
+          "USE": 22,
           "PATCH": 5,
           "DELETE": 4,
           "PUT": 2
         },
         "byConfidence": {
-          "high": 96
+          "high": 101
         }
       },
       "glossario": {
@@ -200,7 +200,7 @@
       "method": "USE",
       "path": "/api/v1/admin",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 106,
+      "line": 112,
       "confidence": "high",
       "kind": "mount"
     },
@@ -209,7 +209,7 @@
       "method": "GET",
       "path": "/api/v1/admin/creators",
       "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
-      "line": 244,
+      "line": 271,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -227,7 +227,7 @@
       "method": "USE",
       "path": "/api/v1/admin/email-log",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 108,
+      "line": 114,
       "confidence": "high",
       "kind": "mount"
     },
@@ -245,7 +245,7 @@
       "method": "GET",
       "path": "/api/v1/admin/links",
       "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
-      "line": 98,
+      "line": 99,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -263,7 +263,7 @@
       "method": "USE",
       "path": "/api/v1/admin/material-type-suggestions",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 112,
+      "line": 118,
       "confidence": "high",
       "kind": "mount"
     },
@@ -290,7 +290,7 @@
       "method": "POST",
       "path": "/api/v1/admin/materials/:id/check-link",
       "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
-      "line": 64,
+      "line": 65,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -299,7 +299,7 @@
       "method": "POST",
       "path": "/api/v1/admin/materials/:id/evidence/upload",
       "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
-      "line": 152,
+      "line": 153,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -308,7 +308,7 @@
       "method": "GET",
       "path": "/api/v1/admin/materials/:id/link-history",
       "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
-      "line": 48,
+      "line": 49,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -317,7 +317,16 @@
       "method": "GET",
       "path": "/api/v1/admin/media",
       "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
-      "line": 209,
+      "line": 210,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/admin/media/:id/migrate-cover",
+      "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
+      "line": 234,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -326,7 +335,7 @@
       "method": "GET",
       "path": "/api/v1/admin/metrics",
       "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
-      "line": 122,
+      "line": 123,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -353,7 +362,7 @@
       "method": "USE",
       "path": "/api/v1/admin/rejection-categories",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 107,
+      "line": 113,
       "confidence": "high",
       "kind": "mount"
     },
@@ -371,7 +380,7 @@
       "method": "POST",
       "path": "/api/v1/admin/sanitize-preview",
       "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
-      "line": 288,
+      "line": 315,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -380,7 +389,7 @@
       "method": "USE",
       "path": "/api/v1/admin/scraper",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 109,
+      "line": 115,
       "confidence": "high",
       "kind": "mount"
     },
@@ -452,7 +461,7 @@
       "method": "GET",
       "path": "/api/v1/admin/summary",
       "sourceFile": "apps/downloads/backend/src/routes/admin.ts",
-      "line": 16,
+      "line": 17,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -470,7 +479,7 @@
       "method": "USE",
       "path": "/api/v1/admin/system-suggestions",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 111,
+      "line": 117,
       "confidence": "high",
       "kind": "mount"
     },
@@ -506,7 +515,7 @@
       "method": "USE",
       "path": "/api/v1/changelog",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 113,
+      "line": 119,
       "confidence": "high",
       "kind": "mount"
     },
@@ -533,7 +542,7 @@
       "method": "USE",
       "path": "/api/v1/collections",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 103,
+      "line": 109,
       "confidence": "high",
       "kind": "mount"
     },
@@ -578,7 +587,7 @@
       "method": "USE",
       "path": "/api/v1/comments",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 97,
+      "line": 103,
       "confidence": "high",
       "kind": "mount"
     },
@@ -605,7 +614,7 @@
       "method": "USE",
       "path": "/api/v1/creators",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 98,
+      "line": 104,
       "confidence": "high",
       "kind": "mount"
     },
@@ -632,7 +641,7 @@
       "method": "USE",
       "path": "/api/v1/destinations",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 99,
+      "line": 105,
       "confidence": "high",
       "kind": "mount"
     },
@@ -659,7 +668,7 @@
       "method": "USE",
       "path": "/api/v1/downloads",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 100,
+      "line": 106,
       "confidence": "high",
       "kind": "mount"
     },
@@ -686,7 +695,7 @@
       "method": "USE",
       "path": "/api/v1/favorites",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 102,
+      "line": 108,
       "confidence": "high",
       "kind": "mount"
     },
@@ -704,7 +713,7 @@
       "method": "GET",
       "path": "/api/v1/health",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 83,
+      "line": 84,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -713,7 +722,7 @@
       "method": "USE",
       "path": "/api/v1/material-metadata",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 94,
+      "line": 100,
       "confidence": "high",
       "kind": "mount"
     },
@@ -722,7 +731,7 @@
       "method": "GET",
       "path": "/api/v1/material-metadata/:materialId",
       "sourceFile": "apps/downloads/backend/src/routes/materialMetadata.ts",
-      "line": 62,
+      "line": 63,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -731,7 +740,7 @@
       "method": "PUT",
       "path": "/api/v1/material-metadata/:materialId",
       "sourceFile": "apps/downloads/backend/src/routes/materialMetadata.ts",
-      "line": 94,
+      "line": 95,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -740,7 +749,7 @@
       "method": "GET",
       "path": "/api/v1/materials",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 171,
+      "line": 182,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -749,7 +758,7 @@
       "method": "POST",
       "path": "/api/v1/materials",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 628,
+      "line": 639,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -758,7 +767,16 @@
       "method": "USE",
       "path": "/api/v1/materials",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 93,
+      "line": 98,
+      "confidence": "high",
+      "kind": "mount"
+    },
+    {
+      "app": "downloads",
+      "method": "USE",
+      "path": "/api/v1/materials",
+      "sourceFile": "apps/downloads/backend/src/server.ts",
+      "line": 99,
       "confidence": "high",
       "kind": "mount"
     },
@@ -767,7 +785,25 @@
       "method": "PATCH",
       "path": "/api/v1/materials/:id",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 732,
+      "line": 751,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/materials/:id/cover",
+      "sourceFile": "apps/downloads/backend/src/routes/materialCover.ts",
+      "line": 35,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/materials/:id/cover-url",
+      "sourceFile": "apps/downloads/backend/src/routes/materialCover.ts",
+      "line": 20,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -776,7 +812,7 @@
       "method": "GET",
       "path": "/api/v1/materials/:id/history",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 518,
+      "line": 529,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -785,7 +821,7 @@
       "method": "GET",
       "path": "/api/v1/materials/:slug",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 548,
+      "line": 559,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -794,7 +830,16 @@
       "method": "GET",
       "path": "/api/v1/materials/catalog-systems",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 394,
+      "line": 405,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/materials/cover-capabilities",
+      "sourceFile": "apps/downloads/backend/src/routes/materialCover.ts",
+      "line": 16,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -803,7 +848,7 @@
       "method": "GET",
       "path": "/api/v1/materials/facets",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 415,
+      "line": 426,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -812,7 +857,7 @@
       "method": "GET",
       "path": "/api/v1/materials/mine",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 496,
+      "line": 507,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -821,7 +866,7 @@
       "method": "GET",
       "path": "/api/v1/materials/types",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 375,
+      "line": 386,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -830,7 +875,7 @@
       "method": "USE",
       "path": "/api/v1/moderation",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 95,
+      "line": 101,
       "confidence": "high",
       "kind": "mount"
     },
@@ -893,7 +938,7 @@
       "method": "USE",
       "path": "/api/v1/notifications",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 105,
+      "line": 111,
       "confidence": "high",
       "kind": "mount"
     },
@@ -929,7 +974,7 @@
       "method": "USE",
       "path": "/api/v1/organizations",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 104,
+      "line": 110,
       "confidence": "high",
       "kind": "mount"
     },
@@ -956,7 +1001,7 @@
       "method": "USE",
       "path": "/api/v1/ratings",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 101,
+      "line": 107,
       "confidence": "high",
       "kind": "mount"
     },
@@ -992,7 +1037,7 @@
       "method": "USE",
       "path": "/api/v1/reports",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 96,
+      "line": 102,
       "confidence": "high",
       "kind": "mount"
     },
@@ -1046,7 +1091,7 @@
       "method": "USE",
       "path": "/api/v1/system-suggestions",
       "sourceFile": "apps/downloads/backend/src/server.ts",
-      "line": 110,
+      "line": 116,
       "confidence": "high",
       "kind": "mount"
     },

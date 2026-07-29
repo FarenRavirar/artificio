@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { GestaoShell } from '../../components/GestaoShell';
-import { useAdminMedia, useUpdateCoverImage } from '../../hooks/useAdminMedia';
+import { useAdminMedia, useMigrateCover, useUpdateCoverImage } from '../../hooks/useAdminMedia';
+import { useCoverCapabilities } from '../../hooks/useUploadMaterialCover';
 
 const STATE_LABEL: Record<string, string> = {
   draft: 'Rascunho',
@@ -11,13 +12,20 @@ const STATE_LABEL: Record<string, string> = {
   withdrawn: 'Retirado',
 };
 
-// T2.7 (spec 082) — MVP de Gestao de Midias: URL de capa (texto), sem
-// upload/storage novo (coerente com T2.3, MVP somente-link-externo). Upload
-// real via Cloudinary fica como task futura (ver tasks.md T2.7).
+// T2.7 (spec 082) + spec 089 T7.12-T7.16 — URL externa continua aceita,
+// mas a migração para Cloudinary só aparece habilitada quando a capacidade
+// fail-closed devolvida por useCoverCapabilities confirma a flag; o lote usa
+// useMigrateCover e nunca roda automaticamente.
 export function GestaoMidiasPage() {
   const { data, isLoading, isError, error, refetch } = useAdminMedia();
   const updateCover = useUpdateCoverImage();
+  const migrateCover = useMigrateCover();
+  const capabilities = useCoverCapabilities();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [batchProgress, setBatchProgress] = useState<string[]>([]);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const migrationCandidates = data?.items.filter((item) => item.editorial_state === 'published'
+    && item.cover_image_url && item.cover_storage_provider !== 'cloudinary') ?? [];
 
   const handleSave = async (materialId: string) => {
     const value = drafts[materialId];
@@ -30,13 +38,43 @@ export function GestaoMidiasPage() {
     }
   };
 
+  const handleBatch = async () => {
+    setBatchRunning(true);
+    setBatchProgress([]);
+    for (const item of migrationCandidates) {
+      try {
+        await migrateCover.mutateAsync(item.material_id);
+        setBatchProgress((current) => [...current, `${item.material_title}: migrada`]);
+      } catch (error) {
+        setBatchProgress((current) => [...current, `${item.material_title}: ${error instanceof Error ? error.message : 'falhou'}`]);
+      }
+    }
+    setBatchRunning(false);
+  };
+
   return (
     <GestaoShell>
       <h1 className="text-2xl font-bold text-[var(--fg)]">Mídias</h1>
       <p className="mt-2 text-sm text-[var(--fg-muted)]">
-        MVP: cole a URL de uma imagem já hospedada (Cloudinary/externa) como capa do material. Upload direto de arquivo
-        ainda não está disponível.
+        Cole uma URL de capa. Enquanto a cópia para o Cloudinary estiver desligada, o endereço externo é preservado.
       </p>
+      <button
+        type="button"
+        onClick={() => void handleBatch()}
+        disabled={!capabilities.data?.cloudinary_enabled || batchRunning}
+        className="mt-4 min-h-[44px] rounded-md border border-[var(--line)] px-4 py-2 font-semibold text-[var(--fg)] disabled:opacity-50"
+      >
+        {batchRunning ? 'Migrando capas...' : 'Migrar capas publicadas'}
+      </button>
+      {!capabilities.data?.cloudinary_enabled && <p className="mt-2 text-xs text-[var(--fg-muted)]">Migração desligada por configuração.</p>}
+      <p className="mt-2 text-xs text-[var(--fg-muted)]">
+        {migrationCandidates.length} capa(s) publicada(s) pendente(s); armazenamento máximo estimado: {migrationCandidates.length * 5} MB; nenhuma transformação explícita.
+      </p>
+      {batchProgress.length > 0 && (
+        <ul className="mt-3 text-xs text-[var(--fg-muted)]">
+          {batchProgress.map((result) => <li key={result}>{result}</li>)}
+        </ul>
+      )}
 
       {isLoading && <p className="mt-4 text-[var(--fg-muted)]">Carregando...</p>}
       {isError && (

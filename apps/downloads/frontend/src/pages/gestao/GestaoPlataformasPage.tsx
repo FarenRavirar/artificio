@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import toast from 'react-hot-toast';
 import { AdminTable, PageHeader, SectionCard, type AdminColumn } from '@artificio/ui/admin';
+import { Select } from '@artificio/ui';
 import { GestaoShell } from '../../components/GestaoShell';
 import { usePlatforms, useCreatePlatform } from '../../hooks/usePlatforms';
 import {
@@ -124,10 +125,10 @@ function ColetaSection() {
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1 text-sm text-[var(--admin-fg-low)]">
             <span>Fonte</span>
-            <select
+            <Select
               value={selected}
               onChange={(e) => setSelected(e.target.value)}
-              className="min-h-[44px] min-w-[16rem] rounded-md border border-[var(--admin-border)] bg-transparent px-3 py-2 text-[var(--admin-fg)]"
+              className="min-w-[16rem]"
             >
               <option value="">Selecione…</option>
               {runnable.map((platform) => (
@@ -135,7 +136,7 @@ function ColetaSection() {
                   {platform.name} ({platform.slug})
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
 
           <button
@@ -270,17 +271,16 @@ export function GestaoPlataformasPage() {
 
           <label className="flex flex-col gap-1 text-sm text-[var(--admin-fg-low)]">
             <span>Parser</span>
-            <select
+            <Select
               value={parserKind}
               onChange={(e) => setParserKind(e.target.value as (typeof PARSER_KINDS)[number])}
-              className="min-h-[44px] rounded-md border border-[var(--admin-border)] bg-transparent px-3 py-2 text-[var(--admin-fg)]"
             >
               {PARSER_KINDS.map((kind) => (
                 <option key={kind} value={kind}>
                   {kind === 'json_ld_generic' ? 'Genérico (JSON-LD Schema.org)' : kind}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
 
           <label className="flex items-center gap-2 text-sm text-[var(--admin-fg-low)]">

@@ -176,8 +176,16 @@ card, idioma e meta description consomem valores sem marcação. Markdown ou HTM
 snippet, card ou detector é regressão, não recurso. HTML sanitizado nasce somente na fronteira
 de renderização.
 
-Slug e capa são o caminho oposto — o backend já tem tudo (`generateUniqueSlug`,
-`storage/cloudinaryAdapter.ts`); falta só UI que use.
+Slug fica no backend. Capa converge três entradas — arquivo, URL colada e scraper — para um
+único ativo próprio no Cloudinary, com URL e identidade gravadas juntas. O downloader público
+SSRF-safe sai do Mesas para `@artificio/media`, evitando terceira implementação; o scraper usa
+o caminho simples da mesma biblioteca e falha para URL externa. Substituição usa helper único,
+apaga somente `public_id` da pasta do Downloads e preserva exclusão pendente. Migração do acervo
+é lote administrativo somente de publicados, retomável pela própria marcação de origem.
+
+Todo efeito Cloudinary fica atrás de `DOWNLOADS_CLOUDINARY_COVERS_ENABLED`, fail-closed e
+`false` por padrão. Enquanto desligado, arquivo/lote não executam e URL/scraper mantêm o endereço
+externo; somente a origem é gravada no banco. Ligar exige autorização nominal própria.
 
 ### Eixo G — Open Graph por material (defeito 15)
 

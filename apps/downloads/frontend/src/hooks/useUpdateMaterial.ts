@@ -4,6 +4,8 @@ import { apiPatch } from '../services/apiClient';
 export interface MaterialPatch {
   title?: string;
   external_url?: string | null;
+  system_id?: string | null;
+  edition_id?: string | null;
 }
 
 // T2.1/T2.2 (spec 074) — edicao de material pelo autor, incluindo o link de

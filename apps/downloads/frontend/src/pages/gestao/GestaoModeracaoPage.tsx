@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { AdminTable, PageHeader, type AdminBulkAction, type AdminColumn, type AdminRowAction } from '@artificio/ui/admin';
+import { Select } from '@artificio/ui';
 import { GestaoShell } from '../../components/GestaoShell';
 import { useModerationBatchAction, useModerationQueue, useModerationSingleAction } from '../../hooks/useModerationQueue';
 import { useAdminRejectionCategories } from '../../hooks/useAdminRejectionCategories';
@@ -104,17 +105,16 @@ export function GestaoModeracaoPage() {
       {queue && queue.length > 0 && (
         <div className="mt-4 flex flex-col gap-2">
           <label htmlFor="reject-category" className="sr-only">Categoria de reprovação</label>
-          <select
+          <Select
             id="reject-category"
             value={rejectCategoryId}
             onChange={(e) => setRejectCategoryId(e.target.value)}
-            className="min-h-[44px] rounded-md border border-[var(--admin-border)] bg-transparent px-3 py-2 text-sm text-[var(--admin-fg)]"
           >
             <option value="">Categoria de reprovação...</option>
             {categories.map((category) => (
               <option key={category.id} value={category.id}>{category.label}</option>
             ))}
-          </select>
+          </Select>
           <ContentEditor
             id="reject-reason"
             label="Motivo da reprovação"
