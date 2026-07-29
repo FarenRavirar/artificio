@@ -47,6 +47,26 @@ interface PgDriverError {
   column?: string;
 }
 
+interface SellingPoint {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+// Achado real (Sonar, High, fase 7 da spec 089): manter a validação do
+// payload fora dos handlers evita complexidade aninhada e divergência entre
+// criação e edição do perfil.
+const isSellingPoint = (point: unknown): point is SellingPoint => {
+  if (!point || typeof point !== 'object') return false;
+
+  const candidate = point as Record<string, unknown>;
+  return (
+    typeof candidate.icon === 'string' &&
+    typeof candidate.title === 'string' &&
+    typeof candidate.description === 'string'
+  );
+};
+
 const getPgErrorCode = (error: unknown): string | undefined =>
   (error && typeof error === 'object' && 'code' in error)
     ? (error as PgDriverError).code
@@ -180,15 +200,7 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
   const safeTagline = typeof tagline === 'string' ? tagline.trim().slice(0, 200) : null;
   const safePromoBadgeText = typeof promo_badge_text === 'string' ? promo_badge_text.trim().slice(0, 120) : null;
   const safeSellingPoints = Array.isArray(selling_points)
-    ? selling_points.filter((point) => {
-        if (!point || typeof point !== 'object') return false;
-        const p = point as Record<string, unknown>;
-        return (
-          typeof p.icon === 'string' &&
-          typeof p.title === 'string' &&
-          typeof p.description === 'string'
-        );
-      })
+    ? selling_points.filter(isSellingPoint)
     : [];
   const safeClosedGroupEnabled = typeof closed_group_enabled === 'boolean' ? closed_group_enabled : false;
   const safeClosedGroupSystems = Array.isArray(closed_group_systems)
@@ -316,15 +328,7 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
         ? null
         : undefined;
   const safeSellingPoints = Array.isArray(selling_points)
-    ? selling_points.filter((point) => {
-        if (!point || typeof point !== 'object') return false;
-        const p = point as Record<string, unknown>;
-        return (
-          typeof p.icon === 'string' &&
-          typeof p.title === 'string' &&
-          typeof p.description === 'string'
-        );
-      })
+    ? selling_points.filter(isSellingPoint)
     : undefined;
   const safeClosedGroupEnabled = typeof closed_group_enabled === 'boolean' ? closed_group_enabled : undefined;
   const safeClosedGroupSystems = Array.isArray(closed_group_systems)

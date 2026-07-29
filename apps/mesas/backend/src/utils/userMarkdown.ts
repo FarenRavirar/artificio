@@ -6,20 +6,76 @@ const MARKDOWN_ONLY_OPTIONS: sanitizeHtml.IOptions = {
   disallowedTagsMode: 'discard',
 };
 
-// Trechos que o Markdown trata como literais e que, por isso, NÃO podem passar
-// pelo removedor de HTML: código cercado (```…``` e ~~~…~~~), código inline
-// (`…`, ``…``) e autolink (<https://…>, <a@b.c>). Ordem importa — cercado antes
-// de inline, senão uma crase de dentro do bloco fecharia um span cedo demais.
-const MARKDOWN_LITERAL_RE = new RegExp(
+// Literais inline ficam separados dos blocos: cercas CommonMark têm tamanho
+// variável e não podem ser modeladas corretamente por uma regex fixa.
+const MARKDOWN_INLINE_LITERAL_RE = new RegExp(
   [
-    '```[\\s\\S]*?```',
-    '~~~[\\s\\S]*?~~~',
     '(?<!`)(`+)(?!`)[\\s\\S]*?(?<!`)\\1(?!`)',
     '<(?:https?|ftp|mailto):[^\\s<>]*>',
     '<[^\\s<>@]+@[^\\s<>@]+\\.[^\\s<>@]+>',
   ].join('|'),
   'g',
 );
+
+type LiteralRange = { start: number; end: number };
+
+function findMarkdownBlockLiteralRanges(value: string): LiteralRange[] {
+  const ranges: LiteralRange[] = [];
+  let openFence: { marker: '`' | '~'; length: number; start: number } | null = null;
+
+  for (const match of value.matchAll(/[^\r\n]*(?:\r\n|\n|\r|$)/g)) {
+    const line = match[0];
+    if (!line) continue;
+
+    const start = match.index;
+    const end = start + line.length;
+    const content = line.replace(/(?:\r\n|\n|\r)$/, '');
+
+    if (openFence) {
+      const closing = content.match(/^ {0,3}(`+|~+)[ \t]*$/);
+      if (
+        closing &&
+        closing[1][0] === openFence.marker &&
+        closing[1].length >= openFence.length
+      ) {
+        ranges.push({ start: openFence.start, end });
+        openFence = null;
+      }
+      continue;
+    }
+
+    const opening = content.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+    if (opening) {
+      const marker = opening[1][0] as '`' | '~';
+      const info = opening[2];
+      // CommonMark não aceita crase na info string de cerca por crases.
+      if (marker === '~' || !info.includes('`')) {
+        openFence = { marker, length: opening[1].length, start };
+        continue;
+      }
+    }
+
+    // Bloco de código indentado: o HTML da linha é texto literal no CommonMark.
+    if (/^(?: {4}|\t)/.test(content)) ranges.push({ start, end });
+  }
+
+  // Cerca sem fechamento não é preservada deliberadamente: mantém a fronteira
+  // defensiva existente para payload truncado, coberta por teste de evasão.
+  return ranges;
+}
+
+function sanitizePreservingInlineLiterals(value: string): string {
+  let result = '';
+  let lastIndex = 0;
+
+  for (const match of value.matchAll(MARKDOWN_INLINE_LITERAL_RE)) {
+    result += sanitizeHtml(value.slice(lastIndex, match.index), MARKDOWN_ONLY_OPTIONS);
+    result += match[0];
+    lastIndex = match.index + match[0].length;
+  }
+
+  return result + sanitizeHtml(value.slice(lastIndex), MARKDOWN_ONLY_OPTIONS);
+}
 
 /**
  * Campos editados como Markdown não aceitam HTML cru. A sanitização ocorre na
@@ -41,20 +97,24 @@ const MARKDOWN_LITERAL_RE = new RegExp(
  * escapa o conteúdo em vez de interpretá-lo — é o que "literal" significa no
  * CommonMark. Não basta confiar nisso para a saída: quem renderizar continua
  * responsável por não ligar `html: true` no parser (T6B.2).
+ *
+ * Achado real (review do commit 27fe800323, Codex, P2): cercas fixas de três
+ * caracteres fechavam cedo numa cerca interna menor e ignoravam blocos
+ * indentados. O scanner acima rastreia marcador e comprimento da abertura.
  */
 export function sanitizeUserMarkdown(value: string): string {
   let result = '';
   let lastIndex = 0;
 
-  // Cada match é um trecho literal a preservar; o texto ENTRE eles é o que pode
-  // conter HTML hostil e é o único que atravessa o sanitizador.
-  for (const match of value.matchAll(MARKDOWN_LITERAL_RE)) {
-    result += sanitizeHtml(value.slice(lastIndex, match.index), MARKDOWN_ONLY_OPTIONS);
-    result += match[0];
-    lastIndex = match.index + match[0].length;
+  // Blocos cercados/indentados são preservados inteiros; o texto entre eles
+  // ainda reconhece apenas os literais inline antes de passar pelo sanitizador.
+  for (const range of findMarkdownBlockLiteralRanges(value)) {
+    result += sanitizePreservingInlineLiterals(value.slice(lastIndex, range.start));
+    result += value.slice(range.start, range.end);
+    lastIndex = range.end;
   }
 
-  return result + sanitizeHtml(value.slice(lastIndex), MARKDOWN_ONLY_OPTIONS);
+  return result + sanitizePreservingInlineLiterals(value.slice(lastIndex));
 }
 
 export function sanitizeNullableUserMarkdown(value: string | null): string | null {

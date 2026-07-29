@@ -1,3 +1,7 @@
+// Achado real (Sonar, Low, fase 7 da spec 089): um alias mantém uniforme o
+// contrato aceito pelas projeções do banco e pelos fixtures serializados.
+type DateValue = Date | string;
+
 /**
  * Mesa importada expira 5 dias após criação, ou na data do evento
  * (`starts_at`), o que vencer primeiro. Usado tanto no detalhe público
@@ -7,8 +11,8 @@
  */
 export function isImportedTableExpired(table: {
   origin: string | null;
-  created_at: Date | string;
-  starts_at: Date | string | null;
+  created_at: DateValue;
+  starts_at: DateValue | null;
 }): boolean {
   if (table.origin !== 'imported') return false;
 
@@ -28,10 +32,10 @@ export function isImportedTableExpired(table: {
  */
 export function isPublicTable(table: {
   status: string;
-  archived_at: Date | string | null;
+  archived_at: DateValue | null;
   origin: string | null;
-  created_at: Date | string;
-  starts_at: Date | string | null;
+  created_at: DateValue;
+  starts_at: DateValue | null;
 }): boolean {
   return table.status === 'active' && !table.archived_at && !isImportedTableExpired(table);
 }

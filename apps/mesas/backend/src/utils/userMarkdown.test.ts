@@ -34,6 +34,25 @@ describe('sanitizeUserMarkdown', () => {
       expect(sanitizeUserMarkdown(input)).toBe(input);
     });
 
+    it('rastreia o comprimento da cerca e não fecha no trio interno', () => {
+      const input = '````md\n```html\n<div>x</div>\n```\n````';
+      expect(sanitizeUserMarkdown(input)).toBe(input);
+    });
+
+    it('aceita fechamento maior que a abertura e indentado até três espaços', () => {
+      const input = '  ~~~\n<span>y</span>\n ~~~~';
+      expect(sanitizeUserMarkdown(input)).toBe(input);
+    });
+
+    it('mantém HTML literal em blocos indentados por espaços ou tab', () => {
+      const input = '    <div>espaços</div>\n\t<span>tab</span>\n<script>alert(1)</script>';
+      const output = sanitizeUserMarkdown(input);
+
+      expect(output).toContain('    <div>espaços</div>');
+      expect(output).toContain('\t<span>tab</span>');
+      expect(output).not.toMatch(/script|alert\(/i);
+    });
+
     it('mantém autolink de URL e de e-mail', () => {
       expect(sanitizeUserMarkdown('Veja <https://example.com>')).toBe('Veja <https://example.com>');
       expect(sanitizeUserMarkdown('Contato <mestre@example.com>')).toBe('Contato <mestre@example.com>');
