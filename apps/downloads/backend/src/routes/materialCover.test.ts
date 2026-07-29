@@ -161,6 +161,25 @@ describe('POST /api/v1/materials/:id/cover', () => {
     expect(response.body).toMatchObject({ external: true });
   });
 
+  it('com chave desligada preserva exclusão pendente sem efeito Cloudinary', async () => {
+    delete process.env.DOWNLOADS_CLOUDINARY_COVERS_ENABLED;
+    dbMocks.selectFrom.mockReset()
+      .mockReturnValueOnce(query({ id: 'material-1', creator_id: userId }))
+      .mockReturnValueOnce(query({
+        cover_storage_provider: 'external',
+        cover_public_id: null,
+        cover_pending_delete_public_id: 'downloads-covers/pending-old',
+      }));
+
+    await request(app())
+      .post('/api/v1/materials/material-1/cover-url')
+      .send({ url: 'https://example.test/nova-capa.png' })
+      .expect(422);
+
+    expect(mediaMocks.destroyAssetResult).not.toHaveBeenCalled();
+    expect(insertExecute).not.toHaveBeenCalled();
+  });
+
   it('com chave ligada baixa, valida e copia URL para ativo próprio', async () => {
     await request(app())
       .post('/api/v1/materials/material-1/cover-url')

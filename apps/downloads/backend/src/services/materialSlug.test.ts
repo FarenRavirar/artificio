@@ -1,5 +1,6 @@
 import {
   MAX_MATERIAL_SLUG_LENGTH,
+  MaterialSlugExhaustedError,
   appendMaterialSlugSuffix,
   createWithUniqueMaterialSlug,
   slugifyMaterialTitle,
@@ -46,5 +47,16 @@ describe('materialSlug', () => {
     const error = { code: '23505', constraint: 'outro_indice' };
     await expect(createWithUniqueMaterialSlug('Título', async () => Promise.reject(error)))
       .rejects.toBe(error);
+  });
+
+  it('falha explicitamente depois de esgotar todas as colisões possíveis', async () => {
+    const insert = vi.fn().mockRejectedValue({
+      code: '23505',
+      constraint: 'idx_download_material_slug',
+    });
+
+    await expect(createWithUniqueMaterialSlug('Título sempre repetido', insert))
+      .rejects.toBeInstanceOf(MaterialSlugExhaustedError);
+    expect(insert).toHaveBeenCalledTimes(50);
   });
 });

@@ -456,9 +456,17 @@ async function processItem(
       return material.id;
     });
 
+    // Achado de review PR #228 (Codex P1): a partir daqui o material já está
+    // commitado referenciando a capa, então ela deixa de ser lixo órfão e
+    // passa a ser asset em uso. Falha do `logItem` abaixo não pode mais
+    // disparar a limpeza do `catch` — apagaria a capa de um material vivo,
+    // deixando-o publicado com imagem quebrada.
+    uploadedCoverPublicId = null;
     await logItem(runId, item, 'created', materialId, detectedLanguage, languageAuditDetail(languageAudit));
     return 'created';
   } catch (error: unknown) {
+    // Só limpa capa de material que não chegou a existir: depois do commit da
+    // transação `uploadedCoverPublicId` é zerado acima (achado PR #228).
     if (uploadedCoverPublicId) await destroyAssetResult(uploadedCoverPublicId);
     // Achado de review PR #193 (codeRabbit): violacao do indice UNIQUE
     // parcial (migration_022) e corrida real entre 2 runs concorrentes

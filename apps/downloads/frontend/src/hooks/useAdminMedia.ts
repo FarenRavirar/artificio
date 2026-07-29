@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { apiGet, apiPost, apiPut } from '../services/apiClient';
+import { coverResponseSchema } from './useUploadMaterialCover';
 
 const mediaItemSchema = z.object({
   material_id: z.string(),
@@ -14,6 +15,10 @@ const mediaItemSchema = z.object({
 });
 
 const mediaListSchema = z.object({ items: z.array(mediaItemSchema) });
+const migrateCoverResponseSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('already_migrated') }),
+  z.object({ status: z.literal('migrated'), cover: coverResponseSchema }),
+]);
 
 export type AdminMediaItem = z.infer<typeof mediaItemSchema>;
 
@@ -62,7 +67,7 @@ export function useMigrateCover() {
         const body = await response.json().catch(() => null);
         throw new Error(body?.error ?? `Falha ao migrar capa: HTTP ${response.status}`);
       }
-      return response.json();
+      return migrateCoverResponseSchema.parse(await response.json());
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['downloads', 'admin', 'media'] }),
   });

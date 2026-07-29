@@ -91,8 +91,12 @@ app.get('/api/v1/health', async (_req, res) => {
   }
 });
 
-app.use('/api/v1/materials', materialsRoutes);
+// Achado de review PR #228 (Codex P1): materialCoverRoutes precisa vir ANTES
+// de materialsRoutes — este tem `GET /:slug`, que captura
+// `/api/v1/materials/cover-capabilities` e devolve 404, desligando upload de
+// capa e migração em lote no frontend.
 app.use('/api/v1/materials', materialCoverRoutes);
+app.use('/api/v1/materials', materialsRoutes);
 app.use('/api/v1/material-metadata', materialMetadataRoutes);
 app.use('/api/v1/moderation', moderationRoutes);
 app.use('/api/v1/reports', reportsRoutes);

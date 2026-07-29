@@ -2,12 +2,20 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { apiGet, apiPost } from '../services/apiClient';
 
-const coverUploadResponseSchema = z.object({
+const managedCoverResponseSchema = z.object({
   cover_image_url: z.url(),
   width: z.number().int().positive(),
   height: z.number().int().positive(),
   mime_type: z.enum(['image/jpeg', 'image/png', 'image/webp']),
 });
+
+export const coverResponseSchema = z.union([
+  managedCoverResponseSchema,
+  z.object({
+    cover_image_url: z.url(),
+    external: z.literal(true),
+  }),
+]);
 
 export function useUploadMaterialCover(materialId: string) {
   const queryClient = useQueryClient();
@@ -26,7 +34,7 @@ export function useUploadMaterialCover(materialId: string) {
         const body = await response.json().catch(() => null);
         throw new Error(body?.error ?? `Falha ao enviar capa: HTTP ${response.status}`);
       }
-      return coverUploadResponseSchema.parse(await response.json());
+      return managedCoverResponseSchema.parse(await response.json());
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['downloads', 'materials', 'mine'] });
@@ -55,7 +63,7 @@ export function useImportMaterialCoverUrl(materialId: string) {
         const body = await response.json().catch(() => null);
         throw new Error(body?.error ?? `Falha ao importar capa: HTTP ${response.status}`);
       }
-      return response.json();
+      return coverResponseSchema.parse(await response.json());
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['downloads', 'materials', 'mine'] });

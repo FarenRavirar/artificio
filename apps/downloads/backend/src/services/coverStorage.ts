@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { destroyAssetResult, downloadPublicImage, uploadBuffer, uploadFromUrl, type UploadResult } from '@artificio/media';
+import { destroyAssetResult, downloadPublicImage, uploadBuffer, type UploadResult } from '@artificio/media';
 import { db } from '../db';
 import { CoverImageValidationError, validateCoverImage } from './coverImage';
 
@@ -74,10 +74,10 @@ export async function retryPendingCoverDeletion(materialId: string, publicId: st
   return true;
 }
 
-async function ensureNoPendingDeletion(materialId: string) {
+async function ensureNoPendingDeletion(materialId: string, deletionEnabled = true) {
   const metadata = await currentCover(materialId);
   const pending = metadata?.cover_pending_delete_public_id;
-  if (pending && !await retryPendingCoverDeletion(materialId, pending)) {
+  if (pending && (!deletionEnabled || !await retryPendingCoverDeletion(materialId, pending))) {
     throw new Error('A remoção da capa anterior ainda está pendente. Tente novamente.');
   }
   return metadata && pending ? { ...metadata, cover_pending_delete_public_id: null } : metadata;
@@ -128,14 +128,17 @@ async function persistManagedCover(
 }
 
 export async function persistExternalCover(materialId: string, url: string | null): Promise<void> {
-  const metadata = await currentCover(materialId);
+  // Achado de review PR #228: uma única coluna rastreia exclusão pendente.
+  // Resolver a pendência anterior antes de calcular a próxima evita
+  // sobrescrever um public_id ainda não destruído e perder o retry.
+  const metadata = await ensureNoPendingDeletion(materialId, isCloudinaryCoverEnabled());
   const oldPublicId = metadata?.cover_storage_provider === 'cloudinary'
     && isOwnedCoverPublicId(metadata.cover_public_id)
     ? metadata.cover_public_id
     : null;
   const fields = {
     ...externalCoverFields(url),
-    cover_pending_delete_public_id: oldPublicId ?? metadata?.cover_pending_delete_public_id ?? null,
+    cover_pending_delete_public_id: oldPublicId,
     updated_at: new Date(),
   };
   await db
@@ -185,10 +188,25 @@ export async function storeCoverFromPublicUrl(materialId: string, sourceUrl: str
 export async function prepareScrapedCover(sourceUrl: string | null) {
   if (!sourceUrl || !isCloudinaryCoverEnabled()) return { ...externalCoverFields(sourceUrl), uploadedPublicId: null };
   try {
-    const uploaded = await uploadFromUrl(sourceUrl, {
-      folder: COVER_FOLDER,
+    // Achado de review PR #228 (Codex P1, SSRF): URL raspada é entrada de
+    // terceiro. Baixar pelo caminho público validado aplica
+    // `assertPublicHttpUrl` na URL inicial e em cada redirect;
+    // `validateCoverImage` confere assinatura real, igual ao upload manual.
+    const downloaded = await downloadPublicImage(sourceUrl, {
       maxBytes: MAX_COVER_BYTES,
+      userAgent: 'DownloadsArtificioRPG/1.0 scraper-cover',
+    });
+    const extension = downloaded.contentType === 'image/png'
+      ? 'png'
+      : downloaded.contentType === 'image/webp'
+        ? 'webp'
+        : 'jpg';
+    const validated = validateCoverImage(downloaded.buffer, `scraped.${extension}`, downloaded.contentType);
+    const uploaded = await uploadBuffer(downloaded.buffer, {
+      folder: COVER_FOLDER,
       uploadPreset: uploadPreset(),
+      resourceType: 'image',
+      overwrite: false,
     });
     if (!isOwnedCoverPublicId(uploaded.public_id)) {
       await destroyAssetResult(uploaded.public_id);
@@ -198,9 +216,9 @@ export async function prepareScrapedCover(sourceUrl: string | null) {
       cover_image_url: uploaded.url,
       cover_storage_provider: 'cloudinary',
       cover_public_id: uploaded.public_id,
-      cover_width: uploaded.width,
-      cover_height: uploaded.height,
-      cover_mime_type: null,
+      cover_width: uploaded.width ?? validated.width,
+      cover_height: uploaded.height ?? validated.height,
+      cover_mime_type: validated.mimeType,
       uploadedPublicId: uploaded.public_id,
     };
   } catch (error) {

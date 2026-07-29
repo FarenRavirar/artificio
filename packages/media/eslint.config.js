@@ -5,13 +5,13 @@ export default [
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    ignores: ["dist/**", "node_modules/**", "coverage/**", "vitest.config.ts"],
+    ignores: ["dist/**", "node_modules/**", "coverage/**"],
   },
   {
     files: ["**/*.{ts,tsx}"],
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        project: "./tsconfig.eslint.json",
         tsconfigRootDir: import.meta.dirname,
       },
     },

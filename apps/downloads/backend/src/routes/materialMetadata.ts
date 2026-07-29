@@ -130,15 +130,6 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
   // ver PR #190).
   const bodyKeys = new Set(Object.keys(req.body ?? {}));
 
-  if (bodyKeys.has('cover_image_url')) {
-    try {
-      if (patch.cover_image_url) await storeCoverFromPublicUrl(material.id, patch.cover_image_url);
-      else await persistExternalCover(material.id, null);
-    } catch (error) {
-      return res.status(422).json({ error: error instanceof Error ? error.message : 'Falha ao atualizar capa.' });
-    }
-  }
-
   const commonFields = {
     scenario: patch.scenario ?? null,
     genre: patch.genre ?? null,
@@ -230,6 +221,24 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
 
     return metadata;
   });
+
+  // Achado de review PR #228: metadados comuns precisam confirmar primeiro.
+  // Se esta escrita falhar, nenhuma troca Cloudinary já terá sido commitada.
+  if (bodyKeys.has('cover_image_url')) {
+    try {
+      if (patch.cover_image_url) await storeCoverFromPublicUrl(material.id, patch.cover_image_url);
+      else await persistExternalCover(material.id, null);
+    } catch (error) {
+      return res.status(422).json({ error: error instanceof Error ? error.message : 'Falha ao atualizar capa.' });
+    }
+
+    const metadataWithCover = await db
+      .selectFrom('download_material_metadata')
+      .selectAll()
+      .where('material_id', '=', material.id)
+      .executeTakeFirstOrThrow();
+    return res.json(metadataWithCover);
+  }
 
   return res.json(updated);
 });

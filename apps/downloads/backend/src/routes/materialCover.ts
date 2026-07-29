@@ -59,8 +59,15 @@ router.post(
 
     const declaredMimeType = req.get('content-type')?.split(';')[0]?.trim().toLowerCase() ?? '';
     if (!isCloudinaryCoverEnabled()) return res.status(503).json({ error: 'Upload de capa está desligado.' });
+    // Achado de review PR #228 (CodeQL, type confusion): `express.raw` só
+    // popula `req.body` como Buffer quando o content-type casa; guardar e
+    // estreitar aqui evita passar `any` adiante e torna o 400 explícito.
+    if (!Buffer.isBuffer(req.body)) {
+      return res.status(400).json({ error: 'Corpo da requisição inválido para upload de capa.' });
+    }
+    const coverBuffer: Buffer = req.body;
     try {
-      const result = await storeCoverBuffer(material.id, req.body, parsedQuery.data.filename, declaredMimeType);
+      const result = await storeCoverBuffer(material.id, coverBuffer, parsedQuery.data.filename, declaredMimeType);
       return res.status(201).json(result);
     } catch (error) {
       if (error instanceof CoverImageValidationError) {

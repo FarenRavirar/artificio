@@ -8,6 +8,11 @@ const dbMocks = vi.hoisted(() => ({
   transaction: vi.fn(),
 }));
 
+const coverMocks = vi.hoisted(() => ({
+  persistExternalCover: vi.fn(),
+  storeCoverFromPublicUrl: vi.fn(),
+}));
+
 vi.mock('../db', () => ({ db: dbMocks }));
 vi.mock('../middleware/auth', () => ({
   authMiddleware: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -18,6 +23,7 @@ vi.mock('../middleware/auth', () => ({
 vi.mock('../middleware/rateLimit', () => ({
   writeRateLimiter: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
 }));
+vi.mock('../services/coverStorage', () => coverMocks);
 
 import materialMetadataRoutes from './materialMetadata';
 
@@ -45,6 +51,8 @@ describe('PUT /api/v1/material-metadata/:materialId', () => {
     dbMocks.transaction.mockReturnValue({
       execute: (callback: (trx: typeof dbMocks) => unknown) => callback(dbMocks),
     });
+    coverMocks.persistExternalCover.mockReset();
+    coverMocks.storeCoverFromPublicUrl.mockReset();
   });
 
   it('aceita metadata rica, limpa HTML hostil colado no editor e preserva source_filters como array', async () => {
@@ -147,5 +155,41 @@ describe('PUT /api/v1/material-metadata/:materialId', () => {
       artists: ['Ilustradora Exemplo'],
       artist_keys: ['ilustradora exemplo'],
     }));
+  });
+
+  it('persiste metadata antes da capa e devolve a capa reconsultada', async () => {
+    const events: string[] = [];
+    dbMocks.selectFrom
+      .mockReturnValueOnce(materialQuery({ id: 'material-1', creator_id: 'creator-1', system_id: null }))
+      .mockReturnValueOnce({
+        selectAll: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        executeTakeFirstOrThrow: vi.fn().mockResolvedValue({
+          material_id: 'material-1',
+          cover_image_url: 'https://cdn.test/capa.png',
+        }),
+      });
+    const insert = {
+      values: vi.fn().mockReturnThis(),
+      onConflict: vi.fn().mockImplementation(() => insert),
+      returningAll: vi.fn().mockReturnThis(),
+      executeTakeFirstOrThrow: vi.fn().mockImplementation(async () => {
+        events.push('metadata');
+        return { material_id: 'material-1' };
+      }),
+    };
+    dbMocks.insertInto.mockReturnValueOnce(insert);
+    coverMocks.storeCoverFromPublicUrl.mockImplementation(async () => {
+      events.push('cover');
+      return { cover_image_url: 'https://cdn.test/capa.png' };
+    });
+
+    const response = await request(app())
+      .put('/api/v1/material-metadata/material-1')
+      .send({ cover_image_url: 'https://source.test/capa.png', file_size_text: '2 MB' })
+      .expect(200);
+
+    expect(events).toEqual(['metadata', 'cover']);
+    expect(response.body.cover_image_url).toBe('https://cdn.test/capa.png');
   });
 });

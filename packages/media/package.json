@@ -20,5 +20,8 @@
   },
   "dependencies": {
     "cloudinary": "^2.9.0"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.2"
   }
 }

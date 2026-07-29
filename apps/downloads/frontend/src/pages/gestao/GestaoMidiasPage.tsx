@@ -12,9 +12,10 @@ const STATE_LABEL: Record<string, string> = {
   withdrawn: 'Retirado',
 };
 
-// T2.7 (spec 082) — MVP de Gestao de Midias: URL de capa (texto), sem
-// upload/storage novo (coerente com T2.3, MVP somente-link-externo). Upload
-// real via Cloudinary fica como task futura (ver tasks.md T2.7).
+// T2.7 (spec 082) + spec 089 T7.12-T7.16 — URL externa continua aceita,
+// mas a migração para Cloudinary só aparece habilitada quando a capacidade
+// fail-closed devolvida por useCoverCapabilities confirma a flag; o lote usa
+// useMigrateCover e nunca roda automaticamente.
 export function GestaoMidiasPage() {
   const { data, isLoading, isError, error, refetch } = useAdminMedia();
   const updateCover = useUpdateCoverImage();

@@ -96,6 +96,16 @@ describe('GestaoMidiasPage', () => {
     expect(screen.getByText(/nenhum material cadastrado ainda/i)).toBeInTheDocument();
   });
 
+  it('mantém migração de capas desabilitada quando Cloudinary está desligado', () => {
+    mockAdminMedia({ data: { items: [] } });
+    mockUpdateCover();
+
+    renderPage();
+
+    expect(screen.getByRole('button', { name: 'Migrar capas publicadas' })).toBeDisabled();
+    expect(screen.getByText('Migração desligada por configuração.')).toBeInTheDocument();
+  });
+
   it('lista materiais com título, estado editorial e URL de capa atual', () => {
     mockAdminMedia({
       data: {

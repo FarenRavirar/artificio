@@ -1,5 +1,5 @@
 import { v2 as cloudinary } from 'cloudinary';
-import { downloadPublicImage } from '@artificio/media';
+import { downloadPublicImage, uploadBuffer } from '@artificio/media';
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -80,7 +80,14 @@ export async function uploadRemoteImageToCloudinary(rawUrl: string) {
     maxBytes: 5 * 1024 * 1024,
     userAgent: 'MesasRPGArtificio/1.0 image-import',
   });
-  const dataUri = `data:${image.contentType};base64,${image.buffer.toString('base64')}`;
+  const result = await uploadBuffer(image.buffer, {
+    folder: 'mesas_rpg',
+    resourceType: 'image',
+    transformation: [
+      { width: 1200, height: 650, crop: 'fill' },
+      { quality: 'auto', fetch_format: 'auto' },
+    ],
+  });
 
-  return uploadImageToCloudinary(dataUri);
+  return { secure_url: result.url, public_id: result.public_id };
 }
