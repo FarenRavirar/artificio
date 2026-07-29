@@ -1253,6 +1253,9 @@ importers:
       cloudinary:
         specifier: ^2.9.0
         version: 2.10.0
+      ipaddr.js:
+        specifier: ^2.4.0
+        version: 2.4.0
     devDependencies:
       vitest:
         specifier: ^3.2.2

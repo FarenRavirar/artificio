@@ -5,19 +5,74 @@ const mediaMocks = vi.hoisted(() => ({
   uploadFromUrl: vi.fn(),
 }));
 
-vi.mock('@artificio/media', () => mediaMocks);
-vi.mock('../db', () => ({ db: {} }));
+const dbMocks = vi.hoisted(() => ({
+  currentCover: vi.fn(),
+  metadataWrite: vi.fn(),
+  clearDeleted: vi.fn(),
+}));
 
+vi.mock('@artificio/media', () => mediaMocks);
+vi.mock('../db', () => ({
+  db: {
+    selectFrom: () => ({
+      select: () => ({
+        where: () => ({ executeTakeFirst: dbMocks.currentCover }),
+      }),
+    }),
+    insertInto: () => ({
+      values: () => ({
+        onConflict: () => ({ executeTakeFirstOrThrow: dbMocks.metadataWrite }),
+      }),
+    }),
+    updateTable: () => ({
+      set: () => ({
+        where: () => ({
+          where: () => ({ executeTakeFirst: dbMocks.clearDeleted }),
+        }),
+      }),
+    }),
+  },
+}));
+
+import { deflateSync } from 'node:zlib';
 import { CoverImageValidationError } from './coverImage';
-import { isCloudinaryCoverEnabled, prepareScrapedCover } from './coverStorage';
+import { isCloudinaryCoverEnabled, prepareScrapedCover, storeCoverBuffer } from './coverStorage';
+
+function crc32(buffer: Buffer): number {
+  let crc = 0xffffffff;
+  for (const byte of buffer) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function pngChunk(type: string, data: Buffer): Buffer {
+  const typeBuffer = Buffer.from(type, 'ascii');
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length);
+  const checksum = Buffer.alloc(4);
+  checksum.writeUInt32BE(crc32(Buffer.concat([typeBuffer, data])));
+  return Buffer.concat([length, typeBuffer, data, checksum]);
+}
 
 function pngBuffer(width = 1200, height = 630): Buffer {
-  const buffer = Buffer.alloc(24);
-  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(buffer);
-  buffer.write('IHDR', 12, 'ascii');
-  buffer.writeUInt32BE(width, 16);
-  buffer.writeUInt32BE(height, 20);
-  return buffer;
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 6;
+  const row = Buffer.alloc((width * 4) + 1);
+  const pixels = Buffer.concat(Array.from({ length: height }, () => row));
+  return Buffer.concat([
+    signature,
+    pngChunk('IHDR', ihdr),
+    pngChunk('IDAT', deflateSync(pixels)),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ]);
 }
 
 describe('coverStorage feature switch e scraper', () => {
@@ -104,5 +159,37 @@ describe('coverStorage feature switch e scraper', () => {
     mediaMocks.downloadPublicImage.mockRejectedValue(new Error('timeout'));
     const result = await prepareScrapedCover('https://source.test/capa.png');
     expect(result).toMatchObject({ cover_storage_provider: 'external', uploadedPublicId: null });
+  });
+
+  it('serializa substituições concorrentes da mesma capa', async () => {
+    process.env.DOWNLOADS_CLOUDINARY_COVERS_ENABLED = 'true';
+    process.env.CLOUDINARY_COVER_UPLOAD_PRESET = 'downloads-signed';
+    dbMocks.currentCover.mockResolvedValue(undefined);
+    dbMocks.metadataWrite.mockResolvedValue({});
+
+    let finishFirstUpload!: () => void;
+    mediaMocks.uploadBuffer
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        finishFirstUpload = () => resolve({
+          url: 'https://cdn.test/primeira.png',
+          public_id: 'downloads-covers/primeira',
+          width: 1200,
+          height: 630,
+        });
+      }))
+      .mockResolvedValueOnce({
+        url: 'https://cdn.test/segunda.png',
+        public_id: 'downloads-covers/segunda',
+        width: 1200,
+        height: 630,
+      });
+
+    const first = storeCoverBuffer('material-1', pngBuffer(), 'primeira.png', 'image/png');
+    const second = storeCoverBuffer('material-1', pngBuffer(), 'segunda.png', 'image/png');
+
+    await vi.waitFor(() => expect(mediaMocks.uploadBuffer).toHaveBeenCalledTimes(1));
+    finishFirstUpload();
+    await expect(Promise.all([first, second])).resolves.toHaveLength(2);
+    expect(mediaMocks.uploadBuffer).toHaveBeenCalledTimes(2);
   });
 });

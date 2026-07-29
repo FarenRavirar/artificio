@@ -1,6 +1,11 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { downloadPublicImage, uploadBuffer } from '@artificio/media';
 
+const REMOTE_IMAGE_TRANSFORMATIONS = [
+  { width: 1200, height: 650, crop: 'fill' },
+  { quality: 'auto', fetch_format: 'auto' },
+];
+
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -15,14 +20,9 @@ console.log('[cloudinary] Config loaded:', {
 
 export async function uploadImageToCloudinary(imageUrl: string) {
   try {
-    const transformations = [
-      { width: 1200, height: 650, crop: 'fill' },
-      { quality: 'auto', fetch_format: 'auto' }
-    ];
-
     const result = await cloudinary.uploader.upload(imageUrl, {
       folder: 'mesas_rpg',
-      transformation: transformations
+      transformation: REMOTE_IMAGE_TRANSFORMATIONS,
     });
     
     return {
@@ -83,10 +83,7 @@ export async function uploadRemoteImageToCloudinary(rawUrl: string) {
   const result = await uploadBuffer(image.buffer, {
     folder: 'mesas_rpg',
     resourceType: 'image',
-    transformation: [
-      { width: 1200, height: 650, crop: 'fill' },
-      { quality: 'auto', fetch_format: 'auto' },
-    ],
+    transformation: REMOTE_IMAGE_TRANSFORMATIONS,
   });
 
   return { secure_url: result.url, public_id: result.public_id };

@@ -6,6 +6,19 @@ import { CoverImageValidationError, validateCoverImage } from './coverImage';
 export const COVER_FOLDER = 'downloads-covers';
 export const MAX_COVER_BYTES = 5 * 1024 * 1024;
 
+const materialCoverOperations = new Map<string, Promise<unknown>>();
+
+async function serializeMaterialCoverOperation<T>(materialId: string, operation: () => Promise<T>): Promise<T> {
+  const previous = materialCoverOperations.get(materialId) ?? Promise.resolve();
+  const current = previous.catch(() => undefined).then(operation);
+  materialCoverOperations.set(materialId, current);
+  try {
+    return await current;
+  } finally {
+    if (materialCoverOperations.get(materialId) === current) materialCoverOperations.delete(materialId);
+  }
+}
+
 export class CoverMetadataWriteError extends Error {}
 
 export function isCloudinaryCoverEnabled(): boolean {
@@ -127,7 +140,7 @@ async function persistManagedCover(
   };
 }
 
-export async function persistExternalCover(materialId: string, url: string | null): Promise<void> {
+async function persistExternalCoverUnlocked(materialId: string, url: string | null): Promise<void> {
   // Achado de review PR #228: uma única coluna rastreia exclusão pendente.
   // Resolver a pendência anterior antes de calcular a próxima evita
   // sobrescrever um public_id ainda não destruído e perder o retry.
@@ -152,13 +165,23 @@ export async function persistExternalCover(materialId: string, url: string | nul
   }
 }
 
+export function persistExternalCover(materialId: string, url: string | null): Promise<void> {
+  return serializeMaterialCoverOperation(materialId, () => persistExternalCoverUnlocked(materialId, url));
+}
+
 function uploadPreset(): string {
   const preset = process.env.CLOUDINARY_COVER_UPLOAD_PRESET?.trim();
   if (!preset) throw new Error('Upload de capa não configurado.');
   return preset;
 }
 
-export async function storeCoverBuffer(materialId: string, buffer: Buffer, filename: string, mimeType: string) {
+function coverExtensionForMimeType(contentType: string): 'png' | 'webp' | 'jpg' {
+  if (contentType === 'image/png') return 'png';
+  if (contentType === 'image/webp') return 'webp';
+  return 'jpg';
+}
+
+async function storeCoverBufferUnlocked(materialId: string, buffer: Buffer, filename: string, mimeType: string) {
   if (!isCloudinaryCoverEnabled()) throw new Error('Upload de capa está desligado.');
   const validated = validateCoverImage(buffer, filename, mimeType);
   const metadata = await ensureNoPendingDeletion(materialId);
@@ -172,6 +195,16 @@ export async function storeCoverBuffer(materialId: string, buffer: Buffer, filen
   return persistManagedCover(materialId, uploaded, validated, metadata);
 }
 
+export function storeCoverBuffer(materialId: string, buffer: Buffer, filename: string, mimeType: string) {
+  // Achado de review PR #228 (Codex P2): substituições concorrentes podiam
+  // ler a mesma capa anterior e órfã o primeiro upload. Fila por material
+  // mantém leitura, upload e persistência na mesma ordem dentro do backend.
+  return serializeMaterialCoverOperation(
+    materialId,
+    () => storeCoverBufferUnlocked(materialId, buffer, filename, mimeType),
+  );
+}
+
 export async function storeCoverFromPublicUrl(materialId: string, sourceUrl: string) {
   if (!isCloudinaryCoverEnabled()) {
     await persistExternalCover(materialId, sourceUrl);
@@ -181,7 +214,9 @@ export async function storeCoverFromPublicUrl(materialId: string, sourceUrl: str
     maxBytes: MAX_COVER_BYTES,
     userAgent: 'DownloadsArtificioRPG/1.0 image-import',
   });
-  const extension = downloaded.contentType === 'image/png' ? 'png' : downloaded.contentType === 'image/webp' ? 'webp' : 'jpg';
+  // Achado real (review PR #228, Sonar): decisão nomeada evita ternário
+  // aninhado duplicado nos dois caminhos de capa remota.
+  const extension = coverExtensionForMimeType(downloaded.contentType);
   return storeCoverBuffer(materialId, downloaded.buffer, `remote.${extension}`, downloaded.contentType);
 }
 
@@ -196,11 +231,7 @@ export async function prepareScrapedCover(sourceUrl: string | null) {
       maxBytes: MAX_COVER_BYTES,
       userAgent: 'DownloadsArtificioRPG/1.0 scraper-cover',
     });
-    const extension = downloaded.contentType === 'image/png'
-      ? 'png'
-      : downloaded.contentType === 'image/webp'
-        ? 'webp'
-        : 'jpg';
+    const extension = coverExtensionForMimeType(downloaded.contentType);
     const validated = validateCoverImage(downloaded.buffer, `scraped.${extension}`, downloaded.contentType);
     const uploaded = await uploadBuffer(downloaded.buffer, {
       folder: COVER_FOLDER,

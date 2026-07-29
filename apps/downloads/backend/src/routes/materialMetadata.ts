@@ -222,25 +222,41 @@ router.put('/:materialId', writeRateLimiter, authMiddleware, async (req: Request
     return metadata;
   });
 
+  // Achado real (review PR #228, Sonar): resposta da capa isolada para manter
+  // o handler principal abaixo do teto de complexidade, sem mudar o 422.
+  return respondAfterCoverUpdate(
+    res,
+    material.id,
+    bodyKeys.has('cover_image_url'),
+    patch.cover_image_url,
+    updated,
+  );
+});
+
+async function respondAfterCoverUpdate(
+  res: Response,
+  materialId: string,
+  coverRequested: boolean,
+  coverImageUrl: string | null | undefined,
+  updated: unknown,
+): Promise<Response> {
+  if (!coverRequested) return res.json(updated);
+
   // Achado de review PR #228: metadados comuns precisam confirmar primeiro.
   // Se esta escrita falhar, nenhuma troca Cloudinary já terá sido commitada.
-  if (bodyKeys.has('cover_image_url')) {
-    try {
-      if (patch.cover_image_url) await storeCoverFromPublicUrl(material.id, patch.cover_image_url);
-      else await persistExternalCover(material.id, null);
-    } catch (error) {
-      return res.status(422).json({ error: error instanceof Error ? error.message : 'Falha ao atualizar capa.' });
-    }
-
-    const metadataWithCover = await db
-      .selectFrom('download_material_metadata')
-      .selectAll()
-      .where('material_id', '=', material.id)
-      .executeTakeFirstOrThrow();
-    return res.json(metadataWithCover);
+  try {
+    if (coverImageUrl) await storeCoverFromPublicUrl(materialId, coverImageUrl);
+    else await persistExternalCover(materialId, null);
+  } catch (error) {
+    return res.status(422).json({ error: error instanceof Error ? error.message : 'Falha ao atualizar capa.' });
   }
 
-  return res.json(updated);
-});
+  const metadataWithCover = await db
+    .selectFrom('download_material_metadata')
+    .selectAll()
+    .where('material_id', '=', materialId)
+    .executeTakeFirstOrThrow();
+  return res.json(metadataWithCover);
+}
 
 export default router;

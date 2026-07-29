@@ -9,23 +9,55 @@ export class MaterialSlugExhaustedError extends Error {
   }
 }
 
+function trimLeadingHyphens(value: string): string {
+  let start = 0;
+  while (value[start] === '-') start += 1;
+  return value.slice(start);
+}
+
+function trimTrailingHyphens(value: string): string {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === '-') end -= 1;
+  return value.slice(0, end);
+}
+
+function trimHyphens(value: string): string {
+  const withoutLeading = trimLeadingHyphens(value);
+  let end = withoutLeading.length;
+  while (end > 0 && withoutLeading[end - 1] === '-') end -= 1;
+  return withoutLeading.slice(0, end);
+}
+
+function collapseToSlugCharacters(value: string): string {
+  let result = '';
+  for (const character of value) {
+    const isAsciiLetter = character >= 'a' && character <= 'z';
+    const isDigit = character >= '0' && character <= '9';
+    if (isAsciiLetter || isDigit) {
+      result += character;
+    } else if (result && !result.endsWith('-')) {
+      result += '-';
+    }
+  }
+  return trimHyphens(result);
+}
+
 export function slugifyMaterialTitle(title: string): string {
-  const slug = title
+  // Achado real (review PR #228, Sonar): varredura linear substitui regexes
+  // com quantificadores sobre entrada livre, preservando o slug produzido.
+  const normalized = title
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+    .toLowerCase();
+  const slug = collapseToSlugCharacters(normalized);
 
-  return (slug || 'material').slice(0, MAX_MATERIAL_SLUG_LENGTH).replace(/-+$/g, '') || 'material';
+  return trimHyphens((slug || 'material').slice(0, MAX_MATERIAL_SLUG_LENGTH)) || 'material';
 }
 
 export function appendMaterialSlugSuffix(base: string, suffix: string): string {
-  const normalizedSuffix = suffix.replace(/^-+/, '');
+  const normalizedSuffix = trimLeadingHyphens(suffix);
   const reservedLength = normalizedSuffix.length + 1;
-  const truncatedBase = base
-    .slice(0, MAX_MATERIAL_SLUG_LENGTH - reservedLength)
-    .replace(/-+$/g, '');
+  const truncatedBase = trimTrailingHyphens(base.slice(0, MAX_MATERIAL_SLUG_LENGTH - reservedLength));
   return `${truncatedBase || 'material'}-${normalizedSuffix}`;
 }
 

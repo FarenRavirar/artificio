@@ -51,6 +51,14 @@ describe('validateCoverImage', () => {
       .toThrow(/não correspondem/i);
   });
 
+  it.each([
+    [['capa.png'], 'image/png'],
+    ['capa.png', ['image/png']],
+  ])('rejeita nome ou MIME com tipo adulterado', (filename, mimeType) => {
+    expect(() => validateCoverImage(png(), filename, mimeType))
+      .toThrow(/Nome ou MIME/);
+  });
+
   it('rejeita limite de tamanho e dimensão', () => {
     expect(() => validateCoverImage(Buffer.alloc(MAX_COVER_BYTES + 1), 'capa.png', 'image/png'))
       .toThrow(/5 MB/i);

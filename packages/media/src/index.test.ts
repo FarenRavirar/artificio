@@ -109,6 +109,7 @@ describe('downloadPublicImage', () => {
     'http://[0:0:0:0:0:0:0:1]/capa.png',
     'http://[::ffff:127.0.0.1]/capa.png',
     'http://[::ffff:7f00:1]/capa.png',
+    'http://[64:ff9b::127.0.0.1]/capa.png',
     'http://[fc00::1]/capa.png',
     'http://[fd12:3456:789a::1]/capa.png',
     'http://[fe80::1]/capa.png',
@@ -137,6 +138,27 @@ describe('downloadPublicImage', () => {
 
     await expect(downloadPublicImage('http://public.example/capa.png', { maxBytes: 6 }))
       .rejects.toThrow(/excede limite de 6 bytes/);
+  });
+
+  it('rejeita content-type fora da allowlist padrão', async () => {
+    networkMocks.httpGet.mockImplementation((_options, callback) => {
+      const image = makeResponse(200, { 'content-type': 'image/svg+xml' }, [Buffer.from('<svg/>')]);
+      return mockedRequest(image, callback);
+    });
+
+    await expect(downloadPublicImage('http://public.example/capa.svg'))
+      .rejects.toThrow(/não aponta para uma imagem JPG, PNG ou WEBP/);
+  });
+
+  it('rejeita cadeia que excede o limite de redirects', async () => {
+    networkMocks.httpGet.mockImplementation((_options, callback) => {
+      const redirect = makeResponse(302, { location: '/proxima.png' }, []);
+      return mockedRequest(redirect, callback);
+    });
+
+    await expect(downloadPublicImage('http://public.example/capa.png', { maxRedirects: 1 }))
+      .rejects.toThrow(/redireciona muitas vezes/);
+    expect(networkMocks.httpGet).toHaveBeenCalledTimes(2);
   });
 
   it('rejeita resposta vazia', async () => {

@@ -19,17 +19,23 @@ function pngDimensions(buffer: Buffer): { width: number; height: number } | null
   return { width: buffer.readUInt32BE(16), height: buffer.readUInt32BE(20) };
 }
 
+function nextJpegMarker(buffer: Buffer, startOffset: number): { marker: number | undefined; offset: number } {
+  let offset = startOffset;
+  while (offset < buffer.length && buffer[offset] !== 0xff) offset += 1;
+  while (offset < buffer.length && buffer[offset] === 0xff) offset += 1;
+  return { marker: buffer[offset], offset: offset + 1 };
+}
+
 function jpegDimensions(buffer: Buffer): { width: number; height: number } | null {
   if (buffer.length < 4 || buffer[0] !== 0xff || buffer[1] !== 0xd8) return null;
   let offset = 2;
   while (offset + 3 < buffer.length) {
-    if (buffer[offset] !== 0xff) {
-      offset += 1;
-      continue;
-    }
-    while (offset < buffer.length && buffer[offset] === 0xff) offset += 1;
-    const marker = buffer[offset];
-    offset += 1;
+    // Achado real (review PR #228, Sonar): busca do próximo marcador isolada
+    // reduz complexidade sem mudar a leitura sequencial do JPEG.
+    const markerData = nextJpegMarker(buffer, offset);
+    const marker = markerData.marker;
+    offset = markerData.offset;
+    if (marker === undefined) break;
     if (marker === 0xd8 || marker === 0x01) continue;
     if (marker === 0xd9 || marker === 0xda || offset + 2 > buffer.length) break;
     const segmentLength = buffer.readUInt16BE(offset);
@@ -78,9 +84,18 @@ const FORMATS = [{
   dimensions: webpDimensions,
 }];
 
-export function validateCoverImage(buffer: unknown, filename: string, declaredMimeType: string): ValidatedCoverImage {
+export function validateCoverImage(
+  buffer: unknown,
+  filename: unknown,
+  declaredMimeType: unknown,
+): ValidatedCoverImage {
   if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
     throw new CoverImageValidationError('Arquivo de capa vazio ou inválido.');
+  }
+  // Achado CodeQL PR #228: esta função fica na fronteira de upload HTTP.
+  // Tipos TypeScript não protegem runtime contra query/header adulterado.
+  if (typeof filename !== 'string' || typeof declaredMimeType !== 'string') {
+    throw new CoverImageValidationError('Nome ou MIME da capa é inválido.');
   }
   if (buffer.length > MAX_COVER_BYTES) {
     throw new CoverImageValidationError('A capa excede o limite de 5 MB.');

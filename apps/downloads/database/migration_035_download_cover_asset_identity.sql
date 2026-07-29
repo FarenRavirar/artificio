@@ -21,8 +21,8 @@ BEGIN
     ALTER TABLE download_material_metadata
       ADD CONSTRAINT chk_download_cover_dimensions_positive
       CHECK (
-        (cover_width IS NULL AND cover_height IS NULL)
-        OR (cover_width > 0 AND cover_height > 0)
+        (cover_width IS NULL) = (cover_height IS NULL)
+        AND (cover_width IS NULL OR (cover_width > 0 AND cover_height > 0))
       );
   END IF;
 END $$;

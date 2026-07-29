@@ -6,6 +6,7 @@ import https from "node:https";
 import { isIP } from "node:net";
 import { Readable } from "node:stream";
 import { v2 as cloudinary, type UploadApiOptions, type UploadApiResponse } from "cloudinary";
+import ipaddr from "ipaddr.js";
 
 let configured = false;
 
@@ -58,62 +59,18 @@ const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_MAX_REDIRECTS = 3;
 const DEFAULT_IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
-// Expande um IPv6 já validado por `isIP` para os 8 blocos de 16 bits,
-// resolvendo a forma comprimida (`::`). Sem isso, classificar o endereço pelo
-// primeiro bloco textual lê o valor errado (achado de review PR #228).
-function expandIpv6(address: string): number[] {
-  const withoutZone = address.split("%")[0] ?? address;
-  const [head = "", tail = ""] = withoutZone.split("::", 2);
-  const parseBlocks = (part: string) => (part ? part.split(":").filter(Boolean) : []);
-  const headBlocks = parseBlocks(head);
-  const tailBlocks = parseBlocks(tail);
-  const gap = withoutZone.includes("::") ? 8 - headBlocks.length - tailBlocks.length : 0;
-  const blocks = [...headBlocks, ...Array<string>(Math.max(gap, 0)).fill("0"), ...tailBlocks];
-  return blocks.map((block) => Number.parseInt(block, 16) || 0);
-}
-
 function isPrivateIp(address: string): boolean {
   const normalizedAddress = address.startsWith("[") && address.endsWith("]")
     ? address.slice(1, -1)
     : address;
-  if (isIP(normalizedAddress) === 4) {
-    const [first, second, third] = normalizedAddress.split(".").map(Number);
-    return first === 0 || first === 10 || first === 127 || first >= 224
-      || (first === 169 && second === 254)
-      || (first === 172 && second >= 16 && second <= 31)
-      || (first === 192 && second === 168)
-      || (first === 100 && second >= 64 && second <= 127)
-      || (first === 192 && second === 0 && (third === 0 || third === 2))
-      || (first === 198 && (second === 18 || second === 19))
-      || (first === 198 && second === 51 && third === 100)
-      || (first === 203 && second === 0 && third === 113);
+  try {
+    // Achado de review PR #228: `ipaddr.process` normaliza IPv4-mapped IPv6
+    // para IPv4; `range()` classifica também dotted-quad, NAT64, loopback,
+    // link-local, ULA, multicast e blocos reservados sem parser manual parcial.
+    return ipaddr.process(normalizedAddress).range() !== "unicast";
+  } catch {
+    return false;
   }
-  if (isIP(normalizedAddress) === 6) {
-    const normalized = normalizedAddress.toLowerCase();
-    if (normalized === "::" || normalized === "::1") return true;
-    if (normalized.startsWith("::ffff:")) {
-      const mapped = normalized.slice(7);
-      if (mapped.includes(".")) return isPrivateIp(mapped);
-      const [high = "0", low = "0"] = mapped.split(":");
-      const value = (Number.parseInt(high, 16) << 16) | Number.parseInt(low, 16);
-      return isPrivateIp([
-        (value >>> 24) & 0xff,
-        (value >>> 16) & 0xff,
-        (value >>> 8) & 0xff,
-        value & 0xff,
-      ].join("."));
-    }
-    // Achado de review PR #228 (CodeRabbit): `split(":")[0]` lê o bloco errado
-    // em endereço comprimido — `::1234` devolve "" (vira 0) e `fe80::1` só
-    // funciona por acaso quando o primeiro bloco é explícito. Expandir para os
-    // 8 blocos antes de classificar cobre qualquer forma de escrita do mesmo
-    // endereço (fc00::/7 ULA, fe80::/10 link-local, ff00::/8 multicast).
-    const firstBlock = expandIpv6(normalized)[0] ?? 0;
-    return (firstBlock & 0xfe00) === 0xfc00
-      || (firstBlock & 0xffc0) === 0xfe80
-      || (firstBlock & 0xff00) === 0xff00;
-  }
-  return false;
 }
 
 async function resolvePublicAddresses(hostname: string): Promise<LookupAddress[]> {
@@ -198,6 +155,62 @@ async function requestPublicImage(url: URL, timeout: number, userAgent: string):
   });
 }
 
+function takeRedirectLocation(response: http.IncomingMessage): string | null {
+  const statusCode = response.statusCode ?? 0;
+  if (statusCode < 300 || statusCode >= 400) return null;
+  const location = response.headers.location;
+  response.destroy();
+  if (!location) throw new Error("Redirecionamento de imagem sem destino válido.");
+  return location;
+}
+
+function validatePublicImageResponse(
+  response: http.IncomingMessage,
+  allowedMimeTypes: ReadonlySet<string>,
+  allowAnyNonSvgImage: boolean,
+  maxBytes: number,
+): string {
+  const statusCode = response.statusCode ?? 0;
+  if (statusCode < 200 || statusCode >= 300) {
+    response.destroy();
+    throw new Error("Não foi possível baixar a imagem desse link.");
+  }
+  const contentType = response.headers["content-type"]?.split(";")[0]?.toLowerCase() ?? "";
+  const isAllowedMimeType = allowAnyNonSvgImage
+    ? contentType.startsWith("image/") && contentType !== "image/svg+xml"
+    : allowedMimeTypes.has(contentType);
+  if (!isAllowedMimeType) {
+    response.destroy();
+    throw new Error("O link informado não aponta para uma imagem JPG, PNG ou WEBP.");
+  }
+  const contentLength = Number(response.headers["content-length"] ?? "0");
+  if (contentLength > maxBytes) {
+    response.destroy();
+    throw new Error(`Imagem excede limite de ${maxBytes} bytes.`);
+  }
+  return contentType;
+}
+
+async function collectPublicImageBuffer(response: http.IncomingMessage, maxBytes: number): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of response) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += buffer.byteLength;
+    if (total > maxBytes) {
+      response.destroy();
+      throw new Error(`Imagem excede limite de ${maxBytes} bytes.`);
+    }
+    chunks.push(buffer);
+  }
+  const buffer = Buffer.concat(chunks);
+  // Achado de review PR #228 (CodeRabbit): resposta 200 com corpo vazio
+  // passava adiante um Buffer de 0 byte; `uploadFromUrl` já rejeita esse
+  // caso, então o downloader espelha o mesmo contrato para os chamadores.
+  if (buffer.byteLength === 0) throw new Error("A imagem baixada está vazia.");
+  return buffer;
+}
+
 export async function downloadPublicImage(
   rawUrl: string,
   opts: DownloadPublicImageOpts = {},
@@ -218,47 +231,20 @@ export async function downloadPublicImage(
       opts.userAgent ?? "ArtificioRPG/1.0 image-import",
     );
     try {
-      const statusCode = response.statusCode ?? 0;
-      if (statusCode >= 300 && statusCode < 400) {
-        const location = response.headers.location;
-        response.destroy();
-        if (!location) throw new Error("Redirecionamento de imagem sem destino válido.");
+      const location = takeRedirectLocation(response);
+      if (location) {
         currentUrl = await assertPublicHttpUrl(new URL(location, currentUrl).toString());
         continue;
       }
-      if (statusCode < 200 || statusCode >= 300) {
-        response.destroy();
-        throw new Error("Não foi possível baixar a imagem desse link.");
-      }
-      const contentType = response.headers["content-type"]?.split(";")[0]?.toLowerCase() ?? "";
-      const isAllowedMimeType = opts.allowAnyNonSvgImage
-        ? contentType.startsWith("image/") && contentType !== "image/svg+xml"
-        : allowedMimeTypes.has(contentType);
-      if (!isAllowedMimeType) {
-        response.destroy();
-        throw new Error("O link informado não aponta para uma imagem JPG, PNG ou WEBP.");
-      }
-      const contentLength = Number(response.headers["content-length"] ?? "0");
-      if (contentLength > maxBytes) {
-        response.destroy();
-        throw new Error(`Imagem excede limite de ${maxBytes} bytes.`);
-      }
-      const chunks: Buffer[] = [];
-      let total = 0;
-      for await (const chunk of response) {
-        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-        total += buffer.byteLength;
-        if (total > maxBytes) {
-          response.destroy();
-          throw new Error(`Imagem excede limite de ${maxBytes} bytes.`);
-        }
-        chunks.push(buffer);
-      }
-      const buffer = Buffer.concat(chunks);
-      // Achado de review PR #228 (CodeRabbit): resposta 200 com corpo vazio
-      // passava adiante um Buffer de 0 byte; `uploadFromUrl` já rejeita esse
-      // caso, então o downloader espelha o mesmo contrato para os chamadores.
-      if (buffer.byteLength === 0) throw new Error("A imagem baixada está vazia.");
+      // Achado real (review PR #228, Sonar): status/MIME/tamanho e coleta
+      // ficam em unidades testáveis; loop mantém somente redirects/deadline.
+      const contentType = validatePublicImageResponse(
+        response,
+        allowedMimeTypes,
+        opts.allowAnyNonSvgImage ?? false,
+        maxBytes,
+      );
+      const buffer = await collectPublicImageBuffer(response, maxBytes);
       return { buffer, contentType, sourceUrl: currentUrl.toString() };
     } finally {
       clearDeadline();

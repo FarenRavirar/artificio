@@ -33,8 +33,10 @@ async function main(): Promise<void> {
     await client.query(`CREATE SCHEMA "${schema}"`);
     await client.query(`SET search_path TO "${schema}", public`);
 
+    // Achado real (review PR #228, Sonar): evitar `\d+.*` com backtracking
+    // desnecessário; nomes de migration já têm prefixo/sufixo fixos.
     const baseline = (await readdir(migrationsDir))
-      .filter((filename) => /^migration_\d+.*\.sql$/.test(filename))
+      .filter((filename) => filename.startsWith('migration_') && filename.endsWith('.sql'))
       .filter((filename) => Number(filename.slice(10, 13)) <= 33)
       .sort();
     assert(baseline.length === 33, `baseline esperada 33 migrations; recebeu ${baseline.length}`);
