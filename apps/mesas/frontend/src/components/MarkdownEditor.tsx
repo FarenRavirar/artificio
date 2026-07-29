@@ -12,7 +12,8 @@ interface MarkdownEditorProps {
 }
 
 const mdParser = new MarkdownIt({
-  html: true,
+  // T6B.2 (spec 089): conteúdo de usuário é Markdown; HTML cru nunca entra no preview.
+  html: false,
   linkify: true,
   typographer: true,
 });

@@ -8,6 +8,10 @@ import type {
   UserUpdate,
 } from '../db/types.js';
 import { systemExistsInCatalog } from './systemCatalogProvider.js';
+import {
+  sanitizeNullableUserMarkdown,
+  sanitizeOptionalUserMarkdown,
+} from '../utils/userMarkdown.js';
 
 /**
  * Serviço de perfil de usuário
@@ -83,9 +87,15 @@ export async function getFullProfile(userId: string): Promise<FullProfile> {
 
   return {
     user,
-    profile: profile || null,
+    profile: profile ? { ...profile, bio: sanitizeNullableUserMarkdown(profile.bio) } : null,
     player: player || null,
-    gm: gm || null,
+    gm: gm
+      ? {
+          ...gm,
+          bio_long: sanitizeNullableUserMarkdown(gm.bio_long),
+          closed_group_description: sanitizeNullableUserMarkdown(gm.closed_group_description),
+        }
+      : null,
     systems,
   };
 }
@@ -149,6 +159,7 @@ export async function updateProfile(
   userId: string,
   data: { display_name?: string; bio?: string; avatar_url?: string; languages?: string[] }
 ) {
+  const sanitizedBio = sanitizeOptionalUserMarkdown(data.bio);
   const exists = await db
     .selectFrom('profiles')
     .select('id')
@@ -160,6 +171,7 @@ export async function updateProfile(
       .updateTable('profiles')
       .set({
         ...data,
+        bio: sanitizedBio,
         updated_at: new Date(),
       })
       .where('user_id', '=', userId)
@@ -170,18 +182,20 @@ export async function updateProfile(
       .values({
         user_id: userId,
         display_name: data.display_name || 'Usuário',
-        bio: data.bio || null,
+        bio: sanitizedBio || null,
         avatar_url: data.avatar_url || null,
         languages: data.languages || [],
       })
       .execute();
   }
 
-  return db
+  const result = await db
     .selectFrom('profiles')
     .select(['display_name', 'bio', 'avatar_url', 'languages'])
     .where('user_id', '=', userId)
     .executeTakeFirst();
+
+  return result ? { ...result, bio: sanitizeNullableUserMarkdown(result.bio) } : result;
 }
 
 // =============================================================================
@@ -225,6 +239,11 @@ export async function updatePlayerProfile(
 // =============================================================================
 
 export async function updateGmProfile(userId: string, data: GmProfileUpdate): Promise<GmProfile> {
+  const sanitizedData: GmProfileUpdate = {
+    ...data,
+    bio_long: sanitizeOptionalUserMarkdown(data.bio_long),
+    closed_group_description: sanitizeOptionalUserMarkdown(data.closed_group_description),
+  };
   // Verificar se já existe
   const exists = await db
     .selectFrom('gm_profiles')
@@ -237,7 +256,7 @@ export async function updateGmProfile(userId: string, data: GmProfileUpdate): Pr
     await db
       .updateTable('gm_profiles')
       .set({
-        ...data,
+        ...sanitizedData,
         updated_at: new Date(),
       })
       .where('user_id', '=', userId)
@@ -257,7 +276,7 @@ export async function updateGmProfile(userId: string, data: GmProfileUpdate): Pr
       .values({
         user_id: userId,
         slug,
-        ...data,
+        ...sanitizedData,
       })
       .execute();
 
@@ -275,7 +294,11 @@ export async function updateGmProfile(userId: string, data: GmProfileUpdate): Pr
     throw new Error('Erro ao atualizar perfil de mestre');
   }
 
-  return result;
+  return {
+    ...result,
+    bio_long: sanitizeNullableUserMarkdown(result.bio_long),
+    closed_group_description: sanitizeNullableUserMarkdown(result.closed_group_description),
+  };
 }
 
 // =============================================================================

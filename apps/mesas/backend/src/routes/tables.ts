@@ -4,7 +4,11 @@ import { db } from '../db/index.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { logDatabaseError } from '../middleware/requestLogger.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
-import { isImportedTableExpired } from '../utils/tableVisibility.js';
+import { importedTableIsCurrentSql, isPublicTable } from '../utils/tableVisibility.js';
+import {
+  sanitizeNullableUserMarkdown,
+  sanitizeTableMarkdownFields,
+} from '../utils/userMarkdown.js';
 import {
   resolveSystemIdBySlug,
   hydrateTableSystemFields,
@@ -144,6 +148,12 @@ router.get('/', async (req: Request, res: Response) => {
       ])
       .where('t.status', '=', 'active')
       .where('t.archived_at', 'is', null) // D-MESAS1: arquivadas somem do catalogo publico
+      // Espelha isPublicTable (utils/tableVisibility.ts) em SQL: mesa importada
+      // expira em `starts_at` ou 5 dias após a criação, o que vencer primeiro.
+      // Precisa ser filtro de banco, não de memória — senão a expirada entra na
+      // contagem e na paginação e some da página, deixando buraco no resultado
+      // (achado de review, P2). Mesa não importada nunca expira.
+      .where(importedTableIsCurrentSql('t'))
       .orderBy('t.created_at', 'desc');
 
     if (system) {
@@ -311,7 +321,7 @@ router.get('/', async (req: Request, res: Response) => {
       }
 
       tablesWithContacts = publicTables.map((table) => ({
-        ...table,
+        ...sanitizeTableMarkdownFields(table),
         contacts: contactsByTable.get(table.id) ?? [],
         next_schedule: nextScheduleByTable.get(table.id) ?? null,
       }));
@@ -344,6 +354,7 @@ router.get('/style-facets', async (_req: Request, res: Response) => {
       CROSS JOIN LATERAL unnest(t.setting_styles) AS style
       WHERE t.status = 'active'
         AND t.archived_at IS NULL
+        AND ${importedTableIsCurrentSql('t')}
         AND t.setting_styles IS NOT NULL
       GROUP BY style
       ORDER BY COUNT(*) DESC
@@ -474,15 +485,12 @@ router.get('/:slug', async (req: Request, res: Response) => {
         'gm.reviews_count as gm_reviews_count',
       ])
       .where('t.slug', '=', slug)
+      .where('t.status', '=', 'active')
+      .where('t.archived_at', 'is', null)
       .executeTakeFirst();
 
-    if (!table) {
+    if (!table || !isPublicTable(table)) {
       return res.status(404).json({ error: 'Mesa não encontrada.' });
-    }
-
-    // Validar expiração para mesas importadas
-    if (isImportedTableExpired(table)) {
-      return res.status(404).json({ error: 'Mesa não encontrada ou expirada.' });
     }
 
     const [tableWithSystem] = await hydrateTableSystemFields([table]);
@@ -520,7 +528,8 @@ router.get('/:slug', async (req: Request, res: Response) => {
 
     res.json({
       data: {
-        ...tableWithSystem,
+        ...sanitizeTableMarkdownFields(tableWithSystem),
+        gm_bio_long: sanitizeNullableUserMarkdown(tableWithSystem.gm_bio_long),
         cover_url: sanitizePublicImageUrl(table.cover_url),
         contacts,
         schedules,
@@ -565,12 +574,13 @@ router.post('/:slug/view', async (req: Request, res: Response) => {
     // Buscar mesa pelo slug
     const table = await db
       .selectFrom('tables as t')
-      .select(['t.id'])
+      .select(['t.id', 't.status', 't.archived_at', 't.origin', 't.created_at', 't.starts_at'])
       .where('t.slug', '=', slug)
       .where('t.status', '=', 'active')
+      .where('t.archived_at', 'is', null)
       .executeTakeFirst();
 
-    if (!table) {
+    if (!table || !isPublicTable(table)) {
       return res.status(404).json({ error: 'Mesa não encontrada.' });
     }
 
@@ -599,7 +609,16 @@ router.post('/:slug/view', async (req: Request, res: Response) => {
 // POST /api/v1/tables/:slug/click — Registrar clique (para CTR tracking e A/B test)
 router.post('/:slug/click', async (req: Request, res: Response) => {
   const { slug } = req.params;
-  const { variant } = req.body as { variant?: string };
+  // `variant` é opcional; requisição sem body também é válida.
+  // Achado durante T6B.1 (spec 089): destructuring de undefined devolvia 500.
+  // `req.body` é `unknown` até ser normalizado (regra pétrea): o `as` anterior
+  // afirmava `variant?: string` sobre payload que pode ser array, número ou
+  // `{variant: {}}` (achado de review, P2). Aqui a afirmação vira verificação.
+  const body: unknown = req.body;
+  const variant =
+    typeof body === 'object' && body !== null && !Array.isArray(body)
+      ? (body as Record<string, unknown>).variant
+      : undefined;
 
   // CORREÇÃO UX-SENIOR-02: Validar formato do slug
   if (!slug || slug.length > 200 || !/^[a-z0-9-]+$/i.test(slug)) {
@@ -610,12 +629,13 @@ router.post('/:slug/click', async (req: Request, res: Response) => {
     // Buscar mesa pelo slug
     const table = await db
       .selectFrom('tables as t')
-      .select(['t.id'])
+      .select(['t.id', 't.status', 't.archived_at', 't.origin', 't.created_at', 't.starts_at'])
       .where('t.slug', '=', slug)
       .where('t.status', '=', 'active')
+      .where('t.archived_at', 'is', null)
       .executeTakeFirst();
 
-    if (!table) {
+    if (!table || !isPublicTable(table)) {
       return res.status(404).json({ error: 'Mesa não encontrada.' });
     }
 
@@ -660,12 +680,13 @@ router.get('/:slug/favorite', authMiddleware, async (req: Request, res: Response
   try {
     const table = await db
       .selectFrom('tables as t')
-      .select(['t.id'])
+      .select(['t.id', 't.status', 't.archived_at', 't.origin', 't.created_at', 't.starts_at'])
       .where('t.slug', '=', slug)
       .where('t.status', '=', 'active')
+      .where('t.archived_at', 'is', null)
       .executeTakeFirst();
 
-    if (!table) {
+    if (!table || !isPublicTable(table)) {
       return res.status(404).json({ error: 'Mesa não encontrada.' });
     }
 
@@ -691,12 +712,13 @@ router.post('/:slug/favorite', authMiddleware, async (req: Request, res: Respons
   try {
     const table = await db
       .selectFrom('tables as t')
-      .select(['t.id'])
+      .select(['t.id', 't.status', 't.archived_at', 't.origin', 't.created_at', 't.starts_at'])
       .where('t.slug', '=', slug)
       .where('t.status', '=', 'active')
+      .where('t.archived_at', 'is', null)
       .executeTakeFirst();
 
-    if (!table) {
+    if (!table || !isPublicTable(table)) {
       return res.status(404).json({ error: 'Mesa não encontrada.' });
     }
 

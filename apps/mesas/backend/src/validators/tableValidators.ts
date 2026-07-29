@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sanitizeUserMarkdown } from '../utils/userMarkdown.js';
 
 // ============================================================================
 // ENUMS E CONSTANTES
@@ -42,9 +43,12 @@ const scheduleSchema = z.object({
   sort_order: z.number().int().min(0).optional(),
 });
 
+const userMarkdownSchema = (maxLength: number) =>
+  z.string().max(maxLength).transform(sanitizeUserMarkdown).nullable().optional();
+
 const baseTableSchema = z.object({
   title: z.string().min(3, 'Título deve ter pelo menos 3 caracteres').max(200, 'Título muito longo'),
-  description: z.string().max(5000).nullable().optional(),
+  description: userMarkdownSchema(5000),
   system_id: z.string().uuid('Sistema inválido').nullable().optional(),
   scenario_id: z.string().uuid('Cenário inválido').nullable().optional(),
   type: z.enum(TABLE_TYPES),
@@ -83,7 +87,7 @@ const baseTableSchema = z.object({
   game_platform_custom: z.string().max(100).nullable().optional(),
   communication_platform_id: z.string().uuid('Plataforma de comunicação inválida').nullable().optional(),
   communication_platform: z.string().max(100).nullable().optional(),
-  rules_notes: z.string().max(2000).nullable().optional(),
+  rules_notes: userMarkdownSchema(2000),
   banner_url: z.url().nullable().optional(),
   banner_crop_data: z.object({
     x: z.number(),
@@ -98,18 +102,18 @@ const baseTableSchema = z.object({
   level_range: z.string().max(50).nullable().optional(),
   billing_text: z.string().max(500).nullable().optional(),
   session_zero_free: z.boolean().default(false),
-  synopsis: z.string().max(2000).nullable().optional(),
-  style_text: z.string().max(1000).nullable().optional(),
-  listing_excerpt: z.string().max(300).nullable().optional(),
-  technical_requirements: z.string().max(1000).nullable().optional(),
+  synopsis: userMarkdownSchema(2000),
+  style_text: userMarkdownSchema(1000),
+  listing_excerpt: userMarkdownSchema(300),
+  technical_requirements: userMarkdownSchema(1000),
   requires_pc: z.boolean().default(false),
   requires_camera: z.boolean().default(false),
   requires_microphone: z.boolean().default(false),
   setting_name: z.string().max(200).nullable().optional(),
   setting_styles: z.array(z.string()).nullable().optional(),
-  synopsis_narrative: z.string().max(3000).nullable().optional(),
-  benefits_text: z.string().max(2000).nullable().optional(),
-  table_gm_bio: z.string().max(2000).nullable().optional(),
+  synopsis_narrative: userMarkdownSchema(3000),
+  benefits_text: userMarkdownSchema(2000),
+  table_gm_bio: userMarkdownSchema(2000),
   contacts: z.array(contactSchema).min(1, 'Informe ao menos um canal de contato'),
   schedules: z.array(scheduleSchema).optional(),
   // Requisito 8 (spec 079): quando a mesa nasce de um pré-preenchimento via

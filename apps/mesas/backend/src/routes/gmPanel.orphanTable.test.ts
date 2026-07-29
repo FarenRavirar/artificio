@@ -65,7 +65,20 @@ function makeApp() {
   return app;
 }
 
-const ORPHAN_TABLE = { id: 'table-orphan', gm_id: null, system_id: null, slug: 'mesa-orfa', title: 'Mesa Órfã', status: 'draft', banner_url: 'https://cdn.discordapp.com/attachments/1/2/banner.png?ex=expired', updated_at: new Date() };
+const ORPHAN_TABLE = {
+  id: 'table-orphan',
+  gm_id: null,
+  system_id: null,
+  slug: 'mesa-orfa',
+  title: 'Mesa Órfã',
+  status: 'draft',
+  description: '**segura** <script>alert(1)</script>',
+  synopsis_narrative: '<b>narrativa</b>',
+  benefits_text: '<img src=x onerror=alert(2)>benefícios',
+  table_gm_bio: '<script>alert(3)</script>bio',
+  banner_url: 'https://cdn.discordapp.com/attachments/1/2/banner.png?ex=expired',
+  updated_at: new Date(),
+};
 
 describe('GET /api/v1/gm/tables/:id — mesa órfã (gm_id: null)', () => {
   beforeEach(() => {
@@ -82,6 +95,10 @@ describe('GET /api/v1/gm/tables/:id — mesa órfã (gm_id: null)', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.id).toBe('table-orphan');
     expect(res.body.data.banner_url).toBeNull();
+    expect(res.body.data.description).toBe('**segura** ');
+    expect(res.body.data.synopsis_narrative).toBe('narrativa');
+    expect(res.body.data.benefits_text).toBe('benefícios');
+    expect(res.body.data.table_gm_bio).toBe('bio');
     expect(TableRepository.findById).toHaveBeenCalledWith('table-orphan');
     expect(TableRepository.findByIdAndGm).not.toHaveBeenCalled();
   });

@@ -21,6 +21,11 @@ import { notifyAdmins } from '../services/adminNotifications.js';
 import { isValidEmail } from '../utils/validation.js';
 import { triggerMetaScrape, triggerMetaScrapeOnPublish } from '../services/metaScrapeClient.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
+import {
+  sanitizeNullableUserMarkdown,
+  sanitizeTableMarkdownFields,
+  sanitizeUserMarkdown,
+} from '../utils/userMarkdown.js';
 import { parseTextForPreview } from '../discord/parseTextForPreview.js';
 import { loadSystemsForParser } from '../discord/shared.js';
 import { z } from 'zod';
@@ -41,6 +46,41 @@ interface VttPlatformJson {
 interface PgDriverError {
   code?: string;
   column?: string;
+}
+
+interface SellingPoint {
+  icon: string;
+  title: string;
+  description: string;
+}
+
+// Achado real (Sonar, High, fase 7 da spec 089): manter a validação do
+// payload fora dos handlers evita complexidade aninhada e divergência entre
+// criação e edição do perfil.
+const isSellingPoint = (point: unknown): point is SellingPoint => {
+  if (!point || typeof point !== 'object') return false;
+
+  const candidate = point as Record<string, unknown>;
+  return (
+    typeof candidate.icon === 'string' &&
+    typeof candidate.title === 'string' &&
+    typeof candidate.description === 'string'
+  );
+};
+
+function normalizeNullableString(
+  value: unknown,
+  normalize: (input: string) => string,
+): string | null | undefined {
+  if (typeof value === 'string') return normalize(value);
+  if (value === null) return null;
+  return undefined;
+}
+
+function normalizeNullableNonNegativeInteger(value: unknown): number | null | undefined {
+  if (value === null) return null;
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) return value;
+  return undefined;
 }
 
 const getPgErrorCode = (error: unknown): string | undefined =>
@@ -176,15 +216,7 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
   const safeTagline = typeof tagline === 'string' ? tagline.trim().slice(0, 200) : null;
   const safePromoBadgeText = typeof promo_badge_text === 'string' ? promo_badge_text.trim().slice(0, 120) : null;
   const safeSellingPoints = Array.isArray(selling_points)
-    ? selling_points.filter((point) => {
-        if (!point || typeof point !== 'object') return false;
-        const p = point as Record<string, unknown>;
-        return (
-          typeof p.icon === 'string' &&
-          typeof p.title === 'string' &&
-          typeof p.description === 'string'
-        );
-      })
+    ? selling_points.filter(isSellingPoint)
     : [];
   const safeClosedGroupEnabled = typeof closed_group_enabled === 'boolean' ? closed_group_enabled : false;
   const safeClosedGroupSystems = Array.isArray(closed_group_systems)
@@ -192,7 +224,11 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
         (value) => typeof value === 'string' && /^[0-9a-fA-F-]{36}$/.test(value)
       )
     : [];
-  const safeClosedGroupDescription = typeof closed_group_description === 'string' ? closed_group_description.trim() : null;
+  const safeBioLong = typeof bio_long === 'string' ? sanitizeUserMarkdown(bio_long) : null;
+  const safeClosedGroupDescription =
+    typeof closed_group_description === 'string'
+      ? sanitizeUserMarkdown(closed_group_description.trim())
+      : null;
   const safeClosedGroupMinPriceCents =
     typeof closed_group_min_price_cents === 'number' && Number.isInteger(closed_group_min_price_cents) && closed_group_min_price_cents >= 0
       ? closed_group_min_price_cents
@@ -215,7 +251,7 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
         user_id: userId,
         slug,
         nickname: nickname.trim(),
-        bio_long: bio_long ?? null,
+        bio_long: safeBioLong,
         languages: safeLanguages,
         specialties: safeSpecialties,
         badges: safeBadges,
@@ -255,7 +291,13 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
       .where('role', '=', 'player')
       .execute();
 
-    return res.status(201).json({ data: gmProfile });
+    return res.status(201).json({
+      data: {
+        ...gmProfile,
+        bio_long: sanitizeNullableUserMarkdown(gmProfile.bio_long),
+        closed_group_description: sanitizeNullableUserMarkdown(gmProfile.closed_group_description),
+      },
+    });
   } catch (error) {
     console.error('[POST /gm/profile]', error);
     return res.status(500).json({ error: 'Erro ao criar perfil de mestre.' });
@@ -294,23 +336,15 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
   const safeLanguages = Array.isArray(languages) ? languages.filter((v) => typeof v === 'string') : undefined;
   const safeSpecialties = Array.isArray(specialties) ? specialties.filter((v) => typeof v === 'string') : undefined;
   const safeBadges = Array.isArray(badges) ? badges.filter((v) => typeof v === 'string') : undefined;
-  const safeTagline = typeof tagline === 'string' ? tagline.trim().slice(0, 200) : tagline === null ? null : undefined;
-  const safePromoBadgeText =
-    typeof promo_badge_text === 'string'
-      ? promo_badge_text.trim().slice(0, 120)
-      : promo_badge_text === null
-        ? null
-        : undefined;
+  // Achado real (Sonar, Medium, fase 7 da spec 089): normalizadores explícitos
+  // preservam string/null/undefined sem ternários aninhados nos handlers.
+  const safeTagline = normalizeNullableString(tagline, (value) => value.trim().slice(0, 200));
+  const safePromoBadgeText = normalizeNullableString(
+    promo_badge_text,
+    (value) => value.trim().slice(0, 120),
+  );
   const safeSellingPoints = Array.isArray(selling_points)
-    ? selling_points.filter((point) => {
-        if (!point || typeof point !== 'object') return false;
-        const p = point as Record<string, unknown>;
-        return (
-          typeof p.icon === 'string' &&
-          typeof p.title === 'string' &&
-          typeof p.description === 'string'
-        );
-      })
+    ? selling_points.filter(isSellingPoint)
     : undefined;
   const safeClosedGroupEnabled = typeof closed_group_enabled === 'boolean' ? closed_group_enabled : undefined;
   const safeClosedGroupSystems = Array.isArray(closed_group_systems)
@@ -318,20 +352,17 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
         (value) => typeof value === 'string' && /^[0-9a-fA-F-]{36}$/.test(value)
       )
     : undefined;
-  const safeClosedGroupDescription =
-    typeof closed_group_description === 'string'
-      ? closed_group_description.trim()
-      : closed_group_description === null
-        ? null
-        : undefined;
-  const safeClosedGroupMinPriceCents =
-    typeof closed_group_min_price_cents === 'number' &&
-    Number.isInteger(closed_group_min_price_cents) &&
-    closed_group_min_price_cents >= 0
-      ? closed_group_min_price_cents
-      : closed_group_min_price_cents === null
-        ? null
-        : undefined;
+  const safeClosedGroupDescription = normalizeNullableString(
+    closed_group_description,
+    (value) => sanitizeUserMarkdown(value.trim()),
+  );
+  // Mesmo padrão de closed_group_description acima: `req.body` é `unknown` até
+  // ser validado (regra pétrea de normalização), e sanitize-html espera string —
+  // número ou objeto chegariam nele sem esta guarda (achado de review, P2).
+  const safeBioLong = normalizeNullableString(bio_long, sanitizeUserMarkdown);
+  const safeClosedGroupMinPriceCents = normalizeNullableNonNegativeInteger(
+    closed_group_min_price_cents,
+  );
   const safePreferredVttPlatforms = Array.isArray(preferred_vtt_platforms)
     ? preferred_vtt_platforms.filter(
         (value) => typeof value === 'string' && /^[0-9a-fA-F-]{36}$/.test(value)
@@ -409,7 +440,7 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
       .updateTable('gm_profiles')
       .set({
         nickname: safeNickname,
-        bio_long: bio_long ?? undefined,
+        bio_long: safeBioLong,
         languages: safeLanguages,
         specialties: safeSpecialties,
         badges: safeBadges,
@@ -447,7 +478,13 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
       ])
       .execute();
 
-    return res.json({ data: updated });
+    return res.json({
+      data: {
+        ...updated,
+        bio_long: sanitizeNullableUserMarkdown(updated.bio_long),
+        closed_group_description: sanitizeNullableUserMarkdown(updated.closed_group_description),
+      },
+    });
   } catch (error) {
     console.error('[PUT /gm/profile]', error);
     return res.status(500).json({ error: 'Erro ao atualizar perfil de mestre.' });
@@ -480,6 +517,8 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
     return res.json({
       data: {
         ...gmProfile,
+        bio_long: sanitizeNullableUserMarkdown(gmProfile.bio_long),
+        closed_group_description: sanitizeNullableUserMarkdown(gmProfile.closed_group_description),
         tables_count: tablesCount,
         avg_rating: null,
       },
@@ -524,7 +563,7 @@ router.get('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
     const schedules = await TableRepository.findSchedulesByTableId(id);
 
     const responseData = {
-      ...tableData,
+      ...sanitizeTableMarkdownFields(tableData),
       // Achado do mantenedor (2026-07-14): mesa importada via Discord pode ter
       // banner_url ainda apontando pra CDN efêmero do Discord (URL assinada com
       // expiração, ex=/is=/hm=) quando o upload retroativo pro Cloudinary nunca
@@ -1121,7 +1160,7 @@ router.get('/tables', authMiddleware, async (req: Request, res: Response) => {
 
     const tablesWithSystem = await hydrateTableSystemFields(tables);
     const tablesWithData = tablesWithSystem.map((table) => ({
-      ...table,
+      ...sanitizeTableMarkdownFields(table),
       contacts: contactsByTable.get(table.id) ?? [],
       schedules: schedulesByTable.get(table.id) ?? [],
     }));

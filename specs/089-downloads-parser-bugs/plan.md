@@ -150,13 +150,22 @@ corretamente. O que falta é UI que as exerça.
 
 ### Eixo F — conteúdo rico e formulário (defeitos 8, 9, 10, 11)
 
-O único eixo que sai de `apps/downloads`. Extrair o editor de `apps/mesas` para `packages/ui`
+Antes deste eixo, a **Fase 6B** corrige duas P0 correntes do `mesas`: visibilidade pública
+uniforme (status ativo, não arquivada e importada não expirada) no detalhe e nas interações; e
+Markdown de usuário sanitizado na escrita e defensivamente na leitura. `sanitize-html` descarta
+HTML e preserva Markdown; o preview deixa `html: false`; o componente morto `RichTextArea.tsx`
+é removido. Medição read-only em Beta/Prod encontrou zero HTML/entidade persistido e Markdown
+legítimo em descrições; por decisão do mantenedor, não há migration retroativa. O fix precisa
+estar mergeado em `dev` antes de iniciar a Fase 7.
+
+Extrair o editor de `apps/mesas` para `packages/ui`
 torna o `mesas` consumidor de componente compartilhado — **exige aprovação nominal própria e
 verificação de impacto**, fora do que a abertura desta spec cobre. Mesmo se o defeito de
 contraste do `<select>` se provar compartilhado.
 
-`summary` e `description` ficam ricos, mas card e meta description consomem versão sem tags:
-HTML vazando em snippet de busca é regressão de SEO, não recurso.
+Só `description_html` fica rico. `summary` e `description` permanecem texto plano, derivados pelo
+backend na mesma operação; card, idioma e meta description consomem esses valores sem tags.
+HTML vazando em snippet, card ou detector é regressão, não recurso.
 
 Slug e capa são o caminho oposto — o backend já tem tudo (`generateUniqueSlug`,
 `storage/cloudinaryAdapter.ts`); falta só UI que use.
@@ -260,7 +269,7 @@ saída e retomada livres.
 | `apps/downloads/database/migration_*.sql` | D | chave normalizada de editora + índice; campos estruturados de autor/artista |
 | `download_scraper_item_log` na migration da Fase 4 | D/medição | preserva template e hints também para itens rejeitados; sem isso Fase 5 não mede por template |
 | `scripts/api/**` | D | gerador de OpenAPI — `GET /materials` não documenta nenhum query param, e o `POST` está com contrato antigo |
-| `apps/downloads/frontend/public/robots.txt` | D | **não existe**; nginx já o espera (`nginx.conf:40`) e devolve 404 |
+| `apps/downloads/frontend/public/robots.txt` | M | **passou a existir** depois da 3ª revisão (verificado 2026-07-28: arquivo no repositório, `GET /robots.txt` em beta devolve 200). Mas é `robots.txt` de **produção** — bloqueia só rotas com query de filtro (`?q=`, `?publisher=`, `?page=`…) contra indexação de facetas duplicadas. Não bloqueia beta, e o mesmo estático vai para os dois ambientes, então `Disallow: /` global quebraria prod. T8.8 muda de "criar o arquivo" para **diferenciar por ambiente** |
 | `apps/downloads/frontend/src/pages/CatalogoPage.tsx` | D | leitura dos filtros novos + `isBrowsing` (`:88`), que hoje ignora filtro novo e desliga a consulta |
 | `apps/downloads/frontend/src/types/material.ts` | D | `MaterialListFilters` (`:68`) |
 | `apps/downloads/frontend/src/hooks/useMaterialsCatalog.ts` | D | serialização dos filtros (`:5`) |
@@ -273,6 +282,10 @@ saída e retomada livres.
 | `apps/downloads/frontend/src/pages/painel/EditarMaterialPage.tsx` | F | campo de sistema, envio de capa |
 | `apps/downloads/frontend/src/pages/painel/NovoMaterialPage.tsx` | F | slug automático, contraste do `<select>` |
 | `packages/ui` | F | editor rich text extraído — **aprovação nominal própria** |
+| `apps/mesas/backend/src/routes/{tables,gm,gmPanel}.ts`, `services/profileService.ts`, `validators/tableValidators.ts` | F/6B | visibilidade pública uniforme + sanitização de Markdown na escrita/leitura |
+| `apps/mesas/backend/src/utils/{tableVisibility,userMarkdown}.ts` | F/6B | políticas únicas, testáveis, de publicação e sanitização |
+| `apps/mesas/frontend/src/components/MarkdownEditor.tsx` | F/6B | preview Markdown com HTML cru desativado |
+| `apps/mesas/frontend/src/components/RichTextArea.tsx` | F/6B | removido: código morto com `dangerouslySetInnerHTML` |
 | `apps/downloads/frontend/index.html` | G | remover as metas genéricas que o shell dinâmico passa a injetar — hoje duplicariam |
 | `apps/downloads/frontend/public/og-default.png` | G | **não existe**; `index.html:13` e `:22` o referenciam. Diretório `public/` também precisa nascer; `Dockerfile:44` copia `dist` inteiro, e o Vite emite `public/` para lá sem config extra |
 | `apps/downloads/frontend/nginx.conf` | G | encaminhar `GET /materiais/:slug` ao backend, **antes** do `location /` (`:46`) e sem capturar os assets (`:34`) |
