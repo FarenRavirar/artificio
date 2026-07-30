@@ -24,6 +24,7 @@ vi.mock('../services/notify', () => ({ emitNotification: vi.fn().mockResolvedVal
 vi.mock('../services/moderationAuditLog', () => auditMocks);
 
 import reportsRoutes, { REPORT_PRIORITY_BY_CATEGORY } from './reports';
+import { ABUSE_LOOKBACK_WINDOW } from '../services/reportAbuseGuard';
 
 function app() {
   const server = express();
@@ -163,13 +164,18 @@ describe('reports — alvo único e prioridade interna', () => {
     }));
   });
 
-  it('abuse-check também ignora duplicata consolidada', async () => {
+  // A janela também é asserida aqui: com o LIMIT antigo (o limiar, 3) uma
+  // "resolved" na 4ª posição era invisível nesta rota e visível no POST, então as
+  // duas discordavam sobre o mesmo usuário. Sem esta asserção a regressão para 3
+  // passa verde, porque o veredito de `isReporterAbusive` não muda no caso feliz.
+  it('abuse-check ignora duplicata consolidada e usa a mesma janela do POST', async () => {
     const history = selectBuilder(undefined, []);
     dbMocks.selectFrom.mockReturnValueOnce(history);
 
     await request(app()).get('/api/v1/reports/abuse-check/user-9').expect(200);
 
     expect(history.where).toHaveBeenCalledWith('consolidated_into_report_id', 'is', null);
+    expect(history.limit).toHaveBeenCalledWith(ABUSE_LOOKBACK_WINDOW);
   });
 
   it('recusa alvo duplo/vazio e devolve 409 para duplicata', async () => {

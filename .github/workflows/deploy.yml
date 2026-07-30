@@ -79,6 +79,16 @@ on:
         required: false
         default: false
         type: boolean
+      # O guard de QUANTIDADE roda ANTES do de classe, entao liberar so
+      # manual-risk nao destrava acumulo (caso downloads: 9 pendentes em prod).
+      # Vazio = default 5. Preencher com o TOTAL pendente real, nunca com folga
+      # arbitraria: o numero e a revisao consciente de quantas migrations entram
+      # de uma vez, e fatiar em lotes nao funciona (o script compara o total).
+      max_auto_pending:
+        description: "Limite de migrations pendentes neste disparo (vazio = 5). Usar o total real, conferido antes."
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -213,6 +223,7 @@ jobs:
       # So o dispatch manual pode ligar isto; push automatico nunca (o input nem
       # existe em `on: push`, entao a expressao resolve para false).
       allow_manual_migrations: ${{ inputs.allow_manual_migrations == true }}
+      max_auto_pending: ${{ inputs.max_auto_pending }}
       # _deploy-module espera STRING JSON; toJSON reserializa o objeto/array do manifesto.
       health_containers: ${{ toJSON(matrix.health_containers) }}
       health_containers_beta: ${{ toJSON(matrix.health_containers_beta) }}

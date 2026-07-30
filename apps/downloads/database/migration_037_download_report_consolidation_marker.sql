@@ -42,6 +42,28 @@ CREATE INDEX IF NOT EXISTS idx_download_report_consolidated
 -- Identifica pela nota exata que a 036 gravou (unica marca disponivel naquele
 -- momento). Restringe a linhas ainda sem marcador de consolidacao, para nunca
 -- tocar caso decidido de verdade por um moderador.
+--
+-- Limite conhecido e aceito (achado do Codex na PR #232): linha que a 036 tenha
+-- consolidado JA TENDO nota de triagem ficou sem marca nenhuma (o COALESCE
+-- preservou a nota antiga), e esta clausula nao a alcanca. Nao ha remedio seguro:
+-- sem marcador, distinguir essas linhas de um `dismissed` decidido por moderador
+-- exigiria heuristica sobre texto livre, e um falso positivo REABRIRIA decisao
+-- real de moderacao — dano maior que o que se corrige.
+--
+-- Na pratica o conjunto e comprovadamente vazio, verificado em 2026-07-30 por
+-- enumeracao (nao por amostragem):
+--   * `schema_migrations` registra a 036 aplicada uma unica vez, em
+--     downloads-beta-db, 15:41 UTC, por `ci:ubuntu@vnic-artificio`;
+--   * `download_report` tem 0 linhas nesse banco — nenhuma em qualquer
+--     `case_state`, logo nenhuma consolidada;
+--   * o database `downloads` existe em UM container (downloads-beta-db); os
+--     outros 8 containers de banco da VM nao o tem;
+--   * dos 8 volumes Postgres orfaos da VM, NENHUM teve arquivo escrito depois de
+--     2026-07-29 — nenhum pode conter uma migration aplicada em 30/07.
+-- Downloads ainda nao tem producao (sem container, sem volume `downloads_*` de
+-- prod). Se algum dia houver banco onde a 036 rodou com dado real, a
+-- reconciliacao correta e manual, caso a caso, contra o dump pre-migration —
+-- nunca por SQL heuristico em migration.
 UPDATE download_report
 SET case_state = 'open',
     resolved_at = NULL,
