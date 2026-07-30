@@ -41,6 +41,9 @@ export const updateProfile = async (req: AuthedRequest, res: Response) => {
       'UPDATE users SET full_name = $1 WHERE id = $2 RETURNING id, full_name, username, email',
       [full_name, userId]
     );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Usuário não encontrado.' });
+    }
     res.json({
       ...result.rows[0],
       role: req.user?.is_global_admin ? 'admin' : 'member',

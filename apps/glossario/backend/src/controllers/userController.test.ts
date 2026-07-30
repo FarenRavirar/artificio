@@ -28,4 +28,15 @@ describe('userController sem papel global local', () => {
 
     expect(json).toHaveBeenCalledWith(expect.objectContaining({ role: 'member', is_global_moderator: true }));
   });
+
+  it('responde 404 quando o perfil autenticado não existe', async () => {
+    query.mockResolvedValue({ rows: [] });
+    const status = vi.fn().mockReturnThis();
+    const json = vi.fn();
+
+    await updateProfile({ body: { full_name: 'Nome' }, user: { id: 'missing' } } as never, { json, status } as never);
+
+    expect(status).toHaveBeenCalledWith(404);
+    expect(json).toHaveBeenCalledWith({ message: 'Usuário não encontrado.' });
+  });
 });

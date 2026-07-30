@@ -7,7 +7,7 @@ export const BOOTSTRAP_ACTOR_ID = "bootstrap:accounts";
 export async function ensureBootstrapAdmin(
   db: Kysely<Database>,
   configuredEmail: string | undefined,
-): Promise<"disabled" | "promoted" | "unchanged_or_missing"> {
+): Promise<"disabled" | "admin_ready" | "promoted" | "missing_account"> {
   const email = configuredEmail?.trim().toLowerCase();
   if (!email) return "disabled";
 
@@ -25,7 +25,15 @@ export async function ensureBootstrapAdmin(
       .returning("id")
       .executeTakeFirst();
 
-    return updated ? "promoted" : "unchanged_or_missing";
+    if (updated) return "promoted";
+
+    const existing = await trx
+      .selectFrom("users")
+      .select("role")
+      .where(sql<string>`lower(email)`, "=", email)
+      .executeTakeFirst();
+
+    return existing?.role === "admin" ? "admin_ready" : "missing_account";
   });
 }
 

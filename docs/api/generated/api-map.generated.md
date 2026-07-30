@@ -33,8 +33,8 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 |--------|------|-----------|---------|------|
 | GET | `/` | ✅ high | `apps/accounts/src/app.ts` | 229 |
 | GET | `/admin/papeis` | ✅ high | `apps/accounts/src/app.ts` | 229 |
-| GET | `/admin/roles/users` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 27 |
-| PATCH | `/admin/roles/users/:id` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 37 |
+| GET | `/admin/roles/users` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 45 |
+| PATCH | `/admin/roles/users/:id` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 55 |
 | GET | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 112 |
 | PUT | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 73 |
 | GET | `/api/auth/google` | ✅ high | `apps/accounts/src/app.ts` | 107 |

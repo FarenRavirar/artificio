@@ -4,6 +4,7 @@ import type { Kysely } from "kysely";
 import { z } from "zod";
 import type { Database } from "./db.js";
 import { listGlobalRoleUsers, setGlobalRole } from "./globalRoles.js";
+import { findAuthUserById } from "./users.js";
 
 const roleSchema = z.object({
   role: z.enum(["user", "moderator", "admin"]),
@@ -13,18 +14,35 @@ function sessionFrom(req: Request): Session | undefined {
   return (req as Request & { session?: Session }).session;
 }
 
-function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  if (sessionFrom(req)?.user.role !== "admin") {
-    res.status(403).json({ error: "Acesso restrito a administradores." });
-    return;
-  }
-  next();
+function requireAdmin(db: Kysely<Database>) {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const session = sessionFrom(req);
+    if (session?.user.role !== "admin" || typeof session.user.roleVersion !== "number") {
+      res.status(403).json({ error: "Acesso restrito a administradores." });
+      return;
+    }
+
+    try {
+      const currentUser = await findAuthUserById(db, session.user.id);
+      if (
+        currentUser?.role !== "admin" ||
+        currentUser.roleVersion !== session.user.roleVersion
+      ) {
+        res.status(403).json({ error: "Acesso restrito a administradores." });
+        return;
+      }
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export function createAdminRoleRoutes(db: Kysely<Database>): Router {
   const router = Router();
+  const currentAdmin = requireAdmin(db);
 
-  router.get("/admin/roles/users", requireAuth, requireAdmin, async (req, res, next) => {
+  router.get("/admin/roles/users", requireAuth, currentAdmin, async (req, res, next) => {
     try {
       const search = typeof req.query.q === "string" ? req.query.q : "";
       const users = await listGlobalRoleUsers(db, search);
@@ -34,7 +52,7 @@ export function createAdminRoleRoutes(db: Kysely<Database>): Router {
     }
   });
 
-  router.patch("/admin/roles/users/:id", requireAuth, requireAdmin, async (req, res, next) => {
+  router.patch("/admin/roles/users/:id", requireAuth, currentAdmin, async (req, res, next) => {
     const parsed = roleSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Papel inválido." });

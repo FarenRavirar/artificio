@@ -1,6 +1,7 @@
-import type { Kysely } from "kysely";
+import { sql, type Kysely, type Transaction } from "kysely";
 import type { User } from "@artificio/auth";
 import type { Database } from "./db.js";
+import { BOOTSTRAP_ACTOR_ID } from "./globalRoles.js";
 
 export interface GoogleUserProfile {
   avatar: string | null;
@@ -60,8 +61,13 @@ export async function findAuthUserById(
 export async function upsertGoogleUser(
   db: Kysely<Database>,
   profile: GoogleUserProfile,
+  bootstrapAdminEmail?: string,
 ): Promise<User> {
-  const row = await db
+  const isBootstrapAdmin =
+    bootstrapAdminEmail?.trim().toLowerCase() === profile.email.trim().toLowerCase();
+
+  const writeUser = async (executor: Kysely<Database> | Transaction<Database>) => {
+    const row = await executor
     .insertInto("users")
     .values({
       google_sub: profile.googleSub,
@@ -80,5 +86,27 @@ export async function upsertGoogleUser(
     .returning(["id", "email", "name", "avatar", "role", "role_version"])
     .executeTakeFirstOrThrow();
 
-  return toUser(row);
+    return toUser(row);
+  };
+
+  if (!isBootstrapAdmin) return writeUser(db);
+
+  return db.transaction().execute(async (trx) => {
+    await sql`select
+      set_config('app.actor_id', ${BOOTSTRAP_ACTOR_ID}, true),
+      set_config('app.role_reason', 'bootstrap_admin', true)
+    `.execute(trx);
+    const user = await writeUser(trx);
+    if (user.role === "admin") return user;
+
+    const promoted = await trx
+      .updateTable("users")
+      .set({ role: "admin" })
+      .where("id", "=", user.id)
+      .where("role", "!=", "admin")
+      .returning(["id", "email", "name", "avatar", "role", "role_version"])
+      .executeTakeFirstOrThrow();
+
+    return toUser(promoted);
+  });
 }

@@ -111,7 +111,7 @@
       "method": "GET",
       "path": "/admin/roles/users",
       "sourceFile": "apps/accounts/src/adminRoleRoutes.ts",
-      "line": 27,
+      "line": 45,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -120,7 +120,7 @@
       "method": "PATCH",
       "path": "/admin/roles/users/:id",
       "sourceFile": "apps/accounts/src/adminRoleRoutes.ts",
-      "line": 37,
+      "line": 55,
       "confidence": "high",
       "kind": "express-route"
     },

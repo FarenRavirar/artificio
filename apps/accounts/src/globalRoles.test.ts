@@ -14,7 +14,10 @@ vi.mock("kysely", async (importOriginal) => {
 
 import { BOOTSTRAP_ACTOR_ID, ensureBootstrapAdmin, setGlobalRole } from "./globalRoles.js";
 
-function fakeDb(updatedRows: Array<Record<string, unknown> | undefined>) {
+function fakeDb(
+  updatedRows: Array<Record<string, unknown> | undefined>,
+  selectedRows: Array<Record<string, unknown> | undefined> = [],
+) {
   const order: string[] = [];
   const update = {
     set: vi.fn().mockReturnThis(),
@@ -25,7 +28,15 @@ function fakeDb(updatedRows: Array<Record<string, unknown> | undefined>) {
       return updatedRows.shift();
     }),
   };
-  const trx = { updateTable: vi.fn(() => update) };
+  const select = {
+    select: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    executeTakeFirst: vi.fn(async () => selectedRows.shift()),
+  };
+  const trx = {
+    updateTable: vi.fn(() => update),
+    selectFrom: vi.fn(() => select),
+  };
   const transaction = vi.fn(() => ({ execute: (callback: (value: unknown) => unknown) => callback(trx) }));
   sqlExecute.mockImplementation(async () => {
     order.push("actor");
@@ -43,10 +54,10 @@ describe("ensureBootstrapAdmin", () => {
   });
 
   it("promove com ator bootstrap antes do update e é idempotente", async () => {
-    const fake = fakeDb([{ id: "admin-1" }, undefined]);
+    const fake = fakeDb([{ id: "admin-1" }, undefined], [{ role: "admin" }]);
 
     await expect(ensureBootstrapAdmin(fake.db, " ADMIN@EXAMPLE.COM ")).resolves.toBe("promoted");
-    await expect(ensureBootstrapAdmin(fake.db, "admin@example.com")).resolves.toBe("unchanged_or_missing");
+    await expect(ensureBootstrapAdmin(fake.db, "admin@example.com")).resolves.toBe("admin_ready");
 
     expect(fake.order).toEqual(["actor", "update", "actor", "update"]);
     expect(BOOTSTRAP_ACTOR_ID).toBe("bootstrap:accounts");
@@ -54,8 +65,8 @@ describe("ensureBootstrapAdmin", () => {
   });
 
   it("sobrevive à conta ainda ausente", async () => {
-    const fake = fakeDb([undefined]);
-    await expect(ensureBootstrapAdmin(fake.db, "missing@example.com")).resolves.toBe("unchanged_or_missing");
+    const fake = fakeDb([undefined], [undefined]);
+    await expect(ensureBootstrapAdmin(fake.db, "missing@example.com")).resolves.toBe("missing_account");
   });
 });
 

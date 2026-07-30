@@ -135,7 +135,7 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
         tokens.id_token,
         env.GOOGLE_CLIENT_ID,
       );
-      const user = await upsertGoogleUser(db, profile);
+      const user = await upsertGoogleUser(db, profile, env.ACCOUNTS_BOOTSTRAP_ADMIN_EMAIL);
       setSessionCookies(
         res,
         env,
