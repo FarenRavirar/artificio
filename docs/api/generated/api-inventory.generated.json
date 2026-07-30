@@ -1127,7 +1127,7 @@
       "method": "GET",
       "path": "/materiais/:slug",
       "sourceFile": "apps/downloads/backend/src/routes/publicShell.ts",
-      "line": 179,
+      "line": 205,
       "confidence": "high",
       "kind": "express-route"
     },

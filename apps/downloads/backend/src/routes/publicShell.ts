@@ -55,9 +55,35 @@ async function loadIndexHtml(): Promise<CachedIndex> {
   return cachedIndex;
 }
 
+// Achado Sonar (PR #229, S4624 brain-overload): montar tag concatenando template
+// literal aninhado com `escapeHtml(...)` repetia o padrão em 5 pontos do arquivo.
+// Helpers nomeados centralizam o escape — é impossível emitir atributo sem escapar.
+function attribute(name: string, value: string): string {
+  const escaped = escapeHtml(value);
+  return `${name}="${escaped}"`;
+}
+
+function renderTag(tagName: string, attributes: string[]): string {
+  const rendered = attributes.join(' ');
+  return `<${tagName} ${rendered}>`;
+}
+
 function renderMetaTag(tag: MetaTag): string {
-  const key = tag.name ? `name="${escapeHtml(tag.name)}"` : `property="${escapeHtml(tag.property || '')}"`;
-  return `<meta ${key} content="${escapeHtml(tag.content)}">`;
+  const key = tag.name ? attribute('name', tag.name) : attribute('property', tag.property || '');
+  return renderTag('meta', [key, attribute('content', tag.content)]);
+}
+
+function renderMetaProperty(property: string, content: string): string {
+  return renderTag('meta', [attribute('property', property), attribute('content', content)]);
+}
+
+function renderTitleTag(value: string): string {
+  const escaped = escapeHtml(value);
+  return `<title>${escaped}</title>`;
+}
+
+function renderCanonicalTag(href: string): string {
+  return renderTag('link', [attribute('rel', 'canonical'), attribute('href', href)]);
 }
 
 function stripSingularSeoTags(html: string): string {
@@ -95,15 +121,15 @@ function buildMaterialHead(material: PublicMaterial): { block: string; isFallbac
     noindex: process.env.APP_ENV === 'beta',
   });
   const extraTags = [
-    `<meta property="og:image:alt" content="${escapeHtml(imageAlt)}">`,
+    renderMetaProperty('og:image:alt', imageAlt),
     ...(cover ? [] : [
-      '<meta property="og:image:width" content="1200">',
-      '<meta property="og:image:height" content="630">',
+      renderMetaProperty('og:image:width', '1200'),
+      renderMetaProperty('og:image:height', '630'),
     ]),
   ];
   const block = [
-    `<title>${escapeHtml(title)}</title>`,
-    `<link rel="canonical" href="${escapeHtml(canonical)}">`,
+    renderTitleTag(title),
+    renderCanonicalTag(canonical),
     ...tags.map(renderMetaTag),
     ...extraTags,
   ].map((line) => `    ${line}`).join('\n');
@@ -121,8 +147,8 @@ function buildErrorHead(title: string, canonical: string): string {
     noindex: true,
   });
   return [
-    `<title>${escapeHtml(title)}</title>`,
-    `<link rel="canonical" href="${escapeHtml(canonical)}">`,
+    renderTitleTag(title),
+    renderCanonicalTag(canonical),
     ...tags.map(renderMetaTag),
   ].map((line) => `    ${line}`).join('\n');
 }

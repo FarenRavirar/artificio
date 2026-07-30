@@ -151,7 +151,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | POST | `/api/v1/system-suggestions` | ✅ high | `apps/downloads/backend/src/routes/systemSuggestions.ts` | 18 |
 | USE | `/api/v1/system-suggestions` | ✅ high | `apps/downloads/backend/src/server.ts` | 123 |
 | GET | `/api/v1/system-suggestions/mine` | ✅ high | `apps/downloads/backend/src/routes/systemSuggestions.ts` | 53 |
-| GET | `/materiais/:slug` | ✅ high | `apps/downloads/backend/src/routes/publicShell.ts` | 179 |
+| GET | `/materiais/:slug` | ✅ high | `apps/downloads/backend/src/routes/publicShell.ts` | 205 |
 | GET | `/robots.txt` | ✅ high | `apps/downloads/backend/src/routes/publicSeo.ts` | 19 |
 | GET | `/sitemap.xml` | ✅ high | `apps/downloads/backend/src/routes/publicSeo.ts` | 30 |
 

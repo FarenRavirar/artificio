@@ -40,6 +40,9 @@ RUN pnpm install --prod --filter @artificio/glossario-backend --filter @artifici
 # Workspace packages are linked in production; copy built outputs they export at runtime.
 COPY --from=builder /repo/packages/config/dist ./packages/config/dist
 COPY --from=builder /repo/packages/content/dist ./packages/content/dist
+# Spec 089: content passou a emitir CJS e `main` aponta para dist-cjs — sem esta
+# linha o container sobe e crasha com MODULE_NOT_FOUND (padrao E016/E017).
+COPY --from=builder /repo/packages/content/dist-cjs ./packages/content/dist-cjs
 COPY --from=builder /repo/packages/auth/dist ./packages/auth/dist
 COPY --from=builder /repo/packages/auth/dist-cjs ./packages/auth/dist-cjs
 COPY --from=builder /repo/packages/changelog/dist ./packages/changelog/dist

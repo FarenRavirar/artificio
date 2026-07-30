@@ -38,13 +38,24 @@ COPY patches ./patches
 # depende de sanitize-html e markdown-it, e dist-cjs/sanitize.js faz require nos
 # dois no boot. Sem este filtro a imagem cai com MODULE_NOT_FOUND antes de
 # servir qualquer rota (achado de review PR #227).
+# auth/config/catalog-client tem dep externa propria (jsonwebtoken, zod) e o
+# require sai de dentro do dist-cjs deles. Hoje o app declara jsonwebtoken e zod
+# como dep direta, entao a resolucao ascendente do Node acha por acaso — remover
+# essas libs do package.json do app derrubaria o container com o CI verde.
+# Filtrar explicitamente troca a coincidencia por garantia (padrao E016/E017).
 RUN pnpm install --prod --filter @artificio/downloads-backend --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/media --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/email --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/content --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/content-editor --frozen-lockfile --ignore-scripts \
+  && pnpm install --prod --filter @artificio/auth --frozen-lockfile --ignore-scripts \
+  && pnpm install --prod --filter @artificio/config --frozen-lockfile --ignore-scripts \
+  && pnpm install --prod --filter @artificio/catalog-client --frozen-lockfile --ignore-scripts \
   && test -d packages/media/node_modules/cloudinary \
   && test -d packages/content-editor/node_modules/sanitize-html \
+  && test -d packages/auth/node_modules/jsonwebtoken \
+  && test -d packages/config/node_modules/zod \
+  && test -d packages/catalog-client/node_modules/zod \
   || (echo "ERRO: dependencia de pacote workspace ausente em packages/*/node_modules/" && exit 1)
 
 # Achado de review PR #193 (codex) — scraper de spec 084 (Modo 2a/2b) precisa
