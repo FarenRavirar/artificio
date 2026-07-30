@@ -192,6 +192,10 @@ export interface DownloadReportTable {
   resolution_note: string | null;
   reporter_abuse_flagged: Generated<boolean>;
   reporter_dismissed_streak: Generated<number>;
+  // Aponta para a denuncia sobrevivente quando esta linha foi dispensada por
+  // consolidacao de duplicata (migration 037), nao por decisao de moderacao.
+  // Discrimina os dois casos sem depender do texto livre de resolution_note.
+  consolidated_into_report_id: string | null;
   created_at: Generated<Date>;
   resolved_at: Date | null;
 }

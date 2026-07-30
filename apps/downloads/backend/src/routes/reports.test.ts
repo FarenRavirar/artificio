@@ -139,6 +139,39 @@ describe('reports — alvo único e prioridade interna', () => {
     }));
   });
 
+  // Achado Codex P2 (PR #231): a consolidação da migration 037 grava
+  // case_state='dismissed' em duplicata que o próprio backend permitia criar
+  // (até 03578da não havia checagem alguma). Sem excluí-la, um denunciante com 3
+  // duplicatas consolidadas seria sinalizado como abusivo sem nunca ter feito
+  // denúncia improcedente. Diferente do filtro de retirada voluntária, este é
+  // coluna dedicada — asserção nomeada, não "existe cláusula extra".
+  it('não conta duplicata consolidada como sequência de abuso', async () => {
+    const history = selectBuilder(undefined, []);
+    dbMocks.selectFrom
+      .mockReturnValueOnce(selectBuilder({ id: 'material-1' }))
+      .mockReturnValueOnce(selectBuilder(undefined))
+      .mockReturnValueOnce(history);
+    const values = mockInsert();
+
+    await request(app()).post('/api/v1/reports').send({
+      material_id: 'material-1', category: 'other',
+    }).expect(201);
+
+    expect(history.where).toHaveBeenCalledWith('consolidated_into_report_id', 'is', null);
+    expect(values).toHaveBeenCalledWith(expect.objectContaining({
+      reporter_abuse_flagged: false, reporter_dismissed_streak: 0,
+    }));
+  });
+
+  it('abuse-check também ignora duplicata consolidada', async () => {
+    const history = selectBuilder(undefined, []);
+    dbMocks.selectFrom.mockReturnValueOnce(history);
+
+    await request(app()).get('/api/v1/reports/abuse-check/user-9').expect(200);
+
+    expect(history.where).toHaveBeenCalledWith('consolidated_into_report_id', 'is', null);
+  });
+
   it('recusa alvo duplo/vazio e devolve 409 para duplicata', async () => {
     await request(app()).post('/api/v1/reports').send({ category: 'other' }).expect(400);
     await request(app()).post('/api/v1/reports').send({

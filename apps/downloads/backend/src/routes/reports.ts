@@ -104,10 +104,15 @@ router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Res
     .executeTakeFirst();
   if (duplicate) return res.status(409).json({ error: 'Você já tem uma denúncia em análise para este conteúdo.' });
 
-  // Retirada voluntária não conta como abuso — ver WITHDRAWN_RESOLUTION_NOTE.
+  // Dois `dismissed` não significam denúncia improcedente e por isso não contam
+  // como abuso: retirada voluntária (ver WITHDRAWN_RESOLUTION_NOTE) e
+  // consolidação de duplicata (migration 037, achado Codex P2 na PR #231) — esta
+  // última o próprio backend permitia criar antes de 03578da, então cobrá-la do
+  // denunciante puniria comportamento que a plataforma autorizou.
   const recentReports = await db.selectFrom('download_report').select('case_state')
     .where('reporter_user_id', '=', req.user!.userId)
     .where('case_state', 'in', ['resolved', 'dismissed'])
+    .where('consolidated_into_report_id', 'is', null)
     .where((eb) => eb.or([
       eb('resolution_note', 'is', null),
       eb('resolution_note', '<>', WITHDRAWN_RESOLUTION_NOTE),
@@ -192,14 +197,20 @@ router.get('/abuse-check/:userId', writeRateLimiter, authMiddleware, requireRole
     .select(['case_state'])
     .where('reporter_user_id', '=', req.params.userId)
     .where('case_state', 'in', ['resolved', 'dismissed'])
-    // Mesmo filtro do POST: sem ele esta rota diria "abusivo" para quem só
-    // retirou as próprias denúncias, contradizendo o flag gravado na criação.
+    // Mesmos filtros do POST: sem eles esta rota diria "abusivo" para quem só
+    // retirou as próprias denúncias ou teve duplicatas consolidadas pela
+    // migration 037, contradizendo o flag gravado na criação.
+    .where('consolidated_into_report_id', 'is', null)
     .where((eb) => eb.or([
       eb('resolution_note', 'is', null),
       eb('resolution_note', '<>', WITHDRAWN_RESOLUTION_NOTE),
     ]))
     .orderBy('created_at', 'desc')
-    .limit(ABUSE_DISMISSED_STREAK_THRESHOLD)
+    // Mesma janela do POST (não o limiar): com LIMIT 3 uma "resolved" na 4ª
+    // posição é invisível aqui e visível na criação, então as duas rotas
+    // divergiam sobre o mesmo usuário. `isReporterAbusive` só olha o prefixo
+    // dismissed, então ler 20 não muda o veredito — só o alinha.
+    .limit(ABUSE_LOOKBACK_WINDOW)
     .execute();
 
   const abusive = isReporterAbusive(recentReports.map((r) => r.case_state));

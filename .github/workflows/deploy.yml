@@ -69,6 +69,16 @@ on:
           - default
           - beta
           - prod
+      # E012 (.specify/memory/errors.md): migration `manual-risk` pendente aborta
+      # o deploy e ate esta spec nao havia caminho por workflow — so SSH manual no
+      # banco. Custou 3 ciclos de deploy completos, sempre no downloads. Default
+      # false mantem o guard como esta; marcar exige ato deliberado por disparo,
+      # nunca fica ligado por inercia (mesma disciplina de aprovacao por acao).
+      allow_manual_migrations:
+        description: "Aplicar migrations manual-risk pendentes neste disparo (o workflow ja faz snapshot antes)."
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -200,6 +210,9 @@ jobs:
       db_user: ${{ matrix.db_user }}
       deploy: ${{ matrix.deploy }}
       reconcile_same_project_orphans: ${{ matrix.reconcile_same_project_orphans }}
+      # So o dispatch manual pode ligar isto; push automatico nunca (o input nem
+      # existe em `on: push`, entao a expressao resolve para false).
+      allow_manual_migrations: ${{ inputs.allow_manual_migrations == true }}
       # _deploy-module espera STRING JSON; toJSON reserializa o objeto/array do manifesto.
       health_containers: ${{ toJSON(matrix.health_containers) }}
       health_containers_beta: ${{ toJSON(matrix.health_containers_beta) }}
