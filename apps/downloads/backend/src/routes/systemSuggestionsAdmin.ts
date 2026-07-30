@@ -333,20 +333,25 @@ router.post('/:id/resolve', writeRateLimiter, authMiddleware, requireRole('admin
         body: parsed.data,
       });
 
-      if (suggestion.source === 'user' && suggestion.suggested_by_user_id) {
-        const body = resolved.resolution_action === 'reject'
-          ? `Sua sugestão de sistema "${suggestion.raw_value}" não foi aceita desta vez.`
-          : `Sua sugestão de sistema "${suggestion.raw_value}" foi aceita.`;
-        await emitNotification({
-          userId: suggestion.suggested_by_user_id,
-          kind: 'system_suggestion_resolved',
-          materialId: suggestion.material_id,
-          body,
-        }, trx);
-      }
-
       return { outcome: resolved, suggestionAfter: suggestion };
     });
+
+    // O catálogo é HTTP e não participa da transação local. Notificar só
+    // depois do commit impede falha secundária de reabrir a sugestão enquanto
+    // o nó externo já existe; notificação continua best-effort.
+    if (suggestionAfter.source === 'user' && suggestionAfter.suggested_by_user_id) {
+      const body = outcome.resolution_action === 'reject'
+        ? `Sua sugestão de sistema "${suggestionAfter.raw_value}" não foi aceita desta vez.`
+        : `Sua sugestão de sistema "${suggestionAfter.raw_value}" foi aceita.`;
+      emitNotification({
+        userId: suggestionAfter.suggested_by_user_id,
+        kind: 'system_suggestion_resolved',
+        materialId: suggestionAfter.material_id,
+        body,
+      }).catch((error: unknown) => {
+        console.error('[POST /admin/system-suggestions/:id/resolve] Falha ao emitir notificação pós-commit:', error);
+      });
+    }
 
     logModerationAudit({ action: 'system_suggestion_decide', actorUserId: req.user!.userId, materialId: suggestionAfter.material_id, suggestionId: req.params.id, reason: outcome.resolution_action });
 

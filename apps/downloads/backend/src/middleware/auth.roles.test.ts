@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveEffectiveDownloadsRole } from './auth';
+import { resolveDownloadsDomainRole, resolveEffectiveDownloadsRole } from './auth';
 
 describe('precedência de papel global no downloads', () => {
   it('admin central vence papel local', () => {
@@ -16,5 +16,10 @@ describe('precedência de papel global no downloads', () => {
 
   it('falha local nunca promove: fallback user continua user', () => {
     expect(resolveEffectiveDownloadsRole('user', 'user')).toBe('user');
+  });
+
+  it('moderator/admin locais legados nunca viram fallback global', () => {
+    expect(resolveDownloadsDomainRole('moderator')).toBe('user');
+    expect(resolveDownloadsDomainRole('admin')).toBe('user');
   });
 });

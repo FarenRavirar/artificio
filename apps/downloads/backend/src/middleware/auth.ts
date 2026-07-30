@@ -23,25 +23,29 @@ declare global {
   }
 }
 
-// Downloads nao tem tabela users propria (SSO direto via accounts.); role
-// vem de download_creator quando existe perfil de criador, senao 'user'.
-const resolveCreatorRole = async (userId: string): Promise<DownloadCreatorRole> => {
+// Só `publisher` é papel de domínio. moderator/admin locais são legado e nunca
+// promovem: o papel global vem exclusivamente do accounts.
+const resolveCreatorRole = async (userId: string): Promise<'user' | 'publisher'> => {
   try {
     const creator = await db
       .selectFrom('download_creator')
       .select('role')
       .where('user_id', '=', userId)
       .executeTakeFirst();
-    return creator?.role ?? 'user';
+    return resolveDownloadsDomainRole(creator?.role ?? 'user');
   } catch (error) {
     console.warn('[auth] Falha ao resolver role de download_creator, fallback para "user":', error);
     return 'user';
   }
 };
 
+export function resolveDownloadsDomainRole(role: DownloadCreatorRole): 'user' | 'publisher' {
+  return role === 'publisher' ? 'publisher' : 'user';
+}
+
 export function resolveEffectiveDownloadsRole(
   globalRole: Session['user']['role'],
-  localRole: DownloadCreatorRole,
+  localRole: 'user' | 'publisher',
 ): DownloadCreatorRole {
   return globalRole === 'admin' || globalRole === 'moderator' ? globalRole : localRole;
 }

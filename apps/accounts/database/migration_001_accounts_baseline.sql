@@ -30,7 +30,11 @@ DO $$
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM information_schema.columns
-    WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'role'
+    WHERE table_schema = 'public'
+      AND table_name = 'users'
+      AND column_name = 'role'
+      AND data_type = 'text'
+      AND is_nullable = 'NO'
   ) OR NOT EXISTS (
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'public' AND table_name = 'admin_secrets' AND column_name = 'ciphertext'

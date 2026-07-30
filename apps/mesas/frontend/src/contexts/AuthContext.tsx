@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
+import type { UserRole } from '@artificio/auth';
 import { getAccountsOrigin, useSession } from '@artificio/auth/client';
 import { AuthContext, isValidRole } from './authContextCore';
 import type { User } from './authContextCore';
@@ -7,7 +8,8 @@ import { authGet } from '../services/apiClient';
 
 export type { User } from './authContextCore';
 
-const mapSsoRole = (role: 'user' | 'admin'): User['role'] => role === 'admin' ? 'admin' : 'player';
+// Requisito 4: moderator global não vira admin de domínio do mesas.
+const mapSsoRole = (role: UserRole): User['role'] => role === 'admin' ? 'admin' : 'player';
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const session = useSession();

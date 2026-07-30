@@ -56,6 +56,7 @@ services:
       - COOKIE_DOMAIN=${COOKIE_DOMAIN}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - ACCOUNTS_BOOTSTRAP_ADMIN_EMAIL=${ACCOUNTS_BOOTSTRAP_ADMIN_EMAIL:-}
       # WS3/REV-018: token serviço-a-serviço p/ GET /admin/secrets (mesas → accounts).
       # REV-046: obrigatório — falha no deploy em vez de degradar em runtime.
       - SERVICE_SECRET=${SERVICE_SECRET:?SERVICE_SECRET obrigatorio para accounts-api}

@@ -21,13 +21,17 @@ export const getMe = async (req: AuthedRequest, res: Response) => {
       return res.status(401).json({ message: 'Não autenticado.' });
     }
     const result = await db.query(
-      'SELECT id, full_name, email, role FROM users WHERE id = $1',
+      'SELECT id, full_name, email FROM users WHERE id = $1',
       [req.user.id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Usuário não encontrado.' });
     }
-    res.json(result.rows[0]);
+    res.json({
+      ...result.rows[0],
+      role: req.user.is_global_admin ? 'admin' : 'member',
+      is_global_moderator: req.user.is_global_moderator === true,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Erro ao buscar perfil.' });

@@ -110,7 +110,7 @@ beforeEach(() => {
   loadCatalogSystemsFlatMock.mockReset();
   createCatalogNodeMock.mockReset();
   addCatalogNodeAliasMock.mockReset();
-  emitNotificationMock.mockReset();
+  emitNotificationMock.mockReset().mockResolvedValue(undefined);
   currentUser = { userId: 'admin-1', role: 'admin' };
 
   dbMocks.updateTable.mockReturnValue({ set: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) });
@@ -174,7 +174,6 @@ describe('POST /api/v1/admin/system-suggestions/:id/resolve', () => {
     expect(trx.materialUpdate.set).toHaveBeenCalledWith(expect.objectContaining({ system_id: 'dd5e', raw_system_hint: null }));
     expect(emitNotificationMock).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'user-1', kind: 'system_suggestion_resolved' }),
-      expect.anything(),
     );
   });
 
@@ -382,8 +381,21 @@ describe('POST /api/v1/admin/system-suggestions/:id/resolve', () => {
     expect(trx.suggestionUpdate.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'rejected', rejection_reason: 'Duplicata de outro sistema já cadastrado.' }));
     expect(emitNotificationMock).toHaveBeenCalledWith(
       expect.objectContaining({ userId: 'user-1', kind: 'system_suggestion_resolved' }),
-      expect.anything(),
     );
+  });
+
+  it('confirma resolução mesmo quando a notificação pós-commit falha', async () => {
+    const trx = makeTrx();
+    dbMocks.transaction.mockReturnValue({ execute: async (cb: (trx: unknown) => Promise<unknown>) => cb(trx) });
+    dbMocks.selectFrom.mockReturnValueOnce(selectChain({ material_id: 'material-1', raw_value: 'D&D 5e', source: 'user', suggested_by_user_id: 'user-1' }));
+    emitNotificationMock.mockRejectedValueOnce(new Error('notification unavailable'));
+
+    const res = await request(app())
+      .post('/api/v1/admin/system-suggestions/s1/resolve')
+      .send({ resolution_type: 'reject', reason: 'Duplicata.' });
+
+    expect(res.status).toBe(200);
+    expect(trx.suggestionUpdate.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'rejected' }));
   });
 
   it('source=scraper nunca notifica ninguém', async () => {

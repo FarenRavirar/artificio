@@ -16,6 +16,7 @@ import { createGoogleClient, readGoogleProfile } from "./google.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "./tokens.js";
 import { findAuthUserById, findUserById, upsertGoogleUser } from "./users.js";
 import { createAdminSecretsRoutes } from "./adminSecretsRoutes.js";
+import { createAdminRoleRoutes } from "./adminRoleRoutes.js";
 
 // Comparacao constante mesmo com tamanhos diferentes (timingSafeEqual exige
 // buffers do mesmo length) — evita vazar por timing quanto do token bate.
@@ -196,6 +197,7 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
 
   // WS3: admin secrets (DeepSeek key, etc.) — admin-gated + X-Service-Token
   app.use(createAdminSecretsRoutes(db, env as unknown as Record<string, string | undefined>));
+  app.use(createAdminRoleRoutes(db));
 
   // Spec 083 (downloads: rejeicao com e-mail) — rota interna server-to-server,
   // resolve email/nome do autor por user_id. So X-Service-Token, sem fallback
@@ -224,7 +226,7 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
   const clientDir = join(currentDir, "client");
   if (existsSync(clientDir)) {
     app.use(express.static(clientDir));
-    app.get(["/", "/login", "/conta"], (_req, res) => {
+    app.get(["/", "/login", "/conta", "/admin/papeis"], (_req, res) => {
       res.sendFile(join(clientDir, "index.html"));
     });
   }

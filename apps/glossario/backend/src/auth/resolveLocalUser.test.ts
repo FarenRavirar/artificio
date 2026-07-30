@@ -63,7 +63,6 @@ describe('resolveLocalUser', () => {
     ]);
     const local = await resolveLocalUser(makeSession(), exec);
     expect(local.id).toBe('u-1');
-    expect(local.role).toBe('admin');
     expect(exec.calls.some((c) => isUpdateLink(c.text))).toBe(false);
     expect(exec.calls.some((c) => isInsert(c.text))).toBe(false);
   });
@@ -77,7 +76,6 @@ describe('resolveLocalUser', () => {
     ]);
     const local = await resolveLocalUser(makeSession(), exec);
     expect(local.id).toBe('u-legacy');
-    expect(local.role).toBe('member');
     expect(local.sso_user_id).toBe('sub-123');
     const update = exec.calls.find((c) => isUpdateLink(c.text));
     expect(update?.params).toEqual(['sub-123', 'u-legacy']);
@@ -94,7 +92,6 @@ describe('resolveLocalUser', () => {
     ]);
     const local = await resolveLocalUser(makeSession(), exec);
     expect(local.id).toBe('u-new');
-    expect(local.role).toBe('member');
     const insert = exec.calls.find((c) => isInsert(c.text));
     expect(insert?.params?.[3]).toBe(SSO_NO_PASSWORD);
     expect(insert?.params?.[4]).toBe('sub-123');

@@ -4,7 +4,7 @@ import type { AuthedRequest } from '../types/express.js';
 
 export const listUsers = async (req: Request, res: Response) => {
   try {
-    const result = await db.query('SELECT id, full_name, username, email, role, banned, created_at FROM users ORDER BY created_at DESC');
+    const result = await db.query('SELECT id, full_name, username, email, banned, created_at FROM users ORDER BY created_at DESC');
     res.json(result.rows);
   } catch (err) {
     console.error(err);
@@ -38,10 +38,14 @@ export const updateProfile = async (req: AuthedRequest, res: Response) => {
 
   try {
     const result = await db.query(
-      'UPDATE users SET full_name = $1 WHERE id = $2 RETURNING id, full_name, username, email, role',
+      'UPDATE users SET full_name = $1 WHERE id = $2 RETURNING id, full_name, username, email',
       [full_name, userId]
     );
-    res.json(result.rows[0]);
+    res.json({
+      ...result.rows[0],
+      role: req.user?.is_global_admin ? 'admin' : 'member',
+      is_global_moderator: req.user?.is_global_moderator === true,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Erro ao atualizar perfil.' });

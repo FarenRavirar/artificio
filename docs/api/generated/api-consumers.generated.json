@@ -1,14 +1,16 @@
 {
   "metadata": {
-    "total": 301,
-    "uniqueEndpoints": 280,
+    "total": 302,
+    "uniqueEndpoints": 281,
     "byApp": {
       "accounts-frontend": {
-        "total": 2,
+        "total": 3,
         "byConfidence": {
+          "medium": 1,
           "high": 2
         },
         "byPattern": {
+          "template-literal": 1,
           "literal": 2
         }
       },
@@ -81,13 +83,23 @@
   "consumers": [
     {
       "app": "accounts-frontend",
+      "consumerFile": "apps/accounts/frontend/src/AdminRolesPanel.tsx",
+      "method": "PATCH",
+      "endpoint": "/admin/roles/users/:param",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "fetch",
+      "line": 81
+    },
+    {
+      "app": "accounts-frontend",
       "consumerFile": "apps/accounts/frontend/src/main.tsx",
       "method": "PUT",
       "endpoint": "/admin/secrets/deepseek_api_key",
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 219
+      "line": 239
     },
     {
       "app": "accounts-frontend",
@@ -97,7 +109,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 53
+      "line": 54
     },
     {
       "app": "glossario-frontend",
@@ -647,7 +659,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "api.get",
-      "line": 22
+      "line": 21
     },
     {
       "app": "glossario-frontend",
@@ -667,7 +679,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.post",
-      "line": 34
+      "line": 33
     },
     {
       "app": "glossario-frontend",
@@ -897,7 +909,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 64
+      "line": 66
     },
     {
       "app": "mesas-frontend",
@@ -907,7 +919,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "refreshSession",
-      "line": 59
+      "line": 61
     },
     {
       "app": "mesas-frontend",
@@ -1947,7 +1959,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 29
+      "line": 31
     },
     {
       "app": "mesas-frontend",

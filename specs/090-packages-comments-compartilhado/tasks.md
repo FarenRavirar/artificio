@@ -79,12 +79,30 @@ papel errado em produção tira acesso de gente.
 - [ ] T1.2 — **[P0] `/api/auth/refresh` relê o usuário no banco** antes de reassinar (`app.ts:162`). O papel vem do banco, nunca do token que está sendo trocado. Definir e registrar o **SLA de revogação** — quanto tempo, no pior caso, entre mudar o papel e a sessão ativa refletir. Considerar `role_version`/`session_version` no token para invalidar sessão sem esperar expirar. · feito quando: teste de promoção e teste de revogação provam que a sessão ativa reflete o banco dentro do SLA declarado.
 - [ ] T1.3 — **`moderator` no contrato de autenticação** (requisito 1). Não é só o tipo compartilhado: `verifyRefreshToken` rejeita explicitamente qualquer papel fora de `user`/`admin` (`tokens.ts:44`), então uma sessão de moderator seria invalidada no primeiro refresh. Tocar `packages/auth/src/types.ts:1`, `jwt.ts:4`, `client.ts:81` e o `tokens.ts` do `accounts.`, com teste em cada um. · feito quando: JWT, cliente, `/me` e refresh aceitam o papel novo, e todos os consumidores seguem funcionando.
 - [ ] T1.4 — **Papel resolvido por `JOIN`, não por chamada de API** (correção da versão anterior). A T1.2 antiga mandava criar "API em lote para evitar N+1" — mas comentários e usuários vão estar **no mesmo banco e no mesmo processo** do `accounts.`: a listagem faz `JOIN`, e o N+1 não existe. Endpoint em lote só se justifica para **backends de outros módulos**; se for criado, é **rota interna**, com autenticação server-to-server, escopo por app, limite de IDs, **sem e-mail** e sem exposição pública. · feito quando: a listagem resolve identidade no mesmo `SELECT`, e a rota em lote existe apenas se um consumidor real a exigir.
-- [ ] T1.5 — **Migração de papéis com relatório determinístico** (requisito 4). A versão anterior dizia "mapa antes-e-depois" sem definir o algoritmo. Cada linha registra: origem, conta no `accounts.`, papel anterior, papel final, conflito, e motivo quando não casou. Migração **idempotente**. Papéis de beta **não** são unidos à autoridade de prod sem decisão explícita — usa as regras de casamento de T0.4. · feito quando: relatório completo, rodar duas vezes dá o mesmo resultado, e nenhum `unmatched` fica sem motivo.
-- [ ] T1.6 — **Leitura dupla com precedência escrita** (rollback vivo). A versão anterior dizia só "lê global, cai no local". Ambíguo em produção. Precedência: `admin` central **vence**; `moderator` central concede **somente** as capacidades definidas em T0.1; papéis de domínio continuam locais; ausência no central permite fallback temporário; **erro ou timeout nunca promove**; autorização privilegiada não usa cache antigo indefinidamente. · feito quando: as seis regras testadas, inclusive a de erro.
+> **Decisão do mantenedor (2026-07-30) — não existe migração de papéis. `accounts.` é a origem, não o destino.**
+> A versão anterior de T1.5 mandava ler papel local de `downloads`/`glossario`/`mesas` e
+> consolidar no `accounts.`, tratando o papel de app como autoridade a preservar. **Invertido:**
+> a conta no `accounts.` é definitiva e mandatória; app nenhum manda papel global para lá.
+> `downloads` não foi lançado e pode ser refeito — travar a arquitetura do SSO para preservar o
+> papel local dele não se justifica.
+>
+> Consequência: `apps/accounts/src/roleMigration.ts` (e seu teste) perde a razão de existir.
+> Mantê-lo como código puro sem consumidor, contradizendo esta decisão, é pior que removê-lo —
+> o próximo agente leria a migração como caminho pretendido. **Remover na T1.5.**
+>
+> Some junto a classe de conflito que ele detectava (`duplicate_central_email`,
+> `central_id_not_found`): esses conflitos só nascem de casar papel de app com conta central.
+> Sem migração, não nascem. Duplicidade de conta no `accounts.` é higiene de identidade, com
+> spec própria — não entra aqui.
+
+- [ ] T1.5 — **Remover `roleMigration.ts` e `roleMigration.test.ts`, e ancorar o papel no `accounts.`** (requisito 4, reescrito pela decisão acima). O papel global nasce e vive em `users.role` do `accounts.`; nenhum app o alimenta. · feito quando: os dois arquivos removidos, nenhuma referência restante (`rtk rg "roleMigration"` vazio), build e teste verdes.
+- [ ] T1.5a — **Bootstrap do primeiro admin — sem isso a Fase 1 é inutilizável.** `users.ts:71` cria toda conta com `role: "user"` e não existe rota que promova ninguém: ao subir a Fase 1, **ninguém é admin, incluindo o mantenedor**, e o único caminho seria `UPDATE` manual em produção (operação perigosa por governança). No boot, o `accounts.` lê `ACCOUNTS_BOOTSTRAP_ADMIN_EMAIL` e garante `role='admin'` para essa conta — idempotente, roda a cada boot sem efeito se o papel já estiver correto, e não falha o boot se a conta ainda não existir (o mantenedor pode não ter logado ainda). **E-mail vai em variável de ambiente, nunca literal em SQL ou código:** o repositório é público desde 2026-06-14, e e-mail literal permanece no histórico do Git mesmo depois de removido do arquivo — é alvo nominal de phishing contra a conta que administra a plataforma inteira. Valor real fica no `.env` da VM (gitignored), como os demais segredos. Promoção pelo bootstrap grava em `global_role_audit` com ator identificável como o próprio bootstrap, não como usuário anônimo. · feito quando: conta do mantenedor vira `admin` no boot, rodar duas vezes não duplica auditoria, boot sobrevive à conta ausente, e nenhum e-mail literal entra no diff.
+- [ ] T1.5b — **Painel de gestão de papéis no `accounts.`** (decisão do mantenedor: papel em si vai na Fase 1). Listar contas com busca por e-mail/nome, promover e rebaixar entre `user`/`moderator`/`admin`. Toda ação passa pelo trigger `audit_global_role_change()` da migration 002, que já grava em `global_role_audit` — a rota precisa setar `app.actor_id` (`current_setting('app.actor_id', true)`), senão a auditoria sai sem ator. Rota exige `admin`; rebaixar a si mesmo é recusado (evita o admin único se trancar para fora). Reusa `packages/ui/src/admin` (`AdminTable`, `StatusPill`, `PageHeader`), como o requisito 27 — não cria design system paralelo. · feito quando: promover e rebaixar refletem em `/me` dentro do SLA de T1.2, cada ação aparece em `global_role_audit` com ator correto, e auto-rebaixamento é recusado com teste.
+- [ ] T1.6 — **Papel global lido só do `accounts.`, sem fallback local** (reescrito pela decisão de T1.5). A versão anterior mandava leitura dupla com fallback no papel local — coerente com migração, incoerente com `accounts.` sendo a origem: fallback local reintroduziria o app como autoridade pela porta dos fundos, e um app comprometido ou desatualizado poderia conceder privilégio que o central nega. Regras: `admin` central **vence**; `moderator` central concede **somente** as capacidades de T0.1; papéis de **domínio** (criador, mestre, autor) continuam locais e não são afetados; **ausência do papel no central significa `user`, nunca fallback**; **erro ou timeout nunca promove** (deny-by-default, ver T1.7); autorização privilegiada não usa cache antigo indefinidamente. · feito quando: as seis regras testadas, inclusive erro e ausência.
 - [ ] T1.7 — **Falha do `accounts.` não altera autorização** (requisito 22, delimitado). Degradação vale para **leitura pública** de comentário — a página continua de pé. **Não** vale para ação privilegiada: se o papel não pode ser provado, a ação moderadora **falha fechada** (deny-by-default, OWASP). Outage nunca promove ninguém. · feito quando: teste com o `accounts.` fora mostra página pública viva e ação moderadora recusada.
 - [ ] T1.8 — Apps passam a ler o papel do `accounts.` nos pontos mapeados em T0.2 (requisito 2). Papel de domínio fica onde está (requisito 3). · feito quando: cada ponto migrado, com teste.
 - [ ] T1.9 — **Smoke de SSO em todos os consumidores** (T0.3): login, `/me`, logout. Obrigatório — `accounts.` e `packages/auth` foram tocados. · feito quando: todos verdes, com evidência.
-- [ ] T1.10 — **Remoção do papel local: seis condições, não duas.** A versão anterior liberava depois de "migração + smoke de login" — smoke de login não prova paridade de autorização. Exigir: contagem antes e depois; teste **por capacidade** (não por nome de papel); refresh reidratado do banco (T1.2); usuários conflitantes resolvidos; período observável de leitura dupla; rollback ensaiado. · feito quando: as seis cumpridas, e nenhum app decide papel global por conta própria.
+- [ ] T1.10 — **Remoção do papel global local dos apps.** Reescrito pela decisão de T1.5: sem migração e sem fallback (T1.6), some a exigência de "período observável de leitura dupla" e de "usuários conflitantes resolvidos" — não há conflito a resolver. Permanecem: teste **por capacidade** (não por nome de papel), provando que quem podia moderar continua podendo; refresh reidratado do banco (T1.2); rollback ensaiado. Papel de **domínio** (`download_creator.role` na parte que não é global, mestre, autor) **fica onde está** — só o global sai. · feito quando: as três cumpridas, e nenhum app decide papel global por conta própria.
 
 ### Alarme de drift do `accounts.` (achado do mantenedor, 2026-07-30)
 
@@ -102,6 +120,27 @@ saudável e o **único** alarme de schema defasado no SSO é
 - [x] T1.12 — **Verificar o mesmo defeito em `apply_required_migrations.sh`** (linhas 65-66, `diretorio ausente; nada a aplicar`). É a origem do padrão que T1.11 corrige; foi essa saída falso-positiva que mascarou `015`/`016` por 7 dias em beta E prod. **Decisão reportada e aprovada em 2026-07-30:** o runner padrão falha fechado; `_deploy-module.yml` não o chama para o `site`, que usa runner próprio no entrypoint. Testes reais do ramo ausente provaram exit diferente de zero nos dois scripts; `bash -n` verde. · feito quando: corrigido, ou a exceção justificada por escrito.
 
 - [ ] T1.13 — **Confirmar que o `accounts` é coberto de ponta a ponta.** `_deploy-module.yml:519-522` deriva `DRIFT_DIR` por convenção (`apps/${MODULE}/database`), com `if` hardcoded só para o `site`. Rodar o drift contra o banco real do `accounts` e provar que detecta as duas direções: disco à frente (migration não aplicada) e banco à frente (aplicada fora da esteira). · feito quando: as duas direções detectadas em execução real, não por leitura de código.
+
+> **T1.13 é bloqueio duro de deploy — decisão do mantenedor, 2026-07-30.**
+> Nenhuma das 3 migrations do `accounts` jamais rodou contra Postgres real (Docker
+> indisponível na máquina do Codex). **Nada da Fase 1 vai a beta ou prod antes de
+> T1.13 passar em execução real.** Merge de PR e revisão de bot não substituem:
+> ambos leem código, e o que falta provar é comportamento contra banco.
+>
+> Motivo de virar trava explícita agora: a Fase 1 **endurece gates antes do verde
+> comprovado** — o preflight da baseline passa a exigir `users.role` como
+> `TEXT NOT NULL` (achado do CodeRabbit, 2026-07-30) e o runner e o drift passam a
+> falhar fechado (T1.11/T1.12). Cada um é a decisão certa isoladamente, e juntos
+> significam que **um banco de produção divergente do esperado aborta o deploy**,
+> o que é o comportamento desejado — desde que alguém tenha verificado que o banco
+> real passa. Ninguém verificou.
+>
+> `AGENTS.md` §Bug achado: endurecer gate só **depois** do verde comprovado
+> localmente, senão transfere falha mascarada pro próximo PR. O mantenedor optou
+> por implementar o endurecimento agora e segurar o deploy até a prova real, em
+> vez de afrouxar o gate. As duas direções de T1.13 valem para o schema completo
+> da Fase 1, não só para o drift: baseline, `002` e `003` aplicadas do zero, e
+> aplicadas sobre banco que já tinha o schema inline anterior.
 
 > **Duas travas do mantenedor (2026-07-30) sobre T1.11–T1.13:**
 >

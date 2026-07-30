@@ -3,14 +3,14 @@
   "_description": "Índice único e machine-readable de todas as APIs do Artifício RPG. Fonte primária de descoberta para agentes de IA. Gerado por scripts/api/bundle-api.ts a partir dos contratos OpenAPI por-app. Não editar à mão.",
   "generatedAt": "1970-01-01T00:00:00.000Z",
   "apps": {
-    "accounts": 12,
+    "accounts": 15,
     "downloads": 82,
     "glossario": 49,
     "links": 22,
     "mesas": 192,
     "site": 49
   },
-  "total": 406,
+  "total": 409,
   "operations": [
     {
       "app": "accounts",
@@ -23,6 +23,42 @@
       "auth": "none",
       "consumers": [],
       "operationId": "get"
+    },
+    {
+      "app": "accounts",
+      "method": "GET",
+      "path": "/admin/papeis",
+      "summary": "Consulta admin papeis",
+      "owner": "accounts",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getadmin_papeis"
+    },
+    {
+      "app": "accounts",
+      "method": "GET",
+      "path": "/admin/roles/users",
+      "summary": "Consulta admin roles users",
+      "owner": "accounts",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getadmin_roles_users"
+    },
+    {
+      "app": "accounts",
+      "method": "PATCH",
+      "path": "/admin/roles/users/{id}",
+      "summary": "Atualiza admin roles users id",
+      "owner": "accounts",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "patchadmin_roles_users_id"
     },
     {
       "app": "accounts",

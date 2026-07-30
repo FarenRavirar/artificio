@@ -72,8 +72,8 @@ async function createCreatorProfile(
   throw new Error('Não foi possível gerar um endereço público único para o perfil.');
 }
 
-// T1.x (spec 075) — role real do usuario logado no dominio downloads
-// (moderator/admin vem de download_creator.role; SSO so tem user|admin).
+// Papel efetivo: admin/moderator vêm do accounts.; download_creator só pode
+// acrescentar a capacidade de domínio publisher. Papel global local é legado.
 // Usado pelo frontend so pra decidir se mostra o link de /gestao — o backend
 // ja valida de verdade em cada rota /admin/* via requireRole, isso e so UX.
 // Rota fixa precisa vir antes de "/:slug" (Express casaria "me" como slug).

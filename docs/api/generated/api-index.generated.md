@@ -4,13 +4,16 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **406 operações**.
+Total: **409 operações**.
 
-## accounts (12)
+## accounts (15)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
 | GET | `/` | public-page | none | active | — | Consulta raiz |
+| GET | `/admin/papeis` | admin | admin | active | — | Consulta admin papeis |
+| GET | `/admin/roles/users` | admin | admin | active | — | Consulta admin roles users |
+| PATCH | `/admin/roles/users/{id}` | admin | admin | active | — | Atualiza admin roles users id |
 | GET | `/admin/secrets/{name}` | admin | service | provisional | mesas-backend | Recupera um segredo descriptografado (admin ou service-token) |
 | PUT | `/admin/secrets/{name}` | admin | admin | provisional | — | Armazena um segredo criptografado (admin) |
 | GET | `/api/auth/google` | external | none | active | — | Consulta api auth google |

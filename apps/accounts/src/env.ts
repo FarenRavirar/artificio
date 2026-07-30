@@ -2,6 +2,7 @@ import { parseEnv, BRAND_DOMAIN } from "@artificio/config";
 import { z } from "zod";
 
 export const accountsEnvSchema = z.object({
+  ACCOUNTS_BOOTSTRAP_ADMIN_EMAIL: z.email().optional(),
   ACCOUNTS_SECRETS_KEY: z.string().min(32).optional(),
   COOKIE_DOMAIN: z.string().default(`.${BRAND_DOMAIN}`),
   DATABASE_URL: z.url(),

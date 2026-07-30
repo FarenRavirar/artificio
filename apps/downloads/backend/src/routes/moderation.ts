@@ -309,6 +309,7 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
   const results: Array<{ id: string; status: 'updated' | 'skipped'; reason?: string }> = [];
 
   for (const id of parsed.data.ids) {
+    try {
     const material = await db
       .selectFrom('download_material')
       .select(['id', 'editorial_state', 'creator_id', 'title', 'slug'])
@@ -398,6 +399,10 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
     });
 
     results.push({ id, status: 'updated' });
+    } catch (error) {
+      console.error(`[PATCH /moderation/batch/${action}] Falha ao processar material ${id}:`, error);
+      results.push({ id, status: 'skipped', reason: 'falha ao processar' });
+    }
   }
 
   return res.json({ results });

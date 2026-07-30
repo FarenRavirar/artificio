@@ -7,7 +7,6 @@ interface Member {
   full_name: string;
   username: string;
   email: string;
-  role: string;
   banned: boolean;
   created_at: string;
 }
@@ -53,7 +52,6 @@ const AdminUsersPage: React.FC = () => {
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-bold text-[var(--fg-muted)] uppercase tracking-widest">Membro</th>
                 <th className="text-left px-4 py-3 text-xs font-bold text-[var(--fg-muted)] uppercase tracking-widest">E-mail</th>
-                <th className="text-left px-4 py-3 text-xs font-bold text-[var(--fg-muted)] uppercase tracking-widest">Papel</th>
                 <th className="text-left px-4 py-3 text-xs font-bold text-[var(--fg-muted)] uppercase tracking-widest">Status</th>
                 <th className="text-left px-4 py-3 text-xs font-bold text-[var(--fg-muted)] uppercase tracking-widest">Desde</th>
                 <th className="px-4 py-3"></th>
@@ -67,11 +65,6 @@ const AdminUsersPage: React.FC = () => {
                     <div className="text-xs text-[var(--fg-muted)]">@{u.username}</div>
                   </td>
                   <td className="px-4 py-3 text-sm text-[var(--fg-muted)]">{u.email}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-block px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${u.role === 'admin' ? 'bg-[var(--state-warning-bg)] text-[var(--artificio-brand)]' : 'bg-[var(--state-info-bg)] text-[var(--fg)]'}`}>
-                      {u.role}
-                    </span>
-                  </td>
                   <td className="px-4 py-3">
                     <span className={`inline-block px-2 py-1 rounded-full text-[10px] font-bold uppercase ${u.banned ? 'bg-[var(--state-danger-bg)] text-[var(--state-danger-fg)]' : 'bg-[var(--state-success-bg)] text-[var(--state-success-fg)]'}`}>
                       {u.banned ? 'Banido' : 'Ativo'}

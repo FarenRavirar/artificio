@@ -5,7 +5,6 @@ import { sanitizeTermFields } from '../utils/sanitizeText.js';
 import { slugify } from '../utils/slugify.js';
 import { randomUUID } from 'crypto';
 import { notifyTermOwnerOnModeration } from '../services/notificationService.js';
-import { fetchUserRoleFromDb } from '../utils/userRole.js';
 import { getCatalogNameMap } from '../services/catalogClient.js';
 import type { AuthedRequest } from '../types/express.js';
 
@@ -833,17 +832,9 @@ export const importTerms = async (req: AuthedRequest, res: Response) => {
     return res.status(401).json({ message: 'Usuário não autenticado.' });
   }
 
-  let userRole: 'admin' | 'member';
-  try {
-    const roleFromDb = await fetchUserRoleFromDb(userId);
-    if (!roleFromDb) {
-      return res.status(401).json({ message: 'Usuário não encontrado.' });
-    }
-    userRole = roleFromDb;
-  } catch (err) {
-    console.error('[importTerms] Erro ao revalidar role no banco:', err);
-    return res.status(503).json({ message: 'Serviço temporariamente indisponível. Tente novamente em instantes.' });
-  }
+  // Accounts é a única autoridade global. `users.role` local não promove o
+  // importador; serve apenas como dado legado até a remoção física posterior.
+  const userRole: 'admin' | 'member' = req.user?.is_global_admin ? 'admin' : 'member';
 
   const isAdmin = userRole === 'admin';
   const batchId = randomUUID();
