@@ -5,7 +5,7 @@ import { useMyMaterials } from '../../hooks/useMyMaterials';
 
 export function VisaoGeralPage() {
   const { user } = useSession();
-  const { data: materials, isLoading } = useMyMaterials();
+  const { data: materials, isLoading, isError } = useMyMaterials();
 
   const states = [
     ['published', 'Publicados'],
@@ -32,17 +32,24 @@ export function VisaoGeralPage() {
       <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
         {states.map(([state, label]) => (
           <div key={state} className="rounded-md border border-[var(--line)] p-4">
-            {/* Achado de review (PR #230, CodeRabbit): durante o carregamento a
-                lista ainda é undefined. Mostrar "0" e o convite de primeiro
-                material faria o autor com acervo publicado achar, por um
-                instante, que perdeu tudo. */}
-            <p className="text-3xl font-bold text-artificio-orange">{isLoading ? '—' : byState.get(state)?.length ?? 0}</p>
+            {/* Achado de review (PR #230, CodeRabbit): durante o carregamento —
+                e igualmente quando a requisição falha — a lista é undefined.
+                Mostrar "0" e o convite de primeiro material faria o autor com
+                acervo publicado achar que perdeu tudo. Falha de rede não é
+                acervo vazio. */}
+            <p className="text-3xl font-bold text-artificio-orange">{isLoading || isError ? '—' : byState.get(state)?.length ?? 0}</p>
             <p className="text-sm text-[var(--fg-muted)]">{label}</p>
           </div>
         ))}
       </div>
 
-      {!isLoading && list.length === 0 && (
+      {isError && (
+        <p role="alert" className="mt-8 rounded-md border border-red-500/50 p-5 text-sm text-[var(--fg)]">
+          Não foi possível carregar seus materiais agora. Nada foi perdido — recarregue a página em instantes.
+        </p>
+      )}
+
+      {!isLoading && !isError && list.length === 0 && (
         <section className="mt-8 rounded-md border border-artificio-orange p-5">
           <h2 className="text-lg font-semibold text-[var(--fg)]">Publique seu primeiro material</h2>
           <p className="mt-1 text-sm text-[var(--fg-muted)]">Comece com título e tipo. Você poderá completar e retomar o rascunho depois.</p>

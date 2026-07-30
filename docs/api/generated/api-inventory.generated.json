@@ -1037,7 +1037,7 @@
       "method": "GET",
       "path": "/api/v1/reports",
       "sourceFile": "apps/downloads/backend/src/routes/reports.ts",
-      "line": 195,
+      "line": 211,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1064,7 +1064,7 @@
       "method": "DELETE",
       "path": "/api/v1/reports/:id",
       "sourceFile": "apps/downloads/backend/src/routes/reports.ts",
-      "line": 149,
+      "line": 159,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1073,7 +1073,7 @@
       "method": "PATCH",
       "path": "/api/v1/reports/:id",
       "sourceFile": "apps/downloads/backend/src/routes/reports.ts",
-      "line": 233,
+      "line": 249,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1082,7 +1082,7 @@
       "method": "GET",
       "path": "/api/v1/reports/abuse-check/:userId",
       "sourceFile": "apps/downloads/backend/src/routes/reports.ts",
-      "line": 179,
+      "line": 189,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1091,7 +1091,7 @@
       "method": "GET",
       "path": "/api/v1/reports/mine",
       "sourceFile": "apps/downloads/backend/src/routes/reports.ts",
-      "line": 133,
+      "line": 143,
       "confidence": "high",
       "kind": "express-route"
     },

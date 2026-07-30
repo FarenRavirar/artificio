@@ -10,6 +10,13 @@ export const ABUSE_DISMISSED_STREAK_THRESHOLD = 3;
 // moderador. Não unificar: limitar a consulta ao limiar satura o snapshot em 3.
 export const ABUSE_LOOKBACK_WINDOW = 20;
 
+// Achado de review (PR #230, Codex P2): retirada voluntaria tambem grava
+// case_state 'dismissed'. Sem distinguir, quem cancela 3 denuncias proprias e
+// acusado de abuso — o oposto do comportamento desejavel, que e o denunciante
+// corrigir a si mesmo. A nota e o unico discriminador no schema; comparar por
+// ela em vez de duplicar o literal nos leitores.
+export const WITHDRAWN_RESOLUTION_NOTE = 'Retirada voluntária pelo denunciante.';
+
 export function reporterDismissedStreak(recentCaseStatesDescending: string[]): number {
   // `findIndex` (nao `some`): precisamos da POSICAO da primeira nao-dismissed, que
   // e o tamanho da sequencia. Sem nenhuma, a sequencia e a lista inteira.

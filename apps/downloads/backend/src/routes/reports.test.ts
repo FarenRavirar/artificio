@@ -102,6 +102,43 @@ describe('reports — alvo único e prioridade interna', () => {
     expect(history.limit).toHaveBeenCalledWith(20);
   });
 
+  // Achado de review (PR #230): o indice unico da migration 036 e PARCIAL
+  // (open/in_review). Estes dois testes travam o par handler/indice — sem eles,
+  // trocar o filtro nao quebra nada e a divergencia passa silenciosa.
+  it('limita a checagem de duplicata a casos ainda abertos', async () => {
+    const duplicateCheck = selectBuilder(undefined);
+    dbMocks.selectFrom
+      .mockReturnValueOnce(selectBuilder({ id: 'material-1' }))
+      .mockReturnValueOnce(duplicateCheck)
+      .mockReturnValueOnce(selectBuilder(undefined, []));
+
+    await request(app()).post('/api/v1/reports').send({
+      material_id: 'material-1', category: 'broken_link',
+    }).expect(201);
+
+    expect(duplicateCheck.where).toHaveBeenCalledWith('case_state', 'in', ['open', 'in_review']);
+  });
+
+  it('não conta retirada voluntária como sequência de abuso', async () => {
+    const history = selectBuilder(undefined, []);
+    dbMocks.selectFrom
+      .mockReturnValueOnce(selectBuilder({ id: 'material-1' }))
+      .mockReturnValueOnce(selectBuilder(undefined))
+      .mockReturnValueOnce(history);
+    const values = mockInsert();
+
+    await request(app()).post('/api/v1/reports').send({
+      material_id: 'material-1', category: 'other',
+    }).expect(201);
+
+    // O filtro entra como callback de expression builder; provar que existe uma
+    // clausula extra além de reporter_user_id e case_state já trava a regressão.
+    expect(history.where).toHaveBeenCalledWith(expect.any(Function));
+    expect(values).toHaveBeenCalledWith(expect.objectContaining({
+      reporter_abuse_flagged: false, reporter_dismissed_streak: 0,
+    }));
+  });
+
   it('recusa alvo duplo/vazio e devolve 409 para duplicata', async () => {
     await request(app()).post('/api/v1/reports').send({ category: 'other' }).expect(400);
     await request(app()).post('/api/v1/reports').send({

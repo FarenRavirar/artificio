@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '../db';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
-import { ABUSE_DISMISSED_STREAK_THRESHOLD, ABUSE_LOOKBACK_WINDOW, isReporterAbusive, reporterDismissedStreak } from '../services/reportAbuseGuard';
+import { ABUSE_DISMISSED_STREAK_THRESHOLD, ABUSE_LOOKBACK_WINDOW, WITHDRAWN_RESOLUTION_NOTE, isReporterAbusive, reporterDismissedStreak } from '../services/reportAbuseGuard';
 import { emitNotification } from '../services/notify';
 import { logModerationAudit } from '../services/moderationAuditLog';
 import { sanitizeNullableUserMarkdown } from '@artificio/content-editor/sanitize';
@@ -93,15 +93,25 @@ router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Res
     if (!comment) return res.status(404).json({ error: 'Comentário não encontrado.' });
   }
 
+  // Achado de review (PR #230): o filtro por case_state espelha o indice unico
+  // parcial da migration 036, que so cobre open/in_review. Sem ele o handler
+  // seria mais restritivo que o banco — bloquearia nova denuncia sobre problema
+  // que reapareceu depois de a moderacao ter decidido, o que nao e a regra.
   const duplicate = await db.selectFrom('download_report').select('id')
     .where('reporter_user_id', '=', req.user!.userId)
     .where(parsed.data.material_id ? 'material_id' : 'comment_id', '=', parsed.data.material_id ?? parsed.data.comment_id!)
+    .where('case_state', 'in', ['open', 'in_review'])
     .executeTakeFirst();
-  if (duplicate) return res.status(409).json({ error: 'Você já denunciou este conteúdo.' });
+  if (duplicate) return res.status(409).json({ error: 'Você já tem uma denúncia em análise para este conteúdo.' });
 
+  // Retirada voluntária não conta como abuso — ver WITHDRAWN_RESOLUTION_NOTE.
   const recentReports = await db.selectFrom('download_report').select('case_state')
     .where('reporter_user_id', '=', req.user!.userId)
     .where('case_state', 'in', ['resolved', 'dismissed'])
+    .where((eb) => eb.or([
+      eb('resolution_note', 'is', null),
+      eb('resolution_note', '<>', WITHDRAWN_RESOLUTION_NOTE),
+    ]))
     .orderBy('created_at', 'desc')
     .limit(ABUSE_LOOKBACK_WINDOW)
     .execute();
@@ -167,7 +177,7 @@ router.delete('/:id', writeRateLimiter, authMiddleware, async (req: Request, res
 
   await db
     .updateTable('download_report')
-    .set({ case_state: 'dismissed', resolved_at: new Date(), resolution_note: 'Retirada voluntária pelo denunciante.' })
+    .set({ case_state: 'dismissed', resolved_at: new Date(), resolution_note: WITHDRAWN_RESOLUTION_NOTE })
     .where('id', '=', req.params.id)
     .execute();
 
@@ -182,6 +192,12 @@ router.get('/abuse-check/:userId', writeRateLimiter, authMiddleware, requireRole
     .select(['case_state'])
     .where('reporter_user_id', '=', req.params.userId)
     .where('case_state', 'in', ['resolved', 'dismissed'])
+    // Mesmo filtro do POST: sem ele esta rota diria "abusivo" para quem só
+    // retirou as próprias denúncias, contradizendo o flag gravado na criação.
+    .where((eb) => eb.or([
+      eb('resolution_note', 'is', null),
+      eb('resolution_note', '<>', WITHDRAWN_RESOLUTION_NOTE),
+    ]))
     .orderBy('created_at', 'desc')
     .limit(ABUSE_DISMISSED_STREAK_THRESHOLD)
     .execute();

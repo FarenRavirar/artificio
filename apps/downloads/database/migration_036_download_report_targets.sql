@@ -33,35 +33,42 @@ BEGIN
   END IF;
 END $$;
 
--- Achado de review (Codex P1, PR #230): antes da 036 nao havia unicidade nenhuma
--- (migration_005 nao criou), so o SELECT de duplicata no handler — check-then-insert,
--- que perde corrida. Logo duplicata legitima pode existir em banco ja rodando e o
--- CREATE UNIQUE INDEX abaixo abortaria com 23505, derrubando o deploy. Consolidar
--- antes: mantem a denuncia mais antiga (a que abriu o caso) e descarta as repetidas
--- do mesmo denunciante sobre o mesmo alvo.
-DELETE FROM download_report AS duplicata
-USING download_report AS mantida
-WHERE duplicata.reporter_user_id IS NOT NULL
-  AND duplicata.reporter_user_id = mantida.reporter_user_id
-  AND duplicata.material_id IS NOT NULL
-  AND duplicata.material_id = mantida.material_id
-  AND (duplicata.created_at, duplicata.id) > (mantida.created_at, mantida.id);
-
-DELETE FROM download_report AS duplicata
-USING download_report AS mantida
-WHERE duplicata.reporter_user_id IS NOT NULL
-  AND duplicata.reporter_user_id = mantida.reporter_user_id
-  AND duplicata.comment_id IS NOT NULL
-  AND duplicata.comment_id = mantida.comment_id
-  AND (duplicata.created_at, duplicata.id) > (mantida.created_at, mantida.id);
-
+-- Unicidade "uma denuncia por denunciante por alvo" (D111/T9.7). Historico do
+-- desenho, porque duas revisoes de PR #230 mudaram a solucao:
+--
+-- 1. Antes da 036 nao havia unicidade nenhuma (migration_005 nao criou), so o
+--    SELECT de duplicata no handler — check-then-insert, que perde corrida. Logo
+--    duplicata legitima pode existir em banco ja rodando, e um indice unico
+--    irrestrito abortaria com 23505, derrubando o deploy (achado Codex P1).
+-- 2. A primeira correcao deduplicava com DELETE FROM. Errado por dois motivos
+--    independentes: o guard `validate_sql_against_class` barra DELETE FROM em
+--    `online-safe` (verificado por execucao real, exit 1 — padrao E011), e
+--    apagar a denuncia mais recente pode descartar a de MAIOR prioridade/estado
+--    mais avancado, perdendo trabalho de moderacao (achado CodeRabbit).
+--
+-- Solucao final: escopo do indice = apenas casos NAO decididos (open/in_review).
+-- Isso da a garantia que o produto precisa — nao acumular denuncia pendente
+-- repetida do mesmo denunciante sobre o mesmo alvo — sem apagar linha nenhuma:
+-- historico ja resolvido/dispensado fica intacto, e um banco com duplicata
+-- antiga nao trava mais o deploy, porque duplicata antiga so existe entre casos
+-- ja decididos. Continua `online-safe`, sem exigir backup nem parar a esteira.
+--
+-- Consequencia deliberada: denunciar de novo APOS a moderacao decidir e
+-- permitido. Correto — problema pode reaparecer (link volta a quebrar, material
+-- e reeditado), e a decisao anterior nao deve calar o denunciante para sempre.
+-- O handler completa o par: o SELECT de duplicata em reports.ts tambem filtra
+-- por case_state, e o 23505 e a rede contra corrida.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_download_report_reporter_material_unique
   ON download_report(reporter_user_id, material_id)
-  WHERE reporter_user_id IS NOT NULL AND material_id IS NOT NULL;
+  WHERE reporter_user_id IS NOT NULL
+    AND material_id IS NOT NULL
+    AND case_state IN ('open', 'in_review');
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_download_report_reporter_comment_unique
   ON download_report(reporter_user_id, comment_id)
-  WHERE reporter_user_id IS NOT NULL AND comment_id IS NOT NULL;
+  WHERE reporter_user_id IS NOT NULL
+    AND comment_id IS NOT NULL
+    AND case_state IN ('open', 'in_review');
 
 CREATE INDEX IF NOT EXISTS idx_download_report_comment
   ON download_report(comment_id)
