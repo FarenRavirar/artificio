@@ -12,6 +12,21 @@ on:
         required: false
         default: ""
         type: string
+      # E012: sem isto, migration `manual-risk` pendente so entrava por SSH manual
+      # no banco. O snapshot pre-migration ja roda neste job antes do script, entao
+      # o backup que o guard exige existe de fato — nao e destravar sem rede.
+      allow_manual_migrations:
+        required: false
+        default: false
+        type: boolean
+      # E012: o guard de QUANTIDADE roda ANTES do de classe
+      # (apply_required_migrations.sh:95 vs :111), entao liberar so manual-risk nao
+      # destrava acumulo. Vazio = default 5 do script; valor explicito e ato
+      # deliberado do disparo, nunca inferido do numero de pendentes.
+      max_auto_pending:
+        required: false
+        default: ""
+        type: string
       compose_file:
         required: true
         type: string
@@ -205,6 +220,8 @@ jobs:
       HEALTH_CONTAINERS: ${{ needs.resolve.outputs.env == 'beta' && inputs.health_containers_beta || inputs.health_containers }}
       CRITICAL_ROUTES: ${{ needs.resolve.outputs.env == 'beta' && inputs.critical_routes_beta || inputs.critical_routes }}
       RECONCILE_SAME_PROJECT_ORPHANS: ${{ inputs.reconcile_same_project_orphans }}
+      ALLOW_MANUAL_MIGRATIONS: ${{ inputs.allow_manual_migrations }}
+      MAX_AUTO_PENDING: ${{ inputs.max_auto_pending }}
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -452,7 +469,19 @@ jobs:
           docker exec "$DB_SERVICE" rm -f /tmp/predeploy.dump
           echo "snapshot_created=$snapshot_file"
 
-          bash ../../scripts/deploy/apply_required_migrations.sh "$COMPOSE_FILE" "$DB_SERVICE" "$DB_NAME" "$DB_USER" "database"
+          # E012: dois guards independentes barram o deploy aqui — QUANTIDADE
+          # (MAX_AUTO_PENDING, apply_required_migrations.sh:95) e CLASSE
+          # (manual-risk, :111), nessa ordem. Ambos so afrouxam por liberacao
+          # explicita do disparo; `:-` mantem o default do script (5 / false)
+          # quando o input vem vazio, entao o comportamento padrao nao muda.
+          # PROD_BACKUP_FILE aponta pro snapshot tirado acima — o mesmo arquivo que
+          # o rollback usaria — entao satisfaz o guard de backup com o artefato
+          # real, sem afrouxar REQUIRE_PROD_BACKUP_FOR_MANUAL (segue `true`,
+          # inclusive em prod).
+          ALLOW_MANUAL_MIGRATIONS="${ALLOW_MANUAL_MIGRATIONS:-false}" \
+          MAX_AUTO_PENDING="${MAX_AUTO_PENDING:-5}" \
+          PROD_BACKUP_FILE="$snapshot_file" \
+            bash ../../scripts/deploy/apply_required_migrations.sh "$COMPOSE_FILE" "$DB_SERVICE" "$DB_NAME" "$DB_USER" "database"
 
           docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" --env-file "$env_file_name" down --remove-orphans
           docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" --env-file "$env_file_name" build --no-cache --pull
@@ -555,6 +584,8 @@ jobs:
             export HEALTH_CONTAINERS_B64='$health_b64'
             export CRITICAL_ROUTES_B64='$routes_b64'
             export RECONCILE_SAME_PROJECT_ORPHANS='$RECONCILE_SAME_PROJECT_ORPHANS'
+            export ALLOW_MANUAL_MIGRATIONS='$ALLOW_MANUAL_MIGRATIONS'
+            export MAX_AUTO_PENDING='$MAX_AUTO_PENDING'
             export GITHUB_RUN_ID='$GITHUB_RUN_ID'
             bash '$remote_script'" | tee "$RUNNER_TEMP/deploy-out.txt"
 
