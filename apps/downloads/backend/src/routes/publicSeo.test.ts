@@ -2,23 +2,12 @@ import express from 'express';
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const dbMocks = vi.hoisted(() => ({ selectFrom: vi.fn() }));
-vi.mock('../db', () => ({ db: { selectFrom: dbMocks.selectFrom } }));
+const serviceMocks = vi.hoisted(() => ({ listPublishedMaterialSlugs: vi.fn() }));
+vi.mock('../services/publicMaterial', () => ({
+  listPublishedMaterialSlugs: serviceMocks.listPublishedMaterialSlugs,
+}));
 
 import publicSeoRoutes from './publicSeo';
-
-function makeQuery(rows: unknown[]) {
-  const query = {
-    select: vi.fn(),
-    where: vi.fn(),
-    orderBy: vi.fn(),
-    execute: vi.fn().mockResolvedValue(rows),
-  };
-  query.select.mockReturnValue(query);
-  query.where.mockReturnValue(query);
-  query.orderBy.mockReturnValue(query);
-  return query;
-}
 
 function makeApp() {
   const app = express();
@@ -29,7 +18,7 @@ function makeApp() {
 describe('robots e sitemap por ambiente', () => {
   beforeEach(() => {
     process.env.APP_ENV = 'production';
-    dbMocks.selectFrom.mockReset();
+    serviceMocks.listPublishedMaterialSlugs.mockReset();
   });
 
   it('bloqueia todo crawl e omite sitemap em beta', async () => {
@@ -43,7 +32,7 @@ describe('robots e sitemap por ambiente', () => {
     expect(robots.text).not.toContain('Sitemap:');
     expect(sitemap.status).toBe(404);
     expect(sitemap.headers['x-robots-tag']).toBe('noindex, nofollow');
-    expect(dbMocks.selectFrom).not.toHaveBeenCalled();
+    expect(serviceMocks.listPublishedMaterialSlugs).not.toHaveBeenCalled();
   });
 
   it('mantém bloqueio de facetas e referencia sitemap em produção', async () => {
@@ -56,24 +45,21 @@ describe('robots e sitemap por ambiente', () => {
   });
 
   it('lista somente o resultado da query pública no sitemap de produção', async () => {
-    const query = makeQuery([
+    serviceMocks.listPublishedMaterialSlugs.mockResolvedValue([
       { slug: 'aventura-a', updated_at: new Date('2026-07-29T12:00:00.000Z') },
       { slug: 'mapa-b', updated_at: new Date('2026-07-28T12:00:00.000Z') },
     ]);
-    dbMocks.selectFrom.mockReturnValue(query);
     const response = await request(makeApp()).get('/sitemap.xml');
 
     expect(response.status).toBe(200);
     expect(response.type).toMatch(/application\/xml/);
-    expect(query.where).toHaveBeenCalledWith('editorial_state', '=', 'published');
+    expect(serviceMocks.listPublishedMaterialSlugs).toHaveBeenCalledOnce();
     expect(response.text).toContain('<loc>https://downloads.artificiorpg.com/materiais/aventura-a</loc>');
     expect(response.text).toContain('<loc>https://downloads.artificiorpg.com/materiais/mapa-b</loc>');
   });
 
   it('devolve 503 não cacheável quando sitemap não pode consultar o banco', async () => {
-    const query = makeQuery([]);
-    query.execute.mockRejectedValue(new Error('db unavailable'));
-    dbMocks.selectFrom.mockReturnValue(query);
+    serviceMocks.listPublishedMaterialSlugs.mockRejectedValue(new Error('db unavailable'));
     const response = await request(makeApp()).get('/sitemap.xml');
 
     expect(response.status).toBe(503);

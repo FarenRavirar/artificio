@@ -83,6 +83,7 @@ function buildMaterialHead(material: PublicMaterial): { block: string; isFallbac
   );
   const cover = publicHttpUrl(material.cover_image_url);
   const image = cover || `${SITE_ORIGIN}/og-default.png`;
+  const imageAlt = `${material.title} — capa do material`;
   const tags = buildMeta({
     title,
     description,
@@ -94,7 +95,7 @@ function buildMaterialHead(material: PublicMaterial): { block: string; isFallbac
     noindex: process.env.APP_ENV === 'beta',
   });
   const extraTags = [
-    `<meta property="og:image:alt" content="${escapeHtml(`${material.title} — capa do material`)}">`,
+    `<meta property="og:image:alt" content="${escapeHtml(imageAlt)}">`,
     ...(cover ? [] : [
       '<meta property="og:image:width" content="1200">',
       '<meta property="og:image:height" content="630">',

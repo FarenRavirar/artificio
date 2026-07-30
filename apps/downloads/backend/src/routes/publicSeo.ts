@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { robotsTxt, sitemapXml } from '@artificio/content';
-import { db } from '../db';
+import { listPublishedMaterialSlugs } from '../services/publicMaterial';
 
 const router = Router();
 const SITE_ORIGIN = process.env.PUBLIC_SITE_URL || 'https://downloads.artificiorpg.com';
@@ -37,11 +37,7 @@ router.get('/sitemap.xml', async (_req, res) => {
   }
 
   try {
-    const rows = await db.selectFrom('download_material')
-      .select(['slug', 'updated_at'])
-      .where('editorial_state', '=', 'published')
-      .orderBy('slug', 'asc')
-      .execute();
+    const rows = await listPublishedMaterialSlugs();
     const entries = [
       { url: `${SITE_ORIGIN}/catalogo`, priority: 1 },
       ...rows.map((row) => ({

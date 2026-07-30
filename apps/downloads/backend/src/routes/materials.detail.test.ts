@@ -36,6 +36,33 @@ vi.mock('../services/catalogClient', () => catalogMocks);
 
 import materialsRoutes from './materials';
 
+const BASE_PUBLIC_MATERIAL = {
+  id: 'm1',
+  slug: 'material-1',
+  title: 'Material 1',
+  summary: null,
+  description: null,
+  material_type: 'Aventura',
+  material_type_id: 'type-1',
+  access_kind: 'external_link',
+  external_url: null,
+  system_id: null,
+  edition_id: null,
+  creator_id: 'creator-1',
+  editorial_state: 'published',
+  created_at: new Date('2026-07-28T12:00:00.000Z'),
+  updated_at: new Date('2026-07-29T12:00:00.000Z'),
+  cover_image_url: null,
+  credits: null,
+  authors: null,
+  author_keys: null,
+  artists: null,
+  publisher_name: null,
+  publisher_key: null,
+  scenario: null,
+  creator_slug: null,
+};
+
 function app() {
   const server = express();
   server.use(express.json());
@@ -70,9 +97,8 @@ describe('GET /api/v1/materials/:slug — ficha publica', () => {
 
   it('devolve cover_image_url da tabela de metadata', async () => {
     const material = {
-      id: 'm1', slug: 'material-1', title: 'Material 1', editorial_state: 'published',
-      system_id: null, edition_id: null, creator_slug: null,
-      cover_image_url: 'https://cdn.test/capa.jpg', credits: null, scenario: null,
+      ...BASE_PUBLIC_MATERIAL,
+      cover_image_url: 'https://cdn.test/capa.jpg',
     };
     const materialBuilder = makeMaterialQueryBuilder(material);
     dbMocks.selectFrom
@@ -91,9 +117,8 @@ describe('GET /api/v1/materials/:slug — ficha publica', () => {
 
   it('devolve variant_name quando edition_id aponta pra uma variante', async () => {
     const material = {
-      id: 'm1', slug: 'material-1', title: 'Material 1', editorial_state: 'published',
+      ...BASE_PUBLIC_MATERIAL,
       system_id: 'sys', edition_id: 'var', creator_slug: null,
-      cover_image_url: null, credits: null, scenario: null,
     };
     dbMocks.selectFrom
       .mockReturnValueOnce(makeMaterialQueryBuilder(material))
