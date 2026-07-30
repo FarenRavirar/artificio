@@ -46,18 +46,59 @@ END $$;
 --    apagar a denuncia mais recente pode descartar a de MAIOR prioridade/estado
 --    mais avancado, perdendo trabalho de moderacao (achado CodeRabbit).
 --
--- Solucao final: escopo do indice = apenas casos NAO decididos (open/in_review).
--- Isso da a garantia que o produto precisa — nao acumular denuncia pendente
--- repetida do mesmo denunciante sobre o mesmo alvo — sem apagar linha nenhuma:
--- historico ja resolvido/dispensado fica intacto, e um banco com duplicata
--- antiga nao trava mais o deploy, porque duplicata antiga so existe entre casos
--- ja decididos. Continua `online-safe`, sem exigir backup nem parar a esteira.
+-- 3. A segunda correcao restringiu o indice a casos nao decididos
+--    (open/in_review) supondo que duplicata so pudesse existir no historico ja
+--    decidido. Falso, e verificado no codigo historico: ate 03578da o
+--    `POST /reports` inseria SEM checagem nenhuma de duplicata (nem
+--    check-then-insert), entao duas denuncias ABERTAS do mesmo denunciante
+--    sobre o mesmo alvo sao estado legitimo em banco rodando — exatamente as
+--    linhas que o predicado parcial cobre (achado Codex P1, 2a rodada).
+--
+-- Solucao final: consolidar as duplicatas ABERTAS antes de criar o indice, sem
+-- apagar nada. A duplicata mais recente vira `dismissed` com nota propria; a
+-- mais antiga (a que abriu o caso) continua aberta e leva a decisao. Preserva
+-- prioridade, categoria, detalhes e trilha de todas as linhas — o achado do
+-- CodeRabbit contra o DELETE continua respeitado — e mantem a migration
+-- `online-safe`, porque UPDATE nao e DDL destrutivo (guard validado por
+-- execucao real). Casos ja decididos nao sao tocados.
 --
 -- Consequencia deliberada: denunciar de novo APOS a moderacao decidir e
 -- permitido. Correto — problema pode reaparecer (link volta a quebrar, material
 -- e reeditado), e a decisao anterior nao deve calar o denunciante para sempre.
 -- O handler completa o par: o SELECT de duplicata em reports.ts tambem filtra
 -- por case_state, e o 23505 e a rede contra corrida.
+UPDATE download_report AS duplicata
+SET case_state = 'dismissed',
+    resolved_at = COALESCE(duplicata.resolved_at, NOW()),
+    resolution_note = COALESCE(
+      duplicata.resolution_note,
+      'Consolidada na denuncia anterior do mesmo denunciante sobre o mesmo alvo (migration 036).'
+    )
+FROM download_report AS mantida
+WHERE duplicata.case_state IN ('open', 'in_review')
+  AND mantida.case_state IN ('open', 'in_review')
+  AND duplicata.reporter_user_id IS NOT NULL
+  AND duplicata.reporter_user_id = mantida.reporter_user_id
+  AND duplicata.material_id IS NOT NULL
+  AND duplicata.material_id = mantida.material_id
+  AND (duplicata.created_at, duplicata.id) > (mantida.created_at, mantida.id);
+
+UPDATE download_report AS duplicata
+SET case_state = 'dismissed',
+    resolved_at = COALESCE(duplicata.resolved_at, NOW()),
+    resolution_note = COALESCE(
+      duplicata.resolution_note,
+      'Consolidada na denuncia anterior do mesmo denunciante sobre o mesmo alvo (migration 036).'
+    )
+FROM download_report AS mantida
+WHERE duplicata.case_state IN ('open', 'in_review')
+  AND mantida.case_state IN ('open', 'in_review')
+  AND duplicata.reporter_user_id IS NOT NULL
+  AND duplicata.reporter_user_id = mantida.reporter_user_id
+  AND duplicata.comment_id IS NOT NULL
+  AND duplicata.comment_id = mantida.comment_id
+  AND (duplicata.created_at, duplicata.id) > (mantida.created_at, mantida.id);
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_download_report_reporter_material_unique
   ON download_report(reporter_user_id, material_id)
   WHERE reporter_user_id IS NOT NULL

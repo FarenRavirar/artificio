@@ -12,8 +12,12 @@ const STATUS_LABEL = {
 } as const;
 
 export function SugestoesSistemaPage() {
-  const { data: materials = [] } = useMyMaterials();
-  const { data: suggestions = [], isLoading } = useMySystemSuggestions();
+  // Achado de review (PR #230, Codex P2): sem separar isError do default [], falha
+  // de carregamento vira "todos os seus materiais já têm sistema" e "nenhuma
+  // sugestão" — afirmações falsas que ainda travam o envio, deixando a pessoa sem
+  // saída aparente. Mesmo padrão aplicado na VisaoGeralPage.
+  const { data: materials = [], isError: materialsFailed } = useMyMaterials();
+  const { data: suggestions = [], isLoading, isError: suggestionsFailed } = useMySystemSuggestions();
   const createMutation = useCreateSystemSuggestion();
   const eligibleMaterials = materials.filter((material) => !material.system_id);
   const [materialId, setMaterialId] = useState('');
@@ -47,7 +51,12 @@ export function SugestoesSistemaPage() {
             {eligibleMaterials.map((material) => <option key={material.id} value={material.id}>{material.title}</option>)}
           </Select>
         </label>
-        {eligibleMaterials.length === 0 && (
+        {materialsFailed && (
+          <p role="alert" className="text-sm text-red-600">
+            Não foi possível carregar seus materiais agora. Recarregue a página para tentar de novo.
+          </p>
+        )}
+        {!materialsFailed && eligibleMaterials.length === 0 && (
           <output className="text-sm text-[var(--fg-muted)]">Todos os seus materiais já têm sistema.</output>
         )}
         <label htmlFor="suggestion-name" className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
@@ -72,7 +81,12 @@ export function SugestoesSistemaPage() {
 
       <h2 className="mt-10 text-lg font-semibold text-[var(--fg)]">Minhas sugestões</h2>
       {isLoading && <p className="mt-3 text-sm text-[var(--fg-muted)]">Carregando...</p>}
-      {!isLoading && suggestions.length === 0 && <p className="mt-3 text-sm text-[var(--fg-muted)]">Nenhuma sugestão enviada.</p>}
+      {suggestionsFailed && (
+        <p role="alert" className="mt-3 text-sm text-red-600">
+          Não foi possível carregar suas sugestões agora. Nada foi perdido — recarregue a página em instantes.
+        </p>
+      )}
+      {!isLoading && !suggestionsFailed && suggestions.length === 0 && <p className="mt-3 text-sm text-[var(--fg-muted)]">Nenhuma sugestão enviada.</p>}
       <ul className="mt-4 space-y-3">
         {suggestions.map((suggestion) => (
           <li key={suggestion.id} className="rounded-md border border-[var(--line)] p-4">

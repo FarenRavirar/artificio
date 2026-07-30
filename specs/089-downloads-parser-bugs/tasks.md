@@ -24,6 +24,13 @@
 > Fase 5 (gate de cutover) **não** depende deles — fecha a fatia parser/ingest/facetas, que é
 > o que destrava produção.
 
+> **Estado auditado em 2026-07-30:** não resta implementação local conhecida na 089. As 14
+> checkboxes abertas são gates de execução real: PostgreSQL/CI (T7.3, T7.10, T9.7b), visual e
+> autenticação (T7.7, T9.1, T9.8, T9.9), configuração/smoke Cloudinary (T7.9), e
+> container/deploy/URLs reais (T8.1, T8.2, T8.8, T8.10, T8.11, T8.12). A antiga Fase 6 não
+> conta como pendência da 089: suas linhas são referências movidas para a spec 090. T3.0a é
+> falha processual encerrada com reaudit, não ação retroativamente executável.
+
 ---
 
 ## Fase 0 — Diagnóstico em DOM real
@@ -125,7 +132,7 @@ focados; backend completo 389/389 testes; TypeScript, build e lint verdes;
 Só começa com a Fase 0 fechada. Fonte que T0 provou não expor o dado recebe `null` explícito
 e constatação registrada — nunca regex especulativa (requisito 7).
 
-- [ ] T3.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. O T0 pétreo exige a leitura uma vez por sessão; releitura a cada fase é regra própria desta spec, pela quantidade de fases e pelo intervalo entre elas. · **falha processual não reparável retroativamente:** a implementação inicial começou antes da releitura. T0 foi depois relido integralmente e o diff F3 reauditado/corrigido, mas isso não satisfaz o critério temporal original.
+- **[FALHA ENCERRADA] T3.0a** — Ler `AGENTS.md` inteiro antes de agir nesta fase. O T0 pétreo exige a leitura uma vez por sessão; releitura a cada fase é regra própria desta spec, pela quantidade de fases e pelo intervalo entre elas. A implementação inicial começou antes da releitura; a falha temporal não é reparável retroativamente. T0 foi depois relido integralmente e o diff F3 reauditado/corrigido. Não permanece como tarefa executável aberta, mas o descumprimento continua registrado.
 - [x] T3.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
 - [x] T3.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
 > **Fase reprovada na revisão do Codex (2026-07-27) e reescrita.** Quatro erros:
@@ -324,18 +331,18 @@ Identidade vem do `accounts.` (SSO), não de `download_creator` — essa é tabe
 material, não de usuário (o único registro em beta é o creator sintético do scraper, com
 `user_id` nulo).
 
-- [ ] T6.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. O T0 pétreo exige a leitura uma vez por sessão; releitura a cada fase é regra própria desta spec, pela quantidade de fases e pelo intervalo entre elas. · feito quando: leitura confirmada, gate/regra pétrea relevante à fase identificada.
-- [ ] T6.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
-- [ ] T6.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
-- [ ] T6.1 — Obter nome e avatar do `accounts.` a partir do `user_id`, com cache (requisito 18). Precedente de desenho: `catalogClient` cacheia a taxonomia por 60s. · feito quando: `GET /comments/:materialId` devolve identidade, com teste.
-- [ ] T6.2 — Garantir que indisponibilidade do `accounts.` **degrada a identidade sem derrubar a listagem** (requisito 19). Rota pública não pode depender de serviço externo para responder. · feito quando: teste com o `accounts.` fora prova que a lista carrega.
-- [ ] T6.3 — Exibir autor (nome e avatar) na caixa de comentários (requisito 20). · feito quando: comentário mostra quem comentou.
-- [ ] T6.4 — Migration de `parent_id` em `download_comment` (requisito 21). Header de 5 campos, idempotente, em `apps/downloads/database/`. · feito quando: migration passa no guard de CI e roda 2x sem erro.
-- [ ] T6.5 — Aceitar e persistir resposta a comentário, com profundidade limitada (requisito 21). O limite é explícito: sem ele, encadeamento infinito quebra layout e dificulta retirada por denúncia. · feito quando: resposta persiste com `parent_id`, e profundidade além do limite é rejeitada com teste.
-- [ ] T6.6 — Exibir a hierarquia de resposta de forma legível, sem aninhamento infinito (requisito 22). · feito quando: thread renderiza com a relação visível.
-- [ ] T6.7 — Devolver o papel do autor junto do comentário e exibi-lo quando aplicável — autor do material, moderador, admin (requisito 34). Usuário comum não recebe rótulo. · feito quando: os três papéis aparecem distintos, e usuário comum não.
-- [ ] T6.8 — Listar no painel os comentários recebidos nos materiais do próprio autor (requisito 32) e permitir responder dali (requisito 33). · feito quando: autor vê e responde sem sair do painel.
-- [ ] T6.9 — UI para moderador/admin editar material alheio e retirar comentário (requisito 35). **O backend já autoriza** (`materials.ts:637-638`, `comments.ts:63`) — falta só a interface. · feito quando: as duas ações são possíveis pela UI, sem chamada manual à API.
+- **[MOVIDA] T6.0a** — Gate operacional pertence à execução da Fase correspondente na spec 090; não é tarefa aberta da 089.
+- **[MOVIDA] T6.0b** — Gate operacional pertence à execução da Fase correspondente na spec 090; não é tarefa aberta da 089.
+- **[MOVIDA] T6.0c** — Gate operacional pertence à execução da Fase correspondente na spec 090; não é tarefa aberta da 089.
+- **[MOVIDA] T6.1** — Obter nome e avatar do `accounts.` a partir do `user_id`, com cache (requisito 18). Entrega acompanhada pela spec 090; mantida aqui só como referência do requisito transferido.
+- **[MOVIDA] T6.2** — Garantir que indisponibilidade do `accounts.` degrada a identidade sem derrubar a listagem (requisito 19). Entrega acompanhada pela spec 090.
+- **[MOVIDA] T6.3** — Exibir autor, nome e avatar na caixa de comentários (requisito 20). Entrega acompanhada pela spec 090.
+- **[MOVIDA] T6.4** — Migration de `parent_id` em `download_comment` (requisito 21). Entrega acompanhada pela spec 090.
+- **[MOVIDA] T6.5** — Aceitar e persistir resposta com profundidade limitada (requisito 21). Entrega acompanhada pela spec 090.
+- **[MOVIDA] T6.6** — Exibir hierarquia de resposta sem aninhamento infinito (requisito 22). Entrega acompanhada pela spec 090.
+- **[MOVIDA] T6.7** — Devolver e exibir papel do autor quando aplicável (requisito 34). Entrega acompanhada pela spec 090.
+- **[MOVIDA] T6.8** — Listar e responder comentários recebidos no painel do autor (requisitos 32 e 33). Entrega acompanhada pela spec 090.
+- **[MOVIDA] T6.9** — UI para moderador/admin editar material alheio e retirar comentário (requisito 35). Entrega acompanhada pela spec 090.
 
 ## Fase 6B — Pré-requisitos de segurança do `mesas` (trava de início da Fase 7)
 
@@ -567,7 +574,7 @@ não dispara a trava de pacote compartilhado. Se a implementação exigir mudar 
 para e pede aprovação própria (`AGENTS.md` §Autorização).
 
 - [x] T8.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. O T0 pétreo exige a leitura uma vez por sessão; releitura a cada fase é regra própria desta spec, pela quantidade de fases e pelo intervalo entre elas. · feito quando: leitura confirmada, gate/regra pétrea relevante à fase identificada. **Feito em 2026-07-29:** T0 completo lido; travas de escopo, pacote compartilhado, bug achado, RTK, Docker/E016 e commit/push identificadas.
-- [ ] T8.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
+- [x] T8.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso. **Status corrigido em 2026-07-30:** implementação, testes, lint, build, Compose e `verify:api` da Fase 8 já estavam registrados como executados com o fluxo RTK; o checkbox aberto era atraso documental.
 - [x] T8.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro. **Feito em 2026-07-29.**
 - [ ] T8.1 — 🔒 **[P0] Versionar o fallback `og-default.png`, que não existe** (requisito 40). Precede todo o resto da fase: enquanto o asset faltar, nenhuma tag corrigida resolve o aviso do Facebook, e material sem capa cai num 404. Criar `apps/downloads/frontend/public/` (hoje inexistente) e versionar a imagem em 1200×630 — o `Dockerfile:44` copia `dist` inteiro, e o Vite emite `public/` para lá sem configuração extra. · feito quando: `GET /og-default.png` devolve **200** com `Content-Type: image/*` e dimensão física igual à declarada, em beta e em prod. **Parcial em 2026-07-29:** asset criado, medido como PNG RGB 1200×630, emitido pelo Vite e servido do `dist` local com 200 + `image/png`; GET beta/prod pendente de deploy.
 - [ ] T8.2 — **Encaminhar `GET /materiais/:slug` ao backend no nginx** (requisito 36). Hoje `nginx.conf:47` manda tudo para `index.html`. A regra nova precisa vir **antes** do `location /`, sem capturar os assets de `nginx.conf:34`. · feito quando: a rota chega ao backend e as demais continuam servidas pelo estático. **Parcial em 2026-07-29:** regra específica adicionada antes do fallback e Compose beta/prod validado; smoke em container/URL real pendente porque Docker local estava sem daemon e não houve deploy.
