@@ -36,10 +36,11 @@ Pacotes compartilhados: `auth`, `ui`, `analytics`, `config`, `content`, `crossli
 - `rtk` disponível no PATH: usar sempre no lugar de comando cru equivalente (ver lista completa em §Diagnóstico local → rtk). Comandos obrigatórios: `rtk git status`/`rtk git diff`/`rtk git log` (nunca `git` cru pra esses três), `rtk read <arquivo>` (nunca `cat`/Read direto pra arquivo grande sem justificar), `rtk rg <padrão> <path>` (busca textual, nunca `grep`/`rg` cru), `rtk find <path> -iname "..."`, `rtk tsc`, `rtk lint`, `rtk cargo test`/`rtk pytest`/`rtk jest`/`rtk vitest`/`rtk go test` (testes, sempre via rtk pra saída filtrada), `rtk pnpm <args>`.
 
 **Escalada T1 (consultar quando a tarefa exigir, não por padrão):**
-- Retomar spec/trabalho em andamento → `.specify/memory/project-state.md` + `.specify/memory/decisions.md` (evita redecidir).
+- **Escopo documental explícito prevalece.** Se o mantenedor nomear quais arquivos/trechos ler ou alterar, ler e alterar somente esses. Não abrir documentos correlatos por associação, retomada ou “contexto útil”.
+- Retomar spec/trabalho em andamento → ler somente os arquivos/trechos da spec nomeados pelo mantenedor. `project-state.md`, `decisions.md`, `specs/backlog.md`, sessões e outras specs **não entram automaticamente**; exigem pedido nominal próprio.
 - `sessoes/` — checar sessão ativa incompleta/retomar só quando o mantenedor pedir explicitamente ("retoma a sessão", "continua de onde parou") ou quando não houver spec cobrindo o trabalho. Codificação hoje passa por spec madura (`specs/*/spec.md,plan.md,tasks.md`), que já carrega o contexto de retomada — não abrir/escanear `sessoes/` por padrão todo chat novo. Quando `sessoes/` for tocado (por pedido ou por falta de spec), registrar antes de alterar: o que vai fazer, o que falta, o que já foi feito.
 - Infra/deploy/CI/CD/VM/DNS/banco → `docs/agents/deploy-runbook.md`, §VM/Banco/Infra e §Deploy e Infra de CI/CD deste arquivo.
-- Specs/backlog → `specs/README.md` + spec/tasks/backlog.
+- Specs → limitar leitura e escrita aos arquivos/trechos nomeados pelo mantenedor. Trabalhar numa spec não autoriza abrir `specs/README.md`, `specs/backlog.md`, `project-state.md`, `decisions.md`, sessões ou specs relacionadas.
 - Diagnóstico de código/API antes de editar → §Ferramentas MCP/Agentes (LSP, codebase-memory-mcp, artificio-api-governance) + comandos abaixo.
 - Erro/regressão conhecida → `.specify/memory/errors.md`.
 
@@ -47,7 +48,7 @@ Se a tarefa tocar um desses temas e o T1 pertinente não foi lido, não afirmar 
 
 **Anti-retrabalho:** fluxo estranho/contraditório/perigoso (CI/CD, deploy, branch, DNS/tunnel, auth, banco, SEO, importador, pacote compartilhado) não se corrige no chute — pesquisar T1 relevante primeiro, identificar se é decisão histórica, exceção temporária ou bug real, só então corrigir.
 
-**Falha de processo descoberta:** regra operacional durável entra na fonte canônica (`AGENTS.md`/`context-capsule.md`/docs T1); `project-state.md` registra estado, não substitui governança; débito acionável entra em `specs/backlog.md`/`tasks.md`.
+**Falha de processo descoberta:** reportar e perguntar onde registrar. Nunca escolher nem abrir sozinho outra fonte documental. Regra operacional durável só entra na fonte canônica autorizada nominalmente pelo mantenedor.
 
 ### Diagnóstico local (T1 — antes de editar código)
 
@@ -154,7 +155,7 @@ Ver também §Regras Pétreas → Escopo.
 - **Regra vale igual pra achado de spec/investigação, não só bug de código já escrito.** Lacuna jurídica, risco operacional, incerteza técnica, limitação de escopo descoberta durante pesquisa/investigação de uma spec nova: mesma trava — o agente **nunca** decide sozinho que "isso fica fora de escopo" ou "isso vira débito" e já escreve `spec.md`/`Fora de escopo`/`specs/backlog.md` como se fosse decisão fechada. Escrever "decisão do mantenedor" numa spec sem o mantenedor ter de fato respondido é o mesmo erro que mascarar bug — sempre pergunta primeiro (AskUserQuestion ou texto direto), só documenta como decidido depois da resposta.
 - Só depois da resposta do mantenedor:
   - corrigir agora: corrige dentro do escopo autorizado.
-  - registrar débito: evidência concreta (comando, run, arquivo, trecho, métrica ou URL) em sessão + `specs/backlog.md` (salvo item ativo já cobrindo o mesmo problema) + `tasks.md` da spec quando muda status/critério/próxima ação + `project-state.md` quando afeta retomada/gate.
+  - registrar débito: registrar evidência concreta (comando, run, arquivo, trecho, métrica ou URL) **somente no destino documental nomeado pelo mantenedor**. Não abrir nem atualizar automaticamente backlog, sessão, `tasks.md`, `project-state.md` ou outro documento correlato.
 - **Nunca mascarar erro nem adiar com risco de esquecer.** Proibido silenciar lint/tipo/teste/build pra "fazer passar" (`eslint-disable`/`@ts-ignore`/`continue-on-error`/`.skip`/`xfail`/flag advisory sem justificativa inline rastreável, ou "depois eu vejo"). Erro descoberto = corrigir agora; se não der, parar e perguntar, sempre oferecendo a opção de registrar débito. **Endurecer gate** (remover `continue-on-error`, subir severidade, tornar check obrigatório) só **DEPOIS** do verde comprovado localmente — nunca antes, senão transfere a falha mascarada pro próximo PR.
 
 ### PR, Commit e Push
@@ -171,6 +172,20 @@ Fluxo: `<tipo>/<escopo>` → `dev`/Beta → `main`/Produção. Tipos: `feat/*`, 
 
 **`git commit --amend` PROIBIDO, sem exceção.** Sempre commit novo. Amend reescreve commit sem nova autorização clara e força `push --force-with-lease` (reescreve histórico de branch já em review — bots e mantenedor perdem o rastro do que já foi visto). Branch/PR com commit anterior + novo push autorizado → `git commit -m "..."` (adicional) + `git push` normal (fast-forward, sem `--force`). Mesmo se o mantenedor disser "corrige o commit", perguntar se é commit novo (padrão) ou reescrita explícita por outro método.
 
+**Mensagem multi-linha de commit: heredoc POSIX no Bash tool, here-string só na PowerShell tool — nunca misturar.** O Bash tool roda Git Bash (POSIX sh), que não conhece `@'...'@`. Usar a sintaxe de here-string do PowerShell ali faz o `@` entrar como **primeira linha da mensagem** e empurra o título real (`fix(escopo): ...`) pro corpo — commit ilegível em `git log` e no PR. Incidente real: commit `342f28e` (2026-07-29, branch `feat/089-fase-8`). O agravante é que o conserto exigiria `--amend`, proibido pela regra acima, então o único caminho é `reset --soft` + reautorização do mantenedor: retrabalho puro por erro de sintaxe. Forma correta no Bash tool:
+
+```bash
+git commit -F - <<'EOF'
+fix(escopo): titulo
+
+Corpo.
+EOF
+```
+
+**Verificar sempre depois de commitar mensagem multi-linha:** `git log -1 --format=%B` antes de declarar o commit pronto ou pushar. Erro de sintaxe de mensagem não falha o comando — o commit é criado corrompido, com exit 0.
+
+Cumprimento **não depende de o agente lembrar disso**: o hook `~/.claude/hooks/git-commit-msg-gate.js` (`PreToolUse` em `Bash`, suíte em `git-commit-msg-gate.test.js`) bloqueia `-m @'` e `--amend` devolvendo a forma correta no motivo do deny. Esta seção existe pra explicar o *porquê*.
+
 **Default de conteúdo do commit: todo o diff, salvo exclusão explícita do mantenedor.** Ao montar um commit já autorizado, `git status`/`git diff` mostrando arquivo modificado — inclusive de outra frente de trabalho, sessão anterior, ou não tocado nesta tarefa — entra no commit por padrão. Não é call do agente separar/excluir arquivo do diff sob pretexto de "não é desta tarefa"/"fora de escopo desta sessão"; isso é a mesma inferência de escopo proibida em §Regras Pétreas → Escopo, aplicada ao commit. Só fica de fora quando o mantenedor apontar explicitamente ("deixa esse de fora", "não commita X"). Na dúvida sobre um arquivo específico (parece segredo, parece lock de outro processo, artefato gerado que outro processo está editando), perguntar antes — não excluir preventivamente por conta própria.
 
 Ações e quem autoriza:
@@ -185,7 +200,7 @@ Ações e quem autoriza:
 
 **Antes de `git commit` tocando `apps/**`, `packages/**`, `scripts/api/**` ou `docs/api/openapi/**`: rodar `pnpm verify:api` ANTES de montar o commit, não depois.** O hook pre-commit/pre-push já roda `verify:api` e regenera `docs/api/generated/*`/`docs/api/openapi/*` — se só acontecer no hook, os artefatos ficam fora do commit já feito. Rodar manualmente antes do `git add` evita o descompasso.
 
-**NUNCA responder, comentar, resolver thread, reagir ou disparar (`@q`, `@codex`, `@coderabbit`) revisores externos/bots no PR** (amazon-q-developer, chatgpt-codex-connector, coderabbit, Snyk, Sonar, github-advanced-security). O agente não escreve nada na conversa do PR. Análise de revisão (procede/descarta/backlog) vive na documentação (sessão + `tasks.md` + `backlog.md` + `project-state.md`). Fix que procede vira commit normal (branch/PR); resto vira débito documentado. Resposta a revisor no PR é sempre do mantenedor.
+**NUNCA responder, comentar, resolver thread, reagir ou disparar (`@q`, `@codex`, `@coderabbit`) revisores externos/bots no PR** (amazon-q-developer, chatgpt-codex-connector, coderabbit, Snyk, Sonar, github-advanced-security). O agente não escreve nada na conversa do PR. Análise de revisão (procede/descarta/registrar) vive somente na documentação indicada pelo mantenedor. Fix que procede vira commit normal (branch/PR); resto vira débito no destino autorizado. Resposta a revisor no PR é sempre do mantenedor.
 
 **Doc-only:**
 - `git commit`/`git push`/PR/promoção exigem aprovação explícita por ação, mesmo com diff só de documentação.
@@ -200,9 +215,9 @@ Estas falhas já aconteceram e viraram regra operacional. Todo agente deve trat�
 
 - **Nunca fechar tarefa executável só com dry-run, plano ou documentação.** Se o aceite diz "comando/script executável", rodar o comando real mínimo. Se falhar, reabrir task/backlog e corrigir ou registrar bloqueio.
 - **Nunca declarar "resolvido" quando falta dependência necessária para rodar.** Pacote npm/devDependency local necessário para validação deve ser instalado quando permitido pelo escopo; se houver dúvida de aprovação, pedir antes e deixar a task aberta, não fechada.
-- **Nunca confundir "local", "parcial", "validado em dist local" ou "falta deploy" com concluído.** Status correto vai para sessão/backlog/tasks; conclusão só após o critério de aceite completo.
-- **Nunca tocar governança/infra/qualidade transversal sem T1 pertinente.** Se a tarefa envolve ou questiona `AGENTS.md`, specs, backlog, infra, CI/CD, deploy, VM, DNS/tunnel, banco, auth, SEO/Lighthouse ou pacote compartilhado, ler docs/seções T1 relevantes antes de agir/encerrar.
-- **Nunca atualizar só `project-state.md` quando o aprendizado muda o modo de operação dos agentes.** Regra durável entra na fonte canônica correta (`AGENTS.md`, `context-capsule.md`, `decisions.md`, docs T1, specs/backlog). `project-state.md` registra estado, não substitui governança.
+- **Nunca confundir "local", "parcial", "validado em dist local" ou "falta deploy" com concluído.** Status correto vai somente para o documento autorizado; conclusão só após o critério de aceite completo.
+- **Nunca tocar governança/infra/qualidade transversal sem T1 pertinente e nominalmente autorizado.** Se a tarefa envolve ou questiona `AGENTS.md`, specs, infra, CI/CD, deploy, VM, DNS/tunnel, banco, auth, SEO/Lighthouse ou pacote compartilhado, ler somente os documentos/seções pedidos pelo mantenedor. Se faltar fonte indispensável, parar e pedir ampliação de leitura; nunca ampliar sozinho.
+- **Aprendizado que muda operação exige decisão do mantenedor sobre destino documental.** Não abrir nem atualizar automaticamente `project-state.md`, `decisions.md`, backlog, sessão, `context-capsule.md` ou outro T1.
 - **Nunca deixar tarefa "fechada" após uma validação real provar que ela não roda.** Reabrir imediatamente, registrar o erro e só fechar depois do comando real passar.
 - **Nunca deixar servidor/processo auxiliar rodando ao final.** Encerrar dev server, preview, servidor estático e helpers iniciados pelo agente, salvo pedido explícito do mantenedor para manter.
 - **Nunca esconder erro com justificativa de economia de contexto.** O T0 é obrigatório; T1 é obrigatório quando o assunto exige. Economia de token serve a continuidade do projeto, não a atalhos.
@@ -227,7 +242,7 @@ Mecânica de branch/PR/commit/push: §Regras Pétreas → PR, Commit e Push.
 
 ### Worktrees locais (multi-agente paralelo)
 
-Worktree **não é fallback automático**. Antes de qualquer `git worktree add|move|remove`, pedir aprovação nominal do mantenedor conforme §Autorização — incluindo worktree em `C:\tmp`, diretório irmão, uso para escapar de operação Git inacabada ou transferência posterior de alterações. Sem aprovação: parar, reportar o estado que bloqueia o cwd e perguntar como proceder. Depois de aprovado, trabalho paralelo em branch diferente usa `git worktree add ../artificio-<escopo> <branch>`, nunca checkout na mesma pasta enquanto outro agente roda ali. Informar o caminho exato antes de criar. Worktree ativo, propósito e branch ficam registrados em `.specify/memory/project-state.md` (ou sessão ativa), pra chat novo achar via T0/T1 sem precisar o usuário repetir contexto. `node_modules` só reinstala no worktree se for rodar build/test/dev ali (pnpm store global evita duplicar peso). Remoção só após confirmar worktree limpo e trabalho preservado em commit ou stash identificado; nunca usar `--force` por inferência.
+Worktree **não é fallback automático**. Antes de qualquer `git worktree add|move|remove`, pedir aprovação nominal do mantenedor conforme §Autorização — incluindo worktree em `C:\tmp`, diretório irmão, uso para escapar de operação Git inacabada ou transferência posterior de alterações. Sem aprovação: parar, reportar o estado que bloqueia o cwd e perguntar como proceder. Depois de aprovado, trabalho paralelo em branch diferente usa `git worktree add ../artificio-<escopo> <branch>`, nunca checkout na mesma pasta enquanto outro agente roda ali. Informar o caminho exato antes de criar. Worktree ativo, propósito e branch só são registrados no destino documental nomeado pelo mantenedor; a aprovação do worktree não autoriza abrir outro documento. `node_modules` só reinstala no worktree se for rodar build/test/dev ali (pnpm store global evita duplicar peso). Remoção só após confirmar worktree limpo e trabalho preservado em commit ou stash identificado; nunca usar `--force` por inferência.
 
 ### Acesso à VM (Oracle)
 
@@ -327,11 +342,11 @@ Ao encontrar erro/regressão: (1) parar tentativas repetidas; (2) consultar `.sp
 
 ## Conclusão de Tarefas
 
-Concluída só quando: busca final relevante retorna o esperado; comando/teste real executou quando a tarefa promete executabilidade; checklist da sessão fechada; nenhum arquivo parcialmente modificado; `project-state.md` atualizado; `specs/backlog.md` atualizado quando a tarefa cria débito, fecha débito, muda status de spec/tarefa ou descobre pendência acionável; validação técnica/manual registrada. Não declarar conclusão usando "parcial", "restante", "maioria", "principais", "alguns" ou percentual incompleto. Status parcial pode ser registrado em backlog/revisão, nunca como conclusão final.
+Concluída só quando: busca final relevante retorna o esperado; comando/teste real executou quando a tarefa promete executabilidade; nenhum arquivo parcialmente modificado; validação técnica/manual registrada **somente no documento autorizado**, quando o mantenedor pediu registro. Não abrir nem atualizar automaticamente `project-state.md`, `specs/backlog.md`, sessão, `tasks.md` ou qualquer documento não nomeado. Não declarar conclusão usando "parcial", "restante", "maioria", "principais", "alguns" ou percentual incompleto. Status parcial pode ser registrado no destino autorizado, nunca como conclusão final.
 
 Se uma validação real expõe que a tarefa "fechada" ainda não roda, reabrir a task/backlog imediatamente, corrigir o artefato até ficar usável ou registrar bloqueio concreto. Dry-run, plano ou documentação não fecham tarefa cujo aceite exige execução real.
 
-**Obrigatório:** toda spec nova, retomada de spec, fechamento de tarefa, review que gere débito, ou descoberta de pendência deve verificar `specs/backlog.md` e registrar uma das duas coisas na sessão: (1) backlog atualizado; ou (2) nada a atualizar, com motivo curto. Isso evita pendência presa só no chat, em `tasks.md` isolado ou na memória do agente.
+**Proibido ampliar escopo documental por rotina de fechamento.** Spec nova, retomada, fechamento, review, bug ou pendência não autorizam verificar ou atualizar backlog, estado, decisões, sessão ou outro arquivo. Reportar ao mantenedor; registrar apenas onde ele mandar.
 
 *(nota: bloco "Bug achado = perguntar antes de registrar" que existia aqui foi movido pra §Regras Pétreas / Bug achado / débito — reposicionamento, sem perda.)*
 

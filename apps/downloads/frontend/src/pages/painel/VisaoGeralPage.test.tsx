@@ -75,31 +75,46 @@ describe('VisaoGeralPage', () => {
 
     renderPage();
 
-    expect(screen.getByText('Materiais publicados')).toBeInTheDocument();
+    expect(screen.getByText('Publicados')).toBeInTheDocument();
     expect(screen.getByText('Em revisão')).toBeInTheDocument();
     expect(screen.getByText('Rascunhos')).toBeInTheDocument();
-    expect(screen.getAllByText('0')).toHaveLength(3);
+    expect(screen.getByText('Rejeitados')).toBeInTheDocument();
+    expect(screen.getByText('Retirados')).toBeInTheDocument();
+    expect(screen.getAllByText('0')).toHaveLength(5);
+    expect(screen.getByRole('link', { name: 'Criar rascunho' })).toHaveAttribute('href', '/painel/materiais/novo');
   });
 
   it('conta materiais por estado editorial', () => {
     mockSession();
     mockMyMaterials({
       data: [
-        makeMaterial({ editorial_state: 'published' }),
-        makeMaterial({ editorial_state: 'published' }),
-        makeMaterial({ editorial_state: 'in_review' }),
-        makeMaterial({ editorial_state: 'draft' }),
+        makeMaterial({
+          id: 'published-1', editorial_state: 'published',
+          avg_rating: 4.5, rating_count: 2, comment_count: 3, download_count: 7,
+        }),
+        makeMaterial({ id: 'published-2', editorial_state: 'published' }),
+        makeMaterial({ id: 'review-1', editorial_state: 'in_review' }),
+        makeMaterial({ id: 'draft-1', editorial_state: 'draft' }),
+        makeMaterial({ id: 'rejected-1', editorial_state: 'rejected', rejection_reason: 'Falta licença.' }),
+        makeMaterial({ id: 'withdrawn-1', editorial_state: 'withdrawn' }),
       ],
     });
 
     renderPage();
 
-    const published = screen.getByText('Materiais publicados').previousElementSibling;
+    const published = screen.getByText('Publicados').previousElementSibling;
     const inReview = screen.getByText('Em revisão').previousElementSibling;
     const draft = screen.getByText('Rascunhos').previousElementSibling;
+    const rejected = screen.getByText('Rejeitados').previousElementSibling;
+    const withdrawn = screen.getByText('Retirados').previousElementSibling;
 
     expect(published).toHaveTextContent('2');
     expect(inReview).toHaveTextContent('1');
     expect(draft).toHaveTextContent('1');
+    expect(rejected).toHaveTextContent('1');
+    expect(withdrawn).toHaveTextContent('1');
+    expect(screen.getByText('Motivo: Falta licença.')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Ver no catálogo' })).toHaveLength(2);
+    expect(screen.getByText('4.5 / 5 em 2 avaliações · 3 comentários · 7 downloads')).toBeInTheDocument();
   });
 });

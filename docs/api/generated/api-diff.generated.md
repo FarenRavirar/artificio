@@ -10,17 +10,15 @@
 
 | App | Breaking | Non-breaking | Unclassified |
 |-----|:--------:|:------------:|:------------:|
-| downloads | ✅ 0 | ✅ 3 | ⚪ 0 |
+| downloads | ✅ 0 | ✅ 1 | ⚪ 0 |
 
 ---
 
 ### downloads
 
-#### ✅ Non-breaking (3)
+#### ✅ Non-breaking (1)
 
 | Path | Method | Ação |
 |------|--------|------|
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
+| `/api/v1/creators/me` | PATCH | add |
 

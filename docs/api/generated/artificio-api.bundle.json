@@ -595,18 +595,6 @@
     },
     {
       "app": "downloads",
-      "method": "DELETE",
-      "path": "/api/v1/comments/{id}",
-      "summary": "Remove api v1 comments id",
-      "owner": "downloads",
-      "scope": "public",
-      "status": "active",
-      "auth": "user",
-      "consumers": [],
-      "operationId": "deleteapi_v1_comments_id"
-    },
-    {
-      "app": "downloads",
       "method": "GET",
       "path": "/api/v1/comments/{materialId}",
       "summary": "Consulta api v1 comments materialId",
@@ -640,6 +628,18 @@
       "auth": "user",
       "consumers": [],
       "operationId": "getapi_v1_creators_me"
+    },
+    {
+      "app": "downloads",
+      "method": "PATCH",
+      "path": "/api/v1/creators/me",
+      "summary": "Atualiza api v1 creators me",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "patchapi_v1_creators_me"
     },
     {
       "app": "downloads",

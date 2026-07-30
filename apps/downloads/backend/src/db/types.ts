@@ -182,13 +182,16 @@ export type NewDownloadEvidence = Insertable<DownloadEvidenceTable>;
 
 export interface DownloadReportTable {
   id: Generated<string>;
-  material_id: string;
+  material_id: string | null;
+  comment_id: string | null;
   reporter_user_id: string | null;
   category: string;
   priority: Generated<DownloadReportPriority>;
   case_state: Generated<DownloadReportState>;
   details: string | null;
   resolution_note: string | null;
+  reporter_abuse_flagged: Generated<boolean>;
+  reporter_dismissed_streak: Generated<number>;
   created_at: Generated<Date>;
   resolved_at: Date | null;
 }

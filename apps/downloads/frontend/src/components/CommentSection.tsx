@@ -5,19 +5,23 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { apiGet, apiPost } from '../services/apiClient';
+import { ReportButton } from './ReportButton';
 
 const commentSchema = z.object({
   id: z.string(),
   material_id: z.string(),
   user_id: z.string(),
-  body: z.string(),
+  body: z.string().nullable(),
+  removed_at: z.string().nullable(),
+  removed_by_moderation: z.boolean(),
   created_at: z.string(),
 });
 const commentsListSchema = z.array(commentSchema);
 
 // T4.2/T4.3 (spec 074) — comentario exige conta accounts. (criterio de
-// aceite 6); retirada so via denuncia (UI ja existe na ficha via denuncia,
-// nao ha exclusao propria aqui).
+// aceite 6). D111 item 6 + decisão de 2026-07-29: a ferramenta única de
+// denúncia recebe o comentário como alvo; retirada só ocorre quando a
+// moderação acata o caso. Não há exclusão própria nem remoção automática.
 export function CommentSection({ materialId }: Readonly<{ materialId: string }>) {
   const { user } = useSession();
   const queryClient = useQueryClient();
@@ -85,7 +89,14 @@ export function CommentSection({ materialId }: Readonly<{ materialId: string }>)
       <ul className="mt-6 space-y-3">
         {commentsQuery.data?.map((comment) => (
           <li key={comment.id} className="rounded-md border border-[var(--line)] px-3 py-2 text-sm text-[var(--fg-muted)]">
-            <MarkdownContent value={comment.body} />
+            {comment.removed_by_moderation ? (
+              <p className="italic">Comentário removido pela moderação.</p>
+            ) : (
+              <>
+                <MarkdownContent value={comment.body ?? ''} />
+                <ReportButton target={{ commentId: comment.id }} />
+              </>
+            )}
           </li>
         ))}
       </ul>

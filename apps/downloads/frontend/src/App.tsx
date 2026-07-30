@@ -19,6 +19,7 @@ import { OrganizacoesPage } from './pages/painel/OrganizacoesPage';
 import { NotificacoesPage } from './pages/painel/NotificacoesPage';
 import { DenunciasPage } from './pages/painel/DenunciasPage';
 import { ConfiguracoesPage } from './pages/painel/ConfiguracoesPage';
+import { SugestoesSistemaPage } from './pages/painel/SugestoesSistemaPage';
 import { RequireGestaoAuth } from './components/RequireGestaoAuth';
 import { GestaoVisaoGeralPage } from './pages/gestao/GestaoVisaoGeralPage';
 import { GestaoModeracaoPage } from './pages/gestao/GestaoModeracaoPage';
@@ -60,6 +61,7 @@ export function AppRoutes() {
       <Route path="/painel/materiais" element={<RequireAuth><MeusMateriaisPage /></RequireAuth>} />
       <Route path="/painel/materiais/novo" element={<RequireAuth><NovoMaterialPage /></RequireAuth>} />
       <Route path="/painel/materiais/:materialId/editar" element={<RequireAuth><EditarMaterialPage /></RequireAuth>} />
+      <Route path="/painel/sugestoes-sistema" element={<RequireAuth><SugestoesSistemaPage /></RequireAuth>} />
       <Route path="/painel/favoritos" element={<RequireAuth><FavoritosPage /></RequireAuth>} />
       <Route path="/painel/colecoes" element={<RequireAuth><ColecoesPage /></RequireAuth>} />
       <Route path="/painel/perfil" element={<RequireAuth><PerfilPage /></RequireAuth>} />

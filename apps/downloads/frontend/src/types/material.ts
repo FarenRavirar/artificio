@@ -49,6 +49,9 @@ export const materialSchema = z.object({
   // contagem bruta e e o unico gatilho de exibicao das estrelas.
   avg_rating: z.number().nullable().optional(),
   rating_count: z.number().optional(),
+  comment_count: z.number().optional(),
+  download_count: z.number().optional(),
+  rejection_reason: z.string().nullable().optional(),
   popularity_score: z.number().nullable().optional(),
   editorial_state: z.enum(['draft', 'in_review', 'published', 'rejected', 'withdrawn']),
   created_at: z.string(),

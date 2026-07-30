@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { ContentEditor } from '@artificio/content-editor';
 import { Select } from '@artificio/ui';
@@ -36,6 +36,10 @@ function belongsToSystem(
   return false;
 }
 
+function splitCreditNames(value: string): string[] {
+  return value.split(',').map((item) => item.trim()).filter(Boolean);
+}
+
 // T2.1/T2.2/T2.3 (spec 074) — edicao reaproveitando o mesmo PATCH de
 // submissao (spec 070/072), incluindo link de destino; historico por campo
 // exibido abaixo do formulario (criterio de aceite 1, 2, 3).
@@ -56,6 +60,8 @@ export function EditarMaterialPage() {
   const [descriptionMarkdown, setDescriptionMarkdown] = useState('');
   const [externalUrl, setExternalUrl] = useState('');
   const [publisherName, setPublisherName] = useState('');
+  const [authors, setAuthors] = useState('');
+  const [artists, setArtists] = useState('');
   const [systemId, setSystemId] = useState('');
   const [editionId, setEditionId] = useState('');
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -72,6 +78,8 @@ export function EditarMaterialPage() {
     setDescriptionMarkdown(material.description_markdown ?? material.description ?? '');
     setExternalUrl(material.external_url ?? '');
     setPublisherName(material.publisher_name ?? '');
+    setAuthors((material.authors ?? []).join(', '));
+    setArtists((material.artists ?? []).join(', '));
     setSystemId(material.system_id ?? '');
     setEditionId(material.edition_id ?? '');
     setCoverUrl(material.cover_image_url ?? '');
@@ -109,6 +117,8 @@ export function EditarMaterialPage() {
       await updateMetadataMutation.mutateAsync({
         publisher_name: publisherName || null,
         description_markdown: descriptionMarkdown.trim() || null,
+        authors: splitCreditNames(authors),
+        artists: splitCreditNames(artists),
       });
       toast.success('Material atualizado.');
     } catch (error) {
@@ -123,6 +133,16 @@ export function EditarMaterialPage() {
   const editionOptions = systemId
     ? catalogNodes.filter((node) => node.node_type !== 'system' && belongsToSystem(node, systemId, catalogById))
     : [];
+  const persistedDescription = material.description_markdown ?? material.description ?? '';
+  const taskItems = [
+    { label: 'Básico: título e tipo', done: Boolean(material.title && material.material_type_id) },
+    { label: 'Descrição e créditos', done: Boolean(persistedDescription.trim() && (material.authors?.length ?? 0) > 0) },
+    { label: 'Sistema', done: Boolean(material.system_id) },
+    { label: 'Capa', done: Boolean(material.cover_image_url) },
+    { label: 'Destino', done: Boolean(material.external_url) },
+    { label: 'Prévia do conteúdo', done: Boolean(persistedDescription.trim()) },
+    { label: 'Enviar para revisão', done: !canSubmitForReview },
+  ];
 
   const handleSubmitForReview = async () => {
     try {
@@ -161,6 +181,34 @@ export function EditarMaterialPage() {
   return (
     <PainelShell>
       <h1 className="text-2xl font-bold text-[var(--fg)]">Editar material</h1>
+
+      <section aria-labelledby="material-tasks-title" className="mt-6 max-w-xl rounded-md border border-[var(--line)] p-4">
+        <h2 id="material-tasks-title" className="font-semibold text-[var(--fg)]">Etapas para publicar</h2>
+        <p className="mt-1 text-sm text-[var(--fg-muted)]">Faça na ordem que preferir. Cada etapa marca ✓ quando você salva — e continua salva se você sair.</p>
+        <ul className="mt-3 space-y-2">
+          {taskItems.map((item) => (
+            <li key={item.label} className="flex gap-2 text-sm text-[var(--fg-muted)]">
+              <span aria-hidden="true">{item.done ? '✓' : '○'}</span>
+              <span>{item.label}</span>
+              <span className="sr-only">{item.done ? 'concluída' : 'pendente'}</span>
+            </li>
+          ))}
+        </ul>
+        {material.editorial_state === 'rejected' && (
+          <p role="alert" className="mt-4 rounded-md border border-red-500/50 p-3 text-sm text-red-600">
+            Rejeitado: {material.rejection_reason ?? 'A moderação não informou um motivo.'}
+          </p>
+        )}
+        {material.editorial_state === 'published' && (
+          <div className="mt-4 text-sm text-[var(--fg-muted)]">
+            <Link to={`/materiais/${material.slug}`} className="font-semibold text-artificio-orange">Ver material publicado</Link>
+            <p className="mt-1">
+              {material.avg_rating === null || material.avg_rating === undefined ? 'Sem avaliações' : `${material.avg_rating.toFixed(1)} / 5 (${material.rating_count ?? 0})`}
+              {' · '}{material.comment_count ?? 0} comentários · {material.download_count ?? 0} downloads
+            </p>
+          </div>
+        )}
+      </section>
 
       <form onSubmit={handleSubmit} className="mt-6 flex max-w-xl flex-col gap-4">
         <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
@@ -295,6 +343,26 @@ export function EditarMaterialPage() {
             value={publisherName}
             onChange={(e) => setPublisherName(e.target.value)}
             placeholder="Nome da editora ou selo (opcional)"
+            className="min-h-[44px] rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
+          <span>Autores</span>
+          <input
+            value={authors}
+            onChange={(event) => setAuthors(event.target.value)}
+            placeholder="Separe vários nomes por vírgula"
+            className="min-h-[44px] rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
+          <span>Artistas</span>
+          <input
+            value={artists}
+            onChange={(event) => setArtists(event.target.value)}
+            placeholder="Separe vários nomes por vírgula"
             className="min-h-[44px] rounded-md border border-[var(--line)] bg-transparent px-3 py-2 text-[var(--fg)]"
           />
         </label>

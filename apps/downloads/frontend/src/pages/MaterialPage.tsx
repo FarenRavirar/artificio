@@ -8,6 +8,7 @@ import { AddToCollectionButton } from '../components/AddToCollectionButton';
 import { CommentSection } from '../components/CommentSection';
 import { MaterialCover } from '../components/MaterialCover';
 import { RatingSection } from '../components/RatingSection';
+import { ReportButton } from '../components/ReportButton';
 import { SystemChainBadge } from '../components/SystemChainBadge';
 import { useMaterial } from '../hooks/useMaterial';
 import { useMaterialMetadata } from '../hooks/useMaterialMetadata';
@@ -213,6 +214,7 @@ export function MaterialPage() {
 
               {user && <AddToCollectionButton materialId={material.id} />}
             </div>
+            <ReportButton target={{ materialId: material.id }} />
           </div>
         </div>
 

@@ -69,6 +69,29 @@ export function useAdminSystemSuggestions() {
   });
 }
 
+export function useMySystemSuggestions() {
+  return useQuery({
+    queryKey: ['downloads', 'system-suggestions', 'mine'],
+    queryFn: async () => {
+      const response = await apiGet('/api/v1/system-suggestions/mine');
+      if (!response.ok) throw new Error(await errorMessage(response, 'Falha ao buscar suas sugestões.'));
+      return z.array(suggestionSchema).parse(await response.json());
+    },
+  });
+}
+
+export function useCreateSystemSuggestion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { material_id: string; raw_value: string }) => {
+      const response = await apiPost('/api/v1/system-suggestions', input);
+      if (!response.ok) throw new Error(await errorMessage(response, 'Falha ao enviar sugestão.'));
+      return suggestionSchema.parse(await response.json());
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['downloads', 'system-suggestions', 'mine'] }),
+  });
+}
+
 export function useSystemSuggestionCandidates(suggestionId: string | null) {
   return useQuery({
     queryKey: ['downloads', 'admin', 'system-suggestions', suggestionId, 'candidates'],

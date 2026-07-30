@@ -62,10 +62,10 @@ Total: **406 operações**.
 | POST | `/api/v1/collections/{id}/items` | public | user | active | — | Cria ou executa api v1 collections id items |
 | DELETE | `/api/v1/collections/{id}/items/{materialId}` | public | user | active | — | Remove api v1 collections id items materialId |
 | POST | `/api/v1/comments` | public | user | active | — | Cria ou executa api v1 comments |
-| DELETE | `/api/v1/comments/{id}` | public | user | active | — | Remove api v1 comments id |
 | GET | `/api/v1/comments/{materialId}` | public | none | active | — | Consulta api v1 comments materialId |
 | GET | `/api/v1/creators/{slug}` | public | none | active | — | Consulta api v1 creators slug |
 | GET | `/api/v1/creators/me` | public | user | active | — | Consulta api v1 creators me |
+| PATCH | `/api/v1/creators/me` | public | user | active | — | Atualiza api v1 creators me |
 | GET | `/api/v1/destinations/{id}` | public | none | active | — | Consulta api v1 destinations id |
 | POST | `/api/v1/downloads` | public | user | active | — | Cria ou executa api v1 downloads |
 | GET | `/api/v1/favorites` | public | none | active | — | Consulta api v1 favorites |

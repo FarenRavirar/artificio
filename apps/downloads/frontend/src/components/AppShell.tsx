@@ -14,11 +14,6 @@ const userMenu: UserMenuItem[] = [
 
 // T4.2 (spec 073) — submenu Downloads reaproveitando o mesmo Header
 // compartilhado dos outros módulos (mesas/glossario/site/links).
-const moduleNav: NavItem[] = [
-  { label: 'Início', href: '/' },
-  { label: 'Catálogo', href: '/catalogo' },
-];
-
 // Spec 086 (T10.2/T10.3) — "Sobre e uso" sai do moduleNav (não é catálogo,
 // é 100% institucional: D119, PWYW, download, moderação, direitos
 // autorais) e vira link no footer via Footer.moduleLinks (packages/ui,
@@ -78,8 +73,6 @@ export const AppShell = ({ children }: AppShellProps) => {
         variant={theme === 'light' ? 'light' : 'dark'}
         brandHref="/"
         currentHref={pathname}
-        moduleNav={moduleNav}
-        moduleCurrentHref={pathname}
         userMenu={userMenu}
         showThemeToggle
         showSearch

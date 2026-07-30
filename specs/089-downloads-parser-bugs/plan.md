@@ -245,8 +245,14 @@ público de criador ficou para spec futura — não há rota de escrita em `down
 aos quatro caminhos de conta que o Header já oferece e ao "Perfil" da sidebar
 (`PainelShell.tsx:9`), acrescentar outro seria o sexto. **O defeito real é a duplicação:**
 `App.tsx:51` e `:53` renderizam a mesma `CatalogoPage` para "Início" e "Catálogo". Decisão do
-mantenedor (2026-07-27): remove "Início", mantém "Catálogo", não acrescenta "Perfil". O que
-"perfil de criador" significa vira decisão própria.
+mantenedor revista em 2026-07-29: remove toda a nav interna de catálogo — saem "Início" e
+"Catálogo", porque `/` já é o catálogo — e não acrescenta "Perfil". `/catalogo` fica apenas
+como rota compatível, sem link no Header. O que
+"perfil de criador" significa vira decisão própria. **Decisão fechada em 2026-07-29:** o autor
+poderá editar o próprio perfil público; a edição vive no painel, sem novo item na nav principal,
+com nome público e bio Markdown editáveis. O endereço público é gerado automaticamente no
+primeiro salvamento e fica imutável; perfil ausente é criado nesse primeiro salvamento. Nome e
+e-mail do SSO seguem somente leitura.
 
 O resto **não é correção — é desenho de produto**, mas não pelo motivo que este plano dava. A
 afirmação "6 domínios de API sem tela alguma" era **inferência falsa por contagem de rotas**:
@@ -262,8 +268,15 @@ linha com o mantenedor — inclusive as que terminam em "sem tela".
 dashboard que conta só três dos cinco estados editoriais (`VisaoGeralPage.tsx:9-11`, sem
 `rejected` nem `withdrawn`); sugestão de sistema restrita a admin (`App.tsx:86`) apesar da API
 ter `/mine`; autor sem acompanhamento de avaliações, comentários e downloads dos próprios
-materiais; e a divergência do defeito 17 — `comments.ts:58` promete retirada "por denúncia", mas
-`download_report` só referencia `material_id` (`migration_005:11`) e não existe UI de denúncia.
+materiais; e a divergência do defeito 17, que a auditoria de 2026-07-29 mostrou ser maior do que
+o registro original: **não existe criação de denúncia no frontend para alvo nenhum** (zero
+`POST /api/v1/reports`), embora a API e as telas de acompanhamento/moderação já existam. Três
+lugares afirmam o canal inexistente (`comments.ts:70`, `CommentSection.tsx:19`,
+`SobreEUsoPage.tsx:74`), e sem ele a D111 item 6 é inexequível. Decidido pelo mantenedor em
+2026-07-29: ferramenta **única** de denúncia (alvo é dado de entrada, não fluxo separado), sem
+remoção automática — revoga a contenção de 2026-07-12 —, comentário acatado fica marcado como
+removido, e a política de abuso vai publicada no `/sobre-e-uso` (DSA artigo 23). Detalhe em
+T9.7a–T9.7h.
 
 **Ordem, não fatiamento.** O onboarding depende das Fases 6 e 7 terem fechado: sem threads e
 identidade de comentário (090), e sem sistema, capa, conteúdo rico e slug automático, seria
@@ -327,8 +340,13 @@ saída e retomada livres.
 | `apps/downloads/frontend/src/pages/painel/VisaoGeralPage.tsx` | H | `rejected` e `withdrawn` nos contadores (`:9-11` cobre só três dos cinco), motivo da rejeição, link público |
 | `apps/downloads/frontend/src/pages/painel/**` (telas de acompanhamento) | H | avaliações, comentários recebidos e downloads dos próprios materiais |
 | `apps/downloads/frontend/src/**` (sugestão de sistema fora da gestão) | H | usuário comum sugere e acompanha `/mine`; hoje só admin (`App.tsx:86`) |
-| `apps/downloads/backend/src/routes/comments.ts` | H | defeito 17 — `:58` promete denúncia que não existe no modelo; ou modelar ou corrigir o comentário |
-| `apps/downloads/database/` (denúncia de comentário) | H | **condicional à decisão da T9.7**: `download_report` só tem `material_id` (`migration_005:11`) |
+| `apps/downloads/backend/src/routes/comments.ts` | H | defeito 17 — `:70` promete denúncia que não existia; T9.7d (marca "removido pela moderação") + T9.7h (comentário) |
+| `apps/downloads/database/migration_036_*.sql` | H | **decidido 2026-07-29 (T9.7b)**: `comment_id` XOR `material_id` + índice único por (denunciante, alvo). Uma migration só |
+| `apps/downloads/backend/src/routes/reports.ts` | H | T9.7c — remover contenção automática (revogada, T9.7a), derivar prioridade no servidor, aceitar alvo comentário, 409 em duplicata |
+| `apps/downloads/frontend/src/components/` (denúncia) | H | T9.7e — componente reutilizável que **nunca existiu**: zero `POST /api/v1/reports` no frontend antes desta spec |
+| `apps/downloads/frontend/src/pages/gestao/GestaoDenunciasPage.tsx` | M | T9.7f — fila mostra corpo/contexto quando o alvo é comentário |
+| `apps/downloads/frontend/src/pages/SobreEUsoPage.tsx` | H | T9.7g — `:74` promete canal inexistente; política de abuso é exigência do DSA artigo 23 |
+| `specs/089-downloads-parser-bugs/{spec,tasks}.md` | H | T9.7a — revogação da contenção automática de 2026-07-12; registro restrito à spec por ordem do mantenedor |
 
 **Não tocar:** `packages/catalog-matching`, `packages/catalog-client` (leitura apenas),
 `resolveSystemHint`/`resolveMaterialTypeHint` (corretos).

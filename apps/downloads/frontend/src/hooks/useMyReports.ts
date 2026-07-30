@@ -4,12 +4,15 @@ import { apiGet } from '../services/apiClient';
 
 const myReportSchema = z.object({
   id: z.string(),
-  material_id: z.string(),
+  material_id: z.string().nullable(),
+  comment_id: z.string().nullable(),
   category: z.string(),
   priority: z.enum(['P0', 'P1', 'P2', 'P3']),
   case_state: z.enum(['open', 'in_review', 'resolved', 'dismissed']),
   details: z.string().nullable(),
   resolution_note: z.string().nullable(),
+  reporter_abuse_flagged: z.boolean(),
+  reporter_dismissed_streak: z.number(),
   created_at: z.string(),
   resolved_at: z.string().nullable(),
 });
