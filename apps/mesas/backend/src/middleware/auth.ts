@@ -8,6 +8,9 @@ import { db } from '../db/index.js';
 export interface AuthDecoded {
   userId: string;
   role: UserRole;
+  // Opcional só para requests sintéticos/legados; middleware SSO sempre popula.
+  // Qualquer capacidade global deve exigir igualdade explícita, nunca fallback.
+  globalRole?: Session['user']['role'];
   email?: string;
   name?: string;
   avatar?: string | null;
@@ -23,7 +26,14 @@ declare global {
   }
 }
 
-const toMesasRole = (role: 'user' | 'admin'): UserRole => role === 'admin' ? 'admin' : 'player';
+const toMesasRole = (role: Session['user']['role']): UserRole => role === 'admin' ? 'admin' : 'player';
+
+export function resolveEffectiveMesasRole(
+  globalRole: Session['user']['role'],
+  localRole: UserRole,
+): UserRole {
+  return globalRole === 'admin' ? 'admin' : localRole;
+}
 
 // Usuário local do mesas provisionado via SSO (accounts.) na primeira vez que
 // aparece — sem isto, req.user.userId caía no fallback session.user.id (UUID
@@ -85,7 +95,8 @@ const attachLegacyUser = async (req: Request): Promise<boolean> => {
 
   req.user = {
     userId: mesasUser.id,
-    role: session.user.role === 'admin' ? 'admin' : mesasUser.role,
+    role: resolveEffectiveMesasRole(session.user.role, mesasUser.role),
+    globalRole: session.user.role,
     email: mesasUser.email,
     name: session.user.name,
     avatar: session.user.avatar,

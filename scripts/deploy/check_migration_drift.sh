@@ -8,8 +8,9 @@
 #   - `site` tem `auto_deploy_on_push: false` (dispatch-only), então merge/promote NÃO deploya;
 #   - o container existente roda a IMAGEM antiga, e o `migrate` de dentro dela lista `db/migrations/`
 #     da imagem — não enxerga SQL que o deploy não levou;
-#   - `apply_required_migrations.sh` é chamado com o diretório `database`, que no site não existe, e
-#     sai com "diretorio ausente; nada a aplicar" — verde, sem alarme.
+#   - historicamente `apply_required_migrations.sh` era chamado com o diretório `database`, que no
+#     site não existe, e saía verde; desde a spec 090 o workflow pula esse runner para o site e o
+#     próprio runner falha fechado quando um diretório obrigatório não existe;
 #
 # Resultado: `015` e `016` ficaram mergeadas e AUSENTES em beta e prod por 7 dias, sem erro em log,
 # healthcheck ou CI. Mover `migrate` para antes do guard de `dist` no entrypoint (mesma PR) melhora o
@@ -36,8 +37,8 @@ GLOB="${6:-migration_*.sql}"
 STRIP_EXT="${7:-false}"
 
 if [[ ! -d "$MIGRATIONS_DIR" ]]; then
-  echo "[drift] diretório ausente: $MIGRATIONS_DIR — nada a comparar."
-  exit 0
+  echo "::error::[drift] diretório ausente: $MIGRATIONS_DIR — não é possível provar conformidade." >&2
+  exit 1
 fi
 
 # `|| true` porque a tabela pode não existir num banco recém-criado; nesse caso `in_db` fica vazio e

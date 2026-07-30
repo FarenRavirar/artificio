@@ -13,8 +13,14 @@ apps/accounts (dono)
 
 packages/comments (cliente + UI)
 ├── client   — chamadas à API do accounts., cache, degradação
-└── ui       — lista, formulário, thread, central de notificações
+├── ui       — lista, formulário, thread, central de notificações
+└── moderation — fila, ação em lote, restauração, histórico (requisito 27)
 ```
+
+A superfície de moderação reusa `packages/ui/src/admin` (`AdminTable`,
+`bulkActions`, `StatusPill`, `AdminWorkspaceLayout`) e o padrão de dados de
+`useModerationQueue` do `downloads` — não introduz design system nem stack de
+dados própria.
 
 ### Por que o `accounts.` e não um serviço novo
 
@@ -69,13 +75,20 @@ A trava é o requisito 4 — quem é admin hoje continua sendo. Exige mapa antes
 
 ### Notificações (requisitos 13-19)
 
-Modelo de evento, não de mensagem: `(user_id, kind, subject_type, subject_id, actor_id,
-read_at)`. O texto é montado na leitura, não gravado — isso permite mudar a redação sem migrar
-dado, e localizar depois se necessário.
+Modelo de evento, não de mensagem, separado em duas tabelas:
+
+- `notification_event` guarda a ocorrência imutável, o assunto opaco, o ator e os dados de
+  apresentação versionados;
+- `notification_receipt` guarda destinatário e `read_at`, com unicidade por evento e usuário.
+
+Um evento pode assim chegar a mais de um destinatário sem duplicar a ocorrência, e destinatário
+repetido recebe um recibo só. O texto é montado na leitura, não gravado — isso permite mudar a
+redação sem migrar dado, e localizar depois se necessário.
 
 Regras de geração:
-- resposta a comentário → notifica autor do pai (requisito 14)
-- comentário em conteúdo → notifica dono do conteúdo (requisito 15)
+- comentário raiz → notifica publicador vinculado do conteúdo (requisito 15)
+- resposta → notifica autor do pai e publicador vinculado (requisitos 14 e 15c)
+- destinatários iguais geram um recibo; conta removida ou bloqueada não recebe
 - ator nunca é notificado da própria ação (requisito 16)
 
 O dono do conteúdo é informado pelo app ao comentar — o `accounts.` não sabe quem é dono de um

@@ -46,11 +46,13 @@ export const authMiddleware = (req: AuthedRequest, res: Response, next: NextFunc
     .then((local) => {
       // admin GLOBAL do SSO (token.role === 'admin') = superusuário (D052/req.5).
       const isGlobalAdmin = session.user.role === 'admin';
+      const isGlobalModerator = session.user.role === 'moderator';
       req.user = {
         id: local.id,
         role: isGlobalAdmin ? 'admin' : local.role,
         role_source: 'sso',
         is_global_admin: isGlobalAdmin,
+        is_global_moderator: isGlobalModerator,
         email: local.email,
         name: session.user.name,
         // sub/email do SSO (accounts) — consumidos pelo fluxo de reivindicação (claim).
@@ -80,11 +82,13 @@ export const optionalAuthMiddleware = (req: AuthedRequest, _res: Response, next:
   resolveLocalUser(session)
     .then((local) => {
       const isGlobalAdmin = session.user.role === 'admin';
+      const isGlobalModerator = session.user.role === 'moderator';
       req.user = {
         id: local.id,
         role: isGlobalAdmin ? 'admin' : local.role,
         role_source: 'sso',
         is_global_admin: isGlobalAdmin,
+        is_global_moderator: isGlobalModerator,
         email: local.email,
         name: session.user.name,
         sub: session.user.id,

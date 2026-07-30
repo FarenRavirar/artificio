@@ -50,6 +50,28 @@ describe("verifyToken", () => {
     expect(verifyToken(token)).toBeNull();
   });
 
+  it("accepts moderator role and role version", () => {
+    const token = jwt.sign(
+      {
+        sub: "moderator-1",
+        email: "moderator@example.com",
+        name: "Moderação",
+        role: "moderator",
+        role_version: 3,
+      },
+      "test-secret",
+      { algorithm: "HS256", expiresIn: "15m" },
+    );
+
+    expect(verifyToken(token)).toMatchObject({
+      user: {
+        id: "moderator-1",
+        role: "moderator",
+        roleVersion: 3,
+      },
+    });
+  });
+
   it("returns null for forged token", () => {
     const token = jwt.sign(
       {

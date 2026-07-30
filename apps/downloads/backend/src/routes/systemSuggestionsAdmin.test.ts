@@ -172,7 +172,10 @@ describe('POST /api/v1/admin/system-suggestions/:id/resolve', () => {
     expect(res.status).toBe(200);
     expect(addCatalogNodeAliasMock).toHaveBeenCalledWith('dd5e', 'D&D 5e');
     expect(trx.materialUpdate.set).toHaveBeenCalledWith(expect.objectContaining({ system_id: 'dd5e', raw_system_hint: null }));
-    expect(emitNotificationMock).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1', kind: 'system_suggestion_resolved' }));
+    expect(emitNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-1', kind: 'system_suggestion_resolved' }),
+      expect.anything(),
+    );
   });
 
   // Achado real (review PR #218, CodeRabbit): a rota passava `req.body` cru
@@ -377,7 +380,10 @@ describe('POST /api/v1/admin/system-suggestions/:id/resolve', () => {
 
     expect(res.status).toBe(200);
     expect(trx.suggestionUpdate.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'rejected', rejection_reason: 'Duplicata de outro sistema já cadastrado.' }));
-    expect(emitNotificationMock).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1', kind: 'system_suggestion_resolved' }));
+    expect(emitNotificationMock).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-1', kind: 'system_suggestion_resolved' }),
+      expect.anything(),
+    );
   });
 
   it('source=scraper nunca notifica ninguém', async () => {

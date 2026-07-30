@@ -63,8 +63,8 @@ if ! [[ "$MIGRATION_LOCK_ID" =~ ^-?[0-9]+$ ]]; then
 fi
 
 if [[ ! -d "$MIGRATIONS_DIR" ]]; then
-  echo "[migrations] diretorio ausente: $MIGRATIONS_DIR; nada a aplicar."
-  exit 0
+  echo "::error::[migrations] diretorio ausente: $MIGRATIONS_DIR; nao e possivel aplicar nem provar conformidade." >&2
+  exit 1
 fi
 
 acquire_migration_lock "$DB_SERVICE" "$DB_NAME"

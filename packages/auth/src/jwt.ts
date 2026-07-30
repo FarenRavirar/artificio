@@ -2,7 +2,7 @@ import jwt from "jsonwebtoken";
 import type { JwtClaims, Session, UserRole } from "./types.js";
 
 function isRole(value: unknown): value is UserRole {
-  return value === "user" || value === "admin";
+  return value === "user" || value === "moderator" || value === "admin";
 }
 
 function toSession(value: unknown): Session | null {
@@ -26,6 +26,10 @@ function toSession(value: unknown): Session | null {
       email: claims.email,
       name: claims.name,
       role: claims.role,
+      roleVersion:
+        typeof claims.role_version === "number" && Number.isSafeInteger(claims.role_version)
+          ? claims.role_version
+          : undefined,
       avatar: typeof claims.avatar === "string" ? claims.avatar : null,
     },
   };

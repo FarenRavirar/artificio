@@ -14,13 +14,15 @@ function toUser(row: {
   email: string;
   id: string;
   name: string;
-  role: "user" | "admin";
+  role: "user" | "moderator" | "admin";
+  role_version: number;
 }): User {
   return {
     id: row.id,
     email: row.email,
     name: row.name,
     role: row.role,
+    roleVersion: row.role_version,
     avatar: row.avatar,
   };
 }
@@ -40,6 +42,19 @@ export async function findUserById(
     .executeTakeFirst();
 
   return row ?? null;
+}
+
+export async function findAuthUserById(
+  db: Kysely<Database>,
+  id: string,
+): Promise<User | null> {
+  const row = await db
+    .selectFrom("users")
+    .select(["id", "email", "name", "avatar", "role", "role_version"])
+    .where("id", "=", id)
+    .executeTakeFirst();
+
+  return row ? toUser(row) : null;
 }
 
 export async function upsertGoogleUser(
@@ -62,7 +77,7 @@ export async function upsertGoogleUser(
         avatar: profile.avatar,
       }),
     )
-    .returning(["id", "email", "name", "avatar", "role"])
+    .returning(["id", "email", "name", "avatar", "role", "role_version"])
     .executeTakeFirstOrThrow();
 
   return toUser(row);

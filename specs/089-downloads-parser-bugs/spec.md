@@ -1,7 +1,8 @@
 # 089 — Correção dos bugs de parser e ingest achados na Fase 2 da spec 088
 
+- **Status:** ✅ encerrada em 2026-07-30 — implementação, migrations, deploy e validações reais confirmados pelo mantenedor.
 - **Módulo/Pacote:** apps/downloads
-- **Gate relacionado:** D (Downloads em produção — bloqueia o cutover da spec 088)
+- **Gate relacionado:** D (encerramento desta spec libera o cutover da spec 088; promoção continua ação própria)
 
 ## Problema
 
@@ -705,7 +706,7 @@ Verificados na interface do catálogo de beta, com o acervo recoletado:
 - **Reescrita do `scoreSystemCandidates`** (fuzzy/pontuado) — segue reservado à triagem admin por decisão anterior do mantenedor.
 - **Remoção do tipo neutro `nao-classificado`** — decisão do mantenedor (2026-07-27): permanece como rede de segurança.
 - **Escrita no catálogo central pelo ingest** — continua exclusiva da triagem admin (requisitos 48/56 da spec 088).
-- **Promoção da spec 088 para produção** — bloqueada até esta spec fechar.
+- **Promoção da spec 088 para produção** — não fazia parte da execução desta spec; o bloqueio causado pela 089 foi liberado no encerramento.
 
 ## Riscos e impacto em outros módulos
 
@@ -724,3 +725,5 @@ Verificados na interface do catálogo de beta, com o acervo recoletado:
   `.github/migration-dir-allowlist` quando a Fase 5 e a spec 089 forem concluídas.** O SQL
   canônico permanece versionado como evidência histórica; a exceção de CI não permanece aberta
   para specs futuras sem nova decisão nominal do mantenedor.
+
+**Fechamento confirmado pelo mantenedor em 2026-07-30:** todos os critérios restantes e a limpeza de encerramento foram executados. Este registro não realizou escrita fora de `specs/089-downloads-parser-bugs/*`.

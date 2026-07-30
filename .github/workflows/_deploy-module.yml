@@ -478,10 +478,18 @@ jobs:
           # o rollback usaria — entao satisfaz o guard de backup com o artefato
           # real, sem afrouxar REQUIRE_PROD_BACKUP_FOR_MANUAL (segue `true`,
           # inclusive em prod).
-          ALLOW_MANUAL_MIGRATIONS="${ALLOW_MANUAL_MIGRATIONS:-false}" \
-          MAX_AUTO_PENDING="${MAX_AUTO_PENDING:-5}" \
-          PROD_BACKUP_FILE="$snapshot_file" \
-            bash ../../scripts/deploy/apply_required_migrations.sh "$COMPOSE_FILE" "$DB_SERVICE" "$DB_NAME" "$DB_USER" "database"
+          # O site tem runner próprio no entrypoint e layout incompatível
+          # (db/migrations, NNN_*.sql, ledger.version). Chamar o runner padrão
+          # com "database" foi a causa do falso-verde E018. Outros módulos
+          # exigem esse diretório; ausência agora falha fechado.
+          if [ "$MODULE" = "site" ]; then
+            echo "[migrations] site usa runner proprio no entrypoint; runner padrao ignorado."
+          else
+            ALLOW_MANUAL_MIGRATIONS="${ALLOW_MANUAL_MIGRATIONS:-false}" \
+            MAX_AUTO_PENDING="${MAX_AUTO_PENDING:-5}" \
+            PROD_BACKUP_FILE="$snapshot_file" \
+              bash ../../scripts/deploy/apply_required_migrations.sh "$COMPOSE_FILE" "$DB_SERVICE" "$DB_NAME" "$DB_USER" "database"
+          fi
 
           docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" --env-file "$env_file_name" down --remove-orphans
           docker compose -p "$COMPOSE_PROJECT" -f "$COMPOSE_FILE" --env-file "$env_file_name" build --no-cache --pull
@@ -511,9 +519,10 @@ jobs:
           # Drift de migrations pos-deploy (E018, achado do Codex na PR #219).
           # Container healthy NAO prova schema em dia: modulo que migra por fluxo
           # proprio (site, no entrypoint) passava batido porque
-          # apply_required_migrations.sh recebe o diretorio "database", que no site
-          # nao existe — o script imprime "nada a aplicar" e sai verde. Foi assim
-          # que 015/016 ficaram ausentes em beta e prod por 7 dias sem alarme.
+          # Historicamente apply_required_migrations.sh recebia "database" para o
+          # site, imprimia "nada a aplicar" e saía verde. Foi assim que 015/016
+          # ficaram ausentes em beta e prod por 7 dias. Hoje o runner padrão é
+          # pulado para o site e falha fechado para os demais módulos.
           # Roda DEPOIS do deploy de proposito: verifica o resultado, nao a intencao.
           if [ "$MODULE" = "site" ]; then
             DRIFT_DIR="apps/site/db/migrations"; DRIFT_COL="version"; DRIFT_GLOB="*.sql"; DRIFT_STRIP="true"

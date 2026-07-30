@@ -9,7 +9,6 @@
     "build:client": "vite build --config vite.config.ts",
     "dev": "tsx src/index.ts",
     "lint": "eslint .",
-    "migrate": "tsx src/migrate.ts",
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {

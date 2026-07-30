@@ -8,10 +8,16 @@ const dbMocks = vi.hoisted(() => ({
   selectFrom: vi.fn(),
   updateTable: vi.fn(),
   insertInto: vi.fn(),
+  transaction: vi.fn(),
 }));
 
 vi.mock('../db', () => ({
-  db: { selectFrom: dbMocks.selectFrom, updateTable: dbMocks.updateTable, insertInto: dbMocks.insertInto },
+  db: {
+    selectFrom: dbMocks.selectFrom,
+    updateTable: dbMocks.updateTable,
+    insertInto: dbMocks.insertInto,
+    transaction: dbMocks.transaction,
+  },
 }));
 
 vi.mock('../middleware/auth', () => ({
@@ -53,6 +59,13 @@ beforeEach(() => {
   dbMocks.selectFrom.mockReset();
   dbMocks.updateTable.mockReset();
   dbMocks.insertInto.mockReset();
+  dbMocks.transaction.mockReset();
+  dbMocks.transaction.mockReturnValue({
+    execute: (callback: (trx: unknown) => unknown) => callback({
+      updateTable: dbMocks.updateTable,
+      insertInto: dbMocks.insertInto,
+    }),
+  });
   sendModerationEmailMock.mockClear();
 });
 

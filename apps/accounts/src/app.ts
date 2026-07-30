@@ -14,7 +14,7 @@ import type { Database } from "./db.js";
 import type { AccountsEnv } from "./env.js";
 import { createGoogleClient, readGoogleProfile } from "./google.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "./tokens.js";
-import { findUserById, upsertGoogleUser } from "./users.js";
+import { findAuthUserById, findUserById, upsertGoogleUser } from "./users.js";
 import { createAdminSecretsRoutes } from "./adminSecretsRoutes.js";
 
 // Comparacao constante mesmo com tamanhos diferentes (timingSafeEqual exige
@@ -159,26 +159,39 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
     res.status(204).send();
   });
 
-  app.get("/api/auth/refresh", (req, res) => {
+  app.get("/api/auth/refresh", async (req, res, next) => {
     const token =
       typeof req.cookies?.[refreshCookieName] === "string"
         ? req.cookies[refreshCookieName]
         : null;
-    const user = token ? verifyRefreshToken(token, env) : null;
+    const tokenUser = token ? verifyRefreshToken(token, env) : null;
 
-    if (!user) {
+    if (!tokenUser) {
       clearSessionCookies(res, env);
       res.status(401).json({ error: "unauthorized" });
       return;
     }
 
-    setSessionCookies(
-      res,
-      env,
-      signAccessToken(user, env),
-      signRefreshToken(user, env),
-    );
-    res.json({ user });
+    try {
+      // Spec 090 T1.2: o refresh é a fronteira de reidratação. Papel, perfil e
+      // roleVersion vêm do banco; claim antiga só autentica o ID da sessão.
+      const user = await findAuthUserById(db, tokenUser.id);
+      if (!user) {
+        clearSessionCookies(res, env);
+        res.status(401).json({ error: "unauthorized" });
+        return;
+      }
+
+      setSessionCookies(
+        res,
+        env,
+        signAccessToken(user, env),
+        signRefreshToken(user, env),
+      );
+      res.json({ user });
+    } catch (error) {
+      next(error);
+    }
   });
 
   // WS3: admin secrets (DeepSeek key, etc.) — admin-gated + X-Service-Token

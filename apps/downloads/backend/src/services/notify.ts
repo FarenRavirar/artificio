@@ -1,4 +1,6 @@
 import { db } from '../db';
+import type { Kysely, Transaction } from 'kysely';
+import type { Database } from '../db/types';
 
 // DEB-074-04 (spec 074/075) — emissao de notificacao pelos eventos reais que
 // a tabela download_notification (migration_018) ja previa: material
@@ -14,8 +16,8 @@ export async function emitNotification(input: {
   kind: NotificationKind;
   materialId?: string | null;
   body: string;
-}): Promise<void> {
-  await db
+}, executor: Kysely<Database> | Transaction<Database> = db): Promise<void> {
+  await executor
     .insertInto('download_notification')
     .values({
       user_id: input.userId,

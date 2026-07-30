@@ -82,6 +82,13 @@ O Artifício RPG avança por gates. **Nenhum gate é pulado.** Cada gate exige a
 - SSO central em `accounts.artificiorpg.com`.
 - Une tudo: cookie `.artificiorpg.com` + nav + design. Cloudflare Tunnel mapeia hostname→container.
 
+**"Não lançado" ≠ "não deve subir" (pétrea).** Projeto ainda não divulgado ao público **é deployado em produção normalmente** — subdomínio, container, banco e rota de tunnel entram no ar antes do anúncio, de propósito. "Não lançado" significa apenas que **o público sabe que ainda não está pronto**, não que produção esteja proibida, adiada ou que o ambiente seja descartável. Consequências operacionais que o agente **não** pode inverter por conta própria:
+
+- **Nunca propor remover/desligar rota de tunnel, DNS ou container "porque o projeto ainda não foi lançado".** Rota provisionada antes do anúncio é estado desejado; `502`/`503` num subdomínio ainda não anunciado indica **deploy pendente**, não rota indevida. O remédio é deployar, não apagar a rota.
+- **Ausência de container/volume/banco de produção não é decisão de produto** — é deploy que ainda não aconteceu. Não tratar como "projeto não usa prod".
+- **Prioridade menor não vira licença pra afrouxar.** Migration, guard de deploy, backup, smoke e revisão valem igual em projeto não anunciado: o dado que entra ali é real desde o primeiro deploy, e o primeiro público chega sem aviso prévio ao agente.
+- Se o mantenedor quiser adiar produção de um projeto específico, ele diz. Silêncio sobre lançamento **não** autoriza inferir adiamento.
+
 **DNS raiz de `artificiorpg.com` exige aprovação explícita do mantenedor pra qualquer mudança, como qualquer DNS/tunnel de produção.** `artificiorpg.com` é `CNAME` pro Cloudflare Tunnel (`<tunnel-id>.cfargotunnel.com`), roteando pro container `site-prod-app:4322`. Antes de mexer, sempre checar registro DNS real do hostname raiz no painel — pode ser qualquer registro (R2, MX, etc.) conflitando com o nome.
 
 ---

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { db } from '../config/database.js';
 import { notifyTermOwnerOnComment } from '../services/notificationService.js';
 import type { AuthedRequest } from '../types/express.js';
+import { canDeleteComment } from '../utils/commentPermissions.js';
 
 export const getCommentsByTerm = async (req: Request, res: Response) => {
   const { id: termId } = req.params;
@@ -87,7 +88,12 @@ export const deleteComment = async (req: AuthedRequest, res: Response) => {
 
     const commentOwnerId = findResult.rows[0].user_id;
 
-    if (userId !== commentOwnerId && userRole !== 'admin') {
+    if (!canDeleteComment({
+      actorId: userId,
+      ownerId: commentOwnerId,
+      localRole: userRole ?? 'user',
+      isGlobalModerator: req.user?.is_global_moderator === true,
+    })) {
       return res.status(403).json({ error: 'Sem permissão para deletar este comentário' });
     }
 

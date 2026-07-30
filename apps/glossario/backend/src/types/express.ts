@@ -10,6 +10,7 @@ export interface AuthedUser {
   role: string;
   role_source: 'sso' | 'db';
   is_global_admin: boolean;
+  is_global_moderator: boolean;
   email: string;
   name: string;
   sub: string;
