@@ -18,7 +18,17 @@ COPY --from=build /repo/package.json /repo/pnpm-lock.yaml /repo/pnpm-workspace.y
 COPY --from=build /repo/packages ./packages
 COPY --from=build /repo/apps/accounts ./apps/accounts
 COPY --from=build /repo/patches ./patches
-RUN pnpm install --prod --filter @artificio/accounts --frozen-lockfile
+# auth/config tem dep externa propria (jsonwebtoken, zod) e o require sai de
+# dentro do dist deles. Hoje o app declara as duas libs como dep direta, entao a
+# resolucao ascendente do Node acha por acaso — remover do package.json do app
+# derrubaria o container com o CI verde. Filtrar explicitamente troca a
+# coincidencia por garantia (padrao E016/E017).
+RUN pnpm install --prod --filter @artificio/accounts --frozen-lockfile \
+  && pnpm install --prod --filter @artificio/auth --frozen-lockfile \
+  && pnpm install --prod --filter @artificio/config --frozen-lockfile \
+  && test -d packages/auth/node_modules/jsonwebtoken \
+  && test -d packages/config/node_modules/zod \
+  || (echo "ERRO: dependencia de pacote workspace ausente em packages/*/node_modules/" && exit 1)
 RUN chown -R node:node /app
 USER node
 WORKDIR /app/apps/accounts

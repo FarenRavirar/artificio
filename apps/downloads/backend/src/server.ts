@@ -23,6 +23,8 @@ import scraperRoutes from './routes/scraper';
 import systemSuggestionsRoutes from './routes/systemSuggestions';
 import systemSuggestionsAdminRoutes from './routes/systemSuggestionsAdmin';
 import materialTypeSuggestionsAdminRoutes from './routes/materialTypeSuggestionsAdmin';
+import publicShellRoutes from './routes/publicShell';
+import publicSeoRoutes from './routes/publicSeo';
 import { parseCookies } from './middleware/parseCookies';
 import { db } from './db';
 import { startLinkCheckerScheduler } from './services/linkCheckerScheduler';
@@ -90,6 +92,11 @@ app.get('/api/v1/health', async (_req, res) => {
     res.status(500).json({ status: 'error', message: 'Database connection failed' });
   }
 });
+
+// Spec 089 Fase 8: HTML fonte, robots e sitemap vivem no origin. Montados
+// antes da API; nginx encaminha somente os caminhos públicos exatos.
+app.use('/', publicShellRoutes);
+app.use('/', publicSeoRoutes);
 
 // Achado de review PR #228 (Codex P1): materialCoverRoutes precisa vir ANTES
 // de materialsRoutes — este tem `GET /:slug`, que captura

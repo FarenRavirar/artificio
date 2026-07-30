@@ -213,6 +213,18 @@ já produz `og:type`, `og:url`, `og:site_name`, `og:locale`, Twitter card e `noi
 a trava de pacote compartilhado; se a implementação exigir mudar `meta.ts`, aí para e pede
 aprovação própria.
 
+**Ajuste de implementação autorizado pelo mantenedor em 2026-07-29:** o backend Downloads é
+CommonJS e `packages/content` exportava somente ESM. Foi autorizada a ampliação para o pacote
+compartilhado: manter a saída ESM e adicionar saída/export `require` em `dist-cjs`. `meta.ts`
+permanece sem alteração. Builds de `site`, `mesas-backend`, `glossario-backend` e Downloads
+validam os consumidores afetados.
+
+**Mecanismo ambiental autorizado em 2026-07-29:** o backend é dono de `/robots.txt` e
+`/sitemap.xml`; nginx faz proxy exato. Em beta, robots bloqueia `/` e sitemap responde 404; em
+produção, robots preserva o bloqueio de facetas e referencia o sitemap de publicados. O mesmo
+shell é servido a humano e crawler, sem ramificação nem `Vary` por User-Agent. O frontend copia
+seu `dist` para volume somente-leitura do backend, seguindo o mecanismo já usado em Mesas.
+
 Conta para o cutover porque a `og:image` é URL absoluta apontando para produção: o mesmo
 `index.html` vai para lá e o comportamento será idêntico.
 
@@ -304,12 +316,13 @@ saída e retomada livres.
 | `apps/mesas/backend/src/utils/{tableVisibility,userMarkdown}.ts` | F/6B | políticas únicas, testáveis, de publicação e sanitização |
 | `apps/mesas/frontend/src/components/MarkdownEditor.tsx` | F/6B | preview Markdown com HTML cru desativado |
 | `apps/mesas/frontend/src/components/RichTextArea.tsx` | F/6B | removido: código morto com `dangerouslySetInnerHTML` |
-| `apps/downloads/frontend/index.html` | G | remover as metas genéricas que o shell dinâmico passa a injetar — hoje duplicariam |
+| `apps/downloads/frontend/index.html` | G | permanece como shell genérico das demais rotas; o renderer remove suas metas apenas na resposta dinâmica de `/materiais/:slug` |
 | `apps/downloads/frontend/public/og-default.png` | G | **não existe**; `index.html:13` e `:22` o referenciam. Diretório `public/` também precisa nascer; `Dockerfile:44` copia `dist` inteiro, e o Vite emite `public/` para lá sem config extra |
 | `apps/downloads/frontend/nginx.conf` | G | encaminhar `GET /materiais/:slug` ao backend, **antes** do `location /` (`:46`) e sem capturar os assets (`:34`) |
-| `apps/downloads/backend/src/**` (renderer de `<head>`) | G | consulta o material pela **mesma função da API pública**, obtém e cacheia o `index.html` real do frontend interno, injeta as tags. Corpo intocado |
-| `packages/content/src/meta.ts` | G | **consumido, não modificado** — já produz o contrato completo, inclusive `noindex` (`:23`). Modificar exigiria aprovação nominal própria |
-| sitemap de materiais publicados | G | **não existe** em `apps/downloads`; servido em prod, ausente em beta |
+| `apps/downloads/backend/src/{routes,services}/**` (renderer/SEO público) | G | consulta única compartilhada com a API, shell dinâmico, robots ambiental e sitemap de publicados; corpo do frontend intocado |
+| `apps/downloads/docker-compose.{beta,prod}.yml` | G | volume compartilhado leva o `index.html` real do frontend ao backend; URLs e política ambiental explícitas |
+| `packages/content` | G | `meta.ts` consumido sem alteração; saída/export CJS aditiva autorizada para o backend Downloads |
+| sitemap de materiais publicados | G | rota backend servida em prod e 404/noindex em beta |
 | `apps/downloads/frontend/src/components/AppShell.tsx` | H | remover o `Início` duplicado de `moduleNav` (`:18`); **não** acrescentar `Perfil` |
 | `apps/downloads/frontend/src/pages/painel/VisaoGeralPage.tsx` | H | `rejected` e `withdrawn` nos contadores (`:9-11` cobre só três dos cinco), motivo da rejeição, link público |
 | `apps/downloads/frontend/src/pages/painel/**` (telas de acompanhamento) | H | avaliações, comentários recebidos e downloads dos próprios materiais |
