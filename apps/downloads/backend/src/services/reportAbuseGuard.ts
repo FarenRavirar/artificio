@@ -6,6 +6,16 @@
 
 export const ABUSE_DISMISSED_STREAK_THRESHOLD = 3;
 
+// Limiar decide quando sinalizar; janela mede o volume recente mostrado ao
+// moderador. Não unificar: limitar a consulta ao limiar satura o snapshot em 3.
+export const ABUSE_LOOKBACK_WINDOW = 20;
+
+export function reporterDismissedStreak(recentCaseStatesDescending: string[]): number {
+  return recentCaseStatesDescending.findIndex((state) => state !== 'dismissed') === -1
+    ? recentCaseStatesDescending.length
+    : recentCaseStatesDescending.findIndex((state) => state !== 'dismissed');
+}
+
 /**
  * Recebe os N reports mais recentes do usuario (mais recente primeiro,
  * apenas com case_state resolved/dismissed) e diz se a sequencia mais
@@ -13,10 +23,5 @@ export const ABUSE_DISMISSED_STREAK_THRESHOLD = 3;
  * (denuncia procedente) quebra a sequencia e reseta a contagem.
  */
 export function isReporterAbusive(recentCaseStatesDescending: string[]): boolean {
-  if (recentCaseStatesDescending.length < ABUSE_DISMISSED_STREAK_THRESHOLD) {
-    return false;
-  }
-  return recentCaseStatesDescending
-    .slice(0, ABUSE_DISMISSED_STREAK_THRESHOLD)
-    .every((state) => state === 'dismissed');
+  return reporterDismissedStreak(recentCaseStatesDescending) >= ABUSE_DISMISSED_STREAK_THRESHOLD;
 }

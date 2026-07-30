@@ -3,26 +3,31 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestaoDenunciasPage } from './GestaoDenunciasPage';
 import * as useReportsQueueModule from '../../hooks/useReportsQueue';
+import type { ModerationReport } from '../../hooks/useReportsQueue';
 
 // T4.1/T4.2 (spec 075) — cobertura de teste do débito (27 páginas sem
 // teste de componente): render de loading/vazio/lista, e fluxo de
 // decisão (resolver/dispensar) passando resolution_note digitada.
 
 
-function makeReport(overrides: Partial<ReturnType<typeof baseReport>> = {}) {
+function makeReport(overrides: Partial<ModerationReport> = {}): ModerationReport {
   return { ...baseReport(), ...overrides };
 }
 
-function baseReport() {
+function baseReport(): ModerationReport {
   return {
     id: 'report-1',
     material_id: 'material-1',
+    comment_id: null,
     reporter_user_id: 'user-1',
     category: 'copyright',
     priority: 'P0' as const,
     case_state: 'open' as const,
     details: 'Conteúdo infringe direitos autorais',
     resolution_note: null,
+    reporter_abuse_flagged: false,
+    reporter_dismissed_streak: 0,
+    comment_target: null,
     created_at: '2026-07-01T00:00:00.000Z',
     resolved_at: null,
   };
@@ -102,6 +107,7 @@ describe('GestaoDenunciasPage', () => {
       id: 'report-1',
       case_state: 'resolved',
       resolution_note: 'Verificado, conteúdo removido',
+      priority: 'P0',
     });
   });
 
@@ -117,6 +123,29 @@ describe('GestaoDenunciasPage', () => {
       id: 'report-1',
       case_state: 'dismissed',
       resolution_note: undefined,
+      priority: 'P0',
     });
+  });
+
+  it('mostra comentário, aviso de abuso e reclassifica a prioridade', () => {
+    mockReportsQueue({ data: [makeReport({
+      material_id: null,
+      comment_id: 'comment-1',
+      reporter_abuse_flagged: true,
+      reporter_dismissed_streak: 3,
+      comment_target: {
+        id: 'comment-1', material_id: 'material-1', material_title: 'Aventura',
+        user_id: 'author-1', body: 'Comentário denunciado', removed_at: null,
+      },
+    })], isLoading: false });
+    const mutateAsync = mockReportDecision();
+
+    renderPage();
+
+    expect(screen.getByText('Comentário denunciado')).toBeInTheDocument();
+    expect(screen.getByText(/3 denúncias descartadas/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Prioridade'), { target: { value: 'P1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Atualizar prioridade' }));
+    expect(mutateAsync).toHaveBeenCalledWith({ id: 'report-1', case_state: 'in_review', priority: 'P1' });
   });
 });

@@ -29,6 +29,7 @@ export function DenunciasPage() {
             <p className="font-semibold text-[var(--fg)]">
               {report.category} — <span className="text-[var(--fg-muted)]">{STATE_LABEL[report.case_state]}</span>
             </p>
+            <p className="mt-1 text-xs text-[var(--fg-muted)]">Alvo: {report.comment_id ? 'comentário' : 'material'}</p>
             {report.details && <MarkdownContent value={report.details} className="mt-1 text-sm text-[var(--fg-muted)]" />}
             {report.resolution_note && (
               <div className="mt-1 text-sm text-[var(--fg-muted)]"><strong>Resolução:</strong><MarkdownContent value={report.resolution_note} /></div>

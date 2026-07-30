@@ -3,8 +3,7 @@ import { z } from 'zod';
 import { db } from '../db';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
-import { assertValidTransition, InvalidEditorialTransitionError } from '../services/editorialStateMachine';
-import { ABUSE_DISMISSED_STREAK_THRESHOLD, isReporterAbusive } from '../services/reportAbuseGuard';
+import { ABUSE_DISMISSED_STREAK_THRESHOLD, ABUSE_LOOKBACK_WINDOW, isReporterAbusive, reporterDismissedStreak } from '../services/reportAbuseGuard';
 import { emitNotification } from '../services/notify';
 import { logModerationAudit } from '../services/moderationAuditLog';
 import { sanitizeNullableUserMarkdown } from '@artificio/content-editor/sanitize';
@@ -19,63 +18,87 @@ const REPORT_CATEGORIES = [
   'other',
 ] as const;
 
+type ReportCategory = (typeof REPORT_CATEGORIES)[number];
+type ReportPriority = 'P0' | 'P1' | 'P2' | 'P3';
+
+// Decisão do mantenedor, 2026-07-29: prioridade mede reversibilidade do dano
+// durante a espera. P0 significa somente "primeiro na fila". Nunca remove
+// material ou comentário automaticamente; a contenção automática anterior
+// foi revogada por risco de brigading quando a UI de denúncia passou a existir.
+export const REPORT_PRIORITY_BY_CATEGORY: Record<ReportCategory, ReportPriority> = {
+  malicious_link: 'P0',
+  copyright_violation: 'P1',
+  inappropriate_content: 'P1',
+  other: 'P2',
+  broken_link: 'P3',
+};
+
 const createReportSchema = z.object({
-  material_id: z.string().trim().min(1),
+  material_id: z.string().trim().min(1).optional(),
+  comment_id: z.string().trim().min(1).optional(),
   category: z.enum(REPORT_CATEGORIES),
-  priority: z.enum(['P0', 'P1', 'P2', 'P3']).optional(),
   details: z.string().trim().max(4000).optional(),
+}).refine((value) => Boolean(value.material_id) !== Boolean(value.comment_id), {
+  message: 'Informe exatamente um alvo: material_id ou comment_id.',
 });
+
+function isUniqueViolation(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === '23505';
+}
 
 // T5.1/T5.4 — denuncia exige conta accounts. (revogado anonimato em
 // 2026-07-12, decisão nominal do mantenedor — habilita rastreio de abuso por
 // usuário via reporter_user_id, nunca mais NULL nesta rota).
-// T5.2 — contenção proporcional (D-nova 2026-07-12): 1 denúncia P0 já
-// suspende o material (editorial_state -> withdrawn) até revisão manual —
-// falso positivo custa reaparecer via moderação; manter no ar custa mais.
+// Decisão do mantenedor, 2026-07-29: denúncia apenas abre caso. A contenção
+// automática de 2026-07-12 foi revogada; moderação humana decide toda remoção.
 router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   const parsed = createReportSchema.safeParse(req.body ?? {});
   if (!parsed.success) {
     return res.status(400).json({ error: 'Payload inválido.', details: z.treeifyError(parsed.error) });
   }
 
-  const material = await db
-    .selectFrom('download_material')
-    .select(['id', 'editorial_state'])
-    .where('id', '=', parsed.data.material_id)
-    .executeTakeFirst();
-
-  if (!material) {
-    return res.status(404).json({ error: 'Material não encontrado.' });
+  if (parsed.data.material_id) {
+    const material = await db.selectFrom('download_material').select('id')
+      .where('id', '=', parsed.data.material_id).executeTakeFirst();
+    if (!material) return res.status(404).json({ error: 'Material não encontrado.' });
+  } else {
+    const comment = await db.selectFrom('download_comment').select('id')
+      .where('id', '=', parsed.data.comment_id!).executeTakeFirst();
+    if (!comment) return res.status(404).json({ error: 'Comentário não encontrado.' });
   }
 
-  const priority = parsed.data.priority ?? 'P3';
+  const duplicate = await db.selectFrom('download_report').select('id')
+    .where('reporter_user_id', '=', req.user!.userId)
+    .where(parsed.data.material_id ? 'material_id' : 'comment_id', '=', parsed.data.material_id ?? parsed.data.comment_id!)
+    .executeTakeFirst();
+  if (duplicate) return res.status(409).json({ error: 'Você já denunciou este conteúdo.' });
 
-  const created = await db
-    .insertInto('download_report')
-    .values({
-      material_id: parsed.data.material_id,
+  const recentReports = await db.selectFrom('download_report').select('case_state')
+    .where('reporter_user_id', '=', req.user!.userId)
+    .where('case_state', 'in', ['resolved', 'dismissed'])
+    .orderBy('created_at', 'desc')
+    .limit(ABUSE_LOOKBACK_WINDOW)
+    .execute();
+  const recentStates = recentReports.map((report) => report.case_state);
+  const dismissedStreak = reporterDismissedStreak(recentStates);
+  const priority = REPORT_PRIORITY_BY_CATEGORY[parsed.data.category];
+
+  try {
+    const created = await db.insertInto('download_report').values({
+      material_id: parsed.data.material_id ?? null,
+      comment_id: parsed.data.comment_id ?? null,
       reporter_user_id: req.user!.userId,
       category: parsed.data.category,
       priority,
       details: sanitizeNullableUserMarkdown(parsed.data.details ?? null),
-    })
-    .returningAll()
-    .executeTakeFirstOrThrow();
-
-  if (priority === 'P0' && material.editorial_state === 'published') {
-    try {
-      assertValidTransition(material.editorial_state, 'withdrawn');
-      await db
-        .updateTable('download_material')
-        .set({ editorial_state: 'withdrawn', updated_at: new Date() })
-        .where('id', '=', material.id)
-        .execute();
-    } catch (error) {
-      if (!(error instanceof InvalidEditorialTransitionError)) throw error;
-    }
+      reporter_abuse_flagged: isReporterAbusive(recentStates),
+      reporter_dismissed_streak: dismissedStreak,
+    }).returningAll().executeTakeFirstOrThrow();
+    return res.status(201).json(created);
+  } catch (error) {
+    if (isUniqueViolation(error)) return res.status(409).json({ error: 'Você já denunciou este conteúdo.' });
+    throw error;
   }
-
-  return res.status(201).json(created);
 });
 
 // DEB-074-02 (spec 074/075) — "minhas denuncias": denunciante ve as proprias,
@@ -152,15 +175,35 @@ router.get('/', writeRateLimiter, authMiddleware, requireRole(['moderator', 'adm
     .orderBy('created_at', 'asc')
     .execute();
 
+  const commentIds = reports.flatMap((report) => report.comment_id ? [report.comment_id] : []);
+  const commentTargets = commentIds.length === 0 ? [] : await db
+    .selectFrom('download_comment')
+    .innerJoin('download_material', 'download_material.id', 'download_comment.material_id')
+    .select([
+      'download_comment.id', 'download_comment.material_id', 'download_comment.user_id',
+      'download_comment.body', 'download_comment.removed_at', 'download_material.title as material_title',
+    ])
+    .where('download_comment.id', 'in', commentIds)
+    .execute();
+  const commentTargetById = new Map(commentTargets.map((comment) => [comment.id, comment]));
+
   return res.json(reports.map((report) => ({
     ...report,
     details: sanitizeNullableUserMarkdown(report.details),
     resolution_note: sanitizeNullableUserMarkdown(report.resolution_note),
+    comment_target: report.comment_id ? (() => {
+      const target = commentTargetById.get(report.comment_id);
+      return target ? {
+        ...target,
+        body: target.removed_at ? null : sanitizeNullableUserMarkdown(target.body),
+      } : null;
+    })() : null,
   })));
 });
 
 const decisionSchema = z.object({
   case_state: z.enum(['in_review', 'resolved', 'dismissed']),
+  priority: z.enum(['P0', 'P1', 'P2', 'P3']).optional(),
   resolution_note: z.string().trim().max(4000).optional(),
 });
 
@@ -175,7 +218,7 @@ router.patch('/:id', writeRateLimiter, authMiddleware, requireRole(['moderator',
 
   const report = await db
     .selectFrom('download_report')
-    .select(['id', 'reporter_user_id', 'material_id', 'case_state'])
+    .select(['id', 'reporter_user_id', 'material_id', 'comment_id', 'priority', 'case_state'])
     .where('id', '=', req.params.id)
     .executeTakeFirst();
 
@@ -190,23 +233,47 @@ router.patch('/:id', writeRateLimiter, authMiddleware, requireRole(['moderator',
   const isTerminal = parsed.data.case_state === 'resolved' || parsed.data.case_state === 'dismissed';
   const safeResolutionNote = sanitizeNullableUserMarkdown(parsed.data.resolution_note ?? null);
 
-  const updated = await db
-    .updateTable('download_report')
-    .set({
-      case_state: parsed.data.case_state,
-      resolution_note: safeResolutionNote ?? undefined,
-      resolved_at: isTerminal ? new Date() : null,
-    })
-    .where('id', '=', req.params.id)
-    .returningAll()
-    .executeTakeFirstOrThrow();
+  const commentTarget = report.comment_id ? await db.selectFrom('download_comment')
+    .select(['id', 'material_id']).where('id', '=', report.comment_id).executeTakeFirst() : undefined;
+  const targetMaterialId = report.material_id ?? commentTarget?.material_id;
 
-  if (isTerminal && report.reporter_user_id) {
+  const updated = await db.transaction().execute(async (trx) => {
+    const updatedReport = await trx
+      .updateTable('download_report')
+      .set({
+        case_state: parsed.data.case_state,
+        ...(parsed.data.priority ? { priority: parsed.data.priority } : {}),
+        resolution_note: safeResolutionNote ?? undefined,
+        resolved_at: isTerminal ? new Date() : null,
+      })
+      .where('id', '=', req.params.id)
+      .returningAll()
+      .executeTakeFirstOrThrow();
+
+    if (parsed.data.case_state === 'resolved' && report.comment_id) {
+      await trx.updateTable('download_comment').set({
+        removed_at: new Date(),
+        removed_reason: safeResolutionNote ?? 'Removido pela moderação após denúncia.',
+      }).where('id', '=', report.comment_id).execute();
+    }
+
+    return updatedReport;
+  });
+
+  if (parsed.data.priority && parsed.data.priority !== report.priority) {
+    logModerationAudit({
+      action: 'report_reclassify', actorUserId: req.user!.userId,
+      materialId: targetMaterialId, reportId: report.id,
+      reason: `${report.priority} -> ${parsed.data.priority}`,
+    });
+  }
+
+  if (isTerminal && report.reporter_user_id && targetMaterialId) {
     try {
       await emitNotification({
         userId: report.reporter_user_id,
         kind: parsed.data.case_state === 'resolved' ? 'report_resolved' : 'report_dismissed',
-        materialId: report.material_id,
+        materialId: targetMaterialId,
         body: parsed.data.case_state === 'resolved'
           ? 'Sua denúncia foi analisada e resolvida.'
           : 'Sua denúncia foi analisada e dispensada.',
@@ -220,7 +287,7 @@ router.patch('/:id', writeRateLimiter, authMiddleware, requireRole(['moderator',
     logModerationAudit({
       action: 'report_decide',
       actorUserId: req.user!.userId,
-      materialId: report.material_id,
+      materialId: targetMaterialId,
       reportId: report.id,
       reason: safeResolutionNote ?? undefined,
     });

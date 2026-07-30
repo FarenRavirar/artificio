@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -209,6 +209,36 @@ describe('EditarMaterialPage', () => {
     expect(screen.getByLabelText('Link de destino')).toHaveValue('https://exemplo.com/original');
   });
 
+  it('só marca checklist concluído quando o dado já está persistido', () => {
+    mockMyMaterials({ data: [makeMaterial({
+      description: null,
+      description_markdown: null,
+      authors: [],
+      system_id: null,
+      cover_image_url: null,
+      external_url: null,
+    })] });
+    mockUpdateMaterial();
+    mockSubmitMaterial();
+    mockMaterialHistory();
+    mockMaterialMetadata();
+    mockUpdateMaterialMetadata();
+    renderPage();
+
+    const checklist = screen.getByRole('region', { name: 'Etapas para publicar' });
+    const labels = ['Descrição e créditos', 'Sistema', 'Capa', 'Destino', 'Prévia do conteúdo'];
+    const stateFor = (label: string) => within(within(checklist).getByText(label).closest('li')!).getByText(/pendente|concluída/);
+    for (const label of labels) expect(stateFor(label)).toHaveTextContent('pendente');
+
+    fireEvent.change(screen.getByLabelText('Descrição do material'), { target: { value: 'Descrição digitada' } });
+    fireEvent.change(screen.getByLabelText('Autores'), { target: { value: 'Autora' } });
+    fireEvent.change(screen.getByLabelText('Sistema'), { target: { value: SYSTEM_A } });
+    fireEvent.change(screen.getByLabelText('URL da capa'), { target: { value: 'https://example.test/capa.png' } });
+    fireEvent.change(screen.getByLabelText('Link de destino'), { target: { value: 'https://example.test/material' } });
+
+    for (const label of labels) expect(stateFor(label)).toHaveTextContent('pendente');
+  });
+
   it('preenche a editora quando os metadados carregam', () => {
     mockMyMaterials({ data: [makeMaterial({ publisher_name: 'Editora Exemplo' })] });
     mockUpdateMaterial();
@@ -275,6 +305,8 @@ describe('EditarMaterialPage', () => {
       expect(updateMetadataMutateAsync).toHaveBeenCalledWith({
         publisher_name: null,
         description_markdown: 'Descrição original',
+        authors: [],
+        artists: [],
       });
       expect(toast.success).toHaveBeenCalledWith('Material atualizado.');
     });

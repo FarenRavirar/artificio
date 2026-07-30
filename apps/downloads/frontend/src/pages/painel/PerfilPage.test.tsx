@@ -1,11 +1,22 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { PerfilPage } from './PerfilPage';
 import * as authClientModule from '@artificio/auth/client';
+import * as creatorRoleModule from '../../hooks/useCreatorRole';
 
-// Débito (27 páginas sem teste de componente) — cobertura de PerfilPage
-// (painel do usuário comum, spec 074): perfil somente-leitura, dados vêm
-// do SSO via useSession (nome e e-mail), sem formulário/edição.
+vi.mock('@artificio/content-editor', () => ({
+  ContentEditor: ({ label, value, onChange, disabled }: {
+    label: string;
+    value: string;
+    onChange: (value: string) => void;
+    disabled?: boolean;
+  }) => (
+    <label>
+      {label}
+      <textarea value={value} onChange={(event) => onChange(event.target.value)} disabled={disabled} />
+    </label>
+  ),
+}));
 
 
 function renderPage() {
@@ -24,6 +35,21 @@ function mockSession(overrides: Partial<ReturnType<typeof authClientModule.useSe
   } as unknown as ReturnType<typeof authClientModule.useSession>);
 }
 
+function mockCreatorProfile(profile: { slug: string; display_name: string; bio: string | null } | null = null) {
+  vi.spyOn(creatorRoleModule, 'useCreatorMe').mockReturnValue({
+    data: { role: 'user', profile },
+    isLoading: false,
+    isError: false,
+  } as unknown as ReturnType<typeof creatorRoleModule.useCreatorMe>);
+
+  const mutateAsync = vi.fn().mockResolvedValue({ role: 'user', profile });
+  vi.spyOn(creatorRoleModule, 'useUpdateOwnCreatorProfile').mockReturnValue({
+    mutateAsync,
+    isPending: false,
+  } as unknown as ReturnType<typeof creatorRoleModule.useUpdateOwnCreatorProfile>);
+  return mutateAsync;
+}
+
 describe('PerfilPage', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -31,6 +57,7 @@ describe('PerfilPage', () => {
 
   it('exibe título da página', () => {
     mockSession();
+    mockCreatorProfile();
 
     renderPage();
 
@@ -39,6 +66,7 @@ describe('PerfilPage', () => {
 
   it('mostra nome e e-mail do usuário logado', () => {
     mockSession();
+    mockCreatorProfile();
 
     renderPage();
 
@@ -48,11 +76,49 @@ describe('PerfilPage', () => {
 
   it('não quebra quando não há usuário na sessão', () => {
     mockSession({ user: null });
+    mockCreatorProfile();
 
     renderPage();
 
     expect(screen.getByRole('heading', { name: 'Perfil' })).toBeInTheDocument();
-    expect(screen.getByText('Nome:')).toBeInTheDocument();
-    expect(screen.getByText('E-mail:')).toBeInTheDocument();
+    expect(screen.getByText('Nome da conta')).toBeInTheDocument();
+    expect(screen.getByText('E-mail')).toBeInTheDocument();
+  });
+
+  it('carrega nome público, bio e endereço fixo existentes', async () => {
+    mockSession();
+    mockCreatorProfile({ slug: 'fulano-rpg', display_name: 'Fulano RPG', bio: '**Autor**' });
+
+    renderPage();
+
+    expect(await screen.findByRole('textbox', { name: 'Nome público' })).toHaveValue('Fulano RPG');
+    expect(screen.getByRole('textbox', { name: 'Bio pública' })).toHaveValue('**Autor**');
+    expect(screen.getByRole('link', { name: '/criadores/fulano-rpg' })).toHaveAttribute('href', '/criadores/fulano-rpg');
+  });
+
+  it('usa nome da conta como ponto de partida antes do primeiro salvamento', async () => {
+    mockSession();
+    mockCreatorProfile(null);
+
+    renderPage();
+
+    expect(await screen.findByRole('textbox', { name: 'Nome público' })).toHaveValue('Fulano');
+    expect(screen.queryByText(/Endereço público fixo/)).not.toBeInTheDocument();
+  });
+
+  it('salva somente nome público e bio, sem campo de slug', async () => {
+    mockSession();
+    const mutateAsync = mockCreatorProfile(null);
+    renderPage();
+
+    const nameInput = await screen.findByRole('textbox', { name: 'Nome público' });
+    fireEvent.change(nameInput, { target: { value: 'Nome Público' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'Bio pública' }), { target: { value: 'Minha bio' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar perfil público' }));
+
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledWith({ display_name: 'Nome Público', bio: 'Minha bio' });
+    });
+    expect(screen.queryByLabelText(/slug|endereço/i)).not.toBeInTheDocument();
   });
 });

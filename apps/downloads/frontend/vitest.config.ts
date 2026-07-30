@@ -7,6 +7,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
+    // Node 25 expõe Web Storage global. O Vitest enumera globals ao preparar o
+    // jsdom e aciona o warning de `--localstorage-file` sem caminho. Desligar a
+    // API experimental só no worker preserva `window.localStorage` do jsdom.
+    execArgv: ['--no-experimental-webstorage'],
     setupFiles: './src/test/setup.ts',
     css: true,
     env: {

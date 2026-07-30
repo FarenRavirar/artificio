@@ -480,16 +480,58 @@ router.get('/mine', writeRateLimiter, authMiddleware, async (req: Request, res: 
     .leftJoin('download_material_metadata', 'download_material_metadata.material_id', 'download_material.id')
     .select([
       ...PUBLIC_MATERIAL_FIELDS,
+      'download_material.rejection_reason',
       'download_material_metadata.description_markdown',
       'download_material_metadata.publisher_name',
+      'download_material_metadata.authors',
+      'download_material_metadata.artists',
+      'download_material_metadata.cover_image_url',
     ])
     .where('download_material.creator_id', '=', req.user!.userId)
     .orderBy('download_material.updated_at', 'desc')
     .execute();
 
+  const materialIds = materials.map((material) => material.id);
+  const [ratingRows, commentRows, downloadRows] = materialIds.length === 0
+    ? [[], [], []]
+    : await Promise.all([
+      db.selectFrom('download_rating')
+        .select(({ fn }) => [
+          'material_id',
+          fn.avg<number>('score').as('avg_rating'),
+          fn.countAll<number>().as('rating_count'),
+        ])
+        .where('material_id', 'in', materialIds)
+        .groupBy('material_id')
+        .execute(),
+      db.selectFrom('download_comment')
+        .select(({ fn }) => ['material_id', fn.countAll<number>().as('comment_count')])
+        .where('material_id', 'in', materialIds)
+        .where('removed_at', 'is', null)
+        .groupBy('material_id')
+        .execute(),
+      db.selectFrom('download_metric_daily')
+        .select(({ fn }) => ['material_id', fn.sum<number>('download_count').as('download_count')])
+        .where('material_id', 'in', materialIds)
+        .groupBy('material_id')
+        .execute(),
+    ]);
+
+  const ratingsByMaterial = new Map(ratingRows.map((row) => [row.material_id, {
+    avg_rating: Number(row.avg_rating),
+    rating_count: Number(row.rating_count),
+  }]));
+  const commentsByMaterial = new Map(commentRows.map((row) => [row.material_id, Number(row.comment_count)]));
+  const downloadsByMaterial = new Map(downloadRows.map((row) => [row.material_id, Number(row.download_count)]));
+
   return res.json(materials.map((material) => ({
     ...material,
+    rejection_reason: sanitizeNullableUserMarkdown(material.rejection_reason),
     description_markdown: sanitizeNullableUserMarkdown(material.description_markdown),
+    avg_rating: ratingsByMaterial.get(material.id)?.avg_rating ?? null,
+    rating_count: ratingsByMaterial.get(material.id)?.rating_count ?? 0,
+    comment_count: commentsByMaterial.get(material.id) ?? 0,
+    download_count: downloadsByMaterial.get(material.id) ?? 0,
   })));
 });
 

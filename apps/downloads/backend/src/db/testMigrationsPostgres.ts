@@ -100,6 +100,8 @@ async function main(): Promise<void> {
     await applyMigration(client, migrationsDir, 'migration_034_download_material_metadata_markdown.sql');
     await applyMigration(client, migrationsDir, 'migration_035_download_cover_asset_identity.sql');
     await applyMigration(client, migrationsDir, 'migration_035_download_cover_asset_identity.sql');
+    await applyMigration(client, migrationsDir, 'migration_036_download_report_targets.sql');
+    await applyMigration(client, migrationsDir, 'migration_036_download_report_targets.sql');
 
     const coverColumns = await client.query(
       `SELECT column_name FROM information_schema.columns
@@ -148,7 +150,40 @@ async function main(): Promise<void> {
     }
     assert(partialDimensionsRejected, 'constraint aceitou dimensões parciais');
 
-    console.log('migration_postgres_test: 034/035, rerun, rollback e constraint verdes');
+    const commentId = '33333333-3333-4333-8333-333333333333';
+    const reporterId = '44444444-4444-4444-8444-444444444444';
+    await client.query(
+      `INSERT INTO download_comment (id, material_id, user_id, body)
+       VALUES ($1, $2, '55555555-5555-4555-8555-555555555555', 'Comentário')`,
+      [commentId, materialId],
+    );
+    await client.query(
+      `INSERT INTO download_report (material_id, reporter_user_id, category)
+       VALUES ($1, $2, 'other')`,
+      [materialId, reporterId],
+    );
+    await client.query(
+      `INSERT INTO download_report (comment_id, reporter_user_id, category)
+       VALUES ($1, $2, 'inappropriate_content')`,
+      [commentId, reporterId],
+    );
+
+    for (const [label, sqlText, params, expectedCode] of [
+      ['alvo vazio', `INSERT INTO download_report (reporter_user_id, category) VALUES ($1, 'other')`, [reporterId], '23514'],
+      ['alvo duplo', `INSERT INTO download_report (material_id, comment_id, reporter_user_id, category) VALUES ($1, $2, '66666666-6666-4666-8666-666666666666', 'other')`, [materialId, commentId], '23514'],
+      ['material duplicado', `INSERT INTO download_report (material_id, reporter_user_id, category) VALUES ($1, $2, 'other')`, [materialId, reporterId], '23505'],
+      ['comentário duplicado', `INSERT INTO download_report (comment_id, reporter_user_id, category) VALUES ($1, $2, 'other')`, [commentId, reporterId], '23505'],
+    ] as const) {
+      let rejected = false;
+      try {
+        await client.query(sqlText, [...params]);
+      } catch (error) {
+        rejected = (error as { code?: string }).code === expectedCode;
+      }
+      assert(rejected, `036 aceitou ${label}`);
+    }
+
+    console.log('migration_postgres_test: 034/035/036, rerun, rollback e constraints verdes');
   } finally {
     await client.query('SET search_path TO public');
     await client.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);

@@ -71,8 +71,29 @@ export function SobreEUsoPage() {
           <p className="text-[var(--fg-muted)]">
             Respeitamos os direitos autorais dos criadores de conteúdo. Se você é autor de um
             material listado aqui e deseja que ele seja removido, ou identificou algum problema de
-            direitos autorais, entre em contato através do canal de denúncia disponível na página do
-            material.
+            direitos autorais, use o botão “Denunciar” disponível na página do material após entrar
+            com sua conta.
+          </p>
+        </section>
+
+        <section className="mt-8 space-y-3">
+          <h2 className="text-xl font-semibold">Denúncias e uso responsável</h2>
+          <p className="text-[var(--fg-muted)]">
+            Usuários autenticados podem denunciar um material ou comentário. A denúncia cria um caso
+            para análise humana. Nada é removido automaticamente, inclusive casos urgentes: a
+            prioridade apenas define a ordem da fila.
+          </p>
+          <p className="text-[var(--fg-muted)]">
+            Cada pessoa pode denunciar uma vez o mesmo alvo. Quando a moderação acata uma denúncia de
+            comentário, o texto deixa de ser exibido, mas permanece a marca “Comentário removido pela
+            moderação”, preservando o contexto da conversa.
+          </p>
+          <p className="text-[var(--fg-muted)]">
+            Consideramos abuso o uso repetido do canal para denúncias manifestamente infundadas,
+            coordenadas para prejudicar alguém, classificadas deliberadamente de forma enganosa ou
+            usadas para assediar autores e leitores. A equipe avalia volume, proporção de denúncias
+            descartadas, gravidade, contexto e sinais de intenção. Um histórico problemático apenas
+            alerta a moderação; não bloqueia automaticamente nova denúncia nem decide o caso.
           </p>
         </section>
       </div>

@@ -41,6 +41,14 @@ function renderShell(initialEntry = '/') {
 }
 
 describe('AppShell', () => {
+  it('não duplica o catálogo da página inicial em uma nav interna', () => {
+    renderShell();
+
+    const header = screen.getByRole('banner');
+    expect(within(header).queryByRole('link', { name: 'Início' })).not.toBeInTheDocument();
+    expect(within(header).queryByRole('link', { name: 'Catálogo' })).not.toBeInTheDocument();
+  });
+
   it('não lista "Sobre e uso" no moduleNav do Header', () => {
     renderShell();
 

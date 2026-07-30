@@ -5,6 +5,8 @@ import { materialMetadataSchema } from './useMaterialMetadata';
 export interface MaterialMetadataPatch {
   publisher_name?: string | null;
   description_markdown?: string | null;
+  authors?: string[];
+  artists?: string[];
 }
 
 // T-editora (spec 075) — grava so publisher_name por ora (demais campos de

@@ -5,6 +5,7 @@ import { AppShell } from './AppShell';
 const PAINEL_NAV = [
   { label: 'Visão geral', href: '/painel' },
   { label: 'Meus materiais', href: '/painel/materiais' },
+  { label: 'Sugestões de sistema', href: '/painel/sugestoes-sistema' },
   { label: 'Favoritos', href: '/painel/favoritos' },
   { label: 'Coleções', href: '/painel/colecoes' },
   { label: 'Perfil', href: '/painel/perfil' },

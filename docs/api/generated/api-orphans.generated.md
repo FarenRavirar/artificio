@@ -26,7 +26,6 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
 | DELETE | `/api/v1/collections/:id/items/:materialId` | ✅ | public | Scope "public" sem consumidor |
-| DELETE | `/api/v1/comments/:id` | ✅ | public | Scope "public" sem consumidor |
 | DELETE | `/api/v1/favorites/:materialId` | ✅ | public | Scope "public" sem consumidor |
 | DELETE | `/api/v1/reports/:id` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/collections` | ✅ | public | Scope "public" sem consumidor |
@@ -50,6 +49,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | GET | `/materiais/:slug` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/robots.txt` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/sitemap.xml` | ✅ | public | Scope "public" sem consumidor |
+| PATCH | `/api/v1/creators/me` | ✅ | public | Scope "public" sem consumidor |
 | PATCH | `/api/v1/materials/:id` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/collections` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/collections/:id/items` | ✅ | public | Scope "public" sem consumidor |

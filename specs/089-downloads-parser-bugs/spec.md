@@ -335,9 +335,14 @@ em código, não serve:
   tem um quinto, "Perfil" (`PainelShell.tsx:9`).
 
 Acrescentar "Perfil" à nav criaria um sexto caminho, apontando para uma página que promete menos
-do que o rótulo. **Decisão do mantenedor (2026-07-27):** remover o "Início" duplicado, manter
-"Catálogo", não acrescentar "Perfil". O que "perfil de criador" significa neste produto vira
-decisão própria (T9.2), não um rótulo pendurado na página errada.
+do que o rótulo. **Decisão do mantenedor revista em 2026-07-29:** remover toda a nav interna de
+catálogo — saem "Início" e "Catálogo", porque `/` já é o catálogo — e não acrescentar "Perfil".
+`/catalogo` permanece como rota compatível, sem link no Header. O que "perfil de criador" significa neste produto vira
+decisão própria (T9.2), não um rótulo pendurado na página errada. **Decisão do mantenedor
+(2026-07-29): o autor poderá editar o próprio perfil público.** A edição fica no painel, não na
+nav principal. **Decisão complementar do mantenedor (2026-07-29):** caminho seguro — nome
+público e bio editáveis; endereço público (`slug`) gerado automaticamente no primeiro salvamento
+e imutável depois. Usuário sem `download_creator` ganha o perfil no primeiro salvamento.
 
 ### Defeito 13 — painel do autor não cobre a API disponível (falta onboarding)
 
@@ -384,11 +389,13 @@ decisão do mantenedor:**
 
 Achado da revisão do Codex (Fase 9), confirmado em código.
 
-`comments.ts:58` documenta a decisão como "retirada só por denúncia/moderação, nunca
+`comments.ts:70` documenta a decisão como "retirada só por denúncia/moderação, nunca
 autoexclusão livre". Mas `download_report` referencia **apenas `material_id`**
 (`migration_005_download_report.sql:11`) — não existe `comment_id` —, e não há UI para criar
-denúncia em lugar nenhum do frontend. O endpoint direto de remoção existe e funciona
-(`comments.ts:61`, restrito a moderador e admin); o fluxo de denúncia alegado, não.
+denúncia em lugar nenhum do frontend, **para alvo nenhum**: `useMyReports.ts` e
+`useReportsQueue.ts` só fazem `GET`/`PATCH`, e `MaterialPage.tsx` não menciona denúncia. O
+endpoint direto de remoção existe e funciona (`comments.ts:73`, restrito a moderador e admin); o
+fluxo de denúncia alegado, não. Resolução decidida em 2026-07-29 e detalhada em T9.7a–T9.7h.
 
 É divergência entre comentário e código: o comentário descreve um desenho que nunca foi
 modelado. Resolver de verdade significa **ou** modelar denúncia de comentário (migration mais
@@ -529,8 +536,8 @@ a nada. Sem mudar o contrato, "esqueci de extrair" e "a fonte não tem" ficam in
 29f. Substituir uma capa gerenciada agenda e tenta apagar o ativo anterior somente quando o `public_id` pertence à pasta do Downloads. Falha de exclusão preserva identidade pendente para retry; limpeza periódica de outros órfãos é `DEB-091-01`.
 29g. Todo efeito Cloudinary desta fase fica sob chave fail-closed, desligada por padrão durante o desenvolvimento. Com a chave desligada, URL colada e scraper preservam a URL externa, upload/lote não executam. Ligar exige autorização nominal própria; a marcação de origem no banco permanece ativa.
 30. O formulário de capa informa formato aceito, dimensão recomendada e limite de tamanho antes do envio.
-31. A nav principal expõe **um rótulo por destino**: sai o `Início` duplicado, fica `Catálogo`. Hoje `AppShell.tsx:18-19` oferece os dois apontando para a mesma `CatalogoPage` (`App.tsx:51` e `:53`). **Não** ganha `Perfil`: o Header já tem quatro caminhos de conta e a sidebar do painel um quinto, e `PerfilPage.tsx:7-19` é só nome e e-mail do SSO, somente leitura — não o perfil público de criador que o rótulo sugeriria.
-31a. O significado de "perfil de criador" neste produto é **decidido**, não presumido: `download_creator` tem slug, bio e página pública, mas a API de criadores só lê. Decidir que o autor não edita o próprio perfil público é saída legítima, desde que registrada.
+31. O Header não expõe nav interna de catálogo: saem `Início` e `Catálogo`, porque `/` já é o catálogo. `App.tsx:51` e `:53` podem preservar `/` e `/catalogo` como rotas compatíveis para a mesma `CatalogoPage`, mas nenhuma vira link duplicado no Header. **Não** ganha `Perfil`: a edição pública vive na sidebar do painel.
+31a. O autor pode editar o próprio perfil público (decisão do mantenedor, 2026-07-29). `download_creator` tem slug, bio e página pública, mas a API de criadores hoje só lê; esta fase cria contrato autenticado de escrita e superfície no painel, sem acrescentar "Perfil" à nav principal. Nome público e bio Markdown são editáveis; nome/e-mail do SSO permanecem somente leitura. O `slug` nasce automaticamente no primeiro salvamento, é único e não pode ser editado depois. Se o usuário ainda não tiver `download_creator`, o primeiro salvamento cria o perfil. Bio é limitada e sanitizada na escrita e defensivamente na leitura.
 32. O autor vê, no painel, os comentários recebidos nos próprios materiais.
 33. O autor responde comentário recebido a partir do painel.
 34. Comentário exibe o papel do autor quando aplicável — autor do material, moderador ou admin —, sem rotular usuário comum.
@@ -546,12 +553,41 @@ a nada. Sem mudar o contrato, "esqueci de extrair" e "a fonte não tem" ficam in
 36h. Existe sitemap dos materiais publicados, referenciado no `robots.txt` de produção e ausente em beta. Hoje não existe nenhum — a descoberta depende só de link interno.
 37. A capa do material é a `og:image` quando existir; sem capa, cai na imagem padrão do site. **A imagem padrão precisa existir primeiro:** `og-default.png` é referenciado por `index.html:13` e `:22` mas nunca foi versionado, e `apps/downloads/frontend` não tem `public/`. Enquanto faltar, material sem capa cai num 404 e nenhuma correção de tag resolve o aviso do Facebook.
 38. Existe uma **matriz ator → necessidade → rota → superfície atual → decisão** cobrindo os domínios de API, e cada linha tem decisão nomeada pelo mantenedor. Substitui a comparação "74 rotas × 11 páginas", que não mede lacuna — rota é contrato técnico, não promessa de tela. "Nenhuma tela" é saída legítima para infraestrutura (`destinations` já roda em `/ir/:id`; `downloads` é evento técnico), desde que registrada.
+
+#### Matriz de cobertura da Fase 9
+
+Decisões do mantenedor consolidadas em 2026-07-27 e 2026-07-29. “Sem tela própria” é
+decisão deliberada nos dois fluxos técnicos, não lacuna presumida por contagem de rotas.
+
+| Domínio | Ator | Necessidade | Rota/contrato | Superfície após a Fase 9 | Decisão do mantenedor |
+|---|---|---|---|---|---|
+| `ratings` | leitor | avaliar material publicado | `GET/PUT /api/v1/materials/:id/rating` | ficha do material | manter na ficha; não criar tela própria |
+| `ratings` | autor | acompanhar recepção | agregados em `GET /api/v1/materials/mine` | visão geral e checklist do material | mostrar média e quantidade no painel |
+| `comments` | leitor | comentar e ler a conversa | `GET/POST /api/v1/comments/:materialId` | ficha do material | manter na ficha; comentário removido preserva marcador sem corpo |
+| `comments` | leitor/moderador | denunciar e decidir remoção | `POST /api/v1/reports`; `PATCH /api/v1/reports/:id` | componente único na ficha + fila de gestão | retirada só após denúncia acatada; nenhuma remoção automática ou direta de rotina |
+| `creators` | autor | editar identidade pública | `GET/PATCH /api/v1/creators/me` | Perfil no painel | nome público e bio editáveis; slug automático e imutável; SSO somente leitura |
+| `creators` | leitor | conhecer o responsável pelo material | `GET /api/v1/creators/:slug` | perfil público existente | manter página pública; não duplicar na navegação principal |
+| `destinations` | leitor | chegar ao endereço do material com rastreio | `GET /ir/:id` | redirecionamento iniciado na ficha/cartão | sem tela própria: infraestrutura de saída |
+| `systemSuggestions` | usuário | sugerir sistema ausente e acompanhar desfecho | `POST /api/v1/system-suggestions`; `GET /api/v1/system-suggestions/mine` | Sugestões de sistema no painel | expor criação e acompanhamento ao usuário comum; gestão continua separada |
+| `systemSuggestions` | admin | triar sugestão | fila e decisão em `/api/v1/system-suggestions/*` | `/gestao/sugestoes-sistema` | manter superfície administrativa existente |
+| `downloads` | leitor/autor | registrar acesso e acompanhar alcance | evento em `/ir/:id` e `/obter`; agregado em `GET /api/v1/materials/mine` | ação na ficha + contagem no painel | sem tela própria para evento técnico; autor vê total agregado |
+
 38a. O usuário comum sugere sistema faltante e acompanha as próprias sugestões pela UI. Hoje `systemSuggestions` só existe em `/gestao/sugestoes-sistema`, restrito a admin (`App.tsx:86`), embora a API exponha `/mine`.
 38b. O dashboard do autor mostra os **cinco** estados editoriais, não três: `VisaoGeralPage.tsx:9-11` conta só `published`, `in_review` e `draft`, deixando de fora `rejected` e `withdrawn` — justamente os acionáveis. Material rejeitado exibe o motivo; material publicado oferece ação de ver no catálogo.
 38c. O autor acompanha, no painel, avaliações, comentários recebidos e downloads dos próprios materiais. Hoje nenhuma tela mostra isso, e as notificações cobrem aprovação e rejeição, não comentário.
-38d. Código e comentário concordam sobre a remoção de comentário: ou a denúncia de comentário é modelada (`download_report` hoje só referencia `material_id`, `migration_005:11`, e não há UI de denúncia), ou o comentário de `comments.ts:58` passa a descrever o que o código faz de fato — preservando a decisão registrada, não apagando.
+38d. **Ferramenta única de denúncia, com alvo material ou comentário, e nenhuma remoção automática.** Auditoria de 2026-07-29 achou o funil construído do meio para o fim: a API de denúncia é madura (criar, listar próprias, moderar, `abuse-check`) e existem duas telas (`DenunciasPage` acompanha, `GestaoDenunciasPage` modera), mas **não há nenhum `POST /api/v1/reports` no frontend** — ninguém consegue criar denúncia pela interface. Três lugares afirmam um canal que não existe: `comments.ts:70` ("retirada só por denúncia/moderação"), `CommentSection.tsx:19` ("UI já existe na ficha via denúncia") e `SobreEUsoPage.tsx:74` ("canal de denúncia disponível na página do material", em seção de direitos autorais). Sem esse formulário, a D111 item 6 ("comentário: retirada só por denúncia") é inexequível, e a promessa a autor que queira remover material por copyright é falsa.
+
+Denúncia é **uma ferramenta só** — não existe "denunciar comentário" como função separada de "denunciar material". Alvo é dado de entrada: uma tabela (`download_report` com `material_id` XOR `comment_id`), uma API, uma fila de moderação, um componente de UI reutilizável, uma política publicada. Requisitos:
+
+- **Nada sai do ar automaticamente.** Denúncia cria caso e enfileira; moderação humana decide. Revoga a contenção automática de 2026-07-12 (`reports.ts:65`, 1 denúncia P0 → `withdrawn`), decidida quando não havia como criar denúncia e o risco era teórico. DSA artigo 16 exige decisão "tempestiva, diligente, não-arbitrária e objetiva"; remoção por sinal único é o vetor clássico de *brigading*.
+- **Prioridade derivada no servidor a partir da categoria**, nunca enviada pelo cliente — hoje `priority` vem do corpo da requisição, e qualquer um pode marcar `P0`.
+- **Uma denúncia por (denunciante, alvo)**, garantida por índice único no banco, não só na aplicação. Exige conta `accounts.` (D111 item 6, sem anônimo); qualquer usuário logado pode denunciar.
+- **Denunciante com histórico de denúncias descartadas marca o caso**, não o bloqueia. O `abuse-check` existente (`reports.ts:130`) passa a ser consultado na criação; DSA artigo 23 exige avaliação caso a caso, não recusa automática. Suspensão do direito de denunciar fica **fora desta spec** — exige aviso prévio, prazo e canal de contestação (artigo 23); construir pela metade é pior que não ter.
+- **Comentário acatado fica visível com marca "removido pela moderação"**, não desaparece. Decisão do mantenedor em 2026-07-29, alinhada à Santa Clara Principles (transparência da ação de moderação). Hoje `GET /:materialId` filtra `removed_at is null` e o comentário evapora.
+- **Política de abuso publicada no `/sobre-e-uso`**, com exemplos das circunstâncias avaliadas — exigência literal do DSA artigo 23, não item opcional de transparência.
+- **Os três comentários falsos corrigidos**, preservando a referência à decisão de origem conforme `AGENTS.md` §Regras Gerais de Código.
 39. O fluxo do autor é guiado por **checklist por material derivado dos dados reais**, não por tour modal nem wizard rígido: o fluxo é interrompível e não linear, e o autor sai e retoma sem perder progresso. Cobre criação curta (título e tipo, slug automático), enriquecimento (descrição e créditos, sistema, capa, destino), prévia, envio para revisão, e pós-publicação com link público, comentários, avaliações e downloads. Estado persistente inclui rejeitado **com motivo**.
-39a. A validação de usabilidade é por **cenário executado**, não por checklist conferido: primeira publicação, abandonar e retomar, corrigir rejeição, acompanhar publicação, moderar comentário. Cada achado registra evidência, heurística, severidade e correção. Acessibilidade verificada junto (WCAG 2.2): navegação só por teclado, foco visível e não encoberto, erro associado ao campo e descrito em texto, mudança de estado anunciada. Eficácia, eficiência e satisfação medidas (ISO 9241-11).
+39a. A validação de usabilidade é por **cenário executado**, não por checklist conferido: primeira publicação, abandonar e retomar, corrigir rejeição, acompanhar publicação, denunciar (material e comentário) e moderar denúncia. Cada achado registra evidência, heurística, severidade e correção. Acessibilidade verificada junto (WCAG 2.2): navegação só por teclado, foco visível e não encoberto, erro associado ao campo e descrito em texto, mudança de estado anunciada. Eficácia, eficiência e satisfação medidas (ISO 9241-11).
 40. Cada fonte tem endpoint validado quanto à **elegibilidade semântica**: devolve material de RPG de mesa, não videogame nem outro tipo de projeto.
 40a. Fonte parcial aplica corte conservador **por produto**: itch.io exige `Category=Physical game` e `Genre=Role Playing` ou tag inequívoca `ttrpg`/`rpg-de-mesa`. Card game, board game, wargame ou produto sem sinal inequívoco não entra; título e descrição não servem de chute.
 41. O `itch_io` coleta de `https://itch.io/physical-games/genre-rpg/lang-pt-BR`, rota verificada em DOM real antes da troca.

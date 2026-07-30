@@ -131,6 +131,25 @@ describe('GET /api/v1/materials — listagem publica', () => {
     metricsMocks.registerMaterialView.mockResolvedValue(true);
   });
 
+  it('GET /mine agrega avaliações, comentários ativos e downloads do autor', async () => {
+    const materials = [{
+      id: 'm1', slug: 'material-1', title: 'Material 1', editorial_state: 'published',
+      rejection_reason: null, description_markdown: null, publisher_name: null,
+      authors: ['Autora'], artists: [], cover_image_url: null,
+    }];
+    dbMocks.selectFrom
+      .mockReturnValueOnce(makeQueryBuilder(materials, 1))
+      .mockReturnValueOnce(makeQueryBuilder([{ material_id: 'm1', avg_rating: '4.5', rating_count: '2' }], 1))
+      .mockReturnValueOnce(makeQueryBuilder([{ material_id: 'm1', comment_count: '3' }], 1))
+      .mockReturnValueOnce(makeQueryBuilder([{ material_id: 'm1', download_count: '7' }], 1));
+
+    const response = await request(app()).get('/api/v1/materials/mine').expect(200);
+
+    expect(response.body).toEqual([expect.objectContaining({
+      id: 'm1', avg_rating: 4.5, rating_count: 2, comment_count: 3, download_count: 7,
+    })]);
+  });
+
   it('retorna metadata opcional sem perder material sem metadata', async () => {
     const items = [{
       id: 'm1', slug: 'material-1', title: 'Material 1', editorial_state: 'published',

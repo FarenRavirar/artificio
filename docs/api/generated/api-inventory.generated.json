@@ -19,8 +19,8 @@
           "GET": 45,
           "POST": 26,
           "USE": 24,
-          "PATCH": 5,
-          "DELETE": 4,
+          "PATCH": 6,
+          "DELETE": 3,
           "PUT": 2
         },
         "byConfidence": {
@@ -611,15 +611,6 @@
     },
     {
       "app": "downloads",
-      "method": "DELETE",
-      "path": "/api/v1/comments/:id",
-      "sourceFile": "apps/downloads/backend/src/routes/comments.ts",
-      "line": 73,
-      "confidence": "high",
-      "kind": "express-route"
-    },
-    {
-      "app": "downloads",
       "method": "GET",
       "path": "/api/v1/comments/:materialId",
       "sourceFile": "apps/downloads/backend/src/routes/comments.ts",
@@ -641,7 +632,7 @@
       "method": "GET",
       "path": "/api/v1/creators/:slug",
       "sourceFile": "apps/downloads/backend/src/routes/creators.ts",
-      "line": 23,
+      "line": 134,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -650,7 +641,16 @@
       "method": "GET",
       "path": "/api/v1/creators/me",
       "sourceFile": "apps/downloads/backend/src/routes/creators.ts",
-      "line": 14,
+      "line": 80,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "downloads",
+      "method": "PATCH",
+      "path": "/api/v1/creators/me",
+      "sourceFile": "apps/downloads/backend/src/routes/creators.ts",
+      "line": 96,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -776,7 +776,7 @@
       "method": "POST",
       "path": "/api/v1/materials",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 592,
+      "line": 634,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -803,7 +803,7 @@
       "method": "PATCH",
       "path": "/api/v1/materials/:id",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 704,
+      "line": 746,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -830,7 +830,7 @@
       "method": "GET",
       "path": "/api/v1/materials/:id/history",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 499,
+      "line": 541,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -839,7 +839,7 @@
       "method": "GET",
       "path": "/api/v1/materials/:slug",
       "sourceFile": "apps/downloads/backend/src/routes/materials.ts",
-      "line": 529,
+      "line": 571,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1037,7 +1037,7 @@
       "method": "GET",
       "path": "/api/v1/reports",
       "sourceFile": "apps/downloads/backend/src/routes/reports.ts",
-      "line": 146,
+      "line": 169,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1046,7 +1046,7 @@
       "method": "POST",
       "path": "/api/v1/reports",
       "sourceFile": "apps/downloads/backend/src/routes/reports.ts",
-      "line": 35,
+      "line": 54,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1064,7 +1064,7 @@
       "method": "DELETE",
       "path": "/api/v1/reports/:id",
       "sourceFile": "apps/downloads/backend/src/routes/reports.ts",
-      "line": 100,
+      "line": 123,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1073,7 +1073,7 @@
       "method": "PATCH",
       "path": "/api/v1/reports/:id",
       "sourceFile": "apps/downloads/backend/src/routes/reports.ts",
-      "line": 170,
+      "line": 213,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1082,7 +1082,7 @@
       "method": "GET",
       "path": "/api/v1/reports/abuse-check/:userId",
       "sourceFile": "apps/downloads/backend/src/routes/reports.ts",
-      "line": 130,
+      "line": 153,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1091,7 +1091,7 @@
       "method": "GET",
       "path": "/api/v1/reports/mine",
       "sourceFile": "apps/downloads/backend/src/routes/reports.ts",
-      "line": 84,
+      "line": 107,
       "confidence": "high",
       "kind": "express-route"
     },

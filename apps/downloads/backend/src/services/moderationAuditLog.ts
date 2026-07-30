@@ -9,6 +9,7 @@ export type ModerationAuditAction =
   | 'reject'
   | 'archive'
   | 'report_decide'
+  | 'report_reclassify'
   // Spec 086 (Fase 4) — decisão de triagem de sugestão de sistema/taxonomia.
   | 'system_suggestion_decide'
   // Spec 088 — decisão de triagem de sugestão de TIPO de material (fila

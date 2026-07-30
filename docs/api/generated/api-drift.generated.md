@@ -42,7 +42,6 @@
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
 | DELETE | `/api/v1/collections/:id/items/:materialId` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| DELETE | `/api/v1/comments/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/v1/favorites/:materialId` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/v1/reports/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/admin/creators` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -91,6 +90,7 @@
 | GET | `/robots.txt` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/sitemap.xml` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/admin/rejection-categories/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| PATCH | `/api/v1/creators/me` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/materials/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/moderation/batch/:action` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/notifications/:id/read` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -483,7 +483,6 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
 | DELETE | `/api/v1/collections/:id/items/:materialId` | ✅ | public | Sem consumidor e scope não justifica |
-| DELETE | `/api/v1/comments/:id` | ✅ | public | Sem consumidor e scope não justifica |
 | DELETE | `/api/v1/favorites/:materialId` | ✅ | public | Sem consumidor e scope não justifica |
 | DELETE | `/api/v1/reports/:id` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/collections` | ✅ | public | Sem consumidor e scope não justifica |
@@ -507,6 +506,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | GET | `/materiais/:slug` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/robots.txt` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/sitemap.xml` | ✅ | public | Sem consumidor e scope não justifica |
+| PATCH | `/api/v1/creators/me` | ✅ | public | Sem consumidor e scope não justifica |
 | PATCH | `/api/v1/materials/:id` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/collections` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/collections/:id/items` | ✅ | public | Sem consumidor e scope não justifica |

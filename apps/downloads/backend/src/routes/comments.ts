@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import { db } from '../db';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
 import { sanitizeUserMarkdown } from '@artificio/content-editor/sanitize';
 
@@ -55,41 +55,20 @@ router.post('/', writeRateLimiter, authMiddleware, async (req: Request, res: Res
 router.get('/:materialId', async (req: Request, res: Response) => {
   const comments = await db
     .selectFrom('download_comment')
-    .select(['id', 'material_id', 'user_id', 'body', 'created_at'])
+    .select(['id', 'material_id', 'user_id', 'body', 'removed_at', 'created_at'])
     .where('material_id', '=', req.params.materialId)
-    .where('removed_at', 'is', null)
     .orderBy('created_at', 'asc')
     .execute();
 
   return res.json(comments.map((comment) => ({
     ...comment,
-    body: sanitizeUserMarkdown(comment.body),
+    body: comment.removed_at ? null : sanitizeUserMarkdown(comment.body),
+    removed_by_moderation: Boolean(comment.removed_at),
   })));
 });
 
-// T6.1 — retirada so por denuncia/moderacao, nunca autoexclusao livre nem
-// edicao pelo autor (D111 item 6: sem moderação prévia de rotina, mas
-// retirada pontual por denúncia continua exigindo role).
-router.delete('/:id', writeRateLimiter, authMiddleware, requireRole(['moderator', 'admin']), async (req: Request, res: Response) => {
-  const comment = await db
-    .selectFrom('download_comment')
-    .select('id')
-    .where('id', '=', req.params.id)
-    .executeTakeFirst();
-
-  if (!comment) {
-    return res.status(404).json({ error: 'Comentário não encontrado.' });
-  }
-
-  const reason = typeof req.body?.reason === 'string' && req.body.reason.trim() ? req.body.reason.trim() : 'Removido por denúncia/moderação.';
-
-  await db
-    .updateTable('download_comment')
-    .set({ removed_at: new Date(), removed_reason: reason })
-    .where('id', '=', req.params.id)
-    .execute();
-
-  return res.status(204).send();
-});
+// D111 item 6 + decisão do mantenedor de 2026-07-29: comentário só é retirado
+// quando uma denúncia é acatada em PATCH /reports/:id. Não existe exclusão
+// livre pelo autor nem remoção direta de rotina pela moderação nesta rota.
 
 export default router;

@@ -1,4 +1,5 @@
 import { useSession } from '@artificio/auth/client';
+import { Link } from 'react-router-dom';
 import { PainelShell } from '../../components/PainelShell';
 import { useMyMaterials } from '../../hooks/useMyMaterials';
 
@@ -6,27 +7,70 @@ export function VisaoGeralPage() {
   const { user } = useSession();
   const { data: materials } = useMyMaterials();
 
-  const published = materials?.filter((m) => m.editorial_state === 'published').length ?? 0;
-  const inReview = materials?.filter((m) => m.editorial_state === 'in_review').length ?? 0;
-  const draft = materials?.filter((m) => m.editorial_state === 'draft').length ?? 0;
+  const states = [
+    ['published', 'Publicados'],
+    ['in_review', 'Em revisão'],
+    ['draft', 'Rascunhos'],
+    ['rejected', 'Rejeitados'],
+    ['withdrawn', 'Retirados'],
+  ] as const;
+  const rejected = materials?.filter((material) => material.editorial_state === 'rejected') ?? [];
+  const published = materials?.filter((material) => material.editorial_state === 'published') ?? [];
 
   return (
     <PainelShell>
       <h1 className="text-2xl font-bold text-[var(--fg)]">Olá, {user?.name ?? 'usuário'}</h1>
-      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-md border border-[var(--line)] p-4">
-          <p className="text-3xl font-bold text-artificio-orange">{published}</p>
-          <p className="text-sm text-[var(--fg-muted)]">Materiais publicados</p>
-        </div>
-        <div className="rounded-md border border-[var(--line)] p-4">
-          <p className="text-3xl font-bold text-artificio-orange">{inReview}</p>
-          <p className="text-sm text-[var(--fg-muted)]">Em revisão</p>
-        </div>
-        <div className="rounded-md border border-[var(--line)] p-4">
-          <p className="text-3xl font-bold text-artificio-orange">{draft}</p>
-          <p className="text-sm text-[var(--fg-muted)]">Rascunhos</p>
-        </div>
+      <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
+        {states.map(([state, label]) => (
+          <div key={state} className="rounded-md border border-[var(--line)] p-4">
+            <p className="text-3xl font-bold text-artificio-orange">{materials?.filter((material) => material.editorial_state === state).length ?? 0}</p>
+            <p className="text-sm text-[var(--fg-muted)]">{label}</p>
+          </div>
+        ))}
       </div>
+
+      {!materials?.length && (
+        <section className="mt-8 rounded-md border border-artificio-orange p-5">
+          <h2 className="text-lg font-semibold text-[var(--fg)]">Publique seu primeiro material</h2>
+          <p className="mt-1 text-sm text-[var(--fg-muted)]">Comece com título e tipo. Você poderá completar e retomar o rascunho depois.</p>
+          <Link to="/painel/materiais/novo" className="mt-4 inline-flex min-h-[44px] items-center rounded-md bg-artificio-orange px-4 font-semibold text-white">Criar rascunho</Link>
+        </section>
+      )}
+
+      {rejected.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-lg font-semibold text-[var(--fg)]">Precisa de correção</h2>
+          <ul className="mt-3 space-y-3">
+            {rejected.map((material) => (
+              <li key={material.id} className="rounded-md border border-red-500/50 p-4">
+                <p className="font-semibold text-[var(--fg)]">{material.title}</p>
+                <p className="mt-1 text-sm text-[var(--fg-muted)]">Motivo: {material.rejection_reason ?? 'A moderação não informou um motivo.'}</p>
+                <Link to={`/painel/materiais/${material.id}/editar`} className="mt-2 inline-block text-sm font-semibold text-artificio-orange">Corrigir material</Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {published.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-lg font-semibold text-[var(--fg)]">Acompanhe suas publicações</h2>
+          <ul className="mt-3 space-y-3">
+            {published.map((material) => (
+              <li key={material.id} className="rounded-md border border-[var(--line)] p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="font-semibold text-[var(--fg)]">{material.title}</p>
+                  <Link to={`/materiais/${material.slug}`} className="text-sm font-semibold text-artificio-orange">Ver no catálogo</Link>
+                </div>
+                <p className="mt-2 text-sm text-[var(--fg-muted)]">
+                  {material.avg_rating === null || material.avg_rating === undefined ? 'Sem avaliações' : `${material.avg_rating.toFixed(1)} / 5 em ${material.rating_count ?? 0} avaliações`}
+                  {' · '}{material.comment_count ?? 0} comentários · {material.download_count ?? 0} downloads
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </PainelShell>
   );
 }
