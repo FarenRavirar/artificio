@@ -5,7 +5,7 @@ import { useMyMaterials } from '../../hooks/useMyMaterials';
 
 export function VisaoGeralPage() {
   const { user } = useSession();
-  const { data: materials } = useMyMaterials();
+  const { data: materials, isLoading } = useMyMaterials();
 
   const states = [
     ['published', 'Publicados'],
@@ -14,8 +14,17 @@ export function VisaoGeralPage() {
     ['rejected', 'Rejeitados'],
     ['withdrawn', 'Retirados'],
   ] as const;
-  const rejected = materials?.filter((material) => material.editorial_state === 'rejected') ?? [];
-  const published = materials?.filter((material) => material.editorial_state === 'published') ?? [];
+  // Achado de review (PR #230, CodeRabbit): uma passada de agrupamento em vez de
+  // um filter por contador + dois filters de lista — a lista era varrida 7x.
+  const list = materials ?? [];
+  const byState = new Map<string, typeof list>();
+  for (const material of list) {
+    const bucket = byState.get(material.editorial_state) ?? [];
+    bucket.push(material);
+    byState.set(material.editorial_state, bucket);
+  }
+  const rejected = byState.get('rejected') ?? [];
+  const published = byState.get('published') ?? [];
 
   return (
     <PainelShell>
@@ -23,13 +32,17 @@ export function VisaoGeralPage() {
       <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
         {states.map(([state, label]) => (
           <div key={state} className="rounded-md border border-[var(--line)] p-4">
-            <p className="text-3xl font-bold text-artificio-orange">{materials?.filter((material) => material.editorial_state === state).length ?? 0}</p>
+            {/* Achado de review (PR #230, CodeRabbit): durante o carregamento a
+                lista ainda é undefined. Mostrar "0" e o convite de primeiro
+                material faria o autor com acervo publicado achar, por um
+                instante, que perdeu tudo. */}
+            <p className="text-3xl font-bold text-artificio-orange">{isLoading ? '—' : byState.get(state)?.length ?? 0}</p>
             <p className="text-sm text-[var(--fg-muted)]">{label}</p>
           </div>
         ))}
       </div>
 
-      {!materials?.length && (
+      {!isLoading && list.length === 0 && (
         <section className="mt-8 rounded-md border border-artificio-orange p-5">
           <h2 className="text-lg font-semibold text-[var(--fg)]">Publique seu primeiro material</h2>
           <p className="mt-1 text-sm text-[var(--fg-muted)]">Comece com título e tipo. Você poderá completar e retomar o rascunho depois.</p>

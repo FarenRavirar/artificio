@@ -11,9 +11,10 @@ export const ABUSE_DISMISSED_STREAK_THRESHOLD = 3;
 export const ABUSE_LOOKBACK_WINDOW = 20;
 
 export function reporterDismissedStreak(recentCaseStatesDescending: string[]): number {
-  return recentCaseStatesDescending.findIndex((state) => state !== 'dismissed') === -1
-    ? recentCaseStatesDescending.length
-    : recentCaseStatesDescending.findIndex((state) => state !== 'dismissed');
+  // `findIndex` (nao `some`): precisamos da POSICAO da primeira nao-dismissed, que
+  // e o tamanho da sequencia. Sem nenhuma, a sequencia e a lista inteira.
+  const firstNonDismissed = recentCaseStatesDescending.findIndex((state) => state !== 'dismissed');
+  return firstNonDismissed === -1 ? recentCaseStatesDescending.length : firstNonDismissed;
 }
 
 /**

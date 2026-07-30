@@ -30,7 +30,7 @@ function PublicProfileForm({
   return (
     <form onSubmit={handleSubmit} className="mt-5 space-y-5">
       <label className="block text-sm font-medium text-[var(--fg)]">
-        Nome público
+        Nome público{' '}
         <input
           value={displayName}
           onChange={(event) => setDisplayName(event.target.value)}

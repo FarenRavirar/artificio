@@ -42,6 +42,32 @@ const createReportSchema = z.object({
   message: 'Informe exatamente um alvo: material_id ou comment_id.',
 });
 
+interface CommentTargetRow {
+  id: string;
+  material_id: string;
+  user_id: string | null;
+  body: string;
+  removed_at: Date | null;
+  material_title: string;
+}
+
+// T9.7 (spec 089) — moderador precisa ver o comentario denunciado sem sair da
+// fila. `body` volta null quando ja removido: a linha continua no banco (marca
+// de moderacao, nao delete), mas reexibir o texto removido reabriria o dano que
+// a remocao fechou.
+function buildCommentTarget(
+  commentId: string | null,
+  byId: ReadonlyMap<string, CommentTargetRow>,
+): (Omit<CommentTargetRow, 'body'> & { body: string | null }) | null {
+  if (!commentId) return null;
+  const target = byId.get(commentId);
+  if (!target) return null;
+  return {
+    ...target,
+    body: target.removed_at ? null : sanitizeNullableUserMarkdown(target.body),
+  };
+}
+
 function isUniqueViolation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { code?: unknown }).code === '23505';
 }
@@ -191,13 +217,7 @@ router.get('/', writeRateLimiter, authMiddleware, requireRole(['moderator', 'adm
     ...report,
     details: sanitizeNullableUserMarkdown(report.details),
     resolution_note: sanitizeNullableUserMarkdown(report.resolution_note),
-    comment_target: report.comment_id ? (() => {
-      const target = commentTargetById.get(report.comment_id);
-      return target ? {
-        ...target,
-        body: target.removed_at ? null : sanitizeNullableUserMarkdown(target.body),
-      } : null;
-    })() : null,
+    comment_target: buildCommentTarget(report.comment_id, commentTargetById),
   })));
 });
 

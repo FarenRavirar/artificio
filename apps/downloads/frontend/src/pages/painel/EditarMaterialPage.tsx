@@ -1,6 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useParams } from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { ContentEditor } from '@artificio/content-editor';
 import { Select } from '@artificio/ui';

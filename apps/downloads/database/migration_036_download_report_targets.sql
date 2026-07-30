@@ -33,6 +33,28 @@ BEGIN
   END IF;
 END $$;
 
+-- Achado de review (Codex P1, PR #230): antes da 036 nao havia unicidade nenhuma
+-- (migration_005 nao criou), so o SELECT de duplicata no handler — check-then-insert,
+-- que perde corrida. Logo duplicata legitima pode existir em banco ja rodando e o
+-- CREATE UNIQUE INDEX abaixo abortaria com 23505, derrubando o deploy. Consolidar
+-- antes: mantem a denuncia mais antiga (a que abriu o caso) e descarta as repetidas
+-- do mesmo denunciante sobre o mesmo alvo.
+DELETE FROM download_report AS duplicata
+USING download_report AS mantida
+WHERE duplicata.reporter_user_id IS NOT NULL
+  AND duplicata.reporter_user_id = mantida.reporter_user_id
+  AND duplicata.material_id IS NOT NULL
+  AND duplicata.material_id = mantida.material_id
+  AND (duplicata.created_at, duplicata.id) > (mantida.created_at, mantida.id);
+
+DELETE FROM download_report AS duplicata
+USING download_report AS mantida
+WHERE duplicata.reporter_user_id IS NOT NULL
+  AND duplicata.reporter_user_id = mantida.reporter_user_id
+  AND duplicata.comment_id IS NOT NULL
+  AND duplicata.comment_id = mantida.comment_id
+  AND (duplicata.created_at, duplicata.id) > (mantida.created_at, mantida.id);
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_download_report_reporter_material_unique
   ON download_report(reporter_user_id, material_id)
   WHERE reporter_user_id IS NOT NULL AND material_id IS NOT NULL;

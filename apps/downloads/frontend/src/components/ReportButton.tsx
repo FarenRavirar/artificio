@@ -55,8 +55,8 @@ export function ReportButton({ target }: Readonly<{ target: ReportTarget }>) {
       setOpen(false);
       setDetails('');
       await queryClient.invalidateQueries({ queryKey: ['downloads', 'reports', 'mine'] });
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Falha de rede. Tente novamente.');
+    } catch (error_) {
+      setError(error_ instanceof Error ? error_.message : 'Falha de rede. Tente novamente.');
     } finally {
       setSubmitting(false);
     }
@@ -77,7 +77,7 @@ export function ReportButton({ target }: Readonly<{ target: ReportTarget }>) {
       {open && (
         <form onSubmit={submit} className="mt-2 max-w-xl space-y-3 rounded-md border border-[var(--line)] p-4" aria-describedby={error ? 'report-error' : undefined}>
           <label className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
-            Motivo
+            Motivo{' '}
             <select
               ref={categoryRef}
               value={category}

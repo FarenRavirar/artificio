@@ -25,6 +25,11 @@ const PRIORITY_TONE: Record<string, PillTone> = {
 // (spec 086): reconstruida sobre PageHeader/SectionCard/StatusPill do kit
 // compartilhado (T5C.5) — cada denuncia continua sendo um cartao com nota
 // livre + Resolver/Dispensar, nao uma tabela (a acao tem input por item).
+// Fase 9 (spec 089, T9.7): a fila passou a receber denuncia de COMENTARIO, nao
+// so de material — dai o bloco comment_target, o aviso de possivel abuso por
+// sequencia de dispensas (sinal ao moderador, nunca bloqueio do denunciante) e
+// a reclassificacao de prioridade, que forca case_state 'in_review' porque
+// remexer na prioridade e ato de analise, nao de triagem cega.
 export function GestaoDenunciasPage() {
   const { data: reports, isLoading } = useReportsQueue();
   const decision = useReportDecision();

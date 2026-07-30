@@ -48,10 +48,10 @@ export function SugestoesSistemaPage() {
           </Select>
         </label>
         {eligibleMaterials.length === 0 && (
-          <p role="status" className="text-sm text-[var(--fg-muted)]">Todos os seus materiais já têm sistema.</p>
+          <output className="text-sm text-[var(--fg-muted)]">Todos os seus materiais já têm sistema.</output>
         )}
         <label htmlFor="suggestion-name" className="flex flex-col gap-1 text-sm text-[var(--fg-muted)]">
-          Nome do sistema
+          Nome do sistema{' '}
           <input
             id="suggestion-name"
             required
