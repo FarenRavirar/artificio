@@ -350,6 +350,27 @@ Se uma validação real expõe que a tarefa "fechada" ainda não roda, reabrir a
 
 *(nota: bloco "Bug achado = perguntar antes de registrar" que existia aqui foi movido pra §Regras Pétreas / Bug achado / débito — reposicionamento, sem perda.)*
 
+### Formato do relatório final ao mantenedor (obrigatório)
+
+Vale pra **toda entrega de mérito** — commit/push/PR, correção de achado de bot, investigação, decisão técnica. Não vale pra resposta curta de pergunta direta. Formato pedido nominalmente pelo mantenedor em 2026-07-30, derivado dos relatórios da fase 9 da spec 089. **Português, caveman ultra** (§AGENTS.md topo) — caveman comprime a prosa, não corta seção obrigatória nem a explicação de custo/risco.
+
+Ordem e conteúdo:
+
+1. **Resultado primeiro, em uma linha.** SHA do commit, número da PR, contagem de arquivos/linhas, ou o fato central. Sem preâmbulo, sem recapitular o que foi pedido.
+2. **Números de validação, sempre reais.** Testes (`N/N` por app), lint, `tsc`, `verify:api`, guard executado. Nunca "tudo verde" sem número — número é o que distingue validação de impressão. Se um comando não rodou, dizer que não rodou.
+3. **O que foi corrigido, agrupado por achado, com o porquê.** Não listar arquivo tocado — listar *problema resolvido*. Cada item explica a consequência real pra quem usa o produto ou opera a VM, não só o sintoma técnico (ex.: "falha de rede virava acervo vazio, que lê como perda de dados").
+4. **O que foi descartado, com motivo curto.** Achado de bot recusado, sugestão não seguida, alternativa avaliada. Silêncio sobre item descartado lê como esquecimento.
+5. **A decisão que mais precisa de conferência, marcada como tal.** Quando a entrega muda regra de produto, custo operacional ou comportamento observável, destacar em bloco próprio e dizer explicitamente qual é o trade-off e qual seria o caminho alternativo se o mantenedor discordar. Isto é o item mais importante do relatório: é onde o agente devolve ao mantenedor uma decisão que ele não sabia estar tomando.
+6. **Achado lateral não pedido, se houver.** Bug/débito/vulnerabilidade visto de passagem, com a pergunta "corrigir agora ou registrar" (§Regras Pétreas → Bug achado / débito). Nunca decidir sozinho.
+7. **Bloqueio e encerramento.** O que ficou aberto e por quê (ambiente, autorização, dependência) — sempre nomeado como bloqueio, nunca como conclusão parcial. Fechar dizendo onde o trabalho parou (ex.: "encerro aqui, sem acompanhar checks", §PR, Commit e Push).
+
+Travas do formato:
+
+- **Nada de emoji decorativo, tabela enfeitada ou barra de progresso.** Prosa curta e cabeçalho.
+- **Não elogiar a própria entrega** ("ficou robusto", "solução elegante"). Fato e número bastam.
+- **Não esconder erro próprio.** Se o agente introduziu o defeito que está corrigindo, o relatório diz isso na primeira linha do item, sem rodeio e sem autoflagelo (§Corrections). Foi assim que o `DELETE FROM` barrado pelo guard (PR #230, 2026-07-30) apareceu antes de virar aborto de deploy na VM.
+- **Seção vazia se omite**, não vira "nada a relatar".
+
 ---
 
 ## Review guidelines

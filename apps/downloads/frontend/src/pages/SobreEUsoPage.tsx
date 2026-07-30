@@ -84,7 +84,9 @@ export function SobreEUsoPage() {
             prioridade apenas define a ordem da fila.
           </p>
           <p className="text-[var(--fg-muted)]">
-            Cada pessoa pode denunciar uma vez o mesmo alvo. Quando a moderação acata uma denúncia de
+            Cada pessoa mantém uma denúncia em análise por alvo — enquanto a sua estiver aberta, não é
+            possível abrir outra sobre o mesmo material ou comentário. Depois que a moderação decide, você
+            pode denunciar de novo se o problema voltar a acontecer. Quando a moderação acata uma denúncia de
             comentário, o texto deixa de ser exibido, mas permanece a marca “Comentário removido pela
             moderação”, preservando o contexto da conversa.
           </p>

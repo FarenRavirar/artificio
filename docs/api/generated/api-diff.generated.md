@@ -6,19 +6,5 @@
 
 ---
 
-## Sumário
-
-| App | Breaking | Non-breaking | Unclassified |
-|-----|:--------:|:------------:|:------------:|
-| downloads | ✅ 0 | ✅ 1 | ⚪ 0 |
-
----
-
-### downloads
-
-#### ✅ Non-breaking (1)
-
-| Path | Method | Ação |
-|------|--------|------|
-| `/api/v1/creators/me` | PATCH | add |
+✅ **Nenhuma mudança detectada entre a versão atual e dev.**
 
