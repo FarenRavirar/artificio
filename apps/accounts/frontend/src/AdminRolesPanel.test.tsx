@@ -187,6 +187,32 @@ describe("AdminRolesPanel — permissão do próprio ator revogada", () => {
     expect(screen.queryByRole("button", { name: "Salvar" })).toBeNull();
   });
 
+  // Sem a guarda no efeito de busca, cada tecla digitada dispararia outro GET
+  // que o backend recusa com o mesmo 403 — ruído contra o SSO sem nenhum ganho.
+  it("depois do 403 a busca para de disparar requisições", async () => {
+    const user = userEvent.setup();
+    mockFetch(() => ({ users: [USER_ROW] }));
+    render(<AdminRolesPanel />);
+    await screen.findByText("Membro Um");
+
+    const denied = vi.fn(async () => ({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: "Sua permissão de administrador mudou." }),
+    } as Response));
+    vi.stubGlobal("fetch", denied);
+
+    await user.selectOptions(screen.getByLabelText(/Alterar papel de Membro Um/), "admin");
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+    await screen.findByRole("button", { name: "Recarregar" });
+
+    const afterPatch = denied.mock.calls.length;
+    await user.type(screen.getByPlaceholderText(/Buscar por nome ou e-mail/i), "ana");
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    expect(denied.mock.calls.length).toBe(afterPatch);
+  });
+
   it("403 na listagem esvazia a tabela em vez de mostrar dado sem autoridade", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({
       ok: false,

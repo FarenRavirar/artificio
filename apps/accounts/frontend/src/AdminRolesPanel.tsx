@@ -108,6 +108,9 @@ export function AdminRolesPanel(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
+    // Permissão perdida encerra a busca: sem esta guarda, cada tecla digitada no
+    // campo dispararia outro GET que o backend recusa com o mesmo 403.
+    if (permissionLost !== null) return;
     const controller = new AbortController();
     const timeout = globalThis.setTimeout(() => {
       void loadUsers(search, controller.signal);
@@ -116,7 +119,7 @@ export function AdminRolesPanel(): React.JSX.Element {
       globalThis.clearTimeout(timeout);
       controller.abort();
     };
-  }, [loadUsers, search]);
+  }, [loadUsers, permissionLost, search]);
 
   const updateRole = useCallback(async (user: RoleUser, role: UserRole) => {
     setError(null);

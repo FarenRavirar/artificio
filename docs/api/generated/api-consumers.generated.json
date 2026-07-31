@@ -89,7 +89,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 123
+      "line": 126
     },
     {
       "app": "accounts-frontend",
