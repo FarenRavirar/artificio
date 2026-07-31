@@ -8,11 +8,15 @@ import { shutdownWithError } from "./shutdown.js";
  */
 function fakeTimer() {
   let pending: (() => void) | null = null;
+  const token = { unref: vi.fn() };
   const setTimeoutFn = vi.fn((callback: () => void) => {
     pending = callback;
-    return { unref: vi.fn() };
+    return token;
   });
-  return { fire: () => pending?.(), setTimeoutFn };
+  // `clearTimeoutFn` real remove o agendamento; aqui só registramos a chamada e
+  // deixamos `fire()` disponível para provar que disparar depois é inofensivo.
+  const clearTimeoutFn = vi.fn();
+  return { clearTimeoutFn, fire: () => pending?.(), setTimeoutFn, timerToken: token };
 }
 
 function spies(destroy = vi.fn(async () => undefined)) {
@@ -88,6 +92,26 @@ describe("shutdownWithError", () => {
 
     expect(deps.forceExit).not.toHaveBeenCalled();
     expect(deps.setExitCode).toHaveBeenCalledWith(1);
+  });
+
+  // `Promise.race` não cancela o perdedor: o timer seguia agendado depois de o
+  // pool fechar e registrava "cleanup timed out" para uma limpeza bem-sucedida
+  // (2ª passada do review, PR #234). O log de encerramento é o que se lê para
+  // decidir se o SSO caiu por falha de banco — mentir ali custa diagnóstico.
+  it("timer que dispara após a limpeza bem-sucedida não vira falso timeout", async () => {
+    const deps = spies();
+    await shutdownWithError("accounts failed to bind port", new Error("EADDRINUSE"), deps);
+
+    expect(deps.clearTimeoutFn).toHaveBeenCalledWith(deps.timerToken);
+
+    // Mesmo que o agendamento escape do `clear`, disparar agora é no-op.
+    deps.fire();
+
+    expect(deps.logError).not.toHaveBeenCalledWith(
+      "accounts database pool cleanup timed out",
+      expect.anything(),
+    );
+    expect(deps.forceExit).not.toHaveBeenCalled();
   });
 
   it("aguarda o fechamento do pool antes de marcar a saída", async () => {

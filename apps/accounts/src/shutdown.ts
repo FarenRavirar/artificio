@@ -14,13 +14,16 @@
 /** Prazo para o pool fechar antes de o encerramento seguir sem ele. */
 export const CLEANUP_TIMEOUT_MS = 5_000;
 
+export type ShutdownTimer = { unref?: () => void };
+
 export interface ShutdownDeps {
   destroy: () => Promise<unknown>;
   cleanupTimeoutMs?: number;
+  clearTimeoutFn?: (timer: ShutdownTimer) => void;
   forceExit?: (code: number) => void;
   logError?: (message: string, detail: string) => void;
   setExitCode?: (code: number) => void;
-  setTimeoutFn?: (callback: () => void, ms: number) => { unref?: () => void };
+  setTimeoutFn?: (callback: () => void, ms: number) => ShutdownTimer;
 }
 
 const describeError = (error: unknown): string =>
@@ -36,6 +39,8 @@ export async function shutdownWithError(
   const forceExit = deps.forceExit ?? ((code) => { process.exit(code); });
   const setTimeoutFn = deps.setTimeoutFn
     ?? ((callback, ms) => globalThis.setTimeout(callback, ms));
+  const clearTimeoutFn = deps.clearTimeoutFn
+    ?? ((timer) => globalThis.clearTimeout(timer as ReturnType<typeof globalThis.setTimeout>));
   const cleanupTimeoutMs = deps.cleanupTimeoutMs ?? CLEANUP_TIMEOUT_MS;
 
   logError(reason, describeError(error));
@@ -45,27 +50,44 @@ export async function shutdownWithError(
   // boot — travaria este `await` para sempre, e o exit code nunca seria
   // definido: o processo ficaria vivo e sem servir, o falso-verde que esta
   // função existe para evitar (achado de review, PR #234).
-  let timedOut = false;
-  await Promise.race([
-    deps.destroy().catch((destroyError: unknown) => {
-      logError("accounts failed to close database pool", describeError(destroyError));
-    }),
-    new Promise<void>((resolve) => {
-      const timer = setTimeoutFn(() => {
-        timedOut = true;
-        logError("accounts database pool cleanup timed out", `${cleanupTimeoutMs}ms`);
-        resolve();
-      }, cleanupTimeoutMs);
-      // Não segura o event loop: se o pool fechar antes, o processo sai na hora.
-      timer.unref?.();
-    }),
-  ]);
+  let settled: "cleaned" | "timeout" | null = null;
+
+  await new Promise<void>((resolve) => {
+    // `Promise.race` não cancela o perdedor: o timer continuava agendado depois
+    // do pool fechar e podia registrar "cleanup timed out" para uma limpeza que
+    // deu certo (2ª passada do review, PR #234). Quem chegar primeiro fixa
+    // `settled`, e o outro vira no-op.
+    const finish = (outcome: "cleaned" | "timeout") => {
+      if (settled !== null) return;
+      settled = outcome;
+      resolve();
+    };
+
+    const timer = setTimeoutFn(() => {
+      if (settled !== null) return;
+      logError("accounts database pool cleanup timed out", `${cleanupTimeoutMs}ms`);
+      finish("timeout");
+    }, cleanupTimeoutMs);
+    // Timer pendente não segura o processo enquanto ele ainda pode sair sozinho.
+    timer.unref?.();
+
+    void deps.destroy()
+      .catch((destroyError: unknown) => {
+        logError("accounts failed to close database pool", describeError(destroyError));
+      })
+      .finally(() => {
+        clearTimeoutFn(timer);
+        finish("cleaned");
+      });
+  });
 
   setExitCode(1);
 
-  // `process.exitCode` só encerra quando o event loop esvazia, e um pool travado
-  // mantém handle de socket vivo indefinidamente. Neste caminho o pool já provou
-  // não responder, então a saída é forçada — sem isto, o container continuaria
-  // "no ar" com o SSO morto, que é exatamente o que se quer evitar.
-  if (timedOut) forceExit(1);
+  // `process.exitCode` só encerra quando o event loop esvazia. Quando o pool
+  // estourou o prazo ele já provou não responder, e seu socket segue aberto:
+  // sem saída forçada o container continuaria "no ar" com o SSO morto. Isto não
+  // vale para a limpeza bem-sucedida — ali `process.exit` cortaria o flush de
+  // log e qualquer outro encerramento pendente, e outros handles ativos são
+  // problema de quem os abriu, não deste caminho.
+  if (settled === "timeout") forceExit(1);
 }
