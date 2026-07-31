@@ -23,6 +23,7 @@ function mockFetch(handler: (url: string, init?: RequestInit) => unknown) {
     const payload = handler(url, init);
     return {
       ok: true,
+      status: 200,
       json: async () => payload,
     } as Response;
   });
@@ -134,6 +135,7 @@ describe("AdminRolesPanel", () => {
 
     vi.stubGlobal("fetch", vi.fn(async () => ({
       ok: false,
+      status: 409,
       json: async () => ({ error: "Você não pode rebaixar a própria conta." }),
     } as Response)));
 
@@ -142,5 +144,60 @@ describe("AdminRolesPanel", () => {
 
     const alert = await screen.findByRole("alert");
     expect(within(alert).getByText(/não pode rebaixar a própria conta/i)).toBeDefined();
+  });
+});
+
+// O 403 desta tela nunca é sobre a conta alvo: o backend revalida o ator no
+// banco a cada requisição (`requireCurrentAdmin` + `ACTOR_NO_LONGER_ADMIN`), e
+// só recusa quando quem opera perdeu o papel durante a sessão. Tratá-lo como
+// erro comum deixava o admin rebaixado clicando numa lista que já não podia
+// alterar, colecionando a mesma recusa sem entender a causa.
+describe("AdminRolesPanel — permissão do próprio ator revogada", () => {
+  beforeEach(() => {
+    vi.stubGlobal("confirm", vi.fn(() => true));
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("403 ao salvar trava a tela e oferece recarregar", async () => {
+    const user = userEvent.setup();
+    mockFetch(() => ({ users: [USER_ROW] }));
+    render(<AdminRolesPanel />);
+    await screen.findByText("Membro Um");
+
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: "Sua permissão de administrador mudou." }),
+    } as Response)));
+
+    await user.selectOptions(screen.getByLabelText(/Alterar papel de Membro Um/), "admin");
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).getByText(/permissão de administrador mudou/i)).toBeDefined();
+    expect(within(alert).getByRole("button", { name: "Recarregar" })).toBeDefined();
+
+    // Controles travados: nenhuma alteração passaria mesmo se tentada.
+    expect((screen.getByLabelText(/Alterar papel de Membro Um/) as HTMLSelectElement).disabled).toBe(true);
+    expect(screen.queryByRole("button", { name: "Salvar" })).toBeNull();
+  });
+
+  it("403 na listagem esvazia a tabela em vez de mostrar dado sem autoridade", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: "Acesso restrito a administradores." })
+    } as Response)));
+
+    render(<AdminRolesPanel />);
+
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).getByText(/Acesso restrito a administradores/i)).toBeDefined();
+    expect(screen.queryByText("Membro Um")).toBeNull();
   });
 });

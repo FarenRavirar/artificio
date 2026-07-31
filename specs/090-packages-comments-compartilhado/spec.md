@@ -192,25 +192,29 @@ poder editorial, de catálogo, mesa, termo, usuário ou configuração nasce por
 Consumidores fechados para o smoke de SSO: `accounts`, `links`, `site` (incluindo
 `site-admin`), `glossario`, `mesas` e `downloads`. Não há outro app executável em `apps/`.
 
-### Casamento de identidade e migração de papéis
+### Casamento de identidade
+
+**Escopo reduzido pela decisão de 2026-07-30 (`accounts.` é a origem do papel, não o destino).**
+A versão anterior desta seção descrevia migração de papéis: classes de conflito, `unmatched`,
+`excluded_realm`, redução por precedência `admin > moderator > user` e um relatório determinístico
+de promoções. Nada disso existe — sem migração, não há papel local a promover nem conflito a
+relatar. O que resta é o casamento de identidade, que continua necessário por outro motivo:
+preservar **ownership** local (termos, mesas, materiais, votos, comentários) quando a mesma pessoa
+volta pelo SSO.
 
 1. `downloads`: `download_creator.user_id` casa somente com `accounts.users.id` exato.
 2. `mesas`: primeiro `users.google_id = accounts.users.id`; fallback por e-mail normalizado
-   somente quando `google_id` é nulo ou já igual ao mesmo ID central.
+   somente quando `google_id` é nulo ou já igual ao mesmo ID central
+   (`backend/src/middleware/auth.ts`).
 3. `glossario`: primeiro `users.sso_user_id = accounts.users.id`; fallback por e-mail
-   normalizado somente quando `sso_user_id` é nulo ou já igual ao mesmo ID central.
-4. Dois critérios apontando para contas centrais diferentes, e-mail duplicado, vínculo local
-   ocupado por outro ID ou mais de uma linha candidata são `conflict`: nenhuma promoção ocorre.
-5. Usuário local sem conta central é `unmatched`: permanece no papel local durante leitura
-   dupla e não cria conta central artificial.
-6. Múltiplas origens válidas para a mesma conta são reduzidas por `admin > moderator > user`,
-   preservando acesso; cada origem e a redução aparecem no relatório.
-7. Papel de beta nunca promove autoridade de prod. Linhas beta entram no relatório, mas são
-   `excluded_realm` até autorização nominal própria.
-
-O relatório é determinístico e ordenado por `(origin, local_user_id)`, com: origem, realm,
-identidade local, conta central, papel anterior, papel final, conflito e motivo. Segunda execução
-produz o mesmo relatório e nenhuma escrita adicional.
+   normalizado somente quando `sso_user_id` é nulo ou já igual ao mesmo ID central
+   (`auth/resolveLocalUser.ts`); sem match, provisiona conta local nova.
+4. Dois critérios apontando para contas centrais diferentes, e-mail duplicado ou vínculo local
+   ocupado por outro ID: o vínculo **não** é feito. A conta segue sem privilégio local herdado,
+   e o papel global continua vindo do `accounts.` normalmente — identidade ambígua nunca
+   concede autoridade.
+5. Duplicidade de conta no `accounts.` é higiene de identidade, com spec própria: não é resolvida
+   aqui e não bloqueia esta fase.
 
 ### Trust boundary e credenciais
 

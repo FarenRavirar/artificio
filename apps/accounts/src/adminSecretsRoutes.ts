@@ -20,6 +20,7 @@ import {
 import type { Kysely } from 'kysely';
 import type { Database } from './db.js';
 import { requireCurrentAdmin, sessionFrom } from './requireCurrentAdmin.js';
+import { isValidServiceToken } from './serviceToken.js';
 
 function getSecretsKey(env: Record<string, string | undefined>): string {
   // REV-023: chave dedicada e obrigatória. Sem fallback p/ JWT_SECRET — senão a
@@ -37,16 +38,16 @@ function getServiceSecret(env: Record<string, string | undefined>): string | nul
 }
 
 /** Valida X-Service-Token contra SERVICE_SECRET. Se ok, prossegue; senão tenta cookie de admin. */
-function requireServiceOrAdmin(
+export function requireServiceOrAdmin(
   env: Record<string, string | undefined>,
   db: Kysely<Database>,
 ) {
   const currentAdmin = requireCurrentAdmin(db);
   return (req: Request, res: Response, next: NextFunction) => {
-    const serviceSecret = getServiceSecret(env);
-    const token = req.headers['x-service-token'];
-
-    if (serviceSecret && typeof token === 'string' && token === serviceSecret) {
+    // Comparação em tempo constante, igual à rota interna de usuários: era `===`
+    // aqui, e o mesmo `SERVICE_SECRET` ficava protegido de duas formas — a fraca
+    // guardando justamente a chave de cifra dos segredos.
+    if (isValidServiceToken(getServiceSecret(env), req.headers['x-service-token'])) {
       // Serviço autenticado — prossegue sem sessão de usuário
       return next();
     }

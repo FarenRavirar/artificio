@@ -31,21 +31,21 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 
 | Método | Path | Confiança | Arquivo | Linha |
 |--------|------|-----------|---------|------|
-| GET | `/` | ✅ high | `apps/accounts/src/app.ts` | 229 |
-| GET | `/admin/papeis` | ✅ high | `apps/accounts/src/app.ts` | 229 |
+| GET | `/` | ✅ high | `apps/accounts/src/app.ts` | 214 |
+| GET | `/admin/papeis` | ✅ high | `apps/accounts/src/app.ts` | 214 |
 | GET | `/admin/roles/users` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 17 |
 | PATCH | `/admin/roles/users/:id` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 27 |
-| GET | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 113 |
-| PUT | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 74 |
-| GET | `/api/auth/google` | ✅ high | `apps/accounts/src/app.ts` | 107 |
-| GET | `/api/auth/google/callback` | ✅ high | `apps/accounts/src/app.ts` | 120 |
-| POST | `/api/auth/logout` | ✅ high | `apps/accounts/src/app.ts` | 158 |
-| GET | `/api/auth/me` | ✅ high | `apps/accounts/src/app.ts` | 154 |
-| GET | `/api/auth/refresh` | ✅ high | `apps/accounts/src/app.ts` | 163 |
-| GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 229 |
-| GET | `/health` | ✅ high | `apps/accounts/src/app.ts` | 103 |
-| GET | `/internal/users/:id` | ✅ high | `apps/accounts/src/app.ts` | 205 |
-| GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 229 |
+| GET | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 114 |
+| PUT | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 75 |
+| GET | `/api/auth/google` | ✅ high | `apps/accounts/src/app.ts` | 95 |
+| GET | `/api/auth/google/callback` | ✅ high | `apps/accounts/src/app.ts` | 108 |
+| POST | `/api/auth/logout` | ✅ high | `apps/accounts/src/app.ts` | 146 |
+| GET | `/api/auth/me` | ✅ high | `apps/accounts/src/app.ts` | 142 |
+| GET | `/api/auth/refresh` | ✅ high | `apps/accounts/src/app.ts` | 151 |
+| GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 214 |
+| GET | `/health` | ✅ high | `apps/accounts/src/app.ts` | 91 |
+| GET | `/internal/users/:id` | ✅ high | `apps/accounts/src/app.ts` | 193 |
+| GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 214 |
 
 ## downloads
 
