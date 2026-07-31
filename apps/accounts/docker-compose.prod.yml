@@ -73,9 +73,9 @@ services:
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-}
-      # Signed preset (AGENTS.md §Regras de Produto: upload sempre via preset
-      # assinado). Opcional para nao quebrar ambiente que ainda nao o criou.
-      - CLOUDINARY_AVATAR_UPLOAD_PRESET=${CLOUDINARY_AVATAR_UPLOAD_PRESET:-}
+      # Sem preset: o upload e assinado por api_key/api_secret, como no `mesas`
+      # (`backend/src/services/cloudinary.ts`), referencia madura do monorepo.
+      # As 3 chaves acima sao as MESMAS de mesas/downloads/links — conta unica.
     expose:
       - "3000"
     healthcheck:

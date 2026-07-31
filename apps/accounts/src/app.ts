@@ -2,6 +2,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 import { rateLimit } from "express-rate-limit";
+import multer from "multer";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -26,22 +27,74 @@ import { createAdminRoleRoutes } from "./adminRoleRoutes.js";
 import { isValidServiceToken } from "./serviceToken.js";
 
 const avatarMaxBytes = 2 * 1024 * 1024;
-const avatarDataUrlPattern = /^data:(image\/(?:png|jpeg|webp));base64,([a-z0-9+/=]+)$/i;
 const avatarUploadTimeoutMs = 15_000;
+const acceptedAvatarMimeTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
 
 /**
- * Limite do corpo JSON da rota de avatar. Base64 infla o binário em ~33%, e o
- * `express.json()` global usa o padrão de 100 KB — com ele, toda foto acima de
- * ~75 KB morria com 413 antes de chegar ao validador, apesar dos 2 MB
- * anunciados na tela (achado de review, PR #235). O teto vale só nesta rota:
- * ampliar o parser global aumentaria a superfície de payload grande em todas as
- * outras. A margem cobre o prefixo `data:image/...;base64,` e o padding.
+ * Recebe a foto por **multipart**, não como data URL em JSON — mesmo padrão do
+ * `mesas` (`backend/src/routes/upload.ts`), a referência madura do monorepo.
+ *
+ * A versão anterior aceitava `{ dataUrl }` em JSON, o que obrigava a alargar o
+ * limite do `express.json()` só para esta rota: base64 infla o binário em ~33%,
+ * e com o padrão de 100 KB toda foto acima de ~75 KB morria com 413 antes de
+ * chegar à validação (achado de review, PR #235). Multipart transporta os bytes
+ * crus, então o teto é o do próprio arquivo e o `express.json()` global fica
+ * intacto.
  */
-const avatarBodyLimitBytes = Math.ceil(avatarMaxBytes * 4 / 3) + 1024;
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: avatarMaxBytes, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    // Filtro por tipo declarado é a primeira barreira; os magic bytes conferem
+    // o conteúdo depois, em `decodeAvatarUpload`.
+    cb(null, acceptedAvatarMimeTypes.has(file.mimetype));
+  },
+});
 
-/** Identidade do asset no Cloudinary — usada no upload e na exclusão. */
+type MulterFile = { buffer: Buffer; mimetype: string; size: number };
+
+/**
+ * Traduz a falha do multer em resposta do domínio. Sem isto, arquivo acima do
+ * teto sobe como `MulterError` até o handler genérico e vira 500 — o usuário
+ * leria "erro interno" para uma foto grande demais, que é erro dele e tem
+ * conserto óbvio.
+ */
+function handleAvatarUpload(req: express.Request, res: express.Response, next: express.NextFunction): void {
+  avatarUpload.single("file")(req, res, (error: unknown) => {
+    if (error instanceof multer.MulterError) {
+      const code = error.code === "LIMIT_FILE_SIZE" ? "avatar_too_large" : "invalid_avatar";
+      res.status(400).json({ error: code });
+      return;
+    }
+    if (error) {
+      next(error instanceof Error ? error : new Error(String(error)));
+      return;
+    }
+    next();
+  });
+}
+
+const avatarFolder = "artificio/accounts/avatars";
+
+/**
+ * Nome do asset dentro da pasta. `uploadBuffer` recebe `folder` e `publicId`
+ * separados, e o Cloudinary os concatena.
+ */
 function avatarPublicId(userId: string): string {
   return `avatar-${userId}`;
+}
+
+/**
+ * Caminho COMPLETO do asset — é o que a API de exclusão exige.
+ *
+ * `destroyAssetResult` com o basename recebe `not found` do Cloudinary, e
+ * `not found` é tratado como sucesso (contrato REV-019, para exclusão ser
+ * idempotente). Resultado: a exclusão "passaria" e a foto continuaria pública
+ * depois de a conta ser apagada — falha silenciosa, sem log de erro (achado de
+ * review, PR #235).
+ */
+function avatarAssetPath(userId: string): string {
+  return `${avatarFolder}/${avatarPublicId(userId)}`;
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
@@ -60,19 +113,19 @@ function readSession(req: express.Request): Session | null {
 }
 
 /**
- * O `dataUrl` chega do navegador e é hostil até prova em contrário. Não basta
- * conferir o rótulo `image/png` do próprio payload: quem envia escolhe o rótulo.
- * Por isso o tipo declarado é confrontado com os **magic bytes** do conteúdo, e
- * o tamanho é limitado antes de qualquer upload — um `dataUrl` gigante viraria
- * banda e custo no Cloudinary sem nunca ter sido uma imagem.
+ * O arquivo chega do navegador e é hostil até prova em contrário. O `mimetype`
+ * do multipart é **declarado por quem envia**, então o filtro do multer sozinho
+ * não basta: aqui o tipo declarado é confrontado com os **magic bytes** do
+ * conteúdo real. Sem isso, um executável renomeado com `Content-Type: image/png`
+ * seria enviado ao Cloudinary como imagem.
  */
-function decodeAvatarDataUrl(value: unknown): { buffer: Buffer; mime: string } | null {
-  if (typeof value !== "string") return null;
-  const match = avatarDataUrlPattern.exec(value);
-  if (!match) return null;
+function decodeAvatarUpload(file: MulterFile | undefined): { buffer: Buffer; mime: string } | null {
+  if (!file?.buffer) return null;
 
-  const mime = match[1].toLowerCase();
-  const buffer = Buffer.from(match[2], "base64");
+  const mime = file.mimetype.toLowerCase();
+  const buffer = file.buffer;
+  // O multer já corta em `avatarMaxBytes`, mas a checagem fica: ela é o contrato
+  // desta função, não um efeito colateral da configuração do middleware.
   if (buffer.byteLength === 0 || buffer.byteLength > avatarMaxBytes) return null;
 
   const isPng = mime === "image/png"
@@ -148,12 +201,8 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
     `https://glossario.${BRAND_DOMAIN}`,
     `https://accounts.${BRAND_DOMAIN}`,
   ]));
-  // Parser dedicado ANTES do global: a foto chega como data URL em JSON, e
-  // base64 infla ~33%. Com o limite padrão de 100 KB, foto acima de ~75 KB
-  // recebia 413 antes de qualquer validação, apesar dos 2 MB oferecidos na
-  // tela. Escopo de rota, não global — o teto maior não vale para o resto da
-  // API (achado de review, PR #235).
-  app.use("/api/account/avatar", express.json({ limit: avatarBodyLimitBytes }));
+  // `express.json()` com o limite padrão: a foto de perfil vai por multipart
+  // (multer), não em JSON, então nenhuma rota daqui precisa de corpo grande.
   app.use(express.json());
   app.use(
     cors({
@@ -217,7 +266,7 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
     res.json({ user: (req as { session?: Session }).session?.user });
   });
 
-  app.patch("/api/account/avatar", requireAuth, async (req, res, next) => {
+  app.patch("/api/account/avatar", requireAuth, handleAvatarUpload, async (req, res, next) => {
     try {
       const session = readSession(req);
       if (!session) {
@@ -225,7 +274,7 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
         return;
       }
 
-      const decoded = decodeAvatarDataUrl((req.body as { dataUrl?: unknown } | null)?.dataUrl);
+      const decoded = decodeAvatarUpload((req as { file?: MulterFile }).file);
       if (!decoded) {
         res.status(400).json({ error: "invalid_avatar" });
         return;
@@ -248,20 +297,15 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
       try {
         stored = await withTimeout(
           uploadBuffer(decoded.buffer, {
-            folder: "artificio/accounts/avatars",
+            folder: avatarFolder,
             publicId: avatarPublicId(session.user.id),
             overwrite: true,
-            // Preset é POR APP (o `downloads` usa `downloads-signed`), não
-            // compartilhado como as credenciais — daí a variável própria.
-            // Opcional: sem ela o upload segue assinado por `api_key`/
-            // `api_secret`, que é o contrato de signed upload do Cloudinary; o
-            // preset só acrescenta transformação e pasta padrão do lado deles.
-            //
-            // `.trim()` porque `.env` editado no Windows deixa `\r` grudado no
-            // valor — já aconteceu com `CLOUDINARY_API_SECRET` do `links` em
-            // produção, achado em 2026-07-31. Mesma defesa do `coverStorage.ts`
-            // do downloads.
-            uploadPreset: process.env.CLOUDINARY_AVATAR_UPLOAD_PRESET?.trim() || undefined,
+            // Sem `uploadPreset`: o upload já é assinado por `api_key`/
+            // `api_secret` (`configure()` em `@artificio/media`), que é o modo
+            // signed do Cloudinary. É o que o `mesas` faz — a referência madura
+            // do monorepo, cujo upload de avatar em `routes/upload.ts` também
+            // não usa preset. Preset é opcional e serve para transformação/pasta
+            // padrão do lado do provedor, não para assinar.
           }),
           avatarUploadTimeoutMs,
         );
@@ -312,7 +356,9 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
       // direito de excluir a conta não pode depender de o Cloudinary responder.
       // O `public_id` fica no log para retry manual, que é o mesmo contrato do
       // REV-019 em `destroyAssetResult`.
-      const publicId = avatarPublicId(session.user.id);
+      // Caminho COMPLETO (com a pasta): o basename devolveria `not found`, que
+      // `destroyAssetResult` conta como sucesso — a foto ficaria pública.
+      const publicId = avatarAssetPath(session.user.id);
       if (isMediaConfigured() && !(await destroyAssetResult(publicId))) {
         console.error("[accounts] avatar orfao no Cloudinary apos exclusao de conta", publicId);
       }

@@ -99,7 +99,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 456
+      "line": 448
     },
     {
       "app": "accounts-frontend",
@@ -109,7 +109,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 295
+      "line": 287
     },
     {
       "app": "accounts-frontend",
@@ -119,7 +119,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 264
+      "line": 257
     },
     {
       "app": "accounts-frontend",
@@ -129,7 +129,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 135
+      "line": 124
     },
     {
       "app": "glossario-frontend",

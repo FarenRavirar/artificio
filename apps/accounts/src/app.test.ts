@@ -1,8 +1,22 @@
 import jwt from "jsonwebtoken";
 import request from "supertest";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp, sanitizeReturnUrl } from "./app.js";
 import type { AccountsEnv } from "./env.js";
+
+// Registra os `public_id` pedidos ao Cloudinary. O valor exato importa: o
+// caminho tem de incluir a pasta, senão a exclusão falha em silêncio.
+const destroyedAssets = vi.hoisted(() => [] as string[]);
+vi.mock("@artificio/media", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@artificio/media")>();
+  return {
+    ...actual,
+    destroyAssetResult: vi.fn(async (publicId: string) => {
+      destroyedAssets.push(publicId);
+      return true;
+    }),
+  };
+});
 
 const originalSecret = process.env.JWT_SECRET;
 
@@ -131,9 +145,9 @@ describe("/api/account/avatar", () => {
     process.env.JWT_SECRET = originalSecret;
   });
 
-  // O `dataUrl` é recusado pelo CONTEÚDO, não pelo rótulo declarado: quem envia
-  // escolhe o `Content-Type`. Aqui o rótulo nem é de imagem, e o corpo tampouco.
-  it("recusa payload que não é imagem", async () => {
+  // Tipo declarado que nem é imagem: barrado pelo `fileFilter` do multer, que
+  // então não popula `req.file` — o handler responde `invalid_avatar`.
+  it("recusa arquivo cujo tipo declarado não é de imagem", async () => {
     const app = createApp(env, null as never);
     const token = jwt.sign(
       { sub: "user-1", email: "ana@example.com", name: "Ana", role: "user", role_version: 1 },
@@ -145,14 +159,15 @@ describe("/api/account/avatar", () => {
       .patch("/api/account/avatar")
       .set("Origin", "https://accounts.artificiorpg.com")
       .set("Cookie", [`artificio_session=${token}`])
-      .send({ dataUrl: "data:text/plain;base64,Zm9v" });
+      .attach("file", Buffer.from("foo"), { filename: "a.txt", contentType: "text/plain" });
 
     expect(response.status).toBe(400);
     expect(response.body).toMatchObject({ error: "invalid_avatar" });
   });
 
-  // Rótulo de imagem legítimo com corpo que não é PNG: sem a checagem de magic
-  // bytes isto passaria e o Cloudinary receberia lixo com nome de imagem.
+  // Tipo declarado legítimo com corpo que não é PNG. Passa pelo `fileFilter` (o
+  // `mimetype` do multipart é escolhido por quem envia) e só cai na checagem de
+  // magic bytes — sem ela, o Cloudinary receberia lixo com nome de imagem.
   it("recusa mime de imagem com conteúdo que não bate com os magic bytes", async () => {
     const app = createApp(env, null as never);
     const token = jwt.sign(
@@ -165,10 +180,35 @@ describe("/api/account/avatar", () => {
       .patch("/api/account/avatar")
       .set("Origin", "https://accounts.artificiorpg.com")
       .set("Cookie", [`artificio_session=${token}`])
-      .send({ dataUrl: `data:image/png;base64,${Buffer.from("nao sou png").toString("base64")}` });
+      .attach("file", Buffer.from("nao sou png"), { filename: "a.png", contentType: "image/png" });
 
     expect(response.status).toBe(400);
     expect(response.body).toMatchObject({ error: "invalid_avatar" });
+  });
+
+  // Acima do teto de 2 MB: o multer aborta com `LIMIT_FILE_SIZE`, que precisa
+  // virar 400 com código próprio. Sem o wrapper, subiria como 500 e o usuário
+  // leria "erro interno" para uma foto grande demais.
+  it("recusa arquivo acima do limite com código próprio", async () => {
+    const app = createApp(env, null as never);
+    const token = jwt.sign(
+      { sub: "user-1", email: "ana@example.com", name: "Ana", role: "user", role_version: 1 },
+      env.JWT_SECRET,
+      { algorithm: "HS256", expiresIn: "15m" },
+    );
+    const png = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(3 * 1024 * 1024, 7),
+    ]);
+
+    const response = await request(app)
+      .patch("/api/account/avatar")
+      .set("Origin", "https://accounts.artificiorpg.com")
+      .set("Cookie", [`artificio_session=${token}`])
+      .attach("file", png, { filename: "grande.png", contentType: "image/png" });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({ error: "avatar_too_large" });
   });
 
   it("exige sessão", async () => {
@@ -177,14 +217,14 @@ describe("/api/account/avatar", () => {
     const response = await request(app)
       .patch("/api/account/avatar")
       .set("Origin", "https://accounts.artificiorpg.com")
-      .send({ dataUrl: "data:text/plain;base64,Zm9v" });
+      .attach("file", Buffer.from("foo"), { filename: "a.txt", contentType: "text/plain" });
 
     expect(response.status).toBe(401);
   });
 
   // Caminho de ACEITE do validador: só provar rejeição não distingue "o
   // validador funciona" de "o validador recusa tudo". Aqui o PNG é válido
-  // (assinatura real), passa por `decodeAvatarDataUrl` e para no 503 de
+  // (assinatura real), passa por `decodeAvatarUpload` e para no 503 de
   // infraestrutura — o que prova que a imagem foi aceita.
   it("aceita PNG válido e para no 503 quando o Cloudinary não está configurado", async () => {
     const cloudinaryVars = [
@@ -212,7 +252,7 @@ describe("/api/account/avatar", () => {
         .patch("/api/account/avatar")
         .set("Origin", "https://accounts.artificiorpg.com")
         .set("Cookie", [`artificio_session=${token}`])
-        .send({ dataUrl: `data:image/png;base64,${png.toString("base64")}` });
+        .attach("file", png, { filename: "ok.png", contentType: "image/png" });
 
       // 503, e não 400: o PNG foi aceito pelo validador e parou na
       // indisponibilidade de infraestrutura. É isso que prova o caminho feliz.
@@ -226,27 +266,26 @@ describe("/api/account/avatar", () => {
     }
   });
 
-  // O limite do parser desta rota precisa comportar 2 MB em base64 (~2,7 MB).
-  // Com o `express.json()` padrão de 100 KB, isto voltaria 413 antes de qualquer
-  // validação; aqui tem de chegar ao validador e ser recusado como imagem
-  // inválida — 400, não 413 (achado de review, PR #235).
-  it("payload grande chega ao validador em vez de estourar o limite do parser", async () => {
+  // Arquivo bem acima dos 100 KB do `express.json()` padrão, mas dentro dos
+  // 2 MB da rota. Na versão anterior (data URL em JSON) isto exigia alargar o
+  // parser só aqui, senão voltava 413 antes de qualquer validação. Com
+  // multipart o corpo nem passa pelo parser JSON, então o arquivo chega inteiro
+  // ao validador e é recusado pelo CONTEÚDO — 400, não 413.
+  it("arquivo grande chega ao validador sem esbarrar no limite do JSON", async () => {
     const app = createApp(env, null as never);
     const token = jwt.sign(
       { sub: "user-1", email: "ana@example.com", name: "Ana", role: "user", role_version: 1 },
       env.JWT_SECRET,
       { algorithm: "HS256", expiresIn: "15m" },
     );
-    // 400 KB de binário → ~533 KB em base64: bem acima do padrão de 100 KB.
-    const oversizedForDefaultParser = Buffer.alloc(400 * 1024, 9);
+    const wellAboveJsonDefault = Buffer.alloc(400 * 1024, 9);
 
     const response = await request(app)
       .patch("/api/account/avatar")
       .set("Origin", "https://accounts.artificiorpg.com")
       .set("Cookie", [`artificio_session=${token}`])
-      .send({ dataUrl: `data:image/png;base64,${oversizedForDefaultParser.toString("base64")}` });
+      .attach("file", wellAboveJsonDefault, { filename: "grande.png", contentType: "image/png" });
 
-    // 400 (validador recusou a imagem), não 413 (parser recusou o corpo).
     expect(response.status).toBe(400);
     expect(response.body).toMatchObject({ error: "invalid_avatar" });
   });
@@ -326,6 +365,53 @@ describe("DELETE /api/account", () => {
     // mandando a sessão de uma conta que já não existe.
     const cookies = response.headers["set-cookie"] as unknown as string[] | undefined;
     expect(cookies?.some((cookie) => cookie.startsWith("artificio_session=;"))).toBe(true);
+  });
+
+  // O Cloudinary exige o public_id COM a pasta. Com o basename ele responde
+  // `not found`, e `destroyAssetResult` conta `not found` como sucesso (contrato
+  // REV-019, para a exclusão ser idempotente) — então a limpeza "passaria" e a
+  // foto de quem pediu exclusão continuaria pública, sem nenhum log de erro
+  // (achado de review, PR #235).
+  it("remove o avatar usando o caminho completo do asset, não o basename", async () => {
+    const saved = {
+      cloud: process.env.CLOUDINARY_CLOUD_NAME,
+      key: process.env.CLOUDINARY_API_KEY,
+      secret: process.env.CLOUDINARY_API_SECRET,
+    };
+    process.env.CLOUDINARY_CLOUD_NAME = "test-cloud";
+    process.env.CLOUDINARY_API_KEY = "test-key";
+    process.env.CLOUDINARY_API_SECRET = "test-secret";
+    destroyedAssets.length = 0;
+
+    try {
+      const db = {
+        deleteFrom: () => ({
+          where: () => ({ executeTakeFirst: async () => ({ numDeletedRows: 1n }) }),
+        }),
+      } as never;
+      const app = createApp(env, db);
+      const token = jwt.sign(
+        { sub: "user-1", email: "ana@example.com", name: "Ana", role: "user", role_version: 1 },
+        env.JWT_SECRET,
+        { algorithm: "HS256", expiresIn: "15m" },
+      );
+
+      const response = await request(app)
+        .delete("/api/account")
+        .set("Origin", "https://accounts.artificiorpg.com")
+        .set("Cookie", [`artificio_session=${token}`])
+        .send({ confirm: "ana@example.com" });
+
+      expect(response.status).toBe(204);
+      expect(destroyedAssets).toEqual(["artificio/accounts/avatars/avatar-user-1"]);
+    } finally {
+      if (saved.cloud === undefined) delete process.env.CLOUDINARY_CLOUD_NAME;
+      else process.env.CLOUDINARY_CLOUD_NAME = saved.cloud;
+      if (saved.key === undefined) delete process.env.CLOUDINARY_API_KEY;
+      else process.env.CLOUDINARY_API_KEY = saved.key;
+      if (saved.secret === undefined) delete process.env.CLOUDINARY_API_SECRET;
+      else process.env.CLOUDINARY_API_SECRET = saved.secret;
+    }
   });
 });
 

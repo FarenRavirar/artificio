@@ -30,18 +30,6 @@ function AccountStatus({ status }: Readonly<{ status: AccountStatusState }>) {
   return <output className={`accounts-status accounts-status-${status.tone}`}>{status.text}</output>;
 }
 
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") resolve(reader.result);
-      else reject(new Error("invalid_file"));
-    };
-    reader.onerror = () => reject(reader.error ?? new Error("file_read_failed"));
-    reader.readAsDataURL(file);
-  });
-}
-
 /** Traduz o código estável do backend; texto cru viraria jargão na tela. */
 function readAccountError(body: unknown, fallback: string): string {
   if (!body || typeof body !== "object" || !("error" in body)) return fallback;
@@ -51,6 +39,7 @@ function readAccountError(body: unknown, fallback: string): string {
   // a foto estava certa e vale tentar de novo.
   if (error === "avatar_upload_failed") return "Falha ao enviar a imagem. Tente novamente.";
   if (error === "invalid_avatar") return "Imagem inválida.";
+  if (error === "avatar_too_large") return "A imagem precisa ter até 2 MB.";
   if (error === "confirmation_required") return "Confirmação inválida.";
   return fallback;
 }
@@ -260,12 +249,15 @@ function ContaView() {
     setAvatarBusy(true);
     setAvatarStatus(null);
     try {
-      const dataUrl = await readFileAsDataUrl(file);
+      // `FormData` envia os bytes crus, sem o inchaço de ~33% do base64, e sem
+      // `Content-Type` manual: o navegador precisa gerar o `boundary` do
+      // multipart. Defini-lo à mão quebra o parser do lado do servidor.
+      const form = new FormData();
+      form.append("file", file);
       const response = await fetch("/api/account/avatar", {
         method: "PATCH",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dataUrl }),
+        body: form,
       });
       const body: unknown = await response.json().catch(() => ({}));
       if (!response.ok) {
