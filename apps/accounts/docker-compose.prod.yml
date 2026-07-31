@@ -64,6 +64,18 @@ services:
       - ACCOUNTS_SECRETS_KEY=${ACCOUNTS_SECRETS_KEY:?ACCOUNTS_SECRETS_KEY obrigatorio para accounts-api}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio para accounts-api}
       - TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.18.0.0/16}
+      # Troca de foto de perfil (PATCH /api/account/avatar). Opcionais de
+      # proposito (`:-`), ao contrario de SERVICE_SECRET/JWT_SECRET: sem elas o
+      # `accounts.` sobe normal e so a rota de avatar devolve 503 — derrubar o
+      # SSO inteiro por falta de credencial de imagem seria desproporcional.
+      # O `.env` do Compose so interpola chave declarada aqui; omitir a linha faz
+      # a variavel nunca chegar ao container, e isConfigured() reprovaria sempre.
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-}
+      # Sem preset: o upload e assinado por api_key/api_secret, como no `mesas`
+      # (`backend/src/services/cloudinary.ts`), referencia madura do monorepo.
+      # As 3 chaves acima sao as MESMAS de mesas/downloads/links — conta unica.
     expose:
       - "3000"
     healthcheck:

@@ -88,6 +88,14 @@ body {
   z-index: 1;
 }
 
+/* Painel da conta é mais largo que o de login: com foto de perfil e zona de
+   exclusão, 480px aperta o campo de confirmação por e-mail. O :has() alarga só
+   onde a zona de perigo existe, sem afetar a tela de login. */
+.accounts-page:has(.accounts-danger-zone) .accounts-panel {
+  max-width: 540px;
+  width: min(100%, 540px);
+}
+
 .accounts-panel::before {
   background: var(--accounts-brand);
   content: "";
@@ -236,6 +244,19 @@ body {
   color: var(--accounts-ink);
 }
 
+/* Ação destrutiva com cor própria: exclusão de conta não pode parecer com as
+   demais ações do painel (restaurado com a feature em 2026-07-31). */
+.accounts-login-danger {
+  background: #b42318;
+  border-color: #b42318;
+  box-shadow: none;
+}
+
+.accounts-login-danger:hover {
+  background: #8f1d16;
+  border-color: #8f1d16;
+}
+
 .accounts-login:disabled {
   cursor: wait;
   opacity: 0.65;
@@ -298,6 +319,49 @@ body {
   border-radius: 8px;
   margin-top: 28px;
   padding: 16px;
+}
+
+/* Painéis de foto de perfil e exclusão de conta. Removidos junto com a feature
+   no restore a7d9d20 (2026-06-29) e restaurados em 2026-07-31 com ela. */
+.accounts-tool-panel,
+.accounts-danger-zone {
+  background: var(--accounts-surface-soft);
+  border: 1px solid var(--accounts-soft-line);
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  margin-top: 24px;
+  padding: 16px;
+}
+
+.accounts-tool-panel h2,
+.accounts-danger-zone h2 {
+  color: var(--accounts-ink);
+  font-size: 15px;
+  line-height: 1.2;
+  margin: 0 0 6px;
+}
+
+/* O input de arquivo real fica escondido — o <label> é o botão visível. Não usa
+   display:none nem visibility:hidden porque isso o tiraria da ordem de
+   tabulação; o par com :focus-within abaixo é o que mantém o controle
+   acessível por teclado, com anel de foco visível. */
+.accounts-file-button {
+  position: relative;
+}
+
+.accounts-file-button input {
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  width: 1px;
+}
+
+.accounts-file-button:focus-within {
+  box-shadow: var(--accounts-focus);
+  outline: 0;
 }
 
 .accounts-actions {

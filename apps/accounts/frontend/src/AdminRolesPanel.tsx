@@ -65,6 +65,20 @@ function readError(payload: unknown, fallback: string): string {
  */
 const ADMIN_REQUIRED_CODE = "ADMIN_REQUIRED";
 
+/**
+ * Remove uma chave do mapa de papéis pendentes devolvendo um objeto novo — o
+ * estado do React não pode ser mutado no lugar.
+ *
+ * Existe como função nomeada porque a forma anterior
+ * (`const { [id]: _discarded, ...rest } = current`) declarava uma variável só
+ * para descartá-la, o que o `no-unused-vars` acusa: `ignoreRestSiblings` cobre
+ * chave estática, não computada. Nomear a operação resolve sem afrouxar a regra
+ * e diz o que o código faz (achado do ESLint na PR #235).
+ */
+function withoutKey<T>(source: Record<string, T>, key: string): Record<string, T> {
+  return Object.fromEntries(Object.entries(source).filter(([current]) => current !== key));
+}
+
 function isPermissionChanged(response: Response, payload: unknown): boolean {
   return response.status === 403
     && payload !== null
@@ -178,10 +192,7 @@ export function AdminRolesPanel(): React.JSX.Element {
     }
     const updated = parsed.data.user;
     setUsers((current) => current.map((item) => item.id === updated.id ? updated : item));
-    setPendingRole((current) => {
-      const { [updated.id]: _discarded, ...rest } = current;
-      return rest;
-    });
+    setPendingRole((current) => withoutKey(current, updated.id));
   }, []);
 
   const confirmRoleChange = useCallback(async (user: RoleUser, role: UserRole) => {
@@ -202,10 +213,7 @@ export function AdminRolesPanel(): React.JSX.Element {
   }, [losePermission, updateRole]);
 
   const cancelRoleChange = useCallback((userId: string) => {
-    setPendingRole((current) => {
-      const { [userId]: _discarded, ...rest } = current;
-      return rest;
-    });
+    setPendingRole((current) => withoutKey(current, userId));
   }, []);
 
   const columns = useMemo<Array<AdminColumn<RoleUser>>>(() => [

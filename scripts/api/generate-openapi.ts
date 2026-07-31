@@ -383,7 +383,25 @@ function appendAccountRequestBody(lines: string[], method: string, path: string)
     return true;
   }
   if (method === 'patch' && path === '/api/account/avatar') {
-    appendRequiredJsonBody(lines, "dataUrl", ["type: string", "description: Data URL base64 PNG, JPEG ou WebP ate 2MB"]);
+    // multipart/form-data, campo `file` — a rota usa multer, como o upload do
+    // mesas. O contrato anterior declarava `application/json` com `dataUrl`, e
+    // ficou defasado quando a rota mudou: cliente que seguisse o spec publicado
+    // enviava JSON, `req.file` vinha vazio e TODA imagem recebia 400
+    // `invalid_avatar` (achado de review, PR #235).
+    appendIndented(lines, ``, [
+      `      requestBody:`,
+      `        required: true`,
+      `        content:`,
+      `          multipart/form-data:`,
+      `            schema:`,
+      `              type: object`,
+      `              required: [file]`,
+      `              properties:`,
+      `                file:`,
+      `                  type: string`,
+      `                  format: binary`,
+      `                  description: Imagem PNG, JPEG ou WebP ate 2MB`,
+    ]);
     return true;
   }
   return false;

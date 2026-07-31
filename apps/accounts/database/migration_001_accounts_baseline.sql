@@ -4,6 +4,12 @@
 -- @created: 2026-07-30
 -- @description: Baseline idempotente do schema inline anterior do accounts
 
+-- NAO adicionar `avatar_source` aqui. A coluna existe em producao desde
+-- 2026-06-29, mas esta baseline descreve o schema como o codigo o definia quando
+-- a esteira assumiu — e o codigo, apos o restore `a7d9d20`, nao a tinha. Quem
+-- reconcilia disco e banco e a `migration_004`, que roda depois e e no-op em
+-- prod. Editar um arquivo ja aplicado quebraria a idempotencia da ledger
+-- (AGENTS.md §Migrations item 2).
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE IF NOT EXISTS users (
