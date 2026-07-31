@@ -239,7 +239,7 @@ describe("AdminRolesPanel — permissão do próprio ator revogada", () => {
     await user.type(screen.getByPlaceholderText(/Buscar por nome ou e-mail/i), "ana");
     await new Promise((resolve) => setTimeout(resolve, 400));
 
-    expect(denied.mock.calls.length).toBe(afterPatch);
+    expect(denied.mock.calls).toHaveLength(afterPatch);
   });
 
   it("403 na listagem esvazia a tabela em vez de mostrar dado sem autoridade", async () => {
