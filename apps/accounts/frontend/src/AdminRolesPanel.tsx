@@ -36,10 +36,41 @@ const ROLE_TONE = {
   admin: "brand",
 } as const;
 
+/**
+ * Perda de papel do **próprio ator** durante a sessão: o backend revalida o ator
+ * no banco a cada requisição e devolve este código quando ele deixou de ser
+ * admin, ou quando o `roleVersion` do token ficou para trás.
+ */
+class PermissionChangedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PermissionChangedError";
+  }
+}
+
 function readError(payload: unknown, fallback: string): string {
   return payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
     ? payload.error
     : fallback;
+}
+
+/**
+ * O status 403 sozinho **não** identifica perda de papel: `csrfProtection`
+ * devolve o mesmo status quando a origem não é permitida ou um proxy remove o
+ * `Origin` (`packages/auth/src/csrf.ts`). Tratar todo 403 como rebaixamento
+ * travava a tela do admin legítimo num erro de CSRF, e recarregar não resolvia
+ * (achado de review, PR #234). Discriminar por texto de mensagem quebraria ao
+ * traduzir ou reescrever a frase — daí o código estável do backend
+ * (`ADMIN_REQUIRED_CODE` em `requireCurrentAdmin.ts`).
+ */
+const ADMIN_REQUIRED_CODE = "ADMIN_REQUIRED";
+
+function isPermissionChanged(response: Response, payload: unknown): boolean {
+  return response.status === 403
+    && payload !== null
+    && typeof payload === "object"
+    && "code" in payload
+    && payload.code === ADMIN_REQUIRED_CODE;
 }
 
 export function AdminRolesPanel(): React.JSX.Element {
@@ -53,6 +84,23 @@ export function AdminRolesPanel(): React.JSX.Element {
   // (achado de review, PR #233; requisito 27, prevenção de erro de Nielsen).
   const [pendingRole, setPendingRole] = useState<Record<string, UserRole>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
+  // Estado terminal da tela: o ator perdeu o papel de admin durante a sessão.
+  // Separado de `error` porque não é falha recuperável de uma ação — nenhuma
+  // outra alteração vai passar até a sessão ser renovada.
+  const [permissionLost, setPermissionLost] = useState<string | null>(null);
+
+  /**
+   * Transição única para "o ator perdeu o papel". Centralizada porque acontece
+   * em dois caminhos — a listagem e o PATCH — e eles divergiram: só a listagem
+   * limpava as linhas, então um ator revogado ao salvar seguia vendo nome e
+   * e-mail de todas as contas até recarregar (achado de review, PR #234).
+   * Estado de tela e dado exibido saem juntos ou não saem.
+   */
+  const losePermission = useCallback((message: string) => {
+    setPermissionLost(message);
+    setUsers([]);
+    setPendingRole({});
+  }, []);
 
   // Duas buscas podem passar do debounce e voltar fora de ordem: se a antiga
   // chegar depois, sobrescreveria a lista com resultados do texto anterior — o
@@ -68,6 +116,12 @@ export function AdminRolesPanel(): React.JSX.Element {
       const response = await fetch(url, { credentials: "include", signal });
       const payload: unknown = await response.json().catch(() => ({}));
       if (signal.aborted) return;
+      // Mesmo caso da alteração: o ator deixou de ser admin. Vale já na
+      // listagem, porque o rebaixamento pode acontecer com a tela só aberta.
+      if (isPermissionChanged(response, payload)) {
+        losePermission(readError(payload, "Sua permissão de administrador mudou."));
+        return;
+      }
       if (!response.ok) throw new Error(readError(payload, "Falha ao carregar contas."));
       const parsed = roleUserListSchema.safeParse(payload);
       if (!parsed.success) {
@@ -81,9 +135,12 @@ export function AdminRolesPanel(): React.JSX.Element {
     } finally {
       if (!signal.aborted) setLoading(false);
     }
-  }, []);
+  }, [losePermission]);
 
   useEffect(() => {
+    // Permissão perdida encerra a busca: sem esta guarda, cada tecla digitada no
+    // campo dispararia outro GET que o backend recusa com o mesmo 403.
+    if (permissionLost !== null) return;
     const controller = new AbortController();
     const timeout = globalThis.setTimeout(() => {
       void loadUsers(search, controller.signal);
@@ -92,7 +149,7 @@ export function AdminRolesPanel(): React.JSX.Element {
       globalThis.clearTimeout(timeout);
       controller.abort();
     };
-  }, [loadUsers, search]);
+  }, [loadUsers, permissionLost, search]);
 
   const updateRole = useCallback(async (user: RoleUser, role: UserRole) => {
     setError(null);
@@ -103,6 +160,17 @@ export function AdminRolesPanel(): React.JSX.Element {
       body: JSON.stringify({ role }),
     });
     const payload: unknown = await response.json().catch(() => ({}));
+    // `ADMIN_REQUIRED` significa que o papel do **próprio ator** mudou no banco
+    // durante a sessão (`requireCurrentAdmin` ou `ACTOR_NO_LONGER_ADMIN`), não
+    // que o alvo seja inválido. A tela inteira deixou de ser legítima: mantê-la
+    // com um aviso genérico faria o admin rebaixado seguir clicando numa lista
+    // que já não pode alterar, colecionando erros sem entender a causa. Um 403
+    // sem esse código (CSRF, por exemplo) segue como erro comum e recuperável.
+    if (isPermissionChanged(response, payload)) {
+      throw new PermissionChangedError(
+        readError(payload, "Sua permissão de administrador mudou."),
+      );
+    }
     if (!response.ok) throw new Error(readError(payload, "Falha ao alterar papel."));
     const parsed = roleUserUpdateSchema.safeParse(payload);
     if (!parsed.success) {
@@ -123,11 +191,15 @@ export function AdminRolesPanel(): React.JSX.Element {
     try {
       await updateRole(user, role);
     } catch (error_) {
+      if (error_ instanceof PermissionChangedError) {
+        losePermission(error_.message);
+        return;
+      }
       setError(error_ instanceof Error ? error_.message : "Falha ao alterar papel.");
     } finally {
       setSavingId(null);
     }
-  }, [updateRole]);
+  }, [losePermission, updateRole]);
 
   const cancelRoleChange = useCallback((userId: string) => {
     setPendingRole((current) => {
@@ -159,13 +231,16 @@ export function AdminRolesPanel(): React.JSX.Element {
         const selected = pendingRole[user.id] ?? user.role;
         const dirty = selected !== user.role;
         const saving = savingId === user.id;
+        // Permissão perdida trava tudo, mas não é "salvando": o rótulo do botão
+        // continua "Salvar" para não sugerir requisição em andamento.
+        const blocked = saving || permissionLost !== null;
         return (
           <div className="flex items-center gap-2">
             <select
               aria-label={`Alterar papel de ${user.name}`}
               className="h-9 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-input)] px-2 text-sm text-[var(--admin-fg)]"
               value={selected}
-              disabled={saving}
+              disabled={blocked}
               onChange={(event) => {
                 const next = event.target.value as UserRole;
                 setPendingRole((current) => ({ ...current, [user.id]: next }));
@@ -180,7 +255,7 @@ export function AdminRolesPanel(): React.JSX.Element {
                 <button
                   type="button"
                   className="accounts-login accounts-login-secondary h-9 px-3 text-sm"
-                  disabled={saving}
+                  disabled={blocked}
                   onClick={() => void confirmRoleChange(user, selected)}
                 >
                   {saving ? "Salvando…" : "Salvar"}
@@ -188,7 +263,7 @@ export function AdminRolesPanel(): React.JSX.Element {
                 <button
                   type="button"
                   className="accounts-login accounts-login-secondary h-9 px-3 text-sm"
-                  disabled={saving}
+                  disabled={blocked}
                   onClick={() => cancelRoleChange(user.id)}
                 >
                   Cancelar
@@ -204,7 +279,7 @@ export function AdminRolesPanel(): React.JSX.Element {
       header: "Versão",
       className: "w-24",
     },
-  ], [cancelRoleChange, confirmRoleChange, pendingRole, savingId]);
+  ], [cancelRoleChange, confirmRoleChange, pendingRole, permissionLost, savingId]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -214,7 +289,21 @@ export function AdminRolesPanel(): React.JSX.Element {
         description="Accounts é a origem do papel global usado por todos os projetos."
         action={<a className="accounts-login accounts-login-secondary" href="/conta">Voltar à conta</a>}
       />
-      {error ? <div role="alert" className="accounts-status accounts-status-error">{error}</div> : null}
+      {permissionLost ? (
+        <div role="alert" className="accounts-status accounts-status-error">
+          {permissionLost} Recarregue a página para continuar com a permissão atual.
+          <button
+            type="button"
+            className="accounts-login accounts-login-secondary ml-3 h-8 px-3 text-sm"
+            onClick={() => globalThis.location.reload()}
+          >
+            Recarregar
+          </button>
+        </div>
+      ) : null}
+      {error && !permissionLost ? (
+        <div role="alert" className="accounts-status accounts-status-error">{error}</div>
+      ) : null}
       <AdminTable
         tableId="accounts-global-roles"
         rows={users}

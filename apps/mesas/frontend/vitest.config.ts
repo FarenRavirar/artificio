@@ -10,6 +10,14 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
     css: true,
+    // 191 testes de jsdom que, na suíte do monorepo, disputam CPU com os outros
+    // 37 pacotes rodando em paralelo. Com o default de 5s, `suggestionModals`
+    // estourava `Test timed out in 5000ms` em ~1 de cada 3 execuções completas —
+    // reproduzido em 2026-07-31, sempre verde isolado. Os mocks de `fetch`
+    // resolvem na hora e não há promessa pendente: o que falta é CPU, não
+    // correção. 20s dá folga sem transformar teste travado em espera longa.
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
     // Baseline de env limpa: o `.env` local (VITE_PUBLIC_SITE_URL/VITE_API_URL)
     // vaza para os testes via Vite e quebra os casos que assumem essas vars vazias
     // (fallback p/ window.origin, precedência beta de VITE_API_URL). Zera a baseline;

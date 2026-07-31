@@ -4,7 +4,7 @@ import type { Kysely } from "kysely";
 import { z } from "zod";
 import type { Database } from "./db.js";
 import { listGlobalRoleUsers, setGlobalRole } from "./globalRoles.js";
-import { requireCurrentAdmin, sessionFrom } from "./requireCurrentAdmin.js";
+import { ADMIN_REQUIRED_CODE, requireCurrentAdmin, sessionFrom } from "./requireCurrentAdmin.js";
 
 const roleSchema = z.object({
   role: z.enum(["user", "moderator", "admin"]),
@@ -58,7 +58,12 @@ export function createAdminRoleRoutes(db: Kysely<Database>): Router {
         return;
       }
       if (error instanceof Error && error.message === "ACTOR_NO_LONGER_ADMIN") {
-        res.status(403).json({ error: "Sua permissão de administrador mudou. Recarregue e tente de novo." });
+        // Mesmo código do guard: para o cliente, as duas situações são "o papel
+        // do próprio ator mudou", e só elas justificam travar a tela.
+        res.status(403).json({
+          code: ADMIN_REQUIRED_CODE,
+          error: "Sua permissão de administrador mudou. Recarregue e tente de novo.",
+        });
         return;
       }
       next(error);

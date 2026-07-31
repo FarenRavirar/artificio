@@ -58,9 +58,13 @@ describe("admin role routes", () => {
     });
   });
 
-  it("exige admin global", async () => {
+  // O `code` é contrato com o painel: sem ele o frontend não distingue este 403
+  // do 403 de CSRF, e travaria a tela do admin legítimo (achado de review,
+  // PR #234). Asserção aqui para a mudança quebrar o teste, não a produção.
+  it("exige admin global e identifica a causa por código", async () => {
     authState.role = "moderator";
-    await request(app()).get("/admin/roles/users").expect(403);
+    const response = await request(app()).get("/admin/roles/users").expect(403);
+    expect(response.body.code).toBe("ADMIN_REQUIRED");
     expect(roleMocks.list).not.toHaveBeenCalled();
   });
 
@@ -112,11 +116,28 @@ describe("admin role routes", () => {
     expect(roleMocks.set).not.toHaveBeenCalled();
   });
 
-  it("recusa auto-rebaixamento", async () => {
+  // Ator rebaixado entre o guard e o UPDATE: 403 com o MESMO código do guard,
+  // porque para o painel as duas situações são "o papel do próprio ator mudou".
+  it("ator rebaixado durante a transação devolve 403 com o mesmo código", async () => {
+    roleMocks.set.mockRejectedValue(new Error("ACTOR_NO_LONGER_ADMIN"));
+
+    const response = await request(app())
+      .patch("/admin/roles/users/user-1")
+      .send({ role: "moderator" })
+      .expect(403);
+
+    expect(response.body.code).toBe("ADMIN_REQUIRED");
+  });
+
+  it("recusa auto-rebaixamento sem marcar perda de papel", async () => {
     roleMocks.set.mockRejectedValue(new Error("SELF_DEMOTION_FORBIDDEN"));
-    await request(app())
+    const response = await request(app())
       .patch("/admin/roles/users/admin-1")
       .send({ role: "user" })
       .expect(409);
+
+    // O ator continua admin: marcar `ADMIN_REQUIRED` aqui travaria a tela de
+    // quem só tentou uma operação inválida.
+    expect(response.body.code).toBeUndefined();
   });
 });

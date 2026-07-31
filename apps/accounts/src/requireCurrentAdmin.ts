@@ -9,6 +9,18 @@ export function sessionFrom(req: Request): Session | undefined {
 }
 
 /**
+ * Código estável do 403 de papel insuficiente.
+ *
+ * O status sozinho não identifica a causa: `csrfProtection` (`packages/auth`)
+ * também devolve 403, por origem não permitida ou `Origin` removido por proxy.
+ * O painel de papéis tratava qualquer 403 como rebaixamento e travava a tela —
+ * num 403 de CSRF isso bloqueia o admin legítimo, e recarregar não resolve
+ * (achado de review, PR #234). Discriminar por texto de mensagem seria pior:
+ * quebra ao traduzir ou reescrever a frase.
+ */
+export const ADMIN_REQUIRED_CODE = "ADMIN_REQUIRED";
+
+/**
  * Guard de admin que **revalida no banco**, não só na claim do cookie.
  *
  * O access token dura 15 minutos e carrega `role`. Sem reler o banco, um admin
@@ -29,7 +41,7 @@ export function requireCurrentAdmin(db: Kysely<Database>) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const session = sessionFrom(req);
     if (session?.user.role !== "admin" || typeof session.user.roleVersion !== "number") {
-      res.status(403).json({ error: "Acesso restrito a administradores." });
+      res.status(403).json({ code: ADMIN_REQUIRED_CODE, error: "Acesso restrito a administradores." });
       return;
     }
 
@@ -39,7 +51,7 @@ export function requireCurrentAdmin(db: Kysely<Database>) {
         currentUser?.role !== "admin" ||
         currentUser.roleVersion !== session.user.roleVersion
       ) {
-        res.status(403).json({ error: "Acesso restrito a administradores." });
+        res.status(403).json({ code: ADMIN_REQUIRED_CODE, error: "Acesso restrito a administradores." });
         return;
       }
       next();

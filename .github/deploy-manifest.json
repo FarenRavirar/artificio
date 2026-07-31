@@ -164,12 +164,14 @@
       "critical_routes": [
         {"name": "health", "url": "https://accounts.artificiorpg.com/health", "expected": "200"},
         {"name": "login", "url": "https://accounts.artificiorpg.com/login", "expected": "200"},
-        {"name": "me_no_cookie", "url": "https://accounts.artificiorpg.com/api/auth/me", "expected": "401"}
+        {"name": "me_no_cookie", "url": "https://accounts.artificiorpg.com/api/auth/me", "expected": "401"},
+        {"name": "admin_roles_no_cookie", "url": "https://accounts.artificiorpg.com/admin/roles/users", "expected": "401"}
       ],
       "critical_routes_beta": [
         {"name": "health", "url": "https://accounts.artificiorpg.com/health", "expected": "200"},
         {"name": "login", "url": "https://accounts.artificiorpg.com/login", "expected": "200"},
-        {"name": "me_no_cookie", "url": "https://accounts.artificiorpg.com/api/auth/me", "expected": "401"}
+        {"name": "me_no_cookie", "url": "https://accounts.artificiorpg.com/api/auth/me", "expected": "401"},
+        {"name": "admin_roles_no_cookie", "url": "https://accounts.artificiorpg.com/admin/roles/users", "expected": "401"}
       ]
     }
   ]
