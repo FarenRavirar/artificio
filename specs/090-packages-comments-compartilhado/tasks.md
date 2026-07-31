@@ -129,6 +129,8 @@ Fechado nesta passada, além do que já vinha da branch anterior:
   teste: dentro do módulo de boot (top-level await) só seria exercitado subindo o
   servidor. O caso que importa é o pool falhar ao fechar sem impedir o exit code
   1 — sem ele, o container fica saudável para o orquestrador com o SSO morto.
+  (Esta versão inicial ainda tinha três caminhos de falha, todos fechados nos
+  achados de review registrados abaixo.)
 - **Smoke do `accounts` cobre a rota nova.** `critical_routes` ganhou
   `admin_roles_no_cookie` (401 em `/admin/roles/users`). Era a superfície mais
   perigosa da fase sem nenhuma rota crítica declarada.
@@ -138,16 +140,73 @@ Fechado nesta passada, além do que já vinha da branch anterior:
   fosse o plano. Ficção documental num arquivo que o próximo agente lê como
   contrato.
 
-Validação: repo 38/38 pacotes de teste sem cache (`--force`, 0 cached), lint
-24/24, build 24/24, `verify:api` 0 breaking, guard de migrations 47/47. `accounts`
-63/63, `glossario` 46/46.
+Validação desta passada: repo 38/38 pacotes sem cache (`--force`, 0 cached), lint
+24/24, build 24/24, `verify:api` 0 breaking, guard de migrations 47/47.
+`glossario` 46/46. (`accounts` estava em 63/63 aqui; chegou a 73/73 depois dos
+achados de review registrados abaixo.)
 
-**Duas falhas intermitentes observadas e descartadas:** `mesas-frontend` e
-`glossario-backend` falharam uma vez cada na suíte completa com cache, e nenhuma
-reproduziu — isoladas, via turbo `--force`, nem na rodada completa sem cache.
-Flake de paralelismo, não regressão. Registrado aqui porque "rodou verde na
-segunda vez" sem dizer que falhou na primeira é o tipo de omissão que esconde
-regressão real.
+**Falha intermitente da suíte — investigada e corrigida, não era flake.** A
+primeira leitura registrada aqui dizia "descartada, não reproduziu". Estava
+errada: medindo 3 rodadas completas, reproduzia **~1 em 3**.
+
+Duas coisas escondiam a causa. O turbo atribuía a falha ao `glossario-backend`,
+que reportava 46/46 passando — a saída intercalada apontava o pacote errado, e o
+`ELIFECYCLE` real era do `mesas-frontend`. E o pacote sempre passava isolado, o
+que reforçava a leitura de ruído.
+
+Causa real: `suggestionModals` estourava `Test timed out in 5000ms` com 191
+testes de jsdom disputando CPU com os outros 37 pacotes em paralelo. Os mocks de
+`fetch` resolvem na hora e não há promessa pendente — faltava CPU, não correção
+de lógica. `testTimeout` 20s e `asyncUtilTimeout` 5s (o `waitFor` do
+testing-library usa 1s próprio, independente do Vitest). Depois: 6 rodadas
+completas 38/38.
+
+Uma rodada isolada acusou `@artificio/site#test`, que não reproduziu em nenhuma
+das seguintes e cujo log não foi capturado. **Não diagnosticado** — registrado
+como aberto, não como resolvido.
+
+### Achados de review da PR #234 — todos corrigidos
+
+Quatro passadas de bot. O padrão vale registro: em três delas o achado principal
+foi defeito introduzido na correção anterior — certo no miolo, errado na borda.
+
+- **403 de CSRF confundido com rebaixamento** (Codex). `csrfProtection` devolve
+  403 igual ao guard de papel, e o `accounts` aplica esse middleware
+  globalmente. O painel travava a tela do admin legítimo num erro de origem, e
+  recarregar não resolvia. O backend passou a devolver `code: "ADMIN_REQUIRED"`
+  nos dois 403 que significam perda de papel; o frontend discrimina por código,
+  não por status nem por texto de mensagem (que quebraria ao traduzir).
+- **Lista não limpa ao perder papel** (CodeRabbit). A listagem limpava as linhas
+  ao receber o 403; o PATCH não. Ator revogado ao salvar seguia vendo nome e
+  e-mail de todas as contas. `losePermission` centraliza a transição para os
+  caminhos não divergirem de novo.
+- **Boot podia sobreviver ao próprio encerramento** (CodeRabbit). `destroy()`
+  que nunca resolve travava o `await` e o exit code jamais era definido; e mesmo
+  definido, `process.exitCode` só encerra com o event loop vazio, que um pool
+  travado impede. Prazo de 5s + saída forçada. Sem a correção, o teste trava o
+  próprio runner.
+- **Timer não cancelado** (CodeRabbit, 2ª passada). `Promise.race` não cancela o
+  perdedor: o timer registrava "cleanup timed out" para limpeza bem-sucedida. O
+  log de encerramento é o que se lê para decidir se o SSO caiu por falha de
+  banco — mentir ali custa diagnóstico.
+- **`destroy()` que lança sincronamente** (achado próprio, revisando o diff
+  acumulado). Terceira porta para o mesmo falso-verde: a exceção escapava do
+  executor da Promise e abortava a função antes do `setExitCode`. Tipo declara
+  `Promise`, mas tipo não é garantia de runtime — e este é o caminho de
+  encerramento de emergência.
+- **Digest de tamanho fixo em `timingSafeEqualStrings`** (CodeRabbit). A
+  ramificação por comprimento existia, embora o custo do ramo variasse com o
+  input do atacante, não com o segredo. SHA-256 nos dois lados elimina o ramo
+  por construção; adotado por ser estritamente melhor, não porque a alegação de
+  oráculo estivesse correta.
+
+**Não corrigido, por ser falso positivo:** Sonar S1135 acusa dois "TODO" que são
+a palavra portuguesa *todo* dentro de comentários ("todo par vira 32 bytes",
+"Tratar todo 403 como rebaixamento"). A regra casa por substring e não distingue
+idioma. Ambos `INFO`, quality gate passou.
+
+Validação final: `accounts` 73/73, suíte 38/38 sem cache, lint 24/24, build
+24/24, `verify:api` 0 breaking, guard de migrations 47/47.
 
 ### Alarme de drift do `accounts.` (achado do mantenedor, 2026-07-30)
 
