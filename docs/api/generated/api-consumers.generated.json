@@ -89,7 +89,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 156
+      "line": 170
     },
     {
       "app": "accounts-frontend",
@@ -99,7 +99,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 437
+      "line": 456
     },
     {
       "app": "accounts-frontend",
@@ -109,7 +109,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 280
+      "line": 295
     },
     {
       "app": "accounts-frontend",
@@ -119,7 +119,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 249
+      "line": 264
     },
     {
       "app": "accounts-frontend",
@@ -129,7 +129,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 120
+      "line": 135
     },
     {
       "app": "glossario-frontend",

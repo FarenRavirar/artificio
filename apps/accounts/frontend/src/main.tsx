@@ -14,13 +14,20 @@ applyTheme();
 const PORTAL_URL = BRAND_ORIGIN;
 
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
-const ACCEPTED_AVATAR_TYPES = ["image/png", "image/jpeg", "image/webp"];
-const SUCCESS_STATUS_MARKERS = ["atualizada", "sucesso"];
+const ACCEPTED_AVATAR_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 
-function AccountStatus({ message }: { message: string | null }) {
-  if (!message) return null;
-  const variant = SUCCESS_STATUS_MARKERS.some((marker) => message.includes(marker)) ? "success" : "error";
-  return <output className={`accounts-status accounts-status-${variant}`}>{message}</output>;
+/**
+ * Estado de uma ação da tela. O tom é declarado por quem chama, não inferido do
+ * texto: a versão anterior procurava as palavras "atualizada"/"sucesso" na
+ * mensagem, então qualquer reescrita de frase — ou um erro que por acaso
+ * contivesse a palavra — pintava o aviso com a cor errada (achado de review,
+ * PR #235).
+ */
+type AccountStatusState = { text: string; tone: "success" | "error" } | null;
+
+function AccountStatus({ status }: Readonly<{ status: AccountStatusState }>) {
+  if (!status) return null;
+  return <output className={`accounts-status accounts-status-${status.tone}`}>{status.text}</output>;
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {
@@ -40,6 +47,9 @@ function readAccountError(body: unknown, fallback: string): string {
   if (!body || typeof body !== "object" || !("error" in body)) return fallback;
   const error = (body as { error: unknown }).error;
   if (error === "media_storage_unavailable") return "Armazenamento de imagem indisponível.";
+  // Falha do provedor (rede, quota, timeout) — distinta de imagem inválida: aqui
+  // a foto estava certa e vale tentar de novo.
+  if (error === "avatar_upload_failed") return "Falha ao enviar a imagem. Tente novamente.";
   if (error === "invalid_avatar") return "Imagem inválida.";
   if (error === "confirmation_required") return "Confirmação inválida.";
   return fallback;
@@ -64,7 +74,12 @@ function readUserFromBody(body: unknown): User | null {
     typeof record.email !== "string" ||
     typeof record.name !== "string" ||
     (record.role !== "user" && record.role !== "moderator" && record.role !== "admin") ||
-    typeof record.roleVersion !== "number"
+    // `roleVersion` é OPCIONAL no contrato (`User` em `packages/auth`), então só
+    // é validado quando presente. Exigi-lo como obrigatório rejeitava resposta
+    // legítima e a foto trocava no banco sem aparecer na tela — o mesmo tipo de
+    // falha silenciosa que aceitar só `user`/`admin` causava com moderador
+    // (achado de review, PR #235).
+    (record.roleVersion !== undefined && typeof record.roleVersion !== "number")
   ) {
     return null;
   }
@@ -203,10 +218,10 @@ function ContaView() {
   // foto nova só apareceria no próximo carregamento da sessão.
   const [accountUser, setAccountUser] = useState<User | null>(null);
   const [avatarBusy, setAvatarBusy] = useState(false);
-  const [avatarStatus, setAvatarStatus] = useState<string | null>(null);
+  const [avatarStatus, setAvatarStatus] = useState<AccountStatusState>(null);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [deleteBusy, setDeleteBusy] = useState(false);
-  const [deleteStatus, setDeleteStatus] = useState<string | null>(null);
+  const [deleteStatus, setDeleteStatus] = useState<AccountStatusState>(null);
 
   useEffect(() => {
     setAccountUser(user);
@@ -233,12 +248,12 @@ function ContaView() {
     // isto o `change` não dispara de novo e a tela parece travada.
     event.target.value = "";
     if (!file) return;
-    if (!ACCEPTED_AVATAR_TYPES.includes(file.type)) {
-      setAvatarStatus("Use PNG, JPG ou WebP.");
+    if (!ACCEPTED_AVATAR_TYPES.has(file.type)) {
+      setAvatarStatus({ text: "Use PNG, JPG ou WebP.", tone: "error" });
       return;
     }
     if (file.size > AVATAR_MAX_BYTES) {
-      setAvatarStatus("A imagem precisa ter até 2 MB.");
+      setAvatarStatus({ text: "A imagem precisa ter até 2 MB.", tone: "error" });
       return;
     }
 
@@ -254,14 +269,14 @@ function ContaView() {
       });
       const body: unknown = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setAvatarStatus(readAccountError(body, "Não foi possível trocar a foto."));
+        setAvatarStatus({ text: readAccountError(body, "Não foi possível trocar a foto."), tone: "error" });
         return;
       }
       const nextUser = readUserFromBody(body);
       if (nextUser) setAccountUser(nextUser);
-      setAvatarStatus("Foto atualizada.");
+      setAvatarStatus({ text: "Foto atualizada.", tone: "success" });
     } catch {
-      setAvatarStatus("Erro ao enviar a foto.");
+      setAvatarStatus({ text: "Erro ao enviar a foto.", tone: "error" });
     } finally {
       setAvatarBusy(false);
     }
@@ -270,7 +285,7 @@ function ContaView() {
   const handleDeleteAccount = useCallback(async () => {
     if (!accountUser) return;
     if (deleteConfirm !== accountUser.email) {
-      setDeleteStatus("Digite seu e-mail para confirmar.");
+      setDeleteStatus({ text: "Digite seu e-mail para confirmar.", tone: "error" });
       return;
     }
 
@@ -284,14 +299,18 @@ function ContaView() {
         body: JSON.stringify({ confirm: deleteConfirm }),
       });
       if (response.ok) {
+        // Sem reabilitar o botão: `location.assign` navega de forma assíncrona,
+        // e um `finally` devolveria a tela ao estado clicável enquanto a conta
+        // já não existe — o segundo clique renderia erro sem sentido para quem
+        // acabou de excluir (achado de review, PR #235).
         globalThis.location.assign(PORTAL_URL);
         return;
       }
       const body: unknown = await response.json().catch(() => ({}));
-      setDeleteStatus(readAccountError(body, "Não foi possível excluir a conta."));
+      setDeleteStatus({ text: readAccountError(body, "Não foi possível excluir a conta."), tone: "error" });
+      setDeleteBusy(false);
     } catch {
-      setDeleteStatus("Erro de rede ao excluir a conta.");
-    } finally {
+      setDeleteStatus({ text: "Erro de rede ao excluir a conta.", tone: "error" });
       setDeleteBusy(false);
     }
   }, [accountUser, deleteConfirm]);
@@ -347,7 +366,7 @@ function ContaView() {
             disabled={avatarBusy}
           />
         </label>
-        <AccountStatus message={avatarStatus} />
+        <AccountStatus status={avatarStatus} />
       </section>
       {accountUser.role === 'admin' && (
         <section className="accounts-admin-panel" aria-label="Administração">
@@ -398,7 +417,7 @@ function ContaView() {
         >
           {deleteBusy ? "Excluindo..." : "Excluir minha conta"}
         </button>
-        <AccountStatus message={deleteStatus} />
+        <AccountStatus status={deleteStatus} />
       </section>
     </section>
   );

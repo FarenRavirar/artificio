@@ -24,7 +24,12 @@ ALTER TABLE users
 -- Contrato do valor. Criada NOT VALID + VALIDATE em seguida pelo mesmo motivo de
 -- `002`/`003` (E015): o runner envolve cada arquivo em uma transacao, e separar
 -- a varredura do ADD evita segurar lock de escrita na tabela `users` — a tabela
--- do SSO, que todo login toca.
+-- do SSO, tocada por cada login.
+--
+-- Os literais 'google'/'custom' repetem de proposito (Sonar acusa duplicacao):
+-- os tres usos tem papeis distintos — DEFAULT da coluna, guarda de validacao
+-- pre-constraint, e o proprio CHECK. Extrair para variavel PL/pgSQL tornaria o
+-- DDL indireto e menos auditavel, que e o oposto do que se quer numa migration.
 DO $$
 BEGIN
   IF EXISTS (

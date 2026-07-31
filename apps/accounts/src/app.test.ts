@@ -136,17 +136,19 @@ describe("/api/account/avatar", () => {
   it("recusa payload que não é imagem", async () => {
     const app = createApp(env, null as never);
     const token = jwt.sign(
-      { sub: "user-1", email: "ana@example.com", name: "Ana", role: "user", roleVersion: 1 },
+      { sub: "user-1", email: "ana@example.com", name: "Ana", role: "user", role_version: 1 },
       env.JWT_SECRET,
       { algorithm: "HS256", expiresIn: "15m" },
     );
 
-    await request(app)
+    const response = await request(app)
       .patch("/api/account/avatar")
       .set("Origin", "https://accounts.artificiorpg.com")
       .set("Cookie", [`artificio_session=${token}`])
-      .send({ dataUrl: "data:text/plain;base64,Zm9v" })
-      .expect(400);
+      .send({ dataUrl: "data:text/plain;base64,Zm9v" });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({ error: "invalid_avatar" });
   });
 
   // Rótulo de imagem legítimo com corpo que não é PNG: sem a checagem de magic
@@ -154,27 +156,99 @@ describe("/api/account/avatar", () => {
   it("recusa mime de imagem com conteúdo que não bate com os magic bytes", async () => {
     const app = createApp(env, null as never);
     const token = jwt.sign(
-      { sub: "user-1", email: "ana@example.com", name: "Ana", role: "user", roleVersion: 1 },
+      { sub: "user-1", email: "ana@example.com", name: "Ana", role: "user", role_version: 1 },
       env.JWT_SECRET,
       { algorithm: "HS256", expiresIn: "15m" },
     );
 
-    await request(app)
+    const response = await request(app)
       .patch("/api/account/avatar")
       .set("Origin", "https://accounts.artificiorpg.com")
       .set("Cookie", [`artificio_session=${token}`])
-      .send({ dataUrl: `data:image/png;base64,${Buffer.from("nao sou png").toString("base64")}` })
-      .expect(400);
+      .send({ dataUrl: `data:image/png;base64,${Buffer.from("nao sou png").toString("base64")}` });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({ error: "invalid_avatar" });
   });
 
   it("exige sessão", async () => {
     const app = createApp(env, null as never);
 
-    await request(app)
+    const response = await request(app)
       .patch("/api/account/avatar")
       .set("Origin", "https://accounts.artificiorpg.com")
-      .send({ dataUrl: "data:text/plain;base64,Zm9v" })
-      .expect(401);
+      .send({ dataUrl: "data:text/plain;base64,Zm9v" });
+
+    expect(response.status).toBe(401);
+  });
+
+  // Caminho de ACEITE do validador: só provar rejeição não distingue "o
+  // validador funciona" de "o validador recusa tudo". Aqui o PNG é válido
+  // (assinatura real), passa por `decodeAvatarDataUrl` e para no 503 de
+  // infraestrutura — o que prova que a imagem foi aceita.
+  it("aceita PNG válido e para no 503 quando o Cloudinary não está configurado", async () => {
+    const cloudinaryVars = [
+      "CLOUDINARY_URL",
+      "CLOUDINARY_CLOUD_NAME",
+      "CLOUDINARY_API_KEY",
+      "CLOUDINARY_API_SECRET",
+    ] as const;
+    const saved = new Map(cloudinaryVars.map((key) => [key, process.env[key]]));
+    for (const key of cloudinaryVars) delete process.env[key];
+
+    try {
+      const app = createApp(env, null as never);
+      const token = jwt.sign(
+        { sub: "user-1", email: "ana@example.com", name: "Ana", role: "user", role_version: 1 },
+        env.JWT_SECRET,
+        { algorithm: "HS256", expiresIn: "15m" },
+      );
+      const png = Buffer.concat([
+        Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        Buffer.alloc(64, 7),
+      ]);
+
+      const response = await request(app)
+        .patch("/api/account/avatar")
+        .set("Origin", "https://accounts.artificiorpg.com")
+        .set("Cookie", [`artificio_session=${token}`])
+        .send({ dataUrl: `data:image/png;base64,${png.toString("base64")}` });
+
+      // 503, e não 400: o PNG foi aceito pelo validador e parou na
+      // indisponibilidade de infraestrutura. É isso que prova o caminho feliz.
+      expect(response.status).toBe(503);
+      expect(response.body).toMatchObject({ error: "media_storage_unavailable" });
+    } finally {
+      for (const [key, value] of saved) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+    }
+  });
+
+  // O limite do parser desta rota precisa comportar 2 MB em base64 (~2,7 MB).
+  // Com o `express.json()` padrão de 100 KB, isto voltaria 413 antes de qualquer
+  // validação; aqui tem de chegar ao validador e ser recusado como imagem
+  // inválida — 400, não 413 (achado de review, PR #235).
+  it("payload grande chega ao validador em vez de estourar o limite do parser", async () => {
+    const app = createApp(env, null as never);
+    const token = jwt.sign(
+      { sub: "user-1", email: "ana@example.com", name: "Ana", role: "user", role_version: 1 },
+      env.JWT_SECRET,
+      { algorithm: "HS256", expiresIn: "15m" },
+    );
+    // 400 KB de binário → ~533 KB em base64: bem acima do padrão de 100 KB.
+    const oversizedForDefaultParser = Buffer.alloc(400 * 1024, 9);
+
+    const response = await request(app)
+      .patch("/api/account/avatar")
+      .set("Origin", "https://accounts.artificiorpg.com")
+      .set("Cookie", [`artificio_session=${token}`])
+      .send({ dataUrl: `data:image/png;base64,${oversizedForDefaultParser.toString("base64")}` });
+
+    // 400 (validador recusou a imagem), não 413 (parser recusou o corpo).
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({ error: "invalid_avatar" });
   });
 });
 
@@ -192,27 +266,66 @@ describe("DELETE /api/account", () => {
   it("recusa exclusão quando o e-mail de confirmação não bate", async () => {
     const app = createApp(env, null as never);
     const token = jwt.sign(
-      { sub: "user-1", email: "ana@example.com", name: "Ana", role: "user", roleVersion: 1 },
+      { sub: "user-1", email: "ana@example.com", name: "Ana", role: "user", role_version: 1 },
       env.JWT_SECRET,
       { algorithm: "HS256", expiresIn: "15m" },
     );
 
-    await request(app)
+    const response = await request(app)
       .delete("/api/account")
       .set("Origin", "https://accounts.artificiorpg.com")
       .set("Cookie", [`artificio_session=${token}`])
-      .send({ confirm: "errado@example.com" })
-      .expect(400);
+      .send({ confirm: "errado@example.com" });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({ error: "confirmation_required" });
   });
 
   it("exige sessão", async () => {
     const app = createApp(env, null as never);
 
-    await request(app)
+    const response = await request(app)
       .delete("/api/account")
       .set("Origin", "https://accounts.artificiorpg.com")
-      .send({ confirm: "ana@example.com" })
-      .expect(401);
+      .send({ confirm: "ana@example.com" });
+
+    expect(response.status).toBe(401);
+  });
+
+  // Caminho de ACEITE: e-mail confere, a conta é apagada e a sessão é limpa.
+  // Sem este caso, a comparação de confirmação poderia estar recusando tudo e os
+  // testes de rejeição seguiriam verdes.
+  it("exclui a conta e limpa os cookies quando o e-mail confere", async () => {
+    let deleted = false;
+    const db = {
+      deleteFrom: () => ({
+        where: () => ({
+          executeTakeFirst: async () => {
+            deleted = true;
+            return { numDeletedRows: 1n };
+          },
+        }),
+      }),
+    } as never;
+    const app = createApp(env, db);
+    const token = jwt.sign(
+      { sub: "user-1", email: "ana@example.com", name: "Ana", role: "user", role_version: 1 },
+      env.JWT_SECRET,
+      { algorithm: "HS256", expiresIn: "15m" },
+    );
+
+    const response = await request(app)
+      .delete("/api/account")
+      .set("Origin", "https://accounts.artificiorpg.com")
+      .set("Cookie", [`artificio_session=${token}`])
+      .send({ confirm: "ana@example.com" });
+
+    expect(response.status).toBe(204);
+    expect(deleted).toBe(true);
+    // Cookie zerado com `Expires` no passado: sem isto o navegador seguiria
+    // mandando a sessão de uma conta que já não existe.
+    const cookies = response.headers["set-cookie"] as unknown as string[] | undefined;
+    expect(cookies?.some((cookie) => cookie.startsWith("artificio_session=;"))).toBe(true);
   });
 });
 

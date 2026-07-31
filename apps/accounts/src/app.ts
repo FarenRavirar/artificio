@@ -13,7 +13,7 @@ import type { Database } from "./db.js";
 import type { AccountsEnv } from "./env.js";
 import { createGoogleClient, readGoogleProfile } from "./google.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "./tokens.js";
-import { isConfigured as isMediaConfigured, uploadBuffer } from "@artificio/media";
+import { destroyAssetResult, isConfigured as isMediaConfigured, uploadBuffer } from "@artificio/media";
 import {
   deleteUser,
   findAuthUserById,
@@ -27,6 +27,33 @@ import { isValidServiceToken } from "./serviceToken.js";
 
 const avatarMaxBytes = 2 * 1024 * 1024;
 const avatarDataUrlPattern = /^data:(image\/(?:png|jpeg|webp));base64,([a-z0-9+/=]+)$/i;
+const avatarUploadTimeoutMs = 15_000;
+
+/**
+ * Limite do corpo JSON da rota de avatar. Base64 infla o binário em ~33%, e o
+ * `express.json()` global usa o padrão de 100 KB — com ele, toda foto acima de
+ * ~75 KB morria com 413 antes de chegar ao validador, apesar dos 2 MB
+ * anunciados na tela (achado de review, PR #235). O teto vale só nesta rota:
+ * ampliar o parser global aumentaria a superfície de payload grande em todas as
+ * outras. A margem cobre o prefixo `data:image/...;base64,` e o padding.
+ */
+const avatarBodyLimitBytes = Math.ceil(avatarMaxBytes * 4 / 3) + 1024;
+
+/** Identidade do asset no Cloudinary — usada no upload e na exclusão. */
+function avatarPublicId(userId: string): string {
+  return `avatar-${userId}`;
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`timeout after ${ms}ms`)), ms);
+    timer.unref?.();
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error: unknown) => { clearTimeout(timer); reject(error instanceof Error ? error : new Error(String(error))); },
+    );
+  });
+}
 
 function readSession(req: express.Request): Session | null {
   return (req as { session?: Session }).session ?? null;
@@ -121,6 +148,12 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
     `https://glossario.${BRAND_DOMAIN}`,
     `https://accounts.${BRAND_DOMAIN}`,
   ]));
+  // Parser dedicado ANTES do global: a foto chega como data URL em JSON, e
+  // base64 infla ~33%. Com o limite padrão de 100 KB, foto acima de ~75 KB
+  // recebia 413 antes de qualquer validação, apesar dos 2 MB oferecidos na
+  // tela. Escopo de rota, não global — o teto maior não vale para o resto da
+  // API (achado de review, PR #235).
+  app.use("/api/account/avatar", express.json({ limit: avatarBodyLimitBytes }));
   app.use(express.json());
   app.use(
     cors({
@@ -206,11 +239,37 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
         return;
       }
 
-      const stored = await uploadBuffer(decoded.buffer, {
-        folder: "artificio/accounts/avatars",
-        publicId: `avatar-${session.user.id}`,
-        overwrite: true,
-      });
+      // Falha do provedor (rede, quota, timeout) não pode escapar como 500
+      // genérico nem pendurar a requisição: o Cloudinary é dependência externa e
+      // o cliente precisa distinguir "sua imagem é inválida" (400) de "o upload
+      // não foi" (502). O timeout existe porque `uploadBuffer` não tem um
+      // próprio — sem ele, um provedor lento segura a conexão indefinidamente.
+      let stored: Awaited<ReturnType<typeof uploadBuffer>>;
+      try {
+        stored = await withTimeout(
+          uploadBuffer(decoded.buffer, {
+            folder: "artificio/accounts/avatars",
+            publicId: avatarPublicId(session.user.id),
+            overwrite: true,
+            // Preset é POR APP (o `downloads` usa `downloads-signed`), não
+            // compartilhado como as credenciais — daí a variável própria.
+            // Opcional: sem ela o upload segue assinado por `api_key`/
+            // `api_secret`, que é o contrato de signed upload do Cloudinary; o
+            // preset só acrescenta transformação e pasta padrão do lado deles.
+            //
+            // `.trim()` porque `.env` editado no Windows deixa `\r` grudado no
+            // valor — já aconteceu com `CLOUDINARY_API_SECRET` do `links` em
+            // produção, achado em 2026-07-31. Mesma defesa do `coverStorage.ts`
+            // do downloads.
+            uploadPreset: process.env.CLOUDINARY_AVATAR_UPLOAD_PRESET?.trim() || undefined,
+          }),
+          avatarUploadTimeoutMs,
+        );
+      } catch (uploadError) {
+        console.error("[accounts] falha ao subir avatar", String(uploadError));
+        res.status(502).json({ error: "avatar_upload_failed" });
+        return;
+      }
       const user = await updateUserAvatar(db, session.user.id, stored.url);
       // Cookies reemitidos porque o avatar viaja dentro do token de sessão: sem
       // isto a foto nova só apareceria no próximo login, e o usuário veria a
@@ -242,6 +301,20 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
       if (confirm !== session.user.email) {
         res.status(400).json({ error: "confirmation_required" });
         return;
+      }
+
+      // Apagar a linha não apaga a imagem: o avatar personalizado fica público
+      // no Cloudinary sob `artificio/accounts/avatars/avatar-<id>` mesmo depois
+      // de a conta deixar de existir — foto de rosto de quem pediu exclusão
+      // seguiria acessível por URL (achado de review, PR #235).
+      //
+      // Roda ANTES do delete no banco, e a falha não aborta a exclusão: o
+      // direito de excluir a conta não pode depender de o Cloudinary responder.
+      // O `public_id` fica no log para retry manual, que é o mesmo contrato do
+      // REV-019 em `destroyAssetResult`.
+      const publicId = avatarPublicId(session.user.id);
+      if (isMediaConfigured() && !(await destroyAssetResult(publicId))) {
+        console.error("[accounts] avatar orfao no Cloudinary apos exclusao de conta", publicId);
       }
 
       await deleteUser(db, session.user.id);

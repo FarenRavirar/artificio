@@ -1,0 +1,36 @@
+{
+  // O frontend do `accounts` era o unico do monorepo sem tsconfig proprio: o
+  // tsconfig do app cobre so `src/**/*.ts` (backend) e o `vite build` transpila
+  // sem checar tipo. Resultado: `frontend/` ficava fora do type-check E do lint
+  // (o `eslint.config.js` do app o mantinha em `ignores` justamente porque o
+  // `projectService` nao conseguia resolve-lo), entao o painel que concede papel
+  // global sobre todos os projetos nunca passou por nenhum dos dois.
+  // Descoberto pelo ESLint do CodeRabbit na PR #235, que nao respeita o
+  // `ignores` local e falhou com "was not found by the project service".
+  "compilerOptions": {
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+
+    /* Bundler mode — o Vite resolve os modulos, o tsc so verifica. */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    "types": ["vite/client"]
+  },
+  // Inclui os `.test.tsx`: eles rodam no Vitest e sao codigo de verdade — deixa-los
+  // de fora reproduziria em menor escala o buraco que este arquivo fecha.
+  "include": ["src"]
+}

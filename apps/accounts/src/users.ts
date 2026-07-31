@@ -114,7 +114,7 @@ export async function upsertGoogleUser(
         email: profile.email,
         name: profile.name,
         // Avatar enviado pelo usuário sobrevive ao login seguinte. Sem este
-        // CASE, todo login com Google reescreve `avatar` com a foto da conta
+        // CASE, cada login com Google reescreve `avatar` com a foto da conta
         // Google e a imagem escolhida some sem aviso — o usuário troca a foto,
         // desloga, loga de novo e a troca desapareceu. `avatar_source='custom'`
         // é o que distingue as duas origens (migration 004).
