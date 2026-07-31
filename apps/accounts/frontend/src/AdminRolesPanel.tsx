@@ -47,6 +47,12 @@ export function AdminRolesPanel(): React.JSX.Element {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Papel escolhido no select fica pendente até confirmação explícita: esta é a
+  // tela que concede poder sobre todos os projetos, e o `onChange` disparava o
+  // PATCH direto — clique errado promovia a admin sem confirmar nem desfazer
+  // (achado de review, PR #233; requisito 27, prevenção de erro de Nielsen).
+  const [pendingRole, setPendingRole] = useState<Record<string, UserRole>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const loadUsers = useCallback(async (query: string) => {
     setLoading(true);
@@ -62,8 +68,8 @@ export function AdminRolesPanel(): React.JSX.Element {
         throw new Error("Resposta inválida ao carregar contas.");
       }
       setUsers(parsed.data.users);
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "Falha ao carregar contas.");
+    } catch (error_) {
+      setError(error_ instanceof Error ? error_.message : "Falha ao carregar contas.");
     } finally {
       setLoading(false);
     }
@@ -92,6 +98,30 @@ export function AdminRolesPanel(): React.JSX.Element {
     }
     const updated = parsed.data.user;
     setUsers((current) => current.map((item) => item.id === updated.id ? updated : item));
+    setPendingRole((current) => {
+      const { [updated.id]: _discarded, ...rest } = current;
+      return rest;
+    });
+  }, []);
+
+  const confirmRoleChange = useCallback(async (user: RoleUser, role: UserRole) => {
+    const question = `Alterar o papel de ${user.name} de "${ROLE_LABEL[user.role]}" para "${ROLE_LABEL[role]}"?`;
+    if (!globalThis.confirm(question)) return;
+    setSavingId(user.id);
+    try {
+      await updateRole(user, role);
+    } catch (error_) {
+      setError(error_ instanceof Error ? error_.message : "Falha ao alterar papel.");
+    } finally {
+      setSavingId(null);
+    }
+  }, [updateRole]);
+
+  const cancelRoleChange = useCallback((userId: string) => {
+    setPendingRole((current) => {
+      const { [userId]: _discarded, ...rest } = current;
+      return rest;
+    });
   }, []);
 
   const columns = useMemo<Array<AdminColumn<RoleUser>>>(() => [
@@ -113,27 +143,56 @@ export function AdminRolesPanel(): React.JSX.Element {
     {
       key: "changeRole",
       header: "Alterar para",
-      render: (user) => (
-        <select
-          aria-label={`Alterar papel de ${user.name}`}
-          className="h-9 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-input)] px-2 text-sm text-[var(--admin-fg)]"
-          value={user.role}
-          onChange={(event) => void updateRole(user, event.target.value as UserRole).catch((caughtError: unknown) => {
-            setError(caughtError instanceof Error ? caughtError.message : "Falha ao alterar papel.");
-          })}
-        >
-          <option value="user">Usuário</option>
-          <option value="moderator">Moderador</option>
-          <option value="admin">Administrador</option>
-        </select>
-      ),
+      render: (user) => {
+        const selected = pendingRole[user.id] ?? user.role;
+        const dirty = selected !== user.role;
+        const saving = savingId === user.id;
+        return (
+          <div className="flex items-center gap-2">
+            <select
+              aria-label={`Alterar papel de ${user.name}`}
+              className="h-9 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-input)] px-2 text-sm text-[var(--admin-fg)]"
+              value={selected}
+              disabled={saving}
+              onChange={(event) => {
+                const next = event.target.value as UserRole;
+                setPendingRole((current) => ({ ...current, [user.id]: next }));
+              }}
+            >
+              <option value="user">Usuário</option>
+              <option value="moderator">Moderador</option>
+              <option value="admin">Administrador</option>
+            </select>
+            {dirty ? (
+              <>
+                <button
+                  type="button"
+                  className="accounts-login accounts-login-secondary h-9 px-3 text-sm"
+                  disabled={saving}
+                  onClick={() => void confirmRoleChange(user, selected)}
+                >
+                  {saving ? "Salvando…" : "Salvar"}
+                </button>
+                <button
+                  type="button"
+                  className="accounts-login accounts-login-secondary h-9 px-3 text-sm"
+                  disabled={saving}
+                  onClick={() => cancelRoleChange(user.id)}
+                >
+                  Cancelar
+                </button>
+              </>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       key: "roleVersion",
       header: "Versão",
       className: "w-24",
     },
-  ], [updateRole]);
+  ], [cancelRoleChange, confirmRoleChange, pendingRole, savingId]);
 
   return (
     <div className="flex flex-col gap-5">

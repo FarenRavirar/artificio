@@ -29,6 +29,8 @@
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/pg": "^8.15.6",
@@ -36,6 +38,7 @@
     "@types/react-dom": "^19.1.6",
     "@types/supertest": "^6.0.3",
     "@vitejs/plugin-react": "^6.0.2",
+    "jsdom": "^30.0.1",
     "supertest": "^7.1.4",
     "tailwindcss": "^4.3.1",
     "tsx": "^4.21.0",
