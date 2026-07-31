@@ -117,6 +117,105 @@ function refreshToken(role: "user" | "moderator" | "admin") {
   );
 }
 
+/**
+ * Rotas de conta restauradas em 2026-07-31: existiam até `a7d9d20`
+ * (2026-06-29), que reverteu `app.ts` a um ponto anterior e as levou junto,
+ * deixando `users.avatar_source` órfã em produção.
+ */
+describe("/api/account/avatar", () => {
+  beforeEach(() => {
+    process.env.JWT_SECRET = env.JWT_SECRET;
+  });
+
+  afterEach(() => {
+    process.env.JWT_SECRET = originalSecret;
+  });
+
+  // O `dataUrl` é recusado pelo CONTEÚDO, não pelo rótulo declarado: quem envia
+  // escolhe o `Content-Type`. Aqui o rótulo nem é de imagem, e o corpo tampouco.
+  it("recusa payload que não é imagem", async () => {
+    const app = createApp(env, null as never);
+    const token = jwt.sign(
+      { sub: "user-1", email: "ana@example.com", name: "Ana", role: "user", roleVersion: 1 },
+      env.JWT_SECRET,
+      { algorithm: "HS256", expiresIn: "15m" },
+    );
+
+    await request(app)
+      .patch("/api/account/avatar")
+      .set("Origin", "https://accounts.artificiorpg.com")
+      .set("Cookie", [`artificio_session=${token}`])
+      .send({ dataUrl: "data:text/plain;base64,Zm9v" })
+      .expect(400);
+  });
+
+  // Rótulo de imagem legítimo com corpo que não é PNG: sem a checagem de magic
+  // bytes isto passaria e o Cloudinary receberia lixo com nome de imagem.
+  it("recusa mime de imagem com conteúdo que não bate com os magic bytes", async () => {
+    const app = createApp(env, null as never);
+    const token = jwt.sign(
+      { sub: "user-1", email: "ana@example.com", name: "Ana", role: "user", roleVersion: 1 },
+      env.JWT_SECRET,
+      { algorithm: "HS256", expiresIn: "15m" },
+    );
+
+    await request(app)
+      .patch("/api/account/avatar")
+      .set("Origin", "https://accounts.artificiorpg.com")
+      .set("Cookie", [`artificio_session=${token}`])
+      .send({ dataUrl: `data:image/png;base64,${Buffer.from("nao sou png").toString("base64")}` })
+      .expect(400);
+  });
+
+  it("exige sessão", async () => {
+    const app = createApp(env, null as never);
+
+    await request(app)
+      .patch("/api/account/avatar")
+      .set("Origin", "https://accounts.artificiorpg.com")
+      .send({ dataUrl: "data:text/plain;base64,Zm9v" })
+      .expect(401);
+  });
+});
+
+describe("DELETE /api/account", () => {
+  beforeEach(() => {
+    process.env.JWT_SECRET = env.JWT_SECRET;
+  });
+
+  afterEach(() => {
+    process.env.JWT_SECRET = originalSecret;
+  });
+
+  // Exclusão encerra o acesso a TODOS os projetos. O e-mail digitado tem de
+  // bater com o da sessão — não basta estar autenticado.
+  it("recusa exclusão quando o e-mail de confirmação não bate", async () => {
+    const app = createApp(env, null as never);
+    const token = jwt.sign(
+      { sub: "user-1", email: "ana@example.com", name: "Ana", role: "user", roleVersion: 1 },
+      env.JWT_SECRET,
+      { algorithm: "HS256", expiresIn: "15m" },
+    );
+
+    await request(app)
+      .delete("/api/account")
+      .set("Origin", "https://accounts.artificiorpg.com")
+      .set("Cookie", [`artificio_session=${token}`])
+      .send({ confirm: "errado@example.com" })
+      .expect(400);
+  });
+
+  it("exige sessão", async () => {
+    const app = createApp(env, null as never);
+
+    await request(app)
+      .delete("/api/account")
+      .set("Origin", "https://accounts.artificiorpg.com")
+      .send({ confirm: "ana@example.com" })
+      .expect(401);
+  });
+});
+
 describe("/api/auth/refresh", () => {
   it("promotes an active session from the database", async () => {
     const app = createApp(env, fakeAuthDb({

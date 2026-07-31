@@ -13,10 +13,51 @@ import type { Database } from "./db.js";
 import type { AccountsEnv } from "./env.js";
 import { createGoogleClient, readGoogleProfile } from "./google.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "./tokens.js";
-import { findAuthUserById, findUserById, upsertGoogleUser } from "./users.js";
+import { isConfigured as isMediaConfigured, uploadBuffer } from "@artificio/media";
+import {
+  deleteUser,
+  findAuthUserById,
+  findUserById,
+  updateUserAvatar,
+  upsertGoogleUser,
+} from "./users.js";
 import { createAdminSecretsRoutes } from "./adminSecretsRoutes.js";
 import { createAdminRoleRoutes } from "./adminRoleRoutes.js";
 import { isValidServiceToken } from "./serviceToken.js";
+
+const avatarMaxBytes = 2 * 1024 * 1024;
+const avatarDataUrlPattern = /^data:(image\/(?:png|jpeg|webp));base64,([a-z0-9+/=]+)$/i;
+
+function readSession(req: express.Request): Session | null {
+  return (req as { session?: Session }).session ?? null;
+}
+
+/**
+ * O `dataUrl` chega do navegador e é hostil até prova em contrário. Não basta
+ * conferir o rótulo `image/png` do próprio payload: quem envia escolhe o rótulo.
+ * Por isso o tipo declarado é confrontado com os **magic bytes** do conteúdo, e
+ * o tamanho é limitado antes de qualquer upload — um `dataUrl` gigante viraria
+ * banda e custo no Cloudinary sem nunca ter sido uma imagem.
+ */
+function decodeAvatarDataUrl(value: unknown): { buffer: Buffer; mime: string } | null {
+  if (typeof value !== "string") return null;
+  const match = avatarDataUrlPattern.exec(value);
+  if (!match) return null;
+
+  const mime = match[1].toLowerCase();
+  const buffer = Buffer.from(match[2], "base64");
+  if (buffer.byteLength === 0 || buffer.byteLength > avatarMaxBytes) return null;
+
+  const isPng = mime === "image/png"
+    && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  const isJpeg = mime === "image/jpeg"
+    && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  const isWebp = mime === "image/webp"
+    && buffer.subarray(0, 4).toString("ascii") === "RIFF"
+    && buffer.subarray(8, 12).toString("ascii") === "WEBP";
+
+  return isPng || isJpeg || isWebp ? { buffer, mime } : null;
+}
 
 export function isAllowedReturnUrl(value: string): boolean {
   try {
@@ -141,6 +182,74 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
 
   app.get("/api/auth/me", requireAuth, (req, res) => {
     res.json({ user: (req as { session?: Session }).session?.user });
+  });
+
+  app.patch("/api/account/avatar", requireAuth, async (req, res, next) => {
+    try {
+      const session = readSession(req);
+      if (!session) {
+        res.status(401).json({ error: "unauthorized" });
+        return;
+      }
+
+      const decoded = decodeAvatarDataUrl((req.body as { dataUrl?: unknown } | null)?.dataUrl);
+      if (!decoded) {
+        res.status(400).json({ error: "invalid_avatar" });
+        return;
+      }
+
+      // Sem credencial de mídia configurada o upload falharia dentro do
+      // Cloudinary com erro opaco. 503 diz o que é: indisponibilidade de
+      // infraestrutura, não payload inválido do usuário.
+      if (!isMediaConfigured()) {
+        res.status(503).json({ error: "media_storage_unavailable" });
+        return;
+      }
+
+      const stored = await uploadBuffer(decoded.buffer, {
+        folder: "artificio/accounts/avatars",
+        publicId: `avatar-${session.user.id}`,
+        overwrite: true,
+      });
+      const user = await updateUserAvatar(db, session.user.id, stored.url);
+      // Cookies reemitidos porque o avatar viaja dentro do token de sessão: sem
+      // isto a foto nova só apareceria no próximo login, e o usuário veria a
+      // antiga logo após trocá-la.
+      setSessionCookies(
+        res,
+        env,
+        signAccessToken(user, env),
+        signRefreshToken(user, env),
+      );
+      res.json({ user });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.delete("/api/account", requireAuth, async (req, res, next) => {
+    try {
+      const session = readSession(req);
+      if (!session) {
+        res.status(401).json({ error: "unauthorized" });
+        return;
+      }
+
+      // Exclusão é irreversível e encerra o acesso a TODOS os projetos (o
+      // `accounts.` é a origem da identidade). Digitar o próprio e-mail é a
+      // confirmação deliberada exigida antes de apagar.
+      const confirm = (req.body as { confirm?: unknown } | null)?.confirm;
+      if (confirm !== session.user.email) {
+        res.status(400).json({ error: "confirmation_required" });
+        return;
+      }
+
+      await deleteUser(db, session.user.id);
+      clearSessionCookies(res, env);
+      res.status(204).send();
+    } catch (error) {
+      next(error);
+    }
   });
 
   app.post("/api/auth/logout", (_req, res) => {

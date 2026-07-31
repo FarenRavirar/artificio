@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Header, brandLogoNavy, brandLogoNeg, applyFavicon, applyTheme, useTheme } from "@artificio/ui";
 import { useSession, getAccountsOrigin, logout } from "@artificio/auth/client";
+import type { User } from "@artificio/auth";
 import { BRAND_TAGLINE_FREE, BRAND_ORIGIN, BRAND_DOMAIN } from "@artificio/config";
 import "@artificio/ui/styles.css";
 import "./styles.css";
@@ -11,6 +12,71 @@ applyFavicon();
 applyTheme();
 
 const PORTAL_URL = BRAND_ORIGIN;
+
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+const ACCEPTED_AVATAR_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const SUCCESS_STATUS_MARKERS = ["atualizada", "sucesso"];
+
+function AccountStatus({ message }: { message: string | null }) {
+  if (!message) return null;
+  const variant = SUCCESS_STATUS_MARKERS.some((marker) => message.includes(marker)) ? "success" : "error";
+  return <output className={`accounts-status accounts-status-${variant}`}>{message}</output>;
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") resolve(reader.result);
+      else reject(new Error("invalid_file"));
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("file_read_failed"));
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Traduz o código estável do backend; texto cru viraria jargão na tela. */
+function readAccountError(body: unknown, fallback: string): string {
+  if (!body || typeof body !== "object" || !("error" in body)) return fallback;
+  const error = (body as { error: unknown }).error;
+  if (error === "media_storage_unavailable") return "Armazenamento de imagem indisponível.";
+  if (error === "invalid_avatar") return "Imagem inválida.";
+  if (error === "confirmation_required") return "Confirmação inválida.";
+  return fallback;
+}
+
+/**
+ * Resposta de API é `unknown` até ser normalizada (AGENTS.md §Regras Gerais de
+ * Código). Valida `moderator` e `roleVersion` além do que a versão de 2026-06-29
+ * conhecia: o papel global ganhou o nível intermediário e o versionamento na
+ * spec 090, e aceitar só `user`/`admin` descartaria silenciosamente a resposta
+ * de um moderador — a foto trocaria no banco e não na tela.
+ */
+function readUserFromBody(body: unknown): User | null {
+  const value =
+    body && typeof body === "object" && "user" in body
+      ? (body as { user: unknown }).user
+      : null;
+  if (!value || typeof value !== "object") return null;
+  const record = value as Partial<User>;
+  if (
+    typeof record.id !== "string" ||
+    typeof record.email !== "string" ||
+    typeof record.name !== "string" ||
+    (record.role !== "user" && record.role !== "moderator" && record.role !== "admin") ||
+    typeof record.roleVersion !== "number"
+  ) {
+    return null;
+  }
+  return {
+    id: record.id,
+    email: record.email,
+    name: record.name,
+    role: record.role,
+    roleVersion: record.roleVersion,
+    avatar: typeof record.avatar === "string" ? record.avatar : null,
+  };
+}
 
 // getSafeReturnUrl: valida e canonicaliza a URL de retorno.
 // CodeQL (github-advanced-security) sinaliza location.replace() com valor de query param
@@ -132,6 +198,19 @@ function ContaView() {
   const { theme } = useTheme();
   const [showSecrets, setShowSecrets] = useState(false);
   const logo = theme === "dark" ? brandLogoNeg : brandLogoNavy;
+  // Cópia local do usuário da sessão: a troca de foto responde com o registro
+  // atualizado, e o painel precisa refletir isso na hora. Sem estado próprio, a
+  // foto nova só apareceria no próximo carregamento da sessão.
+  const [accountUser, setAccountUser] = useState<User | null>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarStatus, setAvatarStatus] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteStatus, setDeleteStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAccountUser(user);
+  }, [user]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -145,7 +224,81 @@ function ContaView() {
     logout(PORTAL_URL);
   }, []);
 
-  if (loading || !user) {
+  // Validação no cliente é conveniência, não segurança: o backend refaz tudo
+  // (tipo por magic bytes e tamanho). O ganho aqui é dizer "use PNG, JPG ou
+  // WebP" antes de gastar upload, em vez de devolver 400 depois.
+  const handleAvatarChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    // Limpar o input permite reenviar o MESMO arquivo depois de um erro — sem
+    // isto o `change` não dispara de novo e a tela parece travada.
+    event.target.value = "";
+    if (!file) return;
+    if (!ACCEPTED_AVATAR_TYPES.includes(file.type)) {
+      setAvatarStatus("Use PNG, JPG ou WebP.");
+      return;
+    }
+    if (file.size > AVATAR_MAX_BYTES) {
+      setAvatarStatus("A imagem precisa ter até 2 MB.");
+      return;
+    }
+
+    setAvatarBusy(true);
+    setAvatarStatus(null);
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      const response = await fetch("/api/account/avatar", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dataUrl }),
+      });
+      const body: unknown = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setAvatarStatus(readAccountError(body, "Não foi possível trocar a foto."));
+        return;
+      }
+      const nextUser = readUserFromBody(body);
+      if (nextUser) setAccountUser(nextUser);
+      setAvatarStatus("Foto atualizada.");
+    } catch {
+      setAvatarStatus("Erro ao enviar a foto.");
+    } finally {
+      setAvatarBusy(false);
+    }
+  }, []);
+
+  const handleDeleteAccount = useCallback(async () => {
+    if (!accountUser) return;
+    if (deleteConfirm !== accountUser.email) {
+      setDeleteStatus("Digite seu e-mail para confirmar.");
+      return;
+    }
+
+    setDeleteBusy(true);
+    setDeleteStatus(null);
+    try {
+      const response = await fetch("/api/account", {
+        method: "DELETE",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: deleteConfirm }),
+      });
+      if (response.ok) {
+        globalThis.location.assign(PORTAL_URL);
+        return;
+      }
+      const body: unknown = await response.json().catch(() => ({}));
+      setDeleteStatus(readAccountError(body, "Não foi possível excluir a conta."));
+    } catch {
+      setDeleteStatus("Erro de rede ao excluir a conta.");
+    } finally {
+      setDeleteBusy(false);
+    }
+  }, [accountUser, deleteConfirm]);
+
+  // Guarda em `accountUser` (não em `user`): é ele que o JSX abaixo lê, e o
+  // efeito que o copia roda depois da primeira renderização.
+  if (loading || !accountUser) {
     return (
       <section className="accounts-panel">
         <p className="accounts-subtitle">Carregando...</p>
@@ -165,21 +318,38 @@ function ContaView() {
         />
       </a>
       <div className="accounts-account-header">
-        {user.avatar ? (
-          <img src={user.avatar} alt="" className="accounts-avatar" width="72" height="72" />
+        {/* `accountUser`, não `user`: é a cópia que a troca de foto atualiza. */}
+        {accountUser.avatar ? (
+          <img src={accountUser.avatar} alt="" className="accounts-avatar" width="72" height="72" />
         ) : (
           <div className="accounts-avatar accounts-avatar-fallback">
-            {user.name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("")}
+            {accountUser.name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("")}
           </div>
         )}
         <div className="accounts-account-copy">
           <p className="accounts-kicker">Conta Artifício</p>
           <h1 id="conta-title">Sua conta</h1>
-          <p className="accounts-user-name">{user.name}</p>
-          {user.email ? <p className="accounts-user-email">{user.email}</p> : null}
+          <p className="accounts-user-name">{accountUser.name}</p>
+          {accountUser.email ? <p className="accounts-user-email">{accountUser.email}</p> : null}
         </div>
       </div>
-      {user.role === 'admin' && (
+      <section className="accounts-tool-panel" aria-labelledby="avatar-title">
+        <div>
+          <h2 id="avatar-title">Foto de perfil</h2>
+          <p className="accounts-help">PNG, JPG ou WebP até 2 MB.</p>
+        </div>
+        <label className="accounts-login accounts-login-secondary accounts-file-button">
+          {avatarBusy ? "Enviando..." : "Trocar foto"}
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={handleAvatarChange}
+            disabled={avatarBusy}
+          />
+        </label>
+        <AccountStatus message={avatarStatus} />
+      </section>
+      {accountUser.role === 'admin' && (
         <section className="accounts-admin-panel" aria-label="Administração">
           <a className="accounts-login" href="/admin/papeis">
             Gerenciar papéis globais
@@ -202,6 +372,34 @@ function ContaView() {
           Voltar ao Portal
         </a>
       </div>
+      <section className="accounts-danger-zone" aria-labelledby="delete-title">
+        <h2 id="delete-title">Excluir conta</h2>
+        <p className="accounts-help">
+          Remove seu login do Artifício e encerra a sessão. Para confirmar, digite seu e-mail.
+        </p>
+        <div className="accounts-field">
+          <label htmlFor="delete-confirm">E-mail da conta</label>
+          <input
+            id="delete-confirm"
+            type="email"
+            value={deleteConfirm}
+            onChange={(event) => setDeleteConfirm(event.target.value)}
+            placeholder={accountUser.email}
+            autoComplete="off"
+          />
+        </div>
+        {/* Botão só habilita com o e-mail exato digitado: a ação é irreversível
+            e encerra o acesso a todos os projetos (prevenção de erro, Nielsen). */}
+        <button
+          className="accounts-login accounts-login-danger"
+          type="button"
+          onClick={handleDeleteAccount}
+          disabled={deleteBusy || deleteConfirm !== accountUser.email}
+        >
+          {deleteBusy ? "Excluindo..." : "Excluir minha conta"}
+        </button>
+        <AccountStatus message={deleteStatus} />
+      </section>
     </section>
   );
 }

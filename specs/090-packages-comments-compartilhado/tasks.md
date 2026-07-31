@@ -101,13 +101,36 @@ papel errado em produção tira acesso de gente.
 - [x] T1.6 — **Papel global lido só do `accounts.`, sem fallback local** (reescrito pela decisão de T1.5). A versão anterior mandava leitura dupla com fallback no papel local — coerente com migração, incoerente com `accounts.` sendo a origem: fallback local reintroduziria o app como autoridade pela porta dos fundos, e um app comprometido ou desatualizado poderia conceder privilégio que o central nega. Regras: `admin` central **vence**; `moderator` central concede **somente** as capacidades de T0.1; papéis de **domínio** (criador, mestre, autor) continuam locais e não são afetados; **ausência do papel no central significa `user`, nunca fallback**; **erro ou timeout nunca promove** (deny-by-default, ver T1.7); autorização privilegiada não usa cache antigo indefinidamente. · feito quando: as seis regras testadas, inclusive erro e ausência.
 - [x] T1.7 — **Falha do `accounts.` não altera autorização** (requisito 22, delimitado). Degradação vale para **leitura pública** de comentário — a página continua de pé. **Não** vale para ação privilegiada: se o papel não pode ser provado, a ação moderadora **falha fechada** (deny-by-default, OWASP). Outage nunca promove ninguém. · feito quando: teste com o `accounts.` fora mostra página pública viva e ação moderadora recusada.
 - [x] T1.8 — Apps passam a ler o papel do `accounts.` nos pontos mapeados em T0.2 (requisito 2). Papel de domínio fica onde está (requisito 3). · feito quando: cada ponto migrado, com teste.
-- [ ] T1.9 — **Smoke de SSO em todos os consumidores** (T0.3): login, `/me`, logout. Obrigatório — `accounts.` e `packages/auth` foram tocados. **Bloqueada pelo mesmo motivo de T1.13: exige ambiente no ar.** O smoke automático de `_deploy-module.yml` roda as `critical_routes` do manifesto contra o host real, e o `accounts` ganhou nesta fase a rota `admin_roles_no_cookie` (`/admin/roles/users` esperando 401) — a superfície nova que concede papel global sobre todos os projetos e que nenhuma rota crítica cobria. Não pode ser fechada localmente. · feito quando: todos verdes, com evidência.
+- [ ] T1.9 — **Smoke de SSO em todos os consumidores** (T0.3): login, `/me`, logout. Obrigatório — `accounts.` e `packages/auth` foram tocados. O smoke automático de `_deploy-module.yml` roda as `critical_routes` do manifesto contra o host real, e o `accounts` ganhou nesta fase a rota `admin_roles_no_cookie` (`/admin/roles/users` esperando 401) — a superfície nova que concede papel global sobre todos os projetos e que nenhuma rota crítica cobria. · feito quando: todos verdes, com evidência.
+
+> **Por que T1.9 não fecha localmente, e por que "subir um beta" não é opção (D042).**
+> O `accounts` é **PROD-only**: `.github/deploy-manifest.json` declara
+> `env_override: "prod"`, `push_branches: ["main"]`, e a build-matrix **bloqueia**
+> `workflow_dispatch` com `env=beta` para este módulo. Não existe
+> `accountsbeta.artificiorpg.com` — os módulos beta reusam o `accounts` de
+> **produção** (D042). Os campos `*_beta` do manifesto espelham os de prod por
+> defensividade e **nunca são exercitados**.
+>
+> Consequência que todo agente precisa ler antes de propor caminho alternativo:
+> **não existe ambiente de ensaio onde a Fase 1 possa ser validada antes de
+> produção.** Quem procurar um vai gastar a sessão procurando algo que foi
+> decidido não existir. As rotas só respondem depois do deploy em prod, e é por
+> isso que T1.13 (abaixo) precisa ser fechada **antes** — ela é a única prova
+> disponível de que esse deploy não vai abortar.
+>
+> Isto **não** significa "deploy proibido": `AGENTS.md` §"Não lançado ≠ não deve
+> subir". Significa que o primeiro exercício real é em produção, com o SSO de
+> todos os apps dependendo dele — daí a ordem obrigatória da §"Como destravar".
 - [x] T1.10 — **Remoção do papel global local dos apps.** Reescrito pela decisão de T1.5: sem migração e sem fallback (T1.6), some a exigência de "período observável de leitura dupla" e de "usuários conflitantes resolvidos" — não há conflito a resolver. Permanecem: teste **por capacidade** (não por nome de papel), provando que quem podia moderar continua podendo; refresh reidratado do banco (T1.2); rollback ensaiado. Papel de **domínio** (`download_creator.role` na parte que não é global, mestre, autor) **fica onde está** — só o global sai. · feito quando: as três cumpridas, e nenhum app decide papel global por conta própria.
 
 **Estado da Fase 1 em 2026-07-31 — código completo, deploy bloqueado.** T1.1–T1.8
 e T1.10 fechadas e verificadas contra o código, não contra a documentação. T1.9 e
-T1.13 seguem abertas: as duas exigem ambiente no ar, e nenhuma prova estática as
-substitui.
+T1.13 seguem abertas: as duas só fecham no deploy de produção, porque o
+`accounts` é PROD-only e não tem ambiente de ensaio (D042). **Isso não quer dizer
+que não haja nada a fazer antes:** o diagnóstico que determina se o deploy vai
+passar ou abortar é leitura do banco de prod, é read-only, e está descrito passo
+a passo em §"Como destravar T1.13 e T1.9". Fazer esse diagnóstico **antes** do
+deploy é o que separa um deploy previsível de um rollback em produção.
 
 Fechado nesta passada, além do que já vinha da branch anterior:
 
@@ -225,8 +248,130 @@ saudável e o **único** alarme de schema defasado no SSO é
 
 - [ ] T1.13 — **Confirmar que o `accounts` é coberto de ponta a ponta.** `_deploy-module.yml:519-522` deriva `DRIFT_DIR` por convenção (`apps/${MODULE}/database`), com `if` hardcoded só para o `site`. Rodar o drift contra o banco real do `accounts` e provar que detecta as duas direções: disco à frente (migration não aplicada) e banco à frente (aplicada fora da esteira). · feito quando: as duas direções detectadas em execução real, não por leitura de código.
 
+> **Como destravar T1.13 e T1.9 — ordem obrigatória, decidida em 2026-07-31.**
+> Escrita porque a formulação anterior ("exige ambiente no ar", "execução real")
+> induziu à conclusão errada de que **nada** podia ser feito sem deploy. O
+> diagnóstico que decide tudo é **read-only** e não precisa de autorização
+> (`AGENTS.md`: read-only é sempre permitido, inclusive na VM).
+>
+> **Estado do ambiente (verificado em 2026-07-31):** `accounts-api` e
+> `accounts-db` estão **de pé e healthy** na VM. O banco `artificio_auth` existe
+> e serve o SSO agora. O bloqueio nunca foi "não há banco" — é "ninguém leu o
+> banco".
+>
+> **Estado do banco de produção, medido em 2026-07-31 (não inferido).** Leitura
+> read-only via `ssh faren` + `psql`:
+>
+> | Objeto | Prod | Quem cria |
+> |---|---|---|
+> | `users`, `admin_secrets` | existem | `001`, com `IF NOT EXISTS` |
+> | `users.role` `TEXT NOT NULL` | ✅ | preflight da `001` **passa** |
+> | `users.avatar_source` | **existe, fora da esteira** | `004` (declaração) |
+> | `users.role_version` | ausente | `002` |
+> | `global_role_audit` + trigger | ausente | `002` |
+> | `users_role_check` | ausente | `002`/`003` |
+> | `schema_migrations` | ausente | **o próprio runner** |
+>
+> Dados: **103 contas** (1 `admin`, 102 `user`), zero fora do contrato de papel,
+> zero fora do contrato de `avatar_source`.
+>
+> **Baseline manual NÃO é necessária — hipótese anterior refutada.** A versão
+> anterior deste bloco supunha que a ausência de `schema_migrations` faria o
+> deploy abortar, e mandava rodar `reconcile_migrations.sh --mark-applied`.
+> **Errado:** o runner **cria a ledger ele mesmo**
+> (`apply_required_migrations.sh:73-80`, `CREATE TABLE IF NOT EXISTS`) antes de
+> listar pendências. Ele então acha 5 pendentes, aplica todas, e só depois o
+> drift roda — contra uma ledger já preenchida. A `001` foi escrita justamente
+> para isso: `CREATE TABLE IF NOT EXISTS` + preflight que exige o schema inline
+> anterior, e esse preflight passa contra prod. **Não rodar `--mark-applied`
+> aqui**: marcaria como aplicada uma migration cujo efeito (`002`) o banco não
+> tem, e o schema ficaria permanentemente incompleto sem nenhum alarme.
+>
+> **Único passo restante — deploy.** `gh workflow run deploy.yml --ref main
+> -f module=accounts -f mode=deploy -f env=prod`, com `pg_dump` antes (103 contas
+> reais). O job roda o runner, o drift **e** as `critical_routes`, fechando T1.13
+> e T1.9 juntos. Autorização nominal, como qualquer deploy.
+>
+> **Atenção ao guard `MAX_AUTO_PENDING=5`.** Com a `004`/`005` o `accounts` tem
+> **exatamente 5** migrations pendentes. O comparador é `-gt`
+> (`apply_required_migrations.sh:95`), então `5 > 5` é falso e o deploy passa —
+> **sem folga**. Qualquer migration nova antes deste deploy estoura o guard e
+> aborta. Se acontecer, o caminho é o do §Migrations item 4 (aplicar com o mesmo
+> script oficial e `MAX_AUTO_PENDING` ajustado ao total), nunca fatiar em lotes.
+>
+> **Achado da investigação — `users.avatar_source`, drift reverso real
+> (2026-07-31, corrigido a pedido do mantenedor).**
+> A coluna existe em produção (`TEXT NOT NULL DEFAULT 'google'`, 103 linhas todas
+> `'google'`) e **não era declarada por nenhuma migration nem pelo código**. Grep
+> em `apps` e `packages` inteiros: zero ocorrências. É exatamente a segunda
+> direção que T1.13 pede para provar — banco à frente do disco — e não precisou
+> ser simulada: estava em produção.
+>
+> Origem, pelo histórico: `c051971` (2026-06-29) criou a coluna via `migrate.ts`
+> inline junto com a feature de **avatar personalizado** — `avatar_source` valia
+> `'custom'` quando o usuário subia a própria imagem, e um `CASE` no upsert
+> impedia o login seguinte do Google de sobrescrevê-la. **`a7d9d20`, 5 horas
+> depois** ("restore ultimo runtime verde do SSO"), reescreveu `users.ts` a partir
+> de um ponto anterior e levou junto a rota de upload, a proteção e a declaração.
+> A coluna, já em produção, ficou. A baseline `001` foi escrita a partir do código
+> pós-restore e por isso também não a tem — um banco recriado pela esteira
+> nasceria **sem** a coluna, divergente de prod.
+>
+> Correção aplicada: `migration_004_avatar_source.sql` declara a coluna
+> (`ADD COLUMN IF NOT EXISTS` — **no-op em prod**, cria em banco novo) mais
+> `CHECK ... NOT VALID`, e `migration_005` faz o `VALIDATE` separado, mesmo par
+> `002`/`003` por causa do E015. `UserRow` em `db.ts` passa a declarar o campo.
+> **A `001` não foi editada** — arquivo já aplicado não se reescreve
+> (`AGENTS.md` §Migrations item 2); ganhou só um comentário explicando por que a
+> coluna não está lá.
+>
+> **Feature restaurada por decisão do mantenedor (2026-07-31), não adiada.** A
+> primeira versão desta análise propôs só declarar a coluna e tratar a volta da
+> troca de avatar como spec própria. O mantenedor decidiu o contrário: **restaurar
+> agora**, já que nada disso foi deployado. Escopo do que voltou, tudo perdido no
+> mesmo restore `a7d9d20`:
+>
+> - **`PATCH /api/account/avatar`** — upload com validação por **magic bytes**
+>   (o rótulo `Content-Type` é escolhido por quem envia; o conteúdo é confrontado
+>   com a assinatura real de PNG/JPEG/WebP), teto de 2 MB antes do upload, `503`
+>   discriminado quando o Cloudinary não está configurado, e reemissão dos cookies
+>   de sessão — o avatar viaja dentro do token, então sem isso a foto nova só
+>   apareceria no login seguinte.
+> - **`DELETE /api/account`** — exclusão pelo titular, exigindo o próprio e-mail
+>   digitado como confirmação. **Também estava perdida** e ninguém tinha notado:
+>   é o caminho de exclusão de conta, com peso de LGPD, e o `accounts.` é a origem
+>   da identidade de todos os projetos.
+> - **O `CASE` no upsert** — a proteção que dá sentido à coluna, mais
+>   `updateUserAvatar` marcando `'custom'`. As duas escritas são a mesma decisão.
+> - **Frontend e CSS** — seção "Foto de perfil", zona de exclusão e as 4 classes
+>   de estilo que também tinham sumido (`accounts-tool-panel`,
+>   `accounts-danger-zone`, `accounts-file-button`, `accounts-login-danger`), sem
+>   as quais a UI subiria sem formatação.
+> - **Dependência e Dockerfile** — `@artificio/media` voltou ao `package.json`, e
+>   o `Dockerfile` ganhou filtro explícito + `test -d packages/media/node_modules/cloudinary`.
+>   Sem isso o container subiria verde e quebraria só na primeira troca de foto,
+>   com `MODULE_NOT_FOUND` (padrão E016/E017).
+>
+> **Adaptações ao schema atual (não é cópia literal do commit antigo):**
+> `updateUserAvatar` devolve `role_version`, os tokens de teste carregam
+> `roleVersion`, e `readUserFromBody` no frontend passou a aceitar `moderator` e
+> exigir `roleVersion` — a versão de 2026-06-29 só conhecia `user`/`admin` e
+> **descartaria silenciosamente** a resposta de um moderador, trocando a foto no
+> banco e não na tela.
+>
+> **Cobertura:** 81 testes no `accounts` (eram 73). Os 3 novos em `users.test.ts`
+> cobrem os dois ramos do `CASE` e a marcação `'custom'`; provados por remoção —
+> tirando o `CASE`, o caso `custom` falha e os outros seguem verdes.
+>
+> **O que não fazer:** procurar ambiente de beta do `accounts` (não existe, ver
+> T1.9); propor `--allow-missing` ou baixar a severidade do drift; aplicar as
+> migrations à mão fora do `apply_required_migrations.sh` (gera drift reverso,
+> §Migrations item 5).
+
 > **T1.13 é bloqueio duro de deploy — decisão do mantenedor, 2026-07-30.**
-> Nenhuma das 3 migrations do `accounts` jamais rodou contra Postgres real (Docker
+> Nenhuma das migrations do `accounts` jamais rodou contra Postgres real — eram 3
+> quando isto foi escrito, são **5** desde 2026-07-31 (`004`/`005`, drift de
+> `avatar_source`) (Docker
 > indisponível na máquina do Codex). **Nada da Fase 1 vai a beta ou prod antes de
 > T1.13 passar em execução real.** Merge de PR e revisão de bot não substituem:
 > ambos leem código, e o que falta provar é comportamento contra banco.
@@ -278,8 +423,14 @@ alterados, verificados pelo Claude:
 
 Validação: `bash -n` 2/2, fail-closed real 2/2, `git diff --check` verde.
 **Nenhum deploy real rodou** — o caminho feliz (6 módulos com diretório presente
-seguindo verdes) está provado só por leitura. T1.13 segue bloqueada por falta de
-Docker/Postgres.
+seguindo verdes) está provado só por leitura. T1.13 segue aberta.
+
+**Correção de 2026-07-31:** a frase original aqui dizia "T1.13 segue bloqueada por
+falta de Docker/Postgres". Está errada e induziu retrabalho. O que falta é Docker
+**na máquina do agente**, para ensaiar num Postgres descartável. O Postgres do
+`accounts` **existe e está healthy na VM** (`accounts-db`), e ler o schema dele é
+read-only — o caminho está em §"Como destravar T1.13 e T1.9". Ausência de ambiente
+local nunca significou ausência de banco real.
 
 > **Nota de processo (2026-07-30).** O `deploy-manifest.json` foi alterado sem o
 > diff ser mostrado antes, apesar de a trava acima e a §2 do handoff exigirem

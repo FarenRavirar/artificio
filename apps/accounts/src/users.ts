@@ -58,6 +58,39 @@ export async function findAuthUserById(
   return row ? toUser(row) : null;
 }
 
+/**
+ * Troca a foto de perfil e marca a origem como `custom`, para o login seguinte
+ * não sobrescrevê-la (ver o CASE em `upsertGoogleUser`). As duas escritas são a
+ * mesma decisão: sem a marcação, a proteção não tem o que checar.
+ */
+export async function updateUserAvatar(
+  db: Kysely<Database>,
+  userId: string,
+  avatar: string,
+): Promise<User> {
+  const row = await db
+    .updateTable("users")
+    .set({ avatar, avatar_source: "custom" })
+    .where("id", "=", userId)
+    .returning(["id", "email", "name", "avatar", "role", "role_version"])
+    .executeTakeFirstOrThrow();
+
+  return toUser(row);
+}
+
+/**
+ * Exclusão de conta pelo próprio titular. O `accounts.` é a origem da identidade
+ * de todos os projetos, então apagar aqui encerra o acesso em todos eles.
+ */
+export async function deleteUser(db: Kysely<Database>, userId: string): Promise<boolean> {
+  const result = await db
+    .deleteFrom("users")
+    .where("id", "=", userId)
+    .executeTakeFirst();
+
+  return Number(result.numDeletedRows) > 0;
+}
+
 export async function upsertGoogleUser(
   db: Kysely<Database>,
   profile: GoogleUserProfile,
@@ -80,7 +113,23 @@ export async function upsertGoogleUser(
       oc.column("google_sub").doUpdateSet({
         email: profile.email,
         name: profile.name,
-        avatar: profile.avatar,
+        // Avatar enviado pelo usuário sobrevive ao login seguinte. Sem este
+        // CASE, todo login com Google reescreve `avatar` com a foto da conta
+        // Google e a imagem escolhida some sem aviso — o usuário troca a foto,
+        // desloga, loga de novo e a troca desapareceu. `avatar_source='custom'`
+        // é o que distingue as duas origens (migration 004).
+        //
+        // Perdido no restore `a7d9d20` (2026-06-29) junto com a rota de upload,
+        // enquanto a coluna seguiu em produção; restaurado em 2026-07-31 a
+        // pedido do mantenedor. Se a troca de avatar for removida de novo, este
+        // CASE sai junto — coluna sem escritor de 'custom' é decoração.
+        avatar: (eb) =>
+          eb
+            .case()
+            .when("users.avatar_source", "=", "custom")
+            .then(eb.ref("users.avatar"))
+            .else(profile.avatar)
+            .end(),
       }),
     )
     .returning(["id", "email", "name", "avatar", "role", "role_version"])
