@@ -28,11 +28,22 @@ declare global {
 
 const toMesasRole = (role: Session['user']['role']): UserRole => role === 'admin' ? 'admin' : 'player';
 
+/**
+ * Papel efetivo do mesas: `admin` vem **só** do `accounts.`; o papel local
+ * contribui apenas com capacidade de domínio (`gm`, `player`, `visitor`).
+ *
+ * Sem o descarte do `admin` local, rebaixar alguém no `accounts.` não tirava o
+ * acesso aqui: `mesas.users.role` ainda podia valer `'admin'` de antes do SSO, e
+ * todo `requireRole('admin')` seguia liberando a conta (achado de review,
+ * PR #233). A spec 090 torna o `accounts.` a origem do papel global — papel
+ * global local é resíduo, não autoridade, e por isso não é fallback.
+ */
 export function resolveEffectiveMesasRole(
   globalRole: Session['user']['role'],
   localRole: UserRole,
 ): UserRole {
-  return globalRole === 'admin' ? 'admin' : localRole;
+  if (globalRole === 'admin') return 'admin';
+  return localRole === 'admin' ? 'player' : localRole;
 }
 
 // Usuário local do mesas provisionado via SSO (accounts.) na primeira vez que
