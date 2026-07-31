@@ -71,7 +71,11 @@ export async function shutdownWithError(
     // Timer pendente não segura o processo enquanto ele ainda pode sair sozinho.
     timer.unref?.();
 
-    void deps.destroy()
+    // `Promise.resolve().then(...)` porque um `destroy()` que lança de forma
+    // SÍNCRONA escaparia deste executor e abortaria a função inteira antes do
+    // `setExitCode` — o mesmo falso-verde, por outro caminho.
+    void Promise.resolve()
+      .then(() => deps.destroy())
       .catch((destroyError: unknown) => {
         logError("accounts failed to close database pool", describeError(destroyError));
       })

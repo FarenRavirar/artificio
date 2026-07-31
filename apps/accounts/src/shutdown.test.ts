@@ -19,7 +19,9 @@ function fakeTimer() {
   return { clearTimeoutFn, fire: () => pending?.(), setTimeoutFn, timerToken: token };
 }
 
-function spies(destroy = vi.fn(async () => undefined)) {
+// `destroy` aceita qualquer função porque um dos casos prova justamente o
+// contrato violado em runtime: lançar sem devolver Promise.
+function spies(destroy: () => Promise<unknown> = vi.fn(async () => undefined)) {
   const logError = vi.fn();
   const setExitCode = vi.fn();
   const forceExit = vi.fn();
@@ -46,6 +48,20 @@ describe("shutdownWithError", () => {
     expect(deps.logError).toHaveBeenCalledWith("accounts failed to start", "boom");
     expect(deps.logError).toHaveBeenCalledWith("accounts failed to close database pool", "pool travado");
     expect(deps.setExitCode).toHaveBeenCalledWith(1);
+  });
+
+  // `destroy()` que lança de forma SÍNCRONA (pool já destruído, cliente em
+  // estado inválido) escaparia do executor da Promise e abortaria a função antes
+  // do `setExitCode` — mesmo falso-verde do `destroy()` travado, por outro
+  // caminho. O tipo declara `Promise`, mas em runtime nada garante isso.
+  it("sobrevive a destroy que lança sincronamente", async () => {
+    const deps = spies(vi.fn(() => { throw new Error("pool já destruído"); }) as unknown as () => Promise<unknown>);
+
+    await shutdownWithError("accounts failed to start", new Error("boom"), deps);
+
+    expect(deps.logError).toHaveBeenCalledWith("accounts failed to close database pool", "pool já destruído");
+    expect(deps.setExitCode).toHaveBeenCalledWith(1);
+    expect(deps.forceExit).not.toHaveBeenCalled();
   });
 
   it("descreve erro não-Error sem quebrar", async () => {
