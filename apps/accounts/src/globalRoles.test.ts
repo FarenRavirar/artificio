@@ -73,9 +73,9 @@ describe("ensureBootstrapAdmin", () => {
 describe("setGlobalRole", () => {
   beforeEach(() => sqlExecute.mockReset());
 
-  it("recusa auto-rebaixamento antes de abrir transação", async () => {
+  it.each(["user", "moderator"] as const)("recusa auto-rebaixamento para %s antes de abrir transação", async (role) => {
     const fake = fakeDb([]);
-    await expect(setGlobalRole(fake.db, "admin-1", "admin-1", "moderator"))
+    await expect(setGlobalRole(fake.db, "admin-1", "admin-1", role))
       .rejects.toThrow("SELF_DEMOTION_FORBIDDEN");
     expect(fake.transaction).not.toHaveBeenCalled();
   });

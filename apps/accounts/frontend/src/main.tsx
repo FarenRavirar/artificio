@@ -300,6 +300,14 @@ function AdminSecretsPanel() {
 function App() {
   const { theme } = useTheme();
   const path = globalThis.location.pathname;
+  let page: React.JSX.Element;
+  if (path === "/admin/papeis") {
+    page = <AdminRolesView />;
+  } else if (path === "/conta") {
+    page = <ContaView />;
+  } else {
+    page = <LoginView />;
+  }
 
   return (
     <>
@@ -311,7 +319,7 @@ function App() {
         variant={theme}
       />
       <main className="accounts-page">
-        {path === "/admin/papeis" ? <AdminRolesView /> : path === "/conta" ? <ContaView /> : <LoginView />}
+        {page}
       </main>
     </>
   );

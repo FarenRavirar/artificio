@@ -62,8 +62,8 @@ export function AdminRolesPanel(): React.JSX.Element {
         throw new Error("Resposta inválida ao carregar contas.");
       }
       setUsers(parsed.data.users);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Falha ao carregar contas.");
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Falha ao carregar contas.");
     } finally {
       setLoading(false);
     }
@@ -118,8 +118,8 @@ export function AdminRolesPanel(): React.JSX.Element {
           aria-label={`Alterar papel de ${user.name}`}
           className="h-9 rounded-lg border border-[var(--admin-border)] bg-[var(--admin-surface-input)] px-2 text-sm text-[var(--admin-fg)]"
           value={user.role}
-          onChange={(event) => void updateRole(user, event.target.value as UserRole).catch((caught: unknown) => {
-            setError(caught instanceof Error ? caught.message : "Falha ao alterar papel.");
+          onChange={(event) => void updateRole(user, event.target.value as UserRole).catch((caughtError: unknown) => {
+            setError(caughtError instanceof Error ? caughtError.message : "Falha ao alterar papel.");
           })}
         >
           <option value="user">Usuário</option>

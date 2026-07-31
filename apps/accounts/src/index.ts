@@ -5,9 +5,9 @@ import { ensureBootstrapAdmin } from "./globalRoles.js";
 
 const env = loadAccountsEnv();
 const db = createDb(env.DATABASE_URL);
-const app = createApp(env, db);
 
-async function start(): Promise<void> {
+try {
+  const app = createApp(env, db);
   const bootstrapStatus = await ensureBootstrapAdmin(db, env.ACCOUNTS_BOOTSTRAP_ADMIN_EMAIL);
   if (bootstrapStatus === "missing_account") {
     console.warn("accounts bootstrap admin pending: account will be promoted on first login");
@@ -15,9 +15,7 @@ async function start(): Promise<void> {
   app.listen(env.PORT, () => {
     console.log(`accounts listening on ${env.PORT}`);
   });
-}
-
-void start().catch(async (error: unknown) => {
+} catch (error: unknown) {
   console.error("accounts failed to start", error instanceof Error ? error.message : "unknown_error");
   try {
     await db.destroy();
@@ -28,4 +26,4 @@ void start().catch(async (error: unknown) => {
     );
   }
   process.exitCode = 1;
-});
+}

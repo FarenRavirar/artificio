@@ -1,7 +1,10 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
-import { requireAuth as sharedRequireAuth, verifyToken } from '@artificio/auth';
-import type { AuthenticatedRequest } from '@artificio/auth';
-import type { Session } from '@artificio/auth';
+import {
+  requireAuth as sharedRequireAuth,
+  verifyToken,
+  type AuthenticatedRequest,
+  type Session,
+} from '@artificio/auth';
 import type { DownloadCreatorRole } from '../db/types';
 import { db } from '../db';
 
