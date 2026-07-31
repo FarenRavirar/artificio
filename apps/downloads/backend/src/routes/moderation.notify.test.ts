@@ -8,10 +8,16 @@ const dbMocks = vi.hoisted(() => ({
   selectFrom: vi.fn(),
   updateTable: vi.fn(),
   insertInto: vi.fn(),
+  transaction: vi.fn(),
 }));
 
 vi.mock('../db', () => ({
-  db: { selectFrom: dbMocks.selectFrom, updateTable: dbMocks.updateTable, insertInto: dbMocks.insertInto },
+  db: {
+    selectFrom: dbMocks.selectFrom,
+    updateTable: dbMocks.updateTable,
+    insertInto: dbMocks.insertInto,
+    transaction: dbMocks.transaction,
+  },
 }));
 
 vi.mock('../middleware/auth', () => ({
@@ -53,6 +59,13 @@ describe('POST /api/v1/moderation/:id/approve — emite notificacao', () => {
     dbMocks.selectFrom.mockReset();
     dbMocks.updateTable.mockReset();
     dbMocks.insertInto.mockReset();
+    dbMocks.transaction.mockReset();
+    dbMocks.transaction.mockReturnValue({
+      execute: (callback: (trx: unknown) => unknown) => callback({
+        updateTable: dbMocks.updateTable,
+        insertInto: dbMocks.insertInto,
+      }),
+    });
   });
 
   it('insere download_notification apos aprovar', async () => {
@@ -78,5 +91,25 @@ describe('POST /api/v1/moderation/:id/approve — emite notificacao', () => {
     expect(insertChain.values).toHaveBeenCalledWith(
       expect.objectContaining({ user_id: 'owner-1', kind: 'material_approved', material_id: 'material-1' }),
     );
+  });
+
+  it('falha fechada: notificação quebrada não confirma aprovação', async () => {
+    const material = { id: 'material-1', creator_id: 'owner-1', title: 'Meu material', editorial_state: 'in_review', slug: 'meu-material' };
+    dbMocks.selectFrom
+      .mockReturnValueOnce(makeMaterialQuery(material))
+      .mockReturnValueOnce(makeMaterialQuery({ id: 'evidence-1' }));
+    dbMocks.updateTable.mockReturnValue({
+      set: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      returningAll: vi.fn().mockReturnThis(),
+      executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ ...material, editorial_state: 'published' }),
+    });
+    dbMocks.insertInto.mockReturnValue({
+      values: vi.fn().mockReturnThis(),
+      execute: vi.fn().mockRejectedValue(new Error('notification insert failed')),
+    });
+
+    await request(app()).post('/api/v1/moderation/material-1/approve').expect(500);
+    expect(dbMocks.transaction).toHaveBeenCalledOnce();
   });
 });

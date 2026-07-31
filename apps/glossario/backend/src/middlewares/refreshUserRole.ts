@@ -1,10 +1,9 @@
 import { Response, NextFunction } from 'express';
-import { fetchUserRoleFromDb } from '../utils/userRole.js';
 import type { AuthedRequest } from '../types/express.js';
 
 /**
- * Revalida a role no banco em cada requisição autenticada sensível.
- * Mitiga token JWT com claim de role desatualizado.
+ * Adaptador legado mantido na cadeia das rotas. Normaliza o papel efetivo a
+ * partir da sessão do accounts.; não consulta nem confia no papel local.
  */
 export const refreshUserRole = async (req: AuthedRequest, res: Response, next: NextFunction) => {
   const currentUser = req.user;
@@ -14,31 +13,13 @@ export const refreshUserRole = async (req: AuthedRequest, res: Response, next: N
     return res.status(401).json({ message: 'Usuário não autenticado.' });
   }
 
-  try {
-    const roleFromDb = await fetchUserRoleFromDb(userId);
-    if (!roleFromDb) {
-      return res.status(401).json({ message: 'Usuário não encontrado.' });
-    }
-    const roleFromToken = typeof currentUser.role === 'string' ? currentUser.role : null;
+  // Papel global vem só do accounts. Papel local nunca é fallback de
+  // autorização; este middleware preserva a forma esperada pelas rotas antigas.
+  req.user = {
+    ...currentUser,
+    role: currentUser.is_global_admin ? 'admin' : 'member',
+    role_source: 'sso',
+  };
 
-    if (roleFromToken && roleFromToken !== roleFromDb) {
-      console.warn(
-        `[refreshUserRole] Divergência de role para user ${userId}: token=${roleFromToken}, db=${roleFromDb}`
-      );
-    }
-
-    // Admin GLOBAL do SSO (superusuário) não é rebaixado pela role local.
-    const isGlobalAdmin = currentUser.is_global_admin === true;
-
-    req.user = {
-      ...currentUser,
-      role: isGlobalAdmin ? 'admin' : roleFromDb,
-      role_source: 'db',
-    };
-
-    return next();
-  } catch (err) {
-    console.error('[refreshUserRole] Erro ao consultar role no banco:', err);
-    return res.status(503).json({ message: 'Serviço temporariamente indisponível. Tente novamente em instantes.' });
-  }
+  return next();
 };

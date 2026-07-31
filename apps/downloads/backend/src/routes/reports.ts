@@ -304,6 +304,17 @@ router.patch('/:id', writeRateLimiter, authMiddleware, requireRole(['moderator',
       }).where('id', '=', report.comment_id).execute();
     }
 
+    if (isTerminal && report.reporter_user_id && targetMaterialId) {
+      await emitNotification({
+        userId: report.reporter_user_id,
+        kind: parsed.data.case_state === 'resolved' ? 'report_resolved' : 'report_dismissed',
+        materialId: targetMaterialId,
+        body: parsed.data.case_state === 'resolved'
+          ? 'Sua denúncia foi analisada e resolvida.'
+          : 'Sua denúncia foi analisada e dispensada.',
+      }, trx);
+    }
+
     return updatedReport;
   });
 
@@ -313,21 +324,6 @@ router.patch('/:id', writeRateLimiter, authMiddleware, requireRole(['moderator',
       materialId: targetMaterialId, reportId: report.id,
       reason: `${report.priority} -> ${parsed.data.priority}`,
     });
-  }
-
-  if (isTerminal && report.reporter_user_id && targetMaterialId) {
-    try {
-      await emitNotification({
-        userId: report.reporter_user_id,
-        kind: parsed.data.case_state === 'resolved' ? 'report_resolved' : 'report_dismissed',
-        materialId: targetMaterialId,
-        body: parsed.data.case_state === 'resolved'
-          ? 'Sua denúncia foi analisada e resolvida.'
-          : 'Sua denúncia foi analisada e dispensada.',
-      });
-    } catch (error) {
-      console.error('[PATCH /reports/:id] Falha ao emitir notificação:', error);
-    }
   }
 
   if (isTerminal) {

@@ -70,7 +70,7 @@ async function readUserResponse(response: Response): Promise<User | null> {
   return normalizeUser(userValue);
 }
 
-function normalizeUser(value: unknown): User | null {
+export function normalizeUser(value: unknown): User | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Partial<User>;
 
@@ -78,7 +78,7 @@ function normalizeUser(value: unknown): User | null {
     typeof record.id !== "string" ||
     typeof record.email !== "string" ||
     typeof record.name !== "string" ||
-    (record.role !== "user" && record.role !== "admin")
+    (record.role !== "user" && record.role !== "moderator" && record.role !== "admin")
   ) {
     return null;
   }
@@ -88,6 +88,10 @@ function normalizeUser(value: unknown): User | null {
     email: record.email,
     name: record.name,
     role: record.role,
+    roleVersion:
+      typeof record.roleVersion === "number" && Number.isSafeInteger(record.roleVersion)
+        ? record.roleVersion
+        : undefined,
     avatar: typeof record.avatar === "string" ? record.avatar : null,
   };
 }

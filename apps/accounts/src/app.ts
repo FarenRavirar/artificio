@@ -14,8 +14,9 @@ import type { Database } from "./db.js";
 import type { AccountsEnv } from "./env.js";
 import { createGoogleClient, readGoogleProfile } from "./google.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "./tokens.js";
-import { findUserById, upsertGoogleUser } from "./users.js";
+import { findAuthUserById, findUserById, upsertGoogleUser } from "./users.js";
 import { createAdminSecretsRoutes } from "./adminSecretsRoutes.js";
+import { createAdminRoleRoutes } from "./adminRoleRoutes.js";
 
 // Comparacao constante mesmo com tamanhos diferentes (timingSafeEqual exige
 // buffers do mesmo length) — evita vazar por timing quanto do token bate.
@@ -134,7 +135,7 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
         tokens.id_token,
         env.GOOGLE_CLIENT_ID,
       );
-      const user = await upsertGoogleUser(db, profile);
+      const user = await upsertGoogleUser(db, profile, env.ACCOUNTS_BOOTSTRAP_ADMIN_EMAIL);
       setSessionCookies(
         res,
         env,
@@ -159,30 +160,44 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
     res.status(204).send();
   });
 
-  app.get("/api/auth/refresh", (req, res) => {
+  app.get("/api/auth/refresh", async (req, res, next) => {
     const token =
       typeof req.cookies?.[refreshCookieName] === "string"
         ? req.cookies[refreshCookieName]
         : null;
-    const user = token ? verifyRefreshToken(token, env) : null;
+    const tokenUser = token ? verifyRefreshToken(token, env) : null;
 
-    if (!user) {
+    if (!tokenUser) {
       clearSessionCookies(res, env);
       res.status(401).json({ error: "unauthorized" });
       return;
     }
 
-    setSessionCookies(
-      res,
-      env,
-      signAccessToken(user, env),
-      signRefreshToken(user, env),
-    );
-    res.json({ user });
+    try {
+      // Spec 090 T1.2: o refresh é a fronteira de reidratação. Papel, perfil e
+      // roleVersion vêm do banco; claim antiga só autentica o ID da sessão.
+      const user = await findAuthUserById(db, tokenUser.id);
+      if (!user) {
+        clearSessionCookies(res, env);
+        res.status(401).json({ error: "unauthorized" });
+        return;
+      }
+
+      setSessionCookies(
+        res,
+        env,
+        signAccessToken(user, env),
+        signRefreshToken(user, env),
+      );
+      res.json({ user });
+    } catch (error) {
+      next(error);
+    }
   });
 
   // WS3: admin secrets (DeepSeek key, etc.) — admin-gated + X-Service-Token
   app.use(createAdminSecretsRoutes(db, env as unknown as Record<string, string | undefined>));
+  app.use(createAdminRoleRoutes(db));
 
   // Spec 083 (downloads: rejeicao com e-mail) — rota interna server-to-server,
   // resolve email/nome do autor por user_id. So X-Service-Token, sem fallback
@@ -211,7 +226,7 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
   const clientDir = join(currentDir, "client");
   if (existsSync(clientDir)) {
     app.use(express.static(clientDir));
-    app.get(["/", "/login", "/conta"], (_req, res) => {
+    app.get(["/", "/login", "/conta", "/admin/papeis"], (_req, res) => {
       res.sendFile(join(clientDir, "index.html"));
     });
   }

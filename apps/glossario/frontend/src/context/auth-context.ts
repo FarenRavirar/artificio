@@ -9,6 +9,7 @@ export interface User {
   username?: string;
   email: string;
   role: 'admin' | 'member';
+  is_global_moderator: boolean;
 }
 
 export interface AuthContextType {

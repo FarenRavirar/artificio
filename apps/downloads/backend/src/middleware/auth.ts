@@ -1,6 +1,10 @@
 import type { NextFunction, Request, RequestHandler, Response } from 'express';
-import { requireAuth as sharedRequireAuth, verifyToken } from '@artificio/auth';
-import type { AuthenticatedRequest } from '@artificio/auth';
+import {
+  requireAuth as sharedRequireAuth,
+  verifyToken,
+  type AuthenticatedRequest,
+  type Session,
+} from '@artificio/auth';
 import type { DownloadCreatorRole } from '../db/types';
 import { db } from '../db';
 
@@ -22,27 +26,41 @@ declare global {
   }
 }
 
-// Downloads nao tem tabela users propria (SSO direto via accounts.); role
-// vem de download_creator quando existe perfil de criador, senao 'user'.
-const resolveCreatorRole = async (userId: string): Promise<DownloadCreatorRole> => {
+// Só `publisher` é papel de domínio. moderator/admin locais são legado e nunca
+// promovem: o papel global vem exclusivamente do accounts.
+const resolveCreatorRole = async (userId: string): Promise<'user' | 'publisher'> => {
   try {
     const creator = await db
       .selectFrom('download_creator')
       .select('role')
       .where('user_id', '=', userId)
       .executeTakeFirst();
-    return creator?.role ?? 'user';
+    return resolveDownloadsDomainRole(creator?.role ?? 'user');
   } catch (error) {
     console.warn('[auth] Falha ao resolver role de download_creator, fallback para "user":', error);
     return 'user';
   }
 };
 
+export function resolveDownloadsDomainRole(role: DownloadCreatorRole): 'user' | 'publisher' {
+  return role === 'publisher' ? 'publisher' : 'user';
+}
+
+export function resolveEffectiveDownloadsRole(
+  globalRole: Session['user']['role'],
+  localRole: 'user' | 'publisher',
+): DownloadCreatorRole {
+  return globalRole === 'admin' || globalRole === 'moderator' ? globalRole : localRole;
+}
+
 const attachUser = async (req: Request): Promise<boolean> => {
   const session = (req as unknown as AuthenticatedRequest).session;
   if (!session) return false;
 
-  const role = session.user.role === 'admin' ? 'admin' : await resolveCreatorRole(session.user.id);
+  // Papel global privilegiado vence. Papel de dominio (publisher) continua
+  // local e so entra quando a conta central e `user`.
+  const localRole = session.user.role === 'user' ? await resolveCreatorRole(session.user.id) : 'user';
+  const role = resolveEffectiveDownloadsRole(session.user.role, localRole);
 
   req.user = {
     userId: session.user.id,

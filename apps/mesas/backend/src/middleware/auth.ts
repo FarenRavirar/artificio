@@ -8,6 +8,9 @@ import { db } from '../db/index.js';
 export interface AuthDecoded {
   userId: string;
   role: UserRole;
+  // Opcional só para requests sintéticos/legados; middleware SSO sempre popula.
+  // Qualquer capacidade global deve exigir igualdade explícita, nunca fallback.
+  globalRole?: Session['user']['role'];
   email?: string;
   name?: string;
   avatar?: string | null;
@@ -23,7 +26,25 @@ declare global {
   }
 }
 
-const toMesasRole = (role: 'user' | 'admin'): UserRole => role === 'admin' ? 'admin' : 'player';
+const toMesasRole = (role: Session['user']['role']): UserRole => role === 'admin' ? 'admin' : 'player';
+
+/**
+ * Papel efetivo do mesas: `admin` vem **só** do `accounts.`; o papel local
+ * contribui apenas com capacidade de domínio (`gm`, `player`, `visitor`).
+ *
+ * Sem o descarte do `admin` local, rebaixar alguém no `accounts.` não tirava o
+ * acesso aqui: `mesas.users.role` ainda podia valer `'admin'` de antes do SSO, e
+ * todo `requireRole('admin')` seguia liberando a conta (achado de review,
+ * PR #233). A spec 090 torna o `accounts.` a origem do papel global — papel
+ * global local é resíduo, não autoridade, e por isso não é fallback.
+ */
+export function resolveEffectiveMesasRole(
+  globalRole: Session['user']['role'],
+  localRole: UserRole,
+): UserRole {
+  if (globalRole === 'admin') return 'admin';
+  return localRole === 'admin' ? 'player' : localRole;
+}
 
 // Usuário local do mesas provisionado via SSO (accounts.) na primeira vez que
 // aparece — sem isto, req.user.userId caía no fallback session.user.id (UUID
@@ -85,7 +106,8 @@ const attachLegacyUser = async (req: Request): Promise<boolean> => {
 
   req.user = {
     userId: mesasUser.id,
-    role: session.user.role === 'admin' ? 'admin' : mesasUser.role,
+    role: resolveEffectiveMesasRole(session.user.role, mesasUser.role),
+    globalRole: session.user.role,
     email: mesasUser.email,
     name: session.user.name,
     avatar: session.user.avatar,

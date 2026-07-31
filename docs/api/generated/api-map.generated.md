@@ -19,30 +19,33 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 
 | App | Total | HIGH | MEDIUM | LOW | Methods |
 |-----|-------|------|--------|-----|---------|
-| accounts | 12 | 12 | 0 | 0 | GET, POST, PUT |
+| accounts | 15 | 15 | 0 | 0 | GET, PATCH, POST, PUT |
 | downloads | 106 | 106 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | glossario | 66 | 66 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | links | 23 | 23 | 0 | 0 | DELETE, GET, PATCH, POST, USE |
 | mesas | 242 | 242 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | site | 59 | 59 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| **Total** | **508** | 508 | 0 | 0 | |
+| **Total** | **511** | 511 | 0 | 0 | |
 
 ## accounts
 
 | Método | Path | Confiança | Arquivo | Linha |
 |--------|------|-----------|---------|------|
-| GET | `/` | ✅ high | `apps/accounts/src/app.ts` | 214 |
-| GET | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 112 |
-| PUT | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 73 |
-| GET | `/api/auth/google` | ✅ high | `apps/accounts/src/app.ts` | 106 |
-| GET | `/api/auth/google/callback` | ✅ high | `apps/accounts/src/app.ts` | 119 |
-| POST | `/api/auth/logout` | ✅ high | `apps/accounts/src/app.ts` | 157 |
-| GET | `/api/auth/me` | ✅ high | `apps/accounts/src/app.ts` | 153 |
-| GET | `/api/auth/refresh` | ✅ high | `apps/accounts/src/app.ts` | 162 |
-| GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 214 |
-| GET | `/health` | ✅ high | `apps/accounts/src/app.ts` | 102 |
-| GET | `/internal/users/:id` | ✅ high | `apps/accounts/src/app.ts` | 190 |
-| GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 214 |
+| GET | `/` | ✅ high | `apps/accounts/src/app.ts` | 229 |
+| GET | `/admin/papeis` | ✅ high | `apps/accounts/src/app.ts` | 229 |
+| GET | `/admin/roles/users` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 17 |
+| PATCH | `/admin/roles/users/:id` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 27 |
+| GET | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 113 |
+| PUT | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 74 |
+| GET | `/api/auth/google` | ✅ high | `apps/accounts/src/app.ts` | 107 |
+| GET | `/api/auth/google/callback` | ✅ high | `apps/accounts/src/app.ts` | 120 |
+| POST | `/api/auth/logout` | ✅ high | `apps/accounts/src/app.ts` | 158 |
+| GET | `/api/auth/me` | ✅ high | `apps/accounts/src/app.ts` | 154 |
+| GET | `/api/auth/refresh` | ✅ high | `apps/accounts/src/app.ts` | 163 |
+| GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 229 |
+| GET | `/health` | ✅ high | `apps/accounts/src/app.ts` | 103 |
+| GET | `/internal/users/:id` | ✅ high | `apps/accounts/src/app.ts` | 205 |
+| GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 229 |
 
 ## downloads
 
@@ -126,10 +129,10 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/materials/mine` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 477 |
 | GET | `/api/v1/materials/types` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 356 |
 | USE | `/api/v1/moderation` | ✅ high | `apps/downloads/backend/src/server.ts` | 108 |
-| POST | `/api/v1/moderation/:id/approve` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 190 |
+| POST | `/api/v1/moderation/:id/approve` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 189 |
 | POST | `/api/v1/moderation/:id/reject` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 94 |
 | POST | `/api/v1/moderation/:id/submit` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 20 |
-| PATCH | `/api/v1/moderation/batch/:action` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 271 |
+| PATCH | `/api/v1/moderation/batch/:action` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 269 |
 | GET | `/api/v1/moderation/queue` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 72 |
 | GET | `/api/v1/notifications` | ✅ high | `apps/downloads/backend/src/routes/notifications.ts` | 12 |
 | USE | `/api/v1/notifications` | ✅ high | `apps/downloads/backend/src/server.ts` | 118 |
@@ -197,7 +200,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/social/:id/comments` | ✅ high | `apps/glossario/backend/src/routes/socialRoutes.ts` | 14 |
 | POST | `/api/social/:id/comments` | ✅ high | `apps/glossario/backend/src/routes/socialRoutes.ts` | 15 |
 | POST | `/api/social/:id/vote` | ✅ high | `apps/glossario/backend/src/routes/socialRoutes.ts` | 11 |
-| DELETE | `/api/social/comments/:id` | ✅ high | `apps/glossario/backend/src/routes/socialRoutes.ts` | 16 |
+| DELETE | `/api/social/comments/:id` | ✅ high | `apps/glossario/backend/src/routes/socialRoutes.ts` | 19 |
 | GET | `/api/systems` | ✅ high | `apps/glossario/backend/src/routes/systemRoutes.ts` | 10 |
 | POST | `/api/systems` | ✅ high | `apps/glossario/backend/src/routes/systemRoutes.ts` | 11 |
 | USE | `/api/systems` | ✅ high | `apps/glossario/backend/src/index.ts` | 90 |

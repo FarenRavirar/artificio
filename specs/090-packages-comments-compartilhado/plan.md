@@ -13,8 +13,14 @@ apps/accounts (dono)
 
 packages/comments (cliente + UI)
 ├── client   — chamadas à API do accounts., cache, degradação
-└── ui       — lista, formulário, thread, central de notificações
+├── ui       — lista, formulário, thread, central de notificações
+└── moderation — fila, ação em lote, restauração, histórico (requisito 27)
 ```
+
+A superfície de moderação reusa `packages/ui/src/admin` (`AdminTable`,
+`bulkActions`, `StatusPill`, `AdminWorkspaceLayout`) e o padrão de dados de
+`useModerationQueue` do `downloads` — não introduz design system nem stack de
+dados própria.
 
 ### Por que o `accounts.` e não um serviço novo
 
@@ -61,21 +67,43 @@ Distinção que decide o desenho:
 | **Global** | `accounts.` | `admin`, `moderator`, `user` |
 | **Domínio** | app | criador de material, mestre de mesa, autor de post |
 
-Só o global migra. `download_creator.role` hoje mistura os dois (`role: 'admin'` ali é global);
-a migração separa: papel global sai para o `accounts.`, papel de criador fica.
+Só o global sai do app. `download_creator.role` hoje mistura os dois (`role: 'admin'` ali é
+global); a separação manda o papel global para o `accounts.` e deixa o de criador onde está.
 
-A trava é o requisito 4 — quem é admin hoje continua sendo. Exige mapa antes-e-depois conferido
-**antes** de qualquer app parar de ler o papel local.
+**`accounts.` é a origem do papel global, não o destino de uma migração** (decisão do mantenedor,
+2026-07-30). A versão anterior deste plano previa consolidar no `accounts.` os papéis locais de
+`downloads`/`glossario`/`mesas`, tratando o papel de app como autoridade a preservar. Invertido:
+a conta central é definitiva e mandatória, e app nenhum alimenta papel global. `downloads` não foi
+lançado e pode ser refeito — travar a arquitetura do SSO para preservar o papel local dele não se
+justifica.
+
+Isso elimina três coisas de uma vez: a rotina de migração (`roleMigration.ts`, removida em T1.5),
+a classe de conflito que ela detectava (e-mail duplicado, vínculo quebrado — só nasce ao casar
+papel de app com conta central) e o fallback para papel local (T1.6), que reintroduziria o app
+como autoridade pela porta dos fundos.
+
+O requisito 4 passa a ser cumprido por construção, não por conferência: o mantenedor é admin no
+`accounts.` desde o boot, via `ACCOUNTS_BOOTSTRAP_ADMIN_EMAIL` (T1.5a), e promove quem mais
+precisar pelo painel de gestão (T1.5b), com tudo registrado em `global_role_audit`. O e-mail vive
+no `.env` da VM, nunca literal em código ou SQL — o repositório é público desde 2026-06-14, e o
+histórico do Git é permanente.
 
 ### Notificações (requisitos 13-19)
 
-Modelo de evento, não de mensagem: `(user_id, kind, subject_type, subject_id, actor_id,
-read_at)`. O texto é montado na leitura, não gravado — isso permite mudar a redação sem migrar
-dado, e localizar depois se necessário.
+Modelo de evento, não de mensagem, separado em duas tabelas:
+
+- `notification_event` guarda a ocorrência imutável, o assunto opaco, o ator e os dados de
+  apresentação versionados;
+- `notification_receipt` guarda destinatário e `read_at`, com unicidade por evento e usuário.
+
+Um evento pode assim chegar a mais de um destinatário sem duplicar a ocorrência, e destinatário
+repetido recebe um recibo só. O texto é montado na leitura, não gravado — isso permite mudar a
+redação sem migrar dado, e localizar depois se necessário.
 
 Regras de geração:
-- resposta a comentário → notifica autor do pai (requisito 14)
-- comentário em conteúdo → notifica dono do conteúdo (requisito 15)
+- comentário raiz → notifica publicador vinculado do conteúdo (requisito 15)
+- resposta → notifica autor do pai e publicador vinculado (requisitos 14 e 15c)
+- destinatários iguais geram um recibo; conta removida ou bloqueada não recebe
 - ator nunca é notificado da própria ação (requisito 16)
 
 O dono do conteúdo é informado pelo app ao comentar — o `accounts.` não sabe quem é dono de um
@@ -142,9 +170,11 @@ Nunca propagar erro do `accounts.` como erro da página.
 
 ## Rollback
 
-- **Papéis:** o mais crítico. Manter o papel local legível durante a transição, com leitura
-  dupla (global primeiro, local como fallback) até a migração ser confirmada. Só então remover
-  o local.
+- **Papéis:** sem leitura dupla e sem fallback local (decisão de 2026-07-30) — o papel global vem
+  só do `accounts.`, e ausência significa `user`. O rollback não é o papel local: é o painel de
+  gestão (T1.5b) mais o bootstrap (T1.5a), que restauram qualquer papel em segundos, com
+  auditoria. Fallback para papel de app seria pior que o problema: um app desatualizado
+  concederia privilégio que o central nega.
 - **Comentários e notificações:** migração aditiva — copiar para o `accounts.` antes de parar
   de ler do app. `pg_dump` antes de cada migration.
 - **Por app:** a adoção é independente; um app volta ao código anterior sem afetar os outros.

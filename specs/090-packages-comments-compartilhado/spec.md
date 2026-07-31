@@ -61,8 +61,10 @@ coisas diferentes em cada módulo, e não haveria como autorizar uma tela centra
 2. Todo módulo obtém o papel do `accounts.`, sem manter cópia própria de papel global.
 2a. **Falha do `accounts.` nunca promove ninguém.** A degradação do requisito 22 vale para leitura pública de comentário — a página fica de pé. Ação privilegiada com papel não comprovável **falha fechada** (deny-by-default). Erro e timeout não concedem acesso, e autorização privilegiada não usa cache antigo indefinidamente.
 3. Papel de **domínio** continua no app (ex.: criador de material no `downloads`) — o que migra é o papel global, não o papel de negócio.
-4. A migração preserva os papéis atuais: quem é admin ou moderador hoje continua sendo, sem intervenção manual. É **idempotente** e produz relatório determinístico com origem, conta no `accounts.`, papel anterior, papel final, conflito e motivo de cada caso não casado.
-4a. **As chaves de identidade local divergem entre os apps** — a migração define a regra de casamento antes de unir. `downloads` usa o UUID do `accounts.`; `mesas` casa por `google_id` **ou** e-mail (`middleware/auth.ts:42`); `glossario` usa `sso_user_id` com fallback por e-mail (`resolveLocalUser.ts:44`). Regras necessárias: casamento, conflito, usuário sem vínculo e duplicata. Papéis de beta não são unidos à autoridade de prod sem decisão explícita.
+4. **O papel global nasce no `accounts.`; não é migrado de app nenhum** (decisão do mantenedor, 2026-07-30, substituindo a versão anterior deste requisito). A conta central é definitiva e mandatória — `downloads`, `mesas` e `glossario` deixam de ser fonte de papel global e viram consumidores puros. `downloads` não foi lançado e pode ser refeito; travar a arquitetura do SSO para preservar o papel local dele não se justifica.
+4a. **O mantenedor é admin desde o primeiro boot.** `accounts.` lê `ACCOUNTS_BOOTSTRAP_ADMIN_EMAIL` na inicialização e garante `role='admin'` para essa conta — idempotente, sem efeito se o papel já estiver correto, sem falhar o boot se a conta ainda não existir. **O e-mail vive no `.env` da VM, nunca literal em código ou SQL:** o repositório é público desde 2026-06-14, e o histórico do Git é permanente — e-mail literal sobrevive à própria remoção e vira alvo nominal de phishing contra a conta que administra a plataforma. Sem este requisito, subir a Fase 1 deixaria **ninguém** como admin (`users.ts:71` cria toda conta como `user`) e o único conserto seria `UPDATE` manual em produção. **O mantenedor autorizou (2026-07-30) que a variável entre no `.env` de produção e de beta**, com o e-mail dele como valor. A escrita na VM é ação própria, executada quando a T1.5a existir e o código souber ler a variável — autorizar o registro não antecipa o comando, que é aprovado no ato, com o diff à vista.
+4b. **Promoção e rebaixamento acontecem por painel no `accounts.`**, não por script nem por SQL. Toda ação é auditada em `global_role_audit` com ator identificado; rebaixar a si mesmo é recusado, para o admin único não se trancar para fora. A princípio existe um único admin — o mantenedor.
+4c. **Não há leitura dupla nem fallback para papel local.** Ausência de papel no `accounts.` significa `user`. Fallback reintroduziria o app como autoridade pela porta dos fundos: um app desatualizado ou comprometido concederia privilégio que o central nega. Consequência aceita e desejada: o `accounts.` fora do ar não promove ninguém (requisito 2a) e nenhuma ação privilegiada passa.
 
 ### Comentários no `accounts.`
 
@@ -131,6 +133,258 @@ coisas diferentes em cada módulo, e não haveria como autorizar uma tela centra
 26d. **Rotas novas em namespace próprio (`/api/v1/community/*`).** O `mesas` já expõe `/api/v1/notifications` (`server.ts:127`), e o frontend depende dessa URL exata (`components/NotificationBell.tsx:61`) — substituir o contrato quebraria as notificações administrativas existentes. Fusão de feeds só com contrato explícito.
 27. **A validação da mudança central não passa por deploy de beta do `accounts.`, que não existe.** O módulo é PROD-ONLY (`env_override: "prod"`) e o workflow bloqueia `env=beta` (`.github/deploy-manifest.json:147`); beta reusa o `accounts.` de produção. O caminho é: mudança **aditiva, compatível e inicialmente desabilitada**; ativação limitada a `realm=beta` com credenciais allowlisted; comparação de erro, latência e autenticação contra controle; habilitação produtiva em passo separado. População, duração, métricas e rollback definidos antes de ligar.
 28. **O rollback preserva dado.** Desligar feature e credenciais dos módulos, manter o schema aditivo e o que já foi escrito, restaurar os consumidores anteriores, e comprovar que a autenticação central segue saudável. Apagar tabela não é rollback.
+
+## Contratos fechados na Fase 0
+
+Esta seção materializa T0.1–T0.13. Checkbox aberto antes desta redação significava contrato
+ainda não escrito; não significava decisão pendente do mantenedor.
+
+### Matriz de capacidades do papel global
+
+`admin` continua superusuário global. `moderator` recebe exatamente as capacidades abaixo;
+capacidade de um domínio não se propaga por semelhança de nome para outro projeto. Papéis de
+domínio (`creator`, `gm`, `player`, `member`, autor/publicador) continuam locais e nunca são
+promovidos implicitamente a papel global.
+
+| Capacidade | `admin` | `moderator` | `user` / papel local | `downloads` | `site` | `mesas` | `glossario` |
+|---|---|---|---|---|---|---|---|
+| retirar comentário público | sim | sim | não; autor não autoexclui | herdada | herdada na adoção | herdada na adoção | herdada para comentário público |
+| moderar material | sim | sim | criador só gerencia o próprio material | herdada | não se aplica | não se aplica | não se aplica |
+| tratar denúncia | sim | sim | pode denunciar | herdada | não herda administração editorial | não herda administração de mesa | não herda administração de feedback |
+| ler métricas de moderação | sim | sim | não | herdada | não | não | não |
+| operar mídia | sim | sim | criador só opera mídia própria | herdada | não | não | não |
+| consultar/reprocessar e-mail operacional | sim | sim | não | herdada | não | não | não |
+| operar catálogo já liberado ao moderador | sim | sim | não | herdada | não | não | não |
+| ingest, scraper, taxonomia estrutural e automações | sim | não | não | permanece `admin` | permanece `admin` | permanece `admin` | permanece `admin` |
+| gerir usuários, segredos, configurações e auditoria global | sim | não | não | permanece `admin` | permanece `admin` | permanece `admin` | permanece `admin` |
+
+No `downloads`, a herança corresponde ao código atual: `admin.ts`, `moderation.ts`,
+`reports.ts`, `rejectionCategories.ts`, `emailLog.ts`, `materialCover.ts`,
+`materialMetadata.ts` e os guards de `materials.ts` aceitam `moderator`; `scraper.ts`,
+`materialTypeSuggestionsAdmin.ts` e `systemSuggestionsAdmin.ts` continuam exclusivos de
+`admin`. Nos outros projetos, o único poder novo desta spec é moderação de comentário. Nenhum
+poder editorial, de catálogo, mesa, termo, usuário ou configuração nasce por analogia.
+
+### Inventário de consumidores de papel
+
+- `downloads`: resolução local em `backend/src/middleware/auth.ts`; autorização em
+  `routes/admin.ts`, `emailLog.ts`, `materialCover.ts`, `materialMetadata.ts`, `materials.ts`,
+  `moderation.ts`, `rejectionCategories.ts`, `reports.ts`, `scraper.ts`,
+  `materialTypeSuggestionsAdmin.ts` e `systemSuggestionsAdmin.ts`.
+- `mesas`: resolução local em `backend/src/middleware/auth.ts`; guards administrativos em
+  `activityLog.ts`, `adminProfile.ts`, `adminSettingSuggestions.ts`,
+  `adminSystemProjection.ts`, `adminTables.ts`, `communicationPlatforms.ts`,
+  `devFeedbackAdmin.ts`, `gm.ts`, `scenarios.ts`, `systems.ts`,
+  `scenarioSuggestionsAdmin.ts`, `systemSuggestionsAdmin.ts`, `vttPlatforms.ts`,
+  `routes/inbox/{drafts,import}.ts` e nas rotas `discord/{automation,chatExporterAutomation,
+  corrections,discovery,drafts,duplicates,fetch,import,messageParse,messages,metrics,
+  parse-batch,preview,settings,sources,sync,utils}.ts`.
+- `glossario`: vínculo e resolução em `auth/resolveLocalUser.ts`,
+  `middlewares/authMiddleware.ts` e `refreshUserRole.ts`; autorização em
+  `adminActivityRoutes.ts`, `categoryRoutes.ts`, `exportRoutes.ts`,
+  `feedbackAdminRoutes.ts`, `scenarioRoutes.ts`, `systemRoutes.ts`, `termRoutes.ts`,
+  `userRoutes.ts` e nos controllers que escolhem estado por papel.
+- `site`: não mantém papel global local. `server/admin-api.ts`, `catalog-api.ts` e
+  `catalog-material-types-admin-api.ts` consomem a sessão SSO; `site-admin` é superfície do
+  mesmo backend, não autoridade separada.
+- `links`: não mantém papel local; painel e sugestões usam diretamente a sessão SSO.
+
+Consumidores fechados para o smoke de SSO: `accounts`, `links`, `site` (incluindo
+`site-admin`), `glossario`, `mesas` e `downloads`. Não há outro app executável em `apps/`.
+
+### Casamento de identidade e migração de papéis
+
+1. `downloads`: `download_creator.user_id` casa somente com `accounts.users.id` exato.
+2. `mesas`: primeiro `users.google_id = accounts.users.id`; fallback por e-mail normalizado
+   somente quando `google_id` é nulo ou já igual ao mesmo ID central.
+3. `glossario`: primeiro `users.sso_user_id = accounts.users.id`; fallback por e-mail
+   normalizado somente quando `sso_user_id` é nulo ou já igual ao mesmo ID central.
+4. Dois critérios apontando para contas centrais diferentes, e-mail duplicado, vínculo local
+   ocupado por outro ID ou mais de uma linha candidata são `conflict`: nenhuma promoção ocorre.
+5. Usuário local sem conta central é `unmatched`: permanece no papel local durante leitura
+   dupla e não cria conta central artificial.
+6. Múltiplas origens válidas para a mesma conta são reduzidas por `admin > moderator > user`,
+   preservando acesso; cada origem e a redução aparecem no relatório.
+7. Papel de beta nunca promove autoridade de prod. Linhas beta entram no relatório, mas são
+   `excluded_realm` até autorização nominal própria.
+
+O relatório é determinístico e ordenado por `(origin, local_user_id)`, com: origem, realm,
+identidade local, conta central, papel anterior, papel final, conflito e motivo. Segunda execução
+produz o mesmo relatório e nenhuma escrita adicional.
+
+### Trust boundary e credenciais
+
+Cada backend consumidor recebe token próprio, aleatório de no mínimo 256 bits, por secret do
+GitHub e `.env` da VM; nunca por arquivo versionado. `accounts.` mantém registro allowlisted
+`token -> source_app + realms + operações`, compara em tempo constante e rejeita token ausente,
+desconhecido, fora do realm ou tentando afirmar outro `source_app`. Rotação usa janela curta
+`current` + `next`: publica `next` no `accounts.`, troca consumidor, confirma tráfego, revoga
+`current`. Logs guardam só identificador da credencial, nunca o segredo.
+
+Frontend fala somente com fachada same-origin. Backend valida sessão, existência, visibilidade,
+estado comentável e ownership do objeto; então chama `accounts.` com `X-Service-Token`,
+`X-Acting-User-Id`, correlation ID e chave de idempotência. `accounts.` nunca aceita do browser
+`owner_user_id`, papel, origem completa ou autorização por objeto. Escrita direta sem credencial
+de serviço retorna 401; escopo incompatível retorna 403.
+
+### Referência opaca, URL e corpo
+
+- Chave: `(realm, source_app, subject_type, subject_id)`, com `realm in ('beta','prod')`,
+  `source_app in ('downloads','site','mesas')`, `subject_type` namespaced e `subject_id` textual.
+- Limites: `source_app` 32, `subject_type` 64, `subject_id` 255, `canonical_path` 1024,
+  `body_text` 2.000, `removed_reason` 500 e chave de idempotência 8–128 caracteres ASCII.
+- `canonical_path` começa por `/`, não contém scheme, host, barra invertida nem credencial. A
+  origem é resolvida no servidor por `(realm, source_app)` allowlisted.
+- Comentário novo usa `body_text` texto puro, após trim, entre 1 e 2.000 caracteres. HTML novo
+  é rejeitado como tipo de campo, não interpretado. Legado usa `legacy_content_html` separado,
+  política de sanitização versionada e defesa adicional na saída sem regravar.
+- Raiz tem `depth=0`; respostas têm `1` ou `2`. Pai, assunto, realm, app, estado e legado são
+  validados na mesma transação. `depth>2` retorna 422.
+- Alvo removido bloqueia escrita na fachada e preserva leitura autorizada. Mudança de slug não
+  altera identidade: backend envia caminho atual nas novas operações e mantém redirect do
+  caminho anterior. Eventos históricos permanecem imutáveis.
+- Comentário e tombstone são retidos sem prazo nesta spec. Exclusão física exige decisão,
+  migration e backup próprios.
+
+### Contrato HTTP v1
+
+Rotas internas exigem credencial por app; rotas da central exigem sessão SSO. Fachadas dos
+módulos preservam seus contratos públicos atuais.
+
+| Método e rota | Contrato |
+|---|---|
+| `GET /internal/v1/comments` | lista por chave opaca; cursor; `limit` padrão 20, máximo 100 |
+| `POST /internal/v1/comments` | cria raiz; exige `Idempotency-Key`; ator vem do backend |
+| `POST /internal/v1/comments/:id/replies` | cria resposta na mesma transação do evento e recibos |
+| `POST /internal/v1/comments/:id/removal` | tombstone; exige `admin`/`moderator` central comprovado |
+| `GET /api/v1/notifications` | lista recibos do usuário da sessão; cursor; padrão 20, máximo 100 |
+| `GET /api/v1/notifications/unread-count` | contagem da sessão |
+| `PUT /api/v1/notifications/:id/read` | idempotente; 404 uniforme para ID alheio/inexistente |
+| `PUT /api/v1/notifications/read-through` | marca todas até `occurred_at` fornecido |
+| `POST /internal/v1/comments/:id/restore` | desfaz tombstone; exige `admin`/`moderator`; registra quem restaurou |
+| `GET /internal/v1/comments/moderation-queue` | fila de moderação; filtro por `realm`, `source_app`, estado; cursor |
+| `GET /internal/v1/comments/moderation-log` | histórico de ações de moderação; cursor |
+
+### 27. Superfície de moderação no front (requisito novo, 2026-07-30)
+
+**Decisão do mantenedor:** o desenho até aqui detalhou schema, transação e API,
+mas deixou o front com duas linhas (`ui — lista, formulário, thread, central de
+notificações`). Isso cobre quem **lê e escreve** comentário. Não cobre quem
+**modera** — `POST /internal/v1/comments/:id/removal` existia sem nenhuma tela
+que o chamasse: o moderador teria o poder e nenhuma superfície.
+
+27a. **Fila de moderação, não caça ao comentário.** Moderar navegando pelo
+conteúdo público não escala e depende de o moderador topar com o problema. A
+fila é a superfície primária: comentários denunciados, de conta nova (27e) e
+recém-criados, com filtro por `realm` e `source_app` — beta nunca aparece
+misturado com produção.
+
+27b. **Reusar `packages/ui/src/admin`, não criar padrão novo.** Já existem
+`AdminTable` (14 KB, com seleção e ações em lote), `bulkActions`, `StatusPill`,
+`PageHeader`, `SectionCard` e `AdminWorkspaceLayout`, usados hoje pelo painel de
+gestão do `downloads`. A fila de comentários é mais uma consumidora desses
+componentes. Divergir do design system exige aprovação (regra de produto).
+
+27c. **Seguir o padrão de dados de `useModerationQueue`** (`apps/downloads/
+frontend/src/hooks/useModerationQueue.ts`): React Query + validação Zod na
+fronteira, ação individual e em lote, `invalidateQueries` no sucesso. O padrão
+está maduro no `downloads` (specs 075 e 083) — replicar, não reinventar.
+
+27d. **Ação de moderação é reversível e auditada.** Duas lacunas do desenho
+anterior, ambas fechadas aqui:
+
+- **Restauração:** o tombstone preserva o corpo (requisito 12), então desfazer é
+  barato — faltava só o caminho. Erro de moderação sem reversão é permanente,
+  e a **DSA** exige janela de contestação de seis meses com reversão pronta de
+  decisão injustificada. `POST /internal/v1/comments/:id/restore` limpa
+  `removed_at`/`removed_by`/`removed_reason` e registra a restauração.
+- **Registro de ação:** existe `global_role_audit` para mudança de papel
+  (`migration_002`), mas nada equivalente para conteúdo. Toda remoção e
+  restauração grava quem agiu, sobre o quê, por quê e quando — mesmo padrão já
+  aplicado a papéis.
+
+27e. **Conta nova é tratada como conta nova.** Hoje todo usuário autenticado é
+igual: conta criada há dez segundos comenta como quem está há dois anos. Com
+login Google (barreira baixa — qualquer um cria conta), isso é a porta de
+entrada de spam. O [Discourse](https://blog.discourse.org/2018/06/understanding-discourse-trust-levels/)
+trata como estrutural: nível de confiança inicial restrito, que sobe com
+participação real.
+
+Adotar a forma **mínima**, derivada de dado que já existe (`users.created_at` +
+contagem de comentários do autor), **sem tabela nova**: conta nova entra na fila
+para revisão e tem limite de escrita mais apertado no rate limiter de escrita
+(requisito 12b). Não é bloqueio de publicação — é priorização de revisão.
+
+27f. **Fora de escopo, decisão do mantenedor:** shadow ban (esconder conteúdo
+sem avisar o autor contradiz o compromisso de transparência da plataforma e
+quebra a confiança quando descoberto) e moderação automática por IA (custo e
+taxa de falso positivo desproporcionais ao volume atual). Se o volume mudar,
+volta como spec própria.
+
+27g. **Usabilidade da fila** — as 10 Heurísticas de Nielsen valem aqui como em
+qualquer interface do produto. Em especial: estado do sistema visível (quantos
+pendentes, o que já foi tratado), prevenção de erro (confirmação em ação
+destrutiva ou em lote, via `ConfirmDialog` de `packages/ui`), e reversibilidade
+como saída de emergência (27d). Ação em lote sem confirmação sobre conteúdo de
+usuário é exatamente o caso que a heurística 5 existe para impedir.
+
+Comentários ordenam por `(created_at, id)` ascendente; notificações, descendente. Cursor é opaco,
+assinado e contém os dois campos da ordenação; cursor de outra consulta retorna 400. Escritas
+exigem `Idempotency-Key`; repetição com mesmo payload devolve a resposta original, payload
+diferente retorna 409, retenção da chave é 24 horas.
+
+Códigos: 400 contrato/cursor, 401 sessão ou serviço ausente, 403 escopo/papel, 404 alvo ou recibo
+inexistente (uniforme), 409 idempotência ou estado concorrente, 422 thread/corpo, 429 limite e
+503 dependência indisponível. Respostas usam `{ error: { code, correlation_id } }`, sem detalhe
+de existência ou autorização.
+
+Cache: notificações e escritas são `private, no-store`; leitura interna de comentários admite
+ETag e cache privado de 30 segundos na fachada. Cache stale persistente da fachada inclui realm,
+app, assunto e identidade quando privada; logout/troca de conta limpa dado privado. Estado de
+resposta é `fresh`, `stale` com idade, ou `unavailable`, nunca lista vazia inventada.
+
+Rate limiting separado: autenticação mantém 200 requests/15 min/IP; leitura de comentários,
+300/min/IP; escrita, 20/15 min/usuário e 60/15 min/IP; API interna, 300/min/credencial;
+notificações, 120/min/usuário. Limite excedido nunca consome cota de autenticação.
+
+### Evento e recibo
+
+`notification_event` é imutável e guarda `event_id`, realm, app, `type='comment.created'`,
+`version=1`, assunto opaco, ator, caminho canônico, snapshot estruturado e `occurred_at`.
+`notification_receipt` guarda `(event_id, recipient_user_id, read_at)`, único por evento e
+destinatário. Texto é montado na leitura.
+
+Comentário raiz gera recibo para publicador vinculado. Resposta gera para autor do pai e
+publicador vinculado. Destinatários iguais deduplicam; ator, conta removida, bloqueada ou
+inexistente são excluídos. Comentário, evento e todos os recibos usam uma transação. Evento
+externo futuro exige outbox no produtor, `event_id` idempotente e consumidor idempotente.
+
+### Baseline e ordem de migrations do `accounts.`
+
+`migration_001_accounts_baseline.sql` reproduz idempotentemente extensão, `users` e
+`admin_secrets` do antigo `migrate()`. Em banco existente, o runner executa os `IF NOT EXISTS`,
+confirma o schema e grava a baseline em `schema_migrations`; em banco vazio, cria o mesmo schema
+e grava a mesma linha. Depois dela, nenhuma migration inline roda no boot.
+
+Ordem: runner compartilhado antes de subir o container, ordem lexical, lock e transação do
+framework; baseline 001; papel global 002; demais migrations da spec depois. O
+`Dockerfile` deixa de executar `dist/migrate.js`, e `migrate()`/`migrate.ts` deixam de ser fonte
+de schema. O diretório canônico é `apps/accounts/database/`.
+
+Os gates existentes já cobrem o módulo sem alteração de lógica: `.github/migration-dir-allowlist`
+aceita `apps/*/database/`; `_deploy-module.yml` aplica `apps/${MODULE}/database` e executa drift
+pós-deploy; headers e idempotência passam pelo guard compartilhado. O registro do manifesto que
+ainda chama migrations de `accounts` de no-op deve ser atualizado junto da adoção para não
+documentar estado falso.
+
+### SLA de mudança de papel
+
+`/api/auth/refresh` relê `users` por `sub` antes de emitir qualquer token novo. Promoção ou
+revogação aparece imediatamente no próximo refresh. O access token já emitido continua válido
+por no máximo 15 minutos; portanto o SLA de autorização é **15 minutos no pior caso** e imediato
+após refresh. `role_version` cresce a cada alteração e viaja nos tokens para auditoria e futura
+invalidação antecipada; esta fase não adiciona consulta ao banco em toda request, evitando tornar
+cada rota de todos os projetos dependente de round-trip central.
 
 ### Catálogo do `downloads` — ampliação de 2026-07-28
 

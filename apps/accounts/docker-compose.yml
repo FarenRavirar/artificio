@@ -17,6 +17,56 @@ services:
       timeout: 5s
       retries: 5
 
+  # T0.12 tirou a migração do boot do container (o CMD era
+  # `node dist/migrate.js && node dist/index.js`) para o runner da esteira virar
+  # o único caminho de schema. Em produção quem migra é
+  # `scripts/deploy/apply_required_migrations.sh`, antes do container subir; aqui
+  # não há esteira, então sem este serviço um volume novo subiria a API sem
+  # schema e o primeiro OAuth falharia em `users` inexistente — health verde,
+  # SSO quebrado (achado de review, PR #233).
+  #
+  # Aplica em ordem e registra na MESMA ledger do runner (`schema_migrations`,
+  # coluna `migration_name`), então um banco criado aqui continua compatível com
+  # a esteira e não gera drift. `ON CONFLICT DO NOTHING` mantém idempotente.
+  accounts-migrate:
+    image: postgres:16-alpine
+    container_name: accounts-migrate
+    restart: "no"
+    depends_on:
+      accounts-db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-admin}
+    volumes:
+      - ./database:/migrations:ro
+    networks:
+      - artificio_net
+    entrypoint:
+      - sh
+      - -ec
+      - |
+        psql -v ON_ERROR_STOP=1 -h accounts-db -U admin -d artificio_auth -c "
+          CREATE TABLE IF NOT EXISTS schema_migrations (
+            migration_name TEXT PRIMARY KEY,
+            applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            applied_by TEXT
+          );"
+        for file in $$(ls /migrations/migration_*.sql | sort); do
+          name=$$(basename "$$file")
+          applied=$$(psql -tAX -h accounts-db -U admin -d artificio_auth \
+            -c "SELECT 1 FROM schema_migrations WHERE migration_name = '$$name';")
+          if [ -n "$$applied" ]; then
+            echo "[migrations] $$name ja aplicada"
+            continue
+          fi
+          echo "[migrations] aplicando $$name"
+          psql -v ON_ERROR_STOP=1 -h accounts-db -U admin -d artificio_auth -f "$$file"
+          psql -v ON_ERROR_STOP=1 -h accounts-db -U admin -d artificio_auth -c \
+            "INSERT INTO schema_migrations (migration_name, applied_by)
+             VALUES ('$$name', 'compose-local') ON CONFLICT DO NOTHING;"
+        done
+        echo "[migrations] concluido"
+
   accounts-api:
     build:
       context: ../..
@@ -28,6 +78,8 @@ services:
     depends_on:
       accounts-db:
         condition: service_healthy
+      accounts-migrate:
+        condition: service_completed_successfully
     networks:
       - artificio_net
     environment:

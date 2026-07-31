@@ -1,14 +1,11 @@
 import { db } from '../config/database.js';
 import type { Session } from '@artificio/auth';
 
-export type LocalRole = 'admin' | 'member';
-
 export interface LocalUser {
   id: string;
   email: string;
   username: string | null;
   full_name: string | null;
-  role: LocalRole;
   sso_user_id: string | null;
 }
 
@@ -21,7 +18,7 @@ export interface QueryExecutor {
   query: (text: string, params?: unknown[]) => Promise<QueryResult>;
 }
 
-const SELECT_COLS = 'id, email, username, full_name, role, sso_user_id';
+const SELECT_COLS = 'id, email, username, full_name, sso_user_id';
 
 // Usuários provisionados via SSO não têm senha legada. Sentinela não-BCrypt:
 // bcrypt.compare(qualquer, SSO_NO_PASSWORD) === false, então nunca casa no verify.
@@ -33,7 +30,6 @@ function mapRow(r: Record<string, unknown>): LocalUser {
     email: String(r.email),
     username: r.username == null ? null : String(r.username),
     full_name: r.full_name == null ? null : String(r.full_name),
-    role: r.role === 'admin' ? 'admin' : 'member',
     sso_user_id: r.sso_user_id == null ? null : String(r.sso_user_id),
   };
 }

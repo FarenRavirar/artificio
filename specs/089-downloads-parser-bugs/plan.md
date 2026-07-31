@@ -1,5 +1,7 @@
 # Plano — 089
 
+**Status:** ✅ executado e encerrado em 2026-07-30. Migrations, deploy e validações reais confirmados pelo mantenedor.
+
 ## Arquitetura da solução
 
 Quatro defeitos, três eixos de correção. Os defeitos 1 e 2 têm **a mesma raiz** (parser não

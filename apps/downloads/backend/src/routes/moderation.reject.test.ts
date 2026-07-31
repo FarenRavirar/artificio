@@ -8,10 +8,16 @@ const dbMocks = vi.hoisted(() => ({
   selectFrom: vi.fn(),
   updateTable: vi.fn(),
   insertInto: vi.fn(),
+  transaction: vi.fn(),
 }));
 
 vi.mock('../db', () => ({
-  db: { selectFrom: dbMocks.selectFrom, updateTable: dbMocks.updateTable, insertInto: dbMocks.insertInto },
+  db: {
+    selectFrom: dbMocks.selectFrom,
+    updateTable: dbMocks.updateTable,
+    insertInto: dbMocks.insertInto,
+    transaction: dbMocks.transaction,
+  },
 }));
 
 vi.mock('../middleware/auth', () => ({
@@ -53,6 +59,13 @@ beforeEach(() => {
   dbMocks.selectFrom.mockReset();
   dbMocks.updateTable.mockReset();
   dbMocks.insertInto.mockReset();
+  dbMocks.transaction.mockReset();
+  dbMocks.transaction.mockReturnValue({
+    execute: (callback: (trx: unknown) => unknown) => callback({
+      updateTable: dbMocks.updateTable,
+      insertInto: dbMocks.insertInto,
+    }),
+  });
   sendModerationEmailMock.mockClear();
 });
 
@@ -165,5 +178,38 @@ describe('PATCH /api/v1/moderation/batch/reject', () => {
       .expect(400);
 
     expect(res.body.error).toMatch(/Categoria de reprovação/);
+  });
+
+  it('continua o lote quando a transação de um item falha', async () => {
+    const category = { id: 'cat-1', slug: 'copyright', label: 'Direitos autorais', legal_basis: null, active: true };
+    const first = { id: 'material-1', creator_id: 'owner-1', title: 'Primeiro', slug: 'primeiro', editorial_state: 'in_review' };
+    const second = { id: 'material-2', creator_id: 'owner-2', title: 'Segundo', slug: 'segundo', editorial_state: 'in_review' };
+    dbMocks.selectFrom
+      .mockReturnValueOnce(chainable(category))
+      .mockReturnValueOnce(chainable(first))
+      .mockReturnValueOnce(chainable(second));
+
+    const updateChain = { set: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
+    const insertChain = { values: vi.fn().mockReturnThis(), execute: vi.fn().mockResolvedValue(undefined) };
+    dbMocks.updateTable.mockReturnValue(updateChain);
+    dbMocks.insertInto.mockReturnValue(insertChain);
+    dbMocks.transaction
+      .mockReturnValueOnce({ execute: async () => { throw new Error('db failure'); } })
+      .mockReturnValueOnce({
+        execute: (callback: (trx: unknown) => unknown) => callback({
+          updateTable: dbMocks.updateTable,
+          insertInto: dbMocks.insertInto,
+        }),
+      });
+
+    const res = await request(app())
+      .patch('/api/v1/moderation/batch/reject')
+      .send({ ids: ['material-1', 'material-2'], reason: 'motivo', rejection_category_id: 'cat-1' })
+      .expect(200);
+
+    expect(res.body.results).toEqual([
+      { id: 'material-1', status: 'skipped', reason: 'falha ao processar' },
+      { id: 'material-2', status: 'updated' },
+    ]);
   });
 });

@@ -136,28 +136,27 @@ router.post('/:id/reject', writeRateLimiter, authMiddleware, requireRole(['moder
     return res.status(400).json({ error: 'Motivo de reprovação é obrigatório.' });
   }
 
-  const updated = await db
-    .updateTable('download_material')
-    .set({
-      editorial_state: 'rejected',
-      rejection_reason: safeReason,
-      rejection_category_id: category.id,
-      updated_at: new Date(),
-    })
-    .where('id', '=', material.id)
-    .returningAll()
-    .executeTakeFirstOrThrow();
+  const updated = await db.transaction().execute(async (trx) => {
+    const changed = await trx
+      .updateTable('download_material')
+      .set({
+        editorial_state: 'rejected',
+        rejection_reason: safeReason,
+        rejection_category_id: category.id,
+        updated_at: new Date(),
+      })
+      .where('id', '=', material.id)
+      .returningAll()
+      .executeTakeFirstOrThrow();
 
-  try {
     await emitNotification({
-      userId: updated.creator_id,
+      userId: changed.creator_id,
       kind: 'material_rejected',
-      materialId: updated.id,
-      body: `Seu material "${updated.title}" foi rejeitado. Motivo: ${safeReason}`,
-    });
-  } catch (error) {
-    console.error('[POST /moderation/:id/reject] Falha ao emitir notificação:', error);
-  }
+      materialId: changed.id,
+      body: `Seu material "${changed.title}" foi rejeitado. Motivo: ${safeReason}`,
+    }, trx);
+    return changed;
+  });
 
   // Fire-and-forget: retry interno tem backoff de 30s (RETRY_DELAY_MS),
   // await bloquearia a resposta HTTP da moderacao por isso — e-mail e
@@ -217,23 +216,22 @@ router.post('/:id/approve', writeRateLimiter, authMiddleware, requireRole(['mode
     return res.status(409).json({ error: 'Material sem prova de gratuidade/permissão (download_evidence) registrada.' });
   }
 
-  const updated = await db
-    .updateTable('download_material')
-    .set({ editorial_state: 'published', rejection_reason: null, rejection_category_id: null, updated_at: new Date() })
-    .where('id', '=', material.id)
-    .returningAll()
-    .executeTakeFirstOrThrow();
+  const updated = await db.transaction().execute(async (trx) => {
+    const changed = await trx
+      .updateTable('download_material')
+      .set({ editorial_state: 'published', rejection_reason: null, rejection_category_id: null, updated_at: new Date() })
+      .where('id', '=', material.id)
+      .returningAll()
+      .executeTakeFirstOrThrow();
 
-  try {
     await emitNotification({
-      userId: updated.creator_id,
+      userId: changed.creator_id,
       kind: 'material_approved',
-      materialId: updated.id,
-      body: `Seu material "${updated.title}" foi aprovado e publicado.`,
-    });
-  } catch (error) {
-    console.error('[POST /moderation/:id/approve] Falha ao emitir notificação:', error);
-  }
+      materialId: changed.id,
+      body: `Seu material "${changed.title}" foi aprovado e publicado.`,
+    }, trx);
+    return changed;
+  });
 
   // Fire-and-forget: ver comentario equivalente em /reject.
   sendModerationEmail({
@@ -311,6 +309,7 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
   const results: Array<{ id: string; status: 'updated' | 'skipped'; reason?: string }> = [];
 
   for (const id of parsed.data.ids) {
+    try {
     const material = await db
       .selectFrom('download_material')
       .select(['id', 'editorial_state', 'creator_id', 'title', 'slug'])
@@ -339,19 +338,19 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
       }
     }
 
-    await db
-      .updateTable('download_material')
-      .set({
-        editorial_state: targetState,
-        rejection_reason: action === 'reject' ? safeBatchReason : null,
-        rejection_category_id: action === 'reject' ? (rejectCategory?.id ?? null) : null,
-        updated_at: new Date(),
-      })
-      .where('id', '=', id)
-      .execute();
+    await db.transaction().execute(async (trx) => {
+      await trx
+        .updateTable('download_material')
+        .set({
+          editorial_state: targetState,
+          rejection_reason: action === 'reject' ? safeBatchReason : null,
+          rejection_category_id: action === 'reject' ? (rejectCategory?.id ?? null) : null,
+          updated_at: new Date(),
+        })
+        .where('id', '=', id)
+        .execute();
 
-    if (action === 'approve' || action === 'reject') {
-      try {
+      if (action === 'approve' || action === 'reject') {
         await emitNotification({
           userId: material.creator_id,
           kind: action === 'approve' ? 'material_approved' : 'material_rejected',
@@ -359,11 +358,11 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
           body: action === 'approve'
             ? `Seu material "${material.title}" foi aprovado e publicado.`
             : `Seu material "${material.title}" foi rejeitado. Motivo: ${safeBatchReason}`,
-        });
-      } catch (error) {
-        console.error(`[PATCH /moderation/batch/${action}] Falha ao emitir notificação para material ${material.id}:`, error);
+        }, trx);
       }
+    });
 
+    if (action === 'approve' || action === 'reject') {
       // Fire-and-forget (ver comentario em /reject individual) — critico no
       // batch: await serializaria 30s de retry POR ITEM, um lote de 100
       // materiais com Resend fora do ar travaria a resposta por ~50min.
@@ -400,6 +399,10 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
     });
 
     results.push({ id, status: 'updated' });
+    } catch (error) {
+      console.error(`[PATCH /moderation/batch/${action}] Falha ao processar material ${id}:`, error);
+      results.push({ id, status: 'skipped', reason: 'falha ao processar' });
+    }
   }
 
   return res.json({ results });

@@ -13,7 +13,7 @@ vi.mock('../services/api', () => ({
 
 vi.mock('../context/auth-context', () => ({
   useAuth: () => ({
-    user: { id: 'user-1', full_name: 'Teste', email: 'teste@example.com', role: 'member' },
+    user: { id: 'user-1', full_name: 'Teste', email: 'teste@example.com', role: 'member', is_global_moderator: true },
     login: vi.fn(),
     logout: vi.fn(),
     setUser: vi.fn(),
@@ -59,5 +59,18 @@ describe('ResultCard — encodeURIComponent em chamadas de API (achado Sonar PR 
     const calledUrl = (api.post as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(calledUrl).not.toContain('termo/com&caracteres?especiais');
     expect(calledUrl).toBe('/social/termo%2Fcom%26caracteres%3Fespeciais/vote');
+  });
+});
+
+describe('ResultCard — moderação global de comentários', () => {
+  it('mostra excluir para moderator global mesmo sem ser dono nem admin local', async () => {
+    (api.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      data: [{ id: 'comment-1', user_id: 'other-user', author_name: 'Outra pessoa', body: 'Texto', deleted: false, created_at: new Date().toISOString() }],
+    });
+
+    render(<ResultCard termo={baseTermo} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Comentários' }));
+
+    expect(await screen.findByRole('button', { name: 'Excluir comentário de Outra pessoa' })).toBeInTheDocument();
   });
 });

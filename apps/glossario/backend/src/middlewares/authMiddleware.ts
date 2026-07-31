@@ -1,7 +1,6 @@
 import { Response, NextFunction } from 'express';
 import { verifyToken } from '@artificio/auth';
 import { resolveLocalUser } from '../auth/resolveLocalUser.js';
-import { fetchUserRoleFromDb, normalizeRole } from '../utils/userRole.js';
 import type { AuthedRequest } from '../types/express.js';
 
 if (!process.env.JWT_SECRET) {
@@ -33,8 +32,8 @@ function resolveSession(req: AuthedRequest) {
 
 /**
  * Middleware de sessão via SSO. Valida o JWT do accounts e resolve o usuário
- * LOCAL do glossário (account-linking por email — spec 015). `packages/auth`
- * intocado (auth sagrado).
+ * LOCAL do glossário (account-linking por email — spec 015). O vínculo local
+ * preserva identidade/ownership, nunca autoridade global.
  */
 export const authMiddleware = (req: AuthedRequest, res: Response, next: NextFunction) => {
   const session = resolveSession(req);
@@ -44,13 +43,16 @@ export const authMiddleware = (req: AuthedRequest, res: Response, next: NextFunc
 
   resolveLocalUser(session)
     .then((local) => {
-      // admin GLOBAL do SSO (token.role === 'admin') = superusuário (D052/req.5).
+      // admin GLOBAL do SSO = superusuário (D052/req.5); moderator GLOBAL mantém
+      // só autoridade de moderação e não vira admin local do glossário.
       const isGlobalAdmin = session.user.role === 'admin';
+      const isGlobalModerator = session.user.role === 'moderator';
       req.user = {
         id: local.id,
-        role: isGlobalAdmin ? 'admin' : local.role,
+        role: isGlobalAdmin ? 'admin' : 'member',
         role_source: 'sso',
         is_global_admin: isGlobalAdmin,
+        is_global_moderator: isGlobalModerator,
         email: local.email,
         name: session.user.name,
         // sub/email do SSO (accounts) — consumidos pelo fluxo de reivindicação (claim).
@@ -80,11 +82,13 @@ export const optionalAuthMiddleware = (req: AuthedRequest, _res: Response, next:
   resolveLocalUser(session)
     .then((local) => {
       const isGlobalAdmin = session.user.role === 'admin';
+      const isGlobalModerator = session.user.role === 'moderator';
       req.user = {
         id: local.id,
-        role: isGlobalAdmin ? 'admin' : local.role,
+        role: isGlobalAdmin ? 'admin' : 'member',
         role_source: 'sso',
         is_global_admin: isGlobalAdmin,
+        is_global_moderator: isGlobalModerator,
         email: local.email,
         name: session.user.name,
         sub: session.user.id,
@@ -100,49 +104,16 @@ export const optionalAuthMiddleware = (req: AuthedRequest, _res: Response, next:
 
 /**
  * Restringe acesso a administradores. Usar APÓS o authMiddleware.
- * Admin global do SSO passa direto; admin LOCAL é revalidado no banco.
+ * Só admin global do SSO passa; papel local nunca é fallback.
  */
 export const adminMiddleware = (req: AuthedRequest, res: Response, next: NextFunction) => {
   if (req?.user?.is_global_admin === true) {
     return next();
   }
 
-  const currentRole = normalizeRole(req?.user?.role);
-  const roleSource = req?.user?.role_source;
-
-  // role já revalidada no banco (refreshUserRole) e é admin → ok.
-  if (currentRole === 'admin' && roleSource === 'db') {
-    return next();
-  }
-
-  const currentUser = req.user;
-  const userId = currentUser?.id;
-  if (!currentUser || !userId || typeof userId !== 'string') {
+  if (!req.user?.id) {
     return res.status(401).json({ message: 'Usuário não autenticado.' });
   }
 
-  fetchUserRoleFromDb(userId)
-    .then((roleFromDb) => {
-      if (!roleFromDb) {
-        return res.status(401).json({ message: 'Usuário não encontrado.' });
-      }
-
-      req.user = {
-        ...currentUser,
-        role: roleFromDb,
-        role_source: 'db',
-      };
-
-      if (roleFromDb !== 'admin') {
-        return res.status(403).json({ message: 'Acesso restrito a administradores.' });
-      }
-
-      return next();
-    })
-    .catch((err) => {
-      console.error('[adminMiddleware] Erro ao revalidar role no banco:', err);
-      return res
-        .status(503)
-        .json({ message: 'Serviço temporariamente indisponível. Tente novamente em instantes.' });
-    });
+  return res.status(403).json({ message: 'Acesso restrito a administradores.' });
 };

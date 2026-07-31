@@ -9,6 +9,7 @@ export function signAccessToken(user: User, env: AccountsEnv) {
       email: user.email,
       name: user.name,
       role: user.role,
+      role_version: user.roleVersion,
       avatar: user.avatar ?? null,
     },
     env.JWT_SECRET,
@@ -23,6 +24,7 @@ export function signRefreshToken(user: User, env: AccountsEnv) {
       email: user.email,
       name: user.name,
       role: user.role,
+      role_version: user.roleVersion,
       avatar: user.avatar ?? null,
       typ: "refresh",
     },
@@ -37,13 +39,17 @@ export function verifyRefreshToken(token: string, env: AccountsEnv): User | null
       algorithms: ["HS256"],
     });
     if (!payload || typeof payload !== "object") return null;
-    const claims = payload as Partial<User> & { sub?: unknown; typ?: unknown };
+    const claims = payload as Partial<User> & {
+      role_version?: unknown;
+      sub?: unknown;
+      typ?: unknown;
+    };
     if (
       claims.typ !== "refresh" ||
       typeof claims.sub !== "string" ||
       typeof claims.email !== "string" ||
       typeof claims.name !== "string" ||
-      (claims.role !== "user" && claims.role !== "admin")
+      (claims.role !== "user" && claims.role !== "moderator" && claims.role !== "admin")
     ) {
       return null;
     }
@@ -52,6 +58,10 @@ export function verifyRefreshToken(token: string, env: AccountsEnv): User | null
       email: claims.email,
       name: claims.name,
       role: claims.role,
+      roleVersion:
+        typeof claims.role_version === "number" && Number.isSafeInteger(claims.role_version)
+          ? claims.role_version
+          : undefined,
       avatar: typeof claims.avatar === "string" ? claims.avatar : null,
     };
   } catch {

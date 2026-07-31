@@ -5,6 +5,7 @@ import { useSession, getAccountsOrigin, logout } from "@artificio/auth/client";
 import { BRAND_TAGLINE_FREE, BRAND_ORIGIN, BRAND_DOMAIN } from "@artificio/config";
 import "@artificio/ui/styles.css";
 import "./styles.css";
+import { AdminRolesPanel } from "./AdminRolesPanel";
 
 applyFavicon();
 applyTheme();
@@ -180,6 +181,9 @@ function ContaView() {
       </div>
       {user.role === 'admin' && (
         <section className="accounts-admin-panel" aria-label="Administração">
+          <a className="accounts-login" href="/admin/papeis">
+            Gerenciar papéis globais
+          </a>
           <button
             className="accounts-login accounts-login-secondary"
             type="button"
@@ -200,6 +204,22 @@ function ContaView() {
       </div>
     </section>
   );
+}
+
+function AdminRolesView() {
+  const { user, loading } = useSession();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      const loginUrl = new URL("/login", getAccountsOrigin());
+      loginUrl.searchParams.set("return", globalThis.location.href);
+      globalThis.location.replace(loginUrl.toString());
+    }
+  }, [loading, user]);
+
+  if (loading || !user) return <section className="accounts-panel">Carregando...</section>;
+  if (user.role !== "admin") return <section className="accounts-panel">Acesso restrito a administradores.</section>;
+  return <section className="accounts-admin-workspace"><AdminRolesPanel /></section>;
 }
 
 function AdminSecretsPanel() {
@@ -280,6 +300,14 @@ function AdminSecretsPanel() {
 function App() {
   const { theme } = useTheme();
   const path = globalThis.location.pathname;
+  let page: React.JSX.Element;
+  if (path === "/admin/papeis") {
+    page = <AdminRolesView />;
+  } else if (path === "/conta") {
+    page = <ContaView />;
+  } else {
+    page = <LoginView />;
+  }
 
   return (
     <>
@@ -291,7 +319,7 @@ function App() {
         variant={theme}
       />
       <main className="accounts-page">
-        {path === "/conta" ? <ContaView /> : <LoginView />}
+        {page}
       </main>
     </>
   );

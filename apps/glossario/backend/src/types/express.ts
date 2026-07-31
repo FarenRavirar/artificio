@@ -1,15 +1,15 @@
 import { Request } from 'express';
 
 /**
- * Shape de `req.user` populado por `authMiddleware`/`optionalAuthMiddleware`
- * (ver src/middlewares/authMiddleware.ts). `role_source` distingue claim vindo
- * do token SSO ('sso') de revalidação no banco ('db', ver adminMiddleware).
+ * Shape de `req.user` populado por `authMiddleware`/`optionalAuthMiddleware`.
+ * Papel global vem exclusivamente do token SSO emitido pelo accounts.
  */
 export interface AuthedUser {
   id: string;
   role: string;
-  role_source: 'sso' | 'db';
+  role_source: 'sso';
   is_global_admin: boolean;
+  is_global_moderator: boolean;
   email: string;
   name: string;
   sub: string;

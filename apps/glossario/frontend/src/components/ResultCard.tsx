@@ -860,9 +860,10 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
                         <span className="text-[10px] font-black text-[var(--fg)] uppercase tracking-wider">{comment.author_name}</span>
                         <div className="flex items-center gap-2">
                           <span className="text-[9px] text-[var(--fg-muted)]">{new Date(comment.created_at).toLocaleDateString('pt-BR')}</span>
-                          {!comment.deleted && (user?.id === comment.user_id || user?.role === 'admin') && (
+                          {!comment.deleted && (user?.id === comment.user_id || user?.role === 'admin' || user?.is_global_moderator === true) && (
                             <button 
                               type="button"
+                              aria-label={`Excluir comentário de ${comment.author_name}`}
                               onClick={() => handleDeleteComment(comment.id)}
                               className="text-[var(--fg-muted)] hover:text-[var(--state-danger-fg)] transition-colors"
                             >

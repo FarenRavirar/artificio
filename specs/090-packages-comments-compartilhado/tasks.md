@@ -40,32 +40,32 @@ Isso também resolve um bloqueio real: `app.ts:87` restringe o CSRF a cinco orig
 os betas**, enquanto o CORS aceita qualquer `*.artificiorpg.com` (`:97`). Escrita direta do
 frontend do `downloads` falharia hoje. Server-to-server não passa por origem de navegador.
 
-- [ ] T0.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. Releitura por fase é regra desta spec, não do T0 pétreo (que exige uma vez por sessão). · feito quando: leitura confirmada, travas de `accounts.` e de pacote compartilhado identificadas.
-- [ ] T0.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
-- [ ] T0.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
-- [ ] T0.1 — **Matriz de capacidades, não lista de nomes** (requisitos 1-3). A versão anterior pedia "mapa de papéis"; nomear `admin`/`moderator`/`user` não diz o que cada um **pode**. Hoje o `moderator` do `downloads` comanda comentários, materiais, denúncias, métricas, mídia, e-mail e catálogo — torná-lo global sem matriz concederia tudo isso também em `site`, `mesas` e `glossario`. **Decisão do mantenedor (2026-07-27): o `moderator` global herda os poderes que exerce hoje nos módulos.** A matriz precisa então declarar, capacidade a capacidade, o que isso significa em cada projeto, o que é herança e o que permanece papel de domínio — e o blast radius fica explícito antes de existir. · feito quando: tabela capacidade × papel × projeto × herdado/local, conferida contra o código, com as consequências da herança escritas.
-- [ ] T0.2 — **Inventário de consumidores de papel**: todo ponto que autoriza por papel local e passará a ler do `accounts.` · feito quando: lista de arquivos e rotas registrada, sem "provavelmente".
-- [ ] T0.3 — Mapear **todos os apps que consomem SSO**, não só os três desta spec — o smoke obrigatório cobre todos. · feito quando: lista fechada.
-- [ ] T0.4 — **Chave de identidade local não é uniforme entre os apps** — definir as regras de casamento antes de unir. `downloads` usa o UUID do `accounts.`; `mesas` casa por `google_id` **ou** e-mail (`middleware/auth.ts:42`); `glossario` usa `sso_user_id` com fallback por e-mail (`resolveLocalUser.ts:44`). União cega promove a conta errada. Definir: regra de casamento, o que fazer em conflito, usuário sem vínculo e duplicata. · feito quando: as quatro regras escritas, com o resultado esperado para cada caso.
-- [ ] T0.5 — **Fechar o trust boundary da escrita** (decisão do mantenedor, 2026-07-27): backend do módulo valida objeto, visibilidade, permissão e dono; depois chama o `accounts.` com **credencial própria por app**. Registrar como a credencial é emitida, guardada e rotacionada — nunca versionada. · feito quando: fluxo escrito ponta a ponta, com o que o `accounts.` aceita e o que ele recusa por vir do cliente.
-- [ ] T0.6 — **`realm` e `source_app` entram na chave** (decisão do mantenedor, 2026-07-27). O manifesto declara o `accounts.` prod-only, mas beta o reutiliza (`plan.md:30`): sem separação, comentário de teste em beta aparece em produção, e o mesmo `subject_id` colide entre apps. Toda linha carrega `realm` (`beta`/`prod`) e `source_app`, e os dois entram nos índices e na chave de listagem desde a primeira migration. · feito quando: chave definida e a estratégia de teste em beta descrita sem tocar dado de prod.
-- [ ] T0.7 — **URL canônica é construída, nunca aceita inteira** (requisitos 5, 18). Receber a URL pronta do cliente abre phishing e open redirect. Guardar `source_app` + `canonical_path`, e resolver a origem por **registro allowlisted** no servidor — o que separa beta de prod de graça. · feito quando: contrato de referência opaca `(realm, source_app, subject_type, subject_id)` escrito e conferido nos três domínios, com a montagem da URL do lado do servidor.
-- [ ] T0.8 — **Profundidade de thread: adjacency list, três níveis visíveis** (requisito 8). Raiz `depth=0`, resposta `1`, resposta à resposta `2`; `depth>2` rejeitado na escrita. Volume pequeno não justifica closure table nem materialized path; travessia por CTE recursiva basta no Postgres. Guardar `parent_id`, `depth` e, opcionalmente, `root_id`. · feito quando: limite e estrutura registrados, com a validação de mesmo assunto e mesmo realm feita na transação.
-- [ ] T0.9 — **Corpo do comentário novo é texto puro** (decisão do mantenedor, 2026-07-27). O `downloads` já opera assim (`routes/comments.ts:11`, até 2.000 caracteres) e o React escapa texto sozinho — HTML em comentário novo criaria superfície de XSS que hoje não existe. HTML sanitizado fica **só** para o `content_html` legado do `site`. Campo nunca ambíguo: `body_text` para o novo, campo próprio para o legado. · feito quando: contrato do corpo escrito, com o limite de tamanho e a separação novo/legado explícitos.
-- [ ] T0.10 — **Contrato da API escrito dentro da própria spec**, não deixado para a implementação: tipos com namespace, `realm`, `source_app`, `subject_id` como `TEXT`, comprimentos máximos, **paginação por cursor com ordem estável** desde a primeira versão (adicionar depois quebra contrato — AIP-158), chave de idempotência, códigos de erro, cache, limites, rate limiting, e o comportamento para subject removido, slug alterado e retenção. · feito quando: contrato completo no `spec.md`, sem "a definir".
-- [ ] T0.11 — **Resolver a contradição das notificações** (decisão do mantenedor, 2026-07-27). `spec.md:107` exclui eventos que não sejam de comentário, mas T5.2 manda migrar as notificações atuais — que incluem aprovação, rejeição e denúncia resolvida (`migration_018_download_notification.sql:5`). Decisão: as antigas migram como **legado read-only**, preservando o histórico, sem virar `kind` oficial do registro de eventos; o registro novo nasce só com comentários. · feito quando: as duas afirmações concordam nos três arquivos da spec, e T5.2 diz "legado read-only".
-- [ ] T0.12 — **Fechar a estratégia de migration do `accounts.` antes da T1.1** (decisão do mantenedor, 2026-07-27). Hoje o `accounts.` migra schema **inline no boot** (`db.ts:35`, chamado pelo `Dockerfile:26`) — não existe runner SQL ativo —, mas `plan.md:83` prevê `apps/accounts/database/*.sql`. As duas formas não coexistem sem regra: sem isso há ordem indefinida e drift com `migrate()`. Decisão: adotar o **framework padrão** (mesmo runner de `mesas` e `downloads`, header de 5 campos, idempotência, guard de pendentes), com o `migrate()` atual virando baseline marcada como aplicada. · feito quando: baseline definida, ordem de aplicação escrita, drift check cobrindo o `accounts.` no CI.
-- [ ] T0.13 — Definir o modelo de notificação como **evento**, não mensagem gravada (requisitos 13-19): quem é notificado, por qual evento, e como o texto é montado na leitura. **Comentário e evento nascem na mesma transação** — dual write comum grava comentário sem notificação, ou notifica operação que foi revertida. Se algum evento futuro vier de outro serviço, usar outbox transacional com consumidor idempotente. · feito quando: modelo escrito, incluindo a regra de não notificar o próprio ator e a garantia de atomicidade.
-- [ ] T0.14 — **Pedir aprovação nominal para `apps/accounts` E para `packages/auth`** (requisito 1). A versão anterior pedia só `apps/accounts` — incompleto: `moderator` **não existe** no contrato hoje (`packages/auth/src/types.ts:1` define `UserRole` como `"user" | "admin"`), e tanto o decoder quanto o cliente rejeitam outro valor (`jwt.ts:4`, `client.ts:81`). Criar o papel toca `packages/auth` necessariamente, o que exige aprovação própria, SDD Completo e smoke de **todos** os consumidores. Apresentar os dois escopos juntos. · feito quando: as duas aprovações registradas, ou escopo revisto.
+- [x] T0.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. Releitura por fase é regra desta spec, não do T0 pétreo (que exige uma vez por sessão). · feito quando: leitura confirmada, travas de `accounts.` e de pacote compartilhado identificadas.
+- [x] T0.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
+- [x] T0.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
+- [x] T0.1 — **Matriz de capacidades, não lista de nomes** (requisitos 1-3). A versão anterior pedia "mapa de papéis"; nomear `admin`/`moderator`/`user` não diz o que cada um **pode**. Hoje o `moderator` do `downloads` comanda comentários, materiais, denúncias, métricas, mídia, e-mail e catálogo — torná-lo global sem matriz concederia tudo isso também em `site`, `mesas` e `glossario`. **Decisão do mantenedor (2026-07-27): o `moderator` global herda os poderes que exerce hoje nos módulos.** A matriz precisa então declarar, capacidade a capacidade, o que isso significa em cada projeto, o que é herança e o que permanece papel de domínio — e o blast radius fica explícito antes de existir. · feito quando: tabela capacidade × papel × projeto × herdado/local, conferida contra o código, com as consequências da herança escritas.
+- [x] T0.2 — **Inventário de consumidores de papel**: todo ponto que autoriza por papel local e passará a ler do `accounts.` · feito quando: lista de arquivos e rotas registrada, sem "provavelmente".
+- [x] T0.3 — Mapear **todos os apps que consomem SSO**, não só os três desta spec — o smoke obrigatório cobre todos. · feito quando: lista fechada.
+- [x] T0.4 — **Chave de identidade local não é uniforme entre os apps** — definir as regras de casamento antes de unir. `downloads` usa o UUID do `accounts.`; `mesas` casa por `google_id` **ou** e-mail (`middleware/auth.ts:42`); `glossario` usa `sso_user_id` com fallback por e-mail (`resolveLocalUser.ts:44`). União cega promove a conta errada. Definir: regra de casamento, o que fazer em conflito, usuário sem vínculo e duplicata. · feito quando: as quatro regras escritas, com o resultado esperado para cada caso.
+- [x] T0.5 — **Fechar o trust boundary da escrita** (decisão do mantenedor, 2026-07-27): backend do módulo valida objeto, visibilidade, permissão e dono; depois chama o `accounts.` com **credencial própria por app**. Registrar como a credencial é emitida, guardada e rotacionada — nunca versionada. · feito quando: fluxo escrito ponta a ponta, com o que o `accounts.` aceita e o que ele recusa por vir do cliente.
+- [x] T0.6 — **`realm` e `source_app` entram na chave** (decisão do mantenedor, 2026-07-27). O manifesto declara o `accounts.` prod-only, mas beta o reutiliza (`plan.md:30`): sem separação, comentário de teste em beta aparece em produção, e o mesmo `subject_id` colide entre apps. Toda linha carrega `realm` (`beta`/`prod`) e `source_app`, e os dois entram nos índices e na chave de listagem desde a primeira migration. · feito quando: chave definida e a estratégia de teste em beta descrita sem tocar dado de prod.
+- [x] T0.7 — **URL canônica é construída, nunca aceita inteira** (requisitos 5, 18). Receber a URL pronta do cliente abre phishing e open redirect. Guardar `source_app` + `canonical_path`, e resolver a origem por **registro allowlisted** no servidor — o que separa beta de prod de graça. · feito quando: contrato de referência opaca `(realm, source_app, subject_type, subject_id)` escrito e conferido nos três domínios, com a montagem da URL do lado do servidor.
+- [x] T0.8 — **Profundidade de thread: adjacency list, três níveis visíveis** (requisito 8). Raiz `depth=0`, resposta `1`, resposta à resposta `2`; `depth>2` rejeitado na escrita. Volume pequeno não justifica closure table nem materialized path; travessia por CTE recursiva basta no Postgres. Guardar `parent_id`, `depth` e, opcionalmente, `root_id`. · feito quando: limite e estrutura registrados, com a validação de mesmo assunto e mesmo realm feita na transação.
+- [x] T0.9 — **Corpo do comentário novo é texto puro** (decisão do mantenedor, 2026-07-27). O `downloads` já opera assim (`routes/comments.ts:11`, até 2.000 caracteres) e o React escapa texto sozinho — HTML em comentário novo criaria superfície de XSS que hoje não existe. HTML sanitizado fica **só** para o `content_html` legado do `site`. Campo nunca ambíguo: `body_text` para o novo, campo próprio para o legado. · feito quando: contrato do corpo escrito, com o limite de tamanho e a separação novo/legado explícitos.
+- [x] T0.10 — **Contrato da API escrito dentro da própria spec**, não deixado para a implementação: tipos com namespace, `realm`, `source_app`, `subject_id` como `TEXT`, comprimentos máximos, **paginação por cursor com ordem estável** desde a primeira versão (adicionar depois quebra contrato — AIP-158), chave de idempotência, códigos de erro, cache, limites, rate limiting, e o comportamento para subject removido, slug alterado e retenção. · feito quando: contrato completo no `spec.md`, sem "a definir".
+- [x] T0.11 — **Resolver a contradição das notificações** (decisão do mantenedor, 2026-07-27). `spec.md:107` exclui eventos que não sejam de comentário, mas T5.2 manda migrar as notificações atuais — que incluem aprovação, rejeição e denúncia resolvida (`migration_018_download_notification.sql:5`). Decisão: as antigas migram como **legado read-only**, preservando o histórico, sem virar `kind` oficial do registro de eventos; o registro novo nasce só com comentários. · feito quando: as duas afirmações concordam nos três arquivos da spec, e T5.2 diz "legado read-only".
+- [x] T0.12 — **Fechar a estratégia de migration do `accounts.` antes da T1.1** (decisão do mantenedor, 2026-07-27). Hoje o `accounts.` migra schema **inline no boot** (`db.ts:35`, chamado pelo `Dockerfile:26`) — não existe runner SQL ativo —, mas `plan.md:83` prevê `apps/accounts/database/*.sql`. As duas formas não coexistem sem regra: sem isso há ordem indefinida e drift com `migrate()`. Decisão: adotar o **framework padrão** (mesmo runner de `mesas` e `downloads`, header de 5 campos, idempotência, guard de pendentes), com o `migrate()` atual virando baseline marcada como aplicada. · feito quando: baseline definida, ordem de aplicação escrita, drift check cobrindo o `accounts.` no CI.
+- [x] T0.13 — Definir o modelo de notificação como **evento**, não mensagem gravada (requisitos 13-19): quem é notificado, por qual evento, e como o texto é montado na leitura. **Comentário e evento nascem na mesma transação** — dual write comum grava comentário sem notificação, ou notifica operação que foi revertida. Se algum evento futuro vier de outro serviço, usar outbox transacional com consumidor idempotente. · feito quando: modelo escrito, incluindo a regra de não notificar o próprio ator e a garantia de atomicidade.
+- [x] T0.14 — **Pedir aprovação nominal para `apps/accounts` E para `packages/auth`** (requisito 1). A versão anterior pedia só `apps/accounts` — incompleto: `moderator` **não existe** no contrato hoje (`packages/auth/src/types.ts:1` define `UserRole` como `"user" | "admin"`), e tanto o decoder quanto o cliente rejeitam outro valor (`jwt.ts:4`, `client.ts:81`). Criar o papel toca `packages/auth` necessariamente, o que exige aprovação própria, SDD Completo e smoke de **todos** os consumidores. Apresentar os dois escopos juntos. · feito quando: as duas aprovações registradas, ou escopo revisto.
 
 ## Fase 1 — Papéis unificados no `accounts.`
 
 Base de tudo: sem papel global, não há moderação unificada. É também a fase mais arriscada —
 papel errado em produção tira acesso de gente.
 
-- [ ] T1.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. · feito quando: leitura confirmada.
-- [ ] T1.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
-- [ ] T1.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
+- [x] T1.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. · feito quando: leitura confirmada.
+- [x] T1.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
+- [x] T1.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
 > **[P0] O refresh perpetua o papel antigo — corrigir antes de qualquer promoção.** Achado da 1ª
 > revisão do Codex, confirmado em código: o access token dura 15 min, mas o refresh dura **7
 > dias** e carrega `role` (`tokens.ts:19`). `/api/auth/refresh` (`app.ts:162`) valida o token
@@ -79,12 +79,156 @@ papel errado em produção tira acesso de gente.
 - [ ] T1.2 — **[P0] `/api/auth/refresh` relê o usuário no banco** antes de reassinar (`app.ts:162`). O papel vem do banco, nunca do token que está sendo trocado. Definir e registrar o **SLA de revogação** — quanto tempo, no pior caso, entre mudar o papel e a sessão ativa refletir. Considerar `role_version`/`session_version` no token para invalidar sessão sem esperar expirar. · feito quando: teste de promoção e teste de revogação provam que a sessão ativa reflete o banco dentro do SLA declarado.
 - [ ] T1.3 — **`moderator` no contrato de autenticação** (requisito 1). Não é só o tipo compartilhado: `verifyRefreshToken` rejeita explicitamente qualquer papel fora de `user`/`admin` (`tokens.ts:44`), então uma sessão de moderator seria invalidada no primeiro refresh. Tocar `packages/auth/src/types.ts:1`, `jwt.ts:4`, `client.ts:81` e o `tokens.ts` do `accounts.`, com teste em cada um. · feito quando: JWT, cliente, `/me` e refresh aceitam o papel novo, e todos os consumidores seguem funcionando.
 - [ ] T1.4 — **Papel resolvido por `JOIN`, não por chamada de API** (correção da versão anterior). A T1.2 antiga mandava criar "API em lote para evitar N+1" — mas comentários e usuários vão estar **no mesmo banco e no mesmo processo** do `accounts.`: a listagem faz `JOIN`, e o N+1 não existe. Endpoint em lote só se justifica para **backends de outros módulos**; se for criado, é **rota interna**, com autenticação server-to-server, escopo por app, limite de IDs, **sem e-mail** e sem exposição pública. · feito quando: a listagem resolve identidade no mesmo `SELECT`, e a rota em lote existe apenas se um consumidor real a exigir.
-- [ ] T1.5 — **Migração de papéis com relatório determinístico** (requisito 4). A versão anterior dizia "mapa antes-e-depois" sem definir o algoritmo. Cada linha registra: origem, conta no `accounts.`, papel anterior, papel final, conflito, e motivo quando não casou. Migração **idempotente**. Papéis de beta **não** são unidos à autoridade de prod sem decisão explícita — usa as regras de casamento de T0.4. · feito quando: relatório completo, rodar duas vezes dá o mesmo resultado, e nenhum `unmatched` fica sem motivo.
-- [ ] T1.6 — **Leitura dupla com precedência escrita** (rollback vivo). A versão anterior dizia só "lê global, cai no local". Ambíguo em produção. Precedência: `admin` central **vence**; `moderator` central concede **somente** as capacidades definidas em T0.1; papéis de domínio continuam locais; ausência no central permite fallback temporário; **erro ou timeout nunca promove**; autorização privilegiada não usa cache antigo indefinidamente. · feito quando: as seis regras testadas, inclusive a de erro.
+> **Decisão do mantenedor (2026-07-30) — não existe migração de papéis. `accounts.` é a origem, não o destino.**
+> A versão anterior de T1.5 mandava ler papel local de `downloads`/`glossario`/`mesas` e
+> consolidar no `accounts.`, tratando o papel de app como autoridade a preservar. **Invertido:**
+> a conta no `accounts.` é definitiva e mandatória; app nenhum manda papel global para lá.
+> `downloads` não foi lançado e pode ser refeito — travar a arquitetura do SSO para preservar o
+> papel local dele não se justifica.
+>
+> Consequência: `apps/accounts/src/roleMigration.ts` (e seu teste) perde a razão de existir.
+> Mantê-lo como código puro sem consumidor, contradizendo esta decisão, é pior que removê-lo —
+> o próximo agente leria a migração como caminho pretendido. **Remover na T1.5.**
+>
+> Some junto a classe de conflito que ele detectava (`duplicate_central_email`,
+> `central_id_not_found`): esses conflitos só nascem de casar papel de app com conta central.
+> Sem migração, não nascem. Duplicidade de conta no `accounts.` é higiene de identidade, com
+> spec própria — não entra aqui.
+
+- [ ] T1.5 — **Remover `roleMigration.ts` e `roleMigration.test.ts`, e ancorar o papel no `accounts.`** (requisito 4, reescrito pela decisão acima). O papel global nasce e vive em `users.role` do `accounts.`; nenhum app o alimenta. · feito quando: os dois arquivos removidos, nenhuma referência restante (`rtk rg "roleMigration"` vazio), build e teste verdes.
+- [ ] T1.5a — **Bootstrap do primeiro admin — sem isso a Fase 1 é inutilizável.** `users.ts:71` cria toda conta com `role: "user"` e não existe rota que promova ninguém: ao subir a Fase 1, **ninguém é admin, incluindo o mantenedor**, e o único caminho seria `UPDATE` manual em produção (operação perigosa por governança). No boot, o `accounts.` lê `ACCOUNTS_BOOTSTRAP_ADMIN_EMAIL` e garante `role='admin'` para essa conta — idempotente, roda a cada boot sem efeito se o papel já estiver correto, e não falha o boot se a conta ainda não existir (o mantenedor pode não ter logado ainda). **E-mail vai em variável de ambiente, nunca literal em SQL ou código:** o repositório é público desde 2026-06-14, e e-mail literal permanece no histórico do Git mesmo depois de removido do arquivo — é alvo nominal de phishing contra a conta que administra a plataforma inteira. Valor real fica no `.env` da VM (gitignored), como os demais segredos. Promoção pelo bootstrap grava em `global_role_audit` com ator identificável como o próprio bootstrap, não como usuário anônimo. · feito quando: conta do mantenedor vira `admin` no boot, rodar duas vezes não duplica auditoria, boot sobrevive à conta ausente, e nenhum e-mail literal entra no diff.
+- [ ] T1.5b — **Painel de gestão de papéis no `accounts.`** (decisão do mantenedor: papel em si vai na Fase 1). Listar contas com busca por e-mail/nome, promover e rebaixar entre `user`/`moderator`/`admin`. Toda ação passa pelo trigger `audit_global_role_change()` da migration 002, que já grava em `global_role_audit` — a rota precisa setar `app.actor_id` (`current_setting('app.actor_id', true)`), senão a auditoria sai sem ator. Rota exige `admin`; rebaixar a si mesmo é recusado (evita o admin único se trancar para fora). Reusa `packages/ui/src/admin` (`AdminTable`, `StatusPill`, `PageHeader`), como o requisito 27 — não cria design system paralelo. · feito quando: promover e rebaixar refletem em `/me` dentro do SLA de T1.2, cada ação aparece em `global_role_audit` com ator correto, e auto-rebaixamento é recusado com teste.
+- [ ] T1.6 — **Papel global lido só do `accounts.`, sem fallback local** (reescrito pela decisão de T1.5). A versão anterior mandava leitura dupla com fallback no papel local — coerente com migração, incoerente com `accounts.` sendo a origem: fallback local reintroduziria o app como autoridade pela porta dos fundos, e um app comprometido ou desatualizado poderia conceder privilégio que o central nega. Regras: `admin` central **vence**; `moderator` central concede **somente** as capacidades de T0.1; papéis de **domínio** (criador, mestre, autor) continuam locais e não são afetados; **ausência do papel no central significa `user`, nunca fallback**; **erro ou timeout nunca promove** (deny-by-default, ver T1.7); autorização privilegiada não usa cache antigo indefinidamente. · feito quando: as seis regras testadas, inclusive erro e ausência.
 - [ ] T1.7 — **Falha do `accounts.` não altera autorização** (requisito 22, delimitado). Degradação vale para **leitura pública** de comentário — a página continua de pé. **Não** vale para ação privilegiada: se o papel não pode ser provado, a ação moderadora **falha fechada** (deny-by-default, OWASP). Outage nunca promove ninguém. · feito quando: teste com o `accounts.` fora mostra página pública viva e ação moderadora recusada.
 - [ ] T1.8 — Apps passam a ler o papel do `accounts.` nos pontos mapeados em T0.2 (requisito 2). Papel de domínio fica onde está (requisito 3). · feito quando: cada ponto migrado, com teste.
 - [ ] T1.9 — **Smoke de SSO em todos os consumidores** (T0.3): login, `/me`, logout. Obrigatório — `accounts.` e `packages/auth` foram tocados. · feito quando: todos verdes, com evidência.
-- [ ] T1.10 — **Remoção do papel local: seis condições, não duas.** A versão anterior liberava depois de "migração + smoke de login" — smoke de login não prova paridade de autorização. Exigir: contagem antes e depois; teste **por capacidade** (não por nome de papel); refresh reidratado do banco (T1.2); usuários conflitantes resolvidos; período observável de leitura dupla; rollback ensaiado. · feito quando: as seis cumpridas, e nenhum app decide papel global por conta própria.
+- [ ] T1.10 — **Remoção do papel global local dos apps.** Reescrito pela decisão de T1.5: sem migração e sem fallback (T1.6), some a exigência de "período observável de leitura dupla" e de "usuários conflitantes resolvidos" — não há conflito a resolver. Permanecem: teste **por capacidade** (não por nome de papel), provando que quem podia moderar continua podendo; refresh reidratado do banco (T1.2); rollback ensaiado. Papel de **domínio** (`download_creator.role` na parte que não é global, mestre, autor) **fica onde está** — só o global sai. · feito quando: as três cumpridas, e nenhum app decide papel global por conta própria.
+
+### Alarme de drift do `accounts.` (achado do mantenedor, 2026-07-30)
+
+T0.12 removeu `apps/accounts/src/migrate.ts` e tirou a migração do boot. Antes,
+migration quebrada derrubava o container e aparecia. Agora o container sobe
+saudável e o **único** alarme de schema defasado no SSO é
+`check_migration_drift.sh` — que hoje falha aberto.
+
+- [ ] T1.11 — **`check_migration_drift.sh` falha fechado quando o diretório não existe.** Hoje as linhas 38-41 imprimem `diretório ausente — nada a comparar` e `exit 0`. É o **mesmo padrão do E018 que este script foi escrito para fechar**: o cabeçalho dele (linhas 11-12) descreve `apply_required_migrations.sh` saindo verde por diretório ausente e se declara "o alarme que faltava" — e então repete a falha. A linha 27 documenta `1 em qualquer divergência (fail-closed)`, contradizendo o próprio código.
+
+  **Enumeração feita em 2026-07-30 (não amostragem):** `accounts` (3 migrations), `mesas` (84), `glossario` (5), `downloads` (37) e `links` (2) têm `apps/<mod>/database/`; `site` usa `apps/site/db/migrations/` (16) e cai no ramo especial do workflow; `site-admin` não tem banco. **Nenhum módulo depende hoje do fail-open** — a mudança não quebra deploy existente.
+
+  Diretório ausente passa a ser erro de configuração explícito. Módulo com runner incompatível é excluído nominalmente no orquestrador — hoje apenas o `site`, cujo entrypoint usa `db/migrations/`, `NNN_*.sql` e `ledger.version`. Não existe `--allow-missing`: nenhum módulo do fluxo atual é legitimamente sem migrations, e a flag criaria novo caminho para repetir o falso-verde. · feito quando: diretório ausente sai diferente de zero, a exceção do `site` é explícita no workflow, o comentário do cabeçalho descreve o comportamento real, e os 6 módulos com banco seguem verdes.
+
+- [x] T1.12 — **Verificar o mesmo defeito em `apply_required_migrations.sh`** (linhas 65-66, `diretorio ausente; nada a aplicar`). É a origem do padrão que T1.11 corrige; foi essa saída falso-positiva que mascarou `015`/`016` por 7 dias em beta E prod. **Decisão reportada e aprovada em 2026-07-30:** o runner padrão falha fechado; `_deploy-module.yml` não o chama para o `site`, que usa runner próprio no entrypoint. Testes reais do ramo ausente provaram exit diferente de zero nos dois scripts; `bash -n` verde. · feito quando: corrigido, ou a exceção justificada por escrito.
+
+- [ ] T1.13 — **Confirmar que o `accounts` é coberto de ponta a ponta.** `_deploy-module.yml:519-522` deriva `DRIFT_DIR` por convenção (`apps/${MODULE}/database`), com `if` hardcoded só para o `site`. Rodar o drift contra o banco real do `accounts` e provar que detecta as duas direções: disco à frente (migration não aplicada) e banco à frente (aplicada fora da esteira). · feito quando: as duas direções detectadas em execução real, não por leitura de código.
+
+> **T1.13 é bloqueio duro de deploy — decisão do mantenedor, 2026-07-30.**
+> Nenhuma das 3 migrations do `accounts` jamais rodou contra Postgres real (Docker
+> indisponível na máquina do Codex). **Nada da Fase 1 vai a beta ou prod antes de
+> T1.13 passar em execução real.** Merge de PR e revisão de bot não substituem:
+> ambos leem código, e o que falta provar é comportamento contra banco.
+>
+> Motivo de virar trava explícita agora: a Fase 1 **endurece gates antes do verde
+> comprovado** — o preflight da baseline passa a exigir `users.role` como
+> `TEXT NOT NULL` (achado do CodeRabbit, 2026-07-30) e o runner e o drift passam a
+> falhar fechado (T1.11/T1.12). Cada um é a decisão certa isoladamente, e juntos
+> significam que **um banco de produção divergente do esperado aborta o deploy**,
+> o que é o comportamento desejado — desde que alguém tenha verificado que o banco
+> real passa. Ninguém verificou.
+>
+> `AGENTS.md` §Bug achado: endurecer gate só **depois** do verde comprovado
+> localmente, senão transfere falha mascarada pro próximo PR. O mantenedor optou
+> por implementar o endurecimento agora e segurar o deploy até a prova real, em
+> vez de afrouxar o gate. As duas direções de T1.13 valem para o schema completo
+> da Fase 1, não só para o drift: baseline, `002` e `003` aplicadas do zero, e
+> aplicadas sobre banco que já tinha o schema inline anterior.
+
+> **Duas travas do mantenedor (2026-07-30) sobre T1.11–T1.13:**
+>
+> **1. Mostrar o diff ao mantenedor antes de qualquer deploy.** Mesmo tratamento
+> do `deploy-manifest.json`: estes arquivos governam o deploy dos **seis**
+> módulos com banco, não só a spec 090. Trocar fail-open por fail-closed muda
+> quando o deploy **aborta e faz rollback** — condição errada trava deploy de
+> qualquer módulo, ou deixa passar verde o que deveria falhar, no script que é o
+> único alarme do SSO. Bots de review do PR não cobrem isto: leem sintaxe e
+> padrão, não conhecem o E018.
+>
+> **2. T1.13 é bloqueio de fase, não item de checklist.** T1.11 não conta como
+> fechada sem execução real contra o banco. E014, E015 e E018 passariam todos na
+> validação estática — só apareceram rodando.
+
+**Estado em 2026-07-30 — implementado, pendente de prova real.** Quatro arquivos
+alterados, verificados pelo Claude:
+
+- `scripts/deploy/check_migration_drift.sh` — diretório ausente vira `::error::`
+  + `exit 1` ("não é possível provar conformidade"). Cabeçalho atualizado: não
+  contradiz mais o código.
+- `scripts/deploy/apply_required_migrations.sh` — mesmo tratamento (T1.12
+  concluída).
+- `.github/workflows/_deploy-module.yml` — `if [ "$MODULE" = "site" ]` pula o
+  runner padrão para o site, que legitimamente não tem `apps/site/database`.
+  **Peça necessária:** sem ela, o runner fail-closed quebraria o deploy do site.
+  Exceção declarada no lugar de falso-verde.
+- `.github/deploy-manifest.json` — `_comment` do `accounts` corrigido; o texto
+  antigo ("migrations no-op: accounts migra in-container no boot") ficou falso
+  quando T0.12 removeu o `migrate.ts`.
+
+Validação: `bash -n` 2/2, fail-closed real 2/2, `git diff --check` verde.
+**Nenhum deploy real rodou** — o caminho feliz (6 módulos com diretório presente
+seguindo verdes) está provado só por leitura. T1.13 segue bloqueada por falta de
+Docker/Postgres.
+
+> **Nota de processo (2026-07-30).** O `deploy-manifest.json` foi alterado sem o
+> diff ser mostrado antes, apesar de a trava acima e a §2 do handoff exigirem
+> isso duas vezes. O conteúdo está correto e dentro do escopo autorizado (só
+> `_comment`; nenhum `deploy_paths`, `db_*`, `critical_routes` ou
+> `health_containers`) — o desvio é de processo, não de resultado.
+>
+> Segundo caso do mesmo padrão: o primeiro foi decidir o `VALIDATE`/E015 sem
+> reportar, quando o handoff pedia avaliação antes. Nos dois o resultado saiu
+> certo; nos dois a instrução era reportar antes de agir.
+>
+> Por que importa: o mantenedor acompanha por celular, via ponte manual entre
+> agentes. Quando o agente decide sozinho e informa depois, o ponto de conferência
+> deixa de existir — e a trava só é percebida como quebrada se alguém for
+> conferir o `git status` por conta própria, que foi o que aconteceu aqui.
+
+> **Débito registrado, não corrigido nesta spec — unificação da declaração de migrations.**
+> `.github/deploy-manifest.json` declara `db_user`, `db_name`, `db_service` e
+> `deploy_paths` por módulo, mas **não** o diretório de migrations, a coluna nem
+> o glob. Por isso o workflow precisa do `if [ "$MODULE" = "site" ]` hardcoded e
+> deriva o resto por convenção de nome. Declarar os três no manifesto elimina a
+> derivação, mata o `if` especial e faz diretório ausente virar erro de
+> configuração por construção. **Toca os 6 módulos com banco — spec própria, não
+> cabe aqui.** T1.11 fecha o risco imediato; isto fecha a raiz.
+
+### Desambiguação de rotas — PR próprio, entre a Fase 1 e a Fase 2 (decisão do mantenedor, 2026-07-30)
+
+`pnpm verify:api` saiu 0 durante a Fase 1, mas apontou 3 ambiguidades de rota
+**pré-existentes**, anteriores à spec 090. Não vieram desta spec e não quebram
+runtime — o Express resolve as três por ordem de registro ou por método:
+
+| Módulo | Rotas em conflito | Por que funciona hoje |
+|---|---|---|
+| `mesas` | `/api/v1/gm/{slug}/contact` (`gm.ts:497`) × `/api/v1/gm/tables/{id}` (`gmPanel.ts`) | routers distintos no mesmo prefixo; `tables` é literal e vence o placeholder pela ordem |
+| `glossário` | `/api/social/{id}/comments` (`socialRoutes.ts:14-15`, GET/POST) × `/api/social/comments/{id}` (`:16`, DELETE) | separadas por método |
+| `glossário` | `/api/systems/{systemId}/editions` (`systemRoutes.ts:16-17`, GET/POST) × `/api/systems/editions/{id}` (`:18-19`, PUT/DELETE) | separadas por método |
+
+Raiz comum: placeholder na primeira posição convivendo com literal na mesma
+posição. É ambíguo no **contrato** — cliente gerado a partir do OpenAPI não sabe
+qual operação escolher —, não em execução.
+
+Corrigir de verdade exige reordenar o path público (ex.: `/api/social/terms/{id}/comments`,
+com o literal `terms` desambiguando), o que é **breaking change de API** com
+frontend a acompanhar em dois módulos.
+
+**Decisão: PR dedicado, imediatamente após a Fase 1 fechar e antes da Fase 2
+começar.** Não entra no commit da Fase 1 porque esse commit já toca
+`apps/accounts` e `packages/auth`: se o smoke SSO falhar depois, a causa precisa
+ser inequívoca, e rota renomeada junto com mudança no SSO mascara as duas.
+Escopo do PR: as 3 rotas e seus consumidores, nada mais.
+
+**Não ampliar escopo para `apps/mesas/**` ou `apps/glossario/**` durante a Fase 1
+por causa disto.**
 
 ## Fase 2 — Comentários no `accounts.`
 
@@ -142,6 +286,27 @@ A razão de ser da agregação. Sem esta fase, o ganho sobre banco por app é pe
 - [ ] T4.13 — **Acessibilidade com critérios executáveis** (WCAG 2.2), não checklist genérico: thread em lista semântica; botão "Responder a [nome]" (não só "Responder"); labels reais nos campos; foco tratado após responder e enviar; envio, erro e "marcada como lida" anunciados com `role="status"` ou alerta adequado, **sem mover o foco**; estado lido não dependendo só de cor; data em `<time datetime>`; navegação completa por teclado. · feito quando: os oito verificados, com evidência.
 - [ ] T4.14 — **Matriz de testes nos três ambientes reais**: Vite React (`downloads`, `mesas`) e **ilha React dentro do Astro** (`site`) — que é o caso capaz de quebrar por import não seguro em SSR. Mais: tema claro e escuro, cache por conta, timeout e schema inválido. · feito quando: a suíte cobre os três ambientes, não só um.
 - [ ] T4.15 — Verificar as 10 Heurísticas de Nielsen na caixa de comentários e na central (`AGENTS.md` §Regras de Produto). Atenção a visibilidade de estado e prevenção de erro. · feito quando: checklist registrado.
+
+### Superfície de moderação (requisito 27, decisão do mantenedor 2026-07-30)
+
+O desenho anterior detalhou schema, transação e API, mas deixou o front com duas
+linhas — cobrindo quem lê e escreve, não quem modera.
+`POST /internal/v1/comments/:id/removal` existia sem tela que o chamasse.
+
+- [ ] T4.16 — **Fila de moderação como superfície primária** (requisito 27a). Moderar navegando pelo conteúdo público não escala e depende do moderador topar com o problema. A fila lista denunciados, de conta nova (T4.20) e recentes, com filtro por `realm` e `source_app` — **beta nunca misturado com produção** (T0.6). · feito quando: a fila carrega, filtra pelos dois eixos, e nenhum item de beta aparece em produção.
+- [ ] T4.17 — **Reusar `packages/ui/src/admin`, não criar padrão novo** (requisito 27b). Já existem `AdminTable` (com seleção e ação em lote), `bulkActions`, `StatusPill`, `PageHeader`, `SectionCard` e `AdminWorkspaceLayout`, em uso no painel de gestão do `downloads`. Divergir do design system exige aprovação (`AGENTS.md` §Regras de Produto). · feito quando: a fila usa os componentes existentes, sem componente admin novo salvo justificativa registrada.
+- [ ] T4.18 — **Seguir o padrão de dados de `useModerationQueue`** (requisito 27c; `apps/downloads/frontend/src/hooks/useModerationQueue.ts`): React Query, validação Zod na fronteira, ação individual e em lote, `invalidateQueries` no sucesso. Padrão maduro (specs 075 e 083) — replicar, não reinventar. · feito quando: hook novo espelha a estrutura do existente, com payload validado por schema.
+- [ ] T4.19 — **Restauração de comentário removido** (requisito 27d). O tombstone preserva o corpo, então desfazer é barato — faltava o caminho. A **DSA** exige janela de contestação de seis meses com reversão pronta de decisão injustificada; sem isso, erro de moderador é permanente. `POST /internal/v1/comments/:id/restore` limpa `removed_at`/`removed_by`/`removed_reason` e registra quem restaurou. · feito quando: remover e restaurar volta ao estado original, com as duas ações no histórico.
+- [ ] T4.19b — **Registro de ação de moderação** (requisito 27d). Existe `global_role_audit` para papel (`migration_002`), nada equivalente para conteúdo. Toda remoção e restauração grava ator, alvo, motivo e momento — mesmo padrão já aplicado a papéis. · feito quando: as duas ações aparecem no histórico com os quatro campos, e a migration passa no guard.
+- [ ] T4.20 — **Conta nova tratada como conta nova** (requisito 27e). Hoje conta criada há dez segundos comenta como quem está há dois anos; com login Google a barreira é baixa e essa é a porta de entrada de spam. Forma **mínima**, derivada de dado existente (`users.created_at` + contagem de comentários do autor), **sem tabela nova**: conta nova entra na fila para revisão e tem limite mais apertado no rate limiter de escrita (requisito 12b). **Não é bloqueio de publicação** — é priorização de revisão. · feito quando: o critério está escrito, a fila destaca esses comentários, e nenhum autor legítimo é impedido de publicar.
+- [ ] T4.21 — **Usabilidade da fila** (requisito 27g), 10 Heurísticas de Nielsen. Em especial: estado do sistema visível (quantos pendentes, o que já foi tratado); prevenção de erro com `ConfirmDialog` de `packages/ui` em ação destrutiva **e em lote**; reversibilidade como saída de emergência (T4.19). Ação em lote sem confirmação sobre conteúdo de usuário é o caso que a heurística 5 existe para impedir. · feito quando: checklist registrado, com confirmação verificada nos dois casos.
+- [ ] T4.22 — **Acessibilidade da fila** (WCAG 2.2), mesmos critérios executáveis de T4.13: tabela com semântica real, seleção operável por teclado, resultado de ação anunciado por `role="status"` sem mover foco, estado não dependendo só de cor. · feito quando: os quatro verificados, com evidência.
+
+**Fora de escopo (requisito 27f, decisão do mantenedor):** shadow ban — esconder
+conteúdo sem avisar o autor contradiz o compromisso de transparência e quebra a
+confiança quando descoberto; e moderação automática por IA — custo e falso
+positivo desproporcionais ao volume atual. Voltam como spec própria se o volume
+mudar.
 
 ## Fase 5 — Adoção no `downloads`
 
