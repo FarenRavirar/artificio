@@ -237,14 +237,15 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
               type: object
-              required: [dataUrl]
+              required: [file]
               properties:
-                dataUrl:
+                file:
                   type: string
-                  description: Data URL base64 PNG, JPEG ou WebP ate 2MB
+                  format: binary
+                  description: Imagem PNG, JPEG ou WebP ate 2MB
       responses:
         "200":
           description: Avatar atualizado

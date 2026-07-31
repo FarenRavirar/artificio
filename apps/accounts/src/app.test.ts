@@ -7,12 +7,15 @@ import type { AccountsEnv } from "./env.js";
 // Registra os `public_id` pedidos ao Cloudinary. O valor exato importa: o
 // caminho tem de incluir a pasta, senão a exclusão falha em silêncio.
 const destroyedAssets = vi.hoisted(() => [] as string[]);
+// `hangDestroy` simula o Cloudinary que não responde: a promessa nunca resolve.
+const mediaState = vi.hoisted(() => ({ hangDestroy: false }));
 vi.mock("@artificio/media", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@artificio/media")>();
   return {
     ...actual,
     destroyAssetResult: vi.fn(async (publicId: string) => {
       destroyedAssets.push(publicId);
+      if (mediaState.hangDestroy) return new Promise<boolean>(() => { /* nunca resolve */ });
       return true;
     }),
   };
@@ -405,6 +408,68 @@ describe("DELETE /api/account", () => {
       expect(response.status).toBe(204);
       expect(destroyedAssets).toEqual(["artificio/accounts/avatars/avatar-user-1"]);
     } finally {
+      if (saved.cloud === undefined) delete process.env.CLOUDINARY_CLOUD_NAME;
+      else process.env.CLOUDINARY_CLOUD_NAME = saved.cloud;
+      if (saved.key === undefined) delete process.env.CLOUDINARY_API_KEY;
+      else process.env.CLOUDINARY_API_KEY = saved.key;
+      if (saved.secret === undefined) delete process.env.CLOUDINARY_API_SECRET;
+      else process.env.CLOUDINARY_API_SECRET = saved.secret;
+    }
+  });
+
+  // Excluir a conta é direito do titular e não pode ficar refém de terceiro:
+  // `destroyAssetResult` não tem timeout próprio, então um Cloudinary travado
+  // penduraria o `await` e o usuário não conseguiria excluir a conta justamente
+  // durante a falha do provedor (achado de review, PR #235). Com prazo, a
+  // exclusão local segue e o asset vira órfão registrado no log.
+  it("conclui a exclusão mesmo com o Cloudinary pendurado", async () => {
+    const saved = {
+      cloud: process.env.CLOUDINARY_CLOUD_NAME,
+      key: process.env.CLOUDINARY_API_KEY,
+      secret: process.env.CLOUDINARY_API_SECRET,
+    };
+    process.env.CLOUDINARY_CLOUD_NAME = "test-cloud";
+    process.env.CLOUDINARY_API_KEY = "test-key";
+    process.env.CLOUDINARY_API_SECRET = "test-secret";
+    mediaState.hangDestroy = true;
+    const savedTimeout = process.env.ACCOUNTS_AVATAR_DELETE_TIMEOUT_MS;
+    // Prazo curto: o teste prova que o estouro NÃO trava a exclusão, não que o
+    // valor de produção seja 5s.
+    process.env.ACCOUNTS_AVATAR_DELETE_TIMEOUT_MS = "50";
+
+    try {
+      let deleted = false;
+      const db = {
+        deleteFrom: () => ({
+          where: () => ({
+            executeTakeFirst: async () => {
+              deleted = true;
+              return { numDeletedRows: 1n };
+            },
+          }),
+        }),
+      } as never;
+      const app = createApp(env, db);
+      const token = jwt.sign(
+        { sub: "user-1", email: "ana@example.com", name: "Ana", role: "user", role_version: 1 },
+        env.JWT_SECRET,
+        { algorithm: "HS256", expiresIn: "15m" },
+      );
+
+      // Sem o timeout esta requisição nunca responderia — o teste estouraria
+      // por tempo em vez de passar.
+      const response = await request(app)
+        .delete("/api/account")
+        .set("Origin", "https://accounts.artificiorpg.com")
+        .set("Cookie", [`artificio_session=${token}`])
+        .send({ confirm: "ana@example.com" });
+
+      expect(response.status).toBe(204);
+      expect(deleted).toBe(true);
+    } finally {
+      if (savedTimeout === undefined) delete process.env.ACCOUNTS_AVATAR_DELETE_TIMEOUT_MS;
+      else process.env.ACCOUNTS_AVATAR_DELETE_TIMEOUT_MS = savedTimeout;
+      mediaState.hangDestroy = false;
       if (saved.cloud === undefined) delete process.env.CLOUDINARY_CLOUD_NAME;
       else process.env.CLOUDINARY_CLOUD_NAME = saved.cloud;
       if (saved.key === undefined) delete process.env.CLOUDINARY_API_KEY;

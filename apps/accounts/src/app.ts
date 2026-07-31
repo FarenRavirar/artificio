@@ -28,6 +28,18 @@ import { isValidServiceToken } from "./serviceToken.js";
 
 const avatarMaxBytes = 2 * 1024 * 1024;
 const avatarUploadTimeoutMs = 15_000;
+/**
+ * Prazo da limpeza do avatar na exclusão de conta. Menor que o do upload: aqui o
+ * usuário espera por uma exclusão que já foi decidida, e apagar o asset é
+ * secundário ao pedido dele.
+ *
+ * Lido a cada chamada, não no import: como constante de módulo, o valor seria
+ * fixado antes de o teste ajustar a env, e o caso do provedor pendurado teria de
+ * esperar 5s reais (fake timers não servem — o supertest depende de I/O real).
+ */
+function avatarDeleteTimeoutMs(): number {
+  return Number(process.env.ACCOUNTS_AVATAR_DELETE_TIMEOUT_MS) || 5_000;
+}
 const acceptedAvatarMimeTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
 
 /**
@@ -356,11 +368,26 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
       // direito de excluir a conta não pode depender de o Cloudinary responder.
       // O `public_id` fica no log para retry manual, que é o mesmo contrato do
       // REV-019 em `destroyAssetResult`.
+      //
+      // Com prazo: `destroyAssetResult` não tem timeout próprio, então um
+      // provedor lento penduraria este `await` e o usuário não conseguiria
+      // excluir a conta JUSTAMENTE durante uma falha do Cloudinary — o pedido de
+      // exclusão é um direito do titular e não pode ficar refém de terceiro
+      // (achado de review, PR #235). Estourado o prazo, segue-se a exclusão e o
+      // asset fica registrado no log como órfão.
+      //
       // Caminho COMPLETO (com a pasta): o basename devolveria `not found`, que
       // `destroyAssetResult` conta como sucesso — a foto ficaria pública.
       const publicId = avatarAssetPath(session.user.id);
-      if (isMediaConfigured() && !(await destroyAssetResult(publicId))) {
-        console.error("[accounts] avatar orfao no Cloudinary apos exclusao de conta", publicId);
+      if (isMediaConfigured()) {
+        const removed = await withTimeout(destroyAssetResult(publicId), avatarDeleteTimeoutMs())
+          .catch((error: unknown) => {
+            console.error("[accounts] falha ao remover avatar", publicId, String(error));
+            return false;
+          });
+        if (!removed) {
+          console.error("[accounts] avatar orfao no Cloudinary apos exclusao de conta", publicId);
+        }
       }
 
       await deleteUser(db, session.user.id);
