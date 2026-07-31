@@ -12,11 +12,24 @@ describe("timingSafeEqualStrings", () => {
     expect(timingSafeEqualStrings(SECRET, `${SECRET.slice(0, -1)}X`)).toBe(false);
   });
 
-  // Sair cedo pelo `length` vazaria por timing o tamanho do segredo; a função
-  // roda a comparação mesmo no caso de tamanhos diferentes.
+  // Comprimento não chega ao comparador: SHA-256 normaliza todo par em 32 bytes,
+  // então existe um caminho de execução só, sem ramo por tamanho (achado de
+  // review, PR #234).
   it("recusa strings de tamanhos diferentes sem lançar", () => {
     expect(timingSafeEqualStrings("curto", SECRET)).toBe(false);
     expect(timingSafeEqualStrings(SECRET, "")).toBe(false);
+    expect(timingSafeEqualStrings("", SECRET)).toBe(false);
+    expect(timingSafeEqualStrings(`${SECRET}${SECRET}`, SECRET)).toBe(false);
+  });
+
+  it("compara o valor, não o prefixo: token que começa igual é recusado", () => {
+    expect(timingSafeEqualStrings(SECRET.slice(0, 10), SECRET)).toBe(false);
+    expect(timingSafeEqualStrings(`${SECRET}x`, SECRET)).toBe(false);
+  });
+
+  it("trata caracteres não-ASCII de forma consistente", () => {
+    expect(timingSafeEqualStrings("segredo-ção", "segredo-ção")).toBe(true);
+    expect(timingSafeEqualStrings("segredo-ção", "segredo-cao")).toBe(false);
   });
 });
 

@@ -89,6 +89,19 @@ export function AdminRolesPanel(): React.JSX.Element {
   // outra alteração vai passar até a sessão ser renovada.
   const [permissionLost, setPermissionLost] = useState<string | null>(null);
 
+  /**
+   * Transição única para "o ator perdeu o papel". Centralizada porque acontece
+   * em dois caminhos — a listagem e o PATCH — e eles divergiram: só a listagem
+   * limpava as linhas, então um ator revogado ao salvar seguia vendo nome e
+   * e-mail de todas as contas até recarregar (achado de review, PR #234).
+   * Estado de tela e dado exibido saem juntos ou não saem.
+   */
+  const losePermission = useCallback((message: string) => {
+    setPermissionLost(message);
+    setUsers([]);
+    setPendingRole({});
+  }, []);
+
   // Duas buscas podem passar do debounce e voltar fora de ordem: se a antiga
   // chegar depois, sobrescreveria a lista com resultados do texto anterior — o
   // campo mostraria uma consulta e o admin alteraria o papel de conta de outra
@@ -106,8 +119,7 @@ export function AdminRolesPanel(): React.JSX.Element {
       // Mesmo caso da alteração: o ator deixou de ser admin. Vale já na
       // listagem, porque o rebaixamento pode acontecer com a tela só aberta.
       if (isPermissionChanged(response, payload)) {
-        setPermissionLost(readError(payload, "Sua permissão de administrador mudou."));
-        setUsers([]);
+        losePermission(readError(payload, "Sua permissão de administrador mudou."));
         return;
       }
       if (!response.ok) throw new Error(readError(payload, "Falha ao carregar contas."));
@@ -123,7 +135,7 @@ export function AdminRolesPanel(): React.JSX.Element {
     } finally {
       if (!signal.aborted) setLoading(false);
     }
-  }, []);
+  }, [losePermission]);
 
   useEffect(() => {
     // Permissão perdida encerra a busca: sem esta guarda, cada tecla digitada no
@@ -180,17 +192,14 @@ export function AdminRolesPanel(): React.JSX.Element {
       await updateRole(user, role);
     } catch (error_) {
       if (error_ instanceof PermissionChangedError) {
-        // Trava a tela: nenhuma outra alteração vai passar, e deixar os
-        // controles ativos só produziria a mesma recusa a cada clique.
-        setPermissionLost(error_.message);
-        setPendingRole({});
+        losePermission(error_.message);
         return;
       }
       setError(error_ instanceof Error ? error_.message : "Falha ao alterar papel.");
     } finally {
       setSavingId(null);
     }
-  }, [updateRole]);
+  }, [losePermission, updateRole]);
 
   const cancelRoleChange = useCallback((userId: string) => {
     setPendingRole((current) => {

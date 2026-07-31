@@ -182,8 +182,10 @@ describe("AdminRolesPanel — permissão do próprio ator revogada", () => {
     expect(within(alert).getByText(/permissão de administrador mudou/i)).toBeDefined();
     expect(within(alert).getByRole("button", { name: "Recarregar" })).toBeDefined();
 
-    // Controles travados: nenhuma alteração passaria mesmo se tentada.
-    expect((screen.getByLabelText(/Alterar papel de Membro Um/) as HTMLSelectElement).disabled).toBe(true);
+    // Linhas somem junto com o papel: o ator revogado não segue vendo nome e
+    // e-mail de todas as contas até recarregar (achado de review, PR #234).
+    expect(screen.queryByText("Membro Um")).toBeNull();
+    expect(screen.queryByText("membro@example.com")).toBeNull();
     expect(screen.queryByRole("button", { name: "Salvar" })).toBeNull();
   });
 

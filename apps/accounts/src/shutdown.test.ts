@@ -1,10 +1,25 @@
 import { describe, expect, it, vi } from "vitest";
 import { shutdownWithError } from "./shutdown.js";
 
+/**
+ * Timer controlado pelo teste: `fire()` dispara o prazo de limpeza quando o caso
+ * quer provar o estouro. Sem chamar `fire()`, o prazo nunca vence — é o
+ * `destroy()` que decide o resultado, como em produção.
+ */
+function fakeTimer() {
+  let pending: (() => void) | null = null;
+  const setTimeoutFn = vi.fn((callback: () => void) => {
+    pending = callback;
+    return { unref: vi.fn() };
+  });
+  return { fire: () => pending?.(), setTimeoutFn };
+}
+
 function spies(destroy = vi.fn(async () => undefined)) {
   const logError = vi.fn();
   const setExitCode = vi.fn();
-  return { destroy, logError, setExitCode };
+  const forceExit = vi.fn();
+  return { destroy, forceExit, logError, setExitCode, ...fakeTimer() };
 }
 
 describe("shutdownWithError", () => {
@@ -37,6 +52,44 @@ describe("shutdownWithError", () => {
     expect(deps.setExitCode).toHaveBeenCalledWith(1);
   });
 
+  // O cenário de falha de boot é justamente aquele em que o Postgres não
+  // responde: um `destroy()` pendurado travaria o `await` para sempre e o exit
+  // code nunca seria definido — processo vivo, sem servir, container "saudável"
+  // para o orquestrador (achado de review, PR #234).
+  it("não fica preso quando o fechamento do pool nunca resolve", async () => {
+    const deps = spies(vi.fn(() => new Promise<undefined>(() => { /* nunca resolve */ })));
+    const shutdown = shutdownWithError("accounts failed to bind port", new Error("EADDRINUSE"), deps);
+
+    deps.fire();
+    await shutdown;
+
+    expect(deps.logError).toHaveBeenCalledWith("accounts database pool cleanup timed out", "5000ms");
+    expect(deps.setExitCode).toHaveBeenCalledWith(1);
+  });
+
+  // `process.exitCode` só encerra quando o event loop esvazia, e o pool travado
+  // mantém o socket aberto. Sem saída forçada o processo sobreviveria ao próprio
+  // encerramento.
+  it("força a saída quando a limpeza estoura o prazo", async () => {
+    const deps = spies(vi.fn(() => new Promise<undefined>(() => { /* nunca resolve */ })));
+    const shutdown = shutdownWithError("accounts failed to start", new Error("boom"), deps);
+
+    deps.fire();
+    await shutdown;
+
+    expect(deps.forceExit).toHaveBeenCalledWith(1);
+  });
+
+  // Pool que fecha normalmente não pode ser morto à força: `process.exit`
+  // interromperia flush de log e qualquer outro encerramento pendente.
+  it("não força a saída quando o pool fecha dentro do prazo", async () => {
+    const deps = spies();
+    await shutdownWithError("accounts failed to bind port", new Error("EADDRINUSE"), deps);
+
+    expect(deps.forceExit).not.toHaveBeenCalled();
+    expect(deps.setExitCode).toHaveBeenCalledWith(1);
+  });
+
   it("aguarda o fechamento do pool antes de marcar a saída", async () => {
     const order: string[] = [];
     const deps = {
@@ -46,6 +99,9 @@ describe("shutdownWithError", () => {
       }),
       logError: vi.fn(),
       setExitCode: vi.fn(() => order.push("exit")),
+      // Timer que nunca dispara: aqui o `destroy()` resolve, e quem decide a
+      // ordem é ele, não o prazo.
+      ...fakeTimer(),
     };
 
     await shutdownWithError("accounts failed to bind port", new Error("EADDRINUSE"), deps);

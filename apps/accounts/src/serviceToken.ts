@@ -1,9 +1,18 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 
 /**
- * Comparação em tempo constante mesmo com tamanhos diferentes — `timingSafeEqual`
- * exige buffers do mesmo comprimento, e sair cedo pelo `length` vazaria por
- * timing quanto do token bate.
+ * Compara dois segredos em tempo constante, sem ramificar por comprimento.
+ *
+ * `timingSafeEqual` exige buffers do mesmo tamanho, então comparar strings de
+ * comprimento livre exige normalizar antes. A versão anterior tratava o caso
+ * desigual num ramo próprio (com uma comparação descartável para não sair
+ * cedo); o ramo continuava observável, e o custo daquela comparação variava com
+ * o tamanho do valor recebido (achado de review, PR #234).
+ *
+ * SHA-256 resolve por construção: todo par vira 32 bytes, existe **um** caminho
+ * de execução, e nenhum comprimento chega ao comparador. O digest aqui não é
+ * proteção de armazenamento — é normalização de tamanho —, então SHA-256 puro
+ * basta e KDF seria custo sem ganho.
  *
  * Vive em módulo próprio porque o mesmo `SERVICE_SECRET` autentica dois pontos
  * do `accounts.`: a rota interna de usuários (`app.ts`) e as rotas de segredo
@@ -12,13 +21,9 @@ import { timingSafeEqual } from "node:crypto";
  * fraca guardava a chave de cifra dos segredos.
  */
 export function timingSafeEqualStrings(a: string, b: string): boolean {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  if (bufA.length !== bufB.length) {
-    timingSafeEqual(bufA, bufA);
-    return false;
-  }
-  return timingSafeEqual(bufA, bufB);
+  const digestA = createHash("sha256").update(a, "utf8").digest();
+  const digestB = createHash("sha256").update(b, "utf8").digest();
+  return timingSafeEqual(digestA, digestB);
 }
 
 /**
