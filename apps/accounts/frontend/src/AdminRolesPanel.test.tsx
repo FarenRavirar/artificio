@@ -172,7 +172,7 @@ describe("AdminRolesPanel — permissão do próprio ator revogada", () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({
       ok: false,
       status: 403,
-      json: async () => ({ error: "Sua permissão de administrador mudou." }),
+      json: async () => ({ code: "ADMIN_REQUIRED", error: "Sua permissão de administrador mudou." }),
     } as Response)));
 
     await user.selectOptions(screen.getByLabelText(/Alterar papel de Membro Um/), "admin");
@@ -187,6 +187,33 @@ describe("AdminRolesPanel — permissão do próprio ator revogada", () => {
     expect(screen.queryByRole("button", { name: "Salvar" })).toBeNull();
   });
 
+  // `csrfProtection` devolve 403 sem `code` quando a origem não é permitida ou
+  // um proxy remove o `Origin` (`packages/auth/src/csrf.ts`). Tratar isso como
+  // rebaixamento travava o painel do admin legítimo, e recarregar não resolvia —
+  // o erro se repetiria (achado de review, PR #234).
+  it("403 de CSRF não trava a tela: segue erro comum e recuperável", async () => {
+    const user = userEvent.setup();
+    mockFetch(() => ({ users: [USER_ROW] }));
+    render(<AdminRolesPanel />);
+    await screen.findByText("Membro Um");
+
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: false,
+      status: 403,
+      json: async () => ({ error: "Origem da requisição não permitida." }),
+    } as Response)));
+
+    await user.selectOptions(screen.getByLabelText(/Alterar papel de Membro Um/), "admin");
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).getByText(/Origem da requisição não permitida/i)).toBeDefined();
+    expect(within(alert).queryByRole("button", { name: "Recarregar" })).toBeNull();
+    // Controles seguem utilizáveis: o admin pode tentar de novo.
+    expect((screen.getByLabelText(/Alterar papel de Membro Um/) as HTMLSelectElement).disabled).toBe(false);
+    expect(screen.getByRole("button", { name: "Salvar" })).toBeDefined();
+  });
+
   // Sem a guarda no efeito de busca, cada tecla digitada dispararia outro GET
   // que o backend recusa com o mesmo 403 — ruído contra o SSO sem nenhum ganho.
   it("depois do 403 a busca para de disparar requisições", async () => {
@@ -198,7 +225,7 @@ describe("AdminRolesPanel — permissão do próprio ator revogada", () => {
     const denied = vi.fn(async () => ({
       ok: false,
       status: 403,
-      json: async () => ({ error: "Sua permissão de administrador mudou." }),
+      json: async () => ({ code: "ADMIN_REQUIRED", error: "Sua permissão de administrador mudou." }),
     } as Response));
     vi.stubGlobal("fetch", denied);
 
@@ -217,7 +244,7 @@ describe("AdminRolesPanel — permissão do próprio ator revogada", () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({
       ok: false,
       status: 403,
-      json: async () => ({ error: "Acesso restrito a administradores." })
+      json: async () => ({ code: "ADMIN_REQUIRED", error: "Acesso restrito a administradores." })
     } as Response)));
 
     render(<AdminRolesPanel />);

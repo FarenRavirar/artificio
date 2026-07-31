@@ -37,10 +37,9 @@ const ROLE_TONE = {
 } as const;
 
 /**
- * O 403 do painel de papéis é sobre quem está operando, não sobre o alvo: o
- * backend revalida o ator no banco a cada requisição, então ele só aparece
- * quando o próprio admin foi rebaixado — ou quando o `roleVersion` do token
- * ficou para trás — durante a sessão aberta.
+ * Perda de papel do **próprio ator** durante a sessão: o backend revalida o ator
+ * no banco a cada requisição e devolve este código quando ele deixou de ser
+ * admin, ou quando o `roleVersion` do token ficou para trás.
  */
 class PermissionChangedError extends Error {
   constructor(message: string) {
@@ -53,6 +52,25 @@ function readError(payload: unknown, fallback: string): string {
   return payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string"
     ? payload.error
     : fallback;
+}
+
+/**
+ * O status 403 sozinho **não** identifica perda de papel: `csrfProtection`
+ * devolve o mesmo status quando a origem não é permitida ou um proxy remove o
+ * `Origin` (`packages/auth/src/csrf.ts`). Tratar todo 403 como rebaixamento
+ * travava a tela do admin legítimo num erro de CSRF, e recarregar não resolvia
+ * (achado de review, PR #234). Discriminar por texto de mensagem quebraria ao
+ * traduzir ou reescrever a frase — daí o código estável do backend
+ * (`ADMIN_REQUIRED_CODE` em `requireCurrentAdmin.ts`).
+ */
+const ADMIN_REQUIRED_CODE = "ADMIN_REQUIRED";
+
+function isPermissionChanged(response: Response, payload: unknown): boolean {
+  return response.status === 403
+    && payload !== null
+    && typeof payload === "object"
+    && "code" in payload
+    && payload.code === ADMIN_REQUIRED_CODE;
 }
 
 export function AdminRolesPanel(): React.JSX.Element {
@@ -85,9 +103,9 @@ export function AdminRolesPanel(): React.JSX.Element {
       const response = await fetch(url, { credentials: "include", signal });
       const payload: unknown = await response.json().catch(() => ({}));
       if (signal.aborted) return;
-      // Mesmo 403 da alteração: o ator deixou de ser admin. Vale já na
+      // Mesmo caso da alteração: o ator deixou de ser admin. Vale já na
       // listagem, porque o rebaixamento pode acontecer com a tela só aberta.
-      if (response.status === 403) {
+      if (isPermissionChanged(response, payload)) {
         setPermissionLost(readError(payload, "Sua permissão de administrador mudou."));
         setUsers([]);
         return;
@@ -130,12 +148,13 @@ export function AdminRolesPanel(): React.JSX.Element {
       body: JSON.stringify({ role }),
     });
     const payload: unknown = await response.json().catch(() => ({}));
-    // 403 aqui significa que o papel do **próprio ator** mudou no banco durante
-    // a sessão (`requireCurrentAdmin` ou `ACTOR_NO_LONGER_ADMIN`), não que o
-    // alvo seja inválido. A tela inteira deixou de ser legítima: mantê-la com
-    // um aviso genérico faria o admin rebaixado seguir clicando numa lista que
-    // já não pode alterar, colecionando erros sem entender a causa.
-    if (response.status === 403) {
+    // `ADMIN_REQUIRED` significa que o papel do **próprio ator** mudou no banco
+    // durante a sessão (`requireCurrentAdmin` ou `ACTOR_NO_LONGER_ADMIN`), não
+    // que o alvo seja inválido. A tela inteira deixou de ser legítima: mantê-la
+    // com um aviso genérico faria o admin rebaixado seguir clicando numa lista
+    // que já não pode alterar, colecionando erros sem entender a causa. Um 403
+    // sem esse código (CSRF, por exemplo) segue como erro comum e recuperável.
+    if (isPermissionChanged(response, payload)) {
       throw new PermissionChangedError(
         readError(payload, "Sua permissão de administrador mudou."),
       );
