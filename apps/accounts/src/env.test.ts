@@ -8,7 +8,11 @@ import { accountsEnvSchema } from "./env.js";
 // variável — sem passar pelo shutdown que fecha o pool (achado de review, PR #233).
 describe("ACCOUNTS_BOOTSTRAP_ADMIN_EMAIL", () => {
   const base = {
-    DATABASE_URL: "postgres://admin:secret@accounts-db:5432/artificio_auth",
+    // Mesmo fixture de `app.test.ts:11` e `internalUsers.test.ts:11`: host
+    // localhost e senha óbvia. `secret@accounts-db` casava com a heurística do
+    // TruffleHog (senha não-óbvia + host de infraestrutura) e falhava o gate de
+    // segredos no CI, mesmo sendo valor inventado.
+    DATABASE_URL: "postgres://admin:admin@localhost:5432/artificio_auth",
     GOOGLE_CALLBACK_URL: "https://accounts.artificiorpg.com/api/auth/google/callback",
     GOOGLE_CLIENT_ID: "client-id",
     GOOGLE_CLIENT_SECRET: "client-secret",

@@ -33,10 +33,10 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 |--------|------|-----------|---------|------|
 | GET | `/` | ✅ high | `apps/accounts/src/app.ts` | 229 |
 | GET | `/admin/papeis` | ✅ high | `apps/accounts/src/app.ts` | 229 |
-| GET | `/admin/roles/users` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 45 |
-| PATCH | `/admin/roles/users/:id` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 55 |
-| GET | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 112 |
-| PUT | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 73 |
+| GET | `/admin/roles/users` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 17 |
+| PATCH | `/admin/roles/users/:id` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 27 |
+| GET | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 113 |
+| PUT | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 74 |
 | GET | `/api/auth/google` | ✅ high | `apps/accounts/src/app.ts` | 107 |
 | GET | `/api/auth/google/callback` | ✅ high | `apps/accounts/src/app.ts` | 120 |
 | POST | `/api/auth/logout` | ✅ high | `apps/accounts/src/app.ts` | 158 |
@@ -200,7 +200,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/social/:id/comments` | ✅ high | `apps/glossario/backend/src/routes/socialRoutes.ts` | 14 |
 | POST | `/api/social/:id/comments` | ✅ high | `apps/glossario/backend/src/routes/socialRoutes.ts` | 15 |
 | POST | `/api/social/:id/vote` | ✅ high | `apps/glossario/backend/src/routes/socialRoutes.ts` | 11 |
-| DELETE | `/api/social/comments/:id` | ✅ high | `apps/glossario/backend/src/routes/socialRoutes.ts` | 16 |
+| DELETE | `/api/social/comments/:id` | ✅ high | `apps/glossario/backend/src/routes/socialRoutes.ts` | 19 |
 | GET | `/api/systems` | ✅ high | `apps/glossario/backend/src/routes/systemRoutes.ts` | 10 |
 | POST | `/api/systems` | ✅ high | `apps/glossario/backend/src/routes/systemRoutes.ts` | 11 |
 | USE | `/api/systems` | ✅ high | `apps/glossario/backend/src/index.ts` | 90 |

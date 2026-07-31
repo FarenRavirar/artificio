@@ -54,14 +54,20 @@ export function AdminRolesPanel(): React.JSX.Element {
   const [pendingRole, setPendingRole] = useState<Record<string, UserRole>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
 
-  const loadUsers = useCallback(async (query: string) => {
+  // Duas buscas podem passar do debounce e voltar fora de ordem: se a antiga
+  // chegar depois, sobrescreveria a lista com resultados do texto anterior — o
+  // campo mostraria uma consulta e o admin alteraria o papel de conta de outra
+  // (achado de review, PR #233). O sinal aborta a requisição anterior e o
+  // `aborted` descarta o que ainda estiver em voo.
+  const loadUsers = useCallback(async (query: string, signal: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
       const url = new URL("/admin/roles/users", globalThis.location.origin);
       if (query.trim()) url.searchParams.set("q", query.trim());
-      const response = await fetch(url, { credentials: "include" });
+      const response = await fetch(url, { credentials: "include", signal });
       const payload: unknown = await response.json().catch(() => ({}));
+      if (signal.aborted) return;
       if (!response.ok) throw new Error(readError(payload, "Falha ao carregar contas."));
       const parsed = roleUserListSchema.safeParse(payload);
       if (!parsed.success) {
@@ -69,17 +75,23 @@ export function AdminRolesPanel(): React.JSX.Element {
       }
       setUsers(parsed.data.users);
     } catch (error_) {
+      // Aborto é fluxo normal de busca substituída, não erro para o admin.
+      if (signal.aborted || (error_ instanceof DOMException && error_.name === "AbortError")) return;
       setError(error_ instanceof Error ? error_.message : "Falha ao carregar contas.");
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
     const timeout = globalThis.setTimeout(() => {
-      void loadUsers(search);
+      void loadUsers(search, controller.signal);
     }, 250);
-    return () => globalThis.clearTimeout(timeout);
+    return () => {
+      globalThis.clearTimeout(timeout);
+      controller.abort();
+    };
   }, [loadUsers, search]);
 
   const updateRole = useCallback(async (user: RoleUser, role: UserRole) => {

@@ -79,6 +79,7 @@ export async function listGlobalRoleUsers(
 export async function setGlobalRole(
   db: Kysely<Database>,
   actorId: string,
+  actorRoleVersion: number,
   userId: string,
   role: UserRole,
 ): Promise<GlobalRoleUser | null> {
@@ -87,6 +88,23 @@ export async function setGlobalRole(
   }
 
   return db.transaction().execute(async (trx) => {
+    // O guard de rota já revalidou o ator no banco, mas fora desta transação:
+    // entre aquela consulta e este UPDATE, outro admin pode ter rebaixado o
+    // ator — e a requisição já autorizada seguiria, permitindo inclusive que
+    // ele recuperasse o próprio privilégio (achado de review, PR #233).
+    // `FOR UPDATE` trava a linha do ator até o commit, então um rebaixamento
+    // concorrente espera e a revalidação abaixo enxerga o estado final.
+    const actor = await trx
+      .selectFrom("users")
+      .select(["role", "role_version"])
+      .where("id", "=", actorId)
+      .forUpdate()
+      .executeTakeFirst();
+
+    if (actor?.role !== "admin" || actor.role_version !== actorRoleVersion) {
+      throw new Error("ACTOR_NO_LONGER_ADMIN");
+    }
+
     await sql`select
       set_config('app.actor_id', ${actorId}, true),
       set_config('app.role_reason', 'admin_panel', true)

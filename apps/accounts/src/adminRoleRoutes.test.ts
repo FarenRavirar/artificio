@@ -76,7 +76,9 @@ describe("admin role routes", () => {
       .send({ role: "moderator" })
       .expect(200);
 
-    expect(roleMocks.set).toHaveBeenCalledWith(expect.anything(), "admin-1", "user-1", "moderator");
+    // `roleVersion` da sessão vai junto: `setGlobalRole` revalida o ator dentro
+    // da própria transação, não só no guard de rota (achado de review, PR #233).
+    expect(roleMocks.set).toHaveBeenCalledWith(expect.anything(), "admin-1", 1, "user-1", "moderator");
     expect(response.body.user).toMatchObject({ id: "user-1", role: "moderator" });
   });
 

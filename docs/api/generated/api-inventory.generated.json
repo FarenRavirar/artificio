@@ -111,7 +111,7 @@
       "method": "GET",
       "path": "/admin/roles/users",
       "sourceFile": "apps/accounts/src/adminRoleRoutes.ts",
-      "line": 45,
+      "line": 17,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -120,7 +120,7 @@
       "method": "PATCH",
       "path": "/admin/roles/users/:id",
       "sourceFile": "apps/accounts/src/adminRoleRoutes.ts",
-      "line": 55,
+      "line": 27,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -129,7 +129,7 @@
       "method": "GET",
       "path": "/admin/secrets/:name",
       "sourceFile": "apps/accounts/src/adminSecretsRoutes.ts",
-      "line": 112,
+      "line": 113,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -138,7 +138,7 @@
       "method": "PUT",
       "path": "/admin/secrets/:name",
       "sourceFile": "apps/accounts/src/adminSecretsRoutes.ts",
-      "line": 73,
+      "line": 74,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1524,7 +1524,7 @@
       "method": "DELETE",
       "path": "/api/social/comments/:id",
       "sourceFile": "apps/glossario/backend/src/routes/socialRoutes.ts",
-      "line": 16,
+      "line": 19,
       "confidence": "high",
       "kind": "express-route"
     },

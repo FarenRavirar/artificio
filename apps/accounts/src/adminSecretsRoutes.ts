@@ -9,7 +9,7 @@
  * - X-Service-Token permite consumo serviço-a-serviço (ex.: mesas backend).
  * - Chave de cifra: env ACCOUNTS_SECRETS_KEY.
  */
-import { Router, type Request, type Response } from 'express';
+import { Router, type NextFunction, type Request, type Response } from 'express';
 import { requireAuth } from '@artificio/auth';
 import {
   encryptSecret,
@@ -19,16 +19,7 @@ import {
 } from '@artificio/config/secret-crypto';
 import type { Kysely } from 'kysely';
 import type { Database } from './db.js';
-import type { Session } from '@artificio/auth';
-
-function requireAdmin(req: Request, res: Response, next: () => void): void {
-  const session = (req as Request & { session?: Session }).session;
-  if (session?.user?.role !== 'admin') {
-    res.status(403).json({ error: 'Acesso restrito a administradores.' });
-    return;
-  }
-  next();
-}
+import { requireCurrentAdmin, sessionFrom } from './requireCurrentAdmin.js';
 
 function getSecretsKey(env: Record<string, string | undefined>): string {
   // REV-023: chave dedicada e obrigatória. Sem fallback p/ JWT_SECRET — senão a
@@ -46,8 +37,12 @@ function getServiceSecret(env: Record<string, string | undefined>): string | nul
 }
 
 /** Valida X-Service-Token contra SERVICE_SECRET. Se ok, prossegue; senão tenta cookie de admin. */
-function requireServiceOrAdmin(env: Record<string, string | undefined>) {
-  return (req: Request, res: Response, next: () => void) => {
+function requireServiceOrAdmin(
+  env: Record<string, string | undefined>,
+  db: Kysely<Database>,
+) {
+  const currentAdmin = requireCurrentAdmin(db);
+  return (req: Request, res: Response, next: NextFunction) => {
     const serviceSecret = getServiceSecret(env);
     const token = req.headers['x-service-token'];
 
@@ -57,9 +52,11 @@ function requireServiceOrAdmin(env: Record<string, string | undefined>) {
     }
 
     // Fallback: cookie de admin (usuário logado).
-    // requireAuth popula req.session a partir do cookie; sem ele requireAdmin
-    // nunca veria a sessão e devolveria 403 sempre (REV-017).
-    requireAuth(req, res, () => requireAdmin(req, res, next));
+    // requireAuth popula req.session a partir do cookie; sem ele o guard de
+    // admin nunca veria a sessão e devolveria 403 sempre (REV-017).
+    requireAuth(req, res, () => {
+      void currentAdmin(req, res, next);
+    });
   };
 }
 
@@ -68,9 +65,13 @@ export function createAdminSecretsRoutes(
   env: Record<string, string | undefined>,
 ): Router {
   const router = Router();
+  // Revalida no banco: a claim do cookie sobrevive 15 min a um rebaixamento, e
+  // sem isto a conta revogada ainda leria e sobrescreveria segredos nessa janela
+  // (achado de review, PR #233).
+  const currentAdmin = requireCurrentAdmin(db);
 
   // ── PUT /admin/secrets/:name ────────────────────────────────────────────
-  router.put('/admin/secrets/:name', requireAuth, requireAdmin, async (req: Request, res: Response) => {
+  router.put('/admin/secrets/:name', requireAuth, currentAdmin, async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
       // req.body é externo e pode ser null/não-objeto — normalizar antes de extrair (REV-024).
@@ -86,7 +87,7 @@ export function createAdminSecretsRoutes(
 
       const key = getSecretsKey(env);
       const ciphertext = encryptSecret(value.trim(), key);
-      const updatedBy = (req as Request & { session?: Session }).session?.user?.id ?? null;
+      const updatedBy = sessionFrom(req)?.user?.id ?? null;
 
       await db
         .insertInto('admin_secrets')
@@ -109,7 +110,7 @@ export function createAdminSecretsRoutes(
   });
 
   // ── GET /admin/secrets/:name ────────────────────────────────────────────
-  router.get('/admin/secrets/:name', requireServiceOrAdmin(env), async (req: Request, res: Response) => {
+  router.get('/admin/secrets/:name', requireServiceOrAdmin(env, db), async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
 

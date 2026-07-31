@@ -31,6 +31,9 @@ function fakeDb(
   const select = {
     select: vi.fn().mockReturnThis(),
     where: vi.fn().mockReturnThis(),
+    // `setGlobalRole` trava a linha do ator com `FOR UPDATE` para revalidar
+    // dentro da transação (achado de review, PR #233).
+    forUpdate: vi.fn().mockReturnThis(),
     executeTakeFirst: vi.fn(async () => selectedRows.shift()),
   };
   const trx = {
@@ -73,9 +76,11 @@ describe("ensureBootstrapAdmin", () => {
 describe("setGlobalRole", () => {
   beforeEach(() => sqlExecute.mockReset());
 
+  const ADMIN_ACTOR = { role: "admin", role_version: 5 };
+
   it.each(["user", "moderator"] as const)("recusa auto-rebaixamento para %s antes de abrir transação", async (role) => {
     const fake = fakeDb([]);
-    await expect(setGlobalRole(fake.db, "admin-1", "admin-1", role))
+    await expect(setGlobalRole(fake.db, "admin-1", 5, "admin-1", role))
       .rejects.toThrow("SELF_DEMOTION_FORBIDDEN");
     expect(fake.transaction).not.toHaveBeenCalled();
   });
@@ -88,10 +93,27 @@ describe("setGlobalRole", () => {
       role: "moderator",
       role_version: 2,
       created_at: new Date("2026-07-30T00:00:00Z"),
-    }]);
+    }], [ADMIN_ACTOR]);
 
-    const user = await setGlobalRole(fake.db, "admin-1", "user-1", "moderator");
+    const user = await setGlobalRole(fake.db, "admin-1", 5, "user-1", "moderator");
     expect(fake.order).toEqual(["actor", "update"]);
     expect(user).toMatchObject({ id: "user-1", role: "moderator", roleVersion: 2 });
+  });
+
+  // A revalidação dentro da transação é o que impede que um ator rebaixado
+  // entre o guard de rota e o UPDATE ainda execute a alteração — inclusive
+  // recuperando o próprio privilégio (achado de review, PR #233).
+  it("recusa quando o ator deixou de ser admin durante a requisição", async () => {
+    const fake = fakeDb([], [{ role: "user", role_version: 6 }]);
+    await expect(setGlobalRole(fake.db, "admin-1", 5, "user-1", "admin"))
+      .rejects.toThrow("ACTOR_NO_LONGER_ADMIN");
+    expect(fake.update.executeTakeFirst).not.toHaveBeenCalled();
+  });
+
+  it("recusa quando o roleVersion do ator avançou", async () => {
+    const fake = fakeDb([], [{ role: "admin", role_version: 6 }]);
+    await expect(setGlobalRole(fake.db, "admin-1", 5, "user-1", "admin"))
+      .rejects.toThrow("ACTOR_NO_LONGER_ADMIN");
+    expect(fake.update.executeTakeFirst).not.toHaveBeenCalled();
   });
 });
