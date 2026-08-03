@@ -492,6 +492,22 @@ Esta tabela **não depende de o agente lembrar dela**: as regras `script-pesado-
 - **Usar para:** descobrir método/path/app/scope/auth/consumidores de rota; confirmar impacto de mudança API; orientar atualização OpenAPI.
 - **Não usar para:** provar comportamento runtime sozinho. Depois da descoberta, verificar código real e rodar `pnpm verify:api` quando tocar `apps/**`, `packages/**`, `scripts/api/**`, `docs/api/openapi/**` ou allowlist.
 
+### cloudflare (5 servidores) — **acesso à conta de produção**
+
+- **Origem/registro:** instalado em 2026-08-03 por autorização nominal do mantenedor, durante a sessão `26-08-03_1_seguranca_snyk-headers-sast` (achado A, HSTS). Instruções oficiais: `https://developers.cloudflare.com/agent-setup/prompt.md`.
+- **Instalado em:** Claude Code (plugin `cloudflare@cloudflare`, marketplace `cloudflare/skills`), Claude Desktop (`%APPDATA%\Claude\claude_desktop_config.json`), Codex CLI + Desktop (`~/.codex/config.toml`, config compartilhada). Cursor, VS Code e OpenCode **não** foram configurados de propósito.
+- **Servidores:** `cloudflare-docs` (público, sem auth) · `cloudflare` (API geral) · `cloudflare-bindings` · `cloudflare-builds` · `cloudflare-observability` — os 4 últimos autenticam por OAuth.
+
+**Trava pétrea — o que estes MCPs realmente alcançam.** A conta Cloudflare autenticada é a **mesma que controla DNS, Tunnel e TLS de `artificiorpg.com` e de todos os subdomínios**. Ter a ferramenta disponível não é autorização para usá-la:
+
+- **Leitura** (consultar zona, registro, config de SSL/TLS, build, log, métrica) segue a regra geral: read-only é sempre permitido, sem aprovação por ação. Vale a obrigação de filtrar segredo da saída — nunca imprimir token, chave de API ou `*SECRET*`.
+- **Qualquer escrita** (criar/alterar/remover registro DNS, rota de tunnel, regra, header, certificado, binding, deploy) exige **aprovação nominal por ação**, no formato "APROVAÇÃO NECESSÁRIA", exatamente como um comando de escrita na VM. A existência do MCP **não** afrouxa §Regras Pétreas → Autorização; a barreira deixou de ser técnica e passou a ser só a regra — por isso ela vale mais aqui, não menos.
+- **DNS raiz de `artificiorpg.com` continua exigindo aprovação explícita**, inclusive por MCP. Ver §Gates do Programa.
+- **HSTS é decisão do mantenedor, não do agente.** `Strict-Transport-Security` tem um dono só: a borda Cloudflare (decisão D1, sessão `26-08-03_1`). Habilitar/alterar `max-age`, `includeSubDomains` ou `preload` cacheia no browser do usuário final e **não tem rollback rápido**. Agente não liga, não sobe escada, não sugere `preload` sem pedido nominal.
+
+- **Usar para:** consultar documentação Cloudflare (`cloudflare-docs`, dispensa auth e é a primeira escolha); inspecionar estado real de zona/DNS/tunnel/SSL antes de diagnosticar infra (anti-retrabalho — inspeção read-only precede correção no chute); ler build e observabilidade de Workers/Pages quando aplicável.
+- **Não usar para:** substituir `docs/agents/deploy-runbook.md` como fonte de topologia do projeto; provar comportamento de aplicação (o container e o código continuam sendo a verdade material); nem executar escrita por conveniência durante diagnóstico.
+
 ### Ordem de uso
 
 1. `artificio-api-governance` para qualquer pergunta/mudança de API.
@@ -510,8 +526,9 @@ Esta tabela **não depende de o agente lembrar dela**: as regras `script-pesado-
 
 Config local pode diferir entre clientes:
 - **OpenCode:** `opencode.json`.
-- **Claude Code:** MCP local em `.claude.json`/config Claude do usuário.
-- **Codex:** `C:\Users\paulo\.codex\config.toml`.
+- **Claude Code:** MCP local em `.claude.json`/config Claude do usuário; MCP vindo de plugin fica sob `plugin:<nome>:<servidor>` e aparece em `claude mcp list`. Plugin recém-instalado só expõe as ferramentas após `/reload-plugins` ou reinício da sessão.
+- **Claude Desktop:** `%APPDATA%\Claude\claude_desktop_config.json`, bloco `mcpServers`. Exige reinício do app.
+- **Codex (CLI e Desktop):** `C:\Users\paulo\.codex\config.toml`, blocos `[mcp_servers.<nome>]` — **config compartilhada entre os dois**; registrar uma vez vale para ambos. `codex mcp list` mostra o status de OAuth por servidor.
 
 Não acionar outro agente em nome do mantenedor sem aprovação nominal; usar MCPs locais de leitura/navegação não muda esta regra.
 

@@ -6,6 +6,7 @@ import { publicRateLimiter, authRateLimiter } from '../middleware/rateLimit.js';
 import { isValidEmail } from '../utils/validation.js';
 import { generateEmbedUrl, LinkType } from '../services/linkService.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
+import { serializeContact, serializeContactMethods } from '../utils/contactSerializer.js';
 import {
   sanitizeNullableUserMarkdown,
   sanitizeTableMarkdownFields,
@@ -257,16 +258,18 @@ router.get('/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: 
       const contactsByTable = new Map<string, PublicTableContact[]>();
 
       for (const contact of contacts) {
+        const safeContact = serializeContact(contact);
+        if (!safeContact) continue;
         if (!contactsByTable.has(contact.table_id)) {
           contactsByTable.set(contact.table_id, []);
         }
 
         contactsByTable.get(contact.table_id)!.push({
-          channel: contact.channel,
-          value: contact.value,
-          label: contact.label,
-          discord_server_url: contact.discord_server_url,
-          sort_order: contact.sort_order,
+          channel: safeContact.channel,
+          value: safeContact.value,
+          label: safeContact.label,
+          discord_server_url: safeContact.discord_server_url,
+          sort_order: safeContact.sort_order,
         });
       }
 
@@ -354,6 +357,7 @@ router.get('/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: 
     const gmPublic = Object.fromEntries(
       Object.entries(gm).filter(([key]) => !omitFromGmPublic.has(key as keyof typeof gm)),
     );
+    gmPublic.contact_methods = serializeContactMethods(gm.contact_methods);
 
     return res.json({
       data: {

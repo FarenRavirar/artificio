@@ -1,5 +1,10 @@
 import { useState } from 'react';
 import { Plus, Trash2, ChevronUp, ChevronDown, Mail, MessageCircle, Hash, ExternalLink } from 'lucide-react';
+import {
+  INVALID_DISCORD_INVITE_MESSAGE,
+  toSafeDiscordInviteUrl,
+  validateHttpsUrl,
+} from '../../utils/safeExternalUrl';
 
 type ContactChannel = 'whatsapp' | 'email' | 'discord' | 'form';
 
@@ -31,7 +36,7 @@ const CHANNEL_CONFIG = {
   discord: {
     icon: Hash,
     label: 'Discord',
-    placeholder: 'usuario#1234',
+    placeholder: '@usuario',
     color: 'indigo',
   },
   form: {
@@ -94,10 +99,15 @@ export function ContactMethodsEditor({ contacts, onSave }: ContactMethodsEditorP
     }
 
     if (contact.channel === 'form') {
-      try {
-        new URL(contact.value);
-      } catch {
-        return 'URL inválida';
+      const result = validateHttpsUrl(contact.value);
+      if (!result.success) return result.message;
+    }
+
+    if (contact.channel === 'discord' && contact.discord_server_url?.trim()) {
+      const result = validateHttpsUrl(contact.discord_server_url);
+      if (!result.success) return result.message;
+      if (!toSafeDiscordInviteUrl(contact.discord_server_url)) {
+        return INVALID_DISCORD_INVITE_MESSAGE;
       }
     }
 
@@ -208,6 +218,11 @@ export function ContactMethodsEditor({ contacts, onSave }: ContactMethodsEditorP
                   {validationError && (
                     <p className="text-xs text-red-400 mt-1">{validationError}</p>
                   )}
+                  {contact.channel === 'form' && (
+                    <p className="text-xs text-white/50 mt-1">
+                      Use uma URL https://. Endereço sem esquema será salvo como https://.
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -235,6 +250,9 @@ export function ContactMethodsEditor({ contacts, onSave }: ContactMethodsEditorP
                       placeholder="https://discord.gg/..."
                       className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500/50"
                     />
+                    <p className="text-xs text-white/50 mt-1">
+                      Discord não oferece link direto por @usuário. Se tiver servidor, informe aqui um convite HTTPS opcional.
+                    </p>
                   </div>
                 )}
               </div>

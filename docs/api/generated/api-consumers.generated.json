@@ -1929,7 +1929,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPatch",
-      "line": 111
+      "line": 112
     },
     {
       "app": "mesas-frontend",
@@ -1949,7 +1949,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPatch",
-      "line": 86
+      "line": 87
     },
     {
       "app": "mesas-frontend",
@@ -2439,7 +2439,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 45
+      "line": 46
     },
     {
       "app": "mesas-frontend",

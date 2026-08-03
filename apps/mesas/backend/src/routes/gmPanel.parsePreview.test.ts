@@ -162,7 +162,7 @@ describe('POST /api/v1/gm/tables — fecha loop de aprendizado (T5.6/T5.11)', ()
     system_id: 'ce7888fe-211f-4236-b59c-c60877d66336',
     scenario_id: null,
     schedules: [],
-    contacts: [{ channel: 'whatsapp', value: '5511999999999', label: 'WhatsApp' }],
+    contacts: [{ channel: 'whatsapp', value: '+5511999999999', label: 'WhatsApp' }],
     publisher_role: 'gm',
     actual_gm_name: null,
     rules_notes: '',

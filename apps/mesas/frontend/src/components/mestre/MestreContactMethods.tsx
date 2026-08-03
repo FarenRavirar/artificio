@@ -1,6 +1,7 @@
 import { Mail, MessageCircle, Hash, ExternalLink, Check, Copy } from 'lucide-react';
 import { useState } from 'react';
 import { useTracking } from '../../hooks/useTracking';
+import { openSafeExternalUrl, toSafeDiscordInviteUrl } from '../../utils/safeExternalUrl';
 
 type ContactChannel = 'whatsapp' | 'email' | 'discord' | 'form';
 
@@ -78,6 +79,7 @@ function ContactCard({ contact, gmSlug }: { contact: ContactMethod; gmSlug: stri
   const { trackGmContactClick } = useTracking();
   const config = CHANNEL_CONFIG[contact.channel];
   const Icon = config.icon;
+  const safeDiscordServerUrl = toSafeDiscordInviteUrl(contact.discord_server_url);
 
   const handleAction = () => {
     // Registrar tracking
@@ -85,7 +87,7 @@ function ContactCard({ contact, gmSlug }: { contact: ContactMethod; gmSlug: stri
 
     if (contact.channel === 'whatsapp') {
       const cleanNumber = contact.value.replace(/\D/g, '');
-      window.open(`https://wa.me/${cleanNumber}`, '_blank');
+      openSafeExternalUrl(`https://wa.me/${cleanNumber}`);
     } else if (contact.channel === 'email') {
       window.location.href = `mailto:${contact.value}`;
     } else if (contact.channel === 'discord') {
@@ -94,7 +96,7 @@ function ContactCard({ contact, gmSlug }: { contact: ContactMethod; gmSlug: stri
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } else if (contact.channel === 'form') {
-      window.open(contact.value, '_blank');
+      openSafeExternalUrl(contact.value);
     }
   };
 
@@ -164,9 +166,9 @@ function ContactCard({ contact, gmSlug }: { contact: ContactMethod; gmSlug: stri
           )}
 
           {/* Botão do servidor Discord (se tiver) */}
-          {contact.channel === 'discord' && contact.discord_server_url && (
+          {contact.channel === 'discord' && safeDiscordServerUrl && (
             <a
-              href={contact.discord_server_url}
+              href={safeDiscordServerUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition"

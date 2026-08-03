@@ -15,8 +15,8 @@ interface ContactsFormBlockProps {
 }
 
 const CHANNEL_OPTIONS: Array<{ value: TableContactChannel; label: string; placeholder: string }> = [
-  { value: 'whatsapp', label: 'WhatsApp', placeholder: '+55 11999999999' },
-  { value: 'discord', label: 'Discord', placeholder: 'usuario#1234 ou link de perfil' },
+  { value: 'whatsapp', label: 'WhatsApp', placeholder: '+5511999999999' },
+  { value: 'discord', label: 'Discord', placeholder: '@usuario ou ID do usuário' },
   { value: 'phone', label: 'Telefone', placeholder: '(11) 99999-9999' },
   { value: 'email', label: 'E-mail', placeholder: 'contato@exemplo.com' },
   { value: 'facebook', label: 'Facebook', placeholder: 'facebook.com/seu-perfil' },
@@ -84,6 +84,11 @@ export function ContactsFormBlock({ contacts, onChange, error }: ContactsFormBlo
                     placeholder={selectedChannel.placeholder}
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-white/30 outline-none focus:border-[var(--color-artificio-orange)]/60 transition-all"
                   />
+                  {['form', 'facebook', 'instagram'].includes(contact.channel) && (
+                    <p className="text-xs text-white/50">
+                      Use uma URL https://. Endereço sem esquema será salvo como https://.
+                    </p>
+                  )}
                 </div>
 
                 <button
@@ -119,6 +124,9 @@ export function ContactsFormBlock({ contacts, onChange, error }: ContactsFormBlo
                       placeholder="https://discord.gg/..."
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-white/30 outline-none focus:border-[var(--color-artificio-orange)]/60 transition-all"
                     />
+                    <p className="text-xs text-white/50">
+                      Discord não oferece link direto por @usuário. Se tiver servidor, informe aqui um convite HTTPS opcional.
+                    </p>
                   </div>
                 )}
               </div>

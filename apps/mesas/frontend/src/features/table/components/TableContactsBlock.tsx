@@ -1,5 +1,6 @@
 import { MessageCircle, MessageSquare, Mail, FileText, ExternalLink, HelpCircle, type LucideIcon } from 'lucide-react';
 import type { TableContact } from '../../../types/tables';
+import { toSafeDiscordInviteUrl, toSafeHttpsUrl } from '../../../utils/safeExternalUrl';
 
 interface TableContactsBlockProps {
   contacts: TableContact[];
@@ -40,13 +41,14 @@ function ContactButton({ contact }: { contact: TableContact }) {
 
   // Discord: tratamento especial (username + servidor)
   if (contact.channel === 'discord') {
+    const safeDiscordServerUrl = toSafeDiscordInviteUrl(contact.discord_server_url);
     return (
       <div className="space-y-2">
         {/* Botão principal: servidor Discord (se disponível) */}
-        {contact.discord_server_url ? (
+        {safeDiscordServerUrl ? (
           <>
             <a
-              href={contact.discord_server_url}
+              href={safeDiscordServerUrl}
               target="_blank"
               rel="noopener noreferrer"
               className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl font-semibold text-white transition-all ${config.bg} shadow-lg hover:shadow-xl`}
@@ -62,12 +64,12 @@ function ContactButton({ contact }: { contact: TableContact }) {
             <div className="flex items-center gap-2 px-2 text-xs">
               <span className="text-white/50">🔗</span>
               <a 
-                href={contact.discord_server_url}
+                href={safeDiscordServerUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-indigo-400 hover:text-indigo-300 underline break-all"
               >
-                {contact.discord_server_url}
+                {safeDiscordServerUrl}
               </a>
             </div>
           </>
@@ -103,7 +105,7 @@ function ContactButton({ contact }: { contact: TableContact }) {
               )}
             </p>
             <p className="text-xs text-white/50">
-              {contact.discord_server_url
+              {safeDiscordServerUrl
                 ? 'Entre no servidor e envie mensagem direta'
                 : 'Envie mensagem direta no Discord'}
             </p>
@@ -113,13 +115,7 @@ function ContactButton({ contact }: { contact: TableContact }) {
     );
   }
 
-  // Garantir que URL tenha protocolo
-  const getValidUrl = (value: string): string => {
-    // Se já tem protocolo, retornar como está
-    if (value.startsWith('http://') || value.startsWith('https://')) {
-      return value;
-    }
-    
+  const getValidUrl = (value: string): string | null => {
     // WhatsApp: detectar número puro e formatar como wa.me
     if (contact.channel === 'whatsapp') {
       // Se já é wa.me sem protocolo
@@ -134,12 +130,16 @@ function ContactButton({ contact }: { contact: TableContact }) {
         return `https://wa.me/${fullNumber}`;
       }
     }
-    
-    // Para outros casos, adicionar https://
-    return `https://${value}`;
+
+    if (contact.channel === 'email') {
+      return `mailto:${value.trim()}`;
+    }
+
+    return toSafeHttpsUrl(value);
   };
 
   const validUrl = getValidUrl(contact.value);
+  if (!validUrl) return null;
 
   // WhatsApp: botão + link de ajuda + link abreviado
   if (contact.channel === 'whatsapp') {

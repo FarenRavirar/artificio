@@ -11,6 +11,7 @@ import {
   CreateTableInput,
   UpdateTableInput,
   TableContact,
+  contactMethodsSchema,
 } from '../validators/tableValidators.js';
 import { TableService } from '../services/tableService.js';
 import { TableRepository } from '../repositories/tableRepository.js';
@@ -18,9 +19,9 @@ import { hydrateTableSystemFields, systemExistsInCatalog } from '../services/sys
 import { BenchmarkService } from '../services/benchmarkService.js';
 import { logActivity } from '../services/activityLogger.js';
 import { notifyAdmins } from '../services/adminNotifications.js';
-import { isValidEmail } from '../utils/validation.js';
 import { triggerMetaScrape, triggerMetaScrapeOnPublish } from '../services/metaScrapeClient.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
+import { serializeContact, serializeContactMethods, serializeContacts } from '../utils/contactSerializer.js';
 import {
   sanitizeNullableUserMarkdown,
   sanitizeTableMarkdownFields,
@@ -369,61 +370,30 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
       )
     : undefined;
   
-  // DEBUG: Log para verificar o tipo de contact_methods
-  console.log('[PUT /gm/profile] contact_methods type:', typeof contact_methods);
-  console.log('[PUT /gm/profile] contact_methods value:', contact_methods);
-  
-  // Validação de contact_methods (array de contatos)
-  // HOTFIX: Se vier como string, fazer parse
+  // D3/D8 (sessão de segurança 2026-08-03): compatibilidade de transporte do
+  // HOTFIX é preservada, mas toda entrada — inclusive JSON-string — passa pelo
+  // schema compartilhado. Payload inválido agora rejeita a operação inteira.
   let parsedContactMethods = contact_methods;
   if (typeof contact_methods === 'string') {
     try {
       parsedContactMethods = JSON.parse(contact_methods);
-      console.log('[PUT /gm/profile] Parsed contact_methods from string');
-    } catch (e) {
-      console.error('[PUT /gm/profile] Failed to parse contact_methods:', e);
-      parsedContactMethods = undefined;
+    } catch {
+      return res.status(400).json({ error: 'contact_methods deve ser um array JSON válido.' });
     }
   }
-  
-  const safeContactMethods = Array.isArray(parsedContactMethods)
-    ? parsedContactMethods
-        .filter((contact) => contact && typeof contact === 'object')
-        .map((contact) => {
-          const channel = contact.channel;
-          const value = typeof contact.value === 'string' ? contact.value.trim() : '';
-          
-          // Validar canal
-          if (!['whatsapp', 'email', 'discord', 'form'].includes(channel)) {
-            return null;
-          }
-          
-          // Validar WhatsApp (formato internacional)
-          if (channel === 'whatsapp') {
-            const whatsappRegex = /^\+\d{1,3}\d{6,14}$/;
-            if (!whatsappRegex.test(value)) {
-              return null; // WhatsApp inválido
-            }
-          }
-          
-          // Validar Email
-          if (channel === 'email') {
-            if (!isValidEmail(value)) {
-              return null; // Email inválido
-            }
-          }
-          
-          return {
-            channel,
-            value: value.slice(0, 500),
-            label: typeof contact.label === 'string' ? contact.label.trim().slice(0, 100) : null,
-            discord_server_url: typeof contact.discord_server_url === 'string' 
-              ? contact.discord_server_url.trim().slice(0, 500) 
-              : null,
-          };
-        })
-        .filter((contact) => contact !== null)
-    : undefined;
+
+  let safeContactMethods: ReturnType<typeof contactMethodsSchema.parse> | undefined;
+  if (contact_methods !== undefined) {
+    const validation = contactMethodsSchema.safeParse(parsedContactMethods);
+    if (!validation.success) {
+      const firstError = validation.error.issues[0];
+      return res.status(400).json({
+        error: firstError.message,
+        field: ['contact_methods', ...firstError.path].join('.'),
+      });
+    }
+    safeContactMethods = validation.data;
+  }
 
   try {
     const gmProfile = await db
@@ -454,7 +424,7 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
         closed_group_description: safeClosedGroupDescription,
         closed_group_min_price_cents: safeClosedGroupMinPriceCents,
         preferred_vtt_platforms: safePreferredVttPlatforms,
-        contact_methods: safeContactMethods ? JSON.stringify(safeContactMethods) : undefined,
+        contact_methods: safeContactMethods === undefined ? undefined : JSON.stringify(safeContactMethods),
       })
       .where('id', '=', gmProfile.id)
       .returning([
@@ -517,6 +487,7 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
     return res.json({
       data: {
         ...gmProfile,
+        contact_methods: serializeContactMethods(gmProfile.contact_methods),
         bio_long: sanitizeNullableUserMarkdown(gmProfile.bio_long),
         closed_group_description: sanitizeNullableUserMarkdown(gmProfile.closed_group_description),
         tables_count: tablesCount,
@@ -559,7 +530,7 @@ router.get('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       return res.status(404).json({ error: 'Mesa não encontrada ou sem permissão.' });
     }
 
-    const contacts = await TableRepository.findContactsByTableId(id);
+    const contacts = serializeContacts(await TableRepository.findContactsByTableId(id));
     const schedules = await TableRepository.findSchedulesByTableId(id);
 
     const responseData = {
@@ -1137,10 +1108,12 @@ router.get('/tables', authMiddleware, async (req: Request, res: Response) => {
 
     const contactsByTable = new Map<string, TableContact[]>();
     for (const contact of contacts) {
+      const safeContact = serializeContact(contact);
+      if (!safeContact) continue;
       if (!contactsByTable.has(contact.table_id)) {
         contactsByTable.set(contact.table_id, []);
       }
-      contactsByTable.get(contact.table_id)!.push(contact as TableContact);
+      contactsByTable.get(contact.table_id)!.push(safeContact as TableContact);
     }
 
     const schedules = await db
