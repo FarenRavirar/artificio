@@ -1,0 +1,4 @@
+interface:
+  display_name: "Artifício Spec Reconcile"
+  short_description: "Reconcilia spec, plano e tasks com decisões"
+  default_prompt: "Use $artificio-spec-reconcile para alinhar spec.md, plan.md e tasks.md às decisões aprovadas, com rastreabilidade completa."

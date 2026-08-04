@@ -74,14 +74,137 @@ coisas diferentes em cada módulo, e não haveria como autorizar uma tela centra
 6. Comentar exige conta do SSO; não há fluxo anônimo de escrita.
 6a. **A escrita é backend-to-backend** (decisão do mantenedor, 2026-07-27). O frontend nunca escreve direto no `accounts.`: o backend do módulo valida que o assunto existe, está visível, aceita comentário e quem é o dono, e só então chama com **credencial própria por app**. `owner_user_id`, papel e URL vindos do cliente nunca são confiados — referência opaca não substitui autorização por objeto (OWASP IDOR). Resolve junto um bloqueio real: a allowlist CSRF do `accounts.` tem cinco origens (`app.ts:87`) e exclui `downloads` e todos os betas, enquanto o CORS aceita qualquer subdomínio (`:97`) — escrita direta do navegador falharia hoje.
 7. Comentário carrega identidade resolvida (nome, avatar) sem o app consumidor precisar de segunda chamada. Resolvida por `JOIN` no mesmo `SELECT` — comentários e usuários vivem no mesmo banco. Conta removida ou desativada cai em nome neutro e avatar nulo; e-mail nunca é exposto.
-8. Comentário pode responder outro, com `parent_id` e limite explícito de profundidade aplicado na escrita. **Adjacency list, três níveis visíveis**: raiz `depth=0`, resposta `1`, resposta à resposta `2`; `depth>2` rejeitado. O volume não justifica closure table nem materialized path — CTE recursiva basta. A validação de que o pai existe, pertence ao mesmo `realm`/`source_app`/assunto, aceita resposta e não é legado acontece **na transação**.
-9. Os 25 comentários legados do `site` são migrados em modo **read-only**: exibidos, distinguíveis, sem resposta nem edição. Com proveniência explícita (`user_id` nulo, `legacy_author_name`, `legacy_source`) e `unique (legacy_source, legacy_id)` para importação idempotente. `site.comments` tem `parent_id` **sem FK** (`apps/site/db/migrations/001_init.sql:66`) — pais órfãos e ciclos são detectados **antes** de copiar, não depois.
-10. **Comentário novo é texto puro; HTML sanitizado existe só no legado** (decisão do mantenedor, 2026-07-27). O `downloads` já opera assim (`routes/comments.ts:11`) e o React escapa texto sozinho — HTML em comentário novo criaria superfície de XSS que hoje não existe. O `content_html` legado é sanitizado **uma vez, na entrada**, com política e versão registradas; a saída passa por defesa adicional **sem regravar o banco**. Nunca ressanitizar continuamente nem alterar o HTML depois de sanitizado, o que anularia a proteção. Campo nunca ambíguo: `body_text` para o novo, campo próprio para o legado.
+7a. **O ator comunitário não é a própria linha autenticável da conta.** Comentários, votos,
+    denúncias e auditoria referenciam uma identidade comunitária opaca. Enquanto a conta está
+    ativa, um vínculo restrito liga esse ator ao usuário do SSO; a API pública nunca expõe esse
+    vínculo. Isso permite preservar conversa e score sem obrigar retenção nominal eterna.
+7b. **Pedido de exclusão neutraliza a pessoa e preserva a conversa.** Nome, e-mail, avatar,
+    refresh/cookies e identidade pública são eliminados ou revogados no pedido; endpoints
+    comunitários revalidam a conta e recusam imediatamente token antigo. Nos demais consumidores
+    SSO, access token já emitido respeita o SLA global existente de no máximo 15 minutos — não se
+    cria introspecção por request nesta fase. Comentários permanecem como
+    “Conta excluída”, e votos/score permanecem. Sem caso ou recurso ativo, o vínculo nominal é
+    desfeito irreversivelmente no mesmo ciclo. Havendo caso/recurso, somente a moderação mantém o
+    vínculo até seis meses após a decisão final; depois ele é desfeito. `legal_hold` explícito e
+    auditado suspende esse expurgo enquanto durar. Exclusão voluntária impede novo cadastro pela
+    mesma identidade Google por seis meses usando somente identificador técnico mínimo; sanção
+    mantém esse identificador enquanto a sanção durar. Esta regra **substitui a retenção nominal
+    permanente da decisão 15**, sem revogar a preservação/invalidação de votos da decisão 14.
+7c. **Contexto declarado da política:** controlador Paulo Henrique Mota Lima, representando o
+    grupo Artifício RPG; pessoa física; contato `artificiorpg@gmail.com`; projeto gratuito, sem
+    exploração econômica organizada, e mercado pretendido somente Brasil. Mudança de controlador,
+    monetização ou direcionamento a outro mercado exige revisar esta política antes do novo uso.
+7d. **Tratamento específico de idade não integra a Fase 2.** Decisão do mantenedor em 2026-08-04:
+    a fase será implementada integralmente em pré-lançamento; adequação específica ao ECA Digital
+    será tratada depois, antes do uso integral da comunidade, e não bloqueia implementação nem
+    validação técnica desta fase. Esta decisão registra diferimento explícito; não declara que a
+    adequação futura já existe.
+8. Comentário pode responder outro por **adjacency list com cinco níveis visuais**: raiz
+   `depth=0`, respostas até `depth=4`; `root_id`, `parent_id` e `depth` são estruturais, e
+   `root_id` nunca é aceito do cliente. Não há limite de respostas irmãs. Pai, assunto,
+   `realm`, `source_app`, estado e profundidade são validados **na mesma transação**.
+8a. **A leitura segue a árvore do Reddit, não lista plana.** No volume normal devolve a árvore
+    inteira. O hard cap defensivo é 1.000 comentários ou 2 MiB, o que ocorrer primeiro; só o
+    restante vira nós `more` com cursor próprio, sem produzir filho órfão.
+8b. **Voto e score fazem parte do comentário.** Só terceiro autenticado vota; autor não recebe
+    auto-upvote nem vota no próprio comentário. Cada conta mantém uma escolha ativa por
+    comentário (`-1`, `0`, `1`), com `0` removendo o voto. Mesmo estado é no-op; mudança real
+    atualiza voto, auditoria, contagens e ranking na mesma transação. Voto não gera notificação.
+8c. `score = upvotes - downvotes`. Os quatro sorts são: **Melhores** por limite inferior de
+    Wilson unilateral (`z=1.281551565545`, `algorithm_version='reddit-wilson-80-v1'`, padrão),
+    **Mais votados** por score, **Recentes** por data descendente e **Mais antigos** por data
+    ascendente. Ordenação ocorre entre irmãos; data e UUID desempatem. Contagens e score são
+    públicos imediatamente; `my_vote` aparece só autenticado; identidades de votantes ficam
+    restritas à moderação enquanto existir vínculo permitido por 7b, depois resta apenas o ator
+    opaco e o histórico do voto.
+8d. **Ranking é versionado por assunto.** Cada assunto mantém `ranking_revision`; comentário
+    registra `created_revision`; cada mudança real de voto cria versão de score sob lock curto.
+    Cursor opaco assinado fixa assunto, sort, `snapshot_revision`, ramo, chave de ordenação,
+    limite e expiração de 30 minutos. Navegação preserva posição naquela revisão; contagem e
+    voto pessoal podem refletir o estado atual. Histórico de score não é destruído nesta fase.
+8e. IDs públicos de comentário, evento e recibo usam UUID v4. `legacy_id` permanece separado.
+    Não introduzir UUID v7, ULID ou biblioteca nova.
+9. Os comentários legados do `site` — 25 medidos em produção em 2026-08-04, mas recontados como
+   `N_source` no cutover — são importados **imutáveis**: sem edição nem voto,
+   score `0`, autoria não verificada e marca visual de antigo/importado. **Podem receber resposta
+   nova** de conta autenticada; antigo descreve proveniência, não congela a conversa. Usam
+   `user_id` nulo, `legacy_author_name`, `legacy_source` e
+   `unique (legacy_source, legacy_id)` para importação idempotente. `site.comments` tem
+   `parent_id` sem FK (`apps/site/db/migrations/001_init.sql:66`): pais órfãos e ciclos são
+   detectados antes da cópia.
+10. **Comentário novo usa o pipeline Markdown compartilhado existente.** Backend aplica
+    `sanitizeUserMarkdown` de `@artificio/content-editor/sanitize`, persiste somente o Markdown
+    canônico em `body_markdown` e devolve Markdown, nunca HTML montado. Consumidores renderizam
+    por `MarkdownContent`/`renderMarkdown`; HTML bruto permanece desabilitado e a saída passa por
+    DOMPurify. Criação e edição validam entrada original e resultado canônico em até 10.000
+    caracteres, rejeitam excesso sem truncar e exigem conteúdo textual visível por
+    `markdownToPlainText`. O HTML legado continua em campo próprio, sanitizado uma vez na entrada
+    com política/versionamento e protegido de novo na saída sem regravar o banco.
+10a. **Links usam uma política única em `@artificio/content-editor`.** Links reconhecidos são
+     HTTPS-only; ausência de esquema canonicaliza para `https://`; `http:` e qualquer esquema
+     explícito diferente são recusados com `INVALID_COMMENT_LINK`. Host exato
+     `artificiorpg.com` ou subdomínio real abre na mesma aba; externo abre em nova aba. Todo link
+     recebe `rel="ugc nofollow"`; externo acrescenta `noopener noreferrer`. Caminho `/rota` é
+     resolvido contra a origem confiável do `source_app`; `//host`, `../` e relativo ambíguo são
+     rejeitados. Comparação é estrutural por `URL`, nunca por substring.
+10b. Imagem existe só como referência HTTPS clicável. `![alt](https://...)` vira link textual;
+     não há `<img>`, fetch automático, upload, Cloudinary, proxy, preview ou busca server-side.
+     Sintaxe Markdown incompleta que o CommonMark trata como texto continua texto. Não há
+     `@menções`: `@texto` não resolve conta nem cria destinatário.
 11. Comentário exibe o papel do autor quando aplicável — autor do conteúdo, moderador, admin —, sem rotular usuário comum. O papel global vem do `JOIN` com `accounts.users`; **"autor do conteúdo" vem do backend do domínio ou de capability assinada, nunca do payload público** — senão qualquer um se declara dono.
-12. Retirada é ação de moderador/admin; sem autoexclusão livre nem edição pelo autor (D111 item 6). **Por tombstone, não por exclusão de linha**: apagar quebraria os filhos e perderia o contexto. A resposta pública devolve o estado removido e `removed_at`, sem o corpo; `removed_by` e `removed_reason` ficam para a moderação.
-12a. **A API pública nasce paginada.** Cursor opaco, tamanho máximo e ordenação estável por `(created_at, id)`. Acrescentar paginação depois quebra contrato (AIP-158).
-12b. **Os rate limiters do `accounts.` são separados por natureza** antes de comentários serem expostos. Hoje um único limiter cobre a aplicação inteira em 200 requests/15 min (`app.ts:79`): tráfego de leitura de três catálogos consumiria a cota de `/login`, `/me` e `/refresh`, derrubando o login. Limiters distintos para autenticação, leitura pública e escrita; escrita por usuário e IP; leitura com cache.
-12c. **Comentário e evento de notificação nascem na mesma transação.** Dual write comum grava comentário sem notificação, ou notifica operação que foi revertida. Evento vindo de outro serviço, se houver, usa outbox transacional com consumidor idempotente.
+12. **Autor pode editar e retirar o próprio comentário.** Edição não tem prazo e altera apenas
+    `body_markdown`; cria versão, marca `edited_at`, preserva votos/ranking e não notifica.
+    Edição idêntica é no-op. Auto-retirada cria tombstone irreversível para o autor, preservando
+    posição e filhos. Só moderador/admin restaura. Esta regra substitui D111 item 6 e a antiga
+    proibição de autoedição/autoexclusão.
+12a. Moderador/admin retira ou restaura com motivo e auditoria, mas **nunca reescreve texto de
+     terceiro**. Tombstone e `pending_review_hidden` não expõem corpo nem score ao público;
+     posição e descendentes permanecem. Versões antigas e dados de ação ficam restritos à
+     moderação.
+12b. **Rate limiters são separados por ação e camada** antes da exposição: autenticação,
+     leitura, criação/resposta, edição, voto, denúncia e recurso têm buckets próprios. A fachada
+     aplica IP real validado e usuário; o `accounts.` aplica usuário e credencial de
+     `source_app`. Todos os buckets aplicáveis precisam permitir a operação; nenhum consome cota
+     de login, `/me` ou refresh. IP bruto não entra no schema comunitário nem é propagado ao
+     `accounts.` como dado do comentário; na fachada, a chave existe somente pelo TTL do bucket.
+     Valores são configuração operacional. A medição pelo Cloudflare/trusted proxy acontece antes
+     do uso integral da comunidade e calibra os números sem bloquear schema ou implementação; se
+     falhar, corrige-se o ingress, não o modelo comunitário. Erro 429 não revela qual bucket
+     disparou.
+12c. **Criação/resposta, evento e recibos nascem na mesma transação já na Fase 2.** Raiz
+     notifica publicador vinculado; resposta notifica autor do pai e publicador; destinatários
+     iguais deduplicam; ator e conta inválida são excluídos. Central, polling e API pública de
+     notificações continuam na Fase 3. Voto e edição não notificam.
+12d. **Denúncia de comentário pertence ao núcleo central.** Exige conta, terceiro e no máximo
+     uma denúncia ativa por conta/comentário. Cada denúncia fixa a versão imutável denunciada,
+     motivo, detalhe e ator privado do denunciante; a moderação resolve a conta somente enquanto
+     existir vínculo permitido por 7b e vê versão denunciada,
+     atual e diff. Um `moderation_case` aberto agrega as denúncias de um episódio; caso encerrado
+     não é reaberto por denúncia posterior.
+12e. Uma denúncia prioriza a fila, mas não oculta. Cinco contas válidas distintas com denúncias
+     ativas mudam atomicamente para `pending_review_hidden`; editar não republica. Denunciante
+     só retira antes desse limiar. Auto-retirada do autor preserva o caso e a evidência.
+12f. Cada denúncia termina em `upheld`, `dismissed`, `no_determination` ou `withdrawn`; o caso
+     aplica uma única ação `no_change`, `restore` ou `remove`. Fechamento exige veredito de todas
+     as denúncias aplicáveis e uma ação, na mesma transação e com um único vencedor concorrente.
+     Resultado privado e mínimo chega a denunciante e autor pelo núcleo de notificações.
+12g. Versão aprovada não reabre caso nem auto-hide por nova denúncia da mesma versão; denúncia é
+     auditada como `no_determination`. Moderador pode reabrir com motivo; edição cria versão nova
+     denunciável. Remoção moderadora admite um recurso do autor em até seis meses, uma vez por
+     decisão, sem restauração automática; o mesmo moderador pode rejulgar com nova justificativa.
+12h. O registro compartilhado de motivos declara código, rótulo, prioridade e política de
+     detalhe (`required|optional|forbidden`). Detalhe é texto puro, trim, máximo 4.000, imutável
+     e restrito à moderação. Prioridade ordena a fila, nunca decide culpa nem auto-hide.
+12i. Sanção comunitária é separada do SSO: escopos `posting` e `commenting`, com `warning`,
+     suspensão temporária ou permanente, sempre escolhidos por moderador e auditados. Login,
+     leitura e uso não comunitário continuam. Conta nova pode comentar e votar; entra na fila e
+     recebe limites mais apertados, sem peso secreto nem bloqueio automático.
+12j. Desativação comum preserva votos e score, bloqueando voto novo. Moderador pode invalidar
+     votos de conta abusiva, recalculando assuntos e revisões sem apagar histórico. Exclusão de
+     conta segue o ciclo do requisito 7b: identidade pública neutralizada imediatamente, vínculo
+     nominal temporário apenas para caso/recurso ou `legal_hold`, expurgo irreversível no prazo e
+     bloqueio mínimo de recadastro/sanção separado do ator comunitário. Não existe retenção nominal
+     permanente por simples pedido de exclusão.
 
 ### Notificações unificadas
 
@@ -107,12 +230,19 @@ coisas diferentes em cada módulo, e não haveria como autorizar uma tela centra
 ### Contrato e consumo
 
 21. `packages/comments` fornece cliente e UI; a persistência é do `accounts.`, não do pacote.
-21a. **O transporte é injetado, não embutido.** O pacote recebe um adapter (`listComments`, `createComment`, `reply`, `remove`, `listNotifications`, `markRead`) implementado pela fachada do módulo — chamada direta do navegador ao `accounts.` contradiria o requisito 6a e furaria a validação de assunto e ownership.
+21a. **O transporte é injetado, não embutido.** O adapter cobre leitura/criação/resposta,
+     edição, auto-retirada, voto, denúncia/retirada, recurso, moderação e notificações; cada
+     fachada implementa as capacidades autorizadas do domínio. Chamada direta do navegador ao
+     `accounts.` contradiria 6a e furaria validação de assunto/ownership.
 21b. **Exports separados:** `@artificio/comments` (tipos, schemas, cliente), `@artificio/comments/react` (hooks e componentes), `@artificio/comments/styles.css`. Backend e o Astro server-side do `site` não podem ser obrigados a importar React. `react` e `react-dom` são `peerDependencies`.
 21c. **TanStack Query não é obrigatório.** `downloads` e `mesas` o usam, o **`site` não** — o núcleo do cliente é agnóstico de framework, com adapter de React Query interno e opcional.
 21d. **Estilo por tokens, não por Tailwind compilado dentro do pacote.** O consumidor pode não escanear as classes do workspace, e elas sumiriam em produção. Tokens CSS do design system, slots e `className`; apps customizam tokens, não a estrutura semântica.
 22. Indisponibilidade do `accounts.` **degrada** a experiência, nunca derruba a página do módulo consumidor.
-22a. **A resposta carrega estado explícito — `fresh`, `stale` ou `unavailable`.** Falha **nunca** vira "nenhum comentário": exibir erro como lista vazia mente para o usuário. Havendo dado stale, mostrar a idade. Cache com TTL em memória não prova degradação — some ao recarregar a página.
+22a. **A resposta carrega estado explícito — `fresh`, `stale` ou `unavailable`.** Falha nunca
+     vira "nenhum comentário". `packages/comments` conserva como `stale`, com idade e aviso,
+     somente o último resultado da tela ainda montada. Recarregar, abrir outra página, logout ou
+     troca de conta descarta esse estado; durante queda, a área mostra `unavailable`. Não há
+     IndexedDB, localStorage, Redis nem cache público/Cloudflare nesta fase.
 22b. **A chave de cache inclui identidade quando o dado é privado** (`realm`, `source_app`, subject, usuário). Comentário privado e notificação são limpos no logout e na troca de conta; notificação nunca entra em cache público.
 22c. **Cliente com timeout e cancelamento**, no padrão já aprendido em `packages/catalog-client/src/index.ts:35` — `fetch` sem timeout pendura a rota do backend consumidor (achado de review, PR #145). Hooks consomem `AbortSignal`.
 22d. **Degradação vale para resposta inválida, não só conexão recusada:** timeout, 500, HTML no lugar de JSON, JSON malformado e schema incompatível. O último é a regra pétrea de normalização — payload externo é `unknown` até passar por normalizador tipado.
@@ -148,7 +278,7 @@ promovidos implicitamente a papel global.
 
 | Capacidade | `admin` | `moderator` | `user` / papel local | `downloads` | `site` | `mesas` | `glossario` |
 |---|---|---|---|---|---|---|---|
-| retirar comentário público | sim | sim | não; autor não autoexclui | herdada | herdada na adoção | herdada na adoção | herdada para comentário público |
+| retirar comentário público | sim | sim | autor auto-retira só o próprio; demais usuários não | herdada | herdada na adoção | herdada na adoção | herdada para comentário público |
 | moderar material | sim | sim | criador só gerencia o próprio material | herdada | não se aplica | não se aplica | não se aplica |
 | tratar denúncia | sim | sim | pode denunciar | herdada | não herda administração editorial | não herda administração de mesa | não herda administração de feedback |
 | ler métricas de moderação | sim | sim | não | herdada | não | não | não |
@@ -236,19 +366,21 @@ de serviço retorna 401; escopo incompatível retorna 403.
 - Chave: `(realm, source_app, subject_type, subject_id)`, com `realm in ('beta','prod')`,
   `source_app in ('downloads','site','mesas')`, `subject_type` namespaced e `subject_id` textual.
 - Limites: `source_app` 32, `subject_type` 64, `subject_id` 255, `canonical_path` 1024,
-  `body_text` 2.000, `removed_reason` 500 e chave de idempotência 8–128 caracteres ASCII.
+  `body_markdown` 10.000, detalhe de denúncia 4.000, `removed_reason` 500 e chave de
+  idempotência 8–128 caracteres ASCII.
 - `canonical_path` começa por `/`, não contém scheme, host, barra invertida nem credencial. A
   origem é resolvida no servidor por `(realm, source_app)` allowlisted.
-- Comentário novo usa `body_text` texto puro, após trim, entre 1 e 2.000 caracteres. HTML novo
-  é rejeitado como tipo de campo, não interpretado. Legado usa `legacy_content_html` separado,
-  política de sanitização versionada e defesa adicional na saída sem regravar.
-- Raiz tem `depth=0`; respostas têm `1` ou `2`. Pai, assunto, realm, app, estado e legado são
-  validados na mesma transação. `depth>2` retorna 422.
+- Comentário novo usa `body_markdown` canônico pelo perfil compartilhado de comentários;
+  entrada e saída canônica respeitam 10.000 caracteres e precisam produzir texto visível.
+  Legado usa `legacy_content_html` separado, política de sanitização versionada e defesa
+  adicional na saída sem regravar.
+- Raiz tem `depth=0`; respostas vão até `depth=4`. Pai, assunto, realm, app e estado são
+  validados na mesma transação. Legado pode ser pai, mas não pode ser editado nem votado.
 - Alvo removido bloqueia escrita na fachada e preserva leitura autorizada. Mudança de slug não
   altera identidade: backend envia caminho atual nas novas operações e mantém redirect do
   caminho anterior. Eventos históricos permanecem imutáveis.
-- Comentário e tombstone são retidos sem prazo nesta spec. Exclusão física exige decisão,
-  migration e backup próprios.
+- Comentário e tombstone são retidos sem prazo nesta spec. Isso não prolonga o vínculo nominal,
+  que segue 7b. Exclusão física do conteúdo exige decisão, migration e backup próprios.
 
 ### Contrato HTTP v1
 
@@ -257,10 +389,12 @@ módulos preservam seus contratos públicos atuais.
 
 | Método e rota | Contrato |
 |---|---|
-| `GET /internal/v1/comments` | lista por chave opaca; cursor; `limit` padrão 20, máximo 100 |
+| `GET /internal/v1/comments` | árvore por chave opaca e sort; cap 1.000/2 MiB; `more` com cursor da revisão |
 | `POST /internal/v1/comments` | cria raiz; exige `Idempotency-Key`; ator vem do backend |
 | `POST /internal/v1/comments/:id/replies` | cria resposta na mesma transação do evento e recibos |
+| `PUT /internal/v1/comments/:id/vote` | estado absoluto `-1\|0\|1`; mesmo estado é no-op; terceiro autenticado |
 | `POST /internal/v1/comments/:id/removal` | tombstone; exige `admin`/`moderator` central comprovado |
+| `DELETE /api/account` | rota existente; confirmação atual permanece; aplica exclusão, retenção, bloqueio de recadastro e aviso de 7b–7c; sucesso continua `204` |
 | `GET /api/v1/notifications` | lista recibos do usuário da sessão; cursor; padrão 20, máximo 100 |
 | `GET /api/v1/notifications/unread-count` | contagem da sessão |
 | `PUT /api/v1/notifications/:id/read` | idempotente; 404 uniforme para ID alheio/inexistente |
@@ -268,6 +402,11 @@ módulos preservam seus contratos públicos atuais.
 | `POST /internal/v1/comments/:id/restore` | desfaz tombstone; exige `admin`/`moderator`; registra quem restaurou |
 | `GET /internal/v1/comments/moderation-queue` | fila de moderação; filtro por `realm`, `source_app`, estado; cursor |
 | `GET /internal/v1/comments/moderation-log` | histórico de ações de moderação; cursor |
+
+O contrato v1 também precisa expor, no mesmo namespace interno e antes de implementação,
+edição/auto-retirada pelo autor, denúncia e retirada permitida, decisão de caso, aprovação e
+reabertura de versão, recurso, sanção e invalidação de voto abusivo. Esses fluxos obedecem aos
+estados e invariantes 12d–12j; não podem nascer como endpoints locais divergentes por app.
 
 ### 27. Superfície de moderação no front (requisito novo, 2026-07-30)
 
@@ -332,24 +471,27 @@ destrutiva ou em lote, via `ConfirmDialog` de `packages/ui`), e reversibilidade
 como saída de emergência (27d). Ação em lote sem confirmação sobre conteúdo de
 usuário é exatamente o caso que a heurística 5 existe para impedir.
 
-Comentários ordenam por `(created_at, id)` ascendente; notificações, descendente. Cursor é opaco,
-assinado e contém os dois campos da ordenação; cursor de outra consulta retorna 400. Escritas
-exigem `Idempotency-Key`; repetição com mesmo payload devolve a resposta original, payload
-diferente retorna 409, retenção da chave é 24 horas.
+Comentários formam árvore ordenada entre irmãos por `best`, `top`, `new` ou `old`; `best` é o
+padrão. Cursor opaco assinado fixa assunto, sort, `snapshot_revision`, ramo, chave de ordenação,
+limite e validade de 30 minutos; cursor de outra consulta retorna 400. Criação/resposta e demais
+escritas não idempotentes exigem `Idempotency-Key`; voto usa estado absoluto e retry idêntico é
+no-op, sem chave. Repetição com mesmo payload devolve a resposta original; payload diferente
+retorna 409; retenção da chave é 24 horas.
 
 Códigos: 400 contrato/cursor, 401 sessão ou serviço ausente, 403 escopo/papel, 404 alvo ou recibo
 inexistente (uniforme), 409 idempotência ou estado concorrente, 422 thread/corpo, 429 limite e
 503 dependência indisponível. Respostas usam `{ error: { code, correlation_id } }`, sem detalhe
 de existência ou autorização.
 
-Cache: notificações e escritas são `private, no-store`; leitura interna de comentários admite
-ETag e cache privado de 30 segundos na fachada. Cache stale persistente da fachada inclui realm,
-app, assunto e identidade quando privada; logout/troca de conta limpa dado privado. Estado de
-resposta é `fresh`, `stale` com idade, ou `unavailable`, nunca lista vazia inventada.
+Cache: notificações e escritas são `private, no-store`; leitura interna admite ETag sem cache
+persistente de UGC. `fresh`/`stale` existe somente no estado da tela montada; reload/logout/troca
+de conta descarta. Não há IndexedDB, localStorage, Redis nem edge cache nesta fase.
 
-Rate limiting separado: autenticação mantém 200 requests/15 min/IP; leitura de comentários,
-300/min/IP; escrita, 20/15 min/usuário e 60/15 min/IP; API interna, 300/min/credencial;
-notificações, 120/min/usuário. Limite excedido nunca consome cota de autenticação.
+Rate limiting separado: autenticação, leitura, criação/resposta, edição, voto, denúncia e recurso
+usam buckets independentes. Fachada chaveia por IP real validado e usuário; `accounts.` por usuário
+e credencial do app. IP bruto não é coluna, payload nem auditoria do domínio comunitário; sua chave
+efêmera some com o TTL do limiter na fachada. Valores são configuração calibrada depois da medição
+do proxy, sem bloquear a implementação; comentário nunca consome cota de autenticação.
 
 ### Evento e recibo
 
@@ -487,10 +629,24 @@ ficha de material) e **não dependem** do `accounts.`, de `packages/comments` ne
 - A central mostra eventos dos três módulos juntos, e cada um leva de volta ao contexto certo.
 - Moderador global modera comentário dos três módulos, sem precisar de papel por app.
 - Quem é admin/moderador hoje continua sendo após a migração, sem intervenção manual.
-- Os 25 legados do `site` aparecem, marcados como legado, sem permitir resposta.
+- Todos os `N_source` legados do `site`, recontados no cutover, aparecem marcados como
+  antigos/importados, sem edição nem voto, mas aceitam resposta nova autenticada.
 - Com o `accounts.` indisponível, a página do módulo carrega com aviso — não quebra.
-- Payload hostil é neutralizado: comentário novo é texto puro (nada a sanitizar), e o HTML legado passa por sanitização única na entrada, testada contra script, links, SVG/MathML e atributos.
-- Resposta além do limite de profundidade é rejeitada, com teste — assim como resposta a pai em outro assunto, em outro `realm`, ou a comentário legado.
+- Payload hostil é neutralizado: comentário novo passa pelo perfil Markdown compartilhado,
+  recusa link inválido e nunca renderiza HTML/imagem remota; HTML legado passa por sanitização
+  única na entrada, testada contra script, links, SVG/MathML e atributos.
+- Resposta além de `depth=4` é rejeitada, assim como pai em outro assunto ou `realm`; resposta a
+  legado é aceita e recebe profundidade correta.
+- Os quatro sorts preservam hierarquia; navegação com `more` na mesma revisão não duplica, perde
+  nem orfana comentário; cursor expira em 30 minutos.
+- Autor não vota no próprio comentário; terceiro troca/remove voto sem duplicar efeito; Wilson
+  vem da função PostgreSQL versionada e bate com vetores de referência.
+- Autor edita e auto-retira; edição preserva votos; tombstone preserva filhos; somente moderação
+  restaura e ninguém da moderação reescreve a fala alheia.
+- Quatro denúncias não ocultam; a quinta conta distinta oculta sem quebrar a árvore. Decisão
+  concorrente de caso tem um vencedor, auditoria e notificações mínimas aos dois lados.
+- Versão aprovada resiste a nova brigada; edição cria versão denunciável; recurso do autor respeita
+  a janela de seis meses; sanção comunitária não bloqueia login nem uso não comunitário.
 - **Papel revogado no banco deixa de valer na sessão ativa dentro do SLA declarado**, provado por teste de promoção e de revogação. Sem isso o `accounts.` não é fonte de verdade.
 - **Ação moderadora com o `accounts.` indisponível falha fechada**, enquanto a leitura pública de comentário continua servindo.
 - **Dono forjado no payload é ignorado**: o badge de autor sai do que o backend do domínio afirma, não do que o cliente envia.
@@ -498,7 +654,15 @@ ficha de material) e **não dependem** do `accounts.`, de `packages/comments` ne
 - **Comentário criado em beta não aparece em prod**, e o mesmo `subject_id` em apps diferentes não colide.
 - **Paginação não duplica nem perde item** entre páginas, sob inserção concorrente.
 - **Carga de leitura de comentário não consome a cota de autenticação** — limiters separados, provado por teste.
-- **Remoção de comentário preserva os filhos**; usuário removendo o próprio comentário recebe 403.
+- **Auto-retirada preserva os filhos** e é irreversível para o autor; terceiro recebe 403; somente
+  moderação restaura com auditoria.
+- **Exclusão de conta preserva conversa e score sem PII eterna:** perfil vira “Conta excluída”,
+  vínculo sem caso some no mesmo ciclo, vínculo de caso/recurso expira seis meses após decisão
+  final, `legal_hold` suspende, e o executor remove vencidos. Recadastro voluntário é bloqueado por
+  seis meses; sanção mantém somente identificador mínimo enquanto durar.
+- **IP não entra no domínio comunitário:** nenhum schema/payload/auditoria guarda IP; a fachada usa
+  chave efêmera pelo TTL, e `accounts.` limita por usuário+credencial. Smoke mascarado prova o IP
+  real do ingress antes do uso integral.
 - **Nenhum comentário legado órfão ou em ciclo é copiado silenciosamente** — detectados antes da cópia.
 - **Smoke de SSO completo:** login, `/me`, logout funcionando em todos os consumidores após a mudança no `accounts.`
 
@@ -531,10 +695,20 @@ ficha de material) e **não dependem** do `accounts.`, de `packages/comments` ne
 
 - **E-mail e push** como canais de notificação (decisão do mantenedor: in-app apenas). `packages/email` existe e pode ser ligado depois.
 - **Migrar o campo `comment` do review de mestre** (`mesas`) — é parte da avaliação, não comentário.
-- **Reações, curtidas ou votos** em comentário.
+- **Reações/curtidas além do voto ternário** definido em 8b.
+- `Hot`, controversos, random, Q&A e live; os quatro sorts aceitos estão em 8c.
+- Upload, hospedagem, proxy ou preview automático de imagem em comentário.
+- `@menções` e resolução de conta por nome/e-mail.
 - **Comentário anônimo novo** — legado é read-only; escrita exige SSO.
 - **Página pública de perfil.**
-- **Notificação de eventos que não sejam de comentário** (ex.: moderação, publicação) — o desenho deve permitir, mas esta spec entrega só comentário. **Não confundir com o histórico existente:** as notificações que o `downloads` já tem — aprovação, rejeição e denúncia resolvida (`migration_018_download_notification.sql:5`) — **migram como legado read-only** (decisão do mantenedor, 2026-07-27), para o histórico não se perder. Elas não viram `kind` oficial do registro de eventos, e nada é gerado nesses tipos daqui em diante. A 1ª revisão do Codex apontou a contradição entre esta linha e a T5.2, que mandava migrar tudo; a decisão acima resolve as duas.
+- **Aferição de idade e adequação específica ao ECA Digital.** Decisão do mantenedor em 2026-08-04:
+  trabalho posterior, antes do uso integral da comunidade; não bloqueia a implementação completa da
+  Fase 2 em pré-lançamento e não deve ser apresentado como já entregue.
+- **Eventos de domínio não ligados ao ciclo do comentário** (ex.: publicação de material). A
+  Fase 2 gera os eventos necessários para criação/resposta, auto-hide, remoção/restauração,
+  decisão de denúncia e recurso. **Não confundir com o histórico existente:** notificações do
+  `downloads` sobre aprovação, rejeição e denúncia de material migram como legado read-only, sem
+  virar `kind` ativo do registro central.
 
 ## Riscos e impacto em outros módulos
 
@@ -545,12 +719,12 @@ ficha de material) e **não dependem** do `accounts.`, de `packages/comments` ne
 - **Ponto único de falha novo.** Hoje uma queda do `accounts.` impede login; depois desta spec,
   também deixa os três módulos sem comentários e sem notificações. Daí o requisito 22:
   degradar com aviso, nunca quebrar a página.
-- **Migração de papéis é irreversível na prática.** Se o papel global sair dos apps e a
-  migração estiver errada, alguém perde acesso de moderação em produção. Exige mapa
-  antes-e-depois conferido, e rollback testado.
-- **Dado real em dois módulos.** `downloads` tem comentários e notificações em beta; `site` tem
-  25 comentários em beta e **provavelmente em produção** — confirmar antes de qualquer
-  migration, com `pg_dump`.
+- **Papel global centraliza o blast radius.** Papel errado no `accounts.` tira acesso de
+  moderação em todos os projetos. Bootstrap, painel auditado, refresh reidratado e rollback de
+  papel precisam continuar comprovados; não existe fallback local.
+- **Dado real medido.** `downloads` tinha zero comentários/notificações em beta e prod na medição
+  de 2026-08-04; `site` tinha 25 comentários em produção. Ambos são remedidos e recebem `pg_dump`
+  antes do cutover; contagem histórica não é autorização para pular guarda.
 - **Dado cruza fronteira de banco.** Comentário sai do banco do app e vai para o do `accounts.`
   Isso inverte a regra de isolamento do monorepo — deliberadamente, para viabilizar agregação —
   mas significa que o `accounts.` passa a guardar conteúdo de usuário, não só identidade.
