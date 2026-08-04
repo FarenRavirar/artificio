@@ -8,14 +8,20 @@ notificações e papéis**. Os módulos consomem por API; nenhum toca o banco do
 ```
 apps/accounts (dono)
 ├── papéis globais      — admin | moderator | user
-├── comentários         — subject_type + subject_id opacos, parent_id, autoria SSO
-└── notificações        — agregadas de todos os módulos, com link de volta
+├── comentários         — árvore, versões Markdown, tombstone, autoria SSO
+├── votos e ranking     — estado ternário, score/Wilson versionado por assunto
+├── moderação           — denúncias, casos, recursos, sanções e auditoria
+└── notificações        — evento/recibo transacional e link de volta
 
 packages/comments (cliente + UI)
-├── client   — chamadas à API do accounts., cache, degradação
-├── ui       — lista, formulário, thread, central de notificações
+├── client   — adapter injetável das fachadas, estado em memória, degradação
+├── ui       — árvore, editor, votos, sorts, denúncia, central de notificações
 └── moderation — fila, ação em lote, restauração, histórico (requisito 27)
 ```
+
+`@artificio/content-editor` continua dono do pipeline Markdown. A Fase 2 acrescenta nele um
+perfil compartilhado de comentário; não cria parser/sanitizador/renderizador dentro de
+`packages/comments` nem implementação por app.
 
 A superfície de moderação reusa `packages/ui/src/admin` (`AdminTable`,
 `bulkActions`, `StatusPill`, `AdminWorkspaceLayout`) e o padrão de dados de
@@ -109,6 +115,121 @@ Regras de geração:
 O dono do conteúdo é informado pelo app ao comentar — o `accounts.` não sabe quem é dono de um
 material.
 
+**Sequência reconciliada da Fase 2:** o schema `notification_event`/
+`notification_receipt` e a geração atômica dos eventos de criação/resposta entram junto do
+comentário. A Fase 3 não recria tabela nem refaz essa transação: acrescenta API pública, central,
+polling e eventos externos/outbox. Voto e edição não produzem notificação. Auto-hide,
+remoção/restauração, decisão de denúncia e recurso usam o mesmo núcleo para avisos privados e
+mínimos definidos na spec.
+
+### Árvore, voto e ranking (requisitos 8-12)
+
+- `comment` usa UUID v4, `parent_id`, `root_id`, `depth<=4`, `created_revision` e estado de
+  visibilidade. `comment_versions` guarda cada `body_markdown` válido.
+- Legado mantém identidade separada, score zero, sem edição/voto, mas pode ser pai de resposta
+  nova; a árvore não cria seção paralela para ele.
+- No volume normal, uma leitura monta a árvore inteira. O teto 1.000 comentários/2 MiB produz
+  nós `more` por ramo, nunca lista plana nem filho órfão.
+- Um registro por assunto mantém `ranking_revision`. Voto real serializa atualização curta,
+  grava estado atual em `comment_vote` e abre nova faixa em `comment_score_version`.
+- PostgreSQL calcula `score` como coluna gerada e `best_score` pela função imutável
+  `comment_wilson_reddit_80_v1` em `numeric`. TypeScript orquestra; não duplica a fórmula.
+- Cursor stateless assinado fixa assunto, sort, revisão, ramo, sort-key, limite e expiração de
+  30 minutos. Posição permanece na revisão; contagens e `my_vote` podem ser atuais.
+- Ordenação ocorre só entre irmãos: `best` (padrão/Wilson), `top`, `new`, `old`.
+- Voto usa `PUT` de estado absoluto `-1|0|1`; mesmo valor é no-op e última transação vence. Autor
+  não vota no próprio comentário; conta nova tem mesmo peso; voto nunca gera recibo.
+
+### Edição, retirada e identidade
+
+Autor altera somente `body_markdown`, sem prazo. Edição idêntica é no-op; edição real cria versão,
+marca `edited_at` e preserva voto/ranking. Auto-retirada cria tombstone irreversível pelo autor;
+moderador pode restaurar, mas nunca editar fala alheia. Público vê versão atual, marcador de edição
+e placeholders; moderação vê histórico. Invalidação de votos por abuso recalcula os assuntos sob
+nova `ranking_revision`, sem apagar o histórico bruto.
+
+O schema separa `community_actor` da linha autenticável de `users`. Comentário, voto, denúncia,
+versão e auditoria apontam para `community_actor.id`; uma relação restrita e eliminável liga o ator
+ao `users.id` enquanto necessária. Assim, exclusão não quebra FKs nem apaga conversa/score:
+
+- nome, e-mail, avatar, refresh/cookies e identidade pública são eliminados/revogados no pedido, e
+  o ator público vira “Conta excluída”. Rotas comunitárias revalidam a conta e recusam access token
+  antigo imediatamente; outros consumidores mantêm o SLA SSO existente de até 15 minutos, sem
+  introspecção global nova;
+- sem caso/recurso ativo, a ligação ator→conta é removida irreversivelmente no mesmo ciclo;
+- com caso/recurso, a ligação recebe `retention_until = decisão final + 6 meses`; `legal_hold`
+  auditado impede a limpeza até ser liberado;
+- um executor idempotente remove ligações vencidas; leitura/moderação também trata ligação vencida
+  como inexistente, fechando vazamento mesmo antes da próxima execução;
+- um fingerprint com HMAC-SHA-256 do identificador Google, finalidade e versão de chave impede
+  recadastro voluntário por seis meses. Ele não aparece em API/log. Sanção reutiliza o mecanismo
+  enquanto durar; ao acabar a última finalidade, a linha é removida;
+- reingresso depois dos seis meses cria novo ator. O voto antigo continua no score, mas não volta a
+  ser nominalmente atribuível à nova conta — trade-off aceito ao rejeitar retenção permanente.
+
+O segredo do HMAC é configuração do `accounts.`, nunca versionado; `key_version` permite rotação
+sem misturar fingerprints. Rotação preserva versões ainda necessárias até seus bloqueios vencerem.
+O aviso de privacidade e a confirmação de exclusão exibem controlador, contato, efeitos, prazos e
+exceções antes da confirmação. Controlador declarado: Paulo Henrique Mota Lima, representando o
+grupo Artifício RPG, pessoa física; contato `artificiorpg@gmail.com`; operação gratuita e dirigida
+ao Brasil.
+
+### Markdown e links de comentário
+
+Na escrita, `accounts.` chama `sanitizeUserMarkdown`; o banco guarda `body_markdown` canônico.
+Entrada original e saída canônica têm teto 10.000 e precisam produzir texto visível. Na leitura,
+consumidores usam `MarkdownContent`/`renderMarkdown`; HTML bruto fica desabilitado e DOMPurify é
+defesa final. HTML legado permanece em campo próprio, sanitizado uma vez na importação.
+
+O perfil de comentário no `@artificio/content-editor` transforma imagem Markdown em link textual
+HTTPS, sem `<img>` nem fetch. Link reconhecido é HTTPS-only; sem esquema canonicaliza;
+`http:`/outro esquema/URL ambígua falha com `INVALID_COMMENT_LINK`. Host da suíte é comparado por
+`URL`; externo abre com `ugc nofollow noopener noreferrer`; root-relative resolve contra origem
+confiável do app. Cliente e backend usam a mesma política, mas backend continua autoridade.
+`@texto` continua literal: sem handle público único, não existe resolução de menção nem destinatário
+novo nesta fase.
+
+### Denúncia, caso e sanção
+
+`comment_reports` guarda evidência individual ligada à versão denunciada; `moderation_case` é a unidade
+episódica de trabalho, com no máximo um caso aberto por comentário. Registro compartilhado define
+motivos, prioridade e `details=required|optional|forbidden`; detalhe é texto puro imutável, até
+4.000, restrito à moderação. A quinta conta distinta oculta temporariamente sob lock; edição ou
+auto-retirada não apaga o caso/evidência.
+
+Fechamento grava veredito por denúncia e uma ação por caso na mesma transação. Uma versão aprovada
+fica imune a reabertura automática; edição gera versão nova. Recurso do autor referencia decisão e
+versão, uma vez em seis meses; o mesmo moderador pode rejulgar com justificativa. Restrições
+`posting`/`commenting` são comunitárias e auditadas, sem bloquear SSO. A ligação nominal temporária
+segue o ciclo acima; conteúdo, ator opaco e histórico de score sobrevivem sem manter PII ou vínculo
+identificável depois do prazo.
+
+Transição terminal usa lock/condição no banco: um moderador vence, o segundo recebe conflito. Estado,
+auditoria e notificações mínimas persistem na mesma transação; nunca `console.log` como trilha. Cada
+denunciante recebe só o resultado próprio; autor recebe auto-hide e remoção/restauração, sem nota
+interna nem identidade de terceiro.
+
+### Antiabuso e rate limiting
+
+A fachada conhece o IP real do usuário e aplica buckets separados por IP e usuário. O `accounts.`
+recebe tráfego backend-to-backend e aplica por usuário e credencial do `source_app`. Leitura,
+criação/resposta, edição, voto, denúncia e recurso não compartilham orçamento, e nenhum usa a cota
+de autenticação. Todos os buckets aplicáveis precisam liberar; não há chave composta IP+usuário.
+IP bruto não atravessa a API interna nem entra em tabela/auditoria comunitária; a fachada conserva a
+chave somente durante o TTL do bucket. O contrato de ingress existente continua: medir o endereço
+que atravessa Cloudflare/trusted proxy antes do uso integral e calibrar configuração. A medição não
+trava schema nem handlers; falha interrompe somente a ativação do limiter por IP e vira correção do
+ingress, sem alterar o modelo do `accounts.`. Conta nova pode agir com mesmo peso, mas entra na fila
+e recebe limite de escrita mais estreito.
+
+### Pré-lançamento e adequação de idade
+
+A Fase 2 implementa integralmente schema, API, moderação e interfaces em pré-lançamento. Por decisão
+do mantenedor em 2026-08-04, aferição de idade e adequação específica ao ECA Digital não entram no
+desenho nem nos critérios de aceite desta fase; serão trabalho posterior antes do uso integral da
+comunidade. Não adicionar data de nascimento, consentimento parental ou provedor de aferição ao
+`accounts.` nesta fase — isso evitaria fingir uma solução jurídica parcial e retrabalho no SSO.
+
 ### Degradação (requisito 22)
 
 A trava mais importante do desenho. Hoje uma queda do `accounts.` impede login; depois desta
@@ -117,7 +238,9 @@ spec, também afeta comentários e notificações dos três módulos.
 - Listagem de comentários indisponível → a página do módulo carrega, com aviso claro na área de
   comentários
 - Central de notificações indisponível → o resto da navegação funciona
-- Cache com TTL curto reduz a janela, no padrão que `catalogClient` já usa (60s)
+- Enquanto a tela está montada, a última leitura bem-sucedida pode permanecer `stale`, com idade
+  e aviso. Reload, nova página, logout e troca de conta descartam. Sem cache persistente, Redis ou
+  edge nesta fase
 
 Nunca propagar erro do `accounts.` como erro da página.
 
@@ -126,11 +249,13 @@ Nunca propagar erro do `accounts.` como erro da página.
 | Caminho | Natureza |
 |---|---|
 | `apps/accounts/**` | **dono** — papéis, comentários, notificações, API. Sagrado: aprovação + SDD Completo + smoke de todos os consumidores SSO |
-| `apps/accounts/database/*.sql` | migrations de papel, comentário e notificação. **Não existe hoje:** o `accounts.` migra schema **inline no boot** (`src/db.ts:35`, chamado pelo `Dockerfile:26`), sem runner SQL ativo. Decisão do mantenedor (2026-07-27): adotar o framework padrão, com o `migrate()` atual virando baseline marcada como aplicada — T0.12 fecha ordem, coexistência e drift check antes da T1.1 |
+| `apps/accounts/database/*.sql` | framework padrão já adotado na Fase 1; a Fase 2 acrescenta uma migration coesa de comentário/versão, voto/ranking, evento/recibo, denúncia/caso, auditoria e restrição comunitária |
 | `apps/accounts/src/app.ts` | reler o usuário no banco em `/api/auth/refresh` (`:162`, hoje reassina do token — papel revogado sobrevive 7 dias renováveis); separar os rate limiters (`:79`, hoje 200 req/15 min para a aplicação inteira) |
+| `apps/accounts` — conta/privacidade | ator comunitário separado, exclusão de PII/sessões, vínculo temporário, fingerprint de recadastro/sanção, executor de expurgo e aviso ao titular |
 | `apps/accounts/src/tokens.ts` | `verifyRefreshToken` (`:42-44`) rejeita qualquer papel fora de `user`/`admin` — sessão de moderator morreria no primeiro refresh |
 | `packages/auth/src/{types,jwt,client}.ts` | **sagrado, aprovação nominal própria**: `UserRole` é `"user" \| "admin"` (`types.ts:1`); criar `moderator` toca o tipo, o decoder (`jwt.ts:4`) e o cliente (`client.ts:81`) |
 | `packages/comments/**` | pacote novo — cliente e UI |
+| `packages/content-editor/**` | perfil compartilhado de comentário: Markdown canônico, links HTTPS-only e imagem como referência; mudança em pacote compartilhado exige aprovação e teste dos consumidores |
 | `apps/downloads/backend/src/routes/comments.ts` | passa a delegar ao `accounts.` |
 | `apps/downloads/backend/src/routes/notifications.ts` | idem |
 | `apps/downloads/database/migration_*.sql` | **marca cutover e estado apenas — não transfere dado.** SQL do módulo não escreve no banco do `accounts.` (requisito 23). A transferência é export read-only aqui + importador one-shot do lado do `accounts.` |
@@ -152,9 +277,10 @@ Nunca propagar erro do `accounts.` como erro da página.
 - **Auth/accounts:** tocado profundamente. Papel global, comentários e notificações passam a
   viver lá. **Exige aprovação + SDD Completo + smoke de todos os apps que consomem SSO**
   (`AGENTS.md`). Auth é sagrado: nunca quebrar a sessão compartilhada.
-- **Schema:** migrations no `accounts.` (3 domínios novos) e nos apps (remoção/migração do que
-  sai). O `site` usa framework próprio (`db/migrations/`, `NNN_*.sql`), não o runner do
-  monorepo.
+- **Schema:** uma migration coesa da Fase 2 cria comentário/versão, voto/ranking,
+  evento/recibo, denúncia/caso, auditoria e restrições comunitárias. Tasks separam assuntos de
+  revisão, não arquivos; o `AGENTS.md` proíbe fatiar schema interdependente no mesmo diff. O
+  `site` usa framework próprio (`db/migrations/`, `NNN_*.sql`), não o runner do monorepo.
 - **API:** rotas novas no `accounts.`; `downloads` mantém os paths atuais, delegando por trás.
   `pnpm verify:api` obrigatório.
 
@@ -162,8 +288,10 @@ Nunca propagar erro do `accounts.` como erro da página.
 
 - **Todos os apps com SSO**, não só os três. Mudança no `accounts.` afeta quem consome sessão —
   o smoke precisa cobrir todos, não apenas os que ganharão comentários.
-- **`downloads`** tem comentários e notificações em beta a migrar.
-- **`site`** tem 25 comentários em beta e **provavelmente em produção** — o dado mais delicado.
+- **`downloads`** tinha zero comentários/notificações em beta e prod na medição de 2026-08-04;
+  precisa remedição e guarda de conjunto vazio antes do cutover.
+- **`site`** tinha 25 comentários em produção na medição de 2026-08-04; usa `N_source` recontado
+  no import — o dado mais delicado.
 - **`mesas`** não tem nada a preservar, mas ganha superfície pública nova.
 - **Papéis:** todo app que hoje decide autorização por papel local precisa passar a ler do
   `accounts.` — mapear os consumidores antes de mudar.
@@ -183,16 +311,23 @@ Nunca propagar erro do `accounts.` como erro da página.
 
 ## Validação (como provo que funciona)
 
-1. Testes do `accounts.`: papéis, threads, limite de profundidade, sanitização, geração de
-   notificação, regra de não notificar o próprio ator.
-2. Testes do pacote: cliente, cache, **degradação com o `accounts.` fora**.
+1. Testes do `accounts.`: árvore até `depth=4`, cap/`more`, versões, tombstones, votos, função
+   Wilson PostgreSQL, cursores por revisão, denúncia/caso sob concorrência, recurso, sanção e
+   geração transacional de recibos; mais exclusão sem caso, retenção com caso/recurso, `legal_hold`,
+   expurgo vencido, recadastro antes/depois de seis meses e sanção ativa.
+2. Testes dos pacotes: Markdown/link/imagem, editor, quatro sorts, voto, denúncia, estado em
+   memória e **degradação com o `accounts.` fora**.
 3. Testes por app: rota responde, comentário persiste com autoria correta, legado legível.
 4. **Smoke de SSO em todos os consumidores** — login, `/me`, logout. Obrigatório: o `accounts.`
    foi tocado.
-5. Mapa de papéis antes-e-depois, provando o requisito 4.
+5. Prova de que papel global nasce somente no `accounts.`, ausência vira `user` e nenhum app
+   mantém fallback local, cumprindo o requisito 4.
 6. `rtk pnpm run lint`, `rtk pnpm run build`, `rtk pnpm run test`, `rtk pnpm verify:api`.
 7. Smoke em beta nos três módulos: comentar, responder, receber notificação **de outro
    módulo**, moderar.
+8. Smoke do ingress: requisição controlada atravessa Cloudflare/trusted proxy, a fachada distingue
+   IPs clientes e cabeçalho forjado não vence a cadeia confiável. Resultado calibra configuração;
+   IP não aparece no payload interno nem no banco comunitário.
 
 O passo 7 é o que prova a agregação — a razão de ser desta spec. Comentar no `downloads` e ver
 a notificação na mesma central que mostra evento do `site` é o critério que nenhum desenho com
