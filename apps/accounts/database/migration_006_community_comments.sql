@@ -78,7 +78,14 @@ CREATE TABLE IF NOT EXISTS community_actor_link_audit (
     'legal_hold_released',
     'unlinked'
   )),
-  performed_by_actor_id UUID REFERENCES community_actor(id) ON DELETE SET NULL,
+  -- NO ACTION, nunca SET NULL: esta tabela e append-only por trigger, entao um
+  -- SET NULL disparado por DELETE de ator falharia com "append-only" no meio da
+  -- cascata (achado de review da PR #241, reproduzido em Postgres real). O
+  -- expurgo do requisito 7b desfaz o VINCULO ator->conta
+  -- (community_actor_account_link), nao o `community_actor` opaco, que persiste
+  -- para manter comentario e voto. Deletar ator com auditoria e erro de uso e
+  -- deve falhar cedo e explicito, nao ser mascarado como anonimizacao.
+  performed_by_actor_id UUID REFERENCES community_actor(id),
   reason TEXT NOT NULL CHECK (LENGTH(BTRIM(reason)) > 0),
   retention_until TIMESTAMPTZ,
   occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -402,7 +409,8 @@ CREATE TABLE IF NOT EXISTS community_comment_vote_audit (
   old_value SMALLINT CHECK (old_value IN (-1, 1)),
   new_value SMALLINT CHECK (new_value IN (-1, 1)),
   reason TEXT NOT NULL DEFAULT 'user_vote',
-  invalidated_by_actor_id UUID REFERENCES community_actor(id) ON DELETE SET NULL,
+  -- NO ACTION: tabela append-only, mesmo motivo de community_actor_link_audit.
+  invalidated_by_actor_id UUID REFERENCES community_actor(id),
   occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT community_comment_vote_audit_change_check CHECK (
     old_value IS DISTINCT FROM new_value
@@ -467,7 +475,8 @@ CREATE TABLE IF NOT EXISTS notification_event (
   event_version INTEGER NOT NULL CHECK (event_version > 0),
   subject_type TEXT NOT NULL CHECK (LENGTH(subject_type) BETWEEN 1 AND 64),
   subject_id TEXT NOT NULL CHECK (LENGTH(subject_id) BETWEEN 1 AND 255),
-  actor_id UUID REFERENCES community_actor(id) ON DELETE SET NULL,
+  -- NO ACTION: tabela append-only, mesmo motivo de community_actor_link_audit.
+  actor_id UUID REFERENCES community_actor(id),
   canonical_path TEXT NOT NULL CHECK (
     LENGTH(canonical_path) BETWEEN 1 AND 1024
     AND canonical_path LIKE '/%'
@@ -898,6 +907,12 @@ CREATE TABLE IF NOT EXISTS community_restriction (
   )
 );
 
+-- `source_app` fica FORA da unicidade de proposito: T2.1f pede "restricoes
+-- centrais independentes" e o requisito 12i trata sancao como comunitaria, nao
+-- por aplicativo. Suspensao por app deixaria o sancionado migrar de modulo e
+-- seguir comentando, que e exatamente o que a sancao impede. `source_app`
+-- continua na linha como proveniencia (onde a sancao foi imposta), sem entrar na
+-- chave. Revisao da PR #241 sugeriu inclui-lo; recusado por contrariar T2.1f.
 CREATE UNIQUE INDEX IF NOT EXISTS uq_community_restriction_active
   ON community_restriction(realm, actor_id, scope)
   WHERE lifted_at IS NULL AND level IN ('temporary_suspension', 'permanent_suspension');
@@ -906,7 +921,8 @@ CREATE TABLE IF NOT EXISTS community_moderation_audit (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   realm TEXT NOT NULL CHECK (realm IN ('beta', 'prod')),
   source_app TEXT NOT NULL CHECK (source_app IN ('downloads', 'site', 'mesas')),
-  actor_id UUID REFERENCES community_actor(id) ON DELETE SET NULL,
+  -- NO ACTION: tabela append-only, mesmo motivo de community_actor_link_audit.
+  actor_id UUID REFERENCES community_actor(id),
   action TEXT NOT NULL CHECK (LENGTH(action) BETWEEN 1 AND 100),
   target_type TEXT NOT NULL CHECK (LENGTH(target_type) BETWEEN 1 AND 100),
   target_id UUID NOT NULL,
@@ -928,6 +944,15 @@ CREATE INDEX IF NOT EXISTS idx_community_moderation_audit_target
 -- Estados terminais carregam ator/motivo/data na propria linha e exigem tambem
 -- um evento append-only na mesma transacao. O trigger deferido deixa o handler
 -- inserir estado e auditoria em qualquer ordem, mas recusa o COMMIT incompleto.
+--
+-- Achado de review da PR #241 (Codex P2), reproduzido em Postgres real: procurar
+-- so por "existe linha de auditoria com este alvo/acao/ator/motivo" NAO prova
+-- atomicidade. Auditoria commitada numa transacao anterior (handler que gravou e
+-- falhou depois, ou reparo manual) era reusada por uma transicao posterior, que
+-- passava sem auditoria propria. A coluna `xmin` do sistema resolve por
+-- construcao: `xmin` da linha de auditoria e o txid que a inseriu, e comparar com
+-- `pg_current_xact_id()` exige que ela tenha nascido NESTA transacao. Nao ha
+-- coluna nova nem nonce a manter em sincronia pelo handler.
 CREATE OR REPLACE FUNCTION require_community_terminal_audit()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -937,39 +962,81 @@ DECLARE
   required_actor UUID;
   required_reason TEXT;
 BEGIN
+  -- Achado de review da PR #241, reproduzido em Postgres real: as ramificacoes
+  -- abaixo so olhavam UPDATE, entao INSERT direto em estado terminal (caso ja
+  -- `closed`, denuncia ja resolvida, recurso ja decidido) entrava SEM auditoria
+  -- nenhuma. O invariante de T2.1f e "nao existe estado terminal sem auditoria",
+  -- independente de como a linha chegou ao estado. INSERT e UPDATE sao ramos
+  -- separados de proposito: OLD so existe em UPDATE, e ler OLD em INSERT levanta
+  -- erro de runtime no plpgsql.
   IF TG_TABLE_NAME = 'community_moderation_case' THEN
-    IF TG_OP = 'UPDATE' AND OLD.status = 'open' AND NEW.status = 'closed' THEN
+    IF TG_OP = 'INSERT' THEN
+      IF NEW.status = 'closed' THEN
+        required_action := 'case.closed';
+        required_actor := NEW.closed_by_actor_id;
+        required_reason := NEW.decision_reason;
+      END IF;
+    ELSIF OLD.status = 'open' AND NEW.status = 'closed' THEN
       required_action := 'case.closed';
       required_actor := NEW.closed_by_actor_id;
       required_reason := NEW.decision_reason;
     END IF;
   ELSIF TG_TABLE_NAME = 'community_comment_report' THEN
-    IF TG_OP = 'UPDATE' AND OLD.state = 'active' AND NEW.state <> 'active' THEN
+    IF TG_OP = 'INSERT' THEN
+      IF NEW.state <> 'active' THEN
+        required_action := 'report.' || NEW.state;
+        required_actor := NEW.resolved_by_actor_id;
+        required_reason := NEW.resolution_reason;
+      END IF;
+    ELSIF OLD.state = 'active' AND NEW.state <> 'active' THEN
       required_action := 'report.' || NEW.state;
       required_actor := NEW.resolved_by_actor_id;
       required_reason := NEW.resolution_reason;
     END IF;
   ELSIF TG_TABLE_NAME = 'community_comment_version_approval' THEN
     IF TG_OP = 'INSERT' THEN
-      required_action := 'version.approved';
-      required_actor := NEW.approved_by_actor_id;
-      required_reason := NEW.approval_reason;
+      -- Aprovacao nasce como ato terminal: todo INSERT exige auditoria. Uma
+      -- aprovacao ja reaberta no INSERT exige o evento de reabertura, que e o
+      -- estado final da linha.
+      IF NEW.reopened_at IS NOT NULL THEN
+        required_action := 'version.reopened';
+        required_actor := NEW.reopened_by_actor_id;
+        required_reason := NEW.reopened_reason;
+      ELSE
+        required_action := 'version.approved';
+        required_actor := NEW.approved_by_actor_id;
+        required_reason := NEW.approval_reason;
+      END IF;
     ELSIF OLD.reopened_at IS NULL AND NEW.reopened_at IS NOT NULL THEN
       required_action := 'version.reopened';
       required_actor := NEW.reopened_by_actor_id;
       required_reason := NEW.reopened_reason;
     END IF;
   ELSIF TG_TABLE_NAME = 'community_comment_appeal' THEN
-    IF TG_OP = 'UPDATE' AND OLD.status = 'open' AND NEW.status <> 'open' THEN
+    IF TG_OP = 'INSERT' THEN
+      IF NEW.status <> 'open' THEN
+        required_action := 'appeal.' || NEW.status;
+        required_actor := NEW.decided_by_actor_id;
+        required_reason := NEW.decision_reason;
+      END IF;
+    ELSIF OLD.status = 'open' AND NEW.status <> 'open' THEN
       required_action := 'appeal.' || NEW.status;
       required_actor := NEW.decided_by_actor_id;
       required_reason := NEW.decision_reason;
     END IF;
   ELSIF TG_TABLE_NAME = 'community_restriction' THEN
     IF TG_OP = 'INSERT' THEN
-      required_action := 'restriction.imposed';
-      required_actor := NEW.imposed_by_actor_id;
-      required_reason := NEW.reason;
+      -- Restricao imposta ja levantada no mesmo INSERT: o ato que vale auditar e
+      -- o levantamento, estado final da linha.
+      IF NEW.lifted_at IS NOT NULL THEN
+        required_action := 'restriction.lifted';
+        required_actor := NEW.lifted_by_actor_id;
+        required_reason := NEW.lift_reason;
+      ELSE
+        required_action := 'restriction.imposed';
+        required_actor := NEW.imposed_by_actor_id;
+        required_reason := NEW.reason;
+      END IF;
     ELSIF OLD.lifted_at IS NULL AND NEW.lifted_at IS NOT NULL THEN
       required_action := 'restriction.lifted';
       required_actor := NEW.lifted_by_actor_id;
@@ -991,6 +1058,12 @@ BEGIN
       AND audit.action = required_action
       AND audit.actor_id = required_actor
       AND audit.reason = required_reason
+      -- Prende a auditoria a ESTA transacao (Codex P2): xmin da linha e o txid
+      -- que a inseriu. Sem isto, evento de transacao anterior servia de alibi.
+      -- `pg_current_xact_id()::xid` trunca o xid8 de 64 bits para os mesmos 32
+      -- bits de `xmin`, entao a igualdade sobrevive a wraparound; comparar por
+      -- BIGINT (64 vs 32 bits) passaria a falhar depois do primeiro ciclo.
+      AND audit.xmin = pg_current_xact_id()::xid
   ) THEN
     RAISE EXCEPTION '% exige auditoria atomica %', TG_TABLE_NAME, required_action;
   END IF;
@@ -1158,6 +1231,29 @@ BEGIN
       );
     END IF;
   END LOOP;
+END $$;
+
+-- community_comment_version so bloqueava UPDATE (achado de review da PR #241,
+-- reproduzido em Postgres real: a versao era deletavel). Versao e a evidencia
+-- fixada por `reported_version_id` em denuncia e por `decision_version_id` em
+-- caso; apagar a linha destroi a prova da decisao. Expurgo de conteudo sensivel
+-- ja tem caminho proprio e auditado (`redacted_at`), que zera o corpo e preserva
+-- os metadados — DELETE nunca foi esse caminho. Fica aqui, e nao junto do
+-- guard de UPDATE, porque reject_immutable_row_change() so existe a partir deste
+-- ponto do arquivo.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger
+    WHERE tgrelid = 'public.community_comment_version'::regclass
+      AND tgname = 'community_comment_version_reject_delete'
+      AND NOT tgisinternal
+  ) THEN
+    CREATE TRIGGER community_comment_version_reject_delete
+      BEFORE DELETE ON community_comment_version
+      FOR EACH ROW
+      EXECUTE FUNCTION reject_immutable_row_change();
+  END IF;
 END $$;
 
 -- Preflight final: detecta arquivo aplicado contra schema incompleto. Nao testa

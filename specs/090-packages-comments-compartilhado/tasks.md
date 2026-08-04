@@ -1107,6 +1107,39 @@ por causa disto.**
 > é exatamente o caso que o padrão `phase-*-measurement.sql` da allowlist prevê,
 > e deve sair quando a spec fechar.
 
+> **Correções da review da PR #241 — 2026-08-04, todas reproduzidas em Postgres
+> real antes de corrigir.** Dois furos do invariante "não existe estado terminal
+> sem auditoria" (T2.1f) passaram pela validação original do Bloco A:
+>
+> 1. **INSERT direto em estado terminal escapava da auditoria.** O trigger só
+>    tratava `TG_OP = 'UPDATE'`, então inserir caso já `closed`, denúncia já
+>    resolvida ou recurso já decidido gravava estado terminal sem evento nenhum.
+>    Corrigido separando os ramos INSERT e UPDATE nas cinco tabelas.
+> 2. **Auditoria de transação anterior servia de álibi (Codex P2).** O check só
+>    procurava "existe linha com este alvo/ação/ator/motivo"; evento commitado
+>    numa transação que falhou depois era reusado por uma transição posterior.
+>    Corrigido com `audit.xmin = pg_current_xact_id()::xid`, que exige a auditoria
+>    ter nascido na transação corrente. `::xid` trunca o xid8 para os mesmos 32
+>    bits de `xmin`, então a igualdade sobrevive a wraparound.
+>
+> Também corrigidos: `community_comment_version` era **deletável** (a versão é a
+> evidência fixada por `reported_version_id`/`decision_version_id`; expurgo tem
+> caminho próprio via `redacted_at`); e `ON DELETE SET NULL` nas quatro tabelas
+> append-only falhava com "append-only" no meio da cascata — trocado por `NO
+> ACTION`, porque o expurgo do requisito 7b desfaz o **vínculo** ator→conta, não o
+> `community_actor` opaco.
+>
+> **Recusado da review:** incluir `source_app` em `uq_community_restriction_active`.
+> T2.1f pede "restrições centrais independentes" e o requisito 12i trata sanção
+> como comunitária; suspensão por app deixaria o sancionado migrar de módulo e
+> seguir comentando. Comportamento confirmado em Postgres real (segunda suspensão
+> em outro app é recusada) e o porquê ficou comentado na migration.
+>
+> **Lição de método:** os dois furos foram encontrados por reprodução em banco
+> real, não por leitura — e a primeira rodada de testes deu falso-positivo porque
+> terminava em `ROLLBACK`, e o trigger é `DEFERRABLE INITIALLY DEFERRED`, logo só
+> dispara no `COMMIT`. Teste de constraint deferida que não commita não testa nada.
+
 > **Trava de sequência — `realm` no schema não separa beta de prod sozinho.**
 > Registrada em 2026-08-04, durante a conferência do Bloco A. A migration `006`
 > materializa o **eixo** de separação (`realm` na PK de `community_comment_subject`,

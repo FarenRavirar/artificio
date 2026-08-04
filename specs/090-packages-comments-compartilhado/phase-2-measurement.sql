@@ -11,6 +11,17 @@
 
 \set ON_ERROR_STOP on
 
+-- Trava de destino: o accounts. é PROD-only e `artificio_auth` é o banco do SSO
+-- em produção. O script termina em ROLLBACK, mas um ROLLBACK esquecido ou uma
+-- interrupção no meio deixariam escrita no banco errado. Falhar aqui é barato;
+-- descobrir depois, não.
+DO $$
+BEGIN
+  IF current_database() = 'artificio_auth' THEN
+    RAISE EXCEPTION 'recusado: este script é de medição e nunca roda em artificio_auth';
+  END IF;
+END $$;
+
 BEGIN;
 
 DO $$
@@ -143,6 +154,35 @@ BEGIN
     comment_id,
     value
   ) VALUES ('beta', 'site', voter_actor_id, comment_id, 1);
+
+  -- Negativo da FK composta: o comentário é (beta, site). Votar nele afirmando
+  -- outro realm ou outro app precisa falhar, senão `realm` não separa nada — é o
+  -- mecanismo que impede beta de tocar linha de produção no banco compartilhado.
+  BEGIN
+    INSERT INTO community_comment_vote (
+      realm,
+      source_app,
+      community_actor_id,
+      comment_id,
+      value
+    ) VALUES ('prod', 'site', voter_actor_id, comment_id, 1);
+    RAISE EXCEPTION 'voto cross-realm foi aceito';
+  EXCEPTION WHEN foreign_key_violation THEN
+    NULL;
+  END;
+
+  BEGIN
+    INSERT INTO community_comment_vote (
+      realm,
+      source_app,
+      community_actor_id,
+      comment_id,
+      value
+    ) VALUES ('beta', 'mesas', voter_actor_id, comment_id, 1);
+    RAISE EXCEPTION 'voto cross-app foi aceito';
+  EXCEPTION WHEN foreign_key_violation THEN
+    NULL;
+  END;
 
   DELETE FROM community_actor_account_link WHERE actor_id = voter_actor_id;
   IF NOT EXISTS (
@@ -282,7 +322,10 @@ BEGIN
       RAISE;
     END IF;
   END;
-  SET CONSTRAINTS ALL DEFERRED;
+  -- Só esta constraint volta a diferida: `ALL DEFERRED` mexeria também nas FKs
+  -- deferíveis de thread (parent/root/current_version), afrouxando o que o resto
+  -- do script ainda precisa exercitar.
+  SET CONSTRAINTS community_moderation_case_require_audit DEFERRED;
 
   UPDATE community_comment_report
   SET state = 'upheld',
@@ -415,7 +458,14 @@ BEGIN
     'restricao de teste'
   );
 
+  -- Aqui `ALL IMMEDIATE` é proposital: força a checagem de TODAS as constraints
+  -- deferidas antes do fim do bloco, para uma violação pendente aparecer como
+  -- falha do script e não sumir no ROLLBACK.
   SET CONSTRAINTS ALL IMMEDIATE;
+
+  -- Marcador de sucesso: sem ele, script que não chega ao fim e script que passa
+  -- produzem a mesma saída silenciosa no psql.
+  RAISE NOTICE 'phase-2-measurement: todos os invariantes passaram';
 END;
 $$;
 
