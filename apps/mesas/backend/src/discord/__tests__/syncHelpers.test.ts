@@ -191,6 +191,21 @@ describe('extractContacts', () => {
     });
   });
 
+  it.each([
+    ['contato@exemplo.com', 'email'],
+    ['mailto:contato@exemplo.com', 'email'],
+    ['(11) 99999-9999', 'phone'],
+    ['tel:+5511999999999', 'phone'],
+  ])('mantém %s no canal %s em vez de converter em discord', (contactUrl, expectedChannel) => {
+    // Exigir host HTTPS de todo canal convertia e-mail e telefone em Discord:
+    // o parser classificava certo e o guard de link desfazia logo depois.
+    const draft = makeDraft({ contact_url: contactUrl });
+    const contacts = extractContacts(draft);
+
+    expect(contacts).toHaveLength(1);
+    expect(contacts[0]).toMatchObject({ channel: expectedChannel, value: contactUrl });
+  });
+
   it('mestre com Discord e formulário real mantém os dois canais', () => {
     const draft = makeDraft({ contact_discord: 'uwill', contact_url: 'https://forms.gle/abc123' });
     const contacts = extractContacts(draft);

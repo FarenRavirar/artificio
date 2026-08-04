@@ -8,6 +8,7 @@ import { uploadDiscordImageToCloudinary } from './uploadDiscordImage.js';
 import { getDiscordBotToken } from './config.js';
 import { extractDraftScope, recordParseFeedback } from './parseLearning.js';
 import { isResolvableUrl } from '../utils/contactUrls.js';
+import { isValidEmail } from '../utils/validation.js';
 import { z } from 'zod';
 
 export class DraftNotFoundError extends Error {
@@ -207,6 +208,32 @@ function classifyContactChannel(rawUrl: string): TableContactChannel {
   }
 }
 
+/**
+ * O valor classificado nesse canal leva de fato a algum lugar?
+ *
+ * Cada canal tem destino próprio, então o critério de alcançabilidade muda:
+ * `form`/`facebook`/`instagram` abrem uma URL e exigem host resolvível;
+ * `email` e `phone` não são URL nenhuma e têm validação própria; `discord` e
+ * `whatsapp` aceitam identificador/número solto, que é o formato nativo deles.
+ *
+ * Sem essa separação, exigir host HTTPS de todos os canais convertia
+ * `mailto:`, telefone brasileiro e `tel:` em contato Discord — o parser
+ * classificava certo e o guard desfazia logo depois.
+ */
+function isReachableContactValue(channel: TableContactChannel, rawValue: string): boolean {
+  switch (channel) {
+    case 'discord':
+    case 'whatsapp':
+      return true;
+    case 'email':
+      return isValidEmail(rawValue.replace(/^mailto:/i, ''));
+    case 'phone':
+      return BR_PHONE_PATTERN.test(rawValue) || /^tel:/i.test(rawValue);
+    default:
+      return isResolvableUrl(rawValue);
+  }
+}
+
 export function extractContacts(
   draft: ImportTableDraft
 ): Array<Omit<Insertable<TableContactsTable>, 'table_id'>> {
@@ -228,9 +255,13 @@ export function extractContacts(
     // válido. `contact_url` vem de parser de texto livre do Discord, onde o
     // nick do mestre acaba caindo no campo de URL — foi assim que 3 mesas em
     // produção ganharam `form: uwill`, que vira `https://uwill/` e morre em
-    // erro de DNS. Sem host resolvível o valor não é link: ou já existe o
-    // contato Discord (e o nick é redundante), ou vira contato Discord.
-    const isUsableLink = channel === 'discord' || isResolvableUrl(rawUrl);
+    // erro de DNS. Sem destino alcançável o valor não é link: vira contato
+    // Discord, único canal onde identificador solto é localizável.
+    //
+    // Cada canal tem seu critério de alcançabilidade: exigir host HTTPS de
+    // todos convertia `mailto:`, telefone BR e `tel:` em Discord, apagando
+    // contatos que o parser tinha classificado certo.
+    const isUsableLink = isReachableContactValue(channel, rawUrl);
 
     // Dedup por valor, não por par canal+valor: o mesmo nick chegando por
     // `contact_discord` e por `contact_url` gerava duas entradas (`discord:x` +

@@ -18,6 +18,9 @@ const DISCORD_HOSTS = new Set(['discord.gg', 'discord.com', 'www.discord.com']);
  */
 export const URL_VALUE_CHANNELS = new Set(['form', 'facebook', 'instagram']);
 
+/** Subconjunto de URL_VALUE_CHANNELS cujo host precisa ser da própria rede. */
+export const SOCIAL_PROFILE_CHANNELS = new Set(['facebook', 'instagram']);
+
 /** Canais aceitos no perfil do mestre (subconjunto de CONTACT_CHANNELS). */
 export const PROFILE_CONTACT_CHANNELS = new Set(['whatsapp', 'email', 'discord', 'form']);
 
@@ -68,6 +71,59 @@ export function isResolvableUrl(value: unknown): boolean {
   } catch {
     return false;
   }
+}
+
+const SOCIAL_HOSTS: Record<string, readonly string[]> = {
+  facebook: ['facebook.com', 'www.facebook.com', 'fb.com', 'www.fb.com', 'm.facebook.com'],
+  instagram: ['instagram.com', 'www.instagram.com', 'instagr.am', 'www.instagr.am'],
+};
+
+export const INVALID_SOCIAL_HOST_MESSAGE: Record<string, string> = {
+  facebook: 'Informe um endereço do Facebook, como facebook.com/seu-perfil.',
+  instagram: 'Informe um endereço do Instagram, como instagram.com/seu-perfil.',
+};
+
+/**
+ * Perfil de rede social precisa apontar para a própria rede.
+ *
+ * `isResolvableUrl` sozinho aceitava `exemplo.com/perfil` no canal Facebook —
+ * a API gravava e a página pública não renderizava, porque o componente só
+ * monta link de host conhecido da rede. O contato sumia sem erro em lugar
+ * nenhum. Escrita e leitura passam a usar o mesmo conjunto de hosts.
+ */
+const SOCIAL_CANONICAL_HOST: Record<string, string> = {
+  facebook: 'facebook.com',
+  instagram: 'instagram.com',
+};
+
+const SOCIAL_USERNAME = /^[A-Za-z0-9._-]{1,60}$/;
+
+export function canonicalizeSocialProfileUrl(channel: string, value: unknown): ContactUrlResult {
+  const accepted = SOCIAL_HOSTS[channel];
+  if (!accepted) return canonicalizeHttpsUrl(value);
+
+  const message = INVALID_SOCIAL_HOST_MESSAGE[channel] ?? INVALID_URL_MESSAGE;
+  if (typeof value !== 'string') return { ok: false, message };
+
+  const trimmed = value.trim();
+  if (!trimmed) return { ok: false, message };
+
+  const result = canonicalizeHttpsUrl(trimmed);
+  if (result.ok) {
+    try {
+      if (accepted.includes(new URL(result.value).hostname.toLowerCase())) return result;
+    } catch {
+      return { ok: false, message };
+    }
+  }
+
+  // Username cru (`meuperfil`, `@meuperfil`) é o que o mestre digita e o que a
+  // página pública já sabia renderizar. Vira caminho sob o domínio canônico,
+  // nunca host arbitrário — assim escrita e leitura produzem a mesma URL.
+  const username = trimmed.replace(/^@/, '');
+  if (!SOCIAL_USERNAME.test(username)) return { ok: false, message };
+
+  return { ok: true, value: `https://${SOCIAL_CANONICAL_HOST[channel]}/${username}` };
 }
 
 export function canonicalizeDiscordInviteUrl(value: unknown): ContactUrlResult {

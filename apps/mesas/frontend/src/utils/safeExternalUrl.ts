@@ -96,16 +96,22 @@ export function toSafeDiscordInviteUrl(value: string | null | undefined): string
  * O backend só valida formato internacional (`+5511999999999`) no canal
  * `whatsapp`; `phone` entra livre e o importador do Discord ainda o gera
  * automaticamente (`syncHelpers.ts`). Logo, aqui o valor é dígito solto de
- * origem desconhecida: extrai dígitos, exige DDD + número (10-13) e prefixa 55
- * quando o país estiver ausente.
+ * origem desconhecida: extrai dígitos e exige DDD + número (10-13).
+ *
+ * O `+` inicial é código de país explícito e manda: sem ele, `+14155552671`
+ * (EUA) virava `wa.me/5514155552671`, abrindo conversa com outra pessoa.
+ * O prefixo 55 só entra em número local, que é o formato que o mestre
+ * brasileiro digita sem pensar (`(11) 99999-9999`).
  */
 export function toWhatsAppUrl(value: string | null | undefined): string | null {
   if (!value) return null;
 
-  const digits = value.replace(/\D/g, '');
+  const trimmed = value.trim();
+  const digits = trimmed.replace(/\D/g, '');
   if (digits.length < 10 || digits.length > 13) return null;
 
-  const withCountry = digits.startsWith('55') ? digits : `55${digits}`;
+  const hasExplicitCountryCode = trimmed.startsWith('+');
+  const withCountry = hasExplicitCountryCode || digits.startsWith('55') ? digits : `55${digits}`;
   return `https://wa.me/${withCountry}`;
 }
 
@@ -122,7 +128,11 @@ export function toWhatsAppUrl(value: string | null | undefined): string | null {
  * caracteres proibidos: qualquer coisa fora do conjunto de um endereço válido
  * é recusada, sem depender de lembrar cada separador de query string.
  */
-const EMAIL_ADDRESS = /^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$/;
+// `%` fica de fora da parte local, apesar de válido por RFC: é o que permite
+// escrever conteúdo percent-encoded no endereço (`nome%0Ateste@x.com`), e
+// nenhum provedor real emite caixa com `%`. Custo zero, remove a ambiguidade
+// entre "caractere literal" e "byte codificado" antes de montar a URI.
+const EMAIL_ADDRESS = /^[A-Za-z0-9!#$&'*+/=?^_`{|}~-]+(\.[A-Za-z0-9!#$&'*+/=?^_`{|}~-]+)*@[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$/;
 
 export function toSafeMailtoUrl(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -131,7 +141,11 @@ export function toSafeMailtoUrl(value: string | null | undefined): string | null
   if (trimmed.length < 3 || trimmed.length > 254) return null;
   if (!EMAIL_ADDRESS.test(trimmed)) return null;
 
-  return `mailto:${encodeURI(trimmed)}`;
+  // `encodeURIComponent`, não `encodeURI`: a allow-list aceita `?`, `&` e `#`
+  // na parte local (são válidos por RFC), e `encodeURI` não escapa nenhum dos
+  // três — `a&b@x.com` sairia como separador de campo do próprio `mailto:`.
+  // O `@` volta ao literal por ser o delimitador legítimo do endereço.
+  return `mailto:${encodeURIComponent(trimmed).replace('%40', '@')}`;
 }
 
 const DISCORD_MENTION = /^<@!?(\d{17,20})>$/;

@@ -1,7 +1,9 @@
 import {
   canonicalizeDiscordInviteUrl,
   canonicalizeHttpsUrl,
+  canonicalizeSocialProfileUrl,
   PROFILE_CONTACT_CHANNELS,
+  SOCIAL_PROFILE_CHANNELS,
   URL_VALUE_CHANNELS,
 } from './contactUrls.js';
 
@@ -14,7 +16,14 @@ export type SerializableContact = {
 
 export function serializeContact<T extends SerializableContact>(contact: T): T | null {
   let value = contact.value;
-  if (URL_VALUE_CHANNELS.has(contact.channel)) {
+  if (SOCIAL_PROFILE_CHANNELS.has(contact.channel)) {
+    // Mesma canonicalização da escrita: username cru vira perfil sob o domínio
+    // da rede, host de fora é descartado. Sem isso, contato legado gravado
+    // antes da regra continuaria chegando ao render em formato que ele recusa.
+    const safeSocialUrl = canonicalizeSocialProfileUrl(contact.channel, value);
+    if (!safeSocialUrl.ok) return null;
+    value = safeSocialUrl.value;
+  } else if (URL_VALUE_CHANNELS.has(contact.channel)) {
     const safeFormUrl = canonicalizeHttpsUrl(value);
     if (!safeFormUrl.ok) return null;
     value = safeFormUrl.value;

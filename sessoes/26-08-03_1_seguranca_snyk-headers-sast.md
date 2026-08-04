@@ -4,10 +4,14 @@
 **Escopo:** transversal — `apps/accounts`, `apps/downloads`, `apps/glossario`, `apps/links`, `apps/mesas`, `apps/site` + infra Cloudflare
 **Origem:** achados Snyk (DAST + SAST) trazidos pelo mantenedor
 **Branch:** `fix/seguranca-snyk-headers-sast`, criada de `origin/dev` (`a0fe780`)
-**Estado:** aberta · **A e B RESOLVIDOS em produção** (borda Cloudflare) · **C e D13 pendentes, para o Codex**
-**Implementação:** A e B foram aplicados pelo Claude na borda Cloudflare via MCP, com autorização nominal por ação. **C e D13 são do Codex** e ainda não têm uma linha de código escrita.
+**Estado:** aberta · **A, B, C, D10 e D14 RESOLVIDOS** · **D13 e D4 pendentes**
+**PR:** #236 (base `dev`) — commits `6272a6c` (C + X1 + X2) e `8381a86` (D10 + D14)
 
-> **Leia isto antes de agir.** As seções §A e §B descrevem trabalho **já executado e validado em produção** — são registro, não instrução. Não refazer. O que está pendente de implementação é **§C (XSS, 3 sinks)** e **§D13 (escrita arbitrária de diretório)**, com as investigações C1–C3 e D1 obrigatórias antes de qualquer código. Além disso, resta **um item de código do achado B** (§D6): remover 4 `add_header` do `nginx.conf` do `downloads` — destravado, a pré-condição foi cumprida.
+> **Leia isto antes de agir.** §A, §B, §C, §D10 e §D14 descrevem trabalho **já executado** — são registro, não instrução. Não refazer.
+>
+> Pendente: **§D13** (escrita arbitrária de diretório, exige a investigação D1 antes de qualquer código), **§D4** (`confirm()`/`alert()`, UX), os **degraus 3 e 4 do HSTS** (aguardam data do mantenedor) e o **deploy do `downloads`** (o `nginx.conf` foi editado na branch; o container em produção ainda roda o antigo — inofensivo, a borda cobre os headers).
+>
+> **Armadilha ao validar header:** a borda serve resposta em cache com o header antigo congelado. Purgar antes de medir — ver §"Armadilha de validação encontrada".
 
 > **Sessão excepcional.** Criada por pedido nominal do mantenedor em 2026-08-03, fora do fluxo de spec, porque os achados são transversais a 6 apps e não pertencem a nenhuma spec ativa.
 
@@ -574,7 +578,13 @@ Só funciona quando o mestre digita a URL completa. Username puro — a forma na
 
 **D10.2 · Corrigir agora**, no mesmo trabalho. O Codex já está nesses arquivos e o helper de URL acabou de nascer; adiar significaria reabrir o mesmo código.
 
-**D10.3 · `phone` sai do formulário e é exibido como WhatsApp.** Fundamento do mantenedor: *"telefone é whatsapp. ninguém liga ou chama sms hoje no Brasil"*.
+**D10.3 · ~~`phone` sai do formulário~~ — REVISADA na implementação (2026-08-03).** Fundamento original do mantenedor: *"telefone é whatsapp. ninguém liga ou chama sms hoje no Brasil"* — mantido para o **destino** (`wa.me`, nunca `tel:`).
+
+O que mudou: remover a opção do formulário **não** remove `phone` do sistema, porque o importador do Discord continua criando o canal (`syncHelpers.ts`, ver logo abaixo). O efeito real seria impedir o mestre de **editar** um contato que o sistema segue gerando — contato órfão, não-editável.
+
+Implementado no lugar: `phone` continua na lista, com rótulo **"Telefone (abre WhatsApp)"**, que diz o destino real em vez de prometer ligação. A separação "existe como dado, não como escolha" foi substituída por "existe como escolha honesta sobre o destino".
+
+Se o mantenedor preferir a remoção mesmo assim, ela exige tirar `phone` do parser no mesmo movimento — senão sobra contato órfão.
 
 Com D10.1, `phone` e `whatsapp` passam a ter **destino idêntico** — o formulário oferecia duas escolhas para a mesma coisa, e o rótulo "Telefone" prometia ligação que ninguém faz.
 
@@ -586,14 +596,83 @@ Mesa importada do Discord recebe `phone` sem ninguém escolher. Tirar do enum qu
 
 Separação decidida: **`phone` continua existindo como dado; deixa de existir como escolha.**
 
-| Camada | O que muda |
-|---|---|
-| Enum / tipos / validador | **nada** — `phone` continua válido |
-| Parser Discord (`syncHelpers`) | **nada** — continua gravando `phone` (D8.4) |
-| Formulário (`ContactsFormBlock.tsx:20`) | opção "Telefone" **sai** da lista |
-| Página da mesa | `phone` renderiza **como WhatsApp** — mesmo destino `wa.me`, mesmo ícone, mesmo texto |
+| Camada | O que muda | Estado |
+|---|---|---|
+| Enum / tipos / validador | **nada** — `phone` continua válido | ✅ |
+| Parser Discord (`syncHelpers`) | continua gravando `phone`; ganhou critério por canal (ver D14) | ✅ |
+| Formulário (`ContactsFormBlock.tsx`) | rótulo vira **"Telefone (abre WhatsApp)"** — opção **não** sai (D10.3 revisada) | ✅ |
+| Página da mesa | `phone` renderiza **como WhatsApp** — destino `wa.me` | ✅ |
 
 Dado já gravado com canal `phone` (manual ou importado) segue funcionando, sem migração.
+
+### D10 — implementado em 2026-08-03 (commit `8381a86` + rodada seguinte)
+
+Tabela "deveria" acima foi superada em dois pontos, ambos por achado de revisor:
+
+| Canal | Mestre digita | Implementado | Origem da mudança |
+|---|---|---|---|
+| `phone` / `whatsapp` | `(11) 99999-9999` | `https://wa.me/5511999999999` | D10.1 |
+| `phone` / `whatsapp` | `+14155552671` | `https://wa.me/14155552671` — **sem** prefixo 55 | Codex: `+` é código de país explícito; prefixar 55 abria conversa com outra pessoa |
+| `facebook` | `meuperfil` | `https://facebook.com/meuperfil` | domínio canônico, não `fb.com` — o encurtador não é o host que o render aceita |
+| `instagram` | `@meuperfil` | `https://instagram.com/meuperfil` | idem; `@` é prefixo de exibição, e como separador de userinfo apagava o host |
+| `facebook` | `https://exemplo.com/perfil` | **rejeitado na escrita** | Codex: API aceitava e o render não exibia — contato sumia sem erro em lugar nenhum |
+
+`TableContacts.tsx` removido (zero importadores). O comentário datado de 2026-07-07 sobre menção `<@id>` foi portado para `TableContactsBlock` — e o comportamento que ele descrevia foi **implementado**, já que o arquivo vivo só tratava snowflake cru.
+
+---
+
+## D14 · Link de contato exige link válido — regra do mantenedor (2026-08-03)
+
+Enunciado do mantenedor: *"contato do discord, caso preenchido, vale como link de contato. link de contato só é possível com link válido. se não, tem que ter o user do discord"*. Pedido explícito de aplicar **no parser, no onboarding e no frontend** — não só no backend.
+
+### Como o problema apareceu
+
+Medição read-only em produção (`mesas_rpg`, 77 contatos): `form` 43, `discord` 17, `whatsapp` 17. Zero `email`/`phone`/`facebook`/`instagram`.
+
+**Correção de um alerta meu, anterior:** eu havia dito que apertar a validação faria contato legado sumir da página. Falso — supus sem medir. Os canais que a regra aperta não existem em produção, e os 3 `form` não-canônicos passam pelo validador. Esta PR não tira contato nenhum do ar.
+
+O que a consulta achou de verdade — 3 mesas **ativas**, com contato inútil desde antes deste trabalho:
+
+| Mesa | `discord` | `form` | O `form` vira |
+|---|---|---|---|
+| A Sombra do Mago Estranho | `uwill` | `uwill` | `https://uwill/` — erro de DNS |
+| Ark Nova | `.zero9899` | `.zero9899` | `https://.zero9899/` |
+| O Mistério da Ilha do Mal | `kauarang` | `kauarang` | `https://kauarang/` |
+
+Hipótese do mantenedor confirmada e refinada: o nick não foi só "parar no campo errado" — está **duplicado nos dois canais**, com rótulo `Ticket / Inscrição`, assinatura do `contact_url` do parser.
+
+### Causa raiz
+
+`syncHelpers.ts` — a deduplicação comparava **canal E valor**:
+
+```ts
+if (!contacts.some((c) => c.channel === channel && c.value === rawUrl)) {
+```
+
+O nick já entrara como `discord:uwill`; o mesmo texto em `contact_url` era classificado `form` por `classifyContactChannel`. Canais diferentes, valor igual: `some()` retornava `false` e o par passava. Reproduzido pelo código de hoje: `{contact_discord:'uwill', contact_url:'uwill'}` → `discord:uwill + form:uwill`.
+
+### Implementado
+
+| Camada | Regra |
+|---|---|
+| Parser (`syncHelpers.ts`) | dedup por **valor**; valor sem destino alcançável vira canal `discord` |
+| Backend (`contactUrls.ts` + `tableValidators.ts`) | `isResolvableUrl` exige host com ponto e TLD alfabético; rede social exige host da própria rede |
+| Leitura (`contactSerializer.ts`) | mesma canonicalização da escrita, para dado legado |
+| Frontend (`safeExternalUrl.ts`) | `validateContactLinkUrl` espelha o backend; ligado na criação de mesa **e** no perfil do mestre |
+| Formulários | aviso diz o que é aceito e para onde vai o nick |
+
+**Critério por canal, não único.** A primeira versão exigia host HTTPS de todo canal — o que convertia `mailto:`, telefone brasileiro e `tel:` em contato Discord, apagando o que o parser classificara certo. Achado do CodeRabbit. Cada canal passou a ter seu critério: `email` usa `isValidEmail`, `phone` o padrão BR, `discord`/`whatsapp` aceitam identificador solto.
+
+**Decisão do mantenedor sobre o dado já gravado:** *"ignore o que já está no banco de dados e pense no futuro"*. Nenhum `UPDATE`/`DELETE` proposto ou executado. As 3 mesas possivelmente já foram fechadas.
+
+### D14.1 · Escrita e leitura convergem por construção
+
+Divergência apontada pelo Codex, **defeito introduzido no commit `6272a6c`**, nas duas direções:
+
+- API aceitava `exemplo.com/perfil` no canal Facebook; o render só monta link de host da rede → contato sumia da página **sem erro em lugar nenhum**.
+- Render aceitava `meuperfil`; a API recusava.
+
+Corrigido no backend (`canonicalizeSocialProfileUrl`): username cru vira caminho sob o domínio canônico — mesma transformação que o render já fazia — e host de fora é recusado na escrita. Escrita, leitura e render passam a produzir a mesma URL.
 
 ---
 
@@ -675,18 +754,20 @@ const importResult = await runFolderImport(parsed.data.importDir, req.user?.user
 | **A** — HSTS | Transform Rule `sec-hsts-zone`, `max-age=86400; includeSubDomains`, 12/12 hostnames. Degraus 3 (`604800`) e 4 (`31536000`) pendentes de decisão do mantenedor | Borda Cloudflare |
 | **B** — headers | Transform Rule `sec-headers-baseline`, 4 headers, zona inteira, todas as classes de resposta. **Nenhum app recebeu Helmet** | Borda Cloudflare |
 | **D6** — `downloads` | 4 `add_header` removidos do `nginx.conf` (edição na branch, deploy pendente) | `apps/downloads/frontend/nginx.conf` |
+| **C + X1 + X2** — stored XSS | 3 camadas: escrita (`contactSchema` fortalecido e unificado), leitura (`contactSerializer`) e frontend (`safeExternalUrl`). Commit `6272a6c`, PR #236 | `apps/mesas/**` |
+| **D10** — canais quebrados | `phone`/`facebook`/`instagram` voltam a renderizar; `mailto:` validado; `TableContacts.tsx` removido. Commit `8381a86` | `apps/mesas/**` |
+| **D14** — link alcançável | Regra "link de contato exige link válido" em parser, backend e frontend. Commit `8381a86` + rodada de revisão | `apps/mesas/**` |
 
-### ⏳ Pendente — trabalho do Codex
+### ⏳ Pendente
 
 | # | Achado | Pré-requisito | Executor |
 |---|---|---|---|
-| 1 | **C + X1 + X2** — stored XSS, **incluindo fortalecimento + unificação do `contactSchema` (D3)** | ✅ C1, C2, C3 fechadas — **liberado para implementar** | Codex |
-| 2 | **D13** — escrita arbitrária de diretório | Investigação D1 | Codex |
-| 3 | **D4** — `confirm()`/`alert()` para o design system | — (não é segurança) | Codex |
+| 1 | **D13** — escrita arbitrária de diretório | Investigação D1 | Codex |
+| 2 | **D4** — `confirm()`/`alert()` para o design system | — (não é segurança) | Codex |
+| 3 | **HSTS degraus 3 e 4** | Decisão de data do mantenedor | — |
+| 4 | **Deploy do `downloads`** | Container em produção ainda roda o `nginx.conf` antigo (inofensivo: a borda já cobre os headers) | — |
 
-Justificativa da ordem: C é o único explorável por **qualquer usuário com conta de mestre**, contra qualquer visitante, com o alcance da sessão SSO. D13 exige admin. D4 é UX e vai em diff separado — não misturar com correção de vulnerabilidade.
-
-**Nenhuma linha de código foi escrita para C, D13 ou D4.** As investigações abaixo são pré-requisito, não formalidade.
+Justificativa da ordem original: C era o único explorável por **qualquer usuário com conta de mestre**, contra qualquer visitante, com o alcance da sessão SSO. D13 exige admin. D4 é UX e vai em diff separado — não misturar com correção de vulnerabilidade.
 
 ---
 
@@ -694,7 +775,9 @@ Justificativa da ordem: C é o único explorável por **qualquer usuário com co
 
 **Cada bloco abaixo é pré-requisito da implementação do achado correspondente.** Nenhum código antes da investigação correspondente estar respondida. Motivo: a triagem foi estática e os dois passes divergiram em arquitetura — implementar sobre hipótese não verificada repetiria o erro do critério B.
 
-### Investigação C1 — extensão real da superfície (antes de tocar em C/X1/X2)
+> **Estado (2026-08-03):** **C1, C2, C3 e B1 estão FECHADAS** — os enunciados abaixo são registro do que foi pedido, com as respostas em §"Investigações C1, C2, C3 — FECHADAS". **Só a D1 continua aberta**, e segue bloqueando o D13.
+
+### ~~Investigação C1~~ — ✅ FECHADA · extensão real da superfície
 
 O Snyk reportou 1 sink; a análise cruzada achou 3. Não há garantia de que sejam todos.
 
@@ -703,7 +786,7 @@ O Snyk reportou 1 sink; a análise cruzada achou 3. Não há garantia de que sej
 3. Enumerar **todas** as rotas de escrita que persistem `contacts` e `contact_methods`, incluindo importação/sync do Discord e enriquecimento admin.
 4. Entregar: tabela sink × origem × validação atual. Se aparecer sink fora dos 3 mapeados, ele entra no escopo antes de qualquer código.
 
-### Investigação C2 — dado já gravado em produção (read-only)
+### ~~Investigação C2~~ — ✅ FECHADA · dado já gravado em produção
 
 Corrigir a escrita não limpa o banco. **Antes** de decidir a correção, medir:
 
@@ -712,7 +795,7 @@ Corrigir a escrita não limpa o banco. **Antes** de decidir a correção, medir:
 3. **Se houver linha com `javascript:`, `data:` ou `vbscript:`, isto é incidente, não correção preventiva** — parar e reportar ao mantenedor antes de qualquer código.
 4. Entregar: contagem por tabela e por esquema. Sem imprimir conteúdo de payload no relatório.
 
-### Investigação C3 — forma da correção
+### ~~Investigação C3~~ — ✅ FECHADA · forma da correção
 
 1. Definir a allowlist: só `https:`? `http:` também? Restringir host a `discord.gg`/`discord.com` para o campo Discord?
 2. **Unificação decidida (D3), não é mais pergunta.** `gmPanel.ts:416` passa a usar o `contactSchema`; a validação manual paralela sai. Investigar: quais campos a validação manual cobre que o schema não cobre (e vice-versa), e o que quebra ao unificar — em especial se a rota aceita hoje payload que o schema rejeitaria, e se existe dado em produção que só passou por causa da divergência.
@@ -720,7 +803,7 @@ Corrigir a escrita não limpa o banco. **Antes** de decidir a correção, medir:
 4. Confirmar que o canal `form` de `contact_methods` recebe a mesma validação — hoje não tem nenhuma.
 5. Entregar: proposta de correção por camada (escrita, leitura, frontend, dado existente), com o que cada uma cobre e o que não cobre.
 
-### Investigação D1 — contenção do `importDir`
+### Investigação D1 — ⏳ ABERTA · contenção do `importDir` (bloqueia D13)
 
 1. Determinar a base canônica legítima para `importDir` — existe diretório previsto, ou é livre por design?
 2. Verificar se `chatExporterProfileRunner` e o cron passam pelo mesmo caminho ou por outro.

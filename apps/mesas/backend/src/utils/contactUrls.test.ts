@@ -1,5 +1,34 @@
 import { describe, expect, it } from 'vitest';
-import { isResolvableUrl } from './contactUrls.js';
+import { canonicalizeSocialProfileUrl, isResolvableUrl } from './contactUrls.js';
+
+describe('canonicalizeSocialProfileUrl', () => {
+  it('aceita host da própria rede', () => {
+    expect(canonicalizeSocialProfileUrl('facebook', 'facebook.com/meuperfil'))
+      .toEqual({ ok: true, value: 'https://facebook.com/meuperfil' });
+    expect(canonicalizeSocialProfileUrl('instagram', 'https://instagr.am/meuperfil').ok).toBe(true);
+  });
+
+  it('canonicaliza username cru para o domínio da rede', () => {
+    // Mesma transformação que a página pública já fazia — sem isso a API
+    // recusava `meuperfil`, que o render sabia exibir.
+    expect(canonicalizeSocialProfileUrl('facebook', 'meuperfil'))
+      .toEqual({ ok: true, value: 'https://facebook.com/meuperfil' });
+    expect(canonicalizeSocialProfileUrl('instagram', '@meuperfil'))
+      .toEqual({ ok: true, value: 'https://instagram.com/meuperfil' });
+  });
+
+  it('recusa host de fora da rede, que o render não exibiria', () => {
+    // Divergência apontada pelo Codex na PR #236: a API aceitava e o contato
+    // sumia da página pública, sem erro em lugar nenhum.
+    expect(canonicalizeSocialProfileUrl('facebook', 'https://exemplo.com/perfil').ok).toBe(false);
+    expect(canonicalizeSocialProfileUrl('instagram', 'https://linktr.ee/meu').ok).toBe(false);
+    expect(canonicalizeSocialProfileUrl('facebook', 'javascript:alert(1)').ok).toBe(false);
+  });
+
+  it('mantém canais não-sociais na regra genérica de URL', () => {
+    expect(canonicalizeSocialProfileUrl('form', 'https://forms.gle/abc').ok).toBe(true);
+  });
+});
 
 describe('isResolvableUrl', () => {
   it('aceita endereço com host alcançável', () => {

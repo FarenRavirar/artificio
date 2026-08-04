@@ -3,6 +3,7 @@ import type { SessionSchedule } from '../../../components/SessionRepeater';
 import type { ContactFormEntry } from '../../../components/ContactsFormBlock';
 import {
   toSafeMailtoUrl,
+  toSafeSocialProfileUrl,
   URL_VALUE_CHANNELS,
   validateContactLinkUrl,
 } from '../../../utils/safeExternalUrl';
@@ -75,7 +76,16 @@ export const validators = {
       // (contactSchema + isResolvableUrl). Antes daqui só se exigia valor
       // não-vazio, então um nick como `uwill` era aceito como formulário e
       // virava `https://uwill/` na página pública — erro de DNS para o jogador.
-      if (URL_VALUE_CHANNELS.has(contact.channel)) {
+      // Facebook/Instagram exigem host da própria rede, senão a API aceita e a
+      // página pública não renderiza (o componente só monta link de host
+      // conhecido) — o contato sumiria sem erro em lugar nenhum.
+      if (contact.channel === 'facebook' || contact.channel === 'instagram') {
+        if (!toSafeSocialProfileUrl(contact.channel, contact.value)) {
+          return `Contato ${i + 1}: informe um endereço ou usuário do ${
+            contact.channel === 'facebook' ? 'Facebook' : 'Instagram'
+          }.`;
+        }
+      } else if (URL_VALUE_CHANNELS.has(contact.channel)) {
         const result = validateContactLinkUrl(contact.value);
         if (!result.success) return `Contato ${i + 1}: ${result.message}`;
       }

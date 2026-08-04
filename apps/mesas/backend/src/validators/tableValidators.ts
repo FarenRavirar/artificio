@@ -4,8 +4,10 @@ import { isValidEmail } from '../utils/validation.js';
 import {
   canonicalizeDiscordInviteUrl,
   canonicalizeHttpsUrl,
+  canonicalizeSocialProfileUrl,
   isResolvableUrl,
   PROFILE_CONTACT_CHANNELS,
+  SOCIAL_PROFILE_CHANNELS,
   UNRESOLVABLE_URL_MESSAGE,
   URL_VALUE_CHANNELS,
 } from '../utils/contactUrls.js';
@@ -49,7 +51,13 @@ export const contactSchema = z.object({
     });
   }
 
-  if (URL_VALUE_CHANNELS.has(contact.channel)) {
+  if (SOCIAL_PROFILE_CHANNELS.has(contact.channel)) {
+    // Facebook/Instagram exigem host da própria rede: `exemplo.com/perfil` era
+    // aceito aqui e não renderizava na página pública, porque o componente só
+    // monta link de host conhecido — o contato sumia sem erro em lugar nenhum.
+    const result = canonicalizeSocialProfileUrl(contact.channel, contact.value);
+    if (!result.ok) ctx.addIssue({ code: 'custom', path: ['value'], message: result.message });
+  } else if (URL_VALUE_CHANNELS.has(contact.channel)) {
     const result = canonicalizeHttpsUrl(contact.value);
     if (!result.ok) {
       ctx.addIssue({ code: 'custom', path: ['value'], message: result.message });
@@ -77,9 +85,11 @@ export const contactSchema = z.object({
     }
   }
 }).transform((contact) => {
-  const externalValue = URL_VALUE_CHANNELS.has(contact.channel)
-    ? canonicalizeHttpsUrl(contact.value)
-    : null;
+  const externalValue = SOCIAL_PROFILE_CHANNELS.has(contact.channel)
+    ? canonicalizeSocialProfileUrl(contact.channel, contact.value)
+    : URL_VALUE_CHANNELS.has(contact.channel)
+      ? canonicalizeHttpsUrl(contact.value)
+      : null;
   const discordUrl = contact.discord_server_url
     ? canonicalizeDiscordInviteUrl(contact.discord_server_url)
     : null;

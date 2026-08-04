@@ -157,7 +157,25 @@ describe('canais de contato continuam alcançáveis após a validação de URL',
     // pré-preenchendo a mensagem da vítima.
     expect(toSafeMailtoUrl('vitima@x.com?subject=Urgente&body=clique')).toBeNull();
     expect(toSafeMailtoUrl('a@b.com&x=1')).toBeNull();
-    expect(toSafeMailtoUrl('a+tag@sub.example.co.uk')).toBe('mailto:a+tag@sub.example.co.uk');
+    expect(toSafeMailtoUrl('a+tag@sub.example.co.uk')).toBe('mailto:a%2Btag@sub.example.co.uk');
+  });
+
+  it('mailto recusa conteúdo percent-encoded e escapa o que a RFC permite', () => {
+    // Achado do CodeRabbit: `%` na parte local deixava escrever conteúdo
+    // codificado no endereço; `encodeURI` não escapava `#`, `&` nem `?`.
+    expect(toSafeMailtoUrl('nome%0Ateste@example.com')).toBeNull();
+    expect(toSafeMailtoUrl('vitima@x.com%0ABcc:todos@x.com')).toBeNull();
+    expect(toSafeMailtoUrl('nome#tag@example.com')).toBe('mailto:nome%23tag@example.com');
+    expect(toSafeMailtoUrl('a&b@x.com')).toBe('mailto:a%26b@x.com');
+  });
+
+  it('WhatsApp preserva código de país explícito', () => {
+    // Achado do Codex: `+14155552671` (EUA) virava wa.me/5514155552671,
+    // abrindo conversa com outra pessoa.
+    expect(toWhatsAppUrl('+14155552671')).toBe('https://wa.me/14155552671');
+    expect(toWhatsAppUrl('+351912345678')).toBe('https://wa.me/351912345678');
+    expect(toWhatsAppUrl('+5511999999999')).toBe('https://wa.me/5511999999999');
+    expect(toWhatsAppUrl('(11) 99999-9999')).toBe('https://wa.me/5511999999999');
   });
 });
 
