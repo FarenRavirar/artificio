@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile, rm, utimes, writeFile } from 'fs/promises';
+import { mkdtemp, readdir, readFile, rm, symlink, utimes, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -170,6 +170,19 @@ describe('processDiscordChatExporterFolder', () => {
 
     await expect(processDiscordChatExporterFolder({
       rootDir: outsideRoot,
+      allowedBaseDir,
+      importJson: async () => ({ total: 0, inserted: 0, updated: 0, ignored: 0, failed: 0 }),
+    })).rejects.toThrow('Diretório fora da base permitida');
+  });
+
+  it('recusa symlink dentro da base que aponta para fora', async () => {
+    const allowedBaseDir = await makeRoot();
+    const outsideRoot = await makeRoot();
+    const linkedRoot = path.join(allowedBaseDir, 'perfil-link');
+    await symlink(outsideRoot, linkedRoot, 'junction');
+
+    await expect(processDiscordChatExporterFolder({
+      rootDir: linkedRoot,
       allowedBaseDir,
       importJson: async () => ({ total: 0, inserted: 0, updated: 0, ignored: 0, failed: 0 }),
     })).rejects.toThrow('Diretório fora da base permitida');

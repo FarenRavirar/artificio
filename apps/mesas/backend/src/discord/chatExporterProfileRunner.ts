@@ -1,14 +1,38 @@
-import { mkdir } from 'fs/promises';
 import path from 'path';
 import { db } from '../db/index.js';
 import type { DiscordChatExporterProfile, NewDiscordImportRun } from '../db/types.js';
-import { DISCORD_CHAT_EXPORTER_RETENTION, resolveChatExporterBaseDir } from './chatExporterAutomationConfig.js';
+import {
+  DISCORD_CHAT_EXPORTER_RETENTION,
+  ensureDirectoryInsideBase,
+  resolveChatExporterBaseDir,
+  resolveDirectoryInsideBase,
+} from './chatExporterAutomationConfig.js';
 import { runChatExporterCli } from './chatExporterCliRunner.js';
 import { processDiscordChatExporterFolder } from './chatExporterFolderImportService.js';
 
 /** Binário resolvido só no servidor (env/deploy), nunca a partir de payload — evita execução arbitrária. */
 export function resolveChatExporterBinary(): string {
   return process.env.DISCORD_CHAT_EXPORTER_BIN?.trim() || 'DiscordChatExporter.Cli';
+}
+
+export async function resolveChatExporterImportPaths(rootDir: string): Promise<{
+  rootDir: string;
+  incomingDir: string;
+}> {
+  const baseDir = resolveChatExporterBaseDir();
+  const safeRootDir = await resolveDirectoryInsideBase(rootDir, baseDir);
+  const safeIncomingDir = await resolveDirectoryInsideBase(path.join(safeRootDir, 'incoming'), baseDir);
+  return { rootDir: safeRootDir, incomingDir: safeIncomingDir };
+}
+
+export async function prepareChatExporterImportPaths(rootDir: string): Promise<{
+  rootDir: string;
+  incomingDir: string;
+}> {
+  const baseDir = resolveChatExporterBaseDir();
+  const safeRootDir = await ensureDirectoryInsideBase(rootDir, baseDir);
+  const safeIncomingDir = await ensureDirectoryInsideBase(path.join(safeRootDir, 'incoming'), baseDir);
+  return { rootDir: safeRootDir, incomingDir: safeIncomingDir };
 }
 
 /** Importa a pasta do perfil e registra a rodada em discord_import_runs. */
@@ -54,8 +78,9 @@ export async function runProfileExport(
   token: string,
   userId: string | undefined,
 ) {
-  const incomingDir = path.join(profile.import_dir, 'incoming');
-  await mkdir(incomingDir, { recursive: true });
+  // D13 (sessão de segurança 2026-08-04): conter e resolver symlinks antes
+  // de criar diretório ou entregar caminho à CLI.
+  const { rootDir, incomingDir } = await prepareChatExporterImportPaths(profile.import_dir);
   const exportResult = await runChatExporterCli({
     binary: resolveChatExporterBinary(),
     token,
@@ -64,7 +89,7 @@ export async function runProfileExport(
     after: profile.after?.toISOString(),
     media: profile.media,
   });
-  const importResult = await runFolderImport(profile.import_dir, userId);
+  const importResult = await runFolderImport(rootDir, userId);
   await db.updateTable('discord_chat_exporter_profiles')
     .set({
       last_run_at: new Date(),

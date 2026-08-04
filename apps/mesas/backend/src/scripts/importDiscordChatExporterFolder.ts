@@ -1,7 +1,10 @@
 import 'dotenv/config';
 import { db } from '../db/index.js';
 import { processDiscordChatExporterFolder } from '../discord/chatExporterFolderImportService.js';
-import { DISCORD_CHAT_EXPORTER_RETENTION } from '../discord/chatExporterAutomationConfig.js';
+import {
+  DISCORD_CHAT_EXPORTER_RETENTION,
+  resolveChatExporterBaseDir,
+} from '../discord/chatExporterAutomationConfig.js';
 import type { NewDiscordImportRun } from '../db/types.js';
 
 async function loadConfiguredRootDir(): Promise<{ enabled: boolean; importDir: string | null }> {
@@ -60,14 +63,13 @@ async function main() {
     return;
   }
   const rootDir = configured.importDir ?? process.env.DISCORD_CHAT_EXPORTER_IMPORT_DIR ?? process.argv[2];
-  const allowedBaseDir = process.env.DISCORD_CHAT_EXPORTER_IMPORT_BASE_DIR
-    ?? configured.importDir
-    ?? process.env.DISCORD_CHAT_EXPORTER_IMPORT_DIR
-    ?? process.cwd();
+  // D13 (sessão de segurança 2026-08-04): a entrada nunca pode definir a
+  // própria fronteira; todos os chamadores usam a mesma base canônica.
+  const allowedBaseDir = resolveChatExporterBaseDir();
   if (!rootDir) {
     console.error([
       '[importDiscordChatExporterFolder] Informe DISCORD_CHAT_EXPORTER_IMPORT_DIR ou passe o diretório como argumento.',
-      '[importDiscordChatExporterFolder] Base permitida: DISCORD_CHAT_EXPORTER_IMPORT_BASE_DIR, importDir configurado, DISCORD_CHAT_EXPORTER_IMPORT_DIR ou o diretório atual.',
+      '[importDiscordChatExporterFolder] Base permitida: DISCORD_CHAT_EXPORTER_IMPORT_BASE_DIR (fallback legado DISCORD_CHAT_EXPORTER_IMPORT_DIR).',
     ].join('\n'));
     process.exit(1);
   }

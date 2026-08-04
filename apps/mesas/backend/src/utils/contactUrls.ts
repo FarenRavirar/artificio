@@ -126,6 +126,32 @@ export function canonicalizeSocialProfileUrl(channel: string, value: unknown): C
   return { ok: true, value: `https://${SOCIAL_CANONICAL_HOST[channel]}/${username}` };
 }
 
+/**
+ * Regra de canonicalização de `value` por canal — ponto único de decisão.
+ *
+ * Antes, "qual regra vale para qual canal" era uma cadeia de `if` repetida em
+ * `contactSchema` (validação) e no `.transform` (persistência). As duas cópias
+ * precisavam concordar: divergir fazia a API aceitar um valor e gravar outro.
+ * Retorna `null` para canal cujo `value` não é URL (`whatsapp`, `email`,
+ * `discord`, `phone`), que têm validação própria e são persistidos como vieram.
+ */
+export function canonicalizeContactValue(channel: string, value: unknown): ContactUrlResult | null {
+  if (SOCIAL_PROFILE_CHANNELS.has(channel)) {
+    return canonicalizeSocialProfileUrl(channel, value);
+  }
+
+  if (!URL_VALUE_CHANNELS.has(channel)) return null;
+
+  const result = canonicalizeHttpsUrl(value);
+  if (!result.ok) return result;
+
+  // Sintaxe válida não basta: `uwill` vira `https://uwill/`, que só produz erro
+  // de DNS para o jogador. Link de contato exige host alcançável; identificador
+  // solto pertence ao canal Discord (regra do mantenedor, 2026-08-03 — mesma
+  // aplicada no importador, syncHelpers.ts).
+  return isResolvableUrl(value) ? result : { ok: false, message: UNRESOLVABLE_URL_MESSAGE };
+}
+
 export function canonicalizeDiscordInviteUrl(value: unknown): ContactUrlResult {
   const result = canonicalizeHttpsUrl(value);
   if (!result.ok) return result;

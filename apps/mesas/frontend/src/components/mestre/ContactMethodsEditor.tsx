@@ -3,8 +3,7 @@ import { Plus, Trash2, ChevronUp, ChevronDown, Mail, MessageCircle, Hash, Extern
 import {
   INVALID_DISCORD_INVITE_MESSAGE,
   toSafeDiscordInviteUrl,
-  toSafeMailtoUrl,
-  validateContactLinkUrl,
+  validateContactValue,
   validateHttpsUrl,
 } from '../../utils/safeExternalUrl';
 
@@ -85,31 +84,12 @@ export function ContactMethodsEditor({ contacts, onSave }: ContactMethodsEditorP
   };
 
   const validateContact = (contact: ContactMethod): string | null => {
-    if (!contact.value.trim()) return 'Valor obrigatório';
-
-    if (contact.channel === 'email') {
-      // Mesma regra que monta o `mailto:` na página pública: validar aqui com
-      // um critério mais frouxo deixaria o mestre salvar um endereço que depois
-      // não vira link. Cobre também `?subject=`/`?body=`, que o regex anterior
-      // (`[^\s@]+`) aceitava e o cliente de e-mail trata como campo.
-      if (!toSafeMailtoUrl(contact.value)) return 'Email inválido';
-    }
-
-    if (contact.channel === 'whatsapp') {
-      // Aceitar formato: +55XXXXXXXXXXX (sem espaços, parênteses ou hífens)
-      const whatsappRegex = /^\+\d{1,3}\d{10,11}$/;
-      if (!whatsappRegex.test(contact.value)) {
-        return 'WhatsApp deve estar no formato: +55XXXXXXXXXXX (sem espaços, parênteses ou hífens)';
-      }
-    }
-
-    if (contact.channel === 'form') {
-      // validateContactLinkUrl, não validateHttpsUrl: `uwill` é URL válida em
-      // sintaxe e vira `https://uwill/`, que só dá erro de DNS. Mesma regra do
-      // backend (isResolvableUrl), senão o formulário aceita o que a API recusa.
-      const result = validateContactLinkUrl(contact.value);
-      if (!result.success) return result.message;
-    }
+    // Regra por canal em validateContactValue (utils/safeExternalUrl), fonte
+    // única com o formulário de criação de mesa e espelho do backend
+    // (canonicalizeContactValue) — divergir faria um formulário aceitar o que
+    // o outro, ou a API, recusa.
+    const valueError = validateContactValue(contact.channel, contact.value);
+    if (valueError) return valueError;
 
     if (contact.channel === 'discord' && contact.discord_server_url?.trim()) {
       const result = validateHttpsUrl(contact.discord_server_url);

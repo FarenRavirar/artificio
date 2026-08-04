@@ -1,12 +1,7 @@
 import type { FormState } from '../types/createTable.types';
 import type { SessionSchedule } from '../../../components/SessionRepeater';
 import type { ContactFormEntry } from '../../../components/ContactsFormBlock';
-import {
-  toSafeMailtoUrl,
-  toSafeSocialProfileUrl,
-  URL_VALUE_CHANNELS,
-  validateContactLinkUrl,
-} from '../../../utils/safeExternalUrl';
+import { validateContactValue } from '../../../utils/safeExternalUrl';
 
 /**
  * Validators reutilizáveis - retornam null se válido, string de erro se inválido
@@ -72,27 +67,15 @@ export const validators = {
         return `Contato ${i + 1}: valor obrigatório`;
       }
 
-      // Canal de URL exige link alcançável, mesma regra do backend
-      // (contactSchema + isResolvableUrl). Antes daqui só se exigia valor
-      // não-vazio, então um nick como `uwill` era aceito como formulário e
-      // virava `https://uwill/` na página pública — erro de DNS para o jogador.
-      // Facebook/Instagram exigem host da própria rede, senão a API aceita e a
-      // página pública não renderiza (o componente só monta link de host
-      // conhecido) — o contato sumiria sem erro em lugar nenhum.
-      if (contact.channel === 'facebook' || contact.channel === 'instagram') {
-        if (!toSafeSocialProfileUrl(contact.channel, contact.value)) {
-          return `Contato ${i + 1}: informe um endereço ou usuário do ${
-            contact.channel === 'facebook' ? 'Facebook' : 'Instagram'
-          }.`;
-        }
-      } else if (URL_VALUE_CHANNELS.has(contact.channel)) {
-        const result = validateContactLinkUrl(contact.value);
-        if (!result.success) return `Contato ${i + 1}: ${result.message}`;
-      }
-
-      if (contact.channel === 'email' && !toSafeMailtoUrl(contact.value)) {
-        return `Contato ${i + 1}: e-mail inválido`;
-      }
+      // Regra por canal em validateContactValue (utils/safeExternalUrl), fonte
+      // única com o editor de perfil e espelho do backend
+      // (canonicalizeContactValue): canal de URL exige link alcançável, senão
+      // um nick como `uwill` viraria `https://uwill/` na página pública — erro
+      // de DNS para o jogador; Facebook/Instagram exigem host da própria rede,
+      // senão a API aceita e a página pública não renderiza (o componente só
+      // monta link de host conhecido) e o contato some sem erro em lugar nenhum.
+      const valueError = validateContactValue(contact.channel, contact.value);
+      if (valueError) return `Contato ${i + 1}: ${valueError}`;
     }
     
     return null;

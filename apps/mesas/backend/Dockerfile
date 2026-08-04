@@ -99,10 +99,13 @@ COPY --from=discord-chat-exporter /opt/app /opt/dce
 COPY --from=builder /repo/apps/mesas/backend/sistemas.json ./apps/mesas/backend/sistemas.json
 COPY --from=builder /repo/apps/mesas/backend/cenarios.json ./apps/mesas/backend/cenarios.json
 COPY --from=builder /repo/apps/mesas/database/changelogs.json ./apps/mesas/backend/database/changelogs.json
-# WS4: diretório de logs gravável pelo usuário node (REV-037: RUN único)
+# WS4: diretório de logs gravável pelo usuário node (REV-037: RUN único).
+# D13 (sessão de segurança 2026-08-04): a base canônica do ChatExporter existe
+# na imagem com ownership correto; o volume nomeado preserva esse diretório.
 RUN chmod +x /opt/dce/DiscordChatExporter.Cli \
     && chown -R node:node /repo /opt/dce \
-    && mkdir -p /app/logs && chown node:node /app/logs
+    && mkdir -p /app/logs /data/chat-exporter \
+    && chown node:node /app/logs /data/chat-exporter
 
 USER node
 

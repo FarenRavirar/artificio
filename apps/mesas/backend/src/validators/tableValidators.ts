@@ -2,14 +2,9 @@ import { z } from 'zod';
 import { sanitizeUserMarkdown } from '../utils/userMarkdown.js';
 import { isValidEmail } from '../utils/validation.js';
 import {
+  canonicalizeContactValue,
   canonicalizeDiscordInviteUrl,
-  canonicalizeHttpsUrl,
-  canonicalizeSocialProfileUrl,
-  isResolvableUrl,
   PROFILE_CONTACT_CHANNELS,
-  SOCIAL_PROFILE_CHANNELS,
-  UNRESOLVABLE_URL_MESSAGE,
-  URL_VALUE_CHANNELS,
 } from '../utils/contactUrls.js';
 
 // ============================================================================
@@ -51,23 +46,12 @@ export const contactSchema = z.object({
     });
   }
 
-  if (SOCIAL_PROFILE_CHANNELS.has(contact.channel)) {
-    // Facebook/Instagram exigem host da própria rede: `exemplo.com/perfil` era
-    // aceito aqui e não renderizava na página pública, porque o componente só
-    // monta link de host conhecido — o contato sumia sem erro em lugar nenhum.
-    const result = canonicalizeSocialProfileUrl(contact.channel, contact.value);
-    if (!result.ok) ctx.addIssue({ code: 'custom', path: ['value'], message: result.message });
-  } else if (URL_VALUE_CHANNELS.has(contact.channel)) {
-    const result = canonicalizeHttpsUrl(contact.value);
-    if (!result.ok) {
-      ctx.addIssue({ code: 'custom', path: ['value'], message: result.message });
-    } else if (!isResolvableUrl(contact.value)) {
-      // Sintaxe válida não basta: `uwill` vira `https://uwill/`, que só produz
-      // erro de DNS para o jogador. Link de contato exige host alcançável;
-      // identificador solto pertence ao canal Discord (regra do mantenedor,
-      // 2026-08-03 — mesma aplicada no importador, syncHelpers.ts).
-      ctx.addIssue({ code: 'custom', path: ['value'], message: UNRESOLVABLE_URL_MESSAGE });
-    }
+  // Facebook/Instagram exigem host da própria rede; `form` exige host alcançável.
+  // A regra por canal vive em canonicalizeContactValue para que validação e
+  // persistência (`.transform` abaixo) nunca divirjam.
+  const externalValue = canonicalizeContactValue(contact.channel, contact.value);
+  if (externalValue && !externalValue.ok) {
+    ctx.addIssue({ code: 'custom', path: ['value'], message: externalValue.message });
   }
 
   if (contact.discord_server_url && contact.channel !== 'discord') {
@@ -85,11 +69,7 @@ export const contactSchema = z.object({
     }
   }
 }).transform((contact) => {
-  const externalValue = SOCIAL_PROFILE_CHANNELS.has(contact.channel)
-    ? canonicalizeSocialProfileUrl(contact.channel, contact.value)
-    : URL_VALUE_CHANNELS.has(contact.channel)
-      ? canonicalizeHttpsUrl(contact.value)
-      : null;
+  const externalValue = canonicalizeContactValue(contact.channel, contact.value);
   const discordUrl = contact.discord_server_url
     ? canonicalizeDiscordInviteUrl(contact.discord_server_url)
     : null;

@@ -1,4 +1,4 @@
-import { access, mkdir } from 'fs/promises';
+import { access } from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { Router, Request, Response } from 'express';
@@ -12,8 +12,14 @@ import type {
 } from '../../db/types.js';
 import { buildChatExporterCliCommand, redactedChatExporterCliCommand, runChatExporterCli } from '../../discord/chatExporterCliRunner.js';
 import { discoverChannelDelta, validateDiscordToken, DiscordDiscoveryError } from '../../discord/discovery.js';
-import { resolveChatExporterBinary, runFolderImport, runProfileExport } from '../../discord/chatExporterProfileRunner.js';
-import { resolveChatExporterBaseDir } from '../../discord/chatExporterAutomationConfig.js';
+import {
+  prepareChatExporterImportPaths,
+  resolveChatExporterBinary,
+  resolveChatExporterImportPaths,
+  runFolderImport,
+  runProfileExport,
+} from '../../discord/chatExporterProfileRunner.js';
+import { ChatExporterImportDirError, resolveChatExporterBaseDir } from '../../discord/chatExporterAutomationConfig.js';
 import { getDiscordBotToken } from '../../discord/config.js';
 import { encryptDiscordSetting, decryptDiscordSetting, DiscordSettingsSecretUnavailableError, DiscordSettingsDecryptError } from '../../discord/settingsCrypto.js';
 import { requireAdmin } from '../../middleware/auth.js';
@@ -328,6 +334,9 @@ async function validateBinary(binary: string): Promise<string | null> {
 }
 
 function sendError(res: Response, error: unknown, fallbackMessage: string): Response {
+  if (error instanceof ChatExporterImportDirError) {
+    return res.status(422).json({ error: error.message });
+  }
   if (error instanceof DiscordSettingsSecretUnavailableError) {
     return res.status(503).json({ error: error.message });
   }
@@ -377,6 +386,7 @@ router.put('/config', requireAdmin, async (req: Request, res: Response) => {
     const { token, clearToken, ...patch } = parsed.data;
     const nextConfig = { ...current.config, ...patch };
     const safeConfig = configSchema.partial().parse(nextConfig);
+    if (safeConfig.importDir) await resolveChatExporterImportPaths(safeConfig.importDir);
     await upsertSetting(CONFIG_KEY, JSON.stringify(safeConfig));
     if (token) await upsertSetting(TOKEN_KEY, encryptDiscordSetting(token));
     if (clearToken) await deleteSetting(TOKEN_KEY);
@@ -538,12 +548,18 @@ router.post('/profiles/:id/test', requireAdmin, async (req: Request, res: Respon
     const errors = profileErrors(profile, resolved.token);
     const binaryError = await validateBinary(resolveChatExporterBinary());
     if (binaryError) errors.push(binaryError);
-    const command = resolved.token
+    let importPaths: Awaited<ReturnType<typeof resolveChatExporterImportPaths>> | null = null;
+    try {
+      importPaths = await resolveChatExporterImportPaths(profile.import_dir);
+    } catch (error: unknown) {
+      errors.push(error instanceof Error ? error.message : 'Diretório de importação inválido.');
+    }
+    const command = resolved.token && importPaths
       ? redactedChatExporterCliCommand(buildChatExporterCliCommand({
           binary: resolveChatExporterBinary(),
           token: resolved.token,
           channelId: profile.channel_id,
-          outputDir: path.join(profile.import_dir, 'incoming'),
+          outputDir: importPaths.incomingDir,
           after: profile.after?.toISOString(),
           media: profile.media,
         }))
@@ -596,12 +612,20 @@ router.post('/test', requireAdmin, async (_req: Request, res: Response) => {
       const binaryError = await validateBinary(binary);
       if (binaryError) errors.push(binaryError);
     }
-    const command = parsed.success && token
+    let importPaths: Awaited<ReturnType<typeof resolveChatExporterImportPaths>> | null = null;
+    if (parsed.success) {
+      try {
+        importPaths = await resolveChatExporterImportPaths(parsed.data.importDir);
+      } catch (error: unknown) {
+        errors.push(error instanceof Error ? error.message : 'Diretório de importação inválido.');
+      }
+    }
+    const command = parsed.success && token && importPaths
       ? redactedChatExporterCliCommand(buildChatExporterCliCommand({
           binary,
           token,
           channelId: parsed.data.channelId,
-          outputDir: path.join(parsed.data.importDir, 'incoming'),
+          outputDir: importPaths.incomingDir,
           after: parsed.data.after,
         }))
       : null;
@@ -624,8 +648,9 @@ router.post('/run', requireAdmin, async (req: Request, res: Response) => {
     const binaryError = await validateBinary(binary);
     if (binaryError) return res.status(422).json({ error: binaryError });
 
-    const incomingDir = path.join(parsed.data.importDir, 'incoming');
-    await mkdir(incomingDir, { recursive: true });
+    // D13 (sessão de segurança 2026-08-04): valida base real e symlinks antes
+    // do primeiro mkdir e antes de entregar qualquer caminho à CLI.
+    const { rootDir, incomingDir } = await prepareChatExporterImportPaths(parsed.data.importDir);
     const exportResult = await runChatExporterCli({
       binary,
       token,
@@ -633,7 +658,7 @@ router.post('/run', requireAdmin, async (req: Request, res: Response) => {
       outputDir: incomingDir,
       after: parsed.data.after,
     });
-    const importResult = await runFolderImport(parsed.data.importDir, req.user?.userId);
+    const importResult = await runFolderImport(rootDir, req.user?.userId);
     return res.json({ data: { exported: exportResult, imported: importResult } });
   } catch (error: unknown) {
     return sendError(res, error, '[POST /admin/discord/chat-exporter/run]');
