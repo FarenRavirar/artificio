@@ -4,33 +4,16 @@ import { DiscordSettingsDecryptError, DiscordSettingsSecretUnavailableError } fr
 import type { DiscordSourceChannelType } from './types.js';
 
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
-// UA de navegador só p/ token de USUÁRIO — sem ele Cloudflare devolve 401 mesmo
-// com token válido (fetch() do Node manda UA vazio → filtro anti-bot). Bot token
-// passa em qualquer UA; não amplia spoofing além do estritamente necessário.
-// UA configurável via env p/ envelhecimento (Chrome nova versão) sem redeploy.
 const DISCORD_BOT_HEADERS: Record<string, string> = {
   'User-Agent': process.env.DISCORD_BOT_USER_AGENT?.trim() || 'ArtificioMesasBot/1.0 (+https://artificiorpg.com)',
   Accept: '*/*',
 };
-const DISCORD_USER_HEADERS: Record<string, string> = {
-  'User-Agent': process.env.DISCORD_USER_USER_AGENT?.trim()
-    || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
-  Accept: '*/*',
-};
-function discordHeadersFor(authType: 'bot' | 'user'): Record<string, string> {
-  return authType === 'user' ? DISCORD_USER_HEADERS : DISCORD_BOT_HEADERS;
-}
 const DISCOVERABLE_CHANNEL_TYPES = new Set([0, 5, 15]);
 const CHANNEL_KIND_BY_TYPE = new Map<number, DiscordSourceChannelType>([
   [0, 'text'],
   [5, 'announcement'],
   [15, 'forum'],
 ]);
-
-const discordUserSchema = z.object({
-  id: z.string(),
-  username: z.string(),
-});
 
 const discordGuildSchema = z.object({
   id: z.string(),
@@ -79,14 +62,9 @@ export class DiscordDiscoveryError extends Error {
   }
 }
 
-function mapDiscordStatus(status: number, authType: 'user' | 'bot' = 'bot'): DiscordDiscoveryError {
+function mapDiscordStatus(status: number): DiscordDiscoveryError {
   if (status === 401) {
-    return new DiscordDiscoveryError(
-      authType === 'bot'
-        ? 'Token do bot inválido ou revogado. Gere um novo token no Discord e salve novamente.'
-        : 'Token de usuário/session inválido ou expirado. Copie um token novo do Discord web e salve novamente.',
-      422,
-    );
+    return new DiscordDiscoveryError('Token do bot inválido ou revogado. Gere um novo token no Discord e salve novamente.', 422);
   }
   if (status === 403) {
     return new DiscordDiscoveryError('O bot não tem permissão para acessar esse servidor ou canal no Discord.', 403);
@@ -129,7 +107,7 @@ async function discordGetUnknown(path: string, overrideToken?: string): Promise<
 
   try {
     const res = await fetch(`${DISCORD_API_BASE}${path}`, {
-      headers: { ...discordHeadersFor('bot'), Authorization: `Bot ${token.trim()}` },
+      headers: { ...DISCORD_BOT_HEADERS, Authorization: `Bot ${token.trim()}` },
       signal: controller.signal,
     });
 
@@ -139,37 +117,6 @@ async function discordGetUnknown(path: string, overrideToken?: string): Promise<
 
     return res.json() as Promise<unknown>;
   } catch (error: unknown) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new DiscordDiscoveryError('Discord demorou demais para responder. Tente novamente em instantes.', 502);
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-
-/**
- * Testa um token cru (user/session ou bot) direto contra `GET /users/@me`, sem
- * depender do bot token salvo em settings — usado pelo botão "Testar token" antes
- * de salvar o perfil/config, pra dar erro específico (401/403/timeout) em vez de
- * só descobrir que o token está errado quando o import falhar de madrugada.
- */
-export async function validateDiscordToken(token: string, authType: 'user' | 'bot'): Promise<{ id: string; username: string }> {
-  const header = authType === 'bot' ? `Bot ${token.trim()}` : token.trim();
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10_000);
-  try {
-    const res = await fetch(`${DISCORD_API_BASE}/users/@me`, {
-      headers: { ...discordHeadersFor(authType), Authorization: header },
-      signal: controller.signal,
-    });
-    if (!res.ok) throw mapDiscordStatus(res.status, authType);
-    const payload: unknown = await res.json();
-    const parsed = discordUserSchema.safeParse(payload);
-    if (!parsed.success) throw new DiscordDiscoveryError('Discord retornou usuário em formato inesperado.', 502);
-    return parsed.data;
-  } catch (error: unknown) {
-    if (error instanceof DiscordDiscoveryError) throw error;
     if (error instanceof Error && error.name === 'AbortError') {
       throw new DiscordDiscoveryError('Discord demorou demais para responder. Tente novamente em instantes.', 502);
     }
@@ -194,47 +141,6 @@ export async function discoverDiscordGuilds(overrideToken?: string): Promise<Dis
       approximate_member_count: guild.approximate_member_count ?? null,
     }))
     .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
-}
-
-const discordDeltaMessageSchema = z.object({ id: z.string() });
-const discordDeltaMessagesSchema = z.array(discordDeltaMessageSchema);
-
-/** Limite de página do Discord (`/channels/:id/messages?limit=`). 100 = teto da API. */
-export const DISCORD_DELTA_PAGE_LIMIT = 100;
-
-export interface DiscordChannelDelta {
-  /** Mensagens novas no canal desde `afterMessageId` (limitado a uma página). */
-  newCount: number;
-  /** `true` quando a página encheu — há pelo menos `newCount` novas (pode ser mais). */
-  capped: boolean;
-  /** Snowflake da mensagem mais recente já importada, ou null se nunca importou. */
-  afterMessageId: string | null;
-}
-
-/**
- * Dry-read: conta mensagens novas no canal desde a última importada, sem baixar nada.
- * Uma página só (teto 100) — barato e suficiente para o indicador "a atualizar".
- * Sem `afterMessageId` (canal nunca importado) o Discord não aceita `after`; nesse caso
- * retornamos apenas se há QUALQUER mensagem (1 = tem conteúdo a importar).
- */
-export async function discoverChannelDelta(
-  channelId: string,
-  afterMessageId: string | null,
-  overrideToken?: string,
-): Promise<DiscordChannelDelta> {
-  const query = new URLSearchParams({ limit: String(DISCORD_DELTA_PAGE_LIMIT) });
-  if (afterMessageId) query.set('after', afterMessageId);
-  const payload = await discordGetUnknown(`/channels/${encodeURIComponent(channelId)}/messages?${query}`, overrideToken);
-  const parsed = discordDeltaMessagesSchema.safeParse(payload);
-  if (!parsed.success) {
-    throw new DiscordDiscoveryError('Discord retornou mensagens em formato inesperado.', 502);
-  }
-  const newCount = parsed.data.length;
-  return {
-    newCount,
-    capped: newCount >= DISCORD_DELTA_PAGE_LIMIT,
-    afterMessageId,
-  };
 }
 
 export async function discoverDiscordChannels(guildId: string, overrideToken?: string): Promise<DiscordDiscoveredChannel[]> {

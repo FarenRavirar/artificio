@@ -3,11 +3,6 @@
 # Node.js API + CleanupWorker
 # =============================================================================
 
-# Estágio 0: DiscordChatExporter CLI pinada (self-contained Alpine)
-FROM tyrrrz/discordchatexporter:2.47.3 AS discord-chat-exporter
-
-# =============================================================================
-
 # Estágio 1: build TypeScript
 FROM node:24-alpine AS builder
 
@@ -28,11 +23,7 @@ FROM node:24-alpine AS production
 
 WORKDIR /repo
 ENV NODE_PATH=/repo/apps/mesas/backend/node_modules
-ENV DISCORD_CHAT_EXPORTER_BIN=/opt/dce/DiscordChatExporter.Cli
-ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 
-# Dependências de runtime do Sharp (processamento de imagem WebP) e do
-# DiscordChatExporter self-contained (ICU/tzdata em Alpine).
 # Versões fixadas em curl/libcurl/c-ares/libexpat (achado Snyk + nitpick Codex,
 # spec 081, 2026-07-18): CVEs abertos na imagem base (alpine 3.23) —
 # CVE-2026-6276 (SSRF/cleartext alto), CVE-2026-5773 (SSRF), CVE-2026-7168
@@ -45,9 +36,7 @@ RUN apk add --no-cache --upgrade \
     curl=8.21.0-r0 \
     libcurl=8.21.0-r0 \
     c-ares=1.34.8-r0 \
-    libexpat=2.8.2-r0 \
-  && apk add --no-cache \
-    vips-dev fftw-dev build-base icu-libs icu-data-full tzdata libstdc++
+    libexpat=2.8.2-r0
 
 RUN corepack enable && corepack prepare pnpm@11.8.0 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -93,19 +82,15 @@ COPY --from=builder /repo/packages/content-editor/dist ./packages/content-editor
 
 # Copiar build compilado
 COPY --from=builder /repo/apps/mesas/backend/dist ./apps/mesas/backend/dist
-COPY --from=discord-chat-exporter /opt/app /opt/dce
 
 # Copiar arquivos de dados de sistemas e cenários (JSON)
 COPY --from=builder /repo/apps/mesas/backend/sistemas.json ./apps/mesas/backend/sistemas.json
 COPY --from=builder /repo/apps/mesas/backend/cenarios.json ./apps/mesas/backend/cenarios.json
 COPY --from=builder /repo/apps/mesas/database/changelogs.json ./apps/mesas/backend/database/changelogs.json
 # WS4: diretório de logs gravável pelo usuário node (REV-037: RUN único).
-# D13 (sessão de segurança 2026-08-04): a base canônica do ChatExporter existe
-# na imagem com ownership correto; o volume nomeado preserva esse diretório.
-RUN chmod +x /opt/dce/DiscordChatExporter.Cli \
-    && chown -R node:node /repo /opt/dce \
-    && mkdir -p /app/logs /data/chat-exporter \
-    && chown node:node /app/logs /data/chat-exporter
+RUN chown -R node:node /repo \
+    && mkdir -p /app/logs \
+    && chown node:node /app/logs
 
 USER node
 

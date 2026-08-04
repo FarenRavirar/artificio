@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 304,
-    "uniqueEndpoints": 283,
+    "total": 292,
+    "uniqueEndpoints": 271,
     "byApp": {
       "accounts-frontend": {
         "total": 5,
@@ -38,16 +38,16 @@
         }
       },
       "mesas-frontend": {
-        "total": 181,
+        "total": 169,
         "byConfidence": {
           "medium": 74,
-          "high": 105,
+          "high": 93,
           "low": 2
         },
         "byPattern": {
           "unknown": 6,
           "template-literal": 66,
-          "service-wrapper": 50,
+          "service-wrapper": 38,
           "literal": 57,
           "concatenation": 2
         }
@@ -1003,116 +1003,6 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/admin/discord/chat-exporter/config",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.getChatExporterConfig",
-      "line": 214
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
-      "method": "PUT",
-      "endpoint": "/api/v1/admin/discord/chat-exporter/config",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.saveChatExporterConfig",
-      "line": 244
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/admin/discord/chat-exporter/profiles",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.getChatExporterProfiles",
-      "line": 213
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
-      "method": "POST",
-      "endpoint": "/api/v1/admin/discord/chat-exporter/profiles",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.createChatExporterProfile",
-      "line": 390
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
-      "method": "PATCH",
-      "endpoint": "/api/v1/admin/discord/chat-exporter/profiles/:param",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.updateChatExporterProfile",
-      "line": 389
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
-      "method": "DELETE",
-      "endpoint": "/api/v1/admin/discord/chat-exporter/profiles/:param",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.deleteChatExporterProfile",
-      "line": 449
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/admin/discord/chat-exporter/profiles/:param/delta",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.getChatExporterProfileDelta",
-      "line": 416
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
-      "method": "POST",
-      "endpoint": "/api/v1/admin/discord/chat-exporter/profiles/:param/run",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.runChatExporterProfile",
-      "line": 430
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
-      "method": "POST",
-      "endpoint": "/api/v1/admin/discord/chat-exporter/profiles/:param/test",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.testChatExporterProfile",
-      "line": 404
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
-      "method": "POST",
-      "endpoint": "/api/v1/admin/discord/chat-exporter/validate-token",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.validateChatExporterToken",
-      "line": 272
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/admin/discord/discovery/guilds",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.discoverGuilds",
-      "line": 290
-    },
-    {
-      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/DiscordSourceList.tsx",
       "method": "GET",
       "endpoint": "/api/v1/admin/discord/discovery/guilds",
@@ -1120,16 +1010,6 @@
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.discoverGuilds",
       "line": 81
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/components/ChatExporterProfilesPanel.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/admin/discord/discovery/guilds/:param/channels",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "discordSyncApi.discoverChannels",
-      "line": 309
     },
     {
       "app": "mesas-frontend",

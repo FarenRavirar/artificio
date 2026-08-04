@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **411 operações**.
+Total: **399 operações**.
 
 ## accounts (17)
 
@@ -196,7 +196,7 @@ Total: **411 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (192)
+## mesas (180)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -210,18 +210,6 @@ Total: **411 operações**.
 | GET | `/api/v1/admin/discord/automation/eval` | admin | admin | active | — | Consulta eval offline da automação Discord |
 | GET | `/api/v1/admin/discord/automation/llm-activity` | admin | admin | active | — | Consulta api v1 admin discord automation llm-activity |
 | GET | `/api/v1/admin/discord/automation/parse-eval` | admin | admin | active | — | Consulta api v1 admin discord automation parse-eval |
-| GET | `/api/v1/admin/discord/chat-exporter/config` | admin | admin | active | — | Consulta api v1 admin discord chat-exporter config |
-| PUT | `/api/v1/admin/discord/chat-exporter/config` | admin | admin | active | — | Substitui api v1 admin discord chat-exporter config |
-| GET | `/api/v1/admin/discord/chat-exporter/profiles` | admin | admin | active | — | Consulta api v1 admin discord chat-exporter profiles |
-| POST | `/api/v1/admin/discord/chat-exporter/profiles` | admin | admin | active | — | Cria ou executa api v1 admin discord chat-exporter profiles |
-| DELETE | `/api/v1/admin/discord/chat-exporter/profiles/{id}` | admin | admin | active | — | Remove api v1 admin discord chat-exporter profiles id |
-| PATCH | `/api/v1/admin/discord/chat-exporter/profiles/{id}` | admin | admin | active | — | Atualiza api v1 admin discord chat-exporter profiles id |
-| GET | `/api/v1/admin/discord/chat-exporter/profiles/{id}/delta` | admin | admin | active | — | Consulta api v1 admin discord chat-exporter profiles id delta |
-| POST | `/api/v1/admin/discord/chat-exporter/profiles/{id}/run` | admin | admin | active | — | Cria ou executa api v1 admin discord chat-exporter profiles id run |
-| POST | `/api/v1/admin/discord/chat-exporter/profiles/{id}/test` | admin | admin | active | — | Cria ou executa api v1 admin discord chat-exporter profiles id test |
-| POST | `/api/v1/admin/discord/chat-exporter/run` | admin | admin | active | — | Cria ou executa api v1 admin discord chat-exporter run |
-| POST | `/api/v1/admin/discord/chat-exporter/test` | admin | admin | active | — | Cria ou executa api v1 admin discord chat-exporter test |
-| POST | `/api/v1/admin/discord/chat-exporter/validate-token` | admin | admin | active | — | Cria ou executa api v1 admin discord chat-exporter validate-token |
 | GET | `/api/v1/admin/discord/discovery/guilds` | admin | admin | active | — | Consulta api v1 admin discord discovery guilds |
 | GET | `/api/v1/admin/discord/discovery/guilds/{guildId}/channels` | admin | admin | active | — | Consulta api v1 admin discord discovery guilds guildId channels |
 | GET | `/api/v1/admin/discord/drafts` | admin | admin | active | — | Consulta api v1 admin discord drafts |

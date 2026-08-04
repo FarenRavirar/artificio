@@ -1,11 +1,13 @@
 # Sessão 26-08-04 · Remoção da automação DiscordChatExporter
 
 **Data:** 2026-08-04  
-**Branch observada:** `fix/seguranca-d13-directory-write`  
-**Estado:** levantamento concluído · implementação não iniciada  
-**Escopo decidido:** retirar a automação DiscordChatExporter e preservar integralmente o import manual de JSON  
+**Branch observada no levantamento:** `fix/seguranca-d13-directory-write` (mergeada em `dev` na PR #237)  
+**Branch de implementação:** `chore/mesas-remover-automacao-chat-exporter`, criada de `origin/dev` em `c519f76`  
+**Estado:** levantamento concluído · auditoria de infra concluída · decisões fechadas · implementação delegada ao Codex  
+**Escopo decidido:** retirar a automação DiscordChatExporter, remover as dependências de container órfãs, preservar integralmente o import manual de JSON  
 **Trava do mantenedor:** não tocar no parser  
-**Indexação:** não incluir em `sessoes/index.md`, por pedido nominal do mantenedor
+**Indexação:** não incluir em `sessoes/index.md`, por pedido nominal do mantenedor  
+**Prompt de implementação:** `sessoes/prompt-codex-remocao-chat-exporter.md`
 
 ## Resultado central
 
@@ -313,38 +315,91 @@ Remover todo código, UI, CLI, cron e deploy, mas deixar tabela e eventuais chav
 
 A correção D13 foi implementada localmente antes da decisão de retirar a automação. Ela adicionou contenção de diretório, testes, base `/data/chat-exporter` e volumes.
 
-Se a automação e o import por pasta forem removidos, D13 deixa de ter sink e sua implementação não deve seguir como correção independente. Os arquivos/trechos D13 serão removidos ou absorvidos pela retirada, não commitados separadamente.
+Com a automação e o import por pasta removidos, D13 deixa de ter sink e sua implementação não segue como correção independente.
 
-Não apagar nem resetar nada sem revisar o worktree: há mudanças locais de outras frentes.
+**Atualização de 2026-08-04, posterior ao levantamento:** o trabalho D13 e as mudanças de contatos/XSS **já foram commitados e mergeados** (`c4f55d0` e `03db583`, PR #237), e `dev` está em `c519f76`. A previsão do levantamento — de que D13 seria "absorvido, não commitado separadamente" — foi superada pelos fatos: ele entrou em `dev` antes da decisão de retirar a automação.
 
-## Estado do worktree observado
+Consequência prática para a implementação: a remoção **apaga código já mergeado**, não descarta trabalho local. Some da branch nova, na íntegra:
 
-Além do trabalho D13, apareceram alterações locais em arquivos de contatos/XSS durante o levantamento:
+- `apps/mesas/backend/src/discord/chatExporterAutomationConfig.ts` (contenção de diretório);
+- `apps/mesas/backend/src/discord/__tests__/chatExporterAutomationConfig.test.ts` (8 testes, incluindo os casos de symlink e travessia);
+- `/data/chat-exporter` no `Dockerfile`, a variável `DISCORD_CHAT_EXPORTER_IMPORT_BASE_DIR` e os volumes nos dois compose.
 
-- `apps/mesas/backend/src/utils/contactUrls.ts`
-- `apps/mesas/backend/src/utils/contactUrls.test.ts`
-- `apps/mesas/backend/src/validators/tableValidators.ts`
-- `apps/mesas/frontend/src/components/mestre/ContactMethodsEditor.tsx`
-- `apps/mesas/frontend/src/features/create-table/utils/validation.ts`
-- `apps/mesas/frontend/src/test/contactXss.test.tsx`
-- `apps/mesas/frontend/src/utils/safeExternalUrl.ts`
+Isso não invalida o achado de segurança original: a vulnerabilidade de escrita em diretório desaparece junto com o código que a continha, que é a correção mais completa possível. O histórico de `dev` preserva a implementação D13 caso a automação retorne algum dia.
 
-Essas alterações não foram inspecionadas nem tocadas nesta investigação. `sessoes/prompt-codex-d13.md` também permanece não rastreado.
+## Estado do worktree
 
-## Decisões pendentes antes de implementar
+Limpo na criação da branch `chore/mesas-remover-automacao-chat-exporter`, em `origin/dev` (`c519f76`). As alterações de contatos/XSS listadas no levantamento (`contactUrls.ts`, `tableValidators.ts`, `ContactMethodsEditor.tsx`, `create-table/utils/validation.ts`, `contactXss.test.tsx`, `safeExternalUrl.ts`) foram commitadas e mergeadas na PR #237 — não são mais pendência desta sessão.
 
-1. Confirmar que “import manual” significa a interface de upload/JSON colado e que `discord:import-folder` também deve sair. Recomendação: remover.
-2. Escolher cleanup do banco:
-   - migration nova destrutiva; ou
-   - tabela inerte.
-3. Confirmar como tratar as mudanças locais simultâneas antes de editar/commitar. Nenhum reset, descarte ou separação de escopo pode ser inferido pelo agente.
+`sessoes/prompt-codex-d13.md` permanece não rastreado, do mesmo modo que `sessoes/prompt-codex-remocao-chat-exporter.md`, criado nesta sessão.
+
+## Auditoria de infra — 2026-08-04, complementar ao levantamento
+
+O levantamento inicial listou o estágio da CLI e o volume, mas não rastreou a origem das demais linhas do `Dockerfile`. A auditoria por `git log -S` fechou essa lacuna e mudou o tamanho do escopo.
+
+### O que o container carrega por causa da automação
+
+Não se trata de Chrome nem de navegador headless, hipótese levantada pelo mantenedor. É `tyrrrz/discordchatexporter:2.47.3` — CLI .NET *self-contained*, publicada como imagem Alpine.
+
+Todas as linhas abaixo entraram no **mesmo commit** `9a4680d` (`feat(mesas): advance admin import and catalog redesign`), o que confirma que formam um bloco único e saem juntas:
+
+| Item | Local | Natureza |
+|---|---|---|
+| `FROM tyrrrz/discordchatexporter:2.47.3 AS discord-chat-exporter` | `Dockerfile:6-7` | binário de terceiro |
+| `COPY --from=discord-chat-exporter /opt/app /opt/dce` | `Dockerfile:96` | cópia do binário |
+| `chmod +x /opt/dce/...` + `/opt/dce` no `chown -R` | `Dockerfile:105-106` | permissão do binário |
+| `ENV DISCORD_CHAT_EXPORTER_BIN` | `Dockerfile:31` | caminho do binário |
+| `ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false` | `Dockerfile:32` | runtime .NET, sem efeito em Node |
+| `icu-libs icu-data-full tzdata libstdc++` | `Dockerfile:44` | runtime ICU do .NET; `icu-data-full` sozinho ~30 MB |
+
+Achado principal: **as quatro bibliotecas ICU/tzdata não são do backend Node**. O comentário do `Dockerfile` as atribui em parte ao Sharp, mas o `git log -S "icu-data-full"` mostra que entraram exatamente com a CLI. Sem a automação, nada no backend as consome.
+
+Adicionado depois pela correção D13 (`c4f55d0`, 2026-08-04) e igualmente sem sink após a remoção:
+
+- `mkdir -p /data/chat-exporter` e o `chown` correspondente (`Dockerfile:100-102`);
+- `DISCORD_CHAT_EXPORTER_IMPORT_BASE_DIR=/data/chat-exporter`, duas ocorrências por compose (serviço API e serviço cron);
+- volumes nomeados `chat_exporter_data_beta` e `chat_exporter_data_prod`.
+
+Ganho estimado de imagem: da ordem de 200 MB (binário .NET + dados ICU), além de eliminar a superfície de um binário de terceiro no container de produção.
+
+### Dependências npm
+
+**Nenhuma sai.** A automação usa `child_process` nativo para invocar a CLI. Não há pacote npm exclusivo dela em `apps/mesas/backend/package.json`. O que sai do arquivo são apenas os seis scripts.
+
+### `vips-dev fftw-dev build-base` — órfãs confirmadas, entram no escopo
+
+Primeiro classificadas como fora de escopo por virem de commit independente (`be7fafd`, PR #113 — Cloudinary/SSO). Verificação posterior provou que são órfãs em mesas, e o mantenedor mandou incluir no mesmo escopo em 2026-08-04.
+
+Evidência:
+
+1. `sharp` aparece em exatamente dois `package.json` do monorepo: `apps/site` e `apps/links`. **Não** aparece em `apps/mesas/backend`, nem em `packages/media`, nem em nenhum `src` de mesas.
+2. `apps/mesas/backend/Dockerfile` é o **único** Dockerfile do repositório com `vips-dev`. Os Dockerfiles de `site` e `links`, que de fato têm `sharp` como dependência, não instalam essas bibliotecas.
+3. `apps/mesas/backend/src/routes/upload.ts` envia a imagem direto ao Cloudinary (`uploadImageToCloudinary`, `uploadRemoteImageToCloudinary`). Mesas não redimensiona nem converte imagem localmente — é a regra de produto do `AGENTS.md`: upload e processamento de imagem sempre no backend via Cloudinary com signed preset.
+
+Conclusão: `vips-dev fftw-dev build-base` nunca tiveram consumidor em mesas. `build-base` é toolchain de compilação C/C++ presente na imagem **de produção**, o pior lugar para uma dependência órfã. Saem junto com o resto, e o comentário do `Dockerfile` que as atribuía ao Sharp deixa de existir por não descrever mais nada.
+
+## Decisões do mantenedor — fechadas em 2026-08-04
+
+1. **`discord:import-folder` sai junto.** O transporte por diretórios `incoming/processing/processed/error` existe para suportar a automação e não é o import manual da interface. Consequência aceita: a correção D13 perde o sink e é removida inteira (código, testes, volume, variável de ambiente), em vez de seguir como correção independente.
+2. **Banco: Opção B — tabela inerte.** Nenhuma migration nesta entrega. `discord_chat_exporter_profiles` e as migrations `134`/`135` permanecem no banco e no histórico, sem consumidor e sem tipo Kysely. Resíduo técnico deliberado, com risco operacional zero: prod e beta têm 0 perfis e 0 chaves.
+3. **`vips-dev fftw-dev build-base` entram no escopo**, pela evidência de orfandade acima.
+4. **Mudanças locais simultâneas: questão encerrada.** No levantamento havia trabalho D13 e contatos/XSS não commitado. Ambos foram commitados e mergeados na PR #237 (`c4f55d0`, `03db583`), e `dev` está em `c519f76`. O worktree ficou limpo. A remoção passa a apagar código já mergeado, não a descartar trabalho local.
+
+## Verificação de grafo antes de delegar
+
+Executada em `dev` (`c519f76`), para provar que a lista de remoção é fechada e não deixa import pendurado:
+
+- Busca por consumidores dos nove arquivos de automação e do painel de perfis: os únicos alcances fora do próprio conjunto são `apps/mesas/backend/src/routes/adminDiscordSync.ts` (montagem da rota) e `apps/mesas/frontend/src/features/admin/components/IntegracoesSection.tsx` (render do painel). Ambos tratados por remoção parcial.
+- `validateDiscordToken`, `discoverChannelDelta` e `DISCORD_DELTA_PAGE_LIMIT` têm consumidor exclusivo em `routes/discord/chatExporterAutomation.ts`. Após removê-lo, ficam sem uso — confirma a remoção parcial de `discovery.ts` recomendada pelo levantamento.
+- Os onze arquivos `chatExporter*` do backend, os oito testes e o painel de 928 linhas existem no disco com o conteúdo esperado.
 
 ## Validação exigida após implementação
 
 1. Busca final por automação:
    - nenhum endpoint `/chat-exporter`;
    - nenhum perfil, cron, CLI, binário, env ou volume de automação;
-   - nenhum método/tipo frontend automático.
+   - nenhum método/tipo frontend automático;
+   - nenhuma ocorrência de `discordchatexporter`, `DOTNET_SYSTEM_GLOBALIZATION`, `icu-data-full`, `vips-dev` ou `fftw-dev` no `Dockerfile` de mesas.
 2. Busca negativa garantindo preservação:
    - cinco endpoints `/import-json/**` presentes;
    - `chatExporterAdapter`, `chatExporterImportService` e schemas presentes;
@@ -358,6 +413,24 @@ Essas alterações não foram inspecionadas nem tocadas nesta investigação. `s
 8. `rtk pnpm verify:api`.
 9. `git diff --check`.
 
+Acrescentar à validação de Docker, quando o Docker Desktop estiver disponível:
+
+```bash
+docker build --target production -f apps/mesas/backend/Dockerfile .
+```
+
+Registrar o tamanho da imagem antes e depois. Redução esperada da ordem de 200 MB (binário .NET + ICU), mais o que sair com `build-base`. Se o Docker não estiver disponível, dizer que não rodou — não presumir sucesso.
+
+## Handoff para o Codex
+
+Prompt de implementação: **`sessoes/prompt-codex-remocao-chat-exporter.md`**.
+
+O prompt é autossuficiente e já incorpora as decisões desta seção. Ele contém: as sete travas do mantenedor, a lista completa de arquivos removidos por inteiro, cada remoção parcial com arquivo e linha, o tratamento de Docker/Compose, a validação obrigatória com buscas negativas e positivas, e o formato do relatório final.
+
+Divisão de responsabilidade: o levantamento e a auditoria de infra são desta sessão (Claude Code); a implementação é do Codex. O prompt proíbe explicitamente commit, push, PR e deploy sem autorização nominal do mantenedor, por ação.
+
 ## Encerramento desta sessão
 
-Levantamento concluído. Nenhuma implementação, commit, push, PR, deploy ou escrita em banco autorizada/executada. Sessão criada sem atualização de `sessoes/index.md`, conforme pedido.
+Levantamento, auditoria de infra e handoff concluídos. Decisões do mantenedor registradas e fechadas. Branch `chore/mesas-remover-automacao-chat-exporter` criada de `origin/dev` (`c519f76`).
+
+Nenhum arquivo de código foi alterado. Nenhuma implementação, commit, push, PR, deploy ou escrita em banco foi autorizada ou executada. Sessão mantida fora de `sessoes/index.md`, conforme pedido nominal.

@@ -5,7 +5,6 @@ import { DiscordSettingsPanel } from '../../../features/discord-sync/components/
 import { DiscordSourceList } from '../../../features/discord-sync/components/DiscordSourceList';
 import { DiscordJsonImportPanel } from '../../../features/discord-sync/components/DiscordJsonImportPanel';
 import { IntegrationLogsView } from '../../../features/discord-sync/components/IntegrationLogsView';
-import { ChatExporterProfilesPanel } from '../../../features/discord-sync/components/ChatExporterProfilesPanel';
 import { EnrichmentAdminPanel } from '../hydration/EnrichmentAdminPanel';
 import { TextPasteArea } from '../../../features/inbox/components/TextPasteArea';
 import { useDiscordSync } from '../../../features/discord-sync/hooks/useDiscordSync';
@@ -124,7 +123,6 @@ export function IntegracoesSection() {
           {botTab === 'configuracao' && (
             <div className="space-y-5">
               <DiscordSettingsPanel />
-              <ChatExporterProfilesPanel />
             </div>
           )}
           {botTab === 'importacao' && (
