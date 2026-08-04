@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, realpath, rm, symlink } from 'fs/promises';
+import { mkdtemp, mkdir, realpath, rm, symlink, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -50,6 +50,55 @@ describe('contenção canônica do DiscordChatExporter', () => {
 
     await expect(resolveDirectoryInsideBase(linkedDir, baseDir))
       .rejects.toThrow('Diretório fora da base permitida');
+  });
+
+  it('aceita base cujo caminho passa por symlink, encadeando as duas etapas', async () => {
+    // Achado P2 do Codex na PR #237: com base atrás de symlink (`/var` no macOS
+    // resolve para `/private/var`), ensureDirectoryInsideBase devolvia caminho
+    // real e prepareChatExporterImportPaths o realimentava contra a base
+    // lexical — a segunda etapa rejeitava o que a primeira tinha aprovado.
+    const realBase = await makeDir();
+    const linkParent = await makeDir();
+    const linkedBase = path.join(linkParent, 'base-link');
+    await symlink(realBase, linkedBase, 'junction');
+
+    const rootDir = await ensureDirectoryInsideBase('perfil-1', linkedBase);
+    await expect(ensureDirectoryInsideBase(path.join(rootDir, 'incoming'), linkedBase))
+      .resolves.toContain('incoming');
+  });
+
+  it('rejeita escape mesmo quando a base tem nome lexical e real distintos', async () => {
+    // Guard-rail do fix P2: aceitar os dois nomes da base não pode virar porta
+    // de saída — symlink dentro da base apontando pra fora continua barrado,
+    // e o alvo absoluto fora dela também.
+    const realBase = await makeDir();
+    const outsideDir = await makeDir();
+    const linkParent = await makeDir();
+    const linkedBase = path.join(linkParent, 'base-link');
+    await symlink(realBase, linkedBase, 'junction');
+
+    await expect(resolveDirectoryInsideBase(outsideDir, linkedBase))
+      .rejects.toThrow('Diretório fora da base permitida');
+
+    const escape = path.join(realBase, 'perfil-fuga');
+    await symlink(outsideDir, escape, 'junction');
+    await expect(resolveDirectoryInsideBase(escape, linkedBase))
+      .rejects.toThrow('Diretório fora da base permitida');
+  });
+
+  it('rejeita alvo que é arquivo e travessia através de arquivo', async () => {
+    // Achado do Codex na PR #237: sem checar isDirectory(), os dois casos eram
+    // aprovados aqui e só estouravam no mkdir como ENOTDIR cru — o admin
+    // recebia erro de sistema em vez do 422 com mensagem explicativa.
+    const baseDir = await makeDir();
+    const filePath = path.join(baseDir, 'arquivo.txt');
+    await writeFile(filePath, 'conteudo');
+
+    await expect(resolveDirectoryInsideBase(filePath, baseDir))
+      .rejects.toThrow('precisa ser um diretório');
+
+    await expect(resolveDirectoryInsideBase(path.join(filePath, 'incoming'), baseDir))
+      .rejects.toThrow('precisa ser um diretório');
   });
 
   it('rejeita incoming existente como symlink para fora', async () => {

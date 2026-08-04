@@ -1,4 +1,4 @@
-import { mkdir, realpath } from 'fs/promises';
+import { mkdir, realpath, stat } from 'fs/promises';
 import path from 'path';
 
 export const DISCORD_CHAT_EXPORTER_LAYOUT = {
@@ -58,6 +58,10 @@ function isMissingPathError(error: unknown): boolean {
     && (error.code === 'ENOENT' || error.code === 'ENOTDIR');
 }
 
+// `ENOTDIR` conta como "ausente" na subida porque é o que o SO devolve quando um
+// componente intermediário do caminho é arquivo (`<base>/arquivo.txt/incoming`):
+// sem ele, a subida pararia com erro cru em vez de chegar ao ancestral real.
+// Quem rejeita esse caso é a checagem de diretório abaixo, não esta função.
 async function nearestExistingRealPath(targetPath: string): Promise<string> {
   let current = targetPath;
   while (true) {
@@ -79,10 +83,6 @@ async function nearestExistingRealPath(targetPath: string): Promise<string> {
  */
 export async function resolveDirectoryInsideBase(targetPath: string, baseDir: string): Promise<string> {
   const lexicalBase = path.resolve(baseDir);
-  const lexicalTarget = path.isAbsolute(targetPath)
-    ? path.resolve(targetPath)
-    : path.resolve(lexicalBase, targetPath);
-  assertInsideBase(lexicalTarget, lexicalBase);
 
   let realBase: string;
   try {
@@ -91,9 +91,38 @@ export async function resolveDirectoryInsideBase(targetPath: string, baseDir: st
     throw new ChatExporterImportDirError('Base do DiscordChatExporter não existe ou não está acessível.', { cause: error });
   }
 
+  // A base tem dois nomes válidos quando o próprio caminho dela passa por
+  // symlink (`/var` resolve para `/private/var` no macOS): o lexical, que o
+  // ambiente configurou, e o real, que `ensureDirectoryInsideBase` devolve.
+  // Aceitar só um quebrava o encadeamento das duas etapas em
+  // prepareChatExporterImportPaths — a segunda rejeitava o caminho que a
+  // primeira acabara de aprovar, derrubando a importação inteira (achado P2
+  // do Codex, PR #237). Escapar da base continua barrado: o alvo precisa
+  // caber em pelo menos um dos dois nomes, e ambos apontam para o mesmo lugar.
+  const isInsideEitherBase = (candidate: string): boolean =>
+    isInsideBase(candidate, lexicalBase) || isInsideBase(candidate, realBase);
+
+  const lexicalTarget = path.isAbsolute(targetPath)
+    ? path.resolve(targetPath)
+    : path.resolve(lexicalBase, targetPath);
+  if (!isInsideEitherBase(lexicalTarget)) {
+    throw new ChatExporterImportDirError('Diretório fora da base permitida para importação.');
+  }
+
   try {
     const realAncestor = await nearestExistingRealPath(lexicalTarget);
-    assertInsideBase(realAncestor, realBase);
+    if (!isInsideEitherBase(realAncestor)) {
+      throw new ChatExporterImportDirError('Diretório fora da base permitida para importação.');
+    }
+
+    // O ancestral existente precisa ser diretório. Sem isto, um `importDir`
+    // apontando para arquivo (ou atravessando um, como `<base>/arquivo/incoming`)
+    // era aprovado aqui e só estourava depois, no `mkdir`, como `ENOTDIR` cru —
+    // o admin recebia erro de sistema em vez do 422 com mensagem explicativa.
+    if (!(await stat(realAncestor)).isDirectory()) {
+      throw new ChatExporterImportDirError('Caminho de importação precisa ser um diretório.');
+    }
+
     return lexicalTarget;
   } catch (error: unknown) {
     if (error instanceof ChatExporterImportDirError) throw error;
@@ -106,6 +135,8 @@ export async function ensureDirectoryInsideBase(targetPath: string, baseDir: str
   const safeTarget = await resolveDirectoryInsideBase(targetPath, baseDir);
   await mkdir(safeTarget, { recursive: true });
 
+  // Revalidação obrigatória: entre a checagem acima e o mkdir, um symlink
+  // plantado no caminho trocaria o destino real da escrita.
   const realBase = await realpath(path.resolve(baseDir));
   const realTarget = await realpath(safeTarget);
   assertInsideBase(realTarget, realBase);

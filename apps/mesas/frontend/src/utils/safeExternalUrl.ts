@@ -256,7 +256,10 @@ export function validateContactValue(channel: string, value: string): string | n
   }
 
   if (channel === 'whatsapp') {
-    return WHATSAPP_INTERNATIONAL.test(value) ? null : INVALID_WHATSAPP_MESSAGE;
+    // `.trim()` porque o backend normaliza o valor antes de validar
+    // (`z.string().trim()` em contactSchema): sem isso o formulário recusaria
+    // um número colado com espaço que a API aceita e grava.
+    return WHATSAPP_INTERNATIONAL.test(value.trim()) ? null : INVALID_WHATSAPP_MESSAGE;
   }
 
   if (channel === 'facebook' || channel === 'instagram') {

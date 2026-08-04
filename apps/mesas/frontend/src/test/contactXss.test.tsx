@@ -291,6 +291,9 @@ describe('validateContactValue aplica a regra certa por canal', () => {
 
     expect(validateContactValue('whatsapp', '11999999999')).toMatch(/internacional/i);
     expect(validateContactValue('whatsapp', '+5511999999999')).toBeNull();
+    // Backend faz z.string().trim() antes de validar; sem o mesmo trim aqui, o
+    // formulário recusaria número colado com espaço que a API aceita.
+    expect(validateContactValue('whatsapp', ' +5511999999999 ')).toBeNull();
   });
 
   it('deixa passar canal sem formato verificável no cliente', () => {
