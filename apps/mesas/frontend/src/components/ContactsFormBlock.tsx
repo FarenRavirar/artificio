@@ -1,5 +1,6 @@
 import { PlusCircle, Trash2 } from 'lucide-react';
 import type { TableContactChannel } from '../types/tables';
+import { URL_VALUE_CHANNELS } from '../utils/safeExternalUrl';
 
 export interface ContactFormEntry {
   channel: TableContactChannel;
@@ -15,9 +16,13 @@ interface ContactsFormBlockProps {
 }
 
 const CHANNEL_OPTIONS: Array<{ value: TableContactChannel; label: string; placeholder: string }> = [
-  { value: 'whatsapp', label: 'WhatsApp', placeholder: '+55 11999999999' },
-  { value: 'discord', label: 'Discord', placeholder: 'usuario#1234 ou link de perfil' },
-  { value: 'phone', label: 'Telefone', placeholder: '(11) 99999-9999' },
+  { value: 'whatsapp', label: 'WhatsApp', placeholder: '+5511999999999' },
+  { value: 'discord', label: 'Discord', placeholder: '@usuario ou ID do usuário' },
+  // Telefone abre WhatsApp, igual ao canal dedicado (ver toWhatsAppUrl):
+  // ninguém liga nem manda SMS para contato de mesa. O canal continua porque a
+  // importação do Discord ainda cria contatos `phone` (syncHelpers.ts) e o
+  // mestre precisa poder editá-los. Placeholder diz o destino real.
+  { value: 'phone', label: 'Telefone (abre WhatsApp)', placeholder: '(11) 99999-9999' },
   { value: 'email', label: 'E-mail', placeholder: 'contato@exemplo.com' },
   { value: 'facebook', label: 'Facebook', placeholder: 'facebook.com/seu-perfil' },
   { value: 'instagram', label: 'Instagram', placeholder: 'instagram.com/seu-perfil' },
@@ -84,6 +89,13 @@ export function ContactsFormBlock({ contacts, onChange, error }: ContactsFormBlo
                     placeholder={selectedChannel.placeholder}
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-white/30 outline-none focus:border-[var(--color-artificio-orange)]/60 transition-all"
                   />
+                  {URL_VALUE_CHANNELS.has(contact.channel) && (
+                    <p className="text-xs text-white/50">
+                      Informe o endereço completo, como exemplo.com/inscricao — será salvo
+                      como https://. Nome de usuário sozinho não funciona como link; se for
+                      seu @ do Discord, troque o canal para Discord.
+                    </p>
+                  )}
                 </div>
 
                 <button
@@ -119,6 +131,9 @@ export function ContactsFormBlock({ contacts, onChange, error }: ContactsFormBlo
                       placeholder="https://discord.gg/..."
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white placeholder-white/30 outline-none focus:border-[var(--color-artificio-orange)]/60 transition-all"
                     />
+                    <p className="text-xs text-white/50">
+                      Discord não oferece link direto por @usuário. Se tiver servidor, informe aqui um convite HTTPS opcional.
+                    </p>
                   </div>
                 )}
               </div>

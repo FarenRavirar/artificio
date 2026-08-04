@@ -17,6 +17,7 @@ vi.mock('../db', () => ({
 }));
 vi.mock('../repositories/tableRepository', () => ({
   TableRepository: {
+    createTableWithRelations: vi.fn(),
     findById: vi.fn(),
     findByIdAndGm: vi.fn(),
     findContactsByTableId: vi.fn().mockResolvedValue([]),
@@ -152,5 +153,103 @@ describe('PUT /api/v1/gm/tables/:id — mesa órfã (gm_id: null)', () => {
 
     expect(res.status).toBe(403);
     expect(TableRepository.updateTableWithRelations).not.toHaveBeenCalled();
+  });
+});
+
+const unsafeContactCases = [
+  ['javascript:', { channel: 'discord', value: 'mestre', discord_server_url: 'javascript:alert(1)' }],
+  ['data:', { channel: 'discord', value: 'mestre', discord_server_url: 'data:text/html,x' }],
+  ['vbscript:', { channel: 'discord', value: 'mestre', discord_server_url: 'vbscript:msgbox(1)' }],
+  ['http:', { channel: 'form', value: 'http://forms.gle/abc' }],
+  ['host Discord falso', { channel: 'discord', value: 'mestre', discord_server_url: 'https://example.com/convite' }],
+] as const;
+
+describe('rotas manuais — contatos inseguros', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRole = 'gm';
+    mockUserId = 'gm-1';
+  });
+
+  it.each(unsafeContactCases)('POST /gm/tables rejeita %s', async (_label, contact) => {
+    const res = await request(makeApp()).post('/api/v1/gm/tables').send({
+      title: 'Mesa segura',
+      system_id: '123e4567-e89b-42d3-a456-426614174000',
+      type: 'campanha',
+      modality: 'online',
+      contacts: [contact],
+    });
+
+    expect(res.status).toBe(400);
+  });
+
+  it.each(unsafeContactCases)('PUT /gm/tables/:id rejeita %s', async (_label, contact) => {
+    const res = await request(makeApp())
+      .put('/api/v1/gm/tables/table-1')
+      .send({ contacts: [contact] });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('mensagem de http explícito aponta https', async () => {
+    const res = await request(makeApp())
+      .put('/api/v1/gm/tables/table-1')
+      .send({ contacts: [{ channel: 'form', value: 'http://forms.gle/abc' }] });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('https://');
+  });
+});
+
+describe('PUT /gm/profile — contactMethodsSchema unificado', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRole = 'gm';
+    mockUserId = 'gm-1';
+  });
+
+  it.each(unsafeContactCases)('rejeita payload inteiro para %s', async (_label, contact) => {
+    const res = await request(makeApp())
+      .put('/api/v1/gm/profile')
+      .send({ contact_methods: [contact] });
+
+    expect(res.status).toBe(400);
+    expect(db.updateTable).not.toHaveBeenCalled();
+  });
+
+  it('JSON-string inválido retorna 400', async () => {
+    const res = await request(makeApp())
+      .put('/api/v1/gm/profile')
+      .send({ contact_methods: '[invalido' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('JSON válido');
+  });
+
+  it('JSON-string válido passa pelo schema e canonicaliza URL sem esquema', async () => {
+    const selectChain = mockChain({ executeTakeFirst: vi.fn().mockResolvedValue({ id: 'profile-1' }) });
+    const updateChain = mockChain({
+      execute: vi.fn().mockResolvedValue([{
+        id: 'profile-1',
+        bio_long: null,
+        closed_group_description: null,
+      }]),
+    });
+    (db.selectFrom as Mock).mockReturnValue(selectChain);
+    (db.updateTable as Mock).mockReturnValue(updateChain);
+
+    const res = await request(makeApp())
+      .put('/api/v1/gm/profile')
+      .send({ contact_methods: JSON.stringify([{ channel: 'form', value: 'forms.gle/abc' }]) });
+
+    expect(res.status).toBe(200);
+    expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({
+      contact_methods: JSON.stringify([{
+        channel: 'form',
+        value: 'https://forms.gle/abc',
+        label: null,
+        discord_server_url: null,
+      }]),
+    }));
   });
 });

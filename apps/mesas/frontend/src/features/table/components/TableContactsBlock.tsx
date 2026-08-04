@@ -1,5 +1,13 @@
 import { MessageCircle, MessageSquare, Mail, FileText, ExternalLink, HelpCircle, type LucideIcon } from 'lucide-react';
 import type { TableContact } from '../../../types/tables';
+import {
+  toDiscordUserId,
+  toSafeDiscordInviteUrl,
+  toSafeHttpsUrl,
+  toSafeMailtoUrl,
+  toSafeSocialProfileUrl,
+  toWhatsAppUrl,
+} from '../../../utils/safeExternalUrl';
 
 interface TableContactsBlockProps {
   contacts: TableContact[];
@@ -40,13 +48,15 @@ function ContactButton({ contact }: { contact: TableContact }) {
 
   // Discord: tratamento especial (username + servidor)
   if (contact.channel === 'discord') {
+    const safeDiscordServerUrl = toSafeDiscordInviteUrl(contact.discord_server_url);
+    const discordUserId = toDiscordUserId(contact.value);
     return (
       <div className="space-y-2">
         {/* Botão principal: servidor Discord (se disponível) */}
-        {contact.discord_server_url ? (
+        {safeDiscordServerUrl ? (
           <>
             <a
-              href={contact.discord_server_url}
+              href={safeDiscordServerUrl}
               target="_blank"
               rel="noopener noreferrer"
               className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl font-semibold text-white transition-all ${config.bg} shadow-lg hover:shadow-xl`}
@@ -62,12 +72,12 @@ function ContactButton({ contact }: { contact: TableContact }) {
             <div className="flex items-center gap-2 px-2 text-xs">
               <span className="text-white/50">🔗</span>
               <a 
-                href={contact.discord_server_url}
+                href={safeDiscordServerUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-indigo-400 hover:text-indigo-300 underline break-all"
               >
-                {contact.discord_server_url}
+                {safeDiscordServerUrl}
               </a>
             </div>
           </>
@@ -83,15 +93,19 @@ function ContactButton({ contact }: { contact: TableContact }) {
             valor puro sem link não dá pra localizar no Discord — snowflake
             (ID numérico) vira link https://discord.com/users/:id (abre perfil/DM
             no client/web se logado); username (não-numérico) fica só como texto,
-            Discord não expõe URL de perfil por username. */}
+            Discord não expõe URL de perfil por username.
+            Achado de 2026-07-07 (portado de TableContacts.tsx, removido nesta
+            branch): a menção `<@id>` / `<@!id>` extraída de texto importado
+            carrega o mesmo snowflake e também é ID de usuário — nunca vira
+            discord.gg/<id>, que seria convite de servidor inexistente. */}
         <div className="flex items-start gap-2 px-2 text-sm text-white/70">
           <span className="text-white/50">👤</span>
           <div className="space-y-0.5">
             <p>
               Username:{' '}
-              {/^\d{17,20}$/.test(contact.value.trim()) ? (
+              {discordUserId ? (
                 <a
-                  href={`https://discord.com/users/${contact.value.trim()}`}
+                  href={`https://discord.com/users/${discordUserId}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-orange-400 font-medium underline hover:text-orange-300"
@@ -103,7 +117,7 @@ function ContactButton({ contact }: { contact: TableContact }) {
               )}
             </p>
             <p className="text-xs text-white/50">
-              {contact.discord_server_url
+              {safeDiscordServerUrl
                 ? 'Entre no servidor e envie mensagem direta'
                 : 'Envie mensagem direta no Discord'}
             </p>
@@ -113,33 +127,32 @@ function ContactButton({ contact }: { contact: TableContact }) {
     );
   }
 
-  // Garantir que URL tenha protocolo
-  const getValidUrl = (value: string): string => {
-    // Se já tem protocolo, retornar como está
-    if (value.startsWith('http://') || value.startsWith('https://')) {
-      return value;
-    }
-    
-    // WhatsApp: detectar número puro e formatar como wa.me
-    if (contact.channel === 'whatsapp') {
-      // Se já é wa.me sem protocolo
+  const getValidUrl = (value: string): string | null => {
+    // WhatsApp e telefone são o mesmo destino: wa.me. Ver toWhatsAppUrl.
+    if (contact.channel === 'whatsapp' || contact.channel === 'phone') {
+      // Valor já em wa.me só precisa do esquema; o resto vira número.
       if (value.startsWith('wa.me')) {
-        return `https://${value}`;
+        return toSafeHttpsUrl(value);
       }
-      // Se é apenas número (com ou sem +55)
-      const cleanNumber = value.replace(/\D/g, ''); // Remove tudo que não é dígito
-      if (cleanNumber.length >= 10) {
-        // Se não tem código do país, adicionar +55 (Brasil)
-        const fullNumber = cleanNumber.startsWith('55') ? cleanNumber : `55${cleanNumber}`;
-        return `https://wa.me/${fullNumber}`;
-      }
+      return toWhatsAppUrl(value);
     }
-    
-    // Para outros casos, adicionar https://
-    return `https://${value}`;
+
+    if (contact.channel === 'email') {
+      return toSafeMailtoUrl(value);
+    }
+
+    // Contato gravado antes da canonicalização no backend (contactSchema) pode
+    // guardar username cru — `meuperfil` viraria host `meuperfil`, link morto.
+    // Prefixa o domínio da rede quando não houver host reconhecível.
+    if (contact.channel === 'facebook' || contact.channel === 'instagram') {
+      return toSafeSocialProfileUrl(contact.channel, value);
+    }
+
+    return toSafeHttpsUrl(value);
   };
 
   const validUrl = getValidUrl(contact.value);
+  if (!validUrl) return null;
 
   // WhatsApp: botão + link de ajuda + link abreviado
   if (contact.channel === 'whatsapp') {

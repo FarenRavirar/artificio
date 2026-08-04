@@ -1,5 +1,6 @@
 import type { CTAConfig } from '../types/tableView.types';
 import { authPatch } from '../../../services/apiClient';
+import { openSafeExternalUrl } from '../../../utils/safeExternalUrl';
 
 /**
  * Retorna classes CSS para botões baseado no variant do CTA
@@ -48,7 +49,7 @@ export function handleCTA(cta: CTAConfig): void {
       }
     }
     
-    window.open(cta.actionUrl, '_blank', 'noopener,noreferrer');
+    openSafeExternalUrl(cta.actionUrl);
     return;
   }
 

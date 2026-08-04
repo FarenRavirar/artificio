@@ -4,6 +4,7 @@ import { db } from '../db/index.js';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import { logDatabaseError } from '../middleware/requestLogger.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
+import { serializeContact, serializeContacts } from '../utils/contactSerializer.js';
 import { importedTableIsCurrentSql, isPublicTable } from '../utils/tableVisibility.js';
 import {
   sanitizeNullableUserMarkdown,
@@ -283,16 +284,18 @@ router.get('/', async (req: Request, res: Response) => {
       const contactsByTable = new Map<string, PublicTableContact[]>();
 
       for (const contact of contacts) {
+        const safeContact = serializeContact(contact);
+        if (!safeContact) continue;
         if (!contactsByTable.has(contact.table_id)) {
           contactsByTable.set(contact.table_id, []);
         }
 
         contactsByTable.get(contact.table_id)!.push({
-          channel: contact.channel,
-          value: contact.value,
-          label: contact.label,
-          discord_server_url: contact.discord_server_url,
-          sort_order: contact.sort_order,
+          channel: safeContact.channel,
+          value: safeContact.value,
+          label: safeContact.label,
+          discord_server_url: safeContact.discord_server_url,
+          sort_order: safeContact.sort_order,
         });
       }
 
@@ -531,7 +534,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
         ...sanitizeTableMarkdownFields(tableWithSystem),
         gm_bio_long: sanitizeNullableUserMarkdown(tableWithSystem.gm_bio_long),
         cover_url: sanitizePublicImageUrl(table.cover_url),
-        contacts,
+        contacts: serializeContacts(contacts),
         schedules,
         gm_vtt_platforms: gmVttPlatforms,
       },

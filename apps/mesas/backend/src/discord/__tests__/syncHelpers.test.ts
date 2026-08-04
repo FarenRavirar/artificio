@@ -156,6 +156,63 @@ describe('extractContacts', () => {
 
     expect(contacts.some((c) => c.channel === expectedChannel)).toBe(true);
   });
+
+  // ─── Regra do mantenedor 2026-08-03: link de contato exige link válido ───
+
+  it('não duplica o mesmo nick vindo por contact_discord e contact_url', () => {
+    // Estado real de 3 mesas ativas em produção (uwill, .zero9899, kauarang):
+    // a dedup antiga comparava canal E valor, então `discord:uwill` não colidia
+    // com `form:uwill` e o par entrava junto — um dos botões levava a
+    // `https://uwill/`, erro de DNS.
+    const draft = makeDraft({ contact_discord: 'uwill', contact_url: 'uwill' });
+    const contacts = extractContacts(draft);
+
+    expect(contacts).toHaveLength(1);
+    expect(contacts[0]).toMatchObject({ channel: 'discord', value: 'uwill' });
+  });
+
+  it('texto sem host alcançável vira contato Discord, não formulário', () => {
+    const draft = makeDraft({ contact_url: 'kauarang' });
+    const contacts = extractContacts(draft);
+
+    expect(contacts).toHaveLength(1);
+    expect(contacts[0]).toMatchObject({ channel: 'discord', value: 'kauarang' });
+  });
+
+  it('link real continua entrando como formulário com o rótulo de inscrição', () => {
+    const draft = makeDraft({ contact_url: 'https://forms.gle/abc123' });
+    const contacts = extractContacts(draft);
+
+    expect(contacts).toHaveLength(1);
+    expect(contacts[0]).toMatchObject({
+      channel: 'form',
+      value: 'https://forms.gle/abc123',
+      label: 'Ticket / Inscrição',
+    });
+  });
+
+  it.each([
+    ['contato@exemplo.com', 'email'],
+    ['mailto:contato@exemplo.com', 'email'],
+    ['(11) 99999-9999', 'phone'],
+    ['tel:+5511999999999', 'phone'],
+  ])('mantém %s no canal %s em vez de converter em discord', (contactUrl, expectedChannel) => {
+    // Exigir host HTTPS de todo canal convertia e-mail e telefone em Discord:
+    // o parser classificava certo e o guard de link desfazia logo depois.
+    const draft = makeDraft({ contact_url: contactUrl });
+    const contacts = extractContacts(draft);
+
+    expect(contacts).toHaveLength(1);
+    expect(contacts[0]).toMatchObject({ channel: expectedChannel, value: contactUrl });
+  });
+
+  it('mestre com Discord e formulário real mantém os dois canais', () => {
+    const draft = makeDraft({ contact_discord: 'uwill', contact_url: 'https://forms.gle/abc123' });
+    const contacts = extractContacts(draft);
+
+    expect(contacts).toHaveLength(2);
+    expect(contacts.map((c) => c.channel).sort()).toEqual(['discord', 'form']);
+  });
 });
 
 describe('buildTableData — Fase E (spec 058): campos novos da Fase B/C propagados pra mesa publicada', () => {

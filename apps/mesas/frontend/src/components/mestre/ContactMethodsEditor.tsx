@@ -1,5 +1,12 @@
 import { useState } from 'react';
 import { Plus, Trash2, ChevronUp, ChevronDown, Mail, MessageCircle, Hash, ExternalLink } from 'lucide-react';
+import {
+  INVALID_DISCORD_INVITE_MESSAGE,
+  toSafeDiscordInviteUrl,
+  toSafeMailtoUrl,
+  validateContactLinkUrl,
+  validateHttpsUrl,
+} from '../../utils/safeExternalUrl';
 
 type ContactChannel = 'whatsapp' | 'email' | 'discord' | 'form';
 
@@ -31,7 +38,7 @@ const CHANNEL_CONFIG = {
   discord: {
     icon: Hash,
     label: 'Discord',
-    placeholder: 'usuario#1234',
+    placeholder: '@usuario',
     color: 'indigo',
   },
   form: {
@@ -81,8 +88,11 @@ export function ContactMethodsEditor({ contacts, onSave }: ContactMethodsEditorP
     if (!contact.value.trim()) return 'Valor obrigatório';
 
     if (contact.channel === 'email') {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(contact.value)) return 'Email inválido';
+      // Mesma regra que monta o `mailto:` na página pública: validar aqui com
+      // um critério mais frouxo deixaria o mestre salvar um endereço que depois
+      // não vira link. Cobre também `?subject=`/`?body=`, que o regex anterior
+      // (`[^\s@]+`) aceitava e o cliente de e-mail trata como campo.
+      if (!toSafeMailtoUrl(contact.value)) return 'Email inválido';
     }
 
     if (contact.channel === 'whatsapp') {
@@ -94,10 +104,18 @@ export function ContactMethodsEditor({ contacts, onSave }: ContactMethodsEditorP
     }
 
     if (contact.channel === 'form') {
-      try {
-        new URL(contact.value);
-      } catch {
-        return 'URL inválida';
+      // validateContactLinkUrl, não validateHttpsUrl: `uwill` é URL válida em
+      // sintaxe e vira `https://uwill/`, que só dá erro de DNS. Mesma regra do
+      // backend (isResolvableUrl), senão o formulário aceita o que a API recusa.
+      const result = validateContactLinkUrl(contact.value);
+      if (!result.success) return result.message;
+    }
+
+    if (contact.channel === 'discord' && contact.discord_server_url?.trim()) {
+      const result = validateHttpsUrl(contact.discord_server_url);
+      if (!result.success) return result.message;
+      if (!toSafeDiscordInviteUrl(contact.discord_server_url)) {
+        return INVALID_DISCORD_INVITE_MESSAGE;
       }
     }
 
@@ -208,6 +226,13 @@ export function ContactMethodsEditor({ contacts, onSave }: ContactMethodsEditorP
                   {validationError && (
                     <p className="text-xs text-red-400 mt-1">{validationError}</p>
                   )}
+                  {contact.channel === 'form' && (
+                    <p className="text-xs text-white/50 mt-1">
+                      Informe o endereço completo, como exemplo.com/inscricao — será salvo
+                      como https://. Nome de usuário sozinho não funciona como link; se for
+                      seu @ do Discord, escolha o canal Discord.
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -235,6 +260,9 @@ export function ContactMethodsEditor({ contacts, onSave }: ContactMethodsEditorP
                       placeholder="https://discord.gg/..."
                       className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500/50"
                     />
+                    <p className="text-xs text-white/50 mt-1">
+                      Discord não oferece link direto por @usuário. Se tiver servidor, informe aqui um convite HTTPS opcional.
+                    </p>
                   </div>
                 )}
               </div>

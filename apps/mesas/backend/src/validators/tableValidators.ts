@@ -1,5 +1,16 @@
 import { z } from 'zod';
 import { sanitizeUserMarkdown } from '../utils/userMarkdown.js';
+import { isValidEmail } from '../utils/validation.js';
+import {
+  canonicalizeDiscordInviteUrl,
+  canonicalizeHttpsUrl,
+  canonicalizeSocialProfileUrl,
+  isResolvableUrl,
+  PROFILE_CONTACT_CHANNELS,
+  SOCIAL_PROFILE_CHANNELS,
+  UNRESOLVABLE_URL_MESSAGE,
+  URL_VALUE_CHANNELS,
+} from '../utils/contactUrls.js';
 
 // ============================================================================
 // ENUMS E CONSTANTES
@@ -21,15 +32,86 @@ export const SCHEDULE_DEFINITION_STATUSES = ['defined', 'to_define'] as const;
 // SCHEMAS DE VALIDAÇÃO
 // ============================================================================
 
-const contactSchema = z.object({
+export const contactSchema = z.object({
   channel: z.enum(CONTACT_CHANNELS),
-  value: z.string().min(1, 'Valor do contato é obrigatório'),
-  label: z.string().nullable().optional(),
-  discord_server_url: z.union([
-    z.url('URL do Discord inválida'),
-    z.literal('')
-  ]).nullable().optional(),
+  value: z.string().trim().min(1, 'Valor do contato é obrigatório').max(500, 'Valor do contato deve ter no máximo 500 caracteres'),
+  label: z.string().trim().max(100, 'Rótulo deve ter no máximo 100 caracteres').nullable().optional(),
+  discord_server_url: z.string().trim().max(500, 'URL do Discord deve ter no máximo 500 caracteres').nullable().optional(),
   sort_order: z.number().int().min(0).optional(),
+}).superRefine((contact, ctx) => {
+  if (contact.channel === 'email' && !isValidEmail(contact.value)) {
+    ctx.addIssue({ code: 'custom', path: ['value'], message: 'Email inválido' });
+  }
+
+  if (contact.channel === 'whatsapp' && !/^\+\d{1,3}\d{6,14}$/.test(contact.value)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['value'],
+      message: 'WhatsApp deve estar no formato internacional, como +5511999999999',
+    });
+  }
+
+  if (SOCIAL_PROFILE_CHANNELS.has(contact.channel)) {
+    // Facebook/Instagram exigem host da própria rede: `exemplo.com/perfil` era
+    // aceito aqui e não renderizava na página pública, porque o componente só
+    // monta link de host conhecido — o contato sumia sem erro em lugar nenhum.
+    const result = canonicalizeSocialProfileUrl(contact.channel, contact.value);
+    if (!result.ok) ctx.addIssue({ code: 'custom', path: ['value'], message: result.message });
+  } else if (URL_VALUE_CHANNELS.has(contact.channel)) {
+    const result = canonicalizeHttpsUrl(contact.value);
+    if (!result.ok) {
+      ctx.addIssue({ code: 'custom', path: ['value'], message: result.message });
+    } else if (!isResolvableUrl(contact.value)) {
+      // Sintaxe válida não basta: `uwill` vira `https://uwill/`, que só produz
+      // erro de DNS para o jogador. Link de contato exige host alcançável;
+      // identificador solto pertence ao canal Discord (regra do mantenedor,
+      // 2026-08-03 — mesma aplicada no importador, syncHelpers.ts).
+      ctx.addIssue({ code: 'custom', path: ['value'], message: UNRESOLVABLE_URL_MESSAGE });
+    }
+  }
+
+  if (contact.discord_server_url && contact.channel !== 'discord') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['discord_server_url'],
+      message: 'Link de servidor Discord só é permitido no canal Discord',
+    });
+  }
+
+  if (contact.discord_server_url) {
+    const result = canonicalizeDiscordInviteUrl(contact.discord_server_url);
+    if (!result.ok) {
+      ctx.addIssue({ code: 'custom', path: ['discord_server_url'], message: result.message });
+    }
+  }
+}).transform((contact) => {
+  const externalValue = SOCIAL_PROFILE_CHANNELS.has(contact.channel)
+    ? canonicalizeSocialProfileUrl(contact.channel, contact.value)
+    : URL_VALUE_CHANNELS.has(contact.channel)
+      ? canonicalizeHttpsUrl(contact.value)
+      : null;
+  const discordUrl = contact.discord_server_url
+    ? canonicalizeDiscordInviteUrl(contact.discord_server_url)
+    : null;
+
+  return {
+    ...contact,
+    value: externalValue?.ok ? externalValue.value : contact.value,
+    label: contact.label || null,
+    discord_server_url: discordUrl?.ok ? discordUrl.value : null,
+  };
+});
+
+export const contactMethodsSchema = z.array(contactSchema).superRefine((contacts, ctx) => {
+  contacts.forEach((contact, index) => {
+    if (!PROFILE_CONTACT_CHANNELS.has(contact.channel)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [index, 'channel'],
+        message: 'Canal não suportado no perfil do mestre',
+      });
+    }
+  });
 });
 
 const scheduleSchema = z.object({

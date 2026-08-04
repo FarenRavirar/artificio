@@ -738,7 +738,13 @@ export const PainelMestrePage = () => {
                   contacts={gmProfile.contact_methods || []}
                   onSave={async (contacts) => {
                     const res = await authPut('/api/v1/gm/profile', { contact_methods: contacts });
-                    if (!res.ok) throw new Error('Erro ao salvar contatos');
+                    if (!res.ok) {
+                      const body: unknown = await res.json().catch(() => null);
+                      const apiError = isRecord(body) && typeof body.error === 'string'
+                        ? body.error
+                        : 'Erro ao salvar contatos';
+                      throw new Error(apiError);
+                    }
                     toast.success('Contatos atualizados!');
                     refreshData();
                   }}
