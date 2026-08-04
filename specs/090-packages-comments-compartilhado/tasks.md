@@ -101,7 +101,7 @@ papel errado em produção tira acesso de gente.
 - [x] T1.6 — **Papel global lido só do `accounts.`, sem fallback local** (reescrito pela decisão de T1.5). A versão anterior mandava leitura dupla com fallback no papel local — coerente com migração, incoerente com `accounts.` sendo a origem: fallback local reintroduziria o app como autoridade pela porta dos fundos, e um app comprometido ou desatualizado poderia conceder privilégio que o central nega. Regras: `admin` central **vence**; `moderator` central concede **somente** as capacidades de T0.1; papéis de **domínio** (criador, mestre, autor) continuam locais e não são afetados; **ausência do papel no central significa `user`, nunca fallback**; **erro ou timeout nunca promove** (deny-by-default, ver T1.7); autorização privilegiada não usa cache antigo indefinidamente. · feito quando: as seis regras testadas, inclusive erro e ausência.
 - [x] T1.7 — **Falha do `accounts.` não altera autorização** (requisito 22, delimitado). Degradação vale para **leitura pública** de comentário — a página continua de pé. **Não** vale para ação privilegiada: se o papel não pode ser provado, a ação moderadora **falha fechada** (deny-by-default, OWASP). Outage nunca promove ninguém. · feito quando: teste com o `accounts.` fora mostra página pública viva e ação moderadora recusada.
 - [x] T1.8 — Apps passam a ler o papel do `accounts.` nos pontos mapeados em T0.2 (requisito 2). Papel de domínio fica onde está (requisito 3). · feito quando: cada ponto migrado, com teste.
-- [ ] T1.9 — **Smoke de SSO em todos os consumidores** (T0.3): login, `/me`, logout. Obrigatório — `accounts.` e `packages/auth` foram tocados. O smoke automático de `_deploy-module.yml` roda as `critical_routes` do manifesto contra o host real, e o `accounts` ganhou nesta fase a rota `admin_roles_no_cookie` (`/admin/roles/users` esperando 401) — a superfície nova que concede papel global sobre todos os projetos e que nenhuma rota crítica cobria. · feito quando: todos verdes, com evidência.
+- [x] T1.9 — **Smoke de SSO em todos os consumidores** (T0.3): login, `/me`, logout. Obrigatório — `accounts.` e `packages/auth` foram tocados. O smoke automático de `_deploy-module.yml` roda as `critical_routes` do manifesto contra o host real, e o `accounts` ganhou nesta fase a rota `admin_roles_no_cookie` (`/admin/roles/users` esperando 401) — a superfície nova que concede papel global sobre todos os projetos e que nenhuma rota crítica cobria. · feito quando: todos verdes, com evidência. · **fechada em 2026-08-04 pelo deploy de produção** (run `30918952648`, `workflow_dispatch` em `main`, sha `c519f76`, sucesso em 3m22s). Rotas críticas reconferidas read-only contra o host real depois do deploy: `admin_roles_no_cookie` devolve `401` e `/health` devolve `200`, ambas como o manifesto declara.
 
 > **Por que T1.9 não fecha localmente, e por que "subir um beta" não é opção (D042).**
 > O `accounts` é **PROD-only**: `.github/deploy-manifest.json` declara
@@ -246,7 +246,8 @@ saudável e o **único** alarme de schema defasado no SSO é
 
 - [x] T1.12 — **Verificar o mesmo defeito em `apply_required_migrations.sh`** (linhas 65-66, `diretorio ausente; nada a aplicar`). É a origem do padrão que T1.11 corrige; foi essa saída falso-positiva que mascarou `015`/`016` por 7 dias em beta E prod. **Decisão reportada e aprovada em 2026-07-30:** o runner padrão falha fechado; `_deploy-module.yml` não o chama para o `site`, que usa runner próprio no entrypoint. Testes reais do ramo ausente provaram exit diferente de zero nos dois scripts; `bash -n` verde. · feito quando: corrigido, ou a exceção justificada por escrito.
 
-- [ ] T1.13 — **Confirmar que o `accounts` é coberto de ponta a ponta.** `_deploy-module.yml:519-522` deriva `DRIFT_DIR` por convenção (`apps/${MODULE}/database`), com `if` hardcoded só para o `site`. Rodar o drift contra o banco real do `accounts` e provar que detecta as duas direções: disco à frente (migration não aplicada) e banco à frente (aplicada fora da esteira). · feito quando: as duas direções detectadas em execução real, não por leitura de código.
+- [x] T1.13 — **Confirmar que o `accounts` é coberto de ponta a ponta.** `_deploy-module.yml:519-522` deriva `DRIFT_DIR` por convenção (`apps/${MODULE}/database`), com `if` hardcoded só para o `site`. Rodar o drift contra o banco real do `accounts` e provar que detecta as duas direções: disco à frente (migration não aplicada) e banco à frente (aplicada fora da esteira). · feito quando: as duas direções detectadas em execução real, não por leitura de código. · **fechada em 2026-08-04 pelo deploy de produção** (run `30918952648`, sha `c519f76`). O `DRIFT_DIR` derivado por convenção resolveu para `apps/accounts/database` e o runner de fato cobriu o módulo: a ledger `schema_migrations` foi criada por ele mesmo e registrou as 5 migrations às 14:27:49 UTC, todas com `applied_by = ci:ubuntu@vnic-artificio` — esteira, não intervenção manual. `accounts-api` recriado às 14:29:27 UTC, `healthy`. Schema conferido read-only depois: `users.role`, `users.role_version`, `users.avatar_source` e `global_role_audit` presentes; 111 contas (1 `admin`, 110 `user`), zero fora do contrato de papel.
+  **Direção "disco à frente" provada em execução real:** as 5 migrations estavam no disco e ausentes do banco antes do deploy, e o runner as detectou e aplicou. **Direção "banco à frente" provada por ocorrência real, não simulada:** `users.avatar_source` existia em produção sem ser declarada por nenhuma migration (drift reverso originado em `c051971`/`a7d9d20`, ver bloco acima), e foi essa detecção que motivou a `004`/`005`. Nenhuma das duas direções precisou de ensaio artificial.
 
 > **Como destravar T1.13 e T1.9 — ordem obrigatória, decidida em 2026-07-31.**
 > Escrita porque a formulação anterior ("exige ambiente no ar", "execução real")
@@ -287,10 +288,18 @@ saudável e o **único** alarme de schema defasado no SSO é
 > aqui**: marcaria como aplicada uma migration cujo efeito (`002`) o banco não
 > tem, e o schema ficaria permanentemente incompleto sem nenhum alarme.
 >
-> **Único passo restante — deploy.** `gh workflow run deploy.yml --ref main
-> -f module=accounts -f mode=deploy -f env=prod`, com `pg_dump` antes (103 contas
-> reais). O job roda o runner, o drift **e** as `critical_routes`, fechando T1.13
-> e T1.9 juntos. Autorização nominal, como qualquer deploy.
+> **~~Único passo restante — deploy.~~ EXECUTADO em 2026-08-04.** `gh workflow run
+> deploy.yml --ref main -f module=accounts -f mode=deploy -f env=prod` rodou como
+> run `30918952648` (sha `c519f76`, sucesso em 3m22s). O job rodou o runner, o
+> drift **e** as `critical_routes`, fechando T1.13 e T1.9 juntos, como previsto.
+> Evidência medida nas próprias tasks acima. **Fase 1 encerrada; o `accounts.`
+> com papel global está em produção.**
+>
+> **Aviso a quem ler este bloco depois:** o texto acima descreve o estado de
+> 2026-07-31 e foi mantido por valor histórico — não é o estado atual. Um agente
+> já leu esta seção como se fosse presente e concluiu que a Fase 1 seguia
+> bloqueada. Banco e código são a verdade material (`AGENTS.md`); confirmar
+> contra a ledger antes de agir sobre este bloco.
 >
 > **Atenção ao guard `MAX_AUTO_PENDING=5`.** Com a `004`/`005` o `accounts` tem
 > **exatamente 5** migrations pendentes. O comparador é `-gt`
@@ -487,20 +496,648 @@ por causa disto.**
 
 ## Fase 2 — Comentários no `accounts.`
 
+> **Decisões do grilling da Fase 2 — registradas em 2026-08-04; grilling CONCLUÍDO com 51 decisões.**
+>
+> 1. **A Fase 2 absorve o núcleo transacional mínimo de notificações da Fase 3.**
+>    Entram agora `notification_event`, `notification_receipt`, geração dos recibos,
+>    deduplicação de destinatários e exclusão do próprio ator, sempre na mesma
+>    transação do comentário. Não entram ainda central de notificações, polling,
+>    API pública de notificações nem eventos externos/outbox.
+> 2. **A fase continua centrada no `accounts.` sem fingir que o registro central
+>    conhece o domínio dos consumidores.** Ela define um contrato único
+>    `CommentSubjectAuthorization` — alvo existente, visível, comentável,
+>    `ownerUserId` confiável e `canonicalPath` — e uma suíte de conformidade
+>    reutilizável. Cada backend implementará o guard específico na sua fase de
+>    adoção, antes de chamar o `accounts.`.
+> 3. **A árvore e a navegação seguem o Reddit como modelo primordial.** No volume
+>    normal, a leitura devolve a árvore inteira; não há limite de quantidade de
+>    respostas irmãs. Raiz usa `depth=0` e são permitidos quatro níveis de resposta,
+>    até `depth=4` — cinco níveis visuais. `root_id`, `parent_id` e `depth` são dados
+>    estruturais. Tombstone preserva posição e descendentes. A resposta tem hard
+>    cap defensivo de **1.000 comentários ou 2 MiB**, o que ocorrer primeiro; só
+>    então raízes/ramos restantes viram `more`, com cursor próprio e nunca filho
+>    órfão. Assim o limite não aparece no volume esperado, mas uma thread não pode
+>    consumir memória sem teto no `accounts.`, que também sustenta o SSO.
+> 4. **Votos e score entram no produto e no desenho da Fase 2.** O comportamento de
+>    abertura e ordenação seguirá o modelo do Reddit, incluindo ordenação por
+>    relevância baseada em score e alternativas selecionáveis. Ainda não estão
+>    decididos: semântica do voto, algoritmo e versionamento do score, tratamento
+>    temporal, desempate, identidade/unicidade do voto, troca/remoção, antifraude,
+>    exposição de contagens e interação entre score, tombstone, legado e
+>    paginação. Não implementar schema/API antes de essas decisões fecharem.
+> 5. **Somente terceiros votam.** O autor não recebe auto-upvote e não pode votar
+>    no próprio comentário; todo comentário novo nasce com score `0`. Esta decisão
+>    diverge deliberadamente do auto-upvote visível no modelo do Reddit: aqui o
+>    score representa reação de outras contas, não participação do próprio autor.
+> 6. **Comentário legado não aceita voto.** Os 25 comentários importados do `site`
+>    permanecem totalmente read-only, com score `0`. Eles continuam misturados à
+>    árvore e à ordenação normais — sem seção própria e sem ocultação —, apenas com
+>    marca visual de comentário antigo/importado e autoria não verificada. Assim,
+>    não ganham peso algorítmico novo, mas também não perdem o contexto histórico.
+> 7. **Score e ordenações.** `score = upvotes - downvotes`; `Melhores` usa o
+>    limite inferior de Wilson sobre a proporção positiva, sem decaimento temporal;
+>    `Mais votados` ordena por score líquido; `Recentes` por `created_at DESC`;
+>    `Mais antigos` por `created_at ASC`. A ordenação acontece entre irmãos, nunca
+>    mistura níveis da árvore. Tempo e `id` formam o desempate estável. Tombstone
+>    mantém a posição estrutural, mas não expõe corpo nem score. Estes são os quatro
+>    sorts do produto; `Controversos`, `Random`, `Q&A`, `Live` e `Hot` não entram.
+>    A abertura padrão é sempre `Melhores`; o usuário pode trocar o sort.
+> 8. **Ranking versionado por assunto; cursor stateless.** Época fixa, ranking
+>    vivo sem consistência e snapshot por sessão foram descartados. Cada assunto
+>    mantém `ranking_revision`; comentário registra `created_revision`; mudança de
+>    voto incrementa a revisão sob lock transacional curto. `comment_vote` guarda
+>    o estado atual, único por usuário/comentário, e `comment_score_version` guarda
+>    `upvotes`, `downvotes`, score, Wilson, `algorithm_version` e intervalo de
+>    revisões válido. A primeira leitura fixa `snapshot_revision`; cursor opaco
+>    assinado carrega identidade do assunto, sort, revisão, último sort-key, ramo,
+>    limite e expiração. Páginas e expansões `more` usam a mesma revisão, sem
+>    duplicar ou perder item; score exibido e voto do usuário podem vir do estado
+>    atual, mas a posição permanece congelada naquela navegação. Nova visita usa a
+>    revisão mais recente imediatamente. Cursor vale **30 minutos**; expirado exige
+>    recarregar. Histórico de score fica retido permanentemente nesta fase — sem
+>    rotina destrutiva. O modelo evita transação PostgreSQL aberta entre requests,
+>    cache/sessão de paginação e cron. Referências pesquisadas: árvore truncada e
+>    `more` do Reddit (`reddit-archive/reddit`, `r2/r2/models/builder.py`), contrato
+>    atual `MoreChildrenRequest`, limite de snapshot exportado do PostgreSQL 16 e
+>    padrão `search_after` + point-in-time da documentação do Elasticsearch.
+> 9. **Score público imediatamente.** Não existe `score_hidden_until`, janela de
+>    ocultação nem política por `source_app` nesta fase. O baixo volume atual e a
+>    escrita autenticada tornam o custo comportamental do efeito-manada menor que a
+>    complexidade e a ambiguidade de esconder o número. Se abuso real aparecer,
+>    ocultação futura será mudança aditiva; não altera o modelo de voto/ranking.
+> 10. **Transparência pública de contagens; moderação completa.** A resposta pública
+>     expõe `upvotes`, `downvotes` e `score`; quando autenticada, também `my_vote`.
+>     A superfície de moderação acessa identidade das contas votantes e histórico
+>     completo de criação, troca e remoção de voto. A API pública nunca expõe a
+>     lista nominal de votantes.
+> 11. **Conta nova vota imediatamente e com o mesmo peso.** Não há espera,
+>     quarentena, voto pendente, peso secreto nem assimetria entre upvote e
+>     downvote. Proteções iniciais: uma escolha ativa por conta/comentário, rate
+>     limit por usuário e IP, credencial backend-to-backend e auditoria completa
+>     para moderação. Endurecimento futuro exige abuso medido, não prevenção oculta.
+> 12. **Mutação de voto usa estado absoluto e última gravação vence.**
+>     `PUT /internal/v1/comments/:id/vote` recebe `{ value: -1 | 0 | 1 }`; `0`
+>     remove. Mesmo valor é no-op: `200`, sem nova revisão nem histórico. Troca ou
+>     remoção real atualiza voto, contagens, score, versão e auditoria na mesma
+>     transação. Não há `ETag`, `If-Match` nem `Idempotency-Key`; concorrência entre
+>     dispositivos resolve pela última transação persistida. A escolha segue o
+>     modelo de estado ternário do Reddit (`POST /api/vote`, `dir=-1|0|1`), embora
+>     use `PUT` aqui por semântica HTTP. Token do app e `X-Acting-User-Id` continuam
+>     obrigatórios; retry idêntico não duplica efeito.
+> 13. **Voto não gera notificação.** Nem voto individual nem marco agregado cria
+>     `notification_event`/`notification_receipt`; autor acompanha contagens na
+>     própria thread. O núcleo transacional antecipado da Fase 3 continua restrito
+>     a criação de comentário e resposta.
+> 14. **Destino do voto depende da causa da perda de acesso da conta.** Saída ou
+>     desativação comum preserva votos e score históricos, mas impede voto novo.
+>     Bloqueio por abuso permite ao moderador invalidar todos os votos da conta,
+>     com motivo e auditoria; cada assunto afetado recebe nova `ranking_revision`
+>     e scores recalculados. A invalidação não apaga o histórico bruto.
+> 15. **Vínculo nominal do voto é retido permanentemente.** Desativação ou pedido de
+>     exclusão da conta não pseudonimiza nem remove `user_id` do voto/histórico; a
+>     moderação continua capaz de identificar a conta. Consequência técnica: a
+>     identidade referenciada precisa sobreviver como registro tombstone/soft-delete
+>     ou identidade de auditoria — não existe exclusão física capaz de apagar a linha
+>     referenciada e, ao mesmo tempo, manter vínculo nominal íntegro. O contrato de
+>     exclusão de conta e a justificativa/política de retenção ainda precisam ser
+>     fechados antes da implementação; não inferir esses detalhes desta decisão.
+>     **Conseqüência confirmada pelo mantenedor:** conta excluída vira soft-delete
+>     permanente; login é bloqueado, identidade pública neutralizada e vínculo
+>     nominal fica restrito a moderação/auditoria. A política jurídica de retenção
+>     continua decisão própria e bloqueia implementação desse ciclo de vida.
+> 16. **IDs públicos usam UUID v4.** Comentário, `notification_event` e
+>     `notification_receipt` recebem UUID v4; `parent_id` e `root_id` referenciam o
+>     UUID do comentário. `legacy_id` permanece campo separado com a identidade da
+>     origem. Não usar `BIGINT` enumerável nem introduzir UUID v7/ULID/lib nova.
+> 17. **Autor pode editar e retirar o próprio comentário, seguindo o Reddit.** Esta
+>     decisão revoga explicitamente D111 item 6, requisito 12 e a formulação atual
+>     de T2.7 que proibiam autoedição/autoexclusão. Edição registra `edited_at` e
+>     mantém histórico completo restrito à moderação. Retirada do autor usa
+>     tombstone — nunca `DELETE` físico —, preserva posição e descendentes, oculta
+>     o corpo público e entra no histórico com ator/motivo/timestamp. Poderes de
+>     remoção e restauração da moderação permanecem separados.
+> 18. **Edição preserva votos e ranking.** Trocar `body_text` não apaga, recalcula
+>     nem invalida votos; `upvotes`, `downvotes`, score e versões de ranking seguem
+>     vinculados ao mesmo comentário. O risco de bait-and-switch é tratado pelo
+>     marcador público de edição e pelo histórico completo da moderação, não por
+>     zerar a reação de terceiros.
+> 19. **`Melhores` replica o Wilson histórico do Reddit.** Usa limite inferior
+>     unilateral com `z = 1.281551565545` (80% de confiança), sem decaimento
+>     temporal, sob `algorithm_version = 'reddit-wilson-80-v1'`. Fórmula e vetores
+>     de referência entram em teste. Resultado persistido mantém precisão para
+>     ordenação; `created_at` e `id` desempatem. Algoritmo futuro cria nova versão e
+>     nova série de score; nunca reinterpreta histórico silenciosamente.
+> 20. **Contrato de edição e auto-retirada.** Autor pode editar sem prazo, somente
+>     `body_text`; pai, assunto, autoria e `created_at` são imutáveis. Público vê só
+>     a versão atual e `edited_at`; versões antigas ficam restritas à moderação.
+>     Edição idêntica é no-op e edição não gera notificação. Auto-retirada é
+>     irreversível para o autor; apenas `moderator`/`admin` pode restaurar a última
+>     versão válida, com auditoria.
+> 21. **PostgreSQL é a fonte canônica de `score` e Wilson.** Em
+>     `comment_score_version`, `upvotes` e `downvotes` são colunas base não negativas;
+>     `score` é coluna gerada como `upvotes - downvotes`; `best_score` é coluna
+>     gerada por função SQL `IMMUTABLE` versionada, inicialmente
+>     `comment_wilson_reddit_80_v1`, usando aritmética `numeric` para manter ordenação
+>     e cursor determinísticos. TypeScript/Kysely autoriza o ator, serializa a troca
+>     de voto e cria a nova versão dentro da transação, mas não mantém segunda
+>     implementação produtiva da fórmula. Vetores de referência testam diretamente
+>     a função PostgreSQL. Versão futura cria nova função e nova série de score;
+>     nunca altera semanticamente `_v1` nem reinterpreta histórico. Esta divisão
+>     segue o padrão local: aplicação orquestra o workflow; banco garante derivados
+>     e invariantes, inclusive contra scripts, backfills e novas rotas de escrita.
+> 22. **Moderação nunca edita o texto de outro usuário.** Somente o autor pode
+>     alterar `body_text`. `moderator` e `admin` podem retirar ou restaurar versões
+>     válidas, sempre com motivo e auditoria, mas não reescrevem a fala alheia nem
+>     fazem redação parcial. Conteúdo que exponha PII ou viole regra é retirado por
+>     tombstone; uma versão corrigida exige nova edição do próprio autor. Assim a
+>     identidade exibida nunca assina texto produzido pela moderação.
+> 23. **Comentário legado pode receber resposta nova.** O registro importado continua
+>     imutável, sem voto e marcado como antigo/autoria não verificada, mas pode ser
+>     pai de comentário novo feito por conta autenticada. A nova resposta obedece ao
+>     limite estrutural, autorização do assunto e regras atuais. Esta decisão revoga
+>     expressamente a recusa a “resposta a legado” presente em T2.4 e T2.11: antigo
+>     descreve proveniência, não congela a conversa.
+> 24. **Comentário novo usa obrigatoriamente o pipeline Markdown existente.** A Fase
+>     2 não cria parser, sanitizador nem renderizador paralelo. Na escrita, o backend
+>     passa a entrada por `sanitizeUserMarkdown` de
+>     `@artificio/content-editor/sanitize` e persiste o Markdown canônico; a API
+>     devolve esse Markdown, não HTML montado. Consumidores renderizam somente por
+>     `MarkdownContent`/`renderMarkdown` de `@artificio/content-editor`, cujo
+>     `markdown-it` já desabilita HTML e cuja saída passa por DOMPurify. O campo novo
+>     deve refletir o contrato como `body_markdown`, não o antigo `body_text`.
+>     Negrito, itálico, listas, citações, código e links entram; HTML arbitrário não.
+>     Esta decisão revoga expressamente o texto puro de T2.1/T2.5 e reutiliza também
+>     `ContentEditor` nas interfaces de criação/edição, sem biblioteca nova.
+> 25. **Comentário Markdown aceita no máximo 10.000 caracteres.** O backend valida o
+>     limite tanto na entrada original, antes de trabalho de parsing, quanto no
+>     Markdown canônico produzido pelo sanitizador; a interface usa o mesmo máximo
+>     no `ContentEditor`. Excesso rejeita a operação inteira com erro específico —
+>     nunca trunca silenciosamente nem persiste versão parcial. O mesmo contrato vale
+>     para criação e edição.
+> 26. **Imagem em comentário existe somente como referência HTTPS clicável.** Não há
+>     upload, Cloudinary, hospedagem, proxy, preview nem busca server-side de mídia.
+>     O perfil de comentário do pipeline existente desativa a renderização de
+>     `<img>`: sintaxe `![alt](https://...)` vira link textual explícito, como
+>     “alt — abrir imagem externa”, sem o browser buscar o recurso até o clique.
+>     Referência de imagem aceita apenas `https://` e abre em nova aba com
+>     `rel="ugc nofollow noopener noreferrer"`. Isso evita pixel remoto, hotlink,
+>     superfície de moderação de mídia e SSRF sem criar parser paralelo.
+> 27. **Links do Markdown são HTTPS-only e distinguem a suíte de destinos externos.**
+>     URL sem esquema é canonicalizada para `https://`; `http:` ou qualquer outro
+>     esquema explícito é rejeitado com mensagem específica, nunca promovido
+>     silenciosamente. Host exato `artificiorpg.com` ou subdomínio real
+>     `*.artificiorpg.com` abre na mesma aba; destino externo abre em nova aba. Todo
+>     link gerado por usuário recebe `rel="ugc nofollow"`; externo acrescenta
+>     `noopener noreferrer`. A comparação de host é estrutural por `URL`, não
+>     `includes`/sufixo frouxo que aceite `artificiorpg.com.evil.example`.
+> 28. **Link root-relative pertence ao app dono do assunto.** Sintaxe `/rota` é
+>     permitida e resolvida pelo consumidor contra a origem confiável derivada de
+>     `source_app`, nunca contra um host enviado no comentário; abre na mesma aba e
+>     conserva portabilidade entre ambientes. São rejeitados `//host`, `../`, URL
+>     relativa sem `/` inicial e qualquer forma ambígua capaz de mudar de destino
+>     conforme a tela consumidora. O `accounts.` valida a forma; o backend consumidor
+>     fornece a origem canônica já prevista no contrato do assunto.
+> 29. **Link proibido falha; Markdown apenas malformado permanece texto, usando uma
+>     única política compartilhada.** Sintaxe incompleta que o CommonMark trata como
+>     literal é aceita e exibida literalmente. Quando o parser reconhece um link,
+>     porém o destino viola as decisões 26–28 (`http:`, esquema perigoso, `//host`,
+>     relativo ambíguo), criação ou edição inteira é rejeitada com código estável
+>     `INVALID_COMMENT_LINK`, posição e mensagem da regra, sem ecoar o payload hostil.
+>     Nada é removido ou reescrito silenciosamente. A validação e o perfil de
+>     renderização pertencem ao pacote compartilhado **já existente**
+>     `@artificio/content-editor`; não nasce pacote novo nem implementação local por
+>     app. `accounts.` e todos os frontends importam a mesma política. O cliente usa
+>     isso para erro imediato/prévia; o backend repete como autoridade final.
+> 30. **Comentário precisa produzir conteúdo textual visível.** Depois da
+>     canonicalização e sanitização, `markdownToPlainText` do pipeline compartilhado
+>     precisa resultar em conteúdo não vazio. Espaços, HTML integralmente removido,
+>     separador temático isolado ou marcadores sem texto são rejeitados; emoji,
+>     código, citação e link com rótulo visível são aceitos. Não existe mínimo
+>     arbitrário além de um conteúdo real, e a regra vale igualmente para criação e
+>     edição.
+> 31. **Não há `@menções` nesta fase.** Qualquer `@texto` permanece texto Markdown
+>     comum e nunca resolve conta nem cria destinatário. `accounts.users` não possui
+>     handle público único: nome Google é mutável/não único e e-mail não pode ser
+>     exposto. Notificação continua derivada apenas da estrutura confiável — autor do
+>     comentário pai e dono do assunto, excluindo o ator. Menção futura exige decisão
+>     própria de identidade pública; não será simulada por heurística sobre nome.
+> 32. **Denúncia de comentário entra no núcleo da Fase 2.** A fila já prometia itens
+>     denunciados e a matriz já autorizava usuário a denunciar, mas o contrato não
+>     tinha schema nem rota que produzisse esse estado. A lacuna é fechada agora no
+>     `accounts.`: persistência, API interna consumida pelas fachadas dos apps, fila
+>     compartilhada, resolução e auditoria pertencem à mesma entrega. Denúncia não
+>     será armazenada isoladamente em cada app nem adiada enquanto a fila central
+>     finge que pode recebê-la.
+> 33. **Denúncia exige conta, terceiro e unicidade por comentário.** Autor não
+>     denuncia o próprio comentário porque pode editar ou auto-retirar; cada conta
+>     mantém no máximo uma denúncia ativa por comentário. A identidade do denunciante
+>     é persistida e visível somente a `moderator`/`admin`; público, outros
+>     denunciantes e autor denunciado nunca a recebem. A escolha é deliberadamente
+>     mais próxima do Discourse — staff vê quem sinalizou — que do Reddit, onde
+>     moderador comunitário não sabe. Aqui o moderador é papel global concedido e
+>     auditado pelo `accounts.`, não voluntário limitado a uma comunidade; precisa
+>     investigar abuso coordenado sem expor o denunciante ao alvo.
+> 34. **Denúncia isolada não oculta; múltiplas denúncias podem ocultar
+>     temporariamente.** Uma denúncia apenas cria/prioriza item na fila. Ao atingir o
+>     limiar de **cinco contas distintas**, o comentário passa para estado próprio
+>     `pending_review_hidden`: público vê placeholder, corpo e score somem, posição e
+>     descendentes permanecem. Isso não é tombstone nem decisão de moderador. A fila
+>     conserva corpo, denúncias e identidades; moderação confirma a retirada ou
+>     descarta as denúncias e restaura a visibilidade, tudo auditado. Contam somente
+>     denúncias ativas, ainda não resolvidas, de contas válidas; a mesma conta nunca
+>     soma duas vezes. O limiar alto é deliberado: em baixo volume, auto-ocultação
+>     será rara, priorizando resistência a coordenação entre poucas contas.
+> 35. **Solução madura de um app sobe ao compartilhado; não é reimplementada nos
+>     demais.** O fluxo de denúncias do `downloads` é fonte de aprendizado para o
+>     núcleo central: estados `open`/`in_review`/`resolved`/`dismissed`, uma denúncia
+>     ativa por denunciante e alvo, nova denúncia após decisão terminal, “minhas
+>     denúncias”, retirada voluntária antes da análise, prioridade, detalhes e nota
+>     de resolução separados, aviso do resultado, sinal de sequência abusiva sem
+>     punição automática, contexto do alvo na fila e auditoria. O que for geral é
+>     consolidado no `accounts.` e exposto pelo único `packages/comments`; frontends
+>     e fachadas importam/consomem isso, sem pacote de denúncia separado, cópia por
+>     app ou segundo state machine. Elementos realmente de domínio — por exemplo
+>     `material_id` e motivo “link quebrado” de material — ficam no adaptador do
+>     domínio, não contaminam o contrato comum. “Subir ao compartilhado” significa
+>     extrair a solução corrigida, não copiar cegamente a implementação local.
+> 36. **Três defeitos do fluxo local de denúncia do `downloads` são corrigidos na
+>     adoção dele pela spec 090, não durante a Fase 2 central.** (a) `GET /mine`,
+>     `GET /abuse-check/:userId` e `GET /reports` deixam de consumir
+>     `writeRateLimiter` e usam orçamento de leitura; (b) decisão terminal deixa de
+>     fazer check-before-transaction seguido de `UPDATE` só por `id` e passa a
+>     serializar/condicionar a transição, garantindo um único vencedor, uma única
+>     notificação e conflito explícito ao segundo moderador; (c) auditoria de decisão
+>     deixa de ser somente `console.log` e vira registro persistente na mesma
+>     transação do estado. A Fase 2 implementa esses invariantes corretamente desde o
+>     início; a fase de adoção remove a divergência local também para o fluxo que
+>     continuar específico de material. Esta é organização temporal decidida pelo
+>     mantenedor, não autorização para preservar os bugs.
+> 37. **Motivos de denúncia vivem em registro compartilhado extensível por tipo de
+>     alvo.** O núcleo declara código, rótulo, prioridade e obrigatoriedade de
+>     detalhes para `malicious_link`, `inappropriate_content`, `spam_or_off_topic`,
+>     `harassment_or_hate`, `personal_data`, `copyright_violation`,
+>     `illegal_content` e `other`. Formulário, schema, estado e fila consomem esse
+>     registro único. Cada tipo de alvo apenas habilita um subconjunto ou acrescenta
+>     definição realmente de domínio — por exemplo `broken_link` em material — pelo
+>     mesmo contrato declarativo. Nenhum app cria enum, componente ou state machine
+>     paralelo; também não se obriga comentário a mostrar motivo sem sentido só para
+>     manter um enum rígido.
+> 38. **Prioridade mede urgência/reversibilidade durante a espera, não culpa.** O
+>     registro compartilhado inicia com P0 para `personal_data`, `malicious_link` e
+>     `illegal_content`; P1 para `harassment_or_hate`, `inappropriate_content` e
+>     `copyright_violation`; P2 para `spam_or_off_topic` e `other`; `broken_link` de
+>     material permanece P3. Categoria/P0 só ordena a fila e nunca oculta ou decide
+>     conteúdo sozinha — o único auto-hide continua sendo o limiar de cinco denúncias
+>     distintas da decisão 34. Moderador pode reclassificar prioridade, sempre com
+>     motivo e auditoria persistente.
+> 39. **Denúncia fixa a versão imutável existente no instante do envio.**
+>     `comment_reports` guarda `comment_id` e `reported_version_id` obrigatório para
+>     `comment_versions`; criação captura ambos atomicamente e a integridade garante
+>     que a versão pertence ao mesmo comentário. Edição posterior cria nova versão,
+>     não altera a evidência e não resolve nem retira a denúncia da fila. Moderação
+>     vê lado a lado versão denunciada, versão atual, diff e histórico; o relatório
+>     não duplica o corpo. Versão referenciada não sofre purga automática. Conteúdo
+>     sensível exige expurgo administrativo explícito e auditado: corpo da revisão
+>     sai, metadados do evento permanecem. A escolha é adaptação do projeto, não
+>     alegação sobre schema interno de terceiros: Reddit documenta filas de
+>     denunciados e editados, GitHub liga denúncia ao comentário e mantém histórico,
+>     e Discourse mantém o item editado em revisão e registra todas as revisões de
+>     conteúdo sinalizado para permitir julgamento do original. Rejeitadas: somente
+>     `comment_id` + inferência por horário (ambígua em concorrência) e snapshot do
+>     corpo dentro da denúncia (duplica conteúdo, PII, política de retenção e
+>     expurgo).
+> 40. **Moderação agrupa denúncias por caso episódico do comentário.** Existe no
+>     máximo um `moderation_case` aberto por comentário; cada denúncia continua uma
+>     linha individual, imutável como evidência, ligada ao caso. A fila mostra um
+>     item agregado com quantidade, categorias, prioridade máxima e, apenas para a
+>     moderação, identidades dos denunciantes. Decisão terminal fecha o caso e as
+>     denúncias ativas vinculadas sem apagar o histórico. Denúncia válida posterior
+>     abre novo caso, em vez de reabrir ou misturar o episódio encerrado. A interface
+>     segue a unidade de trabalho por conteúdo observada no Reddit e no Discourse,
+>     mas preserva granularidade individual para auditoria. Rejeitadas: uma entrada
+>     de fila por denúncia, que duplica trabalho e permite decisões concorrentes; e
+>     um caso eterno por comentário, que mistura versões, incidentes e decisões de
+>     épocas diferentes.
+> 41. **Editar não revela comentário auto-oculto.** Depois de alcançar o limiar de
+>     cinco denúncias e entrar em `pending_review_hidden`, o autor ainda pode editar
+>     normalmente e cada edição cria nova versão, mas comentário e caso permanecem
+>     oculto e aberto. A moderação compara versão denunciada, versão atual e diff;
+>     somente ação explícita dela restaura, remove ou encerra o caso. A escolha
+>     diverge deliberadamente do Discourse, que revela o conteúdo na primeira edição
+>     corretiva: no Artifício, edição unilateral não pode republicar link malicioso,
+>     dado pessoal ou conteúdo ilegal já retirado por sinal coletivo. O custo aceito
+>     é correção legítima aguardar revisão humana.
+> 42. **Denunciante só pode retirar antes do auto-hide.** Enquanto o caso está aberto
+>     e o comentário ainda visível, a própria denúncia ativa pode virar `withdrawn`:
+>     deixa de contar para o limiar, mas permanece na auditoria. Assim que a quinta
+>     denúncia distinta confirma `pending_review_hidden`, as denúncias do caso ficam
+>     bloqueadas para seus autores; somente a moderação pode invalidar, resolver ou
+>     dispensar dali em diante. A transição do caso, a inserção da quinta denúncia e
+>     qualquer retirada concorrente são serializadas na mesma transação/lock: se a
+>     retirada concluir antes, o limiar é recalculado; se o auto-hide concluir antes,
+>     a retirada é recusada. Rejeitadas: permitir retirada sem restaurar, que deixa o
+>     usuário mudar evidência depois do gatilho sem alterar consequência, e restaurar
+>     automaticamente ao cair abaixo de cinco, que permite oscilação coordenada de
+>     visibilidade.
+> 43. **Veredito é individual por denúncia; ação sobre conteúdo é única por caso.**
+>     Cada denúncia não retirada termina como `upheld`, `dismissed` ou
+>     `no_determination`; o caso recebe uma ação única entre `no_change`,
+>     `restore` e `remove`. A interface pode preencher um veredito em lote, mas
+>     permite corrigir cada denúncia antes de concluir. O caso só fecha quando todas
+>     as denúncias não retiradas têm veredito e a ação foi persistida na mesma
+>     transação, com moderador, motivo e auditoria. `upheld` conta como acerto,
+>     `dismissed` como erro; `withdrawn` e `no_determination` são neutros para sinais
+>     de abuso. Assim, link malicioso pode proceder sem transformar uma denúncia
+>     simultânea e infundada de assédio em acerto. A separação segue a prática do
+>     Discourse de distinguir julgamento da flag da ação sobre o post. Rejeitados:
+>     um veredito herdado por todo o caso e um veredito por categoria, ambos
+>     imprecisos para reputação do denunciante e detalhes individuais.
+> 44. **Resultado da moderação é privado, mínimo e entregue aos dois lados.** Cada
+>     denunciante recebe pelo núcleo compartilhado de notificações somente um dos
+>     resultados `action_taken`, `not_upheld` ou `no_determination`, correspondente
+>     ao próprio veredito; nunca recebe identidade de outro denunciante, nota interna,
+>     detalhe de ação disciplinar ou raciocínio reservado. O autor recebe aviso
+>     quando o comentário entra em auto-hide e quando a moderação remove ou restaura,
+>     com categoria pública aplicável e orientação de próximo passo. Evento e recibos
+>     nascem na mesma transação da mudança de estado, deduplicam destinatário e nunca
+>     notificam o próprio ator da ação. A escolha usa o núcleo transacional já
+>     absorvido pela Fase 2 e prefere feedback proporcional ao baixo volume do
+>     Artifício; rejeita tanto transparência detalhada, que expõe pessoas e lógica
+>     interna, quanto silêncio ao denunciante, adequado à escala do Reddit mas sem
+>     necessidade aqui.
+> 45. **Versão aprovada pela moderação ganha imunidade contra reabertura automática.**
+>     Quando um caso termina com `no_change` sobre conteúdo visível ou `restore` e as denúncias relevantes
+>     são improcedentes, a aprovação referencia a `comment_version_id` revisada.
+>     Denúncia posterior contra essa mesma versão ainda é recebida e auditada como
+>     `no_determination`, com motivo interno `approved_version`, mas não abre caso,
+>     não conta para novo limiar e não altera visibilidade; o denunciante recebe só o
+>     resultado mínimo da decisão 44. Moderador pode reabrir manualmente com motivo.
+>     Edição cria versão nova, não coberta pela aprovação anterior e novamente
+>     denunciável. A regra adapta `Ignore reports and Approve` do Reddit e impede
+>     brigada infinita de ocultar o mesmo texto já revisado. Rejeitados: cooldown,
+>     que apenas agenda o novo ataque, e ausência de proteção, que torna a fila e a
+>     visibilidade controláveis por sucessivos grupos de cinco contas.
+> 46. **Auto-retirada cria tombstone imediatamente, mas não encerra moderação.** O
+>     autor pode retirar o próprio comentário mesmo com caso aberto; o corpo some da
+>     leitura pública, a ação entra na timeline e as versões já gravadas continuam
+>     acessíveis somente à moderação. O caso permanece aberto, cada denúncia recebe
+>     veredito e a retirada não vale como confissão. Resolver com `no_change` preserva
+>     o tombstone escolhido pelo autor; `restore` exige ação moderadora explícita e
+>     nunca decorre automaticamente de denúncia improcedente. A auto-retirada antes
+>     do limiar não congela a retirada dos denunciantes — só a transição para
+>     `pending_review_hidden` da decisão 42 o faz. Para suportar este estado sem
+>     falsificar auditoria, `no_change` substitui o nome anterior `keep_visible` na
+>     decisão 43: significa não alterar a visibilidade atual, esteja ela visível ou
+>     retirada pelo autor. A escolha preserva autonomia pública sem permitir apagar
+>     evidência ou fugir do julgamento.
+> 47. **Remoção moderadora admite um recurso estruturado em até seis meses.** Somente
+>     o autor pode recorrer, uma vez por decisão terminal que removeu seu conteúdo;
+>     o recurso pertence ao núcleo compartilhado, referencia caso, decisão e versão,
+>     não restaura automaticamente e termina em `upheld` ou `reversed`, com
+>     notificação privada. Denunciante não recorre de `not_upheld`. Diferente do
+>     modelo ideal de equipe grande do GitHub, **não há exigência de segundo
+>     moderador**: a equipe inicial do Artifício é reduzida e o mesmo moderador pode
+>     rejulgar. A tela deixa explícito que ele tomou a decisão original e exige nova
+>     justificativa; ator, datas e resultado ficam na auditoria. Outro moderador pode
+>     assumir quando existir, mas isso não é trava. Rejeitados: reabrir e sobrescrever
+>     o caso original, que mistura as duas instâncias, e recurso apenas por contato
+>     externo, que faria cada app criar fluxo próprio e não rastreável.
+> 48. **Sanção é comunitária, escalonável e separada do acesso à suíte.** O
+>     `accounts.` mantém restrições independentes para `posting` e `commenting`, com
+>     escada `warning` → suspensão temporária → suspensão permanente; a temporária
+>     aceita duração explícita e presets operacionais, e uma decisão pode atingir um
+>     ou os dois escopos. Histórico e gravidade ficam visíveis para sugerir
+>     progressão, mas nenhuma denúncia, limiar ou reincidência aplica sanção
+>     automaticamente: moderador escolhe nível, prazo e motivo, tudo auditado. Login,
+>     leitura e uso não comunitário dos projetos continuam; auto-retirada de conteúdo
+>     próprio também continua permitida. A Fase 2 já faz `commenting` falhar fechado
+>     antes da escrita. `posting` nasce no mesmo contrato central para os demais apps
+>     adotarem ao mapear suas superfícies de publicação comunitária; não transforma
+>     silenciosamente criar mesa, material ou outro objeto de domínio em postagem.
+>     Voto e denúncia mantêm seus controles de abuso próprios já decididos, em vez de
+>     serem confundidos com esses dois escopos. Rejeitados: só remover conteúdo, que
+>     não contém reincidência, e suspender o SSO inteiro, cujo blast radius alcançaria
+>     todos os subdomínios por um caso de comentário.
+> 49. **Necessidade de detalhe é declarada por motivo no registro compartilhado.**
+>     Cada razão define `details: required | optional | forbidden`; inicialmente
+>     `other`, `copyright_violation` e `illegal_content` exigem detalhe, e as demais
+>     o aceitam opcionalmente. O campo é texto puro normalizado com trim, máximo de
+>     4.000 caracteres — limite já exercitado pelo fluxo maduro do `downloads` — e,
+>     quando obrigatório, vazio é rejeitado. Depois do envio é imutável; o usuário
+>     pode retirar a denúncia somente nas condições da decisão 42. Detalhe fica
+>     restrito à moderação, nunca aparece para autor/público, notificação, log ou
+>     mensagem de erro com eco do payload. O mesmo schema e formulário atendem todos
+>     os apps; tipo de domínio apenas configura o registro. A escolha segue o modelo
+>     configurável do Discourse e rejeita tanto detalhe sempre opcional, que torna
+>     `other` inútil, quanto sempre obrigatório, que fabrica ruído em violações
+>     autoexplicativas.
+> 50. **Antiabuso usa buckets independentes por camada, identidade e ação.** O
+>     backend de cada app aplica limites separados por IP real validado na própria
+>     borda e por usuário; o `accounts.`, que em escrita backend-to-backend enxerga o
+>     serviço chamador em vez do navegador, aplica por usuário e por credencial de
+>     `source_app`. Leitura, criação/resposta, edição, voto, denúncia e recurso têm
+>     buckets próprios e valores configuráveis; nenhum consome a cota de login,
+>     `/me` ou refresh. Todos os buckets aplicáveis precisam permitir a operação —
+>     não se usa chave combinada IP+usuário. Excesso retorna `429` e orientação
+>     genérica de espera, sem revelar qual bucket, limite restante ou sinal interno.
+>     Antes de calibrar números, T2.10 continua obrigada a medir qual IP chega hoje
+>     pelo Cloudflare/trusted proxy; limiares iniciais são configuração operacional
+>     revisável com teste, não regra pétrea do produto. Rejeitados: só usuário, que
+>     não contém multiconta/leitura anônima, e só IP, que bloqueia NAT e pode reduzir
+>     toda a suíte ao endereço do proxy ou backend.
+> 51. **Não há cache persistente de comentários nesta fase.** `packages/comments`
+>     mantém apenas o estado em memória da tela montada: se uma atualização falhar
+>     depois de uma leitura bem-sucedida, pode conservar aquele resultado como
+>     `stale`, com idade e aviso; recarregar ou abrir a página durante a queda não
+>     consulta IndexedDB, localStorage, Redis nem cache público no Cloudflare e
+>     mostra `unavailable` somente na área de comentários. A página do app continua
+>     funcional e toda escrita falha fechada. Logout/troca de conta descarta o estado
+>     em memória. Esta decisão aceita deliberadamente perder comentários entre
+>     recargas durante indisponibilidade e **substitui a exigência anterior de provar
+>     degradação stale sobrevivendo ao reload**; evita persistir UGC removido, estado
+>     personalizado e mecanismo de invalidação distribuído antes de haver escala que
+>     o justifique. Rejeitados: IndexedDB compartilhado e cache de edge/Cloudflare.
+>
+> **Encerramento do grilling.** Não restam escolhas de produto conhecidas para a
+> Fase 2. Antes de implementar, `spec.md`, `plan.md` e as tasks T2 antigas precisam
+> ser reconciliados com as decisões 1–51: o texto original ainda contém contratos
+> deliberadamente revogados durante o grilling, entre eles texto puro, profundidade
+> 2, proibição de edição/auto-retirada, proibição de responder ao legado e cache
+> stale obrigatório entre recargas. Este bloco é a decisão mais recente; a
+> reconciliação documental é o próximo passo, não uma nova rodada de produto.
+>
+> Este bloco prevalece sobre formulações anteriores da Fase 2 que tratem
+> `root_id` como opcional, limitem profundidade a `2`, imponham cap por quantidade
+> de filhos, tratem paginação como lista plana, deixem notificações somente para a
+> Fase 3 ou tratem comentários como superfície sem votos.
+>
+> **Tasks reformuladas a partir destas decisões em 2026-08-04.** O bloco acima é a
+> fonte; T2.1–T2.20 abaixo são a execução dele e foram reescritas para não
+> contradizê-lo. Onde uma task dizia o oposto de uma decisão, o texto antigo foi
+> substituído e a revogação anotada na própria task — não silenciosamente. Mapa
+> das inversões, para quem revisar sem reler as 40 decisões:
+>
+> | O que a task dizia antes | O que passou a valer | Decisão |
+> |---|---|---|
+> | `body_text`, texto puro | `body_markdown` pelo pipeline `@artificio/content-editor` | 24 |
+> | `depth<=2` | `depth<=4` (cinco níveis visuais) | 3 |
+> | `root_id` opcional | `root_id` obrigatório | 3 |
+> | Legado **não** aceita resposta (T2.4, T2.8, T2.11) | Legado **aceita** resposta nova | 23 |
+> | Autoedição e autoexclusão proibidas (T2.7, D111 item 6, requisito 12) | Autor **edita e retira** o próprio comentário | 17 |
+> | Listagem plana com cursor `(created_at, id)` | Árvore inteira, cap 1.000/2 MiB, cursor por `snapshot_revision` | 3, 8 |
+> | `BIGINT` implícito na identidade | UUID v4 público | 16 |
+> | Sem votos | Voto, score Wilson e quatro ordenações | 4, 5, 7, 19 |
+> | Sem denúncia (fila prometia, contrato não entregava) | Denúncia, caso, fila e auto-hide no núcleo | 32–34, 40 |
+> | Notificação toda na Fase 3 | Núcleo transacional antecipado para cá | 1 |
+>
+> **Tasks novas criadas pela reformulação:** T2.1b–T2.1e (schema de versão, voto,
+> notificação e denúncia), T2.5b (perfil de comentário e política de link no
+> pacote compartilhado), T2.6b (sem menções), T2.7b (edição/auto-retirada),
+> T2.12–T2.16 (voto), T2.17–T2.20 (denúncia e moderação).
+>
+> **Dois itens seguem abertos, por decisão registrada e não por omissão:** a
+> política jurídica de retenção/exclusão de conta bloqueia o ciclo de vida de
+> T2.15, e o regime real do rate limit (por usuário ou por IP de borda) segue não
+> medido em T2.10. Nenhum dos dois foi resolvido por inferência aqui.
+
+> **Estado medido do ambiente antes de começar a fase (2026-08-04, leitura read-only, não inferência).**
+> Levantado depois que a Fase 1 entrou em produção. Números medidos, não estimados —
+> substituem qualquer suposição herdada do texto original da spec.
+>
+> **Banco do `accounts.` (`artificio_auth`, prod) — a fase nasce do zero.**
+> Só quatro tabelas existem: `users`, `admin_secrets`, `global_role_audit`,
+> `schema_migrations`. **Nenhuma tabela de comentário existe.** Não há legado
+> interno ao `accounts.` a preservar, nem migração incremental a fazer: T2.1
+> escreve schema novo.
+>
+> **⚠️ Guard `MAX_AUTO_PENDING=5` — a primeira migration desta fase estoura.**
+> O `accounts` tem hoje **exatamente 5** migrations aplicadas (`001`…`005`), e o
+> comparador de `apply_required_migrations.sh:95` é `-gt`. A migration de T2.1 é a
+> **sexta**: no deploy seguinte o runner encontra 6 > 5 e **aborta**. Isso não é
+> hipótese — é aritmética do guard que já foi observado em produção (E012).
+> Consequência prática para quem implementar: **a fase não pode ser deployada
+> "só quando estiver pronta" sem tratar o guard**. Ou a migration entra num deploy
+> onde `MAX_AUTO_PENDING` é ajustado ao total pendente pelo procedimento oficial
+> (`AGENTS.md` §Migrations item 4, com o mesmo script, nunca fatiando em lotes),
+> ou a fase é promovida em pedaços que mantenham a contagem ≤ 5. Decisão do
+> mantenedor, não do agente. Registrar aqui o caminho escolhido antes do primeiro
+> deploy da fase.
+>
+> **Legado do `site` (T2.8) — medido em produção (`site-prod-db`, banco `site`):**
+>
+> | Métrica | Valor real |
+> |---|---|
+> | Comentários | **25** |
+> | Com `parent_id` | **3** |
+> | Pais órfãos | **0** |
+> | Autores distintos (`author_name`) | **21** |
+>
+> O `parent_id BIGINT` **sem FK** está confirmado em
+> `apps/site/db/migrations/001_init.sql:66` — a ausência de FK é real e T2.8
+> procede como escrita. Mas o risco que ela antecipa **não se materializou neste
+> conjunto**: zero órfãos, zero ciclos possíveis com 3 relações. A detecção
+> continua obrigatória (é barata e o dado pode mudar antes do import), só não é o
+> caminho provável. O "25" que T6.3 desconfiava ser número chutado **é o número
+> real**; a desconfiança pode ser encerrada com esta medição.
 - [ ] T2.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. · feito quando: leitura confirmada.
 - [ ] T2.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
 - [ ] T2.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
-- [ ] T2.1 — **Schema completo, não mínimo** (requisitos 5, 8, 9). A versão anterior pedia "referência opaca e `parent_id`", o que não basta para nascer com integridade. Exigir: `realm`, `source_app`, `subject_type`, `subject_id TEXT` (T0.6); `user_id`, `parent_id`, `depth`, opcionalmente `root_id`; **`body_text` para o novo e campo próprio para o HTML legado — nunca campo ambíguo** (T0.9); `created_at`; `removed_at`, `removed_by`, `removed_reason`; `legacy_source`, `legacy_id`, `legacy_author_name`, com **`unique (legacy_source, legacy_id)`** para importação idempotente; e índice de listagem na ordem `(realm, source_app, subject_type, subject_id, created_at, id)`. · feito quando: migration idempotente, com header válido, passando no guard.
-- [ ] T2.2 — **Criação valida no backend do módulo antes de chamar o `accounts.`** (requisito 6, decisão do mantenedor). O `accounts.` não conhece material nem mesa: quem confirma que o assunto existe, está visível, aceita comentário e quem é o dono é o backend do módulo, que então chama com credencial própria. Referência opaca **não** substitui autorização por objeto — sem isso o atacante comenta em assunto inexistente ou invisível (OWASP IDOR). · feito quando: comentário em assunto inexistente, invisível ou fechado é recusado, e escrita direta do navegador não é aceita.
-- [ ] T2.3 — **API de comentário com paginação desde o primeiro dia** (requisito 6). Criar, listar por assunto, responder, retirar — a listagem nasce com **cursor opaco, tamanho máximo e ordenação estável por `(created_at, id)`**. Acrescentar paginação depois quebra contrato de API pública (AIP-158). · feito quando: rotas testadas, escrita anônima rejeitada, e paginação sem duplicação nem item perdido entre páginas.
-- [ ] T2.4 — **Integridade de thread validada na transação** (requisito 8). O pai precisa existir, pertencer ao **mesmo `realm`, `source_app` e assunto**, aceitar respostas, não ser legado, e produzir `depth<=2`. Rejeitar na escrita, não corrigir depois. · feito quando: resposta cross-subject, cross-realm, a comentário legado, ou além da profundidade é recusada — inclusive sob concorrência.
-- [ ] T2.5 — **Texto puro no comentário novo; DOMPurify só no legado** (requisito 10, decisão do mantenedor). A versão anterior mandava sanitizar "na escrita e na renderização" via DOMPurify para tudo — ambíguo e excessivo: comentário novo é `body_text` e o React escapa sozinho, então não há HTML a sanitizar. O legado do `site` tem `content_html` e é sanitizado **uma vez, na entrada**, com a política e a versão dela registradas; a saída passa por defesa adicional **sem regravar o banco**. Nunca ressanitizar continuamente nem alterar o HTML depois de sanitizado (anula a proteção). · feito quando: testes de XSS cobrindo script, links, SVG/MathML, atributos e o HTML legado.
-- [ ] T2.6 — **Badge de autor calculado a partir de fonte confiável** (requisito 11). O papel global vem do `JOIN` com `accounts.users`; **"autor do conteúdo" vem do backend do domínio ou de capability assinada — nunca do payload público**, senão qualquer um se declara dono. Usuário comum sem rótulo; e-mail nunca exposto. · feito quando: tentativa de forjar dono no payload é ignorada, e o badge sai correto na resposta.
-- [ ] T2.7 — **Retirada por tombstone, com auditoria** (requisito 12). Não apagar a linha — apagar quebraria os filhos e perderia o contexto. A resposta pública devolve o estado removido e `removed_at`, **sem o corpo**; `removed_by` e `removed_reason` ficam para a moderação. Autoexclusão e edição continuam proibidas (D111 item 6). · feito quando: filhos sobrevivem à remoção do pai, e usuário removendo o próprio comentário recebe 403.
-- [ ] T2.8 — **Legado com proveniência explícita, read-only** (requisito 9). `site.comments` tem nome solto, HTML e `parent_id` **sem FK** (`apps/site/db/migrations/001_init.sql:66`) — a migração precisa detectar pais órfãos e ciclos **antes** de copiar. Importar com `user_id` nulo, `legacy_author_name`, `legacy_source='site'`; conteúdo read-only, sem aceitar resposta. Relações válidas preservadas; órfãs achatadas ou marcadas conforme decisão registrada. · feito quando: escrita sem `user_id` rejeitada, legado legível, e nenhum órfão ou ciclo copiado silenciosamente.
-- [ ] T2.9 — **Identidade resolvida no mesmo `SELECT`** (requisito 7), por `JOIN` — não por segunda chamada nem pela rota em lote de T1.4. Conta removida ou desativada cai em nome neutro e avatar nulo. · feito quando: uma consulta devolve comentário e identidade, e o caso da conta removida não vaza nem quebra a lista.
-- [ ] T2.10 — **[P1] Separar os rate limiters do `accounts.`** antes de expor comentários. Hoje um único limiter cobre a aplicação inteira em 200 requests/15 min (`app.ts:79`): três catálogos consultando comentários podem consumir a cota de `/login`, `/me` e `/refresh` e derrubar o login de todo mundo. Criar limiters separados para autenticação, leitura pública e escrita; escrita por usuário e IP; leitura com cache. · feito quando: carga de leitura de comentário não afeta a cota de autenticação, provado por teste.
-- [ ] T2.11 — **Testes de borda obrigatórios**: pai em outro assunto, pai em outro `realm`, profundidade sob concorrência, assunto inexistente, dono forjado no payload, URL externa na referência, resposta a legado, remoção do próprio comentário, `moderator` com papel revogado mas sessão viva (ver T1.2), paginação sem duplicação, e `accounts.` indisponível. · feito quando: os onze cobertos, cada um falhando fechado.
+
+### Bloco A — Schema
+
+- [ ] T2.1 — **Schema do comentário, com identidade pública UUID v4 e corpo Markdown** (requisitos 5, 8, 9; decisões 3, 16, 24). Reformulado em 2026-08-04: a formulação anterior pedia `body_text` (texto puro) e `depth<=2`, ambos revogados pelo grilling. Exigir: `id UUID` v4 como identidade pública, **nunca `BIGINT` enumerável** (decisão 16), sem UUID v7/ULID/lib nova; `realm`, `source_app`, `subject_type`, `subject_id TEXT` (T0.6); `user_id`, `parent_id UUID`, `root_id UUID` **obrigatório, não opcional** (decisão 3), `depth` com raiz em `0` e máximo `4`; **`body_markdown` para o comentário novo e campo próprio para o HTML legado — nunca campo ambíguo** (T0.9, decisão 24); `created_at`, `edited_at`; `removed_at`, `removed_by`, `removed_reason`; `ranking_revision` por assunto e `created_revision` por comentário (decisão 8); estado de visibilidade que comporte `pending_review_hidden` (decisão 34); `legacy_source`, `legacy_id`, `legacy_author_name`, com **`unique (legacy_source, legacy_id)`** para importação idempotente; e índice de listagem na ordem `(realm, source_app, subject_type, subject_id, created_at, id)`. · feito quando: migration idempotente, com header válido, passando no guard.
+- [ ] T2.1b — **Schema de versões do comentário** (decisões 17, 20, 39). `comment_versions` guarda todo `body_markdown` já válido, com autor da versão e timestamp. O público lê só a versão atual e `edited_at`; versões antigas são restritas a `moderator`/`admin`. A tabela é pré-requisito de T2.7b (edição) e de T2.12 (denúncia fixa `reported_version_id`) — sem ela a evidência de denúncia é ambígua. Versão referenciada por denúncia **não sofre purga automática**; expurgo de conteúdo sensível é ato administrativo explícito e auditado, que remove o corpo da revisão e preserva os metadados do evento. · feito quando: editar cria versão nova sem destruir a anterior, e o público não alcança versão antiga.
+- [ ] T2.1c — **Schema de voto e score** (decisões 4, 5, 7, 8, 21). `comment_vote` guarda o **estado atual** do voto, único por `(user_id, comment_id)`. `comment_score_version` guarda `upvotes` e `downvotes` como **colunas base não negativas**, `score` como **coluna gerada** `upvotes - downvotes`, `best_score` como **coluna gerada por função SQL `IMMUTABLE` versionada** — inicialmente `comment_wilson_reddit_80_v1`, aritmética `numeric` para ordenação e cursor determinísticos —, mais `algorithm_version` e o intervalo de revisões em que a versão é válida. **PostgreSQL é a fonte canônica**: TypeScript/Kysely autoriza o ator, serializa a troca e cria a versão dentro da transação, mas **não mantém segunda implementação produtiva da fórmula** (decisão 21). Comentário novo nasce com score `0`; não há auto-upvote (decisão 5). Histórico de score é retido permanentemente nesta fase, sem rotina destrutiva (decisão 8). · feito quando: migration idempotente; tentativa de gravar `score` ou `best_score` diretamente falha; e `upvotes`/`downvotes` negativos são rejeitados pelo banco.
+- [ ] T2.1d — **Schema de notificação transacional antecipado da Fase 3** (decisão 1). Entram **agora** `notification_event` e `notification_receipt`, com a mesma estrutura que T3.1 especifica — evento imutável separado do estado por destinatário. Não entram central de notificações, polling, API pública de notificações nem outbox/eventos externos: esses continuam na Fase 3. Justificativa da antecipação: sem recibo transacional, o comentário nasceria com notificação best-effort, que é exatamente o defeito que T3.5 corrige no `downloads`. · feito quando: as duas tabelas existem e a Fase 3 não precisa migrá-las, só consumi-las.
+- [ ] T2.1e — **Schema de denúncia, caso de moderação e registro de motivos** (decisões 32, 33, 37, 39, 40). `comment_reports` com `comment_id`, `reported_version_id` **obrigatório** apontando para `comment_versions`, denunciante, motivo, detalhes, estado e auditoria; integridade garante que a versão pertence ao mesmo comentário. Unicidade: **no máximo uma denúncia ativa por conta e comentário** (decisão 33). `moderation_case` com **no máximo um caso aberto por comentário** (decisão 40); cada denúncia permanece linha individual imutável ligada ao caso. Registro compartilhado de motivos declarando código, rótulo, prioridade e obrigatoriedade de detalhes para `malicious_link`, `inappropriate_content`, `spam_or_off_topic`, `harassment_or_hate`, `personal_data`, `copyright_violation`, `illegal_content` e `other` (decisão 37), com prioridades iniciais P0/P1/P2 da decisão 38. Nenhum app cria enum ou state machine paralelo. · feito quando: migration idempotente; segunda denúncia ativa da mesma conta no mesmo comentário é rejeitada pelo banco; e segundo caso aberto no mesmo comentário é rejeitado pelo banco.
+
+> **Nota de sequenciamento — T2.1 a T2.1e são uma migration só, não cinco.**
+> `AGENTS.md` §Migrations item 2.1 proíbe fatiar em vários arquivos o schema de uma
+> mesma spec no mesmo diff quando as tabelas nascem juntas e dependem umas das
+> outras — e aqui dependem: denúncia referencia versão, versão referencia
+> comentário, score referencia comentário. Fatiar também multiplicaria o problema
+> do guard `MAX_AUTO_PENDING=5` descrito no topo da fase: cinco arquivos contam
+> como cinco migrations pendentes. As tasks estão separadas por **assunto de
+> revisão**, não por arquivo de migration.
+
+### Bloco B — Escrita, autorização e integridade
+
+- [ ] T2.2 — **Contrato `CommentSubjectAuthorization` e suíte de conformidade** (requisito 6; decisão 2). Reformulado: a versão anterior dizia apenas "o backend do módulo valida antes de chamar", sem contrato nomeado. O `accounts.` não conhece material nem mesa e **não deve fingir que conhece**; ele define um contrato único — alvo existente, visível, comentável, `ownerUserId` confiável e `canonicalPath` — mais uma **suíte de conformidade reutilizável** que cada backend consumidor roda contra a própria implementação. O guard específico é implementado por cada app na sua fase de adoção, antes de chamar o `accounts.`. Referência opaca **não** substitui autorização por objeto — sem isso o atacante comenta em assunto inexistente ou invisível (OWASP IDOR). · feito quando: o contrato e a suíte existem no compartilhado; comentário em assunto inexistente, invisível ou fechado é recusado; e escrita direta do navegador não é aceita.
+- [ ] T2.3 — **Leitura em árvore com cursor versionado por revisão** (requisito 6; decisões 3, 8). Reformulado: a versão anterior tratava a listagem como lista plana paginada por `(created_at, id)`, o que o grilling revogou. No volume normal a leitura devolve **a árvore inteira**, sem limite de respostas irmãs. Hard cap defensivo de **1.000 comentários ou 2 MiB**, o que ocorrer primeiro; só então raízes/ramos restantes viram `more`, com cursor próprio e **nunca filho órfão**. A primeira leitura fixa `snapshot_revision`; o cursor é **opaco e assinado**, carregando identidade do assunto, sort, revisão, último sort-key, ramo, limite e expiração de **30 minutos**. Páginas e expansões `more` usam a mesma revisão, sem duplicar nem perder item; score exibido e `my_vote` podem vir do estado atual, mas a **posição permanece congelada** naquela navegação. Nova visita usa a revisão mais recente imediatamente; cursor expirado exige recarregar. O modelo evita transação PostgreSQL aberta entre requests, cache de paginação e cron. · feito quando: árvore de 1.500 comentários devolve `more` sem órfão; expansão na mesma revisão não duplica nem perde item; e cursor expirado falha explicitamente em vez de devolver posição errada.
+- [ ] T2.3b — **As quatro ordenações do produto** (decisões 7, 19). `Melhores` (padrão de abertura) usa o **limite inferior de Wilson unilateral com `z = 1.281551565545`** (80% de confiança), sem decaimento temporal, sob `algorithm_version = 'reddit-wilson-80-v1'`; `Mais votados` ordena por score líquido; `Recentes` por `created_at DESC`; `Mais antigos` por `created_at ASC`. A ordenação acontece **entre irmãos, nunca misturando níveis** da árvore. `created_at` e `id` formam o desempate estável. Tombstone mantém a posição estrutural mas não expõe corpo nem score. `Controversos`, `Random`, `Q&A`, `Live` e `Hot` **não entram**. Fórmula e vetores de referência entram em teste, **testando diretamente a função PostgreSQL** de T2.1c, não uma reimplementação em TypeScript. Algoritmo futuro cria nova versão e nova série de score; nunca reinterpreta histórico silenciosamente. · feito quando: os quatro sorts testados; vetores de Wilson batem contra a função SQL; e nenhuma ordenação mistura níveis da árvore.
+- [ ] T2.4 — **Integridade de thread validada na transação** (requisito 8; decisões 3, 23). Reformulado em dois pontos que o grilling revogou: a profundidade máxima é **`depth<=4`**, não `depth<=2`; e **resposta a comentário legado é permitida**, não recusada — o registro importado continua imutável, sem voto e marcado como antigo/autoria não verificada, mas **pode ser pai** de comentário novo de conta autenticada (decisão 23: antigo descreve proveniência, não congela a conversa). O pai precisa existir, pertencer ao **mesmo `realm`, `source_app` e assunto**, aceitar respostas e produzir `depth<=4`. `root_id` é derivado na escrita, nunca aceito do cliente. Rejeitar na escrita, não corrigir depois. · feito quando: resposta cross-subject, cross-realm ou além de `depth=4` é recusada — inclusive sob concorrência — e resposta a legado é **aceita** com `depth` correto.
+- [ ] T2.5 — **Markdown pelo pipeline compartilhado existente; DOMPurify só no legado** (requisito 10; decisões 24, 25, 30). Reformulado: a versão anterior mandava texto puro no comentário novo, revogado pela decisão 24. A Fase 2 **não cria parser, sanitizador nem renderizador paralelo**. Na escrita, o backend passa a entrada por `sanitizeUserMarkdown` de `@artificio/content-editor/sanitize` e persiste o **Markdown canônico**; a API devolve esse Markdown, **não HTML montado**. Consumidores renderizam somente por `MarkdownContent`/`renderMarkdown` de `@artificio/content-editor`, cujo `markdown-it` já roda com `html: false` e cuja saída passa por DOMPurify. Limite de **10.000 caracteres**, validado **tanto na entrada original, antes do trabalho de parsing, quanto no Markdown canônico produzido** (decisão 25); excesso rejeita a operação inteira com erro específico, **nunca trunca silenciosamente nem persiste versão parcial**. Depois da canonicalização, `markdownToPlainText` precisa resultar em **conteúdo não vazio** (decisão 30): espaços, HTML integralmente removido, separador temático isolado ou marcadores sem texto são rejeitados; emoji, código, citação e link com rótulo visível são aceitos. As três regras valem igualmente para criação e edição. O legado do `site` tem `content_html` e é sanitizado **uma vez, na entrada**, com política e versão registradas; a saída passa por defesa adicional **sem regravar o banco**. Nunca ressanitizar continuamente nem alterar o HTML depois de sanitizado (anula a proteção). · feito quando: testes de XSS cobrindo script, links, SVG/MathML, atributos e o HTML legado; entrada de 10.001 caracteres rejeitada antes do parsing; e comentário que sanitiza para vazio rejeitado.
+- [ ] T2.5b — **Perfil de comentário e política de link no `@artificio/content-editor`** (decisões 26, 27, 28, 29). **Task nova, criada em 2026-08-04 a partir de leitura do código real.** As decisões 26–29 pressupõem um perfil de renderização de comentário que **hoje não existe no pacote**: `packages/content-editor/src/sanitize.ts:10` e `ContentEditor.tsx:6` configuram `MarkdownIt` com `html: false`, o que já barra HTML bruto, mas **não há desativação de `<img>` nem qualquer política de destino de link**. Sem esta task, as decisões 26–29 não têm onde ser implementadas — e a decisão 29 proíbe expressamente implementação local por app. Exigir, dentro do pacote compartilhado já existente: (a) **imagem só como referência HTTPS clicável** — `![alt](https://...)` vira link textual explícito (“alt — abrir imagem externa”), o browser **não busca o recurso até o clique**, sem upload, Cloudinary, hospedagem, proxy, preview ou busca server-side; (b) **links HTTPS-only** — URL sem esquema é canonicalizada para `https://`, `http:` ou qualquer outro esquema explícito é **rejeitado com mensagem específica, nunca promovido silenciosamente**; (c) **comparação de host estrutural por `URL`**, nunca `includes`/sufixo frouxo que aceite `artificiorpg.com.evil.example` — host exato `artificiorpg.com` ou subdomínio real abre na mesma aba, externo abre em nova aba; (d) **`rel="ugc nofollow"` em todo link de usuário**, mais `noopener noreferrer` no externo; (e) **link root-relative `/rota`** resolvido pelo consumidor contra a origem confiável derivada de `source_app`, **nunca contra host enviado no comentário**, rejeitando `//host`, `../`, relativo sem `/` inicial e qualquer forma ambígua; (f) **política de falha única e compartilhada** — sintaxe incompleta que o CommonMark trata como literal é aceita e exibida literalmente, mas quando o parser **reconhece** um link cujo destino viola (a)–(e), criação ou edição inteira é rejeitada com código estável **`INVALID_COMMENT_LINK`**, posição e mensagem da regra, **sem ecoar o payload hostil** e sem remover ou reescrever nada silenciosamente. `accounts.` e todos os frontends importam a **mesma** política; o cliente usa para erro imediato/prévia, o backend repete como **autoridade final**. Mudança em pacote compartilhado: exige aprovação e verificação de impacto nos consumidores (`AGENTS.md` §Autorização). · feito quando: `<img>` não é buscado pelo browser em nenhum caminho de render; `http://`, `//host` e `artificiorpg.com.evil.example` são rejeitados com `INVALID_COMMENT_LINK`; `[texto](` incompleto permanece literal; e os consumidores atuais do pacote seguem verdes.
+- [ ] T2.6 — **Badge de autor calculado a partir de fonte confiável** (requisito 11). O papel global vem do `JOIN` com `accounts.users`; **"autor do conteúdo" vem do backend do domínio ou de capability assinada — nunca do payload público**, senão qualquer um se declara dono. Usuário comum sem rótulo; e-mail nunca exposto. Comentário legado exibe marca de **antigo/importado com autoria não verificada** (decisões 6, 23), misturado à árvore e à ordenação normais — sem seção própria e sem ocultação. · feito quando: tentativa de forjar dono no payload é ignorada; badge sai correto na resposta; e legado aparece na árvore normal com a marca de não verificado.
+- [ ] T2.6b — **Sem `@menções` nesta fase** (decisão 31). Qualquer `@texto` permanece **texto Markdown comum** e nunca resolve conta nem cria destinatário. Motivo material: `accounts.users` **não possui handle público único** — nome Google é mutável e não único, e-mail não pode ser exposto. Notificação continua derivada apenas da estrutura confiável: autor do comentário pai e dono do assunto, excluindo o ator. Menção futura exige decisão própria de identidade pública; **não será simulada por heurística sobre nome**. · feito quando: `@qualquercoisa` renderiza como texto e não gera nenhum `notification_receipt`.
+
+### Bloco C — Ciclo de vida do comentário
+
+- [ ] T2.7 — **Retirada por tombstone, com auditoria** (requisito 12; decisões 17, 22). Não apagar a linha — apagar quebraria os filhos e perderia o contexto. A resposta pública devolve o estado removido e `removed_at`, **sem o corpo e sem o score**; `removed_by` e `removed_reason` ficam para a moderação. Tombstone **preserva posição e descendentes** (decisão 3). **A proibição de autoexclusão foi revogada** — ver T2.7b. Poderes de remoção e restauração da moderação permanecem separados dos do autor. **Moderação nunca edita o texto de outro usuário** (decisão 22): `moderator`/`admin` podem retirar ou restaurar versões válidas, sempre com motivo e auditoria, mas **não reescrevem a fala alheia nem fazem redação parcial**; conteúdo que exponha PII é retirado por tombstone, e versão corrigida exige nova edição do próprio autor — assim a identidade exibida nunca assina texto produzido pela moderação. · feito quando: filhos sobrevivem à remoção do pai; corpo e score somem da resposta pública; e não existe caminho de código em que a moderação grave `body_markdown`.
+- [ ] T2.7b — **Autor edita e retira o próprio comentário** (decisões 17, 18, 20). **Task nova: esta decisão revoga expressamente D111 item 6, o requisito 12 e a formulação anterior de T2.7**, que proibiam autoedição e autoexclusão. Edição: sem prazo, **somente `body_markdown`** — pai, assunto, autoria e `created_at` são imutáveis; registra `edited_at`; público vê só a versão atual mais o marcador de edição; versões antigas ficam restritas à moderação (T2.1b); **edição idêntica é no-op** e **edição não gera notificação**. **Edição preserva votos e ranking** (decisão 18): trocar o corpo não apaga, recalcula nem invalida votos — `upvotes`, `downvotes`, score e versões de ranking seguem vinculados ao mesmo comentário. O risco de bait-and-switch é tratado pelo **marcador público de edição e pelo histórico completo da moderação**, não por zerar a reação de terceiros. Auto-retirada usa tombstone — **nunca `DELETE` físico** —, preserva posição e descendentes, oculta o corpo público, entra no histórico com ator/motivo/timestamp e é **irreversível para o autor**; apenas `moderator`/`admin` restaura a última versão válida, com auditoria. · feito quando: autor edita e o score não muda; edição idêntica não cria versão nem notificação; auto-retirada preserva os filhos; e autor não consegue desfazer a própria retirada.
+- [ ] T2.8 — **Legado com proveniência explícita, imutável mas respondível** (requisito 9; decisões 6, 23). Reformulado: a versão anterior dizia "read-only, **sem aceitar resposta**" — a segunda metade foi **revogada pela decisão 23**. O registro importado é imutável (não edita, não recebe voto, score `0` permanente) e marcado como antigo/autoria não verificada, mas **pode ser pai de comentário novo** de conta autenticada; a resposta nova obedece ao limite estrutural de `depth<=4`, à autorização do assunto e às regras atuais. `site.comments` tem nome solto, HTML e `parent_id` **sem FK** (`apps/site/db/migrations/001_init.sql:66`) — a migração precisa detectar pais órfãos e ciclos **antes** de copiar. Importar com `user_id` nulo, `legacy_author_name`, `legacy_source='site'`. Relações válidas preservadas; órfãs achatadas ou marcadas conforme decisão registrada. · feito quando: escrita sem `user_id` rejeitada; legado legível; **resposta nova a comentário legado é aceita**; voto em legado é recusado; e nenhum órfão ou ciclo copiado silenciosamente.
+
+  **Conjunto real medido em 2026-08-04** (ver bloco no topo da fase): 25 comentários,
+  3 com `parent_id`, **0 órfãos**, 21 autores distintos. A ausência de FK em
+  `parent_id` é real e confirmada, mas o dano que ela permitiria não ocorreu neste
+  conjunto. A detecção de órfão e ciclo **continua obrigatória** — é barata, e o
+  conjunto pode mudar entre esta medição e o import — porém o caminho esperado é
+  "nenhum órfão encontrado", não achatamento em massa. Se o import encontrar
+  órfãos, isso significa que o banco mudou depois de 2026-08-04 e o número precisa
+  ser remedido antes de decidir o tratamento.
+### Bloco F — Leitura, capacidade e testes
+
+- [ ] T2.9 — **Identidade resolvida no mesmo `SELECT`** (requisito 7), por `JOIN` — não por segunda chamada nem pela rota em lote de T1.4. Conta removida ou desativada cai em nome neutro e avatar nulo — e, por T2.15, a linha de identidade **continua existindo** como soft-delete, então o `JOIN` não perde o vínculo nem precisa de caminho especial para conta excluída. · feito quando: uma consulta devolve comentário e identidade, e o caso da conta removida não vaza nem quebra a lista.
+- [ ] T2.10 — **[P1] Separar os rate limiters do `accounts.`** antes de expor comentários. Hoje um único limiter cobre a aplicação inteira em 200 requests/15 min: três catálogos consultando comentários podem consumir a cota de `/login`, `/me` e `/refresh` e derrubar o login de todo mundo. Criar limiters separados para autenticação, leitura pública e escrita; escrita por usuário e IP; leitura com cache. · feito quando: carga de leitura de comentário não afeta a cota de autenticação, provado por teste.
+
+  **Verificado contra o código real em 2026-08-04 — procede, com correção de referência e um agravante novo.**
+  A referência `app.ts:79` **está desatualizada**: o limiter vive hoje em
+  `apps/accounts/src/app.ts:201`. O diagnóstico em si continua correto e foi
+  confirmado linha a linha: é `app.use(rateLimit({ windowMs: 15*60*1000, max: 200 }))`,
+  registrado **antes** de `cookieParser`, `csrfProtection`, `express.json` e `cors`
+  — ou seja, cobre a aplicação inteira, incluindo qualquer rota de comentário que
+  a Fase 2 adicionar. A cota é compartilhada com `/login`, `/me` e `/refresh`.
+
+  **Agravante não registrado na formulação original: o limiter não declara
+  `keyGenerator`.** Sem ele, `express-rate-limit` chaveia por IP de origem. Como
+  há `app.set("trust proxy", env.TRUSTED_PROXY_CIDR)` com default
+  `172.18.0.0/16` (`apps/accounts/src/env.ts:25`) e Cloudflare na borda, **é
+  preciso determinar empiricamente se a cota se aplica por usuário final ou por
+  IP de saída da borda**. Se for por borda, os 200 req/15 min não são o teto de
+  uma pessoa — são o teto do SSO inteiro, e o problema é ordens de magnitude
+  pior do que "comentário consome cota de login". **Isto não foi medido**, apenas
+  identificado por leitura; quem implementar T2.10 deve provar em qual dos dois
+  regimes o serviço está antes de dimensionar os limiters novos. Enquanto não
+  medido, tratar como incerteza aberta, não como fato em nenhuma direção.
+
+  **Ampliação decorrente do grilling (2026-08-04).** A formulação original previa
+  três limiters — autenticação, leitura pública e escrita. As decisões 11 e 12
+  acrescentam **voto**, e a 33 acrescenta **denúncia**, ambos com característica
+  própria: são mutações baratas, de alta frequência legítima e alvo direto de
+  abuso coordenado, e a decisão 11 exige explicitamente **rate limit por usuário
+  e IP** como proteção inicial do voto. Não cabe reaproveitar o orçamento de
+  escrita de comentário para eles — um usuário legítimo vota muito mais do que
+  comenta, e um orçamento único ou barra o uso normal ou não contém o abuso.
+  T2.20(a) depende deste desenho: as rotas de leitura da fila de denúncia
+  **não** podem consumir o limiter de escrita.
+- [ ] T2.11 — **Testes de borda obrigatórios**. Reformulado: a lista anterior tinha onze itens e incluía "resposta a legado" como caso que **deveria falhar** — invertido pela decisão 23, agora é caso que deve **passar**. Cobrir: pai em outro assunto; pai em outro `realm`; profundidade sob concorrência (`depth=4` é o teto); assunto inexistente; dono forjado no payload; **resposta a legado, que deve ser aceita**; voto em legado, que deve ser recusado; **auto-retirada do próprio comentário, que deve ser aceita** (decisão 17) e é irreversível para o autor; edição por terceiro, recusada; `moderator` com papel revogado mas sessão viva (ver T1.2); leitura em árvore sem duplicação nem órfão entre páginas da mesma revisão; cursor expirado; voto concorrente de dois dispositivos da mesma conta; quinta denúncia distinta acionando `pending_review_hidden`; sexta denúncia da mesma conta, recusada; dois moderadores decidindo o mesmo caso em concorrência, com um único vencedor; `INVALID_COMMENT_LINK` em `http://`, `//host` e sufixo frouxo; comentário que sanitiza para vazio; entrada acima de 10.000 caracteres; e `accounts.` indisponível. · feito quando: todos cobertos, cada um falhando fechado — e os casos marcados como "deve ser aceito" passando de fato, em vez de serem tratados como negativa.
+
+### Bloco D — Voto e ranking
+
+- [ ] T2.12 — **Mutação de voto por estado absoluto** (decisões 11, 12). **Task nova.** `PUT /internal/v1/comments/:id/vote` recebe `{ value: -1 | 0 | 1 }`; `0` **remove** o voto. Mesmo valor é **no-op**: devolve `200`, **sem nova revisão nem novo registro de histórico**. Troca ou remoção real atualiza voto, contagens, score, versão de ranking e auditoria **na mesma transação**. **Não há `ETag`, `If-Match` nem `Idempotency-Key`**: concorrência entre dispositivos resolve por **última gravação vence**, pela última transação persistida. Token do app e `X-Acting-User-Id` continuam obrigatórios; retry idêntico não duplica efeito. **Somente terceiros votam** (decisão 5): o autor não recebe auto-upvote e **não pode votar no próprio comentário** — divergência deliberada do Reddit, porque aqui o score representa reação de outras contas, não participação do autor. **Comentário legado não aceita voto** (decisão 6). **Conta nova vota imediatamente e com o mesmo peso** (decisão 11): sem espera, quarentena, voto pendente, peso secreto ou assimetria entre upvote e downvote. Proteções iniciais: uma escolha ativa por conta/comentário, rate limit por usuário e IP (T2.10), credencial backend-to-backend e auditoria completa. Endurecimento futuro exige **abuso medido**, não prevenção oculta. · feito quando: voto repetido idêntico não incrementa revisão; voto no próprio comentário recusado; voto em legado recusado; e dois dispositivos concorrentes convergem para a última transação, sem linha duplicada.
+- [ ] T2.13 — **Revisão de ranking incrementada sob lock transacional curto** (decisão 8). **Task nova.** Cada assunto mantém `ranking_revision`; cada comentário registra `created_revision`; **mudança de voto incrementa a revisão sob lock transacional curto**. Isto é o que permite o cursor de T2.3 ser stateless: época fixa, ranking vivo sem consistência e snapshot por sessão foram **explicitamente descartados** no grilling. O lock precisa ser curto o bastante para não serializar o assunto inteiro sob carga — dimensionar e medir, não presumir. Referências pesquisadas registradas na decisão 8: árvore truncada e `more` do Reddit (`reddit-archive/reddit`, `r2/r2/models/builder.py`), contrato `MoreChildrenRequest`, limite de snapshot exportado do PostgreSQL 16 e padrão `search_after` + point-in-time do Elasticsearch. · feito quando: votos concorrentes em comentários do mesmo assunto não perdem incremento de revisão, e a navegação paginada iniciada antes deles mantém posição estável.
+- [ ] T2.14 — **Transparência de contagens e visibilidade do voto** (decisões 9, 10). **Task nova.** A resposta pública expõe `upvotes`, `downvotes` e `score`; quando autenticada, também `my_vote`. **Score é público imediatamente**: não existe `score_hidden_until`, janela de ocultação nem política por `source_app` nesta fase — o baixo volume atual e a escrita autenticada tornam o custo do efeito-manada menor que a complexidade de esconder o número; ocultação futura seria mudança aditiva e não altera o modelo de voto/ranking. A superfície de **moderação** acessa identidade das contas votantes e histórico completo de criação, troca e remoção de voto. **A API pública nunca expõe a lista nominal de votantes.** · feito quando: resposta pública traz as três contagens e nenhuma identidade de votante; `my_vote` só aparece autenticado; e a rota de moderação exige papel e é auditada.
+- [ ] T2.15 — **Destino do voto quando a conta perde acesso** (decisões 14, 15). **Task nova.** Saída ou desativação comum **preserva votos e score históricos**, mas impede voto novo. **Bloqueio por abuso** permite ao moderador **invalidar todos os votos da conta**, com motivo e auditoria; cada assunto afetado recebe **nova `ranking_revision`** e scores recalculados; a invalidação **não apaga o histórico bruto**. O vínculo nominal do voto é **retido permanentemente**: desativação ou pedido de exclusão **não pseudonimiza nem remove `user_id`** do voto/histórico, e a moderação continua capaz de identificar a conta. Consequência técnica registrada na decisão 15: a identidade referenciada **precisa sobreviver como tombstone/soft-delete ou identidade de auditoria** — não existe exclusão física capaz de apagar a linha referenciada e ao mesmo tempo manter vínculo nominal íntegro. Conta excluída vira **soft-delete permanente**: login bloqueado, identidade pública neutralizada, vínculo nominal restrito a moderação/auditoria.
+  > **⚠️ Bloqueio declarado no próprio grilling.** A decisão 15 diz textualmente que **o contrato de exclusão de conta e a justificativa/política jurídica de retenção ainda precisam ser fechados antes da implementação**, e que esses detalhes **não devem ser inferidos da decisão**. Enquanto não fechados, T2.15 implementa apenas o lado de **preservação e invalidação por abuso**; o **ciclo de vida de exclusão de conta permanece bloqueado**. Não tratar como pendência menor: é o único item da Fase 2 com bloqueio jurídico explícito.
+  · feito quando: desativação comum preserva score e barra voto novo; invalidação por abuso recalcula os assuntos afetados com revisão nova; e nenhum caminho de código apaga fisicamente a identidade referenciada por voto.
+- [ ] T2.16 — **Voto não gera notificação** (decisão 13). **Task nova.** Nem voto individual nem marco agregado ("seu comentário chegou a 10 pontos") cria `notification_event` ou `notification_receipt`; o autor acompanha contagens na própria thread. O núcleo transacional antecipado da Fase 3 (T2.1d) continua **restrito a criação de comentário e resposta**. · feito quando: sequência de votos não produz nenhum recibo, provado por teste.
+
+### Bloco E — Denúncia e moderação
+
+- [ ] T2.17 — **API de denúncia e fila compartilhada** (decisões 32, 33, 35, 37, 38). **Task nova — fecha lacuna real do contrato.** A fila já prometia itens denunciados e a matriz já autorizava usuário a denunciar, mas **não existia schema nem rota que produzisse esse estado**. Persistência, API interna consumida pelas fachadas dos apps, fila compartilhada, resolução e auditoria pertencem à **mesma entrega**: denúncia **não** será armazenada isoladamente em cada app nem adiada enquanto a fila central finge que pode recebê-la. Regras: **exige conta**; **autor não denuncia o próprio comentário** (pode editar ou auto-retirar); **no máximo uma denúncia ativa por conta e comentário**. A identidade do denunciante é persistida e **visível somente a `moderator`/`admin`** — público, outros denunciantes e autor denunciado **nunca a recebem**; escolha deliberadamente mais próxima do Discourse (staff vê quem sinalizou) que do Reddit, porque aqui o moderador é papel global concedido e auditado pelo `accounts.`, não voluntário de uma comunidade, e precisa investigar abuso coordenado sem expor o denunciante ao alvo. O fluxo do `downloads` é **fonte de aprendizado** (decisão 35): estados `open`/`in_review`/`resolved`/`dismissed`, nova denúncia após decisão terminal, "minhas denúncias", retirada voluntária antes da análise, prioridade, detalhes e nota de resolução separados, aviso do resultado, sinal de sequência abusiva **sem punição automática**, contexto do alvo na fila e auditoria. O que for geral é consolidado no `accounts.` e exposto pelo **único** `packages/comments`; **sem pacote de denúncia separado, cópia por app ou segundo state machine**. Elementos de domínio real — `material_id`, motivo `broken_link` de material — ficam no adaptador do domínio. "Subir ao compartilhado" significa **extrair a solução corrigida, não copiar a implementação local**. Moderador pode reclassificar prioridade, sempre com motivo e auditoria persistente. · feito quando: denúncia do autor recusada; segunda denúncia ativa da mesma conta recusada; denunciante invisível a todos exceto `moderator`/`admin`; e nenhum app mantém state machine própria de denúncia de comentário.
+- [ ] T2.18 — **Auto-ocultação por limiar de cinco contas distintas** (decisão 34). **Task nova.** Uma denúncia isolada **apenas cria ou prioriza item na fila** — não oculta nada. Ao atingir **cinco contas distintas**, o comentário passa ao estado próprio **`pending_review_hidden`**: público vê placeholder, **corpo e score somem**, **posição e descendentes permanecem**. Isto **não é tombstone nem decisão de moderador**, e precisa ser estado distinto no schema (T2.1). A fila conserva corpo, denúncias e identidades; a moderação confirma a retirada ou **descarta as denúncias e restaura a visibilidade**, tudo auditado. Contam **somente denúncias ativas, ainda não resolvidas, de contas válidas**; a mesma conta **nunca soma duas vezes**. O limiar alto é deliberado: em baixo volume a auto-ocultação será rara, priorizando resistência a coordenação entre poucas contas. Categoria e prioridade **nunca ocultam sozinhas** (decisão 38) — este limiar é o **único** auto-hide da fase. · feito quando: quatro denúncias não ocultam; a quinta oculta preservando os filhos; denúncia repetida da mesma conta não conta duas vezes; e restauração pela moderação devolve corpo e score.
+- [ ] T2.19 — **Caso episódico agrega denúncias sem perder granularidade** (decisões 39, 40). **Task nova.** Existe **no máximo um `moderation_case` aberto por comentário**; cada denúncia continua **linha individual, imutável como evidência**, ligada ao caso. A fila mostra **um item agregado** com quantidade, categorias, prioridade máxima e — apenas para a moderação — identidades dos denunciantes. **Decisão terminal fecha o caso e as denúncias ativas vinculadas sem apagar o histórico.** Denúncia válida posterior **abre caso novo**, em vez de reabrir ou misturar o episódio encerrado. Cada denúncia fixa `reported_version_id` **no instante do envio**, capturado atomicamente com `comment_id`; **edição posterior cria versão nova, não altera a evidência e não resolve nem retira a denúncia da fila**. A moderação vê lado a lado versão denunciada, versão atual, diff e histórico; o relatório **não duplica o corpo**. Alternativas rejeitadas, registradas para não serem redescobertas: uma entrada de fila por denúncia (duplica trabalho, permite decisões concorrentes); caso eterno por comentário (mistura versões, incidentes e decisões de épocas diferentes); somente `comment_id` + inferência por horário (ambígua sob concorrência); e snapshot do corpo dentro da denúncia (duplica conteúdo, PII e política de retenção). · feito quando: duas denúncias no mesmo comentário produzem um item de fila e duas linhas de evidência; edição durante o caso não some da fila; decisão terminal fecha tudo sem apagar; e denúncia posterior abre caso novo.
+- [ ] T2.20 — **Invariantes de decisão terminal implementados corretamente desde o início** (decisão 36). **Task nova.** Os três defeitos identificados no fluxo local do `downloads` **não são reproduzidos** no núcleo: (a) rotas de leitura (`GET /mine`, `GET /abuse-check/:userId`, `GET /reports`) usam **orçamento de leitura**, nunca o limiter de escrita; (b) decisão terminal **não** faz check-before-transaction seguido de `UPDATE` só por `id` — a transição é **serializada e condicionada**, garantindo **um único vencedor, uma única notificação e conflito explícito ao segundo moderador**; (c) auditoria de decisão é **registro persistente na mesma transação do estado**, nunca `console.log`. A correção do fluxo local do `downloads` acontece na **fase de adoção** dele, não aqui — organização temporal decidida pelo mantenedor, **não autorização para preservar os bugs** (`AGENTS.md` §Bug achado: o item segue até o verde). · feito quando: dois moderadores decidindo em concorrência produzem um vencedor e um `409`; uma única notificação é emitida; e a auditoria da decisão sobrevive a rollback do restante da requisição sendo — corretamente — revertida junto.
 
 ## Fase 3 — Notificações agregadas
 
@@ -567,6 +1204,56 @@ mudar.
 
 Primeiro consumidor: necessidade imediata (spec 089) e dado menos delicado.
 
+> **⚠️ ACHADO QUE MUDA O CUSTO DESTA FASE — não há legado a migrar (medido em 2026-08-04).**
+>
+> Toda a Fase 5 foi escrita como **migração de dado existente**: `pg_dump` dos dois
+> bancos, rollout expand → backfill → catch-up → cutover, validação linha a linha,
+> "os cinco `kind` atuais mapeados como legado", tabela local virando read-only por
+> retenção. Medição read-only em produção e em beta mostra que **o conjunto de
+> origem está vazio**:
+>
+> | Métrica | `downloads-db` (prod) | `downloads-beta-db` (beta) |
+> |---|---|---|
+> | `download_comment` | **0** | **0** |
+> | `download_notification` | **0** | **0** |
+> | `download_material` | 12 | 91 |
+> | `download_rating` | 0 | — |
+> | `download_favorite` | 0 | — |
+> | `download_creator` | 1 | — |
+>
+> As tabelas **existem** com schema completo (`download_comment` tem
+> `id`, `material_id`, `user_id`, `body`, `removed_at`, `removed_reason`,
+> `created_at`, FK para `download_material`, e é referenciada por
+> `download_report.comment_id`) — o que nunca aconteceu foi **uso**. Beta tem 91
+> materiais e ainda assim zero comentários, então não é "ambiente novo e vazio":
+> a superfície de comentário do `downloads` nunca foi exercitada por usuário real.
+>
+> **O que isto invalida:** o *custo* da fase, não o *objetivo*. Backfill,
+> catch-up, reconciliação linha a linha, retenção de tabela local e validação de
+> paridade são cerimônia sobre conjunto vazio. Um `INSERT ... SELECT` de zero
+> linhas não precisa de rollout em quatro etapas.
+>
+> **O que isto NÃO invalida:** T5.3 (rotas delegando ao `accounts.`), T5.3b (bug
+> real do limiter no `GET`), T5.3c (fachada com timeout e degradação), T5.4 (UI),
+> T5.5 (endpoint de caixa de entrada) e T5.6 (rastreabilidade) seguem necessários
+> — são construção de superfície nova, não migração. Os cinco `kind` de T5.2b
+> **existem no código** (`apps/downloads/backend/src/services/notify.ts:12`:
+> `material_approved`, `material_rejected`, `report_resolved`, `report_dismissed`,
+> `system_suggestion_resolved`), então o mapeamento de tipo continua tendo objeto,
+> mesmo sem linha nenhuma para converter.
+>
+> **Decisão pendente do mantenedor — não decidida pelo agente.** Duas saídas:
+> (a) simplificar as tasks de migração desta fase para o caso vazio, mantendo
+> apenas uma verificação de guarda ("se a contagem não for zero no momento do
+> cutover, parar e reavaliar"); ou (b) manter o texto atual como está e registrar
+> este achado como débito. Enquanto não houver decisão registrada, **o texto das
+> tasks abaixo permanece válido** — nenhuma foi reescrita a partir deste achado.
+>
+> **Trava para quem for implementar:** a medição vale para 2026-08-04. Se a fase
+> começar meses depois, **remedir antes de assumir conjunto vazio**. O caminho
+> perigoso é o inverso do usual: assumir que continua vazio e pular o backfill
+> quando já houver dado.
+
 > **Três bloqueantes da versão anterior, achados na 1ª revisão do Codex (2026-07-27).**
 >
 > 1. **O mecanismo de migração era impossível.** O plano apontava
@@ -587,7 +1274,7 @@ Primeiro consumidor: necessidade imediata (spec 089) e dado menos delicado.
 - [ ] T5.1 — **`pg_dump` dos DOIS bancos** antes do import: `downloads` (origem) **e** `accounts.` (destino). A versão anterior só previa a origem — mas o import escreve no destino, e é ele que precisa de rollback se algo entrar errado. Formato custom, para permitir restore seletivo. · feito quando: os dois dumps validados, com caminho registrado.
 - [ ] T5.1b — **Importador one-shot pertencente ao `accounts.`** (requisito 23). SQL do `downloads` não pode escrever no banco do `accounts.` — a fronteira entre bancos é regra da spec. Fluxo: export read-only do `downloads`, importador do lado do `accounts.` (ou endpoint interno dedicado), inserts **idempotentes** (a chave `unique (legacy_source, legacy_id)` de T2.1 é o que garante rodar duas vezes sem duplicar). Migration local só marca cutover e estado. · feito quando: o importador roda duas vezes e o resultado é idêntico, sem o `downloads` tocar o banco central.
 - [ ] T5.2 — **Rollout expand → backfill → catch-up → cutover** (requisito 24). Substitui "copiar antes de parar de ler", que perde tudo o que nascer entre a cópia e a troca. Sequência: (1) criar o destino; (2) habilitar dual-write **ou** congelar a escrita por janela curta; (3) registrar o *high-water mark*; (4) backfill idempotente; (5) catch-up do que passou do marco; (6) reconciliar; (7) trocar a leitura; (8) **manter a tabela local** para rollback pelo período definido. · feito quando: comentário criado durante a janela existe no destino, provado por teste.
-- [ ] T5.2b — **Os cinco `kind` atuais mapeados como legado** (T0.11). O `downloads` emite `material_approved`, `material_rejected`, `report_resolved`, `report_dismissed` e `system_suggestion_resolved` (`services/notify.ts:10`) — preservar `download_notification` sem tratá-los seria impossível. **Decisão do mantenedor (2026-07-27):** entram como `legacy_downloads` com o **corpo já montado congelado**, legíveis para sempre, sem virar `kind` oficial do registro central; o `downloads` **continua** emitindo esses eventos na tabela local dele. Só comentário migra para o registro novo. · feito quando: os cinco legíveis no histórico, nenhum aparecendo como evento ativo do registro central.
+- [ ] T5.2b — **Os cinco `kind` atuais mapeados como legado** (T0.11). O `downloads` emite `material_approved`, `material_rejected`, `report_resolved`, `report_dismissed` e `system_suggestion_resolved` (`services/notify.ts:12` — a referência anterior dizia `:10`, corrigida em 2026-08-04 contra o código real) — preservar `download_notification` sem tratá-los seria impossível. **Decisão do mantenedor (2026-07-27):** entram como `legacy_downloads` com o **corpo já montado congelado**, legíveis para sempre, sem virar `kind` oficial do registro central; o `downloads` **continua** emitindo esses eventos na tabela local dele. Só comentário migra para o registro novo. · feito quando: os cinco legíveis no histórico, nenhum aparecendo como evento ativo do registro central. · **Medição de 2026-08-04:** os cinco `kind` existem no código, mas `download_notification` tem **0 linhas** em prod e em beta — não há corpo montado a congelar. O mapeamento de tipo permanece necessário como contrato; a migração de conteúdo é vazia. Ver bloco de achado no topo da fase.
 - [ ] T5.2c — **Validação linha a linha, com definição** (requisito 24). "Item a item" sem critério não valida nada. Comparar: quantidade, IDs, hash dos campos normalizados, `created_at`, autoria, estado removido e lido, relações `parent` — e produzir **lista explícita de divergências**, não um "ok". · feito quando: o relatório sai vazio, ou cada divergência tem causa registrada.
 - [ ] T5.3 — `routes/comments.ts` e `routes/notifications.ts` delegam ao `accounts.`, mantendo os paths atuais. **Preservar o payload e o status, não só o path:** comentários devolvem array com `id`, `material_id`, `user_id`, `body`, `created_at`; notificações devolvem `kind`, `material_id`, `body`, `read_at`, `created_at`; `POST`, `DELETE`, `PATCH` e os códigos atuais seguem iguais. **`verify:api` não prova compatibilidade semântica** — hoje não existe teste direto de `comments.ts` nem de `notifications.ts`, então escrever contract tests contra o comportamento antigo **antes** de trocar. · feito quando: os contract tests passam contra a fachada nova, e `rtk pnpm verify:api` verde.
 - [ ] T5.3b — **[P1] Corrigir o limiter errado no `GET`** (bug real, autorizado pelo mantenedor 2026-07-27). `routes/notifications.ts:12` aplica `writeRateLimiter` num `GET` de leitura: quem só consulta o próprio feed consome cota de escrita e pode ser barrado sem ter escrito nada. · feito quando: leitura usa limiter de leitura, com teste.
@@ -595,7 +1282,7 @@ Primeiro consumidor: necessidade imediata (spec 089) e dado menos delicado.
 - [ ] T5.4 — UI de comentários no material, com identidade, papéis e threads. · feito quando: comentar, responder e ver autor funcionam na ficha.
 - [ ] T5.5 — **Endpoint de caixa de entrada do autor, antes da UI.** A versão anterior pedia a tela sem a API que a sustenta: o `accounts.` **não conhece ownership de material**, então não sabe o que é "meus materiais". O backend do `downloads` resolve — lista os materiais do autor e busca comentários por subjects **em lote** (nunca um subject por vez), ou recebe eventos de comentário endereçados ao dono. Definir paginação, ordenação, não-lidos e autorização. · feito quando: o autor vê e responde comentários dos próprios materiais pelo painel, com uma consulta em lote.
 - [ ] T5.6 — **Validar a rastreabilidade dos requisitos 18-22 e 32-35 da spec 089**, sem removê-los de lá. A versão anterior dizia que a 089 "não carrega mais tasks de comentário" — contradiz a própria 089, que mantém a Fase 6 marcada como **MOVIDA** justamente para o rastro não sumir (`089/tasks.md:213`). A referência fica; o que se valida é que ela aponta para cá e que ninguém executa aquelas tasks na 089. · feito quando: as duas specs concordam, com a 089 preservando a marcação de movida.
-- [ ] T5.7 — **Tabela local vira read-only, não é apagada nesta fase.** Retenção até o rollback e a reconciliação estarem concluídos. Exclusão é ação posterior, nominal e com backup próprio. · feito quando: `download_comment` e `download_notification` param de receber escrita e continuam legíveis.
+- [ ] T5.7 — **Tabela local vira read-only, não é apagada nesta fase.** Retenção até o rollback e a reconciliação estarem concluídos. Exclusão é ação posterior, nominal e com backup próprio. · feito quando: `download_comment` e `download_notification` param de receber escrita e continuam legíveis. · **Medição de 2026-08-04:** ambas com **0 linhas** em prod e beta — a retenção protege conjunto vazio. A task não perde sentido (a trava contra escrita continua valendo, e é ela que impede divergência pós-cutover), mas o argumento de "reter até a reconciliação concluir" não se aplica a dado que não existe. Ver bloco de achado no topo da fase.
 
 ## Fase 6 — Adoção no `site`
 
