@@ -57,14 +57,14 @@ A regra de `AGENTS.md` contra fatiar schema não se aplica: ela impede "uma
 tabela por arquivo sem motivo", e prevê exceção quando uma migration é
 independente da outra em produção.
 
-### Bloqueios abertos
+### Bloqueio de migrations — fechado em 2026-08-04
 
-**As 3 migrations do `accounts` nunca rodaram contra Postgres real** (Docker
-indisponível na máquina do agente). Validou-se formato de header e classe, não
-execução. **E014, E015 e E018 só apareceram na execução real** — todos passariam
-na validação estática que a Fase 1 rodou. Não bloqueia continuar, mas entra como
-bloqueio explícito no relatório final e precisa acontecer antes de qualquer
-deploy: é o SSO.
+As migrations `001`–`005` do `accounts` rodaram contra Postgres real no deploy de
+produção `30918952648`. A ledger da VM registra as cinco entre 14:27:49 e
+14:27:50 UTC, todas com `applied_by = ci:ubuntu@vnic-artificio`; o workflow também
+rodou drift e `critical_routes` e terminou com sucesso. O texto anterior dizia que
+somente header e classe tinham sido validados; isso descrevia o estado anterior ao
+deploy e não é mais bloqueio atual.
 
 **~~Migração pré-container do `accounts` precisa de verificação de drift.~~
 CONFIRMADO COMO BUG — vira T1.11–T1.13.** O mantenedor achou em 2026-07-30 e a
@@ -206,8 +206,9 @@ schema defasado do SSO, que hoje falha aberto (detalhe em §1).
   Decisão aprovada: workflow pula o runner padrão só para `site`; runner falha
   fechado para os consumidores reais. Implementado; ramo ausente e `bash -n`
   verdes. T1.12 fechada.
-- **T1.13** — provar cobertura do `accounts` em execução real, nas duas direções
-  (disco à frente e banco à frente). Leitura de código não fecha esta task.
+- **T1.13 — fechada em 2026-08-04.** Deploy `30918952648` provou disco à frente ao
+  aplicar `001`–`005`; o drift real de `users.avatar_source`, reconciliado por
+  `004`/`005`, provou banco à frente. Leitura da ledger confirmou aplicação pela CI.
 
 **Trava de conferência (decisão do mantenedor, 2026-07-30): mostrar o diff de
 T1.11–T1.13 ao mantenedor antes de qualquer deploy.** Mesmo tratamento dado ao
@@ -220,9 +221,10 @@ deixa passar verde o que deveria falhar, justamente no script que é o único
 alarme do SSO. Os bots de review do PR não cobrem isso: eles leem sintaxe e
 padrão, não conhecem o E018 nem sabem o que este script protege.
 
-**T1.13 é bloqueio de fase, não item de checklist.** T1.11 não conta como
-fechada sem a execução real contra o banco. E014, E015 e E018 passariam todos na
-validação estática — foi só rodando que apareceram.
+**T1.13 era bloqueio de fase, não item de checklist.** T1.11 não contava como
+fechada sem execução real contra o banco. Essa execução ocorreu no run
+`30918952648`; T1.13 está fechada. E014, E015 e E018 continuam como justificativa
+histórica para exigir prova real, não como sinal de bloqueio atual.
 
 Débito de unificação registrado em `tasks.md` (declarar diretório/coluna/glob no
 manifesto, em vez de derivar por convenção) — spec própria, toca os 6 módulos.

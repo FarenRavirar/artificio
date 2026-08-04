@@ -115,8 +115,9 @@ papel errado em produção tira acesso de gente.
 > **não existe ambiente de ensaio onde a Fase 1 possa ser validada antes de
 > produção.** Quem procurar um vai gastar a sessão procurando algo que foi
 > decidido não existir. As rotas só respondem depois do deploy em prod, e é por
-> isso que T1.13 (abaixo) precisa ser fechada **antes** — ela é a única prova
-> disponível de que esse deploy não vai abortar.
+> isso que T1.13 (abaixo) precisava ser fechada **antes** — ela era a única prova
+> disponível de que esse deploy não abortaria. T1.13 fechou no deploy de produção
+> `30918952648`, em 2026-08-04.
 >
 > Isto **não** significa "deploy proibido": `AGENTS.md` §"Não lançado ≠ não deve
 > subir". Significa que o primeiro exercício real é em produção, com o SSO de
@@ -377,13 +378,11 @@ saudável e o **único** alarme de schema defasado no SSO é
 > migrations à mão fora do `apply_required_migrations.sh` (gera drift reverso,
 > §Migrations item 5).
 
-> **T1.13 é bloqueio duro de deploy — decisão do mantenedor, 2026-07-30.**
-> Nenhuma das migrations do `accounts` jamais rodou contra Postgres real — eram 3
-> quando isto foi escrito, são **5** desde 2026-07-31 (`004`/`005`, drift de
-> `avatar_source`) (Docker
-> indisponível na máquina do Codex). **Nada da Fase 1 vai a beta ou prod antes de
-> T1.13 passar em execução real.** Merge de PR e revisão de bot não substituem:
-> ambos leem código, e o que falta provar é comportamento contra banco.
+> **HISTÓRICO — bloqueio T1.13 fechado em 2026-08-04.** As migrations `001`–`005`
+> do `accounts` foram aplicadas pelo runner no Postgres real durante o deploy de
+> produção `30918952648`. A ledger registra as cinco entre 14:27:49 e 14:27:50 UTC,
+> com `applied_by = ci:ubuntu@vnic-artificio`. Antes desse deploy, T1.13 era bloqueio
+> duro: merge de PR e revisão de bot não substituíam execução contra banco.
 >
 > Motivo de virar trava explícita agora: a Fase 1 **endurece gates antes do verde
 > comprovado** — o preflight da baseline passa a exigir `users.role` como
@@ -391,7 +390,7 @@ saudável e o **único** alarme de schema defasado no SSO é
 > falhar fechado (T1.11/T1.12). Cada um é a decisão certa isoladamente, e juntos
 > significam que **um banco de produção divergente do esperado aborta o deploy**,
 > o que é o comportamento desejado — desde que alguém tenha verificado que o banco
-> real passa. Ninguém verificou.
+> real passa. Naquele momento, ninguém havia verificado.
 >
 > `AGENTS.md` §Bug achado: endurecer gate só **depois** do verde comprovado
 > localmente, senão transfere falha mascarada pro próximo PR. O mantenedor optou
@@ -431,15 +430,13 @@ alterados, verificados pelo Claude:
   quando T0.12 removeu o `migrate.ts`.
 
 Validação: `bash -n` 2/2, fail-closed real 2/2, `git diff --check` verde.
-**Nenhum deploy real rodou** — o caminho feliz (6 módulos com diretório presente
-seguindo verdes) está provado só por leitura. T1.13 segue aberta.
+**Naquele estado de 2026-07-30, nenhum deploy real havia rodado** — o caminho feliz
+dos 6 módulos estava provado só por leitura e T1.13 seguia aberta.
 
-**Correção de 2026-07-31:** a frase original aqui dizia "T1.13 segue bloqueada por
-falta de Docker/Postgres". Está errada e induziu retrabalho. O que falta é Docker
-**na máquina do agente**, para ensaiar num Postgres descartável. O Postgres do
-`accounts` **existe e está healthy na VM** (`accounts-db`), e ler o schema dele é
-read-only — o caminho está em §"Como destravar T1.13 e T1.9". Ausência de ambiente
-local nunca significou ausência de banco real.
+**Fechamento de 2026-08-04:** o deploy de produção `30918952648` aplicou
+`migration_001`–`migration_005` pelo runner, criou/preencheu `schema_migrations`,
+rodou drift e `critical_routes` e terminou com sucesso. A VM confirma hoje as cinco
+linhas na ledger e `accounts-api`/`accounts-db` healthy. T1.13 está fechada.
 
 > **Nota de processo (2026-07-30).** O `deploy-manifest.json` foi alterado sem o
 > diff ser mostrado antes, apesar de a trava acima e a §2 do handoff exigirem
@@ -496,7 +493,7 @@ por causa disto.**
 
 ## Fase 2 — Comentários no `accounts.`
 
-> **Decisões do grilling da Fase 2 — registradas em 2026-08-04; grilling CONCLUÍDO com 51 decisões.**
+> **Decisões do grilling da Fase 2 — registradas em 2026-08-04; grilling CONCLUÍDO com 55 decisões.**
 >
 > 1. **A Fase 2 absorve o núcleo transacional mínimo de notificações da Fase 3.**
 >    Entram agora `notification_event`, `notification_receipt`, geração dos recibos,
@@ -1080,18 +1077,133 @@ por causa disto.**
 > continua obrigatória (é barata e o dado pode mudar antes do import), só não é o
 > caminho provável. O "25" que T6.3 desconfiava ser número chutado **é o número
 > real**; a desconfiança pode ser encerrada com esta medição.
-- [ ] T2.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. · feito quando: leitura confirmada.
-- [ ] T2.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
-- [ ] T2.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
+- [x] T2.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. · feito quando: leitura confirmada.
+- [x] T2.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
+- [x] T2.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
 
 ### Bloco A — Schema
 
-- [ ] T2.1 — **Schema do comentário, com identidade pública UUID v4 e corpo Markdown** (requisitos 5, 7a, 8, 9; decisões 3, 16, 24, 53). Reformulado em 2026-08-04: a formulação anterior pedia `body_text` (texto puro), `depth<=2` e FK nominal permanente em `user_id`; todos foram substituídos. Exigir: `id UUID` v4 como identidade pública, **nunca `BIGINT` enumerável** (decisão 16), sem UUID v7/ULID/lib nova; `realm`, `source_app`, `subject_type`, `subject_id TEXT` (T0.6); `community_actor_id` opaco em vez de autoria presa ao `users.id`; `parent_id UUID`, `root_id UUID` **obrigatório, não opcional** (decisão 3), `depth` com raiz em `0` e máximo `4`; **`body_markdown` para o comentário novo e campo próprio para o HTML legado — nunca campo ambíguo** (T0.9, decisão 24); `created_at`, `edited_at`; `removed_at`, `removed_by`, `removed_reason`; `ranking_revision` por assunto e `created_revision` por comentário (decisão 8); estado de visibilidade que comporte `pending_review_hidden` (decisão 34); `legacy_source`, `legacy_id`, `legacy_author_name`, com **`unique (legacy_source, legacy_id)`** para importação idempotente; e índice de listagem na ordem `(realm, source_app, subject_type, subject_id, created_at, id)`. · feito quando: migration idempotente, com header válido, passando no guard; excluir vínculo nominal não quebra FK de comentário/voto.
-- [ ] T2.1b — **Schema de versões do comentário** (decisões 17, 20, 39). `comment_versions` guarda todo `body_markdown` já válido, com autor da versão e timestamp. O público lê só a versão atual e `edited_at`; versões antigas são restritas a `moderator`/`admin`. A tabela é pré-requisito de T2.7b (edição) e de T2.12 (denúncia fixa `reported_version_id`) — sem ela a evidência de denúncia é ambígua. Versão referenciada por denúncia **não sofre purga automática**; expurgo de conteúdo sensível é ato administrativo explícito e auditado, que remove o corpo da revisão e preserva os metadados do evento. · feito quando: editar cria versão nova sem destruir a anterior, e o público não alcança versão antiga.
-- [ ] T2.1c — **Schema de voto e score** (decisões 4, 5, 7, 8, 21, 53). `comment_vote` guarda o **estado atual** do voto, único por `(community_actor_id, comment_id)` — nunca pela FK nominal de `users`. `comment_score_version` guarda `upvotes` e `downvotes` como **colunas base não negativas**, `score` como **coluna gerada** `upvotes - downvotes`, `best_score` como **coluna gerada por função SQL `IMMUTABLE` versionada** — inicialmente `comment_wilson_reddit_80_v1`, aritmética `numeric` para ordenação e cursor determinísticos —, mais `algorithm_version` e o intervalo de revisões em que a versão é válida. **PostgreSQL é a fonte canônica**: TypeScript/Kysely autoriza o ator, serializa a troca e cria a versão dentro da transação, mas **não mantém segunda implementação produtiva da fórmula** (decisão 21). Comentário novo nasce com score `0`; não há auto-upvote (decisão 5). Histórico de score é retido permanentemente nesta fase, sem rotina destrutiva (decisão 8). · feito quando: migration idempotente; tentativa de gravar `score` ou `best_score` diretamente falha; `upvotes`/`downvotes` negativos são rejeitados; e remover vínculo ator→conta não altera voto/score.
-- [ ] T2.1d — **Schema de notificação transacional antecipado da Fase 3** (decisão 1). Entram **agora** `notification_event` e `notification_receipt`, com a mesma estrutura que T3.1 especifica — evento imutável separado do estado por destinatário. Não entram central de notificações, polling, API pública de notificações nem outbox/eventos externos: esses continuam na Fase 3. Justificativa da antecipação: sem recibo transacional, o comentário nasceria com notificação best-effort, que é exatamente o defeito que T3.5 corrige no `downloads`. · feito quando: as duas tabelas existem e a Fase 3 não precisa migrá-las, só consumi-las.
-- [ ] T2.1e — **Schema de denúncia, caso de moderação e registro de motivos** (decisões 32, 33, 37, 39, 40, 53). `comment_reports` com `comment_id`, `reported_version_id` **obrigatório** apontando para `comment_versions`, `reporter_actor_id`, motivo, detalhes, estado e auditoria; integridade garante que a versão pertence ao mesmo comentário. Unicidade: **no máximo uma denúncia ativa por ator e comentário** (decisão 33). `moderation_case` com **no máximo um caso aberto por comentário** (decisão 40); cada denúncia permanece linha individual imutável ligada ao caso. A conta real do denunciante só é resolvida enquanto o vínculo temporário de T2.15 existir. Registro compartilhado de motivos declara código, rótulo, prioridade e obrigatoriedade de detalhes para `malicious_link`, `inappropriate_content`, `spam_or_off_topic`, `harassment_or_hate`, `personal_data`, `copyright_violation`, `illegal_content` e `other` (decisão 37), com prioridades iniciais P0/P1/P2 da decisão 38. Nenhum app cria enum ou state machine paralelo. · feito quando: migration idempotente; segunda denúncia ativa do mesmo ator no mesmo comentário é rejeitada; segundo caso aberto é rejeitado; e expurgo do vínculo não apaga a denúncia.
-- [ ] T2.1f — **Schema do ciclo completo de moderação comunitária e retenção de identidade** (decisões 43–49, 53). **Task nova pela reconciliação de 2026-08-04:** incluir veredito por denúncia (`upheld`, `dismissed`, `no_determination`, preservando `withdrawn`); ação terminal por caso (`no_change`, `restore`, `remove`); aprovação/reabertura auditada por `comment_version_id`; recurso único do autor por decisão removida, com prazo de seis meses e resultado `upheld|reversed`; restrições centrais independentes `posting`/`commenting`, com `warning`, suspensão temporária ou permanente; registro de motivo com `details=required|optional|forbidden`; `community_actor`, vínculo restrito e eliminável ator→conta, `retention_until`, `legal_hold` auditado e bloqueio mínimo de recadastro/sanção com `key_version`. Toda transição guarda ator, motivo e timestamp. · feito quando: migration idempotente; banco recusa segundo recurso; restrição temporária exige expiração; não existe estado terminal sem auditoria; vínculo vencido pode ser apagado sem remover ator/conteúdo/score; e IP não aparece em nenhuma tabela comunitária.
+- [x] T2.1 — **Schema do comentário, com identidade pública UUID v4 e corpo Markdown** (requisitos 5, 7a, 8, 9; decisões 3, 16, 24, 53). Reformulado em 2026-08-04: a formulação anterior pedia `body_text` (texto puro), `depth<=2` e FK nominal permanente em `user_id`; todos foram substituídos. Exigir: `id UUID` v4 como identidade pública, **nunca `BIGINT` enumerável** (decisão 16), sem UUID v7/ULID/lib nova; `realm`, `source_app`, `subject_type`, `subject_id TEXT` (T0.6); `community_actor_id` opaco em vez de autoria presa ao `users.id`; `parent_id UUID`, `root_id UUID` **obrigatório, não opcional** (decisão 3), `depth` com raiz em `0` e máximo `4`; **`body_markdown` para o comentário novo e campo próprio para o HTML legado — nunca campo ambíguo** (T0.9, decisão 24); `created_at`, `edited_at`; `removed_at`, `removed_by`, `removed_reason`; `ranking_revision` por assunto e `created_revision` por comentário (decisão 8); estado de visibilidade que comporte `pending_review_hidden` (decisão 34); `legacy_source`, `legacy_id`, `legacy_author_name`, com **`unique (legacy_source, legacy_id)`** para importação idempotente; e índice de listagem na ordem `(realm, source_app, subject_type, subject_id, created_at, id)`. · feito quando: migration idempotente, com header válido, passando no guard; excluir vínculo nominal não quebra FK de comentário/voto.
+- [x] T2.1b — **Schema de versões do comentário** (decisões 17, 20, 39). `comment_versions` guarda todo `body_markdown` já válido, com autor da versão e timestamp. O público lê só a versão atual e `edited_at`; versões antigas são restritas a `moderator`/`admin`. A tabela é pré-requisito de T2.7b (edição) e de T2.12 (denúncia fixa `reported_version_id`) — sem ela a evidência de denúncia é ambígua. Versão referenciada por denúncia **não sofre purga automática**; expurgo de conteúdo sensível é ato administrativo explícito e auditado, que remove o corpo da revisão e preserva os metadados do evento. · feito quando: editar cria versão nova sem destruir a anterior, e o público não alcança versão antiga.
+- [x] T2.1c — **Schema de voto e score** (decisões 4, 5, 7, 8, 21, 53). `comment_vote` guarda o **estado atual** do voto, único por `(community_actor_id, comment_id)` — nunca pela FK nominal de `users`. `comment_score_version` guarda `upvotes` e `downvotes` como **colunas base não negativas**, `score` como **coluna gerada** `upvotes - downvotes`, `best_score` como **coluna gerada por função SQL `IMMUTABLE` versionada** — inicialmente `comment_wilson_reddit_80_v1`, aritmética `numeric` para ordenação e cursor determinísticos —, mais `algorithm_version` e o intervalo de revisões em que a versão é válida. **PostgreSQL é a fonte canônica**: TypeScript/Kysely autoriza o ator, serializa a troca e cria a versão dentro da transação, mas **não mantém segunda implementação produtiva da fórmula** (decisão 21). Comentário novo nasce com score `0`; não há auto-upvote (decisão 5). Histórico de score é retido permanentemente nesta fase, sem rotina destrutiva (decisão 8). · feito quando: migration idempotente; tentativa de gravar `score` ou `best_score` diretamente falha; `upvotes`/`downvotes` negativos são rejeitados; e remover vínculo ator→conta não altera voto/score.
+- [x] T2.1d — **Schema de notificação transacional antecipado da Fase 3** (decisão 1). Entram **agora** `notification_event` e `notification_receipt`, com a mesma estrutura que T3.1 especifica — evento imutável separado do estado por destinatário. Não entram central de notificações, polling, API pública de notificações nem outbox/eventos externos: esses continuam na Fase 3. Justificativa da antecipação: sem recibo transacional, o comentário nasceria com notificação best-effort, que é exatamente o defeito que T3.5 corrige no `downloads`. · feito quando: as duas tabelas existem e a Fase 3 não precisa migrá-las, só consumi-las.
+- [x] T2.1e — **Schema de denúncia, caso de moderação e registro de motivos** (decisões 32, 33, 37, 39, 40, 53). `comment_reports` com `comment_id`, `reported_version_id` **obrigatório** apontando para `comment_versions`, `reporter_actor_id`, motivo, detalhes, estado e auditoria; integridade garante que a versão pertence ao mesmo comentário. Unicidade: **no máximo uma denúncia ativa por ator e comentário** (decisão 33). `moderation_case` com **no máximo um caso aberto por comentário** (decisão 40); cada denúncia permanece linha individual imutável ligada ao caso. A conta real do denunciante só é resolvida enquanto o vínculo temporário de T2.15 existir. Registro compartilhado de motivos declara código, rótulo, prioridade e obrigatoriedade de detalhes para `malicious_link`, `inappropriate_content`, `spam_or_off_topic`, `harassment_or_hate`, `personal_data`, `copyright_violation`, `illegal_content` e `other` (decisão 37), com prioridades iniciais P0/P1/P2 da decisão 38. Nenhum app cria enum ou state machine paralelo. · feito quando: migration idempotente; segunda denúncia ativa do mesmo ator no mesmo comentário é rejeitada; segundo caso aberto é rejeitado; e expurgo do vínculo não apaga a denúncia.
+- [x] T2.1f — **Schema do ciclo completo de moderação comunitária e retenção de identidade** (decisões 43–49, 53). **Task nova pela reconciliação de 2026-08-04:** incluir veredito por denúncia (`upheld`, `dismissed`, `no_determination`, preservando `withdrawn`); ação terminal por caso (`no_change`, `restore`, `remove`); aprovação/reabertura auditada por `comment_version_id`; recurso único do autor por decisão removida, com prazo de seis meses e resultado `upheld|reversed`; restrições centrais independentes `posting`/`commenting`, com `warning`, suspensão temporária ou permanente; registro de motivo com `details=required|optional|forbidden`; `community_actor`, vínculo restrito e eliminável ator→conta, `retention_until`, `legal_hold` auditado e bloqueio mínimo de recadastro/sanção com `key_version`. Toda transição guarda ator, motivo e timestamp. · feito quando: migration idempotente; banco recusa segundo recurso; restrição temporária exige expiração; não existe estado terminal sem auditoria; vínculo vencido pode ser apagado sem remover ator/conteúdo/score; e IP não aparece em nenhuma tabela comunitária.
+
+> **Evidência do Bloco A — 2026-08-04.** `migration_006_community_comments.sql`
+> passou no guard como `online-safe`, foi aplicada e reaplicada com sucesso em
+> PostgreSQL real num banco descartável da VM. `phase-2-measurement.sql` (nesta
+> mesma pasta) passou em transação com `ROLLBACK`, cobrindo colunas geradas,
+> contagens negativas, expurgo do vínculo, unicidades de denúncia/caso/recurso,
+> detalhe obrigatório, expiração de suspensão e auditoria terminal. O banco
+> descartável foi removido e sua ausência foi confirmada; `artificio_auth` não
+> recebeu escrita desta validação.
+>
+> O script de medição nasceu em `apps/accounts/src/communityMigration.integration.sql`
+> e foi movido para cá em 2026-08-04: `_enforce-migration-dir.yml` bloqueia
+> **qualquer** `.sql` adicionado fora da allowlist (`apps/*/database/`,
+> `apps/*/db/migrations/`, `specs/*/phase-*-measurement.sql`), não só arquivos
+> chamados `migration_*`. No caminho antigo a PR travaria no CI. Evidência de spec
+> é exatamente o caso que o padrão `phase-*-measurement.sql` da allowlist prevê,
+> e deve sair quando a spec fechar.
+
+> **Correções da review da PR #241 — 2026-08-04, todas reproduzidas em Postgres
+> real antes de corrigir.** Dois furos do invariante "não existe estado terminal
+> sem auditoria" (T2.1f) passaram pela validação original do Bloco A:
+>
+> 1. **INSERT direto em estado terminal escapava da auditoria.** O trigger só
+>    tratava `TG_OP = 'UPDATE'`, então inserir caso já `closed`, denúncia já
+>    resolvida ou recurso já decidido gravava estado terminal sem evento nenhum.
+>    Corrigido separando os ramos INSERT e UPDATE nas cinco tabelas.
+> 2. **Auditoria de transação anterior servia de álibi (Codex P2).** O check só
+>    procurava "existe linha com este alvo/ação/ator/motivo"; evento commitado
+>    numa transação que falhou depois era reusado por uma transição posterior.
+>    Corrigido com `audit.xmin = pg_current_xact_id()::xid`, que exige a auditoria
+>    ter nascido na transação corrente. `::xid` trunca o xid8 para os mesmos 32
+>    bits de `xmin`, então a igualdade sobrevive a wraparound.
+>
+> Também corrigidos: `community_comment_version` era **deletável** (a versão é a
+> evidência fixada por `reported_version_id`/`decision_version_id`; expurgo tem
+> caminho próprio via `redacted_at`); e `ON DELETE SET NULL` nas quatro tabelas
+> append-only falhava com "append-only" no meio da cascata — trocado por `NO
+> ACTION`, porque o expurgo do requisito 7b desfaz o **vínculo** ator→conta, não o
+> `community_actor` opaco.
+>
+> **Recusado da review:** incluir `source_app` em `uq_community_restriction_active`.
+> T2.1f pede "restrições centrais independentes" e o requisito 12i trata sanção
+> como comunitária; suspensão por app deixaria o sancionado migrar de módulo e
+> seguir comentando. Comportamento confirmado em Postgres real (segunda suspensão
+> em outro app é recusada) e o porquê ficou comentado na migration.
+>
+> **Lição de método:** os dois furos foram encontrados por reprodução em banco
+> real, não por leitura — e a primeira rodada de testes deu falso-positivo porque
+> terminava em `ROLLBACK`, e o trigger é `DEFERRABLE INITIALLY DEFERRED`, logo só
+> dispara no `COMMIT`. Teste de constraint deferida que não commita não testa nada.
+
+> **Trava de sequência — `realm` no schema não separa beta de prod sozinho.**
+> Registrada em 2026-08-04, durante a conferência do Bloco A. A migration `006`
+> materializa o **eixo** de separação (`realm` na PK de `community_comment_subject`,
+> nas FKs compostas de toda tabela vinculada, no índice de listagem e em
+> `uq_community_restriction_active`), mas **não** o enforcement. Quem impede uma
+> escrita de beta gravar `realm='prod'` é o registro allowlisted
+> `token -> source_app + realms + operações` do `spec.md` §"Trust boundary e
+> credenciais" — `realm` precisa ser **derivado da credencial de serviço**, nunca
+> aceito do payload.
+>
+> **O que existe hoje não serve para isso, e é aqui que se erra.** O `accounts.`
+> já tem `X-Service-Token` (`src/serviceToken.ts`, usado em `/internal/users/:id`
+> e nas rotas de segredo), mas é um **segredo único e global**: `isValidServiceToken`
+> compara o header contra **um** `SERVICE_SECRET` de ambiente. Não há registro de
+> tokens, não há vínculo `token -> source_app`, não há vínculo `token -> realms`.
+> Um token válido é indistinguível de qualquer outro — o `accounts.` não sabe se
+> quem chamou é `downloads` ou `mesas`, nem se é beta ou prod. Reaproveitar esse
+> mecanismo para a escrita de comentários **não** implementa a trust boundary da
+> spec: dá 401 para quem não tem o segredo e passe livre para quem tem, inclusive
+> para afirmar qualquer `realm` e qualquer `source_app`.
+>
+> Consequência operacional, e é o ponto: **nenhuma rota de escrita produtiva sobe
+> antes do registro por credencial existir** — o `SERVICE_SECRET` global não é
+> substituto provisório aceitável. No instante em que existir escrita sem
+> enforcement por token, `realm` vira campo decorativo e beta contamina produção no
+> mesmo banco: o `accounts.` é PROD-only (D042, `env_override: "prod"`), beta reusa
+> a instância de produção, e os dois realms convivem em `artificio_auth`. Corrigir
+> depois exige migration de dados; respeitar a ordem custa zero.
+>
+> Isto **não** contradiz T0.6/requisito 5a — é o complemento operacional deles. A
+> decisão de pôr `realm` na chave desde a primeira migration (mantenedor, 2026-07-27)
+> existe justamente porque o banco é compartilhado; esta nota só registra que o
+> schema é metade do mecanismo, e a outra metade ainda não foi construída.
+
+> **Como esta nota nasceu — erro de processo do agente, 2026-08-04.** A trava acima
+> só existe porque o agente errou antes de acertar, e o erro se repete fácil.
+>
+> Ao conferir o Bloco A, o agente levantou o banco compartilhado (`realm` beta e prod
+> em `artificio_auth`) como **decisão pendente do mantenedor**, dizendo que "depois do
+> primeiro deploy, separar exige migration de dados". Estava errado nos dois pontos:
+> a decisão já existia, era do mantenedor, datada de 2026-07-27, e estava escrita em
+> **três** lugares independentes (`tasks.md` T0.6, `plan.md` §"Referência opaca",
+> `spec.md` requisito 5a); e a migration de dados era exatamente o que aquela decisão
+> evitou, ao exigir `realm` na chave **desde a primeira migration**. O agente
+> apresentou como risco não percebido algo que a spec já tratava como premissa — e
+> gastou um turno do mantenedor para descobrir isso.
+>
+> **Causa:** conferir o artefato (a migration) sem ler a decisão que o originou. O
+> schema foi lido linha a linha; `tasks.md` T0.6, que manda `realm` entrar na chave e
+> explica por quê, não foi aberto antes de o alarme ser dado.
+>
+> **Regra que fica, para quem conferir qualquer bloco desta spec:** antes de declarar
+> risco aberto, lacuna ou decisão pendente, procurar a decisão na própria spec
+> (`grep` do termo em `spec.md`/`plan.md`/`tasks.md`). Se estiver decidida, o trabalho
+> é **verificar se o código cumpre a decisão** — não reabrir o debate. Foi essa
+> verificação, feita só depois, que produziu o achado que de fato valia: o
+> `SERVICE_SECRET` global não implementa a trust boundary por `realm`. O achado real
+> estava a um `grep` de distância do alarme falso.
+>
+> `AGENTS.md` §Erros conhecidos já manda não confiar em documentação sem verificar o
+> código. Este caso é o inverso e o complemento: **não alarmar sem ler a documentação**.
+> Código é a verdade material sobre o que *está* construído; a spec é a verdade sobre
+> o que *foi decidido*. Confundir os dois papéis gera alarme falso numa direção e
+> falso-verde na outra.
 
 > **Nota de sequenciamento — T2.1 a T2.1f são uma migration só, não seis.**
 > `AGENTS.md` §Migrations item 2.1 proíbe fatiar em vários arquivos o schema de uma
