@@ -23,9 +23,9 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | downloads | 106 | 106 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | glossario | 66 | 66 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | links | 23 | 23 | 0 | 0 | DELETE, GET, PATCH, POST, USE |
-| mesas | 242 | 242 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
+| mesas | 229 | 229 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | site | 59 | 59 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| **Total** | **513** | 513 | 0 | 0 | |
+| **Total** | **500** | 500 | 0 | 0 | |
 
 ## accounts
 
@@ -279,34 +279,21 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | PATCH | `/api/v1/admin/dev-feedback/:id` | ✅ high | `apps/mesas/backend/src/routes/devFeedbackAdmin.ts` | 110 |
 | POST | `/api/v1/admin/dev-feedback/merge` | ✅ high | `apps/mesas/backend/src/routes/devFeedbackAdmin.ts` | 234 |
 | USE | `/api/v1/admin/discord` | ✅ high | `apps/mesas/backend/src/server.ts` | 131 |
-| USE | `/api/v1/admin/discord` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 24 |
-| USE | `/api/v1/admin/discord` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 34 |
-| USE | `/api/v1/admin/discord/automation` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 38 |
+| USE | `/api/v1/admin/discord` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 23 |
+| USE | `/api/v1/admin/discord` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 33 |
+| USE | `/api/v1/admin/discord/automation` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 37 |
 | POST | `/api/v1/admin/discord/automation/auto-approval/guard` | ✅ high | `apps/mesas/backend/src/routes/discord/automation.ts` | 23 |
 | GET | `/api/v1/admin/discord/automation/config` | ✅ high | `apps/mesas/backend/src/routes/discord/automation.ts` | 12 |
 | GET | `/api/v1/admin/discord/automation/eval` | ✅ high | `apps/mesas/backend/src/routes/discord/automation.ts` | 44 |
 | GET | `/api/v1/admin/discord/automation/llm-activity` | ✅ high | `apps/mesas/backend/src/routes/discord/automation.ts` | 106 |
 | GET | `/api/v1/admin/discord/automation/parse-eval` | ✅ high | `apps/mesas/backend/src/routes/discord/automation.ts` | 86 |
-| USE | `/api/v1/admin/discord/chat-exporter` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 39 |
-| GET | `/api/v1/admin/discord/chat-exporter/config` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 370 |
-| PUT | `/api/v1/admin/discord/chat-exporter/config` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 378 |
-| GET | `/api/v1/admin/discord/chat-exporter/profiles` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 399 |
-| POST | `/api/v1/admin/discord/chat-exporter/profiles` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 412 |
-| DELETE | `/api/v1/admin/discord/chat-exporter/profiles/:id` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 480 |
-| PATCH | `/api/v1/admin/discord/chat-exporter/profiles/:id` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 444 |
-| GET | `/api/v1/admin/discord/chat-exporter/profiles/:id/delta` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 512 |
-| POST | `/api/v1/admin/discord/chat-exporter/profiles/:id/run` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 573 |
-| POST | `/api/v1/admin/discord/chat-exporter/profiles/:id/test` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 537 |
-| POST | `/api/v1/admin/discord/chat-exporter/run` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 638 |
-| POST | `/api/v1/admin/discord/chat-exporter/test` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 604 |
-| POST | `/api/v1/admin/discord/chat-exporter/validate-token` | ✅ high | `apps/mesas/backend/src/routes/discord/chatExporterAutomation.ts` | 353 |
-| USE | `/api/v1/admin/discord/discovery` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 23 |
+| USE | `/api/v1/admin/discord/discovery` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 22 |
 | GET | `/api/v1/admin/discord/discovery/guilds` | ✅ high | `apps/mesas/backend/src/routes/discord/discovery.ts` | 18 |
 | GET | `/api/v1/admin/discord/discovery/guilds/:guildId/channels` | ✅ high | `apps/mesas/backend/src/routes/discord/discovery.ts` | 28 |
 | GET | `/api/v1/admin/discord/drafts` | ✅ high | `apps/mesas/backend/src/routes/discord/drafts.ts` | 47 |
+| USE | `/api/v1/admin/discord/drafts` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 26 |
 | USE | `/api/v1/admin/discord/drafts` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 27 |
 | USE | `/api/v1/admin/discord/drafts` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 28 |
-| USE | `/api/v1/admin/discord/drafts` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 29 |
 | GET | `/api/v1/admin/discord/drafts/:id` | ✅ high | `apps/mesas/backend/src/routes/discord/drafts.ts` | 84 |
 | PATCH | `/api/v1/admin/discord/drafts/:id` | ✅ high | `apps/mesas/backend/src/routes/discord/drafts.ts` | 334 |
 | POST | `/api/v1/admin/discord/drafts/:id/audit-completeness` | ✅ high | `apps/mesas/backend/src/routes/discord/drafts.ts` | 176 |
@@ -317,35 +304,35 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | POST | `/api/v1/admin/discord/drafts/:id/sync` | ✅ high | `apps/mesas/backend/src/routes/discord/sync.ts` | 9 |
 | PATCH | `/api/v1/admin/discord/drafts/batch` | ✅ high | `apps/mesas/backend/src/routes/discord/drafts.ts` | 207 |
 | DELETE | `/api/v1/admin/discord/drafts/rejected` | ✅ high | `apps/mesas/backend/src/routes/discord/drafts.ts` | 270 |
-| USE | `/api/v1/admin/discord/duplicate-candidates` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 30 |
+| USE | `/api/v1/admin/discord/duplicate-candidates` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 29 |
 | PATCH | `/api/v1/admin/discord/duplicate-candidates/:id` | ✅ high | `apps/mesas/backend/src/routes/discord/duplicates.ts` | 120 |
 | POST | `/api/v1/admin/discord/fetch` | ✅ high | `apps/mesas/backend/src/routes/discord/fetch.ts` | 159 |
 | POST | `/api/v1/admin/discord/import-json` | ✅ high | `apps/mesas/backend/src/routes/discord/import.ts` | 161 |
+| USE | `/api/v1/admin/discord/import-json` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 34 |
 | USE | `/api/v1/admin/discord/import-json` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 35 |
-| USE | `/api/v1/admin/discord/import-json` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 36 |
 | POST | `/api/v1/admin/discord/import-json/file` | ✅ high | `apps/mesas/backend/src/routes/discord/import.ts` | 182 |
 | POST | `/api/v1/admin/discord/import-json/preview` | ✅ high | `apps/mesas/backend/src/routes/discord/preview.ts` | 58 |
 | POST | `/api/v1/admin/discord/import-json/preview/file` | ✅ high | `apps/mesas/backend/src/routes/discord/preview.ts` | 75 |
 | POST | `/api/v1/admin/discord/import-json/reparse` | ✅ high | `apps/mesas/backend/src/routes/discord/import.ts` | 213 |
 | GET | `/api/v1/admin/discord/messages` | ✅ high | `apps/mesas/backend/src/routes/discord/messages.ts` | 63 |
+| USE | `/api/v1/admin/discord/messages` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 30 |
 | USE | `/api/v1/admin/discord/messages` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 31 |
 | USE | `/api/v1/admin/discord/messages` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 32 |
-| USE | `/api/v1/admin/discord/messages` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 33 |
 | PATCH | `/api/v1/admin/discord/messages/:id` | ✅ high | `apps/mesas/backend/src/routes/discord/messages.ts` | 122 |
 | POST | `/api/v1/admin/discord/messages/:id/diagnose-content` | ✅ high | `apps/mesas/backend/src/routes/discord/messages.ts` | 144 |
 | POST | `/api/v1/admin/discord/messages/:id/parse` | ✅ high | `apps/mesas/backend/src/routes/discord/messageParse.ts` | 8 |
 | PATCH | `/api/v1/admin/discord/messages/batch` | ✅ high | `apps/mesas/backend/src/routes/discord/messages.ts` | 101 |
 | POST | `/api/v1/admin/discord/messages/parse-batch` | ✅ high | `apps/mesas/backend/src/routes/discord/parse-batch.ts` | 10 |
 | GET | `/api/v1/admin/discord/metrics` | ✅ high | `apps/mesas/backend/src/routes/discord/metrics.ts` | 10 |
-| USE | `/api/v1/admin/discord/metrics` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 37 |
+| USE | `/api/v1/admin/discord/metrics` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 36 |
 | GET | `/api/v1/admin/discord/metrics/shadow` | ✅ high | `apps/mesas/backend/src/routes/discord/metrics.ts` | 85 |
 | GET | `/api/v1/admin/discord/settings` | ✅ high | `apps/mesas/backend/src/routes/discord/settings.ts` | 27 |
-| USE | `/api/v1/admin/discord/settings` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 26 |
+| USE | `/api/v1/admin/discord/settings` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 25 |
 | DELETE | `/api/v1/admin/discord/settings/bot-token` | ✅ high | `apps/mesas/backend/src/routes/discord/settings.ts` | 119 |
 | PUT | `/api/v1/admin/discord/settings/bot-token` | ✅ high | `apps/mesas/backend/src/routes/discord/settings.ts` | 72 |
 | GET | `/api/v1/admin/discord/sources` | ✅ high | `apps/mesas/backend/src/routes/discord/sources.ts` | 24 |
 | POST | `/api/v1/admin/discord/sources` | ✅ high | `apps/mesas/backend/src/routes/discord/sources.ts` | 39 |
-| USE | `/api/v1/admin/discord/sources` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 25 |
+| USE | `/api/v1/admin/discord/sources` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 24 |
 | DELETE | `/api/v1/admin/discord/sources/:id` | ✅ high | `apps/mesas/backend/src/routes/discord/sources.ts` | 94 |
 | PATCH | `/api/v1/admin/discord/sources/:id` | ✅ high | `apps/mesas/backend/src/routes/discord/sources.ts` | 69 |
 | POST | `/api/v1/admin/discord/sources/:sourceId/reingest-force` | ✅ high | `apps/mesas/backend/src/routes/discord/fetch.ts` | 201 |

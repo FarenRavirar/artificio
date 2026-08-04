@@ -14,12 +14,6 @@ import type {
   DiscordMessageContentDiagnostic,
   IngestResult,
   SyncReadyResult,
-  ChatExporterConfig,
-  ChatExporterProfile,
-  ChatExporterProfileInput,
-  ChatExporterTestResult,
-  ChatExporterRunResult,
-  ChatExporterDelta,
   DuplicateCandidate,
   DuplicateCandidateDecision,
   AiAutomationConfig,
@@ -55,95 +49,6 @@ const discordBotTokenSettingsSchema = z.object({
 
 const discordSettingsSchema = z.object({
   bot_token: discordBotTokenSettingsSchema,
-});
-
-const chatExporterSecretStatusSchema = z.object({
-  is_set: z.boolean(),
-  preview: z.string().nullable(),
-  updated_at: z.string().nullable(),
-});
-
-const chatExporterConfigSchema = z.object({
-  enabled: z.boolean().optional(),
-  authType: z.enum(['user', 'bot']).optional(),
-  frequency: z.enum(['hourly', 'daily', 'weekly']).optional(),
-  time: z.string().optional(),
-  timezone: z.string().optional(),
-  importDir: z.string().optional(),
-  channelId: z.string().optional(),
-  after: z.string().optional(),
-  token: chatExporterSecretStatusSchema,
-  updated_at: z.string().nullable(),
-  decrypt_error: z.boolean().optional(),
-});
-
-const chatExporterProfileSchema = z.object({
-  id: z.string(),
-  label: z.string(),
-  guild_id: z.string(),
-  guild_name: z.string().nullable(),
-  channel_id: z.string(),
-  channel_name: z.string().nullable(),
-  format: z.literal('Json'),
-  auth_type: z.enum(['global', 'user', 'bot']),
-  include_threads: z.enum(['none', 'active', 'all']),
-  after: z.string().nullable(),
-  media: z.boolean(),
-  schedule_enabled: z.boolean(),
-  frequency: z.enum(['hourly', 'daily', 'weekly']),
-  time: z.string(),
-  timezone: z.string(),
-  import_dir: z.string(),
-  enabled: z.boolean(),
-  last_run_at: z.string().nullable(),
-  last_status: z.string().nullable(),
-  last_error: z.string().nullable(),
-  created_at: z.string(),
-  updated_at: z.string(),
-  token: chatExporterSecretStatusSchema,
-});
-
-const chatExporterDeltaSchema = z.object({
-  newCount: z.number().int().nonnegative(),
-  capped: z.boolean(),
-  afterMessageId: z.string().nullable(),
-});
-function parseChatExporterDelta(data: unknown): ChatExporterDelta {
-  const parsed = chatExporterDeltaSchema.safeParse(data);
-  if (!parsed.success) throw new Error('Resposta de delta ChatExporter em formato inesperado.');
-  return parsed.data;
-}
-
-const chatExporterValidateTokenResultSchema = z.object({
-  ok: z.boolean(),
-  username: z.string(),
-});
-function parseChatExporterValidateTokenResult(value: unknown): { ok: boolean; username: string } {
-  const parsed = chatExporterValidateTokenResultSchema.safeParse(value);
-  if (!parsed.success) throw new Error('Resposta de validação de token em formato inesperado.');
-  return parsed.data;
-}
-
-const chatExporterTestResultSchema = z.object({
-  ok: z.boolean(),
-  errors: z.array(z.string()),
-  command: z.string().nullable(),
-});
-
-const chatExporterRunResultSchema = z.object({
-  exported: z.object({ outputPath: z.string() }),
-  imported: z.object({
-    rootDir: z.string(),
-    incoming: z.number(),
-    processed: z.number(),
-    errors: z.number(),
-    retainedDeleted: z.number(),
-    files: z.array(z.object({
-      fileName: z.string(),
-      status: z.enum(['processed', 'error']),
-      error: z.string().optional(),
-    })),
-  }),
 });
 
 const discordDiscoveredGuildSchema = z.object({
@@ -235,36 +140,6 @@ function parseDiscordBotTokenSettings(value: unknown): DiscordBotTokenSettings {
   if (!parsed.success) {
     return { is_set: false, preview: null, updated_at: null };
   }
-  return parsed.data;
-}
-
-function parseChatExporterConfig(value: unknown): ChatExporterConfig {
-  const parsed = chatExporterConfigSchema.safeParse(value);
-  if (!parsed.success) throw new Error('Configuração do ChatExporter em formato inesperado.');
-  return parsed.data;
-}
-
-function parseChatExporterProfiles(value: unknown): ChatExporterProfile[] {
-  const parsed = z.array(chatExporterProfileSchema).safeParse(value);
-  if (!parsed.success) throw new Error('Lista de perfis ChatExporter em formato inesperado.');
-  return parsed.data;
-}
-
-function parseChatExporterProfile(value: unknown): ChatExporterProfile {
-  const parsed = chatExporterProfileSchema.safeParse(value);
-  if (!parsed.success) throw new Error('Perfil ChatExporter em formato inesperado.');
-  return parsed.data;
-}
-
-function parseChatExporterTestResult(value: unknown): ChatExporterTestResult {
-  const parsed = chatExporterTestResultSchema.safeParse(value);
-  if (!parsed.success) throw new Error('Resposta do teste ChatExporter em formato inesperado.');
-  return parsed.data;
-}
-
-function parseChatExporterRunResult(value: unknown): ChatExporterRunResult {
-  const parsed = chatExporterRunResultSchema.safeParse(value);
-  if (!parsed.success) throw new Error('Resposta da execução ChatExporter em formato inesperado.');
   return parsed.data;
 }
 
@@ -551,52 +426,6 @@ export const discordSyncApi = {
 
   deleteDiscordBotToken: () =>
     apiFetch<void>('/settings/bot-token', { method: 'DELETE' }),
-
-  getChatExporterConfig: async () =>
-    parseChatExporterConfig(await apiFetch<unknown>('/chat-exporter/config')),
-
-  saveChatExporterConfig: async (body: Partial<{
-    enabled: boolean;
-    frequency: 'hourly' | 'daily' | 'weekly';
-    time: string;
-    timezone: string;
-    authType: 'user' | 'bot';
-    importDir: string;
-    channelId: string;
-    after: string;
-    token: string;
-    clearToken: boolean;
-  }>) => parseChatExporterConfig(await apiFetch<unknown>('/chat-exporter/config', { method: 'PUT', body: JSON.stringify(body) })),
-
-  validateChatExporterToken: async (token: string, authType: 'user' | 'bot') =>
-    parseChatExporterValidateTokenResult(await apiFetch<unknown>('/chat-exporter/validate-token', { method: 'POST', body: JSON.stringify({ token, authType }) })),
-
-  testChatExporterConfig: async () =>
-    parseChatExporterTestResult(await apiFetch<unknown>('/chat-exporter/test', { method: 'POST' })),
-
-  runChatExporterNow: async () =>
-    parseChatExporterRunResult(await apiFetch<unknown>('/chat-exporter/run', { method: 'POST' })),
-
-  getChatExporterProfiles: async () =>
-    parseChatExporterProfiles(await apiFetch<unknown>('/chat-exporter/profiles')),
-
-  createChatExporterProfile: async (body: ChatExporterProfileInput) =>
-    parseChatExporterProfile(await apiFetch<unknown>('/chat-exporter/profiles', { method: 'POST', body: JSON.stringify(body) })),
-
-  updateChatExporterProfile: async (id: string, body: ChatExporterProfileInput) =>
-    parseChatExporterProfile(await apiFetch<unknown>(`/chat-exporter/profiles/${id}`, { method: 'PATCH', body: JSON.stringify(body) })),
-
-  deleteChatExporterProfile: (id: string) =>
-    apiFetch<void>(`/chat-exporter/profiles/${id}`, { method: 'DELETE' }),
-
-  testChatExporterProfile: async (id: string) =>
-    parseChatExporterTestResult(await apiFetch<unknown>(`/chat-exporter/profiles/${id}/test`, { method: 'POST' })),
-
-  runChatExporterProfile: async (id: string) =>
-    parseChatExporterRunResult(await apiFetch<unknown>(`/chat-exporter/profiles/${id}/run`, { method: 'POST' })),
-
-  getChatExporterProfileDelta: async (id: string) =>
-    parseChatExporterDelta(await apiFetch<unknown>(`/chat-exporter/profiles/${id}/delta`)),
 
   discoverGuilds: async (botToken?: string) =>
     parseDiscordDiscoveredGuilds(await apiFetch<unknown>('/discovery/guilds', botToken ? { headers: { 'x-discord-bot-token': botToken } } : undefined)),

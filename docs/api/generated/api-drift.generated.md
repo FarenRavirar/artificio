@@ -10,11 +10,11 @@
 
 | Estado | Quantidade | Bloqueia? |
 |--------|-----------|:---------:|
-| ✅ OK | 215 | ❌ |
+| ✅ OK | 205 | ❌ |
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 4 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
-| 🕳️ UNUSED_ROUTE | 128 | ❌ |
+| 🕳️ UNUSED_ROUTE | 126 | ❌ |
 | 👻 ORPHAN_SUSPECT | 48 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
@@ -220,12 +220,11 @@
 |--------|------|:-----:|:-------:|:----------:|-----|
 | DELETE | `/api/groups/:param/report` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
 
-### mesas (178 rotas no inventário)
+### mesas (166 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
 | DELETE | `/api/v1/admin/dev-feedback/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| DELETE | `/api/v1/admin/discord/chat-exporter/profiles/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/v1/admin/discord/drafts/rejected` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/v1/admin/discord/settings/bot-token` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/v1/admin/discord/sources/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -246,9 +245,6 @@
 | GET | `/api/v1/admin/discord/automation/eval` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/admin/discord/automation/llm-activity` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/admin/discord/automation/parse-eval` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| GET | `/api/v1/admin/discord/chat-exporter/config` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| GET | `/api/v1/admin/discord/chat-exporter/profiles` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| GET | `/api/v1/admin/discord/chat-exporter/profiles/:id/delta` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/admin/discord/discovery/guilds` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/admin/discord/discovery/guilds/:guildId/channels` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/admin/discord/drafts` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -302,7 +298,6 @@
 | GET | `/auth/google/callback` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/og/:type/:slug` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/admin/dev-feedback/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| PATCH | `/api/v1/admin/discord/chat-exporter/profiles/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/admin/discord/drafts/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/admin/discord/drafts/batch` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/admin/discord/duplicate-candidates/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -328,12 +323,6 @@
 | PATCH | `/api/v1/profile/player` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/dev-feedback/merge` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/automation/auto-approval/guard` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/admin/discord/chat-exporter/profiles` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/admin/discord/chat-exporter/profiles/:id/run` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/admin/discord/chat-exporter/profiles/:id/test` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/admin/discord/chat-exporter/run` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/admin/discord/chat-exporter/test` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/admin/discord/chat-exporter/validate-token` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/drafts/:id/audit-completeness` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/drafts/:id/audit-field/:field` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/drafts/{id}/correction` | 📄 CONTRACT_ONLY | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -395,7 +384,6 @@
 | POST | `/api/v1/vtt-platforms/suggest` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/auth/discord/verify-covil` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/auth/logout` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| PUT | `/api/v1/admin/discord/chat-exporter/config` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/api/v1/admin/discord/settings/bot-token` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/api/v1/admin/setting-suggestions/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/api/v1/admin/tables/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |

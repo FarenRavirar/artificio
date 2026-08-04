@@ -95,14 +95,12 @@ services:
       # sem elas o backend só loga aviso e segue normal (metaScrapeClient.ts).
       - META_APP_ID=${META_APP_ID:-}
       - META_APP_SECRET=${META_APP_SECRET:-}
-      - DISCORD_CHAT_EXPORTER_IMPORT_BASE_DIR=/data/chat-exporter
     depends_on:
       mesas-db:
         condition: service_healthy
     volumes:
       - ./logs:/app/logs
       - frontend_dist_prod:/app/frontend-dist:ro
-      - chat_exporter_data_prod:/data/chat-exporter
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/v1/health || exit 1"]
       interval: 30s
@@ -126,7 +124,6 @@ services:
       - artificio_net
     volumes:
       - ./logs:/app/logs
-      - chat_exporter_data_prod:/data/chat-exporter
     environment:
       - NODE_ENV=production
       - DB_HOST=mesas-db
@@ -138,7 +135,6 @@ services:
       - ACCOUNTS_URL=${ACCOUNTS_URL:-https://accounts.artificiorpg.com}
       # REV-048: obrigatório também no cron.
       - SERVICE_SECRET=${SERVICE_SECRET:?SERVICE_SECRET obrigatorio para mesas-cron}
-      - DISCORD_CHAT_EXPORTER_IMPORT_BASE_DIR=/data/chat-exporter
     depends_on:
       mesas-api:
         condition: service_healthy
@@ -173,7 +169,6 @@ services:
 volumes:
   pgdata_mesas_prod:
   frontend_dist_prod:
-  chat_exporter_data_prod:
 
 networks:
   artificio_net:
