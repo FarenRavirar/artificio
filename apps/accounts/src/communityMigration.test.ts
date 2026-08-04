@@ -1,0 +1,113 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+
+const migrationPath = fileURLToPath(
+  new URL("../database/migration_006_community_comments.sql", import.meta.url),
+);
+const migration = readFileSync(migrationPath, "utf8");
+
+function tableDefinition(table: string): string {
+  const start = migration.indexOf(`CREATE TABLE IF NOT EXISTS ${table}`);
+  expect(start).toBeGreaterThanOrEqual(0);
+  const nextTable = migration.indexOf("CREATE TABLE IF NOT EXISTS ", start + 1);
+  return migration.slice(start, nextTable === -1 ? undefined : nextTable);
+}
+
+describe("migration_006_community_comments", () => {
+  it("mantem o header executavel exigido pelo runner", () => {
+    expect(migration.split(/\r?\n/).slice(0, 5)).toEqual([
+      "-- @class: online-safe",
+      "-- @requires-backup: false",
+      "-- @author: spec-090",
+      "-- @created: 2026-08-04",
+      "-- @description: Schema comunitario de comentarios, votos, notificacoes e moderacao",
+    ]);
+  });
+
+  it("cria o nucleo transacional inteiro em uma migration", () => {
+    const requiredTables = [
+      "community_actor",
+      "community_actor_account_link",
+      "community_comment_subject",
+      "community_comment",
+      "community_comment_version",
+      "community_comment_vote",
+      "community_comment_score_version",
+      "notification_event",
+      "notification_receipt",
+      "community_comment_report",
+      "community_moderation_case",
+      "community_comment_appeal",
+      "community_restriction",
+      "community_moderation_audit",
+    ];
+
+    for (const table of requiredTables) {
+      expect(migration).toContain(`CREATE TABLE IF NOT EXISTS ${table}`);
+    }
+  });
+
+  it("delega score e Wilson ao PostgreSQL", () => {
+    expect(migration).toContain(
+      "CREATE OR REPLACE FUNCTION comment_wilson_reddit_80_v1",
+    );
+    expect(migration).toMatch(
+      /score INTEGER GENERATED ALWAYS AS \(upvotes - downvotes\) STORED/,
+    );
+    expect(migration).toMatch(
+      /best_score NUMERIC GENERATED ALWAYS AS \([\s\S]*comment_wilson_reddit_80_v1\(upvotes, downvotes\)[\s\S]*\) STORED/,
+    );
+  });
+
+  it("mantem IP fora do dominio comunitario", () => {
+    expect(migration).not.toMatch(
+      /\b(?:client_ip|ip_address|remote_addr|forwarded_for|INET|CIDR)\b/,
+    );
+  });
+
+  it("materializa limites estruturais e unicidades de abuso", () => {
+    expect(migration).toContain("root_id UUID NOT NULL");
+    expect(migration).toContain("depth SMALLINT NOT NULL CHECK (depth BETWEEN 0 AND 4)");
+    expect(migration).toContain("uq_community_comment_report_active");
+    expect(migration).toContain("uq_community_moderation_case_open");
+    expect(migration).toContain("uq_community_restriction_active");
+    expect(migration).toContain(
+      "ON community_comment(legacy_source, legacy_id)",
+    );
+  });
+
+  it("repete realm e source_app em toda linha vinculada a assunto", () => {
+    const scopedTables = [
+      "community_comment_subject",
+      "community_comment",
+      "community_comment_version",
+      "community_comment_vote",
+      "community_comment_vote_audit",
+      "community_comment_score_version",
+      "notification_event",
+      "notification_receipt",
+      "community_moderation_case",
+      "community_comment_report",
+      "community_comment_version_approval",
+      "community_comment_appeal",
+      "community_restriction",
+      "community_moderation_audit",
+    ];
+
+    for (const table of scopedTables) {
+      const definition = tableDefinition(table);
+      expect(definition).toContain("realm TEXT NOT NULL");
+      expect(definition).toContain("source_app TEXT NOT NULL");
+    }
+  });
+
+  it("exige auditoria atomica para estados terminais", () => {
+    expect(migration).toContain(
+      "CREATE OR REPLACE FUNCTION require_community_terminal_audit()",
+    );
+    expect(migration).toContain("DEFERRABLE INITIALLY DEFERRED");
+    expect(migration).toContain("report.' || NEW.state");
+    expect(migration).toContain("appeal.' || NEW.status");
+  });
+});
