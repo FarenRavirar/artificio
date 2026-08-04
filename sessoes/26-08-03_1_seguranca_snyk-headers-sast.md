@@ -719,7 +719,7 @@ Não é XSS. É exposição de dado pessoal em log, com peso de LGPD — os comp
 **Erro do Claude, registrado.** O Claude suspeitou de `resolveRootDir:50` (contenção ausente quando `allowedBaseDir` é `undefined`). Alvo errado. O furo é anterior e mais direto:
 
 ```ts
-// chatExporterAutomation.ts:58 — aceita qualquer caminho
+// routes/discord/chatExporterAutomation.ts:58 — aceita qualquer caminho
 importDir: z.string().trim().min(1),
 
 // :628 — cria o diretório ANTES de qualquer contenção

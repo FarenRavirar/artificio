@@ -144,8 +144,17 @@ export function toSafeMailtoUrl(value: string | null | undefined): string | null
   // `encodeURIComponent`, não `encodeURI`: a allow-list aceita `?`, `&` e `#`
   // na parte local (são válidos por RFC), e `encodeURI` não escapa nenhum dos
   // três — `a&b@x.com` sairia como separador de campo do próprio `mailto:`.
-  // O `@` volta ao literal por ser o delimitador legítimo do endereço.
-  return `mailto:${encodeURIComponent(trimmed).replace('%40', '@')}`;
+  //
+  // Codifica cada lado do `@` em separado, em vez de codificar tudo e reverter
+  // o `%40` depois: `replace` com string literal troca só a primeira ocorrência
+  // (achado do CodeQL), e reverter por busca acopla esta linha ao formato da
+  // allow-list à distância — quem afrouxar a regex depois não leria aqui.
+  // A allow-list já garante exatamente um `@`, então o split é seguro.
+  const atIndex = trimmed.lastIndexOf('@');
+  const localPart = encodeURIComponent(trimmed.slice(0, atIndex));
+  const domain = encodeURIComponent(trimmed.slice(atIndex + 1));
+
+  return `mailto:${localPart}@${domain}`;
 }
 
 const DISCORD_MENTION = /^<@!?(\d{17,20})>$/;
