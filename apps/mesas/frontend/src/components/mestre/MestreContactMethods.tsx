@@ -1,7 +1,12 @@
 import { Mail, MessageCircle, Hash, ExternalLink, Check, Copy } from 'lucide-react';
 import { useState } from 'react';
 import { useTracking } from '../../hooks/useTracking';
-import { openSafeExternalUrl, toSafeDiscordInviteUrl } from '../../utils/safeExternalUrl';
+import {
+  openSafeExternalUrl,
+  toSafeDiscordInviteUrl,
+  toSafeMailtoUrl,
+  toWhatsAppUrl,
+} from '../../utils/safeExternalUrl';
 
 type ContactChannel = 'whatsapp' | 'email' | 'discord' | 'form';
 
@@ -86,10 +91,12 @@ function ContactCard({ contact, gmSlug }: { contact: ContactMethod; gmSlug: stri
     trackGmContactClick(gmSlug, contact.channel);
 
     if (contact.channel === 'whatsapp') {
-      const cleanNumber = contact.value.replace(/\D/g, '');
-      openSafeExternalUrl(`https://wa.me/${cleanNumber}`);
+      openSafeExternalUrl(toWhatsAppUrl(contact.value));
     } else if (contact.channel === 'email') {
-      window.location.href = `mailto:${contact.value}`;
+      // Navegação só com endereço verificado: `mailto:` a partir de texto cru
+      // aceitaria quebra de linha e forjaria cabeçalho no cliente de e-mail.
+      const mailtoUrl = toSafeMailtoUrl(contact.value);
+      if (mailtoUrl) window.location.href = mailtoUrl;
     } else if (contact.channel === 'discord') {
       // Copiar username
       navigator.clipboard.writeText(contact.value);

@@ -3,6 +3,8 @@ import { Plus, Trash2, ChevronUp, ChevronDown, Mail, MessageCircle, Hash, Extern
 import {
   INVALID_DISCORD_INVITE_MESSAGE,
   toSafeDiscordInviteUrl,
+  toSafeMailtoUrl,
+  validateContactLinkUrl,
   validateHttpsUrl,
 } from '../../utils/safeExternalUrl';
 
@@ -86,8 +88,11 @@ export function ContactMethodsEditor({ contacts, onSave }: ContactMethodsEditorP
     if (!contact.value.trim()) return 'Valor obrigatório';
 
     if (contact.channel === 'email') {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(contact.value)) return 'Email inválido';
+      // Mesma regra que monta o `mailto:` na página pública: validar aqui com
+      // um critério mais frouxo deixaria o mestre salvar um endereço que depois
+      // não vira link. Cobre também `?subject=`/`?body=`, que o regex anterior
+      // (`[^\s@]+`) aceitava e o cliente de e-mail trata como campo.
+      if (!toSafeMailtoUrl(contact.value)) return 'Email inválido';
     }
 
     if (contact.channel === 'whatsapp') {
@@ -99,7 +104,10 @@ export function ContactMethodsEditor({ contacts, onSave }: ContactMethodsEditorP
     }
 
     if (contact.channel === 'form') {
-      const result = validateHttpsUrl(contact.value);
+      // validateContactLinkUrl, não validateHttpsUrl: `uwill` é URL válida em
+      // sintaxe e vira `https://uwill/`, que só dá erro de DNS. Mesma regra do
+      // backend (isResolvableUrl), senão o formulário aceita o que a API recusa.
+      const result = validateContactLinkUrl(contact.value);
       if (!result.success) return result.message;
     }
 
@@ -220,7 +228,9 @@ export function ContactMethodsEditor({ contacts, onSave }: ContactMethodsEditorP
                   )}
                   {contact.channel === 'form' && (
                     <p className="text-xs text-white/50 mt-1">
-                      Use uma URL https://. Endereço sem esquema será salvo como https://.
+                      Informe o endereço completo, como exemplo.com/inscricao — será salvo
+                      como https://. Nome de usuário sozinho não funciona como link; se for
+                      seu @ do Discord, escolha o canal Discord.
                     </p>
                   )}
                 </div>

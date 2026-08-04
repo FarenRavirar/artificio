@@ -4,6 +4,10 @@ import { isValidEmail } from '../utils/validation.js';
 import {
   canonicalizeDiscordInviteUrl,
   canonicalizeHttpsUrl,
+  isResolvableUrl,
+  PROFILE_CONTACT_CHANNELS,
+  UNRESOLVABLE_URL_MESSAGE,
+  URL_VALUE_CHANNELS,
 } from '../utils/contactUrls.js';
 
 // ============================================================================
@@ -45,9 +49,17 @@ export const contactSchema = z.object({
     });
   }
 
-  if (['form', 'facebook', 'instagram'].includes(contact.channel)) {
+  if (URL_VALUE_CHANNELS.has(contact.channel)) {
     const result = canonicalizeHttpsUrl(contact.value);
-    if (!result.ok) ctx.addIssue({ code: 'custom', path: ['value'], message: result.message });
+    if (!result.ok) {
+      ctx.addIssue({ code: 'custom', path: ['value'], message: result.message });
+    } else if (!isResolvableUrl(contact.value)) {
+      // Sintaxe válida não basta: `uwill` vira `https://uwill/`, que só produz
+      // erro de DNS para o jogador. Link de contato exige host alcançável;
+      // identificador solto pertence ao canal Discord (regra do mantenedor,
+      // 2026-08-03 — mesma aplicada no importador, syncHelpers.ts).
+      ctx.addIssue({ code: 'custom', path: ['value'], message: UNRESOLVABLE_URL_MESSAGE });
+    }
   }
 
   if (contact.discord_server_url && contact.channel !== 'discord') {
@@ -65,7 +77,7 @@ export const contactSchema = z.object({
     }
   }
 }).transform((contact) => {
-  const externalValue = ['form', 'facebook', 'instagram'].includes(contact.channel)
+  const externalValue = URL_VALUE_CHANNELS.has(contact.channel)
     ? canonicalizeHttpsUrl(contact.value)
     : null;
   const discordUrl = contact.discord_server_url
@@ -79,8 +91,6 @@ export const contactSchema = z.object({
     discord_server_url: discordUrl?.ok ? discordUrl.value : null,
   };
 });
-
-const PROFILE_CONTACT_CHANNELS = new Set(['whatsapp', 'email', 'discord', 'form']);
 
 export const contactMethodsSchema = z.array(contactSchema).superRefine((contacts, ctx) => {
   contacts.forEach((contact, index) => {

@@ -1,7 +1,9 @@
-import { canonicalizeDiscordInviteUrl, canonicalizeHttpsUrl } from './contactUrls.js';
-
-const URL_VALUE_CHANNELS = new Set(['form', 'facebook', 'instagram']);
-const PROFILE_CONTACT_CHANNELS = new Set(['whatsapp', 'email', 'discord', 'form']);
+import {
+  canonicalizeDiscordInviteUrl,
+  canonicalizeHttpsUrl,
+  PROFILE_CONTACT_CHANNELS,
+  URL_VALUE_CHANNELS,
+} from './contactUrls.js';
 
 export type SerializableContact = {
   channel: string;

@@ -6,7 +6,15 @@ import { MestreContactMethods } from '../components/mestre/MestreContactMethods'
 import { ContactsFormBlock } from '../components/ContactsFormBlock';
 import { TableContactsBlock } from '../features/table/components/TableContactsBlock';
 import { handleCTA } from '../features/table/utils/uiHelpers';
-import { toSafeHttpsUrl, validateHttpsUrl } from '../utils/safeExternalUrl';
+import {
+  toSafeHttpsUrl,
+  toSafeMailtoUrl,
+  toSafeSocialProfileUrl,
+  toWhatsAppUrl,
+  validateContactLinkUrl,
+  validateHttpsUrl,
+} from '../utils/safeExternalUrl';
+import { validators } from '../features/create-table/utils/validation';
 
 vi.mock('../hooks/useTracking', () => ({
   useTracking: () => ({ trackGmContactClick: vi.fn() }),
@@ -106,12 +114,115 @@ describe('navegação externa segura', () => {
   });
 });
 
+describe('canais de contato continuam alcançáveis após a validação de URL', () => {
+  it('D10: telefone vira wa.me em vez de sumir da página', () => {
+    // Regressão registrada pelo Codex na PR #236: com toSafeHttpsUrl puro, o
+    // formato sugerido pelo próprio formulário deixava o contato invisível.
+    expect(toWhatsAppUrl('(11) 99999-9999')).toBe('https://wa.me/5511999999999');
+    expect(toWhatsAppUrl('+5511999999999')).toBe('https://wa.me/5511999999999');
+    expect(toWhatsAppUrl('123')).toBeNull();
+  });
+
+  it('D10: telefone renderiza botão de WhatsApp na página pública', () => {
+    render(<TableContactsBlock contacts={[{
+      channel: 'phone',
+      value: '(11) 99999-9999',
+      label: null,
+      discord_server_url: null,
+      sort_order: 0,
+    }]} />);
+
+    expect(screen.getAllByRole('link')[0]).toHaveAttribute('href', 'https://wa.me/5511999999999');
+  });
+
+  it('D10: username de rede social vira perfil, host estranho é recusado', () => {
+    expect(toSafeSocialProfileUrl('facebook', 'meuperfil')).toBe('https://facebook.com/meuperfil');
+    expect(toSafeSocialProfileUrl('instagram', '@meuperfil')).toBe('https://instagram.com/meuperfil');
+    expect(toSafeSocialProfileUrl('instagram', 'instagram.com/meuperfil')).toBe('https://instagram.com/meuperfil');
+    expect(toSafeSocialProfileUrl('instagram', 'https://evil.example/meuperfil')).toBeNull();
+    expect(toSafeSocialProfileUrl('facebook', 'javascript:alert(1)')).toBeNull();
+  });
+
+  it('D10: mailto rejeita injeção de cabeçalho e endereço malformado', () => {
+    expect(toSafeMailtoUrl('mestre@example.com')).toBe('mailto:mestre@example.com');
+    expect(toSafeMailtoUrl('vitima@x.com\nBcc: outro@x.com')).toBeNull();
+    expect(toSafeMailtoUrl('vitima@x.com%0ABcc:todos@x.com')).toBeNull();
+    expect(toSafeMailtoUrl('sem-arroba')).toBeNull();
+    expect(toSafeMailtoUrl('a@b')).toBeNull();
+  });
+
+  it('D10: mailto recusa campos de mensagem embutidos no endereço', () => {
+    // Achado do CodeRabbit na PR #236: `?subject=`/`?body=` passavam pela lista
+    // de caracteres proibidos e o cliente de e-mail os trata como campos,
+    // pré-preenchendo a mensagem da vítima.
+    expect(toSafeMailtoUrl('vitima@x.com?subject=Urgente&body=clique')).toBeNull();
+    expect(toSafeMailtoUrl('a@b.com&x=1')).toBeNull();
+    expect(toSafeMailtoUrl('a+tag@sub.example.co.uk')).toBe('mailto:a+tag@sub.example.co.uk');
+  });
+});
+
+describe('link de contato exige endereço alcançável', () => {
+  it('recusa identificador solto e explica o canal Discord', () => {
+    // Espelha isResolvableUrl do backend. Sem isso `uwill` virava
+    // `https://uwill/` — URL bem-formada, erro de DNS para o jogador.
+    for (const value of ['uwill', '.zero9899', 'kauarang', 'localhost']) {
+      const result = validateContactLinkUrl(value);
+      expect(result.success).toBe(false);
+      if (!result.success) expect(result.message).toContain('Discord');
+    }
+  });
+
+  it('aceita endereço com host real, com ou sem esquema', () => {
+    expect(validateContactLinkUrl('https://forms.gle/abc')).toEqual({
+      success: true,
+      url: 'https://forms.gle/abc',
+    });
+    expect(validateContactLinkUrl('forms.gle/abc').success).toBe(true);
+  });
+
+  it('mantém a recusa de esquema hostil herdada de validateHttpsUrl', () => {
+    expect(validateContactLinkUrl('javascript:alert(1)').success).toBe(false);
+    expect(validateContactLinkUrl('http://forms.gle/abc').success).toBe(false);
+  });
+
+  it('formulário de criação de mesa bloqueia nick em canal de URL', () => {
+    expect(validators.contacts([
+      { channel: 'form', value: 'uwill', label: '', discord_server_url: '' },
+    ])).toContain('Discord');
+
+    expect(validators.contacts([
+      { channel: 'form', value: 'https://forms.gle/abc', label: '', discord_server_url: '' },
+    ])).toBeNull();
+  });
+
+  it('formulário de criação de mesa bloqueia e-mail malformado', () => {
+    expect(validators.contacts([
+      { channel: 'email', value: 'vitima@x.com?subject=x', label: '', discord_server_url: '' },
+    ])).toContain('e-mail');
+
+    expect(validators.contacts([
+      { channel: 'email', value: 'mestre@example.com', label: '', discord_server_url: '' },
+    ])).toBeNull();
+  });
+
+  it('aviso do formulário diz o que é aceito e para onde vai o nick', () => {
+    render(
+      <ContactsFormBlock
+        contacts={[{ channel: 'form', value: '', label: '', discord_server_url: '' }]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText(/Nome de usuário sozinho não funciona como link/i)).toBeInTheDocument();
+  });
+});
+
 describe('formulários explicam e aplicam HTTPS antes do envio', () => {
   it('perfil mostra regra e bloqueia http explícito com mensagem específica', () => {
     const onSave = vi.fn();
     render(<ContactMethodsEditor contacts={[{ channel: 'form', value: 'http://forms.gle/abc' }]} onSave={onSave} />);
 
-    expect(screen.getByText(/Endereço sem esquema será salvo como https:\/\//i)).toBeInTheDocument();
+    expect(screen.getByText(/Nome de usuário sozinho não funciona como link/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     expect(screen.getByText('Somente URLs https:// são aceitas.')).toBeInTheDocument();
     expect(onSave).not.toHaveBeenCalled();
@@ -124,7 +235,7 @@ describe('formulários explicam e aplicam HTTPS antes do envio', () => {
         onChange={vi.fn()}
       />,
     );
-    expect(screen.getByText(/Endereço sem esquema será salvo como https:\/\//i)).toBeInTheDocument();
+    expect(screen.getByText(/Nome de usuário sozinho não funciona como link/i)).toBeInTheDocument();
 
     rerender(
       <ContactsFormBlock

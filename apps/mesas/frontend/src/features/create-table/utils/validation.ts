@@ -1,6 +1,11 @@
 import type { FormState } from '../types/createTable.types';
 import type { SessionSchedule } from '../../../components/SessionRepeater';
 import type { ContactFormEntry } from '../../../components/ContactsFormBlock';
+import {
+  toSafeMailtoUrl,
+  URL_VALUE_CHANNELS,
+  validateContactLinkUrl,
+} from '../../../utils/safeExternalUrl';
 
 /**
  * Validators reutilizáveis - retornam null se válido, string de erro se inválido
@@ -64,6 +69,19 @@ export const validators = {
       if (!contact.channel) return `Contato ${i + 1}: canal obrigatório`;
       if (!contact.value || contact.value.trim().length === 0) {
         return `Contato ${i + 1}: valor obrigatório`;
+      }
+
+      // Canal de URL exige link alcançável, mesma regra do backend
+      // (contactSchema + isResolvableUrl). Antes daqui só se exigia valor
+      // não-vazio, então um nick como `uwill` era aceito como formulário e
+      // virava `https://uwill/` na página pública — erro de DNS para o jogador.
+      if (URL_VALUE_CHANNELS.has(contact.channel)) {
+        const result = validateContactLinkUrl(contact.value);
+        if (!result.success) return `Contato ${i + 1}: ${result.message}`;
+      }
+
+      if (contact.channel === 'email' && !toSafeMailtoUrl(contact.value)) {
+        return `Contato ${i + 1}: e-mail inválido`;
       }
     }
     

@@ -7,6 +7,7 @@ import type { DiscordImageUploadStatus, ImportTableDraft } from './types.js';
 import { uploadDiscordImageToCloudinary } from './uploadDiscordImage.js';
 import { getDiscordBotToken } from './config.js';
 import { extractDraftScope, recordParseFeedback } from './parseLearning.js';
+import { isResolvableUrl } from '../utils/contactUrls.js';
 import { z } from 'zod';
 
 export class DraftNotFoundError extends Error {
@@ -222,8 +223,28 @@ export function extractContacts(
   if (draft.table.contact_url) {
     const rawUrl = draft.table.contact_url;
     const channel = classifyContactChannel(rawUrl);
-    if (!contacts.some((c) => c.channel === channel && c.value === rawUrl)) {
-      contacts.push({ channel, value: rawUrl, label: 'Ticket / Inscrição', discord_server_url: null });
+
+    // Regra do mantenedor (2026-08-03): link de contato só vale se for link
+    // válido. `contact_url` vem de parser de texto livre do Discord, onde o
+    // nick do mestre acaba caindo no campo de URL — foi assim que 3 mesas em
+    // produção ganharam `form: uwill`, que vira `https://uwill/` e morre em
+    // erro de DNS. Sem host resolvível o valor não é link: ou já existe o
+    // contato Discord (e o nick é redundante), ou vira contato Discord.
+    const isUsableLink = channel === 'discord' || isResolvableUrl(rawUrl);
+
+    // Dedup por valor, não por par canal+valor: o mesmo nick chegando por
+    // `contact_discord` e por `contact_url` gerava duas entradas (`discord:x` +
+    // `form:x`), porque canais diferentes não colidiam na comparação antiga.
+    const alreadyPresent = contacts.some((c) => c.value === rawUrl);
+
+    if (!alreadyPresent) {
+      if (isUsableLink) {
+        contacts.push({ channel, value: rawUrl, label: 'Ticket / Inscrição', discord_server_url: null });
+      } else {
+        // Não é link: trata como usuário do Discord, o único destino em que um
+        // identificador solto é alcançável.
+        contacts.push({ channel: 'discord', value: rawUrl, label: null, discord_server_url: null });
+      }
     }
   }
 

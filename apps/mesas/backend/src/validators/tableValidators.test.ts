@@ -68,6 +68,28 @@ describe('schemas de mesa — URLs de contato', () => {
       expect(result.error.issues[0]?.message).toContain('https://');
     }
   });
+
+  it.each(['uwill', '.zero9899', 'kauarang', 'localhost'])(
+    'recusa %s como link de contato e aponta o canal Discord',
+    (value) => {
+      // Sintaxe válida não basta: `https://uwill/` é URL bem-formada que morre
+      // em erro de DNS. Regra do mantenedor 2026-08-03.
+      const result = updateTableSchema.safeParse({ contacts: [{ channel: 'form', value }] });
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error.issues[0]?.message).toContain('Discord');
+      }
+    },
+  );
+
+  it('link com host real continua aceito', () => {
+    const result = updateTableSchema.safeParse({
+      contacts: [{ channel: 'form', value: 'https://forms.gle/abc' }],
+    });
+
+    expect(result.success).toBe(true);
+  });
 });
 
 describe('contactMethodsSchema — perfil do mestre', () => {
