@@ -3,6 +3,7 @@ import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'fs/promis
 import path from 'path';
 import { importDiscordChatExporterJson } from './chatExporterImportService.js';
 import type { ImportResult } from './chatExporterAdapter.js';
+import { ensureDirectoryInsideBase } from './chatExporterAutomationConfig.js';
 
 export type FolderImportStatus = 'processed' | 'error';
 
@@ -36,21 +37,6 @@ interface FolderImportOptions {
 
 const FOLDERS = ['incoming', 'processing', 'processed', 'error'] as const;
 
-function ensureInsideBaseDir(targetPath: string, baseDir: string): string {
-  const resolvedTarget = path.resolve(targetPath);
-  const resolvedBase = path.resolve(baseDir);
-  const relative = path.relative(resolvedBase, resolvedTarget);
-  if (relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))) {
-    return resolvedTarget;
-  }
-  throw new Error(`Diretório fora da base permitida: ${resolvedTarget}`);
-}
-
-function resolveRootDir(options: Pick<FolderImportOptions, 'rootDir' | 'allowedBaseDir'>): string {
-  if (!options.allowedBaseDir) return path.resolve(options.rootDir);
-  return ensureInsideBaseDir(options.rootDir, options.allowedBaseDir);
-}
-
 function safeStamp(date: Date): string {
   return date.toISOString().replace(/[:.]/g, '-');
 }
@@ -70,8 +56,16 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Erro desconhecido';
 }
 
-async function ensureFolders(rootDir: string): Promise<void> {
-  await Promise.all(FOLDERS.map((folder) => mkdir(path.join(rootDir, folder), { recursive: true })));
+async function ensureFolders(rootDir: string, allowedBaseDir: string | undefined): Promise<string> {
+  if (!allowedBaseDir) {
+    const resolvedRoot = path.resolve(rootDir);
+    await Promise.all(FOLDERS.map((folder) => mkdir(path.join(resolvedRoot, folder), { recursive: true })));
+    return resolvedRoot;
+  }
+
+  const safeRoot = await ensureDirectoryInsideBase(rootDir, allowedBaseDir);
+  await Promise.all(FOLDERS.map((folder) => ensureDirectoryInsideBase(path.join(safeRoot, folder), allowedBaseDir)));
+  return safeRoot;
 }
 
 async function moveWithMeta(params: {
@@ -107,9 +101,8 @@ async function cleanupOldFiles(dir: string, ttlDays: number | undefined, now: Da
 export async function cleanupDiscordChatExporterFolder(
   options: Pick<FolderImportOptions, 'rootDir' | 'allowedBaseDir' | 'retention' | 'now'>,
 ): Promise<number> {
-  const rootDir = resolveRootDir(options);
+  const rootDir = await ensureFolders(options.rootDir, options.allowedBaseDir);
   const now = (options.now ?? (() => new Date()))();
-  await ensureFolders(rootDir);
   return (
     await cleanupOldFiles(path.join(rootDir, 'processed'), options.retention?.processedDays, now)
   ) + (
@@ -118,11 +111,9 @@ export async function cleanupDiscordChatExporterFolder(
 }
 
 export async function processDiscordChatExporterFolder(options: FolderImportOptions): Promise<FolderImportRunResult> {
-  const rootDir = resolveRootDir(options);
+  const rootDir = await ensureFolders(options.rootDir, options.allowedBaseDir);
   const importJson = options.importJson ?? importDiscordChatExporterJson;
   const now = options.now ?? (() => new Date());
-
-  await ensureFolders(rootDir);
 
   const incomingDir = path.join(rootDir, 'incoming');
   const processingDir = path.join(rootDir, 'processing');

@@ -222,6 +222,60 @@ export function toSafeSocialProfileUrl(
   return `https://${canonical}/${username}`;
 }
 
+const WHATSAPP_INTERNATIONAL = /^\+\d{1,3}\d{6,14}$/;
+
+export const INVALID_EMAIL_MESSAGE = 'E-mail inválido';
+export const INVALID_WHATSAPP_MESSAGE =
+  'WhatsApp deve estar no formato internacional, como +5511999999999';
+export const INVALID_SOCIAL_PROFILE_MESSAGE: Record<string, string> = {
+  facebook: 'Informe um endereço ou usuário do Facebook.',
+  instagram: 'Informe um endereço ou usuário do Instagram.',
+};
+
+/**
+ * Regra de validação de `value` por canal — ponto único de decisão no frontend.
+ *
+ * Espelha `canonicalizeContactValue` do backend (`utils/contactUrls.ts`). Antes,
+ * a mesma cadeia de `if` existia no editor de perfil e no formulário de criação
+ * de mesa; divergir entre as duas deixava um formulário aceitar o que o outro
+ * (e a API) recusava. Retorna `null` quando o valor é válido, mensagem quando não.
+ *
+ * `discord` e `phone` não aparecem: entram livres por design — o ID do Discord
+ * não tem formato verificável no cliente e o telefone é normalizado na
+ * renderização (`toWhatsAppUrl`), não na escrita.
+ */
+export function validateContactValue(channel: string, value: string): string | null {
+  if (!value.trim()) return 'Valor obrigatório';
+
+  if (channel === 'email') {
+    // Mesma regra que monta o `mailto:` na página pública: validar aqui com um
+    // critério mais frouxo deixaria o mestre salvar endereço que não vira link.
+    // Cobre `?subject=`/`?body=`, que um regex simples (`[^\s@]+`) aceitava e o
+    // cliente de e-mail trata como campo.
+    return toSafeMailtoUrl(value) ? null : INVALID_EMAIL_MESSAGE;
+  }
+
+  if (channel === 'whatsapp') {
+    return WHATSAPP_INTERNATIONAL.test(value) ? null : INVALID_WHATSAPP_MESSAGE;
+  }
+
+  if (channel === 'facebook' || channel === 'instagram') {
+    // Host precisa ser da própria rede: a API aceitava `exemplo.com/perfil` e a
+    // página pública não renderizava, porque só monta link de host conhecido.
+    if (toSafeSocialProfileUrl(channel, value)) return null;
+    return INVALID_SOCIAL_PROFILE_MESSAGE[channel];
+  }
+
+  if (URL_VALUE_CHANNELS.has(channel)) {
+    // validateContactLinkUrl, não validateHttpsUrl: `uwill` é URL válida em
+    // sintaxe e vira `https://uwill/`, que só dá erro de DNS.
+    const result = validateContactLinkUrl(value);
+    return result.success ? null : result.message;
+  }
+
+  return null;
+}
+
 export function openSafeExternalUrl(value: string | null | undefined): boolean {
   const safeUrl = toSafeHttpsUrl(value);
   if (!safeUrl) return false;

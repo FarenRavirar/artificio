@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canonicalizeSocialProfileUrl, isResolvableUrl } from './contactUrls.js';
+import { canonicalizeContactValue, canonicalizeSocialProfileUrl, isResolvableUrl } from './contactUrls.js';
 
 describe('canonicalizeSocialProfileUrl', () => {
   it('aceita host da própria rede', () => {
@@ -57,5 +57,33 @@ describe('isResolvableUrl', () => {
     expect(isResolvableUrl('http://exemplo.com')).toBe(false);
     expect(isResolvableUrl('')).toBe(false);
     expect(isResolvableUrl(null)).toBe(false);
+  });
+});
+
+describe('canonicalizeContactValue', () => {
+  it('aplica a regra de rede social nos canais sociais', () => {
+    // Roteamento por canal: sem ele, `exemplo.com/perfil` passaria pela regra
+    // genérica de URL (host alcançável) e seria gravado como perfil do Facebook,
+    // que a página pública não renderiza — o contato sumiria sem erro.
+    expect(canonicalizeContactValue('facebook', 'exemplo.com/perfil')?.ok).toBe(false);
+    expect(canonicalizeContactValue('instagram', 'exemplo.com/perfil')?.ok).toBe(false);
+
+    expect(canonicalizeContactValue('facebook', 'meuperfil'))
+      .toEqual({ ok: true, value: 'https://facebook.com/meuperfil' });
+    expect(canonicalizeContactValue('instagram', 'instagram.com/meuperfil')?.ok).toBe(true);
+  });
+
+  it('exige host alcançável no canal de URL genérico', () => {
+    expect(canonicalizeContactValue('form', 'uwill')?.ok).toBe(false);
+    expect(canonicalizeContactValue('form', 'https://forms.gle/abc')?.ok).toBe(true);
+  });
+
+  it('devolve null para canal cujo valor não é URL', () => {
+    // `null` distingue "não se aplica" de "inválido": o schema persiste o valor
+    // original nesses canais, em vez de tentar canonicalizar telefone ou e-mail.
+    expect(canonicalizeContactValue('whatsapp', '+5511999999999')).toBeNull();
+    expect(canonicalizeContactValue('email', 'mestre@example.com')).toBeNull();
+    expect(canonicalizeContactValue('discord', 'uwill')).toBeNull();
+    expect(canonicalizeContactValue('phone', '(11) 99999-9999')).toBeNull();
   });
 });

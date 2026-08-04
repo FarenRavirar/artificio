@@ -83,12 +83,14 @@ services:
       # Spec 078: origem fixa do snapshot que hidrata a projeção local Beta.
       - CENTRAL_SYSTEMS_API_URL=${CENTRAL_SYSTEMS_API_URL:-http://site-prod-app:4322}
       - CENTRAL_SYSTEMS_INTERNAL_TOKEN=${CENTRAL_SYSTEMS_INTERNAL_TOKEN:?CENTRAL_SYSTEMS_INTERNAL_TOKEN is required}
+      - DISCORD_CHAT_EXPORTER_IMPORT_BASE_DIR=/data/chat-exporter
     depends_on:
       mesas-beta-db:
         condition: service_healthy
     volumes:
       - ./logs:/app/logs
       - frontend_dist_beta:/app/frontend-dist:ro
+      - chat_exporter_data_beta:/data/chat-exporter
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/v1/health || exit 1"]
       interval: 30s
@@ -125,6 +127,7 @@ services:
 volumes:
   pgdata_mesas_beta:
   frontend_dist_beta:
+  chat_exporter_data_beta:
 
 networks:
   artificio_net:

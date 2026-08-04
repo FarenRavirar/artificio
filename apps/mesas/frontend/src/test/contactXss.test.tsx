@@ -12,6 +12,7 @@ import {
   toSafeSocialProfileUrl,
   toWhatsAppUrl,
   validateContactLinkUrl,
+  validateContactValue,
   validateHttpsUrl,
 } from '../utils/safeExternalUrl';
 import { validators } from '../features/create-table/utils/validation';
@@ -214,9 +215,11 @@ describe('link de contato exige endereço alcançável', () => {
   });
 
   it('formulário de criação de mesa bloqueia e-mail malformado', () => {
+    // Mensagem vem de validateContactValue, compartilhada com o editor de
+    // perfil — casa sem depender da caixa da primeira letra.
     expect(validators.contacts([
       { channel: 'email', value: 'vitima@x.com?subject=x', label: '', discord_server_url: '' },
-    ])).toContain('e-mail');
+    ])).toMatch(/e-mail/i);
 
     expect(validators.contacts([
       { channel: 'email', value: 'mestre@example.com', label: '', discord_server_url: '' },
@@ -262,5 +265,38 @@ describe('formulários explicam e aplicam HTTPS antes do envio', () => {
       />,
     );
     expect(screen.getByText(/Discord não oferece link direto por @usuário/i)).toBeInTheDocument();
+  });
+});
+
+describe('validateContactValue aplica a regra certa por canal', () => {
+  it('exige host da própria rede em facebook/instagram', () => {
+    // Sem o roteamento por canal, `exemplo.com/perfil` passaria pela regra
+    // genérica de URL (host alcançável) e o formulário aceitaria um valor que a
+    // página pública não renderiza — o contato sumiria sem erro em lugar nenhum.
+    expect(validateContactValue('facebook', 'exemplo.com/perfil')).toMatch(/Facebook/);
+    expect(validateContactValue('instagram', 'exemplo.com/perfil')).toMatch(/Instagram/);
+
+    expect(validateContactValue('facebook', 'meuperfil')).toBeNull();
+    expect(validateContactValue('instagram', 'instagram.com/meuperfil')).toBeNull();
+  });
+
+  it('exige host alcançável no canal de URL genérico', () => {
+    expect(validateContactValue('form', 'uwill')).toMatch(/Discord/);
+    expect(validateContactValue('form', 'https://forms.gle/abc')).toBeNull();
+  });
+
+  it('aplica a regra de e-mail e de WhatsApp', () => {
+    expect(validateContactValue('email', 'vitima@x.com?subject=x')).toMatch(/e-mail/i);
+    expect(validateContactValue('email', 'mestre@example.com')).toBeNull();
+
+    expect(validateContactValue('whatsapp', '11999999999')).toMatch(/internacional/i);
+    expect(validateContactValue('whatsapp', '+5511999999999')).toBeNull();
+  });
+
+  it('deixa passar canal sem formato verificável no cliente', () => {
+    // Discord não tem formato validável (username ou snowflake) e phone é
+    // normalizado só na renderização (toWhatsAppUrl), não na escrita.
+    expect(validateContactValue('discord', 'uwill')).toBeNull();
+    expect(validateContactValue('phone', '(11) 99999-9999')).toBeNull();
   });
 });
