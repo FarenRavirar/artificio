@@ -335,12 +335,13 @@ function* scanLinkDestinations(markdown: string): Generator<ScannedDestination> 
  * O resultado continua Markdown: o pipeline de sanitização e render segue o
  * mesmo, sem caminho paralelo.
  *
- * Acima de `MAX_SCAN_LENGTH` devolve a entrada **intacta**, sem varrer — o mesmo
- * teto de `findCommentLinkViolation`, pela mesma razão de custo quadrático.
- * Devolver intacto é seguro aqui porque esta função só reescreve Markdown para
- * Markdown: quem decide aceitar ou recusar é `findCommentLinkViolation`, que
- * para o mesmo corpo já terá respondido `input_too_large`. Nenhum caminho
- * publica conteúdo que passou por aqui sem ter passado por lá.
+ * **Pré-condição do chamador:** rodar `findCommentLinkViolation(markdown)` antes
+ * e abortar se houver violação — inclusive `input_too_large`. Esta função **não**
+ * valida nada; acima de `MAX_SCAN_LENGTH` ela devolve a entrada **intacta**, sem
+ * varrer (mesmo teto, mesma razão de custo quadrático), o que significa que
+ * imagem em corpo gigante sairia daqui sem ser rebaixada. Isso é seguro só
+ * porque o corpo já foi recusado antes; chamar sem a checagem publica conteúdo
+ * não validado.
  */
 export function demoteCommentImages(markdown: string): string {
   if (markdown.length > MAX_SCAN_LENGTH) return markdown;
@@ -377,12 +378,15 @@ export function demoteCommentImages(markdown: string): string {
 
     const altMatch = /^!\[((?:[^\]\\]|\\.)*)\]/.exec(whole);
     const alt = altMatch?.[1]?.trim() ?? '';
-    const destination = rawDestination.startsWith('<') && rawDestination.endsWith('>')
-      ? rawDestination.slice(1, -1)
-      : rawDestination;
 
+    // Emite `rawDestination`, **com** os `<>` do autor quando existirem. Remover
+    // os delimitadores quebra o destino: `<https://x/um dois.png>` vira
+    // `https://x/um dois.png`, que o CommonMark não reconhece como link (o espaço
+    // encerra o destino) — verificado no render, o resultado deixava de ser `<a>`.
+    // Os `<>` existem exatamente para permitir espaço; a validação em
+    // `scanLinkDestinations` já os desconta antes de aplicar a política.
     const label = alt === '' ? 'abrir imagem externa' : `${alt} — abrir imagem externa`;
-    result += `[${label}](${destination})`;
+    result += `[${label}](${rawDestination})`;
   }
 
   return result + markdown.slice(lastIndex);

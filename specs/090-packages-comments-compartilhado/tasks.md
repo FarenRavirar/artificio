@@ -1529,6 +1529,73 @@ por causa disto.**
   a métrica tenta proteger. Decisão e números ficaram comentados na própria
   constante.
 
+  **Terceira rodada de review — 2026-08-05.** Dois achados e dois nitpicks, todos
+  procedentes:
+
+  - **`list` renderizava como válido o que a resolução rejeita.** `formatArrayColumn`
+    só checava tipo, então `['prod','beta']` e `['staging']` apareciam como realms
+    normais — o operador leria a credencial como saudável e ela não autenticaria.
+    É a mesma assimetria que a função foi criada para eliminar, invertida.
+    `formatRealms`/`formatScopes` agora aplicam o critério de
+    `resolveServiceCredential` (realm único, domínio fechado, escopo conhecido,
+    sem duplicata), reusando `VALID_REALMS`/`SERVICE_SCOPES` — a lista não é
+    duplicada, `VALID_REALMS` passou a ser exportado.
+  - **`demoteCommentImages` descartava os `<>` do destino, quebrando o link.**
+    Verificado no render: `![a](<https://x.com/um dois.png>)` virava
+    `[...](https://x.com/um dois.png)`, que o CommonMark **não** reconhece como
+    link — o espaço encerra o destino, e os `<>` existem exatamente para permiti-lo.
+    Passou a emitir `rawDestination` intacto; a validação em `scanLinkDestinations`
+    já desconta os delimitadores antes de aplicar a política. Coberto por teste.
+  - **Asserções por relógio removidas** (`toBeLessThan(3000)`/`(500)`): ficam à
+    mercê de runner compartilhado e viram teste intermitente. Trocadas por
+    asserções determinísticas — resultado `null` para as entradas no teto e
+    igualdade para o passa-direto —, com `timeout` explícito de 30s no caso longo.
+    Explosão exponencial continua detectável: estouraria o timeout do vitest.
+  - **Pré-condição de `demoteCommentImages` documentada explicitamente:** o
+    chamador precisa rodar `findCommentLinkViolation` antes e abortar inclusive em
+    `input_too_large`, porque acima do teto esta função devolve a entrada intacta
+    e imagem em corpo gigante sairia sem ser rebaixada.
+
+  Validação: `accounts` 133/133, `content-editor` 57/57, suíte 38/38 pacotes,
+  lint 24/24, build 24/24.
+
+  **TruffleHog vermelho — reproduzido localmente em 2026-08-04 e é irremediável
+  nesta branch, por desenho da ferramenta.** Binário 3.95.5 (mesma versão do CI)
+  instalado e rodado com o mesmo range do workflow. Saída exata:
+
+  ```text
+  Detector Type: URI     Decoder Type: PLAIN
+  Raw result: https://user:senha@host
+  Commit: 508d11752abc5ad3eee5571b406dc4dab318190c
+  File: packages/content-editor/src/commentLinks.ts     Line: 127
+  ```
+
+  **O achado está no commit `508d117`, não no HEAD.** A string era um exemplo em
+  **comentário de código** explicando por que userinfo em URL é phishing; foi
+  removida em `95f3f69`, e o working tree está limpo (varredura do filesystem só
+  encontra `postgres://admin:admin@accounts-db` de `.env.example`, pré-existente e
+  fora deste diff). Mas o `secret-scan.yml` varre o **range de commits** da branch
+  (`--since-commit`), não o estado final — então a linha continua sendo lida do
+  histórico e continuará vermelha enquanto a branch existir.
+
+  Corrigir exigiria **reescrever histórico** (`rebase`/`amend`), proibido por
+  `AGENTS.md`. As saídas reais são: aceitar o vermelho neste PR (o achado é
+  `unverified`, `verified_secrets: 0`, e `host` não é um host real — a própria
+  ferramenta registra `lookup host: no such host`), ou o mantenedor decidir por
+  squash no merge, que colapsa o histórico da branch.
+
+  **Erro de método do agente, registrado porque se repetiu duas vezes.** Na
+  primeira rodada o agente *supôs* que o gatilho era o fixture de teste
+  `banco.example@evil.example` e o reescreveu por concatenação; na verdade aquele
+  fixture **nunca casou** o detector (o regex exige `usuário:senha@host`, com
+  colon obrigatório — verificado contra o fonte de `pkg/detectors/uri/uri.go`). O
+  que casava era o comentário, corrigido por acaso "por precaução". Depois o
+  agente concluiu que a correção tinha funcionado porque o regex não achava nada
+  nos **arquivos**, sem perceber que o scan é do **histórico**. Só rodar a
+  ferramenta real fechou a questão. Regra que fica: para achado de scanner,
+  reproduzir com a ferramenta antes de propor correção — inferir o gatilho a
+  partir da mensagem produziu duas conclusões erradas seguidas.
+
   **Trivy falhando na review — investigado em 2026-08-04, é bug conhecido da
   ferramenta, não achado sobre este código.** `Trivy execution failed: ... walk
   error range error: stat packages/content-editor/doctor.config.json: no such file

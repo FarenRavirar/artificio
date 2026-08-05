@@ -29,7 +29,12 @@
  */
 import { randomBytes, randomUUID } from "node:crypto";
 import { createDb } from "../db.js";
-import { hashServiceSecret, SERVICE_SCOPES, type ServiceScope } from "../serviceCredential.js";
+import {
+  hashServiceSecret,
+  SERVICE_SCOPES,
+  VALID_REALMS,
+  type ServiceScope,
+} from "../serviceCredential.js";
 
 const REALMS = ["beta", "prod"] as const;
 type Realm = (typeof REALMS)[number];
@@ -197,8 +202,8 @@ async function list(db: ReturnType<typeof createDb>): Promise<void> {
     // `resolveServiceCredential`, que **rejeita** linha fora do invariante — sem
     // este tratamento, a credencial quebrada não autentica e também não aparece,
     // ficando invisível para quem opera.
-    const realms = formatArrayColumn(row.realms);
-    const scopes = formatArrayColumn(row.scopes);
+    const realms = formatRealms(row.realms);
+    const scopes = formatScopes(row.scopes);
     console.log(
       `${row.token_id}  ${row.source_app}/${realms}  slot=${row.rotation_slot}  [${scopes}]  ${status}  último uso: ${lastUsed}  ${row.description}`,
     );
@@ -215,6 +220,37 @@ function formatArrayColumn(value: unknown): string {
   if (!Array.isArray(value)) return `<INVÁLIDO: ${value === null ? "null" : typeof value}>`;
   if (value.length === 0) return "<VAZIO>";
   return value.map((item) => (typeof item === "string" ? item : `<INVÁLIDO:${typeof item}>`)).join(",");
+}
+
+/**
+ * Aplica ao `list` **o mesmo critério de validade** de `resolveServiceCredential`.
+ *
+ * Sem isto, `['prod','beta']` e `['staging']` apareciam como realms normais na
+ * listagem, embora a resolução rejeite ambos (realm único e domínio fechado). O
+ * operador leria a credencial como saudável e ela não autenticaria — que é
+ * exatamente a assimetria "não autentica e não aparece" que esta função foi
+ * criada para eliminar, só que invertida.
+ */
+function formatRealms(value: unknown): string {
+  if (!Array.isArray(value)) return formatArrayColumn(value);
+  const rendered = formatArrayColumn(value);
+  if (value.length !== 1) return `${rendered} <INVÁLIDO: exige exatamente 1 realm>`;
+  if (typeof value[0] !== "string" || !VALID_REALMS.has(value[0])) {
+    return `${rendered} <INVÁLIDO: realm desconhecido>`;
+  }
+  return rendered;
+}
+
+/** Mesmo critério de `isValidScopeSet`: escopo conhecido, sem duplicata. */
+function formatScopes(value: unknown): string {
+  if (!Array.isArray(value)) return formatArrayColumn(value);
+  const rendered = formatArrayColumn(value);
+  const desconhecidos = value.filter(
+    (s) => typeof s !== "string" || !SERVICE_SCOPES.includes(s as ServiceScope),
+  );
+  if (desconhecidos.length > 0) return `${rendered} <INVÁLIDO: escopo desconhecido>`;
+  if (new Set(value).size !== value.length) return `${rendered} <INVÁLIDO: escopo duplicado>`;
+  return rendered;
 }
 
 async function revoke(db: ReturnType<typeof createDb>, args: Map<string, string>): Promise<void> {

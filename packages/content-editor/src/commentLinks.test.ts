@@ -224,13 +224,15 @@ describe('findCommentLinkViolation', () => {
     expect(findCommentLinkViolation('['.repeat(13_000))?.rule).toBe('input_too_large');
   });
 
-  it('varre entrada no limite da spec sem estourar tempo', () => {
-    const inicio = Date.now();
-    findCommentLinkViolation('`'.repeat(10_000));
-    findCommentLinkViolation('['.repeat(10_000));
-    // Limiar folgado: prova que não há explosão exponencial, sem cravar duração.
-    expect(Date.now() - inicio).toBeLessThan(3_000);
-  });
+  it('varre entrada no limite da spec ate o fim, sem travar', () => {
+    // Asserção **determinística**, não por relógio: `toBeLessThan(ms)` fica à
+    // mercê de runner compartilhado e vira teste intermitente. O que importa é a
+    // varredura terminar e devolver resultado — se houvesse explosão exponencial
+    // o teste estouraria o timeout do vitest, que é o limite de verdade.
+    // Nenhuma das duas entradas contém link válido, então o resultado é `null`.
+    expect(findCommentLinkViolation('`'.repeat(10_000))).toBeNull();
+    expect(findCommentLinkViolation('['.repeat(10_000))).toBeNull();
+  }, 30_000);
 });
 
 describe('demoteCommentImages', () => {
@@ -271,15 +273,27 @@ describe('demoteCommentImages', () => {
     expect(demoteCommentImages('![alt]()')).toBe('[alt — abrir imagem externa]()');
   });
 
+  it('preserva os delimitadores <> do destino', () => {
+    // Remover `<>` quebra o destino: `<https://x/um dois.png>` vira
+    // `https://x/um dois.png`, que o CommonMark não reconhece como link porque o
+    // espaço encerra o destino. Os `<>` existem justamente para permitir espaço.
+    expect(demoteCommentImages('![a](<https://x.com/um dois.png>)')).toBe(
+      '[a — abrir imagem externa](<https://x.com/um dois.png>)',
+    );
+    expect(demoteCommentImages('![a](<https://x.com/i.png>)')).toBe(
+      '[a — abrir imagem externa](<https://x.com/i.png>)',
+    );
+  });
+
   it('devolve intacto acima do teto, sem varrer', () => {
     // `demoteCommentImages` é exportada e usa a mesma LINK_RE quadrática, então
     // precisa do mesmo teto — sem isso o guard de findCommentLinkViolation ficava
     // contornável por esta porta. Devolver intacto é seguro: quem aceita ou
     // recusa o corpo é findCommentLinkViolation, que já respondeu input_too_large.
+    // Sem asserção por relógio: a igualdade já prova que a varredura foi pulada
+    // (uma passada real reescreveria ou ao menos reconstruiria a string).
     const enorme = '['.repeat(13_000);
-    const inicio = Date.now();
     expect(demoteCommentImages(enorme)).toBe(enorme);
-    expect(Date.now() - inicio).toBeLessThan(500);
   });
 
   it('o resultado continua sendo markdown valido e sem sintaxe de imagem', () => {

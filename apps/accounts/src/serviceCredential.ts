@@ -117,7 +117,7 @@ function constantTimeEquals(a: string, b: string): boolean {
 }
 
 /** Realms válidos. Espelha o CHECK de `realms` na migration 007. */
-const VALID_REALMS = new Set(["beta", "prod"]);
+export const VALID_REALMS = new Set(["beta", "prod"]);
 
 /**
  * `true` só quando `value` é exatamente um realm válido.
