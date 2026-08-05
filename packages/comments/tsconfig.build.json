@@ -1,0 +1,15 @@
+{
+  // Projeto de EMIT, separado do `tsconfig.json` porque os dois têm objetivos
+  // opostos sobre teste:
+  //
+  // - `tsconfig.json` precisa INCLUIR teste: o ESLint type-aware
+  //   (`projectService`) resolve cada arquivo pelo projeto, e teste fora dele
+  //   vira "Parsing error", não lint.
+  // - o build precisa EXCLUIR teste: o `dist` é copiado inteiro para as imagens
+  //   de produção dos backends, então teste compilado viraria código morto
+  //   importando `vitest`, que é devDependency ausente ali.
+  //
+  // Mesmo desenho já aplicado aos outros 10 pacotes junto de T2.5b.
+  "extends": "./tsconfig.json",
+  "exclude": ["src/**/*.test.ts", "src/test/**", "src/testSetup.ts"]
+}

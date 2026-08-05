@@ -9,7 +9,7 @@
     "lint": "turbo run lint",
     "quality:lighthouse": "node scripts/quality/lighthouse-harness.mjs",
     "smoke:ingress-realip": "node scripts/ci/check_ingress_realip_contract.mjs",
-    "test": "turbo run test",
+    "test": "turbo run test --concurrency=4",
     "api:inventory": "tsx scripts/api/inventory.ts",
     "api:inventory:tests": "tsx scripts/api/inventory.ts --include-tests",
     "api:consumers": "tsx scripts/api/consumers.ts",
