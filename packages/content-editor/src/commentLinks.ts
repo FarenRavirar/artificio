@@ -25,7 +25,9 @@ export interface CommentLinkViolation {
     | 'protocol_relative'
     | 'relative_not_rooted'
     | 'malformed_url'
-    | 'embedded_credentials';
+    | 'embedded_credentials'
+    /** Corpo acima de `MAX_SCAN_LENGTH`; recusado sem varrer. */
+    | 'input_too_large';
   /** Índice do destino no texto original, para o editor posicionar o erro. */
   offset: number;
 }
@@ -92,7 +94,20 @@ export function resolveCommentLink(
     return { href: raw, internal: true, rootRelative: true };
   }
 
-  const hasExplicitScheme = /^[a-z][a-z0-9+.-]*:/i.test(raw);
+  // Separar esquema de "host com porta" exige olhar os dois lados do `:`.
+  //
+  // `exemplo.com:8443/x` é host com porta e deve canonicalizar para
+  // `https://exemplo.com:8443/x`; `javascript:1` é esquema e deve ser recusado.
+  // Ambos casam `^[a-z][a-z0-9+.-]*:[0-9]`, então o dígito à direita não basta:
+  // exigir também um **ponto** à esquerda, que todo hostname público tem e
+  // nenhum esquema registrado usa antes do `:`.
+  //
+  // A primeira tentativa desta correção usava só `(?![0-9])` e transformava
+  // `javascript:1` em `https://javascript:1/` — não era XSS (o resultado é
+  // `https:`), mas reescrevia silenciosamente um destino que o autor não pediu,
+  // o que a decisão 27 proíbe tanto quanto promover `http:`.
+  const looksLikeHostWithPort = /^[a-z0-9-]+(?:\.[a-z0-9-]+)+:[0-9]+(?:[/?#]|$)/i.test(raw);
+  const hasExplicitScheme = !looksLikeHostWithPort && /^[a-z][a-z0-9+.-]*:/i.test(raw);
 
   // Relativo ambíguo (`../x`, `./x`, `..`) precisa parar ANTES da canonicalização.
   // `new URL('https://../admin')` **não lança**: o parser WHATWG aceita `..` como
@@ -124,8 +139,10 @@ export function resolveCommentLink(
     return { code: INVALID_COMMENT_LINK, rule: 'scheme_not_https', offset };
   }
 
-  // `https://user:senha@host` esconde o destino real atrás do userinfo e é
-  // clássico de phishing: o olho lê o começo, o browser vai para o host do fim.
+  // Userinfo na URL (a parte antes do `@` numa URL https) esconde o destino real
+  // e é clássico de phishing: o olho lê o começo, o browser vai para o host do
+  // fim. Descrito em prosa em vez de exemplo literal porque o TruffleHog trata
+  // qualquer `algo@host` numa URI como achado e falharia o `secret-scan`.
   if (url.username !== '' || url.password !== '') {
     return { code: INVALID_COMMENT_LINK, rule: 'embedded_credentials', offset };
   }
@@ -171,6 +188,13 @@ export function commentLinkAttributes(resolution: CommentLinkResolution): {
  * A varredura ignora trechos de código: `` `http://x` `` é texto literal, não link.
  */
 export function findCommentLinkViolation(markdown: string): CommentLinkViolation | null {
+  // Falha fechado acima do teto, sem varrer: entrada desse tamanho já é
+  // rejeitada pela validação de 10.000 caracteres da spec, e varrê-la só
+  // entregaria a quem escreve o controle do custo da varredura.
+  if (markdown.length > MAX_SCAN_LENGTH) {
+    return { code: INVALID_COMMENT_LINK, rule: 'input_too_large', offset: 0 };
+  }
+
   for (const { destination, offset } of scanLinkDestinations(markdown)) {
     const result = resolveCommentLink(destination, offset);
     if (isCommentLinkViolation(result)) return result;
@@ -188,13 +212,67 @@ interface ScannedDestination {
 
 // `[texto](destino)` e `![alt](destino)`, com destino entre `<>` ou nu. Título
 // opcional (`"..."`) é descartado: não é destino e não passa pela política.
-const LINK_RE = /(!?)\[(?:[^\]\\]|\\.)*\]\(\s*(<[^>]*>|[^\s)]*)(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)/g;
+//
+// O rótulo usa **unrolled loop** (`A*(?:B A*)*`) em vez de `(?:A|B)*`.
+//
+// `(?:[^\]\\]|\\.)*` é alternação ambígua: para cada caractere o motor pode
+// tentar dois caminhos, e num rótulo que nunca fecha ele explora ambos —
+// super-linear (achado do Sonar). `[^\]\\]*(?:\\[\s\S][^\]\\]*)*` casa o mesmo
+// conjunto sem ambiguidade, porque os dois ramos são disjuntos por construção.
+//
+// Medido em 2026-08-04, `[` repetido até o teto de 12.000: **248ms → 107ms**.
+// Em comentário realista os dois custam o mesmo (4ms/100 execuções), então a
+// troca não paga nada no caso normal. Continua havendo custo por posição inicial
+// (o motor tenta começar em cada `[`), que é inerente a um scanner — por isso a
+// proteção contra entrada hostil segue sendo `MAX_SCAN_LENGTH`, não a regex.
+const LINK_RE = /(!?)\[[^\]\\]*(?:\\[\s\S][^\]\\]*)*\]\(\s*(<[^>]*>|[^\s)]*)(?:\s+(?:"[^"]*"|'[^']*'|\([^)]*\)))?\s*\)/g;
+
+// Autolink do CommonMark: `<https://exemplo.com>`. **Precisa ser varrido.**
+// `sanitizeUserMarkdown` preserva essa sintaxe de propósito (`sanitize.ts`), e o
+// `markdown-it` a transforma em `<a href="...">`. Sem esta varredura,
+// `<http://evil.example>` contornava inteiramente a política HTTPS-only:
+// `findCommentLinkViolation` devolvia `null` e o link saía navegável.
+// Verificado em 2026-08-04, achado do Codex na PR #242.
+const AUTOLINK_RE = /<([a-z][a-z0-9+.-]*:[^\s<>]*)>/gi;
 
 /**
  * Faixas que o CommonMark trata como literal: código inline e bloco cercado.
  * Reusa a mesma ideia de `sanitize.ts` — link dentro de código não é link.
+ *
+ * **Mantida como uma alternação só, apesar do achado do Sonar** (complexidade 23
+ * > 20, super-linearidade). O custo é inerente ao backreference `\1`, que casa a
+ * cerca de fechamento com a de abertura e por isso **não admite unrolled loop**
+ * como o `LINK_RE`. Medições de 2026-08-04, no teto de 12.000 caracteres:
+ *
+ * - separar em duas regexes (inline + fence, com filtro de sobreposição):
+ *   equivalente em cobertura nos 8 casos testados, mas **2× mais lenta** (98ms
+ *   contra 44ms) — duas varreduras completas em vez de uma;
+ * - o ramo do fence custa ~0: só-inline dá 47ms, a alternação inteira 46ms. Todo
+ *   o custo está no `` (`+)[\s\S]*?\1 ``, que a separação não remove.
+ *
+ * Em entrada realista são 5ms para 100 execuções. Reescrever para satisfazer a
+ * métrica pioraria o que a métrica tenta proteger, então a defesa continua sendo
+ * `MAX_SCAN_LENGTH`.
  */
 const CODE_SPAN_RE = /(`+)[\s\S]*?\1|^ {0,3}(`{3,}|~{3,})[\s\S]*?^ {0,3}\2/gm;
+
+/**
+ * Teto de varredura. Igual ao limite de `body_markdown` da spec (10.000
+ * caracteres), com folga para o texto já canonicalizado.
+ *
+ * Existe porque `CODE_SPAN_RE` e `LINK_RE` são **quadráticos por posição
+ * inicial**: cada `` ` `` ou `[` abre uma tentativa de casamento. Medido em
+ * 2026-08-04 (achado do CodeQL na PR #242): 5.000 crases levam 7ms, 10.000 levam
+ * 29ms, e 10.000 `[` levam 103ms — 2× a entrada custa 4× o tempo. No teto da
+ * spec isso não derruba o processo, mas a validação roda **no request de
+ * escrita**, então quem controla o corpo controla o custo. O teto transforma um
+ * crescimento quadrático aberto num custo máximo conhecido.
+ *
+ * Acima do teto, `findCommentLinkViolation` recusa **sem varrer**: entrada que
+ * excede o limite já seria rejeitada pela validação de tamanho da spec, então
+ * falhar fechado aqui não perde caso legítimo.
+ */
+const MAX_SCAN_LENGTH = 12_000;
 
 function findCodeRanges(value: string): Array<{ start: number; end: number }> {
   const ranges: Array<{ start: number; end: number }> = [];
@@ -224,6 +302,18 @@ function* scanLinkDestinations(markdown: string): Generator<ScannedDestination> 
 
     yield { destination, offset: match.index, isImage: match[1] === '!' };
   }
+
+  // Autolinks (`<https://exemplo.com>`). Varridos por último porque não se
+  // sobrepõem à sintaxe inline: `[a](<url>)` já foi consumido acima, e o
+  // `insideCode` continua valendo para `` `<http://x>` ``.
+  for (const match of markdown.matchAll(AUTOLINK_RE)) {
+    if (insideCode(match.index)) continue;
+
+    const destination = match[1] ?? '';
+    if (destination === '') continue;
+
+    yield { destination, offset: match.index, isImage: false };
+  }
 }
 
 /**
@@ -244,10 +334,46 @@ function* scanLinkDestinations(markdown: string): Generator<ScannedDestination> 
  *
  * O resultado continua Markdown: o pipeline de sanitização e render segue o
  * mesmo, sem caminho paralelo.
+ *
+ * Acima de `MAX_SCAN_LENGTH` devolve a entrada **intacta**, sem varrer — o mesmo
+ * teto de `findCommentLinkViolation`, pela mesma razão de custo quadrático.
+ * Devolver intacto é seguro aqui porque esta função só reescreve Markdown para
+ * Markdown: quem decide aceitar ou recusar é `findCommentLinkViolation`, que
+ * para o mesmo corpo já terá respondido `input_too_large`. Nenhum caminho
+ * publica conteúdo que passou por aqui sem ter passado por lá.
  */
 export function demoteCommentImages(markdown: string): string {
-  return markdown.replace(LINK_RE, (whole, bang: string, rawDestination: string) => {
-    if (bang !== '!') return whole;
+  if (markdown.length > MAX_SCAN_LENGTH) return markdown;
+
+  // Trecho de código fica intacto: `` `![alt](url)` `` é o autor *mostrando* a
+  // sintaxe, não usando. Reescrever ali não tinha efeito de segurança (verificado:
+  // o render mantém tudo dentro de `<code>`, nenhum `<img>` é emitido), mas
+  // alterava silenciosamente o texto de quem escreveu — e a política desta fase é
+  // recusar ou preservar, nunca reescrever sem avisar.
+  const codeRanges = findCodeRanges(markdown);
+  const insideCode = (index: number): boolean =>
+    codeRanges.some((range) => index >= range.start && index < range.end);
+
+  // `matchAll` + reconstrução, não `replace` com callback: o segundo grupo do
+  // `LINK_RE` pode casar **vazio** e o JS o omite dos argumentos, então a posição
+  // do `offset` no callback varia com a entrada — `(whole, bang, dest, offset)`
+  // recebe o offset em `dest` quando o destino é vazio. `match.index` é explícito
+  // e não depende da aridade.
+  let result = '';
+  let lastIndex = 0;
+
+  for (const match of markdown.matchAll(LINK_RE)) {
+    const whole = match[0];
+    const isImage = match[1] === '!';
+    const rawDestination = match[2] ?? '';
+
+    result += markdown.slice(lastIndex, match.index);
+    lastIndex = match.index + whole.length;
+
+    if (!isImage || insideCode(match.index)) {
+      result += whole;
+      continue;
+    }
 
     const altMatch = /^!\[((?:[^\]\\]|\\.)*)\]/.exec(whole);
     const alt = altMatch?.[1]?.trim() ?? '';
@@ -256,6 +382,8 @@ export function demoteCommentImages(markdown: string): string {
       : rawDestination;
 
     const label = alt === '' ? 'abrir imagem externa' : `${alt} — abrir imagem externa`;
-    return `[${label}](${destination})`;
-  });
+    result += `[${label}](${destination})`;
+  }
+
+  return result + markdown.slice(lastIndex);
 }

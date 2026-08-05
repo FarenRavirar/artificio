@@ -52,7 +52,7 @@ export interface RequireServiceCredentialOptions {
    */
   allowLegacySecret?: boolean;
   /** Valor do `SERVICE_SECRET`, usado apenas quando `allowLegacySecret`. */
-  legacySecret?: string | undefined;
+  legacySecret?: string;
   /**
    * Chamado quando o fallback legado autentica. Serve para medir se ainda há
    * consumidor no mecanismo antigo antes de removê-lo. Recebe só o nome da

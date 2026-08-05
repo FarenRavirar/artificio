@@ -109,10 +109,12 @@ describe("resolveServiceCredential", () => {
     expect(identity).toBeNull();
   });
 
-  it("falha fechado quando realms nao tem exatamente um elemento", async () => {
+  it("falha fechado quando realms nao tem exatamente um realm valido", async () => {
     // O CHECK do banco garante um realm, mas o dado que volta é `unknown` até ser
     // normalizado. Linha fora do invariante não pode produzir realm arbitrário.
-    for (const realms of [[], ["beta", "prod"], "prod", null]) {
+    // `['prod', 42]` é o caso que a versão com `.filter()` deixava passar: o
+    // elemento inválido sumia e a linha virava "realm único" válida.
+    for (const realms of [[], ["beta", "prod"], "prod", null, ["staging"], ["prod", 42], [42], [null]]) {
       const identity = await resolveServiceCredential(
         stubDb(await credentialRow({ realms })),
         `downloads-prod-abcd1234.${SECRET}`,
@@ -121,14 +123,38 @@ describe("resolveServiceCredential", () => {
     }
   });
 
-  it("falha fechado quando scopes vem vazio ou invalido", async () => {
-    for (const scopes of [[], null, "users.read"]) {
+  it("falha fechado com escopo desconhecido, duplicado ou de tipo errado", async () => {
+    // Escopo que o código não reconhece está fora do contrato; tratá-lo como "os
+    // escopos que eu entendi" concederia acesso parcial a partir de dado corrompido.
+    for (const scopes of [
+      [],
+      null,
+      "users.read",
+      ["users.read", "tudo.write"],
+      ["users.read", "users.read"],
+      ["users.read", 42],
+      [null],
+    ]) {
       const identity = await resolveServiceCredential(
         stubDb(await credentialRow({ scopes })),
         `downloads-prod-abcd1234.${SECRET}`,
       );
       expect(identity, `scopes=${JSON.stringify(scopes)}`).toBeNull();
     }
+  });
+
+  it("gasta tempo de verificacao mesmo sem credencial, contra enumeracao", async () => {
+    // "token_id não existe" respondia em microssegundos e "existe, segredo
+    // errado" em ~50ms de Argon2id. A diferença é mensurável pela rede e permite
+    // descobrir quais token_id estão registrados.
+    const inicio = Date.now();
+    const identity = await resolveServiceCredential(stubDb(undefined), `x-prod-abcd1234.${SECRET}`);
+    const decorrido = Date.now() - inicio;
+
+    expect(identity).toBeNull();
+    // Limiar folgado de propósito: o ponto é provar que o Argon2id roda, não
+    // cravar uma duração, que varia com a máquina e tornaria o teste instável.
+    expect(decorrido, "verificação descartável deveria custar tempo de KDF").toBeGreaterThan(5);
   });
 
   it("falha fechado com hash corrompido, sem lancar", async () => {

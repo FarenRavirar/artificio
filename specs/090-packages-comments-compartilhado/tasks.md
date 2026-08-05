@@ -1401,6 +1401,165 @@ por causa disto.**
   oposta: **não recomendar sem ler a documentação**. A regra vale para alternativa
   sugerida, não só para risco levantado.
 
+  **Correções da review da PR #242 — 2026-08-04, cada achado reproduzido antes de
+  corrigir.** Quatro procedem, um é defeito que o próprio agente introduziu:
+
+  1. **`??` desligava o fallback legado (P1 do Codex, defeito do agente).** Os
+     compose escritos nesta PR usam `SERVICE_CREDENTIAL=${SERVICE_CREDENTIAL:-}`,
+     que entrega **string vazia** — não `undefined`. Como `??` só cai no fallback
+     para `null`/`undefined`, a string vazia vencia e desligava a resolução de
+     e-mail do `downloads` e a busca de segredos de `downloads`/`mesas`,
+     **quebrando exatamente o mecanismo legado que a transição precisa manter
+     vivo** até T2.2a-op. Trocado por `||` nos três consumidores.
+  2. **Autolink contornava a política HTTPS-only (P2 do Codex).** Verificado no
+     pipeline real: `sanitizeUserMarkdown` preserva `<http://evil.example>` de
+     propósito (`sanitize.ts`) e o `markdown-it` o renderiza como
+     `<a href="http://evil.example">`. O scanner só olhava `[texto](destino)`,
+     então `findCommentLinkViolation` devolvia `null` e o link saía navegável.
+     Acrescentado `AUTOLINK_RE` à varredura, respeitando trechos de código.
+  3. **Varredura quadrática sobre corpo controlado pelo autor (CodeQL).** Medido:
+     5.000 crases custam 7ms, 10.000 custam 29ms, 10.000 `[` custam 103ms — 2× a
+     entrada, 4× o tempo. Não derruba o processo no teto da spec, mas a validação
+     roda no request de escrita. Resolvido com `MAX_SCAN_LENGTH = 12.000`, que
+     recusa **sem varrer** (`input_too_large`); entrada desse tamanho já seria
+     rejeitada pelo limite de 10.000 caracteres da spec.
+  4. **`exemplo.com:8443/x` era recusado como esquema inválido.** Host com porta
+     casa o mesmo padrão que `javascript:1`. **A primeira correção estava errada:**
+     olhar só o dígito depois do `:` fazia `javascript:1` virar
+     `https://javascript:1/` — não é XSS (o resultado é `https:`), mas é reescrita
+     silenciosa de destino, que a decisão 27 proíbe tanto quanto promover `http:`.
+     A correção final exige **ponto no lado esquerdo**, que todo hostname público
+     tem e nenhum esquema registrado usa. 9/9 casos verificados.
+  5. **Normalização por `.filter()` mascarava linha corrompida.** `['prod', 42]`
+     virava `['prod']` e passava como credencial de realm único — o oposto do
+     invariante. Trocado por validação que invalida a linha inteira, incluindo
+     realm fora do domínio, escopo desconhecido e escopo duplicado.
+  6. **Timing revelava quais `token_id` existem.** "Credencial inexistente"
+     respondia em microssegundos; "existe, segredo errado" gastava ~50ms de
+     Argon2id. A diferença é mensurável pela rede e permite enumerar o registro.
+     Agora o caminho de ausência gasta um Argon2id descartável antes de recusar.
+
+  Também corrigido: a pré-checagem do emissor não filtrava por realm, então emitir
+  a segunda credencial legítima de um app (outro realm) disparava aviso de
+  conflito inexistente e orientava revogar a credencial errada.
+
+  Validação: `accounts` 133/133, `content-editor` 53/53, suíte 38/38 pacotes,
+  lint 24/24, build 24/24, `verify:api` exit 0.
+
+  **Dois checks do CI vermelhos na PR #242, ambos corrigidos:**
+
+  - **CodeQL (3 alertas high, `js/polynomial-redos`).** São os mesmos da correção
+    3 acima — mas ao conferir os caminhos que a query rastreia apareceu um **furo
+    que o guard inicial não fechava**: `demoteCommentImages` é exportada e usa a
+    mesma `LINK_RE` quadrática, sem passar por `MAX_SCAN_LENGTH`. O teto protegia
+    só `findCommentLinkViolation`, então a porta continuava aberta pela outra
+    função pública. Corrigido; acima do teto devolve a entrada intacta, o que é
+    seguro porque quem aceita ou recusa o corpo é `findCommentLinkViolation`, que
+    para o mesmo texto já respondeu `input_too_large`. `resolveCommentLink` foi
+    medida e é linear (40.000 caracteres em 0ms), não precisa de teto.
+  - **TruffleHog (`unverified_secrets: 1`).** Falso-positivo material: o achado é
+    o fixture `https://banco.example@evil.example/login`, que **prova** que URL com
+    userinfo é rejeitada. O scanner roda com `--results=verified,unknown`
+    (`secret-scan.yml`), então `unknown` falha o build. Suprimir o gate por causa
+    de um teste enfraqueceria a varredura do repositório inteiro, então quem se
+    ajustou foi o teste: a URL passou a ser montada por concatenação. Trocar só o
+    host não resolveria — o padrão `algo@host` casa qualquer variante. O comentário
+    em `commentLinks.ts` que trazia o exemplo literal virou prosa pela mesma razão.
+
+  **Dois nitpicks que o agente havia descartado por raciocínio e o mantenedor
+  mandou investigar — um dos descartes estava errado.**
+
+  - **`list` morria em linha corrompida (descarte ERRADO).** O agente escreveu que
+    "erro ali é visível na hora". Medido: `row.realms.join()` numa linha com
+    `realms` nulo lança `TypeError`, o erro sobe até o `catch` do `main` e o
+    comando morre imprimindo só `falhou: Cannot read properties of null`. O
+    operador perde a lista **a partir dali** e não descobre qual credencial
+    quebrou. Pior no contexto de T2.2a-op, onde `list` é o que prova quais
+    credenciais estão em uso antes de revogar a antiga — e há assimetria com
+    `resolveServiceCredential`, que rejeita linha fora do invariante: sem
+    tratamento, a credencial quebrada não autentica **e** não aparece, ficando
+    invisível. Corrigido com `formatArrayColumn`, que imprime
+    `<INVÁLIDO: null>`/`<VAZIO>` e segue para as linhas seguintes.
+  - **`demoteCommentImages` em trecho de código (descarte correto, mas corrigido
+    assim mesmo).** Confirmado por render real: nenhum `<img>` é emitido, o
+    conteúdo permanece dentro de `<code>` — não há efeito de segurança. Mas
+    reescrever `` `![alt](url)` `` altera silenciosamente o texto de quem só estava
+    *mostrando* a sintaxe, e a política desta fase é recusar ou preservar, nunca
+    reescrever sem avisar. Passou a respeitar `findCodeRanges`.
+
+  **Bug encontrado ao aplicar essa segunda correção:** a primeira versão usava
+  `markdown.replace(LINK_RE, (whole, bang, dest, offset) => ...)`. O segundo grupo
+  do `LINK_RE` **casa vazio** em `![alt]()`, e o JS omite grupo vazio dos
+  argumentos do callback — então `offset` chegava na posição de `dest` e a
+  varredura corrompia a saída. Trocado por `matchAll` + `match.index`, que não
+  depende da aridade. Coberto por teste próprio (`![alt]()`).
+
+  **Achados do Sonar na PR #242 — 2026-08-04.** Quatro corrigidos, um recusado com
+  medição:
+
+  - **`LINK_RE` super-linear por alternação ambígua (2 achados: runtime e
+    complexidade 32).** Procede. `(?:[^\]\\]|\\.)*` deixa o motor tentar dois
+    caminhos por caractere; num rótulo que nunca fecha ele explora ambos.
+    Reescrito como **unrolled loop** (`A*(?:B A*)*`), cujos ramos são disjuntos por
+    construção. Medido no teto de 12.000 caracteres: **248ms → 107ms**;
+    equivalência verificada em 12 casos (rótulo escapado, destino entre `<>`,
+    título, destino vazio, imagem, múltiplos links). Em comentário realista os
+    dois custam igual (4ms/100 execuções), então a troca não paga nada no uso
+    normal.
+  - **Teste sem asserção (`Blocker`).** Procede em substância: `.expect(401)` do
+    supertest é asserção real, mas o teste não verificava o **corpo**, ao contrário
+    dos vizinhos. Acrescentado `expect(response.body).toEqual({ error:
+    "unauthorized" })` — o corpo genérico é o que impede o oráculo de enumeração,
+    e valia asserção explícita.
+  - **`legacySecret?: string | undefined` redundante.** Procede: o projeto não usa
+    `exactOptionalPropertyTypes` (verificado em `tsconfig.base.json`), então `?` já
+    inclui `undefined`.
+  - **Promise chain no script.** Procede: o pacote é ESM (`"type": "module"`), então
+    top-level await é suportado. `void main().catch(...)` deixava a rejeição fora
+    do fluxo. Trocado por `try/await/catch`; `exit 1` confirmado em execução real.
+
+  **Recusado com medição — `CODE_SPAN_RE` (2 achados: runtime e complexidade 23).**
+  O custo é inerente ao backreference `\1`, que casa a cerca de fechamento com a de
+  abertura e **não admite unrolled loop**. Testei a alternativa óbvia (separar
+  inline e fence em duas regexes): cobertura equivalente nos 8 casos, mas **2× mais
+  lenta** (98ms contra 44ms), porque são duas varreduras completas mais filtro de
+  sobreposição. Medi também de onde vem o custo: o ramo do fence é grátis
+  (só-inline 47ms, alternação inteira 46ms) — tudo está no `` (`+)[\s\S]*?\1 ``,
+  que a separação não remove. Reescrever para satisfazer a métrica pioraria o que
+  a métrica tenta proteger. Decisão e números ficaram comentados na própria
+  constante.
+
+  **Trivy falhando na review — investigado em 2026-08-04, é bug conhecido da
+  ferramenta, não achado sobre este código.** `Trivy execution failed: ... walk
+  error range error: stat packages/content-editor/doctor.config.json: no such file
+  or directory`.
+
+  O arquivo **nunca existiu**: não está no disco, `git log --all` não registra
+  nenhuma versão, nenhuma dependência instalada o menciona, e não há Trivy em
+  `.github/workflows/` (quem o executa é o **CodeRabbit**, dentro da review da PR).
+
+  O que identifica a causa é a comparação com a ocorrência anterior:
+
+  | Quando | Caminho reclamado | Módulo do scanner |
+  |---|---|---|
+  | 2026-07-31 | `apps/accounts/doctor.config.json` | `cloudformation scan error` |
+  | 2026-08-04 | `packages/content-editor/doctor.config.json` | `kubernetes scan error` |
+
+  **O caminho muda e sempre aponta para o diretório com mais arquivos no diff da
+  PR; o módulo que falha também muda.** Arquivo real teria caminho fixo.
+  `doctor.config.json` é nome que os módulos de IaC do Trivy procuram por
+  convenção; o scanner monta a lista de candidatos no `walk` e depois faz `stat`
+  em cada um, e trata "candidato sumiu" como **FATAL** em vez de pular. Bug
+  conhecido e aberto (`aquasecurity/trivy#3811`, discussion `#7677`, onde a flag
+  `--ignore-walk-error` é pedida e ainda não existe).
+
+  **Decisão pendente do mantenedor**, porque desligar tem custo real: o Trivy é o
+  que varre os **9 Dockerfiles e 11 docker-compose** do repositório em busca de
+  má configuração. `.coderabbit.yaml` aceita `reviews.tools.trivy.enabled: false`,
+  mas isso perde a cobertura inteira para silenciar um aviso que não bloqueia
+  merge. Alternativa: deixar como está e tratar o aviso como ruído conhecido,
+  agora que está documentado aqui.
+
   **Débito transversal corrigido junto, 2026-08-04 — teste compilado ia para imagem
   de produção.** Achado ao verificar o `dist` do `content-editor`, mas a medição
   mostrou que o problema **não era do `content-editor`**: 10 dos 13 pacotes

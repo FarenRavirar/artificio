@@ -116,6 +116,65 @@ function constantTimeEquals(a: string, b: string): boolean {
   return timingSafeEqual(bufferA, bufferB);
 }
 
+/** Realms válidos. Espelha o CHECK de `realms` na migration 007. */
+const VALID_REALMS = new Set(["beta", "prod"]);
+
+/**
+ * `true` só quando `value` é exatamente um realm válido.
+ *
+ * Rejeita — em vez de filtrar — array com elemento não-string, realm fora do
+ * domínio, ou mais de um elemento. Filtrar deixaria `['prod', 42]` virar
+ * `['prod']` e passar como credencial de realm único.
+ */
+function isSingleValidRealm(value: unknown): value is [string] {
+  return (
+    Array.isArray(value) &&
+    value.length === 1 &&
+    typeof value[0] === "string" &&
+    VALID_REALMS.has(value[0])
+  );
+}
+
+/**
+ * `true` só quando todo escopo é string conhecida e não há duplicata.
+ *
+ * Escopo desconhecido invalida a linha: uma credencial com escopo que o código
+ * não reconhece está fora do contrato, e tratá-la como "os escopos que eu
+ * entendi" concederia acesso parcial a partir de dado corrompido.
+ */
+function isValidScopeSet(value: unknown): value is string[] {
+  if (!Array.isArray(value) || value.length === 0) return false;
+  const seen = new Set<string>();
+  for (const scope of value) {
+    if (typeof scope !== "string") return false;
+    if (!SERVICE_SCOPES.includes(scope as ServiceScope)) return false;
+    if (seen.has(scope)) return false;
+    seen.add(scope);
+  }
+  return true;
+}
+
+/**
+ * Hash descartável usado para igualar o custo de tempo quando a credencial não
+ * existe ou está revogada.
+ *
+ * Sem isto, "token_id inexistente" responde em microssegundos (só o `SELECT`),
+ * enquanto "token_id válido, segredo errado" gasta ~50ms de Argon2id. A
+ * diferença é mensurável pela rede e permite **enumerar quais `token_id`
+ * existem** — reconhecimento gratuito antes de um ataque de força bruta.
+ * Gerado uma vez, no primeiro uso, para não custar no boot.
+ */
+let dummyHashPromise: Promise<string> | null = null;
+
+async function burnVerificationTime(secret: string): Promise<void> {
+  dummyHashPromise ??= argon2Hash("credencial-inexistente", ARGON2_OPTIONS);
+  try {
+    await argon2Verify(await dummyHashPromise, secret, ARGON2_OPTIONS);
+  } catch {
+    // Irrelevante: o objetivo é gastar o tempo, não o resultado.
+  }
+}
+
 /** Gera o hash Argon2id de um segredo. Usado só pelo emissor de credenciais. */
 export async function hashServiceSecret(secret: string): Promise<string> {
   return argon2Hash(secret, ARGON2_OPTIONS);
@@ -150,8 +209,18 @@ export async function resolveServiceCredential(
     .where("revoked_at", "is", null)
     .executeTakeFirst();
 
-  if (!row) return null;
-  if (!constantTimeEquals(row.token_id, parsed.tokenId)) return null;
+  // Credencial inexistente ou revogada gasta o mesmo tempo de um Argon2id real
+  // antes de recusar. Sem isso, a diferença entre "token_id não existe"
+  // (microssegundos) e "existe, segredo errado" (~50ms) é mensurável pela rede e
+  // permite enumerar quais `token_id` estão registrados.
+  if (!row) {
+    await burnVerificationTime(parsed.secret);
+    return null;
+  }
+  if (!constantTimeEquals(row.token_id, parsed.tokenId)) {
+    await burnVerificationTime(parsed.secret);
+    return null;
+  }
 
   let matches: boolean;
   try {
@@ -163,14 +232,20 @@ export async function resolveServiceCredential(
   }
   if (!matches) return null;
 
-  // A migration garante `cardinality(realms) = 1`, mas o dado vem do banco e é
-  // `unknown` até ser normalizado (AGENTS.md §Regras Gerais de Código). Um
-  // registro fora do invariante falha fechado em vez de derivar realm errado.
-  const realms = Array.isArray(row.realms) ? row.realms.filter((r): r is string => typeof r === "string") : [];
-  if (realms.length !== 1) return null;
+  // A migration garante `cardinality(realms) = 1` e restringe o domínio, mas o
+  // dado vem do banco e é `unknown` até ser normalizado (AGENTS.md §Regras Gerais
+  // de Código). Registro fora do invariante falha fechado.
+  //
+  // **Validar, não filtrar.** A versão anterior usava `.filter(typeof === string)`,
+  // que descartava silenciosamente o elemento inválido: `['prod', 42]` virava
+  // `['prod']` e passava como credencial de realm único, exatamente o caso que o
+  // invariante existe para barrar. Aqui qualquer elemento fora do contrato
+  // invalida a linha inteira.
+  if (!isSingleValidRealm(row.realms)) return null;
+  if (!isValidScopeSet(row.scopes)) return null;
 
-  const scopes = Array.isArray(row.scopes) ? row.scopes.filter((s): s is string => typeof s === "string") : [];
-  if (scopes.length === 0) return null;
+  const realms = row.realms;
+  const scopes = row.scopes;
 
   return {
     credentialId: row.id,

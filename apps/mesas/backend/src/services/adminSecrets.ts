@@ -25,7 +25,12 @@ function getServiceSecret(): string | undefined {
   // carrega o escopo `secrets.read`. O `SERVICE_SECRET` global continua como
   // fallback enquanto a migração corre; ele não distingue quem chamou nem de
   // qual realm, e sai quando todos os consumidores tiverem credencial própria.
-  return process.env.SERVICE_CREDENTIAL ?? process.env.SERVICE_SECRET;
+  //
+  // `||`, nunca `??`: os compose usam `${SERVICE_CREDENTIAL:-}`, então antes da
+  // emissão o container recebe **string vazia**, não `undefined`. Com `??` a
+  // string vazia venceria o fallback e o enrichment pararia com o mecanismo
+  // legado ainda funcionando.
+  return process.env.SERVICE_CREDENTIAL || process.env.SERVICE_SECRET;
 }
 
 /**

@@ -157,9 +157,15 @@ describe("GET /internal/users/:id", () => {
       fakeDb({ id: "user-1", email: "a@example.com", name: "Ana" }, undefined),
     );
 
-    await request(app)
+    const response = await request(app)
       .get("/internal/users/user-1")
       .set("X-Service-Token", `downloads-prod-abcd1234.${CREDENTIAL_SECRET}`)
       .expect(401);
+
+    // Corpo genérico, igual ao de credencial inexistente: distinguir "revogada"
+    // de "nunca existiu" entregaria ao atacante um oráculo de enumeração de
+    // `source_app`. Asserção explícita porque `.expect(401)` sozinho não prova
+    // que a resposta não vazou o motivo.
+    expect(response.body).toEqual({ error: "unauthorized" });
   });
 });

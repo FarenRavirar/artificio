@@ -85,6 +85,11 @@ async function issue(db: ReturnType<typeof createDb>, args: Map<string, string>)
   const rotationSlot = args.get("slot") ?? "current";
 
   if (!sourceApp) fail("--source-app obrigatório");
+  // Espelha o CHECK da migration. Validar aqui troca um erro cru de constraint
+  // do Postgres por uma mensagem que diz ao operador o que corrigir.
+  if (!/^[a-z][a-z0-9-]{1,31}$/.test(sourceApp)) {
+    fail(`--source-app inválido: ${sourceApp} (minúsculas, 2–32 chars, começando por letra)`);
+  }
   if (!realm) fail("--realm obrigatório (beta|prod)");
   if (!REALMS.includes(realm as Realm)) fail(`--realm inválido: ${realm}`);
   if (rotationSlot !== "current" && rotationSlot !== "next") {
@@ -103,12 +108,19 @@ async function issue(db: ReturnType<typeof createDb>, args: Map<string, string>)
   // operador.
   const existing = await db
     .selectFrom("community_service_credential")
-    .select(["token_id", "rotation_slot"])
+    .select(["token_id", "rotation_slot", "realms"])
     .where("source_app", "=", sourceApp)
     .where("revoked_at", "is", null)
     .execute();
 
-  const sameSlot = existing.filter((r) => r.rotation_slot === rotationSlot);
+  // Filtra por realm **e** slot: o índice único é
+  // `(source_app, realms[1], rotation_slot)`, então uma credencial de `beta` não
+  // conflita com a emissão de `prod`. Sem o filtro de realm, emitir a segunda
+  // credencial legítima de um app disparava um aviso de conflito que não existe,
+  // e a orientação de rotação mandava revogar a credencial errada.
+  const sameSlot = existing.filter(
+    (r) => r.rotation_slot === rotationSlot && Array.isArray(r.realms) && r.realms[0] === realm,
+  );
   if (sameSlot.length > 0) {
     console.warn(
       `aviso: já existe credencial ativa de ${sourceApp} no slot '${rotationSlot}' (${sameSlot.map((r) => r.token_id).join(", ")}).`,
@@ -174,10 +186,35 @@ async function list(db: ReturnType<typeof createDb>): Promise<void> {
   for (const row of rows) {
     const status = row.revoked_at ? `revogada em ${row.revoked_at.toISOString()}` : "ativa";
     const lastUsed = row.last_used_at ? row.last_used_at.toISOString() : "nunca";
+    // Dado do banco é `unknown` até ser normalizado, e aqui a normalização é
+    // **por linha**: `row.realms.join()` cru lança `TypeError` numa linha
+    // corrompida, o erro sobe até o `catch` do `main` e o comando morre imprimindo
+    // só "Cannot read properties of null". O operador perde a lista inteira a
+    // partir dali e não descobre qual credencial quebrou.
+    //
+    // Isso importa justamente em T2.2a-op: `list` é o que prova quais credenciais
+    // estão em uso antes de revogar a antiga. E há assimetria com
+    // `resolveServiceCredential`, que **rejeita** linha fora do invariante — sem
+    // este tratamento, a credencial quebrada não autentica e também não aparece,
+    // ficando invisível para quem opera.
+    const realms = formatArrayColumn(row.realms);
+    const scopes = formatArrayColumn(row.scopes);
     console.log(
-      `${row.token_id}  ${row.source_app}/${row.realms.join(",")}  slot=${row.rotation_slot}  [${row.scopes.join(",")}]  ${status}  último uso: ${lastUsed}  ${row.description}`,
+      `${row.token_id}  ${row.source_app}/${realms}  slot=${row.rotation_slot}  [${scopes}]  ${status}  último uso: ${lastUsed}  ${row.description}`,
     );
   }
+}
+
+/**
+ * Formata coluna de array vinda do banco, sinalizando corrupção em vez de
+ * lançar. `<INVÁLIDO: ...>` é deliberadamente ruidoso: uma linha nesse estado
+ * não autentica (`resolveServiceCredential` a rejeita) e precisa ser vista pelo
+ * operador, não escondida atrás de um valor vazio plausível.
+ */
+function formatArrayColumn(value: unknown): string {
+  if (!Array.isArray(value)) return `<INVÁLIDO: ${value === null ? "null" : typeof value}>`;
+  if (value.length === 0) return "<VAZIO>";
+  return value.map((item) => (typeof item === "string" ? item : `<INVÁLIDO:${typeof item}>`)).join(",");
 }
 
 async function revoke(db: ReturnType<typeof createDb>, args: Map<string, string>): Promise<void> {
@@ -229,9 +266,14 @@ async function main(): Promise<void> {
   }
 }
 
-void main().catch((error: unknown) => {
+// Top-level await (o pacote é ESM): a cadeia `.catch()` anterior deixava a
+// rejeição fora do fluxo, e um `throw` no próprio handler viraria
+// unhandledRejection silencioso.
+try {
+  await main();
+} catch (error: unknown) {
   // Nunca ecoar o erro cru: uma falha de INSERT pode carregar o hash na
   // mensagem do driver, e hash em log é material para ataque offline.
   console.error(`falhou: ${error instanceof Error ? error.message : "erro desconhecido"}`);
   process.exit(1);
-});
+}
