@@ -24,7 +24,7 @@ import {
 } from "./users.js";
 import { createAdminSecretsRoutes } from "./adminSecretsRoutes.js";
 import { createAdminRoleRoutes } from "./adminRoleRoutes.js";
-import { isValidServiceToken } from "./serviceToken.js";
+import { requireServiceCredential } from "./requireServiceCredential.js";
 
 const avatarMaxBytes = 2 * 1024 * 1024;
 const avatarUploadTimeoutMs = 15_000;
@@ -445,22 +445,34 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
   // Spec 083 (downloads: rejeicao com e-mail) — rota interna server-to-server,
   // resolve email/nome do autor por user_id. So X-Service-Token, sem fallback
   // de sessao admin (nunca chamada por humano, so por outro backend).
-  app.get("/internal/users/:id", (req, res, next) => {
-    if (!isValidServiceToken(env.SERVICE_SECRET, req.headers["x-service-token"])) {
-      res.status(401).json({ error: "unauthorized" });
-      return;
-    }
-
-    findUserById(db, req.params.id)
-      .then((user) => {
-        if (!user) {
-          res.status(404).json({ error: "user_not_found" });
-          return;
-        }
-        res.json({ id: user.id, email: user.email, display_name: user.name });
-      })
-      .catch(next);
-  });
+  //
+  // T2.2a (spec 090): passa a exigir credencial registrada com escopo
+  // `users.read`. Antes bastava o `SERVICE_SECRET` global, o mesmo valor que
+  // tambem abria `/admin/secrets/:name` — quem podia resolver e-mail lia chave
+  // de API decifrada. `allowLegacySecret` mantem o mecanismo antigo funcionando
+  // enquanto `downloads` migra, e sai quando `onLegacyUse` parar de registrar.
+  app.get(
+    "/internal/users/:id",
+    requireServiceCredential(db, {
+      scope: "users.read",
+      allowLegacySecret: true,
+      legacySecret: env.SERVICE_SECRET,
+      onLegacyUse: (route) => {
+        console.warn(`[serviceCredential] SERVICE_SECRET legado usado em ${route}`);
+      },
+    }),
+    (req, res, next) => {
+      findUserById(db, req.params.id)
+        .then((user) => {
+          if (!user) {
+            res.status(404).json({ error: "user_not_found" });
+            return;
+          }
+          res.json({ id: user.id, email: user.email, display_name: user.name });
+        })
+        .catch(next);
+    },
+  );
 
   const currentDir = dirname(fileURLToPath(import.meta.url));
   const clientDir = join(currentDir, "client");

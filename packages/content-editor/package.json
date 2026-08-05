@@ -14,10 +14,15 @@
       "types": "./dist/sanitize.d.ts",
       "import": "./dist/sanitize.js",
       "require": "./dist-cjs/sanitize.js"
+    },
+    "./comment-links": {
+      "types": "./dist/commentLinks.d.ts",
+      "import": "./dist/commentLinks.js",
+      "require": "./dist-cjs/commentLinks.js"
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json && tsc -p tsconfig.cjs.json && node -e \"require('node:fs').writeFileSync('dist-cjs/package.json', JSON.stringify({type:'commonjs'}))\" && node -e \"require('node:fs').copyFileSync('src/content-editor.css','dist/content-editor.css')\"",
+    "build": "tsc -p tsconfig.build.json && tsc -p tsconfig.cjs.json && node -e \"require('node:fs').writeFileSync('dist-cjs/package.json', JSON.stringify({type:'commonjs'}))\" && node -e \"require('node:fs').copyFileSync('src/content-editor.css','dist/content-editor.css')\"",
     "lint": "eslint .",
     "test": "vitest run"
   },

@@ -15,10 +15,13 @@ export interface ResolvedUser {
 
 export async function resolveUserEmail(userId: string): Promise<ResolvedUser | null> {
   const baseUrl = process.env.ACCOUNTS_URL;
-  const serviceSecret = process.env.SERVICE_SECRET;
+  // T2.2a (spec 090): credencial registrada `<token_id>.<segredo>`, que carrega
+  // `source_app`, `realm` e escopo `users.read`. `SERVICE_SECRET` global segue
+  // como fallback até a migração terminar — ele não identifica quem chamou.
+  const serviceSecret = process.env.SERVICE_CREDENTIAL ?? process.env.SERVICE_SECRET;
 
   if (!baseUrl || !serviceSecret) {
-    console.warn('[accountsClient] ACCOUNTS_URL ou SERVICE_SECRET não configurado — não é possível resolver e-mail do autor.');
+    console.warn('[accountsClient] ACCOUNTS_URL ou SERVICE_CREDENTIAL/SERVICE_SECRET não configurado — não é possível resolver e-mail do autor.');
     return null;
   }
 

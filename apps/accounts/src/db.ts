@@ -35,9 +35,42 @@ export interface AdminSecretRow {
   updated_at: Generated<Date>;
 }
 
+/**
+ * T2.2a — credencial de serviço por `source_app` e `realm`
+ * (`migration_007_service_credentials.sql`).
+ *
+ * `realm` e `source_app` das rotas internas são **derivados desta linha**, nunca
+ * lidos do payload — é o que `spec.md` §"Trust boundary e credenciais" exige e o
+ * que o `SERVICE_SECRET` único e global não conseguia expressar.
+ */
+export interface CommunityServiceCredentialRow {
+  id: Generated<string>;
+  /** Prefixo público do header `<token_id>.<segredo>`. Não é secreto. */
+  token_id: string;
+  /** Argon2id do segredo. Nunca o segredo em claro. */
+  token_hash: string;
+  source_app: string;
+  /** Sempre exatamente um elemento (CHECK `..._single_realm` na migration). */
+  realms: string[];
+  scopes: string[];
+  /**
+   * Papel na janela de rotação `current` + `next` (`spec.md` §"Trust boundary e
+   * credenciais"). As duas coexistem ativas durante a troca; sem isso a rotação
+   * exigiria downtime, e segredo que só rotaciona com downtime não rotaciona.
+   */
+  rotation_slot: Generated<"current" | "next">;
+  description: Generated<string>;
+  created_at: Generated<Date>;
+  created_by: string | null;
+  revoked_at: Date | null;
+  revoked_reason: string | null;
+  last_used_at: Date | null;
+}
+
 export interface Database {
   users: UserRow;
   admin_secrets: AdminSecretRow;
+  community_service_credential: CommunityServiceCredentialRow;
 }
 
 export function createDb(databaseUrl: string) {

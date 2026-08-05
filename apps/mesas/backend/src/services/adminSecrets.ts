@@ -20,7 +20,12 @@ interface CacheEntry {
 const cache = new Map<string, CacheEntry>();
 
 function getServiceSecret(): string | undefined {
-  return process.env.SERVICE_SECRET;
+  // T2.2a (spec 090): `SERVICE_CREDENTIAL` é a credencial registrada no formato
+  // `<token_id>.<segredo>`, que identifica este app e o realm no `accounts.` e
+  // carrega o escopo `secrets.read`. O `SERVICE_SECRET` global continua como
+  // fallback enquanto a migração corre; ele não distingue quem chamou nem de
+  // qual realm, e sai quando todos os consumidores tiverem credencial própria.
+  return process.env.SERVICE_CREDENTIAL ?? process.env.SERVICE_SECRET;
 }
 
 /**

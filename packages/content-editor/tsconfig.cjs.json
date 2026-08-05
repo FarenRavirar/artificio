@@ -10,9 +10,14 @@
     "sourceMap": true,
     "ignoreDeprecations": "6.0"
   },
-  // Só o sanitizador entra no build CJS: é o único subpath consumido pelos
-  // backends (downloads compila com module: "CommonJS"). A raiz do pacote é
-  // React/TSX e só é consumida por frontends ESM, então ficar fora do CJS
-  // evita arrastar JSX e dependências de browser para a imagem do backend.
-  "include": ["src/sanitize.ts"]
+  // Só os subpaths consumidos pelos backends entram no build CJS (downloads
+  // compila com module: "CommonJS"). A raiz do pacote é React/TSX e só é
+  // consumida por frontends ESM, então ficar fora do CJS evita arrastar JSX e
+  // dependências de browser para a imagem do backend.
+  //
+  // `commentLinks.ts` entrou em T2.5b (spec 090): o `accounts.` é a autoridade
+  // final da política de link e precisa importá-la no servidor. Declarar o
+  // `require` no `exports` sem compilar aqui produziria MODULE_NOT_FOUND em
+  // runtime com o build verde — mesmo modo de falha de E016/E017.
+  "include": ["src/sanitize.ts", "src/commentLinks.ts"]
 }

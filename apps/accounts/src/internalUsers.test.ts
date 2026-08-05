@@ -2,6 +2,21 @@ import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
 import { createApp } from "./app.js";
 import type { AccountsEnv } from "./env.js";
+import { hashServiceSecret } from "./serviceCredential.js";
+
+const CREDENTIAL_SECRET = "segredo-de-credencial-registrada";
+
+async function credentialRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "33333333-3333-4333-8333-333333333333",
+    token_id: "downloads-prod-abcd1234",
+    token_hash: await hashServiceSecret(CREDENTIAL_SECRET),
+    source_app: "downloads",
+    realms: ["prod"],
+    scopes: ["users.read"],
+    ...overrides,
+  };
+}
 
 // T7.2 (spec 083) — rota interna server-to-server GET /internal/users/:id:
 // sem secret (401), secret errado (401), secret certo (200 + shape).
@@ -20,13 +35,29 @@ const env: AccountsEnv = {
   SERVICE_SECRET: "service-secret-at-least-16-chars",
 };
 
-function fakeDb(row: { id: string; email: string; name: string } | undefined) {
+/**
+ * T2.2a acrescentou uma segunda consulta no caminho desta rota: o guard resolve
+ * `community_service_credential` antes de chegar em `users`. O fake precisa
+ * responder por tabela — devolver a linha de usuário para as duas faria o guard
+ * tratar um usuário como credencial e "autenticar" qualquer coisa.
+ */
+function fakeDb(
+  row: { id: string; email: string; name: string } | undefined,
+  credentialRow?: Record<string, unknown>,
+) {
   return {
-    selectFrom: () => ({
-      select: () => ({
-        where: () => ({
-          executeTakeFirst: vi.fn().mockResolvedValue(row),
-        }),
+    selectFrom: (table: string) => {
+      const result = table === "community_service_credential" ? credentialRow : row;
+      const builder = {
+        select: () => builder,
+        where: () => builder,
+        executeTakeFirst: vi.fn().mockResolvedValue(result),
+      };
+      return builder;
+    },
+    updateTable: () => ({
+      set: () => ({
+        where: () => ({ execute: vi.fn().mockResolvedValue([]) }),
       }),
     }),
   } as never;
@@ -82,5 +113,53 @@ describe("GET /internal/users/:id", () => {
       .expect(401);
 
     expect(response.body).toEqual({ error: "unauthorized" });
+  });
+
+  // ── T2.2a: credencial registrada ─────────────────────────────────────────
+
+  it("200 com credencial registrada de escopo users.read", async () => {
+    const app = createApp(
+      { ...env, SERVICE_SECRET: undefined },
+      fakeDb({ id: "user-1", email: "a@example.com", name: "Ana" }, await credentialRow()),
+    );
+
+    const response = await request(app)
+      .get("/internal/users/user-1")
+      .set("X-Service-Token", `downloads-prod-abcd1234.${CREDENTIAL_SECRET}`)
+      .expect(200);
+
+    expect(response.body).toEqual({ id: "user-1", email: "a@example.com", display_name: "Ana" });
+  });
+
+  // Separação de capacidade: credencial de leitura de segredo não lê usuário.
+  // Com o `SERVICE_SECRET` global as duas rotas compartilhavam a mesma chave.
+  it("403 quando a credencial nao tem escopo users.read", async () => {
+    const app = createApp(
+      { ...env, SERVICE_SECRET: undefined },
+      fakeDb(
+        { id: "user-1", email: "a@example.com", name: "Ana" },
+        await credentialRow({ scopes: ["secrets.read"] }),
+      ),
+    );
+
+    const response = await request(app)
+      .get("/internal/users/user-1")
+      .set("X-Service-Token", `downloads-prod-abcd1234.${CREDENTIAL_SECRET}`)
+      .expect(403);
+
+    expect(response.body).toEqual({ error: "insufficient_scope" });
+  });
+
+  it("401 com credencial revogada", async () => {
+    // A query filtra `revoked_at IS NULL`, então revogada volta `undefined`.
+    const app = createApp(
+      { ...env, SERVICE_SECRET: undefined },
+      fakeDb({ id: "user-1", email: "a@example.com", name: "Ana" }, undefined),
+    );
+
+    await request(app)
+      .get("/internal/users/user-1")
+      .set("X-Service-Token", `downloads-prod-abcd1234.${CREDENTIAL_SECRET}`)
+      .expect(401);
   });
 });

@@ -21,6 +21,12 @@ import type { Kysely } from 'kysely';
 import type { Database } from './db.js';
 import { requireCurrentAdmin, sessionFrom } from './requireCurrentAdmin.js';
 import { isValidServiceToken } from './serviceToken.js';
+import {
+  hasScope,
+  resolveServiceCredential,
+  touchServiceCredential,
+} from './serviceCredential.js';
+import type { ServiceAuthenticatedRequest } from './requireServiceCredential.js';
 
 function getSecretsKey(env: Record<string, string | undefined>): string {
   // REV-023: chave dedicada e obrigatória. Sem fallback p/ JWT_SECRET — senão a
@@ -37,27 +43,62 @@ function getServiceSecret(env: Record<string, string | undefined>): string | nul
   return env.SERVICE_SECRET ?? null;
 }
 
-/** Valida X-Service-Token contra SERVICE_SECRET. Se ok, prossegue; senão tenta cookie de admin. */
+/**
+ * Autentica por credencial de serviço com escopo `secrets.read`; se não houver,
+ * tenta cookie de admin.
+ *
+ * T2.2a (spec 090): antes bastava o `SERVICE_SECRET` global — o **mesmo** valor
+ * que abre `/internal/users/:id`. Essa rota devolve segredo **decifrado** (chave
+ * da DeepSeek, entre outros), então na prática todo serviço que resolvia e-mail
+ * de usuário também podia ler a chave de API de qualquer um. O escopo
+ * `secrets.read` separa as duas capacidades; o fallback legado continua durante
+ * a migração de `mesas`/`downloads` e sai quando `onLegacyUse` silenciar.
+ */
 export function requireServiceOrAdmin(
   env: Record<string, string | undefined>,
   db: Kysely<Database>,
 ) {
   const currentAdmin = requireCurrentAdmin(db);
-  return (req: Request, res: Response, next: NextFunction) => {
-    // Comparação em tempo constante, igual à rota interna de usuários: era `===`
-    // aqui, e o mesmo `SERVICE_SECRET` ficava protegido de duas formas — a fraca
-    // guardando justamente a chave de cifra dos segredos.
-    if (isValidServiceToken(getServiceSecret(env), req.headers['x-service-token'])) {
-      // Serviço autenticado — prossegue sem sessão de usuário
-      return next();
-    }
 
-    // Fallback: cookie de admin (usuário logado).
-    // requireAuth popula req.session a partir do cookie; sem ele o guard de
-    // admin nunca veria a sessão e devolveria 403 sempre (REV-017).
-    requireAuth(req, res, () => {
-      void currentAdmin(req, res, next);
-    });
+  return (req: Request, res: Response, next: NextFunction) => {
+    const header = req.headers['x-service-token'];
+
+    // Resolução direta, sem passar pelo guard de rota: aqui a falha de
+    // autenticação de serviço **não** encerra a resposta — cai no fallback de
+    // admin. Envolver `requireServiceCredential` num `res` sintético para
+    // capturar isso confundiria 403 de escopo com 401 de credencial ausente, e a
+    // diferença importa: escopo insuficiente é erro de configuração e precisa
+    // aparecer como tal, não virar "tente com cookie".
+    void resolveServiceCredential(db, header)
+      .then((identity) => {
+        if (identity) {
+          if (!hasScope(identity, 'secrets.read')) {
+            // Credencial válida sem escopo de segredo: 403 explícito. Não cair no
+            // fallback de admin — mascararia configuração errada de escopo.
+            res.status(403).json({ error: 'insufficient_scope' });
+            return;
+          }
+          (req as ServiceAuthenticatedRequest).serviceCredential = identity;
+          void touchServiceCredential(db, identity.credentialId);
+          return next();
+        }
+
+        // Comparação em tempo constante: era `===` aqui, e o mesmo
+        // `SERVICE_SECRET` ficava protegido de duas formas — a fraca guardando
+        // justamente a chave de cifra dos segredos.
+        if (isValidServiceToken(getServiceSecret(env), header)) {
+          console.warn(`[serviceCredential] SERVICE_SECRET legado usado em ${req.path}`);
+          return next();
+        }
+
+        // Fallback: cookie de admin (usuário logado).
+        // requireAuth popula req.session a partir do cookie; sem ele o guard de
+        // admin nunca veria a sessão e devolveria 403 sempre (REV-017).
+        requireAuth(req, res, () => {
+          void currentAdmin(req, res, next);
+        });
+      })
+      .catch(next);
   };
 }
 
