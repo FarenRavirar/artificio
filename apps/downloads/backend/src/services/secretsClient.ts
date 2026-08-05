@@ -23,9 +23,16 @@ export async function getSecret(name: string): Promise<string | null> {
     return cached.value;
   }
 
-  const serviceSecret = process.env.SERVICE_SECRET;
+  // T2.2a (spec 090): `SERVICE_CREDENTIAL` é a credencial registrada, no formato
+  // `<token_id>.<segredo>`, e identifica este app e o realm no `accounts.`. O
+  // `SERVICE_SECRET` global continua como fallback durante a migração; ele não
+  // identifica ninguém, então sai quando todo consumidor tiver credencial.
+  // `||`, nunca `??`: os compose usam `${SERVICE_CREDENTIAL:-}`, então antes da
+  // emissão o valor chega como string vazia e `??` a trataria como definida,
+  // desligando a busca de segredos com o fallback legado ainda disponível.
+  const serviceSecret = process.env.SERVICE_CREDENTIAL || process.env.SERVICE_SECRET;
   if (!serviceSecret) {
-    console.warn('[secretsClient] SERVICE_SECRET não configurado — segredos indisponíveis.');
+    console.warn('[secretsClient] SERVICE_CREDENTIAL/SERVICE_SECRET não configurado — segredos indisponíveis.');
     return null;
   }
 

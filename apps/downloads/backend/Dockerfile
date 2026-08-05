@@ -102,8 +102,12 @@ COPY --from=builder /repo/packages/email/dist ./packages/email/dist
 # Mesmo padrao de E016/E017: as rotas do backend (comments, materials, reports,
 # moderation, ratings, admin, creators, materialMetadata, systemSuggestionsAdmin,
 # materialTypeSuggestionsAdmin) importam @artificio/content-editor/sanitize.
-# So o dist-cjs entra: o backend compila com module "CommonJS" e consome apenas
-# o subpath do sanitizador; a raiz do pacote e React/TSX, usada so pelo frontend.
+# So o dist-cjs entra: o backend compila com module "CommonJS" e consome os
+# subpaths de servidor; a raiz do pacote e React/TSX, usada so pelo frontend.
+# Desde T2.2a/T2.5b (spec 090) o dist-cjs tambem carrega commentLinks.js
+# (@artificio/content-editor/comment-links), a politica de link de comentario.
+# Ele nao acrescenta dependencia externa — usa so o `URL` global, zero require —,
+# entao o filtro de deps acima continua suficiente.
 COPY --from=builder /repo/packages/content-editor/dist-cjs ./packages/content-editor/dist-cjs
 
 COPY --from=builder /repo/apps/downloads/backend/dist ./apps/downloads/backend/dist

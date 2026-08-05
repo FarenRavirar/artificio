@@ -1,0 +1,17 @@
+{
+  // Projeto de EMIT. Existe separado do `tsconfig.json` porque os dois têm
+  // objetivos opostos sobre teste:
+  //
+  // - `tsconfig.json` precisa INCLUIR teste: o ESLint type-aware
+  //   (`projectService`/`project`) resolve cada arquivo pelo projeto, e teste
+  //   fora dele vira "Parsing error", não lint. Type-check de teste é desejável.
+  // - o build precisa EXCLUIR teste: o `dist` é copiado inteiro para as imagens
+  //   de produção dos backends, então teste compilado viraria código morto
+  //   importando `vitest`/`@testing-library`, que são devDependencies ausentes ali.
+  //
+  // Tentar resolver com um projeto só falha nos dois sentidos — foi o que
+  // aconteceu ao copiar o `exclude` de `catalog-ui`, que só funciona lá porque
+  // aquele pacote não usa lint type-aware.
+  "extends": "./tsconfig.json",
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**", "src/testSetup.ts"]
+}
