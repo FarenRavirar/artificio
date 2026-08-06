@@ -27,9 +27,16 @@
  *
  * Sob demanda, **fora do CI**: o CI não deve ficar vermelho porque o ecossistema
  * não mudou. Sai `0` em qualquer resultado — quem lê é humano, não gate.
+ *
+ * A leitura do range (`acceptsTypeScript7`) **é** coberta pelo CI: está exportada
+ * e testada em `check-typescript-7-readiness.test.mjs`, que roda no
+ * `turbo run test` junto com o resto do repo. O resultado do script depende do
+ * npm e por isso não é testável; a decisão sobre o range não depende de nada
+ * externo, e é justamente onde já houve um falso DESTRAVADO (PR #243).
  */
 
 import { exec } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 
 const run = promisify(exec);
@@ -62,23 +69,49 @@ async function npmView(pkg, field) {
  *
  * Checagem textual de propósito: trazer `semver` só para isto acrescentaria
  * dependência a um script que roda fora do build. Os ranges publicados pelo
- * typescript-eslint têm forma estável (`>=X <Y`), então basta ler o teto.
+ * typescript-eslint têm forma estável (`>=X <Y`), então dá para ler os dois
+ * limites diretamente.
+ *
+ * **Os dois limites importam.** Uma versão anterior lia só o teto, e por isso
+ * `>=8.0.0 <9.0.0` respondia "aceita": o `<9` passava na checagem de major, e o
+ * `>=8` — que exclui todo o 7.x — era ignorado. Isso é o falso DESTRAVADO que o
+ * comentário abaixo diz custar caro (achado de review, PR #243).
  *
  * Conservador por desenho: na dúvida responde "não aceita", porque um falso
  * DESTRAVADO custa uma migração quebrada, e um falso BLOQUEADO custa rodar o
  * comando de novo no mês seguinte.
  */
-function acceptsTypeScript7(range) {
+export function acceptsTypeScript7(range) {
   if (typeof range !== 'string' || range.length === 0) return false;
 
-  const upperBound = range.match(/<\s*(\d+)\.(\d+)\.(\d+)/);
-  if (upperBound) {
-    const major = Number(upperBound[1]);
-    return major > 7 || (major === 7 && Number(upperBound[2]) >= 0 && range.includes('<8'));
+  // Ranges com `||` são alternativas independentes: basta uma comportar o 7.x.
+  const alternatives = range.split('||');
+  if (alternatives.length > 1) {
+    return alternatives.some((alternative) => acceptsTypeScript7(alternative));
   }
 
-  // Sem teto explícito: aceita se mencionar 7 de forma inequívoca.
-  return /(^|\s|\|\|)[>^~]?=?\s*7\./.test(range);
+  const lowerBound = range.match(/>=?\s*(\d+)\./);
+  const upperBound = range.match(/<=?\s*(\d+)\./);
+
+  // Piso a partir do 8: nenhuma release 7.x cabe, por mais alto que seja o teto.
+  if (lowerBound && Number(lowerBound[1]) > 7) return false;
+
+  if (upperBound) {
+    const major = Number(upperBound[1]);
+    // `<8.x` inclui todo o 7.x; `<7.x` exclui. `<=7.x` também inclui.
+    const inclusiveUpper = /<=/.test(range);
+    return major > 7 || (major === 7 && inclusiveUpper);
+  }
+
+  // Sem teto explícito: aceita se o piso já estiver em 7 ou abaixo, ou se
+  // mencionar 7 de forma inequívoca.
+  //
+  // O `trim()` antes do teste existe para o regex não precisar de `(^|\s)` junto
+  // de `\s*`: dois grupos de espaço adjacentes podem particionar a mesma entrada
+  // de várias formas, e isso é backtracking super-linear (achado do Sonar,
+  // PR #243). Sem espaço à esquerda para dividir, o padrão é linear.
+  if (lowerBound) return Number(lowerBound[1]) <= 7;
+  return /^[\^~]?=?7\./.test(range.trim());
 }
 
 async function main() {
@@ -119,7 +152,12 @@ async function main() {
   console.log('do repo não são débito. Nada a fazer além de reexecutar mais tarde.');
 }
 
-main().catch((error) => {
-  console.error(`Erro inesperado: ${error.message}`);
-  process.exit(0);
-});
+// Só executa quando chamado como comando. O teste importa `acceptsTypeScript7`
+// deste mesmo arquivo, e sem este guard o import dispararia `npm view` — teste
+// batendo na rede é teste que falha por motivo errado.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((error) => {
+    console.error(`Erro inesperado: ${error.message}`);
+    process.exit(0);
+  });
+}

@@ -230,12 +230,71 @@ describe('runSubjectAuthorizationConformance', () => {
     expect(report.checks).toHaveLength(5);
   });
 
-  it('não ecoa payload no detalhe da falha', async () => {
-    const denyAll: CommentSubjectGuard = async () => refuse('not_found');
-    const report = await runSubjectAuthorizationConformance(denyAll, fixtures);
+  it('não reprova guard correto cujo ator é o UUID usado como estranho', async () => {
+    // A checagem de sensibilidade ao ator usava um estranho fixo. Um app que
+    // usasse justamente aquele UUID como `actingUserId` fazia as duas chamadas
+    // rodarem com a MESMA identidade: o guard correto autorizava as duas, e a
+    // suíte reprovava dizendo que ele "não consulta actingUserId" — falso
+    // negativo que acusaria a implementação certa (achado de review, PR #243).
+    const collidingActor = '00000000-0000-4000-8000-000000000000';
 
-    for (const check of report.checks) {
-      expect(check.detail ?? '').not.toContain('canonicalPath');
+    const guard: CommentSubjectGuard = async (subject, actingUserId) =>
+      subject.subjectId === 'meu-rascunho'
+        ? actingUserId === collidingActor
+          ? authorize({
+              exists: true,
+              visible: true,
+              commentable: true,
+              ownerUserId: collidingActor,
+              canonicalPath: '/materiais/meu-rascunho',
+            })
+          : refuse('not_visible')
+        : compliantGuard(subject, actingUserId);
+
+    const report = await runSubjectAuthorizationConformance(guard, {
+      ...fixtures,
+      visibleOnlyToActor: {
+        ...fixtures.visibleOnlyToActor!,
+        actingUserId: collidingActor,
+      },
+    });
+
+    expect(
+      report.checks.find((check) => check.name === 'visibilidade considera o ator'),
+    ).toMatchObject({ passed: true });
+  });
+
+  it('não ecoa payload no detalhe da falha', async () => {
+    // Roda contra o guard **correto**: é ele que devolve `canonicalPath` e
+    // `ownerUserId` de verdade. Um guard que recusa tudo não produz payload
+    // nenhum, então a asserção passaria sem provar nada.
+    const report = await runSubjectAuthorizationConformance(compliantGuard, fixtures);
+
+    // Também é preciso exercitar um caminho de falha, senão não há `detail`
+    // para inspecionar. `inventsOwner` falha carregando o payload do guard.
+    const failing: CommentSubjectGuard = async (subject, actingUserId) =>
+      subject.subjectId === 'sem-dono'
+        ? authorize({
+            exists: true,
+            visible: true,
+            commentable: true,
+            ownerUserId: OWNER,
+            canonicalPath: '/blog/sem-dono',
+          })
+        : compliantGuard(subject, actingUserId);
+    const failingReport = await runSubjectAuthorizationConformance(failing, fixtures);
+
+    const details = [...report.checks, ...failingReport.checks].map(
+      (check) => check.detail ?? '',
+    );
+
+    for (const detail of details) {
+      // Nome da chave e, o que importa de fato, os VALORES que o guard devolveu.
+      expect(detail).not.toContain('canonicalPath');
+      expect(detail).not.toContain('/materiais/');
+      expect(detail).not.toContain('/blog/');
+      expect(detail).not.toContain(OWNER);
+      expect(detail).not.toContain(ACTOR);
     }
   });
 });

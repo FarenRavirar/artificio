@@ -1,0 +1,12 @@
+{
+  // Projeto de EMIT, mesmo desenho de `packages/ui/tsconfig.build.json`: o
+  // `tsconfig.json` INCLUI teste (para que o typecheck alcance os arquivos de
+  // teste) e este exclui, porque o `dist` vai para consumidores e teste
+  // compilado viraria código morto importando `vitest`/`@testing-library`.
+  //
+  // Antes o `exclude` de teste morava no próprio `tsconfig.json`, que era ao
+  // mesmo tempo o projeto de build — resultado: os testes deste pacote não
+  // eram checados por nada (achado de review, PR #243).
+  "extends": "./tsconfig.json",
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**"]
+}

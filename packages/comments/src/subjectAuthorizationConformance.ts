@@ -93,6 +93,36 @@ export interface ConformanceReport {
   actorSensitivityCovered: boolean;
 }
 
+/**
+ * Duas identidades fixas para o papel de "estranho". Ambas são UUID v4 válidos,
+ * porque o guard do app pode validar o formato antes de consultar o banco — um
+ * identificador inventado fora do formato faria a suíte medir a validação, não a
+ * visibilidade.
+ */
+const STRANGER_CANDIDATES = [
+  '00000000-0000-4000-8000-000000000000',
+  'ffffffff-ffff-4fff-bfff-ffffffffffff',
+] as const;
+
+/**
+ * Escolhe um ator estranho **garantidamente diferente** do ator da fixture.
+ *
+ * Um valor fixo não serve: se o app usar exatamente aquele UUID como
+ * `actingUserId`, as duas chamadas da checagem rodam com a mesma identidade, um
+ * guard correto autoriza as duas, e a suíte reprova uma implementação boa
+ * dizendo que ela "não consulta actingUserId" — o oposto do que aconteceu
+ * (achado de review, PR #243).
+ */
+function pickStranger(actingUserId: string): string {
+  const distinct = STRANGER_CANDIDATES.find(
+    (candidate) => candidate !== actingUserId,
+  );
+  // Só cai no fallback se o ator for igual aos dois candidatos, o que é
+  // impossível — eles diferem entre si. O `??` existe para o tipo, não para o
+  // caso real.
+  return distinct ?? STRANGER_CANDIDATES[0];
+}
+
 async function expectRefusal(
   guard: CommentSubjectGuard,
   fixture: ConformanceFixture,
@@ -167,24 +197,23 @@ export async function runSubjectAuthorizationConformance(
       await guard(fixture.subject, fixture.actingUserId),
     );
 
-    checks.push(
-      !result.authorized
-        ? {
-            name: 'alvo sem dono vinculado é autorizado com ownerUserId nulo',
-            passed: false,
-            detail: `${fixture.label}: recusado com "${result.reason}"; conteúdo sem conta vinculada continua comentável`,
-          }
-        : result.authorization.ownerUserId !== null
-          ? {
-              name: 'alvo sem dono vinculado é autorizado com ownerUserId nulo',
-              passed: false,
-              detail: `${fixture.label}: devolveu dono onde não há conta vinculada — dono fictício vira destinatário de notificação inventado`,
-            }
-          : {
-              name: 'alvo sem dono vinculado é autorizado com ownerUserId nulo',
-              passed: true,
-            },
-    );
+    const name = 'alvo sem dono vinculado é autorizado com ownerUserId nulo';
+
+    if (!result.authorized) {
+      checks.push({
+        name,
+        passed: false,
+        detail: `${fixture.label}: recusado com "${result.reason}"; conteúdo sem conta vinculada continua comentável`,
+      });
+    } else if (result.authorization.ownerUserId !== null) {
+      checks.push({
+        name,
+        passed: false,
+        detail: `${fixture.label}: devolveu dono onde não há conta vinculada — dono fictício vira destinatário de notificação inventado`,
+      });
+    } else {
+      checks.push({ name, passed: true });
+    }
   }
 
   // 3-5. As três recusas.
@@ -227,7 +256,7 @@ export async function runSubjectAuthorizationConformance(
 
   if (fixtures.visibleOnlyToActor) {
     const fixture = fixtures.visibleOnlyToActor;
-    const stranger = '00000000-0000-4000-8000-000000000000';
+    const stranger = pickStranger(fixture.actingUserId);
 
     const asActor = normalizeGuardResult(
       await guard(fixture.subject, fixture.actingUserId),

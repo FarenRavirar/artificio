@@ -85,6 +85,11 @@ export const canonicalPathSchema = z
       // a classe literal, e silenciar a regra com um `disable` esconderia
       // justamente o tipo de coisa que ela existe para sinalizar noutros
       // lugares. Sem regex, não há o que silenciar.
+      //
+      // `charCodeAt` e não `codePointAt` (o Sonar sugere a troca, PR #243): os
+      // alvos são C0 e DEL, todos abaixo de 0x80. Nenhuma metade de surrogate
+      // pair cai nessa faixa, então os dois métodos dão o mesmo veredito aqui e
+      // `codePointAt` só pagaria a decodificação do par.
       for (let index = 0; index < value.length; index += 1) {
         const code = value.charCodeAt(index);
         if (code <= 0x1f || code === 0x7f) return false;

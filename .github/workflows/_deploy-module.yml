@@ -192,7 +192,10 @@ jobs:
           CLOUDINARY_API_KEY: ci
           CLOUDINARY_API_SECRET: ci
           MODULE_FILTER: "@artificio/${{ inputs.module }}"
-        run: pnpm -w turbo run test --filter="$MODULE_FILTER*" --env-mode=loose --cache-dir=.turbo
+        # Spec 091 (T1.9): mesmo limite de concorrência do `ci.yml` e do script `test`
+        # da raiz. Aqui o filtro reduz o número de pacotes, mas não o número de workers
+        # que cada vitest abre — e este é o gate que protege deploy (achado de review, PR #243).
+        run: pnpm -w turbo run test --concurrency=4 --filter="$MODULE_FILTER*" --env-mode=loose --cache-dir=.turbo
 
   deploy:
     name: Deploy ${{ inputs.module }} ${{ needs.resolve.outputs.env }}
