@@ -96,41 +96,58 @@ export function acceptsTypeScript7(range) {
   const lowerBound = /(>=?)\s*(\d+)\.(\d+)\.(\d+)/.exec(range);
   const upperBound = /(<=?)\s*(\d+)\.(\d+)\.(\d+)/.exec(range);
 
-  // Intervalo pedido: [7.0.0, 8.0.0). O range aceita alguma release 7.x quando
-  // se sobrepõe a ele.
-  const SETE = [7, 0, 0];
-  const OITO = [8, 0, 0];
+  // Sem limite explícito nenhum: só um range que já começa em 7 de forma
+  // inequívoca (`^7.`, `~7.`, `7.`).
+  if (!lowerBound && !upperBound) return startsAtSeven(range);
 
-  const compare = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
-  const versionOf = (m) => [Number(m[2]), Number(m[3]), Number(m[4])];
-
-  if (lowerBound) {
-    const low = versionOf(lowerBound);
-    // Piso em 8.0.0 ou acima (ou `>7.x.y` a partir de 8): nenhuma 7.x cabe.
-    if (compare(low, OITO) >= 0) return false;
-
-    if (upperBound) {
-      const high = versionOf(upperBound);
-      const inclusiveUpper = upperBound[1] === '<=';
-      // Intervalo vazio (`>=7.5.0 <=7.2.0`) não aceita nada.
-      const empty = inclusiveUpper ? compare(low, high) > 0 : compare(low, high) >= 0;
-      if (empty) return false;
-      // Teto abaixo de 7.0.0 exclui todo o 7.x; `<7.0.0` exclusivo também.
-      return inclusiveUpper ? compare(high, SETE) >= 0 : compare(high, SETE) > 0;
-    }
-
-    // Sem teto: qualquer piso abaixo de 8.0.0 alcança alguma release 7.x.
-    return true;
-  }
-
-  if (upperBound) {
-    const high = versionOf(upperBound);
-    const inclusiveUpper = upperBound[1] === '<=';
-    return inclusiveUpper ? compare(high, SETE) >= 0 : compare(high, SETE) > 0;
-  }
-
-  // Sem limite explícito: só um range que já começa em 7 de forma inequívoca.
+  // Daqui para baixo é uma pergunta só, e não um caso por combinação de
+  // limites: o intervalo do range cruza [7.0.0, 8.0.0)?
   //
+  // Piso ausente é 0.0.0 e teto ausente é +infinito — os dois neutros da
+  // interseção. Modelar assim dispensa os ramos "com piso sem teto" e "sem piso
+  // com teto", que na versão anterior repetiam o mesmo teste de teto em dois
+  // lugares (complexidade cognitiva 19 > 15, achado do Sonar, PR #243).
+  const low = lowerBound ? versionOf(lowerBound) : ZERO;
+  const high = upperBound ? versionOf(upperBound) : INFINITO;
+
+  // `>=`/`<=` incluem o próprio limite; `>`/`<` não. O único que muda resposta
+  // aqui é o teto: `<7.0.0` exclui todo o 7.x, `<=7.0.0` inclui a 7.0.0.
+  const inclusiveUpper = !upperBound || upperBound[1] === '<=';
+
+  // Um teto inclusivo (`<=`) admite igualdade; um exclusivo (`<`) exige folga.
+  // `atinge(a, b)` = "`a` alcança `b`?", com essa diferença embutida.
+  const atinge = (a, b) => (inclusiveUpper ? compare(a, b) >= 0 : compare(a, b) > 0);
+
+  // Intervalo vazio (`>=7.5.0 <=7.2.0`) não aceita release nenhuma.
+  //
+  // Reusa `atinge` com os argumentos invertidos, e isso **não** é a mesma
+  // pergunta do teste de baixo — é uma coincidência de que a regra de
+  // inclusividade cai igual nas duas: com `<=`, piso e teto iguais ainda formam
+  // intervalo válido (`>=7.2.0 <=7.2.0` contém a 7.2.0), então vazio é `low >
+  // high`; com `<`, iguais já são vazio (`>=7.2.0 <7.2.0` não contém nada),
+  // então é `low >= high`. Se um dia o piso ganhar inclusividade própria (`>`
+  // exclusivo), este reuso deixa de valer e precisa de comparação separada.
+  if (atinge(low, high)) return false;
+
+  // Cruza [7.0.0, 8.0.0) quando o piso fica abaixo de 8.0.0 e o teto alcança
+  // 7.0.0.
+  return compare(low, OITO) < 0 && atinge(high, SETE);
+}
+
+// Intervalo pedido: [7.0.0, 8.0.0). Fora da função porque são constantes, não
+// estado dela.
+const ZERO = [0, 0, 0];
+const SETE = [7, 0, 0];
+const OITO = [8, 0, 0];
+const INFINITO = [Number.POSITIVE_INFINITY, 0, 0];
+
+const compare = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+const versionOf = (m) => [Number(m[2]), Number(m[3]), Number(m[4])];
+
+/**
+ * Range sem `>`/`<` que ainda assim começa no 7 (`^7.0.0`, `~7.1`, `7.2.0`).
+ */
+function startsAtSeven(range) {
   // O `trim()` antes do teste existe para o regex não precisar de `(^|\s)` junto
   // de `\s*`: dois grupos de espaço adjacentes podem particionar a mesma entrada
   // de várias formas, e isso é backtracking super-linear (achado do Sonar,

@@ -61,6 +61,22 @@ describe('acceptsTypeScript7', () => {
     });
   });
 
+  describe('limite ausente é neutro, não caso especial', () => {
+    // O cálculo trata piso ausente como 0.0.0 e teto ausente como infinito, em
+    // vez de ramificar por combinação de limites (refactor de complexidade
+    // cognitiva, PR #243). Estes casos exercitam justamente os dois neutros —
+    // sem eles, quebrar `ZERO`/`INFINITO` passaria verde.
+    it.for([
+      ['>=6.0.0', true, 'piso abaixo do 7, teto infinito'],
+      ['>=8.0.0', false, 'piso exatamente no 8, teto infinito'],
+      ['<8.0.0', true, 'só teto, piso em zero'],
+      ['<=7.0.0', true, 'teto inclusivo na 7.0.0, piso em zero'],
+      ['<7.0.0', false, 'teto exclusivo na 7.0.0 não alcança o 7.x'],
+    ])('%s — %s', ([range, esperado]) => {
+      expect(acceptsTypeScript7(range)).toBe(esperado);
+    });
+  });
+
   describe('entrada ausente ou inesperada não vira DESTRAVADO', () => {
     // O `npm view` pode devolver vazio, `null` ou um formato que ninguém previu.
     // Em todos os casos a resposta correta é "não aceita": conservador por
