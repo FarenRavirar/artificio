@@ -40,6 +40,26 @@ const ALLOWLIST = new Map([
   ],
 ])
 
+// Sondado uma vez: o próprio arquivo deste script existe com a caixa trocada?
+// Se sim, o sistema ignora caixa (Windows/macOS) e a comparação precisa
+// normalizar; no Linux do CI não, e achatar a caixa faria arquivos distintos
+// colidirem.
+const FS_IGNORA_CAIXA = (() => {
+  const self = fileURLToPath(import.meta.url)
+  const trocado = self === self.toLowerCase() ? self.toUpperCase() : self.toLowerCase()
+  try {
+    return fs.existsSync(trocado)
+  } catch {
+    return false
+  }
+})()
+
+/** Caminho absoluto comparável, respeitando a sensibilidade a caixa do sistema. */
+function normalizeForCompare(filePath) {
+  const absolute = path.resolve(filePath)
+  return FS_IGNORA_CAIXA ? absolute.toLowerCase() : absolute
+}
+
 /** Pacotes do workspace, pela fonte do pnpm — não por varredura de diretório. */
 function listWorkspacePackages() {
   // Comando como string única em vez de (arquivo, args[]) com `shell: true`:
@@ -84,11 +104,23 @@ function tsconfigsReferencedByScripts(scripts) {
     .join(' && ')
   const configs = new Set()
 
-  for (const match of text.matchAll(/tsc\b[^&|]*?-p\s+(\S+\.json)/g)) configs.add(match[1])
-  for (const match of text.matchAll(/tsc\s+-b\s+(\S+\.json)/g)) configs.add(match[1])
-  // `tsc`, `tsc --noEmit`, `tsc -b` sem argumento: usam ./tsconfig.json.
-  if (/\btsc\b(?!\s*(?:-p|-b\s+\S+\.json))(?:\s+-b)?(?:\s+--?[\w-]+)*\s*(?:&&|\|\||$)/.test(text))
-    configs.add('tsconfig.json')
+  // Percorre comando a comando em vez de casar tudo com um regex só: a versão
+  // anterior usava um padrão com look-ahead e grupos opcionais aninhados,
+  // ilegível e difícil de estender (achado do Sonar, PR #243).
+  for (const command of text.split(/&&|\|\|/)) {
+    const tokens = command.trim().split(/\s+/)
+    const start = tokens.indexOf('tsc')
+    if (start === -1) continue
+
+    const args = tokens.slice(start + 1)
+    const flagIndex = args.findIndex((arg) => arg === '-p' || arg === '--project' || arg === '-b')
+    const explicit = flagIndex === -1 ? undefined : args[flagIndex + 1]
+
+    // `tsc -p x.json` e `tsc -b x.json` nomeiam o projeto; `tsc`, `tsc --noEmit`
+    // e `tsc -b` sem argumento caem no ./tsconfig.json do próprio pacote.
+    if (explicit?.endsWith('.json')) configs.add(explicit)
+    else configs.add('tsconfig.json')
+  }
 
   return configs
 }
@@ -110,7 +142,7 @@ function filesReachedByTsconfig(ts, tsconfigPath, seen = new Set()) {
 
   const parsed = ts.getParsedCommandLineOfConfigFile(absolute, {}, {
     getCurrentDirectory: () => path.dirname(absolute),
-    useCaseSensitiveFileNames: false,
+    useCaseSensitiveFileNames: ts.sys.useCaseSensitiveFileNames,
     readDirectory: ts.sys.readDirectory,
     fileExists: ts.sys.fileExists,
     readFile: ts.sys.readFile,
@@ -168,8 +200,11 @@ export function analyzeWorkspace({ ts, packages }) {
     for (const config of tsconfigsReferencedByScripts(scripts)) {
       reached = reached.concat(filesReachedByTsconfig(ts, path.join(pkg.path, config)))
     }
-    const reachedSet = new Set(reached.map((f) => f.toLowerCase()))
-    const uncovered = ownTestFiles.filter((f) => !reachedSet.has(path.resolve(f).toLowerCase()))
+    // Só normaliza a caixa onde o sistema de arquivos de fato ignora caixa. No
+    // Linux do CI, `Foo.test.ts` e `foo.test.ts` são arquivos diferentes, e
+    // achatar os dois faria um teste descoberto casar com outro coberto.
+    const reachedSet = new Set(reached.map(normalizeForCompare))
+    const uncovered = ownTestFiles.filter((f) => !reachedSet.has(normalizeForCompare(f)))
 
     results.push({
       name: pkg.name,

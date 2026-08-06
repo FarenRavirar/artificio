@@ -90,27 +90,51 @@ export function acceptsTypeScript7(range) {
     return alternatives.some((alternative) => acceptsTypeScript7(alternative));
   }
 
-  const lowerBound = range.match(/>=?\s*(\d+)\./);
-  const upperBound = range.match(/<=?\s*(\d+)\./);
+  // Compara major.minor.patch inteiros, não só o major: comparar só o major
+  // rejeitava `>=7.5.0 <7.6.0`, que é válido, e aceitava `>=7.5.0 <=7.2.0`, que
+  // é vazio (achado de review, PR #243).
+  const lowerBound = /(>=?)\s*(\d+)\.(\d+)\.(\d+)/.exec(range);
+  const upperBound = /(<=?)\s*(\d+)\.(\d+)\.(\d+)/.exec(range);
 
-  // Piso a partir do 8: nenhuma release 7.x cabe, por mais alto que seja o teto.
-  if (lowerBound && Number(lowerBound[1]) > 7) return false;
+  // Intervalo pedido: [7.0.0, 8.0.0). O range aceita alguma release 7.x quando
+  // se sobrepõe a ele.
+  const SETE = [7, 0, 0];
+  const OITO = [8, 0, 0];
 
-  if (upperBound) {
-    const major = Number(upperBound[1]);
-    // `<8.x` inclui todo o 7.x; `<7.x` exclui. `<=7.x` também inclui.
-    const inclusiveUpper = /<=/.test(range);
-    return major > 7 || (major === 7 && inclusiveUpper);
+  const compare = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
+  const versionOf = (m) => [Number(m[2]), Number(m[3]), Number(m[4])];
+
+  if (lowerBound) {
+    const low = versionOf(lowerBound);
+    // Piso em 8.0.0 ou acima (ou `>7.x.y` a partir de 8): nenhuma 7.x cabe.
+    if (compare(low, OITO) >= 0) return false;
+
+    if (upperBound) {
+      const high = versionOf(upperBound);
+      const inclusiveUpper = upperBound[1] === '<=';
+      // Intervalo vazio (`>=7.5.0 <=7.2.0`) não aceita nada.
+      const empty = inclusiveUpper ? compare(low, high) > 0 : compare(low, high) >= 0;
+      if (empty) return false;
+      // Teto abaixo de 7.0.0 exclui todo o 7.x; `<7.0.0` exclusivo também.
+      return inclusiveUpper ? compare(high, SETE) >= 0 : compare(high, SETE) > 0;
+    }
+
+    // Sem teto: qualquer piso abaixo de 8.0.0 alcança alguma release 7.x.
+    return true;
   }
 
-  // Sem teto explícito: aceita se o piso já estiver em 7 ou abaixo, ou se
-  // mencionar 7 de forma inequívoca.
+  if (upperBound) {
+    const high = versionOf(upperBound);
+    const inclusiveUpper = upperBound[1] === '<=';
+    return inclusiveUpper ? compare(high, SETE) >= 0 : compare(high, SETE) > 0;
+  }
+
+  // Sem limite explícito: só um range que já começa em 7 de forma inequívoca.
   //
   // O `trim()` antes do teste existe para o regex não precisar de `(^|\s)` junto
   // de `\s*`: dois grupos de espaço adjacentes podem particionar a mesma entrada
   // de várias formas, e isso é backtracking super-linear (achado do Sonar,
   // PR #243). Sem espaço à esquerda para dividir, o padrão é linear.
-  if (lowerBound) return Number(lowerBound[1]) <= 7;
   return /^[\^~]?=?7\./.test(range.trim());
 }
 

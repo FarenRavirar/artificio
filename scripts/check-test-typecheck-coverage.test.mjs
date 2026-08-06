@@ -28,7 +28,10 @@ function makeWorkspace(packages) {
   const entries = [];
 
   for (const [name, spec] of Object.entries(packages)) {
-    const dir = path.join(root, name.replace('@artificio/', ''));
+    // `spec.dir` permite aninhar um pacote dentro de outro, como `apps/mesas`
+    // faz com `backend/` e `frontend/`. Sem isso os pacotes saem irmãos, e o
+    // caso do agregador nunca exercita a exclusão por caminho.
+    const dir = path.join(root, spec.dir || name.replace('@artificio/', ''));
     fs.mkdirSync(path.join(dir, 'src'), { recursive: true });
     fs.writeFileSync(
       path.join(dir, 'package.json'),
@@ -241,12 +244,18 @@ describe('pacote agregador não é acusado pelos testes de quem ele delega', () 
       ts,
       packages: makeWorkspace({
         '@artificio/agregador': {
+          dir: 'agregador',
           scripts: {
             build: 'pnpm --filter @artificio/parte build',
             test: 'pnpm --filter @artificio/parte test',
           },
         },
+        // Aninhado dentro do agregador, como `apps/mesas/backend`. É o
+        // aninhamento que faz o teste da parte aparecer também na varredura do
+        // agregador — sem ele o agregador cai em `sem-testes` e a lógica de
+        // delegação não chega a ser exercida.
         '@artificio/parte': {
+          dir: path.join('agregador', 'parte'),
           scripts: { build: 'tsc', test: 'vitest run' },
           files: {
             'tsconfig.json': TSCONFIG_INCLUINDO_TESTE,
@@ -257,8 +266,7 @@ describe('pacote agregador não é acusado pelos testes de quem ele delega', () 
       }),
     });
 
-    // O agregador aninha o pacote delegado dentro do próprio diretório, como
-    // `apps/mesas` faz com `backend/` e `frontend/`.
+    expect(results.find((r) => r.name === '@artificio/agregador').status).toBe('delegado');
     expect(results.find((r) => r.name === '@artificio/parte').status).toBe('coberto');
   });
 

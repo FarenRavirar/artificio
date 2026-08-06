@@ -30,6 +30,12 @@ describe('acceptsTypeScript7', () => {
       // DESTRAVADO num ecossistema que pulou o 7 inteiro.
       expect(acceptsTypeScript7('>=8.0.0 <9.0.0')).toBe(false);
     });
+
+    it('>=7.5.0 <=7.2.0 — intervalo vazio não aceita release nenhuma', () => {
+      // Comparar só o major dava `true` aqui: o piso caía em 7 e o teto também,
+      // sem notar que o teto é MENOR que o piso (achado de review, PR #243).
+      expect(acceptsTypeScript7('>=7.5.0 <=7.2.0')).toBe(false);
+    });
   });
 
   describe('aceita ranges que comportam alguma release 7.x', () => {
@@ -42,6 +48,15 @@ describe('acceptsTypeScript7', () => {
       ['^7.0.0', 'caret no 7'],
       ['>=6.0.0 <7.0.0 || >=7.5.0 <8.0.0', 'a segunda alternativa cobre'],
     ])('%s — %s', ([range]) => {
+      expect(acceptsTypeScript7(range)).toBe(true);
+    });
+
+    it.for([
+      ['>=7.5.0 <7.6.0', 'faixa estreita dentro do 7.x'],
+      ['>=7.0.0 <7.0.1', 'faixa de um patch só'],
+    ])('%s — %s', ([range]) => {
+      // Comparar só o major devolvia `false` nestes: piso e teto empatavam em 7
+      // e o teto não era "maior que 7" (achado de review, PR #243).
       expect(acceptsTypeScript7(range)).toBe(true);
     });
   });

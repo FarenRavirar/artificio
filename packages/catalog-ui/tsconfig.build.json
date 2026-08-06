@@ -8,5 +8,10 @@
   // mesmo tempo o projeto de build — resultado: os testes deste pacote não
   // eram checados por nada (achado de review, PR #243).
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Reverte os tipos de teste que o `tsconfig.json` acrescenta para alcançar
+    // os matchers de jest-dom: o emit não deve declarar dependência de teste.
+    "types": ["node"]
+  },
   "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**"]
 }

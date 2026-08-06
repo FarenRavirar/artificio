@@ -15,16 +15,15 @@ import * as matchers from '@testing-library/jest-dom/matchers';
 // `import * as` é portanto a forma correta para o runtime — trocar por default
 // import satisfaz o compilador e quebra os testes, já verificado.
 //
-// Descartar `default` por desestruturação reconstrói no tipo o mesmo conjunto
-// de chaves que o `.mjs` de fato exporta, em vez de silenciar a divergência com
-// um cast: se um dia a lib publicar tipos ESM corretos, `default` deixa de
-// existir e o `omitido` vira erro de variável não usada — o aviso aparece
-// sozinho, sem depender de alguém reler este comentário.
+// Filtrar `default` reconstrói o conjunto de chaves que o `.mjs` de fato
+// exporta, sem cast para silenciar a divergência e sem deixar uma variável
+// descartada para o lint reclamar.
 //
 // Só este pacote bate no problema: os frontends usam `moduleResolution: bundler`
 // (que modela o que o Vite faz) e `packages/ui`, também NodeNext, não usa jest-dom.
-const { default: omitido, ...matchersEsm } = matchers;
-void omitido;
+const matchersEsm = Object.fromEntries(
+  Object.entries(matchers).filter(([chave]) => chave !== 'default'),
+);
 
 expect.extend(matchersEsm);
 
