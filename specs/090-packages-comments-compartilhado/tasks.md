@@ -642,209 +642,124 @@ saudável e o **único** alarme de schema defasado no SSO é
 > ownership por sessão e `404` uniforme já fixados, para a Fase 3 não divergir. Não é escopo novo;
 > é a Fase 3 não podendo inventar formato diferente depois.
 
-- [ ] T2.3 — **Leitura em árvore com cursor versionado por revisão** (requisito 6; decisões 3, 8). Reformulado: a versão anterior tratava a listagem como lista plana paginada por `(created_at, id)`, o que o grilling revogou. No volume normal a leitura devolve **a árvore inteira**, sem limite de respostas irmãs. Hard cap defensivo de **1.000 comentários ou 2 MiB**, o que ocorrer primeiro; só então raízes/ramos restantes viram `more`, com cursor próprio e **nunca filho órfão**. A primeira leitura fixa `snapshot_revision`; o cursor é **opaco e assinado**, carregando identidade do assunto, sort, revisão, último sort-key, ramo, limite e expiração de **30 minutos**. Páginas e expansões `more` usam a mesma revisão, sem duplicar nem perder item; score exibido e `my_vote` podem vir do estado atual, mas a **posição permanece congelada** naquela navegação. Nova visita usa a revisão mais recente imediatamente; cursor expirado exige recarregar. O modelo evita transação PostgreSQL aberta entre requests, cache de paginação e cron. · feito quando: árvore de 1.500 comentários devolve `more` sem órfão; expansão na mesma revisão não duplica nem perde item; e cursor expirado falha explicitamente em vez de devolver posição errada.
-> **T2.3 — estado em 2026-08-07. Task aberta: código completo e verde, sem commit; falta o smoke
-> com banco real.**
->
-> ### O que existe
->
-> Verde: `accounts` 148/148, `packages/comments` 69/69, repo 41/41 pacotes de teste e 25/25 de
-> lint e build, `tsc --noEmit` limpo, `verify:api` com `breaking=0` (a rota nova entra como
-> `non-breaking=1`). Números após a correção do review da PR #245 (seção ao fim deste bloco).
->
-> **`packages/comments` — lógica pura, sem banco.** Deliberado: é o que permite o aceite de 1.500
-> comentários rodar em teste sem PostgreSQL.
->
-> - `src/treeCursor.ts` (17 testes) — cursor stateless assinado com HMAC-SHA256. Campos exatamente
->   os de `spec.md` 8d; TTL de 30 min com relógio injetável, para o aceite de expiração não depender
->   do tempo real. **Assinatura verificada antes da expiração**: só depois de provar que o token é
->   nosso faz sentido acreditar no `exp` que ele carrega — a ordem inversa deixaria um `exp` forjado
->   decidir o fluxo. Recusas separadas internamente (`malformed`/`bad_signature`/`expired`/
->   `other_query`) para o handler colapsar num `400` único, sem virar oráculo. O segredo entra **por
->   parâmetro**; o módulo não lê `process.env`.
-> - `src/treeAssembly.ts` (18 testes) — montagem e corte pelo teto 1.000/2 MiB. Corte **por ramo de
->   raiz, nunca por posição na lista**: raiz entra inteira com toda a descendência ou vira `more`.
->   É o que sustenta "nunca filho órfão" — filho sem pai o cliente não tem onde pendurar, e ou some
->   ou vira raiz falsa. Linha cujo pai não veio na consulta é **descartada, nunca promovida a raiz**
->   (promover fabricaria hierarquia que o banco não afirma). Depois do primeiro corte nenhum ramo
->   posterior fura a fila, mesmo cabendo: servir fora de ordem faria a expansão duplicar ou pular
->   item. Ramo que sozinho estoura o teto é **truncado no limite**, com `more` do próprio ramo
->   apontando onde retomar — a decisão 3 manda ("uma thread não pode consumir memória sem teto no
->   `accounts.`, que também sustenta o SSO"), e servir a raiz gigante inteira derrubaria o login de
->   todos os apps por causa de uma thread. Truncar o prefixo não orfana porque a ordem de leitura
->   põe todo pai antes dos descendentes.
->
-> **`apps/accounts` — query e handler.** O app é o dono dos comentários por `plan.md` §Arquivos
-> afetados.
->
-> - `src/communityCommentRead.ts` — CTE recursiva que devolve a árvore **em ordem de leitura**
->   (`sort_path` materializado por `row_number()` particionado por `parent_id`). Recursiva e não
->   `ORDER BY` plano porque a ordenação é **entre irmãos, nunca entre níveis** (`spec.md` 8c): um
->   `ORDER BY best_score` sobre a tabela inteira poria uma resposta de `depth=3` bem votada à frente
->   de raízes e a árvore deixaria de ser árvore. Pai antes de descendente não é estética — é a
->   propriedade que faz o prefixo truncado por `assembleTree` ser subárvore fechada no topo.
->   O join de score procura a faixa que **contém** a revisão congelada (`valid_from_revision <= rev
->   AND (valid_to_revision IS NULL OR valid_to_revision > rev)`), não a corrente: ler a corrente
->   faria a ordem mudar entre a primeira página e a expansão, que é como se duplica ou se perde item
->   sem ninguém notar. `created_revision <= rev` exclui comentário nascido depois da foto, pelo mesmo
->   motivo. `best` usa a coluna gerada `best_score` (`comment_wilson_reddit_80_v1`, T2.1c) — a
->   fórmula não é reimplementada em TypeScript (`plan.md` §Árvore: "PostgreSQL calcula; TypeScript
->   orquestra").
->
->   **O cursor é aplicado aqui, no banco, não em memória.** `sort_key` é a serialização de
->   `sort_path` em segmentos de 9 dígitos — a **posição total** na ordem de leitura, não a chave de
->   ordenação do sort. É o que permite `sort_key > after` valer igual nos quatro sorts: a direção
->   de cada um já foi absorvida pelo `row_number()`. `branch_id` ancora a recursão na subárvore
->   daquele ramo, e a raiz escapa do filtro de propósito, como âncora para os filhos.
-> - `src/communityCommentRoutes.ts` (20 testes) — `GET /internal/v1/comments` conforme
->   `contrato-http-v1.md` §2 e §13. `realm`/`source_app` saem da credencial, nunca da query.
->   Assunto nunca comentado devolve **árvore vazia com revisão 0, não 404** — "ninguém comentou" não
->   é "não existe". `Cache-Control: private, no-store` porque o payload carrega `my_vote`, que é por
->   leitor. O handler repassa `after`/`branch_id` à query e **não recorta nada em memória**.
-> - **Estado público colapsa `author_removed` e `moderator_removed` em `removed`.** O banco
->   distingue; o payload não. Expor "o autor apagou" versus "um moderador apagou" entrega ao leitor
->   um julgamento que §2 não autoriza. Tombstone sai com corpo, contagens e score **nulos** e mantém
->   posição e descendentes (decisões 34, 46).
-> - `Dockerfile` — `@artificio/comments` entrou no filtro explícito de `pnpm install --prod` e ganhou
->   `test -d packages/comments/node_modules/zod`. O pacote traz `zod` como dep própria e o require
->   sai de dentro do `dist` dele: caso literal de E016/E017 — sem o filtro o container sobe, o CI
->   fica verde, e quebra na primeira leitura de comentário com `MODULE_NOT_FOUND`.
->
-> ### `ACCOUNTS_COMMENT_CURSOR_KEY` — lacuna 8d-i fechada
->
-> Nome decidido pelo mantenedor em 2026-08-07, encerrando o "resta só nomear a variável" de 8d-i.
-> Chave dedicada, `min(32)`, **obrigatória** (sem `.optional()` no schema, `:?` no compose de prod).
-> Ao contrário de `ACCOUNTS_SECRETS_KEY`, não há caminho degradado: cursor assinado com valor default
-> é cursor forjável, então falhar o deploy é o comportamento correto. 4 testes em `env.test.ts`,
-> incluindo o que prova que não deriva de `JWT_SECRET`.
->
-> **Inserida no `.env` de prod pelo mantenedor no mesmo dia.** Conferência read-only do agente:
-> **1** ocorrência (duas linhas fariam o Compose usar a última e confundiriam diagnóstico depois),
-> valor de 64 caracteres, permissão `600` preservada, arquivo de 904 para 997 bytes. A pré-condição
-> de deploy está satisfeita — tratar a chave como pendente levaria a reinserir e criar a duplicata
-> que a conferência existe para detectar.
->
-> **Um arquivo só.** `accounts` é PROD-only (D042, F5 da spec 026): `deploy.yml:179-186` aborta com
-> `ERRO: accounts nao tem realm beta`, e `_deploy-module.yml:304-316` só resolve `.env.beta` no ramo
-> `beta` do `case`, que o `accounts` nunca alcança. O arquivo lido é sempre
-> `/opt/artificio/apps/accounts/.env`. Escrever no `.env.beta` do `accounts` é trabalho perdido que
-> **parece** ter surtido efeito — pior modo de falha para um passo cuja prova é o container subir.
->
-> ### Correções do review da PR #245 — quatro bugs de corretude na paginação
->
-> Todos confirmados contra o código antes de corrigir. A raiz é comum: o cursor era tratado como
-> filtro de string sobre lista em memória, quando precisa ser posição total aplicada no banco.
->
-> 1. **Direção invertida em três dos quatro sorts.** `sort_key` serializava o critério de ordenação
->    (`best_score|created_at|id`) e a retomada usava `sort_key > after`. Mas `best`, `top` e `new`
->    ordenam `DESC`: retomar "depois" de uma raiz de score alto devolvia as de score **maior** — as
->    já servidas. `old` funcionava por coincidência, por ser o único `ASC`.
-> 2. **Chave local comparada globalmente.** `row_number()` é particionado por `parent_id`, então a
->    chave só ordena **entre irmãos**; o handler a comparava entre raízes de ramos diferentes, onde
->    ela não diz nada sobre a posição na árvore montada.
-> 3. **Cursor não descia para o banco.** A query tinha `LIMIT` fixo (~1.200) e o recorte era em
->    memória. Numa árvore de 3.000 comentários a segunda página recortava o mesmo bloco já servido
->    e devolvia **vazio, sem erro** — perda silenciosa, o pior modo de falha possível numa leitura.
-> 4. **`more.after` vazio após ramo truncado** (`treeAssembly`). Quando o primeiro ramo era
->    truncado, `lastServedRootSortKey` nunca era atribuído e os ramos posteriores emitiam
->    `after: ''` — string vazia que o banco lê como "desde o começo", devolvendo a árvore inteira
->    outra vez.
->
-> Correção: `sort_key` passa a ser a serialização de `sort_path` (caminho materializado de
-> `row_number()`s, segmentos de 9 dígitos), cuja ordem lexicográfica **coincide com a ordem de
-> leitura em qualquer sort**. `after` e `branch_id` viram parâmetro da query. `selectNavigationWindow`
-> foi removida.
->
-> **Outros achados do mesmo review, aplicados:** `ACCOUNTS_COMMENT_CURSOR_KEY` é rejeitada quando
-> idêntica ao `JWT_SECRET` — o `min(32)` sozinho permitia colar o mesmo valor nos dois, e a
-> separação exigida por 8d-i existiria só no papel; o limite do segredo do cursor mede **bytes
-> UTF-8**, não `String.length`, porque a força do HMAC vem da entropia em bytes; `legacy_content_html`
-> saiu da query e da interface, já que nenhum consumidor o lia e trazê-lo significava trafegar HTML
-> legado não sanitizado dentro do processo (legado renderizável é T2.8, pelo pipeline de sanitização);
-> o comentário de schema em `db.ts` passou a descrever o contrato real (colunas de leitura **mais**
-> chaves estruturais), em vez de afirmar um mínimo que não batia com as interfaces.
->
-> **Cobertura honesta.** Testes de rota subiram de 9 para 20, cobrindo o payload público (campos do
-> contrato, tombstone sem corpo/score, `my_vote` só autenticado, legado, `Cache-Control`) e os
-> parâmetros que descem para a query. O cabeçalho do arquivo agora **declara o que não cobre**: o
-> SQL roda contra fake de Kysely, que devolve as linhas na ordem que mandamos — prova tradução e
-> contrato HTTP, nunca a corretude da consulta.
->
-> **Complexidade cognitiva (Sonar, mesma PR).** `handleReadTree` (23) e `assembleTree` (22) estavam
-> acima do teto de 15. Ambas concentravam decisões independentes num laço/fluxo só. Extraídas sem
-> mudar comportamento — 148/148 e 69/69 antes e depois: de `handleReadTree` saíram
-> `resolveNavigationStart` (cursor → posição de retomada, `null` = recusa), `emptyTree` e
-> `buildMoreNodes`; de `assembleTree` saíram `branchFits`, `takePrefix` (maior prefixo que cabe) e
-> `collapseMore`. Os nomes são o ganho real: cada etapa passa a dizer o que decide, em vez de o
-> leitor reconstruir a decisão a partir de `if` aninhado.
->
-> ### O que falta para fechar
->
-> **Smoke com banco real.** A CTE recursiva **não tem teste contra PostgreSQL**: busca negativa por
-> `pg-mem`/`testcontainers` em `apps/**` e `packages/**` não achou nada — o monorepo não tem infra de
-> teste com banco, então não há onde plugar. Os 9 testes do handler usam fake de Kysely e cobrem o
-> que só existe na camada HTTP (escopo, derivação pela credencial, ciclo do cursor, formato de erro);
-> o corte por ramo e o caso de 1.500 comentários rodam sem banco em `packages/comments`. **Não está
-> provado por teste automatizado:** a ordem do `sort_path`, o join da faixa de score e o desempate.
->
-> A prova precisa vir de chamada real, mesmo padrão da T2.2a-op, onde "variável presente" não bastou
-> e o que fechou foi chamada container a container. A credencial do `downloads` hoje tem só
-> `users.read`/`secrets.read`, então o smoke exige emitir uma com `comment.read`.
->
-> Depois disso: commit, PR, merge em `dev`, promote e `workflow_dispatch` de deploy em prod — nenhum
-> autorizado até agora.
->
-> ### Ordem que quebra deploy
->
-> O compose de prod usa `:?`. Se a chave sumir do `.env`, o `accounts` não sobe e **o SSO de todos os
-> projetos cai no boot**, não só a rota nova. Mesma armadilha que mordeu a T2.2a-op em 2026-08-05 —
-> registrada aqui porque a chave já está no lugar hoje, e quem reinstalar a VM ou recriar o `.env`
-> precisa saber que essa linha é pré-condição de boot, não configuração opcional.
->
-> ### Achados laterais da VM (leitura read-only, nenhuma escrita)
->
-> - **`/opt/artificio-beta/apps/accounts/.env.beta` é vestígio morto.** Existe desde 2026-06-27 com
->   três chaves; nenhum deploy o lê, pelo motivo de PROD-only acima. Não há `accounts-beta-api` entre
->   os containers. Remoção é decisão do mantenedor — o arquivo contém segredo.
-> - **`SERVICE_SECRET` ainda está nos dois `.env`**, embora T2.2a-op passo 6 o tenha removido do
->   código e do compose. `docker inspect accounts-api` confirma que **não** está no ambiente do
->   container em execução: o corte funcionou, o que sobrou é resíduo em arquivo, não credencial viva.
->   Não é bug ativo; é limpeza pendente.
+- [ ] T2.3 — **Leitura em árvore com cursor versionado por revisão** (requisito 6; decisões 3, 8). **Código merged na PR #245; falta o smoke com banco real.** No volume normal a leitura devolve a árvore inteira, sem limite de respostas irmãs; hard cap defensivo de **1.000 comentários ou 2 MiB**, o que ocorrer primeiro, e só então raízes/ramos restantes viram `more`, **nunca filho órfão**. A primeira leitura fixa `snapshot_revision`; o cursor é opaco e assinado, carregando assunto, sort, revisão, sort-key, ramo, limite e expiração de **30 minutos**. Expansões usam a mesma revisão, sem duplicar nem perder item — score e `my_vote` podem vir do estado atual, mas a **posição fica congelada**. Sem transação aberta entre requests, sem cache de paginação, sem cron. Supersede a versão anterior, que paginava lista plana por `(created_at, id)` (revogado pelo grilling). · feito quando: árvore de 1.500 comentários devolve `more` sem órfão; expansão na mesma revisão não duplica nem perde item; e cursor expirado falha explicitamente em vez de devolver posição errada.
 
-> **Onde a T2.3 já está respondida — consultar antes de perguntar** (levantamento de 2026-08-07).
-> Estas dúvidas foram levantadas como se fossem lacunas e já estavam registradas; ficam aqui para
-> nenhum agente reabrir:
->
-> 1. **O contrato HTTP não é escopo da T2.3 — já está fechado.** `contrato-http-v1.md` §2
->    (`GET /internal/v1/comments`) define método, path, escopo `comment.read`, query
->    (`subject_type`, `subject_id`, `sort`, `cursor`), shape da resposta (`state`,
->    `snapshot_revision`, `comments`, `more[]`, `truncated`), a lista de campos públicos do
->    objeto `Comment`, o que **nunca** entra no payload público, o comportamento de `removed`/
->    `pending_review_hidden` e os erros `400`/`401`/`403`/`429`. Fechado por T2.2b, que está `[x]`.
->    T2.3 **implementa** esse contrato; não o redecide.
-> 2. **T2.3 não depende de T2.13.** A dependência é o inverso do que parece pela numeração:
->    a leitura **fixa** `snapshot_revision` e navega dentro dela — nunca incrementa. `spec.md`
->    8d diz quem incrementa: "cada mudança real de **voto** cria versão de score sob lock curto"
->    — isto é T2.12/T2.13, não a leitura. As colunas já existem em
->    `apps/accounts/database/migration_006_community_comments.sql`: `ranking_revision` no assunto
->    (linha 129) e `created_revision` no comentário (linha 150). T2.3 lê; não precisa de T2.13.
-> 3. **Chave de assinatura do cursor:** decidida e em uso — ver a seção
->    `ACCOUNTS_COMMENT_CURSOR_KEY` acima.
->
-> **Fontes que já respondem a T2.3, na ordem de leitura:** `plan.md` §Árvore, voto e ranking
-> (linhas 125-141) — a seção de execução da task: cursor é **stateless assinado** (linha 137,
-> logo a assinatura carrega o estado, sem tabela de cursor), o teto produz `more` por ramo
-> (131-132) e é o **voto** que serializa a atualização de revisão (133-134); `spec.md` 8a (árvore,
-> cap 1.000/2 MiB, `more` sem órfão), 8c (os quatro sorts, desempate, `my_vote` só autenticado),
-> 8d (revisão por assunto, conteúdo do cursor, 30 min) e o bloco de códigos de erro;
-> `contrato-http-v1.md` §2 (contrato completo da rota); `migration_006_community_comments.sql`
-> (schema). O critério de aceite da fase também já está em `spec.md`: "navegação com `more` na mesma
-> revisão não duplica, perde nem orfana comentário; cursor expira em 30 minutos". **Ler estas seções
-> inteiras, não grep de linha solta** — o grep isolado foi o que fez estas dúvidas parecerem lacunas.
+  **Entregue e verde** (`accounts` 148/148, `packages/comments` 69/69, repo 41/41 teste e 25/25
+  lint/build, `verify:api` `breaking=0`): `treeCursor.ts` (HMAC-SHA256, TTL com relógio injetável,
+  assinatura verificada **antes** da expiração), `treeAssembly.ts` (corte por ramo de raiz — nunca
+  por posição, é o que sustenta "nunca filho órfão"), `communityCommentRead.ts` (CTE recursiva em
+  ordem de leitura; ordenação **entre irmãos**, nunca entre níveis; join de score pela faixa que
+  **contém** a revisão congelada, não a corrente) e `communityCommentRoutes.ts` (`realm`/`source_app`
+  da credencial; assunto sem comentário devolve árvore vazia com revisão 0, **não 404**). O porquê de
+  cada decisão vive no comentário de cada arquivo — não se duplica aqui.
+
+  `@artificio/comments` entrou no filtro de `pnpm install --prod` do `Dockerfile` com guard de `zod`:
+  caso literal de E016/E017, em que o CI fica verde e o container quebra na primeira leitura.
+
+  **`ACCOUNTS_COMMENT_CURSOR_KEY` — 8d-i fechada.** Chave dedicada, `min(32)`, **obrigatória** (`:?`
+  no compose): cursor assinado com default é forjável, então falhar o deploy é o comportamento
+  correto. Inserida no `.env` de prod pelo mantenedor em 2026-08-07 e conferida (1 ocorrência, 64
+  caracteres, permissão `600`). **Um arquivo só** — `accounts` é PROD-only (D042):
+  `deploy.yml:179-186` aborta com `env=beta`, então escrever no `.env.beta` é trabalho perdido que
+  *parece* ter surtido efeito. **Se a chave sumir do `.env`, o `accounts` não sobe e o SSO de todos
+  os projetos cai no boot** — pré-condição de boot, não configuração opcional.
+
+  **Quatro bugs de paginação corrigidos no review**, todos com a mesma raiz — o cursor era filtro de
+  string em memória, quando precisa ser posição total aplicada no banco: direção invertida em três
+  dos quatro sorts (`best`/`top`/`new` ordenam `DESC`, e `sort_key > after` avança ascendente); chave
+  de irmão comparada entre ramos; cursor que não descia para a query, fazendo a segunda página de uma
+  árvore grande voltar **vazia sem erro**; e `more.after` vazio após ramo truncado, que o banco lê
+  como "desde o começo". Correção: `sort_key` virou a serialização de `sort_path` (segmentos de 9
+  dígitos), cuja ordem lexicográfica coincide com a ordem de leitura em qualquer sort. Também dali:
+  chave do cursor rejeitada quando igual ao `JWT_SECRET`; limite do segredo em **bytes UTF-8**;
+  `legacy_content_html` fora da query. `handleReadTree` (23) e `assembleTree` (22) passaram do teto do
+  Sonar e foram extraídas sem mudar comportamento.
+
+  **Cobertura honesta:** os testes de rota usam fake de Kysely, que devolve as linhas na ordem que
+  mandamos. Provam tradução e contrato HTTP, **nunca a corretude do SQL**.
+
+  **Bloqueio — smoke com banco real.** A CTE não tem teste contra PostgreSQL (busca negativa por
+  `pg-mem`/`testcontainers`: sem infra no monorepo). Não provado: ordem do `sort_path`, join da faixa
+  de score, desempate. Medição de 2026-08-07: prod tem migrations 001–007 e as 18 tabelas
+  `community_*`, mas `community_comment` e `community_comment_subject` estão **vazias**, e nenhuma das
+  4 credenciais ativas tem `comment.read`. Como a escrita é T2.6c (aberta), semear exigiria `INSERT`
+  em produção. **Decisão do mantenedor em 2026-08-07: o smoke espera T2.6c** — semear por SQL provaria
+  a query, não o caminho.
+
+  **Achados laterais da VM** (read-only): `/opt/artificio-beta/apps/accounts/.env.beta` é vestígio
+  morto desde 2026-06-27, contém segredo, remoção é decisão do mantenedor; `SERVICE_SECRET` ainda está
+  nos dois `.env`, mas `docker inspect accounts-api` confirma que **não** está no container em
+  execução — resíduo em arquivo, não credencial viva.
+
+  **Não reabrir:** o contrato HTTP não é escopo desta task (fechado em `contrato-http-v1.md` §2 por
+  T2.2b — T2.3 implementa, não redecide), e **T2.3 não depende de T2.13**, apesar da numeração: a
+  leitura fixa `snapshot_revision` e navega dentro dela, nunca incrementa; quem incrementa é o voto
+  (`spec.md` 8d). Fontes: `plan.md` §Árvore (125-141), `spec.md` 8a/8c/8d. **Ler a seção inteira, não
+  grep de linha solta.**
 
 - [ ] T2.3b — **As quatro ordenações do produto** (decisões 7, 19). `Melhores` (padrão de abertura) usa o **limite inferior de Wilson unilateral com `z = 1.281551565545`** (80% de confiança), sem decaimento temporal, sob `algorithm_version = 'reddit-wilson-80-v1'`; `Mais votados` ordena por score líquido; `Recentes` por `created_at DESC`; `Mais antigos` por `created_at ASC`. A ordenação acontece **entre irmãos, nunca misturando níveis** da árvore. `created_at` e `id` formam o desempate estável. Tombstone mantém a posição estrutural mas não expõe corpo nem score. `Controversos`, `Random`, `Q&A`, `Live` e `Hot` **não entram**. Fórmula e vetores de referência entram em teste, **testando diretamente a função PostgreSQL** de T2.1c, não uma reimplementação em TypeScript. Algoritmo futuro cria nova versão e nova série de score; nunca reinterpreta histórico silenciosamente. · feito quando: os quatro sorts testados; vetores de Wilson batem contra a função SQL; e nenhuma ordenação mistura níveis da árvore.
 - [ ] T2.4 — **Integridade de thread validada na transação** (requisito 8; decisões 3, 23). Reformulado em dois pontos que o grilling revogou: a profundidade máxima é **`depth<=4`**, não `depth<=2`; e **resposta a comentário legado é permitida**, não recusada — o registro importado continua imutável, sem voto e marcado como antigo/autoria não verificada, mas **pode ser pai** de comentário novo de conta autenticada (decisão 23: antigo descreve proveniência, não congela a conversa). O pai precisa existir, pertencer ao **mesmo `realm`, `source_app` e assunto**, aceitar respostas e produzir `depth<=4`. `root_id` é derivado na escrita, nunca aceito do cliente. Rejeitar na escrita, não corrigir depois. · feito quando: resposta cross-subject, cross-realm ou além de `depth=4` é recusada — inclusive sob concorrência — e resposta a legado é **aceita** com `depth` correto.
-- [ ] T2.5 — **Markdown pelo pipeline compartilhado existente; DOMPurify só no legado** (requisito 10; decisões 24, 25, 30). Reformulado: a versão anterior mandava texto puro no comentário novo, revogado pela decisão 24. A Fase 2 **não cria parser, sanitizador nem renderizador paralelo**. Na escrita, o backend passa a entrada por `sanitizeUserMarkdown` de `@artificio/content-editor/sanitize` e persiste o **Markdown canônico**; a API devolve esse Markdown, **não HTML montado**. Consumidores renderizam somente por `MarkdownContent`/`renderMarkdown` de `@artificio/content-editor`, cujo `markdown-it` já roda com `html: false` e cuja saída passa por DOMPurify. Limite de **10.000 caracteres**, validado **tanto na entrada original, antes do trabalho de parsing, quanto no Markdown canônico produzido** (decisão 25); excesso rejeita a operação inteira com erro específico, **nunca trunca silenciosamente nem persiste versão parcial**. Depois da canonicalização, `markdownToPlainText` precisa resultar em **conteúdo não vazio** (decisão 30): espaços, HTML integralmente removido, separador temático isolado ou marcadores sem texto são rejeitados; emoji, código, citação e link com rótulo visível são aceitos. As três regras valem igualmente para criação e edição. O legado do `site` tem `content_html` e é sanitizado **uma vez, na entrada**, com política e versão registradas; a saída passa por defesa adicional **sem regravar o banco**. Nunca ressanitizar continuamente nem alterar o HTML depois de sanitizado (anula a proteção). · feito quando: testes de XSS cobrindo script, links, SVG/MathML, atributos e o HTML legado; entrada de 10.001 caracteres rejeitada antes do parsing; e comentário que sanitiza para vazio rejeitado.
+- [ ] T2.5 — **Markdown pelo pipeline compartilhado existente; DOMPurify só no legado** (requisito 10; decisões 24, 25, 30). **Validação de corpo entregue na PR #246 (`c04453e`); falta o legado e a rota que a consome.** A Fase 2 **não cria parser, sanitizador nem renderizador paralelo**: a escrita passa por `sanitizeUserMarkdown` de `@artificio/content-editor/sanitize` e persiste **Markdown canônico** — a API devolve Markdown, **não HTML montado** —, e consumidores renderizam só por `MarkdownContent`/`renderMarkdown`, cujo `markdown-it` roda com `html: false` e cuja saída passa por DOMPurify. Limite de **10.000 caracteres** validado na entrada original **e** no canônico (decisão 25); excesso rejeita a operação inteira, **nunca trunca nem persiste versão parcial**. Depois da canonicalização, `markdownToPlainText` precisa dar **conteúdo não vazio** (decisão 30) — espaços, HTML removido, separador isolado ou marcador sem texto são rejeitados; emoji, código, citação e link com rótulo são aceitos. As três regras valem para criação e edição. O legado do `site` tem `content_html`, sanitizado **uma vez na entrada** com política e versão registradas, e a saída ganha defesa adicional **sem regravar o banco** — nunca ressanitizar continuamente. Supersede a versão anterior, que mandava texto puro (revogado pela decisão 24). · feito quando: testes de XSS cobrindo script, links, SVG/MathML, atributos e o HTML legado; entrada de 10.001 caracteres rejeitada antes do parsing; e comentário que sanitiza para vazio rejeitado.
+
+  `validateCommentBody` (`packages/comments/src/commentBody.ts`) implementa os invariantes 3–5 de
+  `contrato-http-v1.md` §3 no **pacote compartilhado**, não no `accounts.`, porque `spec.md` 8 manda
+  cliente e backend usarem a **mesma** política — duas implementações divergiriam, e o usuário veria
+  o editor aceitar corpo que a API recusa. A ordem é a regra: o limite roda **antes** da varredura de
+  links (§3 item 5), coberto por teste que falha se alguém trocar as etapas. Limite conta **pontos de
+  código**, não `String.length`: `LENGTH()` do PostgreSQL conta 3 em `'🎲🎲🎲'` e o UTF-16 contaria 6,
+  o que recusaria corpo que o banco aceita (achado P2 do review).
+
+  O contrato afirma que essa ordem torna `input_too_large` inalcançável. **Medido: vale para ASCII e
+  falha fora do BMP** — 10.000 emoji são 10.000 pontos de código (dentro do limite) e 20.000 unidades
+  UTF-16 (acima do `MAX_SCAN_LENGTH` de 12.000, que mede custo de varredura). Sem checagem própria, o
+  usuário receberia `INVALID_COMMENT_LINK` num corpo sem link nenhum.
+
+  **Não fecha:** falta o legado do `site` e a rota de escrita que consome a validação (T2.6c). Sem
+  consumidor, a função existe e ninguém a chama.
+
+  ### Lacuna de idempotência — fechada por `migration_008`
+
+  `contrato-http-v1.md` §6 e `spec.md` 396/419/512-514 exigem `Idempotency-Key` em toda escrita não
+  idempotente **desde a Fase 2** (24h de retenção, `409`/`idempotency_key_reuse`). **Nenhuma migration
+  criava onde guardar.** Onde escapou: a regra é **propriedade transversal de sete fluxos**, e a
+  rastreabilidade da §15 organiza **por fluxo** — não teve linha, não teve dono, e nenhuma task de
+  schema (T2.1–T2.1f) a incluiu. O aceite de T2.2b conferiu fluxos, não regras transversais. Mesmo
+  padrão que criou T2.5b.
+
+  `migration_008_idempotency_key.sql` fecha. **A unicidade de
+  `(realm, source_app, operation, idempotency_key)` é o mecanismo**: o handler insere primeiro e
+  desempata pelo `ON CONFLICT`, **nunca** consulta-antes-insere — o check-before-transaction do
+  `downloads` que a §6 manda não replicar. Guarda `request_hash` (SHA-256), não o corpo: reter
+  `body_markdown` por 24h ampliaria a superfície de conteúdo hostil sem ganho. **Bloqueio: não
+  aplicada contra PostgreSQL** — exigiria escrita em banco da VM. Header validado pelo `parse_header`
+  real (`CLASS=online-safe`, `HEADER OK`), sem DDL destrutivo.
+
+  ### Bug de escape em `packages/content-editor` (mesmo PR)
+
+  `sanitize-html` escapava `<`/`>` que **sobreviviam como texto**: `> citação` virava `&gt; citação` e
+  o `markdown-it` perdia o blockquote; idem `a > b` e `1 < 2`. Alcance medido: **~140 chamadas** em
+  `downloads` e `mesas` — bio, descrição de material, comentário, nota de moderação, sinopse de mesa.
+
+  **A primeira correção estava errada e o review pegou.** Desfazer o escape dentro de `textFilter`
+  transformava **entidade digitada pelo usuário** em markup: `&lt;b&gt;ok&lt;/b&gt;` virava `<b>ok</b>`
+  na primeira passagem e `ok` na segunda — quebrando a **idempotência**, que é requisito duro porque
+  `downloads/routes/comments.ts` persiste a saída (L47) e re-sanitiza na leitura (L65). Conteúdo
+  armazenado mudaria a cada leitura, sem erro nenhum. Medido: `<` e `&lt;` chegam **idênticos** ao
+  `textFilter` (`sanitize-html/index.js:615`) — indistinguíveis por construção.
+
+  Correção final: pré-passo `protectLooseAngleBrackets`, que roda **antes** do escape (onde `<` e
+  `&lt;` ainda são coisas diferentes) e troca por sentinela apenas o `<`/`>` **fora de tag**. A
+  varredura acompanha estado de tag, porque proteger todo `>` fazia o sanitizador perder o fechamento
+  e engolir o texto seguinte. Resultado: entidade preservada, tag removida, idempotência restaurada —
+  9 casos travados em teste. `&` segue escapado: não quebra marcação nenhuma.
+
+  **Erro do agente, que é como o bug passou.** Os testes de citação da primeira versão afirmavam
+  apenas `ok: true` e passavam **com a marcação destruída**, porque texto escapado também é não-vazio.
+  Reescritos para igualdade exata contra a entrada.
+
+  **Validação:** repo 41/41 teste, 25/25 lint, 25/25 build, `verify:api` `breaking=0`;
+  `content-editor` 79/79 (era 57), `comments` 97/97, `mesas` 707/707.
+
 - [x] T2.5b — **Perfil de comentário e política de link no `@artificio/content-editor`** (decisões 26, 27, 28, 29). **Task nova, criada em 2026-08-04 a partir de leitura do código real.** As decisões 26–29 pressupõem um perfil de renderização de comentário que **hoje não existe no pacote**: `packages/content-editor/src/sanitize.ts:10` e `ContentEditor.tsx:6` configuram `MarkdownIt` com `html: false`, o que já barra HTML bruto, mas **não há desativação de `<img>` nem qualquer política de destino de link**. Sem esta task, as decisões 26–29 não têm onde ser implementadas — e a decisão 29 proíbe expressamente implementação local por app. Exigir, dentro do pacote compartilhado já existente: (a) **imagem só como referência HTTPS clicável** — `![alt](https://...)` vira link textual explícito (“alt — abrir imagem externa”), o browser **não busca o recurso até o clique**, sem upload, Cloudinary, hospedagem, proxy, preview ou busca server-side; (b) **links HTTPS-only** — URL sem esquema é canonicalizada para `https://`, `http:` ou qualquer outro esquema explícito é **rejeitado com mensagem específica, nunca promovido silenciosamente**; (c) **comparação de host estrutural por `URL`**, nunca `includes`/sufixo frouxo que aceite `artificiorpg.com.evil.example` — host exato `artificiorpg.com` ou subdomínio real abre na mesma aba, externo abre em nova aba; (d) **`rel="ugc nofollow"` em todo link de usuário**, mais `noopener noreferrer` no externo; (e) **link root-relative `/rota`** resolvido pelo consumidor contra a origem confiável derivada de `source_app`, **nunca contra host enviado no comentário**, rejeitando `//host`, `../`, relativo sem `/` inicial e qualquer forma ambígua; (f) **política de falha única e compartilhada** — sintaxe incompleta que o CommonMark trata como literal é aceita e exibida literalmente, mas quando o parser **reconhece** um link cujo destino viola (a)–(e), criação ou edição inteira é rejeitada com código estável **`INVALID_COMMENT_LINK`**, posição e mensagem da regra, **sem ecoar o payload hostil** e sem remover ou reescrever nada silenciosamente. `accounts.` e todos os frontends importam a **mesma** política; o cliente usa para erro imediato/prévia, o backend repete como **autoridade final**. Mudança em pacote compartilhado: exige aprovação e verificação de impacto nos consumidores (`AGENTS.md` §Autorização). · feito quando: `<img>` não é buscado pelo browser em nenhum caminho de render; `http://`, `//host` e `artificiorpg.com.evil.example` são rejeitados com `INVALID_COMMENT_LINK`; `[texto](` incompleto permanece literal; e os consumidores atuais do pacote seguem verdes.
   **Implementado em 2026-08-04, com aprovação nominal do mantenedor para alterar o
   pacote compartilhado.** Artefatos: `packages/content-editor/src/commentLinks.ts`

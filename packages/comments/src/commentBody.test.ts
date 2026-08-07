@@ -29,6 +29,37 @@ describe('limite de 10.000 caracteres (decisão 25)', () => {
     // autor, um texto que ele não escreveu.
     expect(result).not.toHaveProperty('bodyMarkdown');
   });
+
+  it('conta pontos de código, não unidades UTF-16 (achado P2, PR #246)', () => {
+    // `String.length` conta 2 por emoji, então 5.001 emoji davam 10.002 e eram
+    // recusados — enquanto `LENGTH()` do PostgreSQL conta 5.001 e aceitaria.
+    // Medido no banco de produção: `length('🎲🎲🎲')` devolve 3.
+    const cincoMil = '🎲'.repeat(5_001);
+    expect(cincoMil.length).toBe(10_002); // UTF-16 engana
+    expect(validateCommentBody(cincoMil).ok).toBe(true);
+
+    expect(validateCommentBody('🎲'.repeat(COMMENT_BODY_MAX_LENGTH + 1)))
+      .toEqual({ ok: false, code: 'body_too_long' });
+  });
+
+  it('corpo fora do BMP acima do teto de varredura sai como body_too_long', () => {
+    // O contrato afirma que `input_too_large` é inalcançável por esta rota. Vale
+    // para ASCII e NÃO vale fora do BMP: 10.000 emoji são 10.000 pontos de
+    // código (dentro do limite) e 20.000 unidades UTF-16 (acima do teto de
+    // varredura de 12.000). Sem a checagem própria, o usuário receberia
+    // `INVALID_COMMENT_LINK` num corpo que não tem link nenhum.
+    const result = validateCommentBody('🎲'.repeat(COMMENT_BODY_MAX_LENGTH));
+    expect(result).toEqual({ ok: false, code: 'body_too_long' });
+  });
+
+  it('a segunda checagem pega o que a canonicalização faz crescer', () => {
+    // `&` vira `&amp;`: cinco caracteres onde havia um. Entrada dentro do limite
+    // sai acima dele, e é o valor canônico que vai ao banco — sem esta checagem
+    // a falha apareceria como erro de `CHECK`, não como `422` com motivo.
+    const result = validateCommentBody('&'.repeat(COMMENT_BODY_MAX_LENGTH));
+    expect(result).toEqual({ ok: false, code: 'body_too_long' });
+    expect(result).not.toHaveProperty('bodyMarkdown');
+  });
 });
 
 describe('conteúdo visível (decisão 30)', () => {

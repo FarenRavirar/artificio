@@ -99,17 +99,48 @@ describe('caracteres literais `<` e `>` (correção 2026-08-07)', () => {
     expect(sanitizeUserMarkdown('entidade &nbsp; e &copy;')).toBe('entidade &nbsp; e &copy;');
   });
 
-  it('`&lt;script&gt;` digitado sobrevive como texto e o render o neutraliza', () => {
-    // Efeito 2 documentado em `MARKDOWN_ONLY_OPTIONS`: o parser não vê tag aqui,
-    // então o valor ARMAZENADO passa a conter `<script>` literal. A garantia
-    // deixou de ser "o dado é inerte por si só" e passou a ser o render —
-    // `markdown-it` com `html: false` escapa, DOMPurify limpa depois.
-    const armazenado = sanitizeUserMarkdown('&lt;script&gt;alert(1)&lt;/script&gt;');
-    expect(armazenado).toBe('<script>alert(1)</script>');
+  it('entidade digitada pelo usuário NUNCA vira markup', () => {
+    // Achado P1 do review da PR #246. Uma tentativa anterior de corrigir o
+    // escape convertia `&lt;b&gt;` em `<b>` — transformando texto que o usuário
+    // digitou em HTML persistido. O dado precisa continuar inerte por si só.
+    expect(sanitizeUserMarkdown('&lt;script&gt;alert(1)&lt;/script&gt;'))
+      .toBe('&lt;script&gt;alert(1)&lt;/script&gt;');
+    expect(sanitizeUserMarkdown('&lt;b&gt;ok&lt;/b&gt;')).toBe('&lt;b&gt;ok&lt;/b&gt;');
+    expect(sanitizeUserMarkdown('&lt;img src=x onerror=alert(1)&gt;'))
+      .toBe('&lt;img src=x onerror=alert(1)&gt;');
+  });
 
-    // A prova de que é inerte na saída: a projeção plana não executa nada, e o
-    // render escapa. Quem consumir estes campos precisa passar por
-    // `renderMarkdown`/`MarkdownContent` — injetar cru em `innerHTML` seria XSS.
+  it.each([
+    ['entidade de tag', '&lt;script&gt;alert(1)&lt;/script&gt;'],
+    ['entidade de formatação', '&lt;b&gt;ok&lt;/b&gt;'],
+    ['tag real removida', '<script>alert(1)</script>'],
+    ['tag real com texto ao redor', '<b>x</b> a > b'],
+    ['citação', '> citado'],
+    ['comparação', 'a > b'],
+    ['ampersand', 'a & b'],
+    ['código inline', '`<b>ok</b>`'],
+    ['entidade dupla', '&amp;lt;x&amp;gt;'],
+  ])('é idempotente: %s', (_caso, input) => {
+    // Requisito, não elegância: `downloads/routes/comments.ts` persiste a saída
+    // (L47) e re-sanitiza na leitura (L65). Não idempotente = conteúdo muda ou
+    // some a cada leitura, sem erro nenhum. Foi o defeito P1 da PR #246.
+    const uma = sanitizeUserMarkdown(input);
+    const duas = sanitizeUserMarkdown(uma);
+    const tres = sanitizeUserMarkdown(duas);
+
+    expect(duas).toBe(uma);
+    expect(tres).toBe(uma);
+  });
+
+  it('projeção plana não produz markup a partir de entidade', () => {
+    // `markdownToPlainText` não usa o pré-passo de sentinela — a entrada dele é
+    // HTML do markdown-it, não texto do usuário. Este teste trava que a
+    // diferença não reabre o P1 por outro caminho.
+    expect(markdownToPlainText('&lt;script&gt;x&lt;/script&gt;')).not.toContain('<script');
+  });
+
+  it('render neutraliza o que sobreviver', () => {
+    const armazenado = sanitizeUserMarkdown('&lt;script&gt;alert(1)&lt;/script&gt;');
     expect(renderMarkdown(armazenado)).not.toMatch(/<script/i);
     expect(renderMarkdown(armazenado)).toContain('&lt;script&gt;');
   });

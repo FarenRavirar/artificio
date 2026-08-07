@@ -25,15 +25,61 @@ import {
  * ## A ordem é a regra, não detalhe de implementação
  *
  * `contrato-http-v1.md` §3 item 5 é explícito: o limite de 10.000 é checado
- * **antes** da varredura de links. O `MAX_SCAN_LENGTH` do pacote de links é
- * 12.000 — mais frouxo. Com a ordem certa, `input_too_large` fica inalcançável
- * por esta rota, porque corpo acima de 10.000 já saiu com `body_too_long`. Se
- * essa regra aparecer em produção, é sinal de que a ordem foi invertida, não de
- * que o usuário mandou algo exótico.
+ * **antes** da varredura de links, para o servidor não pagar o parse de um corpo
+ * que já ia recusar.
+ *
+ * O contrato afirma que isso torna `input_too_large` inalcançável, porque o
+ * `MAX_SCAN_LENGTH` do pacote de links é 12.000 — mais frouxo que 10.000.
+ * **Medido em 2026-08-07: a afirmação vale para texto ASCII e falha fora do
+ * BMP.** As duas contagens medem coisas diferentes: o limite do comentário conta
+ * pontos de código (para casar com `LENGTH()` do PostgreSQL), e o teto de
+ * varredura conta unidades UTF-16 (porque protege contra o custo real da regex,
+ * que é proporcional a elas). 10.000 emoji são 10.000 pontos de código — dentro
+ * do limite — e 20.000 unidades UTF-16 — acima do teto de varredura. O corpo
+ * passava na primeira checagem e morria na segunda com a regra errada.
+ *
+ * Por isso a validação recusa **antes** o que a varredura não conseguiria
+ * examinar, com o código que descreve o problema de verdade (`body_too_long`, e
+ * não uma violação de link que não existe). `MAX_SCAN_LENGTH` continua sendo
+ * responsabilidade do pacote de links; aqui só espelhamos o teto para não
+ * entregar a ele o que ele recusa.
  */
 
 /** `spec.md` §Referência opaca — vale para a entrada e para a saída canônica. */
 export const COMMENT_BODY_MAX_LENGTH = 10_000;
+
+/**
+ * Espelha o `MAX_SCAN_LENGTH` de `@artificio/content-editor/comment-links`, que
+ * o pacote não exporta.
+ *
+ * Medido em unidades UTF-16 porque é assim que o pacote de links mede — lá o
+ * teto protege o custo da varredura, que é proporcional a elas, não a pontos de
+ * código. Duplicar a constante é ruim, mas melhor que a alternativa: sem ela, um
+ * corpo de 10.000 emoji (válido por pontos de código) chegaria à varredura com
+ * 20.000 unidades e voltaria como `INVALID_COMMENT_LINK`/`input_too_large` — um
+ * erro de link para um corpo que não tem link nenhum.
+ */
+const LINK_SCAN_MAX_UTF16_UNITS = 12_000;
+
+/**
+ * Conta **pontos de código**, não unidades UTF-16.
+ *
+ * `String.length` conta 2 por caractere fora do BMP, então 5.001 emoji davam
+ * 10.002 e eram recusados — enquanto o `LENGTH(body_markdown)` do PostgreSQL
+ * (`community_comment_version_body_check`) conta 5.001 e aceitaria. Medido no
+ * banco de produção: `length('🎲🎲🎲')` devolve `3`.
+ *
+ * A divergência importa porque a validação existe para **antecipar** o `CHECK`
+ * do banco com uma mensagem melhor. Contando diferente, ela recusaria corpo que
+ * o banco aceita — e o usuário levaria `body_too_long` num texto dentro do
+ * limite anunciado. Achado do review da PR #246 (Codex, P2).
+ */
+function countCharacters(value: string): number {
+  // `Intl.Segmenter` contaria grafemas (👨‍👩‍👧 = 1), divergindo do PostgreSQL na
+  // direção oposta. Pontos de código é o que `LENGTH()` conta, e é o que o
+  // iterador de string entrega.
+  return [...value].length;
+}
 
 export type CommentBodyRejectionCode =
   /** Entrada original ou Markdown canônico acima de 10.000 (decisão 25). */
@@ -69,7 +115,7 @@ export function validateCommentBody(input: string): CommentBodyValidation {
   // Checar só depois da canonicalização deixaria o servidor fazer o trabalho de
   // parsing sobre um corpo arbitrariamente grande antes de descobrir que ia
   // recusar — o atacante paga um POST e o servidor paga o parse.
-  if (input.length > COMMENT_BODY_MAX_LENGTH) {
+  if (countCharacters(input) > COMMENT_BODY_MAX_LENGTH) {
     return { ok: false, code: 'body_too_long' };
   }
 
@@ -80,7 +126,15 @@ export function validateCommentBody(input: string): CommentBodyValidation {
   // referência), e o que vai ao banco é este valor — o `CHECK` de
   // `community_comment_version` recusaria a linha, e a falha apareceria como
   // erro de banco em vez de `422` com motivo.
-  if (bodyMarkdown.length > COMMENT_BODY_MAX_LENGTH) {
+  if (countCharacters(bodyMarkdown) > COMMENT_BODY_MAX_LENGTH) {
+    return { ok: false, code: 'body_too_long' };
+  }
+
+  // Corpo dentro do limite por pontos de código mas acima do teto de varredura
+  // em unidades UTF-16 (só acontece fora do BMP — emoji, ideogramas raros).
+  // Recusar aqui, com `body_too_long`, dá ao usuário o motivo verdadeiro; deixar
+  // seguir devolveria `INVALID_COMMENT_LINK` para um corpo sem link nenhum.
+  if (bodyMarkdown.length > LINK_SCAN_MAX_UTF16_UNITS) {
     return { ok: false, code: 'body_too_long' };
   }
 
