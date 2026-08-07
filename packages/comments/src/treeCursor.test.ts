@@ -144,8 +144,22 @@ describe('issueTreeCursor / verifyTreeCursor', () => {
     expect(result).toEqual({ ok: false, reason: 'bad_signature' });
   });
 
-  it('exige segredo de ao menos 32 caracteres', () => {
-    expect(() => issueTreeCursor(payload(), 'curto-demais', NOW)).toThrow(/32 caracteres/);
-    expect(() => verifyTreeCursor('a.b', 'curto-demais', expected, NOW)).toThrow(/32 caracteres/);
+  it('exige segredo de ao menos 32 bytes', () => {
+    expect(() => issueTreeCursor(payload(), 'curto-demais', NOW)).toThrow(/32 bytes/);
+    expect(() => verifyTreeCursor('a.b', 'curto-demais', expected, NOW)).toThrow(/32 bytes/);
+  });
+
+  // Achado de review da PR #245: a checagem media `String.length`, que conta
+  // unidades UTF-16, enquanto a forca do HMAC vem da entropia em BYTES.
+  it('mede bytes UTF-8, nao caracteres', () => {
+    // 16 caracteres, 32 bytes em UTF-8 (2 bytes cada) — passa.
+    const doisBytesPorChar = 'á'.repeat(32);
+    expect(Buffer.byteLength(doisBytesPorChar, 'utf8')).toBeGreaterThanOrEqual(32);
+    expect(() => issueTreeCursor(payload(), doisBytesPorChar, NOW)).not.toThrow();
+
+    // 20 caracteres mas so 20 bytes: `length` aprovaria se o limite fosse 20;
+    // em bytes continua curto e precisa falhar.
+    const vinteBytes = 'a'.repeat(20);
+    expect(() => issueTreeCursor(payload(), vinteBytes, NOW)).toThrow(/32 bytes/);
   });
 });

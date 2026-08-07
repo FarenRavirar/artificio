@@ -47,7 +47,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 483 |
 | GET | `/health` | ✅ high | `apps/accounts/src/app.ts` | 227 |
 | GET | `/internal/users/:id` | ✅ high | `apps/accounts/src/app.ts` | 463 |
-| GET | `/internal/v1/comments` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 115 |
+| GET | `/internal/v1/comments` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 116 |
 | GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 483 |
 
 ## downloads

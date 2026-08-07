@@ -238,7 +238,7 @@
       "method": "GET",
       "path": "/internal/v1/comments",
       "sourceFile": "apps/accounts/src/communityCommentRoutes.ts",
-      "line": 115,
+      "line": 116,
       "confidence": "high",
       "kind": "express-route"
     },

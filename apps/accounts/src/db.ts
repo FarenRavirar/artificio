@@ -71,11 +71,18 @@ export interface CommunityServiceCredentialRow {
  * T2.3 — tabelas que a leitura em árvore consulta
  * (`migration_006_community_comments.sql`).
  *
- * Só as colunas que a leitura usa são declaradas. Cada coluna a mais aqui é uma
- * que o `SELECT` pode acidentalmente pedir, e as tabelas comunitárias guardam
- * dado que `contrato-http-v1.md` §2 proíbe no payload público (identidade de
- * votante, motivo de remoção, nota de moderação). Declarar o mínimo faz o
- * compilador barrar o vazamento antes do teste.
+ * Declaram as colunas que a leitura consome **mais as chaves estruturais** da
+ * tabela (`canonical_path`, `owner_user_id`, `current_version_id`, `legacy_id`),
+ * que as tasks seguintes do Bloco B usam para escrita e versionamento.
+ *
+ * O que fica deliberadamente **de fora** é o dado que `contrato-http-v1.md` §2
+ * proíbe no payload público: identidade de votante, motivo de remoção, nota
+ * interna de moderação, fingerprint. Cada uma dessas colunas ausente aqui é uma
+ * que o `SELECT` não consegue pedir por engano — o compilador barra o
+ * vazamento antes do teste.
+ *
+ * (A redação anterior dizia "só as colunas que a leitura usa", o que não batia
+ * com as interfaces declaradas — achado de review, PR #245.)
  */
 export interface CommunityCommentSubjectRow {
   realm: string;

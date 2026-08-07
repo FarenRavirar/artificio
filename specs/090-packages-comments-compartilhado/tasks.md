@@ -17,28 +17,12 @@
 
 ## Fase 0 — Levantamento e contrato
 
-Nenhuma linha antes de fechar o contrato. Os três consumidores têm modelos diferentes de papel
-e autoria; descobrir isso durante a implementação é retrabalho garantido — e aqui o erro sai
-caro, porque o alvo é o SSO.
-
-> **Sete decisões fechadas pelo mantenedor na 1ª revisão do Codex (2026-07-27).** Estavam
-> implícitas ou ausentes e bloqueavam a Fase 1. Cada uma está escrita na task que a executa:
-> **trust boundary** (T0.5), **realm/source_app** (T0.6), **capacidades do `moderator`** (T0.1),
-> **formato do corpo** (T0.9), **notificações legadas** (T0.11), **estratégia de migration**
-> (T0.12), **URL canônica construída, não recebida** (T0.7).
-
-**Decisão de segurança que atravessa a spec inteira: escrita é backend-to-backend.** O frontend
-**nunca** escreve direto no `accounts.` O backend do módulo valida que o objeto existe, está
-visível, aceita comentário e quem é o dono — só então chama o `accounts.` com credencial própria
-por app. `owner_user_id`, papel e URL vindos do cliente **nunca** são confiados; ownership é
-recalculado a partir de dado confiável, e cada objeto é autorizado a cada request (OWASP
-Authorization). Referência opaca **não substitui** autorização por objeto: sem essa validação, o
-atacante inventa dono, badge, destino e assunto inexistente.
-
-Isso também resolve um bloqueio real: `app.ts:87` restringe o CSRF a cinco origens
-(`BRAND_ORIGIN`, `links.`, `mesas.`, `glossario.`, `accounts.`), **excluindo `downloads` e todos
-os betas**, enquanto o CORS aceita qualquer `*.artificiorpg.com` (`:97`). Escrita direta do
-frontend do `downloads` falharia hoje. Server-to-server não passa por origem de navegador.
+> **Escrita backend-to-backend (decisão de segurança).** Frontend nunca escreve direto no
+> `accounts.`; backend do módulo valida objeto e dono, chama com credencial própria por app.
+> Sete decisões fechadas na 1ª revisão (2026-07-27): trust boundary (T0.5), realm/source_app
+> (T0.6), capacidades do moderator (T0.1), formato do corpo (T0.9), notificações legadas
+> (T0.11), estratégia de migration (T0.12), URL canônica construída (T0.7). CSRF em `app.ts:87`
+> exclui `downloads` e betas — server-to-server resolve.
 
 - [x] T0.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. Releitura por fase é regra desta spec, não do T0 pétreo (que exige uma vez por sessão). · feito quando: leitura confirmada, travas de `accounts.` e de pacote compartilhado identificadas.
 - [x] T0.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
@@ -124,113 +108,26 @@ papel errado em produção tira acesso de gente.
 > todos os apps dependendo dele — daí a ordem obrigatória da §"Como destravar".
 - [x] T1.10 — **Remoção do papel global local dos apps.** Reescrito pela decisão de T1.5: sem migração e sem fallback (T1.6), some a exigência de "período observável de leitura dupla" e de "usuários conflitantes resolvidos" — não há conflito a resolver. Permanecem: teste **por capacidade** (não por nome de papel), provando que quem podia moderar continua podendo; refresh reidratado do banco (T1.2); rollback ensaiado. Papel de **domínio** (`download_creator.role` na parte que não é global, mestre, autor) **fica onde está** — só o global sai. · feito quando: as três cumpridas, e nenhum app decide papel global por conta própria.
 
-**Estado da Fase 1 em 2026-07-31 — código completo, deploy bloqueado.** T1.1–T1.8
-e T1.10 fechadas e verificadas contra o código, não contra a documentação. T1.9 e
-T1.13 seguem abertas: as duas só fecham no deploy de produção, porque o
-`accounts` é PROD-only e não tem ambiente de ensaio (D042). **Isso não quer dizer
-que não haja nada a fazer antes:** o diagnóstico que determina se o deploy vai
-passar ou abortar é leitura do banco de prod, é read-only, e está descrito passo
-a passo em §"Como destravar T1.13 e T1.9". Fazer esse diagnóstico **antes** do
-deploy é o que separa um deploy previsível de um rollback em produção.
-
-Fechado nesta passada, além do que já vinha da branch anterior:
-
-- **Comparação de `SERVICE_SECRET` em tempo constante nos dois pontos.**
-  `adminSecretsRoutes.ts` usava `===` enquanto `app.ts` usava `timingSafeEqual`
-  para a **mesma** credencial — e a versão fraca era justamente a que guarda a
-  chave de cifra dos segredos. A função virou `src/serviceToken.ts`, usada pelos
-  dois, com `isValidServiceToken` recusando segredo ausente (antes, ambiente sem
-  `SERVICE_SECRET` dependia de curto-circuito para não autenticar).
-- **`authMiddleware` do `glossario` ganhou teste** (10 casos): era o único ponto
-  onde `is_global_admin`/`is_global_moderator` nasciam sem cobertura, e onde vive
-  o 503 fail-closed da T1.7. O teste também trava a distinção que a T0.1 exige —
-  `moderator` global **não** abre rota administrativa.
-- **403 do painel deixou de ser erro genérico.** O 403 desta tela nunca é sobre a
-  conta alvo: o backend revalida o ator a cada requisição, então ele só aparece
-  quando quem opera perdeu o papel durante a sessão. Antes caía num alerta comum
-  e o admin rebaixado seguia clicando numa lista que já não podia alterar.
-- **`shutdownWithError` saiu do `index.ts` para `src/shutdown.ts`** e ganhou
-  teste: dentro do módulo de boot (top-level await) só seria exercitado subindo o
-  servidor. O caso que importa é o pool falhar ao fechar sem impedir o exit code
-  1 — sem ele, o container fica saudável para o orquestrador com o SSO morto.
-  (Esta versão inicial ainda tinha três caminhos de falha, todos fechados nos
-  achados de review registrados abaixo.)
-- **Smoke do `accounts` cobre a rota nova.** `critical_routes` ganhou
-  `admin_roles_no_cookie` (401 em `/admin/roles/users`). Era a superfície mais
-  perigosa da fase sem nenhuma rota crítica declarada.
-- **Seções obsoletas da spec corrigidas.** `spec.md` §Casamento de identidade
-  ainda descrevia migração de papéis, `unmatched`, `excluded_realm` e relatório de
-  promoções — tudo eliminado pela decisão de 2026-07-30, mas ainda escrito como se
-  fosse o plano. Ficção documental num arquivo que o próximo agente lê como
-  contrato.
-
-Validação desta passada: repo 38/38 pacotes sem cache (`--force`, 0 cached), lint
-24/24, build 24/24, `verify:api` 0 breaking, guard de migrations 47/47.
-`glossario` 46/46. (`accounts` estava em 63/63 aqui; chegou a 73/73 depois dos
-achados de review registrados abaixo.)
-
-**Falha intermitente da suíte — investigada e corrigida, não era flake.** A
-primeira leitura registrada aqui dizia "descartada, não reproduziu". Estava
-errada: medindo 3 rodadas completas, reproduzia **~1 em 3**.
-
-Duas coisas escondiam a causa. O turbo atribuía a falha ao `glossario-backend`,
-que reportava 46/46 passando — a saída intercalada apontava o pacote errado, e o
-`ELIFECYCLE` real era do `mesas-frontend`. E o pacote sempre passava isolado, o
-que reforçava a leitura de ruído.
-
-Causa real: `suggestionModals` estourava `Test timed out in 5000ms` com 191
-testes de jsdom disputando CPU com os outros 37 pacotes em paralelo. Os mocks de
-`fetch` resolvem na hora e não há promessa pendente — faltava CPU, não correção
-de lógica. `testTimeout` 20s e `asyncUtilTimeout` 5s (o `waitFor` do
-testing-library usa 1s próprio, independente do Vitest). Depois: 6 rodadas
-completas 38/38.
-
-Uma rodada isolada acusou `@artificio/site#test`, que não reproduziu em nenhuma
-das seguintes e cujo log não foi capturado. **Não diagnosticado** — registrado
-como aberto, não como resolvido.
+**Fase 1 fechada em 2026-08-04 pelo deploy de produção** (run `30918952648`, sha `c519f76`).
+T1.9 e T1.13 fecharam juntas — runner aplicou migrations 001–005 em `artificio_auth`,
+drift e critical_routes verdes. Correções desta passada: timingSafeEqual nos dois pontos,
+teste de authMiddleware do glossario (10 casos), 403 do painel com código específico,
+shutdownWithError em módulo próprio com teste, smoke cobrindo `admin_roles_no_cookie`.
+Validação: repo 38/38, lint 24/24, build 24/24, `verify:api` 0 breaking. `accounts` 73/73.
+Falha intermitente do `suggestionModals` resolvida com `testTimeout` 20s (era contenção de
+CPU com 191 testes de jsdom em paralelo, não flake).
 
 ### Achados de review da PR #234 — todos corrigidos
 
-Quatro passadas de bot. O padrão vale registro: em três delas o achado principal
-foi defeito introduzido na correção anterior — certo no miolo, errado na borda.
+- **403 de CSRF confundido com rebaixamento** (Codex): backend devolve `code: "ADMIN_REQUIRED"`, frontend discrimina por código.
+- **Lista não limpa ao perder papel** (CodeRabbit): `losePermission` centraliza transição.
+- **Boot sobrevivia ao próprio encerramento** (CodeRabbit): prazo de 5s + saída forçada.
+- **Timer não cancelado** (CodeRabbit): log não mente mais sobre cleanup bem-sucedido.
+- **`destroy()` que lança sincronamente** (próprio): abortava antes do `setExitCode`.
+- **Digest de tamanho fixo** (CodeRabbit): SHA-256 nos dois lados elimina ramo por construção.
+- Sonar S1135 (2x): falso positivo — "todo" em português.
 
-- **403 de CSRF confundido com rebaixamento** (Codex). `csrfProtection` devolve
-  403 igual ao guard de papel, e o `accounts` aplica esse middleware
-  globalmente. O painel travava a tela do admin legítimo num erro de origem, e
-  recarregar não resolvia. O backend passou a devolver `code: "ADMIN_REQUIRED"`
-  nos dois 403 que significam perda de papel; o frontend discrimina por código,
-  não por status nem por texto de mensagem (que quebraria ao traduzir).
-- **Lista não limpa ao perder papel** (CodeRabbit). A listagem limpava as linhas
-  ao receber o 403; o PATCH não. Ator revogado ao salvar seguia vendo nome e
-  e-mail de todas as contas. `losePermission` centraliza a transição para os
-  caminhos não divergirem de novo.
-- **Boot podia sobreviver ao próprio encerramento** (CodeRabbit). `destroy()`
-  que nunca resolve travava o `await` e o exit code jamais era definido; e mesmo
-  definido, `process.exitCode` só encerra com o event loop vazio, que um pool
-  travado impede. Prazo de 5s + saída forçada. Sem a correção, o teste trava o
-  próprio runner.
-- **Timer não cancelado** (CodeRabbit, 2ª passada). `Promise.race` não cancela o
-  perdedor: o timer registrava "cleanup timed out" para limpeza bem-sucedida. O
-  log de encerramento é o que se lê para decidir se o SSO caiu por falha de
-  banco — mentir ali custa diagnóstico.
-- **`destroy()` que lança sincronamente** (achado próprio, revisando o diff
-  acumulado). Terceira porta para o mesmo falso-verde: a exceção escapava do
-  executor da Promise e abortava a função antes do `setExitCode`. Tipo declara
-  `Promise`, mas tipo não é garantia de runtime — e este é o caminho de
-  encerramento de emergência.
-- **Digest de tamanho fixo em `timingSafeEqualStrings`** (CodeRabbit). A
-  ramificação por comprimento existia, embora o custo do ramo variasse com o
-  input do atacante, não com o segredo. SHA-256 nos dois lados elimina o ramo
-  por construção; adotado por ser estritamente melhor, não porque a alegação de
-  oráculo estivesse correta.
-
-**Não corrigido, por ser falso positivo:** Sonar S1135 acusa dois "TODO" que são
-a palavra portuguesa *todo* dentro de comentários ("todo par vira 32 bytes",
-"Tratar todo 403 como rebaixamento"). A regra casa por substring e não distingue
-idioma. Ambos `INFO`, quality gate passou.
-
-Validação final: `accounts` 73/73, suíte 38/38 sem cache, lint 24/24, build
-24/24, `verify:api` 0 breaking, guard de migrations 47/47.
+Validação final: `accounts` 73/73, suíte 38/38, lint 24/24, build 24/24, `verify:api` 0 breaking.
 
 ### Alarme de drift do `accounts.` (achado do mantenedor, 2026-07-30)
 
@@ -250,741 +147,40 @@ saudável e o **único** alarme de schema defasado no SSO é
 - [x] T1.13 — **Confirmar que o `accounts` é coberto de ponta a ponta.** `_deploy-module.yml:519-522` deriva `DRIFT_DIR` por convenção (`apps/${MODULE}/database`), com `if` hardcoded só para o `site`. Rodar o drift contra o banco real do `accounts` e provar que detecta as duas direções: disco à frente (migration não aplicada) e banco à frente (aplicada fora da esteira). · feito quando: as duas direções detectadas em execução real, não por leitura de código. · **fechada em 2026-08-04 pelo deploy de produção** (run `30918952648`, sha `c519f76`). O `DRIFT_DIR` derivado por convenção resolveu para `apps/accounts/database` e o runner de fato cobriu o módulo: a ledger `schema_migrations` foi criada por ele mesmo e registrou as 5 migrations às 14:27:49 UTC, todas com `applied_by = ci:ubuntu@vnic-artificio` — esteira, não intervenção manual. `accounts-api` recriado às 14:29:27 UTC, `healthy`. Schema conferido read-only depois: `users.role`, `users.role_version`, `users.avatar_source` e `global_role_audit` presentes; 111 contas (1 `admin`, 110 `user`), zero fora do contrato de papel.
   **Direção "disco à frente" provada em execução real:** as 5 migrations estavam no disco e ausentes do banco antes do deploy, e o runner as detectou e aplicou. **Direção "banco à frente" provada por ocorrência real, não simulada:** `users.avatar_source` existia em produção sem ser declarada por nenhuma migration (drift reverso originado em `c051971`/`a7d9d20`, ver bloco acima), e foi essa detecção que motivou a `004`/`005`. Nenhuma das duas direções precisou de ensaio artificial.
 
-> **Como destravar T1.13 e T1.9 — ordem obrigatória, decidida em 2026-07-31.**
-> Escrita porque a formulação anterior ("exige ambiente no ar", "execução real")
-> induziu à conclusão errada de que **nada** podia ser feito sem deploy. O
-> diagnóstico que decide tudo é **read-only** e não precisa de autorização
-> (`AGENTS.md`: read-only é sempre permitido, inclusive na VM).
+> **T1.13 e T1.9 fechadas pelo deploy de produção 2026-08-04** (run `30918952648`, sha `c519f76`,
+> 3m22s). Runner criou a ledger `schema_migrations`, aplicou migrations 001–005, drift e
+> critical_routes verdes. `accounts-api` recriado, healthy. Schema conferido: `users.role`,
+> `users.role_version`, `users.avatar_source`, `global_role_audit` presentes; 111 contas
+> (1 admin, 110 user).
 >
-> **Estado do ambiente (verificado em 2026-07-31):** `accounts-api` e
-> `accounts-db` estão **de pé e healthy** na VM. O banco `artificio_auth` existe
-> e serve o SSO agora. O bloqueio nunca foi "não há banco" — é "ninguém leu o
-> banco".
+> **Drift reverso `users.avatar_source` — achado e corrigido.** Coluna existia em produção sem
+> declaração (originada em `c051971`, perdida por restore `a7d9d20`). Migration 004 declara
+> (`ADD COLUMN IF NOT EXISTS` — no-op em prod), 005 valida (`VALIDATE` separado, padrão E015).
+> Feature de avatar restaurada por decisão do mantenedor: `PATCH /api/account/avatar` (magic
+> bytes, 2 MB), `DELETE /api/account`, `CASE` no upsert, frontend + CSS, Dockerfile com
+> `@artificio/media`. Cobertura: `accounts` 81/81.
 >
-> **Estado do banco de produção, medido em 2026-07-31 (não inferido).** Leitura
-> read-only via `ssh faren` + `psql`:
+> **⚠️ Guard `MAX_AUTO_PENDING=5`.** Após 004/005, o `accounts` tem exatamente 5 migrations
+> pendentes — sem folga. Qualquer migration nova antes deste deploy estoura o guard no deploy
+> seguinte (E012). Para destravar: `MAX_AUTO_PENDING=<N>` no `apply_required_migrations.sh`,
+> nunca fatiar em lotes.
 >
-> | Objeto | Prod | Quem cria |
-> |---|---|---|
-> | `users`, `admin_secrets` | existem | `001`, com `IF NOT EXISTS` |
-> | `users.role` `TEXT NOT NULL` | ✅ | preflight da `001` **passa** |
-> | `users.avatar_source` | **existe, fora da esteira** | `004` (declaração) |
-> | `users.role_version` | ausente | `002` |
-> | `global_role_audit` + trigger | ausente | `002` |
-> | `users_role_check` | ausente | `002`/`003` |
-> | `schema_migrations` | ausente | **o próprio runner** |
+> **T1.11/T1.12 — drift e migration runner fail-closed.** `check_migration_drift.sh` e
+> `apply_required_migrations.sh` saem com erro se o diretório não existe (antes saíam 0).
+> `_deploy-module.yml` tem `if [ "$MODULE" = "site" ]` para o site (usa `db/migrations/`).
+> Validação: `bash -n` 2/2, fail-closed real 2/2.
 >
-> Dados: **103 contas** (1 `admin`, 102 `user`), zero fora do contrato de papel,
-> zero fora do contrato de `avatar_source`.
->
-> **Baseline manual NÃO é necessária — hipótese anterior refutada.** A versão
-> anterior deste bloco supunha que a ausência de `schema_migrations` faria o
-> deploy abortar, e mandava rodar `reconcile_migrations.sh --mark-applied`.
-> **Errado:** o runner **cria a ledger ele mesmo**
-> (`apply_required_migrations.sh:73-80`, `CREATE TABLE IF NOT EXISTS`) antes de
-> listar pendências. Ele então acha 5 pendentes, aplica todas, e só depois o
-> drift roda — contra uma ledger já preenchida. A `001` foi escrita justamente
-> para isso: `CREATE TABLE IF NOT EXISTS` + preflight que exige o schema inline
-> anterior, e esse preflight passa contra prod. **Não rodar `--mark-applied`
-> aqui**: marcaria como aplicada uma migration cujo efeito (`002`) o banco não
-> tem, e o schema ficaria permanentemente incompleto sem nenhum alarme.
->
-> **~~Único passo restante — deploy.~~ EXECUTADO em 2026-08-04.** `gh workflow run
-> deploy.yml --ref main -f module=accounts -f mode=deploy -f env=prod` rodou como
-> run `30918952648` (sha `c519f76`, sucesso em 3m22s). O job rodou o runner, o
-> drift **e** as `critical_routes`, fechando T1.13 e T1.9 juntos, como previsto.
-> Evidência medida nas próprias tasks acima. **Fase 1 encerrada; o `accounts.`
-> com papel global está em produção.**
->
-> **Aviso a quem ler este bloco depois:** o texto acima descreve o estado de
-> 2026-07-31 e foi mantido por valor histórico — não é o estado atual. Um agente
-> já leu esta seção como se fosse presente e concluiu que a Fase 1 seguia
-> bloqueada. Banco e código são a verdade material (`AGENTS.md`); confirmar
-> contra a ledger antes de agir sobre este bloco.
->
-> **Atenção ao guard `MAX_AUTO_PENDING=5`.** Com a `004`/`005` o `accounts` tem
-> **exatamente 5** migrations pendentes. O comparador é `-gt`
-> (`apply_required_migrations.sh:95`), então `5 > 5` é falso e o deploy passa —
-> **sem folga**. Qualquer migration nova antes deste deploy estoura o guard e
-> aborta. Se acontecer, o caminho é o do §Migrations item 4 (aplicar com o mesmo
-> script oficial e `MAX_AUTO_PENDING` ajustado ao total), nunca fatiar em lotes.
->
-> **Achado da investigação — `users.avatar_source`, drift reverso real
-> (2026-07-31, corrigido a pedido do mantenedor).**
-> A coluna existe em produção (`TEXT NOT NULL DEFAULT 'google'`, 103 linhas todas
-> `'google'`) e **não era declarada por nenhuma migration nem pelo código**. Grep
-> em `apps` e `packages` inteiros: zero ocorrências. É exatamente a segunda
-> direção que T1.13 pede para provar — banco à frente do disco — e não precisou
-> ser simulada: estava em produção.
->
-> Origem, pelo histórico: `c051971` (2026-06-29) criou a coluna via `migrate.ts`
-> inline junto com a feature de **avatar personalizado** — `avatar_source` valia
-> `'custom'` quando o usuário subia a própria imagem, e um `CASE` no upsert
-> impedia o login seguinte do Google de sobrescrevê-la. **`a7d9d20`, 5 horas
-> depois** ("restore ultimo runtime verde do SSO"), reescreveu `users.ts` a partir
-> de um ponto anterior e levou junto a rota de upload, a proteção e a declaração.
-> A coluna, já em produção, ficou. A baseline `001` foi escrita a partir do código
-> pós-restore e por isso também não a tem — um banco recriado pela esteira
-> nasceria **sem** a coluna, divergente de prod.
->
-> Correção aplicada: `migration_004_avatar_source.sql` declara a coluna
-> (`ADD COLUMN IF NOT EXISTS` — **no-op em prod**, cria em banco novo) mais
-> `CHECK ... NOT VALID`, e `migration_005` faz o `VALIDATE` separado, mesmo par
-> `002`/`003` por causa do E015. `UserRow` em `db.ts` passa a declarar o campo.
-> **A `001` não foi editada** — arquivo já aplicado não se reescreve
-> (`AGENTS.md` §Migrations item 2); ganhou só um comentário explicando por que a
-> coluna não está lá.
->
-> **Feature restaurada por decisão do mantenedor (2026-07-31), não adiada.** A
-> primeira versão desta análise propôs só declarar a coluna e tratar a volta da
-> troca de avatar como spec própria. O mantenedor decidiu o contrário: **restaurar
-> agora**, já que nada disso foi deployado. Escopo do que voltou, tudo perdido no
-> mesmo restore `a7d9d20`:
->
-> - **`PATCH /api/account/avatar`** — upload com validação por **magic bytes**
->   (o rótulo `Content-Type` é escolhido por quem envia; o conteúdo é confrontado
->   com a assinatura real de PNG/JPEG/WebP), teto de 2 MB antes do upload, `503`
->   discriminado quando o Cloudinary não está configurado, e reemissão dos cookies
->   de sessão — o avatar viaja dentro do token, então sem isso a foto nova só
->   apareceria no login seguinte.
-> - **`DELETE /api/account`** — exclusão pelo titular, exigindo o próprio e-mail
->   digitado como confirmação. **Também estava perdida** e ninguém tinha notado:
->   é o caminho de exclusão de conta, com peso de LGPD, e o `accounts.` é a origem
->   da identidade de todos os projetos.
-> - **O `CASE` no upsert** — a proteção que dá sentido à coluna, mais
->   `updateUserAvatar` marcando `'custom'`. As duas escritas são a mesma decisão.
-> - **Frontend e CSS** — seção "Foto de perfil", zona de exclusão e as 4 classes
->   de estilo que também tinham sumido (`accounts-tool-panel`,
->   `accounts-danger-zone`, `accounts-file-button`, `accounts-login-danger`), sem
->   as quais a UI subiria sem formatação.
-> - **Dependência e Dockerfile** — `@artificio/media` voltou ao `package.json`, e
->   o `Dockerfile` ganhou filtro explícito + `test -d packages/media/node_modules/cloudinary`.
->   Sem isso o container subiria verde e quebraria só na primeira troca de foto,
->   com `MODULE_NOT_FOUND` (padrão E016/E017).
->
-> **Adaptações ao schema atual (não é cópia literal do commit antigo):**
-> `updateUserAvatar` devolve `role_version`, os tokens de teste carregam
-> `roleVersion`, e `readUserFromBody` no frontend passou a aceitar `moderator` e
-> exigir `roleVersion` — a versão de 2026-06-29 só conhecia `user`/`admin` e
-> **descartaria silenciosamente** a resposta de um moderador, trocando a foto no
-> banco e não na tela.
->
-> **Cobertura:** 81 testes no `accounts` (eram 73). Os 3 novos em `users.test.ts`
-> cobrem os dois ramos do `CASE` e a marcação `'custom'`; provados por remoção —
-> tirando o `CASE`, o caso `custom` falha e os outros seguem verdes.
->
-> **O que não fazer:** procurar ambiente de beta do `accounts` (não existe, ver
-> T1.9); propor `--allow-missing` ou baixar a severidade do drift; aplicar as
-> migrations à mão fora do `apply_required_migrations.sh` (gera drift reverso,
-> §Migrations item 5).
-
-> **HISTÓRICO — bloqueio T1.13 fechado em 2026-08-04.** As migrations `001`–`005`
-> do `accounts` foram aplicadas pelo runner no Postgres real durante o deploy de
-> produção `30918952648`. A ledger registra as cinco entre 14:27:49 e 14:27:50 UTC,
-> com `applied_by = ci:ubuntu@vnic-artificio`. Antes desse deploy, T1.13 era bloqueio
-> duro: merge de PR e revisão de bot não substituíam execução contra banco.
->
-> Motivo de virar trava explícita agora: a Fase 1 **endurece gates antes do verde
-> comprovado** — o preflight da baseline passa a exigir `users.role` como
-> `TEXT NOT NULL` (achado do CodeRabbit, 2026-07-30) e o runner e o drift passam a
-> falhar fechado (T1.11/T1.12). Cada um é a decisão certa isoladamente, e juntos
-> significam que **um banco de produção divergente do esperado aborta o deploy**,
-> o que é o comportamento desejado — desde que alguém tenha verificado que o banco
-> real passa. Naquele momento, ninguém havia verificado.
->
-> `AGENTS.md` §Bug achado: endurecer gate só **depois** do verde comprovado
-> localmente, senão transfere falha mascarada pro próximo PR. O mantenedor optou
-> por implementar o endurecimento agora e segurar o deploy até a prova real, em
-> vez de afrouxar o gate. As duas direções de T1.13 valem para o schema completo
-> da Fase 1, não só para o drift: baseline, `002` e `003` aplicadas do zero, e
-> aplicadas sobre banco que já tinha o schema inline anterior.
-
-> **Duas travas do mantenedor (2026-07-30) sobre T1.11–T1.13:**
->
-> **1. Mostrar o diff ao mantenedor antes de qualquer deploy.** Mesmo tratamento
-> do `deploy-manifest.json`: estes arquivos governam o deploy dos **seis**
-> módulos com banco, não só a spec 090. Trocar fail-open por fail-closed muda
-> quando o deploy **aborta e faz rollback** — condição errada trava deploy de
-> qualquer módulo, ou deixa passar verde o que deveria falhar, no script que é o
-> único alarme do SSO. Bots de review do PR não cobrem isto: leem sintaxe e
-> padrão, não conhecem o E018.
->
-> **2. T1.13 é bloqueio de fase, não item de checklist.** T1.11 não conta como
-> fechada sem execução real contra o banco. E014, E015 e E018 passariam todos na
-> validação estática — só apareceram rodando.
-
-**Estado em 2026-07-30 — implementado, pendente de prova real.** Quatro arquivos
-alterados, verificados pelo Claude:
-
-- `scripts/deploy/check_migration_drift.sh` — diretório ausente vira `::error::`
-  + `exit 1` ("não é possível provar conformidade"). Cabeçalho atualizado: não
-  contradiz mais o código.
-- `scripts/deploy/apply_required_migrations.sh` — mesmo tratamento (T1.12
-  concluída).
-- `.github/workflows/_deploy-module.yml` — `if [ "$MODULE" = "site" ]` pula o
-  runner padrão para o site, que legitimamente não tem `apps/site/database`.
-  **Peça necessária:** sem ela, o runner fail-closed quebraria o deploy do site.
-  Exceção declarada no lugar de falso-verde.
-- `.github/deploy-manifest.json` — `_comment` do `accounts` corrigido; o texto
-  antigo ("migrations no-op: accounts migra in-container no boot") ficou falso
-  quando T0.12 removeu o `migrate.ts`.
-
-Validação: `bash -n` 2/2, fail-closed real 2/2, `git diff --check` verde.
-**Naquele estado de 2026-07-30, nenhum deploy real havia rodado** — o caminho feliz
-dos 6 módulos estava provado só por leitura e T1.13 seguia aberta.
-
-**Fechamento de 2026-08-04:** o deploy de produção `30918952648` aplicou
-`migration_001`–`migration_005` pelo runner, criou/preencheu `schema_migrations`,
-rodou drift e `critical_routes` e terminou com sucesso. A VM confirma hoje as cinco
-linhas na ledger e `accounts-api`/`accounts-db` healthy. T1.13 está fechada.
-
-> **Nota de processo (2026-07-30).** O `deploy-manifest.json` foi alterado sem o
-> diff ser mostrado antes, apesar de a trava acima e a §2 do handoff exigirem
-> isso duas vezes. O conteúdo está correto e dentro do escopo autorizado (só
-> `_comment`; nenhum `deploy_paths`, `db_*`, `critical_routes` ou
-> `health_containers`) — o desvio é de processo, não de resultado.
->
-> Segundo caso do mesmo padrão: o primeiro foi decidir o `VALIDATE`/E015 sem
-> reportar, quando o handoff pedia avaliação antes. Nos dois o resultado saiu
-> certo; nos dois a instrução era reportar antes de agir.
->
-> Por que importa: o mantenedor acompanha por celular, via ponte manual entre
-> agentes. Quando o agente decide sozinho e informa depois, o ponto de conferência
-> deixa de existir — e a trava só é percebida como quebrada se alguém for
-> conferir o `git status` por conta própria, que foi o que aconteceu aqui.
-
-> **Débito registrado, não corrigido nesta spec — unificação da declaração de migrations.**
-> `.github/deploy-manifest.json` declara `db_user`, `db_name`, `db_service` e
-> `deploy_paths` por módulo, mas **não** o diretório de migrations, a coluna nem
-> o glob. Por isso o workflow precisa do `if [ "$MODULE" = "site" ]` hardcoded e
-> deriva o resto por convenção de nome. Declarar os três no manifesto elimina a
-> derivação, mata o `if` especial e faz diretório ausente virar erro de
-> configuração por construção. **Toca os 6 módulos com banco — spec própria, não
-> cabe aqui.** T1.11 fecha o risco imediato; isto fecha a raiz.
-
-### Desambiguação de rotas — PR próprio, entre a Fase 1 e a Fase 2 (decisão do mantenedor, 2026-07-30)
-
-`pnpm verify:api` saiu 0 durante a Fase 1, mas apontou 3 ambiguidades de rota
-**pré-existentes**, anteriores à spec 090. Não vieram desta spec e não quebram
-runtime — o Express resolve as três por ordem de registro ou por método:
-
-| Módulo | Rotas em conflito | Por que funciona hoje |
-|---|---|---|
-| `mesas` | `/api/v1/gm/{slug}/contact` (`gm.ts:497`) × `/api/v1/gm/tables/{id}` (`gmPanel.ts`) | routers distintos no mesmo prefixo; `tables` é literal e vence o placeholder pela ordem |
-| `glossário` | `/api/social/{id}/comments` (`socialRoutes.ts:14-15`, GET/POST) × `/api/social/comments/{id}` (`:16`, DELETE) | separadas por método |
-| `glossário` | `/api/systems/{systemId}/editions` (`systemRoutes.ts:16-17`, GET/POST) × `/api/systems/editions/{id}` (`:18-19`, PUT/DELETE) | separadas por método |
-
-Raiz comum: placeholder na primeira posição convivendo com literal na mesma
-posição. É ambíguo no **contrato** — cliente gerado a partir do OpenAPI não sabe
-qual operação escolher —, não em execução.
-
-Corrigir de verdade exige reordenar o path público (ex.: `/api/social/terms/{id}/comments`,
-com o literal `terms` desambiguando), o que é **breaking change de API** com
-frontend a acompanhar em dois módulos.
-
-**Decisão: PR dedicado, imediatamente após a Fase 1 fechar e antes da Fase 2
-começar.** Não entra no commit da Fase 1 porque esse commit já toca
-`apps/accounts` e `packages/auth`: se o smoke SSO falhar depois, a causa precisa
-ser inequívoca, e rota renomeada junto com mudança no SSO mascara as duas.
-Escopo do PR: as 3 rotas e seus consumidores, nada mais.
-
-**Não ampliar escopo para `apps/mesas/**` ou `apps/glossario/**` durante a Fase 1
-por causa disto.**
+> **Desambiguação de rotas — PR próprio, entre Fase 1 e Fase 2.** `pnpm verify:api` apontou 3
+> ambiguidades pré-existentes em `mesas` e `glossario` (placeholder × literal na mesma posição).
+> Funcionam em runtime mas são ambíguas no contrato OpenAPI. PR dedicado com breaking change de
+> API, fora do escopo da Fase 1.
 
 ## Fase 2 — Comentários no `accounts.`
 
-> **Decisões do grilling da Fase 2 — registradas em 2026-08-04; grilling CONCLUÍDO com 55 decisões.**
->
-> 1. **A Fase 2 absorve o núcleo transacional mínimo de notificações da Fase 3.**
->    Entram agora `notification_event`, `notification_receipt`, geração dos recibos,
->    deduplicação de destinatários e exclusão do próprio ator, sempre na mesma
->    transação do comentário. Não entram ainda central de notificações, polling,
->    API pública de notificações nem eventos externos/outbox.
-> 2. **A fase continua centrada no `accounts.` sem fingir que o registro central
->    conhece o domínio dos consumidores.** Ela define um contrato único
->    `CommentSubjectAuthorization` — alvo existente, visível, comentável,
->    `ownerUserId` confiável e `canonicalPath` — e uma suíte de conformidade
->    reutilizável. Cada backend implementará o guard específico na sua fase de
->    adoção, antes de chamar o `accounts.`.
-> 3. **A árvore e a navegação seguem o Reddit como modelo primordial.** No volume
->    normal, a leitura devolve a árvore inteira; não há limite de quantidade de
->    respostas irmãs. Raiz usa `depth=0` e são permitidos quatro níveis de resposta,
->    até `depth=4` — cinco níveis visuais. `root_id`, `parent_id` e `depth` são dados
->    estruturais. Tombstone preserva posição e descendentes. A resposta tem hard
->    cap defensivo de **1.000 comentários ou 2 MiB**, o que ocorrer primeiro; só
->    então raízes/ramos restantes viram `more`, com cursor próprio e nunca filho
->    órfão. Assim o limite não aparece no volume esperado, mas uma thread não pode
->    consumir memória sem teto no `accounts.`, que também sustenta o SSO.
-> 4. **Votos e score entram no produto e no desenho da Fase 2.** O comportamento de
->    abertura e ordenação seguirá o modelo do Reddit, incluindo ordenação por
->    relevância baseada em score e alternativas selecionáveis. Ainda não estão
->    decididos: semântica do voto, algoritmo e versionamento do score, tratamento
->    temporal, desempate, identidade/unicidade do voto, troca/remoção, antifraude,
->    exposição de contagens e interação entre score, tombstone, legado e
->    paginação. Não implementar schema/API antes de essas decisões fecharem.
-> 5. **Somente terceiros votam.** O autor não recebe auto-upvote e não pode votar
->    no próprio comentário; todo comentário novo nasce com score `0`. Esta decisão
->    diverge deliberadamente do auto-upvote visível no modelo do Reddit: aqui o
->    score representa reação de outras contas, não participação do próprio autor.
-> 6. **Comentário legado não aceita voto.** Os 25 comentários importados do `site`
->    permanecem totalmente read-only, com score `0`. Eles continuam misturados à
->    árvore e à ordenação normais — sem seção própria e sem ocultação —, apenas com
->    marca visual de comentário antigo/importado e autoria não verificada. Assim,
->    não ganham peso algorítmico novo, mas também não perdem o contexto histórico.
-> 7. **Score e ordenações.** `score = upvotes - downvotes`; `Melhores` usa o
->    limite inferior de Wilson sobre a proporção positiva, sem decaimento temporal;
->    `Mais votados` ordena por score líquido; `Recentes` por `created_at DESC`;
->    `Mais antigos` por `created_at ASC`. A ordenação acontece entre irmãos, nunca
->    mistura níveis da árvore. Tempo e `id` formam o desempate estável. Tombstone
->    mantém a posição estrutural, mas não expõe corpo nem score. Estes são os quatro
->    sorts do produto; `Controversos`, `Random`, `Q&A`, `Live` e `Hot` não entram.
->    A abertura padrão é sempre `Melhores`; o usuário pode trocar o sort.
-> 8. **Ranking versionado por assunto; cursor stateless.** Época fixa, ranking
->    vivo sem consistência e snapshot por sessão foram descartados. Cada assunto
->    mantém `ranking_revision`; comentário registra `created_revision`; mudança de
->    voto incrementa a revisão sob lock transacional curto. `comment_vote` guarda
->    o estado atual, único por usuário/comentário, e `comment_score_version` guarda
->    `upvotes`, `downvotes`, score, Wilson, `algorithm_version` e intervalo de
->    revisões válido. A primeira leitura fixa `snapshot_revision`; cursor opaco
->    assinado carrega identidade do assunto, sort, revisão, último sort-key, ramo,
->    limite e expiração. Páginas e expansões `more` usam a mesma revisão, sem
->    duplicar ou perder item; score exibido e voto do usuário podem vir do estado
->    atual, mas a posição permanece congelada naquela navegação. Nova visita usa a
->    revisão mais recente imediatamente. Cursor vale **30 minutos**; expirado exige
->    recarregar. Histórico de score fica retido permanentemente nesta fase — sem
->    rotina destrutiva. O modelo evita transação PostgreSQL aberta entre requests,
->    cache/sessão de paginação e cron. Referências pesquisadas: árvore truncada e
->    `more` do Reddit (`reddit-archive/reddit`, `r2/r2/models/builder.py`), contrato
->    atual `MoreChildrenRequest`, limite de snapshot exportado do PostgreSQL 16 e
->    padrão `search_after` + point-in-time da documentação do Elasticsearch.
-> 9. **Score público imediatamente.** Não existe `score_hidden_until`, janela de
->    ocultação nem política por `source_app` nesta fase. O baixo volume atual e a
->    escrita autenticada tornam o custo comportamental do efeito-manada menor que a
->    complexidade e a ambiguidade de esconder o número. Se abuso real aparecer,
->    ocultação futura será mudança aditiva; não altera o modelo de voto/ranking.
-> 10. **Transparência pública de contagens; moderação completa.** A resposta pública
->     expõe `upvotes`, `downvotes` e `score`; quando autenticada, também `my_vote`.
->     A superfície de moderação acessa identidade das contas votantes e histórico
->     completo de criação, troca e remoção de voto. A API pública nunca expõe a
->     lista nominal de votantes.
-> 11. **Conta nova vota imediatamente e com o mesmo peso.** Não há espera,
->     quarentena, voto pendente, peso secreto nem assimetria entre upvote e
->     downvote. Proteções iniciais: uma escolha ativa por conta/comentário, rate
->     limit por usuário e IP, credencial backend-to-backend e auditoria completa
->     para moderação. Endurecimento futuro exige abuso medido, não prevenção oculta.
-> 12. **Mutação de voto usa estado absoluto e última gravação vence.**
->     `PUT /internal/v1/comments/:id/vote` recebe `{ value: -1 | 0 | 1 }`; `0`
->     remove. Mesmo valor é no-op: `200`, sem nova revisão nem histórico. Troca ou
->     remoção real atualiza voto, contagens, score, versão e auditoria na mesma
->     transação. Não há `ETag`, `If-Match` nem `Idempotency-Key`; concorrência entre
->     dispositivos resolve pela última transação persistida. A escolha segue o
->     modelo de estado ternário do Reddit (`POST /api/vote`, `dir=-1|0|1`), embora
->     use `PUT` aqui por semântica HTTP. Token do app e `X-Acting-User-Id` continuam
->     obrigatórios; retry idêntico não duplica efeito.
-> 13. **Voto não gera notificação.** Nem voto individual nem marco agregado cria
->     `notification_event`/`notification_receipt`; autor acompanha contagens na
->     própria thread. O núcleo transacional antecipado da Fase 3 continua restrito
->     a criação de comentário e resposta.
-> 14. **Destino do voto depende da causa da perda de acesso da conta.** Saída ou
->     desativação comum preserva votos e score históricos, mas impede voto novo.
->     Bloqueio por abuso permite ao moderador invalidar todos os votos da conta,
->     com motivo e auditoria; cada assunto afetado recebe nova `ranking_revision`
->     e scores recalculados. A invalidação não apaga o histórico bruto.
-> 15. **Vínculo nominal do voto é retido permanentemente.** Desativação ou pedido de
->     exclusão da conta não pseudonimiza nem remove `user_id` do voto/histórico; a
->     moderação continua capaz de identificar a conta. Consequência técnica: a
->     identidade referenciada precisa sobreviver como registro tombstone/soft-delete
->     ou identidade de auditoria — não existe exclusão física capaz de apagar a linha
->     referenciada e, ao mesmo tempo, manter vínculo nominal íntegro. O contrato de
->     exclusão de conta e a justificativa/política de retenção ainda precisam ser
->     fechados antes da implementação; não inferir esses detalhes desta decisão.
->     **Conseqüência confirmada pelo mantenedor:** conta excluída vira soft-delete
->     permanente; login é bloqueado, identidade pública neutralizada e vínculo
->     nominal fica restrito a moderação/auditoria. A política jurídica de retenção
->     continua decisão própria e bloqueia implementação desse ciclo de vida.
->     **Estado histórico:** a retenção nominal permanente e o bloqueio acima foram
->     expressamente substituídos pela decisão 53. A preservação/invalidação de votos
->     da decisão 14 continua ativa.
-> 16. **IDs públicos usam UUID v4.** Comentário, `notification_event` e
->     `notification_receipt` recebem UUID v4; `parent_id` e `root_id` referenciam o
->     UUID do comentário. `legacy_id` permanece campo separado com a identidade da
->     origem. Não usar `BIGINT` enumerável nem introduzir UUID v7/ULID/lib nova.
-> 17. **Autor pode editar e retirar o próprio comentário, seguindo o Reddit.** Esta
->     decisão revoga explicitamente D111 item 6, requisito 12 e a formulação atual
->     de T2.7 que proibiam autoedição/autoexclusão. Edição registra `edited_at` e
->     mantém histórico completo restrito à moderação. Retirada do autor usa
->     tombstone — nunca `DELETE` físico —, preserva posição e descendentes, oculta
->     o corpo público e entra no histórico com ator/motivo/timestamp. Poderes de
->     remoção e restauração da moderação permanecem separados.
-> 18. **Edição preserva votos e ranking.** Trocar `body_text` não apaga, recalcula
->     nem invalida votos; `upvotes`, `downvotes`, score e versões de ranking seguem
->     vinculados ao mesmo comentário. O risco de bait-and-switch é tratado pelo
->     marcador público de edição e pelo histórico completo da moderação, não por
->     zerar a reação de terceiros.
-> 19. **`Melhores` replica o Wilson histórico do Reddit.** Usa limite inferior
->     unilateral com `z = 1.281551565545` (80% de confiança), sem decaimento
->     temporal, sob `algorithm_version = 'reddit-wilson-80-v1'`. Fórmula e vetores
->     de referência entram em teste. Resultado persistido mantém precisão para
->     ordenação; `created_at` e `id` desempatem. Algoritmo futuro cria nova versão e
->     nova série de score; nunca reinterpreta histórico silenciosamente.
-> 20. **Contrato de edição e auto-retirada.** Autor pode editar sem prazo, somente
->     `body_text`; pai, assunto, autoria e `created_at` são imutáveis. Público vê só
->     a versão atual e `edited_at`; versões antigas ficam restritas à moderação.
->     Edição idêntica é no-op e edição não gera notificação. Auto-retirada é
->     irreversível para o autor; apenas `moderator`/`admin` pode restaurar a última
->     versão válida, com auditoria.
-> 21. **PostgreSQL é a fonte canônica de `score` e Wilson.** Em
->     `comment_score_version`, `upvotes` e `downvotes` são colunas base não negativas;
->     `score` é coluna gerada como `upvotes - downvotes`; `best_score` é coluna
->     gerada por função SQL `IMMUTABLE` versionada, inicialmente
->     `comment_wilson_reddit_80_v1`, usando aritmética `numeric` para manter ordenação
->     e cursor determinísticos. TypeScript/Kysely autoriza o ator, serializa a troca
->     de voto e cria a nova versão dentro da transação, mas não mantém segunda
->     implementação produtiva da fórmula. Vetores de referência testam diretamente
->     a função PostgreSQL. Versão futura cria nova função e nova série de score;
->     nunca altera semanticamente `_v1` nem reinterpreta histórico. Esta divisão
->     segue o padrão local: aplicação orquestra o workflow; banco garante derivados
->     e invariantes, inclusive contra scripts, backfills e novas rotas de escrita.
-> 22. **Moderação nunca edita o texto de outro usuário.** Somente o autor pode
->     alterar `body_text`. `moderator` e `admin` podem retirar ou restaurar versões
->     válidas, sempre com motivo e auditoria, mas não reescrevem a fala alheia nem
->     fazem redação parcial. Conteúdo que exponha PII ou viole regra é retirado por
->     tombstone; uma versão corrigida exige nova edição do próprio autor. Assim a
->     identidade exibida nunca assina texto produzido pela moderação.
-> 23. **Comentário legado pode receber resposta nova.** O registro importado continua
->     imutável, sem voto e marcado como antigo/autoria não verificada, mas pode ser
->     pai de comentário novo feito por conta autenticada. A nova resposta obedece ao
->     limite estrutural, autorização do assunto e regras atuais. Esta decisão revoga
->     expressamente a recusa a “resposta a legado” presente em T2.4 e T2.11: antigo
->     descreve proveniência, não congela a conversa.
-> 24. **Comentário novo usa obrigatoriamente o pipeline Markdown existente.** A Fase
->     2 não cria parser, sanitizador nem renderizador paralelo. Na escrita, o backend
->     passa a entrada por `sanitizeUserMarkdown` de
->     `@artificio/content-editor/sanitize` e persiste o Markdown canônico; a API
->     devolve esse Markdown, não HTML montado. Consumidores renderizam somente por
->     `MarkdownContent`/`renderMarkdown` de `@artificio/content-editor`, cujo
->     `markdown-it` já desabilita HTML e cuja saída passa por DOMPurify. O campo novo
->     deve refletir o contrato como `body_markdown`, não o antigo `body_text`.
->     Negrito, itálico, listas, citações, código e links entram; HTML arbitrário não.
->     Esta decisão revoga expressamente o texto puro de T2.1/T2.5 e reutiliza também
->     `ContentEditor` nas interfaces de criação/edição, sem biblioteca nova.
-> 25. **Comentário Markdown aceita no máximo 10.000 caracteres.** O backend valida o
->     limite tanto na entrada original, antes de trabalho de parsing, quanto no
->     Markdown canônico produzido pelo sanitizador; a interface usa o mesmo máximo
->     no `ContentEditor`. Excesso rejeita a operação inteira com erro específico —
->     nunca trunca silenciosamente nem persiste versão parcial. O mesmo contrato vale
->     para criação e edição.
-> 26. **Imagem em comentário existe somente como referência HTTPS clicável.** Não há
->     upload, Cloudinary, hospedagem, proxy, preview nem busca server-side de mídia.
->     O perfil de comentário do pipeline existente desativa a renderização de
->     `<img>`: sintaxe `![alt](https://...)` vira link textual explícito, como
->     “alt — abrir imagem externa”, sem o browser buscar o recurso até o clique.
->     Referência de imagem aceita apenas `https://` e abre em nova aba com
->     `rel="ugc nofollow noopener noreferrer"`. Isso evita pixel remoto, hotlink,
->     superfície de moderação de mídia e SSRF sem criar parser paralelo.
-> 27. **Links do Markdown são HTTPS-only e distinguem a suíte de destinos externos.**
->     URL sem esquema é canonicalizada para `https://`; `http:` ou qualquer outro
->     esquema explícito é rejeitado com mensagem específica, nunca promovido
->     silenciosamente. Host exato `artificiorpg.com` ou subdomínio real
->     `*.artificiorpg.com` abre na mesma aba; destino externo abre em nova aba. Todo
->     link gerado por usuário recebe `rel="ugc nofollow"`; externo acrescenta
->     `noopener noreferrer`. A comparação de host é estrutural por `URL`, não
->     `includes`/sufixo frouxo que aceite `artificiorpg.com.evil.example`.
-> 28. **Link root-relative pertence ao app dono do assunto.** Sintaxe `/rota` é
->     permitida e resolvida pelo consumidor contra a origem confiável derivada de
->     `source_app`, nunca contra um host enviado no comentário; abre na mesma aba e
->     conserva portabilidade entre ambientes. São rejeitados `//host`, `../`, URL
->     relativa sem `/` inicial e qualquer forma ambígua capaz de mudar de destino
->     conforme a tela consumidora. O `accounts.` valida a forma; o backend consumidor
->     fornece a origem canônica já prevista no contrato do assunto.
-> 29. **Link proibido falha; Markdown apenas malformado permanece texto, usando uma
->     única política compartilhada.** Sintaxe incompleta que o CommonMark trata como
->     literal é aceita e exibida literalmente. Quando o parser reconhece um link,
->     porém o destino viola as decisões 26–28 (`http:`, esquema perigoso, `//host`,
->     relativo ambíguo), criação ou edição inteira é rejeitada com código estável
->     `INVALID_COMMENT_LINK`, posição e mensagem da regra, sem ecoar o payload hostil.
->     Nada é removido ou reescrito silenciosamente. A validação e o perfil de
->     renderização pertencem ao pacote compartilhado **já existente**
->     `@artificio/content-editor`; não nasce pacote novo nem implementação local por
->     app. `accounts.` e todos os frontends importam a mesma política. O cliente usa
->     isso para erro imediato/prévia; o backend repete como autoridade final.
-> 30. **Comentário precisa produzir conteúdo textual visível.** Depois da
->     canonicalização e sanitização, `markdownToPlainText` do pipeline compartilhado
->     precisa resultar em conteúdo não vazio. Espaços, HTML integralmente removido,
->     separador temático isolado ou marcadores sem texto são rejeitados; emoji,
->     código, citação e link com rótulo visível são aceitos. Não existe mínimo
->     arbitrário além de um conteúdo real, e a regra vale igualmente para criação e
->     edição.
-> 31. **Não há `@menções` nesta fase.** Qualquer `@texto` permanece texto Markdown
->     comum e nunca resolve conta nem cria destinatário. `accounts.users` não possui
->     handle público único: nome Google é mutável/não único e e-mail não pode ser
->     exposto. Notificação continua derivada apenas da estrutura confiável — autor do
->     comentário pai e dono do assunto, excluindo o ator. Menção futura exige decisão
->     própria de identidade pública; não será simulada por heurística sobre nome.
-> 32. **Denúncia de comentário entra no núcleo da Fase 2.** A fila já prometia itens
->     denunciados e a matriz já autorizava usuário a denunciar, mas o contrato não
->     tinha schema nem rota que produzisse esse estado. A lacuna é fechada agora no
->     `accounts.`: persistência, API interna consumida pelas fachadas dos apps, fila
->     compartilhada, resolução e auditoria pertencem à mesma entrega. Denúncia não
->     será armazenada isoladamente em cada app nem adiada enquanto a fila central
->     finge que pode recebê-la.
-> 33. **Denúncia exige conta, terceiro e unicidade por comentário.** Autor não
->     denuncia o próprio comentário porque pode editar ou auto-retirar; cada conta
->     mantém no máximo uma denúncia ativa por comentário. A identidade do denunciante
->     é persistida e visível somente a `moderator`/`admin`; público, outros
->     denunciantes e autor denunciado nunca a recebem. A escolha é deliberadamente
->     mais próxima do Discourse — staff vê quem sinalizou — que do Reddit, onde
->     moderador comunitário não sabe. Aqui o moderador é papel global concedido e
->     auditado pelo `accounts.`, não voluntário limitado a uma comunidade; precisa
->     investigar abuso coordenado sem expor o denunciante ao alvo.
-> 34. **Denúncia isolada não oculta; múltiplas denúncias podem ocultar
->     temporariamente.** Uma denúncia apenas cria/prioriza item na fila. Ao atingir o
->     limiar de **cinco contas distintas**, o comentário passa para estado próprio
->     `pending_review_hidden`: público vê placeholder, corpo e score somem, posição e
->     descendentes permanecem. Isso não é tombstone nem decisão de moderador. A fila
->     conserva corpo, denúncias e identidades; moderação confirma a retirada ou
->     descarta as denúncias e restaura a visibilidade, tudo auditado. Contam somente
->     denúncias ativas, ainda não resolvidas, de contas válidas; a mesma conta nunca
->     soma duas vezes. O limiar alto é deliberado: em baixo volume, auto-ocultação
->     será rara, priorizando resistência a coordenação entre poucas contas.
-> 35. **Solução madura de um app sobe ao compartilhado; não é reimplementada nos
->     demais.** O fluxo de denúncias do `downloads` é fonte de aprendizado para o
->     núcleo central: estados `open`/`in_review`/`resolved`/`dismissed`, uma denúncia
->     ativa por denunciante e alvo, nova denúncia após decisão terminal, “minhas
->     denúncias”, retirada voluntária antes da análise, prioridade, detalhes e nota
->     de resolução separados, aviso do resultado, sinal de sequência abusiva sem
->     punição automática, contexto do alvo na fila e auditoria. O que for geral é
->     consolidado no `accounts.` e exposto pelo único `packages/comments`; frontends
->     e fachadas importam/consomem isso, sem pacote de denúncia separado, cópia por
->     app ou segundo state machine. Elementos realmente de domínio — por exemplo
->     `material_id` e motivo “link quebrado” de material — ficam no adaptador do
->     domínio, não contaminam o contrato comum. “Subir ao compartilhado” significa
->     extrair a solução corrigida, não copiar cegamente a implementação local.
-> 36. **Três defeitos do fluxo local de denúncia do `downloads` são corrigidos na
->     adoção dele pela spec 090, não durante a Fase 2 central.** (a) `GET /mine`,
->     `GET /abuse-check/:userId` e `GET /reports` deixam de consumir
->     `writeRateLimiter` e usam orçamento de leitura; (b) decisão terminal deixa de
->     fazer check-before-transaction seguido de `UPDATE` só por `id` e passa a
->     serializar/condicionar a transição, garantindo um único vencedor, uma única
->     notificação e conflito explícito ao segundo moderador; (c) auditoria de decisão
->     deixa de ser somente `console.log` e vira registro persistente na mesma
->     transação do estado. A Fase 2 implementa esses invariantes corretamente desde o
->     início; a fase de adoção remove a divergência local também para o fluxo que
->     continuar específico de material. Esta é organização temporal decidida pelo
->     mantenedor, não autorização para preservar os bugs.
-> 37. **Motivos de denúncia vivem em registro compartilhado extensível por tipo de
->     alvo.** O núcleo declara código, rótulo, prioridade e obrigatoriedade de
->     detalhes para `malicious_link`, `inappropriate_content`, `spam_or_off_topic`,
->     `harassment_or_hate`, `personal_data`, `copyright_violation`,
->     `illegal_content` e `other`. Formulário, schema, estado e fila consomem esse
->     registro único. Cada tipo de alvo apenas habilita um subconjunto ou acrescenta
->     definição realmente de domínio — por exemplo `broken_link` em material — pelo
->     mesmo contrato declarativo. Nenhum app cria enum, componente ou state machine
->     paralelo; também não se obriga comentário a mostrar motivo sem sentido só para
->     manter um enum rígido.
-> 38. **Prioridade mede urgência/reversibilidade durante a espera, não culpa.** O
->     registro compartilhado inicia com P0 para `personal_data`, `malicious_link` e
->     `illegal_content`; P1 para `harassment_or_hate`, `inappropriate_content` e
->     `copyright_violation`; P2 para `spam_or_off_topic` e `other`; `broken_link` de
->     material permanece P3. Categoria/P0 só ordena a fila e nunca oculta ou decide
->     conteúdo sozinha — o único auto-hide continua sendo o limiar de cinco denúncias
->     distintas da decisão 34. Moderador pode reclassificar prioridade, sempre com
->     motivo e auditoria persistente.
-> 39. **Denúncia fixa a versão imutável existente no instante do envio.**
->     `comment_reports` guarda `comment_id` e `reported_version_id` obrigatório para
->     `comment_versions`; criação captura ambos atomicamente e a integridade garante
->     que a versão pertence ao mesmo comentário. Edição posterior cria nova versão,
->     não altera a evidência e não resolve nem retira a denúncia da fila. Moderação
->     vê lado a lado versão denunciada, versão atual, diff e histórico; o relatório
->     não duplica o corpo. Versão referenciada não sofre purga automática. Conteúdo
->     sensível exige expurgo administrativo explícito e auditado: corpo da revisão
->     sai, metadados do evento permanecem. A escolha é adaptação do projeto, não
->     alegação sobre schema interno de terceiros: Reddit documenta filas de
->     denunciados e editados, GitHub liga denúncia ao comentário e mantém histórico,
->     e Discourse mantém o item editado em revisão e registra todas as revisões de
->     conteúdo sinalizado para permitir julgamento do original. Rejeitadas: somente
->     `comment_id` + inferência por horário (ambígua em concorrência) e snapshot do
->     corpo dentro da denúncia (duplica conteúdo, PII, política de retenção e
->     expurgo).
-> 40. **Moderação agrupa denúncias por caso episódico do comentário.** Existe no
->     máximo um `moderation_case` aberto por comentário; cada denúncia continua uma
->     linha individual, imutável como evidência, ligada ao caso. A fila mostra um
->     item agregado com quantidade, categorias, prioridade máxima e, apenas para a
->     moderação, identidades dos denunciantes. Decisão terminal fecha o caso e as
->     denúncias ativas vinculadas sem apagar o histórico. Denúncia válida posterior
->     abre novo caso, em vez de reabrir ou misturar o episódio encerrado. A interface
->     segue a unidade de trabalho por conteúdo observada no Reddit e no Discourse,
->     mas preserva granularidade individual para auditoria. Rejeitadas: uma entrada
->     de fila por denúncia, que duplica trabalho e permite decisões concorrentes; e
->     um caso eterno por comentário, que mistura versões, incidentes e decisões de
->     épocas diferentes.
-> 41. **Editar não revela comentário auto-oculto.** Depois de alcançar o limiar de
->     cinco denúncias e entrar em `pending_review_hidden`, o autor ainda pode editar
->     normalmente e cada edição cria nova versão, mas comentário e caso permanecem
->     oculto e aberto. A moderação compara versão denunciada, versão atual e diff;
->     somente ação explícita dela restaura, remove ou encerra o caso. A escolha
->     diverge deliberadamente do Discourse, que revela o conteúdo na primeira edição
->     corretiva: no Artifício, edição unilateral não pode republicar link malicioso,
->     dado pessoal ou conteúdo ilegal já retirado por sinal coletivo. O custo aceito
->     é correção legítima aguardar revisão humana.
-> 42. **Denunciante só pode retirar antes do auto-hide.** Enquanto o caso está aberto
->     e o comentário ainda visível, a própria denúncia ativa pode virar `withdrawn`:
->     deixa de contar para o limiar, mas permanece na auditoria. Assim que a quinta
->     denúncia distinta confirma `pending_review_hidden`, as denúncias do caso ficam
->     bloqueadas para seus autores; somente a moderação pode invalidar, resolver ou
->     dispensar dali em diante. A transição do caso, a inserção da quinta denúncia e
->     qualquer retirada concorrente são serializadas na mesma transação/lock: se a
->     retirada concluir antes, o limiar é recalculado; se o auto-hide concluir antes,
->     a retirada é recusada. Rejeitadas: permitir retirada sem restaurar, que deixa o
->     usuário mudar evidência depois do gatilho sem alterar consequência, e restaurar
->     automaticamente ao cair abaixo de cinco, que permite oscilação coordenada de
->     visibilidade.
-> 43. **Veredito é individual por denúncia; ação sobre conteúdo é única por caso.**
->     Cada denúncia não retirada termina como `upheld`, `dismissed` ou
->     `no_determination`; o caso recebe uma ação única entre `no_change`,
->     `restore` e `remove`. A interface pode preencher um veredito em lote, mas
->     permite corrigir cada denúncia antes de concluir. O caso só fecha quando todas
->     as denúncias não retiradas têm veredito e a ação foi persistida na mesma
->     transação, com moderador, motivo e auditoria. `upheld` conta como acerto,
->     `dismissed` como erro; `withdrawn` e `no_determination` são neutros para sinais
->     de abuso. Assim, link malicioso pode proceder sem transformar uma denúncia
->     simultânea e infundada de assédio em acerto. A separação segue a prática do
->     Discourse de distinguir julgamento da flag da ação sobre o post. Rejeitados:
->     um veredito herdado por todo o caso e um veredito por categoria, ambos
->     imprecisos para reputação do denunciante e detalhes individuais.
-> 44. **Resultado da moderação é privado, mínimo e entregue aos dois lados.** Cada
->     denunciante recebe pelo núcleo compartilhado de notificações somente um dos
->     resultados `action_taken`, `not_upheld` ou `no_determination`, correspondente
->     ao próprio veredito; nunca recebe identidade de outro denunciante, nota interna,
->     detalhe de ação disciplinar ou raciocínio reservado. O autor recebe aviso
->     quando o comentário entra em auto-hide e quando a moderação remove ou restaura,
->     com categoria pública aplicável e orientação de próximo passo. Evento e recibos
->     nascem na mesma transação da mudança de estado, deduplicam destinatário e nunca
->     notificam o próprio ator da ação. A escolha usa o núcleo transacional já
->     absorvido pela Fase 2 e prefere feedback proporcional ao baixo volume do
->     Artifício; rejeita tanto transparência detalhada, que expõe pessoas e lógica
->     interna, quanto silêncio ao denunciante, adequado à escala do Reddit mas sem
->     necessidade aqui.
-> 45. **Versão aprovada pela moderação ganha imunidade contra reabertura automática.**
->     Quando um caso termina com `no_change` sobre conteúdo visível ou `restore` e as denúncias relevantes
->     são improcedentes, a aprovação referencia a `comment_version_id` revisada.
->     Denúncia posterior contra essa mesma versão ainda é recebida e auditada como
->     `no_determination`, com motivo interno `approved_version`, mas não abre caso,
->     não conta para novo limiar e não altera visibilidade; o denunciante recebe só o
->     resultado mínimo da decisão 44. Moderador pode reabrir manualmente com motivo.
->     Edição cria versão nova, não coberta pela aprovação anterior e novamente
->     denunciável. A regra adapta `Ignore reports and Approve` do Reddit e impede
->     brigada infinita de ocultar o mesmo texto já revisado. Rejeitados: cooldown,
->     que apenas agenda o novo ataque, e ausência de proteção, que torna a fila e a
->     visibilidade controláveis por sucessivos grupos de cinco contas.
-> 46. **Auto-retirada cria tombstone imediatamente, mas não encerra moderação.** O
->     autor pode retirar o próprio comentário mesmo com caso aberto; o corpo some da
->     leitura pública, a ação entra na timeline e as versões já gravadas continuam
->     acessíveis somente à moderação. O caso permanece aberto, cada denúncia recebe
->     veredito e a retirada não vale como confissão. Resolver com `no_change` preserva
->     o tombstone escolhido pelo autor; `restore` exige ação moderadora explícita e
->     nunca decorre automaticamente de denúncia improcedente. A auto-retirada antes
->     do limiar não congela a retirada dos denunciantes — só a transição para
->     `pending_review_hidden` da decisão 42 o faz. Para suportar este estado sem
->     falsificar auditoria, `no_change` substitui o nome anterior `keep_visible` na
->     decisão 43: significa não alterar a visibilidade atual, esteja ela visível ou
->     retirada pelo autor. A escolha preserva autonomia pública sem permitir apagar
->     evidência ou fugir do julgamento.
-> 47. **Remoção moderadora admite um recurso estruturado em até seis meses.** Somente
->     o autor pode recorrer, uma vez por decisão terminal que removeu seu conteúdo;
->     o recurso pertence ao núcleo compartilhado, referencia caso, decisão e versão,
->     não restaura automaticamente e termina em `upheld` ou `reversed`, com
->     notificação privada. Denunciante não recorre de `not_upheld`. Diferente do
->     modelo ideal de equipe grande do GitHub, **não há exigência de segundo
->     moderador**: a equipe inicial do Artifício é reduzida e o mesmo moderador pode
->     rejulgar. A tela deixa explícito que ele tomou a decisão original e exige nova
->     justificativa; ator, datas e resultado ficam na auditoria. Outro moderador pode
->     assumir quando existir, mas isso não é trava. Rejeitados: reabrir e sobrescrever
->     o caso original, que mistura as duas instâncias, e recurso apenas por contato
->     externo, que faria cada app criar fluxo próprio e não rastreável.
-> 48. **Sanção é comunitária, escalonável e separada do acesso à suíte.** O
->     `accounts.` mantém restrições independentes para `posting` e `commenting`, com
->     escada `warning` → suspensão temporária → suspensão permanente; a temporária
->     aceita duração explícita e presets operacionais, e uma decisão pode atingir um
->     ou os dois escopos. Histórico e gravidade ficam visíveis para sugerir
->     progressão, mas nenhuma denúncia, limiar ou reincidência aplica sanção
->     automaticamente: moderador escolhe nível, prazo e motivo, tudo auditado. Login,
->     leitura e uso não comunitário dos projetos continuam; auto-retirada de conteúdo
->     próprio também continua permitida. A Fase 2 já faz `commenting` falhar fechado
->     antes da escrita. `posting` nasce no mesmo contrato central para os demais apps
->     adotarem ao mapear suas superfícies de publicação comunitária; não transforma
->     silenciosamente criar mesa, material ou outro objeto de domínio em postagem.
->     Voto e denúncia mantêm seus controles de abuso próprios já decididos, em vez de
->     serem confundidos com esses dois escopos. Rejeitados: só remover conteúdo, que
->     não contém reincidência, e suspender o SSO inteiro, cujo blast radius alcançaria
->     todos os subdomínios por um caso de comentário.
-> 49. **Necessidade de detalhe é declarada por motivo no registro compartilhado.**
->     Cada razão define `details: required | optional | forbidden`; inicialmente
->     `other`, `copyright_violation` e `illegal_content` exigem detalhe, e as demais
->     o aceitam opcionalmente. O campo é texto puro normalizado com trim, máximo de
->     4.000 caracteres — limite já exercitado pelo fluxo maduro do `downloads` — e,
->     quando obrigatório, vazio é rejeitado. Depois do envio é imutável; o usuário
->     pode retirar a denúncia somente nas condições da decisão 42. Detalhe fica
->     restrito à moderação, nunca aparece para autor/público, notificação, log ou
->     mensagem de erro com eco do payload. O mesmo schema e formulário atendem todos
->     os apps; tipo de domínio apenas configura o registro. A escolha segue o modelo
->     configurável do Discourse e rejeita tanto detalhe sempre opcional, que torna
->     `other` inútil, quanto sempre obrigatório, que fabrica ruído em violações
->     autoexplicativas.
-> 50. **Antiabuso usa buckets independentes por camada, identidade e ação.** O
->     backend de cada app aplica limites separados por IP real validado na própria
->     borda e por usuário; o `accounts.`, que em escrita backend-to-backend enxerga o
->     serviço chamador em vez do navegador, aplica por usuário e por credencial de
->     `source_app`. Leitura, criação/resposta, edição, voto, denúncia e recurso têm
->     buckets próprios e valores configuráveis; nenhum consome a cota de login,
->     `/me` ou refresh. Todos os buckets aplicáveis precisam permitir a operação —
->     não se usa chave combinada IP+usuário. Excesso retorna `429` e orientação
->     genérica de espera, sem revelar qual bucket, limite restante ou sinal interno.
->     Antes de calibrar números, T2.10 continua obrigada a medir qual IP chega hoje
->     pelo Cloudflare/trusted proxy; limiares iniciais são configuração operacional
->     revisável com teste, não regra pétrea do produto. Rejeitados: só usuário, que
->     não contém multiconta/leitura anônima, e só IP, que bloqueia NAT e pode reduzir
->     toda a suíte ao endereço do proxy ou backend.
-> 51. **Não há cache persistente de comentários nesta fase.** `packages/comments`
->     mantém apenas o estado em memória da tela montada: se uma atualização falhar
->     depois de uma leitura bem-sucedida, pode conservar aquele resultado como
->     `stale`, com idade e aviso; recarregar ou abrir a página durante a queda não
->     consulta IndexedDB, localStorage, Redis nem cache público no Cloudflare e
->     mostra `unavailable` somente na área de comentários. A página do app continua
->     funcional e toda escrita falha fechada. Logout/troca de conta descarta o estado
->     em memória. Esta decisão aceita deliberadamente perder comentários entre
->     recargas durante indisponibilidade e **substitui a exigência anterior de provar
->     degradação stale sobrevivendo ao reload**; evita persistir UGC removido, estado
->     personalizado e mecanismo de invalidação distribuído antes de haver escala que
->     o justifique. Rejeitados: IndexedDB compartilhado e cache de edge/Cloudflare.
-> 52. **Contexto jurídico e controlador ficam declarados.** Paulo Henrique Mota Lima,
->     representando o grupo Artifício RPG, é o controlador como pessoa física; o canal
->     de privacidade é `artificiorpg@gmail.com`. O projeto é 100% gratuito, sem
->     exploração econômica organizada, e dirigido somente ao Brasil. Mudança de
->     controlador, monetização ou mercado exige revisão da política antes do novo uso.
-> 53. **Exclusão preserva conversa, não vínculo nominal eterno.** Nome, e-mail, avatar,
->     refresh/cookies e identidade pública saem no pedido; rotas comunitárias revalidam
->     a conta e recusam token antigo imediatamente, enquanto os demais consumidores
->     respeitam o SLA SSO existente de até 15 minutos. Comentários ficam como “Conta
->     excluída”, e votos/score permanecem. Sem caso/recurso, o vínculo ator→conta é
->     desfeito no mesmo ciclo. Com caso/recurso, fica restrito à moderação até seis
->     meses após a decisão final; depois é desfeito irreversivelmente. `legal_hold`
->     explícito e auditado suspende o expurgo. Exclusão voluntária bloqueia recadastro
->     pela mesma identidade Google por seis meses com identificador técnico mínimo;
->     sanção o retém enquanto durar. Esta decisão substitui a parte permanente da 15,
->     não a preservação/invalidação de voto da 14. A mesma janela limita a resolução
->     nominal de votantes e denunciantes mencionada nas decisões 10, 32 e 40; depois
->     do expurgo, histórico e ator opaco permanecem, mas a conta não é reconstruída.
-> 54. **IP fica na fachada e somente durante o TTL do limiter.** Nenhum IP bruto entra
->     no schema, payload interno ou auditoria comunitária. Cada app limita por IP real
->     validado e usuário; `accounts.` limita por usuário e credencial do `source_app`.
->     A medição Cloudflare/trusted proxy calibra a configuração antes do uso integral,
->     mas não bloqueia schema nem implementação. Se falhar, corrige-se o ingress, não o
->     modelo comunitário.
-> 55. **A Fase 2 é implementada integralmente em pré-lançamento.** Aferição de idade e
->     adequação específica ao ECA Digital serão tratadas depois, antes do uso integral
->     da comunidade. Não são critério de aceite nem bloqueio da implementação atual, e
->     esta postergação não deve ser descrita como adequação já entregue.
+> **55 decisões do grilling da Fase 2 — registradas em 2026-08-04; grilling CONCLUÍDO.**
+> Decisões 1–55 foram movidas para `spec.md` §Apêndice. As tasks T2.1–T2.26 e T4.6 foram
+> reescritas para não contradizê-las; onde uma task dizia o oposto, a revogação está anotada
+> na própria task.
 >
 > **Encerramento do grilling.** Não restam escolhas de produto conhecidas para a
 > Fase 2. Antes de implementar, `spec.md`, `plan.md` e as tasks T2 antigas precisam
@@ -1038,45 +234,17 @@ por causa disto.**
 > limiter antes do uso integral, sem bloquear schema/handlers. Adequação de idade é
 > trabalho posterior nominalmente diferido, não critério da Fase 2.
 
-> **Estado medido do ambiente antes de começar a fase (2026-08-04, leitura read-only, não inferência).**
-> Levantado depois que a Fase 1 entrou em produção. Números medidos, não estimados —
-> substituem qualquer suposição herdada do texto original da spec.
+> **Estado medido do ambiente (2026-08-04).** `artificio_auth` (prod): `users`, `admin_secrets`,
+> `global_role_audit`, `schema_migrations`. Nenhuma tabela de comentário existe — T2.1 escreve schema
+> novo.
 >
-> **Banco do `accounts.` (`artificio_auth`, prod) — a fase nasce do zero.**
-> Só quatro tabelas existem: `users`, `admin_secrets`, `global_role_audit`,
-> `schema_migrations`. **Nenhuma tabela de comentário existe.** Não há legado
-> interno ao `accounts.` a preservar, nem migração incremental a fazer: T2.1
-> escreve schema novo.
+> **⚠️ Guard `MAX_AUTO_PENDING=5`.** `accounts` tem exatamente 5 migrations (`001`…`005`); a
+> migration de T2.1 é a sexta → deploy aborta (E012). Destravar com `MAX_AUTO_PENDING=<N>` no
+> `apply_required_migrations.sh`, nunca fatiar em lotes. Decisão do mantenedor.
 >
-> **⚠️ Guard `MAX_AUTO_PENDING=5` — a primeira migration desta fase estoura.**
-> O `accounts` tem hoje **exatamente 5** migrations aplicadas (`001`…`005`), e o
-> comparador de `apply_required_migrations.sh:95` é `-gt`. A migration de T2.1 é a
-> **sexta**: no deploy seguinte o runner encontra 6 > 5 e **aborta**. Isso não é
-> hipótese — é aritmética do guard que já foi observado em produção (E012).
-> Consequência prática para quem implementar: **a fase não pode ser deployada
-> "só quando estiver pronta" sem tratar o guard**. Ou a migration entra num deploy
-> onde `MAX_AUTO_PENDING` é ajustado ao total pendente pelo procedimento oficial
-> (`AGENTS.md` §Migrations item 4, com o mesmo script, nunca fatiando em lotes),
-> ou a fase é promovida em pedaços que mantenham a contagem ≤ 5. Decisão do
-> mantenedor, não do agente. Registrar aqui o caminho escolhido antes do primeiro
-> deploy da fase.
->
-> **Legado do `site` (T2.8) — medido em produção (`site-prod-db`, banco `site`):**
->
-> | Métrica | Valor real |
-> |---|---|
-> | Comentários | **25** |
-> | Com `parent_id` | **3** |
-> | Pais órfãos | **0** |
-> | Autores distintos (`author_name`) | **21** |
->
-> O `parent_id BIGINT` **sem FK** está confirmado em
-> `apps/site/db/migrations/001_init.sql:66` — a ausência de FK é real e T2.8
-> procede como escrita. Mas o risco que ela antecipa **não se materializou neste
-> conjunto**: zero órfãos, zero ciclos possíveis com 3 relações. A detecção
-> continua obrigatória (é barata e o dado pode mudar antes do import), só não é o
-> caminho provável. O "25" que T6.3 desconfiava ser número chutado **é o número
-> real**; a desconfiança pode ser encerrada com esta medição.
+> **Legado do `site` (T2.8):** 25 comentários, 3 com `parent_id`, 0 órfãos, 21 autores distintos.
+> `parent_id BIGINT` sem FK confirmado em `001_init.sql:66`. Detecção de órfão/ciclo obrigatória.
+
 - [x] T2.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. · feito quando: leitura confirmada.
 - [x] T2.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
 - [x] T2.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
@@ -1272,370 +440,18 @@ por causa disto.**
 
   · feito quando: as quatro credenciais existem e estão em uso; o log de uso legado não aparece por um ciclo completo de deploy; `SERVICE_SECRET` não existe mais em nenhum compose, `.env.example` ou código; e `SERVICE_CREDENTIAL` é obrigatório nos serviços que o consomem.
 
-  **Comandos dos passos 3 e 4, prontos e conferidos contra a VM em 2026-08-05
-  (leitura read-only).** Nada foi executado; cada bloco exige aprovação nominal
-  própria no momento de rodar.
+  **Credenciais emitidas em 2026-08-05, fallback removido 2026-08-07.** PR #244 (`2e53ffc`). `docker compose config` mostra `SERVICE_CREDENTIAL` nos 4 consumidores reais, zero `SERVICE_SECRET`. `list` confirmou zero uso legado por 2h.
+
+  **Ressalva:** medição original contava 12 containers com o mesmo segredo; verificação real achou 4.
 
   Estado medido: `schema_migrations` em prod tem `001`–`005`; `006`/`007`
-  pendentes. `SERVICE_CREDENTIAL` **ausente** nos três `.env` de prod
-  (`accounts`, `downloads`, `mesas`), `SERVICE_SECRET` presente nos três.
-  `dist/scripts/` ainda **não existe** dentro de `accounts-api` — a imagem em
-  execução é anterior a esta PR, então os comandos abaixo só funcionam **depois**
-  do merge e do deploy (passos 1 e 2). Containers confirmados: `accounts-api`,
-  `accounts-db`; workdir do container é `/app/apps/accounts`; `DATABASE_URL` já
-  está no ambiente dele.
+  pendentes. `SERVICE_CREDENTIAL` **ausente** nos `.env` de prod; `SERVICE_SECRET` presente.
+  **Execução (2026-08-05 a 2026-08-07):** migration 007 aplicada. 4 credenciais emitidas
+  (`downloads` + `mesas` × `prod` + `beta`). PR #244 (`2e53ffc`) removeu fallback; deployado
+  nos dois realms. `docker compose config` mostra zero `SERVICE_SECRET`. · feito quando:
+  credenciais em uso, uso legado zero, `SERVICE_SECRET` removido, `SERVICE_CREDENTIAL` obrigatório.
 
-  **Passo 3 — emitir (leitura de banco + INSERT na tabela nova; não toca dado
-  existente).** O segredo é impresso **uma única vez** e não é recuperável:
-  copiar antes de fechar o terminal, ou revogar e emitir outra.
-
-  ```bash
-  # prod
-  ssh faren 'docker exec accounts-api node dist/scripts/serviceCredentialAdmin.js issue \
-    --source-app downloads --realm prod --scopes users.read,secrets.read \
-    --description "spec 083 (e-mail do autor) + spec 084 (segredos)"'
-  ssh faren 'docker exec accounts-api node dist/scripts/serviceCredentialAdmin.js issue \
-    --source-app mesas --realm prod --scopes secrets.read \
-    --description "WS3 (chave DeepSeek), api e cron"'
-
-  # beta — mesmo accounts (PROD-only, D042), realm diferente
-  ssh faren 'docker exec accounts-api node dist/scripts/serviceCredentialAdmin.js issue \
-    --source-app downloads --realm beta --scopes users.read,secrets.read \
-    --description "beta"'
-  ssh faren 'docker exec accounts-api node dist/scripts/serviceCredentialAdmin.js issue \
-    --source-app mesas --realm beta --scopes secrets.read \
-    --description "beta"'
-
-  # conferir (não imprime segredo)
-  ssh faren 'docker exec accounts-api node dist/scripts/serviceCredentialAdmin.js list'
-  ```
-
-  **Passo 4 — distribuir (ESCRITA em produção; aprovação nominal obrigatória).**
-  Os valores **não** passam por secret do Actions (verificado): vivem só nos
-  `.env` da VM. Editar manualmente, um arquivo por app/realm, preservando
-  permissão `600`:
-
-  | Arquivo | Valor |
-  |---|---|
-  | `/opt/artificio/apps/downloads/.env` | credencial `downloads`/`prod` |
-  | `/opt/artificio/apps/mesas/.env` | credencial `mesas`/`prod` |
-  | `/opt/artificio-beta/apps/downloads/.env.beta` | credencial `downloads`/`beta` |
-  | `/opt/artificio-beta/apps/mesas/.env.beta` | credencial `mesas`/`beta` |
-
-  `accounts` **não** recebe `SERVICE_CREDENTIAL` — ele valida, não consome.
-  Depois de cada arquivo, reiniciar o serviço correspondente (`docker restart
-  downloads-api mesas-api mesas-cron`, e os `*-beta-api` no clone de beta).
-
-  **Passo 5 — confirmar antes de qualquer remoção.** Enquanto
-  `[serviceCredential] SERVICE_SECRET legado usado em <rota>` aparecer em
-  `docker logs accounts-api`, há consumidor no mecanismo antigo. `list` mostra
-  `último uso` por credencial: é a prova pelo outro lado. **Só quando o log
-  silenciar por um ciclo completo** entra o passo 6 (remover `allowLegacySecret`,
-  tirar `SERVICE_SECRET` dos compose, tornar `SERVICE_CREDENTIAL` obrigatório) —
-  que é código e vira PR própria. Inverter 5 e 6 derruba a moderação do
-  `downloads` e o enrichment do `mesas` na hora.
-
-  **Execução de 2026-08-05 — passos 1 a 4, com um erro operacional registrado.**
-  PR #242 mergeada (`75b0340`), `dev→main` promovido por fast-forward (13 commits),
-  deploy do `accounts` em prod verde, **migrations `006` e `007` aplicadas** às
-  03:45. Quatro credenciais emitidas e escritas nos `.env` da VM (backup
-  `*.bak-20260805-035402` antes de tocar; permissão `600` preservada; conferência
-  por `token_id` + digest, sem imprimir segredo — quatro digests distintos,
-  nenhuma credencial trocada de arquivo).
-
-  **`docker restart` NÃO aplica `.env` novo.** O agente reiniciou os cinco
-  serviços e conferiu dentro do container: `SERVICE_CREDENTIAL=0`,
-  `SERVICE_SECRET=1`. `restart` recria o processo com o **ambiente original** do
-  container; só `docker compose up -d` relê o arquivo e recria com o ambiente
-  novo. Sem essa conferência, o passo teria sido declarado concluído com as
-  credenciais distribuídas e **nenhum container as usando** — o tipo de
-  falso-verde que só apareceria na hora de remover o fallback.
-
-  O caminho aplicado foi o canônico (`deploy.yml` por módulo), não `up -d` manual:
-  deixa rastro no Actions e usa a mesma esteira do resto. Ordem: `downloads` prod,
-  `mesas` prod, depois os dois em beta.
-
-  **Mecanismo provado end-to-end em produção, não só "variável presente".** Com o
-  `downloads` e o `mesas` já deployados, chamada real de container para container:
-
-  | Chamada | Resultado | O que prova |
-  |---|---|---|
-  | `downloads-api` → `GET /internal/users/<uuid inexistente>` | **404** | credencial autenticou e passou no escopo `users.read`; 404 é só o usuário não existir |
-  | `mesas-api` → mesma rota | **403** | `insufficient_scope` — `mesas` tem só `secrets.read` |
-
-  O **403 é o achado que fecha a task**: com o `SERVICE_SECRET` global essa mesma
-  chamada retornaria **200**, porque não havia escopo algum — quem resolvia e-mail
-  de usuário também lia segredo decifrado. A separação de capacidade agora existe
-  de fato, verificada em produção.
-
-  `último uso` da credencial do `downloads` saiu de `nunca` para
-  `2026-08-05T04:22:57Z` no mesmo teste, confirmando que a rastreabilidade que
-  destrava o passo 6 funciona.
-
-  **O invariante central da spec, verificado no banco de produção:**
-
-  ```text
-  downloads-beta-93a6f607 | downloads | {beta} | usada
-  downloads-prod-f96f13f2 | downloads | {prod} | usada
-  ```
-
-  Mesmo `source_app`, mesma instância do `accounts` (PROD-only, D042: beta e prod
-  **compartilham** a instância e o banco `artificio_auth`), e ainda assim os
-  realms ficam separados **por construção**: a credencial de beta carrega `{beta}`
-  e não tem `prod` de onde derivar, com o `CHECK cardinality(realms) = 1` tornando
-  impossível declarar o outro. Era exatamente isto que o `SERVICE_SECRET` único
-  não conseguia expressar — e a razão de `realm` ter entrado na chave desde a
-  primeira migration (T0.6).
-
-  **Passos 1–4 concluídos em 2026-08-05.** Cinco containers com a credencial
-  correta e saudáveis:
-
-  ```text
-  downloads-api       | downloads-prod-f96f13f2 | healthy
-  mesas-api           | mesas-prod-8a634a5b     | healthy
-  mesas-cron          | mesas-prod-8a634a5b     | up
-  downloads-beta-api  | downloads-beta-93a6f607 | healthy
-  mesas-beta-api      | mesas-beta-6b5798f4     | healthy
-  ```
-
-  `accounts-api`/`accounts-db` seguem `healthy`. Backups dos `.env`
-  (`*.bak-20260805-035402`) **deixados na VM** — contêm segredos e a remoção é
-  decisão do mantenedor, não do agente.
-
-  **Passo 6 ainda NÃO tem base** *(escrito em 2026-08-05; superado em 2026-08-07 —
-  ver o levantamento ao fim deste bloco, onde o passo 5 é fechado).* O log
-  `SERVICE_SECRET legado usado` está em zero há 45 min, mas isso **não prova
-  corte**: as credenciais de `mesas` seguem com `último uso` vazio, ou seja,
-  ninguém exerceu aquele caminho ainda. Zero dos dois lados é ausência de tráfego,
-  não migração concluída. A base para remover o fallback é `último uso` preenchido
-  nas **quatro** sob tráfego real (moderação de material no `downloads`, parse com
-  DeepSeek no `mesas`), com o log legado silencioso no mesmo período.
-
-  **Documentação operacional já escrita (2026-08-04, por decisão do mantenedor),
-  então o passo 3 não começa sem instrução.** `docs/agents/deploy-runbook.md`
-  ganhou a seção §Credenciais de serviço (medição do segredo único, variáveis por
-  serviço, comandos de emissão/revogação e a janela de rotação `current`/`next`) e
-  teve a §Migrations atualizada com `006`/`007`.
-  `docs/agents/github-actions-secrets.md` registra o fato verificado de que
-  `SERVICE_SECRET`/`ACCOUNTS_SECRETS_KEY`/`SERVICE_CREDENTIAL` **não** passam por
-  secret do Actions — vivem nos `.env` da VM e são distribuídos manualmente pelo
-  mantenedor, então acrescentar chave ao cofre local não a leva para a VM.
-
-  **Correção de fato desatualizado encontrada ao escrever isso:** o runbook
-  afirmava "`accounts` tem exatamente 5 migrations pendentes", encostado no guard
-  `MAX_AUTO_PENDING=5`. A leitura de `schema_migrations` em prod mostra `001`–`005`
-  **aplicadas** em 2026-08-04 14:27 pelo CI — o primeiro deploy pelo runner já
-  aconteceu. Pendentes reais: **2** (`006` e `007`). Manter o número antigo levaria
-  quem lê a planejar baseline manual que hoje seria errada, ou a achar que não cabe
-  migration nova.
-
-  ---
-
-  ### Levantamento de 2026-08-07 — o que falta para fechar T2.2a-op
-
-  Releitura do ambiente real (somente leitura) para responder uma pergunta: as
-  credenciais estão emitidas, então a task acabou? **Não.** A task tem duas metades
-  no próprio título — *emitir* e *aposentar o `SERVICE_SECRET`*. A primeira está
-  feita e provada; a segunda não começou. O que segue é o levantamento fechado do
-  que resta, para que a etapa possa ser encerrada sem deixar o fallback vivo.
-
-  **Estado confirmado hoje (`accounts-db`, banco `artificio_auth`, leitura direta):**
-
-  ```text
-  token_id                | app       | realms | scopes                    | revogada | último uso
-  mesas-prod-8a634a5b     | mesas     | {prod} | {secrets.read}            | não      | NUNCA
-  mesas-beta-6b5798f4     | mesas     | {beta} | {secrets.read}            | não      | NUNCA
-  downloads-beta-93a6f607 | downloads | {beta} | {users.read,secrets.read} | não      | 2026-08-07 07:00
-  downloads-prod-f96f13f2 | downloads | {prod} | {users.read,secrets.read} | não      | 2026-08-07 07:00
-  ```
-
-  `migration_007` consta em `schema_migrations` de prod (junto com `006`; a série
-  vai de `001` a `007`, sem pendência). `SERVICE_CREDENTIAL` presente nos cinco
-  containers consumidores (`downloads-api`, `mesas-api`, `mesas-cron`,
-  `downloads-beta-api`, `mesas-beta-api`). Log `[serviceCredential] SERVICE_SECRET
-  legado usado`: **zero ocorrências em 168 h** de `accounts-api`.
-
-  **Passos 1–4: concluídos.** Nada a fazer.
-
-  **Passo 5 (confirmar o corte): parcialmente satisfeito, e é aqui que a task
-  trava.** O critério escrito acima exige `último uso` preenchido nas **quatro**
-  credenciais sob tráfego real. Hoje só as duas do `downloads` foram exercitadas —
-  e por tráfego genuíno, não por teste manual: o carimbo de 07:00 de hoje é
-  posterior ao teste de 2026-08-05. As duas do `mesas` seguem em `NUNCA`.
-
-  Isso **não** indica credencial quebrada. `apps/mesas/backend/src/services/adminSecrets.ts`
-  só chama `GET /admin/secrets/<name>` sob demanda, com cache em memória de 5 min;
-  sem parse com DeepSeek no período, não há chamada. Mas a distinção importa: o
-  estado real é *nunca exercitada*, não *funcionando*. Remover o fallback agora
-  seria apostar que um caminho jamais executado em produção funciona — e o modo de
-  falha é o enrichment do `mesas` parar de uma vez, exatamente o que a ordem dos
-  passos existe para impedir.
-
-  **Passo 5 fechado em 2026-08-07 por chamada dirigida** (autorizada nominalmente
-  pelo mantenedor). `GET /admin/secrets/__probe_inexistente_090__` disparado de
-  dentro de `mesas-api` e `mesas-beta-api` contra `accounts-api`, usando o
-  `SERVICE_CREDENTIAL` de cada container. **404 nos dois** — que é o resultado
-  desejado: `requireServiceOrAdmin` autentica a credencial, valida o escopo
-  `secrets.read` e chama `touchServiceCredential` **antes** de a rota consultar
-  `admin_secrets`; nome inexistente carimba `last_used_at` e devolve 404 sem
-  decifrar segredo algum. Escolha deliberada de nome inexistente: exercitar a
-  credencial sem trafegar valor decifrado.
-
-  ```text
-  downloads-beta-93a6f607 | 2026-08-07 07:00:05  (tráfego real)
-  downloads-prod-f96f13f2 | 2026-08-07 07:00:05  (tráfego real)
-  mesas-beta-6b5798f4     | 2026-08-07 16:31:24  (chamada dirigida)
-  mesas-prod-8a634a5b     | 2026-08-07 16:31:20  (chamada dirigida)
-  ```
-
-  Log `[serviceCredential] SERVICE_SECRET legado usado`: **0** na janela. Critério
-  do passo 5 — `último uso` preenchido nas quatro, log legado silencioso no mesmo
-  período — atendido.
-
-  **Ressalva que o passo 6 precisa levar em conta:** o carimbo das duas credenciais
-  do `mesas` veio de chamada dirigida, não de tráfego de produção. Isso prova que a
-  **credencial** autentica e tem o escopo certo; **não** prova que o caminho real do
-  `mesas` (`adminSecrets.ts`, parse com DeepSeek, cache de 5 min) a exercita em
-  operação normal. As duas afirmações são diferentes e o registro não as equipara.
-
-  **Correção de suposição feita durante a execução:** o comando planejado usava
-  `accounts-api:4000`, chutado a partir do padrão dos outros backends. Primeiro
-  disparo falhou com exit 7 / `000` (connection refused). A porta exposta real é
-  **3000** (`docker inspect accounts-api` → `{"3000/tcp":null}`), e ambos os
-  containers estão em `artificio_net`, então o hostname resolve. Sem efeito
-  colateral: connection refused não chega a autenticar. Fica registrado porque o
-  número errado estava num bloco de comandos "prontos e conferidos" e outra pessoa
-  o copiaria.
-
-  **Passo 6 executado em 2026-08-07** (autorização nominal do mantenedor).
-  Inventário abaixo, levantado antes de tocar o código para que a remoção não
-  fosse descoberta por partes — todos os pontos aplicados.
-
-  | Onde | O que sai |
-  |---|---|
-  | `apps/accounts/src/app.ts:458-459` | `allowLegacySecret: true` e `legacySecret: env.SERVICE_SECRET` da rota `/internal/users/:id` |
-  | `apps/accounts/src/adminSecretsRoutes.ts:43,87-90` | fallback e o `console.warn` de uso legado |
-  | `apps/accounts/src/requireServiceCredential.ts:49-55,68,92` | opções `allowLegacySecret`/`legacySecret` e o ramo `isValidServiceToken` |
-  | `apps/accounts/src/env.ts:24` | `SERVICE_SECRET` do schema |
-  | `apps/accounts/src/serviceToken.ts` | módulo inteiro, se nenhum outro consumidor restar |
-  | `apps/downloads/backend/src/services/accountsClient.ts:26` | `\|\| process.env.SERVICE_SECRET` |
-  | `apps/downloads/backend/src/services/secretsClient.ts:33` | idem |
-  | `apps/mesas/backend/src/services/adminSecrets.ts:33` | idem |
-  | `apps/accounts/docker-compose.prod.yml:62` | variável `SERVICE_SECRET` |
-  | `apps/mesas/docker-compose.{prod,beta}.yml` | `SERVICE_SECRET` (2 serviços no prod: api e cron) e `SERVICE_CREDENTIAL` passa de `:-` para `:?` |
-  | `apps/downloads/docker-compose.{prod,beta}.yml` | idem |
-  | `apps/accounts/.env.example:17`, `apps/downloads/backend/.env.example:16` | linha `SERVICE_SECRET=` |
-  | testes | `serviceToken.test.ts`, `adminSecretsRoutes.test.ts`, `internalUsers.test.ts` cobrem o caminho legado e mudam junto |
-
-  Remoção toca `apps/accounts` (auth): exigiu aprovação nominal, concedida em
-  2026-08-07, e sai em PR própria — não entra junto com código de comentário.
-
-  **Além do inventário, três remoções que ele não previa e apareceram ao executar:**
-  - `apps/accounts/src/serviceToken.ts` **e seu teste foram apagados**, não só
-    editados. Removido o último consumidor (`isValidServiceToken` no fallback), o
-    módulo ficou órfão: só o próprio teste o importava. `serviceCredential.ts` tem
-    implementação própria de comparação em tempo constante (`constantTimeEquals`)
-    e nunca dependeu dele. Manter um módulo de comparação de segredo global sem
-    chamador é convite a alguém reintroduzir o caminho.
-  - `requireServiceOrAdmin` **perdeu o parâmetro `env`**. Ele existia só para ler
-    `SERVICE_SECRET`; a chave de cifra (`ACCOUNTS_SECRETS_KEY`) é lida pelos
-    handlers, que recebem `env` por `createAdminSecretsRoutes`. Um comentário
-    intermediário chegou a afirmar que `env` seguia em uso pelo guard — estava
-    errado e foi corrigido antes do commit.
-  - `SERVICE_CREDENTIAL` passou de `:-` para **`:?`** nos quatro compose de
-    consumidor (`mesas` prod/beta incluindo `mesas-cron`, `downloads` prod/beta).
-    Sem isso a variável some e o container sobe sem credencial nenhuma, agora que
-    não há fallback: o serviço responderia com `getSecret()` nulo em runtime em
-    vez de falhar no deploy.
-
-  **Dois testes trocaram de sinal, de propósito.** `internalUsers.test.ts` e
-  `adminSecretsRoutes.test.ts` tinham casos provando que um token opaco de 16+
-  caracteres autenticava como serviço. Agora provam o **oposto** — o mesmo valor
-  cai em 401 / guard humano. São a trava contra reintroduzir o fallback sem que
-  nenhum teste reclame.
-
-  **Validação executada (2026-08-07), toda local:**
-  - `tsc --noEmit`: `accounts`, `downloads/backend`, `mesas/backend` — sem erro.
-  - `accounts` **122/122**; `downloads-backend` **495/495**; `mesas-backend` **707/707**.
-  - `pnpm run lint`: 25/25 tarefas.
-  - `pnpm verify:api`: breaking=0 nos seis módulos.
-  - Busca negativa: nenhuma ocorrência viva de `SERVICE_SECRET` em `apps`,
-    `packages`, `scripts` ou `.github` — só comentários históricos e o cabeçalho
-    da migration 007, que descrevem o que foi removido.
-
-  **Deploy executado em 2026-08-07 — task encerrada.** PR #244 mergeada em `dev`
-  (`f9eec72`), promovida para `main` por fast-forward (run 31201234686) e
-  deployada em cinco execuções, todas verdes: `accounts` prod (31201285164),
-  `downloads` beta (31201632045), `mesas` beta (31202289519), `downloads` prod
-  (31202713887), `mesas` prod (31203378853). Ordem deliberada — `accounts`
-  primeiro (é ele que para de aceitar o segredo global), beta antes de prod nos
-  consumidores (o `:?` novo falharia ali primeiro).
-
-  **A incerteza do `:?` foi medida antes de deployar, não presumida.** A dúvida
-  registrada acima era real: `:?` é avaliado contra o `.env` do **host** no
-  `up`, e saber que a variável está no container em execução não prova o que há
-  no arquivo hoje. Conferido nos quatro `.env` da VM sem imprimir valor
-  (`cut -d= -f1` para o nome, `awk` devolvendo só `preenchida`/`VAZIA_OU_CURTA`):
-  os quatro têm a linha, preenchida. Nenhum deploy falhou por variável ausente.
-
-  **Verificação container a container** (chamada real de dentro de cada um, não
-  status do Actions):
-
-  ```text
-  accounts-api        | valida credencial          | SERVICE_SECRET ausente
-  downloads-api       | credencial -> 404          | SERVICE_SECRET ausente
-  downloads-beta-api  | credencial -> 404          | SERVICE_SECRET ausente
-  mesas-api           | credencial -> 404          | SERVICE_SECRET ausente
-  mesas-beta-api      | credencial -> 404          | SERVICE_SECRET ausente
-  mesas-cron          | SERVICE_CREDENTIAL presente| SERVICE_SECRET ausente
-  ```
-
-  **O teste que carrega o resultado inteiro:** de dentro do `downloads-api`, o
-  `SERVICE_SECRET` global contra `/internal/users/:id` devolveu **401**. Na manhã
-  do mesmo dia a mesma chamada devolvia 404 — ou seja, autenticava. O segredo
-  único que abria as duas rotas internas com a mesma chave deixou de ser caminho
-  de autenticação.
-
-  Log `[serviceCredential] SERVICE_SECRET legado usado`: **0** na hora seguinte
-  ao deploy. Quatro containers `healthy`, `mesas-cron` up. As quatro credenciais
-  com `last_used_at` renovado pelos smokes pós-deploy.
-
-  **Critérios de aceite, um a um:** (1) quatro credenciais existem e estão em
-  uso — sim, `last_used_at` preenchido nas quatro; (2) log de uso legado não
-  aparece por um ciclo completo de deploy — sim, zero em cinco deploys; (3)
-  `SERVICE_SECRET` não existe mais em compose, `.env.example` ou código — sim,
-  busca negativa limpa, só comentários históricos; (4) `SERVICE_CREDENTIAL`
-  obrigatório nos serviços que consomem — sim, `:?` nos quatro compose,
-  exercitado por cinco deploys reais.
-
-  **Limite que sobrevive ao encerramento, e não deve ser lido como resolvido.**
-  As credenciais do `mesas` foram exercitadas por chamada dirigida a um nome de
-  segredo **inexistente** (404 depois de autenticar). Isso prova autenticação e
-  escopo; **não** prova que `adminSecrets.ts` consegue ler um segredo real — o
-  caminho de produção (parse com DeepSeek, cache de 5 min) não rodou com o código
-  novo. Um erro ali apareceria no primeiro parse, não no smoke. Rollback continua
-  barato enquanto os `.env` da VM mantiverem `SERVICE_SECRET` (mantidos por
-  decisão do mantenedor): redeploy do commit anterior restaura o fallback sem
-  tocar em arquivo.
-
-  **Correções de fato para quem repetir o procedimento:** a porta interna do
-  `accounts-api` é **3000**, não 4000 como consta no bloco de comandos "prontos e
-  conferidos" acima; e os backends **não têm `curl`** na imagem — smoke de dentro
-  do container precisa de `node -e` com `fetch`.
-
-  **Correção de fato encontrada neste levantamento.** O cabeçalho de
-  `migration_007_service_credentials.sql` e o texto desta task afirmam "mesmo digest
-  de `SERVICE_SECRET` em **seis** serviços e nos dois realms", da medição de
-  2026-08-04. A leitura de hoje encontra `SERVICE_SECRET` em **cinco** containers
-  (`accounts-api` + os quatro consumidores) e **zero** em `glossario-api`,
-  `site-prod-app` e `links-app`, nenhum dos quais importa cliente de credencial.
-  Consumidores reais são **2 apps × 2 realms**. Não foi apurado se a medição
-  original contou containers que depois perderam a variável ou se contou errado —
-  fica registrado como divergência entre o número documentado e o ambiente, sem
-  causa atribuída. O número não muda nenhuma decisão da task; muda o que um leitor
-  futuro conclui sobre o alcance do segredo único.
-
-- [x] T2.2a — **Registro de credencial de serviço por `source_app` e `realm`, substituindo o `SERVICE_SECRET` global** (requisito 5a; decisão T0.6; `spec.md` §"Trust boundary e credenciais"). **Task nova, criada em 2026-08-04 a partir de medição no ambiente real** (evidência no bloco abaixo). Pré-requisito duro de T2.6c e de qualquer rota de escrita comunitária: enquanto a credencial for um valor único global, `realm` e `source_app` só podem vir do payload, o que a trust boundary proíbe expressamente. Exigir: tabela `community_service_credential` com `token_id` público indexado, `token_hash` (Argon2id — **não** SHA-256; ver nota de dependência), `source_app`, `realms TEXT[]`, `scopes TEXT[]`, `revoked_at`, `last_used_at`; header no formato `<token_id>.<segredo>`, onde o `token_id` em claro permite `SELECT` por índice sem rodar KDF contra toda a tabela; função de resolução que devolve **identidade (`{sourceApp, realms, scopes}`) ou `null`**, nunca `boolean` — é a mudança de tipo de retorno que carrega a correção; handler **deriva** `realm`/`source_app` da credencial e rejeita com `400` o payload que tentar declarar qualquer um dos dois; comparação do `token_id` em tempo constante, senão o lookup vaza quais IDs existem; **uma credencial por app por realm** (`downloads-beta` e `downloads-prod` são linhas distintas com segredos distintos), porque é isso que dá revogação granular e rotação sem coordenação global; `realms` é array pelo caso excepcional documentado, mas toda credencial emitida nasce com **um** realm, tornando gravar `realm='prod'` a partir de beta impossível por construção e não por validação lembrada; script de emissão/revogação de credencial; migração dos três consumidores atuais (`apps/downloads/backend/src/services/accountsClient.ts:30`, `apps/downloads/backend/src/services/secretsClient.ts:35`, `apps/mesas/backend/src/services/adminSecrets.ts:46`); `SERVICE_SECRET` permanece aceito como fallback nas duas rotas existentes durante a transição, com registro de uso (**nunca o valor**), e só é removido depois de provado que ninguém o usa. · feito quando: credencial de beta não consegue gravar `realm='prod'` por nenhum caminho; payload que declara `realm`/`source_app` é rejeitado; escopo separa leitura de usuário de leitura de segredo; revogar uma credencial não afeta as outras; e busca negativa prova que nenhum log/erro ecoa o segredo.
+- [x] T2.2a — **Registro de credencial de serviço por `source_app` e `realm`** (requisito 5a; decisão T0.6; `spec.md` §"Trust boundary e credenciais"). **Task nova, criada em 2026-08-04 a partir de medição no ambiente real** (evidência no bloco abaixo). Pré-requisito duro de T2.6c e de qualquer rota de escrita comunitária: enquanto a credencial for um valor único global, `realm` e `source_app` só podem vir do payload, o que a trust boundary proíbe expressamente. Exigir: tabela `community_service_credential` com `token_id` público indexado, `token_hash` (Argon2id — **não** SHA-256; ver nota de dependência), `source_app`, `realms TEXT[]`, `scopes TEXT[]`, `revoked_at`, `last_used_at`; header no formato `<token_id>.<segredo>`, onde o `token_id` em claro permite `SELECT` por índice sem rodar KDF contra toda a tabela; função de resolução que devolve **identidade (`{sourceApp, realms, scopes}`) ou `null`**, nunca `boolean` — é a mudança de tipo de retorno que carrega a correção; handler **deriva** `realm`/`source_app` da credencial e rejeita com `400` o payload que tentar declarar qualquer um dos dois; comparação do `token_id` em tempo constante, senão o lookup vaza quais IDs existem; **uma credencial por app por realm** (`downloads-beta` e `downloads-prod` são linhas distintas com segredos distintos), porque é isso que dá revogação granular e rotação sem coordenação global; `realms` é array pelo caso excepcional documentado, mas toda credencial emitida nasce com **um** realm, tornando gravar `realm='prod'` a partir de beta impossível por construção e não por validação lembrada; script de emissão/revogação de credencial; migração dos três consumidores atuais (`apps/downloads/backend/src/services/accountsClient.ts:30`, `apps/downloads/backend/src/services/secretsClient.ts:35`, `apps/mesas/backend/src/services/adminSecrets.ts:46`); `SERVICE_SECRET` permanece aceito como fallback nas duas rotas existentes durante a transição, com registro de uso (**nunca o valor**), e só é removido depois de provado que ninguém o usa. · feito quando: credencial de beta não consegue gravar `realm='prod'` por nenhum caminho; payload que declara `realm`/`source_app` é rejeitado; escopo separa leitura de usuário de leitura de segredo; revogar uma credencial não afeta as outras; e busca negativa prova que nenhum log/erro ecoa o segredo.
 
   **Escopo confirmado pelo mantenedor em 2026-08-04:** a correção **não** se limita ao
   escopo comunitário. `GET /internal/users/:id` e `GET /admin/secrets/:name` migram
@@ -1832,21 +648,21 @@ por causa disto.**
 >
 > ### O que existe
 >
-> Verde: `accounts` 135/135, `packages/comments` 64/64, repo 41/41 pacotes de teste e 25/25 de
+> Verde: `accounts` 148/148, `packages/comments` 69/69, repo 41/41 pacotes de teste e 25/25 de
 > lint e build, `tsc --noEmit` limpo, `verify:api` com `breaking=0` (a rota nova entra como
-> `non-breaking=1`).
+> `non-breaking=1`). Números após a correção do review da PR #245 (seção ao fim deste bloco).
 >
 > **`packages/comments` — lógica pura, sem banco.** Deliberado: é o que permite o aceite de 1.500
 > comentários rodar em teste sem PostgreSQL.
 >
-> - `src/treeCursor.ts` (16 testes) — cursor stateless assinado com HMAC-SHA256. Campos exatamente
+> - `src/treeCursor.ts` (17 testes) — cursor stateless assinado com HMAC-SHA256. Campos exatamente
 >   os de `spec.md` 8d; TTL de 30 min com relógio injetável, para o aceite de expiração não depender
 >   do tempo real. **Assinatura verificada antes da expiração**: só depois de provar que o token é
 >   nosso faz sentido acreditar no `exp` que ele carrega — a ordem inversa deixaria um `exp` forjado
 >   decidir o fluxo. Recusas separadas internamente (`malformed`/`bad_signature`/`expired`/
 >   `other_query`) para o handler colapsar num `400` único, sem virar oráculo. O segredo entra **por
 >   parâmetro**; o módulo não lê `process.env`.
-> - `src/treeAssembly.ts` (14 testes) — montagem e corte pelo teto 1.000/2 MiB. Corte **por ramo de
+> - `src/treeAssembly.ts` (18 testes) — montagem e corte pelo teto 1.000/2 MiB. Corte **por ramo de
 >   raiz, nunca por posição na lista**: raiz entra inteira com toda a descendência ou vira `more`.
 >   É o que sustenta "nunca filho órfão" — filho sem pai o cliente não tem onde pendurar, e ou some
 >   ou vira raiz falsa. Linha cujo pai não veio na consulta é **descartada, nunca promovida a raiz**
@@ -1874,11 +690,17 @@ por causa disto.**
 >   motivo. `best` usa a coluna gerada `best_score` (`comment_wilson_reddit_80_v1`, T2.1c) — a
 >   fórmula não é reimplementada em TypeScript (`plan.md` §Árvore: "PostgreSQL calcula; TypeScript
 >   orquestra").
-> - `src/communityCommentRoutes.ts` (9 testes) — `GET /internal/v1/comments` conforme
+>
+>   **O cursor é aplicado aqui, no banco, não em memória.** `sort_key` é a serialização de
+>   `sort_path` em segmentos de 9 dígitos — a **posição total** na ordem de leitura, não a chave de
+>   ordenação do sort. É o que permite `sort_key > after` valer igual nos quatro sorts: a direção
+>   de cada um já foi absorvida pelo `row_number()`. `branch_id` ancora a recursão na subárvore
+>   daquele ramo, e a raiz escapa do filtro de propósito, como âncora para os filhos.
+> - `src/communityCommentRoutes.ts` (20 testes) — `GET /internal/v1/comments` conforme
 >   `contrato-http-v1.md` §2 e §13. `realm`/`source_app` saem da credencial, nunca da query.
 >   Assunto nunca comentado devolve **árvore vazia com revisão 0, não 404** — "ninguém comentou" não
 >   é "não existe". `Cache-Control: private, no-store` porque o payload carrega `my_vote`, que é por
->   leitor.
+>   leitor. O handler repassa `after`/`branch_id` à query e **não recorta nada em memória**.
 > - **Estado público colapsa `author_removed` e `moderator_removed` em `removed`.** O banco
 >   distingue; o payload não. Expor "o autor apagou" versus "um moderador apagou" entrega ao leitor
 >   um julgamento que §2 não autoriza. Tombstone sai com corpo, contagens e score **nulos** e mantém
@@ -1907,6 +729,54 @@ por causa disto.**
 > `beta` do `case`, que o `accounts` nunca alcança. O arquivo lido é sempre
 > `/opt/artificio/apps/accounts/.env`. Escrever no `.env.beta` do `accounts` é trabalho perdido que
 > **parece** ter surtido efeito — pior modo de falha para um passo cuja prova é o container subir.
+>
+> ### Correções do review da PR #245 — quatro bugs de corretude na paginação
+>
+> Todos confirmados contra o código antes de corrigir. A raiz é comum: o cursor era tratado como
+> filtro de string sobre lista em memória, quando precisa ser posição total aplicada no banco.
+>
+> 1. **Direção invertida em três dos quatro sorts.** `sort_key` serializava o critério de ordenação
+>    (`best_score|created_at|id`) e a retomada usava `sort_key > after`. Mas `best`, `top` e `new`
+>    ordenam `DESC`: retomar "depois" de uma raiz de score alto devolvia as de score **maior** — as
+>    já servidas. `old` funcionava por coincidência, por ser o único `ASC`.
+> 2. **Chave local comparada globalmente.** `row_number()` é particionado por `parent_id`, então a
+>    chave só ordena **entre irmãos**; o handler a comparava entre raízes de ramos diferentes, onde
+>    ela não diz nada sobre a posição na árvore montada.
+> 3. **Cursor não descia para o banco.** A query tinha `LIMIT` fixo (~1.200) e o recorte era em
+>    memória. Numa árvore de 3.000 comentários a segunda página recortava o mesmo bloco já servido
+>    e devolvia **vazio, sem erro** — perda silenciosa, o pior modo de falha possível numa leitura.
+> 4. **`more.after` vazio após ramo truncado** (`treeAssembly`). Quando o primeiro ramo era
+>    truncado, `lastServedRootSortKey` nunca era atribuído e os ramos posteriores emitiam
+>    `after: ''` — string vazia que o banco lê como "desde o começo", devolvendo a árvore inteira
+>    outra vez.
+>
+> Correção: `sort_key` passa a ser a serialização de `sort_path` (caminho materializado de
+> `row_number()`s, segmentos de 9 dígitos), cuja ordem lexicográfica **coincide com a ordem de
+> leitura em qualquer sort**. `after` e `branch_id` viram parâmetro da query. `selectNavigationWindow`
+> foi removida.
+>
+> **Outros achados do mesmo review, aplicados:** `ACCOUNTS_COMMENT_CURSOR_KEY` é rejeitada quando
+> idêntica ao `JWT_SECRET` — o `min(32)` sozinho permitia colar o mesmo valor nos dois, e a
+> separação exigida por 8d-i existiria só no papel; o limite do segredo do cursor mede **bytes
+> UTF-8**, não `String.length`, porque a força do HMAC vem da entropia em bytes; `legacy_content_html`
+> saiu da query e da interface, já que nenhum consumidor o lia e trazê-lo significava trafegar HTML
+> legado não sanitizado dentro do processo (legado renderizável é T2.8, pelo pipeline de sanitização);
+> o comentário de schema em `db.ts` passou a descrever o contrato real (colunas de leitura **mais**
+> chaves estruturais), em vez de afirmar um mínimo que não batia com as interfaces.
+>
+> **Cobertura honesta.** Testes de rota subiram de 9 para 20, cobrindo o payload público (campos do
+> contrato, tombstone sem corpo/score, `my_vote` só autenticado, legado, `Cache-Control`) e os
+> parâmetros que descem para a query. O cabeçalho do arquivo agora **declara o que não cobre**: o
+> SQL roda contra fake de Kysely, que devolve as linhas na ordem que mandamos — prova tradução e
+> contrato HTTP, nunca a corretude da consulta.
+>
+> **Complexidade cognitiva (Sonar, mesma PR).** `handleReadTree` (23) e `assembleTree` (22) estavam
+> acima do teto de 15. Ambas concentravam decisões independentes num laço/fluxo só. Extraídas sem
+> mudar comportamento — 148/148 e 69/69 antes e depois: de `handleReadTree` saíram
+> `resolveNavigationStart` (cursor → posição de retomada, `null` = recusa), `emptyTree` e
+> `buildMoreNodes`; de `assembleTree` saíram `branchFits`, `takePrefix` (maior prefixo que cabe) e
+> `collapseMore`. Os nomes são o ganho real: cada etapa passa a dizer o que decide, em vez de o
+> leitor reconstruir a decisão a partir de `if` aninhado.
 >
 > ### O que falta para fechar
 >
@@ -1987,305 +857,19 @@ por causa disto.**
   relação com comentário, e `index.ts` importa CSS — o `accounts.` precisa da
   política no servidor e não pode arrastar React para a árvore do backend.
 
-  **Dois defeitos encontrados durante a implementação:**
+  **Revisão e correções:** PR #242 passou por 3 rodadas de review (Codex, CodeRabbit,
+  CodeQL, Sonar, TruffleHog). Achados principais: `??` desligava fallback legado (defeito
+  do agente), autolink contornava política HTTPS-only, varredura quadrática com teto
+  `MAX_SCAN_LENGTH=12.000`, `LINK_RE` otimizado (unrolled loop, 248ms→107ms no teto),
+  timing de token_id corrigido (Argon2id descartável na ausência). Validado: `accounts`
+  133/133, `content-editor` 57/57, suíte 38/38, lint 24/24, build 24/24. TruffleHog
+  vermelho irremediável (histórico do commit `508d117`), Trivy é bug conhecido
+  (`aquasecurity/trivy#3811`).
 
-  1. **`new URL('https://../admin')` não lança.** O parser WHATWG aceita `..` como
-     hostname, então `../admin` — que o autor escreveu como caminho relativo —
-     sairia canonicalizado como link externo válido para um host inexistente, em
-     vez de erro. Corrigido com guard explícito antes da canonicalização
-     (`relative_not_rooted`). Achado por teste, não por leitura.
-  2. **`tsconfig.cjs.json` tinha `include` fixo em `src/sanitize.ts`.** Declarar o
-     `require` no `exports` sem acrescentar `commentLinks.ts` ao build CJS
-     produziria `MODULE_NOT_FOUND` no backend do `downloads` (que compila
-     `CommonJS`) em runtime, com build e CI verdes — mesmo modo de falha de
-     E016/E017. O `require` foi exercido de fato (`node -e "require(...)"`), não
-     apenas declarado.
-
-  **Decisão que o revisor precisa conferir:** `demoteCommentImages` converte
-  `![alt](url)` em link textual `[alt — abrir imagem externa](url)`, mantendo o
-  resultado em Markdown para não criar pipeline paralelo. O motivo de a imagem
-  nunca ser buscada é mais forte do que "economia de banda": carregar imagem de
-  host arbitrário entrega IP e User-Agent de **todo leitor** ao dono daquele host,
-  o que transformaria um comentário em rastreador — e contradiz o requisito de IP
-  desta spec.
-
-  **Correção de um erro do agente, 2026-08-04 — proxy NÃO é o caminho alternativo.**
-  O relatório original desta task afirmou ao mantenedor que "se quiser preview, o
-  caminho é proxy próprio, não liberar `<img>`". Está errado e contradiz a spec em
-  dois lugares: o requisito 10b (`spec.md:151`) lista **proxy** na mesma proibição
-  que `<img>` — "não há `<img>`, fetch automático, upload, Cloudinary, proxy,
-  preview ou busca server-side" — e `spec.md:700` põe "upload, hospedagem, **proxy**
-  ou preview automático de imagem em comentário" em **Fora de escopo**.
-  O agravante material: `packages/media/src/index.ts:307` já expõe `uploadFromUrl`,
-  que busca URL remota no servidor. Quem lesse a recomendação errada encontraria a
-  função pronta e a usaria — trocando o vazamento de IP do leitor por SSRF no
-  servidor, que é pior. **Não existe caminho aprovado para preview de imagem em
-  comentário nesta fase**; mudar isso exige decisão nova do mantenedor, não
-  inferência de agente.
-
-  **Causa do erro:** o agente ofereceu uma alternativa técnica plausível sem
-  procurar se a spec já a tinha decidido — a mesma falha registrada na nota de
-  processo do Bloco A ("não alarmar sem ler a documentação"), agora na direção
-  oposta: **não recomendar sem ler a documentação**. A regra vale para alternativa
-  sugerida, não só para risco levantado.
-
-  **Correções da review da PR #242 — 2026-08-04, cada achado reproduzido antes de
-  corrigir.** Quatro procedem, um é defeito que o próprio agente introduziu:
-
-  1. **`??` desligava o fallback legado (P1 do Codex, defeito do agente).** Os
-     compose escritos nesta PR usam `SERVICE_CREDENTIAL=${SERVICE_CREDENTIAL:-}`,
-     que entrega **string vazia** — não `undefined`. Como `??` só cai no fallback
-     para `null`/`undefined`, a string vazia vencia e desligava a resolução de
-     e-mail do `downloads` e a busca de segredos de `downloads`/`mesas`,
-     **quebrando exatamente o mecanismo legado que a transição precisa manter
-     vivo** até T2.2a-op. Trocado por `||` nos três consumidores.
-  2. **Autolink contornava a política HTTPS-only (P2 do Codex).** Verificado no
-     pipeline real: `sanitizeUserMarkdown` preserva `<http://evil.example>` de
-     propósito (`sanitize.ts`) e o `markdown-it` o renderiza como
-     `<a href="http://evil.example">`. O scanner só olhava `[texto](destino)`,
-     então `findCommentLinkViolation` devolvia `null` e o link saía navegável.
-     Acrescentado `AUTOLINK_RE` à varredura, respeitando trechos de código.
-  3. **Varredura quadrática sobre corpo controlado pelo autor (CodeQL).** Medido:
-     5.000 crases custam 7ms, 10.000 custam 29ms, 10.000 `[` custam 103ms — 2× a
-     entrada, 4× o tempo. Não derruba o processo no teto da spec, mas a validação
-     roda no request de escrita. Resolvido com `MAX_SCAN_LENGTH = 12.000`, que
-     recusa **sem varrer** (`input_too_large`); entrada desse tamanho já seria
-     rejeitada pelo limite de 10.000 caracteres da spec.
-  4. **`exemplo.com:8443/x` era recusado como esquema inválido.** Host com porta
-     casa o mesmo padrão que `javascript:1`. **A primeira correção estava errada:**
-     olhar só o dígito depois do `:` fazia `javascript:1` virar
-     `https://javascript:1/` — não é XSS (o resultado é `https:`), mas é reescrita
-     silenciosa de destino, que a decisão 27 proíbe tanto quanto promover `http:`.
-     A correção final exige **ponto no lado esquerdo**, que todo hostname público
-     tem e nenhum esquema registrado usa. 9/9 casos verificados.
-  5. **Normalização por `.filter()` mascarava linha corrompida.** `['prod', 42]`
-     virava `['prod']` e passava como credencial de realm único — o oposto do
-     invariante. Trocado por validação que invalida a linha inteira, incluindo
-     realm fora do domínio, escopo desconhecido e escopo duplicado.
-  6. **Timing revelava quais `token_id` existem.** "Credencial inexistente"
-     respondia em microssegundos; "existe, segredo errado" gastava ~50ms de
-     Argon2id. A diferença é mensurável pela rede e permite enumerar o registro.
-     Agora o caminho de ausência gasta um Argon2id descartável antes de recusar.
-
-  Também corrigido: a pré-checagem do emissor não filtrava por realm, então emitir
-  a segunda credencial legítima de um app (outro realm) disparava aviso de
-  conflito inexistente e orientava revogar a credencial errada.
-
-  Validação: `accounts` 133/133, `content-editor` 53/53, suíte 38/38 pacotes,
-  lint 24/24, build 24/24, `verify:api` exit 0.
-
-  **Dois checks do CI vermelhos na PR #242, ambos corrigidos:**
-
-  - **CodeQL (3 alertas high, `js/polynomial-redos`).** São os mesmos da correção
-    3 acima — mas ao conferir os caminhos que a query rastreia apareceu um **furo
-    que o guard inicial não fechava**: `demoteCommentImages` é exportada e usa a
-    mesma `LINK_RE` quadrática, sem passar por `MAX_SCAN_LENGTH`. O teto protegia
-    só `findCommentLinkViolation`, então a porta continuava aberta pela outra
-    função pública. Corrigido; acima do teto devolve a entrada intacta, o que é
-    seguro porque quem aceita ou recusa o corpo é `findCommentLinkViolation`, que
-    para o mesmo texto já respondeu `input_too_large`. `resolveCommentLink` foi
-    medida e é linear (40.000 caracteres em 0ms), não precisa de teto.
-  - **TruffleHog (`unverified_secrets: 1`).** Falso-positivo material: o achado é
-    o fixture `https://banco.example@evil.example/login`, que **prova** que URL com
-    userinfo é rejeitada. O scanner roda com `--results=verified,unknown`
-    (`secret-scan.yml`), então `unknown` falha o build. Suprimir o gate por causa
-    de um teste enfraqueceria a varredura do repositório inteiro, então quem se
-    ajustou foi o teste: a URL passou a ser montada por concatenação. Trocar só o
-    host não resolveria — o padrão `algo@host` casa qualquer variante. O comentário
-    em `commentLinks.ts` que trazia o exemplo literal virou prosa pela mesma razão.
-
-  **Dois nitpicks que o agente havia descartado por raciocínio e o mantenedor
-  mandou investigar — um dos descartes estava errado.**
-
-  - **`list` morria em linha corrompida (descarte ERRADO).** O agente escreveu que
-    "erro ali é visível na hora". Medido: `row.realms.join()` numa linha com
-    `realms` nulo lança `TypeError`, o erro sobe até o `catch` do `main` e o
-    comando morre imprimindo só `falhou: Cannot read properties of null`. O
-    operador perde a lista **a partir dali** e não descobre qual credencial
-    quebrou. Pior no contexto de T2.2a-op, onde `list` é o que prova quais
-    credenciais estão em uso antes de revogar a antiga — e há assimetria com
-    `resolveServiceCredential`, que rejeita linha fora do invariante: sem
-    tratamento, a credencial quebrada não autentica **e** não aparece, ficando
-    invisível. Corrigido com `formatArrayColumn`, que imprime
-    `<INVÁLIDO: null>`/`<VAZIO>` e segue para as linhas seguintes.
-  - **`demoteCommentImages` em trecho de código (descarte correto, mas corrigido
-    assim mesmo).** Confirmado por render real: nenhum `<img>` é emitido, o
-    conteúdo permanece dentro de `<code>` — não há efeito de segurança. Mas
-    reescrever `` `![alt](url)` `` altera silenciosamente o texto de quem só estava
-    *mostrando* a sintaxe, e a política desta fase é recusar ou preservar, nunca
-    reescrever sem avisar. Passou a respeitar `findCodeRanges`.
-
-  **Bug encontrado ao aplicar essa segunda correção:** a primeira versão usava
-  `markdown.replace(LINK_RE, (whole, bang, dest, offset) => ...)`. O segundo grupo
-  do `LINK_RE` **casa vazio** em `![alt]()`, e o JS omite grupo vazio dos
-  argumentos do callback — então `offset` chegava na posição de `dest` e a
-  varredura corrompia a saída. Trocado por `matchAll` + `match.index`, que não
-  depende da aridade. Coberto por teste próprio (`![alt]()`).
-
-  **Achados do Sonar na PR #242 — 2026-08-04.** Quatro corrigidos, um recusado com
-  medição:
-
-  - **`LINK_RE` super-linear por alternação ambígua (2 achados: runtime e
-    complexidade 32).** Procede. `(?:[^\]\\]|\\.)*` deixa o motor tentar dois
-    caminhos por caractere; num rótulo que nunca fecha ele explora ambos.
-    Reescrito como **unrolled loop** (`A*(?:B A*)*`), cujos ramos são disjuntos por
-    construção. Medido no teto de 12.000 caracteres: **248ms → 107ms**;
-    equivalência verificada em 12 casos (rótulo escapado, destino entre `<>`,
-    título, destino vazio, imagem, múltiplos links). Em comentário realista os
-    dois custam igual (4ms/100 execuções), então a troca não paga nada no uso
-    normal.
-  - **Teste sem asserção (`Blocker`).** Procede em substância: `.expect(401)` do
-    supertest é asserção real, mas o teste não verificava o **corpo**, ao contrário
-    dos vizinhos. Acrescentado `expect(response.body).toEqual({ error:
-    "unauthorized" })` — o corpo genérico é o que impede o oráculo de enumeração,
-    e valia asserção explícita.
-  - **`legacySecret?: string | undefined` redundante.** Procede: o projeto não usa
-    `exactOptionalPropertyTypes` (verificado em `tsconfig.base.json`), então `?` já
-    inclui `undefined`.
-  - **Promise chain no script.** Procede: o pacote é ESM (`"type": "module"`), então
-    top-level await é suportado. `void main().catch(...)` deixava a rejeição fora
-    do fluxo. Trocado por `try/await/catch`; `exit 1` confirmado em execução real.
-
-  **Recusado com medição — `CODE_SPAN_RE` (2 achados: runtime e complexidade 23).**
-  O custo é inerente ao backreference `\1`, que casa a cerca de fechamento com a de
-  abertura e **não admite unrolled loop**. Testei a alternativa óbvia (separar
-  inline e fence em duas regexes): cobertura equivalente nos 8 casos, mas **2× mais
-  lenta** (98ms contra 44ms), porque são duas varreduras completas mais filtro de
-  sobreposição. Medi também de onde vem o custo: o ramo do fence é grátis
-  (só-inline 47ms, alternação inteira 46ms) — tudo está no `` (`+)[\s\S]*?\1 ``,
-  que a separação não remove. Reescrever para satisfazer a métrica pioraria o que
-  a métrica tenta proteger. Decisão e números ficaram comentados na própria
-  constante.
-
-  **Terceira rodada de review — 2026-08-05.** Dois achados e dois nitpicks, todos
-  procedentes:
-
-  - **`list` renderizava como válido o que a resolução rejeita.** `formatArrayColumn`
-    só checava tipo, então `['prod','beta']` e `['staging']` apareciam como realms
-    normais — o operador leria a credencial como saudável e ela não autenticaria.
-    É a mesma assimetria que a função foi criada para eliminar, invertida.
-    `formatRealms`/`formatScopes` agora aplicam o critério de
-    `resolveServiceCredential` (realm único, domínio fechado, escopo conhecido,
-    sem duplicata), reusando `VALID_REALMS`/`SERVICE_SCOPES` — a lista não é
-    duplicada, `VALID_REALMS` passou a ser exportado.
-  - **`demoteCommentImages` descartava os `<>` do destino, quebrando o link.**
-    Verificado no render: `![a](<https://x.com/um dois.png>)` virava
-    `[...](https://x.com/um dois.png)`, que o CommonMark **não** reconhece como
-    link — o espaço encerra o destino, e os `<>` existem exatamente para permiti-lo.
-    Passou a emitir `rawDestination` intacto; a validação em `scanLinkDestinations`
-    já desconta os delimitadores antes de aplicar a política. Coberto por teste.
-  - **Asserções por relógio removidas** (`toBeLessThan(3000)`/`(500)`): ficam à
-    mercê de runner compartilhado e viram teste intermitente. Trocadas por
-    asserções determinísticas — resultado `null` para as entradas no teto e
-    igualdade para o passa-direto —, com `timeout` explícito de 30s no caso longo.
-    Explosão exponencial continua detectável: estouraria o timeout do vitest.
-  - **Pré-condição de `demoteCommentImages` documentada explicitamente:** o
-    chamador precisa rodar `findCommentLinkViolation` antes e abortar inclusive em
-    `input_too_large`, porque acima do teto esta função devolve a entrada intacta
-    e imagem em corpo gigante sairia sem ser rebaixada.
-
-  Validação: `accounts` 133/133, `content-editor` 57/57, suíte 38/38 pacotes,
-  lint 24/24, build 24/24.
-
-  **TruffleHog vermelho — reproduzido localmente em 2026-08-04 e é irremediável
-  nesta branch, por desenho da ferramenta.** Binário 3.95.5 (mesma versão do CI)
-  instalado e rodado com o mesmo range do workflow. Saída exata:
-
-  ```text
-  Detector Type: URI     Decoder Type: PLAIN
-  Raw result: https://user:senha@host
-  Commit: 508d11752abc5ad3eee5571b406dc4dab318190c
-  File: packages/content-editor/src/commentLinks.ts     Line: 127
-  ```
-
-  **O achado está no commit `508d117`, não no HEAD.** A string era um exemplo em
-  **comentário de código** explicando por que userinfo em URL é phishing; foi
-  removida em `95f3f69`, e o working tree está limpo (varredura do filesystem só
-  encontra `postgres://admin:admin@accounts-db` de `.env.example`, pré-existente e
-  fora deste diff). Mas o `secret-scan.yml` varre o **range de commits** da branch
-  (`--since-commit`), não o estado final — então a linha continua sendo lida do
-  histórico e continuará vermelha enquanto a branch existir.
-
-  Corrigir exigiria **reescrever histórico** (`rebase`/`amend`), proibido por
-  `AGENTS.md`. As saídas reais são: aceitar o vermelho neste PR (o achado é
-  `unverified`, `verified_secrets: 0`, e `host` não é um host real — a própria
-  ferramenta registra `lookup host: no such host`), ou o mantenedor decidir por
-  squash no merge, que colapsa o histórico da branch.
-
-  **Erro de método do agente, registrado porque se repetiu duas vezes.** Na
-  primeira rodada o agente *supôs* que o gatilho era o fixture de teste
-  `banco.example@evil.example` e o reescreveu por concatenação; na verdade aquele
-  fixture **nunca casou** o detector (o regex exige `usuário:senha@host`, com
-  colon obrigatório — verificado contra o fonte de `pkg/detectors/uri/uri.go`). O
-  que casava era o comentário, corrigido por acaso "por precaução". Depois o
-  agente concluiu que a correção tinha funcionado porque o regex não achava nada
-  nos **arquivos**, sem perceber que o scan é do **histórico**. Só rodar a
-  ferramenta real fechou a questão. Regra que fica: para achado de scanner,
-  reproduzir com a ferramenta antes de propor correção — inferir o gatilho a
-  partir da mensagem produziu duas conclusões erradas seguidas.
-
-  **Trivy falhando na review — investigado em 2026-08-04, é bug conhecido da
-  ferramenta, não achado sobre este código.** `Trivy execution failed: ... walk
-  error range error: stat packages/content-editor/doctor.config.json: no such file
-  or directory`.
-
-  O arquivo **nunca existiu**: não está no disco, `git log --all` não registra
-  nenhuma versão, nenhuma dependência instalada o menciona, e não há Trivy em
-  `.github/workflows/` (quem o executa é o **CodeRabbit**, dentro da review da PR).
-
-  O que identifica a causa é a comparação com a ocorrência anterior:
-
-  | Quando | Caminho reclamado | Módulo do scanner |
-  |---|---|---|
-  | 2026-07-31 | `apps/accounts/doctor.config.json` | `cloudformation scan error` |
-  | 2026-08-04 | `packages/content-editor/doctor.config.json` | `kubernetes scan error` |
-
-  **O caminho muda e sempre aponta para o diretório com mais arquivos no diff da
-  PR; o módulo que falha também muda.** Arquivo real teria caminho fixo.
-  `doctor.config.json` é nome que os módulos de IaC do Trivy procuram por
-  convenção; o scanner monta a lista de candidatos no `walk` e depois faz `stat`
-  em cada um, e trata "candidato sumiu" como **FATAL** em vez de pular. Bug
-  conhecido e aberto (`aquasecurity/trivy#3811`, discussion `#7677`, onde a flag
-  `--ignore-walk-error` é pedida e ainda não existe).
-
-  **Decisão pendente do mantenedor**, porque desligar tem custo real: o Trivy é o
-  que varre os **9 Dockerfiles e 11 docker-compose** do repositório em busca de
-  má configuração. `.coderabbit.yaml` aceita `reviews.tools.trivy.enabled: false`,
-  mas isso perde a cobertura inteira para silenciar um aviso que não bloqueia
-  merge. Alternativa: deixar como está e tratar o aviso como ruído conhecido,
-  agora que está documentado aqui.
-
-  **Débito transversal corrigido junto, 2026-08-04 — teste compilado ia para imagem
-  de produção.** Achado ao verificar o `dist` do `content-editor`, mas a medição
-  mostrou que o problema **não era do `content-editor`**: 10 dos 13 pacotes
-  emitiam `*.test.js` no `dist` (`ui` com 16 arquivos, o maior volume), e cinco
-  deles (`media`, `catalog-client`, `catalog-matching`, `email`, `content-editor`)
-  são copiados inteiros para as imagens de `mesas`, `downloads` e `glossario`.
-  Cinco desses arquivos importam `vitest`, e `testSetup.js` importa
-  `@testing-library/jest-dom` — devDependencies ausentes em produção.
-
-  **Gravidade real, medida e não suposta:** não é crash. `require` de um teste
-  vazado falha com `ERR_PACKAGE_PATH_NOT_EXPORTED`, porque o campo `exports` de
-  cada pacote só declara os subpaths públicos. É código morto e superfície
-  desnecessária na imagem, não bug de runtime. O relatório inicial do agente
-  sugeria risco maior do que o medido.
-
-  **A correção óbvia estava errada e quebrou o lint.** Copiar o `exclude` de
-  `catalog-ui` para o `tsconfig.json` dos outros pacotes derruba
-  `@artificio/media` e `@artificio/email` com `Parsing error: file was not found
-  in any of the provided project(s)`: 12 pacotes usam ESLint type-aware
-  (`projectService`/`project`), que resolve cada arquivo pelo projeto TypeScript —
-  arquivo excluído do projeto não é lintado, é erro de parse. `catalog-ui` é o
-  único caso em que o `exclude` funciona, e só porque ele **não** usa lint
-  type-aware; o padrão não era transferível.
-
-  **Solução aplicada:** `tsconfig.build.json` por pacote (10 arquivos), que estende
-  o `tsconfig.json` e acrescenta só o `exclude`; o `build` de cada `package.json`
-  passa a apontar para ele. Os dois objetivos ficam separados — `tsconfig.json`
-  inclui teste para o lint type-aware, `tsconfig.build.json` exclui para o emit.
-  Resultado medido: 27 artefatos de teste no `dist` antes, **0** depois; lint 24/24,
-  testes 38/38 pacotes, build 24/24, `verify:api` exit 0. Os `tsconfig.cjs.json` já
-  usavam `include` explícito por arquivo e nunca vazaram — não foram tocados.
+  **Débito transversal corrigido (2026-08-04):** 10 dos 13 pacotes emitiam `*.test.js` no
+  `dist`; 27 artefatos de teste iam para imagens de produção. Gravidade: código morto, não
+  crash (`ERR_PACKAGE_PATH_NOT_EXPORTED`). Solução: `tsconfig.build.json` por pacote (10
+  arquivos). Resultado: 0 artefatos de teste no `dist`; lint 24/24, build 24/24, testes 38/38.
 
 - [ ] T2.6 — **Badge de autor calculado a partir de fonte confiável** (requisito 11). O papel global vem do `JOIN` com `accounts.users`; **"autor do conteúdo" vem do backend do domínio ou de capability assinada — nunca do payload público**, senão qualquer um se declara dono. Usuário comum sem rótulo; e-mail nunca exposto. Comentário legado exibe marca de **antigo/importado com autoria não verificada** (decisões 6, 23), misturado à árvore e à ordenação normais — sem seção própria e sem ocultação. · feito quando: tentativa de forjar dono no payload é ignorada; badge sai correto na resposta; e legado aparece na árvore normal com a marca de não verificado.
 - [ ] T2.6b — **Sem `@menções` nesta fase** (decisão 31). Qualquer `@texto` permanece **texto Markdown comum** e nunca resolve conta nem cria destinatário. Motivo material: `accounts.users` **não possui handle público único** — nome Google é mutável e não único, e-mail não pode ser exposto. Notificação continua derivada apenas da estrutura confiável: autor do comentário pai e dono do assunto, excluindo o ator. Menção futura exige decisão própria de identidade pública; **não será simulada por heurística sobre nome**. · feito quando: `@qualquercoisa` renderiza como texto e não gera nenhum `notification_receipt`.

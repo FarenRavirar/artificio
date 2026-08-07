@@ -77,16 +77,9 @@ Só o global sai do app. `download_creator.role` hoje mistura os dois (`role: 'a
 global); a separação manda o papel global para o `accounts.` e deixa o de criador onde está.
 
 **`accounts.` é a origem do papel global, não o destino de uma migração** (decisão do mantenedor,
-2026-07-30). A versão anterior deste plano previa consolidar no `accounts.` os papéis locais de
-`downloads`/`glossario`/`mesas`, tratando o papel de app como autoridade a preservar. Invertido:
-a conta central é definitiva e mandatória, e app nenhum alimenta papel global. `downloads` não foi
-lançado e pode ser refeito — travar a arquitetura do SSO para preservar o papel local dele não se
-justifica.
-
-Isso elimina três coisas de uma vez: a rotina de migração (`roleMigration.ts`, removida em T1.5),
-a classe de conflito que ela detectava (e-mail duplicado, vínculo quebrado — só nasce ao casar
-papel de app com conta central) e o fallback para papel local (T1.6), que reintroduziria o app
-como autoridade pela porta dos fundos.
+2026-07-30). A conta central é definitiva e mandatória; app nenhum alimenta papel global.
+`roleMigration.ts` foi removido, junto com a classe de conflito que ele detectava e o fallback
+para papel local — reintroduzir o app como autoridade pela porta dos fundos.
 
 O requisito 4 passa a ser cumprido por construção, não por conferência: o mantenedor é admin no
 `accounts.` desde o boot, via `ACCOUNTS_BOOTSTRAP_ADMIN_EMAIL` (T1.5a), e promove quem mais

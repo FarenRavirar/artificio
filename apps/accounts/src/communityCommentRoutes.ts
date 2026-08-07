@@ -8,9 +8,10 @@ import {
   assembleTree,
   issueTreeCursor,
   verifyTreeCursor,
+  type CommentSort,
 } from "@artificio/comments";
 import type { Database } from "./db.js";
-import { readCommentTree, type PublicComment, type TreeRow } from "./communityCommentRead.js";
+import { readCommentTree, type PublicComment } from "./communityCommentRead.js";
 import { requireServiceCredential, type ServiceAuthenticatedRequest } from "./requireServiceCredential.js";
 
 /**
@@ -123,6 +124,74 @@ export function createCommunityCommentRoutes(
   return router;
 }
 
+/** Posição de onde a leitura retoma. Tudo nulo na primeira página. */
+interface NavigationStart {
+  snapshotRevision?: number;
+  branchId: string | null;
+  after: string | null;
+}
+
+/**
+ * Traduz o cursor recebido na posição de retomada.
+ *
+ * `null` sinaliza cursor recusado — o chamador responde `400`/`invalid_cursor`.
+ * Os quatro motivos de recusa colapsam num só código: distingui-los diria ao
+ * chamador se a assinatura bateu, um oráculo para calibrar forjatura.
+ */
+function resolveNavigationStart(
+  cursor: string | undefined,
+  cursorSecret: string,
+  expected: { subject_type: string; subject_id: string; sort: CommentSort },
+): NavigationStart | null {
+  if (cursor === undefined) return { branchId: null, after: null };
+
+  const verified = verifyTreeCursor(cursor, cursorSecret, expected);
+  if (!verified.ok) return null;
+
+  return {
+    snapshotRevision: verified.payload.snapshot_revision,
+    branchId: verified.payload.branch_id,
+    after: verified.payload.after,
+  };
+}
+
+/** Resposta de assunto que nunca recebeu comentário. */
+function emptyTree(res: Response): void {
+  // Árvore vazia e revisão 0, não 404 — "ninguém comentou" não é "não existe".
+  res.set("Cache-Control", "private, no-store");
+  res.json({
+    state: "fresh",
+    snapshot_revision: 0,
+    comments: [],
+    more: [],
+    truncated: false,
+  });
+}
+
+/** Monta os nós `more`, cada um com o cursor assinado da própria continuação. */
+function buildMoreNodes(
+  assembledMore: readonly { parent_id: string | null; count: number; after: string }[],
+  cursorSecret: string,
+  query: { subjectType: string; subjectId: string; sort: CommentSort; revision: number },
+) {
+  return assembledMore.map((node) => ({
+    parent_id: node.parent_id,
+    count: node.count,
+    cursor: issueTreeCursor(
+      {
+        subject_type: query.subjectType,
+        subject_id: query.subjectId,
+        sort: query.sort,
+        snapshot_revision: query.revision,
+        branch_id: node.parent_id,
+        after: node.after,
+        limit: MAX_COMMENTS_PER_READ,
+      },
+      cursorSecret,
+    ),
+  }));
+}
+
 async function handleReadTree(
   db: Kysely<Database>,
   cursorSecret: string,
@@ -146,29 +215,18 @@ async function handleReadTree(
     return;
   }
 
-  let snapshotRevision: number | undefined;
-  let branchId: string | null = null;
-  let after: string | null = null;
+  const start = resolveNavigationStart(cursor, cursorSecret, {
+    subject_type: subjectType,
+    subject_id: subjectId,
+    sort,
+  });
 
-  if (cursor !== undefined) {
-    const verified = verifyTreeCursor(cursor, cursorSecret, {
-      subject_type: subjectType,
-      subject_id: subjectId,
-      sort,
-    });
-
-    if (!verified.ok) {
-      // Os quatro motivos colapsam num só código. Distingui-los diria ao
-      // chamador se a assinatura bateu — um oráculo para calibrar forjatura.
-      fail(req, res, 400, "invalid_cursor");
-      return;
-    }
-
-    snapshotRevision = verified.payload.snapshot_revision;
-    branchId = verified.payload.branch_id;
-    after = verified.payload.after;
+  if (start === null) {
+    fail(req, res, 400, "invalid_cursor");
+    return;
   }
 
+  const { snapshotRevision, branchId, after } = start;
   const actingActorId = await resolveActingActorId(db, readActingUserId(req));
 
   const { snapshotRevision: revision, rows } = await readCommentTree(
@@ -183,27 +241,22 @@ async function handleReadTree(
       sort,
       snapshotRevision,
       actingActorId,
+      after,
+      branchId,
     },
     Math.ceil(MAX_COMMENTS_PER_READ * FETCH_OVERSHOOT),
   );
 
   if (revision === null) {
-    // Assunto sem registro: nunca comentado. Árvore vazia e revisão 0, não 404
-    // — "ninguém comentou" não é "não existe".
-    res.set("Cache-Control", "private, no-store");
-    res.json({
-      state: "fresh",
-      snapshot_revision: 0,
-      comments: [],
-      more: [],
-      truncated: false,
-    });
+    emptyTree(res);
     return;
   }
 
-  const scoped = selectNavigationWindow(rows, branchId, after);
+  // Sem recorte em memória: a query já veio posicionada pelo cursor e escopada
+  // ao ramo (achado de review, PR #245 — o filtro em memória sobre um `LIMIT`
+  // fixo devolvia página vazia em árvore maior que o limite de busca).
   const assembled = assembleTree({
-    rows: scoped.map((row) => ({
+    rows: rows.map((row) => ({
       id: row.id,
       parent_id: row.parent_id,
       depth: row.depth,
@@ -215,29 +268,17 @@ async function handleReadTree(
     maxBytes: MAX_BYTES_PER_READ,
   });
 
-  const byId = new Map(scoped.map((row) => [row.id, row.comment]));
-  const comments: PublicComment[] = [];
-  for (const id of assembled.included) {
-    const comment = byId.get(id);
-    if (comment) comments.push(comment);
-  }
+  const byId = new Map(rows.map((row) => [row.id, row.comment]));
+  const comments = assembled.included
+    .map((id) => byId.get(id))
+    .filter((comment): comment is PublicComment => comment !== undefined);
 
-  const more = assembled.more.map((node) => ({
-    parent_id: node.parent_id,
-    count: node.count,
-    cursor: issueTreeCursor(
-      {
-        subject_type: subjectType,
-        subject_id: subjectId,
-        sort,
-        snapshot_revision: revision,
-        branch_id: node.parent_id,
-        after: node.after,
-        limit: MAX_COMMENTS_PER_READ,
-      },
-      cursorSecret,
-    ),
-  }));
+  const more = buildMoreNodes(assembled.more, cursorSecret, {
+    subjectType,
+    subjectId,
+    sort,
+    revision,
+  });
 
   // UGC nunca entra em cache compartilhado: o payload carrega `my_vote`, que é
   // por leitor, e conteúdo que a moderação pode retirar a qualquer momento.
@@ -251,68 +292,15 @@ async function handleReadTree(
   });
 }
 
-/**
- * Recorta a janela que este cursor expande.
+/*
+ * `selectNavigationWindow` foi removida na correção do review da PR #245.
  *
- * Sem cursor, a janela é a árvore inteira. Com cursor:
+ * Ela recortava a janela do cursor em memória, sobre o resultado de um `LIMIT`
+ * fixo. Dois defeitos que só apareciam em árvore grande: a segunda página
+ * recortava o mesmo bloco de ~1.200 linhas já servido (devolvendo vazio sem
+ * erro), e a comparação `sort_key > after` avançava na direção errada em
+ * `best`, `top` e `new`, que ordenam `DESC`.
  *
- * - `branch_id === null` é a **continuação das raízes** — mantém só as raízes
- *   depois de `after` (e a descendência delas). É o `more` que aparece quando
- *   ramos inteiros ficaram para trás.
- * - `branch_id` preenchido é a **expansão de um ramo truncado** — mantém apenas
- *   aquele ramo, retomando depois de `after`.
- *
- * A raiz do ramo é preservada na expansão mesmo já tendo sido servida antes:
- * sem ela o cliente receberia filhos sem pai nesta resposta, que é o filho
- * órfão que o aceite proíbe. Ela chega marcada pelo mesmo `id`, então o cliente
- * a reconhece como âncora e não a duplica na árvore que já tem.
+ * O cursor agora é aplicado no `WHERE` da própria query, sobre a posição total
+ * derivada de `sort_path` — ver `communityCommentRead.ts`.
  */
-function selectNavigationWindow(
-  rows: readonly TreeRow[],
-  branchId: string | null,
-  after: string | null,
-): TreeRow[] {
-  if (after === null) return [...rows];
-
-  if (branchId === null) {
-    const keptRoots = new Set<string>();
-    const result: TreeRow[] = [];
-
-    for (const row of rows) {
-      if (row.parent_id === null) {
-        if (row.sort_key > after) {
-          keptRoots.add(row.id);
-          result.push(row);
-        }
-        continue;
-      }
-
-      // Descendente entra se o ramo dele entrou. `parent_id` já está em
-      // `result` quando isso é verdade, porque a ordem é de leitura.
-      if (keptRoots.has(row.parent_id)) {
-        keptRoots.add(row.id);
-        result.push(row);
-      }
-    }
-
-    return result;
-  }
-
-  const branchMembers = new Set<string>([branchId]);
-  const result: TreeRow[] = [];
-
-  for (const row of rows) {
-    if (row.id === branchId) {
-      // Âncora: a raiz do ramo volta para que os filhos tenham onde pendurar.
-      result.push(row);
-      continue;
-    }
-
-    if (row.parent_id !== null && branchMembers.has(row.parent_id)) {
-      branchMembers.add(row.id);
-      if (row.sort_key > after) result.push(row);
-    }
-  }
-
-  return result;
-}

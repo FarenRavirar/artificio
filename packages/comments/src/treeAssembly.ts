@@ -140,6 +140,69 @@ function groupIntoBranches(rows: readonly AssemblyRow[]): Branch[] {
  * leitura põe todo pai antes dos seus descendentes: um prefixo dessa ordem é
  * sempre uma subárvore fechada no topo.
  */
+/** Orçamento consumido pelos ramos já servidos. */
+interface Budget {
+  comments: number;
+  bytes: number;
+}
+
+/** Um ramo cabe inteiro quando nem a contagem nem o tamanho estouram. */
+function branchFits(branch: Branch, used: Budget, maxComments: number, maxBytes: number): boolean {
+  return (
+    used.comments + branch.members.length <= maxComments
+    && used.bytes + branch.bytes <= maxBytes
+  );
+}
+
+/**
+ * Serve o maior prefixo do ramo que cabe no orçamento restante.
+ *
+ * Usado só no ramo que sozinho estoura o teto. Prefixo da ordem de leitura
+ * nunca orfana, porque essa ordem põe todo pai antes dos descendentes — então
+ * um prefixo dela é sempre subárvore fechada no topo.
+ */
+function takePrefix(
+  branch: Branch,
+  maxComments: number,
+  maxBytes: number,
+): { ids: string[]; comments: number; bytes: number } {
+  const ids: string[] = [];
+  let bytes = 0;
+
+  for (const member of branch.members) {
+    if (ids.length + 1 > maxComments || bytes + member.size_bytes > maxBytes) break;
+    ids.push(member.id);
+    bytes += member.size_bytes;
+  }
+
+  return { ids, comments: ids.length, bytes };
+}
+
+/**
+ * Colapsa os `more` acumulados no formato final.
+ *
+ * `more` de ramo truncado (`parent_id` da raiz) é preservado como está: aponta
+ * para dentro daquele ramo, e agregá-lo à continuação das raízes perderia a
+ * informação de onde retomar. Já as raízes adiadas consecutivas viram um único
+ * `more` de continuação — o cliente pede "o resto a partir daqui", não ramo a
+ * ramo.
+ */
+function collapseMore(more: readonly MoreNode[], lastServedRootSortKey: string): MoreNode[] {
+  const branchMore = more.filter((node) => node.parent_id !== null);
+  const rootMore = more.filter((node) => node.parent_id === null);
+
+  if (rootMore.length === 0) return branchMore;
+
+  return [
+    ...branchMore,
+    {
+      parent_id: null,
+      count: rootMore.reduce((total, node) => total + node.count, 0),
+      after: lastServedRootSortKey,
+    },
+  ];
+}
+
 export function assembleTree({
   rows,
   maxComments = MAX_COMMENTS_PER_READ,
@@ -149,41 +212,32 @@ export function assembleTree({
 
   const included: string[] = [];
   const more: MoreNode[] = [];
-  let usedComments = 0;
-  let usedBytes = 0;
+  const used: Budget = { comments: 0, bytes: 0 };
   let cutting = false;
   /** Sort-key da última raiz servida — é daí que a continuação retoma. */
   let lastServedRootSortKey = '';
 
   for (const branch of branches) {
-    if (cutting) {
-      // Depois do primeiro corte, todo ramo seguinte é adiado — servir um ramo
-      // posterior porque "é pequeno" quebraria a ordem e faria a expansão
-      // duplicar ou pular item.
-      more.push({
-        parent_id: null,
-        count: branch.members.length,
-        after: lastServedRootSortKey,
-      });
-      continue;
-    }
+    // Depois do primeiro corte, todo ramo seguinte é adiado — servir um ramo
+    // posterior porque "é pequeno" quebraria a ordem e faria a expansão
+    // duplicar ou pular item.
+    //
+    // Um ramo que não cabe depois de já termos servido algo cai no mesmo caso:
+    // o cliente tem conteúdo para renderizar e o `more` dá o caminho adiante.
+    const fits = !cutting && branchFits(branch, used, maxComments, maxBytes);
 
-    const fitsCount = usedComments + branch.members.length <= maxComments;
-    const fitsBytes = usedBytes + branch.bytes <= maxBytes;
-
-    if (fitsCount && fitsBytes) {
+    if (fits) {
       for (const member of branch.members) included.push(member.id);
-      usedComments += branch.members.length;
-      usedBytes += branch.bytes;
+      used.comments += branch.members.length;
+      used.bytes += branch.bytes;
       lastServedRootSortKey = branch.rootSortKey;
       continue;
     }
 
+    const truncaEsteRamo = !cutting && included.length === 0;
     cutting = true;
 
-    // Ramo que não cabe depois de já termos servido algo é adiado inteiro: o
-    // cliente tem conteúdo para renderizar e o `more` dá o caminho adiante.
-    if (included.length > 0) {
+    if (!truncaEsteRamo) {
       more.push({
         parent_id: null,
         count: branch.members.length,
@@ -194,49 +248,33 @@ export function assembleTree({
 
     // Primeiro ramo estourando sozinho: trunca no teto em vez de servir inteiro
     // (decisão 3 — sem memória sem teto) ou de devolver nada (cliente sem
-    // conteúdo e sem progresso). Prefixo da ordem de leitura nunca orfana.
-    let taken = 0;
-    let takenBytes = 0;
-    for (const member of branch.members) {
-      if (taken + 1 > maxComments || takenBytes + member.size_bytes > maxBytes) break;
-      included.push(member.id);
-      taken += 1;
-      takenBytes += member.size_bytes;
-    }
+    // conteúdo e sem progresso).
+    const prefix = takePrefix(branch, maxComments, maxBytes);
+    included.push(...prefix.ids);
+    used.comments += prefix.comments;
+    used.bytes += prefix.bytes;
 
-    usedComments += taken;
-    usedBytes += takenBytes;
+    // A raiz truncada é a última servida na ordem de leitura, então é dela que
+    // a continuação das raízes retoma (achado de review, PR #245). Sem esta
+    // linha `lastServedRootSortKey` seguia `''`, e todo ramo posterior emitia
+    // `more.after: ''` — que o banco lê como "desde o começo", devolvendo a
+    // árvore inteira de novo em vez do resto.
+    lastServedRootSortKey = branch.rootSortKey;
 
-    const remaining = branch.members.length - taken;
+    const remaining = branch.members.length - prefix.comments;
     if (remaining > 0) {
       more.push({
         parent_id: branch.rootId,
         count: remaining,
-        after: taken === 0 ? branch.rootSortKey : branch.members[taken - 1].sort_key,
+        after:
+          prefix.comments === 0
+            ? branch.rootSortKey
+            : branch.members[prefix.comments - 1].sort_key,
       });
     }
   }
 
-  // `more` de ramo truncado (`parent_id` da raiz) é preservado como está: ele
-  // aponta para dentro daquele ramo, e agregá-lo à continuação das raízes
-  // perderia a informação de onde retomar.
-  const branchMore = more.filter((node) => node.parent_id !== null);
-  const rootMore = more.filter((node) => node.parent_id === null);
-
-  // Já as raízes adiadas consecutivas viram um único `more` de continuação: o
-  // cliente pede "o resto a partir daqui", não ramo a ramo.
-  const collapsed: MoreNode[] = [
-    ...branchMore,
-    ...(rootMore.length === 0
-      ? []
-      : [
-          {
-            parent_id: null,
-            count: rootMore.reduce((total, node) => total + node.count, 0),
-            after: lastServedRootSortKey,
-          },
-        ]),
-  ];
+  const collapsed = collapseMore(more, lastServedRootSortKey);
 
   return { included, more: collapsed, truncated: collapsed.length > 0 };
 }

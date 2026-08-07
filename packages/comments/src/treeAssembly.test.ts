@@ -181,4 +181,53 @@ describe('assembleTree', () => {
     expect(result.more).toHaveLength(1);
     expect(result.more[0].count).toBe(2);
   });
+
+  // Achado de review da PR #245: quando o PRIMEIRO ramo era truncado,
+  // `lastServedRootSortKey` nunca era atribuido e os ramos posteriores saiam
+  // com `after: ''`. String vazia e menor que qualquer sort_key, entao o banco
+  // a le como "desde o comeco" — a continuacao devolveria a arvore inteira de
+  // novo, duplicando tudo que ja tinha sido servido.
+  describe('primeiro ramo truncado seguido de ramos posteriores', () => {
+    it('more da continuacao aponta para a raiz truncada, nunca vazio', () => {
+      const rows = [...branch('r1', 5), ...branch('r2', 0), ...branch('r3', 0)];
+      const result = assembleTree({ rows, sort: 'best', maxComments: 3 });
+
+      const rootMore = result.more.find((node) => node.parent_id === null);
+      expect(rootMore).toBeDefined();
+      expect(rootMore?.after).toBe('k-r1');
+      expect(rootMore?.after).not.toBe('');
+      expect(rootMore?.count).toBe(2);
+    });
+
+    it('more do proprio ramo truncado retoma do ultimo item servido', () => {
+      const rows = [...branch('r1', 5), ...branch('r2', 0)];
+      const result = assembleTree({ rows, sort: 'best', maxComments: 3 });
+
+      const branchMore = result.more.find((node) => node.parent_id === 'r1');
+      expect(branchMore).toEqual({
+        parent_id: 'r1',
+        count: 3,
+        after: 'k-r1-c1',
+      });
+    });
+
+    it('nenhum more sai com after vazio', () => {
+      const rows = [...branch('r1', 9), ...branch('r2', 2), ...branch('r3', 2)];
+      const result = assembleTree({ rows, sort: 'best', maxComments: 4 });
+
+      expect(result.more.length).toBeGreaterThan(0);
+      for (const node of result.more) {
+        expect(node.after).not.toBe('');
+      }
+    });
+
+    it('servidos mais adiados fecham o total, sem perder nem duplicar', () => {
+      const rows = [...branch('r1', 5), ...branch('r2', 1), ...branch('r3', 1)];
+      const result = assembleTree({ rows, sort: 'best', maxComments: 3 });
+
+      const adiados = result.more.reduce((total, node) => total + node.count, 0);
+      expect(result.included.length + adiados).toBe(rows.length);
+      expect(new Set(result.included).size).toBe(result.included.length);
+    });
+  });
 });

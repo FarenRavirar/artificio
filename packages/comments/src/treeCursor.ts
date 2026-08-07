@@ -99,9 +99,15 @@ export type TreeCursorVerification =
   | { ok: false; reason: CursorRejectionReason };
 
 function assertSecret(secret: string): void {
-  if (secret.length < CURSOR_SECRET_MIN_LENGTH) {
+  // Bytes UTF-8, não `length` (achado de review, PR #245): o que dá força ao
+  // HMAC é a entropia em bytes, e `String.length` conta unidades UTF-16. Um
+  // segredo de 32 caracteres ASCII tem 32 bytes, mas 32 emoji teriam 128 —
+  // e, na direção que importa, uma chave curta em bytes nunca passa a valer
+  // por ter caracteres multibyte. Medir em bytes é o que o comentário do
+  // limite sempre afirmou.
+  if (Buffer.byteLength(secret, 'utf8') < CURSOR_SECRET_MIN_LENGTH) {
     throw new Error(
-      `segredo do cursor precisa de ao menos ${CURSOR_SECRET_MIN_LENGTH} caracteres`,
+      `segredo do cursor precisa de ao menos ${CURSOR_SECRET_MIN_LENGTH} bytes`,
     );
   }
 }

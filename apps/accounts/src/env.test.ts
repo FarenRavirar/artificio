@@ -96,4 +96,35 @@ describe("ACCOUNTS_COMMENT_CURSOR_KEY", () => {
       parsed.success && parsed.data.JWT_SECRET,
     );
   });
+
+  // Achado de review da PR #245: `min(32)` sozinho não impede colar o MESMO
+  // valor nos dois campos, e aí a separação exigida por 8d-i existiria só no
+  // papel — rotacionar o JWT invalidaria todo cursor em voo, e vazar um
+  // comprometeria as duas finalidades.
+  it("recusa valor idêntico ao JWT_SECRET", () => {
+    const mesmo = "s".repeat(32);
+    const parsed = accountsEnvSchema.safeParse({
+      ...base,
+      JWT_SECRET: mesmo,
+      ACCOUNTS_COMMENT_CURSOR_KEY: mesmo,
+    });
+
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      const issue = parsed.error.issues.find((candidate) =>
+        candidate.path.includes("ACCOUNTS_COMMENT_CURSOR_KEY"),
+      );
+      expect(issue?.message).toMatch(/não pode ser igual ao JWT_SECRET/);
+    }
+  });
+
+  it("aceita valores distintos de mesmo tamanho", () => {
+    const parsed = accountsEnvSchema.safeParse({
+      ...base,
+      JWT_SECRET: "s".repeat(32),
+      ACCOUNTS_COMMENT_CURSOR_KEY: "c".repeat(32),
+    });
+
+    expect(parsed.success).toBe(true);
+  });
 });

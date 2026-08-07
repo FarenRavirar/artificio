@@ -17,6 +17,14 @@ import { hashServiceSecret } from "./serviceCredential.js";
  * cobrem é a outra metade — a que só existe aqui: escopo, derivação de
  * `realm`/`source_app` pela credencial, tradução para o payload público e o
  * ciclo de vida do cursor ponta a ponta pela rota.
+ *
+ * **O que estes testes NÃO cobrem** (achado de review, PR #245 — a redação
+ * anterior deixava a lacuna implícita): o SQL em si. A CTE recursiva, a ordem
+ * do `sort_path`, o join da faixa de score por revisão e o filtro de cursor
+ * rodam contra um fake de Kysely, não contra PostgreSQL. O fake devolve as
+ * linhas que mandamos, na ordem que mandamos — ele prova a tradução e o
+ * contrato HTTP, nunca a corretude da consulta. Isso exige smoke com banco
+ * real, registrado como bloqueio em `tasks.md`.
  */
 
 const CREDENTIAL_SECRET = "segredo-de-credencial-registrada";
@@ -59,6 +67,8 @@ interface CommentFixture {
   legacy_source?: string | null;
   legacy_author_name?: string | null;
   my_vote?: number | null;
+  /** Posição total na ordem de leitura, como a query serializa `sort_path`. */
+  sort_key?: string;
 }
 
 function rawRow(fixture: CommentFixture) {
@@ -68,7 +78,6 @@ function rawRow(fixture: CommentFixture) {
     root_id: fixture.parent_id === null ? fixture.id : "root-of-branch",
     depth: fixture.depth,
     body_markdown: fixture.body_markdown ?? `corpo de ${fixture.id}`,
-    legacy_content_html: null,
     visibility_state: fixture.visibility_state ?? "visible",
     edited_at: null,
     created_at: new Date(fixture.created_at),
@@ -80,7 +89,10 @@ function rawRow(fixture: CommentFixture) {
     downvotes: 1,
     score: 2,
     my_vote: fixture.my_vote ?? null,
-    sort_key: `${fixture.created_at}|${fixture.id}`,
+    // Posição total serializada, como a query produz a partir de `sort_path`
+    // (segmentos de 9 dígitos). Não é a chave de ordenação do sort — essa
+    // confusão foi o bug corrigido no review da PR #245.
+    sort_key: fixture.sort_key ?? "000000001",
   };
 }
 
@@ -101,8 +113,15 @@ function fakeDb(options: {
 }) {
   const { credential, subjectRevision = 7, comments = [], actorId = null } = options;
 
+  // Sem ator, o `LEFT JOIN` de `community_comment_vote` não casa linha nenhuma
+  // e `my_vote` chega nulo do banco. O fake precisa reproduzir isso: devolver o
+  // voto do fixture mesmo em leitura anônima faria o teste de `my_vote` passar
+  // sem provar nada — e é justamente o campo que §2 restringe a chamada
+  // autenticada.
   const executeRaw = vi.fn().mockResolvedValue({
-    rows: comments.map((fixture) => rawRow(fixture)),
+    rows: comments.map((fixture) =>
+      actorId === null ? { ...rawRow(fixture), my_vote: null } : rawRow(fixture),
+    ),
   });
 
   return {
@@ -134,8 +153,23 @@ function fakeDb(options: {
           where: () => ({ execute: vi.fn().mockResolvedValue([]) }),
         }),
       }),
-      // `sql\`...\`.execute(db)` chama `executeQuery` no driver do Kysely.
+      // `sql`...`.execute(db)` percorre o executor do Kysely inteiro, não só
+      // `executeQuery`: antes compila a query (`transformQuery` + `compileQuery`)
+      // e só então executa. Um fake com apenas `executeQuery` falha com
+      // "executor.transformQuery is not a function" — que chega no handler como
+      // 500 e faz o teste parecer bug de produto.
+      //
+      // `compileQuery` devolve o SQL e os parâmetros já resolvidos, e é por
+      // eles que os testes de cursor verificam o que desceu para o banco.
       getExecutor: () => ({
+        transformQuery: (node: unknown) => node,
+        compileQuery: (node: { parameters?: unknown[] }) => ({
+          sql: "",
+          parameters: node.parameters ?? [],
+          query: node,
+        }),
+        provideConnection: async (consume: (connection: unknown) => unknown) =>
+          consume({ executeQuery: executeRaw }),
         executeQuery: executeRaw,
       }),
     } as never,
@@ -216,6 +250,244 @@ describe("GET /internal/v1/comments — assunto sem comentário", () => {
       more: [],
       truncated: false,
     });
+  });
+});
+
+// Achado de review da PR #245: os testes só exercitavam caminhos de erro e
+// árvore vazia, então a tradução da linha crua para o objeto público de
+// `contrato-http-v1.md` §2 nunca era executada — o campo errado no payload
+// passaria verde.
+describe("GET /internal/v1/comments — payload público", () => {
+  const ATOR = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const USUARIO = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+  const arvore: CommentFixture[] = [
+    { id: "r1", parent_id: null, depth: 0, created_at: "2026-08-01T10:00:00.000Z", my_vote: 1 },
+    { id: "r1-c1", parent_id: "r1", depth: 1, created_at: "2026-08-01T11:00:00.000Z" },
+    {
+      id: "r1-c2",
+      parent_id: "r1",
+      depth: 1,
+      created_at: "2026-08-01T12:00:00.000Z",
+      visibility_state: "author_removed",
+    },
+  ];
+
+  it("200 com raiz, filho e campos do contrato", async () => {
+    const { db } = fakeDb({ credential: await credentialRow(), comments: arvore });
+    const app = createApp(env, db);
+
+    const response = await authed(app, queryFor()).expect(200);
+
+    expect(response.body.state).toBe("fresh");
+    expect(response.body.snapshot_revision).toBe(7);
+    expect(response.body.comments).toHaveLength(3);
+    expect(response.body.truncated).toBe(false);
+
+    const [raiz, filho] = response.body.comments;
+    expect(raiz.id).toBe("r1");
+    expect(raiz.parent_id).toBeNull();
+    expect(raiz.depth).toBe(0);
+    expect(raiz.body_markdown).toBe("corpo de r1");
+    expect(raiz.state).toBe("visible");
+    expect(raiz.author.display_name).toBe("Ana");
+    expect(raiz.author.badge).toBeNull();
+    expect(raiz.upvotes).toBe(3);
+    expect(raiz.score).toBe(2);
+    expect(raiz.created_at).toBe("2026-08-01T10:00:00.000Z");
+
+    expect(filho.parent_id).toBe("r1");
+    expect(filho.depth).toBe(1);
+  });
+
+  it("nunca expõe campo proibido pelo contrato", async () => {
+    const { db } = fakeDb({ credential: await credentialRow(), comments: arvore });
+    const app = createApp(env, db);
+
+    const response = await authed(app, queryFor()).expect(200);
+
+    for (const comment of response.body.comments) {
+      // §2: "Nunca no payload público" — identidade de votante, user_id cru do
+      // autor, ator comunitário, motivo de remoção, HTML legado não sanitizado.
+      expect(comment).not.toHaveProperty("user_id");
+      expect(comment).not.toHaveProperty("community_actor_id");
+      expect(comment).not.toHaveProperty("removed_reason");
+      expect(comment).not.toHaveProperty("legacy_content_html");
+      expect(comment).not.toHaveProperty("visibility_state");
+    }
+  });
+
+  it("removed vem sem corpo, contagem nem score, mas mantém posição", async () => {
+    const { db } = fakeDb({ credential: await credentialRow(), comments: arvore });
+    const app = createApp(env, db);
+
+    const response = await authed(app, queryFor()).expect(200);
+    const removido = response.body.comments.find(
+      (comment: { id: string }) => comment.id === "r1-c2",
+    );
+
+    expect(removido.state).toBe("removed");
+    expect(removido.body_markdown).toBeNull();
+    expect(removido.upvotes).toBeNull();
+    expect(removido.downvotes).toBeNull();
+    expect(removido.score).toBeNull();
+    // Posição e vínculo permanecem (decisões 34, 46): a conversa não perde o
+    // encadeamento porque um nó foi retirado.
+    expect(removido.parent_id).toBe("r1");
+    expect(removido.depth).toBe(1);
+  });
+
+  it("my_vote só aparece com X-Acting-User-Id", async () => {
+    const semAtor = fakeDb({ credential: await credentialRow(), comments: arvore });
+    const semResposta = await authed(createApp(env, semAtor.db), queryFor()).expect(200);
+    expect(semResposta.body.comments[0].my_vote).toBeNull();
+
+    const comAtor = fakeDb({
+      credential: await credentialRow(),
+      comments: arvore,
+      actorId: ATOR,
+    });
+    const comResposta = await request(createApp(env, comAtor.db))
+      .get(queryFor())
+      .set("X-Service-Token", `downloads-prod-abcd1234.${CREDENTIAL_SECRET}`)
+      .set("X-Acting-User-Id", USUARIO)
+      .expect(200);
+
+    expect(comResposta.body.comments[0].my_vote).toBe(1);
+  });
+
+  it("legado exibe nome de origem e marca proveniência", async () => {
+    const { db } = fakeDb({
+      credential: await credentialRow(),
+      comments: [
+        {
+          id: "leg1",
+          parent_id: null,
+          depth: 0,
+          created_at: "2020-01-01T00:00:00.000Z",
+          legacy_source: "site",
+          legacy_author_name: "Visitante Antigo",
+        },
+      ],
+    });
+    const app = createApp(env, db);
+
+    const response = await authed(app, queryFor()).expect(200);
+    const legado = response.body.comments[0];
+
+    expect(legado.legacy).toEqual({ source: "site", author_name: "Visitante Antigo" });
+    expect(legado.author.display_name).toBe("Visitante Antigo");
+    expect(legado.author.avatar_url).toBeNull();
+  });
+
+  it("Cache-Control impede cache compartilhado de UGC", async () => {
+    const { db } = fakeDb({ credential: await credentialRow(), comments: arvore });
+    const app = createApp(env, db);
+
+    const response = await authed(app, queryFor()).expect(200);
+    expect(response.headers["cache-control"]).toBe("private, no-store");
+  });
+});
+
+// Achado de review da PR #245: o cursor era aplicado em memória sobre um LIMIT
+// fixo, e a comparação avançava na direção errada em best/top/new. Agora ele
+// desce para a query — estes testes provam que os parâmetros chegam lá.
+describe("GET /internal/v1/comments — cursor desce para a query", () => {
+  /**
+   * Valores que a query recebeu como parâmetro ligado.
+   *
+   * O Kysely entrega `ValueNode`s, não valores crus — por isso o desembrulho.
+   * Ler daqui, e não do SQL textual, é o que prova que `after`/`branch_id`
+   * viraram parâmetro de verdade em vez de terem sido interpolados no texto
+   * (interpolar seria injeção).
+   */
+  function parametrosDa(executeRaw: { mock: { calls: unknown[][] } }): unknown[] {
+    const compiled = executeRaw.mock.calls[0]?.[0] as
+      | { parameters?: Array<{ value?: unknown }> }
+      | undefined;
+    return (compiled?.parameters ?? []).map((node) => node?.value);
+  }
+
+  function cursorDe(overrides: Partial<Parameters<typeof issueTreeCursor>[0]> = {}) {
+    return issueTreeCursor(
+      {
+        ...SUBJECT,
+        sort: "best",
+        snapshot_revision: 7,
+        branch_id: null,
+        after: "000000002",
+        limit: 1000,
+        ...overrides,
+      },
+      CURSOR_KEY,
+    );
+  }
+
+  it("primeira leitura não manda after nem branch", async () => {
+    const { db, executeRaw } = fakeDb({ credential: await credentialRow(), comments: [] });
+    const app = createApp(env, db);
+
+    await authed(app, queryFor()).expect(200);
+
+    const parametros = parametrosDa(executeRaw);
+    expect(parametros).toContain(null);
+    expect(parametros).not.toContain("000000002");
+  });
+
+  it("continuação de raízes manda after e branch nulo", async () => {
+    const { db, executeRaw } = fakeDb({ credential: await credentialRow(), comments: [] });
+    const app = createApp(env, db);
+
+    await authed(app, queryFor({ cursor: cursorDe() })).expect(200);
+
+    expect(parametrosDa(executeRaw)).toContain("000000002");
+  });
+
+  it("expansão de ramo manda o branch_id do cursor", async () => {
+    const ramo = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const { db, executeRaw } = fakeDb({ credential: await credentialRow(), comments: [] });
+    const app = createApp(env, db);
+
+    await authed(app, queryFor({ cursor: cursorDe({ branch_id: ramo }) })).expect(200);
+
+    const parametros = parametrosDa(executeRaw);
+    expect(parametros).toContain(ramo);
+    expect(parametros).toContain("000000002");
+  });
+
+  it("revisão do cursor é usada, não relida do assunto", async () => {
+    const { db, executeRaw } = fakeDb({
+      credential: await credentialRow(),
+      // Assunto avançou para 99; a navegação precisa continuar na 7.
+      subjectRevision: 99,
+      comments: [],
+    });
+    const app = createApp(env, db);
+
+    const response = await authed(app, queryFor({ cursor: cursorDe() })).expect(200);
+
+    expect(response.body.snapshot_revision).toBe(7);
+    expect(parametrosDa(executeRaw)).toContain(7);
+  });
+
+  it("more emitido carrega cursor verificável na mesma revisão", async () => {
+    const muitasRaizes: CommentFixture[] = Array.from({ length: 4 }, (_, index) => ({
+      id: `r${index}`,
+      parent_id: null,
+      depth: 0,
+      created_at: `2026-08-0${index + 1}T10:00:00.000Z`,
+    }));
+
+    const { db } = fakeDb({ credential: await credentialRow(), comments: muitasRaizes });
+    const app = createApp(env, db);
+
+    const response = await authed(app, queryFor()).expect(200);
+
+    // Sem estourar o teto de 1.000 não há `more` — o que este caso garante é
+    // que árvore pequena não inventa continuação.
+    expect(response.body.more).toEqual([]);
+    expect(response.body.truncated).toBe(false);
+    expect(response.body.comments).toHaveLength(4);
   });
 });
 

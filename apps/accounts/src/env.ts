@@ -36,6 +36,24 @@ export const accountsEnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   PUBLIC_URL: z.url().default("https://accounts.artificiorpg.com"),
   TRUSTED_PROXY_CIDR: z.string().default("172.18.0.0/16"),
+}).superRefine((env, ctx) => {
+  // `spec.md` 8d-i exige chave **dedicada**, não derivada do `JWT_SECRET` —
+  // é o ponto inteiro do precedente REV-023. O `min(32)` sozinho não impede
+  // colar o mesmo valor nos dois campos, e nesse caso a separação existiria só
+  // no papel: rotacionar o JWT invalidaria todo cursor em voo, e um vazamento
+  // de qualquer um dos dois comprometeria as duas finalidades.
+  //
+  // Falha no boot, não em runtime: com `:?` no compose a variável já é
+  // pré-condição de subida, então o operador descobre na hora do deploy, não
+  // quando um cursor forjado aparecer (achado de review, PR #245).
+  if (env.ACCOUNTS_COMMENT_CURSOR_KEY === env.JWT_SECRET) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["ACCOUNTS_COMMENT_CURSOR_KEY"],
+      message:
+        "ACCOUNTS_COMMENT_CURSOR_KEY não pode ser igual ao JWT_SECRET: a chave do cursor é dedicada (spec 090, 8d-i / REV-023)",
+    });
+  }
 });
 
 export type AccountsEnv = z.infer<typeof accountsEnvSchema>;

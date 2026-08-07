@@ -51,7 +51,12 @@ interface CommentQueryRow {
   root_id: string;
   depth: number;
   body_markdown: string | null;
-  legacy_content_html: string | null;
+  // `legacy_content_html` NÃO entra aqui nem na projeção da CTE (achado de
+  // review, PR #245). Nenhum consumidor o lê — `toTreeRow` monta o payload só
+  // a partir de `body_markdown` —, então trazê-lo do banco significava
+  // trafegar HTML de origem legada por dentro do processo sem que ninguém o
+  // sanitizasse. Suporte a legado renderizável é T2.8, e entra pelo pipeline
+  // de sanitização, não por um campo carregado de carona.
   visibility_state: string;
   edited_at: Date | null;
   created_at: Date;
@@ -110,6 +115,22 @@ export interface ReadTreeOptions {
   snapshotRevision?: number;
   /** Ator do leitor, para `my_vote`. Ausente em leitura pública. */
   actingActorId?: string | null;
+  /**
+   * Posição total da última linha servida (`sort_key` do cursor). A query
+   * retoma **estritamente depois** dela.
+   *
+   * Aplicado no banco, não em memória (achado de review, PR #245). A versão
+   * anterior buscava sempre as mesmas ~1.200 primeiras linhas e recortava
+   * depois: numa árvore de 3.000 comentários, a segunda página recortava o
+   * mesmo bloco já servido e devolvia vazio — perda silenciosa, sem erro.
+   */
+  after?: string | null;
+  /**
+   * Ramo a expandir. Restringe a consulta à subárvore daquela raiz, incluindo
+   * a própria raiz como âncora — sem ela os filhos chegariam sem pai nesta
+   * resposta, que é o filho órfão que o aceite proíbe.
+   */
+  branchId?: string | null;
 }
 
 export interface ReadTreeResult {
@@ -154,37 +175,46 @@ function siblingOrder(sort: CommentSort) {
 }
 
 /**
- * Chave de ordenação serializada, opaca para quem lê o cursor.
+ * Chave de retomada do cursor: **posição total na ordem de leitura**, não chave
+ * de ordenação local.
  *
- * Vai no `after` do cursor e é o ponto de retomada da expansão. Precisa conter
- * o critério **e** o desempate, na mesma ordem do `ORDER BY`; um `after` só com
- * o score não distingue dois irmãos empatados e a retomada erraria a posição.
+ * ## Por que não a chave de ordenação (achado de review, PR #245)
+ *
+ * A primeira versão serializava o critério do sort (`best_score|created_at|id`)
+ * e o handler retomava com `sort_key > after`. Três defeitos, todos reais:
+ *
+ * 1. **Direção invertida em três dos quatro sorts.** `best`, `top` e `new`
+ *    ordenam `DESC`; `> after` avança na direção **crescente**. Retomar depois
+ *    de uma raiz de score alto devolvia justamente as de score maior — as já
+ *    servidas. Duplicação garantida, e `old` funcionava só por coincidência.
+ * 2. **Chave local comparada globalmente.** `row_number()` particionado por
+ *    `parent_id` ordena entre irmãos; o handler comparava raízes de ramos
+ *    diferentes. Em `best`/`top` o score de duas raízes não diz nada sobre a
+ *    posição relativa delas na árvore montada.
+ * 3. **Sem monotonicidade não há retomada correta possível** — nenhum ajuste no
+ *    operador de comparação conserta uma chave que não é monotônica na ordem
+ *    servida.
+ *
+ * ## O que é agora
+ *
+ * `sort_path` é o caminho materializado de `row_number()`s (`{2,5,1}` = segunda
+ * raiz, quinto filho dela, primeiro neto). Ele **já é** a ordem de leitura: o
+ * `ORDER BY sort_path` do final da query é o que produz a árvore. Serializá-lo
+ * em segmentos de largura fixa dá uma chave textual cuja ordem lexicográfica
+ * coincide com a ordem servida, em **qualquer** sort — porque a direção do sort
+ * já foi absorvida pelo `row_number()`.
+ *
+ * Com isso `> after` é sempre "depois na ordem que o cliente viu", e a mesma
+ * comparação vale para os quatro sorts, sem inversão nem caso especial.
+ *
+ * Largura de 9 dígitos com zero à esquerda: um assunto com mais de 10^9 irmãos
+ * no mesmo nível quebraria a ordenação lexicográfica, o que está muitas ordens
+ * de grandeza acima do teto de 1.000 por leitura e do que o produto comporta.
  */
-function sortKeyExpression(sort: CommentSort) {
-  switch (sort) {
-    case "best":
-      return sql<string>`concat_ws(
-        '|',
-        to_char(coalesce(s.best_score, 0), 'FM0.999999999999'),
-        to_char(c.created_at, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
-        c.id::text
-      )`;
-    case "top":
-      return sql<string>`concat_ws(
-        '|',
-        lpad((coalesce(s.score, 0) + 2147483648)::text, 10, '0'),
-        to_char(c.created_at, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
-        c.id::text
-      )`;
-    case "new":
-    case "old":
-      return sql<string>`concat_ws(
-        '|',
-        to_char(c.created_at, 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"'),
-        c.id::text
-      )`;
-  }
-}
+const SORT_POSITION_EXPRESSION = sql<string>`(
+  select string_agg(lpad(segment::text, 9, '0'), '.' order by ordinality)
+  from unnest(sort_path) with ordinality as t(segment, ordinality)
+)`;
 
 /**
  * Lê a revisão corrente do assunto.
@@ -220,7 +250,7 @@ export async function readSubjectRevision(
  */
 export async function readCommentTree(
   db: Kysely<Database>,
-  { subject, sort, snapshotRevision, actingActorId }: ReadTreeOptions,
+  { subject, sort, snapshotRevision, actingActorId, after, branchId }: ReadTreeOptions,
   fetchLimit: number,
 ): Promise<ReadTreeResult> {
   const revision =
@@ -231,12 +261,13 @@ export async function readCommentTree(
   }
 
   const order = siblingOrder(sort);
-  const sortKey = sortKeyExpression(sort);
 
   // `actingActorId` entra como parâmetro sempre, mesmo nulo: montar o SQL
   // condicionalmente daria dois planos de query para manter, e o `LEFT JOIN`
   // com ator nulo simplesmente não casa linha nenhuma.
   const actorParam = actingActorId ?? null;
+  const afterParam = after ?? null;
+  const branchParam = branchId ?? null;
 
   const query = sql<CommentQueryRow>`
     with recursive scored as (
@@ -246,7 +277,6 @@ export async function readCommentTree(
         c.root_id,
         c.depth,
         c.body_markdown,
-        c.legacy_content_html,
         c.visibility_state,
         c.edited_at,
         c.created_at,
@@ -258,7 +288,6 @@ export async function readCommentTree(
         s.downvotes,
         s.score,
         v.value as my_vote,
-        ${sortKey} as sort_key,
         row_number() over (
           partition by c.parent_id
           order by ${order}
@@ -289,11 +318,18 @@ export async function readCommentTree(
         and c.created_revision <= ${revision}
     ),
     tree as (
+      -- Ancora da recursao. Sem cursor de ramo, sao as raizes do assunto; com
+      -- branchId, e a propria raiz daquele ramo. Ancorar no ramo e o que mantem
+      -- a expansao restrita a subarvore — antes disso a query trazia a arvore
+      -- inteira e o recorte acontecia em memoria.
       select
         scored.*,
         array[scored.sibling_rank] as sort_path
       from scored
-      where scored.parent_id is null
+      where case
+        when ${branchParam}::uuid is null then scored.parent_id is null
+        else scored.id = ${branchParam}::uuid
+      end
 
       union all
 
@@ -302,6 +338,10 @@ export async function readCommentTree(
         parent.sort_path || child.sibling_rank
       from scored child
       join tree parent on child.parent_id = parent.id
+    ),
+    positioned as (
+      select tree.*, ${SORT_POSITION_EXPRESSION} as sort_key
+      from tree
     )
     select
       id,
@@ -309,7 +349,6 @@ export async function readCommentTree(
       root_id,
       depth,
       body_markdown,
-      legacy_content_html,
       visibility_state,
       edited_at,
       created_at,
@@ -322,7 +361,18 @@ export async function readCommentTree(
       score,
       my_vote,
       sort_key
-    from tree
+    from positioned
+    -- Retomada estritamente depois da ultima posicao servida. sort_key e a
+    -- posicao total na ordem de leitura, entao > vale igual nos quatro sorts —
+    -- a direcao de cada um ja foi absorvida pelo row_number().
+    --
+    -- A raiz do ramo escapa do filtro de proposito: numa expansao ela ja foi
+    -- servida antes e ficaria para tras do cursor, mas precisa voltar como
+    -- ancora para os filhos terem onde pendurar. Chega com o mesmo id, entao o
+    -- cliente a reconhece e nao duplica.
+    where ${afterParam}::text is null
+       or sort_key > ${afterParam}::text
+       or (${branchParam}::uuid is not null and id = ${branchParam}::uuid)
     order by sort_path
     limit ${fetchLimit}
   `;
