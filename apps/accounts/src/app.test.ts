@@ -24,6 +24,7 @@ vi.mock("@artificio/media", async (importOriginal) => {
 const originalSecret = process.env.JWT_SECRET;
 
 const env: AccountsEnv = {
+  ACCOUNTS_COMMENT_CURSOR_KEY: "cursor-key-cursor-key-cursor-key-32",
   COOKIE_DOMAIN: ".artificiorpg.com",
   DATABASE_URL: "postgres://admin:admin@localhost:5432/artificio_auth",
   GOOGLE_CALLBACK_URL: "https://accounts.artificiorpg.com/api/auth/google/callback",

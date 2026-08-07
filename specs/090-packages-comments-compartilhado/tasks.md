@@ -1259,7 +1259,7 @@ por causa disto.**
 
 ### Bloco B — Escrita, autorização e integridade
 
-- [ ] T2.2a-op — **Emitir as credenciais reais e aposentar o `SERVICE_SECRET` global** (operacional de T2.2a; `spec.md` §"Trust boundary e credenciais"). **Débito registrado em 2026-08-04 por decisão do mantenedor, para iniciar em seguida.** T2.2a entrega o mecanismo; esta task o coloca em uso — sem ela o registro existe e ninguém o usa, e o segredo único medido (mesmo digest em vários serviços e nos dois realms; ver a ressalva de contagem no levantamento de 2026-08-07 ao fim deste bloco) continua sendo a credencial de fato. **Emissão e distribuição concluídas em 2026-08-05 (passos 1–4) e corte confirmado em 2026-08-07 (passo 5); a task segue aberta porque o `SERVICE_SECRET` continua vivo — falta o passo 6 (remover o fallback), com inventário completo ao fim do bloco.** **Não é bloqueio de deploy:** o fallback `SERVICE_SECRET` mantém `downloads` e `mesas` funcionando, então a migration 007 pode subir antes desta task; o que não pode é a task ser esquecida, porque o fallback é justamente o que se quer remover.
+- [x] T2.2a-op — **Emitir as credenciais reais e aposentar o `SERVICE_SECRET` global** (operacional de T2.2a; `spec.md` §"Trust boundary e credenciais"). **Débito registrado em 2026-08-04 por decisão do mantenedor, para iniciar em seguida.** T2.2a entrega o mecanismo; esta task o coloca em uso — sem ela o registro existe e ninguém o usa, e o segredo único medido (mesmo digest em vários serviços e nos dois realms; ver a ressalva de contagem no levantamento de 2026-08-07 ao fim deste bloco) continua sendo a credencial de fato. **CONCLUÍDA em 2026-08-07.** Passos 1–4 em 2026-08-05 (emissão e distribuição), passo 5 em 2026-08-07 (corte confirmado), passo 6 no mesmo dia (remoção do fallback, PR #244, `2e53ffc`), deployado nos dois realms e verificado container a container. Os quatro critérios de aceite atendidos — evidência no bloco de encerramento ao fim desta task. **Não é bloqueio de deploy:** o fallback `SERVICE_SECRET` mantém `downloads` e `mesas` funcionando, então a migration 007 pode subir antes desta task; o que não pode é a task ser esquecida, porque o fallback é justamente o que se quer remover.
 
   Escopo, na ordem em que precisa acontecer:
   1. **Aplicar a migration 007** (deploy normal; prod tem 001–005 hoje, então 006 e 007 somam 2 pendentes, sob o `MAX_AUTO_PENDING=5`).
@@ -1563,14 +1563,65 @@ por causa disto.**
     `packages`, `scripts` ou `.github` — só comentários históricos e o cabeçalho
     da migration 007, que descrevem o que foi removido.
 
-  **Não executado, e é o que falta para a task fechar:** deploy. Os `.env` da VM
-  ainda têm `SERVICE_SECRET`, e os quatro compose agora exigem
-  `SERVICE_CREDENTIAL` com `:?`. A variável já está nos cinco containers (medido
-  hoje), então o `:?` não deve derrubar nada — mas isso é previsão, não medição:
-  `:?` é avaliado contra o `.env` do host no momento do `up`, não contra o
-  ambiente do container em execução. Ordem segura: deployar `accounts` primeiro
-  (para de aceitar o segredo global) e os consumidores em seguida. Enquanto o
-  deploy não acontecer, produção segue no código antigo, com o fallback vivo.
+  **Deploy executado em 2026-08-07 — task encerrada.** PR #244 mergeada em `dev`
+  (`f9eec72`), promovida para `main` por fast-forward (run 31201234686) e
+  deployada em cinco execuções, todas verdes: `accounts` prod (31201285164),
+  `downloads` beta (31201632045), `mesas` beta (31202289519), `downloads` prod
+  (31202713887), `mesas` prod (31203378853). Ordem deliberada — `accounts`
+  primeiro (é ele que para de aceitar o segredo global), beta antes de prod nos
+  consumidores (o `:?` novo falharia ali primeiro).
+
+  **A incerteza do `:?` foi medida antes de deployar, não presumida.** A dúvida
+  registrada acima era real: `:?` é avaliado contra o `.env` do **host** no
+  `up`, e saber que a variável está no container em execução não prova o que há
+  no arquivo hoje. Conferido nos quatro `.env` da VM sem imprimir valor
+  (`cut -d= -f1` para o nome, `awk` devolvendo só `preenchida`/`VAZIA_OU_CURTA`):
+  os quatro têm a linha, preenchida. Nenhum deploy falhou por variável ausente.
+
+  **Verificação container a container** (chamada real de dentro de cada um, não
+  status do Actions):
+
+  ```text
+  accounts-api        | valida credencial          | SERVICE_SECRET ausente
+  downloads-api       | credencial -> 404          | SERVICE_SECRET ausente
+  downloads-beta-api  | credencial -> 404          | SERVICE_SECRET ausente
+  mesas-api           | credencial -> 404          | SERVICE_SECRET ausente
+  mesas-beta-api      | credencial -> 404          | SERVICE_SECRET ausente
+  mesas-cron          | SERVICE_CREDENTIAL presente| SERVICE_SECRET ausente
+  ```
+
+  **O teste que carrega o resultado inteiro:** de dentro do `downloads-api`, o
+  `SERVICE_SECRET` global contra `/internal/users/:id` devolveu **401**. Na manhã
+  do mesmo dia a mesma chamada devolvia 404 — ou seja, autenticava. O segredo
+  único que abria as duas rotas internas com a mesma chave deixou de ser caminho
+  de autenticação.
+
+  Log `[serviceCredential] SERVICE_SECRET legado usado`: **0** na hora seguinte
+  ao deploy. Quatro containers `healthy`, `mesas-cron` up. As quatro credenciais
+  com `last_used_at` renovado pelos smokes pós-deploy.
+
+  **Critérios de aceite, um a um:** (1) quatro credenciais existem e estão em
+  uso — sim, `last_used_at` preenchido nas quatro; (2) log de uso legado não
+  aparece por um ciclo completo de deploy — sim, zero em cinco deploys; (3)
+  `SERVICE_SECRET` não existe mais em compose, `.env.example` ou código — sim,
+  busca negativa limpa, só comentários históricos; (4) `SERVICE_CREDENTIAL`
+  obrigatório nos serviços que consomem — sim, `:?` nos quatro compose,
+  exercitado por cinco deploys reais.
+
+  **Limite que sobrevive ao encerramento, e não deve ser lido como resolvido.**
+  As credenciais do `mesas` foram exercitadas por chamada dirigida a um nome de
+  segredo **inexistente** (404 depois de autenticar). Isso prova autenticação e
+  escopo; **não** prova que `adminSecrets.ts` consegue ler um segredo real — o
+  caminho de produção (parse com DeepSeek, cache de 5 min) não rodou com o código
+  novo. Um erro ali apareceria no primeiro parse, não no smoke. Rollback continua
+  barato enquanto os `.env` da VM mantiverem `SERVICE_SECRET` (mantidos por
+  decisão do mantenedor): redeploy do commit anterior restaura o fallback sem
+  tocar em arquivo.
+
+  **Correções de fato para quem repetir o procedimento:** a porta interna do
+  `accounts-api` é **3000**, não 4000 como consta no bloco de comandos "prontos e
+  conferidos" acima; e os backends **não têm `curl`** na imagem — smoke de dentro
+  do container precisa de `node -e` com `fetch`.
 
   **Correção de fato encontrada neste levantamento.** O cabeçalho de
   `migration_007_service_credentials.sql` e o texto desta task afirmam "mesmo digest
@@ -1776,6 +1827,151 @@ por causa disto.**
 > é a Fase 3 não podendo inventar formato diferente depois.
 
 - [ ] T2.3 — **Leitura em árvore com cursor versionado por revisão** (requisito 6; decisões 3, 8). Reformulado: a versão anterior tratava a listagem como lista plana paginada por `(created_at, id)`, o que o grilling revogou. No volume normal a leitura devolve **a árvore inteira**, sem limite de respostas irmãs. Hard cap defensivo de **1.000 comentários ou 2 MiB**, o que ocorrer primeiro; só então raízes/ramos restantes viram `more`, com cursor próprio e **nunca filho órfão**. A primeira leitura fixa `snapshot_revision`; o cursor é **opaco e assinado**, carregando identidade do assunto, sort, revisão, último sort-key, ramo, limite e expiração de **30 minutos**. Páginas e expansões `more` usam a mesma revisão, sem duplicar nem perder item; score exibido e `my_vote` podem vir do estado atual, mas a **posição permanece congelada** naquela navegação. Nova visita usa a revisão mais recente imediatamente; cursor expirado exige recarregar. O modelo evita transação PostgreSQL aberta entre requests, cache de paginação e cron. · feito quando: árvore de 1.500 comentários devolve `more` sem órfão; expansão na mesma revisão não duplica nem perde item; e cursor expirado falha explicitamente em vez de devolver posição errada.
+> **T2.3 — estado em 2026-08-07. Task aberta: código completo e verde, sem commit; falta o smoke
+> com banco real.**
+>
+> ### O que existe
+>
+> Verde: `accounts` 135/135, `packages/comments` 64/64, repo 41/41 pacotes de teste e 25/25 de
+> lint e build, `tsc --noEmit` limpo, `verify:api` com `breaking=0` (a rota nova entra como
+> `non-breaking=1`).
+>
+> **`packages/comments` — lógica pura, sem banco.** Deliberado: é o que permite o aceite de 1.500
+> comentários rodar em teste sem PostgreSQL.
+>
+> - `src/treeCursor.ts` (16 testes) — cursor stateless assinado com HMAC-SHA256. Campos exatamente
+>   os de `spec.md` 8d; TTL de 30 min com relógio injetável, para o aceite de expiração não depender
+>   do tempo real. **Assinatura verificada antes da expiração**: só depois de provar que o token é
+>   nosso faz sentido acreditar no `exp` que ele carrega — a ordem inversa deixaria um `exp` forjado
+>   decidir o fluxo. Recusas separadas internamente (`malformed`/`bad_signature`/`expired`/
+>   `other_query`) para o handler colapsar num `400` único, sem virar oráculo. O segredo entra **por
+>   parâmetro**; o módulo não lê `process.env`.
+> - `src/treeAssembly.ts` (14 testes) — montagem e corte pelo teto 1.000/2 MiB. Corte **por ramo de
+>   raiz, nunca por posição na lista**: raiz entra inteira com toda a descendência ou vira `more`.
+>   É o que sustenta "nunca filho órfão" — filho sem pai o cliente não tem onde pendurar, e ou some
+>   ou vira raiz falsa. Linha cujo pai não veio na consulta é **descartada, nunca promovida a raiz**
+>   (promover fabricaria hierarquia que o banco não afirma). Depois do primeiro corte nenhum ramo
+>   posterior fura a fila, mesmo cabendo: servir fora de ordem faria a expansão duplicar ou pular
+>   item. Ramo que sozinho estoura o teto é **truncado no limite**, com `more` do próprio ramo
+>   apontando onde retomar — a decisão 3 manda ("uma thread não pode consumir memória sem teto no
+>   `accounts.`, que também sustenta o SSO"), e servir a raiz gigante inteira derrubaria o login de
+>   todos os apps por causa de uma thread. Truncar o prefixo não orfana porque a ordem de leitura
+>   põe todo pai antes dos descendentes.
+>
+> **`apps/accounts` — query e handler.** O app é o dono dos comentários por `plan.md` §Arquivos
+> afetados.
+>
+> - `src/communityCommentRead.ts` — CTE recursiva que devolve a árvore **em ordem de leitura**
+>   (`sort_path` materializado por `row_number()` particionado por `parent_id`). Recursiva e não
+>   `ORDER BY` plano porque a ordenação é **entre irmãos, nunca entre níveis** (`spec.md` 8c): um
+>   `ORDER BY best_score` sobre a tabela inteira poria uma resposta de `depth=3` bem votada à frente
+>   de raízes e a árvore deixaria de ser árvore. Pai antes de descendente não é estética — é a
+>   propriedade que faz o prefixo truncado por `assembleTree` ser subárvore fechada no topo.
+>   O join de score procura a faixa que **contém** a revisão congelada (`valid_from_revision <= rev
+>   AND (valid_to_revision IS NULL OR valid_to_revision > rev)`), não a corrente: ler a corrente
+>   faria a ordem mudar entre a primeira página e a expansão, que é como se duplica ou se perde item
+>   sem ninguém notar. `created_revision <= rev` exclui comentário nascido depois da foto, pelo mesmo
+>   motivo. `best` usa a coluna gerada `best_score` (`comment_wilson_reddit_80_v1`, T2.1c) — a
+>   fórmula não é reimplementada em TypeScript (`plan.md` §Árvore: "PostgreSQL calcula; TypeScript
+>   orquestra").
+> - `src/communityCommentRoutes.ts` (9 testes) — `GET /internal/v1/comments` conforme
+>   `contrato-http-v1.md` §2 e §13. `realm`/`source_app` saem da credencial, nunca da query.
+>   Assunto nunca comentado devolve **árvore vazia com revisão 0, não 404** — "ninguém comentou" não
+>   é "não existe". `Cache-Control: private, no-store` porque o payload carrega `my_vote`, que é por
+>   leitor.
+> - **Estado público colapsa `author_removed` e `moderator_removed` em `removed`.** O banco
+>   distingue; o payload não. Expor "o autor apagou" versus "um moderador apagou" entrega ao leitor
+>   um julgamento que §2 não autoriza. Tombstone sai com corpo, contagens e score **nulos** e mantém
+>   posição e descendentes (decisões 34, 46).
+> - `Dockerfile` — `@artificio/comments` entrou no filtro explícito de `pnpm install --prod` e ganhou
+>   `test -d packages/comments/node_modules/zod`. O pacote traz `zod` como dep própria e o require
+>   sai de dentro do `dist` dele: caso literal de E016/E017 — sem o filtro o container sobe, o CI
+>   fica verde, e quebra na primeira leitura de comentário com `MODULE_NOT_FOUND`.
+>
+> ### `ACCOUNTS_COMMENT_CURSOR_KEY` — lacuna 8d-i fechada
+>
+> Nome decidido pelo mantenedor em 2026-08-07, encerrando o "resta só nomear a variável" de 8d-i.
+> Chave dedicada, `min(32)`, **obrigatória** (sem `.optional()` no schema, `:?` no compose de prod).
+> Ao contrário de `ACCOUNTS_SECRETS_KEY`, não há caminho degradado: cursor assinado com valor default
+> é cursor forjável, então falhar o deploy é o comportamento correto. 4 testes em `env.test.ts`,
+> incluindo o que prova que não deriva de `JWT_SECRET`.
+>
+> **Inserida no `.env` de prod pelo mantenedor no mesmo dia.** Conferência read-only do agente:
+> **1** ocorrência (duas linhas fariam o Compose usar a última e confundiriam diagnóstico depois),
+> valor de 64 caracteres, permissão `600` preservada, arquivo de 904 para 997 bytes. A pré-condição
+> de deploy está satisfeita — tratar a chave como pendente levaria a reinserir e criar a duplicata
+> que a conferência existe para detectar.
+>
+> **Um arquivo só.** `accounts` é PROD-only (D042, F5 da spec 026): `deploy.yml:179-186` aborta com
+> `ERRO: accounts nao tem realm beta`, e `_deploy-module.yml:304-316` só resolve `.env.beta` no ramo
+> `beta` do `case`, que o `accounts` nunca alcança. O arquivo lido é sempre
+> `/opt/artificio/apps/accounts/.env`. Escrever no `.env.beta` do `accounts` é trabalho perdido que
+> **parece** ter surtido efeito — pior modo de falha para um passo cuja prova é o container subir.
+>
+> ### O que falta para fechar
+>
+> **Smoke com banco real.** A CTE recursiva **não tem teste contra PostgreSQL**: busca negativa por
+> `pg-mem`/`testcontainers` em `apps/**` e `packages/**` não achou nada — o monorepo não tem infra de
+> teste com banco, então não há onde plugar. Os 9 testes do handler usam fake de Kysely e cobrem o
+> que só existe na camada HTTP (escopo, derivação pela credencial, ciclo do cursor, formato de erro);
+> o corte por ramo e o caso de 1.500 comentários rodam sem banco em `packages/comments`. **Não está
+> provado por teste automatizado:** a ordem do `sort_path`, o join da faixa de score e o desempate.
+>
+> A prova precisa vir de chamada real, mesmo padrão da T2.2a-op, onde "variável presente" não bastou
+> e o que fechou foi chamada container a container. A credencial do `downloads` hoje tem só
+> `users.read`/`secrets.read`, então o smoke exige emitir uma com `comment.read`.
+>
+> Depois disso: commit, PR, merge em `dev`, promote e `workflow_dispatch` de deploy em prod — nenhum
+> autorizado até agora.
+>
+> ### Ordem que quebra deploy
+>
+> O compose de prod usa `:?`. Se a chave sumir do `.env`, o `accounts` não sobe e **o SSO de todos os
+> projetos cai no boot**, não só a rota nova. Mesma armadilha que mordeu a T2.2a-op em 2026-08-05 —
+> registrada aqui porque a chave já está no lugar hoje, e quem reinstalar a VM ou recriar o `.env`
+> precisa saber que essa linha é pré-condição de boot, não configuração opcional.
+>
+> ### Achados laterais da VM (leitura read-only, nenhuma escrita)
+>
+> - **`/opt/artificio-beta/apps/accounts/.env.beta` é vestígio morto.** Existe desde 2026-06-27 com
+>   três chaves; nenhum deploy o lê, pelo motivo de PROD-only acima. Não há `accounts-beta-api` entre
+>   os containers. Remoção é decisão do mantenedor — o arquivo contém segredo.
+> - **`SERVICE_SECRET` ainda está nos dois `.env`**, embora T2.2a-op passo 6 o tenha removido do
+>   código e do compose. `docker inspect accounts-api` confirma que **não** está no ambiente do
+>   container em execução: o corte funcionou, o que sobrou é resíduo em arquivo, não credencial viva.
+>   Não é bug ativo; é limpeza pendente.
+
+> **Onde a T2.3 já está respondida — consultar antes de perguntar** (levantamento de 2026-08-07).
+> Estas dúvidas foram levantadas como se fossem lacunas e já estavam registradas; ficam aqui para
+> nenhum agente reabrir:
+>
+> 1. **O contrato HTTP não é escopo da T2.3 — já está fechado.** `contrato-http-v1.md` §2
+>    (`GET /internal/v1/comments`) define método, path, escopo `comment.read`, query
+>    (`subject_type`, `subject_id`, `sort`, `cursor`), shape da resposta (`state`,
+>    `snapshot_revision`, `comments`, `more[]`, `truncated`), a lista de campos públicos do
+>    objeto `Comment`, o que **nunca** entra no payload público, o comportamento de `removed`/
+>    `pending_review_hidden` e os erros `400`/`401`/`403`/`429`. Fechado por T2.2b, que está `[x]`.
+>    T2.3 **implementa** esse contrato; não o redecide.
+> 2. **T2.3 não depende de T2.13.** A dependência é o inverso do que parece pela numeração:
+>    a leitura **fixa** `snapshot_revision` e navega dentro dela — nunca incrementa. `spec.md`
+>    8d diz quem incrementa: "cada mudança real de **voto** cria versão de score sob lock curto"
+>    — isto é T2.12/T2.13, não a leitura. As colunas já existem em
+>    `apps/accounts/database/migration_006_community_comments.sql`: `ranking_revision` no assunto
+>    (linha 129) e `created_revision` no comentário (linha 150). T2.3 lê; não precisa de T2.13.
+> 3. **Chave de assinatura do cursor:** decidida e em uso — ver a seção
+>    `ACCOUNTS_COMMENT_CURSOR_KEY` acima.
+>
+> **Fontes que já respondem a T2.3, na ordem de leitura:** `plan.md` §Árvore, voto e ranking
+> (linhas 125-141) — a seção de execução da task: cursor é **stateless assinado** (linha 137,
+> logo a assinatura carrega o estado, sem tabela de cursor), o teto produz `more` por ramo
+> (131-132) e é o **voto** que serializa a atualização de revisão (133-134); `spec.md` 8a (árvore,
+> cap 1.000/2 MiB, `more` sem órfão), 8c (os quatro sorts, desempate, `my_vote` só autenticado),
+> 8d (revisão por assunto, conteúdo do cursor, 30 min) e o bloco de códigos de erro;
+> `contrato-http-v1.md` §2 (contrato completo da rota); `migration_006_community_comments.sql`
+> (schema). O critério de aceite da fase também já está em `spec.md`: "navegação com `more` na mesma
+> revisão não duplica, perde nem orfana comentário; cursor expira em 30 minutos". **Ler estas seções
+> inteiras, não grep de linha solta** — o grep isolado foi o que fez estas dúvidas parecerem lacunas.
+
 - [ ] T2.3b — **As quatro ordenações do produto** (decisões 7, 19). `Melhores` (padrão de abertura) usa o **limite inferior de Wilson unilateral com `z = 1.281551565545`** (80% de confiança), sem decaimento temporal, sob `algorithm_version = 'reddit-wilson-80-v1'`; `Mais votados` ordena por score líquido; `Recentes` por `created_at DESC`; `Mais antigos` por `created_at ASC`. A ordenação acontece **entre irmãos, nunca misturando níveis** da árvore. `created_at` e `id` formam o desempate estável. Tombstone mantém a posição estrutural mas não expõe corpo nem score. `Controversos`, `Random`, `Q&A`, `Live` e `Hot` **não entram**. Fórmula e vetores de referência entram em teste, **testando diretamente a função PostgreSQL** de T2.1c, não uma reimplementação em TypeScript. Algoritmo futuro cria nova versão e nova série de score; nunca reinterpreta histórico silenciosamente. · feito quando: os quatro sorts testados; vetores de Wilson batem contra a função SQL; e nenhuma ordenação mistura níveis da árvore.
 - [ ] T2.4 — **Integridade de thread validada na transação** (requisito 8; decisões 3, 23). Reformulado em dois pontos que o grilling revogou: a profundidade máxima é **`depth<=4`**, não `depth<=2`; e **resposta a comentário legado é permitida**, não recusada — o registro importado continua imutável, sem voto e marcado como antigo/autoria não verificada, mas **pode ser pai** de comentário novo de conta autenticada (decisão 23: antigo descreve proveniência, não congela a conversa). O pai precisa existir, pertencer ao **mesmo `realm`, `source_app` e assunto**, aceitar respostas e produzir `depth<=4`. `root_id` é derivado na escrita, nunca aceito do cliente. Rejeitar na escrita, não corrigir depois. · feito quando: resposta cross-subject, cross-realm ou além de `depth=4` é recusada — inclusive sob concorrência — e resposta a legado é **aceita** com `depth` correto.
 - [ ] T2.5 — **Markdown pelo pipeline compartilhado existente; DOMPurify só no legado** (requisito 10; decisões 24, 25, 30). Reformulado: a versão anterior mandava texto puro no comentário novo, revogado pela decisão 24. A Fase 2 **não cria parser, sanitizador nem renderizador paralelo**. Na escrita, o backend passa a entrada por `sanitizeUserMarkdown` de `@artificio/content-editor/sanitize` e persiste o **Markdown canônico**; a API devolve esse Markdown, **não HTML montado**. Consumidores renderizam somente por `MarkdownContent`/`renderMarkdown` de `@artificio/content-editor`, cujo `markdown-it` já roda com `html: false` e cuja saída passa por DOMPurify. Limite de **10.000 caracteres**, validado **tanto na entrada original, antes do trabalho de parsing, quanto no Markdown canônico produzido** (decisão 25); excesso rejeita a operação inteira com erro específico, **nunca trunca silenciosamente nem persiste versão parcial**. Depois da canonicalização, `markdownToPlainText` precisa resultar em **conteúdo não vazio** (decisão 30): espaços, HTML integralmente removido, separador temático isolado ou marcadores sem texto são rejeitados; emoji, código, citação e link com rótulo visível são aceitos. As três regras valem igualmente para criação e edição. O legado do `site` tem `content_html` e é sanitizado **uma vez, na entrada**, com política e versão registradas; a saída passa por defesa adicional **sem regravar o banco**. Nunca ressanitizar continuamente nem alterar o HTML depois de sanitizado (anula a proteção). · feito quando: testes de XSS cobrindo script, links, SVG/MathML, atributos e o HTML legado; entrada de 10.001 caracteres rejeitada antes do parsing; e comentário que sanitiza para vazio rejeitado.

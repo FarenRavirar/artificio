@@ -11,6 +11,20 @@ export const accountsEnvSchema = z.object({
     (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
     z.email().optional(),
   ),
+  /**
+   * T2.3 (spec 090) — chave de assinatura do cursor de leitura em árvore.
+   *
+   * `spec.md` 8d-i: chave **dedicada**, não reaproveitando `JWT_SECRET`. É o
+   * precedente REV-023 (spec 048), que criou `ACCOUNTS_SECRETS_KEY` pelo mesmo
+   * motivo: um segredo por finalidade faz a rotação de um não inutilizar o
+   * outro. Rotacionar o JWT aqui invalidaria todo cursor em voo; rotacionar o
+   * cursor não deve derrubar sessão nenhuma.
+   *
+   * Obrigatória, `min(32)` como as demais. O compose usa `:?`, então a variável
+   * precisa existir no `.env` da VM **antes** do deploy — mesma armadilha que a
+   * T2.2a-op tratou em 2026-08-07.
+   */
+  ACCOUNTS_COMMENT_CURSOR_KEY: z.string().min(32),
   ACCOUNTS_SECRETS_KEY: z.string().min(32).optional(),
   COOKIE_DOMAIN: z.string().default(`.${BRAND_DOMAIN}`),
   DATABASE_URL: z.url(),

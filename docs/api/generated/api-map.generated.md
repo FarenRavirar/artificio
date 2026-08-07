@@ -19,35 +19,36 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 
 | App | Total | HIGH | MEDIUM | LOW | Methods |
 |-----|-------|------|--------|-----|---------|
-| accounts | 17 | 17 | 0 | 0 | DELETE, GET, PATCH, POST, PUT |
+| accounts | 18 | 18 | 0 | 0 | DELETE, GET, PATCH, POST, PUT |
 | downloads | 106 | 106 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | glossario | 66 | 66 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | links | 23 | 23 | 0 | 0 | DELETE, GET, PATCH, POST, USE |
 | mesas | 229 | 229 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | site | 59 | 59 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| **Total** | **500** | 500 | 0 | 0 | |
+| **Total** | **501** | 501 | 0 | 0 | |
 
 ## accounts
 
 | Método | Path | Confiança | Arquivo | Linha |
 |--------|------|-----------|---------|------|
-| GET | `/` | ✅ high | `apps/accounts/src/app.ts` | 475 |
-| GET | `/admin/papeis` | ✅ high | `apps/accounts/src/app.ts` | 475 |
+| GET | `/` | ✅ high | `apps/accounts/src/app.ts` | 483 |
+| GET | `/admin/papeis` | ✅ high | `apps/accounts/src/app.ts` | 483 |
 | GET | `/admin/roles/users` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 17 |
 | PATCH | `/admin/roles/users/:id` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 27 |
 | GET | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 144 |
 | PUT | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 105 |
-| DELETE | `/api/account` | ✅ high | `apps/accounts/src/app.ts` | 345 |
-| PATCH | `/api/account/avatar` | ✅ high | `apps/accounts/src/app.ts` | 281 |
-| GET | `/api/auth/google` | ✅ high | `apps/accounts/src/app.ts` | 230 |
-| GET | `/api/auth/google/callback` | ✅ high | `apps/accounts/src/app.ts` | 243 |
-| POST | `/api/auth/logout` | ✅ high | `apps/accounts/src/app.ts` | 401 |
-| GET | `/api/auth/me` | ✅ high | `apps/accounts/src/app.ts` | 277 |
-| GET | `/api/auth/refresh` | ✅ high | `apps/accounts/src/app.ts` | 406 |
-| GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 475 |
-| GET | `/health` | ✅ high | `apps/accounts/src/app.ts` | 226 |
-| GET | `/internal/users/:id` | ✅ high | `apps/accounts/src/app.ts` | 455 |
-| GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 475 |
+| DELETE | `/api/account` | ✅ high | `apps/accounts/src/app.ts` | 346 |
+| PATCH | `/api/account/avatar` | ✅ high | `apps/accounts/src/app.ts` | 282 |
+| GET | `/api/auth/google` | ✅ high | `apps/accounts/src/app.ts` | 231 |
+| GET | `/api/auth/google/callback` | ✅ high | `apps/accounts/src/app.ts` | 244 |
+| POST | `/api/auth/logout` | ✅ high | `apps/accounts/src/app.ts` | 402 |
+| GET | `/api/auth/me` | ✅ high | `apps/accounts/src/app.ts` | 278 |
+| GET | `/api/auth/refresh` | ✅ high | `apps/accounts/src/app.ts` | 407 |
+| GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 483 |
+| GET | `/health` | ✅ high | `apps/accounts/src/app.ts` | 227 |
+| GET | `/internal/users/:id` | ✅ high | `apps/accounts/src/app.ts` | 463 |
+| GET | `/internal/v1/comments` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 115 |
+| GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 483 |
 
 ## downloads
 

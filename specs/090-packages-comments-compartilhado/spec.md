@@ -122,6 +122,24 @@ coisas diferentes em cada módulo, e não haveria como autorizar uma tela centra
     Cursor opaco assinado fixa assunto, sort, `snapshot_revision`, ramo, chave de ordenação,
     limite e expiração de 30 minutos. Navegação preserva posição naquela revisão; contagem e
     voto pessoal podem refletir o estado atual. Histórico de score não é destruído nesta fase.
+8d-i. **Chave de assinatura do cursor: `ACCOUNTS_COMMENT_CURSOR_KEY`, dedicada, obrigatória.**
+    8d exige cursor "opaco assinado" e não dizia com qual chave. Decidido em 2026-08-07 pelo
+    mantenedor, seguindo o precedente **REV-023**, que criou "chave dedicada p/ cifrar
+    `admin_secrets` (**desacoplada do `JWT_SECRET`**)" — `apps/accounts/docker-compose.prod.yml`.
+    O padrão de `apps/accounts/src/env.ts` é um segredo por finalidade, todos `min(32)`:
+    `JWT_SECRET`, `JWT_REFRESH_SECRET`, `ACCOUNTS_SECRETS_KEY`. Cursor é finalidade nova, logo
+    chave própria — rotacionar o JWT não pode invalidar cursor em voo, nem o contrário.
+    **Obrigatória**, ao contrário de `ACCOUNTS_SECRETS_KEY`: não há caminho degradado, porque
+    cursor assinado com valor default é cursor forjável, e falhar o boot é preferível a assinar
+    com segredo previsível. Daí o `:?` no compose de prod.
+    **A ordem de instalação é parte da decisão** (precedente REV-023, `specs/048-.../reviews.md`,
+    2026-06-27): valor gerado e inserido **por SSH direto no `.env` da VM, não via GitHub
+    Secrets**, e **antes** de o compose exigi-lo — com `:?` o deploy falha se a env não existir,
+    e como o `accounts` sustenta o SSO, a falha derruba o login de todos os projetos, não só a
+    rota nova. Foi a armadilha que mordeu a T2.2a-op em 2026-08-05.
+    Um arquivo só: `accounts` é PROD-only (D042), então não há `.env.beta` a preencher.
+    `packages/comments/src/treeCursor.ts` recebe o segredo **por parâmetro** e nunca lê
+    `process.env` — quem monta a chave é o `apps/accounts`, dono da env.
 8e. IDs públicos de comentário, evento e recibo usam UUID v4. `legacy_id` permanece separado.
     Não introduzir UUID v7, ULID ou biblioteca nova.
 9. Os comentários legados do `site` — 25 medidos em produção em 2026-08-04, mas recontados como

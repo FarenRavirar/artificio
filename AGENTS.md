@@ -33,6 +33,7 @@ Pacotes compartilhados: `auth`, `ui`, `analytics`, `config`, `content`, `crossli
 - `git commit`/`git push`/merge/deploy/write em VM: só com autorização nomeada explícita, a cada vez.
 - Ação destrutiva ou difícil de reverter (DNS/tunnel prod, SQL write, recriar infra, `--amend`, `--force`): sempre aprovação nominal + formato "APROVAÇÃO NECESSÁRIA".
 - Bug/débito achado: parar e perguntar (corrigir agora ou registrar) — nunca decidir sozinho.
+- **Pesquisar antes de perguntar.** Trabalhando numa spec, antes de **qualquer** pergunta ao mantenedor sobre contrato, escopo, dependência entre tasks, schema ou decisão já tomada: pesquisar em `spec.md`, `plan.md`, `tasks.md` e nos arquivos auxiliares da spec (ex.: `contrato-http-v1.md`). Quase sempre uma busca básica resolve — pergunta evitável queima token do mantenedor e do agente e devolve a ele trabalho que era do agente. **Ler a seção inteira, não grep de linha solta:** `grep` de duas palavras devolve fragmento e faz item já decidido parecer lacuna; localizar com `rtk rg`, depois **abrir a seção**. `plan.md` organiza a execução — implementar task sem ler a seção dela no `plan.md` é erro de processo, não economia de contexto. **Não inferir dependência pela numeração:** T*n* citar T*m* não implica ordem. Pergunta legítima é a que **sobrevive à pesquisa** — lacuna real, com busca negativa feita, dizendo onde procurou. Achado que responde dúvida recorrente: registrar só no destino que o mantenedor nomear. Inferência do agente nunca vira decisão registrada — marcar como inferência a confirmar.
 - `rtk` disponível no PATH: usar sempre no lugar de comando cru equivalente (ver lista completa em §Diagnóstico local → rtk). Comandos obrigatórios: `rtk git status`/`rtk git diff`/`rtk git log` (nunca `git` cru pra esses três), `rtk read <arquivo>` (nunca `cat`/Read direto pra arquivo grande sem justificar), `rtk rg <padrão> <path>` (busca textual, nunca `grep`/`rg` cru), `rtk find <path> -iname "..."`, `rtk tsc`, `rtk lint`, `rtk cargo test`/`rtk pytest`/`rtk jest`/`rtk vitest`/`rtk go test` (testes, sempre via rtk pra saída filtrada), `rtk pnpm <args>`.
 
 **Escalada T1 (consultar quando a tarefa exigir, não por padrão):**
@@ -47,6 +48,7 @@ Pacotes compartilhados: `auth`, `ui`, `analytics`, `config`, `content`, `crossli
 Se a tarefa tocar um desses temas e o T1 pertinente não foi lido, não afirmar que está resolvida.
 
 **Anti-retrabalho:** fluxo estranho/contraditório/perigoso (CI/CD, deploy, branch, DNS/tunnel, auth, banco, SEO, importador, pacote compartilhado) não se corrige no chute — pesquisar T1 relevante primeiro, identificar se é decisão histórica, exceção temporária ou bug real, só então corrigir.
+
 
 **Falha de processo descoberta:** reportar e perguntar onde registrar. Nunca escolher nem abrir sozinho outra fonte documental. Regra operacional durável só entra na fonte canônica autorizada nominalmente pelo mantenedor.
 

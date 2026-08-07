@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@artificio/auth": "workspace:*",
+    "@artificio/comments": "workspace:*",
     "@artificio/config": "workspace:*",
     "@artificio/media": "workspace:*",
     "@artificio/ui": "workspace:*",
