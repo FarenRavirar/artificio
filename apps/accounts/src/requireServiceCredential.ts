@@ -8,7 +8,6 @@ import {
   type ServiceCredentialIdentity,
   type ServiceScope,
 } from "./serviceCredential.js";
-import { isValidServiceToken } from "./serviceToken.js";
 
 /**
  * T2.2a — guard de credencial de serviço com escopo.
@@ -18,18 +17,14 @@ import { isValidServiceToken } from "./serviceToken.js";
  * `source_app`, o `realm` e os escopos da credencial — e é **daí** que os
  * handlers derivam `realm`/`source_app`, nunca do corpo da requisição.
  *
- * ## Fallback de transição
+ * ## Fallback de transição — removido em 2026-08-07 (T2.2a-op, passo 6)
  *
- * `SERVICE_SECRET` continua aceito enquanto os consumidores migram
- * (`downloads` e `mesas`). A transição existe porque remover o segredo global
- * antes dos clientes trocarem derrubaria moderação e leitura de segredos em
- * produção. Duas travas mantêm o fallback honesto:
- *
- * 1. **Ele nunca produz identidade.** `req.serviceCredential` fica `undefined`,
- *    então nenhuma rota que precise derivar `realm`/`source_app` pode ser
- *    servida por ele — só as duas rotas legadas, que não derivam nada.
- * 2. **`allowLegacySecret` é opt-in por rota.** Rota comunitária nova nunca
- *    liga essa opção; o default é recusar.
+ * `SERVICE_SECRET` foi aceito como fallback enquanto `downloads` e `mesas`
+ * migravam. O corte foi confirmado antes da remoção: as quatro credenciais
+ * (dois apps × dois realms) com `last_used_at` preenchido e o log
+ * `[serviceCredential] SERVICE_SECRET legado usado` em zero. Agora a única
+ * autenticação de serviço é a credencial registrada — sem `allowLegacySecret`,
+ * sem segredo global, sem caminho que autentique sem produzir identidade.
  */
 
 /**
@@ -45,27 +40,13 @@ export interface ServiceAuthenticatedRequest extends Request {
 export interface RequireServiceCredentialOptions {
   /** Escopo exigido. Sem ele o guard só autentica, sem autorizar operação. */
   scope?: ServiceScope;
-  /**
-   * Aceita o `SERVICE_SECRET` global como fallback. Somente para as duas rotas
-   * que existiam antes de T2.2a. **Nunca** ligar em rota comunitária: o segredo
-   * global não identifica `source_app` nem `realm`.
-   */
-  allowLegacySecret?: boolean;
-  /** Valor do `SERVICE_SECRET`, usado apenas quando `allowLegacySecret`. */
-  legacySecret?: string;
-  /**
-   * Chamado quando o fallback legado autentica. Serve para medir se ainda há
-   * consumidor no mecanismo antigo antes de removê-lo. Recebe só o nome da
-   * rota — **nunca** o segredo.
-   */
-  onLegacyUse?: (route: string) => void;
 }
 
 export function requireServiceCredential(
   db: Kysely<Database>,
   options: RequireServiceCredentialOptions = {},
 ) {
-  const { scope, allowLegacySecret = false, legacySecret, onLegacyUse } = options;
+  const { scope } = options;
 
   return (req: Request, res: Response, next: NextFunction): void => {
     const header = req.headers["x-service-token"];
@@ -85,15 +66,6 @@ export function requireServiceCredential(
           // Best-effort e deliberadamente não aguardado: registrar uso não pode
           // atrasar nem derrubar uma requisição legítima.
           void touchServiceCredential(db, identity.credentialId);
-          next();
-          return;
-        }
-
-        if (allowLegacySecret && isValidServiceToken(legacySecret, header)) {
-          onLegacyUse?.(req.path);
-          // Sem `req.serviceCredential`: o segredo global não identifica quem
-          // chamou. Rota que precise de `realm`/`source_app` falha adiante por
-          // ausência de identidade, que é o comportamento correto.
           next();
           return;
         }

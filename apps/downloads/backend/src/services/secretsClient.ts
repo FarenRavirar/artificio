@@ -25,21 +25,20 @@ export async function getSecret(name: string): Promise<string | null> {
 
   // T2.2a (spec 090): `SERVICE_CREDENTIAL` é a credencial registrada, no formato
   // `<token_id>.<segredo>`, e identifica este app e o realm no `accounts.`. O
-  // `SERVICE_SECRET` global continua como fallback durante a migração; ele não
-  // identifica ninguém, então sai quando todo consumidor tiver credencial.
-  // `||`, nunca `??`: os compose usam `${SERVICE_CREDENTIAL:-}`, então antes da
-  // emissão o valor chega como string vazia e `??` a trataria como definida,
-  // desligando a busca de segredos com o fallback legado ainda disponível.
-  const serviceSecret = process.env.SERVICE_CREDENTIAL || process.env.SERVICE_SECRET;
-  if (!serviceSecret) {
-    console.warn('[secretsClient] SERVICE_CREDENTIAL/SERVICE_SECRET não configurado — segredos indisponíveis.');
+  // fallback pelo `SERVICE_SECRET` global saiu em 2026-08-07 (T2.2a-op, passo 6):
+  // ele não identificava ninguém, e o compose agora exige a credencial com `:?`.
+  // `|| undefined` normaliza string vazia — sem isso o guard passaria batido e a
+  // chamada sairia com header vazio.
+  const serviceCredential = process.env.SERVICE_CREDENTIAL || undefined;
+  if (!serviceCredential) {
+    console.warn('[secretsClient] SERVICE_CREDENTIAL não configurado — segredos indisponíveis.');
     return null;
   }
 
   try {
     const res = await fetch(`${ACCOUNTS_ORIGIN}/admin/secrets/${name}`, {
       method: 'GET',
-      headers: { 'X-Service-Token': serviceSecret, Accept: 'application/json' },
+      headers: { 'X-Service-Token': serviceCredential, Accept: 'application/json' },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 

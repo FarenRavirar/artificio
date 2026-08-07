@@ -57,15 +57,17 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - ACCOUNTS_BOOTSTRAP_ADMIN_EMAIL=${ACCOUNTS_BOOTSTRAP_ADMIN_EMAIL:-}
-      # WS3/REV-018: token serviço-a-serviço p/ GET /admin/secrets (mesas → accounts).
-      # REV-046: obrigatório — falha no deploy em vez de degradar em runtime.
-      - SERVICE_SECRET=${SERVICE_SECRET:?SERVICE_SECRET obrigatorio para accounts-api}
+      # T2.2a-op passo 6 (2026-08-07): SERVICE_SECRET saiu daqui. O `accounts.`
+      # VALIDA credencial de servico, nao consome — a autenticacao agora resolve
+      # `community_service_credential` no banco, entao nao ha segredo global a
+      # injetar. Consumidores (`mesas`, `downloads`) recebem SERVICE_CREDENTIAL
+      # nos compose deles.
       # REV-023: chave dedicada p/ cifrar admin_secrets (desacoplada do JWT_SECRET).
       - ACCOUNTS_SECRETS_KEY=${ACCOUNTS_SECRETS_KEY:?ACCOUNTS_SECRETS_KEY obrigatorio para accounts-api}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio para accounts-api}
       - TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.18.0.0/16}
       # Troca de foto de perfil (PATCH /api/account/avatar). Opcionais de
-      # proposito (`:-`), ao contrario de SERVICE_SECRET/JWT_SECRET: sem elas o
+      # proposito (`:-`), ao contrario de ACCOUNTS_SECRETS_KEY/JWT_SECRET: sem elas o
       # `accounts.` sobe normal e so a rota de avatar devolve 503 — derrubar o
       # SSO inteiro por falta de credencial de imagem seria desproporcional.
       # O `.env` do Compose so interpola chave declarada aqui; omitir a linha faz

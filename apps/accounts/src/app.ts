@@ -446,21 +446,15 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
   // resolve email/nome do autor por user_id. So X-Service-Token, sem fallback
   // de sessao admin (nunca chamada por humano, so por outro backend).
   //
-  // T2.2a (spec 090): passa a exigir credencial registrada com escopo
-  // `users.read`. Antes bastava o `SERVICE_SECRET` global, o mesmo valor que
-  // tambem abria `/admin/secrets/:name` — quem podia resolver e-mail lia chave
-  // de API decifrada. `allowLegacySecret` mantem o mecanismo antigo funcionando
-  // enquanto `downloads` migra, e sai quando `onLegacyUse` parar de registrar.
+  // T2.2a (spec 090): exige credencial registrada com escopo `users.read`.
+  // Antes bastava o `SERVICE_SECRET` global, o mesmo valor que tambem abria
+  // `/admin/secrets/:name` — quem podia resolver e-mail lia chave de API
+  // decifrada. O fallback legado saiu em 2026-08-07 (T2.2a-op, passo 6), depois
+  // de confirmado o corte: quatro credenciais com uso registrado e nenhum
+  // acionamento do caminho antigo.
   app.get(
     "/internal/users/:id",
-    requireServiceCredential(db, {
-      scope: "users.read",
-      allowLegacySecret: true,
-      legacySecret: env.SERVICE_SECRET,
-      onLegacyUse: (route) => {
-        console.warn(`[serviceCredential] SERVICE_SECRET legado usado em ${route}`);
-      },
-    }),
+    requireServiceCredential(db, { scope: "users.read" }),
     (req, res, next) => {
       findUserById(db, req.params.id)
         .then((user) => {

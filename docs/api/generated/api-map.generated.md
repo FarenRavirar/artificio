@@ -31,12 +31,12 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 
 | Método | Path | Confiança | Arquivo | Linha |
 |--------|------|-----------|---------|------|
-| GET | `/` | ✅ high | `apps/accounts/src/app.ts` | 481 |
-| GET | `/admin/papeis` | ✅ high | `apps/accounts/src/app.ts` | 481 |
+| GET | `/` | ✅ high | `apps/accounts/src/app.ts` | 475 |
+| GET | `/admin/papeis` | ✅ high | `apps/accounts/src/app.ts` | 475 |
 | GET | `/admin/roles/users` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 17 |
 | PATCH | `/admin/roles/users/:id` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 27 |
-| GET | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 155 |
-| PUT | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 116 |
+| GET | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 144 |
+| PUT | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 105 |
 | DELETE | `/api/account` | ✅ high | `apps/accounts/src/app.ts` | 345 |
 | PATCH | `/api/account/avatar` | ✅ high | `apps/accounts/src/app.ts` | 281 |
 | GET | `/api/auth/google` | ✅ high | `apps/accounts/src/app.ts` | 230 |
@@ -44,10 +44,10 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | POST | `/api/auth/logout` | ✅ high | `apps/accounts/src/app.ts` | 401 |
 | GET | `/api/auth/me` | ✅ high | `apps/accounts/src/app.ts` | 277 |
 | GET | `/api/auth/refresh` | ✅ high | `apps/accounts/src/app.ts` | 406 |
-| GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 481 |
+| GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 475 |
 | GET | `/health` | ✅ high | `apps/accounts/src/app.ts` | 226 |
-| GET | `/internal/users/:id` | ✅ high | `apps/accounts/src/app.ts` | 454 |
-| GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 481 |
+| GET | `/internal/users/:id` | ✅ high | `apps/accounts/src/app.ts` | 455 |
+| GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 475 |
 
 ## downloads
 

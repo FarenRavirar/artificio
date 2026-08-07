@@ -443,13 +443,42 @@
 
 ---
 
-## Estado final da execução (2026-08-05)
+## Encerramento (2026-08-07)
 
-**Fases 0, 1 e 2 concluídas. Nenhuma decisão pendente.** Nada commitado — commit exige
-autorização nominal do mantenedor.
+**Spec 091 encerrada.** Fases 0, 1 e 2 concluídas, nenhuma task em aberto, nenhuma decisão
+pendente, **8/8 critérios de aceite atendidos** — cada um com evidência registrada abaixo ou na
+task correspondente. Entregue em `dev` (PR #243, `2967d4b`), promovido para `main` por
+fast-forward, e **deployado nos 6 módulos em produção**, todos verdes.
 
-**Diff no repositório: uma linha em um arquivo** (`.claude/settings.json`, `true` → `false`).
-O resto da Fase 0 vive fora do repositório, em `~/.claude/`.
+**O que o encerramento significa, e o que não significa.** Significa que os 8 pacotes deixaram de
+depender de `moduleResolution: node10` e de `ignoreDeprecations`, e que isso está provado em
+container de produção, não só em `tsc`. **Não** autoriza migrar o repositório para o TypeScript 7:
+o bloqueio segue de pé, por um motivo só — `typescript-eslint` não aceita `7.x`. Conferido no
+encerramento com `node scripts/check-typescript-7-readiness.mjs`, que respondeu **BLOQUEADO**,
+range aceito `>=4.8.4 <6.1.0` contra `typescript` 7.0.2 no npm. `~6.0.3` continua sendo a escolha
+correta, e os `tsconfig` do repo **não** são débito. Quem retomar roda o script de novo; enquanto
+ele disser BLOQUEADO, não há o que fazer. `tsc` global conferido ao fim: **7.0.2**, intocado.
+
+> **Atualização de 2026-08-07 — o parágrafo de diff abaixo estava desatualizado e foi corrigido.**
+> O texto original dizia "nada commitado" e "diff no repositório: uma linha em um arquivo", o que
+> era verdade em 2026-08-05, quando foi escrito. Deixou de ser nos três commits seguintes
+> (`797ccdc`, `4a18652`, `edd2f6c`), que fecharam a lacuna de typecheck sobre arquivos de teste e
+> os achados de review. Mantido aqui como correção explícita, e não apagado, porque a versão
+> antiga fazia quem lesse a spec depois subestimar em duas ordens de grandeza o que a 091 mudou.
+
+**Entregue na PR #243** (mergeada em `dev` como `2967d4b` em 2026-08-07): **55 arquivos,
++4038/−48**. Desses, **14 arquivos / +1933** são de `packages/comments` e da spec 090, que pegaram
+carona na mesma PR; a **091 propriamente responde por 38 arquivos / +1135/−39**, dos quais 7 são
+`.md` de spec.
+
+O diff cresceu além do previsto porque a fase de review adicionou um gate que a spec original não
+tinha, e que nenhuma task desta spec previa: `scripts/check-test-typecheck-coverage.mjs` (+ suíte
+própria) e dois passos novos no `ci.yml` — `smoke:test-typecheck-coverage` e `typecheck` sobre
+arquivos de teste. Motivo: `tsconfig.build.json` exclui os arquivos de teste de propósito, então
+erro de tipo em teste de pacote não aparecia em **nenhum** gate. A mesma lacuna já tinha voltado
+duas vezes pelo mesmo caminho (spec 088 e PR #243), por depender de cada autor lembrar de criar a
+tarefa `typecheck` ao adicionar pacote — daí o gate que falha quando um pacote com teste não é
+alcançado por nenhum `tsc`.
 
 | Validação | Resultado |
 |---|---|
@@ -463,8 +492,46 @@ O resto da Fase 0 vive fora do repositório, em `~/.claude/`.
 | LSP servido por | **`tsc.exe --lsp`** (115 MB), sem `tsserver.js` nem `typescript-language-server` |
 | `tsc` global | **7.0.2**, intocado |
 
-**Arquivos tocados no repositório:** 8 `tsconfig.cjs.json` (7 modificados + `comments`, que é novo
-da spec 090), `package.json` (concorrência do teste), `scripts/check-typescript-7-readiness.mjs`
-(novo), `.claude/settings.local.json` (**pendente de decisão**), e esta spec.
+**Arquivos tocados no repositório** (estado final, pós-review):
+
+- 8 `tsconfig.cjs.json` (7 modificados + `comments`, novo da spec 090) — o núcleo da spec.
+- `package.json` da raiz (concorrência do teste), `turbo.json`, `pnpm-workspace.yaml`,
+  `pnpm-lock.yaml` e 14 `package.json` de pacote/app (tarefa `typecheck`; um deles, o de
+  `packages/comments`, é novo da spec 090).
+- `scripts/check-typescript-7-readiness.mjs` e `scripts/check-test-typecheck-coverage.mjs`, ambos
+  novos e ambos com suíte própria, + `scripts/README.md` e `scripts/package.json`.
+- `.github/workflows/ci.yml` (2 passos novos) e `_deploy-module.yml` (`--concurrency=4`).
+- `packages/catalog-ui` (`tsconfig.build.json` novo, `tsconfig.json`, `src/test/setup.ts`),
+  `packages/ui/vitest.config.ts`, `apps/glossario/frontend/tsconfig.test.json` — consequências do
+  gate de typecheck sobre testes.
+- `.claude/settings.json` (`true` → `false`). O `.claude/settings.local.json` **foi revertido ao
+  estado do commit** — a pendência registrada na versão anterior deste bloco está resolvida:
+  o `false` mora no `settings.json`, que é quem liga o plugin (ver §Bloqueios conhecidos).
+- Esta spec.
+
+**Validado em beta e em produção em 2026-08-07.** É esta a evidência que fecha o risco E016/E017
+da spec — os backends que consomem `dist-cjs` **subiram e responderam**, o que `tsc` verde sozinho
+nunca provou.
+
+- **Beta (`dev`, `2967d4b`):** `downloads`, `mesas`, `glossario`, `site` por `workflow_dispatch`,
+  **4/4 verdes**, 12 rotas críticas do `deploy-manifest.json` por `curl` — `downloads` 200/200/401,
+  `mesas` 200/401/302, `glossario` 200/200, `site` 200/200/200/401. `accounts` e `links` não têm
+  realm beta (`env_override=prod`; a matriz do `deploy.yml` aborta `env=beta` nos dois).
+- **Promoção:** `main` `75b0340` → `2967d4b` por `promote-prod-fast-forward.yml` (fast-forward,
+  sem merge commit; invariante `main ⊆ dev` validada pelo próprio job).
+- **Produção (`main`, `2967d4b`):** os **6 módulos**, um dispatch por vez, **6/6 verdes**, 19
+  rotas críticas por `curl` — `downloads` 200/200/401, `mesas` 200/401/302, `glossario` 200/200,
+  `site` 200/200/200/401 na raiz, `links` 200/200/200/401, `accounts` 200/200/401/401.
+- **Sem migration nesta entrega:** a PR #243 não trouxe `.sql`, então o guard `MAX_AUTO_PENDING`
+  não foi exercitado em nenhum dos 6.
+
+**Limite conhecido do smoke de `accounts`.** É o único dos 6 que **não teve ensaio em beta**, por
+não existir realm beta para ele (D042) — e é o SSO de toda a suíte, consumidor de `packages/auth`,
+um dos 8 pacotes alterados. Mitigação usada: baseline das 4 rotas capturado **antes** do deploy
+(200/200/401/401), idêntico depois, mais o redirect de um consumidor conferido
+(`mesas /api/v1/auth/google` → `302` para `accounts.artificiorpg.com/login?return=…`). O que
+**não** foi testado: login autenticado real ponta a ponta, que exigiria sessão/perfil real no
+navegador do mantenedor — autorização nominal não pedida nem concedida nesta sessão. Quem retomar
+não deve ler "accounts validado" como "fluxo de login exercitado com usuário".
 
 **Fora do repositório:** `~/.claude/local-marketplace/**` (novo) e `~/.claude/settings.json`.

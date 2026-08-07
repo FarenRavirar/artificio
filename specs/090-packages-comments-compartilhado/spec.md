@@ -352,12 +352,20 @@ volta pelo SSO.
 
 ### Trust boundary e credenciais
 
-Cada backend consumidor recebe token próprio, aleatório de no mínimo 256 bits, por secret do
-GitHub e `.env` da VM; nunca por arquivo versionado. `accounts.` mantém registro allowlisted
-`token -> source_app + realms + operações`, compara em tempo constante e rejeita token ausente,
-desconhecido, fora do realm ou tentando afirmar outro `source_app`. Rotação usa janela curta
-`current` + `next`: publica `next` no `accounts.`, troca consumidor, confirma tráfego, revoga
-`current`. Logs guardam só identificador da credencial, nunca o segredo.
+Cada backend consumidor recebe token próprio, aleatório de no mínimo 256 bits, mantido **só no
+`.env` da VM** (`/opt/artificio/apps/<mod>/.env` e `/opt/artificio-beta/apps/<mod>/.env.beta`,
+permissão `600`) e interpolado pelo `docker compose`; nunca por arquivo versionado. **Não passa
+por secret do GitHub Actions** — verificado em 2026-08-04 e reconfirmado em 2026-08-07:
+`SERVICE_CREDENTIAL` não aparece em nenhum workflow. A consequência operacional é o motivo de a
+frase existir: acrescentar a chave ao cofre do Actions **não** a leva para a VM, e quem distribui
+esses valores é o mantenedor, manualmente (`docs/agents/github-actions-secrets.md`).
+
+`accounts.` mantém registro allowlisted `token -> source_app + realms + operações`, compara em
+tempo constante e rejeita token ausente, desconhecido, fora do realm ou tentando afirmar outro
+`source_app`. Rotação usa janela curta `current` + `next`: publica `next` no `accounts.`, troca
+consumidor, confirma tráfego, revoga `current`. Logs guardam só identificador da credencial,
+nunca o segredo. Desde 2026-08-07 (T2.2a-op, passo 6) a credencial registrada é o **único**
+mecanismo aceito: o `SERVICE_SECRET` global e seu fallback foram removidos do código.
 
 Frontend fala somente com fachada same-origin. Backend valida sessão, existência, visibilidade,
 estado comentável e ownership do objeto; então chama `accounts.` com `X-Service-Token`,

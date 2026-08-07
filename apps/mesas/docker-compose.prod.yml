@@ -67,12 +67,11 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       # WS3/REV-018: token serviço-a-serviço p/ buscar segredos no accounts (DeepSeek key).
-      # REV-048: obrigatório — falha no deploy em vez de quebrar parse/enrichment em runtime.
-      - SERVICE_SECRET=${SERVICE_SECRET:?SERVICE_SECRET obrigatorio para mesas-api}
       # T2.2a (spec 090): credencial registrada `<token_id>.<segredo>`, com escopo
-      # `secrets.read`. Opcional (`:-`) ate a credencial ser emitida; vira
-      # obrigatorio, e SERVICE_SECRET sai, quando a migracao terminar.
-      - SERVICE_CREDENTIAL=${SERVICE_CREDENTIAL:-}
+      # `secrets.read`. Obrigatoria (`:?`) desde 2026-08-07 (T2.2a-op, passo 6),
+      # quando SERVICE_SECRET saiu — falha no deploy em vez de quebrar
+      # parse/enrichment em runtime (REV-048).
+      - SERVICE_CREDENTIAL=${SERVICE_CREDENTIAL:?SERVICE_CREDENTIAL obrigatorio para mesas-api}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
       - JWT_REFRESH_EXPIRES_IN=7d
       - ACCOUNTS_URL=${ACCOUNTS_URL:-https://accounts.artificiorpg.com}
@@ -137,10 +136,9 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       # WS3/REV-018: cron também parseia/enriquece — precisa do token p/ DeepSeek key
       - ACCOUNTS_URL=${ACCOUNTS_URL:-https://accounts.artificiorpg.com}
-      # REV-048: obrigatório também no cron.
-      - SERVICE_SECRET=${SERVICE_SECRET:?SERVICE_SECRET obrigatorio para mesas-cron}
       # T2.2a (spec 090): mesma credencial da API — o cron le o mesmo segredo.
-      - SERVICE_CREDENTIAL=${SERVICE_CREDENTIAL:-}
+      # Obrigatoria (`:?`) também aqui, como era o SERVICE_SECRET (REV-048).
+      - SERVICE_CREDENTIAL=${SERVICE_CREDENTIAL:?SERVICE_CREDENTIAL obrigatorio para mesas-cron}
     depends_on:
       mesas-api:
         condition: service_healthy

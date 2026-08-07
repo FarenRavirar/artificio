@@ -6,9 +6,10 @@ import type { Database } from "./db.js";
 /**
  * T2.2a — resolução de credencial de serviço por `source_app` e `realm`.
  *
- * A diferença que carrega a correção inteira está no **tipo de retorno**:
- * `isValidServiceToken` (serviceToken.ts) devolve `boolean`, respondendo "esse
- * token é igual ao segredo?". Aqui devolvemos **identidade ou `null`** —
+ * A diferença que carrega a correção inteira está no **tipo de retorno**: o
+ * mecanismo anterior (`isValidServiceToken`, em `serviceToken.ts`, removido em
+ * 2026-08-07 junto com o fallback) devolvia `boolean`, respondendo "esse token é
+ * igual ao segredo?". Aqui devolvemos **identidade ou `null`** —
  * `resolveServiceCredential` responde *quem* chamou, *em qual realm* pode
  * escrever e *quais operações* pode fazer.
  *
@@ -102,7 +103,6 @@ export function parseServiceTokenHeader(
  * O `token_id` não é secreto, mas o resultado do lookup é: comparar com `===`
  * depois da consulta permitiria descobrir por timing **quais IDs existem** no
  * registro, o que é reconhecimento gratuito para um atacante escolher alvo.
- * Reusa a normalização por digest de `timingSafeEqualStrings`.
  */
 function constantTimeEquals(a: string, b: string): boolean {
   const bufferA = Buffer.from(a, "utf8");
