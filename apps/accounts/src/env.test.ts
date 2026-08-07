@@ -12,6 +12,9 @@ describe("ACCOUNTS_BOOTSTRAP_ADMIN_EMAIL", () => {
     // localhost e senha óbvia. `secret@accounts-db` casava com a heurística do
     // TruffleHog (senha não-óbvia + host de infraestrutura) e falhava o gate de
     // segredos no CI, mesmo sendo valor inventado.
+    // T2.3 (spec 090): obrigatória, como `JWT_SECRET`. Sem ela no fixture, todo
+    // caso deste bloco falharia por um motivo que não é o testado aqui.
+    ACCOUNTS_COMMENT_CURSOR_KEY: "c".repeat(32),
     DATABASE_URL: "postgres://admin:admin@localhost:5432/artificio_auth",
     GOOGLE_CALLBACK_URL: "https://accounts.artificiorpg.com/api/auth/google/callback",
     GOOGLE_CLIENT_ID: "client-id",
@@ -47,5 +50,81 @@ describe("ACCOUNTS_BOOTSTRAP_ADMIN_EMAIL", () => {
       ACCOUNTS_BOOTSTRAP_ADMIN_EMAIL: "nao-e-email",
     });
     expect(parsed.success).toBe(false);
+  });
+});
+
+// T2.3 (spec 090) — chave dedicada de assinatura do cursor (`spec.md` 8d-i,
+// precedente REV-023). Ao contrário de `ACCOUNTS_SECRETS_KEY`, é obrigatória: a
+// leitura em árvore não tem caminho degradado sem ela, e um default silencioso
+// significaria cursor assinado com valor previsível — ou seja, forjável.
+describe("ACCOUNTS_COMMENT_CURSOR_KEY", () => {
+  const base = {
+    DATABASE_URL: "postgres://admin:admin@localhost:5432/artificio_auth",
+    GOOGLE_CALLBACK_URL: "https://accounts.artificiorpg.com/api/auth/google/callback",
+    GOOGLE_CLIENT_ID: "client-id",
+    GOOGLE_CLIENT_SECRET: "client-secret",
+    JWT_REFRESH_SECRET: "r".repeat(32),
+    JWT_SECRET: "s".repeat(32),
+  };
+
+  it("recusa ausência", () => {
+    expect(accountsEnvSchema.safeParse(base).success).toBe(false);
+  });
+
+  it("recusa chave curta demais", () => {
+    const parsed = accountsEnvSchema.safeParse({
+      ...base,
+      ACCOUNTS_COMMENT_CURSOR_KEY: "c".repeat(31),
+    });
+    expect(parsed.success).toBe(false);
+  });
+
+  it("aceita chave de 32 caracteres", () => {
+    const parsed = accountsEnvSchema.safeParse({
+      ...base,
+      ACCOUNTS_COMMENT_CURSOR_KEY: "c".repeat(32),
+    });
+    expect(parsed.success).toBe(true);
+  });
+
+  it("é distinta de JWT_SECRET — nunca deriva dele", () => {
+    const parsed = accountsEnvSchema.safeParse({
+      ...base,
+      ACCOUNTS_COMMENT_CURSOR_KEY: "c".repeat(32),
+    });
+    expect(parsed.success && parsed.data.ACCOUNTS_COMMENT_CURSOR_KEY).not.toBe(
+      parsed.success && parsed.data.JWT_SECRET,
+    );
+  });
+
+  // Achado de review da PR #245: `min(32)` sozinho não impede colar o MESMO
+  // valor nos dois campos, e aí a separação exigida por 8d-i existiria só no
+  // papel — rotacionar o JWT invalidaria todo cursor em voo, e vazar um
+  // comprometeria as duas finalidades.
+  it("recusa valor idêntico ao JWT_SECRET", () => {
+    const mesmo = "s".repeat(32);
+    const parsed = accountsEnvSchema.safeParse({
+      ...base,
+      JWT_SECRET: mesmo,
+      ACCOUNTS_COMMENT_CURSOR_KEY: mesmo,
+    });
+
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      const issue = parsed.error.issues.find((candidate) =>
+        candidate.path.includes("ACCOUNTS_COMMENT_CURSOR_KEY"),
+      );
+      expect(issue?.message).toMatch(/não pode ser igual ao JWT_SECRET/);
+    }
+  });
+
+  it("aceita valores distintos de mesmo tamanho", () => {
+    const parsed = accountsEnvSchema.safeParse({
+      ...base,
+      JWT_SECRET: "s".repeat(32),
+      ACCOUNTS_COMMENT_CURSOR_KEY: "c".repeat(32),
+    });
+
+    expect(parsed.success).toBe(true);
   });
 });

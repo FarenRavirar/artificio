@@ -4,9 +4,9 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **399 operações**.
+Total: **400 operações**.
 
-## accounts (17)
+## accounts (18)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -26,6 +26,7 @@ Total: **399 operações**.
 | GET | `/conta` | public-page | none | active | — | Consulta conta |
 | GET | `/health` | internal | none | active | — | Consulta health |
 | GET | `/internal/users/{id}` | public | none | active | — | Consulta internal users id |
+| GET | `/internal/v1/comments` | public | none | active | — | Consulta internal v1 comments |
 | GET | `/login` | public-page | none | active | — | Consulta login |
 
 ## downloads (82)

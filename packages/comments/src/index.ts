@@ -28,6 +28,29 @@ export {
 } from './subjectAuthorization.js';
 
 export {
+  MAX_BYTES_PER_READ,
+  MAX_COMMENTS_PER_READ,
+  assembleTree,
+  type AssemblyInput,
+  type AssemblyResult,
+  type AssemblyRow,
+  type MoreNode,
+} from './treeAssembly.js';
+
+export {
+  COMMENT_SORTS,
+  CURSOR_SECRET_MIN_LENGTH,
+  CURSOR_TTL_MS,
+  issueTreeCursor,
+  treeCursorPayloadSchema,
+  verifyTreeCursor,
+  type CommentSort,
+  type CursorRejectionReason,
+  type TreeCursorPayload,
+  type TreeCursorVerification,
+} from './treeCursor.js';
+
+export {
   runSubjectAuthorizationConformance,
   type ConformanceCheck,
   type ConformanceFixture,

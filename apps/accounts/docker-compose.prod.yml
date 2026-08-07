@@ -64,6 +64,14 @@ services:
       # nos compose deles.
       # REV-023: chave dedicada p/ cifrar admin_secrets (desacoplada do JWT_SECRET).
       - ACCOUNTS_SECRETS_KEY=${ACCOUNTS_SECRETS_KEY:?ACCOUNTS_SECRETS_KEY obrigatorio para accounts-api}
+      # T2.3 (spec 090), `spec.md` 8d-i: chave dedicada de assinatura do cursor
+      # de leitura em arvore, mesmo precedente REV-023 — um segredo por
+      # finalidade, para que rotacionar o JWT nao invalide cursor em voo nem o
+      # contrario. `:?` e nao `:-` porque cursor assinado com valor default e
+      # cursor forjavel: falhar o deploy e o comportamento correto.
+      # ATENCAO DE ORDEM: a variavel precisa existir no `.env` da VM ANTES deste
+      # compose subir, senao o accounts nao inicia (mesma armadilha da T2.2a-op).
+      - ACCOUNTS_COMMENT_CURSOR_KEY=${ACCOUNTS_COMMENT_CURSOR_KEY:?ACCOUNTS_COMMENT_CURSOR_KEY obrigatorio para accounts-api}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD obrigatorio para accounts-api}
       - TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.18.0.0/16}
       # Troca de foto de perfil (PATCH /api/account/avatar). Opcionais de

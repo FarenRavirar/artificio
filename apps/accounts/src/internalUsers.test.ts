@@ -22,6 +22,7 @@ async function credentialRow(overrides: Record<string, unknown> = {}) {
 // sem secret (401), secret errado (401), secret certo (200 + shape).
 
 const env: AccountsEnv = {
+  ACCOUNTS_COMMENT_CURSOR_KEY: "cursor-key-cursor-key-cursor-key-32",
   COOKIE_DOMAIN: ".artificiorpg.com",
   DATABASE_URL: "postgres://admin:admin@localhost:5432/artificio_auth",
   GOOGLE_CALLBACK_URL: "https://accounts.artificiorpg.com/api/auth/google/callback",

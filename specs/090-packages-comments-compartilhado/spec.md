@@ -122,6 +122,24 @@ coisas diferentes em cada módulo, e não haveria como autorizar uma tela centra
     Cursor opaco assinado fixa assunto, sort, `snapshot_revision`, ramo, chave de ordenação,
     limite e expiração de 30 minutos. Navegação preserva posição naquela revisão; contagem e
     voto pessoal podem refletir o estado atual. Histórico de score não é destruído nesta fase.
+8d-i. **Chave de assinatura do cursor: `ACCOUNTS_COMMENT_CURSOR_KEY`, dedicada, obrigatória.**
+    8d exige cursor "opaco assinado" e não dizia com qual chave. Decidido em 2026-08-07 pelo
+    mantenedor, seguindo o precedente **REV-023**, que criou "chave dedicada p/ cifrar
+    `admin_secrets` (**desacoplada do `JWT_SECRET`**)" — `apps/accounts/docker-compose.prod.yml`.
+    O padrão de `apps/accounts/src/env.ts` é um segredo por finalidade, todos `min(32)`:
+    `JWT_SECRET`, `JWT_REFRESH_SECRET`, `ACCOUNTS_SECRETS_KEY`. Cursor é finalidade nova, logo
+    chave própria — rotacionar o JWT não pode invalidar cursor em voo, nem o contrário.
+    **Obrigatória**, ao contrário de `ACCOUNTS_SECRETS_KEY`: não há caminho degradado, porque
+    cursor assinado com valor default é cursor forjável, e falhar o boot é preferível a assinar
+    com segredo previsível. Daí o `:?` no compose de prod.
+    **A ordem de instalação é parte da decisão** (precedente REV-023, `specs/048-.../reviews.md`,
+    2026-06-27): valor gerado e inserido **por SSH direto no `.env` da VM, não via GitHub
+    Secrets**, e **antes** de o compose exigi-lo — com `:?` o deploy falha se a env não existir,
+    e como o `accounts` sustenta o SSO, a falha derruba o login de todos os projetos, não só a
+    rota nova. Foi a armadilha que mordeu a T2.2a-op em 2026-08-05.
+    Um arquivo só: `accounts` é PROD-only (D042), então não há `.env.beta` a preencher.
+    `packages/comments/src/treeCursor.ts` recebe o segredo **por parâmetro** e nunca lê
+    `process.env` — quem monta a chave é o `apps/accounts`, dono da env.
 8e. IDs públicos de comentário, evento e recibo usam UUID v4. `legacy_id` permanece separado.
     Não introduzir UUID v7, ULID ou biblioteca nova.
 9. Os comentários legados do `site` — 25 medidos em produção em 2026-08-04, mas recontados como
@@ -328,11 +346,7 @@ Consumidores fechados para o smoke de SSO: `accounts`, `links`, `site` (incluind
 
 ### Casamento de identidade
 
-**Escopo reduzido pela decisão de 2026-07-30 (`accounts.` é a origem do papel, não o destino).**
-A versão anterior desta seção descrevia migração de papéis: classes de conflito, `unmatched`,
-`excluded_realm`, redução por precedência `admin > moderator > user` e um relatório determinístico
-de promoções. Nada disso existe — sem migração, não há papel local a promover nem conflito a
-relatar. O que resta é o casamento de identidade, que continua necessário por outro motivo:
+`accounts.` é a origem do papel global (requisito 4). O casamento de identidade existe para
 preservar **ownership** local (termos, mesas, materiais, votos, comentários) quando a mesma pessoa
 volta pelo SSO.
 
@@ -420,15 +434,14 @@ quatro rotas está **reservado** em `contrato-http-v1.md` §12 (cursor `(occurre
 implementar sem divergir do formato. Requisito 19a descreve esse contrato; a decisão 1 fixa a
 fase.
 
-O contrato v1 também precisa expor, no mesmo namespace interno e antes de implementação,
-edição/auto-retirada pelo autor, denúncia e retirada permitida, decisão de caso, aprovação e
-reabertura de versão, recurso, sanção e invalidação de voto abusivo. Esses fluxos obedecem aos
-estados e invariantes 12d–12j; não podem nascer como endpoints locais divergentes por app.
+O contrato completo — incluindo edição/auto-retirada, denúncia, caso, recurso, sanção e
+invalidação de voto — está em `contrato-http-v1.md`. Todos os fluxos usam o namespace interno
+único; não existem endpoints locais divergentes por app.
 
 **Materializado em `contrato-http-v1.md` (T2.2b, 2026-08-05).** A tabela acima é o resumo; o
 documento é a fonte para implementação — método, path, escopo, headers, corpo, invariantes
-transacionais, códigos e campos públicos versus moderação de cada fluxo, incluindo os oito que
-este parágrafo listava como pendentes.
+transacionais, códigos e campos públicos versus moderação de cada fluxo, incluindo edição,
+auto-retirada, denúncia, caso, recurso, sanção e invalidação de voto.
 
 ### 27. Superfície de moderação no front (requisito novo, 2026-07-30)
 
@@ -756,3 +769,86 @@ ficha de material) e **não dependem** do `accounts.`, de `packages/comments` ne
   aquela parte fica em aberto — dependência declarada, não débito esquecido.
 - **Ordem de adoção importa.** `downloads` tem a necessidade imediata; `site` tem o dado mais
   delicado; `mesas` não tem nada a preservar.
+
+---
+
+## Apêndice: Decisões do Grilling (2026-08-04)
+
+55 decisões de produto fechadas antes da implementação. Cada decisão está aplicada nos
+requisitos 1-28 e no `contrato-http-v1.md`. Lista condensada para referência de implementação.
+
+**Notificações e arquitetura:**
+1. Fase 2 absorve núcleo transacional de notificações: `notification_event`, `notification_receipt`, recibos e dedup na mesma transação do comentário. Central, polling e API pública ficam na Fase 3.
+2. Contrato `CommentSubjectAuthorization` — alvo existente, visível, comentável, `ownerUserId`, `canonicalPath` — validado pelo backend do domínio antes de chamar o `accounts.`.
+
+**Árvore e navegação:**
+3. Árvore inteira no volume normal; 5 níveis visuais (`depth<=4`); `root_id` obrigatório; cap 1.000/2 MiB com `more`, nunca filho órfão.
+8. Ranking versionado por assunto; cursor stateless assinado HMAC-SHA256, TTL 30 min; `snapshot_revision` congela posição na navegação.
+16. IDs públicos UUID v4; `BIGINT` proibido; sem UUID v7/ULID.
+
+**Voto e score:**
+4. Votos e score entram na Fase 2 — comportamento Reddit.
+5. Só terceiro vota; autor não; comentário novo nasce score 0.
+6. Legado não aceita voto; score 0 permanente.
+7. Quatro sorts: Melhores (Wilson 80% unilateral, padrão), Mais votados, Recentes, Mais antigos. Entre irmãos, nunca mistura níveis. `created_at`+`id` desempatam.
+9. Score público imediato — sem janela de ocultação.
+10. Resposta pública: `upvotes`, `downvotes`, `score`; autenticado vê `my_vote`. Moderação vê identidade dos votantes e histórico.
+11. Conta nova vota com mesmo peso, sem quarentena.
+12. Voto: `PUT` estado absoluto `-1|0|1`; mesmo valor é no-op; última gravação vence; sem `Idempotency-Key`.
+13. Voto não gera notificação.
+14. Desativação comum preserva votos/score mas bloqueia voto novo. Abuso permite invalidação pelo moderador com recálculo de ranking; histórico bruto permanece.
+19. Wilson: `z=1.281551565545` (80%), sem decaimento temporal, `algorithm_version='reddit-wilson-80-v1'`. PostgreSQL é fonte canônica: função `IMMUTABLE`, `numeric`, coluna gerada. TypeScript não duplica fórmula.
+21. `score = upvotes - downvotes` como coluna gerada; `best_score` por função SQL imutável.
+
+**Edição e identidade:**
+17. Autor edita e retira o próprio; edição sem prazo, preserva votos; auto-retirada via tombstone irreversível para o autor. Revoga D111 item 6.
+18. Edição preserva votos e ranking. Marcador público `edited_at`; bait-and-switch tratado por histórico da moderação.
+20. Edição: só `body_markdown`; pai, assunto, autoria e `created_at` imutáveis. Idêntica é no-op.
+22. Moderação nunca edita texto alheio — só retira ou restaura.
+
+**Legado:**
+23. Legado imutável mas responde: pode ser pai de comentário novo. Antigo descreve proveniência, não congela conversa.
+
+**Markdown e links:**
+24. Comentário novo usa `@artificio/content-editor`: `sanitizeUserMarkdown` na escrita; consumidores via `MarkdownContent`/`renderMarkdown`; HTML desabilitado, DOMPurify na defesa final. Campo `body_markdown`.
+25. Máximo 10.000 caracteres; validado na entrada e na saída canônica. Excesso rejeita, nunca trunca.
+26. Imagem só como referência HTTPS clicável: `![alt](url)` vira link textual, sem `<img>` nem fetch server-side.
+27. Links HTTPS-only; sem esquema canonicaliza; `http:` rejeitado. Host da suíte vs externo por `URL` estrutural; externo ganha `noopener noreferrer`.
+28. Link root-relative (`/rota`) pertence ao `source_app`; `//host`, `../` e relativo ambíguo rejeitados.
+29. Link proibido falha com `INVALID_COMMENT_LINK` + posição + regra, sem ecoar payload hostil. Markdown malformado permanece texto. Política única em `@artificio/content-editor/comment-links`.
+30. Comentário precisa produzir texto visível após `markdownToPlainText`; sem mínimo arbitrário além de não-vazio.
+31. Sem `@menções` nesta fase; `@texto` é literal.
+
+**Denúncia:**
+32. Denúncia entra no núcleo da Fase 2: persistência, API interna, fila compartilhada, resolução e auditoria no `accounts.`.
+33. Exige conta, terceiro e unicidade: 1 ativa por ator/comentário. Identidade do denunciante visível só a `moderator`/`admin`.
+34. Limiar: 5 contas distintas → `pending_review_hidden` (placeholder público, corpo e score somem). Não é tombstone nem decisão de moderador.
+35. Fluxo maduro do `downloads` sobe ao compartilhado; domínio específico fica no adaptador.
+36. Três defeitos do `downloads` corrigidos na adoção: rate limiter de leitura, concorrência na decisão terminal, auditoria.
+37. Motivos em registro compartilhado: `malicious_link`, `inappropriate_content`, `spam_or_off_topic`, `harassment_or_hate`, `personal_data`, `copyright_violation`, `illegal_content`, `other`.
+38. Prioridade (P0–P2) ordena fila mas nunca oculta/decide sozinha. Moderador reclassifica com auditoria.
+39. Denúncia fixa `reported_version_id` atômico; edição posterior não altera evidência. Versão referenciada sem purga automática.
+
+**Moderação:**
+40. Caso episódico: 1 aberto por comentário; denúncias são linhas individuais imutáveis. Caso novo após encerramento.
+41. Editar não revela comentário auto-oculto; só moderação restaura.
+42. Denunciante retira só antes do auto-hide. Transição serializada com lock.
+43. Veredito individual por denúncia (`upheld`/`dismissed`/`no_determination`); ação única por caso (`no_change`/`restore`/`remove`). Mesma transação.
+44. Resultado privado e mínimo: denunciante recebe `action_taken`/`not_upheld`/`no_determination` do próprio veredito; autor recebe auto-hide/remoção/restauração.
+45. Versão aprovada imune a reabertura automática; denúncia posterior vira `no_determination`. Edição cria versão nova, denunciável.
+46. Auto-retirada com caso aberto não encerra moderação; `no_change` preserva tombstone.
+
+**Recurso e sanção:**
+47. Recurso: autor, 6 meses, uma vez por decisão de remoção. Sem exigência de segundo moderador.
+48. Sanção comunitária: `posting`/`commenting`, `warning` → suspensão temporária → permanente. Separada do SSO; nunca automática.
+49. Detalhe da denúncia: `required|optional|forbidden` por motivo; ≤4.000 caracteres; imutável; restrito à moderação.
+
+**Segurança e infra:**
+50. Rate limiting: buckets independentes por camada (fachada: IP+usuário; `accounts.`: usuário+credencial), identidade e ação. IP nunca entra no schema comunitário.
+51. Sem cache persistente: estado `stale` em memória da tela montada; reload durante queda mostra `unavailable`.
+54. IP na fachada só durante TTL do limiter; nunca no schema, payload ou auditoria.
+
+**Jurídico e ciclo de vida:**
+52. Controlador: Paulo Henrique Mota Lima (pessoa física), `artificiorpg@gmail.com`. Projeto gratuito, Brasil.
+53. Exclusão: identidade pública neutralizada; vínculo ator→conta desfeito em 6 meses (ou com caso/recurso + 6 meses). Comentários viram "Conta excluída"; votos/score permanecem. Bloqueio de recadastro 6 meses. Revoga retenção permanente da decisão 15.
+55. Fase 2 em pré-lançamento; adequação ao ECA Digital é trabalho posterior.

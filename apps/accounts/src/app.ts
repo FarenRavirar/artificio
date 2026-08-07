@@ -24,6 +24,7 @@ import {
 } from "./users.js";
 import { createAdminSecretsRoutes } from "./adminSecretsRoutes.js";
 import { createAdminRoleRoutes } from "./adminRoleRoutes.js";
+import { createCommunityCommentRoutes } from "./communityCommentRoutes.js";
 import { requireServiceCredential } from "./requireServiceCredential.js";
 
 const avatarMaxBytes = 2 * 1024 * 1024;
@@ -441,6 +442,13 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
   // WS3: admin secrets (DeepSeek key, etc.) — admin-gated + X-Service-Token
   app.use(createAdminSecretsRoutes(db, env as unknown as Record<string, string | undefined>));
   app.use(createAdminRoleRoutes(db));
+
+  // T2.3 (spec 090) — leitura em árvore do namespace comunitário.
+  // `/internal/v1/*` é superfície backend-to-backend: o navegador nunca chega
+  // aqui, a fachada de cada app é que fala com o usuário
+  // (`contrato-http-v1.md` §1). A chave do cursor é dedicada por 8d-i, mesmo
+  // precedente de `ACCOUNTS_SECRETS_KEY` (REV-023).
+  app.use(createCommunityCommentRoutes(db, env.ACCOUNTS_COMMENT_CURSOR_KEY));
 
   // Spec 083 (downloads: rejeicao com e-mail) — rota interna server-to-server,
   // resolve email/nome do autor por user_id. So X-Service-Token, sem fallback

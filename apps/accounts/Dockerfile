@@ -38,11 +38,19 @@ COPY --from=build /repo/patches ./patches
 # provaria so que a pasta existe, e o modo de falha real e o binario da
 # plataforma faltar, que so apareceria na primeira autenticacao de servico em
 # producao, com CI verde (E016/E017).
+# @artificio/comments (T2.3, spec 090) entrou como dep do app para a leitura em
+# arvore: o handler importa `assembleTree`, `issueTreeCursor` e
+# `verifyTreeCursor` de la. Traz `zod` como dep externa propria e o require sai
+# de dentro do dist dele — mesmo caso de auth/config, mesmo modo de falha
+# (E016/E017): sem o filtro explicito o container sobe e so quebra na primeira
+# leitura de comentario, com MODULE_NOT_FOUND e CI verde.
 RUN pnpm install --prod --filter @artificio/accounts --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/auth --frozen-lockfile --ignore-scripts \
+  && pnpm install --prod --filter @artificio/comments --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/config --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/media --frozen-lockfile --ignore-scripts \
   && test -d packages/auth/node_modules/jsonwebtoken \
+  && test -d packages/comments/node_modules/zod \
   && test -d packages/config/node_modules/zod \
   && test -d packages/media/node_modules/cloudinary \
   && test -d apps/accounts/node_modules/@node-rs/argon2 \
