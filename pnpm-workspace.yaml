@@ -3,6 +3,11 @@ packages:
   - "apps/*/frontend"
   - "apps/*/backend"
   - "packages/*"
+  # `scripts/` é pacote para que os scripts de tooling (deploy, CI, API, checagens
+  # do repo) tenham onde ser testados e entrem no `turbo run test` como qualquer
+  # outro. Antes disso nada ali tinha cobertura, e um bug de lógica num script de
+  # decisão passava verde no CI (PR #243: falso DESTRAVADO no check do TS 7).
+  - "scripts"
 overrides:
   "form-data@<4.0.6": ">=4.0.6"
   "undici@<7.28.0": ">=7.28.0 <8"

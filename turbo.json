@@ -11,6 +11,19 @@
     "test": {
       "dependsOn": ["^build"]
     },
+    // Checa o que o `build` não checa: os arquivos de teste dos pacotes.
+    //
+    // `build` roda sobre `tsconfig.build.json`, que EXCLUI teste de propósito —
+    // o `dist` vai inteiro para as imagens de produção e teste compilado viraria
+    // código morto importando `vitest`. Consequência: erro de tipo em arquivo de
+    // teste de pacote não aparecia em lugar nenhum do CI, só num `tsc -p
+    // tsconfig.json` manual que ninguém roda (achado de review, PR #243).
+    //
+    // `^build` porque o typecheck precisa dos `.d.ts` dos pacotes dependentes,
+    // mesmo motivo do `test`.
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
     "dev": {
       "cache": false,
       "persistent": true

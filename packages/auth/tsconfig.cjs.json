@@ -2,14 +2,13 @@
   "extends": "../config/tsconfig.base.json",
   "compilerOptions": {
     "module": "CommonJS",
-    "moduleResolution": "node10",
+    "moduleResolution": "bundler",
     "rootDir": "src",
     "outDir": "dist-cjs",
     "declaration": false,
     "declarationMap": false,
     "sourceMap": true,
-    "jsx": "react-jsx",
-    "ignoreDeprecations": "6.0"
+    "jsx": "react-jsx"
   },
   "include": [
     "src/index-cjs.ts",

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build && pagefind --site dist",
+    "typecheck": "tsc --noEmit",
     "preview": "astro preview",
     "migrate": "tsx db/migrate.ts",
     "export": "tsx db/export.ts",

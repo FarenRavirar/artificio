@@ -1272,6 +1272,144 @@ por causa disto.**
 
   · feito quando: as quatro credenciais existem e estão em uso; o log de uso legado não aparece por um ciclo completo de deploy; `SERVICE_SECRET` não existe mais em nenhum compose, `.env.example` ou código; e `SERVICE_CREDENTIAL` é obrigatório nos serviços que o consomem.
 
+  **Comandos dos passos 3 e 4, prontos e conferidos contra a VM em 2026-08-05
+  (leitura read-only).** Nada foi executado; cada bloco exige aprovação nominal
+  própria no momento de rodar.
+
+  Estado medido: `schema_migrations` em prod tem `001`–`005`; `006`/`007`
+  pendentes. `SERVICE_CREDENTIAL` **ausente** nos três `.env` de prod
+  (`accounts`, `downloads`, `mesas`), `SERVICE_SECRET` presente nos três.
+  `dist/scripts/` ainda **não existe** dentro de `accounts-api` — a imagem em
+  execução é anterior a esta PR, então os comandos abaixo só funcionam **depois**
+  do merge e do deploy (passos 1 e 2). Containers confirmados: `accounts-api`,
+  `accounts-db`; workdir do container é `/app/apps/accounts`; `DATABASE_URL` já
+  está no ambiente dele.
+
+  **Passo 3 — emitir (leitura de banco + INSERT na tabela nova; não toca dado
+  existente).** O segredo é impresso **uma única vez** e não é recuperável:
+  copiar antes de fechar o terminal, ou revogar e emitir outra.
+
+  ```bash
+  # prod
+  ssh faren 'docker exec accounts-api node dist/scripts/serviceCredentialAdmin.js issue \
+    --source-app downloads --realm prod --scopes users.read,secrets.read \
+    --description "spec 083 (e-mail do autor) + spec 084 (segredos)"'
+  ssh faren 'docker exec accounts-api node dist/scripts/serviceCredentialAdmin.js issue \
+    --source-app mesas --realm prod --scopes secrets.read \
+    --description "WS3 (chave DeepSeek), api e cron"'
+
+  # beta — mesmo accounts (PROD-only, D042), realm diferente
+  ssh faren 'docker exec accounts-api node dist/scripts/serviceCredentialAdmin.js issue \
+    --source-app downloads --realm beta --scopes users.read,secrets.read \
+    --description "beta"'
+  ssh faren 'docker exec accounts-api node dist/scripts/serviceCredentialAdmin.js issue \
+    --source-app mesas --realm beta --scopes secrets.read \
+    --description "beta"'
+
+  # conferir (não imprime segredo)
+  ssh faren 'docker exec accounts-api node dist/scripts/serviceCredentialAdmin.js list'
+  ```
+
+  **Passo 4 — distribuir (ESCRITA em produção; aprovação nominal obrigatória).**
+  Os valores **não** passam por secret do Actions (verificado): vivem só nos
+  `.env` da VM. Editar manualmente, um arquivo por app/realm, preservando
+  permissão `600`:
+
+  | Arquivo | Valor |
+  |---|---|
+  | `/opt/artificio/apps/downloads/.env` | credencial `downloads`/`prod` |
+  | `/opt/artificio/apps/mesas/.env` | credencial `mesas`/`prod` |
+  | `/opt/artificio-beta/apps/downloads/.env.beta` | credencial `downloads`/`beta` |
+  | `/opt/artificio-beta/apps/mesas/.env.beta` | credencial `mesas`/`beta` |
+
+  `accounts` **não** recebe `SERVICE_CREDENTIAL` — ele valida, não consome.
+  Depois de cada arquivo, reiniciar o serviço correspondente (`docker restart
+  downloads-api mesas-api mesas-cron`, e os `*-beta-api` no clone de beta).
+
+  **Passo 5 — confirmar antes de qualquer remoção.** Enquanto
+  `[serviceCredential] SERVICE_SECRET legado usado em <rota>` aparecer em
+  `docker logs accounts-api`, há consumidor no mecanismo antigo. `list` mostra
+  `último uso` por credencial: é a prova pelo outro lado. **Só quando o log
+  silenciar por um ciclo completo** entra o passo 6 (remover `allowLegacySecret`,
+  tirar `SERVICE_SECRET` dos compose, tornar `SERVICE_CREDENTIAL` obrigatório) —
+  que é código e vira PR própria. Inverter 5 e 6 derruba a moderação do
+  `downloads` e o enrichment do `mesas` na hora.
+
+  **Execução de 2026-08-05 — passos 1 a 4, com um erro operacional registrado.**
+  PR #242 mergeada (`75b0340`), `dev→main` promovido por fast-forward (13 commits),
+  deploy do `accounts` em prod verde, **migrations `006` e `007` aplicadas** às
+  03:45. Quatro credenciais emitidas e escritas nos `.env` da VM (backup
+  `*.bak-20260805-035402` antes de tocar; permissão `600` preservada; conferência
+  por `token_id` + digest, sem imprimir segredo — quatro digests distintos,
+  nenhuma credencial trocada de arquivo).
+
+  **`docker restart` NÃO aplica `.env` novo.** O agente reiniciou os cinco
+  serviços e conferiu dentro do container: `SERVICE_CREDENTIAL=0`,
+  `SERVICE_SECRET=1`. `restart` recria o processo com o **ambiente original** do
+  container; só `docker compose up -d` relê o arquivo e recria com o ambiente
+  novo. Sem essa conferência, o passo teria sido declarado concluído com as
+  credenciais distribuídas e **nenhum container as usando** — o tipo de
+  falso-verde que só apareceria na hora de remover o fallback.
+
+  O caminho aplicado foi o canônico (`deploy.yml` por módulo), não `up -d` manual:
+  deixa rastro no Actions e usa a mesma esteira do resto. Ordem: `downloads` prod,
+  `mesas` prod, depois os dois em beta.
+
+  **Mecanismo provado end-to-end em produção, não só "variável presente".** Com o
+  `downloads` e o `mesas` já deployados, chamada real de container para container:
+
+  | Chamada | Resultado | O que prova |
+  |---|---|---|
+  | `downloads-api` → `GET /internal/users/<uuid inexistente>` | **404** | credencial autenticou e passou no escopo `users.read`; 404 é só o usuário não existir |
+  | `mesas-api` → mesma rota | **403** | `insufficient_scope` — `mesas` tem só `secrets.read` |
+
+  O **403 é o achado que fecha a task**: com o `SERVICE_SECRET` global essa mesma
+  chamada retornaria **200**, porque não havia escopo algum — quem resolvia e-mail
+  de usuário também lia segredo decifrado. A separação de capacidade agora existe
+  de fato, verificada em produção.
+
+  `último uso` da credencial do `downloads` saiu de `nunca` para
+  `2026-08-05T04:22:57Z` no mesmo teste, confirmando que a rastreabilidade que
+  destrava o passo 6 funciona.
+
+  **O invariante central da spec, verificado no banco de produção:**
+
+  ```text
+  downloads-beta-93a6f607 | downloads | {beta} | usada
+  downloads-prod-f96f13f2 | downloads | {prod} | usada
+  ```
+
+  Mesmo `source_app`, mesma instância do `accounts` (PROD-only, D042: beta e prod
+  **compartilham** a instância e o banco `artificio_auth`), e ainda assim os
+  realms ficam separados **por construção**: a credencial de beta carrega `{beta}`
+  e não tem `prod` de onde derivar, com o `CHECK cardinality(realms) = 1` tornando
+  impossível declarar o outro. Era exatamente isto que o `SERVICE_SECRET` único
+  não conseguia expressar — e a razão de `realm` ter entrado na chave desde a
+  primeira migration (T0.6).
+
+  **Passos 1–4 concluídos em 2026-08-05.** Cinco containers com a credencial
+  correta e saudáveis:
+
+  ```text
+  downloads-api       | downloads-prod-f96f13f2 | healthy
+  mesas-api           | mesas-prod-8a634a5b     | healthy
+  mesas-cron          | mesas-prod-8a634a5b     | up
+  downloads-beta-api  | downloads-beta-93a6f607 | healthy
+  mesas-beta-api      | mesas-beta-6b5798f4     | healthy
+  ```
+
+  `accounts-api`/`accounts-db` seguem `healthy`. Backups dos `.env`
+  (`*.bak-20260805-035402`) **deixados na VM** — contêm segredos e a remoção é
+  decisão do mantenedor, não do agente.
+
+  **Passo 6 ainda NÃO tem base.** O log `SERVICE_SECRET legado usado` está em zero
+  há 45 min, mas isso **não prova corte**: as credenciais de `mesas` seguem com
+  `último uso` vazio, ou seja, ninguém exerceu aquele caminho ainda. Zero dos dois
+  lados é ausência de tráfego, não migração concluída. A base para remover o
+  fallback é `último uso` preenchido nas **quatro** sob tráfego real (moderação de
+  material no `downloads`, parse com DeepSeek no `mesas`), com o log legado
+  silencioso no mesmo período.
+
   **Documentação operacional já escrita (2026-08-04, por decisão do mantenedor),
   então o passo 3 não começa sem instrução.** `docs/agents/deploy-runbook.md`
   ganhou a seção §Credenciais de serviço (medição do segredo único, variáveis por
@@ -1290,7 +1428,7 @@ por causa disto.**
   quem lê a planejar baseline manual que hoje seria errada, ou a achar que não cabe
   migration nova.
 
-- [ ] T2.2a — **Registro de credencial de serviço por `source_app` e `realm`, substituindo o `SERVICE_SECRET` global** (requisito 5a; decisão T0.6; `spec.md` §"Trust boundary e credenciais"). **Task nova, criada em 2026-08-04 a partir de medição no ambiente real** (evidência no bloco abaixo). Pré-requisito duro de T2.6c e de qualquer rota de escrita comunitária: enquanto a credencial for um valor único global, `realm` e `source_app` só podem vir do payload, o que a trust boundary proíbe expressamente. Exigir: tabela `community_service_credential` com `token_id` público indexado, `token_hash` (Argon2id — **não** SHA-256; ver nota de dependência), `source_app`, `realms TEXT[]`, `scopes TEXT[]`, `revoked_at`, `last_used_at`; header no formato `<token_id>.<segredo>`, onde o `token_id` em claro permite `SELECT` por índice sem rodar KDF contra toda a tabela; função de resolução que devolve **identidade (`{sourceApp, realms, scopes}`) ou `null`**, nunca `boolean` — é a mudança de tipo de retorno que carrega a correção; handler **deriva** `realm`/`source_app` da credencial e rejeita com `400` o payload que tentar declarar qualquer um dos dois; comparação do `token_id` em tempo constante, senão o lookup vaza quais IDs existem; **uma credencial por app por realm** (`downloads-beta` e `downloads-prod` são linhas distintas com segredos distintos), porque é isso que dá revogação granular e rotação sem coordenação global; `realms` é array pelo caso excepcional documentado, mas toda credencial emitida nasce com **um** realm, tornando gravar `realm='prod'` a partir de beta impossível por construção e não por validação lembrada; script de emissão/revogação de credencial; migração dos três consumidores atuais (`apps/downloads/backend/src/services/accountsClient.ts:30`, `apps/downloads/backend/src/services/secretsClient.ts:35`, `apps/mesas/backend/src/services/adminSecrets.ts:46`); `SERVICE_SECRET` permanece aceito como fallback nas duas rotas existentes durante a transição, com registro de uso (**nunca o valor**), e só é removido depois de provado que ninguém o usa. · feito quando: credencial de beta não consegue gravar `realm='prod'` por nenhum caminho; payload que declara `realm`/`source_app` é rejeitado; escopo separa leitura de usuário de leitura de segredo; revogar uma credencial não afeta as outras; e busca negativa prova que nenhum log/erro ecoa o segredo.
+- [x] T2.2a — **Registro de credencial de serviço por `source_app` e `realm`, substituindo o `SERVICE_SECRET` global** (requisito 5a; decisão T0.6; `spec.md` §"Trust boundary e credenciais"). **Task nova, criada em 2026-08-04 a partir de medição no ambiente real** (evidência no bloco abaixo). Pré-requisito duro de T2.6c e de qualquer rota de escrita comunitária: enquanto a credencial for um valor único global, `realm` e `source_app` só podem vir do payload, o que a trust boundary proíbe expressamente. Exigir: tabela `community_service_credential` com `token_id` público indexado, `token_hash` (Argon2id — **não** SHA-256; ver nota de dependência), `source_app`, `realms TEXT[]`, `scopes TEXT[]`, `revoked_at`, `last_used_at`; header no formato `<token_id>.<segredo>`, onde o `token_id` em claro permite `SELECT` por índice sem rodar KDF contra toda a tabela; função de resolução que devolve **identidade (`{sourceApp, realms, scopes}`) ou `null`**, nunca `boolean` — é a mudança de tipo de retorno que carrega a correção; handler **deriva** `realm`/`source_app` da credencial e rejeita com `400` o payload que tentar declarar qualquer um dos dois; comparação do `token_id` em tempo constante, senão o lookup vaza quais IDs existem; **uma credencial por app por realm** (`downloads-beta` e `downloads-prod` são linhas distintas com segredos distintos), porque é isso que dá revogação granular e rotação sem coordenação global; `realms` é array pelo caso excepcional documentado, mas toda credencial emitida nasce com **um** realm, tornando gravar `realm='prod'` a partir de beta impossível por construção e não por validação lembrada; script de emissão/revogação de credencial; migração dos três consumidores atuais (`apps/downloads/backend/src/services/accountsClient.ts:30`, `apps/downloads/backend/src/services/secretsClient.ts:35`, `apps/mesas/backend/src/services/adminSecrets.ts:46`); `SERVICE_SECRET` permanece aceito como fallback nas duas rotas existentes durante a transição, com registro de uso (**nunca o valor**), e só é removido depois de provado que ninguém o usa. · feito quando: credencial de beta não consegue gravar `realm='prod'` por nenhum caminho; payload que declara `realm`/`source_app` é rejeitado; escopo separa leitura de usuário de leitura de segredo; revogar uma credencial não afeta as outras; e busca negativa prova que nenhum log/erro ecoa o segredo.
 
   **Escopo confirmado pelo mantenedor em 2026-08-04:** a correção **não** se limita ao
   escopo comunitário. `GET /internal/users/:id` e `GET /admin/secrets/:name` migram
@@ -1341,13 +1479,151 @@ por causa disto.**
     `/admin/secrets/:name`. Credencial válida sem escopo é erro de configuração e
     precisa aparecer como tal, não virar "tente com cookie".
 
-- [ ] T2.2 — **Contrato `CommentSubjectAuthorization` e suíte de conformidade** (requisito 6; decisão 2). Reformulado: a versão anterior dizia apenas "o backend do módulo valida antes de chamar", sem contrato nomeado. O `accounts.` não conhece material nem mesa e **não deve fingir que conhece**; ele define um contrato único — alvo existente, visível, comentável, `ownerUserId` confiável e `canonicalPath` — mais uma **suíte de conformidade reutilizável** que cada backend consumidor roda contra a própria implementação. O guard específico é implementado por cada app na sua fase de adoção, antes de chamar o `accounts.`. Referência opaca **não** substitui autorização por objeto — sem isso o atacante comenta em assunto inexistente ou invisível (OWASP IDOR). · feito quando: o contrato e a suíte existem no compartilhado; comentário em assunto inexistente, invisível ou fechado é recusado; e escrita direta do navegador não é aceita.
-- [ ] T2.2b — **Fechar o contrato HTTP v1 ampliado antes do primeiro handler** (decisões 12, 17, 32–50, 53). **Task nova pela reconciliação:** voto já tem rota e payload decididos; edição/auto-retirada, denúncia/retirada, caso/veredito, aprovação/reabertura, recurso, sanção e invalidação de voto ainda precisam ser materializados no mesmo namespace interno. Preservar `DELETE /api/account` e seu `204`, acrescentando o ciclo de T2.15 sem criar segunda rota de exclusão. Definir método/path, schema de request/response, estado/idempotência, papel/ownership, códigos 400/401/403/404/409/422/429 e campos públicos versus moderação, sem endpoints locais divergentes por app. Atualizar fonte OpenAPI/allowlist aplicável e rodar `rtk pnpm verify:api` quando código/API entrar. · feito quando: tabela/contrato completo não contém “a definir”; cada fluxo aponta para requisito/decisão e task; dois moderadores concorrentes têm 409 explícito; payload público não inclui identidade de denunciante/votante, fingerprint nem nota interna.
+- [x] T2.2 — **Contrato `CommentSubjectAuthorization` e suíte de conformidade** (requisito 6; decisão 2). Reformulado: a versão anterior dizia apenas "o backend do módulo valida antes de chamar", sem contrato nomeado. O `accounts.` não conhece material nem mesa e **não deve fingir que conhece**; ele define um contrato único — alvo existente, visível, comentável, `ownerUserId` confiável e `canonicalPath` — mais uma **suíte de conformidade reutilizável** que cada backend consumidor roda contra a própria implementação. O guard específico é implementado por cada app na sua fase de adoção, antes de chamar o `accounts.`. Referência opaca **não** substitui autorização por objeto — sem isso o atacante comenta em assunto inexistente ou invisível (OWASP IDOR). · feito quando: o contrato e a suíte existem no compartilhado; comentário em assunto inexistente, invisível ou fechado é recusado; e escrita direta do navegador não é aceita.
+
+> **T2.2 — fechada em 2026-08-05. Entregável: `packages/comments` (pacote novo).**
+>
+> `src/subjectAuthorization.ts` (contrato + schemas Zod) · `src/subjectAuthorizationConformance.ts`
+> (suíte reutilizável) · `src/index.ts` · dois arquivos de teste · `package.json`,
+> `tsconfig{,.build,.cjs}.json`, `eslint.config.js`.
+>
+> **Validação:** `tsc -p tsconfig.json --noEmit` limpo · `eslint .` limpo · **33/33** testes
+> (22 do contrato, 11 da suíte) · build oficial (`rtk pnpm --filter @artificio/comments run build`)
+> `exit 0` do zero, com `dist` e `dist-cjs` completos e **carregados em Node** —
+> `require('./dist-cjs')` e `import('./dist/index.js')` devolvem 10 exports cada · `dist` sem
+> nenhum `*.test.js` · `rtk pnpm run lint` **25/25** · `rtk pnpm verify:api` verde, `breaking=0`
+> nos seis apps.
+>
+> **Decisões de desenho, com o porquê:**
+>
+> 1. **O export `.` é livre de React.** Quem consome primeiro é o **backend** de cada módulo, que
+>    precisa do guard antes de chamar o `accounts.` (requisito 21b — backend e o Astro
+>    server-side do `site` não podem ser obrigados a importar React). `@artificio/comments/react`
+>    e `/styles.css` entram na Fase 4. Estrutura copiada de `packages/catalog-client`, que é o
+>    pacote do repo com o mesmo perfil (dual ESM/CJS, Zod, sem React).
+> 2. **`realm` e `source_app` não existem no contrato.** São derivados da credencial de serviço no
+>    `accounts.` (T2.2a). Aceitá-los aqui reabriria o furo que a migration 007 fechou — credencial
+>    de beta escrevendo em produção.
+>
+>    **Precisão medida:** o schema **descarta** os campos (`strip` default do Zod), mas o parse
+>    devolve `success: true` — não é erro. Verificado: `subjectRefSchema.safeParse({...,realm:'prod'})`
+>    sai `success: true` com `data` sem `realm`, e `normalizeGuardResult` com `realm` injetado na
+>    autorização devolve o objeto limpo. A proteção real, portanto, **é o handler usar o objeto
+>    parseado e nunca o cru** — quem ler o corpo original continua vendo o campo injetado. Isso é
+>    obrigação do handler de T2.6c, não do schema, e está anotado aqui porque a formulação anterior
+>    ("não aceita") sugeria uma rejeição que não existe.
+> 3. **`normalizeGuardResult` existe porque o tipo não basta.** Um guard escrito noutro app é
+>    `unknown` até passar por schema (regra pétrea de normalização): um guard com bug devolvendo
+>    `{ authorized: true, authorization: { exists: false } }` viraria escrita autorizada em assunto
+>    inexistente. Aqui vira recusa.
+> 4. **A suíte é agnóstica de runner.** Devolve `ConformanceReport`, não chama `expect` — assim o
+>    pacote não arrasta `vitest` para a dependência de produção de nenhum consumidor. Cada app roda
+>    contra a própria implementação, com as próprias fixtures, na sua fase de adoção.
+> 5. **Seis checagens, e a sexta é a que pega o defeito real:** a suíte pede um alvo
+>    `visibleOnlyToActor` — visível ao próprio ator, invisível a terceiro — e **compara as duas
+>    respostas**. Só a divergência prova que o guard consulta `actingUserId`; um guard que ignora o
+>    parâmetro devolve o mesmo nas duas chamadas e é reprovado. Quando o app não fornece essa
+>    fixture, o relatório traz `actorSensitivityCovered: false`, para que `passed: true` não seja
+>    lido como "guard correto". Há teste do teste para guard permissivo, que recusa tudo, que ignora
+>    o ator, que recusa o alvo ao próprio dono, que inventa dono e que confunde invisível com
+>    inexistente.
+> 6. **`ownerUserId` nulo é caso legítimo, não erro.** Post do blog do `site` não tem
+>    `author_user_id` e mesa órfã do `mesas` também não (requisitos 15a, 15b). A suíte tem checagem
+>    dedicada reprovando guard que **inventa** dono nesse caso — dono fictício viraria destinatário
+>    de notificação fabricado.
+> 7. **`canonicalPath` recusa mais do que a spec lista.** Além de scheme, host, barra invertida e
+>    credencial (`spec.md` §Referência opaca), recusa **protocol-relative** (`//host/rota` passa em
+>    "começa com `/`" e mesmo assim sai do domínio) e **caractere de controle** (`\n`/`\r` num
+>    caminho que entra em header de redirect permite response splitting). Nenhum dos dois estava
+>    escrito; ambos são o mesmo tipo de furo que o requisito 5b existe para fechar.
+>
+> **Achado de lint tratado sem silenciar a regra:** a checagem de caractere de controle nasceu como
+> regex `[\x00-\x1f]` e o `no-control-regex` acusou. Um `eslint-disable` seria mascarar erro
+> (proibido por `AGENTS.md`), e a defesa é legítima. Trocada por varredura de code point
+> (`charCodeAt`), que não usa regex — não há o que silenciar, e o comportamento é o mesmo.
+>
+> **Dependências:** nenhuma nova entra no monorepo. `zod ^4.4.3` já é a versão usada por
+> `accounts`, `config` e `catalog-client`; `vitest`, `typescript`, `typescript-eslint` e
+> `@eslint/js` são devDependencies da raiz, herdadas. `pnpm-lock.yaml` mudou só pelo pacote novo.
+>
+> **`TS5108` — causa raiz medida, e a primeira explicação estava errada.** O build acusou
+> `TS5108: Option 'moduleResolution=node10' has been removed`. Registrei primeiro como "falso
+> alarme do proxy `rtk` numa cadeia `&&`". **Errado, e a medição que sustentava isso estava
+> viciada:** eu lia `echo "exit=$?"` depois de um pipe, capturando o status do `tail`, não do
+> `tsc`.
+>
+> Causa real: existe um **`tsc` global versão 7.0.2** em `C:\Users\paulo\AppData\Roaming\npm\tsc`,
+> fora do repo, e ele entra no `PATH` da shell antes do binário do workspace. O TS 7 **removeu**
+> `moduleResolution: node10` de vez — `ignoreDeprecations: "6.0"` cobre a depreciação do 6, não a
+> remoção do 7. O repo usa TS 6.0.3, onde a opção funciona. Medido lado a lado no mesmo
+> `tsconfig.cjs.json`: binário 6.0.3 do repo → `exit 0`; binário 7.0.2 global → `exit 1`. A
+> "alternância" que eu atribuí a ruído era só qual dos dois o `npx` resolvia a cada chamada.
+>
+> **Consequência prática:** `pnpm run build` (e o CI) usam o `tsc` do workspace e passam —
+> `rtk pnpm --filter @artificio/comments run build` sai `0` com `dist`/`dist-cjs` completos, do
+> zero. O erro só aparece invocando `tsc` à mão da shell. Os 8 pacotes com `node10` (`auth`,
+> `content`, `content-editor`, `feedback`, `changelog`, `catalog-matching`, `catalog-client`,
+> `comments`) se comportam igual — não é defeito deste pacote nem débito do repo.
+>
+> **Achado lateral — decisão do mantenedor em 2026-08-05: registrar como débito.** O `tsc` global
+> 7.0.2 diverge do 6.0.3 do repo e reproduz esse falso negativo em qualquer diagnóstico manual.
+> A investigação seguinte mostrou que o assunto é maior que o global: atualizar o repo para TS 7
+> depende do ecossistema, porque o TS 7 deixou de expor a API do compilador por
+> `require('typescript')`. Registrado em §Bloqueios conhecidos, primeiro item, com a superfície
+> medida e os dois bloqueadores. **Nada alterado** — global segue 7.0.2, repo segue `~6.0.3`.
+- [x] T2.2b — **Fechar o contrato HTTP v1 ampliado antes do primeiro handler** (decisões 12, 17, 32–50, 53). **Task nova pela reconciliação:** voto já tem rota e payload decididos; edição/auto-retirada, denúncia/retirada, caso/veredito, aprovação/reabertura, recurso, sanção e invalidação de voto ainda precisam ser materializados no mesmo namespace interno. Preservar `DELETE /api/account` e seu `204`, acrescentando o ciclo de T2.15 sem criar segunda rota de exclusão. Definir método/path, schema de request/response, estado/idempotência, papel/ownership, códigos 400/401/403/404/409/422/429 e campos públicos versus moderação, sem endpoints locais divergentes por app. Atualizar fonte OpenAPI/allowlist aplicável e rodar `rtk pnpm verify:api` quando código/API entrar. · feito quando: tabela/contrato completo não contém “a definir”; cada fluxo aponta para requisito/decisão e task; dois moderadores concorrentes têm 409 explícito; payload público não inclui identidade de denunciante/votante, fingerprint nem nota interna.
+
+> **T2.2b — fechada em 2026-08-05. Entregável: `specs/090-packages-comments-compartilhado/contrato-http-v1.md`.**
+>
+> Contrato completo do namespace `/internal/v1/*` mais as rotas de sessão: leitura em árvore,
+> criação/resposta, edição/auto-retirada, moderação de conteúdo, voto e invalidação, denúncia e
+> retirada, caso/veredito/reabertura, recurso, sanção, `DELETE /api/account` e o contrato
+> reservado de notificações. Para cada fluxo: método, path, escopo exigido, headers, corpo,
+> invariantes transacionais, códigos e campos públicos versus moderação.
+>
+> **Os quatro critérios de aceite:** (a) nenhum "a definir"; (b) §15 mapeia cada fluxo a
+> requisito/decisão e task; (c) `409`/`case_already_resolved` explícito para dois moderadores
+> concorrentes, com a serialização por lock que corrige o check-before-transaction do
+> `downloads` (decisão 36b); (d) §2 lista nominalmente o que nunca entra no payload público —
+> identidade de votante/denunciante, detalhe de denúncia, nota interna, fingerprint,
+> `user_id` cru e `community_actor_id`.
+>
+> **Três verificações contra o código real, não contra a spec:**
+>
+> 1. **`docs/api/openapi/accounts.openapi.yaml` é gerado, não editável.** O cabeçalho do arquivo
+>    declara a origem, e `verify-api.ts:9` roda `api:generate-openapi` a partir do inventário de
+>    rotas do código. Editá-lo agora seria sobrescrito no primeiro `verify:api`. Por isso o
+>    entregável é documento de contrato, e `verify:api` fica para quando o handler entrar — que é
+>    o que a própria task já dizia ("quando código/API entrar"). Nenhum comando de validação de
+>    API rodou nesta task, porque nenhum se aplica a ela.
+> 2. **Escopos e headers saem de T2.2a, não de invenção.** `SERVICE_SCOPES`
+>    (`serviceCredential.ts:40-48`), `ServiceCredentialIdentity` (`:24-37`) e a semântica
+>    `401` genérico versus `403` por escopo (`requireServiceCredential.ts:80,101-103`) foram lidos
+>    do código. `realm`/`source_app` derivam da credencial e são **rejeitados** como campo de
+>    payload.
+> 3. **`DELETE /api/account` devolve `204` de fato** (`app.ts:395`), com
+>    `confirmation_required` em `400` (`:358`). O contrato preserva os dois.
+>
+> **Correção de um erro meu durante a redação, registrada para não voltar:** escrevi primeiro que
+> `input_too_large` seria checado **antes** do limite de 10.000 caracteres, "para um corpo gigante
+> não custar parsing". Está errado: `MAX_SCAN_LENGTH` é **12.000** (`commentLinks.ts:275`), mais
+> frouxo que o limite do comentário. Com a ordem correta (10.000 primeiro), aquela `rule` é
+> **inalcançável** por esta rota. O contrato agora fixa a ordem e diz que, se ela aparecer em
+> produção, é sinal de que a ordem foi invertida.
+>
+> **Uma divergência entre `spec.md` e as decisões, resolvida a favor da decisão:** `spec.md:398-401`
+> lista `GET /api/v1/notifications`, `/unread-count`, `PUT /:id/read` e `/read-through` na tabela
+> do contrato v1, mas a **decisão 1** mantém a API pública de notificações na Fase 3 — a Fase 2
+> entrega só o núcleo transacional (evento/recibo na mesma transação do comentário). O contrato
+> segue a decisão e deixa as quatro rotas em §12 como **contrato reservado**, com cursor,
+> ownership por sessão e `404` uniforme já fixados, para a Fase 3 não divergir. Não é escopo novo;
+> é a Fase 3 não podendo inventar formato diferente depois.
+
 - [ ] T2.3 — **Leitura em árvore com cursor versionado por revisão** (requisito 6; decisões 3, 8). Reformulado: a versão anterior tratava a listagem como lista plana paginada por `(created_at, id)`, o que o grilling revogou. No volume normal a leitura devolve **a árvore inteira**, sem limite de respostas irmãs. Hard cap defensivo de **1.000 comentários ou 2 MiB**, o que ocorrer primeiro; só então raízes/ramos restantes viram `more`, com cursor próprio e **nunca filho órfão**. A primeira leitura fixa `snapshot_revision`; o cursor é **opaco e assinado**, carregando identidade do assunto, sort, revisão, último sort-key, ramo, limite e expiração de **30 minutos**. Páginas e expansões `more` usam a mesma revisão, sem duplicar nem perder item; score exibido e `my_vote` podem vir do estado atual, mas a **posição permanece congelada** naquela navegação. Nova visita usa a revisão mais recente imediatamente; cursor expirado exige recarregar. O modelo evita transação PostgreSQL aberta entre requests, cache de paginação e cron. · feito quando: árvore de 1.500 comentários devolve `more` sem órfão; expansão na mesma revisão não duplica nem perde item; e cursor expirado falha explicitamente em vez de devolver posição errada.
 - [ ] T2.3b — **As quatro ordenações do produto** (decisões 7, 19). `Melhores` (padrão de abertura) usa o **limite inferior de Wilson unilateral com `z = 1.281551565545`** (80% de confiança), sem decaimento temporal, sob `algorithm_version = 'reddit-wilson-80-v1'`; `Mais votados` ordena por score líquido; `Recentes` por `created_at DESC`; `Mais antigos` por `created_at ASC`. A ordenação acontece **entre irmãos, nunca misturando níveis** da árvore. `created_at` e `id` formam o desempate estável. Tombstone mantém a posição estrutural mas não expõe corpo nem score. `Controversos`, `Random`, `Q&A`, `Live` e `Hot` **não entram**. Fórmula e vetores de referência entram em teste, **testando diretamente a função PostgreSQL** de T2.1c, não uma reimplementação em TypeScript. Algoritmo futuro cria nova versão e nova série de score; nunca reinterpreta histórico silenciosamente. · feito quando: os quatro sorts testados; vetores de Wilson batem contra a função SQL; e nenhuma ordenação mistura níveis da árvore.
 - [ ] T2.4 — **Integridade de thread validada na transação** (requisito 8; decisões 3, 23). Reformulado em dois pontos que o grilling revogou: a profundidade máxima é **`depth<=4`**, não `depth<=2`; e **resposta a comentário legado é permitida**, não recusada — o registro importado continua imutável, sem voto e marcado como antigo/autoria não verificada, mas **pode ser pai** de comentário novo de conta autenticada (decisão 23: antigo descreve proveniência, não congela a conversa). O pai precisa existir, pertencer ao **mesmo `realm`, `source_app` e assunto**, aceitar respostas e produzir `depth<=4`. `root_id` é derivado na escrita, nunca aceito do cliente. Rejeitar na escrita, não corrigir depois. · feito quando: resposta cross-subject, cross-realm ou além de `depth=4` é recusada — inclusive sob concorrência — e resposta a legado é **aceita** com `depth` correto.
 - [ ] T2.5 — **Markdown pelo pipeline compartilhado existente; DOMPurify só no legado** (requisito 10; decisões 24, 25, 30). Reformulado: a versão anterior mandava texto puro no comentário novo, revogado pela decisão 24. A Fase 2 **não cria parser, sanitizador nem renderizador paralelo**. Na escrita, o backend passa a entrada por `sanitizeUserMarkdown` de `@artificio/content-editor/sanitize` e persiste o **Markdown canônico**; a API devolve esse Markdown, **não HTML montado**. Consumidores renderizam somente por `MarkdownContent`/`renderMarkdown` de `@artificio/content-editor`, cujo `markdown-it` já roda com `html: false` e cuja saída passa por DOMPurify. Limite de **10.000 caracteres**, validado **tanto na entrada original, antes do trabalho de parsing, quanto no Markdown canônico produzido** (decisão 25); excesso rejeita a operação inteira com erro específico, **nunca trunca silenciosamente nem persiste versão parcial**. Depois da canonicalização, `markdownToPlainText` precisa resultar em **conteúdo não vazio** (decisão 30): espaços, HTML integralmente removido, separador temático isolado ou marcadores sem texto são rejeitados; emoji, código, citação e link com rótulo visível são aceitos. As três regras valem igualmente para criação e edição. O legado do `site` tem `content_html` e é sanitizado **uma vez, na entrada**, com política e versão registradas; a saída passa por defesa adicional **sem regravar o banco**. Nunca ressanitizar continuamente nem alterar o HTML depois de sanitizado (anula a proteção). · feito quando: testes de XSS cobrindo script, links, SVG/MathML, atributos e o HTML legado; entrada de 10.001 caracteres rejeitada antes do parsing; e comentário que sanitiza para vazio rejeitado.
-- [ ] T2.5b — **Perfil de comentário e política de link no `@artificio/content-editor`** (decisões 26, 27, 28, 29). **Task nova, criada em 2026-08-04 a partir de leitura do código real.** As decisões 26–29 pressupõem um perfil de renderização de comentário que **hoje não existe no pacote**: `packages/content-editor/src/sanitize.ts:10` e `ContentEditor.tsx:6` configuram `MarkdownIt` com `html: false`, o que já barra HTML bruto, mas **não há desativação de `<img>` nem qualquer política de destino de link**. Sem esta task, as decisões 26–29 não têm onde ser implementadas — e a decisão 29 proíbe expressamente implementação local por app. Exigir, dentro do pacote compartilhado já existente: (a) **imagem só como referência HTTPS clicável** — `![alt](https://...)` vira link textual explícito (“alt — abrir imagem externa”), o browser **não busca o recurso até o clique**, sem upload, Cloudinary, hospedagem, proxy, preview ou busca server-side; (b) **links HTTPS-only** — URL sem esquema é canonicalizada para `https://`, `http:` ou qualquer outro esquema explícito é **rejeitado com mensagem específica, nunca promovido silenciosamente**; (c) **comparação de host estrutural por `URL`**, nunca `includes`/sufixo frouxo que aceite `artificiorpg.com.evil.example` — host exato `artificiorpg.com` ou subdomínio real abre na mesma aba, externo abre em nova aba; (d) **`rel="ugc nofollow"` em todo link de usuário**, mais `noopener noreferrer` no externo; (e) **link root-relative `/rota`** resolvido pelo consumidor contra a origem confiável derivada de `source_app`, **nunca contra host enviado no comentário**, rejeitando `//host`, `../`, relativo sem `/` inicial e qualquer forma ambígua; (f) **política de falha única e compartilhada** — sintaxe incompleta que o CommonMark trata como literal é aceita e exibida literalmente, mas quando o parser **reconhece** um link cujo destino viola (a)–(e), criação ou edição inteira é rejeitada com código estável **`INVALID_COMMENT_LINK`**, posição e mensagem da regra, **sem ecoar o payload hostil** e sem remover ou reescrever nada silenciosamente. `accounts.` e todos os frontends importam a **mesma** política; o cliente usa para erro imediato/prévia, o backend repete como **autoridade final**. Mudança em pacote compartilhado: exige aprovação e verificação de impacto nos consumidores (`AGENTS.md` §Autorização). · feito quando: `<img>` não é buscado pelo browser em nenhum caminho de render; `http://`, `//host` e `artificiorpg.com.evil.example` são rejeitados com `INVALID_COMMENT_LINK`; `[texto](` incompleto permanece literal; e os consumidores atuais do pacote seguem verdes.
+- [x] T2.5b — **Perfil de comentário e política de link no `@artificio/content-editor`** (decisões 26, 27, 28, 29). **Task nova, criada em 2026-08-04 a partir de leitura do código real.** As decisões 26–29 pressupõem um perfil de renderização de comentário que **hoje não existe no pacote**: `packages/content-editor/src/sanitize.ts:10` e `ContentEditor.tsx:6` configuram `MarkdownIt` com `html: false`, o que já barra HTML bruto, mas **não há desativação de `<img>` nem qualquer política de destino de link**. Sem esta task, as decisões 26–29 não têm onde ser implementadas — e a decisão 29 proíbe expressamente implementação local por app. Exigir, dentro do pacote compartilhado já existente: (a) **imagem só como referência HTTPS clicável** — `![alt](https://...)` vira link textual explícito (“alt — abrir imagem externa”), o browser **não busca o recurso até o clique**, sem upload, Cloudinary, hospedagem, proxy, preview ou busca server-side; (b) **links HTTPS-only** — URL sem esquema é canonicalizada para `https://`, `http:` ou qualquer outro esquema explícito é **rejeitado com mensagem específica, nunca promovido silenciosamente**; (c) **comparação de host estrutural por `URL`**, nunca `includes`/sufixo frouxo que aceite `artificiorpg.com.evil.example` — host exato `artificiorpg.com` ou subdomínio real abre na mesma aba, externo abre em nova aba; (d) **`rel="ugc nofollow"` em todo link de usuário**, mais `noopener noreferrer` no externo; (e) **link root-relative `/rota`** resolvido pelo consumidor contra a origem confiável derivada de `source_app`, **nunca contra host enviado no comentário**, rejeitando `//host`, `../`, relativo sem `/` inicial e qualquer forma ambígua; (f) **política de falha única e compartilhada** — sintaxe incompleta que o CommonMark trata como literal é aceita e exibida literalmente, mas quando o parser **reconhece** um link cujo destino viola (a)–(e), criação ou edição inteira é rejeitada com código estável **`INVALID_COMMENT_LINK`**, posição e mensagem da regra, **sem ecoar o payload hostil** e sem remover ou reescrever nada silenciosamente. `accounts.` e todos os frontends importam a **mesma** política; o cliente usa para erro imediato/prévia, o backend repete como **autoridade final**. Mudança em pacote compartilhado: exige aprovação e verificação de impacto nos consumidores (`AGENTS.md` §Autorização). · feito quando: `<img>` não é buscado pelo browser em nenhum caminho de render; `http://`, `//host` e `artificiorpg.com.evil.example` são rejeitados com `INVALID_COMMENT_LINK`; `[texto](` incompleto permanece literal; e os consumidores atuais do pacote seguem verdes.
   **Implementado em 2026-08-04, com aprovação nominal do mantenedor para alterar o
   pacote compartilhado.** Artefatos: `packages/content-editor/src/commentLinks.ts`
   (+ testes, 48 verdes), subpath `@artificio/content-editor/comment-links` com
@@ -1936,6 +2212,58 @@ Terceiro consumidor: nada a preservar, mas ganha superfície pública nova.
 ---
 
 ## Bloqueios conhecidos
+
+- **[DÉBITO → promovido a spec própria em 2026-08-05: `specs/091-repo-typescript-7-preparo/`]
+  Atualizar o TypeScript do monorepo — hoje `~6.0.3`, com o TS 7 já lançado.** O débito abaixo
+  fica como registro do achado; a execução e as decisões do mantenedor (escopo de preparo, os 8
+  pacotes `node10`, global permanecendo no 7) vivem na 091. Achado durante T2.2, ao investigar um
+  `TS5108` que primeiro registrei errado como falso alarme (ver o bloco de T2.2). São **duas
+  frentes distintas**, e a segunda não é trivial:
+
+  **(a) Ambiente local — `typescript@7.0.2` global fora do repo.** Está em
+  `C:\Users\paulo\AppData\Roaming\npm`, instalado seguindo o README do plugin `typescript-lsp`
+  do Claude Code (`npm i -g typescript-language-server typescript`). Entra no `PATH` antes do
+  binário do workspace e faz `tsc` invocado à mão falhar com
+  `TS5108: Option 'moduleResolution=node10' has been removed` nos 8 pacotes dual-CJS
+  (`auth`, `content`, `content-editor`, `feedback`, `changelog`, `catalog-matching`,
+  `catalog-client`, `comments`) — `ignoreDeprecations: "6.0"` cobre a depreciação do TS 6, não
+  a remoção do TS 7. **Não afeta build nem CI**, que usam o `tsc` do workspace: medido em
+  processo vivo, os dois `tsserver` em execução carregam
+  `c:\projetos\artificio\node_modules\typescript\lib\tsserver.js` (6.0.3), porque o
+  `typescript-language-server` prioriza `Workspace` sobre `bundled`
+  (`cli.mjs:24011-24034`). Afeta **só diagnóstico manual** — e já custou uma conclusão errada
+  registrada nesta spec.
+
+  Correção proposta e **não executada** (aguarda decisão): `npm i -g typescript@6.0.3` em vez de
+  desinstalar. Motivo medido: o `typescript@7.0.2` **não contém `tsserver.js`** — `lib/` tem só
+  `tsc.js`, `getExePath.js` e `version.cjs`, e o `package.json` declara um único binário,
+  `tsc`. Ou seja, o fallback `bundled` do language server **já está quebrado hoje**, apontando
+  para um arquivo inexistente; rebaixar para 6.0.3 conserta isso e alinha com o repo, enquanto
+  desinstalar deixaria o fallback quebrado do mesmo jeito.
+
+  **(b) Repo — migrar de TS 6 para TS 7 é trabalho de spec própria, não ajuste de versão.**
+  Superfície medida: `~6.0.3` declarado em 11 `package.json` (raiz + 8 apps + pacotes), 54
+  `tsconfig*.json`, dos quais 8 usam `moduleResolution: node10` (removido no TS 7) para emitir
+  o `dist-cjs` que os backends consomem. Dois bloqueadores concretos, ambos medidos:
+
+  1. **`typescript-eslint@8.61.1` declara `SUPPORTED_TYPESCRIPT_VERSIONS = '>=4.8.4 <6.1.0'`**
+     (`typescript-estree/dist/parseSettings/warnAboutTSVersion.js:47`). TS 7 fica fora do range.
+     É aviso, não erro fatal — mas 12 pacotes usam lint type-aware.
+  2. **O TS 7 não expõe mais a API do compilador por `require('typescript')`.** Medido: o
+     `package.json` do 7.0.2 tem `exports["."] = "./lib/version.cjs"`, sem `main` nem `types`, e
+     esse módulo exporta **apenas** `{ version, versionMajorMinor }` — `createProgram`,
+     `createSourceFile` e `ScriptTarget` não existem ali. TS 7 é o compilador nativo
+     (`optionalDependencies` são binários por plataforma, `@typescript/typescript-win32-x64` e
+     19 outros). Todo consumidor programático — `typescript-eslint`, `vitest`, `vite`, `astro` —
+     depende dessa API.
+
+  **Consequência:** a migração não é bump de versão; depende do ecossistema publicar suporte a
+  TS 7. Enquanto isso, `~6.0.3` é a escolha correta, e os `node10` dos 8 pacotes **não são
+  débito próprio** — são o que funciona na versão em uso. Reavaliar quando `typescript-eslint`
+  ampliar o range suportado.
+
+  **Nada foi alterado.** O global segue em 7.0.2 (renomeado temporariamente durante o teste e
+  restaurado, verificado sem resíduo); o repo segue em `~6.0.3`.
 
 - **`accounts.` é sagrado — e `packages/auth` também entra.** Toda fase que toca o `accounts.`
   (1, 2, 3) exige aprovação + SDD Completo + smoke de todos os consumidores SSO. **A criação do

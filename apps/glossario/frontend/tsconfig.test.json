@@ -1,0 +1,17 @@
+{
+  // Mesmo desenho de `apps/mesas/frontend/tsconfig.test.json` (spec 088): o
+  // `tsconfig.json` exclui teste de propósito, e nenhum outro projeto os
+  // incluía — asserção sobre campo inexistente e fixture fora do schema real
+  // passavam direto pelo CI, porque o `tsc` do build nunca abria esses
+  // arquivos (achado de review, PR #243).
+  //
+  // Herda o rigor do `tsconfig.json`; muda só o alcance (inclui teste) e os
+  // tipos globais (`describe`/`it`/`expect`/`vi` do vitest e os matchers de
+  // jest-dom, carregados em `src/test/setup.ts`).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client", "vitest/globals", "@testing-library/jest-dom"]
+  },
+  "include": ["src"],
+  "exclude": []
+}

@@ -80,6 +80,21 @@ jobs:
       - name: CJS workspace exports smoke
         run: pnpm smoke:cjs-exports
 
+      # Confere que o passo seguinte tem o que checar: pacote com teste que
+      # nenhum `tsc` alcança falha aqui. Sem isto, a cobertura dependeria de
+      # cada autor lembrar de criar a tarefa `typecheck` ao adicionar pacote —
+      # e a mesma lacuna já voltou duas vezes por esse caminho (spec 088 e
+      # PR #243). Roda antes do typecheck porque é ele que este gate protege.
+      - name: Cobertura de typecheck sobre arquivos de teste
+        run: pnpm smoke:test-typecheck-coverage
+
+      # Roda depois do build (precisa dos `.d.ts` dos pacotes) e cobre o que o
+      # build não cobre: os arquivos de teste, que `tsconfig.build.json` exclui
+      # de propósito. Sem este passo, erro de tipo em teste de pacote não
+      # aparecia em nenhum gate (achado de review, PR #243).
+      - name: Typecheck (inclui arquivos de teste)
+        run: pnpm -w turbo run typecheck --concurrency=4 --cache-dir=.turbo
+
       - name: Test
         env:
           # Placeholders NAO-SECRETOS para tests que tocam Postgres/JWT/Cloudinary.
@@ -89,7 +104,13 @@ jobs:
           CLOUDINARY_CLOUD_NAME: ci
           CLOUDINARY_API_KEY: ci
           CLOUDINARY_API_SECRET: ci
-        run: pnpm -w turbo run test --env-mode=loose --cache-dir=.turbo
+        # Spec 091 (T1.9): `--concurrency=4` é o que segura o flake por esgotamento
+        # de recurso — 12 CPUs e 6 pacotes com jsdom chegaram a 56 processos node
+        # simultâneos, com falha migrando de pacote e sem erro de asserção. O runner
+        # do Actions é menor que a máquina local, então o limite importa MAIS aqui.
+        # Precisa ser repetido porque este passo chama o turbo direto, sem passar
+        # pelo script `test` da raiz que já carrega o flag (achado de review, PR #243).
+        run: pnpm -w turbo run test --concurrency=4 --env-mode=loose --cache-dir=.turbo
 
       - name: Downloads migrations 034/035 on PostgreSQL 16
         env:

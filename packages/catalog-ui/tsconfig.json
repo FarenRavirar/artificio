@@ -8,8 +8,13 @@
     "outDir": "dist",
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
+    // `tsconfig.base.json` fecha a lista global em `["node"]`. Os testes deste
+    // pacote usam os matchers de jest-dom (carregados via `expect.extend` em
+    // `src/test/setup.ts`), que só existem para o compilador se declarados
+    // aqui — sem isto, `toBeInTheDocument`/`toHaveTextContent` viram TS2339.
+    // O emit (`tsconfig.build.json`) exclui teste, então isto não vaza no `dist`.
+    "types": ["node", "vitest/globals", "@testing-library/jest-dom"]
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**"]
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
 }

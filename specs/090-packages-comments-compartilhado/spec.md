@@ -230,6 +230,10 @@ coisas diferentes em cada módulo, e não haveria como autorizar uma tela centra
 ### Contrato e consumo
 
 21. `packages/comments` fornece cliente e UI; a persistência é do `accounts.`, não do pacote.
+    **Fornece também o contrato de autorização de assunto** (`CommentSubjectAuthorization` e a
+    suíte de conformidade, T2.2, criados em 2026-08-05): esse export é consumido pelo **backend**
+    de cada módulo, não pela UI, e por isso o export `.` é livre de React — só
+    `@artificio/comments/react` carrega componente.
 21a. **O transporte é injetado, não embutido.** O adapter cobre leitura/criação/resposta,
      edição, auto-retirada, voto, denúncia/retirada, recurso, moderação e notificações; cada
      fachada implementa as capacidades autorizadas do domínio. Chamada direta do navegador ao
@@ -395,18 +399,28 @@ módulos preservam seus contratos públicos atuais.
 | `PUT /internal/v1/comments/:id/vote` | estado absoluto `-1\|0\|1`; mesmo estado é no-op; terceiro autenticado |
 | `POST /internal/v1/comments/:id/removal` | tombstone; exige `admin`/`moderator` central comprovado |
 | `DELETE /api/account` | rota existente; confirmação atual permanece; aplica exclusão, retenção, bloqueio de recadastro e aviso de 7b–7c; sucesso continua `204` |
-| `GET /api/v1/notifications` | lista recibos do usuário da sessão; cursor; padrão 20, máximo 100 |
-| `GET /api/v1/notifications/unread-count` | contagem da sessão |
-| `PUT /api/v1/notifications/:id/read` | idempotente; 404 uniforme para ID alheio/inexistente |
-| `PUT /api/v1/notifications/read-through` | marca todas até `occurred_at` fornecido |
 | `POST /internal/v1/comments/:id/restore` | desfaz tombstone; exige `admin`/`moderator`; registra quem restaurou |
 | `GET /internal/v1/comments/moderation-queue` | fila de moderação; filtro por `realm`, `source_app`, estado; cursor |
 | `GET /internal/v1/comments/moderation-log` | histórico de ações de moderação; cursor |
+
+**Rotas de notificação ficam na Fase 3** (decisão 1 do grilling). `GET /api/v1/notifications`,
+`/unread-count`, `PUT /:id/read` e `/read-through` constavam desta tabela antes do grilling e
+foram movidas: a Fase 2 entrega somente o **núcleo transacional** — `notification_event`,
+`notification_receipt` e a geração atômica dos recibos junto do comentário. O contrato dessas
+quatro rotas está **reservado** em `contrato-http-v1.md` §12 (cursor `(occurred_at, id)`, padrão
+20 e máximo 100, ownership sempre da sessão, `404` uniforme, `private, no-store`), para a Fase 3
+implementar sem divergir do formato. Requisito 19a descreve esse contrato; a decisão 1 fixa a
+fase.
 
 O contrato v1 também precisa expor, no mesmo namespace interno e antes de implementação,
 edição/auto-retirada pelo autor, denúncia e retirada permitida, decisão de caso, aprovação e
 reabertura de versão, recurso, sanção e invalidação de voto abusivo. Esses fluxos obedecem aos
 estados e invariantes 12d–12j; não podem nascer como endpoints locais divergentes por app.
+
+**Materializado em `contrato-http-v1.md` (T2.2b, 2026-08-05).** A tabela acima é o resumo; o
+documento é a fonte para implementação — método, path, escopo, headers, corpo, invariantes
+transacionais, códigos e campos públicos versus moderação de cada fluxo, incluindo os oito que
+este parágrafo listava como pendentes.
 
 ### 27. Superfície de moderação no front (requisito novo, 2026-07-30)
 
