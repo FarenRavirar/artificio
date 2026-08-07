@@ -1259,7 +1259,7 @@ por causa disto.**
 
 ### Bloco B — Escrita, autorização e integridade
 
-- [ ] T2.2a-op — **Emitir as credenciais reais e aposentar o `SERVICE_SECRET` global** (operacional de T2.2a; `spec.md` §"Trust boundary e credenciais"). **Débito registrado em 2026-08-04 por decisão do mantenedor, para iniciar em seguida.** T2.2a entrega o mecanismo; esta task o coloca em uso — sem ela o registro existe e ninguém o usa, e o segredo único medido (mesmo digest em seis serviços e nos dois realms) continua sendo a credencial de fato. **Não é bloqueio de deploy:** o fallback `SERVICE_SECRET` mantém `downloads` e `mesas` funcionando, então a migration 007 pode subir antes desta task; o que não pode é a task ser esquecida, porque o fallback é justamente o que se quer remover.
+- [ ] T2.2a-op — **Emitir as credenciais reais e aposentar o `SERVICE_SECRET` global** (operacional de T2.2a; `spec.md` §"Trust boundary e credenciais"). **Débito registrado em 2026-08-04 por decisão do mantenedor, para iniciar em seguida.** T2.2a entrega o mecanismo; esta task o coloca em uso — sem ela o registro existe e ninguém o usa, e o segredo único medido (mesmo digest em vários serviços e nos dois realms; ver a ressalva de contagem no levantamento de 2026-08-07 ao fim deste bloco) continua sendo a credencial de fato. **Emissão e distribuição concluídas em 2026-08-05 (passos 1–4) e corte confirmado em 2026-08-07 (passo 5); a task segue aberta porque o `SERVICE_SECRET` continua vivo — falta o passo 6 (remover o fallback), com inventário completo ao fim do bloco.** **Não é bloqueio de deploy:** o fallback `SERVICE_SECRET` mantém `downloads` e `mesas` funcionando, então a migration 007 pode subir antes desta task; o que não pode é a task ser esquecida, porque o fallback é justamente o que se quer remover.
 
   Escopo, na ordem em que precisa acontecer:
   1. **Aplicar a migration 007** (deploy normal; prod tem 001–005 hoje, então 006 e 007 somam 2 pendentes, sob o `MAX_AUTO_PENDING=5`).
@@ -1402,13 +1402,14 @@ por causa disto.**
   (`*.bak-20260805-035402`) **deixados na VM** — contêm segredos e a remoção é
   decisão do mantenedor, não do agente.
 
-  **Passo 6 ainda NÃO tem base.** O log `SERVICE_SECRET legado usado` está em zero
-  há 45 min, mas isso **não prova corte**: as credenciais de `mesas` seguem com
-  `último uso` vazio, ou seja, ninguém exerceu aquele caminho ainda. Zero dos dois
-  lados é ausência de tráfego, não migração concluída. A base para remover o
-  fallback é `último uso` preenchido nas **quatro** sob tráfego real (moderação de
-  material no `downloads`, parse com DeepSeek no `mesas`), com o log legado
-  silencioso no mesmo período.
+  **Passo 6 ainda NÃO tem base** *(escrito em 2026-08-05; superado em 2026-08-07 —
+  ver o levantamento ao fim deste bloco, onde o passo 5 é fechado).* O log
+  `SERVICE_SECRET legado usado` está em zero há 45 min, mas isso **não prova
+  corte**: as credenciais de `mesas` seguem com `último uso` vazio, ou seja,
+  ninguém exerceu aquele caminho ainda. Zero dos dois lados é ausência de tráfego,
+  não migração concluída. A base para remover o fallback é `último uso` preenchido
+  nas **quatro** sob tráfego real (moderação de material no `downloads`, parse com
+  DeepSeek no `mesas`), com o log legado silencioso no mesmo período.
 
   **Documentação operacional já escrita (2026-08-04, por decisão do mantenedor),
   então o passo 3 não começa sem instrução.** `docs/agents/deploy-runbook.md`
@@ -1427,6 +1428,161 @@ por causa disto.**
   aconteceu. Pendentes reais: **2** (`006` e `007`). Manter o número antigo levaria
   quem lê a planejar baseline manual que hoje seria errada, ou a achar que não cabe
   migration nova.
+
+  ---
+
+  ### Levantamento de 2026-08-07 — o que falta para fechar T2.2a-op
+
+  Releitura do ambiente real (somente leitura) para responder uma pergunta: as
+  credenciais estão emitidas, então a task acabou? **Não.** A task tem duas metades
+  no próprio título — *emitir* e *aposentar o `SERVICE_SECRET`*. A primeira está
+  feita e provada; a segunda não começou. O que segue é o levantamento fechado do
+  que resta, para que a etapa possa ser encerrada sem deixar o fallback vivo.
+
+  **Estado confirmado hoje (`accounts-db`, banco `artificio_auth`, leitura direta):**
+
+  ```text
+  token_id                | app       | realms | scopes                    | revogada | último uso
+  mesas-prod-8a634a5b     | mesas     | {prod} | {secrets.read}            | não      | NUNCA
+  mesas-beta-6b5798f4     | mesas     | {beta} | {secrets.read}            | não      | NUNCA
+  downloads-beta-93a6f607 | downloads | {beta} | {users.read,secrets.read} | não      | 2026-08-07 07:00
+  downloads-prod-f96f13f2 | downloads | {prod} | {users.read,secrets.read} | não      | 2026-08-07 07:00
+  ```
+
+  `migration_007` consta em `schema_migrations` de prod (junto com `006`; a série
+  vai de `001` a `007`, sem pendência). `SERVICE_CREDENTIAL` presente nos cinco
+  containers consumidores (`downloads-api`, `mesas-api`, `mesas-cron`,
+  `downloads-beta-api`, `mesas-beta-api`). Log `[serviceCredential] SERVICE_SECRET
+  legado usado`: **zero ocorrências em 168 h** de `accounts-api`.
+
+  **Passos 1–4: concluídos.** Nada a fazer.
+
+  **Passo 5 (confirmar o corte): parcialmente satisfeito, e é aqui que a task
+  trava.** O critério escrito acima exige `último uso` preenchido nas **quatro**
+  credenciais sob tráfego real. Hoje só as duas do `downloads` foram exercitadas —
+  e por tráfego genuíno, não por teste manual: o carimbo de 07:00 de hoje é
+  posterior ao teste de 2026-08-05. As duas do `mesas` seguem em `NUNCA`.
+
+  Isso **não** indica credencial quebrada. `apps/mesas/backend/src/services/adminSecrets.ts`
+  só chama `GET /admin/secrets/<name>` sob demanda, com cache em memória de 5 min;
+  sem parse com DeepSeek no período, não há chamada. Mas a distinção importa: o
+  estado real é *nunca exercitada*, não *funcionando*. Remover o fallback agora
+  seria apostar que um caminho jamais executado em produção funciona — e o modo de
+  falha é o enrichment do `mesas` parar de uma vez, exatamente o que a ordem dos
+  passos existe para impedir.
+
+  **Passo 5 fechado em 2026-08-07 por chamada dirigida** (autorizada nominalmente
+  pelo mantenedor). `GET /admin/secrets/__probe_inexistente_090__` disparado de
+  dentro de `mesas-api` e `mesas-beta-api` contra `accounts-api`, usando o
+  `SERVICE_CREDENTIAL` de cada container. **404 nos dois** — que é o resultado
+  desejado: `requireServiceOrAdmin` autentica a credencial, valida o escopo
+  `secrets.read` e chama `touchServiceCredential` **antes** de a rota consultar
+  `admin_secrets`; nome inexistente carimba `last_used_at` e devolve 404 sem
+  decifrar segredo algum. Escolha deliberada de nome inexistente: exercitar a
+  credencial sem trafegar valor decifrado.
+
+  ```text
+  downloads-beta-93a6f607 | 2026-08-07 07:00:05  (tráfego real)
+  downloads-prod-f96f13f2 | 2026-08-07 07:00:05  (tráfego real)
+  mesas-beta-6b5798f4     | 2026-08-07 16:31:24  (chamada dirigida)
+  mesas-prod-8a634a5b     | 2026-08-07 16:31:20  (chamada dirigida)
+  ```
+
+  Log `[serviceCredential] SERVICE_SECRET legado usado`: **0** na janela. Critério
+  do passo 5 — `último uso` preenchido nas quatro, log legado silencioso no mesmo
+  período — atendido.
+
+  **Ressalva que o passo 6 precisa levar em conta:** o carimbo das duas credenciais
+  do `mesas` veio de chamada dirigida, não de tráfego de produção. Isso prova que a
+  **credencial** autentica e tem o escopo certo; **não** prova que o caminho real do
+  `mesas` (`adminSecrets.ts`, parse com DeepSeek, cache de 5 min) a exercita em
+  operação normal. As duas afirmações são diferentes e o registro não as equipara.
+
+  **Correção de suposição feita durante a execução:** o comando planejado usava
+  `accounts-api:4000`, chutado a partir do padrão dos outros backends. Primeiro
+  disparo falhou com exit 7 / `000` (connection refused). A porta exposta real é
+  **3000** (`docker inspect accounts-api` → `{"3000/tcp":null}`), e ambos os
+  containers estão em `artificio_net`, então o hostname resolve. Sem efeito
+  colateral: connection refused não chega a autenticar. Fica registrado porque o
+  número errado estava num bloco de comandos "prontos e conferidos" e outra pessoa
+  o copiaria.
+
+  **Passo 6 executado em 2026-08-07** (autorização nominal do mantenedor).
+  Inventário abaixo, levantado antes de tocar o código para que a remoção não
+  fosse descoberta por partes — todos os pontos aplicados.
+
+  | Onde | O que sai |
+  |---|---|
+  | `apps/accounts/src/app.ts:458-459` | `allowLegacySecret: true` e `legacySecret: env.SERVICE_SECRET` da rota `/internal/users/:id` |
+  | `apps/accounts/src/adminSecretsRoutes.ts:43,87-90` | fallback e o `console.warn` de uso legado |
+  | `apps/accounts/src/requireServiceCredential.ts:49-55,68,92` | opções `allowLegacySecret`/`legacySecret` e o ramo `isValidServiceToken` |
+  | `apps/accounts/src/env.ts:24` | `SERVICE_SECRET` do schema |
+  | `apps/accounts/src/serviceToken.ts` | módulo inteiro, se nenhum outro consumidor restar |
+  | `apps/downloads/backend/src/services/accountsClient.ts:26` | `\|\| process.env.SERVICE_SECRET` |
+  | `apps/downloads/backend/src/services/secretsClient.ts:33` | idem |
+  | `apps/mesas/backend/src/services/adminSecrets.ts:33` | idem |
+  | `apps/accounts/docker-compose.prod.yml:62` | variável `SERVICE_SECRET` |
+  | `apps/mesas/docker-compose.{prod,beta}.yml` | `SERVICE_SECRET` (2 serviços no prod: api e cron) e `SERVICE_CREDENTIAL` passa de `:-` para `:?` |
+  | `apps/downloads/docker-compose.{prod,beta}.yml` | idem |
+  | `apps/accounts/.env.example:17`, `apps/downloads/backend/.env.example:16` | linha `SERVICE_SECRET=` |
+  | testes | `serviceToken.test.ts`, `adminSecretsRoutes.test.ts`, `internalUsers.test.ts` cobrem o caminho legado e mudam junto |
+
+  Remoção toca `apps/accounts` (auth): exigiu aprovação nominal, concedida em
+  2026-08-07, e sai em PR própria — não entra junto com código de comentário.
+
+  **Além do inventário, três remoções que ele não previa e apareceram ao executar:**
+  - `apps/accounts/src/serviceToken.ts` **e seu teste foram apagados**, não só
+    editados. Removido o último consumidor (`isValidServiceToken` no fallback), o
+    módulo ficou órfão: só o próprio teste o importava. `serviceCredential.ts` tem
+    implementação própria de comparação em tempo constante (`constantTimeEquals`)
+    e nunca dependeu dele. Manter um módulo de comparação de segredo global sem
+    chamador é convite a alguém reintroduzir o caminho.
+  - `requireServiceOrAdmin` **perdeu o parâmetro `env`**. Ele existia só para ler
+    `SERVICE_SECRET`; a chave de cifra (`ACCOUNTS_SECRETS_KEY`) é lida pelos
+    handlers, que recebem `env` por `createAdminSecretsRoutes`. Um comentário
+    intermediário chegou a afirmar que `env` seguia em uso pelo guard — estava
+    errado e foi corrigido antes do commit.
+  - `SERVICE_CREDENTIAL` passou de `:-` para **`:?`** nos quatro compose de
+    consumidor (`mesas` prod/beta incluindo `mesas-cron`, `downloads` prod/beta).
+    Sem isso a variável some e o container sobe sem credencial nenhuma, agora que
+    não há fallback: o serviço responderia com `getSecret()` nulo em runtime em
+    vez de falhar no deploy.
+
+  **Dois testes trocaram de sinal, de propósito.** `internalUsers.test.ts` e
+  `adminSecretsRoutes.test.ts` tinham casos provando que um token opaco de 16+
+  caracteres autenticava como serviço. Agora provam o **oposto** — o mesmo valor
+  cai em 401 / guard humano. São a trava contra reintroduzir o fallback sem que
+  nenhum teste reclame.
+
+  **Validação executada (2026-08-07), toda local:**
+  - `tsc --noEmit`: `accounts`, `downloads/backend`, `mesas/backend` — sem erro.
+  - `accounts` **122/122**; `downloads-backend` **495/495**; `mesas-backend` **707/707**.
+  - `pnpm run lint`: 25/25 tarefas.
+  - `pnpm verify:api`: breaking=0 nos seis módulos.
+  - Busca negativa: nenhuma ocorrência viva de `SERVICE_SECRET` em `apps`,
+    `packages`, `scripts` ou `.github` — só comentários históricos e o cabeçalho
+    da migration 007, que descrevem o que foi removido.
+
+  **Não executado, e é o que falta para a task fechar:** deploy. Os `.env` da VM
+  ainda têm `SERVICE_SECRET`, e os quatro compose agora exigem
+  `SERVICE_CREDENTIAL` com `:?`. A variável já está nos cinco containers (medido
+  hoje), então o `:?` não deve derrubar nada — mas isso é previsão, não medição:
+  `:?` é avaliado contra o `.env` do host no momento do `up`, não contra o
+  ambiente do container em execução. Ordem segura: deployar `accounts` primeiro
+  (para de aceitar o segredo global) e os consumidores em seguida. Enquanto o
+  deploy não acontecer, produção segue no código antigo, com o fallback vivo.
+
+  **Correção de fato encontrada neste levantamento.** O cabeçalho de
+  `migration_007_service_credentials.sql` e o texto desta task afirmam "mesmo digest
+  de `SERVICE_SECRET` em **seis** serviços e nos dois realms", da medição de
+  2026-08-04. A leitura de hoje encontra `SERVICE_SECRET` em **cinco** containers
+  (`accounts-api` + os quatro consumidores) e **zero** em `glossario-api`,
+  `site-prod-app` e `links-app`, nenhum dos quais importa cliente de credencial.
+  Consumidores reais são **2 apps × 2 realms**. Não foi apurado se a medição
+  original contou containers que depois perderam a variável ou se contou errado —
+  fica registrado como divergência entre o número documentado e o ambiente, sem
+  causa atribuída. O número não muda nenhuma decisão da task; muda o que um leitor
+  futuro conclui sobre o alcance do segredo único.
 
 - [x] T2.2a — **Registro de credencial de serviço por `source_app` e `realm`, substituindo o `SERVICE_SECRET` global** (requisito 5a; decisão T0.6; `spec.md` §"Trust boundary e credenciais"). **Task nova, criada em 2026-08-04 a partir de medição no ambiente real** (evidência no bloco abaixo). Pré-requisito duro de T2.6c e de qualquer rota de escrita comunitária: enquanto a credencial for um valor único global, `realm` e `source_app` só podem vir do payload, o que a trust boundary proíbe expressamente. Exigir: tabela `community_service_credential` com `token_id` público indexado, `token_hash` (Argon2id — **não** SHA-256; ver nota de dependência), `source_app`, `realms TEXT[]`, `scopes TEXT[]`, `revoked_at`, `last_used_at`; header no formato `<token_id>.<segredo>`, onde o `token_id` em claro permite `SELECT` por índice sem rodar KDF contra toda a tabela; função de resolução que devolve **identidade (`{sourceApp, realms, scopes}`) ou `null`**, nunca `boolean` — é a mudança de tipo de retorno que carrega a correção; handler **deriva** `realm`/`source_app` da credencial e rejeita com `400` o payload que tentar declarar qualquer um dos dois; comparação do `token_id` em tempo constante, senão o lookup vaza quais IDs existem; **uma credencial por app por realm** (`downloads-beta` e `downloads-prod` são linhas distintas com segredos distintos), porque é isso que dá revogação granular e rotação sem coordenação global; `realms` é array pelo caso excepcional documentado, mas toda credencial emitida nasce com **um** realm, tornando gravar `realm='prod'` a partir de beta impossível por construção e não por validação lembrada; script de emissão/revogação de credencial; migração dos três consumidores atuais (`apps/downloads/backend/src/services/accountsClient.ts:30`, `apps/downloads/backend/src/services/secretsClient.ts:35`, `apps/mesas/backend/src/services/adminSecrets.ts:46`); `SERVICE_SECRET` permanece aceito como fallback nas duas rotas existentes durante a transição, com registro de uso (**nunca o valor**), e só é removido depois de provado que ninguém o usa. · feito quando: credencial de beta não consegue gravar `realm='prod'` por nenhum caminho; payload que declara `realm`/`source_app` é rejeitado; escopo separa leitura de usuário de leitura de segredo; revogar uma credencial não afeta as outras; e busca negativa prova que nenhum log/erro ecoa o segredo.
 

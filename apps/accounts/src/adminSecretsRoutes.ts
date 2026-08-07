@@ -20,7 +20,6 @@ import {
 import type { Kysely } from 'kysely';
 import type { Database } from './db.js';
 import { requireCurrentAdmin, sessionFrom } from './requireCurrentAdmin.js';
-import { isValidServiceToken } from './serviceToken.js';
 import {
   hasScope,
   resolveServiceCredential,
@@ -39,10 +38,6 @@ function getSecretsKey(env: Record<string, string | undefined>): string {
   return key;
 }
 
-function getServiceSecret(env: Record<string, string | undefined>): string | null {
-  return env.SERVICE_SECRET ?? null;
-}
-
 /**
  * Autentica por credencial de serviço com escopo `secrets.read`; se não houver,
  * tenta cookie de admin.
@@ -51,13 +46,15 @@ function getServiceSecret(env: Record<string, string | undefined>): string | nul
  * que abre `/internal/users/:id`. Essa rota devolve segredo **decifrado** (chave
  * da DeepSeek, entre outros), então na prática todo serviço que resolvia e-mail
  * de usuário também podia ler a chave de API de qualquer um. O escopo
- * `secrets.read` separa as duas capacidades; o fallback legado continua durante
- * a migração de `mesas`/`downloads` e sai quando `onLegacyUse` silenciar.
+ * `secrets.read` separa as duas capacidades. O fallback pelo segredo global saiu
+ * em 2026-08-07 (T2.2a-op, passo 6), depois de confirmado que nenhum consumidor
+ * o usava; restam dois caminhos, credencial com escopo ou cookie de admin.
+ *
+ * O parâmetro `env` saiu junto: existia só para ler `SERVICE_SECRET`. A chave de
+ * cifra (`ACCOUNTS_SECRETS_KEY`) é lida pelos handlers, que recebem `env` por
+ * `createAdminSecretsRoutes`, não por este guard.
  */
-export function requireServiceOrAdmin(
-  env: Record<string, string | undefined>,
-  db: Kysely<Database>,
-) {
+export function requireServiceOrAdmin(db: Kysely<Database>) {
   const currentAdmin = requireCurrentAdmin(db);
 
   return (req: Request, res: Response, next: NextFunction) => {
@@ -80,14 +77,6 @@ export function requireServiceOrAdmin(
           }
           (req as ServiceAuthenticatedRequest).serviceCredential = identity;
           void touchServiceCredential(db, identity.credentialId);
-          return next();
-        }
-
-        // Comparação em tempo constante: era `===` aqui, e o mesmo
-        // `SERVICE_SECRET` ficava protegido de duas formas — a fraca guardando
-        // justamente a chave de cifra dos segredos.
-        if (isValidServiceToken(getServiceSecret(env), header)) {
-          console.warn(`[serviceCredential] SERVICE_SECRET legado usado em ${req.path}`);
           return next();
         }
 
@@ -152,7 +141,7 @@ export function createAdminSecretsRoutes(
   });
 
   // ── GET /admin/secrets/:name ────────────────────────────────────────────
-  router.get('/admin/secrets/:name', requireServiceOrAdmin(env, db), async (req: Request, res: Response) => {
+  router.get('/admin/secrets/:name', requireServiceOrAdmin(db), async (req: Request, res: Response) => {
     try {
       const { name } = req.params;
 

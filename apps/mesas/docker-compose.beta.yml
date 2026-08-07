@@ -67,12 +67,13 @@ services:
       - JWT_REFRESH_EXPIRES_IN=7d
       - ACCOUNTS_URL=${ACCOUNTS_URL:-https://accounts.artificiorpg.com}
       # WS3/REV-018: token serviço-a-serviço p/ buscar segredos no accounts (DeepSeek key).
-      # REV-047: obrigatório — beta falha no deploy em vez de getSecret() virar null silencioso.
-      - SERVICE_SECRET=${SERVICE_SECRET:?SERVICE_SECRET obrigatorio para mesas-beta-api}
       # T2.2a (spec 090): credencial registrada `<token_id>.<segredo>`. Em beta ela
       # nasce com `realm=beta`, tornando impossivel afirmar `prod` — os dois
       # realms convivem no mesmo `artificio_auth` (accounts e PROD-only, D042).
-      - SERVICE_CREDENTIAL=${SERVICE_CREDENTIAL:-}
+      # Obrigatoria (`:?`) desde 2026-08-07 (T2.2a-op, passo 6), quando
+      # SERVICE_SECRET saiu — beta falha no deploy em vez de getSecret() virar
+      # null silencioso (REV-047).
+      - SERVICE_CREDENTIAL=${SERVICE_CREDENTIAL:?SERVICE_CREDENTIAL obrigatorio para mesas-beta-api}
       - FRONTEND_URL=https://mesasbeta.artificiorpg.com
       - PUBLIC_SITE_URL=https://mesasbeta.artificiorpg.com
       - INDEX_HTML_PATH=/app/frontend-dist/index.html

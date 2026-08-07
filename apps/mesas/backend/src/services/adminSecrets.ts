@@ -4,7 +4,7 @@
  * Busca segredos cifrados do serviço accounts via HTTP (X-Service-Token),
  * com cache em memória (TTL 5 min) para não bater no accounts a cada parse.
  *
- * Segurança: nunca loga o valor do segredo; nunca expõe SERVICE_SECRET.
+ * Segurança: nunca loga o valor do segredo; nunca expõe SERVICE_CREDENTIAL.
  */
 
 import { moduleOrigin } from '@artificio/config';
@@ -19,23 +19,21 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>();
 
-function getServiceSecret(): string | undefined {
+function getServiceCredential(): string | undefined {
   // T2.2a (spec 090): `SERVICE_CREDENTIAL` é a credencial registrada no formato
   // `<token_id>.<segredo>`, que identifica este app e o realm no `accounts.` e
-  // carrega o escopo `secrets.read`. O `SERVICE_SECRET` global continua como
-  // fallback enquanto a migração corre; ele não distingue quem chamou nem de
-  // qual realm, e sai quando todos os consumidores tiverem credencial própria.
+  // carrega o escopo `secrets.read`. O fallback pelo `SERVICE_SECRET` global saiu
+  // em 2026-08-07 (T2.2a-op, passo 6): ele não distinguia quem chamou nem de qual
+  // realm, e o compose agora exige a credencial com `:?`.
   //
-  // `||`, nunca `??`: os compose usam `${SERVICE_CREDENTIAL:-}`, então antes da
-  // emissão o container recebe **string vazia**, não `undefined`. Com `??` a
-  // string vazia venceria o fallback e o enrichment pararia com o mecanismo
-  // legado ainda funcionando.
-  return process.env.SERVICE_CREDENTIAL || process.env.SERVICE_SECRET;
+  // `|| undefined` normaliza string vazia — sem isso o guard do chamador passaria
+  // batido e a requisição sairia com header vazio.
+  return process.env.SERVICE_CREDENTIAL || undefined;
 }
 
 /**
  * Busca um segredo do accounts. Cache em memória com TTL de 5 min.
- * Retorna null se o segredo não existir, falhar a rede ou SERVICE_SECRET não estiver configurado.
+ * Retorna null se o segredo não existir, falhar a rede ou SERVICE_CREDENTIAL não estiver configurado.
  */
 export async function getSecret(name: string): Promise<string | null> {
   const cached = cache.get(name);
@@ -43,9 +41,9 @@ export async function getSecret(name: string): Promise<string | null> {
     return cached.value;
   }
 
-  const serviceSecret = getServiceSecret();
-  if (!serviceSecret) {
-    console.warn('[adminSecrets] SERVICE_SECRET não configurado — segredos indisponíveis.');
+  const serviceCredential = getServiceCredential();
+  if (!serviceCredential) {
+    console.warn('[adminSecrets] SERVICE_CREDENTIAL não configurado — segredos indisponíveis.');
     return null;
   }
 
@@ -53,7 +51,7 @@ export async function getSecret(name: string): Promise<string | null> {
     const res = await fetch(`${ACCOUNTS_ORIGIN}/admin/secrets/${name}`, {
       method: 'GET',
       headers: {
-        'X-Service-Token': serviceSecret,
+        'X-Service-Token': serviceCredential,
         'Accept': 'application/json',
       },
       signal: AbortSignal.timeout(5000),

@@ -16,17 +16,17 @@ export interface ResolvedUser {
 export async function resolveUserEmail(userId: string): Promise<ResolvedUser | null> {
   const baseUrl = process.env.ACCOUNTS_URL;
   // T2.2a (spec 090): credencial registrada `<token_id>.<segredo>`, que carrega
-  // `source_app`, `realm` e escopo `users.read`. `SERVICE_SECRET` global segue
-  // como fallback até a migração terminar — ele não identifica quem chamou.
+  // `source_app`, `realm` e escopo `users.read`. O fallback pelo `SERVICE_SECRET`
+  // global saiu em 2026-08-07 (T2.2a-op, passo 6) — ele não identificava quem
+  // chamou, e o compose agora exige `SERVICE_CREDENTIAL` com `:?`.
   //
-  // `||`, nunca `??`: os compose definem `SERVICE_CREDENTIAL=${SERVICE_CREDENTIAL:-}`,
-  // então antes da emissão o container recebe **string vazia**, não `undefined`.
-  // Com `??` a string vazia venceria o fallback e desligaria a resolução de
-  // e-mail justamente enquanto o mecanismo legado ainda é o único disponível.
-  const serviceSecret = process.env.SERVICE_CREDENTIAL || process.env.SERVICE_SECRET;
+  // `|| undefined` normaliza a string vazia: o container ainda pode receber a
+  // variável vazia em ambiente local sem credencial emitida, e sem isso o guard
+  // abaixo passaria batido e a chamada sairia com header vazio.
+  const serviceCredential = process.env.SERVICE_CREDENTIAL || undefined;
 
-  if (!baseUrl || !serviceSecret) {
-    console.warn('[accountsClient] ACCOUNTS_URL ou SERVICE_CREDENTIAL/SERVICE_SECRET não configurado — não é possível resolver e-mail do autor.');
+  if (!baseUrl || !serviceCredential) {
+    console.warn('[accountsClient] ACCOUNTS_URL ou SERVICE_CREDENTIAL não configurado — não é possível resolver e-mail do autor.');
     return null;
   }
 
@@ -35,7 +35,7 @@ export async function resolveUserEmail(userId: string): Promise<ResolvedUser | n
 
   try {
     const response = await undiciFetch(`${baseUrl}/internal/users/${encodeURIComponent(userId)}`, {
-      headers: { 'X-Service-Token': serviceSecret },
+      headers: { 'X-Service-Token': serviceCredential },
       signal: controller.signal,
     });
 

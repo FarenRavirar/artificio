@@ -32,7 +32,6 @@ const env: AccountsEnv = {
   PORT: 3000,
   PUBLIC_URL: "https://accounts.artificiorpg.com",
   TRUSTED_PROXY_CIDR: "172.18.0.0/16",
-  SERVICE_SECRET: "service-secret-at-least-16-chars",
 };
 
 /**
@@ -81,45 +80,36 @@ describe("GET /internal/users/:id", () => {
     expect(response.body).toEqual({ error: "unauthorized" });
   });
 
-  it("200 com secret correto e usuario existente", async () => {
+  // T2.2a-op passo 6: o fallback pelo `SERVICE_SECRET` global saiu. Um token
+  // opaco, do formato que antes era aceito, não tem mais caminho — é a trava
+  // contra reintroduzir o fallback sem que nenhum teste reclame.
+  it("401 com token opaco que nao resolve credencial registrada", async () => {
     const app = createApp(env, fakeDb({ id: "user-1", email: "a@example.com", name: "Ana" }));
 
     const response = await request(app)
       .get("/internal/users/user-1")
-      .set("X-Service-Token", env.SERVICE_SECRET as string)
-      .expect(200);
-
-    expect(response.body).toEqual({ id: "user-1", email: "a@example.com", display_name: "Ana" });
-  });
-
-  it("404 quando usuario nao existe", async () => {
-    const app = createApp(env, fakeDb(undefined));
-
-    const response = await request(app)
-      .get("/internal/users/does-not-exist")
-      .set("X-Service-Token", env.SERVICE_SECRET as string)
-      .expect(404);
-
-    expect(response.body).toEqual({ error: "user_not_found" });
-  });
-
-  it("401 quando SERVICE_SECRET nao esta configurado no servidor", async () => {
-    const envWithoutSecret = { ...env, SERVICE_SECRET: undefined };
-    const app = createApp(envWithoutSecret, fakeDb({ id: "user-1", email: "a@example.com", name: "Ana" }));
-
-    const response = await request(app)
-      .get("/internal/users/user-1")
-      .set("X-Service-Token", "qualquer-coisa")
+      .set("X-Service-Token", "service-secret-at-least-16-chars")
       .expect(401);
 
     expect(response.body).toEqual({ error: "unauthorized" });
+  });
+
+  it("404 quando usuario nao existe", async () => {
+    const app = createApp(env, fakeDb(undefined, await credentialRow()));
+
+    const response = await request(app)
+      .get("/internal/users/does-not-exist")
+      .set("X-Service-Token", `downloads-prod-abcd1234.${CREDENTIAL_SECRET}`)
+      .expect(404);
+
+    expect(response.body).toEqual({ error: "user_not_found" });
   });
 
   // ── T2.2a: credencial registrada ─────────────────────────────────────────
 
   it("200 com credencial registrada de escopo users.read", async () => {
     const app = createApp(
-      { ...env, SERVICE_SECRET: undefined },
+      env,
       fakeDb({ id: "user-1", email: "a@example.com", name: "Ana" }, await credentialRow()),
     );
 
@@ -135,7 +125,7 @@ describe("GET /internal/users/:id", () => {
   // Com o `SERVICE_SECRET` global as duas rotas compartilhavam a mesma chave.
   it("403 quando a credencial nao tem escopo users.read", async () => {
     const app = createApp(
-      { ...env, SERVICE_SECRET: undefined },
+      env,
       fakeDb(
         { id: "user-1", email: "a@example.com", name: "Ana" },
         await credentialRow({ scopes: ["secrets.read"] }),
@@ -153,7 +143,7 @@ describe("GET /internal/users/:id", () => {
   it("401 com credencial revogada", async () => {
     // A query filtra `revoked_at IS NULL`, então revogada volta `undefined`.
     const app = createApp(
-      { ...env, SERVICE_SECRET: undefined },
+      env,
       fakeDb({ id: "user-1", email: "a@example.com", name: "Ana" }, undefined),
     );
 

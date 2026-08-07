@@ -94,7 +94,7 @@
       "method": "GET",
       "path": "/",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 481,
+      "line": 475,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -103,7 +103,7 @@
       "method": "GET",
       "path": "/admin/papeis",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 481,
+      "line": 475,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -130,7 +130,7 @@
       "method": "GET",
       "path": "/admin/secrets/:name",
       "sourceFile": "apps/accounts/src/adminSecretsRoutes.ts",
-      "line": 155,
+      "line": 144,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -139,7 +139,7 @@
       "method": "PUT",
       "path": "/admin/secrets/:name",
       "sourceFile": "apps/accounts/src/adminSecretsRoutes.ts",
-      "line": 116,
+      "line": 105,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -211,7 +211,7 @@
       "method": "GET",
       "path": "/conta",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 481,
+      "line": 475,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -229,7 +229,7 @@
       "method": "GET",
       "path": "/internal/users/:id",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 454,
+      "line": 455,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -238,7 +238,7 @@
       "method": "GET",
       "path": "/login",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 481,
+      "line": 475,
       "confidence": "high",
       "kind": "express-route"
     },
