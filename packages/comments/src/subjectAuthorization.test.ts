@@ -83,7 +83,12 @@ describe('subjectRefSchema', () => {
   });
 
   it('recusa acima dos limites de 64 e 255', () => {
-    expect(subjectRefSchema.safeParse({ subjectType: 'a.'.repeat(33), subjectId: 'x' }).success).toBe(false);
+    // Precisa casar o regex E passar de 64, senão o teste mede formato em vez de
+    // limite: `'a.'.repeat(33)` termina em ponto e seria recusado pelo regex
+    // mesmo com 10 caracteres. `a.` + 63 letras = 65 e é namespaced válido.
+    expect(subjectRefSchema.safeParse({ subjectType: `a.${'b'.repeat(63)}`, subjectId: 'x' }).success).toBe(false);
+    // Fronteira: exatamente 64 passa.
+    expect(subjectRefSchema.safeParse({ subjectType: `a.${'b'.repeat(62)}`, subjectId: 'x' }).success).toBe(true);
     expect(subjectRefSchema.safeParse({ subjectType: 'a.b', subjectId: 'x'.repeat(256) }).success).toBe(false);
   });
 

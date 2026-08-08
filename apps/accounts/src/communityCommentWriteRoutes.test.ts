@@ -1,8 +1,17 @@
 import request from "supertest";
 import type { Express } from "express";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { hash } from "@node-rs/argon2";
 import { createApp } from "./app.js";
+import { createComment } from "./communityCommentWrite.js";
+
+// Mock do núcleo transacional: os testes de caminho feliz precisam provar o que
+// a ROTA faz — mapear corpo e credencial para o input, e traduzir o resultado em
+// `201` — sem depender do banco. A transação em si é provada por
+// `phase-2-write-measurement.sql`, contra PostgreSQL real.
+vi.mock("./communityCommentWrite.js", () => ({ createComment: vi.fn() }));
+
+const createCommentMock = vi.mocked(createComment);
 
 /**
  * T2.6c — contrato HTTP de `POST /internal/v1/comments` e `/:id/replies`
@@ -10,11 +19,10 @@ import { createApp } from "./app.js";
  *
  * ## O que estes testes provam, e o que NÃO provam
  *
- * Provam a camada que roda **antes** da transação: guard de credencial e escopo,
- * headers obrigatórios, forma do corpo, e a derivação de `realm`/`source_app` a
- * partir da credencial. Todos param antes do banco, então o fake não precisa
- * simular transação — e um fake de transação provaria a si mesmo, não ao
- * produto.
+ * Provam a **rota**: guard de credencial e escopo, headers obrigatórios, forma do
+ * corpo, o mapeamento payload+credencial → input do núcleo, e a tradução do
+ * resultado em status HTTP. `createComment` é mockado de propósito — um fake de
+ * transação provaria a si mesmo, não ao produto.
  *
  * **Não** provam a transação: atomicidade, idempotência real, dedupe de recibo e
  * FKs vivem em `phase-2-write-measurement.sql`, contra PostgreSQL real. É a
@@ -64,9 +72,10 @@ async function credentialRow(overrides: Record<string, unknown> = {}) {
 /**
  * Fake mínimo: só o suficiente para o guard resolver a credencial.
  *
- * `transaction()` lança de propósito — nenhum teste deste arquivo deve chegar ao
- * banco. Se um chegar, o erro aponta o teste que passou a depender de algo que
- * este fake não prova, em vez de passar em silêncio.
+ * `transaction()` lança de propósito. `createComment` está mockado, então nenhum
+ * teste daqui deveria abrir transação; se um abrir, o erro aponta o teste que
+ * passou a depender de algo que este fake não prova, em vez de passar em
+ * silêncio.
  */
 function fakeDb(credential?: Record<string, unknown>) {
   return {
@@ -98,6 +107,125 @@ function post(app: Express, path = "/internal/v1/comments") {
     .set("Idempotency-Key", IDEMPOTENCY_KEY)
     .set("X-Acting-User-Id", ACTING_USER);
 }
+
+beforeEach(() => {
+  createCommentMock.mockReset();
+});
+
+describe("POST /internal/v1/comments — caminho de sucesso", () => {
+  const CRIADO = {
+    id: "22222222-2222-4222-8222-222222222222",
+    parent_id: null,
+    root_id: "22222222-2222-4222-8222-222222222222",
+    depth: 0,
+    body_markdown: "comentário",
+    created_at: "2026-08-08T00:00:00.000Z",
+  };
+
+  it("201 com o comentário criado no corpo", async () => {
+    createCommentMock.mockResolvedValue({ ok: true, comment: CRIADO, replayed: false });
+    const app = createApp(env, fakeDb(await credentialRow()));
+
+    const response = await post(app).send(VALID_BODY).expect(201);
+
+    expect(response.body).toEqual(CRIADO);
+  });
+
+  it("deriva realm e source_app da credencial, não do payload", async () => {
+    // É a trava de `spec.md` 6a em ação: a credencial é `downloads`/`prod`, e é
+    // isso que precisa chegar ao núcleo — mesmo que o corpo não os mencione.
+    createCommentMock.mockResolvedValue({ ok: true, comment: CRIADO, replayed: false });
+    const app = createApp(env, fakeDb(await credentialRow()));
+
+    await post(app).send(VALID_BODY).expect(201);
+
+    expect(createCommentMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ realm: "prod", source_app: "downloads" }),
+    );
+  });
+
+  it("repassa corpo, headers e parentId nulo na criação de raiz", async () => {
+    createCommentMock.mockResolvedValue({ ok: true, comment: CRIADO, replayed: false });
+    const app = createApp(env, fakeDb(await credentialRow()));
+
+    await post(app).send(VALID_BODY).expect(201);
+
+    expect(createCommentMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        subject_type: "downloads.material",
+        subject_id: "material-1",
+        canonicalPath: "/materiais/material-1",
+        bodyMarkdown: "comentário",
+        ownerUserId: null,
+        parentId: null,
+        actingUserId: ACTING_USER,
+        idempotencyKey: IDEMPOTENCY_KEY,
+      }),
+    );
+  });
+
+  it("resposta passa o :id da URL como parentId", async () => {
+    const PAI = "33333333-3333-4333-8333-333333333333";
+    createCommentMock.mockResolvedValue({
+      ok: true,
+      comment: { ...CRIADO, parent_id: PAI, root_id: PAI, depth: 1 },
+      replayed: false,
+    });
+    const app = createApp(env, fakeDb(await credentialRow()));
+
+    await post(app, `/internal/v1/comments/${PAI}/replies`).send(VALID_BODY).expect(201);
+
+    expect(createCommentMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ parentId: PAI }),
+    );
+  });
+
+  it("subject_owner_user_id do payload vira ownerUserId", async () => {
+    // §8: o publicador é afirmado pelo backend do domínio. Nulo é caso legítimo
+    // (post sem conta vinculada), e é o default quando o campo não vem.
+    const DONO = "44444444-4444-4444-8444-444444444444";
+    createCommentMock.mockResolvedValue({ ok: true, comment: CRIADO, replayed: false });
+    const app = createApp(env, fakeDb(await credentialRow()));
+
+    await post(app)
+      .send({ ...VALID_BODY, subject_owner_user_id: DONO })
+      .expect(201);
+
+    expect(createCommentMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ ownerUserId: DONO }),
+    );
+  });
+
+  it("repetição idempotente devolve 201 com o mesmo corpo", async () => {
+    // §6: repetição com mesmo payload devolve a resposta original, mesmo status.
+    // Um `200` aqui faria o cliente que reenviou por timeout achar que houve dois
+    // comentários.
+    createCommentMock.mockResolvedValue({ ok: true, comment: CRIADO, replayed: true });
+    const app = createApp(env, fakeDb(await credentialRow()));
+
+    const response = await post(app).send(VALID_BODY).expect(201);
+
+    expect(response.body).toEqual(CRIADO);
+  });
+
+  it.each([
+    ["409 idempotency_key_reuse", "idempotency_key_reuse" as const, 409],
+    ["422 depth_exceeded", "depth_exceeded" as const, 422],
+    ["404 parent_not_found", "parent_not_found" as const, 404],
+    ["403 sanctioned", "sanctioned" as const, 403],
+  ])("traduz rejeição do núcleo em %s", async (_caso, code, status) => {
+    createCommentMock.mockResolvedValue({ ok: false, code, status });
+    const app = createApp(env, fakeDb(await credentialRow()));
+
+    const response = await post(app).send(VALID_BODY).expect(status);
+
+    expect(response.body.error.code).toBe(code);
+  });
+});
 
 describe("POST /internal/v1/comments — autenticação e escopo", () => {
   it("401 sem X-Service-Token", async () => {
@@ -268,10 +396,10 @@ describe("POST /internal/v1/comments/:id/replies", () => {
     expect(response.body).toEqual({ error: "insufficient_scope" });
   });
 
-  it("valida o corpo antes de tocar o banco", async () => {
-    // Se a validação passasse adiante, o fake lançaria "teste chegou ao banco" e
-    // o teste falharia com 500 em vez de 400 — que é o ponto: recusar antes de
-    // abrir transação.
+  it("valida o corpo antes de chamar o núcleo", async () => {
+    // Recusar na rota evita abrir transação por um pedido já inválido — e, mais
+    // importante, evita gravar a chave de idempotência (passo 1 da transação)
+    // para um pedido que nunca poderia ter sido aceito.
     const app = createApp(env, fakeDb(await credentialRow()));
 
     const response = await post(
@@ -282,5 +410,6 @@ describe("POST /internal/v1/comments/:id/replies", () => {
       .expect(400);
 
     expect(response.body.error.code).toBe("invalid_body");
+    expect(createCommentMock).not.toHaveBeenCalled();
   });
 });

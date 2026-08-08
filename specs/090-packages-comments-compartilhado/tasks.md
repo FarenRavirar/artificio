@@ -978,7 +978,7 @@ saudável e o **único** alarme de schema defasado no SSO é
   `packages/comments/src/notificationRecipients.ts` (`resolveNotificationRecipients`) decide os
   destinatários; e `communityCommentRoutes.ts` expõe `POST /internal/v1/comments` e
   `POST /internal/v1/comments/:id/replies` sob escopo `comment.write`. `packages/comments` 132/132
-  (era 117), `accounts` 171/171, repo 41/41, lint 25/25, build 25/25, `verify:api` `breaking=0`
+  (era 117), `accounts` 181/181, repo 41/41, lint 25/25, build 25/25, `verify:api` `breaking=0`
   `non-breaking=2` (as duas rotas novas).
 
   **Duas rotas, um handler:** a única diferença é de onde vem o pai (`:id` contra `null`), e §3
@@ -990,19 +990,38 @@ saudável e o **único** alarme de schema defasado no SSO é
   `:id` malformado devolve o mesmo `404` de pai inexistente: distinguir diria ao chamador qual
   formato de id o sistema usa.
 
-  Testes de rota em `communityCommentWriteRoutes.test.ts` (23 casos) cobrem guard, escopo, os dois
-  headers obrigatórios e a forma do corpo — tudo que roda **antes** da transação, com fake cujo
-  `transaction()` lança de propósito: teste que chegar ao banco falha apontando o próprio teste, em
-  vez de passar em silêncio.
+  Testes de rota em `communityCommentWriteRoutes.test.ts` (33 casos) cobrem guard, escopo, os dois
+  headers obrigatórios, a forma do corpo, **o caminho de sucesso** e a tradução de cada rejeição em
+  status. `createComment` é mockado: o que a rota precisa provar é o mapeamento
+  payload+credencial → input e o `201` de volta — inclusive que `realm`/`source_app` saem da
+  credencial, e que o `:id` da URL vira `parentId`. A transação em si é provada contra PostgreSQL
+  real, não por fake que provaria a si mesmo.
 
   **Sem `try/catch` engolindo erro, de propósito.** `spec.md` 13c manda a falha reverter o conjunto,
   e isso é a correção explícita do defeito do `downloads` (requisito 24d), onde a emissão é
   best-effort (`moderation.ts:138-147`, `reports.ts:195`) e o material é rejeitado sem o autor saber.
 
-  **Idempotência insere primeiro e trata a violação** — nunca `SELECT` antes do `INSERT`, que é o
+  **Idempotência insere primeiro** — nunca `SELECT` antes do `INSERT`, que é o
   check-before-transaction que `contrato-http-v1.md` §6 nomeia como defeito a não replicar. Registro
   vencido não conta como repetição: passadas as 24h a chave está livre, senão uma chave reusada meses
   depois devolveria comentário antigo em vez de criar o novo.
+
+  Duas correções vindas do review da PR #247, ambas sobre a mesma transação:
+
+  - **`ON CONFLICT DO NOTHING`, não `try/catch` na violação de unicidade.** No PostgreSQL um erro
+    **aborta a transação inteira**: capturar a exceção e consultar em seguida rodaria o replay numa
+    transação morta (`25P02`), transformando a repetição legítima — que deve devolver a resposta
+    original — em `500`. `DO NOTHING` devolve zero linhas sem levantar erro, e a transação segue viva.
+  - **Rejeição esperada é exceção (`CommentWriteRejection`), não retorno.** Retornar normalmente faz o
+    Kysely **commitar**, e a linha de `community_idempotency_key` do passo 1 ficaria gravada para um
+    pedido que falhou: a chave queimava por 24h, e o cliente que corrigisse o payload e reenviasse
+    receberia `409` em vez de criar o comentário. O `catch` externo converte só esse tipo; qualquer
+    outro erro é relançado, senão volta o best-effort do `downloads`.
+
+  **`created_at` é string ISO no tipo, serializado na criação.** A criação recebe `Date` do driver; o
+  replay recebe o campo de volta de `response_body` (`jsonb`), já string. Sem normalizar, o mesmo
+  endpoint devolvia dois tipos de runtime conforme fosse primeira chamada ou repetição — e o
+  `res.json()` escondia a divergência, porque serializa os dois igual.
 
   **Destinatários** (`spec.md` 15a-15c, 16), com teste por combinação: raiz notifica publicador;
   resposta notifica autor do pai **e** publicador; iguais deduplicam para um recibo; ator nunca se

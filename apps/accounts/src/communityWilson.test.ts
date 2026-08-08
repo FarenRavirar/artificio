@@ -50,7 +50,10 @@ describe.skipIf(!pool)("comment_wilson_reddit_80_v1 (função PostgreSQL)", () =
   // Medidos contra o banco real em 2026-08-07. Se um destes mudar, a ordenação
   // `best` do produto mudou junto — é mudança de algoritmo, que a decisão 7 manda
   // fazer com `algorithm_version` nova, nunca reinterpretando o histórico.
-  it.each([
+  // Tupla explícita: sem ela o TypeScript infere `(string | number)[]` para cada
+  // linha, e `upvotes`/`downvotes` chegam como `string | number` em `wilson`,
+  // que só aceita `number`.
+  it.each<readonly [string, number, number, string]>([
     ["sem voto nenhum", 0, 0, "0"],
     ["um upvote", 1, 0, "0.3784475032252061899591744110283788775970879231297090"],
     ["dez upvotes", 10, 0, "0.8589313179093835601100847408229973860172180167839490"],

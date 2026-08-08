@@ -54,9 +54,6 @@ const COMMENT_EVENT_VERSION = 1;
 const EVENT_TYPE_ROOT = "comment.created";
 const EVENT_TYPE_REPLY = "comment.replied";
 
-/** Código do Postgres para violação de unicidade. */
-const UNIQUE_VIOLATION = "23505";
-
 export interface CreateCommentInput extends CommentSubjectScope {
   /** Derivados da credencial, nunca do payload (`spec.md` 6a). */
   canonicalPath: string;
@@ -85,7 +82,37 @@ export interface CreatedComment {
   root_id: string;
   depth: number;
   body_markdown: string;
-  created_at: Date;
+  /**
+   * ISO 8601, **string**, não `Date`.
+   *
+   * A criação recebe `Date` do driver; a repetição idempotente recebe o mesmo
+   * campo de volta de `response_body` (`jsonb`), onde ele foi serializado como
+   * string. Deixar o tipo como `Date` fazia o mesmo endpoint devolver dois tipos
+   * de runtime diferentes conforme fosse a primeira chamada ou o replay — e o
+   * `res.json()` esconderia a divergência, porque serializa os dois igual. Quem
+   * consome `result.comment.created_at` em código, não em JSON, quebraria só no
+   * replay.
+   */
+  created_at: string;
+}
+
+/**
+ * Rejeição esperada dentro da transação.
+ *
+ * Precisa ser **exceção**, não retorno: retornar normalmente faz o Kysely
+ * **commitar** a transação, e a linha de `community_idempotency_key` já inserida
+ * no passo 1 ficaria gravada para um pedido que falhou. A chave queimaria por 24
+ * horas, e o cliente que corrigisse o payload e reenviasse com a mesma chave
+ * receberia `409` em vez de criar o comentário.
+ */
+class CommentWriteRejection extends Error {
+  constructor(
+    readonly code: WriteRejectionCode,
+    readonly status: number,
+  ) {
+    super(code);
+    this.name = "CommentWriteRejection";
+  }
 }
 
 export type CreateCommentResult =
@@ -113,15 +140,6 @@ function hashRequest(input: CreateCommentInput): string {
       ]),
     )
     .digest("hex");
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === UNIQUE_VIOLATION
-  );
 }
 
 /**
@@ -229,11 +247,13 @@ export async function createComment(
 
   const requestHash = hashRequest(input);
 
-  // Sem `try/catch` em volta da transação: qualquer erro precisa propagar, e a
-  // reversão inteira — comentário, versão, evento e recibos — é o comportamento
-  // que 13c exige. Capturar aqui para registrar e seguir recriaria o defeito
-  // best-effort do `downloads` (requisito 24d).
-  return await db.transaction().execute(async (trx) => {
+  // O `catch` aqui converte **apenas** `CommentWriteRejection` — a rejeição
+  // esperada, lançada de dentro da transação para forçar o `ROLLBACK` da chave de
+  // idempotência já inserida. Qualquer outro erro é relançado: engolir para
+  // registrar e seguir recriaria o defeito best-effort do `downloads`
+  // (requisito 24d), e a reversão inteira é o que 13c exige.
+  try {
+    return await db.transaction().execute(async (trx) => {
       // 1. Idempotência primeiro: insere e deixa a unicidade decidir. Um `SELECT`
       // antes do `INSERT` deixaria janela para dois pedidos idênticos passarem
       // juntos — o check-before-transaction que §6 manda não replicar.
@@ -241,24 +261,34 @@ export async function createComment(
         Date.now() + IDEMPOTENCY_RETENTION_HOURS * 60 * 60 * 1000,
       );
 
-      try {
-        await trx
-          .insertInto("community_idempotency_key")
-          .values({
-            realm: input.realm,
-            source_app: input.source_app,
-            idempotency_key: input.idempotencyKey,
-            operation: input.parentId ? "comment.reply" : "comment.create",
-            acting_user_id: input.actingUserId,
-            request_hash: requestHash,
-            // A resposta real é gravada no fim, quando o comentário existe.
-            response_status: 201,
-            response_body: {},
-            expires_at: expiresAt,
-          })
-          .execute();
-      } catch (error) {
-        if (!isUniqueViolation(error)) throw error;
+      // `ON CONFLICT DO NOTHING` em vez de capturar a violação de unicidade: no
+      // PostgreSQL, um erro dentro da transação **aborta a transação inteira**, e
+      // todo comando seguinte falha com `25P02 current transaction is aborted`.
+      // Capturar a exceção e consultar em seguida — que é o que esta função fazia
+      // — rodaria `replayOrConflict` numa transação já morta, transformando a
+      // repetição legítima (que deve devolver a resposta original) num erro 500.
+      //
+      // `DO NOTHING` não levanta erro: devolve zero linhas quando a chave já
+      // existe. A transação segue viva, e a consulta de replay funciona.
+      const claimed = await trx
+        .insertInto("community_idempotency_key")
+        .values({
+          realm: input.realm,
+          source_app: input.source_app,
+          idempotency_key: input.idempotencyKey,
+          operation: input.parentId ? "comment.reply" : "comment.create",
+          acting_user_id: input.actingUserId,
+          request_hash: requestHash,
+          // A resposta real é gravada no fim, quando o comentário existe.
+          response_status: 201,
+          response_body: {},
+          expires_at: expiresAt,
+        })
+        .onConflict((oc) => oc.doNothing())
+        .returning("id")
+        .executeTakeFirst();
+
+      if (!claimed) {
         return await replayOrConflict(trx, input, requestHash);
       }
 
@@ -275,13 +305,13 @@ export async function createComment(
         .executeTakeFirst();
 
       if (!subject) {
-        return { ok: false as const, code: "subject_not_found" as const, status: 404 };
+        throw new CommentWriteRejection("subject_not_found", 404);
       }
 
       const actorId = await resolveOrCreateActor(trx, input.actingUserId);
 
       if (await hasActiveSanction(trx, input.realm, input.source_app, actorId)) {
-        return { ok: false as const, code: "sanctioned" as const, status: 403 };
+        throw new CommentWriteRejection("sanctioned", 403);
       }
 
       // 3. Pai sob `FOR SHARE`: trava a linha contra remoção concorrente até o
@@ -314,7 +344,7 @@ export async function createComment(
           .executeTakeFirst();
 
         if (!row) {
-          return { ok: false as const, code: "parent_not_found" as const, status: 404 };
+          throw new CommentWriteRejection("parent_not_found", 404);
         }
         parentRow = row;
       }
@@ -322,11 +352,10 @@ export async function createComment(
 
       const placement = placeComment(input, parent);
       if (!placement.ok) {
-        return {
-          ok: false as const,
-          code: placement.code,
-          status: placement.code === "parent_not_found" ? 404 : 422,
-        };
+        throw new CommentWriteRejection(
+          placement.code,
+          placement.code === "parent_not_found" ? 404 : 422,
+        );
       }
 
       // 4. Comentário e versão. Ids gerados aqui porque o FK circular é
@@ -454,7 +483,11 @@ export async function createComment(
         root_id: comment.root_id,
         depth: comment.depth,
         body_markdown: body.bodyMarkdown,
-        created_at: comment.created_at,
+        // Serializado aqui, não no `res.json()`: é este objeto que vai para
+        // `response_body` (`jsonb`) e volta como string no replay. Guardar `Date`
+        // faria a primeira chamada e a repetição devolverem tipos de runtime
+        // diferentes para o mesmo campo.
+        created_at: comment.created_at.toISOString(),
       };
 
       // 6. Grava a resposta real na chave de idempotência, para a repetição
@@ -468,8 +501,14 @@ export async function createComment(
         .where("idempotency_key", "=", input.idempotencyKey)
         .execute();
 
-    return { ok: true as const, comment: created, replayed: false };
-  });
+      return { ok: true as const, comment: created, replayed: false };
+    });
+  } catch (error) {
+    if (error instanceof CommentWriteRejection) {
+      return { ok: false, code: error.code, status: error.status };
+    }
+    throw error;
+  }
 }
 
 /** `users.id` por trás de um ator, ou `null` se o vínculo já foi desfeito (7b). */
