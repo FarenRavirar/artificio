@@ -1222,6 +1222,9 @@ importers:
 
   packages/comments:
     dependencies:
+      '@artificio/content-editor':
+        specifier: workspace:*
+        version: link:../content-editor
       zod:
         specifier: ^4.4.3
         version: 4.4.3

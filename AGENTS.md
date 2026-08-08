@@ -357,6 +357,16 @@ Se uma validação real expõe que a tarefa "fechada" ainda não roda, reabrir a
 
 **Proibido ampliar escopo documental por rotina de fechamento.** Spec nova, retomada, fechamento, review, bug ou pendência não autorizam verificar ou atualizar backlog, estado, decisões, sessão ou outro arquivo. Reportar ao mantenedor; registrar apenas onde ele mandar.
 
+**Atualizar documentação é REESCREVER o bloco existente, nunca anexar bloco novo (pétrea).** Doc de spec (`tasks.md`, `spec.md`, `plan.md`, sessão) descreve **estado atual**, não histórico de sessões. Anexar "estado em <data>" abaixo do "estado em <data anterior>" transforma o arquivo em log cronológico: cresce sem limite, o agente seguinte lê camadas contraditórias e não sabe qual vale, e o mantenedor paga token por informação que já morreu. Incidente real: 2026-08-07, `specs/090/tasks.md` — bloco novo de T2.5 anexado sem tocar no existente, +85 linhas, 0 removidas; o mantenedor perguntou "o tasks vai ficar que tamanho?".
+
+Regras operacionais, sem exceção:
+
+- **Localizar o bloco da task ANTES de escrever.** `rtk rg "T<N> —" <arquivo>` e abrir a região inteira. Escrever sem ler o que já existe é o que produz empilhamento.
+- **Uma task tem UM bloco de estado.** Task retomada em sessão nova → o bloco é reescrito, não duplicado. Não existe "estado em 2026-08-05" convivendo com "estado em 2026-08-07" da mesma task.
+- **Trabalho já merged encolhe.** Enquanto a task está aberta, o bloco carrega o detalhe que sustenta a retomada. Depois do merge, o *porquê* de cada decisão vive no comentário do próprio código (§Regras Gerais de Código — comentário explicativo não se perde), e a doc guarda só: o que foi entregue, o bloqueio que resta, e a decisão que precisa de conferência. Narrar de novo, na spec, o que o código já explica é duplicação que envelhece sozinha.
+- **Medir e reportar o delta.** Ao terminar, `rtk git diff --stat <arquivo>`. Um diff só de inserções em doc de estado é sinal de empilhamento — releia antes de entregar. O relatório ao mantenedor diz o delta ("−43 linhas, mesma informação"), não só "documentei".
+- **O que nunca se apaga:** decisão do mantenedor, bloqueio ainda aberto, achado lateral pendente de resposta, e erro do próprio agente já registrado (§Formato do relatório → não esconder erro próprio). Condensar é remover redundância e narrativa de processo — não remover fato que ainda decide alguma coisa.
+
 *(nota: bloco "Bug achado = perguntar antes de registrar" que existia aqui foi movido pra §Regras Pétreas / Bug achado / débito — reposicionamento, sem perda.)*
 
 ### Formato do relatório final ao mantenedor (obrigatório)

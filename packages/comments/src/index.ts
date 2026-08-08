@@ -28,6 +28,13 @@ export {
 } from './subjectAuthorization.js';
 
 export {
+  COMMENT_BODY_MAX_LENGTH,
+  validateCommentBody,
+  type CommentBodyRejectionCode,
+  type CommentBodyValidation,
+} from './commentBody.js';
+
+export {
   MAX_BYTES_PER_READ,
   MAX_COMMENTS_PER_READ,
   assembleTree,

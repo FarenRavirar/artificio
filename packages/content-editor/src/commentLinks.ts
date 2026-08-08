@@ -272,7 +272,7 @@ const CODE_SPAN_RE = /(`+)[\s\S]*?\1|^ {0,3}(`{3,}|~{3,})[\s\S]*?^ {0,3}\2/gm;
  * excede o limite já seria rejeitada pela validação de tamanho da spec, então
  * falhar fechado aqui não perde caso legítimo.
  */
-const MAX_SCAN_LENGTH = 12_000;
+export const MAX_SCAN_LENGTH = 12_000;
 
 function findCodeRanges(value: string): Array<{ start: number; end: number }> {
   const ranges: Array<{ start: number; end: number }> = [];
