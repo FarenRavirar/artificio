@@ -3,6 +3,7 @@ import {
   sanitizeUserMarkdown,
 } from '@artificio/content-editor/sanitize';
 import {
+  MAX_SCAN_LENGTH,
   findCommentLinkViolation,
   type CommentLinkViolation,
 } from '@artificio/content-editor/comment-links';
@@ -48,18 +49,16 @@ import {
 /** `spec.md` §Referência opaca — vale para a entrada e para a saída canônica. */
 export const COMMENT_BODY_MAX_LENGTH = 10_000;
 
-/**
- * Espelha o `MAX_SCAN_LENGTH` de `@artificio/content-editor/comment-links`, que
- * o pacote não exporta.
+/*
+ * `MAX_SCAN_LENGTH` vem importado do próprio pacote de links (passou a ser
+ * exportado no review da PR #246). A cópia local que existia aqui desatualizaria
+ * em silêncio se o teto de lá mudasse.
  *
- * Medido em unidades UTF-16 porque é assim que o pacote de links mede — lá o
- * teto protege o custo da varredura, que é proporcional a elas, não a pontos de
- * código. Duplicar a constante é ruim, mas melhor que a alternativa: sem ela, um
- * corpo de 10.000 emoji (válido por pontos de código) chegaria à varredura com
- * 20.000 unidades e voltaria como `INVALID_COMMENT_LINK`/`input_too_large` — um
- * erro de link para um corpo que não tem link nenhum.
+ * Ele mede **unidades UTF-16**, não pontos de código, porque protege o custo da
+ * varredura, que é proporcional a elas. É por isso que a comparação abaixo usa
+ * `.length` cru enquanto o limite do comentário usa `countCharacters`: são duas
+ * grandezas diferentes, de propósito.
  */
-const LINK_SCAN_MAX_UTF16_UNITS = 12_000;
 
 /**
  * Conta **pontos de código**, não unidades UTF-16.
@@ -134,7 +133,7 @@ export function validateCommentBody(input: string): CommentBodyValidation {
   // em unidades UTF-16 (só acontece fora do BMP — emoji, ideogramas raros).
   // Recusar aqui, com `body_too_long`, dá ao usuário o motivo verdadeiro; deixar
   // seguir devolveria `INVALID_COMMENT_LINK` para um corpo sem link nenhum.
-  if (bodyMarkdown.length > LINK_SCAN_MAX_UTF16_UNITS) {
+  if (bodyMarkdown.length > MAX_SCAN_LENGTH) {
     return { ok: false, code: 'body_too_long' };
   }
 

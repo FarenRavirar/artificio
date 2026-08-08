@@ -136,7 +136,28 @@ describe('caracteres literais `<` e `>` (correção 2026-08-07)', () => {
     // `markdownToPlainText` não usa o pré-passo de sentinela — a entrada dele é
     // HTML do markdown-it, não texto do usuário. Este teste trava que a
     // diferença não reabre o P1 por outro caminho.
-    expect(markdownToPlainText('&lt;script&gt;x&lt;/script&gt;')).not.toContain('<script');
+    // Saída exata, medida: a entidade atravessa intacta. `not.toContain` sozinho
+    // passaria também se a função devolvesse string vazia — o que seria perda
+    // silenciosa de conteúdo, não proteção.
+    expect(markdownToPlainText('&lt;script&gt;x&lt;/script&gt;'))
+      .toBe('&lt;script&gt;x&lt;/script&gt;');
+  });
+
+  it('sentinela enviada pelo usuário não vira markup (achado PR #246)', () => {
+    // As sentinelas do pré-passo são caracteres de uso privado do Unicode.
+    // "Não é produzido por teclado" não é "não chega na entrada": colado no
+    // corpo, o caractere seria restaurado como `<` e devolveria `<script>`
+    // literal a partir de texto que o sanitizador nunca viu como tag.
+    const LT = '';
+    const GT = '';
+
+    expect(sanitizeUserMarkdown(`${LT}script${GT}alert(1)${LT}/script${GT}`))
+      .not.toMatch(/<script/i);
+    expect(sanitizeUserMarkdown(`${LT}img src=x onerror=alert(1)${GT}`))
+      .not.toMatch(/<img/i);
+
+    // Descartada, não escapada: caractere de uso privado não carrega intenção.
+    expect(sanitizeUserMarkdown(`texto ${LT} normal ${GT} fim`)).toBe('texto  normal  fim');
   });
 
   it('render neutraliza o que sobreviver', () => {

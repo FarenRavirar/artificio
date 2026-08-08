@@ -35,9 +35,31 @@ const MARKDOWN_ONLY_OPTIONS: sanitizeHtml.IOptions = {
  * Área de uso privado do Unicode (U+E000-U+F8FF): não têm significado em
  * Markdown, não são produzidos por teclado e não colidem com texto real. Um
  * marcador textual (`__LT__`) colidiria com conteúdo legítimo do usuário.
+ *
+ * **"Não é produzido por teclado" não significa "não chega na entrada".** Um
+ * atacante cola o caractere direto no corpo, e a restauração o converteria em
+ * `<` — devolvendo `<script>` literal a partir de um texto que o sanitizador
+ * nunca viu como tag. Bypass completo, medido em 2026-08-07 (achado do review da
+ * PR #246). Por isso `stripSentinels` roda **antes** de qualquer coisa: a
+ * sentinela só existe entre o pré-passo e a restauração, nunca vinda de fora.
  */
 const LOOSE_LT = '';
 const LOOSE_GT = '';
+
+/** Remove sentinela vinda da entrada — ver a nota acima. */
+const SENTINEL_RE = /[]/g;
+
+/**
+ * Descarta a sentinela que o usuário tenha enviado.
+ *
+ * Descarta, e não escapa: são caracteres de uso privado, sem significado
+ * acordado — nenhum texto legítimo depende deles, e preservá-los custaria
+ * carregar um caso de borda para sempre. Some silenciosamente porque não há
+ * nada que o autor tenha querido dizer com eles.
+ */
+function stripSentinels(value: string): string {
+  return value.replace(SENTINEL_RE, '');
+}
 
 /** `<` seguido disto pode abrir tag; qualquer outro `<` é texto. */
 const TAG_NAME_START = /[a-zA-Z/!?]/;
@@ -304,7 +326,13 @@ function sanitizePreservingInlineLiterals(value: string): string {
  * `<b>ok</b>` na primeira passagem e `ok` na segunda. O motivo e a correção
  * estão em `protectLooseAngleBrackets`.
  */
-export function sanitizeUserMarkdown(value: string): string {
+export function sanitizeUserMarkdown(input: string): string {
+  // Antes de tudo: a sentinela do pré-passo não pode vir de fora, senão a
+  // restauração a converteria em `<`/`>` reais sem o sanitizador ter visto tag
+  // nenhuma. Roda aqui, no ponto de entrada único, para que nenhum caminho
+  // interno receba entrada não filtrada.
+  const value = stripSentinels(input);
+
   let result = '';
   let lastIndex = 0;
 
