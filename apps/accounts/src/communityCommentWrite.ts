@@ -162,9 +162,16 @@ async function resolveOrCreateActor(
 
   if (existing) return existing.actor_id;
 
+  // `defaultValues()`, não `values({})`. A tabela só tem colunas com default
+  // (`id` e `created_at`), e o objeto vazio compila para
+  // `INSERT INTO community_actor () VALUES ()` — sintaxe que o PostgreSQL
+  // recusa com `syntax error at or near ")"`. O tipo do Kysely aceita `{}`, e o
+  // erro só aparece no banco: os testes de rota param antes da transação, e o
+  // script de medição escreve o ator por SQL direto, então nenhum dos dois
+  // exercitava esta linha. Achado no primeiro smoke real (2026-08-08).
   const actor = await trx
     .insertInto("community_actor")
-    .values({})
+    .defaultValues()
     .returning("id")
     .executeTakeFirstOrThrow();
 

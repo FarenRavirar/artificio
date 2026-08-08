@@ -685,36 +685,29 @@ saudável e o **único** alarme de schema defasado no SSO é
   de score, desempate. **Decisão do mantenedor em 2026-08-07: o smoke espera T2.6c** — semear por SQL
   provaria a query, não o caminho.
 
-  **Estado medido na VM em 2026-08-07** (read-only; coordenadas para não redescobrir: container
-  `accounts-db`, banco `artificio_auth` — não `accounts`, e o container **não** tem sufixo `-prod`):
+  **Deployado em produção em 2026-08-08** (run `31241754320`): as rotas de leitura e escrita estão
+  no ar, `migration_008` e `migration_009` aplicadas e registradas, `/health` em `200`, as 3 rotas
+  críticas do manifesto conferidas, 122 usuários e 4 credenciais intactos.
 
-  1. Schema pronto: 18 tabelas `community_*` e a função `comment_wilson_reddit_80_v1` existem.
-     `schema_migrations` registra **001–007** aplicadas.
-  2. `community_comment`, `community_comment_subject` e `community_comment_score_version` **vazias**
-     (0 linhas) — é o que torna a 009 uma substituição segura, sem backfill.
-  3. 4 credenciais ativas — `downloads` (`users.read`, `secrets.read`) e `mesas` (`secrets.read`),
-     beta e prod — e **nenhuma tem `comment.read`**. O guard da rota barra qualquer chamador hoje.
-  4. **Duas migrations pendentes, ambas criadas nesta branch e nunca aplicadas:** `008`
-     (`community_idempotency_key` não existe no banco) e `009` (a função em prod ainda é a versão
-     **sem** `GREATEST`, então continua devolvendo o negativo descrito em T2.3b).
-  5. **A rota não está em produção.** `accounts-api` foi criado 17:16:42; o merge da PR #245 é
-     17:25:21 — 9 minutos depois. O `dist` do container tem `communityMigration.test.js` (T2.1) e
-     **não** tem `communityCommentRoutes` nem `communityCommentRead`. Não é build quebrado: é deploy
-     não disparado, exatamente a trava de `AGENTS.md` (promote move o ponteiro Git, nunca deploya).
-     Como `accounts` é PROD-only (D042), não há beta onde ensaiar — o primeiro smoke da rota vai
-     contra produção.
+  **Coordenadas para não redescobrir:** container `accounts-db` (sem sufixo `-prod`), banco
+  `artificio_auth` (não `accounts`), coluna `schema_migrations.migration_name` (não `version` nem
+  `filename`), `users.google_sub` (não `google_id`), `community_service_credential.realms` (plural).
+  Porta do Postgres **não exposta** e túnel SSH bloqueado pelo harness — o caminho é
+  `ssh faren "docker exec accounts-db psql -U admin -d artificio_auth -tAc \"...\""`.
 
-  Desbloquear exige, nesta ordem: aplicar as migrations **008 e 009** (o deploy aplica as duas de
-  uma vez, não são passos separados); emitir credencial com `comment.read`; deployar `accounts` em
-  prod por `workflow_dispatch` manual; semear assunto e árvore; rodar o smoke. **Todos são escrita em
-  produção e exigem aprovação nominal do mantenedor, uma por ação.**
+  **Falta só o smoke, e o que o bloqueia agora é credencial + dado:**
 
-  Como as migrations são aplicadas **pelo próprio deploy** (`apply_required_migrations.sh` roda antes
-  de subir o container), o passo 1 não é uma aprovação separada do passo 3 — é o mesmo comando. Na
-  prática restam **três** aprovações: deploy, seed e smoke.
+  1. **Credencial emitida em 2026-08-08:** `site-beta-46a7b787`, escopos `comment.write,comment.read`,
+     `realm=beta`. A leitura já respondeu com ela (`200` com credencial, `401` sem).
+  2. **`community_comment` segue vazia.** O assunto `beta/site/site.post/smoke-090` foi criado, mas o
+     primeiro `POST` expôs o bug de `.values({})` registrado em T2.6c — o smoke só completa depois
+     daquele fix chegar em produção.
 
-  O smoke só vale depois de T2.6c: sem rota de escrita, semear é `INSERT` direto, que prova a query e
-  não o caminho (decisão do mantenedor em 2026-08-07, opção C).
+  Resta **uma** aprovação: rodar o smoke, depois do redeploy. Deploy e credencial já saíram.
+
+  Sugestão para o seed: `realm='beta'`. `spec.md` 5a põe `realm` em toda linha, índice e chave de
+  listagem, então o dado fica isolado de produção **por construção** — é o ambiente de ensaio que o
+  schema criou, já que host de ensaio não existe.
 
   Dois pontos que a leitura da Fase 1 esclarece, e que evitam propor caminho que não existe:
 
@@ -1060,9 +1053,83 @@ saudável e o **único** alarme de schema defasado no SSO é
   fixtures que usavam `material`/`post` sem ponto eram inválidos contra o banco — trocados por
   `downloads.material`, e a regra virou teste próprio nas três camadas.
 
-  **Bloqueio:** a rota nunca respondeu a uma requisição real. Os 23 testes param antes da transação
-  por construção, e o script de medição prova o schema, não o handler. O primeiro exercício
-  ponta-a-ponta depende de deploy + credencial com `comment.write` — mesmo bloqueio de T2.3.
+  **Deployado em 2026-08-08** (run `31241754320`): as duas rotas estão publicadas — 20 arquivos
+  `communityComment*` no `dist` do container, contra zero antes.
+
+  **A leitura respondeu; a escrita quebrou no primeiro POST real.** Credencial
+  `site-beta-46a7b787` emitida com `comment.write,comment.read`; `GET` devolveu
+  `{"state":"fresh","snapshot_revision":0,"comments":[]}` para assunto vazio — contrato exato, e
+  `401` sem credencial. O `POST` devolveu `{"error":"syntax error at or near \")\""}`.
+
+  **Causa: `.values({})` no `INSERT` do ator comunitário.** `community_actor` só tem colunas com
+  default, então o objeto vazio compila para `INSERT INTO community_actor () VALUES ()` — sintaxe que
+  o PostgreSQL recusa. Corrigido com `.defaultValues()`.
+
+  **Nenhuma das três camadas de teste podia pegar**, e o gap é estrutural — *query builder gera SQL
+  que só falha no banco*:
+  - `tsc` **não pega**: medido, o build falhou com `Unused '@ts-expect-error' directive` quando tentei
+    marcar a linha. O tipo aceita `{}` sem reclamar, porque toda coluna tem default;
+  - `communityCommentWriteRoutes.test.ts` **mocka** `createComment`;
+  - `phase-2-write-measurement.sql` escreve o ator em SQL direto (`INSERT ... DEFAULT VALUES`), então
+    exercita o banco, não o builder.
+
+  Fechado por `communityCommentWriteSql.test.ts`: compila as queries com o dialeto Postgres real
+  (`DummyDriver` não conecta, o compilador é o de produção) e afirma sobre o texto gerado — inclusive
+  documentando que `values({})` produz `() values ()`. Não exige banco.
+
+  **Auditoria das outras 7 escritas da transação** (`information_schema`): `community_comment` tem 8
+  colunas obrigatórias sem default, `notification_event` 9, `community_idempotency_key` 8,
+  `notification_receipt` 4, `community_comment_version` 3, `community_actor_account_link` 2. Nenhuma
+  aceitaria `values({})` — nem compilaria. `community_actor` era o único caso.
+
+  **Transação validada de ponta a ponta contra PostgreSQL real** (banco descartável, container
+  efêmero na `artificio_net`; `accounts-api` não foi tocado): raiz com `root_id = id` e `depth=0`;
+  resposta herdando `root_id` com `depth=1`; replay devolvendo **o mesmo id** com `replayed:true`;
+  payload diferente na mesma chave → `409`; pai inexistente → `404`; `depth=5` → `depth_exceeded`;
+  corpo em branco → `body_empty`; link `http://` → `INVALID_COMMENT_LINK`; contagens 2 comentários /
+  2 eventos / **0 recibos** (correto: `owner_user_id` nulo e o ator é o próprio autor).
+
+  E o que mais importava, porque era a correção do review da PR #247: **a chave de idempotência não
+  vaza quando o pedido é rejeitado** — consulta após um `parent_not_found` devolve vazio, o
+  `ROLLBACK` levou a linha junto.
+
+  **Bloqueio:** o smoke em produção segue incompleto. O assunto `beta/site/site.post/smoke-090`
+  existe, sem comentários — completa depois deste fix chegar em prod (PR → merge → promote → deploy).
+
+  ### O primeiro deploy derrubou o SSO por 5 horas — causa e prevenção
+
+  Run `31238673567` (2026-08-08, 04:11): `accounts-api` em restart loop, `502` em
+  `accounts.artificiorpg.com`, **CI verde**. `Cannot find package 'sanitize-html' imported from
+  /app/packages/content-editor/dist/sanitize.js`.
+
+  **Causa:** T2.5 fez `packages/comments` importar `@artificio/content-editor`, e o `Dockerfile` do
+  `accounts` filtra pacote a pacote no `pnpm install --prod --filter`. `content-editor` não estava na
+  lista porque é dependência de **segundo nível** — o app não o importa direto.
+
+  **O mecanismo não é o do E016/E017, e confundi-los custou horas.** Ali o `dist` não chegava na
+  imagem. Aqui o `dist` estava lá: o que sumiu foi o **store**. Medido dentro da imagem quebrada,
+  `packages/content-editor/node_modules/sanitize-html` **existia**, como symlink para
+  `.pnpm/sanitize-html@2.17.6`, cujo alvo tinha sido podado. Contraste que confirma:
+  `zod`/`kysely`/`express` (dos pacotes filtrados) sobreviveram.
+
+  **O gate de CI não podia ter pego, por três motivos independentes** — e o pior deles não é o
+  documentado: `check_dockerfile_workspace_deps.mjs` procurava `FROM ... AS production` **pelo
+  nome**, e o Dockerfile do `accounts` chama os stages de `deps`/`build`/`runtime`. O app era pulado
+  em silêncio; **nunca foi conferido, em nenhum PR**. Além disso o gate varria só imports diretos de
+  `src/` (não via transitividade) e cobrava só `COPY`, nunca `--filter` — limite já registrado em
+  `errors.md:236` e nunca fechado.
+
+  **Corrigido nas PRs #248** (`97551b5`, `e313b93`): o gate casa o **último `FROM`** (posição, não
+  nome), resolve fecho transitivo e cobra `--filter` mais os `test -d` das deps externas que o
+  `dist`/`dist-cjs` de cada pacote resolve. Cobertura foi de 3 para **6 imagens**. Testado contra os
+  defeitos reais, não só contra o verde: o incidente de hoje e o E017 reproduzido são **pegos**, e o
+  estado correto passa.
+
+  **A lição que fica**, e que o `deploy-runbook.md` passou a registrar: antes de deployar app com
+  `Dockerfile` de produção, cruzar os `@artificio/*` **alcançáveis** (incluindo transitivos) contra a
+  lista de `--filter`/`COPY`. Sem Docker local dá para provar na VM, rodando o `pnpm install --prod
+  --filter` real numa imagem limpa — foi assim que o defeito e a correção foram medidos antes do
+  segundo deploy.
 
 ### Bloco C — Ciclo de vida do comentário
 
