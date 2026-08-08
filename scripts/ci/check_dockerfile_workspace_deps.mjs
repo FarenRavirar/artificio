@@ -126,17 +126,23 @@ function transitiveClosure(direct) {
 }
 
 /**
- * Dependências externas que o pacote resolve **do próprio `dist`** em runtime.
+ * Casa um caminho no corpo do Dockerfile respeitando **fronteira de token**.
  *
- * Lê o `dist` compilado, não o `package.json`: o manifesto lista tudo que o
- * pacote declara, inclusive o que só o código de UI ou de teste usa. `react` é o
- * caso — `@artificio/auth` e `content-editor` o declaram, mas o caminho
- * server-side do `accounts` nunca carrega módulo React, e cobrar `react` daria
- * falso-positivo em toda imagem de backend.
+ * `String.includes` cru aceita prefixo: `node_modules/markdown-it-anchor`
+ * satisfaria a checagem de `node_modules/markdown-it`, e o guard passaria verde
+ * cobrindo a dependência errada. `markdown-it` está entre as deps guardadas
+ * hoje, então o falso-negativo é alcançável, não teórico.
  *
- * Se o `dist` não existe (checkout sem build), devolve vazio em vez de falhar:
- * este gate cobra o Dockerfile, não a ordem dos passos de CI.
+ * O caractere seguinte precisa ser fim de string, espaço, quebra de linha, `/`
+ * ou `"` — nunca `[A-Za-z0-9._-]`, que continuaria o nome do pacote. O `\.` do
+ * escape importa: `ipaddr.js` tem ponto, e sem escapar o `.` casaria qualquer
+ * caractere.
  */
+function mentionsPath(body, path) {
+  const escaped = path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`${escaped}(?![A-Za-z0-9._-])`).test(body);
+}
+
 /** `dependencies` que o próprio app declara — resolvem pelo `node_modules` dele. */
 function appDependencies(app, part) {
   const file = join(ROOT, "apps", app, part === "." ? "." : part, "package.json");
@@ -145,23 +151,47 @@ function appDependencies(app, part) {
   return new Set(Object.keys(json.dependencies ?? {}));
 }
 
+/**
+ * Dependências externas que o pacote resolve **do próprio build** em runtime.
+ *
+ * Lê o código compilado, não o `package.json`: o manifesto lista tudo que o
+ * pacote declara, inclusive o que só a UI ou o teste usa. `react` é o caso —
+ * `auth` e `content-editor` o declaram, mas nenhum caminho server-side carrega
+ * módulo React, e cobrá-lo daria falso-positivo em toda imagem de backend.
+ *
+ * Varre `dist` **e** `dist-cjs`, e casa `from "x"` **e** `require("x")`: 8
+ * pacotes do repo emitem CJS, e `content-editor/dist-cjs` alcança `markdown-it`
+ * e `sanitize-html` só por `require()`. Uma versão anterior lia apenas `dist`
+ * com sintaxe ESM e não enxergava nenhuma dessas.
+ *
+ * Se o build não existe (checkout sem `pnpm build`), devolve vazio em vez de
+ * falhar: este gate cobra o Dockerfile, não a ordem dos passos de CI.
+ */
 function externalRuntimeDeps(pkg) {
-  const distDir = join(ROOT, "packages", pkg, "dist");
-  if (!existsSync(distDir)) return new Set();
-
   const deps = new Set();
-  for (const file of walk(distDir, [], false)) {
-    const source = readFileSync(file, "utf8");
-    for (const m of source.matchAll(/\bfrom\s+["']([^."'][^"']*)["']/g)) {
-      const spec = m[1];
-      if (spec.startsWith("node:") || spec.startsWith("@artificio/")) continue;
-      // `sanitize-html`, mas também `@scope/pkg` — o subpath depois disso não
-      // importa, o que se instala é o pacote.
-      const name = spec.startsWith("@") ? spec.split("/").slice(0, 2).join("/") : spec.split("/")[0];
-      if (UI_ONLY_DEPS.has(name)) continue;
-      deps.add(name);
+
+  for (const dir of ["dist", "dist-cjs"]) {
+    const full = join(ROOT, "packages", pkg, dir);
+    if (!existsSync(full)) continue;
+
+    for (const file of walk(full, [], false)) {
+      const source = readFileSync(file, "utf8");
+      const specs = [
+        ...[...source.matchAll(/\bfrom\s+["']([^."'][^"']*)["']/g)].map((m) => m[1]),
+        ...[...source.matchAll(/\brequire\(\s*["']([^."'][^"']*)["']\s*\)/g)].map((m) => m[1]),
+      ];
+
+      for (const spec of specs) {
+        if (spec.startsWith("node:") || spec.startsWith("@artificio/")) continue;
+        // `sanitize-html`, mas também `@scope/pkg` — o subpath depois disso não
+        // importa, o que se instala é o pacote.
+        const name = spec.startsWith("@") ? spec.split("/").slice(0, 2).join("/") : spec.split("/")[0];
+        if (UI_ONLY_DEPS.has(name)) continue;
+        deps.add(name);
+      }
     }
   }
+
   return deps;
 }
 
@@ -181,12 +211,23 @@ for (const app of readdirSync(join(ROOT, "apps"))) {
     // — a imagem final não tem Node e nunca faz `import`.
     if (/^FROM\s+nginx/i.test(stage.from)) continue;
 
+    const label = `apps/${app}${part === "." ? "" : `/${part}`}`;
     const srcDir = join(ROOT, "apps", app, part, "src");
+
+    // Diretório ausente e diretório vazio de imports são coisas diferentes, e
+    // tratá-los igual é como o `accounts` ficou fora do gate por meses: sai
+    // calado e ninguém percebe. Um app com Dockerfile mas sem `src/` no lugar
+    // esperado precisa falhar, para que a divergência apareça no PR.
+    if (!existsSync(srcDir)) {
+      failures.push(`${label}: tem Dockerfile mas não tem ${label}/src — o gate não consegue levantar os imports; ajuste o layout ou o gate`);
+      continue;
+    }
+
     const direct = new Set();
     for (const file of walk(srcDir)) {
       for (const m of readFileSync(file, "utf8").matchAll(IMPORT_RE)) direct.add(m[1]);
     }
-    if (direct.size === 0) continue;
+    if (direct.size === 0) continue; // fonte real sem nenhum `@artificio/*` — nada a cobrar
 
     // Só pacotes que existem em `packages/`: o resto é import interno do app
     // (alias de tsconfig), não dependency workspace.
@@ -194,7 +235,6 @@ for (const app of readdirSync(join(ROOT, "apps"))) {
       [...transitiveClosure(direct)].filter((p) => existsSync(join(ROOT, "packages", p))),
     );
 
-    const label = `apps/${app}${part === "." ? "" : `/${part}`}`;
     checked.push(`${label} (${imported.size} pacotes)`);
 
     // `pnpm install --prod --filter` PODA o store `.pnpm`: sobrevive só o que os
@@ -210,15 +250,27 @@ for (const app of readdirSync(join(ROOT, "apps"))) {
     // `site` também usam `--filter`, mas no `turbo run build` várias linhas
     // abaixo. Casar contra o corpo todo confundia os dois comandos e fazia o gate
     // tratar install completo como install podado.
-    const installLines = stage.body.split("\n").filter((l) => /pnpm install/.test(l));
+    // Junta continuação de linha (`\` no fim) ANTES de separar: `glossario`
+    // quebra um único `pnpm install` em três linhas, e recortar por `\n` cru
+    // deixaria os `--filter` das linhas seguintes de fora — o gate acusaria
+    // pacote não-filtrado que na verdade está lá.
+    const installLines = stage.body
+      .replace(/\\\r?\n\s*/g, " ")
+      .split("\n")
+      .filter((l) => /pnpm install/.test(l));
     const installsFullWorkspace = installLines.some(
       (l) => !/--prod/.test(l) && !/--filter/.test(l),
     );
     if (installsFullWorkspace) continue;
 
     const prunesStore = installLines.some((l) => /--prod/.test(l) && /--filter/.test(l));
+    // Extrai de `installLines`, não de `stage.body`: `--filter` também aparece
+    // em `turbo run build`, e contar aquele como se fosse install faria o gate
+    // dar por instalado um pacote que só foi compilado.
     const filtered = new Set(
-      [...stage.body.matchAll(/--filter\s+@artificio\/([a-z0-9-]+)/g)].map((m) => m[1]),
+      installLines.flatMap((l) =>
+        [...l.matchAll(/--filter\s+@artificio\/([a-z0-9-]+)/g)].map((m) => m[1]),
+      ),
     );
 
     const appDeps = appDependencies(app, part);
@@ -237,9 +289,13 @@ for (const app of readdirSync(join(ROOT, "apps"))) {
       // `COPY` e deixava de cobrar o `dist`, o que reabria o E017 exato (medido:
       // remover `COPY packages/catalog-matching/dist` de downloads passava verde).
       if (!copiesAllPackages) {
-        if (!stage.body.includes(`packages/${pkg}/dist`)) {
+        if (!mentionsPath(stage.body, `packages/${pkg}/dist`)) {
           failures.push(`${label}: importa @artificio/${pkg} mas o stage final não copia packages/${pkg}/dist`);
-        } else if (needsCjsDir(pkg) && !stage.body.includes(`packages/${pkg}/dist-cjs`)) {
+        }
+        // `if` próprio, não `else if`: um Dockerfile pode copiar `dist` e
+        // esquecer `dist-cjs`, e encadear escondia o segundo defeito atrás do
+        // primeiro. São dois artefatos distintos, cada um com seu modo de falha.
+        if (needsCjsDir(pkg) && !mentionsPath(stage.body, `packages/${pkg}/dist-cjs`)) {
           failures.push(`${label}: @artificio/${pkg} resolve require para dist-cjs mas o stage final não copia packages/${pkg}/dist-cjs`);
         }
       }
@@ -257,7 +313,7 @@ for (const app of readdirSync(join(ROOT, "apps"))) {
       // `jsonwebtoken` cairiam como falso-positivo em todo backend.
       for (const dep of [...externalRuntimeDeps(pkg)].sort()) {
         if (appDeps.has(dep)) continue;
-        if (!stage.body.includes(`node_modules/${dep}`)) {
+        if (!mentionsPath(stage.body, `node_modules/${dep}`)) {
           failures.push(`${label}: @artificio/${pkg} importa "${dep}" do dist mas o stage final não valida node_modules/${dep} (o store .pnpm é podado)`);
         }
       }
