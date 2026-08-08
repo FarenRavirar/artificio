@@ -43,6 +43,11 @@ COPY patches ./patches
 # como dep direta, entao a resolucao ascendente do Node acha por acaso — remover
 # essas libs do package.json do app derrubaria o container com o CI verde.
 # Filtrar explicitamente troca a coincidencia por garantia (padrao E016/E017).
+# `catalog-matching` e `changelog` entraram em 2026-08-08, quando o gate passou a
+# resolver dependencia TRANSITIVA e a cobrar `--filter`. Nao quebravam: os dois
+# tem `dependencies: {}`, entao nao ha nada no `.pnpm` para podar. Entram porque
+# o dia em que qualquer um deles ganhar uma dep externa, o container cai em
+# producao com o CI verde — e `catalog-matching` e justamente o pacote do E017.
 RUN pnpm install --prod --filter @artificio/downloads-backend --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/media --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/email --frozen-lockfile --ignore-scripts \
@@ -51,8 +56,14 @@ RUN pnpm install --prod --filter @artificio/downloads-backend --frozen-lockfile 
   && pnpm install --prod --filter @artificio/auth --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/config --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/catalog-client --frozen-lockfile --ignore-scripts \
+  && pnpm install --prod --filter @artificio/catalog-matching --frozen-lockfile --ignore-scripts \
+  && pnpm install --prod --filter @artificio/changelog --frozen-lockfile --ignore-scripts \
   && test -d packages/media/node_modules/cloudinary \
+  && test -d packages/media/node_modules/ipaddr.js \
   && test -d packages/content-editor/node_modules/sanitize-html \
+  && test -d packages/content-editor/node_modules/markdown-it \
+  && test -d packages/content-editor/node_modules/dompurify \
+  && test -d packages/email/node_modules/resend \
   && test -d packages/auth/node_modules/jsonwebtoken \
   && test -d packages/config/node_modules/zod \
   && test -d packages/catalog-client/node_modules/zod \
