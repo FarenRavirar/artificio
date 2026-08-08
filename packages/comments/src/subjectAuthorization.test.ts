@@ -60,8 +60,20 @@ describe('canonicalPathSchema', () => {
 
 describe('subjectRefSchema', () => {
   it('aceita subject_type namespaced', () => {
-    expect(subjectRefSchema.safeParse({ subjectType: 'material', subjectId: 'abc' }).success).toBe(true);
+    expect(subjectRefSchema.safeParse({ subjectType: 'downloads.material', subjectId: 'abc' }).success).toBe(true);
     expect(subjectRefSchema.safeParse({ subjectType: 'blog.post', subjectId: '42' }).success).toBe(true);
+    expect(subjectRefSchema.safeParse({ subjectType: 'a.b.c', subjectId: '1' }).success).toBe(true);
+  });
+
+  it('recusa subject_type SEM ponto — o banco também recusa', () => {
+    // `migration_006:118` tem `CHECK (subject_type LIKE '%.%')` em
+    // `community_comment_subject`. Enquanto este schema aceitava `material`, o
+    // valor passava na validação e morria como erro de constraint, sem motivo
+    // legível para o consumidor. Achado em 2026-08-07 (T2.6c), rodando o script
+    // de medição contra PostgreSQL real.
+    for (const subjectType of ['material', 'post', 'table']) {
+      expect(subjectRefSchema.safeParse({ subjectType, subjectId: 'x' }).success).toBe(false);
+    }
   });
 
   it('recusa subject_type com maiúscula, espaço ou ponto solto', () => {
@@ -71,19 +83,19 @@ describe('subjectRefSchema', () => {
   });
 
   it('recusa acima dos limites de 64 e 255', () => {
-    expect(subjectRefSchema.safeParse({ subjectType: 'a'.repeat(65), subjectId: 'x' }).success).toBe(false);
-    expect(subjectRefSchema.safeParse({ subjectType: 'a', subjectId: 'x'.repeat(256) }).success).toBe(false);
+    expect(subjectRefSchema.safeParse({ subjectType: 'a.'.repeat(33), subjectId: 'x' }).success).toBe(false);
+    expect(subjectRefSchema.safeParse({ subjectType: 'a.b', subjectId: 'x'.repeat(256) }).success).toBe(false);
   });
 
   it('não aceita realm nem source_app — derivam da credencial', () => {
     const parsed = subjectRefSchema.parse({
-      subjectType: 'material',
+      subjectType: 'downloads.material',
       subjectId: 'abc',
       realm: 'prod',
       sourceApp: 'downloads',
     } as never);
 
-    expect(parsed).toEqual({ subjectType: 'material', subjectId: 'abc' });
+    expect(parsed).toEqual({ subjectType: 'downloads.material', subjectId: 'abc' });
     expect(parsed).not.toHaveProperty('realm');
     expect(parsed).not.toHaveProperty('sourceApp');
   });

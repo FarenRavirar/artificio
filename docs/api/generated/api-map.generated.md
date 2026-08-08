@@ -19,13 +19,13 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 
 | App | Total | HIGH | MEDIUM | LOW | Methods |
 |-----|-------|------|--------|-----|---------|
-| accounts | 18 | 18 | 0 | 0 | DELETE, GET, PATCH, POST, PUT |
+| accounts | 20 | 20 | 0 | 0 | DELETE, GET, PATCH, POST, PUT |
 | downloads | 106 | 106 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | glossario | 66 | 66 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | links | 23 | 23 | 0 | 0 | DELETE, GET, PATCH, POST, USE |
 | mesas | 229 | 229 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | site | 59 | 59 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| **Total** | **501** | 501 | 0 | 0 | |
+| **Total** | **503** | 503 | 0 | 0 | |
 
 ## accounts
 
@@ -47,7 +47,9 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 483 |
 | GET | `/health` | ✅ high | `apps/accounts/src/app.ts` | 227 |
 | GET | `/internal/users/:id` | ✅ high | `apps/accounts/src/app.ts` | 463 |
-| GET | `/internal/v1/comments` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 116 |
+| GET | `/internal/v1/comments` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 117 |
+| POST | `/internal/v1/comments` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 128 |
+| POST | `/internal/v1/comments/:id/replies` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 136 |
 | GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 483 |
 
 ## downloads

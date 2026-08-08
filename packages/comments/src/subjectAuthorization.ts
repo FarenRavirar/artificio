@@ -126,13 +126,23 @@ export type CommentSubjectAuthorization = z.infer<
  * a porta para uma credencial de beta escrever em produção.
  */
 export const subjectRefSchema = z.object({
+  // O ponto é **obrigatório**, não opcional: `migration_006` linha 118 tem
+  // `CHECK (subject_type LIKE '%.%')` em `community_comment_subject`. A versão
+  // anterior deste regex tornava o namespace opcional (`(?:\.…)*`), então `post`
+  // passava aqui e era recusado pelo banco — erro de constraint sem motivo
+  // legível, num campo que o consumidor não tem como adivinhar (medido em
+  // 2026-08-07, T2.6c).
+  //
+  // Ao menos dois segmentos, cada um começando por letra: `site.post`,
+  // `downloads.material`, `mesas.table`. O primeiro segmento é o app, o resto
+  // é o tipo dentro dele.
   subjectType: z
     .string()
     .min(1)
     .max(SUBJECT_TYPE_MAX_LENGTH)
     .regex(
-      /^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*$/,
-      'subject_type é namespaced em minúsculas, separado por ponto',
+      /^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/,
+      'subject_type é namespaced em minúsculas, separado por ponto (ex.: site.post)',
     ),
   subjectId: z.string().min(1).max(SUBJECT_ID_MAX_LENGTH),
 });

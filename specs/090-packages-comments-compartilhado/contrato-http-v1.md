@@ -75,8 +75,20 @@ não concede papel de moderação.
 
 Escopo `comment.read`. Devolve a árvore do assunto.
 
-**Query:** `subject_type` (≤64), `subject_id` (≤255), `sort` (`best`\|`top`\|`new`\|`old`,
-padrão `best`), `cursor` (opaco, opcional). `realm`/`source_app` vêm da credencial.
+**Query:** `subject_type` (namespaced, ≤64 — ver abaixo), `subject_id` (≤255), `sort`
+(`best`\|`top`\|`new`\|`old`, padrão `best`), `cursor` (opaco, opcional). `realm`/`source_app` vêm
+da credencial.
+
+> **`subject_type` é namespaced e o ponto é obrigatório.** Formato:
+> `^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$` — pelo menos dois segmentos em minúsculas separados por
+> ponto, o primeiro sendo o app. Válidos: `site.post`, `downloads.material`, `mesas.table`.
+> Inválidos: `post`, `Material`, `blog.`, `blog..post`.
+>
+> Não é convenção: `migration_006` linha 118 tem `CHECK (subject_type LIKE '%.%')` em
+> `community_comment_subject`. Enviar `post` produzia erro de constraint sem motivo legível, porque
+> nem este contrato nem `subjectRefSchema` exigiam o ponto (regex com `*` no lugar de `+`). Os dois
+> foram corrigidos em 2026-08-07, depois de o script de medição pegar a divergência contra
+> PostgreSQL real (T2.6c).
 
 **Resposta 200:**
 

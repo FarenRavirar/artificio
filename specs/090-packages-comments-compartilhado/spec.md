@@ -156,8 +156,11 @@ coisas diferentes em cada módulo, e não haveria como autorizar uma tela centra
     por `MarkdownContent`/`renderMarkdown`; HTML bruto permanece desabilitado e a saída passa por
     DOMPurify. Criação e edição validam entrada original e resultado canônico em até 10.000
     caracteres, rejeitam excesso sem truncar e exigem conteúdo textual visível por
-    `markdownToPlainText`. O HTML legado continua em campo próprio, sanitizado uma vez na entrada
-    com política/versionamento e protegido de novo na saída sem regravar o banco.
+    `markdownToPlainText`. **O limite conta pontos de código, não unidades UTF-16** — é o que
+    `LENGTH()` do PostgreSQL conta, e divergir recusaria corpo que o banco aceita (5.001 emoji
+    davam 10.002 em `String.length`). O HTML legado continua em campo próprio, sanitizado uma vez
+    na entrada com política/versionamento e protegido de novo na saída sem regravar o banco.
+
 10a. **Links usam uma política única em `@artificio/content-editor`.** Links reconhecidos são
      HTTPS-only; ausência de esquema canonicaliza para `https://`; `http:` e qualquer esquema
      explícito diferente são recusados com `INVALID_COMMENT_LINK`. Host exato
@@ -169,6 +172,16 @@ coisas diferentes em cada módulo, e não haveria como autorizar uma tela centra
      não há `<img>`, fetch automático, upload, Cloudinary, proxy, preview ou busca server-side.
      Sintaxe Markdown incompleta que o CommonMark trata como texto continua texto. Não há
      `@menções`: `@texto` não resolve conta nem cria destinatário.
+10c. **A sanitização é idempotente: `f(f(x)) = f(x)`.** Não é elegância — consumidores sanitizam
+     na escrita **e** de novo na leitura (`apps/downloads/backend/src/routes/comments.ts` persiste
+     na linha 47 e re-sanitiza na 65), então uma função não idempotente faz o conteúdo armazenado
+     mudar ou desaparecer a cada leitura, sem erro nenhum. Duas propriedades sustentam isso e
+     valem como invariante, não como detalhe de implementação: **entidade HTML digitada pelo
+     usuário nunca vira markup** (`&lt;b&gt;` permanece `&lt;b&gt;`, jamais `<b>`), e **caractere de
+     controle interno do sanitizador nunca é aceito da entrada** — se o pré-passo usa marcador
+     reservado, ele é descartado antes de qualquer processamento, senão o próprio marcador vira
+     vetor de injeção. Ambas foram violadas e corrigidas na PR #246; o histórico está em `tasks.md`
+     T2.5.
 11. Comentário exibe o papel do autor quando aplicável — autor do conteúdo, moderador, admin —, sem rotular usuário comum. O papel global vem do `JOIN` com `accounts.users`; **"autor do conteúdo" vem do backend do domínio ou de capability assinada, nunca do payload público** — senão qualquer um se declara dono.
 12. **Autor pode editar e retirar o próprio comentário.** Edição não tem prazo e altera apenas
     `body_markdown`; cria versão, marca `edited_at`, preserva votos/ranking e não notifica.
@@ -511,7 +524,12 @@ padrão. Cursor opaco assinado fixa assunto, sort, `snapshot_revision`, ramo, ch
 limite e validade de 30 minutos; cursor de outra consulta retorna 400. Criação/resposta e demais
 escritas não idempotentes exigem `Idempotency-Key`; voto usa estado absoluto e retry idêntico é
 no-op, sem chave. Repetição com mesmo payload devolve a resposta original; payload diferente
-retorna 409; retenção da chave é 24 horas.
+retorna 409; retenção da chave é 24 horas. **O armazenamento é `community_idempotency_key`**
+(`migration_008`, criada na PR #246): a unicidade de `(realm, source_app, operation,
+idempotency_key)` **é** o mecanismo — o handler insere primeiro e desempata pelo `ON CONFLICT`,
+nunca consulta-antes-insere, que é o check-before-transaction do `downloads` que esta spec manda
+não replicar. Guarda hash SHA-256 do payload, não o corpo: reter `body_markdown` por 24h ampliaria
+a superfície de conteúdo hostil sem ganho, porque a comparação só distingue igual de diferente.
 
 Códigos: 400 contrato/cursor, 401 sessão ou serviço ausente, 403 escopo/papel, 404 alvo ou recibo
 inexistente (uniforme), 409 idempotência ou estado concorrente, 422 thread/corpo, 429 limite e

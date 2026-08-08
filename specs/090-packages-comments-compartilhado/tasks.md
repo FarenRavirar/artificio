@@ -105,7 +105,9 @@ papel errado em produção tira acesso de gente.
 >
 > Isto **não** significa "deploy proibido": `AGENTS.md` §"Não lançado ≠ não deve
 > subir". Significa que o primeiro exercício real é em produção, com o SSO de
-> todos os apps dependendo dele — daí a ordem obrigatória da §"Como destravar".
+> todos os apps dependendo dele — daí a ordem obrigatória de desbloqueio, hoje
+> registrada no bloco de T2.3 (a §"Como destravar" que esta nota citava nunca
+> existiu neste arquivo; referência corrigida em 2026-08-07).
 - [x] T1.10 — **Remoção do papel global local dos apps.** Reescrito pela decisão de T1.5: sem migração e sem fallback (T1.6), some a exigência de "período observável de leitura dupla" e de "usuários conflitantes resolvidos" — não há conflito a resolver. Permanecem: teste **por capacidade** (não por nome de papel), provando que quem podia moderar continua podendo; refresh reidratado do banco (T1.2); rollback ensaiado. Papel de **domínio** (`download_creator.role` na parte que não é global, mestre, autor) **fica onde está** — só o global sai. · feito quando: as três cumpridas, e nenhum app decide papel global por conta própria.
 
 **Fase 1 fechada em 2026-08-04 pelo deploy de produção** (run `30918952648`, sha `c519f76`).
@@ -642,7 +644,7 @@ saudável e o **único** alarme de schema defasado no SSO é
 > ownership por sessão e `404` uniforme já fixados, para a Fase 3 não divergir. Não é escopo novo;
 > é a Fase 3 não podendo inventar formato diferente depois.
 
-- [ ] T2.3 — **Leitura em árvore com cursor versionado por revisão** (requisito 6; decisões 3, 8). **Código merged na PR #245; falta o smoke com banco real.** No volume normal a leitura devolve a árvore inteira, sem limite de respostas irmãs; hard cap defensivo de **1.000 comentários ou 2 MiB**, o que ocorrer primeiro, e só então raízes/ramos restantes viram `more`, **nunca filho órfão**. A primeira leitura fixa `snapshot_revision`; o cursor é opaco e assinado, carregando assunto, sort, revisão, sort-key, ramo, limite e expiração de **30 minutos**. Expansões usam a mesma revisão, sem duplicar nem perder item — score e `my_vote` podem vir do estado atual, mas a **posição fica congelada**. Sem transação aberta entre requests, sem cache de paginação, sem cron. Supersede a versão anterior, que paginava lista plana por `(created_at, id)` (revogado pelo grilling). · feito quando: árvore de 1.500 comentários devolve `more` sem órfão; expansão na mesma revisão não duplica nem perde item; e cursor expirado falha explicitamente em vez de devolver posição errada.
+- [ ] T2.3 — **Leitura em árvore com cursor versionado por revisão** (requisito 6; decisões 3, 8). **Código merged na PR #245; a rota ainda não foi deployada e o smoke com banco real não rodou.** No volume normal a leitura devolve a árvore inteira, sem limite de respostas irmãs; hard cap defensivo de **1.000 comentários ou 2 MiB**, o que ocorrer primeiro, e só então raízes/ramos restantes viram `more`, **nunca filho órfão**. A primeira leitura fixa `snapshot_revision`; o cursor é opaco e assinado, carregando assunto, sort, revisão, sort-key, ramo, limite e expiração de **30 minutos**. Expansões usam a mesma revisão, sem duplicar nem perder item — score e `my_vote` podem vir do estado atual, mas a **posição fica congelada**. Sem transação aberta entre requests, sem cache de paginação, sem cron. Supersede a versão anterior, que paginava lista plana por `(created_at, id)` (revogado pelo grilling). · feito quando: árvore de 1.500 comentários devolve `more` sem órfão; expansão na mesma revisão não duplica nem perde item; e cursor expirado falha explicitamente em vez de devolver posição errada.
 
   **Entregue e verde** (`accounts` 148/148, `packages/comments` 69/69, repo 41/41 teste e 25/25
   lint/build, `verify:api` `breaking=0`): `treeCursor.ts` (HMAC-SHA256, TTL com relógio injetável,
@@ -680,11 +682,63 @@ saudável e o **único** alarme de schema defasado no SSO é
 
   **Bloqueio — smoke com banco real.** A CTE não tem teste contra PostgreSQL (busca negativa por
   `pg-mem`/`testcontainers`: sem infra no monorepo). Não provado: ordem do `sort_path`, join da faixa
-  de score, desempate. Medição de 2026-08-07: prod tem migrations 001–007 e as 18 tabelas
-  `community_*`, mas `community_comment` e `community_comment_subject` estão **vazias**, e nenhuma das
-  4 credenciais ativas tem `comment.read`. Como a escrita é T2.6c (aberta), semear exigiria `INSERT`
-  em produção. **Decisão do mantenedor em 2026-08-07: o smoke espera T2.6c** — semear por SQL provaria
-  a query, não o caminho.
+  de score, desempate. **Decisão do mantenedor em 2026-08-07: o smoke espera T2.6c** — semear por SQL
+  provaria a query, não o caminho.
+
+  **Estado medido na VM em 2026-08-07** (read-only; coordenadas para não redescobrir: container
+  `accounts-db`, banco `artificio_auth` — não `accounts`, e o container **não** tem sufixo `-prod`):
+
+  1. Schema pronto: 18 tabelas `community_*` e a função `comment_wilson_reddit_80_v1` existem.
+     `schema_migrations` registra **001–007** aplicadas.
+  2. `community_comment`, `community_comment_subject` e `community_comment_score_version` **vazias**
+     (0 linhas) — é o que torna a 009 uma substituição segura, sem backfill.
+  3. 4 credenciais ativas — `downloads` (`users.read`, `secrets.read`) e `mesas` (`secrets.read`),
+     beta e prod — e **nenhuma tem `comment.read`**. O guard da rota barra qualquer chamador hoje.
+  4. **Duas migrations pendentes, ambas criadas nesta branch e nunca aplicadas:** `008`
+     (`community_idempotency_key` não existe no banco) e `009` (a função em prod ainda é a versão
+     **sem** `GREATEST`, então continua devolvendo o negativo descrito em T2.3b).
+  5. **A rota não está em produção.** `accounts-api` foi criado 17:16:42; o merge da PR #245 é
+     17:25:21 — 9 minutos depois. O `dist` do container tem `communityMigration.test.js` (T2.1) e
+     **não** tem `communityCommentRoutes` nem `communityCommentRead`. Não é build quebrado: é deploy
+     não disparado, exatamente a trava de `AGENTS.md` (promote move o ponteiro Git, nunca deploya).
+     Como `accounts` é PROD-only (D042), não há beta onde ensaiar — o primeiro smoke da rota vai
+     contra produção.
+
+  Desbloquear exige, nesta ordem: aplicar as migrations **008 e 009** (o deploy aplica as duas de
+  uma vez, não são passos separados); emitir credencial com `comment.read`; deployar `accounts` em
+  prod por `workflow_dispatch` manual; semear assunto e árvore; rodar o smoke. **Todos são escrita em
+  produção e exigem aprovação nominal do mantenedor, uma por ação.**
+
+  Como as migrations são aplicadas **pelo próprio deploy** (`apply_required_migrations.sh` roda antes
+  de subir o container), o passo 1 não é uma aprovação separada do passo 3 — é o mesmo comando. Na
+  prática restam **três** aprovações: deploy, seed e smoke.
+
+  O smoke só vale depois de T2.6c: sem rota de escrita, semear é `INSERT` direto, que prova a query e
+  não o caminho (decisão do mantenedor em 2026-08-07, opção C).
+
+  Dois pontos que a leitura da Fase 1 esclarece, e que evitam propor caminho que não existe:
+
+  - **Não há ambiente de ensaio.** `accounts` é PROD-only (D042): `deploy-manifest.json` fixa
+    `env_override: "prod"` e a build-matrix bloqueia `env=beta`. `accountsbeta.` **não existe** —
+    os módulos beta consomem o `accounts` de produção. Procurar onde ensaiar é gastar sessão com
+    algo decidido não existir (nota da Fase 1, `tasks.md:90-108`). Isso **não** proíbe o deploy
+    (`AGENTS.md` §"Não lançado ≠ não deve subir"); significa que o primeiro exercício real é em
+    produção, com o SSO de todos os apps dependendo dele.
+  - **O guard `MAX_AUTO_PENDING=5` não bloqueia.** O aviso da Fase 1 (`tasks.md:163`) valia quando
+    004/005 eram novas e havia 5 pendentes. Medido em 2026-08-07: `schema_migrations` registra
+    001–007 aplicadas, e ficam **duas pendentes** — `008` (idempotência) e `009` (clamp do Wilson,
+    T2.3b). 2 < 5: deploy normal aplica as duas sem ajuste de guard.
+  - **`realm='beta'` é o ambiente de ensaio que o schema criou.** Não há host de ensaio, mas
+    `spec.md` 5a e `plan.md` §Referência opaca põem `realm` em toda linha, índice e chave de
+    listagem justamente porque beta reusa o `accounts` de produção. Semear com `realm='beta'` fica
+    isolado do dado de produção **por construção**, não por cuidado do operador. Reduz o risco do
+    passo de seed: continua sendo escrita em prod (mesmo banco, mesma instância) e continua
+    exigindo aprovação nominal, mas não mistura com conteúdo público.
+  - **A escrita é backend-to-backend** (`spec.md` 6a, `plan.md` §Referência opaca): o frontend nunca
+    chama o `accounts.`. A allowlist CSRF tem cinco origens (`app.ts:87`) e **exclui `downloads` e
+    todos os betas** — escrita direta do navegador falharia hoje. Consequência para o smoke: o
+    exercício realista é backend do módulo chamando com credencial própria, não requisição de
+    navegador. É mais uma razão pela qual semear por SQL provaria a query, não o caminho.
 
   **Achados laterais da VM** (read-only): `/opt/artificio-beta/apps/accounts/.env.beta` é vestígio
   morto desde 2026-06-27, contém segredo, remoção é decisão do mantenedor; `SERVICE_SECRET` ainda está
@@ -698,8 +752,125 @@ saudável e o **único** alarme de schema defasado no SSO é
   grep de linha solta.**
 
 - [ ] T2.3b — **As quatro ordenações do produto** (decisões 7, 19). `Melhores` (padrão de abertura) usa o **limite inferior de Wilson unilateral com `z = 1.281551565545`** (80% de confiança), sem decaimento temporal, sob `algorithm_version = 'reddit-wilson-80-v1'`; `Mais votados` ordena por score líquido; `Recentes` por `created_at DESC`; `Mais antigos` por `created_at ASC`. A ordenação acontece **entre irmãos, nunca misturando níveis** da árvore. `created_at` e `id` formam o desempate estável. Tombstone mantém a posição estrutural mas não expõe corpo nem score. `Controversos`, `Random`, `Q&A`, `Live` e `Hot` **não entram**. Fórmula e vetores de referência entram em teste, **testando diretamente a função PostgreSQL** de T2.1c, não uma reimplementação em TypeScript. Algoritmo futuro cria nova versão e nova série de score; nunca reinterpreta histórico silenciosamente. · feito quando: os quatro sorts testados; vetores de Wilson batem contra a função SQL; e nenhuma ordenação mistura níveis da árvore.
+
+  **Vetores e ordenação cobertos; falta a prova sobre árvore real.**
+  `apps/accounts/src/communityWilson.test.ts` (novo, 28 casos) executa a **função
+  PostgreSQL**, não uma reimplementação: 11 vetores numéricos literais medidos em 2026-08-07,
+  `z = 1.281551565545` discriminado contra `1.96` (o valor que se copia por engano — daria `0.2065`
+  em vez de `0.3784`), monotonicidade, `IMMUTABLE` determinística, e os quatro sorts com as três
+  linhas de fixture escolhidas para **discordarem entre si** (`best=b,a,c`, `top=c,a,b`, `new=c,b,a`,
+  `old=a,b,c`) — um sort que caísse no critério errado devolveria ordem diferente. Também travados:
+  desempate `(created_at, id)` sob score empatado, e o `coalesce` que impede comentário **sem faixa
+  de score** de abrir a conversa (sem ele, `NULLS FIRST` do PostgreSQL põe o sem-voto acima do mais
+  bem avaliado). Todas as asserções validadas contra `accounts-db`; suíte `accounts` 148/148, lint
+  25/25, `verify:api` `breaking=0`.
+
+  O arquivo **pula** sem `COMMUNITY_TEST_DATABASE_URL` (28 skipped) em vez de falhar: o monorepo não
+  provisiona PostgreSQL no CI, e falhar deixaria `pnpm test` vermelho em toda máquina sem banco
+  local. Pular declara a ausência; nunca finge cobertura.
+
+  **Lacuna de processo, não da task — e T8.1 já a nomeia.** `plan.md` §Validação item 1 exige
+  "função Wilson PostgreSQL" entre os testes do `accounts.`, e item 6 manda rodar
+  `rtk pnpm run test`. Com o skip, item 6 roda **sem** cumprir item 1 — verde sem executar a função.
+  T8.1 é ainda mais explícita: exige Wilson PostgreSQL "**dentro do script efetivamente
+  executado**", com "cada família aparecendo na saída". Um teste que pula não aparece.
+  Hoje as asserções foram conferidas à mão contra `accounts-db`; nada garante que continuem sendo.
+  Fechar exige PostgreSQL no CI — escopo novo, **decisão do mantenedor**, e pré-requisito de T8.1,
+  não só desta task.
+
+  **Como conferir sem CI, e o que não funciona** (medido em 2026-08-07, para o próximo agente não
+  repetir a busca): `accounts-db` **não expõe porta** (`docker port accounts-db` devolve vazio), e
+  abrir túnel SSH local (`ssh -f -N -L`) é **bloqueado pelo classificador** do harness. Sobra
+  executar SQL direto — read-only, sempre permitido:
+  `ssh faren "docker exec accounts-db psql -U admin -d artificio_auth -tAc \"<query>\""`.
+  Foi assim que cada asserção de `communityWilson.test.ts` foi validada. Não substitui rodar a suíte;
+  serve para conferir que os valores esperados continuam sendo os reais.
+
+  **Ainda descoberto:** "nenhuma ordenação mistura níveis" é provado só sobre linhas literais, não
+  sobre árvore montada — depende da query completa com dados semeados, mesmo bloqueio de T2.3.
+
+  **Não repetir os testes de `assembleTree` por sort.** Medição: `sort` entra em `AssemblyInput`
+  (`treeAssembly.ts:61`) e **nunca é lido no corpo** — as linhas chegam já ordenadas do banco
+  (`treeAssembly.ts:36`). Os 18 casos com `sort: 'best'` não são lacuna: rodar os mesmos com
+  `top`/`new`/`old` exercitaria um parâmetro morto e compraria cobertura falsa. Os quatro sorts vivem
+  em `siblingOrder` (`communityCommentRead.ts:164`), que é SQL.
+
+  **Bug do Wilson negativo — corrigido em `migration_009_wilson_clamp.sql`.**
+  `comment_wilson_reddit_80_v1(0, d)` devolvia ~`-1e-18` em vez de `0` para qualquer `d > 0`: com
+  `p̂ = 0` o numerador é `z²/(2n) - z·√(z²/(4n²))`, que simplifica para zero, mas `SQRT` em `numeric`
+  arredonda e a subtração de dois valores quase iguais perde os dígitos (cancelamento catastrófico).
+
+  Não era cosmético: o resíduo **encolhe** conforme `n` cresce, então a ordem entre comentários sem
+  upvote saía **invertida** — `(0,1)` = `-2.9e-18` ficava **abaixo** de `(0,1000)` = `-7.8e-21`, ou
+  seja, um downvote ranqueava pior que mil no sort `best`, o padrão de abertura da conversa
+  (`spec.md` 8c). Depois da 009 os dois devolvem `0` e empatam, e quem os separa passa a ser o
+  desempate determinístico `(created_at, id)`.
+
+  **Substitui a função em vez de criar `_v2`** porque `algorithm_version` versiona mudança de
+  algoritmo (decisão 7), e isto é a mesma fórmula devolvendo o valor que sempre deveria ter
+  devolvido. Seguro porque `community_comment_score_version` tem **zero linhas** (medido): não há
+  `best_score` gravado para reinterpretar. `CREATE OR REPLACE` não recalcula coluna `STORED`
+  existente — com dado gravado, a migration precisaria de backfill e a decisão seria outra.
+
+  Verificado antes de escrever: `GREATEST(..., 0)` não altera nenhum caso válido — `(3,1)` continua
+  `0.4325414503689864693780673158507718692420314295228099`. Header validado pelo `parse_header` real
+  (`CLASS=online-safe`, `HEADER OK`); expressão nova executada em `accounts-db`, os quatro casos
+  `(0,1)`, `(0,5)`, `(0,100)`, `(0,1000)` devolvem `0` exato.
+
+  **Não é vazamento de contrato:** `best_score` não é campo público — `contrato-http-v1.md:103` lista
+  `upvotes`, `downvotes`, `score` e não o inclui. O efeito era só de ordenação.
+
+  **Por que a medição existente não pegou:** `phase-2-measurement.sql:115` exige `best_score = 0` mas
+  só insere `(0, 0)` — o caso `(0, d > 0)` nunca foi exercitado. Ela nasceu para provar o valor
+  inicial, não a faixa.
 - [ ] T2.4 — **Integridade de thread validada na transação** (requisito 8; decisões 3, 23). Reformulado em dois pontos que o grilling revogou: a profundidade máxima é **`depth<=4`**, não `depth<=2`; e **resposta a comentário legado é permitida**, não recusada — o registro importado continua imutável, sem voto e marcado como antigo/autoria não verificada, mas **pode ser pai** de comentário novo de conta autenticada (decisão 23: antigo descreve proveniência, não congela a conversa). O pai precisa existir, pertencer ao **mesmo `realm`, `source_app` e assunto**, aceitar respostas e produzir `depth<=4`. `root_id` é derivado na escrita, nunca aceito do cliente. Rejeitar na escrita, não corrigir depois. · feito quando: resposta cross-subject, cross-realm ou além de `depth=4` é recusada — inclusive sob concorrência — e resposta a legado é **aceita** com `depth` correto.
-- [ ] T2.5 — **Markdown pelo pipeline compartilhado existente; DOMPurify só no legado** (requisito 10; decisões 24, 25, 30). **Validação de corpo entregue na PR #246 (`c04453e`); falta o legado e a rota que a consome.** A Fase 2 **não cria parser, sanitizador nem renderizador paralelo**: a escrita passa por `sanitizeUserMarkdown` de `@artificio/content-editor/sanitize` e persiste **Markdown canônico** — a API devolve Markdown, **não HTML montado** —, e consumidores renderizam só por `MarkdownContent`/`renderMarkdown`, cujo `markdown-it` roda com `html: false` e cuja saída passa por DOMPurify. Limite de **10.000 caracteres** validado na entrada original **e** no canônico (decisão 25); excesso rejeita a operação inteira, **nunca trunca nem persiste versão parcial**. Depois da canonicalização, `markdownToPlainText` precisa dar **conteúdo não vazio** (decisão 30) — espaços, HTML removido, separador isolado ou marcador sem texto são rejeitados; emoji, código, citação e link com rótulo são aceitos. As três regras valem para criação e edição. O legado do `site` tem `content_html`, sanitizado **uma vez na entrada** com política e versão registradas, e a saída ganha defesa adicional **sem regravar o banco** — nunca ressanitizar continuamente. Supersede a versão anterior, que mandava texto puro (revogado pela decisão 24). · feito quando: testes de XSS cobrindo script, links, SVG/MathML, atributos e o HTML legado; entrada de 10.001 caracteres rejeitada antes do parsing; e comentário que sanitiza para vazio rejeitado.
+
+  **Regras entregues; falta a transação que as aplica.** `packages/comments/src/threadIntegrity.ts`
+  (`placeComment`) decide se o pai aceita a resposta e deriva `(parent_id, root_id, depth)`; testes
+  em `threadIntegrity.test.ts`, export em `index.ts`. `packages/comments` 117/117 (era 69), lint
+  25/25, build 25/25, `tsc` limpo, `verify:api` `breaking=0`.
+
+  **Como o handler de T2.6c consome:** buscar o pai dentro da transação
+  (`SELECT ... FOR SHARE` em `community_comment`, filtrando pelos quatro campos de escopo), passar o
+  resultado — ou `null`, para raiz — a `placeComment`, e mapear a rejeição para o contrato:
+  `parent_not_found` → `404`, `depth_exceeded` e `parent_not_accepting_replies` → `422`
+  (`contrato-http-v1.md` §3). Em `ok: true` com `depth = 0`, `root_id` volta **nulo** de propósito: a
+  raiz é o próprio `id`, que só existe depois do `INSERT`, e `community_comment_root_shape_check`
+  exige `root_id = id` — quem fecha isso é o handler, na mesma transação.
+
+  Cobertos: os quatro eixos de escopo (`realm`, `source_app`, `subject_type`, `subject_id`) como
+  `parent_not_found` — **nunca** um código distinto, porque "existe mas não é seu" confirma o
+  identificador para quem sonda entre realms; `depth<=4` com o teto revogado de `depth<=2` travado
+  por teste próprio; tombstone e `pending_review_hidden` recusando filho novo; **resposta a legado
+  aceita** (decisão 23), sem marca própria na função, já que não há regra diferente a aplicar; e
+  `root_id` herdado do **pai**, nunca `parent.id` — o erro fácil funciona no primeiro nível e cria
+  raízes falsas a partir do segundo.
+
+  Também travada a **ordem das checagens**: escopo antes de profundidade (senão `depth_exceeded`
+  revela que o id existe em outro realm e que a árvore dele está cheia) e estado antes de
+  profundidade (senão o usuário é mandado a responder mais acima, onde também falharia).
+
+  **A função não escreve nada, de propósito.** `contrato-http-v1.md` §3 exige os invariantes "na
+  mesma transação": validar antes de abri-la deixa janela para o pai ser removido entre a checagem e
+  o `INSERT`. A busca do pai (`SELECT ... FOR SHARE`) é do handler; a decisão é da função. É o que
+  permite testar as regras sem PostgreSQL.
+
+  **`placeComment` é a PRIMEIRA barreira, não redundância.** Corrige o que este bloco afirmava antes:
+  as FKs compostas `_parent_subject_fk`/`_root_subject_fk` são **DEFERRABLE INITIALLY DEFERRED**
+  (medido em 2026-08-07, T2.6c), então **não disparam no `INSERT`** — só no `COMMIT`. Cross-subject
+  não é impossível "por construção" no momento da escrita: sem a validação em TypeScript, a resposta
+  atravessaria a transação inteira (comentário, versão, evento, recibos) e só estouraria no commit,
+  como erro genérico, sem os `404`/`422` que o contrato exige. O `DEFERRED` existe para permitir o
+  ciclo comentário↔versão, não para afrouxar a checagem.
+
+  `community_comment_depth_check` (`depth BETWEEN 0 AND 4`) e `community_comment_root_shape_check`
+  **são** imediatos e continuam sendo a segunda barreira real.
+
+  **Bloqueio:** "inclusive sob concorrência" não está provado. Exige a transação real de T2.6c e
+  PostgreSQL — mesmo bloqueio de T2.3/T2.3b. A task não fecha antes disso.
+- [ ] T2.5 — **Markdown pelo pipeline compartilhado existente; DOMPurify só no legado** (requisitos 10, 10c; decisões 24, 25, 30). **Validação de corpo entregue na PR #246 (`c04453e`); falta o legado e a rota que a consome.** A Fase 2 **não cria parser, sanitizador nem renderizador paralelo**: a escrita passa por `sanitizeUserMarkdown` de `@artificio/content-editor/sanitize` e persiste **Markdown canônico** — a API devolve Markdown, **não HTML montado** —, e consumidores renderizam só por `MarkdownContent`/`renderMarkdown`, cujo `markdown-it` roda com `html: false` e cuja saída passa por DOMPurify. Limite de **10.000 caracteres** validado na entrada original **e** no canônico (decisão 25); excesso rejeita a operação inteira, **nunca trunca nem persiste versão parcial**. Depois da canonicalização, `markdownToPlainText` precisa dar **conteúdo não vazio** (decisão 30) — espaços, HTML removido, separador isolado ou marcador sem texto são rejeitados; emoji, código, citação e link com rótulo são aceitos. As três regras valem para criação e edição. O legado do `site` tem `content_html`, sanitizado **uma vez na entrada** com política e versão registradas, e a saída ganha defesa adicional **sem regravar o banco** — nunca ressanitizar continuamente. Supersede a versão anterior, que mandava texto puro (revogado pela decisão 24). · feito quando: testes de XSS cobrindo script, links, SVG/MathML, atributos e o HTML legado; entrada de 10.001 caracteres rejeitada antes do parsing; comentário que sanitiza para vazio rejeitado; e `sanitizeUserMarkdown` provada idempotente sobre entrada hostil, inclusive entidade HTML e marcador interno do sanitizador (requisito 10c).
+
+  **Merged na PR #246** (`c04453e` → `3468b2c`, `dev` em `7146c56`).
 
   `validateCommentBody` (`packages/comments/src/commentBody.ts`) implementa os invariantes 3–5 de
   `contrato-http-v1.md` §3 no **pacote compartilhado**, não no `accounts.`, porque `spec.md` 8 manda
@@ -707,7 +878,7 @@ saudável e o **único** alarme de schema defasado no SSO é
   o editor aceitar corpo que a API recusa. A ordem é a regra: o limite roda **antes** da varredura de
   links (§3 item 5), coberto por teste que falha se alguém trocar as etapas. Limite conta **pontos de
   código**, não `String.length`: `LENGTH()` do PostgreSQL conta 3 em `'🎲🎲🎲'` e o UTF-16 contaria 6,
-  o que recusaria corpo que o banco aceita (achado P2 do review).
+  o que recusaria corpo que o banco aceita.
 
   O contrato afirma que essa ordem torna `input_too_large` inalcançável. **Medido: vale para ASCII e
   falha fora do BMP** — 10.000 emoji são 10.000 pontos de código (dentro do limite) e 20.000 unidades
@@ -717,7 +888,7 @@ saudável e o **único** alarme de schema defasado no SSO é
   **Não fecha:** falta o legado do `site` e a rota de escrita que consome a validação (T2.6c). Sem
   consumidor, a função existe e ninguém a chama.
 
-  ### Lacuna de idempotência — fechada por `migration_008`
+  ### Lacuna de idempotência HTTP — fechada por `migration_008`
 
   `contrato-http-v1.md` §6 e `spec.md` 396/419/512-514 exigem `Idempotency-Key` em toda escrita não
   idempotente **desde a Fase 2** (24h de retenção, `409`/`idempotency_key_reuse`). **Nenhuma migration
@@ -729,36 +900,48 @@ saudável e o **único** alarme de schema defasado no SSO é
   `migration_008_idempotency_key.sql` fecha. **A unicidade de
   `(realm, source_app, operation, idempotency_key)` é o mecanismo**: o handler insere primeiro e
   desempata pelo `ON CONFLICT`, **nunca** consulta-antes-insere — o check-before-transaction do
-  `downloads` que a §6 manda não replicar. Guarda `request_hash` (SHA-256), não o corpo: reter
-  `body_markdown` por 24h ampliaria a superfície de conteúdo hostil sem ganho. **Bloqueio: não
-  aplicada contra PostgreSQL** — exigiria escrita em banco da VM. Header validado pelo `parse_header`
-  real (`CLASS=online-safe`, `HEADER OK`), sem DDL destrutivo.
+  `downloads` que a §6 manda não replicar. Guarda `request_hash` (SHA-256), não o corpo. **Bloqueio:
+  não aplicada contra PostgreSQL** — exigiria escrita em banco da VM. Header validado pelo
+  `parse_header` real (`CLASS=online-safe`, `HEADER OK`), sem DDL destrutivo.
 
-  ### Bug de escape em `packages/content-editor` (mesmo PR)
+  ### Bug de escape em `sanitize.ts` — e as duas regressões que a correção introduziu
 
   `sanitize-html` escapava `<`/`>` que **sobreviviam como texto**: `> citação` virava `&gt; citação` e
   o `markdown-it` perdia o blockquote; idem `a > b` e `1 < 2`. Alcance medido: **~140 chamadas** em
   `downloads` e `mesas` — bio, descrição de material, comentário, nota de moderação, sinopse de mesa.
 
-  **A primeira correção estava errada e o review pegou.** Desfazer o escape dentro de `textFilter`
-  transformava **entidade digitada pelo usuário** em markup: `&lt;b&gt;ok&lt;/b&gt;` virava `<b>ok</b>`
-  na primeira passagem e `ok` na segunda — quebrando a **idempotência**, que é requisito duro porque
-  `downloads/routes/comments.ts` persiste a saída (L47) e re-sanitiza na leitura (L65). Conteúdo
-  armazenado mudaria a cada leitura, sem erro nenhum. Medido: `<` e `&lt;` chegam **idênticos** ao
-  `textFilter` (`sanitize-html/index.js:615`) — indistinguíveis por construção.
+  **Duas tentativas de correção introduziram defeito pior que o original. Ambas foram achadas pelo
+  review, não pelo agente**, e a raiz das duas é a mesma: uma premissa tratada como garantida sem
+  teste do caso hostil.
 
-  Correção final: pré-passo `protectLooseAngleBrackets`, que roda **antes** do escape (onde `<` e
-  `&lt;` ainda são coisas diferentes) e troca por sentinela apenas o `<`/`>` **fora de tag**. A
-  varredura acompanha estado de tag, porque proteger todo `>` fazia o sanitizador perder o fechamento
-  e engolir o texto seguinte. Resultado: entidade preservada, tag removida, idempotência restaurada —
-  9 casos travados em teste. `&` segue escapado: não quebra marcação nenhuma.
+  1. **Idempotência quebrada.** Desfazer o escape dentro de `textFilter` convertia **entidade
+     digitada pelo usuário** em markup — `&lt;b&gt;ok&lt;/b&gt;` virava `<b>ok</b>` na primeira
+     passagem e `ok` na segunda. `downloads/routes/comments.ts` persiste a saída (L47) e re-sanitiza
+     na leitura (L65): o conteúdo armazenado mudaria a cada leitura, **sem erro nenhum**. Medido: `<`
+     e `&lt;` chegam idênticos ao `textFilter` (`sanitize-html/index.js:615`) — indistinguíveis por
+     construção, então a abordagem era irrecuperável, não mal ajustada.
+  2. **Bypass por sentinela injetada.** A correção seguinte usa pré-passo que troca por marcador
+     (área de uso privado do Unicode) o `<`/`>` fora de tag. O marcador foi escolhido porque "não é
+     produzido por teclado" — verdadeiro e **irrelevante: colar não é digitar**. Corpo contendo o
+     caractere passava intocado pelo sanitizador e a restauração o convertia em `<` real. Medido:
+     saía `<script>alert(1)</script>` **literal**. Bypass completo.
 
-  **Erro do agente, que é como o bug passou.** Os testes de citação da primeira versão afirmavam
-  apenas `ok: true` e passavam **com a marcação destruída**, porque texto escapado também é não-vazio.
-  Reescritos para igualdade exata contra a entrada.
+  Estado final: pré-passo `protectLooseAngleBrackets` roda **antes** do escape, onde `<` e `&lt;`
+  ainda são coisas diferentes, e protege apenas o `<`/`>` fora de tag — a varredura acompanha estado
+  de tag, porque proteger todo `>` fazia o sanitizador perder o fechamento e engolir o texto seguinte.
+  `stripSentinels` descarta no ponto de entrada qualquer marcador vindo de fora. Entidade preservada,
+  tag removida, idempotência travada em 9 casos com tripla sanitização.
+
+  **Erro do agente que permitiu o primeiro bug passar:** os testes de citação da versão inicial
+  afirmavam apenas `ok: true` e passavam **com a marcação destruída**, porque texto escapado também é
+  não-vazio. Reescritos para igualdade exata contra a entrada.
+
+  **Lição registrada para quem tocar `sanitize.ts` depois:** toda mudança ali precisa provar
+  idempotência (`f(f(x)) = f(x)`) e testar entrada hostil que imite o mecanismo interno — as duas
+  regressões teriam sido pegas por qualquer um dos dois testes, e nenhum existia.
 
   **Validação:** repo 41/41 teste, 25/25 lint, 25/25 build, `verify:api` `breaking=0`;
-  `content-editor` 79/79 (era 57), `comments` 97/97, `mesas` 707/707.
+  `content-editor` 80/80 (era 57), `comments` 97/97, `mesas` 707/707.
 
 - [x] T2.5b — **Perfil de comentário e política de link no `@artificio/content-editor`** (decisões 26, 27, 28, 29). **Task nova, criada em 2026-08-04 a partir de leitura do código real.** As decisões 26–29 pressupõem um perfil de renderização de comentário que **hoje não existe no pacote**: `packages/content-editor/src/sanitize.ts:10` e `ContentEditor.tsx:6` configuram `MarkdownIt` com `html: false`, o que já barra HTML bruto, mas **não há desativação de `<img>` nem qualquer política de destino de link**. Sem esta task, as decisões 26–29 não têm onde ser implementadas — e a decisão 29 proíbe expressamente implementação local por app. Exigir, dentro do pacote compartilhado já existente: (a) **imagem só como referência HTTPS clicável** — `![alt](https://...)` vira link textual explícito (“alt — abrir imagem externa”), o browser **não busca o recurso até o clique**, sem upload, Cloudinary, hospedagem, proxy, preview ou busca server-side; (b) **links HTTPS-only** — URL sem esquema é canonicalizada para `https://`, `http:` ou qualquer outro esquema explícito é **rejeitado com mensagem específica, nunca promovido silenciosamente**; (c) **comparação de host estrutural por `URL`**, nunca `includes`/sufixo frouxo que aceite `artificiorpg.com.evil.example` — host exato `artificiorpg.com` ou subdomínio real abre na mesma aba, externo abre em nova aba; (d) **`rel="ugc nofollow"` em todo link de usuário**, mais `noopener noreferrer` no externo; (e) **link root-relative `/rota`** resolvido pelo consumidor contra a origem confiável derivada de `source_app`, **nunca contra host enviado no comentário**, rejeitando `//host`, `../`, relativo sem `/` inicial e qualquer forma ambígua; (f) **política de falha única e compartilhada** — sintaxe incompleta que o CommonMark trata como literal é aceita e exibida literalmente, mas quando o parser **reconhece** um link cujo destino viola (a)–(e), criação ou edição inteira é rejeitada com código estável **`INVALID_COMMENT_LINK`**, posição e mensagem da regra, **sem ecoar o payload hostil** e sem remover ou reescrever nada silenciosamente. `accounts.` e todos os frontends importam a **mesma** política; o cliente usa para erro imediato/prévia, o backend repete como **autoridade final**. Mudança em pacote compartilhado: exige aprovação e verificação de impacto nos consumidores (`AGENTS.md` §Autorização). · feito quando: `<img>` não é buscado pelo browser em nenhum caminho de render; `http://`, `//host` e `artificiorpg.com.evil.example` são rejeitados com `INVALID_COMMENT_LINK`; `[texto](` incompleto permanece literal; e os consumidores atuais do pacote seguem verdes.
   **Implementado em 2026-08-04, com aprovação nominal do mantenedor para alterar o
@@ -789,6 +972,78 @@ saudável e o **único** alarme de schema defasado no SSO é
 - [ ] T2.6 — **Badge de autor calculado a partir de fonte confiável** (requisito 11). O papel global vem do `JOIN` com `accounts.users`; **"autor do conteúdo" vem do backend do domínio ou de capability assinada — nunca do payload público**, senão qualquer um se declara dono. Usuário comum sem rótulo; e-mail nunca exposto. Comentário legado exibe marca de **antigo/importado com autoria não verificada** (decisões 6, 23), misturado à árvore e à ordenação normais — sem seção própria e sem ocultação. · feito quando: tentativa de forjar dono no payload é ignorada; badge sai correto na resposta; e legado aparece na árvore normal com a marca de não verificado.
 - [ ] T2.6b — **Sem `@menções` nesta fase** (decisão 31). Qualquer `@texto` permanece **texto Markdown comum** e nunca resolve conta nem cria destinatário. Motivo material: `accounts.users` **não possui handle público único** — nome Google é mutável e não único, e-mail não pode ser exposto. Notificação continua derivada apenas da estrutura confiável: autor do comentário pai e dono do assunto, excluindo o ator. Menção futura exige decisão própria de identidade pública; **não será simulada por heurística sobre nome**. · feito quando: `@qualquercoisa` renderiza como texto e não gera nenhum `notification_receipt`.
 - [ ] T2.6c — **Criar/responder junto do evento e dos recibos** (decisões 1 e 13). **Task nova pela reconciliação de 2026-08-04:** T2.1d criava só o schema e as tasks antigas deixavam a atomicidade ativa em T3.4, tarde demais. Na mesma transação do comentário: raiz gera recibo para publicador vinculado; resposta gera para autor do pai e publicador; destinatários iguais deduplicam; ator e conta removida/bloqueada são excluídos. Evento guarda snapshot estruturado e versionado, sem depender do domínio vivo. Falha em qualquer evento/recibo reverte o comentário. Voto e edição não passam por este fluxo. · feito quando: falha ao inserir recibo reverte criação/resposta; pai e publicador iguais produzem um recibo; e ator não recebe.
+
+  **Núcleo transacional e rotas HTTP entregues.** `apps/accounts/src/communityCommentWrite.ts`
+  (`createComment`) faz comentário, versão, evento e recibos em **uma** transação;
+  `packages/comments/src/notificationRecipients.ts` (`resolveNotificationRecipients`) decide os
+  destinatários; e `communityCommentRoutes.ts` expõe `POST /internal/v1/comments` e
+  `POST /internal/v1/comments/:id/replies` sob escopo `comment.write`. `packages/comments` 132/132
+  (era 117), `accounts` 171/171, repo 41/41, lint 25/25, build 25/25, `verify:api` `breaking=0`
+  `non-breaking=2` (as duas rotas novas).
+
+  **Duas rotas, um handler:** a única diferença é de onde vem o pai (`:id` contra `null`), e §3
+  define os mesmos invariantes, corpo e erros para as duas. `realm`/`source_app` saem da credencial;
+  o corpo é `strict`, então payload que os declara — ou que declara `root_id`/`depth` — vira `400` em
+  vez de ser ignorado em silêncio (`spec.md` 6a). Ignorar deixaria uma credencial de beta tentando
+  `realm: 'prod'` achar que foi aceita.
+
+  `:id` malformado devolve o mesmo `404` de pai inexistente: distinguir diria ao chamador qual
+  formato de id o sistema usa.
+
+  Testes de rota em `communityCommentWriteRoutes.test.ts` (23 casos) cobrem guard, escopo, os dois
+  headers obrigatórios e a forma do corpo — tudo que roda **antes** da transação, com fake cujo
+  `transaction()` lança de propósito: teste que chegar ao banco falha apontando o próprio teste, em
+  vez de passar em silêncio.
+
+  **Sem `try/catch` engolindo erro, de propósito.** `spec.md` 13c manda a falha reverter o conjunto,
+  e isso é a correção explícita do defeito do `downloads` (requisito 24d), onde a emissão é
+  best-effort (`moderation.ts:138-147`, `reports.ts:195`) e o material é rejeitado sem o autor saber.
+
+  **Idempotência insere primeiro e trata a violação** — nunca `SELECT` antes do `INSERT`, que é o
+  check-before-transaction que `contrato-http-v1.md` §6 nomeia como defeito a não replicar. Registro
+  vencido não conta como repetição: passadas as 24h a chave está livre, senão uma chave reusada meses
+  depois devolveria comentário antigo em vez de criar o novo.
+
+  **Destinatários** (`spec.md` 15a-15c, 16), com teste por combinação: raiz notifica publicador;
+  resposta notifica autor do pai **e** publicador; iguais deduplicam para um recibo; ator nunca se
+  notifica em nenhum papel; `owner_user_id` nulo **não inventa destinatário** — post do blog não tem
+  conta vinculada, e responder ali continua notificando quem escreveu o pai. Lista vazia é resultado
+  normal, não falha.
+
+  ### Medição contra PostgreSQL real — `phase-2-write-measurement.sql`
+
+  Rodado em 2026-08-07 num banco descartável (`artificio_t26c_measure`, migrations 001–009, aprovado
+  nominalmente, `DROP` feito ao fim; VM conferida de volta a `postgres` + `artificio_auth`). Seis
+  invariantes verdes, terminando em `ROLLBACK` com 0 linhas em toda tabela.
+
+  **Foi a medição que pegou três erros que nenhum teste em TypeScript pegaria:**
+
+  1. **`notification_receipt.event_id` referencia `notification_event.id`, não `event_id`.** São
+     colunas distintas: `id` é a chave da linha, `event_id` é a chave de idempotência do produtor
+     externo (13c, evento vindo por outbox). O handler passava o valor errado e quebraria na primeira
+     escrita real, como `foreign_key_violation` genérico.
+  2. **`subject_type` exige um ponto** (`CHECK (subject_type ~~ '%.%')`): é `site.post`, não `post`.
+     O contrato HTTP documenta o tamanho (≤64) e **não** o formato — débito documental registrado
+     abaixo.
+  3. **As FKs de árvore são `DEFERRED`**, então cross-subject não é barrado no `INSERT`. Corrigiu a
+     afirmação errada que este `tasks.md` fazia em T2.4.
+
+  Também provou, de passagem, que **as migrations 008 e 009 aplicam** — nenhuma das duas tinha rodado
+  em PostgreSQL até aqui — e que o clamp da 009 funciona no banco: `(0,5)` devolve `0`, `(3,1)` fica
+  intacto, `(0,1)` e `(0,1000)` empatam.
+
+  **`subject_type` namespaced — divergência de três camadas, corrigida.** O schema exige o ponto
+  desde a 006 (`CHECK (subject_type LIKE '%.%')`), mas nem o contrato nem o código exigiam:
+  `contrato-http-v1.md` §2 só dizia "≤64", e o regex de `subjectRefSchema` tornava o namespace
+  **opcional** (`(?:\.…)*` em vez de `+`), então `material` passava na validação e morria como erro
+  de constraint, sem motivo legível para o consumidor. Corrigidos os três: regex do pacote, validação
+  do corpo na rota, e o contrato ganhou o formato explícito com exemplos de válido e inválido. Os
+  fixtures que usavam `material`/`post` sem ponto eram inválidos contra o banco — trocados por
+  `downloads.material`, e a regra virou teste próprio nas três camadas.
+
+  **Bloqueio:** a rota nunca respondeu a uma requisição real. Os 23 testes param antes da transação
+  por construção, e o script de medição prova o schema, não o handler. O primeiro exercício
+  ponta-a-ponta depende de deploy + credencial com `comment.write` — mesmo bloqueio de T2.3.
 
 ### Bloco C — Ciclo de vida do comentário
 
