@@ -12,6 +12,7 @@ import {
 } from "@artificio/comments";
 import type { Database } from "./db.js";
 import { readCommentTree, type PublicComment } from "./communityCommentRead.js";
+import { createComment } from "./communityCommentWrite.js";
 import { requireServiceCredential, type ServiceAuthenticatedRequest } from "./requireServiceCredential.js";
 
 /**
@@ -121,7 +122,128 @@ export function createCommunityCommentRoutes(
     },
   );
 
+  // T2.6c — criação e resposta (`contrato-http-v1.md` §3). Duas rotas, um
+  // handler: a única diferença é de onde vem o pai (`:id` na URL contra `null`),
+  // e o contrato define os mesmos invariantes, corpo e erros para as duas.
+  router.post(
+    "/internal/v1/comments",
+    requireServiceCredential(db, { scope: "comment.write" }),
+    (req, res, next) => {
+      void handleCreateComment(db, req, res, null).catch(next);
+    },
+  );
+
+  router.post(
+    "/internal/v1/comments/:id/replies",
+    requireServiceCredential(db, { scope: "comment.write" }),
+    (req, res, next) => {
+      void handleCreateComment(db, req, res, req.params.id).catch(next);
+    },
+  );
+
   return router;
+}
+
+/**
+ * Corpo de criação/resposta (`contrato-http-v1.md` §3).
+ *
+ * `realm` e `source_app` **não estão aqui** de propósito: derivam da credencial,
+ * e §3 manda rejeitar com `400` quem tentar declará-los. `root_id` e `depth`
+ * também não — são calculados, nunca aceitos.
+ */
+const createBodySchema = z
+  .object({
+    subject_type: z
+      .string()
+      .min(1)
+      .max(64)
+      // Ponto obrigatório: `migration_006:118` tem
+      // `CHECK (subject_type LIKE '%.%')`. Sem esta validação o valor morria
+      // como erro de constraint, sem motivo legível (achado de T2.6c).
+      .regex(/^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/),
+    subject_id: z.string().min(1).max(255),
+    canonical_path: z.string().min(1).max(1024),
+    body_markdown: z.string().min(1),
+    subject_owner_user_id: z.uuid().nullish(),
+  })
+  // `strict` é o que implementa "rejeitar payload que declara realm/source_app"
+  // (§3, `spec.md` 6a): campo desconhecido vira `400` em vez de ser ignorado em
+  // silêncio — ignorar deixaria o chamador achar que o valor foi aceito.
+  .strict();
+
+/**
+ * Handler único de `POST /comments` e `POST /comments/:id/replies`.
+ *
+ * A ordem das checagens segue o contrato: credencial (guard), headers
+ * obrigatórios, corpo, e só então a transação. Validar o corpo antes de abrir
+ * transação evita pagar `BEGIN` por um pedido que já se sabe inválido.
+ */
+async function handleCreateComment(
+  db: Kysely<Database>,
+  req: Request,
+  res: Response,
+  parentId: string | null,
+): Promise<void> {
+  const credential = (req as ServiceAuthenticatedRequest).serviceCredential;
+  if (!credential) {
+    // Defensivo: o guard já barrou. Sem isto, um erro de montagem de rota
+    // silenciosamente escreveria com `realm` indefinido.
+    fail(req, res, 401, "unauthorized");
+    return;
+  }
+
+  // §3: as duas escritas exigem `Idempotency-Key` e `X-Acting-User-Id`. Ausência
+  // é `400`, não `422`: o pedido não chega a ser avaliado.
+  const idempotencyKey = req.headers["idempotency-key"];
+  if (typeof idempotencyKey !== "string" || !/^[\x20-\x7E]{8,128}$/.test(idempotencyKey)) {
+    fail(req, res, 400, "invalid_idempotency_key");
+    return;
+  }
+
+  const actingUserId = req.headers["x-acting-user-id"];
+  if (typeof actingUserId !== "string" || !z.uuid().safeParse(actingUserId).success) {
+    // Diferente da leitura, onde o header é opcional e só afeta `my_vote`: aqui
+    // ele é a autoria do comentário. Sem ele não há o que escrever.
+    fail(req, res, 400, "invalid_acting_user");
+    return;
+  }
+
+  const body = createBodySchema.safeParse(req.body);
+  if (!body.success) {
+    fail(req, res, 400, "invalid_body");
+    return;
+  }
+
+  if (parentId !== null && !z.uuid().safeParse(parentId).success) {
+    // `:id` malformado é `404`, não `400`: o contrato não distingue "id inválido"
+    // de "id inexistente" (§3), e distinguir diria ao chamador qual formato de id
+    // o sistema usa.
+    fail(req, res, 404, "parent_not_found");
+    return;
+  }
+
+  const result = await createComment(db, {
+    realm: credential.realm,
+    source_app: credential.sourceApp,
+    subject_type: body.data.subject_type,
+    subject_id: body.data.subject_id,
+    canonicalPath: body.data.canonical_path,
+    ownerUserId: body.data.subject_owner_user_id ?? null,
+    parentId,
+    bodyMarkdown: body.data.body_markdown,
+    actingUserId,
+    idempotencyKey,
+  });
+
+  if (!result.ok) {
+    fail(req, res, result.status, result.code);
+    return;
+  }
+
+  // Repetição idêntica devolve a resposta original com o mesmo status (§6): o
+  // cliente que reenviou por timeout precisa ver `201` e o mesmo corpo, não um
+  // `200` que o faria achar que houve dois comentários.
+  res.status(201).json(result.comment);
 }
 
 /** Posição de onde a leitura retoma. Tudo nulo na primeira página. */

@@ -6,5 +6,20 @@
 
 ---
 
-✅ **Nenhuma mudança detectada entre a versão atual e dev.**
+## Sumário
+
+| App | Breaking | Non-breaking | Unclassified |
+|-----|:--------:|:------------:|:------------:|
+| accounts | ✅ 0 | ✅ 2 | ⚪ 0 |
+
+---
+
+### accounts
+
+#### ✅ Non-breaking (2)
+
+| Path | Method | Ação |
+|------|--------|------|
+| `` |  | add |
+| `/internal/v1/comments` | POST | add |
 

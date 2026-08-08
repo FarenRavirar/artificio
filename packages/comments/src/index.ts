@@ -45,6 +45,20 @@ export {
 } from './treeAssembly.js';
 
 export {
+  resolveNotificationRecipients,
+  type RecipientCandidates,
+} from './notificationRecipients.js';
+
+export {
+  MAX_COMMENT_DEPTH,
+  placeComment,
+  type CommentSubjectScope,
+  type ParentComment,
+  type ThreadPlacement,
+  type ThreadRejectionCode,
+} from './threadIntegrity.js';
+
+export {
   COMMENT_SORTS,
   CURSOR_SECRET_MIN_LENGTH,
   CURSOR_TTL_MS,

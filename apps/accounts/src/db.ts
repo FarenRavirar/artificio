@@ -169,6 +169,102 @@ export interface CommunityActorAccountLinkRow {
   updated_at: Generated<Date>;
 }
 
+/**
+ * Versão imutável do corpo. Editar cria linha nova e move
+ * `community_comment.current_version_id` — o histórico nunca é reescrito
+ * (`spec.md` 17), e é ele que a denúncia fixa como evidência (12d).
+ */
+export interface CommunityCommentVersionRow {
+  id: Generated<string>;
+  realm: string;
+  source_app: string;
+  comment_id: string;
+  authored_by_actor_id: string | null;
+  body_markdown: string | null;
+  legacy_content_html: string | null;
+  created_at: Generated<Date>;
+  redacted_at: Date | null;
+  redacted_by_actor_id: string | null;
+  redaction_reason: string | null;
+}
+
+/**
+ * Ocorrência imutável. `snapshot` guarda os dados de apresentação **versionados**
+ * (`spec.md` 13b): título editado depois não pode mudar o sentido de uma
+ * notificação histórica. O texto é montado na leitura, nunca gravado aqui.
+ */
+export interface NotificationEventRow {
+  id: Generated<string>;
+  /** Idempotência de produtor externo (`spec.md` 13c); nesta fase, gerado aqui. */
+  event_id: string;
+  realm: string;
+  source_app: string;
+  event_type: string;
+  event_version: number;
+  subject_type: string;
+  subject_id: string;
+  actor_id: string | null;
+  canonical_path: string;
+  snapshot: unknown;
+  occurred_at: Generated<Date>;
+  created_at: Generated<Date>;
+}
+
+/**
+ * Estado por destinatário. Unicidade
+ * `(realm, source_app, event_id, recipient_user_id)` é a segunda barreira da
+ * dedupe de 15c — a primeira é `resolveNotificationRecipients`.
+ */
+export interface NotificationReceiptRow {
+  id: Generated<string>;
+  realm: string;
+  source_app: string;
+  event_id: string;
+  recipient_user_id: string;
+  read_at: Date | null;
+  created_at: Generated<Date>;
+}
+
+/**
+ * Registro de `Idempotency-Key` (`contrato-http-v1.md` §6, migration 008).
+ * Retenção 24h; `request_hash` distingue repetição idêntica (devolve a resposta
+ * original) de reuso com payload diferente (`409`).
+ */
+export interface CommunityIdempotencyKeyRow {
+  id: Generated<string>;
+  realm: string;
+  source_app: string;
+  idempotency_key: string;
+  operation: string;
+  acting_user_id: string | null;
+  request_hash: string;
+  response_status: number;
+  response_body: unknown;
+  created_at: Generated<Date>;
+  expires_at: Date;
+}
+
+/**
+ * Sanção por ator. Ativa = `starts_at` no passado, sem `lifted_at`, e sem
+ * `expires_at` ou com ele no futuro. Levantada ou vencida permanece na tabela:
+ * é o histórico que sustenta auditoria (`spec.md` 12f).
+ */
+export interface CommunityRestrictionRow {
+  id: Generated<string>;
+  realm: string;
+  source_app: string;
+  actor_id: string;
+  scope: string;
+  level: string;
+  reason: string;
+  imposed_by_actor_id: string;
+  starts_at: Generated<Date>;
+  expires_at: Date | null;
+  lifted_at: Date | null;
+  lifted_by_actor_id: string | null;
+  lift_reason: string | null;
+}
+
 export interface Database {
   users: UserRow;
   admin_secrets: AdminSecretRow;
@@ -178,7 +274,12 @@ export interface Database {
   community_comment: CommunityCommentRow;
   community_comment_score_version: CommunityCommentScoreVersionRow;
   community_comment_subject: CommunityCommentSubjectRow;
+  community_comment_version: CommunityCommentVersionRow;
   community_comment_vote: CommunityCommentVoteRow;
+  community_idempotency_key: CommunityIdempotencyKeyRow;
+  community_restriction: CommunityRestrictionRow;
+  notification_event: NotificationEventRow;
+  notification_receipt: NotificationReceiptRow;
 }
 
 export function createDb(databaseUrl: string) {

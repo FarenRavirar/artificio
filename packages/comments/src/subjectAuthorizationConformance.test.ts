@@ -15,7 +15,7 @@ const ACTOR = '22222222-2222-4222-8222-222222222222';
 const fixtures: ConformanceFixtures = {
   commentableWithOwner: {
     label: 'material publicado',
-    subject: { subjectType: 'material', subjectId: 'ok' },
+    subject: { subjectType: 'downloads.material', subjectId: 'ok' },
     actingUserId: ACTOR,
   },
   commentableWithoutOwner: {
@@ -25,22 +25,22 @@ const fixtures: ConformanceFixtures = {
   },
   missing: {
     label: 'material inexistente',
-    subject: { subjectType: 'material', subjectId: 'nao-existe' },
+    subject: { subjectType: 'downloads.material', subjectId: 'nao-existe' },
     actingUserId: ACTOR,
   },
   invisibleToActor: {
     label: 'material em rascunho',
-    subject: { subjectType: 'material', subjectId: 'rascunho' },
+    subject: { subjectType: 'downloads.material', subjectId: 'rascunho' },
     actingUserId: ACTOR,
   },
   notCommentable: {
     label: 'material com comentários fechados',
-    subject: { subjectType: 'material', subjectId: 'fechado' },
+    subject: { subjectType: 'downloads.material', subjectId: 'fechado' },
     actingUserId: ACTOR,
   },
   visibleOnlyToActor: {
     label: 'rascunho do próprio ator',
-    subject: { subjectType: 'material', subjectId: 'meu-rascunho' },
+    subject: { subjectType: 'downloads.material', subjectId: 'meu-rascunho' },
     actingUserId: ACTOR,
   },
 };
