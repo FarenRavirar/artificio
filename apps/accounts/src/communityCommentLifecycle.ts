@@ -27,16 +27,22 @@ import type { Database } from "./db.js";
  *
  * ## O que o banco garante e o que não garante
  *
- * Medido em produção (`pg_trigger` de `artificio_auth`, 2026-08-09):
- * `community_comment` **não tem trigger nenhum** — nem guard de `UPDATE`, nem
- * exigência de auditoria atômica, nem recusa de `DELETE`. As cinco tabelas
- * cobertas por `require_community_terminal_audit` são
- * `community_moderation_case`, `community_comment_report`,
- * `community_comment_version_approval`, `community_comment_appeal` e
- * `community_restriction`. Consequência direta: a atomicidade
- * estado+auditoria da retirada é sustentada **por este código**, não pelo
- * schema. Por isso as duas escritas vivem na mesma transação e não existe
- * caminho de retirada que não insira a linha de auditoria.
+ * `community_comment` **não tem trigger nenhum**, e isso é desenho, não lacuna
+ * (`tasks.md`, mapa de imutabilidade de T2.6c; confirmado em `pg_trigger` de
+ * `artificio_auth`, 2026-08-09). Só `community_comment_version` e
+ * `notification_event` são append-only; a linha do comentário **precisa**
+ * continuar mutável, porque é nela que `POST /comments/:id/restore` (§5) escreve
+ * — a moderação restaura o que o autor retirou (T2.7, decisão 46: a
+ * auto-retirada não encerra o caso).
+ *
+ * As cinco tabelas cobertas por `require_community_terminal_audit` são as de
+ * **estado terminal de moderação** (caso, denúncia, aprovação de versão, recurso,
+ * restrição) — é esse o critério de T2.1f, e tombstone não é estado terminal.
+ *
+ * Consequência aceita: a atomicidade estado+auditoria da retirada é sustentada
+ * **por este código**, não pelo schema. Por isso as duas escritas vivem na mesma
+ * transação, não existe caminho de retirada que não insira a linha de auditoria,
+ * e o teste afirma a linha — não só o estado.
  *
  * O que o banco garante: `community_comment_removal_check` recusa estado
  * removido sem `removed_at`, `removed_by_actor_id` e `removed_reason` não-vazio,
@@ -596,15 +602,15 @@ export async function removeCommentByAuthor(
         .where("source_app", "=", input.sourceApp)
         .execute();
 
-      // Auditoria na MESMA transação, e sem trigger que a exija.
+      // Auditoria na MESMA transação, e sem trigger que a exija — ver o bloco
+      // "O que o banco garante" no topo: a tabela é mutável de propósito, porque
+      // `POST /restore` precisa escrever nela.
       //
-      // As cinco tabelas cobertas por `require_community_terminal_audit` não
-      // incluem `community_comment` — medido em `pg_trigger` de produção em
-      // 2026-08-09, onde a tabela aparece com zero triggers. Ou seja: se este
-      // `insert` sair daqui, a retirada continua funcionando e a trilha some sem
-      // nenhum erro. É o tipo de regressão que passa em revisão e só aparece
-      // quando alguém precisa auditar. O teste correspondente afirma a presença
-      // da linha, não só o estado do comentário.
+      // Consequência prática para quem editar isto depois: se este `insert` sair
+      // daqui, a retirada continua funcionando e a trilha some sem nenhum erro. É
+      // o tipo de regressão que passa em revisão e só aparece quando alguém
+      // precisa auditar. Por isso o teste afirma a presença da linha, não só o
+      // estado do comentário.
       await trx
         .insertInto("community_moderation_audit")
         .values({

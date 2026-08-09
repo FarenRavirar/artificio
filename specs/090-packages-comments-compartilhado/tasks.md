@@ -1262,16 +1262,28 @@ saudável e o **único** alarme de schema defasado no SSO é
   lint 25/25 · build 25/25 · test 41/41 · `verify:api` `accounts: breaking=0 non-breaking=1`,
   com as duas rotas no inventário e no `accounts.openapi.yaml`.
 
-  **Achado que muda o desenho, medido antes de escrever:** `community_comment` **não tem trigger
-  nenhum** em produção — `pg_trigger` de `artificio_auth` (2026-08-09) devolve 17 triggers em
-  tabelas `community*`, e nenhum sobre `community_comment`. As cinco tabelas cobertas por
-  `require_community_terminal_audit` são `community_moderation_case`,
-  `community_comment_report`, `community_comment_version_approval`, `community_comment_appeal` e
-  `community_restriction`. Consequência: **a atomicidade estado+auditoria da retirada é
-  sustentada pelo handler, não pelo schema** — se o `insert` na auditoria sair do código, a
-  retirada continua funcionando e a trilha some sem erro nenhum. Por isso o teste afirma a linha
-  de auditoria, não só o estado do comentário. Se isso deve virar trigger (simetria com as cinco
-  de moderação) é decisão pendente, listada abaixo.
+  **`community_comment` sem trigger é desenho, não lacuna — e a spec já dizia isso.** A medição
+  (`pg_trigger` de `artificio_auth`, 2026-08-09: 17 triggers em tabelas `community*`, nenhum
+  sobre `community_comment`) apenas confirma o **mapa de imutabilidade já registrado no bloco de
+  T2.6c** acima: só `community_comment_version` e `notification_event` são append-only;
+  `community_comment`, `community_actor`, `community_actor_account_link`,
+  `community_idempotency_key`, `community_comment_subject` e `notification_receipt` não têm
+  trigger algum, de propósito.
+
+  O critério de T2.1f é **"não existe estado terminal sem auditoria"**, e "terminal" ali é o
+  vocabulário da moderação — caso fechado, denúncia resolvida, recurso decidido, restrição
+  levantada. São exatamente as cinco tabelas cobertas por `require_community_terminal_audit`.
+  **Tombstone não é estado terminal:** T2.7 mantém o poder de restauração da moderação, e a
+  decisão 46 diz que a auto-retirada não encerra o caso — a linha do comentário **precisa**
+  continuar mutável, porque é nela que `POST /restore` (§5) escreve. Somar um trigger de
+  auditoria ali criaria fricção justamente na rota que a spec exige que exista. T4.19b fecha:
+  "a migration coesa T2.1–T2.1f já cria auditoria de conteúdo; esta fase não abre segunda
+  migration".
+
+  Consequência aceita, e o motivo de o teste ser o que é: a atomicidade estado+auditoria da
+  retirada é sustentada **pelo handler**. Se o `insert` na auditoria sair do código, a retirada
+  continua funcionando e a trilha some sem erro — por isso `communityCommentLifecycleSql.test.ts`
+  afirma a **linha de auditoria**, não só o estado do comentário.
 
   **Duas lacunas de tipo corrigidas no caminho, ambas introduzidas antes desta task:**
   `CommunityCommentRow` não declarava `removed_at`, `removed_by_actor_id` nem `removed_reason`
@@ -1304,12 +1316,12 @@ saudável e o **único** alarme de schema defasado no SSO é
   que deveriam parar na validação. Achado por probe que imprimiu o corpo do erro, não pela
   mensagem do vitest.
 
-  **Pendente de decisão do mantenedor:** transformar a exigência de auditoria de
-  `community_comment` em trigger, como nas cinco tabelas de moderação. Hoje a garantia é só do
-  handler + teste. Custo: uma migration `online-safe` estendendo
-  `require_community_terminal_audit` e a lista do `DO $$`. Não fiz por conta própria: mexer em
-  trigger de tabela que já tem 3 linhas em produção é mudança de schema com blast radius sobre a
-  escrita de comentário, e a task não pedia.
+  **Erro meu de processo, no mesmo tema:** registrei aqui e na PR #250 que estender
+  `require_community_terminal_audit` a `community_comment` era "pendente de decisão do
+  mantenedor". Não era decisão nenhuma — o mapa de imutabilidade de T2.6c, o critério de T2.1f
+  ("estado terminal"), a decisão 46 e T4.19b já respondiam, todos neste arquivo. Devolvi como
+  bifurcação o que a pesquisa resolvia, que é o custo que `AGENTS.md` §Pesquisar antes de
+  perguntar nomeia.
 
 - [ ] T2.8 — **Legado com proveniência explícita, imutável mas respondível** (requisito 9; decisões 6, 23). Reformulado: a versão anterior dizia "read-only, **sem aceitar resposta**" — a segunda metade foi **revogada pela decisão 23**. O registro importado é imutável (não edita, não recebe voto, score `0` permanente) e marcado como antigo/autoria não verificada, mas **pode ser pai de comentário novo** de conta autenticada; a resposta nova obedece ao limite estrutural de `depth<=4`, à autorização do assunto e às regras atuais. `site.comments` tem nome solto, HTML e `parent_id` **sem FK** (`apps/site/db/migrations/001_init.sql:66`) — a migração precisa detectar pais órfãos e ciclos **antes** de copiar. Importar com `user_id` nulo, `legacy_author_name`, `legacy_source='site'`. Relações válidas preservadas; órfãs achatadas ou marcadas conforme decisão registrada. · feito quando: escrita sem `user_id` rejeitada; legado legível; **resposta nova a comentário legado é aceita**; voto em legado é recusado; e nenhum órfão ou ciclo copiado silenciosamente.
 

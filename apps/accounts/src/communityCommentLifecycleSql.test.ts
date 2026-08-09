@@ -419,11 +419,12 @@ describe("retirada é tombstone, nunca DELETE", () => {
   });
 
   it("registra auditoria na MESMA transação", async () => {
-    // Nenhum trigger obriga isto: `community_comment` aparece com zero triggers
-    // em `pg_trigger` de produção (medido em 2026-08-09), enquanto as cinco
-    // tabelas de moderação têm `require_community_terminal_audit`. Se este
-    // `insert` sumir do handler, a retirada continua funcionando e a trilha some
-    // sem erro nenhum. Por isso o teste afirma a linha, não só o estado.
+    // Nenhum trigger obriga isto, e não deve obrigar: `community_comment` é
+    // mutável de propósito, porque `POST /restore` (§5) escreve nela — só as
+    // tabelas de **estado terminal de moderação** carregam
+    // `require_community_terminal_audit` (critério de T2.1f). Este teste é a
+    // garantia que sobra: se o `insert` sumir do handler, a retirada continua
+    // funcionando e a trilha some sem erro nenhum.
     scriptRemove();
     await removeCommentByAuthor(ctx.db, REMOVE_INPUT);
 
