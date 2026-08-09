@@ -1,18 +1,18 @@
 {
   "metadata": {
-    "total": 505,
+    "total": 506,
     "byApp": {
       "accounts": {
-        "total": 22,
+        "total": 23,
         "byMethod": {
           "GET": 13,
           "PATCH": 3,
           "POST": 3,
-          "DELETE": 2,
-          "PUT": 1
+          "PUT": 2,
+          "DELETE": 2
         },
         "byConfidence": {
-          "high": 22
+          "high": 23
         }
       },
       "downloads": {
@@ -94,7 +94,7 @@
       "method": "GET",
       "path": "/",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 483,
+      "line": 495,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -103,7 +103,7 @@
       "method": "GET",
       "path": "/admin/papeis",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 483,
+      "line": 495,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -148,7 +148,7 @@
       "method": "DELETE",
       "path": "/api/account",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 346,
+      "line": 358,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -157,7 +157,7 @@
       "method": "PATCH",
       "path": "/api/account/avatar",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 282,
+      "line": 294,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -166,7 +166,7 @@
       "method": "GET",
       "path": "/api/auth/google",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 231,
+      "line": 243,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -175,7 +175,7 @@
       "method": "GET",
       "path": "/api/auth/google/callback",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 244,
+      "line": 256,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -184,7 +184,7 @@
       "method": "POST",
       "path": "/api/auth/logout",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 402,
+      "line": 414,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -193,7 +193,7 @@
       "method": "GET",
       "path": "/api/auth/me",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 278,
+      "line": 290,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -202,7 +202,7 @@
       "method": "GET",
       "path": "/api/auth/refresh",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 407,
+      "line": 419,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -211,7 +211,7 @@
       "method": "GET",
       "path": "/conta",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 483,
+      "line": 495,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -220,7 +220,7 @@
       "method": "GET",
       "path": "/health",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 227,
+      "line": 239,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -229,7 +229,7 @@
       "method": "GET",
       "path": "/internal/users/:id",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 463,
+      "line": 475,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -238,7 +238,7 @@
       "method": "GET",
       "path": "/internal/v1/comments",
       "sourceFile": "apps/accounts/src/communityCommentRoutes.ts",
-      "line": 134,
+      "line": 146,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -247,7 +247,7 @@
       "method": "POST",
       "path": "/internal/v1/comments",
       "sourceFile": "apps/accounts/src/communityCommentRoutes.ts",
-      "line": 145,
+      "line": 158,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -256,7 +256,7 @@
       "method": "DELETE",
       "path": "/internal/v1/comments/:id",
       "sourceFile": "apps/accounts/src/communityCommentRoutes.ts",
-      "line": 175,
+      "line": 195,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -265,7 +265,7 @@
       "method": "PATCH",
       "path": "/internal/v1/comments/:id",
       "sourceFile": "apps/accounts/src/communityCommentRoutes.ts",
-      "line": 167,
+      "line": 186,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -274,7 +274,16 @@
       "method": "POST",
       "path": "/internal/v1/comments/:id/replies",
       "sourceFile": "apps/accounts/src/communityCommentRoutes.ts",
-      "line": 153,
+      "line": 167,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "accounts",
+      "method": "PUT",
+      "path": "/internal/v1/comments/:id/vote",
+      "sourceFile": "apps/accounts/src/communityCommentRoutes.ts",
+      "line": 211,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -283,7 +292,7 @@
       "method": "GET",
       "path": "/login",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 483,
+      "line": 495,
       "confidence": "high",
       "kind": "express-route"
     },

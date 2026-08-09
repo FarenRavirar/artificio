@@ -168,6 +168,32 @@ export interface CommunityCommentVoteRow {
   updated_at: Generated<Date>;
 }
 
+/**
+ * Trilha append-only de mudança de voto (T2.12; decisões 11, 12, 14).
+ *
+ * `community_comment_vote_audit_immutable` recusa `UPDATE` e `DELETE` — medido em
+ * `pg_trigger` de produção. `old_value`/`new_value` guardam a transição, e
+ * `community_comment_vote_audit_change_check` recusa linha que não muda nada:
+ * no-op não vira histórico (`contrato-http-v1.md` §7).
+ *
+ * `reason` distingue voto do usuário (`user_vote`) de invalidação por abuso
+ * (T2.26), que preenche `invalidated_by_actor_id`.
+ */
+export interface CommunityCommentVoteAuditRow {
+  id: Generated<string>;
+  realm: string;
+  source_app: string;
+  community_actor_id: string;
+  comment_id: string;
+  /** `null` quando o ator não tinha voto antes. */
+  old_value: -1 | 1 | null;
+  /** `null` quando o voto foi removido (`value: 0` no contrato). */
+  new_value: -1 | 1 | null;
+  reason: Generated<string>;
+  invalidated_by_actor_id: string | null;
+  occurred_at: Generated<Date>;
+}
+
 /** Ator opaco. O vínculo com a conta vive na tabela de link, não aqui. */
 export interface CommunityActorRow {
   id: Generated<string>;
@@ -314,6 +340,7 @@ export interface Database {
   community_comment_subject: CommunityCommentSubjectRow;
   community_comment_version: CommunityCommentVersionRow;
   community_comment_vote: CommunityCommentVoteRow;
+  community_comment_vote_audit: CommunityCommentVoteAuditRow;
   community_idempotency_key: CommunityIdempotencyKeyRow;
   community_moderation_audit: CommunityModerationAuditRow;
   community_restriction: CommunityRestrictionRow;

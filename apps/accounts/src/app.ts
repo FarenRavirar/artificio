@@ -198,12 +198,24 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
   const googleClient = createGoogleClient(env);
 
   app.set("trust proxy", env.TRUSTED_PROXY_CIDR);
+  // T2.10 (spec 090, requisito 12b): este limiter é do **SSO**, e as rotas
+  // comunitárias não consomem a cota dele. Elas têm buckets próprios por ação e
+  // identidade em `communityRateLimit.ts`, aplicados por rota.
+  //
+  // Antes de 2026-08-09 ele cobria a aplicação inteira, `/internal/v1/*`
+  // incluído: uma thread ativa gastava o orçamento de `/login`, `/me` e
+  // `/refresh` do mesmo usuário — exatamente o que 12b proíbe.
+  //
+  // O `skip` é por prefixo e não por lista de rotas: rota comunitária nova
+  // nasce fora do bucket de autenticação por construção, sem depender de alguém
+  // lembrar de acrescentá-la aqui.
   app.use(
     rateLimit({
       windowMs: 15 * 60 * 1000,
       max: 200,
       standardHeaders: true,
       legacyHeaders: false,
+      skip: (req) => req.path.startsWith("/internal/v1/"),
     }),
   );
   app.use(cookieParser());

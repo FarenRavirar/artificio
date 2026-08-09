@@ -70,6 +70,8 @@ interface CommentFixture {
   author_role?: string | null;
   /** Autor do comentário é o publicador afirmado pelo domínio (§8). */
   author_is_content_author?: boolean;
+  /** T2.9 — conta apagada: vínculo some por cascade e o `JOIN` não casa. */
+  deleted_account?: boolean;
   my_vote?: number | null;
   /** Posição total na ordem de leitura, como a query serializa `sort_path`. */
   sort_key?: string;
@@ -87,11 +89,18 @@ function rawRow(fixture: CommentFixture) {
     created_at: new Date(fixture.created_at),
     legacy_source: fixture.legacy_source ?? null,
     legacy_author_name: fixture.legacy_author_name ?? null,
-    author_display_name: fixture.legacy_source ? null : "Ana",
+    // `null` também quando `deleted_account` — é assim que a conta excluída
+    // chega da query: o `ON DELETE CASCADE` do vínculo faz o `LEFT JOIN` não
+    // casar, e `u.name` vem nulo (T2.9).
+    author_display_name:
+      fixture.legacy_source || fixture.deleted_account ? null : "Ana",
     author_avatar_url: null,
     // Default `user`: o caso comum é conta sem papel global, e é o que precisa
     // sair **sem** selo. Fixture que quer selo declara o papel.
-    author_role: fixture.legacy_source ? null : (fixture.author_role ?? "user"),
+    author_role:
+      fixture.legacy_source || fixture.deleted_account
+        ? null
+        : (fixture.author_role ?? "user"),
     author_is_content_author: fixture.author_is_content_author ?? false,
     upvotes: 3,
     downvotes: 1,
@@ -494,6 +503,135 @@ describe("GET /internal/v1/comments — selo do autor (T2.6)", () => {
 });
 
 /**
+ * T2.9 — identidade resolvida no mesmo `SELECT`, sem depender da conta viva
+ * (requisitos 7, 7a–7b; decisão 53).
+ *
+ * O caso que dá nome à task é o segundo: conta excluída **não** some da conversa
+ * nem vira `display_name: null`. Requisito 7 pede nome neutro; nulo obrigaria
+ * cada consumidor a inventar o próprio texto, e o primeiro que esquecesse
+ * renderizaria comentário sem autor.
+ */
+describe("GET /internal/v1/comments — identidade do autor (T2.9)", () => {
+  async function autorDe(fixture: Partial<CommentFixture>) {
+    const { db } = fakeDb({
+      credential: await credentialRow(),
+      comments: [
+        { id: "c1", parent_id: null, depth: 0, created_at: "2026-08-01T10:00:00.000Z", ...fixture },
+      ],
+    });
+
+    const response = await authed(createApp(env, db), queryFor()).expect(200);
+    return response.body.comments[0].author;
+  }
+
+  it("conta ativa devolve perfil real", async () => {
+    expect(await autorDe({})).toEqual({
+      display_name: "Ana",
+      avatar_url: null,
+      badge: null,
+      state: "active",
+    });
+  });
+
+  it("conta excluída vira nome neutro, nunca nulo", async () => {
+    // A string está fixada em `spec.md:86`, `spec.md:712`, decisão 53 e T2.9,
+    // sempre nesta grafia. O `state` acompanha para que o frontend possa
+    // traduzir sem comparar texto.
+    expect(await autorDe({ deleted_account: true })).toEqual({
+      display_name: "Conta excluída",
+      avatar_url: null,
+      badge: null,
+      state: "deleted",
+    });
+  });
+
+  it("conta excluída nunca carrega selo, mesmo tendo sido admin", async () => {
+    // O selo afirma autoridade de uma conta que não existe mais. Como o vínculo
+    // some por cascade, `author_role` chega nulo — mas a regra é explícita para
+    // não depender de um nulo vindo de outro lugar.
+    const autor = await autorDe({ deleted_account: true, author_role: "admin" });
+    expect(autor.badge).toBeNull();
+    expect(autor.state).toBe("deleted");
+  });
+
+  it("legado é `legacy`, não `deleted` — nunca teve conta", async () => {
+    // Classificá-lo como excluído sugeriria que alguém apagou a conta de um
+    // comentário importado de 2019. A autoria é não verificada desde a origem
+    // (decisão 6).
+    expect(
+      await autorDe({ legacy_source: "site", legacy_author_name: "Visitante" }),
+    ).toEqual({
+      display_name: "Visitante",
+      avatar_url: null,
+      badge: null,
+      state: "legacy",
+    });
+  });
+
+  it("comentário de conta excluída continua na árvore, com corpo e score", async () => {
+    // Requisito 7b: "comentários permanecem". Exclusão neutraliza a pessoa, não
+    // apaga a conversa nem o score que terceiros produziram.
+    const { db } = fakeDb({
+      credential: await credentialRow(),
+      comments: [
+        {
+          id: "c1",
+          parent_id: null,
+          depth: 0,
+          created_at: "2026-08-01T10:00:00.000Z",
+          deleted_account: true,
+          body_markdown: "texto que fica",
+        },
+      ],
+    });
+
+    const response = await authed(createApp(env, db), queryFor()).expect(200);
+    const comentario = response.body.comments[0];
+
+    expect(comentario.body_markdown).toBe("texto que fica");
+    expect(comentario.score).toBe(2);
+    expect(comentario.upvotes).toBe(3);
+  });
+
+  it("o payload não expõe e-mail, vínculo, retenção nem legal_hold", async () => {
+    // Busca negativa, exigida pelo aceite de T2.9. A ausência é estrutural — os
+    // campos nem entram no `SELECT` —, mas afirmar sobre o payload é o que pega
+    // alguém acrescentando `retention_until` "para o frontend decidir".
+    const { db } = fakeDb({
+      credential: await credentialRow(),
+      comments: [
+        { id: "c1", parent_id: null, depth: 0, created_at: "2026-08-01T10:00:00.000Z" },
+      ],
+    });
+
+    const response = await authed(createApp(env, db), queryFor()).expect(200);
+    const bruto = JSON.stringify(response.body);
+
+    for (const proibido of [
+      "email",
+      "google_sub",
+      "retention_until",
+      "legal_hold",
+      "user_id",
+      "actor_id",
+      "fingerprint",
+    ]) {
+      expect(bruto).not.toContain(proibido);
+    }
+  });
+
+  it("a API pública não distingue conta excluída de conta em retenção", async () => {
+    // O oráculo que T2.9 fecha: se retenção interna tivesse `state` próprio, o
+    // payload diria ao público que aquele autor tem caso de moderação aberto.
+    // Ambas as situações chegam aqui como vínculo ausente, e saem idênticas.
+    const excluida = await autorDe({ deleted_account: true });
+    const emRetencao = await autorDe({ deleted_account: true, author_role: "moderator" });
+
+    expect(excluida).toEqual(emRetencao);
+  });
+});
+
+/**
  * T2.6b — sem `@menções` nesta fase (decisão 31).
  *
  * `accounts.users` não tem handle público único: nome Google é mutável e não
@@ -526,6 +664,7 @@ describe("GET /internal/v1/comments — @menção é texto comum (T2.6b)", () =>
       display_name: "Ana",
       avatar_url: null,
       badge: null,
+      state: "active",
     });
   });
 });

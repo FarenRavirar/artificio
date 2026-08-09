@@ -96,6 +96,37 @@ interface CommentQueryRow {
  */
 export type AuthorBadge = "admin" | "moderator" | "content_author";
 
+/**
+ * Nome neutro de quem não tem mais conta (requisito 7; decisão 53).
+ *
+ * A string está fixada em quatro pontos da spec — `spec.md:86`, `spec.md:712`,
+ * decisão 53 e T2.9 — sempre nesta grafia. Ela é **materializada aqui**, no
+ * backend, e não deixada para o frontend: `display_name: null` obrigaria cada
+ * consumidor a inventar o próprio texto, e o primeiro que esquecesse renderizaria
+ * comentário sem autor nenhum. `author.state` acompanha para quem quiser
+ * traduzir ou estilizar sem depender de comparar string.
+ */
+export const DELETED_ACCOUNT_DISPLAY_NAME = "Conta excluída";
+
+/**
+ * Estado da identidade por trás do comentário, em valor de máquina.
+ *
+ * Existe pelo mesmo motivo de `badge` ser enum e não rótulo: o texto é escolha do
+ * frontend (Fase 4), e comparar `display_name === "Conta excluída"` faria a
+ * interface quebrar no dia em que a redação mudasse.
+ *
+ * - `active` — vínculo vivo, perfil real resolvido no mesmo `SELECT`.
+ * - `deleted` — não há conta por trás do ator. Requisito 7b: a exclusão apaga a
+ *   linha de `users`, e o `ON DELETE CASCADE` de
+ *   `community_actor_account_link.user_id` leva o vínculo junto; o `LEFT JOIN`
+ *   simplesmente não casa. **Retenção interna cai aqui também, de propósito**:
+ *   T2.9 exige que a API pública não distinga conta excluída de conta em
+ *   retenção, senão o payload viraria oráculo de "tem caso de moderação aberto".
+ * - `legacy` — comentário importado, que nunca teve conta (decisão 6). O nome
+ *   vem de `legacy_author_name` e a autoria é não verificada.
+ */
+export type AuthorState = "active" | "deleted" | "legacy";
+
 /** Objeto público do `contrato-http-v1.md` §2. */
 export interface PublicComment {
   id: string;
@@ -110,6 +141,8 @@ export interface PublicComment {
     display_name: string | null;
     avatar_url: string | null;
     badge: AuthorBadge | null;
+    /** T2.9 — estado da identidade, em valor de máquina. */
+    state: AuthorState;
   };
   upvotes: number | null;
   downvotes: number | null;
@@ -466,6 +499,79 @@ function publicState(visibilityState: string): PublicCommentState {
  * `user` vira `null` de propósito: requisito 11 manda não rotular usuário
  * comum.
  */
+/**
+ * Identidade pública do autor, resolvida no mesmo `SELECT` (T2.9, requisitos 7,
+ * 7a-7b; decisão 53).
+ *
+ * ## Três estados, uma consulta
+ *
+ * Nenhuma segunda chamada e nenhuma rota em lote: o `JOIN` de
+ * `community_comment` → `community_actor_account_link` → `users` já traz tudo, e
+ * é o que o requisito 7 exige ("comentários e usuários vivem no mesmo banco").
+ *
+ * ## Por que ausência de vínculo é `deleted`, e não erro
+ *
+ * `community_actor_account_link.user_id` tem `ON DELETE CASCADE` para `users`
+ * (`migration_006:50`), e `deleteUser` faz `DELETE` físico (`users.ts:87`). Logo
+ * conta excluída **apaga o vínculo**, o `LEFT JOIN` não casa, e `u.name` chega
+ * nulo. O ator (`community_actor`) sobrevive, porque é ele que sustenta o
+ * comentário e o voto sem FK nominal (requisito 7a).
+ *
+ * Antes desta task o nulo virava `display_name: null`, e cada consumidor teria de
+ * inventar o próprio texto — o primeiro que esquecesse renderizaria comentário
+ * sem autor. Requisito 7 pede **nome neutro**, não ausência de nome.
+ *
+ * ## O que a API pública deliberadamente NÃO distingue
+ *
+ * Conta excluída, conta em retenção interna (`retention_until` no futuro) e
+ * vínculo já expurgado saem **iguais**: `deleted`, avatar nulo, sem badge.
+ * Distingui-los diria ao público que aquele autor tem caso de moderação aberto —
+ * o oráculo que T2.9 fecha ao exigir que "a API pública nunca distinga retenção
+ * interna". A moderação enxerga a diferença por outra superfície (T2.19), nunca
+ * por esta.
+ *
+ * Isso vale **sem código extra** aqui: `retention_until` e `legal_hold` só
+ * existem na linha de vínculo, e a leitura pública nem os seleciona. A ausência
+ * do campo no `SELECT` é o mecanismo, e o teste de payload afirma essa ausência.
+ */
+function authorIdentity(row: CommentQueryRow): PublicComment["author"] {
+  // Legado primeiro: ele tem `legacy_author_name` e nunca teve conta, então cair
+  // na checagem de vínculo o classificaria como `deleted` — que é falso e
+  // sugeriria que alguém apagou a conta de um comentário de 2019.
+  if (row.legacy_source) {
+    return {
+      display_name: row.legacy_author_name,
+      avatar_url: null,
+      badge: null,
+      state: "legacy",
+    };
+  }
+
+  // Sem nome resolvido não há conta viva por trás do ator. Testa `display_name`
+  // e não `avatar_url` porque `users.avatar` é legitimamente nulo em conta ativa
+  // sem foto — usá-lo marcaria como excluída uma conta que existe.
+  if (row.author_display_name === null) {
+    return {
+      display_name: DELETED_ACCOUNT_DISPLAY_NAME,
+      // Avatar nulo é requisito 7, não consequência: mesmo que a coluna
+      // guardasse a URL antiga, ela não sairia daqui.
+      avatar_url: null,
+      // Sem badge: o selo afirma autoridade de uma conta que não existe mais, e
+      // `authorBadge` já devolveria nulo por não haver `author_role`. Explícito
+      // para que a regra não dependa de um nulo vindo de outro lugar.
+      badge: null,
+      state: "deleted",
+    };
+  }
+
+  return {
+    display_name: row.author_display_name,
+    avatar_url: row.author_avatar_url,
+    badge: authorBadge(row),
+    state: "active",
+  };
+}
+
 function authorBadge(row: CommentQueryRow): AuthorBadge | null {
   if (row.legacy_source) return null;
   if (row.author_role === "admin") return "admin";
@@ -495,14 +601,7 @@ function toTreeRow(row: CommentQueryRow): TreeRow {
     created_at: toIso(row.created_at),
     edited_at: row.edited_at ? toIso(row.edited_at) : null,
     state,
-    author: {
-      // Legado tem `legacy_author_name` e nenhuma conta ligada; o nome exibido
-      // vem de lá. Autoria não verificada é sinalizada por `legacy`, não por
-      // ausência de nome.
-      display_name: row.legacy_source ? row.legacy_author_name : row.author_display_name,
-      avatar_url: row.legacy_source ? null : row.author_avatar_url,
-      badge: authorBadge(row),
-    },
+    author: authorIdentity(row),
     upvotes: hidden ? null : (row.upvotes ?? 0),
     downvotes: hidden ? null : (row.downvotes ?? 0),
     score: hidden ? null : (row.score ?? 0),

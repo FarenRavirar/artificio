@@ -15,12 +15,12 @@
 | 📄 CONTRACT_ONLY | 4 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
 | 🕳️ UNUSED_ROUTE | 126 | ❌ |
-| 👻 ORPHAN_SUSPECT | 53 | ❌ |
+| 👻 ORPHAN_SUSPECT | 54 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
 ## Detalhamento por app
 
-### accounts (22 rotas no inventário)
+### accounts (23 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
@@ -46,6 +46,7 @@
 | POST | `/internal/v1/comments` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/internal/v1/comments/:id/replies` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PUT | `/admin/secrets/:name` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| PUT | `/internal/v1/comments/:id/vote` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 
 ### downloads (82 rotas no inventário)
 
@@ -471,7 +472,7 @@
 
 Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificação que justifique.
 
-### accounts (6 rota(s))
+### accounts (7 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
@@ -481,6 +482,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | PATCH | `/internal/v1/comments/:id` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/internal/v1/comments` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/internal/v1/comments/:id/replies` | ✅ | public | Sem consumidor e scope não justifica |
+| PUT | `/internal/v1/comments/:id/vote` | ✅ | public | Sem consumidor e scope não justifica |
 ### downloads (38 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |

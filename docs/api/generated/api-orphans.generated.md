@@ -10,13 +10,13 @@
 
 | Categoria | Quantidade | Bloqueia? |
 |-----------|:----------:|:---------:|
-| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 53 | ❌ |
+| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 54 | ❌ |
 
 ## Rotas órfãs suspeitas
 
 Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificação que justifique ausência de uso.
 
-### accounts (6 rota(s))
+### accounts (7 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
@@ -26,6 +26,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | PATCH | `/internal/v1/comments/:id` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/internal/v1/comments` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/internal/v1/comments/:id/replies` | ✅ | public | Scope "public" sem consumidor |
+| PUT | `/internal/v1/comments/:id/vote` | ✅ | public | Scope "public" sem consumidor |
 ### downloads (38 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |

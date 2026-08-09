@@ -74,6 +74,17 @@ export {
 } from './treeCursor.js';
 
 export {
+  COMMENT_RATE_BUCKETS,
+  RateLimitConfigurationError,
+  resolveRateLimitKeys,
+  serializeRateLimitKey,
+  type CommentRateBucket,
+  type RateLimitIdentity,
+  type RateLimitKey,
+  type RateLimitLayer,
+} from './rateLimitBuckets.js';
+
+export {
   runSubjectAuthorizationConformance,
   type ConformanceCheck,
   type ConformanceFixture,
