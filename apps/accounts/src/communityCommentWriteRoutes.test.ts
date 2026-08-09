@@ -430,6 +430,33 @@ describe("POST /internal/v1/comments — autorização do assunto (§8)", () => 
   });
 
   it.each([
+    ["canonical_path divergente", { canonical_path: "/outro/caminho" }],
+    ["owner divergente", { owner_user_id: "99999999-9999-4999-8999-999999999999" }],
+    ["canonical_path malformado", { canonical_path: "https://evil.example/x" }],
+  ])("alvo negado com %s continua 404, nunca 400", async (_caso, torto) => {
+    // O oráculo que este caso fecha: se a comparação de forma rodasse antes da
+    // recusa do domínio, `exists: false` **mais** um campo torto devolveria
+    // `400` enquanto `exists: false` sozinho devolve `404`. A diferença de
+    // status já diz ao chamador que o caminho foi examinado — ou seja, que o
+    // alvo existe o bastante para ter caminho comparável.
+    //
+    // A ordem estava invertida até 2026-08-09 (achado de review do CodeRabbit,
+    // PR #250): o comentário da função afirmava a ordem correta e o código fazia
+    // o contrário.
+    const app = createApp(env, fakeDb(await credentialRow()));
+
+    const response = await post(app)
+      .send({
+        ...VALID_BODY,
+        subject_authorization: { ...VALID_AUTHORIZATION, exists: false, ...torto },
+      })
+      .expect(404);
+
+    expect(response.body.error.code).toBe("subject_not_found");
+    expect(createCommentMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
     ["esquema", "https://evil.example/x"],
     ["protocol-relative", "//evil.example/x"],
     ["barra invertida", "/materiais\\evil"],

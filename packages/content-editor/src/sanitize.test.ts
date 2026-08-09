@@ -178,10 +178,17 @@ describe('caracteres literais `<` e `>` (correção 2026-08-07)', () => {
 /**
  * T2.5 — HTML legado do `site`, sanitizado uma vez na importação.
  *
- * A allowlist é `p`/`br`/`a`, derivada do conteúdo real (25 linhas em prod e em
- * beta, medidas em 2026-08-09). Estes testes protegem os dois lados: o que o
- * legado **tem** precisa sobreviver, e o que ele não tem precisa morrer mesmo
- * que apareça.
+ * A allowlist são os **defaults da `sanitize-html`** (70 tags, medidas), mais as
+ * duas regras que a biblioteca não pode presumir: HTTPS-only e reescrita de
+ * `rel`/`target`. O conteúdo real usa apenas `p`, `br` e `a` (25 linhas em prod
+ * e em beta, medidas em 2026-08-09), mas a política não se limita a ele — daí
+ * os casos de `<strong>`/`<em>`/`<blockquote>`/`<li>` abaixo.
+ *
+ * (O cabeçalho dizia "a allowlist é `p`/`br`/`a`", descrevendo a configuração
+ * anterior à troca pelos defaults — achado de review do CodeRabbit, PR #250.)
+ *
+ * Estes testes protegem os dois lados: o que o legado **tem** precisa
+ * sobreviver, e o que não é seguro precisa morrer mesmo que apareça.
  */
 describe('sanitizeLegacyCommentHtml (T2.5)', () => {
   it('preserva a estrutura que o legado realmente usa', () => {

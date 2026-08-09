@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { resolveNotificationRecipients } from './notificationRecipients.js';
+import {
+  resolveNotificationRecipients,
+  type RecipientCandidates,
+} from './notificationRecipients.js';
 
 const ATOR = 'ator';
 const PUBLICADOR = 'publicador';
@@ -10,20 +13,33 @@ describe('T2.6b — menção não cria destinatário (decisão 31)', () => {
     // A garantia é **estrutural**, não uma regra a lembrar: `RecipientCandidates`
     // carrega publicador, autor do pai, ator e inelegíveis — o corpo do
     // comentário não é parâmetro, então nenhum `@texto` tem caminho até um
-    // `notification_receipt`. Este teste falha no dia em que alguém acrescentar
-    // um campo de texto à entrada, que é exatamente quando a decisão 31 estaria
-    // sendo revogada sem decisão.
-    const candidatos = {
+    // `notification_receipt`.
+    //
+    // A guarda é no **tipo**, não no literal. Até 2026-08-09 este teste rodava
+    // `Object.keys` sobre o objeto local abaixo, o que não guardava nada:
+    // acrescentar `bodyMarkdown` a `RecipientCandidates` deixava o literal
+    // intacto e o teste seguia verde — enquanto o comentário afirmava o
+    // contrário. A lista também estava errada, com três campos para um tipo de
+    // quatro (achado de review do CodeRabbit, PR #250).
+    //
+    // Agora um campo novo sai de `CamposPermitidos`, `Excedentes` deixa de ser
+    // `never`, e o **pacote não compila** — que é exatamente o momento em que a
+    // decisão 31 estaria sendo revogada sem decisão.
+    type CamposPermitidos =
+      | 'publisherUserId'
+      | 'parentAuthorUserId'
+      | 'actingUserId'
+      | 'ineligibleUserIds';
+    type Excedentes = Exclude<keyof RecipientCandidates, CamposPermitidos>;
+    const semCampoDeTexto: Excedentes extends never ? true : false = true;
+    expect(semCampoDeTexto).toBe(true);
+
+    const candidatos: RecipientCandidates = {
       publisherUserId: null,
       parentAuthorUserId: null,
       actingUserId: ATOR,
     };
 
-    expect(Object.keys(candidatos).sort()).toEqual([
-      'actingUserId',
-      'parentAuthorUserId',
-      'publisherUserId',
-    ]);
     // Raiz de um assunto sem dono, com menção no corpo: ninguém é notificado.
     expect(resolveNotificationRecipients(candidatos)).toEqual([]);
   });

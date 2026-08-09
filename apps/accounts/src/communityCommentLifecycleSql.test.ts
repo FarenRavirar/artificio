@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   CompiledQuery,
   Kysely,
@@ -155,6 +156,19 @@ const REMOVE_INPUT = {
   actingUserId: ACTING_USER,
 };
 
+/**
+ * Mesmo hash de `hashEditRequest`, para os casos de replay.
+ *
+ * Replicado e não exportado do módulo de propósito: o hash define "mesmo
+ * pedido", e um teste que importasse a função passaria mesmo se ela mudasse de
+ * forma incompatível com a chave já gravada em produção.
+ */
+function hashOf(input: typeof EDIT_INPUT): string {
+  return createHash("sha256")
+    .update(JSON.stringify([input.commentId, input.bodyMarkdown, input.actingUserId]))
+    .digest("hex");
+}
+
 describe("edição toca o corpo e nada além dele", () => {
   it("o UPDATE grava body_markdown, current_version_id e edited_at", async () => {
     scriptEdit();
@@ -279,15 +293,89 @@ describe("edição toca o corpo e nada além dele", () => {
     expect(update[0]).toMatch(/"source_app"\s*=/i);
   });
 
-  it("a chave de idempotência é reservada com ON CONFLICT DO NOTHING", async () => {
+  it("a chave de idempotência é reservada por ON CONFLICT, nunca por SELECT antes", async () => {
     // Capturar a violação de unicidade mataria a transação (`25P02`) e
-    // transformaria repetição legítima em `500` — o defeito que a criação já
-    // corrigiu.
+    // transformaria repetição legítima em `500`; consultar antes de inserir é o
+    // check-before-transaction que §6 manda não replicar.
     scriptEdit();
     await editComment(ctx.db, EDIT_INPUT);
 
     const insert = sqlMatching(/insert into "community_idempotency_key"/i);
-    expect(insert[0]).toMatch(/on conflict do nothing/i);
+    expect(insert[0]).toMatch(/on conflict\s*\(/i);
+  });
+
+  it("chave vencida é retomada no próprio ON CONFLICT, condicionada a expires_at", async () => {
+    // Sem esta cláusula a chave caía no replay, batia no `expires_at <= now()`
+    // de `replayEditOrConflict` e devolvia `409` **para sempre**: não existe
+    // varredura de vencidos no repositório (`rg "community_idempotency_key"` em
+    // `apps packages scripts` não acha nenhum `DELETE`, medido em 2026-08-09),
+    // apesar de `migration_008:86` documentá-la. Achado de review do Codex (P2).
+    scriptEdit();
+    await editComment(ctx.db, EDIT_INPUT);
+
+    const insert = sqlMatching(/insert into "community_idempotency_key"/i)[0];
+    expect(insert).toMatch(/do update set/i);
+    expect(insert).not.toMatch(/do nothing/i);
+    // A condição é o que mantém a segurança: dentro da janela o `UPDATE` não
+    // acontece, zero linhas voltam, e o fluxo cai no replay como antes. Sem ela,
+    // a retomada engoliria a repetição legítima.
+    expect(insert).toMatch(/where\s+"?community_idempotency_key"?\."?expires_at"?\s*<=/i);
+  });
+
+  it("a retomada reescreve created_at junto da janela nova", async () => {
+    // `community_idempotency_key_window` exige `expires_at > created_at`. Manter
+    // o `created_at` antigo passa hoje e quebra se a retenção mudar.
+    scriptEdit();
+    await editComment(ctx.db, EDIT_INPUT);
+
+    const insert = sqlMatching(/insert into "community_idempotency_key"/i)[0];
+    expect(insert).toMatch(/"created_at"\s*=/i);
+    expect(insert).toMatch(/"expires_at"\s*=/i);
+  });
+});
+
+describe("replay normaliza o que vem do banco", () => {
+  it("response_body com forma desconhecida vira 409, não é servido ao consumidor", async () => {
+    // `response_body` é `jsonb` lido do banco: `unknown` até passar por
+    // normalizador (`AGENTS.md` §Regras Gerais de Código). O `as EditedComment`
+    // anterior afirmava a forma sem verificar, e o valor ia direto para
+    // `res.json()`. Achado de review do CodeRabbit.
+    ctx.capture.enqueue([]); // chave já existe: `ON CONFLICT` não devolve linha
+    ctx.capture.enqueue([
+      {
+        request_hash: hashOf(EDIT_INPUT),
+        response_body: { forma: "de outra versão do handler" },
+        expires_at: new Date(Date.now() + 3_600_000),
+      },
+    ]);
+
+    const result = await editComment(ctx.db, EDIT_INPUT);
+
+    expect(result).toEqual({ ok: false, code: "idempotency_key_reuse", status: 409 });
+  });
+
+  it("response_body bem formado é devolvido como replay", async () => {
+    const gravado = {
+      id: COMMENT_ID,
+      parent_id: null,
+      root_id: COMMENT_ID,
+      depth: 0,
+      body_markdown: "corpo novo",
+      created_at: "2026-08-09T12:00:00.000Z",
+      edited_at: "2026-08-09T12:30:00.000Z",
+    };
+    ctx.capture.enqueue([]);
+    ctx.capture.enqueue([
+      {
+        request_hash: hashOf(EDIT_INPUT),
+        response_body: gravado,
+        expires_at: new Date(Date.now() + 3_600_000),
+      },
+    ]);
+
+    const result = await editComment(ctx.db, EDIT_INPUT);
+
+    expect(result).toEqual({ ok: true, comment: gravado, replayed: true });
   });
 });
 

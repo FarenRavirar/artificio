@@ -197,15 +197,15 @@ const editBodySchema = z.object({ body_markdown: z.string().min(1) }).strict();
  * Headers obrigatórios das escritas de ciclo de vida.
  *
  * `null` sinaliza que a resposta de erro já foi enviada — o chamador só retorna.
- * O `PATCH` exige `Idempotency-Key` (§4/§6); o `DELETE` não, e passa
- * `requireIdempotencyKey: false`, porque o efeito dele já é idempotente por
- * construção: a segunda chamada encontra o tombstone e recusa.
+ *
+ * Duas funções e não uma com `requireIdempotencyKey: boolean`: a versão com flag
+ * devolvia `idempotencyKey: ""` no ramo do `DELETE`, e uma inversão da flag faria
+ * **toda edição reservar a chave vazia** — duas edições distintas colidindo na
+ * mesma linha, sem erro de tipo e sem teste que pegasse. Agora quem precisa da
+ * chave chama a função que a devolve, e quem não precisa não tem como recebê-la
+ * vazia (achado de review do CodeRabbit, PR #250).
  */
-function readLifecycleHeaders(
-  req: Request,
-  res: Response,
-  requireIdempotencyKey: boolean,
-): { actingUserId: string; idempotencyKey: string } | null {
+function readActingAuthor(req: Request, res: Response): string | null {
   const actingUserId = req.headers["x-acting-user-id"];
   if (typeof actingUserId !== "string" || !z.uuid().safeParse(actingUserId).success) {
     // Aqui o header é a **identidade do autor**, não enfeite como na leitura:
@@ -214,12 +214,23 @@ function readLifecycleHeaders(
     fail(req, res, 400, "invalid_acting_user");
     return null;
   }
+  return actingUserId;
+}
+
+/**
+ * Autor + `Idempotency-Key`, para as escritas que a exigem (§4/§6).
+ *
+ * O `DELETE` não passa por aqui: o efeito dele já é idempotente por construção,
+ * porque a segunda chamada encontra o tombstone e recusa.
+ */
+function readAuthorAndKey(
+  req: Request,
+  res: Response,
+): { actingUserId: string; idempotencyKey: string } | null {
+  const actingUserId = readActingAuthor(req, res);
+  if (actingUserId === null) return null;
 
   const idempotencyKey = req.headers["idempotency-key"];
-  if (!requireIdempotencyKey) {
-    return { actingUserId, idempotencyKey: "" };
-  }
-
   if (typeof idempotencyKey !== "string" || !/^[\x20-\x7E]{8,128}$/.test(idempotencyKey)) {
     fail(req, res, 400, "invalid_idempotency_key");
     return null;
@@ -255,7 +266,7 @@ async function handleEditComment(
     return;
   }
 
-  const headers = readLifecycleHeaders(req, res, true);
+  const headers = readAuthorAndKey(req, res);
   if (!headers) return;
 
   const commentId = readCommentId(req, res);
@@ -298,8 +309,8 @@ async function handleRemoveComment(
     return;
   }
 
-  const headers = readLifecycleHeaders(req, res, false);
-  if (!headers) return;
+  const actingUserId = readActingAuthor(req, res);
+  if (actingUserId === null) return;
 
   const commentId = readCommentId(req, res);
   if (!commentId) return;
@@ -308,7 +319,7 @@ async function handleRemoveComment(
     realm: credential.realm,
     sourceApp: credential.sourceApp,
     commentId,
-    actingUserId: headers.actingUserId,
+    actingUserId,
   });
 
   if (!result.ok) {
@@ -414,6 +425,18 @@ function readSubjectAuthorization(
 ): SubjectAuthorizationOutcome {
   const claim = body.subject_authorization;
 
+  // Recusa do domínio vem **primeiro**, antes de qualquer comparação de forma:
+  // um alvo inexistente cujo `canonical_path` também esteja torto continua sendo
+  // `404`, senão o `400` revelaria que o caminho chegou a ser examinado — o
+  // oráculo de existência que o `404` uniforme de §13 fecha.
+  //
+  // A ordem estava invertida até 2026-08-09 (achado de review do CodeRabbit,
+  // PR #250): as duas comparações abaixo rodavam antes desta linha, e o
+  // comentário afirmava o contrário do que o código fazia. Consequência real:
+  // `exists: false` com `canonical_path` divergente devolvia `400` em vez do
+  // `404` uniforme, e a diferença de status já é o oráculo.
+  if (!claim.exists || !claim.visible || !claim.commentable) return null;
+
   if (claim.canonical_path !== body.canonical_path) return "inconsistent";
   if (
     body.subject_owner_user_id !== undefined &&
@@ -421,11 +444,6 @@ function readSubjectAuthorization(
   ) {
     return "inconsistent";
   }
-
-  // Recusa do domínio vem antes da validação de forma: um alvo inexistente cujo
-  // `canonical_path` também esteja torto continua sendo `404`, senão o `400`
-  // revelaria que o caminho chegou a ser examinado.
-  if (!claim.exists || !claim.visible || !claim.commentable) return null;
 
   const parsed = subjectAuthorizationSchema.safeParse({
     exists: claim.exists,

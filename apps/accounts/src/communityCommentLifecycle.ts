@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
-import type { Kysely, Transaction } from "kysely";
+import type { Kysely, Selectable, Transaction } from "kysely";
+import { z } from "zod";
 import { validateCommentBody } from "@artificio/comments";
 import type { Database } from "./db.js";
 
@@ -104,6 +105,24 @@ export interface EditedComment {
   edited_at: string | null;
 }
 
+/**
+ * Normalizador de `response_body` no replay.
+ *
+ * O campo é `jsonb`: sai do banco como `unknown` e só vira `EditedComment`
+ * depois de passar por aqui. `created_at`/`edited_at` são `string` e não
+ * `z.date()` porque foram serializados na gravação — é o mesmo motivo de
+ * `EditedComment` guardar ISO string em vez de `Date`.
+ */
+const editedCommentSchema = z.object({
+  id: z.uuid(),
+  parent_id: z.uuid().nullable(),
+  root_id: z.uuid(),
+  depth: z.number().int(),
+  body_markdown: z.string(),
+  created_at: z.string(),
+  edited_at: z.string().nullable(),
+});
+
 export type EditCommentResult =
   | { ok: true; comment: EditedComment; replayed: boolean }
   | { ok: false; code: LifecycleRejectionCode; status: number };
@@ -129,6 +148,15 @@ class LifecycleRejection extends Error {
   }
 }
 
+/**
+ * Estado de visibilidade, na união do schema.
+ *
+ * `string` solto deixaria `=== "author_removed"` compilar mesmo com typo, e o
+ * ramo simplesmente nunca rodaria — tombstone editável sem erro nenhum
+ * (achado de review do CodeRabbit, PR #250).
+ */
+type VisibilityState = Selectable<Database["community_comment"]>["visibility_state"];
+
 /** Linha do comentário sob trava, com o que as duas operações precisam decidir. */
 interface LockedComment {
   id: string;
@@ -137,7 +165,7 @@ interface LockedComment {
   depth: number;
   body_markdown: string | null;
   community_actor_id: string | null;
-  visibility_state: string;
+  visibility_state: VisibilityState;
   legacy_source: string | null;
   created_at: Date;
   edited_at: Date | null;
@@ -297,10 +325,22 @@ export async function editComment(
         Date.now() + IDEMPOTENCY_RETENTION_HOURS * 60 * 60 * 1000,
       );
 
-      // Idempotência primeiro, `ON CONFLICT DO NOTHING` — mesmo desenho da
-      // criação. Um `SELECT` antes do `INSERT` deixaria janela para dois pedidos
-      // idênticos passarem juntos, e capturar a violação mataria a transação
-      // (`25P02`), transformando repetição legítima em `500`.
+      // Idempotência primeiro. Um `SELECT` antes do `INSERT` deixaria janela
+      // para dois pedidos idênticos passarem juntos, e capturar a violação
+      // mataria a transação (`25P02`), transformando repetição legítima em
+      // `500`.
+      //
+      // `DO UPDATE ... WHERE expires_at <= now()` e não `DO NOTHING`: a chave
+      // **vencida** é retomada aqui, atomicamente, em vez de cair no replay.
+      // `migration_008` documenta uma "varredura periódica" de vencidos que
+      // nunca foi escrita (`rg "community_idempotency_key"` em `apps packages
+      // scripts` não acha nenhum `DELETE`, medido em 2026-08-09), então sem esta
+      // retomada a chave ficaria bloqueada **para sempre** depois das 24h — e o
+      // contrato §6 diz o contrário. Achado de review do Codex (P2, PR #250).
+      //
+      // A condição no `WHERE` é o que mantém a segurança: dentro da janela o
+      // `UPDATE` não acontece, zero linhas voltam, e o fluxo cai no replay como
+      // antes. Só a linha morta é reivindicada.
       const claimed = await trx
         .insertInto("community_idempotency_key")
         .values({
@@ -314,7 +354,22 @@ export async function editComment(
           response_body: {},
           expires_at: expiresAt,
         })
-        .onConflict((oc) => oc.doNothing())
+        .onConflict((oc) =>
+          oc
+            .columns(["realm", "source_app", "operation", "idempotency_key"])
+            .doUpdateSet({
+              acting_user_id: input.actingUserId,
+              request_hash: requestHash,
+              response_status: 200,
+              response_body: {},
+              created_at: new Date(),
+              expires_at: expiresAt,
+            })
+            // `created_at` também é reescrito: `community_idempotency_key_window`
+            // exige `expires_at > created_at`, e manter o `created_at` antigo
+            // com janela nova passa hoje mas quebra se a retenção mudar.
+            .where("community_idempotency_key.expires_at", "<=", new Date()),
+        )
         .returning("id")
         .executeTakeFirst();
 
@@ -441,8 +496,11 @@ async function replayEditOrConflict(
     .where("idempotency_key", "=", input.idempotencyKey)
     .executeTakeFirst();
 
-  // Registro vencido não é repetição: passadas as 24h a chave está livre, e
-  // devolver a resposta antiga faria uma edição nova desaparecer em silêncio.
+  // Registro vencido não é repetição: passadas as 24h a chave está livre. Hoje
+  // este ramo é inalcançável pelo caminho normal — o `ON CONFLICT` condicionado
+  // retoma a linha vencida antes de chegar aqui —, mas continua como defesa:
+  // uma linha escrita por script operacional ou por versão anterior do handler
+  // não pode virar replay de uma edição de ontem.
   if (!existing || existing.expires_at <= new Date()) {
     return { ok: false, code: "idempotency_key_reuse", status: 409 };
   }
@@ -451,11 +509,21 @@ async function replayEditOrConflict(
     return { ok: false, code: "idempotency_key_reuse", status: 409 };
   }
 
-  return {
-    ok: true,
-    comment: existing.response_body as EditedComment,
-    replayed: true,
-  };
+  // `response_body` é `jsonb` **lido do banco**, portanto `unknown` até passar
+  // por normalizador (`AGENTS.md` §Regras Gerais de Código). O `as EditedComment`
+  // que estava aqui afirmava a forma sem verificar, e o valor vai direto para
+  // `res.json()` — uma linha gravada por versão anterior do handler seria servida
+  // ao consumidor como se estivesse tipada. Achado de review do CodeRabbit
+  // (PR #250).
+  //
+  // Forma desconhecida vira `409` e não `500`: a linha existe e é inutilizável,
+  // que é exatamente o que `idempotency_key_reuse` significa para o chamador.
+  const stored = editedCommentSchema.safeParse(existing.response_body);
+  if (!stored.success) {
+    return { ok: false, code: "idempotency_key_reuse", status: 409 };
+  }
+
+  return { ok: true, comment: stored.data, replayed: true };
 }
 
 /**

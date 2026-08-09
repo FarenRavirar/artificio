@@ -137,6 +137,24 @@ describe("PATCH — só o corpo muda", () => {
     );
   });
 
+  it("a Idempotency-Key do header chega ao núcleo, não uma vazia", async () => {
+    // Sem esta asserção, uma versão do handler que passasse `""` para o núcleo
+    // passava em todos os outros testes — e toda edição reservaria a mesma linha,
+    // fazendo duas edições distintas colidirem. Achado de review do CodeRabbit
+    // (PR #250) sobre o sentinela que `readLifecycleHeaders` devolvia.
+    const app = createApp(env, fakeDb(await credentialRow())) as Express;
+
+    await patch(app).send({ body_markdown: "corpo novo" });
+
+    expect(editCommentMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        idempotencyKey: IDEMPOTENCY_KEY,
+        actingUserId: ACTING_USER,
+      }),
+    );
+  });
+
   it.each([
     ["parent_id", { parent_id: "33333333-3333-4333-8333-333333333333" }],
     ["subject_id", { subject_id: "outro" }],

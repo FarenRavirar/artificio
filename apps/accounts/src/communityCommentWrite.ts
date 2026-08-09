@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { Kysely, Transaction } from "kysely";
+import { z } from "zod";
 import {
   placeComment,
   resolveNotificationRecipients,
@@ -98,6 +99,21 @@ export interface CreatedComment {
    */
   created_at: string;
 }
+
+/**
+ * Normalizador de `response_body` no replay.
+ *
+ * O campo é `jsonb`: sai do banco como `unknown` e só vira `CreatedComment`
+ * depois daqui. `created_at` é `string` pelo motivo descrito no campo acima.
+ */
+const createdCommentSchema = z.object({
+  id: z.uuid(),
+  parent_id: z.uuid().nullable(),
+  root_id: z.uuid(),
+  depth: z.number().int(),
+  body_markdown: z.string(),
+  created_at: z.string(),
+});
 
 /**
  * Rejeição esperada dentro da transação.
@@ -301,15 +317,28 @@ export async function createComment(
         Date.now() + IDEMPOTENCY_RETENTION_HOURS * 60 * 60 * 1000,
       );
 
-      // `ON CONFLICT DO NOTHING` em vez de capturar a violação de unicidade: no
-      // PostgreSQL, um erro dentro da transação **aborta a transação inteira**, e
-      // todo comando seguinte falha com `25P02 current transaction is aborted`.
+      // `ON CONFLICT` em vez de capturar a violação de unicidade: no PostgreSQL,
+      // um erro dentro da transação **aborta a transação inteira**, e todo
+      // comando seguinte falha com `25P02 current transaction is aborted`.
       // Capturar a exceção e consultar em seguida — que é o que esta função fazia
       // — rodaria `replayOrConflict` numa transação já morta, transformando a
       // repetição legítima (que deve devolver a resposta original) num erro 500.
+      // `ON CONFLICT` não levanta erro: devolve zero linhas quando não age, a
+      // transação segue viva, e a consulta de replay funciona.
       //
-      // `DO NOTHING` não levanta erro: devolve zero linhas quando a chave já
-      // existe. A transação segue viva, e a consulta de replay funciona.
+      // `DO UPDATE ... WHERE expires_at <= now()` e não `DO NOTHING`: a chave
+      // **vencida** é retomada aqui, atomicamente. `migration_008:86` documenta
+      // uma "varredura periódica" de vencidos que nunca foi escrita (`rg
+      // "community_idempotency_key"` em `apps packages scripts` não acha nenhum
+      // `DELETE`, medido em 2026-08-09), então com `DO NOTHING` a chave caía no
+      // replay, batia no `expires_at <= new Date()` de `replayOrConflict` e
+      // devolvia `409` **para sempre** depois das 24h — o oposto do que §6 e o
+      // comentário daquela função afirmam. Defeito que estava em produção; achado
+      // de review do Codex na PR #250, sobre o código gêmeo da edição.
+      //
+      // A condição no `WHERE` é o que mantém a segurança: dentro da janela o
+      // `UPDATE` não acontece, zero linhas voltam, e o fluxo cai no replay como
+      // antes. Só a linha morta é reivindicada.
       const claimed = await trx
         .insertInto("community_idempotency_key")
         .values({
@@ -324,7 +353,22 @@ export async function createComment(
           response_body: {},
           expires_at: expiresAt,
         })
-        .onConflict((oc) => oc.doNothing())
+        .onConflict((oc) =>
+          oc
+            .columns(["realm", "source_app", "operation", "idempotency_key"])
+            .doUpdateSet({
+              acting_user_id: input.actingUserId,
+              request_hash: requestHash,
+              response_status: 201,
+              response_body: {},
+              // `created_at` também é reescrito: `community_idempotency_key_window`
+              // exige `expires_at > created_at`, e manter o `created_at` antigo com
+              // janela nova passa hoje mas quebra se a retenção mudar.
+              created_at: new Date(),
+              expires_at: expiresAt,
+            })
+            .where("community_idempotency_key.expires_at", "<=", new Date()),
+        )
         .returning("id")
         .executeTakeFirst();
 
@@ -622,9 +666,15 @@ async function replayOrConflict(
     return { ok: false, code: "idempotency_key_reuse", status: 409 };
   }
 
-  return {
-    ok: true,
-    comment: existing.response_body as CreatedComment,
-    replayed: true,
-  };
+  // `response_body` é `jsonb` **lido do banco**, portanto `unknown` até passar
+  // por normalizador (`AGENTS.md` §Regras Gerais de Código). O `as
+  // CreatedComment` que estava aqui afirmava a forma sem verificar, e o valor vai
+  // direto para `res.json()`. Achado de review do CodeRabbit na PR #250, sobre o
+  // código gêmeo da edição — mesma causa, corrigida nos dois.
+  const stored = createdCommentSchema.safeParse(existing.response_body);
+  if (!stored.success) {
+    return { ok: false, code: "idempotency_key_reuse", status: 409 };
+  }
+
+  return { ok: true, comment: stored.data, replayed: true };
 }

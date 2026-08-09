@@ -109,6 +109,42 @@ describe("SQL compilado da transação de escrita", () => {
     expect(sql).not.toMatch(/set[^)]*"ranking_revision"\s*=/is);
   });
 
+  it("chave de idempotência retoma linha vencida, condicionada a expires_at", () => {
+    // `DO NOTHING` deixava a chave vencida cair no replay, onde
+    // `expires_at <= now()` devolve `409` — **para sempre**, porque não existe
+    // varredura de vencidos no repositório (`rg "community_idempotency_key"` em
+    // `apps packages scripts`: nenhum `DELETE`, medido em 2026-08-09), apesar de
+    // `migration_008:86` documentá-la. Defeito que estava em produção; achado de
+    // review do Codex na PR #250 sobre o código gêmeo da edição.
+    const agora = new Date("2026-08-09T12:00:00.000Z");
+    const { sql } = db
+      .insertInto("community_idempotency_key")
+      .values({
+        realm: "beta",
+        source_app: "site",
+        idempotency_key: "chave-de-teste-0001",
+        operation: "comment.create",
+        acting_user_id: null,
+        request_hash: "a".repeat(64),
+        response_status: 201,
+        response_body: {},
+        expires_at: agora,
+      })
+      .onConflict((oc) =>
+        oc
+          .columns(["realm", "source_app", "operation", "idempotency_key"])
+          .doUpdateSet({ response_body: {}, created_at: agora, expires_at: agora })
+          .where("community_idempotency_key.expires_at", "<=", agora),
+      )
+      .compile();
+
+    expect(sql).toMatch(/on conflict\s*\(.+\)\s*do update set/is);
+    expect(sql).not.toMatch(/do nothing/i);
+    // A condição é o que separa retomada de sobrescrita: sem ela, a repetição
+    // legítima dentro da janela seria engolida e o replay nunca aconteceria.
+    expect(sql).toMatch(/where\s+"?community_idempotency_key"?\."?expires_at"?\s*<=/i);
+  });
+
   it("recibo em lote gera um VALUES por destinatário", () => {
     // `notification_receipt` é inserido com `.values([...])` a partir da lista de
     // destinatários. Lista vazia geraria SQL inválido pelo mesmo motivo do ator —
