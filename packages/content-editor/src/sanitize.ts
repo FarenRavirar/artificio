@@ -355,6 +355,136 @@ export function sanitizeOptionalUserMarkdown(
   return value === null || value === undefined ? value : sanitizeUserMarkdown(value);
 }
 
+/**
+ * Identificador da política de sanitização do HTML legado, gravado junto do
+ * conteúdo em `community_comment.legacy_sanitizer_policy`/`_version`
+ * (`migration_006:147-148`).
+ *
+ * Registrar os dois é o que permite **não ressanitizar continuamente**
+ * (requisito 10): o conteúdo é limpo uma vez, na importação, e a linha carrega
+ * sob qual regra isso aconteceu. Quando a política mudar, sobe a versão e o
+ * histórico continua legível — sem isso, um conteúdo antigo seria indistinguível
+ * de um limpo pela regra nova, e a única saída seria reprocessar tudo.
+ */
+export const LEGACY_COMMENT_SANITIZER_POLICY = 'site-comment-html';
+export const LEGACY_COMMENT_SANITIZER_VERSION = 1;
+
+/**
+ * Política do HTML legado — **defaults da `sanitize-html`, mais duas regras que
+ * ela não tem como presumir**.
+ *
+ * ## Por que os defaults, e não uma allowlist estreita
+ *
+ * Medido em 2026-08-09 contra `sanitize-html@2.17.6`: os defaults (70 tags)
+ * neutralizam **10 de 10** vetores testados — `<script>`, `<svg><script>`,
+ * MathML, `onclick`, `<img onerror>`, `<iframe>`, `style=`, `<form>`,
+ * `javascript:` e `data:` — sem configuração nenhuma, e são idempotentes sobre
+ * entidade digitada e `&` solto. A parte perigosa é da biblioteca, que a faz
+ * bem; recortar para `p`/`br`/`a` reduziria superfície **teórica** (nada
+ * executável sobra no default) ao custo de fazer sumir em silêncio qualquer
+ * `<strong>` ou `<blockquote>` que apareça no dump.
+ *
+ * O conteúdo real usa `a`, `br` e `p` — os dois bancos do `site` (prod e beta,
+ * 25 linhas cada, idênticos) não têm mais nada, e os contadores de vetor
+ * hostil deram zero. A lista estreita **caberia**; escolhemos robustez a
+ * conteúdo inesperado, porque o custo dela é perda silenciosa e o ganho é
+ * marginal.
+ *
+ * ## As duas regras que os defaults não cobrem
+ *
+ * 1. **`target="_blank"` sem `rel`.** Medido: o default permite `target` em
+ *    `<a>` e **não** permite `rel` — a pior combinação para UGC, porque a página
+ *    de destino ganha `window.opener` (reverse tabnabbing). Não é bug da lib: o
+ *    default não presume link de terceiro. Aqui todo link é de terceiro.
+ * 2. **`http:` passa no default** (`allowedSchemes` traz `http`, `ftp`, `tel`).
+ *    10a é HTTPS-only, e o legado não pode ser a porta por onde `http:` volta.
+ *    Medido: nenhum link legado usa `http:`, então nada real se perde.
+ *
+ * O `rel` do WordPress (`nofollow ugc`) também **seria descartado** pelo default
+ * — `rel` não está na allowlist de atributos —, o que transformaria 25 links
+ * legados em links seguidos por buscador. Por isso ele é reescrito, não
+ * herdado: valor de origem não decide segurança de saída.
+ */
+const LEGACY_COMMENT_HTML_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: sanitizeHtml.defaults.allowedTags,
+  allowedAttributes: {
+    ...sanitizeHtml.defaults.allowedAttributes,
+    a: ['href', 'rel', 'target'],
+  },
+  allowedSchemes: ['https'],
+  allowedSchemesAppliedToAttributes: ['href'],
+  disallowedTagsMode: 'discard',
+  transformTags: {
+    a: (tagName, attribs) => ({
+      tagName,
+      // Sem `href` **aceitável** não é link: devolver `rel`/`target` numa casca
+      // deixaria `<a rel=... target=...>` decorando algo que não navega. O texto
+      // do link é preservado pela própria lib.
+      //
+      // O esquema é checado **aqui**, e não só por `allowedSchemes`, por causa
+      // da ordem de execução — medida em 2026-08-09, não presumida:
+      // `transformTags` roda **antes** da filtragem de esquema. Confiando só em
+      // `allowedSchemes`, `<a href="javascript:...">` chegava aqui com `href`
+      // presente, ganhava `rel`/`target`, e só então perdia o `href` — a segunda
+      // passagem via uma âncora sem `href` e removia os atributos, quebrando a
+      // idempotência que 10c exige (`f(f(x)) !== f(x)`). Pego pelo próprio teste
+      // de idempotência.
+      attribs: (isHttpsUrl(attribs.href)
+        ? {
+            href: attribs.href,
+            rel: 'ugc nofollow noopener noreferrer',
+            target: '_blank',
+          }
+        : {}) as sanitizeHtml.Attributes,
+    }),
+  },
+};
+
+/**
+ * `href` que a política aceita: HTTPS absoluto e nada mais.
+ *
+ * `URL` em vez de `startsWith('https:')` — comparação estrutural, a mesma regra
+ * de 10a. `https:evil` e `HtTpS://` são casos que o prefixo textual erraria em
+ * direções opostas: o primeiro passaria sem ser URL navegável, o segundo
+ * falharia sendo válido.
+ */
+function isHttpsUrl(value: string | undefined): value is string {
+  if (!value) return false;
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Sanitiza o `content_html` do comentário legado do `site` — **uma vez, na
+ * importação** (requisito 10, T2.5/T2.8).
+ *
+ * ## Por que uma função separada de `sanitizeUserMarkdown`
+ *
+ * São problemas opostos. `sanitizeUserMarkdown` **remove todo HTML**
+ * (`allowedTags: []`) porque o corpo novo é Markdown e qualquer tag ali é
+ * ataque. O legado **é** HTML: descartar tudo transformaria 25 comentários com
+ * parágrafo e link em blocos de texto corrido, perdendo a estrutura que o autor
+ * escreveu. A política precisa preservar o pouco que existe e recusar o resto.
+ *
+ * ## Idempotente, pelo mesmo motivo de 10c
+ *
+ * `f(f(x)) === f(x)`. O conteúdo é gravado sanitizado e a saída ganha defesa
+ * adicional na renderização, sem regravar o banco — logo a função roda mais de
+ * uma vez sobre o mesmo texto ao longo da vida do dado. Não idempotente, o
+ * conteúdo mudaria entre uma passagem e outra, sem erro nenhum. `entities` da
+ * entrada não são decodificadas (`decodeEntities: false`), que é o que impede
+ * `&lt;b&gt;` digitado em 2018 de virar markup hoje.
+ */
+export function sanitizeLegacyCommentHtml(input: string): string {
+  return sanitizeHtml(input, {
+    ...LEGACY_COMMENT_HTML_OPTIONS,
+    parser: { decodeEntities: false },
+  });
+}
+
 export function markdownToPlainText(value: string, maxLength?: number): string {
   const rendered = markdownRenderer.render(sanitizeUserMarkdown(value));
   // `sanitizeHtml` direto, **sem** o pré-passo de sentinela: aqui a entrada é

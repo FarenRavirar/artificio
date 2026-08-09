@@ -66,6 +66,10 @@ interface CommentFixture {
   visibility_state?: string;
   legacy_source?: string | null;
   legacy_author_name?: string | null;
+  /** `users.role` do autor. `null` quando não há conta viva ligada ao ator. */
+  author_role?: string | null;
+  /** Autor do comentário é o publicador afirmado pelo domínio (§8). */
+  author_is_content_author?: boolean;
   my_vote?: number | null;
   /** Posição total na ordem de leitura, como a query serializa `sort_path`. */
   sort_key?: string;
@@ -85,6 +89,10 @@ function rawRow(fixture: CommentFixture) {
     legacy_author_name: fixture.legacy_author_name ?? null,
     author_display_name: fixture.legacy_source ? null : "Ana",
     author_avatar_url: null,
+    // Default `user`: o caso comum é conta sem papel global, e é o que precisa
+    // sair **sem** selo. Fixture que quer selo declara o papel.
+    author_role: fixture.legacy_source ? null : (fixture.author_role ?? "user"),
+    author_is_content_author: fixture.author_is_content_author ?? false,
     upvotes: 3,
     downvotes: 1,
     score: 2,
@@ -212,6 +220,34 @@ describe("GET /internal/v1/comments — contrato da query", () => {
 
     const response = await authed(app, "/internal/v1/comments?subject_id=material-1").expect(400);
     expect(response.body.error.code).toBe("invalid_query");
+  });
+
+  // A leitura validava só o comprimento de `subject_type`, então `post` — sem o
+  // ponto que `migration_006:118` exige — passava e a consulta devolvia `200`
+  // com árvore vazia. O consumidor não distinguia "assunto sem comentários" de
+  // "enviei o campo errado". Achado no smoke de produção de 2026-08-08, depois
+  // de a mesma validação já ter sido corrigida na escrita por T2.6c: as duas
+  // rotas tinham o regex escrito à mão e só uma foi corrigida. Hoje as duas
+  // consomem `SUBJECT_TYPE_PATTERN` do pacote.
+  it.each(["post", "Material", "blog.", "blog..post", "site.Post"])(
+    "400 com subject_type fora do formato namespaced: %s",
+    async (subjectType) => {
+      const { db } = fakeDb({ credential: await credentialRow() });
+      const app = createApp(env, db);
+
+      const response = await authed(app, queryFor({ subject_type: subjectType })).expect(400);
+      expect(response.body.error.code).toBe("invalid_query");
+    },
+  );
+
+  it("aceita subject_type namespaced válido", async () => {
+    const { db } = fakeDb({ credential: await credentialRow() });
+    const app = createApp(env, db);
+
+    // Guarda contra o excesso oposto: um regex apertado demais recusaria
+    // `a.b.c` ou o `_`, que o contrato lista como válidos.
+    await authed(app, queryFor({ subject_type: "downloads.material_v2" })).expect(200);
+    await authed(app, queryFor({ subject_type: "a.b.c" })).expect(200);
   });
 
   it("400 com sort fora dos quatro aceitos", async () => {
@@ -386,6 +422,111 @@ describe("GET /internal/v1/comments — payload público", () => {
 
     const response = await authed(app, queryFor()).expect(200);
     expect(response.headers["cache-control"]).toBe("private, no-store");
+  });
+});
+
+/**
+ * T2.6 — selo do autor (requisito 11, `contrato-http-v1.md` §2/§8).
+ *
+ * O que estes testes protegem é a **precedência** e as duas fontes distintas:
+ * papel global vem de `users.role` pelo `JOIN`; autor do conteúdo vem do
+ * `owner_user_id` que o domínio afirmou. Trocar uma pela outra é o furo do
+ * requisito 11 — "qualquer um se declara dono".
+ */
+describe("GET /internal/v1/comments — selo do autor (T2.6)", () => {
+  async function badgeDe(fixture: Partial<CommentFixture>) {
+    const { db } = fakeDb({
+      credential: await credentialRow(),
+      comments: [
+        { id: "c1", parent_id: null, depth: 0, created_at: "2026-08-01T10:00:00.000Z", ...fixture },
+      ],
+    });
+
+    const response = await authed(createApp(env, db), queryFor()).expect(200);
+    return response.body.comments[0].author.badge;
+  }
+
+  it("usuário comum não recebe selo", async () => {
+    // Requisito 11: "sem rotular usuário comum". `user` virando `"user"` no wire
+    // acabaria como rótulo vazio na tela.
+    expect(await badgeDe({ author_role: "user" })).toBeNull();
+  });
+
+  it.each([
+    ["admin", "admin"],
+    ["moderator", "moderator"],
+  ])("papel global %s vira selo %s", async (role, esperado) => {
+    // As palavras são as de `users.role` (`migration_002:24`), não um enum novo.
+    expect(await badgeDe({ author_role: role })).toBe(esperado);
+  });
+
+  it("publicador do assunto vira content_author", async () => {
+    expect(
+      await badgeDe({ author_role: "user", author_is_content_author: true }),
+    ).toBe("content_author");
+  });
+
+  it.each([
+    ["admin", "admin"],
+    ["moderator", "moderator"],
+  ])("%s que também publicou o conteúdo mostra o papel global", async (role, esperado) => {
+    // `spec.md:311`: papel de domínio (autor/publicador) **nunca** é promovido a
+    // papel global. Quando os dois coexistem, quem aparece é o global — é o que
+    // descreve autoridade sobre a conversa, e é o que o `accounts.` conhece.
+    expect(
+      await badgeDe({ author_role: role, author_is_content_author: true }),
+    ).toBe(esperado);
+  });
+
+  it("legado nunca recebe selo, nem se a linha vier marcada", async () => {
+    // `spec.md:249` ("nenhum badge de autor em post") e 15b ("badge só quando há
+    // conta real por trás"). O fixture força as duas marcas ao mesmo tempo: se
+    // alguém reordenar as checagens, o legado passaria a assinar como dono.
+    expect(
+      await badgeDe({
+        legacy_source: "site",
+        legacy_author_name: "Visitante Antigo",
+        author_role: "admin",
+        author_is_content_author: true,
+      }),
+    ).toBeNull();
+  });
+});
+
+/**
+ * T2.6b — sem `@menções` nesta fase (decisão 31).
+ *
+ * `accounts.users` não tem handle público único: nome Google é mutável e não
+ * único, e-mail não pode ser exposto. Menção resolvida por heurística sobre nome
+ * notificaria a pessoa errada.
+ */
+describe("GET /internal/v1/comments — @menção é texto comum (T2.6b)", () => {
+  it("@texto atravessa a leitura sem virar entidade nem destinatário", async () => {
+    const corpo = "olha isso @ana e @admin, @nao_existe também";
+    const { db } = fakeDb({
+      credential: await credentialRow(),
+      comments: [
+        {
+          id: "c1",
+          parent_id: null,
+          depth: 0,
+          created_at: "2026-08-01T10:00:00.000Z",
+          body_markdown: corpo,
+        },
+      ],
+    });
+
+    const response = await authed(createApp(env, db), queryFor()).expect(200);
+    const comentario = response.body.comments[0];
+
+    // Sai byte a byte como entrou: sem link, sem marcação, sem campo novo.
+    expect(comentario.body_markdown).toBe(corpo);
+    expect(comentario).not.toHaveProperty("mentions");
+    expect(comentario.author).toEqual({
+      display_name: "Ana",
+      avatar_url: null,
+      badge: null,
+    });
   });
 });
 

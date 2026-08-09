@@ -14,6 +14,8 @@ export {
   CANONICAL_PATH_MAX_LENGTH,
   SUBJECT_ID_MAX_LENGTH,
   SUBJECT_TYPE_MAX_LENGTH,
+  SUBJECT_TYPE_MESSAGE,
+  SUBJECT_TYPE_PATTERN,
   authorize,
   canonicalPathSchema,
   normalizeGuardResult,

@@ -77,6 +77,74 @@ describe("SQL compilado da transação de escrita", () => {
     expect(parameters).toEqual(["a", "u"]);
   });
 
+  it("assunto usa ON CONFLICT DO UPDATE com RETURNING, não DO NOTHING", () => {
+    // `DO NOTHING` compila, passa no `tsc` e devolve **zero linhas** no
+    // conflito — que é o caso comum (assunto que já tem comentário). O handler
+    // leria `ranking_revision` de `undefined` e o comentário nasceria com
+    // revisão errada, ou o `executeTakeFirstOrThrow` derrubaria a transação. É o
+    // mesmo tipo de defeito do `values({})`: só o SQL revela.
+    const { sql } = db
+      .insertInto("community_comment_subject")
+      .values({
+        realm: "beta",
+        source_app: "site",
+        subject_type: "site.post",
+        subject_id: "p1",
+        canonical_path: "/blog/p1",
+        owner_user_id: null,
+      })
+      .onConflict((oc) =>
+        oc
+          .columns(["realm", "source_app", "subject_type", "subject_id"])
+          .doUpdateSet({ canonical_path: "/blog/p1", owner_user_id: null }),
+      )
+      .returning(["ranking_revision", "owner_user_id"])
+      .compile();
+
+    expect(sql).toMatch(/on conflict\s*\(.+\)\s*do update set/is);
+    expect(sql).not.toContain("do nothing");
+    expect(sql).toContain('returning "ranking_revision"');
+    // `ranking_revision` pertence ao assunto e é do voto (T2.13): reafirmá-lo
+    // aqui zeraria a ordenação a cada comentário novo.
+    expect(sql).not.toMatch(/set[^)]*"ranking_revision"\s*=/is);
+  });
+
+  it("chave de idempotência retoma linha vencida, condicionada a expires_at", () => {
+    // `DO NOTHING` deixava a chave vencida cair no replay, onde
+    // `expires_at <= now()` devolve `409` — **para sempre**, porque não existe
+    // varredura de vencidos no repositório (`rg "community_idempotency_key"` em
+    // `apps packages scripts`: nenhum `DELETE`, medido em 2026-08-09), apesar de
+    // `migration_008:86` documentá-la. Defeito que estava em produção; achado de
+    // review do Codex na PR #250 sobre o código gêmeo da edição.
+    const agora = new Date("2026-08-09T12:00:00.000Z");
+    const { sql } = db
+      .insertInto("community_idempotency_key")
+      .values({
+        realm: "beta",
+        source_app: "site",
+        idempotency_key: "chave-de-teste-0001",
+        operation: "comment.create",
+        acting_user_id: null,
+        request_hash: "a".repeat(64),
+        response_status: 201,
+        response_body: {},
+        expires_at: agora,
+      })
+      .onConflict((oc) =>
+        oc
+          .columns(["realm", "source_app", "operation", "idempotency_key"])
+          .doUpdateSet({ response_body: {}, created_at: agora, expires_at: agora })
+          .where("community_idempotency_key.expires_at", "<=", agora),
+      )
+      .compile();
+
+    expect(sql).toMatch(/on conflict\s*\(.+\)\s*do update set/is);
+    expect(sql).not.toMatch(/do nothing/i);
+    // A condição é o que separa retomada de sobrescrita: sem ela, a repetição
+    // legítima dentro da janela seria engolida e o replay nunca aconteceria.
+    expect(sql).toMatch(/where\s+"?community_idempotency_key"?\."?expires_at"?\s*<=/i);
+  });
+
   it("recibo em lote gera um VALUES por destinatário", () => {
     // `notification_receipt` é inserido com `.values([...])` a partir da lista de
     // destinatários. Lista vazia geraria SQL inválido pelo mesmo motivo do ator —

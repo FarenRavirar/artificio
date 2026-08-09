@@ -124,6 +124,31 @@ describe('marcação sobrevive à canonicalização, não só o texto', () => {
   });
 });
 
+describe('@menção continua texto comum (T2.6b, decisão 31)', () => {
+  it.each([
+    ['menção simples', 'obrigado @ana'],
+    ['menção de papel', 'chama o @admin aqui'],
+    ['conta inexistente', '@ninguem_com_esse_nome respondeu'],
+    ['e-mail, que parece menção', 'escreve para fulano@exemplo.com'],
+    ['arroba solta', 'preço @ 10 reais'],
+    ['menção dentro de código', '`@ana`'],
+  ])('preserva %s sem resolver conta', (_caso, input) => {
+    // Decisão 31: `accounts.users` **não tem handle público único** — nome
+    // Google é mutável e não único, e-mail não pode ser exposto. Resolver
+    // menção por heurística sobre nome notificaria a pessoa errada, que é pior
+    // que não notificar ninguém.
+    //
+    // Igualdade exata, e não `toContain('@')`: o defeito a barrar é o `@ana`
+    // virar link, entidade ou marcador interno — todos passariam num
+    // `toContain`.
+    const result = validateCommentBody(input);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.bodyMarkdown).toBe(input);
+  });
+});
+
 describe('links pela política única (decisão 29)', () => {
   it('aceita https', () => {
     const result = validateCommentBody('[guia](https://artificiorpg.com/guia)');

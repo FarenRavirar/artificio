@@ -15,16 +15,17 @@
 | 📄 CONTRACT_ONLY | 4 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
 | 🕳️ UNUSED_ROUTE | 126 | ❌ |
-| 👻 ORPHAN_SUSPECT | 51 | ❌ |
+| 👻 ORPHAN_SUSPECT | 53 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
 ## Detalhamento por app
 
-### accounts (20 rotas no inventário)
+### accounts (22 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
 | DELETE | `/api/account` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| DELETE | `/internal/v1/comments/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/admin/papeis` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/admin/roles/users` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -40,6 +41,7 @@
 | GET | `/login` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/admin/roles/users/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/account/avatar` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| PATCH | `/internal/v1/comments/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/auth/logout` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/internal/v1/comments` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/internal/v1/comments/:id/replies` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -469,12 +471,14 @@
 
 Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificação que justifique.
 
-### accounts (4 rota(s))
+### accounts (6 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
+| DELETE | `/internal/v1/comments/:id` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/internal/users/:id` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/internal/v1/comments` | ✅ | public | Sem consumidor e scope não justifica |
+| PATCH | `/internal/v1/comments/:id` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/internal/v1/comments` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/internal/v1/comments/:id/replies` | ✅ | public | Sem consumidor e scope não justifica |
 ### downloads (38 rota(s))

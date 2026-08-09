@@ -1,18 +1,18 @@
 {
   "metadata": {
-    "total": 503,
+    "total": 505,
     "byApp": {
       "accounts": {
-        "total": 20,
+        "total": 22,
         "byMethod": {
           "GET": 13,
+          "PATCH": 3,
           "POST": 3,
-          "PATCH": 2,
-          "PUT": 1,
-          "DELETE": 1
+          "DELETE": 2,
+          "PUT": 1
         },
         "byConfidence": {
-          "high": 20
+          "high": 22
         }
       },
       "downloads": {
@@ -238,7 +238,7 @@
       "method": "GET",
       "path": "/internal/v1/comments",
       "sourceFile": "apps/accounts/src/communityCommentRoutes.ts",
-      "line": 117,
+      "line": 134,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -247,7 +247,25 @@
       "method": "POST",
       "path": "/internal/v1/comments",
       "sourceFile": "apps/accounts/src/communityCommentRoutes.ts",
-      "line": 128,
+      "line": 145,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "accounts",
+      "method": "DELETE",
+      "path": "/internal/v1/comments/:id",
+      "sourceFile": "apps/accounts/src/communityCommentRoutes.ts",
+      "line": 175,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "accounts",
+      "method": "PATCH",
+      "path": "/internal/v1/comments/:id",
+      "sourceFile": "apps/accounts/src/communityCommentRoutes.ts",
+      "line": 167,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -256,7 +274,7 @@
       "method": "POST",
       "path": "/internal/v1/comments/:id/replies",
       "sourceFile": "apps/accounts/src/communityCommentRoutes.ts",
-      "line": 136,
+      "line": 153,
       "confidence": "high",
       "kind": "express-route"
     },

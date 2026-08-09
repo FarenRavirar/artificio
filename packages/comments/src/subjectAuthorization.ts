@@ -34,6 +34,26 @@ export const SUBJECT_ID_MAX_LENGTH = 255;
 export const CANONICAL_PATH_MAX_LENGTH = 1024;
 
 /**
+ * Formato de `subject_type` (`contrato-http-v1.md` §`GET /internal/v1/comments`).
+ *
+ * Exportado em vez de escrito inline em cada validador **porque já divergiu**:
+ * `migration_006` linha 118 tem `CHECK (subject_type LIKE '%.%')`, e a rota de
+ * leitura do `accounts.` validava só o comprimento enquanto a de escrita exigia
+ * o ponto. Consequência medida no smoke de 2026-08-08: `GET` com `post` devolvia
+ * `200` com árvore vazia — o assunto simplesmente não existia — em vez de `400`,
+ * então o consumidor não distinguia "sem comentários" de "enviei o campo errado".
+ *
+ * Ao menos dois segmentos em minúsculas separados por ponto, cada um começando
+ * por letra. Válidos: `site.post`, `downloads.material`. Inválidos: `post`,
+ * `Material`, `blog.`, `blog..post`.
+ */
+export const SUBJECT_TYPE_PATTERN = /^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/;
+
+/** Mensagem única do formato acima, para os dois lados falharem igual. */
+export const SUBJECT_TYPE_MESSAGE =
+  'subject_type é namespaced em minúsculas, separado por ponto (ex.: site.post)';
+
+/**
  * Motivo pelo qual o assunto não aceita comentário. Existe para o backend do
  * módulo distinguir os casos ao montar a resposta ao usuário — **não** para o
  * `accounts.` receber: a API interna colapsa todos em `404` uniforme, senão a
@@ -140,10 +160,7 @@ export const subjectRefSchema = z.object({
     .string()
     .min(1)
     .max(SUBJECT_TYPE_MAX_LENGTH)
-    .regex(
-      /^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$/,
-      'subject_type é namespaced em minúsculas, separado por ponto (ex.: site.post)',
-    ),
+    .regex(SUBJECT_TYPE_PATTERN, SUBJECT_TYPE_MESSAGE),
   subjectId: z.string().min(1).max(SUBJECT_ID_MAX_LENGTH),
 });
 
