@@ -67,7 +67,10 @@ export interface CreateCommentInput extends CommentSubjectScope {
 
 export type WriteRejectionCode =
   | "parent_not_found"
-  | "subject_not_found"
+  // `subject_not_found` **não** está aqui: o assunto é criado sob demanda no
+  // passo 2, e a recusa do alvo acontece antes, na rota, ao ler
+  // `subject_authorization` (§8). Manter o código aqui daria a impressão de que
+  // a transação ainda pode recusar o assunto.
   | "depth_exceeded"
   | "parent_not_accepting_replies"
   | "body_too_long"
@@ -181,6 +184,36 @@ async function resolveOrCreateActor(
     .execute();
 
   return actor.id;
+}
+
+/**
+ * Publicador afirmado pelo domínio, reduzido a `null` quando a conta não existe
+ * mais em `users`.
+ *
+ * `community_comment_subject.owner_user_id` tem FK para `users(id)`. O guard do
+ * módulo afirma o dono a partir da **tabela dele** — que pode estar apontando
+ * para uma conta já excluída no `accounts.`, porque a exclusão não propaga para
+ * o domínio. Inserir o id direto abortaria a transação inteira por
+ * `foreign_key_violation` e o comentário morreria por causa da afirmação stale
+ * de um terceiro.
+ *
+ * Reduzir a `null` é o comportamento correto, não uma tolerância: sem conta viva
+ * não há badge de autor do conteúdo nem destinatário de recibo, que é exatamente
+ * o caso já previsto em 15a/15b ("não inventa destinatário").
+ */
+async function resolveLivePublisher(
+  trx: Transaction<Database>,
+  ownerUserId: string | null,
+): Promise<string | null> {
+  if (ownerUserId === null) return null;
+
+  const row = await trx
+    .selectFrom("users")
+    .select("id")
+    .where("id", "=", ownerUserId)
+    .executeTakeFirst();
+
+  return row?.id ?? null;
 }
 
 /**
@@ -299,21 +332,48 @@ export async function createComment(
         return await replayOrConflict(trx, input, requestHash);
       }
 
-      // 2. Assunto precisa existir: é ele que carrega `ranking_revision`, e o FK
-      // `community_comment_subject_fk` exigiria a linha de qualquer forma.
-      // Buscar aqui dá `404` com motivo em vez de erro de constraint.
-      const subject = await trx
-        .selectFrom("community_comment_subject")
-        .select(["ranking_revision", "owner_user_id"])
-        .where("realm", "=", input.realm)
-        .where("source_app", "=", input.source_app)
-        .where("subject_type", "=", input.subject_type)
-        .where("subject_id", "=", input.subject_id)
-        .executeTakeFirst();
+      // 2. Assunto: **criado sob demanda**, não exigido pré-existente.
+      //
+      // A linha carrega `ranking_revision` e é alvo do FK
+      // `community_comment_subject_fk`, mas nada no sistema a cria antes do
+      // primeiro comentário — não existe rota de "registrar assunto", e nem
+      // deveria: quem afirma que o alvo existe é o guard do módulo (§8), e o
+      // `accounts.` não conhece o domínio para inventariá-lo por conta própria.
+      // Enquanto isto era um `SELECT`-ou-`404`, o **primeiro** comentário de
+      // qualquer assunto falhava; a única linha em produção tinha sido inserida
+      // à mão durante o smoke de 2026-08-08, o que escondeu o defeito.
+      //
+      // `canonical_path` e `owner_user_id` são reafirmados a cada escrita porque
+      // são estado do domínio, não do comentário: post movido de rota ou dono
+      // vinculado depois precisam valer para o badge (T2.6) e para o recibo do
+      // publicador (15c). `ranking_revision` **não** entra no `SET` — ele é do
+      // assunto e pertence ao voto (T2.13).
+      const publisherUserId = await resolveLivePublisher(trx, input.ownerUserId);
 
-      if (!subject) {
-        throw new CommentWriteRejection("subject_not_found", 404);
-      }
+      const subject = await trx
+        .insertInto("community_comment_subject")
+        .values({
+          realm: input.realm,
+          source_app: input.source_app,
+          subject_type: input.subject_type,
+          subject_id: input.subject_id,
+          canonical_path: input.canonicalPath,
+          owner_user_id: publisherUserId,
+        })
+        .onConflict((oc) =>
+          oc
+            .columns(["realm", "source_app", "subject_type", "subject_id"])
+            .doUpdateSet({
+              canonical_path: input.canonicalPath,
+              owner_user_id: publisherUserId,
+              updated_at: new Date(),
+            }),
+        )
+        // `doUpdateSet` e não `doNothing`: `DO NOTHING` não devolve linha no
+        // conflito, e `ranking_revision` seria `undefined` justamente no caso
+        // comum (assunto que já tem comentário).
+        .returning(["ranking_revision", "owner_user_id"])
+        .executeTakeFirstOrThrow();
 
       const actorId = await resolveOrCreateActor(trx, input.actingUserId);
 

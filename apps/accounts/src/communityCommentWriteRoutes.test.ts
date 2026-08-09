@@ -49,11 +49,24 @@ const CREDENTIAL_SECRET = "s".repeat(43);
 const ACTING_USER = "11111111-1111-4111-8111-111111111111";
 const IDEMPOTENCY_KEY = "chave-de-teste-0001";
 
+/**
+ * Afirmação do guard do módulo (§8). É **obrigatória** no corpo: sem ela o
+ * `accounts.` estaria escrevendo contra referência opaca.
+ */
+const VALID_AUTHORIZATION = {
+  exists: true,
+  visible: true,
+  commentable: true,
+  owner_user_id: null,
+  canonical_path: "/materiais/material-1",
+};
+
 const VALID_BODY = {
   subject_type: "downloads.material",
   subject_id: "material-1",
   canonical_path: "/materiais/material-1",
   body_markdown: "comentário",
+  subject_authorization: VALID_AUTHORIZATION,
 };
 
 async function credentialRow(overrides: Record<string, unknown> = {}) {
@@ -183,15 +196,20 @@ describe("POST /internal/v1/comments — caminho de sucesso", () => {
     );
   });
 
-  it("subject_owner_user_id do payload vira ownerUserId", async () => {
-    // §8: o publicador é afirmado pelo backend do domínio. Nulo é caso legítimo
-    // (post sem conta vinculada), e é o default quando o campo não vem.
+  it("o dono vem da autorização do domínio, não do campo solto", async () => {
+    // §8: o publicador é afirmado pelo backend do domínio, e a autorização é a
+    // portadora dessa afirmação. Nulo é caso legítimo (post sem conta
+    // vinculada).
     const DONO = "44444444-4444-4444-8444-444444444444";
     createCommentMock.mockResolvedValue({ ok: true, comment: CRIADO, replayed: false });
     const app = createApp(env, fakeDb(await credentialRow()));
 
     await post(app)
-      .send({ ...VALID_BODY, subject_owner_user_id: DONO })
+      .send({
+        ...VALID_BODY,
+        subject_owner_user_id: DONO,
+        subject_authorization: { ...VALID_AUTHORIZATION, owner_user_id: DONO },
+      })
       .expect(201);
 
     expect(createCommentMock).toHaveBeenCalledWith(
@@ -364,6 +382,109 @@ describe("POST /internal/v1/comments — contrato do corpo (§3)", () => {
 
     const response = await post(app)
       .send({ ...VALID_BODY, subject_type: subjectType })
+      .expect(400);
+
+    expect(response.body.error.code).toBe("invalid_body");
+  });
+});
+
+describe("POST /internal/v1/comments — autorização do assunto (§8)", () => {
+  it("400 sem subject_authorization", async () => {
+    // O campo é a única coisa que afirma que o alvo existe, está visível e
+    // aceita comentário. Faltava no handler até 2026-08-09: o corpo era
+    // `strict()` sem ele, então quem seguisse o contrato levava `400` justamente
+    // por mandar o campo certo.
+    const app = createApp(env, fakeDb(await credentialRow()));
+    const body: Record<string, unknown> = { ...VALID_BODY };
+    delete body.subject_authorization;
+
+    const response = await post(app).send(body).expect(400);
+    expect(response.body.error.code).toBe("invalid_body");
+  });
+
+  it.each([
+    ["exists", { exists: false }],
+    ["visible", { visible: false }],
+    ["commentable", { commentable: false }],
+  ])("404 uniforme quando o domínio nega %s", async (_caso, negado) => {
+    // §13: `404` uniforme. Nem `403` nem código próprio por caso — a recusa
+    // diferenciada viraria oráculo de existência, exatamente o que
+    // `SubjectRefusalReason` documenta como "não é para o `accounts.` receber".
+    //
+    // Sem `mockResolvedValue` de propósito: se a rota chamasse o núcleo mesmo
+    // assim, o mock devolveria `undefined` e o teste quebraria por dentro — o
+    // que é o sinal certo. A asserção de `not.toHaveBeenCalled` fecha o caso.
+    const app = createApp(env, fakeDb(await credentialRow()));
+
+    const response = await post(app)
+      .send({
+        ...VALID_BODY,
+        subject_authorization: { ...VALID_AUTHORIZATION, ...negado },
+      })
+      .expect(404);
+
+    expect(response.body.error.code).toBe("subject_not_found");
+    // A recusa acontece **antes** da transação: nada de gravar chave de
+    // idempotência para um alvo que o domínio já negou.
+    expect(createCommentMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["esquema", "https://evil.example/x"],
+    ["protocol-relative", "//evil.example/x"],
+    ["barra invertida", "/materiais\\evil"],
+    ["credencial embutida", "/materiais/@evil"],
+  ])("400 com canonical_path contendo %s", async (_caso, path) => {
+    // `canonicalPathSchema` do pacote é reaplicado aqui: o caminho vira link de
+    // volta ao conteúdo, e aceitar URL inteira abriria open redirect
+    // (requisito 5b). Guard do outro lado com bug não passa.
+    const app = createApp(env, fakeDb(await credentialRow()));
+
+    const response = await post(app)
+      .send({
+        ...VALID_BODY,
+        canonical_path: path,
+        subject_authorization: { ...VALID_AUTHORIZATION, canonical_path: path },
+      })
+      .expect(400);
+
+    expect(response.body.error.code).toBe("invalid_body");
+  });
+
+  it("400 quando canonical_path do corpo diverge do da autorização", async () => {
+    // Escolher um dos dois em silêncio faria o chamador achar que mandou o valor
+    // que valeu. A autoridade é a autorização (§8); a divergência é erro dele.
+    const app = createApp(env, fakeDb(await credentialRow()));
+
+    const response = await post(app)
+      .send({ ...VALID_BODY, canonical_path: "/outro-caminho" })
+      .expect(400);
+
+    expect(response.body.error.code).toBe("invalid_body");
+  });
+
+  it("400 quando subject_owner_user_id diverge do dono da autorização", async () => {
+    const DONO = "44444444-4444-4444-8444-444444444444";
+    const app = createApp(env, fakeDb(await credentialRow()));
+
+    const response = await post(app)
+      .send({ ...VALID_BODY, subject_owner_user_id: DONO })
+      .expect(400);
+
+    expect(response.body.error.code).toBe("invalid_body");
+  });
+
+  it("400 com campo desconhecido dentro da autorização", async () => {
+    // `strict()` também no objeto aninhado: um guard que mandasse `owner_id` no
+    // lugar de `owner_user_id` teria o dono descartado em silêncio, e o
+    // comentário nasceria sem badge nem recibo do publicador.
+    const app = createApp(env, fakeDb(await credentialRow()));
+
+    const response = await post(app)
+      .send({
+        ...VALID_BODY,
+        subject_authorization: { ...VALID_AUTHORIZATION, owner_id: null },
+      })
       .expect(400);
 
     expect(response.body.error.code).toBe("invalid_body");

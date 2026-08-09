@@ -613,6 +613,82 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /internal/v1/comments/{id}:
+    delete:
+      operationId: deleteinternal_v1_comments_id
+      summary: "Remove internal v1 comments id"
+      x-artificio-owner: accounts
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+    patch:
+      operationId: patchinternal_v1_comments_id
+      summary: "Atualiza internal v1 comments id"
+      x-artificio-owner: accounts
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /internal/v1/comments/{id}/replies:
     post:
       operationId: postinternal_v1_comments_id_replies

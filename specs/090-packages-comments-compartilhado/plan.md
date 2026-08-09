@@ -43,6 +43,14 @@ identidade. É o que torna o requisito 22 (degradação) inegociável.
 domínio. Quem valida se o alvo existe e é comentável é o app. Isso é o que permite os três
 consumirem o mesmo serviço sem o `accounts.` saber o que é um material de RPG.
 
+**O formato de `subject_type` tem uma fonte só: `SUBJECT_TYPE_PATTERN`, exportado de
+`@artificio/comments`.** `migration_006:118` tem `CHECK (subject_type LIKE '%.%')`, e o regex chegou
+a existir em três cópias escritas à mão (schema do pacote, rota de escrita, rota de leitura). Quando
+T2.6c corrigiu o namespace opcional, corrigiu duas — a leitura ficou só com a checagem de
+comprimento e devolvia `200` com árvore vazia para `?subject_type=post`, indistinguível de "assunto
+sem comentários" (medido no smoke de 2026-08-08). Validação replicada é validação que diverge na
+próxima correção; por isso o padrão e sua mensagem são símbolo exportado, não string repetida.
+
 **Referência opaca não substitui autorização por objeto** (1ª revisão do Codex, 2026-07-27). Se
 a escrita vier do navegador, o atacante inventa dono, badge, destino e assunto inexistente —
 o `accounts.` não tem como saber. **Decisão do mantenedor: a escrita é backend-to-backend.** O

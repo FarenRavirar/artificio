@@ -77,6 +77,38 @@ describe("SQL compilado da transação de escrita", () => {
     expect(parameters).toEqual(["a", "u"]);
   });
 
+  it("assunto usa ON CONFLICT DO UPDATE com RETURNING, não DO NOTHING", () => {
+    // `DO NOTHING` compila, passa no `tsc` e devolve **zero linhas** no
+    // conflito — que é o caso comum (assunto que já tem comentário). O handler
+    // leria `ranking_revision` de `undefined` e o comentário nasceria com
+    // revisão errada, ou o `executeTakeFirstOrThrow` derrubaria a transação. É o
+    // mesmo tipo de defeito do `values({})`: só o SQL revela.
+    const { sql } = db
+      .insertInto("community_comment_subject")
+      .values({
+        realm: "beta",
+        source_app: "site",
+        subject_type: "site.post",
+        subject_id: "p1",
+        canonical_path: "/blog/p1",
+        owner_user_id: null,
+      })
+      .onConflict((oc) =>
+        oc
+          .columns(["realm", "source_app", "subject_type", "subject_id"])
+          .doUpdateSet({ canonical_path: "/blog/p1", owner_user_id: null }),
+      )
+      .returning(["ranking_revision", "owner_user_id"])
+      .compile();
+
+    expect(sql).toMatch(/on conflict\s*\(.+\)\s*do update set/is);
+    expect(sql).not.toContain("do nothing");
+    expect(sql).toContain('returning "ranking_revision"');
+    // `ranking_revision` pertence ao assunto e é do voto (T2.13): reafirmá-lo
+    // aqui zeraria a ordenação a cada comentário novo.
+    expect(sql).not.toMatch(/set[^)]*"ranking_revision"\s*=/is);
+  });
+
   it("recibo em lote gera um VALUES por destinatário", () => {
     // `notification_receipt` é inserido com `.values([...])` a partir da lista de
     // destinatários. Lista vazia geraria SQL inválido pelo mesmo motivo do ator —

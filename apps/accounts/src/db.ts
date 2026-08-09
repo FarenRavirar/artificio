@@ -115,6 +115,20 @@ export interface CommunityCommentRow {
     "visible" | "author_removed" | "moderator_removed" | "pending_review_hidden"
   >;
   edited_at: Date | null;
+  /**
+   * Tombstone (T2.7). As três colunas existem em `migration_006:158-160` desde
+   * o início e faltavam aqui — o tipo descrevia uma tabela sem retirada, então
+   * qualquer `UPDATE` de remoção era erro de compilação e não de banco.
+   *
+   * `community_comment_removal_check` amarra as quatro: `visible` e
+   * `pending_review_hidden` exigem as três nulas; os dois estados removidos
+   * exigem as três preenchidas, com `removed_reason` não-vazio. Não há tombstone
+   * sem motivo registrado, nem em auto-retirada — por isso o `DELETE` do autor
+   * grava um motivo canônico em vez de `null`.
+   */
+  removed_at: Date | null;
+  removed_by_actor_id: string | null;
+  removed_reason: string | null;
   legacy_source: string | null;
   legacy_id: string | null;
   legacy_author_name: string | null;
@@ -186,6 +200,30 @@ export interface CommunityCommentVersionRow {
   redacted_at: Date | null;
   redacted_by_actor_id: string | null;
   redaction_reason: string | null;
+}
+
+/**
+ * Trilha append-only de ação de moderação e de ciclo de vida (T2.7).
+ *
+ * `community_moderation_audit_immutable` recusa `UPDATE` e `DELETE` — medido em
+ * produção (`pg_trigger` de `artificio_auth`, 2026-08-09). Escrever aqui é
+ * definitivo, e é isso que a torna evidência.
+ *
+ * `actor_id` é quem executou; `target_id` é o alvo (aqui, o comentário).
+ * `reason` é `NOT NULL` com `LENGTH(BTRIM(reason)) > 0` no schema, então nenhuma
+ * ação entra sem motivo legível.
+ */
+export interface CommunityModerationAuditRow {
+  id: Generated<string>;
+  realm: string;
+  source_app: string;
+  actor_id: string | null;
+  action: string;
+  target_type: string;
+  target_id: string;
+  reason: string;
+  metadata: Generated<unknown>;
+  occurred_at: Generated<Date>;
 }
 
 /**
@@ -277,6 +315,7 @@ export interface Database {
   community_comment_version: CommunityCommentVersionRow;
   community_comment_vote: CommunityCommentVoteRow;
   community_idempotency_key: CommunityIdempotencyKeyRow;
+  community_moderation_audit: CommunityModerationAuditRow;
   community_restriction: CommunityRestrictionRow;
   notification_event: NotificationEventRow;
   notification_receipt: NotificationReceiptRow;

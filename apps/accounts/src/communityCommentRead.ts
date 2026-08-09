@@ -64,12 +64,37 @@ interface CommentQueryRow {
   legacy_author_name: string | null;
   author_display_name: string | null;
   author_avatar_url: string | null;
+  /** `users.role` do autor, quando há conta viva ligada ao ator. */
+  author_role: string | null;
+  /** `true` quando o autor é o publicador afirmado pelo domínio (§8). */
+  author_is_content_author: boolean;
   upvotes: number | null;
   downvotes: number | null;
   score: number | null;
   my_vote: number | null;
   sort_key: string;
 }
+
+/**
+ * Selo do autor (requisito 11, `contrato-http-v1.md` §2/§8).
+ *
+ * **Valor de máquina, não texto de tela.** `admin` e `moderator` são o enum de
+ * `users.role` (`migration_002:24`) — o papel global sai do `JOIN` com `users`,
+ * nunca do payload. `content_author` é o "autor/publicador" que `spec.md:311`
+ * classifica como papel **de domínio**, e vem de `community_comment_subject.
+ * owner_user_id`, afirmado pelo backend do módulo por credencial de serviço: do
+ * payload público qualquer um se declararia dono.
+ *
+ * A palavra é neutra de propósito. O mesmo selo serve post de blog, material do
+ * `downloads`, mesa do `mesas` e verbete do `glossario`; o rótulo em português
+ * ("autor do post", "autor do material") é escolha do frontend por `source_app`,
+ * na Fase 4 — `AGENTS.md:85` reserva a linguagem pública para lá e mantém o
+ * técnico aqui.
+ *
+ * `null` para usuário comum: requisito 11 manda **não** rotular quem não tem
+ * papel, e um selo "user" acabaria renderizado como rótulo vazio.
+ */
+export type AuthorBadge = "admin" | "moderator" | "content_author";
 
 /** Objeto público do `contrato-http-v1.md` §2. */
 export interface PublicComment {
@@ -81,7 +106,11 @@ export interface PublicComment {
   created_at: string;
   edited_at: string | null;
   state: PublicCommentState;
-  author: { display_name: string | null; avatar_url: string | null; badge: null };
+  author: {
+    display_name: string | null;
+    avatar_url: string | null;
+    badge: AuthorBadge | null;
+  };
   upvotes: number | null;
   downvotes: number | null;
   score: number | null;
@@ -284,6 +313,19 @@ export async function readCommentTree(
         c.legacy_author_name,
         u.name as author_display_name,
         u.avatar as author_avatar_url,
+        u.role as author_role,
+        -- Autor do conteudo: a conta do autor e o publicador que o dominio
+        -- afirmou (secao 8). Compara contra owner_user_id do assunto, nao contra
+        -- campo do comentario — o dono muda com o tempo (post transferido, conta
+        -- vinculada depois) e o selo reflete o estado atual, nao o de quando o
+        -- comentario nasceu.
+        --
+        -- Usa l.user_id, nao c.community_actor_id: o ator e opaco e sobrevive a
+        -- exclusao da conta; sem vinculo vivo nao ha a quem atribuir o selo. O
+        -- is not null fecha o assunto sem dono, em que null = null daria null e
+        -- nao false.
+        (subj.owner_user_id is not null and l.user_id = subj.owner_user_id)
+          as author_is_content_author,
         s.upvotes,
         s.downvotes,
         s.score,
@@ -308,6 +350,14 @@ export async function readCommentTree(
         and v.source_app = c.source_app
         and v.comment_id = c.id
         and v.community_actor_id = ${actorParam}::uuid
+      -- O assunto entra no mesmo SELECT para o selo de autor do conteudo. Uma
+      -- segunda consulta leria o dono fora da mesma foto da arvore, e o join e
+      -- por chave primaria: uma linha, sem custo de fan-out.
+      left join community_comment_subject subj
+        on subj.realm = c.realm
+        and subj.source_app = c.source_app
+        and subj.subject_type = c.subject_type
+        and subj.subject_id = c.subject_id
       where c.realm = ${subject.realm}
         and c.source_app = ${subject.sourceApp}
         and c.subject_type = ${subject.subjectType}
@@ -356,6 +406,8 @@ export async function readCommentTree(
       legacy_author_name,
       author_display_name,
       author_avatar_url,
+      author_role,
+      author_is_content_author,
       upvotes,
       downvotes,
       score,
@@ -398,6 +450,30 @@ function publicState(visibilityState: string): PublicCommentState {
 }
 
 /**
+ * Selo do autor, por precedência (T2.6, requisito 11).
+ *
+ * `admin` > `moderator` > `content_author`, e `null` para o resto. A ordem vem
+ * de `spec.md:311`: papel de domínio — "autor/publicador" — **nunca é promovido
+ * a papel global**, então quando os dois coexistem quem aparece é o global, que
+ * é o que o `accounts.` conhece e o que descreve autoridade sobre a conversa.
+ * Um campo só, porque §2 define `badge` singular.
+ *
+ * Legado nunca recebe selo, e a checagem vem antes de tudo: `spec.md:249`
+ * ("nenhum badge de autor em post") e `15b` ("badge só quando há conta real por
+ * trás"). Comentário importado tem `legacy_author_name` e nenhuma conta — dar
+ * selo a ele afirmaria uma identidade que ninguém verificou.
+ *
+ * `user` vira `null` de propósito: requisito 11 manda não rotular usuário
+ * comum.
+ */
+function authorBadge(row: CommentQueryRow): AuthorBadge | null {
+  if (row.legacy_source) return null;
+  if (row.author_role === "admin") return "admin";
+  if (row.author_role === "moderator") return "moderator";
+  return row.author_is_content_author ? "content_author" : null;
+}
+
+/**
  * Traduz a linha crua no objeto público.
  *
  * Tombstone e conteúdo sob revisão saem com corpo, contagens e score **nulos**
@@ -425,10 +501,7 @@ function toTreeRow(row: CommentQueryRow): TreeRow {
       // ausência de nome.
       display_name: row.legacy_source ? row.legacy_author_name : row.author_display_name,
       avatar_url: row.legacy_source ? null : row.author_avatar_url,
-      // T2.6 calcula o badge a partir do que o backend do domínio afirma
-      // (`contrato-http-v1.md` §8). A leitura não o inventa: `null` aqui é
-      // "esta task não decide badge", não "este autor não tem badge".
-      badge: null,
+      badge: authorBadge(row),
     },
     upvotes: hidden ? null : (row.upvotes ?? 0),
     downvotes: hidden ? null : (row.downvotes ?? 0),

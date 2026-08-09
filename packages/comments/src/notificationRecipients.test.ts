@@ -5,6 +5,30 @@ const ATOR = 'ator';
 const PUBLICADOR = 'publicador';
 const AUTOR_DO_PAI = 'autor-do-pai';
 
+describe('T2.6b — menção não cria destinatário (decisão 31)', () => {
+  it('o conjunto de entrada não tem por onde uma menção entrar', () => {
+    // A garantia é **estrutural**, não uma regra a lembrar: `RecipientCandidates`
+    // carrega publicador, autor do pai, ator e inelegíveis — o corpo do
+    // comentário não é parâmetro, então nenhum `@texto` tem caminho até um
+    // `notification_receipt`. Este teste falha no dia em que alguém acrescentar
+    // um campo de texto à entrada, que é exatamente quando a decisão 31 estaria
+    // sendo revogada sem decisão.
+    const candidatos = {
+      publisherUserId: null,
+      parentAuthorUserId: null,
+      actingUserId: ATOR,
+    };
+
+    expect(Object.keys(candidatos).sort()).toEqual([
+      'actingUserId',
+      'parentAuthorUserId',
+      'publisherUserId',
+    ]);
+    // Raiz de um assunto sem dono, com menção no corpo: ninguém é notificado.
+    expect(resolveNotificationRecipients(candidatos)).toEqual([]);
+  });
+});
+
 describe('resolveNotificationRecipients', () => {
   it('raiz notifica o publicador do conteúdo', () => {
     expect(

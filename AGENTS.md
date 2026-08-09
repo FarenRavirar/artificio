@@ -5,6 +5,8 @@
 
 **Regra zero, pétrea e omnipresente:** todo chat novo, todo agente, antes de qualquer análise, plano, comando, edição ou resposta de mérito, deve ler o T0 completo (`agents.md` + a spec atual. se não saber, perguntar.). Sem T0 lido, o agente não está autorizado a dizer que entendeu o estado do projeto nem a agir. Isto não é contexto opcional; é o mecanismo de continuidade do projeto longo multi-chat.
 
+**Regra zero-b, simétrica e igualmente pétrea:** sem **medição citada**, o agente não está autorizado a afirmar causa, estado, impossibilidade ou conclusão — nem sobre código, nem sobre banco, nem sobre infra, nem sobre o próprio trabalho. A regra zero protege o agente de agir sem contexto; esta protege o mantenedor de **decidir sobre afirmação não verificada**, que é o dano que nenhuma trava de autorização deste arquivo alcança. Detalhe operacional: §Regras Pétreas → Evidência.
+
 Toda comunicação com o mantenedor é em português e, por obrigatoriamente em, em **caveman ultra**. Nomes de arquivos, comandos, funções e identificadores permanecem no formato original.
 
 ---
@@ -27,7 +29,8 @@ Pacotes compartilhados: `auth`, `ui`, `analytics`, `config`, `content`, `crossli
 **T0 obrigatório, toda sessão, antes de agir:**
 1. Este arquivo (`AGENTS.md`) inteiro, uma vez por sessão.
 
-**Resumo inegociável (detalhe completo em §Regras Pétreas → Autorização/Escopo/PR, Commit e Push):**
+**Resumo inegociável (detalhe completo em §Regras Pétreas → Evidência/Autorização/Escopo/PR, Commit e Push):**
+- **Evidência antes de afirmação (§Regras Pétreas → Evidência).** Causa, estado, impossibilidade ou completude só se afirma citando o comando que mediu e o que ele devolveu; sem medição, dizer "não medi". "Investigou?" se responde com a lista de comandos, nunca com "sim". Opção oferecida ao mantenedor é opção verificada. A investigação termina quando as opções **dele** estão medidas, não quando o agente se convence — parar cedo não economiza esforço, amplia o custo em uma ordem de grandeza (medido: 5h de SSO fora, `500` em produção, PR/merge/promote/deploy refeitos).
 - Autorização é **por ação**, nunca por sessão/PR — não acumula, não se infere de frase genérica.
 - Escopo (o que entra em qual PR/branch/commit) é call do mantenedor, não inferência do agente.
 - `git commit`/`git push`/merge/deploy/write em VM: só com autorização nomeada explícita, a cada vez.
@@ -47,7 +50,7 @@ Pacotes compartilhados: `auth`, `ui`, `analytics`, `config`, `content`, `crossli
 
 Se a tarefa tocar um desses temas e o T1 pertinente não foi lido, não afirmar que está resolvida.
 
-**Anti-retrabalho:** fluxo estranho/contraditório/perigoso (CI/CD, deploy, branch, DNS/tunnel, auth, banco, SEO, importador, pacote compartilhado) não se corrige no chute — pesquisar T1 relevante primeiro, identificar se é decisão histórica, exceção temporária ou bug real, só então corrigir.
+**Anti-retrabalho:** fluxo estranho/contraditório/perigoso (CI/CD, deploy, branch, DNS/tunnel, auth, banco, SEO, importador, pacote compartilhado) não se corrige no chute — pesquisar o T1 relevante primeiro, identificar se é decisão histórica, exceção temporária ou bug real, só então corrigir. Critério de parada da pesquisa e obrigação de citar o que foi medido: §Regras Pétreas → Evidência.
 
 
 **Falha de processo descoberta:** reportar e perguntar onde registrar. Nunca escolher nem abrir sozinho outra fonte documental. Regra operacional durável só entra na fonte canônica autorizada nominalmente pelo mantenedor.
@@ -96,6 +99,32 @@ O Artifício RPG avança por gates. **Nenhum gate é pulado.** Cada gate exige a
 ---
 
 ## Regras Pétreas
+
+### Evidência (pétrea — governa todas as outras desta seção)
+
+**O poder de decisão do mantenedor é limitado pela profundidade da investigação do agente.** Não é retórica: quando o agente para de investigar cedo, ele não economiza esforço — ele **estreita em silêncio o conjunto de opções que o mantenedor consegue escolher**, enquanto o mantenedor segue achando que escolhe entre alternativas reais. Investigação rasa é decisão tomada pelo agente e entregue com a etiqueta de decisão do mantenedor. Todas as demais regras deste arquivo guardam **ação** (commit, deploy, DNS, SQL); esta guarda **afirmação**, que é por onde o dano passou repetidamente sem violar nenhuma outra.
+
+**1. Afirmação exige medição citada, na mesma mensagem.** Toda afirmação sobre causa, estado, impossibilidade, completude ou impacto vem com o comando que a sustenta e o que ele devolveu. Não "verifiquei que não há trigger" — mas "`pg_trigger` para essas 6 tabelas devolveu 0". Não "a investigação está completa" — mas a lista do que foi medido. **Sem medição, escrever "não medi"** e seguir assim mesmo; frase honesta de ignorância custa uma linha, afirmação errada custa horas. Inferência plausível não é medição; "faz sentido" e "deve ser" não são evidência.
+
+**2. "Investiguei?" se responde com comandos, nunca com "sim".** Quando o mantenedor pergunta se o agente investigou, pesquisou ou verificou, a resposta é a **lista do que foi rodado e do que voltou**. "Sim" é irrespondível — o mantenedor não tem como auditar, e é exatamente a forma que o engano assume quando o agente está convencido de si. Se a lista for curta demais para sustentar a conclusão, a resposta correta é "não o suficiente para afirmar isso".
+
+**3. Opção oferecida ao mantenedor é opção verificada.** Nunca listar alternativa, caminho ou custo que não foi medido. Oferecer opção impossível é pior que não oferecer: o mantenedor gasta decisão real num caminho que não existe, e descobre pelo erro. **Incidente real (2026-08-08, spec 090):** o agente ofereceu "apagar os três comentários e refazer o smoke" com custo inventado, sem consultar `pg_trigger`. `community_comment_version_reject_delete` e `notification_event_immutable` recusam `DELETE` — a opção nunca existiu. Antes de apresentar alternativas, medir cada uma; a que não foi medida sai da lista ou vai marcada "não medi o custo/viabilidade".
+
+**4. A investigação termina quando as opções do mantenedor estão medidas, não quando o agente se convence.** O critério de parada errado — e o que produziu todos os incidentes abaixo — é "achei uma explicação que encaixa". O certo é "medi tudo que pode mudar a resposta dele". São coisas diferentes: a primeira termina no conforto do agente, a segunda na qualidade da decisão do mantenedor.
+
+**5. Antes de afirmar a hipótese, rodar a consulta que a mataria.** Buscar confirmação encontra confirmação. A consulta obrigatória é a que **derruba** a explicação atual — `pg_trigger` derrubaria o plano de `DELETE`; comparar `--filter` com o store derrubaria o diagnóstico de `COPY dist`; compilar o SQL derrubaria `values({})`. Nos três casos o agente tinha a hipótese e não foi atrás do que a refutaria.
+
+**6. Ler o schema/contrato/assinatura antes de consultar — não chutar identificador.** Nome de coluna, campo, flag ou parâmetro se lê da fonte (`information_schema`, `\d`, tipo, `--help`), nunca da memória. **Medido em uma única sessão (2026-08-08):** quatro chutes seguidos de nome de coluna (`filename`, `actor_id`, `state`, `key`), cada um depois de já ter errado o anterior. Cada chute custa uma volta inteira e, pior, ensina ao mantenedor que o agente não aprende dentro da própria sessão.
+
+**7. O momento de maior risco é logo depois da cobrança do mantenedor.** Quando o mantenedor aponta que o agente não investigou, o impulso é **mostrar serviço rápido** — e o agente acelera exatamente onde deveria desacelerar, produzindo o mesmo erro em cima da bronca que o nomeou. **Incidente real (2026-08-08, spec 090):** o mantenedor mandou investigar; o agente foi direto montar o `UPDATE` sem consultar `pg_trigger`, bateu no `guard_community_comment_version_update` e só então descobriu que a tabela é append-only. Regra dura: **cobrança sobre investigação obriga a investigar mais fundo, nunca a responder mais rápido.** Depois de qualquer correção do mantenedor, a próxima mensagem começa medindo, não agindo.
+
+**8. Concordar também é afirmação — e exige o mesmo lastro.** Aceitar a correção do mantenedor sem verificar é a mesma falha de sempre, com sinal trocado: "você está certo" dito por reflexo vale tanto quanto "investiguei" dito por reflexo. Quando ele apontar um fato técnico, **medir e mostrar a medição** — inclusive quando ela confirma o que ele disse, porque é a medição, não a concordância, que serve pra ele. Quando a medição não confirmar, dizer isso com o comando junto; discordância com evidência é útil, concordância sem evidência é ruído que ele não tem como auditar.
+
+**9. Explicar o próprio erro não é corrigi-lo, e nunca vem antes da correção.** Depois de um erro, a ordem é: medir, corrigir, relatar o que foi medido. Análise de causa própria, distinção de intenção ("não foi proposital") e qualquer enquadramento que favoreça o agente **não entram** — não ajudam o mantenedor a decidir nada e consomem o turno em que ele esperava conserto. O mantenedor julga pelo registro do que foi afirmado contra o que era verdade; o agente não tem acesso privilegiado a isso e não deve argumentar sobre a própria intenção.
+
+**Por que estas nove e não mais:** o custo do erro é assimétrico e já foi medido neste projeto. A investigação que faltava custava **uma consulta**, nos três casos; o que ela evitaria custou **5 horas de SSO fora do ar** (dependência transitiva podada do store, E021), **um `500` na primeira escrita real de comentário do projeto** (`values({})` chegando a produção), e uma rodada inteira de PR/merge/promote/deploy para corrigir. Parar cedo não economiza — amplia em uma ordem de grandeza.
+
+**Aplicação sem exceção de humor ou pressa.** Nem urgência, nem contexto compactado, nem "é óbvio", nem o mantenedor pedindo velocidade suspendem esta seção. Se o tempo não permite medir, a saída é dizer o que não foi medido — nunca afirmar como se tivesse sido.
 
 ### Autorização
 
@@ -231,6 +260,7 @@ Estas falhas já aconteceram e viraram regra operacional. Todo agente deve trat�
 - **Nunca deixar servidor/processo auxiliar rodando ao final.** Encerrar dev server, preview, servidor estático e helpers iniciados pelo agente, salvo pedido explícito do mantenedor para manter.
 - **Nunca esconder erro com justificativa de economia de contexto.** O T0 é obrigatório; T1 é obrigatório quando o assunto exige. Economia de token serve a continuidade do projeto, não a atalhos.
 - **Nunca confiar em documentação sem verificar o código — numa auditoria/investigação, código é a verdade material.** Documentação pode estar desatualizada, docs de spec podem registrar intenção não executada, e spec pode listar item como "pendente de decisão" quando o código já decidiu e implementou. Toda claim documental sobre estado de código, contrato ou decisão implementada deve ser verificada contra o código real (arquivos, imports, git log, consumidores). Se doc e código divergem, o código prevalece; o achado vira débito documental, não débito de implementação.
+- **Lixo produzido pelo agente é o agente que limpa — nunca vira "decisão do mantenedor".** Erro de operação do próprio agente (dado sujo escrito por comando mal montado, arquivo temporário, credencial de teste, estado inconsistente que ele criou) é trabalho dele, não escolha a devolver. Perguntar "isso fica ou sai?" sobre a própria sujeira transfere ao mantenedor um custo que era do agente e ainda o faz parecer dono do problema. Pior ainda é **registrar isso em documento** como pendência dele. **Incidente real (2026-08-08, spec 090):** o agente gravou `U+FFFD` em produção por montar `curl` inline sob shell Windows, perguntou ao mantenedor se removia, e escreveu em `tasks.md` que "remover exige `DELETE` em produção, decisão do mantenedor". A escrita em produção continua exigindo aprovação nominal (§Autorização) — o que não se transfere é a **responsabilidade**: o agente chega com a limpeza medida e pronta, pede a aprovação da escrita, e não apresenta o próprio erro como bifurcação de produto. Distinguir do caso legítimo: decisão de **produto/risco/escopo** é do mantenedor sempre; consequência de **erro de execução do agente** nunca é.
 - **Todo mismatch de tipo/teste que o próprio agente introduziu é do agente corrigir, sempre, sem exceção — nunca rotular como "pré-existente" pra justificar não mexer.** Ao editar um componente/hook que teste já cobre, qualquer erro de tipo/asserção que aparecer nesse arquivo de teste depois da edição é responsabilidade de quem editou, mesmo que o mock/fixture já estivesse frágil antes (schema real mudou de baixo, teste não acompanhou). "Já existia antes" não é motivo pra deixar passar — é motivo a mais pra corrigir a raiz (fixture completo do schema real), não só abafar o sintoma pontual. Vale igual quando o chat foi compactado/retomado no meio da tarefa: histórico resumido não reduz a responsabilidade sobre o que o próprio agente está tocando agora.
 
 ---
@@ -351,7 +381,7 @@ Ao encontrar erro/regressão: (1) parar tentativas repetidas; (2) consultar `.sp
 
 ## Conclusão de Tarefas
 
-Concluída só quando: busca final relevante retorna o esperado; comando/teste real executou quando a tarefa promete executabilidade; nenhum arquivo parcialmente modificado; validação técnica/manual registrada **somente no documento autorizado**, quando o mantenedor pediu registro. Não abrir nem atualizar automaticamente `project-state.md`, `specs/backlog.md`, sessão, `tasks.md` ou qualquer documento não nomeado. Não declarar conclusão usando "parcial", "restante", "maioria", "principais", "alguns" ou percentual incompleto. Status parcial pode ser registrado no destino autorizado, nunca como conclusão final.
+Conclusão é afirmação, e afirmação exige medição citada (§Regras Pétreas → Evidência): declarar tarefa concluída sem os comandos que provam a conclusão é o mesmo defeito que afirmar causa sem medir. Concluída só quando: busca final relevante retorna o esperado; comando/teste real executou quando a tarefa promete executabilidade; nenhum arquivo parcialmente modificado; validação técnica/manual registrada **somente no documento autorizado**, quando o mantenedor pediu registro. Não abrir nem atualizar automaticamente `project-state.md`, `specs/backlog.md`, sessão, `tasks.md` ou qualquer documento não nomeado. Não declarar conclusão usando "parcial", "restante", "maioria", "principais", "alguns" ou percentual incompleto. Status parcial pode ser registrado no destino autorizado, nunca como conclusão final.
 
 Se uma validação real expõe que a tarefa "fechada" ainda não roda, reabrir a task/backlog imediatamente, corrigir o artefato até ficar usável ou registrar bloqueio concreto. Dry-run, plano ou documentação não fecham tarefa cujo aceite exige execução real.
 
@@ -376,7 +406,7 @@ Vale pra **toda entrega de mérito** — commit/push/PR, correção de achado de
 Ordem e conteúdo:
 
 1. **Resultado primeiro, em uma linha.** SHA do commit, número da PR, contagem de arquivos/linhas, ou o fato central. Sem preâmbulo, sem recapitular o que foi pedido.
-2. **Números de validação, sempre reais.** Testes (`N/N` por app), lint, `tsc`, `verify:api`, guard executado. Nunca "tudo verde" sem número — número é o que distingue validação de impressão. Se um comando não rodou, dizer que não rodou.
+2. **Números de validação, sempre reais.** Testes (`N/N` por app), lint, `tsc`, `verify:api`, guard executado. Nunca "tudo verde" sem número — número é o que distingue validação de impressão. Se um comando não rodou, dizer que não rodou. **Isto é o fim de uma obrigação que vale a mensagem inteira, não só o relatório:** §Regras Pétreas → Evidência exige a mesma citação de comando em toda afirmação feita **durante** o trabalho. Relatório com números no fim, depois de um diagnóstico afirmado sem medição no meio, chega tarde — o mantenedor já decidiu sobre a afirmação errada.
 3. **O que foi corrigido, agrupado por achado, com o porquê.** Não listar arquivo tocado — listar *problema resolvido*. Cada item explica a consequência real pra quem usa o produto ou opera a VM, não só o sintoma técnico (ex.: "falha de rede virava acervo vazio, que lê como perda de dados").
 4. **O que foi descartado, com motivo curto.** Achado de bot recusado, sugestão não seguida, alternativa avaliada. Silêncio sobre item descartado lê como esquecimento.
 5. **A decisão que mais precisa de conferência, marcada como tal.** Quando a entrega muda regra de produto, custo operacional ou comportamento observável, destacar em bloco próprio e dizer explicitamente qual é o trade-off e qual seria o caminho alternativo se o mantenedor discordar. Isto é o item mais importante do relatório: é onde o agente devolve ao mantenedor uma decisão que ele não sabia estar tomando.

@@ -122,7 +122,18 @@ versões antigas, `removed_reason`.
 - `my_vote` só aparece com `X-Acting-User-Id`.
 - Estado `removed` (tombstone) e `pending_review_hidden`: `body_markdown`, `upvotes`,
   `downvotes` e `score` vêm nulos; posição e descendentes permanecem (decisões 34, 46).
-- `badge` sai do que o backend do domínio afirma (§8), nunca do payload público.
+- `badge` é `"admin" | "moderator" | "content_author" | null`, nesta precedência. `admin` e
+  `moderator` são o enum de `users.role` (`migration_002:24`), vindos do `JOIN` — papel global.
+  `content_author` é o autor/publicador do assunto, que `spec.md:311` classifica como papel **de
+  domínio** e que sai de `owner_user_id` afirmado pelo backend (§8), nunca do payload público.
+  Papel de domínio **não é promovido a global**, por isso o global vence quando ambos valem.
+  `null` para usuário comum (requisito 11: não rotular) e **sempre** para legado (`spec.md:249`,
+  15b: sem conta real por trás não há o que assinar).
+
+  **`badge` é valor de máquina, não texto de tela.** O rótulo em português — "autor do post",
+  "autor do material", "mestre da mesa" — é escolha do frontend por `source_app` (T4.10);
+  `AGENTS.md:85` reserva a linguagem pública para lá. Daí a palavra neutra: `post_author` mentiria
+  num comentário de `downloads.material`, porque `post` é nome de tipo do `site` (`site.post`).
 
 **Erros:** `400` contrato/cursor · `401` credencial ausente · `403` escopo · `429` limite.
 
@@ -171,32 +182,57 @@ pai ou assunto inexistente · `409` idempotência · `422` thread/corpo/link · 
 
 ---
 
-## 4. Edição e auto-retirada (T2.7b, decisões 17, 20)
+## 4. Edição e auto-retirada (T2.7, T2.7b, decisões 17, 20)
+
+> **Implementado em `communityCommentLifecycle.ts` (T2.7/T2.7b, 2026-08-09).** As duas rotas
+> compartilham a prova de autoria sob `FOR UPDATE`, e o `403` de terceiro vem daí — escopo de
+> credencial diz o que o app pode fazer, nunca quem é dono da fala.
 
 ### `PATCH /internal/v1/comments/:id`
 
 Escopo `comment.write`. Exige `Idempotency-Key`. Somente o **autor**; terceiro recebe `403`.
 
-Altera **apenas** `body_markdown`. Pai, assunto, autoria e `created_at` são imutáveis. Sem
+Corpo: **apenas `body_markdown`**, com `strict()` — qualquer outro campo é `400`/`invalid_body`,
+nunca ignorado em silêncio. Pai, assunto, autoria e `created_at` são imutáveis. Sem
 prazo. Mesmas validações 3-5 de §3. Edição idêntica é **no-op**: `200` com o comentário atual,
-sem versão nova, sem `edited_at` alterado. Edição real cria linha em `comment_versions`, marca
-`edited_at` e **preserva votos e ranking** (decisão 18). Não gera notificação.
+sem versão nova, sem `edited_at` alterado — a comparação é sobre o Markdown **canônico**, para
+que mudança só de espaçamento não crie versão. Edição real cria linha em
+`community_comment_version`, move `current_version_id`, marca `edited_at` e **preserva votos e
+ranking** (decisão 18). Não gera notificação.
 
 Comentário em `pending_review_hidden` **continua editável, e a edição não o revela**
-(decisão 41) — `200`, estado inalterado.
+(decisão 41) — `200`, `visibility_state` fora do `SET`.
 
-Legado não é editável → `403`/`legacy_immutable`.
+Comentário já retirado **não volta a ser editável** → `403`/`comment_removed`.
+
+Legado não é editável → `403`/`legacy_immutable`. A recusa vem **antes** da checagem de autoria:
+legado tem ator nulo, e cair em `forbidden_not_author` daria o motivo errado.
+
+**Resposta 200:** o `Comment` atual. Vale igual para edição real, no-op e replay idempotente —
+o cliente não precisa distinguir os três.
 
 ### `DELETE /internal/v1/comments/:id`
 
-Escopo `comment.write`. Somente o autor. Cria **tombstone**, nunca `DELETE` físico: preserva
-posição e descendentes, oculta corpo e score do público, registra ator/motivo/timestamp na
-auditoria. **Irreversível para o autor** — só `moderator`/`admin` restaura (§5).
+Escopo `comment.write`. Somente o autor. **Sem `Idempotency-Key`** — o efeito já é idempotente:
+a segunda chamada encontra o tombstone e recusa com `403`/`comment_removed`, sem segundo efeito
+nem segunda linha de auditoria.
+
+Cria **tombstone**, nunca `DELETE` físico: preserva posição e descendentes, e o corpo **permanece
+na linha** — quem oculta corpo e score é a leitura (§2), não a escrita. Apagar o texto aqui
+destruiria a evidência da denúncia que T2.19 fixa por `reported_version_id`.
+
+Registra ator, motivo e timestamp em `community_moderation_audit`, **na mesma transação** do
+estado. O motivo é o valor canônico `"Retirado pelo próprio autor"`, porque a rota não tem corpo e
+`community_comment_removal_check` exige `removed_reason` não-vazio; `metadata` guarda o estado
+anterior, que é o que distingue retirada de comentário visível da de um já oculto por denúncia.
+
+**Irreversível para o autor** — não existe rota de restauração com escopo `comment.write`; só
+`moderator`/`admin` restaura (§5).
 
 Auto-retirada com caso aberto **não encerra a moderação** (decisão 46): o caso segue aberto,
 cada denúncia recebe veredito, e a retirada não vale como confissão.
 
-**Resposta 204.** **Erros:** `401` · `403` não-autor/legado · `404` · `429`.
+**Resposta 204**, sem corpo. **Erros:** `401` · `403` não-autor/legado/já-retirado · `404` · `429`.
 
 ---
 
@@ -288,6 +324,18 @@ visível e é comentável é o backend do módulo, no campo `subject_authorizati
   "canonical_path": "/materiais/xyz"
 }
 ```
+
+**O campo é obrigatório na escrita, e é ele que registra o assunto.** Não existe rota de
+"cadastrar assunto": a linha de `community_comment_subject` — que carrega `ranking_revision` e é
+alvo do FK do comentário — **nasce no primeiro comentário**, a partir desta afirmação, e tem
+`canonical_path`/`owner_user_id` reafirmados a cada escrita (post movido de rota, dono vinculado
+depois). `ranking_revision` nunca é reescrito por aqui; ele pertence ao voto (§7).
+
+Negativa em `exists`, `visible` ou `commentable` vira `404` **uniforme** (§13), nunca `400`:
+`400` diria que o payload chegou a ser examinado, o que reintroduz o oráculo de existência que o
+`404` fecha. `owner_user_id` apontando para conta já excluída no `accounts.` é reduzido a `null`
+— sem conta viva não há badge nem destinatário (15a, 15b), e a FK derrubaria a transação inteira
+por uma afirmação stale do módulo.
 
 Esta afirmação **só é confiável porque vem por credencial de serviço**. Referência opaca não
 substitui autorização por objeto (`plan.md`, OWASP IDOR): se viesse do navegador, o atacante

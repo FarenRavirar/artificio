@@ -1,4 +1,12 @@
-import { markdownToPlainText, sanitizeNullableUserMarkdown, sanitizeOptionalUserMarkdown, sanitizeUserMarkdown } from './sanitize.js';
+import {
+  LEGACY_COMMENT_SANITIZER_POLICY,
+  LEGACY_COMMENT_SANITIZER_VERSION,
+  markdownToPlainText,
+  sanitizeLegacyCommentHtml,
+  sanitizeNullableUserMarkdown,
+  sanitizeOptionalUserMarkdown,
+  sanitizeUserMarkdown,
+} from './sanitize.js';
 // A asserção de neutralização no render precisa do renderizador real, não de uma
 // reimplementação: é ele que os consumidores usam.
 import { renderMarkdown } from './ContentEditor.js';
@@ -164,5 +172,139 @@ describe('caracteres literais `<` e `>` (correção 2026-08-07)', () => {
     const armazenado = sanitizeUserMarkdown('&lt;script&gt;alert(1)&lt;/script&gt;');
     expect(renderMarkdown(armazenado)).not.toMatch(/<script/i);
     expect(renderMarkdown(armazenado)).toContain('&lt;script&gt;');
+  });
+});
+
+/**
+ * T2.5 — HTML legado do `site`, sanitizado uma vez na importação.
+ *
+ * A allowlist é `p`/`br`/`a`, derivada do conteúdo real (25 linhas em prod e em
+ * beta, medidas em 2026-08-09). Estes testes protegem os dois lados: o que o
+ * legado **tem** precisa sobreviver, e o que ele não tem precisa morrer mesmo
+ * que apareça.
+ */
+describe('sanitizeLegacyCommentHtml (T2.5)', () => {
+  it('preserva a estrutura que o legado realmente usa', () => {
+    // Forma exata do dump: parágrafo com link `rel="nofollow ugc"`.
+    const legado =
+      '<p>Veja <a href="https://exemplo.com/x?a=1&amp;b=2" rel="nofollow ugc">o post</a></p>';
+    const saida = sanitizeLegacyCommentHtml(legado);
+
+    expect(saida).toContain('<p>');
+    expect(saida).toContain('href="https://exemplo.com/x?a=1&amp;b=2"');
+    expect(saida).toContain('o post');
+  });
+
+  it('mantém quebra de linha, que o legado usa entre parágrafos', () => {
+    expect(sanitizeLegacyCommentHtml('<p>uma<br />duas</p>')).toContain('<br />');
+  });
+
+  it.each([
+    ['script', '<p>ok</p><script>alert(1)</script>'],
+    ['handler inline', '<p onclick="alert(1)">ok</p>'],
+    ['img com onerror', '<p>ok</p><img src=x onerror=alert(1)>'],
+    ['svg', '<p>ok</p><svg><script>alert(1)</script></svg>'],
+    ['mathml', '<p>ok</p><math><mtext><script>alert(1)</script></mtext></math>'],
+    ['iframe', '<p>ok</p><iframe src="https://evil.example"></iframe>'],
+    ['style', '<p style="position:fixed;top:0">ok</p>'],
+    ['form', '<form action="https://evil.example"><input name="x"></form><p>ok</p>'],
+  ])('remove %s sem perder o texto legítimo', (_caso, hostil) => {
+    const saida = sanitizeLegacyCommentHtml(hostil);
+
+    expect(saida).toContain('ok');
+    expect(saida).not.toMatch(/<script|<svg|<math|<iframe|<img|<form|<input|onerror|onclick|style=/i);
+  });
+
+  it.each([
+    ['javascript:', '<a href="javascript:alert(1)">x</a>'],
+    ['data:', '<a href="data:text/html,<script>alert(1)</script>">x</a>'],
+    ['http:', '<a href="http://exemplo.com">x</a>'],
+    ['vbscript:', '<a href="vbscript:msgbox(1)">x</a>'],
+  ])('recusa link %s, preservando o texto do link', (_caso, hostil) => {
+    // `https` é o único esquema aceito — a mesma regra do comentário novo (10a).
+    // Medido em 2026-08-09: o default da `sanitize-html` aceita `http`, `ftp` e
+    // `tel`, então esta é uma das duas regras que a lib não cobre sozinha. Nenhum
+    // link legado usa `http:`, então nada de real se perde.
+    const saida = sanitizeLegacyCommentHtml(hostil);
+
+    expect(saida).not.toMatch(/javascript:|data:|vbscript:|http:\/\//i);
+    expect(saida).toContain('x');
+    // Sem `href` não sobra atributo de segurança decorando casca: `<a>` sem
+    // destino não navega, e `rel`/`target` ali seriam ruído no HTML.
+    expect(saida).not.toMatch(/<a[^>]*(rel|target)=/i);
+  });
+
+  it('preserva formatação comum que o dump não tem hoje, mas pode ter amanhã', () => {
+    // A allowlist são os defaults da lib, não `p`/`br`/`a` recortados. Medido:
+    // os defaults barram 10 de 10 vetores testados, então recortar reduziria
+    // superfície teórica ao custo de fazer `<strong>` sumir em silêncio no dia
+    // em que um comentário legado o tiver.
+    const saida = sanitizeLegacyCommentHtml(
+      '<blockquote><p><strong>forte</strong> e <em>ênfase</em></p></blockquote><ul><li>item</li></ul>',
+    );
+
+    expect(saida).toContain('<strong>forte</strong>');
+    expect(saida).toContain('<em>ênfase</em>');
+    expect(saida).toContain('<blockquote>');
+    expect(saida).toContain('<li>item</li>');
+  });
+
+  it('reescreve rel e target em vez de herdar do dump', () => {
+    // O WordPress gravou `rel="nofollow ugc"` sem `noopener`/`noreferrer`.
+    // Confiar no valor de origem seria deixar dado antigo decidir segurança de
+    // saída; 10a exige as quatro palavras no link externo, e todo link legado é
+    // externo por definição.
+    const saida = sanitizeLegacyCommentHtml(
+      '<a href="https://exemplo.com" rel="nofollow ugc" target="_self">x</a>',
+    );
+
+    expect(saida).toContain('rel="ugc nofollow noopener noreferrer"');
+    expect(saida).toContain('target="_blank"');
+    expect(saida).not.toContain('target="_self"');
+  });
+
+  it('é idempotente sobre entrada hostil (requisito 10c)', () => {
+    // Consumidores sanitizam na escrita **e** de novo na leitura, e o requisito
+    // 10 manda proteger a saída "sem regravar o banco" — logo esta função roda
+    // várias vezes sobre o mesmo texto. Não idempotente, o conteúdo muda entre
+    // passagens sem erro nenhum, que é o defeito da PR #246.
+    const casos = [
+      '<p>ok</p><script>alert(1)</script>',
+      '<a href="https://exemplo.com" rel="nofollow ugc">x</a>',
+      '<p>&lt;b&gt;entidade digitada&lt;/b&gt;</p>',
+      '<p>a &amp; b &lt; c</p>',
+      // Estes três quebraram a idempotência antes da correção de 2026-08-09:
+      // `transformTags` roda ANTES da filtragem de esquema, então o `href`
+      // hostil ainda estava presente quando os atributos eram injetados. A
+      // primeira passagem devolvia `<a rel=... target=...>` sem `href`; a
+      // segunda removia os atributos. Por isso a checagem de esquema vive
+      // dentro do transform.
+      '<a href="javascript:alert(1)">x</a>',
+      '<a href="http://exemplo.com">x</a>',
+      '<a href="data:text/html,x">x</a>',
+    ];
+
+    for (const caso of casos) {
+      const uma = sanitizeLegacyCommentHtml(caso);
+      expect(sanitizeLegacyCommentHtml(uma)).toBe(uma);
+      expect(sanitizeLegacyCommentHtml(sanitizeLegacyCommentHtml(uma))).toBe(uma);
+    }
+  });
+
+  it('entidade digitada pelo usuário nunca vira markup (requisito 10c)', () => {
+    // `&lt;b&gt;` escrito em 2018 é texto, não tag. Decodificar aqui faria a
+    // segunda passagem removê-lo como se fosse markup.
+    const saida = sanitizeLegacyCommentHtml('<p>&lt;b&gt;negrito literal&lt;/b&gt;</p>');
+
+    expect(saida).toContain('&lt;b&gt;');
+    expect(saida).not.toContain('<b>');
+  });
+
+  it('política e versão existem para gravar por linha', () => {
+    // `migration_006:147-148` guarda os dois. Sem eles não há como saber sob que
+    // regra um conteúdo antigo foi limpo, e mudar a política obrigaria a
+    // reprocessar tudo.
+    expect(LEGACY_COMMENT_SANITIZER_POLICY).toBe('site-comment-html');
+    expect(LEGACY_COMMENT_SANITIZER_VERSION).toBe(1);
   });
 });
