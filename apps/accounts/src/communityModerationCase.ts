@@ -280,16 +280,28 @@ export async function resolveCase(
         throw new CaseRejection("case_already_resolved", 409);
       }
 
+      // Um `UPDATE` por **veredito distinto**, não por denúncia. O corpo aceita
+      // até 500 vereditos, e o laço anterior fazia 500 idas ao banco **com o
+      // caso e o comentário travados** — a janela em que qualquer denúncia nova
+      // no mesmo comentário espera. Agrupados, são no máximo três instruções,
+      // uma por valor de `REPORT_VERDICTS` (achado de review, PR #251).
+      const porVeredito = new Map<ReportVerdict, string[]>();
       for (const verdict of input.verdicts) {
+        const ids = porVeredito.get(verdict.verdict) ?? [];
+        ids.push(verdict.report_id);
+        porVeredito.set(verdict.verdict, ids);
+      }
+
+      for (const [veredito, ids] of porVeredito) {
         await trx
           .updateTable("community_comment_report")
           .set({
-            state: verdict.verdict,
+            state: veredito,
             resolved_at: closedAt,
             resolved_by_actor_id: moderatorActorId,
             resolution_reason: input.reason,
           })
-          .where("id", "=", verdict.report_id)
+          .where("id", "in", ids)
           .where("realm", "=", input.realm)
           .where("source_app", "=", input.sourceApp)
           // `state = 'active'` também aqui: `guard_community_comment_report_update`
@@ -523,6 +535,18 @@ async function notifyResolution(
   // vocabulário mínimo do contrato. `upheld` vira `action_taken`, `dismissed`
   // vira `not_upheld`. Mandar o veredito bruto revelaria o vocabulário interno da
   // moderação sem ganho para quem denunciou.
+  //
+  // Agrupados por `outcome`, não um evento por denunciante: com 500 denúncias o
+  // laço anterior fazia ~2000 idas ao banco dentro da transação que segura o
+  // caso e o comentário travados (achado de review, PR #251).
+  //
+  // Agrupar é seguro **porque o snapshot é idêntico** para quem compartilha o
+  // resultado — ele carrega só `outcome` e `comment_id`, nunca identidade de
+  // terceiro (decisão 44), e o recibo endereça sem revelar os outros
+  // destinatários. Vereditos diferentes continuam em eventos separados, que é o
+  // que impede alguém deduzir o veredito alheio.
+  const porResultado = new Map<string, string[]>();
+
   for (const report of reports) {
     const verdict = verdictByReport.get(report.id);
     if (!verdict) continue;
@@ -538,13 +562,19 @@ async function notifyResolution(
           ? "not_upheld"
           : "no_determination";
 
+    const destinatarios = porResultado.get(outcome) ?? [];
+    destinatarios.push(reporterUserId);
+    porResultado.set(outcome, destinatarios);
+  }
+
+  for (const [outcome, destinatarios] of porResultado) {
     await emitEvent(
       trx,
       input,
       commentId,
       "comment.moderation.decision.reporter",
       { outcome },
-      [reporterUserId],
+      destinatarios,
       moderatorActorId,
     );
   }

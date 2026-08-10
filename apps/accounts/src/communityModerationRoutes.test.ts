@@ -102,11 +102,21 @@ const SANCTION_ID = "77777777-7777-4777-8777-777777777777";
 const ATOR_ALVO = "88888888-8888-4888-8888-888888888888";
 const CHAVE = "chave-de-idempotencia-1";
 
+/**
+ * Hash calculado **uma vez** por módulo, não por chamada.
+ *
+ * Argon2 custa ~34 ms por invocação (medido em 2026-08-09), e `credentialRow`
+ * é chamada em quase todos os casos deste arquivo — recalcular era mais de um
+ * segundo de suíte gasto derivando o mesmo valor. O `await` de topo de módulo é
+ * suportado pelo ESM do vitest.
+ */
+const CREDENTIAL_HASH = await hash(CREDENTIAL_SECRET);
+
 async function credentialRow(overrides: Record<string, unknown> = {}) {
   return {
     id: "cred-1",
     token_id: "downloads-prod-abcd1234",
-    token_hash: await hash(CREDENTIAL_SECRET),
+    token_hash: CREDENTIAL_HASH,
     source_app: "downloads",
     realms: ["prod"],
     scopes: ["report.write", "moderation.write"],
@@ -739,7 +749,7 @@ describe("POST /internal/v1/moderation/decisions/:id/appeals", () => {
 });
 
 describe("POST /internal/v1/moderation/appeals/:id/resolution", () => {
-  it("aceita upheld e reversed", async () => {
+  it("aceita reversed e ecoa restored", async () => {
     const app = await moderatorApp();
     const res = await withAuth(
       request(app).post(`/internal/v1/moderation/appeals/${APPEAL_ID}/resolution`),
@@ -747,6 +757,23 @@ describe("POST /internal/v1/moderation/appeals/:id/resolution", () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ outcome: "reversed", restored: true });
+  });
+
+  it("aceita upheld sem restaurar", async () => {
+    // `upheld` = a decisão original foi **mantida**, o recurso perdeu. O
+    // vocabulário é do ponto de vista da decisão, não do recorrente, e trocar os
+    // dois restauraria exatamente nos casos em que a moderação confirmou a
+    // remoção. O teste anterior só exercitava `reversed`, então a inversão
+    // passaria despercebida.
+    decideAppealMock.mockResolvedValue({ ok: true, restored: false });
+
+    const app = await moderatorApp();
+    const res = await withAuth(
+      request(app).post(`/internal/v1/moderation/appeals/${APPEAL_ID}/resolution`),
+    ).send({ outcome: "upheld", reason: "remocao confirmada" });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ outcome: "upheld", restored: false });
   });
 
   it("recusa outcome inventado", async () => {

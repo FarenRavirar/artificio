@@ -454,87 +454,19 @@ export async function createReport(
 
       const caseId = await lockOrOpenCase(trx, input);
 
-      const reportId = randomUUID();
-      const createdAt = new Date();
-
-      // `uq_community_comment_report_active` é quem decide se já existe
-      // denúncia ativa deste ator. `ON CONFLICT DO NOTHING` sobre um índice
-      // parcial não é expressável aqui sem repetir o predicado, então a colisão
-      // vem como exceção do banco e é traduzida abaixo — um `SELECT` antes
-      // seria o check-before-transaction que §6 manda não replicar.
-      try {
-        await trx
-          .insertInto("community_comment_report")
-          .values({
-            id: reportId,
-            realm: input.realm,
-            source_app: input.sourceApp,
-            comment_id: input.commentId,
-            reported_version_id: versionId,
-            reporter_actor_id: actorId,
-            case_id: caseId,
-            reason_code: input.reasonCode,
-            details,
-            state: "active",
-            created_at: createdAt,
-          })
-          .execute();
-      } catch (error) {
-        if (isUniqueViolation(error)) {
-          throw new ReportRejection("report_already_active", 409);
-        }
-        throw error;
-      }
-
-      // Contagem **depois** do lock do caso. Ver a nota de cabeçalho: é a mesma
-      // ordem que a PR #251 fixou para o score.
-      const distinctReporters = await countDistinctActiveReporters(
+      // O caminho normal é **o mesmo** que `recordApprovedVersionReport` usa
+      // quando não acha o caso fechado correspondente. Estava duplicado aqui
+      // linha a linha, e a cópia significava que uma correção na ordem
+      // lock→contagem→auto-hide teria de ser aplicada duas vezes (achado de
+      // review, PR #251).
+      return await insertActiveReportForCase(
         trx,
-        input.realm,
-        input.sourceApp,
+        input,
+        versionId,
+        actorId,
         caseId,
+        details,
       );
-
-      if (distinctReporters >= AUTO_HIDE_THRESHOLD) {
-        await applyAutoHide(trx, input, caseId, distinctReporters);
-      }
-
-      await trx
-        .insertInto("community_moderation_audit")
-        .values({
-          realm: input.realm,
-          source_app: input.sourceApp,
-          // Ator do **denunciante**, não de moderador: é ele quem executou a
-          // ação registrada. A auditoria de moderação guarda o ciclo inteiro do
-          // caso, não só o que o moderador faz.
-          actor_id: actorId,
-          action: "comment.report.created",
-          target_type: "comment_report",
-          target_id: reportId,
-          reason: input.reasonCode,
-          metadata: {
-            case_id: caseId,
-            comment_id: input.commentId,
-            reported_version_id: versionId,
-            distinct_reporters: distinctReporters,
-            auto_hidden: distinctReporters >= AUTO_HIDE_THRESHOLD,
-          },
-        })
-        .execute();
-
-      const report: CreatedReport = {
-        id: reportId,
-        comment_id: input.commentId,
-        reason_code: input.reasonCode,
-        state: "active",
-        // ISO string e não `Date`: este objeto vai para `response_body` (`jsonb`)
-        // e volta como string no replay. Guardar `Date` faria a primeira chamada
-        // e a repetição devolverem tipos de runtime diferentes.
-        created_at: createdAt.toISOString(),
-      };
-
-      await storeReportResponse(trx, input, report);
-      return { ok: true as const, report, replayed: false };
     });
   } catch (error) {
     if (error instanceof ReportRejection) {
@@ -590,7 +522,14 @@ async function recordApprovedVersionReport(
   // normal e a moderação decide, em vez de ser arquivada sem análise.
   if (!closedCase) {
     const caseId = await lockOrOpenCase(trx, input);
-    return await insertActiveReportForCase(trx, input, comment, versionId, actorId, caseId);
+    return await insertActiveReportForCase(
+      trx,
+      input,
+      versionId,
+      actorId,
+      caseId,
+      input.details,
+    );
   }
 
   const reportId = randomUUID();
@@ -654,14 +593,25 @@ async function recordApprovedVersionReport(
   return { ok: true as const, report, replayed: false };
 }
 
-/** Caminho normal de inserção, extraído para o fallback acima reusá-lo. */
+/**
+ * Caminho normal: insere a denúncia ativa, conta, aplica o limiar e audita.
+ *
+ * Único ponto onde a sequência lock→inserção→contagem→auto-hide existe. Tanto
+ * `createReport` quanto o fallback de `recordApprovedVersionReport` chamam
+ * daqui — antes o corpo estava duplicado nos dois, e corrigir a ordem exigiria
+ * lembrar do segundo.
+ *
+ * `details` chega por parâmetro em vez de sair de `input.details`: quem chama já
+ * validou a política do motivo, e reler o campo cru aqui reintroduziria a
+ * chance de gravar sem passar por ela.
+ */
 async function insertActiveReportForCase(
   trx: Transaction<Database>,
   input: CreateReportInput,
-  comment: ReportableComment,
   versionId: string,
   actorId: string,
   caseId: string,
+  details: string | null,
 ): Promise<CreateReportResult> {
   const reportId = randomUUID();
   const createdAt = new Date();
@@ -678,7 +628,7 @@ async function insertActiveReportForCase(
         reporter_actor_id: actorId,
         case_id: caseId,
         reason_code: input.reasonCode,
-        details: input.details,
+        details,
         state: "active",
         created_at: createdAt,
       })

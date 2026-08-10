@@ -151,27 +151,53 @@ export async function readModerationQueue(
     );
   }
 
+  if (filters.maxPriority !== undefined) {
+    // Filtro no SQL, **antes** do `LIMIT`, e não sobre o array devolvido.
+    //
+    // Filtrar em JS depois do `LIMIT` fazia a página vir com menos itens que o
+    // pedido sem que isso significasse fim da fila: o banco entregava 20 casos,
+    // o filtro descartava metade, e o moderador via 10 concluindo que acabou —
+    // enquanto os outros 10 que casavam com o filtro estavam na página seguinte,
+    // inalcançáveis porque a UI para de paginar quando a página vem curta.
+    // Achado de review, PR #251.
+    //
+    // A subconsulta é repetida em vez de referenciada pelo alias: o `SELECT` do
+    // Postgres não expõe alias de projeção ao próprio `WHERE` (avaliado antes),
+    // então `WHERE priority <= $1` daria `column "priority" does not exist`.
+    //
+    // `IS NULL` passa: caso sem denúncia ativa não tem prioridade derivada, e
+    // escondê-lo do filtro sumiria com casos legítimos que aguardam decisão.
+    const maxPriority = filters.maxPriority;
+    query = query.where(
+      sql<boolean>`coalesce((
+        select min(rr.priority)
+        from community_comment_report r
+        join community_report_reason rr
+          on rr.target_type = 'comment' and rr.code = r.reason_code
+        where r.case_id = mc.id
+          and r.realm = mc.realm
+          and r.source_app = mc.source_app
+          and r.state = 'active'
+      ), -1) <= ${maxPriority}`,
+    );
+  }
+
   const rows = await query.execute();
 
-  return rows
-    .map((row) => ({
-      case_id: row.case_id,
-      comment_id: row.comment_id,
-      source_app: row.source_app,
-      status: row.status,
-      opened_at: row.opened_at.toISOString(),
-      // `COUNT` volta como string (`bigint`); `Number` direto no valor bruto
-      // daria `NaN` na ordenação por volume da interface.
-      active_report_count: Number(row.active_report_count ?? 0),
-      reason_codes: Array.isArray(row.reason_codes) ? row.reason_codes : [],
-      priority: row.priority === null ? null : Number(row.priority),
-      comment_visibility_state: row.comment_visibility_state,
-    }))
-    .filter((item) =>
-      filters.maxPriority === undefined || item.priority === null
-        ? true
-        : item.priority <= filters.maxPriority,
-    );
+  return rows.map((row) => ({
+    case_id: row.case_id,
+    comment_id: row.comment_id,
+    source_app: row.source_app,
+    status: row.status,
+    opened_at: row.opened_at.toISOString(),
+    // `COUNT` é `bigint` e o driver o entrega como **string**. Sem o `Number`,
+    // o campo sairia no JSON como `"12"` e a interface ordenaria por volume
+    // lexicograficamente — `"9"` acima de `"12"`.
+    active_report_count: Number(row.active_report_count ?? 0),
+    reason_codes: Array.isArray(row.reason_codes) ? row.reason_codes : [],
+    priority: row.priority === null ? null : Number(row.priority),
+    comment_visibility_state: row.comment_visibility_state,
+  }));
 }
 
 export interface CaseDetailReport {

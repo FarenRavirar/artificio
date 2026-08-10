@@ -254,9 +254,20 @@ describe("createReport — SQL compilado", () => {
     );
 
     expect(indice).toBeGreaterThan(-1);
+
+    // Índice derivado da lista de colunas do `INSERT`, não `toContain(null)`:
+    // o `toContain` passava se **qualquer** parâmetro fosse nulo, então o teste
+    // continuaria verde com o `actor_id` preenchido e outra coluna nula.
+    const colunas = [
+      ...(ctx.capture.sqls[indice].match(/insert into "community_moderation_audit" \(([^)]+)\)/) ??
+        [])[1].matchAll(/"([^"]+)"/g),
+    ].map((m) => m[1]);
+    const posicao = colunas.indexOf("actor_id");
+
+    expect(posicao).toBeGreaterThan(-1);
     // Atribuí-lo ao quinto denunciante faria a auditoria dizer que uma pessoa
     // ocultou o comentário, quando o que ocultou foi o limiar (decisão 34).
-    expect(ctx.capture.params[indice]).toContain(null);
+    expect(ctx.capture.params[indice][posicao]).toBeNull();
     expect(ctx.capture.params[indice]).toContain("report_threshold_reached");
   });
 
@@ -294,11 +305,21 @@ describe("createReport — SQL compilado", () => {
   it("recusa comentário legado antes de checar autoria", async () => {
     ctx.capture.enqueue([{ id: "chave" }]);
     ctx.capture.enqueue([{ actor_id: DENUNCIANTE_ATOR }]);
-    ctx.capture.enqueue([{ ...COMENTARIO, community_actor_id: null, legacy_source: "site" }]);
+    // Autor **é** o denunciante: as duas recusas se aplicam ao mesmo tempo, e é
+    // isso que prova a ordem. Com `community_actor_id: null` só a de legado
+    // podia disparar, então o teste passava mesmo se a de autoria viesse antes.
+    ctx.capture.enqueue([
+      {
+        ...COMENTARIO,
+        community_actor_id: DENUNCIANTE_ATOR,
+        legacy_source: "site",
+      },
+    ]);
 
     const resultado = await createReport(ctx.db, ENTRADA_DENUNCIA);
 
     expect(resultado).toEqual({ ok: false, code: "legacy_immutable", status: 403 });
+    expect(resultado).not.toEqual({ ok: false, code: "self_report", status: 403 });
   });
 
   it("não cria ator antes das recusas", async () => {
@@ -882,15 +903,58 @@ describe("fileAppeal — SQL compilado", () => {
       sql.includes('insert into "community_comment_appeal"'),
     );
 
-    const esperado = new Date(FECHADO_EM);
-    esperado.setMonth(esperado.getMonth() + 6);
-
+    // Literal, não recalculado com `setMonth`: recalcular no teste replicaria
+    // exatamente o defeito que se quer provar ausente, e os dois erros se
+    // cancelariam. `FECHADO_EM` é `2026-08-01T12:00:00Z`.
+    //
     // `validate_community_comment_appeal` exige **exatamente** esse valor.
     // Aceitá-lo do cliente daria ao autor a chance de esticar o próprio prazo.
     const datas = ctx.capture.params[indice].filter(
       (p): p is Date => p instanceof Date,
     );
-    expect(datas.map((d) => d.toISOString())).toContain(esperado.toISOString());
+    expect(datas.map((d) => d.toISOString())).toContain(
+      "2027-02-01T12:00:00.000Z",
+    );
+  });
+
+  it("satura no fim do mês, como o INTERVAL do PostgreSQL", async () => {
+    // 31/08 + 6 meses: JS transborda para `2027-03-03`, PostgreSQL satura em
+    // `2027-02-28`. A trigger exige igualdade exata, então o valor transbordado
+    // virava exceção sem código HTTP — `500` no lugar do `201`, e o autor perdia
+    // o recurso por causa da data em que o moderador decidiu.
+    const fimDeMes = new Date("2026-08-31T12:00:00.000Z");
+    ctx.capture.enqueue([{ id: "chave" }]);
+    ctx.capture.enqueue([
+      {
+        id: CASE_ID,
+        comment_id: COMMENT_ID,
+        status: "closed",
+        terminal_action: "remove",
+        decision_version_id: VERSION_ID,
+        closed_at: fimDeMes,
+      },
+    ]);
+    ctx.capture.enqueue([{ community_actor_id: AUTOR_ATOR }]);
+    ctx.capture.enqueue([{ actor_id: AUTOR_ATOR }]);
+    ctx.capture.enqueue([]);
+    ctx.capture.enqueue([]);
+    ctx.capture.enqueue([]);
+
+    await fileAppeal(ctx.db, ENTRADA_RECURSO);
+
+    const indice = ctx.capture.sqls.findIndex((sql) =>
+      sql.includes('insert into "community_comment_appeal"'),
+    );
+    const datas = ctx.capture.params[indice].filter(
+      (p): p is Date => p instanceof Date,
+    );
+
+    expect(datas.map((d) => d.toISOString())).toContain(
+      "2027-02-28T12:00:00.000Z",
+    );
+    expect(datas.map((d) => d.toISOString())).not.toContain(
+      "2027-03-03T12:00:00.000Z",
+    );
   });
 
   it("recusa recurso de decisão que não removeu", async () => {

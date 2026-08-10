@@ -279,9 +279,14 @@ describe("a tentativa não autenticada tem teto (achado de review, PR #251)", ()
 
       const status = respostas.map((r) => r.status);
       expect(status).toContain(429);
-      // E o começo da rajada continua chegando ao guard: o limiter é teto, não
+      // E parte da rajada continua chegando ao guard: o limiter é teto, não
       // bloqueio do prefixo inteiro.
-      expect(status[0]).toBe(401);
+      //
+      // `toContain(401)` e não `status[0] === 401`: `Promise.all` preserva a
+      // ordem do **array**, não a ordem em que o servidor processou — a
+      // requisição do índice 0 pode ter chegado depois de mil outras, e o teste
+      // falharia de forma intermitente sem nada estar errado no limiter.
+      expect(status).toContain(401);
     },
     120_000,
   );

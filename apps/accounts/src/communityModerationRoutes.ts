@@ -556,12 +556,28 @@ async function handleQueue(
     return;
   }
 
+  // `source_app` da query só é aceito se for o **da própria credencial**.
+  //
+  // O comentário anterior aqui afirmava que o filtro era "conveniência de UI,
+  // não fronteira de segurança", porque a credencial veria só o próprio app de
+  // qualquer forma. Era falso: `readModerationQueue` filtra pelo valor que
+  // recebe, então `?source_app=mesas` com credencial do `downloads` devolvia a
+  // fila de moderação do `mesas` — denúncias, comentários e identidades de
+  // outro módulo. Achado de review, PR #251.
+  //
+  // `403` e não filtro silencioso: quem pediu explicitamente o app errado
+  // precisa saber que não recebeu, em vez de ver uma fila vazia e concluir que
+  // não há casos.
+  if (query.data.source_app && query.data.source_app !== credential.sourceApp) {
+    fail(req, res, 403, "forbidden_source_app");
+    return;
+  }
+
   const items = await readModerationQueue(db, {
-    // `realm` da credencial, jamais da query (requisito 27a). `source_app` pode
-    // ser filtrado porque uma credencial vê só o próprio de qualquer forma — o
-    // filtro é conveniência de UI, não fronteira de segurança.
+    // `realm` e `source_app` saem da credencial (requisito 27a): beta nunca
+    // aparece misturado com produção, e um módulo nunca vê a fila de outro.
     realm: credential.realm,
-    sourceApp: query.data.source_app ?? credential.sourceApp,
+    sourceApp: credential.sourceApp,
     status: query.data.status,
     maxPriority: query.data.max_priority,
     limit: query.data.limit,

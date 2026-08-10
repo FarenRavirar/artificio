@@ -95,6 +95,48 @@ class AppealRejection extends Error {
   }
 }
 
+/**
+ * `closed_at + INTERVAL 'N months'`, com a semântica do PostgreSQL.
+ *
+ * `validate_community_comment_appeal` exige que `appeal_deadline_at` seja
+ * **exatamente** `closed_at + INTERVAL '6 months'`, e as duas linguagens
+ * discordam no fim do mês. Medido:
+ *
+ * | `closed_at`  | `Date.setUTCMonth(+6)` | PostgreSQL   |
+ * |--------------|------------------------|--------------|
+ * | `2026-01-31` | `2026-07-31`           | `2026-07-31` |
+ * | `2026-08-31` | `2027-03-03`           | `2027-02-28` |
+ *
+ * JavaScript **transborda** para o mês seguinte quando o dia não existe no mês
+ * de destino; o PostgreSQL **satura** no último dia. Um caso fechado em 31/08
+ * produzia um prazo que a trigger recusava — exceção de `plpgsql`, que chega ao
+ * Express sem código HTTP e vira `500` no lugar do `201`. O autor perderia o
+ * recurso por causa da data em que o moderador decidiu. Achado de review,
+ * PR #251.
+ *
+ * `setUTCMonth` e não `setMonth`: `closed_at` vem `timestamptz` e é comparado em
+ * UTC pela trigger; usar o fuso local do processo deslocaria o prazo pelo
+ * `TZ` da VM.
+ */
+export function addMonthsLikePostgres(from: Date, months: number): Date {
+  const day = from.getUTCDate();
+  const result = new Date(from);
+
+  // Fixa o dia 1 antes de mover o mês: sem isso `setUTCMonth` já transborda
+  // durante a própria chamada, e o clamp abaixo não teria como saber que mês
+  // era o pretendido.
+  result.setUTCDate(1);
+  result.setUTCMonth(result.getUTCMonth() + months);
+
+  // Último dia do mês de destino: dia 0 do mês seguinte.
+  const lastDay = new Date(
+    Date.UTC(result.getUTCFullYear(), result.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+
+  result.setUTCDate(Math.min(day, lastDay));
+  return result;
+}
+
 function hashAppealRequest(input: FileAppealInput): string {
   return createHash("sha256")
     .update(JSON.stringify([input.caseId, input.reason, input.actingUserId]))
@@ -201,8 +243,10 @@ export async function fileAppeal(
       }
 
       const submittedAt = new Date();
-      const deadline = new Date(moderationCase.closed_at);
-      deadline.setMonth(deadline.getMonth() + APPEAL_WINDOW_MONTHS);
+      const deadline = addMonthsLikePostgres(
+        moderationCase.closed_at,
+        APPEAL_WINDOW_MONTHS,
+      );
 
       if (submittedAt > deadline) {
         throw new AppealRejection("appeal_window_expired", 422);

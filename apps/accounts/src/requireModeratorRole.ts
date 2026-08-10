@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import type { Kysely } from "kysely";
+import { z } from "zod";
 import type { Database } from "./db.js";
 
 /**
@@ -51,9 +52,14 @@ export interface ModeratorAuthenticatedRequest extends Request {
  */
 export function requireModeratorRole(db: Kysely<Database>) {
   return (req: Request, res: Response, next: NextFunction): void => {
+    // UUID exigido, não só "string curta não vazia": `users.id` é `uuid`, e um
+    // header malformado chegava ao `WHERE id = $1` como texto — o PostgreSQL
+    // recusa a comparação com `22P02 invalid input syntax for type uuid`, que
+    // vira `500` em vez do `403` que o contrato manda. O mesmo `z.uuid()` das
+    // rotas (achado de review, PR #251).
     const header = req.headers["x-acting-user-id"];
     const actingUserId =
-      typeof header === "string" && header.length > 0 && header.length <= 64
+      typeof header === "string" && z.uuid().safeParse(header).success
         ? header
         : null;
 
