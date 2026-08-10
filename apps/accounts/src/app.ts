@@ -25,6 +25,8 @@ import {
 import { createAdminSecretsRoutes } from "./adminSecretsRoutes.js";
 import { createAdminRoleRoutes } from "./adminRoleRoutes.js";
 import { createCommunityCommentRoutes } from "./communityCommentRoutes.js";
+import { createCommunityModerationRoutes } from "./communityModerationRoutes.js";
+import { createRateLimitStore } from "./communityRateLimit.js";
 import { requireServiceCredential } from "./requireServiceCredential.js";
 
 const avatarMaxBytes = 2 * 1024 * 1024;
@@ -218,6 +220,43 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
       skip: (req) => req.path.startsWith("/internal/v1/"),
     }),
   );
+
+  // Teto pré-autenticação de `/internal/v1/*`.
+  //
+  // O `skip` acima tira o prefixo do bucket do SSO, mas os buckets comunitários
+  // rodam **depois** de `requireServiceCredential` — token ausente, errado ou
+  // sem escopo recebe `401`/`403` sem nunca chegar a eles. Sem este limiter, o
+  // prefixo ficava sem teto nenhum na tentativa não autenticada, que foi
+  // regressão introduzida junto do `skip` (achado de review de Codex P1 e
+  // CodeRabbit, PR #251).
+  //
+  // O custo não é teórico: `resolveServiceCredential` verifica Argon2 **também
+  // quando o token não existe** (`serviceCredential.ts:170-172`), de propósito,
+  // contra timing attack. Medido nesta máquina: **33,7 ms de CPU por tentativa
+  // inválida**. Sem teto, um chamador anônimo gera carga ilimitada e ainda
+  // enumera token à vontade.
+  //
+  // Chaveado por IP porque é a única identidade que existe antes de autenticar —
+  // e é a exceção que a decisão 54 permite: o IP fica no contador em memória do
+  // `express-rate-limit` pelo TTL da janela, nunca em schema, payload ou
+  // auditoria comunitária.
+  //
+  // Teto alto de propósito: um backend consumidor legítimo faz muitas chamadas
+  // do mesmo IP de saída, e este bucket existe contra tentativa não autenticada,
+  // não para dimensionar uso normal — quem já autenticou é limitado pelos
+  // buckets por ação e identidade de `communityRateLimit.ts`.
+  app.use(
+    rateLimit({
+      windowMs: 15 * 60 * 1000,
+      max: 2000,
+      // Sem `standardHeaders`: o saldo é justamente o que a decisão 50 manda não
+      // revelar, e este limiter responde a quem ainda não se autenticou.
+      standardHeaders: false,
+      legacyHeaders: false,
+      skip: (req) => !req.path.startsWith("/internal/v1/"),
+    }),
+  );
+
   app.use(cookieParser());
   app.use(csrfProtection([
     BRAND_ORIGIN,
@@ -460,7 +499,26 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
   // aqui, a fachada de cada app é que fala com o usuário
   // (`contrato-http-v1.md` §1). A chave do cursor é dedicada por 8d-i, mesmo
   // precedente de `ACCOUNTS_SECRETS_KEY` (REV-023).
-  app.use(createCommunityCommentRoutes(db, env.ACCOUNTS_COMMENT_CURSOR_KEY));
+  // Store único para os dois roteadores comunitários (T2.10 + T2.17-T2.26): o
+  // orçamento é por identidade e bucket, e criar um contador por roteador daria
+  // ao mesmo usuário duas cotas de leitura — uma na árvore de comentários, outra
+  // na fila de moderação.
+  const communityRateLimitStore = createRateLimitStore();
+
+  app.use(
+    createCommunityCommentRoutes(
+      db,
+      env.ACCOUNTS_COMMENT_CURSOR_KEY,
+      communityRateLimitStore,
+    ),
+  );
+
+  // T2.17-T2.26 — denúncia, caso, recurso e sanção (`contrato-http-v1.md` §5,
+  // §9, §10, §11). Roteador separado porque toda rota de moderação passa por
+  // `requireModeratorRole`, e aplicá-lo sobre o roteador inteiro evita o
+  // esquecimento rota a rota que abriria a fila para qualquer usuário
+  // autenticado de um módulo com `moderation.write`.
+  app.use(createCommunityModerationRoutes(db, communityRateLimitStore));
 
   // Spec 083 (downloads: rejeicao com e-mail) — rota interna server-to-server,
   // resolve email/nome do autor por user_id. So X-Service-Token, sem fallback

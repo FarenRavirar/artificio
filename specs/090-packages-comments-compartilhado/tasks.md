@@ -1461,6 +1461,28 @@ saudável e o **único** alarme de schema defasado no SSO é
   nada no desenho dizendo que dividem. Store passou a ser criado por instância de
   router.
 
+  **Regressão introduzida pelo `skip` e corrigida no review (PR #251).** Tirar
+  `/internal/v1/*` do limiter do SSO deixou o prefixo **sem teto na tentativa não
+  autenticada**: os buckets comunitários rodam depois de
+  `requireServiceCredential`, e token ausente/errado leva `401` sem chegar a
+  eles. O custo não é teórico — `resolveServiceCredential` verifica Argon2
+  **também quando o token não existe** (`serviceCredential.ts:170-172`, defesa
+  contra timing attack), e a medição local deu **33,7 ms de CPU por tentativa
+  inválida**. Antes do `skip`, os 200/15 min limitavam isso.
+
+  Corrigido com um segundo limiter, **pré-autenticação**, chaveado por IP —
+  única identidade disponível antes de autenticar, e a exceção que a decisão 54
+  permite (contador em memória pelo TTL, nunca em schema, payload ou auditoria).
+  Teto alto (2000/15 min) de propósito: um backend consumidor legítimo faz muitas
+  chamadas do mesmo IP de saída, e este bucket existe contra tentativa anônima,
+  não para dimensionar uso normal. Sem `standardHeaders`, pelo mesmo motivo do
+  `429` comunitário. Apontado por Codex (P1) e CodeRabbit (Major).
+
+  No mesmo achado: `communityRateLimit` chamava `next()` quando não havia
+  credencial. Chegar ali sem credencial é erro de montagem de rota, e seguir
+  entregaria a rota sem bucket **e** sem autenticação — passou a recusar com
+  `401`.
+
   **Limite conhecido, aceito e explícito:** contadores em memória. Reiniciar o
   processo zera; duas réplicas contam separado. É consequência da decisão 54 — a
   chave carrega identidade e existe só pelo TTL do bucket; persistir criaria
@@ -1537,6 +1559,22 @@ saudável e o **único** alarme de schema defasado no SSO é
   existir em `migration_006:403`. O schema tinha trilha de auditoria de voto e o
   tipo não.
 
+  **Voto perdido sob concorrência — corrigido após review (PR #251).** A
+  contagem era lida **antes** do lock do assunto. O banco roda em
+  `read committed` (medido: `show default_transaction_isolation` em
+  `artificio_auth`; nada no código eleva o nível), e nesse isolamento uma
+  transação que já commitou faixa nova não aparece num snapshot anterior. Duas
+  transações liam `{upvotes: 0}`, a primeira gravava `1` e commitava, a segunda
+  destravava e gravava `1` de novo por cima — duas linhas de voto, contagem
+  pública de 1, auditoria registrando as duas transições, e **nenhum erro**.
+  Leitura movida para depois do `UPDATE ... RETURNING`, que já serializa os
+  escritores. Apontado por Codex (P1) e CodeRabbit (Crítico), independentemente.
+
+  **No-op criava ator — corrigido.** `value: 0` de quem nunca votou saía com
+  `community_actor` e vínculo persistidos, por uma requisição que não muda voto,
+  revisão nem auditoria. A saída antecipada agora acontece antes de
+  `createActor`. Achado do Codex (P2).
+
   **Não entregue, e por quê: T2.15** (destino do voto e da identidade quando a
   conta perde acesso). Ela exige fingerprint HMAC versionado, executor idempotente
   de expurgo, publicação de controlador/prazos/SLA no fluxo de exclusão e
@@ -1546,16 +1584,78 @@ saudável e o **único** alarme de schema defasado no SSO é
 
 ### Bloco E — Denúncia e moderação
 
-- [ ] T2.17 — **API de denúncia e fila compartilhada** (decisões 32, 33, 35, 37, 38, 53). **Task nova — fecha lacuna real do contrato.** Persistência, API interna, fila compartilhada, resolução e auditoria pertencem à mesma entrega. Regras: exige conta; autor não denuncia o próprio comentário; no máximo uma denúncia ativa por ator/comentário. A moderação vê o ator e resolve a conta somente enquanto existir vínculo permitido por T2.15; público, outros denunciantes e autor denunciado nunca recebem nenhum dos dois. Após expurgo, denúncia/evidência permanecem, sem reidentificação. O fluxo do `downloads` é fonte de aprendizado: estados, nova denúncia após terminal, “minhas denúncias”, retirada permitida, prioridade, detalhes/nota separados, aviso, sinal de abuso sem punição automática, contexto e auditoria. Tudo geral vive no `accounts.` e no único `packages/comments`; domínio fica no adapter. Moderador reclassifica prioridade com motivo. · feito quando: denúncia do autor recusada; segunda ativa do mesmo ator recusada; identidade respeita retenção; nenhum app mantém state machine própria.
-- [ ] T2.18 — **Auto-ocultação por limiar de cinco contas distintas** (decisão 34). **Task nova.** Uma denúncia isolada **apenas cria ou prioriza item na fila** — não oculta nada. Ao atingir **cinco contas distintas**, o comentário passa ao estado próprio **`pending_review_hidden`**: público vê placeholder, **corpo e score somem**, **posição e descendentes permanecem**. Isto **não é tombstone nem decisão de moderador**, e precisa ser estado distinto no schema (T2.1). A fila conserva corpo, denúncias e identidades; a moderação confirma a retirada ou **descarta as denúncias e restaura a visibilidade**, tudo auditado. Contam **somente denúncias ativas, ainda não resolvidas, de contas válidas**; a mesma conta **nunca soma duas vezes**. O limiar alto é deliberado: em baixo volume a auto-ocultação será rara, priorizando resistência a coordenação entre poucas contas. Categoria e prioridade **nunca ocultam sozinhas** (decisão 38) — este limiar é o **único** auto-hide da fase. · feito quando: quatro denúncias não ocultam; a quinta oculta preservando os filhos; denúncia repetida da mesma conta não conta duas vezes; e restauração pela moderação devolve corpo e score.
-- [ ] T2.19 — **Caso episódico agrega denúncias sem perder granularidade** (decisões 39, 40, 53). **Task nova.** Existe no máximo um `moderation_case` aberto por comentário; cada denúncia continua linha individual imutável ligada ao caso. A fila mostra item agregado com quantidade, categorias, prioridade máxima e atores denunciantes; contas reais aparecem somente enquanto o vínculo de T2.15 permitir. Decisão terminal fecha caso/denúncias sem apagar histórico; denúncia posterior abre caso novo. Cada denúncia fixa `reported_version_id` atomicamente; edição não altera evidência nem retira da fila. Moderação vê versão denunciada/atual, diff e histórico; relatório não duplica corpo. · feito quando: duas denúncias produzem um item e duas evidências; edição não some; terminal fecha sem apagar; denúncia posterior abre caso; expurgo nominal não modifica o caso.
-- [ ] T2.20 — **Invariantes de decisão terminal implementados corretamente desde o início** (decisão 36). **Task nova.** Os três defeitos identificados no fluxo local do `downloads` **não são reproduzidos** no núcleo: (a) rotas de leitura (`GET /mine`, `GET /abuse-check/:userId`, `GET /reports`) usam **orçamento de leitura**, nunca o limiter de escrita; (b) decisão terminal **não** faz check-before-transaction seguido de `UPDATE` só por `id` — a transição é **serializada e condicionada**, garantindo **um único vencedor, uma única notificação e conflito explícito ao segundo moderador**; (c) auditoria de decisão é **registro persistente na mesma transação do estado**, nunca `console.log`. A correção do fluxo local do `downloads` acontece na **fase de adoção** dele, não aqui — organização temporal decidida pelo mantenedor, **não autorização para preservar os bugs** (`AGENTS.md` §Bug achado: o item segue até o verde). · feito quando: dois moderadores decidindo em concorrência produzem um vencedor e um `409`; uma única notificação é emitida; e a auditoria da decisão sobrevive a rollback do restante da requisição sendo — corretamente — revertida junto.
-- [ ] T2.21 — **Auto-hide, edição e retiradas concorrentes** (decisões 41, 42, 46). **Task nova pela reconciliação.** Editar após `pending_review_hidden` cria versão, mas não revela nem fecha caso. Denunciante só retira denúncia enquanto o comentário segue visível; quinta denúncia e retirada concorrente usam o mesmo lock/transação — quem persistir primeiro define o resultado, sem auto-restauração por queda posterior do total. Auto-retirada do autor cria tombstone imediato, preserva versões/evidência e não encerra caso nem vale como confissão; `no_change` preserva a visibilidade atual. · feito quando: edição de oculto continua oculta; corrida quinta denúncia × retirada termina em um estado válido; autor retira sem apagar caso; e nenhuma transição restaura automaticamente.
-- [ ] T2.22 — **Veredito por denúncia e ação única por caso** (decisões 43, 46). **Task nova pela reconciliação.** Cada denúncia não retirada termina individualmente como `upheld`, `dismissed` ou `no_determination`; `withdrawn` permanece neutro. Caso recebe uma ação `no_change`, `restore` ou `remove`. Interface pode sugerir valor em lote, mas backend exige veredito final de cada denúncia e uma ação; persiste tudo com moderador, motivo e auditoria na mesma transação. `no_change` não significa “tornar visível”: preserva visibilidade/tombstone existente. · feito quando: caso não fecha com denúncia sem veredito; decisões mistas permanecem individuais; e rollback não deixa caso fechado pela metade.
-- [ ] T2.23 — **Resultado privado e mínimo aos dois lados** (decisão 44). **Task nova pela reconciliação.** Cada denunciante recebe apenas `action_taken`, `not_upheld` ou `no_determination` do próprio veredito; nunca identidade alheia, nota interna, sanção ou raciocínio reservado. Autor recebe auto-hide e remoção/restauração com categoria pública aplicável e próximo passo. Evento e recibos nascem na transação do estado, deduplicam destinatário e excluem o ator. · feito quando: payloads públicos/privados provam ausência dos campos vedados; uma decisão cria exatamente os recibos esperados; e falha de recibo reverte a transição.
-- [ ] T2.24 — **Aprovação de versão impede reabertura automática** (decisão 45). **Task nova pela reconciliação.** `no_change` sobre conteúdo visível ou `restore` com denúncias improcedentes aprova o `comment_version_id` revisado. Nova denúncia da mesma versão é recebida/auditada como `no_determination` com motivo interno `approved_version`, mas não abre caso, não soma limiar nem muda visibilidade. Moderador pode reabrir manualmente com motivo. Edição cria versão nova novamente denunciável. · feito quando: cinco denúncias posteriores da versão aprovada não ocultam; reabertura manual é auditada; e editar permite novo caso sem reutilizar o antigo.
-- [ ] T2.25 — **Recurso estruturado da remoção moderadora** (decisão 47). **Task nova pela reconciliação.** Só autor, uma vez por decisão terminal que removeu seu conteúdo, em até seis meses. Recurso referencia caso, decisão e versão; não restaura automaticamente; termina em `upheld` ou `reversed` e notifica privadamente. O mesmo moderador pode rejulgar, mas a UI identifica que foi o decisor original e exige nova justificativa; outro moderador pode assumir sem ser trava. · feito quando: terceiro/denunciante/segundo recurso/prazo expirado são recusados; o caso original não é sobrescrito; e resultado aparece em auditoria e notificação.
-- [ ] T2.26 — **Sanção comunitária e detalhe declarativo** (decisões 48, 49). **Task nova pela reconciliação.** Restrições independentes `posting`/`commenting`, com `warning`, suspensão temporária ou permanente; temporária exige duração e pode oferecer presets. Moderador escolhe escopo, nível, prazo e motivo — nenhuma denúncia/reincidência sanciona automaticamente. Login, leitura, uso não comunitário e auto-retirada continuam. `commenting` falha fechado antes da escrita; `posting` nasce no contrato central, sem classificar silenciosamente objetos de domínio. Cada motivo define `details=required|optional|forbidden`; detalhe é texto puro, trim, máximo 4.000, imutável, restrito à moderação e nunca ecoado em log/erro/notificação. · feito quando: restrição de comentário não bloqueia login; restrição de postagem não alcança domínio sem adapter explícito; campos obrigatório/proibido são validados; e toda sanção tem auditoria.
+- [x] T2.17 — **API de denúncia e fila compartilhada** (decisões 32, 33, 35, 37, 38, 53). **Task nova — fecha lacuna real do contrato.** Persistência, API interna, fila compartilhada, resolução e auditoria pertencem à mesma entrega. Regras: exige conta; autor não denuncia o próprio comentário; no máximo uma denúncia ativa por ator/comentário. A moderação vê o ator e resolve a conta somente enquanto existir vínculo permitido por T2.15; público, outros denunciantes e autor denunciado nunca recebem nenhum dos dois. Após expurgo, denúncia/evidência permanecem, sem reidentificação. O fluxo do `downloads` é fonte de aprendizado: estados, nova denúncia após terminal, “minhas denúncias”, retirada permitida, prioridade, detalhes/nota separados, aviso, sinal de abuso sem punição automática, contexto e auditoria. Tudo geral vive no `accounts.` e no único `packages/comments`; domínio fica no adapter. Moderador reclassifica prioridade com motivo. · feito quando: denúncia do autor recusada; segunda ativa do mesmo ator recusada; identidade respeita retenção; nenhum app mantém state machine própria.
+- [x] T2.18 — **Auto-ocultação por limiar de cinco contas distintas** (decisão 34). **Task nova.** Uma denúncia isolada **apenas cria ou prioriza item na fila** — não oculta nada. Ao atingir **cinco contas distintas**, o comentário passa ao estado próprio **`pending_review_hidden`**: público vê placeholder, **corpo e score somem**, **posição e descendentes permanecem**. Isto **não é tombstone nem decisão de moderador**, e precisa ser estado distinto no schema (T2.1). A fila conserva corpo, denúncias e identidades; a moderação confirma a retirada ou **descarta as denúncias e restaura a visibilidade**, tudo auditado. Contam **somente denúncias ativas, ainda não resolvidas, de contas válidas**; a mesma conta **nunca soma duas vezes**. O limiar alto é deliberado: em baixo volume a auto-ocultação será rara, priorizando resistência a coordenação entre poucas contas. Categoria e prioridade **nunca ocultam sozinhas** (decisão 38) — este limiar é o **único** auto-hide da fase. · feito quando: quatro denúncias não ocultam; a quinta oculta preservando os filhos; denúncia repetida da mesma conta não conta duas vezes; e restauração pela moderação devolve corpo e score.
+- [x] T2.19 — **Caso episódico agrega denúncias sem perder granularidade** (decisões 39, 40, 53). **Task nova.** Existe no máximo um `moderation_case` aberto por comentário; cada denúncia continua linha individual imutável ligada ao caso. A fila mostra item agregado com quantidade, categorias, prioridade máxima e atores denunciantes; contas reais aparecem somente enquanto o vínculo de T2.15 permitir. Decisão terminal fecha caso/denúncias sem apagar histórico; denúncia posterior abre caso novo. Cada denúncia fixa `reported_version_id` atomicamente; edição não altera evidência nem retira da fila. Moderação vê versão denunciada/atual, diff e histórico; relatório não duplica corpo. · feito quando: duas denúncias produzem um item e duas evidências; edição não some; terminal fecha sem apagar; denúncia posterior abre caso; expurgo nominal não modifica o caso.
+- [x] T2.20 — **Invariantes de decisão terminal implementados corretamente desde o início** (decisão 36). **Task nova.** Os três defeitos identificados no fluxo local do `downloads` **não são reproduzidos** no núcleo: (a) rotas de leitura (`GET /mine`, `GET /abuse-check/:userId`, `GET /reports`) usam **orçamento de leitura**, nunca o limiter de escrita; (b) decisão terminal **não** faz check-before-transaction seguido de `UPDATE` só por `id` — a transição é **serializada e condicionada**, garantindo **um único vencedor, uma única notificação e conflito explícito ao segundo moderador**; (c) auditoria de decisão é **registro persistente na mesma transação do estado**, nunca `console.log`. A correção do fluxo local do `downloads` acontece na **fase de adoção** dele, não aqui — organização temporal decidida pelo mantenedor, **não autorização para preservar os bugs** (`AGENTS.md` §Bug achado: o item segue até o verde). · feito quando: dois moderadores decidindo em concorrência produzem um vencedor e um `409`; uma única notificação é emitida; e a auditoria da decisão sobrevive a rollback do restante da requisição sendo — corretamente — revertida junto.
+- [x] T2.21 — **Auto-hide, edição e retiradas concorrentes** (decisões 41, 42, 46). **Task nova pela reconciliação.** Editar após `pending_review_hidden` cria versão, mas não revela nem fecha caso. Denunciante só retira denúncia enquanto o comentário segue visível; quinta denúncia e retirada concorrente usam o mesmo lock/transação — quem persistir primeiro define o resultado, sem auto-restauração por queda posterior do total. Auto-retirada do autor cria tombstone imediato, preserva versões/evidência e não encerra caso nem vale como confissão; `no_change` preserva a visibilidade atual. · feito quando: edição de oculto continua oculta; corrida quinta denúncia × retirada termina em um estado válido; autor retira sem apagar caso; e nenhuma transição restaura automaticamente.
+- [x] T2.22 — **Veredito por denúncia e ação única por caso** (decisões 43, 46). **Task nova pela reconciliação.** Cada denúncia não retirada termina individualmente como `upheld`, `dismissed` ou `no_determination`; `withdrawn` permanece neutro. Caso recebe uma ação `no_change`, `restore` ou `remove`. Interface pode sugerir valor em lote, mas backend exige veredito final de cada denúncia e uma ação; persiste tudo com moderador, motivo e auditoria na mesma transação. `no_change` não significa “tornar visível”: preserva visibilidade/tombstone existente. · feito quando: caso não fecha com denúncia sem veredito; decisões mistas permanecem individuais; e rollback não deixa caso fechado pela metade.
+- [x] T2.23 — **Resultado privado e mínimo aos dois lados** (decisão 44). **Task nova pela reconciliação.** Cada denunciante recebe apenas `action_taken`, `not_upheld` ou `no_determination` do próprio veredito; nunca identidade alheia, nota interna, sanção ou raciocínio reservado. Autor recebe auto-hide e remoção/restauração com categoria pública aplicável e próximo passo. Evento e recibos nascem na transação do estado, deduplicam destinatário e excluem o ator. · feito quando: payloads públicos/privados provam ausência dos campos vedados; uma decisão cria exatamente os recibos esperados; e falha de recibo reverte a transição.
+- [x] T2.24 — **Aprovação de versão impede reabertura automática** (decisão 45). **Task nova pela reconciliação.** `no_change` sobre conteúdo visível ou `restore` com denúncias improcedentes aprova o `comment_version_id` revisado. Nova denúncia da mesma versão é recebida/auditada como `no_determination` com motivo interno `approved_version`, mas não abre caso, não soma limiar nem muda visibilidade. Moderador pode reabrir manualmente com motivo. Edição cria versão nova novamente denunciável. · feito quando: cinco denúncias posteriores da versão aprovada não ocultam; reabertura manual é auditada; e editar permite novo caso sem reutilizar o antigo.
+- [x] T2.25 — **Recurso estruturado da remoção moderadora** (decisão 47). **Task nova pela reconciliação.** Só autor, uma vez por decisão terminal que removeu seu conteúdo, em até seis meses. Recurso referencia caso, decisão e versão; não restaura automaticamente; termina em `upheld` ou `reversed` e notifica privadamente. O mesmo moderador pode rejulgar, mas a UI identifica que foi o decisor original e exige nova justificativa; outro moderador pode assumir sem ser trava. · feito quando: terceiro/denunciante/segundo recurso/prazo expirado são recusados; o caso original não é sobrescrito; e resultado aparece em auditoria e notificação.
+- [x] T2.26 — **Sanção comunitária e detalhe declarativo** (decisões 48, 49). **Task nova pela reconciliação.** Restrições independentes `posting`/`commenting`, com `warning`, suspensão temporária ou permanente; temporária exige duração e pode oferecer presets. Moderador escolhe escopo, nível, prazo e motivo — nenhuma denúncia/reincidência sanciona automaticamente. Login, leitura, uso não comunitário e auto-retirada continuam. `commenting` falha fechado antes da escrita; `posting` nasce no contrato central, sem classificar silenciosamente objetos de domínio. Cada motivo define `details=required|optional|forbidden`; detalhe é texto puro, trim, máximo 4.000, imutável, restrito à moderação e nunca ecoado em log/erro/notificação. · feito quando: restrição de comentário não bloqueia login; restrição de postagem não alcança domínio sem adapter explícito; campos obrigatório/proibido são validados; e toda sanção tem auditoria.
+
+**Estado do Bloco E (T2.17-T2.26) — entregue em 2026-08-09.**
+
+Um bloco para as dez porque elas são uma superfície só: as quatro primeiras
+compartilham transação, e separar o estado por task repetiria a mesma medição
+dez vezes.
+
+Arquivos: `communityCommentReport.ts` (T2.17, T2.18, T2.19, T2.21),
+`communityModerationCase.ts` (T2.20, T2.22, T2.23, T2.24),
+`communityModerationAppeal.ts` (T2.25, T2.26),
+`communityModerationQueue.ts` (leitura da fila, log, versões, caso),
+`requireModeratorRole.ts` (guard novo), `communityModerationRoutes.ts` (16 rotas),
+mais as cinco tabelas de moderação registradas em `db.ts` — estavam na
+`migration_006` e faltavam no tipo, então nenhum `UPDATE` de moderação compilava.
+
+Validação: `accounts` **483/483** (28 skips inalterados, os de Wilson que
+dependem de PostgreSQL em CI — T8.1); lint 25/25; build 25/25;
+`verify:api` `breaking=0`, 16 rotas novas não-quebrantes.
+
+**Divergência spec × schema, corrigida a favor da spec.**
+
+`spec.md` 847 (decisão 38) fixa prioridade **P0-P2**. O `CHECK` de
+`community_report_reason` aceita `BETWEEN 0 AND 3`, e a semente da
+`migration_006` não usa 3 em nenhum dos oito motivos: 0 para `malicious_link`,
+`personal_data` e `illegal_content`; 1 para `inappropriate_content`,
+`harassment_or_hate` e `copyright_violation`; 2 para `spam_or_off_topic` e
+`other`.
+
+`priorityBodySchema` e o filtro `max_priority` da fila copiaram o intervalo do
+`CHECK` em vez do da spec, e aceitavam 3 — faixa que nenhum motivo produz e que
+ordenaria a fila abaixo do menos urgente que existe. Corrigido para 0-2, com
+teste de fronteira sobre o valor 3 especificamente.
+
+O `CHECK` mais frouxo permanece: apertá-lo exigiria migration nova sobre tabela
+já em produção, e o intervalo do banco não é contrato de API.
+
+**Como a implementação responde às perguntas que a spec já fixava** (registro,
+não pedido de decisão):
+
+- **Prioridade derivada, reclassificação em auditoria** — `spec.md` 228 e 12h:
+  "Prioridade ordena a fila, nunca decide culpa nem auto-hide"; 847: "Moderador
+  reclassifica com auditoria". A fila calcula o mínimo entre as denúncias
+  ativas; `PATCH .../priority` registra e o registro é o efeito.
+- **Nível de sanção traduzido** — `spec.md` 861 fixa `warning` → temporária →
+  permanente; o contrato §11 fixa o vocabulário HTTP; o `CHECK` fixa o do banco.
+  `LEVEL_TO_COLUMN` traduz num ponto só.
+- **`remove` sobre `author_removed` preserva o tombstone do autor** —
+  `spec.md` 857 (decisão 46): "Auto-retirada com caso aberto não encerra
+  moderação; `no_change` preserva tombstone"; 12e: "Auto-retirada do autor
+  preserva o caso e a evidência".
+- **Denúncia contra versão aprovada sem caso fechado correspondente** cai no
+  fluxo normal. Busca negativa: `rg "approved_version|case_id"` em `spec.md`
+  devolve zero — 12g cobre o caso normal, não este estado impossível. É defesa
+  de implementação (`case_id` é `NOT NULL` e inventar vínculo seria pior), não
+  lacuna de produto.
+
+**Regressão introduzida por esta entrega, corrigida:**
+`communityCommentLifecycleRoutes.test.ts` afirmava que `POST /comments/:id/restore`
+**não existia** (`404`). A rota passou a existir por exigência do §5. A asserção
+foi reescrita para a recusa real — `403`, guard de escopo, medido: a credencial
+daquele teste tem só `comment.write`. A intenção original — autor não restaura —
+segue provada, agora pela recusa em vez da ausência.
 
 ## Fase 3 — Notificações agregadas
 

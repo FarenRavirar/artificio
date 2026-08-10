@@ -98,8 +98,15 @@ beforeEach(() => {
 });
 
 /**
- * Roteiro do voto, na ordem em que o handler consulta: vínculo do ator,
- * comentário travado, voto atual, faixa de score corrente, revisão nova.
+ * Roteiro do voto, na ordem em que o handler consulta.
+ *
+ * **A ordem mudou na correção do review da PR #251**: a contagem passou a ser
+ * lida **depois** do `UPDATE` que trava o assunto, e não antes. Ler antes fazia
+ * a transação seguir com a foto anterior a um voto concorrente já commitado,
+ * perdendo o voto do vizinho em silêncio (`read committed`, medido no banco).
+ *
+ * Sequência atual: vínculo do ator → comentário travado → voto atual do ator →
+ * revisão nova (lock) → faixa de score corrente.
  */
 function script(options: {
   comentario?: Record<string, unknown>;
@@ -108,13 +115,30 @@ function script(options: {
   downvotes?: number;
   revisao?: number;
 } = {}): void {
+  const tally = [{ upvotes: options.upvotes ?? 0, downvotes: options.downvotes ?? 0 }];
+
   ctx.capture.enqueue([{ actor_id: ATOR }]);
   ctx.capture.enqueue([options.comentario ?? COMENTARIO]);
+  ctx.capture.enqueue(options.votoAtual == null ? [] : [{ value: options.votoAtual }]);
+  ctx.capture.enqueue([{ ranking_revision: options.revisao ?? 7 }]);
+  ctx.capture.enqueue(tally);
+}
+
+/**
+ * Roteiro do no-op, que sai **antes** do lock e portanto lê a contagem na outra
+ * ordem: vínculo → comentário → voto atual → faixa corrente, sem revisão.
+ */
+function scriptNoOp(options: {
+  votoAtual?: -1 | 1 | null;
+  upvotes?: number;
+  downvotes?: number;
+} = {}): void {
+  ctx.capture.enqueue([{ actor_id: ATOR }]);
+  ctx.capture.enqueue([COMENTARIO]);
   ctx.capture.enqueue(options.votoAtual == null ? [] : [{ value: options.votoAtual }]);
   ctx.capture.enqueue([
     { upvotes: options.upvotes ?? 0, downvotes: options.downvotes ?? 0 },
   ]);
-  ctx.capture.enqueue([{ ranking_revision: options.revisao ?? 7 }]);
 }
 
 function allSql(): string {
@@ -285,7 +309,7 @@ describe("no-op não move nada (§7)", () => {
   it("mesmo valor não incrementa revisão nem cria histórico", async () => {
     // Incrementar a revisão aqui invalidaria o cursor de quem está navegando,
     // por uma requisição que não mudou nada.
-    script({ votoAtual: 1, upvotes: 1 });
+    scriptNoOp({ votoAtual: 1, upvotes: 1 });
     const result = await castVote(ctx.db, INPUT);
 
     expect(result).toEqual({
@@ -298,7 +322,7 @@ describe("no-op não move nada (§7)", () => {
   });
 
   it("remover voto inexistente também é no-op", async () => {
-    script({ votoAtual: null });
+    scriptNoOp({ votoAtual: null });
     const result = await castVote(ctx.db, { ...INPUT, value: 0 });
 
     expect(result).toEqual({
@@ -307,6 +331,48 @@ describe("no-op não move nada (§7)", () => {
     });
     expect(allSql()).not.toMatch(/update "community_comment_subject"/i);
     expect(allSql()).not.toMatch(/delete from "community_comment_vote"/i);
+  });
+
+  it("remover voto de quem nem tem ator não cria ator", async () => {
+    // Achado de review do Codex (P2): a requisição não muda voto, revisão nem
+    // auditoria, mas criava `community_actor` e vínculo — identidade
+    // comunitária persistida por um no-op.
+    ctx.capture.enqueue([]); // sem vínculo ator↔conta
+    ctx.capture.enqueue([COMENTARIO]);
+    ctx.capture.enqueue([{ upvotes: 2, downvotes: 0 }]);
+
+    const result = await castVote(ctx.db, { ...INPUT, value: 0 });
+
+    expect(result).toEqual({
+      ok: true,
+      tally: { my_vote: 0, upvotes: 2, downvotes: 0, score: 2 },
+    });
+    expect(allSql()).not.toMatch(/insert into "community_actor"/i);
+    expect(allSql()).not.toMatch(/insert into "community_actor_account_link"/i);
+  });
+});
+
+describe("a contagem é lida depois do lock (voto perdido)", () => {
+  it("o SELECT da faixa corrente vem depois do UPDATE que trava o assunto", async () => {
+    // Sob `read committed` — medido: `show default_transaction_isolation` em
+    // `artificio_auth` devolve `read committed` —, ler antes do lock devolvia a
+    // foto anterior a um voto concorrente já commitado. As duas transações
+    // gravavam `upvotes: 1`, e um dos votos sumia sem erro nenhum.
+    //
+    // Achado de review, apontado por Codex (P1) e CodeRabbit (Crítico) na
+    // PR #251.
+    script();
+    await castVote(ctx.db, INPUT);
+
+    const lock = ctx.capture.sqls.findIndex((s) =>
+      /update "community_comment_subject" set/i.test(s),
+    );
+    const leituraDaFaixa = ctx.capture.sqls.findIndex((s) =>
+      /select .*"upvotes".*from "community_comment_score_version"/is.test(s),
+    );
+
+    expect(lock).toBeGreaterThan(-1);
+    expect(leituraDaFaixa).toBeGreaterThan(lock);
   });
 });
 

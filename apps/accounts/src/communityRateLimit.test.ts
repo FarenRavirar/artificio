@@ -251,6 +251,52 @@ describe("comentário não consome a cota do SSO (requisito 12b)", () => {
   });
 });
 
+describe("a tentativa não autenticada tem teto (achado de review, PR #251)", () => {
+  it(
+    "token inválido em /internal/v1/* acaba barrado por 429, não fica ilimitado",
+    async () => {
+      // A regressão que isto fecha: o `skip` tirou o prefixo do bucket do SSO,
+      // mas os buckets comunitários rodam **depois** de
+      // `requireServiceCredential` — token errado leva `401` e nunca chega a
+      // eles. Cada tentativa ainda paga Argon2, que
+      // `resolveServiceCredential` roda **também quando o token não existe**
+      // (`serviceCredential.ts:170-172`, contra timing attack). Medido nesta
+      // máquina: 33,7 ms de CPU por tentativa.
+      //
+      // 2001 requisições, uma acima do teto pré-auth. Credencial ausente no
+      // fake, então todas falham a autenticação; o que se afirma é que em algum
+      // ponto o limiter passa a responder `429` em vez de `401` indefinidamente.
+      const app = createApp(env, fakeDb(undefined)) as Express;
+
+      const respostas = await Promise.all(
+        Array.from({ length: 2001 }, () =>
+          request(app)
+            .get("/internal/v1/comments")
+            .query({ subject_type: "downloads.material", subject_id: "material-1" })
+            .set("X-Service-Token", "downloads-prod-abcd1234.token-errado"),
+        ),
+      );
+
+      const status = respostas.map((r) => r.status);
+      expect(status).toContain(429);
+      // E o começo da rajada continua chegando ao guard: o limiter é teto, não
+      // bloqueio do prefixo inteiro.
+      expect(status[0]).toBe(401);
+    },
+    120_000,
+  );
+
+  it("o teto pré-auth não alcança as rotas do SSO", async () => {
+    // `skip` invertido: este limiter existe só para `/internal/v1/*`. Se
+    // vazasse para `/api/auth/*`, daria ao SSO um segundo teto não declarado.
+    const app = createApp(env, fakeDb(await credentialRow())) as Express;
+
+    const res = await request(app).get("/api/auth/me");
+
+    expect(res.status).toBe(401);
+  });
+});
+
 describe("a chave da credencial contém módulo descontrolado", () => {
   it("limitar por credencial não depende de identificar o usuário abusivo", async () => {
     // Requisições sem `X-Acting-User-Id` só têm a credencial como identidade. O

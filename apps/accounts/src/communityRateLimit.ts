@@ -189,10 +189,15 @@ export function communityRateLimit(
   return (req: Request, res: Response, next: NextFunction): void => {
     const credential = (req as ServiceAuthenticatedRequest).serviceCredential;
     if (!credential) {
-      // Defensivo: sem credencial não há bucket de credencial a debitar. O guard
-      // de autenticação já respondeu; seguir adiante seria contar a requisição
-      // numa chave que não existe.
-      next();
+      // Chegar aqui sem credencial significa erro de montagem de rota: este
+      // middleware roda **depois** de `requireServiceCredential`, que responde
+      // `401`/`403` sem chamar `next()`. Recusar em vez de seguir — deixar
+      // passar entregaria a rota sem bucket **e** sem autenticação, que é pior
+      // que negar (achado de review, PR #251).
+      //
+      // A proteção da tentativa não autenticada não é feita aqui: é o limiter
+      // pré-auth por IP de `app.ts`, que roda antes do Argon2.
+      res.status(401).json({ error: { code: "unauthorized", correlation_id: null } });
       return;
     }
 

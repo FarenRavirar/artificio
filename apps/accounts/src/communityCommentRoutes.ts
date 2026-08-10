@@ -22,7 +22,11 @@ import { createComment } from "./communityCommentWrite.js";
 import { editComment, removeCommentByAuthor } from "./communityCommentLifecycle.js";
 import { castVote } from "./communityCommentVote.js";
 import { requireServiceCredential, type ServiceAuthenticatedRequest } from "./requireServiceCredential.js";
-import { communityRateLimit, createRateLimitStore } from "./communityRateLimit.js";
+import {
+  communityRateLimit,
+  createRateLimitStore,
+  type CommunityRateLimitStore,
+} from "./communityRateLimit.js";
 
 /**
  * T2.3 — `GET /internal/v1/comments` (`contrato-http-v1.md` §2).
@@ -130,13 +134,17 @@ function readActingUserId(req: Request): string | undefined {
 export function createCommunityCommentRoutes(
   db: Kysely<Database>,
   cursorSecret: string,
+  // T2.17-T2.26 — o roteador de moderação divide o mesmo store. Os buckets são
+  // por identidade e por bucket, não por roteador: dois contadores separados
+  // dariam ao mesmo usuário orçamento dobrado de leitura só por trocar de rota.
+  sharedStore?: CommunityRateLimitStore,
 ): Router {
   const router = Router();
 
   // T2.10 — contadores por instância de router, nunca globais de módulo: duas
   // instâncias de `createApp` no mesmo processo não podem dividir orçamento sem
   // que o desenho diga que dividem.
-  const rateLimitStore = createRateLimitStore();
+  const rateLimitStore = sharedStore ?? createRateLimitStore();
 
   // Cada rota declara o próprio bucket (`contrato-http-v1.md` §14). O limiter
   // vem **depois** do guard de credencial, porque a chave da credencial sai da

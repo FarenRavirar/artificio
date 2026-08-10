@@ -298,24 +298,45 @@ export async function castVote(
         existingActorId ?? "",
       );
 
-      const actorId = existingActorId ?? (await createActor(trx, input.actingUserId));
-
-      const from = existingActorId ? await currentVote(trx, input, actorId) : null;
       const to: -1 | 1 | null = input.value === 0 ? null : input.value;
 
-      const tally = await currentTally(trx, input);
+      // Remover voto de quem nunca votou é no-op, e quem nunca votou pode nem
+      // ter ator. Sair **antes** de `createActor` evita gravar identidade
+      // comunitária permanente por causa de uma requisição que não muda nada —
+      // achado de review do Codex (P2, PR #251).
+      if (existingActorId === null && to === null) {
+        const atual = await currentTally(trx, input);
+        return {
+          ok: true as const,
+          tally: {
+            my_vote: 0,
+            upvotes: atual.upvotes,
+            downvotes: atual.downvotes,
+            score: atual.upvotes - atual.downvotes,
+          },
+        };
+      }
+
+      const actorId = existingActorId ?? (await createActor(trx, input.actingUserId));
+
+      // Voto atual do próprio ator. Não sofre do problema de leitura-antes-do-lock
+      // que a contagem sofre: a linha é chaveada por `(realm, source_app, ator,
+      // comentário)` e **só este ator escreve nela**, então nenhuma transação
+      // concorrente a muda por baixo.
+      const from = existingActorId ? await currentVote(trx, input, actorId) : null;
 
       // No-op (§7): mesmo valor devolve `200` **sem nova revisão e sem novo
       // registro de histórico**. Incrementar a revisão aqui invalidaria o cursor
       // de quem está navegando, por uma requisição que não mudou nada.
       if (from === to) {
+        const atual = await currentTally(trx, input);
         return {
           ok: true as const,
           tally: {
             my_vote: (to ?? 0) as VoteValue,
-            upvotes: tally.upvotes,
-            downvotes: tally.downvotes,
-            score: tally.upvotes - tally.downvotes,
+            upvotes: atual.upvotes,
+            downvotes: atual.downvotes,
+            score: atual.upvotes - atual.downvotes,
           },
         };
       }
@@ -338,6 +359,29 @@ export async function castVote(
         .executeTakeFirstOrThrow();
 
       const revision = subject.ranking_revision;
+
+      // Contagem lida **depois** do lock, e é isto que impede voto perdido.
+      //
+      // O banco roda em `read committed` (medido: `show
+      // default_transaction_isolation` em `artificio_auth` devolve
+      // `read committed`, e nada no código eleva o nível). Nesse isolamento, uma
+      // transação que já commitou uma faixa nova **não aparece** num snapshot
+      // tomado antes — e ler a contagem antes do `UPDATE` acima fazia exatamente
+      // isso:
+      //
+      //   1. T1 e T2 leem `{upvotes: 0}`;
+      //   2. T1 pega o lock, fecha a faixa, grava `upvotes: 1`, commita;
+      //   3. T2 destrava, segue com a foto velha, fecha a faixa de T1 e grava
+      //      `upvotes: 1` de novo.
+      //
+      // Resultado: duas linhas em `community_comment_vote`, contagem pública de
+      // 1, e a auditoria registrando as duas transições. Nada falha — o voto
+      // some em silêncio. O `UPDATE ... RETURNING` acima já serializa os
+      // escritores do assunto, então ler aqui devolve a foto definitiva.
+      //
+      // Achado de review, apontado por Codex (P1) e CodeRabbit (Crítico) na
+      // PR #251.
+      const tally = await currentTally(trx, input);
 
       if (to === null) {
         await trx

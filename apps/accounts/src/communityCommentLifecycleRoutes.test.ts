@@ -368,11 +368,17 @@ describe("DELETE — auto-retirada", () => {
     expect(removeCommentMock).not.toHaveBeenCalled();
   });
 
-  it("não existe rota de restauração pelo autor", async () => {
-    // A ausência é o requisito (decisão 17): auto-retirada é irreversível para o
-    // autor, e só `moderator`/`admin` restaura (§5). Um `POST .../restore` que
+  it("o autor não alcança a rota de restauração", async () => {
+    // O requisito segue o mesmo (decisão 17): auto-retirada é irreversível para
+    // o autor, e só `moderator`/`admin` restaura (§5). Um `POST .../restore` que
     // aceitasse `comment.write` daria ao autor um botão de esconder e reexibir
     // conforme a reação da conversa.
+    //
+    // Até T2.17-T2.26 a rota não existia e a prova era `404`. Agora ela existe,
+    // e a prova passou a ser a **recusa**: a credencial deste teste não tem
+    // `moderation.write`, então o guard de escopo já barra antes do papel. As
+    // duas camadas — escopo da credencial e papel do usuário — são cobertas
+    // separadamente em `communityModerationRoutes.test.ts`.
     const app = createApp(env, fakeDb(await credentialRow())) as Express;
 
     const res = await request(app)
@@ -381,6 +387,8 @@ describe("DELETE — auto-retirada", () => {
       .set("X-Acting-User-Id", ACTING_USER)
       .send({});
 
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(403);
+    // Nunca `204`: o autor não pode ter restaurado nada.
+    expect(res.status).not.toBe(204);
   });
 });

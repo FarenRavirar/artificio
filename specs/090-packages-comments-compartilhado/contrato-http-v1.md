@@ -246,6 +246,12 @@ cada denúncia recebe veredito, e a retirada não vale como confissão.
 
 ## 5. Moderação de conteúdo
 
+> **Implementado em `communityModerationRoutes.ts` + `communityModerationCase.ts` +
+> `communityModerationQueue.ts` (T2.17-T2.26, 2026-08-09).** O papel é verificado por
+> `requireModeratorRole`, aplicado sobre o roteador inteiro — escopo de credencial prova
+> qual **módulo** chama, papel prova qual **pessoa** está por trás. Rotas `GET` usam bucket
+> `read` (T2.20a), nunca o de escrita.
+
 Todas exigem escopo `moderation.write` **e** papel `admin`/`moderator` do `X-Acting-User-Id`
 verificado contra `accounts.users`. Papel insuficiente → `403`/`forbidden_role`.
 
@@ -376,6 +382,14 @@ notifica ninguém; **responder a um comentário continua notificando quem escrev
 
 ## 9. Denúncia (decisões 32-34, 37-39, 42, 49)
 
+> **Implementado em `communityCommentReport.ts` (T2.17, T2.18, T2.19, T2.21, 2026-08-09).**
+> Denúncia, caso, contagem do limiar e auto-ocultação numa transação só. O limiar é
+> **contado** (`COUNT(DISTINCT reporter_actor_id)` das ativas), nunca acumulado em coluna —
+> contador precisaria ser decrementado na retirada, e decrementos concorrentes com inserções
+> produzem o mesmo voto perdido que a PR #251 corrigiu no score. Denúncia e retirada tomam o
+> **mesmo `FOR UPDATE` sobre o caso** antes de contar; é o que dá vencedor único à corrida da
+> decisão 42.
+
 ### `POST /internal/v1/comments/:id/reports`
 
 Escopo `report.write`. Exige `Idempotency-Key` e `X-Acting-User-Id`.
@@ -418,6 +432,18 @@ recalculado; se o auto-hide conclui antes, a retirada é recusada.
 
 ## 10. Caso, veredito e recurso (decisões 40, 43, 44, 47)
 
+> **Implementado em `communityModerationCase.ts` (T2.20, T2.22, T2.23, T2.24) e
+> `communityModerationAppeal.ts` (T2.25), 2026-08-09.** A transição terminal é
+> `UPDATE ... WHERE status = 'open' RETURNING`: zero linhas é o `409` do segundo moderador —
+> a correção explícita do check-before-transaction do `downloads`. Autor e denunciantes
+> recebem **eventos separados**, porque um evento único carregaria o superconjunto dos campos
+> dos dois lados e o recibo não filtra conteúdo, só endereça.
+>
+> `PATCH .../priority` **não escreve prioridade em coluna** — ela é derivada do mínimo de
+> `community_report_reason.priority` entre as denúncias ativas, e a reclassificação vive em
+> auditoria. `POST .../reopen` desfaz a **aprovação da versão**, não reabre o caso: decisão 40
+> mantém o encerrado encerrado, e denúncia posterior abre caso novo.
+
 | Rota | Contrato |
 |---|---|
 | `GET /internal/v1/moderation/cases/:id` | caso com denúncias, quantidade, categorias, prioridade máxima e identidades dos denunciantes — **só moderação** |
@@ -455,6 +481,14 @@ Evento e recibos nascem na transação da mudança de estado.
 ---
 
 ## 11. Sanção comunitária (decisão 48)
+
+> **Implementado em `communityModerationAppeal.ts` (T2.26, 2026-08-09).** `scopes` grava
+> **uma linha por escopo**, não uma com dois — é o que permite levantar `commenting`
+> mantendo `posting`, e o que `uq_community_restriction_active` assume. O `level` do contrato
+> (`temporary`/`permanent`) é traduzido para o do `CHECK` da migration
+> (`temporary_suspension`/`permanent_suspension`) num só ponto; o payload público segue o
+> contrato. Nenhum caminho do código toca `users`, refresh ou sessão — a separação do SSO é
+> estrutural.
 
 ### `POST /internal/v1/moderation/sanctions`
 
