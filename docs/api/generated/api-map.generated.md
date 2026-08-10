@@ -19,40 +19,57 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 
 | App | Total | HIGH | MEDIUM | LOW | Methods |
 |-----|-------|------|--------|-----|---------|
-| accounts | 22 | 22 | 0 | 0 | DELETE, GET, PATCH, POST, PUT |
+| accounts | 39 | 39 | 0 | 0 | DELETE, GET, PATCH, POST, PUT |
 | downloads | 106 | 106 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | glossario | 66 | 66 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | links | 23 | 23 | 0 | 0 | DELETE, GET, PATCH, POST, USE |
 | mesas | 229 | 229 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | site | 59 | 59 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| **Total** | **505** | 505 | 0 | 0 | |
+| **Total** | **522** | 522 | 0 | 0 | |
 
 ## accounts
 
 | Método | Path | Confiança | Arquivo | Linha |
 |--------|------|-----------|---------|------|
-| GET | `/` | ✅ high | `apps/accounts/src/app.ts` | 483 |
-| GET | `/admin/papeis` | ✅ high | `apps/accounts/src/app.ts` | 483 |
+| GET | `/` | ✅ high | `apps/accounts/src/app.ts` | 553 |
+| GET | `/admin/papeis` | ✅ high | `apps/accounts/src/app.ts` | 553 |
 | GET | `/admin/roles/users` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 17 |
 | PATCH | `/admin/roles/users/:id` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 27 |
 | GET | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 144 |
 | PUT | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 105 |
-| DELETE | `/api/account` | ✅ high | `apps/accounts/src/app.ts` | 346 |
-| PATCH | `/api/account/avatar` | ✅ high | `apps/accounts/src/app.ts` | 282 |
-| GET | `/api/auth/google` | ✅ high | `apps/accounts/src/app.ts` | 231 |
-| GET | `/api/auth/google/callback` | ✅ high | `apps/accounts/src/app.ts` | 244 |
-| POST | `/api/auth/logout` | ✅ high | `apps/accounts/src/app.ts` | 402 |
-| GET | `/api/auth/me` | ✅ high | `apps/accounts/src/app.ts` | 278 |
-| GET | `/api/auth/refresh` | ✅ high | `apps/accounts/src/app.ts` | 407 |
-| GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 483 |
-| GET | `/health` | ✅ high | `apps/accounts/src/app.ts` | 227 |
-| GET | `/internal/users/:id` | ✅ high | `apps/accounts/src/app.ts` | 463 |
-| GET | `/internal/v1/comments` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 134 |
-| POST | `/internal/v1/comments` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 145 |
-| DELETE | `/internal/v1/comments/:id` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 175 |
-| PATCH | `/internal/v1/comments/:id` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 167 |
-| POST | `/internal/v1/comments/:id/replies` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 153 |
-| GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 483 |
+| DELETE | `/api/account` | ✅ high | `apps/accounts/src/app.ts` | 397 |
+| PATCH | `/api/account/avatar` | ✅ high | `apps/accounts/src/app.ts` | 333 |
+| GET | `/api/auth/google` | ✅ high | `apps/accounts/src/app.ts` | 282 |
+| GET | `/api/auth/google/callback` | ✅ high | `apps/accounts/src/app.ts` | 295 |
+| POST | `/api/auth/logout` | ✅ high | `apps/accounts/src/app.ts` | 453 |
+| GET | `/api/auth/me` | ✅ high | `apps/accounts/src/app.ts` | 329 |
+| GET | `/api/auth/refresh` | ✅ high | `apps/accounts/src/app.ts` | 458 |
+| GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 553 |
+| GET | `/health` | ✅ high | `apps/accounts/src/app.ts` | 278 |
+| GET | `/internal/users/:id` | ✅ high | `apps/accounts/src/app.ts` | 533 |
+| GET | `/internal/v1/comments` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 154 |
+| POST | `/internal/v1/comments` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 166 |
+| DELETE | `/internal/v1/comments/:id` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 203 |
+| PATCH | `/internal/v1/comments/:id` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 194 |
+| POST | `/internal/v1/comments/:id/removal` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 372 |
+| POST | `/internal/v1/comments/:id/replies` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 175 |
+| POST | `/internal/v1/comments/:id/reports` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 230 |
+| POST | `/internal/v1/comments/:id/restore` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 382 |
+| GET | `/internal/v1/comments/:id/versions` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 282 |
+| PUT | `/internal/v1/comments/:id/vote` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 219 |
+| GET | `/internal/v1/comments/moderation-log` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 272 |
+| GET | `/internal/v1/comments/moderation-queue` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 261 |
+| POST | `/internal/v1/moderation/appeals/:id/resolution` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 342 |
+| GET | `/internal/v1/moderation/cases/:id` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 292 |
+| PATCH | `/internal/v1/moderation/cases/:id/priority` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 332 |
+| POST | `/internal/v1/moderation/cases/:id/reopen` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 322 |
+| POST | `/internal/v1/moderation/cases/:id/resolution` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 312 |
+| POST | `/internal/v1/moderation/decisions/:id/appeals` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 250 |
+| GET | `/internal/v1/moderation/sanctions` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 302 |
+| POST | `/internal/v1/moderation/sanctions` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 352 |
+| DELETE | `/internal/v1/moderation/sanctions/:id` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 362 |
+| DELETE | `/internal/v1/reports/:id` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 239 |
+| GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 553 |
 
 ## downloads
 

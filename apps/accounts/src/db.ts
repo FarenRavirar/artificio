@@ -168,6 +168,32 @@ export interface CommunityCommentVoteRow {
   updated_at: Generated<Date>;
 }
 
+/**
+ * Trilha append-only de mudança de voto (T2.12; decisões 11, 12, 14).
+ *
+ * `community_comment_vote_audit_immutable` recusa `UPDATE` e `DELETE` — medido em
+ * `pg_trigger` de produção. `old_value`/`new_value` guardam a transição, e
+ * `community_comment_vote_audit_change_check` recusa linha que não muda nada:
+ * no-op não vira histórico (`contrato-http-v1.md` §7).
+ *
+ * `reason` distingue voto do usuário (`user_vote`) de invalidação por abuso
+ * (T2.26), que preenche `invalidated_by_actor_id`.
+ */
+export interface CommunityCommentVoteAuditRow {
+  id: Generated<string>;
+  realm: string;
+  source_app: string;
+  community_actor_id: string;
+  comment_id: string;
+  /** `null` quando o ator não tinha voto antes. */
+  old_value: -1 | 1 | null;
+  /** `null` quando o voto foi removido (`value: 0` no contrato). */
+  new_value: -1 | 1 | null;
+  reason: Generated<string>;
+  invalidated_by_actor_id: string | null;
+  occurred_at: Generated<Date>;
+}
+
 /** Ator opaco. O vínculo com a conta vive na tabela de link, não aqui. */
 export interface CommunityActorRow {
   id: Generated<string>;
@@ -303,6 +329,135 @@ export interface CommunityRestrictionRow {
   lift_reason: string | null;
 }
 
+/**
+ * Registro compartilhado de motivos de denúncia (T2.17; `contrato-http-v1.md`
+ * §9). Semente na migration 006, não constante de código: `details_policy` e
+ * `priority` mudam por decisão de moderação, e um `enum` em TypeScript exigiria
+ * deploy para uma mudança que é de configuração.
+ *
+ * `details_policy` (`required|optional|forbidden`) é validada **também** por
+ * trigger (`community_comment_report_validate_reason`) — a checagem no handler
+ * existe para devolver `422` legível, não para ser a única barreira.
+ */
+export interface CommunityReportReasonRow {
+  target_type: string;
+  code: string;
+  label: string;
+  priority: number;
+  details_policy: string;
+  active: Generated<boolean>;
+}
+
+/**
+ * Caso episódico de moderação (T2.19; decisões 39, 40).
+ *
+ * `uq_community_moderation_case_open` garante **no máximo um caso aberto por
+ * comentário**: é ele que faz a denúncia concorrente convergir para o mesmo
+ * caso em vez de abrir dois. Denúncia posterior a um caso fechado abre caso
+ * novo — o fechado nunca reabre sozinho (decisão 40).
+ *
+ * `community_moderation_case_terminal_check` amarra os cinco campos terminais:
+ * ou todos nulos com `status = 'open'`, ou todos preenchidos com
+ * `status = 'closed'`. Não existe caso meio-fechado.
+ */
+export interface CommunityModerationCaseRow {
+  id: Generated<string>;
+  realm: string;
+  source_app: string;
+  comment_id: string;
+  status: Generated<string>;
+  terminal_action: string | null;
+  decision_version_id: string | null;
+  opened_at: Generated<Date>;
+  closed_at: Date | null;
+  closed_by_actor_id: string | null;
+  decision_reason: string | null;
+}
+
+/**
+ * Denúncia individual (T2.17; decisões 32-35, 37-39).
+ *
+ * `case_id` é `NOT NULL`: **toda** denúncia nasce ligada a um caso, e é isso que
+ * torna a agregação de T2.19 uma consulta em vez de uma reconciliação.
+ *
+ * `reported_version_id` fixa a evidência no instante da denúncia (decisão 39) —
+ * edição posterior não muda o que foi denunciado. `guard_update` recusa alterar
+ * qualquer coluna de evidência e recusa rejulgar denúncia já terminal.
+ *
+ * `uq_community_comment_report_active` é o índice parcial que implementa "no
+ * máximo uma denúncia ativa por ator/comentário": é ele que devolve
+ * `report_already_active`, não um `SELECT` antes do `INSERT`.
+ */
+export interface CommunityCommentReportRow {
+  id: Generated<string>;
+  realm: string;
+  source_app: string;
+  comment_id: string;
+  reported_version_id: string;
+  reporter_actor_id: string;
+  case_id: string;
+  reason_code: string;
+  /** Coluna gerada: sempre `'comment'`. Existe só para o FK do motivo. */
+  reason_target_type: Generated<string>;
+  details: string | null;
+  state: Generated<string>;
+  resolved_at: Date | null;
+  resolved_by_actor_id: string | null;
+  resolution_reason: string | null;
+  created_at: Generated<Date>;
+}
+
+/**
+ * Versão aprovada pela moderação (T2.24; decisão 45).
+ *
+ * Enquanto `reopened_at` é nulo a aprovação está ativa, e
+ * `uq_community_comment_version_approval_active` garante uma só por versão.
+ * Denúncia contra versão aprovada é recebida e auditada como
+ * `no_determination`, mas **não** abre caso nem soma para o limiar — é o que
+ * impede reabertura automática por volume.
+ */
+export interface CommunityCommentVersionApprovalRow {
+  id: Generated<string>;
+  realm: string;
+  source_app: string;
+  comment_version_id: string;
+  approved_by_actor_id: string;
+  approval_reason: string;
+  approved_at: Generated<Date>;
+  reopened_by_actor_id: string | null;
+  reopened_reason: string | null;
+  reopened_at: Date | null;
+}
+
+/**
+ * Recurso do autor contra remoção moderadora (T2.25; decisão 47).
+ *
+ * O banco valida sozinho as três recusas caras, em
+ * `validate_community_comment_appeal`: caso precisa ter `terminal_action =
+ * 'remove'` e estar fechado; o recorrente precisa ser o autor do comentário; e
+ * `appeal_deadline_at` precisa ser exatamente `closed_at + 6 meses`. O
+ * `UNIQUE (realm, source_app, case_id)` barra o segundo recurso.
+ *
+ * O handler repete essas checagens não por redundância defensiva, mas porque
+ * exceção de trigger chega como `500` sem código — e o contrato exige `403`,
+ * `409` e `422` distinguíveis.
+ */
+export interface CommunityCommentAppealRow {
+  id: Generated<string>;
+  realm: string;
+  source_app: string;
+  case_id: string;
+  comment_version_id: string;
+  appellant_actor_id: string;
+  reason: string;
+  status: Generated<string>;
+  submitted_at: Generated<Date>;
+  appeal_deadline_at: Date;
+  decided_at: Date | null;
+  decided_by_actor_id: string | null;
+  decision_reason: string | null;
+}
+
 export interface Database {
   users: UserRow;
   admin_secrets: AdminSecretRow;
@@ -310,12 +465,18 @@ export interface Database {
   community_actor: CommunityActorRow;
   community_actor_account_link: CommunityActorAccountLinkRow;
   community_comment: CommunityCommentRow;
+  community_comment_appeal: CommunityCommentAppealRow;
+  community_comment_report: CommunityCommentReportRow;
   community_comment_score_version: CommunityCommentScoreVersionRow;
   community_comment_subject: CommunityCommentSubjectRow;
   community_comment_version: CommunityCommentVersionRow;
+  community_comment_version_approval: CommunityCommentVersionApprovalRow;
   community_comment_vote: CommunityCommentVoteRow;
+  community_comment_vote_audit: CommunityCommentVoteAuditRow;
   community_idempotency_key: CommunityIdempotencyKeyRow;
   community_moderation_audit: CommunityModerationAuditRow;
+  community_moderation_case: CommunityModerationCaseRow;
+  community_report_reason: CommunityReportReasonRow;
   community_restriction: CommunityRestrictionRow;
   notification_event: NotificationEventRow;
   notification_receipt: NotificationReceiptRow;

@@ -15,17 +15,19 @@
 | 📄 CONTRACT_ONLY | 4 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
 | 🕳️ UNUSED_ROUTE | 126 | ❌ |
-| 👻 ORPHAN_SUSPECT | 53 | ❌ |
+| 👻 ORPHAN_SUSPECT | 70 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
 ## Detalhamento por app
 
-### accounts (22 rotas no inventário)
+### accounts (39 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
 | DELETE | `/api/account` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | DELETE | `/internal/v1/comments/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| DELETE | `/internal/v1/moderation/sanctions/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| DELETE | `/internal/v1/reports/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/admin/papeis` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/admin/roles/users` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -38,14 +40,29 @@
 | GET | `/health` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/internal/users/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/internal/v1/comments` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/internal/v1/comments/:id/versions` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/internal/v1/comments/moderation-log` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/internal/v1/comments/moderation-queue` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/internal/v1/moderation/cases/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/internal/v1/moderation/sanctions` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/login` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/admin/roles/users/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/account/avatar` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PATCH | `/internal/v1/comments/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| PATCH | `/internal/v1/moderation/cases/:id/priority` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/auth/logout` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/internal/v1/comments` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/comments/:id/removal` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/internal/v1/comments/:id/replies` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/comments/:id/reports` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/comments/:id/restore` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/moderation/appeals/:id/resolution` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/moderation/cases/:id/reopen` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/moderation/cases/:id/resolution` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/moderation/decisions/:id/appeals` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/moderation/sanctions` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PUT | `/admin/secrets/:name` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| PUT | `/internal/v1/comments/:id/vote` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 
 ### downloads (82 rotas no inventário)
 
@@ -471,16 +488,33 @@
 
 Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificação que justifique.
 
-### accounts (6 rota(s))
+### accounts (23 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
 | DELETE | `/internal/v1/comments/:id` | ✅ | public | Sem consumidor e scope não justifica |
+| DELETE | `/internal/v1/moderation/sanctions/:id` | ✅ | public | Sem consumidor e scope não justifica |
+| DELETE | `/internal/v1/reports/:id` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/internal/users/:id` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/internal/v1/comments` | ✅ | public | Sem consumidor e scope não justifica |
+| GET | `/internal/v1/comments/:id/versions` | ✅ | public | Sem consumidor e scope não justifica |
+| GET | `/internal/v1/comments/moderation-log` | ✅ | public | Sem consumidor e scope não justifica |
+| GET | `/internal/v1/comments/moderation-queue` | ✅ | public | Sem consumidor e scope não justifica |
+| GET | `/internal/v1/moderation/cases/:id` | ✅ | public | Sem consumidor e scope não justifica |
+| GET | `/internal/v1/moderation/sanctions` | ✅ | public | Sem consumidor e scope não justifica |
 | PATCH | `/internal/v1/comments/:id` | ✅ | public | Sem consumidor e scope não justifica |
+| PATCH | `/internal/v1/moderation/cases/:id/priority` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/internal/v1/comments` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/internal/v1/comments/:id/removal` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/internal/v1/comments/:id/replies` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/internal/v1/comments/:id/reports` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/internal/v1/comments/:id/restore` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/internal/v1/moderation/appeals/:id/resolution` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/internal/v1/moderation/cases/:id/reopen` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/internal/v1/moderation/cases/:id/resolution` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/internal/v1/moderation/decisions/:id/appeals` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/internal/v1/moderation/sanctions` | ✅ | public | Sem consumidor e scope não justifica |
+| PUT | `/internal/v1/comments/:id/vote` | ✅ | public | Sem consumidor e scope não justifica |
 ### downloads (38 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |

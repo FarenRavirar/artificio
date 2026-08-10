@@ -20,7 +20,13 @@ import type { Database } from "./db.js";
 import { readCommentTree, type PublicComment } from "./communityCommentRead.js";
 import { createComment } from "./communityCommentWrite.js";
 import { editComment, removeCommentByAuthor } from "./communityCommentLifecycle.js";
+import { castVote } from "./communityCommentVote.js";
 import { requireServiceCredential, type ServiceAuthenticatedRequest } from "./requireServiceCredential.js";
+import {
+  communityRateLimit,
+  createRateLimitStore,
+  type CommunityRateLimitStore,
+} from "./communityRateLimit.js";
 
 /**
  * T2.3 — `GET /internal/v1/comments` (`contrato-http-v1.md` §2).
@@ -128,12 +134,27 @@ function readActingUserId(req: Request): string | undefined {
 export function createCommunityCommentRoutes(
   db: Kysely<Database>,
   cursorSecret: string,
+  // T2.17-T2.26 — o roteador de moderação divide o mesmo store. Os buckets são
+  // por identidade e por bucket, não por roteador: dois contadores separados
+  // dariam ao mesmo usuário orçamento dobrado de leitura só por trocar de rota.
+  sharedStore?: CommunityRateLimitStore,
 ): Router {
   const router = Router();
 
+  // T2.10 — contadores por instância de router, nunca globais de módulo: duas
+  // instâncias de `createApp` no mesmo processo não podem dividir orçamento sem
+  // que o desenho diga que dividem.
+  const rateLimitStore = sharedStore ?? createRateLimitStore();
+
+  // Cada rota declara o próprio bucket (`contrato-http-v1.md` §14). O limiter
+  // vem **depois** do guard de credencial, porque a chave da credencial sai da
+  // identidade que ele resolve: limitar antes de autenticar deixaria um chamador
+  // sem credencial gastar o orçamento de um `source_app` legítimo só por
+  // declarar o header.
   router.get(
     "/internal/v1/comments",
     requireServiceCredential(db, { scope: "comment.read" }),
+    communityRateLimit(rateLimitStore, "read"),
     (req, res, next) => {
       void handleReadTree(db, cursorSecret, req, res).catch(next);
     },
@@ -145,6 +166,7 @@ export function createCommunityCommentRoutes(
   router.post(
     "/internal/v1/comments",
     requireServiceCredential(db, { scope: "comment.write" }),
+    communityRateLimit(rateLimitStore, "write"),
     (req, res, next) => {
       void handleCreateComment(db, req, res, null).catch(next);
     },
@@ -153,6 +175,7 @@ export function createCommunityCommentRoutes(
   router.post(
     "/internal/v1/comments/:id/replies",
     requireServiceCredential(db, { scope: "comment.write" }),
+    communityRateLimit(rateLimitStore, "write"),
     (req, res, next) => {
       void handleCreateComment(db, req, res, req.params.id).catch(next);
     },
@@ -164,9 +187,14 @@ export function createCommunityCommentRoutes(
   // escopo — é de **autoria**, e ela é verificada dentro da transação, sobre a
   // linha travada, porque escopo de credencial diz o que o app pode fazer, nunca
   // quem é o dono da fala.
+  // Bucket `edit` nas duas, e não `write`: §14 dá orçamento próprio à edição, e
+  // a auto-retirada é ação do autor sobre comentário que já existe — mesmo
+  // perfil de uso, mesmo risco. Compartilhar com `write` faria quem corrige
+  // vários comentários seguidos perder o orçamento de comentar.
   router.patch(
     "/internal/v1/comments/:id",
     requireServiceCredential(db, { scope: "comment.write" }),
+    communityRateLimit(rateLimitStore, "edit"),
     (req, res, next) => {
       void handleEditComment(db, req, res).catch(next);
     },
@@ -175,12 +203,89 @@ export function createCommunityCommentRoutes(
   router.delete(
     "/internal/v1/comments/:id",
     requireServiceCredential(db, { scope: "comment.write" }),
+    communityRateLimit(rateLimitStore, "edit"),
     (req, res, next) => {
       void handleRemoveComment(db, req, res).catch(next);
     },
   );
 
+  // T2.12-T2.14 — voto (`contrato-http-v1.md` §7). Escopo `vote.write`, separado
+  // de `comment.write`: um módulo pode expor leitura e voto sem poder criar
+  // comentário, e a credencial é que decide.
+  //
+  // `PUT` e não `POST` porque o corpo descreve **estado absoluto**, não uma
+  // ação: reenviar o mesmo valor é no-op por construção, que é o que dispensa
+  // `Idempotency-Key` (§6, decisão 12).
+  router.put(
+    "/internal/v1/comments/:id/vote",
+    requireServiceCredential(db, { scope: "vote.write" }),
+    communityRateLimit(rateLimitStore, "vote"),
+    (req, res, next) => {
+      void handleVote(db, req, res).catch(next);
+    },
+  );
+
   return router;
+}
+
+/**
+ * Corpo do voto (§7): `{ value: -1 | 0 | 1 }`, e nada mais.
+ *
+ * `strict()` recusa qualquer outro campo. Sem ele, um cliente que mandasse
+ * `{ value: 1, comment_id: "outro" }` teria o campo extra ignorado em silêncio e
+ * acharia ter votado onde não votou.
+ *
+ * `z.literal` nos três valores em vez de `z.number().int().min(-1).max(1)`: o
+ * segundo aceitaria `1.0` vindo de JSON e, pior, aceitaria `-0`. A união fecha o
+ * conjunto exatamente como o contrato o define.
+ */
+const voteBodySchema = z
+  .object({ value: z.union([z.literal(-1), z.literal(0), z.literal(1)]) })
+  .strict();
+
+async function handleVote(
+  db: Kysely<Database>,
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const credential = (req as ServiceAuthenticatedRequest).serviceCredential;
+  if (!credential) {
+    fail(req, res, 401, "unauthorized");
+    return;
+  }
+
+  // `X-Acting-User-Id` é obrigatório (§7): o voto pertence a uma conta, e sem
+  // ela não há chave em `community_comment_vote`. Diferente da leitura, onde o
+  // header é opcional e só afeta `my_vote`.
+  const actingUserId = readActingAuthor(req, res);
+  if (actingUserId === null) return;
+
+  const commentId = readCommentId(req, res);
+  if (!commentId) return;
+
+  const body = voteBodySchema.safeParse(req.body);
+  if (!body.success) {
+    fail(req, res, 400, "invalid_body");
+    return;
+  }
+
+  const result = await castVote(db, {
+    realm: credential.realm,
+    sourceApp: credential.sourceApp,
+    commentId,
+    actingUserId,
+    value: body.data.value,
+  });
+
+  if (!result.ok) {
+    fail(req, res, result.status, result.code);
+    return;
+  }
+
+  // `200` também no no-op (§7): o cliente recebe o estado atual e não precisa
+  // distinguir "mudou" de "já estava assim" — as duas respostas descrevem a
+  // mesma realidade.
+  res.status(200).json(result.tally);
 }
 
 /**

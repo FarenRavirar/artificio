@@ -344,6 +344,7 @@ describe("replay normaliza o que vem do banco", () => {
     ctx.capture.enqueue([
       {
         request_hash: hashOf(EDIT_INPUT),
+        acting_user_id: EDIT_INPUT.actingUserId,
         response_body: { forma: "de outra versão do handler" },
         expires_at: new Date(Date.now() + 3_600_000),
       },
@@ -368,6 +369,7 @@ describe("replay normaliza o que vem do banco", () => {
     ctx.capture.enqueue([
       {
         request_hash: hashOf(EDIT_INPUT),
+        acting_user_id: EDIT_INPUT.actingUserId,
         response_body: gravado,
         expires_at: new Date(Date.now() + 3_600_000),
       },
@@ -376,6 +378,42 @@ describe("replay normaliza o que vem do banco", () => {
     const result = await editComment(ctx.db, EDIT_INPUT);
 
     expect(result).toEqual({ ok: true, comment: gravado, replayed: true });
+  });
+
+  it("chave de outro ator não devolve a resposta dele", async () => {
+    // Hoje o `request_hash` já barra este caso — os seis handlers incluem o
+    // ator nele. A conferência de `acting_user_id` em `replayIdempotentResponse`
+    // é a barreira que não depende de a sétima função de hash lembrar da
+    // convenção; sem ela, um `Idempotency-Key` adivinhado devolveria a resposta
+    // de outro usuário (achado de review, PR #251).
+    //
+    // O `request_hash` gravado é o **desta** requisição, isolando a conferência
+    // de ator como única causa possível da recusa.
+    ctx.capture.enqueue([]);
+    ctx.capture.enqueue([
+      {
+        request_hash: hashOf(EDIT_INPUT),
+        acting_user_id: "99999999-9999-4999-8999-999999999999",
+        response_body: {
+          id: COMMENT_ID,
+          parent_id: null,
+          root_id: COMMENT_ID,
+          depth: 0,
+          body_markdown: "corpo de outra pessoa",
+          created_at: "2026-08-09T12:00:00.000Z",
+          edited_at: null,
+        },
+        expires_at: new Date(Date.now() + 3_600_000),
+      },
+    ]);
+
+    const result = await editComment(ctx.db, EDIT_INPUT);
+
+    expect(result).toEqual({
+      ok: false,
+      code: "idempotency_key_reuse",
+      status: 409,
+    });
   });
 });
 

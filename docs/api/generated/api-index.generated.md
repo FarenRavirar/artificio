@@ -4,9 +4,9 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **404 operações**.
+Total: **421 operações**.
 
-## accounts (22)
+## accounts (39)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -30,7 +30,24 @@ Total: **404 operações**.
 | POST | `/internal/v1/comments` | public | user | active | — | Cria ou executa internal v1 comments |
 | DELETE | `/internal/v1/comments/{id}` | public | user | active | — | Remove internal v1 comments id |
 | PATCH | `/internal/v1/comments/{id}` | public | user | active | — | Atualiza internal v1 comments id |
+| POST | `/internal/v1/comments/{id}/removal` | public | user | active | — | Cria ou executa internal v1 comments id removal |
 | POST | `/internal/v1/comments/{id}/replies` | public | user | active | — | Cria ou executa internal v1 comments id replies |
+| POST | `/internal/v1/comments/{id}/reports` | public | user | active | — | Cria ou executa internal v1 comments id reports |
+| POST | `/internal/v1/comments/{id}/restore` | public | user | active | — | Cria ou executa internal v1 comments id restore |
+| GET | `/internal/v1/comments/{id}/versions` | public | none | active | — | Consulta internal v1 comments id versions |
+| PUT | `/internal/v1/comments/{id}/vote` | public | user | active | — | Substitui internal v1 comments id vote |
+| GET | `/internal/v1/comments/moderation-log` | public | none | active | — | Consulta internal v1 comments moderation-log |
+| GET | `/internal/v1/comments/moderation-queue` | public | none | active | — | Consulta internal v1 comments moderation-queue |
+| POST | `/internal/v1/moderation/appeals/{id}/resolution` | public | user | active | — | Cria ou executa internal v1 moderation appeals id resolution |
+| GET | `/internal/v1/moderation/cases/{id}` | public | none | active | — | Consulta internal v1 moderation cases id |
+| PATCH | `/internal/v1/moderation/cases/{id}/priority` | public | user | active | — | Atualiza internal v1 moderation cases id priority |
+| POST | `/internal/v1/moderation/cases/{id}/reopen` | public | user | active | — | Cria ou executa internal v1 moderation cases id reopen |
+| POST | `/internal/v1/moderation/cases/{id}/resolution` | public | user | active | — | Cria ou executa internal v1 moderation cases id resolution |
+| POST | `/internal/v1/moderation/decisions/{id}/appeals` | public | user | active | — | Cria ou executa internal v1 moderation decisions id appeals |
+| GET | `/internal/v1/moderation/sanctions` | public | none | active | — | Consulta internal v1 moderation sanctions |
+| POST | `/internal/v1/moderation/sanctions` | public | user | active | — | Cria ou executa internal v1 moderation sanctions |
+| DELETE | `/internal/v1/moderation/sanctions/{id}` | public | user | active | — | Remove internal v1 moderation sanctions id |
+| DELETE | `/internal/v1/reports/{id}` | public | user | active | — | Remove internal v1 reports id |
 | GET | `/login` | public-page | none | active | — | Consulta login |
 
 ## downloads (82)

@@ -112,8 +112,8 @@ da credencial.
 **Objeto `Comment` — campos públicos:**
 
 `id`, `parent_id`, `root_id`, `depth`, `body_markdown`, `created_at`, `edited_at`, `state`,
-`author` (`{ display_name, avatar_url, badge }`), `upvotes`, `downvotes`, `score`, `my_vote`,
-`legacy` (`{ source, author_name }` ou `null`).
+`author` (`{ display_name, avatar_url, badge, state }`), `upvotes`, `downvotes`, `score`,
+`my_vote`, `legacy` (`{ source, author_name }` ou `null`).
 
 **Nunca no payload público:** identidade de votante, identidade de denunciante, detalhe de
 denúncia, nota interna de moderação, fingerprint, `user_id` cru do autor, `community_actor_id`,
@@ -129,6 +129,14 @@ versões antigas, `removed_reason`.
   Papel de domínio **não é promovido a global**, por isso o global vence quando ambos valem.
   `null` para usuário comum (requisito 11: não rotular) e **sempre** para legado (`spec.md:249`,
   15b: sem conta real por trás não há o que assinar).
+- `author.state` é `"active" | "deleted" | "legacy"` (T2.9, requisitos 7, 7a-7b; decisão 53).
+  `deleted` traz `display_name: "Conta excluída"` — nome neutro **materializado pelo backend**,
+  nunca `null`: nulo obrigaria cada consumidor a inventar o próprio texto. `avatar_url` e `badge`
+  vêm nulos. `legacy` traz `legacy_author_name` e autoria não verificada.
+
+  **Conta excluída e conta em retenção interna saem idênticas** — mesmo `state`, mesmo payload.
+  Distingui-las diria ao público que aquele autor tem caso de moderação aberto; a moderação vê a
+  diferença por outra superfície (T2.19), nunca por esta.
 
   **`badge` é valor de máquina, não texto de tela.** O rótulo em português — "autor do post",
   "autor do material", "mestre da mesa" — é escolha do frontend por `source_app` (T4.10);
@@ -238,6 +246,12 @@ cada denúncia recebe veredito, e a retirada não vale como confissão.
 
 ## 5. Moderação de conteúdo
 
+> **Implementado em `communityModerationRoutes.ts` + `communityModerationCase.ts` +
+> `communityModerationQueue.ts` (T2.17-T2.26, 2026-08-09).** O papel é verificado por
+> `requireModeratorRole`, aplicado sobre o roteador inteiro — escopo de credencial prova
+> qual **módulo** chama, papel prova qual **pessoa** está por trás. Rotas `GET` usam bucket
+> `read` (T2.20a), nunca o de escrita.
+
 Todas exigem escopo `moderation.write` **e** papel `admin`/`moderator` do `X-Acting-User-Id`
 verificado contra `accounts.users`. Papel insuficiente → `403`/`forbidden_role`.
 
@@ -278,9 +292,17 @@ correção explícita do check-before-transaction do `downloads` — não se rep
 
 ## 7. Voto (decisões 5, 7, 10, 11, 12)
 
+> **Implementado em `communityCommentVote.ts` (T2.12-T2.14, T2.16, 2026-08-09).**
+> Voto, revisão de ranking, faixa de score e auditoria numa transação só. `value: 0`
+> **remove a linha** — `community_comment_vote.value` tem `CHECK (value IN (-1, 1))`,
+> então zero nem chega ao banco; ausência de linha é "sem voto".
+
 ### `PUT /internal/v1/comments/:id/vote`
 
 Escopo `vote.write`. Exige `X-Acting-User-Id`. **Sem `Idempotency-Key`.**
+
+Corpo `strict()`: só `value`, e só os três literais. Campo extra é `400` — ignorá-lo faria
+quem mandou `comment_id` achar que votou em outro comentário.
 
 **Body:** `{ "value": -1 | 0 | 1 }`. `0` remove o voto.
 
@@ -360,6 +382,14 @@ notifica ninguém; **responder a um comentário continua notificando quem escrev
 
 ## 9. Denúncia (decisões 32-34, 37-39, 42, 49)
 
+> **Implementado em `communityCommentReport.ts` (T2.17, T2.18, T2.19, T2.21, 2026-08-09).**
+> Denúncia, caso, contagem do limiar e auto-ocultação numa transação só. O limiar é
+> **contado** (`COUNT(DISTINCT reporter_actor_id)` das ativas), nunca acumulado em coluna —
+> contador precisaria ser decrementado na retirada, e decrementos concorrentes com inserções
+> produzem o mesmo voto perdido que a PR #251 corrigiu no score. Denúncia e retirada tomam o
+> **mesmo `FOR UPDATE` sobre o caso** antes de contar; é o que dá vencedor único à corrida da
+> decisão 42.
+
 ### `POST /internal/v1/comments/:id/reports`
 
 Escopo `report.write`. Exige `Idempotency-Key` e `X-Acting-User-Id`.
@@ -402,6 +432,18 @@ recalculado; se o auto-hide conclui antes, a retirada é recusada.
 
 ## 10. Caso, veredito e recurso (decisões 40, 43, 44, 47)
 
+> **Implementado em `communityModerationCase.ts` (T2.20, T2.22, T2.23, T2.24) e
+> `communityModerationAppeal.ts` (T2.25), 2026-08-09.** A transição terminal é
+> `UPDATE ... WHERE status = 'open' RETURNING`: zero linhas é o `409` do segundo moderador —
+> a correção explícita do check-before-transaction do `downloads`. Autor e denunciantes
+> recebem **eventos separados**, porque um evento único carregaria o superconjunto dos campos
+> dos dois lados e o recibo não filtra conteúdo, só endereça.
+>
+> `PATCH .../priority` **não escreve prioridade em coluna** — ela é derivada do mínimo de
+> `community_report_reason.priority` entre as denúncias ativas, e a reclassificação vive em
+> auditoria. `POST .../reopen` desfaz a **aprovação da versão**, não reabre o caso: decisão 40
+> mantém o encerrado encerrado, e denúncia posterior abre caso novo.
+
 | Rota | Contrato |
 |---|---|
 | `GET /internal/v1/moderation/cases/:id` | caso com denúncias, quantidade, categorias, prioridade máxima e identidades dos denunciantes — **só moderação** |
@@ -439,6 +481,14 @@ Evento e recibos nascem na transação da mudança de estado.
 ---
 
 ## 11. Sanção comunitária (decisão 48)
+
+> **Implementado em `communityModerationAppeal.ts` (T2.26, 2026-08-09).** `scopes` grava
+> **uma linha por escopo**, não uma com dois — é o que permite levantar `commenting`
+> mantendo `posting`, e o que `uq_community_restriction_active` assume. O `level` do contrato
+> (`temporary`/`permanent`) é traduzido para o do `CHECK` da migration
+> (`temporary_suspension`/`permanent_suspension`) num só ponto; o payload público segue o
+> contrato. Nenhum caminho do código toca `users`, refresh ou sessão — a separação do SSO é
+> estrutural.
 
 ### `POST /internal/v1/moderation/sanctions`
 

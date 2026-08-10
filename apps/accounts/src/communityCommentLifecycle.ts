@@ -3,6 +3,12 @@ import type { Kysely, Selectable, Transaction } from "kysely";
 import { z } from "zod";
 import { validateCommentBody } from "@artificio/comments";
 import type { Database } from "./db.js";
+import { resolveActorId } from "./communityActor.js";
+import {
+  claimIdempotencyKey,
+  replayIdempotentResponse,
+  storeIdempotentResponse,
+} from "./communityIdempotency.js";
 
 /**
  * T2.7 + T2.7b — edição e auto-retirada pelo autor
@@ -53,7 +59,8 @@ import type { Database } from "./db.js";
  */
 
 /** `contrato-http-v1.md` §6 — mesma retenção da criação. */
-const IDEMPOTENCY_RETENTION_HOURS = 24;
+/** Namespace da chave de idempotência da edição (§6). O `DELETE` não usa chave. */
+const EDIT_OPERATION = "comment.edit";
 
 /**
  * Motivo canônico da auto-retirada.
@@ -238,20 +245,6 @@ async function lockAuthoredComment(
   return comment;
 }
 
-/** Ator do usuário autenticado, ou `null` se ele nunca participou. */
-async function resolveActorId(
-  trx: Transaction<Database>,
-  userId: string,
-): Promise<string | null> {
-  const row = await trx
-    .selectFrom("community_actor_account_link")
-    .select("actor_id")
-    .where("user_id", "=", userId)
-    .executeTakeFirst();
-
-  return row?.actor_id ?? null;
-}
-
 /**
  * Hash do payload que define "mesmo pedido" na edição.
  *
@@ -327,57 +320,19 @@ export async function editComment(
 
   try {
     return await db.transaction().execute(async (trx) => {
-      const expiresAt = new Date(
-        Date.now() + IDEMPOTENCY_RETENTION_HOURS * 60 * 60 * 1000,
-      );
-
       // Idempotência primeiro. Um `SELECT` antes do `INSERT` deixaria janela
       // para dois pedidos idênticos passarem juntos, e capturar a violação
       // mataria a transação (`25P02`), transformando repetição legítima em
-      // `500`.
-      //
-      // `DO UPDATE ... WHERE expires_at <= now()` e não `DO NOTHING`: a chave
-      // **vencida** é retomada aqui, atomicamente, em vez de cair no replay.
-      // `migration_008` documenta uma "varredura periódica" de vencidos que
-      // nunca foi escrita (`rg "community_idempotency_key"` em `apps packages
-      // scripts` não acha nenhum `DELETE`, medido em 2026-08-09), então sem esta
-      // retomada a chave ficaria bloqueada **para sempre** depois das 24h — e o
-      // contrato §6 diz o contrário. Achado de review do Codex (P2, PR #250).
-      //
-      // A condição no `WHERE` é o que mantém a segurança: dentro da janela o
-      // `UPDATE` não acontece, zero linhas voltam, e o fluxo cai no replay como
-      // antes. Só a linha morta é reivindicada.
-      const claimed = await trx
-        .insertInto("community_idempotency_key")
-        .values({
-          realm: input.realm,
-          source_app: input.sourceApp,
-          idempotency_key: input.idempotencyKey,
-          operation: "comment.edit",
-          acting_user_id: input.actingUserId,
-          request_hash: requestHash,
-          response_status: 200,
-          response_body: {},
-          expires_at: expiresAt,
-        })
-        .onConflict((oc) =>
-          oc
-            .columns(["realm", "source_app", "operation", "idempotency_key"])
-            .doUpdateSet({
-              acting_user_id: input.actingUserId,
-              request_hash: requestHash,
-              response_status: 200,
-              response_body: {},
-              created_at: new Date(),
-              expires_at: expiresAt,
-            })
-            // `created_at` também é reescrito: `community_idempotency_key_window`
-            // exige `expires_at > created_at`, e manter o `created_at` antigo
-            // com janela nova passa hoje mas quebra se a retenção mudar.
-            .where("community_idempotency_key.expires_at", "<=", new Date()),
-        )
-        .returning("id")
-        .executeTakeFirst();
+      // `500`. A retomada de chave vencida vive em `claimIdempotencyKey`.
+      const claimed = await claimIdempotencyKey(trx, {
+        realm: input.realm,
+        sourceApp: input.sourceApp,
+        idempotencyKey: input.idempotencyKey,
+        operation: EDIT_OPERATION,
+        actingUserId: input.actingUserId,
+        requestHash,
+        responseStatus: 200,
+      });
 
       if (!claimed) {
         return await replayEditOrConflict(trx, input, requestHash);
@@ -471,20 +426,23 @@ export async function editComment(
   }
 }
 
+function keyLookup(input: EditCommentInput) {
+  return {
+    realm: input.realm,
+    sourceApp: input.sourceApp,
+    idempotencyKey: input.idempotencyKey,
+    operation: EDIT_OPERATION,
+    actingUserId: input.actingUserId,
+  };
+}
+
 /** Grava a resposta real na chave, para a repetição devolver corpo idêntico. */
 async function storeEditResponse(
   trx: Transaction<Database>,
   input: EditCommentInput,
   comment: EditedComment,
 ): Promise<void> {
-  await trx
-    .updateTable("community_idempotency_key")
-    .set({ response_body: comment })
-    .where("realm", "=", input.realm)
-    .where("source_app", "=", input.sourceApp)
-    .where("operation", "=", "comment.edit")
-    .where("idempotency_key", "=", input.idempotencyKey)
-    .execute();
+  await storeIdempotentResponse(trx, keyLookup(input), comment);
 }
 
 /** Chave já usada: repetição idêntica devolve a original; payload diferente é `409`. */
@@ -493,43 +451,23 @@ async function replayEditOrConflict(
   input: EditCommentInput,
   requestHash: string,
 ): Promise<EditCommentResult> {
-  const existing = await trx
-    .selectFrom("community_idempotency_key")
-    .select(["request_hash", "response_body", "expires_at"])
-    .where("realm", "=", input.realm)
-    .where("source_app", "=", input.sourceApp)
-    .where("operation", "=", "comment.edit")
-    .where("idempotency_key", "=", input.idempotencyKey)
-    .executeTakeFirst();
+  const stored = await replayIdempotentResponse(
+    trx,
+    keyLookup(input),
+    requestHash,
+    editedCommentSchema,
+  );
 
-  // Registro vencido não é repetição: passadas as 24h a chave está livre. Hoje
-  // este ramo é inalcançável pelo caminho normal — o `ON CONFLICT` condicionado
-  // retoma a linha vencida antes de chegar aqui —, mas continua como defesa:
-  // uma linha escrita por script operacional ou por versão anterior do handler
-  // não pode virar replay de uma edição de ontem.
-  if (!existing || existing.expires_at <= new Date()) {
+  // `null` cobre os três casos que §6 colapsa em `idempotency_key_reuse`:
+  // registro ausente/vencido, payload diferente na mesma chave, e corpo com
+  // forma desconhecida — este último era um `as EditedComment` que afirmava a
+  // forma sem verificar, servindo `jsonb` cru ao consumidor (achado do
+  // CodeRabbit, PR #250).
+  if (!stored) {
     return { ok: false, code: "idempotency_key_reuse", status: 409 };
   }
 
-  if (existing.request_hash !== requestHash) {
-    return { ok: false, code: "idempotency_key_reuse", status: 409 };
-  }
-
-  // `response_body` é `jsonb` **lido do banco**, portanto `unknown` até passar
-  // por normalizador (`AGENTS.md` §Regras Gerais de Código). O `as EditedComment`
-  // que estava aqui afirmava a forma sem verificar, e o valor vai direto para
-  // `res.json()` — uma linha gravada por versão anterior do handler seria servida
-  // ao consumidor como se estivesse tipada. Achado de review do CodeRabbit
-  // (PR #250).
-  //
-  // Forma desconhecida vira `409` e não `500`: a linha existe e é inutilizável,
-  // que é exatamente o que `idempotency_key_reuse` significa para o chamador.
-  const stored = editedCommentSchema.safeParse(existing.response_body);
-  if (!stored.success) {
-    return { ok: false, code: "idempotency_key_reuse", status: 409 };
-  }
-
-  return { ok: true, comment: stored.data, replayed: true };
+  return { ok: true, comment: stored, replayed: true };
 }
 
 /**

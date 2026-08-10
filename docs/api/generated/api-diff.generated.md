@@ -10,15 +10,30 @@
 
 | App | Breaking | Non-breaking | Unclassified |
 |-----|:--------:|:------------:|:------------:|
-| accounts | ✅ 0 | ✅ 1 | ⚪ 0 |
+| accounts | ✅ 0 | ✅ 16 | ⚪ 0 |
 
 ---
 
 ### accounts
 
-#### ✅ Non-breaking (1)
+#### ✅ Non-breaking (16)
 
 | Path | Method | Ação |
 |------|--------|------|
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
+| `` |  | add |
 | `` |  | add |
 
