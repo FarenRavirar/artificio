@@ -2,6 +2,12 @@ import { createHash, randomUUID } from "node:crypto";
 import type { Kysely, Transaction } from "kysely";
 import { z } from "zod";
 import type { Database } from "./db.js";
+import { resolveOrCreateActor, resolveUserIdOfActor } from "./communityActor.js";
+import {
+  claimIdempotencyKey,
+  replayIdempotentResponse,
+  storeIdempotentResponse,
+} from "./communityIdempotency.js";
 
 /**
  * T2.20 + T2.22 + T2.23 + T2.24 — decisão terminal do caso
@@ -49,7 +55,8 @@ import type { Database } from "./db.js";
  * preciso `restore`.
  */
 
-const IDEMPOTENCY_RETENTION_HOURS = 24;
+/** Namespace da chave de idempotência desta operação (§6). */
+const OPERATION = "moderation.case.resolution";
 
 /** Veredito individual da denúncia (§10). `withdrawn` não é escolhível. */
 export const REPORT_VERDICTS = ["upheld", "dismissed", "no_determination"] as const;
@@ -134,39 +141,16 @@ function hashResolveRequest(input: ResolveCaseInput): string {
 }
 
 /**
- * Ator comunitário do moderador.
+ * Ator comunitário do moderador — `resolveOrCreateActor` de `communityActor.ts`.
  *
- * Criado sob demanda, ao contrário do voto e da denúncia: um moderador que nunca
- * comentou ainda precisa de ator, porque `closed_by_actor_id` e
- * `resolved_by_actor_id` são `NOT NULL` e referenciam `community_actor`. A
- * decisão terminal já passou por `requireModeratorRole`, então não há risco de
- * gravar identidade por causa de um pedido que será recusado por autorização.
+ * O alias existe pelo nome, não pelo corpo: aqui o ator é criado **sem recusa
+ * prévia**, ao contrário do voto e da denúncia. Um moderador que nunca comentou
+ * ainda precisa de ator, porque `closed_by_actor_id` e `resolved_by_actor_id`
+ * são `NOT NULL` e referenciam `community_actor`; e a requisição já passou por
+ * `requireModeratorRole`, então não há risco de gravar identidade por causa de
+ * um pedido que será recusado por autorização.
  */
-async function resolveOrCreateModeratorActor(
-  trx: Transaction<Database>,
-  userId: string,
-): Promise<string> {
-  const existing = await trx
-    .selectFrom("community_actor_account_link")
-    .select("actor_id")
-    .where("user_id", "=", userId)
-    .executeTakeFirst();
-
-  if (existing) return existing.actor_id;
-
-  const actor = await trx
-    .insertInto("community_actor")
-    .defaultValues()
-    .returning("id")
-    .executeTakeFirstOrThrow();
-
-  await trx
-    .insertInto("community_actor_account_link")
-    .values({ actor_id: actor.id, user_id: userId })
-    .execute();
-
-  return actor.id;
-}
+const resolveOrCreateModeratorActor = resolveOrCreateActor;
 
 /**
  * `POST /internal/v1/moderation/cases/:id/resolution` (§10).
@@ -185,38 +169,15 @@ export async function resolveCase(
 
   try {
     return await db.transaction().execute(async (trx) => {
-      const expiresAt = new Date(
-        Date.now() + IDEMPOTENCY_RETENTION_HOURS * 60 * 60 * 1000,
-      );
-
-      const claimed = await trx
-        .insertInto("community_idempotency_key")
-        .values({
-          realm: input.realm,
-          source_app: input.sourceApp,
-          idempotency_key: input.idempotencyKey,
-          operation: "moderation.case.resolution",
-          acting_user_id: input.moderatorUserId,
-          request_hash: requestHash,
-          response_status: 200,
-          response_body: {},
-          expires_at: expiresAt,
-        })
-        .onConflict((oc) =>
-          oc
-            .columns(["realm", "source_app", "operation", "idempotency_key"])
-            .doUpdateSet({
-              acting_user_id: input.moderatorUserId,
-              request_hash: requestHash,
-              response_status: 200,
-              response_body: {},
-              created_at: new Date(),
-              expires_at: expiresAt,
-            })
-            .where("community_idempotency_key.expires_at", "<=", new Date()),
-        )
-        .returning("id")
-        .executeTakeFirst();
+      const claimed = await claimIdempotencyKey(trx, {
+        realm: input.realm,
+        sourceApp: input.sourceApp,
+        idempotencyKey: input.idempotencyKey,
+        operation: OPERATION,
+        actingUserId: input.moderatorUserId,
+        requestHash,
+        responseStatus: 200,
+      });
 
       if (!claimed) {
         return await replayResolutionOrConflict(trx, input, requestHash);
@@ -396,14 +357,7 @@ export async function resolveCase(
         verdict_count: input.verdicts.length,
       };
 
-      await trx
-        .updateTable("community_idempotency_key")
-        .set({ response_body: resolution })
-        .where("realm", "=", input.realm)
-        .where("source_app", "=", input.sourceApp)
-        .where("operation", "=", "moderation.case.resolution")
-        .where("idempotency_key", "=", input.idempotencyKey)
-        .execute();
+      await storeIdempotentResponse(trx, keyLookup(input), resolution);
 
       return { ok: true as const, resolution, replayed: false };
     });
@@ -650,37 +604,13 @@ async function emitEvent(
   }
 }
 
-/**
- * Conta ligada ao ator, ou `null` quando o vínculo já foi desfeito.
- *
- * Conta excluída perde o vínculo por `ON DELETE CASCADE` (decisão 53), e o ator
- * permanece. Notificar um ator sem vínculo é impossível por construção — não há
- * `user_id` para endereçar —, e é o comportamento correto: quem saiu não recebe
- * o resultado de um caso.
- */
-async function resolveUserIdOfActor(
-  trx: Transaction<Database>,
-  actorId: string,
-): Promise<string | null> {
-  const row = await trx
-    .selectFrom("community_actor_account_link")
-    .select("user_id")
-    .where("actor_id", "=", actorId)
-    .executeTakeFirst();
-
-  if (!row) return null;
-
-  // O vínculo pode existir apontando para uma conta já removida se o `CASCADE`
-  // ainda não rodou na mesma transação. Confirmar em `users` evita violar
-  // `notification_receipt_user_fk` e abortar a decisão inteira por causa de um
-  // destinatário.
-  const user = await trx
-    .selectFrom("users")
-    .select("id")
-    .where("id", "=", row.user_id)
-    .executeTakeFirst();
-
-  return user?.id ?? null;
+function keyLookup(input: ResolveCaseInput) {
+  return {
+    realm: input.realm,
+    sourceApp: input.sourceApp,
+    idempotencyKey: input.idempotencyKey,
+    operation: OPERATION,
+  };
 }
 
 async function replayResolutionOrConflict(
@@ -688,29 +618,18 @@ async function replayResolutionOrConflict(
   input: ResolveCaseInput,
   requestHash: string,
 ): Promise<ResolveCaseResult> {
-  const existing = await trx
-    .selectFrom("community_idempotency_key")
-    .select(["request_hash", "response_body", "expires_at"])
-    .where("realm", "=", input.realm)
-    .where("source_app", "=", input.sourceApp)
-    .where("operation", "=", "moderation.case.resolution")
-    .where("idempotency_key", "=", input.idempotencyKey)
-    .executeTakeFirst();
+  const stored = await replayIdempotentResponse(
+    trx,
+    keyLookup(input),
+    requestHash,
+    resolvedCaseSchema,
+  );
 
-  if (!existing || existing.expires_at <= new Date()) {
+  if (!stored) {
     return { ok: false, code: "idempotency_key_reuse", status: 409 };
   }
 
-  if (existing.request_hash !== requestHash) {
-    return { ok: false, code: "idempotency_key_reuse", status: 409 };
-  }
-
-  const stored = resolvedCaseSchema.safeParse(existing.response_body);
-  if (!stored.success) {
-    return { ok: false, code: "idempotency_key_reuse", status: 409 };
-  }
-
-  return { ok: true, resolution: stored.data, replayed: true };
+  return { ok: true, resolution: stored, replayed: true };
 }
 
 export interface ReopenCaseInput {

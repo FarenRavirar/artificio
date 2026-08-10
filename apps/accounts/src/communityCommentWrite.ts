@@ -9,6 +9,12 @@ import {
   type ParentComment,
 } from "@artificio/comments";
 import type { Database } from "./db.js";
+import { resolveOrCreateActor, resolveUserIdOfActor } from "./communityActor.js";
+import {
+  claimIdempotencyKey,
+  replayIdempotentResponse,
+  storeIdempotentResponse,
+} from "./communityIdempotency.js";
 
 /**
  * T2.6c — criação e resposta, com evento e recibos **na mesma transação**
@@ -47,7 +53,14 @@ import type { Database } from "./db.js";
  */
 
 /** `contrato-http-v1.md` §6 — retenção de 24 horas. */
-const IDEMPOTENCY_RETENTION_HOURS = 24;
+/**
+ * Namespace da chave de idempotência (§6). Criação e resposta são operações
+ * distintas: a mesma chave em `comment.create` e `comment.reply` são registros
+ * separados, e é isso que impede um retry de resposta colidir com uma criação.
+ */
+function operationOf(input: CreateCommentInput): string {
+  return input.parentId ? "comment.reply" : "comment.create";
+}
 
 /** Versão do formato de `snapshot`. Formato novo incrementa; nunca reinterpreta o antigo. */
 const COMMENT_EVENT_VERSION = 1;
@@ -161,46 +174,10 @@ function hashRequest(input: CreateCommentInput): string {
     .digest("hex");
 }
 
-/**
- * Ator comunitário do usuário, criado sob demanda.
- *
- * O ator é opaco e separado da conta (`spec.md` 7a): é ele que sobrevive à
- * exclusão da conta preservando conversa e score. Quem comenta pela primeira vez
- * ainda não tem ator — criá-lo aqui, dentro da transação, evita um estado em que
- * o comentário existe sem autor resolvível.
- */
-async function resolveOrCreateActor(
-  trx: Transaction<Database>,
-  userId: string,
-): Promise<string> {
-  const existing = await trx
-    .selectFrom("community_actor_account_link")
-    .select("actor_id")
-    .where("user_id", "=", userId)
-    .executeTakeFirst();
-
-  if (existing) return existing.actor_id;
-
-  // `defaultValues()`, não `values({})`. A tabela só tem colunas com default
-  // (`id` e `created_at`), e o objeto vazio compila para
-  // `INSERT INTO community_actor () VALUES ()` — sintaxe que o PostgreSQL
-  // recusa com `syntax error at or near ")"`. O tipo do Kysely aceita `{}`, e o
-  // erro só aparece no banco: os testes de rota param antes da transação, e o
-  // script de medição escreve o ator por SQL direto, então nenhum dos dois
-  // exercitava esta linha. Achado no primeiro smoke real (2026-08-08).
-  const actor = await trx
-    .insertInto("community_actor")
-    .defaultValues()
-    .returning("id")
-    .executeTakeFirstOrThrow();
-
-  await trx
-    .insertInto("community_actor_account_link")
-    .values({ actor_id: actor.id, user_id: userId })
-    .execute();
-
-  return actor.id;
-}
+// `resolveOrCreateActor` e `resolveUserIdOfActor` vêm de `communityActor.ts`.
+// A criação aqui é incondicional — quem comenta pela primeira vez precisa de
+// ator para o comentário existir com autor resolvível —, ao contrário do voto e
+// da denúncia, que resolvem antes das recusas e só criam depois delas.
 
 /**
  * Publicador afirmado pelo domínio, reduzido a `null` quando a conta não existe
@@ -313,64 +290,25 @@ export async function createComment(
       // 1. Idempotência primeiro: insere e deixa a unicidade decidir. Um `SELECT`
       // antes do `INSERT` deixaria janela para dois pedidos idênticos passarem
       // juntos — o check-before-transaction que §6 manda não replicar.
-      const expiresAt = new Date(
-        Date.now() + IDEMPOTENCY_RETENTION_HOURS * 60 * 60 * 1000,
-      );
-
-      // `ON CONFLICT` em vez de capturar a violação de unicidade: no PostgreSQL,
-      // um erro dentro da transação **aborta a transação inteira**, e todo
-      // comando seguinte falha com `25P02 current transaction is aborted`.
-      // Capturar a exceção e consultar em seguida — que é o que esta função fazia
-      // — rodaria `replayOrConflict` numa transação já morta, transformando a
-      // repetição legítima (que deve devolver a resposta original) num erro 500.
-      // `ON CONFLICT` não levanta erro: devolve zero linhas quando não age, a
-      // transação segue viva, e a consulta de replay funciona.
       //
-      // `DO UPDATE ... WHERE expires_at <= now()` e não `DO NOTHING`: a chave
-      // **vencida** é retomada aqui, atomicamente. `migration_008:86` documenta
-      // uma "varredura periódica" de vencidos que nunca foi escrita (`rg
-      // "community_idempotency_key"` em `apps packages scripts` não acha nenhum
-      // `DELETE`, medido em 2026-08-09), então com `DO NOTHING` a chave caía no
-      // replay, batia no `expires_at <= new Date()` de `replayOrConflict` e
-      // devolvia `409` **para sempre** depois das 24h — o oposto do que §6 e o
-      // comentário daquela função afirmam. Defeito que estava em produção; achado
-      // de review do Codex na PR #250, sobre o código gêmeo da edição.
-      //
-      // A condição no `WHERE` é o que mantém a segurança: dentro da janela o
-      // `UPDATE` não acontece, zero linhas voltam, e o fluxo cai no replay como
-      // antes. Só a linha morta é reivindicada.
-      const claimed = await trx
-        .insertInto("community_idempotency_key")
-        .values({
-          realm: input.realm,
-          source_app: input.source_app,
-          idempotency_key: input.idempotencyKey,
-          operation: input.parentId ? "comment.reply" : "comment.create",
-          acting_user_id: input.actingUserId,
-          request_hash: requestHash,
-          // A resposta real é gravada no fim, quando o comentário existe.
-          response_status: 201,
-          response_body: {},
-          expires_at: expiresAt,
-        })
-        .onConflict((oc) =>
-          oc
-            .columns(["realm", "source_app", "operation", "idempotency_key"])
-            .doUpdateSet({
-              acting_user_id: input.actingUserId,
-              request_hash: requestHash,
-              response_status: 201,
-              response_body: {},
-              // `created_at` também é reescrito: `community_idempotency_key_window`
-              // exige `expires_at > created_at`, e manter o `created_at` antigo com
-              // janela nova passa hoje mas quebra se a retenção mudar.
-              created_at: new Date(),
-              expires_at: expiresAt,
-            })
-            .where("community_idempotency_key.expires_at", "<=", new Date()),
-        )
-        .returning("id")
-        .executeTakeFirst();
+      // `claimIdempotencyKey` usa `ON CONFLICT` em vez de capturar a violação de
+      // unicidade, e a diferença é crítica aqui: no PostgreSQL um erro dentro da
+      // transação **aborta a transação inteira**, e todo comando seguinte falha
+      // com `25P02 current transaction is aborted`. Capturar a exceção e
+      // consultar em seguida — que é o que esta função fazia — rodaria
+      // `replayOrConflict` numa transação já morta, transformando a repetição
+      // legítima num erro 500. `ON CONFLICT` não levanta erro: devolve zero
+      // linhas quando não age, a transação segue viva, e o replay funciona.
+      const claimed = await claimIdempotencyKey(trx, {
+        realm: input.realm,
+        sourceApp: input.source_app,
+        idempotencyKey: input.idempotencyKey,
+        operation: operationOf(input),
+        actingUserId: input.actingUserId,
+        requestHash,
+        // A resposta real é gravada no fim, quando o comentário existe.
+        responseStatus: 201,
+      });
 
       if (!claimed) {
         return await replayOrConflict(trx, input, requestHash);
@@ -603,14 +541,7 @@ export async function createComment(
 
       // 6. Grava a resposta real na chave de idempotência, para a repetição
       // devolver corpo idêntico e não só o status.
-      await trx
-        .updateTable("community_idempotency_key")
-        .set({ response_body: created })
-        .where("realm", "=", input.realm)
-        .where("source_app", "=", input.source_app)
-        .where("operation", "=", input.parentId ? "comment.reply" : "comment.create")
-        .where("idempotency_key", "=", input.idempotencyKey)
-        .execute();
+      await storeIdempotentResponse(trx, keyLookup(input), created);
 
       return { ok: true as const, comment: created, replayed: false };
     });
@@ -622,18 +553,13 @@ export async function createComment(
   }
 }
 
-/** `users.id` por trás de um ator, ou `null` se o vínculo já foi desfeito (7b). */
-async function resolveUserIdOfActor(
-  trx: Transaction<Database>,
-  actorId: string,
-): Promise<string | null> {
-  const row = await trx
-    .selectFrom("community_actor_account_link")
-    .select("user_id")
-    .where("actor_id", "=", actorId)
-    .executeTakeFirst();
-
-  return row?.user_id ?? null;
+function keyLookup(input: CreateCommentInput) {
+  return {
+    realm: input.realm,
+    sourceApp: input.source_app,
+    idempotencyKey: input.idempotencyKey,
+    operation: operationOf(input),
+  };
 }
 
 /**
@@ -649,32 +575,21 @@ async function replayOrConflict(
   input: CreateCommentInput,
   requestHash: string,
 ): Promise<CreateCommentResult> {
-  const existing = await trx
-    .selectFrom("community_idempotency_key")
-    .select(["request_hash", "response_body", "expires_at"])
-    .where("realm", "=", input.realm)
-    .where("source_app", "=", input.source_app)
-    .where("operation", "=", input.parentId ? "comment.reply" : "comment.create")
-    .where("idempotency_key", "=", input.idempotencyKey)
-    .executeTakeFirst();
+  const stored = await replayIdempotentResponse(
+    trx,
+    keyLookup(input),
+    requestHash,
+    createdCommentSchema,
+  );
 
-  if (!existing || existing.expires_at <= new Date()) {
+  // `null` cobre os três casos que §6 colapsa em `idempotency_key_reuse`:
+  // registro ausente/vencido, payload diferente na mesma chave, e corpo com
+  // forma desconhecida — este último era um `as CreatedComment` que afirmava a
+  // forma sem verificar, servindo `jsonb` cru ao consumidor (achado do
+  // CodeRabbit, PR #250).
+  if (!stored) {
     return { ok: false, code: "idempotency_key_reuse", status: 409 };
   }
 
-  if (existing.request_hash !== requestHash) {
-    return { ok: false, code: "idempotency_key_reuse", status: 409 };
-  }
-
-  // `response_body` é `jsonb` **lido do banco**, portanto `unknown` até passar
-  // por normalizador (`AGENTS.md` §Regras Gerais de Código). O `as
-  // CreatedComment` que estava aqui afirmava a forma sem verificar, e o valor vai
-  // direto para `res.json()`. Achado de review do CodeRabbit na PR #250, sobre o
-  // código gêmeo da edição — mesma causa, corrigida nos dois.
-  const stored = createdCommentSchema.safeParse(existing.response_body);
-  if (!stored.success) {
-    return { ok: false, code: "idempotency_key_reuse", status: 409 };
-  }
-
-  return { ok: true, comment: stored.data, replayed: true };
+  return { ok: true, comment: stored, replayed: true };
 }

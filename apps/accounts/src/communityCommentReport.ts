@@ -2,6 +2,13 @@ import { createHash, randomUUID } from "node:crypto";
 import type { Kysely, Transaction } from "kysely";
 import { z } from "zod";
 import type { Database } from "./db.js";
+import { createActor, resolveActorId } from "./communityActor.js";
+import {
+  claimIdempotencyKey,
+  isUniqueViolation,
+  replayIdempotentResponse,
+  storeIdempotentResponse,
+} from "./communityIdempotency.js";
 
 /**
  * T2.17 + T2.18 + T2.19 + T2.21 — denúncia, limiar de auto-ocultação, caso
@@ -60,7 +67,8 @@ import type { Database } from "./db.js";
 /** Decisão 34. Cinco **contas distintas**, não cinco denúncias. */
 export const AUTO_HIDE_THRESHOLD = 5;
 
-const IDEMPOTENCY_RETENTION_HOURS = 24;
+/** Namespace da chave de idempotência desta operação (§6). */
+const OPERATION = "comment.report";
 
 /** Motivos do registro compartilhado (§9), na ordem da semente da migration. */
 export const REPORT_REASON_CODES = [
@@ -256,46 +264,10 @@ async function loadReasonPolicy(
   return reason.details_policy;
 }
 
-/**
- * Ator do denunciante, criado sob demanda **depois** das recusas.
- *
- * Mesma disciplina do voto: quem nunca participou não tem ator, e criá-lo antes
- * de saber se a denúncia é aceita gravaria identidade comunitária permanente
- * por causa de um pedido recusado logo em seguida.
- */
-async function resolveActorId(
-  trx: Transaction<Database>,
-  userId: string,
-): Promise<string | null> {
-  const row = await trx
-    .selectFrom("community_actor_account_link")
-    .select("actor_id")
-    .where("user_id", "=", userId)
-    .executeTakeFirst();
-
-  return row?.actor_id ?? null;
-}
-
-async function createActor(
-  trx: Transaction<Database>,
-  userId: string,
-): Promise<string> {
-  // `defaultValues()`, nunca `values({})`: o objeto vazio compila para
-  // `INSERT INTO community_actor () VALUES ()`, que o PostgreSQL recusa —
-  // chegou a produção uma vez (2026-08-08).
-  const actor = await trx
-    .insertInto("community_actor")
-    .defaultValues()
-    .returning("id")
-    .executeTakeFirstOrThrow();
-
-  await trx
-    .insertInto("community_actor_account_link")
-    .values({ actor_id: actor.id, user_id: userId })
-    .execute();
-
-  return actor.id;
-}
+// `resolveActorId` e `createActor` vêm de `communityActor.ts`. A disciplina
+// aqui é a mesma do voto: o ator é resolvido antes das recusas mas **criado
+// depois delas** — criá-lo antes gravaria identidade comunitária permanente por
+// causa de um pedido recusado nas linhas seguintes.
 
 /**
  * Versão já aprovada pela moderação e não reaberta (decisão 45).
@@ -429,42 +401,18 @@ export async function createReport(
 
   try {
     return await db.transaction().execute(async (trx) => {
-      const expiresAt = new Date(
-        Date.now() + IDEMPOTENCY_RETENTION_HOURS * 60 * 60 * 1000,
-      );
-
-      // Idempotência primeiro, com a mesma retomada condicionada de chave
-      // vencida que `communityCommentLifecycle.ts` usa: sem ela a chave ficaria
-      // bloqueada para sempre depois das 24h, porque a varredura periódica que
-      // `migration_008` documenta nunca foi escrita.
-      const claimed = await trx
-        .insertInto("community_idempotency_key")
-        .values({
-          realm: input.realm,
-          source_app: input.sourceApp,
-          idempotency_key: input.idempotencyKey,
-          operation: "comment.report",
-          acting_user_id: input.actingUserId,
-          request_hash: requestHash,
-          response_status: 201,
-          response_body: {},
-          expires_at: expiresAt,
-        })
-        .onConflict((oc) =>
-          oc
-            .columns(["realm", "source_app", "operation", "idempotency_key"])
-            .doUpdateSet({
-              acting_user_id: input.actingUserId,
-              request_hash: requestHash,
-              response_status: 201,
-              response_body: {},
-              created_at: new Date(),
-              expires_at: expiresAt,
-            })
-            .where("community_idempotency_key.expires_at", "<=", new Date()),
-        )
-        .returning("id")
-        .executeTakeFirst();
+      // Idempotência primeiro: um `SELECT` antes do `INSERT` deixaria janela
+      // para dois pedidos idênticos passarem juntos. A retomada de chave
+      // vencida vive em `claimIdempotencyKey`.
+      const claimed = await claimIdempotencyKey(trx, {
+        realm: input.realm,
+        sourceApp: input.sourceApp,
+        idempotencyKey: input.idempotencyKey,
+        operation: OPERATION,
+        actingUserId: input.actingUserId,
+        requestHash,
+        responseStatus: 201,
+      });
 
       if (!claimed) {
         return await replayReportOrConflict(trx, input, requestHash);
@@ -488,6 +436,8 @@ export async function createReport(
 
       const versionId = comment.current_version_id as string;
       const actorId =
+        // `createActor` e não `resolveOrCreateActor`: `existingActorId` já
+        // provou que não há vínculo, e reler seria consulta redundante.
         existingActorId ?? (await createActor(trx, input.actingUserId));
 
       // Denúncia contra versão aprovada: recebida, auditada, arquivada
@@ -968,19 +918,21 @@ export async function withdrawReport(
   });
 }
 
+function keyLookup(input: CreateReportInput) {
+  return {
+    realm: input.realm,
+    sourceApp: input.sourceApp,
+    idempotencyKey: input.idempotencyKey,
+    operation: OPERATION,
+  };
+}
+
 async function storeReportResponse(
   trx: Transaction<Database>,
   input: CreateReportInput,
   report: CreatedReport,
 ): Promise<void> {
-  await trx
-    .updateTable("community_idempotency_key")
-    .set({ response_body: report })
-    .where("realm", "=", input.realm)
-    .where("source_app", "=", input.sourceApp)
-    .where("operation", "=", "comment.report")
-    .where("idempotency_key", "=", input.idempotencyKey)
-    .execute();
+  await storeIdempotentResponse(trx, keyLookup(input), report);
 }
 
 async function replayReportOrConflict(
@@ -988,44 +940,19 @@ async function replayReportOrConflict(
   input: CreateReportInput,
   requestHash: string,
 ): Promise<CreateReportResult> {
-  const existing = await trx
-    .selectFrom("community_idempotency_key")
-    .select(["request_hash", "response_body", "expires_at"])
-    .where("realm", "=", input.realm)
-    .where("source_app", "=", input.sourceApp)
-    .where("operation", "=", "comment.report")
-    .where("idempotency_key", "=", input.idempotencyKey)
-    .executeTakeFirst();
-
-  if (!existing || existing.expires_at <= new Date()) {
-    return { ok: false, code: "idempotency_key_reuse", status: 409 };
-  }
-
-  if (existing.request_hash !== requestHash) {
-    return { ok: false, code: "idempotency_key_reuse", status: 409 };
-  }
-
-  const stored = createdReportSchema.safeParse(existing.response_body);
-  if (!stored.success) {
-    return { ok: false, code: "idempotency_key_reuse", status: 409 };
-  }
-
-  return { ok: true, report: stored.data, replayed: true };
-}
-
-/**
- * `23505` do PostgreSQL — violação de unicidade.
- *
- * O erro chega do driver como objeto com `code`, não como classe tipada, então a
- * checagem é estrutural. Distinguir a violação de qualquer outro erro importa:
- * relançar tudo transformaria denúncia repetida em `500`, e engolir tudo
- * esconderia falha real de banco atrás de um `409` inventado.
- */
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === "23505"
+  const stored = await replayIdempotentResponse(
+    trx,
+    keyLookup(input),
+    requestHash,
+    createdReportSchema,
   );
+
+  // `null` cobre os três casos que §6 colapsa em `idempotency_key_reuse`:
+  // registro ausente/vencido, payload diferente na mesma chave, e corpo com
+  // forma desconhecida.
+  if (!stored) {
+    return { ok: false, code: "idempotency_key_reuse", status: 409 };
+  }
+
+  return { ok: true, report: stored, replayed: true };
 }

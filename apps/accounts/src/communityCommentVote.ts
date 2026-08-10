@@ -1,5 +1,6 @@
 import type { Kysely, Transaction } from "kysely";
 import type { Database } from "./db.js";
+import { createActor, resolveActorId } from "./communityActor.js";
 
 /**
  * T2.12 + T2.13 + T2.14 — voto, revisão de ranking e contagens públicas
@@ -164,49 +165,11 @@ async function lockVotableComment(
   return comment;
 }
 
-/**
- * Ator do usuário. Diferente da escrita de comentário, **não cria** o ator.
- *
- * Quem nunca participou da comunidade não tem ator, e criar um aqui gravaria
- * identidade comunitária por causa de um voto que pode ser recusado logo em
- * seguida (auto-voto, legado, tombstone). O ator nasce no primeiro comentário
- * (`communityCommentWrite.ts`); para votar, ele é criado sob demanda **depois**
- * das recusas.
- */
-async function resolveActorId(
-  trx: Transaction<Database>,
-  userId: string,
-): Promise<string | null> {
-  const row = await trx
-    .selectFrom("community_actor_account_link")
-    .select("actor_id")
-    .where("user_id", "=", userId)
-    .executeTakeFirst();
-
-  return row?.actor_id ?? null;
-}
-
-/** Cria ator e vínculo para quem vota antes de ter comentado. */
-async function createActor(
-  trx: Transaction<Database>,
-  userId: string,
-): Promise<string> {
-  // `defaultValues()`, nunca `values({})`: o objeto vazio compila para
-  // `INSERT INTO community_actor () VALUES ()`, que o PostgreSQL recusa. Chegou
-  // a produção uma vez (2026-08-08) e o teste de SQL compilado existe por isso.
-  const actor = await trx
-    .insertInto("community_actor")
-    .defaultValues()
-    .returning("id")
-    .executeTakeFirstOrThrow();
-
-  await trx
-    .insertInto("community_actor_account_link")
-    .values({ actor_id: actor.id, user_id: userId })
-    .execute();
-
-  return actor.id;
-}
+// Ator vem de `communityActor.ts`, e o voto usa **as duas** variantes de
+// propósito: `resolveActorId` (não cria) antes das recusas, porque criar aqui
+// gravaria identidade comunitária por causa de um voto que pode ser recusado
+// logo em seguida (auto-voto, legado, tombstone); `resolveOrCreateActor` só
+// depois delas, para quem vota antes de ter comentado.
 
 /** Voto atual do ator, ou `null` se ele ainda não votou. */
 async function currentVote(
@@ -317,6 +280,8 @@ export async function castVote(
         };
       }
 
+      // `createActor` e não `resolveOrCreateActor`: `existingActorId` já provou
+      // que não há vínculo, e reler seria uma ida ao banco redundante.
       const actorId = existingActorId ?? (await createActor(trx, input.actingUserId));
 
       // Voto atual do próprio ator. Não sofre do problema de leitura-antes-do-lock

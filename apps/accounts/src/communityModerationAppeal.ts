@@ -2,6 +2,17 @@ import { createHash, randomUUID } from "node:crypto";
 import type { Kysely, Transaction } from "kysely";
 import { z } from "zod";
 import type { Database } from "./db.js";
+import {
+  resolveActorId,
+  resolveOrCreateActor,
+  resolveUserIdOfActor,
+} from "./communityActor.js";
+import {
+  claimIdempotencyKey,
+  isUniqueViolation,
+  replayIdempotentResponse,
+  storeIdempotentResponse,
+} from "./communityIdempotency.js";
 
 /**
  * T2.25 + T2.26 — recurso do autor e sanção comunitária
@@ -26,7 +37,9 @@ import type { Database } from "./db.js";
  * — informação, não regra.
  */
 
-const IDEMPOTENCY_RETENTION_HOURS = 24;
+/** Namespaces das chaves de idempotência (§6): duas operações neste módulo. */
+const APPEAL_OPERATION = "moderation.appeal.create";
+const SANCTION_OPERATION = "moderation.sanction.create";
 
 /** Janela do recurso (decisão 47). O banco valida o mesmo valor por trigger. */
 export const APPEAL_WINDOW_MONTHS = 6;
@@ -88,39 +101,10 @@ function hashAppealRequest(input: FileAppealInput): string {
     .digest("hex");
 }
 
-async function resolveActorId(
-  trx: Transaction<Database>,
-  userId: string,
-): Promise<string | null> {
-  const row = await trx
-    .selectFrom("community_actor_account_link")
-    .select("actor_id")
-    .where("user_id", "=", userId)
-    .executeTakeFirst();
-
-  return row?.actor_id ?? null;
-}
-
-async function resolveOrCreateActor(
-  trx: Transaction<Database>,
-  userId: string,
-): Promise<string> {
-  const existing = await resolveActorId(trx, userId);
-  if (existing) return existing;
-
-  const actor = await trx
-    .insertInto("community_actor")
-    .defaultValues()
-    .returning("id")
-    .executeTakeFirstOrThrow();
-
-  await trx
-    .insertInto("community_actor_account_link")
-    .values({ actor_id: actor.id, user_id: userId })
-    .execute();
-
-  return actor.id;
-}
+// `resolveActorId`, `resolveOrCreateActor` e `resolveUserIdOfActor` vêm de
+// `communityActor.ts`. O recurso usa a variante que **não cria**: quem nunca
+// participou não é autor de comentário removido, e criar ator aqui gravaria
+// identidade por causa de um pedido que será recusado como `forbidden_appellant`.
 
 /**
  * `POST /internal/v1/moderation/decisions/:id/appeals` (§10, decisão 47).
@@ -149,38 +133,15 @@ export async function fileAppeal(
 
   try {
     return await db.transaction().execute(async (trx) => {
-      const expiresAt = new Date(
-        Date.now() + IDEMPOTENCY_RETENTION_HOURS * 60 * 60 * 1000,
-      );
-
-      const claimed = await trx
-        .insertInto("community_idempotency_key")
-        .values({
-          realm: input.realm,
-          source_app: input.sourceApp,
-          idempotency_key: input.idempotencyKey,
-          operation: "moderation.appeal.create",
-          acting_user_id: input.actingUserId,
-          request_hash: requestHash,
-          response_status: 201,
-          response_body: {},
-          expires_at: expiresAt,
-        })
-        .onConflict((oc) =>
-          oc
-            .columns(["realm", "source_app", "operation", "idempotency_key"])
-            .doUpdateSet({
-              acting_user_id: input.actingUserId,
-              request_hash: requestHash,
-              response_status: 201,
-              response_body: {},
-              created_at: new Date(),
-              expires_at: expiresAt,
-            })
-            .where("community_idempotency_key.expires_at", "<=", new Date()),
-        )
-        .returning("id")
-        .executeTakeFirst();
+      const claimed = await claimIdempotencyKey(trx, {
+        realm: input.realm,
+        sourceApp: input.sourceApp,
+        idempotencyKey: input.idempotencyKey,
+        operation: APPEAL_OPERATION,
+        actingUserId: input.actingUserId,
+        requestHash,
+        responseStatus: 201,
+      });
 
       if (!claimed) {
         return await replayAppealOrConflict(trx, input, requestHash);
@@ -300,14 +261,7 @@ export async function fileAppeal(
         appeal_deadline_at: deadline.toISOString(),
       };
 
-      await trx
-        .updateTable("community_idempotency_key")
-        .set({ response_body: appeal })
-        .where("realm", "=", input.realm)
-        .where("source_app", "=", input.sourceApp)
-        .where("operation", "=", "moderation.appeal.create")
-        .where("idempotency_key", "=", input.idempotencyKey)
-        .execute();
+      await storeIdempotentResponse(trx, appealKeyLookup(input), appeal);
 
       return { ok: true as const, appeal, replayed: false };
     });
@@ -628,38 +582,15 @@ export async function applySanction(
 
   try {
     return await db.transaction().execute(async (trx) => {
-      const expiresAtKey = new Date(
-        Date.now() + IDEMPOTENCY_RETENTION_HOURS * 60 * 60 * 1000,
-      );
-
-      const claimed = await trx
-        .insertInto("community_idempotency_key")
-        .values({
-          realm: input.realm,
-          source_app: input.sourceApp,
-          idempotency_key: input.idempotencyKey,
-          operation: "moderation.sanction.create",
-          acting_user_id: input.moderatorUserId,
-          request_hash: requestHash,
-          response_status: 201,
-          response_body: {},
-          expires_at: expiresAtKey,
-        })
-        .onConflict((oc) =>
-          oc
-            .columns(["realm", "source_app", "operation", "idempotency_key"])
-            .doUpdateSet({
-              acting_user_id: input.moderatorUserId,
-              request_hash: requestHash,
-              response_status: 201,
-              response_body: {},
-              created_at: new Date(),
-              expires_at: expiresAtKey,
-            })
-            .where("community_idempotency_key.expires_at", "<=", new Date()),
-        )
-        .returning("id")
-        .executeTakeFirst();
+      const claimed = await claimIdempotencyKey(trx, {
+        realm: input.realm,
+        sourceApp: input.sourceApp,
+        idempotencyKey: input.idempotencyKey,
+        operation: SANCTION_OPERATION,
+        actingUserId: input.moderatorUserId,
+        requestHash,
+        responseStatus: 201,
+      });
 
       if (!claimed) {
         return await replaySanctionOrConflict(trx, input, requestHash);
@@ -748,14 +679,7 @@ export async function applySanction(
         expires_at: input.expiresAt?.toISOString() ?? null,
       };
 
-      await trx
-        .updateTable("community_idempotency_key")
-        .set({ response_body: sanction })
-        .where("realm", "=", input.realm)
-        .where("source_app", "=", input.sourceApp)
-        .where("operation", "=", "moderation.sanction.create")
-        .where("idempotency_key", "=", input.idempotencyKey)
-        .execute();
+      await storeIdempotentResponse(trx, sanctionKeyLookup(input), sanction);
 
       return { ok: true as const, sanction, replayed: false };
     });
@@ -895,25 +819,22 @@ export async function listSanctions(
   }));
 }
 
-async function resolveUserIdOfActor(
-  trx: Transaction<Database>,
-  actorId: string,
-): Promise<string | null> {
-  const link = await trx
-    .selectFrom("community_actor_account_link")
-    .select("user_id")
-    .where("actor_id", "=", actorId)
-    .executeTakeFirst();
+function appealKeyLookup(input: FileAppealInput) {
+  return {
+    realm: input.realm,
+    sourceApp: input.sourceApp,
+    idempotencyKey: input.idempotencyKey,
+    operation: APPEAL_OPERATION,
+  };
+}
 
-  if (!link) return null;
-
-  const user = await trx
-    .selectFrom("users")
-    .select("id")
-    .where("id", "=", link.user_id)
-    .executeTakeFirst();
-
-  return user?.id ?? null;
+function sanctionKeyLookup(input: ApplySanctionInput) {
+  return {
+    realm: input.realm,
+    sourceApp: input.sourceApp,
+    idempotencyKey: input.idempotencyKey,
+    operation: SANCTION_OPERATION,
+  };
 }
 
 async function replayAppealOrConflict(
@@ -921,29 +842,18 @@ async function replayAppealOrConflict(
   input: FileAppealInput,
   requestHash: string,
 ): Promise<FileAppealResult> {
-  const existing = await trx
-    .selectFrom("community_idempotency_key")
-    .select(["request_hash", "response_body", "expires_at"])
-    .where("realm", "=", input.realm)
-    .where("source_app", "=", input.sourceApp)
-    .where("operation", "=", "moderation.appeal.create")
-    .where("idempotency_key", "=", input.idempotencyKey)
-    .executeTakeFirst();
+  const stored = await replayIdempotentResponse(
+    trx,
+    appealKeyLookup(input),
+    requestHash,
+    filedAppealSchema,
+  );
 
-  if (!existing || existing.expires_at <= new Date()) {
+  if (!stored) {
     return { ok: false, code: "idempotency_key_reuse", status: 409 };
   }
 
-  if (existing.request_hash !== requestHash) {
-    return { ok: false, code: "idempotency_key_reuse", status: 409 };
-  }
-
-  const stored = filedAppealSchema.safeParse(existing.response_body);
-  if (!stored.success) {
-    return { ok: false, code: "idempotency_key_reuse", status: 409 };
-  }
-
-  return { ok: true, appeal: stored.data, replayed: true };
+  return { ok: true, appeal: stored, replayed: true };
 }
 
 async function replaySanctionOrConflict(
@@ -951,36 +861,16 @@ async function replaySanctionOrConflict(
   input: ApplySanctionInput,
   requestHash: string,
 ): Promise<ApplySanctionResult> {
-  const existing = await trx
-    .selectFrom("community_idempotency_key")
-    .select(["request_hash", "response_body", "expires_at"])
-    .where("realm", "=", input.realm)
-    .where("source_app", "=", input.sourceApp)
-    .where("operation", "=", "moderation.sanction.create")
-    .where("idempotency_key", "=", input.idempotencyKey)
-    .executeTakeFirst();
-
-  if (!existing || existing.expires_at <= new Date()) {
-    return { ok: false, code: "idempotency_key_reuse", status: 409 };
-  }
-
-  if (existing.request_hash !== requestHash) {
-    return { ok: false, code: "idempotency_key_reuse", status: 409 };
-  }
-
-  const stored = appliedSanctionSchema.safeParse(existing.response_body);
-  if (!stored.success) {
-    return { ok: false, code: "idempotency_key_reuse", status: 409 };
-  }
-
-  return { ok: true, sanction: stored.data, replayed: true };
-}
-
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === "23505"
+  const stored = await replayIdempotentResponse(
+    trx,
+    sanctionKeyLookup(input),
+    requestHash,
+    appliedSanctionSchema,
   );
+
+  if (!stored) {
+    return { ok: false, code: "idempotency_key_reuse", status: 409 };
+  }
+
+  return { ok: true, sanction: stored, replayed: true };
 }
