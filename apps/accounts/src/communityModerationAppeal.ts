@@ -114,9 +114,25 @@ class AppealRejection extends Error {
  * recurso por causa da data em que o moderador decidiu. Achado de review,
  * PR #251.
  *
- * `setUTCMonth` e não `setMonth`: `closed_at` vem `timestamptz` e é comparado em
- * UTC pela trigger; usar o fuso local do processo deslocaria o prazo pelo
- * `TZ` da VM.
+ * `setUTCMonth` e não `setMonth`: usar o fuso local do processo deslocaria o
+ * prazo pelo `TZ` da VM, que ninguém garante.
+ *
+ * ## O `TimeZone` da sessão do banco **não** entra nesta conta
+ *
+ * `appeal_deadline_at` e `closed_at` são `TIMESTAMPTZ`, e `INTERVAL` sobre
+ * `timestamptz` opera no instante absoluto — o `TimeZone` da sessão muda só como
+ * o valor é *exibido*. Medido em produção (`artificio_auth`, 2026-08-10), com a
+ * base em `2026-08-31 23:00Z`, que é 1º de setembro em Tóquio:
+ *
+ * ```
+ * set time zone 'UTC';        -> 2027-02-28 23:00:00 (em UTC)
+ * set time zone 'Asia/Tokyo'; -> 2027-02-28 23:00:00 (em UTC)
+ * ```
+ *
+ * Mesmo instante nos dois, inclusive nas fronteiras de mês. Um review sugeriu
+ * fixar `SET TIME ZONE 'UTC'` na conexão antes do `INSERT`; a medição mostra que
+ * seria uma escrita de sessão sem efeito sobre a comparação da trigger, num pool
+ * compartilhado. Não foi feito.
  */
 export function addMonthsLikePostgres(from: Date, months: number): Date {
   const day = from.getUTCDate();
@@ -869,6 +885,7 @@ function appealKeyLookup(input: FileAppealInput) {
     sourceApp: input.sourceApp,
     idempotencyKey: input.idempotencyKey,
     operation: APPEAL_OPERATION,
+    actingUserId: input.actingUserId,
   };
 }
 
@@ -878,6 +895,7 @@ function sanctionKeyLookup(input: ApplySanctionInput) {
     sourceApp: input.sourceApp,
     idempotencyKey: input.idempotencyKey,
     operation: SANCTION_OPERATION,
+    actingUserId: input.moderatorUserId,
   };
 }
 

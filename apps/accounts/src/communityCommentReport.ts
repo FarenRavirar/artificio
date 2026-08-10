@@ -446,9 +446,9 @@ export async function createReport(
         return await recordApprovedVersionReport(
           trx,
           input,
-          comment,
           versionId,
           actorId,
+          details,
         );
       }
 
@@ -492,9 +492,11 @@ export async function createReport(
 async function recordApprovedVersionReport(
   trx: Transaction<Database>,
   input: CreateReportInput,
-  comment: ReportableComment,
   versionId: string,
   actorId: string,
+  // Já validado contra a política do motivo por quem chama. Reler
+  // `input.details` aqui reintroduziria a chance de gravar sem passar por ela.
+  details: string | null,
 ): Promise<CreateReportResult> {
   const approval = await trx
     .selectFrom("community_comment_version_approval")
@@ -528,7 +530,7 @@ async function recordApprovedVersionReport(
       versionId,
       actorId,
       caseId,
-      input.details,
+      details,
     );
   }
 
@@ -547,7 +549,7 @@ async function recordApprovedVersionReport(
         reporter_actor_id: actorId,
         case_id: closedCase.id,
         reason_code: input.reasonCode,
-        details: input.details,
+        details,
         state: "no_determination",
         resolved_at: createdAt,
         resolved_by_actor_id: approval.approved_by_actor_id,
@@ -874,6 +876,7 @@ function keyLookup(input: CreateReportInput) {
     sourceApp: input.sourceApp,
     idempotencyKey: input.idempotencyKey,
     operation: OPERATION,
+    actingUserId: input.actingUserId,
   };
 }
 

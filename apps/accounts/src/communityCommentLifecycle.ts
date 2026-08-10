@@ -432,6 +432,7 @@ function keyLookup(input: EditCommentInput) {
     sourceApp: input.sourceApp,
     idempotencyKey: input.idempotencyKey,
     operation: EDIT_OPERATION,
+    actingUserId: input.actingUserId,
   };
 }
 

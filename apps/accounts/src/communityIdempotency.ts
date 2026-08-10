@@ -41,7 +41,18 @@ export interface IdempotencyClaim {
   operation: string;
   actingUserId: string | null;
   requestHash: string;
-  /** Status que a resposta final terá; gravado agora e conferido no replay. */
+  /**
+   * Status da resposta, gravado em `response_status`.
+   *
+   * **Não** é conferido no replay: `replayIdempotentResponse` devolve só o
+   * corpo, e o status vem do handler, que sabe qual é o dele — a repetição de
+   * uma criação responde `201` porque a rota responde `201`, não porque leu a
+   * coluna. O comentário anterior aqui dizia "conferido no replay" e era falso.
+   *
+   * A coluna existe para auditoria e para um consumidor futuro do registro (o
+   * contrato §6 fala em devolver "mesmo status, mesmo corpo"), então o valor
+   * continua sendo gravado corretamente em vez de virar constante.
+   */
   responseStatus: number;
 }
 
@@ -111,16 +122,36 @@ export interface IdempotencyLookup {
   sourceApp: string;
   idempotencyKey: string;
   operation: string;
+  /**
+   * Ator que reivindicou a chave. Confere no replay — ver a nota de
+   * `replayIdempotentResponse` sobre por que não basta o `request_hash`.
+   */
+  actingUserId: string | null;
 }
 
 /**
  * Repetição da chave: devolve a resposta original, ou `null` quando o registro
  * não serve.
  *
- * `null` cobre os três casos que o contrato colapsa em
+ * `null` cobre os quatro casos que o contrato colapsa em
  * `409`/`idempotency_key_reuse`: registro ausente ou vencido, `request_hash`
- * diferente (payload novo na mesma chave) e corpo gravado com forma
- * desconhecida.
+ * diferente (payload novo na mesma chave), **ator diferente do que reivindicou a
+ * chave**, e corpo gravado com forma desconhecida.
+ *
+ * ## Por que o ator é conferido aqui, e não só pelo `request_hash`
+ *
+ * Os seis handlers incluem o id do ator no `request_hash` (medido: `rg` por
+ * `hash*Request` em `apps/accounts/src`), então hoje um ator diferente já produz
+ * hash diferente e cai no `409`. A conferência abaixo é redundante **com essa
+ * convenção**, e é exatamente por isso que existe: a convenção vive espalhada em
+ * seis funções de hash, e a sétima — escrita meses depois por quem não leu esta
+ * nota — omitiria o ator sem nada falhar. O efeito seria um usuário receber a
+ * resposta de uma operação de outro, com o `Idempotency-Key` funcionando como
+ * senha adivinhável.
+ *
+ * `IS NOT DISTINCT FROM` e não `=`: `acting_user_id` é nulável, e `NULL = NULL`
+ * é `NULL` em SQL — a comparação direta descartaria toda operação sem ator, que
+ * passaria a nunca replicar.
  *
  * O último merece nota. `response_body` é `jsonb` **lido do banco**, portanto
  * `unknown` até passar por normalizador (`AGENTS.md` §Regras Gerais de Código);
@@ -142,7 +173,7 @@ export async function replayIdempotentResponse<T>(
 ): Promise<T | null> {
   const existing = await trx
     .selectFrom("community_idempotency_key")
-    .select(["request_hash", "response_body", "expires_at"])
+    .select(["request_hash", "response_body", "expires_at", "acting_user_id"])
     .where("realm", "=", lookup.realm)
     .where("source_app", "=", lookup.sourceApp)
     .where("operation", "=", lookup.operation)
@@ -155,6 +186,12 @@ export async function replayIdempotentResponse<T>(
   // escrita por script operacional ou por versão anterior do handler não pode
   // virar replay de uma operação de ontem.
   if (!existing || existing.expires_at <= new Date()) return null;
+
+  // Comparação NULL-safe em TypeScript: `null === null` é `true` aqui, ao
+  // contrário do `NULL = NULL` do SQL. Operação sem ator continua replicando.
+  if ((existing.acting_user_id ?? null) !== (lookup.actingUserId ?? null)) {
+    return null;
+  }
 
   if (existing.request_hash !== requestHash) return null;
 

@@ -640,6 +640,7 @@ function keyLookup(input: ResolveCaseInput) {
     sourceApp: input.sourceApp,
     idempotencyKey: input.idempotencyKey,
     operation: OPERATION,
+    actingUserId: input.moderatorUserId,
   };
 }
 

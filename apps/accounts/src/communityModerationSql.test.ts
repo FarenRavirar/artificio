@@ -92,6 +92,32 @@ function captureDb(): { db: Kysely<Database>; capture: Capture } {
   return { db, capture: { sqls, params, enqueue: (rows) => queue.push(rows) } };
 }
 
+/**
+ * Valor de **uma coluna nomeada** do `INSERT` compilado, pelo índice real dela.
+ *
+ * Asserção por `toContain` sobre a lista inteira de parâmetros passa se
+ * *qualquer* posição casar — um teste de `appeal_deadline_at` continuaria verde
+ * com a data certa gravada em `submitted_at` e o prazo errado. O índice sai da
+ * lista de colunas que o Kysely emitiu, então a asserção fala da coluna que
+ * pretende falar.
+ */
+function paramDaColuna(
+  ctx: { capture: Capture },
+  indice: number,
+  coluna: string,
+): unknown {
+  const lista = /insert into "[a-z_]+" \(([^)]+)\)/.exec(ctx.capture.sqls[indice]);
+  if (!lista) throw new Error(`consulta ${indice} não é um INSERT com colunas`);
+
+  const colunas = [...lista[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  const posicao = colunas.indexOf(coluna);
+  if (posicao === -1) {
+    throw new Error(`coluna ${coluna} ausente do INSERT: ${colunas.join(", ")}`);
+  }
+
+  return ctx.capture.params[indice][posicao];
+}
+
 const DENUNCIANTE_ATOR = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const AUTOR_ATOR = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const MODERADOR_ATOR = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
@@ -255,20 +281,10 @@ describe("createReport — SQL compilado", () => {
 
     expect(indice).toBeGreaterThan(-1);
 
-    // Índice derivado da lista de colunas do `INSERT`, não `toContain(null)`:
-    // o `toContain` passava se **qualquer** parâmetro fosse nulo, então o teste
-    // continuaria verde com o `actor_id` preenchido e outra coluna nula.
-    const colunas = [
-      ...(ctx.capture.sqls[indice].match(/insert into "community_moderation_audit" \(([^)]+)\)/) ??
-        [])[1].matchAll(/"([^"]+)"/g),
-    ].map((m) => m[1]);
-    const posicao = colunas.indexOf("actor_id");
-
-    expect(posicao).toBeGreaterThan(-1);
     // Atribuí-lo ao quinto denunciante faria a auditoria dizer que uma pessoa
     // ocultou o comentário, quando o que ocultou foi o limiar (decisão 34).
-    expect(ctx.capture.params[indice][posicao]).toBeNull();
-    expect(ctx.capture.params[indice]).toContain("report_threshold_reached");
+    expect(paramDaColuna(ctx, indice, "actor_id")).toBeNull();
+    expect(paramDaColuna(ctx, indice, "reason")).toBe("report_threshold_reached");
   });
 
   it("fixa reported_version_id na versão corrente", async () => {
@@ -909,12 +925,9 @@ describe("fileAppeal — SQL compilado", () => {
     //
     // `validate_community_comment_appeal` exige **exatamente** esse valor.
     // Aceitá-lo do cliente daria ao autor a chance de esticar o próprio prazo.
-    const datas = ctx.capture.params[indice].filter(
-      (p): p is Date => p instanceof Date,
-    );
-    expect(datas.map((d) => d.toISOString())).toContain(
-      "2027-02-01T12:00:00.000Z",
-    );
+    const prazo = paramDaColuna(ctx, indice, "appeal_deadline_at");
+    expect(prazo).toBeInstanceOf(Date);
+    expect((prazo as Date).toISOString()).toBe("2027-02-01T12:00:00.000Z");
   });
 
   it("satura no fim do mês, como o INTERVAL do PostgreSQL", async () => {
@@ -945,16 +958,11 @@ describe("fileAppeal — SQL compilado", () => {
     const indice = ctx.capture.sqls.findIndex((sql) =>
       sql.includes('insert into "community_comment_appeal"'),
     );
-    const datas = ctx.capture.params[indice].filter(
-      (p): p is Date => p instanceof Date,
-    );
-
-    expect(datas.map((d) => d.toISOString())).toContain(
-      "2027-02-28T12:00:00.000Z",
-    );
-    expect(datas.map((d) => d.toISOString())).not.toContain(
-      "2027-03-03T12:00:00.000Z",
-    );
+    const prazo = paramDaColuna(ctx, indice, "appeal_deadline_at");
+    expect(prazo).toBeInstanceOf(Date);
+    // `2027-02-28`, o clamp do PostgreSQL — nunca `2027-03-03`, o transbordo do
+    // `Date.setUTCMonth`.
+    expect((prazo as Date).toISOString()).toBe("2027-02-28T12:00:00.000Z");
   });
 
   it("recusa recurso de decisão que não removeu", async () => {

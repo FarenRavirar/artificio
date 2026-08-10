@@ -52,11 +52,20 @@ import {
  * que é o check-before-transaction que §6 nomeia como defeito a não replicar.
  */
 
-/** `contrato-http-v1.md` §6 — retenção de 24 horas. */
 /**
- * Namespace da chave de idempotência (§6). Criação e resposta são operações
- * distintas: a mesma chave em `comment.create` e `comment.reply` são registros
- * separados, e é isso que impede um retry de resposta colidir com uma criação.
+ * Namespace da chave de idempotência.
+ *
+ * Os literais `comment.create` e `comment.reply` são **escolha de
+ * implementação**, não valores fixados pelo contrato — busca negativa: `rg
+ * "comment.create|comment.reply"` em `contrato-http-v1.md` devolve zero. O que
+ * o contrato fixa (§6) é que a chave identifica uma operação; o par
+ * `(operation, idempotency_key)` entra na unicidade, e separar criação de
+ * resposta é o que impede um retry de resposta colidir com uma criação que usou
+ * a mesma chave.
+ *
+ * Trocar estes literais migra chaves vivas: uma requisição em voo com a chave
+ * gravada sob o nome antigo deixaria de encontrá-la e criaria comentário
+ * duplicado.
  */
 function operationOf(input: CreateCommentInput): string {
   return input.parentId ? "comment.reply" : "comment.create";
@@ -175,9 +184,14 @@ function hashRequest(input: CreateCommentInput): string {
 }
 
 // `resolveOrCreateActor` e `resolveUserIdOfActor` vêm de `communityActor.ts`.
-// A criação aqui é incondicional — quem comenta pela primeira vez precisa de
-// ator para o comentário existir com autor resolvível —, ao contrário do voto e
-// da denúncia, que resolvem antes das recusas e só criam depois delas.
+//
+// A criação aqui é incondicional, ao contrário do voto e da denúncia, que
+// resolvem antes das recusas e só criam depois delas. O motivo é estrutural:
+// `spec.md` 7a diz que o ator comunitário não é a linha autenticável da conta, e
+// `community_comment.community_actor_id` referencia `community_actor` — sem ator
+// o comentário não pode existir com autor resolvível. Não há recusa posterior
+// nesta função que torne o ator descartável, então adiar a criação só produziria
+// uma ida extra ao banco.
 
 /**
  * Publicador afirmado pelo domínio, reduzido a `null` quando a conta não existe
@@ -559,6 +573,7 @@ function keyLookup(input: CreateCommentInput) {
     sourceApp: input.source_app,
     idempotencyKey: input.idempotencyKey,
     operation: operationOf(input),
+    actingUserId: input.actingUserId,
   };
 }
 
