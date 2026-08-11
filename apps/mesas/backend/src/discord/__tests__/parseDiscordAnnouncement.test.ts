@@ -411,6 +411,30 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table.contact_url).toBe('https://forms.gle/mVvUiUTq7Z5yJTWT9');
   });
 
+  // O ramo de label APRENDIDO (`labelAliases.contact_url`) pulava o filtro de
+  // mídia e ainda devolvia `confident: true`, que suprime a marcação de
+  // revisão. Label aprendido diz onde olhar, não que a URL serve.
+  it('ignora mídia na linha do label aprendido e devolve o formulário', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Fate Core',
+          'Mesa: Blue Lock Awakening',
+          'Modalidade: Online',
+          'Vagas: 4',
+          'Ficha de interesse: https://i.pinimg.com/736x/48/08/4b/48084b3c.jpg https://forms.gle/mVvUiUTq7Z5yJTWT9',
+        ].join('\n'),
+      }),
+      [],
+      undefined,
+      undefined,
+      { contact_url: ['ficha de interesse'] },
+    );
+
+    expect(draft?.table.contact_url).toBe('https://forms.gle/mVvUiUTq7Z5yJTWT9');
+    expect(draft?.missing_fields).not.toContain('contact_url:suspicious');
+  });
+
   // Não virou allowlist de domínio: o achado de 2026-07-10 (site pessoal de GM
   // bloqueado indevidamente) continua valendo, e o filtro novo só recusa por
   // evidência positiva de mídia.
@@ -458,6 +482,9 @@ describe('parseDiscordAnnouncement', () => {
   it.each([
     ['<@369323334355255297>', 'menção de usuário'],
     ['<@!369323334355255297>', 'menção de usuário com apelido'],
+    ['<@&369323334355255297>', 'menção de cargo'],
+    ['<#1012065641282404481>', 'menção de canal'],
+    ['<t:1754870400:F>', 'timestamp'],
     ['369323334355255297', 'snowflake solto'],
   ])('nunca usa %s como título (%s)', (threadName) => {
     const draft = parseDiscordAnnouncement(
@@ -467,9 +494,9 @@ describe('parseDiscordAnnouncement', () => {
       }),
     );
 
-    // `null` é o resultado desejado: sem nome real, o draft cai em revisão em
-    // vez de nascer com um ID no lugar do título.
-    expect(draft?.table.title ?? '').not.toMatch(/^\d{17,20}$/);
+    // `null` é o resultado desejado: token cru do Discord não tem nome legível,
+    // então o draft cai em revisão pedindo o nome real da mesa.
+    expect(draft?.table.title).toBeNull();
   });
 
   // O piso de 17 dígitos existe para não recusar título legitimamente numérico.
@@ -1082,6 +1109,10 @@ describe('parseDiscordAnnouncement', () => {
 
     expect(draft?.table.vtt_platform_id).toBe('owlbear');
     expect(draft?.table.communication_platform_id).toBe('discord-plat');
+    // O hint tem de apontar o trecho que originou o match — gravar "Discord"
+    // (o label) ensinaria ao learning que Discord é a VTT.
+    expect(draft?.table._vtt_source_hint).toContain('Owlbear');
+    expect(draft?.table._vtt_source_hint).not.toBe('Discord');
   });
 
   it('reconhece VTT em anúncio sem label "Plataforma:" dedicado', () => {

@@ -403,6 +403,7 @@ async function buildClosedTablePayload(table: {
   archived_at: Date | string | null;
   archived_by: string | null;
   closed_reason: string | null;
+  updated_at: Date | string | null;
 }): Promise<{
   slug: string;
   title: string;
@@ -415,14 +416,30 @@ async function buildClosedTablePayload(table: {
   // Importada nunca teve ação humana de encerramento: a data é o limite
   // calculado (`starts_at` ou 5 dias após criação, o que vencer primeiro), a
   // mesma regra que `isImportedTableExpired` aplica para escondê-la.
+  // `ended`/`cancelled` mudam o status sem tocar `archived_at`, então a última
+  // escrita é a melhor aproximação da data de encerramento disponível hoje.
+  // Aproximação, não registro: `updated_at` também se move em qualquer edição
+  // posterior. Persistir a data da transição exigiria coluna própria — fica
+  // como a lacuna conhecida, preferível a não exibir data nenhuma.
   const closedAt = table.archived_at
     ? new Date(table.archived_at).toISOString()
     : importadaExpirada
       ? importedTableExpiryDate(table).toISOString()
-      : null;
+      : (table.status === 'ended' || table.status === 'cancelled') && table.updated_at
+        ? new Date(table.updated_at).toISOString()
+        : null;
 
+  // `ended`/`cancelled` são decisão humana registrada no status, mesmo sem
+  // `archived_by`: a mesa encerrou ou foi cancelada por quem a administra.
+  // `unknown` fica para o que não se pode afirmar — mesa arquivada antes da
+  // `migration_156`, sem autoria nem status terminal.
   const reason =
-    table.closed_reason ?? (importadaExpirada ? 'auto_expired' : table.archived_at ? 'unknown' : 'unknown');
+    table.closed_reason
+    ?? (importadaExpirada
+      ? 'auto_expired'
+      : table.status === 'ended' || table.status === 'cancelled'
+        ? table.status
+        : 'unknown');
 
   // Só consulta o nome quando há autor gravado — evita uma query por render
   // nas 64 mesas antigas, que nunca terão `archived_by`.
@@ -562,6 +579,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
         'gm.reviews_count as gm_reviews_count',
         't.archived_by',
         't.closed_reason',
+        't.updated_at', // data aproximada de encerramento em `ended`/`cancelled`
       ])
       .where('t.slug', '=', slug)
       .executeTakeFirst();
@@ -584,20 +602,32 @@ router.get('/:slug', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Mesa não encontrada.' });
     }
 
-    // Mesa que NUNCA foi pública (rascunho, revisão pendente) continua 404, não
-    // 410: "encerrada" afirma que existiu publicamente, e o 410 exporia que há
-    // um rascunho naquele slug para quem só chutou a URL. Só quem esteve no ar
-    // — `active` que arquivou/expirou, ou `ended`/`cancelled` — vira encerrada.
-    const nuncaFoiPublica = table.status === 'draft' || table.status === 'pending_review';
-    if (nuncaFoiPublica) {
-      return res.status(404).json({ error: 'Mesa não encontrada.' });
-    }
+    // O 410 é para mesa ENCERRADA, e "não pública" é um conjunto maior que
+    // isso. `table_status` tem 6 valores e cada grupo responde diferente:
+    //
+    //   draft, pending_review  → 404. Nunca esteve no ar; 410 afirmaria que
+    //                            existiu e exporia o rascunho a quem chutou a URL.
+    //   full                   → segue o fluxo normal (200). Mesa lotada continua
+    //                            pública e visível — só não aceita mais gente.
+    //   ended, cancelled       → 410, estado terminal explícito.
+    //   active + arquivada/expirada → 410, saiu do ar sem mudar de status.
+    //
+    // Listar os terminais em vez de negar `isPublicTable` evita que um estado
+    // novo no enum caia em "encerrada" por omissão.
+    const TERMINAL_STATUSES = new Set(['ended', 'cancelled']);
+    const saiuDoAr = table.archived_at != null || isImportedTableExpired(table);
+    const encerrada = TERMINAL_STATUSES.has(table.status) || (table.status === 'active' && saiuDoAr);
 
-    if (!isPublicTable(table)) {
+    if (encerrada) {
       return res.status(410).json({
         error: 'Mesa encerrada.',
         data: await buildClosedTablePayload(table),
       });
+    }
+
+    // Sobra do conjunto não-público: rascunho e revisão pendente.
+    if (!isPublicTable(table) && table.status !== 'full') {
+      return res.status(404).json({ error: 'Mesa não encontrada.' });
     }
 
     const [tableWithSystem] = await hydrateTableSystemFields([table]);

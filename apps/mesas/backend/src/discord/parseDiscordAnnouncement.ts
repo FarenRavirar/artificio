@@ -1559,8 +1559,14 @@ function extractContactUrl(text: string, labelAliases: string[] = []): { url: st
     .filter((url) => !isSuspiciousUrl(url));
   if (allMatches.length === 0) return null;
   const learnedLabelValue = labelAliases.length > 0 ? extractLabelValue(text, labelAliases) : null;
+  // Mesmo filtro de mídia do `allMatches` acima: sem ele o ramo de label
+  // aprendido devolvia a primeira URL da linha ainda que fosse imagem/vídeo, e
+  // pior — com `confident: true`, que pula a marcação de revisão. Label
+  // aprendido é sinal de onde olhar, não licença para aceitar qualquer URL.
   const learnedUrl = learnedLabelValue
-    ? extractRawHttpUrls(learnedLabelValue).map(trimTrailingUrlWrappers)[0] ?? null
+    ? extractRawHttpUrls(learnedLabelValue)
+      .map(trimTrailingUrlWrappers)
+      .find((url) => !isSuspiciousUrl(url)) ?? null
     : null;
   if (learnedUrl) return { url: learnedUrl, confident: true };
   const known = allMatches.find(isKnownContactUrl);
@@ -2540,8 +2546,16 @@ export function parseDiscordAnnouncement(
   const vttFromLabel = platforms?.vtt?.length && platformsLabelValue
     ? findPlatformMatch(platformsLabelValue, platforms.vtt, platformsLabelValue)
     : null;
-  const vttMatch = vttFromLabel
-    ?? (platforms?.vtt?.length ? findPlatformMatch(extractPlatformContextLines(body), platforms.vtt, null) : null);
+  // O trecho que originou o match precisa acompanhar o match: `_vtt_source_hint`
+  // alimenta o learning token→entidade (achado de 2026-07-17), e gravar
+  // "Discord" — o label — como hint de uma VTT casada no corpo ensinaria a
+  // associação errada. Quando o contexto resolve, o hint é a linha do contexto.
+  const vttContextLines = extractPlatformContextLines(body);
+  const vttFromContext = !vttFromLabel && platforms?.vtt?.length
+    ? findPlatformMatch(vttContextLines, platforms.vtt, null)
+    : null;
+  const vttMatch = vttFromLabel ?? vttFromContext;
+  const vttSourceHint = vttFromLabel ? platformsLabelValue : (vttFromContext ? vttContextLines : platformsLabelValue);
   const communicationMatch = platforms?.communication?.length
     ? findPlatformMatch(platformsLabelValue ?? fullText, platforms.communication, platformsLabelValue)
     : null;
@@ -2626,12 +2640,15 @@ export function parseDiscordAnnouncement(
   }
 
   const table: DiscordTableDraftTable = {
-    // Último fallback usa `threadName` CRU, sem passar por `splitThreadName`
+    // Último fallback usava `threadName` CRU, sem passar por `splitThreadName`
     // nem `normalizeTitle` — foi por aqui que o snowflake do mestre chegou ao
     // título no relato de 2026-08-11, mesmo com as duas guardas a montante.
+    // `normalizeTitle` (e não só `dropSnowflakeTitle`) porque menção de canal
+    // `<#id>` e timestamp `<t:...>` também são token cru sem nome legível:
+    // `RAW_DISCORD_TOKEN_RE` cobre os três, o snowflake nu é a rede final.
     // `null` é melhor que um ID: o draft cai em revisão pedindo o nome real,
     // em vez de nascer com um número que ninguém reconhece como mesa.
-    title: title || dropSnowflakeTitle(threadName) || null,
+    title: title || normalizeTitle(threadName) || null,
     system_name: systemName,
     system_id: systemId,
     raw_system_hint: rawSystemHint,
@@ -2658,7 +2675,7 @@ export function parseDiscordAnnouncement(
     raw_scenario_hint: rawScenarioHint,
     _scenario_source_hint: scenarioSourceHint,
     vtt_platform_id: vttMatch?.id ?? null,
-    _vtt_source_hint: platformsLabelValue,
+    _vtt_source_hint: vttSourceHint,
     communication_platform_id: communicationMatch?.id ?? null,
     _communication_source_hint: platformsLabelValue,
     age_rating: ageRating,

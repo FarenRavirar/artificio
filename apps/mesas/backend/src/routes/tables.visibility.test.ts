@@ -162,6 +162,35 @@ describe('GET /api/v1/tables/:slug — visibilidade pública', () => {
     ]);
   });
 
+  // Estado terminal explícito: 410 mesmo sem `archived_at`, com o motivo vindo
+  // do próprio status e a data aproximada por `updated_at`.
+  it.each(['ended', 'cancelled'])('devolve 410 para mesa %s', async (status) => {
+    dbMocks.executeTakeFirst.mockResolvedValue({
+      ...visibleTable,
+      status,
+      archived_at: null,
+      archived_by: null,
+      closed_reason: null,
+      updated_at: new Date('2026-08-01T12:00:00.000Z'),
+    });
+
+    const response = await request(makeApp()).get('/api/v1/tables/mesa-publica');
+
+    expect(response.status).toBe(410);
+    expect(response.body.data.closed_reason).toBe(status);
+    expect(response.body.data.closed_at).toBe('2026-08-01T12:00:00.000Z');
+  });
+
+  // Mesa lotada continua pública — só não aceita mais gente. Tratá-la como
+  // encerrada esconderia do jogador a mesa que ele quer acompanhar.
+  it('mantém mesa full acessível (200), não encerrada', async () => {
+    dbMocks.executeTakeFirst.mockResolvedValue({ ...visibleTable, status: 'full' });
+
+    const response = await request(makeApp()).get('/api/v1/tables/mesa-publica');
+
+    expect(response.status).toBe(200);
+  });
+
   it('mantém mesa pública acessível', async () => {
     dbMocks.executeTakeFirst.mockResolvedValue(visibleTable);
 
