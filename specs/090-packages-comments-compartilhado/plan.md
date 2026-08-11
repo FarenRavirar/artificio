@@ -123,6 +123,28 @@ polling e eventos externos/outbox. Voto e edição não produzem notificação. 
 remoção/restauração, decisão de denúncia e recurso usam o mesmo núcleo para avisos privados e
 mínimos definidos na spec.
 
+**Consolidação decidida em 2026-08-10 (decisão do mantenedor).** A Fase 3 deixou de ser só "API +
+central sobre o que a Fase 2 escreveu": ela unifica os **três** sistemas de notificação que existem
+hoje em produção. `notification_event`/`notification_receipt` é a base — único com `realm`
+estrutural, `event_id` idempotente e separação evento/entrega. `download_notification` e o
+`notifications` do `mesas` viram produtores dele, cedendo antes as capacidades que têm e a base não
+tem: `read-all` e `metadata` JSONB do `mesas`, padrão React Query + Zod do `downloads`. Três
+consequências de schema entram na mesma migration da fase: `source_app` passa a aceitar todos os
+módulos e `accounts`; índice por `(occurred_at, id)` do evento sustenta o cursor; e a entrega sai
+da transação da ação de mérito via outbox — o evento continua transacional, o fan-out não.
+
+O motivo do outbox veio de medição, não de desenho: quatro das cinco emissões do `downloads`
+(`moderation.ts:152,227,354`, `reports.ts:308`) rodam **dentro** de `db.transaction()` com `trx`,
+então falha de INSERT de notificação hoje reverte a própria moderação; a quinta
+(`systemSuggestionsAdmin.ts:346`) é fire-and-forget pós-commit por decisão documentada em
+`:339-341`. Acoplar e desacoplar puro trocam um defeito pelo outro; outbox resolve os dois.
+
+Na superfície, a fase entrega central **e** sino: a central canônica em
+`accounts.artificiorpg.com/conta/notificacoes` como página completa, com lista única, rótulo de
+origem e filtro por módulo; e sino compartilhado (`packages/ui`) no header de cada app, lendo a
+mesma fonte — aprovação nominal concedida na mesma decisão. Notificação lida não expira. Aviso de
+moderação aparece mínimo na lista, com motivo e recurso no detalhe.
+
 ### Árvore, voto e ranking (requisitos 8-12)
 
 - `comment` usa UUID v4, `parent_id`, `root_id`, `depth<=4`, `created_revision` e estado de

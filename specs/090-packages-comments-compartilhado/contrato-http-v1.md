@@ -259,12 +259,14 @@ verificado contra `accounts.users`. Papel insuficiente → `403`/`forbidden_role
 |---|---|
 | `POST /internal/v1/comments/:id/removal` | tombstone moderador; body `{ reason }` ≤500; auditoria na mesma transação; notifica o autor |
 | `POST /internal/v1/comments/:id/restore` | limpa `removed_at`/`removed_by`/`removed_reason`; registra quem restaurou; notifica o autor |
-| `GET /internal/v1/comments/moderation-queue` | fila agregada por caso; filtro por `realm`, `source_app`, estado, prioridade; cursor |
+| `GET /internal/v1/comments/moderation-queue` | fila agregada por caso; filtro por estado e prioridade (`0..2`); cursor. `realm` e `source_app` saem da **credencial** — `?source_app=` diferente do dela é `403`/`forbidden_source_app` |
 | `GET /internal/v1/comments/moderation-log` | histórico de ações; cursor |
 | `GET /internal/v1/comments/:id/versions` | versão denunciada, versão atual e diff; **restrito à moderação** |
 
-`realm` do filtro é limitado ao da credencial — beta nunca aparece misturado com produção
-(requisito 27a).
+`realm` **e** `source_app` saem da credencial, nunca da query — beta nunca aparece misturado
+com produção, e um módulo nunca lê a fila de outro (requisito 27a). O `?source_app=` é aceito
+só quando igual ao da credencial; diferente é `403`, e não filtro silencioso, para quem pediu
+o app errado não ler uma fila vazia como ausência de casos.
 
 **Moderação nunca reescreve texto de terceiro** (decisão 22). Não existe rota de edição
 moderadora de corpo. Retirada é por tombstone; correção exige nova edição do próprio autor.
@@ -277,8 +279,19 @@ moderadora de corpo. Retirada é por tombstone; correção exige nova edição d
 denúncia, retirada de denúncia, fechamento de caso, recurso, sanção, invalidação de voto.
 8-128 ASCII. Retenção **24 horas**.
 
-- Repetição com **mesmo payload** → devolve a resposta original (mesmo status, mesmo corpo).
+- Repetição com **mesmo payload, mesmo ator** → devolve a resposta original (mesmo status,
+  mesmo corpo).
 - Repetição com **payload diferente** → `409`/`idempotency_key_reuse`.
+- Mesma chave vinda de **outro `X-Acting-User-Id`** → `409`, nunca a resposta do primeiro.
+  Sem isso, um `Idempotency-Key` adivinhado devolveria a resposta de outra pessoa.
+
+> **Implementado em `communityIdempotency.ts` (2026-08-10).** Reserva com
+> `INSERT ... ON CONFLICT DO UPDATE ... WHERE expires_at <= now()`, nunca captura de exceção:
+> erro dentro da transação a aborta (`25P02`), e o replay seguinte viraria `500`. A cláusula
+> condicionada é o que retoma a chave **vencida** — a varredura periódica que a
+> `migration_008` documenta nunca foi escrita, então sem ela a chave ficaria bloqueada para
+> sempre depois das 24h. O corpo gravado é validado por schema na leitura: `response_body` é
+> `jsonb`, e servi-lo com `as` entregaria ao consumidor o que outra versão do handler gravou.
 
 **Voto não usa chave** (decisão 12): é estado absoluto, e retry idêntico é no-op por
 construção. Sem `ETag`, sem `If-Match`.
@@ -441,8 +454,15 @@ recalculado; se o auto-hide conclui antes, a retirada é recusada.
 >
 > `PATCH .../priority` **não escreve prioridade em coluna** — ela é derivada do mínimo de
 > `community_report_reason.priority` entre as denúncias ativas, e a reclassificação vive em
-> auditoria. `POST .../reopen` desfaz a **aprovação da versão**, não reabre o caso: decisão 40
-> mantém o encerrado encerrado, e denúncia posterior abre caso novo.
+> auditoria. O corpo aceita `0..2` (`spec.md` 847), não o `0..3` do `CHECK`.
+> `POST .../reopen` desfaz a **aprovação da versão**, não reabre o caso: decisão 40 mantém o
+> encerrado encerrado, e denúncia posterior abre caso novo.
+>
+> **`appeal_deadline_at` é calculado com a semântica do PostgreSQL**, não com
+> `Date.setMonth`: a trigger exige igualdade exata com `closed_at + INTERVAL '6 months'`, e as
+> duas linguagens discordam em fim de mês — `2026-08-31 + 6m` dá `2027-03-03` em JavaScript
+> (transborda) e `2027-02-28` no banco (satura). Caso fechado no dia 31 produzia `500` no
+> lugar do `201`.
 
 | Rota | Contrato |
 |---|---|
