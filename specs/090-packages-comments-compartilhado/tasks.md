@@ -1575,12 +1575,13 @@ saudável e o **único** alarme de schema defasado no SSO é
   revisão nem auditoria. A saída antecipada agora acontece antes de
   `createActor`. Achado do Codex (P2).
 
-  **Não entregue, e por quê: T2.15** (destino do voto e da identidade quando a
-  conta perde acesso). Ela exige fingerprint HMAC versionado, executor idempotente
-  de expurgo, publicação de controlador/prazos/SLA no fluxo de exclusão e
-  tratamento de caso/recurso — que é Bloco E, ainda não implementado. Os sete
-  cenários temporais do aceite dela dependem de `moderation_case` vivo. Fatiá-la
-  agora exigiria inventar contrato que a spec não fixou.
+  **T2.15 segue aberta, agora sem bloqueio.** Ela exige fingerprint HMAC
+  versionado, executor idempotente de expurgo, publicação de
+  controlador/prazos/SLA no fluxo de exclusão e tratamento de caso/recurso. O
+  que a travava era o Bloco E — `moderation_case` e `community_comment_appeal`
+  não existiam, e os sete cenários temporais do aceite dependem deles. **Foram
+  entregues na PR #251**, então a dependência caiu: T2.15 é implementável a
+  partir daqui.
 
 ### Bloco E — Denúncia e moderação
 
@@ -1595,86 +1596,115 @@ saudável e o **único** alarme de schema defasado no SSO é
 - [x] T2.25 — **Recurso estruturado da remoção moderadora** (decisão 47). **Task nova pela reconciliação.** Só autor, uma vez por decisão terminal que removeu seu conteúdo, em até seis meses. Recurso referencia caso, decisão e versão; não restaura automaticamente; termina em `upheld` ou `reversed` e notifica privadamente. O mesmo moderador pode rejulgar, mas a UI identifica que foi o decisor original e exige nova justificativa; outro moderador pode assumir sem ser trava. · feito quando: terceiro/denunciante/segundo recurso/prazo expirado são recusados; o caso original não é sobrescrito; e resultado aparece em auditoria e notificação.
 - [x] T2.26 — **Sanção comunitária e detalhe declarativo** (decisões 48, 49). **Task nova pela reconciliação.** Restrições independentes `posting`/`commenting`, com `warning`, suspensão temporária ou permanente; temporária exige duração e pode oferecer presets. Moderador escolhe escopo, nível, prazo e motivo — nenhuma denúncia/reincidência sanciona automaticamente. Login, leitura, uso não comunitário e auto-retirada continuam. `commenting` falha fechado antes da escrita; `posting` nasce no contrato central, sem classificar silenciosamente objetos de domínio. Cada motivo define `details=required|optional|forbidden`; detalhe é texto puro, trim, máximo 4.000, imutável, restrito à moderação e nunca ecoado em log/erro/notificação. · feito quando: restrição de comentário não bloqueia login; restrição de postagem não alcança domínio sem adapter explícito; campos obrigatório/proibido são validados; e toda sanção tem auditoria.
 
-**Estado do Bloco E (T2.17-T2.26) — entregue em 2026-08-09.**
+**Bloco E entregue — PR #251, merged em `dev` (`1e672bb`, 2026-08-10).**
 
-Um bloco para as dez porque elas são uma superfície só: as quatro primeiras
-compartilham transação, e separar o estado por task repetiria a mesma medição
-dez vezes.
+Um bloco para as dez porque são uma superfície só: as quatro primeiras
+compartilham transação.
 
-Arquivos: `communityCommentReport.ts` (T2.17, T2.18, T2.19, T2.21),
-`communityModerationCase.ts` (T2.20, T2.22, T2.23, T2.24),
-`communityModerationAppeal.ts` (T2.25, T2.26),
-`communityModerationQueue.ts` (leitura da fila, log, versões, caso),
-`requireModeratorRole.ts` (guard novo), `communityModerationRoutes.ts` (16 rotas),
-mais as cinco tabelas de moderação registradas em `db.ts` — estavam na
-`migration_006` e faltavam no tipo, então nenhum `UPDATE` de moderação compilava.
+Superfície: `communityCommentReport.ts` (T2.17-T2.19, T2.21),
+`communityModerationCase.ts` (T2.20, T2.22-T2.24),
+`communityModerationAppeal.ts` (T2.25, T2.26), `communityModerationQueue.ts`
+(fila, log, versões, caso), `requireModeratorRole.ts`,
+`communityModerationRoutes.ts` (16 rotas). As cinco tabelas de moderação foram
+registradas em `db.ts` — estavam na `migration_006` e faltavam no tipo.
 
-Validação: `accounts` **483/483** (28 skips inalterados, os de Wilson que
-dependem de PostgreSQL em CI — T8.1); lint 25/25; build 25/25;
-`verify:api` `breaking=0`, 16 rotas novas não-quebrantes.
+Extraído no mesmo PR: `communityIdempotency.ts` e `communityActor.ts`, depois de
+o Sonar medir 4,7% de duplicação no código novo. Seis handlers migrados,
+−447 linhas líquidas.
 
-**Divergência spec × schema, corrigida a favor da spec.**
+Validação final: `accounts` **487/487** (28 skips — Wilson, dependem de
+PostgreSQL em CI, T8.1); lint 25/25; build 25/25; `verify:api` `breaking=0`,
+16 rotas não-quebrantes.
 
-`spec.md` 847 (decisão 38) fixa prioridade **P0-P2**. O `CHECK` de
-`community_report_reason` aceita `BETWEEN 0 AND 3`, e a semente da
-`migration_006` não usa 3 em nenhum dos oito motivos: 0 para `malicious_link`,
-`personal_data` e `illegal_content`; 1 para `inappropriate_content`,
-`harassment_or_hate` e `copyright_violation`; 2 para `spam_or_off_topic` e
-`other`.
+O *porquê* de cada decisão de implementação vive no comentário do próprio
+código. O que segue é só o que ainda decide alguma coisa.
 
-`priorityBodySchema` e o filtro `max_priority` da fila copiaram o intervalo do
-`CHECK` em vez do da spec, e aceitavam 3 — faixa que nenhum motivo produz e que
-ordenaria a fila abaixo do menos urgente que existe. Corrigido para 0-2, com
-teste de fronteira sobre o valor 3 especificamente.
+**Divergência spec × schema, resolvida a favor da spec.** `spec.md` 847
+(decisão 38) fixa prioridade **P0-P2**; o `CHECK` de `community_report_reason`
+aceita `0..3` e a semente não usa 3 em nenhum dos oito motivos. Os schemas Zod
+copiaram o intervalo do banco. Corrigido para 0-2. **O `CHECK` mais frouxo
+permanece** — apertá-lo exigiria migration nova sobre tabela em produção, e o
+intervalo do banco não é contrato de API.
 
-O `CHECK` mais frouxo permanece: apertá-lo exigiria migration nova sobre tabela
-já em produção, e o intervalo do banco não é contrato de API.
+**Achados de review corrigidos, dois com impacto de produto:**
 
-**Como a implementação responde às perguntas que a spec já fixava** (registro,
-não pedido de decisão):
+- **Fila de moderação vazava entre módulos.** `?source_app=mesas` com credencial
+  do `downloads` devolvia denúncias e identidades de outro módulo. Agora `403`.
+- **Prazo do recurso divergia do `INTERVAL` do PostgreSQL** em fim de mês
+  (`2026-08-31 + 6m`: JS `2027-03-03`, banco `2027-02-28`). A trigger exige
+  igualdade exata, então o recurso morria em `500`. `addMonthsLikePostgres`
+  satura.
+- Replay de idempotência passou a conferir `acting_user_id`; `maxPriority` foi
+  para o `WHERE` antes do `LIMIT`; N+1 no fechamento de caso agrupado.
 
-- **Prioridade derivada, reclassificação em auditoria** — `spec.md` 228 e 12h:
-  "Prioridade ordena a fila, nunca decide culpa nem auto-hide"; 847: "Moderador
-  reclassifica com auditoria". A fila calcula o mínimo entre as denúncias
-  ativas; `PATCH .../priority` registra e o registro é o efeito.
-- **Nível de sanção traduzido** — `spec.md` 861 fixa `warning` → temporária →
-  permanente; o contrato §11 fixa o vocabulário HTTP; o `CHECK` fixa o do banco.
-  `LEVEL_TO_COLUMN` traduz num ponto só.
-- **`remove` sobre `author_removed` preserva o tombstone do autor** —
-  `spec.md` 857 (decisão 46): "Auto-retirada com caso aberto não encerra
-  moderação; `no_change` preserva tombstone"; 12e: "Auto-retirada do autor
-  preserva o caso e a evidência".
-- **Denúncia contra versão aprovada sem caso fechado correspondente** cai no
-  fluxo normal. Busca negativa: `rg "approved_version|case_id"` em `spec.md`
-  devolve zero — 12g cobre o caso normal, não este estado impossível. É defesa
-  de implementação (`case_id` é `NOT NULL` e inventar vínculo seria pior), não
-  lacuna de produto.
+**Verificado e descartado, para não ser reinvestigado:** fixar
+`SET TIME ZONE 'UTC'` antes do `INSERT` do recurso não muda nada — medido em
+`artificio_auth`, `INTERVAL` sobre `timestamptz` devolve o mesmo instante em
+UTC, Tóquio e Honolulu, inclusive nas fronteiras de mês.
 
-**Regressão introduzida por esta entrega, corrigida:**
-`communityCommentLifecycleRoutes.test.ts` afirmava que `POST /comments/:id/restore`
-**não existia** (`404`). A rota passou a existir por exigência do §5. A asserção
-foi reescrita para a recusa real — `403`, guard de escopo, medido: a credencial
-daquele teste tem só `comment.write`. A intenção original — autor não restaura —
-segue provada, agora pela recusa em vez da ausência.
+**Débito aberto — cobertura reportada pelo `codebase-memory`.** O hook de
+indexação acusa "test gaps" a cada commit (101 → 88 → 31 → 14 na sequência do
+PR), citando funções que **são** exercitadas pelos testes de SQL compilado. A
+ferramenta parece contar chamada direta ao símbolo, não caminho coberto.
+Reportado ao mantenedor quatro vezes, sem decisão registrada: corrigir,
+registrar como débito formal, ou parar de reportar.
 
 ## Fase 3 — Notificações agregadas
 
 A razão de ser da agregação. Sem esta fase, o ganho sobre banco por app é pequeno.
 
+> **Escopo ampliado em 2026-08-10 (decisão do mantenedor, sessão de grilling).** A fase deixou de
+> ser "API + central sobre o que a Fase 2 escreveu" e passou a **consolidar os três sistemas de
+> notificação que existem em produção hoje**, com sino compartilhado e outbox. As tasks T3.12-T3.16
+> abaixo são as novas. Duas premissas do texto original foram desmentidas por medição na mesma
+> sessão e estão corrigidas nas tasks correspondentes: T3.5 (o bug era o inverso do descrito) e
+> T3.6 (o índice existente não serve para a ordenação exigida).
+>
+> | Achado medido em 2026-08-10 | Onde | Consequência |
+> |---|---|---|
+> | 3 sistemas independentes coexistem | `download_notification`, `notifications` (mesas), `notification_event`/`receipt` | T3.12, T3.13 |
+> | `source_app` CHECK não aceita `accounts` | `migration_006:473,506` | T3.14 |
+> | 4 de 5 emissões do `downloads` são transacionais demais | `moderation.ts:152,227,354`, `reports.ts:308` | T3.5 reescrita, T3.15 |
+> | Índice de não lidas ordena por `created_at` do recibo | `migration_006:517-525` | T3.6 |
+> | Nenhum dos 3 pagina (`limit 50` fixo) | `downloads/routes/notifications.ts:18`, `mesas/routes/notifications.ts:23` | T3.6 |
+> | `/conta/notificacoes` cairia em 404 no deep-link | `app.ts:553` + `main.tsx` sem react-router | T3.9 |
+
 - [ ] T3.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. · feito quando: leitura confirmada.
 - [ ] T3.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
 - [ ] T3.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
-- [ ] T3.1 — **Consumir o schema de evento/recibo já criado em T2.1d** (requisito 13; decisão 1). **A migration antes descrita aqui foi antecipada para a Fase 2 e não deve ser recriada.** Nesta fase, validar que `notification_event` imutável e `notification_receipt` por destinatário sustentam paginação, leitura e canais futuros sem alterar o schema central. · feito quando: nenhuma migration duplicada nasce; API/central usam as tabelas existentes; e contrato de imutabilidade continua testado.
+- [ ] T3.1 — **Consumir o schema de evento/recibo já criado em T2.1d** (requisito 13; decisão 1). **As tabelas não são recriadas** — `notification_event` e `notification_receipt` nasceram na Fase 2 (`migration_006:469-525`) e continuam sendo a base. O que muda com a consolidação de 2026-08-10: T3.14 acrescenta migration **aditiva** (CHECK de `source_app` ampliado, índice do cursor, `metadata`), que estende o schema sem redefinir tabela nem tocar dado existente. Validar que evento imutável e recibo por destinatário sustentam paginação, leitura e canais futuros. · feito quando: nenhuma tabela é recriada; a única migration nova é a aditiva de T3.14; API/central usam as tabelas existentes; e o contrato de imutabilidade (`notification_event_immutable`, `migration_006:1220-1231`) continua testado.
 - [ ] T3.2 — **Reusar destinatários já gerados em T2.6c** (requisitos 14-16; decisão 1). Raiz, resposta, deduplicação, exclusão do ator e de conta inválida são invariantes da criação na Fase 2. Aqui a API e a central provam que leem exatamente esses recibos, sem recalcular destinatário pelo domínio vivo. · feito quando: as cinco regras aparecem corretamente na central e nenhuma leitura cria recibo novo.
-- [ ] T3.3 — **Formatar o snapshot estruturado já gravado em T2.6c** (requisito 13; decisão 1). A Fase 2 guarda dados imutáveis e `event_version`; esta fase monta texto para API/central sem consultar domínio vivo nem regravar mensagem pronta. · feito quando: editar título/nome depois não altera o sentido histórico; versões conhecidas formatam; versão desconhecida degrada sem vazar payload.
-- [ ] T3.4 — **SUPERSEDIDA para comentário por T2.6c; ativa só para evento externo.** A atomicidade de comentário/evento/recibo já é pré-condição da Fase 2 e não espera esta fase. Evento futuro vindo de outro módulo usa `event_id` idempotente e outbox no produtor. · feito quando: teste de T2.6c continua verde e primeiro produtor externo, se entrar nesta fase, prova outbox + consumidor idempotente.
-- [ ] T3.5 — **[P1] Corrigir a semântica best-effort que existe hoje**, em vez de reproduzi-la na migração. Bug real confirmado: `moderation.ts:138-147` e `reports.ts:195` chamam `emitNotification` dentro de `try/catch` e apenas fazem `console.error` se falhar — o material é rejeitado, a notificação se perde, e o autor **nunca fica sabendo**. Correção autorizada pelo mantenedor (2026-07-27). · feito quando: falha ao notificar não deixa a operação de moderação concluída silenciosamente.
-- [ ] T3.6 — **API de notificação completa** (requisito 19). A versão anterior listava três verbos sem contrato. Exigir: lista **paginada por cursor**, ordenação `(occurred_at, id)`, limite máximo; contagem de não lidas; marcar uma como lida; **marcar todas até um instante**; mutações idempotentes; **ownership sempre extraído da sessão**, nunca do parâmetro; **404 uniforme** para ID inexistente ou de outro usuário (senão a resposta revela que a notificação existe); cache **privado**, nunca compartilhado. · feito quando: marcar lida num módulo reflete nos outros, e ID de terceiro devolve 404 igual a ID inexistente.
+- [ ] T3.3 — **Formatar o snapshot estruturado já gravado em T2.6c** (requisito 13; decisão 1). A Fase 2 guarda dados imutáveis e `event_version`; esta fase monta texto para API/central sem regravar mensagem pronta. **Ressalva de 13d-i (2026-08-10):** o snapshot congela o texto contra *edição* do conteúdo, não contra *perda de acesso* — a formatação consulta a autorização atual (T3.8) e omite o nome do conteúdo para quem não tem mais acesso. "Não consultar domínio vivo" continua valendo para o **conteúdo** (título editado não reescreve o passado); a **autorização** é sempre a de agora. · feito quando: editar título/nome depois não altera o sentido histórico; versões conhecidas formatam; versão desconhecida degrada sem vazar payload; e o nome do conteúdo desaparece do item quando o acesso desaparece.
+- [ ] T3.4 — **SUPERSEDIDA para comentário por T2.6c; ativa para evento externo, que agora entra nesta fase.** A atomicidade de comentário/evento/recibo já é pré-condição da Fase 2 e não espera esta fase. O "evento futuro vindo de outro módulo" deixou de ser hipótese em 2026-08-10: a consolidação (T3.13) transforma `downloads` e `mesas` em produtores externos, e o outbox de T3.15 é a mecânica que eles usam. · feito quando: teste de T2.6c continua verde, e o primeiro produtor externo prova outbox + consumidor idempotente contra `event_id`.
+- [ ] T3.5 — **[P1] Desacoplar notificação da transação de moderação, via outbox.** **Premissa original invertida por medição (2026-08-10).** O texto anterior descrevia `emitNotification` em `try/catch` com `console.error` em `moderation.ts:138-147` e `reports.ts:195`; a auditoria dos cinco chamadores mostrou o oposto: `moderation.ts:152`, `:227`, `:354` e `reports.ts:308` passam `trx` e rodam **dentro** de `db.transaction()`, sem catch que engula — falha do INSERT em `download_notification` faz **rollback da rejeição, da aprovação e da decisão de denúncia**, e o moderador vê a ação não concluída. `moderation.ts:354` ainda perde diagnóstico: o catch por item (`:402-405`) marca `skipped` sem distinguir falha de notificação de falha de update. Só `systemSuggestionsAdmin.ts:346` é best-effort, e por decisão deliberada documentada em `:339-341`, coberta por `systemSuggestionsAdmin.test.ts:391`. Correção: outbox — o evento entra na transação da ação de mérito (não se perde), a entrega roda fora dela (não derruba a ação). **Vale para todo tipo de evento, inclusive aviso de moderação** (13c-i): nenhuma ação de mérito trava esperando confirmação de entrega. · feito quando: falha de notificação não reverte ação de moderação; nenhuma emissão fica fire-and-forget sem registro durável; e o batch distingue no resultado qual etapa falhou.
+- [ ] T3.6 — **API de notificação completa** (requisitos 19, 19a-19c). A versão anterior listava três verbos sem contrato. Exigir: lista **paginada por cursor**, ordenação `(occurred_at, id)`, limite máximo; contagem de não lidas; marcar uma como lida; **marcar todas até um instante**; mutações idempotentes; **ownership sempre extraído da sessão**, nunca do parâmetro; **404 uniforme** para ID inexistente ou de outro usuário (senão a resposta revela que a notificação existe); cache **privado**, nunca compartilhado. **Índice novo é obrigatório:** o parcial existente (`migration_006:517-525`) ordena por `created_at` do **recibo**, não por `occurred_at` do **evento** — coincidem hoje porque ambos nascem na mesma transação (`communityCommentWrite.ts:528`), divergem assim que o outbox (T3.5) admitir evento externo com `occurred_at` retroativo. Nenhum dos sistemas atuais pagina (`limit 50` fixo em `downloads/routes/notifications.ts:18` e `mesas/routes/notifications.ts:23`), então não há comportamento legado a preservar. `PATCH /read-all` replica a capacidade que só o `mesas` tem hoje (`mesas/routes/notifications.ts:33-52`), inclusive a ordem de declaração antes da rota paramétrica — senão `/read-all` é engolido por `/:id/read`. **A listagem omite aviso social cujo alvo deixou de existir e nunca omite aviso de moderação** (requisito 17e): o evento continua no banco — append-only por trigger (`migration_006:1220-1231`), então "sumir" é filtro de leitura, não `DELETE` —, e a distinção entre os dois casos é do tipo do evento, resolvida na consulta, não na UI. Cuidado de paginação: filtro aplicado depois do corte do cursor produz página curta e contagem inconsistente com a lista; o filtro entra na consulta paginada, não sobre o resultado dela. · feito quando: marcar lida num módulo reflete nos outros; ID de terceiro devolve 404 igual a ID inexistente; cursor percorre a lista inteira sem repetir nem pular item; aviso social de alvo removido não aparece e aviso de moderação aparece sempre; nenhuma página vem curta por filtro pós-corte; e `EXPLAIN` da listagem usa o índice novo.
 - [ ] T3.7 — **Link de volta construído no servidor** (requisito 18). Repete a trava de T0.7: o app registra `canonical_path`, **nunca a URL inteira vinda do navegador**; a origem é derivada de `realm`+`source_app` allowlisted. E o módulo **revalida a autorização** quando o usuário abre o link — notificação não é passe de acesso. · feito quando: notificação de cada módulo leva ao lugar certo, e link para conteúdo que o usuário perdeu acesso não abre.
-- [ ] T3.8 — **Privacidade do evento** (requisito 13). O evento não expõe título, motivo nem link de conteúdo privado a quem não tem acesso **atual** — o snapshot de T3.3 congela o texto, mas não pode virar vazamento de conteúdo restrito. · feito quando: usuário sem acesso ao conteúdo não lê o título dele pela notificação.
-- [ ] T3.9 — **Central canônica no `accounts.`** (requisito 17, decisão do mantenedor, 2026-07-27). O frontend do `accounts.` hoje só trata `/`, `/login` e `/conta` (`main.tsx:294`) — a central não tem onde morar. Fica em `accounts.artificiorpg.com/conta/notificacoes`, **uma só**, e os módulos apontam para ela; evita três páginas divergindo. Componente reutilizável é opcional. **Sino global no `Header` é `packages/ui`** e exige aprovação nominal própria — se entrar, é task separada. · feito quando: a mesma central mostra eventos dos três módulos, e nenhum módulo tem cópia própria.
-- [ ] T3.10 — **Atualização por polling curto, não tempo real** (requisito 17). Polling ao focar a página mais invalidação após mutação bastam; SSE ou WebSocket ampliaria infraestrutura sem requisito que peça. · feito quando: contagem de não lidas atualiza sem conexão persistente.
+- [ ] T3.8 — **Privacidade do evento: nome do conteúdo some junto com o acesso** (requisitos 13, 13d, 13d-i). O evento não expõe título, motivo nem link de conteúdo privado a quem não tem acesso **atual**. A contradição com T3.3 foi resolvida em 2026-08-10: o item degrada para a ocorrência sem nome ("Maria respondeu seu comentário"), preservando o registro e descartando o que virou restrito; quem mantém acesso continua vendo o nome. Isso exige **revalidação de acesso na listagem**, por item — é a tela mais aberta do sistema, então a checagem entra em lote junto da paginação de T3.6, não em chamada por linha. Vale igual para o dropdown do sino (T3.9b). **Módulo de origem indisponível não degrada o item** (decisão do mantenedor, 2026-08-10): quando a revalidação falha por indisponibilidade — e não por negativa —, o item mostra o nome do último snapshot conhecido, sinalizando que não foi possível confirmar o acesso agora. Tratar falha de infraestrutura como "sem acesso" faria a queda de um módulo reescrever o histórico visível de todo mundo; o usuário foi notificado porque tinha acesso, e a revogação real é resposta negativa, não ausência de resposta. Distinguir os dois casos é obrigatório — negativa esconde o nome, timeout/erro não. · feito quando: usuário sem acesso ao conteúdo não lê o nome dele pela notificação, nem na central nem no sino; usuário com acesso continua lendo; módulo fora do ar mostra nome com aviso, nunca item degradado silenciosamente; e a listagem de uma página não dispara uma checagem por item.
+- [ ] T3.9 — **Central canônica no `accounts.`** (requisitos 17, 17a, 17c). Fica em `accounts.artificiorpg.com/conta/notificacoes`, **uma só**, e os módulos apontam para ela; evita três páginas divergindo. **Deep-link precisa das duas pontas**, senão acesso direto cai em 404 e notificação existe justamente para ser clicada de fora: o fallback SPA serve uma lista fixa (`apps/accounts/src/app.ts:553` — `["/", "/login", "/conta", "/admin/papeis"]`) e o roteamento é `if/else` sobre `location.pathname`, sem react-router (`apps/accounts/frontend/src/main.tsx`). Acrescentar o path à lista e o ramo ao `if/else` — **não** trocar o roteamento do app de auth por causa desta fase. **Lista única com rótulo de origem e filtro por módulo** (17c): default mostra tudo em ordem cronológica. **Cada `realm` tem a própria central** (requisito 17b-i, T0.6): a de produção nunca mostra evento de beta, e o filtro por `realm` é do servidor, derivado do ambiente, jamais parâmetro do cliente. **Aviso de moderação: item mínimo na lista, motivo e prazo no detalhe** (requisitos 13e, 17f). A lista mostra a ocorrência ("seu comentário foi removido"); motivo, prazo restante de recurso e o caminho para recorrer vivem na página de detalhe — a central é tela aberta em qualquer lugar, e motivo de moderação na listagem vaza sem o usuário ter escolhido mostrar. **Notifica uma vez só**, sem lembrete de fim de prazo (17f). O item permanece na central mesmo depois de o conteúdo sumir (17e). **Leitura só por ação explícita** (decisão do mantenedor, 2026-08-10): abrir a central não marca nada como lido — quem dá uma olhada rápida perderia o rastro do que ainda não tratou, e a contagem deve cair quando o usuário decide, não quando a tela renderiza. Marcar um item é ação dele; **um botão simples de "marcar todas como lidas"** cobre o caso de limpeza em massa, usando o `PATCH /read-all` de T3.6. · feito quando: a mesma central mostra eventos de todos os módulos; deep-link direto abre a página em vez de 404; abrir a lista não altera estado de leitura de nenhum item; "marcar todas" zera a contagem numa ação; o filtro por módulo funciona sem esconder item no default; e nenhum módulo tem cópia própria da página.
+- [ ] T3.9b — **Sino compartilhado no header de cada app** (requisito 17a-i; decisão e **aprovação nominal do mantenedor, 2026-08-10**). A central é a página completa; o sino é a presença da notificação **onde a ação acontece** — quem aprova material no `downloads` não deveria sair do módulo para saber disso. Componente vive em `packages/ui`, consumido pelos apps, **nunca copiado**: três sinos divergentes repetiriam o defeito que T3.9 evita nas páginas. Referência madura a absorver: `apps/mesas/frontend/src/components/NotificationBell.tsx` já resolve contagem de não lidas, agrupamento e filtro por papel — mas com `setInterval` de 60s (`:75`) e normalizador manual (`:17-39`); o compartilhado usa o padrão de dados do `downloads` (React Query + Zod + `invalidateQueries`, `apps/downloads/frontend/src/hooks/useNotifications.ts:9-26`) e o polling ao focar de T3.10. Mudança em `packages/ui` exige verificação de impacto nos consumidores (`AGENTS.md`). **Escopo do sino: só o módulo atual** (decisão do mantenedor, 2026-08-10) — o sino do `downloads` conta e lista apenas notificações do `downloads`. Contagem agregada de todos os módulos infla o indicador com o que o usuário não está fazendo agora e transforma o sino num segundo lugar competindo com a central; a visão completa é da central (T3.9), que tem a lista única e o filtro. **Clique abre dropdown com as últimas, mais link "ver todas" para a central** — o caso comum (ler e marcar) se resolve sem tirar o usuário do módulo, e o histórico continua num lugar só. **Rodapé do dropdown avisa que há algo em outro módulo** (decisão do mantenedor, 2026-08-10): a contagem do ícone continua estritamente do módulo atual, mas o dropdown traz uma linha discreta — "você tem avisos em outros módulos" — com link para a central. Sem isso, quem só usa um módulo poderia ficar semanas sem ver resposta recebida em outro; com contagem agregada no ícone, o indicador infla com o que ele não está fazendo. O rodapé não mostra quantidade nem origem, só a existência: a central é que detalha. **Aviso de moderação não abre exceção à regra do módulo atual** (decisão do mantenedor, 2026-08-10): mesmo com prazo de recurso correndo, ele conta no sino do módulo onde ocorreu e chega ao usuário pelo rodapé, como qualquer outro — sino que às vezes mostra outro módulo e às vezes não seria imprevisível justamente no momento em que precisa ser confiável. **O sino só existe para sessão autenticada** — visitante anônimo em página pública (catálogo, blog, mesa) não vê o ícone e nenhuma requisição de notificação parte sem sessão. **O `site` também recebe sino** (decisão do mantenedor, 2026-08-10), mesmo sendo o módulo de menor volume — post de blog não tem conta vinculada e não gera notificação de publicação (requisito 15a), então ali só chega resposta a comentário. Consistência de header entre os três módulos vale a ilha React a mais; é o ambiente que T4.14 já trata como caso especial (React dentro do Astro, capaz de quebrar por import não seguro em SSR). · feito quando: um só componente serve os três apps; o sino conta apenas o `source_app` do módulo onde está montado; o dropdown marca como lida sem navegar; o link leva à central; o `site` monta o sino sem quebrar o SSR do Astro; e nenhum app tem sino próprio.
+- [ ] T3.10 — **Atualização ao focar a aba e após mutação — sem intervalo recorrente** (requisito 17b; decisão do mantenedor, 2026-08-10). Polling ao focar a página mais invalidação após mutação bastam; SSE ou WebSocket ampliaria infraestrutura sem requisito que peça. Com sino em três apps (T3.9b), intervalo recorrente multiplicaria por três o tráfego ocioso de cada usuário com aba aberta: **aba parada em segundo plano não consulta nada**. Isso descarta o `setInterval` de 60s que o `mesas` usa hoje (`NotificationBell.tsx:75`) — o padrão de dados absorvido do `mesas` é o agrupamento e a contagem, não a cadência. Custo aceito: quem fica horas na mesma aba sem trocar de janela só vê o aviso ao voltar o foco. · feito quando: contagem atualiza ao focar e após mutação, sem conexão persistente; e nenhuma requisição parte de aba em segundo plano.
 - [ ] T3.11 — **Canal in-app apenas** (requisito 20). E-mail e push ficam fora — a separação evento/recibo de T3.1 é justamente o que permite ligar um canal depois sem migrar dado. · feito quando: nenhum envio externo é disparado.
+- [ ] T3.11b — **Preferência de notificação por tipo de evento, no perfil do `accounts.`** (requisitos 20a-20c; decisão do mantenedor, 2026-08-10). Escopo novo desta sessão, decidido para entrar na Fase 3 — retrofitar filtro de entrega depois mexeria em API e schema já em produção. A preferência vive junto da identidade (`/conta`), não em cada módulo, e o eixo é o **tipo de evento**, não o `source_app`. **Um item por tipo técnico** (requisito 20a-i), sem agrupamento: cada `event_type` é uma linha, o que exige **rótulo legível escrito para cada um** — `material_rejected` e `report_dismissed` não chegam à tela com o nome do código. Registrar tipo novo passa a exigir rótulo junto, senão a tela degrada sozinha à medida que o catálogo cresce. **A decisão entra no ponto de fan-out (T3.15):** o evento é sempre gravado, e o consumidor do outbox deixa de criar `notification_receipt` para quem desligou aquele tipo — por isso a preferência precisa existir antes da entrega ficar assíncrona, não depois. **Avisos de moderação são não-desligáveis por construção**, não por opção ausente da tela: remoção, decisão de denúncia, recurso e sanção sempre geram recibo (20b), e a UI diz por quê em vez de simplesmente omitir o controle. Default de conta nova e de conta existente na migração: tudo ligado. **O controle mora dentro da própria central** (decisão do mantenedor, 2026-08-10), não numa seção separada de `/conta`: quem se incomoda com ruído está olhando a lista naquele momento, e obrigá-lo a sair da tela para ajustar é onde a configuração deixa de ser usada. Sem rota nova no fallback SPA por causa disso. · feito quando: desligar um tipo impede o recibo e não o evento; religar vale só para eventos novos; nenhum caminho — API, tela ou migração — consegue desligar aviso de moderação; o controle é alcançável da central sem navegar para fora; e a tela explica a distinção sem jargão.
+
+### Consolidação dos três sistemas (decisão do mantenedor, 2026-08-10)
+
+Medido em 2026-08-10: existem **três** modelos independentes em produção, e a Fase 3 construiria o
+quarto se não os absorvesse. Cada um tem exatamente uma peça madura que os outros não têm — o
+consolidado herda as três, em vez de reinventar duas.
+
+**Ordem de entrega (decisão do mantenedor, 2026-08-10):** primeiro o `accounts.` completo — central,
+API, preferência e sino funcionando para comentário (T3.1-T3.11b, T3.12, T3.14, T3.15); depois a
+conversão dos módulos produtores, **um por vez** (T3.13, T3.16). Se a fase atrasar, o corte cai na
+conversão, nunca na base: legado que ainda não converteu continua na tela atual, funcionando, e
+nenhum usuário passa por estado quebrado. A alternativa — consolidar um módulo inteiro de ponta a
+ponta antes de tocar o próximo — provaria o caminho completo mais cedo, mas manteria a central
+parcial por mais tempo e daria ao usuário uma experiência que muda duas vezes.
+
+- [ ] T3.12 — **`notification_event`/`notification_receipt` é a base única** (requisito 13a-i). Não é preferência: é o único dos três com `realm` estrutural (nas chaves únicas, nos índices e no FK composto — `migration_006:472,490,505,512,514`), idempotência do produtor (`event_id` UNIQUE, `:471`) e separação evento/entrega. As três são irreversíveis: retrofitar `realm` ou `event_id` em tabela com dado de produção custa migração, retrofitar separação evento/entrega custa reescrever o modelo. Absorver dos legados o que a base não tem: `PATCH /read-all` e `metadata` JSONB do `mesas` (`apps/mesas/backend/src/routes/notifications.ts:33-52`, `migration_106:13`), padrão React Query + Zod + `invalidateQueries` do `downloads` (`apps/downloads/frontend/src/hooks/useNotifications.ts:9-26`), e FK `ON DELETE CASCADE` em `user_id`, que o `downloads` não tem (`migration_018:14`). · feito quando: o consolidado cobre todas as capacidades dos três, e nenhuma regressão de função existente é aceita como custo da unificação.
+- [ ] T3.13 — **`download_notification` e `notifications` viram produtores, não fontes** (requisito 13a-i). Os dois legados têm rota, UI e dado vivos: `downloads` com `GET /` + `PATCH /:id/read` (`apps/downloads/backend/src/routes/notifications.ts:12-44`) e página no painel; `mesas` com `GET /`, `PATCH /read-all`, `PATCH /:id/read` (`routes/notifications.ts:10-80`) e sino no header. Deixam de gravar em tabela própria e passam a emitir evento no par consolidado; as tabelas antigas ficam read-only até o dado histórico ser migrado. **A tela legada passa a ler do consolidado no mesmo momento em que o módulo vira produtor** (decisão do mantenedor, 2026-08-10) — mesma UI, fonte nova. É o que impede o usuário de ver o mesmo aviso em dois lugares com estados de leitura independentes durante a transição; duplicação temporária seria menos trabalho por módulo e confusão direta para quem usa. A tela conhecida não é removida junto: ela sobrevive à conversão e só sai quando a superfície nova a substituir de fato. · feito quando: emissão nova de qualquer um dos dois cria `notification_event`; a tela legada de cada módulo lê do consolidado a partir da conversão; nenhum aviso aparece em dois lugares; e nenhuma escrita nova entra nas tabelas legadas.
+- [ ] T3.14 — **Migration da consolidação** (requisitos 13a-ii, 19b). Uma migration só, coesa (`AGENTS.md` §Migrations item 2.1 — não fatiar schema da mesma feature): ampliar o CHECK de `source_app` para aceitar todos os módulos e `accounts` nas duas tabelas (`migration_006:473,506` hoje aceita só `downloads|site|mesas`, o que deixa evento nascido no próprio `accounts.` — moderação, denúncia, recurso, sanção — sem origem representável); criar o índice por `(occurred_at, id)` do evento que o cursor de T3.6 exige; acrescentar `metadata` JSONB absorvido do `mesas`; e criar a tabela de preferência por tipo de evento de T3.11b, com a linha ausente valendo como "ligado" — assim conta existente e conta nova entram com tudo ligado sem backfill. **A preferência não leva `realm`** (requisito 20a-ii): é a única tabela desta fase sem esse eixo, porque acompanha a identidade e vale nos dois ambientes — ao contrário de evento e recibo, onde `realm` é estrutural. Header de 5 campos obrigatório, idempotente, `online-safe` sem DDL destrutivo. · feito quando: a migration roda duas vezes sem erro; `source_app='accounts'` é aceito; `EXPLAIN` da listagem usa o índice novo; conta sem linha de preferência recebe tudo; e o guard de diretório/header passa no CI.
+- [ ] T3.15 — **Outbox: evento transacional, entrega assíncrona, um caminho só** (requisito 13c-i; ver T3.5). Um registro durável de entrega pendente entra na mesma transação da ação de mérito; um consumidor idempotente faz o fan-out fora dela, tolerando reprocessamento via `event_id`. Vale para **todo** tipo de evento, inclusive aviso de moderação: a alternativa de acoplar moderação à confirmação de entrega foi considerada e **descartada pelo mantenedor** (13c-i) — criaria ação bloqueada sem proteger nada, já que o evento é durável desde a transação. Um caminho único também evita a divergência que existe hoje entre os cinco chamadores do `downloads`, em que cada call-site decidiu sozinho. Isso é o que permite a T3.13 converter os quatro pontos hoje acoplados (`moderation.ts:152,227,354`, `reports.ts:308`) sem cair no defeito oposto do quinto (`systemSuggestionsAdmin.ts:346`, fire-and-forget que perde a notificação em silêncio). · feito quando: falha de entrega não reverte a ação de mérito nem perde o evento; reprocessar o mesmo `event_id` não duplica recibo; e existe teste para os dois casos.
+- [ ] T3.16 — **Migração do dado histórico dos legados** (requisito 13a-i). `download_notification` e `notifications` têm histórico real de usuários. Converter para `notification_event`/`notification_receipt` preservando `read_at`/`read`, momento original e destinatário — o texto legado já vem pronto no banco (`body` em `migration_018:17`, `title`/`message` em `migration_06:33-34`), então entra como snapshot de versão própria, sem tentar reconstruir estrutura que não existia. `action_url` do `mesas` (`migration_106:13`) vira `canonical_path`, validado contra o CHECK do consolidado (`migration_006:480-486`) — os paths legados são montados por interpolação em cada call-site, sem validação (ex.: `apps/mesas/backend/src/routes/gmPanel.ts:575`, `systemSuggestionsAdmin.ts:396`), e há casos degenerados conhecidos (`systemSuggestionsAdmin.ts:585,676,801` com fallback vazio). Path que não passar no CHECK entra sem link, nunca quebrando a migração. **Migra tudo, lido e não lido, preservando o estado de leitura** (decisão do mantenedor, 2026-08-10) — migrar só não lidos contradiria 17d ("lida fica, sem prazo") e apagaria histórico que o usuário tem hoje; para ele, a unificação deve mudar o lugar, não o conteúdo. · feito quando: nenhum usuário perde notificação existente; lida continua lida e não lida continua não lida; path inválido degrada para item sem link; e a contagem antes/depois bate por usuário.
 
 ## Fase 4 — Pacote cliente e UI
 
