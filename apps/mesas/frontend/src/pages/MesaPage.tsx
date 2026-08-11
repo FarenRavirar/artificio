@@ -16,10 +16,67 @@ import { useAuth } from '../contexts/useAuth'; // CORREÇÃO DT-026: Importar us
 import { handleCTA, getButtonStyle } from '../features/table/utils/uiHelpers';
 import { trackSelectMesa } from '@artificio/analytics';
 
+/**
+ * Mesa encerrada (410 do backend). Campos mínimos para explicar o encerramento
+ * — nada de contato ou link de inscrição, que o backend não envia de propósito.
+ */
+type ClosedTable = {
+  title: string;
+  closedAt: Date | null;
+  reason: 'gm' | 'admin' | 'auto_expired' | 'unknown';
+  closedByName: string | null;
+};
+
+const CLOSED_REASONS = new Set(['gm', 'admin', 'auto_expired', 'unknown']);
+
+/**
+ * Payload de API é `unknown` até passar por normalizador tipado (AGENTS.md
+ * §Regras Gerais de Código). Data inválida vira `null` em vez de `Invalid Date`
+ * chegando ao render, e motivo desconhecido degrada para `unknown` — a tela
+ * ainda funciona sem a data ou sem o autor, que é o caso das mesas encerradas
+ * antes da `migration_156`.
+ */
+function normalizeClosedTable(input: unknown): ClosedTable {
+  const root = typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : {};
+  const data = typeof root.data === 'object' && root.data !== null ? (root.data as Record<string, unknown>) : {};
+
+  const rawClosedAt = typeof data.closed_at === 'string' ? new Date(data.closed_at) : null;
+  const rawReason = typeof data.closed_reason === 'string' ? data.closed_reason : 'unknown';
+
+  return {
+    title: typeof data.title === 'string' && data.title.trim() ? data.title : 'Esta mesa',
+    closedAt: rawClosedAt && !Number.isNaN(rawClosedAt.getTime()) ? rawClosedAt : null,
+    reason: (CLOSED_REASONS.has(rawReason) ? rawReason : 'unknown') as ClosedTable['reason'],
+    closedByName: typeof data.closed_by_name === 'string' && data.closed_by_name.trim() ? data.closed_by_name : null,
+  };
+}
+
+/**
+ * Frase do encerramento. `auto_expired` não nomeia autor porque não houve um —
+ * a divulgação importada venceu por tempo; atribuí-la a alguém seria inventar.
+ */
+function describeClosure(closed: ClosedTable): string {
+  switch (closed.reason) {
+    case 'auto_expired':
+      return 'Esta divulgação expirou e saiu do ar automaticamente.';
+    case 'gm':
+      return closed.closedByName
+        ? `Esta mesa foi encerrada pelo mestre ${closed.closedByName}.`
+        : 'Esta mesa foi encerrada pelo próprio mestre.';
+    case 'admin':
+      return closed.closedByName
+        ? `Esta mesa foi encerrada pela administração (${closed.closedByName}).`
+        : 'Esta mesa foi encerrada pela administração.';
+    default:
+      return 'Esta mesa foi encerrada e não está mais recebendo inscrições.';
+  }
+}
+
 export const MesaPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const { user } = useAuth(); // CORREÇÃO DT-026: Obter usuário autenticado
   const [table, setTable] = useState<TableDetail | null>(null);
+  const [closed, setClosed] = useState<ClosedTable | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,12 +92,27 @@ export const MesaPage = () => {
 
       setLoading(true);
       setError(null);
+      // Limpar junto de `error`: sem isto, navegar de uma mesa encerrada para
+      // outra ativa manteria a tela de encerramento sobre a mesa nova.
+      setClosed(null);
 
       try {
         const res = await fetch(`/api/v1/tables/${slug}`, { signal: controller.signal });
 
         if (res.status === 404) {
           setError('Mesa não encontrada.');
+          setTable(null);
+          setLoading(false);
+          return;
+        }
+
+        // 410 Gone: a mesa existiu e foi encerrada (relato de produção
+        // 2026-08-11 — antes disso o backend devolvia 404 e o visitante via
+        // "Mesa não encontrada", sem saber que a mesa existiu, quando saiu do ar
+        // nem por quê). O corpo traz título, data, motivo e autor quando houver.
+        if (res.status === 410) {
+          const json: unknown = await res.json().catch(() => null);
+          setClosed(normalizeClosedTable(json));
           setTable(null);
           setLoading(false);
           return;
@@ -78,6 +150,16 @@ export const MesaPage = () => {
   }, [slug]);
 
   useEffect(() => {
+    // Mesa encerrada tem título próprio: manter "Mesa | Artifício Mesas" faria
+    // a aba e o compartilhamento prometerem uma mesa que não existe mais.
+    if (closed) {
+      applySeo(
+        `Mesa encerrada | Artifício Mesas`,
+        `${closed.title} não está mais recebendo inscrições. Veja outras mesas abertas no Artifício Mesas.`,
+      );
+      return;
+    }
+
     if (!table) {
       applySeo('Mesa | Artifício Mesas', 'Detalhes de uma mesa de RPG no portal Artifício Mesas.');
       return;
@@ -87,7 +169,7 @@ export const MesaPage = () => {
       `${table.title} | Artifício Mesas`,
       table.description?.slice(0, 150) || `Conheça os detalhes da mesa ${table.title} no Artifício Mesas.`
     );
-  }, [table]);
+  }, [table, closed]);
 
   // Tracking: incrementar visualizações
   useEffect(() => {
@@ -131,6 +213,40 @@ export const MesaPage = () => {
     return (
       <main className="min-h-screen bg-[var(--color-artificio-blue)] text-white flex items-center justify-center">
         <p className="animate-pulse text-white/70">Carregando aventura...</p>
+      </main>
+    );
+  }
+
+  // Mesa encerrada: estado próprio, antes do erro genérico. Diz o que
+  // aconteceu, quando e por quem — em vez de "Ops! Mesa não encontrada", que
+  // era o que o visitante via e não distinguia mesa encerrada de link errado.
+  if (closed) {
+    return (
+      <main className="min-h-screen bg-[var(--color-artificio-blue)] text-white flex items-center justify-center px-6">
+        <div className="max-w-lg w-full rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
+          <h1 className="text-2xl font-bold mb-2">Mesa encerrada</h1>
+          <p className="text-white/90 mb-1 font-medium">{closed.title}</p>
+          <p className="text-white/70 mb-2">{describeClosure(closed)}</p>
+          {closed.closedAt && (
+            <p className="text-white/50 text-sm mb-5">
+              Encerrada em{' '}
+              <time dateTime={closed.closedAt.toISOString()}>
+                {closed.closedAt.toLocaleDateString('pt-BR', {
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric',
+                })}
+              </time>
+            </p>
+          )}
+          <Link
+            to="/catalogo"
+            id="mesa-encerrada-link-catalogo"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] transition-colors"
+          >
+            <Compass className="w-4 h-4" /> Clique aqui para ver novas mesas
+          </Link>
+        </div>
       </main>
     );
   }

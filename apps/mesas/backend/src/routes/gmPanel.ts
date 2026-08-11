@@ -1311,9 +1311,22 @@ router.patch('/tables/:id/archive', authMiddleware, async (req: Request, res: Re
       }
     }
 
+    // Autoria do encerramento (migration_156): a tela "Mesa Encerrada" mostra
+    // quem tirou a mesa do ar. `userRole` distingue o admin que arquiva mesa
+    // alheia do GM que arquiva a própria — esta rota atende os dois (o bloco de
+    // permissão acima deixa admin passar sem ser dono). Desarquivar limpa os
+    // dois campos: mesa de volta ao ar não tem encerramento a exibir.
     const result = await db
       .updateTable('tables')
-      .set({ archived_at: archived ? new Date() : null })
+      .set(
+        archived
+          ? {
+              archived_at: new Date(),
+              archived_by: userId,
+              closed_reason: userRole === 'admin' ? 'admin' : 'gm',
+            }
+          : { archived_at: null, archived_by: null, closed_reason: null },
+      )
       .where('id', '=', id)
       .returning(['id', 'slug', 'title', 'status', 'archived_at'])
       .executeTakeFirst();

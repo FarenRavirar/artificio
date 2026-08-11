@@ -333,6 +333,161 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.missing_fields).not.toContain('title');
   });
 
+  // Bug real medido em produção (2026-08-11): duas mesas importadas gravaram
+  // `contact_url` com marcação markdown grudada — `)__` e `**` — e o botão de
+  // inscrição não chegava ao Google Forms. `)`/`]` desbalanceados já eram
+  // removidos; ênfase (`*`/`_`/`~`/crase) não era.
+  it.each([
+    ['[Inscrição](https://forms.gle/mVvUiUTq7Z5yJTWT9)__', 'link markdown seguido de ênfase'],
+    ['**https://forms.gle/b3uwFZeGNLQViQ1U7**', 'ênfase não pareada envolvendo a URL'],
+    ['https://forms.gle/mVvUiUTq7Z5yJTWT9)__.', 'ênfase, parêntese e pontuação final'],
+    ['~~https://forms.gle/b3uwFZeGNLQViQ1U7~~', 'strikethrough'],
+    ['`https://forms.gle/b3uwFZeGNLQViQ1U7`', 'code span'],
+  ])('limpa marcação markdown grudada na contact_url (%s)', (contatoRaw) => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Dungeons & Dragons',
+          'Mesa: A Torre dos Tres Sabores',
+          'Tipo: Campanha',
+          'Modalidade: Online',
+          'Vagas: 4',
+          `Contato: ${contatoRaw}`,
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.contact_url).toMatch(/^https:\/\/forms\.gle\/[A-Za-z0-9]+$/);
+    expect(draft?.missing_fields).not.toContain('contact_url:suspicious');
+  });
+
+  // Relato do mantenedor (2026-08-11, draft "Blue Lock - Awakening"): a imagem
+  // do embed do anúncio virou `contact_url` e passou como "link válido" — a
+  // URL é bem formada, e a validação só olhava forma, nunca função. Já tinha
+  // acontecido com YouTube e Spotify.
+  it.each([
+    ['https://i.pinimg.com/736x/48/08/4b/48084b3c88077a68eda0c950aced01c6.jpg', 'imagem do Pinterest'],
+    ['https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'vídeo do YouTube'],
+    ['https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M', 'playlist do Spotify'],
+    ['https://cdn.discordapp.com/attachments/1/2/banner.png', 'anexo do Discord'],
+    ['https://exemplo.com/regras-da-mesa.pdf', 'PDF de material'],
+  ])('não elege %s como contact_url', (midiaUrl) => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Fate Core',
+          'Mesa: Blue Lock Awakening',
+          'Tipo: Campanha',
+          'Modalidade: Online',
+          'Vagas: 4',
+          `Capa: ${midiaUrl}`,
+        ].join('\n'),
+      }),
+    );
+
+    // A mídia não ocupa o campo. Não afirmamos sobre `missing_fields` aqui: o
+    // fixture usa label "Capa:", que segue outro caminho de extração — o que
+    // este teste garante é que a URL de mídia nunca vira contato.
+    expect(draft?.table.contact_url).toBeNull();
+  });
+
+  // A mídia sai da disputa, e o formulário real — que aparece DEPOIS dela no
+  // texto — passa a ser eleito. Antes, `allMatches[0]` entregava a imagem.
+  it('elege o formulário real quando há mídia antes dele no anúncio', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Fate Core',
+          'Mesa: Blue Lock Awakening',
+          'Tipo: Campanha',
+          'Modalidade: Online',
+          'Vagas: 4',
+          'Capa: https://i.pinimg.com/736x/48/08/4b/48084b3c88077a68eda0c950aced01c6.jpg',
+          'Inscrição: https://forms.gle/mVvUiUTq7Z5yJTWT9',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.contact_url).toBe('https://forms.gle/mVvUiUTq7Z5yJTWT9');
+  });
+
+  // Não virou allowlist de domínio: o achado de 2026-07-10 (site pessoal de GM
+  // bloqueado indevidamente) continua valendo, e o filtro novo só recusa por
+  // evidência positiva de mídia.
+  it('mantém site pessoal de GM como contact_url válida', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Fate Core',
+          'Mesa: Mesa do Yan',
+          'Tipo: Campanha',
+          'Modalidade: Online',
+          'Vagas: 4',
+          'Contato: https://dm.yanbraga.com/join',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.contact_url).toBe('https://dm.yanbraga.com/join');
+    expect(draft?.missing_fields).not.toContain('contact_url:suspicious');
+  });
+
+  // Relato do mantenedor (2026-08-11, draft "Pokémon Mystery Dungeon"): o
+  // título veio como "369323334355255297" — o snowflake do mestre, idêntico a
+  // `host_discord_id` e à menção em `_raw_evidence.user_mentions`. Duas causas
+  // somadas: "Título da Campanha:" não era label reconhecido (caiu no fallback
+  // de thread-name) e nada recusava snowflake como título.
+  it('reconhece "Título da Campanha:" como label de título', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_thread_name: '<@369323334355255297>',
+        content_raw: [
+          '<@369323334355255297>',
+          'Título da Campanha: Pokémon Mystery Dungeon: O Silêncio Vindo do Céu',
+          'Sistema: Pokémon RPG',
+          'Modalidade: Online',
+          'Vagas: 3',
+          'Dias da mesa: Segunda-Feira',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.title).toBe('Pokémon Mystery Dungeon: O Silêncio Vindo do Céu');
+  });
+
+  it.each([
+    ['<@369323334355255297>', 'menção de usuário'],
+    ['<@!369323334355255297>', 'menção de usuário com apelido'],
+    ['369323334355255297', 'snowflake solto'],
+  ])('nunca usa %s como título (%s)', (threadName) => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_thread_name: threadName,
+        content_raw: ['Sistema: Pokémon RPG', 'Modalidade: Online', 'Vagas: 3'].join('\n'),
+      }),
+    );
+
+    // `null` é o resultado desejado: sem nome real, o draft cai em revisão em
+    // vez de nascer com um ID no lugar do título.
+    expect(draft?.table.title ?? '').not.toMatch(/^\d{17,20}$/);
+  });
+
+  // O piso de 17 dígitos existe para não recusar título legitimamente numérico.
+  it('mantém título numérico curto e legítimo', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Mesa: 1974',
+          'Sistema: Ordem Paranormal',
+          'Modalidade: Online',
+          'Vagas: 4',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.title).toBe('1974');
+  });
+
   it('extracts Covil forum body fields with markdown labels and session-zero note', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({
@@ -902,6 +1057,90 @@ describe('parseDiscordAnnouncement', () => {
       { vtt: vttPlatforms, communication: communicationPlatforms },
     );
     expect(draft?.table.vtt_platform_id).toBeNull();
+  });
+
+  // Relato do mantenedor (2026-08-11, draft "Digimon RPG - Neon Hounds"):
+  // `vtt_platform_id: null` com `_vtt_source_hint: "Discord"`. O anúncio cita a
+  // VTT numa linha DIFERENTE da de comunicação, e `platformsLabelValue` captura
+  // só o primeiro label — a VTT nunca chegava a ser comparada com o catálogo.
+  it('reconhece VTT citada fora da linha de plataformas (caso real "Neon Hounds")', () => {
+    const vttPlatforms = [{ id: 'owlbear', name: 'Owlbear Rodeo', aliases: ['Owlbear'] }];
+    const communicationPlatforms = [{ id: 'discord-plat', name: 'Discord', aliases: [] }];
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Digimon RPG',
+          'Vagas: 4',
+          'Plataforma: Discord',
+          'Mapas e combate rodam no Owlbear Rodeo.',
+        ].join('\n'),
+      }),
+      [],
+      undefined,
+      { vtt: vttPlatforms, communication: communicationPlatforms },
+    );
+
+    expect(draft?.table.vtt_platform_id).toBe('owlbear');
+    expect(draft?.table.communication_platform_id).toBe('discord-plat');
+  });
+
+  it('reconhece VTT em anúncio sem label "Plataforma:" dedicado', () => {
+    const vttPlatforms = [{ id: 'owlbear', name: 'Owlbear Rodeo', aliases: ['Owlbear'] }];
+    const communicationPlatforms = [{ id: 'discord-plat', name: 'Discord', aliases: [] }];
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Digimon RPG',
+          'Vagas: 4',
+          'Usamos Owlbear Rodeo para os mapas.',
+        ].join('\n'),
+      }),
+      [],
+      undefined,
+      { vtt: vttPlatforms, communication: communicationPlatforms },
+    );
+
+    expect(draft?.table.vtt_platform_id).toBe('owlbear');
+  });
+
+  // "owlbear" como CRIATURA na sinopse não é plataforma. O que distingue os
+  // dois usos está no texto (verbo de uso vs. narrativa), então o parser tem
+  // de ler isso — não o revisor corrigir depois no painel.
+  it('não confunde criatura na sinopse com VTT de mesmo nome', () => {
+    const vttPlatforms = [{ id: 'owlbear', name: 'Owlbear Rodeo', aliases: ['Owlbear'] }];
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: D&D 5e',
+          'Vagas: 4',
+          'A party enfrenta um owlbear selvagem na floresta.',
+        ].join('\n'),
+      }),
+      [],
+      undefined,
+      { vtt: vttPlatforms, communication: [] },
+    );
+
+    expect(draft?.table.vtt_platform_id).toBeNull();
+  });
+
+  it.each([
+    ['Usamos Owlbear Rodeo para os mapas.', 'verbo de uso'],
+    ['Os combates rodam no Owlbear Rodeo.', 'combate + verbo'],
+    ['As sessões acontecem no Owlbear Rodeo.', 'sessão + local'],
+    ['Mapas: Owlbear Rodeo', 'label de mapas'],
+  ])('reconhece VTT em prosa com sinal de uso (%s)', (linha) => {
+    const vttPlatforms = [{ id: 'owlbear', name: 'Owlbear Rodeo', aliases: ['Owlbear'] }];
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: ['Sistema: D&D 5e', 'Vagas: 4', linha].join('\n'),
+      }),
+      [],
+      undefined,
+      { vtt: vttPlatforms, communication: [] },
+    );
+
+    expect(draft?.table.vtt_platform_id).toBe('owlbear');
   });
 
   it('extrai setting_name do label "Época" (sinônimo de ambientação, achado do mantenedor 2026-07-16, caso real "Duskwood")', () => {

@@ -308,10 +308,22 @@ export interface TablesTable {
   features: unknown; // JSONB: string[]
   table_gm_bio: string | null;
   archived_at: Date | null;
+  // migration_156: autoria do encerramento, para a tela "Mesa Encerrada".
+  // NULL nas mesas encerradas antes de 2026-08-11 — o dado nunca foi gravado.
+  archived_by: string | null;
+  closed_reason: TableClosedReason | null;
   published_at: Date | null;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }
+
+/**
+ * Motivo do encerramento (`migration_156`, CHECK `tables_closed_reason_check`).
+ * `auto_expired` cobre importada vencida por tempo; hoje essa expiração é
+ * calculada na leitura (`isPublicTable`) e não persistida, então o valor existe
+ * para quando houver rotina que a materialize.
+ */
+export type TableClosedReason = 'gm' | 'admin' | 'auto_expired';
 
 export interface TableContactsTable {
   id: Generated<string>;

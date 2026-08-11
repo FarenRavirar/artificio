@@ -99,9 +99,20 @@ router.post('/tables/batch', authMiddleware, async (req: Request, res: Response)
       return res.json({ data: { updated } });
     }
 
+    // Autoria do encerramento (migration_156). Rota exclusiva de admin, então
+    // `closed_reason` é sempre 'admin' — diferente de `gmPanel.ts`, onde a
+    // mesma ação pode partir do dono da mesa. Desarquivar limpa os dois campos.
     const result = await db
       .updateTable('tables')
-      .set({ archived_at: action === 'archive' ? new Date() : null })
+      .set(
+        action === 'archive'
+          ? {
+              archived_at: new Date(),
+              archived_by: req.user?.userId ?? null,
+              closed_reason: 'admin',
+            }
+          : { archived_at: null, archived_by: null, closed_reason: null },
+      )
       .where('id', 'in', ids)
       .returning('id')
       .execute();

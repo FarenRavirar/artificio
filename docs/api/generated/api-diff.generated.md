@@ -6,34 +6,5 @@
 
 ---
 
-## Sumário
-
-| App | Breaking | Non-breaking | Unclassified |
-|-----|:--------:|:------------:|:------------:|
-| accounts | ✅ 0 | ✅ 16 | ⚪ 0 |
-
----
-
-### accounts
-
-#### ✅ Non-breaking (16)
-
-| Path | Method | Ação |
-|------|--------|------|
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
-| `` |  | add |
+✅ **Nenhuma mudança detectada entre a versão atual e dev.**
 

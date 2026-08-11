@@ -32,14 +32,31 @@ export function isImportedTableExpired(table: {
   starts_at: DateValue | null;
 }): boolean {
   if (table.origin !== 'imported') return false;
+  return new Date() >= importedTableExpiryDate(table);
+}
 
+/**
+ * Momento em que a divulgação importada deixa de ser pública: `starts_at` ou 5
+ * dias após a criação, o que vencer primeiro.
+ *
+ * Extraída de `isImportedTableExpired` para a tela "Mesa Encerrada" (relato de
+ * produção 2026-08-11) poder **exibir** essa data, e não só decidir com ela.
+ * Importada não tem `archived_at` — ninguém a encerrou, ela venceu —, então
+ * sem esta função a tela não teria data nenhuma para mostrar.
+ *
+ * As duas continuam com uma fonte só de propósito: a regra já divergiu entre
+ * detalhe e Open Graph antes (achado CodeRabbit, spec 059/060), e é o motivo
+ * deste arquivo existir.
+ */
+export function importedTableExpiryDate(table: {
+  created_at: DateValue;
+  starts_at: DateValue | null;
+}): Date {
   const limite5Dias = new Date(table.created_at);
   limite5Dias.setDate(limite5Dias.getDate() + 5);
 
   const limiteEvento = table.starts_at ? new Date(table.starts_at) : limite5Dias;
-  const validadeFinal = limiteEvento < limite5Dias ? limiteEvento : limite5Dias;
-
-  return new Date() >= validadeFinal;
+  return limiteEvento < limite5Dias ? limiteEvento : limite5Dias;
 }
 
 /**

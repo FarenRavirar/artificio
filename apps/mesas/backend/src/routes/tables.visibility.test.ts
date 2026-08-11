@@ -71,10 +71,13 @@ describe('GET /api/v1/tables/:slug — visibilidade pública', () => {
     dbMocks.selectFrom.mockImplementation(() => makeQueryBuilder());
   });
 
+  // Mesa que nunca esteve no ar continua 404: 410 ("encerrada") afirmaria que
+  // ela existiu publicamente e revelaria a existência de um rascunho a quem
+  // chutou a URL.
   it.each([
     ['rascunho', { ...visibleTable, status: 'draft' }],
-    ['arquivada', { ...visibleTable, archived_at: new Date('2026-07-28T01:00:00.000Z') }],
-  ])('devolve 404 para mesa %s', async (_label, table) => {
+    ['em revisão', { ...visibleTable, status: 'pending_review' }],
+  ])('devolve 404 para mesa %s (nunca foi pública)', async (_label, table) => {
     dbMocks.executeTakeFirst.mockResolvedValue(table);
 
     const response = await request(makeApp()).get(`/api/v1/tables/${table.slug}`);
@@ -83,18 +86,88 @@ describe('GET /api/v1/tables/:slug — visibilidade pública', () => {
     expect(response.body).toEqual({ error: 'Mesa não encontrada.' });
   });
 
-  it('mantém mesa pública acessível e aplica os mesmos filtros da listagem', async () => {
-    const detailBuilder = makeQueryBuilder();
-    dbMocks.selectFrom
-      .mockReturnValueOnce(detailBuilder)
-      .mockImplementation(() => makeQueryBuilder());
+  it('devolve 404 para slug inexistente', async () => {
+    dbMocks.executeTakeFirst.mockResolvedValue(undefined);
+
+    const response = await request(makeApp()).get('/api/v1/tables/nao-existe');
+
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ error: 'Mesa não encontrada.' });
+  });
+
+  // Relato de produção (2026-08-11): mesa encerrada devolvia 404 e o visitante
+  // via "Mesa não encontrada", sem distinguir mesa que saiu do ar de link
+  // errado. Agora devolve 410 com o payload da tela "Mesa Encerrada".
+  it('devolve 410 com autoria para mesa arquivada', async () => {
+    dbMocks.executeTakeFirst.mockResolvedValue({
+      ...visibleTable,
+      archived_at: new Date('2026-07-28T01:00:00.000Z'),
+      archived_by: 'user-1',
+      closed_reason: 'gm',
+    });
+
+    const response = await request(makeApp()).get('/api/v1/tables/mesa-publica');
+
+    expect(response.status).toBe(410);
+    expect(response.body.error).toBe('Mesa encerrada.');
+    expect(response.body.data).toMatchObject({
+      slug: visibleTable.slug,
+      title: visibleTable.title,
+      closed_reason: 'gm',
+    });
+    expect(response.body.data.closed_at).toBe('2026-07-28T01:00:00.000Z');
+  });
+
+  // Importada vencida não tem `archived_at` — ninguém a encerrou, ela expirou.
+  // A data exibida é o limite calculado, e o motivo é derivado, não gravado.
+  it('devolve 410 com motivo derivado para importada expirada', async () => {
+    dbMocks.executeTakeFirst.mockResolvedValue({
+      ...visibleTable,
+      origin: 'imported',
+      created_at: new Date('2026-07-01T00:00:00.000Z'),
+      starts_at: null,
+      archived_at: null,
+      archived_by: null,
+      closed_reason: null,
+    });
+
+    const response = await request(makeApp()).get('/api/v1/tables/mesa-publica');
+
+    expect(response.status).toBe(410);
+    expect(response.body.data.closed_reason).toBe('auto_expired');
+    expect(response.body.data.closed_by_name).toBeNull();
+    // 5 dias após a criação, a mesma regra de `isImportedTableExpired`.
+    expect(response.body.data.closed_at).toBe('2026-07-06T00:00:00.000Z');
+  });
+
+  // Nada que sirva para inscrição entra na resposta de mesa encerrada: mesa
+  // fora do ar não segue captando candidato.
+  it('não expõe contato nem dados do GM em mesa encerrada', async () => {
+    dbMocks.executeTakeFirst.mockResolvedValue({
+      ...visibleTable,
+      archived_at: new Date('2026-07-28T01:00:00.000Z'),
+      archived_by: null,
+      closed_reason: 'admin',
+    });
+
+    const response = await request(makeApp()).get('/api/v1/tables/mesa-publica');
+
+    expect(response.status).toBe(410);
+    expect(Object.keys(response.body.data).sort()).toEqual([
+      'closed_at',
+      'closed_by_name',
+      'closed_reason',
+      'slug',
+      'title',
+    ]);
+  });
+
+  it('mantém mesa pública acessível', async () => {
     dbMocks.executeTakeFirst.mockResolvedValue(visibleTable);
 
     const response = await request(makeApp()).get('/api/v1/tables/mesa-publica');
 
     expect(response.status).toBe(200);
-    expect(detailBuilder.where).toHaveBeenCalledWith('t.status', '=', 'active');
-    expect(detailBuilder.where).toHaveBeenCalledWith('t.archived_at', 'is', null);
   });
 });
 

@@ -584,6 +584,32 @@ function findPlatformMatchFuzzy(text: string, entries: MatchEntry[]): MatchEntry
   return best?.entry ?? null;
 }
 
+/**
+ * Verbo/preposição que marca uso de ferramenta — o sinal que separa
+ * "**jogamos no** Owlbear Rodeo" de "a party enfrenta um **owlbear**".
+ *
+ * Relato do mantenedor (2026-08-11): a informação que distingue os dois usos
+ * ESTÁ no texto, então extrair errado é defeito do parser, não limitação do
+ * anúncio. Recortar as linhas com esse sinal é o que permite varrer o corpo
+ * atrás de VTT sem transformar bestiário em plataforma.
+ */
+const PLATFORM_CONTEXT_LINE_RE =
+  /\b(?:usa(?:mos|remos|r|ndo)?|utiliza(?:mos|remos|r|ndo)?|roda(?:mos|m|r|ndo)?|joga(?:mos|m|r|ndo)?|ser[aá]\s+(?:n[oa]|em)|acontece(?:m|r[aá]o?)?|ocorre(?:m|r[aá]o?)?|mapas?|combates?|ficha[s]?|vtt|plataforma|virtual\s+tabletop|sess(?:[aã]o|[oõ]es))\b/i;
+
+/**
+ * Linhas do anúncio que falam de ferramenta/plataforma, unidas por `\n`.
+ *
+ * Devolve string vazia quando nenhuma linha qualifica — `findEntryMatch` sobre
+ * vazio não casa nada, que é o comportamento correto: sem contexto de uso, uma
+ * menção solta ao nome não é evidência de que a mesa roda naquela plataforma.
+ */
+function extractPlatformContextLines(text: string): string {
+  return text
+    .split(/\r?\n/)
+    .filter((line) => PLATFORM_CONTEXT_LINE_RE.test(line))
+    .join('\n');
+}
+
 /** Fase A (spec 058): matching de VTT/plataforma de comunicação — só nome+aliases, sem edição/versão.
  * `fuzzyText` é opcional e só deve vir preenchido com um valor de label isolado
  * (ex.: linha "Plataformas:") — nunca com `fullText`. Achado Codex (PR #171):
@@ -698,24 +724,50 @@ const RE_INLINE_URL_GLOBAL = /https?:\/\/\S+/gi;
 // Achado do mantenedor (2026-07-10): quando não há thread_name real, o título
 // cai aqui via `body.split('\n')[0]` (1ª linha do anúncio) — sem passar por
 // normalizeTitle/normalizeTitleCapitalization, título em CAPS LOCK sobrevivia.
+/**
+ * Snowflake do Discord: inteiro de 17-20 dígitos. O piso de 17 evita recusar
+ * título legitimamente numérico ("1974", "2001", "40000" de Warhammer 40k) —
+ * nenhum chega perto dessa largura.
+ */
+const DISCORD_SNOWFLAKE_ONLY_RE = /^\d{17,20}$/;
+
+/**
+ * Esvazia o valor quando ele é só um ID do Discord.
+ *
+ * Título vazio é o resultado correto: sem nome, o draft cai em revisão pedindo
+ * o nome real, em vez de nascer com um número que ninguém reconhece como mesa.
+ */
+function dropSnowflakeTitle(value: string): string {
+  return DISCORD_SNOWFLAKE_ONLY_RE.test(value.trim()) ? '' : value;
+}
+
 function splitThreadName(threadName: string): { systemHint: string | null; title: string } {
   const urlMatch = RE_INLINE_URL.exec(threadName);
   // Separador ":" só é buscado na porção ANTES da primeira URL inline — o ":" de
   // "https://" nunca deve ser tratado como separador de "sistema: título".
   const searchScope = urlMatch ? threadName.slice(0, urlMatch.index) : threadName;
   const colonIdx = searchScope.indexOf(':');
+  // Menção crua no nome do thread (relato do mantenedor 2026-08-11): este
+  // caminho chama `stripDecorativeMarkup` direto, sem passar por
+  // `normalizeTitle`, então a guarda de snowflake de lá não alcança aqui — a
+  // WHITELIST descartava `<`/`@`/`>` e o ID do mestre virava o título da mesa.
+  const dropSnowflake = dropSnowflakeTitle;
   // Remove TODAS as URLs inline (não só a primeira) — múltiplos links de anexo
   // na mesma linha não podem sobreviver nem no beforeColon nem no afterColon
   // (achado bot review 2026-07-13: RE_INLINE_URL.exec só pegava o 1º match).
-  const textWithoutUrl = threadName.replace(RE_INLINE_URL_GLOBAL, '');
+  // Menções/canais/timestamps saem ANTES da decoração: depois da WHITELIST o
+  // ID já está nu e indistinguível de número escrito pelo autor.
+  const textWithoutUrl = threadName.replace(RE_INLINE_URL_GLOBAL, '').replace(RAW_DISCORD_TOKEN_RE, ' ');
   if (colonIdx > 0 && colonIdx < searchScope.length - 2) {
-    const beforeColon = cleanTrademark(stripDecorativeMarkup(threadName.slice(0, colonIdx).trim()));
-    const afterColon = cleanTrademark(stripDecorativeMarkup(textWithoutUrl.slice(colonIdx + 1).trim()));
+    const beforeColon = dropSnowflake(
+      cleanTrademark(stripDecorativeMarkup(threadName.slice(0, colonIdx).replace(RAW_DISCORD_TOKEN_RE, ' ').trim())),
+    );
+    const afterColon = dropSnowflake(cleanTrademark(stripDecorativeMarkup(textWithoutUrl.slice(colonIdx + 1).trim())));
     if (beforeColon.length > 0 && afterColon.length > 0) {
       return { systemHint: beforeColon, title: normalizeTitleCapitalization(afterColon) };
     }
   }
-  const fallbackTitle = cleanTrademark(stripDecorativeMarkup(textWithoutUrl));
+  const fallbackTitle = dropSnowflake(cleanTrademark(stripDecorativeMarkup(textWithoutUrl)));
   return { systemHint: null, title: fallbackTitle ? normalizeTitleCapitalization(fallbackTitle) : fallbackTitle };
 }
 
@@ -1194,13 +1246,35 @@ function deriveFrequency(type: TableDraftType | null, dayOfWeek: string | null):
   return null;
 }
 
-/** Fase C (spec 058): cadência explícita citada no texto — prioridade sobre o fallback `deriveFrequency`. */
+/**
+ * Fase C (spec 058): cadência explícita citada no texto — prioridade sobre o
+ * fallback `deriveFrequency`.
+ *
+ * Relato do mantenedor (2026-08-11, draft "Digimon RPG - Neon Hounds"): o
+ * anúncio diz "Sessões quinzenais / de 15 em 15 dias" e a cadência não foi
+ * reconhecida. Dois furos medidos na regex anterior:
+ *
+ *   - **plural**: `quinzenal(?:mente)?` não casa "quinzena**is**". O mesmo valia
+ *     para "semanais" e "mensais" — texto de anúncio concorda com "sessões",
+ *     então o plural é a forma comum, não a exceção;
+ *   - **"de 15 em 15 dias"**: só `a cada 15 dias` estava previsto.
+ *
+ * O plural entra como `(?:is|es)?` depois da raiz e `-mente` continua no ramo
+ * próprio: "quinzenalmente" não pluraliza, então juntar os dois sufixos num
+ * grupo só aceitaria "quinzenalmenteis".
+ */
 function extractExplicitFrequency(text: string): TableDraftFrequency | null {
   const lower = text.toLowerCase();
-  if (/\bquinzenal(?:mente)?\b|\ba\s+cada\s+(?:duas|2)\s+semanas\b|\ba\s+cada\s+15\s+dias\b/.test(lower)) return 'quinzenal';
-  if (/\bmensal(?:mente)?\b/.test(lower)) return 'mensal';
-  if (/\bavulsa?\b|\bsess[aã]o\s+[uú]nica\b/.test(lower)) return 'avulsa';
-  if (/\bsemanal(?:mente)?\b|\btod[ao]\s+semana\b/.test(lower)) return 'semanal';
+  if (
+    /\bquinzena(?:l(?:mente)?|is)\b|\ba\s+cada\s+(?:duas|2)\s+semanas\b|\b(?:a\s+cada|de)\s+15\s+em\s+15\s+dias\b|\ba\s+cada\s+15\s+dias\b/.test(
+      lower,
+    )
+  ) {
+    return 'quinzenal';
+  }
+  if (/\bmensa(?:l(?:mente)?|is)\b/.test(lower)) return 'mensal';
+  if (/\bavulsa?s?\b|\bsess[aã]o\s+[uú]nica\b/.test(lower)) return 'avulsa';
+  if (/\bsemana(?:l(?:mente)?|is)\b|\btod[ao]\s+semana\b/.test(lower)) return 'semanal';
   return null;
 }
 
@@ -1380,17 +1454,43 @@ function countChar(value: string, char: string): number {
   return count;
 }
 
+/**
+ * Ênfase markdown grudada no fim da URL (`**`, `__`, `*`, `_`, `~~`, `` ` ``).
+ *
+ * Removida **dentro** do laço, e não antes dele, porque os resíduos se
+ * intercalam: em `[Form](https://forms.gle/XXX)__` o `)` desbalanceado só fica
+ * exposto depois que `__` sai, e o `__` só fica no fim depois que o `)` sai,
+ * dependendo de como o anúncio foi escrito. Uma passada única em qualquer
+ * ordem deixa resto — o laço converge porque cada volta remove ao menos um
+ * caractere ou termina.
+ *
+ * Não usa `EDGE_EMPHASIS_MARKDOWN_RE` (limpeza de texto corrido, que precisa
+ * casar ênfase pareada no meio da frase): aqui o alvo é só a cauda da URL, e
+ * ênfase não pareada — `**` sem fechamento — também precisa sair.
+ */
+const URL_TRAILING_EMPHASIS_RE = /[*_~`]+$/;
+
+/**
+ * Remove pontuação e marcação que o Discord cola no fim de uma URL quando o
+ * anúncio usa markdown. Bug real medido em produção (2026-08-11): duas mesas
+ * importadas gravaram `contact_url` inválida — `https://forms.gle/XXX)__` e
+ * `https://forms.gle/YYY**` —, e o botão de inscrição não chegava ao Google
+ * Forms. `)`/`]` já eram tratados; ênfase (`*`/`_`/`~`/`` ` ``) não era, então
+ * `**` sobrevivia inteiro e `__` sobrevivia depois da queda do `)`.
+ */
 function trimTrailingUrlWrappers(url: string): string {
   let trimmed = url.replace(/[.,;:]+$/g, '');
   let previous = '';
   while (previous !== trimmed) {
     previous = trimmed;
+    trimmed = trimmed.replace(URL_TRAILING_EMPHASIS_RE, '');
     if (trimmed.endsWith(')') && countChar(trimmed, '(') < countChar(trimmed, ')')) {
       trimmed = trimmed.slice(0, -1);
     }
     if (trimmed.endsWith(']') && countChar(trimmed, '[') < countChar(trimmed, ']')) {
       trimmed = trimmed.slice(0, -1);
     }
+    trimmed = trimmed.replace(/[.,;:]+$/g, '');
   }
   return trimmed;
 }
@@ -1448,7 +1548,15 @@ function urlHasContactContext(text: string, url: string): boolean {
  * virava contact_url mesmo sem nenhum sinal de que era canal de inscrição).
  */
 function extractContactUrl(text: string, labelAliases: string[] = []): { url: string; confident: boolean } | null {
-  const allMatches = extractRawHttpUrls(text).map(trimTrailingUrlWrappers);
+  // Descarta mídia ANTES de eleger o contato (relato do mantenedor 2026-08-11:
+  // imagem de embed do Pinterest virou `contact_url` do draft "Blue Lock").
+  // Filtrar aqui, e não só marcar `contact_url:suspicious` depois, é o que
+  // impede a URL errada de ocupar o campo: com a imagem eliminada da lista, o
+  // fallback `allMatches[0]` passa a escolher a próxima URL — que pode ser o
+  // formulário real — em vez de perder a vaga para o embed.
+  const allMatches = extractRawHttpUrls(text)
+    .map(trimTrailingUrlWrappers)
+    .filter((url) => !isSuspiciousUrl(url));
   if (allMatches.length === 0) return null;
   const learnedLabelValue = labelAliases.length > 0 ? extractLabelValue(text, labelAliases) : null;
   const learnedUrl = learnedLabelValue
@@ -2021,11 +2129,36 @@ function normalizeTitleCapitalization(value: string): string {
     .join(' ');
 }
 
+/**
+ * Título que é só um snowflake do Discord — resíduo de menção crua, não nome.
+ *
+ * Relato do mantenedor (2026-08-11): o draft de "Pokémon Mystery Dungeon"
+ * gravou `title: "369323334355255297"`, o mesmo valor de `host_discord_id` e de
+ * `_raw_evidence.user_mentions: ["<@369323334355255297>"]`. O anúncio começa
+ * com a menção ao mestre; `stripDecorativeMarkup` remove `<`, `@` e `>` pela
+ * WHITELIST e o número sobrevive sozinho, sem nada a jusante que o recuse.
+ *
+ * `RAW_DISCORD_TOKEN_RE` já existe e trata esse caso — mas só em `description`
+ * (ver comentário na definição dela), depois que host/menções foram extraídos.
+ * Título nunca passou por essa limpeza.
+ *
+ * Definição de `DISCORD_SNOWFLAKE_ONLY_RE`/`dropSnowflakeTitle` fica no topo do
+ * módulo, junto de `splitThreadName`, porque os dois caminhos de título
+ * precisam da mesma guarda.
+ */
 function normalizeTitle(value: string | null): string | null {
   if (!value) return null;
-  const cleaned = stripDecorativeMarkup(value.replace(/^["“”']|["“”']$/g, '').trim());
+  // Remove menção/canal/timestamp cru ANTES da decoração: senão a WHITELIST de
+  // `stripDecorativeMarkup` descarta os delimitadores e deixa o ID nu, que já
+  // não dá para distinguir de um número escrito pelo autor.
+  const withoutRawTokens = value.replace(RAW_DISCORD_TOKEN_RE, ' ');
+  const cleaned = stripDecorativeMarkup(withoutRawTokens.replace(/^["“”']|["“”']$/g, '').trim());
   const trademarkCleaned = cleanTrademark(cleaned);
-  return trademarkCleaned ? normalizeTitleCapitalization(trademarkCleaned) : null;
+  if (!trademarkCleaned) return null;
+  // Rede de segurança para o ID que escapa por outro caminho (menção já
+  // desmontada antes de chegar aqui, autor colando o ID solto).
+  if (DISCORD_SNOWFLAKE_ONLY_RE.test(trademarkCleaned)) return null;
+  return normalizeTitleCapitalization(trademarkCleaned);
 }
 
 // Penalidade fixa por sinal de ambiguidade detectado durante o parse — um
@@ -2076,11 +2209,53 @@ export function classifyConfidence(score: number): ConfidenceTier {
 // (sem esquema http/https, sem domínio válido) — allowlist deixa de ser gate
 // de bloqueio e vira só um sinal de prioridade/confiança em outros lugares
 // que ainda usem isKnownContactUrl diretamente.
+/**
+ * Extensões de arquivo que nunca são canal de inscrição. Uma imagem, vídeo ou
+ * PDF pode ser **material** da mesa; não é onde o jogador se candidata.
+ */
+const NON_CONTACT_FILE_EXTENSION_RE =
+  /\.(jpe?g|png|gif|webp|avif|bmp|svg|mp4|webm|mov|mp3|wav|ogg|pdf|zip|rar)$/i;
+
+/**
+ * Hosts cuja função é hospedar mídia/consumo, não receber inscrição. Não é
+ * allowlist invertida de "domínio bom": é a lista dos que, quando aparecem como
+ * `contact_url`, são **certamente** o link errado.
+ *
+ * Relato do mantenedor (2026-08-11): o draft "Blue Lock - Awakening" gravou
+ * `contact_url: https://i.pinimg.com/736x/.../48084b3c....jpg` — a imagem do
+ * embed do anúncio — e o campo passou como "link válido". Mesmo caso já visto
+ * com YouTube e Spotify. A URL é bem formada, então a validação de forma a
+ * aprovava; o defeito é que ela nunca perguntou *para que serve*.
+ */
+const MEDIA_HOST_RE =
+  /(^|\.)(pinimg\.com|pinterest\.[a-z.]+|youtube\.com|youtu\.be|spotify\.com|open\.spotify\.com|soundcloud\.com|imgur\.com|i\.redd\.it|redd\.it|tenor\.com|giphy\.com|cdn\.discordapp\.com|media\.discordapp\.net|twimg\.com)$/i;
+
+/**
+ * true quando a URL não serve como canal de inscrição.
+ *
+ * Duas camadas, e a ordem importa:
+ *
+ * 1. **Forma** — sem esquema http/https ou sem hostname válido. Era a única
+ *    checagem até 2026-08-11.
+ * 2. **Função** — host de mídia ou caminho que aponta para arquivo. Acrescentada
+ *    pelo relato do "Blue Lock": URL sintaticamente perfeita e semanticamente
+ *    impossível como inscrição.
+ *
+ * Continua **não** sendo allowlist de domínio: site pessoal de GM real
+ * (`dm.yanbraga.com/join`) segue passando, que foi o achado de 2026-07-10 e o
+ * motivo de a allowlist curta ter saído de gate. O filtro novo recusa por
+ * evidência positiva de que aquilo é mídia, não por ausência de credencial.
+ */
 export function isSuspiciousUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return true;
-    return !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i.test(parsed.hostname);
+    if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i.test(parsed.hostname)) {
+      return true;
+    }
+    if (MEDIA_HOST_RE.test(parsed.hostname)) return true;
+    // Só o pathname: `?utm=x.png` na query não faz de um formulário uma imagem.
+    return NON_CONTACT_FILE_EXTENSION_RE.test(parsed.pathname);
   } catch {
     return true;
   }
@@ -2189,8 +2364,15 @@ export function parseDiscordAnnouncement(
   // ("Paga"). Só descarta quando o valor claramente descreve preço/gratuidade,
   // não quando é nome real.
   const MESA_PRICE_VALUE_RE = /^(?:paga|gr[aá]tis|gratuita|r\$)\b/i;
+  // "Título da Campanha:" é variante real (relato do mantenedor 2026-08-11,
+  // anúncio "Pokémon Mystery Dungeon"). `extractLabelValue` compara a chave
+  // INTEIRA por igualdade — mesmo defeito do bug 5 da sessão 26-07-10, em que
+  // "Sistema de Jogo:" nunca batia com 'sistema'. Sem a variante, o título caía
+  // no fallback do thread-name e o anúncio ficou com a menção crua ao mestre.
   const rawExplicitTitle = extractLabelValue(body, [
-    'mesa', 'titulo', 'título', 'nome da mesa', 'aventura', ...(labelAliases?.title ?? []),
+    'mesa', 'titulo', 'título', 'nome da mesa', 'aventura',
+    'titulo da campanha', 'título da campanha', 'nome da campanha',
+    ...(labelAliases?.title ?? []),
   ]);
   const explicitTitle = normalizeTitle(
     rawExplicitTitle && MESA_PRICE_VALUE_RE.test(rawExplicitTitle) ? null : rawExplicitTitle,
@@ -2334,9 +2516,32 @@ export function parseDiscordAnnouncement(
   // quando não há label "Plataforma(s)" dedicado.
   const platformsLabelValue = extractLabelValue(body, ['plataforma', 'plataformas'])
     ?? extractLabelValue(body, ['local do jogo']);
-  const vttMatch = platforms?.vtt?.length
-    ? findPlatformMatch(platformsLabelValue ?? fullText, platforms.vtt, platformsLabelValue)
+  // Relato do mantenedor (2026-08-11, draft "Digimon RPG - Neon Hounds"): a VTT
+  // ficou `null` com `_vtt_source_hint: "Discord"`. O anúncio traz
+  // "Plataforma: Discord" numa linha e cita a VTT em outra (prosa: "mapas rodam
+  // no Owlbear Rodeo") — `platformsLabelValue` captura só a primeira linha, e a
+  // VTT nunca chegava a ser comparada com o catálogo. Os casos que já
+  // funcionavam ("Plataformas: Discord, owbear") têm as duas na MESMA linha,
+  // que é por isso que o defeito não aparecia nos testes existentes.
+  //
+  // O fallback varre as linhas que FALAM de plataforma (verbo de uso + a
+  // menção), não o corpo inteiro, e só com match exato — `fuzzyText` fica
+  // `null` de propósito: fuzzy contra `fullText` é o falso positivo barrado
+  // pelo Codex na PR #171 (token ≥4 chars da sinopse batendo 0.75 por acaso).
+  //
+  // O recorte por linha resolve o caso que o corpo inteiro erraria: "a party
+  // enfrenta um owlbear na floresta" cita o alias exato como CRIATURA, e
+  // `Owlbear Rodeo` é VTT. A informação que distingue os dois está no texto —
+  // "usamos/rodamos/jogamos em X" versus narrativa — então é o parser que
+  // precisa lê-la, não o revisor que precisa corrigir depois.
+  // Sem label dedicado o primeiro ramo caía em `fullText` — é por aí que a
+  // criatura da sinopse virava VTT. As duas fontes agora exigem contexto: label
+  // "Plataforma(s)"/"Local do jogo", ou linha com sinal de uso de ferramenta.
+  const vttFromLabel = platforms?.vtt?.length && platformsLabelValue
+    ? findPlatformMatch(platformsLabelValue, platforms.vtt, platformsLabelValue)
     : null;
+  const vttMatch = vttFromLabel
+    ?? (platforms?.vtt?.length ? findPlatformMatch(extractPlatformContextLines(body), platforms.vtt, null) : null);
   const communicationMatch = platforms?.communication?.length
     ? findPlatformMatch(platformsLabelValue ?? fullText, platforms.communication, platformsLabelValue)
     : null;
@@ -2421,7 +2626,12 @@ export function parseDiscordAnnouncement(
   }
 
   const table: DiscordTableDraftTable = {
-    title: title || threadName || null,
+    // Último fallback usa `threadName` CRU, sem passar por `splitThreadName`
+    // nem `normalizeTitle` — foi por aqui que o snowflake do mestre chegou ao
+    // título no relato de 2026-08-11, mesmo com as duas guardas a montante.
+    // `null` é melhor que um ID: o draft cai em revisão pedindo o nome real,
+    // em vez de nascer com um número que ninguém reconhece como mesa.
+    title: title || dropSnowflakeTitle(threadName) || null,
     system_name: systemName,
     system_id: systemId,
     raw_system_hint: rawSystemHint,
