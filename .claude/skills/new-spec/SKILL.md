@@ -1,6 +1,6 @@
 ---
 name: new-spec
-description: Cria o esqueleto de uma spec SDD do Artifício RPG em specs/NNN-<modulo>-<slug>/ com spec.md, plan.md e tasks.md a partir dos templates. Use ao iniciar qualquer trabalho SDD Completo (compartilhado, infra, migration, auth, importador, SEO, feature grande).
+description: Cria o esqueleto de uma spec SDD do Artifício RPG em specs/NNN-modulo-slug/ com spec.md, plan.md e tasks.md a partir dos templates. Use ao iniciar qualquer trabalho SDD Completo (compartilhado, infra, migration, auth, importador, SEO, feature grande).
 ---
 
 # Nova spec SDD
@@ -48,7 +48,7 @@ SDD Completo (ver `docs/agents/operating-model.md`): toca `packages/*`, infra (t
 ## Fase N — <nome da fase>
 - [ ] TN.0a — Ler `AGENTS.md` inteiro (T0 pétreo — obrigatório toda sessão/toda fase nova, mesmo se já lido antes nesta mesma sessão) antes de agir nesta fase. · feito quando: leitura confirmada, gate/regra pétrea relevante à fase identificada.
 - [ ] TN.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase (`rtk git status/diff/log`, `rtk rg`, `rtk read`, `rtk pnpm`, `rtk tsc`, `rtk lint`, `rtk <test-runner>` — ver `AGENTS.md` §rtk pra lista completa). · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
-- [ ] TN.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra (`AGENTS.md` — regra de comunicação do projeto). · feito quando: mensagens da fase seguem o registro.
+- [ ] TN.0c — Comunicação com o mantenedor nesta fase em português (`AGENTS.md` — regra de comunicação do projeto). · feito quando: mensagens da fase seguem o registro.
 - [ ] TN.1 — <ação> · feito quando: <critério verificável>
 - [ ] TN.2 — ...
 ```

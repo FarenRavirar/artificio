@@ -229,9 +229,14 @@ describe("hasScope", () => {
 });
 
 describe("SERVICE_SCOPES", () => {
-  it("espelha o CHECK da migration 007", () => {
+  it("espelha o CHECK das migrations 007 e 011", () => {
     // Divergir daqui faz o INSERT falhar em runtime com erro de constraint, o que
     // só apareceria no deploy. Manter os dois lados no mesmo teste.
+    //
+    // `notification.write` entrou pela migration 011 (T3.13): ingestão de evento
+    // vindo de outro módulo. Escopo próprio de propósito — emitir aviso não pode
+    // vir junto com criar fala (`comment.write`) nem decidir caso
+    // (`moderation.write`).
     expect([...SERVICE_SCOPES]).toEqual([
       "users.read",
       "secrets.read",
@@ -240,6 +245,7 @@ describe("SERVICE_SCOPES", () => {
       "vote.write",
       "report.write",
       "moderation.write",
+      "notification.write",
     ]);
   });
 });

@@ -5,6 +5,7 @@ import { authMiddleware, requireRole } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
 import { assertValidTransition, InvalidEditorialTransitionError } from '../services/editorialStateMachine';
 import { emitNotification } from '../services/notify';
+import { deliverPendingNotifications } from '../services/notificationOutboxDelivery';
 import { logModerationAudit } from '../services/moderationAuditLog';
 import { sendModerationEmail } from '../services/moderationEmail';
 import { detectPortuguese } from '../services/languageDetector';
@@ -153,9 +154,19 @@ router.post('/:id/reject', writeRateLimiter, authMiddleware, requireRole(['moder
       userId: changed.creator_id,
       kind: 'material_rejected',
       materialId: changed.id,
+      // Slug, não id: a rota do frontend é `/materiais/:materialSlug`.
+      materialSlug: changed.slug,
       body: `Seu material "${changed.title}" foi rejeitado. Motivo: ${safeReason}`,
     }, trx);
     return changed;
+  });
+
+  // T3.5 (spec 090) — entrega o outbox logo após o commit, para o aviso não
+  // esperar os 5 min do sweep. Fire-and-forget de propósito: a durabilidade já
+  // está garantida pela linha do outbox, e falha aqui só adia a entrega até a
+  // varredura periódica.
+  void deliverPendingNotifications().catch((error: unknown) => {
+    console.error('[POST /moderation/:id/reject] Falha na entrega pós-commit do outbox:', error);
   });
 
   // Fire-and-forget: retry interno tem backoff de 30s (RETRY_DELAY_MS),
@@ -228,9 +239,15 @@ router.post('/:id/approve', writeRateLimiter, authMiddleware, requireRole(['mode
       userId: changed.creator_id,
       kind: 'material_approved',
       materialId: changed.id,
+      materialSlug: changed.slug,
       body: `Seu material "${changed.title}" foi aprovado e publicado.`,
     }, trx);
     return changed;
+  });
+
+  // T3.5 (spec 090) — ver comentario equivalente em /reject.
+  void deliverPendingNotifications().catch((error: unknown) => {
+    console.error('[POST /moderation/:id/approve] Falha na entrega pós-commit do outbox:', error);
   });
 
   // Fire-and-forget: ver comentario equivalente em /reject.
@@ -306,9 +323,20 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
   if (action === 'reject' && !safeBatchReason?.trim()) {
     return res.status(400).json({ error: 'Motivo de reprovação é obrigatório para ação em lote de reprovar.' });
   }
-  const results: Array<{ id: string; status: 'updated' | 'skipped'; reason?: string }> = [];
+  // T3.5 (spec 090) — `failed_step` distingue qual etapa falhou. Antes, o catch
+  // genérico do laço marcava `skipped` sem diferenciar falha de update, de
+  // enfileiramento de aviso ou de auditoria, e o moderador não tinha como saber
+  // se o material mudou de estado ou não.
+  type BatchStep = 'lookup' | 'evidence' | 'update' | 'audit';
+  const results: Array<{
+    id: string;
+    status: 'updated' | 'skipped';
+    reason?: string;
+    failed_step?: BatchStep;
+  }> = [];
 
   for (const id of parsed.data.ids) {
+    let step: BatchStep = 'lookup';
     try {
     const material = await db
       .selectFrom('download_material')
@@ -327,6 +355,7 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
     }
 
     if (action === 'approve') {
+      step = 'evidence';
       const evidence = await db
         .selectFrom('download_evidence')
         .select('id')
@@ -338,6 +367,7 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
       }
     }
 
+    step = 'update';
     await db.transaction().execute(async (trx) => {
       await trx
         .updateTable('download_material')
@@ -351,10 +381,14 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
         .execute();
 
       if (action === 'approve' || action === 'reject') {
+        // T3.5 (spec 090): enfileira no outbox dentro da transação. A entrega
+        // ao `accounts.` roda fora dela — falha de aviso não reverte mais o
+        // lote inteiro de moderação.
         await emitNotification({
           userId: material.creator_id,
           kind: action === 'approve' ? 'material_approved' : 'material_rejected',
           materialId: material.id,
+          materialSlug: material.slug,
           body: action === 'approve'
             ? `Seu material "${material.title}" foi aprovado e publicado.`
             : `Seu material "${material.title}" foi rejeitado. Motivo: ${safeBatchReason}`,
@@ -391,6 +425,7 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
       });
     }
 
+    step = 'audit';
     logModerationAudit({
       action,
       actorUserId: req.user!.userId,
@@ -400,10 +435,21 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
 
     results.push({ id, status: 'updated' });
     } catch (error) {
-      console.error(`[PATCH /moderation/batch/${action}] Falha ao processar material ${id}:`, error);
-      results.push({ id, status: 'skipped', reason: 'falha ao processar' });
+      console.error(`[PATCH /moderation/batch/${action}] Falha ao processar material ${id} na etapa "${step}":`, error);
+      // `failed_step` diz o que aconteceu com o material: falha em `update`
+      // significa que ele NÃO mudou de estado (a transação reverteu); falha em
+      // `audit` significa que mudou e só o registro de auditoria falhou. Sem
+      // isso, os dois casos chegavam ao moderador como o mesmo "skipped".
+      results.push({ id, status: 'skipped', reason: 'falha ao processar', failed_step: step });
     }
   }
+
+  // T3.5 (spec 090) — um disparo por lote, não por item: o sweep varre até 50
+  // pendências de uma vez, e chamar por material faria um lote de 100 abrir 100
+  // varreduras concorrentes sobre a mesma fila.
+  void deliverPendingNotifications().catch((error: unknown) => {
+    console.error(`[PATCH /moderation/batch/${action}] Falha na entrega pós-commit do outbox:`, error);
+  });
 
   return res.json({ results });
 });

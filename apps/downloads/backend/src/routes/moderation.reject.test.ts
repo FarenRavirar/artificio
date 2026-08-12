@@ -207,8 +207,12 @@ describe('PATCH /api/v1/moderation/batch/reject', () => {
       .send({ ids: ['material-1', 'material-2'], reason: 'motivo', rejection_category_id: 'cat-1' })
       .expect(200);
 
+    // T3.5 (spec 090) — `failed_step: 'update'` diz ao moderador que o material
+    // NÃO mudou de estado (a transação reverteu). Antes, falha no update e falha
+    // na auditoria pós-commit chegavam como o mesmo `skipped`, e os dois casos
+    // têm consequências opostas para quem opera a fila.
     expect(res.body.results).toEqual([
-      { id: 'material-1', status: 'skipped', reason: 'falha ao processar' },
+      { id: 'material-1', status: 'skipped', reason: 'falha ao processar', failed_step: 'update' },
       { id: 'material-2', status: 'updated' },
     ]);
   });

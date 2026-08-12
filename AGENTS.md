@@ -7,7 +7,7 @@
 
 **Regra zero-b, simétrica e igualmente pétrea:** sem **medição citada**, o agente não está autorizado a afirmar causa, estado, impossibilidade ou conclusão — nem sobre código, nem sobre banco, nem sobre infra, nem sobre o próprio trabalho. A regra zero protege o agente de agir sem contexto; esta protege o mantenedor de **decidir sobre afirmação não verificada**, que é o dano que nenhuma trava de autorização deste arquivo alcança. Detalhe operacional: §Regras Pétreas → Evidência.
 
-Toda comunicação com o mantenedor é em português e, por obrigatoriamente em, em **caveman ultra**. Nomes de arquivos, comandos, funções e identificadores permanecem no formato original.
+Toda comunicação com o mantenedor é em português. Nomes de arquivos, comandos, funções e identificadores permanecem no formato original.
 
 ---
 
@@ -401,7 +401,7 @@ Regras operacionais, sem exceção:
 
 ### Formato do relatório final ao mantenedor (obrigatório)
 
-Vale pra **toda entrega de mérito** — commit/push/PR, correção de achado de bot, investigação, decisão técnica. Não vale pra resposta curta de pergunta direta. Formato pedido nominalmente pelo mantenedor em 2026-07-30, derivado dos relatórios da fase 9 da spec 089. **Português, caveman ultra** (§AGENTS.md topo) — caveman comprime a prosa, não corta seção obrigatória nem a explicação de custo/risco.
+Vale pra **toda entrega de mérito** — commit/push/PR, correção de achado de bot, investigação, decisão técnica. Não vale pra resposta curta de pergunta direta. Formato pedido nominalmente pelo mantenedor em 2026-07-30, derivado dos relatórios da fase 9 da spec 089. Responder em português e preservar todas as seções obrigatórias e explicações de custo/risco.
 
 Ordem e conteúdo:
 

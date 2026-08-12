@@ -7,13 +7,12 @@ description: |
   sections (§G, §C, §I, §V, §T, §B), or record a bug via backprop.
   Common phrasings: "write the spec for...", "new spec", "bug: ...",
   "amend §V.3", "distill spec from code", "spec this idea". Reads and
-  follows FORMAT.md for the caveman encoding rules and pipe-table shape
-  of §T and §B.
+  uses concise wording and the pipe-table shape of §T and §B.
 ---
 
 # spec — spec mutator
 
-Read `FORMAT.md` at repo root if not already loaded. Caveman skill applies to all writes here.
+Use concise wording for all writes here.
 
 ## DISPATCH
 
@@ -42,7 +41,7 @@ into the right section, show a diff, write on OK:
 Input: user idea. If it arrived fuzzy, prefer running **grill** first.
 
 Steps:
-1. Extract goal (1 line, caveman). → §G.
+1. Extract goal (1 concise line). → §G.
 2. List constraints user stated or implied. → §C.
 3. List external surfaces user named. → §I.
 4. §R only if **research** ran — else omit the section (right-size).
@@ -56,7 +55,7 @@ Write to `SPEC.md`. Show user full file. Ask: "spec OK? `/review` if high-blast-
 
 Walk repo. Produce §G (infer from README/package.json/main entry), §C (infer from stack), §I (enumerate public APIs/CLIs/configs), §V (derive from tests and assertions), §T (one task per known TODO or missing test), §B (empty).
 
-Caveman everywhere. Flag uncertain items with `?` in text so user can confirm.
+Use concise wording throughout. Flag uncertain items with `?` in text so user can confirm.
 
 ## BACKPROP — bug → §B + §V
 
@@ -83,7 +82,7 @@ Never silently rewrite sections user did not name.
 
 ## OUTPUT RULES
 
-- Caveman format per `FORMAT.md`.
+- Concise format with pipe tables for §T and §B.
 - Preserve identifiers, paths, code verbatim.
 - Numbering monotonic — never reuse §V.N or §B.N.
 - §T row `cites` column ! list §V/§I deps: `T5|.|impl auth mw|V2,I.api`.

@@ -193,10 +193,15 @@ describe('reports — alvo único e prioridade interna', () => {
   });
 
   it('reclassifica caso aberto com auditoria', async () => {
-    dbMocks.selectFrom.mockReturnValueOnce(selectBuilder({
-      id: 'report-1', reporter_user_id: 'user-2', material_id: 'material-1',
-      comment_id: null, priority: 'P2', case_state: 'open',
-    }));
+    dbMocks.selectFrom
+      .mockReturnValueOnce(selectBuilder({
+        id: 'report-1', reporter_user_id: 'user-2', material_id: 'material-1',
+        comment_id: null, priority: 'P2', case_state: 'open',
+      }))
+      // Lookup do slug para o link de volta do aviso (T3.13): a rota do
+      // frontend é `/materiais/:materialSlug`, então o path se monta com slug,
+      // nunca com o id.
+      .mockReturnValueOnce(selectBuilder({ slug: 'material-um' }));
     const set = vi.fn().mockReturnThis();
     dbMocks.updateTable.mockReturnValue({
       set, where: vi.fn().mockReturnThis(), returningAll: vi.fn().mockReturnThis(),
@@ -217,10 +222,12 @@ describe('reports — alvo único e prioridade interna', () => {
   });
 
   it('preserva prioridade quando o PATCH não reclassifica', async () => {
-    dbMocks.selectFrom.mockReturnValueOnce(selectBuilder({
-      id: 'report-1', reporter_user_id: 'user-2', material_id: 'material-1',
-      comment_id: null, priority: 'P2', case_state: 'open',
-    }));
+    dbMocks.selectFrom
+      .mockReturnValueOnce(selectBuilder({
+        id: 'report-1', reporter_user_id: 'user-2', material_id: 'material-1',
+        comment_id: null, priority: 'P2', case_state: 'open',
+      }))
+      .mockReturnValueOnce(selectBuilder({ slug: 'material-um' }));
     const set = vi.fn().mockReturnThis();
     dbMocks.updateTable.mockReturnValue({
       set, where: vi.fn().mockReturnThis(), returningAll: vi.fn().mockReturnThis(),
@@ -252,7 +259,8 @@ describe('reports — alvo único e prioridade interna', () => {
         id: 'report-1', reporter_user_id: 'user-2', material_id: null,
         comment_id: 'comment-1', priority: 'P1', case_state: 'open',
       }))
-      .mockReturnValueOnce(selectBuilder({ id: 'comment-1', material_id: 'material-1' }));
+      .mockReturnValueOnce(selectBuilder({ id: 'comment-1', material_id: 'material-1' }))
+      .mockReturnValueOnce(selectBuilder({ slug: 'material-um' }));
     const reportUpdate = {
       set: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), returningAll: vi.fn().mockReturnThis(),
       executeTakeFirstOrThrow: vi.fn().mockResolvedValue({
@@ -285,7 +293,8 @@ describe('reports — alvo único e prioridade interna', () => {
         id: 'report-1', reporter_user_id: 'user-2', material_id: null,
         comment_id: 'comment-1', priority: 'P1', case_state: 'open',
       }))
-      .mockReturnValueOnce(selectBuilder({ id: 'comment-1', material_id: 'material-1' }));
+      .mockReturnValueOnce(selectBuilder({ id: 'comment-1', material_id: 'material-1' }))
+      .mockReturnValueOnce(selectBuilder({ slug: 'material-um' }));
     const reportUpdate = {
       set: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(), returningAll: vi.fn().mockReturnThis(),
       executeTakeFirstOrThrow: vi.fn().mockResolvedValue({ id: 'report-1', case_state: 'resolved' }),

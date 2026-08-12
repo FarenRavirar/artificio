@@ -1,8 +1,7 @@
 ---
-
 name: new-spec
-description: Cria uma spec SDD do Artifício RPG em specs/NNN-<modulo>-<slug>/ com spec.md, plan.md e tasks.md. Use ao iniciar trabalho SDD Completo.
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+description: Cria uma spec SDD do Artifício RPG em specs/NNN-modulo-slug/ com spec.md, plan.md e tasks.md. Use ao iniciar trabalho SDD Completo.
+---
 
 # Nova spec SDD
 

@@ -43,7 +43,7 @@ work done. Pick the **one** worst offender. Tells:
 One module per pass. Deepening is surgical, ⊥ a codebase sweep.
 
 ### 2. DIAGNOSE
-Name the design defect in caveman, citing file:line:
+Name the design defect concisely, citing file:line:
 > src/auth/token.go: 6-arg ctor leaks rotation policy to every caller. shallow.
 Complexity is real only if it shows: change amplification, high cognitive load,
 or an unknown-unknown (caller must know a hidden fact to call it right).

@@ -16,7 +16,7 @@ description: |
 
 "Process without library context gives you well-organized hallucinations."
 Build invents a plausible-but-wrong API & §B fills with avoidable bugs.
-Research is the external oracle: pull the real fact once, log it caveman, never re-derive.
+Research is the external oracle: pull the real fact once, log it concisely, never re-derive.
 
 ## WHEN TO RESEARCH
 
@@ -41,7 +41,7 @@ sweep, spawn a sub-agent so the raw pages never touch this context — it return
 only the distilled finding + source.
 
 ### 3. DISTILL
-Crush each answer to one caveman line + its source. Drop the prose. The §R row
+Condense each answer to one concise line + its source. Drop the prose. The §R row
 is the memory; the tab you read is not.
 
 > R3|refresh token|rotate on use, revoke family on reuse-detect|datatracker.ietf.org/doc/html/rfc6819#section-5.2.2.3

@@ -105,7 +105,7 @@ Se `$speckit-analyze` oficial já estiver disponível, executá-lo como gate rea
 
 ## Relatar
 
-Responder em português e caveman ultra, começando pelo resultado. Incluir:
+Responder em português e de forma concisa, começando pelo resultado. Incluir:
 
 - decisões reconciliadas: `N/N`;
 - arquivos alterados;
