@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const authState = vi.hoisted(() => ({
   userId: "user-1",
   role: "user" as "user" | "moderator" | "admin",
+  authenticated: true,
 }));
 vi.mock("@artificio/auth", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@artificio/auth")>();
@@ -13,9 +14,13 @@ vi.mock("@artificio/auth", async (importOriginal) => {
     ...actual,
     requireAuth: (
       req: express.Request,
-      _res: express.Response,
+      res: express.Response,
       next: express.NextFunction,
     ) => {
+      if (!authState.authenticated) {
+        res.status(401).json({ error: { code: "unauthorized" } });
+        return;
+      }
       (req as express.Request & { session?: unknown }).session = {
         user: {
           id: authState.userId,
@@ -54,6 +59,7 @@ describe("notification routes", () => {
   beforeEach(() => {
     authState.userId = "user-1";
     authState.role = "user";
+    authState.authenticated = true;
     Object.values(dataMocks).forEach((fn) => fn.mockReset());
   });
 
@@ -71,12 +77,11 @@ describe("notification routes", () => {
     });
 
     it("exige sessão", async () => {
-      // sem cookie = requireAuth falha (mas nosso mock passa sempre)
-      // testamos que o mock injeta a sessão corretamente
-      dataMocks.countUnread.mockResolvedValue(0);
+      authState.authenticated = false;
       await request(app())
         .get("/api/v1/notifications/unread-count")
-        .expect(200);
+        .expect(401);
+      expect(dataMocks.countUnread).not.toHaveBeenCalled();
     });
   });
 
@@ -200,6 +205,16 @@ describe("notification routes", () => {
       await request(app())
         .get("/api/v1/notifications?cursor=!!!invalido!!!")
         .expect(400);
+    });
+
+    it("cursor decodifica mas carrega timestamp/uuid inválidos retorna 400", async () => {
+      const cursor = Buffer.from(
+        JSON.stringify({ t: "abc", i: "nao-uuid" }),
+      ).toString("base64url");
+      await request(app())
+        .get(`/api/v1/notifications?cursor=${cursor}`)
+        .expect(400);
+      expect(dataMocks.listNotifications).not.toHaveBeenCalled();
     });
 
     it("devolve cursor null na última página", async () => {

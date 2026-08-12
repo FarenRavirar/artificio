@@ -1696,7 +1696,11 @@ select option:checked,
 }
 
 .artificio-notification-dropdown-item.unread {
-  background: color-mix(in srgb, var(--artificio-accent, #dd6b20) 4%, white);
+  background: color-mix(
+    in srgb,
+    var(--artificio-accent, #dd6b20) 4%,
+    var(--artificio-canvas, white)
+  );
 }
 
 .artificio-notification-dropdown-link {
@@ -1764,6 +1768,12 @@ select option:checked,
 
 .artificio-notification-dropdown-all:hover {
   text-decoration: underline;
+}
+
+.artificio-notification-dropdown-mark:focus-visible,
+.artificio-notification-dropdown-all:focus-visible {
+  outline: 2px solid var(--artificio-accent, #dd6b20);
+  outline-offset: 2px;
 }
 
 .artificio-notification-dropdown-other {

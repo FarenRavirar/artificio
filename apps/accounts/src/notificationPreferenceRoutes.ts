@@ -96,7 +96,9 @@ export function createNotificationPreferenceRoutes(
   );
 
   // ------------------------------------------------------------------
-  // GET /api/v1/notification-event-types (catálogo público de tipos)
+  // GET /api/v1/notification-event-types (catálogo de tipos)
+  // Sob sessão: o catálogo é estático, mas fica atrás de `requireAuth`
+  // como o resto de /api/v1/* (achado CodeRabbit, PR #255).
   // ------------------------------------------------------------------
   router.get(
     "/api/v1/notification-event-types",

@@ -23,14 +23,21 @@ import {
 // /:id/read — senão o Express engole a rota estática como parâmetro.
 // ============================================================================
 
+const sourceAppSchema = z.string().max(64).optional();
+
 const listQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   cursor: z.string().max(4096).optional(),
-  source_app: z.string().max(64).optional(),
+  source_app: sourceAppSchema,
 });
 
 const readThroughSchema = z.object({
-  through: z.string().datetime(),
+  through: z.iso.datetime(),
+});
+
+const cursorSchema = z.object({
+  t: z.iso.datetime(),
+  i: z.uuid(),
 });
 
 function readUserId(req: Request): string | null {
@@ -42,13 +49,12 @@ function decodeCursor(
   raw: string,
 ): { occurredAt: string; id: string } | null {
   try {
-    const obj = JSON.parse(
+    const obj: unknown = JSON.parse(
       Buffer.from(raw, "base64url").toString("utf8"),
     );
-    if (typeof obj.t === "string" && typeof obj.i === "string") {
-      return { occurredAt: obj.t, id: obj.i };
-    }
-    return null;
+    const parsed = cursorSchema.safeParse(obj);
+    if (!parsed.success) return null;
+    return { occurredAt: parsed.data.t, id: parsed.data.i };
   } catch {
     return null;
   }
@@ -85,13 +91,17 @@ export function createNotificationRoutes(
         const userId = readUserId(req);
         if (!userId) return unauthorized(res);
 
-        const sourceApp =
-          typeof req.query.source_app === "string" &&
-          req.query.source_app.length <= 64
-            ? req.query.source_app
-            : undefined;
+        const parsedSourceApp = sourceAppSchema.safeParse(
+          req.query.source_app,
+        );
+        if (!parsedSourceApp.success) return badRequest(res, "invalid_query");
 
-        const count = await countUnread(db, realm, userId, sourceApp);
+        const count = await countUnread(
+          db,
+          realm,
+          userId,
+          parsedSourceApp.data,
+        );
         res.set("Cache-Control", "private, no-store");
         res.json({ count });
       } catch (error) {
@@ -200,7 +210,7 @@ export function createNotificationRoutes(
         // 404 uniforme: ID inexistente ou de outro usuário
         if (!owner || owner !== userId) return notFound(res);
 
-        await markOneRead(db, realm, receiptId);
+        await markOneRead(db, realm, receiptId, userId);
         res.set("Cache-Control", "private, no-store");
         res.json({ id: receiptId, read: true });
       } catch (error) {

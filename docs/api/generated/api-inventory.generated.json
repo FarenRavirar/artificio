@@ -1,18 +1,18 @@
 {
   "metadata": {
-    "total": 531,
+    "total": 534,
     "byApp": {
       "accounts": {
-        "total": 48,
+        "total": 51,
         "byMethod": {
-          "GET": 23,
+          "GET": 26,
           "POST": 11,
           "PATCH": 5,
           "PUT": 5,
           "DELETE": 4
         },
         "byConfidence": {
-          "high": 48
+          "high": 51
         }
       },
       "downloads": {
@@ -94,7 +94,7 @@
       "method": "GET",
       "path": "/",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 565,
+      "line": 567,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -103,7 +103,16 @@
       "method": "GET",
       "path": "/admin/papeis",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 565,
+      "line": 567,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "accounts",
+      "method": "GET",
+      "path": "/admin/papeis",
+      "sourceFile": "apps/accounts/src/app.ts",
+      "line": 567,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -211,7 +220,7 @@
       "method": "GET",
       "path": "/api/v1/notification-event-types",
       "sourceFile": "apps/accounts/src/notificationPreferenceRoutes.ts",
-      "line": 101,
+      "line": 103,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -238,7 +247,7 @@
       "method": "GET",
       "path": "/api/v1/notifications",
       "sourceFile": "apps/accounts/src/notificationRoutes.ts",
-      "line": 154,
+      "line": 164,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -247,7 +256,7 @@
       "method": "PUT",
       "path": "/api/v1/notifications/:id/read",
       "sourceFile": "apps/accounts/src/notificationRoutes.ts",
-      "line": 189,
+      "line": 199,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -256,7 +265,7 @@
       "method": "PATCH",
       "path": "/api/v1/notifications/read-all",
       "sourceFile": "apps/accounts/src/notificationRoutes.ts",
-      "line": 106,
+      "line": 116,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -265,7 +274,7 @@
       "method": "PUT",
       "path": "/api/v1/notifications/read-through",
       "sourceFile": "apps/accounts/src/notificationRoutes.ts",
-      "line": 126,
+      "line": 136,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -274,7 +283,7 @@
       "method": "GET",
       "path": "/api/v1/notifications/unread-count",
       "sourceFile": "apps/accounts/src/notificationRoutes.ts",
-      "line": 80,
+      "line": 86,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -283,7 +292,16 @@
       "method": "GET",
       "path": "/conta",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 565,
+      "line": 567,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "accounts",
+      "method": "GET",
+      "path": "/conta",
+      "sourceFile": "apps/accounts/src/app.ts",
+      "line": 567,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -292,7 +310,16 @@
       "method": "GET",
       "path": "/conta/notificacoes",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 565,
+      "line": 567,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "accounts",
+      "method": "GET",
+      "path": "/conta/notificacoes",
+      "sourceFile": "apps/accounts/src/app.ts",
+      "line": 567,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -517,7 +544,7 @@
       "method": "GET",
       "path": "/login",
       "sourceFile": "apps/accounts/src/app.ts",
-      "line": 565,
+      "line": 567,
       "confidence": "high",
       "kind": "express-route"
     },

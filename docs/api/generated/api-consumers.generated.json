@@ -148,7 +148,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 96
+      "line": 91
     },
     {
       "app": "accounts-frontend",
@@ -158,7 +158,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 159
+      "line": 155
     },
     {
       "app": "accounts-frontend",
@@ -168,7 +168,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 176
+      "line": 173
     },
     {
       "app": "glossario-frontend",
@@ -2548,7 +2548,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 199
+      "line": 226
     },
     {
       "app": "site-admin",

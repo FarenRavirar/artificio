@@ -6,6 +6,11 @@ import {
   type MouseEvent,
 } from "react";
 import { getAccountsOrigin, useSession } from "@artificio/auth/client";
+import {
+  normalizeNotificationsPage,
+  normalizeUnreadCount,
+  type NormalizedNotificationItem,
+} from "./notificationNormalize.js";
 
 // ============================================================================
 // T3.9b — Sino compartilhado de notificações (packages/ui)
@@ -20,22 +25,9 @@ import { getAccountsOrigin, useSession } from "@artificio/auth/client";
 
 // ---- tipos ----
 
-interface NotificationItem {
-  id: string;
-  event_type: string;
-  text: string;
-  link: string | null;
-  source_label: string;
-  occurred_at: string;
-  read_at: string | null;
-}
+type NotificationItem = NormalizedNotificationItem;
 
-interface NotificationsApi {
-  items: NotificationItem[];
-  cursor: string | null;
-}
-
-interface NotificationBellProps {
+export interface NotificationBellProps {
   /** source_app do módulo onde o sino está montado (ex.: "mesas", "downloads", "site"). */
   sourceApp: string;
 }
@@ -77,10 +69,10 @@ function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString("pt-BR");
 }
 
-async function fetchJson<T>(url: string): Promise<T | null> {
-  const res = await fetch(url, { credentials: "include" });
+async function fetchJson(url: string, signal: AbortSignal): Promise<unknown> {
+  const res = await fetch(url, { credentials: "include", signal });
   if (!res.ok) return null;
-  return (await res.json()) as T;
+  return await res.json();
 }
 
 // ---- hook de polling (T3.10) ----
@@ -132,36 +124,59 @@ export function NotificationBell({ sourceApp }: NotificationBellProps) {
   const [loading, setLoading] = useState(false);
   const [trigger, setTrigger] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
   const accountsOrigin = getAccountsOrigin();
+  const abortRef = useRef<AbortController | null>(null);
+  const mountedRef = useRef(true);
 
-  // Fetch count (do módulo atual) + total (para "outros módulos")
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  // Fetch count (do módulo atual) + total (para "outros módulos") + lista.
+  // AbortController por chamada: foco/mutação podem sobrepor execuções, e
+  // sem cancelar a anterior uma resposta antiga pode sobrescrever a mais
+  // recente (achado CodeRabbit, PR #255).
   const fetchData = useCallback(async () => {
     if (!user) return;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
     try {
-      // Contagem do módulo atual
-      const localRes = await fetchJson<{ count: number }>(
-        `${accountsOrigin}/api/v1/notifications/unread-count?source_app=${encodeURIComponent(sourceApp)}`,
-      );
-      if (localRes) setUnreadCount(localRes.count);
+      const [localRaw, totalRaw, listRaw] = await Promise.all([
+        fetchJson(
+          `${accountsOrigin}/api/v1/notifications/unread-count?source_app=${encodeURIComponent(sourceApp)}`,
+          controller.signal,
+        ),
+        fetchJson(
+          `${accountsOrigin}/api/v1/notifications/unread-count`,
+          controller.signal,
+        ),
+        fetchJson(
+          `${accountsOrigin}/api/v1/notifications?limit=${DROPDOWN_LIMIT}&source_app=${encodeURIComponent(sourceApp)}`,
+          controller.signal,
+        ),
+      ]);
+      if (controller.signal.aborted || !mountedRef.current) return;
 
-      // Contagem total (sem filtro) — para o rodapé "outros módulos"
-      const totalRes = await fetchJson<{ count: number }>(
-        `${accountsOrigin}/api/v1/notifications/unread-count`,
-      );
-      if (totalRes && localRes) {
-        setOtherModulesUnread(totalRes.count > localRes.count);
+      const localCount = normalizeUnreadCount(localRaw);
+      const totalCount = normalizeUnreadCount(totalRaw);
+      if (localCount !== null) setUnreadCount(localCount);
+      if (localCount !== null && totalCount !== null) {
+        setOtherModulesUnread(totalCount > localCount);
       }
 
-      // Lista recente para o dropdown
-      const listRes = await fetchJson<NotificationsApi>(
-        `${accountsOrigin}/api/v1/notifications?limit=${DROPDOWN_LIMIT}&source_app=${encodeURIComponent(sourceApp)}`,
-      );
-      if (listRes) setItems(listRes.items);
-    } catch {
-      // Silencioso
+      const page = normalizeNotificationsPage(listRaw);
+      if (page) setItems(page.items);
+    } catch (error) {
+      if ((error as { name?: string }).name === "AbortError") return;
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted && mountedRef.current) setLoading(false);
     }
   }, [user, sourceApp, accountsOrigin]);
 
@@ -177,7 +192,7 @@ export function NotificationBell({ sourceApp }: NotificationBellProps) {
     void fetchData();
   }, [fetchData, trigger]);
 
-  // Fecha dropdown ao clicar fora
+  // Fecha dropdown ao clicar fora ou Escape; devolve foco ao toggle.
   useEffect(() => {
     function handleClick(e: globalThis.MouseEvent) {
       if (
@@ -187,19 +202,32 @@ export function NotificationBell({ sourceApp }: NotificationBellProps) {
         setOpen(false);
       }
     }
+    function handleKey(e: globalThis.KeyboardEvent) {
+      if (e.key === "Escape") {
+        setOpen(false);
+        toggleRef.current?.focus();
+      }
+    }
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
   }, []);
 
-  // Marca lida sem navegar
+  // Marca lida sem navegar. Só atualiza estado se o servidor confirmou —
+  // `fetch` resolve em 401/404/500, então sem checar `res.ok` a UI mostrava
+  // "lida" mesmo quando a escrita falhou no servidor (achado CodeRabbit).
   const markRead = useCallback(
     async (e: MouseEvent, receiptId: string) => {
       e.stopPropagation();
       try {
-        await fetch(
+        const res = await fetch(
           `${accountsOrigin}/api/v1/notifications/${encodeURIComponent(receiptId)}/read`,
           { method: "PUT", credentials: "include" },
         );
+        if (!res.ok) return;
         setItems((prev) =>
           prev.map((item) =>
             item.id === receiptId ? { ...item, read_at: new Date().toISOString() } : item,
@@ -208,7 +236,7 @@ export function NotificationBell({ sourceApp }: NotificationBellProps) {
         setUnreadCount((prev) => Math.max(0, prev - 1));
         setTrigger((prev) => prev + 1);
       } catch {
-        // Silencioso
+        // Rede falhou — estado local não muda, próximo refresh reflete o servidor.
       }
     },
     [accountsOrigin],
@@ -219,6 +247,8 @@ export function NotificationBell({ sourceApp }: NotificationBellProps) {
   return (
     <div className="artificio-notification-bell" ref={containerRef}>
       <button
+        ref={toggleRef}
+        type="button"
         className="artificio-header-action"
         onClick={() => setOpen((prev) => !prev)}
         aria-label={`Notificações${unreadCount > 0 ? ` (${unreadCount} não lidas)` : ""}`}
@@ -274,6 +304,7 @@ export function NotificationBell({ sourceApp }: NotificationBellProps) {
                   )}
                   {!item.read_at && (
                     <button
+                      type="button"
                       className="artificio-notification-dropdown-mark"
                       onClick={(e) => markRead(e, item.id)}
                       aria-label="Marcar como lida"

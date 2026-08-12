@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  normalizeNotificationsPage,
+  type NormalizedNotificationItem,
+} from "@artificio/ui";
 
 // ============================================================================
 // T3.9 — Central canônica de notificações
@@ -11,28 +15,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 // ---- tipos ----
 
-interface NotificationItem {
-  id: string;
-  event_id: string;
-  event_type: string;
-  subject_type: string;
-  subject_id: string;
-  source_app: string;
-  source_label: string;
-  canonical_path: string;
-  /** Texto de apresentação montado pelo servidor (T3.3) */
-  text: string;
-  /** Link de volta ao conteúdo (T3.7) */
-  link: string | null;
-  occurred_at: string;
-  read_at: string | null;
-  created_at: string;
-}
-
-interface NotificationPage {
-  items: NotificationItem[];
-  cursor: string | null;
-}
+type NotificationItem = NormalizedNotificationItem;
 
 // ---- helpers ----
 
@@ -74,17 +57,29 @@ function useNotifications(sourceApp: string | null) {
     hasMore: true,
   });
   const mountedRef = useRef(true);
+  const inFlightRef = useRef(false);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      abortRef.current?.abort();
     };
   }, []);
 
+  // `inFlightRef` em vez de `state.loading`: closure de `state.loading`
+  // fica obsoleta assim que a função é criada, então duas chamadas
+  // concorrentes passavam o guard antigo (achado CodeRabbit, PR #255).
+  // AbortController cancela a chamada anterior quando o filtro muda —
+  // sem isso, resposta antiga podia sobrescrever a mais recente.
   const fetchPage = useCallback(
     async (cursor: string | null, append: boolean) => {
-      if (state.loading) return;
+      if (inFlightRef.current) return;
+      inFlightRef.current = true;
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
       setState((prev) => ({ ...prev, loading: true, error: null }));
 
       try {
@@ -95,7 +90,7 @@ function useNotifications(sourceApp: string | null) {
 
         const res = await fetch(
           `/api/v1/notifications?${params.toString()}`,
-          { credentials: "include" },
+          { credentials: "include", signal: controller.signal },
         );
 
         if (!res.ok) {
@@ -107,27 +102,31 @@ function useNotifications(sourceApp: string | null) {
           throw new Error(`Erro ${res.status}`);
         }
 
-        const body = (await res.json()) as NotificationPage;
+        const page = normalizeNotificationsPage(await res.json());
+        if (!page) throw new Error("Resposta em formato inesperado");
 
-        if (!mountedRef.current) return;
+        if (controller.signal.aborted || !mountedRef.current) return;
 
         setState((prev) => ({
-          items: append ? [...prev.items, ...body.items] : body.items,
-          cursor: body.cursor,
+          items: append ? [...prev.items, ...page.items] : page.items,
+          cursor: page.cursor,
           loading: false,
           error: null,
-          hasMore: body.cursor !== null,
+          hasMore: page.cursor !== null,
         }));
       } catch (err) {
+        if ((err as { name?: string }).name === "AbortError") return;
         if (!mountedRef.current) return;
         setState((prev) => ({
           ...prev,
           loading: false,
           error: err instanceof Error ? err.message : "Erro ao carregar",
         }));
+      } finally {
+        inFlightRef.current = false;
       }
     },
-    [sourceApp, state.loading],
+    [sourceApp],
   );
 
   // Carrega primeira página ao montar ou mudar filtro
@@ -139,14 +138,8 @@ function useNotifications(sourceApp: string | null) {
       error: null,
       hasMore: true,
     });
-    // Reset antes de carregar nova página
-    const timer = setTimeout(() => {
-      if (mountedRef.current) {
-        fetchPage(null, false);
-      }
-    }, 0);
-    return () => clearTimeout(timer);
-  }, [sourceApp]);
+    void fetchPage(null, false);
+  }, [sourceApp, fetchPage]);
 
   const loadMore = useCallback(() => {
     if (state.cursor && !state.loading) {
@@ -154,12 +147,16 @@ function useNotifications(sourceApp: string | null) {
     }
   }, [state.cursor, state.loading, fetchPage]);
 
+  // Só atualiza estado local se o servidor confirmou (res.ok) — fetch
+  // resolve normalmente em 401/404/500, então sem essa checagem a UI
+  // marcava como lida mesmo com a escrita rejeitada (achado CodeRabbit).
   const markRead = useCallback(async (receiptId: string) => {
     try {
-      await fetch(`/api/v1/notifications/${encodeURIComponent(receiptId)}/read`, {
+      const res = await fetch(`/api/v1/notifications/${encodeURIComponent(receiptId)}/read`, {
         method: "PUT",
         credentials: "include",
       });
+      if (!res.ok) return;
       setState((prev) => ({
         ...prev,
         items: prev.items.map((item) =>
@@ -167,22 +164,23 @@ function useNotifications(sourceApp: string | null) {
         ),
       }));
     } catch {
-      // Silencioso
+      // Rede falhou — estado local não muda, próximo refresh reflete o servidor.
     }
   }, []);
 
   const markAllRead = useCallback(async () => {
     try {
-      await fetch("/api/v1/notifications/read-all", {
+      const res = await fetch("/api/v1/notifications/read-all", {
         method: "PATCH",
         credentials: "include",
       });
+      if (!res.ok) return;
       setState((prev) => ({
         ...prev,
         items: prev.items.map((item) => ({ ...item, read_at: new Date().toISOString() })),
       }));
     } catch {
-      // Silencioso
+      // Rede falhou — estado local não muda, próximo refresh reflete o servidor.
     }
   }, []);
 
@@ -209,6 +207,7 @@ export function NotificationsView() {
   const [sourceOpen, setSourceOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
   const filterRef = useRef<HTMLDivElement>(null);
+  const filterToggleRef = useRef<HTMLButtonElement>(null);
 
   const {
     items,
@@ -220,15 +219,25 @@ export function NotificationsView() {
     markAllRead,
   } = useNotifications(sourceFilter || null);
 
-  // Fecha dropdown ao clicar fora
+  // Fecha dropdown ao clicar fora ou Escape; devolve foco ao toggle.
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
         setSourceOpen(false);
       }
     }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setSourceOpen(false);
+        filterToggleRef.current?.focus();
+      }
+    }
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
   }, []);
 
   const unreadCount = items.filter((i) => !i.read_at).length;
@@ -241,6 +250,8 @@ export function NotificationsView() {
           {/* Filtro por módulo (17c) */}
           <div className="notifications-filter" ref={filterRef}>
             <button
+              ref={filterToggleRef}
+              type="button"
               className="notifications-filter-toggle"
               onClick={() => setSourceOpen((prev) => !prev)}
               aria-expanded={sourceOpen}
@@ -255,6 +266,7 @@ export function NotificationsView() {
                 {allSourceApps().map((app) => (
                   <button
                     key={app.value}
+                    type="button"
                     className={sourceFilter === app.value ? "active" : ""}
                     onClick={() => {
                       setSourceFilter(app.value);
@@ -268,13 +280,18 @@ export function NotificationsView() {
             )}
           </div>
 
-          {/* Marcar todas como lidas */}
+          {/* Marcar todas como lidas. Sem contagem no rótulo: PATCH /read-all
+              marca todo recibo não lido do usuário, em todos os módulos —
+              ignora paginação e o filtro de source_app ativo. Mostrar o
+              unreadCount local (só a página carregada) subestimaria o
+              efeito real da ação (achado CodeRabbit, PR #255). */}
           {unreadCount > 0 && (
             <button
+              type="button"
               className="notifications-mark-all"
               onClick={markAllRead}
             >
-              Marcar todas como lidas ({unreadCount})
+              Marcar todas como lidas
             </button>
           )}
         </div>
@@ -311,8 +328,10 @@ export function NotificationsView() {
                 key={item.id}
                 className={`notification-item${isUnread ? " unread" : ""}${isMod ? " moderation" : ""}`}
               >
-                <div
+                <button
+                  type="button"
                   className="notification-item-header"
+                  aria-expanded={isDetail}
                   onClick={() => {
                     if (isUnread) markRead(item.id);
                     setDetailId(isDetail ? null : item.id);
@@ -326,7 +345,7 @@ export function NotificationsView() {
                     {timeAgo(item.occurred_at)}
                   </time>
                   {isUnread && <span className="notification-dot" />}
-                </div>
+                </button>
 
                 {/* Detalhe expandido */}
                 {isDetail && (

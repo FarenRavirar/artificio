@@ -562,11 +562,16 @@ export async function createComment(
 
     // T3.15: processa outbox após commit da transação.
     // Fire-and-forget: falha de entrega não reverte o comentário.
-    // Entradas não processadas são apanhadas pelo sweep periódico.
-    if (result.ok) {
-      processOutboxPending(db).catch(() => {
-        // Silencioso: o outbox garante que o evento não se perde.
-        // A entrada fica pendente para o próximo sweep.
+    // `replayed: true` não passou por `enqueueOutboxEvent` nesta chamada —
+    // dispararia o sweep sem nenhuma entrada nova pra processar.
+    if (result.ok && !result.replayed) {
+      processOutboxPending(db).catch((error) => {
+        // Falha não reverte o comentário — o outbox garante que o evento
+        // não se perde, mas a falha precisa aparecer no log pra investigação.
+        console.warn(
+          `[communityCommentWrite] falha no sweep pós-commit do outbox comment=${result.comment.id}:`,
+          error,
+        );
       });
     }
 

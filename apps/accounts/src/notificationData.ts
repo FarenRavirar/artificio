@@ -61,7 +61,8 @@ export async function countUnread(
   }
 
   const row = await query.executeTakeFirstOrThrow();
-  return row.count;
+  // pg devolve COUNT(*) (int8) como string por padrão — converter antes de expor.
+  return Number(row.count);
 }
 
 export async function markAllRead(
@@ -124,12 +125,14 @@ export async function markOneRead(
   db: Kysely<Database>,
   realm: string,
   receiptId: string,
+  userId: string,
 ): Promise<void> {
   await db
     .updateTable("notification_receipt")
     .set({ read_at: new Date() })
     .where("realm", "=", realm)
     .where("id", "=", receiptId)
+    .where("recipient_user_id", "=", userId)
     .execute();
 }
 
@@ -154,6 +157,13 @@ export async function listNotifications(
       join
         .onRef("c.realm", "=", "e.realm")
         .onRef("c.source_app", "=", "e.source_app")
+        // Guarda local: CHECK migration_006 valida em escrita, mas o cast
+        // aqui protege contra snapshot malformado de produtor externo.
+        .on(
+          sql`e.snapshot->>'comment_id' ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'`,
+          "=",
+          sql`true`,
+        )
         .on("c.id", "=", sql`(e.snapshot->>'comment_id')::uuid`),
     )
     .select([

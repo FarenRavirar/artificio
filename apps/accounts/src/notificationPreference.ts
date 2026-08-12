@@ -132,45 +132,27 @@ export async function setPreference(
     return { ok: false, code: "moderation_not_modifiable" };
   }
 
-  const existing = await db
-    .selectFrom("notification_preference")
-    .select("id")
-    .where("user_id", "=", userId)
-    .where("event_type", "=", eventType)
-    .executeTakeFirst();
-
-  if (enabled && !existing) {
-    // Default já é ligado — não precisa criar linha
-    return { ok: true };
-  }
-
-  if (enabled && existing) {
-    // Remover linha: volta ao default ligado
+  // Sem leitura prévia — upsert direto. Duas requisições concorrentes pro
+  // mesmo (user_id, event_type) não colidem: DELETE é idempotente, INSERT
+  // usa ON CONFLICT no UNIQUE (user_id, event_type) da migration_010 §4.
+  if (enabled) {
+    // Sem linha = default ligado. Remove linha existente pra voltar ao default.
     await db
       .deleteFrom("notification_preference")
-      .where("id", "=", existing.id)
+      .where("user_id", "=", userId)
+      .where("event_type", "=", eventType)
       .execute();
     return { ok: true };
   }
 
-  if (!enabled && !existing) {
-    // Criar linha de desligamento
-    await db
-      .insertInto("notification_preference")
-      .values({ user_id: userId, event_type: eventType, enabled: false })
-      .execute();
-    return { ok: true };
-  }
-
-  if (!enabled && existing) {
-    await db
-      .updateTable("notification_preference")
-      .set({ enabled: false, updated_at: new Date() })
-      .where("id", "=", existing.id)
-      .execute();
-    return { ok: true };
-  }
-
-  // Fallback: todas as combinações cobertas acima
+  await db
+    .insertInto("notification_preference")
+    .values({ user_id: userId, event_type: eventType, enabled: false })
+    .onConflict((oc) =>
+      oc
+        .columns(["user_id", "event_type"])
+        .doUpdateSet({ enabled: false, updated_at: new Date() }),
+    )
+    .execute();
   return { ok: true };
 }

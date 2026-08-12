@@ -38,7 +38,12 @@ export function buildBackLink(
   const origin = APP_ORIGINS[sourceApp];
   if (!origin) return null;
 
-  // canonical_path já começa com '/' (CHECK migration_006:480-486)
+  // canonical_path já começa com '/' (CHECK migration_006:480-486). Guarda
+  // local: se uma linha bypassar essa constraint, concatenar sem checar
+  // gera host errado (ex.: "https://downloads.artificiorpg.commateriais/1").
+  if (!canonicalPath.startsWith("/") || canonicalPath.startsWith("//")) {
+    return null;
+  }
   return `${origin}${canonicalPath}`;
 }
 

@@ -509,7 +509,10 @@ function AdminSecretsPanel() {
 
 function App() {
   const { theme } = useTheme();
-  const path = globalThis.location.pathname;
+  const rawPath = globalThis.location.pathname;
+  // Barra final não deve cair no default (LoginView): "/conta/notificacoes/"
+  // batia só em "/conta/notificacoes" na comparação exata (achado CodeRabbit).
+  const path = rawPath.length > 1 ? rawPath.replace(/\/+$/, "") : rawPath;
   let page: React.JSX.Element;
   if (path === "/admin/papeis") {
     page = <AdminRolesView />;

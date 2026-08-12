@@ -99,6 +99,11 @@ END $$;
 -- ORDER BY occurred_at, id para paginacao por cursor (T3.6).
 -- O indice parcial existente (idx_notification_receipt_user_unread) cobre
 -- contagem de nao lidas e continua ativo — este e adicional.
+--
+-- CREATE INDEX (nao CONCURRENTLY) toma lock SHARE: permite leitura, pausa
+-- escrita em notification_event durante a construcao. O deploy runner
+-- envolve a migration em BEGIN, entao CONCURRENTLY nao roda aqui. Pausa
+-- aceita para online-safe: tabela pequena neste ponto do rollout.
 CREATE INDEX IF NOT EXISTS idx_notification_event_cursor
   ON notification_event(realm, source_app, occurred_at, id);
 
@@ -152,10 +157,18 @@ CREATE TABLE IF NOT EXISTS notification_preference (
 -- recibo, entao reprocessar nao duplica.
 CREATE TABLE IF NOT EXISTS notification_outbox (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  realm TEXT NOT NULL,
-  source_app TEXT NOT NULL,
+  realm TEXT NOT NULL CHECK (realm IN ('beta', 'prod')),
+  source_app TEXT NOT NULL CHECK (
+    source_app IN ('downloads', 'site', 'mesas', 'glossario', 'links', 'accounts')
+  ),
   event_id UUID NOT NULL UNIQUE,
   recipients JSONB NOT NULL CHECK (JSONB_TYPEOF(recipients) = 'array'),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   processed_at TIMESTAMPTZ
 );
+
+-- Sustenta o scan de pendencias do fan-out (processOutboxPending):
+-- WHERE processed_at IS NULL ORDER BY created_at ASC.
+CREATE INDEX IF NOT EXISTS idx_notification_outbox_pending
+  ON notification_outbox(created_at)
+  WHERE processed_at IS NULL;

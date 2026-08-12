@@ -44,7 +44,7 @@ export async function enqueueOutboxEvent(
  * para duplicata de UNIQUE.
  */
 export async function processOutboxEntry(
-  db: Kysely<Database>,
+  db: Kysely<Database> | Transaction<Database>,
   entry: { id: string; realm: string; source_app: string; event_id: string },
 ): Promise<number> {
   // 1. Lê o evento
@@ -73,8 +73,12 @@ export async function processOutboxEntry(
     .where("id", "=", entry.id)
     .executeTakeFirst();
 
-  const recipients: string[] = Array.isArray(outbox?.recipients)
-    ? (outbox!.recipients as unknown as string[])
+  // JSONB vindo do banco: normaliza antes de usar. Elemento não-string
+  // quebraria o `where(... "in", recipients)` abaixo com 22P02 fora de
+  // qualquer try, deixando a entrada pendente pra sempre.
+  const rawRecipients: unknown = outbox?.recipients;
+  const recipients: string[] = Array.isArray(rawRecipients)
+    ? rawRecipients.filter((value): value is string => typeof value === "string")
     : [];
 
   if (recipients.length === 0) {
@@ -103,26 +107,29 @@ export async function processOutboxEntry(
     deliverable = recipients.filter((uid) => !disabled.has(uid));
   }
 
-  // 4. Cria recibos (idempotente via try/catch no UNIQUE)
+  // 4. Cria recibos (idempotente via ON CONFLICT DO NOTHING no UNIQUE).
+  // Não usa try/catch: dentro de transação Postgres, erro de constraint
+  // sem savepoint aborta a transação inteira — o catch do JS captura a
+  // exceção, mas o próximo INSERT na mesma trx falharia com
+  // "current transaction is aborted".
   let created = 0;
   const now = new Date();
   for (const recipientUserId of deliverable) {
-    try {
-      await db
-        .insertInto("notification_receipt")
-        .values({
-          realm: entry.realm,
-          source_app: entry.source_app,
-          event_id: entry.event_id,
-          recipient_user_id: recipientUserId,
-          read_at: null,
-          created_at: now,
-        })
-        .execute();
-      created++;
-    } catch {
-      // Duplicata → skip (idempotência do UNIQUE)
-    }
+    const result = await db
+      .insertInto("notification_receipt")
+      .values({
+        realm: entry.realm,
+        source_app: entry.source_app,
+        event_id: entry.event_id,
+        recipient_user_id: recipientUserId,
+        read_at: null,
+        created_at: now,
+      })
+      .onConflict((oc) =>
+        oc.columns(["realm", "source_app", "event_id", "recipient_user_id"]).doNothing(),
+      )
+      .executeTakeFirst();
+    if (Number(result.numInsertedOrUpdatedRows) > 0) created++;
   }
 
   // 5. Marca outbox como processado
@@ -138,68 +145,39 @@ export async function processOutboxEntry(
 /**
  * Processa todas as pendências (limitado a 100 por chamada).
  * Chamado após commit da transação e por sweep periódico.
+ *
+ * Select + processamento na MESMA transação com FOR UPDATE SKIP LOCKED:
+ * sweeps concorrentes (pós-commit + periódico) não disputam as mesmas
+ * linhas, cada um pega só o que os outros não travaram.
  */
 export async function processOutboxPending(
   db: Kysely<Database>,
 ): Promise<number> {
-  const pending = await db
-    .selectFrom("notification_outbox")
-    .select(["id", "realm", "source_app", "event_id"])
-    .where("processed_at", "is", null)
-    .orderBy("created_at", "asc")
-    .limit(100)
-    .execute();
+  return db.transaction().execute(async (trx) => {
+    const pending = await trx
+      .selectFrom("notification_outbox")
+      .select(["id", "realm", "source_app", "event_id"])
+      .where("processed_at", "is", null)
+      .orderBy("created_at", "asc")
+      .limit(100)
+      .forUpdate()
+      .skipLocked()
+      .execute();
 
-  let total = 0;
-  for (const entry of pending) {
-    try {
-      total += await processOutboxEntry(db, entry);
-    } catch {
-      // Uma falha não bloqueia as outras
+    let total = 0;
+    for (const entry of pending) {
+      try {
+        total += await processOutboxEntry(trx, entry);
+      } catch (error) {
+        // Uma falha não bloqueia as outras
+        console.warn(
+          `[notificationOutbox] falha ao processar entrada outbox=${entry.id}:`,
+          error,
+        );
+      }
     }
-  }
 
-  return total;
+    return total;
+  });
 }
 
-/**
- * Cria recibos inline (DENTRO da transação). Usado pelo fluxo existente
- * em communityCommentWrite.ts, que já roda na transação.
- *
- * Preferências NÃO são aplicadas aqui — o filtro é aplicado no fan-out
- * do outbox (T3.11b decide no ponto de entrega, T3.15).
- */
-export async function createReceiptsInline(
-  trx: Transaction<Database>,
-  params: {
-    realm: string;
-    sourceApp: string;
-    eventRowId: string;
-    recipients: string[];
-  },
-): Promise<number> {
-  const { realm, sourceApp, eventRowId, recipients } = params;
-  if (recipients.length === 0) return 0;
-
-  let created = 0;
-  for (const recipientUserId of recipients) {
-    try {
-      await trx
-        .insertInto("notification_receipt")
-        .values({
-          realm,
-          source_app: sourceApp,
-          event_id: eventRowId,
-          recipient_user_id: recipientUserId,
-          read_at: null,
-          created_at: new Date(),
-        })
-        .execute();
-      created++;
-    } catch {
-      // Duplicate → skip
-    }
-  }
-
-  return created;
-}

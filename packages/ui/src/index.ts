@@ -37,6 +37,15 @@ export type { Theme } from "./theme.js";
 export type { HeaderProps, UserMenuItem } from "./Header.js";
 export { applyHeaderVariant } from "./theme.js";
 export { NotificationBell } from "./NotificationBell.js";
+export type { NotificationBellProps } from "./NotificationBell.js";
+export {
+  normalizeNotificationsPage,
+  normalizeUnreadCount,
+} from "./notificationNormalize.js";
+export type {
+  NormalizedNotificationItem,
+  NormalizedNotificationsPage,
+} from "./notificationNormalize.js";
 export { useChangelogBadge, useChangelogData } from "./hooks.js";
 export { ChangelogModal, renderMarkdown, StaticChangelogModal, DynamicChangelogModal } from "./ChangelogModal.js";
 export type { ChangelogEntry, ChangelogModalLabels } from "./changelog.js";
