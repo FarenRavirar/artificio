@@ -512,7 +512,12 @@ function App() {
   const rawPath = globalThis.location.pathname;
   // Barra final não deve cair no default (LoginView): "/conta/notificacoes/"
   // batia só em "/conta/notificacoes" na comparação exata (achado CodeRabbit).
-  const path = rawPath.length > 1 ? rawPath.replace(/\/+$/, "") : rawPath;
+  // Sem regex de quantificador no fim de string (achado Sonar de ReDoS) —
+  // um único replace cobre o caso real, pathname nunca termina em "//".
+  const path =
+    rawPath.length > 1 && rawPath.endsWith("/")
+      ? rawPath.slice(0, -1)
+      : rawPath;
   let page: React.JSX.Element;
   if (path === "/admin/papeis") {
     page = <AdminRolesView />;

@@ -1,4 +1,4 @@
-import type { Kysely, Transaction } from "kysely";
+import { sql, type Kysely, type Transaction } from "kysely";
 import type { Database } from "./db.js";
 import { isModerationEvent } from "./notificationPreference.js";
 
@@ -17,6 +17,13 @@ export interface EnqueueParams {
   sourceApp: string;
   eventRowId: string;
   recipients: string[];
+}
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(value: string): boolean {
+  return UUID_PATTERN.test(value);
 }
 
 /**
@@ -73,12 +80,16 @@ export async function processOutboxEntry(
     .where("id", "=", entry.id)
     .executeTakeFirst();
 
-  // JSONB vindo do banco: normaliza antes de usar. Elemento não-string
-  // quebraria o `where(... "in", recipients)` abaixo com 22P02 fora de
-  // qualquer try, deixando a entrada pendente pra sempre.
+  // JSONB vindo do banco: normaliza antes de usar. Elemento que não é
+  // UUID válido quebraria o `where(... "in", recipients)` abaixo com
+  // 22P02 fora de qualquer try, deixando a entrada pendente pra sempre
+  // (achado CodeRabbit, PR #255 — string qualquer não bastava, precisa
+  // ser UUID).
   const rawRecipients: unknown = outbox?.recipients;
   const recipients: string[] = Array.isArray(rawRecipients)
-    ? rawRecipients.filter((value): value is string => typeof value === "string")
+    ? rawRecipients.filter(
+        (value): value is string => typeof value === "string" && isUuid(value),
+      )
     : [];
 
   if (recipients.length === 0) {
@@ -164,12 +175,23 @@ export async function processOutboxPending(
       .skipLocked()
       .execute();
 
+    // `Transaction<Database>` do Kysely 0.29 não expõe savepoint na API
+    // pública — feito via SQL raw. Sem isso, um erro inesperado num entry
+    // aborta a transação Postgres inteira: o catch abaixo capturaria a
+    // exceção, mas todo entry seguinte falharia com "25P02 current
+    // transaction is aborted" e seria contado como falha individual,
+    // quando é cascata do primeiro erro (achado CodeRabbit, PR #255).
     let total = 0;
-    for (const entry of pending) {
+    for (const [index, entry] of pending.entries()) {
+      const savepointName = `outbox_entry_${index}`;
+      await sql`SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
       try {
         total += await processOutboxEntry(trx, entry);
+        await sql`RELEASE SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
       } catch (error) {
-        // Uma falha não bloqueia as outras
+        // Uma falha não bloqueia as outras — rollback só deste savepoint,
+        // a transação segue viva para os próximos entries.
+        await sql`ROLLBACK TO SAVEPOINT ${sql.raw(savepointName)}`.execute(trx);
         console.warn(
           `[notificationOutbox] falha ao processar entrada outbox=${entry.id}:`,
           error,

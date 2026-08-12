@@ -1640,9 +1640,15 @@ select option:checked,
   position: absolute;
   top: -2px;
   right: -4px;
-  /* #dd6b20 puro com texto branco fica ~3:1, abaixo do AA (4.5:1) —
-     mais crítico aqui por ser fonte pequena (0.625rem). */
-  background: color-mix(in srgb, var(--artificio-accent, #dd6b20) 80%, black);
+  /* --artificio-accent não existe como token (nenhuma definição em :root
+     deste arquivo, achado corrigido nesta rodada) — deriva de
+     --artificio-brand-deep (#e64a19, token real da marca). Puro com
+     texto branco fica ~3.9:1, abaixo do AA (4.5:1); mais crítico aqui
+     por ser fonte pequena (0.625rem). #cf4317 (brand-deep escurecido
+     10%) fica ~4.7:1 — valor fixo, não var()/color-mix(), pra não
+     resolver de volta ao token insuficiente e pro scanner de contraste
+     estático conseguir auditar. */
+  background: #cf4317;
   color: white;
   font-size: 0.625rem;
   font-weight: 700;
@@ -1700,7 +1706,7 @@ select option:checked,
 .artificio-notification-dropdown-item.unread {
   background: color-mix(
     in srgb,
-    var(--artificio-accent, #dd6b20) 4%,
+    var(--artificio-brand-deep, #e64a19) 4%,
     var(--artificio-canvas, white)
   );
 }
@@ -1774,7 +1780,7 @@ select option:checked,
 
 .artificio-notification-dropdown-mark:focus-visible,
 .artificio-notification-dropdown-all:focus-visible {
-  outline: 2px solid var(--artificio-accent, #dd6b20);
+  outline: 2px solid var(--artificio-brand-deep, #e64a19);
   outline-offset: 2px;
 }
 

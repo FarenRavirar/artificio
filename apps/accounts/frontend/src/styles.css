@@ -498,7 +498,7 @@ body {
 .notifications-header h2 {
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--color-navy, #1a365d);
+  color: var(--artificio-ink, #020740);
 }
 
 .notifications-actions {
@@ -513,16 +513,16 @@ body {
 
 .notifications-filter-toggle {
   padding: 0.4rem 0.8rem;
-  border: 1px solid var(--color-border, #cbd5e1);
+  border: 1px solid var(--artificio-line, #e3e5ec);
   border-radius: 0.375rem;
   background: var(--accounts-surface, #fff);
   cursor: pointer;
   font-size: 0.875rem;
-  color: var(--color-navy, #1a365d);
+  color: var(--artificio-ink, #020740);
 }
 
 .notifications-filter-toggle:focus-visible {
-  outline: 2px solid var(--color-accent, #dd6b20);
+  outline: 2px solid var(--artificio-brand-deep, #e64a19);
   outline-offset: 2px;
 }
 
@@ -532,7 +532,7 @@ body {
   right: 0;
   margin-top: 0.25rem;
   background: var(--accounts-surface, #fff);
-  border: 1px solid var(--color-border, #cbd5e1);
+  border: 1px solid var(--artificio-line, #e3e5ec);
   border-radius: 0.375rem;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   z-index: 10;
@@ -548,40 +548,42 @@ body {
   text-align: left;
   cursor: pointer;
   font-size: 0.875rem;
-  color: var(--color-navy, #1a365d);
+  color: var(--artificio-ink, #020740);
 }
 
 .notifications-filter-dropdown button:hover,
 .notifications-filter-dropdown button.active {
-  background: var(--color-navy, #1a365d);
+  background: var(--artificio-ink, #020740);
   color: white;
 }
 
 .notifications-filter-dropdown button:focus-visible {
-  outline: 2px solid var(--color-accent, #dd6b20);
+  outline: 2px solid var(--artificio-brand-deep, #e64a19);
   outline-offset: -2px;
 }
 
 .notifications-mark-all {
   padding: 0.4rem 0.8rem;
-  border: 1px solid var(--color-accent, #dd6b20);
+  border: 1px solid var(--artificio-brand-deep, #e64a19);
   border-radius: 0.375rem;
   background: var(--accounts-surface, #fff);
-  color: var(--color-accent, #dd6b20);
+  /* --artificio-brand-deep (#e64a19) puro como texto sobre branco fica
+     ~3.9:1, abaixo do AA (4.5:1). #cf4317 (escurecido 10%) fica ~4.7:1 —
+     valor fixo, não var(), pra não resolver de volta ao token
+     insuficiente e pro scanner de contraste estático auditar. */
+  color: #cf4317;
   cursor: pointer;
   font-size: 0.875rem;
   white-space: nowrap;
 }
 
 .notifications-mark-all:hover {
-  /* #dd6b20 puro com texto branco fica ~3:1, abaixo do AA (4.5:1).
-     Escurece 20% no hover pra manter a paleta e passar no contraste. */
-  background: color-mix(in srgb, var(--color-accent, #dd6b20) 80%, black);
+  background: #cf4317;
   color: white;
 }
 
 .notifications-mark-all:focus-visible {
-  outline: 2px solid var(--color-accent, #dd6b20);
+  outline: 2px solid var(--artificio-brand-deep, #e64a19);
   outline-offset: 2px;
 }
 
@@ -590,11 +592,11 @@ body {
 .notifications-error {
   text-align: center;
   padding: 3rem 1rem;
-  color: var(--color-muted, #64748b);
+  color: var(--artificio-muted, #5a6172);
 }
 
 .notifications-error {
-  color: var(--color-error, #dc2626);
+  color: var(--artificio-danger-text, #b91c1c);
 }
 
 .notifications-list {
@@ -604,12 +606,12 @@ body {
 }
 
 .notification-item {
-  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  border-bottom: 1px solid var(--artificio-line, #e3e5ec);
   padding: 0;
 }
 
 .notification-item.unread {
-  background: color-mix(in srgb, var(--color-accent, #dd6b20) 5%, var(--accounts-surface, white));
+  background: color-mix(in srgb, var(--artificio-brand-deep, #e64a19) 5%, var(--accounts-surface, white));
 }
 
 .notification-item-header {
@@ -634,7 +636,7 @@ body {
 }
 
 .notification-item-header:focus-visible {
-  outline: 2px solid var(--color-accent, #dd6b20);
+  outline: 2px solid var(--artificio-brand-deep, #e64a19);
   outline-offset: -2px;
 }
 
@@ -643,14 +645,14 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--color-muted, #64748b);
+  color: var(--artificio-muted, #5a6172);
   min-width: 5rem;
 }
 
 .notification-text {
   flex: 1;
   font-size: 0.95rem;
-  color: var(--color-navy, #1a365d);
+  color: var(--artificio-ink, #020740);
   min-width: 0;
 }
 
@@ -660,7 +662,7 @@ body {
 
 .notification-time {
   font-size: 0.8rem;
-  color: var(--color-muted, #94a3b8);
+  color: var(--artificio-muted, #5a6172);
   white-space: nowrap;
 }
 
@@ -668,20 +670,20 @@ body {
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 50%;
-  background: var(--color-accent, #dd6b20);
+  background: var(--artificio-brand-deep, #e64a19);
   flex-shrink: 0;
 }
 
 .notification-detail {
   padding: 0.6rem 0.75rem 1rem 6.5rem;
   background: rgba(0,0,0,0.02);
-  border-top: 1px dashed var(--color-border, #e2e8f0);
+  border-top: 1px dashed var(--artificio-line, #e3e5ec);
 }
 
 .notification-detail .notification-link {
   display: inline-block;
   margin-bottom: 0.4rem;
-  color: var(--color-navy, #1a365d);
+  color: var(--artificio-ink, #020740);
   font-size: 0.875rem;
   font-weight: 500;
   text-decoration: underline;
@@ -689,11 +691,11 @@ body {
 
 .notification-moderation-info {
   font-size: 0.85rem;
-  color: var(--color-muted, #64748b);
+  color: var(--artificio-muted, #5a6172);
   padding: 0.5rem 0.75rem;
-  background: color-mix(in srgb, var(--color-muted, #64748b) 8%, white);
+  background: color-mix(in srgb, var(--artificio-muted, #5a6172) 8%, white);
   border-radius: 0.25rem;
-  border-left: 3px solid var(--color-accent, #dd6b20);
+  border-left: 3px solid var(--artificio-brand-deep, #e64a19);
 }
 
 .notification-moderation-info p {
@@ -707,21 +709,21 @@ body {
 
 .notifications-load-more-btn {
   padding: 0.6rem 1.5rem;
-  border: 1px solid var(--color-border, #cbd5e1);
+  border: 1px solid var(--artificio-line, #e3e5ec);
   border-radius: 0.375rem;
   background: var(--accounts-surface, #fff);
-  color: var(--color-navy, #1a365d);
+  color: var(--artificio-ink, #020740);
   cursor: pointer;
   font-size: 0.9rem;
 }
 
 .notifications-load-more-btn:hover:not(:disabled) {
-  background: var(--color-navy, #1a365d);
+  background: var(--artificio-ink, #020740);
   color: white;
 }
 
 .notifications-load-more-btn:focus-visible {
-  outline: 2px solid var(--color-accent, #dd6b20);
+  outline: 2px solid var(--artificio-brand-deep, #e64a19);
   outline-offset: 2px;
 }
 
