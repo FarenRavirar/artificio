@@ -8,6 +8,23 @@ const migrationPath = fileURLToPath(
 );
 const migration = readFileSync(migrationPath, "utf8");
 
+// T3.13 (spec 090) — `notification.write` entrou pela migration 011, que amplia
+// o CHECK declarado aqui. O espelho TypeScript↔SQL abaixo precisa enxergar as
+// duas: checar só a 007 faria um escopo novo, legítimo e já aplicado, parecer
+// ausente do banco.
+const scopeMigrations = [
+  migration,
+  readFileSync(
+    fileURLToPath(
+      new URL(
+        "../database/migration_011_notification_ingest_scope.sql",
+        import.meta.url,
+      ),
+    ),
+    "utf8",
+  ),
+].join("\n");
+
 describe("migration_007_service_credentials", () => {
   it("mantem o header executavel exigido pelo runner", () => {
     expect(migration.split(/\r?\n/).slice(0, 5)).toEqual([
@@ -70,7 +87,7 @@ describe("migration_007_service_credentials", () => {
     // Divergência entre os dois lados só apareceria como erro de constraint no
     // deploy, depois do build verde.
     for (const scope of SERVICE_SCOPES) {
-      expect(migration, `escopo ${scope} ausente no CHECK`).toContain(`'${scope}'`);
+      expect(scopeMigrations, `escopo ${scope} ausente no CHECK`).toContain(`'${scope}'`);
     }
   });
 

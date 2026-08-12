@@ -30,6 +30,7 @@ import { db } from './db';
 import { startLinkCheckerScheduler } from './services/linkCheckerScheduler';
 import { startScraperScheduler } from './services/scraperScheduler';
 import { startMetricsScheduler } from './services/metricsScheduler';
+import { startNotificationOutboxSweep } from './services/notificationOutboxDelivery';
 
 dotenv.config();
 
@@ -162,4 +163,8 @@ app.listen(port, () => {
   startLinkCheckerScheduler();
   startScraperScheduler();
   startMetricsScheduler();
+  // T3.5/T3.13 (spec 090) — varredura do outbox de notificação. Cobre a falha
+  // do disparo pós-commit: entrada que ficou pendente por queda de rede ou do
+  // processo sai aqui, sem depender de o chamador ter conseguido entregar.
+  startNotificationOutboxSweep();
 });

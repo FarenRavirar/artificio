@@ -46,6 +46,13 @@ export const SERVICE_SCOPES = [
   "vote.write",
   "report.write",
   "moderation.write",
+  // T3.13 (spec 090, requisito 13a-i) — ingestão de evento de notificação
+  // vindo de outro módulo (`POST /internal/v1/notifications/events`). Escopo
+  // próprio, e não `comment.write`/`moderation.write`: um módulo que só avisa
+  // "seu material foi aprovado" não pode ganhar junto o poder de criar fala em
+  // nome de usuário nem de decidir caso de moderação. Espelha o CHECK de
+  // `scopes` na migration 011.
+  "notification.write",
 ] as const;
 
 export type ServiceScope = (typeof SERVICE_SCOPES)[number];

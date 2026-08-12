@@ -8,6 +8,7 @@ import type { Database, DownloadSystemSuggestion, DownloadSystemSuggestionResolu
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
 import { emitNotification } from '../services/notify';
+import { deliverPendingNotifications } from '../services/notificationOutboxDelivery';
 import { logModerationAudit } from '../services/moderationAuditLog';
 import { archiveCatalogNode } from '@artificio/catalog-client';
 import { loadCatalogSystemsFlat, createCatalogNode, addCatalogNodeAlias, resolveTaxonomyIds, type FlatCatalogSystem } from '../services/catalogClient';
@@ -338,18 +339,35 @@ router.post('/:id/resolve', writeRateLimiter, authMiddleware, requireRole('admin
 
     // O catálogo é HTTP e não participa da transação local. Notificar só
     // depois do commit impede falha secundária de reabrir a sugestão enquanto
-    // o nó externo já existe; notificação continua best-effort.
+    // o nó externo já existe — essa razão continua valendo, e é por isso que a
+    // emissão segue aqui fora e não dentro de `withSuggestionLock`.
+    //
+    // T3.5 (spec 090): o que mudou foi o custo da falha. `emitNotification`
+    // agora só enfileira no outbox local (`migration_038`), então `await` custa
+    // um INSERT, não uma chamada de rede — e o `.catch()` que engolia o erro
+    // deixou de ser aceitável: 13c-i (`spec.md:248`) nomeia justamente este
+    // chamador como a outra ponta do defeito, onde o aviso sumia sem registro.
+    // A falha agora é registrada e a entrega fica garantida pelo sweep.
     if (suggestionAfter.source === 'user' && suggestionAfter.suggested_by_user_id) {
       const body = outcome.resolution_action === 'reject'
         ? `Sua sugestão de sistema "${suggestionAfter.raw_value}" não foi aceita desta vez.`
         : `Sua sugestão de sistema "${suggestionAfter.raw_value}" foi aceita.`;
-      emitNotification({
-        userId: suggestionAfter.suggested_by_user_id,
-        kind: 'system_suggestion_resolved',
-        materialId: suggestionAfter.material_id,
-        body,
-      }).catch((error: unknown) => {
-        console.error('[POST /admin/system-suggestions/:id/resolve] Falha ao emitir notificação pós-commit:', error);
+      try {
+        await emitNotification({
+          userId: suggestionAfter.suggested_by_user_id,
+          kind: 'system_suggestion_resolved',
+          materialId: suggestionAfter.material_id,
+          body,
+        });
+      } catch (error: unknown) {
+        // Não relança: a sugestão já foi resolvida e o nó do catálogo já
+        // existe. Derrubar a resposta aqui faria o admin repetir uma ação que
+        // deu certo.
+        console.error('[POST /admin/system-suggestions/:id/resolve] Falha ao enfileirar notificação:', error);
+      }
+
+      void deliverPendingNotifications().catch((error: unknown) => {
+        console.error('[POST /admin/system-suggestions/:id/resolve] Falha na entrega pós-commit do outbox:', error);
       });
     }
 

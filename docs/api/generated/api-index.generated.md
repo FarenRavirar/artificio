@@ -4,9 +4,9 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **430 operações**.
+Total: **431 operações**.
 
-## accounts (48)
+## accounts (49)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -56,6 +56,7 @@ Total: **430 operações**.
 | GET | `/internal/v1/moderation/sanctions` | public | none | active | — | Consulta internal v1 moderation sanctions |
 | POST | `/internal/v1/moderation/sanctions` | public | user | active | — | Cria ou executa internal v1 moderation sanctions |
 | DELETE | `/internal/v1/moderation/sanctions/{id}` | public | user | active | — | Remove internal v1 moderation sanctions id |
+| POST | `/internal/v1/notifications/events` | public | user | active | — | Cria ou executa internal v1 notifications events |
 | DELETE | `/internal/v1/reports/{id}` | public | user | active | — | Remove internal v1 reports id |
 | GET | `/login` | public-page | none | active | — | Consulta login |
 

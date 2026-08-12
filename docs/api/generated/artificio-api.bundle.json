@@ -3,14 +3,14 @@
   "_description": "Índice único e machine-readable de todas as APIs do Artifício RPG. Fonte primária de descoberta para agentes de IA. Gerado por scripts/api/bundle-api.ts a partir dos contratos OpenAPI por-app. Não editar à mão.",
   "generatedAt": "1970-01-01T00:00:00.000Z",
   "apps": {
-    "accounts": 48,
+    "accounts": 49,
     "downloads": 82,
     "glossario": 49,
     "links": 22,
     "mesas": 180,
     "site": 49
   },
-  "total": 430,
+  "total": 431,
   "operations": [
     {
       "app": "accounts",
@@ -580,6 +580,18 @@
       "auth": "user",
       "consumers": [],
       "operationId": "deleteinternal_v1_moderation_sanctions_id"
+    },
+    {
+      "app": "accounts",
+      "method": "POST",
+      "path": "/internal/v1/notifications/events",
+      "summary": "Cria ou executa internal v1 notifications events",
+      "owner": "accounts",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postinternal_v1_notifications_events"
     },
     {
       "app": "accounts",

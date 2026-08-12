@@ -15,12 +15,12 @@
 | 📄 CONTRACT_ONLY | 4 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
 | 🕳️ UNUSED_ROUTE | 126 | ❌ |
-| 👻 ORPHAN_SUSPECT | 76 | ❌ |
+| 👻 ORPHAN_SUSPECT | 77 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
 ## Detalhamento por app
 
-### accounts (48 rotas no inventário)
+### accounts (49 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
@@ -67,6 +67,7 @@
 | POST | `/internal/v1/moderation/cases/:id/resolution` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/internal/v1/moderation/decisions/:id/appeals` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/internal/v1/moderation/sanctions` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/notifications/events` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PUT | `/admin/secrets/:name` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/api/v1/notification-preferences/:event_type` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PUT | `/api/v1/notifications/:id/read` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -495,7 +496,7 @@
 
 Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificação que justifique.
 
-### accounts (29 rota(s))
+### accounts (30 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
@@ -525,6 +526,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | POST | `/internal/v1/moderation/cases/:id/resolution` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/internal/v1/moderation/decisions/:id/appeals` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/internal/v1/moderation/sanctions` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/internal/v1/notifications/events` | ✅ | public | Sem consumidor e scope não justifica |
 | PUT | `/api/v1/notification-preferences/:event_type` | ✅ | public | Sem consumidor e scope não justifica |
 | PUT | `/api/v1/notifications/read-through` | ✅ | public | Sem consumidor e scope não justifica |
 | PUT | `/internal/v1/comments/:id/vote` | ✅ | public | Sem consumidor e scope não justifica |

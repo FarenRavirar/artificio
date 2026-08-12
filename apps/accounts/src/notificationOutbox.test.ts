@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi, type Mock } from "vitest";
 
 import { processOutboxEntry } from "./notificationOutbox.js";
@@ -144,4 +145,18 @@ describe("processOutboxEntry (T3.15)", () => {
       "33333333-3333-3333-3333-333333333333",
     );
   });
+});
+
+describe("canal in-app exclusivo (T3.11)", () => {
+  it.each(["notificationOutbox.ts", "communityCommentWrite.ts"])(
+    "%s não importa nem chama transporte de e-mail ou push",
+    (filename) => {
+      // T3.11 é uma fronteira arquitetural: o consolidado persiste evento e
+      // recibo in-app. E-mail/push só pode nascer como canal novo explícito,
+      // nunca entrar escondido no fan-out ou na criação do comentário.
+      const source = readFileSync(new URL(`./${filename}`, import.meta.url), "utf8");
+
+      expect(source).not.toMatch(/\b(?:sendEmail|nodemailer|webpush)\b/i);
+    },
+  );
 });

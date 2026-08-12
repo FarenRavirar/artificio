@@ -28,6 +28,7 @@ import { createCommunityCommentRoutes } from "./communityCommentRoutes.js";
 import { createCommunityModerationRoutes } from "./communityModerationRoutes.js";
 import { createNotificationRoutes } from "./notificationRoutes.js";
 import { createNotificationPreferenceRoutes } from "./notificationPreferenceRoutes.js";
+import { createNotificationIngestRouter } from "./notificationIngestRoutes.js";
 import { createRateLimitStore } from "./communityRateLimit.js";
 import { requireServiceCredential } from "./requireServiceCredential.js";
 
@@ -531,6 +532,15 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
   // T3.11b (spec 090) — preferências de notificação (/api/v1/*).
   // Rotas de sessão, ownership extraído da sessão.
   app.use(createNotificationPreferenceRoutes(db));
+
+  // T3.13 (spec 090) — ingestão de evento vindo de outro módulo
+  // (`POST /internal/v1/notifications/events`). É o que faz `downloads` e
+  // `mesas` deixarem de gravar em tabela própria e virarem produtores do par
+  // consolidado (requisito 13a-i). Credencial de serviço com escopo
+  // `notification.write`, nunca sessão — quem chama é backend, não navegador.
+  // Compartilha o store dos demais roteadores comunitários pelo mesmo motivo
+  // registrado acima: orçamento é por identidade e bucket, não por roteador.
+  app.use(createNotificationIngestRouter(db, communityRateLimitStore));
 
   // Spec 083 (downloads: rejeicao com e-mail) — rota interna server-to-server,
   // resolve email/nome do autor por user_id. So X-Service-Token, sem fallback

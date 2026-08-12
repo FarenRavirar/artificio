@@ -5,6 +5,7 @@ import { authMiddleware, requireRole } from '../middleware/auth';
 import { writeRateLimiter } from '../middleware/rateLimit';
 import { ABUSE_DISMISSED_STREAK_THRESHOLD, ABUSE_LOOKBACK_WINDOW, WITHDRAWN_RESOLUTION_NOTE, isReporterAbusive, reporterDismissedStreak } from '../services/reportAbuseGuard';
 import { emitNotification } from '../services/notify';
+import { deliverPendingNotifications } from '../services/notificationOutboxDelivery';
 import { logModerationAudit } from '../services/moderationAuditLog';
 import { sanitizeNullableUserMarkdown } from '@artificio/content-editor/sanitize';
 
@@ -316,6 +317,12 @@ router.patch('/:id', writeRateLimiter, authMiddleware, requireRole(['moderator',
     }
 
     return updatedReport;
+  });
+
+  // T3.5 (spec 090) — entrega pós-commit do outbox. A decisão de denúncia já
+  // está commitada neste ponto; falha aqui só adia o aviso até o sweep.
+  void deliverPendingNotifications().catch((error: unknown) => {
+    console.error('[PATCH /reports/:id] Falha na entrega pós-commit do outbox:', error);
   });
 
   if (parsed.data.priority && parsed.data.priority !== report.priority) {

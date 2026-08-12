@@ -526,6 +526,36 @@ export type DownloadNotification = Selectable<DownloadNotificationTable>;
 export type NewDownloadNotification = Insertable<DownloadNotificationTable>;
 export type DownloadNotificationUpdate = Updateable<DownloadNotificationTable>;
 
+/**
+ * T3.5/T3.13 (spec 090) — outbox local de notificação
+ * (`migration_038_notification_outbox.sql`).
+ *
+ * Enfileirada DENTRO da transação de moderação; entregue FORA dela ao par
+ * consolidado do `accounts.` (`POST /internal/v1/notifications/events`). É o
+ * que encerra o rollback de moderação por falha de notificação, sem trocar por
+ * fire-and-forget que perde o aviso em silêncio.
+ */
+export interface DownloadNotificationOutboxTable {
+  id: Generated<string>;
+  /** Idempotência do produtor: reenvio no retry vira no-op no `accounts.`. */
+  event_id: string;
+  event_type: string;
+  event_version: Generated<number>;
+  subject_type: string;
+  subject_id: string;
+  canonical_path: string;
+  snapshot: unknown;
+  /** Array de `user_id` resolvido na transação. */
+  recipients: unknown;
+  created_at: Generated<Date>;
+  delivered_at: Date | null;
+  attempt_count: Generated<number>;
+  last_error: string | null;
+}
+
+export type DownloadNotificationOutbox = Selectable<DownloadNotificationOutboxTable>;
+export type NewDownloadNotificationOutbox = Insertable<DownloadNotificationOutboxTable>;
+
 export interface DownloadRejectionCategoryTable {
   id: Generated<string>;
   slug: string;
@@ -582,6 +612,7 @@ export interface Database {
   download_organization: DownloadOrganizationTable;
   download_organization_member: DownloadOrganizationMemberTable;
   download_notification: DownloadNotificationTable;
+  download_notification_outbox: DownloadNotificationOutboxTable;
   download_rejection_category: DownloadRejectionCategoryTable;
   download_email_log: DownloadEmailLogTable;
   download_scraper_run: DownloadScraperRunTable;
