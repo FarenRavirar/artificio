@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Footer, Header, useTheme, useChangelogBadge, CHANGELOG_UPDATE_MARKERS, type NavItem, type UserMenuItem } from '@artificio/ui';
+import { Footer, Header, NotificationBell, useTheme, useChangelogBadge, CHANGELOG_UPDATE_MARKERS, type NavItem, type UserMenuItem } from '@artificio/ui';
 import { ChangelogModal } from './ChangelogModal';
 
 interface AppShellProps {
@@ -84,6 +84,7 @@ export const AppShell = ({ children }: AppShellProps) => {
         onOpenChangelog={openChangelog}
         changelogHasBadge={hasNewUpdate}
         serviceAccount={{ label: 'Conta Downloads', href: '/painel' }}
+        actions={<NotificationBell sourceApp="downloads" />}
       />
       <main className="flex-1">{children}</main>
       <Footer variant={theme === 'light' ? 'light' : 'dark'} moduleLinks={footerModuleLinks} />

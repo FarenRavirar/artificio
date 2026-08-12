@@ -26,6 +26,8 @@ import { createAdminSecretsRoutes } from "./adminSecretsRoutes.js";
 import { createAdminRoleRoutes } from "./adminRoleRoutes.js";
 import { createCommunityCommentRoutes } from "./communityCommentRoutes.js";
 import { createCommunityModerationRoutes } from "./communityModerationRoutes.js";
+import { createNotificationRoutes } from "./notificationRoutes.js";
+import { createNotificationPreferenceRoutes } from "./notificationPreferenceRoutes.js";
 import { createRateLimitStore } from "./communityRateLimit.js";
 import { requireServiceCredential } from "./requireServiceCredential.js";
 
@@ -520,6 +522,16 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
   // autenticado de um módulo com `moderation.write`.
   app.use(createCommunityModerationRoutes(db, communityRateLimitStore));
 
+  // T3.6 (spec 090) — notificações (`contrato-http-v1.md` §12).
+  // Rotas de sessão (/api/v1/*), não de credencial de serviço.
+  // Ownership sempre extraído da sessão, nunca de parâmetro.
+  // Realm derivado do ambiente: `accounts.` é PROD-only (D042).
+  app.use(createNotificationRoutes(db, "prod"));
+
+  // T3.11b (spec 090) — preferências de notificação (/api/v1/*).
+  // Rotas de sessão, ownership extraído da sessão.
+  app.use(createNotificationPreferenceRoutes(db));
+
   // Spec 083 (downloads: rejeicao com e-mail) — rota interna server-to-server,
   // resolve email/nome do autor por user_id. So X-Service-Token, sem fallback
   // de sessao admin (nunca chamada por humano, so por outro backend).
@@ -550,9 +562,14 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
   const clientDir = join(currentDir, "client");
   if (existsSync(clientDir)) {
     app.use(express.static(clientDir));
-    app.get(["/", "/login", "/conta", "/admin/papeis"], (_req, res) => {
-      res.sendFile(join(clientDir, "index.html"));
-    });
+    // Trailing slash aceito: "/conta/notificacoes/" servia 404 antes do SPA
+    // normalizar o path no client (achado CodeRabbit, PR #255).
+    app.get(
+      ["/", "/login", "/conta", "/conta/", "/conta/notificacoes", "/conta/notificacoes/", "/admin/papeis", "/admin/papeis/"],
+      (_req, res) => {
+        res.sendFile(join(clientDir, "index.html"));
+      },
+    );
   }
 
   app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

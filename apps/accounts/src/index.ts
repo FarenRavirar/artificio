@@ -3,6 +3,14 @@ import { loadAccountsEnv } from "./env.js";
 import { createApp } from "./app.js";
 import { ensureBootstrapAdmin } from "./globalRoles.js";
 import { shutdownWithError } from "./shutdown.js";
+import { processOutboxPending } from "./notificationOutbox.js";
+
+// T3.15 (achado CodeRabbit, PR #255): o único gatilho do fan-out de
+// notificação era o pós-commit de createComment. Sweep periódico cobre o
+// caso em que esse gatilho falha e a entrada fica presa até o próximo
+// comentário — sem isso, `notification_outbox` pode acumular pendências
+// indefinidamente em módulo de baixo tráfego.
+const OUTBOX_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
 
 const env = loadAccountsEnv();
 const db = createDb(env.DATABASE_URL);
@@ -24,6 +32,13 @@ try {
   server.on("error", (error: unknown) => {
     void fail("accounts failed to bind port", error);
   });
+
+  const outboxSweep = setInterval(() => {
+    processOutboxPending(db).catch((error) => {
+      console.warn("[notificationOutbox] falha no sweep periódico:", error);
+    });
+  }, OUTBOX_SWEEP_INTERVAL_MS);
+  outboxSweep.unref();
 } catch (error: unknown) {
   await fail("accounts failed to start", error);
 }

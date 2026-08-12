@@ -3,14 +3,14 @@
   "_description": "Índice único e machine-readable de todas as APIs do Artifício RPG. Fonte primária de descoberta para agentes de IA. Gerado por scripts/api/bundle-api.ts a partir dos contratos OpenAPI por-app. Não editar à mão.",
   "generatedAt": "1970-01-01T00:00:00.000Z",
   "apps": {
-    "accounts": 39,
+    "accounts": 48,
     "downloads": 82,
     "glossario": 49,
     "links": 22,
     "mesas": 180,
     "site": 49
   },
-  "total": 421,
+  "total": 430,
   "operations": [
     {
       "app": "accounts",
@@ -188,6 +188,102 @@
     {
       "app": "accounts",
       "method": "GET",
+      "path": "/api/v1/notification-event-types",
+      "summary": "Consulta api v1 notification-event-types",
+      "owner": "accounts",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_v1_notification_event_types"
+    },
+    {
+      "app": "accounts",
+      "method": "GET",
+      "path": "/api/v1/notification-preferences",
+      "summary": "Consulta api v1 notification-preferences",
+      "owner": "accounts",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_v1_notification_preferences"
+    },
+    {
+      "app": "accounts",
+      "method": "PUT",
+      "path": "/api/v1/notification-preferences/{event_type}",
+      "summary": "Substitui api v1 notification-preferences event type",
+      "owner": "accounts",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "putapi_v1_notification_preferences_event_type"
+    },
+    {
+      "app": "accounts",
+      "method": "GET",
+      "path": "/api/v1/notifications",
+      "summary": "Consulta api v1 notifications",
+      "owner": "accounts",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "getapi_v1_notifications"
+    },
+    {
+      "app": "accounts",
+      "method": "PUT",
+      "path": "/api/v1/notifications/{id}/read",
+      "summary": "Substitui api v1 notifications id read",
+      "owner": "accounts",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "putapi_v1_notifications_id_read"
+    },
+    {
+      "app": "accounts",
+      "method": "PATCH",
+      "path": "/api/v1/notifications/read-all",
+      "summary": "Atualiza api v1 notifications read-all",
+      "owner": "accounts",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "patchapi_v1_notifications_read_all"
+    },
+    {
+      "app": "accounts",
+      "method": "PUT",
+      "path": "/api/v1/notifications/read-through",
+      "summary": "Substitui api v1 notifications read-through",
+      "owner": "accounts",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "putapi_v1_notifications_read_through"
+    },
+    {
+      "app": "accounts",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "summary": "Consulta api v1 notifications unread-count",
+      "owner": "accounts",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "getapi_v1_notifications_unread_count"
+    },
+    {
+      "app": "accounts",
+      "method": "GET",
       "path": "/conta",
       "summary": "Consulta conta",
       "owner": "accounts",
@@ -196,6 +292,18 @@
       "auth": "none",
       "consumers": [],
       "operationId": "getconta"
+    },
+    {
+      "app": "accounts",
+      "method": "GET",
+      "path": "/conta/notificacoes",
+      "summary": "Consulta conta notificacoes",
+      "owner": "accounts",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getconta_notificacoes"
     },
     {
       "app": "accounts",

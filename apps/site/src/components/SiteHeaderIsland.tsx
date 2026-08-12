@@ -1,5 +1,5 @@
 import { getAccountsOrigin, logout, redirectToLogin, useSession } from "@artificio/auth/client";
-import { StaticChangelogModal, ThemeToggle, applyHeaderVariant, useChangelogBadge, useTheme, CHANGELOG_UPDATE_MARKERS } from "@artificio/ui";
+import { NotificationBell, StaticChangelogModal, ThemeToggle, applyHeaderVariant, useChangelogBadge, useTheme, CHANGELOG_UPDATE_MARKERS } from "@artificio/ui";
 import { useState, useRef, useEffect } from "react";
 import rawChangelogs from "../data/changelogs.json";
 
@@ -90,6 +90,7 @@ export function SiteHeaderIsland() {
           <path d="m21 21-4.3-4.3" />
         </svg>
       </button>
+      <NotificationBell sourceApp="site" />
       <ThemeToggle />
       {(() => {
         if (loading) return <span className="artificio-session-muted">Carregando</span>;

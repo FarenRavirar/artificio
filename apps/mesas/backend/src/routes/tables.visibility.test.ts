@@ -99,12 +99,17 @@ describe('GET /api/v1/tables/:slug — visibilidade pública', () => {
   // via "Mesa não encontrada", sem distinguir mesa que saiu do ar de link
   // errado. Agora devolve 410 com o payload da tela "Mesa Encerrada".
   it('devolve 410 com autoria para mesa arquivada', async () => {
-    dbMocks.executeTakeFirst.mockResolvedValue({
-      ...visibleTable,
-      archived_at: new Date('2026-07-28T01:00:00.000Z'),
-      archived_by: 'user-1',
-      closed_reason: 'gm',
-    });
+    // Duas chamadas em sequência: a mesa, depois o nome de quem arquivou.
+    // `mockResolvedValue` único devolveria a própria mesa como se fosse o autor,
+    // e `closed_by_name` passaria sem nunca exercer a consulta de autoria.
+    dbMocks.executeTakeFirst
+      .mockResolvedValueOnce({
+        ...visibleTable,
+        archived_at: new Date('2026-07-28T01:00:00.000Z'),
+        archived_by: 'user-1',
+        closed_reason: 'gm',
+      })
+      .mockResolvedValueOnce({ display_name: 'Mestre Fulano' });
 
     const response = await request(makeApp()).get('/api/v1/tables/mesa-publica');
 
@@ -114,6 +119,7 @@ describe('GET /api/v1/tables/:slug — visibilidade pública', () => {
       slug: visibleTable.slug,
       title: visibleTable.title,
       closed_reason: 'gm',
+      closed_by_name: 'Mestre Fulano',
     });
     expect(response.body.data.closed_at).toBe('2026-07-28T01:00:00.000Z');
   });
@@ -138,6 +144,38 @@ describe('GET /api/v1/tables/:slug — visibilidade pública', () => {
     expect(response.body.data.closed_by_name).toBeNull();
     // 5 dias após a criação, a mesma regra de `isImportedTableExpired`.
     expect(response.body.data.closed_at).toBe('2026-07-06T00:00:00.000Z');
+  });
+
+  // O outro ramo de `importedTableExpiryDate`: quando a data do evento vem
+  // ANTES dos 5 dias, ela é que vale. Sem este caso, o `LEAST` da regra nunca
+  // é exercido — o teste acima passa mesmo se a implementação ignorar
+  // `starts_at`.
+  it('usa starts_at como data de encerramento quando vence antes dos 5 dias', async () => {
+    // `isImportedTableExpired` compara com `new Date()` real — sem congelar
+    // o relógio, o teste depende do dia em que roda ser depois do prazo
+    // (achado CodeRabbit, PR #255).
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-10T00:00:00.000Z'));
+    try {
+      dbMocks.executeTakeFirst.mockResolvedValue({
+        ...visibleTable,
+        origin: 'imported',
+        created_at: new Date('2026-07-01T00:00:00.000Z'),
+        starts_at: new Date('2026-07-03T20:00:00.000Z'),
+        archived_at: null,
+        archived_by: null,
+        closed_reason: null,
+      });
+
+      const response = await request(makeApp()).get('/api/v1/tables/mesa-publica');
+
+      expect(response.status).toBe(410);
+      expect(response.body.data.closed_reason).toBe('auto_expired');
+      expect(response.body.data.closed_by_name).toBeNull();
+      expect(response.body.data.closed_at).toBe('2026-07-03T20:00:00.000Z');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   // Nada que sirva para inscrição entra na resposta de mesa encerrada: mesa

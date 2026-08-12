@@ -7,6 +7,7 @@ import { BRAND_TAGLINE_FREE, BRAND_ORIGIN, BRAND_DOMAIN } from "@artificio/confi
 import "@artificio/ui/styles.css";
 import "./styles.css";
 import { AdminRolesPanel } from "./AdminRolesPanel";
+import { NotificationsView } from "./NotificationsView";
 
 applyFavicon();
 applyTheme();
@@ -508,10 +509,15 @@ function AdminSecretsPanel() {
 
 function App() {
   const { theme } = useTheme();
-  const path = globalThis.location.pathname;
+  const rawPath = globalThis.location.pathname;
+  // Barra final não deve cair no default (LoginView): "/conta/notificacoes/"
+  // batia só em "/conta/notificacoes" na comparação exata (achado CodeRabbit).
+  const path = rawPath.length > 1 ? rawPath.replace(/\/+$/, "") : rawPath;
   let page: React.JSX.Element;
   if (path === "/admin/papeis") {
     page = <AdminRolesView />;
+  } else if (path === "/conta/notificacoes") {
+    page = <NotificationsView />;
   } else if (path === "/conta") {
     page = <ContaView />;
   } else {
