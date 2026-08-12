@@ -49,5 +49,12 @@ export function normalizeNotificationsPage(
 export function normalizeUnreadCount(value: unknown): number | null {
   if (typeof value !== "object" || value === null) return null;
   const v = value as Record<string, unknown>;
-  return typeof v.count === "number" ? v.count : null;
+  const count = v.count;
+  // Contagem é sempre inteiro >= 0 — negativo, fracionário, NaN/Infinity
+  // ou fora de Number.isSafeInteger indicam payload corrompido, não um
+  // valor de badge legítimo (achado CodeRabbit, PR #255).
+  if (typeof count !== "number" || !Number.isSafeInteger(count) || count < 0) {
+    return null;
+  }
+  return count;
 }

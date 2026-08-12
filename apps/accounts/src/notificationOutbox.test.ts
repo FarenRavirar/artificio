@@ -100,7 +100,13 @@ describe("processOutboxEntry (T3.15)", () => {
     // dois — sem `recipients` no outbox mock, o teste antigo saía antes de
     // chegar no insert e passava mesmo sem exercer o caminho de duplicata
     // (achado CodeRabbit, PR #255).
-    const db = makeDb(["user-1"], ["user-1", "user-2"]);
+    const db = makeDb(
+      ["11111111-1111-1111-1111-111111111111"],
+      [
+        "11111111-1111-1111-1111-111111111111",
+        "22222222-2222-2222-2222-222222222222",
+      ],
+    );
     const count = await processOutboxEntry(db as never, {
       id: "out-1",
       realm: "prod",
@@ -109,6 +115,33 @@ describe("processOutboxEntry (T3.15)", () => {
     });
     expect(count).toBe(1);
     expect(db.inserted).toHaveLength(1);
-    expect(db.inserted[0].recipient_user_id).toBe("user-2");
+    expect(db.inserted[0].recipient_user_id).toBe(
+      "22222222-2222-2222-2222-222222222222",
+    );
+  });
+
+  it("descarta elemento de recipients que não é UUID válido", async () => {
+    // JSONB malformado (produtor externo, corrupção) não deve chegar no
+    // `where(... "in", recipients)` — string não-UUID quebraria a query
+    // com 22P02 fora de qualquer try (achado CodeRabbit, PR #255).
+    const db = makeDb(
+      [],
+      [
+        "33333333-3333-3333-3333-333333333333",
+        "nao-e-uuid",
+        "'; DROP TABLE users; --",
+      ],
+    );
+    const count = await processOutboxEntry(db as never, {
+      id: "out-1",
+      realm: "prod",
+      source_app: "downloads",
+      event_id: "evt-1",
+    });
+    expect(count).toBe(1);
+    expect(db.inserted).toHaveLength(1);
+    expect(db.inserted[0].recipient_user_id).toBe(
+      "33333333-3333-3333-3333-333333333333",
+    );
   });
 });
