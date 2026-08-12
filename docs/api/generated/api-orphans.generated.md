@@ -10,19 +10,23 @@
 
 | Categoria | Quantidade | Bloqueia? |
 |-----------|:----------:|:---------:|
-| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 70 | ❌ |
+| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 76 | ❌ |
 
 ## Rotas órfãs suspeitas
 
 Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificação que justifique ausência de uso.
 
-### accounts (23 rota(s))
+### accounts (29 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
 | DELETE | `/internal/v1/comments/:id` | ✅ | public | Scope "public" sem consumidor |
 | DELETE | `/internal/v1/moderation/sanctions/:id` | ✅ | public | Scope "public" sem consumidor |
 | DELETE | `/internal/v1/reports/:id` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/notification-event-types` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/notification-preferences` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/notifications/unread-count` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/conta/notificacoes` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/internal/users/:id` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/internal/v1/comments` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/internal/v1/comments/:id/versions` | ✅ | public | Scope "public" sem consumidor |
@@ -42,6 +46,8 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | POST | `/internal/v1/moderation/cases/:id/resolution` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/internal/v1/moderation/decisions/:id/appeals` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/internal/v1/moderation/sanctions` | ✅ | public | Scope "public" sem consumidor |
+| PUT | `/api/v1/notification-preferences/:event_type` | ✅ | public | Scope "public" sem consumidor |
+| PUT | `/api/v1/notifications/read-through` | ✅ | public | Scope "public" sem consumidor |
 | PUT | `/internal/v1/comments/:id/vote` | ✅ | public | Scope "public" sem consumidor |
 ### downloads (38 rota(s))
 

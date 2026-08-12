@@ -270,6 +270,12 @@ export interface NotificationEventRow {
   actor_id: string | null;
   canonical_path: string;
   snapshot: unknown;
+  /**
+   * Dados estruturados que o produtor grava junto do evento (T3.14,
+   * absorvido do `mesas`). Mesmo padrão de `snapshot`: nullable,
+   * CHECK `JSONB_TYPEOF = 'object'` quando não nulo.
+   */
+  metadata: unknown | null;
   occurred_at: Generated<Date>;
   created_at: Generated<Date>;
 }
@@ -458,6 +464,40 @@ export interface CommunityCommentAppealRow {
   decision_reason: string | null;
 }
 
+/**
+ * Preferência de notificação por usuário e tipo de evento (T3.14, T3.11b).
+ *
+ * Sem `realm` (requisito 20a-ii): acompanha a identidade e vale nos dois
+ * ambientes. Linha ausente = tudo ligado — conta nova e conta existente entram
+ * sem backfill, e a leitura trata ausência como `enabled = true`.
+ */
+export interface NotificationPreferenceRow {
+  id: Generated<string>;
+  user_id: string;
+  event_type: string;
+  enabled: Generated<boolean>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+/**
+ * Outbox de entrega de notificação (T3.15, migration_010 seção 5).
+ *
+ * Evento entra na transação da ação de mérito; `processed_at IS NULL` = pendente.
+ * O consumidor faz fan-out idempotente fora da transação — falha de entrega
+ * não reverte a ação de mérito nem perde o evento.
+ */
+export interface NotificationOutboxRow {
+  id: Generated<string>;
+  realm: string;
+  source_app: string;
+  event_id: string;
+  /** Array de `user_id` — destinatários resolvidos na transação. */
+  recipients: unknown;
+  created_at: Generated<Date>;
+  processed_at: Date | null;
+}
+
 export interface Database {
   users: UserRow;
   admin_secrets: AdminSecretRow;
@@ -479,6 +519,8 @@ export interface Database {
   community_report_reason: CommunityReportReasonRow;
   community_restriction: CommunityRestrictionRow;
   notification_event: NotificationEventRow;
+  notification_outbox: NotificationOutboxRow;
+  notification_preference: NotificationPreferenceRow;
   notification_receipt: NotificationReceiptRow;
 }
 

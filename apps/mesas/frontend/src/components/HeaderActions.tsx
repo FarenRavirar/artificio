@@ -1,8 +1,8 @@
-import { useAuth } from '../contexts/useAuth';
-import { NotificationBell } from './NotificationBell';
+import { NotificationBell } from "@artificio/ui";
+import { useAuth } from "../contexts/useAuth";
 
 export function HeaderActions() {
   const { user } = useAuth();
   if (!user) return null;
-  return <NotificationBell />;
+  return <NotificationBell sourceApp="mesas" />;
 }

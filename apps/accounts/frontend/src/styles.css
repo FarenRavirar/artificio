@@ -475,3 +475,222 @@ body {
     transition: none;
   }
 }
+
+/* ==========================================================================
+   T3.9 — Central de notificações
+   ========================================================================== */
+
+.notifications-page {
+  max-width: 48rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+}
+
+.notifications-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.notifications-header h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-navy, #1a365d);
+}
+
+.notifications-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.notifications-filter {
+  position: relative;
+}
+
+.notifications-filter-toggle {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: 0.375rem;
+  background: white;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--color-navy, #1a365d);
+}
+
+.notifications-filter-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 0.25rem;
+  background: white;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: 0.375rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 10;
+  min-width: 12rem;
+}
+
+.notifications-filter-dropdown button {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.8rem;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: var(--color-navy, #1a365d);
+}
+
+.notifications-filter-dropdown button:hover,
+.notifications-filter-dropdown button.active {
+  background: var(--color-navy, #1a365d);
+  color: white;
+}
+
+.notifications-mark-all {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--color-accent, #dd6b20);
+  border-radius: 0.375rem;
+  background: white;
+  color: var(--color-accent, #dd6b20);
+  cursor: pointer;
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.notifications-mark-all:hover {
+  background: var(--color-accent, #dd6b20);
+  color: white;
+}
+
+.notifications-loading,
+.notifications-empty,
+.notifications-error {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--color-muted, #64748b);
+}
+
+.notifications-error {
+  color: var(--color-error, #dc2626);
+}
+
+.notifications-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.notification-item {
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  padding: 0;
+}
+
+.notification-item.unread {
+  background: color-mix(in srgb, var(--color-accent, #dd6b20) 5%, white);
+}
+
+.notification-item-header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.85rem 0.75rem;
+  cursor: pointer;
+  flex-wrap: wrap;
+}
+
+.notification-item-header:hover {
+  background: rgba(0,0,0,0.02);
+}
+
+.notification-source {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted, #64748b);
+  min-width: 5rem;
+}
+
+.notification-text {
+  flex: 1;
+  font-size: 0.95rem;
+  color: var(--color-navy, #1a365d);
+  min-width: 0;
+}
+
+.notification-item.unread .notification-text {
+  font-weight: 600;
+}
+
+.notification-time {
+  font-size: 0.8rem;
+  color: var(--color-muted, #94a3b8);
+  white-space: nowrap;
+}
+
+.notification-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--color-accent, #dd6b20);
+  flex-shrink: 0;
+}
+
+.notification-detail {
+  padding: 0.6rem 0.75rem 1rem 6.5rem;
+  background: rgba(0,0,0,0.02);
+  border-top: 1px dashed var(--color-border, #e2e8f0);
+}
+
+.notification-detail .notification-link {
+  display: inline-block;
+  margin-bottom: 0.4rem;
+  color: var(--color-navy, #1a365d);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+.notification-moderation-info {
+  font-size: 0.85rem;
+  color: var(--color-muted, #64748b);
+  padding: 0.5rem 0.75rem;
+  background: color-mix(in srgb, var(--color-muted, #64748b) 8%, white);
+  border-radius: 0.25rem;
+  border-left: 3px solid var(--color-accent, #dd6b20);
+}
+
+.notification-moderation-info p {
+  margin: 0;
+}
+
+.notifications-load-more {
+  text-align: center;
+  padding: 1.5rem;
+}
+
+.notifications-load-more-btn {
+  padding: 0.6rem 1.5rem;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: 0.375rem;
+  background: white;
+  color: var(--color-navy, #1a365d);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.notifications-load-more-btn:hover:not(:disabled) {
+  background: var(--color-navy, #1a365d);
+  color: white;
+}
+
+.notifications-load-more-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

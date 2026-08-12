@@ -15,6 +15,7 @@ import {
   replayIdempotentResponse,
   storeIdempotentResponse,
 } from "./communityIdempotency.js";
+import { enqueueOutboxEvent, processOutboxPending } from "./notificationOutbox.js";
 
 /**
  * T2.6c — criação e resposta, com evento e recibos **na mesma transação**
@@ -300,7 +301,7 @@ export async function createComment(
   // registrar e seguir recriaria o defeito best-effort do `downloads`
   // (requisito 24d), e a reversão inteira é o que 13c exige.
   try {
-    return await db.transaction().execute(async (trx) => {
+    const result = await db.transaction().execute(async (trx) => {
       // 1. Idempotência primeiro: insere e deixa a unicidade decidir. Um `SELECT`
       // antes do `INSERT` deixaria janela para dois pedidos idênticos passarem
       // juntos — o check-before-transaction que §6 manda não replicar.
@@ -525,19 +526,18 @@ export async function createComment(
         })
         .execute();
 
+      // T3.15: outbox — evento entra na transação, fan-out roda fora.
+      // Substitui a criação direta de recibos que existia aqui (linhas 528-541
+      // na versão anterior). O consumidor do outbox aplica preferências (T3.11b)
+      // e cria recibos de forma idempotente. Falha de entrega não reverte o
+      // comentário nem perde o evento.
       if (recipients.length > 0) {
-        await trx
-          .insertInto("notification_receipt")
-          .values(
-            recipients.map((recipientUserId: string) => ({
-              realm: input.realm,
-              source_app: input.source_app,
-              event_id: eventRowId,
-              recipient_user_id: recipientUserId,
-              read_at: null,
-            })),
-          )
-          .execute();
+        await enqueueOutboxEvent(trx, {
+          realm: input.realm,
+          sourceApp: input.source_app,
+          eventRowId: eventRowId,
+          recipients,
+        });
       }
 
       const created: CreatedComment = {
@@ -559,6 +559,18 @@ export async function createComment(
 
       return { ok: true as const, comment: created, replayed: false };
     });
+
+    // T3.15: processa outbox após commit da transação.
+    // Fire-and-forget: falha de entrega não reverte o comentário.
+    // Entradas não processadas são apanhadas pelo sweep periódico.
+    if (result.ok) {
+      processOutboxPending(db).catch(() => {
+        // Silencioso: o outbox garante que o evento não se perde.
+        // A entrada fica pendente para o próximo sweep.
+      });
+    }
+
+    return result;
   } catch (error) {
     if (error instanceof CommentWriteRejection) {
       return { ok: false, code: error.code, status: error.status };

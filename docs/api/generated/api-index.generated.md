@@ -4,9 +4,9 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **421 operações**.
+Total: **430 operações**.
 
-## accounts (39)
+## accounts (48)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -23,7 +23,16 @@ Total: **421 operações**.
 | POST | `/api/auth/logout` | cross-app | user | active | mesas-frontend, glossario-frontend, links-frontend, site-admin | Cria ou executa api auth logout |
 | GET | `/api/auth/me` | cross-app | user | active | mesas-frontend, glossario-frontend, links-frontend, site-admin | Consulta api auth me |
 | GET | `/api/auth/refresh` | cross-app | user | active | mesas-frontend, glossario-frontend, links-frontend, site-admin | Consulta api auth refresh |
+| GET | `/api/v1/notification-event-types` | public | none | active | — | Consulta api v1 notification-event-types |
+| GET | `/api/v1/notification-preferences` | public | none | active | — | Consulta api v1 notification-preferences |
+| PUT | `/api/v1/notification-preferences/{event_type}` | public | user | active | — | Substitui api v1 notification-preferences event type |
+| GET | `/api/v1/notifications` | public | user | active | — | Consulta api v1 notifications |
+| PUT | `/api/v1/notifications/{id}/read` | public | user | active | — | Substitui api v1 notifications id read |
+| PATCH | `/api/v1/notifications/read-all` | public | user | active | — | Atualiza api v1 notifications read-all |
+| PUT | `/api/v1/notifications/read-through` | public | user | active | — | Substitui api v1 notifications read-through |
+| GET | `/api/v1/notifications/unread-count` | public | user | active | — | Consulta api v1 notifications unread-count |
 | GET | `/conta` | public-page | none | active | — | Consulta conta |
+| GET | `/conta/notificacoes` | public | none | active | — | Consulta conta notificacoes |
 | GET | `/health` | internal | none | active | — | Consulta health |
 | GET | `/internal/users/{id}` | public | none | active | — | Consulta internal users id |
 | GET | `/internal/v1/comments` | public | none | active | — | Consulta internal v1 comments |

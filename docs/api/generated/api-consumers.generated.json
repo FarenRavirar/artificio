@@ -1,17 +1,17 @@
 {
   "metadata": {
-    "total": 292,
-    "uniqueEndpoints": 271,
+    "total": 296,
+    "uniqueEndpoints": 275,
     "byApp": {
       "accounts-frontend": {
-        "total": 5,
+        "total": 8,
         "byConfidence": {
-          "medium": 1,
-          "high": 4
+          "medium": 3,
+          "high": 5
         },
         "byPattern": {
-          "template-literal": 1,
-          "literal": 4
+          "template-literal": 3,
+          "literal": 5
         }
       },
       "glossario-frontend": {
@@ -63,6 +63,15 @@
           "service-wrapper": 1
         }
       },
+      "packages/ui": {
+        "total": 1,
+        "byConfidence": {
+          "medium": 1
+        },
+        "byPattern": {
+          "template-literal": 1
+        }
+      },
       "site-admin": {
         "total": 32,
         "byConfidence": {
@@ -99,7 +108,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 448
+      "line": 449
     },
     {
       "app": "accounts-frontend",
@@ -109,7 +118,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 287
+      "line": 288
     },
     {
       "app": "accounts-frontend",
@@ -119,7 +128,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 257
+      "line": 258
     },
     {
       "app": "accounts-frontend",
@@ -129,7 +138,37 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 124
+      "line": 125
+    },
+    {
+      "app": "accounts-frontend",
+      "consumerFile": "apps/accounts/frontend/src/NotificationsView.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/notifications",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "fetch",
+      "line": 96
+    },
+    {
+      "app": "accounts-frontend",
+      "consumerFile": "apps/accounts/frontend/src/NotificationsView.tsx",
+      "method": "PUT",
+      "endpoint": "/api/v1/notifications/:param/read",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "fetch",
+      "line": 159
+    },
+    {
+      "app": "accounts-frontend",
+      "consumerFile": "apps/accounts/frontend/src/NotificationsView.tsx",
+      "method": "PATCH",
+      "endpoint": "/api/v1/notifications/read-all",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "fetch",
+      "line": 176
     },
     {
       "app": "glossario-frontend",
@@ -2500,6 +2539,16 @@
       "pattern": "service-wrapper",
       "wrapper": "refreshSession",
       "line": 52
+    },
+    {
+      "app": "packages/ui",
+      "consumerFile": "packages/ui/src/NotificationBell.tsx",
+      "method": "PUT",
+      "endpoint": "/api/v1/notifications/:param/read",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "fetch",
+      "line": 199
     },
     {
       "app": "site-admin",

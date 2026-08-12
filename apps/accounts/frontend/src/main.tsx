@@ -7,6 +7,7 @@ import { BRAND_TAGLINE_FREE, BRAND_ORIGIN, BRAND_DOMAIN } from "@artificio/confi
 import "@artificio/ui/styles.css";
 import "./styles.css";
 import { AdminRolesPanel } from "./AdminRolesPanel";
+import { NotificationsView } from "./NotificationsView";
 
 applyFavicon();
 applyTheme();
@@ -512,6 +513,8 @@ function App() {
   let page: React.JSX.Element;
   if (path === "/admin/papeis") {
     page = <AdminRolesView />;
+  } else if (path === "/conta/notificacoes") {
+    page = <NotificationsView />;
   } else if (path === "/conta") {
     page = <ContaView />;
   } else {
