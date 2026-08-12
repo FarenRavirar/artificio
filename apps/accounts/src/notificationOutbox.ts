@@ -196,6 +196,17 @@ export async function processOutboxPending(
           `[notificationOutbox] falha ao processar entrada outbox=${entry.id}:`,
           error,
         );
+        // Marca processado mesmo em falha: o passo 5 de processOutboxEntry
+        // não roda quando a função lança (ex.: FK quebrada em recipients),
+        // e o ROLLBACK TO desfaz qualquer coisa que tivesse rodado depois
+        // do savepoint. Sem isso, entrada com erro permanente (recipient
+        // que nunca vai existir) fica presa em retry infinito a cada
+        // sweep — achado do teste real contra Postgres, PR #256.
+        await trx
+          .updateTable("notification_outbox")
+          .set({ processed_at: new Date() })
+          .where("id", "=", entry.id)
+          .execute();
       }
     }
 
