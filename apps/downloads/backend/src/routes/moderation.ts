@@ -154,6 +154,8 @@ router.post('/:id/reject', writeRateLimiter, authMiddleware, requireRole(['moder
       userId: changed.creator_id,
       kind: 'material_rejected',
       materialId: changed.id,
+      // Slug, não id: a rota do frontend é `/materiais/:materialSlug`.
+      materialSlug: changed.slug,
       body: `Seu material "${changed.title}" foi rejeitado. Motivo: ${safeReason}`,
     }, trx);
     return changed;
@@ -237,6 +239,7 @@ router.post('/:id/approve', writeRateLimiter, authMiddleware, requireRole(['mode
       userId: changed.creator_id,
       kind: 'material_approved',
       materialId: changed.id,
+      materialSlug: changed.slug,
       body: `Seu material "${changed.title}" foi aprovado e publicado.`,
     }, trx);
     return changed;
@@ -385,6 +388,7 @@ router.patch('/batch/:action', writeRateLimiter, authMiddleware, requireRole(['m
           userId: material.creator_id,
           kind: action === 'approve' ? 'material_approved' : 'material_rejected',
           materialId: material.id,
+          materialSlug: material.slug,
           body: action === 'approve'
             ? `Seu material "${material.title}" foi aprovado e publicado.`
             : `Seu material "${material.title}" foi rejeitado. Motivo: ${safeBatchReason}`,

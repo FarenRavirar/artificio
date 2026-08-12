@@ -80,14 +80,28 @@ CREATE TABLE IF NOT EXISTS download_notification_outbox (
   -- indistinguivel de aviso que nunca foi emitido — exatamente o defeito do
   -- `.catch()` que engole em `systemSuggestionsAdmin.ts:346`.
   attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
-  last_error TEXT
+  last_error TEXT,
+
+  -- Lease de processamento. O sweep periodico e o disparo pos-commit rodam
+  -- concorrentes por construcao (moderacao em lote dispara os dois), entao sem
+  -- claim os dois leriam as mesmas linhas e entregariam cada aviso duas vezes.
+  -- `FOR UPDATE SKIP LOCKED` nao serve aqui porque a entrega faz HTTP no meio e
+  -- manteria a transacao aberta durante a rede; o claim por UPDATE atomico
+  -- (`notificationOutboxDelivery.ts`) reserva sem segurar transacao.
+  --
+  -- Com prazo, e nao booleano: worker que morre no meio da varredura nao prende
+  -- a entrada para sempre — ela volta a fila quando o lease expira.
+  claimed_until TIMESTAMPTZ
 );
 
--- Parcial em `delivered_at IS NULL`: o sweep so varre pendencia, e o indice nao
--- cresce com o historico entregue.
+-- Parcial: o sweep so varre o que ainda pode ser entregue. O predicado espelha
+-- exatamente o filtro do worker (`delivered_at IS NULL AND attempt_count < 5`),
+-- senao o indice cobriria linhas que a consulta nunca pede e o planner voltaria
+-- ao seq scan. `5` e o `MAX_ATTEMPTS` de `notificationOutboxDelivery.ts`: mudar
+-- um exige mudar o outro.
 CREATE INDEX IF NOT EXISTS idx_download_notification_outbox_pending
   ON download_notification_outbox (created_at)
-  WHERE delivered_at IS NULL;
+  WHERE delivered_at IS NULL AND attempt_count < 5;
 
 DO $$
 BEGIN

@@ -80,7 +80,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/internal/v1/moderation/sanctions` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 302 |
 | POST | `/internal/v1/moderation/sanctions` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 352 |
 | DELETE | `/internal/v1/moderation/sanctions/:id` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 362 |
-| POST | `/internal/v1/notifications/events` | ✅ high | `apps/accounts/src/notificationIngestRoutes.ts` | 181 |
+| POST | `/internal/v1/notifications/events` | ✅ high | `apps/accounts/src/notificationIngestRoutes.ts` | 195 |
 | DELETE | `/internal/v1/reports/:id` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 239 |
 | GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 577 |
 
@@ -166,10 +166,10 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/materials/mine` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 477 |
 | GET | `/api/v1/materials/types` | ✅ high | `apps/downloads/backend/src/routes/materials.ts` | 356 |
 | USE | `/api/v1/moderation` | ✅ high | `apps/downloads/backend/src/server.ts` | 109 |
-| POST | `/api/v1/moderation/:id/approve` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 198 |
+| POST | `/api/v1/moderation/:id/approve` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 200 |
 | POST | `/api/v1/moderation/:id/reject` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 95 |
 | POST | `/api/v1/moderation/:id/submit` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 21 |
-| PATCH | `/api/v1/moderation/batch/:action` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 283 |
+| PATCH | `/api/v1/moderation/batch/:action` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 286 |
 | GET | `/api/v1/moderation/queue` | ✅ high | `apps/downloads/backend/src/routes/moderation.ts` | 73 |
 | GET | `/api/v1/notifications` | ✅ high | `apps/downloads/backend/src/routes/notifications.ts` | 12 |
 | USE | `/api/v1/notifications` | ✅ high | `apps/downloads/backend/src/server.ts` | 119 |

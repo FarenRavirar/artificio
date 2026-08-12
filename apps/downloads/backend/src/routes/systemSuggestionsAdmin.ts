@@ -342,6 +342,13 @@ router.post('/:id/resolve', writeRateLimiter, authMiddleware, requireRole('admin
     // o nó externo já existe — essa razão continua valendo, e é por isso que a
     // emissão segue aqui fora e não dentro de `withSuggestionLock`.
     //
+    // Mover o enfileiramento para dentro da transação foi TENTADO e revertido
+    // (2026-08-12, achado de review): tornaria resolução e aviso atômicos, mas
+    // faria falha do INSERT derrubar a resolução com 500 — e o admin repetiria
+    // uma ação que já tinha dado certo, com o nó do catálogo criado. Fechar a
+    // janela estreita (banco cair entre o commit e o INSERT local) custaria um
+    // modo de falha pior e mais provável que o próprio problema.
+    //
     // T3.5 (spec 090): o que mudou foi o custo da falha. `emitNotification`
     // agora só enfileira no outbox local (`migration_038`), então `await` custa
     // um INSERT, não uma chamada de rede — e o `.catch()` que engolia o erro

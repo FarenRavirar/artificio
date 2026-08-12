@@ -86,6 +86,9 @@ describe('POST /api/v1/moderation/:id/approve — emite notificacao', () => {
     dbMocks.updateTable.mockReset();
     dbMocks.insertInto.mockReset();
     dbMocks.transaction.mockReset();
+    // Sem reset, o `mockRejectedValueOnce` de um teste sobra para o próximo e a
+    // contagem de chamadas acumula entre casos.
+    deliveryMock.mockReset().mockResolvedValue({ delivered: 0, failed: 0, skipped: 0 });
     dbMocks.transaction.mockReturnValue({
       execute: (callback: (trx: unknown) => unknown) => callback({
         updateTable: dbMocks.updateTable,
@@ -123,6 +126,11 @@ describe('POST /api/v1/moderation/:id/approve — emite notificacao', () => {
         event_type: 'downloads.material_approved',
         subject_id: 'material-1',
         recipients: JSON.stringify(['owner-1']),
+        // Slug, não id: `App.tsx:55` declara `/materiais/:materialSlug` e o
+        // backend resolve por slug (`materials.ts:571`), então
+        // `/materiais/<UUID>` abriria "Material não encontrado" em todo link
+        // novo de moderação (achado de review, PR #257).
+        canonical_path: '/materiais/meu-material',
       }),
     );
   });
@@ -181,5 +189,9 @@ describe('POST /api/v1/moderation/:id/approve — emite notificacao', () => {
     });
 
     await request(app()).post('/api/v1/moderation/material-1/approve').expect(200);
+    // A entrega precisa ter sido TENTADA: 200 sozinho também passaria se o
+    // disparo pós-commit simplesmente não existisse, e aí o aviso só sairia no
+    // sweep de 5 minutos sem ninguém notar.
+    expect(deliveryMock).toHaveBeenCalledTimes(1);
   });
 });

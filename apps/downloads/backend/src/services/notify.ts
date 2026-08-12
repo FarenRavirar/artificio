@@ -55,17 +55,31 @@ const LEGACY_SNAPSHOT_VERSION = 1;
 
 /**
  * Path de volta, validado pelo CHECK da migration 038 (espelho do CHECK do
- * consolidado, migration_006:480-486). Material sem id conhecido cai na fila
- * geral: link errado é pior que link genérico.
+ * consolidado, migration_006:480-486).
+ *
+ * **Usa o slug, nunca o id.** `App.tsx:55` declara `/materiais/:materialSlug` e
+ * o backend resolve por slug (`routes/materials.ts:571`, `GET /:slug`), então
+ * `/materiais/<UUID>` abriria "Material não encontrado" em todo link novo de
+ * moderação e denúncia (achado de review, PR #257).
+ *
+ * Sem slug conhecido, cai na central: link genérico é ruim, link quebrado é
+ * pior — o usuário clica, não encontra nada e conclui que perdeu o material.
  */
-function buildCanonicalPath(materialId: string | null | undefined): string {
-  return materialId ? `/materiais/${materialId}` : '/conta/notificacoes';
+function buildCanonicalPath(materialSlug: string | null | undefined): string {
+  return materialSlug ? `/materiais/${materialSlug}` : '/conta/notificacoes';
 }
 
 export async function emitNotification(input: {
   userId: string;
   kind: NotificationKind;
   materialId?: string | null;
+  /**
+   * Slug do material, usado para montar o link de volta. Opcional porque nem
+   * todo chamador tem (`reports.ts` resolve a denúncia só pelo id do alvo);
+   * sem ele o link cai na central em vez de apontar para uma rota que o
+   * frontend não resolve.
+   */
+  materialSlug?: string | null;
   body: string;
 }, executor: Kysely<Database> | Transaction<Database> = db): Promise<void> {
   const materialId = input.materialId ?? null;
@@ -81,7 +95,7 @@ export async function emitNotification(input: {
       event_version: LEGACY_SNAPSHOT_VERSION,
       subject_type: materialId ? 'material' : 'account',
       subject_id: materialId ?? input.userId,
-      canonical_path: buildCanonicalPath(materialId),
+      canonical_path: buildCanonicalPath(input.materialSlug),
       snapshot: JSON.stringify({
         legacy_kind: input.kind,
         legacy_body: input.body,

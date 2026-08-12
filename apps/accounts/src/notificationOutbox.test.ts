@@ -154,9 +154,35 @@ describe("canal in-app exclusivo (T3.11)", () => {
       // T3.11 é uma fronteira arquitetural: o consolidado persiste evento e
       // recibo in-app. E-mail/push só pode nascer como canal novo explícito,
       // nunca entrar escondido no fan-out ou na criação do comentário.
+      //
+      // A checagem olha o **especificador de import**, não o texto do arquivo.
+      // Casar texto cru tinha os dois erros possíveis: acusava a palavra
+      // aparecendo em comentário (este mesmo bloco derrubaria o teste) e
+      // deixava passar `import mailer from "nodemailer"` renomeado, porque o
+      // identificador local não carrega o nome do pacote. O pacote importado é
+      // o que de fato liga o transporte.
       const source = readFileSync(new URL(`./${filename}`, import.meta.url), "utf8");
 
-      expect(source).not.toMatch(/\b(?:sendEmail|nodemailer|webpush)\b/i);
+      const specifiers = [
+        ...source.matchAll(/(?:^|\n)\s*import\s[^;]*?from\s*["']([^"']+)["']/g),
+        ...source.matchAll(/(?:^|\n)\s*import\s*["']([^"']+)["']/g),
+        ...source.matchAll(/\bimport\s*\(\s*["']([^"']+)["']\s*\)/g),
+        ...source.matchAll(/\brequire\s*\(\s*["']([^"']+)["']\s*\)/g),
+      ].map((match) => match[1]);
+
+      const forbidden = /(?:^|[/@])(?:nodemailer|web-push|webpush|@sendgrid|resend|postmark|mailgun)/i;
+      const offending = specifiers.filter((specifier) => forbidden.test(specifier));
+
+      expect(offending, `transporte proibido importado: ${offending.join(", ")}`).toHaveLength(0);
+
+      // Chamada de envio por identificador, ignorando comentário e string —
+      // pega o caso em que o transporte chega por helper local em vez de import
+      // direto do pacote.
+      const withoutComments = source
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/(?:^|[^:])\/\/[^\n]*/g, "");
+
+      expect(withoutComments).not.toMatch(/\b(?:sendEmail|sendMail|sendPush|webpush)\s*\(/);
     },
   );
 });

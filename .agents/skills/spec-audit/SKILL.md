@@ -1,8 +1,7 @@
 ---
-
 name: spec-audit
 description: Audita specs SDD e documentação operacional do Artifício RPG, cruzando spec.md, plan.md, tasks.md, backlog, sessões e project-state com código real usando Serena, LSP, codebase-memory-mcp e ferramentas locais. Use antes de implementar, antes de merge ou para revisar consistência documental.
-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---
 
 # Auditoria de spec SDD
 

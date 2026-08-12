@@ -551,6 +551,8 @@ export interface DownloadNotificationOutboxTable {
   delivered_at: Date | null;
   attempt_count: Generated<number>;
   last_error: string | null;
+  /** Lease de processamento: impede dois sweeps de entregarem a mesma linha. */
+  claimed_until: Date | null;
 }
 
 export type DownloadNotificationOutbox = Selectable<DownloadNotificationOutboxTable>;

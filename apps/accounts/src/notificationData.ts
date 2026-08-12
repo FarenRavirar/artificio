@@ -178,6 +178,7 @@ export async function listNotifications(
       "e.source_app",
       "e.canonical_path",
       "e.snapshot",
+      "e.event_version",
       "e.metadata",
       "e.occurred_at",
       "e.id as event_row_id",
@@ -240,6 +241,11 @@ export async function listNotifications(
       event_type: row.event_type,
       source_app: row.source_app,
       canonical_path: row.canonical_path,
+      // T3.13 — o snapshot carrega o corpo legado dos eventos de produtor
+      // externo. Sem passá-lo, todo aviso do `downloads` virava
+      // "Notificação: downloads.material_approved" (achado de review, PR #257).
+      event_version: row.event_version,
+      snapshot: row.snapshot,
     });
     return {
       id: row.receipt_id,
@@ -286,6 +292,8 @@ interface NotificationRow {
   source_app: string;
   canonical_path: string;
   snapshot: unknown;
+  /** Versão do snapshot; o formatador usa para escolher a leitura (T3.13). */
+  event_version: number;
   metadata: unknown;
   occurred_at: Date;
   event_row_id: string;

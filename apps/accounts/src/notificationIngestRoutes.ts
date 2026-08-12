@@ -108,22 +108,21 @@ async function handleIngestEvent(
   const input = parsed.data;
 
   const eventRowId = await db.transaction().execute(async (trx) => {
-    // Idempotência antes de inserir: reenvio do mesmo `event_id` devolve o
-    // evento que já existe, sem criar entrada nova no outbox. Sem esta
-    // consulta o INSERT falharia no UNIQUE e o módulo veria 500 num retry
-    // legítimo — que é justamente o caso que `event_id` existe para cobrir.
-    const existing = await trx
-      .selectFrom("notification_event")
-      .select(["id"])
-      .where("realm", "=", identity.realm)
-      .where("source_app", "=", identity.sourceApp)
-      .where("event_id", "=", input.event_id)
-      .executeTakeFirst();
-
-    if (existing) return existing.id;
-
+    // Idempotência pelo próprio banco, não por check-then-insert.
+    //
+    // A forma anterior consultava `notification_event` e só então inseria. Duas
+    // entregas simultâneas do mesmo `event_id` — o caso normal quando o sweep
+    // periódico do produtor roda junto do disparo pós-commit — passavam as duas
+    // pela consulta antes de qualquer INSERT commitar: uma inseria, a outra
+    // batia no UNIQUE e devolvia 500 num retry legítimo, que é exatamente o que
+    // `event_id` existe para tornar inofensivo.
+    //
+    // `ON CONFLICT DO NOTHING` fecha a janela: o índice único decide, não o
+    // intervalo entre SELECT e INSERT. O conflito é em `event_id` sozinho —
+    // `migration_006:471` declara `event_id UUID NOT NULL UNIQUE`, e não uma
+    // única composta com `realm`/`source_app` (essa é a do recibo, `:514`).
     const rowId = randomUUID();
-    await trx
+    const inserted = await trx
       .insertInto("notification_event")
       .values({
         id: rowId,
@@ -143,10 +142,25 @@ async function handleIngestEvent(
         metadata: input.metadata ?? null,
         ...(input.occurred_at ? { occurred_at: new Date(input.occurred_at) } : {}),
       })
-      .execute();
+      .onConflict((oc) => oc.column("event_id").doNothing())
+      .executeTakeFirst();
+
+    if (Number(inserted.numInsertedOrUpdatedRows) === 0) {
+      // Reenvio: o evento já existe. Devolve o `id` real dele — nunca o `rowId`
+      // recém-gerado, que não corresponde a nenhuma linha. Enfileirar de novo
+      // aqui duplicaria a entrega do mesmo evento.
+      const existing = await trx
+        .selectFrom("notification_event")
+        .select(["id"])
+        .where("event_id", "=", input.event_id)
+        .executeTakeFirstOrThrow();
+
+      return existing.id;
+    }
 
     // Outbox na MESMA transação: rollback elimina os dois juntos. É o que
-    // impede o evento de existir sem entrega e a entrega sem evento.
+    // impede o evento de existir sem entrega e a entrega sem evento. Só roda
+    // quando o INSERT de fato criou linha.
     await enqueueOutboxEvent(trx, {
       realm: identity.realm,
       sourceApp: identity.sourceApp,

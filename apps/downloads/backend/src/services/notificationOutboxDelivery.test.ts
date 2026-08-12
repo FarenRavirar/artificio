@@ -47,21 +47,28 @@ function makeEntry(overrides: Partial<FakeEntry> = {}): FakeEntry {
   };
 }
 
-/** Captura o `set()` de cada UPDATE para asserir o que foi gravado. */
+/**
+ * Captura o `set()` de cada UPDATE para asserir o que foi gravado.
+ *
+ * O primeiro `updateTable` da varredura é o **claim** (`UPDATE ... RETURNING`),
+ * que reserva as linhas antes de qualquer HTTP; ele devolve `entries` e não
+ * entra em `captured`. Os seguintes são as atualizações por entrada, que é o
+ * que os testes asserem.
+ */
 function fakeDb(entries: FakeEntry[], captured: Array<Record<string, unknown>>) {
+  let claimed = false;
+
   return {
-    selectFrom: () => {
-      const builder = {
-        selectAll: () => builder,
-        where: () => builder,
-        orderBy: () => builder,
-        limit: () => builder,
-        execute: vi.fn().mockResolvedValue(entries),
-      };
-      return builder;
-    },
     updateTable: () => ({
       set: (values: Record<string, unknown>) => {
+        if (!claimed) {
+          claimed = true;
+          return {
+            where: () => ({
+              returningAll: () => ({ execute: vi.fn().mockResolvedValue(entries) }),
+            }),
+          };
+        }
         captured.push(values);
         return { where: () => ({ execute: vi.fn().mockResolvedValue([]) }) };
       },
@@ -123,7 +130,39 @@ describe('deliverPendingNotifications', () => {
     expect(captured[0]).toMatchObject({ attempt_count: 2, last_error: 'HTTP 503' });
   });
 
-  it('4xx esgota o teto: payload inválido não melhora com retry', async () => {
+  it('429 é retentado, não descartado como 4xx terminal', async () => {
+    // A rota de ingestão passa por `communityRateLimit`
+    // (`accounts/src/communityRateLimit.ts:240`), e um lote de até 50 entregas
+    // estoura o bucket da credencial com facilidade. Tratar 429 como terminal
+    // descartaria avisos legítimos justamente quando o produtor está mais
+    // ativo — o oposto do que a fila existe para garantir.
+    undiciFetchMock.mockResolvedValue({ status: 429 });
+    const captured: Array<Record<string, unknown>> = [];
+
+    await deliverPendingNotifications(fakeDb([makeEntry({ attempt_count: 1 })], captured));
+
+    expect(captured[0]).toMatchObject({ attempt_count: 2, last_error: 'HTTP 429' });
+  });
+
+  it('408 é retentado: timeout declarado pelo servidor é transitório', async () => {
+    undiciFetchMock.mockResolvedValue({ status: 408 });
+    const captured: Array<Record<string, unknown>> = [];
+
+    await deliverPendingNotifications(fakeDb([makeEntry()], captured));
+
+    expect(captured[0]).toMatchObject({ attempt_count: 1 });
+  });
+
+  it('libera o claim ao terminar, para a entrada não esperar o lease', async () => {
+    undiciFetchMock.mockResolvedValue({ status: 503 });
+    const captured: Array<Record<string, unknown>> = [];
+
+    await deliverPendingNotifications(fakeDb([makeEntry()], captured));
+
+    expect(captured[0]).toMatchObject({ claimed_until: null });
+  });
+
+  it('400 esgota o teto: payload inválido não melhora com retry', async () => {
     // Sem isto, um evento permanentemente recusado seria retentado cinco vezes
     // e empurraria a fila inteira em toda varredura.
     undiciFetchMock.mockResolvedValue({ status: 400 });
@@ -133,6 +172,22 @@ describe('deliverPendingNotifications', () => {
 
     expect(captured[0]).toMatchObject({ attempt_count: 5, last_error: 'HTTP 400' });
   });
+
+  it.each([401, 403, 404])(
+    'HTTP %i é retentado: descreve o ambiente, não a mensagem',
+    async (status) => {
+      // Credencial em rotação, ainda não emitida, sem `notification.write`, ou
+      // `accounts.` antigo sem a rota durante deploy escalonado. Esgotar o teto
+      // faria o aviso nunca mais voltar ao sweep depois que a configuração
+      // fosse corrigida — perda silenciosa por uma janela que já passou.
+      undiciFetchMock.mockResolvedValue({ status });
+      const captured: Array<Record<string, unknown>> = [];
+
+      await deliverPendingNotifications(fakeDb([makeEntry({ attempt_count: 2 })], captured));
+
+      expect(captured[0]).toMatchObject({ attempt_count: 3, last_error: `HTTP ${status}` });
+    },
+  );
 
   it('recipients malformado é descartado com erro registrado, sem chamar a rede', async () => {
     // Payload externo é `unknown` até passar por checagem tipada (AGENTS.md).

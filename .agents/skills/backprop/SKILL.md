@@ -25,7 +25,7 @@ That edit is backprop.
 ### 1. TRACE
 Read failure output / bug report.
 Find exact file:line of wrong behavior.
-Name root cause in one caveman sentence.
+Name root cause in one concise sentence.
 
 ### 2. ANALYZE
 Ask three questions:

@@ -29,6 +29,15 @@ const BATCH_SIZE = 50;
  */
 const MAX_ATTEMPTS = 5;
 
+/**
+ * Validade do claim. Precisa cobrir o pior caso de uma varredura inteira
+ * (`BATCH_SIZE` × `REQUEST_TIMEOUT_MS` = 250s) com folga, senão o lease expira
+ * enquanto o worker ainda está entregando e um segundo worker pega as mesmas
+ * linhas. Curto o bastante para que worker morto não prenda a fila por muito
+ * tempo.
+ */
+const CLAIM_LEASE_MS = 10 * 60 * 1000;
+
 export interface DeliveryResult {
   delivered: number;
   failed: number;
@@ -65,13 +74,44 @@ export async function deliverPendingNotifications(
     return { delivered: 0, failed: 0, skipped: 0 };
   }
 
+  // Claim atômico antes de qualquer HTTP.
+  //
+  // `FOR UPDATE SKIP LOCKED` (o que o sweep do `accounts` usa) não serve aqui:
+  // ele segura o lock pela transação inteira, e esta entrega faz chamada de
+  // rede no meio — a transação ficaria aberta durante o timeout de 5s por
+  // entrada. Um `SELECT` sem claim é pior ainda: o disparo pós-commit e o sweep
+  // periódico rodam concorrentes por construção (moderação em lote dispara os
+  // dois), então os dois leriam as MESMAS linhas e entregariam cada aviso duas
+  // vezes. A idempotência por `event_id` no `accounts.` impede o aviso
+  // duplicado, mas não impede o trabalho duplicado nem o 429 que ele provoca.
+  //
+  // O `UPDATE ... RETURNING` com sub-select resolve os dois: um único comando
+  // marca e devolve as linhas, e o segundo worker não enxerga o que o primeiro
+  // acabou de reservar. `claimed_until` é lease com prazo — worker que morre no
+  // meio não prende a entrada para sempre, ela volta à fila quando o lease
+  // expira.
+  const claimedUntil = new Date(Date.now() + CLAIM_LEASE_MS);
+  const now = new Date();
+
   const pending = await database
-    .selectFrom('download_notification_outbox')
-    .selectAll()
-    .where('delivered_at', 'is', null)
-    .where('attempt_count', '<', MAX_ATTEMPTS)
-    .orderBy('created_at', 'asc')
-    .limit(BATCH_SIZE)
+    .updateTable('download_notification_outbox')
+    .set({ claimed_until: claimedUntil })
+    .where('id', 'in', (eb) =>
+      eb
+        .selectFrom('download_notification_outbox')
+        .select('id')
+        .where('delivered_at', 'is', null)
+        .where('attempt_count', '<', MAX_ATTEMPTS)
+        .where((inner) =>
+          inner.or([
+            inner.eb('claimed_until', 'is', null),
+            inner.eb('claimed_until', '<', now),
+          ]),
+        )
+        .orderBy('created_at', 'asc')
+        .limit(BATCH_SIZE),
+    )
+    .returningAll()
     .execute();
 
   const result: DeliveryResult = { delivered: 0, failed: 0, skipped: 0 };
@@ -84,7 +124,7 @@ export async function deliverPendingNotifications(
       // tem como dar certo — e o `last_error` deixa o caso auditável.
       await database
         .updateTable('download_notification_outbox')
-        .set({ delivered_at: new Date(), last_error: 'recipients inválido' })
+        .set({ delivered_at: new Date(), last_error: 'recipients inválido', claimed_until: null })
         .where('id', '=', entry.id)
         .execute();
       result.skipped++;
@@ -122,7 +162,7 @@ export async function deliverPendingNotifications(
       if (response.status === 202 || response.status === 200) {
         await database
           .updateTable('download_notification_outbox')
-          .set({ delivered_at: new Date(), last_error: null })
+          .set({ delivered_at: new Date(), last_error: null, claimed_until: null })
           .where('id', '=', entry.id)
           .execute();
         result.delivered++;
@@ -131,12 +171,44 @@ export async function deliverPendingNotifications(
 
       // 4xx não melhora com retry (payload inválido, escopo faltando); 5xx sim.
       // Contar tentativa nos dois casos mantém o teto valendo para ambos.
-      const permanent = response.status >= 400 && response.status < 500;
+      //
+      // Só esgota o teto o que é comprovadamente defeito do payload — 400 e
+      // 422. Todo o resto do 4xx descreve o *ambiente*, não a mensagem, e o
+      // ambiente muda sozinho:
+      //
+      // - `401`/`403`: credencial em rotação, ainda não emitida, ou sem
+      //   `notification.write` até a migration 011 rodar. Corrigida a
+      //   configuração, a mesma entrega passa.
+      // - `404`: durante deploy escalonado o `accounts.` antigo ainda não tem
+      //   a rota de ingestão. O deploy termina e a rota aparece.
+      // - `429`: a rota passa por `communityRateLimit`
+      //   (`accounts/src/communityRateLimit.ts:240`), e um lote de até 50
+      //   entregas estoura o bucket da credencial com facilidade.
+      // - `408`: timeout declarado pelo servidor é transitório por definição.
+      //
+      // Tratar qualquer um deles como terminal gravaria `attempt_count = 5` e
+      // o aviso nunca mais voltaria ao sweep — perda silenciosa causada por
+      // uma janela de operação que já passou (achado de review, PR #257).
+      const permanentPayloadError = response.status === 400 || response.status === 422;
+      const permanent = permanentPayloadError;
+
+      // Falha de configuração se parece com falha transitória e consome as 5
+      // tentativas em silêncio. Log explícito para o operador ver a causa antes
+      // de a entrada esgotar o teto — sem isto, o sintoma só aparece como aviso
+      // que nunca chegou.
+      if (response.status === 401 || response.status === 403) {
+        console.error(
+          `[notificationOutboxDelivery] HTTP ${response.status} — credencial de serviço ausente, revogada ou sem escopo notification.write. Tentativa ${entry.attempt_count + 1}/${MAX_ATTEMPTS}.`,
+        );
+      }
       await database
         .updateTable('download_notification_outbox')
         .set({
           attempt_count: permanent ? MAX_ATTEMPTS : entry.attempt_count + 1,
           last_error: `HTTP ${response.status}`,
+          // Libera o claim: a entrada volta à fila na próxima varredura em vez
+          // de esperar o lease inteiro expirar.
+          claimed_until: null,
         })
         .where('id', '=', entry.id)
         .execute();
@@ -145,7 +217,7 @@ export async function deliverPendingNotifications(
       const reason = error instanceof Error && error.name === 'AbortError' ? 'timeout' : String(error);
       await database
         .updateTable('download_notification_outbox')
-        .set({ attempt_count: entry.attempt_count + 1, last_error: reason })
+        .set({ attempt_count: entry.attempt_count + 1, last_error: reason, claimed_until: null })
         .where('id', '=', entry.id)
         .execute();
       result.failed++;

@@ -57,7 +57,7 @@ For each T<n>:
 
 ## REPORT
 
-Caveman. Grouped by severity.
+Concise. Grouped by severity.
 
 ```
 ## §V drift

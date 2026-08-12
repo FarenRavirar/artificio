@@ -88,13 +88,23 @@ function fakeDb(
         select: () => builder,
         where: () => builder,
         executeTakeFirst: vi.fn().mockResolvedValue(existingEvent),
+        executeTakeFirstOrThrow: vi.fn().mockResolvedValue(existingEvent),
       };
       return builder;
     },
     insertInto: () => ({
       values: (values: Record<string, unknown>) => {
         if (captured) captured.values = values;
-        return { execute: vi.fn().mockResolvedValue([]) };
+        const chain = {
+          onConflict: () => chain,
+          // `numInsertedOrUpdatedRows` 0 é o que `ON CONFLICT DO NOTHING`
+          // devolve num reenvio — é o sinal que a rota usa para buscar o id
+          // existente em vez de enfileirar de novo.
+          executeTakeFirst: vi.fn().mockResolvedValue({
+            numInsertedOrUpdatedRows: existingEvent ? 0n : 1n,
+          }),
+        };
+        return chain;
       },
     }),
   };
@@ -215,6 +225,12 @@ describe("POST /internal/v1/notifications/events — gravação", () => {
   it("reenvio do mesmo event_id não cria evento nem entrada nova no outbox", async () => {
     // É o caso que `event_id` existe para cobrir: retry do produtor precisa ser
     // no-op, não notificação duplicada.
+    //
+    // O conflito é resolvido pelo índice único (`ON CONFLICT DO NOTHING`), não
+    // por SELECT anterior: duas entregas simultâneas do mesmo evento — sweep
+    // periódico junto do disparo pós-commit — passariam as duas por um
+    // check-then-insert antes de qualquer INSERT commitar, e a segunda
+    // devolveria 500 num retry legítimo.
     const app = createApp(env, fakeDb(await credentialRow(), { id: EXISTING_ROW_ID }));
 
     const response = await post(app).send(VALID_BODY).expect(202);

@@ -285,6 +285,28 @@ router.patch('/:id', writeRateLimiter, authMiddleware, requireRole(['moderator',
     .select(['id', 'material_id']).where('id', '=', report.comment_id).executeTakeFirst() : undefined;
   const targetMaterialId = report.material_id ?? commentTarget?.material_id;
 
+  // Slug para o link de volta do aviso: a rota do frontend é
+  // `/materiais/:materialSlug`, então montar o path com o id abriria "Material
+  // não encontrado" (achado de review, PR #257). Material apagado entre a
+  // denúncia e a decisão devolve `null` e o aviso cai na central, sem link
+  // quebrado.
+  //
+  // Só serve para montar link: falha aqui degrada o link, nunca a decisão de
+  // moderação. Por isso o `catch` — um erro de leitura não pode derrubar o
+  // PATCH que o moderador acabou de fazer.
+  const targetMaterialSlug = targetMaterialId
+    ? await db
+        .selectFrom('download_material')
+        .select('slug')
+        .where('id', '=', targetMaterialId)
+        .executeTakeFirst()
+        .then((row) => row?.slug ?? null)
+        .catch((error: unknown) => {
+          console.warn('[PATCH /reports/:id] Falha ao resolver slug do material para o link:', error);
+          return null;
+        })
+    : null;
+
   const updated = await db.transaction().execute(async (trx) => {
     const updatedReport = await trx
       .updateTable('download_report')
@@ -310,6 +332,7 @@ router.patch('/:id', writeRateLimiter, authMiddleware, requireRole(['moderator',
         userId: report.reporter_user_id,
         kind: parsed.data.case_state === 'resolved' ? 'report_resolved' : 'report_dismissed',
         materialId: targetMaterialId,
+        materialSlug: targetMaterialSlug,
         body: parsed.data.case_state === 'resolved'
           ? 'Sua denúncia foi analisada e resolvida.'
           : 'Sua denúncia foi analisada e dispensada.',
