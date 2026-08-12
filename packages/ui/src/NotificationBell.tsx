@@ -29,12 +29,12 @@ type NotificationItem = NormalizedNotificationItem;
 
 export interface NotificationBellProps {
   /** source_app do módulo onde o sino está montado (ex.: "mesas", "downloads", "site"). */
-  sourceApp: string;
+  readonly sourceApp: string;
 }
 
 // ---- ícone SVG inline (sem dependência de lucide-react) ----
 
-function BellIcon({ className }: { className?: string }) {
+function BellIcon({ className }: { readonly className?: string }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -244,6 +244,11 @@ export function NotificationBell({ sourceApp }: NotificationBellProps) {
 
   if (!user) return null;
 
+  const bellAriaLabel =
+    unreadCount > 0
+      ? `Notificações (${unreadCount} não lidas)`
+      : "Notificações";
+
   return (
     <div className="artificio-notification-bell" ref={containerRef}>
       <button
@@ -251,7 +256,7 @@ export function NotificationBell({ sourceApp }: NotificationBellProps) {
         type="button"
         className="artificio-header-action"
         onClick={() => setOpen((prev) => !prev)}
-        aria-label={`Notificações${unreadCount > 0 ? ` (${unreadCount} não lidas)` : ""}`}
+        aria-label={bellAriaLabel}
         aria-expanded={open}
       >
         <BellIcon />

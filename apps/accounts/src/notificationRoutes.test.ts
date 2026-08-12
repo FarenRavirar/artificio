@@ -140,6 +140,7 @@ describe("notification routes", () => {
         .put("/api/v1/notifications/read-through")
         .send({})
         .expect(400);
+      expect(dataMocks.markReadThrough).not.toHaveBeenCalled();
     });
   });
 

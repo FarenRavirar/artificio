@@ -275,7 +275,8 @@ export interface NotificationEventRow {
    * absorvido do `mesas`). Mesmo padrão de `snapshot`: nullable,
    * CHECK `JSONB_TYPEOF = 'object'` quando não nulo.
    */
-  metadata: unknown | null;
+  /** `unknown` já cobre `null` — mantém sem `| null` redundante. */
+  metadata: unknown;
   occurred_at: Generated<Date>;
   created_at: Generated<Date>;
 }

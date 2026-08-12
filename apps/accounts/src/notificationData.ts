@@ -21,7 +21,8 @@ export interface NotificationItem {
   source_label: string;
   canonical_path: string;
   snapshot: unknown;
-  metadata: unknown | null;
+  /** `unknown` já cobre `null` — mantém sem `| null` redundante. */
+  metadata: unknown;
   text: string;
   link: string | null;
   occurred_at: string;
@@ -285,7 +286,7 @@ interface NotificationRow {
   source_app: string;
   canonical_path: string;
   snapshot: unknown;
-  metadata: unknown | null;
+  metadata: unknown;
   occurred_at: Date;
   event_row_id: string;
 }

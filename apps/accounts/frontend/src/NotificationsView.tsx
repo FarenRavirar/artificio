@@ -19,6 +19,30 @@ type NotificationItem = NormalizedNotificationItem;
 
 // ---- helpers ----
 
+/** Módulos válidos para o filtro (17c) — mesmo conjunto de `allSourceApps()`. */
+const VALID_SOURCE_APPS = new Set([
+  "downloads",
+  "mesas",
+  "site",
+  "glossario",
+  "links",
+]);
+
+/**
+ * Valida contra o conjunto conhecido antes de entrar na query string.
+ * `sourceApp` só chega aqui via clique nos botões de `allSourceApps()`
+ * (valores literais), mas o scanner de segurança não infere isso — a
+ * validação explícita documenta a garantia e fecha o achado de raiz.
+ */
+function isValidSourceApp(value: string): boolean {
+  return VALID_SOURCE_APPS.has(value);
+}
+
+/** Cursor é opaco (base64url), gerado só pelo servidor — nunca digitado. */
+function isValidCursor(value: string): boolean {
+  return /^[A-Za-z0-9_-]+$/.test(value);
+}
+
 function timeAgo(iso: string): string {
   const date = new Date(iso);
   const now = Date.now();
@@ -85,8 +109,12 @@ function useNotifications(sourceApp: string | null) {
       try {
         const params = new URLSearchParams();
         params.set("limit", "20");
-        if (sourceApp) params.set("source_app", sourceApp);
-        if (cursor) params.set("cursor", cursor);
+        if (sourceApp && isValidSourceApp(sourceApp)) {
+          params.set("source_app", sourceApp);
+        }
+        if (cursor && isValidCursor(cursor)) {
+          params.set("cursor", cursor);
+        }
 
         const res = await fetch(
           `/api/v1/notifications?${params.toString()}`,
@@ -382,6 +410,7 @@ export function NotificationsView() {
       {hasMore && items.length > 0 && (
         <div className="notifications-load-more">
           <button
+            type="button"
             onClick={loadMore}
             disabled={loading}
             className="notifications-load-more-btn"

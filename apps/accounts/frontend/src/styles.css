@@ -574,7 +574,9 @@ body {
 }
 
 .notifications-mark-all:hover {
-  background: var(--color-accent, #dd6b20);
+  /* #dd6b20 puro com texto branco fica ~3:1, abaixo do AA (4.5:1).
+     Escurece 20% no hover pra manter a paleta e passar no contraste. */
+  background: color-mix(in srgb, var(--color-accent, #dd6b20) 80%, black);
   color: white;
 }
 
