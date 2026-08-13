@@ -1,0 +1,142 @@
+:where(.artificio-comments) {
+  --artificio-comments-surface: var(--color-surface, #ffffff);
+  --artificio-comments-text: var(--color-text, #172033);
+  --artificio-comments-muted: var(--color-text-muted, #667085);
+  --artificio-comments-border: var(--color-border, #d0d5dd);
+  --artificio-comments-warning: var(--color-warning, #9a6700);
+  --artificio-comments-unavailable: var(--color-danger, #b42318);
+  --artificio-comments-radius: var(--radius-md, 0.5rem);
+  --artificio-comments-space: var(--space-3, 0.75rem);
+  --artificio-comments-accent: var(--color-artificio-orange, #f58220);
+  --artificio-comments-avatar-size: 2rem;
+
+  color: var(--artificio-comments-text);
+}
+
+.artificio-comments__toolbar,
+.artificio-comments__author,
+.artificio-comments__actions,
+.artificio-comments__form-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: calc(var(--artificio-comments-space) / 2);
+}
+
+.artificio-comments__toolbar {
+  justify-content: flex-end;
+  margin-block-end: var(--artificio-comments-space);
+}
+
+.artificio-comments__composer,
+.artificio-comments__comment,
+.artificio-comments__form,
+.artificio-comments__confirm {
+  display: grid;
+  gap: var(--artificio-comments-space);
+}
+
+.artificio-comments__thread {
+  display: grid;
+  gap: var(--artificio-comments-space);
+  margin: var(--artificio-comments-space) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.artificio-comments__thread .artificio-comments__thread {
+  margin-inline-start: clamp(0.75rem, 3vw, 2rem);
+  border-inline-start: 2px solid var(--artificio-comments-border);
+  padding-inline-start: var(--artificio-comments-space);
+}
+
+.artificio-comments__comment {
+  border: 1px solid var(--artificio-comments-border);
+  border-radius: var(--artificio-comments-radius);
+  padding: var(--artificio-comments-space);
+  background: var(--artificio-comments-surface);
+}
+
+.artificio-comments__author {
+  color: var(--artificio-comments-muted);
+  font-size: 0.875rem;
+}
+
+.artificio-comments__avatar {
+  width: var(--artificio-comments-avatar-size);
+  height: var(--artificio-comments-avatar-size);
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.artificio-comments__badge,
+.artificio-comments__legacy-label {
+  border: 1px solid var(--artificio-comments-border);
+  border-radius: 999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+.artificio-comments__legacy-label {
+  font-style: italic;
+}
+
+.artificio-comments__body {
+  margin-block: var(--artificio-comments-space);
+}
+
+.artificio-comments__actions button,
+.artificio-comments__form-actions button,
+.artificio-comments__composer > button,
+.artificio-comments__more button,
+.artificio-comments__confirm button,
+.artificio-comments__toolbar select {
+  min-height: 2.75rem;
+  border: 1px solid var(--artificio-comments-border);
+  border-radius: var(--artificio-comments-radius);
+  padding: 0.5rem 0.75rem;
+  background: var(--artificio-comments-surface);
+  color: var(--artificio-comments-text);
+  font: inherit;
+}
+
+.artificio-comments button:focus-visible,
+.artificio-comments select:focus-visible,
+.artificio-comments textarea:focus-visible {
+  outline: 2px solid var(--artificio-comments-accent);
+  outline-offset: 2px;
+}
+
+.artificio-comments button:disabled,
+.artificio-comments select:disabled,
+.artificio-comments textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.artificio-comments__score {
+  min-width: 2ch;
+  text-align: center;
+  font-weight: 700;
+}
+
+.artificio-comments__form textarea {
+  min-height: 7rem;
+  resize: vertical;
+}
+
+.artificio-comments__status {
+  padding: var(--artificio-comments-space);
+  border: 1px solid var(--artificio-comments-border);
+  border-radius: var(--artificio-comments-radius);
+  background: var(--artificio-comments-surface);
+  color: var(--artificio-comments-muted);
+}
+
+.artificio-comments__status[data-comments-state='stale'] {
+  color: var(--artificio-comments-warning);
+}
+
+.artificio-comments__status[data-comments-state='unavailable'] {
+  color: var(--artificio-comments-unavailable);
+}

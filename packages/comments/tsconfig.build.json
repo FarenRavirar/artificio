@@ -11,5 +11,5 @@
   //
   // Mesmo desenho já aplicado aos outros 10 pacotes junto de T2.5b.
   "extends": "./tsconfig.json",
-  "exclude": ["src/**/*.test.ts", "src/test/**", "src/testSetup.ts"]
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**", "src/testSetup.ts"]
 }

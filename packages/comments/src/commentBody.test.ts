@@ -210,4 +210,15 @@ describe('corpo canônico devolvido', () => {
     expect(result.bodyMarkdown).toContain('**forte**');
     expect(result.bodyMarkdown).not.toContain('<strong>');
   });
+
+  it('rebaixa imagem remota para link textual antes de persistir (decisão 26)', () => {
+    const result = validateCommentBody('![mapa](https://evil.example/rastreio.png)');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.bodyMarkdown).toBe(
+      '[mapa — abrir imagem externa](https://evil.example/rastreio.png)',
+    );
+    expect(result.bodyMarkdown).not.toContain('![');
+  });
 });
