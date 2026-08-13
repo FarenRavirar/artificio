@@ -87,13 +87,20 @@ function classifyRoute(method: string, path: string, app: string): Classificatio
   // additionally verifies moderator/admin role; `admin` is the closest single
   // value supported by x-artificio-auth for that combined guard.
   if (app === 'accounts' && p.startsWith('/internal/v1/')) {
+    // Filing an appeal lives under /moderation/ but is the *appellant's* action:
+    // the router guards it with a service credential and `report.write`, never
+    // `requireModeratorRole`. Publishing it as `admin` would make governance and
+    // generated clients demand a privilege the endpoint does not require
+    // (review finding, PR #258).
+    const isAppealFiling = /^\/internal\/v1\/moderation\/decisions\/[^/]+\/appeals$/.test(p);
     const moderationOnly =
-      p.includes('/moderation/') ||
-      p.includes('/moderation-queue') ||
-      p.includes('/moderation-log') ||
-      p.endsWith('/versions') ||
-      p.endsWith('/removal') ||
-      p.endsWith('/restore');
+      !isAppealFiling &&
+      (p.includes('/moderation/') ||
+        p.includes('/moderation-queue') ||
+        p.includes('/moderation-log') ||
+        p.endsWith('/versions') ||
+        p.endsWith('/removal') ||
+        p.endsWith('/restore'));
     return {
       owner: app,
       scope: moderationOnly ? 'admin' : 'internal',

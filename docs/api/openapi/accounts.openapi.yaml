@@ -1600,9 +1600,9 @@ paths:
       operationId: postinternal_v1_moderation_decisions_id_appeals
       summary: "Cria ou executa internal v1 moderation decisions id appeals"
       x-artificio-owner: accounts
-      x-artificio-scope: admin
+      x-artificio-scope: internal
       x-artificio-status: active
-      x-artificio-auth: admin
+      x-artificio-auth: service
       parameters:
         - name: id
           in: path

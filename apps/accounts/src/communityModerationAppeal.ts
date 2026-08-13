@@ -126,8 +126,10 @@ export async function readOwnAppeal(
 export interface ModeratorAppealDetail extends OwnAppealDetail {
   comment_version_id: string;
   reason: string;
-  original_decider_actor_id: string;
-  current_decider_actor_id: string;
+  /** `null` quando o caso foi fechado sem ator registrado (fechamento por sistema). */
+  original_decider_actor_id: string | null;
+  /** `null` quando o moderador ainda não tem ator comunitário — ver `readAppealForModerator`. */
+  current_decider_actor_id: string | null;
 }
 
 /**
@@ -145,8 +147,14 @@ export async function readAppealForModerator(
   },
 ): Promise<ModeratorAppealDetail | null> {
   return await db.transaction().execute(async (trx) => {
+    // Ausência de ator **não** vira ausência de recurso: um moderador global
+    // recém-promovido que nunca comentou não tem linha em `community_actor`, e
+    // encerrar aqui devolvia `404` para um recurso existente — o workspace
+    // ficava inacessível justamente para quem precisa abri-lo (achado de
+    // review, PR #258). O ator só é necessário para a comparação "mesmo
+    // decisor"; sem ele a comparação é indeterminada, não falsa, e a leitura
+    // segue. Não usar `resolveOrCreateActor`: leitura não cria estado.
     const currentDeciderActorId = await resolveActorId(trx, input.moderatorUserId);
-    if (currentDeciderActorId === null) return null;
 
     const row = await trx
       .selectFrom("community_comment_appeal as a")
@@ -172,7 +180,9 @@ export async function readAppealForModerator(
       .where("a.source_app", "=", input.sourceApp)
       .executeTakeFirst();
 
-    if (!row || row.original_decider_actor_id === null) return null;
+    // Pelo mesmo motivo, caso fechado sem `closed_by_actor_id` (fechamento por
+    // sistema) devolve o recurso com o decisor original nulo, em vez de sumir.
+    if (!row) return null;
     return {
       id: row.id,
       case_id: row.case_id,

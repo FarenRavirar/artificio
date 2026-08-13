@@ -150,6 +150,20 @@ export interface OwnReport {
 }
 
 /**
+ * Estado interno da denúncia → resultado exposto ao denunciante.
+ *
+ * Tabela e não cadeia de condições: a correspondência é auditável de relance, e
+ * estado ausente daqui vira `null` por construção. `active` e qualquer estado
+ * novo caem no `null` de propósito — enquanto o caso não fecha, o denunciante
+ * não recebe veredito.
+ */
+const OWN_REPORT_RESULT: Record<string, OwnReport["result"]> = {
+  upheld: "action_taken",
+  dismissed: "not_upheld",
+  no_determination: "no_determination",
+};
+
+/**
  * Leitura privada mínima das denúncias do titular (T4.23, decisão 44).
  *
  * Resolve o ator a partir da conta da sessão e filtra por ele no SQL. Não retorna
@@ -195,14 +209,7 @@ export async function listOwnReports(
       comment_id: row.comment_id,
       reason_code: row.reason_code,
       state: row.state,
-      result:
-        row.state === "upheld"
-          ? "action_taken"
-          : row.state === "dismissed"
-            ? "not_upheld"
-            : row.state === "no_determination"
-              ? "no_determination"
-              : null,
+      result: OWN_REPORT_RESULT[row.state] ?? null,
       can_withdraw:
         row.state === "active" && row.comment_visibility_state !== "pending_review_hidden",
       created_at: row.created_at.toISOString(),

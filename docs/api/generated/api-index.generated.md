@@ -55,7 +55,7 @@ Total: **435 operações**.
 | PATCH | `/internal/v1/moderation/cases/{id}/priority` | admin | admin | active | — | Atualiza internal v1 moderation cases id priority |
 | POST | `/internal/v1/moderation/cases/{id}/reopen` | admin | admin | active | — | Cria ou executa internal v1 moderation cases id reopen |
 | POST | `/internal/v1/moderation/cases/{id}/resolution` | admin | admin | active | — | Cria ou executa internal v1 moderation cases id resolution |
-| POST | `/internal/v1/moderation/decisions/{id}/appeals` | admin | admin | active | — | Cria ou executa internal v1 moderation decisions id appeals |
+| POST | `/internal/v1/moderation/decisions/{id}/appeals` | internal | service | active | — | Cria ou executa internal v1 moderation decisions id appeals |
 | GET | `/internal/v1/moderation/sanctions` | admin | admin | active | — | Consulta internal v1 moderation sanctions |
 | POST | `/internal/v1/moderation/sanctions` | admin | admin | active | — | Cria ou executa internal v1 moderation sanctions |
 | DELETE | `/internal/v1/moderation/sanctions/{id}` | admin | admin | active | — | Remove internal v1 moderation sanctions id |

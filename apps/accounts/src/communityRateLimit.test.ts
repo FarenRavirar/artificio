@@ -162,6 +162,31 @@ describe("o orçamento é por usuário, dentro do bucket da ação", () => {
     expect(readCommunityAccountStatusMock).not.toHaveBeenCalled();
   });
 
+  it("requisição já recusada pelo bucket não consulta o banco", async () => {
+    // A classificação só **baixa** o teto, então quem já estourou o limite
+    // permissivo seria recusado de qualquer forma. Consultar antes de checar
+    // isso dava uma query por requisição rejeitada — carga que crescia
+    // justamente sob rajada (achado de review, PR #258).
+    readCommunityAccountStatusMock.mockResolvedValue({
+      isNew: false,
+      accountIsYoung: false,
+      commentCountIsLow: false,
+      commentCount: 42,
+    });
+    const app = createApp(
+      env,
+      fakeDb(await credentialRow({ realms: ["beta"] })),
+    ) as Express;
+
+    for (let i = 0; i < LIMITE_ESCRITA_USUARIO; i += 1) {
+      expect((await post(app)).status).toBe(201);
+    }
+    const consultasAteEstourar = readCommunityAccountStatusMock.mock.calls.length;
+
+    expect((await post(app)).status).toBe(429);
+    expect(readCommunityAccountStatusMock.mock.calls.length).toBe(consultasAteEstourar);
+  });
+
   it("estoura no limite do bucket de escrita e devolve 429", async () => {
     const app = createApp(env, fakeDb(await credentialRow())) as Express;
 
@@ -343,6 +368,29 @@ describe("a tentativa não autenticada tem teto (achado de review, PR #251)", ()
 
     expect(res.status).toBe(401);
   });
+
+  it(
+    "as leituras do titular não gastam o orçamento do SSO",
+    async () => {
+      // `/api/v1/community/*` roda por cookie, não por credencial, e por isso
+      // escapava do `skip` que isolava só `/internal/v1/`: cada consulta às
+      // próprias denúncias debitava o bucket de 200 usado por `/login`, `/me` e
+      // `/refresh` (achado de review, PR #258). Com vários usuários atrás do
+      // mesmo IP, a UI derrubaria o login de todos eles.
+      const app = createApp(env, fakeDb(await credentialRow())) as Express;
+
+      for (let i = 0; i < 201; i += 1) {
+        const res = await request(app).get("/api/v1/community/reports");
+        // Sem cookie o esperado é `401` do `requireAuth`; o que não pode
+        // aparecer é `429`, que indicaria consumo do bucket do SSO.
+        expect(res.status).toBe(401);
+      }
+
+      // E o SSO segue com orçamento depois da rajada.
+      expect((await request(app).get("/api/auth/me")).status).toBe(401);
+    },
+    120_000,
+  );
 });
 
 describe("a chave da credencial contém módulo descontrolado", () => {

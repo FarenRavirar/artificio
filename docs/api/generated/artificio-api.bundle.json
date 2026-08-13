@@ -575,9 +575,9 @@
       "path": "/internal/v1/moderation/decisions/{id}/appeals",
       "summary": "Cria ou executa internal v1 moderation decisions id appeals",
       "owner": "accounts",
-      "scope": "admin",
+      "scope": "internal",
       "status": "active",
-      "auth": "admin",
+      "auth": "service",
       "consumers": [],
       "operationId": "postinternal_v1_moderation_decisions_id_appeals"
     },

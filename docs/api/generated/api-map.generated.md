@@ -31,20 +31,20 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 
 | Método | Path | Confiança | Arquivo | Linha |
 |--------|------|-----------|---------|------|
-| GET | `/` | ✅ high | `apps/accounts/src/app.ts` | 577 |
-| GET | `/admin/papeis` | ✅ high | `apps/accounts/src/app.ts` | 577 |
-| GET | `/admin/papeis` | ✅ high | `apps/accounts/src/app.ts` | 577 |
+| GET | `/` | ✅ high | `apps/accounts/src/app.ts` | 595 |
+| GET | `/admin/papeis` | ✅ high | `apps/accounts/src/app.ts` | 595 |
+| GET | `/admin/papeis` | ✅ high | `apps/accounts/src/app.ts` | 595 |
 | GET | `/admin/roles/users` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 17 |
 | PATCH | `/admin/roles/users/:id` | ✅ high | `apps/accounts/src/adminRoleRoutes.ts` | 27 |
 | GET | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 144 |
 | PUT | `/admin/secrets/:name` | ✅ high | `apps/accounts/src/adminSecretsRoutes.ts` | 105 |
-| DELETE | `/api/account` | ✅ high | `apps/accounts/src/app.ts` | 400 |
-| PATCH | `/api/account/avatar` | ✅ high | `apps/accounts/src/app.ts` | 336 |
-| GET | `/api/auth/google` | ✅ high | `apps/accounts/src/app.ts` | 285 |
-| GET | `/api/auth/google/callback` | ✅ high | `apps/accounts/src/app.ts` | 298 |
-| POST | `/api/auth/logout` | ✅ high | `apps/accounts/src/app.ts` | 456 |
-| GET | `/api/auth/me` | ✅ high | `apps/accounts/src/app.ts` | 332 |
-| GET | `/api/auth/refresh` | ✅ high | `apps/accounts/src/app.ts` | 461 |
+| DELETE | `/api/account` | ✅ high | `apps/accounts/src/app.ts` | 418 |
+| PATCH | `/api/account/avatar` | ✅ high | `apps/accounts/src/app.ts` | 354 |
+| GET | `/api/auth/google` | ✅ high | `apps/accounts/src/app.ts` | 303 |
+| GET | `/api/auth/google/callback` | ✅ high | `apps/accounts/src/app.ts` | 316 |
+| POST | `/api/auth/logout` | ✅ high | `apps/accounts/src/app.ts` | 474 |
+| GET | `/api/auth/me` | ✅ high | `apps/accounts/src/app.ts` | 350 |
+| GET | `/api/auth/refresh` | ✅ high | `apps/accounts/src/app.ts` | 479 |
 | GET | `/api/v1/community/appeals/:id` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 251 |
 | GET | `/api/v1/community/reports` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 247 |
 | GET | `/api/v1/notification-event-types` | ✅ high | `apps/accounts/src/notificationPreferenceRoutes.ts` | 103 |
@@ -55,12 +55,12 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | PATCH | `/api/v1/notifications/read-all` | ✅ high | `apps/accounts/src/notificationRoutes.ts` | 116 |
 | PUT | `/api/v1/notifications/read-through` | ✅ high | `apps/accounts/src/notificationRoutes.ts` | 136 |
 | GET | `/api/v1/notifications/unread-count` | ✅ high | `apps/accounts/src/notificationRoutes.ts` | 86 |
-| GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 577 |
-| GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 577 |
-| GET | `/conta/notificacoes` | ✅ high | `apps/accounts/src/app.ts` | 577 |
-| GET | `/conta/notificacoes` | ✅ high | `apps/accounts/src/app.ts` | 577 |
-| GET | `/health` | ✅ high | `apps/accounts/src/app.ts` | 281 |
-| GET | `/internal/users/:id` | ✅ high | `apps/accounts/src/app.ts` | 555 |
+| GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 595 |
+| GET | `/conta` | ✅ high | `apps/accounts/src/app.ts` | 595 |
+| GET | `/conta/notificacoes` | ✅ high | `apps/accounts/src/app.ts` | 595 |
+| GET | `/conta/notificacoes` | ✅ high | `apps/accounts/src/app.ts` | 595 |
+| GET | `/health` | ✅ high | `apps/accounts/src/app.ts` | 299 |
+| GET | `/internal/users/:id` | ✅ high | `apps/accounts/src/app.ts` | 573 |
 | GET | `/internal/v1/comments` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 154 |
 | POST | `/internal/v1/comments` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 166 |
 | DELETE | `/internal/v1/comments/:id` | ✅ high | `apps/accounts/src/communityCommentRoutes.ts` | 203 |
@@ -86,7 +86,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | POST | `/internal/v1/notifications/events` | ✅ high | `apps/accounts/src/notificationIngestRoutes.ts` | 195 |
 | GET | `/internal/v1/report-reasons` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 257 |
 | DELETE | `/internal/v1/reports/:id` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 275 |
-| GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 577 |
+| GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 595 |
 
 ## downloads
 

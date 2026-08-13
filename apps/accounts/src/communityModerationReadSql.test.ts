@@ -237,6 +237,68 @@ describe("leituras internas — SQL compilado", () => {
     );
   });
 
+  it("moderador sem ator comunitário ainda lê o recurso, com decisor atual nulo", async () => {
+    // Moderador global recém-promovido que nunca comentou: `resolveActorId`
+    // devolve vazio. Antes do achado de review da PR #258 a leitura encerrava
+    // aqui e o recurso existente respondia `404`, trancando o workspace de
+    // quem precisa abri-lo.
+    ctx.capture.enqueue([]);
+    ctx.capture.enqueue([
+      {
+        id: APPEAL_ID,
+        case_id: CASE_ID,
+        comment_version_id: "33333333-3333-4333-8333-333333333333",
+        reason: "decisão incorreta",
+        status: "open",
+        submitted_at: WHEN,
+        appeal_deadline_at: new Date("2027-02-09T12:00:00.000Z"),
+        decided_at: null,
+        original_decider_actor_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      },
+    ]);
+
+    const detail = await readAppealForModerator(ctx.db, {
+      realm: "beta",
+      sourceApp: "downloads",
+      appealId: APPEAL_ID,
+      moderatorUserId: USER_ID,
+    });
+
+    expect(detail).not.toBeNull();
+    expect(detail?.current_decider_actor_id).toBeNull();
+    expect(detail?.original_decider_actor_id).toBe("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+  });
+
+  it("caso fechado sem ator registrado não some da leitura do recurso", async () => {
+    // Fechamento por sistema deixa `closed_by_actor_id` nulo; o recurso segue
+    // existindo e precisa ser legível, com o decisor original indeterminado.
+    ctx.capture.enqueue([{ actor_id: ACTOR_ID }]);
+    ctx.capture.enqueue([
+      {
+        id: APPEAL_ID,
+        case_id: CASE_ID,
+        comment_version_id: "33333333-3333-4333-8333-333333333333",
+        reason: "decisão incorreta",
+        status: "open",
+        submitted_at: WHEN,
+        appeal_deadline_at: new Date("2027-02-09T12:00:00.000Z"),
+        decided_at: null,
+        original_decider_actor_id: null,
+      },
+    ]);
+
+    const detail = await readAppealForModerator(ctx.db, {
+      realm: "beta",
+      sourceApp: "downloads",
+      appealId: APPEAL_ID,
+      moderatorUserId: USER_ID,
+    });
+
+    expect(detail).not.toBeNull();
+    expect(detail?.original_decider_actor_id).toBeNull();
+    expect(detail?.current_decider_actor_id).toBe(ACTOR_ID);
+  });
+
   it("detalhe do caso traz o ator do autor pelo comentário do mesmo realm/app", async () => {
     ctx.capture.enqueue([
       {
