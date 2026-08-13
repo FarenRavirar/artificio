@@ -256,7 +256,15 @@ chave somente durante o TTL do bucket. O contrato de ingress existente continua:
 que atravessa Cloudflare/trusted proxy antes do uso integral e calibrar configuração. A medição não
 trava schema nem handlers; falha interrompe somente a ativação do limiter por IP e vira correção do
 ingress, sem alterar o modelo do `accounts.`. Conta nova pode agir com mesmo peso, mas entra na fila
-e recebe limite de escrita mais estreito.
+e recebe limite de escrita mais estreito. O predicado único é
+`users.created_at > now() - 7 dias OR total_de_comentários_do_ator < 3`, avaliado
+sem tabela nova. O `accounts.` reutiliza esse predicado tanto no bucket de
+criação/resposta quanto na leitura da fila; os candidatos sem denúncia aparecem
+em coleção aditiva própria, sem fabricar caso ou evidência. O orçamento do
+usuário novo é 10 criações/respostas por 15 minutos (o estabelecido permanece em
+30); o orçamento da credencial do módulo não muda. O canary inicial só é ativado
+por credencial allowlisted que fixa `realm=beta`; credencial de produção mantém
+o comportamento anterior, e nenhum parâmetro do cliente pode ativá-lo.
 
 ### Pré-lançamento e adequação de idade
 

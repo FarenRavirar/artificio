@@ -1,6 +1,10 @@
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
 import type { Database } from "./db.js";
+import {
+  COMMUNITY_NEW_ACCOUNT_MAX_AGE_MS,
+  COMMUNITY_NEW_ACCOUNT_MIN_COMMENT_COUNT,
+} from "./communityNewAccount.js";
 
 /**
  * T2.19 + T2.20(a) — fila agregada, log e leitura de versões
@@ -59,6 +63,99 @@ export interface QueueItem {
   reason_codes: string[];
   priority: number | null;
   comment_visibility_state: string;
+}
+
+export interface NewAccountCommentCandidate {
+  comment_id: string;
+  source_app: string;
+  community_actor_id: string;
+  created_at: string;
+  comment_visibility_state: string;
+  author_comment_count: number;
+  new_account_reasons: Array<"account_age" | "comment_count">;
+}
+
+/**
+ * Comentários publicados por contas novas que ainda não possuem caso.
+ *
+ * A coleção é separada de `items`: um candidato não ganha `case_id`, denúncia
+ * ou evidência artificial só para caber no formato da fila existente.
+ */
+export async function readNewAccountCommentCandidates(
+  db: Kysely<Database>,
+  filters: Pick<QueueFilters, "realm" | "sourceApp" | "limit">,
+  now = new Date(),
+): Promise<NewAccountCommentCandidate[]> {
+  const youngAccountCutoff = new Date(now.getTime() - COMMUNITY_NEW_ACCOUNT_MAX_AGE_MS);
+
+  let query = db
+    .selectFrom("community_comment as c")
+    .innerJoin("community_actor_account_link as l", "l.actor_id", "c.community_actor_id")
+    .innerJoin("users as u", "u.id", "l.user_id")
+    .select((eb) => [
+      "c.id as comment_id",
+      "c.source_app",
+      "l.actor_id as community_actor_id",
+      "c.created_at",
+      "c.visibility_state as comment_visibility_state",
+      "u.created_at as account_created_at",
+      eb
+        .selectFrom("community_comment as authored")
+        .select((inner) => inner.fn.countAll<string>().as("total"))
+        .whereRef("authored.community_actor_id", "=", "c.community_actor_id")
+        .as("author_comment_count"),
+    ])
+    .where("c.realm", "=", filters.realm)
+    .where("c.visibility_state", "=", "visible")
+    .where(({ not, exists, selectFrom }) =>
+      not(
+        exists(
+          selectFrom("community_moderation_case as mc")
+            .select("mc.id")
+            .whereRef("mc.realm", "=", "c.realm")
+            .whereRef("mc.source_app", "=", "c.source_app")
+            .whereRef("mc.comment_id", "=", "c.id"),
+        ),
+      ),
+    )
+    .where(
+      sql<boolean>`(
+        u.created_at > ${youngAccountCutoff}
+        or (
+          select count(*)
+          from community_comment authored
+          where authored.community_actor_id = c.community_actor_id
+        ) < ${COMMUNITY_NEW_ACCOUNT_MIN_COMMENT_COUNT}
+      )`,
+    )
+    .orderBy("c.created_at", "desc")
+    .orderBy("c.id", "desc")
+    .limit(filters.limit);
+
+  if (filters.sourceApp) {
+    query = query.where("c.source_app", "=", filters.sourceApp);
+  }
+
+  const rows = await query.execute();
+
+  return rows.map((row) => {
+    const authorCommentCount = Number(row.author_comment_count ?? 0);
+    const reasons: NewAccountCommentCandidate["new_account_reasons"] = [];
+    if (row.account_created_at > youngAccountCutoff) reasons.push("account_age");
+    if (authorCommentCount < COMMUNITY_NEW_ACCOUNT_MIN_COMMENT_COUNT) {
+      reasons.push("comment_count");
+    }
+
+    return {
+      comment_id: row.comment_id,
+      source_app: row.source_app,
+      community_actor_id: row.community_actor_id,
+      created_at: row.created_at.toISOString(),
+      comment_visibility_state: row.comment_visibility_state,
+      author_comment_count: authorCommentCount,
+      new_account_reasons: reasons,
+    };
+  });
 }
 
 /**
@@ -215,6 +312,8 @@ export interface CaseDetailReport {
 export interface CaseDetail {
   case_id: string;
   comment_id: string;
+  /** `null` só em dado legado/inconsistente; a UI de sanção deve falhar fechado. */
+  reported_author_actor_id: string | null;
   status: string;
   terminal_action: string | null;
   opened_at: string;
@@ -237,19 +336,26 @@ export async function readCaseDetail(
   caseId: string,
 ): Promise<CaseDetail | null> {
   const moderationCase = await db
-    .selectFrom("community_moderation_case")
+    .selectFrom("community_moderation_case as mc")
+    .innerJoin("community_comment as c", (join) =>
+      join
+        .onRef("c.realm", "=", "mc.realm")
+        .onRef("c.source_app", "=", "mc.source_app")
+        .onRef("c.id", "=", "mc.comment_id"),
+    )
     .select([
-      "id",
-      "comment_id",
-      "status",
-      "terminal_action",
-      "opened_at",
-      "closed_at",
-      "decision_reason",
+      "mc.id",
+      "mc.comment_id",
+      "mc.status",
+      "mc.terminal_action",
+      "mc.opened_at",
+      "mc.closed_at",
+      "mc.decision_reason",
+      "c.community_actor_id as reported_author_actor_id",
     ])
-    .where("id", "=", caseId)
-    .where("realm", "=", realm)
-    .where("source_app", "=", sourceApp)
+    .where("mc.id", "=", caseId)
+    .where("mc.realm", "=", realm)
+    .where("mc.source_app", "=", sourceApp)
     .executeTakeFirst();
 
   if (!moderationCase) return null;
@@ -280,6 +386,7 @@ export async function readCaseDetail(
   return {
     case_id: moderationCase.id,
     comment_id: moderationCase.comment_id,
+    reported_author_actor_id: moderationCase.reported_author_actor_id,
     status: moderationCase.status,
     terminal_action: moderationCase.terminal_action,
     opened_at: moderationCase.opened_at.toISOString(),

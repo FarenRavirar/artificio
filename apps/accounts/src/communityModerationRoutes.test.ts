@@ -3,23 +3,38 @@ import type { Express } from "express";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { hash } from "@node-rs/argon2";
 import { createApp } from "./app.js";
-import { createReport, withdrawReport } from "./communityCommentReport.js";
+import {
+  createReport,
+  listActiveReportReasons,
+  withdrawReport,
+} from "./communityCommentReport.js";
 import {
   changeCasePriority,
   removeCommentByModerator,
   resolveCase,
 } from "./communityModerationCase.js";
-import { applySanction, decideAppeal, fileAppeal } from "./communityModerationAppeal.js";
+import {
+  applySanction,
+  decideAppeal,
+  fileAppeal,
+  readAppealForModerator,
+} from "./communityModerationAppeal.js";
 import {
   readCaseDetail,
   readCommentVersions,
   readModerationLog,
   readModerationQueue,
+  readNewAccountCommentCandidates,
 } from "./communityModerationQueue.js";
 
 vi.mock("./communityCommentReport.js", async (original) => {
   const real = await original<typeof import("./communityCommentReport.js")>();
-  return { ...real, createReport: vi.fn(), withdrawReport: vi.fn() };
+  return {
+    ...real,
+    createReport: vi.fn(),
+    withdrawReport: vi.fn(),
+    listActiveReportReasons: vi.fn(),
+  };
 });
 
 vi.mock("./communityModerationCase.js", async (original) => {
@@ -43,11 +58,13 @@ vi.mock("./communityModerationAppeal.js", async (original) => {
     applySanction: vi.fn(),
     liftSanction: vi.fn(),
     listSanctions: vi.fn(),
+    readAppealForModerator: vi.fn(),
   };
 });
 
 vi.mock("./communityModerationQueue.js", () => ({
   readModerationQueue: vi.fn(),
+  readNewAccountCommentCandidates: vi.fn(),
   readModerationLog: vi.fn(),
   readCommentVersions: vi.fn(),
   readCaseDetail: vi.fn(),
@@ -55,13 +72,16 @@ vi.mock("./communityModerationQueue.js", () => ({
 
 const createReportMock = vi.mocked(createReport);
 const withdrawReportMock = vi.mocked(withdrawReport);
+const listReasonsMock = vi.mocked(listActiveReportReasons);
 const resolveCaseMock = vi.mocked(resolveCase);
 const changePriorityMock = vi.mocked(changeCasePriority);
 const removeByModeratorMock = vi.mocked(removeCommentByModerator);
 const fileAppealMock = vi.mocked(fileAppeal);
 const decideAppealMock = vi.mocked(decideAppeal);
 const applySanctionMock = vi.mocked(applySanction);
+const readAppealForModeratorMock = vi.mocked(readAppealForModerator);
 const readQueueMock = vi.mocked(readModerationQueue);
+const readNewAccountCandidatesMock = vi.mocked(readNewAccountCommentCandidates);
 const readLogMock = vi.mocked(readModerationLog);
 const readVersionsMock = vi.mocked(readCommentVersions);
 const readCaseDetailMock = vi.mocked(readCaseDetail);
@@ -163,8 +183,14 @@ function fakeDb(
   } as never;
 }
 
-async function moderatorApp(role = "moderator"): Promise<Express> {
-  return createApp(env, fakeDb(await credentialRow(), { id: MODERADOR, role }));
+async function moderatorApp(
+  role = "moderator",
+  credentialOverrides: Record<string, unknown> = {},
+): Promise<Express> {
+  return createApp(
+    env,
+    fakeDb(await credentialRow(credentialOverrides), { id: MODERADOR, role }),
+  );
 }
 
 function withAuth(req: request.Test, actingUser = MODERADOR) {
@@ -187,6 +213,14 @@ beforeEach(() => {
     replayed: false,
   });
   withdrawReportMock.mockResolvedValue({ ok: true });
+  listReasonsMock.mockResolvedValue([
+    {
+      code: "spam_or_off_topic",
+      label: "Spam ou fora do assunto",
+      priority: 2,
+      details_policy: "optional",
+    },
+  ]);
   resolveCaseMock.mockResolvedValue({
     ok: true,
     resolution: {
@@ -222,7 +256,21 @@ beforeEach(() => {
     },
     replayed: false,
   });
+  readAppealForModeratorMock.mockResolvedValue({
+    id: APPEAL_ID,
+    case_id: CASE_ID,
+    comment_version_id: "33333333-3333-4333-8333-333333333333",
+    reason: "decisão incorreta",
+    status: "open",
+    submitted_at: "2026-08-09T12:00:00.000Z",
+    appeal_deadline_at: "2027-02-09T12:00:00.000Z",
+    decision: null,
+    decided_at: null,
+    original_decider_actor_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    current_decider_actor_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  });
   readQueueMock.mockResolvedValue([]);
+  readNewAccountCandidatesMock.mockResolvedValue([]);
   readLogMock.mockResolvedValue([]);
   readVersionsMock.mockResolvedValue([
     {
@@ -238,6 +286,7 @@ beforeEach(() => {
   readCaseDetailMock.mockResolvedValue({
     case_id: CASE_ID,
     comment_id: COMMENT_ID,
+    reported_author_actor_id: ATOR_ALVO,
     status: "open",
     terminal_action: null,
     opened_at: "2026-08-09T12:00:00.000Z",
@@ -504,6 +553,38 @@ describe("guard de papel de moderador", () => {
 });
 
 describe("GET /internal/v1/comments/moderation-queue", () => {
+  it("acrescenta candidatos de conta nova sem alterar os itens por caso", async () => {
+    const item = { case_id: CASE_ID, comment_id: COMMENT_ID } as never;
+    const candidate = {
+      comment_id: "77777777-7777-4777-8777-777777777777",
+      source_app: "downloads",
+      community_actor_id: ATOR_ALVO,
+      created_at: "2026-08-12T12:00:00.000Z",
+      comment_visibility_state: "visible",
+      author_comment_count: 1,
+      new_account_reasons: ["account_age", "comment_count"],
+    } as never;
+    readQueueMock.mockResolvedValue([item]);
+    readNewAccountCandidatesMock.mockResolvedValue([candidate]);
+    const app = await moderatorApp("moderator", { realms: ["beta"] });
+
+    const res = await withAuth(request(app).get("/internal/v1/comments/moderation-queue"));
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ items: [item], new_account_comments: [candidate] });
+  });
+
+  it("não mistura candidatos sem estado quando o filtro pede casos fechados", async () => {
+    const app = await moderatorApp();
+    const res = await withAuth(
+      request(app).get("/internal/v1/comments/moderation-queue?status=closed"),
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.new_account_comments).toEqual([]);
+    expect(readNewAccountCandidatesMock).not.toHaveBeenCalled();
+  });
+
   it("usa o realm da credencial, nunca da query", async () => {
     const app = await moderatorApp();
     await withAuth(
@@ -931,5 +1012,73 @@ describe("GET /internal/v1/moderation/cases/:id", () => {
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe("case_not_found");
+  });
+});
+
+describe("GET /internal/v1/report-reasons", () => {
+  it("usa comment.read e devolve somente o catálogo público", async () => {
+    const credential = await credentialRow({ scopes: ["comment.read"] });
+    const app = createApp(env, fakeDb(credential, undefined));
+    const res = await withAuth(request(app).get("/internal/v1/report-reasons"));
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      reasons: [
+        {
+          code: "spam_or_off_topic",
+          label: "Spam ou fora do assunto",
+          priority: 2,
+          details_policy: "optional",
+        },
+      ],
+    });
+  });
+
+  it("recusa realm/source_app na query", async () => {
+    const credential = await credentialRow({ scopes: ["comment.read"] });
+    const app = createApp(env, fakeDb(credential, undefined));
+    const res = await withAuth(
+      request(app).get("/internal/v1/report-reasons?realm=prod&source_app=downloads"),
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe("invalid_query");
+    expect(listReasonsMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /internal/v1/moderation/appeals/:id", () => {
+  it("devolve decisor original e decisor atual juntos", async () => {
+    const app = await moderatorApp();
+    const res = await withAuth(
+      request(app).get(`/internal/v1/moderation/appeals/${APPEAL_ID}`),
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body.original_decider_actor_id).toBe(
+      "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    );
+    expect(res.body.current_decider_actor_id).toBe(
+      "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    );
+    expect(readAppealForModeratorMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        realm: "prod",
+        sourceApp: "downloads",
+        appealId: APPEAL_ID,
+        moderatorUserId: MODERADOR,
+      }),
+    );
+  });
+
+  it("usa bucket de leitura", async () => {
+    const app = await moderatorApp();
+    for (let i = 0; i < 30; i += 1) {
+      const res = await withAuth(
+        request(app).get(`/internal/v1/moderation/appeals/${APPEAL_ID}`),
+      );
+      expect(res.status).toBe(200);
+    }
   });
 });

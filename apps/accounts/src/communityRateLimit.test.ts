@@ -4,10 +4,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { hash } from "@node-rs/argon2";
 import { createApp } from "./app.js";
 import { createComment } from "./communityCommentWrite.js";
+import { readCommunityAccountStatus } from "./communityNewAccount.js";
 
 vi.mock("./communityCommentWrite.js", () => ({ createComment: vi.fn() }));
+vi.mock("./communityNewAccount.js", async (original) => {
+  const real = await original<typeof import("./communityNewAccount.js")>();
+  return { ...real, readCommunityAccountStatus: vi.fn() };
+});
 
 const createCommentMock = vi.mocked(createComment);
+const readCommunityAccountStatusMock = vi.mocked(readCommunityAccountStatus);
 
 /**
  * T2.10 — buckets independentes (`spec.md` 12b; decisões 50, 54;
@@ -104,6 +110,12 @@ function post(app: Express, actingUser = ACTING_USER, chave = "chave-de-teste-00
 
 beforeEach(() => {
   vi.clearAllMocks();
+  readCommunityAccountStatusMock.mockResolvedValue({
+    isNew: false,
+    accountIsYoung: false,
+    commentCountIsLow: false,
+    commentCount: 3,
+  });
   createCommentMock.mockResolvedValue({
     ok: true,
     comment: {
@@ -119,6 +131,37 @@ beforeEach(() => {
 });
 
 describe("o orçamento é por usuário, dentro do bucket da ação", () => {
+  it("reduz criação/resposta de conta nova para 10 por 15 minutos", async () => {
+    readCommunityAccountStatusMock.mockResolvedValue({
+      isNew: true,
+      accountIsYoung: true,
+      commentCountIsLow: true,
+      commentCount: 0,
+    });
+    const app = createApp(
+      env,
+      fakeDb(await credentialRow({ realms: ["beta"] })),
+    ) as Express;
+
+    for (let i = 0; i < 10; i += 1) expect((await post(app)).status).toBe(201);
+    expect((await post(app)).status).toBe(429);
+    expect(createCommentMock).toHaveBeenCalledTimes(10);
+  });
+
+  it("mantém o orçamento estabelecido em prod durante o canary beta", async () => {
+    readCommunityAccountStatusMock.mockResolvedValue({
+      isNew: true,
+      accountIsYoung: true,
+      commentCountIsLow: true,
+      commentCount: 0,
+    });
+    const app = createApp(env, fakeDb(await credentialRow())) as Express;
+
+    for (let i = 0; i < 10; i += 1) expect((await post(app)).status).toBe(201);
+    expect((await post(app)).status).toBe(201);
+    expect(readCommunityAccountStatusMock).not.toHaveBeenCalled();
+  });
+
   it("estoura no limite do bucket de escrita e devolve 429", async () => {
     const app = createApp(env, fakeDb(await credentialRow())) as Express;
 

@@ -14,20 +14,20 @@
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 4 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
-| 🕳️ UNUSED_ROUTE | 126 | ❌ |
-| 👻 ORPHAN_SUSPECT | 77 | ❌ |
+| 🕳️ UNUSED_ROUTE | 153 | ❌ |
+| 👻 ORPHAN_SUSPECT | 54 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
 ## Detalhamento por app
 
-### accounts (49 rotas no inventário)
+### accounts (53 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
 | DELETE | `/api/account` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| DELETE | `/internal/v1/comments/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| DELETE | `/internal/v1/moderation/sanctions/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| DELETE | `/internal/v1/reports/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| DELETE | `/internal/v1/comments/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| DELETE | `/internal/v1/moderation/sanctions/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| DELETE | `/internal/v1/reports/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/admin/papeis` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/admin/roles/users` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -36,6 +36,8 @@
 | GET | `/api/auth/google/callback` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/auth/me` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/auth/refresh` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/community/appeals/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/community/reports` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/notification-event-types` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/notification-preferences` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/notifications` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -44,35 +46,37 @@
 | GET | `/conta/notificacoes` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/health` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/internal/users/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| GET | `/internal/v1/comments` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| GET | `/internal/v1/comments/:id/versions` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| GET | `/internal/v1/comments/moderation-log` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| GET | `/internal/v1/comments/moderation-queue` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| GET | `/internal/v1/moderation/cases/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| GET | `/internal/v1/moderation/sanctions` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/internal/v1/comments` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/internal/v1/comments/:id/versions` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/internal/v1/comments/moderation-log` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/internal/v1/comments/moderation-queue` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/internal/v1/moderation/appeals/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/internal/v1/moderation/cases/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/internal/v1/moderation/sanctions` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/internal/v1/report-reasons` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/login` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/admin/roles/users/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/account/avatar` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/notifications/read-all` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| PATCH | `/internal/v1/comments/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| PATCH | `/internal/v1/moderation/cases/:id/priority` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| PATCH | `/internal/v1/comments/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| PATCH | `/internal/v1/moderation/cases/:id/priority` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/auth/logout` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| POST | `/internal/v1/comments` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/internal/v1/comments/:id/removal` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/internal/v1/comments/:id/replies` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/internal/v1/comments/:id/reports` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/internal/v1/comments/:id/restore` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/internal/v1/moderation/appeals/:id/resolution` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/internal/v1/moderation/cases/:id/reopen` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/internal/v1/moderation/cases/:id/resolution` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/internal/v1/moderation/decisions/:id/appeals` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/internal/v1/moderation/sanctions` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/internal/v1/notifications/events` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/comments` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/comments/:id/removal` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/comments/:id/replies` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/comments/:id/reports` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/comments/:id/restore` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/moderation/appeals/:id/resolution` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/moderation/cases/:id/reopen` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/moderation/cases/:id/resolution` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/moderation/decisions/:id/appeals` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/moderation/sanctions` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/internal/v1/notifications/events` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PUT | `/admin/secrets/:name` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/api/v1/notification-preferences/:event_type` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PUT | `/api/v1/notifications/:id/read` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/api/v1/notifications/read-through` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| PUT | `/internal/v1/comments/:id/vote` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| PUT | `/internal/v1/comments/:id/vote` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 
 ### downloads (81 rotas no inventário)
 
@@ -496,40 +500,17 @@
 
 Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificação que justifique.
 
-### accounts (30 rota(s))
+### accounts (7 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
-| DELETE | `/internal/v1/comments/:id` | ✅ | public | Sem consumidor e scope não justifica |
-| DELETE | `/internal/v1/moderation/sanctions/:id` | ✅ | public | Sem consumidor e scope não justifica |
-| DELETE | `/internal/v1/reports/:id` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/notification-event-types` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/notification-preferences` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/notifications/unread-count` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/conta/notificacoes` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/internal/users/:id` | ✅ | public | Sem consumidor e scope não justifica |
-| GET | `/internal/v1/comments` | ✅ | public | Sem consumidor e scope não justifica |
-| GET | `/internal/v1/comments/:id/versions` | ✅ | public | Sem consumidor e scope não justifica |
-| GET | `/internal/v1/comments/moderation-log` | ✅ | public | Sem consumidor e scope não justifica |
-| GET | `/internal/v1/comments/moderation-queue` | ✅ | public | Sem consumidor e scope não justifica |
-| GET | `/internal/v1/moderation/cases/:id` | ✅ | public | Sem consumidor e scope não justifica |
-| GET | `/internal/v1/moderation/sanctions` | ✅ | public | Sem consumidor e scope não justifica |
-| PATCH | `/internal/v1/comments/:id` | ✅ | public | Sem consumidor e scope não justifica |
-| PATCH | `/internal/v1/moderation/cases/:id/priority` | ✅ | public | Sem consumidor e scope não justifica |
-| POST | `/internal/v1/comments` | ✅ | public | Sem consumidor e scope não justifica |
-| POST | `/internal/v1/comments/:id/removal` | ✅ | public | Sem consumidor e scope não justifica |
-| POST | `/internal/v1/comments/:id/replies` | ✅ | public | Sem consumidor e scope não justifica |
-| POST | `/internal/v1/comments/:id/reports` | ✅ | public | Sem consumidor e scope não justifica |
-| POST | `/internal/v1/comments/:id/restore` | ✅ | public | Sem consumidor e scope não justifica |
-| POST | `/internal/v1/moderation/appeals/:id/resolution` | ✅ | public | Sem consumidor e scope não justifica |
-| POST | `/internal/v1/moderation/cases/:id/reopen` | ✅ | public | Sem consumidor e scope não justifica |
-| POST | `/internal/v1/moderation/cases/:id/resolution` | ✅ | public | Sem consumidor e scope não justifica |
-| POST | `/internal/v1/moderation/decisions/:id/appeals` | ✅ | public | Sem consumidor e scope não justifica |
-| POST | `/internal/v1/moderation/sanctions` | ✅ | public | Sem consumidor e scope não justifica |
-| POST | `/internal/v1/notifications/events` | ✅ | public | Sem consumidor e scope não justifica |
 | PUT | `/api/v1/notification-preferences/:event_type` | ✅ | public | Sem consumidor e scope não justifica |
 | PUT | `/api/v1/notifications/read-through` | ✅ | public | Sem consumidor e scope não justifica |
-| PUT | `/internal/v1/comments/:id/vote` | ✅ | public | Sem consumidor e scope não justifica |
 ### downloads (38 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |

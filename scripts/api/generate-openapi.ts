@@ -76,6 +76,33 @@ function classifyRoute(method: string, path: string, app: string): Classificatio
     return { owner: app, scope: 'public-page', status: 'active', auth: 'none', consumers: [] };
   }
 
+  // Accounts community session routes are browser-facing but require the SSO
+  // session (`requireAuth`). GET must not fall through to the generic public
+  // read heuristic below.
+  if (app === 'accounts' && p.startsWith('/api/v1/community/')) {
+    return { owner: app, scope: 'self-service', status: 'active', auth: 'user', consumers: [] };
+  }
+
+  // The entire internal v1 surface requires a service credential. Moderation
+  // additionally verifies moderator/admin role; `admin` is the closest single
+  // value supported by x-artificio-auth for that combined guard.
+  if (app === 'accounts' && p.startsWith('/internal/v1/')) {
+    const moderationOnly =
+      p.includes('/moderation/') ||
+      p.includes('/moderation-queue') ||
+      p.includes('/moderation-log') ||
+      p.endsWith('/versions') ||
+      p.endsWith('/removal') ||
+      p.endsWith('/restore');
+    return {
+      owner: app,
+      scope: moderationOnly ? 'admin' : 'internal',
+      status: 'active',
+      auth: moderationOnly ? 'admin' : 'service',
+      consumers: [],
+    };
+  }
+
   // Auth routes in mesas/glossario (authenticated)
   if (p.includes('/auth/')) {
     if (p.includes('/google') || p.includes('/discord/connect') || p.includes('/discord/callback')) {

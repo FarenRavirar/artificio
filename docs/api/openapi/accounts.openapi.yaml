@@ -456,6 +456,70 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /api/v1/community/appeals/{id}:
+    get:
+      operationId: getapi_v1_community_appeals_id
+      summary: "Consulta api v1 community appeals id"
+      x-artificio-owner: accounts
+      x-artificio-scope: self-service
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/community/reports:
+    get:
+      operationId: getapi_v1_community_reports
+      summary: "Consulta api v1 community reports"
+      x-artificio-owner: accounts
+      x-artificio-scope: self-service
+      x-artificio-status: active
+      x-artificio-auth: user
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/v1/notification-event-types:
     get:
       operationId: getapi_v1_notification_event_types
@@ -855,9 +919,9 @@ paths:
       operationId: getinternal_v1_comments
       summary: "Consulta internal v1 comments"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: internal
       x-artificio-status: active
-      x-artificio-auth: none
+      x-artificio-auth: service
       responses:
         "200":
           description: OK
@@ -883,9 +947,9 @@ paths:
       operationId: postinternal_v1_comments
       summary: "Cria ou executa internal v1 comments"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: internal
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: service
       requestBody:
         required: false
         content:
@@ -919,9 +983,9 @@ paths:
       operationId: deleteinternal_v1_comments_id
       summary: "Remove internal v1 comments id"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: internal
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: service
       parameters:
         - name: id
           in: path
@@ -953,9 +1017,9 @@ paths:
       operationId: patchinternal_v1_comments_id
       summary: "Atualiza internal v1 comments id"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: internal
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: service
       parameters:
         - name: id
           in: path
@@ -995,9 +1059,9 @@ paths:
       operationId: postinternal_v1_comments_id_removal
       summary: "Cria ou executa internal v1 comments id removal"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: admin
       parameters:
         - name: id
           in: path
@@ -1037,9 +1101,9 @@ paths:
       operationId: postinternal_v1_comments_id_replies
       summary: "Cria ou executa internal v1 comments id replies"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: internal
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: service
       parameters:
         - name: id
           in: path
@@ -1079,9 +1143,9 @@ paths:
       operationId: postinternal_v1_comments_id_reports
       summary: "Cria ou executa internal v1 comments id reports"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: internal
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: service
       parameters:
         - name: id
           in: path
@@ -1121,9 +1185,9 @@ paths:
       operationId: postinternal_v1_comments_id_restore
       summary: "Cria ou executa internal v1 comments id restore"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: admin
       parameters:
         - name: id
           in: path
@@ -1163,9 +1227,9 @@ paths:
       operationId: getinternal_v1_comments_id_versions
       summary: "Consulta internal v1 comments id versions"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: none
+      x-artificio-auth: admin
       parameters:
         - name: id
           in: path
@@ -1198,9 +1262,9 @@ paths:
       operationId: putinternal_v1_comments_id_vote
       summary: "Substitui internal v1 comments id vote"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: internal
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: service
       parameters:
         - name: id
           in: path
@@ -1240,9 +1304,9 @@ paths:
       operationId: getinternal_v1_comments_moderation_log
       summary: "Consulta internal v1 comments moderation-log"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: none
+      x-artificio-auth: admin
       responses:
         "200":
           description: OK
@@ -1269,9 +1333,44 @@ paths:
       operationId: getinternal_v1_comments_moderation_queue
       summary: "Consulta internal v1 comments moderation-queue"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: none
+      x-artificio-auth: admin
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /internal/v1/moderation/appeals/{id}:
+    get:
+      operationId: getinternal_v1_moderation_appeals_id
+      summary: "Consulta internal v1 moderation appeals id"
+      x-artificio-owner: accounts
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           description: OK
@@ -1298,9 +1397,9 @@ paths:
       operationId: postinternal_v1_moderation_appeals_id_resolution
       summary: "Cria ou executa internal v1 moderation appeals id resolution"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: admin
       parameters:
         - name: id
           in: path
@@ -1340,9 +1439,9 @@ paths:
       operationId: getinternal_v1_moderation_cases_id
       summary: "Consulta internal v1 moderation cases id"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: none
+      x-artificio-auth: admin
       parameters:
         - name: id
           in: path
@@ -1375,9 +1474,9 @@ paths:
       operationId: patchinternal_v1_moderation_cases_id_priority
       summary: "Atualiza internal v1 moderation cases id priority"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: admin
       parameters:
         - name: id
           in: path
@@ -1417,9 +1516,9 @@ paths:
       operationId: postinternal_v1_moderation_cases_id_reopen
       summary: "Cria ou executa internal v1 moderation cases id reopen"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: admin
       parameters:
         - name: id
           in: path
@@ -1459,9 +1558,9 @@ paths:
       operationId: postinternal_v1_moderation_cases_id_resolution
       summary: "Cria ou executa internal v1 moderation cases id resolution"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: admin
       parameters:
         - name: id
           in: path
@@ -1501,9 +1600,9 @@ paths:
       operationId: postinternal_v1_moderation_decisions_id_appeals
       summary: "Cria ou executa internal v1 moderation decisions id appeals"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: admin
       parameters:
         - name: id
           in: path
@@ -1543,9 +1642,9 @@ paths:
       operationId: getinternal_v1_moderation_sanctions
       summary: "Consulta internal v1 moderation sanctions"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: none
+      x-artificio-auth: admin
       responses:
         "200":
           description: OK
@@ -1571,9 +1670,9 @@ paths:
       operationId: postinternal_v1_moderation_sanctions
       summary: "Cria ou executa internal v1 moderation sanctions"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: admin
       requestBody:
         required: false
         content:
@@ -1607,9 +1706,9 @@ paths:
       operationId: deleteinternal_v1_moderation_sanctions_id
       summary: "Remove internal v1 moderation sanctions id"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: admin
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: admin
       parameters:
         - name: id
           in: path
@@ -1642,9 +1741,9 @@ paths:
       operationId: postinternal_v1_notifications_events
       summary: "Cria ou executa internal v1 notifications events"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: internal
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: service
       requestBody:
         required: false
         content:
@@ -1673,14 +1772,43 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /internal/v1/report-reasons:
+    get:
+      operationId: getinternal_v1_report_reasons
+      summary: "Consulta internal v1 report-reasons"
+      x-artificio-owner: accounts
+      x-artificio-scope: internal
+      x-artificio-status: active
+      x-artificio-auth: service
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /internal/v1/reports/{id}:
     delete:
       operationId: deleteinternal_v1_reports_id
       summary: "Remove internal v1 reports id"
       x-artificio-owner: accounts
-      x-artificio-scope: public
+      x-artificio-scope: internal
       x-artificio-status: active
-      x-artificio-auth: user
+      x-artificio-auth: service
       parameters:
         - name: id
           in: path

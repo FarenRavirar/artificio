@@ -5,6 +5,13 @@ import {
   type CommentRateBucket,
 } from "@artificio/comments";
 import type { ServiceAuthenticatedRequest } from "./requireServiceCredential.js";
+import type { Kysely } from "kysely";
+import type { Database } from "./db.js";
+import {
+  COMMUNITY_NEW_ACCOUNT_WRITE_LIMIT,
+  isCommunityNewAccountPolicyEnabled,
+  readCommunityAccountStatus,
+} from "./communityNewAccount.js";
 
 /**
  * T2.10 — buckets independentes da camada `accounts.`
@@ -185,6 +192,7 @@ function readActingUserId(req: Request): string | null {
 export function communityRateLimit(
   store: CommunityRateLimitStore,
   bucket: CommentRateBucket,
+  options?: { classifyNewAccountWith?: Kysely<Database> },
 ) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const credential = (req as ServiceAuthenticatedRequest).serviceCredential;
@@ -201,30 +209,48 @@ export function communityRateLimit(
       return;
     }
 
+    const actingUserId = readActingUserId(req);
+    const credentialRealm = credential.realm;
     const keys = resolveRateLimitKeys("accounts", bucket, {
-      userId: readActingUserId(req),
+      userId: actingUserId,
       sourceApp: credential.sourceApp,
     });
 
-    const now = Date.now();
-    const budget = BUDGETS[bucket];
+    void applyRateLimit().catch(next);
+
+    async function applyRateLimit(): Promise<void> {
+      const accountStatus =
+        bucket === "write" &&
+        isCommunityNewAccountPolicyEnabled(credentialRealm) &&
+        options?.classifyNewAccountWith &&
+        actingUserId
+          ? await readCommunityAccountStatus(options.classifyNewAccountWith, actingUserId)
+          : null;
+
+      const now = Date.now();
+      const budget = BUDGETS[bucket];
 
     // **Todas** as chaves são consultadas, e todas precisam liberar (§14). O
     // laço não sai no primeiro `false`: parar cedo deixaria a segunda dimensão
     // sem contabilizar a requisição, e um atacante que estoura de propósito o
     // bucket do usuário congelaria o contador da credencial.
-    let allowed = true;
-    for (const key of keys) {
-      const limit = key.dimension === "user" ? budget.user : budget.credential;
-      if (!store.hit(serializeRateLimitKey(key), limit, now)) {
-        allowed = false;
+      let allowed = true;
+      for (const key of keys) {
+        const limit =
+          key.dimension === "user" && accountStatus?.isNew
+            ? COMMUNITY_NEW_ACCOUNT_WRITE_LIMIT
+            : key.dimension === "user"
+              ? budget.user
+              : budget.credential;
+        if (!store.hit(serializeRateLimitKey(key), limit, now)) {
+          allowed = false;
+        }
       }
-    }
 
-    if (allowed) {
-      next();
-      return;
-    }
+      if (allowed) {
+        next();
+        return;
+      }
 
     // Formato único de erro (§13), **sem** dizer qual bucket disparou, quanto
     // resta ou qual dimensão estourou (decisão 50): esses números diriam ao
@@ -233,10 +259,11 @@ export function communityRateLimit(
     //
     // Sem `RateLimit-*` nem `Retry-After` pelo mesmo motivo — são exatamente o
     // saldo que a decisão manda não revelar.
-    const header = req.headers["x-correlation-id"];
-    const correlationId =
-      typeof header === "string" && header.length <= 128 ? header : null;
+      const header = req.headers["x-correlation-id"];
+      const correlationId =
+        typeof header === "string" && header.length <= 128 ? header : null;
 
-    res.status(429).json({ error: { code: "rate_limited", correlation_id: correlationId } });
+      res.status(429).json({ error: { code: "rate_limited", correlation_id: correlationId } });
+    }
   };
 }
