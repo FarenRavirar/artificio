@@ -77,7 +77,7 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
     // callback assíncrono (sem set síncrono no corpo do effect).
     const load = !systemId || systemId === 'new'
       ? Promise.resolve({ data: [] as Edition[] })
-      : api.get(`/systems/${systemId}/editions`);
+      : api.get(`/systems/system/${systemId}/editions`);
     load.then(res => {
       if (!active) return;
       setEditions(res.data);
@@ -120,14 +120,14 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
         
         // Se também pediu edição nova, cria vinculando ao sistema recém-criado
         if (editionId === 'new') {
-          const edRes = await api.post(`/systems/${finalSystemId}/editions`, { name: newEditionName }, { headers: authHeaders });
+          const edRes = await api.post(`/systems/system/${finalSystemId}/editions`, { name: newEditionName }, { headers: authHeaders });
           const newEd = edRes.data;
           setEditions([newEd]); // Como o sistema é novo, a lista de edições era vazia
           finalEditionId = newEd.id;
           setNewEditionName('');
         }
       } else if (sourceType === 'sistema' && editionId === 'new') {
-        const edRes = await api.post(`/systems/${systemId}/editions`, { name: newEditionName }, { headers: authHeaders });
+        const edRes = await api.post(`/systems/system/${systemId}/editions`, { name: newEditionName }, { headers: authHeaders });
         const newEd = edRes.data;
         setEditions(prev => [...prev, newEd].sort((a,b) => a.name.localeCompare(b.name)));
         finalEditionId = newEd.id;

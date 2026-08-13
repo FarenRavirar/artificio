@@ -28,7 +28,7 @@ export function useTracking() {
    * @param channel - Canal de contato (whatsapp, email, discord, form)
    */
   const trackGmContactClick = useCallback((gmSlug: string, channel: string) => {
-    fetch(`/api/v1/gm/${gmSlug}/contact-click`, {
+    fetch(`/api/v1/gm/perfis/${gmSlug}/contact-click`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ channel }),

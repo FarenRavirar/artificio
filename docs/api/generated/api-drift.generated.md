@@ -12,10 +12,10 @@
 |--------|-----------|:---------:|
 | ✅ OK | 206 | ❌ |
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
-| 📄 CONTRACT_ONLY | 4 | ❌ |
+| 📄 CONTRACT_ONLY | 5 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
-| 🕳️ UNUSED_ROUTE | 153 | ❌ |
-| 👻 ORPHAN_SUSPECT | 54 | ❌ |
+| 🕳️ UNUSED_ROUTE | 152 | ❌ |
+| 👻 ORPHAN_SUSPECT | 55 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
 ## Detalhamento por app
@@ -171,9 +171,9 @@
 | DELETE | `/api/admin/feedback/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/categories/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/scenarios/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| DELETE | `/api/social/comments/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| DELETE | `/api/social/comment/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/systems/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| DELETE | `/api/systems/editions/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| DELETE | `/api/systems/edition/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/terms/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/admin/activity` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/admin/feedback` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -182,10 +182,11 @@
 | GET | `/api/export/matecat` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/notifications` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/scenarios` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| GET | `/api/social/:id/comments` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| GET | `/api/social/terms/:id/comments` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/systems` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| GET | `/api/systems/:systemId/editions` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| GET | `/api/systems/health` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/systems/catalog-health` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/systems/health` | 📄 CONTRACT_ONLY | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/systems/system/:systemId/editions` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/terms` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/terms/:id/history` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/users/admin` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -203,17 +204,17 @@
 | POST | `/api/migration/claim` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/migration/verify` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/scenarios` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| POST | `/api/social/:id/comments` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| POST | `/api/social/:id/vote` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| POST | `/api/social/terms/:id/comments` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| POST | `/api/social/terms/:id/vote` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/systems` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| POST | `/api/systems/:systemId/editions` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| POST | `/api/systems/system/:systemId/editions` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/terms` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/terms/import` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/users/admin/:id/ban` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/api/categories/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/api/scenarios/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | PUT | `/api/systems/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| PUT | `/api/systems/editions/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| PUT | `/api/systems/edition/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 
 ### glossario-frontend (0 rotas no inventário)
 
@@ -303,11 +304,11 @@
 | GET | `/api/v1/auth/google/callback` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/communication-platforms` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/communication-platforms/admin` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| GET | `/api/v1/gm/:slug` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| GET | `/api/v1/gm/:slug/insights` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| GET | `/api/v1/gm/:slug/reviews` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/gm/insights` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/gm/me` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/gm/perfis/:slug` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/gm/perfis/:slug/insights` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/gm/perfis/:slug/reviews` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/gm/tables` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/gm/tables/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/me` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -390,11 +391,11 @@
 | POST | `/api/v1/auth/logout` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/communication-platforms/admin` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/dev-feedback` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/gm/:slug/contact` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/gm/:slug/contact-click` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/gm/:slug/reviews` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/gm/:slug/view` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/gm/parse-preview` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/gm/perfis/:slug/contact` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/gm/perfis/:slug/contact-click` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/gm/perfis/:slug/reviews` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/gm/perfis/:slug/view` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/gm/profile` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/gm/tables` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/gm/tables/:id/click` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -553,6 +554,11 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | POST | `/api/v1/reports` | ✅ | public | Sem consumidor e scope não justifica |
 | PUT | `/api/v1/material-metadata/:materialId` | ✅ | public | Sem consumidor e scope não justifica |
 | PUT | `/api/v1/ratings` | ✅ | public | Sem consumidor e scope não justifica |
+### glossario (1 rota(s))
+
+| Method | Path | Tem OpenAPI? | Scope | Razão |
+|--------|------|:-----------:|-------|-------|
+| GET | `/api/systems/catalog-health` | ✅ | public | Sem consumidor e scope não justifica |
 ### mesas (2 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |

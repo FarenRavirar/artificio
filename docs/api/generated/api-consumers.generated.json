@@ -178,7 +178,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.put",
-      "line": 144
+      "line": 148
     },
     {
       "app": "glossario-frontend",
@@ -188,7 +188,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.delete",
-      "line": 153
+      "line": 157
     },
     {
       "app": "glossario-frontend",
@@ -453,8 +453,18 @@
     {
       "app": "glossario-frontend",
       "consumerFile": "apps/glossario/frontend/src/components/ResultCard.tsx",
+      "method": "DELETE",
+      "endpoint": "/api/social/comment/:param",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "api.delete",
+      "line": 373
+    },
+    {
+      "app": "glossario-frontend",
+      "consumerFile": "apps/glossario/frontend/src/components/ResultCard.tsx",
       "method": "GET",
-      "endpoint": "/api/social/:param/comments",
+      "endpoint": "/api/social/terms/:param/comments",
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.get",
@@ -464,7 +474,7 @@
       "app": "glossario-frontend",
       "consumerFile": "apps/glossario/frontend/src/components/ResultCard.tsx",
       "method": "POST",
-      "endpoint": "/api/social/:param/comments",
+      "endpoint": "/api/social/terms/:param/comments",
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.post",
@@ -474,21 +484,11 @@
       "app": "glossario-frontend",
       "consumerFile": "apps/glossario/frontend/src/components/ResultCard.tsx",
       "method": "POST",
-      "endpoint": "/api/social/:param/vote",
+      "endpoint": "/api/social/terms/:param/vote",
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.post",
       "line": 363
-    },
-    {
-      "app": "glossario-frontend",
-      "consumerFile": "apps/glossario/frontend/src/components/ResultCard.tsx",
-      "method": "DELETE",
-      "endpoint": "/api/social/comments/:param",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "api.delete",
-      "line": 373
     },
     {
       "app": "glossario-frontend",
@@ -552,9 +552,19 @@
     },
     {
       "app": "glossario-frontend",
+      "consumerFile": "apps/glossario/frontend/src/pages/AdminStructurePage.tsx",
+      "method": "PUT",
+      "endpoint": "/api/systems/edition/:param",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "api.put",
+      "line": 101
+    },
+    {
+      "app": "glossario-frontend",
       "consumerFile": "apps/glossario/frontend/src/components/AddTermModal.tsx",
       "method": "GET",
-      "endpoint": "/api/systems/:param/editions",
+      "endpoint": "/api/systems/system/:param/editions",
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.get",
@@ -564,7 +574,7 @@
       "app": "glossario-frontend",
       "consumerFile": "apps/glossario/frontend/src/components/AddTermModal.tsx",
       "method": "POST",
-      "endpoint": "/api/systems/:param/editions",
+      "endpoint": "/api/systems/system/:param/editions",
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.post",
@@ -574,7 +584,7 @@
       "app": "glossario-frontend",
       "consumerFile": "apps/glossario/frontend/src/components/ResultCard.tsx",
       "method": "GET",
-      "endpoint": "/api/systems/:param/editions",
+      "endpoint": "/api/systems/system/:param/editions",
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.get",
@@ -584,7 +594,7 @@
       "app": "glossario-frontend",
       "consumerFile": "apps/glossario/frontend/src/pages/AdminStructurePage.tsx",
       "method": "GET",
-      "endpoint": "/api/systems/:param/editions",
+      "endpoint": "/api/systems/system/:param/editions",
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.get",
@@ -594,21 +604,11 @@
       "app": "glossario-frontend",
       "consumerFile": "apps/glossario/frontend/src/pages/AdminStructurePage.tsx",
       "method": "POST",
-      "endpoint": "/api/systems/:param/editions",
+      "endpoint": "/api/systems/system/:param/editions",
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.post",
       "line": 96
-    },
-    {
-      "app": "glossario-frontend",
-      "consumerFile": "apps/glossario/frontend/src/pages/AdminStructurePage.tsx",
-      "method": "PUT",
-      "endpoint": "/api/systems/editions/:param",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "api.put",
-      "line": 101
     },
     {
       "app": "glossario-frontend",
@@ -1662,76 +1662,6 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/hooks/useMestre.ts",
-      "method": "GET",
-      "endpoint": "/api/v1/gm/:param",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "authGet",
-      "line": 93
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/mestre/MestreContactForm.tsx",
-      "method": "POST",
-      "endpoint": "/api/v1/gm/:param/contact",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "fetch",
-      "line": 23
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/hooks/useTracking.ts",
-      "method": "POST",
-      "endpoint": "/api/v1/gm/:param/contact-click",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "fetch",
-      "line": 31
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/hooks/useMestreInsights.ts",
-      "method": "GET",
-      "endpoint": "/api/v1/gm/:param/insights",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "authGet",
-      "line": 54
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/mestre/MestreReviewsSection.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/gm/:param/reviews",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "fetch",
-      "line": 39
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/mestre/MestreReviewsSection.tsx",
-      "method": "POST",
-      "endpoint": "/api/v1/gm/:param/reviews",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "authPost",
-      "line": 67
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/pages/MestrePage.tsx",
-      "method": "POST",
-      "endpoint": "/api/v1/gm/:param/view",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "authPost",
-      "line": 80
-    },
-    {
-      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/hooks/useGmInsights.ts",
       "method": "GET",
       "endpoint": "/api/v1/gm/insights",
@@ -1759,6 +1689,76 @@
       "pattern": "literal",
       "wrapper": "authPost",
       "line": 62
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/hooks/useMestre.ts",
+      "method": "GET",
+      "endpoint": "/api/v1/gm/perfis/:param",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authGet",
+      "line": 93
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/components/mestre/MestreContactForm.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/gm/perfis/:param/contact",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "fetch",
+      "line": 23
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/hooks/useTracking.ts",
+      "method": "POST",
+      "endpoint": "/api/v1/gm/perfis/:param/contact-click",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "fetch",
+      "line": 31
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/hooks/useMestreInsights.ts",
+      "method": "GET",
+      "endpoint": "/api/v1/gm/perfis/:param/insights",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authGet",
+      "line": 54
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/components/mestre/MestreReviewsSection.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/gm/perfis/:param/reviews",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "fetch",
+      "line": 39
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/components/mestre/MestreReviewsSection.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/gm/perfis/:param/reviews",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authPost",
+      "line": 67
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/pages/MestrePage.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/gm/perfis/:param/view",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authPost",
+      "line": 80
     },
     {
       "app": "mesas-frontend",

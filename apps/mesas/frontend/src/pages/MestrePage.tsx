@@ -77,7 +77,7 @@ export const MestrePage = () => {
 
     sessionStorage.setItem(slugKey, '1');
 
-    authPost(`/api/v1/gm/${slug}/view`, undefined, { headers: { 'x-session-id': sessionId } }).catch(() => {
+    authPost(`/api/v1/gm/perfis/${slug}/view`, undefined, { headers: { 'x-session-id': sessionId } }).catch(() => {
       // Não bloquear renderização por falha de telemetria
     });
   }, [slug, loading, profile]);

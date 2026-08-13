@@ -103,8 +103,18 @@ function buildRecommendations(metrics: MetricRow[]): Recommendation[] {
   return recs;
 }
 
-// GET /api/v1/gm/:slug — Perfil público do mestre (anônimo + autenticado opcional)
-router.get('/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: Response) => {
+// Todas as rotas públicas deste router vivem sob o literal `perfis/`. Antes
+// eram `/:slug/*` na raiz de `/api/v1/gm`, onde o parâmetro competia com o
+// namespace inteiro do painel (`tables`, `me`, `profile`, `insights`,
+// `parse-preview`, montado em `server.ts` antes deste router). O Express
+// desempatava pela ordem de registro; o contrato OpenAPI não, e o
+// `no-ambiguous-paths` marcava o par `/{slug}/contact` × `/tables/{id}` — o
+// aviso apontava uma colisão, mas as 7 rotas por slug colidiam
+// (D-API-AMBIGUOUS-PATHS). O prefixo literal fecha as 7 de uma vez e impede que
+// o aviso volte quando um verbo novo coincidir.
+
+// GET /api/v1/gm/perfis/:slug — Perfil público do mestre (anônimo + autenticado opcional)
+router.get('/perfis/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: Response) => {
   const { slug } = req.params;
 
   try {
@@ -305,7 +315,7 @@ router.get('/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: 
         .where('id', 'in', linkIdsToTouch)
         .where('metadata_last_accessed_at', '<', sql<Date>`NOW() - interval '6 hours'`)
         .execute()
-        .catch((e: unknown) => console.error('[GET /gm/:slug] Falha ao atualizar acesso do link:', e));
+        .catch((e: unknown) => console.error('[GET /gm/perfis/:slug] Falha ao atualizar acesso do link:', e));
 
       // CORREÇÃO DT-04: Worker "fire-and-forget" para cobrir base de links órfãos ('pending')
       if (links.some(l => l.metadata_status === 'pending')) {
@@ -371,13 +381,13 @@ router.get('/:slug', publicRateLimiter, optionalAuth, async (req: Request, res: 
       },
     });
   } catch (error) {
-    console.error('[GET /gm/:slug]', error);
+    console.error('[GET /gm/perfis/:slug]', error);
     return res.status(500).json({ error: 'Erro ao buscar perfil do mestre.' });
   }
 });
 
-// POST /api/v1/gm/:slug/view — Registrar visualização do perfil público
-router.post('/:slug/view', async (req: Request, res: Response) => {
+// POST /api/v1/gm/perfis/:slug/view — Registrar visualização do perfil público
+router.post('/perfis/:slug/view', async (req: Request, res: Response) => {
   const { slug } = req.params;
   const sessionId = req.header('x-session-id')?.trim();
 
@@ -438,14 +448,14 @@ router.post('/:slug/view', async (req: Request, res: Response) => {
 
     return res.json({ success: true, deduped: false });
   } catch (error) {
-    console.error('[POST /gm/:slug/view]', error);
+    console.error('[POST /gm/perfis/:slug/view]', error);
     return res.status(500).json({ error: 'Erro ao registrar visualização do perfil.' });
   }
 });
 
-// GET /api/v1/gm/:slug/insights
+// GET /api/v1/gm/perfis/:slug/insights
 // Protegido: somente dono ou admin.
-router.get('/:slug/insights', authRateLimiter, authMiddleware, async (req: Request, res: Response) => {
+router.get('/perfis/:slug/insights', authRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   const { slug } = req.params;
 
   try {
@@ -492,13 +502,13 @@ router.get('/:slug/insights', authRateLimiter, authMiddleware, async (req: Reque
       },
     });
   } catch (error) {
-    console.error('[GET /gm/:slug/insights]', error);
+    console.error('[GET /gm/perfis/:slug/insights]', error);
     return res.status(500).json({ error: 'Erro ao buscar insights.' });
   }
 });
 
 // POST /:slug/contact - Formulário de contato
-router.post('/:slug/contact', publicRateLimiter, async (req: Request, res: Response) => {
+router.post('/perfis/:slug/contact', publicRateLimiter, async (req: Request, res: Response) => {
   try {
     const { slug } = req.params;
     const { name, email, message } = req.body;
@@ -522,7 +532,7 @@ router.post('/:slug/contact', publicRateLimiter, async (req: Request, res: Respo
     }
 
     // Buscar email do mestre
-    // display_name vive em profiles, não em gm_profiles (mesmo padrão de GET /gm/:slug:
+    // display_name vive em profiles, não em gm_profiles (mesmo padrão de GET /gm/perfis/:slug:
     // COALESCE(gm.nickname, p.display_name)). Achado ao remover @ts-ignore legado: a
     // seleção anterior de 'gp.display_name' não existia na tabela e só compilava
     // suprimida — corrigido aqui para a fonte real do nome de exibição.
@@ -560,13 +570,13 @@ router.post('/:slug/contact', publicRateLimiter, async (req: Request, res: Respo
       message: 'Mensagem enviada com sucesso! O mestre receberá seu contato em breve.',
     });
   } catch (error) {
-    console.error('[POST /gm/:slug/contact]', error);
+    console.error('[POST /gm/perfis/:slug/contact]', error);
     return res.status(500).json({ error: 'Erro ao enviar mensagem.' });
   }
 });
 
-// POST /api/v1/gm/:slug/contact-click — Registrar clique em método de contato
-router.post('/:slug/contact-click', publicRateLimiter, async (req: Request, res: Response) => {
+// POST /api/v1/gm/perfis/:slug/contact-click — Registrar clique em método de contato
+router.post('/perfis/:slug/contact-click', publicRateLimiter, async (req: Request, res: Response) => {
   const { slug } = req.params;
   const { channel } = req.body as { channel?: string };
 
@@ -606,13 +616,13 @@ router.post('/:slug/contact-click', publicRateLimiter, async (req: Request, res:
 
     res.json({ success: true });
   } catch (error) {
-    console.error('[POST /gm/:slug/contact-click]', error);
+    console.error('[POST /gm/perfis/:slug/contact-click]', error);
     res.status(500).json({ error: 'Erro ao registrar clique.' });
   }
 });
 
-// GET /api/v1/gm/:slug/reviews — Lista completa de reviews individuais + agregação (T8, spec 081)
-router.get('/:slug/reviews', publicRateLimiter, async (req: Request, res: Response) => {
+// GET /api/v1/gm/perfis/:slug/reviews — Lista completa de reviews individuais + agregação (T8, spec 081)
+router.get('/perfis/:slug/reviews', publicRateLimiter, async (req: Request, res: Response) => {
   const { slug } = req.params;
 
   try {
@@ -648,13 +658,13 @@ router.get('/:slug/reviews', publicRateLimiter, async (req: Request, res: Respon
       comment: sanitizeNullableUserMarkdown(review.comment),
     })) });
   } catch (error) {
-    logDatabaseError(req, error, { route: '/gm/:slug/reviews', operation: 'select' });
+    logDatabaseError(req, error, { route: '/gm/perfis/:slug/reviews', operation: 'select' });
     res.status(500).json({ error: 'Erro ao buscar reviews.' });
   }
 });
 
-// POST /api/v1/gm/:slug/reviews — Cria/atualiza review (upsert, só usuário logado, T8, spec 081)
-router.post('/:slug/reviews', authRateLimiter, authMiddleware, async (req: Request, res: Response) => {
+// POST /api/v1/gm/perfis/:slug/reviews — Cria/atualiza review (upsert, só usuário logado, T8, spec 081)
+router.post('/perfis/:slug/reviews', authRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   const { slug } = req.params;
   const authorUserId = req.user!.userId;
 
@@ -744,7 +754,7 @@ router.post('/:slug/reviews', authRateLimiter, authMiddleware, async (req: Reque
 
     res.status(201).json({ success: true, avg_rating: avgRating, reviews_count: reviewsCount });
   } catch (error) {
-    logDatabaseError(req, error, { route: '/gm/:slug/reviews', operation: 'upsert' });
+    logDatabaseError(req, error, { route: '/gm/perfis/:slug/reviews', operation: 'upsert' });
     res.status(500).json({ error: 'Erro ao salvar review.' });
   }
 });

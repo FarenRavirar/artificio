@@ -49,7 +49,7 @@ describe('ResultCard — encodeURIComponent em chamadas de API (achado Sonar PR 
 
     await waitFor(() => {
       expect(api.post).toHaveBeenCalledWith(
-        `/social/${encodeURIComponent(baseTermo.id)}/vote`,
+        `/social/terms/${encodeURIComponent(baseTermo.id)}/vote`,
         { direction: 'up' },
       );
     });
@@ -58,7 +58,7 @@ describe('ResultCard — encodeURIComponent em chamadas de API (achado Sonar PR 
     // se contivesse, seria path traversal/quebra de rota no backend.
     const calledUrl = (api.post as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(calledUrl).not.toContain('termo/com&caracteres?especiais');
-    expect(calledUrl).toBe('/social/termo%2Fcom%26caracteres%3Fespeciais/vote');
+    expect(calledUrl).toBe('/social/terms/termo%2Fcom%26caracteres%3Fespeciais/vote');
   });
 });
 

@@ -3272,278 +3272,6 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
-  /api/v1/gm/{slug}:
-    get:
-      operationId: getapi_v1_gm_slug
-      summary: "Consulta api v1 gm slug"
-      x-artificio-owner: mesas
-      x-artificio-scope: public
-      x-artificio-status: active
-      x-artificio-auth: user
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "400":
-          description: Requisição inválida
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "401":
-          description: Não autenticado
-        "403":
-          description: Sem permissão
-        "500":
-          description: Erro interno
-  /api/v1/gm/{slug}/contact:
-    post:
-      operationId: postapi_v1_gm_slug_contact
-      summary: "Cria ou executa api v1 gm slug contact"
-      x-artificio-owner: mesas
-      x-artificio-scope: telemetry
-      x-artificio-status: active
-      x-artificio-auth: none
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "400":
-          description: Requisição inválida
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "401":
-          description: Não autenticado
-        "403":
-          description: Sem permissão
-        "500":
-          description: Erro interno
-  /api/v1/gm/{slug}/contact-click:
-    post:
-      operationId: postapi_v1_gm_slug_contact_click
-      summary: "Cria ou executa api v1 gm slug contact-click"
-      x-artificio-owner: mesas
-      x-artificio-scope: public
-      x-artificio-status: active
-      x-artificio-auth: user
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "400":
-          description: Requisição inválida
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "401":
-          description: Não autenticado
-        "403":
-          description: Sem permissão
-        "500":
-          description: Erro interno
-  /api/v1/gm/{slug}/insights:
-    get:
-      operationId: getapi_v1_gm_slug_insights
-      summary: "Consulta api v1 gm slug insights"
-      x-artificio-owner: mesas
-      x-artificio-scope: public
-      x-artificio-status: active
-      x-artificio-auth: user
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "400":
-          description: Requisição inválida
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "401":
-          description: Não autenticado
-        "403":
-          description: Sem permissão
-        "500":
-          description: Erro interno
-  /api/v1/gm/{slug}/reviews:
-    get:
-      operationId: getapi_v1_gm_slug_reviews
-      summary: "Consulta api v1 gm slug reviews"
-      x-artificio-owner: mesas
-      x-artificio-scope: public
-      x-artificio-status: active
-      x-artificio-auth: user
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "400":
-          description: Requisição inválida
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "401":
-          description: Não autenticado
-        "403":
-          description: Sem permissão
-        "500":
-          description: Erro interno
-    post:
-      operationId: postapi_v1_gm_slug_reviews
-      summary: "Cria ou executa api v1 gm slug reviews"
-      x-artificio-owner: mesas
-      x-artificio-scope: public
-      x-artificio-status: active
-      x-artificio-auth: user
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "400":
-          description: Requisição inválida
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "401":
-          description: Não autenticado
-        "403":
-          description: Sem permissão
-        "500":
-          description: Erro interno
-  /api/v1/gm/{slug}/view:
-    post:
-      operationId: postapi_v1_gm_slug_view
-      summary: "Cria ou executa api v1 gm slug view"
-      x-artificio-owner: mesas
-      x-artificio-scope: telemetry
-      x-artificio-status: active
-      x-artificio-auth: none
-      parameters:
-        - name: slug
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: true
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "400":
-          description: Requisição inválida
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: true
-        "401":
-          description: Não autenticado
-        "403":
-          description: Sem permissão
-        "500":
-          description: Erro interno
   /api/v1/gm/insights:
     get:
       operationId: getapi_v1_gm_insights
@@ -3610,6 +3338,278 @@ paths:
       x-artificio-scope: public
       x-artificio-status: active
       x-artificio-auth: user
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/gm/perfis/{slug}:
+    get:
+      operationId: getapi_v1_gm_perfis_slug
+      summary: "Consulta api v1 gm perfis slug"
+      x-artificio-owner: mesas
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/gm/perfis/{slug}/contact:
+    post:
+      operationId: postapi_v1_gm_perfis_slug_contact
+      summary: "Cria ou executa api v1 gm perfis slug contact"
+      x-artificio-owner: mesas
+      x-artificio-scope: telemetry
+      x-artificio-status: active
+      x-artificio-auth: none
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/gm/perfis/{slug}/contact-click:
+    post:
+      operationId: postapi_v1_gm_perfis_slug_contact_click
+      summary: "Cria ou executa api v1 gm perfis slug contact-click"
+      x-artificio-owner: mesas
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/gm/perfis/{slug}/insights:
+    get:
+      operationId: getapi_v1_gm_perfis_slug_insights
+      summary: "Consulta api v1 gm perfis slug insights"
+      x-artificio-owner: mesas
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/gm/perfis/{slug}/reviews:
+    get:
+      operationId: getapi_v1_gm_perfis_slug_reviews
+      summary: "Consulta api v1 gm perfis slug reviews"
+      x-artificio-owner: mesas
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+    post:
+      operationId: postapi_v1_gm_perfis_slug_reviews
+      summary: "Cria ou executa api v1 gm perfis slug reviews"
+      x-artificio-owner: mesas
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/gm/perfis/{slug}/view:
+    post:
+      operationId: postapi_v1_gm_perfis_slug_view
+      summary: "Cria ou executa api v1 gm perfis slug view"
+      x-artificio-owner: mesas
+      x-artificio-scope: telemetry
+      x-artificio-status: active
+      x-artificio-auth: none
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
       requestBody:
         required: false
         content:

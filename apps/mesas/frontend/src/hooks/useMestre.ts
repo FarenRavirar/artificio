@@ -90,7 +90,7 @@ export function useMestre(slug?: string) {
       setError(null);
 
       try {
-        const res = await authGet(`/api/v1/gm/${slug}`, { signal: controller.signal });
+        const res = await authGet(`/api/v1/gm/perfis/${slug}`, { signal: controller.signal });
 
         if (res.status === 404) {
           setError('Mestre não encontrado.');
