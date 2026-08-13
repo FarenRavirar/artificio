@@ -67,7 +67,15 @@ export type CommentsResourceState<T> =
 
 export interface CommentsResourceOptions<T> {
   readonly identity: CommentsResourceIdentity;
-  readonly load: (signal: AbortSignal) => Promise<T>;
+  /**
+   * Recebe a identidade VIGENTE no momento da consulta, não a de construção.
+   * Sem isso, um loader fechado sobre a identidade antiga continuaria buscando
+   * dados do usuário/assunto anterior depois de `setIdentity`, e o resultado
+   * seria gravado sob a chave nova — comentário privado de uma conta aparecendo
+   * na seguinte, que é exatamente o que a chave por identidade existe para
+   * impedir (achado de review, PR #259).
+   */
+  readonly load: (signal: AbortSignal, identity: CommentsResourceIdentity) => Promise<T>;
   readonly now?: () => number;
 }
 
@@ -130,9 +138,12 @@ export function createCommentsResource<T>(options: CommentsResourceOptions<T>): 
       const request = new AbortController();
       activeRequest = request;
       const requestKey = identityKey;
+      // Captura a identidade junto da chave: as duas descrevem a mesma consulta,
+      // e o loader precisa da identidade para não buscar o contexto anterior.
+      const requestIdentity = identity;
 
       try {
-        const data = await options.load(request.signal);
+        const data = await options.load(request.signal, requestIdentity);
         if (disposed || request.signal.aborted || requestKey !== identityKey) return snapshot;
         const updatedAt = now();
         lastSuccess = { key: requestKey, data, updatedAt };

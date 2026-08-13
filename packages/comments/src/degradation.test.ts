@@ -1,6 +1,6 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 
 import { createCommentsResource } from './resource.js';
@@ -29,6 +29,12 @@ function renderHost(status: string): string {
 }
 
 describe('degradação isolada da aplicação host', () => {
+  // Restaura os timers mesmo quando a asserção falha no meio do teste (ver nota
+  // equivalente em `transport.test.ts`).
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   const failures: ReadonlyArray<{
     name: string;
     code: CommentsErrorCode;
@@ -102,6 +108,5 @@ describe('degradação isolada da aplicação host', () => {
 
     expect(resource.getSnapshot()).toMatchObject({ status: 'unavailable', error: { code: 'timeout' } });
     expect(renderHost(resource.getSnapshot().status)).toContain('Aplicação consumidora');
-    vi.useRealTimers();
   });
 });

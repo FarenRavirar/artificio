@@ -56,6 +56,17 @@ export interface CommentsTransportRequest<TCapability extends CommentCapability 
   readonly kind: CommentsOperationKind;
   readonly input: unknown;
   readonly signal: AbortSignal;
+  /**
+   * `Idempotency-Key` do `contrato-http-v1.md` §6, presente só nas escritas não
+   * idempotentes (criação, resposta, edição, denúncia).
+   *
+   * Quem escolhe é o CHAMADOR, não o adapter: uma chave inventada por chamada
+   * não sobrevive à retentativa. O caso que ela existe para cobrir é o envio que
+   * dá timeout DEPOIS de o servidor confirmar a escrita — reenviar o formulário
+   * com chave nova duplica o comentário ou a denúncia; com a mesma chave, o
+   * servidor devolve a resposta original (achado de review, PR #259).
+   */
+  readonly idempotencyKey?: string;
 }
 
 export interface CommentsTransport<TCapability extends CommentCapability = CommentCapability> {
@@ -108,13 +119,18 @@ export class CommentsClientError extends Error implements CommentsErrorShape {
     );
   }
 
+  // Serializa sem `commentsErrorSchema.parse`: este método é chamado no caminho
+  // de degradação (`load()` reportando falha), e o construtor aceita entrada que
+  // o schema recusaria — mensagem vazia, `status: 0`. Validar aqui trocaria o
+  // erro real por um `ZodError` lançado de dentro do tratamento de erro, que é
+  // onde menos se pode falhar (achado de review, PR #259).
   toJSON(): CommentsErrorShape {
-    return commentsErrorSchema.parse({
+    return {
       code: this.code,
       message: this.message,
       status: this.status,
       retryable: this.retryable,
-    });
+    };
   }
 }
 
@@ -145,7 +161,12 @@ export interface CommentsClientOptions<TCapability extends CommentCapability> {
 
 export interface CommentsExecuteOptions {
   readonly signal?: AbortSignal;
+  /** Ver `CommentsTransportRequest.idempotencyKey`. Formato: `contrato-http-v1.md` §6. */
+  readonly idempotencyKey?: string;
 }
+
+/** 8-128 ASCII imprimível (`contrato-http-v1.md` §6, tabela de cabeçalhos). */
+const IDEMPOTENCY_KEY_PATTERN = /^[\x20-\x7E]{8,128}$/;
 
 interface ExecutionSignal {
   readonly signal: AbortSignal;
@@ -180,7 +201,15 @@ function createExecutionSignal(signal: AbortSignal | undefined, timeoutMs: numbe
 }
 
 async function waitForTransport(promise: Promise<unknown>, signal: AbortSignal): Promise<unknown> {
-  if (signal.aborted) throw signal.reason;
+  // A promise do transporte já existe quando chegamos aqui. Sair sem anexar
+  // handler deixaria a rejeição dela sem tratamento — `unhandledRejection`
+  // derruba o processo Node do backend consumidor, e não é o erro de verdade que
+  // aparece no log. O `catch` vazio é deliberado: o motivo real é o
+  // `signal.reason` lançado logo abaixo (achado de review, PR #259).
+  if (signal.aborted) {
+    void promise.catch(() => {});
+    throw signal.reason;
+  }
 
   let onAbort: (() => void) | undefined;
   const aborted = new Promise<never>((_, reject) => {
@@ -225,13 +254,29 @@ export function createCommentsClient<TCapability extends CommentCapability>(
         });
       }
 
+      // Recusa a chave malformada aqui, e não no servidor: `422` depois de o
+      // formulário ser enviado é pior que erro imediato, e uma chave fora do
+      // formato não protege contra duplicata nenhuma.
+      const idempotencyKey = executeOptions?.idempotencyKey;
+      if (idempotencyKey !== undefined && !IDEMPOTENCY_KEY_PATTERN.test(idempotencyKey)) {
+        throw new CommentsClientError('invalid_input', 'Idempotency-Key fora do formato exigido pelo contrato.', {
+          retryable: false,
+        });
+      }
+
       const execution = createExecutionSignal(executeOptions?.signal, timeoutMs);
       try {
+        // Já cancelado antes de começar: não vale disparar a requisição só para
+        // descartá-la. `createExecutionSignal` propaga o abort do chamador, então
+        // este teste cobre o caso de signal já abortado na entrada.
+        if (execution.signal.aborted) throw execution.signal.reason;
+
         const raw = await waitForTransport(options.transport.execute({
           capability: operation.capability,
           kind: operation.kind,
           input: parsedInput.data,
           signal: execution.signal,
+          idempotencyKey,
         }), execution.signal);
         const parsedOutput = operation.outputSchema.safeParse(raw);
         if (!parsedOutput.success) {
@@ -243,6 +288,13 @@ export function createCommentsClient<TCapability extends CommentCapability>(
         }
         return parsedOutput.data;
       } catch (error: unknown) {
+        // Erro já classificado sai intacto. Sem este rethrow, um
+        // `schema_incompatible` (resposta fora do contrato) que chegasse junto de
+        // um timeout na corrida seria reetiquetado como `timeout`, e o consumidor
+        // trataria contrato quebrado como falha de rede retentável (achado de
+        // review, PR #259).
+        if (error instanceof CommentsClientError) throw error;
+
         if (execution.timedOut()) {
           throw new CommentsClientError('timeout', 'A operação de comentários excedeu o tempo limite.', {
             cause: error,

@@ -120,4 +120,33 @@ describe('contrato da conversa', () => {
       'consumido',
     )).toThrow('revisões diferentes');
   });
+
+  // Sem isto o formulário fica operável, o envio sempre volta
+  // `422`/`details_required` e o usuário não descobre o que faltou (achado de
+  // review, PR #259).
+  it('exige details apenas nos motivos que o contrato obriga', () => {
+    const semDetalhe = { commentId: ROOT_ID, reasonCode: 'other' as const };
+    const recusado = createCommentReportOperation.inputSchema.safeParse(semDetalhe);
+    expect(recusado.success).toBe(false);
+    if (!recusado.success) {
+      expect(recusado.error.issues[0]?.message).toBe('details_required');
+    }
+
+    // Espaço em branco não conta como detalhe: o schema aplica `trim`.
+    expect(createCommentReportOperation.inputSchema.safeParse({
+      ...semDetalhe,
+      details: '   ',
+    }).success).toBe(false);
+
+    expect(createCommentReportOperation.inputSchema.safeParse({
+      ...semDetalhe,
+      details: 'explicação do motivo',
+    }).success).toBe(true);
+
+    // Motivo fora da lista aceita ausência de detalhe.
+    expect(createCommentReportOperation.inputSchema.safeParse({
+      commentId: ROOT_ID,
+      reasonCode: 'spam_or_off_topic',
+    }).success).toBe(true);
+  });
 });

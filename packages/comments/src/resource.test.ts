@@ -146,4 +146,31 @@ describe('createCommentsResource', () => {
 
     expect(resource.getSnapshot()).toMatchObject({ status: 'unavailable', data: undefined });
   });
+
+  // O loader é fechado pelo host antes de `setIdentity` existir. Se ele não
+  // receber a identidade vigente, busca o contexto anterior e o resultado é
+  // gravado sob a chave nova — comentário privado de uma conta aparecendo na
+  // seguinte (achado de review, PR #259).
+  it('entrega ao loader a identidade vigente, não a de construção', async () => {
+    const vistas: string[] = [];
+    const resource = createCommentsResource<string[]>({
+      identity: identity('user-a'),
+      load: async (_signal, current) => {
+        vistas.push(current.userId ?? 'sem-usuario');
+        return [`dados-de-${current.userId}`];
+      },
+    });
+
+    await resource.load();
+    expect(vistas).toEqual(['user-a']);
+
+    resource.setIdentity(identity('user-b'));
+    await resource.load();
+
+    expect(vistas).toEqual(['user-a', 'user-b']);
+    expect(resource.getSnapshot()).toMatchObject({
+      status: 'fresh',
+      data: ['dados-de-user-b'],
+    });
+  });
 });

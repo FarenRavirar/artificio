@@ -1,14 +1,16 @@
 import { MarkdownContent, ContentEditor } from '@artificio/content-editor';
 import {
+  useId,
   useMemo,
   useState,
   type FormEvent,
   type ReactNode,
 } from 'react';
 
-import { COMMENT_BODY_MAX_LENGTH, validateCommentBody } from './commentBody.js';
+import { validateCommentBody } from './commentBody.js';
 import {
   COMMENT_REPORT_REASONS,
+  commentReportRequiresDetails,
   type CommentReportReason,
   type CommentSortUi,
   type CommentsConversationClient,
@@ -86,6 +88,16 @@ function classes(base: string, extra?: string): string {
   return [base, extra].filter(Boolean).join(' ');
 }
 
+/*
+ * Os dois `ContentEditor` desta tela são montados DE PROPÓSITO sem `maxLength`.
+ *
+ * `ContentEditor` compara `next.length` — unidades UTF-16 — enquanto
+ * `validateCommentBody` conta pontos de código, para casar com `LENGTH()` do
+ * PostgreSQL. Passar `COMMENT_BODY_MAX_LENGTH` ali bloquearia 5.001 emoji como
+ * se fossem 10.002 caracteres, recusando no editor um corpo que o contrato
+ * aceita. A validação no envio continua sendo a autoridade e devolve
+ * `body_too_long` com o motivo verdadeiro (achado de review, PR #259).
+ */
 function visibleBody(bodyMarkdown: string): string | null {
   const validation = validateCommentBody(bodyMarkdown);
   return validation.ok ? validation.bodyMarkdown : null;
@@ -128,6 +140,11 @@ export function CommentsConversation({
   className,
   slots = {},
 }: Readonly<CommentsConversationProps>) {
+  // Id por instância: duas conversas na mesma página (ex.: material e sua
+  // errata) gerariam `id` duplicado, e o `htmlFor` do primeiro label passaria a
+  // apontar para o select do segundo — leitor de tela anuncia o controle errado
+  // (achado de review, PR #259).
+  const sortControlId = useId();
   const [rootDraft, setRootDraft] = useState('');
   const [panel, setPanel] = useState<OpenPanel>(null);
   const [panelDraft, setPanelDraft] = useState('');
@@ -243,6 +260,7 @@ export function CommentsConversation({
     }
 
     if (panel.kind === 'report') {
+      const detailsRequired = commentReportRequiresDetails(reportReason);
       return (
         <form className="artificio-comments__form" onSubmit={(event) => submitPanel(event, comment)}>
           <label htmlFor={`comments-report-reason-${comment.id}`}>Motivo da denúncia</label>
@@ -256,16 +274,28 @@ export function CommentsConversation({
               <option key={reason} value={reason}>{REPORT_REASON_LABELS[reason]}</option>
             ))}
           </select>
-          <label htmlFor={`comments-report-details-${comment.id}`}>Detalhes (quando necessários)</label>
+          <label htmlFor={`comments-report-details-${comment.id}`}>
+            {detailsRequired ? 'Detalhes (obrigatórios para este motivo)' : 'Detalhes (opcionais)'}
+          </label>
           <textarea
             id={`comments-report-details-${comment.id}`}
             value={reportDetails}
             maxLength={4_000}
+            required={detailsRequired}
+            aria-required={detailsRequired}
             disabled={!mutationsEnabled || pendingAction !== null}
             onChange={(event) => setReportDetails(event.target.value)}
           />
           <div className="artificio-comments__form-actions">
-            <button type="submit" disabled={!mutationsEnabled || pendingAction !== null}>Enviar denúncia</button>
+            {/*
+              Botão travado enquanto o motivo exige detalhe e o campo está vazio:
+              deixá-lo operável só entregaria `422`/`details_required` depois do
+              envio, sem dizer o que faltou.
+            */}
+            <button
+              type="submit"
+              disabled={!mutationsEnabled || pendingAction !== null || (detailsRequired && reportDetails.trim() === '')}
+            >Enviar denúncia</button>
             <button type="button" onClick={() => setPanel(null)}>Cancelar</button>
           </div>
         </form>
@@ -282,7 +312,6 @@ export function CommentsConversation({
           onChange={setPanelDraft}
           label={label}
           required
-          maxLength={COMMENT_BODY_MAX_LENGTH}
           disabled={!mutationsEnabled || pendingAction !== null}
         />
         <div className="artificio-comments__form-actions">
@@ -444,9 +473,9 @@ export function CommentsConversation({
   return (
     <section className={classes('artificio-comments', classes(slots.root ?? '', className))}>
       <div className={classes('artificio-comments__toolbar', slots.toolbar)} data-comments-slot="toolbar">
-        <label htmlFor="artificio-comments-sort">Ordenar comentários</label>
+        <label htmlFor={sortControlId}>Ordenar comentários</label>
         <select
-          id="artificio-comments-sort"
+          id={sortControlId}
           value={sort}
           onChange={(event) => onSortChange(event.target.value as CommentSortUi)}
         >
@@ -468,8 +497,22 @@ export function CommentsConversation({
         </p>
       )}
 
-      {actionError && <p className="artificio-comments__status" role="alert">{errorMessage(actionError)}</p>}
-      {announcement && <p className="artificio-comments__status" role="status">{announcement}</p>}
+      {/*
+        Regiões live montadas sempre, com o texto variando. Montar o container
+        junto com a mensagem faz o leitor de tela perder o anúncio: ele observa
+        mutação DENTRO de uma região que já existia, e um nó inserido do zero
+        frequentemente não dispara nada (achado de review, PR #259).
+      */}
+      <p className="artificio-comments__status" role="alert">
+        {actionError ? errorMessage(actionError) : ''}
+      </p>
+      {/*
+        `<output>` em vez de `<p role="status">`: o papel é implícito no elemento
+        nativo e o suporte em leitor de tela é mais consistente (achado Sonar).
+      */}
+      <output className="artificio-comments__status">
+        {announcement ?? ''}
+      </output>
 
       {canCreate && (
         <form
@@ -482,7 +525,6 @@ export function CommentsConversation({
             onChange={setRootDraft}
             label="Novo comentário"
             required
-            maxLength={COMMENT_BODY_MAX_LENGTH}
             disabled={!mutationsEnabled || pendingAction !== null}
           />
           <button type="submit" disabled={!mutationsEnabled || pendingAction !== null}>Publicar comentário</button>

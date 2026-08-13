@@ -24,6 +24,10 @@ export const COMMENT_REPORT_REASONS = [
 export const commentReportReasonSchema = z.enum(COMMENT_REPORT_REASONS);
 export type CommentReportReason = z.infer<typeof commentReportReasonSchema>;
 
+// Serve aos dois caminhos: corpo ARMAZENADO que volta da fachada e corpo
+// SUBMETIDO pelo autor. A regra de canonicalização é a mesma nos dois, então
+// duplicar o schema só criaria a chance de um lado divergir do outro numa
+// edição futura (achado de review, PR #259).
 const canonicalCommentBodySchema = z.string().transform((value, context) => {
   const result = validateCommentBody(value);
   if (!result.ok) {
@@ -144,15 +148,6 @@ const subjectInputSchema = z.object({
   subjectId: z.string().min(1).max(255),
 }).strict();
 
-const commentBodyInputSchema = z.string().transform((value, context) => {
-  const result = validateCommentBody(value);
-  if (!result.ok) {
-    context.addIssue({ code: 'custom', message: result.code });
-    return z.NEVER;
-  }
-  return result.bodyMarkdown;
-});
-
 export const readCommentsThreadOperation = defineCommentsOperation({
   capability: 'thread.read',
   kind: 'query',
@@ -166,7 +161,7 @@ export const readCommentsThreadOperation = defineCommentsOperation({
 export const createCommentOperation = defineCommentsOperation({
   capability: 'comment.create',
   kind: 'mutation',
-  inputSchema: subjectInputSchema.extend({ bodyMarkdown: commentBodyInputSchema }),
+  inputSchema: subjectInputSchema.extend({ bodyMarkdown: canonicalCommentBodySchema }),
   outputSchema: conversationCommentSchema,
 });
 
@@ -175,7 +170,7 @@ export const replyToCommentOperation = defineCommentsOperation({
   kind: 'mutation',
   inputSchema: subjectInputSchema.extend({
     commentId: z.uuid(),
-    bodyMarkdown: commentBodyInputSchema,
+    bodyMarkdown: canonicalCommentBodySchema,
   }),
   outputSchema: conversationCommentSchema,
 });
@@ -185,7 +180,7 @@ export const editCommentOperation = defineCommentsOperation({
   kind: 'mutation',
   inputSchema: z.object({
     commentId: z.uuid(),
-    bodyMarkdown: commentBodyInputSchema,
+    bodyMarkdown: canonicalCommentBodySchema,
   }).strict(),
   outputSchema: conversationCommentSchema,
 });
@@ -212,14 +207,41 @@ export const setCommentVoteOperation = defineCommentsOperation({
   }).strict(),
 });
 
+/**
+ * Motivos que exigem `details` não vazio (`contrato-http-v1.md` §denúncia). Os
+ * demais aceitam, mas não obrigam. Exportado porque a UI precisa da mesma lista
+ * para marcar o campo como obrigatório — duas cópias divergiriam na primeira
+ * mudança de política.
+ */
+export const COMMENT_REPORT_REASONS_REQUIRING_DETAILS = [
+  'other',
+  'copyright_violation',
+  'illegal_content',
+] as const satisfies readonly CommentReportReason[];
+
+export function commentReportRequiresDetails(reason: CommentReportReason): boolean {
+  return (COMMENT_REPORT_REASONS_REQUIRING_DETAILS as readonly CommentReportReason[]).includes(reason);
+}
+
 export const createCommentReportOperation = defineCommentsOperation({
   capability: 'report.create',
   kind: 'mutation',
+  // Valida a política condicional aqui, e não só no servidor: sem isso o
+  // formulário fica operável, o envio sempre volta `422`/`details_required` e o
+  // usuário não descobre o que faltou (achado de review, PR #259).
   inputSchema: z.object({
     commentId: z.uuid(),
     reasonCode: commentReportReasonSchema,
     details: z.string().trim().max(4_000).optional(),
-  }).strict(),
+  }).strict().superRefine((report, context) => {
+    if (commentReportRequiresDetails(report.reasonCode) && !report.details) {
+      context.addIssue({
+        code: 'custom',
+        path: ['details'],
+        message: 'details_required',
+      });
+    }
+  }),
   outputSchema: z.object({
     id: z.uuid(),
     comment_id: z.uuid(),

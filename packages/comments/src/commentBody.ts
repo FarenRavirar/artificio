@@ -152,6 +152,16 @@ export function validateCommentBody(input: string): CommentBodyValidation {
   // convertido em link, passa a ser a legenda textual prometida ao autor.
   const canonicalBodyMarkdown = demoteCommentImages(bodyMarkdown);
 
+  // 4b. O rebaixamento CRESCE o texto (`![alt](url)` vira link textual mais
+  // longo), então o teto precisa ser reconferido sobre o valor canônico — é ele
+  // que vai ao banco. Sem esta segunda checagem, um corpo logo abaixo do limite
+  // com imagens passa aqui e estoura o `CHECK` de `community_comment_version`,
+  // devolvendo erro de banco em vez do `body_too_long` com motivo (achado de
+  // review, PR #259).
+  if (countCharacters(canonicalBodyMarkdown) > COMMENT_BODY_MAX_LENGTH) {
+    return { ok: false, code: 'body_too_long' };
+  }
+
   // 5. Conteúdo visível (decisão 30). Espaço, HTML integralmente removido pela
   // sanitização, separador temático isolado ou marcador sem texto sanitizam para
   // vazio — e um comentário sem texto ocupa posição na árvore, gera notificação

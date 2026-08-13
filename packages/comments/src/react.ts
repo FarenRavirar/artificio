@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 
 import type { CommentsResource, CommentsResourceState } from './resource.js';
 
@@ -24,12 +24,24 @@ export function useCommentsResource<T>(
 
   const autoLoad = options.autoLoad ?? true;
   const disposeOnUnmount = options.disposeOnUnmount ?? true;
+
+  // Carga e descarte moram em efeitos separados de propósito. Juntos, com
+  // `disposeOnUnmount` nas dependências, alternar essa flag em runtime rodava a
+  // limpeza e destruía um resource ainda em uso — o host perdia a conversa por
+  // mudar uma opção (achado de review, PR #259).
   useEffect(() => {
     if (autoLoad) void resource.load();
-    return () => {
-      if (disposeOnUnmount) resource.dispose();
-    };
-  }, [autoLoad, disposeOnUnmount, resource]);
+  }, [autoLoad, resource]);
+
+  // `disposeOnUnmount` é lido por ref para ficar fora das dependências: o
+  // descarte só pode disparar quando a instância do resource é trocada ou o
+  // componente desmonta, nunca porque a opção mudou.
+  const disposeOnUnmountRef = useRef(disposeOnUnmount);
+  disposeOnUnmountRef.current = disposeOnUnmount;
+
+  useEffect(() => () => {
+    if (disposeOnUnmountRef.current) resource.dispose();
+  }, [resource]);
 
   return snapshot;
 }

@@ -232,8 +232,20 @@ describe('CommentsConversation', () => {
       );
     });
 
-    const sort = container.querySelector('select#artificio-comments-sort');
+    // Busca pela estrutura, não pelo `id`: ele vem de `useId` e é por instância,
+    // justamente para não colidir quando há duas conversas na mesma página.
+    const sort = container.querySelector('[data-comments-slot="toolbar"] select');
     expect(sort).toBeInstanceOf(HTMLSelectElement);
+
+    // O vínculo acessível tem que sobreviver ao id gerado: o `htmlFor` do label
+    // precisa apontar para este select, senão o leitor de tela anuncia o
+    // controle sem nome.
+    const sortLabel = container.querySelector('[data-comments-slot="toolbar"] label');
+    expect(sortLabel).toBeInstanceOf(HTMLLabelElement);
+    if (sortLabel instanceof HTMLLabelElement && sort instanceof HTMLSelectElement) {
+      expect(sortLabel.htmlFor).toBe(sort.id);
+      expect(sort.id).not.toBe('');
+    }
     await act(async () => {
       if (!(sort instanceof HTMLSelectElement)) return;
       sort.value = 'top';
