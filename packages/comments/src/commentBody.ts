@@ -4,6 +4,7 @@ import {
 } from '@artificio/content-editor/sanitize';
 import {
   MAX_SCAN_LENGTH,
+  demoteCommentImages,
   findCommentLinkViolation,
   type CommentLinkViolation,
 } from '@artificio/content-editor/comment-links';
@@ -137,21 +138,27 @@ export function validateCommentBody(input: string): CommentBodyValidation {
     return { ok: false, code: 'body_too_long' };
   }
 
-  // 3. Conteúdo visível (decisão 30). Espaço, HTML integralmente removido pela
-  // sanitização, separador temático isolado ou marcador sem texto sanitizam para
-  // vazio — e um comentário sem texto ocupa posição na árvore, gera notificação
-  // e não diz nada a ninguém.
-  if (markdownToPlainText(bodyMarkdown).trim().length === 0) {
-    return { ok: false, code: 'body_empty' };
-  }
-
-  // 4. Links, por último, sobre o corpo já canônico e já dentro do limite
-  // (ordem obrigatória de §3 item 5). Varrer o original deixaria passar um
-  // destino que só aparece depois da canonicalização.
+  // 3. Links sobre o corpo já sanitizado e dentro do limite. A validação precisa
+  // preceder `demoteCommentImages`: essa função assume que cada destino já foi
+  // aprovado e não pode receber Markdown hostil diretamente.
   const violation = findCommentLinkViolation(bodyMarkdown);
   if (violation) {
     return { ok: false, code: 'INVALID_COMMENT_LINK', violation };
   }
 
-  return { ok: true, bodyMarkdown };
+  // 4. Imagem de comentário é referência clicável, nunca `<img>` (decisão 26).
+  // O rebaixamento vem antes da prova de conteúdo visível porque o alt de
+  // `![mapa](...)` não é texto visível para `markdownToPlainText`; depois de
+  // convertido em link, passa a ser a legenda textual prometida ao autor.
+  const canonicalBodyMarkdown = demoteCommentImages(bodyMarkdown);
+
+  // 5. Conteúdo visível (decisão 30). Espaço, HTML integralmente removido pela
+  // sanitização, separador temático isolado ou marcador sem texto sanitizam para
+  // vazio — e um comentário sem texto ocupa posição na árvore, gera notificação
+  // e não diz nada a ninguém.
+  if (markdownToPlainText(canonicalBodyMarkdown).trim().length === 0) {
+    return { ok: false, code: 'body_empty' };
+  }
+
+  return { ok: true, bodyMarkdown: canonicalBodyMarkdown };
 }

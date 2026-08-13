@@ -6,8 +6,9 @@
  * chamar o `accounts.` (requisito 21b — backend e o Astro server-side do `site`
  * não podem ser obrigados a importar React).
  *
- * `@artificio/comments/react` e `@artificio/comments/styles.css` entram na
- * Fase 4, com `react`/`react-dom` em `peerDependencies`.
+ * `@artificio/comments/react` e `@artificio/comments/styles.css` são subpaths
+ * separados, com `react`/`react-dom` em `peerDependencies` opcionais para que
+ * este root continue seguro em Node/SSR.
  */
 
 export {
@@ -91,3 +92,67 @@ export {
   type ConformanceFixtures,
   type ConformanceReport,
 } from './subjectAuthorizationConformance.js';
+
+export {
+  COMMENT_CAPABILITIES,
+  COMMENTS_ERROR_CODES,
+  COMMENTS_REQUEST_TIMEOUT_MS,
+  CommentsClientError,
+  commentCapabilitySchema,
+  commentsErrorCodeSchema,
+  commentsErrorSchema,
+  createCommentsClient,
+  defineCommentsOperation,
+  normalizeCommentsError,
+  type CommentCapability,
+  type CommentsClient,
+  type CommentsClientOptions,
+  type CommentsErrorCode,
+  type CommentsErrorShape,
+  type CommentsExecuteOptions,
+  type CommentsOperation,
+  type CommentsOperationKind,
+  type CommentsTransport,
+  type CommentsTransportRequest,
+} from './transport.js';
+
+export {
+  commentsResourceIdentitySchema,
+  createCommentsResource,
+  createCommentsResourceKey,
+  type CommentsResource,
+  type CommentsResourceIdentity,
+  type CommentsResourceOptions,
+  type CommentsResourceState,
+  type FreshCommentsState,
+  type StaleCommentsState,
+  type UnavailableCommentsState,
+} from './resource.js';
+
+export {
+  COMMENT_REPORT_REASONS,
+  COMMENT_SORTS_UI,
+  commentAuthorSchema,
+  commentReportReasonSchema,
+  commentSortUiSchema,
+  commentsThreadSchema,
+  conversationCommentSchema,
+  conversationMoreNodeSchema,
+  createCommentOperation,
+  createCommentReportOperation,
+  createCommentsConversationClient,
+  editCommentOperation,
+  mergeCommentsThreadPage,
+  readCommentsThreadOperation,
+  replyToCommentOperation,
+  setCommentVoteOperation,
+  withdrawCommentOperation,
+  type CommentReportReason,
+  type CommentSortUi,
+  type CommentsConversationCapability,
+  type CommentsConversationClient,
+  type CommentsConversationSubject,
+  type CommentsThread,
+  type ConversationComment,
+  type ConversationMoreNode,
+} from './conversation.js';

@@ -1,0 +1,497 @@
+import { MarkdownContent, ContentEditor } from '@artificio/content-editor';
+import {
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
+
+import { COMMENT_BODY_MAX_LENGTH, validateCommentBody } from './commentBody.js';
+import {
+  COMMENT_REPORT_REASONS,
+  type CommentReportReason,
+  type CommentSortUi,
+  type CommentsConversationClient,
+  type ConversationComment,
+  type ConversationMoreNode,
+  type CommentsThread,
+} from './conversation.js';
+import { normalizeCommentsError, type CommentsErrorShape } from './transport.js';
+import type { CommentsResourceState } from './resource.js';
+
+const SORT_LABELS: Record<CommentSortUi, string> = {
+  best: 'Melhores',
+  top: 'Mais votados',
+  new: 'Recentes',
+  old: 'Mais antigos',
+};
+
+const REPORT_REASON_LABELS: Record<CommentReportReason, string> = {
+  malicious_link: 'Link malicioso',
+  inappropriate_content: 'Conteúdo impróprio',
+  spam_or_off_topic: 'Spam ou fora do assunto',
+  harassment_or_hate: 'Assédio ou discurso de ódio',
+  personal_data: 'Dados pessoais',
+  copyright_violation: 'Violação de direito autoral',
+  illegal_content: 'Conteúdo ilegal',
+  other: 'Outro motivo',
+};
+
+export interface CommentViewerPermissions {
+  readonly reply?: boolean;
+  readonly edit?: boolean;
+  readonly withdraw?: boolean;
+  readonly vote?: boolean;
+  readonly report?: boolean;
+}
+
+export type CommentsConversationSlot =
+  | 'root'
+  | 'toolbar'
+  | 'thread'
+  | 'comment'
+  | 'author'
+  | 'body'
+  | 'actions'
+  | 'composer'
+  | 'status'
+  | 'legacyLabel'
+  | 'more';
+
+export type CommentsConversationSlots = Partial<Record<CommentsConversationSlot, string>>;
+
+export interface CommentsConversationProps {
+  readonly state: CommentsResourceState<CommentsThread>;
+  readonly sort: CommentSortUi;
+  readonly onSortChange: (sort: CommentSortUi) => void;
+  readonly client: CommentsConversationClient;
+  readonly canCreate?: boolean;
+  readonly permissions?: (comment: ConversationComment) => CommentViewerPermissions;
+  readonly onActionComplete?: () => void | Promise<void>;
+  readonly onMoreLoaded: (
+    page: CommentsThread,
+    request: ConversationMoreNode,
+  ) => void | Promise<void>;
+  readonly contentAuthorLabel?: string;
+  readonly emptyMessage?: ReactNode;
+  readonly className?: string;
+  readonly slots?: CommentsConversationSlots;
+}
+
+type OpenPanel =
+  | { readonly kind: 'reply' | 'edit' | 'report' | 'withdraw'; readonly commentId: string }
+  | null;
+
+function classes(base: string, extra?: string): string {
+  return [base, extra].filter(Boolean).join(' ');
+}
+
+function visibleBody(bodyMarkdown: string): string | null {
+  const validation = validateCommentBody(bodyMarkdown);
+  return validation.ok ? validation.bodyMarkdown : null;
+}
+
+function badgeLabel(
+  badge: ConversationComment['author']['badge'],
+  contentAuthorLabel: string,
+): string | null {
+  if (badge === 'admin') return 'Administrador';
+  if (badge === 'moderator') return 'Moderador';
+  if (badge === 'content_author') return contentAuthorLabel;
+  return null;
+}
+
+function statePlaceholder(state: ConversationComment['state']): string {
+  return state === 'pending_review_hidden'
+    ? 'Comentário oculto enquanto aguarda revisão.'
+    : 'Comentário retirado.';
+}
+
+function errorMessage(error: CommentsErrorShape | null): string {
+  if (!error) return 'Os comentários estão temporariamente indisponíveis.';
+  return error.retryable
+    ? 'Não foi possível atualizar os comentários. Tente novamente.'
+    : 'Não foi possível concluir a ação.';
+}
+
+export function CommentsConversation({
+  state,
+  sort,
+  onSortChange,
+  client,
+  canCreate = false,
+  permissions = () => ({}),
+  onActionComplete,
+  onMoreLoaded,
+  contentAuthorLabel = 'Autor do conteúdo',
+  emptyMessage = 'Ainda não há comentários.',
+  className,
+  slots = {},
+}: Readonly<CommentsConversationProps>) {
+  const [rootDraft, setRootDraft] = useState('');
+  const [panel, setPanel] = useState<OpenPanel>(null);
+  const [panelDraft, setPanelDraft] = useState('');
+  const [reportReason, setReportReason] = useState<CommentReportReason>('spam_or_off_topic');
+  const [reportDetails, setReportDetails] = useState('');
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<CommentsErrorShape | null>(null);
+  const [announcement, setAnnouncement] = useState('');
+
+  const thread = state.data;
+  const mutationsEnabled = state.status === 'fresh';
+
+  const commentsByParent = useMemo(() => {
+    const grouped = new Map<string | null, ConversationComment[]>();
+    for (const comment of thread?.comments ?? []) {
+      const siblings = grouped.get(comment.parent_id) ?? [];
+      siblings.push(comment);
+      grouped.set(comment.parent_id, siblings);
+    }
+    return grouped;
+  }, [thread]);
+
+  const moreByParent = useMemo(() => {
+    const grouped = new Map<string | null, ConversationMoreNode[]>();
+    for (const node of thread?.more ?? []) {
+      const siblings = grouped.get(node.parent_id) ?? [];
+      siblings.push(node);
+      grouped.set(node.parent_id, siblings);
+    }
+    return grouped;
+  }, [thread]);
+
+  const finishAction = async (message: string): Promise<void> => {
+    setPanel(null);
+    setPanelDraft('');
+    setReportDetails('');
+    setAnnouncement(message);
+    await onActionComplete?.();
+  };
+
+  const runAction = async (
+    key: string,
+    action: () => Promise<unknown>,
+    message: string,
+    requiresFresh = true,
+  ) => {
+    if ((requiresFresh && !mutationsEnabled) || pendingAction) return;
+    setPendingAction(key);
+    setActionError(null);
+    setAnnouncement('');
+    try {
+      await action();
+      await finishAction(message);
+    } catch (error: unknown) {
+      setActionError(normalizeCommentsError(error).toJSON());
+    } finally {
+      setPendingAction(null);
+    }
+  };
+
+  const openPanel = (next: NonNullable<OpenPanel>, initialValue = '') => {
+    setPanel(next);
+    setPanelDraft(initialValue);
+    setActionError(null);
+    setAnnouncement('');
+  };
+
+  const submitRoot = (event: FormEvent) => {
+    event.preventDefault();
+    void runAction('create', async () => {
+      await client.create(rootDraft);
+      setRootDraft('');
+    }, 'Comentário publicado.');
+  };
+
+  const submitPanel = (event: FormEvent, comment: ConversationComment) => {
+    event.preventDefault();
+    if (!panel || panel.commentId !== comment.id) return;
+    if (panel.kind === 'reply') {
+      void runAction(`reply:${comment.id}`, () => client.reply(comment.id, panelDraft), 'Resposta publicada.');
+    } else if (panel.kind === 'edit') {
+      void runAction(`edit:${comment.id}`, () => client.edit(comment.id, panelDraft), 'Comentário editado.');
+    } else if (panel.kind === 'report') {
+      void runAction(
+        `report:${comment.id}`,
+        () => client.report(comment.id, reportReason, reportDetails.trim() || undefined),
+        'Denúncia enviada para análise.',
+      );
+    }
+  };
+
+  const renderPanel = (comment: ConversationComment) => {
+    if (!panel || panel.commentId !== comment.id) return null;
+
+    if (panel.kind === 'withdraw') {
+      return (
+        <div className="artificio-comments__confirm" data-comments-slot="withdraw-confirmation">
+          <p>Retirar este comentário? A conversa e as respostas serão preservadas.</p>
+          <button
+            type="button"
+            disabled={!mutationsEnabled || pendingAction !== null}
+            onClick={() => void runAction(
+              `withdraw:${comment.id}`,
+              () => client.withdraw(comment.id),
+              'Comentário retirado.',
+            )}
+          >
+            Confirmar retirada
+          </button>
+          <button type="button" onClick={() => setPanel(null)}>Cancelar</button>
+        </div>
+      );
+    }
+
+    if (panel.kind === 'report') {
+      return (
+        <form className="artificio-comments__form" onSubmit={(event) => submitPanel(event, comment)}>
+          <label htmlFor={`comments-report-reason-${comment.id}`}>Motivo da denúncia</label>
+          <select
+            id={`comments-report-reason-${comment.id}`}
+            value={reportReason}
+            disabled={!mutationsEnabled || pendingAction !== null}
+            onChange={(event) => setReportReason(event.target.value as CommentReportReason)}
+          >
+            {COMMENT_REPORT_REASONS.map((reason) => (
+              <option key={reason} value={reason}>{REPORT_REASON_LABELS[reason]}</option>
+            ))}
+          </select>
+          <label htmlFor={`comments-report-details-${comment.id}`}>Detalhes (quando necessários)</label>
+          <textarea
+            id={`comments-report-details-${comment.id}`}
+            value={reportDetails}
+            maxLength={4_000}
+            disabled={!mutationsEnabled || pendingAction !== null}
+            onChange={(event) => setReportDetails(event.target.value)}
+          />
+          <div className="artificio-comments__form-actions">
+            <button type="submit" disabled={!mutationsEnabled || pendingAction !== null}>Enviar denúncia</button>
+            <button type="button" onClick={() => setPanel(null)}>Cancelar</button>
+          </div>
+        </form>
+      );
+    }
+
+    const label = panel.kind === 'reply'
+      ? `Resposta a ${comment.author.display_name ?? 'comentário'}`
+      : 'Editar comentário';
+    return (
+      <form className="artificio-comments__form" onSubmit={(event) => submitPanel(event, comment)}>
+        <ContentEditor
+          value={panelDraft}
+          onChange={setPanelDraft}
+          label={label}
+          required
+          maxLength={COMMENT_BODY_MAX_LENGTH}
+          disabled={!mutationsEnabled || pendingAction !== null}
+        />
+        <div className="artificio-comments__form-actions">
+          <button type="submit" disabled={!mutationsEnabled || pendingAction !== null}>
+            {panel.kind === 'reply' ? 'Publicar resposta' : 'Salvar edição'}
+          </button>
+          <button type="button" onClick={() => setPanel(null)}>Cancelar</button>
+        </div>
+      </form>
+    );
+  };
+
+  const renderComment = (comment: ConversationComment): ReactNode => {
+    const commentPermissions = permissions(comment);
+    const legacy = comment.legacy !== null || comment.author.state === 'legacy';
+    const authorName = legacy
+      ? comment.legacy?.author_name ?? comment.author.display_name ?? 'Autoria não informada'
+      : comment.author.display_name ?? 'Conta excluída';
+    const label = legacy ? null : badgeLabel(comment.author.badge, contentAuthorLabel);
+    const body = comment.body_markdown === null ? null : visibleBody(comment.body_markdown);
+    const canAct = mutationsEnabled && pendingAction === null;
+
+    return (
+      <li
+        key={comment.id}
+        className={classes('artificio-comments__comment', slots.comment)}
+        data-comments-slot="comment"
+        data-comment-depth={comment.depth}
+      >
+        <article aria-labelledby={`comment-author-${comment.id}`}>
+          <header className={classes('artificio-comments__author', slots.author)} data-comments-slot="author">
+            {!legacy && comment.author.avatar_url && (
+              <img
+                className="artificio-comments__avatar"
+                src={comment.author.avatar_url}
+                alt=""
+                width="32"
+                height="32"
+                referrerPolicy="no-referrer"
+              />
+            )}
+            <strong id={`comment-author-${comment.id}`}>{authorName}</strong>
+            {label && <span className="artificio-comments__badge">{label}</span>}
+            {legacy && (
+              <span className={classes('artificio-comments__legacy-label', slots.legacyLabel)}>
+                comentário importado — autoria não verificada
+              </span>
+            )}
+            <time dateTime={comment.created_at}>{new Date(comment.created_at).toLocaleString('pt-BR')}</time>
+            {comment.edited_at && <span className="artificio-comments__edited">editado</span>}
+          </header>
+
+          <div className={classes('artificio-comments__body', slots.body)} data-comments-slot="body">
+            {comment.state === 'visible' && body
+              ? <MarkdownContent value={body} />
+              : <p>{comment.state === 'visible' ? 'Conteúdo indisponível.' : statePlaceholder(comment.state)}</p>}
+          </div>
+
+          <div className={classes('artificio-comments__actions', slots.actions)} data-comments-slot="actions">
+            {comment.state === 'visible' && comment.score !== null && (
+              <span className="artificio-comments__score" aria-label={`Pontuação: ${comment.score}`}>
+                {comment.score}
+              </span>
+            )}
+            {commentPermissions.vote && !legacy && comment.state === 'visible' && (
+              <>
+                <button
+                  type="button"
+                  aria-label={`Votar positivamente no comentário de ${authorName}`}
+                  aria-pressed={comment.my_vote === 1}
+                  disabled={!canAct}
+                  onClick={() => void runAction(
+                    `vote-up:${comment.id}`,
+                    () => client.vote(comment.id, comment.my_vote === 1 ? 0 : 1),
+                    'Voto atualizado.',
+                  )}
+                >▲</button>
+                <button
+                  type="button"
+                  aria-label={`Votar negativamente no comentário de ${authorName}`}
+                  aria-pressed={comment.my_vote === -1}
+                  disabled={!canAct}
+                  onClick={() => void runAction(
+                    `vote-down:${comment.id}`,
+                    () => client.vote(comment.id, comment.my_vote === -1 ? 0 : -1),
+                    'Voto atualizado.',
+                  )}
+                >▼</button>
+              </>
+            )}
+            {commentPermissions.reply && comment.depth < 4 && (
+              <button
+                type="button"
+                disabled={!canAct}
+                onClick={() => openPanel({ kind: 'reply', commentId: comment.id })}
+              >
+                Responder a {authorName}
+              </button>
+            )}
+            {commentPermissions.edit && !legacy && comment.state === 'visible' && body && (
+              <button
+                type="button"
+                disabled={!canAct}
+                onClick={() => openPanel({ kind: 'edit', commentId: comment.id }, body)}
+              >Editar</button>
+            )}
+            {commentPermissions.withdraw && !legacy && comment.state === 'visible' && (
+              <button
+                type="button"
+                disabled={!canAct}
+                onClick={() => openPanel({ kind: 'withdraw', commentId: comment.id })}
+              >Retirar</button>
+            )}
+            {commentPermissions.report && !legacy && comment.state === 'visible' && (
+              <button
+                type="button"
+                disabled={!canAct}
+                onClick={() => openPanel({ kind: 'report', commentId: comment.id })}
+              >Denunciar</button>
+            )}
+          </div>
+
+          {renderPanel(comment)}
+        </article>
+        {renderBranch(comment.id)}
+      </li>
+    );
+  };
+
+  const renderMore = (node: ConversationMoreNode): ReactNode => (
+    <li key={node.cursor} className={classes('artificio-comments__more', slots.more)} data-comments-slot="more">
+      <button
+        type="button"
+        disabled={pendingAction !== null}
+        onClick={() => void runAction(
+          `more:${node.cursor}`,
+          async () => onMoreLoaded(await client.read(sort, node.cursor), node),
+          'Mais comentários carregados.',
+          false,
+        )}
+      >
+        Mostrar mais {node.count} {node.count === 1 ? 'comentário' : 'comentários'}
+      </button>
+    </li>
+  );
+
+  function renderBranch(parentId: string | null): ReactNode {
+    const comments = commentsByParent.get(parentId) ?? [];
+    const more = moreByParent.get(parentId) ?? [];
+    if (comments.length === 0 && more.length === 0) return null;
+    return (
+      <ol className={classes('artificio-comments__thread', slots.thread)} data-comments-slot="thread">
+        {comments.map(renderComment)}
+        {more.map(renderMore)}
+      </ol>
+    );
+  }
+
+  return (
+    <section className={classes('artificio-comments', classes(slots.root ?? '', className))}>
+      <div className={classes('artificio-comments__toolbar', slots.toolbar)} data-comments-slot="toolbar">
+        <label htmlFor="artificio-comments-sort">Ordenar comentários</label>
+        <select
+          id="artificio-comments-sort"
+          value={sort}
+          onChange={(event) => onSortChange(event.target.value as CommentSortUi)}
+        >
+          {(Object.keys(SORT_LABELS) as CommentSortUi[]).map((value) => (
+            <option key={value} value={value}>{SORT_LABELS[value]}</option>
+          ))}
+        </select>
+      </div>
+
+      {state.status !== 'fresh' && (
+        <p
+          className={classes('artificio-comments__status', slots.status)}
+          data-comments-state={state.status}
+          role={state.status === 'unavailable' ? 'alert' : 'status'}
+        >
+          {state.status === 'stale'
+            ? `Exibindo a última leitura disponível, de ${Math.ceil(state.ageMs / 1_000)} segundos atrás.`
+            : errorMessage(state.error)}
+        </p>
+      )}
+
+      {actionError && <p className="artificio-comments__status" role="alert">{errorMessage(actionError)}</p>}
+      {announcement && <p className="artificio-comments__status" role="status">{announcement}</p>}
+
+      {canCreate && (
+        <form
+          className={classes('artificio-comments__composer', slots.composer)}
+          data-comments-slot="composer"
+          onSubmit={submitRoot}
+        >
+          <ContentEditor
+            value={rootDraft}
+            onChange={setRootDraft}
+            label="Novo comentário"
+            required
+            maxLength={COMMENT_BODY_MAX_LENGTH}
+            disabled={!mutationsEnabled || pendingAction !== null}
+          />
+          <button type="submit" disabled={!mutationsEnabled || pendingAction !== null}>Publicar comentário</button>
+        </form>
+      )}
+
+      {thread && thread.comments.length === 0 && thread.more.length === 0
+        ? <p className="artificio-comments__empty">{emptyMessage}</p>
+        : renderBranch(null)}
+    </section>
+  );
+}
