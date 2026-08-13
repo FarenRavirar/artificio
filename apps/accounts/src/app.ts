@@ -32,6 +32,16 @@ import { createNotificationIngestRouter } from "./notificationIngestRoutes.js";
 import { createRateLimitStore } from "./communityRateLimit.js";
 import { requireServiceCredential } from "./requireServiceCredential.js";
 
+/**
+ * Superfície comunitária da spec 090: fora do bucket de autenticação do SSO
+ * (requisito 12b). Cobre as rotas por credencial de serviço e as leituras do
+ * titular por cookie. Testar por prefixo, e não por lista de rotas, faz rota
+ * comunitária nova nascer isolada sem depender de alguém lembrar disto.
+ */
+function isCommunitySurface(path: string): boolean {
+  return path.startsWith("/internal/v1/") || path.startsWith("/api/v1/community/");
+}
+
 const avatarMaxBytes = 2 * 1024 * 1024;
 const avatarUploadTimeoutMs = 15_000;
 /**
@@ -214,13 +224,21 @@ export function createApp(env: AccountsEnv, db: Kysely<Database>): express.Expre
   // O `skip` é por prefixo e não por lista de rotas: rota comunitária nova
   // nasce fora do bucket de autenticação por construção, sem depender de alguém
   // lembrar de acrescentá-la aqui.
+  //
+  // `/api/v1/community/*` entra no mesmo skip: são as leituras do titular
+  // (T4.23/T4.25), que rodam por cookie SSO e não por credencial de serviço.
+  // Sem isso, a UI consultando as próprias denúncias gastava o orçamento de
+  // `/login`, `/me` e `/refresh` — o mesmo defeito de 12b que o prefixo interno
+  // já corrigira, reintroduzido por uma superfície nova (achado de review,
+  // PR #258). O risco é maior aqui: vários usuários atrás do mesmo IP somam no
+  // contador e derrubariam o SSO uns dos outros.
   app.use(
     rateLimit({
       windowMs: 15 * 60 * 1000,
       max: 200,
       standardHeaders: true,
       legacyHeaders: false,
-      skip: (req) => req.path.startsWith("/internal/v1/"),
+      skip: (req) => isCommunitySurface(req.path),
     }),
   );
 

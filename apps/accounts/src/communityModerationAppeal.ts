@@ -75,6 +75,131 @@ export type FileAppealResult =
   | { ok: true; appeal: FiledAppeal; replayed: boolean }
   | { ok: false; code: AppealRejectionCode; status: number };
 
+export interface OwnAppealDetail {
+  id: string;
+  case_id: string;
+  status: string;
+  submitted_at: string;
+  appeal_deadline_at: string;
+  decision: "upheld" | "reversed" | null;
+  decided_at: string | null;
+}
+
+/** Recurso do titular, sem justificativa interna nem identidade do moderador. */
+export async function readOwnAppeal(
+  db: Kysely<Database>,
+  userId: string,
+  appealId: string,
+): Promise<OwnAppealDetail | null> {
+  return await db.transaction().execute(async (trx) => {
+    const actorId = await resolveActorId(trx, userId);
+    if (actorId === null) return null;
+
+    const row = await trx
+      .selectFrom("community_comment_appeal")
+      .select([
+        "id",
+        "case_id",
+        "status",
+        "submitted_at",
+        "appeal_deadline_at",
+        "decided_at",
+      ])
+      .where("id", "=", appealId)
+      .where("appellant_actor_id", "=", actorId)
+      .executeTakeFirst();
+
+    if (!row) return null;
+    return {
+      id: row.id,
+      case_id: row.case_id,
+      status: row.status,
+      submitted_at: row.submitted_at.toISOString(),
+      appeal_deadline_at: row.appeal_deadline_at.toISOString(),
+      decision:
+        row.status === "upheld" || row.status === "reversed" ? row.status : null,
+      decided_at: row.decided_at?.toISOString() ?? null,
+    };
+  });
+}
+
+export interface ModeratorAppealDetail extends OwnAppealDetail {
+  comment_version_id: string;
+  reason: string;
+  /** `null` quando o caso foi fechado sem ator registrado (fechamento por sistema). */
+  original_decider_actor_id: string | null;
+  /** `null` quando o moderador ainda não tem ator comunitário — ver `readAppealForModerator`. */
+  current_decider_actor_id: string | null;
+}
+
+/**
+ * Detalhe interno do recurso com os dois lados da comparação de T4.25.
+ * `current_decider_actor_id` é derivado do `X-Acting-User-Id` já validado pelo
+ * guard de papel; nenhum identificador declarado pelo payload entra na consulta.
+ */
+export async function readAppealForModerator(
+  db: Kysely<Database>,
+  input: {
+    realm: string;
+    sourceApp: string;
+    appealId: string;
+    moderatorUserId: string;
+  },
+): Promise<ModeratorAppealDetail | null> {
+  return await db.transaction().execute(async (trx) => {
+    // Ausência de ator **não** vira ausência de recurso: um moderador global
+    // recém-promovido que nunca comentou não tem linha em `community_actor`, e
+    // encerrar aqui devolvia `404` para um recurso existente — o workspace
+    // ficava inacessível justamente para quem precisa abri-lo (achado de
+    // review, PR #258). O ator só é necessário para a comparação "mesmo
+    // decisor"; sem ele a comparação é indeterminada, não falsa, e a leitura
+    // segue. Não usar `resolveOrCreateActor`: leitura não cria estado.
+    const currentDeciderActorId = await resolveActorId(trx, input.moderatorUserId);
+
+    const row = await trx
+      .selectFrom("community_comment_appeal as a")
+      .innerJoin("community_moderation_case as mc", (join) =>
+        join
+          .onRef("mc.realm", "=", "a.realm")
+          .onRef("mc.source_app", "=", "a.source_app")
+          .onRef("mc.id", "=", "a.case_id"),
+      )
+      .select([
+        "a.id",
+        "a.case_id",
+        "a.comment_version_id",
+        "a.reason",
+        "a.status",
+        "a.submitted_at",
+        "a.appeal_deadline_at",
+        "a.decided_at",
+        "mc.closed_by_actor_id as original_decider_actor_id",
+      ])
+      .where("a.id", "=", input.appealId)
+      .where("a.realm", "=", input.realm)
+      .where("a.source_app", "=", input.sourceApp)
+      .executeTakeFirst();
+
+    // Pelo mesmo motivo, caso fechado sem `closed_by_actor_id` (fechamento por
+    // sistema) devolve o recurso com o decisor original nulo, em vez de sumir.
+    if (!row) return null;
+    return {
+      id: row.id,
+      case_id: row.case_id,
+      comment_version_id: row.comment_version_id,
+      reason: row.reason,
+      status: row.status,
+      submitted_at: row.submitted_at.toISOString(),
+      appeal_deadline_at: row.appeal_deadline_at.toISOString(),
+      decision:
+        row.status === "upheld" || row.status === "reversed" ? row.status : null,
+      decided_at: row.decided_at?.toISOString() ?? null,
+      original_decider_actor_id: row.original_decider_actor_id,
+      current_decider_actor_id: currentDeciderActorId,
+    };
+  });
+}
+
 const filedAppealSchema = z
   .object({
     id: z.string(),

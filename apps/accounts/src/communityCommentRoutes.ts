@@ -166,7 +166,7 @@ export function createCommunityCommentRoutes(
   router.post(
     "/internal/v1/comments",
     requireServiceCredential(db, { scope: "comment.write" }),
-    communityRateLimit(rateLimitStore, "write"),
+    communityRateLimit(rateLimitStore, "write", { classifyNewAccountWith: db }),
     (req, res, next) => {
       void handleCreateComment(db, req, res, null).catch(next);
     },
@@ -175,7 +175,7 @@ export function createCommunityCommentRoutes(
   router.post(
     "/internal/v1/comments/:id/replies",
     requireServiceCredential(db, { scope: "comment.write" }),
-    communityRateLimit(rateLimitStore, "write"),
+    communityRateLimit(rateLimitStore, "write", { classifyNewAccountWith: db }),
     (req, res, next) => {
       void handleCreateComment(db, req, res, req.params.id).catch(next);
     },

@@ -4,9 +4,9 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **431 operações**.
+Total: **435 operações**.
 
-## accounts (49)
+## accounts (53)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -23,6 +23,8 @@ Total: **431 operações**.
 | POST | `/api/auth/logout` | cross-app | user | active | mesas-frontend, glossario-frontend, links-frontend, site-admin | Cria ou executa api auth logout |
 | GET | `/api/auth/me` | cross-app | user | active | mesas-frontend, glossario-frontend, links-frontend, site-admin | Consulta api auth me |
 | GET | `/api/auth/refresh` | cross-app | user | active | mesas-frontend, glossario-frontend, links-frontend, site-admin | Consulta api auth refresh |
+| GET | `/api/v1/community/appeals/{id}` | self-service | user | active | — | Consulta api v1 community appeals id |
+| GET | `/api/v1/community/reports` | self-service | user | active | — | Consulta api v1 community reports |
 | GET | `/api/v1/notification-event-types` | public | none | active | — | Consulta api v1 notification-event-types |
 | GET | `/api/v1/notification-preferences` | public | none | active | — | Consulta api v1 notification-preferences |
 | PUT | `/api/v1/notification-preferences/{event_type}` | public | user | active | — | Substitui api v1 notification-preferences event type |
@@ -35,29 +37,31 @@ Total: **431 operações**.
 | GET | `/conta/notificacoes` | public | none | active | — | Consulta conta notificacoes |
 | GET | `/health` | internal | none | active | — | Consulta health |
 | GET | `/internal/users/{id}` | public | none | active | — | Consulta internal users id |
-| GET | `/internal/v1/comments` | public | none | active | — | Consulta internal v1 comments |
-| POST | `/internal/v1/comments` | public | user | active | — | Cria ou executa internal v1 comments |
-| DELETE | `/internal/v1/comments/{id}` | public | user | active | — | Remove internal v1 comments id |
-| PATCH | `/internal/v1/comments/{id}` | public | user | active | — | Atualiza internal v1 comments id |
-| POST | `/internal/v1/comments/{id}/removal` | public | user | active | — | Cria ou executa internal v1 comments id removal |
-| POST | `/internal/v1/comments/{id}/replies` | public | user | active | — | Cria ou executa internal v1 comments id replies |
-| POST | `/internal/v1/comments/{id}/reports` | public | user | active | — | Cria ou executa internal v1 comments id reports |
-| POST | `/internal/v1/comments/{id}/restore` | public | user | active | — | Cria ou executa internal v1 comments id restore |
-| GET | `/internal/v1/comments/{id}/versions` | public | none | active | — | Consulta internal v1 comments id versions |
-| PUT | `/internal/v1/comments/{id}/vote` | public | user | active | — | Substitui internal v1 comments id vote |
-| GET | `/internal/v1/comments/moderation-log` | public | none | active | — | Consulta internal v1 comments moderation-log |
-| GET | `/internal/v1/comments/moderation-queue` | public | none | active | — | Consulta internal v1 comments moderation-queue |
-| POST | `/internal/v1/moderation/appeals/{id}/resolution` | public | user | active | — | Cria ou executa internal v1 moderation appeals id resolution |
-| GET | `/internal/v1/moderation/cases/{id}` | public | none | active | — | Consulta internal v1 moderation cases id |
-| PATCH | `/internal/v1/moderation/cases/{id}/priority` | public | user | active | — | Atualiza internal v1 moderation cases id priority |
-| POST | `/internal/v1/moderation/cases/{id}/reopen` | public | user | active | — | Cria ou executa internal v1 moderation cases id reopen |
-| POST | `/internal/v1/moderation/cases/{id}/resolution` | public | user | active | — | Cria ou executa internal v1 moderation cases id resolution |
-| POST | `/internal/v1/moderation/decisions/{id}/appeals` | public | user | active | — | Cria ou executa internal v1 moderation decisions id appeals |
-| GET | `/internal/v1/moderation/sanctions` | public | none | active | — | Consulta internal v1 moderation sanctions |
-| POST | `/internal/v1/moderation/sanctions` | public | user | active | — | Cria ou executa internal v1 moderation sanctions |
-| DELETE | `/internal/v1/moderation/sanctions/{id}` | public | user | active | — | Remove internal v1 moderation sanctions id |
-| POST | `/internal/v1/notifications/events` | public | user | active | — | Cria ou executa internal v1 notifications events |
-| DELETE | `/internal/v1/reports/{id}` | public | user | active | — | Remove internal v1 reports id |
+| GET | `/internal/v1/comments` | internal | service | active | — | Consulta internal v1 comments |
+| POST | `/internal/v1/comments` | internal | service | active | — | Cria ou executa internal v1 comments |
+| DELETE | `/internal/v1/comments/{id}` | internal | service | active | — | Remove internal v1 comments id |
+| PATCH | `/internal/v1/comments/{id}` | internal | service | active | — | Atualiza internal v1 comments id |
+| POST | `/internal/v1/comments/{id}/removal` | admin | admin | active | — | Cria ou executa internal v1 comments id removal |
+| POST | `/internal/v1/comments/{id}/replies` | internal | service | active | — | Cria ou executa internal v1 comments id replies |
+| POST | `/internal/v1/comments/{id}/reports` | internal | service | active | — | Cria ou executa internal v1 comments id reports |
+| POST | `/internal/v1/comments/{id}/restore` | admin | admin | active | — | Cria ou executa internal v1 comments id restore |
+| GET | `/internal/v1/comments/{id}/versions` | admin | admin | active | — | Consulta internal v1 comments id versions |
+| PUT | `/internal/v1/comments/{id}/vote` | internal | service | active | — | Substitui internal v1 comments id vote |
+| GET | `/internal/v1/comments/moderation-log` | admin | admin | active | — | Consulta internal v1 comments moderation-log |
+| GET | `/internal/v1/comments/moderation-queue` | admin | admin | active | — | Consulta internal v1 comments moderation-queue |
+| GET | `/internal/v1/moderation/appeals/{id}` | admin | admin | active | — | Consulta internal v1 moderation appeals id |
+| POST | `/internal/v1/moderation/appeals/{id}/resolution` | admin | admin | active | — | Cria ou executa internal v1 moderation appeals id resolution |
+| GET | `/internal/v1/moderation/cases/{id}` | admin | admin | active | — | Consulta internal v1 moderation cases id |
+| PATCH | `/internal/v1/moderation/cases/{id}/priority` | admin | admin | active | — | Atualiza internal v1 moderation cases id priority |
+| POST | `/internal/v1/moderation/cases/{id}/reopen` | admin | admin | active | — | Cria ou executa internal v1 moderation cases id reopen |
+| POST | `/internal/v1/moderation/cases/{id}/resolution` | admin | admin | active | — | Cria ou executa internal v1 moderation cases id resolution |
+| POST | `/internal/v1/moderation/decisions/{id}/appeals` | internal | service | active | — | Cria ou executa internal v1 moderation decisions id appeals |
+| GET | `/internal/v1/moderation/sanctions` | admin | admin | active | — | Consulta internal v1 moderation sanctions |
+| POST | `/internal/v1/moderation/sanctions` | admin | admin | active | — | Cria ou executa internal v1 moderation sanctions |
+| DELETE | `/internal/v1/moderation/sanctions/{id}` | admin | admin | active | — | Remove internal v1 moderation sanctions id |
+| POST | `/internal/v1/notifications/events` | internal | service | active | — | Cria ou executa internal v1 notifications events |
+| GET | `/internal/v1/report-reasons` | internal | service | active | — | Consulta internal v1 report-reasons |
+| DELETE | `/internal/v1/reports/{id}` | internal | service | active | — | Remove internal v1 reports id |
 | GET | `/login` | public-page | none | active | — | Consulta login |
 
 ## downloads (82)

@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from "express";
+import { requireAuth, type Session } from "@artificio/auth";
 import type { Kysely } from "kysely";
 import { z } from "zod";
 import type { Database } from "./db.js";
@@ -6,6 +7,8 @@ import {
   DETAILS_MAX_LENGTH,
   REPORT_REASON_CODES,
   createReport,
+  listActiveReportReasons,
+  listOwnReports,
   withdrawReport,
 } from "./communityCommentReport.js";
 import {
@@ -25,12 +28,15 @@ import {
   fileAppeal,
   liftSanction,
   listSanctions,
+  readAppealForModerator,
+  readOwnAppeal,
 } from "./communityModerationAppeal.js";
 import {
   readCaseDetail,
   readCommentVersions,
   readModerationLog,
   readModerationQueue,
+  readNewAccountCommentCandidates,
 } from "./communityModerationQueue.js";
 import {
   requireServiceCredential,
@@ -45,6 +51,7 @@ import {
   createRateLimitStore,
   type CommunityRateLimitStore,
 } from "./communityRateLimit.js";
+import { isCommunityNewAccountPolicyEnabled } from "./communityNewAccount.js";
 
 /**
  * T2.17-T2.26 — superfície HTTP de denúncia, caso, recurso e sanção
@@ -103,6 +110,16 @@ function readActingUser(req: Request, res: Response): string | null {
     return null;
   }
   return actingUserId;
+}
+
+function readSessionUser(req: Request, res: Response): string | null {
+  const session = (req as { session?: Session }).session;
+  const userId = session?.user?.id;
+  if (!userId) {
+    fail(req, res, 401, "unauthorized");
+    return null;
+  }
+  return userId;
 }
 
 function readIdempotencyKey(req: Request, res: Response): string | null {
@@ -225,7 +242,26 @@ export function createCommunityModerationRoutes(
   // de rota. O parâmetro é opcional para o roteador funcionar isolado em teste.
   const rateLimitStore = sharedStore ?? createRateLimitStore();
 
+  // --- Leituras privadas do titular (T4.23/T4.25). Cookie SSO, nunca serviço. ---
+
+  router.get("/api/v1/community/reports", requireAuth, (req, res, next) => {
+    void handleOwnReports(db, req, res).catch(next);
+  });
+
+  router.get("/api/v1/community/appeals/:id", requireAuth, (req, res, next) => {
+    void handleOwnAppeal(db, req, res).catch(next);
+  });
+
   // --- Denúncia (§9). Não exige papel de moderador: qualquer conta denuncia. ---
+
+  router.get(
+    "/internal/v1/report-reasons",
+    requireServiceCredential(db, { scope: "comment.read" }),
+    communityRateLimit(rateLimitStore, "read"),
+    (req, res, next) => {
+      void handleReportReasons(db, req, res).catch(next);
+    },
+  );
 
   router.post(
     "/internal/v1/comments/:id/reports",
@@ -296,6 +332,16 @@ export function createCommunityModerationRoutes(
     communityRateLimit(rateLimitStore, "read"),
     (req, res, next) => {
       void handleCaseDetail(db, req, res).catch(next);
+    },
+  );
+
+  router.get(
+    "/internal/v1/moderation/appeals/:id",
+    requireServiceCredential(db, { scope: "moderation.write" }),
+    requireModeratorRole(db),
+    communityRateLimit(rateLimitStore, "read"),
+    (req, res, next) => {
+      void handleModeratorAppeal(db, req, res).catch(next);
     },
   );
 
@@ -398,6 +444,65 @@ function credentialOf(req: Request): ServiceAuthenticatedRequest["serviceCredent
 
 function moderatorOf(req: Request): string | undefined {
   return (req as ModeratorAuthenticatedRequest).moderatorUserId;
+}
+
+async function handleOwnReports(
+  db: Kysely<Database>,
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const userId = readSessionUser(req, res);
+  if (userId === null) return;
+
+  // A coleção é do titular inteiro. `realm`/`source_app` não são aceitos como
+  // filtro: nas rotas internas eles vêm da credencial; aqui cada linha própria os
+  // informa sem deixar o navegador escolher uma fronteira de serviço.
+  if (Object.keys(req.query).length > 0) {
+    fail(req, res, 400, "invalid_query");
+    return;
+  }
+
+  const reports = await listOwnReports(db, userId);
+  res.set("Cache-Control", "private, no-store");
+  res.status(200).json({ reports });
+}
+
+async function handleOwnAppeal(
+  db: Kysely<Database>,
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const userId = readSessionUser(req, res);
+  if (userId === null) return;
+
+  if (Object.keys(req.query).length > 0) {
+    fail(req, res, 400, "invalid_query");
+    return;
+  }
+
+  const appealId = readUuidParam(req, res, "id", "appeal_not_found");
+  if (appealId === null) return;
+  const appeal = await readOwnAppeal(db, userId, appealId);
+  if (!appeal) {
+    fail(req, res, 404, "appeal_not_found");
+    return;
+  }
+
+  res.set("Cache-Control", "private, no-store");
+  res.status(200).json(appeal);
+}
+
+async function handleReportReasons(
+  db: Kysely<Database>,
+  req: Request,
+  res: Response,
+): Promise<void> {
+  if (Object.keys(req.query).length > 0) {
+    fail(req, res, 400, "invalid_query");
+    return;
+  }
+  const reasons = await listActiveReportReasons(db);
+  res.status(200).json({ reasons });
 }
 
 async function handleCreateReport(
@@ -573,7 +678,7 @@ async function handleQueue(
     return;
   }
 
-  const items = await readModerationQueue(db, {
+  const filters = {
     // `realm` e `source_app` saem da credencial (requisito 27a): beta nunca
     // aparece misturado com produção, e um módulo nunca vê a fila de outro.
     realm: credential.realm,
@@ -588,9 +693,19 @@ async function handleQueue(
             id: query.data.cursor_id,
           }
         : undefined,
-  });
+  };
 
-  res.status(200).json({ items });
+  const [items, newAccountComments] = await Promise.all([
+    readModerationQueue(db, filters),
+    // Candidato não possui estado de caso. Um filtro explícito por fechados
+    // pede apenas casos encerrados e, portanto, não inclui esta coleção.
+    query.data.status === "closed" ||
+    !isCommunityNewAccountPolicyEnabled(credential.realm)
+      ? Promise.resolve([])
+      : readNewAccountCommentCandidates(db, filters),
+  ]);
+
+  res.status(200).json({ items, new_account_comments: newAccountComments });
 }
 
 async function handleLog(
@@ -695,6 +810,39 @@ async function handleCaseDetail(
   }
 
   res.status(200).json(detail);
+}
+
+async function handleModeratorAppeal(
+  db: Kysely<Database>,
+  req: Request,
+  res: Response,
+): Promise<void> {
+  const credential = credentialOf(req);
+  const moderatorUserId = moderatorOf(req);
+  if (!credential || !moderatorUserId) {
+    fail(req, res, 401, "unauthorized");
+    return;
+  }
+
+  if (Object.keys(req.query).length > 0) {
+    fail(req, res, 400, "invalid_query");
+    return;
+  }
+
+  const appealId = readUuidParam(req, res, "id", "appeal_not_found");
+  if (appealId === null) return;
+  const appeal = await readAppealForModerator(db, {
+    realm: credential.realm,
+    sourceApp: credential.sourceApp,
+    appealId,
+    moderatorUserId,
+  });
+  if (!appeal) {
+    fail(req, res, 404, "appeal_not_found");
+    return;
+  }
+
+  res.status(200).json(appeal);
 }
 
 async function handleListSanctions(

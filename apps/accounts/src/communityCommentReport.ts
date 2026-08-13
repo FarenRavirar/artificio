@@ -137,6 +137,107 @@ export type CreateReportResult =
   | { ok: true; report: CreatedReport; replayed: boolean }
   | { ok: false; code: ReportRejectionCode; status: number };
 
+export interface OwnReport {
+  id: string;
+  realm: string;
+  source_app: string;
+  comment_id: string;
+  reason_code: string;
+  state: string;
+  result: "action_taken" | "not_upheld" | "no_determination" | null;
+  can_withdraw: boolean;
+  created_at: string;
+}
+
+/**
+ * Estado interno da denúncia → resultado exposto ao denunciante.
+ *
+ * Tabela e não cadeia de condições: a correspondência é auditável de relance, e
+ * estado ausente daqui vira `null` por construção. `active` e qualquer estado
+ * novo caem no `null` de propósito — enquanto o caso não fecha, o denunciante
+ * não recebe veredito.
+ */
+const OWN_REPORT_RESULT: Record<string, OwnReport["result"]> = {
+  upheld: "action_taken",
+  dismissed: "not_upheld",
+  no_determination: "no_determination",
+};
+
+/**
+ * Leitura privada mínima das denúncias do titular (T4.23, decisão 44).
+ *
+ * Resolve o ator a partir da conta da sessão e filtra por ele no SQL. Não retorna
+ * detalhes livres, identidade de outro denunciante, quantidade do caso nem nota
+ * interna. `can_withdraw` incorpora o lock do auto-hide; olhar apenas `state`
+ * faria a UI oferecer uma retirada que o `DELETE` recusaria com `report_locked`.
+ */
+export async function listOwnReports(
+  db: Kysely<Database>,
+  userId: string,
+): Promise<OwnReport[]> {
+  return await db.transaction().execute(async (trx) => {
+    const actorId = await resolveActorId(trx, userId);
+    if (actorId === null) return [];
+
+    const rows = await trx
+      .selectFrom("community_comment_report as r")
+      .innerJoin("community_comment as c", (join) =>
+        join
+          .onRef("c.realm", "=", "r.realm")
+          .onRef("c.source_app", "=", "r.source_app")
+          .onRef("c.id", "=", "r.comment_id"),
+      )
+      .select([
+        "r.id",
+        "r.realm",
+        "r.source_app",
+        "r.comment_id",
+        "r.reason_code",
+        "r.state",
+        "r.created_at",
+        "c.visibility_state as comment_visibility_state",
+      ])
+      .where("r.reporter_actor_id", "=", actorId)
+      .orderBy("r.created_at", "desc")
+      .orderBy("r.id", "desc")
+      .execute();
+
+    return rows.map((row) => ({
+      id: row.id,
+      realm: row.realm,
+      source_app: row.source_app,
+      comment_id: row.comment_id,
+      reason_code: row.reason_code,
+      state: row.state,
+      result: OWN_REPORT_RESULT[row.state] ?? null,
+      can_withdraw:
+        row.state === "active" && row.comment_visibility_state !== "pending_review_hidden",
+      created_at: row.created_at.toISOString(),
+    }));
+  });
+}
+
+export interface PublicReportReason {
+  code: string;
+  label: string;
+  priority: number;
+  details_policy: string;
+}
+
+/** Catálogo canônico ativo; `code` é a chave enviada no POST de denúncia. */
+export async function listActiveReportReasons(
+  db: Kysely<Database>,
+): Promise<PublicReportReason[]> {
+  return await db
+    .selectFrom("community_report_reason")
+    .select(["code", "label", "priority", "details_policy"])
+    .where("target_type", "=", "comment")
+    .where("active", "=", true)
+    .orderBy("priority", "asc")
+    .orderBy("code", "asc")
+    .execute();
+}
+
 /**
  * Forma de `response_body` no replay. `jsonb` volta do banco como `unknown`
  * (`AGENTS.md` §Regras Gerais de Código), e um `as` aqui serviria ao consumidor

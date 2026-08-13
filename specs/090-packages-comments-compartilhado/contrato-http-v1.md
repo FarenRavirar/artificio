@@ -259,7 +259,7 @@ verificado contra `accounts.users`. Papel insuficiente → `403`/`forbidden_role
 |---|---|
 | `POST /internal/v1/comments/:id/removal` | tombstone moderador; body `{ reason }` ≤500; auditoria na mesma transação; notifica o autor |
 | `POST /internal/v1/comments/:id/restore` | limpa `removed_at`/`removed_by`/`removed_reason`; registra quem restaurou; notifica o autor |
-| `GET /internal/v1/comments/moderation-queue` | fila agregada por caso; filtro por estado e prioridade (`0..2`); cursor. `realm` e `source_app` saem da **credencial** — `?source_app=` diferente do dela é `403`/`forbidden_source_app` |
+| `GET /internal/v1/comments/moderation-queue` | fila agregada por caso em `items`; filtro por estado e prioridade (`0..2`); cursor. Acrescenta `new_account_comments` com candidatos sem caso/denúncia, sem duplicar item já ligado a caso. `realm` e `source_app` saem da **credencial** — `?source_app=` diferente do dela é `403`/`forbidden_source_app` |
 | `GET /internal/v1/comments/moderation-log` | histórico de ações; cursor |
 | `GET /internal/v1/comments/:id/versions` | versão denunciada, versão atual e diff; **restrito à moderação** |
 
@@ -605,8 +605,15 @@ Buckets **independentes** por camada, identidade e ação. Nenhum consome a cota
 - **Todos** os buckets aplicáveis precisam liberar. Não existe chave composta IP+usuário.
 - **IP bruto não entra** em schema, payload interno nem auditoria comunitária. Na fachada, a
   chave existe somente pelo TTL do bucket.
-- Conta nova recebe limite de escrita mais estreito e entra na fila para revisão — **não é
-  bloqueio de publicação** (requisito 27e).
+- Conta nova = `users.created_at > now() - 7 dias` **OU** menos de 3 comentários
+  do ator. O predicado é derivado no request, sem tabela nova. Ela recebe 10
+  criações/respostas por 15 minutos na dimensão de usuário (conta estabelecida:
+  30); a dimensão da credencial permanece igual. Seus comentários entram em
+  `new_account_comments` na fila, sem denúncia/caso artificial e sem duplicar os
+  já ligados a caso. **Não é bloqueio de publicação** (requisito 27e).
+- Ativação inicial somente quando a credencial autenticada fixa `realm=beta`;
+  credencial de produção conserva o comportamento anterior. Não há flag, query,
+  corpo ou escopo novo capaz de ligar a política.
 - Valores são configuração operacional, calibrada pela medição do Cloudflare/trusted proxy
   (T2.10). A medição **não bloqueia** schema nem handler; se falhar, corrige-se o ingress.
 

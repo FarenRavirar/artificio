@@ -536,6 +536,12 @@ contagem de comentários do autor), **sem tabela nova**: conta nova entra na fil
 para revisão e tem limite de escrita mais apertado no rate limiter de escrita
 (requisito 12b). Não é bloqueio de publicação — é priorização de revisão.
 
+**Critério aprovado pelo mantenedor em 2026-08-12:** a conta permanece nova
+enquanto tiver **menos de 7 dias OU menos de 3 comentários**. Portanto, sai do
+regime somente depois de cumprir as duas condições: ao menos 7 dias e ao menos 3
+comentários. A regra é calculada no momento da escrita; não altera peso de voto,
+não oculta conteúdo e não cria estado persistido próprio.
+
 27f. **Fora de escopo, decisão do mantenedor:** shadow ban (esconder conteúdo
 sem avisar o autor contradiz o compromisso de transparência da plataforma e
 quebra a confiança quando descoberto) e moderação automática por IA (custo e

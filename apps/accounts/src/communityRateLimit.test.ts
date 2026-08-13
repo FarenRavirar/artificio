@@ -4,10 +4,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { hash } from "@node-rs/argon2";
 import { createApp } from "./app.js";
 import { createComment } from "./communityCommentWrite.js";
+import { readCommunityAccountStatus } from "./communityNewAccount.js";
 
 vi.mock("./communityCommentWrite.js", () => ({ createComment: vi.fn() }));
+vi.mock("./communityNewAccount.js", async (original) => {
+  const real = await original<typeof import("./communityNewAccount.js")>();
+  return { ...real, readCommunityAccountStatus: vi.fn() };
+});
 
 const createCommentMock = vi.mocked(createComment);
+const readCommunityAccountStatusMock = vi.mocked(readCommunityAccountStatus);
 
 /**
  * T2.10 — buckets independentes (`spec.md` 12b; decisões 50, 54;
@@ -104,6 +110,12 @@ function post(app: Express, actingUser = ACTING_USER, chave = "chave-de-teste-00
 
 beforeEach(() => {
   vi.clearAllMocks();
+  readCommunityAccountStatusMock.mockResolvedValue({
+    isNew: false,
+    accountIsYoung: false,
+    commentCountIsLow: false,
+    commentCount: 3,
+  });
   createCommentMock.mockResolvedValue({
     ok: true,
     comment: {
@@ -119,6 +131,62 @@ beforeEach(() => {
 });
 
 describe("o orçamento é por usuário, dentro do bucket da ação", () => {
+  it("reduz criação/resposta de conta nova para 10 por 15 minutos", async () => {
+    readCommunityAccountStatusMock.mockResolvedValue({
+      isNew: true,
+      accountIsYoung: true,
+      commentCountIsLow: true,
+      commentCount: 0,
+    });
+    const app = createApp(
+      env,
+      fakeDb(await credentialRow({ realms: ["beta"] })),
+    ) as Express;
+
+    for (let i = 0; i < 10; i += 1) expect((await post(app)).status).toBe(201);
+    expect((await post(app)).status).toBe(429);
+    expect(createCommentMock).toHaveBeenCalledTimes(10);
+  });
+
+  it("mantém o orçamento estabelecido em prod durante o canary beta", async () => {
+    readCommunityAccountStatusMock.mockResolvedValue({
+      isNew: true,
+      accountIsYoung: true,
+      commentCountIsLow: true,
+      commentCount: 0,
+    });
+    const app = createApp(env, fakeDb(await credentialRow())) as Express;
+
+    for (let i = 0; i < 10; i += 1) expect((await post(app)).status).toBe(201);
+    expect((await post(app)).status).toBe(201);
+    expect(readCommunityAccountStatusMock).not.toHaveBeenCalled();
+  });
+
+  it("requisição já recusada pelo bucket não consulta o banco", async () => {
+    // A classificação só **baixa** o teto, então quem já estourou o limite
+    // permissivo seria recusado de qualquer forma. Consultar antes de checar
+    // isso dava uma query por requisição rejeitada — carga que crescia
+    // justamente sob rajada (achado de review, PR #258).
+    readCommunityAccountStatusMock.mockResolvedValue({
+      isNew: false,
+      accountIsYoung: false,
+      commentCountIsLow: false,
+      commentCount: 42,
+    });
+    const app = createApp(
+      env,
+      fakeDb(await credentialRow({ realms: ["beta"] })),
+    ) as Express;
+
+    for (let i = 0; i < LIMITE_ESCRITA_USUARIO; i += 1) {
+      expect((await post(app)).status).toBe(201);
+    }
+    const consultasAteEstourar = readCommunityAccountStatusMock.mock.calls.length;
+
+    expect((await post(app)).status).toBe(429);
+    expect(readCommunityAccountStatusMock.mock.calls.length).toBe(consultasAteEstourar);
+  });
+
   it("estoura no limite do bucket de escrita e devolve 429", async () => {
     const app = createApp(env, fakeDb(await credentialRow())) as Express;
 
@@ -300,6 +368,29 @@ describe("a tentativa não autenticada tem teto (achado de review, PR #251)", ()
 
     expect(res.status).toBe(401);
   });
+
+  it(
+    "as leituras do titular não gastam o orçamento do SSO",
+    async () => {
+      // `/api/v1/community/*` roda por cookie, não por credencial, e por isso
+      // escapava do `skip` que isolava só `/internal/v1/`: cada consulta às
+      // próprias denúncias debitava o bucket de 200 usado por `/login`, `/me` e
+      // `/refresh` (achado de review, PR #258). Com vários usuários atrás do
+      // mesmo IP, a UI derrubaria o login de todos eles.
+      const app = createApp(env, fakeDb(await credentialRow())) as Express;
+
+      for (let i = 0; i < 201; i += 1) {
+        const res = await request(app).get("/api/v1/community/reports");
+        // Sem cookie o esperado é `401` do `requireAuth`; o que não pode
+        // aparecer é `429`, que indicaria consumo do bucket do SSO.
+        expect(res.status).toBe(401);
+      }
+
+      // E o SSO segue com orçamento depois da rajada.
+      expect((await request(app).get("/api/auth/me")).status).toBe(401);
+    },
+    120_000,
+  );
 });
 
 describe("a chave da credencial contém módulo descontrolado", () => {

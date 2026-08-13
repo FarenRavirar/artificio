@@ -3,8 +3,16 @@ import {
   resolveRateLimitKeys,
   serializeRateLimitKey,
   type CommentRateBucket,
+  type RateLimitKey,
 } from "@artificio/comments";
 import type { ServiceAuthenticatedRequest } from "./requireServiceCredential.js";
+import type { Kysely } from "kysely";
+import type { Database } from "./db.js";
+import {
+  COMMUNITY_NEW_ACCOUNT_WRITE_LIMIT,
+  isCommunityNewAccountPolicyEnabled,
+  readCommunityAccountStatus,
+} from "./communityNewAccount.js";
 
 /**
  * T2.10 — buckets independentes da camada `accounts.`
@@ -82,6 +90,30 @@ const BUDGETS: Record<CommentRateBucket, { user: number; credential: number }> =
   appeal: { user: 10, credential: 200 },
 };
 
+type RateLimitBudget = (typeof BUDGETS)[CommentRateBucket];
+
+/**
+ * Teto da chave. Conta nova reduz **apenas** a dimensão de usuário: o orçamento
+ * da credencial conta o módulo inteiro e não muda por causa de um autor.
+ */
+function limitFor(key: RateLimitKey, budget: RateLimitBudget, isNewAccount: boolean): number {
+  if (key.dimension !== "user") return budget.credential;
+  return isNewAccount ? COMMUNITY_NEW_ACCOUNT_WRITE_LIMIT : budget.user;
+}
+
+/**
+ * Maior teto que a chave poderia receber, sem saber ainda se a conta é nova.
+ *
+ * Usado no pré-teste que decide se vale consultar o banco: com o teto
+ * permissivo, ninguém deixa de ser classificado por causa da otimização — só
+ * quem já estourou o limite mais generoso, e portanto seria recusado de todo
+ * jeito, pula a consulta.
+ */
+function mostPermissiveLimitFor(key: RateLimitKey, budget: RateLimitBudget): number {
+  if (key.dimension !== "user") return budget.credential;
+  return Math.max(budget.user, COMMUNITY_NEW_ACCOUNT_WRITE_LIMIT);
+}
+
 interface Counter {
   count: number;
   resetAt: number;
@@ -117,6 +149,20 @@ class MemoryCounterStore {
     // continuaria batendo sem custo e a janela nunca refletiria a rajada.
     current.count += 1;
     return current.count <= limit;
+  }
+
+  /**
+   * Leitura sem efeito: `true` se a próxima requisição caberia no orçamento.
+   *
+   * Existe para decidir se vale consultar o banco antes de gastar a chamada —
+   * `hit()` não serve porque incrementa sempre, e chamá-lo duas vezes cobraria
+   * a requisição em dobro. Não substitui `hit()`: entre o `peek()` e o `hit()`
+   * o contador pode mudar, então quem autoriza continua sendo `hit()`.
+   */
+  peek(key: string, limit: number, now: number): boolean {
+    const current = this.counters.get(key);
+    if (!current || current.resetAt <= now) return true;
+    return current.count < limit;
   }
 
   /**
@@ -185,6 +231,7 @@ function readActingUserId(req: Request): string | null {
 export function communityRateLimit(
   store: CommunityRateLimitStore,
   bucket: CommentRateBucket,
+  options?: { classifyNewAccountWith?: Kysely<Database> },
 ) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const credential = (req as ServiceAuthenticatedRequest).serviceCredential;
@@ -201,30 +248,60 @@ export function communityRateLimit(
       return;
     }
 
+    const actingUserId = readActingUserId(req);
+    const credentialRealm = credential.realm;
     const keys = resolveRateLimitKeys("accounts", bucket, {
-      userId: readActingUserId(req),
+      userId: actingUserId,
       sourceApp: credential.sourceApp,
     });
 
-    const now = Date.now();
-    const budget = BUDGETS[bucket];
+    void applyRateLimit().catch(next);
+
+    async function applyRateLimit(): Promise<void> {
+      const now = Date.now();
+      const budget = BUDGETS[bucket];
+
+      // A classificação de conta nova só serve para **baixar** o teto do bucket
+      // de usuário, então uma requisição que já estourou o teto normal seria
+      // recusada de todo jeito. Consultar o banco antes de checar isso dava a
+      // qualquer chamador em rajada uma query por requisição rejeitada — carga
+      // que cresce justamente quando o serviço está sob abuso (achado de
+      // review, PR #258).
+      //
+      // O pré-teste usa o **maior** dos dois limites e é read-only: quem
+      // passaria pelo teto permissivo ainda é classificado normalmente, e
+      // ninguém deixa de ser classificado por causa desta otimização. A decisão
+      // final continua sendo do `hit()` abaixo, com o limite já ajustado.
+      const classificationCouldMatter =
+        bucket === "write" &&
+        isCommunityNewAccountPolicyEnabled(credentialRealm) &&
+        options?.classifyNewAccountWith !== undefined &&
+        actingUserId !== null &&
+        keys.every((key) =>
+          store.peek(serializeRateLimitKey(key), mostPermissiveLimitFor(key, budget), now),
+        );
+
+      const accountStatus =
+        classificationCouldMatter && options?.classifyNewAccountWith && actingUserId
+          ? await readCommunityAccountStatus(options.classifyNewAccountWith, actingUserId)
+          : null;
 
     // **Todas** as chaves são consultadas, e todas precisam liberar (§14). O
     // laço não sai no primeiro `false`: parar cedo deixaria a segunda dimensão
     // sem contabilizar a requisição, e um atacante que estoura de propósito o
     // bucket do usuário congelaria o contador da credencial.
-    let allowed = true;
-    for (const key of keys) {
-      const limit = key.dimension === "user" ? budget.user : budget.credential;
-      if (!store.hit(serializeRateLimitKey(key), limit, now)) {
-        allowed = false;
+      let allowed = true;
+      for (const key of keys) {
+        const limit = limitFor(key, budget, accountStatus?.isNew === true);
+        if (!store.hit(serializeRateLimitKey(key), limit, now)) {
+          allowed = false;
+        }
       }
-    }
 
-    if (allowed) {
-      next();
-      return;
-    }
+      if (allowed) {
+        next();
+        return;
+      }
 
     // Formato único de erro (§13), **sem** dizer qual bucket disparou, quanto
     // resta ou qual dimensão estourou (decisão 50): esses números diriam ao
@@ -233,10 +310,11 @@ export function communityRateLimit(
     //
     // Sem `RateLimit-*` nem `Retry-After` pelo mesmo motivo — são exatamente o
     // saldo que a decisão manda não revelar.
-    const header = req.headers["x-correlation-id"];
-    const correlationId =
-      typeof header === "string" && header.length <= 128 ? header : null;
+      const header = req.headers["x-correlation-id"];
+      const correlationId =
+        typeof header === "string" && header.length <= 128 ? header : null;
 
-    res.status(429).json({ error: { code: "rate_limited", correlation_id: correlationId } });
+      res.status(429).json({ error: { code: "rate_limited", correlation_id: correlationId } });
+    }
   };
 }
