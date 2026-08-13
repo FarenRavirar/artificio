@@ -5,12 +5,12 @@
   "apps": {
     "accounts": 53,
     "downloads": 82,
-    "glossario": 49,
+    "glossario": 50,
     "links": 22,
     "mesas": 180,
     "site": 49
   },
-  "total": 435,
+  "total": 436,
   "operations": [
     {
       "app": "accounts",
@@ -2043,51 +2043,51 @@
     },
     {
       "app": "glossario",
+      "method": "DELETE",
+      "path": "/api/social/comment/{id}",
+      "summary": "Remove api social comment id",
+      "owner": "glossario",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "deleteapi_social_comment_id"
+    },
+    {
+      "app": "glossario",
       "method": "GET",
-      "path": "/api/social/{id}/comments",
-      "summary": "Consulta api social id comments",
+      "path": "/api/social/terms/{id}/comments",
+      "summary": "Consulta api social terms id comments",
       "owner": "glossario",
       "scope": "public",
       "status": "active",
       "auth": "none",
       "consumers": [],
-      "operationId": "getapi_social_id_comments"
+      "operationId": "getapi_social_terms_id_comments"
     },
     {
       "app": "glossario",
       "method": "POST",
-      "path": "/api/social/{id}/comments",
-      "summary": "Cria ou executa api social id comments",
+      "path": "/api/social/terms/{id}/comments",
+      "summary": "Cria ou executa api social terms id comments",
       "owner": "glossario",
       "scope": "public",
       "status": "active",
       "auth": "user",
       "consumers": [],
-      "operationId": "postapi_social_id_comments"
+      "operationId": "postapi_social_terms_id_comments"
     },
     {
       "app": "glossario",
       "method": "POST",
-      "path": "/api/social/{id}/vote",
-      "summary": "Cria ou executa api social id vote",
+      "path": "/api/social/terms/{id}/vote",
+      "summary": "Cria ou executa api social terms id vote",
       "owner": "glossario",
       "scope": "public",
       "status": "active",
       "auth": "user",
       "consumers": [],
-      "operationId": "postapi_social_id_vote"
-    },
-    {
-      "app": "glossario",
-      "method": "DELETE",
-      "path": "/api/social/comments/{id}",
-      "summary": "Remove api social comments id",
-      "owner": "glossario",
-      "scope": "public",
-      "status": "active",
-      "auth": "user",
-      "consumers": [],
-      "operationId": "deleteapi_social_comments_id"
+      "operationId": "postapi_social_terms_id_vote"
     },
     {
       "app": "glossario",
@@ -2140,50 +2140,38 @@
     {
       "app": "glossario",
       "method": "GET",
-      "path": "/api/systems/{systemId}/editions",
-      "summary": "Consulta api systems systemId editions",
+      "path": "/api/systems/catalog-health",
+      "summary": "Consulta api systems catalog-health",
       "owner": "glossario",
       "scope": "public",
       "status": "active",
       "auth": "none",
       "consumers": [],
-      "operationId": "getapi_systems_systemId_editions"
-    },
-    {
-      "app": "glossario",
-      "method": "POST",
-      "path": "/api/systems/{systemId}/editions",
-      "summary": "Cria ou executa api systems systemId editions",
-      "owner": "glossario",
-      "scope": "public",
-      "status": "active",
-      "auth": "user",
-      "consumers": [],
-      "operationId": "postapi_systems_systemId_editions"
+      "operationId": "getapi_systems_catalog_health"
     },
     {
       "app": "glossario",
       "method": "DELETE",
-      "path": "/api/systems/editions/{id}",
-      "summary": "Remove api systems editions id",
+      "path": "/api/systems/edition/{id}",
+      "summary": "Remove api systems edition id",
       "owner": "glossario",
       "scope": "admin",
       "status": "active",
       "auth": "admin",
       "consumers": [],
-      "operationId": "deleteapi_systems_editions_id"
+      "operationId": "deleteapi_systems_edition_id"
     },
     {
       "app": "glossario",
       "method": "PUT",
-      "path": "/api/systems/editions/{id}",
-      "summary": "Substitui api systems editions id",
+      "path": "/api/systems/edition/{id}",
+      "summary": "Substitui api systems edition id",
       "owner": "glossario",
       "scope": "admin",
       "status": "active",
       "auth": "admin",
       "consumers": [],
-      "operationId": "putapi_systems_editions_id"
+      "operationId": "putapi_systems_edition_id"
     },
     {
       "app": "glossario",
@@ -2196,6 +2184,30 @@
       "auth": "none",
       "consumers": [],
       "operationId": "getapi_systems_health"
+    },
+    {
+      "app": "glossario",
+      "method": "GET",
+      "path": "/api/systems/system/{systemId}/editions",
+      "summary": "Consulta api systems system systemId editions",
+      "owner": "glossario",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_systems_system_systemId_editions"
+    },
+    {
+      "app": "glossario",
+      "method": "POST",
+      "path": "/api/systems/system/{systemId}/editions",
+      "summary": "Cria ou executa api systems system systemId editions",
+      "owner": "glossario",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_systems_system_systemId_editions"
     },
     {
       "app": "glossario",
@@ -3736,90 +3748,6 @@
     {
       "app": "mesas",
       "method": "GET",
-      "path": "/api/v1/gm/{slug}",
-      "summary": "Consulta api v1 gm slug",
-      "owner": "mesas",
-      "scope": "public",
-      "status": "active",
-      "auth": "user",
-      "consumers": [],
-      "operationId": "getapi_v1_gm_slug"
-    },
-    {
-      "app": "mesas",
-      "method": "POST",
-      "path": "/api/v1/gm/{slug}/contact",
-      "summary": "Cria ou executa api v1 gm slug contact",
-      "owner": "mesas",
-      "scope": "telemetry",
-      "status": "active",
-      "auth": "none",
-      "consumers": [],
-      "operationId": "postapi_v1_gm_slug_contact"
-    },
-    {
-      "app": "mesas",
-      "method": "POST",
-      "path": "/api/v1/gm/{slug}/contact-click",
-      "summary": "Cria ou executa api v1 gm slug contact-click",
-      "owner": "mesas",
-      "scope": "public",
-      "status": "active",
-      "auth": "user",
-      "consumers": [],
-      "operationId": "postapi_v1_gm_slug_contact_click"
-    },
-    {
-      "app": "mesas",
-      "method": "GET",
-      "path": "/api/v1/gm/{slug}/insights",
-      "summary": "Consulta api v1 gm slug insights",
-      "owner": "mesas",
-      "scope": "public",
-      "status": "active",
-      "auth": "user",
-      "consumers": [],
-      "operationId": "getapi_v1_gm_slug_insights"
-    },
-    {
-      "app": "mesas",
-      "method": "GET",
-      "path": "/api/v1/gm/{slug}/reviews",
-      "summary": "Consulta api v1 gm slug reviews",
-      "owner": "mesas",
-      "scope": "public",
-      "status": "active",
-      "auth": "user",
-      "consumers": [],
-      "operationId": "getapi_v1_gm_slug_reviews"
-    },
-    {
-      "app": "mesas",
-      "method": "POST",
-      "path": "/api/v1/gm/{slug}/reviews",
-      "summary": "Cria ou executa api v1 gm slug reviews",
-      "owner": "mesas",
-      "scope": "public",
-      "status": "active",
-      "auth": "user",
-      "consumers": [],
-      "operationId": "postapi_v1_gm_slug_reviews"
-    },
-    {
-      "app": "mesas",
-      "method": "POST",
-      "path": "/api/v1/gm/{slug}/view",
-      "summary": "Cria ou executa api v1 gm slug view",
-      "owner": "mesas",
-      "scope": "telemetry",
-      "status": "active",
-      "auth": "none",
-      "consumers": [],
-      "operationId": "postapi_v1_gm_slug_view"
-    },
-    {
-      "app": "mesas",
-      "method": "GET",
       "path": "/api/v1/gm/insights",
       "summary": "Consulta api v1 gm insights",
       "owner": "mesas",
@@ -3852,6 +3780,90 @@
       "auth": "user",
       "consumers": [],
       "operationId": "postapi_v1_gm_parse_preview"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/gm/perfis/{slug}",
+      "summary": "Consulta api v1 gm perfis slug",
+      "owner": "mesas",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "getapi_v1_gm_perfis_slug"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/gm/perfis/{slug}/contact",
+      "summary": "Cria ou executa api v1 gm perfis slug contact",
+      "owner": "mesas",
+      "scope": "telemetry",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "postapi_v1_gm_perfis_slug_contact"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/gm/perfis/{slug}/contact-click",
+      "summary": "Cria ou executa api v1 gm perfis slug contact-click",
+      "owner": "mesas",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_gm_perfis_slug_contact_click"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/gm/perfis/{slug}/insights",
+      "summary": "Consulta api v1 gm perfis slug insights",
+      "owner": "mesas",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "getapi_v1_gm_perfis_slug_insights"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/gm/perfis/{slug}/reviews",
+      "summary": "Consulta api v1 gm perfis slug reviews",
+      "owner": "mesas",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "getapi_v1_gm_perfis_slug_reviews"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/gm/perfis/{slug}/reviews",
+      "summary": "Cria ou executa api v1 gm perfis slug reviews",
+      "owner": "mesas",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_gm_perfis_slug_reviews"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/gm/perfis/{slug}/view",
+      "summary": "Cria ou executa api v1 gm perfis slug view",
+      "owner": "mesas",
+      "scope": "telemetry",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "postapi_v1_gm_perfis_slug_view"
     },
     {
       "app": "mesas",

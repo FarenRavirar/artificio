@@ -346,27 +346,39 @@ function generateReport(appDiffs: AppDiff[], baseBranch: string): string {
 }
 
 function extractLocation(change: DiffChange): { path: string; method: string } {
-  let path = '';
-  let method = '';
+  // Destino primeiro, depois origem: numa remoção o destino não existe (o
+  // openapi-diff manda `destinationSpecEntityDetails: []`), e só a origem sabe
+  // qual caminho sumiu. `normalizeEntityDetails` já converte array vazio em
+  // `undefined`, mas o `??` aqui não depende disso — `[]` é truthy, e um `||`
+  // devolveria o array vazio como se fosse um detalhe válido.
+  const details = change.destinationSpecEntityDetails?.[0] ?? change.sourceSpecEntityDetails?.[0];
+  const loc = details?.location;
+  if (!loc) return { path: '', method: '' };
 
-  // Try destination first, then source
-  const details = change.destinationSpecEntityDetails?.[0] || change.sourceSpecEntityDetails?.[0];
-  if (details?.location) {
-    // Location format: "paths./api/v1/tables.{slug}.get.operationId"
-    const loc = details.location;
-    const methodMatch = loc.match(/\.(get|post|put|patch|delete|head|options)(?:\.|$)/);
-    if (methodMatch) {
-      method = methodMatch[1].toUpperCase();
-    }
-    const pathPrefix = 'paths.';
-    const pathStart = loc.indexOf(pathPrefix);
-    if (pathStart >= 0 && methodMatch?.index !== undefined) {
-      const rawPath = loc.slice(pathStart + pathPrefix.length, methodMatch.index);
-      path = rawPath.replace(/\./g, '/').replace(/\{([^}]+)\}/g, ':$1');
-    }
-  }
+  const pathPrefix = 'paths.';
+  const pathStart = loc.indexOf(pathPrefix);
+  if (pathStart < 0) return { path: '', method: '' };
 
-  return { path, method };
+  // O `location` tem duas formas, e a segunda não tinha tratamento — era a causa
+  // da coluna `Path` sair vazia justamente nos breaking changes mais graves:
+  //   operação: `paths./api/v1/tables/{slug}.get.operationId`  (com método)
+  //   caminho:  `paths./api/social/{id}/comments`              (sem método)
+  // Em `path.remove`/`path.add` o location é a segunda forma; a versão anterior
+  // exigia um método casado para montar o path, então devolvia string vazia e o
+  // relatório listava "remove | path.remove" sem dizer o quê. Quem revisa a PR
+  // não tinha como auditar a remoção (D-API-AMBIGUOUS-PATHS, PR desta branch).
+  const afterPrefix = loc.slice(pathStart + pathPrefix.length);
+  const methodMatch = afterPrefix.match(/\.(get|post|put|patch|delete|head|options|trace)(?:\.|$)/);
+  const method = methodMatch ? methodMatch[1].toUpperCase() : '';
+
+  // Corta no método quando ele existe; senão o location inteiro é o caminho.
+  // Só o sufixo após o caminho usa `.` como separador — dentro do caminho o
+  // ponto é literal (`/api/files/{name}.json`), então não pode virar `/`.
+  const rawPath = methodMatch?.index !== undefined
+    ? afterPrefix.slice(0, methodMatch.index)
+    : afterPrefix;
+
+  return { path: rawPath.replace(/\{([^}]+)\}/g, ':$1'), method };
 }
 
 // ═══════════════════════════════════════════════

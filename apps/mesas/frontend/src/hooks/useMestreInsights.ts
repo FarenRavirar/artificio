@@ -51,7 +51,7 @@ export function useMestreInsights({
 
       setInsightsLoading(true);
       try {
-        const res = await authGet(`/api/v1/gm/${slug}/insights`, { signal: controller.signal });
+        const res = await authGet(`/api/v1/gm/perfis/${slug}/insights`, { signal: controller.signal });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         setMetrics(json?.data?.metrics ?? []);

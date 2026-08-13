@@ -1864,18 +1864,45 @@
     },
     {
       "app": "glossario",
-      "method": "GET",
-      "path": "/api/social/:id/comments",
+      "method": "DELETE",
+      "path": "/api/social/comment/:id",
       "sourceFile": "apps/glossario/backend/src/routes/socialRoutes.ts",
-      "line": 14,
+      "line": 27,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "glossario",
+      "method": "GET",
+      "path": "/api/social/terms/:id/comments",
+      "sourceFile": "apps/glossario/backend/src/routes/socialRoutes.ts",
+      "line": 22,
       "confidence": "high",
       "kind": "express-route"
     },
     {
       "app": "glossario",
       "method": "POST",
-      "path": "/api/social/:id/comments",
+      "path": "/api/social/terms/:id/comments",
       "sourceFile": "apps/glossario/backend/src/routes/socialRoutes.ts",
+      "line": 23,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "glossario",
+      "method": "POST",
+      "path": "/api/social/terms/:id/vote",
+      "sourceFile": "apps/glossario/backend/src/routes/socialRoutes.ts",
+      "line": 13,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "glossario",
+      "method": "GET",
+      "path": "/api/systems",
+      "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
       "line": 15,
       "confidence": "high",
       "kind": "express-route"
@@ -1883,36 +1910,9 @@
     {
       "app": "glossario",
       "method": "POST",
-      "path": "/api/social/:id/vote",
-      "sourceFile": "apps/glossario/backend/src/routes/socialRoutes.ts",
-      "line": 11,
-      "confidence": "high",
-      "kind": "express-route"
-    },
-    {
-      "app": "glossario",
-      "method": "DELETE",
-      "path": "/api/social/comments/:id",
-      "sourceFile": "apps/glossario/backend/src/routes/socialRoutes.ts",
-      "line": 19,
-      "confidence": "high",
-      "kind": "express-route"
-    },
-    {
-      "app": "glossario",
-      "method": "GET",
       "path": "/api/systems",
       "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
-      "line": 10,
-      "confidence": "high",
-      "kind": "express-route"
-    },
-    {
-      "app": "glossario",
-      "method": "POST",
-      "path": "/api/systems",
-      "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
-      "line": 11,
+      "line": 16,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1930,7 +1930,7 @@
       "method": "DELETE",
       "path": "/api/systems/:id",
       "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
-      "line": 13,
+      "line": 18,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1939,52 +1939,52 @@
       "method": "PUT",
       "path": "/api/systems/:id",
       "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
-      "line": 12,
-      "confidence": "high",
-      "kind": "express-route"
-    },
-    {
-      "app": "glossario",
-      "method": "GET",
-      "path": "/api/systems/:systemId/editions",
-      "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
-      "line": 16,
-      "confidence": "high",
-      "kind": "express-route"
-    },
-    {
-      "app": "glossario",
-      "method": "POST",
-      "path": "/api/systems/:systemId/editions",
-      "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
       "line": 17,
       "confidence": "high",
       "kind": "express-route"
     },
     {
       "app": "glossario",
-      "method": "DELETE",
-      "path": "/api/systems/editions/:id",
+      "method": "GET",
+      "path": "/api/systems/catalog-health",
       "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
-      "line": 19,
+      "line": 14,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "glossario",
+      "method": "DELETE",
+      "path": "/api/systems/edition/:id",
+      "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
+      "line": 28,
       "confidence": "high",
       "kind": "express-route"
     },
     {
       "app": "glossario",
       "method": "PUT",
-      "path": "/api/systems/editions/:id",
+      "path": "/api/systems/edition/:id",
       "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
-      "line": 18,
+      "line": 27,
       "confidence": "high",
       "kind": "express-route"
     },
     {
       "app": "glossario",
       "method": "GET",
-      "path": "/api/systems/health",
+      "path": "/api/systems/system/:systemId/editions",
       "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
-      "line": 9,
+      "line": 25,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "glossario",
+      "method": "POST",
+      "path": "/api/systems/system/:systemId/editions",
+      "sourceFile": "apps/glossario/backend/src/routes/systemRoutes.ts",
+      "line": 26,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3494,69 +3494,6 @@
     {
       "app": "mesas",
       "method": "GET",
-      "path": "/api/v1/gm/:slug",
-      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 107,
-      "confidence": "high",
-      "kind": "express-route"
-    },
-    {
-      "app": "mesas",
-      "method": "POST",
-      "path": "/api/v1/gm/:slug/contact",
-      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 501,
-      "confidence": "high",
-      "kind": "express-route"
-    },
-    {
-      "app": "mesas",
-      "method": "POST",
-      "path": "/api/v1/gm/:slug/contact-click",
-      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 569,
-      "confidence": "high",
-      "kind": "express-route"
-    },
-    {
-      "app": "mesas",
-      "method": "GET",
-      "path": "/api/v1/gm/:slug/insights",
-      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 448,
-      "confidence": "high",
-      "kind": "express-route"
-    },
-    {
-      "app": "mesas",
-      "method": "GET",
-      "path": "/api/v1/gm/:slug/reviews",
-      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 615,
-      "confidence": "high",
-      "kind": "express-route"
-    },
-    {
-      "app": "mesas",
-      "method": "POST",
-      "path": "/api/v1/gm/:slug/reviews",
-      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 657,
-      "confidence": "high",
-      "kind": "express-route"
-    },
-    {
-      "app": "mesas",
-      "method": "POST",
-      "path": "/api/v1/gm/:slug/view",
-      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 380,
-      "confidence": "high",
-      "kind": "express-route"
-    },
-    {
-      "app": "mesas",
-      "method": "GET",
       "path": "/api/v1/gm/insights",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
       "line": 1565,
@@ -3578,6 +3515,69 @@
       "path": "/api/v1/gm/parse-preview",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
       "line": 629,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/gm/perfis/:slug",
+      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
+      "line": 117,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/gm/perfis/:slug/contact",
+      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
+      "line": 511,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/gm/perfis/:slug/contact-click",
+      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
+      "line": 579,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/gm/perfis/:slug/insights",
+      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
+      "line": 458,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/gm/perfis/:slug/reviews",
+      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
+      "line": 625,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/gm/perfis/:slug/reviews",
+      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
+      "line": 667,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/gm/perfis/:slug/view",
+      "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
+      "line": 390,
       "confidence": "high",
       "kind": "express-route"
     },

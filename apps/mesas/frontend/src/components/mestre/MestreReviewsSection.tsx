@@ -36,7 +36,7 @@ function normalizeReviews(data: unknown): GmReviewItem[] {
 }
 
 async function fetchReviews(slug: string, signal?: AbortSignal): Promise<GmReviewItem[]> {
-  const res = await fetch(`/api/v1/gm/${slug}/reviews`, { signal });
+  const res = await fetch(`/api/v1/gm/perfis/${slug}/reviews`, { signal });
   if (!res.ok) return [];
   const data: unknown = await res.json();
   return normalizeReviews(data);
@@ -64,7 +64,7 @@ export function MestreReviewsSection({ slug }: MestreReviewsSectionProps) {
   const handleSubmit = async (data: { rating: number; tags: string[]; comment: string }) => {
     setIsSubmitting(true);
     try {
-      const res = await authPost(`/api/v1/gm/${slug}/reviews`, data);
+      const res = await authPost(`/api/v1/gm/perfis/${slug}/reviews`, data);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       toast.success('Avaliação enviada. Obrigado!');
       setReviews(await fetchReviews(slug));

@@ -20,7 +20,7 @@ export function MestreContactForm({ mestreSlug }: MestreContactFormProps) {
     setError(null);
 
     try {
-      const res = await fetch(`/api/v1/gm/${mestreSlug}/contact`, {
+      const res = await fetch(`/api/v1/gm/perfis/${mestreSlug}/contact`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, message }),

@@ -71,7 +71,7 @@ const AdminStructurePage: React.FC = () => {
       
       const allEditions: Edition[] = [];
       for (const sys of sysList.data) {
-        const edRes = await api.get(`/systems/${sys.id}/editions`, { headers: headers() });
+        const edRes = await api.get(`/systems/system/${sys.id}/editions`, { headers: headers() });
         allEditions.push(...edRes.data);
       }
       setEditions(allEditions);
@@ -93,12 +93,12 @@ const AdminStructurePage: React.FC = () => {
       if (modal?.startsWith('add')) {
         if (modal === 'addCat') await api.post('/categories', payload, { headers: headers() });
         else if (modal === 'addSys') await api.post('/systems', payload, { headers: headers() });
-        else if (modal === 'addEdition') await api.post(`/systems/${form.system_id}/editions`, payload, { headers: headers() });
+        else if (modal === 'addEdition') await api.post(`/systems/system/${form.system_id}/editions`, payload, { headers: headers() });
         else if (modal === 'addScenario') await api.post('/scenarios', payload, { headers: headers() });
       } else {
         if (modal === 'editCat') await api.put(`/categories/${editingId}`, payload, { headers: headers() });
         else if (modal === 'editSys') await api.put(`/systems/${editingId}`, payload, { headers: headers() });
-        else if (modal === 'editEdition') await api.put(`/systems/editions/${editingId}`, payload, { headers: headers() });
+        else if (modal === 'editEdition') await api.put(`/systems/edition/${editingId}`, payload, { headers: headers() });
         else if (modal === 'editScenario') await api.put(`/scenarios/${editingId}`, payload, { headers: headers() });
       }
       
@@ -126,9 +126,13 @@ const AdminStructurePage: React.FC = () => {
       const route = type === 'categories' ? `/categories` 
                   : type === 'systems' ? `/systems` 
                   : type === 'scenarios' ? `/scenarios` 
-                  : `/systems/editions`;
+                  : `/systems/edition`;
 
-      const finalRoute = (t: string, id: string) => t === '/systems/editions' ? `/systems/editions/${id}` : `${t}/${id}`;
+      // Edição não segue `${base}/${id}` como os outros: a coleção vive sob o
+      // sistema (`/systems/system/:id/editions`) e o recurso individual sob
+      // `/systems/edition/:id`, separados por segmentos literais distintos para
+      // o caminho não ser ambíguo no contrato (D-API-AMBIGUOUS-PATHS).
+      const finalRoute = (t: string, id: string) => t === '/systems/edition' ? `/systems/edition/${id}` : `${t}/${id}`;
 
       await Promise.all([
         api.put(finalRoute(route, item.id), { ...item, position: other.position }, { headers: headers() }),
@@ -140,7 +144,7 @@ const AdminStructurePage: React.FC = () => {
 
   const approve = async (type: string, id: string, item: StructureForm) => {
     try {
-      const route = type === 'editions' ? `/systems/editions/${id}` : `/${type}/${id}`;
+      const route = type === 'editions' ? `/systems/edition/${id}` : `/${type}/${id}`;
       await api.put(route, { ...item, status: 'aprovado' }, { headers: headers() });
       await load();
     } catch (e) { console.error(e); }
@@ -149,7 +153,7 @@ const AdminStructurePage: React.FC = () => {
   const deleteItem = async (type: string, id: string) => {
     if (!confirm('Confirmar exclusão?')) return;
     try {
-      const route = type === 'editions' ? `systems/editions/${id}` : `${type}/${id}`;
+      const route = type === 'editions' ? `systems/edition/${id}` : `${type}/${id}`;
       await api.delete(route, { headers: headers() });
       await load();
     } catch (e) { console.error(e); }

@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **435 operações**.
+Total: **436 operações**.
 
 ## accounts (53)
 
@@ -151,7 +151,7 @@ Total: **435 operações**.
 | GET | `/robots.txt` | public | none | active | — | Consulta robots.txt |
 | GET | `/sitemap.xml` | public | none | active | — | Consulta sitemap.xml |
 
-## glossario (49)
+## glossario (50)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -178,19 +178,20 @@ Total: **435 operações**.
 | POST | `/api/scenarios` | public | user | active | — | Cria ou executa api scenarios |
 | DELETE | `/api/scenarios/{id}` | admin | admin | active | — | Remove api scenarios id |
 | PUT | `/api/scenarios/{id}` | admin | admin | active | — | Substitui api scenarios id |
-| GET | `/api/social/{id}/comments` | public | none | active | — | Consulta api social id comments |
-| POST | `/api/social/{id}/comments` | public | user | active | — | Cria ou executa api social id comments |
-| POST | `/api/social/{id}/vote` | public | user | active | — | Cria ou executa api social id vote |
-| DELETE | `/api/social/comments/{id}` | public | user | active | — | Remove api social comments id |
+| DELETE | `/api/social/comment/{id}` | public | user | active | — | Remove api social comment id |
+| GET | `/api/social/terms/{id}/comments` | public | none | active | — | Consulta api social terms id comments |
+| POST | `/api/social/terms/{id}/comments` | public | user | active | — | Cria ou executa api social terms id comments |
+| POST | `/api/social/terms/{id}/vote` | public | user | active | — | Cria ou executa api social terms id vote |
 | GET | `/api/systems` | public | none | active | — | Consulta api systems |
 | POST | `/api/systems` | public | user | active | — | Cria ou executa api systems |
 | DELETE | `/api/systems/{id}` | admin | admin | active | — | Remove api systems id |
 | PUT | `/api/systems/{id}` | admin | admin | active | — | Substitui api systems id |
-| GET | `/api/systems/{systemId}/editions` | public | none | active | — | Consulta api systems systemId editions |
-| POST | `/api/systems/{systemId}/editions` | public | user | active | — | Cria ou executa api systems systemId editions |
-| DELETE | `/api/systems/editions/{id}` | admin | admin | active | — | Remove api systems editions id |
-| PUT | `/api/systems/editions/{id}` | admin | admin | active | — | Substitui api systems editions id |
+| GET | `/api/systems/catalog-health` | public | none | active | — | Consulta api systems catalog-health |
+| DELETE | `/api/systems/edition/{id}` | admin | admin | active | — | Remove api systems edition id |
+| PUT | `/api/systems/edition/{id}` | admin | admin | active | — | Substitui api systems edition id |
 | GET | `/api/systems/health` | internal | none | active | — | Consulta api systems health |
+| GET | `/api/systems/system/{systemId}/editions` | public | none | active | — | Consulta api systems system systemId editions |
+| POST | `/api/systems/system/{systemId}/editions` | public | user | active | — | Cria ou executa api systems system systemId editions |
 | GET | `/api/terms` | public | none | active | — | Consulta api terms |
 | POST | `/api/terms` | public | user | active | — | Cria ou executa api terms |
 | DELETE | `/api/terms/{id}` | public | user | active | — | Remove api terms id |
@@ -329,16 +330,16 @@ Total: **435 operações**.
 | DELETE | `/api/v1/communication-platforms/admin/{id}` | admin | admin | active | — | Remove api v1 communication-platforms admin id |
 | PUT | `/api/v1/communication-platforms/admin/{id}` | admin | admin | active | — | Substitui api v1 communication-platforms admin id |
 | POST | `/api/v1/dev-feedback` | public | user | active | — | Cria ou executa api v1 dev-feedback |
-| GET | `/api/v1/gm/{slug}` | public | user | active | — | Consulta api v1 gm slug |
-| POST | `/api/v1/gm/{slug}/contact` | telemetry | none | active | — | Cria ou executa api v1 gm slug contact |
-| POST | `/api/v1/gm/{slug}/contact-click` | public | user | active | — | Cria ou executa api v1 gm slug contact-click |
-| GET | `/api/v1/gm/{slug}/insights` | public | user | active | — | Consulta api v1 gm slug insights |
-| GET | `/api/v1/gm/{slug}/reviews` | public | user | active | — | Consulta api v1 gm slug reviews |
-| POST | `/api/v1/gm/{slug}/reviews` | public | user | active | — | Cria ou executa api v1 gm slug reviews |
-| POST | `/api/v1/gm/{slug}/view` | telemetry | none | active | — | Cria ou executa api v1 gm slug view |
 | GET | `/api/v1/gm/insights` | public | user | active | — | Consulta api v1 gm insights |
 | GET | `/api/v1/gm/me` | public | user | active | — | Consulta api v1 gm me |
 | POST | `/api/v1/gm/parse-preview` | public | user | active | — | Cria ou executa api v1 gm parse-preview |
+| GET | `/api/v1/gm/perfis/{slug}` | public | user | active | — | Consulta api v1 gm perfis slug |
+| POST | `/api/v1/gm/perfis/{slug}/contact` | telemetry | none | active | — | Cria ou executa api v1 gm perfis slug contact |
+| POST | `/api/v1/gm/perfis/{slug}/contact-click` | public | user | active | — | Cria ou executa api v1 gm perfis slug contact-click |
+| GET | `/api/v1/gm/perfis/{slug}/insights` | public | user | active | — | Consulta api v1 gm perfis slug insights |
+| GET | `/api/v1/gm/perfis/{slug}/reviews` | public | user | active | — | Consulta api v1 gm perfis slug reviews |
+| POST | `/api/v1/gm/perfis/{slug}/reviews` | public | user | active | — | Cria ou executa api v1 gm perfis slug reviews |
+| POST | `/api/v1/gm/perfis/{slug}/view` | telemetry | none | active | — | Cria ou executa api v1 gm perfis slug view |
 | POST | `/api/v1/gm/profile` | public | user | active | — | Cria ou executa api v1 gm profile |
 | PUT | `/api/v1/gm/profile` | public | user | active | — | Substitui api v1 gm profile |
 | GET | `/api/v1/gm/tables` | public | user | active | — | Consulta api v1 gm tables |

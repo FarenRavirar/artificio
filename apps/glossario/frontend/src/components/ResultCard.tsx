@@ -252,7 +252,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
     // Sem sistema → lista vazia; senão busca. setState só no callback assíncrono.
     const load = !form.system_id
       ? Promise.resolve({ data: [] as EditionOption[] })
-      : api.get(`/systems/${encodeURIComponent(form.system_id)}/editions`);
+      : api.get(`/systems/system/${encodeURIComponent(form.system_id)}/editions`);
     load
       .then((res) => { if (active) setEditions(res.data); })
       .catch((err) => {
@@ -324,7 +324,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
       if (comments.length === 0) {
         setLoadingComments(true);
         try {
-          const { data } = await api.get(`/social/${encodeURIComponent(termo.id)}/comments`);
+          const { data } = await api.get(`/social/terms/${encodeURIComponent(termo.id)}/comments`);
           setComments(data);
         } catch (err) {
           console.error('Erro ao buscar comentários:', err);
@@ -343,7 +343,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
 
     try {
       setIsSubmittingComment(true);
-      const { data } = await api.post(`/social/${encodeURIComponent(termo.id)}/comments`, { body: newComment });
+      const { data } = await api.post(`/social/terms/${encodeURIComponent(termo.id)}/comments`, { body: newComment });
       setComments([...comments, { ...data, author_name: user.username, user_id: user.id }]);
       setNewComment('');
     } catch (err) {
@@ -360,7 +360,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
     }
 
     try {
-      const { data } = await api.post(`/social/${encodeURIComponent(termo.id)}/vote`, { direction });
+      const { data } = await api.post(`/social/terms/${encodeURIComponent(termo.id)}/vote`, { direction });
       setVoteScore(data.vote_score);
     } catch (err) {
       console.error('Erro ao votar:', err);
@@ -370,7 +370,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
   const handleDeleteComment = async (commentId: string) => {
     if (!(await confirm({ title: "Remover comentário", message: "Deseja realmente remover este comentário?", variant: "warning" }))) return;
     try {
-      await api.delete(`/social/comments/${encodeURIComponent(commentId)}`);
+      await api.delete(`/social/comment/${encodeURIComponent(commentId)}`);
       setComments(comments.map(c => 
         c.id === commentId ? { ...c, deleted: true, body: '[Este comentário foi removido]' } : c
       ));
