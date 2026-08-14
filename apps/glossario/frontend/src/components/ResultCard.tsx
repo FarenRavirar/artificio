@@ -6,6 +6,7 @@ import {
   normalizeComments,
   normalizeEditions,
   normalizeVoteScore,
+  formatarDataCurta,
   type Comment,
   type Edition,
 } from '../types/social';
@@ -357,7 +358,11 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
         // arquivo, não expunha isso e deixava `undefined` entrar como nome de
         // autor. Cai para o que o servidor devolveu e só então para o rótulo
         // genérico — nunca renderiza vazio no lugar do nome.
-        const autor = user.username ?? criado.author_name ?? 'Você';
+        //
+        // Encadeamento por truthiness, não `??`: `author_name` vem de `asText`,
+        // que devolve `''` para campo ausente, e `'' ?? x` é `''` — o nome saía
+        // em branco no comentário recém-criado (achado de review, PR #261).
+        const autor = user.username || criado.author_name || 'Você';
         setComments([...comments, { ...criado, author_name: autor, user_id: user.id }]);
       } else {
         // Resposta inutilizável não pode virar comentário sumido: a escrita
@@ -888,7 +893,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
                       <div className="flex justify-between items-center mb-1">
                         <span className="text-[10px] font-black text-[var(--fg)] uppercase tracking-wider">{comment.author_name}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-[9px] text-[var(--fg-muted)]">{new Date(comment.created_at).toLocaleDateString('pt-BR')}</span>
+                          <span className="text-[9px] text-[var(--fg-muted)]">{formatarDataCurta(comment.created_at)}</span>
                           {!comment.deleted && (user?.id === comment.user_id || user?.role === 'admin' || user?.is_global_moderator === true) && (
                             <button 
                               type="button"

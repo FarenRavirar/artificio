@@ -278,7 +278,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "api.get",
-      "line": 236
+      "line": 237
     },
     {
       "app": "glossario-frontend",
@@ -418,7 +418,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "api.get",
-      "line": 235
+      "line": 236
     },
     {
       "app": "glossario-frontend",
@@ -458,7 +458,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.delete",
-      "line": 402
+      "line": 407
     },
     {
       "app": "glossario-frontend",
@@ -468,7 +468,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.get",
-      "line": 330
+      "line": 331
     },
     {
       "app": "glossario-frontend",
@@ -478,7 +478,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.post",
-      "line": 349
+      "line": 350
     },
     {
       "app": "glossario-frontend",
@@ -488,7 +488,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.post",
-      "line": 388
+      "line": 393
     },
     {
       "app": "glossario-frontend",
@@ -518,7 +518,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "api.get",
-      "line": 234
+      "line": 235
     },
     {
       "app": "glossario-frontend",
@@ -588,7 +588,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.get",
-      "line": 258
+      "line": 259
     },
     {
       "app": "glossario-frontend",
@@ -688,7 +688,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.get",
-      "line": 434
+      "line": 439
     },
     {
       "app": "glossario-frontend",
@@ -718,7 +718,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "api.get",
-      "line": 16
+      "line": 17
     },
     {
       "app": "glossario-frontend",
@@ -738,7 +738,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.post",
-      "line": 28
+      "line": 29
     },
     {
       "app": "glossario-frontend",

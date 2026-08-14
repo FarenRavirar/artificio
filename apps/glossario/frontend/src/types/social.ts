@@ -25,7 +25,7 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 /** Aceita number vindo do Postgres como string (`id`, `system_id` via driver). */
-function asId(v: unknown): string {
+export function asId(v: unknown): string {
   if (typeof v === 'string') return v;
   if (typeof v === 'number' && Number.isFinite(v)) return String(v);
   return '';
@@ -105,7 +105,14 @@ export interface System {
   position: number;
 }
 
-export function normalizeSystem(v: unknown): System | null {
+/**
+ * `System` e `Scenario` são hoje o mesmo registro de árvore (id/nome/slug/
+ * status/posição) vindos de endpoints diferentes. A normalização é uma só; os
+ * dois tipos e as duas funções públicas continuam separados de propósito,
+ * porque são conceitos distintos do domínio e podem divergir sem que o
+ * consumidor precise saber que compartilhavam implementação.
+ */
+function normalizeNoDeArvore(v: unknown): System | null {
   if (!isRecord(v)) return null;
   const id = asId(v.id);
   if (!id) return null;
@@ -116,6 +123,10 @@ export function normalizeSystem(v: unknown): System | null {
     status: asText(v.status),
     position: asPosition(v.position),
   };
+}
+
+export function normalizeSystem(v: unknown): System | null {
+  return normalizeNoDeArvore(v);
 }
 
 export function normalizeSystems(v: unknown): System[] {
@@ -133,16 +144,7 @@ export interface Scenario {
 }
 
 export function normalizeScenario(v: unknown): Scenario | null {
-  if (!isRecord(v)) return null;
-  const id = asId(v.id);
-  if (!id) return null;
-  return {
-    id,
-    name: asText(v.name),
-    slug: asText(v.slug),
-    status: asText(v.status),
-    position: asPosition(v.position),
-  };
+  return normalizeNoDeArvore(v);
 }
 
 export function normalizeScenarios(v: unknown): Scenario[] {
@@ -190,9 +192,37 @@ export interface Comment {
   id: string;
   body: string;
   author_name: string;
-  created_at: string;
+  /**
+   * Ausente quando o payload não traz timestamp utilizável. Deliberadamente
+   * opcional, e não `''`: string vazia atravessava o `asText` como se fosse
+   * data, chegava a `new Date('')` no render e imprimia "Invalid Date" na
+   * lista de comentários. Ausência o consumidor sabe tratar; data inválida ele
+   * renderiza (achado de review, PR #261).
+   */
+  created_at?: string;
   deleted: boolean;
   user_id: string;
+}
+
+/**
+ * Aceita apenas string que o `Date` consegue interpretar. Vale para todo
+ * timestamp exibido: o custo de recusar é um traço na tela, o de aceitar é
+ * "Invalid Date" onde o usuário espera uma data.
+ */
+export function asTimestamp(v: unknown): string | undefined {
+  if (typeof v !== 'string' || v === '') return undefined;
+  return Number.isNaN(new Date(v).getTime()) ? undefined : v;
+}
+
+/**
+ * Data para exibição, com traço quando não há timestamp. Fica junto do
+ * normalizador de propósito: a garantia de nunca imprimir "Invalid Date" tem
+ * que valer para todos os consumidores, não depender de cada tela lembrar.
+ */
+export function formatarDataCurta(v: string | undefined): string {
+  if (!v) return '—';
+  const data = new Date(v);
+  return Number.isNaN(data.getTime()) ? '—' : data.toLocaleDateString('pt-BR');
 }
 
 export function normalizeComment(v: unknown): Comment | null {
@@ -203,7 +233,7 @@ export function normalizeComment(v: unknown): Comment | null {
     id,
     body: asText(v.body),
     author_name: asText(v.author_name),
-    created_at: asText(v.created_at),
+    created_at: asTimestamp(v.created_at),
     // `deleted` só é verdadeiro se vier explicitamente `true`: qualquer outra
     // coisa (ausente, `null`, `0`) tem que renderizar o comentário normal, não
     // esconder conteúdo por causa de um campo malformado.

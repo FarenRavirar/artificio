@@ -386,9 +386,22 @@ export function extractLocation(change: DiffChange): { path: string; method: str
   // location; em `path.*` o location inteiro é o caminho (achado de review).
   const isPathLevel = change.entity === 'path' || change.code.startsWith('path.');
 
-  const methodMatch = isPathLevel
-    ? null
-    : afterPrefix.match(/\.(get|post|put|patch|delete|head|options|trace)(?:\.|$)/);
+  // Colhe TODOS os tokens que parecem verbo e fica com o último. O caminho pode
+  // ele mesmo terminar em ponto+verbo (`/api/logs/audit.post`), e aí o location
+  // de uma mudança de método tem dois: `paths./api/logs/audit.post.delete`. O
+  // primeiro é parte do caminho, o último é o método — pegar o primeiro
+  // devolvia POST num caminho truncado, errando os dois campos da linha do
+  // relatório (achado de review, PR #261).
+  //
+  // O lookahead não CONSOME o ponto separador: com `(?:\.|$)` os matches de
+  // `.post.delete` se sobrepõem no mesmo ponto e o `matchAll` pularia o
+  // segundo, que é justamente o que se quer.
+  const verboRe = /\.(get|post|put|patch|delete|head|options|trace)(?=\.|$)/g;
+  let methodMatch: RegExpExecArray | null = null;
+  if (!isPathLevel) {
+    let atual: RegExpExecArray | null;
+    while ((atual = verboRe.exec(afterPrefix)) !== null) methodMatch = atual;
+  }
   const method = methodMatch ? methodMatch[1].toUpperCase() : '';
 
   // Corta no método quando ele existe; senão o location inteiro é o caminho.

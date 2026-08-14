@@ -5,6 +5,7 @@ import api from '../services/api';
 // logado — antes o tipo era declarado aqui e descrevia o que a tela esperava,
 // não o que a API devolve (achado de review, PR #260).
 import { normalizeMembers, type Member } from '../types/session';
+import { formatarDataCurta } from '../types/social';
 
 const AdminUsersPage: React.FC = () => {
   const [users, setUsers] = useState<Member[]>([]);
@@ -65,7 +66,7 @@ const AdminUsersPage: React.FC = () => {
                       {u.banned ? 'Banido' : 'Ativo'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-[var(--fg-muted)]">{new Date(u.created_at).toLocaleDateString('pt-BR')}</td>
+                  <td className="px-4 py-3 text-xs text-[var(--fg-muted)]">{formatarDataCurta(u.created_at)}</td>
                   <td className="px-4 py-3">
                     <button
                       onClick={() => toggleBan(u.id, u.banned)}

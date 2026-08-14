@@ -11,6 +11,7 @@ import {
   normalizeSystem,
   normalizeSystems,
   normalizeVoteScore,
+  formatarDataCurta,
 } from './social';
 
 /**
@@ -115,6 +116,25 @@ describe('normalizeComment', () => {
       deleted: false,
       user_id: '9',
     });
+  });
+
+  // Achado de review da PR #261: `asText` devolvia `''` para timestamp ausente,
+  // e `''` chegava a `new Date('')` no render, imprimindo "Invalid Date".
+  it('deixa created_at ausente em vez de virar string vazia ou data inválida', () => {
+    for (const ruim of [undefined, null, '', 'ontem', 42, {}]) {
+      expect(normalizeComment({ id: 'k1', created_at: ruim })?.created_at).toBeUndefined();
+    }
+  });
+});
+
+describe('formatarDataCurta', () => {
+  it('formata timestamp válido e cai para traço no resto', () => {
+    expect(formatarDataCurta('2026-08-13T10:00:00.000Z')).toBe(
+      new Date('2026-08-13T10:00:00.000Z').toLocaleDateString('pt-BR'),
+    );
+    for (const ruim of [undefined, '', 'ontem']) {
+      expect(formatarDataCurta(ruim)).toBe('—');
+    }
   });
 });
 

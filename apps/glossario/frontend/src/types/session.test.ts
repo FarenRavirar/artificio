@@ -114,4 +114,14 @@ describe('normalizeMembers', () => {
     expect(normalizeMembers([{ id: 'm1' }, { full_name: 'sem id' }, null, { id: 'm2' }])
       .map((m) => m.id)).toEqual(['m1', 'm2']);
   });
+
+  // Achado de review da PR #261: a listagem administrativa imprimia
+  // "Invalid Date" na coluna de cadastro quando o timestamp não vinha.
+  it('deixa created_at ausente em vez de data inválida', () => {
+    for (const ruim of [undefined, null, '', 'ontem', 42]) {
+      expect(normalizeMembers([{ id: 'm1', created_at: ruim }])[0].created_at).toBeUndefined();
+    }
+    expect(normalizeMembers([{ id: 'm1', created_at: '2026-08-13T10:00:00.000Z' }])[0].created_at)
+      .toBe('2026-08-13T10:00:00.000Z');
+  });
 });

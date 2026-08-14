@@ -1,4 +1,5 @@
 import type { User } from '../context/auth-context';
+import { asId, asTimestamp } from './social';
 
 /**
  * Normalizador da sessão local do glossário (`GET /auth/me`).
@@ -47,12 +48,13 @@ export interface Member {
   username: string;
   email: string;
   banned: boolean;
-  created_at: string;
+  /** Opcional pelo mesmo motivo de `Comment.created_at` — ver `social.ts`. */
+  created_at?: string;
 }
 
 export function normalizeMember(v: unknown): Member | null {
   if (!isRecord(v)) return null;
-  const id = typeof v.id === 'string' ? v.id : typeof v.id === 'number' ? String(v.id) : '';
+  const id = asId(v.id);
   if (!id) return null;
   return {
     id,
@@ -64,7 +66,7 @@ export function normalizeMember(v: unknown): Member | null {
     // um campo malformado — acusar indevidamente é pior que mostrar como ativo,
     // e o backend continua sendo quem aplica o bloqueio de fato.
     banned: v.banned === true,
-    created_at: asText(v.created_at),
+    created_at: asTimestamp(v.created_at),
   };
 }
 
@@ -109,7 +111,7 @@ export function mergeProfileIntoSession(atual: User | null, resposta: unknown): 
 export function normalizeSessionUser(v: unknown): User | null {
   if (!isRecord(v)) return null;
 
-  const id = typeof v.id === 'string' ? v.id : typeof v.id === 'number' ? String(v.id) : '';
+  const id = asId(v.id);
   if (!id) return null;
 
   const username = typeof v.username === 'string' && v.username !== '' ? v.username : undefined;

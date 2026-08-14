@@ -88,6 +88,21 @@ describe('extractLocation', () => {
     });
   });
 
+  // Achado de review da PR #261: o caminho termina em `.post` E a mudança é de
+  // método. O regex casava o PRIMEIRO verbo, resolvendo para POST num caminho
+  // truncado (`/api/logs/audit`) — path e método ambos errados, na linha do
+  // relatório que descreve a remoção de um verbo.
+  it('resolve o método pelo último verbo quando o caminho termina em ponto+verbo', () => {
+    expect(extractLocation(paraMethod('paths./api/logs/audit.post.delete'))).toEqual({
+      path: '/api/logs/audit.post',
+      method: 'DELETE',
+    });
+    expect(extractLocation(paraMethod('paths./api/logs/audit.post.delete.operationId'))).toEqual({
+      path: '/api/logs/audit.post',
+      method: 'DELETE',
+    });
+  });
+
   it('usa o code quando o entity não vem preenchido', () => {
     expect(extractLocation({
       type: 'breaking',
