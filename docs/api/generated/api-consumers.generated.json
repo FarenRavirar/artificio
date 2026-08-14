@@ -2828,7 +2828,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 137
+      "line": 150
     },
     {
       "app": "site-admin",
@@ -2838,7 +2838,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 166
+      "line": 179
     }
   ]
 }

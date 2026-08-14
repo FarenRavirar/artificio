@@ -92,13 +92,24 @@ export interface PageFull {
   canonical: string | null; og_title: string | null; og_description: string | null; og_image: string | null; noindex: boolean;
 }
 
+// Monta a query encodando TODO parâmetro e descartando vazio. Existe porque
+// `status`/`type`/`kind` iam crus ao lado de um `q` já protegido, e um valor com
+// `&`/`#` injetava parâmetro na query (achado do Sonar, corrigido em 2026-08-14);
+// a função também elimina os template literals aninhados que a primeira correção
+// tinha deixado (segundo achado, mesma data).
+function qs(params: Record<string, string | number | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === "") continue;
+    search.set(key, String(value));
+  }
+  const serialized = search.toString();
+  return serialized ? `?${serialized}` : "";
+}
+
 export const api = {
   listPosts: (q = "", status = "") =>
-    // `status` também vai encodado: era o único parâmetro cru ao lado de um `q`
-    // já protegido, então um valor com `&`/`#` injetaria parâmetro na query
-    // (achado do Sonar, corrigido em 2026-08-14). Mesmo padrão em `listPages`,
-    // `slugCheck` e `listMedia`.
-    req<{ items: PostListItem[] }>(`/posts?q=${encodeURIComponent(q)}${status ? `&status=${encodeURIComponent(status)}` : ""}`).then((r) => r.items),
+    req<{ items: PostListItem[] }>(`/posts${qs({ q, status })}`).then((r) => r.items),
   getPost: (id: number) => req<PostFull>(`/posts/${id}`),
   createPost: (body: Partial<PostFull>) => req<SaveResult>(`/posts`, { method: "POST", body: JSON.stringify(body) }),
   updatePost: (id: number, body: Partial<PostFull>) => req<SaveResult>(`/posts/${id}`, { method: "PUT", body: JSON.stringify(body) }),
@@ -107,7 +118,7 @@ export const api = {
   deletePost: (id: number) => req<{ ok: boolean }>(`/posts/${id}`, { method: "DELETE" }),
 
   listPages: (q = "", status = "") =>
-    req<{ items: PageListItem[] }>(`/pages?q=${encodeURIComponent(q)}${status ? `&status=${encodeURIComponent(status)}` : ""}`).then((r) => r.items),
+    req<{ items: PageListItem[] }>(`/pages${qs({ q, status })}`).then((r) => r.items),
   getPage: (id: number) => req<PageFull>(`/pages/${id}`),
   createPage: (body: Partial<PageFull>) => req<SaveResult>(`/pages`, { method: "POST", body: JSON.stringify(body) }),
   updatePage: (id: number, body: Partial<PageFull>) => req<SaveResult>(`/pages/${id}`, { method: "PUT", body: JSON.stringify(body) }),
@@ -115,18 +126,20 @@ export const api = {
     req<{ ok: boolean; rebuild?: { started: boolean; busy?: boolean } }>(`/pages/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
   deletePage: (id: number) => req<{ ok: boolean }>(`/pages/${id}`, { method: "DELETE" }),
 
-  listTerms: (kind?: "category" | "tag") => req<{ items: Term[] }>(`/taxonomies${kind ? `?kind=${kind}` : ""}`).then((r) => r.items),
+  listTerms: (kind?: "category" | "tag") => req<{ items: Term[] }>(`/taxonomies${qs({ kind })}`).then((r) => r.items),
   createTerm: (kind: "category" | "tag", name: string, parent_id?: number | null) =>
     req<Term>(`/taxonomies`, { method: "POST", body: JSON.stringify({ kind, name, parent_id }) }),
 
   slugCheck: (type: "post" | "page", title: string, id?: number) =>
-    req<{ slug: string; available: boolean; suggestion: string }>(`/slug-check?type=${type}&title=${encodeURIComponent(title)}${id ? `&id=${id}` : ""}`),
+    req<{ slug: string; available: boolean; suggestion: string }>(`/slug-check${qs({ type, title, id })}`),
 
   rebuild: () => req<{ started: boolean }>(`/rebuild`, { method: "POST" }),
 
   // ---- Mídia (T18/T19) ----
+  // `limit`/`offset` são numéricos e vão sempre: `qs` só descarta `undefined` e
+  // string vazia, então `offset=0` sobrevive (descartá-lo zeraria a paginação).
   listMedia: (q = "", type = "", limit = 60, offset = 0) =>
-    req<{ items: MediaItem[]; total: number }>(`/media?q=${encodeURIComponent(q)}${type ? `&type=${encodeURIComponent(type)}` : ""}&limit=${limit}&offset=${offset}`),
+    req<{ items: MediaItem[]; total: number }>(`/media${qs({ q, type, limit, offset })}`),
   uploadMedia: async (file: File, meta?: { alt?: string; title?: string; caption?: string }): Promise<MediaUploadResult> => {
     const fd = new FormData();
     fd.append("file", file);
@@ -149,7 +162,7 @@ export const api = {
 
   // ---- Feedback (Spec 021) ----
   listFeedback: (status = "", kind = "", archived = "false") =>
-    req<{ items: FeedbackItem[] }>(`/feedback?archived=${archived}${status ? `&status=${encodeURIComponent(status)}` : ""}${kind ? `&kind=${encodeURIComponent(kind)}` : ""}`).then((r) => r.items),
+    req<{ items: FeedbackItem[] }>(`/feedback${qs({ archived, status, kind })}`).then((r) => r.items),
   updateFeedback: (id: number, patch: { status?: string; admin_notes?: string | null; archived?: boolean }) =>
     req<{ item: FeedbackItem }>(`/feedback/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteFeedback: (id: number) => req<{ ok: boolean }>(`/feedback/${id}`, { method: "DELETE" }),

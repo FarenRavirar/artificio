@@ -29,7 +29,7 @@
     "pg": "^8.20.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "sanitize-html": "^2.17.4",
+    "sanitize-html": "^2.17.7",
     "zod": "^4.4.3"
   },
   "devDependencies": {

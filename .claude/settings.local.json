@@ -237,7 +237,9 @@
       "Bash(mount)",
       "Bash(rtk df *)",
       "Bash(sort -t'-' -k1 -n)",
-      "Bash(git cherry-pick *)"
+      "Bash(git cherry-pick *)",
+      "Bash(cp server/lib/content-html.ts /tmp/ch.new)",
+      "Bash(npx vitest *)"
     ]
   },
   "enabledMcpjsonServers": [

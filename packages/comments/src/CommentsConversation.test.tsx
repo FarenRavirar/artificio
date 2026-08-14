@@ -376,22 +376,28 @@ describe('CommentsConversation', () => {
 
     const rootForm = container.querySelector('form[data-comments-slot="composer"]');
     expect(rootForm).toBeInstanceOf(HTMLFormElement);
+    // Asserção, não `if`: com um guard condicional o corpo inteiro do teste
+    // seria pulado em silêncio caso o compositor raiz sumisse da árvore — que é
+    // justamente a regressão que ele existe para pegar (achado de review da
+    // PR #262; medido: trocar o seletor por um inexistente falha na linha
+    // abaixo, e com o `if` passava verde).
     const rootEditor = rootForm?.querySelector('textarea');
-    if (rootEditor instanceof HTMLTextAreaElement) {
-      await act(async () => {
-        const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
-        setValue?.call(rootEditor, 'Comentário raiz com painel aberto');
-        rootEditor.dispatchEvent(new Event('input', { bubbles: true }));
-      });
-      await act(async () => {
-        rootForm?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-        await Promise.resolve();
-      });
+    expect(rootEditor).toBeInstanceOf(HTMLTextAreaElement);
+    const editor = rootEditor as HTMLTextAreaElement;
 
-      expect(client.create).toHaveBeenCalledWith('Comentário raiz com painel aberto');
-      const focusedForm = (document.activeElement as HTMLElement | null)?.closest('form');
-      expect(focusedForm).toBe(rootForm);
-    }
+    await act(async () => {
+      const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+      setValue?.call(editor, 'Comentário raiz com painel aberto');
+      editor.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      rootForm?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      await Promise.resolve();
+    });
+
+    expect(client.create).toHaveBeenCalledWith('Comentário raiz com painel aberto');
+    const focusedForm = (document.activeElement as HTMLElement | null)?.closest('form');
+    expect(focusedForm).toBe(rootForm);
 
     await act(async () => root.unmount());
     container.remove();

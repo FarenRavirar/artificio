@@ -37,6 +37,73 @@ function filteredQuery(req: Request, allowed: readonly string[]): string {
 
 type UpstreamValidation = (body: unknown) => { ok: true; data: unknown } | { ok: false };
 
+const isBodyless = (method: string): boolean => ['GET', 'HEAD'].includes(method.toUpperCase());
+
+/**
+ * Monta os headers de saída. Extraída de `proxyAccounts` (achado do Sonar,
+ * complexidade cognitiva 23 > 15, 2026-08-14): é lógica pura, sem `res`, e o
+ * ramo `service`/`user` é a metade das ramificações da função original.
+ */
+function upstreamHeaders(
+  req: Request,
+  mode: UpstreamMode,
+  credential: string | undefined,
+  actingUserId: string | undefined,
+): Record<string, string> {
+  const headers: Record<string, string> = { Accept: 'application/json' };
+  if (mode === 'service') {
+    // Não-nulos garantidos pelas guardas de `proxyAccounts`, que respondem
+    // 503/401 antes de chegar aqui.
+    headers['X-Service-Token'] = credential!;
+    headers['X-Acting-User-Id'] = actingUserId!;
+  } else {
+    const authorization = req.header('authorization');
+    const cookie = req.header('cookie');
+    if (authorization) headers.Authorization = authorization;
+    if (cookie) headers.Cookie = cookie;
+  }
+
+  if (!isBodyless(req.method)) headers['Content-Type'] = 'application/json';
+  const idempotencyKey = req.header('idempotency-key');
+  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
+  return headers;
+}
+
+/**
+ * Traduz a resposta do `accounts.` para a do cliente. Extraída junto com
+ * `upstreamHeaders` pelo mesmo achado: concentra as três saídas possíveis
+ * (corpo ilegível, corpo fora do schema, repasse) num lugar só.
+ */
+async function relayUpstream(
+  response: { status: number; ok: boolean; text: () => Promise<string> },
+  res: Response,
+  validate?: UpstreamValidation,
+): Promise<void> {
+  const text = await response.text();
+  let body: unknown = null;
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      res.status(502).json({ error: 'invalid_accounts_response' });
+      return;
+    }
+  }
+  // A validação só se aplica à resposta de sucesso: corpo de erro do
+  // `accounts.` tem shape próprio e passa adiante sem ser medido contra o
+  // schema da rota.
+  if (validate && response.ok) {
+    const parsed = validate(body);
+    if (!parsed.ok) {
+      res.status(502).json({ error: 'invalid_accounts_response' });
+      return;
+    }
+    res.status(response.status).json(parsed.data);
+    return;
+  }
+  res.status(response.status).json(body);
+}
+
 async function proxyAccounts(
   req: Request,
   res: Response,
@@ -62,52 +129,17 @@ async function proxyAccounts(
     return;
   }
 
-  const headers: Record<string, string> = { Accept: 'application/json' };
-  if (mode === 'service') {
-    headers['X-Service-Token'] = credential!;
-    headers['X-Acting-User-Id'] = actingUserId!;
-  } else {
-    const authorization = req.header('authorization');
-    const cookie = req.header('cookie');
-    if (authorization) headers.Authorization = authorization;
-    if (cookie) headers.Cookie = cookie;
-  }
-
   const method = req.method.toUpperCase();
-  if (!['GET', 'HEAD'].includes(method)) headers['Content-Type'] = 'application/json';
-  const idempotencyKey = req.header('idempotency-key');
-  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
+  const headers = upstreamHeaders(req, mode, credential, actingUserId);
 
   try {
     const response = await undiciFetch(`${origin}${path}`, {
       method,
       headers,
-      body: ['GET', 'HEAD'].includes(method) ? undefined : JSON.stringify(req.body ?? {}),
+      body: isBodyless(method) ? undefined : JSON.stringify(req.body ?? {}),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
-    const text = await response.text();
-    let body: unknown = null;
-    if (text) {
-      try {
-        body = JSON.parse(text);
-      } catch {
-        res.status(502).json({ error: 'invalid_accounts_response' });
-        return;
-      }
-    }
-    // A validação só se aplica à resposta de sucesso: corpo de erro do
-    // `accounts.` tem shape próprio e passa adiante sem ser medido contra o
-    // schema da rota.
-    if (validate && response.ok) {
-      const parsed = validate(body);
-      if (!parsed.ok) {
-        res.status(502).json({ error: 'invalid_accounts_response' });
-        return;
-      }
-      res.status(response.status).json(parsed.data);
-      return;
-    }
-    res.status(response.status).json(body);
+    await relayUpstream(response, res, validate);
   } catch (error) {
     // Log antes de responder: o `503` é indistinguível entre `accounts.` fora,
     // timeout e DNS quebrado, e sem rastro o diagnóstico começa do zero na VM.

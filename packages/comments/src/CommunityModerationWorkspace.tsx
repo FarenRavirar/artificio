@@ -302,7 +302,9 @@ function WorkspaceBody(props: Readonly<CommunityModerationWorkspaceProps>) {
   ) : null;
 
   return <>
-    <output role="status" className="sr-only">{announcement}</output>
+    {/* Sem `role="status"` explícito: `<output>` já o carrega implicitamente e
+        repetir confunde leitor de tela (achado do Sonar, 2026-08-14). */}
+    <output className="sr-only">{announcement}</output>
     {/* Erro visível, não só na live region: quem enxerga a tela precisa ver o
         motivo da recusa sem depender de leitor de tela. `role="alert"` porque
         é consequência direta de uma ação que o moderador acabou de disparar. */}
@@ -376,5 +378,11 @@ export interface CommentAppealFormProps { deadline: string; alreadyFiled: boolea
 export function CommentAppealForm({ deadline, alreadyFiled, onSubmit }: Readonly<CommentAppealFormProps>) {
   const [reason, setReason] = useState('');
   const expired = Date.now() > Date.parse(deadline);
-  return <section><h3>Recorrer da remoção</h3><p>Prazo: <time dateTime={deadline}>{new Date(deadline).toLocaleString('pt-BR')}</time></p><label htmlFor="appeal-public-reason">Justificativa</label><textarea id="appeal-public-reason" disabled={expired || alreadyFiled} value={reason} onChange={(event) => setReason(event.target.value)} /><button type="button" disabled={expired || alreadyFiled || !reason.trim()} onClick={() => void onSubmit(reason.trim())}>{alreadyFiled ? 'Recurso já enviado' : expired ? 'Prazo expirado' : 'Enviar recurso'}</button></section>;
+  // Extraído do JSX (achado do Sonar, 2026-08-14): o rótulo é a única pista de
+  // por que o botão está desabilitado, e a ordem importa — "já enviado" vence
+  // "prazo expirado", senão quem recorreu no último dia lê a recusa errada.
+  let appealLabel = 'Enviar recurso';
+  if (alreadyFiled) appealLabel = 'Recurso já enviado';
+  else if (expired) appealLabel = 'Prazo expirado';
+  return <section><h3>Recorrer da remoção</h3><p>Prazo: <time dateTime={deadline}>{new Date(deadline).toLocaleString('pt-BR')}</time></p><label htmlFor="appeal-public-reason">Justificativa</label><textarea id="appeal-public-reason" disabled={expired || alreadyFiled} value={reason} onChange={(event) => setReason(event.target.value)} /><button type="button" disabled={expired || alreadyFiled || !reason.trim()} onClick={() => void onSubmit(reason.trim())}>{appealLabel}</button></section>;
 }

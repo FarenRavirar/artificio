@@ -108,7 +108,13 @@ async function main(): Promise<void> {
   }
 }
 
-void main().catch((error: unknown) => {
+// Top-level await em vez de `void main().catch(...)` (achado do Sonar,
+// 2026-08-14): com a cadeia de promise a falha só marcava `exitCode` e o
+// processo seguia drenando, então o passo seguinte do CI podia começar antes de
+// o banco estar pronto. Aqui a exceção sobe e o processo morre na hora.
+try {
+  await main();
+} catch (error: unknown) {
   console.error(error);
-  process.exitCode = 1;
-});
+  process.exit(1);
+}

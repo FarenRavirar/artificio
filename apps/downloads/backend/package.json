@@ -36,13 +36,13 @@
     "franc-min": "^6.2.0",
     "html-entities": "^2.6.0",
     "ipaddr.js": "^2.4.0",
-    "isomorphic-dompurify": "^3.19.0",
+    "isomorphic-dompurify": "^3.22.0",
     "jsonwebtoken": "^9.0.3",
     "kysely": "^0.29.2",
     "node-cron": "^4.6.0",
     "patchright": "^1.61.1",
     "pg": "^8.20.0",
-    "undici": "^8.7.0",
+    "undici": "^8.10.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

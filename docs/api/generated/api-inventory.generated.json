@@ -1030,7 +1030,7 @@
       "method": "GET",
       "path": "/api/v1/community/appeals/:id",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 140,
+      "line": 172,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1039,7 +1039,7 @@
       "method": "POST",
       "path": "/api/v1/community/comments/:id/reports",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 146,
+      "line": 178,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1048,7 +1048,7 @@
       "method": "POST",
       "path": "/api/v1/community/decisions/:id/appeals",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 152,
+      "line": 184,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1057,7 +1057,7 @@
       "method": "GET",
       "path": "/api/v1/community/moderation/appeals/:id",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 185,
+      "line": 217,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1066,7 +1066,7 @@
       "method": "POST",
       "path": "/api/v1/community/moderation/appeals/:id/resolution",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 188,
+      "line": 220,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1075,7 +1075,7 @@
       "method": "GET",
       "path": "/api/v1/community/moderation/cases/:id",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 173,
+      "line": 205,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1084,7 +1084,7 @@
       "method": "PATCH",
       "path": "/api/v1/community/moderation/cases/:id/priority",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 182,
+      "line": 214,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1093,7 +1093,7 @@
       "method": "POST",
       "path": "/api/v1/community/moderation/cases/:id/reopen",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 179,
+      "line": 211,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1102,7 +1102,7 @@
       "method": "POST",
       "path": "/api/v1/community/moderation/cases/:id/resolution",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 176,
+      "line": 208,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1111,7 +1111,7 @@
       "method": "POST",
       "path": "/api/v1/community/moderation/comments/:id/removal",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 167,
+      "line": 199,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1120,7 +1120,7 @@
       "method": "POST",
       "path": "/api/v1/community/moderation/comments/:id/restore",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 170,
+      "line": 202,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1129,7 +1129,7 @@
       "method": "GET",
       "path": "/api/v1/community/moderation/comments/:id/versions",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 164,
+      "line": 196,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1138,7 +1138,7 @@
       "method": "GET",
       "path": "/api/v1/community/moderation/log",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 160,
+      "line": 192,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1147,7 +1147,7 @@
       "method": "GET",
       "path": "/api/v1/community/moderation/queue",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 156,
+      "line": 188,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1156,7 +1156,7 @@
       "method": "GET",
       "path": "/api/v1/community/moderation/sanctions",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 191,
+      "line": 223,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1165,7 +1165,7 @@
       "method": "POST",
       "path": "/api/v1/community/moderation/sanctions",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 195,
+      "line": 227,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1174,7 +1174,7 @@
       "method": "DELETE",
       "path": "/api/v1/community/moderation/sanctions/:id",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 198,
+      "line": 230,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1183,7 +1183,7 @@
       "method": "GET",
       "path": "/api/v1/community/report-reasons",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 143,
+      "line": 175,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1192,7 +1192,7 @@
       "method": "GET",
       "path": "/api/v1/community/reports",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 137,
+      "line": 169,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -1201,7 +1201,7 @@
       "method": "DELETE",
       "path": "/api/v1/community/reports/:id",
       "sourceFile": "apps/downloads/backend/src/routes/communityModeration.ts",
-      "line": 149,
+      "line": 181,
       "confidence": "high",
       "kind": "express-route"
     },

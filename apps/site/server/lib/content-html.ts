@@ -15,15 +15,27 @@ export interface TocItem {
   level: number;
 }
 
-// Não exportado: só `stripTags` consome. Era público quando o importador do WP decodificava títulos
-// e excerpts vindos da REST; sem esse consumidor, exportar seria superfície morta.
+// Tabela de entidades do `decode`. Era uma cadeia de `.replace()` até 2026-08-14,
+// quando o CodeQL apontou double-unescaping (`js/double-escaping`, alertas 258/259):
+// numa cadeia, `&amp;` vira `&` no primeiro passo e realimenta as regras seguintes,
+// então `&amp;lt;script&amp;gt;` — o texto literal `&lt;script&gt;` digitado pelo
+// autor — saía como `<script>` (medido). A passada única de `replace` abaixo
+// resolve por construção: cada ocorrência é consumida uma vez só, e a saída de
+// uma substituição nunca é reexaminada. Coberto por `content-html.test.ts`.
+const ENTITIES: Record<string, string> = {
+  "&#8217;": "’", "&#8216;": "‘", "&#8220;": "“", "&#8221;": "”",
+  "&#8211;": "–", "&#8212;": "—", "&#8230;": "…", "&#8594;": "→",
+  "&#39;": "'", "&quot;": '"', "&nbsp;": " ",
+  "&lt;": "<", "&gt;": ">",
+  "&amp;": "&", "&#038;": "&",
+};
+
+// Não exportado: só `stripTags` consome. Era público quando o importador do WP
+// decodificava títulos e excerpts vindos da REST; sem esse consumidor, exportar
+// seria superfície morta.
 const decode = (s = ""): string =>
-  s
-    .replace(/&amp;/g, "&").replace(/&#038;/g, "&").replace(/&#8217;/g, "’")
-    .replace(/&#8216;/g, "‘").replace(/&#8220;/g, "“").replace(/&#8221;/g, "”")
-    .replace(/&#8211;/g, "–").replace(/&#8212;/g, "—").replace(/&#8230;/g, "…")
-    .replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, " ")
-    .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#8594;/g, "→");
+  s.replace(/&(?:amp|lt|gt|quot|nbsp|#0?39|#038|#821[1267]|#822[01]|#8230|#8594);/g,
+    (match) => ENTITIES[match] ?? match);
 
 export const stripTags = (h: string): string =>
   decode(h.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim());
