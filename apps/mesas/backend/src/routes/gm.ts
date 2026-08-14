@@ -507,7 +507,7 @@ router.get('/perfis/:slug/insights', authRateLimiter, authMiddleware, async (req
   }
 });
 
-// POST /:slug/contact - Formulário de contato
+// POST /api/v1/gm/perfis/:slug/contact - Formulário de contato
 router.post('/perfis/:slug/contact', publicRateLimiter, async (req: Request, res: Response) => {
   try {
     const { slug } = req.params;

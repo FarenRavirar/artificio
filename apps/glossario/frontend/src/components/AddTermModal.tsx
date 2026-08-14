@@ -3,11 +3,23 @@ import { X, PlusCircle, Loader2, AlertCircle } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/auth-context';
 import { apiErrorMessage } from '../lib/api-error';
-
-interface System { id: string; name: string; }
-interface Edition { id: string; name: string; system_id: string; }
-interface Scenario { id: string; name: string; }
-interface Category { id: string; name: string; type: string; parent_id: string | null; }
+import {
+  normalizeCategories,
+  normalizeCategory,
+  normalizeEdition,
+  normalizeEditions,
+  normalizeScenario,
+  normalizeScenarios,
+  normalizeSystem,
+  normalizeSystems,
+  type Category,
+  type Edition,
+  type Scenario,
+  type System,
+} from '../types/social';
+// `System`, `Edition`, `Scenario` e `Category` vêm de `../types/social`, junto
+// dos normalizadores que os produzem — antes eram declarados aqui, e o tipo
+// local descrevia o que este arquivo esperava, não o que a API devolve.
 
 interface Props {
   onClose: () => void;
@@ -61,10 +73,18 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
       api.get('/scenarios'),
       api.get('/categories'),
     ]).then(([sys, sc, cats]) => {
-      console.log('AddTermModal: Dados carregados com sucesso', { sys: sys.data.length, sc: sc.data.length, cats: cats.data.length });
-      setSystems(sys.data);
-      setScenarios(sc.data);
-      setCategories(cats.data);
+      // Normaliza antes de medir e antes de guardar: `sys.data.length` já era
+      // acesso a `.length` de payload externo, que estoura se a resposta não
+      // for array (achado de review, PR #260).
+      const sistemas = normalizeSystems(sys.data);
+      const cenarios = normalizeScenarios(sc.data);
+      const categorias = normalizeCategories(cats.data);
+      console.log('AddTermModal: Dados carregados com sucesso', {
+        sys: sistemas.length, sc: cenarios.length, cats: categorias.length,
+      });
+      setSystems(sistemas);
+      setScenarios(cenarios);
+      setCategories(categorias);
     }).catch(err => {
       console.error('AddTermModal: Erro ao carregar dados:', err);
       setError('Falha ao conectar ao servidor. Verifique sua conexão.');
@@ -76,11 +96,11 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
     // Sem sistema válido → lista vazia; senão busca no servidor. setState só no
     // callback assíncrono (sem set síncrono no corpo do effect).
     const load = !systemId || systemId === 'new'
-      ? Promise.resolve({ data: [] as Edition[] })
+      ? Promise.resolve({ data: [] as unknown })
       : api.get(`/systems/system/${systemId}/editions`);
     load.then(res => {
       if (!active) return;
-      setEditions(res.data);
+      setEditions(normalizeEditions(res.data));
       setEditionId('');
     }).catch(() => {
       if (active) setEditions([]);
@@ -113,7 +133,11 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
       // Sequencial: Se o sistema é novo, cria primeiro
       if (sourceType === 'sistema' && systemId === 'new') {
         const sysRes = await api.post('/systems', { name: newSystemName }, { headers: authHeaders });
-        const newItem = sysRes.data;
+        // Mesmo risco da edição logo abaixo, com a mesma consequência: este `id`
+        // vira `system_id` do termo. O achado de review citou só as edições, mas
+        // o defeito é idêntico aqui.
+        const newItem = normalizeSystem(sysRes.data);
+        if (!newItem) throw new Error('O sistema foi criado, mas o servidor devolveu uma resposta inválida.');
         setSystems(prev => [...prev, newItem].sort((a,b) => a.name.localeCompare(b.name)));
         finalSystemId = newItem.id;
         setNewSystemName('');
@@ -121,14 +145,19 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
         // Se também pediu edição nova, cria vinculando ao sistema recém-criado
         if (editionId === 'new') {
           const edRes = await api.post(`/systems/system/${finalSystemId}/editions`, { name: newEditionName }, { headers: authHeaders });
-          const newEd = edRes.data;
+          // O `id` daqui vira `edition_id` do termo. Sem normalizar, um payload
+          // malformado gravava o termo apontando para `undefined` — vínculo
+          // quebrado no banco, não erro de tela (achado de review, PR #260).
+          const newEd = normalizeEdition(edRes.data);
+          if (!newEd) throw new Error('A edição foi criada, mas o servidor devolveu uma resposta inválida.');
           setEditions([newEd]); // Como o sistema é novo, a lista de edições era vazia
           finalEditionId = newEd.id;
           setNewEditionName('');
         }
       } else if (sourceType === 'sistema' && editionId === 'new') {
         const edRes = await api.post(`/systems/system/${systemId}/editions`, { name: newEditionName }, { headers: authHeaders });
-        const newEd = edRes.data;
+        const newEd = normalizeEdition(edRes.data);
+        if (!newEd) throw new Error('A edição foi criada, mas o servidor devolveu uma resposta inválida.');
         setEditions(prev => [...prev, newEd].sort((a,b) => a.name.localeCompare(b.name)));
         finalEditionId = newEd.id;
         setNewEditionName('');
@@ -137,7 +166,8 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
       // Cenário novo
       if (sourceType === 'cenario' && scenarioId === 'new') {
         const scRes = await api.post('/scenarios', { name: newScenarioName }, { headers: authHeaders });
-        const newItem = scRes.data;
+        const newItem = normalizeScenario(scRes.data);
+        if (!newItem) throw new Error('O cenário foi criado, mas o servidor devolveu uma resposta inválida.');
         setScenarios(prev => [...prev, newItem].sort((a,b) => a.name.localeCompare(b.name)));
         finalScenarioId = newItem.id;
         setNewScenarioName('');
@@ -151,7 +181,8 @@ const AddTermModal: React.FC<Props> = ({ onClose, onSuccess }) => {
             type: sourceType,
             parent_id: newCategoryParentId || null 
           }, { headers: authHeaders });
-          const newItem = catRes.data;
+          const newItem = normalizeCategory(catRes.data);
+          if (!newItem) throw new Error('A categoria foi criada, mas o servidor devolveu uma resposta inválida.');
           setCategories(prev => [...prev, newItem].sort((a,b) => a.name.localeCompare(b.name)));
           finalCategoryId = newItem.id;
           setNewCategoryName('');

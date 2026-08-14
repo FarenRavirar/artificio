@@ -1,14 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { PlusCircle, X, CheckCircle, Edit2, AlertCircle, ChevronUp, ChevronDown, Download } from 'lucide-react';
 import api from '../services/api';
+import {
+  normalizeCategories,
+  normalizeEditions,
+  normalizeScenarios,
+  normalizeSystems,
+  type Category,
+  type Edition,
+  type Scenario,
+  type System,
+} from '../types/social';
 
 // Sessão via cookie SSO (api.withCredentials). Sem Bearer manual.
 const headers = () => ({});
 
-interface Category { id: string; name: string; slug: string; type: string; parent_id: string | null; position: number; status: string; }
-interface System { id: string; name: string; slug: string; status: string; position: number; }
-interface Edition { id: string; name: string; slug: string; system_id: string; status: string; position: number; }
-interface Scenario { id: string; name: string; slug: string; status: string; position: number; }
+// Tipos e normalizadores em `../types/social`: os quatro eram declarados aqui e
+// em mais dois arquivos, com formatos divergentes entre si — nenhum descrevia o
+// payload, só o que cada tela esperava dele (achado de review, PR #260).
 
 // Form dinâmico (add/edit de categoria/sistema/cenário/edição): união opcional
 // das entidades — aceita receber qualquer uma delas via setForm(item).
@@ -65,16 +74,29 @@ const AdminStructurePage: React.FC = () => {
         api.get('/systems', { headers: headers() }),
         api.get('/scenarios', { headers: headers() }),
       ]);
-      setCategories(cats.data);
-      setSystems(sysList.data);
-      setScenarios(scList.data);
-      
-      const allEditions: Edition[] = [];
-      for (const sys of sysList.data) {
-        const edRes = await api.get(`/systems/system/${sys.id}/editions`, { headers: headers() });
-        allEditions.push(...edRes.data);
-      }
-      setEditions(allEditions);
+      // Normaliza antes de usar: o `for...of` e o spread abaixo iteravam o
+      // payload cru, então uma resposta que não fosse array derrubava o
+      // carregamento inteiro da tela (achado de review, PR #260).
+      const sistemas = normalizeSystems(sysList.data);
+      setCategories(normalizeCategories(cats.data));
+      setSystems(sistemas);
+      setScenarios(normalizeScenarios(scList.data));
+
+      // Em paralelo, não em série: era uma requisição por sistema, cada uma
+      // esperando a anterior. Uma falha isolada vira lista vazia daquele
+      // sistema em vez de abortar a árvore toda.
+      const porSistema = await Promise.all(
+        sistemas.map(async (sys) => {
+          try {
+            const edRes = await api.get(`/systems/system/${sys.id}/editions`, { headers: headers() });
+            return normalizeEditions(edRes.data);
+          } catch (e) {
+            console.error(`Erro ao carregar edições do sistema ${sys.id}:`, e);
+            return [];
+          }
+        }),
+      );
+      setEditions(porSistema.flat());
     } catch (e) { console.error('Erro ao carregar estrutura:', e); }
   };
 

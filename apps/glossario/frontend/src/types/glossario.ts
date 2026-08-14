@@ -1,3 +1,35 @@
+/**
+ * Normaliza a forma de um payload de termo antes de qualquer uso. Complementa
+ * `sanitizeTermForUi` (`utils/textSanitizer.ts`), que trata o CONTEÚDO hostil
+ * mas já recebe um `Termo` tipado e assume que a forma está correta — os dois
+ * são necessários, em ordem: primeiro a forma, depois o texto.
+ */
+export function normalizeTermo(v: unknown): Termo | null {
+  if (typeof v !== 'object' || v === null || Array.isArray(v)) return null;
+  const r = v as Record<string, unknown>;
+  const id = typeof r.id === 'string' || typeof r.id === 'number' ? r.id : '';
+  // Sem `id` o termo não serve como `key` de lista nem como alvo das ações de
+  // aprovar/rejeitar da tela de revisão.
+  if (id === '') return null;
+  const texto = (k: string): string => (typeof r[k] === 'string' ? (r[k] as string) : '');
+  return {
+    ...(r as Partial<Termo>),
+    id,
+    name_en: texto('name_en'),
+    name_pt: texto('name_pt'),
+  } as Termo;
+}
+
+export function normalizeTermos(v: unknown): Termo[] {
+  if (!Array.isArray(v)) return [];
+  const out: Termo[] = [];
+  for (const item of v) {
+    const termo = normalizeTermo(item);
+    if (termo) out.push(termo);
+  }
+  return out;
+}
+
 export interface Termo {
   id: string | number;
   name_en: string; // Nova v2

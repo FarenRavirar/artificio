@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { redirectToLogin, logout as ssoLogout } from '@artificio/auth/client';
 import api from '../services/api';
 import { AuthContext, getSsoReturnUrl, type User } from './auth-context';
+import { normalizeSessionUser } from '../types/session';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -12,7 +13,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refresh = useCallback(async () => {
     try {
       const { data } = await api.get('/auth/me');
-      setUser(data);
+      // Sessão malformada vira "não logado", não sessão com campos indefinidos:
+      // `role` e `is_global_moderator` daqui decidem acesso à área admin e
+      // exclusão de comentário alheio (achado de review, PR #260).
+      setUser(normalizeSessionUser(data));
     } catch {
       setUser(null);
     }
@@ -23,7 +27,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     (async () => {
       try {
         const { data } = await api.get('/auth/me');
-        if (active) setUser(data);
+        if (active) setUser(normalizeSessionUser(data));
       } catch {
         if (active) setUser(null);
       } finally {
