@@ -10,7 +10,7 @@
 
 | Categoria | Quantidade | Bloqueia? |
 |-----------|:----------:|:---------:|
-| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 55 | ❌ |
+| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 59 | ❌ |
 
 ## Rotas órfãs suspeitas
 
@@ -27,16 +27,18 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | GET | `/internal/users/:id` | ✅ | public | Scope "public" sem consumidor |
 | PUT | `/api/v1/notification-preferences/:event_type` | ✅ | public | Scope "public" sem consumidor |
 | PUT | `/api/v1/notifications/read-through` | ✅ | public | Scope "public" sem consumidor |
-### downloads (38 rota(s))
+### downloads (42 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
 | DELETE | `/api/v1/collections/:id/items/:materialId` | ✅ | public | Scope "public" sem consumidor |
+| DELETE | `/api/v1/community/reports/:id` | ✅ | public | Scope "public" sem consumidor |
 | DELETE | `/api/v1/favorites/:materialId` | ✅ | public | Scope "public" sem consumidor |
 | DELETE | `/api/v1/reports/:id` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/collections` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/collections/:id/items` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/comments/:materialId` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/community/report-reasons` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/creators/:slug` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/creators/me` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/destinations/:id` | ✅ | public | Scope "public" sem consumidor |
@@ -60,6 +62,8 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | POST | `/api/v1/collections` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/collections/:id/items` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/comments` | ✅ | public | Scope "public" sem consumidor |
+| POST | `/api/v1/community/comments/:id/reports` | ✅ | public | Scope "public" sem consumidor |
+| POST | `/api/v1/community/decisions/:id/appeals` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/downloads` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/favorites` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/materials` | ✅ | public | Scope "public" sem consumidor |

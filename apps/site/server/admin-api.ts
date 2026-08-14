@@ -1,6 +1,6 @@
 // API de autoria do admin (spec 011). CRUD de posts/pages/taxonomias/redirects + slug-check + rebuild.
 // Gate atual = requireAdmin (role SSO 'admin'); roles editoriais granulares = fase futura (D052).
-import { Router, type RequestHandler, type Request } from "express";
+import { Router, type RequestHandler, type Request, type Response } from "express";
 import multer from "multer";
 import { fileTypeFromBuffer } from "file-type";
 import type { AuthenticatedRequest } from "@artificio/auth";
@@ -217,7 +217,16 @@ export function adminApi(requireAuth: RequestHandler, requireAdmin: RequestHandl
 
   // Upload multipart. Valida MIME real (magic bytes), rejeita SVG/desconhecido, sobe e registra.
   r.post("/media", (req, res) => {
-    upload.single("file")(req as any, res as any, async (err: unknown) => {
+    // O `RequestHandler` do multer vem tipado contra os tipos de Express que
+    // ele próprio declara, que não são os de Express 5 usados aqui — os dois
+    // `any` anteriores mascaravam essa incompatibilidade. Um cast único e
+    // nomeado no handler mantém `req`/`res` tipados no call-site.
+    const runUpload = upload.single("file") as unknown as (
+      request: Request,
+      response: Response,
+      next: (err?: unknown) => void,
+    ) => void;
+    runUpload(req, res, async (err: unknown) => {
       if (err) {
         const code = (err as { code?: string }).code === "LIMIT_FILE_SIZE" ? 413 : 400;
         res.status(code).json({ error: "upload_error", detail: String((err as Error).message) });

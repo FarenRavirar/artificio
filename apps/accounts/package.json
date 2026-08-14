@@ -9,7 +9,8 @@
     "build:client": "tsc -p frontend/tsconfig.json && vite build --config vite.config.ts",
     "dev": "tsx src/index.ts",
     "lint": "eslint .",
-    "test": "vitest run --config vitest.config.ts"
+    "test": "vitest run --config vitest.config.ts",
+    "test:db:prepare": "tsx src/scripts/prepareCommunityTestDatabase.ts"
   },
   "dependencies": {
     "@artificio/auth": "workspace:*",

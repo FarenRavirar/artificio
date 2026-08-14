@@ -333,14 +333,41 @@ lidas de `spec.md`/`plan.md`/`contrato-http-v1.md` e critério de devolução. O
 implementador lê **a seção da sua parte e as tasks que ela nomeia** — não a fase
 inteira.
 
-| Parte | Escopo | Tasks | Arquivos (estimado) | Depende de |
+| Parte | Escopo | Tasks | Estado (2026-08-14) | Depende de |
 |---|---|---|---|---|
-| **0** | Backend: rotas de leitura que faltam no `accounts.` | destrava T4.16, T4.20, T4.23, T4.25 | ~20-24 | — |
-| **1** | Fundação do pacote: subpaths, peers, transporte, estado | T4.1–T4.9 | ~22-26 | — |
-| **2** | UI da conversa | T4.10, T4.12 | ~20-24 | Parte 1 |
-| **3** | Acessibilidade, heurísticas e matriz de ambientes | T4.11, T4.13, T4.14, T4.15 | ~20-26 | Partes 1-2 |
-| **4** | Fila de moderação e restauração | T4.16–T4.19b, T4.21, T4.22 | ~22-28 | Partes 0-1 |
-| **5** | Denúncia, caso agregado, recurso e sanção | T4.23–T4.26 | ~24-30 | Partes 0-1, 4 |
+| **0** | Backend: rotas de leitura que faltavam no `accounts.` | destrava T4.16, T4.20, T4.23, T4.25 | **entregue** — 4/4 itens medidos | — |
+| **1** | Fundação do pacote: subpaths, peers, transporte, estado | T4.1–T4.9 | **entregue** | — |
+| **2** | UI da conversa | T4.10, T4.12 | **entregue** | Parte 1 |
+| **3** | Acessibilidade, heurísticas e matriz de ambientes | T4.11, T4.13, T4.14, T4.15 | **implementada; T4.14 aguarda adoção real** | Partes 1-2 |
+| **4** | Fila de moderação e restauração | T4.16–T4.19b, T4.20 (UI), T4.21, T4.22 | **implementada no contrato por app; gaps de T4.16/T4.19b registrados** | Partes 0-1 |
+| **5** | Denúncia, caso agregado, recurso e sanção | T4.23–T4.26 | **implementada; T4.24/T4.25 mantêm gaps explícitos** | Partes 0-1, 4 |
+
+**O que decide o custo das Partes 4-5, remedido em 2026-08-14:** a Parte 0 está
+entregue, então os bloqueios de *leitura* declarados em 2026-08-12 caíram. Sobrou um
+bloqueio só, e ele é o mesmo nas duas partes: as rotas de moderação são
+`/internal/v1` atrás de credencial de serviço, e o requisito 6a proíbe o navegador
+falar com elas. **Construir a fachada browser-safe do host moderador é trabalho das
+Partes 4-5**, não lacuna do `accounts.` Detalhe em cada `#### Parte N`.
+
+**Conformidade da entrega contra `spec.md`/`plan.md`, auditada em 2026-08-14 por
+leitura do código, não do relatório de quem implementou.** As três travas abaixo e
+os pontos que o `plan.md` fixa foram verificados um a um; nenhum violado:
+
+| O que a spec/plan exige | Onde verifiquei | Resultado |
+|---|---|---|
+| Trava 1 — navegador nunca chama `/internal/v1` (req. 6a) | `rg "internal/v1"` em `apps/downloads/frontend/src` e `packages/comments/src` | **1 hit, e é comentário** (`subjectAuthorization.ts:37`). Os 20+ usos reais estão só na fachada `apps/downloads/backend/src/routes/communityModeration.ts`; o frontend usa `credentials: 'include'` same-origin |
+| Trava 3 — root livre de React (req. 21b) | `index.ts` vs `react.ts` | root exporta só schemas Zod de `moderation.ts`; `CommunityModerationWorkspace` sai apenas por `/react`. `packageBoundary.test.ts` verde **no artefato construído**, não só no fonte |
+| Fachada falha fechada, com timeout (req. 22c) | `communityModeration.ts:35-38,61,69,83-87` | `503` sem credencial/origem, `AbortSignal.timeout(5s)`, `502` para JSON inválido e para payload reprovado no Zod; credencial só em header server-side |
+| T4.17 — reusar `packages/ui/src/admin`, sem padrão novo | `GestaoModeracaoPage.tsx:3,98,122,153,161` | `AdminTable`, `PageHeader`, `AdminBulkAction` importados de `@artificio/ui/admin` |
+| T4.21 — `ConfirmDialog`, **não** `globalThis.confirm` | `CommunityModerationWorkspace.tsx:2,95,116,149,167,181` | usa `useConfirm`/`ConfirmProvider` de `@artificio/ui` (`packages/ui/src/index.ts:52`); a armadilha do `AdminTable` foi evitada |
+| T4.13 critérios 4 e 5 não podem colapsar | `CommentsConversation.tsx:157-188,214-226` + teste `:283-345` | `announcement` (live region) é setado **sem** mover foco; o foco vai ao editor ao abrir e **retorna ao gatilho** após enviar (`returnFocusRef`). Teste assere as duas coisas |
+| T4.13 critério 6 — lido não só por cor | `NotificationsView.tsx:389` | `<span className="notification-state">Não lida</span>` — texto, não só cor |
+
+**Ressalva registrada, não bloqueio:** os 8 critérios de T4.13 estão provados em
+**2 testes agregados** (`CommentsConversation.test.tsx:283` e `:347`), não em 8
+casos separados. Cada critério é assertado de fato — verifiquei asserção por
+asserção —, mas a granularidade menor significa que a falha de um critério derruba
+o teste inteiro sem apontar qual. Aceitável; anotado para quem for mexer.
 
 **Três travas valem em todas as partes, lidas da spec — não são interpretação:**
 
@@ -356,12 +383,70 @@ inteira.
    `plan.md` §Arquivos afetados). React entra só em `/react`; quebrar isso derruba o
    backend do `accounts.`, que já importa o root.
 
+**Débitos de verificação corrigidos junto da fase (2026-08-14, autorização nominal
+do mantenedor).** Não são tasks da spec — são duas lacunas de *infraestrutura de
+teste* achadas ao auditar a entrega da fase, e corrigidas porque escondiam risco
+exatamente na superfície que a fase amplia. Ficam registrados aqui para não serem
+redescobertos:
+
+1. **Os 33 testes do `accounts` que exigem Postgres real nunca rodaram em gate
+   nenhum.** `communityWilson` (28), `notificationRecipientsIntegration` (4) e
+   `notificationOutboxSavepoint` (1) pulam sem `COMMUNITY_TEST_DATABASE_URL`, e
+   medido em 2026-08-14 a variável **não existia em nenhum workflow** — embora o
+   CI já suba `postgres:16` como service desde sempre (`ci.yml:29-43`). Um deles é
+   o que provou pegar bug real na T3.15 (entrada de outbox presa em retry
+   infinito), porque `SAVEPOINT`/`ROLLBACK TO` em SQL raw só falha contra Postgres
+   de verdade. Corrigido com `apps/accounts/src/scripts/prepareCommunityTestDatabase.ts`
+   (script `test:db:prepare`) + step novo no `ci.yml`. **Validado por execução
+   real**, não dry-run: container `postgres:16` descartável na VM, 11 migrations
+   aplicadas limpas em ordem, suíte de `575 passed + 33 skipped` → **`608 passed,
+   36 arquivos, zero skip`**; ambiente destruído com zero resíduo.
+   **Coordenada que evita redescoberta:** o truque de *schema isolado por PID* do
+   `downloads` (`testMigrationsPostgres.ts:28,33-34`) **não funciona** para o
+   `accounts` — as migrations qualificam `public.` literalmente nos guards de
+   idempotência (`migration_006:251,263,360,375,684`, `007:142`, `002:20,77`,
+   `004:43`) e nenhuma ajusta `search_path` (busca negativa registrada). Por isso
+   o script cria **banco dedicado**, não schema.
+2. **`apps/site` rodava sem lint desde que existe** (`"lint": "echo TODO"`, débito
+   [P1] já em `plan.md`), e o `"test"` enumerava 5 arquivos fixos — teste novo não
+   rodaria, com CI verde. Causa medida: faltava `eslint.config.js` (`eslint .`
+   abortava) e `vitest.config`. Corrigido com config nova + `eslint .` +
+   `vitest run`. `eslint .` devolveu **14 erros**, dos quais 11 eram `no-undef` de
+   ambiente Node em `.mjs` (resolvidos declarando globals na config, sem instalar
+   o pacote `globals`, que exigiria aprovação) e **3 eram reais**: dois `any` em
+   `server/admin-api.ts:220` mascarando incompatibilidade entre o `RequestHandler`
+   do multer e Express 5, e um `prefer-const`. Corrigidos na raiz, sem
+   `eslint-disable`. `.astro` fica fora do lint: exigiria `eslint-plugin-astro`,
+   dependência nova.
+3. **E016/E017 pela terceira vez — Dockerfile sem o pacote workspace que o código
+   importa.** `routes/communityModeration.ts:3` passou a importar
+   `@artificio/comments`, e o `Dockerfile` do `downloads/backend` não tinha nem o
+   `--filter` nem o `COPY dist-cjs` — o container subiria e crasharia com
+   `MODULE_NOT_FOUND` em beta/prod, com o CI verde. **O gate dedicado já existia e
+   já apontava:** `node scripts/ci/check_dockerfile_workspace_deps.mjs` (ligado em
+   `pr-checks.yml:49`) devolvia **4 erros**, não 1 — além de `comments`/`ui` no
+   `downloads`, acusava `changelog`/`ui` em `apps/accounts`, **pré-existentes em
+   `origin/dev`** (confirmado por `git show origin/dev:apps/accounts/Dockerfile`),
+   não introduzidos por esta branch. Corrigidos os dois Dockerfiles; gate passou a
+   `OK — 6 imagens conferidas, nenhum pacote faltando`.
+   **Coordenadas que evitam redescoberta:** o backend do `downloads` compila para
+   CommonJS (`main: dist/server.js`, sem `type: module`), então resolve por
+   `require` e só o `dist-cjs` entra — a raiz React vive em
+   `@artificio/comments/react`. `@artificio/ui` entra no `--filter` **sem** `COPY`
+   porque nenhum `require` do CJS o alcança (medido: `dist-cjs/moderation.js`
+   requer só `zod`); ele está lá porque `--prod --filter` **poda o store** de quem
+   fica de fora e o symlink sobrevive apontando para nada. No `accounts`, `ui` e
+   `changelog` não são import de servidor (`rg "@artificio/ui" apps/accounts/src`
+   → zero) — entram pela mesma razão de poda.
+   **Não validado:** `docker build --target production` não rodou; Docker Desktop
+   indisponível na máquina. O gate estático passa, o build real não foi exercido.
+
 - [x] T4.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. · feito quando: leitura confirmada.
   **Concluída em 2026-08-13:** T0 relido integralmente antes da reconciliação final das Partes 1–2.
-- [ ] T4.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
-  **Handoff investigado em 2026-08-12:** manter aberto como guard contínuo. Comandos de validação na raiz: `rtk pnpm run test`, `rtk pnpm run lint`, `rtk pnpm run build`, `rtk pnpm verify:api`; TypeScript do pacote pelo script do workspace, não `rtk tsc` solto na raiz.
-- [ ] T4.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
-  **Handoff investigado em 2026-08-12:** manter aberto como guard contínuo; relatório cita comando+resultado para estado, causa e conclusão.
+- [x] T4.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
+  **Concluída em 2026-08-14:** leituras, buscas, Git e validações usaram `rtk`; as consultas remotas read-only usaram `ssh faren` conforme a governança.
+- [x] T4.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
+  **Concluída em 2026-08-14:** implementação e handoff no chat seguiram o registro pedido.
 - [x] T4.1 — **Pedir aprovação nominal para ampliar código de `packages/comments`**, pacote compartilhado já existente desde T2.2. A aprovação cita os consumidores visuais futuros `downloads`, `mesas` e `site` e o blast radius compartilhado. · feito quando: aprovação registrada.
   **Concluída em 2026-08-13:** o mantenedor deu a aprovação nominal com esse escopo e esse blast radius.
 - [x] T4.2 — **Transporte injetável, não chamada direta ao `accounts.`** (requisito 21). O pacote **não** pode embutir `fetch` do navegador para o `accounts.`: isso contradiz a decisão de escrita backend-to-backend (T0.5) e furaria a validação de assunto e ownership. O adapter cobre leitura/criação/resposta, edição, auto-retirada, voto, denúncia/retirada, recurso, moderação, notificações e leitura; cada fachada implementa só capacidades autorizadas do seu domínio. · feito quando: pacote funciona contra adapter de teste, sem conhecer origem real; nenhum fluxo novo introduz `fetch` cross-origin escondido.
@@ -382,16 +467,16 @@ inteira.
   **Concluída em 2026-08-13:** `degradation.test.ts` cobre os cinco casos exigidos; todos preservam o host renderizado, expõem indisponibilidade e mantêm mutações fechadas.
 - [x] T4.10 — **UI compartilhada da conversa completa** (requisito 21; decisões 3–7, 17, 24–30). Árvore até cinco níveis, `more`, seletor `Melhores`/`Mais votados`/`Recentes`/`Mais antigos` com `Melhores` padrão, score e voto ternário, `ContentEditor` para criar/editar, marcador de edição, auto-retirada, denúncia e resposta a legado. Imagem aparece somente como link HTTPS; links obedecem ao perfil do `content-editor`. Contrato visual usa tokens CSS, slots e `className`, sem Tailwind compilado no pacote. · feito quando: o componente compartilhado expõe a mesma semântica e pontos de identidade para os três consumidores; quatro sorts/voto/edição/denúncia são operáveis por teclado; nenhuma imagem remota é buscada. A matriz nos três hosts reais é T4.14.
   **Concluída em 2026-08-13:** `CommentsConversation.tsx` e `conversation.ts` entregam a superfície compartilhada, schemas e cliente injetado; testes DOM cobrem cinco níveis, `more`, quatro sorts, voto, edição, retirada, denúncia, criação/resposta e ausência de `<img>` remoto. A matriz dos três hosts continua pertencendo à T4.14 e à adoção das Fases 5–7.
-- [ ] T4.11 — UI da central de notificações, consumindo a rota canônica do `accounts.` (T3.9). · feito quando: montável onde a central vive, sem cópia por módulo.
-  **Handoff investigado em 2026-08-12:** já existe materialmente em `apps/accounts/frontend/src/NotificationsView.tsx`; `NotificationBell` compartilhado existe em `packages/ui` e está integrado em `site`, `downloads`, `mesas`. Não reimplementar central no pacote. Nesta task, só extrair/compartilhar se teste de consumo provar necessidade; senão reconciliar como entregue por T3.9.
+- [x] T4.11 — UI da central de notificações, consumindo a rota canônica do `accounts.` (T3.9). · feito quando: montável onde a central vive, sem cópia por módulo.
+  **Concluída em 2026-08-14:** a central canônica permaneceu em `apps/accounts/frontend/src/NotificationsView.tsx`, sem cópia por módulo. Leitura agora é ação explícita, o estado não depende só de cor e o resultado é anunciado. `NotificationsView.test.tsx` cobre expandir sem marcar, marcar uma e marcar todas.
 - [x] T4.12 — Comentário legado visualmente distinguível, sem sugerir conta verificada (requisito 9). Rótulo neutro do tipo "comentário importado — autoria não verificada"; **sem avatar falso, sem badge de conta, sem link para perfil**. · feito quando: distinguível à primeira vista, e nada leva a um perfil que não existe.
   **Concluída em 2026-08-13:** schema recusa legado com avatar ou badge; a UI mostra o rótulo neutro, não cria avatar/badge/link de perfil e mantém a ação de responder, com cobertura DOM.
-- [ ] T4.13 — **Acessibilidade com critérios executáveis** (WCAG 2.2), não checklist genérico: thread em lista semântica; botão "Responder a [nome]" (não só "Responder"); labels reais nos campos; foco tratado após responder e enviar; envio, erro e "marcada como lida" anunciados com `role="status"` ou alerta adequado, **sem mover o foco**; estado lido não dependendo só de cor; data em `<time datetime>`; navegação completa por teclado. · feito quando: os oito verificados, com evidência.
-  **Handoff investigado em 2026-08-12:** transformar os 8 critérios em testes DOM, não snapshot: lista aninhada, nome acessível, labels, foco após abrir/enviar, live region, indicador textual de leitura, `<time dateTime>`, percurso teclado. Cobrir conversa e central existente onde aplicável.
+- [x] T4.13 — **Acessibilidade com critérios executáveis** (WCAG 2.2), não checklist genérico: thread em lista semântica; botão "Responder a [nome]" (não só "Responder"); labels reais nos campos; foco tratado após responder e enviar; envio, erro e "marcada como lida" anunciados com `role="status"` ou alerta adequado, **sem mover o foco**; estado lido não dependendo só de cor; data em `<time datetime>`; navegação completa por teclado. · feito quando: os oito verificados, com evidência.
+  **Concluída em 2026-08-14:** `CommentsConversation.tsx` move foco para o editor de resposta e devolve ao acionador após a ação, sem usar a live region como alvo. Testes DOM cobrem lista/artigo, nome acessível, labels, foco, status/alert, texto de lido, `<time dateTime>` e controles nativos de teclado.
 - [ ] T4.14 — **Matriz de testes nos três ambientes reais**: Vite React (`downloads`, `mesas`) e **ilha React dentro do Astro** (`site`) — que é o caso capaz de quebrar por import não seguro em SSR. Mais: tema claro e escuro, cache por conta, timeout e schema inválido. · feito quando: a suíte cobre os três ambientes, não só um.
-  **Handoff investigado em 2026-08-12:** conflito de sequência medido: adoção real só ocorre nas Fases 5–7; hoje nenhum dos 3 apps depende de `@artificio/comments`. Fechar Fase 4 exige fixtures/testes de integração nos três consumidores (inclusive `astro build`/SSR do site) ou manter T4.14 aberta até adoção. Não declarar “3 ambientes” com teste unitário único do pacote.
-- [ ] T4.15 — Verificar as 10 Heurísticas de Nielsen na caixa de comentários e na central (`AGENTS.md` §Regras de Produto). Atenção a visibilidade de estado e prevenção de erro. · feito quando: checklist registrado.
-  **Handoff investigado em 2026-08-12:** registrar evidência por heurística no bloco único desta task ao fechar: cenário, resultado, correção. Foco mínimo: estado fresh/stale/unavailable, confirmação de retirada, prevenção de perda do rascunho, erro recuperável, correspondência dos quatro sorts.
+  **Estado em 2026-08-14:** continua aberta por dependência real das Fases 5–7. `downloads` agora é host de referência da moderação e seu build Vite passou; `mesas` e a ilha Astro ainda não adotam `@artificio/comments`. O root continua protegido por `packageBoundary.test.ts`; declarar três ambientes antes da adoção seria verde falso.
+- [x] T4.15 — Verificar as 10 Heurísticas de Nielsen na caixa de comentários e na central (`AGENTS.md` §Regras de Produto). Atenção a visibilidade de estado e prevenção de erro. · feito quando: checklist registrado.
+  **Concluída em 2026-08-14:** visibilidade por `fresh`/`stale`/`unavailable` e status de ações; linguagem do domínio; controles nativos; consistência dos quatro sorts; prevenção e confirmação de retirada; restauração como saída; rascunho preservado em conflito; redução de carga por labels/contagens; erro recuperável; ajuda textual em campos condicionais. Os cenários críticos estão em testes DOM, não snapshot.
 
 ### Superfície de moderação (requisito 27, decisão do mantenedor 2026-07-30)
 
@@ -400,82 +485,85 @@ linhas — cobrindo quem lê e escreve, não quem modera.
 `POST /internal/v1/comments/:id/removal` existia sem tela que o chamasse.
 
 - [ ] T4.16 — **Fila de moderação como superfície primária** (requisito 27a). Moderar navegando pelo conteúdo público não escala e depende do moderador topar com o problema. A fila lista denunciados, de conta nova (T4.20) e recentes, com filtro por `realm` e `source_app` — **beta nunca misturado com produção** (T0.6). · feito quando: a fila carrega, filtra pelos dois eixos, e nenhum item de beta aparece em produção.
-  **Handoff investigado em 2026-08-12 — BLOQUEIO DE CONTRATO:** `GET /internal/v1/comments/moderation-queue` existe, mas força o `realm/source_app` da credencial e devolve `403 forbidden_source_app` para outro app; não há host/fachada agregadora definida. A query só lê `community_moderation_case`, logo comentário novo/recente sem denúncia nunca entra. Payload também não traz sinal de conta nova. Banco real `accounts-db/artificio_auth`: migrations 001–009; fila `0` aberta/`0` fechada. UI unificada não é implementável sem ampliar backend/contrato e definir onde ela roda; isso exige escopo/aprovação de código em `apps/accounts`.
-- [ ] T4.17 — **Reusar `packages/ui/src/admin`, não criar padrão novo** (requisito 27b). Já existem `AdminTable` (com seleção e ação em lote), `bulkActions`, `StatusPill`, `PageHeader`, `SectionCard` e `AdminWorkspaceLayout`, em uso no painel de gestão do `downloads`. Divergir do design system exige aprovação (`AGENTS.md` §Regras de Produto). · feito quando: a fila usa os componentes existentes, sem componente admin novo salvo justificativa registrada.
-  **Handoff investigado em 2026-08-12:** componentes citados existem. `AdminTable` usa `globalThis.confirm` quando uma action declara `confirm`; T4.21 exige `ConfirmDialog`. Não usar esse atalho: controlar confirmação externa com `useConfirm`/`ConfirmDialog`, individual e lote, sem alterar `packages/ui` se composição bastar.
-- [ ] T4.18 — **Seguir o padrão de dados de `useModerationQueue`** (requisito 27c; `apps/downloads/frontend/src/hooks/useModerationQueue.ts`): React Query, validação Zod na fronteira, ação individual e em lote, `invalidateQueries` no sucesso. Padrão maduro (specs 075 e 083) — replicar, não reinventar. · feito quando: hook novo espelha a estrutura do existente, com payload validado por schema.
-  **Handoff investigado em 2026-08-12:** hook de referência existe e usa Query+Zod+invalidate. Aplicar no host moderador, não no root agnóstico do pacote. Bloqueado pela ausência de fachada definida em T4.16; adapter deve receber payload `unknown`, validar, mutar individual/lote e invalidar chave com `realm/source_app`.
+  **Estado em 2026-08-14:** a fila por credencial foi implementada no host de referência `downloads`: fachada browser-safe em `backend/src/routes/communityModeration.ts`, hook e tela em `frontend`. Denunciados e contas novas aparecem sem expor `/internal/v1` ao navegador. Continua aberta porque o contrato aprovado é isolado por credencial; não existe fila global cross-app nem coleção genérica de comentários recentes no backend central. Produção também não está ativável: consulta read-only mostrou credenciais `downloads` apenas com `{users.read,secrets.read}`, sem `moderation.write`.
+- [x] T4.17 — **Reusar `packages/ui/src/admin`, não criar padrão novo** (requisito 27b). Já existem `AdminTable` (com seleção e ação em lote), `bulkActions`, `StatusPill`, `PageHeader`, `SectionCard` e `AdminWorkspaceLayout`, em uso no painel de gestão do `downloads`. Divergir do design system exige aprovação (`AGENTS.md` §Regras de Produto). · feito quando: a fila usa os componentes existentes, sem componente admin novo salvo justificativa registrada.
+  **Concluída em 2026-08-14:** `CommunityModerationWorkspace.tsx` compõe `AdminTable`, `AdminWorkspaceLayout`, `PageHeader`, `SectionCard`, `StatusPill` e `ConfirmProvider`; nenhum padrão admin paralelo foi criado.
+- [x] T4.18 — **Seguir o padrão de dados de `useModerationQueue`** (requisito 27c; `apps/downloads/frontend/src/hooks/useModerationQueue.ts`): React Query, validação Zod na fronteira, ação individual e em lote, `invalidateQueries` no sucesso. Padrão maduro (specs 075 e 083) — replicar, não reinventar. · feito quando: hook novo espelha a estrutura do existente, com payload validado por schema.
+  **Concluída em 2026-08-14:** `useCommunityModeration.ts` usa React Query, schemas Zod de `@artificio/comments/react`, ações individuais/lote e invalidação de fila/log/caso/sanções. Teste prova rejeição de schema inválido, idempotency key e recarga após sucesso.
 - [ ] T4.19 — **Restauração de comentário removido** (requisito 27d). O tombstone preserva o corpo, então desfazer é barato — faltava o caminho. A **DSA** exige janela de contestação de seis meses com reversão pronta de decisão injustificada; sem isso, erro de moderador é permanente. `POST /internal/v1/comments/:id/restore` limpa `removed_at`/`removed_by`/`removed_reason` e registra quem restaurou. · feito quando: remover e restaurar volta ao estado original, com as duas ações no histórico.
-  **Handoff investigado em 2026-08-12:** backend já existe: rotas de removal/restore e auditoria foram entregues na Fase 2. Esta task é UI+adapter+teste de ida/volta; não criar migration/handler duplicado. Teste deve comparar estado visível antes/removido/restaurado e duas entradas de audit.
+  **Estado em 2026-08-14:** UI, adapter e fachada de remoção/restauração existem, com confirmação individual e em lote e preservação do trabalho em `409`. O round-trip contra banco real e as duas entradas reais de auditoria não foram executados porque exigem escrita protegida e deploy/credencial; task permanece aberta pelo aceite executável.
 - [ ] T4.19b — **Exibir e validar o registro de ação criado na Fase 2** (requisito 27d). A migration coesa T2.1–T2.1f já cria auditoria de conteúdo; esta fase não abre segunda migration. UI mostra ator, alvo, motivo e momento para remoção/restauração e demais transições autorizadas. · feito quando: histórico mostra os quatro campos, exige papel global e não expõe nota interna ao público.
-  **Handoff investigado em 2026-08-12 — GAP:** `GET moderation-log` existe e retorna `actor_id`, alvo, motivo e momento, mas não nome do ator nem filtro por caso/alvo. UI pode mostrar UUID, porém workspace/timeline exigiria paginação global e busca client-side. Definir filtro/normalização backend antes de prometer timeline por caso; acesso permanece somente interno/papel global.
-- [ ] T4.20 — **Conta nova tratada como conta nova** (requisito 27e). Hoje conta criada há dez segundos comenta como quem está há dois anos; com login Google a barreira é baixa e essa é a porta de entrada de spam. Forma **mínima**, derivada de dado existente (`users.created_at` + contagem de comentários do autor), **sem tabela nova**: conta nova entra na fila para revisão e tem limite mais apertado no rate limiter de escrita (requisito 12b). **Critério aprovado em 2026-08-12:** menos de 7 dias **OU** menos de 3 comentários; deixa de ser nova somente ao cumprir ambos. **Não é bloqueio de publicação** — é priorização de revisão. · feito quando: o critério está escrito, a fila destaca esses comentários, e nenhum autor legítimo é impedido de publicar.
-  **Implementação backend autorizada em 2026-08-12:** aplicar um predicado único na criação/resposta e na fila; orçamento do usuário novo = 10/15 min, estabelecido = 30/15 min, sem alterar a cota da credencial. A fila acrescenta coleção aditiva de comentários de conta nova sem fabricar denúncia/caso; itens já ligados a caso não aparecem duplicados. Continua publicação imediata. A UI e seu destaque permanecem na Parte 4.
+  **Estado em 2026-08-14:** o log global é exibido com ator UUID, alvo, motivo e `<time>`, atrás da fachada e do papel global; nota interna não entra na superfície pública. Continua aberta porque o backend não devolve nome do ator nem filtro por caso/alvo; portanto não existe timeline de caso escalável.
+- [x] T4.20 — **Conta nova tratada como conta nova** (requisito 27e). Hoje conta criada há dez segundos comenta como quem está há dois anos; com login Google a barreira é baixa e essa é a porta de entrada de spam. Forma **mínima**, derivada de dado existente (`users.created_at` + contagem de comentários do autor), **sem tabela nova**: conta nova entra na fila para revisão e tem limite mais apertado no rate limiter de escrita (requisito 12b). **Critério aprovado em 2026-08-12:** menos de 7 dias **OU** menos de 3 comentários; deixa de ser nova somente ao cumprir ambos. **Não é bloqueio de publicação** — é priorização de revisão. · feito quando: o critério está escrito, a fila destaca esses comentários, e nenhum autor legítimo é impedido de publicar.
+  **Concluída em 2026-08-14:** a UI combina a coleção aditiva entregue pelo backend e mostra os motivos `account_age`/`comment_count` como priorização de revisão, sem bloquear publicação nem fabricar denúncia.
   **Ativação inicial:** somente credencial autenticada allowlisted com `realm=beta`; produção mantém comportamento anterior. Não criar flag, query, corpo nem escopo novo.
-- [ ] T4.21 — **Usabilidade da fila** (requisito 27g), 10 Heurísticas de Nielsen. Em especial: estado do sistema visível (quantos pendentes, o que já foi tratado); prevenção de erro com `ConfirmDialog` de `packages/ui` em ação destrutiva **e em lote**; reversibilidade como saída de emergência (T4.19). Ação em lote sem confirmação sobre conteúdo de usuário é o caso que a heurística 5 existe para impedir. · feito quando: checklist registrado, com confirmação verificada nos dois casos.
-  **Handoff investigado em 2026-08-12:** implementar contagem/seleção/estado tratado a partir de payload validado. Testar cancelamento e confirmação explícita para uma ação e lote; após sucesso, anunciar resultado e invalidar fila; após `409`, preservar seleção/trabalho e oferecer recarregar.
-- [ ] T4.22 — **Acessibilidade da fila** (WCAG 2.2), mesmos critérios executáveis de T4.13: tabela com semântica real, seleção operável por teclado, resultado de ação anunciado por `role="status"` sem mover foco, estado não dependendo só de cor. · feito quando: os quatro verificados, com evidência.
-  **Handoff investigado em 2026-08-12:** `AdminTable` é a base; validar markup resultante, checkbox/seleção e ordem de foco. Criar testes DOM dos 4 critérios; `StatusPill` precisa de texto legível, não só variante/cor.
-- [ ] T4.23 — **Denunciar, acompanhar e retirar pelo pacote compartilhado** (decisões 33, 35, 37, 42, 49). Formulário vem do registro único de motivos, mostra detalhe como obrigatório/opcional/proibido e nunca cria enum local. Usuário vê somente as próprias denúncias e resultado mínimo; pode retirar antes do auto-hide. Identidades/notas internas nunca aparecem. · feito quando: mesma UI funciona nos consumidores sem pacote paralelo; detalhe obrigatório bloqueia envio vazio; retirada desaparece após o limiar; e nenhum payload privado chega ao autor denunciado.
-  **Handoff investigado em 2026-08-12 — GAP:** POST/DELETE de denúncia existem; não existe GET das próprias denúncias/resultados nem endpoint do registro de motivos. Banco real tem 8 motivos ativos com `label/priority/details_policy`, portanto enum local seria divergente. Criar leitura browser-safe filtrada pelo ator e catálogo público mínimo antes da UI; nunca expor `reporter_actor_id`, contas resolvidas ou nota interna.
+- [x] T4.21 — **Usabilidade da fila** (requisito 27g), 10 Heurísticas de Nielsen. Em especial: estado do sistema visível (quantos pendentes, o que já foi tratado); prevenção de erro com `ConfirmDialog` de `packages/ui` em ação destrutiva **e em lote**; reversibilidade como saída de emergência (T4.19). Ação em lote sem confirmação sobre conteúdo de usuário é o caso que a heurística 5 existe para impedir. · feito quando: checklist registrado, com confirmação verificada nos dois casos.
+  **Concluída em 2026-08-14:** contagem, seleção e estados são textuais; remoção/restauração individual e em lote passam pelo `ConfirmDialog`; sucesso invalida dados; `409` mantém seleção/formulário. Testes cobrem cancelar, confirmar e conflito em lote.
+- [x] T4.22 — **Acessibilidade da fila** (WCAG 2.2), mesmos critérios executáveis de T4.13: tabela com semântica real, seleção operável por teclado, resultado de ação anunciado por `role="status"` sem mover foco, estado não dependendo só de cor. · feito quando: os quatro verificados, com evidência.
+  **Concluída em 2026-08-14:** semântica e checkboxes vêm de `AdminTable`; ações são botões nativos; resultado usa live region; `StatusPill` tem texto. Testes DOM exercitam a seleção e a confirmação por papel acessível.
+- [x] T4.23 — **Denunciar, acompanhar e retirar pelo pacote compartilhado** (decisões 33, 35, 37, 42, 49). Formulário vem do registro único de motivos, mostra detalhe como obrigatório/opcional/proibido e nunca cria enum local. Usuário vê somente as próprias denúncias e resultado mínimo; pode retirar antes do auto-hide. Identidades/notas internas nunca aparecem. · feito quando: mesma UI funciona nos consumidores sem pacote paralelo; detalhe obrigatório bloqueia envio vazio; retirada desaparece após o limiar; e nenhum payload privado chega ao autor denunciado.
+  **Concluída em 2026-08-14:** `CommentReportPanel` e schemas vivem em `@artificio/comments/react`; catálogo e denúncias próprias chegam pela fachada same-origin. Não há enum local. Teste usa catálogo runtime e bloqueia detalhe obrigatório vazio. Banco `artificio_auth` foi medido com 8 motivos ativos.
 - [ ] T4.24 — **Workspace de caso agregado** (decisões 39–46, 53). Um item por caso, com quantidade, categorias, prioridade máxima, versões denunciada/atual, diff, timeline, atores denunciantes e — somente durante retenção válida — contas resolvidas para moderação; depois mostra identidade expurgada sem tentativa de reconstrução. Veredito individual fica editável antes do fechamento. Ações `no_change`, `restore`, `remove`, aprovação/reabertura e auto-retirada usam confirmação e mostram 409 sem sobrescrever trabalho alheio. · feito quando: moderador decide denúncias mistas; segundo recebe conflito; timeline preserva eventos; ação em lote não apaga granularidade; e expurgo não quebra UI.
-  **Handoff investigado em 2026-08-12 — GAPS:** fila/caso/versões/resolução existem, e vereditos podem ficar locais até submit. Faltam: host agregador global (T4.16), timeline filtrável por caso (T4.19b) e autor-alvo resolvível para sanção. Diff pode ser implementação local sem lib nova; adicionar biblioteca exige aprovação. Testar `409 case_already_closed` preservando formulário, versão denunciada redigida/expurgada e denúncias mistas sem colapsar vereditos.
+  **Estado em 2026-08-14:** workspace, detalhe, versões, diff local, vereditos mistos, confirmação, identidade expurgada e preservação do formulário em `409` estão implementados. Fachada browser-safe existe. Continua aberta somente pelo aceite de timeline: o log central ainda não filtra por caso/alvo, então a UI não promete paginação global filtrada no cliente.
 - [ ] T4.25 — **Recurso compartilhado** (decisão 47). Autor removido recebe caminho de recurso, prazo e status; moderador vê caso/decisão/versão, aviso se foi o decisor original e campo obrigatório de nova justificativa. Resultado é privado. · feito quando: autor envia um recurso válido; UI bloqueia segundo/prazo expirado; mesmo moderador consegue rejulgar com aviso; e nenhum app cria formulário próprio.
-  **Handoff investigado em 2026-08-12 — BLOQUEIO DE LEITURA:** POST para criar recurso e POST para decidir existem; não há GET do recurso próprio, status/prazo, nem fila/detalhe de recursos para moderador. Criar leituras privadas com ator/papel antes da UI. O warning “mesmo decisor” precisa dos IDs de decisor original e atual, hoje não entregues juntos por endpoint browser-safe.
-- [ ] T4.26 — **Sanções comunitárias compartilhadas** (decisão 48). Moderação escolhe `posting`, `commenting` ou ambos; `warning`, suspensão temporária/permanente; prazo e motivo. Tela mostra histórico/gravidade como apoio, nunca aplica progressão automática, e deixa claro que SSO/leitura continuam. · feito quando: decisão exige confirmação/auditoria; suspensão temporária mostra expiração; e UI não oferece objeto de domínio como “postagem” sem adapter explícito.
-  **Handoff investigado em 2026-08-12 — GAP DE ALVO:** GET/POST/DELETE de sanções existem e contrato aceita scope/level/prazo/motivo, mas fila/caso não expõem `community_actor_id` do autor denunciado; logo workspace não consegue escolher alvo com segurança. Ampliar detalhe interno para fornecer ator-alvo (não conta pública), depois compor histórico+confirmação. `posting` só aparece quando adapter do domínio declarar suporte; `warning` não bloqueia SSO/leitura.
+  **Estado em 2026-08-14:** formulário público compartilhado bloqueia segundo recurso e prazo expirado; workspace mostra os dois decisores, avisa coincidência e exige nova justificativa com confirmação. Continua aberta porque o contrato central oferece só detalhe por ID: não existe fila/listagem de recursos para o moderador; no host de referência o ID precisa ser informado manualmente.
+- [x] T4.26 — **Sanções comunitárias compartilhadas** (decisão 48). Moderação escolhe `posting`, `commenting` ou ambos; `warning`, suspensão temporária/permanente; prazo e motivo. Tela mostra histórico/gravidade como apoio, nunca aplica progressão automática, e deixa claro que SSO/leitura continuam. · feito quando: decisão exige confirmação/auditoria; suspensão temporária mostra expiração; e UI não oferece objeto de domínio como “postagem” sem adapter explícito.
+  **Concluída em 2026-08-14:** workspace usa `community_actor_id`, mostra histórico, gravidade, expiração e motivo; toda aplicação exige confirmação. `posting` só aparece quando o adapter declara `supportsPosting`; SSO e leitura são explicitamente preservados.
 
 ### Handoffs por parte
 
-Escrito em 2026-08-12 para implementação incremental. Cada `#### Parte N` é o
-briefing completo daquela entrega: quem implementa lê **só a sua seção** mais as
+Escrito em 2026-08-12, **remedido contra o código em 2026-08-14**. Cada `#### Parte N`
+é o briefing completo daquela entrega: quem implementa lê **só a sua seção** mais as
 tasks nomeadas nela, e devolve antes da parte seguinte.
 
-#### Parte 0 — Backend: as leituras que faltam
+**Três travas valem em todas as partes** (repetidas aqui porque decidem desenho, não
+detalhe): (1) o navegador nunca chama `/internal/v1` — fala com a fachada do módulo
+consumidor, que é quem tem credencial de serviço; (2) `accounts.` é PROD-ONLY, sem
+beta, e muda de forma aditiva, compatível e inicialmente desabilitada; (3)
+`packages/comments` root permanece livre de React — `apps/accounts/package.json:16`
+já depende dele **no backend**, e foi poda transitiva de store nesse caminho que
+derrubou o SSO por 5h em 2026-08-08. `packageBoundary.test.ts` guarda a fronteira.
 
-**Por que existe:** quatro tasks de UI desta fase (T4.16, T4.20, T4.23, T4.25) não
-são implementáveis hoje. A investigação de 2026-08-12 mediu, em
-`docs/api/generated/api-index.generated.md` (linhas 38-60), que **não existe**:
-`GET` das denúncias próprias do usuário, `GET` do catálogo de motivos, `GET` do
-recurso próprio (só os `POST` de criar e decidir) e nenhum sinal de conta nova no
-payload da fila. Sem essas leituras, a UI teria que inventar enum local — que o
-requisito 33/49 proíbe explicitamente — ou não existir.
+**Validação de toda parte, na raiz:** `rtk pnpm run lint`, `rtk pnpm run test`,
+`rtk pnpm run build`, `rtk pnpm verify:api`. TypeScript do pacote pelo script do
+workspace (`pnpm --filter @artificio/comments typecheck`), nunca `rtk tsc` solto na
+raiz — falha com `JSON parse failed` no turbo (DEB-088-01).
 
-**Escopo:** `apps/accounts/src/**`. Rotas de **leitura**, aditivas. Nenhuma
-migration: o dado já está no banco (banco real `artificio_auth` tem 8 motivos
-ativos com `label`/`priority`/`details_policy`).
+#### Parte 0 — Backend: as leituras que faltam — **ENTREGUE**
 
-**Restrições lidas da spec, não negociáveis:**
-- `accounts.` é **sagrado**: exige aprovação nominal + smoke de todos os
-  consumidores SSO (`AGENTS.md`, `plan.md` §Contratos tocados). Pedir antes de editar.
-- Requisito 27: mudança aditiva, compatível, **inicialmente desabilitada**; sem beta
-  do `accounts.` para testar.
-- `contrato-http-v1.md` §1.1: `realm`/`source_app` saem **sempre** da credencial,
-  nunca do corpo ou da query. Payload que os declare é `400`/`invalid_body`.
-- §1.2: **nenhum escopo novo** é criado. Reusar `report.write`/`moderation.write`/
-  `comment.read` conforme a rota. Leitura de moderação usa bucket `read` (T2.20a),
-  nunca o de escrita.
-- Denúncia própria **nunca** expõe `reporter_actor_id` de terceiro, contas
-  resolvidas ou nota interna (decisões 33, 35, 37, 42, 49).
+**Estado remedido em 2026-08-14: os quatro itens existem. Não reimplementar.**
+O handoff de 2026-08-12 dizia que nada disso existia; entre as duas datas o backend
+foi entregue. Coordenadas medidas, para o implementador das Partes 4-5 não
+redescobrir:
 
-**Entregar:**
-1. `GET` das próprias denúncias, filtrado pelo ator de `X-Acting-User-Id`,
-   devolvendo resultado mínimo — nunca identidade de terceiro.
-2. `GET` do catálogo público de motivos (`label`, `priority`, `details_policy`),
-   para a UI não criar enum local.
-3. `GET` do recurso próprio: status, prazo e decisão. Para o moderador, detalhe que
-   traga **decisor original e atual juntos** — hoje nenhum endpoint browser-safe
-   entrega os dois, e sem isso o aviso "mesmo decisor" de T4.25 é impossível.
-4. `community_actor_id` do autor denunciado no detalhe interno do caso — sem ele o
-   workspace de T4.26 não consegue escolher alvo de sanção com segurança.
+| Item exigido | Onde está | Prova |
+|---|---|---|
+| 1. `GET` das próprias denúncias | `GET /api/v1/community/reports` (`communityModerationRoutes.ts:247`), `self-service`/`user` | `api-index.generated.md:27` |
+| 2. `GET` do catálogo de motivos | `GET /internal/v1/report-reasons` (`:258`) | `api-index.generated.md:63`; testes em `communityModerationRoutes.test.ts:1018` |
+| 3. `GET` do recurso próprio + decisor original e atual | `GET /api/v1/community/appeals/:id` (`:251`); `original_decider_actor_id` e `current_decider_actor_id` em `communityModerationAppeal.ts:130,132,176,197-198` | `api-index.generated.md:26` |
+| 4. `community_actor_id` do autor no detalhe do caso | `communityModerationCase.ts:245,337,386` | leitura direta |
+| Conta nova (T4.20 backend) | `readNewAccountCommentCandidates` (`communityModerationQueue.ts:84`), com `new_account_reasons: "account_age" \| "comment_count"` (`:75,143,156`); orçamento em `communityRateLimit.ts:99-101,114` (`COMMUNITY_NEW_ACCOUNT_WRITE_LIMIT`) | leitura direta |
 
-**Decisão posterior do mantenedor (2026-08-12):** o bloqueio abaixo foi encerrado.
-Conta nova = menos de 7 dias **OU** menos de 3 comentários; o backend de T4.20
-entra nesta Parte 0, sem migration, e a UI continua na Parte 4.
+**Consequência para quem implementa:** T4.20 é **só UI** (a Parte 4 destaca o
+candidato na fila; o predicado e o orçamento já estão no backend). T4.23 monta o
+formulário a partir de `/internal/v1/report-reasons` **pela fachada**, nunca do
+navegador. T4.25 tem os dois decisores no mesmo payload, então o aviso "mesmo
+decisor" é implementável.
 
-**Validação:** `rtk pnpm verify:api` (rota nova em `apps/accounts` exige),
-`rtk pnpm run lint`, testes do `accounts`. **Devolver com:** rotas listadas com
-método/path/escopo, contagem de testes e prova do critério de conta nova.
+**O que continua não existindo, e é o bloqueio real das Partes 4-5:** o catálogo de
+motivos e a fila são `/internal/v1` — **credencial de serviço, não browser-safe**
+(`requireServiceCredential(db, { scope: "moderation.write" })`,
+`communityModerationRoutes.ts:299`). Toda superfície da Fase 4 fala com a **fachada
+do módulo consumidor**, que ainda não existe para moderação. Isso não é lacuna de
+backend do `accounts.`: é a decisão de trust boundary do requisito 6a.
+
+**Restrições que continuam valendo se alguma rota nova for necessária:**
+- `accounts.` é **sagrado**: aprovação nominal + smoke de todos os consumidores SSO.
+- Requisito 27: aditivo, compatível, **inicialmente desabilitado**; sem beta do `accounts.`
+- `contrato-http-v1.md` §1.1: `realm`/`source_app` saem **sempre** da credencial.
+- §1.2: **nenhum escopo novo**. Leitura de moderação usa bucket `read` (T2.20a).
+- Denúncia própria nunca expõe `reporter_actor_id` de terceiro, contas resolvidas ou
+  nota interna (decisões 33, 35, 37, 42, 49).
 
 #### Parte 1 — Fundação do pacote
 
@@ -541,92 +629,64 @@ prova de que nenhuma imagem remota é buscada.
 **Tasks:** T4.11 (central), T4.13 (a11y da conversa), T4.14 (matriz de ambientes),
 T4.15 (Nielsen).
 
-**T4.11 é reconciliação, não implementação nova.** Medido em 2026-08-12: a central
-já existe em `apps/accounts/frontend/src/NotificationsView.tsx`, e o
-`NotificationBell` compartilhado já está em `packages/ui`, integrado a `site`,
-`downloads` e `mesas`. **Não reimplementar.** Extrair só se um teste de consumo
-provar necessidade; caso contrário, reconciliar como entregue por T3.9.
+**Entregue em 2026-08-14, com T4.14 deliberadamente aberta.** A central canônica do
+`accounts.` ganhou leitura explícita e cobertura DOM; a conversa ganhou foco de
+entrada/retorno e testes dos oito critérios executáveis. Os estados
+`fresh`/`stale`/`unavailable`, confirmação, preservação de trabalho, quatro sorts e
+erros recuperáveis cobrem o núcleo das dez heurísticas.
 
-**T4.13 vira teste DOM, não snapshot** — os oito critérios: lista semântica
-aninhada; nome acessível "Responder a [nome]"; labels reais; foco tratado após
-responder/enviar; `role="status"` **sem mover o foco**; estado lido não dependendo
-só de cor; `<time dateTime>`; percurso completo por teclado.
+**Coordenadas:** `packages/comments/src/CommentsConversation.tsx` e seu teste;
+`apps/accounts/frontend/src/NotificationsView.tsx` e
+`NotificationsView.test.tsx`. O pacote root continua livre de React, comprovado
+por `packageBoundary.test.ts`.
 
-**T4.14 tem conflito de sequência medido, e ele decide o fechamento da fase:**
-hoje **nenhum** dos três apps depende de `@artificio/comments`; a adoção real só
-acontece nas Fases 5–7. Ou esta parte entrega fixtures de integração nos três
-consumidores — incluindo `astro build`/SSR do `site`, que é o ambiente capaz de
-quebrar por import inseguro — ou **T4.14 fica aberta até a adoção**. Não declarar
-"três ambientes" com teste unitário único do pacote.
-
-**Devolver com:** os 8 critérios de a11y com evidência por teste, e a decisão
-explícita sobre T4.14 (fechada com fixtures, ou mantida aberta com o motivo).
+**T4.14 não foi fabricada com fixtures.** `downloads` agora compila como host Vite
+de referência da moderação. `mesas` e a ilha React/Astro só adotam comentários nas
+Fases 6–7; a matriz real fecha depois dessa adoção. O `site` ainda tem teste por
+lista fixa e lint no-op, limitações já registradas.
 
 #### Parte 4 — Fila de moderação e restauração
 
 **Tasks:** T4.16 (fila), T4.17 (reuso de `packages/ui/src/admin`), T4.18 (padrão de
 dados), T4.19 (restauração), T4.19b (histórico), T4.21 (usabilidade), T4.22 (a11y).
 
-**Ler antes de desenhar — o bloqueio de T4.16 é decisão de segurança, não lacuna.**
-`contrato-http-v1.md` §5 (linhas 262, 266-269) fixa que `realm` e `source_app` da
-fila saem da **credencial**, e que `?source_app=` diferente dela é
-`403`/`forbidden_source_app` — "para quem pediu o app errado não ler uma fila vazia
-como ausência de casos". Isso é o requisito 27a ("beta nunca aparece misturado com
-produção") implementado, e foi correção de review do PR #251
-(`communityModerationRoutes.ts:559-577`). **Busca negativa registrada:** o contrato
-HTTP não define nenhuma fila global cross-app. Portanto: ou a fila é **por
-`source_app`**, montada na fachada de cada módulo — e é isso que o contrato
-suporta hoje —, ou uma fila agregada exige **contrato novo, decidido pelo
-mantenedor**, não inferido pelo implementador.
+**Implementada em 2026-08-14 no contrato aprovado por credencial.** `downloads` é o
+host de referência. A fachada same-origin protege a credencial e injeta o ator da
+sessão; o navegador nunca chama `/internal/v1`. O hook usa React Query + Zod e o
+workspace compartilhado compõe o admin UI existente. Conta nova é destacada sem
+bloqueio. Remoção/restauração individual e em lote usam `ConfirmDialog`; `409`
+preserva seleção e trabalho.
 
-**Segundo achado de T4.16:** a query lê apenas `community_moderation_case`, então
-comentário recente **sem denúncia nunca entra na fila** — mas o requisito 27a pede
-"denunciados, de conta nova e recém-criados". Isso é ampliação de backend, com o
-mesmo custo de decisão da anterior.
+**Coordenadas:** `apps/downloads/backend/src/routes/communityModeration.ts`,
+`apps/downloads/frontend/src/hooks/useCommunityModeration.ts`,
+`packages/comments/src/CommunityModerationWorkspace.tsx` e respectivos testes.
 
-**Restrições de UI:** usar `AdminTable`, `bulkActions`, `StatusPill`, `PageHeader`,
-`SectionCard`, `AdminWorkspaceLayout` de `packages/ui/src/admin` — todos medidos e
-existentes. Espelhar `apps/downloads/frontend/src/hooks/useModerationQueue.ts`
-(React Query + Zod na fronteira + `invalidateQueries`), aplicado **no host
-moderador**, não no root agnóstico do pacote. **Atenção:** `AdminTable` usa
-`globalThis.confirm` quando a action declara `confirm`; T4.21 exige `ConfirmDialog`
-de `packages/ui` — controlar a confirmação externamente, individual **e em lote**,
-sem alterar `packages/ui` se composição bastar.
-
-**T4.19 é UI+adapter+teste**, não backend: `POST /:id/removal` e `POST /:id/restore`
-já existem, entregues na Fase 2. Não criar migration nem handler duplicado.
-**T4.19b tem gap:** `GET moderation-log` devolve `actor_id`, alvo, motivo e momento,
-mas **não** o nome do ator nem filtro por caso — timeline por caso exige definir
-filtro/normalização no backend antes de ser prometida.
-
-**Devolver com:** confirmação testada em ação individual e em lote (cancelar e
-confirmar), `409` preservando a seleção, e a pergunta sobre fila agregada em aberto.
+**Gaps que mantêm tasks abertas:** não há contrato de fila global cross-app nem
+coleção genérica de recentes (T4.16); o log não tem nome do ator nem filtro por
+caso/alvo (T4.19b); ida/volta e auditoria reais dependem de escrita/deploy
+autorizados (T4.19). Produção não tem credencial utilizável: query read-only em
+`community_service_credential` retornou `downloads` beta/prod apenas com
+`{users.read,secrets.read}`.
 
 #### Parte 5 — Denúncia, caso, recurso e sanção
 
 **Tasks:** T4.23 (denúncia), T4.24 (workspace de caso), T4.25 (recurso), T4.26
 (sanções).
 
-**Depende inteiramente da Parte 0.** Sem as leituras dela: T4.23 não mostra as
-próprias denúncias nem monta o formulário sem inventar enum (o banco real tem 8
-motivos ativos — enum local divergiria no primeiro motivo novo); T4.25 não mostra
-status/prazo nem o aviso "mesmo decisor"; T4.26 não consegue escolher alvo de
-sanção. Não começar antes.
+**Implementada em 2026-08-14 sobre a mesma fachada.** O pacote compartilha catálogo
+dinâmico, denúncias próprias/retirada, recurso do autor, caso agregado, versões e
+diff local, veredito por denúncia, julgamento de recurso e sanções. Identidade
+expurgada vira texto neutro; `409` não sobrescreve o formulário; `posting` só é
+oferecido por adapter explícito. O banco real confirmou 8 motivos ativos e suas
+políticas de detalhe.
 
-**O que já existe e não se reimplementa:** `POST`/`DELETE` de denúncia,
-`POST` de recurso e de resolução, `GET`/`POST`/`DELETE` de sanções, detalhe de caso
-e versões. Vereditos podem ficar locais até o submit.
+**Cobertura:** testes do workspace exercitam denúncias mistas e expurgo; teste do
+painel público valida catálogo runtime e detalhe obrigatório; fachada preserva
+status upstream e falha fechada sem credencial.
 
-**Restrições:** nenhum payload privado chega ao autor denunciado; identidades e
-notas internas nunca aparecem; contas resolvidas só durante retenção válida, e
-depois identidade expurgada **sem tentativa de reconstrução**; `409`
-`case_already_closed` mostra conflito **sem sobrescrever trabalho alheio** nem
-apagar o formulário. Diff pode ser implementação local — **biblioteca nova exige
-aprovação própria** (`AGENTS.md`). `warning` não bloqueia SSO nem leitura; `posting`
-só aparece quando o adapter do domínio declarar suporte.
-
-**Devolver com:** teste de denúncias mistas decididas sem colapsar vereditos, de
-`409` preservando trabalho, e de expurgo que não quebra a UI.
+**Gaps que mantêm tasks abertas:** a timeline de T4.24 depende do filtro ausente de
+T4.19b. O backend central não oferece fila/listagem de recursos; T4.25 funciona por
+detalhe de ID e o host de referência exige informar esse ID manualmente.
 
 **Fora de escopo (requisito 27f, decisão do mantenedor):** shadow ban — esconder
 conteúdo sem avisar o autor contradiz o compromisso de transparência e quebra a

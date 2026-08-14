@@ -14,8 +14,8 @@
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 5 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
-| 🕳️ UNUSED_ROUTE | 152 | ❌ |
-| 👻 ORPHAN_SUSPECT | 55 | ❌ |
+| 🕳️ UNUSED_ROUTE | 166 | ❌ |
+| 👻 ORPHAN_SUSPECT | 59 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
 ## Detalhamento por app
@@ -78,11 +78,13 @@
 | PUT | `/api/v1/notifications/read-through` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PUT | `/internal/v1/comments/:id/vote` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 
-### downloads (81 rotas no inventário)
+### downloads (99 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
 | DELETE | `/api/v1/collections/:id/items/:materialId` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| DELETE | `/api/v1/community/moderation/sanctions/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| DELETE | `/api/v1/community/reports/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/v1/favorites/:materialId` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | DELETE | `/api/v1/reports/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/admin/creators` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -104,6 +106,13 @@
 | GET | `/api/v1/collections` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/collections/:id/items` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/comments/:materialId` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/community/moderation/appeals/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/community/moderation/cases/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/community/moderation/comments/:id/versions` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/community/moderation/log` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/community/moderation/queue` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/community/moderation/sanctions` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/community/report-reasons` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/creators/:slug` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/creators/me` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/destinations/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -130,6 +139,7 @@
 | GET | `/robots.txt` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/sitemap.xml` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/admin/rejection-categories/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| PATCH | `/api/v1/community/moderation/cases/:id/priority` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/creators/me` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/materials/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/moderation/batch/:action` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -150,6 +160,14 @@
 | POST | `/api/v1/collections` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/collections/:id/items` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/comments` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/community/comments/:id/reports` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/community/decisions/:id/appeals` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/community/moderation/appeals/:id/resolution` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/community/moderation/cases/:id/reopen` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/community/moderation/cases/:id/resolution` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/community/moderation/comments/:id/removal` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/community/moderation/comments/:id/restore` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/community/moderation/sanctions` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/downloads` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/favorites` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/materials` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -512,16 +530,18 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | GET | `/internal/users/:id` | ✅ | public | Sem consumidor e scope não justifica |
 | PUT | `/api/v1/notification-preferences/:event_type` | ✅ | public | Sem consumidor e scope não justifica |
 | PUT | `/api/v1/notifications/read-through` | ✅ | public | Sem consumidor e scope não justifica |
-### downloads (38 rota(s))
+### downloads (42 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
 | DELETE | `/api/v1/collections/:id/items/:materialId` | ✅ | public | Sem consumidor e scope não justifica |
+| DELETE | `/api/v1/community/reports/:id` | ✅ | public | Sem consumidor e scope não justifica |
 | DELETE | `/api/v1/favorites/:materialId` | ✅ | public | Sem consumidor e scope não justifica |
 | DELETE | `/api/v1/reports/:id` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/collections` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/collections/:id/items` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/comments/:materialId` | ✅ | public | Sem consumidor e scope não justifica |
+| GET | `/api/v1/community/report-reasons` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/creators/:slug` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/creators/me` | ✅ | public | Sem consumidor e scope não justifica |
 | GET | `/api/v1/destinations/:id` | ✅ | public | Sem consumidor e scope não justifica |
@@ -545,6 +565,8 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | POST | `/api/v1/collections` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/collections/:id/items` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/comments` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/api/v1/community/comments/:id/reports` | ✅ | public | Sem consumidor e scope não justifica |
+| POST | `/api/v1/community/decisions/:id/appeals` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/downloads` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/favorites` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/materials` | ✅ | public | Sem consumidor e scope não justifica |

@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@artificio/content-editor": "workspace:*",
+    "@artificio/ui": "workspace:*",
     "zod": "^4.4.3"
   },
   "peerDependencies": {

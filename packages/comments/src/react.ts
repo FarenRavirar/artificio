@@ -71,3 +71,25 @@ export type {
   StaleCommentsState,
   UnavailableCommentsState,
 } from './resource.js';
+
+export {
+  CommentAppealForm,
+  CommentReportPanel,
+  CommunityModerationWorkspace,
+  type CommentAppealFormProps,
+  type CommentReportPanelProps,
+  type CommunityModerationWorkspaceProps,
+} from './CommunityModerationWorkspace.js';
+
+export {
+  moderationCaseSchema,
+  commentVersionsSchema,
+  moderationLogSchema,
+  moderationQueueSchema,
+  moderatorAppealSchema,
+  ownReportsSchema,
+  reportReasonsSchema,
+  sanctionHistorySchema,
+  type CommunityModerationAdapter,
+  type CommentVersion,
+} from './moderation.js';

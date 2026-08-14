@@ -184,15 +184,17 @@ function useNotifications(sourceApp: string | null) {
         method: "PUT",
         credentials: "include",
       });
-      if (!res.ok) return;
+      if (!res.ok) return false;
       setState((prev) => ({
         ...prev,
         items: prev.items.map((item) =>
           item.id === receiptId ? { ...item, read_at: new Date().toISOString() } : item,
         ),
       }));
+      return true;
     } catch {
       // Rede falhou — estado local não muda, próximo refresh reflete o servidor.
+      return false;
     }
   }, []);
 
@@ -202,13 +204,15 @@ function useNotifications(sourceApp: string | null) {
         method: "PATCH",
         credentials: "include",
       });
-      if (!res.ok) return;
+      if (!res.ok) return false;
       setState((prev) => ({
         ...prev,
         items: prev.items.map((item) => ({ ...item, read_at: new Date().toISOString() })),
       }));
+      return true;
     } catch {
       // Rede falhou — estado local não muda, próximo refresh reflete o servidor.
+      return false;
     }
   }, []);
 
@@ -234,6 +238,7 @@ export function NotificationsView() {
   const [sourceFilter, setSourceFilter] = useState<string>("");
   const [sourceOpen, setSourceOpen] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
   const filterRef = useRef<HTMLDivElement>(null);
   const filterToggleRef = useRef<HTMLButtonElement>(null);
 
@@ -317,13 +322,21 @@ export function NotificationsView() {
             <button
               type="button"
               className="notifications-mark-all"
-              onClick={markAllRead}
+              onClick={() => {
+                void markAllRead().then((updated) => {
+                  setAnnouncement(updated
+                    ? "Todas as notificações foram marcadas como lidas."
+                    : "Não foi possível marcar as notificações como lidas.");
+                });
+              }}
             >
               Marcar todas como lidas
             </button>
           )}
         </div>
       </header>
+
+      <output className="notifications-status">{announcement}</output>
 
       {/* Loading */}
       {loading && items.length === 0 && (
@@ -361,7 +374,6 @@ export function NotificationsView() {
                   className="notification-item-header"
                   aria-expanded={isDetail}
                   onClick={() => {
-                    if (isUnread) markRead(item.id);
                     setDetailId(isDetail ? null : item.id);
                   }}
                 >
@@ -372,12 +384,32 @@ export function NotificationsView() {
                   <time className="notification-time" dateTime={item.occurred_at}>
                     {timeAgo(item.occurred_at)}
                   </time>
-                  {isUnread && <span className="notification-dot" />}
+                  {isUnread && (
+                    <>
+                      <span className="notification-state">Não lida</span>
+                      <span className="notification-dot" aria-hidden="true" />
+                    </>
+                  )}
                 </button>
 
                 {/* Detalhe expandido */}
                 {isDetail && (
                   <div className="notification-detail">
+                    {isUnread && (
+                      <button
+                        type="button"
+                        className="notifications-mark-read"
+                        onClick={() => {
+                          void markRead(item.id).then((updated) => {
+                            setAnnouncement(updated
+                              ? "Notificação marcada como lida."
+                              : "Não foi possível marcar a notificação como lida.");
+                          });
+                        }}
+                      >
+                        Marcar como lida
+                      </button>
+                    )}
                     {item.link && (
                       <a
                         href={item.link}

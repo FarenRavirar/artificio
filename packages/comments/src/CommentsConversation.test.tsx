@@ -279,4 +279,100 @@ describe('CommentsConversation', () => {
 
     await act(async () => root.unmount());
   });
+
+  it('preserva semântica, nomes acessíveis e contexto de foco ao responder', async () => {
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    vi.mocked(client.reply).mockResolvedValue({} as never);
+
+    await act(async () => {
+      root.render(
+        <CommentsConversation
+          state={{ status: 'fresh', data: thread, updatedAt: 1, ageMs: 0 }}
+          sort="best"
+          onSortChange={() => undefined}
+          client={client}
+          onMoreLoaded={() => undefined}
+          permissions={() => ({ reply: true })}
+        />,
+      );
+    });
+
+    const rootList = container.querySelector('section > ol');
+    const nestedList = container.querySelector(`li[data-comment-depth="0"] > ol`);
+    const article = container.querySelector(`li[data-comment-depth="0"] article`);
+    const author = container.querySelector(`#comment-author-${ROOT_ID}`);
+    const time = container.querySelector(`li[data-comment-depth="0"] time`);
+    const replyButton = Array.from(container.querySelectorAll('button'))
+      .find((button) => button.textContent === 'Responder a Ana');
+
+    expect(rootList).toBeInstanceOf(HTMLOListElement);
+    expect(nestedList).toBeInstanceOf(HTMLOListElement);
+    expect(article?.getAttribute('aria-labelledby')).toBe(author?.id);
+    expect(time?.getAttribute('datetime')).toBe('2026-08-13T10:00:00.000Z');
+    expect(replyButton).toBeInstanceOf(HTMLButtonElement);
+
+    await act(async () => replyButton?.click());
+    const replyEditor = container.querySelector('textarea');
+    expect(replyEditor).toBeInstanceOf(HTMLTextAreaElement);
+    expect(document.activeElement).toBe(replyEditor);
+
+    if (replyEditor instanceof HTMLTextAreaElement) {
+      await act(async () => {
+        const setValue = Object.getOwnPropertyDescriptor(
+          HTMLTextAreaElement.prototype,
+          'value',
+        )?.set;
+        setValue?.call(replyEditor, 'Resposta acessível');
+        replyEditor.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+    }
+    const replyForm = replyEditor?.closest('form');
+    await act(async () => {
+      replyForm?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      await Promise.resolve();
+    });
+
+    expect(client.reply).toHaveBeenCalledWith(ROOT_ID, 'Resposta acessível');
+    expect(container.querySelector('output')?.textContent).toBe('Resposta publicada.');
+    const restoredReplyButton = Array.from(container.querySelectorAll('button'))
+      .find((button) => button.textContent === 'Responder a Ana');
+    expect(document.activeElement).toBe(restoredReplyButton);
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  it('mantém estados de degradação e ações reconhecíveis sem depender de cor', () => {
+    const staleHtml = renderToStaticMarkup(
+      <CommentsConversation
+        state={{ status: 'stale', data: thread, updatedAt: 1, ageMs: 5_000, error: { code: 'unavailable', message: 'offline', retryable: true } }}
+        sort="best"
+        onSortChange={() => undefined}
+        client={client}
+        onMoreLoaded={() => undefined}
+      />,
+    );
+    const unavailableHtml = renderToStaticMarkup(
+      <CommentsConversation
+        state={{
+          status: 'unavailable',
+          data: undefined,
+          updatedAt: null,
+          ageMs: null,
+          error: { code: 'unavailable', message: 'offline', retryable: true },
+        }}
+        sort="best"
+        onSortChange={() => undefined}
+        client={client}
+        onMoreLoaded={() => undefined}
+      />,
+    );
+
+    expect(staleHtml).toContain('data-comments-state="stale"');
+    expect(staleHtml).toContain('Exibindo a última leitura disponível');
+    expect(unavailableHtml).toContain('data-comments-state="unavailable"');
+    expect(unavailableHtml).toContain('role="alert"');
+  });
 });

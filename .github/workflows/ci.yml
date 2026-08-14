@@ -117,6 +117,23 @@ jobs:
           MIGRATION_POSTGRES_TEST_URL: postgres://admin:admin@localhost:5432/artificio_test
         run: pnpm --filter @artificio/downloads-backend test:migrations:postgres
 
+      # Os 33 testes de `accounts` que exigem Postgres real — Wilson,
+      # SAVEPOINT do outbox e destinatários de notificação — pulavam em TODO
+      # gate por falta de `COMMUNITY_TEST_DATABASE_URL` (medido em 2026-08-14:
+      # a variável não aparecia em nenhum workflow, embora o service container
+      # acima já existisse). Eles são a única prova de que SQL raw de savepoint
+      # funciona dentro do `db.transaction()` do Kysely; foi rodando um deles
+      # que a T3.15 achou a entrada de outbox presa em retry infinito.
+      # Roda depois do `Test` de propósito: banco dedicado, recriado do zero, e
+      # uma falha aqui não deve mascarar falha da suíte principal.
+      - name: Accounts community tests on PostgreSQL 16
+        env:
+          COMMUNITY_TEST_ADMIN_URL: postgres://admin:admin@localhost:5432/artificio_test
+        run: |
+          pnpm --filter @artificio/accounts test:db:prepare
+          COMMUNITY_TEST_DATABASE_URL=postgres://admin:admin@localhost:5432/artificio_accounts_community_test \
+            pnpm --filter @artificio/accounts test
+
   api-governance:
     name: api-governance
     runs-on: ubuntu-latest

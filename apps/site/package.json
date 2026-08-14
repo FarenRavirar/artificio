@@ -13,8 +13,8 @@
     "sync": "tsx db/migrate.ts && tsx db/export.ts",
     "rebuild": "node scripts/rebuild.mjs",
     "serve": "tsx server/server.ts",
-    "lint": "echo \"(site) lint TODO\"",
-    "test": "vitest run db/migrationPolicy.test.ts db/repo/catalog.test.ts db/repo/materialTypes.test.ts server/catalog-api.test.ts server/catalog-material-types-admin-api.test.ts"
+    "lint": "eslint .",
+    "test": "vitest run"
   },
   "dependencies": {
     "@artificio/analytics": "workspace:*",
