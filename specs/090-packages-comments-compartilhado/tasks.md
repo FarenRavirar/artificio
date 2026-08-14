@@ -441,6 +441,57 @@ redescobertos:
    **Não validado:** `docker build --target production` não rodou; Docker Desktop
    indisponível na máquina. O gate estático passa, o build real não foi exercido.
 
+**Achados de revisão da PR #262 — o que procedeu e o que foi recusado (2026-08-14).**
+Registro aqui, não na conversa do PR (`AGENTS.md` §PR, Commit e Push: o agente não
+escreve para bot de review; a análise vive na documentação).
+
+*GitHub Advanced Security — 20 alertas, todos procedem.* `js/missing-rate-limiting`,
+severidade high, criados pela própria PR, todos em
+`apps/downloads/backend/src/routes/communityModeration.ts`: as 20 rotas da fachada
+decidiam autorização sem limiter. Corrigido com os limiters que já existiam no
+módulo (`middleware/rateLimit.ts`), com buckets separados para leitura e escrita —
+o que o requisito 12b já exigia ("todos os buckets aplicáveis precisam liberar").
+A fachada é quem conhece o IP real; sem ela, um IP autenticado convertia
+requisição barata em carga no `accounts.`
+
+*Achados de revisão de código que procederam.* `.strict()` nos schemas de moderação
+(campo aditivo do `accounts.` viraria `502` e derrubaria a fila — removido, com
+teste dos dois lados); monkey patch em `res.json` (substituído por validação
+explícita por parâmetro); `req.user!` sem checagem; `void proxyAccounts` sem
+`.catch(next)` nos 20 handlers; ausência de log antes do `503`; erro de ação
+invisível no workspace; formulário de caso não resetado ao trocar de caso;
+`Promise.all` escondendo falha parcial em lote; motivo validado depois da
+confirmação; invalidação da query de recurso; exports de tipos em `react.ts`.
+
+*Dois defeitos que a correção do review expôs, mais fundos que o relatado:*
+- **Foco após envio** não era só origem inferida errado: mesmo passando a origem
+  explicitamente o foco caía no `body` (medido: `activeElement: BODY`). Causa real
+  — `queueMicrotask` roda **antes** de o React recomprometer a árvore, então focava
+  um nó descartado. Virou efeito pós-commit.
+- **Seleção perdida no `409`** não era só `Promise.all`: o `AdminTable` limpa a
+  seleção quando `onRun` **resolve**, então engolir a rejeição no wrapper apagava
+  as linhas marcadas justamente no conflito em que o moderador precisa repetir
+  sobre a mesma seleção. A rejeição passou a ser propagada de propósito.
+
+*Sonar — `.sort()` → `localeCompare`: RECUSADO com medição, em 4 pontos.*
+`communityModerationAppeal.ts:729`, `communityModerationCase.ts:134`,
+`languageDetector.ts:90` e `systemProjectionHydrator.ts:454-455`. Nenhum deles
+ordena texto para leitura: os dois primeiros canonicalizam **chave de
+idempotência**, o terceiro um identificador de diagnóstico, o quarto dois arrays
+que são comparados entre si. `localeCompare` depende de locale/ICU e devolve
+ordens **diferentes** para a mesma entrada — medido: `['a-1','A-1','a_1']` sai em
+três ordens distintas entre `pt-BR`, `en-US-u-kf-upper` e UTF-16. Aplicar a
+sugestão introduziria `409 idempotency_key_reuse` para quem só reenviasse a mesma
+sanção, e re-hidratação de projeções idênticas no `mesas`. Os quatro pontos
+receberam comentário explicando a recusa, para outro agente não "corrigir" depois.
+
+*Sonar — tainted data em URL: um procedeu, o resto não.* Em `apps/site-admin/src/api.ts`
+os parâmetros `status`, `type` e `kind` iam **crus** na query ao lado de um `q` já
+protegido por `encodeURIComponent` — valor com `&`/`#` injetaria parâmetro.
+Corrigido nos 4 call-sites. Recusados: `ResultCard.tsx:259` já usa
+`encodeURIComponent` (falso positivo), e as linhas L393/L259 apontadas em
+`api.ts` **não existem** — o arquivo tem 178 linhas, o achado é de versão antiga.
+
 - [x] T4.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. · feito quando: leitura confirmada.
   **Concluída em 2026-08-13:** T0 relido integralmente antes da reconciliação final das Partes 1–2.
 - [x] T4.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.

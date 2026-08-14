@@ -1,5 +1,20 @@
 import { z } from 'zod';
 
+/**
+ * Schemas da fronteira de moderação: validam o que vem do `accounts.` antes de
+ * chegar à UI (regra pétrea de normalização — payload externo é `unknown` até
+ * passar por normalizador tipado).
+ *
+ * **Sem `.strict()`, deliberadamente** (achado de review, PR #262). O
+ * `accounts.` é deployado independentemente da fachada de cada módulo, então
+ * campo novo e aditivo no payload chega *antes* de o consumidor saber dele —
+ * e `.strict()` transformaria esse acréscimo compatível em `502
+ * invalid_accounts_response`, derrubando a fila de moderação inteira por uma
+ * mudança que não quebra nada. O comportamento padrão do Zod remove o campo
+ * desconhecido e mantém a validação de tudo que a UI de fato lê, que é a
+ * garantia que importa aqui.
+ */
+
 const id = z.string().min(1);
 const instant = z.iso.datetime();
 
@@ -13,7 +28,7 @@ export const moderationQueueItemSchema = z.object({
   reason_codes: z.array(z.string()),
   priority: z.number().int().nullable(),
   comment_visibility_state: z.string(),
-}).strict();
+});
 
 export const newAccountCommentSchema = z.object({
   comment_id: id,
@@ -23,12 +38,12 @@ export const newAccountCommentSchema = z.object({
   comment_visibility_state: z.string(),
   author_comment_count: z.number().int().nonnegative(),
   new_account_reasons: z.array(z.enum(['account_age', 'comment_count'])),
-}).strict();
+});
 
 export const moderationQueueSchema = z.object({
   items: z.array(moderationQueueItemSchema),
   new_account_comments: z.array(newAccountCommentSchema),
-}).strict();
+});
 
 export const moderationLogEntrySchema = z.object({
   id,
@@ -39,9 +54,9 @@ export const moderationLogEntrySchema = z.object({
   metadata: z.unknown(),
   occurred_at: instant,
   actor_id: id.nullable(),
-}).strict();
+});
 
-export const moderationLogSchema = z.object({ entries: z.array(moderationLogEntrySchema) }).strict();
+export const moderationLogSchema = z.object({ entries: z.array(moderationLogEntrySchema) });
 
 export const moderationCaseReportSchema = z.object({
   id,
@@ -52,7 +67,7 @@ export const moderationCaseReportSchema = z.object({
   reported_version_id: id,
   reporter_actor_id: id,
   reporter_display_name: z.string().nullable(),
-}).strict();
+});
 
 export const moderationCaseSchema = z.object({
   case_id: id,
@@ -64,7 +79,7 @@ export const moderationCaseSchema = z.object({
   closed_at: instant.nullable(),
   decision_reason: z.string().nullable(),
   reports: z.array(moderationCaseReportSchema),
-}).strict();
+});
 
 export const commentVersionSchema = z.object({
   id,
@@ -74,16 +89,16 @@ export const commentVersionSchema = z.object({
   redacted_at: instant.nullable(),
   is_current: z.boolean(),
   is_reported: z.boolean(),
-}).strict();
-export const commentVersionsSchema = z.object({ versions: z.array(commentVersionSchema) }).strict();
+});
+export const commentVersionsSchema = z.object({ versions: z.array(commentVersionSchema) });
 
 export const reportReasonSchema = z.object({
   code: z.string(),
   label: z.string(),
   priority: z.number().int(),
   details_policy: z.enum(['required', 'optional', 'forbidden']),
-}).strict();
-export const reportReasonsSchema = z.object({ reasons: z.array(reportReasonSchema) }).strict();
+});
+export const reportReasonsSchema = z.object({ reasons: z.array(reportReasonSchema) });
 
 export const ownReportSchema = z.object({
   id,
@@ -95,8 +110,8 @@ export const ownReportSchema = z.object({
   result: z.enum(['action_taken', 'not_upheld', 'no_determination']).nullable(),
   can_withdraw: z.boolean(),
   created_at: instant,
-}).strict();
-export const ownReportsSchema = z.object({ reports: z.array(ownReportSchema) }).strict();
+});
+export const ownReportsSchema = z.object({ reports: z.array(ownReportSchema) });
 
 export const moderatorAppealSchema = z.object({
   id,
@@ -110,7 +125,7 @@ export const moderatorAppealSchema = z.object({
   reason: z.string(),
   original_decider_actor_id: id.nullable(),
   current_decider_actor_id: id.nullable(),
-}).strict();
+});
 
 export const sanctionHistoryEntrySchema = z.object({
   id,
@@ -121,8 +136,8 @@ export const sanctionHistoryEntrySchema = z.object({
   expires_at: instant.nullable(),
   lifted_at: instant.nullable(),
   active: z.boolean(),
-}).strict();
-export const sanctionHistorySchema = z.object({ sanctions: z.array(sanctionHistoryEntrySchema) }).strict();
+});
+export const sanctionHistorySchema = z.object({ sanctions: z.array(sanctionHistoryEntrySchema) });
 
 export type ModerationQueue = z.infer<typeof moderationQueueSchema>;
 export type ModerationQueueItem = z.infer<typeof moderationQueueItemSchema>;

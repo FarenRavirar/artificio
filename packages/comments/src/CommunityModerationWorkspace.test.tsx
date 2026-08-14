@@ -90,6 +90,10 @@ describe('CommunityModerationWorkspace', () => {
 
     expect(checkbox.checked).toBe(true);
     expect(container.textContent).toContain('Conflito 409: recarregue.');
+    // A contagem entra junto da causa: em lote, saber quantos passaram decide
+    // se o moderador repete tudo ou só o que faltou (achado de review, #262).
+    expect(container.querySelector('[data-moderation-error]')?.textContent)
+      .toContain('1 falhou(ram) e seguem como estavam');
     await act(async () => root.unmount());
   });
 

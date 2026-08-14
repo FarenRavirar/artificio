@@ -94,7 +94,11 @@ export interface PageFull {
 
 export const api = {
   listPosts: (q = "", status = "") =>
-    req<{ items: PostListItem[] }>(`/posts?q=${encodeURIComponent(q)}${status ? `&status=${status}` : ""}`).then((r) => r.items),
+    // `status` também vai encodado: era o único parâmetro cru ao lado de um `q`
+    // já protegido, então um valor com `&`/`#` injetaria parâmetro na query
+    // (achado do Sonar, corrigido em 2026-08-14). Mesmo padrão em `listPages`,
+    // `slugCheck` e `listMedia`.
+    req<{ items: PostListItem[] }>(`/posts?q=${encodeURIComponent(q)}${status ? `&status=${encodeURIComponent(status)}` : ""}`).then((r) => r.items),
   getPost: (id: number) => req<PostFull>(`/posts/${id}`),
   createPost: (body: Partial<PostFull>) => req<SaveResult>(`/posts`, { method: "POST", body: JSON.stringify(body) }),
   updatePost: (id: number, body: Partial<PostFull>) => req<SaveResult>(`/posts/${id}`, { method: "PUT", body: JSON.stringify(body) }),
@@ -103,7 +107,7 @@ export const api = {
   deletePost: (id: number) => req<{ ok: boolean }>(`/posts/${id}`, { method: "DELETE" }),
 
   listPages: (q = "", status = "") =>
-    req<{ items: PageListItem[] }>(`/pages?q=${encodeURIComponent(q)}${status ? `&status=${status}` : ""}`).then((r) => r.items),
+    req<{ items: PageListItem[] }>(`/pages?q=${encodeURIComponent(q)}${status ? `&status=${encodeURIComponent(status)}` : ""}`).then((r) => r.items),
   getPage: (id: number) => req<PageFull>(`/pages/${id}`),
   createPage: (body: Partial<PageFull>) => req<SaveResult>(`/pages`, { method: "POST", body: JSON.stringify(body) }),
   updatePage: (id: number, body: Partial<PageFull>) => req<SaveResult>(`/pages/${id}`, { method: "PUT", body: JSON.stringify(body) }),
@@ -122,7 +126,7 @@ export const api = {
 
   // ---- Mídia (T18/T19) ----
   listMedia: (q = "", type = "", limit = 60, offset = 0) =>
-    req<{ items: MediaItem[]; total: number }>(`/media?q=${encodeURIComponent(q)}${type ? `&type=${type}` : ""}&limit=${limit}&offset=${offset}`),
+    req<{ items: MediaItem[]; total: number }>(`/media?q=${encodeURIComponent(q)}${type ? `&type=${encodeURIComponent(type)}` : ""}&limit=${limit}&offset=${offset}`),
   uploadMedia: async (file: File, meta?: { alt?: string; title?: string; caption?: string }): Promise<MediaUploadResult> => {
     const fd = new FormData();
     fd.append("file", file);
@@ -145,7 +149,7 @@ export const api = {
 
   // ---- Feedback (Spec 021) ----
   listFeedback: (status = "", kind = "", archived = "false") =>
-    req<{ items: FeedbackItem[] }>(`/feedback?archived=${archived}${status ? `&status=${status}` : ""}${kind ? `&kind=${kind}` : ""}`).then((r) => r.items),
+    req<{ items: FeedbackItem[] }>(`/feedback?archived=${archived}${status ? `&status=${encodeURIComponent(status)}` : ""}${kind ? `&kind=${encodeURIComponent(kind)}` : ""}`).then((r) => r.items),
   updateFeedback: (id: number, patch: { status?: string; admin_notes?: string | null; archived?: boolean }) =>
     req<{ item: FeedbackItem }>(`/feedback/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteFeedback: (id: number) => req<{ ok: boolean }>(`/feedback/${id}`, { method: "DELETE" }),

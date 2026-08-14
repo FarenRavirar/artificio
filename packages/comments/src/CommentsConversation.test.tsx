@@ -344,6 +344,59 @@ describe('CommentsConversation', () => {
     container.remove();
   });
 
+  // Regressão do achado de review (PR #262): a origem da ação era inferida de
+  // `panel !== null`, então enviar pelo compositor raiz com um painel de
+  // resposta aberto devolvia o foco ao gatilho do painel — longe de onde a
+  // pessoa estava digitando.
+  it('devolve o foco ao compositor raiz mesmo com um painel de resposta aberto', async () => {
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    vi.mocked(client.create).mockResolvedValue({} as never);
+
+    await act(async () => {
+      root.render(
+        <CommentsConversation
+          state={{ status: 'fresh', data: thread, updatedAt: 1, ageMs: 0 }}
+          sort="best"
+          onSortChange={() => undefined}
+          client={client}
+          onMoreLoaded={() => undefined}
+          canCreate
+          permissions={() => ({ reply: true })}
+        />,
+      );
+    });
+
+    const replyButton = Array.from(container.querySelectorAll('button'))
+      .find((button) => button.textContent === 'Responder a Ana');
+    await act(async () => replyButton?.click());
+    // Painel aberto: é a condição que fazia a origem ser lida como "painel".
+    expect(container.querySelectorAll('textarea').length).toBeGreaterThan(1);
+
+    const rootForm = container.querySelector('form[data-comments-slot="composer"]');
+    expect(rootForm).toBeInstanceOf(HTMLFormElement);
+    const rootEditor = rootForm?.querySelector('textarea');
+    if (rootEditor instanceof HTMLTextAreaElement) {
+      await act(async () => {
+        const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+        setValue?.call(rootEditor, 'Comentário raiz com painel aberto');
+        rootEditor.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await act(async () => {
+        rootForm?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await Promise.resolve();
+      });
+
+      expect(client.create).toHaveBeenCalledWith('Comentário raiz com painel aberto');
+      const focusedForm = (document.activeElement as HTMLElement | null)?.closest('form');
+      expect(focusedForm).toBe(rootForm);
+    }
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
   it('mantém estados de degradação e ações reconhecíveis sem depender de cor', () => {
     const staleHtml = renderToStaticMarkup(
       <CommentsConversation

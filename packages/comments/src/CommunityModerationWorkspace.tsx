@@ -95,6 +95,7 @@ function WorkspaceBody(props: Readonly<CommunityModerationWorkspaceProps>) {
   const { confirm } = useConfirm();
   const rows = useMemo(() => moderationRows(props.queue), [props.queue]);
   const [announcement, setAnnouncement] = useState('');
+  const [actionError, setActionError] = useState<string | null>(null);
   const [reason, setReason] = useState('');
   const [caseReason, setCaseReason] = useState('');
   const [caseAction, setCaseAction] = useState<'no_change' | 'restore' | 'remove'>('no_change');
@@ -111,8 +112,37 @@ function WorkspaceBody(props: Readonly<CommunityModerationWorkspaceProps>) {
     return value;
   };
 
+  /**
+   * Executa uma ação de moderação convertendo falha em mensagem visível.
+   *
+   * Sem isto, os handlers eram disparados com `void action()` e toda rejeição
+   * — inclusive a validação de `requireReason`, que é o caso comum — virava
+   * unhandled rejection: o moderador clicava, nada acontecia na tela e ele não
+   * tinha como saber se a ação foi registrada (achado de review, PR #262).
+   * O erro entra na mesma live region do sucesso, então leitor de tela também
+   * o recebe, e é limpo a cada nova tentativa.
+   */
+  const runAction = (action: () => Promise<void>): Promise<void> => {
+    setActionError(null);
+    return action().catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Não foi possível concluir a ação.';
+      setActionError(message);
+      setAnnouncement(message);
+      // A rejeição segue adiante de propósito: o `AdminTable` limpa a seleção
+      // quando `onRun` resolve, e engolir o erro aqui apagaria as linhas
+      // marcadas justamente no `409` — o caso em que o moderador precisa
+      // recarregar e repetir sobre a MESMA seleção. Quem chama de um `onClick`
+      // usa `void runAction(...)`, então isto não vira unhandled rejection lá.
+      throw error;
+    });
+  };
+
   const applyVisibility = async (selectedIds: string[], action: 'remove' | 'restore') => {
     const selected = rows.filter((row) => selectedIds.includes(row.id));
+    // Motivo validado ANTES do diálogo (heurística 5 — prevenção de erro):
+    // pedir confirmação de uma ação destrutiva que já sabemos que vai falhar
+    // treina o moderador a confirmar sem ler (achado de review, PR #262).
+    const actionReason = requireReason();
     const approved = await confirm({
       title: action === 'remove' ? 'Retirar comentários?' : 'Restaurar comentários?',
       message: `${selected.length} item(ns). A ação será registrada na auditoria.`,
@@ -120,9 +150,28 @@ function WorkspaceBody(props: Readonly<CommunityModerationWorkspaceProps>) {
       variant: action === 'remove' ? 'danger' : 'info',
     });
     if (!approved) return;
-    const actionReason = requireReason();
-    await Promise.all(selected.map((row) => props.adapter[action](row.commentId, actionReason)));
-    setAnnouncement(`${selected.length} comentário(s) ${action === 'remove' ? 'retirado(s)' : 'restaurado(s)'}.`);
+    // `allSettled`, não `all`: em lote, `all` rejeita no primeiro erro e a UI
+    // anunciaria falha total enquanto parte dos comentários já foi retirada —
+    // o moderador repetiria a ação sobre o que já deu certo.
+    const results = await Promise.allSettled(
+      selected.map((row) => props.adapter[action](row.commentId, actionReason)),
+    );
+    const rejected = results.filter((r) => r.status === 'rejected');
+    const done = results.length - rejected.length;
+    const verb = action === 'remove' ? 'retirado(s)' : 'restaurado(s)';
+    if (rejected.length === 0) {
+      setAnnouncement(`${done} comentário(s) ${verb}.`);
+      return;
+    }
+    // A causa da primeira falha vai junto da contagem: só "N falharam" não diz
+    // ao moderador se foi conflito de concorrência (`409`, recarregar resolve)
+    // ou permissão negada (recarregar não resolve). O `409` é o caso que a
+    // seleção precisa sobreviver, e é o mais comum aqui.
+    const [first] = rejected;
+    const detail = first?.reason instanceof Error ? first.reason.message : 'motivo não informado';
+    throw new Error(
+      `${done} comentário(s) ${verb}; ${rejected.length} falhou(ram) e seguem como estavam. ${detail}`,
+    );
   };
 
   const columns: Array<AdminColumn<QueueRow>> = [
@@ -132,13 +181,15 @@ function WorkspaceBody(props: Readonly<CommunityModerationWorkspaceProps>) {
     { key: 'signal', header: 'Sinal', render: (row) => row.signal },
     { key: 'time', header: 'Recebido', render: (row) => <time dateTime={row.occurredAt}>{new Date(row.occurredAt).toLocaleString('pt-BR')}</time> },
   ];
+  // `runAction` também aqui: `AdminTable` chama `onRun` e não trata rejeição,
+  // então sem o wrapper a validação de motivo falhava em silêncio no lote.
   const bulkActions: AdminBulkAction[] = [
-    { key: 'remove', label: 'Retirar selecionados', tone: 'danger', onRun: (ids) => applyVisibility(ids, 'remove') },
-    { key: 'restore', label: 'Restaurar selecionados', onRun: (ids) => applyVisibility(ids, 'restore') },
+    { key: 'remove', label: 'Retirar selecionados', tone: 'danger', onRun: (ids) => runAction(() => applyVisibility(ids, 'remove')) },
+    { key: 'restore', label: 'Restaurar selecionados', onRun: (ids) => runAction(() => applyVisibility(ids, 'restore')) },
   ];
   const rowActions: Array<AdminRowAction<QueueRow>> = [
-    { key: 'remove', label: 'Retirar', tone: 'danger', onRun: (row) => applyVisibility([row.id], 'remove') },
-    { key: 'restore', label: 'Restaurar', onRun: (row) => applyVisibility([row.id], 'restore') },
+    { key: 'remove', label: 'Retirar', tone: 'danger', onRun: (row) => runAction(() => applyVisibility([row.id], 'remove')) },
+    { key: 'restore', label: 'Restaurar', onRun: (row) => runAction(() => applyVisibility([row.id], 'restore')) },
   ];
 
   const resolveSelectedCase = async () => {
@@ -215,7 +266,7 @@ function WorkspaceBody(props: Readonly<CommunityModerationWorkspaceProps>) {
           </select>
           <label htmlFor="case-reason">Justificativa</label>
           <textarea id="case-reason" value={caseReason} onChange={(event) => setCaseReason(event.target.value)} />
-          <button type="button" onClick={() => void resolveSelectedCase()}>Fechar caso</button>
+          <button type="button" onClick={() => void runAction(resolveSelectedCase)}>Fechar caso</button>
         </div>
       </SectionCard>
 
@@ -233,8 +284,8 @@ function WorkspaceBody(props: Readonly<CommunityModerationWorkspaceProps>) {
         <p>{props.selectedAppeal.reason}</p>
         <label htmlFor="appeal-reason">Nova justificativa</label>
         <textarea id="appeal-reason" value={appealReason} onChange={(event) => setAppealReason(event.target.value)} />
-        <button type="button" onClick={() => void decideAppeal('upheld')}>Manter decisão</button>
-        <button type="button" onClick={() => void decideAppeal('reversed')}>Reverter decisão</button>
+        <button type="button" onClick={() => void runAction(() => decideAppeal('upheld'))}>Manter decisão</button>
+        <button type="button" onClick={() => void runAction(() => decideAppeal('reversed'))}>Reverter decisão</button>
       </SectionCard>}
 
       <SectionCard title="Sanção comunitária" description="Apoio manual; não bloqueia SSO nem leitura.">
@@ -244,7 +295,7 @@ function WorkspaceBody(props: Readonly<CommunityModerationWorkspaceProps>) {
         <select id="sanction-level" value={sanctionLevel} onChange={(event) => setSanctionLevel(event.target.value as typeof sanctionLevel)}><option value="warning">Aviso</option><option value="temporary">Suspensão temporária</option><option value="permanent">Suspensão permanente</option></select>
         {sanctionLevel === 'temporary' && <><label htmlFor="sanction-expiry">Expira em</label><input id="sanction-expiry" type="datetime-local" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} /></>}
         <label htmlFor="sanction-reason">Motivo</label><textarea id="sanction-reason" value={sanctionReason} onChange={(event) => setSanctionReason(event.target.value)} />
-        <button type="button" onClick={() => void applySanction()}>Aplicar sanção</button>
+        <button type="button" onClick={() => void runAction(applySanction)}>Aplicar sanção</button>
         <ul>{(props.sanctions ?? []).map((item) => <li key={item.id}><StatusPill tone={item.active ? 'danger' : 'neutral'}>{item.active ? 'Ativa' : 'Encerrada'}</StatusPill> {item.scope} — {item.level}{item.expires_at ? <> até <time dateTime={item.expires_at}>{new Date(item.expires_at).toLocaleString('pt-BR')}</time></> : null}</li>)}</ul>
       </SectionCard>
     </div>
@@ -252,6 +303,12 @@ function WorkspaceBody(props: Readonly<CommunityModerationWorkspaceProps>) {
 
   return <>
     <output role="status" className="sr-only">{announcement}</output>
+    {/* Erro visível, não só na live region: quem enxerga a tela precisa ver o
+        motivo da recusa sem depender de leitor de tela. `role="alert"` porque
+        é consequência direta de uma ação que o moderador acabou de disparar. */}
+    {actionError && (
+      <p role="alert" data-moderation-error className="artificio-moderation__error">{actionError}</p>
+    )}
     <AdminWorkspaceLayout
       workspace={<div className="space-y-4 p-5"><PageHeader title="Moderação comunitária" description={`${rows.length} item(ns) pendente(s); escopo isolado pela credencial do módulo.`} />
         <SectionCard title="Fila" description="Denúncias e contas novas. Publicação de conta nova não é bloqueada.">
@@ -268,8 +325,24 @@ function WorkspaceBody(props: Readonly<CommunityModerationWorkspaceProps>) {
   </>;
 }
 
+/**
+ * O corpo é keyed pelo `case_id` selecionado: trocar de caso descarta
+ * veredito, motivo e ação do caso anterior em vez de carregá-los para o novo.
+ *
+ * Achado de review (PR #262): sem isto, abrir o caso B depois de preencher o
+ * caso A mantinha os vereditos de A no formulário, e o moderador podia
+ * submeter a decisão de um caso com o julgamento de outro — erro invisível,
+ * porque a tela parece preenchida e coerente. Key em vez de `useEffect`
+ * porque remontar zera todo o estado local de uma vez, sem lista de campos
+ * para manter sincronizada quando alguém acrescentar um. O conflito `409`
+ * não passa por aqui: ele não muda `case_id`, então o formulário sobrevive.
+ */
 export function CommunityModerationWorkspace(props: Readonly<CommunityModerationWorkspaceProps>) {
-  return <ConfirmProvider><WorkspaceBody {...props} /></ConfirmProvider>;
+  return (
+    <ConfirmProvider>
+      <WorkspaceBody key={props.selectedCase?.case_id ?? 'sem-caso'} {...props} />
+    </ConfirmProvider>
+  );
 }
 
 export interface CommentReportPanelProps {

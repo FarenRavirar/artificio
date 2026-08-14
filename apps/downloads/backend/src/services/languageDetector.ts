@@ -87,6 +87,13 @@ function detectWithShortTextHeuristic(text: string): LanguageDetectionResult {
     detectedLanguage: confident ? PORTUGUESE_ISO_CODE : 'und',
     confident,
     method: 'short_text_heuristic',
+    // `.sort()` sem comparador é deliberado (achado do Sonar recusado com
+    // medição, 2026-08-14): isto canonicaliza um identificador de diagnóstico,
+    // não ordena texto para leitura humana. A ordem precisa ser idêntica entre
+    // processos e versões de Node para o mesmo conjunto de sinais produzir
+    // sempre o mesmo `reason`; `localeCompare` depende de locale/ICU e devolve
+    // ordens diferentes para a mesma entrada (medido: `['a-1','A-1','a_1']` sai
+    // em 3 ordens distintas entre `pt-BR`, `en-US-u-kf-upper` e UTF-16).
     reason: confident ? `short_text_signals:${[...signals].sort().join(',')}` : 'short_text_insufficient_signals',
   };
 }

@@ -183,9 +183,21 @@ export function CommentsConversation({
     returnFocusRef.current = null;
   };
 
+  // Alvo de foco pendente para a raiz. Um `queueMicrotask` disparado dentro de
+  // `finishAction` corre ANTES de o React recomprometer a árvore, então ele
+  // focava um `textarea` que a re-renderização seguinte descartava e o foco
+  // caía no `body` (medido: `activeElement` = BODY após o envio). O efeito
+  // abaixo roda depois do commit, quando o nó final já existe.
+  const [focusRootAfterCommit, setFocusRootAfterCommit] = useState(0);
+
   useEffect(() => {
     if (panel === null && pendingAction === null) restorePanelTriggerFocus();
   }, [panel, pendingAction]);
+
+  useEffect(() => {
+    if (focusRootAfterCommit === 0) return;
+    rootComposerRef.current?.querySelector<HTMLElement>('textarea')?.focus();
+  }, [focusRootAfterCommit]);
 
   const closePanel = () => {
     setPanel(null);
@@ -211,18 +223,27 @@ export function CommentsConversation({
     return grouped;
   }, [thread]);
 
-  const finishAction = async (message: string): Promise<void> => {
-    const hadPanel = panel !== null;
+  /**
+   * `origin` é passado por quem dispara, não inferido de `panel !== null`
+   * (achado de review, PR #262): enviar pelo compositor raiz **com um painel de
+   * resposta aberto** fazia a origem ser lida como "painel", e o foco ia parar
+   * no gatilho daquele painel — longe do lugar onde a pessoa estava digitando.
+   * Quem enviou da raiz volta para a raiz; quem enviou de um painel volta para
+   * o gatilho que o abriu.
+   */
+  const finishAction = async (message: string, origin: 'root' | 'panel'): Promise<void> => {
+    // Descartar o alvo de retorno ANTES de fechar o painel: o efeito de
+    // `restorePanelTriggerFocus` dispara quando `panel` vira `null` e, se o
+    // alvo continuasse armado, ele sobrescreveria o foco que colocamos na
+    // raiz logo abaixo — a origem seria respeitada por um instante e perdida
+    // no efeito seguinte.
+    if (origin === 'root') returnFocusRef.current = null;
     setPanel(null);
     setPanelDraft('');
     setReportDetails('');
     setAnnouncement(message);
     await onActionComplete?.();
-    if (!hadPanel) {
-      queueMicrotask(() => {
-        rootComposerRef.current?.querySelector<HTMLElement>('textarea')?.focus();
-      });
-    }
+    if (origin === 'root') setFocusRootAfterCommit((tick) => tick + 1);
   };
 
   const runAction = async (
@@ -230,6 +251,7 @@ export function CommentsConversation({
     action: () => Promise<unknown>,
     message: string,
     requiresFresh = true,
+    origin: 'root' | 'panel' = 'panel',
   ) => {
     if ((requiresFresh && !mutationsEnabled) || pendingAction) return;
     setPendingAction(key);
@@ -237,7 +259,7 @@ export function CommentsConversation({
     setAnnouncement('');
     try {
       await action();
-      await finishAction(message);
+      await finishAction(message, origin);
     } catch (error: unknown) {
       setActionError(normalizeCommentsError(error).toJSON());
     } finally {
@@ -261,7 +283,7 @@ export function CommentsConversation({
     void runAction('create', async () => {
       await client.create(rootDraft);
       setRootDraft('');
-    }, 'Comentário publicado.');
+    }, 'Comentário publicado.', true, 'root');
   };
 
   const submitPanel = (event: FormEvent, comment: ConversationComment) => {

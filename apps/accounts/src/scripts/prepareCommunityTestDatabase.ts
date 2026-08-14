@@ -30,6 +30,8 @@ function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`prepare_community_test_db: ${message}`);
 }
 
+const TEST_DATABASE_NAME = "artificio_accounts_community_test";
+
 /**
  * Mesma trava do precedente: o script cria e **destrói** banco, então recusa
  * qualquer host que não seja local/CI descartável. Sem isso, uma variável de
@@ -43,10 +45,17 @@ function requireSafeAdminUrl(): URL {
     ["localhost", "127.0.0.1", "::1", "[::1]"].includes(parsed.hostname),
     "host deve ser local/CI descartável",
   );
+  // A conexão administrativa não pode ser o próprio banco que vamos derrubar:
+  // `DROP DATABASE ... WITH (FORCE)` estando conectado nele falha com 55006 e,
+  // pior, o `FORCE` derruba as demais sessões antes de abortar. Como o fallback
+  // é `DATABASE_URL` — que em outro contexto pode legitimamente apontar para
+  // qualquer banco —, a checagem é aqui e não na origem da variável.
+  assert(
+    parsed.pathname.replace(/^\//, "") !== TEST_DATABASE_NAME,
+    `a URL administrativa não pode ser o próprio ${TEST_DATABASE_NAME}; aponte para outro banco (ex.: artificio_test)`,
+  );
   return parsed;
 }
-
-const TEST_DATABASE_NAME = "artificio_accounts_community_test";
 
 async function main(): Promise<void> {
   const adminUrl = requireSafeAdminUrl();

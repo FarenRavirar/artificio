@@ -92,4 +92,15 @@ export {
   sanctionHistorySchema,
   type CommunityModerationAdapter,
   type CommentVersion,
+  // Tipos das props do workspace: sem eles o consumidor recebe o componente
+  // mas não consegue tipar o que passa para ele, e acabaria redeclarando o
+  // shape à mão — que é a divergência que este pacote existe para evitar
+  // (achado de review, PR #262).
+  type ModerationQueue,
+  type ModerationCase,
+  type ModeratorAppeal,
+  type SanctionHistoryEntry,
+  type ModerationLogEntry,
+  type ReportReason,
+  type OwnReport,
 } from './moderation.js';

@@ -48,6 +48,37 @@ describe('fachada browser-safe de moderação comunitária', () => {
     expect(response.headers).not.toHaveProperty('x-service-token');
   });
 
+  // Fail-closed no caminho que mais engana: o `accounts.` responde `200`, então
+  // sem validação a UI receberia lista malformada e trataria como "fila vazia"
+  // — indistinguível de "nenhum caso aberto" (achado de review, PR #262).
+  it('devolve 502 quando o accounts responde 200 com payload fora do schema', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ items: 'nao-e-array' }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    }));
+
+    const response = await request(app()).get('/api/v1/community/moderation/queue');
+
+    expect(response.status).toBe(502);
+    expect(response.body).toEqual({ error: 'invalid_accounts_response' });
+  });
+
+  // Campo aditivo do `accounts.` não pode derrubar a fila: ele é deployado
+  // antes da fachada saber do campo, e `.strict()` transformaria a mudança
+  // compatível em 502 (mesmo achado de review).
+  it('aceita campo desconhecido no payload da fila, sem 502', async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      items: [],
+      new_account_comments: [],
+      campo_futuro: 'ainda nao conhecido pela fachada',
+    }), { status: 200, headers: { 'content-type': 'application/json' } }));
+
+    const response = await request(app()).get('/api/v1/community/moderation/queue');
+
+    expect(response.status).toBe(200);
+    expect(response.body).not.toHaveProperty('campo_futuro');
+  });
+
   it('preserva 409 e o payload para a UI não apagar trabalho concorrente', async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: 'case_already_resolved' } }), {
       status: 409,

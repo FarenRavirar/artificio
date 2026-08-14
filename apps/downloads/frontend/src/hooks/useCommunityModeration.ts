@@ -108,6 +108,11 @@ export function useCommunityModerationActions(): CommunityModerationAdapter {
         client.invalidateQueries({ queryKey: logKey }),
         client.invalidateQueries({ queryKey: ['downloads', 'community', 'moderation', 'case'] }),
         client.invalidateQueries({ queryKey: ['downloads', 'community', 'moderation', 'sanctions'] }),
+        // O recurso aberto também precisa recarregar: sem isto, decidir um
+        // recurso deixava a tela mostrando o status anterior até o moderador
+        // sair e voltar — parece que a decisão não foi registrada, e o risco é
+        // ele decidir de novo (achado de review, PR #262).
+        client.invalidateQueries({ queryKey: ['downloads', 'community', 'moderation', 'appeal'] }),
       ]);
     },
   });
