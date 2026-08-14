@@ -21,6 +21,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, resolve, basename, relative } from 'node:path';
 import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 
 // Resolve o entry JS do openapi-diff e o roda com node diretamente — evita o wrapper
 // pnpm/.cmd (que sai vazio via execFileSync no Windows) e dispensa shell.
@@ -345,7 +346,12 @@ function generateReport(appDiffs: AppDiff[], baseBranch: string): string {
   return md;
 }
 
-function extractLocation(change: DiffChange): { path: string; method: string } {
+// Exportada para `diff-api.test.ts`: a extração do path é o que torna o
+// relatório auditável, e já regrediu duas vezes (BL-API-DIFF-PATH-REMOVE-BLANK
+// e o achado de review da PR #260). O teste é a barreira que faltava — este
+// arquivo roda por `tsx`, que faz strip de tipos sem checá-los, então erro de
+// tipo aqui não aparece no `verify:api` (BL-SCRIPTS-TYPECHECK).
+export function extractLocation(change: DiffChange): { path: string; method: string } {
   // Destino primeiro, depois origem: numa remoção o destino não existe (o
   // openapi-diff manda `destinationSpecEntityDetails: []`), e só a origem sabe
   // qual caminho sumiu. `normalizeEntityDetails` já converte array vazio em
@@ -363,12 +369,39 @@ function extractLocation(change: DiffChange): { path: string; method: string } {
   // da coluna `Path` sair vazia justamente nos breaking changes mais graves:
   //   operação: `paths./api/v1/tables/{slug}.get.operationId`  (com método)
   //   caminho:  `paths./api/social/{id}/comments`              (sem método)
-  // Em `path.remove`/`path.add` o location é a segunda forma; a versão anterior
+  // Em `path.remove`/`path.add` o location é a segunda forma; uma versão anterior
   // exigia um método casado para montar o path, então devolvia string vazia e o
-  // relatório listava "remove | path.remove" sem dizer o quê. Quem revisa a PR
-  // não tinha como auditar a remoção (D-API-AMBIGUOUS-PATHS, PR desta branch).
+  // relatório listava "remove | path.remove" sem dizer o quê — quem revisa a PR
+  // não tinha como auditar a remoção (BL-API-DIFF-PATH-REMOVE-BLANK).
   const afterPrefix = loc.slice(pathStart + pathPrefix.length);
-  const methodMatch = afterPrefix.match(/\.(get|post|put|patch|delete|head|options|trace)(?:\.|$)/);
+
+  // Qual das duas formas é esta se decide pelo `entity`/`code` que o openapi-diff
+  // já manda, NUNCA por procurar algo parecido com verbo HTTP no texto: um
+  // caminho pode legitimamente conter um segmento chamado `get`/`post`
+  // (`/api/webhooks/post/{id}`), e a busca textual truncaria o path ali,
+  // inventando um método que a mudança não tem. A lib emite exatamente seis
+  // códigos — `path.{add,remove}`, `method.{add,remove}` e
+  // `unclassified.{add,remove}` (enumerados no bundle de openapi-diff 0.24.1) —
+  // então só `method.*` e o resíduo `unclassified.*` podem trazer método no
+  // location; em `path.*` o location inteiro é o caminho (achado de review).
+  const isPathLevel = change.entity === 'path' || change.code.startsWith('path.');
+
+  // Colhe TODOS os tokens que parecem verbo e fica com o último. O caminho pode
+  // ele mesmo terminar em ponto+verbo (`/api/logs/audit.post`), e aí o location
+  // de uma mudança de método tem dois: `paths./api/logs/audit.post.delete`. O
+  // primeiro é parte do caminho, o último é o método — pegar o primeiro
+  // devolvia POST num caminho truncado, errando os dois campos da linha do
+  // relatório (achado de review, PR #261).
+  //
+  // O lookahead não CONSOME o ponto separador: com `(?:\.|$)` os matches de
+  // `.post.delete` se sobrepõem no mesmo ponto e o `matchAll` pularia o
+  // segundo, que é justamente o que se quer.
+  const verboRe = /\.(get|post|put|patch|delete|head|options|trace)(?=\.|$)/g;
+  let methodMatch: RegExpExecArray | null = null;
+  if (!isPathLevel) {
+    let atual: RegExpExecArray | null;
+    while ((atual = verboRe.exec(afterPrefix)) !== null) methodMatch = atual;
+  }
   const method = methodMatch ? methodMatch[1].toUpperCase() : '';
 
   // Corta no método quando ele existe; senão o location inteiro é o caminho.
@@ -494,4 +527,10 @@ function main(): void {
   process.exit(exitCode);
 }
 
-main();
+// Só executa quando chamado como CLI (`pnpm api:diff`). Sem a guarda, importar
+// este módulo — como faz `diff-api.test.ts` — rodaria o diff inteiro e mataria o
+// processo do vitest no `process.exit()` do fim de `main()`. Mesmo padrão de
+// `scripts/check-typescript-7-readiness.mjs`.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}

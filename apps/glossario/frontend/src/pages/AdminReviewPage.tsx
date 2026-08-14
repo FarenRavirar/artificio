@@ -1,22 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle, XCircle, RefreshCw } from 'lucide-react';
 import api from '../services/api';
+import { normalizeTermos, type Termo } from '../types/glossario';
+import { sanitizeTermForUi } from '../utils/textSanitizer';
 
-interface Term {
-  id: string;
-  name_en: string;
-  name_pt: string;
-  nucleus: string;
-  status: string;
-  source_type: string;
-  system_name: string | null;
-  edition_name: string | null;
-  scenario_name: string | null;
-  category_name: string | null;
-  added_by_name: string;
-  created_at: string;
-  book_reference: string | null;
-  page_reference: string | null;
+/**
+ * Data ausente ou impossível de interpretar vira travessão, nunca "Invalid
+ * Date" na tela — `new Date(undefined)` renderizava isso quando o campo não
+ * vinha no payload (achado de review, PR #260).
+ */
+function formatarData(valor: string | undefined): string {
+  if (!valor) return '—';
+  const data = new Date(valor);
+  return Number.isNaN(data.getTime()) ? '—' : data.toLocaleDateString('pt-BR');
 }
 
 const statusLabel: Record<string, { label: string; color: string }> = {
@@ -26,14 +22,20 @@ const statusLabel: Record<string, { label: string; color: string }> = {
 };
 
 const AdminReviewPage: React.FC = () => {
-  const [terms, setTerms] = useState<Term[]>([]);
+  const [terms, setTerms] = useState<Termo[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchTerms = async () => {
     setLoading(true);
     try {
       const res = await api.get('/terms?status=pendente');
-      setTerms(res.data);
+      // Duas passagens, nesta ordem: `normalizeTermos` garante a FORMA (payload
+      // que não é array virava crash no `.map` de render) e `sanitizeTermForUi`
+      // trata o CONTEÚDO. A sanitização faltava aqui — esta tela mostra termos
+      // recém-submetidos por usuários, que é justamente onde texto hostil
+      // chega primeiro, e era a única listagem do app sem ela (achado de
+      // review, PR #260; o `useGlossario` já sanitizava nos 3 pontos dele).
+      setTerms(normalizeTermos(res.data).map((t) => sanitizeTermForUi(t)));
     } catch (e) {
       console.error(e);
     } finally {
@@ -43,8 +45,11 @@ const AdminReviewPage: React.FC = () => {
 
   useEffect(() => { void (async () => { await fetchTerms(); })(); }, []);
 
-  const moderate = async (id: string, status: 'verificado' | 'rejeitado') => {
-    await api.patch(`/terms/${id}/approve`, { status });
+  // `Termo.id` é `string | number` (o legado v1 devolvia número), então a
+  // assinatura aceita os dois e escapa antes de montar a URL — o mesmo cuidado
+  // que `ResultCard` já tinha e esta tela não.
+  const moderate = async (id: string | number, status: 'verificado' | 'rejeitado') => {
+    await api.patch(`/terms/${encodeURIComponent(String(id))}/approve`, { status });
     setTerms(prev => prev.filter(t => t.id !== id));
   };
 
@@ -79,8 +84,8 @@ const AdminReviewPage: React.FC = () => {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide ${statusLabel[term.status]?.color}`}>
-                      {statusLabel[term.status]?.label}
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide ${statusLabel[term.status ?? '']?.color ?? ''}`}>
+                      {statusLabel[term.status ?? '']?.label ?? term.status ?? '—'}
                     </span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--state-info-bg)] text-[var(--state-info-fg)] uppercase tracking-wide">
                       {term.nucleus}
@@ -107,7 +112,7 @@ const AdminReviewPage: React.FC = () => {
                   )}
 
                   <p className="text-xs text-[var(--fg-muted)] mt-2">
-                    Sugerido por <span className="font-semibold">{term.added_by_name}</span> em {new Date(term.created_at).toLocaleDateString('pt-BR')}
+                    Sugerido por <span className="font-semibold">{term.added_by_name ?? 'autor desconhecido'}</span> em {formatarData(term.created_at)}
                   </p>
                 </div>
 

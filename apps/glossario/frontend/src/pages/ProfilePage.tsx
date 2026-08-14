@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/auth-context';
 import { User, Save } from 'lucide-react';
 import api from '../services/api';
+import { mergeProfileIntoSession } from '../types/session';
 
 const ProfilePage: React.FC = () => {
   const { user, setUser } = useAuth();
@@ -17,7 +18,13 @@ const ProfilePage: React.FC = () => {
     setError('');
     try {
       const res = await api.patch('/users/profile', { full_name: fullName });
-      setUser(res.data);
+      // A resposta desta rota descreve o PERFIL, não a sessão — gravá-la inteira
+      // sobre o usuário logado apagaria `role`/`is_global_moderator` se o
+      // endpoint não os devolvesse, rebaixando um admin ao salvar o próprio
+      // nome. Aplica só os campos de perfil sobre a sessão vigente, e nunca
+      // deixa a sessão virar `null` por causa de uma resposta parcial (achado de
+      // review, PR #260).
+      setUser(mergeProfileIntoSession(user, res.data));
       setSuccess('Perfil atualizado com sucesso!');
     } catch {
       setError('Erro ao atualizar perfil.');

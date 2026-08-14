@@ -1,6 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useConfirm } from "@artificio/ui";
 import { Termo } from '../types/glossario';
+import {
+  normalizeComment,
+  normalizeComments,
+  normalizeEditions,
+  normalizeVoteScore,
+  formatarDataCurta,
+  type Comment,
+  type Edition,
+} from '../types/social';
 import { BookOpen, CheckCircle2, HelpCircle, Award, User as UserIcon, Pencil, Trash2, Save, X, ThumbsUp, ThumbsDown, MessageSquare, Send, ChevronDown, Clock3, History } from 'lucide-react';
 import type { AtualizacaoTermoPayload } from '../hooks/useGlossario';
 import api from '../services/api';
@@ -15,14 +24,10 @@ interface ResultCardProps {
   onDelete?: (id: string | number) => Promise<void>;
 }
 
-interface Comment {
-  id: string;
-  body: string;
-  author_name: string;
-  created_at: string;
-  deleted: boolean;
-  user_id: string;
-}
+// `Comment` e `Edition` vêm de `../types/social`, junto dos normalizadores que
+// os produzem. Antes eram declarados aqui e em mais dois arquivos, com formatos
+// divergentes — o tipo local não descrevia o payload, só o que este arquivo
+// esperava dele (achado de review, PR #260).
 
 interface TermHistoryChange {
   field: string;
@@ -41,7 +46,6 @@ type Status = 'pendente' | 'verificado' | 'rejeitado';
 type SourceType = 'sistema' | 'cenario';
 
 interface SystemOption { id: string; name: string; }
-interface EditionOption { id: string; name: string; system_id: string; }
 interface ScenarioOption { id: string; name: string; }
 interface CategoryOption { id: string; name: string; type: SourceType; parent_id: string | null; }
 
@@ -100,7 +104,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
   const [actionError, setActionError] = useState<string | null>(null);
   const [form, setForm] = useState<EditFormState>(() => buildInitialState(termo));
   const [systems, setSystems] = useState<SystemOption[]>([]);
-  const [editions, setEditions] = useState<EditionOption[]>([]);
+  const [editions, setEditions] = useState<Edition[]>([]);
   const [scenarios, setScenarios] = useState<ScenarioOption[]>([]);
   const [categories, setCategories] = useState<CategoryOption[]>([]);
   const { confirm } = useConfirm();
@@ -251,10 +255,10 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
     let active = true;
     // Sem sistema → lista vazia; senão busca. setState só no callback assíncrono.
     const load = !form.system_id
-      ? Promise.resolve({ data: [] as EditionOption[] })
+      ? Promise.resolve({ data: [] as unknown })
       : api.get(`/systems/system/${encodeURIComponent(form.system_id)}/editions`);
     load
-      .then((res) => { if (active) setEditions(res.data); })
+      .then((res) => { if (active) setEditions(normalizeEditions(res.data)); })
       .catch((err) => {
         if (!active) return;
         console.error(err);
@@ -325,7 +329,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
         setLoadingComments(true);
         try {
           const { data } = await api.get(`/social/terms/${encodeURIComponent(termo.id)}/comments`);
-          setComments(data);
+          setComments(normalizeComments(data));
         } catch (err) {
           console.error('Erro ao buscar comentários:', err);
         } finally {
@@ -344,7 +348,33 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
     try {
       setIsSubmittingComment(true);
       const { data } = await api.post(`/social/terms/${encodeURIComponent(termo.id)}/comments`, { body: newComment });
-      setComments([...comments, { ...data, author_name: user.username, user_id: user.id }]);
+      // Normaliza antes do spread: `{ ...data }` de um payload malformado
+      // injetava campo arbitrário direto no estado, e um `id` ausente virava
+      // `key` indefinida na lista. Autor e usuário vêm da sessão local, não da
+      // resposta — quem acabou de comentar é quem está logado.
+      const criado = normalizeComment(data);
+      if (criado) {
+        // `user.username` é opcional na sessão; o tipo antigo, declarado neste
+        // arquivo, não expunha isso e deixava `undefined` entrar como nome de
+        // autor. Cai para o que o servidor devolveu e só então para o rótulo
+        // genérico — nunca renderiza vazio no lugar do nome.
+        //
+        // Encadeamento por truthiness, não `??`: `author_name` vem de `asText`,
+        // que devolve `''` para campo ausente, e `'' ?? x` é `''` — o nome saía
+        // em branco no comentário recém-criado (achado de review, PR #261).
+        const autor = user.username || criado.author_name || 'Você';
+        setComments([...comments, { ...criado, author_name: autor, user_id: user.id }]);
+      } else {
+        // Resposta inutilizável não pode virar comentário sumido: a escrita
+        // pode ter sido gravada. Recarrega a lista do servidor em vez de
+        // inventar um item local ou fingir que nada aconteceu.
+        try {
+          const { data: lista } = await api.get(`/social/terms/${encodeURIComponent(termo.id)}/comments`);
+          setComments(normalizeComments(lista));
+        } catch {
+          setActionError('Comentário enviado, mas a lista não pôde ser atualizada. Recarregue a página.');
+        }
+      }
       setNewComment('');
     } catch (err) {
       console.error('Erro ao comentar:', err);
@@ -361,7 +391,11 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
 
     try {
       const { data } = await api.post(`/social/terms/${encodeURIComponent(termo.id)}/vote`, { direction });
-      setVoteScore(data.vote_score);
+      // Placar sem número utilizável mantém o valor anterior. `setVoteScore` com
+      // `undefined` renderizava vazio no lugar da contagem — parecia que o termo
+      // tinha perdido os votos, quando só a resposta veio malformada.
+      const placar = normalizeVoteScore(data);
+      if (placar !== null) setVoteScore(placar);
     } catch (err) {
       console.error('Erro ao votar:', err);
     }
@@ -859,7 +893,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ termo, isAdmin = false, 
                       <div className="flex justify-between items-center mb-1">
                         <span className="text-[10px] font-black text-[var(--fg)] uppercase tracking-wider">{comment.author_name}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-[9px] text-[var(--fg-muted)]">{new Date(comment.created_at).toLocaleDateString('pt-BR')}</span>
+                          <span className="text-[9px] text-[var(--fg-muted)]">{formatarDataCurta(comment.created_at)}</span>
                           {!comment.deleted && (user?.id === comment.user_id || user?.role === 'admin' || user?.is_global_moderator === true) && (
                             <button 
                               type="button"
