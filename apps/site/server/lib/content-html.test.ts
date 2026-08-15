@@ -11,6 +11,10 @@ describe("stripTags — decode de entidades", () => {
       ["&gt;", ">"],
       ["&quot;", '"'],
       ["&#39;", "'"],
+      // Forma acolchoada do WordPress. O regex casa `#0?39` desde 4d15b01, mas
+      // a chave só entrou no mapa depois — sem este caso a entidade voltava
+      // literal para o excerpt (achado de review da PR #262).
+      ["&#039;", "'"],
       ["&#8217;", "’"],
       ["&#8216;", "‘"],
       ["&#8220;", "“"],
@@ -37,6 +41,7 @@ describe("stripTags — decode de entidades", () => {
     expect(stripTags("&amp;quot;")).toBe("&quot;");
     expect(stripTags("&amp;amp;")).toBe("&amp;");
     expect(stripTags("&amp;#39;")).toBe("&#39;");
+    expect(stripTags("&amp;#039;")).toBe("&#039;");
     expect(stripTags("&amp;#038;")).toBe("&#038;");
   });
 

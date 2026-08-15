@@ -25,7 +25,11 @@ export interface TocItem {
 const ENTITIES: Record<string, string> = {
   "&#8217;": "’", "&#8216;": "‘", "&#8220;": "“", "&#8221;": "”",
   "&#8211;": "–", "&#8212;": "—", "&#8230;": "…", "&#8594;": "→",
-  "&#39;": "'", "&quot;": '"', "&nbsp;": " ",
+  // `&#039;` (zero à esquerda) precisa de chave própria: o regex abaixo casa
+  // `#0?39`, então a forma acolchoada do WordPress chega aqui como `match`, e
+  // sem entrada no mapa o `?? match` a devolvia intacta (regressão introduzida
+  // em 4d15b01, medida: `&#039;` saía `&#039;` em vez de `'`).
+  "&#39;": "'", "&#039;": "'", "&quot;": '"', "&nbsp;": " ",
   "&lt;": "<", "&gt;": ">",
   "&amp;": "&", "&#038;": "&",
 };
