@@ -726,6 +726,14 @@ function hashSanctionRequest(input: ApplySanctionInput): string {
     .update(
       JSON.stringify([
         input.targetActorId,
+        // `.sort()` sem comparador é deliberado, e trocar por `localeCompare`
+        // seria regressão (achado do Sonar, PR #262, recusado com medição): esta
+        // é uma chave de idempotência, não texto exibido. A ordem precisa ser
+        // idêntica entre processos e versões de Node; `localeCompare` depende de
+        // locale/ICU e devolve ordens diferentes para a mesma entrada
+        // (medido: `['a-1','A-1','a_1']` sai em 3 ordens distintas em `pt-BR`,
+        // `en-US-u-kf-upper` e UTF-16). Ordem instável aqui geraria
+        // `409 idempotency_key_reuse` para quem só reenviou a mesma sanção.
         [...input.scopes].sort(),
         input.level,
         input.expiresAt?.toISOString() ?? null,

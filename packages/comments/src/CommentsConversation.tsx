@@ -1,7 +1,9 @@
 import { MarkdownContent, ContentEditor } from '@artificio/content-editor';
 import {
+  useEffect,
   useId,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
   type ReactNode,
@@ -153,9 +155,53 @@ export function CommentsConversation({
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [actionError, setActionError] = useState<CommentsErrorShape | null>(null);
   const [announcement, setAnnouncement] = useState('');
+  const panelContainerRef = useRef<HTMLDivElement>(null);
+  const rootComposerRef = useRef<HTMLFormElement>(null);
+  const rootSectionRef = useRef<HTMLElement>(null);
+  const returnFocusRef = useRef<{ action: NonNullable<OpenPanel>['kind']; commentId: string } | null>(null);
 
   const thread = state.data;
   const mutationsEnabled = state.status === 'fresh';
+
+  useEffect(() => {
+    if (!panel) return;
+    const container = panelContainerRef.current;
+    const editor = container?.querySelector<HTMLElement>('textarea, input, select, [contenteditable="true"]')
+      ?? container?.querySelector<HTMLElement>('button');
+    editor?.focus();
+  }, [panel]);
+
+  const restorePanelTriggerFocus = () => {
+    const target = returnFocusRef.current;
+    if (target === null) return;
+
+    rootSectionRef.current
+      ?.querySelector<HTMLElement>(
+        `[data-comments-action="${target.action}"][data-comment-id="${target.commentId}"]`,
+      )
+      ?.focus();
+    returnFocusRef.current = null;
+  };
+
+  // Alvo de foco pendente para a raiz. Um `queueMicrotask` disparado dentro de
+  // `finishAction` corre ANTES de o React recomprometer a árvore, então ele
+  // focava um `textarea` que a re-renderização seguinte descartava e o foco
+  // caía no `body` (medido: `activeElement` = BODY após o envio). O efeito
+  // abaixo roda depois do commit, quando o nó final já existe.
+  const [focusRootAfterCommit, setFocusRootAfterCommit] = useState(0);
+
+  useEffect(() => {
+    if (panel === null && pendingAction === null) restorePanelTriggerFocus();
+  }, [panel, pendingAction]);
+
+  useEffect(() => {
+    if (focusRootAfterCommit === 0) return;
+    rootComposerRef.current?.querySelector<HTMLElement>('textarea')?.focus();
+  }, [focusRootAfterCommit]);
+
+  const closePanel = () => {
+    setPanel(null);
+  };
 
   const commentsByParent = useMemo(() => {
     const grouped = new Map<string | null, ConversationComment[]>();
@@ -177,12 +223,27 @@ export function CommentsConversation({
     return grouped;
   }, [thread]);
 
-  const finishAction = async (message: string): Promise<void> => {
+  /**
+   * `origin` é passado por quem dispara, não inferido de `panel !== null`
+   * (achado de review, PR #262): enviar pelo compositor raiz **com um painel de
+   * resposta aberto** fazia a origem ser lida como "painel", e o foco ia parar
+   * no gatilho daquele painel — longe do lugar onde a pessoa estava digitando.
+   * Quem enviou da raiz volta para a raiz; quem enviou de um painel volta para
+   * o gatilho que o abriu.
+   */
+  const finishAction = async (message: string, origin: 'root' | 'panel'): Promise<void> => {
+    // Descartar o alvo de retorno ANTES de fechar o painel: o efeito de
+    // `restorePanelTriggerFocus` dispara quando `panel` vira `null` e, se o
+    // alvo continuasse armado, ele sobrescreveria o foco que colocamos na
+    // raiz logo abaixo — a origem seria respeitada por um instante e perdida
+    // no efeito seguinte.
+    if (origin === 'root') returnFocusRef.current = null;
     setPanel(null);
     setPanelDraft('');
     setReportDetails('');
     setAnnouncement(message);
     await onActionComplete?.();
+    if (origin === 'root') setFocusRootAfterCommit((tick) => tick + 1);
   };
 
   const runAction = async (
@@ -190,6 +251,7 @@ export function CommentsConversation({
     action: () => Promise<unknown>,
     message: string,
     requiresFresh = true,
+    origin: 'root' | 'panel' = 'panel',
   ) => {
     if ((requiresFresh && !mutationsEnabled) || pendingAction) return;
     setPendingAction(key);
@@ -197,7 +259,7 @@ export function CommentsConversation({
     setAnnouncement('');
     try {
       await action();
-      await finishAction(message);
+      await finishAction(message, origin);
     } catch (error: unknown) {
       setActionError(normalizeCommentsError(error).toJSON());
     } finally {
@@ -205,7 +267,11 @@ export function CommentsConversation({
     }
   };
 
-  const openPanel = (next: NonNullable<OpenPanel>, initialValue = '') => {
+  const openPanel = (
+    next: NonNullable<OpenPanel>,
+    initialValue = '',
+  ) => {
+    returnFocusRef.current = { action: next.kind, commentId: next.commentId };
     setPanel(next);
     setPanelDraft(initialValue);
     setActionError(null);
@@ -217,7 +283,7 @@ export function CommentsConversation({
     void runAction('create', async () => {
       await client.create(rootDraft);
       setRootDraft('');
-    }, 'Comentário publicado.');
+    }, 'Comentário publicado.', true, 'root');
   };
 
   const submitPanel = (event: FormEvent, comment: ConversationComment) => {
@@ -241,7 +307,7 @@ export function CommentsConversation({
 
     if (panel.kind === 'withdraw') {
       return (
-        <div className="artificio-comments__confirm" data-comments-slot="withdraw-confirmation">
+        <div ref={panelContainerRef} className="artificio-comments__confirm" data-comments-slot="withdraw-confirmation">
           <p>Retirar este comentário? A conversa e as respostas serão preservadas.</p>
           <button
             type="button"
@@ -254,7 +320,7 @@ export function CommentsConversation({
           >
             Confirmar retirada
           </button>
-          <button type="button" onClick={() => setPanel(null)}>Cancelar</button>
+          <button type="button" onClick={closePanel}>Cancelar</button>
         </div>
       );
     }
@@ -262,6 +328,7 @@ export function CommentsConversation({
     if (panel.kind === 'report') {
       const detailsRequired = commentReportRequiresDetails(reportReason);
       return (
+        <div ref={panelContainerRef}>
         <form className="artificio-comments__form" onSubmit={(event) => submitPanel(event, comment)}>
           <label htmlFor={`comments-report-reason-${comment.id}`}>Motivo da denúncia</label>
           <select
@@ -296,9 +363,10 @@ export function CommentsConversation({
               type="submit"
               disabled={!mutationsEnabled || pendingAction !== null || (detailsRequired && reportDetails.trim() === '')}
             >Enviar denúncia</button>
-            <button type="button" onClick={() => setPanel(null)}>Cancelar</button>
+            <button type="button" onClick={closePanel}>Cancelar</button>
           </div>
         </form>
+        </div>
       );
     }
 
@@ -306,6 +374,7 @@ export function CommentsConversation({
       ? `Resposta a ${comment.author.display_name ?? 'comentário'}`
       : 'Editar comentário';
     return (
+      <div ref={panelContainerRef}>
       <form className="artificio-comments__form" onSubmit={(event) => submitPanel(event, comment)}>
         <ContentEditor
           value={panelDraft}
@@ -318,9 +387,10 @@ export function CommentsConversation({
           <button type="submit" disabled={!mutationsEnabled || pendingAction !== null}>
             {panel.kind === 'reply' ? 'Publicar resposta' : 'Salvar edição'}
           </button>
-          <button type="button" onClick={() => setPanel(null)}>Cancelar</button>
+          <button type="button" onClick={closePanel}>Cancelar</button>
         </div>
       </form>
+      </div>
     );
   };
 
@@ -405,6 +475,8 @@ export function CommentsConversation({
             {commentPermissions.reply && comment.depth < 4 && (
               <button
                 type="button"
+                data-comments-action="reply"
+                data-comment-id={comment.id}
                 disabled={!canAct}
                 onClick={() => openPanel({ kind: 'reply', commentId: comment.id })}
               >
@@ -414,6 +486,8 @@ export function CommentsConversation({
             {commentPermissions.edit && !legacy && comment.state === 'visible' && body && (
               <button
                 type="button"
+                data-comments-action="edit"
+                data-comment-id={comment.id}
                 disabled={!canAct}
                 onClick={() => openPanel({ kind: 'edit', commentId: comment.id }, body)}
               >Editar</button>
@@ -421,6 +495,8 @@ export function CommentsConversation({
             {commentPermissions.withdraw && !legacy && comment.state === 'visible' && (
               <button
                 type="button"
+                data-comments-action="withdraw"
+                data-comment-id={comment.id}
                 disabled={!canAct}
                 onClick={() => openPanel({ kind: 'withdraw', commentId: comment.id })}
               >Retirar</button>
@@ -428,6 +504,8 @@ export function CommentsConversation({
             {commentPermissions.report && !legacy && comment.state === 'visible' && (
               <button
                 type="button"
+                data-comments-action="report"
+                data-comment-id={comment.id}
                 disabled={!canAct}
                 onClick={() => openPanel({ kind: 'report', commentId: comment.id })}
               >Denunciar</button>
@@ -471,7 +549,7 @@ export function CommentsConversation({
   }
 
   return (
-    <section className={classes('artificio-comments', classes(slots.root ?? '', className))}>
+    <section ref={rootSectionRef} className={classes('artificio-comments', classes(slots.root ?? '', className))}>
       <div className={classes('artificio-comments__toolbar', slots.toolbar)} data-comments-slot="toolbar">
         <label htmlFor={sortControlId}>Ordenar comentários</label>
         <select
@@ -516,6 +594,7 @@ export function CommentsConversation({
 
       {canCreate && (
         <form
+          ref={rootComposerRef}
           className={classes('artificio-comments__composer', slots.composer)}
           data-comments-slot="composer"
           onSubmit={submitRoot}

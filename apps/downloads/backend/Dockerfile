@@ -58,6 +58,8 @@ RUN pnpm install --prod --filter @artificio/downloads-backend --frozen-lockfile 
   && pnpm install --prod --filter @artificio/catalog-client --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/catalog-matching --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/changelog --frozen-lockfile --ignore-scripts \
+  && pnpm install --prod --filter @artificio/comments --frozen-lockfile --ignore-scripts \
+  && pnpm install --prod --filter @artificio/ui --frozen-lockfile --ignore-scripts \
   && test -d packages/media/node_modules/cloudinary \
   && test -d packages/media/node_modules/ipaddr.js \
   && test -d packages/content-editor/node_modules/sanitize-html \
@@ -67,6 +69,7 @@ RUN pnpm install --prod --filter @artificio/downloads-backend --frozen-lockfile 
   && test -d packages/auth/node_modules/jsonwebtoken \
   && test -d packages/config/node_modules/zod \
   && test -d packages/catalog-client/node_modules/zod \
+  && test -d packages/comments/node_modules/zod \
   || (echo "ERRO: dependencia de pacote workspace ausente em packages/*/node_modules/" && exit 1)
 
 # Achado de review PR #193 (codex) — scraper de spec 084 (Modo 2a/2b) precisa
@@ -120,6 +123,19 @@ COPY --from=builder /repo/packages/email/dist ./packages/email/dist
 # Ele nao acrescenta dependencia externa — usa so o `URL` global, zero require —,
 # entao o filtro de deps acima continua suficiente.
 COPY --from=builder /repo/packages/content-editor/dist-cjs ./packages/content-editor/dist-cjs
+# Spec 090 fase 4: `routes/communityModeration.ts` (a fachada browser-safe de
+# moderação) importa `moderationQueueSchema` de `@artificio/comments` para
+# validar na fronteira o payload que vem do `accounts.` O backend compila para
+# CommonJS (`main: dist/server.js`, sem `type: module`), então resolve por
+# `require` e só o `dist-cjs` entra — a raiz React do pacote vive em
+# `@artificio/comments/react` e é do frontend.
+# `@artificio/ui` acompanha por ser dependency do `comments`, não porque este
+# backend a use: `--prod --filter` PODA o store de quem fica de fora, e o
+# symlink sobrevive apontando para nada (foi assim que o SSO caiu 5h em
+# 2026-08-08, E016/E017). Não copiamos `dist` de `ui` porque nenhum `require`
+# do CJS de `comments` o alcança — medido: `dist-cjs/moderation.js` requer só
+# `zod`, e a trava do requisito 21b mantém o root livre de React.
+COPY --from=builder /repo/packages/comments/dist-cjs ./packages/comments/dist-cjs
 
 COPY --from=builder /repo/apps/downloads/backend/dist ./apps/downloads/backend/dist
 

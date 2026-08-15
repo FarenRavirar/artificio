@@ -72,12 +72,23 @@ COPY --from=build /repo/patches ./patches
 # prova a cadeia inteira `comments -> content-editor -> sanitize-html` resolver
 # em runtime, que e o que nenhum `test -d` individual garante. Falhar aqui
 # quebra o BUILD; falhar em runtime quebra o SSO de todos os projetos.
+#
+# `ui` e `changelog` entraram em 2026-08-14, apontados pelo gate. Nao sao
+# import de servidor — `rg "@artificio/ui" apps/accounts/src` devolve zero, e
+# o uso e so do frontend, que vira bundle no build. Entram pelo motivo do
+# `catalog-matching`/`changelog` do downloads: `--prod --filter` PODA o store
+# de quem fica de fora, e `ui` tem dependency externa propria (react,
+# react-dom) alem de arrastar `changelog`. Enquanto o servidor nao os importar,
+# a ausencia nao derruba nada; no dia em que importar, derrubaria o SSO inteiro
+# com o CI verde. Filtrar troca a coincidencia por garantia.
 RUN pnpm install --prod --filter @artificio/accounts --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/auth --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/comments --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/config --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/content-editor --frozen-lockfile --ignore-scripts \
   && pnpm install --prod --filter @artificio/media --frozen-lockfile --ignore-scripts \
+  && pnpm install --prod --filter @artificio/ui --frozen-lockfile --ignore-scripts \
+  && pnpm install --prod --filter @artificio/changelog --frozen-lockfile --ignore-scripts \
   && test -d packages/auth/node_modules/jsonwebtoken \
   && test -d packages/comments/node_modules/zod \
   && test -d packages/config/node_modules/zod \

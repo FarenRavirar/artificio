@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **436 operações**.
+Total: **456 operações**.
 
 ## accounts (53)
 
@@ -64,7 +64,7 @@ Total: **436 operações**.
 | DELETE | `/internal/v1/reports/{id}` | internal | service | active | — | Remove internal v1 reports id |
 | GET | `/login` | public-page | none | active | — | Consulta login |
 
-## downloads (82)
+## downloads (102)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -104,6 +104,26 @@ Total: **436 operações**.
 | DELETE | `/api/v1/collections/{id}/items/{materialId}` | public | user | active | — | Remove api v1 collections id items materialId |
 | POST | `/api/v1/comments` | public | user | active | — | Cria ou executa api v1 comments |
 | GET | `/api/v1/comments/{materialId}` | public | none | active | — | Consulta api v1 comments materialId |
+| GET | `/api/v1/community/appeals/{id}` | public | none | active | — | Consulta api v1 community appeals id |
+| POST | `/api/v1/community/comments/{id}/reports` | public | user | active | — | Cria ou executa api v1 community comments id reports |
+| POST | `/api/v1/community/decisions/{id}/appeals` | public | user | active | — | Cria ou executa api v1 community decisions id appeals |
+| GET | `/api/v1/community/moderation/appeals/{id}` | admin | admin | active | — | Consulta api v1 community moderation appeals id |
+| POST | `/api/v1/community/moderation/appeals/{id}/resolution` | admin | admin | active | — | Cria ou executa api v1 community moderation appeals id resolution |
+| GET | `/api/v1/community/moderation/cases/{id}` | admin | admin | active | — | Consulta api v1 community moderation cases id |
+| PATCH | `/api/v1/community/moderation/cases/{id}/priority` | admin | admin | active | — | Atualiza api v1 community moderation cases id priority |
+| POST | `/api/v1/community/moderation/cases/{id}/reopen` | admin | admin | active | — | Cria ou executa api v1 community moderation cases id reopen |
+| POST | `/api/v1/community/moderation/cases/{id}/resolution` | admin | admin | active | — | Cria ou executa api v1 community moderation cases id resolution |
+| POST | `/api/v1/community/moderation/comments/{id}/removal` | admin | admin | active | — | Cria ou executa api v1 community moderation comments id removal |
+| POST | `/api/v1/community/moderation/comments/{id}/restore` | admin | admin | active | — | Cria ou executa api v1 community moderation comments id restore |
+| GET | `/api/v1/community/moderation/comments/{id}/versions` | admin | admin | active | — | Consulta api v1 community moderation comments id versions |
+| GET | `/api/v1/community/moderation/log` | admin | admin | active | — | Consulta api v1 community moderation log |
+| GET | `/api/v1/community/moderation/queue` | admin | admin | active | — | Consulta api v1 community moderation queue |
+| GET | `/api/v1/community/moderation/sanctions` | admin | admin | active | — | Consulta api v1 community moderation sanctions |
+| POST | `/api/v1/community/moderation/sanctions` | admin | admin | active | — | Cria ou executa api v1 community moderation sanctions |
+| DELETE | `/api/v1/community/moderation/sanctions/{id}` | admin | admin | active | — | Remove api v1 community moderation sanctions id |
+| GET | `/api/v1/community/report-reasons` | public | none | active | — | Consulta api v1 community report-reasons |
+| GET | `/api/v1/community/reports` | admin | admin | active | — | Consulta api v1 community reports |
+| DELETE | `/api/v1/community/reports/{id}` | public | user | active | — | Remove api v1 community reports id |
 | GET | `/api/v1/creators/{slug}` | public | none | active | — | Consulta api v1 creators slug |
 | GET | `/api/v1/creators/me` | public | user | active | — | Consulta api v1 creators me |
 | PATCH | `/api/v1/creators/me` | public | user | active | — | Atualiza api v1 creators me |

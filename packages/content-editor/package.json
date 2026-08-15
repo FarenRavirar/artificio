@@ -28,10 +28,10 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "dompurify": "^3.4.11",
+    "dompurify": "^3.4.13",
     "markdown-it": "^14.1.1",
     "react": "^19.2.7",
-    "sanitize-html": "^2.17.5"
+    "sanitize-html": "^2.17.7"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",

@@ -129,6 +129,10 @@ function hashResolveRequest(input: ResolveCaseInput): string {
         // é a mesma decisão. Sem a ordenação, um retry que reserializasse o
         // array viraria `409`/`idempotency_key_reuse` para o cliente que só
         // reenviou o que já mandou.
+        // `.sort()` sem comparador é deliberado — ver a nota equivalente em
+        // `communityModerationAppeal.ts`. Trocar por `localeCompare` (achado do
+        // Sonar, PR #262, recusado com medição) tornaria a chave dependente do
+        // locale do runtime e quebraria a idempotência que este bloco garante.
         [...input.verdicts]
           .map((v) => `${v.report_id}:${v.verdict}`)
           .sort(),

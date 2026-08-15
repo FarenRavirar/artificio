@@ -7,6 +7,16 @@ import { useModerationBatchAction, useModerationQueue, useModerationSingleAction
 import { useAdminRejectionCategories } from '../../hooks/useAdminRejectionCategories';
 import { EmailLogPanel } from '../../components/EmailLogPanel';
 import { ContentEditor } from '@artificio/content-editor';
+import { CommunityModerationWorkspace } from '@artificio/comments/react';
+import {
+  useCommunityCase,
+  useCommentVersions,
+  useCommunityModerationActions,
+  useCommunityModerationLog,
+  useCommunityModerationQueue,
+  useCommunitySanctions,
+  useModeratorAppeal,
+} from '../../hooks/useCommunityModeration';
 
 interface ModerationRow {
   id: string;
@@ -27,6 +37,15 @@ export function GestaoModeracaoPage() {
   const singleAction = useModerationSingleAction();
   const [rejectReason, setRejectReason] = useState('');
   const [rejectCategoryId, setRejectCategoryId] = useState('');
+  const [communityCaseId, setCommunityCaseId] = useState<string | null>(null);
+  const [appealId, setAppealId] = useState('');
+  const communityQueue = useCommunityModerationQueue();
+  const communityLog = useCommunityModerationLog();
+  const communityCase = useCommunityCase(communityCaseId);
+  const commentVersions = useCommentVersions(communityCase.data?.comment_id);
+  const moderatorAppeal = useModeratorAppeal(appealId.trim() || null);
+  const sanctions = useCommunitySanctions(communityCase.data?.reported_author_actor_id);
+  const communityActions = useCommunityModerationActions();
 
   const categories = categoriesData?.items ?? [];
   const selectedCategory = categories.find((c) => c.id === rejectCategoryId);
@@ -146,6 +165,24 @@ export function GestaoModeracaoPage() {
       </div>
 
       <EmailLogPanel />
+
+      <div className="mt-8">
+        <label htmlFor="community-appeal-id">Abrir recurso por ID</label>
+        <input id="community-appeal-id" value={appealId} onChange={(event) => setAppealId(event.target.value)} placeholder="UUID do recurso" />
+        <CommunityModerationWorkspace
+          queue={communityQueue.data}
+          loading={communityQueue.isLoading}
+          error={communityQueue.error instanceof Error ? communityQueue.error.message : null}
+          selectedCase={communityCase.data ?? null}
+          selectedAppeal={moderatorAppeal.data ?? null}
+          sanctions={sanctions.data?.sanctions}
+          log={communityLog.data?.entries}
+          versions={commentVersions.data?.versions}
+          adapter={communityActions}
+          onOpenCase={setCommunityCaseId}
+          onReload={() => void Promise.all([communityQueue.refetch(), communityLog.refetch()])}
+        />
+      </div>
     </GestaoShell>
   );
 }

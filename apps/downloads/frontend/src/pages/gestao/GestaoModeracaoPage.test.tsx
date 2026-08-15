@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { GestaoModeracaoPage } from './GestaoModeracaoPage';
@@ -104,9 +104,11 @@ describe('GestaoModeracaoPage', () => {
     mockBatchAction();
     mockSingleAction();
 
-    renderPage();
+    const { container } = renderPage();
 
-    expect(screen.getByText('Carregando…')).toBeInTheDocument();
+    const materialQueue = container.querySelector('[data-table-id="gestao-moderacao"]');
+    expect(materialQueue).not.toBeNull();
+    expect(within(materialQueue as HTMLElement).getByText('Carregando…')).toBeInTheDocument();
   });
 
   it('mostra mensagem quando a fila está vazia', () => {

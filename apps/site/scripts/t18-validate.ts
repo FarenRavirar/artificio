@@ -19,7 +19,7 @@ async function main() {
   ok(item?.source === "local" && item?.mime === "image/png", "getMedia traz source/mime");
   ok(item?.url === "/uploads/x.png", "url canônica gravada");
 
-  let list = await Media.listMedia({});
+  const list = await Media.listMedia({});
   ok(list.total >= 1 && list.items.some((x) => x.id === id), "listMedia inclui o item + total");
 
   const img = await Media.listMedia({ type: "image" });

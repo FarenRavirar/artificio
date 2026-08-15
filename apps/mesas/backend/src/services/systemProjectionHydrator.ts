@@ -451,6 +451,13 @@ function activeNodeMatches(
   central: ProjectionSnapshotNode,
   catalogVersion: number,
 ): boolean {
+  // `.sort()` sem comparador é deliberado (achado do Sonar recusado com
+  // medição, 2026-08-14): os dois arrays são ordenados só para serem
+  // COMPARADOS entre si logo abaixo, não para exibição. O que importa é que a
+  // mesma entrada produza sempre a mesma ordem; `localeCompare` depende de
+  // locale/ICU e pode ordenar os dois lados de forma diferente conforme o
+  // ambiente, fazendo projeções idênticas parecerem divergentes — e disparando
+  // re-hidratação desnecessária.
   const localAliases = normalizedAliases(local.aliases).map((item) => item.aliasSlug).sort();
   const centralAliases = normalizedAliases(central.aliases.map((item) => item.alias)).map((item) => item.aliasSlug).sort();
   return local.catalog_source === 'central'
