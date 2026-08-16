@@ -287,6 +287,14 @@ describe('MaterialPage - acesso ao material', () => {
     setup(baseMaterial({ external_url: null }));
 
     expect(screen.queryByRole('link', { name: 'Acessar material' })).not.toBeInTheDocument();
-    expect(screen.getByRole('alert')).toHaveTextContent(/temporariamente indispon/i);
+    // Alvo específico, não "o alert da página": desde T5.4 (spec 090) a
+    // conversa também renderiza um `role="alert"` quando o `accounts.` não
+    // responde — e a mensagem dela ("Os comentários estão temporariamente
+    // indisponíveis") casava com o regex antigo por coincidência. `getByRole`
+    // genérico passou a achar dois elementos e a falhar por ambiguidade.
+    const avisos = screen.getAllByRole('alert');
+    expect(
+      avisos.some((aviso) => /Este material está temporariamente indisponível/i.test(aviso.textContent ?? '')),
+    ).toBe(true);
   });
 });

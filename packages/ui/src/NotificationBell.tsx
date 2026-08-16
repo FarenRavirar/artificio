@@ -75,6 +75,27 @@ async function fetchJson(url: string, signal: AbortSignal): Promise<unknown> {
   return await res.json();
 }
 
+/**
+ * Cabeçalho anti-CSRF do double-submit cookie (`packages/auth/src/csrf.ts`).
+ *
+ * Escrita vinda de origem **fora** da allowlist do `accounts.` (`app.ts:282-288`:
+ * raiz, `links`, `mesas`, `glossario`, `accounts`) só passa se o par
+ * cookie/header `xsrf_token` bater. O cookie é gravado com `httpOnly: false`
+ * exatamente para o JS poder relê-lo e reenviá-lo aqui.
+ *
+ * Sem isto, o sino no `downloads` recebia `403` ao marcar como lida — medido
+ * contra produção em 2026-08-15: `PUT` com `Origin: downloads` e cookie de
+ * sessão devolvia `403`, enquanto as quatro origens allowlisted chegavam ao
+ * `401` da autenticação. O sino é compartilhado e vai para módulos novos que
+ * também não estarão na allowlist; mandar o header resolve para todos, sem
+ * precisar tocar o `accounts.`, que é app sagrado.
+ */
+function xsrfHeaders(): Record<string, string> {
+  if (typeof document === "undefined") return {};
+  const match = /(?:^|;\s*)xsrf_token=([^;]*)/.exec(document.cookie);
+  return match ? { "x-xsrf-token": decodeURIComponent(match[1]) } : {};
+}
+
 // ---- hook de polling (T3.10) ----
 
 /**
@@ -225,7 +246,7 @@ export function NotificationBell({ sourceApp }: NotificationBellProps) {
       try {
         const res = await fetch(
           `${accountsOrigin}/api/v1/notifications/${encodeURIComponent(receiptId)}/read`,
-          { method: "PUT", credentials: "include" },
+          { method: "PUT", credentials: "include", headers: xsrfHeaders() },
         );
         if (!res.ok) return;
         setItems((prev) =>

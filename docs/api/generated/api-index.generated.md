@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **456 operações**.
+Total: **462 operações**.
 
 ## accounts (53)
 
@@ -64,7 +64,7 @@ Total: **456 operações**.
 | DELETE | `/internal/v1/reports/{id}` | internal | service | active | — | Remove internal v1 reports id |
 | GET | `/login` | public-page | none | active | — | Consulta login |
 
-## downloads (102)
+## downloads (108)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -106,6 +106,12 @@ Total: **456 operações**.
 | GET | `/api/v1/comments/{materialId}` | public | none | active | — | Consulta api v1 comments materialId |
 | GET | `/api/v1/community/appeals/{id}` | public | none | active | — | Consulta api v1 community appeals id |
 | POST | `/api/v1/community/comments/{id}/reports` | public | user | active | — | Cria ou executa api v1 community comments id reports |
+| GET | `/api/v1/community/conversation` | public | none | active | — | Consulta api v1 community conversation |
+| POST | `/api/v1/community/conversation` | public | user | active | — | Cria ou executa api v1 community conversation |
+| DELETE | `/api/v1/community/conversation/{id}` | public | user | active | — | Remove api v1 community conversation id |
+| PATCH | `/api/v1/community/conversation/{id}` | public | user | active | — | Atualiza api v1 community conversation id |
+| POST | `/api/v1/community/conversation/{id}/replies` | public | user | active | — | Cria ou executa api v1 community conversation id replies |
+| PUT | `/api/v1/community/conversation/{id}/vote` | public | user | active | — | Substitui api v1 community conversation id vote |
 | POST | `/api/v1/community/decisions/{id}/appeals` | public | user | active | — | Cria ou executa api v1 community decisions id appeals |
 | GET | `/api/v1/community/moderation/appeals/{id}` | admin | admin | active | — | Consulta api v1 community moderation appeals id |
 | POST | `/api/v1/community/moderation/appeals/{id}/resolution` | admin | admin | active | — | Cria ou executa api v1 community moderation appeals id resolution |

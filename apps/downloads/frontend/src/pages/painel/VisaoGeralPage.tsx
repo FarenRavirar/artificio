@@ -84,7 +84,11 @@ export function VisaoGeralPage() {
                 </div>
                 <p className="mt-2 text-sm text-[var(--fg-muted)]">
                   {material.avg_rating === null || material.avg_rating === undefined ? 'Sem avaliações' : `${material.avg_rating.toFixed(1)} / 5 em ${material.rating_count ?? 0} avaliações`}
-                  {' · '}{material.comment_count ?? 0} comentários · {material.download_count ?? 0} downloads
+                  {/* Ver EditarMaterialPage: só legado, e só quando existe. */}
+                  {(material.legacy_comment_count ?? 0) > 0
+                    ? ` · ${material.legacy_comment_count} comentários antigos`
+                    : ''}
+                  {' · '}{material.download_count ?? 0} downloads
                 </p>
               </li>
             ))}

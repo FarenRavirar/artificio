@@ -90,7 +90,7 @@ describe('VisaoGeralPage', () => {
       data: [
         makeMaterial({
           id: 'published-1', editorial_state: 'published',
-          avg_rating: 4.5, rating_count: 2, comment_count: 3, download_count: 7,
+          avg_rating: 4.5, rating_count: 2, legacy_comment_count: 3, download_count: 7,
         }),
         makeMaterial({ id: 'published-2', editorial_state: 'published' }),
         makeMaterial({ id: 'review-1', editorial_state: 'in_review' }),
@@ -115,6 +115,6 @@ describe('VisaoGeralPage', () => {
     expect(withdrawn).toHaveTextContent('1');
     expect(screen.getByText('Motivo: Falta licença.')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: 'Ver no catálogo' })).toHaveLength(2);
-    expect(screen.getByText('4.5 / 5 em 2 avaliações · 3 comentários · 7 downloads')).toBeInTheDocument();
+    expect(screen.getByText('4.5 / 5 em 2 avaliações · 3 comentários antigos · 7 downloads')).toBeInTheDocument();
   });
 });

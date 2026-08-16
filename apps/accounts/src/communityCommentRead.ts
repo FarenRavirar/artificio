@@ -72,6 +72,8 @@ interface CommentQueryRow {
   downvotes: number | null;
   score: number | null;
   my_vote: number | null;
+  /** DEB-090-VIEWER-AUTHOR — o leitor é o autor desta fala. */
+  viewer_is_author: boolean;
   sort_key: string;
 }
 
@@ -148,6 +150,12 @@ export interface PublicComment {
   downvotes: number | null;
   score: number | null;
   my_vote: number | null;
+  /**
+   * DEB-090-VIEWER-AUTHOR — habilita editar/auto-retirar (§4) e esconder o voto
+   * no próprio comentário (decisão 5) sem expor identidade: booleano derivado,
+   * nunca identificador. `false` na leitura anônima e em todo legado.
+   */
+  viewer_is_author: boolean;
   legacy: { source: string; author_name: string } | null;
 }
 
@@ -363,6 +371,27 @@ export async function readCommentTree(
         s.downvotes,
         s.score,
         v.value as my_vote,
+        -- DEB-090-VIEWER-AUTHOR: quem le e o autor desta fala?
+        --
+        -- Sem isto o consumidor nao tem como oferecer editar/auto-retirar (§4,
+        -- acoes so do autor) nem esconder o voto no proprio comentario (decisao
+        -- 5): §2 proibe expor user_id cru e community_actor_id, entao a UI
+        -- ficava sem qualquer forma de saber. O resultado media era botao que
+        -- devolve 403 para quase todo mundo, ou nenhum botao — foi o segundo,
+        -- e o autor nao conseguia corrigir a propria fala pela interface.
+        --
+        -- Booleano derivado, nao identificador: responde "e seu?" sem revelar
+        -- de quem e quando nao for, que e exatamente o que §2 protege. O dado
+        -- ja estava na query (c.community_actor_id contra o ator do leitor) —
+        -- e a mesma comparacao que communityCommentVote.ts:154 faz para recusar
+        -- self_vote, agora visivel para quem desenha a tela.
+        --
+        -- is not null nos dois lados: leitura anonima tem ator nulo e legado
+        -- tem community_actor_id nulo; sem o guarda, null = null daria null e
+        -- o coalesce final entregaria false por acidente, nao por decisao.
+        (c.community_actor_id is not null
+          and ${actorParam}::uuid is not null
+          and c.community_actor_id = ${actorParam}::uuid) as viewer_is_author,
         row_number() over (
           partition by c.parent_id
           order by ${order}
@@ -445,6 +474,7 @@ export async function readCommentTree(
       downvotes,
       score,
       my_vote,
+      viewer_is_author,
       sort_key
     from positioned
     -- Retomada estritamente depois da ultima posicao servida. sort_key e a
@@ -606,6 +636,11 @@ function toTreeRow(row: CommentQueryRow): TreeRow {
     downvotes: hidden ? null : (row.downvotes ?? 0),
     score: hidden ? null : (row.score ?? 0),
     my_vote: row.my_vote ?? null,
+    // Sem `hidden ?`, ao contrário de placar e corpo: saber que a fala oculta é
+    // sua é o que permite a UI mostrar "seu comentário foi retirado" em vez de
+    // um placeholder anônimo, e o autor precisa disso justamente quando o
+    // conteúdo sumiu. Não vaza nada — para terceiro continua `false`.
+    viewer_is_author: row.viewer_is_author ?? false,
     legacy:
       row.legacy_source && row.legacy_author_name
         ? { source: row.legacy_source, author_name: row.legacy_author_name }

@@ -204,7 +204,16 @@ export function EditarMaterialPage() {
             <Link to={`/materiais/${material.slug}`} className="font-semibold text-artificio-orange">Ver material publicado</Link>
             <p className="mt-1">
               {material.avg_rating === null || material.avg_rating === undefined ? 'Sem avaliações' : `${material.avg_rating.toFixed(1)} / 5 (${material.rating_count ?? 0})`}
-              {' · '}{material.comment_count ?? 0} comentários · {material.download_count ?? 0} downloads
+              {/*
+                T5.7 (spec 090): a contagem cobre só o acervo legado — a
+                conversa viva mora no `accounts.`, que não expõe total por
+                material. Exibir "0 comentários" seria afirmação falsa desde a
+                migração, então a métrica só aparece quando há legado de fato.
+              */}
+              {(material.legacy_comment_count ?? 0) > 0
+                ? ` · ${material.legacy_comment_count} comentários antigos`
+                : ''}
+              {' · '}{material.download_count ?? 0} downloads
             </p>
           </div>
         )}

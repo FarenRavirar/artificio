@@ -61,6 +61,24 @@ export const conversationCommentSchema = z.object({
   downvotes: z.number().int().nonnegative().nullable(),
   score: z.number().int().nullable(),
   my_vote: z.union([z.literal(-1), z.literal(0), z.literal(1)]).nullable(),
+  /**
+   * DEB-090-VIEWER-AUTHOR — o leitor é o autor desta fala.
+   *
+   * Booleano derivado no servidor, **nunca identificador**: responde "é seu?"
+   * sem dizer de quem é quando não for, que é o que `contrato-http-v1.md` §2
+   * protege ao proibir `user_id` cru e `community_actor_id` no payload público.
+   *
+   * Sem ele, o host não tinha como oferecer editar/auto-retirar (§4, ações só
+   * do autor) nem esconder o voto no próprio comentário (decisão 5) — restava
+   * exibir botão que devolve `403` para quase todo mundo, ou não exibir. Era o
+   * segundo, e o autor não conseguia corrigir a própria fala pela interface.
+   *
+   * `.default(false)` e não obrigatório: fachada que ainda não repassa o campo
+   * degrada para "não é seu" — some o botão, nada quebra. Exigi-lo derrubaria o
+   * parse inteiro da árvore num consumidor desatualizado, trocando um botão
+   * ausente por uma conversa em branco.
+   */
+  viewer_is_author: z.boolean().default(false),
   legacy: z.object({
     source: z.string().min(1),
     author_name: z.string().min(1),
@@ -82,6 +100,12 @@ export const conversationCommentSchema = z.object({
     comment.author.state !== 'legacy'
     || comment.author.avatar_url !== null
     || comment.author.badge !== null
+    // DEB-090-VIEWER-AUTHOR: legado tem `community_actor_id` nulo por
+    // construção (`community_comment_body_kind_check`), então ninguém é seu
+    // autor perante o sistema. `true` aqui ofereceria editar e auto-retirar
+    // sobre fala importada — que a decisão 6 fixa como imutável — e o servidor
+    // recusaria com `legacy_immutable` depois do clique.
+    || comment.viewer_is_author
   )) {
     context.addIssue({
       code: 'custom',

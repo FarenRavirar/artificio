@@ -10,7 +10,7 @@
 
 | Categoria | Quantidade | Bloqueia? |
 |-----------|:----------:|:---------:|
-| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 59 | ❌ |
+| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 65 | ❌ |
 
 ## Rotas órfãs suspeitas
 
@@ -27,17 +27,19 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | GET | `/internal/users/:id` | ✅ | public | Scope "public" sem consumidor |
 | PUT | `/api/v1/notification-preferences/:event_type` | ✅ | public | Scope "public" sem consumidor |
 | PUT | `/api/v1/notifications/read-through` | ✅ | public | Scope "public" sem consumidor |
-### downloads (42 rota(s))
+### downloads (48 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
 | DELETE | `/api/v1/collections/:id/items/:materialId` | ✅ | public | Scope "public" sem consumidor |
+| DELETE | `/api/v1/community/conversation/:id` | ✅ | public | Scope "public" sem consumidor |
 | DELETE | `/api/v1/community/reports/:id` | ✅ | public | Scope "public" sem consumidor |
 | DELETE | `/api/v1/favorites/:materialId` | ✅ | public | Scope "public" sem consumidor |
 | DELETE | `/api/v1/reports/:id` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/collections` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/collections/:id/items` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/comments/:materialId` | ✅ | public | Scope "public" sem consumidor |
+| GET | `/api/v1/community/conversation` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/community/report-reasons` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/creators/:slug` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/api/v1/creators/me` | ✅ | public | Scope "public" sem consumidor |
@@ -57,12 +59,15 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | GET | `/materiais/:slug` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/robots.txt` | ✅ | public | Scope "public" sem consumidor |
 | GET | `/sitemap.xml` | ✅ | public | Scope "public" sem consumidor |
+| PATCH | `/api/v1/community/conversation/:id` | ✅ | public | Scope "public" sem consumidor |
 | PATCH | `/api/v1/creators/me` | ✅ | public | Scope "public" sem consumidor |
 | PATCH | `/api/v1/materials/:id` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/collections` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/collections/:id/items` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/comments` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/community/comments/:id/reports` | ✅ | public | Scope "public" sem consumidor |
+| POST | `/api/v1/community/conversation` | ✅ | public | Scope "public" sem consumidor |
+| POST | `/api/v1/community/conversation/:id/replies` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/community/decisions/:id/appeals` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/downloads` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/favorites` | ✅ | public | Scope "public" sem consumidor |
@@ -71,6 +76,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | POST | `/api/v1/materials/:id/cover-url` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/organizations` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/reports` | ✅ | public | Scope "public" sem consumidor |
+| PUT | `/api/v1/community/conversation/:id/vote` | ✅ | public | Scope "public" sem consumidor |
 | PUT | `/api/v1/material-metadata/:materialId` | ✅ | public | Scope "public" sem consumidor |
 | PUT | `/api/v1/ratings` | ✅ | public | Scope "public" sem consumidor |
 ### glossario (1 rota(s))

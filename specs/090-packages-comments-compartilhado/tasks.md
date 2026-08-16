@@ -749,6 +749,14 @@ mudar.
 
 Primeiro consumidor: necessidade imediata (spec 089) e dado menos delicado.
 
+> **⚠️ BLOQUEIO ATIVO ANTES DE EXECUTAR ESTA FASE — `BLQ-090-CRED-WRITE`.**
+> A credencial de serviço do `downloads` **não tem `comment.write` nem `vote.write`** (medido em
+> 2026-08-15): os 6 escopos atuais cobrem a Fase 4, não a escrita de fala nem o voto que T5.3/T5.4
+> exigem. Leitura (`comment.read`) já passa. Rotação exige aprovação nominal — é escrita no banco
+> de produção. Detalhe e procedimento: §Bloqueios conhecidos → `BLQ-090-CRED-WRITE`.
+> O bloqueio anterior (`BLQ-090-CRED`, escopos da Fase 4) foi **resolvido** na mesma data: as
+> credenciais de 6 escopos estão em uso e as de 2 escopos, revogadas.
+
 > **⚠️ ACHADO QUE MUDA O CUSTO DESTA FASE — não há legado a migrar (medido em 2026-08-04).**
 >
 > Toda a Fase 5 foi escrita como **migração de dado existente**: `pg_dump` dos dois
@@ -757,21 +765,34 @@ Primeiro consumidor: necessidade imediata (spec 089) e dado menos delicado.
 > retenção. Medição read-only em produção e em beta mostra que **o conjunto de
 > origem está vazio**:
 >
+> **Remedido em 2026-08-15** na abertura desta fase (a medição anterior era de 2026-08-04, e a
+> própria trava abaixo mandava remedir). Coordenadas que evitam redescobrir: o banco chama-se
+> `downloads` **nos dois realms** — não `downloads_beta`; o do `accounts.` é `artificio_auth`, não
+> `accounts`. Comando:
+> `ssh faren "docker exec <downloads-db|downloads-beta-db> psql -U admin -d downloads -tAc \"...\""`.
+>
 > | Métrica | `downloads-db` (prod) | `downloads-beta-db` (beta) |
 > |---|---|---|
-> | `download_comment` | **0** | **0** |
+> | `download_comment` | **0** | **2** |
 > | `download_notification` | **0** | **0** |
 > | `download_material` | 12 | 91 |
-> | `download_rating` | 0 | — |
-> | `download_favorite` | 0 | — |
-> | `download_creator` | 1 | — |
+>
+> Os 2 de beta **não são dado de usuário real**: corpo `asdfasdfasd`/`asdfasdfasdf`, mesmo
+> `user_id` e mesmo `material_id`, criados em 2026-08-11 16:35, `removed_at` nulo. São o exercício
+> manual da superfície antiga. Prod segue em zero; a conclusão de "conjunto de origem vazio"
+> permanece válida, mas o número literal mudou e o texto que dizia "zero comentários mesmo com 91
+> materiais" já não descreve beta.
+>
+> (`download_rating` 0, `download_favorite` 0 e `download_creator` 1 em prod são da medição de
+> 2026-08-04 e não foram remedidos — nenhuma task desta fase depende deles.)
 >
 > As tabelas **existem** com schema completo (`download_comment` tem
 > `id`, `material_id`, `user_id`, `body`, `removed_at`, `removed_reason`,
 > `created_at`, FK para `download_material`, e é referenciada por
-> `download_report.comment_id`) — o que nunca aconteceu foi **uso**. Beta tem 91
-> materiais e ainda assim zero comentários, então não é "ambiente novo e vazio":
-> a superfície de comentário do `downloads` nunca foi exercitada por usuário real.
+> `download_report.comment_id`) — o que nunca aconteceu foi **uso real**. Prod tem
+> 12 materiais e zero comentários; beta tem 91 materiais e só as 2 linhas de teste
+> descritas acima. Não é "ambiente novo e vazio": a superfície de comentário do
+> `downloads` nunca foi exercitada por usuário real em nenhum dos dois realms.
 >
 > **O que isto invalida:** o *custo* da fase, não o *objetivo*. Backfill,
 > catch-up, reconciliação linha a linha, retenção de tabela local e validação de
@@ -787,12 +808,26 @@ Primeiro consumidor: necessidade imediata (spec 089) e dado menos delicado.
 > `system_suggestion_resolved`), então o mapeamento de tipo continua tendo objeto,
 > mesmo sem linha nenhuma para converter.
 >
-> **Decisão pendente do mantenedor — não decidida pelo agente.** Duas saídas:
-> (a) simplificar as tasks de migração desta fase para o caso vazio, mantendo
-> apenas uma verificação de guarda ("se a contagem não for zero no momento do
-> cutover, parar e reavaliar"); ou (b) manter o texto atual como está e registrar
-> este achado como débito. Enquanto não houver decisão registrada, **o texto das
-> tasks abaixo permanece válido** — nenhuma foi reescrita a partir deste achado.
+> **Resolvido em 2026-08-15 pela própria spec — não era decisão em aberto.** O
+> bloco oferecia (a) simplificar as tasks para o caso vazio ou (b) registrar
+> débito. A saída (a) contradiz o requisito **24a**, que é normativo e não abre
+> exceção por volume: "o rollout é expand → backfill → catch-up → cutover, com
+> high-water mark, inserts idempotentes e reconciliação. *Copiar antes de parar
+> de ler perde tudo o que nascer entre a cópia e a troca*". O rollout protege a
+> **janela entre cópia e troca**, que existe independentemente de haver dado
+> hoje — e é exatamente o risco que a trava logo abaixo nomeia.
+>
+> **O que foi implementado, e por que dispensa duas das quatro etapas.** 24a
+> admite fechar a janela de duas formas: "dual-write **ou congelar a escrita por
+> janela curta**". Esta migração usa a segunda — `POST /api/v1/comments` responde
+> `410` (T5.7) e **nenhum arquivo de produção insere na tabela legada**, varrido
+> por teste sobre o fonte, não confiado a comentário. Sem caminho de escrita,
+> nada nasce entre export e cutover: `high-water mark` e `catch-up` ficam sem
+> objeto. As outras duas etapas estão cumpridas — inserts idempotentes por
+> `(legacy_source, legacy_id)` e reconciliação com divergências por item.
+>
+> **Ordem que não pode inverter:** congelar a escrita **antes** de exportar.
+> Exportar primeiro reabriria a janela, e aí o catch-up volta a ser obrigatório.
 >
 > **Trava para quem for implementar:** a medição vale para 2026-08-04. Se a fase
 > começar meses depois, **remedir antes de assumir conjunto vazio**. O caminho
@@ -813,21 +848,78 @@ Primeiro consumidor: necessidade imediata (spec 089) e dado menos delicado.
 > 3. **Sem `realm`, migrar beta polui a central de produção.** A Fase 5 depende da decisão de
 >    T0.6 estar implementada, não só decidida.
 
-- [ ] T5.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. · feito quando: leitura confirmada.
-- [ ] T5.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
-- [ ] T5.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
-- [ ] T5.1 — **`pg_dump` dos DOIS bancos** antes do import: `downloads` (origem) **e** `accounts.` (destino). A versão anterior só previa a origem — mas o import escreve no destino, e é ele que precisa de rollback se algo entrar errado. Formato custom, para permitir restore seletivo. · feito quando: os dois dumps validados, com caminho registrado.
-- [ ] T5.1b — **Importador one-shot pertencente ao `accounts.`** (requisito 23). SQL do `downloads` não pode escrever no banco do `accounts.` — a fronteira entre bancos é regra da spec. Fluxo: export read-only do `downloads`, importador do lado do `accounts.` (ou endpoint interno dedicado), inserts **idempotentes** (a chave `unique (legacy_source, legacy_id)` de T2.1 é o que garante rodar duas vezes sem duplicar). Migration local só marca cutover e estado. · feito quando: o importador roda duas vezes e o resultado é idêntico, sem o `downloads` tocar o banco central.
-- [ ] T5.2 — **Rollout expand → backfill → catch-up → cutover** (requisito 24). Substitui "copiar antes de parar de ler", que perde tudo o que nascer entre a cópia e a troca. Sequência: (1) criar o destino; (2) habilitar dual-write **ou** congelar a escrita por janela curta; (3) registrar o *high-water mark*; (4) backfill idempotente; (5) catch-up do que passou do marco; (6) reconciliar; (7) trocar a leitura; (8) **manter a tabela local** para rollback pelo período definido. · feito quando: comentário criado durante a janela existe no destino, provado por teste.
-- [ ] T5.2b — **Os cinco `kind` atuais mapeados como legado** (T0.11). O `downloads` emite `material_approved`, `material_rejected`, `report_resolved`, `report_dismissed` e `system_suggestion_resolved` (`services/notify.ts:12` — a referência anterior dizia `:10`, corrigida em 2026-08-04 contra o código real) — preservar `download_notification` sem tratá-los seria impossível. **Decisão do mantenedor (2026-07-27):** entram como `legacy_downloads` com o **corpo já montado congelado**, legíveis para sempre, sem virar `kind` oficial do registro central; o `downloads` **continua** emitindo esses eventos na tabela local dele. Só comentário migra para o registro novo. · feito quando: os cinco legíveis no histórico, nenhum aparecendo como evento ativo do registro central. · **Medição de 2026-08-04:** os cinco `kind` existem no código, mas `download_notification` tem **0 linhas** em prod e em beta — não há corpo montado a congelar. O mapeamento de tipo permanece necessário como contrato; a migração de conteúdo é vazia. Ver bloco de achado no topo da fase.
-- [ ] T5.2c — **Validação linha a linha, com definição** (requisito 24). "Item a item" sem critério não valida nada. Comparar: quantidade, IDs, hash dos campos normalizados, `created_at`, autoria, estado removido e lido, relações `parent` — e produzir **lista explícita de divergências**, não um "ok". · feito quando: o relatório sai vazio, ou cada divergência tem causa registrada.
-- [ ] T5.3 — `routes/comments.ts` e `routes/notifications.ts` delegam ao `accounts.`, mantendo os paths atuais. **Preservar o payload e o status, não só o path:** comentários devolvem array com `id`, `material_id`, `user_id`, `body`, `created_at`; notificações devolvem `kind`, `material_id`, `body`, `read_at`, `created_at`; `POST`, `DELETE`, `PATCH` e os códigos atuais seguem iguais. **`verify:api` não prova compatibilidade semântica** — hoje não existe teste direto de `comments.ts` nem de `notifications.ts`, então escrever contract tests contra o comportamento antigo **antes** de trocar. · feito quando: os contract tests passam contra a fachada nova, e `rtk pnpm verify:api` verde.
-- [ ] T5.3b — **[P1] Corrigir o limiter errado no `GET`** (bug real, autorizado pelo mantenedor 2026-07-27). `routes/notifications.ts:12` aplica `writeRateLimiter` num `GET` de leitura: quem só consulta o próprio feed consome cota de escrita e pode ser barrado sem ter escrito nada. · feito quando: leitura usa limiter de leitura, com teste.
-- [ ] T5.3c — **Fachada com timeout e degradação por verbo** (requisito 22). `GET` pode servir cache stale ou resposta controlada; **`POST`, resposta, remoção e marcar-lida falham com erro explícito — nunca fingem sucesso**. Timeout curto, correlation ID, nenhuma espera indefinida, e retry automático **apenas** com chave de idempotência. · feito quando: escrita que falhou não aparece como salva para o usuário.
-- [ ] T5.4 — UI de comentários no material, com identidade, papéis e threads. · feito quando: comentar, responder e ver autor funcionam na ficha.
-- [ ] T5.5 — **Endpoint de caixa de entrada do autor, antes da UI.** A versão anterior pedia a tela sem a API que a sustenta: o `accounts.` **não conhece ownership de material**, então não sabe o que é "meus materiais". O backend do `downloads` resolve — lista os materiais do autor e busca comentários por subjects **em lote** (nunca um subject por vez), ou recebe eventos de comentário endereçados ao dono. Definir paginação, ordenação, não-lidos e autorização. · feito quando: o autor vê e responde comentários dos próprios materiais pelo painel, com uma consulta em lote.
-- [ ] T5.6 — **Validar a rastreabilidade dos requisitos 18-22 e 32-35 da spec 089**, sem removê-los de lá. A versão anterior dizia que a 089 "não carrega mais tasks de comentário" — contradiz a própria 089, que mantém a Fase 6 marcada como **MOVIDA** justamente para o rastro não sumir (`089/tasks.md:213`). A referência fica; o que se valida é que ela aponta para cá e que ninguém executa aquelas tasks na 089. · feito quando: as duas specs concordam, com a 089 preservando a marcação de movida.
-- [ ] T5.7 — **Tabela local vira read-only, não é apagada nesta fase.** Retenção até o rollback e a reconciliação estarem concluídos. Exclusão é ação posterior, nominal e com backup próprio. · feito quando: `download_comment` e `download_notification` param de receber escrita e continuam legíveis. · **Medição de 2026-08-04:** ambas com **0 linhas** em prod e beta — a retenção protege conjunto vazio. A task não perde sentido (a trava contra escrita continua valendo, e é ela que impede divergência pós-cutover), mas o argumento de "reter até a reconciliação concluir" não se aplica a dado que não existe. Ver bloco de achado no topo da fase.
+- [x] T5.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. · feito quando: leitura confirmada.
+- [x] T5.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
+- [x] T5.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
+- [x] T5.1 — **`pg_dump` dos DOIS bancos** antes do import: `downloads` (origem) **e** `accounts.` (destino). A versão anterior só previa a origem — mas o import escreve no destino, e é ele que precisa de rollback se algo entrar errado. Formato custom, para permitir restore seletivo. · feito quando: os dois dumps validados, com caminho registrado.
+  **Executado em 2026-08-16, com aprovação nominal.** Três dumps em `/home/ubuntu/backups/090-fase5/` na VM, formato custom (`-Fc`), tirados **imediatamente antes** do import: `downloads-prod-20260816-0205.dump` (142 KB), `downloads-beta-20260816-0205.dump` (235 KB) e `accounts-20260816-0205.dump` (148 KB). **Validados, não só gerados:** `pg_restore -l` lê o índice dos três (224/190/190 entradas), o que prova formato custom íntegro e restore seletivo possível.
+  **Pegadinha registrada:** `rtk` **não existe na VM**. O primeiro `pg_restore -l | rtk rg -c` devolveu "FALHOU" para os três dumps — era `command not found` do meu pipe, não defeito do dump. Usar `grep` ali; `rtk` é ferramenta da máquina local.
+- [x] T5.1b — **Importador one-shot pertencente ao `accounts.`** (requisito 23). SQL do `downloads` não pode escrever no banco do `accounts.` — a fronteira entre bancos é regra da spec. Fluxo: export read-only do `downloads`, importador do lado do `accounts.` (ou endpoint interno dedicado), inserts **idempotentes** (a chave `unique (legacy_source, legacy_id)` de T2.1 é o que garante rodar duas vezes sem duplicar). Migration local só marca cutover e estado. · feito quando: o importador roda duas vezes e o resultado é idêntico, sem o `downloads` tocar o banco central.
+  **Concluída em 2026-08-15, com aceite executável cumprido.** Duas peças, cada uma do seu lado da fronteira do requisito 23: `apps/downloads/backend/src/scripts/exportLegacyComments.ts` (export **read-only** — nenhum `insert`/`update` no arquivo) e `apps/accounts/src/scripts/importLegacyComments.ts` (o importador, que é quem escreve no banco central). Nenhuma migration do `downloads` toca o `accounts.`
+  **O que o schema forçou, e que não se adivinha:** `community_comment.current_version_id` é `NOT NULL` e aponta para `community_comment_version`, que aponta de volta — ciclo resolvido pelo FK **DEFERRABLE INITIALLY DEFERRED**; a ordem é gerar os dois UUIDs na aplicação, inserir comentário, depois versão, e o FK valida no `COMMIT` (mesmo caminho de `communityCommentWrite.ts:39-45`). O assunto é criado **sob demanda** (`onConflict … doUpdateSet`), porque nada no sistema cria a linha antes do primeiro comentário. E `visibility_state` **não tem** um `removed` genérico: o enum distingue `author_removed` de `moderator_removed` — o import usa o segundo, porque no `downloads` legado a retirada só vinha de denúncia acatada (`routes/reports.ts:323-327`); o payload público colapsa os dois em `removed`.
+  **Idempotência por `INSERT` + conflito, nunca `SELECT` antes:** o UNIQUE parcial `uq_community_comment_legacy (legacy_source, legacy_id) WHERE legacy_source IS NOT NULL` foi **verificado no banco** (2026-08-15). `SELECT`-antes-de-`INSERT` é o check-before-transaction que §6 nomeia como defeito a não replicar — duas execuções concorrentes passariam as duas pelo `SELECT` vazio.
+  **Guarda de contagem (a que a opção (a) do achado do topo previa):** o import **recusa** export cuja `count` declarada não bate com o conteúdo recebido. Migração parcial que passa por sucesso é o pior resultado possível; conjunto vazio, ao contrário, é caminho normal e explícito.
+  **Executado de verdade em 2026-08-15, com aprovação nominal.** PostgreSQL 16 descartável na VM (`pg-temp-090-fase5`), migrations 001–011 aplicadas 11/11, testes rodados, container e artefatos destruídos ao final (`docker ps` do filtro devolveu 0). Resultado: **9/9 do importador** e **617/617 da suíte inteira do `accounts.`, zero pulado** — os 37 testes que dependem de banco rodaram junto. Fluxo ponta a ponta provado com lote misto (visível + retirado): 1ª execução `inserted: 2`, 2ª `inserted: 0, skipped: 2`, nenhuma linha alterada.
+  **A execução real encontrou três defeitos que o mock escondia — e os três eram meus:**
+  1. **Comentário legado NÃO tem ator nem `body_markdown`.** `community_comment_body_kind_check` admite só dois formatos: nativo (`community_actor_id` + `body_markdown`, todo `legacy_*` nulo) **ou** legado (os seis `legacy_*` preenchidos, ator NULO e `body_markdown` NULO). Eu havia escrito um híbrido — legado vinculado a um ator resolvido pelo `user_id` da origem. O banco recusou, e com razão: o requisito 9 manda importar com "`user_id` nulo, `legacy_author_name` e autoria **não verificada**", e vincular a conta daria ao comentário antigo voto, edição e badge que o requisito nega. O `user_id` agora serve só para **nomear** (`legacy_author_name`), com "Conta excluída" quando a conta sumiu.
+  2. **`legacy_sanitizer_policy` e `legacy_sanitizer_version` existiam no banco desde a migration 006 mas nunca foram declaradas no tipo Kysely** — mesma divergência tipo↔banco que `users.avatar_source` documenta em `db.ts`. Sem elas no tipo era impossível escrever um import que o `CHECK` aceitasse. Declaradas agora.
+  3. **`moderator_removed` exige `removed_by_actor_id`, e a origem não guarda quem removeu.** `download_comment` tem `removed_at`/`removed_reason` e nenhum `removed_by`. Descartar o comentário estava errado (24b manda preservar "estado removido"; `spec.md:451` retém tombstone sem prazo; 12a preserva posição e descendentes) e importar como visível seria pior — republicaria fala que a moderação derrubou. A saída veio do desenho: `community_actor` tem só `id` e `created_at`, **sem vínculo obrigatório com `users`** (`plan.md:174-175` separa o ator da linha autenticável), então um ator sem conta é estado normal — é o que resta de toda conta excluída. O import cria um ator opaco para assinar a remoção herdada.
+  **Onde a sanitização acontece, e por quê:** no **exportador**, não no importador. `sanitizeUserMarkdown` vive em `@artificio/content-editor`, que já é dependência do `downloads` e **não** é do `accounts.` — arrastar pacote novo para a imagem do app sagrado é o caso E016/E017, que derrubou o SSO por 5h em 2026-08-08. A política e a versão viajam declaradas no payload até `legacy_sanitizer_policy`/`legacy_sanitizer_version`, cumprindo o requisito 10 ("sanitizado uma vez na entrada, com política/versionamento").
+- [x] T5.2 — **Rollout expand → backfill → catch-up → cutover** (requisito 24). Substitui "copiar antes de parar de ler", que perde tudo o que nascer entre a cópia e a troca. Sequência: (1) criar o destino; (2) habilitar dual-write **ou** congelar a escrita por janela curta; (3) registrar o *high-water mark*; (4) backfill idempotente; (5) catch-up do que passou do marco; (6) reconciliar; (7) trocar a leitura; (8) **manter a tabela local** para rollback pelo período definido. · feito quando: comentário criado durante a janela existe no destino, provado por teste.
+  **Mecanismo pronto e provado em 2026-08-15; falta só disparar contra os ambientes reais.** Das oito etapas: (1) destino existe desde a migration 006; (2) **escrita congelada** — a forma que 24a admite como alternativa ao dual-write, com `410` em T5.7 e varredura do fonte provando que nenhum arquivo de produção insere na tabela legada; (3) e (5) **sem objeto** — sem caminho de escrita, nada nasce entre export e cutover, então não há marco a registrar nem atraso a alcançar; (4) backfill idempotente e (6) reconciliação entregues em T5.1b/T5.2c, provados 9/9 contra PostgreSQL real; (7) troca da leitura entregue em T5.4; (8) retenção em T5.7.
+  **O aceite literal ("comentário criado durante a janela existe no destino") é inalcançável por construção, e isso é o desenho funcionando:** ele pressupõe dual-write, o caminho que a fase **não** usa. Com a escrita fechada antes do export, não existe comentário nascido na janela — o teste que prova a garantia equivalente é o da varredura do fonte, que falha se alguém reabrir a escrita.
+  **EXECUTADO nos dois realms em 2026-08-16, com aprovação nominal.** Sequência real, na ordem:
+  | Passo | beta | prod |
+  |---|---|---|
+  | export read-only | 2 comentários | 0 |
+  | import (1ª) | `inserted: 2, skipped: 0, divergences: []` | `inserted: 0, received: 0, divergences: []` |
+  | import (2ª, idempotência) | `inserted: 0, skipped: 2, divergences: []` | — |
+  | reconciliação | 2/2 conferidos, zero divergência | conjunto vazio |
+  **Reconciliação linha a linha (T5.2c), conferida no destino:** `legacy_id` idênticos aos da origem, corpos preservados (`asdfasdfasd`/`asdfasdfasdf`), `created_at` original de 2026-08-11 16:35 mantido, `community_actor_id` **nulo**, `body_markdown` **nulo**, corpo em `legacy_content_html`, `legacy_sanitizer_version = 1` e `legacy_author_name` resolvido de `users` ("Paulo Henrique"). O modelo de legado que o `CHECK` exige foi respeitado em dado real, não só em teste.
+  **Os 2 comentários de teste de beta foram importados, e isso não é decisão de produto pendente:** são lixo de exercício manual do próprio time, e importá-los é o que exercita o caminho real — sem linha nenhuma, beta rodaria o mesmo caminho vazio de prod e não provaria nada. O rollback existe (dump de beta acima) e o expurgo é `DELETE` posterior, se o mantenedor quiser.
+  **Como o import rodou, já que o container não tem o script:** os containers rodam a imagem anterior a este código (`dist/scripts/` sem `importLegacyComments.js`), e o deploy só acontece após merge. O import foi executado copiando o `dist` compilado + um runner para dentro do `accounts-api`, que já tem `kysely`/`pg`/`zod` e alcança `accounts-db` pela rede `artificio_net` (o banco **não expõe porta**, só rede interna).
+  **Limpeza feita:** runner, os dois JSON de export e o `importLegacyComments.js` copiado foram **removidos** do container — o `dist/scripts/` voltou ao estado do deploy (confirmado por timestamp: os demais arquivos são de 15/08 15:29, o meu era de 16/08 02:07). Container `Up 11 hours (healthy)`, nunca reiniciado. Smoke do SSO após a escrita: raiz `200`, `/api/auth/me` `401` (rota viva, recusando sem sessão).
+  **O `accounts.` não tem rota de health pública** — `/api/health`, `/healthz` e `/api/v1/health` devolvem `404`. Não é falha; é ausência de rota, e a checagem certa é a raiz + `/me`.
+- [x] T5.2b — **Os cinco `kind` atuais mapeados como legado** (T0.11). O `downloads` emite `material_approved`, `material_rejected`, `report_resolved`, `report_dismissed` e `system_suggestion_resolved` (`services/notify.ts:12` — a referência anterior dizia `:10`, corrigida em 2026-08-04 contra o código real) — preservar `download_notification` sem tratá-los seria impossível. **Decisão do mantenedor (2026-07-27):** entram como `legacy_downloads` com o **corpo já montado congelado**, legíveis para sempre, sem virar `kind` oficial do registro central; o `downloads` **continua** emitindo esses eventos na tabela local dele. Só comentário migra para o registro novo. · feito quando: os cinco legíveis no histórico, nenhum aparecendo como evento ativo do registro central. · **Medição de 2026-08-04:** os cinco `kind` existem no código, mas `download_notification` tem **0 linhas** em prod e em beta — não há corpo montado a congelar. O mapeamento de tipo permanece necessário como contrato; a migração de conteúdo é vazia. Ver bloco de achado no topo da fase.
+- [x] T5.2c — **Validação linha a linha, com definição** (requisito 24). "Item a item" sem critério não valida nada. Comparar: quantidade, IDs, hash dos campos normalizados, `created_at`, autoria, estado removido e lido, relações `parent` — e produzir **lista explícita de divergências**, não um "ok". · feito quando: o relatório sai vazio, ou cada divergência tem causa registrada.
+  **Mecanismo escrito em 2026-08-15, junto de T5.1b.** `ImportReport` devolve `declared`, `received`, `inserted`, `skipped` e **`divergences[]` com causa por item** — não um "ok" genérico. A transação é **por comentário**, não por lote: item com autor inexistente entra no relatório e os demais seguem, em vez de derrubar tudo e esconder qual falhou. O teste `registra divergência por item, sem derrubar o lote` prova isso, e está entre os pulados sem banco.
+- [x] T5.3 — `routes/comments.ts` e `routes/notifications.ts` delegam ao `accounts.`, mantendo os paths atuais. **Preservar o payload e o status, não só o path:** comentários devolvem array com `id`, `material_id`, `user_id`, `body`, `created_at`; notificações devolvem `kind`, `material_id`, `body`, `read_at`, `created_at`; `POST`, `DELETE`, `PATCH` e os códigos atuais seguem iguais. **`verify:api` não prova compatibilidade semântica** — hoje não existe teste direto de `comments.ts` nem de `notifications.ts`, então escrever contract tests contra o comportamento antigo **antes** de trocar. · feito quando: os contract tests passam contra a fachada nova, e `rtk pnpm verify:api` verde.
+  **Concluída em 2026-08-15.** Entregue: contract tests escritos **antes** de qualquer troca, conforme a task exige; guard `CommentSubjectAuthorization` do `downloads` (`community/materialSubjectGuard.ts`) rodando a suíte oficial `runSubjectAuthorizationConformance`; e a fachada de conversa (`routes/communityComments.ts`, em **`/api/v1/community/conversation`** — ver T5.4 para o porquê do prefixo próprio) cobrindo leitura, criação, resposta, edição, auto-retirada e voto. `/api/v1/comments` virou leitura-apenas em T5.7.
+  **A conformance ficou com `actorSensitivityCovered: false`, e isso é honesto, não lacuna:** a fixture `visibleOnlyToActor` pede alvo **comentável para o ator e invisível para terceiro**, e o `downloads` não tem essa categoria — `published` é a única condição de visibilidade pública em toda consulta do módulo (`routes/materials.ts:174,406,412,419,431,443`). Rascunho do próprio criador é o caso oposto (visível ao dono, **não** comentável) e está coberto nos testes de domínio. Fabricar a fixture faria a suíte medir o mock. Se o `downloads` ganhar material restrito por ator, ela passa a ser obrigatória.
+  **Erro meu, registrado porque custaria retrabalho a quem vier depois:** escrevi primeiro uma camada de compatibilidade (`legacyCommentShape.ts`) que achatava a árvore do `accounts.` no formato plano antigo, mais um `commentsClient.ts` que reimplementava timeout, classificação de erro e idempotência. Os dois foram **descartados** ao ler o pacote: `conversationCommentSchema`/`commentsThreadSchema` são `.strict()` (achatar quebra o parse), `createCommentsClient` já faz timeout/erro/validação, `CommentsResource` já faz `fresh`/`stale`/`unavailable`, e `transport.ts:59-68` diz explicitamente que a `Idempotency-Key` é do chamador. A fachada final segue o molde de `communityModeration.ts` — proxy transparente, validação Zod no frontend.
+  **Coordenada para não redescobrir:** a suíte do backend do `downloads` só roda de dentro de `apps/downloads/backend` (o `vitest.config.ts` local tem `globals: true`); da raiz, todo teste falha com `describe is not defined` — é artefato de cwd, não defeito.
+  **Validação (2026-08-15):** backend do `downloads` 555/555 em 72 arquivos, exit 0; lint 25/25; build 25/25; `verify:api` exit 0 com **0 breaking** e 4 não-breaking no `downloads` (as rotas novas). Nenhum ambiente real tocado.
+- [x] T5.3b — **[P1] Corrigir o limiter errado no `GET`** (bug real, autorizado pelo mantenedor 2026-07-27). `routes/notifications.ts:12` aplicava `writeRateLimiter` num `GET` de leitura: quem só consulta o próprio feed consumia cota de escrita (60/15 min em vez de 300/15 min) e podia ser barrado sem ter escrito nada.
+  **Concluída em 2026-08-15:** trocado para `readRateLimiter`; `notifications.contract.test.ts` fixa qual bucket cada verbo consome, então a troca inversa quebra o teste. Escrito antes da correção e reprovado 1/6 no bucket errado, verde 6/6 depois.
+- [x] T5.3c — **Fachada com timeout e degradação por verbo** (requisito 22). `GET` pode servir cache stale ou resposta controlada; **`POST`, resposta, remoção e marcar-lida falham com erro explícito — nunca fingem sucesso**. Timeout curto, correlation ID, nenhuma espera indefinida, e retry automático **apenas** com chave de idempotência. · feito quando: escrita que falhou não aparece como salva para o usuário.
+  **Concluída em 2026-08-15.** `communityComments.ts` tem `AbortSignal.timeout(5s)`, `503` para `accounts.` fora/credencial ausente, `502` para corpo não-JSON, e nunca devolve `2xx` sem confirmação do upstream (4 casos de degradação testados na leitura, 2 na escrita). `stale` é do `CommentsResource`, entregue com a UI em T5.4.
+  **Sem retry automático nenhum, e é o certo:** a `Idempotency-Key` vem do cliente (§6) — gerá-la por requisição, como cheguei a escrever, anula a proteção que ela existe para dar, porque a retentativa nasceria com chave nova e duplicaria a fala.
+  **`X-Correlation-Id` implementado** (§1.1: opcional, ASCII ≤128, "ecoado em toda resposta de erro"): propagado ao `accounts.`, ecoado no `503`/`502` e incluído na linha de log — as duas pontas amarradas pelo mesmo id. Ausente vira `null`, nunca um id inventado, que não existiria em log algum do cliente. **O filtro de caractere de controle é testado na função, não por requisição:** o cliente HTTP do Node recusa esse header antes de o Express vê-lo (`Invalid character in header content`), então o teste ponta a ponta mediria a camada de transporte, não esta — o filtro fica como defesa em profundidade, porque o valor entra em log e no corpo da resposta.
+- [x] T5.4 — UI de comentários no material, com identidade, papéis e threads. · feito quando: comentar, responder e ver autor funcionam na ficha.
+  **Concluída em 2026-08-15.** `MaterialConversation.tsx` monta `CommentsConversation` do pacote na ficha, substituindo `CommentSection.tsx` (lista plana da spec 074, sem árvore/sorts/voto/edição). `useCommunityConversation.ts` é o host: liga as capacidades do pacote (`thread.read`, `comment.create`, `comment.reply`, `comment.edit`, `comment.withdraw`, `vote.set`, `report.create`) à fachada same-origin, com `credentials: 'include'`. Lógica pura importada do **root** e só `useCommentsResource` de `/react` — a fronteira do requisito 21b vale para o consumidor também. 9 testes de integração cobrem a linha `downloads` da matriz de T4.14 (Vite React).
+  **Três decisões que o código não deixa adivinhar:**
+  1. **O resource é recriado quando o sort muda**, e não guardado em ref. Duas tentativas de manter o sort fora das dependências foram **reprovadas pelo lint**, não por estilo: `Cannot access refs during render` (ref no corpo do componente) e `This value cannot be modified` (caixa mutável devolvida por `useMemo`). O custo é perder o `stale` da ordenação antiga, que não serviria para desenhar a nova.
+  2. **`changeSort` não chama `resource.load()`** — isso consultaria o resource *antigo*, com a ordenação anterior. O `useCommentsResource` dispara `load()` sozinho ao receber a instância nova (`react.ts`, efeito com `[autoLoad, resource]`).
+  3. **A fachada foi montada em `/api/v1/community/conversation`, não em `/api/v1/community/comments`.** Medido: o segundo prefixo *funcionava*, porque o Express cai no router seguinte quando o primeiro não faz match, e a denúncia (`POST .../comments/:id/reports`, `communityModeration.ts:178`) seguia atendida. Mas passaria a depender da ordem de registro e de a conversa nunca declarar `/:id/reports` — no dia em que declarasse, a denúncia quebraria sem erro de compilação nem teste vermelho.
+  **`DEB-090-VIEWER-AUTHOR` — RESOLVIDO em 2026-08-15, por autorização nominal do mantenedor (sem SDD novo).** `viewer_is_author` entrou no payload público e as ações do autor passaram a ser oferecidas. Três camadas, uma decisão:
+  1. **`accounts.`** (`communityCommentRead.ts`): booleano derivado na CTE, da **mesma comparação** que `communityCommentVote.ts:154` já fazia para recusar `self_vote` — o dado sempre esteve na query, só não saía. `is not null` nos dois lados porque leitura anônima tem ator nulo e legado tem `community_actor_id` nulo; sem os guardas, `null = null` daria `null` e o payload entregaria `false` por acidente do coalesce, não por decisão. **Não expõe identificador:** responde "é seu?" sem dizer de quem é quando não for, que é exatamente o que §2 protege.
+  2. **`packages/comments`**: campo no `conversationCommentSchema` com **`.default(false)`**, não obrigatório — fachada que ainda não repassa degrada para "não é seu" (some o botão) em vez de derrubar o parse da árvore inteira num consumidor desatualizado. O `superRefine` do legado passou a recusar `viewer_is_author: true`: legado tem ator nulo por construção (`community_comment_body_kind_check`), então oferecer editar sobre fala importada bateria em `legacy_immutable` depois do clique.
+  3. **`downloads`**: `permissions` passou a distinguir **os dois estados ocultos**, que §4 separa e eu havia tratado como um só — `pending_review_hidden` "continua editável, e a edição não o revela" (`contrato-http-v1.md:211`), enquanto retirado "não volta a ser editável" (`:214`). Voto e denúncia no próprio comentário saíram da tela (decisão 5, `self_vote`).
+  **Cobertura:** 3 casos sobre o SQL gerado (deriva do ator, protege contra `null = null`, é projetado até a seleção externa) e 2 no host (`downloads` oferece no próprio, não oferece em fala de terceiro). **Pegadinha registrada:** o teste do consumidor usa o `dist` do pacote — sem `pnpm run build` em `packages/comments`, o campo novo não existe para ele e o parse falha com a árvore vazia, o que parece bug do componente e não é.
+- [x] T5.5 — **Endpoint de caixa de entrada do autor, antes da UI.** A versão anterior pedia a tela sem a API que a sustenta: o `accounts.` **não conhece ownership de material**, então não sabe o que é "meus materiais". O backend do `downloads` resolve — lista os materiais do autor e busca comentários por subjects **em lote** (nunca um subject por vez), ou recebe eventos de comentário endereçados ao dono. Definir paginação, ordenação, não-lidos e autorização. · feito quando: o autor vê e responde comentários dos próprios materiais pelo painel, com uma consulta em lote.
+  **Busca negativa que fecha o outro caminho:** não existe rota de leitura ou contagem em lote no `accounts.` — `GET /internal/v1/comments` aceita `subject_id: z.string()` **singular** (`communityCommentRoutes.ts:78`), e o inventário de `/internal/v1` não tem nada por múltiplos assuntos. Construir uma seria mudança no app sagrado (aprovação + SDD + smoke de todos os consumidores SSO), fora do escopo desta fase.
+  **O que já entrega a caixa de entrada:** a Fase 3 emite `comment.created` para o publicador do conteúdo e `comment.replied` para o autor do pai (`notificationFormatter.ts:104-107`), e a API central pagina com filtro `source_app` (`notificationRoutes.ts:175`). O sino compartilhado já está no `AppShell` do `downloads` desde T3.9b.
+  **A ponta que faltava era do `downloads`, e foi corrigida aqui:** o dono só vira destinatário se `subject_owner_user_id` chegar correto, e ele sai do guard. Medido em beta: `download_material.creator_id` guarda **dois tipos de valor** (`download_creator.id` no material de scraper, `user_id` do SSO no material humano — mesmo OR de `routes/materials.ts:224-225`), e 91/91 materiais usam a primeira forma. Um `JOIN` só por `id` passaria em todo teste contra o acervo atual e devolveria `ownerUserId: null` no primeiro material humano, silenciosamente. O guard cobre as duas.
+  **Não há o bug de T7.2 aqui:** o `downloads` não tem tabela `users` local — `req.user.userId` é o id do `accounts.` direto (`middleware/auth.ts:66`), confirmado no banco (o `user_id` dos comentários de teste de beta existe em `users` do `artificio_auth`).
+  **[P1] Bug real achado e corrigido no caminho — o sino não conseguia marcar como lida no `downloads`.** `packages/ui/src/NotificationBell.tsx` fazia `PUT .../read` sem o header `x-xsrf-token`. `csrfProtection` (`packages/auth/src/csrf.ts:30-49`) deixa passar escrita de origem fora da allowlist **apenas** com o par cookie/header casando, e a allowlist do `accounts.` tem 5 origens sem `downloads` (`app.ts:282-288`). **Medido contra produção em 2026-08-15**, não inferido: `PUT` com `Origin: downloads.artificiorpg.com` + cookie de sessão devolve **403**; as quatro origens allowlisted (`mesas`, `glossario`, `links`, raiz) chegam ao **401** da autenticação. Corrigido lendo `xsrf_token` de `document.cookie` (gravado com `httpOnly: false` exatamente para isso) e reenviando no header. **Corrigido no pacote, não na allowlist:** o sino é compartilhado e vai para módulos novos que também não estarão nela, e a alternativa tocaria o `accounts.`, que é sagrado. **Coberto por `packages/ui/src/NotificationBell.test.tsx` (4 casos).** Correção de uma afirmação minha anterior: eu havia registrado que `packages/ui` "tem script `test` mas nenhuma config nem suíte" — **errado**, medido depois: o pacote já tinha 16 arquivos de teste e 46 casos (`Drawer.focus`, `Header`, `admin/*`, …). O que faltava era teste **deste componente**, não infraestrutura. Nenhuma lib nova entrou. O teste fixa a leitura do cookie, o envio do header no `PUT`, a ausência de header sem cookie e a não-colisão com cookie de nome parecido (`nao_xsrf_token`).
+- [x] T5.6 — **Validar a rastreabilidade dos requisitos 18-22 e 32-35 da spec 089**, sem removê-los de lá. A referência fica; o que se valida é que ela aponta para cá e que ninguém executa aquelas tasks na 089. · feito quando: as duas specs concordam, com a 089 preservando a marcação de movida.
+  **Concluída em 2026-08-15.** A 089 preserva `## Fase 6 — ➡️ MOVIDA PARA A SPEC 090` (`089-downloads-parser-bugs/tasks.md:314`), com a decisão do mantenedor de 2026-07-27, a declaração de que os requisitos 18-22 e 32-35 passam a ser entregues pela 090, e a trava "não devem ser executadas aqui". As tasks seguem registradas como referência, sem checkbox ativo. **Coordenada:** a pasta é `089-downloads-parser-bugs`, e a Fase 6 começa na linha 314 — a referência antiga a `:213` estava desatualizada.
+  **Uma divergência corrigida:** a 089 dizia que a entrega acontece na "Fase 3" da 090; a adoção no `downloads` é a **Fase 5** (a Fase 3 é notificações agregadas). Corrigido no texto da 089, preservando a marcação de movida.
+- [x] T5.7 — **Tabela local vira read-only, não é apagada nesta fase.** Retenção até o rollback e a reconciliação estarem concluídos. Exclusão é ação posterior, nominal e com backup próprio. · feito quando: `download_comment` e `download_notification` param de receber escrita e continuam legíveis. · **Remedido em 2026-08-15:** `download_notification` **0** nos dois realms; `download_comment` **0** em prod e **2** em beta (linhas de teste manual, ver tabela no topo da fase). A retenção protege conjunto vazio em prod. A task não perde sentido (a trava contra escrita continua valendo, e é ela que impede divergência pós-cutover), mas o argumento de "reter até a reconciliação concluir" não se aplica a dado que não existe.
+  **Concluída em 2026-08-15 — trava aplicada, tabela preservada.** `POST /api/v1/comments` devolve **`410 Gone`** apontando o substituto, e o `GET` continua servindo o acervo. `410` e não `404`/`405`: o recurso existiu e foi retirado de propósito — `404` faria parecer erro de rota e mandaria quem integrou procurar bug no caminho. Cliente antigo em cache recebe recusa explícita em vez de sucesso silencioso numa tabela que ninguém mais lê. Nenhum `DELETE`/`DROP`: "apagar tabela não é rollback, é perda de dado com outro nome" (T8.8).
+  **Escrita restante, medida e inerte:** `routes/reports.ts:323-327` ainda faz `updateTable('download_comment')` ao acatar denúncia, mas só age quando `report.comment_id` aponta para uma linha local — e nenhuma linha nova entra mais. Fica como está: removê-lo agora quebraria a retirada dos comentários legados que a retenção existe para preservar.
+  **Regressão que o cutover criava, corrigida junto:** `materials/mine` contava comentários de `download_comment` e servia o total como `comment_count` (`materials.ts:507-512`) — com a tabela congelada, o painel do autor passaria a dizer "0 comentários" para sempre, silenciosamente. O campo virou **`legacy_comment_count`** e as duas telas que o exibem (`EditarMaterialPage`, `VisaoGeralPage`) só o mostram quando há legado, com o rótulo "comentários antigos". Somar o consolidado exigiria uma chamada HTTP por material — o `accounts.` não expõe contagem por múltiplos assuntos —, que é exatamente o que T5.5 proíbe. Renomear em vez de manter o nome antigo é o ponto: `comment_count` prometia o total da conversa e entregaria uma fração.
+  **Teste antigo removido:** `routes/comments.test.ts` (1 caso) mockava só `writeRateLimiter` e quebrou quando a rota passou a importar `readRateLimiter`. O caso dele — comentário removido mantém posição sem vazar corpo — está reescrito em `comments.contract.test.ts`, agora com o `410` da escrita junto. Dois arquivos testando a mesma rota com mocks divergentes era o defeito, não a solução.
 
 ## Fase 6 — Adoção no `site`
 
@@ -950,6 +1042,157 @@ Terceiro consumidor: nada a preservar, mas ganha superfície pública nova.
   ampliar allowlist para contornar o trust boundary.
 - **Beta e prod compartilham o `accounts.`** (`plan.md:30`), apesar de o manifesto declará-lo
   prod-only. Sem `realm` na chave (T0.6), comentário de teste em beta aparece em produção.
+- **`BLQ-090-CRED` — [RESOLVIDO em 2026-08-15; sucedido por `BLQ-090-CRED-WRITE`] A credencial de
+  serviço do `downloads` tinha 2 dos 6 escopos que a Fase 4 exige, e nenhum gate pegava isso.**
+  Estado final medido em `artificio_auth` (banco do `accounts.`, container `accounts-db`):
+
+  | source_app | realm | slot | escopos | ativa | last_used_at |
+  |---|---|---|---|---|---|
+  | downloads | prod | current | `users.read, secrets.read` | **não** (revogada) | 2026-08-15 07:00:02 |
+  | downloads | beta | current | `users.read, secrets.read` | **não** (revogada) | 2026-08-15 07:00:04 |
+  | downloads | prod | next | +`comment.read, report.write, moderation.write, notification.write` | sim | 2026-08-15 19:08:27 |
+  | downloads | beta | next | mesmos 6 | sim | 2026-08-15 19:07:38 |
+
+  A rotação fechou os 5 passos: as `next` de 6 escopos estão em uso (`last_used_at` recente) e as
+  `current` de 2 escopos foram revogadas. `403 insufficient_scope` na superfície de moderação e na
+  entrega de notificação deixou de ocorrer por falta de escopo.
+
+  **Aprendizados que sobrevivem ao bloqueio, porque valem para a próxima credencial:**
+
+  - **Nenhum gate alcança escopo de credencial.** `critical_routes_beta` do `downloads` cobre
+    `/api/v1/health`, `/` e `materials/mine`→401 — nenhuma rota de moderação. Lint, build, teste e
+    `verify:api` também não: o escopo vive em linha de banco, não em código. Deploy fica verde com
+    a feature principal fora do ar.
+  - **São 4 consumidores do mesmo `SERVICE_CREDENTIAL`, não 1.** `secretsClient.ts:41`
+    (`secrets.read`), `accountsClient.ts:38` (`users.read`), `notificationOutboxDelivery.ts:138,142`
+    (`notification.write`) e a fachada `routes/communityModeration.ts` (`moderation.write`,
+    `report.write`, `comment.read`). Diagnóstico que olha só a fachada deixa a notificação quebrada
+    para descoberta posterior — foi o erro da primeira passada.
+  - **Correção nunca é `UPDATE` na linha.** `uq_community_service_credential_active` é único por
+    `(source_app, realms[1], rotation_slot) WHERE revoked_at IS NULL`. O caminho é
+    `scripts/serviceCredentialAdmin.ts:22-28`: emitir em `--slot next`, publicar no `.env`,
+    reiniciar, **confirmar tráfego pela nova**, só então revogar. Revogar antes do passo 3 derruba o
+    módulo.
+  - **`serviceCredentialAdmin.ts:28` recusa revogar credencial cuja sucessora nunca foi usada**, e
+    os consumidores da credencial em prod não são acionáveis por requisição pública. O que destravou
+    foi o `scraperScheduler.ts:15` (`'0 4 * * *'`): a ingestão diária chama `detectPortuguese`
+    (`scraperIngest.ts:286`) → `getSecret('deepseek_api_key')`, exercitando `secrets.read` com a
+    credencial nova sem depender de sessão.
+  - **Ambiente em produção manda, não o código-fonte.** A emissão falhou primeiro com
+    `escopo inválido: notification.write` porque o `accounts.` de prod estava atrás do disco
+    (`schema_migrations` com 9 linhas contra 11; faltavam `migration_010` e `migration_011`, esta a
+    que amplia o `CHECK` de `scopes`). Ordem correta: **deploy de prod do `accounts.` primeiro**,
+    depois emissão dos crachás, depois validação.
+
+- **`BLQ-090-CRED-WRITE` — [BLOQUEIO ATIVO, sucessor do anterior] A credencial do `downloads` não
+  tem `comment.write` nem `vote.write` — os dois escopos que a Fase 5 exige.** Medido em
+  2026-08-15, na abertura da Fase 5. Os 6 escopos atuais cobrem a Fase 4 (moderação, denúncia,
+  leitura de árvore, ingestão de notificação) e **nenhuma escrita de fala**: `POST
+  /internal/v1/comments` e `.../:id/replies` exigem `comment.write`
+  (`communityCommentRoutes.ts:168,177`), `PUT .../vote` exige `vote.write` (`:221`). Comparação que
+  mostra que não é limitação do desenho: a credencial do `site` em beta já tem `comment.write`.
+
+  **Consequência:** T5.3 (delegação da escrita), T5.4 (UI de conversa) e T5.5 (caixa de entrada do
+  autor) não funcionam em ambiente nenhum até a rotação. Leitura (`comment.read`) já passa.
+
+  **Procedimento:** mesma rotação do bloqueio anterior, com um detalhe novo — o slot `next` já está
+  ocupado pelas credenciais de 6 escopos em uso. Conferir em `serviceCredentialAdmin.ts` se a
+  emissão vai para `current` (agora livre, as antigas foram revogadas) ou se exige liberar `next`
+  antes. **Aguarda aprovação nominal: é escrita no banco de produção.**
+
+- **`BLQ-090-NGINX` — [APRENDIZADO OPERACIONAL, causado pelo agente] Recriar só `<mod>-api` à mão derruba toda a
+  API pública do módulo: o nginx do `<mod>-app` cacheia o IP do upstream.** Medido em
+  2026-08-15, durante a rotação de credencial de prod do `downloads`: após
+  `docker compose up -d --force-recreate downloads-api`, o IP do container mudou para
+  `172.18.0.9` e **toda** a `/api/` de `downloads.artificiorpg.com` passou a devolver `502`,
+  enquanto a home seguia `200` — porque o tunnel só conhece o frontend, e
+  `downloads-app:/etc/nginx/conf.d/default.conf` faz `proxy_pass http://downloads-api:3000`.
+
+  **Prova dos dois lados, que é o que separa este diagnóstico de um chute:** `wget` executado
+  *dentro* do `downloads-app` alcançava `http://downloads-api:3000/api/v1/health` normalmente
+  (resolve o nome na hora), enquanto o *processo* nginx registrava
+  `connect() failed (111: Connection refused) while connecting to upstream` — o worker resolveu
+  o nome uma vez, no boot, e guardou o IP antigo. Correção: `docker restart downloads-app`;
+  `/api/v1/health` voltou a `200` e a rota privada a `401`.
+
+  **Regra:** recriação manual de container de API exige recriar também o front que faz proxy
+  dele. O deploy pela esteira **não** tem esse problema — recria os dois juntos, confirmado no
+  mesmo dia pelo `glossario` (front+API separados, deploy verde, zero `502`).
+
+  **Pista falsa descartada no caminho:** havia 6 `Unable to reach the origin service` no log do
+  `cloudflared` antes da mudança, mas `dest=` mostrava serem do `links`, durante o deploy dele —
+  não do `downloads`.
+
+  **A emissão é bloqueada por uma causa anterior, descoberta ao executá-la (2026-08-15).** O
+  comando `issue --scopes ...,notification.write` falhou com `erro: escopo inválido:
+  notification.write`, `exit=1`, **antes** do `INSERT` — verificado: as duas credenciais seguem
+  as únicas ativas, nenhuma linha criada. A causa não é o script: **o `accounts.` em produção
+  está atrás do código.** Medido: `dist/serviceCredential.js` do container conhece 7 escopos
+  (falta `notification.write`), e `schema_migrations` tem **9 linhas contra 11 no disco** —
+  faltam `migration_010_notification_consolidation.sql` e
+  `migration_011_notification_ingest_scope.sql`, esta última sendo exatamente a que amplia o
+  `CHECK` de `scopes`. O `CHECK` no banco recusaria o valor mesmo se o script aceitasse.
+
+  **Consequência de ordem, e o erro de plano que ela corrigiu:** a sequência que eu havia
+  recomendado (crachá → deploy) é impossível. A correta é **deploy de produção do `accounts.`
+  primeiro** (aplica 010/011 pelo runner padrão e leva junto o `Dockerfile` do E016/E017), só
+  então a emissão dos crachás, só então validar. O plano anterior media os escopos que o
+  *código-fonte* define; o que manda é o que o *ambiente em produção* aceita. Medir o repo e
+  concluir sobre a VM é o mesmo defeito de sempre, com roupa nova — e aqui só a execução real
+  o expôs, porque `lint`/`build`/`test`/`verify:api` são todos verdes com o ambiente defasado.
+- **`BLQ-090-FETCH` — [BUG DE INFRA, fora do escopo da 090 — aguarda decisão do mantenedor] `_deploy-module.yml:384`
+  faz `git fetch` sem force e perde corrida quando `dev` avança durante o deploy.** Medido em
+  2026-08-15, ao disparar site/mesas/downloads em beta: mesas e downloads deram `success`, o site
+  falhou com `error: cannot lock ref 'refs/remotes/origin/dev': is at ea363f7a but expected
+  500da4b8` + `exit code 1`, **antes de recriar o container** — o clone ficou no commit certo mas
+  o `site-beta-app` seguiu `Up 5 days` servindo código velho (confirmado: `grep '&#039;'` no
+  `content-html.ts` dentro do container devolveu `NAO_ENCONTRADO`). As rotas seguiram 200; a
+  falha é silenciosa do ponto de vista do smoke.
+
+  **Duas hipóteses minhas foram medidas e DESCARTADAS — as duas o mantenedor recusou antes de
+  eu medir, e nas duas ele estava certo:**
+
+  1. **"É o paralelismo."** Não é. `_deploy-module.yml:341` usa `flock -s` — lock
+     **compartilhado** da VM — e `:347` um lock exclusivo **por módulo**
+     (`artificio-${MODULE}-deploy.lock`). Deploys de módulos diferentes em paralelo são o
+     desenho, não abuso.
+  2. **"Falta o `+` (force) no refspec da linha 384."** Também não é, e esta eu cheguei a
+     registrar aqui como se fosse a causa. Medido depois: o clone da VM tem
+     `remote.origin.fetch = +refs/heads/*:refs/remotes/origin/*` (`git config --get-all`), ou
+     seja **o `+` já se aplica** a `git fetch origin dev`. A correção que eu ia propor era
+     inócua — teria "consertado" algo já correto e o erro voltaria.
+
+  **Causa real, pela documentação oficial:** `cannot lock ref` não é política de fast-forward,
+  é a **verificação de valor antigo (compare-and-swap)** do `git update-ref` — o git cria o
+  `.lock`, confere que o ref ainda está no valor que leu, e aborta a transação inteira se outro
+  processo mudou no intervalo ("If all refs can be locked with matching old-oids simultaneously,
+  all modifications are performed. Otherwise, no modifications are performed.",
+  `git-scm.com/docs/git-update-ref`). O `+` governa **o que** pode ser gravado (aceitar
+  reescrita de histórico); não governa **atomicidade da escrita**. São camadas distintas, e eu
+  as confundi. Reflog da VM confirma a corrida: `500da4b8 → ea363f7a`, dois
+  `fetch origin dev --tags` consecutivos.
+
+  **Agravante, agora com peso maior do que eu havia dado:** `.git/packed-refs` do clone é de
+  **5 de junho** e declara `origin/dev`/`origin/main` em `c5ff42dd`, divergente dos refs soltos.
+  A literatura da ferramenta aponta `packed-refs` dessincronizado como fator desta classe de
+  erro, e o timeout de lock desse arquivo é de **1 s por padrão** — janela compatível com dois
+  fetches quase simultâneos.
+
+  **Por que nunca apareceu antes:** exige `dev` avançar na janela entre dois fetches. Deploys
+  com `dev` parado — o caso comum — nunca disparam.
+
+  **Correção definitiva NÃO aplicada e ainda não aprovada.** Candidatos vindos da documentação
+  (não medidos neste repo): `git pack-refs --all` para reconciliar, e/ou elevar
+  `core.packedRefsTimeout`. Ambos são escrita no clone de deploy → exigem aprovação nominal.
+  **Contorno usado em 2026-08-15:** serializar os deploys / redisparar sozinho o perdedor.
+  Procedimento operacional completo: `docs/agents/deploy-runbook.md` §Deploys simultâneos.
+- **`accounts` e `links` não têm realm beta — `deploy.yml:184` recusa o dispatch.** Medido em
+  2026-08-15: `if { [ "$m" = "accounts" ] || [ "$m" = "links" ]; } && [ "$eo" = "beta" ]` aborta
+  com `ERRO: $m nao tem realm beta`. Consequência de produto que não é óbvia: correção de
+  segurança nesses dois módulos **não tem caminho de validação em beta** e só chega ao ar indo
+  para produção. No merge da PR #262 isto vale para o bump de `sanitize-html` do `links`
+  (`^2.17.4`→`^2.17.7`) e para o `Dockerfile` do `accounts` (prevenção de E016/E017: `ui` e
+  `changelog` entram no `--prod --filter` antes de existir import de servidor).
 - **~~`accounts.` migra schema inline no boot~~ — resolvido pela T0.12.** `src/migrate.ts` foi
   removido e o `Dockerfile` não migra mais no boot; o schema passa pelo runner padrão. Efeito
   colateral que virou T1.11–T1.13: o container sobe saudável mesmo com schema defasado, então o
