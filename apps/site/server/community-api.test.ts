@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -55,10 +57,31 @@ async function call(router: express.Router, path: string, init?: RequestInit) {
  * `mockResolvedValueOnce` é consumido pela requisição do teste e a fachada
  * acaba falando com a rede de verdade.
  */
+/**
+ * Host comparado por `URL.hostname`, e **não** por `startsWith` (achado CodeQL,
+ * PR #264). `'https://accounts.example'` como prefixo casaria também com
+ * `https://accounts.example.evil.com` — o host real seria `evil.com`, e o
+ * intercept devolveria a resposta falsa para um destino que não é o esperado.
+ *
+ * Aqui o efeito seria só um teste passando por engano, mas o padrão é o mesmo
+ * que em produção vira SSRF/bypass de allowlist, e vale corrigir onde ele
+ * aparece para não virar molde copiado adiante.
+ */
+function ehAccounts(url: unknown): boolean {
+  try {
+    const parsed = new URL(String(url));
+    return parsed.protocol === 'https:' && parsed.hostname === 'accounts.example';
+  } catch {
+    // URL relativa (a do servidor efêmero do próprio teste) não parseia sozinha
+    // e não é o destino procurado.
+    return false;
+  }
+}
+
 function interceptaAccounts(resposta: Response) {
   const real = globalThis.fetch;
   return vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
-    if (String(input).startsWith('https://accounts.example')) return Promise.resolve(resposta);
+    if (ehAccounts(input)) return Promise.resolve(resposta);
     return real(input as RequestInfo, init);
   });
 }
@@ -176,7 +199,8 @@ describe('fachada da conversa', () => {
     const response = await call(communityApi(guardOk), '/?subject_id=42&sort=best');
 
     expect(response.status).toBe(200);
-    const chamada = spy.mock.calls.find(([url]) => String(url).includes('/internal/v1/comments'));
+    // Casa pelo host parseado + path, nunca por substring da URL inteira.
+    const chamada = spy.mock.calls.find(([url]) => ehAccounts(url) && String(url).includes('/internal/v1/comments'));
     expect(String(chamada?.[0])).toContain(`subject_type=${encodeURIComponent(SITE_SUBJECT_TYPE)}`);
     // A credencial de serviço vive só na fachada — nunca no navegador (req. 6a).
     expect((chamada?.[1]?.headers as Record<string, string>)['X-Service-Token']).toBe('token-de-servico');
@@ -225,7 +249,34 @@ describe('fachada da conversa', () => {
     // do próprio teste ao servidor efêmero, então a asserção é sobre o destino,
     // não sobre a contagem total.
     expect(response.status).toBe(404);
-    expect(spy.mock.calls.filter(([url]) => String(url).startsWith('https://accounts.example'))).toHaveLength(0);
+    expect(spy.mock.calls.filter(([url]) => ehAccounts(url))).toHaveLength(0);
+  });
+});
+
+describe('rate limit da fachada', () => {
+  it('declara orçamentos separados para leitura e escrita nas 6 rotas', () => {
+    const fonte = readFileSync(
+      fileURLToPath(new URL('./community-api.ts', import.meta.url)),
+      'utf8',
+    );
+
+    // Achado CodeQL (PR #264): o `globalLimiter` do servidor conta TODAS as
+    // rotas do `site` num balde só, então rajada de escrita de comentário
+    // consome o orçamento da navegação do blog — e escrita ficaria com o mesmo
+    // teto da leitura, apesar do custo e do risco de abuso maiores.
+    //
+    // A asserção é sobre o FONTE porque exercitar o limiter de verdade exigiria
+    // 300 requisições por teste; o que precisa ser garantido é que nenhuma rota
+    // fique descoberta quando alguém adicionar a próxima.
+    const rotas = fonte.match(/^ {2}r\.(get|post|patch|delete|put)\(/gm) ?? [];
+    expect(rotas).toHaveLength(6);
+
+    const comLimiter = fonte.match(/^ {2}r\.\w+\("[^"]*",\s*(read|write)RateLimiter,/gm) ?? [];
+    expect(comLimiter).toHaveLength(6);
+
+    // Leitura e escrita em baldes distintos, com o teto da escrita menor.
+    expect(fonte).toMatch(/readRateLimiter = rateLimit\(\{[\s\S]*?limit: 300/);
+    expect(fonte).toMatch(/writeRateLimiter = rateLimit\(\{[\s\S]*?limit: 60/);
   });
 });
 

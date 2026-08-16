@@ -1,4 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
+import { rateLimit } from "express-rate-limit";
 import { requireAuth, type AuthenticatedRequest } from "@artificio/auth";
 import { optionalAuth } from "./community/optionalAuth.js";
 import {
@@ -34,6 +35,41 @@ import type { CommentSubjectGuard } from "@artificio/comments";
  */
 
 const REQUEST_TIMEOUT_MS = 5_000;
+
+/**
+ * Orçamentos separados para leitura e escrita (achado CodeQL, PR #264).
+ *
+ * O `globalLimiter` do servidor (`server.ts:36` — 300/min) não basta: ele conta
+ * **todas** as rotas do `site` no mesmo balde, então uma rajada de escrita de
+ * comentário consumiria o orçamento da navegação do blog, e vice-versa. Pior,
+ * um único balde deixa escrita e leitura com o mesmo teto, quando publicar
+ * comentário tem custo e risco de abuso muito maiores que ler a árvore.
+ *
+ * Os números são os mesmos da fachada equivalente do `downloads`
+ * (`backend/src/middleware/rateLimit.ts`), para que o mesmo comportamento de
+ * abuso encontre a mesma resposta nos dois módulos — divergir aqui criaria um
+ * caminho mais frouxo para o mesmo ataque.
+ *
+ * Isto **não substitui** o rate limit do `accounts.`, que é quem protege o
+ * registro central e responde `429` com `Retry-After`. Esta camada evita que a
+ * rajada sequer atravesse a fachada e gaste o orçamento de credencial de
+ * serviço do módulo inteiro.
+ */
+const readRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  message: { error: "rate_limited", detail: "Muitas requisições. Tente novamente em alguns minutos." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const writeRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  message: { error: "rate_limited", detail: "Muitas requisições. Tente novamente em alguns minutos." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 function accountsOrigin(): string | null {
   const value = process.env.ACCOUNTS_URL?.trim();
@@ -206,7 +242,7 @@ export function communityApi(subjectGuard: CommentSubjectGuard = createPostSubje
   }
 
   /** Leitura da árvore. Pública; com sessão, o ator vai junto para `my_vote` (§2). */
-  r.get("/", optionalAuth, (req: Request, res: Response, next: NextFunction) => {
+  r.get("/", readRateLimiter, optionalAuth, (req: Request, res: Response, next: NextFunction) => {
     const subjectId = typeof req.query.subject_id === "string" ? req.query.subject_id : "";
     if (!subjectId) {
       res.status(400).json({ error: "invalid_query", detail: "subject_id é obrigatório." });
@@ -229,7 +265,7 @@ export function communityApi(subjectGuard: CommentSubjectGuard = createPostSubje
   });
 
   /** Criação de comentário raiz (§3). */
-  r.post("/", requireAuth, (req: Request, res: Response, next: NextFunction) => {
+  r.post("/", writeRateLimiter, requireAuth, (req: Request, res: Response, next: NextFunction) => {
     void (async () => {
       const actingUserId = actingUserIdOf(req)!;
       const subject = await authorizeSubject(req.body?.subject_id, actingUserId, res);
@@ -243,7 +279,7 @@ export function communityApi(subjectGuard: CommentSubjectGuard = createPostSubje
   });
 
   /** Resposta. O `:id` é o pai; `root_id` e `depth` são calculados lá (§3). */
-  r.post("/:id/replies", requireAuth, (req: Request, res: Response, next: NextFunction) => {
+  r.post("/:id/replies", writeRateLimiter, requireAuth, (req: Request, res: Response, next: NextFunction) => {
     void (async () => {
       const actingUserId = actingUserIdOf(req)!;
       const subject = await authorizeSubject(req.body?.subject_id, actingUserId, res);
@@ -265,21 +301,21 @@ export function communityApi(subjectGuard: CommentSubjectGuard = createPostSubje
    * nunca quem é o dono da fala — replicar a checagem aqui daria uma segunda
    * resposta para a mesma pergunta.
    */
-  r.patch("/:id", requireAuth, (req: Request, res: Response, next: NextFunction) => {
+  r.patch("/:id", writeRateLimiter, requireAuth, (req: Request, res: Response, next: NextFunction) => {
     proxyAccounts(req, res, `/internal/v1/comments/${encodeURIComponent(req.params.id)}`, {
       actingUserId: actingUserIdOf(req)!,
       body: { body_markdown: req.body?.body_markdown },
     }).catch(next);
   });
 
-  r.delete("/:id", requireAuth, (req: Request, res: Response, next: NextFunction) => {
+  r.delete("/:id", writeRateLimiter, requireAuth, (req: Request, res: Response, next: NextFunction) => {
     proxyAccounts(req, res, `/internal/v1/comments/${encodeURIComponent(req.params.id)}`, {
       actingUserId: actingUserIdOf(req)!,
     }).catch(next);
   });
 
   /** Voto: estado absoluto, sem `Idempotency-Key` por construção (§7, decisão 12). */
-  r.put("/:id/vote", requireAuth, (req: Request, res: Response, next: NextFunction) => {
+  r.put("/:id/vote", writeRateLimiter, requireAuth, (req: Request, res: Response, next: NextFunction) => {
     proxyAccounts(req, res, `/internal/v1/comments/${encodeURIComponent(req.params.id)}/vote`, {
       actingUserId: actingUserIdOf(req)!,
       body: { value: req.body?.value },

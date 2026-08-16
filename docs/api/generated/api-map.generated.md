@@ -621,13 +621,13 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/catalog/v1/snapshot` | ✅ high | `apps/site/server/catalog-api.ts` | 107 |
 | GET | `/api/catalog/v1/systems` | ✅ high | `apps/site/server/catalog-api.ts` | 26 |
 | POST | `/api/feedback` | ✅ high | `apps/site/server/server.ts` | 156 |
-| GET | `/api/v1/community/conversation` | ✅ high | `apps/site/server/community-api.ts` | 209 |
-| POST | `/api/v1/community/conversation` | ✅ high | `apps/site/server/community-api.ts` | 232 |
+| GET | `/api/v1/community/conversation` | ✅ high | `apps/site/server/community-api.ts` | 245 |
+| POST | `/api/v1/community/conversation` | ✅ high | `apps/site/server/community-api.ts` | 268 |
 | USE | `/api/v1/community/conversation` | ✅ high | `apps/site/server/server.ts` | 211 |
-| DELETE | `/api/v1/community/conversation/:id` | ✅ high | `apps/site/server/community-api.ts` | 275 |
-| PATCH | `/api/v1/community/conversation/:id` | ✅ high | `apps/site/server/community-api.ts` | 268 |
-| POST | `/api/v1/community/conversation/:id/replies` | ✅ high | `apps/site/server/community-api.ts` | 246 |
-| PUT | `/api/v1/community/conversation/:id/vote` | ✅ high | `apps/site/server/community-api.ts` | 282 |
+| DELETE | `/api/v1/community/conversation/:id` | ✅ high | `apps/site/server/community-api.ts` | 311 |
+| PATCH | `/api/v1/community/conversation/:id` | ✅ high | `apps/site/server/community-api.ts` | 304 |
+| POST | `/api/v1/community/conversation/:id/replies` | ✅ high | `apps/site/server/community-api.ts` | 282 |
+| PUT | `/api/v1/community/conversation/:id/vote` | ✅ high | `apps/site/server/community-api.ts` | 318 |
 | GET | `/healthz` | ✅ high | `apps/site/server/server.ts` | 99 |
 | USE | `/uploads` | ✅ high | `apps/site/server/server.ts` | 227 |
 
