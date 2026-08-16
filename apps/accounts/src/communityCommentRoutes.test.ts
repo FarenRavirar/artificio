@@ -66,6 +66,10 @@ interface CommentFixture {
   visibility_state?: string;
   legacy_source?: string | null;
   legacy_author_name?: string | null;
+  /** Corpo do importado. Legado sem valor explícito ganha um default legível. */
+  legacy_content_html?: string | null;
+  /** Política gravada na importação — decide markdown vs HTML na renderização. */
+  legacy_sanitizer_policy?: string | null;
   /** `users.role` do autor. `null` quando não há conta viva ligada ao ator. */
   author_role?: string | null;
   /** Autor do comentário é o publicador afirmado pelo domínio (§8). */
@@ -83,7 +87,20 @@ function rawRow(fixture: CommentFixture) {
     parent_id: fixture.parent_id,
     root_id: fixture.parent_id === null ? fixture.id : "root-of-branch",
     depth: fixture.depth,
-    body_markdown: fixture.body_markdown ?? `corpo de ${fixture.id}`,
+    // XOR do `community_comment_body_kind_check`: legado tem `body_markdown`
+    // NULO e o corpo em `legacy_content_html`. O default anterior dava corpo
+    // nativo a toda fixture, inclusive à legada — combinação que o banco recusa
+    // e que escondia o legado renderizando "Conteúdo indisponível." em beta.
+    body_markdown: fixture.legacy_source
+      ? (fixture.body_markdown ?? null)
+      : (fixture.body_markdown ?? `corpo de ${fixture.id}`),
+    legacy_content_html: fixture.legacy_source
+      ? (fixture.legacy_content_html ?? `corpo legado de ${fixture.id}`)
+      : null,
+    legacy_sanitizer_policy: fixture.legacy_source
+      ? (fixture.legacy_sanitizer_policy ?? "content-editor/sanitizeUserMarkdown")
+      : null,
+    legacy_sanitizer_version: fixture.legacy_source ? 1 : null,
     visibility_state: fixture.visibility_state ?? "visible",
     edited_at: null,
     created_at: new Date(fixture.created_at),
@@ -420,9 +437,68 @@ describe("GET /internal/v1/comments — payload público", () => {
     const response = await authed(app, queryFor()).expect(200);
     const legado = response.body.comments[0];
 
-    expect(legado.legacy).toEqual({ source: "site", author_name: "Visitante Antigo" });
+    // O corpo do importado sai em `legacy.content_html`: `body_markdown` é
+    // NULO por obrigação do `CHECK`, e sem este campo o consumidor não tinha o
+    // que renderizar — todo comentário importado virava "Conteúdo
+    // indisponível." na tela (medido nos 3 já importados em beta).
+    expect(legado.legacy).toEqual({
+      source: "site",
+      author_name: "Visitante Antigo",
+      content_html: "corpo legado de leg1",
+      format: "markdown",
+    });
+    expect(legado.body_markdown).toBeNull();
     expect(legado.author.display_name).toBe("Visitante Antigo");
     expect(legado.author.avatar_url).toBeNull();
+  });
+
+  it("resolve o formato do corpo legado pela política gravada na importação", async () => {
+    // A mesma coluna guarda markdown (`downloads`) e HTML (`site`); só a
+    // política os distingue. Sem isto no payload o consumidor teria de
+    // adivinhar, e adivinhar errado exibe tag crua ao leitor.
+    const { db } = fakeDb({
+      credential: await credentialRow(),
+      comments: [
+        {
+          id: "leg-html",
+          parent_id: null,
+          depth: 0,
+          created_at: "2020-01-01T00:00:00.000Z",
+          legacy_source: "site",
+          legacy_author_name: "Visitante Antigo",
+          legacy_sanitizer_policy: "site-comment-html",
+        },
+      ],
+    });
+    const response = await authed(createApp(env, db), queryFor()).expect(200);
+
+    expect(response.body.comments[0].legacy.format).toBe("html");
+  });
+
+  it("tombstone de legado não expõe o corpo importado", async () => {
+    // Mesma invariante do corpo nativo (decisões 34, 46). O campo novo não
+    // podia virar a porta por onde o comentário retirado vaza o texto.
+    const { db } = fakeDb({
+      credential: await credentialRow(),
+      comments: [
+        {
+          id: "leg-removido",
+          parent_id: null,
+          depth: 0,
+          created_at: "2020-01-01T00:00:00.000Z",
+          legacy_source: "site",
+          legacy_author_name: "Visitante Antigo",
+          legacy_content_html: "fala derrubada pela moderação",
+          visibility_state: "moderator_removed",
+        },
+      ],
+    });
+    const response = await authed(createApp(env, db), queryFor()).expect(200);
+    const removido = response.body.comments[0];
+
+    expect(removido.state).toBe("removed");
+    expect(removido.legacy.content_html).toBeNull();
+    expect(JSON.stringify(removido)).not.toContain("derrubada");
   });
 
   it("Cache-Control impede cache compartilhado de UGC", async () => {

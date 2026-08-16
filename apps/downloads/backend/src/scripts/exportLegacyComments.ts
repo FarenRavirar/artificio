@@ -151,14 +151,20 @@ export async function exportLegacyComments(now: () => Date = () => new Date()): 
 // `tsc`). O efeito é o mesmo: só executa quando chamado direto, nunca quando
 // importado pelo teste.
 if (require.main === module) {
-  exportLegacyComments()
-    .then((payload) => {
+  void (async () => {
+    try {
+      const payload = await exportLegacyComments();
       process.stdout.write(`${JSON.stringify(payload, null, 2)}\n`);
       process.stderr.write(`[export] ${payload.count} comentário(s) exportado(s).\n`);
-      return db.destroy();
-    })
-    .catch((error: unknown) => {
+    } catch (error: unknown) {
       process.stderr.write(`[export] falhou: ${error instanceof Error ? error.message : String(error)}\n`);
       process.exitCode = 1;
-    });
+    } finally {
+      // `finally`, e não só no sucesso: o pool do Kysely mantém handle ativo, e
+      // uma consulta que falha deixaria o processo pendurado sem nunca chegar ao
+      // `exitCode = 1` que o operador espera ver. Falha de export precisa sair
+      // **falhando**, não travar o terminal na VM.
+      await db.destroy();
+    }
+  })();
 }

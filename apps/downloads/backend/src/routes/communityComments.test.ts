@@ -46,15 +46,27 @@ vi.mock('../middleware/auth', () => ({
 
 import communityCommentsRoutes, { readCorrelationId } from './communityComments';
 
+/**
+ * Prefixo **idêntico ao de produção** (`server.ts:132`), e não um genérico de
+ * teste: o router foi montado em `/conversation` justamente para não disputar
+ * caminho com o de moderação, que serve `POST .../comments/:id/reports`. Um
+ * harness montado em `/comments` passaria verde exercitando um roteamento que
+ * não existe no servidor — e a colisão que motivou o prefixo ficaria sem teste.
+ */
 function app() {
   const server = express();
   server.use(express.json());
-  server.use('/api/v1/community/comments', communityCommentsRoutes);
+  server.use('/api/v1/community/conversation', communityCommentsRoutes);
   return server;
 }
 
-function upstream(status: number, text: string) {
-  return { status, ok: status >= 200 && status < 300, text: () => Promise.resolve(text) };
+function upstream(status: number, text: string, headers: Record<string, string> = {}) {
+  return {
+    status,
+    ok: status >= 200 && status < 300,
+    text: () => Promise.resolve(text),
+    headers: new Headers(headers),
+  };
 }
 
 const AUTHORIZED = {
@@ -82,7 +94,7 @@ describe('leitura da conversa', () => {
     fetchMock.mockResolvedValue(upstream(200, JSON.stringify(thread)));
 
     const response = await request(app())
-      .get('/api/v1/community/comments?subject_id=material-1&sort=new')
+      .get('/api/v1/community/conversation?subject_id=material-1&sort=new')
       .expect(200);
 
     // O contrato é o do pacote (`commentsThreadSchema`, `.strict()`); traduzir
@@ -99,7 +111,7 @@ describe('leitura da conversa', () => {
   it('manda o ator quando há sessão, para que my_vote apareça', async () => {
     fetchMock.mockResolvedValue(upstream(200, '{}'));
 
-    await request(app()).get('/api/v1/community/comments?subject_id=material-1').expect(200);
+    await request(app()).get('/api/v1/community/conversation?subject_id=material-1').expect(200);
 
     expect(fetchMock.mock.calls[0][1].headers['X-Acting-User-Id']).toBe('user-1');
   });
@@ -108,13 +120,13 @@ describe('leitura da conversa', () => {
     authState.userId = null;
     fetchMock.mockResolvedValue(upstream(200, '{}'));
 
-    await request(app()).get('/api/v1/community/comments?subject_id=material-1').expect(200);
+    await request(app()).get('/api/v1/community/conversation?subject_id=material-1').expect(200);
 
     expect(fetchMock.mock.calls[0][1].headers).not.toHaveProperty('X-Acting-User-Id');
   });
 
   it('recusa leitura sem subject_id sem chamar o accounts.', async () => {
-    await request(app()).get('/api/v1/community/comments').expect(400);
+    await request(app()).get('/api/v1/community/conversation').expect(400);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -127,15 +139,27 @@ describe('leitura da conversa', () => {
     arrange();
 
     await request(app())
-      .get('/api/v1/community/comments?subject_id=material-1')
+      .get('/api/v1/community/conversation?subject_id=material-1')
       .expect(expected);
   });
 
   it('devolve 503 quando a credencial de serviço não está configurada', async () => {
     delete process.env.SERVICE_CREDENTIAL;
 
-    await request(app()).get('/api/v1/community/comments?subject_id=material-1').expect(503);
+    await request(app()).get('/api/v1/community/conversation?subject_id=material-1').expect(503);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('repassa o Retry-After do accounts. no 429, para a retentativa não ser cega', async () => {
+    fetchMock.mockResolvedValue(
+      upstream(429, JSON.stringify({ error: 'rate_limited' }), { 'Retry-After': '30' }),
+    );
+
+    const response = await request(app())
+      .get('/api/v1/community/conversation?subject_id=material-1')
+      .expect(429);
+
+    expect(response.headers['retry-after']).toBe('30');
   });
 });
 
@@ -144,7 +168,7 @@ describe('correlation id (T5.3c, contrato §1.1)', () => {
     fetchMock.mockRejectedValue(new Error('ECONNREFUSED'));
 
     const response = await request(app())
-      .get('/api/v1/community/comments?subject_id=material-1')
+      .get('/api/v1/community/conversation?subject_id=material-1')
       .set('X-Correlation-Id', 'req-abc-123')
       .expect(503);
 
@@ -156,7 +180,7 @@ describe('correlation id (T5.3c, contrato §1.1)', () => {
     fetchMock.mockResolvedValue(upstream(200, '<html>502</html>'));
 
     const response = await request(app())
-      .get('/api/v1/community/comments?subject_id=material-1')
+      .get('/api/v1/community/conversation?subject_id=material-1')
       .set('X-Correlation-Id', 'req-xyz')
       .expect(502);
 
@@ -167,7 +191,7 @@ describe('correlation id (T5.3c, contrato §1.1)', () => {
     fetchMock.mockRejectedValue(new Error('ECONNREFUSED'));
 
     const response = await request(app())
-      .get('/api/v1/community/comments?subject_id=material-1')
+      .get('/api/v1/community/conversation?subject_id=material-1')
       .expect(503);
 
     // Id gerado aqui não existiria em log nenhum do cliente: só poluiria a
@@ -180,7 +204,7 @@ describe('correlation id (T5.3c, contrato §1.1)', () => {
     fetchMock.mockRejectedValue(new Error('ECONNREFUSED'));
 
     const response = await request(app())
-      .get('/api/v1/community/comments?subject_id=material-1')
+      .get('/api/v1/community/conversation?subject_id=material-1')
       .set('X-Correlation-Id', 'x'.repeat(129))
       .expect(503);
 
@@ -208,7 +232,7 @@ describe('escrita — o guard decide, o cliente não', () => {
     fetchMock.mockResolvedValue(upstream(201, '{"id":"c1"}'));
 
     await request(app())
-      .post('/api/v1/community/comments')
+      .post('/api/v1/community/conversation')
       .set('Idempotency-Key', 'chave-do-cliente')
       .send({
         subject_id: 'material-1',
@@ -239,7 +263,7 @@ describe('escrita — o guard decide, o cliente não', () => {
       guardMock.mockResolvedValue({ authorized: false, reason });
 
       const response = await request(app())
-        .post('/api/v1/community/comments')
+        .post('/api/v1/community/conversation')
         .send({ subject_id: 'material-x', body_markdown: 'Olá' })
         .expect(404);
 
@@ -260,7 +284,7 @@ describe('escrita — o guard decide, o cliente não', () => {
     authState.userId = null;
 
     await request(app())
-      .post('/api/v1/community/comments')
+      .post('/api/v1/community/conversation')
       .send({ subject_id: 'material-1', body_markdown: 'Olá' })
       .expect(401);
 
@@ -273,7 +297,7 @@ describe('escrita — o guard decide, o cliente não', () => {
     fetchMock.mockResolvedValue(upstream(201, '{}'));
 
     await request(app())
-      .post('/api/v1/community/comments')
+      .post('/api/v1/community/conversation')
       .set('Idempotency-Key', 'chave-do-cliente')
       .send({ subject_id: 'material-1', body_markdown: 'Olá' })
       .expect(201);
@@ -289,7 +313,7 @@ describe('escrita — o guard decide, o cliente não', () => {
     arrange();
 
     const response = await request(app())
-      .post('/api/v1/community/comments')
+      .post('/api/v1/community/conversation')
       .send({ subject_id: 'material-1', body_markdown: 'Olá' })
       .expect(expected);
 
@@ -301,7 +325,7 @@ describe('escrita — o guard decide, o cliente não', () => {
     fetchMock.mockResolvedValue(upstream(422, '{"error":"body_too_long"}'));
 
     const response = await request(app())
-      .post('/api/v1/community/comments')
+      .post('/api/v1/community/conversation')
       .send({ subject_id: 'material-1', body_markdown: 'x'.repeat(20) })
       .expect(422);
 
@@ -313,7 +337,7 @@ describe('escrita — o guard decide, o cliente não', () => {
     fetchMock.mockResolvedValue(upstream(201, '{}'));
 
     await request(app())
-      .post('/api/v1/community/comments/pai-1/replies')
+      .post('/api/v1/community/conversation/pai-1/replies')
       .send({ subject_id: 'material-1', body_markdown: 'Resposta' })
       .expect(201);
 
@@ -328,7 +352,7 @@ describe('edição, retirada e voto', () => {
     fetchMock.mockResolvedValue(upstream(200, '{}'));
 
     await request(app())
-      .patch('/api/v1/community/comments/c1')
+      .patch('/api/v1/community/conversation/c1')
       .send({ body_markdown: 'corrigido', state: 'visible' })
       .expect(200);
 
@@ -342,7 +366,7 @@ describe('edição, retirada e voto', () => {
   it('retira o próprio comentário pela rota de auto-retirada', async () => {
     fetchMock.mockResolvedValue(upstream(204, ''));
 
-    await request(app()).delete('/api/v1/community/comments/c1').expect(204);
+    await request(app()).delete('/api/v1/community/conversation/c1').expect(204);
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('https://accounts.example/internal/v1/comments/c1');
@@ -353,7 +377,7 @@ describe('edição, retirada e voto', () => {
     fetchMock.mockResolvedValue(upstream(200, '{"my_vote":1,"upvotes":1,"downvotes":0,"score":1}'));
 
     await request(app())
-      .put('/api/v1/community/comments/c1/vote')
+      .put('/api/v1/community/conversation/c1/vote')
       .send({ value: 1, comment_id: 'outro' })
       .expect(200);
 
@@ -370,7 +394,7 @@ describe('edição, retirada e voto', () => {
   it('exige sessão para votar', async () => {
     authState.userId = null;
 
-    await request(app()).put('/api/v1/community/comments/c1/vote').send({ value: 1 }).expect(401);
+    await request(app()).put('/api/v1/community/conversation/c1/vote').send({ value: 1 }).expect(401);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

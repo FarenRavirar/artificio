@@ -84,6 +84,10 @@ function fakeDb(): Kysely<Database> {
       requestedId = value;
       return builder;
     },
+    // O `ORDER BY creator_match_rank` da consulta real desempata quando o `OR`
+    // do join casa duas linhas de criador. O duplo só precisa aceitar a chamada:
+    // a resolução de dono aqui é fixada em `MATERIALS`, uma linha por material.
+    orderBy: () => builder,
     executeTakeFirst: () => Promise.resolve(requestedId ? MATERIALS[requestedId] : undefined),
   };
   return { selectFrom: () => builder } as unknown as Kysely<Database>;

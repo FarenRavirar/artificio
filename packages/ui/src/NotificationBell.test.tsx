@@ -32,65 +32,142 @@ beforeEach(() => {
   cookieStore.value = '';
 });
 
-afterEach(() => {
+afterEach(async () => {
+  const { cleanup } = await import('@testing-library/react');
+  cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 /**
- * Reimplementa o leitor do componente? Não: importa a função real. O
- * `NotificationBell` não a exporta, então o teste exercita o comportamento
- * observável — o header que sai no `fetch` — montando o componente seria mais
- * caro sem provar mais nada, porque a única coisa em jogo é o cabeçalho.
+ * A prova é o `PUT` que sai do componente montado — **não** o texto do fonte
+ * nem um regex reescrito aqui.
  *
- * Para manter a prova ligada ao código de produção, a asserção é feita sobre o
- * FONTE do componente: ele precisa (a) ler `xsrf_token` do cookie e (b) mandar
- * o header no `PUT`. Se alguém remover qualquer um dos dois, o teste cai.
+ * A primeira versão desta suíte fazia as duas coisas: um caso lia
+ * `NotificationBell.tsx` com `readFileSync` e casava regex contra o código, e
+ * os outros três reimplementavam `/(?:^|;\s*)xsrf_token=([^;]*)/` dentro do
+ * próprio teste. O primeiro quebrava por formatação sem nada ter regredido; os
+ * outros três provavam apenas que o regex **do arquivo de teste** funciona — se
+ * a função de produção perdesse a âncora, os três continuariam verdes. Montar o
+ * componente e ler o que chega no `fetch` custa poucas linhas a mais e testa o
+ * que de fato importa.
  */
+const ITEM = {
+  id: 'receipt-1',
+  event_type: 'comment_reply',
+  text: 'Alguém respondeu você.',
+  link: '/materiais/guia',
+  source_label: 'Downloads',
+  occurred_at: '2026-08-15T10:00:00.000Z',
+  read_at: null,
+};
+
+function jsonOk(body: unknown) {
+  return Promise.resolve(
+    new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  );
+}
+
+/**
+ * Responde à listagem/contagem com o item não lido e ao `PUT` com `204`,
+ * devolvendo o espião para inspeção da chamada de escrita.
+ */
+function mockFetch() {
+  const spy = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(
+    (input, init) => {
+      if (init?.method === 'PUT') return Promise.resolve(new Response(null, { status: 204 }));
+      const url = String(input);
+      if (url.includes('unread')) return jsonOk({ count: 1 });
+      return jsonOk({ items: [ITEM], cursor: null });
+    },
+  );
+  vi.stubGlobal('fetch', spy);
+  return spy;
+}
+
+/** A chamada de escrita, que é a única sob teste aqui. */
+function putCall(spy: ReturnType<typeof mockFetch>) {
+  return spy.mock.calls.find(([, init]) => init?.method === 'PUT');
+}
+
+/**
+ * `fireEvent` e não `user-event`: este pacote não tem
+ * `@testing-library/user-event` nas dependências, e o que está sob teste é o
+ * header do `PUT` — não a fidelidade da simulação de ponteiro. Adicionar
+ * dependência a um pacote compartilhado para isso não se justifica.
+ */
+async function marcarComoLida(spy: ReturnType<typeof mockFetch>) {
+  const { render, screen, fireEvent, waitFor } = await import('@testing-library/react');
+  const authClient = await import('@artificio/auth/client');
+  const { NotificationBell } = await import('./NotificationBell');
+
+  // `NotificationBell` devolve `null` sem sessão (`:266`) — sem este duplo não
+  // existe sino para clicar, e o teste falharia por ausência de usuário, não
+  // por defeito no header.
+  vi.spyOn(authClient, 'useSession').mockReturnValue({
+    user: { id: 'user-1' },
+    loading: false,
+  } as ReturnType<typeof authClient.useSession>);
+
+  render(<NotificationBell sourceApp="downloads" />);
+
+  fireEvent.click(await screen.findByRole('button', { name: /notifica/i }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Marcar como lida' }));
+
+  await waitFor(() => expect(putCall(spy)).toBeDefined());
+}
+
 describe('NotificationBell — anti-CSRF na escrita', () => {
-  it('lê xsrf_token do cookie e envia no header do PUT', async () => {
-    // Caminho por `process.cwd()`, não por `new URL(..., import.meta.url)`: no
-    // ambiente jsdom o `import.meta.url` não é `file:`, e o `readFileSync`
-    // recusa com "The URL must be of scheme file".
-    const { readFileSync } = await import('node:fs');
-    const { join } = await import('node:path');
-    const fonte = readFileSync(join(process.cwd(), 'src/NotificationBell.tsx'), 'utf8');
-
-    // (a) lê o cookie que `csrfProtection` grava com `httpOnly: false`
-    expect(fonte).toMatch(/xsrf_token=/);
-    // (b) manda o header na única escrita do componente
-    expect(fonte).toMatch(/x-xsrf-token/i);
-    // O `PUT` precisa levar os headers. O regex tolera `credentials` (ou
-    // qualquer outra opção) entre os dois campos — travar a ordem faria o teste
-    // quebrar por formatação, não por perda da garantia.
-    expect(fonte).toMatch(/method:\s*"PUT"[^}]*headers:\s*xsrfHeaders\(\)/);
-  });
-
-  it('extrai o valor do cookie mesmo com outros cookies presentes', () => {
+  it('manda o valor do cookie no header e mantém a sessão same-origin', async () => {
     cookieStore.value = 'artificio_session=abc; xsrf_token=token-esperado; outro=1';
+    const spy = mockFetch();
 
-    const match = /(?:^|;\s*)xsrf_token=([^;]*)/.exec(document.cookie);
+    await marcarComoLida(spy);
 
-    expect(match?.[1]).toBe('token-esperado');
+    const call = putCall(spy);
+    expect(call).toBeDefined();
+    const headers = call![1]?.headers as Record<string, string>;
+    expect(headers['x-xsrf-token']).toBe('token-esperado');
+    // Sem `credentials: 'include'` o cookie de sessão não viaja, e o `PUT`
+    // morreria no `401` antes mesmo de o CSRF ser avaliado.
+    expect(call![1]?.credentials).toBe('include');
   });
 
-  it('não inventa header quando o cookie não existe', () => {
-    cookieStore.value = 'artificio_session=abc';
+  it('decodifica o valor percent-encoded do cookie', async () => {
+    // O cookie é gravado com `encodeURIComponent`; mandar o valor cru faria o
+    // par cookie/header divergir e o servidor recusaria com `403`.
+    cookieStore.value = 'xsrf_token=a%2Bb%2Fc';
+    const spy = mockFetch();
 
-    const match = /(?:^|;\s*)xsrf_token=([^;]*)/.exec(document.cookie);
+    await marcarComoLida(spy);
+
+    expect((putCall(spy)![1]?.headers as Record<string, string>)['x-xsrf-token']).toBe('a+b/c');
+  });
+
+  it('não inventa header quando o cookie não existe', async () => {
+    cookieStore.value = 'artificio_session=abc';
+    const spy = mockFetch();
+
+    await marcarComoLida(spy);
 
     // Sem cookie, o `PUT` sai sem header — e o servidor recusa, que é o
     // comportamento correto: forjar um valor aqui não passaria no double-submit
     // e ainda mascararia o motivo real da recusa.
-    expect(match).toBeNull();
+    expect(putCall(spy)![1]?.headers).not.toHaveProperty('x-xsrf-token');
   });
 
-  it('não casa com cookie de nome parecido', () => {
+  it('não casa com cookie de nome parecido', async () => {
+    // A âncora `(?:^|;\s*)` da função de produção existe para isto: sem ela,
+    // `nao_xsrf_token` casaria e o header sairia com o valor errado — recusa
+    // silenciosa no servidor, indistinguível de sessão expirada.
     cookieStore.value = 'nao_xsrf_token=intruso';
+    const spy = mockFetch();
 
-    const match = /(?:^|;\s*)xsrf_token=([^;]*)/.exec(document.cookie);
+    await marcarComoLida(spy);
 
-    // A âncora `(?:^|;\s*)` existe para isto: sem ela, `nao_xsrf_token` casaria
-    // e o header sairia com o valor errado — recusa silenciosa no servidor.
-    expect(match).toBeNull();
+    expect(putCall(spy)![1]?.headers).not.toHaveProperty('x-xsrf-token');
   });
 });

@@ -227,25 +227,39 @@ export function useCommunityConversation({
    * snapshot mudou, o certo é recarregar do zero, não colar páginas
    * incompatíveis.
    */
-  const [pages, setPages] = useState<CommentsThread | null>(null);
+  /**
+   * As páginas carregam a **identidade** que as produziu, e não só o conteúdo.
+   *
+   * `snapshot_revision` sozinho não distingue conversas: ele é por assunto, e
+   * dois materiais recém-criados começam ambos em revisão baixa. Sem a chave,
+   * trocar de material (ou de conta) mantinha `pages` do anterior e, quando as
+   * revisões coincidiam, `effectiveState` renderizava a árvore da conversa
+   * antiga na ficha nova — comentário de outro material, indistinguível de dado
+   * real. A identidade é a mesma que chaveia o resource, para as duas não
+   * poderem divergir.
+   */
+  const pagesKey = `${realm}|${subject.subjectType}|${subject.subjectId}|${userId ?? ''}|${sort}`;
+  const [pages, setPages] = useState<{ key: string; thread: CommentsThread } | null>(null);
+  const validPages = pages?.key === pagesKey ? pages.thread : null;
+
   const loadMore = useCallback(async (page: CommentsThread, request: ConversationMoreNode) => {
-    const current = pages ?? state.data;
+    const current = validPages ?? state.data;
     if (!current) return;
     try {
-      setPages(mergeCommentsThreadPage(current, page, request.cursor));
+      setPages({ key: pagesKey, thread: mergeCommentsThreadPage(current, page, request.cursor) });
     } catch {
       // Revisão divergente: recarrega em vez de exibir árvore inconsistente.
       setPages(null);
       void resource.load();
     }
-  }, [pages, resource, state.data]);
+  }, [pagesKey, resource, state.data, validPages]);
 
   // A página mesclada só vale enquanto o resource não trouxer leitura nova.
   const effectiveState = useMemo(() => {
-    if (!pages || state.status === 'unavailable') return state;
-    if (state.data && state.data.snapshot_revision !== pages.snapshot_revision) return state;
-    return { ...state, data: pages } as typeof state;
-  }, [pages, state]);
+    if (!validPages || state.status === 'unavailable') return state;
+    if (state.data && state.data.snapshot_revision !== validPages.snapshot_revision) return state;
+    return { ...state, data: validPages } as typeof state;
+  }, [validPages, state]);
 
   return { state: effectiveState, sort, changeSort, client, loadMore, reload, resource };
 }

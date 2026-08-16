@@ -128,6 +128,13 @@ async function proxyAccounts(
       return;
     }
 
+    // `Retry-After` atravessa a fachada: é o único header do `accounts.` que
+    // carrega instrução operacional para o cliente. Sem ele, um `429` chega ao
+    // navegador sem dizer **quando** tentar de novo, e a retentativa vira chute
+    // que realimenta o próprio rate limit.
+    const retryAfter = response.headers.get('retry-after');
+    if (retryAfter) res.setHeader('Retry-After', retryAfter);
+
     res.status(response.status).json(payload);
   } catch (error) {
     // Log antes de responder: `503` é indistinguível entre `accounts.` fora,

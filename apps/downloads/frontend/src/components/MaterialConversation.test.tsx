@@ -51,11 +51,20 @@ const THREAD = {
     comment({
       id: LEGACY_ID,
       root_id: LEGACY_ID,
-      body_markdown: 'Comentário importado',
+      // Forma real do importado: `body_markdown` NULO (o
+      // `community_comment_body_kind_check` é XOR) e o corpo em
+      // `legacy.content_html`, com o formato vindo da política gravada. O
+      // exportador do `downloads` usa `sanitizeUserMarkdown`, logo markdown.
+      body_markdown: null,
       created_at: '2020-01-01T00:00:00.000Z',
       author: { display_name: 'Antigo', avatar_url: null, badge: null, state: 'legacy' },
       my_vote: null,
-      legacy: { source: 'downloads', author_name: 'Antigo' },
+      legacy: {
+        source: 'downloads',
+        author_name: 'Antigo',
+        content_html: 'Comentário importado',
+        format: 'markdown',
+      },
     }),
     comment({
       id: HIDDEN_ID,

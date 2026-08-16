@@ -4,11 +4,93 @@ import {
   commentsThreadSchema,
   createCommentOperation,
   createCommentReportOperation,
+  createCommentsConversationClient,
   setCommentVoteOperation,
   mergeCommentsThreadPage,
 } from './conversation.js';
+import { createCommentsClient } from './transport.js';
 
 const ROOT_ID = '11111111-1111-4111-8111-111111111111';
+
+/**
+ * Captura o que cada mutação manda ao transporte.
+ *
+ * A resposta é um duplo permissivo: o que está sob teste é a chave que **sai**,
+ * não o parse do que volta — por isso as asserções olham só `recebidas`.
+ */
+function clientEspiao() {
+  const recebidas: (string | undefined)[] = [];
+  const client = createCommentsClient({
+    transport: {
+      execute: async (request) => {
+        recebidas.push(request.idempotencyKey);
+        // Lança de propósito: montar uma resposta válida para cada operação
+        // custaria fixtures que não acrescentam nada — a chave já foi capturada
+        // e o parse da resposta é assunto de outra suíte.
+        throw new Error('resposta não importa neste teste');
+      },
+    },
+  });
+  return {
+    recebidas,
+    conversation: createCommentsConversationClient(client, {
+      subjectType: 'downloads.material',
+      subjectId: 'material-1',
+    }),
+  };
+}
+
+/**
+ * O `accounts.` recusa criação, resposta, edição e denúncia sem
+ * `Idempotency-Key` no formato `[\x20-\x7E]{8,128}`
+ * (`communityCommentRoutes.ts:338-342`, `communityModerationRoutes.ts:125-132`).
+ * Enquanto o client da conversa não gerava a chave, TODA escrita da conversa
+ * nova voltava `400 invalid_idempotency_key` — publicar, responder e editar
+ * ficavam impossíveis nos três consumidores, e a UI só anunciava a falha.
+ */
+describe('chave de idempotência nas mutações', () => {
+  it.each([
+    ['create', (c: ReturnType<typeof clientEspiao>['conversation']) => c.create('olá')],
+    ['reply', (c: ReturnType<typeof clientEspiao>['conversation']) => c.reply(ROOT_ID, 'olá')],
+    ['edit', (c: ReturnType<typeof clientEspiao>['conversation']) => c.edit(ROOT_ID, 'olá')],
+    ['report', (c: ReturnType<typeof clientEspiao>['conversation']) => c.report(ROOT_ID, 'spam_or_off_topic')],
+  ])('%s manda chave no formato que o accounts. aceita', async (_label, acao) => {
+    const { recebidas, conversation } = clientEspiao();
+
+    await acao(conversation).catch(() => undefined);
+
+    expect(recebidas).toHaveLength(1);
+    expect(recebidas[0]).toMatch(/^[\x20-\x7E]{8,128}$/);
+  });
+
+  it('gera chave nova a cada tentativa, para dois envios não colidirem', async () => {
+    const { recebidas, conversation } = clientEspiao();
+
+    await conversation.create('primeira').catch(() => undefined);
+    await conversation.create('segunda').catch(() => undefined);
+
+    expect(recebidas[0]).not.toBe(recebidas[1]);
+  });
+
+  it('respeita a chave do chamador, para a retentativa do mesmo envio não duplicar', async () => {
+    const { recebidas, conversation } = clientEspiao();
+    const chave = 'envio-formulario-0001';
+
+    await conversation.create('texto', undefined, chave).catch(() => undefined);
+    await conversation.create('texto', undefined, chave).catch(() => undefined);
+
+    expect(recebidas).toEqual([chave, chave]);
+  });
+
+  it('não manda chave em withdraw nem vote, que não passam por essa validação', async () => {
+    const { recebidas, conversation } = clientEspiao();
+
+    await conversation.withdraw(ROOT_ID).catch(() => undefined);
+    await conversation.vote(ROOT_ID, 1).catch(() => undefined);
+
+    expect(recebidas).toEqual([undefined, undefined]);
+  });
+});
 
 describe('contrato da conversa', () => {
   it('normaliza a árvore HTTP e rebaixa imagem para link antes da UI', () => {

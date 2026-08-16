@@ -42,10 +42,18 @@ function codeOnly(source: string): string {
     .replace(/\/\/.*$/gm, '');
 }
 
+/**
+ * Casa `insertInto` na tabela legada **independente da forma da string**: aspas
+ * simples, duplas ou crase, com ou sem espaço. Buscar um literal exato deixaria
+ * a trava passar em `insertInto("download_comment")` — a mesma escrita, escrita
+ * de outro jeito. O guard precisa ser estrutural, não ortográfico.
+ */
+const INSERT_LEGADO = /insertInto\s*\(\s*['"`]download_comment['"`]\s*\)/;
+
 describe('a escrita em download_comment está congelada (T5.7)', () => {
   it('nenhum arquivo de produção insere na tabela legada', () => {
     const culpados = sourceFiles(SRC).filter((file) =>
-      codeOnly(readFileSync(file, 'utf8')).includes("insertInto('download_comment')"),
+      INSERT_LEGADO.test(codeOnly(readFileSync(file, 'utf8'))),
     );
 
     // Se este teste falhar, o rollout perdeu a premissa que dispensa

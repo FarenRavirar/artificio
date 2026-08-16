@@ -82,19 +82,35 @@ export function createMaterialSubjectGuard(
     // um `JOIN` só por `id` passaria em todo teste contra o acervo atual e
     // devolveria `ownerUserId: null` no primeiro material humano — o dono
     // deixaria de ser notificado do próprio comentário, sem erro nenhum.
+    //
+    // O `OR` pode casar DUAS linhas distintas, e isso não é hipótese: `id` é PK
+    // e `user_id` tem UNIQUE **parcial** (`migration_003` + `migration_013`),
+    // então cada coluna é única isoladamente, mas nada impede o criador A ter
+    // `id = X` enquanto o criador B tem `user_id = X`. Sem ordenação, o
+    // `executeTakeFirst` escolheria pelo plano do Postgres — o dono do material
+    // mudaria entre execuções da mesma query. O `ORDER BY` fixa a precedência na
+    // forma canônica (`id`), a mesma que 91/91 materiais de beta usam.
     const material = await db
       .selectFrom('download_material')
       .leftJoin('download_creator', (join) => join.on((eb) => eb.or([
         eb('download_creator.id', '=', eb.ref('download_material.creator_id')),
         eb('download_creator.user_id', '=', eb.ref('download_material.creator_id')),
       ])))
-      .select([
+      .select((eb) => [
         'download_material.id as id',
         'download_material.slug as slug',
         'download_material.editorial_state as editorial_state',
         'download_creator.user_id as owner_user_id',
+        eb
+          .case()
+          .when('download_creator.id', '=', eb.ref('download_material.creator_id'))
+          .then(0)
+          .else(1)
+          .end()
+          .as('creator_match_rank'),
       ])
       .where('download_material.id', '=', subject.subjectId)
+      .orderBy('creator_match_rank', 'asc')
       .executeTakeFirst();
 
     if (!material) return refuse('not_found');

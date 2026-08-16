@@ -154,6 +154,55 @@ describe.skipIf(!db)("importação contra PostgreSQL real", () => {
     expect(linhas[0]).toEqual(depoisDaPrimeira);
   });
 
+  /**
+   * A reexecução não pode custar escrita **nenhuma**, e não só "nenhum
+   * comentário duplicado".
+   *
+   * Este teste cobre o defeito real: o ator que assina a remoção herdada nasce
+   * ANTES do `INSERT` do comentário (a FK `removed_by_actor_id` não é
+   * DEFERRABLE), então com `onConflict doNothing` a segunda execução pulava o
+   * comentário e mesmo assim comitava o ator — um `community_actor` órfão a
+   * mais por rodada, para sempre, em produção. O mesmo valia para o
+   * `updated_at` do assunto. Contar linhas dos dois lados é o que prova que o
+   * rollback do skip funciona.
+   */
+  it("segunda execução não deixa ator órfão nem toca o assunto", async () => {
+    const userId = await insertUser();
+    const subjectId = randomUUID();
+    // Comentário REMOVIDO: é o único caminho que cria `community_actor`.
+    const payload = exportPayload(userId, subjectId, {
+      removed_at: "2026-01-01T00:00:00.000Z",
+      removed_reason: "Removido pela moderação.",
+    });
+
+    await importLegacyComments(db!, payload, { realm: REALM });
+
+    const contaAtores = async () => {
+      const row = await db!
+        .selectFrom("community_actor")
+        .select((eb) => eb.fn.countAll<string>().as("total"))
+        .executeTakeFirstOrThrow();
+      return Number(row.total);
+    };
+    const assunto = async () =>
+      db!
+        .selectFrom("community_comment_subject")
+        .select(["updated_at", "ranking_revision"])
+        .where("realm", "=", REALM)
+        .where("source_app", "=", "downloads")
+        .where("subject_id", "=", subjectId)
+        .executeTakeFirstOrThrow();
+
+    const atoresAntes = await contaAtores();
+    const assuntoAntes = await assunto();
+
+    const segunda = await importLegacyComments(db!, payload, { realm: REALM });
+    expect(segunda).toMatchObject({ inserted: 0, skipped: 1, divergences: [] });
+
+    expect(await contaAtores()).toBe(atoresAntes);
+    expect(await assunto()).toEqual(assuntoAntes);
+  });
+
   it("preserva o momento original e a versão corrente aponta para o corpo", async () => {
     const userId = await insertUser();
     const payload = exportPayload(userId, randomUUID());

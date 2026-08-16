@@ -65,9 +65,14 @@ beforeEach(() => {
 describe('GET /api/v1/notifications — contrato preservado na delegação', () => {
   it('devolve os campos que o frontend consome, do próprio usuário', async () => {
     const createdAt = new Date('2026-08-01T10:00:00.000Z');
+    // O `where` é capturado, e não apenas encadeado: sem a asserção lá embaixo,
+    // remover o filtro de dono da rota deixaria este teste **verde** enquanto a
+    // listagem passaria a devolver notificação alheia. O título fala "do próprio
+    // usuário"; a trava tem de dizer o mesmo.
+    const where = vi.fn().mockReturnThis();
     dbMocks.selectFrom.mockReturnValue({
       selectAll: vi.fn().mockReturnThis(),
-      where: vi.fn().mockReturnThis(),
+      where,
       orderBy: vi.fn().mockReturnThis(),
       limit: vi.fn().mockReturnThis(),
       execute: vi.fn().mockResolvedValue([
@@ -94,6 +99,7 @@ describe('GET /api/v1/notifications — contrato preservado na delegação', () 
       read_at: null,
     });
     expect(response.body[0].created_at).toBe(createdAt.toISOString());
+    expect(where).toHaveBeenCalledWith('user_id', '=', 'user-1');
   });
 
   it('exige sessão', async () => {

@@ -1,4 +1,5 @@
 import { MarkdownContent, ContentEditor } from '@artificio/content-editor';
+import { sanitizeLegacyCommentHtml } from '@artificio/content-editor/sanitize';
 import {
   useEffect,
   useId,
@@ -103,6 +104,36 @@ function classes(base: string, extra?: string): string {
 function visibleBody(bodyMarkdown: string): string | null {
   const validation = validateCommentBody(bodyMarkdown);
   return validation.ok ? validation.bodyMarkdown : null;
+}
+
+/**
+ * Renderiza o corpo no formato que ele de fato tem.
+ *
+ * A coluna de corpo legado guarda **dois** formatos, distinguidos pela política
+ * de sanitização gravada na importação: o `downloads` exporta markdown
+ * (`content-editor/sanitizeUserMarkdown`), o `site` importará HTML
+ * (`site-comment-html`). Mandar HTML pelo `MarkdownContent` exibiria `<p>` cru
+ * ao leitor; mandar markdown pelo caminho HTML perderia a formatação.
+ *
+ * Os dois caminhos sanitizam na saída, que é a "defesa adicional na saída sem
+ * regravar" de `spec.md:444`: `MarkdownContent` termina em `DOMPurify`
+ * (`ContentEditor.tsx:21`) e o caminho HTML reaplica
+ * `sanitizeLegacyCommentHtml`, idempotente por invariante testada
+ * (`sanitize.test.ts:295-297`) — reaplicar não altera conteúdo já limpo, e
+ * protege caso a linha tenha entrado por um importador anterior à política
+ * corrente.
+ */
+function CommentBody({ value, format }: Readonly<{ value: string; format: 'markdown' | 'html' }>) {
+  if (format === 'markdown') return <MarkdownContent value={value} />;
+  return (
+    <div
+      className="artificio-markdown-content"
+      // Sanitizado na própria expressão, mesma política que o limpou na
+      // importação — mesmo padrão de `ContentEditor.tsx:33`, onde o HTML só
+      // chega ao DOM depois de passar pelo sanitizador.
+      dangerouslySetInnerHTML={{ __html: sanitizeLegacyCommentHtml(value) }}
+    />
+  );
 }
 
 function badgeLabel(
@@ -401,7 +432,16 @@ export function CommentsConversation({
       ? comment.legacy?.author_name ?? comment.author.display_name ?? 'Autoria não informada'
       : comment.author.display_name ?? 'Conta excluída';
     const label = legacy ? null : badgeLabel(comment.author.badge, contentAuthorLabel);
-    const body = comment.body_markdown === null ? null : visibleBody(comment.body_markdown);
+    // Corpo nativo passa por `visibleBody` (revalida a política corrente antes
+    // de renderizar); o importado NÃO pode passar. `validateCommentBody` aplica
+    // a regra de links HTTPS-only do requisito 10a, que é posterior ao conteúdo
+    // legado — um `http://` de 2015 devolveria `null` aqui e o comentário
+    // cairia em "Conteúdo indisponível.". Era esse o bug: sem corpo legado no
+    // payload, TODO comentário importado caía nesse placeholder.
+    const legacyBody = comment.legacy?.content_html ?? null;
+    const body = legacy
+      ? legacyBody
+      : comment.body_markdown === null ? null : visibleBody(comment.body_markdown);
     const canAct = mutationsEnabled && pendingAction === null;
 
     return (
@@ -436,7 +476,7 @@ export function CommentsConversation({
 
           <div className={classes('artificio-comments__body', slots.body)} data-comments-slot="body">
             {comment.state === 'visible' && body
-              ? <MarkdownContent value={body} />
+              ? <CommentBody value={body} format={legacy ? comment.legacy?.format ?? 'html' : 'markdown'} />
               : <p>{comment.state === 'visible' ? 'Conteúdo indisponível.' : statePlaceholder(comment.state)}</p>}
           </div>
 

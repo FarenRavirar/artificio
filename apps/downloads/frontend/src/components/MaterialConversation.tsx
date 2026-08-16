@@ -30,7 +30,7 @@ const CONTENT_AUTHOR_LABEL = 'Autor do material';
 
 export function MaterialConversation({ materialId }: Readonly<{ materialId: string }>) {
   const { user } = useSession();
-  const { state, sort, changeSort, client, loadMore } = useCommunityConversation({
+  const { state, sort, changeSort, client, loadMore, reload } = useCommunityConversation({
     materialId,
     userId: user?.id,
   });
@@ -85,6 +85,12 @@ export function MaterialConversation({ materialId }: Readonly<{ materialId: stri
         client={client}
         canCreate={Boolean(user)}
         permissions={permissions}
+        // Sem isto, a conversa anuncia "Comentário publicado." e continua
+        // exibindo a árvore anterior: a resposta da mutação não entra no
+        // `CommentsResource`, que só troca de dado ao reler. O comentário
+        // recém-escrito some da tela até uma recarga externa — o pior sinal
+        // possível logo depois de publicar, porque lê como fala perdida.
+        onActionComplete={reload}
         onMoreLoaded={loadMore}
         contentAuthorLabel={CONTENT_AUTHOR_LABEL}
         emptyMessage={

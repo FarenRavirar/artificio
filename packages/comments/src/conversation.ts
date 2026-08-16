@@ -82,11 +82,46 @@ export const conversationCommentSchema = z.object({
   legacy: z.object({
     source: z.string().min(1),
     author_name: z.string().min(1),
+    /**
+     * Corpo do comentário importado — `z.string()` cru, deliberadamente **não**
+     * `canonicalCommentBodySchema`.
+     *
+     * O schema canônico roda `validateCommentBody`, que aplica a política de
+     * links do requisito 10a: HTTPS-only, `http:` recusado com
+     * `INVALID_COMMENT_LINK`. Conteúdo importado é anterior a essa política e
+     * não teve chance de obedecê-la — um único `http://` num comentário de
+     * 2015 derrubaria o parse da **árvore inteira** (o `superRefine` é do
+     * comentário, mas o array falha junto), trocando a conversa toda por
+     * `schema_incompatible`. Validar na leitura o que já está gravado pune o
+     * leitor por uma regra que o autor não podia conhecer.
+     *
+     * Não sanitizar aqui é seguro e é o desenho: o conteúdo entrou sanitizado
+     * pelo exportador da origem, com política e versão declaradas
+     * (`exportLegacyComments.ts:132`), e a "defesa adicional na saída sem
+     * regravar" que `spec.md:444` exige é o `DOMPurify.sanitize()` de
+     * `renderMarkdown`, aplicado no render. Mesma forma que
+     * `moderation.ts:87` já usa para o mesmo campo.
+     */
+    content_html: z.string().nullable().default(null),
+    /**
+     * Como renderizar `content_html` — a coluna guarda os dois formatos.
+     *
+     * `.default('html')` e não obrigatório, pela mesma razão que
+     * `viewer_is_author` tem default: fachada ainda não atualizada continua
+     * parseando. O default é `html` porque é o caminho conservador na
+     * renderização — markdown exibido como HTML perde formatação, enquanto HTML
+     * exibido como markdown mostraria `<p>` cru ao leitor.
+     */
+    format: z.enum(['markdown', 'html']).default('html'),
   }).strict().nullable(),
 }).strict().superRefine((comment, context) => {
   const hidden = comment.state !== 'visible';
   if (hidden && (
     comment.body_markdown !== null
+    // O corpo legado entra na MESMA invariante que o nativo: são as duas
+    // metades do XOR do banco, e cobrir só uma deixaria o tombstone de um
+    // comentário importado exibir o texto que a moderação derrubou.
+    || comment.legacy?.content_html != null
     || comment.upvotes !== null
     || comment.downvotes !== null
     || comment.score !== null
@@ -289,6 +324,30 @@ export interface CommentsConversationSubject {
   readonly subjectId: string;
 }
 
+/**
+ * Chave de idempotência de uma tentativa de escrita.
+ *
+ * `contrato-http-v1.md` §6 a torna **obrigatória** em criação, resposta e
+ * edição: `readAuthorAndKey` (`communityCommentRoutes.ts:338-342`) recusa com
+ * `400 invalid_idempotency_key` quando o header falta ou foge de
+ * `[\x20-\x7E]{8,128}`. Sem esta função a conversa inteira era incapaz de
+ * publicar — toda mutação batia no `400`, nos três consumidores.
+ *
+ * Uma chave por **tentativa**, gerada aqui e não pelo host: o transporte já
+ * documenta (`transport.ts:59-68`) que a retentativa do MESMO envio precisa
+ * repetir a chave para o servidor devolver a resposta original em vez de
+ * duplicar a fala. Gerar por requisição HTTP quebraria exatamente esse caso;
+ * gerar por componente faria dois envios distintos colidirem, e o segundo
+ * receberia de volta o resultado do primeiro.
+ *
+ * `withdraw` e `vote` ficam de fora de propósito: o `DELETE` é idempotente por
+ * construção (a segunda chamada encontra o tombstone) e o voto é estado
+ * absoluto (decisão 12) — nenhum dos dois passa por `readAuthorAndKey`.
+ */
+function newIdempotencyKey(): string {
+  return globalThis.crypto.randomUUID();
+}
+
 export function createCommentsConversationClient(
   client: CommentsClient<CommentsConversationCapability>,
   subject: CommentsConversationSubject,
@@ -296,25 +355,50 @@ export function createCommentsConversationClient(
   return {
     read: (sort: CommentSortUi, cursor?: string, signal?: AbortSignal) =>
       client.execute(readCommentsThreadOperation, { ...subject, sort, cursor }, { signal }),
-    create: (bodyMarkdown: string, signal?: AbortSignal) =>
-      client.execute(createCommentOperation, { ...subject, bodyMarkdown }, { signal }),
-    reply: (commentId: string, bodyMarkdown: string, signal?: AbortSignal) =>
-      client.execute(replyToCommentOperation, { ...subject, commentId, bodyMarkdown }, { signal }),
-    edit: (commentId: string, bodyMarkdown: string, signal?: AbortSignal) =>
-      client.execute(editCommentOperation, { commentId, bodyMarkdown }, { signal }),
+    create: (bodyMarkdown: string, signal?: AbortSignal, idempotencyKey = newIdempotencyKey()) =>
+      client.execute(
+        createCommentOperation,
+        { ...subject, bodyMarkdown },
+        { signal, idempotencyKey },
+      ),
+    reply: (
+      commentId: string,
+      bodyMarkdown: string,
+      signal?: AbortSignal,
+      idempotencyKey = newIdempotencyKey(),
+    ) =>
+      client.execute(
+        replyToCommentOperation,
+        { ...subject, commentId, bodyMarkdown },
+        { signal, idempotencyKey },
+      ),
+    edit: (
+      commentId: string,
+      bodyMarkdown: string,
+      signal?: AbortSignal,
+      idempotencyKey = newIdempotencyKey(),
+    ) =>
+      client.execute(
+        editCommentOperation,
+        { commentId, bodyMarkdown },
+        { signal, idempotencyKey },
+      ),
     withdraw: (commentId: string, signal?: AbortSignal) =>
       client.execute(withdrawCommentOperation, { commentId }, { signal }),
     vote: (commentId: string, value: -1 | 0 | 1, signal?: AbortSignal) =>
       client.execute(setCommentVoteOperation, { commentId, value }, { signal }),
+    // A denúncia tem validação própria da chave
+    // (`communityModerationRoutes.ts:125-132`), com o mesmo formato.
     report: (
       commentId: string,
       reasonCode: CommentReportReason,
       details?: string,
       signal?: AbortSignal,
+      idempotencyKey = newIdempotencyKey(),
     ) => client.execute(
       createCommentReportOperation,
       { commentId, reasonCode, details },
-      { signal },
+      { signal, idempotencyKey },
     ),
   };
 }

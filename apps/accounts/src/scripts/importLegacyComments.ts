@@ -64,19 +64,43 @@ const legacyCommentSchema = z.object({
   content_html: z.string().min(1),
   sanitizer_policy: z.string().min(1).max(128),
   sanitizer_version: z.number().int().positive(),
-  removed_at: z.string().nullable(),
+  /**
+   * Timestamps validados como ISO-8601, e não como `string` livre.
+   *
+   * `new Date("qualquer coisa")` devolve `Invalid Date` sem lançar, e o
+   * `INSERT` só falharia lá no driver — ou pior, gravaria data errada quando a
+   * string é *parseável* mas não é o que a origem quis dizer. Validar na borda
+   * transforma um erro silencioso de dado em recusa explícita com o
+   * `legacy_id` no relatório de divergências.
+   */
+  removed_at: z.iso.datetime({ offset: true }).nullable(),
   removed_reason: z.string().nullable(),
-  created_at: z.string(),
+  created_at: z.iso.datetime({ offset: true }),
 });
 
 export const legacyExportSchema = z.object({
   source_app: z.enum(["downloads", "site", "mesas"]),
-  exported_at: z.string(),
+  exported_at: z.iso.datetime({ offset: true }),
   count: z.number().int().nonnegative(),
   comments: z.array(legacyCommentSchema),
 });
 
 export type LegacyExportPayload = z.infer<typeof legacyExportSchema>;
+
+/**
+ * Sinaliza "já estava importado" **abortando a transação**.
+ *
+ * Não é erro, e não entra em `divergences`: é o caminho normal da segunda
+ * execução. Existe como exceção porque o rollback é justamente o efeito
+ * desejado — ele desfaz o ator de remoção e o `updated_at` do assunto que a
+ * tentativa precisou escrever antes de descobrir o conflito.
+ */
+class SkipComment extends Error {
+  constructor() {
+    super("comentário já importado");
+    this.name = "SkipComment";
+  }
+}
 
 export interface ImportDivergence {
   legacy_id: string;
@@ -135,12 +159,17 @@ export async function importLegacyComments(
 
   for (const comment of comments) {
     try {
-      const outcome = await db.transaction().execute(
+      await db.transaction().execute(
         (trx) => insertLegacyComment(trx, comment, options.realm, source_app),
       );
-      if (outcome === "inserted") report.inserted += 1;
-      else report.skipped += 1;
+      report.inserted += 1;
     } catch (error: unknown) {
+      // `SkipComment` é o rollback deliberado da reexecução, não falha: conta
+      // como pulado e não polui o relatório de divergências.
+      if (error instanceof SkipComment) {
+        report.skipped += 1;
+        continue;
+      }
       report.divergences.push({
         legacy_id: comment.legacy_id,
         reason: error instanceof Error ? error.message : String(error),
@@ -156,7 +185,7 @@ async function insertLegacyComment(
   comment: z.infer<typeof legacyCommentSchema>,
   realm: "beta" | "prod",
   sourceApp: string,
-): Promise<"inserted" | "skipped"> {
+): Promise<void> {
   // Assunto sob demanda, igual à escrita viva: nada no sistema cria a linha
   // antes do primeiro comentário, e `ranking_revision` vive nela.
   // `ranking_revision` fica fora do `SET` — pertence ao voto, não ao import.
@@ -218,6 +247,14 @@ async function insertLegacyComment(
    * normal do sistema, não gambiarra: é o que resta de toda conta excluída.
    * Aqui ele representa "a moderação do módulo de origem", cuja identidade
    * nominal nunca existiu no `accounts.`
+   *
+   * **A FK não é DEFERRABLE** (só `current_version_id` é), então o ator precisa
+   * existir *antes* do `INSERT` do comentário — e é isso que torna o skip
+   * perigoso: com `onConflict doNothing`, a segunda execução pula o comentário
+   * mas mantém a transação viva até o `COMMIT`, e o ator recém-criado fica
+   * órfão. Cada reexecução do import deixaria mais um, para sempre. A saída é
+   * abortar a transação no skip (`SkipComment`, abaixo): o conflito é o caminho
+   * NORMAL da reexecução e não pode custar escrita nenhuma.
    */
   let removedByActorId: string | null = null;
   if (removedAt) {
@@ -306,7 +343,11 @@ async function insertLegacyComment(
     .returning(["id"])
     .executeTakeFirst();
 
-  if (!inserted) return "skipped";
+  // Conflito = já importado. Abortar a transação é o que desfaz o ator de
+  // remoção criado acima e o `updated_at` tocado no assunto — sem isso, "pulou"
+  // ainda seria uma escrita, e a idempotência valeria só para o comentário, não
+  // para o estado do banco.
+  if (!inserted) throw new SkipComment();
 
   await trx
     .insertInto("community_comment_version")
@@ -327,6 +368,4 @@ async function insertLegacyComment(
       redaction_reason: null,
     })
     .execute();
-
-  return "inserted";
 }

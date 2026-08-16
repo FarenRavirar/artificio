@@ -51,12 +51,46 @@ interface CommentQueryRow {
   root_id: string;
   depth: number;
   body_markdown: string | null;
-  // `legacy_content_html` NÃO entra aqui nem na projeção da CTE (achado de
-  // review, PR #245). Nenhum consumidor o lê — `toTreeRow` monta o payload só
-  // a partir de `body_markdown` —, então trazê-lo do banco significava
-  // trafegar HTML de origem legada por dentro do processo sem que ninguém o
-  // sanitizasse. Suporte a legado renderizável é T2.8, e entra pelo pipeline
-  // de sanitização, não por um campo carregado de carona.
+  /**
+   * Corpo do comentário importado (`community_comment_body_kind_check`: nativo
+   * usa `body_markdown`, legado usa este, nunca os dois).
+   *
+   * **Reintroduzido depois de medir o efeito de tê-lo excluído.** A revisão da
+   * PR #245 tirou o campo da CTE com o argumento de que "nenhum consumidor o lê"
+   * e que trazê-lo trafegaria HTML não sanitizado pelo processo. A primeira
+   * metade virou profecia autorrealizável — sem o campo na projeção,
+   * `toTreeRow` montava o corpo só de `body_markdown`, que o import deixa NULO
+   * por obrigação do `CHECK`, e todo comentário importado chegava à tela como
+   * "Conteúdo indisponível." (medido nos 3 comentários já importados em beta).
+   *
+   * A segunda metade não se sustenta na medição: o conteúdo **já entra
+   * sanitizado**. O exportador do módulo de origem aplica `sanitizeUserMarkdown`
+   * antes de exportar (`exportLegacyComments.ts:132`) e declara o par
+   * política/versão que viaja até `legacy_sanitizer_policy`/`_version` — é o
+   * desenho que `tasks.md:867` fixa de propósito, para **não** arrastar
+   * `@artificio/content-editor` para a imagem do `accounts.` (caso E016/E017,
+   * SSO fora por 5h). O nome da coluna é herança do schema genérico: no
+   * `downloads` a origem é `download_comment.body`, markdown que o componente
+   * antigo já renderizava com `MarkdownContent` (`CommentSection.tsx:96`).
+   *
+   * `spec.md:444` fecha a questão — legado tem "defesa adicional na saída sem
+   * regravar", e essa defesa é o `DOMPurify.sanitize()` com que `renderMarkdown`
+   * termina (`ContentEditor.tsx:21`), no consumidor que renderiza. Reter o campo
+   * aqui não protegia ninguém; só apagava o acervo.
+   */
+  legacy_content_html: string | null;
+  /**
+   * Sob qual regra o corpo legado foi limpo, e em que versão dela.
+   *
+   * Não é metadado decorativo: **a coluna guarda dois formatos diferentes**, e
+   * só a política os distingue. O `downloads` exporta markdown
+   * (`content-editor/sanitizeUserMarkdown`, `exportLegacyComments.ts:57`); o
+   * `site` importará HTML (`site-comment-html`, `sanitize.ts:369`). Sem a
+   * política no payload, o renderizador teria de adivinhar — e adivinhar errado
+   * significa exibir tag crua como texto, ou pior, tratar HTML como markdown.
+   */
+  legacy_sanitizer_policy: string | null;
+  legacy_sanitizer_version: number | null;
   visibility_state: string;
   edited_at: Date | null;
   created_at: Date;
@@ -156,7 +190,59 @@ export interface PublicComment {
    * nunca identificador. `false` na leitura anônima e em todo legado.
    */
   viewer_is_author: boolean;
-  legacy: { source: string; author_name: string } | null;
+  /**
+   * Proveniência e corpo do comentário importado, ou `null` no nativo.
+   *
+   * `content_html` mora **aqui dentro**, e não como irmão de `body_markdown`,
+   * porque o `community_comment_body_kind_check` é um XOR: nativo tem
+   * `body_markdown` e nenhum `legacy_*`; legado tem o oposto. Dois campos
+   * soltos no mesmo nível deixariam o consumidor achar que pode receber os
+   * dois, ou nenhum — o agrupamento faz o schema do payload dizer a mesma
+   * coisa que o `CHECK` do banco já diz.
+   *
+   * O nome preserva o da coluna. É enganoso (no `downloads` o conteúdo é
+   * markdown vindo de `download_comment.body`), mas renomear no payload
+   * criaria um terceiro vocabulário entre banco, moderação
+   * (`moderation.ts:87`) e conversa.
+   */
+  legacy: {
+    source: string;
+    author_name: string;
+    content_html: string | null;
+    /**
+     * Como o consumidor deve renderizar `content_html`.
+     *
+     * Derivado da política gravada, **não** a política crua: o payload entrega
+     * a decisão já tomada ("é markdown" / "é HTML") em vez de obrigar cada um
+     * dos três consumidores a reimplementar o mapeamento de string de política
+     * — o primeiro que errasse renderizaria HTML como markdown, exibindo tag
+     * crua ao leitor. Mesma razão de `badge` e `author.state` serem enum e não
+     * texto (`AuthorBadge`, acima).
+     */
+    format: LegacyBodyFormat;
+  } | null;
+}
+
+/**
+ * Formato do corpo importado, resolvido a partir de
+ * `legacy_sanitizer_policy`.
+ *
+ * `markdown` — política `content-editor/sanitizeUserMarkdown`: a origem já
+ * guardava markdown (no `downloads`, `download_comment.body`, que o componente
+ * antigo renderizava com `MarkdownContent`).
+ * `html` — política `site-comment-html`: HTML de verdade, limpo por
+ * `sanitizeLegacyCommentHtml` (T2.5).
+ */
+export type LegacyBodyFormat = "markdown" | "html";
+
+/** Política de sanitização → formato de render. */
+export function legacyBodyFormat(policy: string | null): LegacyBodyFormat {
+  // `html` é o default deliberado do desconhecido. Uma política que este
+  // código ainda não conhece é mais provavelmente HTML de um importador novo,
+  // e tratar HTML como markdown exibiria `<p>` cru ao leitor; o caminho HTML
+  // ainda passa pelo `DOMPurify` do render, então errar para este lado degrada
+  // a formatação, nunca a segurança.
+  return policy === "content-editor/sanitizeUserMarkdown" ? "markdown" : "html";
 }
 
 /**
@@ -347,6 +433,9 @@ export async function readCommentTree(
         c.root_id,
         c.depth,
         c.body_markdown,
+        c.legacy_content_html,
+        c.legacy_sanitizer_policy,
+        c.legacy_sanitizer_version,
         c.visibility_state,
         c.edited_at,
         c.created_at,
@@ -461,6 +550,9 @@ export async function readCommentTree(
       root_id,
       depth,
       body_markdown,
+      legacy_content_html,
+      legacy_sanitizer_policy,
+      legacy_sanitizer_version,
       visibility_state,
       edited_at,
       created_at,
@@ -643,7 +735,17 @@ function toTreeRow(row: CommentQueryRow): TreeRow {
     viewer_is_author: row.viewer_is_author ?? false,
     legacy:
       row.legacy_source && row.legacy_author_name
-        ? { source: row.legacy_source, author_name: row.legacy_author_name }
+        ? {
+            source: row.legacy_source,
+            author_name: row.legacy_author_name,
+            // Mesmo `hidden` que zera `body_markdown` logo acima, e pela mesma
+            // razão: tombstone e conteúdo sob revisão não expõem corpo
+            // (decisões 34, 46). Sem este guarda, retirar um comentário
+            // importado apagaria o corpo nativo e deixaria o legado visível —
+            // o vazamento entraria justamente pelo campo recém-adicionado.
+            content_html: hidden ? null : row.legacy_content_html,
+            format: legacyBodyFormat(row.legacy_sanitizer_policy),
+          }
         : null,
   };
 
