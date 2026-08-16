@@ -170,6 +170,49 @@ export interface ImportReport {
 }
 
 /**
+ * Sentinela de "o pai deveria existir e não existe" — distinta de `null`, que
+ * significa "este comentário é raiz". Um `null` para os dois casos faria o
+ * filho órfão ser importado como raiz, que é exatamente o que não pode.
+ */
+const PAI_AUSENTE = Symbol("pai-ausente");
+
+/**
+ * Resolve as coordenadas do pai: primeiro no mapa do lote, depois no banco.
+ *
+ * A segunda consulta não é redundância. Pai importado numa execução ANTERIOR
+ * cai em `SkipComment` e nunca entra no mapa deste lote; sem ela, o filho seria
+ * inserido como raiz — achatando a árvore em silêncio, justamente no caminho da
+ * reexecução, que roda mais vezes que a primeira carga.
+ */
+async function resolveParent(
+  db: Kysely<Database>,
+  comment: z.infer<typeof legacyCommentSchema>,
+  colocacoes: Map<string, ParentPlacement>,
+): Promise<ParentPlacement | null | typeof PAI_AUSENTE> {
+  const paiLegacyId = comment.parent_legacy_id;
+  if (!paiLegacyId) return null;
+
+  const doLote = colocacoes.get(paiLegacyId);
+  if (doLote) return doLote;
+
+  const existente = await db
+    .selectFrom("community_comment")
+    .select(["id", "root_id", "depth"])
+    // `comment.legacy_source` e NÃO `source_app`: o UNIQUE que sustenta a
+    // idempotência é `(legacy_source, legacy_id)`, e é `legacy_source` que a
+    // linha grava. Os dois quase sempre coincidem, mas o schema os mantém
+    // separados de propósito — `source_app` é o módulo que exporta,
+    // `legacy_source` é a origem histórica do dado. Filtrar pelo campo errado
+    // devolve nenhum pai e achata a árvore em silêncio.
+    .where("legacy_source", "=", comment.legacy_source)
+    .where("legacy_id", "=", paiLegacyId)
+    .executeTakeFirst();
+
+  if (!existente) return PAI_AUSENTE;
+  return { id: existente.id, rootId: existente.root_id, depth: existente.depth };
+}
+
+/**
  * Importa um lote dentro de uma transação por comentário.
  *
  * Transação por item, e não uma única para o lote inteiro: um comentário com
@@ -219,37 +262,16 @@ export async function importLegacyComments(
   const colocacoes = new Map<string, ParentPlacement>();
 
   for (const comment of ordered) {
-    const paiLegacyId = comment.parent_legacy_id;
-    // Pai importado numa execução ANTERIOR não está no mapa deste lote: na
-    // reexecução ele cai em `SkipComment` e nunca é colocado ali. Sem esta
-    // consulta, o filho seria inserido como raiz — silenciosamente achatando a
-    // árvore justamente no caminho que roda mais vezes.
-    let parent = paiLegacyId ? colocacoes.get(paiLegacyId) ?? null : null;
-    if (paiLegacyId && !parent) {
-      const existente = await db
-        .selectFrom("community_comment")
-        .select(["id", "root_id", "depth"])
-        // `comment.legacy_source` e NÃO `source_app`: o UNIQUE que sustenta a
-        // idempotência é `(legacy_source, legacy_id)`, e é `legacy_source` que
-        // a linha grava (`:448`). Os dois quase sempre coincidem, mas o schema
-        // os mantém separados de propósito — `source_app` é o módulo que
-        // exporta, `legacy_source` é a origem histórica do dado. Filtrar pelo
-        // campo errado devolve nenhum pai e achata a árvore em silêncio.
-        .where("legacy_source", "=", comment.legacy_source)
-        .where("legacy_id", "=", paiLegacyId)
-        .executeTakeFirst();
-      if (existente) {
-        parent = { id: existente.id, rootId: existente.root_id, depth: existente.depth };
-      } else {
-        // `orderByParent` garantiu que o pai está no lote; se ele não foi
-        // inserido nem existe no banco, foi ele que falhou. Importar o filho
-        // como raiz mentiria sobre a estrutura.
-        report.divergences.push({
-          legacy_id: comment.legacy_id,
-          reason: `pai ${paiLegacyId} não foi importado; filho não vira raiz`,
-        });
-        continue;
-      }
+    const parent = await resolveParent(db, comment, colocacoes);
+    if (parent === PAI_AUSENTE) {
+      // `orderByParent` garantiu que o pai está no lote; se ele não foi
+      // inserido nem existe no banco, foi ele que falhou. Importar o filho
+      // como raiz mentiria sobre a estrutura.
+      report.divergences.push({
+        legacy_id: comment.legacy_id,
+        reason: `pai ${comment.parent_legacy_id} não foi importado; filho não vira raiz`,
+      });
+      continue;
     }
 
     try {

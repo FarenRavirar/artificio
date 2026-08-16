@@ -185,20 +185,24 @@ export async function exportLegacyComments(): Promise<SiteLegacyExport> {
 }
 
 // Execução direta: `tsx db/exportLegacyComments.ts > export.json`
-if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, "/"))) {
-  exportLegacyComments()
-    .then((payload) => {
-      process.stdout.write(JSON.stringify(payload, null, 2));
-    })
-    .catch((error: unknown) => {
-      console.error("[export-legacy-comments]", error);
-      process.exitCode = 1;
-    })
+if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replaceAll("\\", "/"))) {
+  try {
+    process.stdout.write(JSON.stringify(await exportLegacyComments(), null, 2));
+  } catch (error: unknown) {
+    console.error("[export-legacy-comments]", error);
+    process.exitCode = 1;
+  } finally {
     // `finally` e não só no caminho de sucesso (achado de review, PR #264): com
     // o `close` depois do `catch`, uma falha na consulta deixava a conexão
     // aberta e o processo pendurado até o timeout do pool — num script de
     // cutover, isso trava a janela de migração sem dizer por quê.
-    .finally(async () => {
-      await getDb().then((db) => db.close()).catch(() => undefined);
-    });
+    //
+    // O `catch` vazio aqui é deliberado: falha ao FECHAR não pode mascarar o
+    // `exitCode` que a falha real acabou de definir.
+    try {
+      await (await getDb()).close();
+    } catch {
+      // silencioso de propósito, ver acima
+    }
+  }
 }

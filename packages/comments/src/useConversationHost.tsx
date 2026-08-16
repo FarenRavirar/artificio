@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import {
   createCommentsClient,
@@ -42,6 +42,9 @@ import { useCommentsResource } from './react.js';
  * contrato para todos, e é o que o `mesas` herda na Fase 7 sem uma terceira
  * cópia.
  */
+
+/** Árvore acumulada por `more`, carimbada com a identidade que a produziu. */
+type PaginaMesclada = { key: string; thread: CommentsThread } | null;
 
 interface RouteCall {
   readonly path: string;
@@ -143,7 +146,14 @@ export function createConversationTransport(config: ConversationHostConfig) {
     transport: {
       async execute(request: CommentsTransportRequest): Promise<unknown> {
         const route = routeFor(request, config);
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        // `Content-Type` só quando há corpo: declará-lo em `GET`/`DELETE`
+        // descreve um payload que não existe, e é o que faz uma requisição
+        // simples virar preflighted em CORS — irrelevante no `site`, que é
+        // same-origin, mas não no `downloads`, onde frontend e backend são
+        // origens distintas. A fachada do backend já segue essa regra
+        // (`communityComments.ts`, `isBodyless`).
+        const headers: Record<string, string> = {};
+        if (route.body !== undefined) headers['Content-Type'] = 'application/json';
         // A chave vem de quem dispara a ação — é o que faz a retentativa do
         // mesmo envio não duplicar a fala (`transport.ts:59-68`).
         if (request.idempotencyKey) headers['Idempotency-Key'] = request.idempotencyKey;
@@ -249,7 +259,17 @@ export function useConversationHost({
    * indistinguível de dado real.
    */
   const pagesKey = `${realm}|${subject.subjectType}|${subject.subjectId}|${userId ?? ''}|${sort}`;
-  const [pages, setPages] = useState<{ key: string; thread: CommentsThread } | null>(null);
+  const [pages, setPages] = useState<PaginaMesclada>(null);
+  /**
+   * Espelho síncrono de `pages`, para `loadMore` mesclar contra o valor mais
+   * recente sem precisar de lógica dentro do updater do `setPages` — que o
+   * React exige puro, e chama duas vezes sob `StrictMode`.
+   *
+   * A ref é escrita nos MESMOS pontos que o estado, sempre antes dele. Se as
+   * duas divergirem, a mesclagem seguinte parte de uma base que a tela não está
+   * mostrando.
+   */
+  const pagesRef = useRef<PaginaMesclada>(null);
   const validPages = pages?.key === pagesKey ? pages.thread : null;
 
   /**
@@ -264,34 +284,49 @@ export function useConversationHost({
    * que acabou de ser escrito.
    */
   const reload = useCallback(async () => {
+    // Ref e estado zerados juntos: um `loadMore` disparado logo depois leria a
+    // ref, e uma ref não limpa faria a mesclagem partir da árvore que a recarga
+    // acabou de invalidar.
+    pagesRef.current = null;
     setPages(null);
     await resource.load();
   }, [resource]);
 
   const loadMore = useCallback(async (page: CommentsThread, request: ConversationMoreNode) => {
-    // Atualização funcional: duas páginas de `more` resolvendo juntas leriam o
-    // mesmo `pages` capturado no render, e a segunda descartaria a primeira.
-    // Lendo o valor já comprometido, as duas se acumulam.
+    // A mesclagem acontece FORA do updater, contra o que a ref guarda (achado
+    // de review, PR #264).
     //
-    // O `try/catch` mora DENTRO do updater porque é ali que
-    // `mergeCommentsThreadPage` roda — o React chama esta função depois, e uma
-    // exceção lançada aqui não seria capturada por um `catch` externo. Sinaliza
-    // por variável em vez de relançar: lançar de dentro do updater derrubaria o
-    // render em vez de degradar para recarga.
-    let revisaoDivergente = false;
-    setPages((anterior) => {
-      const base = anterior?.key === pagesKey ? anterior.thread : state.data;
-      if (!base) return anterior;
-      try {
-        return { key: pagesKey, thread: mergeCommentsThreadPage(base, page, request.cursor) };
-      } catch {
-        revisaoDivergente = true;
-        return null;
-      }
-    });
+    // A versão anterior chamava `mergeCommentsThreadPage` dentro do updater de
+    // `setPages` e sinalizava falha mutando uma variável de escopo externo — as
+    // duas coisas quebram o contrato de pureza que o React exige ali. Não é
+    // teórico: `StrictMode` está ativo (`downloads/src/main.tsx:30`) e invoca o
+    // updater **duas vezes**, então a mesclagem rodava duplicada e o efeito
+    // colateral disparava duas vezes por página carregada.
+    //
+    // A ref resolve o que o updater funcional resolvia — ler o valor mais
+    // recente em vez do capturado no render, para que duas páginas concorrentes
+    // se acumulem em vez de uma descartar a outra — sem precisar de lógica
+    // dentro dele.
+    const atual = pagesRef.current;
+    const base = atual?.key === pagesKey ? atual.thread : state.data;
+    if (!base) return;
 
-    // Revisão divergente: recarrega em vez de exibir árvore inconsistente.
-    if (revisaoDivergente) await resource.load();
+    let mesclada: CommentsThread;
+    try {
+      mesclada = mergeCommentsThreadPage(base, page, request.cursor);
+    } catch {
+      // Revisão divergente: recarrega em vez de exibir árvore inconsistente.
+      pagesRef.current = null;
+      setPages(null);
+      await resource.load();
+      return;
+    }
+
+    // A ref é atualizada ANTES do `setPages`: a próxima página que resolver
+    // precisa enxergar esta mesclagem mesmo que o React ainda não tenha
+    // recomposto o estado.
+    pagesRef.current = { key: pagesKey, thread: mesclada };
+    setPages(pagesRef.current);
   }, [pagesKey, resource, state.data]);
 
   // A página mesclada só vale enquanto o resource não trouxer leitura nova.
