@@ -55,6 +55,9 @@ export function postCanonicalPath(slug: string): string {
  */
 const COMMENTABLE_STATUS = "publish";
 
+/** Máximo de `BIGINT` no PostgreSQL — `posts.id` é desse tipo. */
+const PG_BIGINT_MAX = 9223372036854775807n;
+
 /**
  * Cria o guard. O `Db` entra por parâmetro para o teste rodar contra um duplo
  * sem subir banco — a decisão é pura consulta, e fabricar cinco cenários de
@@ -82,7 +85,13 @@ export function createPostSubjectGuard(
     // certo é `404`. O intervalo seguro do JS não basta: `BIGINT` vai além de
     // `Number.MAX_SAFE_INTEGER`, então a validação é textual e o valor viaja
     // como string até o driver.
+    // Dígitos **e** dentro do alcance do `BIGINT`. Só o regex não basta: 19
+    // dígitos cabem no padrão mas `9999999999999999999` estoura o máximo do
+    // tipo (`9223372036854775807`), e o Postgres responderia com erro de driver
+    // — `500` onde o certo é `404` (achado de review, PR #264). `BigInt` porque
+    // `Number` perde precisão bem antes desse limite.
     if (!/^\d{1,19}$/.test(subject.subjectId)) return refuse("not_found");
+    if (BigInt(subject.subjectId) > PG_BIGINT_MAX) return refuse("not_found");
 
     const db = await loadDb();
     const result = await db.query<{ slug: string; status: string }>(

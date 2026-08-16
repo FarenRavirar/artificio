@@ -5179,7 +5179,7 @@
       "method": "GET",
       "path": "/api/v1/community/conversation",
       "sourceFile": "apps/site/server/community-api.ts",
-      "line": 245,
+      "line": 268,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -5188,7 +5188,7 @@
       "method": "POST",
       "path": "/api/v1/community/conversation",
       "sourceFile": "apps/site/server/community-api.ts",
-      "line": 268,
+      "line": 310,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -5206,7 +5206,7 @@
       "method": "DELETE",
       "path": "/api/v1/community/conversation/:id",
       "sourceFile": "apps/site/server/community-api.ts",
-      "line": 311,
+      "line": 353,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -5215,7 +5215,7 @@
       "method": "PATCH",
       "path": "/api/v1/community/conversation/:id",
       "sourceFile": "apps/site/server/community-api.ts",
-      "line": 304,
+      "line": 346,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -5224,7 +5224,7 @@
       "method": "POST",
       "path": "/api/v1/community/conversation/:id/replies",
       "sourceFile": "apps/site/server/community-api.ts",
-      "line": 282,
+      "line": 324,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -5233,7 +5233,7 @@
       "method": "PUT",
       "path": "/api/v1/community/conversation/:id/vote",
       "sourceFile": "apps/site/server/community-api.ts",
-      "line": 318,
+      "line": 360,
       "confidence": "high",
       "kind": "express-route"
     },

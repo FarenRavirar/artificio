@@ -164,12 +164,23 @@ describe("contrato multi-origem (site)", () => {
     expect(parsed.success).toBe(false);
   });
 
-  it("aceita removed_at ausente — o site não tem coluna de remoção", () => {
+  it("aceita removed_at ausente E nulo, sem inventar tombstone", () => {
     // `site.comments` (`001_init.sql:66-73`) não tem `removed_at`. O exportador
-    // omite em vez de fabricar `null` para coluna inexistente.
-    const parsed = legacyExportSchema.safeParse(exportDoSite([comentarioDoSite()]));
+    // omite em vez de fabricar `null` para coluna inexistente — mas o `nullish`
+    // admite as duas formas, e as duas precisam significar "não removido".
+    const ausente = legacyExportSchema.safeParse(exportDoSite([comentarioDoSite()]));
+    expect(ausente.success).toBe(true);
+    // A forma, não só o `success`: um default acidental para data faria o
+    // importador criar `community_actor` e marcar `moderator_removed` — o
+    // caminho de tombstone que o `site` não deve exercer nunca.
+    if (ausente.success) {
+      expect(ausente.data.comments[0]?.removed_at ?? null).toBeNull();
+    }
 
-    expect(parsed.success).toBe(true);
+    const nulo = legacyExportSchema.safeParse(
+      exportDoSite([{ ...comentarioDoSite(), removed_at: null, removed_reason: null }]),
+    );
+    expect(nulo.success).toBe(true);
   });
 
   it("continua aceitando o formato do downloads, sem author_name", () => {
@@ -502,7 +513,7 @@ describe.skipIf(!db)("importação do site contra PostgreSQL real", () => {
 
     const linhas = await db!
       .selectFrom("community_comment")
-      .select(["legacy_id", "legacy_author_name", "community_actor_id", "body_markdown",
+      .select(["id", "legacy_id", "legacy_author_name", "community_actor_id", "body_markdown",
         "legacy_content_html", "legacy_sanitizer_policy", "parent_id", "root_id", "depth"])
       .where("source_app", "=", "site")
       .where("subject_id", "=", subjectId)
@@ -526,10 +537,14 @@ describe.skipIf(!db)("importação do site contra PostgreSQL real", () => {
     // `community_comment_root_shape_check`: raiz aponta para si, filho herda o
     // `root_id` do pai e soma 1 na profundidade. Achatar tudo em raiz
     // transformaria resposta em comentário solto.
-    expect(linhaRaiz.root_id).toBe(linhaRaiz.parent_id === null ? linhaRaiz.root_id : null);
+    // A asserção anterior comparava `root_id` consigo mesmo — passava sempre,
+    // inclusive com a hierarquia achatada (achado de review, PR #264). O que
+    // prova a forma é comparar contra o `id` da própria linha.
+    expect(linhaRaiz.parent_id).toBeNull();
+    expect(linhaRaiz.root_id).toBe(linhaRaiz.id);
     expect(linhaRaiz.depth).toBe(0);
-    expect(linhaFilho.parent_id).toBe(linhaRaiz.root_id);
-    expect(linhaFilho.root_id).toBe(linhaRaiz.root_id);
+    expect(linhaFilho.parent_id).toBe(linhaRaiz.id);
+    expect(linhaFilho.root_id).toBe(linhaRaiz.id);
     expect(linhaFilho.depth).toBe(1);
   });
 

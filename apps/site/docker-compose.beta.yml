@@ -32,7 +32,13 @@ services:
       # T6.4 (spec 090) — fachada da conversa. Credencial de beta ja provisionada
       # no `accounts.` (`community_service_credential`, escopos comment.read e
       # comment.write). Sem as duas vars a fachada responde `503`.
-      - ACCOUNTS_URL=${ACCOUNTS_URL:-https://accounts.artificiorpg.com}
+      # `:?` e não `:-`: o default silencioso apontaria beta para o `accounts.`
+      # de PRODUÇÃO se a variável faltasse (achado de review, PR #264). A
+      # credencial de beta seria recusada lá, então não há escrita cruzada — mas
+      # o sintoma vira `401` inexplicável em vez de falha de partida com o nome
+      # da variável que falta. Em prod o default é o próprio host de prod, que é
+      # inofensivo; aqui não é.
+      - ACCOUNTS_URL=${ACCOUNTS_URL:?ACCOUNTS_URL is required}
       - SERVICE_CREDENTIAL=${SERVICE_CREDENTIAL:?SERVICE_CREDENTIAL is required}
       - SITE_NOINDEX=true
       - JWT_SECRET=${JWT_SECRET}

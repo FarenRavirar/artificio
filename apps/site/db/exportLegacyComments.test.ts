@@ -83,6 +83,21 @@ describe('export do acervo legado do site', () => {
     expect(payload.comments[0]?.content_html).toContain('oi');
   });
 
+  it('nunca emite corpo vazio, mesmo quando a sanitização remove tudo', async () => {
+    bancoCom([linha({ content_html: '<script>alert(1)</script>' })]);
+
+    const payload = await exportLegacyComments();
+
+    // `cleanHtml` devolve string vazia quando o corpo era só markup fora da
+    // allowlist, e o schema do importador exige `content_html` não-vazio
+    // (`z.string().min(1)`) — a linha viraria divergência e o comentário se
+    // perderia. O requisito 24b manda preservar o acervo.
+    expect(payload.comments[0]?.content_html).not.toBe('');
+    expect(payload.comments[0]?.content_html).toContain('removido na sanitização');
+    // E o marcador não pode reintroduzir o que foi removido.
+    expect(payload.comments[0]?.content_html).not.toContain('script');
+  });
+
   it('usa rótulo neutro quando o nome vem vazio', async () => {
     bancoCom([linha({ author_name: '   ' })]);
 

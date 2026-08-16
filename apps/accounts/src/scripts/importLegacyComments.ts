@@ -229,7 +229,13 @@ export async function importLegacyComments(
       const existente = await db
         .selectFrom("community_comment")
         .select(["id", "root_id", "depth"])
-        .where("legacy_source", "=", source_app)
+        // `comment.legacy_source` e NÃO `source_app`: o UNIQUE que sustenta a
+        // idempotência é `(legacy_source, legacy_id)`, e é `legacy_source` que
+        // a linha grava (`:448`). Os dois quase sempre coincidem, mas o schema
+        // os mantém separados de propósito — `source_app` é o módulo que
+        // exporta, `legacy_source` é a origem histórica do dado. Filtrar pelo
+        // campo errado devolve nenhum pai e achata a árvore em silêncio.
+        .where("legacy_source", "=", comment.legacy_source)
         .where("legacy_id", "=", paiLegacyId)
         .executeTakeFirst();
       if (existente) {
@@ -340,6 +346,19 @@ async function insertLegacyComment(
   const removedAt = comment.removed_at ? new Date(comment.removed_at) : null;
 
   /**
+   * Coordenadas na árvore, calculadas UMA vez e usadas tanto no `INSERT` quanto
+   * no retorno — o mapa do lote precisa dizer exatamente o que foi gravado.
+   *
+   * `community_comment_root_shape_check` exige `root_id = id` e `depth = 0` na
+   * raiz; resposta herda o `root_id` do pai e soma 1.
+   */
+  const colocacao: ParentPlacement = {
+    id: commentId,
+    rootId: parent?.rootId ?? commentId,
+    depth: parent ? parent.depth + 1 : 0,
+  };
+
+  /**
    * Ator que assina a remoção herdada.
    *
    * `community_comment_removal_check` exige `removed_by_actor_id IS NOT NULL`
@@ -412,8 +431,8 @@ async function insertLegacyComment(
       // resposta em comentário solto, e o requisito 12a ("tombstone preserva
       // posição e descendentes") deixaria de fazer sentido no acervo migrado.
       parent_id: parent?.id ?? null,
-      root_id: parent?.rootId ?? commentId,
-      depth: parent ? parent.depth + 1 : 0,
+      root_id: colocacao.rootId,
+      depth: colocacao.depth,
       // Corpo do legado vive em `legacy_content_html`, e `body_markdown` fica
       // nulo — a outra metade do `community_comment_body_kind_check`. O
       // requisito 10 fecha o desenho: "o HTML legado continua em campo próprio,
@@ -491,12 +510,10 @@ async function insertLegacyComment(
     .execute();
 
   // Devolve as coordenadas para o mapa do lote: é o que permite o filho
-  // referenciar o pai sem consultar o banco de novo.
-  return {
-    id: commentId,
-    rootId: parent?.rootId ?? commentId,
-    depth: parent ? parent.depth + 1 : 0,
-  };
+  // referenciar o pai sem consultar o banco de novo. É o MESMO objeto usado no
+  // `INSERT` acima — calcular duas vezes deixaria o mapa do lote divergir do
+  // que está gravado se alguém editasse só um dos lados.
+  return colocacao;
 }
 
 /**
@@ -520,24 +537,36 @@ export function orderByParent<T extends { legacy_id: string; parent_legacy_id?: 
   const presentes = new Set(comments.map((comment) => comment.legacy_id));
   const resolvidos = new Set<string>();
   const ordered: T[] = [];
-  let pendentes = comments.filter((comment) => {
-    // Pai fora do lote é órfão desde já: não adianta esperar as rodadas.
+
+  // Uma passada só, separando órfão (pai fora do lote — não adianta esperar as
+  // rodadas) do resto. `includes` em array dentro de laço seria O(n²): com 25
+  // comentários não pesa, mas o mesmo código atende qualquer lote futuro.
+  const foraDoLote: T[] = [];
+  let pendentes: T[] = [];
+  for (const comment of comments) {
     const pai = comment.parent_legacy_id;
-    return !pai || presentes.has(pai);
-  });
-  const foraDoLote = comments.filter((comment) => !pendentes.includes(comment));
+    if (pai && !presentes.has(pai)) foraDoLote.push(comment);
+    else pendentes.push(comment);
+  }
 
   let avancou = true;
   while (avancou && pendentes.length > 0) {
-    const prontos = pendentes.filter(
-      (comment) => !comment.parent_legacy_id || resolvidos.has(comment.parent_legacy_id),
-    );
-    avancou = prontos.length > 0;
-    for (const comment of prontos) {
-      ordered.push(comment);
-      resolvidos.add(comment.legacy_id);
+    const restantes: T[] = [];
+    const emitidos: string[] = [];
+    for (const comment of pendentes) {
+      if (!comment.parent_legacy_id || resolvidos.has(comment.parent_legacy_id)) {
+        ordered.push(comment);
+        // Só entra em `resolvidos` no fim da RODADA: marcar durante o laço
+        // deixaria um filho enxergar o pai emitido na mesma passada e sair
+        // fora de ordem quando a entrada já vem ordenada por acaso.
+        emitidos.push(comment.legacy_id);
+      } else {
+        restantes.push(comment);
+      }
     }
-    pendentes = pendentes.filter((comment) => !prontos.includes(comment));
+    avancou = emitidos.length > 0;
+    for (const id of emitidos) resolvidos.add(id);
+    pendentes = restantes;
   }
 
   // O que restou em `pendentes` está em ciclo; `foraDoLote` são os órfãos.

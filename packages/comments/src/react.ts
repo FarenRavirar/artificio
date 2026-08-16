@@ -108,6 +108,22 @@ export {
   commentsThreadSchema,
 } from './conversation.js';
 
+/**
+ * Host da conversa, compartilhado pelos módulos (T6.4, spec 090).
+ *
+ * Extraído das cópias de `downloads` e `site`, que tinham 72,9% de linhas
+ * idênticas — e, pior, divergiam: as correções de review do `site` não haviam
+ * chegado ao `downloads`, deixando dois defeitos lá em produção. Sai por
+ * `/react` porque depende de hooks.
+ */
+export {
+  createConversationTransport,
+  useConversationHost,
+  ConversationApiError,
+  type ConversationHostConfig,
+  type UseConversationHostOptions,
+} from './useConversationHost.js';
+
 export {
   CommentAppealForm,
   CommentReportPanel,

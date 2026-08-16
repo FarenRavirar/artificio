@@ -155,6 +155,19 @@ describe('guard de post publicado', () => {
     expect(query).not.toHaveBeenCalled();
   });
 
+  it('recusa id que estoura o BIGINT antes de tocar o banco', async () => {
+    const query = vi.fn();
+    const guard = createPostSubjectGuard(() => Promise.resolve({ query } as never));
+
+    // 19 dígitos passam no regex mas excedem o máximo do `BIGINT`
+    // (9223372036854775807): o Postgres responderia com erro de driver, virando
+    // `500` onde o correto é `404` (achado de review, PR #264).
+    const result = await guard({ subjectType: SITE_SUBJECT_TYPE, subjectId: '9999999999999999999' }, 'u');
+
+    expect(result.authorized).toBe(false);
+    expect(query).not.toHaveBeenCalled();
+  });
+
   it('escapa slug no canonical_path', () => {
     expect(postCanonicalPath('pós & cia')).toBe('/blog/p%C3%B3s%20%26%20cia/');
   });
@@ -206,6 +219,41 @@ describe('fachada da conversa', () => {
     expect((chamada?.[1]?.headers as Record<string, string>)['X-Service-Token']).toBe('token-de-servico');
   });
 
+  it('recusa leitura de post não publicado com 404, sem chamar o accounts.', async () => {
+    const guardRecusa: CommentSubjectGuard = async () => refuse('not_visible');
+    const spy = interceptaAccounts(new Response('{}', { status: 200 }));
+
+    const response = await call(communityApi(guardRecusa), '/?subject_id=42');
+
+    // Sem o guard na LEITURA, `?subject_id=<rascunho>` distinguiria post
+    // existente de inexistente pela resposta — oráculo de existência sobre
+    // conteúdo não publicado. Vale mesmo com árvore vazia: o que vaza é o id
+    // ser válido (achado de review, PR #264).
+    expect(response.status).toBe(404);
+    expect(spy.mock.calls.filter(([url]) => ehAccounts(url))).toHaveLength(0);
+  });
+
+  it('descarta Idempotency-Key fora do formato em vez de virar 503', async () => {
+    const spy = interceptaAccounts(new Response('{}', { status: 200 }));
+
+    const response = await call(communityApi(guardOk), '/', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        cookie: `artificio_session=${SESSAO_VALIDA}`,
+        // Não-ASCII: `fetch` LANÇA `TypeError` com isso no header, e o `catch`
+        // do proxy traduziria em `503` — "o accounts. está fora" quando o
+        // problema é o header do cliente.
+        'idempotency-key': 'chave-com-acento-çãô',
+      },
+      body: JSON.stringify({ subject_id: '42', body_markdown: 'olá' }),
+    });
+
+    expect(response.status).not.toBe(503);
+    const chamada = spy.mock.calls.find(([url]) => ehAccounts(url));
+    expect((chamada?.[1]?.headers as Record<string, string>)['Idempotency-Key']).toBeUndefined();
+  });
+
   it('vira 502 quando o accounts. responde algo que não é JSON', async () => {
     interceptaAccounts(new Response('<html>bad gateway</html>', { status: 200 }));
 
@@ -229,10 +277,11 @@ describe('fachada da conversa', () => {
 
   it('devolve 404 uniforme quando o guard recusa o assunto', async () => {
     const guardRecusa: CommentSubjectGuard = async () => refuse('not_visible');
-    // Token REAL, assinado com o mesmo `JWT_SECRET` que `requireAuth` verifica.
-    // Injetar `req.session` por middleware pularia justamente o caminho de
-    // autenticação que a rota de escrita exige — o teste passaria mesmo se o
-    // `requireAuth` saísse da rota.
+    // A sessão passa pelo duplo de `requireAuth` (topo do arquivo), que compara
+    // o cookie por igualdade — não assina nem valida JWT. O que isto garante é
+    // que a rota **exige** o middleware: injetar `req.session` direto faria o
+    // teste passar mesmo se o `requireAuth` saísse da rota. A validação real da
+    // assinatura é do `@artificio/auth`, testada lá.
     const spy = interceptaAccounts(new Response('{}', { status: 200 }));
 
     const response = await call(communityApi(guardRecusa), '/', {

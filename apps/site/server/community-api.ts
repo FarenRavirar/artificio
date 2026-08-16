@@ -88,9 +88,25 @@ const isBodyless = (method: string): boolean => ["GET", "HEAD"].includes(method.
  * log nenhum do cliente e só poluiria a busca.
  */
 export function readCorrelationId(header: string | undefined): string | null {
+  return readAsciiHeader(header);
+}
+
+/**
+ * Valida header repassado adiante: ASCII imprimível, 1..128.
+ *
+ * Duas razões, e as duas já custaram incidente em algum lugar: caractere de
+ * controle num valor que vai para log e para outra requisição é o vetor
+ * clássico de response splitting; e `fetch` **lança** `TypeError` em valor
+ * não-ASCII, que o `catch` de `proxyAccounts` traduziria em `503` — um erro do
+ * cliente virando "serviço indisponível".
+ *
+ * O limite de 128 vem do contrato para `X-Correlation-Id`
+ * (`contrato-http-v1.md` §1.1) e cobre com folga o formato que o `accounts.`
+ * aceita para `Idempotency-Key` (`[\x20-\x7E]{8,128}`) — o piso de 8 é
+ * validado lá, não aqui, para não existirem duas listas de regras divergindo.
+ */
+function readAsciiHeader(header: string | undefined): string | null {
   if (typeof header !== "string" || header.length === 0 || header.length > 128) return null;
-  // ASCII imprimível: header com caractere de controle vai para log e response
-  // splitting é o risco clássico dessa combinação.
   return /^[\x20-\x7E]+$/.test(header) ? header : null;
 }
 
@@ -129,7 +145,14 @@ async function proxyAccounts(
   // cobrir — envio que dá timeout depois de o servidor confirmar a escrita.
   // Reenviar com chave nova duplica a fala; com a mesma, o `accounts.` devolve a
   // resposta original (§6).
-  const idempotencyKey = req.header("idempotency-key");
+  //
+  // Validada antes de virar header (achado de review, PR #264): `fetch` lança
+  // `TypeError` em valor não-ASCII, e o `catch` abaixo traduziria isso em
+  // `503` — dizendo "o `accounts.` está fora" quando o problema é o header que
+  // o cliente mandou. Chave fora do formato é descartada e a requisição segue
+  // sem ela: o `accounts.` então recusa com `400 invalid_idempotency_key`, que
+  // é o erro correto e acionável, em vez de indisponibilidade inventada.
+  const idempotencyKey = readAsciiHeader(req.header("idempotency-key"));
   if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
   if (correlation) headers["X-Correlation-Id"] = correlation;
 
@@ -243,25 +266,44 @@ export function communityApi(subjectGuard: CommentSubjectGuard = createPostSubje
 
   /** Leitura da árvore. Pública; com sessão, o ator vai junto para `my_vote` (§2). */
   r.get("/", readRateLimiter, optionalAuth, (req: Request, res: Response, next: NextFunction) => {
-    const subjectId = typeof req.query.subject_id === "string" ? req.query.subject_id : "";
-    if (!subjectId) {
-      res.status(400).json({ error: "invalid_query", detail: "subject_id é obrigatório." });
-      return;
-    }
+    void (async () => {
+      const subjectId = typeof req.query.subject_id === "string" ? req.query.subject_id : "";
+      if (!subjectId) {
+        res.status(400).json({ error: "invalid_query", detail: "subject_id é obrigatório." });
+        return;
+      }
 
-    const query = new URLSearchParams({
-      subject_type: SITE_SUBJECT_TYPE,
-      subject_id: subjectId,
-    });
-    // `sort` e `cursor` passam adiante sem interpretação: o vocabulário é do
-    // `accounts.` (§2), e validar aqui criaria uma segunda lista de sorts para
-    // divergir da dele.
-    if (typeof req.query.sort === "string") query.set("sort", req.query.sort);
-    if (typeof req.query.cursor === "string") query.set("cursor", req.query.cursor);
+      // A LEITURA também passa pelo guard, e não só a escrita (achado de
+      // review, PR #264). T6.4 pede "validação de post publicado" sem
+      // restringir a escritas, e a tabela de responsabilidades do contrato
+      // (`contrato-http-v1.md:602`) lista leitura como dever da fachada.
+      //
+      // Sem isto, `?subject_id=<id de rascunho>` confirmaria a existência do
+      // post pela diferença entre `200` com árvore vazia e `404` — oráculo de
+      // existência sobre conteúdo não publicado, que é justamente o que o `404`
+      // uniforme existe para fechar. Vale mesmo com a árvore vazia: o que vaza
+      // é o id ser válido, não o comentário.
+      //
+      // `actingUserId` vem vazio em leitura anônima (§Headers: "ausente em
+      // leitura pública"); o guard do `site` não distingue quem pergunta,
+      // porque `posts` não tem dono (ver `postSubjectGuard.ts`).
+      const autorizado = await authorizeSubject(subjectId, actingUserIdOf(req) ?? "", res);
+      if (!autorizado) return;
 
-    proxyAccounts(req, res, `/internal/v1/comments?${query.toString()}`, {
-      actingUserId: actingUserIdOf(req),
-    }).catch(next);
+      const query = new URLSearchParams({
+        subject_type: SITE_SUBJECT_TYPE,
+        subject_id: subjectId,
+      });
+      // `sort` e `cursor` passam adiante sem interpretação: o vocabulário é do
+      // `accounts.` (§2), e validar aqui criaria uma segunda lista de sorts para
+      // divergir da dele.
+      if (typeof req.query.sort === "string") query.set("sort", req.query.sort);
+      if (typeof req.query.cursor === "string") query.set("cursor", req.query.cursor);
+
+      await proxyAccounts(req, res, `/internal/v1/comments?${query.toString()}`, {
+        actingUserId: actingUserIdOf(req),
+      });
+    })().catch(next);
   });
 
   /** Criação de comentário raiz (§3). */

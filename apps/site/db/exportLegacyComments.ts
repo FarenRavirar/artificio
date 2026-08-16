@@ -104,6 +104,15 @@ export interface SiteLegacyExport {
  */
 const AUTOR_SEM_NOME = "Visitante";
 
+/**
+ * Corpo quando a sanitização não deixa nada aproveitável.
+ *
+ * Já sanitizado por construção (texto puro entre `<p>`), então não reintroduz o
+ * que a allowlist removeu. Marca a linha para conferência humana em vez de
+ * fingir que o comentário tinha esse texto.
+ */
+const CORPO_SEM_CONTEUDO_SEGURO = "<p>[conteúdo removido na sanitização]</p>";
+
 export async function exportLegacyComments(): Promise<SiteLegacyExport> {
   const db = await getDb();
 
@@ -149,7 +158,13 @@ export async function exportLegacyComments(): Promise<SiteLegacyExport> {
     // importador não sanitiza porque `sanitize-html` não é dependência do
     // `accounts.` — arrastar pacote para a imagem do app sagrado é o caso
     // E016/E017.
-    content_html: cleanHtml(row.content_html),
+    // `cleanHtml` pode devolver string VAZIA quando o corpo era só markup fora
+    // da allowlist (achado de review, PR #264) — e o schema do importador exige
+    // `content_html` não-vazio (`z.string().min(1)`), então o comentário seria
+    // recusado como divergência. Perder a linha inteira é pior que perder a
+    // formatação: o requisito 24b manda preservar o acervo, e o marcador diz a
+    // verdade ao leitor em vez de sumir com a fala.
+    content_html: cleanHtml(row.content_html) || CORPO_SEM_CONTEUDO_SEGURO,
     sanitizer_policy: LEGACY_SANITIZER_POLICY,
     sanitizer_version: LEGACY_SANITIZER_VERSION,
     // `created_at` é nullable no schema (`:71`). Sem data, o comentário entraria
@@ -174,11 +189,16 @@ if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, "
   exportLegacyComments()
     .then((payload) => {
       process.stdout.write(JSON.stringify(payload, null, 2));
-      return getDb();
     })
-    .then((db) => db.close())
     .catch((error: unknown) => {
       console.error("[export-legacy-comments]", error);
       process.exitCode = 1;
+    })
+    // `finally` e não só no caminho de sucesso (achado de review, PR #264): com
+    // o `close` depois do `catch`, uma falha na consulta deixava a conexão
+    // aberta e o processo pendurado até o timeout do pool — num script de
+    // cutover, isso trava a janela de migração sem dizer por quê.
+    .finally(async () => {
+      await getDb().then((db) => db.close()).catch(() => undefined);
     });
 }
