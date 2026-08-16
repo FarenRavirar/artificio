@@ -130,11 +130,13 @@ export const api = {
   createTerm: (kind: "category" | "tag", name: string, parent_id?: number | null) =>
     req<Term>(`/taxonomies`, { method: "POST", body: JSON.stringify({ kind, name, parent_id }) }),
 
-  // Normaliza na fronteira: `req` faz cast cru do JSON, e `available` é o campo que decide
-  // se o aviso de "slug em uso" aparece. Um `available` ausente/não-booleano cairia em
-  // falsy e marcaria como indisponível um slug livre — por isso o default é `true`
-  // (disponível), que é o comportamento seguro: não bloqueia o autor por resposta
-  // malformada. `slug`/`suggestion` viram string vazia se não forem string (review #265).
+  // Normaliza na fronteira: `req` faz cast cru do JSON, e `available` decide se o aviso de
+  // "slug em uso" aparece. Aqui o fallback é deliberado e diverge das listas (que lançam
+  // erro em payload inválido, achado Codex P2 na #267): este endpoint é chamado a cada
+  // digitação com debounce, e é dica de UI, não fonte da verdade — quem desambigua slug
+  // duplicado é o servidor no save. Transformar resposta malformada em erro encheria a
+  // tela de alerta enquanto o autor digita; deixar `available: true` no máximo omite um
+  // aviso, e o save corrige. `slug`/`suggestion` viram string vazia se não forem string.
   slugCheck: async (type: "post" | "page", title: string, id?: number): Promise<{ slug: string; available: boolean; suggestion: string }> => {
     const r = await req<unknown>(`/slug-check${qs({ type, title, id })}`);
     const o = (r ?? {}) as Record<string, unknown>;

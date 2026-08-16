@@ -2568,7 +2568,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.createCatalogNode",
-      "line": 83
+      "line": 91
     },
     {
       "app": "site-admin",
@@ -2578,7 +2578,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.updateCatalogNode",
-      "line": 82
+      "line": 90
     },
     {
       "app": "site-admin",
@@ -2638,7 +2638,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.updateMedia",
-      "line": 50
+      "line": 54
     },
     {
       "app": "site-admin",
@@ -2648,7 +2648,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.deleteMedia",
-      "line": 61
+      "line": 65
     },
     {
       "app": "site-admin",
@@ -2698,7 +2698,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.deletePage",
-      "line": 72
+      "line": 76
     },
     {
       "app": "site-admin",
@@ -2708,7 +2708,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.setPageStatus",
-      "line": 72
+      "line": 76
     },
     {
       "app": "site-admin",
@@ -2758,7 +2758,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.deletePost",
-      "line": 78
+      "line": 82
     },
     {
       "app": "site-admin",
@@ -2768,7 +2768,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.setPostStatus",
-      "line": 78
+      "line": 82
     },
     {
       "app": "site-admin",
@@ -2808,7 +2808,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 162
+      "line": 164
     },
     {
       "app": "site-admin",
@@ -2818,7 +2818,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 191
+      "line": 193
     }
   ]
 }

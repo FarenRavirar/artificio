@@ -48,9 +48,13 @@ export function PostsList() {
   // render em cascata (react-hooks/set-state-in-effect) — `loading` já nasce `true`.
   const fetchInto = useCallback((query: string, st: string) => {
     api.listPosts(query, st)
-      // `req<T>` faz cast cru do JSON: sem a guarda, payload malformado vira `items`
-      // não-array e quebra no `.map` do render (achado de review #265).
-      .then((res) => setItems(Array.isArray(res) ? res : []))
+      // `req<T>` faz cast cru do JSON, então valida-se aqui. Payload não-array vira ERRO,
+      // não lista vazia: cair em `[]` silencioso faria a tela dizer "Nenhum post" e o
+      // autor leria falha de contrato como perda de conteúdo (achado Codex P2 na #267).
+      .then((res) => {
+        if (!Array.isArray(res)) throw new Error("Resposta inesperada do servidor ao listar posts.");
+        setItems(res);
+      })
       .catch((e) => setErr(String(e.message)))
       .finally(() => setLoading(false));
   }, []);

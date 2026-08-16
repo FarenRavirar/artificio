@@ -45,9 +45,9 @@ export function CatalogSystemsPage() {
   const [err, setErr] = useState("");
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
 
-  // `?? []` cobre null/undefined, mas não `tree` vindo como não-array do cast cru de
-  // `req<T>` — aí o `.map` quebraria a tela (achado de review #265).
-  const uiTree = useMemo(() => (Array.isArray(snapshot?.tree) ? snapshot.tree : []).map(toUiNode), [snapshot]);
+  // `tree` já é validado como array em `fetchSnapshot` antes de entrar no state (envelope
+  // inválido vira erro, não árvore vazia), então aqui basta cobrir o snapshot ainda nulo.
+  const uiTree = useMemo(() => (snapshot?.tree ?? []).map(toUiNode), [snapshot]);
 
   const note = (msg: string, isErr = false) => {
     setToast({ msg, err: isErr });
@@ -60,7 +60,15 @@ export function CatalogSystemsPage() {
   // `err` já nasce vazio.
   const fetchSnapshot = useCallback(() => {
     api.getCatalogSnapshot()
-      .then(setSnapshot)
+      // `req<T>` faz cast cru do JSON, então valida-se aqui. Envelope sem `tree` array vira
+      // ERRO, não árvore vazia: cair em `[]` silencioso faria o catálogo parecer zerado e
+      // o autor leria falha de contrato como catálogo apagado (achado Codex P2 na #267).
+      .then((snap) => {
+        if (!Array.isArray(snap?.tree)) {
+          throw new Error("Resposta inesperada do servidor ao carregar o catálogo.");
+        }
+        setSnapshot(snap);
+      })
       .catch((e) => setErr(String((e as Error).message)))
       .finally(() => setLoading(false));
   }, []);
@@ -84,7 +92,14 @@ export function CatalogSystemsPage() {
       note(selected ? "Nó atualizado." : "Nó criado.");
       setSelectedIds([node.id]);
       try {
-        await api.getCatalogSnapshot().then(setSnapshot);
+        // Mesma validação da carga inicial: árvore inválida não entra no state silenciosamente
+        // (o catch abaixo já avisa que o nó salvou mas a árvore não atualizou).
+        await api.getCatalogSnapshot().then((snap) => {
+          if (!Array.isArray(snap?.tree)) {
+            throw new Error("Resposta inesperada do servidor ao recarregar o catálogo.");
+          }
+          setSnapshot(snap);
+        });
       } catch (refreshError) {
         note(`Nó salvo, mas falha ao atualizar a árvore: ${String((refreshError as Error).message)}`, true);
       }

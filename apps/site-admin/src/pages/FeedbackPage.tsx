@@ -34,13 +34,13 @@ export function FeedbackPage() {
   // `err` já nasce vazio.
   const fetchInto = useCallback((st: string, kd: string, ar: string) => {
     api.listFeedback(st, kd, ar)
-      // `req<T>` faz cast cru do JSON, então a resposta é `unknown` na prática: sem o
-      // `Array.isArray` um payload malformado quebraria no `.map` e derrubaria a tela
-      // inteira (achado de review #265, e regra de normalização do AGENTS.md).
+      // `req<T>` faz cast cru do JSON, então valida-se aqui. Payload não-array vira ERRO,
+      // não lista vazia: cair em `[]` silencioso faria a tela dizer "Nenhum feedback" e
+      // esconderia falha de contrato como caixa vazia (achado Codex P2 na #267).
       .then((res) => {
-        const rows = Array.isArray(res) ? res : [];
-        setItems(rows);
-        setNotes(Object.fromEntries(rows.map((r) => [r.id, r.admin_notes ?? ""])));
+        if (!Array.isArray(res)) throw new Error("Resposta inesperada do servidor ao listar feedback.");
+        setItems(res);
+        setNotes(Object.fromEntries(res.map((r) => [r.id, r.admin_notes ?? ""])));
       })
       .catch((e) => setErr(String(e.message)))
       .finally(() => setLoading(false));

@@ -26,11 +26,15 @@ export function MediaLibrary({ onPick }: { onPick?: (item: MediaItem) => void })
   // digitação — usá-lo no efeito refaria a listagem a cada tecla.
   const fetchInto = useCallback((qq: string, tt: string) => {
     api.listMedia(qq, tt)
-      // `req<T>` faz cast cru do JSON: sem as guardas, `items` não-array quebra no `.map`
-      // do grid e `total` não-número vira "NaN item(ns)" (achado de review #265).
+      // `req<T>` faz cast cru do JSON, então valida-se aqui. Envelope incompatível vira
+      // ERRO, não lista vazia: cair em `[]` silencioso faria a tela dizer "Nenhuma mídia"
+      // e o autor leria falha de contrato como acervo apagado (achado Codex P2 na #267).
       .then((r) => {
-        setItems(Array.isArray(r?.items) ? r.items : []);
-        setTotal(typeof r?.total === "number" ? r.total : 0);
+        if (!Array.isArray(r?.items) || typeof r?.total !== "number") {
+          throw new Error("Resposta inesperada do servidor ao listar mídia.");
+        }
+        setItems(r.items);
+        setTotal(r.total);
       })
       .catch((e) => setErr(String(e.message)));
   }, []);
