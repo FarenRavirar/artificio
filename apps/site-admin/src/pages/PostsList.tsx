@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useConfirm } from "@artificio/ui";
 import { api, type PostListItem } from "../api";
@@ -43,23 +43,11 @@ export function PostsList() {
 
   const note = (msg: string, isErr = false) => { setToast({ msg, err: isErr }); setTimeout(() => setToast(null), 3500); };
 
-  // `fetchInto` não mexe em estado de forma síncrona: quem chama decide quando marcar
-  // `loading`. Isso permite que a carga inicial rode dentro do efeito sem disparar
-  // render em cascata (react-hooks/set-state-in-effect) — `loading` já nasce `true`.
-  const fetchInto = useCallback((query: string, st: string) => {
-    api.listPosts(query, st)
-      .then(setItems)
-      .catch((e) => setErr(String(e.message)))
-      .finally(() => setLoading(false));
-  }, []);
-
-  // Recarga disparada por evento (busca, filtro, ação): aí sim marca `loading` antes.
-  const load = useCallback((query = q, st = status) => {
+  const load = (query = q, st = status) => {
     setLoading(true);
-    fetchInto(query, st);
-  }, [q, status, fetchInto]);
-
-  useEffect(() => { fetchInto("", ""); }, [fetchInto]);
+    api.listPosts(query, st).then(setItems).catch((e) => setErr(String(e.message))).finally(() => setLoading(false));
+  };
+  useEffect(() => { load("", ""); }, []);
 
   const run = async (p: PostListItem, a: Action) => {
     if (a.del) {

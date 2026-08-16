@@ -25,9 +25,7 @@ export function PostEditor() {
   // Slug honesto (R4/R27): disponibilidade ao vivo + aviso de 301 ao mudar slug publicado.
   const [origSlug, setOrigSlug] = useState("");
   const [origStatus, setOrigStatus] = useState("draft");
-  // Guarda o slug que a API recusou (não um booleano): assim `slugTaken` é derivado do
-  // render comparando com o slug atual, sem precisar de setState de limpeza no efeito.
-  const [takenSlug, setTakenSlug] = useState<string | null>(null);
+  const [slugTaken, setSlugTaken] = useState(false);
   // Seletor de mídia: alvo do pick (imagem destacada, OG, ou inserir no texto).
   const [picker, setPicker] = useState<null | "featured" | "og" | "insert">(null);
   const editorRef = useRef<EditorHandle | null>(null);
@@ -51,20 +49,15 @@ export function PostEditor() {
   }, [id]);
 
   // Checa disponibilidade do slug (debounce) quando o usuário edita manualmente.
-  // O caso "slug vazio" não zera o state dentro do efeito (seria setState síncrono →
-  // render em cascata): a resposta guarda o slug consultado e `slugTaken` é derivado
-  // abaixo, então um slug vazio simplesmente deixa de casar e a marca some sozinha.
   useEffect(() => {
-    if (!post.slug) return;
+    if (!post.slug) { setSlugTaken(false); return; }
     const t = setTimeout(() => {
       api.slugCheck("post", post.slug, id ? Number(id) : undefined)
-        .then((r) => setTakenSlug(r.available ? null : r.slug))
-        .catch(() => setTakenSlug(null));
+        .then((r) => setSlugTaken(r.slug === post.slug && !r.available))
+        .catch(() => setSlugTaken(false));
     }, 400);
     return () => clearTimeout(t);
   }, [post.slug, id]);
-  // Derivado do render: só vale enquanto o slug atual for exatamente o que a API recusou.
-  const slugTaken = !!post.slug && takenSlug === post.slug;
   const slugChangedOnPublished = !isNew && origStatus === "publish" && post.slug !== origSlug;
 
   const set = <K extends keyof PostFull>(k: K, v: PostFull[K]) => setPost((p) => ({ ...p, [k]: v }));

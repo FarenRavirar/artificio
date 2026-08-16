@@ -1,6 +1,6 @@
 // Biblioteca de mídia (spec 011, T19). Grid + upload + busca/filtro + editar metadados/apagar.
 // Reutilizável: com `onPick` vira seletor (modal); sem, é a tela de gerência.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useConfirm } from "@artificio/ui";
 import { api, type MediaItem } from "../api";
 
@@ -21,14 +21,10 @@ export function MediaLibrary({ onPick }: { onPick?: (item: MediaItem) => void })
 
   const { confirm } = useConfirm();
 
-  // `fetchInto` é estável (não fecha sobre `q`/`type`), então serve de dependência honesta
-  // do efeito de carga inicial. `load` fecha sobre os filtros atuais e muda a cada
-  // digitação — usá-lo no efeito refaria a listagem a cada tecla.
-  const fetchInto = useCallback((qq: string, tt: string) => {
+  const load = (qq = q, tt = type) => {
     api.listMedia(qq, tt).then((r) => { setItems(r.items); setTotal(r.total); }).catch((e) => setErr(String(e.message)));
-  }, []);
-  const load = useCallback((qq = q, tt = type) => fetchInto(qq, tt), [q, type, fetchInto]);
-  useEffect(() => { fetchInto("", ""); }, [fetchInto]);
+  };
+  useEffect(() => { load("", ""); }, []);
 
   const onFiles = async (files: FileList | null) => {
     if (!files?.length) return;

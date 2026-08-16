@@ -38,28 +38,21 @@ export function BlockEditor({ initialHtml, initialBlockDoc, handleRef }: Props) 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // O handle é publicado em efeito, não no corpo do render: escrever em ref durante o
-  // render é leitura/escrita de estado externo fora de commit (react-hooks/refs). O pai só
-  // usa o handle em callback de evento (salvar, inserir mídia), então publicar após o
-  // commit não muda comportamento observável.
-  useEffect(() => {
-    handleRef.current = {
-      getContent: async () => {
-        const html = await editor.blocksToHTMLLossy(editor.document);
-        return { html, blockDoc: editor.document };
-      },
-      // Insere um bloco de imagem após o cursor (mídia vinda da biblioteca).
-      insertImage: (url: string, alt?: string) => {
-        const ref = editor.getTextCursorPosition().block;
-        editor.insertBlocks(
-          [{ type: "image", props: { url, caption: alt ?? "" } }] as Parameters<typeof editor.insertBlocks>[0],
-          ref,
-          "after",
-        );
-      },
-    };
-    return () => { handleRef.current = null; };
-  }, [editor, handleRef]);
+  handleRef.current = {
+    getContent: async () => {
+      const html = await editor.blocksToHTMLLossy(editor.document);
+      return { html, blockDoc: editor.document };
+    },
+    // Insere um bloco de imagem após o cursor (mídia vinda da biblioteca).
+    insertImage: (url: string, alt?: string) => {
+      const ref = editor.getTextCursorPosition().block;
+      editor.insertBlocks(
+        [{ type: "image", props: { url, caption: alt ?? "" } }] as Parameters<typeof editor.insertBlocks>[0],
+        ref,
+        "after",
+      );
+    },
+  };
 
   // theme fixo light: o admin é claro; sem isso o BlockNote herda dark do SO e fica ilegível.
   return <BlockNoteView editor={editor as unknown as BlockNoteEditor} theme="light" />;

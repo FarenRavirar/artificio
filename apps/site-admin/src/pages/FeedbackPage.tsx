@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useConfirm } from "@artificio/ui";
 import { api, type FeedbackItem } from "../api";
 
@@ -28,27 +28,15 @@ export function FeedbackPage() {
 
   const note = (msg: string, isErr = false) => { setToast({ msg, err: isErr }); setTimeout(() => setToast(null), 3500); };
 
-  // `fetchInto` não mexe em estado de forma síncrona: quem chama decide quando marcar
-  // `loading`/limpar o erro. Isso permite que a carga inicial rode dentro do efeito sem
-  // render em cascata (react-hooks/set-state-in-effect) — `loading` já nasce `true` e
-  // `err` já nasce vazio.
-  const fetchInto = useCallback((st: string, kd: string, ar: string) => {
+  const load = (st = status, kd = kind, ar = archived) => {
+    setLoading(true);
+    setErr("");
     api.listFeedback(st, kd, ar)
       .then((rows) => { setItems(rows); setNotes(Object.fromEntries(rows.map((r) => [r.id, r.admin_notes ?? ""]))); })
       .catch((e) => setErr(String(e.message)))
       .finally(() => setLoading(false));
-  }, []);
-
-  // Recarga disparada por evento (filtro, patch, exclusão): aí sim reseta antes.
-  const load = useCallback((st = status, kd = kind, ar = archived) => {
-    setLoading(true);
-    setErr("");
-    fetchInto(st, kd, ar);
-  }, [status, kind, archived, fetchInto]);
-
-  // Literais em vez de `status`/`kind`/`archived`: repetem os valores iniciais dos states
-  // e mantêm a dependência honesta — o efeito é carga única, não sincronização de filtro.
-  useEffect(() => { fetchInto("", "", "false"); }, [fetchInto]);
+  };
+  useEffect(() => { load(); }, []);
 
   const patch = async (it: FeedbackItem, body: { status?: string; admin_notes?: string | null; archived?: boolean }, okMsg: string) => {
     setBusyId(it.id);
