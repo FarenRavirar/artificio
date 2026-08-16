@@ -2568,7 +2568,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.createCatalogNode",
-      "line": 86
+      "line": 89
     },
     {
       "app": "site-admin",
@@ -2578,7 +2578,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.updateCatalogNode",
-      "line": 85
+      "line": 88
     },
     {
       "app": "site-admin",
@@ -2678,7 +2678,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.createPost",
-      "line": 105
+      "line": 110
     },
     {
       "app": "site-admin",
@@ -2688,7 +2688,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.getPost",
-      "line": 50
+      "line": 51
     },
     {
       "app": "site-admin",
@@ -2698,7 +2698,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.updatePost",
-      "line": 105
+      "line": 110
     },
     {
       "app": "site-admin",
@@ -2728,7 +2728,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.createTerm",
-      "line": 126
+      "line": 131
     },
     {
       "app": "site-admin",
@@ -2748,7 +2748,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 197
+      "line": 218
     },
     {
       "app": "site-admin",
@@ -2758,7 +2758,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 234
+      "line": 261
     }
   ]
 }

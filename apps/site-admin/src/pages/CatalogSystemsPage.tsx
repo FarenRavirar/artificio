@@ -17,8 +17,11 @@ function toUiNode(node: CatalogNode): CatalogUiNode {
     official_website_url: node.official_website_url,
     logo_media_id: node.logo_media_id,
     status: node.status,
-    aliases: (Array.isArray(node.aliases) ? node.aliases : []).map((alias) => alias.alias),
-    children: (Array.isArray(node.children) ? node.children : []).map(toUiNode),
+    // Sem guarda de array aqui: `getCatalogSnapshot` valida a árvore inteira na fronteira
+    // (recursivamente), então nó inválido nunca chega até este mapeamento. O `?? []` que
+    // existia antes escondia contrato quebrado como subárvore vazia (achado Codex P2 #267).
+    aliases: node.aliases.map((alias) => alias.alias),
+    children: node.children.map(toUiNode),
   };
 }
 

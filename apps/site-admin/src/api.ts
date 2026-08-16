@@ -40,7 +40,7 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     return (await res.json()) as T;
   } catch {
-    throw new Error("Resposta do servidor não é JSON válido.");
+    throw new TypeError("Resposta do servidor não é JSON válido.");
   }
 }
 
@@ -127,9 +127,25 @@ async function reqItems<T>(path: string, recurso: string): Promise<T[]> {
   const r = await req<unknown>(path);
   const items = (r as { items?: unknown } | null)?.items;
   if (!Array.isArray(items)) {
-    throw new Error(`Resposta inesperada do servidor ao listar ${recurso}.`);
+    // `TypeError` e não `Error`: a falha é de tipo/forma do payload, não de negócio
+    // (Sonar: `new Error()` é genérico demais para checagem de tipo).
+    throw new TypeError(`Resposta inesperada do servidor ao listar ${recurso}.`);
   }
   return items as T[];
+}
+
+// Valida a forma estrutural de um nó do catálogo, descendo na árvore. Checa só o que o
+// render percorre (`aliases`/`children`, que são arrays obrigatórios no contrato) — não é
+// validação de schema completo, e sim a garantia de que `toUiNode` pode mapear sem
+// fallback silencioso escondendo contrato quebrado.
+function isCatalogNode(node: unknown): boolean {
+  const n = node as { aliases?: unknown; children?: unknown } | null;
+  return (
+    !!n && typeof n === "object" &&
+    Array.isArray(n.aliases) &&
+    Array.isArray(n.children) &&
+    n.children.every(isCatalogNode)
+  );
 }
 
 export const api = {
@@ -156,18 +172,23 @@ export const api = {
     req<Term>(`/taxonomies`, { method: "POST", body: JSON.stringify({ kind, name, parent_id }) }),
 
   // Normaliza na fronteira: `req` faz cast cru do JSON, e `available` decide se o aviso de
-  // "slug em uso" aparece. Aqui o fallback é deliberado e diverge das listas (que lançam
-  // erro em payload inválido, achado Codex P2 na #267): este endpoint é chamado a cada
-  // digitação com debounce, e é dica de UI, não fonte da verdade — quem desambigua slug
-  // duplicado é o servidor no save. Transformar resposta malformada em erro encheria a
-  // tela de alerta enquanto o autor digita; deixar `available: true` no máximo omite um
-  // aviso, e o save corrige. `slug`/`suggestion` viram string vazia se não forem string.
-  slugCheck: async (type: "post" | "page", title: string, id?: number): Promise<{ slug: string; available: boolean; suggestion: string }> => {
+  // colisão de slug aparece.
+  //
+  // `available` é `boolean | "unknown"`, nunca um default otimista: assumir `true` em
+  // resposta inválida (version skew, contrato quebrado) apagaria o aviso de colisão, o
+  // autor salvaria confiante e o servidor trocaria o slug por baixo via `uniqueSlug` —
+  // que é precisamente o que R3a [P0] da spec 011 proíbe ("não pode alterar silenciosamente
+  // o slug digitado pelo editor sem feedback"). Achado Codex P2 na #267.
+  //
+  // Também não lança: este endpoint roda a cada digitação com debounce, e derrubar a tela
+  // em erro a cada tecla seria pior que sinalizar incerteza. Quem decide como exibir
+  // "desconhecido" é o PostEditor.
+  slugCheck: async (type: "post" | "page", title: string, id?: number): Promise<{ slug: string; available: boolean | "unknown"; suggestion: string }> => {
     const r = await req<unknown>(`/slug-check${qs({ type, title, id })}`);
     const o = (r ?? {}) as Record<string, unknown>;
     return {
       slug: typeof o.slug === "string" ? o.slug : "",
-      available: typeof o.available === "boolean" ? o.available : true,
+      available: typeof o.available === "boolean" ? o.available : "unknown",
       suggestion: typeof o.suggestion === "string" ? o.suggestion : "",
     };
   },
@@ -183,7 +204,7 @@ export const api = {
     const r = await req<unknown>(`/media${qs({ q, type, limit, offset })}`);
     const o = (r ?? {}) as { items?: unknown; total?: unknown };
     if (!Array.isArray(o.items) || typeof o.total !== "number") {
-      throw new Error("Resposta inesperada do servidor ao listar mídia.");
+      throw new TypeError("Resposta inesperada do servidor ao listar mídia.");
     }
     return { items: o.items as MediaItem[], total: o.total };
   },
@@ -217,10 +238,16 @@ export const api = {
   // ---- Catálogo canônico de sistemas (Spec 062) ----
   // `tree` validado aqui, não no componente: assim vale para a carga inicial e para o
   // refresh pós-save, sem repetir a guarda em cada chamada.
+  //
+  // A checagem é recursiva de propósito: `CatalogNode.children`/`aliases` são arrays
+  // obrigatórios no contrato (nó folha vem `[]`, não ausente), então validar só a raiz
+  // deixaria um nó aninhado inválido virar subárvore vazia silenciosa — o autor veria um
+  // sistema sem edições e leria como conteúdo apagado (achado Codex P2 na #267).
   getCatalogSnapshot: async (): Promise<CatalogSnapshot> => {
     const r = await req<unknown>(`/catalog/snapshot`);
-    if (!Array.isArray((r as { tree?: unknown } | null)?.tree)) {
-      throw new Error("Resposta inesperada do servidor ao carregar o catálogo.");
+    const tree = (r as { tree?: unknown } | null)?.tree;
+    if (!Array.isArray(tree) || !tree.every(isCatalogNode)) {
+      throw new TypeError("Resposta inesperada do servidor ao carregar o catálogo.");
     }
     return r as CatalogSnapshot;
   },
