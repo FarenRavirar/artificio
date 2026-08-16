@@ -146,7 +146,7 @@ describe('GET /api/v1/materials — listagem publica', () => {
     const response = await request(app()).get('/api/v1/materials/mine').expect(200);
 
     expect(response.body).toEqual([expect.objectContaining({
-      id: 'm1', avg_rating: 4.5, rating_count: 2, comment_count: 3, download_count: 7,
+      id: 'm1', avg_rating: 4.5, rating_count: 2, legacy_comment_count: 3, download_count: 7,
     })]);
   });
 

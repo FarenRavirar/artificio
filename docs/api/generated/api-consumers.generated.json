@@ -2548,7 +2548,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 226
+      "line": 247
     },
     {
       "app": "site-admin",

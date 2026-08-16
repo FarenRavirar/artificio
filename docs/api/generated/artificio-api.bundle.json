@@ -4,13 +4,13 @@
   "generatedAt": "1970-01-01T00:00:00.000Z",
   "apps": {
     "accounts": 53,
-    "downloads": 102,
+    "downloads": 108,
     "glossario": 50,
     "links": 22,
     "mesas": 180,
     "site": 49
   },
-  "total": 456,
+  "total": 462,
   "operations": [
     {
       "app": "accounts",
@@ -1120,6 +1120,78 @@
       "auth": "user",
       "consumers": [],
       "operationId": "postapi_v1_community_comments_id_reports"
+    },
+    {
+      "app": "downloads",
+      "method": "GET",
+      "path": "/api/v1/community/conversation",
+      "summary": "Consulta api v1 community conversation",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_v1_community_conversation"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/community/conversation",
+      "summary": "Cria ou executa api v1 community conversation",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_community_conversation"
+    },
+    {
+      "app": "downloads",
+      "method": "DELETE",
+      "path": "/api/v1/community/conversation/{id}",
+      "summary": "Remove api v1 community conversation id",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "deleteapi_v1_community_conversation_id"
+    },
+    {
+      "app": "downloads",
+      "method": "PATCH",
+      "path": "/api/v1/community/conversation/{id}",
+      "summary": "Atualiza api v1 community conversation id",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "patchapi_v1_community_conversation_id"
+    },
+    {
+      "app": "downloads",
+      "method": "POST",
+      "path": "/api/v1/community/conversation/{id}/replies",
+      "summary": "Cria ou executa api v1 community conversation id replies",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_community_conversation_id_replies"
+    },
+    {
+      "app": "downloads",
+      "method": "PUT",
+      "path": "/api/v1/community/conversation/{id}/vote",
+      "summary": "Substitui api v1 community conversation id vote",
+      "owner": "downloads",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "putapi_v1_community_conversation_id_vote"
     },
     {
       "app": "downloads",

@@ -5,7 +5,7 @@ import { useSession } from '@artificio/auth/client';
 import { MarkdownContent } from '@artificio/content-editor';
 import { AppShell } from '../components/AppShell';
 import { AddToCollectionButton } from '../components/AddToCollectionButton';
-import { CommentSection } from '../components/CommentSection';
+import { MaterialConversation } from '../components/MaterialConversation';
 import { MaterialCover } from '../components/MaterialCover';
 import { RatingSection } from '../components/RatingSection';
 import { ReportButton } from '../components/ReportButton';
@@ -319,7 +319,7 @@ export function MaterialPage() {
         </div>
 
         <RatingSection materialId={material.id} />
-        <CommentSection materialId={material.id} />
+        <MaterialConversation materialId={material.id} />
       </div>
     </AppShell>
   );

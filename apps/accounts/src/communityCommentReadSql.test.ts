@@ -107,6 +107,39 @@ async function sqlFor(sort: "best" | "top" | "new" | "old"): Promise<string> {
   return capture.sqls.at(-1) ?? "";
 }
 
+describe("viewer_is_author (DEB-090-VIEWER-AUTHOR)", () => {
+  it("deriva o booleano do ator do leitor, sem expor identificador", async () => {
+    const sql = await sqlFor("best");
+
+    // O campo sai da MESMA comparação que `communityCommentVote.ts:154` usa
+    // para recusar `self_vote` — e é a única forma de a UI oferecer editar e
+    // auto-retirar (§4) sem que §2 precise expor `community_actor_id`.
+    expect(sql).toContain("as viewer_is_author");
+    expect(sql).toMatch(/c\.community_actor_id\s*=\s*\$\d+/);
+
+    // Booleano derivado, não identificador: o SQL não projeta o ator em si.
+    expect(sql).not.toMatch(/c\.community_actor_id\s+as\s/);
+  });
+
+  it("protege contra null = null, que devolveria null em vez de false", async () => {
+    const sql = await sqlFor("best");
+
+    // Leitura anônima tem ator nulo e legado tem `community_actor_id` nulo. Sem
+    // os dois guardas, a comparação daria `null` e o payload entregaria `false`
+    // por acidente do coalesce, não por decisão.
+    expect(sql).toContain("c.community_actor_id is not null");
+    expect(sql).toMatch(/\$\d+::uuid is not null/);
+  });
+
+  it("é projetado até a seleção externa, não morre na CTE", async () => {
+    const sql = await sqlFor("new");
+
+    // A CTE calcula e o SELECT de fora precisa carregar: sem isto o campo
+    // existiria no plano e nunca chegaria ao consumidor.
+    expect(sql.match(/viewer_is_author/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+  });
+});
+
 describe("ordenação acontece entre irmãos, nunca entre níveis", () => {
   it.each(["best", "top", "new", "old"] as const)(
     "%s particiona por parent_id",

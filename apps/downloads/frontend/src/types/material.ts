@@ -49,7 +49,15 @@ export const materialSchema = z.object({
   // contagem bruta e e o unico gatilho de exibicao das estrelas.
   avg_rating: z.number().nullable().optional(),
   rating_count: z.number().optional(),
-  comment_count: z.number().optional(),
+  /**
+   * Contagem do acervo **legado**, não o total da conversa.
+   *
+   * T5.7 (spec 090): `download_comment` parou de receber linha nova quando a
+   * conversa migrou para o `accounts.`, que não expõe contagem por múltiplos
+   * assuntos. O campo mudou de `comment_count` para deixar de prometer um total
+   * que não entrega — nome antigo entregaria só uma parte, em silêncio.
+   */
+  legacy_comment_count: z.number().optional(),
   download_count: z.number().optional(),
   rejection_reason: z.string().nullable().optional(),
   popularity_score: z.number().nullable().optional(),

@@ -504,6 +504,20 @@ router.get('/mine', writeRateLimiter, authMiddleware, async (req: Request, res: 
         .where('material_id', 'in', materialIds)
         .groupBy('material_id')
         .execute(),
+      // T5.7 (spec 090) — esta contagem cobre **apenas o acervo legado**, e a
+      // tabela parou de receber linha nova quando a conversa migrou para o
+      // `accounts.` Mantida porque ela ainda é verdadeira sobre o que existe
+      // aqui: zerá-la esconderia comentário retido que a rota de leitura
+      // continua servindo.
+      //
+      // A contagem do consolidado **não entra**, e não é esquecimento: o
+      // `accounts.` não expõe contagem nem leitura por múltiplos assuntos
+      // (`GET /internal/v1/comments` aceita `subject_id` singular,
+      // `communityCommentRoutes.ts:78`), então somá-la exigiria uma chamada HTTP
+      // por material — exatamente o que T5.5 proíbe ("em lote, nunca um subject
+      // por vez"). O campo virou `legacy_comment_count` para não afirmar um
+      // total que não é: o nome antigo prometia "comentários deste material" e
+      // passaria a entregar só uma parte, silenciosamente.
       db.selectFrom('download_comment')
         .select(({ fn }) => ['material_id', fn.countAll<number>().as('comment_count')])
         .where('material_id', 'in', materialIds)
@@ -530,7 +544,7 @@ router.get('/mine', writeRateLimiter, authMiddleware, async (req: Request, res: 
     description_markdown: sanitizeNullableUserMarkdown(material.description_markdown),
     avg_rating: ratingsByMaterial.get(material.id)?.avg_rating ?? null,
     rating_count: ratingsByMaterial.get(material.id)?.rating_count ?? 0,
-    comment_count: commentsByMaterial.get(material.id) ?? 0,
+    legacy_comment_count: commentsByMaterial.get(material.id) ?? 0,
     download_count: downloadsByMaterial.get(material.id) ?? 0,
   })));
 });

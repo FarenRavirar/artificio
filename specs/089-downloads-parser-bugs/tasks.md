@@ -319,9 +319,11 @@ Fase 5 **fechou como reprovada e não deve ser reaberta para "passar"** — os t
 > sistema. O desenho correto é um pacote compartilhado (`@artificio/comments`) vinculado ao
 > `accounts.`.
 >
-> **Requisitos 18-22 e 32-35 desta spec passam a ser entregues pela 090** (Fase 3, adoção no
-> `downloads`). Essas entregas são acompanhadas exclusivamente pela 090 e não contam como
-> checkboxes nem pendência de fechamento da 089.
+> **Requisitos 18-22 e 32-35 desta spec passam a ser entregues pela 090** — na **Fase 5**
+> (adoção no `downloads`); a Fase 3 da 090 é a de notificações agregadas. A referência anterior
+> dizia "Fase 3", corrigida em 2026-08-15 por T5.6 contra o `tasks.md` da 090. Essas entregas
+> são acompanhadas exclusivamente pela 090 e não contam como checkboxes nem pendência de
+> fechamento da 089.
 >
 > As tasks abaixo ficam registradas como referência do que a 090 absorveu, e **não devem ser
 > executadas aqui**.

@@ -61,14 +61,67 @@ export const conversationCommentSchema = z.object({
   downvotes: z.number().int().nonnegative().nullable(),
   score: z.number().int().nullable(),
   my_vote: z.union([z.literal(-1), z.literal(0), z.literal(1)]).nullable(),
+  /**
+   * DEB-090-VIEWER-AUTHOR — o leitor é o autor desta fala.
+   *
+   * Booleano derivado no servidor, **nunca identificador**: responde "é seu?"
+   * sem dizer de quem é quando não for, que é o que `contrato-http-v1.md` §2
+   * protege ao proibir `user_id` cru e `community_actor_id` no payload público.
+   *
+   * Sem ele, o host não tinha como oferecer editar/auto-retirar (§4, ações só
+   * do autor) nem esconder o voto no próprio comentário (decisão 5) — restava
+   * exibir botão que devolve `403` para quase todo mundo, ou não exibir. Era o
+   * segundo, e o autor não conseguia corrigir a própria fala pela interface.
+   *
+   * `.default(false)` e não obrigatório: fachada que ainda não repassa o campo
+   * degrada para "não é seu" — some o botão, nada quebra. Exigi-lo derrubaria o
+   * parse inteiro da árvore num consumidor desatualizado, trocando um botão
+   * ausente por uma conversa em branco.
+   */
+  viewer_is_author: z.boolean().default(false),
   legacy: z.object({
     source: z.string().min(1),
     author_name: z.string().min(1),
+    /**
+     * Corpo do comentário importado — `z.string()` cru, deliberadamente **não**
+     * `canonicalCommentBodySchema`.
+     *
+     * O schema canônico roda `validateCommentBody`, que aplica a política de
+     * links do requisito 10a: HTTPS-only, `http:` recusado com
+     * `INVALID_COMMENT_LINK`. Conteúdo importado é anterior a essa política e
+     * não teve chance de obedecê-la — um único `http://` num comentário de
+     * 2015 derrubaria o parse da **árvore inteira** (o `superRefine` é do
+     * comentário, mas o array falha junto), trocando a conversa toda por
+     * `schema_incompatible`. Validar na leitura o que já está gravado pune o
+     * leitor por uma regra que o autor não podia conhecer.
+     *
+     * Não sanitizar aqui é seguro e é o desenho: o conteúdo entrou sanitizado
+     * pelo exportador da origem, com política e versão declaradas
+     * (`exportLegacyComments.ts:132`), e a "defesa adicional na saída sem
+     * regravar" que `spec.md:444` exige é o `DOMPurify.sanitize()` de
+     * `renderMarkdown`, aplicado no render. Mesma forma que
+     * `moderation.ts:87` já usa para o mesmo campo.
+     */
+    content_html: z.string().nullable().default(null),
+    /**
+     * Como renderizar `content_html` — a coluna guarda os dois formatos.
+     *
+     * `.default('html')` e não obrigatório, pela mesma razão que
+     * `viewer_is_author` tem default: fachada ainda não atualizada continua
+     * parseando. O default é `html` porque é o caminho conservador na
+     * renderização — markdown exibido como HTML perde formatação, enquanto HTML
+     * exibido como markdown mostraria `<p>` cru ao leitor.
+     */
+    format: z.enum(['markdown', 'html']).default('html'),
   }).strict().nullable(),
 }).strict().superRefine((comment, context) => {
   const hidden = comment.state !== 'visible';
   if (hidden && (
     comment.body_markdown !== null
+    // O corpo legado entra na MESMA invariante que o nativo: são as duas
+    // metades do XOR do banco, e cobrir só uma deixaria o tombstone de um
+    // comentário importado exibir o texto que a moderação derrubou.
+    || comment.legacy?.content_html != null
     || comment.upvotes !== null
     || comment.downvotes !== null
     || comment.score !== null
@@ -82,6 +135,12 @@ export const conversationCommentSchema = z.object({
     comment.author.state !== 'legacy'
     || comment.author.avatar_url !== null
     || comment.author.badge !== null
+    // DEB-090-VIEWER-AUTHOR: legado tem `community_actor_id` nulo por
+    // construção (`community_comment_body_kind_check`), então ninguém é seu
+    // autor perante o sistema. `true` aqui ofereceria editar e auto-retirar
+    // sobre fala importada — que a decisão 6 fixa como imutável — e o servidor
+    // recusaria com `legacy_immutable` depois do clique.
+    || comment.viewer_is_author
   )) {
     context.addIssue({
       code: 'custom',
@@ -158,11 +217,48 @@ export const readCommentsThreadOperation = defineCommentsOperation({
   outputSchema: commentsThreadSchema,
 });
 
+/**
+ * O que a escrita devolve — **não** é o comentário completo da leitura.
+ *
+ * `POST`/`PATCH` respondem com o comentário recém-gravado
+ * (`communityCommentRoutes.ts:403,655`), que carrega só identidade, posição,
+ * corpo e datas: `CreatedComment` (`communityCommentWrite.ts:106`) e
+ * `EditedComment` (`communityCommentLifecycle.ts:111`). Placar, autor resolvido,
+ * `my_vote`, `state`, `viewer_is_author` e `legacy` **não existem nesse
+ * momento** — dependem de joins que só a árvore faz, e alguns nem fazem sentido
+ * na resposta da própria escrita (`my_vote` de um comentário que acabou de
+ * nascer).
+ *
+ * Antes disto as três mutações declaravam `conversationCommentSchema`, e o
+ * payload real falhava em **8 campos** (medido: `edited_at`, `state`, `author`,
+ * `upvotes`, `downvotes`, `score`, `my_vote`, `legacy`). O efeito era grave e
+ * silencioso: escrita **confirmada e persistida** pelo servidor virava
+ * `schema_incompatible` no cliente, a UI mostrava falha, o `reload` não rodava,
+ * e quem reenviasse geraria uma chave de idempotência nova — duplicando a fala
+ * que já estava gravada. Achado da revisão do Codex na PR #263.
+ *
+ * `edited_at` é opcional porque só a edição o devolve; a criação não tem o
+ * campo. `.strict()` fecharia a porta a um campo novo do servidor, então fica
+ * aberto de propósito: a mutação valida o que precisa consumir, não a forma
+ * inteira da resposta.
+ */
+export const mutatedCommentSchema = z.object({
+  id: z.uuid(),
+  parent_id: z.uuid().nullable(),
+  root_id: z.uuid(),
+  depth: z.number().int().min(0).max(4),
+  body_markdown: canonicalCommentBodySchema,
+  created_at: z.iso.datetime(),
+  edited_at: z.iso.datetime().nullable().optional(),
+});
+
+export type MutatedComment = z.infer<typeof mutatedCommentSchema>;
+
 export const createCommentOperation = defineCommentsOperation({
   capability: 'comment.create',
   kind: 'mutation',
   inputSchema: subjectInputSchema.extend({ bodyMarkdown: canonicalCommentBodySchema }),
-  outputSchema: conversationCommentSchema,
+  outputSchema: mutatedCommentSchema,
 });
 
 export const replyToCommentOperation = defineCommentsOperation({
@@ -172,7 +268,7 @@ export const replyToCommentOperation = defineCommentsOperation({
     commentId: z.uuid(),
     bodyMarkdown: canonicalCommentBodySchema,
   }),
-  outputSchema: conversationCommentSchema,
+  outputSchema: mutatedCommentSchema,
 });
 
 export const editCommentOperation = defineCommentsOperation({
@@ -182,7 +278,7 @@ export const editCommentOperation = defineCommentsOperation({
     commentId: z.uuid(),
     bodyMarkdown: canonicalCommentBodySchema,
   }).strict(),
-  outputSchema: conversationCommentSchema,
+  outputSchema: mutatedCommentSchema,
 });
 
 export const withdrawCommentOperation = defineCommentsOperation({
@@ -265,6 +361,30 @@ export interface CommentsConversationSubject {
   readonly subjectId: string;
 }
 
+/**
+ * Chave de idempotência de uma tentativa de escrita.
+ *
+ * `contrato-http-v1.md` §6 a torna **obrigatória** em criação, resposta e
+ * edição: `readAuthorAndKey` (`communityCommentRoutes.ts:338-342`) recusa com
+ * `400 invalid_idempotency_key` quando o header falta ou foge de
+ * `[\x20-\x7E]{8,128}`. Sem esta função a conversa inteira era incapaz de
+ * publicar — toda mutação batia no `400`, nos três consumidores.
+ *
+ * Uma chave por **tentativa**, gerada aqui e não pelo host: o transporte já
+ * documenta (`transport.ts:59-68`) que a retentativa do MESMO envio precisa
+ * repetir a chave para o servidor devolver a resposta original em vez de
+ * duplicar a fala. Gerar por requisição HTTP quebraria exatamente esse caso;
+ * gerar por componente faria dois envios distintos colidirem, e o segundo
+ * receberia de volta o resultado do primeiro.
+ *
+ * `withdraw` e `vote` ficam de fora de propósito: o `DELETE` é idempotente por
+ * construção (a segunda chamada encontra o tombstone) e o voto é estado
+ * absoluto (decisão 12) — nenhum dos dois passa por `readAuthorAndKey`.
+ */
+function newIdempotencyKey(): string {
+  return globalThis.crypto.randomUUID();
+}
+
 export function createCommentsConversationClient(
   client: CommentsClient<CommentsConversationCapability>,
   subject: CommentsConversationSubject,
@@ -272,25 +392,50 @@ export function createCommentsConversationClient(
   return {
     read: (sort: CommentSortUi, cursor?: string, signal?: AbortSignal) =>
       client.execute(readCommentsThreadOperation, { ...subject, sort, cursor }, { signal }),
-    create: (bodyMarkdown: string, signal?: AbortSignal) =>
-      client.execute(createCommentOperation, { ...subject, bodyMarkdown }, { signal }),
-    reply: (commentId: string, bodyMarkdown: string, signal?: AbortSignal) =>
-      client.execute(replyToCommentOperation, { ...subject, commentId, bodyMarkdown }, { signal }),
-    edit: (commentId: string, bodyMarkdown: string, signal?: AbortSignal) =>
-      client.execute(editCommentOperation, { commentId, bodyMarkdown }, { signal }),
+    create: (bodyMarkdown: string, signal?: AbortSignal, idempotencyKey = newIdempotencyKey()) =>
+      client.execute(
+        createCommentOperation,
+        { ...subject, bodyMarkdown },
+        { signal, idempotencyKey },
+      ),
+    reply: (
+      commentId: string,
+      bodyMarkdown: string,
+      signal?: AbortSignal,
+      idempotencyKey = newIdempotencyKey(),
+    ) =>
+      client.execute(
+        replyToCommentOperation,
+        { ...subject, commentId, bodyMarkdown },
+        { signal, idempotencyKey },
+      ),
+    edit: (
+      commentId: string,
+      bodyMarkdown: string,
+      signal?: AbortSignal,
+      idempotencyKey = newIdempotencyKey(),
+    ) =>
+      client.execute(
+        editCommentOperation,
+        { commentId, bodyMarkdown },
+        { signal, idempotencyKey },
+      ),
     withdraw: (commentId: string, signal?: AbortSignal) =>
       client.execute(withdrawCommentOperation, { commentId }, { signal }),
     vote: (commentId: string, value: -1 | 0 | 1, signal?: AbortSignal) =>
       client.execute(setCommentVoteOperation, { commentId, value }, { signal }),
+    // A denúncia tem validação própria da chave
+    // (`communityModerationRoutes.ts:125-132`), com o mesmo formato.
     report: (
       commentId: string,
       reasonCode: CommentReportReason,
       details?: string,
       signal?: AbortSignal,
+      idempotencyKey = newIdempotencyKey(),
     ) => client.execute(
       createCommentReportOperation,
       { commentId, reasonCode, details },
-      { signal },
+      { signal, idempotencyKey },
     ),
   };
 }

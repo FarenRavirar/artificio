@@ -5,6 +5,9 @@ import { queryClient } from './lib/queryClient'
 import { applyFavicon } from '@artificio/ui'
 import { initGtag } from '@artificio/analytics'
 import '@artificio/ui/styles.css'
+// T5.4 (spec 090) — estilos da conversa. O pacote não compila Tailwind dentro
+// dele (requisito 21d): são tokens CSS e slots, e o host decide o resto.
+import '@artificio/comments/styles.css'
 import './index.css'
 import App from './App.tsx'
 

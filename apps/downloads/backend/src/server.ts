@@ -26,6 +26,7 @@ import materialTypeSuggestionsAdminRoutes from './routes/materialTypeSuggestions
 import publicShellRoutes from './routes/publicShell';
 import publicSeoRoutes from './routes/publicSeo';
 import communityModerationRoutes from './routes/communityModeration';
+import communityCommentsRoutes from './routes/communityComments';
 import { parseCookies } from './middleware/parseCookies';
 import { db } from './db';
 import { startLinkCheckerScheduler } from './services/linkCheckerScheduler';
@@ -118,6 +119,17 @@ app.use('/api/v1/favorites', favoritesRoutes);
 app.use('/api/v1/collections', collectionsRoutes);
 app.use('/api/v1/organizations', organizationsRoutes);
 app.use('/api/v1/notifications', notificationsRoutes);
+// T5.3/T5.4 (spec 090) — a conversa tem prefixo PRÓPRIO, e não
+// `/api/v1/community/comments`.
+//
+// Medido: montar a conversa naquele prefixo antes da moderação ainda funciona,
+// porque o Express cai no router seguinte quando o primeiro não faz match — a
+// denúncia (`POST /api/v1/community/comments/:id/reports`, definida em
+// `communityModeration.ts:178`) continuava sendo atendida. Mas passa a depender
+// da ordem de registro e do fato de a conversa NÃO declarar `/:id/reports`:
+// no dia em que alguém declarar, a denúncia quebra sem erro de compilação e sem
+// teste vermelho. Prefixo separado remove a armadilha em vez de documentá-la.
+app.use('/api/v1/community/conversation', communityCommentsRoutes);
 app.use('/api/v1/community', communityModerationRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/admin/rejection-categories', rejectionCategoriesRoutes);

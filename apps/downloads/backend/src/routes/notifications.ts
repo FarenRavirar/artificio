@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { db } from '../db';
 import { authMiddleware } from '../middleware/auth';
-import { writeRateLimiter } from '../middleware/rateLimit';
+import { readRateLimiter, writeRateLimiter } from '../middleware/rateLimit';
 
 const router = Router();
 
@@ -9,7 +9,12 @@ const router = Router();
 // 2026-07-12): feed interno so-leitura + marcar como lida. Emissao de
 // notificacao fica a cargo de quem dispara o evento (moderation.ts/
 // reports.ts), fora do escopo desta rota.
-router.get('/', writeRateLimiter, authMiddleware, async (req: Request, res: Response) => {
+//
+// T5.3b (spec 090) — este `GET` aplicava `writeRateLimiter` (60 req/15 min):
+// quem só consultava o próprio feed gastava a cota de escrita e podia ser
+// barrado sem nunca ter escrito nada. Leitura e escrita têm buckets separados
+// justamente para que o orçamento de uma não consuma o da outra.
+router.get('/', readRateLimiter, authMiddleware, async (req: Request, res: Response) => {
   const notifications = await db
     .selectFrom('download_notification')
     .selectAll()

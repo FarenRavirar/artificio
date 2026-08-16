@@ -143,6 +143,7 @@ export {
   createCommentsConversationClient,
   editCommentOperation,
   mergeCommentsThreadPage,
+  mutatedCommentSchema,
   readCommentsThreadOperation,
   replyToCommentOperation,
   setCommentVoteOperation,
@@ -155,6 +156,7 @@ export {
   type CommentsThread,
   type ConversationComment,
   type ConversationMoreNode,
+  type MutatedComment,
 } from './conversation.js';
 
 export {

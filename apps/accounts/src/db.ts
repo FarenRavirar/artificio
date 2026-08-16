@@ -109,6 +109,18 @@ export interface CommunityCommentRow {
   depth: number;
   body_markdown: string | null;
   legacy_content_html: string | null;
+  /**
+   * Política e versão do sanitizador que produziu `legacy_content_html`.
+   *
+   * Existem em `migration_006:147-148` desde a Fase 2, mas ficaram **fora deste
+   * tipo** até 2026-08-15 (T5.1b), porque nenhum consumidor importava legado
+   * ainda — mesma classe de divergência tipo↔banco que `users.avatar_source`
+   * documenta acima. `community_comment_body_kind_check` exige as duas
+   * preenchidas em toda linha legada e nulas em toda linha nativa, então omiti-las
+   * do tipo tornava impossível escrever um import que o banco aceitasse.
+   */
+  legacy_sanitizer_policy: string | null;
+  legacy_sanitizer_version: number | null;
   current_version_id: string;
   created_revision: number;
   visibility_state: Generated<

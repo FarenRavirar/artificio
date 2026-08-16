@@ -61,7 +61,14 @@ const thread = commentsThreadSchema.parse({
       parent_id: null,
       root_id: LEGACY_ID,
       depth: 0,
-      body_markdown: 'Comentário antigo',
+      // Forma REAL do legado, e não a que a fixture inventava antes.
+      // `community_comment_body_kind_check` é um XOR: legado tem
+      // `body_markdown` NULO e o corpo em `legacy_content_html`. A fixture
+      // anterior dava `body_markdown: 'Comentário antigo'` a um comentário
+      // legado — combinação que o importador não consegue gravar — e por isso
+      // o teste passava enquanto todo comentário importado de verdade
+      // renderizava "Conteúdo indisponível." em beta.
+      body_markdown: null,
       created_at: '2020-01-02T03:04:05.000Z',
       edited_at: null,
       state: 'visible',
@@ -70,7 +77,12 @@ const thread = commentsThreadSchema.parse({
       downvotes: 0,
       score: 0,
       my_vote: null,
-      legacy: { source: 'site', author_name: 'Autor antigo' },
+      legacy: {
+        source: 'site',
+        author_name: 'Autor antigo',
+        content_html: 'Comentário antigo',
+        format: 'markdown',
+      },
     },
   ],
   more: [{ parent_id: ROOT_ID, count: 2, cursor: 'cursor-opaco' }],
@@ -207,6 +219,81 @@ describe('CommentsConversation', () => {
     expect(legacyMarkup).not.toContain('<img');
     expect(legacyMarkup).not.toContain('artificio-comments__badge');
     expect(legacyMarkup).not.toContain('href="/perfil');
+  });
+
+  it('renderiza o corpo do legado, que vive em legacy.content_html e não em body_markdown', () => {
+    const html = renderConversation();
+    const legacyStart = html.indexOf('Autor antigo');
+    const legacyMarkup = html.slice(legacyStart, html.indexOf('</article>', legacyStart));
+
+    // O comentário importado tem `body_markdown` nulo por obrigação do
+    // `community_comment_body_kind_check`. Antes desta correção o corpo não
+    // saía da leitura e todo legado caía no placeholder — os 3 comentários
+    // importados em beta apareciam assim para o leitor.
+    expect(legacyMarkup).toContain('Comentário antigo');
+    expect(legacyMarkup).not.toContain('Conteúdo indisponível.');
+  });
+
+  it('renderiza legado em markdown e em HTML pelo formato declarado, sanitizando os dois', () => {
+    const comHtml = (
+      format: 'markdown' | 'html',
+      content: string,
+    ) => renderToStaticMarkup(
+      <CommentsConversation
+        state={{
+          status: 'fresh',
+          data: {
+            ...thread,
+            comments: thread.comments.filter((comment) => comment.id === LEGACY_ID).map((comment) => ({
+              ...comment,
+              legacy: { ...comment.legacy!, content_html: content, format },
+            })),
+            more: [],
+          },
+          updatedAt: 1,
+          ageMs: 0,
+        }}
+        sort="best"
+        onSortChange={() => undefined}
+        client={client}
+        onMoreLoaded={() => undefined}
+        canCreate
+        contentAuthorLabel="Autor do post"
+        permissions={() => ({ reply: true })}
+      />,
+    );
+
+    // Markdown: o `**` vira `<strong>`. Mandá-lo pelo caminho HTML deixaria os
+    // asteriscos crus na tela.
+    expect(comHtml('markdown', 'texto **forte**')).toContain('<strong>forte</strong>');
+
+    // HTML: a tag é preservada como markup. Mandá-lo pelo `MarkdownContent`
+    // exibiria `<p>` como texto ao leitor.
+    const html = comHtml('html', '<p>parágrafo <em>legado</em></p>');
+    expect(html).toContain('<em>legado</em>');
+
+    // Defesa na saída (`spec.md:444`), nos dois caminhos: o payload já entrou
+    // sanitizado, e o render sanitiza de novo sem regravar o banco.
+    expect(comHtml('html', '<p>oi</p><script>alert(1)</script>')).not.toContain('<script>');
+    expect(comHtml('markdown', '<script>alert(1)</script>')).not.toContain('<script>');
+  });
+
+  it('não expõe corpo de legado retirado', () => {
+    // Mesma invariante do corpo nativo (decisões 34, 46): o campo novo não
+    // podia virar a porta por onde o tombstone vaza o texto derrubado.
+    const removido = commentsThreadSchema.safeParse({
+      ...thread,
+      comments: [{
+        ...thread.comments.find((comment) => comment.id === LEGACY_ID)!,
+        state: 'removed',
+        upvotes: null,
+        downvotes: null,
+        score: null,
+      }],
+      more: [],
+    });
+
+    expect(removido.success).toBe(false);
   });
 
   it('liga sort, voto, edição, denúncia e more aos callbacks injetados', async () => {
