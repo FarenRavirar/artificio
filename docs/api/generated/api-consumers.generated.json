@@ -2568,7 +2568,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.createCatalogNode",
-      "line": 72
+      "line": 81
     },
     {
       "app": "site-admin",
@@ -2578,7 +2578,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.updateCatalogNode",
-      "line": 71
+      "line": 80
     },
     {
       "app": "site-admin",
@@ -2588,7 +2588,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.getCatalogSnapshot",
-      "line": 58
+      "line": 60
     },
     {
       "app": "site-admin",
@@ -2598,7 +2598,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.listFeedback",
-      "line": 34
+      "line": 36
     },
     {
       "app": "site-admin",
@@ -2608,7 +2608,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.updateFeedback",
-      "line": 43
+      "line": 55
     },
     {
       "app": "site-admin",
@@ -2618,7 +2618,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.deleteFeedback",
-      "line": 57
+      "line": 69
     },
     {
       "app": "site-admin",
@@ -2628,7 +2628,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.listMedia",
-      "line": 25
+      "line": 28
     },
     {
       "app": "site-admin",
@@ -2638,7 +2638,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.updateMedia",
-      "line": 39
+      "line": 43
     },
     {
       "app": "site-admin",
@@ -2648,7 +2648,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.deleteMedia",
-      "line": 50
+      "line": 54
     },
     {
       "app": "site-admin",
@@ -2668,7 +2668,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.listPages",
-      "line": 42
+      "line": 44
     },
     {
       "app": "site-admin",
@@ -2698,7 +2698,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.deletePage",
-      "line": 58
+      "line": 70
     },
     {
       "app": "site-admin",
@@ -2708,7 +2708,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.setPageStatus",
-      "line": 58
+      "line": 70
     },
     {
       "app": "site-admin",
@@ -2718,7 +2718,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.createPost",
-      "line": 87
+      "line": 94
     },
     {
       "app": "site-admin",
@@ -2728,7 +2728,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.listPosts",
-      "line": 48
+      "line": 50
     },
     {
       "app": "site-admin",
@@ -2738,7 +2738,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.getPost",
-      "line": 45
+      "line": 47
     },
     {
       "app": "site-admin",
@@ -2748,7 +2748,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.updatePost",
-      "line": 87
+      "line": 94
     },
     {
       "app": "site-admin",
@@ -2758,7 +2758,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.deletePost",
-      "line": 64
+      "line": 76
     },
     {
       "app": "site-admin",
@@ -2768,7 +2768,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.setPostStatus",
-      "line": 64
+      "line": 76
     },
     {
       "app": "site-admin",
@@ -2788,7 +2788,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.slugCheck",
-      "line": 55
+      "line": 60
     },
     {
       "app": "site-admin",
@@ -2798,7 +2798,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.listTerms",
-      "line": 43
+      "line": 45
     },
     {
       "app": "site-admin",
@@ -2808,7 +2808,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.createTerm",
-      "line": 108
+      "line": 115
     },
     {
       "app": "site-admin",

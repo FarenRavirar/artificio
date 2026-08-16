@@ -6,22 +6,5 @@
 
 ---
 
-## Sumário
-
-| App | Breaking | Non-breaking | Unclassified |
-|-----|:--------:|:------------:|:------------:|
-| site | ✅ 0 | ✅ 4 | ⚪ 0 |
-
----
-
-### site
-
-#### ✅ Non-breaking (4)
-
-| Path | Method | Ação |
-|------|--------|------|
-| `/api/v1/community/conversation` |  | add |
-| `/api/v1/community/conversation/:id` |  | add |
-| `/api/v1/community/conversation/:id/replies` |  | add |
-| `/api/v1/community/conversation/:id/vote` |  | add |
+✅ **Nenhuma mudança detectada entre a versão atual e dev.**
 
