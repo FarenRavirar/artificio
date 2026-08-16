@@ -42,7 +42,10 @@ export function PostEditor() {
   const note = (msg: string, isErr = false) => { setToast({ msg, err: isErr }); setTimeout(() => setToast(null), 3500); };
 
   useEffect(() => {
-    api.listTerms().then(setTerms).catch(() => {});
+    // Falha aqui não bloqueia a edição (o post salva sem mexer em taxonomia), mas some com
+    // os checkboxes de categoria/tag — engolir o erro faria o autor achar que o post não
+    // tem categorias em vez de saber que a lista não carregou (achado Codex P2 na #267).
+    api.listTerms().then(setTerms).catch((e) => note(`Categorias e tags não carregaram: ${String((e as Error).message)}`, true));
     if (id) {
       api.getPost(Number(id)).then((p) => {
         setPost({ ...EMPTY, ...p }); setOrigSlug(p.slug); setOrigStatus(p.status); setReady(true);

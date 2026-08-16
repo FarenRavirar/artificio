@@ -26,16 +26,10 @@ export function MediaLibrary({ onPick }: { onPick?: (item: MediaItem) => void })
   // digitação — usá-lo no efeito refaria a listagem a cada tecla.
   const fetchInto = useCallback((qq: string, tt: string) => {
     api.listMedia(qq, tt)
-      // `req<T>` faz cast cru do JSON, então valida-se aqui. Envelope incompatível vira
-      // ERRO, não lista vazia: cair em `[]` silencioso faria a tela dizer "Nenhuma mídia"
-      // e o autor leria falha de contrato como acervo apagado (achado Codex P2 na #267).
-      .then((r) => {
-        if (!Array.isArray(r?.items) || typeof r?.total !== "number") {
-          throw new Error("Resposta inesperada do servidor ao listar mídia.");
-        }
-        setItems(r.items);
-        setTotal(r.total);
-      })
+      // `api.listMedia` já normaliza o envelope e lança em payload inválido (achado Codex
+      // P2 na #267): erro de contrato cai no `catch` abaixo e vira mensagem na tela, nunca
+      // "Nenhuma mídia" que o autor leria como acervo apagado.
+      .then((r) => { setItems(r.items); setTotal(r.total); })
       .catch((e) => setErr(String(e.message)));
   }, []);
   const load = useCallback((qq = q, tt = type) => fetchInto(qq, tt), [q, type, fetchInto]);

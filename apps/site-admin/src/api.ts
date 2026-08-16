@@ -32,7 +32,16 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   if (res.status === 401) throw new Error("Sessão expirada — entre novamente.");
   if (res.status === 403) throw new Error("Sem permissão (precisa ser admin).");
   if (!res.ok) throw new Error(`${res.status}: ${(await res.text()).slice(0, 200)}`);
-  return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+  if (res.status === 204) return undefined as T;
+  // JSON malformado vira erro nomeado, não `SyntaxError: Unexpected token` cru na tela.
+  // O cast de `T` continua sendo promessa, não garantia: quem consome payload de forma
+  // estrutural (lista, envelope, campo que decide UI) normaliza acima — ver `reqItems`,
+  // `listMedia`, `getCatalogSnapshot` e `slugCheck`.
+  try {
+    return (await res.json()) as T;
+  } catch {
+    throw new Error("Resposta do servidor não é JSON válido.");
+  }
 }
 
 export interface PostListItem {
@@ -107,9 +116,25 @@ function qs(params: Record<string, string | number | undefined>): string {
   return serialized ? `?${serialized}` : "";
 }
 
+// Normalizador de envelope `{ items: [...] }`, aplicado na fronteira da API porque
+// `req<T>` faz cast cru do JSON e o tipo é promessa, não garantia (AGENTS.md: todo dado
+// de API é `unknown` até passar por normalizador tipado).
+//
+// Envelope inválido vira ERRO, nunca lista vazia: `[]` silencioso faz a tela dizer
+// "Nenhum post" e o autor lê falha de contrato como conteúdo apagado (achado Codex P2
+// na #267). A mensagem nomeia o recurso para o erro que aparece na tela ser acionável.
+async function reqItems<T>(path: string, recurso: string): Promise<T[]> {
+  const r = await req<unknown>(path);
+  const items = (r as { items?: unknown } | null)?.items;
+  if (!Array.isArray(items)) {
+    throw new Error(`Resposta inesperada do servidor ao listar ${recurso}.`);
+  }
+  return items as T[];
+}
+
 export const api = {
   listPosts: (q = "", status = "") =>
-    req<{ items: PostListItem[] }>(`/posts${qs({ q, status })}`).then((r) => r.items),
+    reqItems<PostListItem>(`/posts${qs({ q, status })}`, "posts"),
   getPost: (id: number) => req<PostFull>(`/posts/${id}`),
   createPost: (body: Partial<PostFull>) => req<SaveResult>(`/posts`, { method: "POST", body: JSON.stringify(body) }),
   updatePost: (id: number, body: Partial<PostFull>) => req<SaveResult>(`/posts/${id}`, { method: "PUT", body: JSON.stringify(body) }),
@@ -118,7 +143,7 @@ export const api = {
   deletePost: (id: number) => req<{ ok: boolean }>(`/posts/${id}`, { method: "DELETE" }),
 
   listPages: (q = "", status = "") =>
-    req<{ items: PageListItem[] }>(`/pages${qs({ q, status })}`).then((r) => r.items),
+    reqItems<PageListItem>(`/pages${qs({ q, status })}`, "páginas"),
   getPage: (id: number) => req<PageFull>(`/pages/${id}`),
   createPage: (body: Partial<PageFull>) => req<SaveResult>(`/pages`, { method: "POST", body: JSON.stringify(body) }),
   updatePage: (id: number, body: Partial<PageFull>) => req<SaveResult>(`/pages/${id}`, { method: "PUT", body: JSON.stringify(body) }),
@@ -126,7 +151,7 @@ export const api = {
     req<{ ok: boolean; rebuild?: { started: boolean; busy?: boolean } }>(`/pages/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
   deletePage: (id: number) => req<{ ok: boolean }>(`/pages/${id}`, { method: "DELETE" }),
 
-  listTerms: (kind?: "category" | "tag") => req<{ items: Term[] }>(`/taxonomies${qs({ kind })}`).then((r) => r.items),
+  listTerms: (kind?: "category" | "tag") => reqItems<Term>(`/taxonomies${qs({ kind })}`, "categorias e tags"),
   createTerm: (kind: "category" | "tag", name: string, parent_id?: number | null) =>
     req<Term>(`/taxonomies`, { method: "POST", body: JSON.stringify({ kind, name, parent_id }) }),
 
@@ -152,8 +177,16 @@ export const api = {
   // ---- Mídia (T18/T19) ----
   // `limit`/`offset` são numéricos e vão sempre: `qs` só descarta `undefined` e
   // string vazia, então `offset=0` sobrevive (descartá-lo zeraria a paginação).
-  listMedia: (q = "", type = "", limit = 60, offset = 0) =>
-    req<{ items: MediaItem[]; total: number }>(`/media${qs({ q, type, limit, offset })}`),
+  // Envelope próprio (items + total), normalizado aqui pelo mesmo motivo do `reqItems`:
+  // `total` não-numérico renderizaria "NaN item(ns)" no rodapé do grid.
+  listMedia: async (q = "", type = "", limit = 60, offset = 0): Promise<{ items: MediaItem[]; total: number }> => {
+    const r = await req<unknown>(`/media${qs({ q, type, limit, offset })}`);
+    const o = (r ?? {}) as { items?: unknown; total?: unknown };
+    if (!Array.isArray(o.items) || typeof o.total !== "number") {
+      throw new Error("Resposta inesperada do servidor ao listar mídia.");
+    }
+    return { items: o.items as MediaItem[], total: o.total };
+  },
   uploadMedia: async (file: File, meta?: { alt?: string; title?: string; caption?: string }): Promise<MediaUploadResult> => {
     const fd = new FormData();
     fd.append("file", file);
@@ -176,13 +209,21 @@ export const api = {
 
   // ---- Feedback (Spec 021) ----
   listFeedback: (status = "", kind = "", archived = "false") =>
-    req<{ items: FeedbackItem[] }>(`/feedback${qs({ archived, status, kind })}`).then((r) => r.items),
+    reqItems<FeedbackItem>(`/feedback${qs({ archived, status, kind })}`, "feedback"),
   updateFeedback: (id: number, patch: { status?: string; admin_notes?: string | null; archived?: boolean }) =>
     req<{ item: FeedbackItem }>(`/feedback/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteFeedback: (id: number) => req<{ ok: boolean }>(`/feedback/${id}`, { method: "DELETE" }),
 
   // ---- Catálogo canônico de sistemas (Spec 062) ----
-  getCatalogSnapshot: () => req<CatalogSnapshot>(`/catalog/snapshot`),
+  // `tree` validado aqui, não no componente: assim vale para a carga inicial e para o
+  // refresh pós-save, sem repetir a guarda em cada chamada.
+  getCatalogSnapshot: async (): Promise<CatalogSnapshot> => {
+    const r = await req<unknown>(`/catalog/snapshot`);
+    if (!Array.isArray((r as { tree?: unknown } | null)?.tree)) {
+      throw new Error("Resposta inesperada do servidor ao carregar o catálogo.");
+    }
+    return r as CatalogSnapshot;
+  },
   createCatalogNode: (body: CatalogNodeInput) =>
     req<CatalogNode>(`/catalog/nodes`, { method: "POST", body: JSON.stringify(body) }),
   updateCatalogNode: (id: string, body: Partial<CatalogNodeInput>) =>

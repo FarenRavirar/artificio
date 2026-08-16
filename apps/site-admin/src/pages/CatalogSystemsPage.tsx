@@ -60,15 +60,10 @@ export function CatalogSystemsPage() {
   // `err` já nasce vazio.
   const fetchSnapshot = useCallback(() => {
     api.getCatalogSnapshot()
-      // `req<T>` faz cast cru do JSON, então valida-se aqui. Envelope sem `tree` array vira
-      // ERRO, não árvore vazia: cair em `[]` silencioso faria o catálogo parecer zerado e
-      // o autor leria falha de contrato como catálogo apagado (achado Codex P2 na #267).
-      .then((snap) => {
-        if (!Array.isArray(snap?.tree)) {
-          throw new Error("Resposta inesperada do servidor ao carregar o catálogo.");
-        }
-        setSnapshot(snap);
-      })
+      // `api.getCatalogSnapshot` já valida `tree` e lança em envelope inválido (achado
+      // Codex P2 na #267): erro de contrato cai no `catch` abaixo e vira mensagem na tela,
+      // nunca árvore vazia que o autor leria como catálogo apagado.
+      .then(setSnapshot)
       .catch((e) => setErr(String((e as Error).message)))
       .finally(() => setLoading(false));
   }, []);
@@ -92,14 +87,9 @@ export function CatalogSystemsPage() {
       note(selected ? "Nó atualizado." : "Nó criado.");
       setSelectedIds([node.id]);
       try {
-        // Mesma validação da carga inicial: árvore inválida não entra no state silenciosamente
-        // (o catch abaixo já avisa que o nó salvou mas a árvore não atualizou).
-        await api.getCatalogSnapshot().then((snap) => {
-          if (!Array.isArray(snap?.tree)) {
-            throw new Error("Resposta inesperada do servidor ao recarregar o catálogo.");
-          }
-          setSnapshot(snap);
-        });
+        // `getCatalogSnapshot` valida `tree` na fronteira, então árvore inválida vira erro
+        // e cai no catch abaixo, que avisa que o nó salvou mas a árvore não atualizou.
+        await api.getCatalogSnapshot().then(setSnapshot);
       } catch (refreshError) {
         note(`Nó salvo, mas falha ao atualizar a árvore: ${String((refreshError as Error).message)}`, true);
       }

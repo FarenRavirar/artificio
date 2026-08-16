@@ -34,13 +34,12 @@ export function FeedbackPage() {
   // `err` já nasce vazio.
   const fetchInto = useCallback((st: string, kd: string, ar: string) => {
     api.listFeedback(st, kd, ar)
-      // `req<T>` faz cast cru do JSON, então valida-se aqui. Payload não-array vira ERRO,
-      // não lista vazia: cair em `[]` silencioso faria a tela dizer "Nenhum feedback" e
-      // esconderia falha de contrato como caixa vazia (achado Codex P2 na #267).
-      .then((res) => {
-        if (!Array.isArray(res)) throw new Error("Resposta inesperada do servidor ao listar feedback.");
-        setItems(res);
-        setNotes(Object.fromEntries(res.map((r) => [r.id, r.admin_notes ?? ""])));
+      // `api.listFeedback` já normaliza o envelope e lança em payload inválido (achado
+      // Codex P2 na #267): erro de contrato cai no `catch` abaixo e vira mensagem na tela,
+      // nunca caixa vazia que esconderia a falha.
+      .then((rows) => {
+        setItems(rows);
+        setNotes(Object.fromEntries(rows.map((r) => [r.id, r.admin_notes ?? ""])));
       })
       .catch((e) => setErr(String(e.message)))
       .finally(() => setLoading(false));
