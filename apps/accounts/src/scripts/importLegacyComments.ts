@@ -46,7 +46,39 @@ const legacyCommentSchema = z.object({
   subject_type: z.string().min(1).max(64),
   subject_id: z.string().min(1).max(255),
   canonical_path: z.string().min(1).max(1024),
-  author_user_id: z.uuid(),
+  /**
+   * Autoria da origem, nas **duas formas que os módulos têm** (T6.2).
+   *
+   * O `downloads` guarda `user_id` do SSO e nenhum nome — o nome se resolve
+   * consultando `users` no `accounts.` O `site` é o inverso: `comments`
+   * (`001_init.sql:66-73`) guarda `author_name` como texto solto e **não tem
+   * coluna de conta**. A tabela comparativa do levantamento já registrava os
+   * dois estágios (`spec.md:22`), e o requisito 9 fixa que o legado do `site`
+   * entra com "`user_id` nulo, `legacy_author_name`, autoria não verificada".
+   *
+   * Por isso os dois campos são opcionais **e** ligados por um `refine` abaixo:
+   * pelo menos um precisa vir, senão não há como nomear o autor legado e o
+   * `CHECK` do banco (`legacy_author_name` NOT NULL na metade legada) recusaria
+   * a linha só na hora do `INSERT`, sem dizer qual comentário.
+   *
+   * Nenhum dos dois vincula conta: `community_actor_id` é NULO em todo legado
+   * (`community_comment_body_kind_check`). `author_user_id` serve **só** para
+   * descobrir o nome de quem tem conta.
+   */
+  author_user_id: z.uuid().nullish(),
+  author_name: z.string().trim().min(1).max(255).nullish(),
+  /**
+   * `legacy_id` do pai, quando a origem tem thread (T6.2).
+   *
+   * Não é `parent_id` do destino: o UUID do pai no `accounts.` só existe depois
+   * de ele ser inserido, e a origem não o conhece. O importador resolve o mapa
+   * `legacy_id → UUID` durante o lote e ordena pai antes de filho.
+   *
+   * O `downloads` era lista plana e omite o campo. O `site` tem `parent_id`
+   * **sem FK** (`spec.md:151`), então pai órfão e ciclo são possíveis na origem
+   * e são detectados aqui, não confiados ao banco.
+   */
+  parent_legacy_id: z.string().min(1).max(255).nullish(),
   /**
    * Corpo **já sanitizado na origem**, com a política declarada.
    *
@@ -73,10 +105,26 @@ const legacyCommentSchema = z.object({
    * transforma um erro silencioso de dado em recusa explícita com o
    * `legacy_id` no relatório de divergências.
    */
-  removed_at: z.iso.datetime({ offset: true }).nullable(),
-  removed_reason: z.string().nullable(),
+  /**
+   * Retirada herdada. `nullish` e não `nullable`: `site.comments` **não tem**
+   * coluna de remoção (`001_init.sql:66-73`), então o exportador de lá omite o
+   * campo em vez de fabricar `null` para uma coluna que não existe. O efeito é
+   * o mesmo — sem `removed_at` não há tombstone —, mas a ausência descreve a
+   * origem com honestidade.
+   */
+  removed_at: z.iso.datetime({ offset: true }).nullish(),
+  removed_reason: z.string().nullish(),
   created_at: z.iso.datetime({ offset: true }),
-});
+}).refine(
+  (comment) => Boolean(comment.author_user_id) || Boolean(comment.author_name),
+  {
+    // Sem nenhuma das duas formas de autoria, `legacy_author_name` sairia nulo
+    // e o `CHECK` da metade legada recusaria a linha lá no `INSERT` — erro do
+    // driver, sem dizer qual comentário. Aqui a recusa carrega o `legacy_id`.
+    message: "author_user_id ou author_name é obrigatório",
+    path: ["author_name"],
+  },
+);
 
 export const legacyExportSchema = z.object({
   source_app: z.enum(["downloads", "site", "mesas"]),
@@ -157,15 +205,57 @@ export async function importLegacyComments(
     );
   }
 
-  for (const comment of comments) {
+  // Pai antes de filho, e órfão/ciclo fora — a origem do `site` tem
+  // `parent_id` sem FK, e a spec manda detectar antes da cópia (`spec.md:151`).
+  const { ordered, unresolved } = orderByParent(comments);
+  for (const comment of unresolved) {
+    report.divergences.push({
+      legacy_id: comment.legacy_id,
+      reason: `pai não resolvido (órfão ou ciclo): parent_legacy_id=${comment.parent_legacy_id}`,
+    });
+  }
+
+  /** `legacy_id` → coordenadas, para o filho referenciar o pai do mesmo lote. */
+  const colocacoes = new Map<string, ParentPlacement>();
+
+  for (const comment of ordered) {
+    const paiLegacyId = comment.parent_legacy_id;
+    // Pai importado numa execução ANTERIOR não está no mapa deste lote: na
+    // reexecução ele cai em `SkipComment` e nunca é colocado ali. Sem esta
+    // consulta, o filho seria inserido como raiz — silenciosamente achatando a
+    // árvore justamente no caminho que roda mais vezes.
+    let parent = paiLegacyId ? colocacoes.get(paiLegacyId) ?? null : null;
+    if (paiLegacyId && !parent) {
+      const existente = await db
+        .selectFrom("community_comment")
+        .select(["id", "root_id", "depth"])
+        .where("legacy_source", "=", source_app)
+        .where("legacy_id", "=", paiLegacyId)
+        .executeTakeFirst();
+      if (existente) {
+        parent = { id: existente.id, rootId: existente.root_id, depth: existente.depth };
+      } else {
+        // `orderByParent` garantiu que o pai está no lote; se ele não foi
+        // inserido nem existe no banco, foi ele que falhou. Importar o filho
+        // como raiz mentiria sobre a estrutura.
+        report.divergences.push({
+          legacy_id: comment.legacy_id,
+          reason: `pai ${paiLegacyId} não foi importado; filho não vira raiz`,
+        });
+        continue;
+      }
+    }
+
     try {
-      await db.transaction().execute(
-        (trx) => insertLegacyComment(trx, comment, options.realm, source_app),
+      const colocacao = await db.transaction().execute(
+        (trx) => insertLegacyComment(trx, comment, options.realm, source_app, parent),
       );
+      colocacoes.set(comment.legacy_id, colocacao);
       report.inserted += 1;
     } catch (error: unknown) {
       // `SkipComment` é o rollback deliberado da reexecução, não falha: conta
-      // como pulado e não polui o relatório de divergências.
+      // como pulado e não polui o relatório de divergências. O filho ainda
+      // encontra o pai — pela consulta acima, que lê o que já está no banco.
       if (error instanceof SkipComment) {
         report.skipped += 1;
         continue;
@@ -180,12 +270,28 @@ export async function importLegacyComments(
   return report;
 }
 
+/**
+ * Coordenadas do pai já importado, resolvidas pelo mapa do lote.
+ *
+ * `root_id` e `depth` são **estruturais** (`spec.md:103`) e o
+ * `community_comment_root_shape_check` os valida: raiz tem `root_id = id` e
+ * `depth = 0`; resposta herda o `root_id` do pai e soma 1 na profundidade.
+ * Recalcular isso a partir do banco a cada filho custaria uma consulta por
+ * comentário para reconstruir o que o lote acabou de escrever.
+ */
+interface ParentPlacement {
+  readonly id: string;
+  readonly rootId: string;
+  readonly depth: number;
+}
+
 async function insertLegacyComment(
   trx: Transaction<Database>,
   comment: z.infer<typeof legacyCommentSchema>,
   realm: "beta" | "prod",
   sourceApp: string,
-): Promise<void> {
+  parent: ParentPlacement | null = null,
+): Promise<ParentPlacement> {
   // Assunto sob demanda, igual à escrita viva: nada no sistema cria a linha
   // antes do primeiro comentário, e `ranking_revision` vive nela.
   // `ranking_revision` fica fora do `SET` — pertence ao voto, não ao import.
@@ -214,12 +320,19 @@ async function insertLegacyComment(
   // vinculá-lo: o vínculo é justamente o que o requisito 9 nega ("autoria não
   // verificada"). Conta inexistente não é divergência — o comentário entra com
   // o rótulo neutro, como qualquer legado sem conta viva por trás.
-  const author = await trx
-    .selectFrom("users")
-    .select(["name"])
-    .where("id", "=", comment.author_user_id)
-    .executeTakeFirst();
-  const authorName = author?.name ?? null;
+  //
+  // Duas vias, porque os módulos guardam autoria de formas diferentes
+  // (`spec.md:22`): o `site` já traz o nome literal e **não consulta `users`**
+  // — não há conta a procurar, e uma busca por `undefined` acharia linha
+  // arbitrária ou nenhuma. O `downloads` traz o id e resolve o nome aqui.
+  const authorName = comment.author_name
+    ?? (comment.author_user_id
+      ? (await trx
+        .selectFrom("users")
+        .select(["name"])
+        .where("id", "=", comment.author_user_id)
+        .executeTakeFirst())?.name ?? null
+      : null);
 
   const commentId = randomUUID();
   const versionId = randomUUID();
@@ -287,12 +400,20 @@ async function insertLegacyComment(
       // afirmaria uma autoria que a importação não tem como provar, e daria ao
       // comentário antigo voto, edição e badge que o requisito nega.
       community_actor_id: null,
-      parent_id: null,
-      // Legado do `downloads` é lista plana: não havia resposta, então todo
-      // comentário é raiz e `root_id = id`, como
-      // `community_comment_root_shape_check` exige para `depth = 0`.
-      root_id: commentId,
-      depth: 0,
+      // Hierarquia preservada quando a origem tem thread (T6.2).
+      //
+      // O legado do `downloads` é lista plana — sem `parent_legacy_id`, `parent`
+      // chega nulo e o comentário é raiz, como antes. O do `site` tem
+      // `parent_id` (`spec.md:22`), e ali `root_id`/`depth` herdam do pai:
+      // `community_comment_root_shape_check` exige `root_id = id` só para
+      // `depth = 0`, e resposta soma 1 sobre a profundidade do pai.
+      //
+      // Achatar tudo em raiz seria pior que perder formatação: transformaria
+      // resposta em comentário solto, e o requisito 12a ("tombstone preserva
+      // posição e descendentes") deixaria de fazer sentido no acervo migrado.
+      parent_id: parent?.id ?? null,
+      root_id: parent?.rootId ?? commentId,
+      depth: parent ? parent.depth + 1 : 0,
       // Corpo do legado vive em `legacy_content_html`, e `body_markdown` fica
       // nulo — a outra metade do `community_comment_body_kind_check`. O
       // requisito 10 fecha o desenho: "o HTML legado continua em campo próprio,
@@ -368,4 +489,57 @@ async function insertLegacyComment(
       redaction_reason: null,
     })
     .execute();
+
+  // Devolve as coordenadas para o mapa do lote: é o que permite o filho
+  // referenciar o pai sem consultar o banco de novo.
+  return {
+    id: commentId,
+    rootId: parent?.rootId ?? commentId,
+    depth: parent ? parent.depth + 1 : 0,
+  };
+}
+
+/**
+ * Ordena o lote para que todo pai seja inserido antes dos filhos, e reporta o
+ * que não tem lugar na árvore.
+ *
+ * `site.comments.parent_id` **não tem FK** (`spec.md:151`), então a origem pode
+ * conter pai órfão (aponta para id inexistente) e ciclo (A→B→A). A spec manda
+ * detectá-los "antes da cópia" — o banco central não os pegaria da forma útil:
+ * a FK recusaria o órfão com erro de driver, e o ciclo simplesmente nunca
+ * inseriria, sem dizer quais linhas.
+ *
+ * O algoritmo é Kahn: emite quem já tem o pai resolvido, repete até não sair
+ * mais nada. O que sobra é exatamente o conjunto de órfãos e ciclos, e vai para
+ * `divergences` com a causa — nunca importado como raiz, porque promover
+ * resposta a comentário solto inventaria uma conversa que não existiu.
+ */
+export function orderByParent<T extends { legacy_id: string; parent_legacy_id?: string | null }>(
+  comments: readonly T[],
+): { ordered: T[]; unresolved: T[] } {
+  const presentes = new Set(comments.map((comment) => comment.legacy_id));
+  const resolvidos = new Set<string>();
+  const ordered: T[] = [];
+  let pendentes = comments.filter((comment) => {
+    // Pai fora do lote é órfão desde já: não adianta esperar as rodadas.
+    const pai = comment.parent_legacy_id;
+    return !pai || presentes.has(pai);
+  });
+  const foraDoLote = comments.filter((comment) => !pendentes.includes(comment));
+
+  let avancou = true;
+  while (avancou && pendentes.length > 0) {
+    const prontos = pendentes.filter(
+      (comment) => !comment.parent_legacy_id || resolvidos.has(comment.parent_legacy_id),
+    );
+    avancou = prontos.length > 0;
+    for (const comment of prontos) {
+      ordered.push(comment);
+      resolvidos.add(comment.legacy_id);
+    }
+    pendentes = pendentes.filter((comment) => !prontos.includes(comment));
+  }
+
+  // O que restou em `pendentes` está em ciclo; `foraDoLote` são os órfãos.
+  return { ordered, unresolved: [...foraDoLote, ...pendentes] };
 }

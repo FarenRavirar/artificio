@@ -29,6 +29,11 @@ services:
       - CATALOG_INTERNAL_TOKEN=${CATALOG_INTERNAL_TOKEN}
       - PUBLIC_GA_ID=${PUBLIC_GA_ID:-G-2H50PCM950}
       - PUBLIC_SITE_URL=https://beta.artificiorpg.com
+      # T6.4 (spec 090) — fachada da conversa. Credencial de beta ja provisionada
+      # no `accounts.` (`community_service_credential`, escopos comment.read e
+      # comment.write). Sem as duas vars a fachada responde `503`.
+      - ACCOUNTS_URL=${ACCOUNTS_URL:-https://accounts.artificiorpg.com}
+      - SERVICE_CREDENTIAL=${SERVICE_CREDENTIAL:?SERVICE_CREDENTIAL is required}
       - SITE_NOINDEX=true
       - JWT_SECRET=${JWT_SECRET}
       - TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.18.0.0/16}

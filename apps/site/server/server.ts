@@ -15,6 +15,7 @@ import { runJob, jobState } from "./jobs.js";
 import { adminApi } from "./admin-api.js";
 import { catalogAdminApi, catalogApi } from "./catalog-api.js";
 import { catalogMaterialTypesAdminApi } from "./catalog-material-types-admin-api.js";
+import { communityApi } from "./community-api.js";
 import { renderPreview } from "./preview.js";
 import { reloadRedirects, lookupRedirect } from "./redirect-cache.js";
 import { UPLOADS_DIR, storeUpload } from "./lib/media-store.js";
@@ -199,6 +200,15 @@ app.post("/api/feedback", feedbackLimiter, async (req, res) => {
 
 // API central pública do catálogo canônico (Spec 062 I1). Sem consumidor conectado ainda.
 app.use("/api/catalog/v1", catalogApi());
+
+// T6.4 (spec 090) — fachada da conversa. Prefixo PRÓPRIO (`/conversation`), e não
+// `/api/v1/community/comments`, pelo mesmo motivo medido no `downloads`
+// (`server.ts:122-131`): montar a conversa no prefixo da moderação funciona por
+// acidente — o Express cai no router seguinte quando o primeiro não casa —, mas
+// passa a depender da ordem de registro e de a conversa NÃO declarar
+// `/:id/reports`. No dia em que alguém declarar, a denúncia quebra sem erro de
+// compilação e sem teste vermelho.
+app.use("/api/v1/community/conversation", communityApi());
 
 // Achado real (2026-07-13, deploy prod mesas/glossario/site): /api/admin/v1/catalog
 // nunca era alcançada — Express casa por prefixo na ordem de registro, e o mount

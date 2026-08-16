@@ -24,7 +24,18 @@ RUN pnpm -w turbo run build \
   --filter=@artificio/config --filter=@artificio/auth --filter=@artificio/ui \
   --filter=@artificio/content --filter=@artificio/analytics \
   --filter=@artificio/feedback --filter=@artificio/media \
+  --filter=@artificio/comments --filter=@artificio/content-editor \
   --filter=@artificio/site-admin
+
+# Fail-fast dos pacotes da conversa (T6.4, spec 090). Esta lista de `--filter` é
+# uma ALLOWLIST: pacote ausente dela não é construído, o `dist` não existe, e a
+# falha só aparece no entrypoint — em runtime, já no ar. É a forma exata dos
+# incidentes E016/E017 (SSO fora por 5h em 2026-08-08) e E021 (dependência
+# transitiva podada do store). `content-editor` entra porque `@artificio/comments`
+# o consome para sanitizar o corpo legado (`CommentsConversation.tsx`), e
+# transitiva não construída falha igual à direta.
+RUN test -d packages/comments/dist && test -d packages/content-editor/dist \
+  || (echo "ERRO: dist de @artificio/comments ou content-editor ausente" && exit 1)
 
 WORKDIR /repo/apps/site
 RUN chmod +x docker-entrypoint.sh

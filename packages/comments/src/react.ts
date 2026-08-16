@@ -72,6 +72,42 @@ export type {
   UnavailableCommentsState,
 } from './resource.js';
 
+/**
+ * Funções de runtime que o host da UI precisa, reexportadas por este subpath
+ * **porque o barrel `.` não é browser-safe** (T6.4, spec 090).
+ *
+ * `index.ts` reexporta `treeCursor.js`, que abre com
+ * `import { createHmac, timingSafeEqual } from 'node:crypto'` — assinatura de
+ * cursor é código de servidor, e nada do cliente a alcança. Mas o barrel arrasta
+ * o módulo inteiro para qualquer bundle que importe do root: o build do Astro
+ * falha com `"createHmac" is not exported by "__vite-browser-external"`, medido
+ * em 2026-08-16 ao adotar a conversa no `site`.
+ *
+ * O `downloads` não expôs isso porque o Vite dele externaliza `node:*` em vez de
+ * quebrar — o defeito estava lá desde a Fase 4, esperando um consumidor mais
+ * estrito. Importar daqui resolve na origem, sem `alias` de bundler em cada app
+ * (que teria de ser repetido no `mesas` na Fase 7) e sem `polyfill` de crypto
+ * no cliente, que embarcaria código de servidor no navegador.
+ */
+export {
+  createCommentsClient,
+  type CommentsClient,
+  type CommentsClientOptions,
+  type CommentsTransport,
+  type CommentsTransportRequest,
+} from './transport.js';
+
+export {
+  createCommentsResource,
+  type CommentsResourceOptions,
+} from './resource.js';
+
+export {
+  createCommentsConversationClient,
+  mergeCommentsThreadPage,
+  commentsThreadSchema,
+} from './conversation.js';
+
 export {
   CommentAppealForm,
   CommentReportPanel,

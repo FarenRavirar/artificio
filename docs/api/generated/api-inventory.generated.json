@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "total": 567,
+    "total": 574,
     "byApp": {
       "accounts": {
         "total": 56,
@@ -71,17 +71,17 @@
         }
       },
       "site": {
-        "total": 59,
+        "total": 66,
         "byMethod": {
-          "GET": 27,
-          "POST": 14,
-          "USE": 7,
-          "PUT": 6,
-          "DELETE": 4,
-          "PATCH": 1
+          "GET": 28,
+          "POST": 16,
+          "USE": 8,
+          "PUT": 7,
+          "DELETE": 5,
+          "PATCH": 2
         },
         "byConfidence": {
-          "high": 59
+          "high": 66
         }
       }
     },
@@ -4666,7 +4666,7 @@
       "method": "USE",
       "path": "/admin",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 248,
+      "line": 258,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4675,7 +4675,7 @@
       "method": "USE",
       "path": "/admin",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 250,
+      "line": 260,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4684,7 +4684,7 @@
       "method": "GET",
       "path": "/admin/preview/:type/:id",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 220,
+      "line": 230,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4693,7 +4693,7 @@
       "method": "POST",
       "path": "/admin/rebuild",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 124,
+      "line": 125,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4702,7 +4702,7 @@
       "method": "GET",
       "path": "/admin/status",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 109,
+      "line": 110,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4711,7 +4711,7 @@
       "method": "USE",
       "path": "/api/admin/v1",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 213,
+      "line": 223,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4720,7 +4720,7 @@
       "method": "USE",
       "path": "/api/admin/v1/catalog",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 210,
+      "line": 220,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4765,7 +4765,7 @@
       "method": "USE",
       "path": "/api/admin/v1/catalog/material-types",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 211,
+      "line": 221,
       "confidence": "high",
       "kind": "mount"
     },
@@ -5080,7 +5080,7 @@
       "method": "USE",
       "path": "/api/catalog/v1",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 201,
+      "line": 202,
       "confidence": "high",
       "kind": "mount"
     },
@@ -5170,7 +5170,70 @@
       "method": "POST",
       "path": "/api/feedback",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 155,
+      "line": 156,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/v1/community/conversation",
+      "sourceFile": "apps/site/server/community-api.ts",
+      "line": 209,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/v1/community/conversation",
+      "sourceFile": "apps/site/server/community-api.ts",
+      "line": 232,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "USE",
+      "path": "/api/v1/community/conversation",
+      "sourceFile": "apps/site/server/server.ts",
+      "line": 211,
+      "confidence": "high",
+      "kind": "mount"
+    },
+    {
+      "app": "site",
+      "method": "DELETE",
+      "path": "/api/v1/community/conversation/:id",
+      "sourceFile": "apps/site/server/community-api.ts",
+      "line": 275,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "PATCH",
+      "path": "/api/v1/community/conversation/:id",
+      "sourceFile": "apps/site/server/community-api.ts",
+      "line": 268,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/v1/community/conversation/:id/replies",
+      "sourceFile": "apps/site/server/community-api.ts",
+      "line": 246,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "PUT",
+      "path": "/api/v1/community/conversation/:id/vote",
+      "sourceFile": "apps/site/server/community-api.ts",
+      "line": 282,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -5179,7 +5242,7 @@
       "method": "GET",
       "path": "/healthz",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 98,
+      "line": 99,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -5188,7 +5251,7 @@
       "method": "USE",
       "path": "/uploads",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 217,
+      "line": 227,
       "confidence": "high",
       "kind": "mount"
     }
