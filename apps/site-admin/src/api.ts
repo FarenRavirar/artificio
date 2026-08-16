@@ -130,8 +130,20 @@ export const api = {
   createTerm: (kind: "category" | "tag", name: string, parent_id?: number | null) =>
     req<Term>(`/taxonomies`, { method: "POST", body: JSON.stringify({ kind, name, parent_id }) }),
 
-  slugCheck: (type: "post" | "page", title: string, id?: number) =>
-    req<{ slug: string; available: boolean; suggestion: string }>(`/slug-check${qs({ type, title, id })}`),
+  // Normaliza na fronteira: `req` faz cast cru do JSON, e `available` é o campo que decide
+  // se o aviso de "slug em uso" aparece. Um `available` ausente/não-booleano cairia em
+  // falsy e marcaria como indisponível um slug livre — por isso o default é `true`
+  // (disponível), que é o comportamento seguro: não bloqueia o autor por resposta
+  // malformada. `slug`/`suggestion` viram string vazia se não forem string (review #265).
+  slugCheck: async (type: "post" | "page", title: string, id?: number): Promise<{ slug: string; available: boolean; suggestion: string }> => {
+    const r = await req<unknown>(`/slug-check${qs({ type, title, id })}`);
+    const o = (r ?? {}) as Record<string, unknown>;
+    return {
+      slug: typeof o.slug === "string" ? o.slug : "",
+      available: typeof o.available === "boolean" ? o.available : true,
+      suggestion: typeof o.suggestion === "string" ? o.suggestion : "",
+    };
+  },
 
   rebuild: () => req<{ started: boolean }>(`/rebuild`, { method: "POST" }),
 

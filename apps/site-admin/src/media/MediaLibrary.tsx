@@ -25,7 +25,14 @@ export function MediaLibrary({ onPick }: { onPick?: (item: MediaItem) => void })
   // do efeito de carga inicial. `load` fecha sobre os filtros atuais e muda a cada
   // digitação — usá-lo no efeito refaria a listagem a cada tecla.
   const fetchInto = useCallback((qq: string, tt: string) => {
-    api.listMedia(qq, tt).then((r) => { setItems(r.items); setTotal(r.total); }).catch((e) => setErr(String(e.message)));
+    api.listMedia(qq, tt)
+      // `req<T>` faz cast cru do JSON: sem as guardas, `items` não-array quebra no `.map`
+      // do grid e `total` não-número vira "NaN item(ns)" (achado de review #265).
+      .then((r) => {
+        setItems(Array.isArray(r?.items) ? r.items : []);
+        setTotal(typeof r?.total === "number" ? r.total : 0);
+      })
+      .catch((e) => setErr(String(e.message)));
   }, []);
   const load = useCallback((qq = q, tt = type) => fetchInto(qq, tt), [q, type, fetchInto]);
   useEffect(() => { fetchInto("", ""); }, [fetchInto]);

@@ -45,7 +45,9 @@ export function CatalogSystemsPage() {
   const [err, setErr] = useState("");
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
 
-  const uiTree = useMemo(() => (snapshot?.tree ?? []).map(toUiNode), [snapshot]);
+  // `?? []` cobre null/undefined, mas não `tree` vindo como não-array do cast cru de
+  // `req<T>` — aí o `.map` quebraria a tela (achado de review #265).
+  const uiTree = useMemo(() => (Array.isArray(snapshot?.tree) ? snapshot.tree : []).map(toUiNode), [snapshot]);
 
   const note = (msg: string, isErr = false) => {
     setToast({ msg, err: isErr });

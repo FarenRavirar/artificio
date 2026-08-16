@@ -42,7 +42,9 @@ export function PagesList() {
   // render em cascata (react-hooks/set-state-in-effect) — `loading` já nasce `true`.
   const fetchInto = useCallback((st: string) => {
     api.listPages("", st)
-      .then(setItems)
+      // `req<T>` faz cast cru do JSON: sem a guarda, payload malformado vira `items`
+      // não-array e quebra no `.map` do render (achado de review #265).
+      .then((res) => setItems(Array.isArray(res) ? res : []))
       .catch((e) => setErr(String(e.message)))
       .finally(() => setLoading(false));
   }, []);

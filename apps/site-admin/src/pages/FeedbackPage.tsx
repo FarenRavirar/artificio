@@ -34,7 +34,14 @@ export function FeedbackPage() {
   // `err` já nasce vazio.
   const fetchInto = useCallback((st: string, kd: string, ar: string) => {
     api.listFeedback(st, kd, ar)
-      .then((rows) => { setItems(rows); setNotes(Object.fromEntries(rows.map((r) => [r.id, r.admin_notes ?? ""]))); })
+      // `req<T>` faz cast cru do JSON, então a resposta é `unknown` na prática: sem o
+      // `Array.isArray` um payload malformado quebraria no `.map` e derrubaria a tela
+      // inteira (achado de review #265, e regra de normalização do AGENTS.md).
+      .then((res) => {
+        const rows = Array.isArray(res) ? res : [];
+        setItems(rows);
+        setNotes(Object.fromEntries(rows.map((r) => [r.id, r.admin_notes ?? ""])));
+      })
       .catch((e) => setErr(String(e.message)))
       .finally(() => setLoading(false));
   }, []);

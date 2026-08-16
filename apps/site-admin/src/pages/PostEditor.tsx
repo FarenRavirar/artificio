@@ -56,14 +56,22 @@ export function PostEditor() {
   // abaixo, então um slug vazio simplesmente deixa de casar e a marca some sozinha.
   useEffect(() => {
     if (!post.slug) return;
+    // `clearTimeout` só cancela request ainda não disparada. Passados os 400ms, a
+    // resposta em voo continua chegando mesmo após o slug mudar — daí o guard de efeito
+    // ativo, senão um resultado velho sobrescreve o do slug atual (achado de review #265).
+    let active = true;
+    const queried = post.slug;
     const t = setTimeout(() => {
-      api.slugCheck("post", post.slug, id ? Number(id) : undefined)
-        .then((r) => setTakenSlug(r.available ? null : r.slug))
-        .catch(() => setTakenSlug(null));
+      api.slugCheck("post", queried, id ? Number(id) : undefined)
+        .then((r) => { if (active) setTakenSlug(r.available ? null : queried); })
+        .catch(() => { if (active) setTakenSlug(null); });
     }, 400);
-    return () => clearTimeout(t);
+    return () => { active = false; clearTimeout(t); };
   }, [post.slug, id]);
-  // Derivado do render: só vale enquanto o slug atual for exatamente o que a API recusou.
+  // Derivado do render: só vale enquanto o slug atual for exatamente o que foi consultado.
+  // Guarda o slug **consultado**, não o `r.slug` devolvido: o servidor normaliza ("Foo Bar"
+  // → "foo-bar") e comparar com a forma normalizada nunca casaria com o que está no input,
+  // escondendo o aviso de slug em uso (achado de review #265).
   const slugTaken = !!post.slug && takenSlug === post.slug;
   const slugChangedOnPublished = !isNew && origStatus === "publish" && post.slug !== origSlug;
 
