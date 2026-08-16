@@ -102,7 +102,7 @@ function putCall(spy: ReturnType<typeof mockFetch>) {
 async function marcarComoLida(spy: ReturnType<typeof mockFetch>) {
   const { render, screen, fireEvent, waitFor } = await import('@testing-library/react');
   const authClient = await import('@artificio/auth/client');
-  const { NotificationBell } = await import('./NotificationBell');
+  const { NotificationBell } = await import('./NotificationBell.js');
 
   // `NotificationBell` devolve `null` sem sessão (`:266`) — sem este duplo não
   // existe sino para clicar, e o teste falharia por ausência de usuário, não

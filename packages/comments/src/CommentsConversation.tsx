@@ -107,6 +107,25 @@ function visibleBody(bodyMarkdown: string): string | null {
 }
 
 /**
+ * Qual texto exibir, e por qual caminho ele chega.
+ *
+ * As duas metades do XOR do banco não são simétricas na leitura:
+ *
+ * - **Nativo** passa por `visibleBody`, que revalida a política corrente antes
+ *   de renderizar.
+ * - **Importado NÃO pode passar** por lá. `validateCommentBody` aplica a regra
+ *   de links HTTPS-only do requisito 10a, posterior ao conteúdo legado; um
+ *   `http://` de 2015 devolveria `null` e o comentário cairia em "Conteúdo
+ *   indisponível.". Era esse o bug — sem corpo legado no payload, TODO
+ *   comentário importado caía nesse placeholder.
+ */
+function commentBody(comment: ConversationComment, legacy: boolean): string | null {
+  if (legacy) return comment.legacy?.content_html ?? null;
+  if (comment.body_markdown === null) return null;
+  return visibleBody(comment.body_markdown);
+}
+
+/**
  * Renderiza o corpo no formato que ele de fato tem.
  *
  * A coluna de corpo legado guarda **dois** formatos, distinguidos pela política
@@ -432,16 +451,7 @@ export function CommentsConversation({
       ? comment.legacy?.author_name ?? comment.author.display_name ?? 'Autoria não informada'
       : comment.author.display_name ?? 'Conta excluída';
     const label = legacy ? null : badgeLabel(comment.author.badge, contentAuthorLabel);
-    // Corpo nativo passa por `visibleBody` (revalida a política corrente antes
-    // de renderizar); o importado NÃO pode passar. `validateCommentBody` aplica
-    // a regra de links HTTPS-only do requisito 10a, que é posterior ao conteúdo
-    // legado — um `http://` de 2015 devolveria `null` aqui e o comentário
-    // cairia em "Conteúdo indisponível.". Era esse o bug: sem corpo legado no
-    // payload, TODO comentário importado caía nesse placeholder.
-    const legacyBody = comment.legacy?.content_html ?? null;
-    const body = legacy
-      ? legacyBody
-      : comment.body_markdown === null ? null : visibleBody(comment.body_markdown);
+    const body = commentBody(comment, legacy);
     const canAct = mutationsEnabled && pendingAction === null;
 
     return (

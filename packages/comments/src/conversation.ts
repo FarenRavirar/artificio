@@ -217,11 +217,48 @@ export const readCommentsThreadOperation = defineCommentsOperation({
   outputSchema: commentsThreadSchema,
 });
 
+/**
+ * O que a escrita devolve — **não** é o comentário completo da leitura.
+ *
+ * `POST`/`PATCH` respondem com o comentário recém-gravado
+ * (`communityCommentRoutes.ts:403,655`), que carrega só identidade, posição,
+ * corpo e datas: `CreatedComment` (`communityCommentWrite.ts:106`) e
+ * `EditedComment` (`communityCommentLifecycle.ts:111`). Placar, autor resolvido,
+ * `my_vote`, `state`, `viewer_is_author` e `legacy` **não existem nesse
+ * momento** — dependem de joins que só a árvore faz, e alguns nem fazem sentido
+ * na resposta da própria escrita (`my_vote` de um comentário que acabou de
+ * nascer).
+ *
+ * Antes disto as três mutações declaravam `conversationCommentSchema`, e o
+ * payload real falhava em **8 campos** (medido: `edited_at`, `state`, `author`,
+ * `upvotes`, `downvotes`, `score`, `my_vote`, `legacy`). O efeito era grave e
+ * silencioso: escrita **confirmada e persistida** pelo servidor virava
+ * `schema_incompatible` no cliente, a UI mostrava falha, o `reload` não rodava,
+ * e quem reenviasse geraria uma chave de idempotência nova — duplicando a fala
+ * que já estava gravada. Achado da revisão do Codex na PR #263.
+ *
+ * `edited_at` é opcional porque só a edição o devolve; a criação não tem o
+ * campo. `.strict()` fecharia a porta a um campo novo do servidor, então fica
+ * aberto de propósito: a mutação valida o que precisa consumir, não a forma
+ * inteira da resposta.
+ */
+export const mutatedCommentSchema = z.object({
+  id: z.uuid(),
+  parent_id: z.uuid().nullable(),
+  root_id: z.uuid(),
+  depth: z.number().int().min(0).max(4),
+  body_markdown: canonicalCommentBodySchema,
+  created_at: z.iso.datetime(),
+  edited_at: z.iso.datetime().nullable().optional(),
+});
+
+export type MutatedComment = z.infer<typeof mutatedCommentSchema>;
+
 export const createCommentOperation = defineCommentsOperation({
   capability: 'comment.create',
   kind: 'mutation',
   inputSchema: subjectInputSchema.extend({ bodyMarkdown: canonicalCommentBodySchema }),
-  outputSchema: conversationCommentSchema,
+  outputSchema: mutatedCommentSchema,
 });
 
 export const replyToCommentOperation = defineCommentsOperation({
@@ -231,7 +268,7 @@ export const replyToCommentOperation = defineCommentsOperation({
     commentId: z.uuid(),
     bodyMarkdown: canonicalCommentBodySchema,
   }),
-  outputSchema: conversationCommentSchema,
+  outputSchema: mutatedCommentSchema,
 });
 
 export const editCommentOperation = defineCommentsOperation({
@@ -241,7 +278,7 @@ export const editCommentOperation = defineCommentsOperation({
     commentId: z.uuid(),
     bodyMarkdown: canonicalCommentBodySchema,
   }).strict(),
-  outputSchema: conversationCommentSchema,
+  outputSchema: mutatedCommentSchema,
 });
 
 export const withdrawCommentOperation = defineCommentsOperation({

@@ -48,6 +48,49 @@ function clientEspiao() {
  * nova voltava `400 invalid_idempotency_key` — publicar, responder e editar
  * ficavam impossíveis nos três consumidores, e a UI só anunciava a falha.
  */
+describe('resposta das mutações', () => {
+  /**
+   * Payload REAL do `accounts.` na escrita, campo a campo: `CreatedComment`
+   * (`communityCommentWrite.ts:106`) e `EditedComment`
+   * (`communityCommentLifecycle.ts:111`). Placar, autor, `state`, `my_vote` e
+   * `legacy` não existem aqui — dependem de joins que só a leitura da árvore
+   * faz.
+   */
+  const respostaDoServidor = (comEdicao: boolean) => ({
+    id: ROOT_ID,
+    parent_id: null,
+    root_id: ROOT_ID,
+    depth: 0,
+    body_markdown: 'olá',
+    created_at: '2026-08-16T00:00:00.000Z',
+    ...(comEdicao ? { edited_at: '2026-08-16T01:00:00.000Z' } : {}),
+  });
+
+  function clientComResposta(resposta: unknown) {
+    const client = createCommentsClient({
+      transport: { execute: async () => resposta },
+    });
+    return createCommentsConversationClient(client, {
+      subjectType: 'downloads.material',
+      subjectId: 'material-1',
+    });
+  }
+
+  it.each([
+    ['create', false, (c: ReturnType<typeof clientComResposta>) => c.create('olá')],
+    ['reply', false, (c: ReturnType<typeof clientComResposta>) => c.reply(ROOT_ID, 'olá')],
+    ['edit', true, (c: ReturnType<typeof clientComResposta>) => c.edit(ROOT_ID, 'olá')],
+  ])('%s aceita o payload que o servidor devolve de fato', async (_label, comEdicao, acao) => {
+    // Antes do alinhamento, as três declaravam `conversationCommentSchema` e
+    // esta resposta falhava em 8 campos: escrita já persistida virava
+    // `schema_incompatible`, a UI mostrava erro, o reload não rodava, e o
+    // reenvio gerava chave nova — duplicando a fala já gravada.
+    const resultado = await acao(clientComResposta(respostaDoServidor(comEdicao)));
+
+    expect(resultado).toMatchObject({ id: ROOT_ID, body_markdown: 'olá' });
+  });
+});
+
 describe('chave de idempotência nas mutações', () => {
   it.each([
     ['create', (c: ReturnType<typeof clientEspiao>['conversation']) => c.create('olá')],
