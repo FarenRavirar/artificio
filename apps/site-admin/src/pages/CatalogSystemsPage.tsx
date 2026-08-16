@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CatalogExplorer, type CatalogUiNode, type CatalogUiNodeInput } from "@artificio/catalog-ui";
 import { api, type CatalogNode, type CatalogNodeInput, type CatalogSnapshot } from "../api";
 
@@ -52,16 +52,25 @@ export function CatalogSystemsPage() {
     setTimeout(() => setToast(null), 3500);
   };
 
-  const load = () => {
-    setLoading(true);
-    setErr("");
+  // `fetchSnapshot` não mexe em estado de forma síncrona: quem chama decide quando marcar
+  // `loading`/limpar o erro. Isso permite que a carga inicial rode dentro do efeito sem
+  // render em cascata (react-hooks/set-state-in-effect) — `loading` já nasce `true` e
+  // `err` já nasce vazio.
+  const fetchSnapshot = useCallback(() => {
     api.getCatalogSnapshot()
       .then(setSnapshot)
       .catch((e) => setErr(String((e as Error).message)))
       .finally(() => setLoading(false));
-  };
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  // Recarga disparada por evento (salvar/remover nó): aí sim reseta antes.
+  const load = useCallback(() => {
+    setLoading(true);
+    setErr("");
+    fetchSnapshot();
+  }, [fetchSnapshot]);
+
+  useEffect(() => { fetchSnapshot(); }, [fetchSnapshot]);
 
   const saveNode = async (form: CatalogUiNodeInput, selected: CatalogUiNode | null) => {
     setSaving(true);
