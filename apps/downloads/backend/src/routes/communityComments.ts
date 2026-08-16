@@ -212,25 +212,49 @@ function writeBody(
 
 /** Leitura da árvore. Pública; com sessão, o ator vai junto para `my_vote` (§2). */
 router.get('/', readRateLimiter, optionalAuth, (req: Request, res: Response, next: NextFunction) => {
-  const subjectId = typeof req.query.subject_id === 'string' ? req.query.subject_id : '';
-  if (!subjectId) {
-    res.status(400).json({ error: 'invalid_query', detail: 'subject_id é obrigatório.' });
-    return;
-  }
+  void (async () => {
+    const subjectId = typeof req.query.subject_id === 'string' ? req.query.subject_id : '';
+    if (!subjectId) {
+      res.status(400).json({ error: 'invalid_query', detail: 'subject_id é obrigatório.' });
+      return;
+    }
 
-  const query = new URLSearchParams({
-    subject_type: DOWNLOADS_SUBJECT_TYPE,
-    subject_id: subjectId,
-  });
-  // `sort` e `cursor` passam adiante sem interpretação: o vocabulário é do
-  // `accounts.` (§2), e validar aqui criaria uma segunda lista de sorts para
-  // divergir da dele.
-  if (typeof req.query.sort === 'string') query.set('sort', req.query.sort);
-  if (typeof req.query.cursor === 'string') query.set('cursor', req.query.cursor);
+    // A LEITURA também passa pelo guard, e não só a escrita (achado de review,
+    // PR #264 — o mesmo defeito existia no `site` e foi corrigido lá primeiro).
+    //
+    // Sem isto, `?subject_id=<id de material em rascunho>` confirmava a
+    // existência do material pela diferença entre `200` com árvore vazia e
+    // `404` — oráculo de existência sobre conteúdo não publicado, que é
+    // exatamente o que o `404` uniforme existe para fechar (§8). Vale mesmo
+    // quando não há comentário nenhum: o que vaza é o id ser válido.
+    //
+    // Aqui, diferente do `site`, o guard **distingue quem pergunta**: o criador
+    // enxerga o próprio material em rascunho (`materialSubjectGuard.ts`,
+    // `visibleOnlyToActor`). Em leitura anônima o ator vem vazio, e o guard
+    // recusa como não-visível — que é o comportamento correto.
+    const guard = await subjectGuard(
+      { subjectType: DOWNLOADS_SUBJECT_TYPE, subjectId },
+      req.user?.userId ?? '',
+    );
+    if (!guard.authorized) {
+      res.status(404).json({ error: 'subject_not_found' });
+      return;
+    }
 
-  proxyAccounts(req, res, `/internal/v1/comments?${query.toString()}`, {
-    actingUserId: req.user?.userId,
-  }).catch(next);
+    const query = new URLSearchParams({
+      subject_type: DOWNLOADS_SUBJECT_TYPE,
+      subject_id: subjectId,
+    });
+    // `sort` e `cursor` passam adiante sem interpretação: o vocabulário é do
+    // `accounts.` (§2), e validar aqui criaria uma segunda lista de sorts para
+    // divergir da dele.
+    if (typeof req.query.sort === 'string') query.set('sort', req.query.sort);
+    if (typeof req.query.cursor === 'string') query.set('cursor', req.query.cursor);
+
+    await proxyAccounts(req, res, `/internal/v1/comments?${query.toString()}`, {
+      actingUserId: req.user?.userId,
+    });
+  })().catch(next);
 });
 
 /** Criação de comentário raiz (§3). */

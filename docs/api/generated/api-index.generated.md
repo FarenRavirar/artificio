@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **462 operações**.
+Total: **468 operações**.
 
 ## accounts (53)
 
@@ -444,7 +444,7 @@ Total: **462 operações**.
 | GET | `/og/{type}/{slug}` | media | none | active | — | Consulta og type slug |
 | GET | `/sitemap.xml` | public | none | active | — | Consulta sitemap.xml |
 
-## site (49)
+## site (55)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -496,5 +496,11 @@ Total: **462 operações**.
 | GET | `/api/catalog/v1/snapshot` | public | none | active | — | Consulta api catalog v1 snapshot |
 | GET | `/api/catalog/v1/systems` | public | none | active | — | Consulta api catalog v1 systems |
 | POST | `/api/feedback` | public | user | active | — | Cria ou executa api feedback |
+| GET | `/api/v1/community/conversation` | public | none | active | — | Consulta api v1 community conversation |
+| POST | `/api/v1/community/conversation` | public | user | active | — | Cria ou executa api v1 community conversation |
+| DELETE | `/api/v1/community/conversation/{id}` | public | user | active | — | Remove api v1 community conversation id |
+| PATCH | `/api/v1/community/conversation/{id}` | public | user | active | — | Atualiza api v1 community conversation id |
+| POST | `/api/v1/community/conversation/{id}/replies` | public | user | active | — | Cria ou executa api v1 community conversation id replies |
+| PUT | `/api/v1/community/conversation/{id}/vote` | public | user | active | — | Substitui api v1 community conversation id vote |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 

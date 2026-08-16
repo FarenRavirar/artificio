@@ -8,9 +8,9 @@
     "glossario": 50,
     "links": 22,
     "mesas": 180,
-    "site": 49
+    "site": 55
   },
-  "total": 462,
+  "total": 468,
   "operations": [
     {
       "app": "accounts",
@@ -5676,6 +5676,78 @@
       "auth": "user",
       "consumers": [],
       "operationId": "postapi_feedback"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/v1/community/conversation",
+      "summary": "Consulta api v1 community conversation",
+      "owner": "site",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_v1_community_conversation"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/v1/community/conversation",
+      "summary": "Cria ou executa api v1 community conversation",
+      "owner": "site",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_community_conversation"
+    },
+    {
+      "app": "site",
+      "method": "DELETE",
+      "path": "/api/v1/community/conversation/{id}",
+      "summary": "Remove api v1 community conversation id",
+      "owner": "site",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "deleteapi_v1_community_conversation_id"
+    },
+    {
+      "app": "site",
+      "method": "PATCH",
+      "path": "/api/v1/community/conversation/{id}",
+      "summary": "Atualiza api v1 community conversation id",
+      "owner": "site",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "patchapi_v1_community_conversation_id"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/v1/community/conversation/{id}/replies",
+      "summary": "Cria ou executa api v1 community conversation id replies",
+      "owner": "site",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_community_conversation_id_replies"
+    },
+    {
+      "app": "site",
+      "method": "PUT",
+      "path": "/api/v1/community/conversation/{id}/vote",
+      "summary": "Substitui api v1 community conversation id vote",
+      "owner": "site",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "putapi_v1_community_conversation_id_vote"
     },
     {
       "app": "site",

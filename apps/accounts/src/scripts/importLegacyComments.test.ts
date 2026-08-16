@@ -3,7 +3,7 @@ import { Kysely, PostgresDialect } from "kysely";
 import { Pool } from "pg";
 import { afterAll, describe, expect, it } from "vitest";
 import type { Database } from "../db.js";
-import { importLegacyComments, legacyExportSchema } from "./importLegacyComments.js";
+import { importLegacyComments, legacyExportSchema, orderByParent } from "./importLegacyComments.js";
 
 /**
  * T5.1b/T5.2c (spec 090) — o importador roda duas vezes e o resultado é
@@ -111,6 +111,124 @@ describe("contrato do export (sem banco)", () => {
     // ser um caminho normal e explícito, nunca uma exceção que alguém trate
     // como falha do processo.
     expect(parsed.success).toBe(true);
+  });
+});
+
+/**
+ * T6.2 (spec 090) — o mesmo importador atende as DUAS formas de origem.
+ *
+ * A tabela comparativa do levantamento (`spec.md:22`) já registrava que o
+ * `downloads` guarda `user_id` sem nome, enquanto o `site` guarda `author_name`
+ * como texto solto sem conta, **com** threads. A Fase 5 implementou só a
+ * primeira; estas asserções são o contrato da segunda.
+ */
+describe("contrato multi-origem (site)", () => {
+  const comentarioDoSite = (over: Record<string, unknown> = {}) => ({
+    legacy_source: "site",
+    legacy_id: "501",
+    subject_type: "site.post",
+    subject_id: "10",
+    canonical_path: "/blog/meu-post/",
+    author_name: "Visitante Antigo",
+    content_html: "<p>oi</p>",
+    sanitizer_policy: "site-comment-html",
+    sanitizer_version: 1,
+    created_at: new Date("2019-05-04T12:00:00.000Z").toISOString(),
+    ...over,
+  });
+
+  const exportDoSite = (comments: unknown[]) => ({
+    source_app: "site",
+    exported_at: new Date().toISOString(),
+    count: comments.length,
+    comments,
+  });
+
+  it("aceita autoria por nome, sem user_id — o site não tem conta por trás", () => {
+    // Requisito 9: legado do `site` entra com "`user_id` nulo,
+    // `legacy_author_name`, autoria não verificada". Exigir UUID aqui tornaria
+    // o requisito impossível de cumprir.
+    const parsed = legacyExportSchema.safeParse(exportDoSite([comentarioDoSite()]));
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it("recusa comentário sem nenhuma forma de autoria", () => {
+    const semAutor = comentarioDoSite();
+    delete (semAutor as Record<string, unknown>).author_name;
+
+    // Sem nenhuma das duas vias, `legacy_author_name` sairia nulo e o `CHECK`
+    // recusaria a linha lá no `INSERT` — erro de driver, sem dizer qual.
+    const parsed = legacyExportSchema.safeParse(exportDoSite([semAutor]));
+
+    expect(parsed.success).toBe(false);
+  });
+
+  it("aceita removed_at ausente E nulo, sem inventar tombstone", () => {
+    // `site.comments` (`001_init.sql:66-73`) não tem `removed_at`. O exportador
+    // omite em vez de fabricar `null` para coluna inexistente — mas o `nullish`
+    // admite as duas formas, e as duas precisam significar "não removido".
+    const ausente = legacyExportSchema.safeParse(exportDoSite([comentarioDoSite()]));
+    expect(ausente.success).toBe(true);
+    // A forma, não só o `success`: um default acidental para data faria o
+    // importador criar `community_actor` e marcar `moderator_removed` — o
+    // caminho de tombstone que o `site` não deve exercer nunca.
+    if (ausente.success) {
+      expect(ausente.data.comments[0]?.removed_at ?? null).toBeNull();
+    }
+
+    const nulo = legacyExportSchema.safeParse(
+      exportDoSite([{ ...comentarioDoSite(), removed_at: null, removed_reason: null }]),
+    );
+    expect(nulo.success).toBe(true);
+  });
+
+  it("continua aceitando o formato do downloads, sem author_name", () => {
+    // Retrocompatibilidade: a Fase 5 já rodou em beta e prod, e um schema que
+    // quebrasse o formato antigo tornaria a reexecução impossível.
+    const parsed = legacyExportSchema.safeParse(
+      exportPayload(randomUUID(), "material-x"),
+    );
+
+    expect(parsed.success).toBe(true);
+  });
+});
+
+describe("ordenação de pai antes de filho", () => {
+  const no = (id: string, pai: string | null = null) => ({
+    legacy_id: id,
+    parent_legacy_id: pai,
+  });
+
+  it("emite o pai antes do filho, mesmo fora de ordem na entrada", () => {
+    const { ordered, unresolved } = orderByParent([no("b", "a"), no("a"), no("c", "b")]);
+
+    expect(ordered.map((n) => n.legacy_id)).toEqual(["a", "b", "c"]);
+    expect(unresolved).toHaveLength(0);
+  });
+
+  it("separa órfão cujo pai não está no lote", () => {
+    // `site.comments.parent_id` não tem FK (`spec.md:151`): a origem pode
+    // apontar para id que não existe. A spec manda detectar antes da cópia.
+    const { ordered, unresolved } = orderByParent([no("a"), no("b", "inexistente")]);
+
+    expect(ordered.map((n) => n.legacy_id)).toEqual(["a"]);
+    expect(unresolved.map((n) => n.legacy_id)).toEqual(["b"]);
+  });
+
+  it("separa ciclo em vez de girar para sempre", () => {
+    // A→B→A nunca resolve. Sem esta detecção o laço de Kahn não termina, ou
+    // pior, o ciclo entraria como raiz e inventaria conversa que não existiu.
+    const { ordered, unresolved } = orderByParent([no("a", "b"), no("b", "a"), no("c")]);
+
+    expect(ordered.map((n) => n.legacy_id)).toEqual(["c"]);
+    expect(unresolved.map((n) => n.legacy_id).sort()).toEqual(["a", "b"]);
+  });
+
+  it("preserva lista plana do downloads sem alteração", () => {
+    const plana = [no("1"), no("2"), no("3")];
+
+    expect(orderByParent(plana).ordered.map((n) => n.legacy_id)).toEqual(["1", "2", "3"]);
   });
 });
 
@@ -335,5 +453,141 @@ describe.skipIf(!db)("importação contra PostgreSQL real", () => {
     expect(relatorio.divergences[0].legacy_id).toBe(ruim.comments[0].legacy_id);
     // T5.2c: cada divergência sai com causa registrada, não um "ok" genérico.
     expect(relatorio.divergences[0].reason).toBeTruthy();
+  });
+});
+
+/**
+ * T6.2 (spec 090) — o caminho do `site` contra PostgreSQL real.
+ *
+ * As asserções sem banco provam o contrato; estas provam que o **schema**
+ * aceita. São coisas diferentes: `community_comment_body_kind_check`,
+ * `community_comment_root_shape_check` e o FK DEFERRABLE de `current_version_id`
+ * só se comportam como o real contra Postgres de verdade — foi exatamente onde
+ * a Fase 5 descobriu que legado não podia ter ator nem `body_markdown`.
+ */
+describe.skipIf(!db)("importação do site contra PostgreSQL real", () => {
+  const comentarioDoSite = (
+    subjectId: string,
+    legacyId: string,
+    parentLegacyId: string | null = null,
+  ) => ({
+    legacy_source: "site",
+    legacy_id: legacyId,
+    subject_type: "site.post",
+    subject_id: subjectId,
+    canonical_path: "/blog/meu-post/",
+    // Sem `author_user_id`: o blog não tem conta por trás (requisito 9).
+    author_name: "Visitante Antigo",
+    parent_legacy_id: parentLegacyId,
+    content_html: "<p>fala antiga</p>",
+    sanitizer_policy: "site-comment-html",
+    sanitizer_version: 1,
+    created_at: new Date("2019-05-04T12:00:00.000Z").toISOString(),
+    // Sem `removed_at`: `site.comments` não tem coluna de remoção.
+  });
+
+  const exportDoSite = (comments: unknown[]) => ({
+    source_app: "site",
+    exported_at: new Date().toISOString(),
+    count: comments.length,
+    comments,
+  });
+
+  it("importa sem conta vinculada e preserva a árvore aninhada", async () => {
+    const subjectId = randomUUID();
+    const raiz = `site-raiz-${randomUUID()}`;
+    const filho = `site-filho-${randomUUID()}`;
+
+    // Filho ANTES do pai na entrada, de propósito: a ordenação topológica é
+    // que precisa resolver, não a sorte da ordem do export.
+    const relatorio = await importLegacyComments(
+      db!,
+      exportDoSite([
+        comentarioDoSite(subjectId, filho, raiz),
+        comentarioDoSite(subjectId, raiz),
+      ]),
+      { realm: REALM },
+    );
+
+    expect(relatorio).toMatchObject({ inserted: 2, skipped: 0, divergences: [] });
+
+    const linhas = await db!
+      .selectFrom("community_comment")
+      .select(["id", "legacy_id", "legacy_author_name", "community_actor_id", "body_markdown",
+        "legacy_content_html", "legacy_sanitizer_policy", "parent_id", "root_id", "depth"])
+      .where("source_app", "=", "site")
+      .where("subject_id", "=", subjectId)
+      .execute();
+
+    const linhaRaiz = linhas.find((l) => l.legacy_id === raiz)!;
+    const linhaFilho = linhas.find((l) => l.legacy_id === filho)!;
+
+    // Metade legada do `community_comment_body_kind_check`: ator NULO,
+    // `body_markdown` NULO, corpo em `legacy_content_html`. Foi aqui que a
+    // Fase 5 quebrou ao tentar o híbrido.
+    expect(linhaRaiz.community_actor_id).toBeNull();
+    expect(linhaRaiz.body_markdown).toBeNull();
+    expect(linhaRaiz.legacy_content_html).toContain("fala antiga");
+    // A política é o que faz `legacyBodyFormat` renderizar como HTML em vez de
+    // markdown — o caminho que a Fase 5 deixou pronto e sem consumidor.
+    expect(linhaRaiz.legacy_sanitizer_policy).toBe("site-comment-html");
+    // Nome literal da origem, sem consultar `users`: não há conta a procurar.
+    expect(linhaRaiz.legacy_author_name).toBe("Visitante Antigo");
+
+    // `community_comment_root_shape_check`: raiz aponta para si, filho herda o
+    // `root_id` do pai e soma 1 na profundidade. Achatar tudo em raiz
+    // transformaria resposta em comentário solto.
+    // A asserção anterior comparava `root_id` consigo mesmo — passava sempre,
+    // inclusive com a hierarquia achatada (achado de review, PR #264). O que
+    // prova a forma é comparar contra o `id` da própria linha.
+    expect(linhaRaiz.parent_id).toBeNull();
+    expect(linhaRaiz.root_id).toBe(linhaRaiz.id);
+    expect(linhaRaiz.depth).toBe(0);
+    expect(linhaFilho.parent_id).toBe(linhaRaiz.id);
+    expect(linhaFilho.root_id).toBe(linhaRaiz.id);
+    expect(linhaFilho.depth).toBe(1);
+  });
+
+  it("reexecução não duplica e o filho continua achando o pai já importado", async () => {
+    const subjectId = randomUUID();
+    const raiz = `site-raiz-${randomUUID()}`;
+    const filho = `site-filho-${randomUUID()}`;
+    const payload = exportDoSite([
+      comentarioDoSite(subjectId, raiz),
+      comentarioDoSite(subjectId, filho, raiz),
+    ]);
+
+    await importLegacyComments(db!, payload, { realm: REALM });
+    const segunda = await importLegacyComments(db!, payload, { realm: REALM });
+
+    // O pai cai em `SkipComment` e NÃO entra no mapa do lote. Sem a consulta a
+    // `community_comment` por `(legacy_source, legacy_id)`, o filho viraria
+    // raiz e achataria a árvore — silenciosamente, no caminho que mais roda.
+    expect(segunda).toMatchObject({ inserted: 0, skipped: 2, divergences: [] });
+
+    const total = await db!
+      .selectFrom("community_comment")
+      .select((eb) => eb.fn.countAll<string>().as("n"))
+      .where("source_app", "=", "site")
+      .where("subject_id", "=", subjectId)
+      .executeTakeFirstOrThrow();
+    expect(Number(total.n)).toBe(2);
+  });
+
+  it("órfão vira divergência em vez de entrar como raiz", async () => {
+    const subjectId = randomUUID();
+    const orfao = `site-orfao-${randomUUID()}`;
+
+    const relatorio = await importLegacyComments(
+      db!,
+      exportDoSite([comentarioDoSite(subjectId, orfao, "pai-que-nao-existe")]),
+      { realm: REALM },
+    );
+
+    // `site.comments.parent_id` não tem FK (`spec.md:151`): a origem pode
+    // apontar para id inexistente. Importar como raiz inventaria uma conversa.
+    expect(relatorio.inserted).toBe(0);
+    expect(relatorio.divergences).toHaveLength(1);
+    expect(relatorio.divergences[0].reason).toContain("pai não resolvido");
   });
 });

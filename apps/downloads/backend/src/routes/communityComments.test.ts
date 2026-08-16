@@ -83,12 +83,31 @@ const AUTHORIZED = {
 beforeEach(() => {
   fetchMock.mockReset();
   guardMock.mockReset();
+  // Autorizado por padrão: a LEITURA passou a consultar o guard (achado de
+  // review, PR #264), então todo teste que não trate de visibilidade precisa de
+  // um assunto válido. Os que exercitam recusa sobrescrevem logo abaixo.
+  guardMock.mockResolvedValue(AUTHORIZED);
   authState.userId = 'user-1';
   process.env.ACCOUNTS_URL = 'https://accounts.example';
   process.env.SERVICE_CREDENTIAL = 'token.secret';
 });
 
 describe('leitura da conversa', () => {
+  it('recusa material invisível com 404, sem chamar o accounts.', async () => {
+    guardMock.mockResolvedValue({ authorized: false, reason: 'not_visible' });
+
+    await request(app())
+      .get('/api/v1/community/conversation?subject_id=material-em-rascunho')
+      .expect(404);
+
+    // Sem o guard na leitura, `?subject_id=<rascunho>` distinguia material
+    // existente de inexistente pela resposta — oráculo de existência sobre
+    // conteúdo não publicado. Vale mesmo com árvore vazia: o que vaza é o id
+    // ser válido (achado de review, PR #264; o mesmo defeito foi corrigido
+    // antes no `site`).
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('repassa a árvore do accounts. sem reinterpretar o payload', async () => {
     const thread = { state: 'fresh', snapshot_revision: 3, comments: [], more: [], truncated: false };
     fetchMock.mockResolvedValue(upstream(200, JSON.stringify(thread)));

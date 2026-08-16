@@ -1,4 +1,4 @@
-import { configure, isConfigured, uploadFromUrl, deleteAsset, type UploadResult } from "@artificio/media";
+import { isConfigured, uploadFromUrl, deleteAsset, type UploadResult } from "@artificio/media";
 import { fetchOgImage } from "./og.js";
 
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;

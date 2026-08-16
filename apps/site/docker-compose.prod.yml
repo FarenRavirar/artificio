@@ -30,6 +30,13 @@ services:
       - CATALOG_INTERNAL_TOKEN=${CATALOG_INTERNAL_TOKEN:?CATALOG_INTERNAL_TOKEN is required}
       - PUBLIC_GA_ID=${PUBLIC_GA_ID:-G-2H50PCM950}
       - PUBLIC_SITE_URL=https://artificiorpg.com
+      # T6.4 (spec 090) — fachada da conversa. A credencial de servico vive SO
+      # aqui: o navegador nunca alcanca `/internal/v1` (requisito 6a), e sao
+      # `realm`/`source_app` dela que o `accounts.` usa, nunca o payload (§1.1).
+      # Sem as duas, a fachada responde `503` e a conversa degrada — que e o
+      # comportamento correto, mas nao o desejado em producao.
+      - ACCOUNTS_URL=${ACCOUNTS_URL:-https://accounts.artificiorpg.com}
+      - SERVICE_CREDENTIAL=${SERVICE_CREDENTIAL:?SERVICE_CREDENTIAL is required}
       - JWT_SECRET=${JWT_SECRET}
       - TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.18.0.0/16}
     depends_on:

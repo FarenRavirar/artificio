@@ -3,6 +3,7 @@ import Base from "../../layouts/Base.astro";
 import Card from "../../components/Card.astro";
 import { posts, getPost, related } from "../../lib/content";
 import { articleLd, breadcrumbLd, SITE } from "@artificio/content";
+import { PostConversation } from "../../components/comments/PostConversation.tsx";
 
 export function getStaticPaths() {
   return posts.map((p) => ({ params: { slug: p.slug } }));
@@ -85,6 +86,21 @@ const jsonld = [
       </aside>
     )}
   </main>
+  {/*
+    T6.4 (spec 090) — conversa abaixo do artigo.
+
+    `client:visible` e não `client:load`: quem abre o post para ler o texto não
+    paga o bundle da conversa. A página segue estática (SSG) — só esta seção
+    hidrata, e apenas quando entra no viewport.
+
+    `realm` NÃO é passado, de propósito: quem o determina é a credencial de
+    serviço no servidor (`contrato-http-v1.md` §1.1 — "`realm` e `source_app`
+    saem dela, nunca do payload"), e o `downloads` faz igual (nunca passa o
+    parâmetro, `MaterialConversation.tsx`). Aqui ele só participa da chave do
+    cache local; um valor vindo do bundle poderia divergir do realm real da
+    credencial, que é o caso que a chave existe para evitar.
+  */}
+  <PostConversation client:visible postId={String(post.id)} />
   <section class="related container">
     <div class="section-head"><h2>Leia também</h2></div>
     <div class="grid">{rel.map((r) => <Card post={r} />)}</div>
