@@ -34,7 +34,13 @@ export function FeedbackPage() {
   // `err` já nasce vazio.
   const fetchInto = useCallback((st: string, kd: string, ar: string) => {
     api.listFeedback(st, kd, ar)
-      .then((rows) => { setItems(rows); setNotes(Object.fromEntries(rows.map((r) => [r.id, r.admin_notes ?? ""]))); })
+      // `api.listFeedback` já normaliza o envelope e lança em payload inválido (achado
+      // Codex P2 na #267): erro de contrato cai no `catch` abaixo e vira mensagem na tela,
+      // nunca caixa vazia que esconderia a falha.
+      .then((rows) => {
+        setItems(rows);
+        setNotes(Object.fromEntries(rows.map((r) => [r.id, r.admin_notes ?? ""])));
+      })
       .catch((e) => setErr(String(e.message)))
       .finally(() => setLoading(false));
   }, []);

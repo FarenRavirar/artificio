@@ -17,8 +17,11 @@ function toUiNode(node: CatalogNode): CatalogUiNode {
     official_website_url: node.official_website_url,
     logo_media_id: node.logo_media_id,
     status: node.status,
-    aliases: (Array.isArray(node.aliases) ? node.aliases : []).map((alias) => alias.alias),
-    children: (Array.isArray(node.children) ? node.children : []).map(toUiNode),
+    // Sem guarda de array aqui: `getCatalogSnapshot` valida a árvore inteira na fronteira
+    // (recursivamente), então nó inválido nunca chega até este mapeamento. O `?? []` que
+    // existia antes escondia contrato quebrado como subárvore vazia (achado Codex P2 #267).
+    aliases: node.aliases.map((alias) => alias.alias),
+    children: node.children.map(toUiNode),
   };
 }
 
@@ -45,6 +48,8 @@ export function CatalogSystemsPage() {
   const [err, setErr] = useState("");
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
 
+  // `tree` já é validado como array em `fetchSnapshot` antes de entrar no state (envelope
+  // inválido vira erro, não árvore vazia), então aqui basta cobrir o snapshot ainda nulo.
   const uiTree = useMemo(() => (snapshot?.tree ?? []).map(toUiNode), [snapshot]);
 
   const note = (msg: string, isErr = false) => {
@@ -58,6 +63,9 @@ export function CatalogSystemsPage() {
   // `err` já nasce vazio.
   const fetchSnapshot = useCallback(() => {
     api.getCatalogSnapshot()
+      // `api.getCatalogSnapshot` já valida `tree` e lança em envelope inválido (achado
+      // Codex P2 na #267): erro de contrato cai no `catch` abaixo e vira mensagem na tela,
+      // nunca árvore vazia que o autor leria como catálogo apagado.
       .then(setSnapshot)
       .catch((e) => setErr(String((e as Error).message)))
       .finally(() => setLoading(false));
@@ -82,6 +90,8 @@ export function CatalogSystemsPage() {
       note(selected ? "Nó atualizado." : "Nó criado.");
       setSelectedIds([node.id]);
       try {
+        // `getCatalogSnapshot` valida `tree` na fronteira, então árvore inválida vira erro
+        // e cai no catch abaixo, que avisa que o nó salvou mas a árvore não atualizou.
         await api.getCatalogSnapshot().then(setSnapshot);
       } catch (refreshError) {
         note(`Nó salvo, mas falha ao atualizar a árvore: ${String((refreshError as Error).message)}`, true);

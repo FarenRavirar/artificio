@@ -25,7 +25,12 @@ export function MediaLibrary({ onPick }: { onPick?: (item: MediaItem) => void })
   // do efeito de carga inicial. `load` fecha sobre os filtros atuais e muda a cada
   // digitação — usá-lo no efeito refaria a listagem a cada tecla.
   const fetchInto = useCallback((qq: string, tt: string) => {
-    api.listMedia(qq, tt).then((r) => { setItems(r.items); setTotal(r.total); }).catch((e) => setErr(String(e.message)));
+    api.listMedia(qq, tt)
+      // `api.listMedia` já normaliza o envelope e lança em payload inválido (achado Codex
+      // P2 na #267): erro de contrato cai no `catch` abaixo e vira mensagem na tela, nunca
+      // "Nenhuma mídia" que o autor leria como acervo apagado.
+      .then((r) => { setItems(r.items); setTotal(r.total); })
+      .catch((e) => setErr(String(e.message)));
   }, []);
   const load = useCallback((qq = q, tt = type) => fetchInto(qq, tt), [q, type, fetchInto]);
   useEffect(() => { fetchInto("", ""); }, [fetchInto]);

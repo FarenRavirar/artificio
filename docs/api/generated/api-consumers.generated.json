@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 297,
-    "uniqueEndpoints": 275,
+    "total": 287,
+    "uniqueEndpoints": 267,
     "byApp": {
       "accounts-frontend": {
         "total": 8,
@@ -73,15 +73,15 @@
         }
       },
       "site-admin": {
-        "total": 32,
+        "total": 22,
         "byConfidence": {
           "low": 1,
-          "high": 28,
+          "high": 18,
           "medium": 3
         },
         "byPattern": {
           "concatenation": 1,
-          "service-wrapper": 28,
+          "service-wrapper": 18,
           "template-literal": 3
         }
       }
@@ -2568,7 +2568,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.createCatalogNode",
-      "line": 81
+      "line": 89
     },
     {
       "app": "site-admin",
@@ -2578,27 +2578,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.updateCatalogNode",
-      "line": 80
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/CatalogSystemsPage.tsx",
-      "method": "GET",
-      "endpoint": "/api/admin/v1/catalog/snapshot",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "api.getCatalogSnapshot",
-      "line": 60
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/FeedbackPage.tsx",
-      "method": "GET",
-      "endpoint": "/api/admin/v1/feedback",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "api.listFeedback",
-      "line": 36
+      "line": 88
     },
     {
       "app": "site-admin",
@@ -2608,7 +2588,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.updateFeedback",
-      "line": 55
+      "line": 61
     },
     {
       "app": "site-admin",
@@ -2618,17 +2598,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.deleteFeedback",
-      "line": 69
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/media/MediaLibrary.tsx",
-      "method": "GET",
-      "endpoint": "/api/admin/v1/media",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "api.listMedia",
-      "line": 28
+      "line": 75
     },
     {
       "app": "site-admin",
@@ -2638,7 +2608,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.updateMedia",
-      "line": 43
+      "line": 48
     },
     {
       "app": "site-admin",
@@ -2648,7 +2618,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.deleteMedia",
-      "line": 54
+      "line": 59
     },
     {
       "app": "site-admin",
@@ -2659,16 +2629,6 @@
       "pattern": "service-wrapper",
       "wrapper": "api.createPage",
       "line": 55
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PagesList.tsx",
-      "method": "GET",
-      "endpoint": "/api/admin/v1/pages",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "api.listPages",
-      "line": 44
     },
     {
       "app": "site-admin",
@@ -2698,7 +2658,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.deletePage",
-      "line": 70
+      "line": 73
     },
     {
       "app": "site-admin",
@@ -2708,7 +2668,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.setPageStatus",
-      "line": 70
+      "line": 73
     },
     {
       "app": "site-admin",
@@ -2718,17 +2678,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.createPost",
-      "line": 94
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PostsList.tsx",
-      "method": "GET",
-      "endpoint": "/api/admin/v1/posts",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "api.listPosts",
-      "line": 50
+      "line": 110
     },
     {
       "app": "site-admin",
@@ -2738,7 +2688,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.getPost",
-      "line": 47
+      "line": 51
     },
     {
       "app": "site-admin",
@@ -2748,7 +2698,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.updatePost",
-      "line": 94
+      "line": 110
     },
     {
       "app": "site-admin",
@@ -2758,7 +2708,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.deletePost",
-      "line": 76
+      "line": 79
     },
     {
       "app": "site-admin",
@@ -2768,37 +2718,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.setPostStatus",
-      "line": 76
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PageEditor.tsx",
-      "method": "GET",
-      "endpoint": "/api/admin/v1/slug-check",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "api.slugCheck",
-      "line": 46
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PostEditor.tsx",
-      "method": "GET",
-      "endpoint": "/api/admin/v1/slug-check",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "api.slugCheck",
-      "line": 60
-    },
-    {
-      "app": "site-admin",
-      "consumerFile": "apps/site-admin/src/pages/PostEditor.tsx",
-      "method": "GET",
-      "endpoint": "/api/admin/v1/taxonomies",
-      "confidence": "high",
-      "pattern": "service-wrapper",
-      "wrapper": "api.listTerms",
-      "line": 45
+      "line": 79
     },
     {
       "app": "site-admin",
@@ -2808,7 +2728,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.createTerm",
-      "line": 115
+      "line": 131
     },
     {
       "app": "site-admin",
@@ -2828,7 +2748,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 150
+      "line": 249
     },
     {
       "app": "site-admin",
@@ -2838,7 +2758,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 179
+      "line": 292
     }
   ]
 }

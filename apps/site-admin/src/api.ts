@@ -32,7 +32,20 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   if (res.status === 401) throw new Error("Sessão expirada — entre novamente.");
   if (res.status === 403) throw new Error("Sem permissão (precisa ser admin).");
   if (!res.ok) throw new Error(`${res.status}: ${(await res.text()).slice(0, 200)}`);
-  return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+  if (res.status === 204) return undefined as T;
+  // JSON malformado vira erro nomeado, não `SyntaxError: Unexpected token` cru na tela.
+  //
+  // O cast de `T` continua sendo promessa, não garantia: quem consome payload de forma
+  // estrutural (lista, envelope, campo que decide UI) valida acima — ver `reqItems`,
+  // `listMedia`, `getCatalogSnapshot` e `slugCheck`. O critério dessas validações é
+  // **o que o render percorre** (identidade, campo usado em `key`/rota/`switch`/`.map`),
+  // não schema completo: isso cobre o crash e o dado silenciosamente errado sem virar um
+  // segundo modelo de tipos para manter em sincronia com o backend.
+  try {
+    return (await res.json()) as T;
+  } catch {
+    throw new TypeError("Resposta do servidor não é JSON válido.");
+  }
 }
 
 export interface PostListItem {
@@ -107,9 +120,64 @@ function qs(params: Record<string, string | number | undefined>): string {
   return serialized ? `?${serialized}` : "";
 }
 
+// Normalizador de envelope `{ items: [...] }`, aplicado na fronteira da API porque
+// `req<T>` faz cast cru do JSON e o tipo é promessa, não garantia (AGENTS.md: todo dado
+// de API é `unknown` até passar por normalizador tipado).
+//
+// Envelope inválido vira ERRO, nunca lista vazia: `[]` silencioso faz a tela dizer
+// "Nenhum post" e o autor lê falha de contrato como conteúdo apagado (achado Codex P2
+// na #267). A mensagem nomeia o recurso para o erro que aparece na tela ser acionável.
+//
+// `isValidItem` valida cada entrada, não só o array: `items: [null]` passava na checagem
+// de array e quebrava no render (`p.id` como `key`, `p.status` no `switch` de `actionsFor`),
+// ou pior, gerava linha com link para `/posts/undefined` (achado Codex na #267).
+async function reqItems<T>(path: string, recurso: string, isValidItem: (item: unknown) => boolean): Promise<T[]> {
+  const r = await req<unknown>(path);
+  const items = (r as { items?: unknown } | null)?.items;
+  if (!Array.isArray(items) || !items.every(isValidItem)) {
+    // `TypeError` e não `Error`: a falha é de tipo/forma do payload, não de negócio
+    // (Sonar: `new Error()` é genérico demais para checagem de tipo).
+    throw new TypeError(`Resposta inesperada do servidor ao listar ${recurso}.`);
+  }
+  return items as T[];
+}
+
+// Validadores de item, por recurso. Checam a identidade (`id`, usada como `key` e em rota)
+// e os campos que o render consome de forma estrutural — não é validação de schema
+// completo, e sim a garantia de que a lista pode ser percorrida sem quebrar.
+const hasNumericId = (item: unknown): item is { id: number } =>
+  !!item && typeof item === "object" && typeof (item as { id?: unknown }).id === "number";
+
+const isContentListItem = (item: unknown): boolean =>
+  hasNumericId(item) && typeof (item as { status?: unknown }).status === "string";
+
+// `kind` separa categoria de tag num `filter`, e feedback usa `kind` no badge: entrada com
+// `kind` inválido sumiria das duas listas sem erro, parecendo taxonomia apagada.
+const isKindedItem = (item: unknown): boolean =>
+  hasNumericId(item) && typeof (item as { kind?: unknown }).kind === "string";
+
+// Valida a forma estrutural de um nó do catálogo, descendo na árvore. Checa só o que o
+// render percorre (`aliases`/`children`, que são arrays obrigatórios no contrato) — não é
+// validação de schema completo, e sim a garantia de que `toUiNode` pode mapear sem
+// fallback silencioso escondendo contrato quebrado.
+function isCatalogNode(node: unknown): boolean {
+  const n = node as { id?: unknown; aliases?: unknown; children?: unknown } | null;
+  return (
+    !!n && typeof n === "object" &&
+    // `id` é a key do nó na árvore e o alvo de seleção/edição.
+    typeof n.id === "string" &&
+    // Cada alias é mapeado por `toUiNode` (`alias.alias`), então entrada inválida no array
+    // quebraria o render — validar só o array não basta (achado Codex na #267).
+    Array.isArray(n.aliases) &&
+    n.aliases.every((a) => !!a && typeof a === "object" && typeof (a as { alias?: unknown }).alias === "string") &&
+    Array.isArray(n.children) &&
+    n.children.every(isCatalogNode)
+  );
+}
+
 export const api = {
   listPosts: (q = "", status = "") =>
-    req<{ items: PostListItem[] }>(`/posts${qs({ q, status })}`).then((r) => r.items),
+    reqItems<PostListItem>(`/posts${qs({ q, status })}`, "posts", isContentListItem),
   getPost: (id: number) => req<PostFull>(`/posts/${id}`),
   createPost: (body: Partial<PostFull>) => req<SaveResult>(`/posts`, { method: "POST", body: JSON.stringify(body) }),
   updatePost: (id: number, body: Partial<PostFull>) => req<SaveResult>(`/posts/${id}`, { method: "PUT", body: JSON.stringify(body) }),
@@ -118,7 +186,7 @@ export const api = {
   deletePost: (id: number) => req<{ ok: boolean }>(`/posts/${id}`, { method: "DELETE" }),
 
   listPages: (q = "", status = "") =>
-    req<{ items: PageListItem[] }>(`/pages${qs({ q, status })}`).then((r) => r.items),
+    reqItems<PageListItem>(`/pages${qs({ q, status })}`, "páginas", isContentListItem),
   getPage: (id: number) => req<PageFull>(`/pages/${id}`),
   createPage: (body: Partial<PageFull>) => req<SaveResult>(`/pages`, { method: "POST", body: JSON.stringify(body) }),
   updatePage: (id: number, body: Partial<PageFull>) => req<SaveResult>(`/pages/${id}`, { method: "PUT", body: JSON.stringify(body) }),
@@ -126,20 +194,51 @@ export const api = {
     req<{ ok: boolean; rebuild?: { started: boolean; busy?: boolean } }>(`/pages/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
   deletePage: (id: number) => req<{ ok: boolean }>(`/pages/${id}`, { method: "DELETE" }),
 
-  listTerms: (kind?: "category" | "tag") => req<{ items: Term[] }>(`/taxonomies${qs({ kind })}`).then((r) => r.items),
+  listTerms: (kind?: "category" | "tag") => reqItems<Term>(`/taxonomies${qs({ kind })}`, "categorias e tags", isKindedItem),
   createTerm: (kind: "category" | "tag", name: string, parent_id?: number | null) =>
     req<Term>(`/taxonomies`, { method: "POST", body: JSON.stringify({ kind, name, parent_id }) }),
 
-  slugCheck: (type: "post" | "page", title: string, id?: number) =>
-    req<{ slug: string; available: boolean; suggestion: string }>(`/slug-check${qs({ type, title, id })}`),
+  // Normaliza na fronteira: `req` faz cast cru do JSON, e `available` decide se o aviso de
+  // colisão de slug aparece.
+  //
+  // `available` é `boolean | "unknown"`, nunca um default otimista: assumir `true` em
+  // resposta inválida (version skew, contrato quebrado) apagaria o aviso de colisão, o
+  // autor salvaria confiante e o servidor trocaria o slug por baixo via `uniqueSlug` —
+  // que é precisamente o que R3a [P0] da spec 011 proíbe ("não pode alterar silenciosamente
+  // o slug digitado pelo editor sem feedback"). Achado Codex P2 na #267.
+  //
+  // Também não lança: este endpoint roda a cada digitação com debounce, e derrubar a tela
+  // em erro a cada tecla seria pior que sinalizar incerteza. Quem decide como exibir
+  // "desconhecido" é o PostEditor.
+  slugCheck: async (type: "post" | "page", title: string, id?: number): Promise<{ slug: string; available: boolean | "unknown"; suggestion: string }> => {
+    const r = await req<unknown>(`/slug-check${qs({ type, title, id })}`);
+    const o = (r ?? {}) as Record<string, unknown>;
+    return {
+      slug: typeof o.slug === "string" ? o.slug : "",
+      available: typeof o.available === "boolean" ? o.available : "unknown",
+      suggestion: typeof o.suggestion === "string" ? o.suggestion : "",
+    };
+  },
 
   rebuild: () => req<{ started: boolean }>(`/rebuild`, { method: "POST" }),
 
   // ---- Mídia (T18/T19) ----
   // `limit`/`offset` são numéricos e vão sempre: `qs` só descarta `undefined` e
   // string vazia, então `offset=0` sobrevive (descartá-lo zeraria a paginação).
-  listMedia: (q = "", type = "", limit = 60, offset = 0) =>
-    req<{ items: MediaItem[]; total: number }>(`/media${qs({ q, type, limit, offset })}`),
+  // Envelope próprio (items + total), normalizado aqui pelo mesmo motivo do `reqItems`:
+  // `total` não-numérico renderizaria "NaN item(ns)" no rodapé do grid.
+  listMedia: async (q = "", type = "", limit = 60, offset = 0): Promise<{ items: MediaItem[]; total: number }> => {
+    const r = await req<unknown>(`/media${qs({ q, type, limit, offset })}`);
+    const o = (r ?? {}) as { items?: unknown; total?: unknown };
+    // Valida cada item, não só o array: o grid usa `id` como key e `url` no `src` da
+    // <img>, e `isImage` chama `.startsWith()` sobre `mime` (achado Codex na #267).
+    const isMediaItem = (m: unknown): boolean =>
+      hasNumericId(m) && typeof (m as { url?: unknown }).url === "string";
+    if (!Array.isArray(o.items) || !o.items.every(isMediaItem) || typeof o.total !== "number") {
+      throw new TypeError("Resposta inesperada do servidor ao listar mídia.");
+    }
+    return { items: o.items as MediaItem[], total: o.total };
+  },
   uploadMedia: async (file: File, meta?: { alt?: string; title?: string; caption?: string }): Promise<MediaUploadResult> => {
     const fd = new FormData();
     fd.append("file", file);
@@ -162,13 +261,27 @@ export const api = {
 
   // ---- Feedback (Spec 021) ----
   listFeedback: (status = "", kind = "", archived = "false") =>
-    req<{ items: FeedbackItem[] }>(`/feedback${qs({ archived, status, kind })}`).then((r) => r.items),
+    reqItems<FeedbackItem>(`/feedback${qs({ archived, status, kind })}`, "feedback", isKindedItem),
   updateFeedback: (id: number, patch: { status?: string; admin_notes?: string | null; archived?: boolean }) =>
     req<{ item: FeedbackItem }>(`/feedback/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
   deleteFeedback: (id: number) => req<{ ok: boolean }>(`/feedback/${id}`, { method: "DELETE" }),
 
   // ---- Catálogo canônico de sistemas (Spec 062) ----
-  getCatalogSnapshot: () => req<CatalogSnapshot>(`/catalog/snapshot`),
+  // `tree` validado aqui, não no componente: assim vale para a carga inicial e para o
+  // refresh pós-save, sem repetir a guarda em cada chamada.
+  //
+  // A checagem é recursiva de propósito: `CatalogNode.children`/`aliases` são arrays
+  // obrigatórios no contrato (nó folha vem `[]`, não ausente), então validar só a raiz
+  // deixaria um nó aninhado inválido virar subárvore vazia silenciosa — o autor veria um
+  // sistema sem edições e leria como conteúdo apagado (achado Codex P2 na #267).
+  getCatalogSnapshot: async (): Promise<CatalogSnapshot> => {
+    const r = await req<unknown>(`/catalog/snapshot`);
+    const tree = (r as { tree?: unknown } | null)?.tree;
+    if (!Array.isArray(tree) || !tree.every(isCatalogNode)) {
+      throw new TypeError("Resposta inesperada do servidor ao carregar o catálogo.");
+    }
+    return r as CatalogSnapshot;
+  },
   createCatalogNode: (body: CatalogNodeInput) =>
     req<CatalogNode>(`/catalog/nodes`, { method: "POST", body: JSON.stringify(body) }),
   updateCatalogNode: (id: string, body: Partial<CatalogNodeInput>) =>

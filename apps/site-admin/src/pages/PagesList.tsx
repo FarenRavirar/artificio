@@ -42,6 +42,9 @@ export function PagesList() {
   // render em cascata (react-hooks/set-state-in-effect) — `loading` já nasce `true`.
   const fetchInto = useCallback((st: string) => {
     api.listPages("", st)
+      // `api.listPages` já normaliza o envelope e lança em payload inválido (achado Codex
+      // P2 na #267): erro de contrato cai no `catch` abaixo e vira mensagem na tela, nunca
+      // lista vazia que o autor leria como conteúdo apagado.
       .then(setItems)
       .catch((e) => setErr(String(e.message)))
       .finally(() => setLoading(false));

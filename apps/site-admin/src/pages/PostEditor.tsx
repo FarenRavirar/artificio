@@ -25,9 +25,10 @@ export function PostEditor() {
   // Slug honesto (R4/R27): disponibilidade ao vivo + aviso de 301 ao mudar slug publicado.
   const [origSlug, setOrigSlug] = useState("");
   const [origStatus, setOrigStatus] = useState("draft");
-  // Guarda o slug que a API recusou (não um booleano): assim `slugTaken` é derivado do
-  // render comparando com o slug atual, sem precisar de setState de limpeza no efeito.
-  const [takenSlug, setTakenSlug] = useState<string | null>(null);
+  // Guarda o slug consultado e o veredito da API (não um booleano solto): assim o estado
+  // é derivado no render comparando com o slug atual, sem setState de limpeza no efeito.
+  // `"unknown"` existe porque resposta inválida não pode virar "disponível" (R3a [P0]).
+  const [slugCheckResult, setSlugCheckResult] = useState<{ slug: string; available: boolean | "unknown" } | null>(null);
   // Seletor de mídia: alvo do pick (imagem destacada, OG, ou inserir no texto).
   const [picker, setPicker] = useState<null | "featured" | "og" | "insert">(null);
   const editorRef = useRef<EditorHandle | null>(null);
@@ -42,7 +43,10 @@ export function PostEditor() {
   const note = (msg: string, isErr = false) => { setToast({ msg, err: isErr }); setTimeout(() => setToast(null), 3500); };
 
   useEffect(() => {
-    api.listTerms().then(setTerms).catch(() => {});
+    // Falha aqui não bloqueia a edição (o post salva sem mexer em taxonomia), mas some com
+    // os checkboxes de categoria/tag — engolir o erro faria o autor achar que o post não
+    // tem categorias em vez de saber que a lista não carregou (achado Codex P2 na #267).
+    api.listTerms().then(setTerms).catch((e) => note(`Categorias e tags não carregaram: ${String((e as Error).message)}`, true));
     if (id) {
       api.getPost(Number(id)).then((p) => {
         setPost({ ...EMPTY, ...p }); setOrigSlug(p.slug); setOrigStatus(p.status); setReady(true);
@@ -52,19 +56,31 @@ export function PostEditor() {
 
   // Checa disponibilidade do slug (debounce) quando o usuário edita manualmente.
   // O caso "slug vazio" não zera o state dentro do efeito (seria setState síncrono →
-  // render em cascata): a resposta guarda o slug consultado e `slugTaken` é derivado
+  // render em cascata): a resposta guarda o slug consultado e o veredito é derivado
   // abaixo, então um slug vazio simplesmente deixa de casar e a marca some sozinha.
   useEffect(() => {
     if (!post.slug) return;
+    // `clearTimeout` só cancela request ainda não disparada. Passados os 400ms, a
+    // resposta em voo continua chegando mesmo após o slug mudar — daí o guard de efeito
+    // ativo, senão um resultado velho sobrescreve o do slug atual (achado de review #265).
+    let active = true;
+    // Guarda o slug **consultado**, não o `r.slug` devolvido: o servidor normaliza
+    // ("Foo Bar" → "foo-bar") e comparar com a forma normalizada nunca casaria com o que
+    // está no input, escondendo o aviso de slug em uso (achado de review #265).
+    const queried = post.slug;
     const t = setTimeout(() => {
-      api.slugCheck("post", post.slug, id ? Number(id) : undefined)
-        .then((r) => setTakenSlug(r.available ? null : r.slug))
-        .catch(() => setTakenSlug(null));
+      api.slugCheck("post", queried, id ? Number(id) : undefined)
+        .then((r) => { if (active) setSlugCheckResult({ slug: queried, available: r.available }); })
+        // Falha de rede também é desconhecido, não disponível: sem isso o autor salvaria
+        // sem aviso e o servidor trocaria o slug por baixo (R3a [P0] da spec 011).
+        .catch(() => { if (active) setSlugCheckResult({ slug: queried, available: "unknown" }); });
     }, 400);
-    return () => clearTimeout(t);
+    return () => { active = false; clearTimeout(t); };
   }, [post.slug, id]);
-  // Derivado do render: só vale enquanto o slug atual for exatamente o que a API recusou.
-  const slugTaken = !!post.slug && takenSlug === post.slug;
+  // Derivados do render: só valem enquanto o slug atual for exatamente o que foi consultado.
+  const slugChecked = !!post.slug && slugCheckResult?.slug === post.slug;
+  const slugTaken = slugChecked && slugCheckResult?.available === false;
+  const slugUnknown = slugChecked && slugCheckResult?.available === "unknown";
   const slugChangedOnPublished = !isNew && origStatus === "publish" && post.slug !== origSlug;
 
   const set = <K extends keyof PostFull>(k: K, v: PostFull[K]) => setPost((p) => ({ ...p, [k]: v }));
@@ -161,6 +177,9 @@ export function PostEditor() {
             </div>
             <p className="muted">URL: /blog/{post.slug || "…"}/</p>
             {slugTaken && <p className="warn">Slug já em uso — será ajustado para um único ao salvar.</p>}
+            {/* Incerteza é exibida, não escondida: se a checagem falhou, o autor precisa saber
+                que o slug pode ser trocado no salvamento (R3a [P0] da spec 011). */}
+            {slugUnknown && <p className="warn">Não foi possível verificar se este slug está livre — se houver colisão, ele será ajustado ao salvar.</p>}
             {slugChangedOnPublished && <p className="warn">Mudar o slug de um post publicado cria um 301 de /blog/{origSlug}/ → novo slug.</p>}
             <label>Data de publicação</label>
             <input type="text" value={post.published_at ?? ""} placeholder="ISO (vazio = agora ao publicar)"
