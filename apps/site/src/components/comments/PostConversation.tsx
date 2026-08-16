@@ -34,7 +34,7 @@ import { useSiteConversation } from './useSiteConversation.js';
  * daria placar a fala que nunca participou do sistema de reputação. Responder,
  * sim — é o que preserva o acervo como conversa viva em vez de arquivo morto.
  */
-function permissionsFor(user: unknown) {
+export function permissionsFor(user: unknown) {
   return (comment: ConversationComment) => {
     if (!user) return {};
 

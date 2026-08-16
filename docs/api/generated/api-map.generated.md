@@ -143,12 +143,12 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/community/appeals/:id` | ✅ high | `apps/downloads/backend/src/routes/communityModeration.ts` | 172 |
 | POST | `/api/v1/community/comments/:id/reports` | ✅ high | `apps/downloads/backend/src/routes/communityModeration.ts` | 178 |
 | GET | `/api/v1/community/conversation` | ✅ high | `apps/downloads/backend/src/routes/communityComments.ts` | 214 |
-| POST | `/api/v1/community/conversation` | ✅ high | `apps/downloads/backend/src/routes/communityComments.ts` | 237 |
+| POST | `/api/v1/community/conversation` | ✅ high | `apps/downloads/backend/src/routes/communityComments.ts` | 261 |
 | USE | `/api/v1/community/conversation` | ✅ high | `apps/downloads/backend/src/server.ts` | 132 |
-| DELETE | `/api/v1/community/conversation/:id` | ✅ high | `apps/downloads/backend/src/routes/communityComments.ts` | 280 |
-| PATCH | `/api/v1/community/conversation/:id` | ✅ high | `apps/downloads/backend/src/routes/communityComments.ts` | 273 |
-| POST | `/api/v1/community/conversation/:id/replies` | ✅ high | `apps/downloads/backend/src/routes/communityComments.ts` | 251 |
-| PUT | `/api/v1/community/conversation/:id/vote` | ✅ high | `apps/downloads/backend/src/routes/communityComments.ts` | 287 |
+| DELETE | `/api/v1/community/conversation/:id` | ✅ high | `apps/downloads/backend/src/routes/communityComments.ts` | 304 |
+| PATCH | `/api/v1/community/conversation/:id` | ✅ high | `apps/downloads/backend/src/routes/communityComments.ts` | 297 |
+| POST | `/api/v1/community/conversation/:id/replies` | ✅ high | `apps/downloads/backend/src/routes/communityComments.ts` | 275 |
+| PUT | `/api/v1/community/conversation/:id/vote` | ✅ high | `apps/downloads/backend/src/routes/communityComments.ts` | 311 |
 | POST | `/api/v1/community/decisions/:id/appeals` | ✅ high | `apps/downloads/backend/src/routes/communityModeration.ts` | 184 |
 | GET | `/api/v1/community/moderation/appeals/:id` | ✅ high | `apps/downloads/backend/src/routes/communityModeration.ts` | 217 |
 | POST | `/api/v1/community/moderation/appeals/:id/resolution` | ✅ high | `apps/downloads/backend/src/routes/communityModeration.ts` | 220 |

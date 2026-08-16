@@ -1,5 +1,6 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
+import { rateLimit } from 'express-rate-limit';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const authMocks = vi.hoisted(() => ({ verifyToken: vi.fn() }));
@@ -17,9 +18,22 @@ const SESSAO = {
  * O que interessa é o efeito observável: quem o request diz ser depois de
  * passar por ali.
  */
+/**
+ * Limiter no servidor efêmero, espelhando a fachada real.
+ *
+ * Em produção `optionalAuth` **só** existe atrás de `readRateLimiter`
+ * (`community-api.ts:268`) — o CodeQL sinalizou este arquivo porque via um
+ * handler de autorização sem limite, sem saber que era um duplo de teste.
+ * Montá-lo aqui também custa nada e mantém o teste fiel à composição real: se
+ * alguém remover o limiter da fachada, este arquivo continua descrevendo o que
+ * a rota de verdade faz.
+ */
+const limiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 300, standardHeaders: true, legacyHeaders: false });
+
 async function chamar(headers: Record<string, string> = {}) {
   const app = express();
   app.use(cookieParser());
+  app.use(limiter);
   app.use(optionalAuth);
   app.get('/', (req, res) => {
     const session = (req as { session?: { user?: { id?: string } } }).session;
