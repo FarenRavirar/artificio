@@ -1,17 +1,57 @@
+/* ============================================================================
+   Conversa pública compartilhada (`mesas`, `downloads`, `site`).
+
+   ## Vocabulário: o do design system, não um próprio
+
+   Até 2026-08-17 este arquivo pedia `--color-surface`, `--color-text`,
+   `--color-border`, `--radius-md` e `--space-3` — cinco nomes que **não
+   existiam em lugar nenhum do monorepo**. Sem correspondência, todos caíam nos
+   fallbacks embutidos, desenhados para fundo claro (`#ffffff` / `#172033`).
+   O resultado media 1.14:1 de contraste sobre o navy do `mesas` (mínimo AA é
+   4.5:1): texto presente e ilegível, cartão branco cravado em página escura.
+
+   O design system real vive em `packages/ui/src/styles.css` e fala
+   `--surface`, `--fg`, `--fg-muted`, `--line` — vira por `[data-theme]`
+   sozinho. O pacote irmão `content-editor` já o consumia, que é por que no
+   mesmo compositor a área de digitação aparecia correta e a moldura em volta,
+   branca: dois contratos de tema incompatíveis lado a lado.
+
+   Regra para quem editar daqui em diante: **nenhuma cor literal**. Se o papel
+   não existir como token, criar em `packages/ui` (foi o caso de `--radius-*` e
+   `--space-*`), nunca inventar nome local com fallback.
+
+   ## Especificidade
+
+   O seletor raiz é `:where()` de propósito — especificidade zero deixa o host
+   ajustar qualquer detalhe sem `!important`. O custo é que utilitário do
+   Tailwind também vence sem querer, então tudo que precisa resistir (cor de
+   texto, superfície, borda) é reafirmado nas classes de bloco, que têm
+   especificidade normal.
+   ============================================================================ */
+
 :where(.artificio-comments) {
-  --artificio-comments-surface: var(--color-surface, #ffffff);
-  --artificio-comments-text: var(--color-text, #172033);
-  --artificio-comments-muted: var(--color-text-muted, #667085);
-  --artificio-comments-border: var(--color-border, #d0d5dd);
-  --artificio-comments-warning: var(--color-warning, #9a6700);
-  --artificio-comments-unavailable: var(--color-danger, #b42318);
-  --artificio-comments-radius: var(--radius-md, 0.5rem);
-  --artificio-comments-space: var(--space-3, 0.75rem);
-  --artificio-comments-accent: var(--color-artificio-orange, #f58220);
+  /* Papéis locais, todos derivados do design system. A indireção existe para
+     que o host possa retematizar só a conversa (ex.: destacá-la do resto da
+     página) sobrescrevendo cinco variáveis, sem tocar em regra nenhuma. */
+  --artificio-comments-surface: var(--surface);
+  --artificio-comments-surface-subtle: var(--surface-subtle);
+  --artificio-comments-text: var(--fg);
+  --artificio-comments-muted: var(--fg-muted);
+  --artificio-comments-border: var(--line);
+  --artificio-comments-border-strong: var(--line-strong);
+  --artificio-comments-fill: var(--fill);
+  --artificio-comments-warning: var(--state-warning-fg);
+  --artificio-comments-unavailable: var(--state-danger-fg);
+  --artificio-comments-accent: var(--artificio-brand);
+  --artificio-comments-radius: var(--radius-md);
+  --artificio-comments-radius-sm: var(--radius-sm);
+  --artificio-comments-space: var(--space-3);
   --artificio-comments-avatar-size: 2rem;
 
   color: var(--artificio-comments-text);
 }
+
+/* --- Estrutura ------------------------------------------------------------ */
 
 .artificio-comments__toolbar,
 .artificio-comments__author,
@@ -34,6 +74,23 @@
 .artificio-comments__confirm {
   display: grid;
   gap: var(--artificio-comments-space);
+  /* Sem isto, todo filho direto estica para a coluna inteira — foi o que
+     transformava "Publicar comentário" numa barra de ponta a ponta da tela
+     (auditoria de 2026-08-17). Os grupos que devem ocupar a linha toda
+     (`ContentEditor`, textarea) pedem `justify-self: stretch` explicitamente
+     abaixo. */
+  justify-items: start;
+}
+
+.artificio-comments__composer > *,
+.artificio-comments__form > * {
+  justify-self: stretch;
+}
+
+.artificio-comments__composer > button,
+.artificio-comments__form-actions,
+.artificio-comments__confirm > button {
+  justify-self: start;
 }
 
 .artificio-comments__thread {
@@ -55,7 +112,10 @@
   border-radius: var(--artificio-comments-radius);
   padding: var(--artificio-comments-space);
   background: var(--artificio-comments-surface);
+  color: var(--artificio-comments-text);
 }
+
+/* --- Autoria -------------------------------------------------------------- */
 
 .artificio-comments__author {
   color: var(--artificio-comments-muted);
@@ -65,26 +125,63 @@
 .artificio-comments__avatar {
   width: var(--artificio-comments-avatar-size);
   height: var(--artificio-comments-avatar-size);
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   object-fit: cover;
 }
 
 .artificio-comments__badge,
 .artificio-comments__legacy-label {
   border: 1px solid var(--artificio-comments-border);
-  border-radius: 999px;
-  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-pill);
+  padding: var(--space-1) var(--space-2);
   font-size: 0.75rem;
+  color: var(--artificio-comments-muted);
 }
 
 .artificio-comments__legacy-label {
   font-style: italic;
 }
 
-.artificio-comments__body {
-  margin-block: var(--artificio-comments-space);
+/*
+  Marca de comentário editado. Estava sem regra nenhuma: herdava a cor do corpo
+  e competia visualmente com o texto do autor, apesar de ser metadado
+  (auditoria de 2026-08-17).
+*/
+.artificio-comments__edited {
+  color: var(--artificio-comments-muted);
+  font-size: 0.75rem;
 }
 
+.artificio-comments__body {
+  margin-block: var(--artificio-comments-space);
+  color: var(--artificio-comments-text);
+  overflow-wrap: anywhere;
+}
+
+/*
+  Estado vazio. Também estava sem regra — aparecia como texto solto e apagado
+  no canto, sem respiro, e era a primeira coisa que um visitante lia numa mesa
+  ainda sem conversa. Superfície própria em vez de texto nu: comunica que a
+  seção carregou e está vazia, em vez de parecer conteúdo que falhou
+  (heurística 1 de Nielsen).
+*/
+.artificio-comments__empty {
+  margin: var(--artificio-comments-space) 0 0;
+  padding: var(--space-6) var(--space-4);
+  border: 1px dashed var(--artificio-comments-border);
+  border-radius: var(--artificio-comments-radius);
+  background: var(--artificio-comments-surface-subtle);
+  color: var(--artificio-comments-muted);
+  text-align: center;
+}
+
+/* --- Controles ------------------------------------------------------------ */
+
+/*
+  Nenhum dos botões do componente recebe `className` — todos são estilizados por
+  descendência. Mantido de propósito: o host injeta os seus por `slots`, e uma
+  classe por botão viraria contrato público difícil de mudar depois.
+*/
 .artificio-comments__actions button,
 .artificio-comments__form-actions button,
 .artificio-comments__composer > button,
@@ -93,11 +190,48 @@
 .artificio-comments__toolbar select {
   min-height: 2.75rem;
   border: 1px solid var(--artificio-comments-border);
-  border-radius: var(--artificio-comments-radius);
-  padding: 0.5rem 0.75rem;
+  border-radius: var(--artificio-comments-radius-sm);
+  padding: var(--space-2) var(--space-3);
   background: var(--artificio-comments-surface);
   color: var(--artificio-comments-text);
   font: inherit;
+  cursor: pointer;
+}
+
+/*
+  Retorno de hover: o arquivo não tinha nenhum, em catorze botões — passar o
+  mouse não dizia nada (heurística 1 de Nielsen, exigida antes do merge pelas
+  regras de produto). `--fill` é translúcido e funciona sobre as duas
+  superfícies, clara e escura.
+*/
+.artificio-comments__actions button:hover:not(:disabled),
+.artificio-comments__form-actions button:hover:not(:disabled),
+.artificio-comments__more button:hover:not(:disabled),
+.artificio-comments__confirm button:hover:not(:disabled),
+.artificio-comments__toolbar select:hover:not(:disabled) {
+  background: var(--artificio-comments-fill);
+  border-color: var(--artificio-comments-border-strong);
+}
+
+/*
+  Ação primária de cada formulário: publicar e enviar. Antes recebia a mesma
+  regra de "Cancelar", então a tela não dizia qual era a ação principal
+  (heurística 6 — reconhecer em vez de lembrar). Usa os mesmos tokens do botão
+  primário do design system, que já resolve contraste AA nos dois temas.
+*/
+.artificio-comments__composer > button[type='submit'],
+.artificio-comments__form-actions button[type='submit'],
+.artificio-comments__confirm button[type='submit'] {
+  background: var(--btn-primary-bg);
+  border-color: transparent;
+  color: var(--btn-primary-fg);
+  font-weight: 600;
+}
+
+.artificio-comments__composer > button[type='submit']:hover:not(:disabled),
+.artificio-comments__form-actions button[type='submit']:hover:not(:disabled),
+.artificio-comments__confirm button[type='submit']:hover:not(:disabled) {
+  background: var(--btn-primary-bg-hover);
 }
 
 .artificio-comments button:focus-visible,
@@ -118,12 +252,21 @@
   min-width: 2ch;
   text-align: center;
   font-weight: 700;
+  color: var(--artificio-comments-text);
 }
 
 .artificio-comments__form textarea {
   min-height: 7rem;
   resize: vertical;
+  border: 1px solid var(--artificio-comments-border);
+  border-radius: var(--artificio-comments-radius-sm);
+  padding: var(--space-2) var(--space-3);
+  background: var(--artificio-comments-surface);
+  color: var(--artificio-comments-text);
+  font: inherit;
 }
+
+/* --- Estados de carga ----------------------------------------------------- */
 
 .artificio-comments__status {
   padding: var(--artificio-comments-space);
@@ -133,10 +276,147 @@
   color: var(--artificio-comments-muted);
 }
 
+/*
+  As regiões live (`role="alert"` e `<output>`) ficam montadas mesmo vazias,
+  para que o leitor de tela observe mutação dentro de um nó que já existe
+  (decisão da PR #259, no componente). Vazias elas não devem ocupar espaço nem
+  desenhar uma caixa fantasma — daí o `:empty`, que preserva o nó no DOM e o
+  remove do fluxo visual.
+*/
+.artificio-comments__status:empty {
+  display: none;
+}
+
 .artificio-comments__status[data-comments-state='stale'] {
   color: var(--artificio-comments-warning);
 }
 
 .artificio-comments__status[data-comments-state='unavailable'] {
   color: var(--artificio-comments-unavailable);
+}
+
+/* --- Telas estreitas ------------------------------------------------------ */
+
+/*
+  O arquivo não tinha nenhum breakpoint. A indentação de resposta já usa
+  `clamp()`, mas em telas estreitas o par borda + padding de cada nível ainda
+  come a largura útil do texto num fio profundo.
+*/
+@media (max-width: 480px) {
+  .artificio-comments__thread .artificio-comments__thread {
+    margin-inline-start: var(--space-2);
+    padding-inline-start: var(--space-2);
+  }
+
+  .artificio-comments__actions button,
+  .artificio-comments__form-actions button {
+    flex: 1 1 auto;
+  }
+}
+
+/* ============================================================================
+   Workspace de moderação comunitária (`CommunityModerationWorkspace`).
+
+   ## Por que existe um CSS aqui, se a tela usa `packages/ui`
+
+   O grosso do layout vem de `AdminWorkspaceLayout`, `SectionCard`, `AdminTable`
+   e `PageHeader`, todos estilizados no design system. O que **não** vinha eram
+   as classes utilitárias soltas do componente (`space-y-4`, `p-5`, `rounded
+   border`, `whitespace-pre-wrap`, `sr-only`) e a única classe própria,
+   `artificio-moderation__error`.
+
+   Essas utilitárias nunca foram geradas: os três apps consumidores declaram
+   `@source ".../packages/ui/src/**"` no CSS de entrada e **nenhum** varre
+   `packages/comments`, então o Tailwind não vê estes arquivos e não emite as
+   regras (medido em 2026-08-17). O caso mais grave era `sr-only`: sem ela, o
+   texto do `<output>` destinado a leitor de tela renderizava **visível**, no
+   meio da tela de moderação.
+
+   Optado por CSS próprio em vez de acrescentar `@source` nos apps: o pacote
+   passa a se sustentar sozinho, como já faz a conversa, e a correção não
+   depende de três arquivos de host permanecerem sincronizados. Os papéis vêm
+   do design system, sem cor literal — mesma regra de `styles.css`.
+   ============================================================================ */
+
+/*
+  Equivalente local de `sr-only`. Acessibilidade não pode depender de o host
+  ter configurado o scanner do Tailwind para varrer este pacote.
+*/
+.artificio-moderation-workspace .sr-only,
+output.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/*
+  Erro de ação do moderador. Vermelho de estado do design system, que já é
+  AA-safe nos dois temas; a borda e o fundo translúcidos funcionam sobre
+  superfície clara e escura sem virar por tema.
+*/
+.artificio-moderation__error {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--state-danger-line);
+  border-radius: var(--radius-md);
+  background: var(--state-danger-bg);
+  color: var(--state-danger-fg);
+}
+
+/*
+  Utilitárias que o componente usa e o Tailwind do host não gera. Escopadas na
+  raiz do workspace para não vazarem para a página inteira do app consumidor —
+  o pacote não pode definir `.p-5` global, que colidiria com o Tailwind real do
+  host onde ele existe.
+*/
+.artificio-moderation-workspace .space-y-3 > * + * {
+  margin-block-start: var(--space-3);
+}
+
+.artificio-moderation-workspace .space-y-4 > * + * {
+  margin-block-start: var(--space-4);
+}
+
+.artificio-moderation-workspace .p-5 {
+  padding: 1.25rem;
+}
+
+.artificio-moderation-workspace .p-3 {
+  padding: var(--space-3);
+}
+
+.artificio-moderation-workspace .rounded {
+  border-radius: var(--radius-sm);
+}
+
+.artificio-moderation-workspace .border {
+  border: 1px solid var(--line);
+}
+
+.artificio-moderation-workspace .whitespace-pre-wrap {
+  white-space: pre-wrap;
+}
+
+/*
+  Diff de versão do comentário: o que a moderação retirou e o que entrou. Sem
+  tratamento, `<del>`/`<ins>` ficam só com o sublinhado e o riscado padrão do
+  browser, que num parágrafo corrido não separa as duas coisas com clareza
+  suficiente para uma decisão de moderação.
+*/
+.artificio-moderation-workspace del {
+  background: var(--state-danger-bg);
+  color: var(--state-danger-fg);
+  text-decoration: line-through;
+}
+
+.artificio-moderation-workspace ins {
+  background: var(--state-success-bg);
+  color: var(--state-success-fg);
+  text-decoration: none;
 }

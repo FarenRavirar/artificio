@@ -757,8 +757,18 @@ export const CatalogoPage = () => {
           <CatalogEmptyState activeFiltersCount={activeFiltersCount} onClearFilters={clearFilters} />
         ) : (
           <>
-            {/* GRID */}
-            <div className="grid min-w-0 grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-[repeat(auto-fit,minmax(280px,1fr))]">
+            {/* GRID
+                `auto-fill`, e não `auto-fit`: com poucos resultados o `auto-fit`
+                colapsa as trilhas vazias e reparte a largura toda entre as que
+                sobraram — duas mesas numa tela de 1793px viravam dois cards de
+                887px, mais de 3× o mínimo de 280px pretendido, com a capa
+                ocupando 63% da altura (medido em 2026-08-17). `auto-fill`
+                mantém as trilhas, então o card conserva o mesmo tamanho com 2
+                ou 20 resultados.
+                O `justify-center` + teto de 420px na trilha existem porque
+                `1fr` sozinho não tem máximo: numa fileira incompleta os cards
+                voltariam a esticar. */}
+            <div className="grid min-w-0 grid-cols-1 justify-center gap-5 md:grid-cols-2 xl:grid-cols-[repeat(auto-fill,minmax(280px,420px))]">
               {tableCards}
             </div>
 

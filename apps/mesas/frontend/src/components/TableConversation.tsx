@@ -131,8 +131,13 @@ export function TableConversation({ tableId, canComment = true }: Readonly<Table
   };
 
   return (
-    <section aria-labelledby="table-conversation-heading">
-      <h2 id="table-conversation-heading">Comentários</h2>
+    <section aria-labelledby="table-conversation-heading" className="mt-8">
+      {/* Mesma escala dos outros títulos de seção da página (`MesaPage:287`).
+          Sem classe, o `h2` renderizava a 16px — do tamanho do corpo do texto,
+          sem nada que o marcasse como cabeçalho (auditoria de 2026-08-17). */}
+      <h2 id="table-conversation-heading" className="text-lg font-bold mb-2 text-slate-100">
+        Comentários
+      </h2>
       <CommentsConversation
         state={state}
         sort={sort}

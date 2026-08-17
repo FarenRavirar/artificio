@@ -76,8 +76,13 @@ export function MaterialConversation({ materialId }: Readonly<{ materialId: stri
   };
 
   return (
-    <section aria-labelledby="material-conversation-heading">
-      <h2 id="material-conversation-heading">Comentários</h2>
+    <section aria-labelledby="material-conversation-heading" className="mt-8">
+      {/* Mesma escala da `RatingSection`, irmã direta na `MaterialPage`. Sem
+          classe o título saía do tamanho do corpo do texto, sem hierarquia
+          (auditoria de 2026-08-17, spec 090). */}
+      <h2 id="material-conversation-heading" className="text-lg font-semibold text-[var(--fg)]">
+        Comentários
+      </h2>
       <CommentsConversation
         state={state}
         sort={sort}

@@ -503,14 +503,15 @@ button.chip:hover {
   color: #fff !important;
   border-color: var(--brand) !important;
 }
+/* Tokens --state-danger-*, e não os três valores à mão: eles já viram por tema
+   (o `fg` clareia no escuro exatamente como o override abaixo fazia) e são
+   AA-safe nos dois. Reescrever a mesma lógica aqui obrigava a manter duas
+   regras em sincronia — a origem da divergência entre apps que a auditoria de
+   2026-08-17 (spec 090) mediu. */
 .chip-adult {
-  background: rgba(239, 68, 68, 0.12);
-  color: #b91c1c; /* danger 700 — AA sobre claro */
-  border-color: rgba(239, 68, 68, 0.4);
-}
-:root[data-theme="dark"] .chip-adult {
-  background: rgba(239, 68, 68, 0.16);
-  color: #fca5a5; /* tom claro p/ AA sobre escuro */
+  background: var(--state-danger-bg);
+  color: var(--state-danger-fg);
+  border-color: var(--state-danger-line);
 }
 
 /* ---- Gate +18 (UX-1 / Nielsen H5) ---- */

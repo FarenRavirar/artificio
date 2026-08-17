@@ -40,6 +40,25 @@
 
   --artificio-font-display: "Oswald", "Arial Narrow", "Roboto Condensed", ui-sans-serif, system-ui, sans-serif;
   --artificio-font-sans: "Inter", "Segoe UI", Roboto, ui-sans-serif, system-ui, sans-serif;
+
+  /* Geometria — theme-agnóstica, por isso mora aqui e não nos blocos por tema.
+     Codifica o que os pacotes já praticavam em literal: `8px`/`0.5rem` domina
+     cartão e painel (12 ocorrências neste arquivo), `0.375rem` os controles
+     menores do editor, `999px` a pílula de badge. Nomeados porque
+     `packages/comments` pedia `--radius-md`/`--space-3`, tokens que nunca
+     existiram no monorepo e caíam em fallback — a conversa desenhava por
+     acidente uma escala própria (auditoria de 2026-08-17, spec 090 fase 7).
+     Escala de espaço em passos de 4px: a mesma régua do Tailwind, que os apps
+     já usam em `px-4`/`mt-6`, para o pacote não divergir do host. */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-pill: 999px;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
 }
 
 /* ============================================================================
@@ -110,6 +129,30 @@
   --btn-primary-fg: #ffffff;
   --btn-primary-bg-hover: #1c1c52;
 
+  /* botão destrutivo (excluir conta, remover material): mesmo trio do primário.
+     O tom sólido é mais fechado que --artificio-danger porque aqui o vermelho é
+     FUNDO de texto branco — #ef4444 sob #fff dá 3.3:1, abaixo do mínimo AA de
+     4.5:1; este dá 5.9:1 e continua lendo como perigo. O `accounts` mantinha
+     exatamente estes dois valores como literal solto (`#b42318`/`#8f1d16`,
+     styles.css:250-257), que é o que tornava a exclusão de conta divergente do
+     resto da suíte (auditoria de 2026-08-17). */
+  --btn-danger-bg: #b42318;
+  --btn-danger-fg: #ffffff;
+  --btn-danger-bg-hover: #8f1d16;
+
+  /* Laranja de marca em papel SÓLIDO (fundo de badge/contador com texto branco,
+     ou texto de marca sobre superfície clara). --artificio-brand-deep (#e64a19)
+     puro dá ~3.9:1 nos dois usos, abaixo do AA de 4.5:1; este tom (brand-deep
+     escurecido 10%) dá ~4.7:1 e continua lendo como laranja da marca.
+     Literal, não `color-mix()` sobre o token: resolver de volta ao valor
+     insuficiente é justamente o defeito, e valor fixo deixa scanner de
+     contraste estático auditar.
+     Existia três vezes copiado — duas no `accounts` e uma no badge de
+     notificação deste arquivo — cada uma com o mesmo cálculo reescrito à mão
+     (auditoria de 2026-08-17, spec 090). */
+  --brand-solid: #cf4317;
+  --brand-solid-fg: #ffffff;
+
   /* bloco navy decorativo (header de modal, banner, ribbon de card): navy + texto branco
      nos 2 temas; no escuro clareia p/ separar do --surface (que também é navy). NÃO vira laranja. */
   --navy-block-bg: var(--artificio-navy);
@@ -147,6 +190,19 @@
   --btn-primary-bg: var(--artificio-brand);
   --btn-primary-fg: var(--artificio-ink);
   --btn-primary-bg-hover: var(--artificio-brand-deep);
+
+  /* destrutivo no escuro: o tom fechado do claro somem contra superfície
+     escura; clareia para o vermelho base, que sobre #1b2a4a dá 4.7:1 com texto
+     branco. Mesmo tratamento dos demais --state-* neste bloco. */
+  --btn-danger-bg: var(--artificio-danger);
+  --btn-danger-fg: #ffffff;
+  --btn-danger-bg-hover: #dc2626;
+
+  /* No escuro o tom fechado do claro some contra a superfície navy; o laranja
+     de marca puro resolve, mas então o texto por cima vira navy — branco sobre
+     #ff5722 dá 3.1:1, e navy dá 7.4:1. Mesmo par do --btn-primary no escuro. */
+  --brand-solid: var(--artificio-brand);
+  --brand-solid-fg: var(--artificio-ink);
 
   /* bloco navy no escuro: navy mais claro p/ destacar do surface; texto segue branco */
   --navy-block-bg: #2e4a7a;
@@ -736,12 +792,12 @@
 }
 
 .artificio-button-danger {
-  background: var(--artificio-danger);
-  color: #ffffff;
+  background: var(--btn-danger-bg);
+  color: var(--btn-danger-fg);
 }
 
 .artificio-button-danger:hover {
-  background: var(--artificio-danger-text);
+  background: var(--btn-danger-bg-hover);
 }
 
 .artificio-button-success {
@@ -1640,16 +1696,10 @@ select option:checked,
   position: absolute;
   top: -2px;
   right: -4px;
-  /* --artificio-accent não existe como token (nenhuma definição em :root
-     deste arquivo, achado corrigido nesta rodada) — deriva de
-     --artificio-brand-deep (#e64a19, token real da marca). Puro com
-     texto branco fica ~3.9:1, abaixo do AA (4.5:1); mais crítico aqui
-     por ser fonte pequena (0.625rem). #cf4317 (brand-deep escurecido
-     10%) fica ~4.7:1 — valor fixo, não var()/color-mix(), pra não
-     resolver de volta ao token insuficiente e pro scanner de contraste
-     estático conseguir auditar. */
-  background: #cf4317;
-  color: white;
+  /* Papel sólido de marca: ver --brand-solid na definição do token. Crítico
+     aqui por ser fonte pequena (0.625rem), onde o AA exige os mesmos 4.5:1. */
+  background: var(--brand-solid);
+  color: var(--brand-solid-fg);
   font-size: 0.625rem;
   font-weight: 700;
   line-height: 1;

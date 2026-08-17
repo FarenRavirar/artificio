@@ -222,9 +222,12 @@ body {
   color: var(--accounts-ink);
 }
 
+/* Branco literal, e NÃO --surface: é o "G" do Google, cujas diretrizes de marca
+   exigem fundo branco em qualquer tema. Virar com o tema quebraria a regra de
+   uso do logo de terceiro. Única exceção de cor literal deste arquivo. */
 .accounts-login svg {
   background: #fff;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   flex-shrink: 0;
   padding: 3px;
 }
@@ -247,14 +250,15 @@ body {
 /* Ação destrutiva com cor própria: exclusão de conta não pode parecer com as
    demais ações do painel (restaurado com a feature em 2026-07-31). */
 .accounts-login-danger {
-  background: #b42318;
-  border-color: #b42318;
+  background: var(--btn-danger-bg);
+  border-color: var(--btn-danger-bg);
+  color: var(--btn-danger-fg);
   box-shadow: none;
 }
 
 .accounts-login-danger:hover {
-  background: #8f1d16;
-  border-color: #8f1d16;
+  background: var(--btn-danger-bg-hover);
+  border-color: var(--btn-danger-bg-hover);
 }
 
 .accounts-login:disabled {
@@ -418,14 +422,20 @@ body {
   padding: 10px 12px;
 }
 
+/* Estados de feedback: tokens --state-*, que já viram por tema e são AA-safe
+   nos dois. Os literais anteriores (#dff7e8/#0f6935, #fde4e4/#a81f1f) eram
+   fixos de tema claro — no escuro viravam tarja clara sobre painel escuro
+   (auditoria de 2026-08-17). */
 .accounts-status-success {
-  background: #dff7e8;
-  color: #0f6935;
+  background: var(--state-success-bg);
+  border: 1px solid var(--state-success-line);
+  color: var(--state-success-fg);
 }
 
 .accounts-status-error {
-  background: #fde4e4;
-  color: #a81f1f;
+  background: var(--state-danger-bg);
+  border: 1px solid var(--state-danger-line);
+  color: var(--state-danger-fg);
 }
 
 .accounts-help {
@@ -498,7 +508,7 @@ body {
 .notifications-header h2 {
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--artificio-ink, #020740);
+  color: var(--artificio-ink);
 }
 
 .notifications-actions {
@@ -513,16 +523,16 @@ body {
 
 .notifications-filter-toggle {
   padding: 0.4rem 0.8rem;
-  border: 1px solid var(--artificio-line, #e3e5ec);
+  border: 1px solid var(--artificio-line);
   border-radius: 0.375rem;
-  background: var(--accounts-surface, #fff);
+  background: var(--accounts-surface);
   cursor: pointer;
   font-size: 0.875rem;
-  color: var(--artificio-ink, #020740);
+  color: var(--artificio-ink);
 }
 
 .notifications-filter-toggle:focus-visible {
-  outline: 2px solid var(--artificio-brand-deep, #e64a19);
+  outline: 2px solid var(--artificio-brand-deep);
   outline-offset: 2px;
 }
 
@@ -531,8 +541,8 @@ body {
   top: 100%;
   right: 0;
   margin-top: 0.25rem;
-  background: var(--accounts-surface, #fff);
-  border: 1px solid var(--artificio-line, #e3e5ec);
+  background: var(--accounts-surface);
+  border: 1px solid var(--artificio-line);
   border-radius: 0.375rem;
   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   z-index: 10;
@@ -548,42 +558,43 @@ body {
   text-align: left;
   cursor: pointer;
   font-size: 0.875rem;
-  color: var(--artificio-ink, #020740);
+  color: var(--artificio-ink);
 }
 
 .notifications-filter-dropdown button:hover,
 .notifications-filter-dropdown button.active {
-  background: var(--artificio-ink, #020740);
+  background: var(--artificio-ink);
   color: white;
 }
 
 .notifications-filter-dropdown button:focus-visible {
-  outline: 2px solid var(--artificio-brand-deep, #e64a19);
+  outline: 2px solid var(--artificio-brand-deep);
   outline-offset: -2px;
 }
 
 .notifications-mark-all {
   padding: 0.4rem 0.8rem;
-  border: 1px solid var(--artificio-brand-deep, #e64a19);
+  border: 1px solid var(--artificio-brand-deep);
   border-radius: 0.375rem;
-  background: var(--accounts-surface, #fff);
+  background: var(--accounts-surface);
   /* --artificio-brand-deep (#e64a19) puro como texto sobre branco fica
-     ~3.9:1, abaixo do AA (4.5:1). #cf4317 (escurecido 10%) fica ~4.7:1 —
-     valor fixo, não var(), pra não resolver de volta ao token
-     insuficiente e pro scanner de contraste estático auditar. */
-  color: #cf4317;
+     ~3.9:1, abaixo do AA (4.5:1). `--brand-solid` é o papel que resolve isso,
+     definido uma vez em `packages/ui` e AA-safe nos dois temas — antes o valor
+     estava copiado aqui e no badge de notificação do próprio design system,
+     com o mesmo cálculo reescrito à mão (auditoria de 2026-08-17). */
+  color: var(--brand-solid);
   cursor: pointer;
   font-size: 0.875rem;
   white-space: nowrap;
 }
 
 .notifications-mark-all:hover {
-  background: #cf4317;
-  color: white;
+  background: var(--brand-solid);
+  color: var(--brand-solid-fg);
 }
 
 .notifications-mark-all:focus-visible {
-  outline: 2px solid var(--artificio-brand-deep, #e64a19);
+  outline: 2px solid var(--artificio-brand-deep);
   outline-offset: 2px;
 }
 
@@ -592,11 +603,11 @@ body {
 .notifications-error {
   text-align: center;
   padding: 3rem 1rem;
-  color: var(--artificio-muted, #5a6172);
+  color: var(--artificio-muted);
 }
 
 .notifications-error {
-  color: var(--artificio-danger-text, #b91c1c);
+  color: var(--artificio-danger-text);
 }
 
 .notifications-list {
@@ -606,12 +617,12 @@ body {
 }
 
 .notification-item {
-  border-bottom: 1px solid var(--artificio-line, #e3e5ec);
+  border-bottom: 1px solid var(--artificio-line);
   padding: 0;
 }
 
 .notification-item.unread {
-  background: color-mix(in srgb, var(--artificio-brand-deep, #e64a19) 5%, var(--accounts-surface, white));
+  background: color-mix(in srgb, var(--artificio-brand-deep) 5%, var(--accounts-surface, white));
 }
 
 .notification-item-header {
@@ -636,7 +647,7 @@ body {
 }
 
 .notification-item-header:focus-visible {
-  outline: 2px solid var(--artificio-brand-deep, #e64a19);
+  outline: 2px solid var(--artificio-brand-deep);
   outline-offset: -2px;
 }
 
@@ -645,14 +656,14 @@ body {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--artificio-muted, #5a6172);
+  color: var(--artificio-muted);
   min-width: 5rem;
 }
 
 .notification-text {
   flex: 1;
   font-size: 0.95rem;
-  color: var(--artificio-ink, #020740);
+  color: var(--artificio-ink);
   min-width: 0;
 }
 
@@ -662,7 +673,7 @@ body {
 
 .notification-time {
   font-size: 0.8rem;
-  color: var(--artificio-muted, #5a6172);
+  color: var(--artificio-muted);
   white-space: nowrap;
 }
 
@@ -670,20 +681,20 @@ body {
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 50%;
-  background: var(--artificio-brand-deep, #e64a19);
+  background: var(--artificio-brand-deep);
   flex-shrink: 0;
 }
 
 .notification-detail {
   padding: 0.6rem 0.75rem 1rem 6.5rem;
   background: rgba(0,0,0,0.02);
-  border-top: 1px dashed var(--artificio-line, #e3e5ec);
+  border-top: 1px dashed var(--artificio-line);
 }
 
 .notification-detail .notification-link {
   display: inline-block;
   margin-bottom: 0.4rem;
-  color: var(--artificio-ink, #020740);
+  color: var(--artificio-ink);
   font-size: 0.875rem;
   font-weight: 500;
   text-decoration: underline;
@@ -691,11 +702,11 @@ body {
 
 .notification-moderation-info {
   font-size: 0.85rem;
-  color: var(--artificio-muted, #5a6172);
+  color: var(--artificio-muted);
   padding: 0.5rem 0.75rem;
-  background: color-mix(in srgb, var(--artificio-muted, #5a6172) 8%, white);
+  background: color-mix(in srgb, var(--artificio-muted) 8%, white);
   border-radius: 0.25rem;
-  border-left: 3px solid var(--artificio-brand-deep, #e64a19);
+  border-left: 3px solid var(--artificio-brand-deep);
 }
 
 .notification-moderation-info p {
@@ -709,21 +720,21 @@ body {
 
 .notifications-load-more-btn {
   padding: 0.6rem 1.5rem;
-  border: 1px solid var(--artificio-line, #e3e5ec);
+  border: 1px solid var(--artificio-line);
   border-radius: 0.375rem;
-  background: var(--accounts-surface, #fff);
-  color: var(--artificio-ink, #020740);
+  background: var(--accounts-surface);
+  color: var(--artificio-ink);
   cursor: pointer;
   font-size: 0.9rem;
 }
 
 .notifications-load-more-btn:hover:not(:disabled) {
-  background: var(--artificio-ink, #020740);
+  background: var(--artificio-ink);
   color: white;
 }
 
 .notifications-load-more-btn:focus-visible {
-  outline: 2px solid var(--artificio-brand-deep, #e64a19);
+  outline: 2px solid var(--artificio-brand-deep);
   outline-offset: 2px;
 }
 
