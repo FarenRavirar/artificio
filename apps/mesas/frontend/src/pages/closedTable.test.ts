@@ -1,4 +1,4 @@
-import { normalizeClosedTable } from './closedTable';
+import { describeClosure, normalizeClosedTable } from './closedTable';
 
 /**
  * T7.8 (spec 090) — normalizador do payload `410` (mesa encerrada), em `closedTable.ts`.
@@ -58,6 +58,27 @@ describe('normalizeClosedTable', () => {
   it('recusa motivo fora do vocabulário conhecido', () => {
     const result = normalizeClosedTable({ data: { ...PAYLOAD.data, closed_reason: 'inventado' } });
     expect(result.reason).toBe('unknown');
+  });
+
+  it.each(['gm', 'admin', 'auto_expired', 'ended', 'cancelled', 'unknown'] as const)(
+    'preserva o motivo %s que o backend envia',
+    (reason) => {
+      // `ended` e `cancelled` chegam pelo fallback do status quando ninguém
+      // gravou `closed_reason` (`routes/tables.ts`) — e `closed_reason` é nulo
+      // em todas as mesas hoje, então esse é o caminho vivo. Sem eles no
+      // vocabulário, degradavam para `unknown` e a tela trocava a frase
+      // específica pela genérica (achado de review, PR #268).
+      const result = normalizeClosedTable({ data: { ...PAYLOAD.data, closed_reason: reason } });
+      expect(result.reason).toBe(reason);
+    },
+  );
+
+  it.each([
+    ['ended', 'Esta mesa chegou ao fim.'],
+    ['cancelled', 'Esta mesa foi cancelada.'],
+  ] as const)('descreve %s com frase própria, não a genérica', (reason, frase) => {
+    const closed = normalizeClosedTable({ data: { ...PAYLOAD.data, closed_reason: reason } });
+    expect(describeClosure(closed)).toBe(frase);
   });
 
   it('data inválida vira null em vez de Invalid Date no render', () => {

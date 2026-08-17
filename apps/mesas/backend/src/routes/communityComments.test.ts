@@ -21,6 +21,7 @@ const ENCERRADA_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const OWNER_GOOGLE_ID = '77777777-7777-4777-8777-777777777777';
 
 const guardMock = vi.hoisted(() => ({ run: vi.fn() }));
+const sessionState = vi.hoisted(() => ({ anonimo: false }));
 
 vi.mock('../community/tableSubjectGuard.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../community/tableSubjectGuard.js')>();
@@ -41,7 +42,14 @@ vi.mock('../middleware/auth.js', () => ({
     };
     next();
   },
+  // Leitura é pública: o middleware real deixa `req.user` e `req.session`
+  // indefinidos quando não há cookie (`middleware/auth.ts`, `optionalAuth`). O
+  // sinalizador exercita esse ramo, que é onde a fachada NÃO pode inventar ator.
   optionalAuth: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
+    if (sessionState.anonimo) {
+      next();
+      return;
+    }
     req.user = { userId: LOCAL_USER_ID, role: 'player' };
     (req as unknown as { session: unknown }).session = {
       user: { id: ACCOUNTS_USER_ID, email: 'jogador@exemplo.com', role: 'user' },
@@ -50,10 +58,19 @@ vi.mock('../middleware/auth.js', () => ({
   },
 }));
 
-vi.mock('../middleware/rateLimit.js', () => ({
-  publicRateLimiter: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
-  strictRateLimiter: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
-}));
+// Um passthrough por bucket: a fachada importa quatro limiters distintos, e um
+// mock incompleto quebraria com 'is not a function' em vez de falhar no que se
+// quer testar.
+vi.mock('../middleware/rateLimit.js', () => {
+  const passthrough = (_req: express.Request, _res: express.Response, next: express.NextFunction) => next();
+  return {
+    publicRateLimiter: passthrough,
+    commentWriteRateLimiter: passthrough,
+    commentEditRateLimiter: passthrough,
+    commentVoteRateLimiter: passthrough,
+    commentReportRateLimiter: passthrough,
+  };
+});
 
 import communityCommentsRoutes, { readCorrelationId } from './communityComments.js';
 
@@ -86,8 +103,15 @@ function stubFetch(status = 201, body: unknown = { id: 'comment-1' }): void {
   vi.stubGlobal('fetch', fetchMock);
 }
 
+/**
+ * Última chamada, não a primeira: o nome dizia `lastCall` e o corpo lia
+ * `calls[0]`, o que só coincide enquanto cada teste faz uma requisição só. Um
+ * caso com duas chamadas mediria a errada em silêncio (achado de review,
+ * PR #268).
+ */
 function lastCall(): { url: string; init: { headers: Record<string, string>; body?: string } } {
-  const [url, init] = fetchMock.mock.calls[0] as [string, { headers: Record<string, string>; body?: string }];
+  const calls = fetchMock.mock.calls;
+  const [url, init] = calls[calls.length - 1] as [string, { headers: Record<string, string>; body?: string }];
   return { url, init };
 }
 
@@ -95,6 +119,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   process.env.ACCOUNTS_URL = 'https://accounts.exemplo.test';
   process.env.SERVICE_CREDENTIAL = 'mesas-test.segredo';
+  sessionState.anonimo = false;
   guardMock.run.mockResolvedValue(authorized);
   stubFetch();
 });
@@ -115,6 +140,20 @@ describe('T7.2 — identificador enviado ao accounts.', () => {
     // A asserção que dá sentido à anterior: sem ela, um mock que devolvesse o
     // mesmo valor nos dois campos passaria e o defeito continuaria de pé.
     expect(init.headers['X-Acting-User-Id']).not.toBe(LOCAL_USER_ID);
+  });
+
+  it('leitura anônima não manda X-Acting-User-Id nenhum', async () => {
+    // Sem sessão, `actingAccountsUserId` devolve `undefined` e o header não é
+    // montado. Mandar string vazia ou um id inventado faria o `accounts.`
+    // resolver `my_vote` para uma conta que não pediu a leitura.
+    sessionState.anonimo = true;
+    stubFetch(200, { comments: [] });
+
+    await request(makeApp())
+      .get(`/api/v1/community/conversation?subject_id=${TABLE_ID}`)
+      .expect(200);
+
+    expect(lastCall().init.headers['X-Acting-User-Id']).toBeUndefined();
   });
 
   it('vale também para voto e edição, não só para criação', async () => {
@@ -283,6 +322,19 @@ describe('correlação e idempotência', () => {
       .expect(201);
 
     expect(lastCall().init.headers['Idempotency-Key']).toBe('chave-do-cliente');
+  });
+
+  it('descarta Idempotency-Key acima do limite em vez de repassar crua', async () => {
+    // Mesma validação da correlação: as duas são texto do cliente virando
+    // header de uma requisição de saída. "Vem do cliente por contrato" é motivo
+    // para validar, não para confiar (achado de review, PR #268).
+    await request(makeApp())
+      .post('/api/v1/community/conversation')
+      .set('Idempotency-Key', 'a'.repeat(129))
+      .send({ subject_id: TABLE_ID, body_markdown: 'olá' })
+      .expect(201);
+
+    expect(lastCall().init.headers['Idempotency-Key']).toBeUndefined();
   });
 
   it('não inventa Idempotency-Key quando o cliente não manda', async () => {

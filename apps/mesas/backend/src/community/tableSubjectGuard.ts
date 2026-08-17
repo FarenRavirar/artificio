@@ -76,19 +76,32 @@ export function createTableSubjectGuard(
 
     // ## O JOIN é o ponto inteiro desta função (T7.2, requisito 26c)
     //
-    // `tables.gm_id` referencia `mesas.users.id` — UUID **local**. O
-    // `accounts.` identifica a conta por outro valor, guardado em
-    // `users.google_id` (`db/types.ts:14`), que é o `session.user.id` do SSO.
-    // Mandar `gm_id` como `owner_user_id` associaria a mesa a uma conta que não
-    // existe no registro central, e o publicador nunca receberia notificação do
-    // próprio anúncio — falha silenciosa, sem erro em lugar nenhum.
+    // São **dois** saltos, e pular qualquer um devolve `null` em silêncio:
+    //
+    //   tables.gm_id → gm_profiles.id → gm_profiles.user_id → users.google_id
+    //
+    // 1. `tables.gm_id` **não** referencia `users`: aponta para
+    //    `gm_profiles(id)` (`migration_01_base_schema.sql:124`). A primeira
+    //    versão desta consulta unia direto em `users.id` e casava **zero**
+    //    linhas — medido em produção: 27 mesas com `gm_id`, 0 resolvidas pelo
+    //    join direto, 27 pelo caminho por `gm_profiles` (achado de review,
+    //    PR #268). O tipo não pega: as duas colunas são UUID.
+    // 2. Do perfil sai `user_id`, que é o UUID **local** de `mesas.users`. O
+    //    `accounts.` identifica a conta por `users.google_id`
+    //    (`db/types.ts:14`), que é o `session.user.id` do SSO. Mandar o id
+    //    local associaria a mesa a uma conta inexistente no registro central.
+    //
+    // O sintoma dos dois erros é idêntico e mudo: `ownerUserId: null`, que é um
+    // valor legítimo para mesa órfã — então o publicador simplesmente deixa de
+    // ser notificado do próprio anúncio, sem erro em lugar nenhum.
     //
     // `LEFT JOIN` e não `JOIN`: mesa órfã (`gm_id` nulo) e mestre externo sem
     // conta são casos legítimos do acervo importado, e `authorize` aceita
     // `ownerUserId: null` de propósito.
     const table = await db
       .selectFrom('tables')
-      .leftJoin('users', 'users.id', 'tables.gm_id')
+      .leftJoin('gm_profiles', 'gm_profiles.id', 'tables.gm_id')
+      .leftJoin('users', 'users.id', 'gm_profiles.user_id')
       .select([
         'tables.id as id',
         'tables.slug as slug',

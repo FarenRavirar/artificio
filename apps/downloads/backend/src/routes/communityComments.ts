@@ -1,11 +1,11 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { fetch as undiciFetch } from 'undici';
 import { authMiddleware, optionalAuth } from '../middleware/auth';
 import { readRateLimiter, writeRateLimiter } from '../middleware/rateLimit';
 import {
   DOWNLOADS_SUBJECT_TYPE,
   createMaterialSubjectGuard,
 } from '../community/materialSubjectGuard';
+import { proxyToAccounts, readClientHeader } from '../community/accountsProxy';
 
 /**
  * T5.3/T5.3c (spec 090) — fachada browser-safe da conversa do `downloads`.
@@ -37,117 +37,37 @@ import {
 
 const router = Router();
 const subjectGuard = createMaterialSubjectGuard();
-const REQUEST_TIMEOUT_MS = 5_000;
-
-function accountsOrigin(): string | null {
-  const value = process.env.ACCOUNTS_URL?.trim();
-  return value ? value.replace(/\/$/, '') : null;
-}
-
-const isBodyless = (method: string): boolean => ['GET', 'HEAD'].includes(method.toUpperCase());
-
 /**
- * `X-Correlation-Id` do chamador (`contrato-http-v1.md` §1.1: opcional, ASCII
- * ≤128, "ecoado em toda resposta de erro").
- *
- * Sem ele, o `503` desta fachada e a linha de log correspondente não têm como
- * ser amarrados à requisição que o usuário viu falhar — é a diferença entre
- * "alguém teve erro hoje" e "esta requisição falhou aqui". O `accounts.` já o
- * ecoa (`communityCommentRoutes.ts:93-99`); a fachada propaga o mesmo valor,
- * para que as duas pontas apareçam com o mesmo id.
- *
- * Nulo quando ausente ou fora do formato, nunca um id inventado: um valor
- * gerado aqui não existiria em log nenhum do cliente e só poluiria a busca.
+ * Vocabulário de erro desta fachada. A mecânica de transporte (credencial,
+ * headers validados, `Retry-After`, degradação) vive em
+ * `community/accountsProxy.ts`, compartilhada com a fachada de moderação —
+ * manter duas cópias da camada que decide credencial e ator foi como esta
+ * superfície e a do `site` perderam duas correções de review antes da PR #264.
  */
-export function readCorrelationId(header: string | undefined): string | null {
-  if (typeof header !== 'string' || header.length === 0 || header.length > 128) return null;
-  // ASCII imprimível: header com caractere de controle vai para log e response
-  // splitting é o risco clássico dessa combinação.
-  return /^[\x20-\x7E]+$/.test(header) ? header : null;
-}
+const UNAVAILABLE_ERROR = 'community_comments_unavailable';
 
-/**
- * Repassa ao `accounts.` com a credencial de serviço. `realm` e `source_app`
- * saem dela, nunca do payload (§1.1) — aceitar do corpo seria a porta para uma
- * credencial de beta escrever em produção.
- */
-async function proxyAccounts(
+/** Repasse ao `accounts.` com a credencial de serviço deste app. */
+function proxyAccounts(
   req: Request,
   res: Response,
   path: string,
   options: { actingUserId?: string; body?: unknown } = {},
 ): Promise<void> {
-  const origin = accountsOrigin();
-  const credential = process.env.SERVICE_CREDENTIAL?.trim();
-  const correlation = readCorrelationId(req.header('x-correlation-id'));
-  if (!origin || !credential) {
-    res.status(503).json({ error: 'community_comments_unavailable', correlation_id: correlation });
-    return;
-  }
-
-  const method = req.method.toUpperCase();
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-    'X-Service-Token': credential,
-  };
-  if (options.actingUserId) headers['X-Acting-User-Id'] = options.actingUserId;
-  if (!isBodyless(method)) headers['Content-Type'] = 'application/json';
-
-  // A chave vem do CLIENTE, e não é gerada aqui: chave inventada por
-  // requisição não sobrevive à retentativa, que é justamente o caso que ela
-  // existe para cobrir — envio que dá timeout depois de o servidor confirmar a
-  // escrita. Reenviar com chave nova duplica a fala; com a mesma, o `accounts.`
-  // devolve a resposta original (§6, e o comentário de `transport.ts:59-68`).
-  const idempotencyKey = req.header('idempotency-key');
-  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
-  // Propagado para que o erro do `accounts.` volte com o MESMO id que esta
-  // fachada registra no log — as duas pontas amarradas por um valor só.
-  if (correlation) headers['X-Correlation-Id'] = correlation;
-
-  try {
-    const response = await undiciFetch(`${origin}${path}`, {
-      method,
-      headers,
-      body: isBodyless(method) ? undefined : JSON.stringify(options.body ?? req.body ?? {}),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-
-    const text = await response.text();
-    if (!text) {
-      res.status(response.status).end();
-      return;
-    }
-
-    let payload: unknown;
-    try {
-      payload = JSON.parse(text);
-    } catch {
-      // HTML de página de erro no lugar de JSON: vira `502` explícito, nunca
-      // corpo repassado cru que o schema do cliente tentaria interpretar.
-      res.status(502).json({ error: 'invalid_accounts_response', correlation_id: correlation });
-      return;
-    }
-
-    // `Retry-After` atravessa a fachada: é o único header do `accounts.` que
-    // carrega instrução operacional para o cliente. Sem ele, um `429` chega ao
-    // navegador sem dizer **quando** tentar de novo, e a retentativa vira chute
-    // que realimenta o próprio rate limit.
-    const retryAfter = response.headers.get('retry-after');
-    if (retryAfter) res.setHeader('Retry-After', retryAfter);
-
-    res.status(response.status).json(payload);
-  } catch (error) {
-    // Log antes de responder: `503` é indistinguível entre `accounts.` fora,
-    // timeout e DNS quebrado, e sem rastro o diagnóstico na VM começa do zero
-    // (mesma razão de `communityModeration.ts:144-149`).
-    console.error('[community-comments] falha ao falar com accounts', {
-      path,
-      correlation_id: correlation,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    res.status(503).json({ error: 'community_comments_unavailable', correlation_id: correlation });
-  }
+  return proxyToAccounts(req, res, path, {
+    mode: 'service',
+    unavailableError: UNAVAILABLE_ERROR,
+    logPrefix: 'community-comments',
+    actingUserId: options.actingUserId,
+    body: options.body,
+  });
 }
+
+/**
+ * Reexportado porque o teste exercita a validação de header diretamente: o Node
+ * recusa header com caractere de controle antes de chegar ao handler, então o
+ * ramo só é alcançável pela função.
+ */
+export { readClientHeader as readCorrelationId };
 
 /**
  * Resolve o assunto e recalcula a autorização. Os três motivos de recusa

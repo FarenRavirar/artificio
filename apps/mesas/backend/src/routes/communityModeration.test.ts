@@ -17,7 +17,7 @@ const ACCOUNTS_USER_ID = '99999999-9999-4999-8999-999999999999';
 
 type GlobalRole = 'user' | 'moderator' | 'admin';
 
-const sessionState = vi.hoisted(() => ({ globalRole: 'moderator' as GlobalRole }));
+const sessionState = vi.hoisted(() => ({ globalRole: 'moderator' as GlobalRole, semSessao: false }));
 
 vi.mock('../middleware/auth.js', () => ({
   authMiddleware: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
@@ -29,17 +29,22 @@ vi.mock('../middleware/auth.js', () => ({
       role: 'player',
       globalRole: sessionState.globalRole,
     };
-    (req as unknown as { session: unknown }).session = {
-      user: { id: ACCOUNTS_USER_ID, email: 'mod@exemplo.com', role: sessionState.globalRole },
-    };
+    // Papel resolvido mas sessão ausente: estado que `proxyAccounts` trata com
+    // 401 explícito, em vez de deixar o acesso não-checado virar TypeError
+    // dentro de um `void` — 500 opaco no lugar de erro tratado.
+    if (!sessionState.semSessao) {
+      (req as unknown as { session: unknown }).session = {
+        user: { id: ACCOUNTS_USER_ID, email: 'mod@exemplo.com', role: sessionState.globalRole },
+      };
+    }
     next();
   },
 }));
 
-vi.mock('../middleware/rateLimit.js', () => ({
-  publicRateLimiter: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
-  strictRateLimiter: (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
-}));
+vi.mock('../middleware/rateLimit.js', () => {
+  const passthrough = (_req: express.Request, _res: express.Response, next: express.NextFunction) => next();
+  return { publicRateLimiter: passthrough, strictRateLimiter: passthrough, commentReportRateLimiter: passthrough };
+});
 
 import communityModerationRoutes from './communityModeration.js';
 
@@ -62,9 +67,18 @@ function stubFetch(status = 200, body: unknown = { ok: true }): void {
   vi.stubGlobal('fetch', fetchMock);
 }
 
+// Env do processo restaurado depois de cada caso: um teste apaga
+// SERVICE_CREDENTIAL de proposito, e sem a restauracao o vazamento chegaria a
+// qualquer suite que rodasse depois no mesmo worker (achado de review, PR #268).
+const envOriginal = {
+  ACCOUNTS_URL: process.env.ACCOUNTS_URL,
+  SERVICE_CREDENTIAL: process.env.SERVICE_CREDENTIAL,
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   sessionState.globalRole = 'moderator';
+  sessionState.semSessao = false;
   process.env.ACCOUNTS_URL = 'https://accounts.exemplo.test';
   process.env.SERVICE_CREDENTIAL = 'mesas-test.segredo';
   stubFetch();
@@ -72,6 +86,10 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  for (const [chave, valor] of Object.entries(envOriginal)) {
+    if (valor === undefined) delete process.env[chave];
+    else process.env[chave] = valor;
+  }
 });
 
 describe('T7.7 — guard de papel lê o global, não o local rebaixado', () => {
@@ -156,12 +174,15 @@ describe('query filtrada e degradação', () => {
     expect(url).not.toContain('injetado');
   });
 
+  // `correlation_id` no corpo de erro veio junto da unificacao do transporte
+  // (PR #268): a moderacao nao o ecoava, e `contrato-http-v1.md` §1.1 exige em
+  // TODA resposta de erro. Ganho colateral de tirar a segunda copia do proxy.
   it('fila fora do schema compartilhado vira 502, não corpo repassado', async () => {
     stubFetch(200, { formato: 'inesperado' });
 
     await request(makeApp())
       .get('/api/v1/community/moderation/queue')
-      .expect(502, { error: 'invalid_accounts_response' });
+      .expect(502, { error: 'invalid_accounts_response', correlation_id: null });
   });
 
   it('corpo de erro do accounts. passa adiante sem ser medido contra o schema', async () => {
@@ -174,6 +195,35 @@ describe('query filtrada e degradação', () => {
       .expect(429, { error: 'rate_limited' });
   });
 
+  it('propaga Retry-After do accounts. num 429 relayado', async () => {
+    // O operador de moderação é quem mais insiste ao ver `429`; sem a janela,
+    // a retentativa vira chute que realimenta o próprio limite.
+    fetchMock = vi.fn().mockResolvedValue({
+      status: 429,
+      ok: false,
+      text: () => Promise.resolve(JSON.stringify({ error: 'rate_limited' })),
+      headers: { get: (name: string) => (name === 'retry-after' ? '30' : null) },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const response = await request(makeApp())
+      .get('/api/v1/community/moderation/queue')
+      .expect(429);
+
+    expect(response.headers['retry-after']).toBe('30');
+  });
+
+  it('não inventa Retry-After num 200', async () => {
+    // Contraparte: o header só atravessa em resposta que descreve espera.
+    stubFetch(200, { items: [], new_account_comments: [] });
+
+    const response = await request(makeApp())
+      .get('/api/v1/community/moderation/queue')
+      .expect(200);
+
+    expect(response.headers['retry-after']).toBeUndefined();
+  });
+
   it('accounts. fora do ar vira 503', async () => {
     fetchMock = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
     vi.stubGlobal('fetch', fetchMock);
@@ -181,7 +231,21 @@ describe('query filtrada e degradação', () => {
     await request(makeApp())
       .post('/api/v1/community/moderation/comments/comment-1/removal')
       .send({ reason: 'spam' })
-      .expect(503, { error: 'community_moderation_unavailable' });
+      .expect(503, { error: 'community_moderation_unavailable', correlation_id: null });
+  });
+
+  it('sessão ausente falha fechada em 401, sem chamar o accounts.', async () => {
+    // Ramo que existe porque a ordem dos middlewares pode mudar num refactor:
+    // sem a guarda, o acesso não-checado ao id do ator viraria TypeError
+    // dentro de um `void` (achado de review, PR #262 no `downloads`).
+    sessionState.semSessao = true;
+
+    await request(makeApp())
+      .post('/api/v1/community/moderation/comments/comment-1/removal')
+      .send({ reason: 'spam' })
+      .expect(401, { error: 'unauthenticated' });
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('credencial ausente falha fechada em 503, sem chamar o accounts.', async () => {

@@ -68,12 +68,31 @@ const TABLES: Record<string, TableRow> = {
   [SEM_CONTA]: { ...base, id: SEM_CONTA, slug: 'mesa-mestre-externo', status: 'active', owner_google_id: null },
 };
 
-function fakeDb(): Kysely<Database> {
+/**
+ * Cadeia de `leftJoin` que a consulta real precisa percorrer:
+ * `tables.gm_id → gm_profiles.id → gm_profiles.user_id → users.id`.
+ *
+ * O duplo **registra** os joins em vez de só aceitá-los, e o teste abaixo
+ * afirma a cadeia. A versão anterior devolvia `builder` para qualquer chamada e
+ * lia o dono de `TABLES` já resolvido — com isso, um join direto
+ * `users.id = tables.gm_id` passava aqui e casava **zero** linhas em produção,
+ * porque `gm_id` referencia `gm_profiles(id)`, não `users(id)`
+ * (`migration_01_base_schema.sql:124`). Duplo que aceita qualquer consulta não
+ * testa a consulta (achado de review, PR #268).
+ */
+const EXPECTED_JOINS = [
+  ['gm_profiles', 'gm_profiles.id', 'tables.gm_id'],
+  ['users', 'users.id', 'gm_profiles.user_id'],
+] as const;
+
+function fakeDb(): { db: Kysely<Database>; joins: string[][] } {
   let requestedId: string | null = null;
+  const joins: string[][] = [];
   const builder: Record<string, unknown> = {
-    // `leftJoin` só precisa aceitar a chamada: a resolução de dono está fixada
-    // em `TABLES`, com `owner_google_id` já sendo o valor do `accounts.`.
-    leftJoin: () => builder,
+    leftJoin: (table: string, left: string, right: string) => {
+      joins.push([table, left, right]);
+      return builder;
+    },
     select: () => builder,
     where: (_column: string, _op: string, value: string) => {
       requestedId = value;
@@ -81,10 +100,11 @@ function fakeDb(): Kysely<Database> {
     },
     executeTakeFirst: () => Promise.resolve(requestedId ? TABLES[requestedId] : undefined),
   };
-  return { selectFrom: () => builder } as unknown as Kysely<Database>;
+  return { db: { selectFrom: () => builder } as unknown as Kysely<Database>, joins };
 }
 
-const guard = createTableSubjectGuard(fakeDb());
+const fake = fakeDb();
+const guard = createTableSubjectGuard(fake.db);
 
 const subject = (subjectId: string) => ({
   subjectType: MESAS_SUBJECT_TYPE,
@@ -134,6 +154,18 @@ describe('guard de assunto do mesas — suíte de conformidade do pacote', () =>
 });
 
 describe('guard de assunto do mesas — domínio', () => {
+  it('atravessa gm_profiles para chegar em users (T7.2)', async () => {
+    // O defeito que este teste fixa: `tables.gm_id` referencia
+    // `gm_profiles(id)`, e não `users(id)`. Unir direto em `users.id` compila,
+    // passa em duplo permissivo e casa **zero** linhas em produção — medido:
+    // 27 mesas com `gm_id`, 0 pelo join direto, 27 pelo caminho correto. O
+    // sintoma seria `ownerUserId: null`, indistinguível de mesa órfã.
+    fake.joins.length = 0;
+    await guard(subject(ATIVA), STRANGER);
+
+    expect(fake.joins).toEqual(EXPECTED_JOINS.map((j) => [...j]));
+  });
+
   it('devolve o google_id do mestre, nunca o UUID local (T7.2)', async () => {
     const result = await guard(subject(ATIVA), STRANGER);
 

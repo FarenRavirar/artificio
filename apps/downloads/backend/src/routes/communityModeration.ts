@@ -1,8 +1,13 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { fetch as undiciFetch } from 'undici';
 import { moderationQueueSchema } from '@artificio/comments';
 import { authMiddleware, requireRole } from '../middleware/auth';
 import { readRateLimiter, writeRateLimiter } from '../middleware/rateLimit';
+import {
+  filteredQuery,
+  proxyToAccounts,
+  type UpstreamMode,
+  type UpstreamValidation,
+} from '../community/accountsProxy';
 
 const router = Router();
 
@@ -16,139 +21,36 @@ const router = Router();
 // fila não pode ser consumido por quem só remove comentário, e vice-versa.
 const moderatorRead = [authMiddleware, requireRole(['moderator', 'admin']), readRateLimiter];
 const moderatorWrite = [authMiddleware, requireRole(['moderator', 'admin']), writeRateLimiter];
-const REQUEST_TIMEOUT_MS = 5_000;
-
-type UpstreamMode = 'service' | 'session';
-
-function accountsOrigin(): string | null {
-  const value = process.env.ACCOUNTS_URL?.trim();
-  return value ? value.replace(/\/$/, '') : null;
-}
-
-function filteredQuery(req: Request, allowed: readonly string[]): string {
-  const query = new URLSearchParams();
-  for (const key of allowed) {
-    const value = req.query[key];
-    if (typeof value === 'string') query.set(key, value);
-  }
-  const serialized = query.toString();
-  return serialized ? `?${serialized}` : '';
-}
-
-type UpstreamValidation = (body: unknown) => { ok: true; data: unknown } | { ok: false };
-
-const isBodyless = (method: string): boolean => ['GET', 'HEAD'].includes(method.toUpperCase());
-
 /**
- * Monta os headers de saída. Extraída de `proxyAccounts` (achado do Sonar,
- * complexidade cognitiva 23 > 15, 2026-08-14): é lógica pura, sem `res`, e o
- * ramo `service`/`user` é a metade das ramificações da função original.
+ * Vocabulário de erro desta fachada. A mecânica de transporte (credencial,
+ * headers validados, `Retry-After`, degradação) vive em
+ * `community/accountsProxy.ts`, compartilhada com a fachada de conversa.
+ *
+ * A unificação corrigiu duas lacunas que a cópia daqui tinha e a da conversa
+ * não (achado de review, PR #268): `Retry-After` não atravessava — pior
+ * justamente aqui, onde o operador insiste ao ver `429` — e o corpo de erro
+ * não trazia `correlation_id`, que `contrato-http-v1.md` §1.1 exige em toda
+ * resposta de erro.
  */
-function upstreamHeaders(
-  req: Request,
-  mode: UpstreamMode,
-  credential: string | undefined,
-  actingUserId: string | undefined,
-): Record<string, string> {
-  const headers: Record<string, string> = { Accept: 'application/json' };
-  if (mode === 'service') {
-    // Não-nulos garantidos pelas guardas de `proxyAccounts`, que respondem
-    // 503/401 antes de chegar aqui.
-    headers['X-Service-Token'] = credential!;
-    headers['X-Acting-User-Id'] = actingUserId!;
-  } else {
-    const authorization = req.header('authorization');
-    const cookie = req.header('cookie');
-    if (authorization) headers.Authorization = authorization;
-    if (cookie) headers.Cookie = cookie;
-  }
+const UNAVAILABLE_ERROR = 'community_moderation_unavailable';
 
-  if (!isBodyless(req.method)) headers['Content-Type'] = 'application/json';
-  const idempotencyKey = req.header('idempotency-key');
-  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
-  return headers;
-}
-
-/**
- * Traduz a resposta do `accounts.` para a do cliente. Extraída junto com
- * `upstreamHeaders` pelo mesmo achado: concentra as três saídas possíveis
- * (corpo ilegível, corpo fora do schema, repasse) num lugar só.
- */
-async function relayUpstream(
-  response: { status: number; ok: boolean; text: () => Promise<string> },
-  res: Response,
-  validate?: UpstreamValidation,
-): Promise<void> {
-  const text = await response.text();
-  let body: unknown = null;
-  if (text) {
-    try {
-      body = JSON.parse(text);
-    } catch {
-      res.status(502).json({ error: 'invalid_accounts_response' });
-      return;
-    }
-  }
-  // A validação só se aplica à resposta de sucesso: corpo de erro do
-  // `accounts.` tem shape próprio e passa adiante sem ser medido contra o
-  // schema da rota.
-  if (validate && response.ok) {
-    const parsed = validate(body);
-    if (!parsed.ok) {
-      res.status(502).json({ error: 'invalid_accounts_response' });
-      return;
-    }
-    res.status(response.status).json(parsed.data);
-    return;
-  }
-  res.status(response.status).json(body);
-}
-
-async function proxyAccounts(
+function proxyAccounts(
   req: Request,
   res: Response,
   path: string,
   mode: UpstreamMode,
   validate?: UpstreamValidation,
 ): Promise<void> {
-  const origin = accountsOrigin();
-  const credential = process.env.SERVICE_CREDENTIAL?.trim();
-  if (!origin || (mode === 'service' && !credential)) {
-    res.status(503).json({ error: 'community_moderation_unavailable' });
-    return;
-  }
-
-  // `req.user` é opcional no tipo (`middleware/auth.ts:24`), e o `!` anterior
-  // apostava que o `authMiddleware` sempre populou. Se a ordem dos middlewares
-  // mudar num refactor, o `!` viraria `TypeError` dentro de um `void` — 500
-  // opaco em vez de erro tratado. Falha fechada e explícita (achado de review,
-  // PR #262).
-  const actingUserId = req.user?.userId;
-  if (mode === 'service' && !actingUserId) {
-    res.status(401).json({ error: 'unauthenticated' });
-    return;
-  }
-
-  const method = req.method.toUpperCase();
-  const headers = upstreamHeaders(req, mode, credential, actingUserId);
-
-  try {
-    const response = await undiciFetch(`${origin}${path}`, {
-      method,
-      headers,
-      body: isBodyless(method) ? undefined : JSON.stringify(req.body ?? {}),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-    await relayUpstream(response, res, validate);
-  } catch (error) {
-    // Log antes de responder: o `503` é indistinguível entre `accounts.` fora,
-    // timeout e DNS quebrado, e sem rastro o diagnóstico começa do zero na VM.
-    console.error('[community-moderation] falha ao falar com accounts', {
-      path,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    res.status(503).json({ error: 'community_moderation_unavailable' });
-  }
+  return proxyToAccounts(req, res, path, {
+    mode,
+    unavailableError: UNAVAILABLE_ERROR,
+    logPrefix: 'community-moderation',
+    actingUserId: req.user?.userId,
+    // Moderação é sempre ação de alguém identificado: sem ator resolvido, 401
+    // explícito em vez de chamada anônima ao registro central.
+    requireActingUser: true,
+    validate,
+  });
 }
 
 /**

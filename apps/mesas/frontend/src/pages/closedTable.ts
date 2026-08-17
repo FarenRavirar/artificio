@@ -12,7 +12,20 @@ export type ClosedTable = {
   id: string | null;
   title: string;
   closedAt: Date | null;
-  reason: 'gm' | 'admin' | 'auto_expired' | 'unknown';
+  /**
+   * Vocabulário completo do que o backend envia em `closed_reason`
+   * (`routes/tables.ts`, `buildClosedTablePayload`): `closed_reason` gravado
+   * (`gm`/`admin`), ou o fallback derivado — `auto_expired` para importada
+   * vencida e **o próprio status** (`ended`/`cancelled`) para estado terminal.
+   *
+   * `ended` e `cancelled` faltavam aqui e degradavam para `unknown`, o que
+   * trocava a frase específica pela genérica "não está mais recebendo
+   * inscrições" (achado de review, PR #268). Medido em 2026-08-16: nenhuma mesa
+   * está nesses estados hoje, mas `closed_reason` é **nulo em todas as 83**, ou
+   * seja o fallback pelo status é o único caminho vivo — o defeito apareceria
+   * na primeira mesa encerrada.
+   */
+  reason: 'gm' | 'admin' | 'auto_expired' | 'ended' | 'cancelled' | 'unknown';
   closedByName: string | null;
 };
 
@@ -28,7 +41,7 @@ export type ClosedTable = {
  * externo é lógica pura, testável sem router, sessão nem API mockada.
  */
 
-const CLOSED_REASONS = new Set(['gm', 'admin', 'auto_expired', 'unknown']);
+const CLOSED_REASONS = new Set(['gm', 'admin', 'auto_expired', 'ended', 'cancelled', 'unknown']);
 
 /**
  * Payload de API é `unknown` até passar por normalizador tipado (AGENTS.md
@@ -69,6 +82,13 @@ export function describeClosure(closed: ClosedTable): string {
       return closed.closedByName
         ? `Esta mesa foi encerrada pela administração (${closed.closedByName}).`
         : 'Esta mesa foi encerrada pela administração.';
+    // `ended` e `cancelled` vêm do fallback pelo status, quando ninguém gravou
+    // `closed_reason` — há decisão humana registrada, mas não autoria, então a
+    // frase não nomeia quem fez.
+    case 'ended':
+      return 'Esta mesa chegou ao fim.';
+    case 'cancelled':
+      return 'Esta mesa foi cancelada.';
     default:
       return 'Esta mesa foi encerrada e não está mais recebendo inscrições.';
   }

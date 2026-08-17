@@ -51,6 +51,9 @@ describe('fachada browser-safe de moderação comunitária', () => {
   // Fail-closed no caminho que mais engana: o `accounts.` responde `200`, então
   // sem validação a UI receberia lista malformada e trataria como "fila vazia"
   // — indistinguível de "nenhum caso aberto" (achado de review, PR #262).
+  // `correlation_id` no corpo de erro entrou com a unificacao do transporte
+  // (PR #268): esta fachada nao o ecoava, e o contrato §1.1 exige em TODA
+  // resposta de erro. Ganho de tirar a segunda copia do proxy.
   it('devolve 502 quando o accounts responde 200 com payload fora do schema', async () => {
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ items: 'nao-e-array' }), {
       status: 200,
@@ -60,7 +63,7 @@ describe('fachada browser-safe de moderação comunitária', () => {
     const response = await request(app()).get('/api/v1/community/moderation/queue');
 
     expect(response.status).toBe(502);
-    expect(response.body).toEqual({ error: 'invalid_accounts_response' });
+    expect(response.body).toEqual({ error: 'invalid_accounts_response', correlation_id: null });
   });
 
   // Campo aditivo do `accounts.` não pode derrubar a fila: ele é deployado

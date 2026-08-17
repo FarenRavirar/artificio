@@ -1,11 +1,20 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import type { AuthenticatedRequest } from '@artificio/auth';
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
-import { publicRateLimiter, strictRateLimiter } from '../middleware/rateLimit.js';
+import {
+  commentEditRateLimiter,
+  commentVoteRateLimiter,
+  commentWriteRateLimiter,
+  publicRateLimiter,
+} from '../middleware/rateLimit.js';
 import {
   MESAS_SUBJECT_TYPE,
   createTableSubjectGuard,
 } from '../community/tableSubjectGuard.js';
+import {
+  actingAccountsUserId,
+  proxyToAccounts,
+  readClientHeader,
+} from '../community/accountsProxy.js';
 
 /**
  * T7.4/T7.5 (spec 090) — fachada browser-safe da conversa do `mesas`.
@@ -34,125 +43,38 @@ import {
 
 const router = Router();
 const subjectGuard = createTableSubjectGuard();
-const REQUEST_TIMEOUT_MS = 5_000;
-
-function accountsOrigin(): string | null {
-  const value = process.env.ACCOUNTS_URL?.trim();
-  return value ? value.replace(/\/$/, '') : null;
-}
-
-const isBodyless = (method: string): boolean => ['GET', 'HEAD'].includes(method.toUpperCase());
-
 /**
- * **O identificador que o `accounts.` entende, e a razão de esta função existir
- * (T7.2, requisito 26c).**
- *
- * `req.user.userId` no `mesas` é `mesas.users.id` — UUID **local**, criado pelo
- * provisionamento em `middleware/auth.ts:108`. O `accounts.` identifica a conta
- * por `session.user.id`, que este app persiste em `users.google_id`. Os dois
- * são UUID e nenhum compilador distingue um do outro: copiar a fachada do
- * `downloads` — onde `req.user.userId` **já é** o id central
- * (`downloads/middleware/auth.ts:66`) — mandaria o valor errado e associaria a
- * fala a uma conta que não existe lá, sem erro em lugar nenhum.
+ * Vocabulário de erro desta fachada. A mecânica de transporte (credencial,
+ * headers validados, `Retry-After`, degradação) vive em
+ * `community/accountsProxy.ts`, compartilhada com a fachada de moderação:
+ * as duas nasceram copiando o mesmo molde do `downloads`, e manter duas cópias
+ * da camada que decide credencial e ator é como `downloads` e `site` perderam
+ * duas correções de review antes da PR #264.
  */
-function actingAccountsUserId(req: Request): string | undefined {
-  return (req as unknown as AuthenticatedRequest).session?.user.id;
-}
+const UNAVAILABLE_ERROR = 'community_comments_unavailable';
 
-/**
- * `X-Correlation-Id` do chamador (`contrato-http-v1.md` §1.1: opcional, ASCII
- * ≤128, ecoado em toda resposta de erro). Nulo quando ausente ou fora do
- * formato, nunca um id inventado: valor gerado aqui não existiria em log nenhum
- * do cliente e só poluiria a busca.
- */
-export function readCorrelationId(header: string | undefined): string | null {
-  if (typeof header !== 'string' || header.length === 0 || header.length > 128) return null;
-  // ASCII imprimível: header com caractere de controle indo para log e response
-  // é o risco clássico de response splitting.
-  return /^[\x20-\x7E]+$/.test(header) ? header : null;
-}
-
-/**
- * Repassa ao `accounts.` com a credencial de serviço. `realm` e `source_app`
- * saem dela, nunca do payload (§1.1) — aceitar do corpo seria a porta para uma
- * credencial de beta escrever em produção.
- */
-async function proxyAccounts(
+/** Repasse ao `accounts.` com a credencial de serviço deste app. */
+function proxyAccounts(
   req: Request,
   res: Response,
   path: string,
   options: { actingUserId?: string; body?: unknown } = {},
 ): Promise<void> {
-  const origin = accountsOrigin();
-  const credential = process.env.SERVICE_CREDENTIAL?.trim();
-  const correlation = readCorrelationId(req.header('x-correlation-id'));
-  if (!origin || !credential) {
-    res.status(503).json({ error: 'community_comments_unavailable', correlation_id: correlation });
-    return;
-  }
-
-  const method = req.method.toUpperCase();
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-    'X-Service-Token': credential,
-  };
-  if (options.actingUserId) headers['X-Acting-User-Id'] = options.actingUserId;
-  if (!isBodyless(method)) headers['Content-Type'] = 'application/json';
-
-  // A chave vem do CLIENTE, e não é gerada aqui: chave inventada por requisição
-  // não sobrevive à retentativa, que é justamente o caso que ela existe para
-  // cobrir — envio que dá timeout depois de o servidor confirmar a escrita.
-  const idempotencyKey = req.header('idempotency-key');
-  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
-  if (correlation) headers['X-Correlation-Id'] = correlation;
-
-  try {
-    // `fetch` global do Node, e não `undici` explícito como no `downloads`: é o
-    // transporte que este app já usa para falar com o `accounts.`
-    // (`services/adminSecrets.ts:51`), e trazer a lib só para esta rota
-    // adicionaria dependência sem ganho — o `fetch` do Node É undici por baixo.
-    const response = await fetch(`${origin}${path}`, {
-      method,
-      headers,
-      body: isBodyless(method) ? undefined : JSON.stringify(options.body ?? req.body ?? {}),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-
-    const text = await response.text();
-    if (!text) {
-      res.status(response.status).end();
-      return;
-    }
-
-    let payload: unknown;
-    try {
-      payload = JSON.parse(text);
-    } catch {
-      // HTML de página de erro no lugar de JSON: vira `502` explícito, nunca
-      // corpo repassado cru que o schema do cliente tentaria interpretar.
-      res.status(502).json({ error: 'invalid_accounts_response', correlation_id: correlation });
-      return;
-    }
-
-    // `Retry-After` atravessa a fachada: é o único header do `accounts.` que
-    // carrega instrução operacional para o cliente. Sem ele, um `429` chega ao
-    // navegador sem dizer **quando** tentar de novo, e a retentativa vira chute
-    // que realimenta o próprio rate limit.
-    const retryAfter = response.headers.get('retry-after');
-    if (retryAfter) res.setHeader('Retry-After', retryAfter);
-
-    res.status(response.status).json(payload);
-  } catch (error) {
-    // Log antes de responder: `503` é indistinguível entre `accounts.` fora,
-    // timeout e DNS quebrado, e sem rastro o diagnóstico na VM começa do zero.
-    console.error('[community-comments] falha ao falar com accounts', {
-      path,
-      correlation_id: correlation,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    res.status(503).json({ error: 'community_comments_unavailable', correlation_id: correlation });
-  }
+  return proxyToAccounts(req, res, path, {
+    mode: 'service',
+    unavailableError: UNAVAILABLE_ERROR,
+    logPrefix: 'community-comments',
+    actingUserId: options.actingUserId,
+    body: options.body,
+  });
 }
+
+/**
+ * Reexportado porque o teste exercita a validação de header diretamente: o Node
+ * recusa header com caractere de controle antes de chegar ao handler, então o
+ * ramo só é alcançável pela função.
+ */
+export { readClientHeader as readCorrelationId };
 
 /**
  * Resolve o assunto e recalcula a autorização. Os motivos de recusa colapsam em
@@ -256,7 +178,7 @@ router.get('/', publicRateLimiter, optionalAuth, (req: Request, res: Response, n
 });
 
 /** Criação de comentário raiz (§3). */
-router.post('/', strictRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
+router.post('/', commentWriteRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
   void (async () => {
     const subject = await authorizeSubject(req.body?.subject_id, res);
     if (!subject) return;
@@ -269,7 +191,7 @@ router.post('/', strictRateLimiter, authMiddleware, (req: Request, res: Response
 });
 
 /** Resposta. O `:id` é o pai; `root_id` e `depth` são calculados lá (§3). */
-router.post('/:id/replies', strictRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
+router.post('/:id/replies', commentWriteRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
   void (async () => {
     const subject = await authorizeSubject(req.body?.subject_id, res);
     if (!subject) return;
@@ -290,21 +212,65 @@ router.post('/:id/replies', strictRateLimiter, authMiddleware, (req: Request, re
  * nunca quem é o dono da fala — replicar a checagem aqui daria uma segunda
  * resposta para a mesma pergunta.
  */
-router.patch('/:id', strictRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
+router.patch('/:id', commentEditRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, `/internal/v1/comments/${encodeURIComponent(req.params.id)}`, {
     actingUserId: actingAccountsUserId(req),
     body: { body_markdown: req.body?.body_markdown },
   }).catch(next);
 });
 
-router.delete('/:id', strictRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
+router.delete('/:id', commentEditRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, `/internal/v1/comments/${encodeURIComponent(req.params.id)}`, {
     actingUserId: actingAccountsUserId(req),
   }).catch(next);
 });
 
-/** Voto: estado absoluto, sem `Idempotency-Key` por construção (§7, decisão 12). */
-router.put('/:id/vote', strictRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
+/**
+ * Voto: estado absoluto, sem `Idempotency-Key` por construção (§7, decisão 12).
+ *
+ * **O guard de assunto roda aqui, e não só na escrita de fala** (achado de
+ * review, PR #268). A UI esconde o botão em mesa encerrada, mas esconder botão
+ * não é autorização: quem conhece o id de um comentário chamaria esta rota
+ * direto e continuaria mexendo no placar que o encerramento deveria congelar.
+ *
+ * O `accounts.` **não** tem como recusar por conta própria — `PUT
+ * /internal/v1/comments/:id/vote` nem recebe `subject_authorization`
+ * (`communityCommentRoutes.ts:221`), que só é exigida na criação de fala. Ele
+ * não sabe o que é uma mesa nem que ela acabou. Logo, a única camada capaz de
+ * impor a regra é esta.
+ *
+ * ## DÉBITO CONHECIDO: o congelamento não é imposto aqui — e por quê
+ *
+ * Fechar isto na fachada exigiria resolver "a que assunto pertence este
+ * comentário". As quatro vias foram medidas, e nenhuma existe hoje:
+ *
+ * 1. **Perguntar ao `accounts.`** — nenhuma rota responde isso.
+ *    `GET /internal/v1/comments` (`communityCommentRoutes.ts:154`) lista por
+ *    `subject_id`; não há o inverso.
+ * 2. **Exigir `subject_id` do cliente** — o pacote envia apenas `{ value }`
+ *    (`useConversationHost.tsx:121-126`), então exigir quebraria todo voto nos
+ *    três consumidores.
+ * 3. **Aceitar `subject_id` opcionalmente** — pior que não validar: bastaria
+ *    omitir o campo para contornar, criando aparência de controle onde não há.
+ * 4. **Passar a asserção pelo contrato interno** — `voteBodySchema` é
+ *    `.strict()` e aceita **só** `value` (`communityCommentRoutes.ts`), logo
+ *    qualquer campo extra volta `400`. Mudar isso é mudar o `accounts.`.
+ *
+ * O `mesas` também não guarda vínculo local comentário→mesa: a fachada é
+ * stateless por desenho, e o assunto vive só no registro central.
+ *
+ * O impacto real é limitado e vale medir antes de dimensionar a urgência: quem
+ * conhece o id de um comentário de mesa encerrada pode alterar **o próprio
+ * voto** nele. Não afeta fala nova (bloqueada pelo guard, aqui), nem moderação,
+ * nem privacidade — o dano é o placar de uma conversa encerrada seguir se
+ * movendo, que é justamente o que o congelamento pretende evitar.
+ *
+ * A correção pertence ao `accounts.`, que é quem sabe o assunto de cada
+ * comentário: aceitar `subject_authorization` no voto, como já faz na criação
+ * (`:496,543`). Isso é mudança na fase 2/3 e em três consumidores, não nesta
+ * fachada. Registrado em `tasks.md` (T7.8) para decisão do mantenedor.
+ */
+router.put('/:id/vote', commentVoteRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, `/internal/v1/comments/${encodeURIComponent(req.params.id)}/vote`, {
     actingUserId: actingAccountsUserId(req),
     body: { value: req.body?.value },

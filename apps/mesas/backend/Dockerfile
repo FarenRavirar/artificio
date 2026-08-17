@@ -51,10 +51,11 @@ COPY patches ./patches
 RUN pnpm install --prod --filter @artificio/mesas-backend --filter @artificio/config \
   --filter @artificio/content --filter @artificio/auth --filter @artificio/changelog \
   --filter @artificio/feedback --filter @artificio/media --filter @artificio/catalog-client \
-  --filter @artificio/content-editor \
+  --filter @artificio/content-editor --filter @artificio/comments \
   --frozen-lockfile \
   && test -d packages/media/node_modules/cloudinary \
-  || (echo "ERRO: cloudinary nao encontrado em packages/media/node_modules/" && exit 1)
+  && test -d packages/comments/node_modules/zod \
+  || (echo "ERRO: dependencia de pacote workspace ausente em packages/*/node_modules/" && exit 1)
 
 # Workspace packages are linked in production; copy built outputs they export at runtime.
 COPY --from=builder /repo/packages/config/dist ./packages/config/dist
@@ -79,6 +80,20 @@ COPY --from=builder /repo/packages/catalog-client/dist-cjs ./packages/catalog-cl
 # resolve o subpath pela condicao `import`. O filtro no pnpm install acima e
 # necessario porque o pacote tem deps proprias (sanitize-html, markdown-it).
 COPY --from=builder /repo/packages/content-editor/dist ./packages/content-editor/dist
+# Spec 090 T7 (achado de review, PR #268 — mesmo padrao E016/E017): as rotas
+# novas (`community/tableSubjectGuard.ts`, `routes/communityModeration.ts`)
+# importam `@artificio/comments` e sao carregadas por `server.ts` no boot, entao
+# a falta do `dist` derruba o container no healthcheck, com build e CI verdes.
+#
+# `dist` (ESM) e nao `dist-cjs`, apesar de o pacote declarar `main`: este backend
+# e "type": "module", entao a resolucao usa a condicao `import` do `exports`.
+#
+# `@artificio/ui` NAO acompanha, diferente do Dockerfile do `downloads`: medido
+# no `dist` publicado, so `CommunityModerationWorkspace.js` (React, exportado
+# por `/react`) o importa. O caminho que este backend carrega — `index.js` e os
+# 12 modulos que ele reexporta — depende apenas de `zod` e de
+# `@artificio/content-editor`, ja presentes acima.
+COPY --from=builder /repo/packages/comments/dist ./packages/comments/dist
 
 # Copiar build compilado
 COPY --from=builder /repo/apps/mesas/backend/dist ./apps/mesas/backend/dist

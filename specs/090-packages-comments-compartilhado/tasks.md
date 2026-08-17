@@ -1326,6 +1326,109 @@ separadamente (`POST /api/v1/community/comments/{id}/reports`,
 `/api/v1/comments/{materialId}` em paralelo à nova — o `mesas` nasce sem legado, então não
 reproduzir isso.
 
+### Achados de review da PR #268 (Codex) — 3 corrigidos, 1 registrado como débito
+
+**P1 — `tables.gm_id` não referencia `users`. Defeito real, corrigido.** O guard unia
+`users.id = tables.gm_id`, mas a FK aponta para `gm_profiles(id)`
+(`migration_01_base_schema.sql:124`); o caminho é
+`tables.gm_id → gm_profiles.id → gm_profiles.user_id → users.google_id`. **Medido em produção:
+27 mesas com `gm_id`, o join errado casa 0, o correto casa 27** — todo publicador ficaria sem
+notificação e sem badge, com sintoma mudo (`ownerUserId: null` é valor legítimo de mesa órfã).
+As duas colunas são UUID, então o tipo não pega.
+*Por que o teste não pegou:* o duplo de `Kysely` aceitava qualquer `leftJoin` e devolvia o dono já
+resolvido de `TABLES`. Agora ele **registra** os joins e o teste afirma a cadeia — duplo que
+aceita qualquer consulta não testa consulta nenhuma.
+
+**P1 — `@artificio/comments` fora da imagem de produção. Corrigido (padrão E016/E017).**
+`apps/mesas/backend/Dockerfile` não copiava `packages/comments/dist` nem incluía o pacote no
+filtro do `pnpm install --prod`: build e CI verdes, container crashando no boot com
+`MODULE_NOT_FOUND`, porque `server.ts` carrega as rotas novas. Acrescentados o `--filter`, o
+`test -d packages/comments/node_modules/zod` e o `COPY` do `dist`.
+*Decisão medida:* copio `dist` (ESM) e **não** `dist-cjs`, apesar de o pacote declarar `main` — o
+backend é `"type": "module"` e resolve pela condição `import`. E **não** trago `@artificio/ui`,
+diferente do Dockerfile do `downloads`: no `dist` publicado só `CommunityModerationWorkspace.js`
+(React, exportado por `/react`) o importa; o `index.js` e os 12 módulos que ele reexporta dependem
+apenas de `zod` e `@artificio/content-editor`, já presentes.
+
+**P2 — buckets de rate limit compartilhados. Corrigido.** As cinco rotas de escrita usavam o mesmo
+`strictRateLimiter` (singleton, 10 req/15 min), então dez votos legítimos esgotavam a cota e o
+usuário levava `429` ao tentar publicar — acoplamento que `contrato-http-v1.md` §Antiabuso proíbe
+("buckets independentes por ação"). Havia um segundo defeito que o bot não citou e a medição
+expôs: **10/15 min é dez vezes menor que o teto do módulo equivalente** (o `downloads` usa 60/15
+min para escrita de fala); `strictRateLimiter` existe para operação sensível de painel, e herdá-lo
+tornaria a conversa inutilizável antes de qualquer abuso.
+Criados quatro limiters no vocabulário que o pacote já define (`COMMENT_RATE_BUCKETS`):
+`commentWriteRateLimiter` (60), `commentEditRateLimiter` (60), `commentVoteRateLimiter` (120),
+`commentReportRateLimiter` (20). A moderação também foi separada: denúncia e recurso do usuário
+comum deixaram de dividir bucket com retirar/restaurar do moderador.
+
+**P2 — congelamento de voto só na UI.** Achado procede; **não** foi corrigido, e as quatro vias
+foram medidas uma a uma (débito completo em T7.8). A quarta — "passar a asserção pelo contrato
+interno" — foi verificada na segunda rodada de review: `voteBodySchema` é **`.strict()`** e aceita
+só `value`, então campo extra volta `400`. O `mesas` também não guarda vínculo local
+comentário→mesa: a fachada é stateless por desenho. Fechar isto exige mudar o `accounts.`.
+
+### Segunda rodada de review da PR #268 — 4 corrigidos, 1 refutado, 1 reconfirmado
+
+**Refutado — "sanitizar `content_html` com DOMPurify em `TableConversation.tsx:120-142`".** O
+arquivo tem **145 linhas** e não contém `dangerouslySetInnerHTML`, `content_html`, `sanitize-html`
+nem `DOMPurify` (busca por nome: zero ocorrências). Não existe caminho de render de HTML legado
+nesse componente — ele delega tudo a `CommentsConversation` do pacote. Nada a corrigir.
+
+**Procede e corrigido — `ended`/`cancelled` degradavam para `unknown`.** `buildClosedTablePayload`
+usa **o próprio status** como `closed_reason` quando não há um gravado
+(`routes/tables.ts`), e o vocabulário do frontend não conhecia esses dois valores: a tela trocava a
+frase específica pela genérica. **Medido em 2026-08-16:** nenhuma mesa está em `ended`/`cancelled`
+hoje, **mas `closed_reason` é nulo nas 83** — ou seja, o fallback pelo status é o único caminho
+vivo e o defeito apareceria na primeira mesa encerrada. Corrigido em `closedTable.ts` (tipo,
+`CLOSED_REASONS`, duas frases próprias) com 6 casos novos de teste.
+
+**Procede e corrigido — `Idempotency-Key` repassada sem validação.** Ela era encaminhada crua ao
+`accounts.` enquanto a correlação passava por `readCorrelationId`. As duas são texto do cliente
+virando header de saída, com o mesmo risco de caractere de controle — "vem do cliente por
+contrato" é motivo para validar, não para confiar. Agora usa a mesma função.
+
+**Procede e corrigido — `Retry-After` não atravessava a moderação.** A conversa já propagava; a
+moderação, não. É onde mais dói: o operador é quem insiste ao ver `429`. Propagado em `429` e
+`503`, com teste do caso positivo e do negativo (`200` não ganha header). **O `downloads` tem a
+mesma lacuna** — corrigir lá ou registrar?
+
+**Procede e corrigido — duplicação medida pelo Sonar (57% em `communityModeration.ts`, 30,5% em
+`communityComments.ts`).** Real: as duas fachadas nasceram copiando o molde do `downloads` e
+trouxeram junto `accountsOrigin`, `isBodyless`, `actingAccountsUserId`, a validação de header e a
+mecânica inteira de repasse — idênticas nos dois arquivos.
+**Por que não era só estética:** a camada duplicada é justamente a que decide credencial, ator e
+degradação. É o mesmo padrão que já cobrou preço aqui — `downloads` e `site` mantiveram hosts de
+conversa paralelos até a PR #264, e **duas correções de review aplicadas num nunca chegaram ao
+outro**.
+Extraído `community/accountsProxy.ts` (247 linhas) com o transporte; as fachadas ficaram com a
+**política**, que continua separada de propósito: guard de assunto, guard de papel, escolha de
+bucket e vocabulário de erro. `communityComments.ts` 375 → 280; `communityModeration.ts`
+301 → 176.
+**Ganho colateral medido:** a moderação passou a ecoar `correlation_id` no corpo de erro, que
+`contrato-http-v1.md` §1.1 exige em toda resposta de erro e a cópia dela não fazia — dois testes
+falharam por isso e foram atualizados, o que é a prova de que a divergência existia.
+
+**O mesmo tratamento foi aplicado ao `downloads` na mesma sessão** (autorizado pelo mantenedor ao
+ser reportado). Ele tinha as duas lacunas que motivaram o achado: `Retry-After` não atravessava a
+moderação e o corpo de erro dela não trazia `correlation_id` — a fachada de conversa do mesmo app
+já fazia as duas coisas. É a duplicação cobrando o preço previsto, e a prova é que corrigir uma
+cópia não corrigiu a outra.
+`apps/downloads/backend/src/community/accountsProxy.ts` (novo, com `undici` explícito, que é o
+transporte daquele app); `communityComments.ts` 318 → 239; `communityModeration.ts` 234 → 137.
+Suíte do `downloads-backend`: **563/563** (72 arquivos), lint limpo.
+
+**O `site` foi verificado e NÃO precisa da correção:** `server/community-api.ts` já propaga
+`Retry-After` (`:187-188`) e já ecoa `correlation_id` nos erros (`:131,179`). Não foi
+deduplicado de propósito — é um app Astro com estrutura própria, e extrair transporte comum
+cruzaria fronteira de app sem ganho de manutenção.
+
+**Procede e corrigido — três defeitos de teste.** (a) `lastCall()` lia `calls[0]` apesar do nome,
+o que mediria a requisição errada em qualquer caso com duas chamadas; (b) o env do processo não
+era restaurado, e um teste apaga `SERVICE_CREDENTIAL` de propósito — vazava para quem rodasse
+depois no mesmo worker; (c) faltavam dois ramos: leitura anônima (não pode inventar
+`X-Acting-User-Id`) e sessão ausente na moderação (`401` explícito em vez de `TypeError`).
+
 ### Validação da fase, medida em 2026-08-16
 
 `rtk pnpm run test` 41/41 tarefas exit 0 · `rtk pnpm verify:api` exit 0, **0 breaking**,
@@ -1508,6 +1611,25 @@ testada — os testes usam duplo de `fetch`; a credencial só é exigida em runt
   por vazio. `MaterialConversation.test.tsx` 11/11.
   Coordenada para não redescobrir: `pnpm --filter mesas-frontend run test -- <padrão>` **não**
   filtra por arquivo (roda a suíte toda); use `npx vitest run <caminho>` dentro do app.
+
+  **⚠️ DÉBITO ABERTO — o congelamento de voto é só de UI (achado de review, PR #268, P2).**
+  `canComment={false}` esconde o botão, mas `PUT /api/v1/community/conversation/:id/vote` encaminha
+  qualquer requisição autenticada ao `accounts.` sem revalidar o ciclo de vida da mesa. Quem
+  conhece o id de um comentário de mesa encerrada altera **o próprio voto** por API e o placar
+  volta a se mover.
+  **Por que não fechei nesta PR** (medido, não presumido): (a) o pacote cliente envia apenas
+  `{ value }` no voto (`useConversationHost.tsx`), então exigir `subject_id` quebraria todo voto
+  nos três consumidores; (b) uma checagem *opcional* — validar só quando o campo vier — seria pior
+  que nenhuma, porque bastaria omiti-lo para contornar, criando aparência de controle; (c) resolver
+  no servidor exigiria perguntar "a que assunto pertence este comentário", e **nenhuma rota do
+  `accounts.` responde isso**: `GET /internal/v1/comments` (`communityCommentRoutes.ts:154`) lista
+  por `subject_id`, não o inverso.
+  **Impacto real, para dimensionar:** atinge só voto em conversa encerrada. Não afeta fala nova
+  (bloqueada pelo guard na fachada), moderação, privacidade nem integridade — o dano é o placar de
+  uma conversa fechada seguir mudando.
+  **Correção pertence ao `accounts.`:** aceitar `subject_authorization` no voto, como já faz na
+  criação (`:496,543`). Toca a fase 2/3 e os três consumidores. **Corrigir agora em spec própria,
+  ou registrar como débito?**
   Contexto original — cobertura que as duas tasks anteriores não tinham: adapter da fachada, UI, estados de carregamento e erro, threads, degradação com o `accounts.` fora, limites de tamanho e taxa, e testes de cada um. A versão anterior desta fase tinha duas tasks para tudo isso. · feito quando: cada item com teste, não só implementado.
 
 ## Fase 8 — Validação integrada
