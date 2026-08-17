@@ -15,62 +15,12 @@ import { ReportTableButton } from '../features/table/components/ReportTableButto
 import { useAuth } from '../contexts/useAuth'; // CORREÇÃO DT-026: Importar useAuth
 import { handleCTA, getButtonStyle } from '../features/table/utils/uiHelpers';
 import { trackSelectMesa } from '@artificio/analytics';
-
-/**
- * Mesa encerrada (410 do backend). Campos mínimos para explicar o encerramento
- * — nada de contato ou link de inscrição, que o backend não envia de propósito.
- */
-type ClosedTable = {
-  title: string;
-  closedAt: Date | null;
-  reason: 'gm' | 'admin' | 'auto_expired' | 'unknown';
-  closedByName: string | null;
-};
-
-const CLOSED_REASONS = new Set(['gm', 'admin', 'auto_expired', 'unknown']);
-
-/**
- * Payload de API é `unknown` até passar por normalizador tipado (AGENTS.md
- * §Regras Gerais de Código). Data inválida vira `null` em vez de `Invalid Date`
- * chegando ao render, e motivo desconhecido degrada para `unknown` — a tela
- * ainda funciona sem a data ou sem o autor, que é o caso das mesas encerradas
- * antes da `migration_156`.
- */
-function normalizeClosedTable(input: unknown): ClosedTable {
-  const root = typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : {};
-  const data = typeof root.data === 'object' && root.data !== null ? (root.data as Record<string, unknown>) : {};
-
-  const rawClosedAt = typeof data.closed_at === 'string' ? new Date(data.closed_at) : null;
-  const rawReason = typeof data.closed_reason === 'string' ? data.closed_reason : 'unknown';
-
-  return {
-    title: typeof data.title === 'string' && data.title.trim() ? data.title : 'Esta mesa',
-    closedAt: rawClosedAt && !Number.isNaN(rawClosedAt.getTime()) ? rawClosedAt : null,
-    reason: (CLOSED_REASONS.has(rawReason) ? rawReason : 'unknown') as ClosedTable['reason'],
-    closedByName: typeof data.closed_by_name === 'string' && data.closed_by_name.trim() ? data.closed_by_name : null,
-  };
-}
-
-/**
- * Frase do encerramento. `auto_expired` não nomeia autor porque não houve um —
- * a divulgação importada venceu por tempo; atribuí-la a alguém seria inventar.
- */
-function describeClosure(closed: ClosedTable): string {
-  switch (closed.reason) {
-    case 'auto_expired':
-      return 'Esta divulgação expirou e saiu do ar automaticamente.';
-    case 'gm':
-      return closed.closedByName
-        ? `Esta mesa foi encerrada pelo mestre ${closed.closedByName}.`
-        : 'Esta mesa foi encerrada pelo próprio mestre.';
-    case 'admin':
-      return closed.closedByName
-        ? `Esta mesa foi encerrada pela administração (${closed.closedByName}).`
-        : 'Esta mesa foi encerrada pela administração.';
-    default:
-      return 'Esta mesa foi encerrada e não está mais recebendo inscrições.';
-  }
-}
+import { TableConversation } from '../components/TableConversation';
+// Tipo, normalizador e frase do encerramento vivem em arquivo próprio desde
+// 2026-08-16: `react-refresh/only-export-components` recusa arquivo de
+// componente que também exporta função, e a separação deixa o normalizador
+// testável sem router nem API mockada.
+import { describeClosure, normalizeClosedTable, type ClosedTable } from './closedTable';
 
 export const MesaPage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -221,8 +171,12 @@ export const MesaPage = () => {
   // aconteceu, quando e por quem — em vez de "Ops! Mesa não encontrada", que
   // era o que o visitante via e não distinguia mesa encerrada de link errado.
   if (closed) {
+    // `flex-col items-center`, e não `items-center justify-center`: com a
+    // conversa abaixo (T7.8) o conteúdo pode passar da altura da viewport, e a
+    // centralização vertical do layout original cortaria o topo do card em vez
+    // de rolar. O respiro vem de `py-10`.
     return (
-      <main className="min-h-screen bg-[var(--color-artificio-blue)] text-white flex items-center justify-center px-6">
+      <main className="min-h-screen bg-[var(--color-artificio-blue)] text-white flex flex-col items-center px-6 py-10">
         <div className="max-w-lg w-full rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
           <h1 className="text-2xl font-bold mb-2">Mesa encerrada</h1>
           <p className="text-white/90 mb-1 font-medium">{closed.title}</p>
@@ -247,6 +201,21 @@ export const MesaPage = () => {
             <Compass className="w-4 h-4" /> Clique aqui para ver novas mesas
           </Link>
         </div>
+
+        {/* T7.8 (spec 090, requisito 26a) — "encerrada ou arquivada: leitura
+            preservada, escrita nova bloqueada". A conversa que aconteceu
+            enquanto a mesa existia continua legível; `canComment={false}`
+            fecha resposta, edição e voto (voto é ranking e congela junto com a
+            conversa), preservando a denúncia. O backend concorda por conta
+            própria: o guard devolve `not_commentable`, não `not_visible`, e a
+            fachada aceita esse motivo na leitura.
+            `closed.id` pode ser nulo enquanto a API não envia o campo — nesse
+            caso a tela de encerramento aparece sozinha, sem quebrar. */}
+        {closed.id && (
+          <div className="max-w-lg w-full mt-6">
+            <TableConversation tableId={closed.id} canComment={false} />
+          </div>
+        )}
       </main>
     );
   }
@@ -361,6 +330,17 @@ export const MesaPage = () => {
           </aside>
         </article>
       </section>
+
+      {/* T7.4/T7.8 (spec 090) — conversa pública da mesa.
+          Fica FORA do <section> do anúncio de propósito: é conteúdo de terceiros
+          sobre a mesa, não parte da divulgação dela. Separada do review de
+          mestre (`gm_reviews.comment`), que tem nota e contrato próprios e não
+          foi migrado (requisito 26).
+          `canComment` reflete o mesmo conjunto que o backend aceita: aqui só
+          chega mesa que o detalhe devolveu 200, e mesa encerrada não chega
+          (ver o ramo `closed` acima) — o valor fica true e o servidor
+          continua sendo a autoridade. */}
+      {table && <TableConversation tableId={table.id} />}
 
       {/* Mobile: CTA Sticky (apenas modo público) */}
       {!canManage && vm && (

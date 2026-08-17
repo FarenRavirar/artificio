@@ -43,7 +43,7 @@ Toda migration em `./database/` DEVE ter o seguinte cabeçalho nas primeiras lin
 
 - `@requires-backup: true` **exige** `@class: manual-risk`. Combinação inversa (`online-safe` + `requires-backup=true`) é rejeitada pelo job `validate` do Deploy Beta com "Incoerencia. requires-backup=true exige class=manual-risk".
 - Migration aditiva (CHECK CONSTRAINT, ADD COLUMN com default, CREATE INDEX) → `online-safe` + `requires-backup=false`. Backup pessoal antes de aplicar é precaução opcional, **fora** do contrato.
-- Migration destrutiva → `manual-risk` + `requires-backup=true`. O CI bloqueia até `ALLOW_MANUAL_MIGRATIONS=true` e exige backup formal pelo `PRE_DEPLOY_CHECKLIST.md`.
+- Migration destrutiva → `manual-risk` + `requires-backup=true`. O CI bloqueia até `ALLOW_MANUAL_MIGRATIONS=true` e exige backup formal conforme `AGENTS.md` §Migrations.
 
 ---
 
@@ -92,8 +92,8 @@ Não aplique migrations manualmente! O script `apply_required_migrations.sh` é 
 Se o deploy automatizado for bloqueado por uma migration `manual-risk` ou falhas de drift (relatório "BLOCKED" do preflight), intervenha da seguinte forma:
 
 1. Acesse o servidor (Beta ou Prod) via SSH somente após aprovação explícita quando houver escrita ou risco operacional.
-2. Siga os gates de backup, autorização e rollback em `PRE_DEPLOY_CHECKLIST.md`.
-3. Aplique os desvios de migração ou reparos no banco de dados manualmente apenas quando o checklist permitir.
+2. Siga os gates de backup, autorização e rollback em `AGENTS.md` §Migrations (item 8) e `docs/agents/deploy-runbook.md`.
+3. Aplique os desvios de migração ou reparos no banco de dados manualmente apenas quando esses gates permitirem.
 4. **Reconciliação obrigatória**: Execute a confirmação para que o gate registre o arquivo e libere os próximos deploys:
    ```bash
    bash scripts/deploy/reconcile_migrations.sh --mark-applied migration_XXX_descricao.sql docker-compose.prod.yml mesas-db

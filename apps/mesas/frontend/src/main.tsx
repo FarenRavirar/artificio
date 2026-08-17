@@ -6,6 +6,10 @@ import { installDiagnostics } from './lib/diagnostics'
 import { applyFavicon } from '@artificio/ui'
 import { initGtag } from '@artificio/analytics'
 import '@artificio/ui/styles.css'
+// T7.8 — estilo da conversa compartilhada. Importado no entry, como no
+// `downloads` (`main.tsx:10`): o CSS do pacote é global e carregar por
+// componente duplicaria as regras a cada montagem.
+import '@artificio/comments/styles.css'
 import './index.css'
 import App from './App.tsx'
 

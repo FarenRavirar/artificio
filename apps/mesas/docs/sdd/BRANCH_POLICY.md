@@ -99,12 +99,12 @@ Merge local com `git checkout` entre branches causa deleção temporária de arq
 
 - [ ] **Todos os critérios de merge em dev** (acima)
 - [ ] **Preflight GO:** Workflow `preflight-prod.yml` executado com status `GO` (sem drift I2/I3/I5)
-- [ ] **Checklist executado:** `PRE_DEPLOY_CHECKLIST.md` completo (4 fases: validação, migrations, backup, deploy)
-- [ ] **Playbook seguido:** promoção `dev` → `main` via GitHub PR, conforme `PRE_DEPLOY_CHECKLIST.md` e regra de nunca fazer checkout local entre `dev` e `main`
+- [ ] **Gates executados:** validação, migrations, backup e deploy conforme `AGENTS.md` §Deploy e Infra de CI/CD e §Migrations
+- [ ] **Playbook seguido:** promoção `dev` → `main` via GitHub PR (fast-forward), e nunca `git checkout` local entre `dev` e `main`
 - [ ] **Validação beta:** Feature validada em `mesasbeta.artificiorpg.com` antes da promoção
 
 **Referências:**
-- `PRE_DEPLOY_CHECKLIST.md` — Checklist obrigatório antes de merge em main
+- `AGENTS.md` §Deploy e Infra de CI/CD — gates obrigatórios antes de merge em main (substituiu o antigo `PRE_DEPLOY_CHECKLIST.md`, deprecado)
 - `AGENTS.md` — Aprovações, comandos bloqueantes e regra anti-checkout em deploy
 - `.specify/memory/project-state.md` — Estado atual, branch ativa e próxima ação
 
@@ -163,8 +163,8 @@ Após o merge da Feature 001 (`001-gate-migrations-refactor`) em `main`, o mante
 
 Para evitar duplicação, este documento **não** cobre:
 
-- **Fluxo detalhado de promoção dev → main:** Ver `PRE_DEPLOY_CHECKLIST.md`
+- **Fluxo detalhado de promoção dev → main:** Ver `AGENTS.md` §Deploy e Infra de CI/CD
 - **Problema com `git checkout` entre branches:** Ver `.specify/memory/errors.md` E143
-- **Comandos Git e GitHub CLI:** Ver `AGENTS.md` e comandos de referência no `PRE_DEPLOY_CHECKLIST.md`
+- **Comandos Git e GitHub CLI:** Ver `AGENTS.md` §PR, Commit e Push
 - **Regras de commit e sessões:** Ver `AGENTS.md` e `.specify/memory/constitution.md` §9
-- **Migrations e drift detection:** Ver `migrations_guide.md` e `PRE_DEPLOY_CHECKLIST.md`
+- **Migrations e drift detection:** Ver `migrations_guide.md` e `AGENTS.md` §Migrations

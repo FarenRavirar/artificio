@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 287,
-    "uniqueEndpoints": 267,
+    "total": 284,
+    "uniqueEndpoints": 264,
     "byApp": {
       "accounts-frontend": {
         "total": 8,
@@ -38,17 +38,17 @@
         }
       },
       "mesas-frontend": {
-        "total": 169,
+        "total": 166,
         "byConfidence": {
-          "medium": 74,
-          "high": 93,
+          "medium": 73,
+          "high": 91,
           "low": 2
         },
         "byPattern": {
           "unknown": 6,
-          "template-literal": 66,
+          "template-literal": 65,
           "service-wrapper": 38,
-          "literal": 57,
+          "literal": 55,
           "concatenation": 2
         }
       },
@@ -1932,36 +1932,6 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/NotificationBell.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/notifications",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "authGet",
-      "line": 61
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/NotificationBell.tsx",
-      "method": "PATCH",
-      "endpoint": "/api/v1/notifications/:param/read",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "authPatch",
-      "line": 92
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/NotificationBell.tsx",
-      "method": "PATCH",
-      "endpoint": "/api/v1/notifications/read-all",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "authPatch",
-      "line": 103
-    },
-    {
-      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/pages/PlayerPage.tsx",
       "method": "GET",
       "endpoint": "/api/v1/profile/:param",
@@ -2338,7 +2308,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 100
+      "line": 50
     },
     {
       "app": "mesas-frontend",
@@ -2408,7 +2378,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 188
+      "line": 138
     },
     {
       "app": "mesas-frontend",

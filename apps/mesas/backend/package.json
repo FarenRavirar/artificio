@@ -38,6 +38,7 @@
     "@artificio/auth": "workspace:*",
     "@artificio/catalog-client": "workspace:*",
     "@artificio/changelog": "workspace:*",
+    "@artificio/comments": "workspace:*",
     "@artificio/config": "workspace:*",
     "@artificio/content": "workspace:*",
     "@artificio/content-editor": "workspace:*",

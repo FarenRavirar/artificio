@@ -14,6 +14,8 @@ import scenarioSuggestionsAdminRoutes from './routes/scenarioSuggestionsAdmin.js
 import devFeedbackRoutes from './routes/devFeedback.js';
 import devFeedbackAdminRoutes from './routes/devFeedbackAdmin.js';
 import notificationsRoutes from './routes/notifications.js';
+import communityCommentsRoutes from './routes/communityComments.js';
+import communityModerationRoutes from './routes/communityModeration.js';
 import meRoutes from './routes/me.js';
 import profileRoutes from './routes/profile.js';
 import adminProfileRoutes from './routes/adminProfile.js';
@@ -125,6 +127,15 @@ app.use('/api/v1/system-suggestions', systemSuggestionsRoutes);
 app.use('/api/v1/scenario-suggestions', scenarioSuggestionsRoutes);
 app.use('/api/v1/dev-feedback', devFeedbackRoutes);
 app.use('/api/v1/notifications', notificationsRoutes);
+// T7.5 (spec 090, requisito 26d) — namespace PRÓPRIO, e não uma extensão de
+// `/api/v1/notifications` acima: aquela URL é do feed administrativo do `mesas`
+// e o frontend depende dela. Mesmo caminho que `downloads` e `site` já expõem
+// (`downloads/server.ts:132`), para o pacote cliente falar com os três sem
+// condicional por app.
+app.use('/api/v1/community/conversation', communityCommentsRoutes);
+// T7.7 — moderação sobre a superfície nova. Registrada DEPOIS da conversa, como
+// no `downloads` (`server.ts:132-133`): a rota mais específica casa primeiro.
+app.use('/api/v1/community', communityModerationRoutes);
 app.use('/api/v1/admin', adminTablesRoutes);
 app.use('/api/v1/admin', adminEnrichmentRoutes);
 app.use('/api/v1/admin', adminSystemProjectionRoutes);

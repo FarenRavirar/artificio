@@ -191,13 +191,43 @@ describe('GET /api/v1/tables/:slug — visibilidade pública', () => {
     const response = await request(makeApp()).get('/api/v1/tables/mesa-publica');
 
     expect(response.status).toBe(410);
+    // Allowlist estrita, e não `not.toHaveProperty` de campos conhecidos: campo
+    // sensível novo entra em silêncio numa lista negativa, e falha aqui numa
+    // positiva. Foi o que aconteceu com `id` (T7.8, spec 090) — a adição foi
+    // deliberada e este teste a barrou até ser revista, que é o comportamento
+    // correto.
+    //
+    // `id` é o UUID da mesa, `subject_id` da conversa. Não é dado de contato
+    // nem do GM: ele já viaja publicamente na leitura de comentários
+    // (`GET /api/v1/community/conversation?subject_id=<id>`) e não revela nada
+    // que o `410` não revele — a mesa existiu e acabou, que é justamente o que
+    // o `410` afirma (RFC 9110 §15.5.11).
     expect(Object.keys(response.body.data).sort()).toEqual([
       'closed_at',
       'closed_by_name',
       'closed_reason',
+      'id',
       'slug',
       'title',
     ]);
+  });
+
+  it('devolve o id da mesa no 410, para a conversa encerrada poder ser lida', async () => {
+    // T7.8 (spec 090, requisito 26a): "encerrada preserva a leitura". Sem o
+    // `id` no corpo, a tela de mesa encerrada não tem `subject_id` para pedir a
+    // conversa, e a metade do 26a que garante a leitura não existe no cliente.
+    // O `slug` não serve: identifica a rota, e o assunto do comentário é o id.
+    dbMocks.executeTakeFirst.mockResolvedValue({
+      ...visibleTable,
+      archived_at: new Date('2026-07-28T01:00:00.000Z'),
+      archived_by: null,
+      closed_reason: 'admin',
+    });
+
+    const response = await request(makeApp()).get('/api/v1/tables/mesa-publica');
+
+    expect(response.status).toBe(410);
+    expect(response.body.data.id).toBe(visibleTable.id);
   });
 
   // Estado terminal explícito: 410 mesmo sem `archived_at`, com o motivo vindo

@@ -1,51 +1,98 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { moderationQueueSchema } from '@artificio/comments';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth.js';
 import {
-  commentAppealRateLimiter,
-  commentReportRateLimiter,
-  readRateLimiter,
-  writeRateLimiter,
-} from '../middleware/rateLimit';
-import {
+  actingAccountsUserId,
   filteredQuery,
   proxyToAccounts,
   type UpstreamMode,
   type UpstreamValidation,
-} from '../community/accountsProxy';
+} from '../community/accountsProxy.js';
+import {
+  commentAppealRateLimiter,
+  commentReadRateLimiter,
+  commentReportRateLimiter,
+  strictRateLimiter,
+} from '../middleware/rateLimit.js';
+
+/**
+ * T7.7 (spec 090) — fachada de moderação de comentário do `mesas`.
+ *
+ * Comentário em mesa é conteúdo público, então a mesma moderação global que
+ * cobre `downloads` e `site` precisa alcançá-lo. Molde de
+ * `downloads/routes/communityModeration.ts`, com **uma diferença que não é
+ * cosmética** — ver `requireCommentModerator` abaixo.
+ */
 
 const router = Router();
 
+/**
+ * ## Por que este guard existe, em vez de `requireRole(['moderator','admin'])`
+ *
+ * O `mesas` **rebaixa** o `moderator` central: `resolveEffectiveMesasRole`
+ * (`middleware/auth.ts:41-47`) devolve `player` para ele, e o teste
+ * `auth.roles.test.ts:9-12` fixa isso de propósito — moderador global não ganha
+ * capacidade administrativa **de domínio** (gerir mesa, sistema, catálogo).
+ * Essa decisão está certa e não muda aqui.
+ *
+ * Mas moderar **comentário** não é capacidade de domínio. A matriz de
+ * capacidades da spec (`spec.md:346`) diz, para a coluna `mesas`, que "retirar
+ * comentário público" é **herdada na adoção**, enquanto `:348` mantém que ele
+ * "não herda administração de mesa". São linhas diferentes da mesma tabela.
+ *
+ * Por isso o guard lê `globalRole` — o papel que veio do `accounts.` — e não
+ * `role`, que é o efetivo local já rebaixado. Usar `requireRole` aqui faria o
+ * moderador global receber `403` em todo comentário de mesa, e o poder que a
+ * spec concede não existiria na prática, sem erro em lugar nenhum.
+ */
+function requireCommentModerator(req: Request, res: Response, next: NextFunction): void {
+  const globalRole = req.user?.globalRole;
+  if (globalRole !== 'moderator' && globalRole !== 'admin') {
+    res.status(403).json({ error: 'forbidden' });
+    return;
+  }
+  next();
+}
+
 // Limiter na fachada, além do que o `accounts.` já aplica por usuário e
 // credencial: a fachada é quem conhece o IP real do cliente (requisito 12b —
-// "todos os buckets aplicáveis precisam liberar"), e sem ele um IP autenticado
-// converte uma requisição barata daqui em carga no `accounts.`, que é o app
-// sagrado do SSO. Achado do CodeQL na PR #262 (`js/missing-rate-limiting`, 20
-// rotas): handler que decide autorização sem limite é alvo de força bruta de
-// papel/ID. Leitura e escrita usam buckets separados — o orçamento de listar
-// fila não pode ser consumido por quem só remove comentário, e vice-versa.
+// "todos os buckets aplicáveis precisam liberar").
 //
-// **O limiter vem ANTES de `authMiddleware`, e a ordem não é estética** (CodeQL
-// reincidiu na PR #268): com a autenticação primeiro, toda requisição paga a
-// validação de JWT antes de qualquer freio, e a rota vira amplificador — o
-// atacante gasta um header inválido, o servidor gasta verificação de
-// assinatura. Com o limiter na frente, a rajada morre em `429` sem tocar em
-// cripto. Seguro porque nenhum destes buckets usa `keyGenerator`, `skip` ou lê
-// `req.user`: todos chaveiam por IP, que existe antes de autenticar. É também a
-// ordem que a fachada de conversa deste app já usava (`communityComments.ts`);
-// a moderação é que era a exceção.
-const moderatorRead = [readRateLimiter, authMiddleware, requireRole(['moderator', 'admin'])];
-const moderatorWrite = [writeRateLimiter, authMiddleware, requireRole(['moderator', 'admin'])];
+// Quatro buckets distintos nesta superfície (achados de review, PR #268 —
+// `contrato-http-v1.md` §14 exige independência por ação):
+// - leitura da conversa e da fila (`commentReadRateLimiter`, 300/15 min —
+//   bucket próprio, não o `publicRateLimiter` geral do app, que perfis de mestre
+//   e agendas também consomem: cem leituras de qualquer uma delas fechariam a
+//   moderação por quinze minutos);
+// - ação de moderador (`strictRateLimiter`, 10/15 min — teto baixo e proposital:
+//   retirar e restaurar comentário são operações raras e de alto impacto);
+// - denúncia do usuário comum (`commentReportRateLimiter`, 20/15 min);
+// - recurso do usuário moderado (`commentAppealRateLimiter`, 10/15 min).
+//
+// A denúncia **não** pode compartilhar bucket com a ação de moderador: são
+// pessoas diferentes exercendo direitos diferentes, e um moderador ativo
+// esgotaria a cota de quem só quer reportar abuso — ou o contrário.
+//
+// Denúncia e recurso também não compartilham, pela mesma razão aplicada a uma
+// só pessoa: quem é moderado tende a denunciar de volta, e o bucket comum
+// tiraria dele a via de defesa. Ver `middleware/rateLimit.ts`.
+//
+// **O limiter vem ANTES de `authMiddleware`, e a ordem não é estética**
+// (CodeQL `js/missing-rate-limiting`, PR #268): com a autenticação primeiro,
+// toda requisição paga a validação de JWT antes de qualquer freio, e a rota
+// vira amplificador — o atacante gasta um header inválido, o servidor gasta
+// verificação de assinatura. Com o limiter na frente, a rajada morre em `429`
+// sem tocar em cripto. Seguro porque nenhum destes buckets usa `keyGenerator`,
+// `skip` ou lê `req.user`: todos chaveiam por IP, que existe antes de
+// autenticar. É também a ordem que a fachada de conversa dos dois apps já
+// usava (`communityComments.ts`); a moderação é que era a exceção.
+const moderatorRead = [commentReadRateLimiter, authMiddleware, requireCommentModerator];
+const moderatorWrite = [strictRateLimiter, authMiddleware, requireCommentModerator];
+
 /**
  * Vocabulário de erro desta fachada. A mecânica de transporte (credencial,
  * headers validados, `Retry-After`, degradação) vive em
  * `community/accountsProxy.ts`, compartilhada com a fachada de conversa.
- *
- * A unificação corrigiu duas lacunas que a cópia daqui tinha e a da conversa
- * não (achado de review, PR #268): `Retry-After` não atravessava — pior
- * justamente aqui, onde o operador insiste ao ver `429` — e o corpo de erro
- * não trazia `correlation_id`, que `contrato-http-v1.md` §1.1 exige em toda
- * resposta de erro.
  */
 const UNAVAILABLE_ERROR = 'community_moderation_unavailable';
 
@@ -60,7 +107,7 @@ function proxyAccounts(
     mode,
     unavailableError: UNAVAILABLE_ERROR,
     logPrefix: 'community-moderation',
-    actingUserId: req.user?.userId,
+    actingUserId: actingAccountsUserId(req),
     // Moderação é sempre ação de alguém identificado: sem ator resolvido, 401
     // explícito em vez de chamada anônima ao registro central.
     requireActingUser: true,
@@ -68,14 +115,7 @@ function proxyAccounts(
   });
 }
 
-/**
- * Valida a fila contra o schema compartilhado. Era um monkey patch em
- * `res.json` (achado de review, PR #262): além de reentrante e difícil de
- * seguir, ele reescrevia um método do Express para toda a vida da resposta,
- * então qualquer `res.json` posterior — inclusive o de um error handler —
- * passaria pela validação da fila. Agora é um parâmetro explícito de
- * `proxyAccounts`, aplicado só no caminho de sucesso.
- */
+/** Valida a fila contra o schema compartilhado, só no caminho de sucesso. */
 function proxyQueue(req: Request, res: Response, path: string): Promise<void> {
   return proxyAccounts(req, res, path, 'service', (body) => {
     const parsed = moderationQueueSchema.safeParse(body);
@@ -83,13 +123,15 @@ function proxyQueue(req: Request, res: Response, path: string): Promise<void> {
   });
 }
 
-router.get('/reports', readRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
+// --- Superfície do usuário comum: denunciar e recorrer -----------------------
+
+router.get('/reports', commentReadRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, '/api/v1/community/reports', 'session').catch(next);
 });
-router.get('/appeals/:id', readRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
+router.get('/appeals/:id', commentReadRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, `/api/v1/community/appeals/${encodeURIComponent(req.params.id)}`, 'session').catch(next);
 });
-router.get('/report-reasons', readRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
+router.get('/report-reasons', commentReadRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, '/internal/v1/report-reasons', 'service').catch(next);
 });
 router.post('/comments/:id/reports', commentReportRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
@@ -101,6 +143,8 @@ router.delete('/reports/:id', commentReportRateLimiter, authMiddleware, (req: Re
 router.post('/decisions/:id/appeals', commentAppealRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, `/internal/v1/moderation/decisions/${encodeURIComponent(req.params.id)}/appeals`, 'service').catch(next);
 });
+
+// --- Superfície do moderador global -----------------------------------------
 
 router.get('/moderation/queue', moderatorRead, (req: Request, res: Response, next: NextFunction) => {
   const query = filteredQuery(req, ['source_app', 'status', 'max_priority', 'limit', 'cursor_opened_at', 'cursor_id']);

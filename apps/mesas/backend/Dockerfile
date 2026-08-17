@@ -51,10 +51,25 @@ COPY patches ./patches
 RUN pnpm install --prod --filter @artificio/mesas-backend --filter @artificio/config \
   --filter @artificio/content --filter @artificio/auth --filter @artificio/changelog \
   --filter @artificio/feedback --filter @artificio/media --filter @artificio/catalog-client \
-  --filter @artificio/content-editor \
-  --frozen-lockfile \
-  && test -d packages/media/node_modules/cloudinary \
-  || (echo "ERRO: cloudinary nao encontrado em packages/media/node_modules/" && exit 1)
+  --filter @artificio/content-editor --filter @artificio/comments \
+  --frozen-lockfile
+
+# Asserção separada do install de propósito (achado de review, PR #268): no
+# encadeamento anterior (`pnpm install && test ... || echo ERRO`), falha de rede
+# ou lockfile caía no mesmo `||` e era reportada como "dependencia de pacote
+# workspace ausente" — diagnóstico errado num build que quebra por outro motivo.
+# Agora o install falha por conta própria, e esta mensagem só cobre o que ela
+# de fato descreve.
+#
+# O Sonar pede o contrário ("Merge this RUN instruction with the consecutive
+# ones") e foi **recusado com medição**: a regra existe para evitar camada
+# desnecessária, e um `RUN` que só roda `test -d` não escreve nada — medido em
+# `alpine:3.20`, a camada sai com **4,1 kB** (metadado), contra 453 MB da camada
+# de install. Juntar de volta economizaria 0,0009% da imagem e devolveria o
+# diagnóstico errado que o Codex apontou. Não juntar.
+RUN test -d packages/media/node_modules/cloudinary \
+  && test -d packages/comments/node_modules/zod \
+  || (echo "ERRO: dependencia de pacote workspace ausente em packages/*/node_modules/" && exit 1)
 
 # Workspace packages are linked in production; copy built outputs they export at runtime.
 COPY --from=builder /repo/packages/config/dist ./packages/config/dist
@@ -79,6 +94,20 @@ COPY --from=builder /repo/packages/catalog-client/dist-cjs ./packages/catalog-cl
 # resolve o subpath pela condicao `import`. O filtro no pnpm install acima e
 # necessario porque o pacote tem deps proprias (sanitize-html, markdown-it).
 COPY --from=builder /repo/packages/content-editor/dist ./packages/content-editor/dist
+# Spec 090 T7 (achado de review, PR #268 — mesmo padrao E016/E017): as rotas
+# novas (`community/tableSubjectGuard.ts`, `routes/communityModeration.ts`)
+# importam `@artificio/comments` e sao carregadas por `server.ts` no boot, entao
+# a falta do `dist` derruba o container no healthcheck, com build e CI verdes.
+#
+# `dist` (ESM) e nao `dist-cjs`, apesar de o pacote declarar `main`: este backend
+# e "type": "module", entao a resolucao usa a condicao `import` do `exports`.
+#
+# `@artificio/ui` NAO acompanha, diferente do Dockerfile do `downloads`: medido
+# no `dist` publicado, so `CommunityModerationWorkspace.js` (React, exportado
+# por `/react`) o importa. O caminho que este backend carrega — `index.js` e os
+# 12 modulos que ele reexporta — depende apenas de `zod` e de
+# `@artificio/content-editor`, ja presentes acima.
+COPY --from=builder /repo/packages/comments/dist ./packages/comments/dist
 
 # Copiar build compilado
 COPY --from=builder /repo/apps/mesas/backend/dist ./apps/mesas/backend/dist

@@ -297,6 +297,34 @@ Medido em 2026-08-10: existem **três** modelos independentes em produção, e a
 quarto se não os absorvesse. Cada um tem exatamente uma peça madura que os outros não têm — o
 consolidado herda as três, em vez de reinventar duas.
 
+> **⚠️ CORREÇÃO DE FATO — são QUATRO, não três (medido em 2026-08-16 via `artificio-api-governance`
+> + banco).** O levantamento de 2026-08-10 não incluiu o `glossario`, e a spec inteira fala em
+> "três sistemas" a partir dele. O quarto:
+>
+> | | `glossario` |
+> |---|---|
+> | Rotas | `GET /api/notifications`, `PATCH /api/notifications/{id}/read`, `PATCH /api/notifications/read-all` |
+> | Tabela | `glossario_v2.user_notifications` (container `glossario-db`, banco **`glossario_v2`**) |
+> | Volume em prod | **71 notificações, 41 não lidas, 5 usuários** |
+> | `event_type` | `user.registered` (42), `term.moderated` (25), `vote.up` (3), `comment.create` (1) |
+> | Código | `backend/src/services/notificationService.ts`, `controllers/notificationController.ts`, `frontend/src/pages/NotificationsPage.tsx` |
+>
+> **O schema dele é o mais próximo do consolidado dos quatro** — `actor_id`, `event_type`,
+> `entity_type`, `entity_id`, `payload` JSONB e `read_at` (não `read` booleano como o `mesas`).
+> Falta `realm` e `event_id`, que é o que torna a base do `accounts.` a escolha certa; mas a
+> premissa de T3.12 ("o `mesas` é quem cede `metadata` JSONB") ignora que o `glossario` já tem
+> `payload` JSONB **e** `read_at`, as duas coisas.
+>
+> O `glossario` também tem **comentário e voto próprios** — `term_comments` (1 linha) e
+> `term_votes` (4) —, com `GET`/`POST /api/social/terms/{id}/comments`. A spec 090 só o menciona
+> em papéis/SSO (`spec.md:344,377,388,400`); não há fase de adoção do `glossario` em lugar nenhum.
+>
+> **Não decidi nada sobre isto.** Duas coisas ficam pendentes de decisão do mantenedor:
+> (1) o `glossario` entra na consolidação de notificação (vira T3.17 / amplia T3.13 e T3.16) ou
+> fica fora com débito registrado? (2) `term_comments`/`term_votes` entram na adoção do pacote
+> (fase nova) ou ficam fora? Enquanto não houver resposta, o texto "três sistemas" desta spec está
+> **factualmente errado** e não deve ser usado como base de contagem.
+
 **Ordem de entrega (decisão do mantenedor, 2026-08-10):** primeiro o `accounts.` completo — central,
 API, preferência e sino funcionando para comentário (T3.1-T3.11b, T3.12, T3.14, T3.15); depois a
 conversão dos módulos produtores, **um por vez** (T3.13, T3.16). Se a fase atrasar, o corte cai na
@@ -308,6 +336,40 @@ parcial por mais tempo e daria ao usuário uma experiência que muda duas vezes.
 - [ ] T3.12 — **`notification_event`/`notification_receipt` é a base única** (requisito 13a-i). **Parcial — depende de T3.13 para se provar.** Das quatro capacidades a absorver, três estão no consolidado: `PATCH /read-all` (T3.6), `metadata` JSONB (migration_010) e FK `ON DELETE CASCADE` em `user_id`. Falta o padrão React Query + Zod do `downloads` na superfície nova, e sobretudo a prova de "nenhuma regressão de função existente" — que só é verificável quando a tela legada ler do consolidado (T3.13), não antes. Não é preferência: é o único dos três com `realm` estrutural (nas chaves únicas, nos índices e no FK composto — `migration_006:472,490,505,512,514`), idempotência do produtor (`event_id` UNIQUE, `:471`) e separação evento/entrega. As três são irreversíveis: retrofitar `realm` ou `event_id` em tabela com dado de produção custa migração, retrofitar separação evento/entrega custa reescrever o modelo. Absorver dos legados o que a base não tem: `PATCH /read-all` e `metadata` JSONB do `mesas` (`apps/mesas/backend/src/routes/notifications.ts:33-52`, `migration_106:13`), padrão React Query + Zod + `invalidateQueries` do `downloads` (`apps/downloads/frontend/src/hooks/useNotifications.ts:9-26`), e FK `ON DELETE CASCADE` em `user_id`, que o `downloads` não tem (`migration_018:14`). · feito quando: o consolidado cobre todas as capacidades dos três, e nenhuma regressão de função existente é aceita como custo da unificação.
 - [ ] T3.13 — **`download_notification` e `notifications` viram produtores, não fontes** (requisito 13a-i). **Parcial: `downloads` emite, mas ainda não lê do consolidado; `mesas` intocado.**
   **Entregue — o caminho de produção existe.** `POST /internal/v1/notifications/events` (`accounts/src/notificationIngestRoutes.ts`, registrada em `app.ts`): guard por credencial de serviço com escopo **`notification.write`** novo (migration_011 amplia o CHECK de `community_service_credential.scopes`; escopo próprio, e não `comment.write`/`moderation.write` — emitir aviso não pode vir junto com criar fala nem decidir caso). `realm`/`source_app` derivados da credencial, nunca do payload; `actor_id` nulo (produtor externo informa destinatário, não autor comunitário); idempotência por `event_id` consultada antes do INSERT, então retry devolve o evento existente sem entrada nova no outbox; evento + `enqueueOutboxEvent` na mesma transação; fan-out fora dela; 202 (não 201 — o recibo ainda não existe neste ponto). `downloads` deixou de gravar em `download_notification`: `notify.ts` enfileira no outbox local e `notificationOutboxDelivery.ts` entrega, com `occurred_at` do fato (não da entrega — é o caso que 19b previu). Os cinco `kind` viajam como snapshot legado versão 1 (`legacy_kind`/`legacy_body`), sem virar tipo oficial do consolidado (24e). Teste `moderation.notify.test.ts` passou a asserir a **ausência** de escrita em `download_notification`, para um chamador não voltar a gravar ali sem ninguém perceber.
+  **⚠️ REGRESSÃO EM PRODUÇÃO, medida em 2026-08-16 — o `mesas` está sem feed de notificação.**
+  Não é risco futuro, é o estado atual, e foi introduzido por esta spec em T3.9b: o header do
+  `mesas` passou a montar o sino compartilhado (`HeaderActions.tsx` → `@artificio/ui`), que lê
+  `${accounts}/api/v1/notifications*` (`packages/ui/src/NotificationBell.tsx:174-183`). Como o
+  `mesas` **ainda não é produtor** do consolidado — que é exatamente o que falta nesta task —, o
+  sino consulta uma fonte que não tem nada dele. Medido em prod:
+  `select source_app, count(*) from notification_event group by 1` devolve **`site|3` e mais
+  nada** — zero eventos de `mesas` e zero de `downloads`.
+  Do outro lado, o feed local **continua recebendo escrita e ninguém o lê**: `mesas_rpg.notifications`
+  tem **45 não lidas** em prod, e `notifyAdmins` (`services/adminNotifications.ts`) segue emitindo
+  a cada publicação de mesa, feedback de dev e sugestão. A capacidade perdida é específica: o sino
+  antigo filtrava por grupo de admin (`table_published`, `dev_feedback` — `ADMIN_GROUPS`), e o
+  compartilhado não tem esse conceito. **Ao converter, o filtro admin precisa reaparecer** (via
+  `event_type` do consolidado), senão a conversão fecha a task sem devolver a função que existia.
+  O mesmo estado intermediário já estava descrito para o `downloads` no item (2) abaixo — a
+  diferença é que lá a tela legada ao menos ainda mostra o histórico, e aqui o sino do header não
+  mostra nada.
+  **Componente legado removido em 2026-08-16:** `apps/mesas/frontend/src/components/NotificationBell.tsx`
+  não tinha nenhum importador (`HeaderActions.tsx` importa de `@artificio/ui`) e foi apagado —
+  código morto que só criaria dúvida de paridade. **O backend NÃO foi tocado**: `routes/notifications.ts`
+  e `server.ts:127` ficam de pé, porque são o alvo da conversão desta task. `apps/mesas/MAPA_DE_API.md`
+  §NOTIFICATIONS foi corrigido (marcava as rotas como "Em Uso" por `NotificationBell.tsx`).
+  Validação da remoção: `tsc` do `mesas-frontend` 0 erros, testes 216/216 (20 arquivos), lint limpo.
+  **Confirmado por leitura de código em 2026-08-16 (nada mudou desde o registro anterior):**
+  `apps/downloads/backend/src/routes/notifications.ts:19,31,42` ainda lê e escreve `read_at` em
+  `download_notification`; `apps/downloads/frontend/src/hooks/useNotifications.ts:13` chama
+  `/api/v1/notifications` do próprio `downloads`, não o consolidado. `apps/mesas/backend/src/routes/notifications.ts`
+  segue intocado (3 rotas sobre `notifications`), e há **12 call-sites** que ainda fazem
+  `insertInto('notifications')` no `mesas` — `services/adminNotifications.ts:38`,
+  `discord/syncHelpers.ts:458`, `routes/scenarioSuggestionsAdmin.ts:97`,
+  `routes/suggestionHelpers.ts:73`, `routes/vttPlatforms.ts:137` e sete em
+  `routes/systemSuggestionsAdmin.ts` (`:390,518,579,670,795,897,1004`). Converter o `mesas` é
+  reescrever esses 12 pontos para o outbox local, no molde de
+  `downloads/services/notify.ts` + `notificationOutboxDelivery.ts` + `migration_038`.
   **Falta — o que impede fechar:** (1) `mesas` não foi convertido (`routes/notifications.ts:10-80` continua fonte própria); (2) **nenhuma das telas legadas lê do consolidado**, que é a metade da decisão de 2026-08-10 destinada a impedir o usuário de ver o mesmo aviso em dois lugares com estados de leitura independentes — hoje o `downloads` está exatamente nesse estado intermediário: emite pro consolidado e sua tela ainda lê `download_notification`, que parou de receber escrita nova, então **aviso novo do `downloads` não aparece na tela legada dele**; (3) credencial com `notification.write` não foi emitida em nenhum ambiente. · feito quando: emissão nova de qualquer um dos dois cria `notification_event`; a tela legada de cada módulo lê do consolidado a partir da conversão; nenhum aviso aparece em dois lugares; e nenhuma escrita nova entra nas tabelas legadas.
 - [x] T3.14 — **Migration da consolidação** (requisitos 13a-ii, 19b). `migration_010_notification_consolidation.sql`, `online-safe`, header de 5 campos copiado de `009`, idempotente (DO $$ com checagem de pg_constraint). Quatro alterações aditivas sobre o schema da Fase 2:
   1. **CHECK `source_app` ampliado** nas duas tabelas (`notification_event`, `notification_receipt`): de `downloads|site|mesas` para `downloads|site|mesas|glossario|links|accounts`. Localiza constraint antiga por `pg_get_constraintdef` (migration_006 declarou CHECK inline, sem nome), dropa com `IF EXISTS`, recria com nome fixo `*_source_app_consolidated_check`.
@@ -317,7 +379,28 @@ parcial por mais tempo e daria ao usuário uma experiência que muda duas vezes.
   **Tipos Kysely:** `NotificationEventRow.metadata` (`unknown | null`), `NotificationPreferenceRow` nova, ambos em `Database`. **Validação:** lint 25/25, tsc accounts 0 erros, build 8/8, testes accounts 487/487 (24 files, 1 skipped), verify:api 0 breaking. **Pendente:** execução contra Postgres 16 real (docker descartável ou banco de teste) — idempotência (2x), aceite de `source_app='accounts'`, EXPLAIN com índice novo, e guard de diretório/header no CI.
 - [x] T3.15 — **Outbox: evento transacional, entrega assíncrona, um caminho só** (requisito 13c-i). Tabela `notification_outbox` (migration_010 seção 5, com CHECK de `realm`/`source_app` e índice parcial `idx_notification_outbox_pending` adicionados em review posterior) com `recipients` JSONB validado como array de UUID (não só string — elemento malformado quebraria `where(...,"in",...)` com `22P02` fora de qualquer try). `notificationOutbox.ts`: `enqueueOutboxEvent(trx)` na transação (`communityCommentWrite.ts`), `processOutboxEntry(db|trx)` faz fan-out com preferências (T3.11b) e cria recibos idempotentes via `ON CONFLICT DO NOTHING` no UNIQUE do recibo (não try/catch — erro de constraint sem savepoint aborta a transação Postgres inteira). `processOutboxPending` abre sua própria transação com `FOR UPDATE SKIP LOCKED` (sweeps concorrentes não disputam linha) e processa cada entry sob **savepoint SQL raw** (`SAVEPOINT`/`RELEASE SAVEPOINT`/`ROLLBACK TO SAVEPOINT` — `Transaction<Database>` do Kysely 0.29 não expõe savepoint na API pública), isolando falha de uma entrada sem abortar as demais na mesma transação; entrada que falha é marcada `processed_at` mesmo assim, para não ficar em retry infinito. Chamado fora da transação de mérito, pós-commit, fire-and-forget, com sweep periódico independente (`setInterval` 5 min no boot do `accounts`) cobrindo falha do disparo pós-commit. Moderação sempre entregue independente de preferência (20b).
   **Validado contra Postgres real, não só mock** (container Docker descartável na VM, aprovação nominal, ambiente destruído ao final, zero resíduo): idempotência (reprocessar `event_id` já com recibo devolve 0 inserções, sem duplicar); savepoint isola falha real de FK (`recipient_user_id` inexistente em `users`, erro `23503`) sem abortar as outras entradas da mesma transação — teste automatizado `notificationOutboxSavepoint.test.ts` (roda com `COMMUNITY_TEST_DATABASE_URL`, pula sem banco, mesmo padrão de `communityWilson.test.ts`) fixa esse caso no repo. Essa validação **encontrou e corrigiu um bug real** que o teste com mock não pegava: quando uma entrada falhava, o passo que marca `processed_at` nunca rodava, deixando a entrada presa em reprocessamento infinito — corrigido movendo a marcação para o `catch`, após o `ROLLBACK TO SAVEPOINT`. Validação: lint 25/25, tsc 0, testes accounts 523/523 (+1 pulado sem banco), build verde, verify:api 0 breaking.
-- [ ] T3.16 — **Migração do dado histórico dos legados** (requisito 13a-i). `download_notification` e `notifications` têm histórico real de usuários. Converter para `notification_event`/`notification_receipt` preservando `read_at`/`read`, momento original e destinatário — o texto legado já vem pronto no banco (`body` em `migration_018:17`, `title`/`message` em `migration_06:33-34`), então entra como snapshot de versão própria, sem tentar reconstruir estrutura que não existia. `action_url` do `mesas` (`migration_106:13`) vira `canonical_path`, validado contra o CHECK do consolidado (`migration_006:480-486`) — os paths legados são montados por interpolação em cada call-site, sem validação (ex.: `apps/mesas/backend/src/routes/gmPanel.ts:575`, `systemSuggestionsAdmin.ts:396`), e há casos degenerados conhecidos (`systemSuggestionsAdmin.ts:585,676,801` com fallback vazio). Path que não passar no CHECK entra sem link, nunca quebrando a migração. **Migra tudo, lido e não lido, preservando o estado de leitura** (decisão do mantenedor, 2026-08-10) — migrar só não lidos contradiria 17d ("lida fica, sem prazo") e apagaria histórico que o usuário tem hoje; para ele, a unificação deve mudar o lugar, não o conteúdo. · feito quando: nenhum usuário perde notificação existente; lida continua lida e não lida continua não lida; path inválido degrada para item sem link; e a contagem antes/depois bate por usuário.
+- [ ] T3.16 — **Migração do dado histórico dos legados** (requisito 13a-i).
+  **Medido em 2026-08-16 (read-only na VM, coordenadas para não redescobrir):** o banco do `mesas`
+  chama-se **`mesas_rpg`**, não `mesas` — `docker exec mesas-db psql -U admin -d mesas_rpg`; o
+  primeiro chute (`-d mesas`) devolve `FATAL: database "mesas" does not exist`. Containers:
+  `mesas-db` (prod), `mesas-beta-db` (beta).
+  | Fonte | Total | Lidas | Usuários | `action_url` válido no CHECK do consolidado |
+  |---|---|---|---|---|
+  | `mesas_rpg.notifications` (prod) | 49 | 4 | 3 | **49/49** |
+  | `mesas_rpg.notifications` (beta) | 60 | 0 | 1 | não medido |
+  | `download_notification` (prod) | **0** | — | — | — |
+  | `download_notification` (beta) | **0** | — | — | — |
+  Consequências que mudam o custo da task: (a) **o lado `downloads` é no-op** — conjunto de origem
+  vazio nos dois realms, nada a migrar, só registrar a medição; (b) o trabalho real é o `mesas`,
+  e é pequeno (49 linhas em prod); (c) **nenhum path degrada** — os 49 começam com `/`, sem `//`,
+  sem barra invertida e sem esquema absoluto (`/perfil/minhas-sugestoes/<uuid>` e
+  `/catalogo?system=<slug>`), então o caminho "path inválido entra sem link" existe como defesa,
+  não como caso esperado; (d) **`notifications.user_id` é UUID local de `mesas.users`**, e o
+  `notification_receipt` exige o ID do `accounts.` — o INSERT precisa de
+  `JOIN users u ON u.id = n.user_id` projetando `u.google_id`; medido: 49/49 têm `google_id` não
+  nulo, então nenhuma linha se perde no JOIN. Os três `type` legados em prod:
+  `suggestion_rejected` (36), `suggestion_approved` (12), `system` (1).
+  `download_notification` e `notifications` têm histórico real de usuários. Converter para `notification_event`/`notification_receipt` preservando `read_at`/`read`, momento original e destinatário — o texto legado já vem pronto no banco (`body` em `migration_018:17`, `title`/`message` em `migration_06:33-34`), então entra como snapshot de versão própria, sem tentar reconstruir estrutura que não existia. `action_url` do `mesas` (`migration_106:13`) vira `canonical_path`, validado contra o CHECK do consolidado (`migration_006:480-486`) — os paths legados são montados por interpolação em cada call-site, sem validação (ex.: `apps/mesas/backend/src/routes/gmPanel.ts:575`, `systemSuggestionsAdmin.ts:396`), e há casos degenerados conhecidos (`systemSuggestionsAdmin.ts:585,676,801` com fallback vazio). Path que não passar no CHECK entra sem link, nunca quebrando a migração. **Migra tudo, lido e não lido, preservando o estado de leitura** (decisão do mantenedor, 2026-08-10) — migrar só não lidos contradiria 17d ("lida fica, sem prazo") e apagaria histórico que o usuário tem hoje; para ele, a unificação deve mudar o lugar, não o conteúdo. · feito quando: nenhum usuário perde notificação existente; lida continua lida e não lida continua não lida; path inválido degrada para item sem link; e a contagem antes/depois bate por usuário.
 
 ## Fase 4 — Pacote cliente e UI
 
@@ -750,11 +833,18 @@ mudar.
 Primeiro consumidor: necessidade imediata (spec 089) e dado menos delicado.
 
 > **⚠️ BLOQUEIO ATIVO ANTES DE EXECUTAR ESTA FASE — `BLQ-090-CRED-WRITE`.**
-> A credencial de serviço do `downloads` **não tem `comment.write` nem `vote.write`** (medido em
-> 2026-08-15): os 6 escopos atuais cobrem a Fase 4, não a escrita de fala nem o voto que T5.3/T5.4
-> exigem. Leitura (`comment.read`) já passa. Rotação exige aprovação nominal — é escrita no banco
-> de produção. Detalhe e procedimento: §Bloqueios conhecidos → `BLQ-090-CRED-WRITE`.
-> O bloqueio anterior (`BLQ-090-CRED`, escopos da Fase 4) foi **resolvido** na mesma data: as
+> A credencial de serviço do `downloads` **não tem `comment.write` nem `vote.write`** — reconfirmado
+> em 2026-08-16 (`select scopes … where source_app='downloads'`): os 6 escopos ativas no slot `next`
+> cobrem a Fase 4, não a escrita de fala nem o voto que T5.3/T5.4 exigem. Leitura (`comment.read`)
+> já passa. Emitir exige aprovação nominal — é escrita no banco de produção.
+>
+> **O que mudou a favor:** a causa raiz que travava a emissão (o `accounts.` de prod sem o escopo
+> `notification.write` no código) caiu, e a **Fase 7 executou a rotação completa do `mesas`** com
+> êxito — emissão, `.env`, recriação de containers, smoke e revogação. O procedimento deixou de ser
+> teórico. Passo a passo, comando que evita o `BLQ-090-NGINX` e a complicação de slot que o
+> `downloads` tem (e o `mesas` não teve): §Bloqueios conhecidos → `BLQ-090-CRED-WRITE`.
+>
+> O bloqueio anterior (`BLQ-090-CRED`, escopos da Fase 4) foi **resolvido** em 2026-08-15: as
 > credenciais de 6 escopos estão em uso e as de 2 escopos, revogadas.
 
 > **⚠️ ACHADO QUE MUDA O CUSTO DESTA FASE — não há legado a migrar (medido em 2026-08-04).**
@@ -977,22 +1067,758 @@ Segundo consumidor: tem o dado legado, que é o risco real desta spec.
   **A premissa [P1] desta task caducou — medido em 2026-08-16.** O texto anterior (e `plan.md:315`) afirmava que `apps/site/package.json:16` enumera cinco arquivos fixos no teste e que `lint` é `echo "(site) lint TODO"` (`:15`). O arquivo real traz `"lint": "eslint ."` e `"test": "vitest run"`: o script já varre por padrão, e arquivo novo **não** fica invisível. `rtk git log -3 -- apps/site/package.json` aponta os commits que fecharam a lacuna — `797ccdc` (spec 091, "fechar lacuna de typecheck sobre arquivos de teste e travar com gate") e `4d15b01`; `apps/site/eslint.config.js:6` documenta a troca do `echo`. A task deixa de ser correção e vira **verificação**: rodar `rtk pnpm --filter @artificio/site test` e `lint` depois de criar os testes da fachada e confirmar que aparecem na contagem.
   **O `echo TODO` sobrevive em OUTROS dois apps** — `apps/site-admin/package.json:11` e `apps/links/package.json:15` —, fora do escopo desta fase. Reportado ao mantenedor como achado lateral; pendente de decisão (corrigir/registrar).
 
-## Fase 7 — Adoção no `mesas`
+## Fase 7 — Adoção no `mesas` [IMPLEMENTADA — falta deploy]
 
 Terceiro consumidor: nada a preservar, mas ganha superfície pública nova.
 
-- [ ] T7.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. · feito quando: leitura confirmada.
-- [ ] T7.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
-- [ ] T7.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
-- [ ] T7.1 — 🔒 **[P0] ABSORVIDA PELA SPEC 089 FASE 6B.** Implementação local concluída e validada em `feat/089-fases-7-8` em 2026-07-28: detalhe, `/view`, `/click` e favoritos aplicam a mesma política pública, com sete testes de rota. Permanece aberta aqui até a PR da 089 ser mergeada em `dev`; registrar número/SHA então.
-- [ ] T7.1b — 🔒 **[P0] ABSORVIDA PELA SPEC 089 FASE 6B.** Implementação local concluída e validada em `feat/089-fases-7-8` em 2026-07-28: `sanitize-html` na escrita e leitura defensiva, preview com `html: false`, payload hostil coberto e `RichTextArea.tsx` removido. Medição Beta/Prod achou zero HTML/entidade persistido; decisão do mantenedor foi não criar migration retroativa. Permanece aberta aqui até a PR da 089 ser mergeada em `dev`; registrar número/SHA então.
-- [ ] T7.2 — **[P0] `owner_user_id` enviado ao registro central é o `google_id`, nunca o UUID local.** Confusão material entre dois UUIDs: `gm_user_id` devolvido pela rota é `mesas.users.id` (`routes/tables.ts:470`), enquanto o ID do `accounts.` vive em `users.google_id` (`db/types.ts:14`) — o middleware converte a sessão central em usuário local (`middleware/auth.ts:37`). Mandar `gm_user_id` ou `req.user.userId` para o `accounts.` associaria o comentário à conta errada, ou a nenhuma. · feito quando: teste prova que o ID enviado resolve para a mesma conta do `accounts.` que originou a sessão.
-- [ ] T7.3 — **Ciclo de vida da mesa define o que é comentável** (requisito 26). Mesa ativa, pública e não expirada: leitura e escrita; encerrada ou arquivada: leitura preservada, escrita nova bloqueada; rascunho ou oculta: **sem leitura pública nem escrita**; removida: a fachada devolve alvo inexistente. A validação roda **a cada criação e a cada resposta**, nunca confiando no payload — ownership recalculado por recurso (OWASP Business Logic). · feito quando: os cinco estados testados, cada um falhando fechado.
-- [ ] T7.4 — Rotas e UI de comentário no `mesas`, **separadas** do campo `comment` do review de mestre, que não é migrado (requisito 26). O contrato próprio do review está confirmado em `routes/gm.ts:606` — são coisas diferentes e continuam assim. · feito quando: as duas coisas coexistem sem confusão de contrato.
-- [ ] T7.5 — **[P1] Namespace próprio para as rotas novas: `/api/v1/community/*`.** Colisão real: o `mesas` **já tem** `/api/v1/notifications` (`server.ts:127`), e o frontend depende exatamente dessa URL (`components/NotificationBell.tsx:61`). Substituir o contrato quebraria as notificações administrativas que já funcionam. Fusão dos dois feeds só depois de contrato explícito, se for pedida. · feito quando: as rotas novas convivem com as existentes, e o sino atual continua funcionando.
-- [ ] T7.6 — **Destinatário e badge nas mesas especiais** (requisito 15b). Decisão do mantenedor (2026-07-27): quem recebe é a **conta publicadora** — a única com vínculo real no `accounts.` Mestre nomeado só em `actual_gm_name`, sem conta, não recebe (não há para onde notificar); mesa órfã, sem `gm_id`, não gera notificação de publicação; badge só quando há conta real por trás. · feito quando: os três casos testados, sem inventar destinatário.
-- [ ] T7.7 — Confirmar que a moderação cobre a superfície nova — comentário em mesa é conteúdo público. · feito quando: moderador global retira comentário de mesa pela UI.
-- [ ] T7.8 — **Cobertura que as duas tasks anteriores não tinham:** adapter da fachada, UI, estados de carregamento e erro, threads, degradação com o `accounts.` fora, limites de tamanho e taxa, e testes de cada um. A versão anterior desta fase tinha duas tasks para tudo isso. · feito quando: cada item com teste, não só implementado.
+**Resumo do estado (2026-08-16):** 12/12 tasks fechadas; código na branch local
+`feat/090-fase-7-mesas-comentarios`, **sem commit, sem push, sem deploy**; credencial de serviço
+do `mesas` rotacionada e em uso em prod e beta; validação repo-wide verde (números em §Validação
+da fase). Bloqueio remanescente: nenhum técnico — só as autorizações de commit/push/PR/deploy.
+
+### Estado do código no início da fase, medido em 2026-08-16
+
+**Os dois pré-requisitos P0 (26aa e 26b) estão resolvidos e mergeados em `dev`.** Isso não estava
+registrado aqui e mudava o custo da fase inteira:
+
+- **26b / T7.1** — `apps/mesas/backend/src/utils/tableVisibility.ts` existe em `origin/dev`
+  (commit `87e8afc`), exportando `isPublicTable`, `isImportedTableExpired`,
+  `importedTableExpiryDate` e `importedTableIsCurrentSql`. `routes/tables.ts:12,155-157` e
+  `routes/og.ts:7` já consomem. A regra pública é uma só e **é ela que T7.3 deve reusar**, não
+  reimplementar.
+- **26aa / T7.1b** — `frontend/src/components/MarkdownEditor.tsx` virou adaptador fino sobre
+  `@artificio/content-editor`; **`RichTextArea.tsx` não existe mais** (busca por nome: zero
+  arquivos) e `dangerouslySetInnerHTML`/`markdown-it` não aparecem em `apps/mesas/frontend/src`.
+  Na escrita, `routes/gmPanel.ts:228,231,358,363` sanitiza `bio_long` e
+  `closed_group_description` com `sanitizeUserMarkdown`/`sanitizeNullableUserMarkdown`.
+  → **T7.1 e T7.1b podem ser fechadas registrando o SHA `87e8afc`** — a condição escrita nelas
+  ("até a PR da 089 ser mergeada em `dev`") está cumprida.
+
+**Divergência doc↔código encontrada (o código vence, AGENTS.md §Erros Conhecidos).** T7.3 e o
+requisito 26a descrevem os estados como "ativa / encerrada / arquivada / rascunho / oculta /
+removida". O enum real é `TableStatus = 'draft' | 'active' | 'full' | 'cancelled' | 'ended' |
+'pending_review'` (`apps/mesas/backend/src/db/types.ts:218`), mais a coluna **`archived_at`**
+(nullable, ortogonal ao status) e a expiração de importada (sem coluna: derivada de `origin`,
+`starts_at`, `created_at`). Não existe estado "oculta" nem "removida" — mesa não é deletada. O
+mapeamento a implementar, derivado de `isPublicTable`:
+
+| Estado real | Leitura | Escrita nova | Nota |
+|---|---|---|---|
+| `active`, `archived_at IS NULL`, importada não expirada | sim | sim | é exatamente `isPublicTable() === true` |
+| `full` | sim | sim | decidido no código: `routes/tables.ts:610-611` devolve `200`, "lotada continua pública" |
+| `ended`, `cancelled` | sim | **não** | "encerrada" de 26a |
+| `archived_at IS NOT NULL` | sim | **não** | "arquivada" de 26a |
+| importada expirada | sim | **não** | `isImportedTableExpired()` |
+| `draft`, `pending_review` | **não** (404) | não | "rascunho" de 26a; sem oráculo de existência |
+
+`isPublicTable` colapsa tudo em um booleano — serve para "escrita permitida", **não** para
+"leitura permitida", que precisa distinguir `ended`/`archived` (lê) de `draft` (404). A função
+nova pertence ao mesmo `tableVisibility.ts`, ao lado da existente, e não pode divergir dela: foi
+essa divergência entre detalhe e OG que criou o arquivo (comentário em `:23-27`).
+
+**A tabela acima não é desenho novo: é a resposta HTTP que `routes/tables.ts:605-631` já dá** —
+`200` para `full`, `410` para terminal/arquivada/expirada, `404` para rascunho/revisão. Copiar a
+forma de `:617-619` (conjunto explícito de terminais em vez de negar `isPublicTable`) pelo motivo
+escrito em `:615-616`: estado novo no enum não deve cair em "encerrada" por omissão.
+
+### Pesquisa de prática estabelecida (2026-08-16), para as duas decisões abertas desta fase
+
+**1. Voto em conteúdo arquivado — REVERTI minha própria decisão.** Eu tinha implementado
+"voto e denúncia continuam em mesa fechada", com justificativa própria. A prática das duas
+plataformas de referência é o **oposto para o voto** e concorda comigo **só na denúncia**:
+
+| Plataforma | Estado | Voto / like | Denúncia (flag) | Resposta |
+|---|---|---|---|---|
+| Discourse | *closed* | **permitido** ("Allow likes and voting on polls") | permitido | bloqueada |
+| Discourse | *archived* | **bloqueado** ("Disable likes", "Disable poll-based voting") | **permitido** ("Continue to allow flagging") | bloqueada |
+| Reddit | *archived* | **bloqueado** (trava no estado atual; nem retirar o próprio voto) | permitido | bloqueada |
+| Stack Exchange | *historical lock* | bloqueado | bloqueado | bloqueada |
+
+A razão é a diferença de natureza, não convenção: **voto é ranking** e só faz sentido enquanto a
+conversa disputa atenção — deixá-lo aberto faz o placar de uma mesa morta seguir mudando por
+meses, corroendo a comparabilidade histórica que arquivar deveria congelar; **denúncia é
+segurança**, e conteúdo abusivo não deixa de ser abusivo porque a mesa acabou — travá-la criaria
+um recanto do site onde nada pode ser reportado.
+Mesa encerrada/arquivada do `mesas` corresponde ao *archived* do Discourse, não ao *closed*.
+**Corrigido**: `vote: canComment && …` em `TableConversation.tsx`, com o quadro acima resumido no
+comentário do código, mais dois testes (congela em mesa fechada; disponível em mesa aberta — o
+contraste é o que impede um bug de "esconder sempre" passar nos dois).
+**Medição que mostra que a regra pertence à UI e não duplica servidor:**
+`PUT /internal/v1/comments/:id/vote` (`communityCommentRoutes.ts:221`) **não recebe**
+`subject_authorization` — ela só é exigida na escrita de fala (`:496,543`). O `accounts.` não
+tem como saber que a mesa fechou; a decisão é da fachada/UI por construção.
+
+**2. Corpo do `410` — a norma está do lado de incluir o `id`.** RFC 9110 §15.5, sobre toda a
+classe 4xx: *"the server SHOULD send a representation containing an explanation of the error
+situation, and whether it is a temporary or permanent condition. […] User agents SHOULD display
+any included representation to the user."* E §15.5.11 descreve o `410` como aviso **intencional**
+de indisponibilidade permanente, não como resposta vazia. Ou seja: mandar corpo no `410` já é o
+comportamento recomendado — o `mesas` **já faz isso** (`buildClosedTablePayload`), e acrescentar
+`id` ao objeto existente é **campo aditivo num corpo que já viaja**, não mudança de status, de
+forma nem de contrato. `verify:api` classificaria como non-breaking (adição de propriedade).
+Isso reduz o custo de "mudar contrato de rota pública" para "acrescentar um campo".
+**EXECUTADO em 2026-08-16**, porque a norma decide e não sobrou escolha de produto:
+`buildClosedTablePayload` (`routes/tables.ts`) passa a devolver `id`; `normalizeClosedTable`
+(`MesaPage.tsx`) o lê com degradação para `null`; e a tela de mesa encerrada monta
+`<TableConversation canComment={false} />` quando o id existe. `id` e não `slug` porque slug
+identifica rota e pode mudar — o assunto do comentário é o id.
+
+**O teste de segurança pegou a mudança, como devia.** `tables.visibility.test.ts:183` mantém uma
+**allowlist estrita** das chaves do `410` e falhou na hora — campo novo em lista negativa entraria
+calado, em lista positiva para o build. Revisto e liberado com o motivo no próprio teste: `id` é o
+UUID da mesa, já viaja publicamente em
+`GET /api/v1/community/conversation?subject_id=<id>`, e não revela nada além do que o `410` já
+afirma (a mesa existiu e acabou). Não é contato nem dado do GM, que continuam fora.
+
+**Layout:** o `<main>` da tela de encerrada era `flex items-center justify-center`, que
+centralizava verticalmente e cortaria o topo do card assim que a conversa passasse da viewport.
+Virou `flex flex-col items-center … py-10`.
+
+**Refactor que o lint exigiu, e estava certo.** Exportar `normalizeClosedTable` de `MesaPage.tsx`
+para poder testá-la disparou `react-refresh/only-export-components`: arquivo de componente que
+também exporta função quebra o fast refresh do Vite, porque o runtime não distingue componente a
+remontar de dependência a reavaliar. Silenciar era proibido (AGENTS.md §Bug achado), então o tipo
+`ClosedTable`, `normalizeClosedTable` e `describeClosure` saíram para
+`apps/mesas/frontend/src/pages/closedTable.ts`, com o teste em `closedTable.test.ts`. A separação
+é melhor de qualquer forma: normalizador de payload externo é lógica pura e não pertence ao
+arquivo da página.
+
+**✅ 26a completo nas duas pontas (2026-08-16).** O backend já cumpria "encerrada preserva a
+leitura" — o guard devolve `not_commentable`, não `not_visible`, e a fachada aceita esse motivo na
+leitura. Faltava o cliente: `buildClosedTablePayload` não devolvia `id`, então a tela de mesa
+encerrada não tinha `subject_id` para pedir a conversa, e a leitura preservada existia só no
+servidor. Resolvido pela adição aditiva descrita acima. Cobertura: `tables.visibility.test.ts`
+16/16 (dois casos novos — allowlist revista e `id` servindo ao propósito) e
+`closedTable.test.ts` 8/8 (id lido; degrada para `null` quando ausente/nulo/numérico/vazio;
+payload que não é objeto não vira `TypeError`).
+
+**Regressão ativa que a Fase 7 herda:** o sino do header do `mesas` já aponta para o consolidado
+e o `mesas` ainda não produz nada lá — feed vazio em produção, com 45 não lidas presas na tabela
+local. Medição e consequência para o filtro de admin: bloco de T3.13.
+
+**Referências prontas para copiar, não inventar.** A Fase 5 já entregou o molde inteiro no
+`downloads`, e o `site` tem a segunda instância:
+- Guard de assunto: `apps/downloads/backend/src/community/materialSubjectGuard.ts` (+ o teste de
+  conformidade ao lado). O contrato (`CommentSubjectGuard`, `authorize`, `refuse`,
+  `SubjectRefusalReason`) e a **suíte de conformidade** vivem em `@artificio/comments`
+  (`subjectAuthorizationConformance.ts`) — o guard novo do `mesas` deve passar nela.
+  Segunda instância: `apps/site/server/community/postSubjectGuard.ts`.
+- Fachada HTTP: `apps/downloads/backend/src/routes/communityComments.ts` — proxy transparente com
+  `X-Service-Token`, `X-Acting-User-Id`, propagação de `Idempotency-Key`/`X-Correlation-Id`,
+  `503` para `accounts.` fora e `502` para resposta não-JSON. **A leitura também passa pelo
+  guard** (achado da PR #264): sem isso `?subject_id=<mesa em rascunho>` vira oráculo de
+  existência.
+- Registro: `apps/downloads/backend/src/server.ts:132-133`
+  (`/api/v1/community/conversation` + `/api/v1/community`).
+- UI: `apps/downloads/frontend/src/components/MaterialConversation.tsx` +
+  `hooks/useCommunityConversation.ts` sobre `CommentsConversation` de
+  `@artificio/comments/react`; `apps/site/src/components/comments/PostConversation.tsx` é a
+  variante ilha.
+
+**T7.2 confirmada no código, e a armadilha é real.** No `downloads`,
+`middleware/auth.ts:66` faz `userId: session.user.id` — o `X-Acting-User-Id` que a fachada envia
+(`communityComments.ts:263`) já é o ID do `accounts.`. **No `mesas` é diferente:**
+`middleware/auth.ts:108` faz `userId: mesasUser.id`, o UUID local de `mesas.users`. Copiar a
+fachada do `downloads` linha a linha manda o ID errado e associa a fala à conta errada — ou a
+nenhuma. O ID do `accounts.` no `mesas` é `session.user.id`, persistido em `users.google_id`
+(`middleware/auth.ts:62`, `db/types.ts:14`). O mesmo vale para `owner_user_id`/destinatário de
+T7.6: `tables.gm_id` referencia `mesas.users.id`, então precisa do JOIN para `google_id`.
+
+**T7.5 confirmada:** `server.ts:127` registra `app.use('/api/v1/notifications', notificationsRoutes)`
+e o frontend legado depende dessa URL. As rotas novas vão em `/api/v1/community/*`, mesmo
+namespace do `downloads`.
+
+**Credencial de serviço — estado remedido em 2026-08-16, e é melhor que o registrado.** A causa
+raiz que travava `BLQ-090-CRED-WRITE` **já foi resolvida**; o texto do bloqueio está desatualizado:
+
+| O que o bloqueio dizia | Medido em 2026-08-16 |
+|---|---|
+| `accounts.` de prod atrás do código, não conhece `notification.write` | **Falso hoje.** `grep` no `dist/serviceCredential.js` do container `accounts-api` encontra `notification.write` |
+| `schema_migrations` com 9 linhas contra 11 no disco | **Resolvido.** 11 no disco, 11 aplicadas; `migration_011_notification_ingest_scope.sql` aplicada em 2026-08-15 15:28 |
+| escopo recusado pelo CHECK | **Falso hoje.** `pg_constraint` aceita os 8: `users.read, secrets.read, comment.write, comment.read, vote.write, report.write, moderation.write, notification.write` |
+
+**O `mesas` JÁ TEM credencial de serviço em uso** — o registro anterior desta seção estava errado
+(eu grepei só `apps/mesas/backend/src` e concluí ausência; a credencial existe e é consumida por
+`services/adminSecrets.ts`). Estado real em `community_service_credential`:
+
+| `token_id` | realm | slot | escopos | último uso |
+|---|---|---|---|---|
+| `mesas-prod-8a634a5b` | prod | current | `{secrets.read}` | 2026-08-07 17:45 |
+| `mesas-beta-6b5798f4` | beta | current | `{secrets.read}` | 2026-08-07 17:31 |
+
+**✅ ROTAÇÃO CONCLUÍDA em 2026-08-16, com aprovação nominal do mantenedor. As credenciais novas
+estão EM USO nos containers dos dois realms, e as antigas foram revogadas.** Estado final,
+medido em `community_service_credential`:
+
+| `token_id` | realm | slot | escopos | estado |
+|---|---|---|---|---|
+| `mesas-prod-a2309cf0` | prod | next | `secrets.read, comment.read, comment.write, vote.write, report.write, notification.write` | **ativa, em uso** |
+| `mesas-beta-c7a725ad` | beta | next | idem prod | **ativa, em uso** |
+| `mesas-prod-8a634a5b` | prod | current | `{secrets.read}` | revogada |
+| `mesas-beta-6b5798f4` | beta | current | `{secrets.read}` | revogada |
+
+`secrets.read` foi mantido nas novas de propósito: omitir quebraria `services/adminSecrets.ts`,
+que é o consumidor que já existia.
+
+**Prova de que os containers usam a nova, e não só o banco:**
+`docker exec mesas-api sh -c 'echo ${SERVICE_CREDENTIAL%%.*}'` → `mesas-prod-a2309cf0`;
+o mesmo em `mesas-beta-api` → `mesas-beta-c7a725ad`. Esta é a medição que autorizou a revogação —
+`last_used_at` sozinho não bastaria, porque o de prod podia ser resíduo da validação anterior.
+`last_used_at` das duas novas avançou (prod `2026-08-16 23:47`, beta `2026-08-17 01:13`); as
+antigas ficaram paradas em `2026-08-07`.
+
+**Escopos validados contra produção** (read-only, nenhuma escrita criada):
+`GET /internal/v1/comments` com token → `200`, sem token → `401`;
+`POST /internal/v1/notifications/events` com corpo `{}` → `400 invalid_body`, **não** `401`/`403`
+— o guard de `notification.write` passou antes do Zod recusar o corpo, que é o que
+`BLQ-090-CRED-WRITE` dizia ser impossível.
+
+**Procedimento executado, com as coordenadas para repetir noutro módulo:**
+1. Backup: `.env.bak-cred-20260816` e `.env.beta.bak-cred-20260816` (rollback é restaurar e
+   repetir o passo 3).
+2. `sed -i 's|^SERVICE_CREDENTIAL=.*|…|'` no `.env` — conferido depois com
+   `grep -c '^SERVICE_CREDENTIAL='` (1) e `wc -l` (47 em prod, 43 em beta), para provar que o
+   `sed` não comeu linha.
+3. **`docker compose -p <projeto> -f <compose> --env-file <env> up -d --force-recreate`** — o
+   MESMO comando da esteira (`_deploy-module.yml:397`). É o que evita o `BLQ-090-NGINX`:
+   recria API **e** front juntos, então o nginx do `<mod>-app` resolve o upstream de novo.
+   Projetos: `mesas` / `mesas-beta` (`deploy-manifest.json`).
+4. Smoke pelas rotas críticas do manifesto: prod `home=200`, `private=401`, `health=200`;
+   beta idem. **Coordenada:** o host de beta é `mesasbeta.artificiorpg.com`, sem ponto — errei
+   com `mesas.beta.` e recebi `000`.
+5. Gate de tráfego + prova por `docker exec`, e só então `revoke --token-id <antiga>`.
+
+**Diferença medida entre os realms:** prod tem **4** serviços no compose (`mesas-db`, `-api`,
+`-app`, `-cron`) e beta tem **3** — não existe `mesas-beta-cron`. Só prod declara a credencial em
+dois serviços (`docker-compose.prod.yml:74,141`).
+
+**Os segredos em claro não estão registrados aqui e não são recuperáveis do banco** (só o hash
+Argon2id). Se forem perdidos, o caminho é revogar e emitir de novo.
+
+Procedimento de referência em `src/scripts/serviceCredentialAdmin.ts:17-27`: emitir `--slot next`
+→ publicar no `.env` → reiniciar → confirmar tráfego por `list` → revogar a `current`. Revogar
+antes de confirmar tráfego é o erro que derruba o consumidor.
+
+Escopos a pedir: `comment.read`, `comment.write`, `vote.write`, `report.write` (paridade com o
+`site`, que já os tem em prod) + `notification.write` (T3.13) + `secrets.read` (preservar o uso
+atual — **omitir revoga a função existente**). **Exige aprovação nominal: é escrita no banco de
+produção.**
+
+**Constantes já fixadas — não inventar:**
+- `subject_type = 'mesas.table'` — **fixado no contrato**, `contrato-http-v1.md:84` (os três
+  válidos são `site.post`, `downloads.material`, `mesas.table`). Espelha
+  `DOWNLOADS_SUBJECT_TYPE`/`SITE_SUBJECT_TYPE`.
+- `canonical_path = '/mesas/' + encodeURIComponent(slug)` — a rota pública real é
+  `<Route path="/mesas/:slug">` (`apps/mesas/frontend/src/App.tsx:54`). **Slug, nunca id**: é o
+  mesmo defeito que a PR #257 corrigiu no `downloads`, onde `/materiais/<UUID>` abria "não
+  encontrado" em todo link de notificação. Os dois precedentes usam `encodeURIComponent`
+  (`materialCanonicalPath`, `postCanonicalPath`); o do `site` termina com barra porque a rota do
+  Astro tem, a do `mesas` não tem.
+- `subject_id` = `tables.id` (UUID), não o slug — o slug muda, o id não.
+
+**Contrato exato das 6 rotas a implementar** (fonte: `artificio-api-governance`, não memória de
+chat). `downloads` e `site` expõem **exatamente as mesmas**, e o `mesas` deve repetir:
+`GET /api/v1/community/conversation` (auth `none`), `POST` (user), `PATCH /{id}`, `DELETE /{id}`,
+`POST /{id}/replies`, `PUT /{id}/vote`. Moderação e denúncia são namespace irmão, registrado
+separadamente (`POST /api/v1/community/comments/{id}/reports`,
+`POST|GET /api/v1/community/moderation/comments/{id}/{removal,restore,versions}`).
+**Nota:** o `downloads` ainda expõe a superfície legada `/api/v1/comments` e
+`/api/v1/comments/{materialId}` em paralelo à nova — o `mesas` nasce sem legado, então não
+reproduzir isso.
+
+### Achados de review da PR #268 (Codex) — 3 corrigidos, 1 registrado como débito
+
+**P1 — `tables.gm_id` não referencia `users`. Defeito real, corrigido.** O guard unia
+`users.id = tables.gm_id`, mas a FK aponta para `gm_profiles(id)`
+(`migration_01_base_schema.sql:124`); o caminho é
+`tables.gm_id → gm_profiles.id → gm_profiles.user_id → users.google_id`. **Medido em produção:
+27 mesas com `gm_id`, o join errado casa 0, o correto casa 27** — todo publicador ficaria sem
+notificação e sem badge, com sintoma mudo (`ownerUserId: null` é valor legítimo de mesa órfã).
+As duas colunas são UUID, então o tipo não pega.
+*Por que o teste não pegou:* o duplo de `Kysely` aceitava qualquer `leftJoin` e devolvia o dono já
+resolvido de `TABLES`. Agora ele **registra** os joins e o teste afirma a cadeia — duplo que
+aceita qualquer consulta não testa consulta nenhuma.
+
+**P1 — `@artificio/comments` fora da imagem de produção. Corrigido (padrão E016/E017).**
+`apps/mesas/backend/Dockerfile` não copiava `packages/comments/dist` nem incluía o pacote no
+filtro do `pnpm install --prod`: build e CI verdes, container crashando no boot com
+`MODULE_NOT_FOUND`, porque `server.ts` carrega as rotas novas. Acrescentados o `--filter`, o
+`test -d packages/comments/node_modules/zod` e o `COPY` do `dist`.
+*Decisão medida:* copio `dist` (ESM) e **não** `dist-cjs`, apesar de o pacote declarar `main` — o
+backend é `"type": "module"` e resolve pela condição `import`. E **não** trago `@artificio/ui`,
+diferente do Dockerfile do `downloads`: no `dist` publicado só `CommunityModerationWorkspace.js`
+(React, exportado por `/react`) o importa; o `index.js` e os 12 módulos que ele reexporta dependem
+apenas de `zod` e `@artificio/content-editor`, já presentes.
+
+**P2 — buckets de rate limit compartilhados. Corrigido em duas rodadas.** As cinco rotas de escrita
+usavam o mesmo `strictRateLimiter` (singleton, 10 req/15 min), então dez votos legítimos esgotavam
+a cota e o usuário levava `429` ao tentar publicar — acoplamento que `contrato-http-v1.md` §14
+proíbe ("buckets independentes por ação"). Havia um segundo defeito que o bot não citou e a
+medição expôs: **10/15 min é dez vezes menor que o teto do módulo equivalente** (o `downloads` usa
+60/15 min para escrita de fala); `strictRateLimiter` existe para operação sensível de painel, e
+herdá-lo tornaria a conversa inutilizável antes de qualquer abuso.
+Criados quatro limiters no vocabulário que o pacote já define (`COMMENT_RATE_BUCKETS`):
+`commentWriteRateLimiter` (60), `commentEditRateLimiter` (60), `commentVoteRateLimiter` (120),
+`commentReportRateLimiter` (20).
+
+A terceira rodada apontou o que sobrou: **denúncia e recurso ainda dividiam
+`commentReportRateLimiter`**, embora §14 e `COMMENT_RATE_BUCKETS` os listem como buckets distintos
+(`report` e `appeal`, o quinto e o sexto). Criado `commentAppealRateLimiter` (10/15 min, teto baixo
+porque o domínio já limita a um recurso por decisão — segundo recurso é `409`/`appeal_already_filed`,
+§12; o que o bucket barra é varredura de ID alheio). A consequência do compartilhamento era a pior
+possível justamente aqui: quem é moderado tende a denunciar de volta, esgota a cota de denúncia e
+perde **a via de defesa contra a própria punição**.
+
+O mesmo defeito estava no `downloads`, em forma mais grave, e não foi citado por bot nenhum:
+denunciar, retirar denúncia e recorrer usavam o `writeRateLimiter` — o bucket de **criar e editar
+material**, outro domínio. Publicar 60 materiais deixava o usuário sem cota para denunciar abuso.
+Criados lá `commentReportRateLimiter` (20) e `commentAppealRateLimiter` (10).
+
+Por que nenhum teste pegou: no `mesas` o mock de `rateLimit` era um passthrough anônimo, que deixa
+a rota passar sem revelar qual instância ela consumiu; no `downloads` não havia mock nenhum — os
+limiters reais rodavam, com store compartilhado entre casos, de modo que crescer a suite ou baixar
+um teto produziria falha por cota esgotada que não se parece com rate limit. Os dois passaram a
+usar marcadores nomeados, que eliminam o estado entre casos e tornam o bucket observável, mais seis
+casos fixando a separação. Verificado que a asserção prende: reunificando `appeal` em
+`commentReportRateLimiter` no `downloads`, a suite reprova 1/8 exatamente no caso do recurso.
+Medido: `mesas` 17/17, `downloads` 8/8.
+
+**P2 — congelamento de voto só na UI.** Achado procede; **não** foi corrigido, e as quatro vias
+foram medidas uma a uma (débito completo em T7.8). A quarta — "passar a asserção pelo contrato
+interno" — foi verificada na segunda rodada de review: `voteBodySchema` é **`.strict()`** e aceita
+só `value`, então campo extra volta `400`. O `mesas` também não guarda vínculo local
+comentário→mesa: a fachada é stateless por desenho. Fechar isto exige mudar o `accounts.`.
+
+### Segunda rodada de review da PR #268 — 4 corrigidos, 1 refutado, 1 reconfirmado
+
+**Refutado — "sanitizar `content_html` com DOMPurify em `TableConversation.tsx:120-142`".** O
+arquivo tem **145 linhas** e não contém `dangerouslySetInnerHTML`, `content_html`, `sanitize-html`
+nem `DOMPurify` (busca por nome: zero ocorrências). Não existe caminho de render de HTML legado
+nesse componente — ele delega tudo a `CommentsConversation` do pacote. Nada a corrigir.
+
+**Procede e corrigido — `ended`/`cancelled` degradavam para `unknown`.** `buildClosedTablePayload`
+usa **o próprio status** como `closed_reason` quando não há um gravado
+(`routes/tables.ts`), e o vocabulário do frontend não conhecia esses dois valores: a tela trocava a
+frase específica pela genérica. **Medido em 2026-08-16:** nenhuma mesa está em `ended`/`cancelled`
+hoje, **mas `closed_reason` é nulo nas 83** — ou seja, o fallback pelo status é o único caminho
+vivo e o defeito apareceria na primeira mesa encerrada. Corrigido em `closedTable.ts` (tipo,
+`CLOSED_REASONS`, duas frases próprias) com 6 casos novos de teste.
+
+**Procede e corrigido — `Idempotency-Key` repassada sem validação.** Ela era encaminhada crua ao
+`accounts.` enquanto a correlação passava por `readCorrelationId`. As duas são texto do cliente
+virando header de saída, com o mesmo risco de caractere de controle — "vem do cliente por
+contrato" é motivo para validar, não para confiar. Agora usa a mesma função.
+
+**Procede e corrigido — `Retry-After` não atravessava a moderação.** A conversa já propagava; a
+moderação, não. É onde mais dói: o operador é quem insiste ao ver `429`. Propagado em `429` e
+`503`, com teste do caso positivo e do negativo (`200` não ganha header). O `downloads` tinha a
+mesma lacuna e foi corrigido junto.
+
+**Procede e corrigido — duplicação medida pelo Sonar (57% em `communityModeration.ts`, 30,5% em
+`communityComments.ts`).** Real: as duas fachadas nasceram copiando o molde do `downloads` e
+trouxeram junto `accountsOrigin`, `isBodyless`, `actingAccountsUserId`, a validação de header e a
+mecânica inteira de repasse — idênticas nos dois arquivos.
+**Por que não era só estética:** a camada duplicada é justamente a que decide credencial, ator e
+degradação. É o mesmo padrão que já cobrou preço aqui — `downloads` e `site` mantiveram hosts de
+conversa paralelos até a PR #264, e **duas correções de review aplicadas num nunca chegaram ao
+outro**.
+Extraído `community/accountsProxy.ts` com o transporte; as fachadas ficaram com a **política**, que
+continua separada de propósito: guard de assunto, guard de papel, escolha de bucket e vocabulário
+de erro. `communityComments.ts` 375 → 280; `communityModeration.ts` 301 → 176.
+**Ganho colateral medido:** a moderação passou a ecoar `correlation_id` no corpo de erro, que
+`contrato-http-v1.md` §1.1 exige em toda resposta de erro e a cópia dela não fazia — dois testes
+falharam por isso e foram atualizados, o que é a prova de que a divergência existia.
+
+**O mesmo tratamento foi aplicado ao `downloads`.** Ele tinha as duas lacunas que motivaram o
+achado: `Retry-After` não atravessava a moderação e o corpo de erro dela não trazia
+`correlation_id` — a fachada de conversa do mesmo app já fazia as duas coisas. É a duplicação
+cobrando o preço previsto, e a prova é que corrigir uma cópia não corrigiu a outra.
+`communityComments.ts` 318 → 239; `communityModeration.ts` 234 → 137.
+
+**Segunda medição do Sonar, e a correção que faltava: a duplicação entre apps.** Extrair por app
+resolveu metade do problema — os dois `accountsProxy.ts` ficaram idênticos entre si (74,3% e 66,5%,
+165 linhas). Medida a divergência real fora de comentário: **quatro pontos apenas** — o `fetch`
+(`undici` no `downloads`, global no `mesas`), `actingAccountsUserId` (só o `mesas` precisa, porque
+lá `req.user.userId` é UUID **local** e o id central vem de `session.user.id`), o tipo da resposta
+e um comentário. Os dois primeiros são exatamente onde os apps **devem** divergir, e ambos são
+injetáveis — o que torna a unificação possível sem esconder diferença.
+
+Núcleo movido para `packages/comments/src/facadeRelay.ts` (279 linhas, uma cópia só), exportado na
+raiz. Segue a disciplina que `rateLimitBuckets.ts` já fixa no pacote: **não conhece `express`** —
+recebe dados neutros e devolve um `FacadeRelayResult` que o app escreve na resposta. Cada app ficou
+com um adaptador fino que traduz `req`/`res` e injeta `fetch` e ator: `mesas` 247 → 119,
+`downloads` 214 → 106. Divergência de código entre os dois adaptadores hoje: **9 linhas**.
+Como o pacote entrou numa camada nova de dois backends, conferido E016/E017: `mesas` é
+`type: module` e resolve por `import` → `dist` (copiado no Dockerfile:96); `downloads` resolve por
+`require` → `dist-cjs` (Dockerfile:138); `facadeRelay` presente e exportado nas duas builds.
+Medido: `comments` 216/216, `mesas-backend` 803/803, `downloads-backend` 566/566, test 41/41 sem
+cache, lint 25/25, build 25/25.
+
+**O `site` foi verificado e NÃO precisa da correção:** `server/community-api.ts` já propaga
+`Retry-After` (`:187-188`) e já ecoa `correlation_id` nos erros (`:131,179`). Não foi
+deduplicado de propósito — é um app Astro com estrutura própria, e extrair transporte comum
+cruzaria fronteira de app sem ganho de manutenção.
+
+**Procede e corrigido — três defeitos de teste.** (a) `lastCall()` lia `calls[0]` apesar do nome,
+o que mediria a requisição errada em qualquer caso com duas chamadas; (b) o env do processo não
+era restaurado, e um teste apaga `SERVICE_CREDENTIAL` de propósito — vazava para quem rodasse
+depois no mesmo worker; (c) faltavam dois ramos: leitura anônima (não pode inventar
+`X-Acting-User-Id`) e sessão ausente na moderação (`401` explícito em vez de `TypeError`).
+A correção de (b) tinha ficado **só em `communityModeration.test.ts`**: a suíte de conversa, que é
+justamente onde está o `delete process.env.SERVICE_CREDENTIAL`, continuou vazando até a rodada
+seguinte apontar. Corrigido lá com o mesmo `envOriginal`.
+
+### Quarta rodada de review (PR #268)
+
+**Não procede — `dist-cjs` de `comments` e `content-editor` no Dockerfile do `mesas`.** O achado
+parte do `exports` declarar `require`, mas quem escolhe a condição é o **consumidor**: este backend
+é `"type": "module"` com `moduleResolution NodeNext` e resolve por `import`. Medido, não inferido —
+`import.meta.resolve` de dentro do backend devolve `packages/comments/dist/index.js` e
+`packages/content-editor/dist/sanitize.js`, e os símbolos carregam (`relayToAccounts`,
+`moderationQueueSchema`, `sanitizeOptionalUserMarkdown`). O `dist` ESM do pacote também não tem
+nenhum `require(`. Copiar `dist-cjs` aqui seria peso morto na imagem. (O `downloads` é o inverso e
+já está certo: não é `type: module`, resolve por `require` → copia `dist-cjs`.)
+
+**Procede e corrigido — `actingAccountsUserId` acessava `user` sem guarda.** Era
+`session?.user.id`: protege `session`, não `user`. O tipo garantiria o shape, mas o valor entra por
+`as unknown as` — fora do alcance do compilador — e os testes escrevem `{ session: unknown }`.
+Sessão sem `user` viraria `TypeError` no handler, `500` opaco no lugar da leitura anônima que a
+ausência de ator deve produzir. Agora valida campo a campo e exige string não-vazia.
+
+**Procede e corrigido — `UpstreamValidation` redeclarado** em `communityModeration.ts`, cópia
+estrutural do tipo que `accountsProxy.ts` já exporta. Idênticos hoje, então nada quebrava; o risco
+é o local divergir em silêncio quando o contrato do pacote mudar. Passou a importar.
+
+**Procede e corrigido — teste prometia edição e só exercitava voto.** O caso "vale também para voto
+e edição" fazia apenas o `PUT .../vote`. Rota diferente (`PATCH /:id`, outro bucket), então
+resolver o ator ali é decisão própria, não herdada. Adicionado o `PATCH` com as duas asserções (é o
+id central, **não** é o UUID local).
+
+**Procede e corrigido — `RUN` encadeado misturava install e asserção**, nos dois Dockerfiles. Em
+`pnpm install && test -d ... || echo "ERRO: dependencia ... ausente"`, falha de rede ou lockfile
+caía no mesmo `||` e era reportada como dependência ausente — diagnóstico errado num build que
+quebrou por outro motivo. Separados em `RUN` distintos; no `downloads` o problema era maior (12
+`pnpm install` dividindo o mesmo `||`). Docker Desktop fora do ar, então não houve build real:
+validada a sintaxe dos quatro blocos com `sh -n` (OK) e conferido que install e asserção viraram
+`RUN` separados.
+Medido: `mesas-backend` rotas+community 209/209, test 41/41, lint 25/25, build 25/25,
+`tsc --noEmit` limpo.
+
+### Quinta rodada de review (PR #268)
+
+**Procede e corrigido — ordem de middleware (`js/missing-rate-limiting`, CodeQL).** As rotas
+**tinham** limiter; o CodeQL exige que ele venha **antes** do middleware de autorização, e o
+argumento é real: com `authMiddleware` primeiro, toda requisição paga validação de JWT antes de
+qualquer freio, e a rota vira amplificador — o atacante gasta um header inválido, o servidor gasta
+verificação de assinatura. Invertido nas 8 rotas + 2 arrays de guard de **cada** app (o bot citou
+3 rotas do `downloads`; a inconsistência era geral e a fachada de conversa dos dois apps já usava a
+ordem certa — a moderação é que era a exceção, que eu propaguei ao criar os buckets novos).
+Seguro porque nenhum bucket usa `keyGenerator`, `skip` ou lê `req.user`: todos chaveiam por IP, que
+existe antes de autenticar. Travado por teste: os mocks passaram a registrar a ordem real de
+execução, e reverter a inversão reprova (`expected [ 'auth', 'rate-limit' ]`).
+
+**Procede — P1 do Codex: `moderation.write` ausente na credencial do `mesas`.** Medido no banco de
+produção, não no documento: `mesas-prod-a2309cf0` e `mesas-beta-c7a725ad` tinham 6 escopos e **não**
+`moderation.write`, que `communityModerationRoutes.ts:299` exige em todas as 14 rotas — inclusive
+a fila, que é leitura. As rotas responderiam `403` a todo moderador. A origem está registrada em
+:1037: o escopo ficou de fora **por menor privilégio**, quando a fachada do `mesas` ainda não
+expunha moderação; a Fase 7 mudou a premissa e ninguém revisitou.
+**Resolvido com `UPDATE` de escopo, não com rotação de credencial** — `resolveServiceCredential`
+consulta o banco a cada requisição (sem cache), então o efeito é imediato e **não** exige
+`--force-recreate`, o que evita o `BLQ-090-NGINX` inteiro. Backup do estado anterior em
+`~/mesas-scopes-antes-20260817.txt` na VM; `UPDATE` idempotente e restrito
+(`revoked_at is null and not ('moderation.write' = any(scopes))`), afetou 2 linhas.
+Verificado por chamada real de dentro do container: o erro saiu de `insufficient_scope` para
+`forbidden_role` nos dois realms — o guard de credencial passou, e o `403` restante é o guard de
+papel recusando o UUID fictício do teste, como deve. Controle com credencial revogada devolve
+`unauthorized`, provando que os três estados são distinguíveis. `downloads` e as credenciais
+revogadas intocados; smoke `accounts health=200`, `mesas home=200`, `mesasbeta home=200`.
+
+**Procede e corrigido — duplicação restante entre os adaptadores (Sonar: 69 linhas, 64,5% e
+53,5%).** A unificação anterior parou cedo: a tradução `req`/`res` → `relayToAccounts` continuava
+idêntica nos dois apps, e dependia só de `fetchImpl` e do ator — que já eram parâmetros. Ou seja, a
+cópia não protegia diferença nenhuma. Subiu para `createFacadeProxy` no pacote, tipado
+**estruturalmente** (`FacadeHostRequest`/`FacadeHostResponse`), então `@artificio/comments` continua
+sem depender de `express` e o `Request` real satisfaz por shape, sem cast. Adaptadores: `mesas`
+119 → 86, `downloads` 106 → 58; divergência de código entre eles, **11 linhas**.
+**Defeito real que os testes pegaram no meio disso:** `fetchImpl: fetch` captura a referência no
+**import**, congelando o valor — os testes trocam o global com `vi.stubGlobal` depois e passaram a
+bater na rede (25 falhas, `fetch failed`). Corrigido resolvendo na chamada (`(url, init) =>
+fetch(...)`), nos dois apps. Vale além do teste: substituir o transporte por instrumentação também
+não teria efeito com a referência congelada.
+
+**Erro de medição do próprio agente, corrigido.** Vários relatórios desta spec afirmaram "test
+41/41 **sem cache**" com base em `pnpm run test --force`. O comando não faz o que a frase diz: o
+`pnpm` repassa a flag ao script do pacote, não ao turbo, e o script raiz é `turbo run test
+--concurrency=4` — então `--force` chegava ao **vitest**, que aborta com `CACError: Unknown option
+--force`. Era esta a "falha de `@artificio/comments#test` no turbo" que ficou dias sem diagnóstico:
+erro de linha de comando, não teste quebrado. Forma correta: `pnpm turbo run test --concurrency=4
+--force` (medido depois: **41/41, 0 cached, exit 0**). Registrado aqui porque a afirmação errada já
+tinha entrado em relatório entregue ao mantenedor.
+
+**Não procede — `communityModeration.ts` (33,3%).** As ~61 linhas marcadas são as 20 declarações
+`router.get/post(...)` de cada app, que se parecem porque são **o mesmo contrato HTTP**. O que
+diverge é a política que cada linha carrega: `requireCommentModerator` (lê `globalRole`, porque o
+`mesas` rebaixa `moderator` → `player`) contra `requireRole(['moderator','admin'])`, buckets
+diferentes e ator diferente. Extrair isso exigiria uma tabela de rotas genérica que **esconderia
+justamente as diferenças que a spec manda deixar visíveis** — o oposto do critério aplicado nas
+camadas de transporte. Fica como está, de propósito.
+
+### Sexta rodada de review (PR #268)
+
+**Procede e corrigido — `401` sem `correlation_id`.** O ramo de ator não resolvido em
+`guardaPreChamada` era a **única** saída de erro do módulo que omitia o campo, enquanto o `503` ao
+lado o incluía; §13 do contrato exige `correlation_id` em toda resposta de erro. A ausência doía
+justamente no caso mais difícil de diagnosticar — `401` sem ator é falha de ordem de middleware, e
+sem a correlação não há como ligar o relato do cliente ao log do servidor. Passou a usar
+`erroDeResposta`; o teste que fixava `{ error: 'unauthenticated' }` foi atualizado.
+
+**Procede e corrigido — `credential!` em `relayHeaders`.** A asserção não-nula se apoiava numa
+garantia do chamador, mas a função é **exportada**: quem a chamasse direto serializaria `undefined`
+como a string literal `"undefined"` no `X-Service-Token`, e o `accounts.` recusaria com `401`
+genérico — o operador procuraria uma credencial revogada que nunca foi enviada. Agora lança. Lançar
+e não omitir o header é deliberado: sem `X-Service-Token` a chamada seguiria **anônima** ao registro
+central, que é falha aberta.
+
+**Não procede — edição bloqueada em mesa encerrada.** Factualmente o achado está certo (`PATCH` e
+`DELETE` não passam pelo guard de assunto, e o `accounts.` não revalida o ciclo de vida na edição),
+mas é desenho, não lacuna. O requisito 26a limita **escrita nova** — "revalidado a cada criação e a
+cada resposta" —, e editar é ato de *reparo* da própria fala. Bloquear prenderia o autor a um texto
+com erro numa mesa encerrada, e a auto-retirada (mesmo bucket) cairia junto: ele perderia o direito
+de retirar o que escreveu exatamente quando não pode mais se explicar em resposta. O `downloads`,
+host de referência já em produção, tem o mesmo desenho. Razão registrada no código para o achado
+não voltar.
+
+**Não procede — "tainted data" em `ResultCard.tsx` (2x).** Medido: a `baseURL` do cliente é fixa
+(variável de build), os dois valores vêm da resposta da própria API, e ambos já passam por
+`encodeURIComponent`. Verificado com payloads reais — `../../admin`, `http://evil.test/x`,
+`a?b=1#c`, `..%2f..%2fetc` — e nenhum escapa do segmento de path (viram `..%2F..%2Fadmin` etc.).
+Sem host variável e sem escape possível, não há SSRF nem redirecionamento.
+
+**Erro do próprio agente, corrigido — as exclusões do Sonar estavam no arquivo errado.** O commit
+anterior acrescentou `**/*.html` a `sonar-project.properties`, e os achados continuaram aparecendo.
+Causa medida na doc oficial: a **Automatic Analysis ignora** esse arquivo — "If you import a project
+that already contains a `sonar-project.properties` file, SonarQube Cloud will ignore the parameters
+in your sonar-project.properties file". O arquivo lido é **`.sonarcloud.properties`**, e
+`sonar-project.properties` só volta a valer se a análise automática for trocada por CI/CD (não é o
+caso: `rg` em `.github` não acha nenhum workflow chamando o scanner).
+
+Consequência maior que o pedido original: as exclusões viviam ali desde a PR #113, então
+`docs/api/generated/**` **nunca esteve de fato excluído** — nem por arquivo, nem por painel
+(`api/settings/values` para o componente devolve `{"settings":[]}`). Criado
+`.sonarcloud.properties` com as duas diretivas; `sonar-project.properties` mantido, e não apagado,
+com aviso no topo e o mesmo conteúdo — se a análise migrar para CI/CD ele volta a valer, e apagá-lo
+perderia as exclusões de novo.
+
+**Reapresentados, já recusados com medição:** os 5 `sort()` sem comparador. São chaves de
+idempotência e identificadores de diagnóstico, não texto para leitura humana; `localeCompare`
+devolve 3 ordens distintas para a mesma entrada (reproduzido: `['a-1','A-1','a_1']` sai diferente
+em binário, `pt-BR` e `en-US-u-kf-upper`). O Sonar não guarda estado entre execuções e vai
+reapresentá-los a cada PR que tocar esses arquivos — silenciar exige *won't fix* no painel, que é
+ação do mantenedor.
+
+### Validação da fase, medida em 2026-08-16
+
+`rtk pnpm run test` 41/41 tarefas exit 0 · `rtk pnpm verify:api` exit 0, **0 breaking**,
+23 non-breaking no `mesas` (as 23 rotas novas + o `id` aditivo do `410`) · `tsc` do backend e do
+frontend do `mesas`: 0 erros. Por suíte, medido com `npx vitest run` no app:
+`mesas-backend` **794/794** (62 arquivos), `mesas-frontend` **239/239** (22 arquivos),
+`downloads-frontend` `MaterialConversation.test.tsx` 11/11.
+
+**Flake observado, não reproduzido:** a primeira rodada repo-wide abortou com
+`ERROR @artificio/accounts#test ... exited (1)`, **sem nenhuma linha de teste no log** — o
+processo morreu antes de emitir saída, sob carga paralela do turbo. Rodado isolado logo depois:
+`accounts` **591/591** (34 arquivos, 3 pulados sem `COMMUNITY_TEST_DATABASE_URL`). A rerodada
+completa passou 41/41. Nenhum arquivo do `accounts` foi tocado nesta fase (`git status`
+confirma). Registrado porque some do histórico e reaparece: se voltar, é infraestrutura de
+execução, não regressão do `accounts`.
+
+**Estado da fase: 12/12 tasks fechadas em 2026-08-16.** O que resta não é implementação — é
+**deploy**: o código está numa branch local (`feat/090-fase-7-mesas-comentarios`, partindo de
+`origin/dev` no merge do PR #267) e ainda não foi commitado, pushado nem deployado. A credencial
+já está rotacionada e em uso nos dois realms, então o ambiente aceita a fachada assim que ela
+subir.
+
+Ordem em que foi executada, com dependência verificada e não inferida por numeração:
+T7.1/T7.1b fecharam por registro (já estavam em `dev`, commit `87e8afc`) → T7.3 (política pura) →
+T7.2 + T7.5 + T7.4 (guard, fachada, registro em `/api/v1/community/*`) → T7.6 (destinatário) →
+T7.7 (moderação) → T7.8 (UI). Nenhuma delas precisou da credencial para ser implementada ou
+testada — os testes usam duplo de `fetch`; a credencial só é exigida em runtime real.
+
+- [x] T7.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. · feito quando: leitura confirmada.
+- [x] T7.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
+- [x] T7.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
+- [x] T7.1 — 🔒 **[P0] ABSORVIDA PELA SPEC 089 FASE 6B.** Implementação local concluída e validada em `feat/089-fases-7-8` em 2026-07-28: detalhe, `/view`, `/click` e favoritos aplicam a mesma política pública, com sete testes de rota. **Condição cumprida — medido em 2026-08-16:** `apps/mesas/backend/src/utils/tableVisibility.ts` está em `origin/dev` no commit `87e8afc` (`rtk git log origin/dev -1 -- <arquivo>`), com `isPublicTable` consumido por `routes/tables.ts:12,155-157` e `routes/og.ts:7`. Falta só o mantenedor autorizar marcar como concluída.
+- [x] T7.1b — 🔒 **[P0] ABSORVIDA PELA SPEC 089 FASE 6B.** Implementação local concluída e validada em `feat/089-fases-7-8` em 2026-07-28: `sanitize-html` na escrita e leitura defensiva, preview com `html: false`, payload hostil coberto e `RichTextArea.tsx` removido. Medição Beta/Prod achou zero HTML/entidade persistido; decisão do mantenedor foi não criar migration retroativa. **Condição cumprida — medido em 2026-08-16:** `RichTextArea.tsx` não existe mais em `apps/mesas/frontend` (busca por nome: zero arquivos); `markdown-it` e `dangerouslySetInnerHTML` não aparecem em `apps/mesas/frontend/src`; `MarkdownEditor.tsx` é adaptador sobre `@artificio/content-editor`; escrita sanitizada em `routes/gmPanel.ts:228,231,358,363`. Falta só o mantenedor autorizar marcar como concluída.
+- [x] T7.2 — **[P0] `owner_user_id` enviado ao registro central é o `google_id`, nunca o UUID local.**
+  **Implementado em 2026-08-16.** Duas pontas, porque são dois identificadores diferentes indo
+  para o mesmo lugar: (a) **dono do assunto** — `community/tableSubjectGuard.ts` faz
+  `LEFT JOIN users ON users.id = tables.gm_id` e projeta `users.google_id` como `ownerUserId`,
+  nunca `gm_id`; (b) **ator da fala** — `routes/communityComments.ts` extrai o
+  `X-Acting-User-Id` de `req.session.user.id` por uma função nomeada
+  (`actingAccountsUserId`), e **não** de `req.user.userId`, que aqui é o UUID local
+  (`middleware/auth.ts:108`). É a diferença que faz copiar a fachada do `downloads` linha a linha
+  dar errado: lá `req.user.userId` já é o id central (`downloads/middleware/auth.ts:66`).
+  `LEFT JOIN` e não `JOIN`: mesa órfã (`gm_id` nulo) e mestre externo sem conta são casos reais do
+  acervo importado, e `authorize` aceita `ownerUserId: null` de propósito.
+  **Teste que prova o par, não só o valor:** `tableSubjectGuard.test.ts` fixa `GM_LOCAL_ID` e
+  `GM_GOOGLE_ID` como constantes distintas e afirma `toBe(GM_GOOGLE_ID)` **e**
+  `not.toBe(GM_LOCAL_ID)`; `communityComments.test.ts` faz o mesmo par para o header. Sem a
+  segunda asserção, um mock que devolvesse o mesmo valor nos dois campos passaria e o defeito
+  continuaria de pé.
+  Contexto original do achado: confusão material entre dois UUIDs — `gm_user_id` devolvido pela rota é `mesas.users.id` (`routes/tables.ts:470`), enquanto o ID do `accounts.` vive em `users.google_id` (`db/types.ts:14`) — o middleware converte a sessão central em usuário local (`middleware/auth.ts:37`). Mandar `gm_user_id` ou `req.user.userId` para o `accounts.` associaria o comentário à conta errada, ou a nenhuma. · feito quando: teste prova que o ID enviado resolve para a mesma conta do `accounts.` que originou a sessão.
+- [x] T7.3 — **Ciclo de vida da mesa define o que é comentável** (requisito 26).
+  **Implementado em 2026-08-16.** `utils/tableVisibility.ts` ganhou `canReadTableComments` e
+  `canWriteTableComments`, ao lado de `isPublicTable` e reusando `isImportedTableExpired` — mesma
+  fonte única, pelo motivo em `:23-27` (a regra já divergiu entre detalhe e OG uma vez).
+  **Por que duas funções e não `isPublicTable`:** ela colapsa seis estados em um booleano, e o
+  comentário precisa de três respostas. Mesa encerrada mantém a conversa legível e recusa fala
+  nova; rascunho não tem nem uma coisa nem outra. `isPublicTable` devolve `false` para os dois e
+  não os distingue. A escrita lista os terminais explicitamente em vez de negar `isPublicTable`,
+  copiando `routes/tables.ts:617-619`: estado novo no enum cai no ramo fechado, não em
+  "encerrada" por omissão.
+  **11 casos em `tableVisibility.test.ts`**, cobrindo os 6 estados do enum real mais
+  `archived_at`, importada expirada, `full`+arquivada simultâneos (ortogonalidade que um `if`
+  encadeado erraria) e status desconhecido falhando fechado. Validação: 753/753 no
+  `mesas-backend`, tsc 0, lint limpo.
+  **Erro próprio corrigido no caminho:** a primeira versão do fixture marcou `full` como
+  `escrita=false`, contradizendo a tabela que eu mesmo tinha registrado — o teste pegou.
+  Redação original do requisito, mantida porque nomeia o aceite: Mesa ativa, pública e não expirada: leitura e escrita; encerrada ou arquivada: leitura preservada, escrita nova bloqueada; rascunho ou oculta: **sem leitura pública nem escrita**; removida: a fachada devolve alvo inexistente. A validação roda **a cada criação e a cada resposta**, nunca confiando no payload — ownership recalculado por recurso (OWASP Business Logic). · feito quando: os cinco estados testados, cada um falhando fechado.
+  **Estados reais do schema, não os do texto acima** (medido 2026-08-16, `db/types.ts:218`): o enum
+  é `draft|active|full|cancelled|ended|pending_review`, mais `archived_at` e a expiração derivada
+  de importada. Não existe "oculta" nem "removida". Mapeamento e a razão de a função nova não ser
+  `isPublicTable` sozinha: §Estado real medido em 2026-08-16, no topo desta fase.
+  **`full` já estava decidido no código — não era lacuna** (medido 2026-08-16;
+  registrei antes como pendência por não ter pesquisado o suficiente). `routes/tables.ts:605-631`
+  documenta os 6 estados um a um e trata `full` explicitamente: *"segue o fluxo normal (200). Mesa
+  lotada continua pública e visível — só não aceita mais gente."* O detalhe público devolve `200`
+  para `full` (`:629` excetua o status da negação de `isPublicTable`), `410` para
+  `ended`/`cancelled`/arquivada/expirada e `404` para `draft`/`pending_review`. **A política de
+  comentário deve espelhar essa mesma tabela**, que já é a resposta HTTP real do módulo: `full` lê
+  e escreve. Reusar a estrutura de `:617-619` (`TERMINAL_STATUSES` explícito em vez de negar
+  `isPublicTable`) evita que um estado novo do enum caia em "encerrada" por omissão — a razão está
+  escrita em `:615-616`.
+- [x] T7.4 — **Implementado em 2026-08-16** (rotas aqui; a UI, entregue em T7.8, fecha a outra
+  metade do requisito 26). `routes/communityComments.ts`
+  é fachada browser-safe no molde de `downloads/routes/communityComments.ts`: proxy transparente,
+  `X-Service-Token` da credencial, `realm`/`source_app` derivados dela e nunca do payload, corpo
+  da escrita montado a partir da afirmação do guard (cliente não escolhe dono nem
+  `canonical_path`), `503` para `accounts.` fora, `502` para resposta não-JSON, `Retry-After`
+  propagado, `Idempotency-Key` repassada do cliente e nunca gerada aqui.
+  **A leitura também passa pelo guard** (achado da PR #264) — mas aceita `not_commentable`, senão
+  a conversa de mesa encerrada sumiria; só `not_visible` vira `404`.
+  **Transporte:** `fetch` global do Node, não `undici` explícito como no `downloads` — é o que
+  este app já usa para falar com o `accounts.` (`services/adminSecrets.ts:51`), e trazer a lib só
+  para esta rota adicionaria dependência sem ganho. Única dependência nova: `@artificio/comments`
+  (workspace interno, mesma família dos 8 `@artificio/*` já declarados).
+  **19 testes** em `communityComments.test.ts`: identidade do ator (T7.2), guard decidindo leitura
+  vs escrita, corpo montado contra cliente hostil, e cinco modos de degradação.
+  A separação do review de mestre está preservada: `gm_reviews.comment` (`db/types.ts:578`,
+  `routes/gm.ts:658`) é campo de avaliação com nota, contrato próprio, e não foi tocado.
+  Contexto original:, que não é migrado (requisito 26). O contrato próprio do review está confirmado em `routes/gm.ts:606` — são coisas diferentes e continuam assim. · feito quando: as duas coisas coexistem sem confusão de contrato.
+- [x] T7.5 — **[P1] Namespace próprio para as rotas novas: `/api/v1/community/*`.**
+  **Implementado em 2026-08-16.** `server.ts` registra
+  `app.use('/api/v1/community/conversation', communityCommentsRoutes)` **abaixo** e sem tocar em
+  `/api/v1/notifications`, que segue servindo o feed administrativo. Confirmado pelo bundle
+  (`artificio-api-governance`, não memória): as 6 rotas novas do `mesas` são idênticas às do
+  `downloads` e do `site` — `GET|POST /conversation`, `PATCH|DELETE /{id}`,
+  `POST /{id}/replies`, `PUT /{id}/vote`. `verify:api` exit 0, **0 breaking**, 4 non-breaking
+  (4 *paths*, 6 operações — `/conversation` tem GET+POST e `/{id}` tem PATCH+DELETE).
+  Colisão que motivou o namespace: Colisão real: o `mesas` **já tem** `/api/v1/notifications` (`server.ts:127`), e o frontend depende exatamente dessa URL (`components/NotificationBell.tsx:61`). Substituir o contrato quebraria as notificações administrativas que já funcionam. Fusão dos dois feeds só depois de contrato explícito, se for pedida. · feito quando: as rotas novas convivem com as existentes, e o sino atual continua funcionando.
+- [x] T7.6 — **Destinatário e badge nas mesas especiais** (requisito 15b).
+  **Implementado em 2026-08-16.** Os três casos saem do mesmo `LEFT JOIN` do guard, e estão
+  cobertos por teste: (1) mesa com conta publicadora → `ownerUserId = users.google_id`;
+  (2) `publisher_role = 'announcer'` → quem recebe é **quem anunciou**, porque é a única conta
+  real, mesmo não sendo quem mestra; (3) mesa órfã ou mestre nomeado só em `actual_gm_name` →
+  `ownerUserId: null`, sem inventar destinatário.
+  **Badge:** o rótulo é **"Quem publicou a mesa"**, não "Mestre da mesa" — decidido em
+  `TableConversation.tsx` com o motivo inline. Chamar de mestre seria falso exatamente no caso
+  `announcer` que a decisão de 2026-07-27 nomeia. Teste afirma o rótulo presente e os dois
+  errados ausentes.
+  Contexto original: Decisão do mantenedor (2026-07-27): quem recebe é a **conta publicadora** — a única com vínculo real no `accounts.` Mestre nomeado só em `actual_gm_name`, sem conta, não recebe (não há para onde notificar); mesa órfã, sem `gm_id`, não gera notificação de publicação; badge só quando há conta real por trás. · feito quando: os três casos testados, sem inventar destinatário.
+- [x] T7.7 — **Implementado em 2026-08-16, e a confirmação virou correção.** `routes/communityModeration.ts`
+  espelha as 20 rotas do `downloads` (6 do usuário comum — denunciar, recorrer, listar próprias
+  denúncias — e 14 do moderador global), registrada em `server.ts` sob `/api/v1/community`, depois
+  da conversa, para a rota mais específica casar primeiro.
+
+  **ACHADO QUE MUDOU A IMPLEMENTAÇÃO — `requireRole` não serve no `mesas`.** Copiar o guard do
+  `downloads` teria dado `403` ao moderador global em todo comentário de mesa, silenciosamente. A
+  causa: `resolveEffectiveMesasRole` (`middleware/auth.ts:41-47`) **rebaixa** `moderator` central
+  para `player`, e `auth.roles.test.ts:9-12` fixa isso de propósito. O `downloads` faz o oposto
+  (`middleware/auth.ts:53` promove).
+
+  Os dois estão certos, e a spec já resolvia a aparente contradição: `spec.md:346` diz que
+  "retirar comentário público" é **herdada na adoção** na coluna `mesas`, enquanto `:348` mantém
+  que ele "não herda administração de mesa". São linhas diferentes da mesma tabela — moderar fala
+  não é capacidade de domínio. Por isso o guard novo (`requireCommentModerator`) lê
+  **`req.user.globalRole`**, o papel vindo do `accounts.`, e não `role`, que é o efetivo local já
+  rebaixado. O rebaixamento continua valendo para tudo o mais.
+
+  **11 testes** em `communityModeration.test.ts`. O mock do middleware entrega `role: 'player'` e
+  `globalRole: 'moderator'` **ao mesmo tempo** — é essa coexistência que torna o defeito
+  detectável; um mock que colocasse `moderator` no papel local passaria com `requireRole` e
+  esconderia tudo. Cobre ainda: usuário comum recebe `403` sem o `accounts.` ser chamado, mas
+  **ainda pode denunciar** (denúncia não é moderação); id central na auditoria; query filtrada por
+  allowlist; fila fora do schema vira `502`; corpo de erro passa sem ser medido contra o schema.
+  Contexto original: confirmar que a moderação cobre a superfície nova — comentário em mesa é conteúdo público. · feito quando: moderador global retira comentário de mesa pela UI.
+- [x] T7.8 — **Implementado em 2026-08-16.** Três arquivos novos no frontend:
+  `hooks/useCommunityConversation.ts` (configuração do host — `subject_type`, rota, `baseUrl` por
+  `VITE_API_URL`; toda a mecânica vem de `@artificio/comments/react`, que é o que impede o `mesas`
+  de repetir a divergência que `downloads` e `site` tiveram antes da PR #264),
+  `components/TableConversation.tsx` (permissões e rótulo — o que é de domínio) e o import do CSS
+  do pacote em `main.tsx`. Montado em `MesaPage.tsx`, **fora** do `<section>` do anúncio: é
+  conteúdo de terceiros sobre a mesa, não parte da divulgação.
+  **Decisão de produto, agora com base pesquisada:** em mesa fechada a fala nova, `reply`, `edit`
+  **e voto** somem; **denúncia permanece**. A primeira versão mantinha o voto por raciocínio meu;
+  a pesquisa mostrou que Discourse e Reddit fazem o contrário em conteúdo arquivado, e por um
+  motivo que se sustenta (voto é ranking e congela; denúncia é segurança e nunca fecha). Quadro
+  comparativo e a medição de que o `accounts.` não decide isso: §Pesquisa de prática estabelecida,
+  no topo desta fase.
+  **15 testes** em `TableConversation.test.tsx`: rota da fachada (e nunca `/internal/v1`),
+  `credentials: 'include'`, rótulo do badge, tombstone sem vazar corpo, **quatro modos de
+  degradação** (`accounts.` fora, `503`, `502`, corpo fora do schema — o cabeçalho da seção
+  continua de pé em todos), convite a entrar sem sessão, mesa fechada, e permissões de autor vs
+  terceiro.
+  **Três erros próprios corrigidos no caminho, todos com o mesmo sintoma enganoso** — a árvore não
+  renderiza e o teste estoura 5s de `asyncUtilTimeout`, sem nenhum erro de schema visível:
+  (1) fixture sem `truncated`, obrigatório em `commentsThreadSchema:162-167`; (2) comentário
+  `removed` com contadores `0` em vez de `null` — `threadIntegrity` rejeita a árvore inteira;
+  (3) asserção minha errada esperando `subject_type` na query. Medido: a URL real é
+  `?subject_id=<id>&sort=best` — o `subject_type` fica na configuração do host e é **a fachada que
+  o injeta no servidor**, que é o único lugar onde o cliente não pode trocá-lo.
+  **(4) Asserção negativa que passava por acidente.** `queryByRole('button', { name:
+  /votar a favor|upvote/i })` nunca casaria: o rótulo real é `aria-label="Votar positivamente no
+  comentário de <autor>"` (`CommentsConversation.tsx:503`). Como a asserção era `not.toBe…`, ela
+  passava sem provar nada — copiei o regex do teste do `downloads`, onde tem o mesmo defeito.
+  Achado só porque a correção do voto exigiu uma asserção **positiva**, que falhou na hora.
+  Lição registrada: asserção negativa com seletor errado é indistinguível de asserção negativa
+  correta — sempre parear com o caso positivo. **O mesmo regex morto existia no `downloads`
+  (`MaterialConversation.test.tsx:218`, 1 ocorrência medida; o `site` não tem) e foi corrigido no
+  mesmo turno**: seletor trocado por `/votar positivamente/i` e teste positivo novo
+  ("oferece votar em fala de terceiro"), que é o que impede a asserção negativa de voltar a passar
+  por vazio. `MaterialConversation.test.tsx` 11/11.
+  Coordenada para não redescobrir: `pnpm --filter mesas-frontend run test -- <padrão>` **não**
+  filtra por arquivo (roda a suíte toda); use `npx vitest run <caminho>` dentro do app.
+
+  **⚠️ DÉBITO ABERTO — o congelamento de voto é só de UI (achado de review, PR #268, P2).**
+  `canComment={false}` esconde o botão, mas `PUT /api/v1/community/conversation/:id/vote` encaminha
+  qualquer requisição autenticada ao `accounts.` sem revalidar o ciclo de vida da mesa. Quem
+  conhece o id de um comentário de mesa encerrada altera **o próprio voto** por API e o placar
+  volta a se mover.
+  **Por que não fechei nesta PR** (medido, não presumido): (a) o pacote cliente envia apenas
+  `{ value }` no voto (`useConversationHost.tsx`), então exigir `subject_id` quebraria todo voto
+  nos três consumidores; (b) uma checagem *opcional* — validar só quando o campo vier — seria pior
+  que nenhuma, porque bastaria omiti-lo para contornar, criando aparência de controle; (c) resolver
+  no servidor exigiria perguntar "a que assunto pertence este comentário", e **nenhuma rota do
+  `accounts.` responde isso**: `GET /internal/v1/comments` (`communityCommentRoutes.ts:154`) lista
+  por `subject_id`, não o inverso.
+  **Impacto real, para dimensionar:** atinge só voto em conversa encerrada. Não afeta fala nova
+  (bloqueada pelo guard na fachada), moderação, privacidade nem integridade — o dano é o placar de
+  uma conversa fechada seguir mudando.
+  **Correção pertence ao `accounts.`:** aceitar `subject_authorization` no voto, como já faz na
+  criação (`:496,543`). Toca a fase 2/3 e os três consumidores. **Corrigir agora em spec própria,
+  ou registrar como débito?**
+  Contexto original — cobertura que as duas tasks anteriores não tinham: adapter da fachada, UI, estados de carregamento e erro, threads, degradação com o `accounts.` fora, limites de tamanho e taxa, e testes de cada um. A versão anterior desta fase tinha duas tasks para tudo isso. · feito quando: cada item com teste, não só implementado.
 
 ## Fase 8 — Validação integrada
 
@@ -1125,9 +1951,35 @@ Terceiro consumidor: nada a preservar, mas ganha superfície pública nova.
     que amplia o `CHECK` de `scopes`). Ordem correta: **deploy de prod do `accounts.` primeiro**,
     depois emissão dos crachás, depois validação.
 
-- **`BLQ-090-CRED-WRITE` — [BLOQUEIO ATIVO, sucessor do anterior] A credencial do `downloads` não
-  tem `comment.write` nem `vote.write` — os dois escopos que a Fase 5 exige.** Medido em
-  2026-08-15, na abertura da Fase 5. Os 6 escopos atuais cobrem a Fase 4 (moderação, denúncia,
+- **`BLQ-090-CRED-WRITE` — [BLOQUEIO ATIVO **só para a Fase 5 / `downloads`**. A causa raiz caiu e
+  o caminho está provado ponta a ponta pelo `mesas`.] A credencial do `downloads` não tem
+  `comment.write` nem `vote.write` — os dois escopos que a Fase 5 exige.**
+
+  **A causa raiz não existe mais.** O texto original dizia que a emissão falhava com
+  `escopo inválido: notification.write` porque o `accounts.` de prod estava atrás do código.
+  Medido em 2026-08-16: `dist/serviceCredential.js` do container `accounts-api` contém
+  `notification.write`; `schema_migrations` tem **11 linhas, iguais às 11 do disco**
+  (`migration_011` aplicada em 2026-08-15 15:28); o CHECK de `scopes` aceita os 8. **E a
+  Fase 7 executou a rotação inteira do `mesas` com sucesso** (emissão → `.env` → recriação →
+  smoke → revogação), então o procedimento não é mais teórico: está descrito passo a passo em
+  §Fase 7 → Credencial de serviço, incluindo o comando que evita o `BLQ-090-NGINX`.
+
+  **O que resta é exclusivamente a emissão para o `downloads`**, que exige aprovação nominal
+  própria (escrita no banco de produção). Estado medido em 2026-08-16:
+
+  | app | slot ativo | escopos | falta |
+  |---|---|---|---|
+  | `downloads` prod/beta | `next` | `users.read, secrets.read, comment.read, report.write, moderation.write, notification.write` | **`comment.write`, `vote.write`** |
+  | `site` prod | `current` | `comment.read, comment.write, vote.write, report.write` | — |
+  | `mesas` prod/beta | `next` | `secrets.read, comment.read, comment.write, vote.write, report.write, notification.write` | — (rotacionado na Fase 7) |
+
+  **Complicação específica do `downloads`, que o `mesas` não teve:** as `current` dos dois realms
+  já estão **revogadas** e o slot `next` está **ocupado** pelas de 6 escopos em uso. Emitir uma
+  terceira exige decidir antes se vai para `current` (agora livre) ou se o `next` é liberado —
+  conferir em `serviceCredentialAdmin.ts`. No `mesas` o `next` estava livre, e por isso a rotação
+  foi direta.
+
+  Medido em 2026-08-15, na abertura da Fase 5. Os 6 escopos atuais cobrem a Fase 4 (moderação, denúncia,
   leitura de árvore, ingestão de notificação) e **nenhuma escrita de fala**: `POST
   /internal/v1/comments` e `.../:id/replies` exigem `comment.write`
   (`communityCommentRoutes.ts:168,177`), `PUT .../vote` exige `vote.write` (`:221`). Comparação que

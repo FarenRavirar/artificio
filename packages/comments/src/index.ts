@@ -86,6 +86,27 @@ export {
 } from './rateLimitBuckets.js';
 
 export {
+  FACADE_RELAY_TIMEOUT_MS,
+  createFacadeProxy,
+  filteredQuery,
+  isBodyless,
+  readClientHeader,
+  relayHeaders,
+  relayToAccounts,
+  type FacadeHostRequest,
+  type FacadeHostResponse,
+  type FacadeProxyDeps,
+  type FacadeProxyOptions,
+  type FacadeRelayFetch,
+  type FacadeRelayMode,
+  type FacadeRelayOptions,
+  type FacadeRelayRequest,
+  type FacadeRelayResponse,
+  type FacadeRelayResult,
+  type FacadeRelayValidation,
+} from './facadeRelay.js';
+
+export {
   runSubjectAuthorizationConformance,
   type ConformanceCheck,
   type ConformanceFixture,

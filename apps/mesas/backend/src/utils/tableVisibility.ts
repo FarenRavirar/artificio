@@ -73,3 +73,67 @@ export function isPublicTable(table: {
 }): boolean {
   return table.status === 'active' && !table.archived_at && !isImportedTableExpired(table);
 }
+
+/** Forma mínima que as duas funções de comentário consultam. */
+export interface TableLifecycleInput {
+  status: string;
+  archived_at: DateValue | null;
+  origin: string | null;
+  created_at: DateValue;
+  starts_at: DateValue | null;
+}
+
+/**
+ * Estados terminais explícitos. Listar em vez de negar `isPublicTable` é a
+ * mesma escolha de `routes/tables.ts:617`, pelo motivo registrado lá: um valor
+ * novo no enum não deve virar "encerrada" por omissão — ele cai no ramo de
+ * rascunho, que é o fechado, e não no de leitura pública.
+ */
+const TERMINAL_STATUSES = new Set(['ended', 'cancelled']);
+
+/**
+ * Estados que nunca foram públicos. `full` **não** entra aqui: mesa lotada
+ * segue pública e visível, só não aceita mais gente — decidido e documentado
+ * em `routes/tables.ts:610-611`, que devolve `200` para ela.
+ */
+const NEVER_PUBLIC_STATUSES = new Set(['draft', 'pending_review']);
+
+/**
+ * T7.3 (spec 090, requisito 26a) — o ciclo de vida da mesa decide o que é
+ * comentável.
+ *
+ * ## Por que não dá para reusar `isPublicTable` sozinha
+ *
+ * Ela colapsa seis estados em um booleano, e o comentário precisa de **três**
+ * respostas, não duas. Mesa encerrada continua com a conversa legível — fechar
+ * a leitura apagaria da vista discussão que aconteceu enquanto a mesa existia —
+ * mas não aceita fala nova. Rascunho não tem nem uma coisa nem outra.
+ * `isPublicTable` devolve `false` para os dois casos e não os distingue.
+ *
+ * ## Espelha a resposta HTTP que o módulo já dá
+ *
+ * Isto não é política nova: é a mesma tabela de `routes/tables.ts:605-631`,
+ * onde `full` → `200`, terminal/arquivada/expirada → `410` e
+ * rascunho/revisão → `404`. Divergir dali criaria mesa que abre para o
+ * visitante e recusa o comentário dele, ou o contrário.
+ */
+export function canReadTableComments(table: TableLifecycleInput): boolean {
+  return !NEVER_PUBLIC_STATUSES.has(table.status);
+}
+
+/**
+ * Escrita nova, revalidada **a cada criação e a cada resposta** (requisito 26a,
+ * OWASP Business Logic): o estado da mesa muda entre a hora em que a página
+ * carregou e a hora em que o botão foi clicado, então decidir isto no
+ * carregamento deixaria a janela aberta.
+ *
+ * Falha fechada por construção — só devolve `true` para o conjunto que
+ * `isPublicTable` aprova, mais `full`, pelo motivo em `NEVER_PUBLIC_STATUSES`.
+ */
+export function canWriteTableComments(table: TableLifecycleInput): boolean {
+  if (NEVER_PUBLIC_STATUSES.has(table.status)) return false;
+  if (TERMINAL_STATUSES.has(table.status)) return false;
+  if (table.archived_at) return false;
+  if (isImportedTableExpired(table)) return false;
+  return table.status === 'active' || table.status === 'full';
+}
