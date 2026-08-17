@@ -134,8 +134,12 @@ export function TableConversation({ tableId, canComment = true }: Readonly<Table
     <section aria-labelledby="table-conversation-heading" className="mt-8">
       {/* Mesma escala dos outros títulos de seção da página (`MesaPage:287`).
           Sem classe, o `h2` renderizava a 16px — do tamanho do corpo do texto,
-          sem nada que o marcasse como cabeçalho (auditoria de 2026-08-17). */}
-      <h2 id="table-conversation-heading" className="text-lg font-bold mb-2 text-slate-100">
+          sem nada que o marcasse como cabeçalho (auditoria de 2026-08-17).
+          A cor é `--fg`, e não o `text-slate-100` que o vizinho usa: o app tem
+          tema claro (108 regras `[data-theme="light"]` no `index.css`) e o
+          slate fixo não vira, ficando quase branco sobre fundo claro. `--fg` é
+          o padrão dominante aqui — 48 usos contra 3 do slate. */}
+      <h2 id="table-conversation-heading" className="text-lg font-bold mb-2 text-[var(--fg)]">
         Comentários
       </h2>
       <CommentsConversation

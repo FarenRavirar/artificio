@@ -700,12 +700,17 @@ body {
   text-decoration: underline;
 }
 
+/* Tokens que viram por tema, e não `color-mix(…, white)` com `--artificio-muted`:
+   os dois eram fixos de tema claro, então no escuro este painel virava tarja
+   clara dentro do painel escuro. `--fill` já é o overlay translúcido do design
+   system para exatamente este papel. Contraste do texto sobre o fundo composto:
+   5.54:1 no claro, 5.80:1 no escuro (achado de review, PR #270). */
 .notification-moderation-info {
   font-size: 0.85rem;
-  color: var(--artificio-muted);
+  color: var(--fg-muted);
   padding: 0.5rem 0.75rem;
-  background: color-mix(in srgb, var(--artificio-muted) 8%, white);
-  border-radius: 0.25rem;
+  background: var(--fill-subtle);
+  border-radius: var(--radius-sm);
   border-left: 3px solid var(--artificio-brand-deep);
 }
 

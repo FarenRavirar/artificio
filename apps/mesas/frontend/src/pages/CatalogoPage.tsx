@@ -758,16 +758,18 @@ export const CatalogoPage = () => {
         ) : (
           <>
             {/* GRID
-                `auto-fill`, e não `auto-fit`: com poucos resultados o `auto-fit`
-                colapsa as trilhas vazias e reparte a largura toda entre as que
-                sobraram — duas mesas numa tela de 1793px viravam dois cards de
-                887px, mais de 3× o mínimo de 280px pretendido, com a capa
-                ocupando 63% da altura (medido em 2026-08-17). `auto-fill`
-                mantém as trilhas, então o card conserva o mesmo tamanho com 2
-                ou 20 resultados.
-                O `justify-center` + teto de 420px na trilha existem porque
-                `1fr` sozinho não tem máximo: numa fileira incompleta os cards
-                voltariam a esticar. */}
+                `auto-fill`, e não `auto-fit`: o `auto-fit` colapsa as trilhas
+                vazias e reparte a largura entre as que sobraram, então o card
+                cresce conforme CAIEM os resultados. Medido em 2026-08-17, com
+                filtro de 1 resultado numa tela de 1793px: card de 1793×1416px,
+                proporção 1.27, capa ocupando 79% da altura. Com 2 resultados,
+                887px cada. `auto-fill` mantém as trilhas, então o card conserva
+                o tamanho com 1, 2 ou 20 resultados — com 19 mesas a grade já
+                produzia 6 colunas de 282px, que é o alvo.
+                O teto de 420px (em vez de `1fr`) fecha o outro lado: `1fr` não
+                tem máximo, e numa fileira incompleta os cards voltariam a
+                esticar. `justify-center` centra as trilhas quando sobra
+                largura, em vez de deixar tudo alinhado à esquerda. */}
             <div className="grid min-w-0 grid-cols-1 justify-center gap-5 md:grid-cols-2 xl:grid-cols-[repeat(auto-fill,minmax(280px,420px))]">
               {tableCards}
             </div>

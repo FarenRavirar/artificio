@@ -341,8 +341,13 @@
 /*
   Equivalente local de `sr-only`. Acessibilidade não pode depender de o host
   ter configurado o scanner do Tailwind para varrer este pacote.
+
+  O `<output>` que anuncia a ação fica FORA do wrapper do workspace
+  (`CommunityModerationWorkspace.tsx:307`), por isso o seletor de elemento —
+  sem ele, o texto destinado a leitor de tela renderizaria visível. O `:is()`
+  cobre o wrapper e seus descendentes pelo mesmo motivo das utilitárias acima.
 */
-.artificio-moderation-workspace .sr-only,
+:is(.artificio-moderation-workspace, .artificio-moderation-workspace *).sr-only,
 output.sr-only {
   position: absolute;
   width: 1px;
@@ -374,32 +379,39 @@ output.sr-only {
   raiz do workspace para não vazarem para a página inteira do app consumidor —
   o pacote não pode definir `.p-5` global, que colidiria com o Tailwind real do
   host onde ele existe.
+
+  `:is(.artificio-moderation-workspace, .artificio-moderation-workspace *)` e não
+  só o descendente: `space-y-4` e `p-5` estão no MESMO elemento que a classe raiz
+  (`CommunityModerationWorkspace.tsx:250` e `:315`), e um seletor de descendência
+  nunca casa o elemento consigo mesmo. Escrito como estava, justamente nos hosts
+  sem Tailwind — o caso que este bloco existe para cobrir — o padding e o
+  espaçamento de topo não eram aplicados (achado de review, PR #270).
 */
-.artificio-moderation-workspace .space-y-3 > * + * {
+:is(.artificio-moderation-workspace, .artificio-moderation-workspace *).space-y-3 > * + * {
   margin-block-start: var(--space-3);
 }
 
-.artificio-moderation-workspace .space-y-4 > * + * {
+:is(.artificio-moderation-workspace, .artificio-moderation-workspace *).space-y-4 > * + * {
   margin-block-start: var(--space-4);
 }
 
-.artificio-moderation-workspace .p-5 {
+:is(.artificio-moderation-workspace, .artificio-moderation-workspace *).p-5 {
   padding: 1.25rem;
 }
 
-.artificio-moderation-workspace .p-3 {
+:is(.artificio-moderation-workspace, .artificio-moderation-workspace *).p-3 {
   padding: var(--space-3);
 }
 
-.artificio-moderation-workspace .rounded {
+:is(.artificio-moderation-workspace, .artificio-moderation-workspace *).rounded {
   border-radius: var(--radius-sm);
 }
 
-.artificio-moderation-workspace .border {
+:is(.artificio-moderation-workspace, .artificio-moderation-workspace *).border {
   border: 1px solid var(--line);
 }
 
-.artificio-moderation-workspace .whitespace-pre-wrap {
+:is(.artificio-moderation-workspace, .artificio-moderation-workspace *).whitespace-pre-wrap {
   white-space: pre-wrap;
 }
 
@@ -415,8 +427,25 @@ output.sr-only {
   text-decoration: line-through;
 }
 
+/*
+  O verde do `ins` é o único dos quatro tons deste par que não passa AA: sobre o
+  fundo composto (`--state-success-bg` a 14% sobre superfície clara, que resolve
+  para rgb(222,245,237)), `--state-success-fg` dá 4.39:1 — abaixo dos 4.5:1
+  exigidos. Os outros três passam: del claro 5.40:1, del escuro 6.66:1, ins
+  escuro 8.07:1.
+
+  Corrigido aqui, e não escurecendo `--state-success-fg`: o token é consumido
+  por `ChangelogModal`, pelo painel de revisão do `glossario` e por sete pontos
+  do próprio design system, além de ser vigiado por `check-token-parity.mjs` —
+  mudá-lo alteraria todas essas superfícies sem conferência visual. O override
+  vale só no escuro-para-claro, então a variante escura segue no token.
+*/
 .artificio-moderation-workspace ins {
   background: var(--state-success-bg);
-  color: var(--state-success-fg);
+  color: #166534;
   text-decoration: none;
+}
+
+:root[data-theme='dark'] .artificio-moderation-workspace ins {
+  color: var(--state-success-fg);
 }

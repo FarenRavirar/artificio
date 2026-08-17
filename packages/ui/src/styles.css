@@ -191,12 +191,19 @@
   --btn-primary-fg: var(--artificio-ink);
   --btn-primary-bg-hover: var(--artificio-brand-deep);
 
-  /* destrutivo no escuro: o tom fechado do claro somem contra superfície
-     escura; clareia para o vermelho base, que sobre #1b2a4a dá 4.7:1 com texto
-     branco. Mesmo tratamento dos demais --state-* neste bloco. */
-  --btn-danger-bg: var(--artificio-danger);
+  /* Destrutivo no escuro. O botão é PREENCHIDO, então o par que decide o AA é
+     fundo-do-botão × texto-do-botão — e não o fundo contra a superfície da
+     página, que foi o erro da primeira redação desta regra (PR #270): ela usava
+     --artificio-danger (#ef4444), que dá só 3.76:1 com branco, e um hover
+     #dc2626 (4.83:1) mais CLARO que o próprio padrão, invertendo a convenção de
+     que hover escurece.
+     Este tom dá 8.31:1 com branco e o hover 10.02:1, ambos AA com folga, e
+     continua distinto do vermelho de superfície clara. Diferente dos --state-*
+     deste bloco, que clareiam porque ali o vermelho é TEXTO sobre fundo escuro,
+     não fundo de texto branco. */
+  --btn-danger-bg: #991b1b;
   --btn-danger-fg: #ffffff;
-  --btn-danger-bg-hover: #dc2626;
+  --btn-danger-bg-hover: #7f1d1d;
 
   /* No escuro o tom fechado do claro some contra a superfície navy; o laranja
      de marca puro resolve, mas então o texto por cima vira navy — branco sobre
