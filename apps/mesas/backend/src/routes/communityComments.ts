@@ -2,9 +2,9 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { authMiddleware, optionalAuth } from '../middleware/auth.js';
 import {
   commentEditRateLimiter,
+  commentReadRateLimiter,
   commentVoteRateLimiter,
   commentWriteRateLimiter,
-  publicRateLimiter,
 } from '../middleware/rateLimit.js';
 import {
   MESAS_SUBJECT_TYPE,
@@ -133,7 +133,7 @@ function writeBody(
 }
 
 /** Leitura da árvore. Pública; com sessão, o ator vai junto para `my_vote` (§2). */
-router.get('/', publicRateLimiter, optionalAuth, (req: Request, res: Response, next: NextFunction) => {
+router.get('/', commentReadRateLimiter, optionalAuth, (req: Request, res: Response, next: NextFunction) => {
   void (async () => {
     const subjectId = typeof req.query.subject_id === 'string' ? req.query.subject_id : '';
     if (!subjectId) {

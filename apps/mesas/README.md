@@ -229,8 +229,8 @@ Para ajudar na priorização, descreva:
 
 ### Documentos de apoio
 - [docs/sdd/README.md](docs/sdd/README.md)
-- [MAPA_DE_API.md](MAPA_DE_API.md)
-- [PRE_DEPLOY_CHECKLIST.md](PRE_DEPLOY_CHECKLIST.md)
+- [Índice de API gerado](../../docs/api/generated/api-index.generated.md) — substitui o antigo `MAPA_DE_API.md`, que era mantido à mão; hoje a fonte sai de `pnpm verify:api`
+- [AGENTS.md](../../AGENTS.md) §Deploy e Infra de CI/CD e §Migrations — substituem o antigo `PRE_DEPLOY_CHECKLIST.md`
 - [BRANCH_POLICY.md](docs/sdd/BRANCH_POLICY.md)
 - [Catálogo de Erros](.specify/memory/errors.md)
 - [Features SDD](.specify/features/)

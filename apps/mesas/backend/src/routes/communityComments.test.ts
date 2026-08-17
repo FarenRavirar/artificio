@@ -64,7 +64,7 @@ vi.mock('../middleware/auth.js', () => ({
 vi.mock('../middleware/rateLimit.js', () => {
   const passthrough = (_req: express.Request, _res: express.Response, next: express.NextFunction) => next();
   return {
-    publicRateLimiter: passthrough,
+    commentReadRateLimiter: passthrough,
     commentWriteRateLimiter: passthrough,
     commentEditRateLimiter: passthrough,
     commentVoteRateLimiter: passthrough,

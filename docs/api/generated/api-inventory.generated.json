@@ -3721,7 +3721,7 @@
       "method": "GET",
       "path": "/api/v1/community/appeals/:id",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 128,
+      "line": 131,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3730,7 +3730,7 @@
       "method": "POST",
       "path": "/api/v1/community/comments/:id/reports",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 134,
+      "line": 137,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3802,7 +3802,7 @@
       "method": "POST",
       "path": "/api/v1/community/decisions/:id/appeals",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 140,
+      "line": 143,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3811,7 +3811,7 @@
       "method": "GET",
       "path": "/api/v1/community/moderation/appeals/:id",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 175,
+      "line": 178,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3820,7 +3820,7 @@
       "method": "POST",
       "path": "/api/v1/community/moderation/appeals/:id/resolution",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 178,
+      "line": 181,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3829,7 +3829,7 @@
       "method": "GET",
       "path": "/api/v1/community/moderation/cases/:id",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 163,
+      "line": 166,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3838,7 +3838,7 @@
       "method": "PATCH",
       "path": "/api/v1/community/moderation/cases/:id/priority",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 172,
+      "line": 175,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3847,7 +3847,7 @@
       "method": "POST",
       "path": "/api/v1/community/moderation/cases/:id/reopen",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 169,
+      "line": 172,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3856,7 +3856,7 @@
       "method": "POST",
       "path": "/api/v1/community/moderation/cases/:id/resolution",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 166,
+      "line": 169,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3865,7 +3865,7 @@
       "method": "POST",
       "path": "/api/v1/community/moderation/comments/:id/removal",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 157,
+      "line": 160,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3874,7 +3874,7 @@
       "method": "POST",
       "path": "/api/v1/community/moderation/comments/:id/restore",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 160,
+      "line": 163,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3883,7 +3883,7 @@
       "method": "GET",
       "path": "/api/v1/community/moderation/comments/:id/versions",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 154,
+      "line": 157,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3892,7 +3892,7 @@
       "method": "GET",
       "path": "/api/v1/community/moderation/log",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 150,
+      "line": 153,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3901,7 +3901,7 @@
       "method": "GET",
       "path": "/api/v1/community/moderation/queue",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 146,
+      "line": 149,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3910,7 +3910,7 @@
       "method": "GET",
       "path": "/api/v1/community/moderation/sanctions",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 181,
+      "line": 184,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3919,7 +3919,7 @@
       "method": "POST",
       "path": "/api/v1/community/moderation/sanctions",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 185,
+      "line": 188,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3928,7 +3928,7 @@
       "method": "DELETE",
       "path": "/api/v1/community/moderation/sanctions/:id",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 188,
+      "line": 191,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3937,7 +3937,7 @@
       "method": "GET",
       "path": "/api/v1/community/report-reasons",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 131,
+      "line": 134,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3946,7 +3946,7 @@
       "method": "GET",
       "path": "/api/v1/community/reports",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 125,
+      "line": 128,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3955,7 +3955,7 @@
       "method": "DELETE",
       "path": "/api/v1/community/reports/:id",
       "sourceFile": "apps/mesas/backend/src/routes/communityModeration.ts",
-      "line": 137,
+      "line": 140,
       "confidence": "high",
       "kind": "express-route"
     },

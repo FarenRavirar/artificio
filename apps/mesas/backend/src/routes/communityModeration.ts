@@ -10,8 +10,8 @@ import {
 } from '../community/accountsProxy.js';
 import {
   commentAppealRateLimiter,
+  commentReadRateLimiter,
   commentReportRateLimiter,
-  publicRateLimiter,
   strictRateLimiter,
 } from '../middleware/rateLimit.js';
 
@@ -60,7 +60,10 @@ function requireCommentModerator(req: Request, res: Response, next: NextFunction
 //
 // Quatro buckets distintos nesta superfície (achados de review, PR #268 —
 // `contrato-http-v1.md` §14 exige independência por ação):
-// - leitura de moderador (`publicRateLimiter`, 100/15 min);
+// - leitura da conversa e da fila (`commentReadRateLimiter`, 300/15 min —
+//   bucket próprio, não o `publicRateLimiter` geral do app, que perfis de mestre
+//   e agendas também consomem: cem leituras de qualquer uma delas fechariam a
+//   moderação por quinze minutos);
 // - ação de moderador (`strictRateLimiter`, 10/15 min — teto baixo e proposital:
 //   retirar e restaurar comentário são operações raras e de alto impacto);
 // - denúncia do usuário comum (`commentReportRateLimiter`, 20/15 min);
@@ -83,7 +86,7 @@ function requireCommentModerator(req: Request, res: Response, next: NextFunction
 // `skip` ou lê `req.user`: todos chaveiam por IP, que existe antes de
 // autenticar. É também a ordem que a fachada de conversa dos dois apps já
 // usava (`communityComments.ts`); a moderação é que era a exceção.
-const moderatorRead = [publicRateLimiter, authMiddleware, requireCommentModerator];
+const moderatorRead = [commentReadRateLimiter, authMiddleware, requireCommentModerator];
 const moderatorWrite = [strictRateLimiter, authMiddleware, requireCommentModerator];
 
 /**
@@ -122,13 +125,13 @@ function proxyQueue(req: Request, res: Response, path: string): Promise<void> {
 
 // --- Superfície do usuário comum: denunciar e recorrer -----------------------
 
-router.get('/reports', publicRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
+router.get('/reports', commentReadRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, '/api/v1/community/reports', 'session').catch(next);
 });
-router.get('/appeals/:id', publicRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
+router.get('/appeals/:id', commentReadRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, `/api/v1/community/appeals/${encodeURIComponent(req.params.id)}`, 'session').catch(next);
 });
-router.get('/report-reasons', publicRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
+router.get('/report-reasons', commentReadRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, '/internal/v1/report-reasons', 'service').catch(next);
 });
 router.post('/comments/:id/reports', commentReportRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {

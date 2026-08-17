@@ -12,7 +12,7 @@ Layout atual: multi-contexto SDD.
 | Arquitetura | `.specify/arquiteture.md` por seção via busca |
 | Features | `specs/{id}/` e `.specify/features/{id}/` |
 | Sessões | `sessoes/*.md` |
-| API | `MAPA_DE_API.md` quando rota/contrato for afetado |
+| API | `docs/api/generated/artificio-api.bundle.json` (+ `api-index.generated.md`) quando rota/contrato for afetado |
 | SDD | `docs/sdd/` |
 
 ## Como skills devem ler contexto

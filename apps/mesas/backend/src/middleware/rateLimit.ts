@@ -73,6 +73,26 @@ export const strictRateLimiter = rateLimit({
 // buckets aplicáveis precisam liberar".
 // ============================================================================
 
+/**
+ * Leitura da árvore. Bucket próprio, e não `publicRateLimiter` (achado de
+ * review, PR #268): aquele é compartilhado com perfis de mestre
+ * (`routes/gm.ts`) e agendas (`routes/tableSchedules.ts`), então cem leituras
+ * legítimas de qualquer uma dessas superfícies bloqueariam a conversa por
+ * quinze minutos — e vice-versa. É o mesmo acoplamento que §14 proíbe entre as
+ * ações da conversa, só que atravessando módulos.
+ *
+ * Teto de 300, como o `downloads` para a mesma ação
+ * (`downloads/middleware/rateLimit.ts:21`): ler não tem o custo nem o risco de
+ * escrever, e uma página com árvore profunda pagina várias vezes.
+ */
+export const commentReadRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 300,
+  message: 'Muitas requisições deste IP. Tente novamente em alguns minutos.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 /** Criar comentário e responder. Mesmo teto do `downloads` para a mesma ação. */
 export const commentWriteRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

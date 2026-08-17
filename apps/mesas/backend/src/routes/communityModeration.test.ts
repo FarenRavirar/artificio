@@ -72,7 +72,7 @@ vi.mock('../middleware/rateLimit.js', () => {
       next();
     };
   return {
-    publicRateLimiter: marcador('read'),
+    commentReadRateLimiter: marcador('read'),
     strictRateLimiter: marcador('moderator-write'),
     commentReportRateLimiter: marcador('report'),
     commentAppealRateLimiter: marcador('appeal'),
@@ -322,6 +322,25 @@ describe('buckets de rate limit independentes por ação', () => {
       .expect(200);
 
     expect(bucketsAplicados).toEqual(['report']);
+  });
+
+  /**
+   * `read` é o sexto membro de `COMMENT_RATE_BUCKETS`, e ficou de fora da
+   * primeira correção: as leituras seguiam no `publicRateLimiter` geral do app,
+   * compartilhado com perfis de mestre (`routes/gm.ts`) e agendas
+   * (`routes/tableSchedules.ts`). Cem leituras de qualquer uma dessas
+   * superfícies fechariam a moderação por quinze minutos — o mesmo acoplamento
+   * que §14 proíbe, atravessando módulos em vez de ações. Sem esta asserção o
+   * defeito voltaria pela troca de um identificador.
+   */
+  it('leitura usa bucket próprio, e não o público compartilhado com outras superfícies', async () => {
+    // Fila vazia mas válida contra `moderationQueueSchema`: sem os dois arrays
+    // a resposta vira 502 e o teste mediria o ramo errado.
+    stubFetch(200, { items: [], new_account_comments: [] });
+
+    await request(makeApp()).get('/api/v1/community/moderation/queue').expect(200);
+
+    expect(bucketsAplicados).toEqual(['read']);
   });
 
   it('ação de moderador não consome o bucket do usuário comum', async () => {
