@@ -45,9 +45,47 @@ jobs:
         with:
           persist-credentials: false
 
+      # actionlint upstream, direto — sem o wrapper `reviewdog/action-actionlint`.
+      #
+      # O wrapper usava `reporter: github-check`, que cria um *check run* pela API.
+      # Essa API **só aceita GitHub App** (medido: `POST /check-runs` com token de
+      # Actions devolve `403 "You must authenticate via a GitHub App"`), e o App do
+      # reviewdog nunca foi instalado neste repo — os únicos que criam check run
+      # aqui são `github-actions`, `github-advanced-security` e `semgrep-code`.
+      # Sem o App, o reviewdog roteia pelo servidor dele (doghouse), que traduz
+      # para a API. Em 2026-08-17 esse servidor devolveu `503` em três tentativas
+      # seguidas e derrubou o gate — com zero achados de lint no log.
+      #
+      # Conceder `checks: write` NÃO resolveria: a barreira é ser App, não a
+      # permissão. O defeito de fundo é o gate depender de um terceiro fora do
+      # nosso controle, que ninguém monitora.
+      #
+      # Agravante que o wrapper escondia: o `reviewdog` sai com código 1 tanto
+      # para "achei erro de lint" quanto para "falhei ao publicar". O job ficava
+      # vermelho sem distinguir defeito nosso de indisponibilidade alheia — foi
+      # exatamente o que aconteceu.
+      #
+      # Rodando o binário direto, o exit code é do `actionlint` e de mais ninguém,
+      # e as anotações inline continuam, via problem matcher oficial.
+      #
+      # F2 (spec 026): pin por versão + checksum. Bump = trocar versão, checksum e
+      # a tag do matcher, juntos.
+      - name: Instalar actionlint
+        env:
+          ACTIONLINT_VERSION: 1.7.12
+          ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+        run: |
+          set -euo pipefail
+          tarball="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl --fail --silent --show-error --location \
+            -o "${tarball}" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${tarball}"
+          echo "${ACTIONLINT_SHA256}  ${tarball}" | sha256sum --check --strict
+          tar -xzf "${tarball}" actionlint
+          rm -f "${tarball}"
+
       - name: actionlint
-        # F2 (spec 026): pin por SHA (supply-chain). Bump = trocar SHA + comentario.
-        uses: reviewdog/action-actionlint@6fb7acc99f4a1008869fa8a0f09cfca740837d9d # v1.72.0
-        with:
-          reporter: github-check
-          fail_level: error
+        run: |
+          set -euo pipefail
+          echo "::add-matcher::.github/actionlint-matcher.json"
+          ./actionlint -color
