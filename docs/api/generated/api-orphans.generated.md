@@ -10,7 +10,7 @@
 
 | Categoria | Quantidade | Bloqueia? |
 |-----------|:----------:|:---------:|
-| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 65 | ❌ |
+| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 66 | ❌ |
 
 ## Rotas órfãs suspeitas
 
@@ -27,7 +27,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | GET | `/internal/users/:id` | ✅ | public | Scope "public" sem consumidor |
 | PUT | `/api/v1/notification-preferences/:event_type` | ✅ | public | Scope "public" sem consumidor |
 | PUT | `/api/v1/notifications/read-through` | ✅ | public | Scope "public" sem consumidor |
-### downloads (48 rota(s))
+### downloads (49 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
@@ -62,6 +62,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | PATCH | `/api/v1/community/conversation/:id` | ✅ | public | Scope "public" sem consumidor |
 | PATCH | `/api/v1/creators/me` | ✅ | public | Scope "public" sem consumidor |
 | PATCH | `/api/v1/materials/:id` | ✅ | public | Scope "public" sem consumidor |
+| PATCH | `/api/v1/notifications/:id/read` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/collections` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/collections/:id/items` | ✅ | public | Scope "public" sem consumidor |
 | POST | `/api/v1/comments` | ✅ | public | Scope "public" sem consumidor |

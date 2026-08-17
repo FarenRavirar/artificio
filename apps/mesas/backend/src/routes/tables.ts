@@ -405,6 +405,28 @@ async function buildClosedTablePayload(table: {
   closed_reason: string | null;
   updated_at: Date | string | null;
 }): Promise<{
+  /**
+   * T7.8 (spec 090) — `id` entrou no payload do `410` para a conversa da mesa
+   * encerrada poder ser montada.
+   *
+   * O requisito 26a garante que mesa encerrada "preserva a leitura" dos
+   * comentários, e o backend já cumpria: o guard devolve `not_commentable` (e
+   * não `not_visible`), e a fachada aceita esse motivo na leitura. Faltava a
+   * ponta do cliente — `TableConversation` usa `tables.id` como `subject_id`, e
+   * este payload só trazia `slug`, então a tela de mesa encerrada não tinha
+   * como pedir a conversa.
+   *
+   * Campo **aditivo num corpo que já viajava**: não muda status, forma nem
+   * contrato, e `verify:api` o classifica como non-breaking. Mandar corpo
+   * explicativo no `410` já é o comportamento recomendado — RFC 9110 §15.5:
+   * "the server SHOULD send a representation containing an explanation of the
+   * error situation, and whether it is a temporary or permanent condition".
+   *
+   * `id` e não só `slug` porque o slug é identificador de rota e pode mudar; o
+   * assunto do comentário é o id, que não muda (mesma razão registrada em
+   * `tableSubjectGuard.ts`).
+   */
+  id: string;
   slug: string;
   title: string;
   closed_at: string | null;
@@ -455,6 +477,7 @@ async function buildClosedTablePayload(table: {
   }
 
   return {
+    id: table.id,
     slug: table.slug,
     title: table.title,
     closed_at: closedAt,

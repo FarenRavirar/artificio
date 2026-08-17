@@ -10,12 +10,12 @@
 
 | Estado | Quantidade | Bloqueia? |
 |--------|-----------|:---------:|
-| ✅ OK | 199 | ❌ |
+| ✅ OK | 198 | ❌ |
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 5 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
 | 🕳️ UNUSED_ROUTE | 173 | ❌ |
-| 👻 ORPHAN_SUSPECT | 65 | ❌ |
+| 👻 ORPHAN_SUSPECT | 66 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
 ## Detalhamento por app
@@ -146,7 +146,7 @@
 | PATCH | `/api/v1/creators/me` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/materials/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/moderation/batch/:action` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| PATCH | `/api/v1/notifications/:id/read` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| PATCH | `/api/v1/notifications/:id/read` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PATCH | `/api/v1/reports/:id` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/email-log/:id/retry` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/material-type-suggestions/:id/resolve` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -536,7 +536,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | GET | `/internal/users/:id` | ✅ | public | Sem consumidor e scope não justifica |
 | PUT | `/api/v1/notification-preferences/:event_type` | ✅ | public | Sem consumidor e scope não justifica |
 | PUT | `/api/v1/notifications/read-through` | ✅ | public | Sem consumidor e scope não justifica |
-### downloads (48 rota(s))
+### downloads (49 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
@@ -571,6 +571,7 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | PATCH | `/api/v1/community/conversation/:id` | ✅ | public | Sem consumidor e scope não justifica |
 | PATCH | `/api/v1/creators/me` | ✅ | public | Sem consumidor e scope não justifica |
 | PATCH | `/api/v1/materials/:id` | ✅ | public | Sem consumidor e scope não justifica |
+| PATCH | `/api/v1/notifications/:id/read` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/collections` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/collections/:id/items` | ✅ | public | Sem consumidor e scope não justifica |
 | POST | `/api/v1/comments` | ✅ | public | Sem consumidor e scope não justifica |

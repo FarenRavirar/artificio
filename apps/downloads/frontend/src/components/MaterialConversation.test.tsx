@@ -215,7 +215,27 @@ describe('MaterialConversation — integração com a fachada', () => {
     expect(screen.getByRole('button', { name: /retirar/i })).toBeInTheDocument();
     // Decisão 5: autor não vota no próprio comentário — o servidor recusa com
     // `self_vote`, e a tela não pode oferecer o que sempre falharia.
-    expect(screen.queryByRole('button', { name: /votar a favor|upvote/i })).not.toBeInTheDocument();
+    //
+    // O seletor era `/votar a favor|upvote/i`, que **nunca casaria**: o rótulo
+    // real é `aria-label="Votar positivamente no comentário de <autor>"`
+    // (`CommentsConversation.tsx:503`). Sendo asserção negativa, ela passava
+    // sem provar nada — defeito indistinguível de uma asserção correta até
+    // alguém escrever o caso positivo (achado na spec 090 T7.8, ao portar este
+    // teste para o `mesas`). Por isso o par abaixo: o negativo só tem valor com
+    // o positivo do lado.
+    expect(screen.queryByRole('button', { name: /votar positivamente/i })).not.toBeInTheDocument();
+  });
+
+  it('oferece votar em fala de terceiro — contraparte do caso acima', async () => {
+    // Sem este teste, um bug que escondesse o voto de todo mundo passaria
+    // despercebido pela asserção negativa anterior.
+    mockSession(OTHER_ID);
+    mockFetch(() => jsonResponse(THREAD));
+
+    render(<MaterialConversation materialId="material-1" />);
+    await screen.findByText('Comentário visível');
+
+    expect(screen.getByRole('button', { name: /votar positivamente/i })).toBeInTheDocument();
   });
 
   it('não oferece editar nem retirar em fala de terceiro', async () => {

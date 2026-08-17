@@ -17,6 +17,7 @@
     "@artificio/analytics": "workspace:*",
     "@artificio/auth": "workspace:*",
     "@artificio/catalog-ui": "workspace:*",
+    "@artificio/comments": "workspace:*",
     "@artificio/config": "workspace:*",
     "@artificio/content-editor": "workspace:*",
     "@artificio/ui": "workspace:*",
