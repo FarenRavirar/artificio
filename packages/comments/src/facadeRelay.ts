@@ -110,9 +110,20 @@ export function relayHeaders(
   const headers: Record<string, string> = { Accept: 'application/json' };
 
   if (mode === 'service') {
-    // Não-nulo garantido pela guarda de `relayToAccounts`, que responde 503
-    // antes de chegar aqui.
-    headers['X-Service-Token'] = credential!;
+    // `relayToAccounts` já responde `503` antes de chegar aqui, mas a checagem
+    // se repete porque esta função é **exportada** (achado de review, PR #268):
+    // a garantia do chamador não alcança quem a use direto, e a asserção
+    // não-nula deixava `undefined` virar a string literal `"undefined"` no
+    // header — o `accounts.` recusaria com `401` genérico, e o operador
+    // procuraria uma credencial revogada que na verdade nunca foi enviada.
+    //
+    // Lançar, e não omitir o header: sem `X-Service-Token` a chamada seguiria
+    // como anônima ao registro central, que é falha aberta. Erro de
+    // programação merece parar alto.
+    if (!credential) {
+      throw new Error('relayHeaders: modo `service` exige credencial resolvida');
+    }
+    headers['X-Service-Token'] = credential;
     if (actingUserId) headers['X-Acting-User-Id'] = actingUserId;
   } else {
     const authorization = req.header('authorization');
@@ -192,8 +203,14 @@ function guardaPreChamada(
   // Falha fechada e explícita: se a ordem dos middlewares mudar num refactor, o
   // acesso não-checado viraria `TypeError` dentro de um `void` — 500 opaco em
   // vez de erro tratado (achado de review, PR #262).
+  //
+  // `correlation_id` também aqui (achado de review, PR #268): era a única saída
+  // de erro do módulo que o omitia, e §13 do contrato exige o campo em TODA
+  // resposta de erro. A ausência doía justamente no caso mais difícil de
+  // diagnosticar — `401` sem ator resolvido é falha de ordem de middleware, e
+  // sem a correlação não há como ligar o relato do cliente ao log do servidor.
   if (options.mode === 'service' && options.requireActingUser && !options.actingUserId) {
-    return { kind: 'error', status: 401, body: { error: 'unauthenticated' } };
+    return erroDeResposta(401, 'unauthenticated', correlation);
   }
 
   return null;

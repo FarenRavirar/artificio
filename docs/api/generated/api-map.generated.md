@@ -459,10 +459,10 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/community/conversation` | ✅ high | `apps/mesas/backend/src/routes/communityComments.ts` | 136 |
 | POST | `/api/v1/community/conversation` | ✅ high | `apps/mesas/backend/src/routes/communityComments.ts` | 177 |
 | USE | `/api/v1/community/conversation` | ✅ high | `apps/mesas/backend/src/server.ts` | 135 |
-| DELETE | `/api/v1/community/conversation/:id` | ✅ high | `apps/mesas/backend/src/routes/communityComments.ts` | 218 |
-| PATCH | `/api/v1/community/conversation/:id` | ✅ high | `apps/mesas/backend/src/routes/communityComments.ts` | 211 |
+| DELETE | `/api/v1/community/conversation/:id` | ✅ high | `apps/mesas/backend/src/routes/communityComments.ts` | 227 |
+| PATCH | `/api/v1/community/conversation/:id` | ✅ high | `apps/mesas/backend/src/routes/communityComments.ts` | 220 |
 | POST | `/api/v1/community/conversation/:id/replies` | ✅ high | `apps/mesas/backend/src/routes/communityComments.ts` | 190 |
-| PUT | `/api/v1/community/conversation/:id/vote` | ✅ high | `apps/mesas/backend/src/routes/communityComments.ts` | 269 |
+| PUT | `/api/v1/community/conversation/:id/vote` | ✅ high | `apps/mesas/backend/src/routes/communityComments.ts` | 278 |
 | POST | `/api/v1/community/decisions/:id/appeals` | ✅ high | `apps/mesas/backend/src/routes/communityModeration.ts` | 140 |
 | GET | `/api/v1/community/moderation/appeals/:id` | ✅ high | `apps/mesas/backend/src/routes/communityModeration.ts` | 175 |
 | POST | `/api/v1/community/moderation/appeals/:id/resolution` | ✅ high | `apps/mesas/backend/src/routes/communityModeration.ts` | 178 |

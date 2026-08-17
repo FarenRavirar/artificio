@@ -207,6 +207,15 @@ router.post('/:id/replies', commentWriteRateLimiter, authMiddleware, (req: Reque
  * sobre a linha travada (§4). Escopo de credencial diz o que o app pode fazer,
  * nunca quem é o dono da fala — replicar a checagem aqui daria uma segunda
  * resposta para a mesma pergunta.
+ *
+ * **Mesa encerrada não bloqueia estas duas rotas, e isso é deliberado** (achado
+ * de review recusado, PR #268). O requisito 26a limita **escrita nova** —
+ * "revalidado a cada criação e a cada resposta" —, e editar é ato de *reparo*
+ * da própria fala, não fala nova. Bloquear prenderia o autor a um texto com
+ * erro numa mesa que encerrou, e a auto-retirada (`DELETE` abaixo, mesmo
+ * bucket) cairia junto: o autor perderia o direito de retirar o que escreveu
+ * exatamente quando não pode mais se explicar em resposta. O `downloads`, host
+ * de referência já em produção, tem o mesmo desenho.
  */
 router.patch('/:id', commentEditRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, `/internal/v1/comments/${encodeURIComponent(req.params.id)}`, {

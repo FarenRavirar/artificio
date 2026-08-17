@@ -278,7 +278,10 @@ describe('query filtrada e degradação', () => {
     await request(makeApp())
       .post('/api/v1/community/moderation/comments/comment-1/removal')
       .send({ reason: 'spam' })
-      .expect(401, { error: 'unauthenticated' });
+      // `correlation_id` no corpo: §13 exige o campo em toda resposta de erro,
+      // e este `401` era o único do módulo que o omitia (achado de review, PR
+      // #268). Nulo porque o cliente não mandou `X-Correlation-Id`.
+      .expect(401, { error: 'unauthenticated', correlation_id: null });
 
     expect(fetchMock).not.toHaveBeenCalled();
   });

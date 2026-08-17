@@ -1564,6 +1564,59 @@ diferentes e ator diferente. Extrair isso exigiria uma tabela de rotas genérica
 justamente as diferenças que a spec manda deixar visíveis** — o oposto do critério aplicado nas
 camadas de transporte. Fica como está, de propósito.
 
+### Sexta rodada de review (PR #268)
+
+**Procede e corrigido — `401` sem `correlation_id`.** O ramo de ator não resolvido em
+`guardaPreChamada` era a **única** saída de erro do módulo que omitia o campo, enquanto o `503` ao
+lado o incluía; §13 do contrato exige `correlation_id` em toda resposta de erro. A ausência doía
+justamente no caso mais difícil de diagnosticar — `401` sem ator é falha de ordem de middleware, e
+sem a correlação não há como ligar o relato do cliente ao log do servidor. Passou a usar
+`erroDeResposta`; o teste que fixava `{ error: 'unauthenticated' }` foi atualizado.
+
+**Procede e corrigido — `credential!` em `relayHeaders`.** A asserção não-nula se apoiava numa
+garantia do chamador, mas a função é **exportada**: quem a chamasse direto serializaria `undefined`
+como a string literal `"undefined"` no `X-Service-Token`, e o `accounts.` recusaria com `401`
+genérico — o operador procuraria uma credencial revogada que nunca foi enviada. Agora lança. Lançar
+e não omitir o header é deliberado: sem `X-Service-Token` a chamada seguiria **anônima** ao registro
+central, que é falha aberta.
+
+**Não procede — edição bloqueada em mesa encerrada.** Factualmente o achado está certo (`PATCH` e
+`DELETE` não passam pelo guard de assunto, e o `accounts.` não revalida o ciclo de vida na edição),
+mas é desenho, não lacuna. O requisito 26a limita **escrita nova** — "revalidado a cada criação e a
+cada resposta" —, e editar é ato de *reparo* da própria fala. Bloquear prenderia o autor a um texto
+com erro numa mesa encerrada, e a auto-retirada (mesmo bucket) cairia junto: ele perderia o direito
+de retirar o que escreveu exatamente quando não pode mais se explicar em resposta. O `downloads`,
+host de referência já em produção, tem o mesmo desenho. Razão registrada no código para o achado
+não voltar.
+
+**Não procede — "tainted data" em `ResultCard.tsx` (2x).** Medido: a `baseURL` do cliente é fixa
+(variável de build), os dois valores vêm da resposta da própria API, e ambos já passam por
+`encodeURIComponent`. Verificado com payloads reais — `../../admin`, `http://evil.test/x`,
+`a?b=1#c`, `..%2f..%2fetc` — e nenhum escapa do segmento de path (viram `..%2F..%2Fadmin` etc.).
+Sem host variável e sem escape possível, não há SSRF nem redirecionamento.
+
+**Erro do próprio agente, corrigido — as exclusões do Sonar estavam no arquivo errado.** O commit
+anterior acrescentou `**/*.html` a `sonar-project.properties`, e os achados continuaram aparecendo.
+Causa medida na doc oficial: a **Automatic Analysis ignora** esse arquivo — "If you import a project
+that already contains a `sonar-project.properties` file, SonarQube Cloud will ignore the parameters
+in your sonar-project.properties file". O arquivo lido é **`.sonarcloud.properties`**, e
+`sonar-project.properties` só volta a valer se a análise automática for trocada por CI/CD (não é o
+caso: `rg` em `.github` não acha nenhum workflow chamando o scanner).
+
+Consequência maior que o pedido original: as exclusões viviam ali desde a PR #113, então
+`docs/api/generated/**` **nunca esteve de fato excluído** — nem por arquivo, nem por painel
+(`api/settings/values` para o componente devolve `{"settings":[]}`). Criado
+`.sonarcloud.properties` com as duas diretivas; `sonar-project.properties` mantido, e não apagado,
+com aviso no topo e o mesmo conteúdo — se a análise migrar para CI/CD ele volta a valer, e apagá-lo
+perderia as exclusões de novo.
+
+**Reapresentados, já recusados com medição:** os 5 `sort()` sem comparador. São chaves de
+idempotência e identificadores de diagnóstico, não texto para leitura humana; `localeCompare`
+devolve 3 ordens distintas para a mesma entrada (reproduzido: `['a-1','A-1','a_1']` sai diferente
+em binário, `pt-BR` e `en-US-u-kf-upper`). O Sonar não guarda estado entre execuções e vai
+reapresentá-los a cada PR que tocar esses arquivos — silenciar exige *won't fix* no painel, que é
+ação do mantenedor.
+
 ### Validação da fase, medida em 2026-08-16
 
 `rtk pnpm run test` 41/41 tarefas exit 0 · `rtk pnpm verify:api` exit 0, **0 breaking**,
