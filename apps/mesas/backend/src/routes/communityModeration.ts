@@ -73,8 +73,18 @@ function requireCommentModerator(req: Request, res: Response, next: NextFunction
 // Denúncia e recurso também não compartilham, pela mesma razão aplicada a uma
 // só pessoa: quem é moderado tende a denunciar de volta, e o bucket comum
 // tiraria dele a via de defesa. Ver `middleware/rateLimit.ts`.
-const moderatorRead = [authMiddleware, requireCommentModerator, publicRateLimiter];
-const moderatorWrite = [authMiddleware, requireCommentModerator, strictRateLimiter];
+//
+// **O limiter vem ANTES de `authMiddleware`, e a ordem não é estética**
+// (CodeQL `js/missing-rate-limiting`, PR #268): com a autenticação primeiro,
+// toda requisição paga a validação de JWT antes de qualquer freio, e a rota
+// vira amplificador — o atacante gasta um header inválido, o servidor gasta
+// verificação de assinatura. Com o limiter na frente, a rajada morre em `429`
+// sem tocar em cripto. Seguro porque nenhum destes buckets usa `keyGenerator`,
+// `skip` ou lê `req.user`: todos chaveiam por IP, que existe antes de
+// autenticar. É também a ordem que a fachada de conversa dos dois apps já
+// usava (`communityComments.ts`); a moderação é que era a exceção.
+const moderatorRead = [publicRateLimiter, authMiddleware, requireCommentModerator];
+const moderatorWrite = [strictRateLimiter, authMiddleware, requireCommentModerator];
 
 /**
  * Vocabulário de erro desta fachada. A mecânica de transporte (credencial,
@@ -112,22 +122,22 @@ function proxyQueue(req: Request, res: Response, path: string): Promise<void> {
 
 // --- Superfície do usuário comum: denunciar e recorrer -----------------------
 
-router.get('/reports', authMiddleware, publicRateLimiter, (req: Request, res: Response, next: NextFunction) => {
+router.get('/reports', publicRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, '/api/v1/community/reports', 'session').catch(next);
 });
-router.get('/appeals/:id', authMiddleware, publicRateLimiter, (req: Request, res: Response, next: NextFunction) => {
+router.get('/appeals/:id', publicRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, `/api/v1/community/appeals/${encodeURIComponent(req.params.id)}`, 'session').catch(next);
 });
-router.get('/report-reasons', authMiddleware, publicRateLimiter, (req: Request, res: Response, next: NextFunction) => {
+router.get('/report-reasons', publicRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, '/internal/v1/report-reasons', 'service').catch(next);
 });
-router.post('/comments/:id/reports', authMiddleware, commentReportRateLimiter, (req: Request, res: Response, next: NextFunction) => {
+router.post('/comments/:id/reports', commentReportRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, `/internal/v1/comments/${encodeURIComponent(req.params.id)}/reports`, 'service').catch(next);
 });
-router.delete('/reports/:id', authMiddleware, commentReportRateLimiter, (req: Request, res: Response, next: NextFunction) => {
+router.delete('/reports/:id', commentReportRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, `/internal/v1/reports/${encodeURIComponent(req.params.id)}`, 'service').catch(next);
 });
-router.post('/decisions/:id/appeals', authMiddleware, commentAppealRateLimiter, (req: Request, res: Response, next: NextFunction) => {
+router.post('/decisions/:id/appeals', commentAppealRateLimiter, authMiddleware, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, `/internal/v1/moderation/decisions/${encodeURIComponent(req.params.id)}/appeals`, 'service').catch(next);
 });
 

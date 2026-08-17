@@ -1501,8 +1501,68 @@ quebrou por outro motivo. Separados em `RUN` distintos; no `downloads` o problem
 `pnpm install` dividindo o mesmo `||`). Docker Desktop fora do ar, então não houve build real:
 validada a sintaxe dos quatro blocos com `sh -n` (OK) e conferido que install e asserção viraram
 `RUN` separados.
-Medido: `mesas-backend` rotas+community 209/209, test 41/41 sem cache, lint 25/25, build 25/25,
+Medido: `mesas-backend` rotas+community 209/209, test 41/41, lint 25/25, build 25/25,
 `tsc --noEmit` limpo.
+
+### Quinta rodada de review (PR #268)
+
+**Procede e corrigido — ordem de middleware (`js/missing-rate-limiting`, CodeQL).** As rotas
+**tinham** limiter; o CodeQL exige que ele venha **antes** do middleware de autorização, e o
+argumento é real: com `authMiddleware` primeiro, toda requisição paga validação de JWT antes de
+qualquer freio, e a rota vira amplificador — o atacante gasta um header inválido, o servidor gasta
+verificação de assinatura. Invertido nas 8 rotas + 2 arrays de guard de **cada** app (o bot citou
+3 rotas do `downloads`; a inconsistência era geral e a fachada de conversa dos dois apps já usava a
+ordem certa — a moderação é que era a exceção, que eu propaguei ao criar os buckets novos).
+Seguro porque nenhum bucket usa `keyGenerator`, `skip` ou lê `req.user`: todos chaveiam por IP, que
+existe antes de autenticar. Travado por teste: os mocks passaram a registrar a ordem real de
+execução, e reverter a inversão reprova (`expected [ 'auth', 'rate-limit' ]`).
+
+**Procede — P1 do Codex: `moderation.write` ausente na credencial do `mesas`.** Medido no banco de
+produção, não no documento: `mesas-prod-a2309cf0` e `mesas-beta-c7a725ad` tinham 6 escopos e **não**
+`moderation.write`, que `communityModerationRoutes.ts:299` exige em todas as 14 rotas — inclusive
+a fila, que é leitura. As rotas responderiam `403` a todo moderador. A origem está registrada em
+:1037: o escopo ficou de fora **por menor privilégio**, quando a fachada do `mesas` ainda não
+expunha moderação; a Fase 7 mudou a premissa e ninguém revisitou.
+**Resolvido com `UPDATE` de escopo, não com rotação de credencial** — `resolveServiceCredential`
+consulta o banco a cada requisição (sem cache), então o efeito é imediato e **não** exige
+`--force-recreate`, o que evita o `BLQ-090-NGINX` inteiro. Backup do estado anterior em
+`~/mesas-scopes-antes-20260817.txt` na VM; `UPDATE` idempotente e restrito
+(`revoked_at is null and not ('moderation.write' = any(scopes))`), afetou 2 linhas.
+Verificado por chamada real de dentro do container: o erro saiu de `insufficient_scope` para
+`forbidden_role` nos dois realms — o guard de credencial passou, e o `403` restante é o guard de
+papel recusando o UUID fictício do teste, como deve. Controle com credencial revogada devolve
+`unauthorized`, provando que os três estados são distinguíveis. `downloads` e as credenciais
+revogadas intocados; smoke `accounts health=200`, `mesas home=200`, `mesasbeta home=200`.
+
+**Procede e corrigido — duplicação restante entre os adaptadores (Sonar: 69 linhas, 64,5% e
+53,5%).** A unificação anterior parou cedo: a tradução `req`/`res` → `relayToAccounts` continuava
+idêntica nos dois apps, e dependia só de `fetchImpl` e do ator — que já eram parâmetros. Ou seja, a
+cópia não protegia diferença nenhuma. Subiu para `createFacadeProxy` no pacote, tipado
+**estruturalmente** (`FacadeHostRequest`/`FacadeHostResponse`), então `@artificio/comments` continua
+sem depender de `express` e o `Request` real satisfaz por shape, sem cast. Adaptadores: `mesas`
+119 → 86, `downloads` 106 → 58; divergência de código entre eles, **11 linhas**.
+**Defeito real que os testes pegaram no meio disso:** `fetchImpl: fetch` captura a referência no
+**import**, congelando o valor — os testes trocam o global com `vi.stubGlobal` depois e passaram a
+bater na rede (25 falhas, `fetch failed`). Corrigido resolvendo na chamada (`(url, init) =>
+fetch(...)`), nos dois apps. Vale além do teste: substituir o transporte por instrumentação também
+não teria efeito com a referência congelada.
+
+**Erro de medição do próprio agente, corrigido.** Vários relatórios desta spec afirmaram "test
+41/41 **sem cache**" com base em `pnpm run test --force`. O comando não faz o que a frase diz: o
+`pnpm` repassa a flag ao script do pacote, não ao turbo, e o script raiz é `turbo run test
+--concurrency=4` — então `--force` chegava ao **vitest**, que aborta com `CACError: Unknown option
+--force`. Era esta a "falha de `@artificio/comments#test` no turbo" que ficou dias sem diagnóstico:
+erro de linha de comando, não teste quebrado. Forma correta: `pnpm turbo run test --concurrency=4
+--force` (medido depois: **41/41, 0 cached, exit 0**). Registrado aqui porque a afirmação errada já
+tinha entrado em relatório entregue ao mantenedor.
+
+**Não procede — `communityModeration.ts` (33,3%).** As ~61 linhas marcadas são as 20 declarações
+`router.get/post(...)` de cada app, que se parecem porque são **o mesmo contrato HTTP**. O que
+diverge é a política que cada linha carrega: `requireCommentModerator` (lê `globalRole`, porque o
+`mesas` rebaixa `moderator` → `player`) contra `requireRole(['moderator','admin'])`, buckets
+diferentes e ator diferente. Extrair isso exigiria uma tabela de rotas genérica que **esconderia
+justamente as diferenças que a spec manda deixar visíveis** — o oposto do critério aplicado nas
+camadas de transporte. Fica como está, de propósito.
 
 ### Validação da fase, medida em 2026-08-16
 

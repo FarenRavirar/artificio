@@ -4,8 +4,22 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { fetchMock } = vi.hoisted(() => ({ fetchMock: vi.fn() }));
 vi.mock('undici', () => ({ fetch: fetchMock }));
+
+/**
+ * Ordem real de execução dos middlewares, na sequência em que rodaram.
+ *
+ * Existe para travar o que o CodeQL apontou duas vezes
+ * (`js/missing-rate-limiting`, PRs #262 e #268): o limiter tem de rodar **antes**
+ * de `authMiddleware`, senão toda requisição paga validação de JWT antes de
+ * qualquer freio e a rota vira amplificador. Sem esta lista, inverter a ordem
+ * de volta não quebra teste nenhum — e a regressão só reaparece no scan, depois
+ * do merge.
+ */
+const ordemMiddlewares = vi.hoisted(() => [] as string[]);
+
 vi.mock('../middleware/auth', () => ({
   authMiddleware: (req: express.Request, _res: express.Response, next: express.NextFunction) => {
+    ordemMiddlewares.push('auth');
     req.user = { userId: 'moderator-user', role: 'moderator' };
     next();
   },
@@ -30,6 +44,7 @@ vi.mock('../middleware/rateLimit', () => {
   const marcador =
     (nome: string) => (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
       bucketsAplicados.push(nome);
+      ordemMiddlewares.push('rate-limit');
       next();
     };
   return {
@@ -54,6 +69,7 @@ describe('fachada browser-safe de moderação comunitária', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     bucketsAplicados.length = 0;
+    ordemMiddlewares.length = 0;
     process.env.ACCOUNTS_URL = 'http://accounts.test';
     process.env.SERVICE_CREDENTIAL = 'downloads-prod.credential';
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ items: [], new_account_comments: [] }), {
@@ -140,6 +156,7 @@ describe('buckets de rate limit independentes por ação', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     bucketsAplicados.length = 0;
+    ordemMiddlewares.length = 0;
     process.env.ACCOUNTS_URL = 'http://accounts.test';
     process.env.SERVICE_CREDENTIAL = 'downloads-prod.credential';
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ ok: true }), {
@@ -174,5 +191,28 @@ describe('buckets de rate limit independentes por ação', () => {
       .send({ justification: 'discordo' });
 
     expect(bucketsAplicados).toEqual(['appeal']);
+  });
+
+  /**
+   * `js/missing-rate-limiting` (CodeQL, PRs #262 e #268). Autenticar antes de
+   * limitar faz toda requisição pagar validação de JWT sem freio nenhum: a rota
+   * vira amplificador, o atacante gasta um header inválido e o servidor gasta
+   * verificação de assinatura. Estes dois casos são o que impede a inversão de
+   * voltar sem quebrar nada.
+   */
+  it('o limiter roda antes da autenticação na rota do usuário comum', async () => {
+    await request(app())
+      .post('/api/v1/community/decisions/decision-1/appeals')
+      .send({ justification: 'discordo' });
+
+    expect(ordemMiddlewares).toEqual(['rate-limit', 'auth']);
+  });
+
+  it('o limiter roda antes da autenticação também no caminho do moderador', async () => {
+    await request(app())
+      .post('/api/v1/community/moderation/comments/comment-1/removal')
+      .send({ reason: 'spam' });
+
+    expect(ordemMiddlewares).toEqual(['rate-limit', 'auth']);
   });
 });

@@ -87,11 +87,16 @@ export {
 
 export {
   FACADE_RELAY_TIMEOUT_MS,
+  createFacadeProxy,
   filteredQuery,
   isBodyless,
   readClientHeader,
   relayHeaders,
   relayToAccounts,
+  type FacadeHostRequest,
+  type FacadeHostResponse,
+  type FacadeProxyDeps,
+  type FacadeProxyOptions,
   type FacadeRelayFetch,
   type FacadeRelayMode,
   type FacadeRelayOptions,

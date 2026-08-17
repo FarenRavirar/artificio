@@ -171,13 +171,16 @@ export type FacadeRelayResult =
  * realimenta o próprio rate limit — pior ainda na moderação, onde o operador
  * tende a insistir.
  */
-export async function relayToAccounts(
-  req: FacadeRelayRequest,
-  path: string,
+/**
+ * Pré-condições que respondem sem chegar ao `accounts.`. Extraída de
+ * `relayToAccounts` para baixar a complexidade cognitiva ao teto do Sonar (16 →
+ * 15, PR #268); é também a fronteira natural — aqui nada de rede aconteceu
+ * ainda, então nenhum destes ramos pode carregar `Retry-After`.
+ */
+function guardaPreChamada(
   options: FacadeRelayOptions,
-): Promise<FacadeRelayResult> {
-  const correlation = readClientHeader(req.header('x-correlation-id'));
-
+  correlation: string | null,
+): FacadeRelayResult | null {
   if (!options.origin || (options.mode === 'service' && !options.credential)) {
     return {
       kind: 'error',
@@ -192,6 +195,24 @@ export async function relayToAccounts(
   if (options.mode === 'service' && options.requireActingUser && !options.actingUserId) {
     return { kind: 'error', status: 401, body: { error: 'unauthenticated' } };
   }
+
+  return null;
+}
+
+/** Corpo de erro no formato único do contrato (§1.1: `correlation_id` sempre). */
+function erroDeResposta(status: number, error: string, correlation: string | null): FacadeRelayResult {
+  return { kind: 'error', status, body: { error, correlation_id: correlation } };
+}
+
+export async function relayToAccounts(
+  req: FacadeRelayRequest,
+  path: string,
+  options: FacadeRelayOptions,
+): Promise<FacadeRelayResult> {
+  const correlation = readClientHeader(req.header('x-correlation-id'));
+
+  const bloqueio = guardaPreChamada(options, correlation);
+  if (bloqueio) return bloqueio;
 
   const method = req.method.toUpperCase();
   const headers = relayHeaders(
@@ -225,11 +246,7 @@ export async function relayToAccounts(
     } catch {
       // HTML de página de erro no lugar de JSON: vira `502` explícito, nunca
       // corpo repassado cru que o schema do cliente tentaria interpretar.
-      return {
-        kind: 'error',
-        status: 502,
-        body: { error: 'invalid_accounts_response', correlation_id: correlation },
-      };
+      return erroDeResposta(502, 'invalid_accounts_response', correlation);
     }
 
     // A validação só se aplica à resposta de sucesso: corpo de erro do
@@ -237,13 +254,7 @@ export async function relayToAccounts(
     // schema da rota — validá-lo transformaria um `429` legível num `502` opaco.
     if (options.validate && response.ok) {
       const parsed = options.validate(payload);
-      if (!parsed.ok) {
-        return {
-          kind: 'error',
-          status: 502,
-          body: { error: 'invalid_accounts_response', correlation_id: correlation },
-        };
-      }
+      if (!parsed.ok) return erroDeResposta(502, 'invalid_accounts_response', correlation);
       return { kind: 'json', status: response.status, body: parsed.data, retryAfter };
     }
 
@@ -259,6 +270,116 @@ export async function relayToAccounts(
       logged: { path, error: error instanceof Error ? error.message : String(error) },
     };
   }
+}
+
+/**
+ * Superfície mínima do `req`/`res` do Express que a tradução usa.
+ *
+ * Tipada **estruturalmente**, e não importando `express`: o pacote continua sem
+ * a dependência, e o `Request` real do app satisfaz estes campos por
+ * compatibilidade de shape.
+ */
+export interface FacadeHostRequest {
+  method: string;
+  body?: unknown;
+  header(name: string): string | undefined;
+}
+
+export interface FacadeHostResponse {
+  status(code: number): FacadeHostResponse;
+  json(body: unknown): unknown;
+  end(): unknown;
+  setHeader(name: string, value: string): unknown;
+}
+
+export interface FacadeProxyOptions {
+  mode: FacadeRelayMode;
+  /** Vocabulário de erro da fachada — cada uma tem o seu. */
+  unavailableError: string;
+  /** Prefixo do log, para separar as superfícies na VM. */
+  logPrefix: string;
+  actingUserId?: string;
+  /** Corpo já montado pela fachada; ausente usa `req.body`. */
+  body?: unknown;
+  validate?: FacadeRelayValidation;
+  /** `true` quando o modo `service` exige ator resolvido. */
+  requireActingUser?: boolean;
+}
+
+/** O que cada app precisa fornecer, e que é tudo o que os dois não compartilham. */
+export interface FacadeProxyDeps {
+  /** `undici` explícito no `downloads`, global no `mesas`. */
+  fetchImpl: FacadeRelayFetch;
+  /** Origem do `accounts.`; nula degrada para `503`. */
+  origin: () => string | null;
+  /** Credencial de serviço do app. */
+  credential: () => string | undefined;
+  /** Destino do log de falha — `console.error` nos dois apps hoje. */
+  logError?: (mensagem: string, contexto: Record<string, unknown>) => void;
+}
+
+/**
+ * Monta o `proxyToAccounts` que a fachada de um app usa.
+ *
+ * Existe porque a tradução `req`/`res` → `relayToAccounts` era **idêntica** nos
+ * dois apps: 69 linhas repetidas depois da primeira unificação (Sonar, PR
+ * #268). O que de fato diverge são `fetchImpl` e o ator, e os dois já eram
+ * parâmetros — então a cópia não estava protegendo diferença nenhuma, só
+ * esperando a próxima correção chegar pela metade num dos lados.
+ */
+export function createFacadeProxy(deps: FacadeProxyDeps) {
+  const logError =
+    deps.logError ??
+    ((mensagem, contexto) => {
+      console.error(mensagem, contexto);
+    });
+
+  return async function proxyToAccountsFromHost(
+    req: FacadeHostRequest,
+    res: FacadeHostResponse,
+    path: string,
+    options: FacadeProxyOptions,
+  ): Promise<void> {
+    const result = await relayToAccounts(
+      {
+        method: req.method,
+        header: (name) => req.header(name),
+        body: options.body ?? req.body,
+      },
+      path,
+      {
+        mode: options.mode,
+        origin: deps.origin(),
+        credential: deps.credential(),
+        unavailableError: options.unavailableError,
+        actingUserId: options.actingUserId,
+        requireActingUser: options.requireActingUser,
+        validate: options.validate,
+        fetchImpl: deps.fetchImpl,
+      },
+    );
+
+    // Log antes de responder: `503` é indistinguível entre `accounts.` fora,
+    // timeout e DNS quebrado, e sem rastro o diagnóstico na VM começa do zero.
+    if (result.kind === 'error' && result.logged) {
+      logError(`[${options.logPrefix}] falha ao falar com accounts`, {
+        path: result.logged.path,
+        correlation_id: readClientHeader(req.header('x-correlation-id')),
+        error: result.logged.error,
+      });
+    }
+
+    // `Retry-After` só existe nos ramos relayados: o `503`/`401` decidido antes
+    // da chamada não tem janela do `accounts.` para repassar.
+    if (result.kind !== 'error' && result.retryAfter) {
+      res.setHeader('Retry-After', result.retryAfter);
+    }
+    if (result.kind === 'empty') {
+      res.status(result.status).end();
+      return;
+    }
+    res.status(result.status).json(result.body);
+  };
 }
 
 /**

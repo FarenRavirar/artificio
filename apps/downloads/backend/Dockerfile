@@ -66,6 +66,13 @@ RUN pnpm install --prod --filter @artificio/downloads-backend --frozen-lockfile 
 # então falha de rede ou lockfile em qualquer um deles era reportada como
 # "dependencia de pacote workspace ausente" — diagnóstico errado num build que
 # quebra por outro motivo. Agora os installs falham por conta própria.
+#
+# O Sonar pede o contrário ("Merge this RUN instruction with the consecutive
+# ones") e foi **recusado com medição**: a regra existe para evitar camada
+# desnecessária, e um `RUN` que só roda `test -d` não escreve nada — medido em
+# `alpine:3.20`, a camada sai com **4,1 kB** (metadado), contra 453 MB da camada
+# de install desta imagem. Juntar de volta economizaria 0,0009% e devolveria o
+# diagnóstico errado que o Codex apontou. Não juntar.
 RUN test -d packages/media/node_modules/cloudinary \
   && test -d packages/media/node_modules/ipaddr.js \
   && test -d packages/content-editor/node_modules/sanitize-html \

@@ -10,11 +10,7 @@ import {
   MESAS_SUBJECT_TYPE,
   createTableSubjectGuard,
 } from '../community/tableSubjectGuard.js';
-import {
-  actingAccountsUserId,
-  proxyToAccounts,
-  readClientHeader,
-} from '../community/accountsProxy.js';
+import { actingAccountsUserId, proxyToAccounts } from '../community/accountsProxy.js';
 
 /**
  * T7.4/T7.5 (spec 090) — fachada browser-safe da conversa do `mesas`.
@@ -74,7 +70,7 @@ function proxyAccounts(
  * recusa header com caractere de controle antes de chegar ao handler, então o
  * ramo só é alcançável pela função.
  */
-export { readClientHeader as readCorrelationId };
+export { readClientHeader as readCorrelationId } from '../community/accountsProxy.js';
 
 /**
  * Resolve o assunto e recalcula a autorização. Os motivos de recusa colapsam em

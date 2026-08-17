@@ -5,7 +5,7 @@ import {
   DOWNLOADS_SUBJECT_TYPE,
   createMaterialSubjectGuard,
 } from '../community/materialSubjectGuard';
-import { proxyToAccounts, readClientHeader } from '../community/accountsProxy';
+import { proxyToAccounts } from '../community/accountsProxy';
 
 /**
  * T5.3/T5.3c (spec 090) — fachada browser-safe da conversa do `downloads`.
@@ -67,7 +67,7 @@ function proxyAccounts(
  * recusa header com caractere de controle antes de chegar ao handler, então o
  * ramo só é alcançável pela função.
  */
-export { readClientHeader as readCorrelationId };
+export { readClientHeader as readCorrelationId } from '../community/accountsProxy';
 
 /**
  * Resolve o assunto e recalcula a autorização. Os três motivos de recusa

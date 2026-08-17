@@ -36,6 +36,22 @@ import { useCommunityConversation } from '../hooks/useCommunityConversation';
  */
 const CONTENT_AUTHOR_LABEL = 'Quem publicou a mesa';
 
+/**
+ * Mensagem da conversa sem nenhum comentário.
+ *
+ * Função nomeada em vez de ternário aninhado no JSX (achado do Sonar, PR #268):
+ * são três estados com causas distintas — mesa aberta e visitante anônimo,
+ * mesa aberta e sessão ativa, mesa encerrada — e aninhar as condições escondia
+ * qual delas produz cada frase. A ordem importa: encerrada vence, porque não
+ * adianta convidar a entrar numa conversa que não aceita fala nova
+ * (heurística 1 de Nielsen — o sistema diz o estado real).
+ */
+function mensagemDeConversaVazia(podeComentar: boolean, temSessao: boolean): string {
+  if (!podeComentar) return 'Esta mesa foi encerrada e não recebe comentários novos.';
+  if (temSessao) return 'Ainda não há comentários. Seja a primeira pessoa a comentar.';
+  return 'Ainda não há comentários. Entre com sua conta para comentar.';
+}
+
 export interface TableConversationProps {
   /** `tables.id` (UUID). O slug identifica a rota; o id identifica o assunto. */
   readonly tableId: string;
@@ -132,13 +148,7 @@ export function TableConversation({ tableId, canComment = true }: Readonly<Table
         onActionComplete={reload}
         onMoreLoaded={loadMore}
         contentAuthorLabel={CONTENT_AUTHOR_LABEL}
-        emptyMessage={
-          canComment
-            ? user
-              ? 'Ainda não há comentários. Seja a primeira pessoa a comentar.'
-              : 'Ainda não há comentários. Entre com sua conta para comentar.'
-            : 'Esta mesa foi encerrada e não recebe comentários novos.'
-        }
+        emptyMessage={mensagemDeConversaVazia(canComment, Boolean(user))}
       />
     </section>
   );
