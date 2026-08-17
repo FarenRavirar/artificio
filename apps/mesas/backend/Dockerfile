@@ -52,8 +52,15 @@ RUN pnpm install --prod --filter @artificio/mesas-backend --filter @artificio/co
   --filter @artificio/content --filter @artificio/auth --filter @artificio/changelog \
   --filter @artificio/feedback --filter @artificio/media --filter @artificio/catalog-client \
   --filter @artificio/content-editor --filter @artificio/comments \
-  --frozen-lockfile \
-  && test -d packages/media/node_modules/cloudinary \
+  --frozen-lockfile
+
+# Asserção separada do install de propósito (achado de review, PR #268): no
+# encadeamento anterior (`pnpm install && test ... || echo ERRO`), falha de rede
+# ou lockfile caía no mesmo `||` e era reportada como "dependencia de pacote
+# workspace ausente" — diagnóstico errado num build que quebra por outro motivo.
+# Agora o install falha por conta própria, e esta mensagem só cobre o que ela
+# de fato descreve.
+RUN test -d packages/media/node_modules/cloudinary \
   && test -d packages/comments/node_modules/zod \
   || (echo "ERRO: dependencia de pacote workspace ausente em packages/*/node_modules/" && exit 1)
 

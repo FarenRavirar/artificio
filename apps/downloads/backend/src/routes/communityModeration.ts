@@ -1,7 +1,12 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { moderationQueueSchema } from '@artificio/comments';
 import { authMiddleware, requireRole } from '../middleware/auth';
-import { readRateLimiter, writeRateLimiter } from '../middleware/rateLimit';
+import {
+  commentAppealRateLimiter,
+  commentReportRateLimiter,
+  readRateLimiter,
+  writeRateLimiter,
+} from '../middleware/rateLimit';
 import {
   filteredQuery,
   proxyToAccounts,
@@ -77,13 +82,13 @@ router.get('/appeals/:id', authMiddleware, readRateLimiter, (req: Request, res: 
 router.get('/report-reasons', authMiddleware, readRateLimiter, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, '/internal/v1/report-reasons', 'service').catch(next);
 });
-router.post('/comments/:id/reports', authMiddleware, writeRateLimiter, (req: Request, res: Response, next: NextFunction) => {
+router.post('/comments/:id/reports', authMiddleware, commentReportRateLimiter, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, `/internal/v1/comments/${encodeURIComponent(req.params.id)}/reports`, 'service').catch(next);
 });
-router.delete('/reports/:id', authMiddleware, writeRateLimiter, (req: Request, res: Response, next: NextFunction) => {
+router.delete('/reports/:id', authMiddleware, commentReportRateLimiter, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, `/internal/v1/reports/${encodeURIComponent(req.params.id)}`, 'service').catch(next);
 });
-router.post('/decisions/:id/appeals', authMiddleware, writeRateLimiter, (req: Request, res: Response, next: NextFunction) => {
+router.post('/decisions/:id/appeals', authMiddleware, commentAppealRateLimiter, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, `/internal/v1/moderation/decisions/${encodeURIComponent(req.params.id)}/appeals`, 'service').catch(next);
 });
 

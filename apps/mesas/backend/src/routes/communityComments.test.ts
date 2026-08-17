@@ -115,6 +115,15 @@ function lastCall(): { url: string; init: { headers: Record<string, string>; bod
   return { url, init };
 }
 
+// Env do processo restaurado depois de cada caso: um teste apaga
+// SERVICE_CREDENTIAL de propósito (achado de review, PR #268), e sem a
+// restauração o valor original nunca volta — vaza para qualquer suite que rode
+// depois no mesmo worker. Mesmo padrão já aplicado em communityModeration.test.
+const envOriginal = {
+  ACCOUNTS_URL: process.env.ACCOUNTS_URL,
+  SERVICE_CREDENTIAL: process.env.SERVICE_CREDENTIAL,
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.ACCOUNTS_URL = 'https://accounts.exemplo.test';
@@ -126,6 +135,10 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  for (const [chave, valor] of Object.entries(envOriginal)) {
+    if (valor === undefined) delete process.env[chave];
+    else process.env[chave] = valor;
+  }
 });
 
 describe('T7.2 — identificador enviado ao accounts.', () => {
@@ -162,6 +175,18 @@ describe('T7.2 — identificador enviado ao accounts.', () => {
       .send({ value: 1 })
       .expect(201);
     expect(lastCall().init.headers['X-Acting-User-Id']).toBe(ACCOUNTS_USER_ID);
+    expect(lastCall().init.headers['X-Acting-User-Id']).not.toBe(LOCAL_USER_ID);
+
+    // A edição estava só no título até o review da PR #268: o caso exercitava
+    // voto e afirmava cobrir as duas ações. Rota diferente (`PATCH /:id`,
+    // bucket de edição), então resolver o ator ali é decisão própria — não
+    // herdada do voto.
+    await request(makeApp())
+      .patch(`/api/v1/community/conversation/${'comment-1'}`)
+      .send({ body_markdown: 'corrigido' })
+      .expect(201);
+    expect(lastCall().init.headers['X-Acting-User-Id']).toBe(ACCOUNTS_USER_ID);
+    expect(lastCall().init.headers['X-Acting-User-Id']).not.toBe(LOCAL_USER_ID);
   });
 });
 

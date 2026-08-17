@@ -6,8 +6,10 @@ import {
   filteredQuery,
   proxyToAccounts,
   type UpstreamMode,
+  type UpstreamValidation,
 } from '../community/accountsProxy.js';
 import {
+  commentAppealRateLimiter,
   commentReportRateLimiter,
   publicRateLimiter,
   strictRateLimiter,
@@ -23,7 +25,6 @@ import {
  */
 
 const router = Router();
-type UpstreamValidation = (body: unknown) => { ok: true; data: unknown } | { ok: false };
 
 /**
  * ## Por que este guard existe, em vez de `requireRole(['moderator','admin'])`
@@ -57,16 +58,21 @@ function requireCommentModerator(req: Request, res: Response, next: NextFunction
 // credencial: a fachada é quem conhece o IP real do cliente (requisito 12b —
 // "todos os buckets aplicáveis precisam liberar").
 //
-// Três buckets distintos nesta superfície (achado de review, PR #268 —
-// `contrato-http-v1.md` §Antiabuso exige independência por ação):
+// Quatro buckets distintos nesta superfície (achados de review, PR #268 —
+// `contrato-http-v1.md` §14 exige independência por ação):
 // - leitura de moderador (`publicRateLimiter`, 100/15 min);
 // - ação de moderador (`strictRateLimiter`, 10/15 min — teto baixo e proposital:
 //   retirar e restaurar comentário são operações raras e de alto impacto);
-// - denúncia e recurso do usuário comum (`commentReportRateLimiter`, 20/15 min).
+// - denúncia do usuário comum (`commentReportRateLimiter`, 20/15 min);
+// - recurso do usuário moderado (`commentAppealRateLimiter`, 10/15 min).
 //
 // A denúncia **não** pode compartilhar bucket com a ação de moderador: são
 // pessoas diferentes exercendo direitos diferentes, e um moderador ativo
 // esgotaria a cota de quem só quer reportar abuso — ou o contrário.
+//
+// Denúncia e recurso também não compartilham, pela mesma razão aplicada a uma
+// só pessoa: quem é moderado tende a denunciar de volta, e o bucket comum
+// tiraria dele a via de defesa. Ver `middleware/rateLimit.ts`.
 const moderatorRead = [authMiddleware, requireCommentModerator, publicRateLimiter];
 const moderatorWrite = [authMiddleware, requireCommentModerator, strictRateLimiter];
 
@@ -121,7 +127,7 @@ router.post('/comments/:id/reports', authMiddleware, commentReportRateLimiter, (
 router.delete('/reports/:id', authMiddleware, commentReportRateLimiter, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, `/internal/v1/reports/${encodeURIComponent(req.params.id)}`, 'service').catch(next);
 });
-router.post('/decisions/:id/appeals', authMiddleware, commentReportRateLimiter, (req: Request, res: Response, next: NextFunction) => {
+router.post('/decisions/:id/appeals', authMiddleware, commentAppealRateLimiter, (req: Request, res: Response, next: NextFunction) => {
   proxyAccounts(req, res, `/internal/v1/moderation/decisions/${encodeURIComponent(req.params.id)}/appeals`, 'service').catch(next);
 });
 

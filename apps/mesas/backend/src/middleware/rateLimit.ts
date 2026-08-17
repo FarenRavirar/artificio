@@ -120,3 +120,25 @@ export const commentReportRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+/**
+ * Recurso contra decisão de moderação. Bucket próprio, e não o de denúncia
+ * (achado de review, PR #268): são o sexto e o quinto item da lista de
+ * `COMMENT_RATE_BUCKETS`, e §14 do contrato os separa de propósito.
+ *
+ * A consequência de compartilhar é a pior possível para esta ação: quem foi
+ * moderado costuma denunciar de volta, então o mesmo IP esgota a cota de
+ * denúncia e perde o direito de **recorrer da própria punição** — a única via
+ * de defesa que o contrato lhe dá.
+ *
+ * Teto baixo porque o domínio já limita: o recurso é um por decisão (segundo
+ * recurso → `409`/`appeal_already_filed`, §12), e só o autor recorre. O que
+ * este bucket barra é varredura de IDs de decisão alheia, não uso legítimo.
+ */
+export const commentAppealRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  message: 'Muitas requisições deste IP. Tente novamente em alguns minutos.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});

@@ -1350,17 +1350,38 @@ diferente do Dockerfile do `downloads`: no `dist` publicado só `CommunityModera
 (React, exportado por `/react`) o importa; o `index.js` e os 12 módulos que ele reexporta dependem
 apenas de `zod` e `@artificio/content-editor`, já presentes.
 
-**P2 — buckets de rate limit compartilhados. Corrigido.** As cinco rotas de escrita usavam o mesmo
-`strictRateLimiter` (singleton, 10 req/15 min), então dez votos legítimos esgotavam a cota e o
-usuário levava `429` ao tentar publicar — acoplamento que `contrato-http-v1.md` §Antiabuso proíbe
-("buckets independentes por ação"). Havia um segundo defeito que o bot não citou e a medição
-expôs: **10/15 min é dez vezes menor que o teto do módulo equivalente** (o `downloads` usa 60/15
-min para escrita de fala); `strictRateLimiter` existe para operação sensível de painel, e herdá-lo
-tornaria a conversa inutilizável antes de qualquer abuso.
+**P2 — buckets de rate limit compartilhados. Corrigido em duas rodadas.** As cinco rotas de escrita
+usavam o mesmo `strictRateLimiter` (singleton, 10 req/15 min), então dez votos legítimos esgotavam
+a cota e o usuário levava `429` ao tentar publicar — acoplamento que `contrato-http-v1.md` §14
+proíbe ("buckets independentes por ação"). Havia um segundo defeito que o bot não citou e a
+medição expôs: **10/15 min é dez vezes menor que o teto do módulo equivalente** (o `downloads` usa
+60/15 min para escrita de fala); `strictRateLimiter` existe para operação sensível de painel, e
+herdá-lo tornaria a conversa inutilizável antes de qualquer abuso.
 Criados quatro limiters no vocabulário que o pacote já define (`COMMENT_RATE_BUCKETS`):
 `commentWriteRateLimiter` (60), `commentEditRateLimiter` (60), `commentVoteRateLimiter` (120),
-`commentReportRateLimiter` (20). A moderação também foi separada: denúncia e recurso do usuário
-comum deixaram de dividir bucket com retirar/restaurar do moderador.
+`commentReportRateLimiter` (20).
+
+A terceira rodada apontou o que sobrou: **denúncia e recurso ainda dividiam
+`commentReportRateLimiter`**, embora §14 e `COMMENT_RATE_BUCKETS` os listem como buckets distintos
+(`report` e `appeal`, o quinto e o sexto). Criado `commentAppealRateLimiter` (10/15 min, teto baixo
+porque o domínio já limita a um recurso por decisão — segundo recurso é `409`/`appeal_already_filed`,
+§12; o que o bucket barra é varredura de ID alheio). A consequência do compartilhamento era a pior
+possível justamente aqui: quem é moderado tende a denunciar de volta, esgota a cota de denúncia e
+perde **a via de defesa contra a própria punição**.
+
+O mesmo defeito estava no `downloads`, em forma mais grave, e não foi citado por bot nenhum:
+denunciar, retirar denúncia e recorrer usavam o `writeRateLimiter` — o bucket de **criar e editar
+material**, outro domínio. Publicar 60 materiais deixava o usuário sem cota para denunciar abuso.
+Criados lá `commentReportRateLimiter` (20) e `commentAppealRateLimiter` (10).
+
+Por que nenhum teste pegou: no `mesas` o mock de `rateLimit` era um passthrough anônimo, que deixa
+a rota passar sem revelar qual instância ela consumiu; no `downloads` não havia mock nenhum — os
+limiters reais rodavam, com store compartilhado entre casos, de modo que crescer a suite ou baixar
+um teto produziria falha por cota esgotada que não se parece com rate limit. Os dois passaram a
+usar marcadores nomeados, que eliminam o estado entre casos e tornam o bucket observável, mais seis
+casos fixando a separação. Verificado que a asserção prende: reunificando `appeal` em
+`commentReportRateLimiter` no `downloads`, a suite reprova 1/8 exatamente no caso do recurso.
+Medido: `mesas` 17/17, `downloads` 8/8.
 
 **P2 — congelamento de voto só na UI.** Achado procede; **não** foi corrigido, e as quatro vias
 foram medidas uma a uma (débito completo em T7.8). A quarta — "passar a asserção pelo contrato
@@ -1390,8 +1411,8 @@ contrato" é motivo para validar, não para confiar. Agora usa a mesma função.
 
 **Procede e corrigido — `Retry-After` não atravessava a moderação.** A conversa já propagava; a
 moderação, não. É onde mais dói: o operador é quem insiste ao ver `429`. Propagado em `429` e
-`503`, com teste do caso positivo e do negativo (`200` não ganha header). **O `downloads` tem a
-mesma lacuna** — corrigir lá ou registrar?
+`503`, com teste do caso positivo e do negativo (`200` não ganha header). O `downloads` tinha a
+mesma lacuna e foi corrigido junto.
 
 **Procede e corrigido — duplicação medida pelo Sonar (57% em `communityModeration.ts`, 30,5% em
 `communityComments.ts`).** Real: as duas fachadas nasceram copiando o molde do `downloads` e
@@ -1401,22 +1422,37 @@ mecânica inteira de repasse — idênticas nos dois arquivos.
 degradação. É o mesmo padrão que já cobrou preço aqui — `downloads` e `site` mantiveram hosts de
 conversa paralelos até a PR #264, e **duas correções de review aplicadas num nunca chegaram ao
 outro**.
-Extraído `community/accountsProxy.ts` (247 linhas) com o transporte; as fachadas ficaram com a
-**política**, que continua separada de propósito: guard de assunto, guard de papel, escolha de
-bucket e vocabulário de erro. `communityComments.ts` 375 → 280; `communityModeration.ts`
-301 → 176.
+Extraído `community/accountsProxy.ts` com o transporte; as fachadas ficaram com a **política**, que
+continua separada de propósito: guard de assunto, guard de papel, escolha de bucket e vocabulário
+de erro. `communityComments.ts` 375 → 280; `communityModeration.ts` 301 → 176.
 **Ganho colateral medido:** a moderação passou a ecoar `correlation_id` no corpo de erro, que
 `contrato-http-v1.md` §1.1 exige em toda resposta de erro e a cópia dela não fazia — dois testes
 falharam por isso e foram atualizados, o que é a prova de que a divergência existia.
 
-**O mesmo tratamento foi aplicado ao `downloads` na mesma sessão** (autorizado pelo mantenedor ao
-ser reportado). Ele tinha as duas lacunas que motivaram o achado: `Retry-After` não atravessava a
-moderação e o corpo de erro dela não trazia `correlation_id` — a fachada de conversa do mesmo app
-já fazia as duas coisas. É a duplicação cobrando o preço previsto, e a prova é que corrigir uma
-cópia não corrigiu a outra.
-`apps/downloads/backend/src/community/accountsProxy.ts` (novo, com `undici` explícito, que é o
-transporte daquele app); `communityComments.ts` 318 → 239; `communityModeration.ts` 234 → 137.
-Suíte do `downloads-backend`: **563/563** (72 arquivos), lint limpo.
+**O mesmo tratamento foi aplicado ao `downloads`.** Ele tinha as duas lacunas que motivaram o
+achado: `Retry-After` não atravessava a moderação e o corpo de erro dela não trazia
+`correlation_id` — a fachada de conversa do mesmo app já fazia as duas coisas. É a duplicação
+cobrando o preço previsto, e a prova é que corrigir uma cópia não corrigiu a outra.
+`communityComments.ts` 318 → 239; `communityModeration.ts` 234 → 137.
+
+**Segunda medição do Sonar, e a correção que faltava: a duplicação entre apps.** Extrair por app
+resolveu metade do problema — os dois `accountsProxy.ts` ficaram idênticos entre si (74,3% e 66,5%,
+165 linhas). Medida a divergência real fora de comentário: **quatro pontos apenas** — o `fetch`
+(`undici` no `downloads`, global no `mesas`), `actingAccountsUserId` (só o `mesas` precisa, porque
+lá `req.user.userId` é UUID **local** e o id central vem de `session.user.id`), o tipo da resposta
+e um comentário. Os dois primeiros são exatamente onde os apps **devem** divergir, e ambos são
+injetáveis — o que torna a unificação possível sem esconder diferença.
+
+Núcleo movido para `packages/comments/src/facadeRelay.ts` (279 linhas, uma cópia só), exportado na
+raiz. Segue a disciplina que `rateLimitBuckets.ts` já fixa no pacote: **não conhece `express`** —
+recebe dados neutros e devolve um `FacadeRelayResult` que o app escreve na resposta. Cada app ficou
+com um adaptador fino que traduz `req`/`res` e injeta `fetch` e ator: `mesas` 247 → 119,
+`downloads` 214 → 106. Divergência de código entre os dois adaptadores hoje: **9 linhas**.
+Como o pacote entrou numa camada nova de dois backends, conferido E016/E017: `mesas` é
+`type: module` e resolve por `import` → `dist` (copiado no Dockerfile:96); `downloads` resolve por
+`require` → `dist-cjs` (Dockerfile:138); `facadeRelay` presente e exportado nas duas builds.
+Medido: `comments` 216/216, `mesas-backend` 803/803, `downloads-backend` 566/566, test 41/41 sem
+cache, lint 25/25, build 25/25.
 
 **O `site` foi verificado e NÃO precisa da correção:** `server/community-api.ts` já propaga
 `Retry-After` (`:187-188`) e já ecoa `correlation_id` nos erros (`:131,179`). Não foi
@@ -1428,6 +1464,45 @@ o que mediria a requisição errada em qualquer caso com duas chamadas; (b) o en
 era restaurado, e um teste apaga `SERVICE_CREDENTIAL` de propósito — vazava para quem rodasse
 depois no mesmo worker; (c) faltavam dois ramos: leitura anônima (não pode inventar
 `X-Acting-User-Id`) e sessão ausente na moderação (`401` explícito em vez de `TypeError`).
+A correção de (b) tinha ficado **só em `communityModeration.test.ts`**: a suíte de conversa, que é
+justamente onde está o `delete process.env.SERVICE_CREDENTIAL`, continuou vazando até a rodada
+seguinte apontar. Corrigido lá com o mesmo `envOriginal`.
+
+### Quarta rodada de review (PR #268)
+
+**Não procede — `dist-cjs` de `comments` e `content-editor` no Dockerfile do `mesas`.** O achado
+parte do `exports` declarar `require`, mas quem escolhe a condição é o **consumidor**: este backend
+é `"type": "module"` com `moduleResolution NodeNext` e resolve por `import`. Medido, não inferido —
+`import.meta.resolve` de dentro do backend devolve `packages/comments/dist/index.js` e
+`packages/content-editor/dist/sanitize.js`, e os símbolos carregam (`relayToAccounts`,
+`moderationQueueSchema`, `sanitizeOptionalUserMarkdown`). O `dist` ESM do pacote também não tem
+nenhum `require(`. Copiar `dist-cjs` aqui seria peso morto na imagem. (O `downloads` é o inverso e
+já está certo: não é `type: module`, resolve por `require` → copia `dist-cjs`.)
+
+**Procede e corrigido — `actingAccountsUserId` acessava `user` sem guarda.** Era
+`session?.user.id`: protege `session`, não `user`. O tipo garantiria o shape, mas o valor entra por
+`as unknown as` — fora do alcance do compilador — e os testes escrevem `{ session: unknown }`.
+Sessão sem `user` viraria `TypeError` no handler, `500` opaco no lugar da leitura anônima que a
+ausência de ator deve produzir. Agora valida campo a campo e exige string não-vazia.
+
+**Procede e corrigido — `UpstreamValidation` redeclarado** em `communityModeration.ts`, cópia
+estrutural do tipo que `accountsProxy.ts` já exporta. Idênticos hoje, então nada quebrava; o risco
+é o local divergir em silêncio quando o contrato do pacote mudar. Passou a importar.
+
+**Procede e corrigido — teste prometia edição e só exercitava voto.** O caso "vale também para voto
+e edição" fazia apenas o `PUT .../vote`. Rota diferente (`PATCH /:id`, outro bucket), então
+resolver o ator ali é decisão própria, não herdada. Adicionado o `PATCH` com as duas asserções (é o
+id central, **não** é o UUID local).
+
+**Procede e corrigido — `RUN` encadeado misturava install e asserção**, nos dois Dockerfiles. Em
+`pnpm install && test -d ... || echo "ERRO: dependencia ... ausente"`, falha de rede ou lockfile
+caía no mesmo `||` e era reportada como dependência ausente — diagnóstico errado num build que
+quebrou por outro motivo. Separados em `RUN` distintos; no `downloads` o problema era maior (12
+`pnpm install` dividindo o mesmo `||`). Docker Desktop fora do ar, então não houve build real:
+validada a sintaxe dos quatro blocos com `sh -n` (OK) e conferido que install e asserção viraram
+`RUN` separados.
+Medido: `mesas-backend` rotas+community 209/209, test 41/41 sem cache, lint 25/25, build 25/25,
+`tsc --noEmit` limpo.
 
 ### Validação da fase, medida em 2026-08-16
 

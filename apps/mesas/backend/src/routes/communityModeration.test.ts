@@ -41,9 +41,28 @@ vi.mock('../middleware/auth.js', () => ({
   },
 }));
 
+/**
+ * Cada limiter vira um passthrough que **anota o próprio nome** na requisição.
+ * O passthrough anônimo que estava aqui deixava a rota passar sem revelar qual
+ * bucket ela consumiu — foi assim que denúncia e recurso dividiram instância
+ * sem nenhum teste falhar (achado de review, PR #268). Com a anotação, a
+ * separação exigida por `contrato-http-v1.md` §14 é observável.
+ */
+const bucketsAplicados: string[] = [];
+
 vi.mock('../middleware/rateLimit.js', () => {
-  const passthrough = (_req: express.Request, _res: express.Response, next: express.NextFunction) => next();
-  return { publicRateLimiter: passthrough, strictRateLimiter: passthrough, commentReportRateLimiter: passthrough };
+  const marcador =
+    (nome: string) => (req: express.Request, _res: express.Response, next: express.NextFunction) => {
+      (req as unknown as { bucket?: string }).bucket = nome;
+      bucketsAplicados.push(nome);
+      next();
+    };
+  return {
+    publicRateLimiter: marcador('read'),
+    strictRateLimiter: marcador('moderator-write'),
+    commentReportRateLimiter: marcador('report'),
+    commentAppealRateLimiter: marcador('appeal'),
+  };
 });
 
 import communityModerationRoutes from './communityModeration.js';
@@ -77,6 +96,7 @@ const envOriginal = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  bucketsAplicados.length = 0;
   sessionState.globalRole = 'moderator';
   sessionState.semSessao = false;
   process.env.ACCOUNTS_URL = 'https://accounts.exemplo.test';
@@ -257,5 +277,41 @@ describe('query filtrada e degradação', () => {
       .expect(503);
 
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('buckets de rate limit independentes por ação', () => {
+  /**
+   * `contrato-http-v1.md` §14 e `COMMENT_RATE_BUCKETS` separam `report` de
+   * `appeal`. Compartilhar instância entre os dois é o pior acoplamento
+   * possível nesta superfície: quem é moderado tende a denunciar de volta, e o
+   * bucket comum tiraria dele o direito de recorrer da própria punição — a
+   * única via de defesa que o contrato lhe dá.
+   */
+  it('recurso não consome o bucket de denúncia', async () => {
+    await request(makeApp())
+      .post('/api/v1/community/decisions/decision-1/appeals')
+      .send({ justification: 'discordo' })
+      .expect(200);
+
+    expect(bucketsAplicados).toEqual(['appeal']);
+  });
+
+  it('denúncia usa o bucket de denúncia, e não o do moderador', async () => {
+    await request(makeApp())
+      .post('/api/v1/community/comments/comment-1/reports')
+      .send({ reason: 'spam' })
+      .expect(200);
+
+    expect(bucketsAplicados).toEqual(['report']);
+  });
+
+  it('ação de moderador não consome o bucket do usuário comum', async () => {
+    await request(makeApp())
+      .post('/api/v1/community/moderation/comments/comment-1/removal')
+      .send({ reason: 'spam' })
+      .expect(200);
+
+    expect(bucketsAplicados).toEqual(['moderator-write']);
   });
 });

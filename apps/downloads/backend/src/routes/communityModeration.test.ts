@@ -12,6 +12,35 @@ vi.mock('../middleware/auth', () => ({
   requireRole: () => (_req: express.Request, _res: express.Response, next: express.NextFunction) => next(),
 }));
 
+/**
+ * Limiters mockados por marcador nomeado, e não deixados reais.
+ *
+ * Rodando de verdade, o store de cada bucket é compartilhado entre os casos da
+ * suite: crescer o arquivo ou baixar um teto faz um caso falhar por cota
+ * esgotada, com `429` que não parece rate limit em teste nenhum. E passthrough
+ * anônimo esconderia qual instância cada rota consumiu — foi assim que denúncia
+ * e recurso dividiram bucket sem nada falhar (achado de review, PR #268).
+ *
+ * O marcador resolve os dois: elimina o estado entre casos e torna a separação
+ * exigida por `contrato-http-v1.md` §14 observável.
+ */
+const bucketsAplicados: string[] = [];
+
+vi.mock('../middleware/rateLimit', () => {
+  const marcador =
+    (nome: string) => (_req: express.Request, _res: express.Response, next: express.NextFunction) => {
+      bucketsAplicados.push(nome);
+      next();
+    };
+  return {
+    readRateLimiter: marcador('read'),
+    writeRateLimiter: marcador('write'),
+    publicRateLimiter: marcador('public'),
+    commentReportRateLimiter: marcador('report'),
+    commentAppealRateLimiter: marcador('appeal'),
+  };
+});
+
 import router from './communityModeration';
 
 function app() {
@@ -24,6 +53,7 @@ function app() {
 describe('fachada browser-safe de moderação comunitária', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    bucketsAplicados.length = 0;
     process.env.ACCOUNTS_URL = 'http://accounts.test';
     process.env.SERVICE_CREDENTIAL = 'downloads-prod.credential';
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ items: [], new_account_comments: [] }), {
@@ -103,5 +133,46 @@ describe('fachada browser-safe de moderação comunitária', () => {
     const response = await request(app()).get('/api/v1/community/moderation/queue');
     expect(response.status).toBe(503);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('buckets de rate limit independentes por ação', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    bucketsAplicados.length = 0;
+    process.env.ACCOUNTS_URL = 'http://accounts.test';
+    process.env.SERVICE_CREDENTIAL = 'downloads-prod.credential';
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    }));
+  });
+
+  /**
+   * As três rotas abaixo usavam `writeRateLimiter` — o bucket de **criar e
+   * editar material**, outro domínio inteiro. Publicar 60 materiais deixava o
+   * usuário sem cota para denunciar abuso; e denúncia dividindo bucket com
+   * recurso tira de quem foi moderado a via de defesa contra a própria punição.
+   */
+  it('denúncia não consome o bucket de escrita de material', async () => {
+    await request(app())
+      .post('/api/v1/community/comments/comment-1/reports')
+      .send({ reason: 'spam' });
+
+    expect(bucketsAplicados).toEqual(['report']);
+  });
+
+  it('retirada de denúncia usa o mesmo bucket da denúncia', async () => {
+    await request(app()).delete('/api/v1/community/reports/report-1');
+
+    expect(bucketsAplicados).toEqual(['report']);
+  });
+
+  it('recurso não consome o bucket de denúncia', async () => {
+    await request(app())
+      .post('/api/v1/community/decisions/decision-1/appeals')
+      .send({ justification: 'discordo' });
+
+    expect(bucketsAplicados).toEqual(['appeal']);
   });
 });
