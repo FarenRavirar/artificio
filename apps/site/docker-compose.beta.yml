@@ -40,6 +40,11 @@ services:
       # inofensivo; aqui não é.
       - ACCOUNTS_URL=${ACCOUNTS_URL:?ACCOUNTS_URL is required}
       - SERVICE_CREDENTIAL=${SERVICE_CREDENTIAL:?SERVICE_CREDENTIAL is required}
+      # Heap do Node EXPLÍCITO (2026-08-17, sessão 26-08-17_1). Sem esta linha o V8 deriva o old
+      # space do cgroup: com o antigo limite de 512m, o Node enxergava 259 MB (medido com
+      # `v8.getHeapStatistics().heap_size_limit`) e o `astro build` precisa de ~300 MB — OOM.
+      # Declarado aqui, mexer no `mem_limit` não muda mais o heap por acidente.
+      - NODE_OPTIONS=--max-old-space-size=768
       - SITE_NOINDEX=true
       - JWT_SECRET=${JWT_SECRET}
       - TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.18.0.0/16}
@@ -55,7 +60,12 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512m
+          # 1g, não os 512m padrão do repo (2026-08-17, sessão 26-08-17_1). O `site` é o único app
+          # que pode rodar `astro build` em runtime (`SITE_FORCE_REBUILD`); os outros servem
+          # artefato pronto. O heap declarado acima (768 MB) precisa caber DENTRO deste limite com
+          # folga para o resto do processo — heap maior que o cgroup só troca o OOM do V8 pelo
+          # OOM-kill do kernel, que é pior por não deixar rastro no log da aplicação.
+          memory: 1g
 
   site-beta-db:
     image: postgres:16-alpine

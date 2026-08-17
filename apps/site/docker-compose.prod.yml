@@ -38,6 +38,12 @@ services:
       - ACCOUNTS_URL=${ACCOUNTS_URL:-https://accounts.artificiorpg.com}
       - SERVICE_CREDENTIAL=${SERVICE_CREDENTIAL:?SERVICE_CREDENTIAL is required}
       - JWT_SECRET=${JWT_SECRET}
+      # Heap do Node EXPLÍCITO (2026-08-17, sessão 26-08-17_1). Sem esta linha o V8 deriva o old
+      # space do cgroup: com o antigo limite de 512m, o Node enxergava 259 MB (medido em PROD com
+      # `v8.getHeapStatistics().heap_size_limit`) e o `astro build` precisa de ~300 MB.
+      # Prod só não caiu junto com beta porque servia um `dist` antigo pelo guard do entrypoint —
+      # o próximo deploy com rebuild teria batido no mesmo OOM.
+      - NODE_OPTIONS=--max-old-space-size=768
       - TRUSTED_PROXY_CIDR=${TRUSTED_PROXY_CIDR:-172.18.0.0/16}
     depends_on:
       site-prod-db:
@@ -55,7 +61,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512m
+          # 1g, não os 512m padrão do repo (2026-08-17, sessão 26-08-17_1). Mesmo raciocínio do
+          # beta: o heap declarado acima (768 MB) precisa caber DENTRO deste limite com folga para
+          # o resto do processo, senão o OOM do V8 vira OOM-kill do kernel, que não deixa rastro
+          # no log da aplicação. A VM tem 21 GB livres (medido) — 1g não pressiona nada.
+          memory: 1g
 
   site-prod-db:
     image: postgres:16-alpine
