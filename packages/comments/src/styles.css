@@ -77,13 +77,22 @@
   /* Sem isto, todo filho direto estica para a coluna inteira — foi o que
      transformava "Publicar comentário" numa barra de ponta a ponta da tela
      (auditoria de 2026-08-17). Os grupos que devem ocupar a linha toda
-     (`ContentEditor`, textarea) pedem `justify-self: stretch` explicitamente
-     abaixo. */
+     (`ContentEditor`, textarea, corpo do comentário, fio de respostas) pedem
+     `justify-self: stretch` explicitamente abaixo — o padrão vale para o que
+     é controle, não para o que é conteúdo. */
   justify-items: start;
 }
 
+/* Conteúdo ocupa a largura disponível; só controle encolhe.
+   O `__comment` entrou aqui num segundo momento (achado de review, PR #270):
+   seus filhos diretos são o `<article>` do comentário e o `<ol>` das respostas
+   (`CommentsConversation.tsx:464` e `:567`). Em `max-content` o texto longo
+   deixa de quebrar e transborda o cartão, e a borda do fio aninhado para de
+   acompanhar a coluna. O bug do botão largo era do compositor, não do cartão. */
 .artificio-comments__composer > *,
-.artificio-comments__form > * {
+.artificio-comments__form > *,
+.artificio-comments__comment > *,
+.artificio-comments__confirm > * {
   justify-self: stretch;
 }
 
