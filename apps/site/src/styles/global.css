@@ -114,7 +114,13 @@ img { max-width: 100%; height: auto; display: block; }
 .prose { font-size: 19px; line-height: 1.75; }
 .prose > * + * { margin-top: 1.45em; }
 .prose p { margin: 0; }
-.prose h2 {
+/* `.post-conversation > h2` entra aqui, e não numa regra própria: a conversa
+   não é conteúdo do artigo, mas o título dela é um título de seção do post e
+   deve seguir a mesma escala. Copiar os valores para outra regra criaria dois
+   lugares para mudar — é assim que nascem os 190 raios e 253 cores literais
+   espalhados pelo repositório (medido em 2026-08-17, spec 090). */
+.prose h2,
+.post-conversation > h2 {
   font-family: var(--display); font-weight: 600; font-size: 28px; line-height: 1.2;
   margin: 2.2em 0 .2em; padding-left: 14px; border-left: 4px solid var(--accent); scroll-margin-top: 90px;
 }
@@ -223,3 +229,15 @@ img { max-width: 100%; height: auto; display: block; }
 
 /* Pagefind fallback (busca indisponível no dev) */
 .pagefind-fallback { color: var(--muted); }
+
+/* ---- conversa pública (spec 090) ----
+   A classe já existia no markup de `PostConversation` sem nenhuma regra, e o
+   `h2` da seção ficava fora de `.prose` — saía no tamanho do corpo do texto,
+   sem a identidade tipográfica do resto do post (auditoria de 2026-08-17).
+   Repete o tratamento de `.prose h2` em vez de estendê-lo por seletor: a
+   conversa não é conteúdo do artigo e não deve herdar as demais regras de
+   `.prose` se elas mudarem. */
+.post-conversation { margin-top: var(--space-6); }
+/* Só a margem do título muda: a seção já traz o próprio respiro acima, então a
+   margem grande de `.prose h2` empilharia dois espaços. */
+.post-conversation > h2 { margin-top: 0; }

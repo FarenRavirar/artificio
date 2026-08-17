@@ -247,7 +247,7 @@ function WorkspaceBody(props: Readonly<CommunityModerationWorkspaceProps>) {
   };
 
   const inspector = props.selectedCase ? (
-    <div className="space-y-4 p-5">
+    <div className="artificio-moderation-workspace space-y-4 p-5">
       <SectionCard title={`Caso ${props.selectedCase.case_id}`} description={`Comentário ${props.selectedCase.comment_id}`}>
         <div className="space-y-3">
           {props.selectedCase.reports.map((report) => (
@@ -312,7 +312,7 @@ function WorkspaceBody(props: Readonly<CommunityModerationWorkspaceProps>) {
       <p role="alert" data-moderation-error className="artificio-moderation__error">{actionError}</p>
     )}
     <AdminWorkspaceLayout
-      workspace={<div className="space-y-4 p-5"><PageHeader title="Moderação comunitária" description={`${rows.length} item(ns) pendente(s); escopo isolado pela credencial do módulo.`} />
+      workspace={<div className="artificio-moderation-workspace space-y-4 p-5"><PageHeader title="Moderação comunitária" description={`${rows.length} item(ns) pendente(s); escopo isolado pela credencial do módulo.`} />
         <SectionCard title="Fila" description="Denúncias e contas novas. Publicação de conta nova não é bloqueada.">
           <label htmlFor="moderation-reason">Motivo da ação</label><textarea id="moderation-reason" value={reason} onChange={(event) => setReason(event.target.value)} />
           <AdminTable tableId="community-moderation" rows={rows} getRowId={(row) => row.id} getRowLabel={(row) => `comentário ${row.commentId}`} columns={columns} searchKeys={['commentId', 'sourceApp', 'signal']} loading={props.loading} error={props.error} bulkActions={bulkActions} rowActions={rowActions} onOpen={(row) => row.caseId && props.onOpenCase?.(row.caseId)} emptyTitle="Fila comunitária vazia." />

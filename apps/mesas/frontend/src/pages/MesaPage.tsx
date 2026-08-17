@@ -340,7 +340,15 @@ export const MesaPage = () => {
           chega mesa que o detalhe devolveu 200, e mesa encerrada não chega
           (ver o ramo `closed` acima) — o valor fica true e o servidor
           continua sendo a autoridade. */}
-      {table && <TableConversation tableId={table.id} />}
+      {/* Mesmo contêiner da `<section>` do anúncio (`:243`). Sem ele a conversa
+          era a única faixa da página a ocupar a viewport inteira — medido em
+          1841px contra 900px das irmãs, com o texto colado na borda esquerda em
+          telas estreitas (auditoria de 2026-08-17). */}
+      {table && (
+        <div className="container mx-auto px-6">
+          <TableConversation tableId={table.id} />
+        </div>
+      )}
 
       {/* Mobile: CTA Sticky (apenas modo público) */}
       {!canManage && vm && (
