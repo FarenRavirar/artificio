@@ -23,6 +23,7 @@ import {
 } from './conversation.js';
 import { normalizeCommentsError, type CommentsErrorShape } from './transport.js';
 import type { CommentsResourceState } from './resource.js';
+import type { CommentViewerPermissions } from './viewerPermissions.js';
 
 const SORT_LABELS: Record<CommentSortUi, string> = {
   best: 'Melhores',
@@ -42,13 +43,13 @@ const REPORT_REASON_LABELS: Record<CommentReportReason, string> = {
   other: 'Outro motivo',
 };
 
-export interface CommentViewerPermissions {
-  readonly reply?: boolean;
-  readonly edit?: boolean;
-  readonly withdraw?: boolean;
-  readonly vote?: boolean;
-  readonly report?: boolean;
-}
+/**
+ * Reexportado de `viewerPermissions.ts`, onde a POLÍTICA que produz estas
+ * capacidades também vive. Antes, cada app calculava as suas com uma cópia local
+ * da mesma função, e as três divergiram do backend juntas — nenhuma oferecia
+ * `moderateRemove`, embora a rota exista nas fachadas desde a fase 7.
+ */
+export type { CommentViewerPermissions } from './viewerPermissions.js';
 
 export type CommentsConversationSlot =
   | 'root'
@@ -84,7 +85,16 @@ export interface CommentsConversationProps {
 }
 
 type OpenPanel =
-  | { readonly kind: 'reply' | 'edit' | 'report' | 'withdraw'; readonly commentId: string }
+  | {
+      readonly kind:
+        | 'reply'
+        | 'edit'
+        | 'report'
+        | 'withdraw'
+        | 'moderateRemove'
+        | 'moderateRestore';
+      readonly commentId: string;
+    }
   | null;
 
 function classes(base: string, extra?: string): string {
@@ -402,6 +412,18 @@ export function CommentsConversation({
       void runAction(`reply:${comment.id}`, () => client.reply(comment.id, panelDraft), 'Resposta publicada.');
     } else if (panel.kind === 'edit') {
       void runAction(`edit:${comment.id}`, () => client.edit(comment.id, panelDraft), 'Comentário editado.');
+    } else if (panel.kind === 'moderateRemove') {
+      void runAction(
+        `moderateRemove:${comment.id}`,
+        () => client.moderationRemove(comment.id, panelDraft.trim()),
+        'Comentário retirado pela moderação.',
+      );
+    } else if (panel.kind === 'moderateRestore') {
+      void runAction(
+        `moderateRestore:${comment.id}`,
+        () => client.moderationRestore(comment.id, panelDraft.trim()),
+        'Comentário restaurado.',
+      );
     } else if (panel.kind === 'report') {
       void runAction(
         `report:${comment.id}`,
@@ -430,6 +452,53 @@ export function CommentsConversation({
             Confirmar retirada
           </button>
           <button type="button" onClick={closePanel}>Cancelar</button>
+        </div>
+      );
+    }
+
+    if (panel.kind === 'moderateRemove' || panel.kind === 'moderateRestore') {
+      const restoring = panel.kind === 'moderateRestore';
+      // Painel próprio, e não o de `withdraw`: aqui o motivo é obrigatório (o
+      // servidor o exige no corpo das duas rotas), e a frase precisa dizer que a
+      // ação é de moderação — o autor recebe aviso e o ato entra no log com o
+      // moderador que decidiu, o que uma confirmação genérica esconderia de quem
+      // está agindo.
+      //
+      // Retirar e restaurar dividem o mesmo painel porque só o rótulo muda: a
+      // validação, o campo e o registro são idênticos. Dois painéis iguais lado
+      // a lado divergiriam no primeiro ajuste que só um recebesse.
+      const reasonMissing = panelDraft.trim() === '';
+      return (
+        <div ref={panelContainerRef}>
+        <form
+          className="artificio-comments__form"
+          data-comments-slot={restoring ? 'moderate-restore-confirmation' : 'moderate-remove-confirmation'}
+          onSubmit={(event) => submitPanel(event, comment)}
+        >
+          <label htmlFor={`comments-moderate-reason-${comment.id}`}>
+            {restoring
+              ? 'Motivo da restauração (registrado no log de moderação)'
+              : 'Motivo da retirada (registrado no log de moderação)'}
+          </label>
+          <textarea
+            id={`comments-moderate-reason-${comment.id}`}
+            value={panelDraft}
+            maxLength={4_000}
+            required
+            aria-required="true"
+            disabled={!mutationsEnabled || pendingAction !== null}
+            onChange={(event) => setPanelDraft(event.target.value)}
+          />
+          <div className="artificio-comments__form-actions">
+            {/* Mesma trava do painel de denúncia: botão operável sem motivo só
+                entregaria erro de validação depois do envio. */}
+            <button
+              type="submit"
+              disabled={!mutationsEnabled || pendingAction !== null || reasonMissing}
+            >{restoring ? 'Restaurar como moderador' : 'Retirar como moderador'}</button>
+            <button type="button" onClick={closePanel}>Cancelar</button>
+          </div>
+        </form>
         </div>
       );
     }
@@ -609,6 +678,30 @@ export function CommentsConversation({
                 disabled={!canAct}
                 onClick={() => openPanel({ kind: 'withdraw', commentId: comment.id })}
               >Retirar</button>
+            )}
+            {commentPermissions.moderateRemove && !legacy && comment.state === 'visible' && (
+              <button
+                type="button"
+                data-comments-action="moderate-remove"
+                data-comment-id={comment.id}
+                disabled={!canAct}
+                onClick={() => openPanel({ kind: 'moderateRemove', commentId: comment.id })}
+              >Retirar (moderação)</button>
+            )}
+            {/* Sem `comment.state === 'visible'`, ao contrário dos vizinhos: este
+                é o único botão que existe justamente porque o comentário NÃO
+                está visível. A condição de estado já vive em
+                `moderateRestore` (`viewerPermissions.ts`), e repeti-la aqui a
+                inverteria por engano — foi o que quase aconteceu ao copiar a
+                linha do botão de retirada. */}
+            {commentPermissions.moderateRestore && !legacy && (
+              <button
+                type="button"
+                data-comments-action="moderate-restore"
+                data-comment-id={comment.id}
+                disabled={!canAct}
+                onClick={() => openPanel({ kind: 'moderateRestore', commentId: comment.id })}
+              >Restaurar (moderação)</button>
             )}
             {commentPermissions.report && !legacy && comment.state === 'visible' && (
               <button

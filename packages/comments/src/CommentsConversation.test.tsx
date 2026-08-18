@@ -6,6 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { CommentsConversation } from './CommentsConversation.js';
+import { resolveViewerPermissions } from './viewerPermissions.js';
 import {
   commentsThreadSchema,
   type CommentsConversationClient,
@@ -97,6 +98,8 @@ const client = {
   withdraw: vi.fn(),
   vote: vi.fn(),
   report: vi.fn(),
+  moderationRemove: vi.fn(),
+  moderationRestore: vi.fn(),
 } as unknown as CommentsConversationClient;
 
 const reactTestEnvironment = globalThis as typeof globalThis & {
@@ -520,5 +523,155 @@ describe('CommentsConversation', () => {
     expect(staleHtml).toContain('Exibindo a última leitura disponível');
     expect(unavailableHtml).toContain('data-comments-state="unavailable"');
     expect(unavailableHtml).toContain('role="alert"');
+  });
+});
+
+
+/**
+ * Retirada e restauração por moderação (relato do mantenedor, 2026-08-18: "como
+ * admin ou moderador, não consigo apagar os comentários").
+ *
+ * A política já é testada isoladamente em `viewerPermissions.test.ts`. O que se
+ * afirma AQUI é o caminho completo: a capacidade vira botão, o botão abre painel
+ * com motivo obrigatório, e o envio chega ao client com o motivo. Nenhum dos dois
+ * testes cobre o do outro — a política podia estar certa com o botão não
+ * renderizado, que é exatamente o estado em que o produto estava.
+ */
+describe('CommentsConversation — ações de moderação', () => {
+  const REMOVIDO_ID = '44444444-4444-4444-8444-444444444444';
+
+  const threadCom = (state: 'visible' | 'removed') => commentsThreadSchema.parse({
+    state: 'fresh',
+    snapshot_revision: 1,
+    comments: [{
+      id: REMOVIDO_ID,
+      parent_id: null,
+      root_id: REMOVIDO_ID,
+      depth: 0,
+      body_markdown: state === 'visible' ? 'Fala de terceiro' : null,
+      created_at: '2026-08-18T10:00:00.000Z',
+      edited_at: null,
+      state,
+      author: { display_name: 'Carla', avatar_url: null, badge: null, state: 'active' },
+      // Retirado zera corpo E placar: o schema recusa
+      // ("Comentário oculto não pode expor corpo nem placar"), e a invariante é
+      // do produto — placar visível num comentário sem corpo entregaria de volta
+      // o sinal que a retirada tirou.
+      upvotes: state === 'visible' ? 0 : null,
+      downvotes: state === 'visible' ? 0 : null,
+      score: state === 'visible' ? 0 : null,
+      my_vote: state === 'visible' ? 0 : null,
+      legacy: null,
+    }],
+    more: [],
+    truncated: false,
+  });
+
+  const montar = async (state: 'visible' | 'removed') => {
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <CommentsConversation
+          state={{ status: 'fresh', data: threadCom(state), updatedAt: 1, ageMs: 0 }}
+          sort="best"
+          onSortChange={() => undefined}
+          client={client}
+          onMoreLoaded={() => undefined}
+          // A política real, e não um objeto literal: um literal aqui mediria o
+          // próprio teste — o botão apareceria porque o teste mandou, não porque
+          // ser admin o produz.
+          permissions={resolveViewerPermissions({ viewer: { role: 'admin' } })}
+        />,
+      );
+    });
+    return container;
+  };
+
+  const botao = (container: HTMLElement, texto: string) =>
+    Array.from(container.querySelectorAll('button')).find((b) => b.textContent === texto);
+
+  /**
+   * jsdom não converte clique em botão `type="submit"` num evento de submit —
+   * é preciso disparar no próprio form, como os testes de resposta e compositor
+   * já fazem (linhas 423 e 484). Clicar no botão deixa o teste verde-mudo: nada
+   * acontece e o spy fica com zero chamadas.
+   */
+  const enviarForm = async (container: HTMLElement) => {
+    const form = container.querySelector('form[data-comments-slot$="-confirmation"]');
+    await act(async () => {
+      form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+  };
+
+  /**
+   * React só enxerga a digitação pelo setter nativo do prototype: atribuir
+   * `.value` direto muda o DOM sem notificar o estado controlado, e o
+   * `onChange` nunca dispara — o campo parece preenchido e o envio segue
+   * bloqueado. Mesmo padrão de `CommunityModerationWorkspace.test.tsx:47`.
+   */
+  const digitar = async (campo: Element | null, valor: string) => {
+    if (!(campo instanceof HTMLTextAreaElement)) throw new Error('textarea ausente');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')
+        ?.set?.call(campo, valor);
+      campo.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  };
+
+  it('leva o admin do botão até a chamada, com o motivo digitado', async () => {
+    const container = await montar('visible');
+
+    expect(botao(container, 'Retirar (moderação)')).toBeInstanceOf(HTMLButtonElement);
+    await act(async () => botao(container, 'Retirar (moderação)')?.click());
+
+    const motivo = container.querySelector('textarea');
+    expect(motivo).toBeInstanceOf(HTMLTextAreaElement);
+
+    // Enviar sem motivo é impossível de propósito: o servidor exige `reason`, e
+    // botão operável só entregaria erro de validação depois do clique.
+    const enviar = botao(container, 'Retirar como moderador');
+    expect(enviar).toBeInstanceOf(HTMLButtonElement);
+    expect((enviar as HTMLButtonElement).disabled).toBe(true);
+
+    await digitar(motivo, 'spam reincidente');
+    expect((botao(container, 'Retirar como moderador') as HTMLButtonElement).disabled).toBe(false);
+
+    await enviarForm(container);
+    expect(client.moderationRemove).toHaveBeenCalledWith(REMOVIDO_ID, 'spam reincidente');
+  });
+
+  it('oferece restaurar no que já está retirado, e não oferece retirar de novo', async () => {
+    const container = await montar('removed');
+
+    expect(botao(container, 'Retirar (moderação)')).toBeUndefined();
+    expect(botao(container, 'Restaurar (moderação)')).toBeInstanceOf(HTMLButtonElement);
+
+    await act(async () => botao(container, 'Restaurar (moderação)')?.click());
+    await digitar(container.querySelector('textarea'), 'retirada equivocada');
+
+    await enviarForm(container);
+    expect(client.moderationRestore).toHaveBeenCalledWith(REMOVIDO_ID, 'retirada equivocada');
+  });
+
+  it('não mostra nenhuma das duas a usuário comum', async () => {
+    const container = document.createElement('div');
+    const root = createRoot(container);
+    await act(async () => {
+      root.render(
+        <CommentsConversation
+          state={{ status: 'fresh', data: threadCom('visible'), updatedAt: 1, ageMs: 0 }}
+          sort="best"
+          onSortChange={() => undefined}
+          client={client}
+          onMoreLoaded={() => undefined}
+          permissions={resolveViewerPermissions({ viewer: { role: 'user' } })}
+        />,
+      );
+    });
+
+    expect(botao(container, 'Retirar (moderação)')).toBeUndefined();
+    expect(botao(container, 'Restaurar (moderação)')).toBeUndefined();
+    expect(botao(container, 'Denunciar')).toBeInstanceOf(HTMLButtonElement);
   });
 });

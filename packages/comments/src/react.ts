@@ -54,6 +54,17 @@ export {
   type CommentsConversationSlots,
 } from './CommentsConversation.js';
 
+/**
+ * Política única de capacidades da conversa. Os três apps a consomem em vez de
+ * manter cópia local — ver o cabeçalho de `viewerPermissions.ts` para o defeito
+ * que a duplicação produziu.
+ */
+export {
+  canModerateComments,
+  resolveViewerPermissions,
+  type ViewerPermissionsInput,
+} from './viewerPermissions.js';
+
 export type {
   CommentReportReason,
   CommentSortUi,

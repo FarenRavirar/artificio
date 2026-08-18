@@ -1,7 +1,8 @@
 import { useSession } from '@artificio/auth/client';
 // `/react` e não o root: o barrel arrasta `node:crypto` via `treeCursor.js` e
 // quebra o build do Astro (ver `useSiteConversation.ts`).
-import { CommentsConversation, type ConversationComment } from '@artificio/comments/react';
+import type { UserRole } from '@artificio/auth';
+import { CommentsConversation, resolveViewerPermissions } from '@artificio/comments/react';
 import '@artificio/comments/styles.css';
 
 import { useSiteConversation } from './useSiteConversation.js';
@@ -35,25 +36,11 @@ import { useSiteConversation } from './useSiteConversation.js';
  * sim — é o que preserva o acervo como conversa viva em vez de arquivo morto.
  */
 export function permissionsFor(user: unknown) {
-  return (comment: ConversationComment) => {
-    if (!user) return {};
-
-    const isLegacy = comment.legacy !== null;
-    const isHidden = comment.state !== 'visible';
-    const isMine = comment.viewer_is_author;
-    // Retirado não volta a ser editável (§4, `403`/`comment_removed`), enquanto
-    // `pending_review_hidden` continua editável e a edição não o revela. Tratar
-    // os dois como um só ofereceria botão que sempre falha.
-    const isRemoved = comment.state === 'removed';
-
-    return {
-      reply: !isHidden,
-      edit: isMine && !isLegacy && !isRemoved,
-      withdraw: isMine && !isLegacy && !isRemoved,
-      vote: !isMine && !isLegacy && !isHidden,
-      report: !isMine && !isHidden,
-    };
-  };
+  // Delega à política compartilhada. O `site` não fecha assunto — post publicado
+  // aceita fala nova indefinidamente —, então `subjectAcceptsWrites` fica no
+  // default `true`, e a imutabilidade do legado descrita acima é aplicada lá
+  // pelas mesmas condições (`isLegacy`), agora em um lugar só.
+  return resolveViewerPermissions({ viewer: user as { role?: UserRole } | null });
 }
 
 export interface PostConversationProps {
