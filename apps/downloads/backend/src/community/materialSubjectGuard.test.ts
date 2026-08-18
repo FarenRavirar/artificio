@@ -212,14 +212,48 @@ describe('guard de assunto do downloads — regras do domínio', () => {
 });
 
 describe('guard de assunto do downloads — id malformado', () => {
+  /**
+   * Banco que EXPLODE se for consultado.
+   *
+   * Contra o duplo normal este teste passaria mesmo sem a guarda de formato: o
+   * `fakeDb` devolve `undefined` para qualquer id desconhecido, e `undefined`
+   * também vira `not_found`. Ou seja, ele mediria o mock, não a correção
+   * (achado de review, PR #273). Aqui o veredito só pode ser `not_found` se a
+   * guarda tiver recusado ANTES do `selectFrom` — que é exatamente a afirmação
+   * em teste, porque em PostgreSQL real a consulta não devolve vazio: ela morre
+   * com `invalid input syntax for type uuid`.
+   */
+  function explodingDb(): Kysely<Database> {
+    return {
+      selectFrom: () => {
+        throw new Error('invalid input syntax for type uuid');
+      },
+    } as unknown as Kysely<Database>;
+  }
+
   it('recusa slug como not_found, sem deixar o driver estourar 500', async () => {
     // O caso real (beta, 2026-08-18): a conversa era pedida com o SLUG do
     // material no lugar do id, e a query morria com `invalid input syntax for
     // type uuid` (`uuid.c:133`) — "Erro interno no servidor" ao abrir a página.
     // `download_material.id` é `uuid`, medido no banco.
-    expect(await guard(subject('quem-tem-medo-do-valete'), STRANGER)).toEqual({
+    const strictGuard = createMaterialSubjectGuard(explodingDb());
+
+    expect(await strictGuard(subject('quem-tem-medo-do-valete'), STRANGER)).toEqual({
       authorized: false,
       reason: 'not_found',
     });
+  });
+
+  it('recusa subject_type alheio sem tocar no banco', async () => {
+    // Mesma lógica de prova para a primeira guarda da função: o retorno tem de
+    // vir antes da consulta.
+    const strictGuard = createMaterialSubjectGuard(explodingDb());
+
+    expect(
+      await strictGuard(
+        { subjectType: 'mesas.table', subjectId: 'aaaaaaaa-0001-4000-8000-000000000001' },
+        STRANGER,
+      ),
+    ).toEqual({ authorized: false, reason: 'not_found' });
   });
 });

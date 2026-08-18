@@ -55,16 +55,61 @@ export function resolveEffectiveMesasRole(
 const isUniqueViolation = (error: unknown): boolean =>
   error !== null && typeof error === 'object' && 'code' in error && (error as { code?: string }).code === '23505';
 
+/**
+ * Reconcilia `users.google_id` com o `users.id` do `accounts.` no login.
+ *
+ * A coluna tem nome legado: até o SSO, guardava o `google_sub` (21 dígitos);
+ * desde então o `INSERT` abaixo grava `session.user.id`, que é o UUID do
+ * registro central. Quem já existia antes ficou com o valor antigo e **nunca
+ * era regravado** — o `SELECT` casa essas contas pelo `email` e devolvia a linha
+ * como está (achado de review, PR #273).
+ *
+ * O efeito não era o login: era o guard de comentários. `tableSubjectGuard`
+ * manda esta coluna como `ownerUserId`, o contrato compartilhado exige UUID
+ * (`subjectAuthorization.ts:135`) e o valor legado degradava para `null` — o
+ * mestre deixava de ser notificado do próprio anúncio, em silêncio. Medido em
+ * produção (2026-08-18): 15 dos 68 usuários com valor legado, **14 mesas**
+ * afetadas, e os 15 com e-mail preenchido (portanto logando normalmente e
+ * nunca reconciliando).
+ *
+ * Colisão `23505` é engolida de propósito: significa que OUTRA linha já detém
+ * este `google_id` (conta duplicada da migração). Derrubar o login por isso
+ * puniria o usuário por um resíduo de dado; a mesa segue sem dono resolvido,
+ * que é exatamente o estado anterior, e o caso vira dado para limpeza manual —
+ * não há nenhuma duplicata de e-mail em produção hoje (medido: 0).
+ */
+const reconcileLegacyGoogleId = async (
+  userId: string,
+  currentGoogleId: string,
+  accountsUserId: string,
+): Promise<void> => {
+  if (currentGoogleId === accountsUserId) return;
+
+  try {
+    await db
+      .updateTable('users')
+      .set({ google_id: accountsUserId })
+      .where('id', '=', userId)
+      .where('google_id', '=', currentGoogleId)
+      .execute();
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
+  }
+};
+
 const resolveMesasUser = async (session: Session) => {
   const existing = await db
     .selectFrom('users')
-    .select(['id', 'email', 'role'])
+    .select(['id', 'email', 'role', 'google_id'])
     .where((eb) => eb.or([
       eb('google_id', '=', session.user.id),
       eb('email', '=', session.user.email),
     ]))
     .executeTakeFirst();
-  if (existing) return existing;
+  if (existing) {
+    await reconcileLegacyGoogleId(existing.id, existing.google_id, session.user.id);
+    return existing;
+  }
 
   try {
     const [created] = await db
@@ -88,14 +133,18 @@ const resolveMesasUser = async (session: Session) => {
 
   // corrida: outro request provisionou primeiro entre o SELECT e o INSERT
   // (email ou google_id, ambos únicos) — relê pelos mesmos critérios do SELECT inicial.
-  return await db
+  const raced = await db
     .selectFrom('users')
-    .select(['id', 'email', 'role'])
+    .select(['id', 'email', 'role', 'google_id'])
     .where((eb) => eb.or([
       eb('google_id', '=', session.user.id),
       eb('email', '=', session.user.email),
     ]))
     .executeTakeFirst();
+  // Mesma reconciliação do caminho comum: a linha achada aqui pode ser a conta
+  // legada casada por e-mail, não a que o request concorrente acabou de criar.
+  if (raced) await reconcileLegacyGoogleId(raced.id, raced.google_id, session.user.id);
+  return raced;
 };
 
 const attachLegacyUser = async (req: Request): Promise<boolean> => {

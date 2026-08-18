@@ -159,8 +159,14 @@ export function createTableSubjectGuard(
       // Degradar para `null` e não recusar: `null` já é o caso previsto do
       // acervo importado (mesa órfã), e o efeito é o mesmo — o dono não recebe
       // notificação. Recusar o comentário puniria o leitor por um id legado do
-      // mestre. O usuário legado volta a ser reconhecido no primeiro login,
-      // quando `auth.ts` regrava a coluna.
+      // mestre.
+      //
+      // Isto é a REDE, não o conserto. A reconciliação de verdade vive em
+      // `middleware/auth.ts` (`reconcileLegacyGoogleId`), que regrava a coluna
+      // no primeiro login da conta legada. Antes dela, este `null` era
+      // permanente: o `SELECT` de `resolveMesasUser` casa a conta legada por
+      // e-mail e devolvia a linha sem nunca atualizar `google_id` (achado de
+      // review, PR #273) — as 14 mesas afetadas ficariam sem dono para sempre.
       ownerUserId: accountsUserIdOrNull(table.owner_google_id),
       canonicalPath: tableCanonicalPath(table.slug),
     });

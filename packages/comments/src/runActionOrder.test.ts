@@ -21,6 +21,7 @@ async function runAction(
   finish: () => Promise<void>,
   onError: (e: unknown) => void,
   onSettled: () => void,
+  onWriteSucceededButReloadFailed: () => void = () => {},
 ): Promise<void> {
   try {
     await action();
@@ -31,6 +32,13 @@ async function runAction(
   }
   try {
     await finish();
+  } catch {
+    // Espelha o `catch` real: a rejeição aqui vem do RELOAD, não da escrita.
+    // Todo chamador usa `void runAction(...)`, então deixá-la escapar viraria
+    // unhandled rejection e a pessoa veria o comentário sumir sem explicação
+    // (achado de review, PR #273). O aviso é separado de `onError` de propósito
+    // — `onError` arma a mensagem de "tente de novo", que aqui duplicaria.
+    onWriteSucceededButReloadFailed();
   } finally {
     onSettled();
   }
@@ -63,17 +71,31 @@ describe('runAction — fecho do painel', () => {
   });
 
   it('erro DEPOIS da escrita não é confundido com falha da escrita', async () => {
-    // `finishAction` mexe em foco e anúncio de acessibilidade. Se ele estourar,
-    // a escrita já aconteceu — tratar como falha faria o usuário reenviar e
+    // `finishAction` recarrega a thread e mexe em foco/anúncio. Se ele estourar,
+    // a escrita JÁ aconteceu — tratar como falha faria o usuário reenviar e
     // duplicar o comentário.
     const chamadas: string[] = [];
-    await expect(runAction(
+    await runAction(
       async () => { chamadas.push('acao'); },
-      async () => { throw new Error('foco perdido'); },
+      async () => { throw new Error('reload falhou'); },
       () => chamadas.push('erro'),
       () => chamadas.push('settled'),
-    )).rejects.toThrow('foco perdido');
-    expect(chamadas).toEqual(['acao', 'settled']);
+      () => chamadas.push('aviso-reload'),
+    );
+    // `erro` fora da lista é o ponto: ele arma "não foi possível concluir a
+    // ação", que sobre uma escrita confirmada convida ao reenvio.
+    expect(chamadas).toEqual(['acao', 'aviso-reload', 'settled']);
     expect(chamadas).not.toContain('erro');
+  });
+
+  it('falha do reload NÃO escapa como unhandled rejection', async () => {
+    // Todo chamador em `CommentsConversation.tsx` dispara com `void
+    // runAction(...)`: uma promessa rejeitada aqui não tem quem a pegue.
+    await expect(runAction(
+      async () => {},
+      async () => { throw new Error('reload falhou'); },
+      () => {},
+      () => {},
+    )).resolves.toBeUndefined();
   });
 });
