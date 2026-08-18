@@ -18,7 +18,10 @@ import {
  * teste basta para os três.
  */
 
+const ALVO = '44444444-4444-4444-8444-444444444444';
+
 const comment = (over: Partial<ConversationComment> = {}): ConversationComment => ({
+  id: ALVO,
   state: 'visible',
   viewer_is_author: false,
   legacy: null,
@@ -178,6 +181,21 @@ describe('restauração por moderação — o par da retirada', () => {
     // ainda não julgou.
     const permissoes = resolveViewerPermissions({ viewer: ADMIN });
     expect(permissoes(comment({ state: 'pending_review_hidden' })).moderateRestore).toBe(false);
+  });
+
+  it('é condição necessária, não suficiente — quem fecha é o componente', () => {
+    // Achado de review, PR #274. Daqui NÃO dá para saber se a restauração é
+    // possível: o payload colapsa `author_removed` e `moderator_removed` em
+    // `removed` (`communityCommentRead.ts:601-605`), e só o segundo é
+    // reversível (`communityModerationCase.ts:903-909`).
+    //
+    // Então esta política devolve `true` para os dois, e `CommentsConversation`
+    // restringe ao que ele mesmo retirou — a fronteira está testada em
+    // `CommentsConversation.test.tsx`. Fixado aqui para que ninguém "conserte"
+    // a política achando que ela mente sozinha: sem o filtro do componente, ela
+    // mentiria mesmo.
+    const permissoes = resolveViewerPermissions({ viewer: ADMIN });
+    expect(permissoes(comment({ state: 'removed' })).moderateRestore).toBe(true);
   });
 
   it('não oferece restauração a usuário comum', () => {

@@ -596,6 +596,40 @@ describe('CommentsConversation — ações de moderação', () => {
     Array.from(container.querySelectorAll('button')).find((b) => b.textContent === texto);
 
   /**
+   * Monta com estado controlado pelo próprio teste, para simular o RELOAD que
+   * `onActionComplete` dispara depois de uma escrita aceita: a retirada muda o
+   * comentário de `visible` para `removed`, e a árvore volta diferente do que
+   * estava quando o botão foi clicado.
+   *
+   * `montar` acima fixa o estado e por isso não alcança esse caminho — ele
+   * mede o painel, não o que acontece quando o servidor confirma.
+   */
+  const montarComReload = async () => {
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+
+    let estado: 'visible' | 'removed' = 'visible';
+    const render = () => root.render(
+      <CommentsConversation
+        state={{ status: 'fresh', data: threadCom(estado), updatedAt: 1, ageMs: 0 }}
+        sort="best"
+        onSortChange={() => undefined}
+        client={client}
+        onMoreLoaded={() => undefined}
+        permissions={resolveViewerPermissions({ viewer: { role: 'admin' } })}
+        onActionComplete={() => {
+          estado = 'removed';
+          render();
+        }}
+      />,
+    );
+
+    await act(async () => render());
+    return container;
+  };
+
+  /**
    * jsdom não converte clique em botão `type="submit"` num evento de submit —
    * é preciso disparar no próprio form, como os testes de resposta e compositor
    * já fazem (linhas 423 e 484). Clicar no botão deixa o teste verde-mudo: nada
@@ -645,8 +679,15 @@ describe('CommentsConversation — ações de moderação', () => {
     expect(client.moderationRemove).toHaveBeenCalledWith(REMOVIDO_ID, 'spam reincidente');
   });
 
-  it('oferece restaurar no que já está retirado, e não oferece retirar de novo', async () => {
-    const container = await montar('removed');
+  it('leva o moderador da restauração até a chamada, e não oferece retirar de novo', async () => {
+    // Passa pela retirada primeiro, e não monta direto em `removed`: só o que
+    // ESTE moderador retirou é restaurável pela conversa — ver o teste de
+    // auto-retirada alheia abaixo.
+    const container = await montarComReload();
+
+    await act(async () => botao(container, 'Retirar (moderação)')?.click());
+    await digitar(container.querySelector('textarea'), 'spam reincidente');
+    await enviarForm(container);
 
     expect(botao(container, 'Retirar (moderação)')).toBeUndefined();
     expect(botao(container, 'Restaurar (moderação)')).toBeInstanceOf(HTMLButtonElement);
@@ -677,6 +718,57 @@ describe('CommentsConversation — ações de moderação', () => {
     await act(async () => botao(container, 'Cancelar')?.click());
 
     expect(document.activeElement).toBe(gatilho);
+  });
+
+  it('não deixa o foco no vazio quando a retirada troca o botão pelo par', async () => {
+    // Achado de review, PR #274. Este é o caminho que o teste de cancelamento
+    // NÃO alcança: com a escrita aceita, `onActionComplete` recarrega a árvore,
+    // o comentário vira `removed` e "Retirar (moderação)" deixa de existir —
+    // sobra só "Restaurar (moderação)". O seletor de `restorePanelTriggerFocus`
+    // procura pelo gatilho original, não acha nada, e o `?.focus()` vira no-op
+    // sobre um `<form>` que o React já removeu: o foco cai no `body` e quem
+    // navega por teclado volta ao topo do documento logo depois de moderar.
+    const container = await montarComReload();
+
+    await act(async () => botao(container, 'Retirar (moderação)')?.click());
+    await digitar(container.querySelector('textarea'), 'spam reincidente');
+    await enviarForm(container);
+
+    expect(botao(container, 'Retirar (moderação)')).toBeUndefined();
+    expect(document.activeElement).not.toBe(document.body);
+    // O par é o destino certo: mesma linha de ações, mesmo comentário, e é
+    // literalmente o desfazer do que acabou de ser feito.
+    expect(document.activeElement).toBe(botao(container, 'Restaurar (moderação)'));
+  });
+
+  it('não promete restaurar auto-retirada alheia, que o servidor sempre recusa', async () => {
+    // Achado de review, PR #274. O payload público colapsa `author_removed` e
+    // `moderator_removed` no mesmo `removed` (`communityCommentRead.ts:601-605`)
+    // — de propósito: dizer ao leitor quem apagou entrega um julgamento que
+    // `contrato-http-v1.md` §2 não autoriza. Mas `restoreCommentByModerator`
+    // recusa `author_removed` com `409 comment_removed_by_author`
+    // (`communityModerationCase.ts:903-909`): a auto-retirada é irreversível
+    // para a moderação (decisão 17).
+    //
+    // A política não tem como distinguir, então devolve `true` para os dois; é
+    // AQUI que a distinção é feita, com o que só o componente sabe. Sem isso, o
+    // botão aparecia sobre toda auto-retirada alheia e falhava sempre.
+    const container = await montar('removed');
+
+    expect(botao(container, 'Restaurar (moderação)')).toBeUndefined();
+  });
+
+  it('oferece restaurar o que o próprio moderador acabou de retirar', async () => {
+    // O outro lado da mesma regra: o conjunto restringe onde a ação falharia,
+    // sem fechar o desfazer de quem acabou de agir. É o que impede a retirada
+    // de ser de mão única.
+    const container = await montarComReload();
+
+    await act(async () => botao(container, 'Retirar (moderação)')?.click());
+    await digitar(container.querySelector('textarea'), 'spam reincidente');
+    await enviarForm(container);
+
+    expect(botao(container, 'Restaurar (moderação)')).toBeInstanceOf(HTMLButtonElement);
   });
 
   it('não mostra nenhuma das duas a usuário comum', async () => {
