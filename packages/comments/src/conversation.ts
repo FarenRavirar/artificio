@@ -79,6 +79,38 @@ export const conversationCommentSchema = z.object({
    * ausente por uma conversa em branco.
    */
   viewer_is_author: z.boolean().default(false),
+  /**
+   * A retirada foi de **moderação**, e não auto-retirada do autor — logo, é
+   * reversível.
+   *
+   * Booleano derivado, irmão de `viewer_is_author` e pela mesma razão: responde
+   * "dá para restaurar?" sem dizer quem apagou. `state` continua colapsando
+   * `author_removed` e `moderator_removed` em `removed` (§2), porque quem
+   * apagou é dado de moderação; o que atravessa é a capacidade.
+   *
+   * Sem ele, "Restaurar (moderação)" aparecia sobre toda auto-retirada alheia e
+   * falhava sempre — `restoreCommentByModerator` recusa `author_removed` com
+   * `409 comment_removed_by_author`. A tentativa anterior guardou o conjunto no
+   * componente, mas ele nasce vazio a cada reload e não havia caminho de volta:
+   * a fila de contas novas filtra `visibility_state = 'visible'` e não lista
+   * retirados, e a resolução de caso exige denúncia prévia, que a retirada
+   * direta não cria (achado de review, PR #274).
+   *
+   * `.default(false)` pelo mesmo motivo de `viewer_is_author`: fachada que ainda
+   * não repassa o campo degrada para "não dá para restaurar" — some um botão,
+   * nada quebra. Exigi-lo derrubaria o parse da árvore inteira num consumidor
+   * desatualizado, trocando um botão ausente por uma conversa em branco.
+   *
+   * **A direção inversa não é coberta pelo default, e a ordem de deploy
+   * importa.** `conversationCommentSchema` é `.strict()`, então um bundle
+   * antigo — já em beta antes deste deploy — que receba o campo novo do
+   * `accounts.` recusa a árvore inteira. É a mesma exposição que
+   * `viewer_is_author` teve ao entrar (`7019be8`, fase 5) e que o projeto já
+   * aceitou: a esteira sobe `accounts.` e apps no mesmo ciclo, e a janela é a
+   * de um deploy. Se um dia um app ficar para trás de propósito, o campo
+   * precisa entrar como `.optional()` no cliente antes de o servidor emitir.
+   */
+  removed_by_moderator: z.boolean().default(false),
   legacy: z.object({
     source: z.string().min(1),
     author_name: z.string().min(1),

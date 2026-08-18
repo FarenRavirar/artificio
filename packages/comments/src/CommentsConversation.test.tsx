@@ -561,6 +561,10 @@ describe('CommentsConversation — ações de moderação', () => {
       downvotes: state === 'visible' ? 0 : null,
       score: state === 'visible' ? 0 : null,
       my_vote: state === 'visible' ? 0 : null,
+      // Retirada POR MODERACAO: e o que `removeCommentByModerator` grava, e o
+      // que distingue do `author_removed` que o servidor recusa restaurar. Ver
+      // o teste de auto-retirada alheia abaixo.
+      removed_by_moderator: state === 'removed',
       legacy: null,
     }],
     more: [],
@@ -742,33 +746,37 @@ describe('CommentsConversation — ações de moderação', () => {
   });
 
   it('não promete restaurar auto-retirada alheia, que o servidor sempre recusa', async () => {
-    // Achado de review, PR #274. O payload público colapsa `author_removed` e
-    // `moderator_removed` no mesmo `removed` (`communityCommentRead.ts:601-605`)
-    // — de propósito: dizer ao leitor quem apagou entrega um julgamento que
-    // `contrato-http-v1.md` §2 não autoriza. Mas `restoreCommentByModerator`
-    // recusa `author_removed` com `409 comment_removed_by_author`
-    // (`communityModerationCase.ts:903-909`): a auto-retirada é irreversível
-    // para a moderação (decisão 17).
+    // Achado de review, PR #274. `state` colapsa `author_removed` e
+    // `moderator_removed` em `removed` (`communityCommentRead.ts`), de
+    // propósito — §2 não autoriza dizer ao leitor quem apagou. Mas
+    // `restoreCommentByModerator` recusa `author_removed` com
+    // `409 comment_removed_by_author` (`communityModerationCase.ts:903-909`).
     //
-    // A política não tem como distinguir, então devolve `true` para os dois; é
-    // AQUI que a distinção é feita, com o que só o componente sabe. Sem isso, o
-    // botão aparecia sobre toda auto-retirada alheia e falhava sempre.
-    const container = await montar('removed');
+    // `removed_by_moderator: false` é a auto-retirada, e o botão não pode
+    // aparecer ali: prometeria uma ação que sempre falha. O par positivo está
+    // no teste de restauração acima, que monta o mesmo comentário com o campo
+    // ligado e encontra o botão.
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    const autoRetirado = commentsThreadSchema.parse({
+      ...threadCom('removed'),
+      comments: [{ ...threadCom('removed').comments[0], removed_by_moderator: false }],
+    });
+    await act(async () => {
+      root.render(
+        <CommentsConversation
+          state={{ status: 'fresh', data: autoRetirado, updatedAt: 1, ageMs: 0 }}
+          sort="best"
+          onSortChange={() => undefined}
+          client={client}
+          onMoreLoaded={() => undefined}
+          permissions={resolveViewerPermissions({ viewer: { role: 'admin' } })}
+        />,
+      );
+    });
 
     expect(botao(container, 'Restaurar (moderação)')).toBeUndefined();
-  });
-
-  it('oferece restaurar o que o próprio moderador acabou de retirar', async () => {
-    // O outro lado da mesma regra: o conjunto restringe onde a ação falharia,
-    // sem fechar o desfazer de quem acabou de agir. É o que impede a retirada
-    // de ser de mão única.
-    const container = await montarComReload();
-
-    await act(async () => botao(container, 'Retirar (moderação)')?.click());
-    await digitar(container.querySelector('textarea'), 'spam reincidente');
-    await enviarForm(container);
-
-    expect(botao(container, 'Restaurar (moderação)')).toBeInstanceOf(HTMLButtonElement);
   });
 
   it('não mostra nenhuma das duas a usuário comum', async () => {

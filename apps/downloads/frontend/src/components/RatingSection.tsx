@@ -1,8 +1,11 @@
 import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useSession } from '@artificio/auth/client';
 import toast from 'react-hot-toast';
-import { ContentEditor, MarkdownContent } from '@artificio/content-editor';
+import { ContentEditor, MarkdownContent, contentOverflow } from '@artificio/content-editor';
 import { useRatings, useSubmitRating } from '../hooks/useRating';
+
+// Espelha o limite aceito pelo backend para o comentario da avaliacao.
+const COMMENT_MAX_LENGTH = 1_000;
 
 // D111 item 5 (spec 074) — avaliacao so disponivel apos download registrado
 // pela mesma conta; guard mostra explicacao visivel, nunca so desabilita
@@ -134,10 +137,19 @@ export function RatingSection({ materialId }: Readonly<{ materialId: string }>) 
               );
             })}
           </div>
-          <ContentEditor label="Comentário da avaliação (opcional)" value={comment} onChange={setComment} maxLength={1_000} minHeight={128} />
+          <ContentEditor label="Comentário da avaliação (opcional)" value={comment} onChange={setComment} maxLength={COMMENT_MAX_LENGTH} minHeight={128} />
           <button
             type="submit"
-            disabled={submitMutation.isPending}
+            // O editor avisa sobre o excesso mas não trunca mais, então quem
+            // submete é que barra: sem isto o texto acima do limite viraria um
+            // 400 do backend em vez de correção na tela (achado P1 do Codex,
+            // PR #275).
+            //
+            // Medido sobre o valor TRIMADO porque é o que a mutation envia
+            // (`comment.trim()` acima). Conferir o valor cru travaria o botão
+            // por espaços que nunca chegam ao backend — e o contador ao lado
+            // diria que está dentro do limite, sem nada explicando a trava.
+            disabled={submitMutation.isPending || contentOverflow(comment.trim(), COMMENT_MAX_LENGTH) > 0}
             className="min-h-[44px] w-fit rounded-md bg-artificio-orange px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             Avaliar

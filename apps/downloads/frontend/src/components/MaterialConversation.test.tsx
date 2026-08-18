@@ -12,6 +12,10 @@ import { MaterialConversation } from './MaterialConversation';
  */
 
 vi.mock('@artificio/content-editor', () => ({
+  // Mesma conta do pacote real: o mock precisa responder igual, senão o teste
+  // valida um componente que barra o submit por regra diferente da de produção.
+  contentOverflow: (value: string, maxLength?: number) =>
+    maxLength === undefined ? 0 : Math.max(0, value.length - maxLength),
   ContentEditor: ({ label }: { label: string }) => <label>{label}<textarea /></label>,
   MarkdownContent: ({ value }: { value: string }) => <p>{value}</p>,
 }));

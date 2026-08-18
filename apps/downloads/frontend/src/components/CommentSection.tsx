@@ -1,11 +1,14 @@
 import { useState, type FormEvent } from 'react';
 import { useSession } from '@artificio/auth/client';
-import { ContentEditor, MarkdownContent } from '@artificio/content-editor';
+import { ContentEditor, MarkdownContent, contentOverflow } from '@artificio/content-editor';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import toast from 'react-hot-toast';
 import { apiGet, apiPost } from '../services/apiClient';
 import { ReportButton } from './ReportButton';
+
+// Espelha o limite aceito pelo backend para o corpo do comentario.
+const BODY_MAX_LENGTH = 2000;
 
 const commentSchema = z.object({
   id: z.string(),
@@ -69,11 +72,13 @@ export function CommentSection({ materialId }: Readonly<{ materialId: string }>)
             label="Comentário"
             placeholder="Escreva um comentário..."
             minHeight={132}
-            maxLength={2000}
+            maxLength={BODY_MAX_LENGTH}
           />
           <button
             type="submit"
-            disabled={submitMutation.isPending}
+            // O editor avisa sobre o excesso mas não trunca mais, então quem
+            // submete é que barra (achado P1 do Codex, PR #275).
+            disabled={submitMutation.isPending || contentOverflow(body, BODY_MAX_LENGTH) > 0}
             className="min-h-[44px] w-fit rounded-md bg-artificio-orange px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             Comentar

@@ -4,6 +4,36 @@ import type { ContactFormEntry } from '../../../components/ContactsFormBlock';
 import { validateContactValue } from '../../../utils/safeExternalUrl';
 
 /**
+ * Espelha `userMarkdownSchema(5000)` de
+ * backend/src/validators/tableValidators.ts. Exportado porque o editor da
+ * descrição (StepBasic) precisa do mesmo número para contar quanto falta.
+ */
+export const DESCRIPTION_MAX_LENGTH = 5000;
+
+/**
+ * Limites dos campos livres do StepFinal, espelhando `baseTableSchema` em
+ * backend/src/validators/tableValidators.ts (linhas 152-178). Cada entrada é
+ * `[rótulo exibido no erro, limite]`.
+ *
+ * Existem porque o editor deixou de truncar: antes, `slice()` no `onChange`
+ * garantia o limite calando o excesso; agora o excesso entra no estado e
+ * precisa ser barrado ANTES do envio, senão vira 400 genérico do backend
+ * (achado P1 do Codex, PR #275).
+ *
+ * `rulesNotes` e `styleText` estavam mais restritivos que o backend (1500 e
+ * 500, contra 2000 e 1000) — mesmo defeito da descrição, corrigido junto.
+ */
+export const FINAL_TEXT_LIMITS = {
+  rulesNotes: ['Regras e observações', 2000],
+  synopsis: ['Sinopse', 2000],
+  synopsisNarrative: ['Sinopse narrativa', 3000],
+  benefitsText: ['Benefícios e diferenciais', 2000],
+  tableGmBio: ['Bio do mestre nesta mesa', 2000],
+  styleText: ['Descrição do estilo de jogo', 1000],
+  technicalRequirements: ['Requisitos técnicos', 1000],
+} as const satisfies Record<string, readonly [string, number]>;
+
+/**
  * Validators reutilizáveis - retornam null se válido, string de erro se inválido
  */
 export const validators = {
@@ -17,7 +47,16 @@ export const validators = {
   description: (v: string): string | null => {
     if (!v || v.trim().length === 0) return 'Descrição obrigatória';
     if (v.length < 10) return 'Descrição muito curta (mínimo 10 caracteres)';
-    if (v.length > 2000) return 'Descrição muito longa (máximo 2000 caracteres)';
+    // 5.000 é o limite REAL do contrato: `description: userMarkdownSchema(5000)`
+    // em backend/src/validators/tableValidators.ts, sobre coluna TEXT sem limite.
+    // O front rejeitava em 2.000 — mais restritivo que o servidor, sem nada no
+    // schema que justificasse. Um anúncio colado de 3.779 caracteres passava no
+    // backend e era barrado aqui, no "Continuar" (achado do mantenedor,
+    // 2026-08-18). Ao mexer aqui, mexer LÁ junto: os dois números são o mesmo
+    // contrato visto de dois lados.
+    if (v.length > DESCRIPTION_MAX_LENGTH) {
+      return `Descrição muito longa (máximo ${DESCRIPTION_MAX_LENGTH} caracteres)`;
+    }
     return null;
   },
 
@@ -103,9 +142,6 @@ export function validateStep(step: number, data: FormState): string[] {
 
     const descError = validators.description(data.form.description);
     if (descError) errors.push(descError);
-
-    const slotsError = validators.slotsTotal(data.form.slots_total);
-    if (slotsError) errors.push(slotsError);
   }
 
   if (step === 2) {
@@ -118,6 +154,18 @@ export function validateStep(step: number, data: FormState): string[] {
     // Step 3: Sessões
     const sessionsError = validators.sessions(data.sessions);
     if (sessionsError) errors.push(sessionsError);
+
+    // Vagas é validado AQUI porque é aqui que o campo existe (StepSessions).
+    // Estava no step 1, que só mostra título e descrição: apagar as vagas
+    // fazia o step "Básico" exibir "Mínimo 1 vaga" e travar o Continuar por
+    // causa de um campo invisível dali, duas telas adiante — sem nada na tela
+    // que o mestre pudesse corrigir (achado do mantenedor, 2026-08-18).
+    //
+    // Regra geral desta função: um step só valida campo que ele renderiza.
+    // Validar campo de outro step produz erro sem alvo, que é indistinguível
+    // de formulário quebrado.
+    const slotsError = validators.slotsTotal(data.form.slots_total);
+    if (slotsError) errors.push(slotsError);
   }
 
   if (step === 4) {
@@ -137,7 +185,17 @@ export function validateStep(step: number, data: FormState): string[] {
   }
 
   if (step === 5) {
-    // Step 5: Finalização (contatos)
+    // Step 5: Finalização — campos livres + contatos.
+    // O editor avisa sobre o excesso mas não trunca mais; sem esta checagem o
+    // texto acima do limite seguiria para o backend e voltaria como 400
+    // genérico, longe do campo que o causou (achado P1 do Codex, PR #275).
+    for (const [campo, [rotulo, limite]] of Object.entries(FINAL_TEXT_LIMITS)) {
+      const valor = data[campo as keyof FormState];
+      if (typeof valor === 'string' && valor.length > limite) {
+        errors.push(`${rotulo}: ${valor.length - limite} caracteres acima do limite de ${limite}`);
+      }
+    }
+
     const contactsError = validators.contacts(data.contacts);
     if (contactsError) errors.push(contactsError);
   }

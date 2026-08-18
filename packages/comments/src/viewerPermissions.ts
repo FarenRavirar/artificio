@@ -175,26 +175,23 @@ export function resolveViewerPermissions(
       // aguardando revisão, não retirado por decisão; "restaurar" ali daria a
       // um clique o poder de aprovar o que a fila ainda não julgou.
       //
-      // **Esta linha é condição NECESSÁRIA, não suficiente.** O payload público
+      // **`removed_by_moderator` é o que impede o botão de mentir.** O `state`
       // colapsa `author_removed` e `moderator_removed` no mesmo `removed`
-      // (`communityCommentRead.ts:601-605`), de propósito: dizer ao leitor "o
-      // autor apagou" versus "um moderador apagou" entrega um julgamento que
+      // (`communityCommentRead.ts`), de propósito: dizer ao leitor "o autor
+      // apagou" versus "um moderador apagou" entrega um julgamento que
       // `contrato-http-v1.md` §2 não autoriza. Mas `restoreCommentByModerator`
       // recusa `author_removed` com `409 comment_removed_by_author`
       // (`communityModerationCase.ts:903-909`) — a auto-retirada é irreversível
       // para a moderação (decisão 17).
       //
-      // Então daqui não dá para saber se a restauração é possível: a informação
-      // que falta não está no payload. Quem fecha é `CommentsConversation`, que
-      // viu a retirada acontecer (ver `moderatorRemovedIds` lá) e restringe
-      // esta capacidade ao que ele mesmo retirou. Sem esse filtro o botão
-      // aparecia sobre toda auto-retirada alheia e falhava sempre — achado de
-      // review, PR #274.
-      //
-      // Quando o `accounts.` expuser uma capacidade derivada no payload (padrão
-      // de `viewer_is_author`: responde "posso?" sem dizer "de quem é"), ela é
-      // lida AQUI e o filtro do componente sai — voltando a existir um dono só.
-      moderateRestore: moderator && !isMine && isRemoved,
+      // O campo resolve os dois: é booleano derivado no servidor, então diz se
+      // a ação é possível sem dizer quem apagou. Foi acrescentado para este
+      // defeito (achado de review, PR #274), depois de uma primeira tentativa
+      // que guardava o conjunto no componente e nascia vazia a cada reload —
+      // sem caminho de volta, porque a fila de contas novas filtra
+      // `visibility_state = 'visible'` e a resolução de caso exige denúncia
+      // prévia, que a retirada direta não cria.
+      moderateRestore: moderator && !isMine && isRemoved && comment.removed_by_moderator,
     };
   };
 }

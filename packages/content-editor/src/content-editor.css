@@ -76,18 +76,83 @@
   white-space: nowrap;
 }
 
-.artificio-content-editor__textarea {
+/* Empilhamento textarea + espelho de excesso. O espelho só existe quando há
+   excesso, então fora desse caso o stack é um wrapper inerte. */
+.artificio-content-editor__input-stack {
+  position: relative;
+}
+
+/* O espelho e o textarea PRECISAM quebrar linha no mesmo lugar, senão o
+   destaque desliza para fora do texto que ele marca. Por isso padding, fonte,
+   line-height, box-sizing e a política de wrap ficam nesta regra conjunta —
+   editar uma sem a outra é o que desalinha. */
+.artificio-content-editor__textarea,
+.artificio-content-editor__mirror {
   display: block;
   width: 100%;
-  resize: vertical;
-  border: 0;
   padding: 0.875rem;
+  font: 0.9375rem/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
+  box-sizing: border-box;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  border: 0;
+}
+
+.artificio-content-editor__textarea {
+  resize: vertical;
   background: var(--surface, #111827);
   color: var(--fg, #f8fafc);
   caret-color: var(--color-artificio-orange, #f58220);
-  font: 0.9375rem/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
-  box-sizing: border-box;
   outline: none;
+}
+
+/* Com espelho ativo o textarea sobe transparente por cima dele: o usuário
+   segue digitando no campo real e enxerga o texto pintado por baixo. O caret e
+   a seleção continuam sendo os nativos do textarea. */
+.artificio-content-editor__textarea--mirrored {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--color-artificio-orange, #f58220);
+}
+
+.artificio-content-editor__textarea--mirrored::selection {
+  background: color-mix(in srgb, var(--color-artificio-orange, #f58220) 35%, transparent);
+}
+
+/* `overflow: auto` (não `hidden`) para que o espelho reserve a mesma faixa de
+   barra de rolagem que o textarea: com larguras internas diferentes as duas
+   camadas quebrariam linha em pontos distintos e o destaque escorregaria. A
+   barra em si fica invisível e o elemento é `pointer-events: none`, então
+   ninguém rola o espelho diretamente — quem manda no scrollTop é o textarea,
+   via syncMirrorScroll. */
+.artificio-content-editor__mirror {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: auto;
+  scrollbar-width: none;
+  background: var(--surface, #111827);
+  color: var(--fg, #f8fafc);
+  pointer-events: none;
+}
+
+.artificio-content-editor__mirror::-webkit-scrollbar {
+  display: none;
+}
+
+/* `<mark>` traz fundo amarelo do user-agent; o projeto pinta o excesso em
+   vermelho, e a cor precisa de contraste sobre o fundo do editor. */
+.artificio-content-editor__overflow {
+  background: color-mix(in srgb, #ef4444 28%, transparent);
+  color: var(--fg, #f8fafc);
+  border-radius: 2px;
+}
+
+.artificio-content-editor__count--over {
+  color: #fca5a5;
+  font-weight: 600;
 }
 
 .artificio-content-editor__textarea:focus {

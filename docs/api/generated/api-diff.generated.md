@@ -6,20 +6,5 @@
 
 ---
 
-## Sumário
-
-| App | Breaking | Non-breaking | Unclassified |
-|-----|:--------:|:------------:|:------------:|
-| site | ✅ 0 | ✅ 2 | ⚪ 0 |
-
----
-
-### site
-
-#### ✅ Non-breaking (2)
-
-| Path | Method | Ação |
-|------|--------|------|
-| `/api/v1/community/moderation/comments/:id/removal` |  | add |
-| `/api/v1/community/moderation/comments/:id/restore` |  | add |
+✅ **Nenhuma mudança detectada entre a versão atual e dev.**
 

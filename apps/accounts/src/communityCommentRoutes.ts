@@ -22,6 +22,7 @@ import { createComment } from "./communityCommentWrite.js";
 import { editComment, removeCommentByAuthor } from "./communityCommentLifecycle.js";
 import { castVote } from "./communityCommentVote.js";
 import { requireServiceCredential, type ServiceAuthenticatedRequest } from "./requireServiceCredential.js";
+import { MODERATOR_ROLES } from "./requireModeratorRole.js";
 import {
   communityRateLimit,
   createRateLimitStore,
@@ -119,6 +120,32 @@ async function resolveActingActorId(
     .executeTakeFirst();
 
   return row?.actor_id ?? null;
+}
+
+/**
+ * O leitor tem papel de moderação?
+ *
+ * Consulta `users.role` pela mesma definição de `requireModeratorRole` — esta
+ * rota é pública e não passa por aquele guard, mas quem recebe
+ * `removed_by_moderator` precisa provar o papel do mesmo jeito.
+ *
+ * Falha fechada em todos os caminhos: sem header, conta inexistente ou papel
+ * comum devolvem `false`, e o leitor fica indistinguível de anônimo para efeito
+ * da origem da retirada (`contrato-http-v1.md` §2).
+ */
+async function resolveViewerIsModerator(
+  db: Kysely<Database>,
+  actingUserId: string | undefined,
+): Promise<boolean> {
+  if (!actingUserId) return false;
+
+  const user = await db
+    .selectFrom("users")
+    .select("role")
+    .where("id", "=", actingUserId)
+    .executeTakeFirst();
+
+  return user ? MODERATOR_ROLES.has(user.role) : false;
 }
 
 function readActingUserId(req: Request): string | undefined {
@@ -758,7 +785,11 @@ async function handleReadTree(
   }
 
   const { snapshotRevision, branchId, after } = start;
-  const actingActorId = await resolveActingActorId(db, readActingUserId(req));
+  const actingUserId = readActingUserId(req);
+  const [actingActorId, viewerIsModerator] = await Promise.all([
+    resolveActingActorId(db, actingUserId),
+    resolveViewerIsModerator(db, actingUserId),
+  ]);
 
   const { snapshotRevision: revision, rows } = await readCommentTree(
     db,
@@ -772,6 +803,7 @@ async function handleReadTree(
       sort,
       snapshotRevision,
       actingActorId,
+      viewerIsModerator,
       after,
       branchId,
     },

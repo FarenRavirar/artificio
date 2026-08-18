@@ -5,6 +5,7 @@ import { SettingStylesField } from '../../SettingStylesField';
 import { ContactsFormBlock, type ContactFormEntry } from '../../ContactsFormBlock';
 import { MarkdownEditor } from '../../MarkdownEditor';
 import { ImageUploader } from '../../ImageUploader';
+import { FINAL_TEXT_LIMITS } from '../../../features/create-table/utils/validation';
 import type {
   ChangeEvent,
   InputHTMLAttributes,
@@ -169,9 +170,9 @@ export function StepFinal(props: StepFinalProps) {
         <label className="text-sm font-medium text-white/70">Regras/Observações da Mesa (opcional)</label>
         <MarkdownEditor
           value={props.rulesNotes}
-          onChange={(text) => props.setRulesNotes(text.slice(0, 1500))}
+          onChange={props.setRulesNotes}
           label="Regras e observações da mesa"
-          maxLength={1500}
+          maxLength={FINAL_TEXT_LIMITS.rulesNotes[1]}
           placeholder="Ex: Usamos regras homebrew para combate, proibido PvP, etc."
           height={200}
         />
@@ -266,20 +267,19 @@ export function StepFinal(props: StepFinalProps) {
               <label className="text-sm font-medium text-white/70">Sinopse Narrativa (opcional)</label>
               <MarkdownEditor
                 value={props.synopsis}
-                onChange={(text) => props.setSynopsis(text.slice(0, 2000))}
+                onChange={props.setSynopsis}
                 label="Sinopse narrativa"
-                maxLength={2000}
+                maxLength={FINAL_TEXT_LIMITS.synopsis[1]}
                 placeholder="Uma sinopse mais longa e imersiva da campanha..."
                 height={250}
               />
-              <p className="text-xs text-white/40 text-right">{props.synopsis.length}/2000</p>
             </div>
 
             <MarkdownEditor
               label="Benefícios e diferenciais (opcional)"
               value={props.benefitsText}
               onChange={props.setBenefitsText}
-              maxLength={2_000}
+              maxLength={FINAL_TEXT_LIMITS.benefitsText[1]}
               height={180}
               placeholder="Materiais inclusos, suporte entre sessões e outros diferenciais"
             />
@@ -288,7 +288,7 @@ export function StepFinal(props: StepFinalProps) {
               label="Bio do mestre nesta mesa (opcional)"
               value={props.tableGmBio}
               onChange={props.setTableGmBio}
-              maxLength={2_000}
+              maxLength={FINAL_TEXT_LIMITS.tableGmBio[1]}
               height={180}
               placeholder="Apresentação específica para esta mesa"
             />
@@ -297,9 +297,9 @@ export function StepFinal(props: StepFinalProps) {
               <label className="text-sm font-medium text-white/70">Descrição do Estilo de Jogo (opcional)</label>
               <MarkdownEditor
                 value={props.styleText}
-                onChange={(text) => props.setStyleText(text.slice(0, 500))}
+                onChange={props.setStyleText}
                 label="Descrição do estilo de jogo"
-                maxLength={500}
+                maxLength={FINAL_TEXT_LIMITS.styleText[1]}
                 placeholder="Ex: Roleplay pesado, Combate tático, Sandbox político"
                 height={180}
               />
@@ -329,9 +329,9 @@ export function StepFinal(props: StepFinalProps) {
               <label className="text-sm font-medium text-white/70">Requisitos Detalhados (opcional)</label>
               <MarkdownEditor
                 value={props.technicalRequirements}
-                onChange={(text) => props.setTechnicalRequirements(text.slice(0, 1000))}
+                onChange={props.setTechnicalRequirements}
                 label="Requisitos técnicos detalhados"
-                maxLength={1000}
+                maxLength={FINAL_TEXT_LIMITS.technicalRequirements[1]}
                 placeholder="Ex: Roll20 + Discord, Foundry VTT com módulos X, Y"
                 height={180}
               />

@@ -1,5 +1,6 @@
 import { ContentEditor } from '@artificio/content-editor';
 
+
 interface MarkdownEditorProps {
   value: string;
   onChange: (text: string) => void;

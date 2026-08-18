@@ -34,7 +34,13 @@ import type { Database } from "./db.js";
  */
 
 /** Papéis que o §5 aceita. `content_author` e `user` não moderam. */
-const MODERATOR_ROLES = new Set(["admin", "moderator"]);
+/**
+ * Papéis que moderam. Exportado para que a leitura pública decida quem recebe
+ * `removed_by_moderator` pela MESMA definição que este guard usa — duas listas
+ * divergiriam no dia em que um papel novo aparecesse, e a divergência aqui é
+ * vazamento de proveniência (achado de review, PR #275).
+ */
+export const MODERATOR_ROLES = new Set(["admin", "moderator"]);
 
 export interface ModeratorAuthenticatedRequest extends Request {
   /** `users.id` do moderador, já validado contra o banco. */

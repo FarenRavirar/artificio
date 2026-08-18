@@ -326,25 +326,6 @@ export function CommentsConversation({
   // abaixo roda depois do commit, quando o nó final já existe.
   const [focusRootAfterCommit, setFocusRootAfterCommit] = useState(0);
 
-  /**
-   * Comentários que ESTE moderador retirou nesta sessão — a única fonte segura
-   * para oferecer a restauração inline.
-   *
-   * O payload público não distingue auto-retirada de retirada por moderação
-   * (`communityCommentRead.ts:601-605` colapsa as duas em `removed`, de
-   * propósito), mas só a segunda é reversível: `restoreCommentByModerator`
-   * recusa `author_removed` com `409 comment_removed_by_author`. Sem este
-   * conjunto, "Restaurar (moderação)" aparecia sobre toda auto-retirada alheia
-   * e falhava sempre (achado de review, PR #274).
-   *
-   * Vive no componente, e não no host, porque é ele quem observa a retirada ser
-   * aceita — subir isso para os três hosts os obrigaria a manter estado
-   * idêntico três vezes, que é a duplicação que este pacote existe para evitar.
-   * Some ao recarregar a página, e isso é aceitável: o conjunto só ACRESCENTA
-   * um atalho; a fila de moderação continua sendo o caminho completo de volta.
-   */
-  const [moderatorRemovedIds, setModeratorRemovedIds] = useState<ReadonlySet<string>>(new Set());
-
   useEffect(() => {
     if (panel === null && pendingAction === null) restorePanelTriggerFocus();
   }, [panel, pendingAction]);
@@ -496,14 +477,7 @@ export function CommentsConversation({
     } else if (panel.kind === 'moderateRemove') {
       void runAction(
         `moderateRemove:${comment.id}`,
-        async () => {
-          const resultado = await client.moderationRemove(comment.id, panelDraft.trim());
-          // Registrado só APÓS o servidor aceitar: é o que autoriza oferecer a
-          // restauração inline sem prometer o que ele recusaria. Ver
-          // `moderatorRemovedIds` para o porquê de a informação nascer aqui.
-          setModeratorRemovedIds((atual) => new Set(atual).add(comment.id));
-          return resultado;
-        },
+        () => client.moderationRemove(comment.id, panelDraft.trim()),
         'Comentário retirado pela moderação.',
       );
     } else if (panel.kind === 'moderateRestore') {
@@ -664,18 +638,7 @@ export function CommentsConversation({
   };
 
   const renderComment = (comment: ConversationComment): ReactNode => {
-    const hostPermissions = permissions(comment);
-    // A restauração inline é o ÚNICO ponto em que o componente restringe o que o
-    // host ofereceu, e a assimetria é o desenho: o host resolve a política a
-    // partir do payload, que não distingue auto-retirada de retirada por
-    // moderação — só o componente viu a retirada acontecer. Ver
-    // `moderatorRemovedIds`. Restringe, nunca amplia: capacidade que o host
-    // negou continua negada.
-    const commentPermissions: CommentViewerPermissions = {
-      ...hostPermissions,
-      moderateRestore: hostPermissions.moderateRestore === true
-        && moderatorRemovedIds.has(comment.id),
-    };
+    const commentPermissions = permissions(comment);
     const legacy = comment.legacy !== null || comment.author.state === 'legacy';
     const authorName = legacy
       ? comment.legacy?.author_name ?? comment.author.display_name ?? 'Autoria não informada'

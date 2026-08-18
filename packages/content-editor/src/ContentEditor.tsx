@@ -1,6 +1,6 @@
 import DOMPurify from 'dompurify';
 import MarkdownIt from 'markdown-it';
-import { useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
 const markdown = new MarkdownIt({
   html: false,
@@ -55,6 +55,40 @@ export interface ContentEditorProps {
   labelledByExternal?: boolean;
 }
 
+/**
+ * Quantos caracteres o valor passou de `maxLength` — 0 quando está dentro do
+ * limite ou quando não há limite.
+ *
+ * Existe porque o editor deixou de TRUNCAR e passou a AVISAR: o excesso agora
+ * entra no valor, então quem submete precisa de uma forma de perguntar se o
+ * conteúdo é enviável. Sem isto cada consumidor reimplementaria
+ * `value.length > max` com o seu próprio número, e a duplicata divergiria do
+ * limite passado ao editor no primeiro ajuste (achado P1 do Codex, PR #275).
+ *
+ * Use para desabilitar o submit:
+ *   `disabled={isPending || contentOverflow(texto, LIMITE) > 0}`
+ */
+export function contentOverflow(value: string, maxLength?: number): number {
+  if (maxLength === undefined) return 0;
+  return Math.max(0, value.length - maxLength);
+}
+
+/**
+ * A frase do contador de caracteres: quanto FALTA enquanto há folga, quanto
+ * PASSOU depois do limite.
+ *
+ * Fica aqui, e não no JSX, porque a versão inline aninhava o ternário do
+ * plural dentro do ternário do estado — ilegível, e apontado pelo Sonar nos
+ * dois lugares onde a mesma frase era montada (PR #275). Sendo uma função só,
+ * o texto do aviso também não diverge entre o editor e quem escreve o próprio
+ * contador, como faz `ParsePreviewTextArea` no mesas.
+ */
+export function contentCountLabel(value: string, maxLength: number): string {
+  const overflow = contentOverflow(value, maxLength);
+  if (overflow === 0) return `Faltam ${maxLength - value.length} de ${maxLength}`;
+  return `${overflow} ${overflow === 1 ? 'caractere' : 'caracteres'} acima do limite`;
+}
+
 type WrapSelection = {
   before: string;
   after?: string;
@@ -104,7 +138,61 @@ export function ContentEditor({
   const editorId = id ?? `content-editor-${generatedId}`;
   const helpId = `${editorId}-help`;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const mirrorRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<'write' | 'preview'>('write');
+
+  // Texto acima do limite costuma passar da altura do campo, e aí o textarea
+  // rola enquanto o espelho — absoluto — ficaria em scrollTop 0. Como o texto
+  // real é transparente, o usuário veria o começo imóvel do espelho enquanto
+  // digita no meio do conteúdo: a marca do excesso deixaria de cair sobre o
+  // texto que ela marca (achado P2 do Codex, PR #275).
+  const syncMirrorScroll = () => {
+    const textarea = textareaRef.current;
+    const mirror = mirrorRef.current;
+    if (!textarea || !mirror) return;
+    mirror.scrollTop = textarea.scrollTop;
+    mirror.scrollLeft = textarea.scrollLeft;
+  };
+
+  // O excesso barra o submit pela CONSTRAINT VALIDATION do browser, não por
+  // cada formulário lembrar de conferir. Tentar adaptar consumidor a consumidor
+  // não escala e já falhou: numa primeira passagem eu cobri 8 telas e deixei 13
+  // passando (achado P1 do Codex, PR #275, segunda rodada). O mesmo mecanismo
+  // que faz `required` funcionar aqui — o textarea segue montado inclusive na
+  // Prévia, exatamente para isso (review PR #227) — resolve para todo mundo:
+  // `setCustomValidity` faz `form.submit` parar sozinho e o browser aponta a
+  // mensagem no campo.
+  //
+  // `contentOverflow` continua exportado para quem precisa desabilitar o botão
+  // ou validar fora de um `<form>`; isto aqui é o piso que ninguém precisa
+  // lembrar de ligar.
+  // O limite passou a ser AVISO, não trava (pedido do mantenedor, 2026-08-18,
+  // modelo Twitter). O comportamento anterior — `maxLength` nativo no textarea
+  // mais `return` mudo nos comandos da toolbar — descartava silenciosamente o
+  // fim de um texto colado: o mestre colava um anúncio de 3.779 caracteres num
+  // campo de 2.000 e não havia nada na tela dizendo que 1.779 tinham sumido.
+  // Deixar o excesso entrar e marcá-lo em vermelho preserva o texto do usuário
+  // e mostra exatamente quanto precisa cortar.
+  //
+  // O excesso não some do valor, mas também não vaza para o backend: o efeito
+  // logo abaixo o transforma em erro de constraint validation, então qualquer
+  // <form> para o submit sozinho.
+  const overflow = contentOverflow(value, maxLength);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.setCustomValidity(
+      overflow > 0 ? `Reduza ${overflow} ${overflow === 1 ? 'caractere' : 'caracteres'}: o limite é ${maxLength}.` : '',
+    );
+  }, [overflow, maxLength]);
+
+  // O espelho só existe no DOM quando há excesso, então na transição de 0 para
+  // positivo ele nasce DEPOIS do `onChange` que o criou — a sincronização
+  // daquele handler roda com `mirrorRef.current` ainda nulo e o espelho aparece
+  // no topo, enquanto o textarea já está rolado (achado de review, PR #275).
+  // Um efeito pós-commit alcança o nó recém-montado.
+  useEffect(syncMirrorScroll, [overflow, value]);
 
   function replaceSelection({ before, after = before, fallback }: WrapSelection) {
     const textarea = textareaRef.current;
@@ -114,7 +202,6 @@ export function ContentEditor({
     const end = textarea.selectionEnd;
     const selected = value.slice(start, end) || fallback;
     const next = `${value.slice(0, start)}${before}${selected}${after}${value.slice(end)}`;
-    if (maxLength !== undefined && next.length > maxLength) return;
 
     onChange(next);
     requestAnimationFrame(() => {
@@ -141,7 +228,6 @@ export function ContentEditor({
     const selected = block || fallback;
     const prefixed = selected.split('\n').map((line) => `${prefix}${line}`).join('\n');
     const next = `${value.slice(0, lineStart)}${prefixed}${value.slice(lineEnd)}`;
-    if (maxLength !== undefined && next.length > maxLength) return;
 
     onChange(next);
     requestAnimationFrame(() => {
@@ -176,7 +262,12 @@ export function ContentEditor({
           </button>
         </div>
         {maxLength !== undefined && (
-          <span className="artificio-content-editor__count" aria-live="polite">{value.length}/{maxLength}</span>
+          <span
+            className={`artificio-content-editor__count${overflow > 0 ? ' artificio-content-editor__count--over' : ''}`}
+            aria-live="polite"
+          >
+            {contentCountLabel(value, maxLength)}
+          </span>
         )}
       </div>
 
@@ -201,24 +292,54 @@ export function ContentEditor({
           <ToolbarButton focusable={activeTab === 'write'} label="Código" disabled={disabled} onClick={() => replaceSelection({ before: '`', fallback: 'código' })}>{'<>'}</ToolbarButton>
           <ToolbarButton focusable={activeTab === 'write'} label="Link" disabled={disabled} onClick={() => replaceSelection({ before: '[', after: '](https://)', fallback: 'texto do link' })}>Link</ToolbarButton>
         </div>
-        <textarea
-          ref={textareaRef}
-          id={editorId}
-          className="artificio-content-editor__textarea"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          aria-label={labelledByExternal ? undefined : label}
-          aria-describedby={helpText ? helpId : undefined}
-          placeholder={placeholder}
-          disabled={disabled}
-          required={required}
-          // Continua montado e `required` na Prévia (a validação nativa depende
-          // disso), mas sai da ordem de tabulação: campo fora da viewport dentro
-          // de aria-hidden não pode receber foco por teclado (review PR #227).
-          tabIndex={activeTab === 'write' ? undefined : -1}
-          maxLength={maxLength}
-          style={{ minHeight }}
-        />
+        {/* O destaque do excesso é um espelho renderizado ATRÁS do textarea:
+            um <textarea> não estiliza parte do próprio conteúdo. O espelho
+            repete o mesmo texto com a mesma métrica tipográfica (a classe
+            compartilha padding/fonte/line-height via CSS) e pinta só o que
+            passou do limite; o textarea real fica por cima, com fundo
+            transparente, e continua sendo quem recebe foco, digitação e
+            seleção. `aria-hidden` porque é decoração pura — o número de
+            caracteres em excesso já é anunciado pelo contador aria-live. */}
+        <div className="artificio-content-editor__input-stack">
+          {overflow > 0 && (
+            <div ref={mirrorRef} className="artificio-content-editor__mirror" aria-hidden="true" style={{ minHeight }}>
+              {value.slice(0, maxLength)}
+              <mark className="artificio-content-editor__overflow">{value.slice(maxLength)}</mark>
+              {/* Fecha o texto com uma quebra: sem ela, um valor terminado em
+                  "\n" perde a última linha vazia no espelho (o HTML colapsa),
+                  e o alinhamento desanda justamente no fim, que é onde o
+                  excesso costuma estar. */}
+              {'\n'}
+            </div>
+          )}
+          <textarea
+            ref={textareaRef}
+            id={editorId}
+            className={`artificio-content-editor__textarea${overflow > 0 ? ' artificio-content-editor__textarea--mirrored' : ''}`}
+            value={value}
+            onChange={(event) => {
+              onChange(event.target.value);
+              // Digitar/colar rola o campo sem emitir `scroll` de forma
+              // confiável em todo browser; sincronizar aqui também mantém o
+              // espelho colado ao texto durante a edição, não só ao rolar.
+              syncMirrorScroll();
+            }}
+            onScroll={syncMirrorScroll}
+            aria-label={labelledByExternal ? undefined : label}
+            aria-describedby={helpText ? helpId : undefined}
+            placeholder={placeholder}
+            disabled={disabled}
+            required={required}
+            // Continua montado e `required` na Prévia (a validação nativa depende
+            // disso), mas sai da ordem de tabulação: campo fora da viewport dentro
+            // de aria-hidden não pode receber foco por teclado (review PR #227).
+            tabIndex={activeTab === 'write' ? undefined : -1}
+            // Sem `maxLength` nativo de propósito: o browser recusaria a tecla e
+            // truncaria a colagem sem aviso. Ver o bloco de comentário no cálculo
+            // de `overflow` acima.
+            style={{ minHeight }}
+          />
+        </div>
       </div>
 
       {activeTab === 'preview' && (
