@@ -1876,6 +1876,90 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /api/v1/community/moderation/comments/{id}/removal:
+    post:
+      operationId: postapi_v1_community_moderation_comments_id_removal
+      summary: "Cria ou executa api v1 community moderation comments id removal"
+      x-artificio-owner: site
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/community/moderation/comments/{id}/restore:
+    post:
+      operationId: postapi_v1_community_moderation_comments_id_restore
+      summary: "Cria ou executa api v1 community moderation comments id restore"
+      x-artificio-owner: site
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /healthz:
     get:
       operationId: gethealthz

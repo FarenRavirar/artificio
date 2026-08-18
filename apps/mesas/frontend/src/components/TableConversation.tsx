@@ -1,6 +1,5 @@
 import { useSession } from '@artificio/auth/client';
-import { CommentsConversation } from '@artificio/comments/react';
-import type { ConversationComment } from '@artificio/comments';
+import { CommentsConversation, resolveViewerPermissions } from '@artificio/comments/react';
 import { useCommunityConversation } from '../hooks/useCommunityConversation';
 
 /**
@@ -72,63 +71,20 @@ export function TableConversation({ tableId, canComment = true }: Readonly<Table
   });
 
   /**
-   * Permissões por comentário. O servidor continua sendo a autoridade — isto é
-   * só o que a tela **oferece**, para não mostrar botão que sempre voltaria
-   * erro.
+   * Permissões por comentário — política compartilhada do pacote
+   * (`viewerPermissions.ts`), onde as regras e o porquê de cada uma vivem em um
+   * lugar só. Era uma cópia local aqui, idêntica à do `site` e à do `downloads`.
    *
-   * As regras saem do contrato, não da tela:
-   * - só o autor edita e auto-retira (§4, `forbidden_not_author`);
-   * - autor não vota no próprio comentário (decisão 5, `self_vote`);
-   * - legado não edita nem vota (decisão 6, `legacy_immutable`);
-   * - oculto/retirado não aceita ação (§7, `not_votable`);
-   * - denunciar a si mesmo vira ruído na fila.
-   *
-   * `viewer_is_author` é o que torna as quatro primeiras verificáveis na tela:
-   * vem do servidor como booleano derivado, porque §2 proíbe identificador no
-   * payload público e a pergunta que a UI faz é "é meu?", não "de quem é".
+   * `canComment` é a ÚNICA coisa que o `mesas` tem a mais, e é exatamente o que
+   * o parâmetro de ambiente existe para carregar: mesa encerrada, cancelada ou
+   * arquivada bloqueia escrita nova (requisito 26a), então resposta, edição e
+   * voto fecham junto com ela. Denúncia e retirada por moderação **não** —
+   * conteúdo abusivo não deixa de ser abusivo porque a mesa acabou.
    */
-  const permissions = (comment: ConversationComment) => {
-    if (!user) return {};
-
-    const isLegacy = comment.legacy !== null;
-    const isHidden = comment.state !== 'visible';
-    const isMine = comment.viewer_is_author;
-    // Os dois estados ocultos não são equivalentes para o autor (§4):
-    // `pending_review_hidden` continua editável — é quando o corpo sumiu que o
-    // autor mais precisa do caminho —, enquanto retirado não volta a ser
-    // editável (`403`/`comment_removed`).
-    const isRemoved = comment.state === 'removed';
-
-    return {
-      // Mesa fechada não aceita resposta nova, nem em fio já existente: 26a diz
-      // "escrita nova bloqueada", e responder é escrita.
-      reply: canComment && !isHidden,
-      edit: canComment && isMine && !isLegacy && !isRemoved,
-      withdraw: isMine && !isLegacy && !isRemoved,
-      // **Voto congela; denúncia nunca.** As duas plataformas de referência
-      // convergem nisso, e a distinção não é arbitrária:
-      //
-      // - Discourse, tópico arquivado: "Disable likes" e "Disable poll-based
-      //   voting", mas "Continue to allow flagging of the topic or its posts".
-      // - Reddit, post arquivado: voto trava no estado atual (não dá nem para
-      //   retirar o próprio); o report continua.
-      //
-      // A razão é a diferença de natureza. Voto é sinal de ranking, e ranking
-      // só faz sentido enquanto a conversa disputa atenção — mantê-lo aberto
-      // deixa o placar de uma mesa morta continuar mudando por meses, o que
-      // corrói a comparabilidade histórica e é exatamente o que "arquivar"
-      // deveria impedir. Denúncia é segurança, e conteúdo abusivo não deixa de
-      // ser abusivo porque a mesa acabou: travá-la criaria um recanto onde nada
-      // pode ser reportado.
-      //
-      // Nota: o `accounts.` **não** recusa voto por assunto fechado — a rota
-      // `PUT /internal/v1/comments/:id/vote` nem recebe `subject_authorization`
-      // (`communityCommentRoutes.ts:221`), que só é exigida na escrita de fala.
-      // Então esta regra vive aqui de propósito, e não duplica servidor.
-      vote: canComment && !isMine && !isLegacy && !isHidden,
-      report: !isMine && !isHidden,
-    };
-  };
+  const permissions = resolveViewerPermissions({
+    viewer: user,
+    subjectAcceptsWrites: canComment,
+  });
 
   return (
     <section aria-labelledby="table-conversation-heading" className="mt-8">

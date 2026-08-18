@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "total": 602,
+    "total": 605,
     "byApp": {
       "accounts": {
         "total": 56,
@@ -71,17 +71,17 @@
         }
       },
       "site": {
-        "total": 66,
+        "total": 69,
         "byMethod": {
           "GET": 28,
-          "POST": 16,
-          "USE": 8,
+          "POST": 18,
+          "USE": 9,
           "PUT": 7,
           "DELETE": 5,
           "PATCH": 2
         },
         "byConfidence": {
-          "high": 66
+          "high": 69
         }
       }
     },
@@ -4918,7 +4918,7 @@
       "method": "USE",
       "path": "/admin",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 258,
+      "line": 266,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4927,7 +4927,7 @@
       "method": "USE",
       "path": "/admin",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 260,
+      "line": 268,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4936,7 +4936,7 @@
       "method": "GET",
       "path": "/admin/preview/:type/:id",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 230,
+      "line": 238,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4945,7 +4945,7 @@
       "method": "POST",
       "path": "/admin/rebuild",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 125,
+      "line": 126,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4954,7 +4954,7 @@
       "method": "GET",
       "path": "/admin/status",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 110,
+      "line": 111,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4963,7 +4963,7 @@
       "method": "USE",
       "path": "/api/admin/v1",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 223,
+      "line": 231,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4972,7 +4972,7 @@
       "method": "USE",
       "path": "/api/admin/v1/catalog",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 220,
+      "line": 228,
       "confidence": "high",
       "kind": "mount"
     },
@@ -5017,7 +5017,7 @@
       "method": "USE",
       "path": "/api/admin/v1/catalog/material-types",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 221,
+      "line": 229,
       "confidence": "high",
       "kind": "mount"
     },
@@ -5332,7 +5332,7 @@
       "method": "USE",
       "path": "/api/catalog/v1",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 202,
+      "line": 203,
       "confidence": "high",
       "kind": "mount"
     },
@@ -5422,7 +5422,7 @@
       "method": "POST",
       "path": "/api/feedback",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 156,
+      "line": 157,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -5449,7 +5449,7 @@
       "method": "USE",
       "path": "/api/v1/community/conversation",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 211,
+      "line": 212,
       "confidence": "high",
       "kind": "mount"
     },
@@ -5491,10 +5491,37 @@
     },
     {
       "app": "site",
+      "method": "USE",
+      "path": "/api/v1/community/moderation",
+      "sourceFile": "apps/site/server/server.ts",
+      "line": 219,
+      "confidence": "high",
+      "kind": "mount"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/v1/community/moderation/comments/:id/removal",
+      "sourceFile": "apps/site/server/community-moderation-api.ts",
+      "line": 82,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/v1/community/moderation/comments/:id/restore",
+      "sourceFile": "apps/site/server/community-moderation-api.ts",
+      "line": 91,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
       "method": "GET",
       "path": "/healthz",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 99,
+      "line": 100,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -5503,7 +5530,7 @@
       "method": "USE",
       "path": "/uploads",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 227,
+      "line": 235,
       "confidence": "high",
       "kind": "mount"
     }

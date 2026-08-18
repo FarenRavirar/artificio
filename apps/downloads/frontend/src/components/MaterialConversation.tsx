@@ -1,6 +1,5 @@
 import { useSession } from '@artificio/auth/client';
-import { CommentsConversation } from '@artificio/comments/react';
-import type { ConversationComment } from '@artificio/comments';
+import { CommentsConversation, resolveViewerPermissions } from '@artificio/comments/react';
 import { useCommunityConversation } from '../hooks/useCommunityConversation';
 
 /**
@@ -36,44 +35,16 @@ export function MaterialConversation({ materialId }: Readonly<{ materialId: stri
   });
 
   /**
-   * Permissões por comentário. O servidor continua sendo a autoridade — isto é
-   * só o que a tela **oferece**, para não mostrar botão que sempre voltaria
-   * erro (heurística 5 de Nielsen: prevenir em vez de reportar).
+   * Permissões por comentário — política compartilhada do pacote
+   * (`viewerPermissions.ts`), onde as regras e o porquê de cada uma vivem em um
+   * lugar só. Era uma cópia local aqui, idêntica à do `site` e à do `mesas`.
    *
-   * As regras saem do contrato, não da tela:
-   * - só o autor edita e auto-retira (§4, `forbidden_not_author`);
-   * - autor não vota no próprio comentário (decisão 5, `self_vote`);
-   * - legado não edita nem vota (decisão 6, `legacy_immutable`);
-   * - oculto/retirado não aceita ação (§7, `not_votable`);
-   * - denunciar a si mesmo não faz sentido e vira ruído na fila.
-   *
-   * `viewer_is_author` é o que torna as quatro primeiras verificáveis na tela
-   * (DEB-090-VIEWER-AUTHOR). Ele vem do servidor como booleano derivado — §2
-   * continua proibindo identificador no payload público, e a pergunta que a UI
-   * precisa fazer é "é meu?", não "de quem é".
+   * O `downloads` não fecha assunto: material publicado aceita comentário
+   * enquanto estiver visível, e os estados que o fecham (`withdrawn`,
+   * `rejected`) já chegam como `state !== 'visible'`. Por isso
+   * `subjectAcceptsWrites` fica no default `true`.
    */
-  const permissions = (comment: ConversationComment) => {
-    if (!user) return {};
-
-    const isLegacy = comment.legacy !== null;
-    const isHidden = comment.state !== 'visible';
-    const isMine = comment.viewer_is_author;
-    // Os dois estados ocultos **não** são equivalentes para o autor, e §4 os
-    // separa: `pending_review_hidden` "continua editável, e a edição não o
-    // revela" (:211) — é quando o corpo sumiu que o autor mais precisa do
-    // caminho —, enquanto retirado "não volta a ser editável", `403`/
-    // `comment_removed` (:214). Tratar os dois como um só ofereceria botão que
-    // sempre falha, ou esconderia o que a spec garante.
-    const isRemoved = comment.state === 'removed';
-
-    return {
-      reply: !isHidden,
-      edit: isMine && !isLegacy && !isRemoved,
-      withdraw: isMine && !isLegacy && !isRemoved,
-      vote: !isMine && !isLegacy && !isHidden,
-      report: !isMine && !isHidden,
-    };
-  };
+  const permissions = resolveViewerPermissions({ viewer: user });
 
   return (
     <section aria-labelledby="material-conversation-heading" className="mt-8">

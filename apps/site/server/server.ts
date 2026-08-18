@@ -16,6 +16,7 @@ import { adminApi } from "./admin-api.js";
 import { catalogAdminApi, catalogApi } from "./catalog-api.js";
 import { catalogMaterialTypesAdminApi } from "./catalog-material-types-admin-api.js";
 import { communityApi } from "./community-api.js";
+import { communityModerationApi } from "./community-moderation-api.js";
 import { renderPreview } from "./preview.js";
 import { reloadRedirects, lookupRedirect } from "./redirect-cache.js";
 import { UPLOADS_DIR, storeUpload } from "./lib/media-store.js";
@@ -209,6 +210,13 @@ app.use("/api/catalog/v1", catalogApi());
 // `/:id/reports`. No dia em que alguém declarar, a denúncia quebra sem erro de
 // compilação e sem teste vermelho.
 app.use("/api/v1/community/conversation", communityApi());
+
+// Retirada e restauração por moderação (achado de review, PR #274). Prefixo
+// próprio pela mesma razão acima, e é o prefixo que o pacote compartilhado já
+// roteia (`useConversationHost.tsx:139-150`, literal idêntica nos três apps).
+// Sem este mount, os botões de moderação que a política compartilhada oferece
+// ao admin no blog recebiam `404`.
+app.use("/api/v1/community/moderation", communityModerationApi());
 
 // Achado real (2026-07-13, deploy prod mesas/glossario/site): /api/admin/v1/catalog
 // nunca era alcançada — Express casa por prefixo na ordem de registro, e o mount

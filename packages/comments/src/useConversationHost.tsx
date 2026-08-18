@@ -130,6 +130,24 @@ function routeFor(request: CommentsTransportRequest, config: ConversationHostCon
         method: 'POST',
         body: { reason_code: input.reasonCode, details: input.details },
       };
+    // Retirada por moderador global. Diferente das anteriores, o caminho NÃO
+    // entra por `config`: a fachada de moderação é a mesma literal nos três
+    // apps (`mesas/routes/communityModeration.ts:160`,
+    // `downloads/.../communityModeration.ts:116`), montada a partir do molde
+    // comum. Torná-la parâmetro convidaria a terceira divergência por app que
+    // este arquivo existe para evitar.
+    case 'moderation.remove':
+      return {
+        path: `/api/v1/community/moderation/comments/${encodeURIComponent(String(input.commentId))}/removal`,
+        method: 'POST',
+        body: { reason: input.reason },
+      };
+    case 'moderation.restore':
+      return {
+        path: `/api/v1/community/moderation/comments/${encodeURIComponent(String(input.commentId))}/restore`,
+        method: 'POST',
+        body: { reason: input.reason },
+      };
     default:
       throw new Error(`Capacidade não roteada: ${request.capability}`);
   }

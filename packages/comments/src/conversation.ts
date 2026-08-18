@@ -288,6 +288,71 @@ export const withdrawCommentOperation = defineCommentsOperation({
   outputSchema: z.union([z.undefined(), z.null(), z.object({ ok: z.literal(true) }).strict()]),
 });
 
+/**
+ * Teto do `reason` das ações de moderação, **500 e não 4.000**.
+ *
+ * O número vem do `accounts.`, que é quem de fato recusa:
+ * `reasonOnlyBodySchema` em `communityModerationRoutes.ts:180` valida
+ * `z.string().trim().min(1).max(500)` e devolve `400 invalid_body` — genérico,
+ * sem dizer qual campo estourou. As fachadas de `mesas` e `downloads` são
+ * proxies puros e não revalidam, então nada entre o formulário e o banco
+ * corrige a diferença.
+ *
+ * Nasceu como `4_000` aqui, copiado do `details` da denúncia (que é 4.000 de
+ * verdade, `DETAILS_MAX_LENGTH`): o `textarea` aceitava 600 caracteres, o
+ * cliente aceitava, e o `400` chegava sete camadas depois como "não foi
+ * possível concluir a ação" (achado de review, PR #274). É exatamente a falha
+ * que o `AGENTS.md` descreve — app mandando formato que o dono do contrato
+ * recusa, com o sintoma aparecendo longe da origem.
+ *
+ * Exportada porque o `maxLength` do `textarea` precisa do MESMO número: dois
+ * literais iguais em arquivos diferentes é como o primeiro divergiu.
+ */
+export const MODERATION_REASON_MAX_LENGTH = 500;
+
+/**
+ * Retirada de comentário **alheio** por moderador global.
+ *
+ * Distinta de `withdrawCommentOperation` de propósito, e não é redundância:
+ * aquela é auto-retirada do autor (`DELETE`, sem corpo, `forbidden_not_author`
+ * para qualquer outro), enquanto esta bate na fachada de moderação, exige
+ * `reason` e entra no log de moderação com o ator que decidiu.
+ *
+ * O `reason` é obrigatório porque o servidor o exige, e a UI o valida antes de
+ * enviar pela mesma razão da denúncia (achado de review, PR #259): formulário
+ * operável que sempre volta `422` não informa o que faltou.
+ */
+export const moderationRemoveCommentOperation = defineCommentsOperation({
+  capability: 'moderation.remove',
+  kind: 'mutation',
+  inputSchema: z.object({
+    commentId: z.uuid(),
+    reason: z.string().trim().min(1).max(MODERATION_REASON_MAX_LENGTH),
+  }).strict(),
+  // Mesma tolerância do `withdraw`: a fachada repassa o que o `accounts.`
+  // devolver, e o corpo não é lido pela UI — o que importa é o status.
+  outputSchema: z.unknown(),
+});
+
+/**
+ * Restauração de comentário retirado — o par de `moderationRemoveCommentOperation`.
+ *
+ * Existe pelo mesmo motivo que a retirada: sem ela, um moderador que retira por
+ * engano não tem caminho de volta pela conversa, e o comentário fica preso no
+ * placeholder "Comentário retirado." até alguém abrir a fila de moderação — que
+ * hoje só existe no `downloads`. Retirada sem desfazer é uma ação de mão única
+ * numa superfície onde o erro é barato de cometer (um clique) e caro de corrigir.
+ */
+export const moderationRestoreCommentOperation = defineCommentsOperation({
+  capability: 'moderation.restore',
+  kind: 'mutation',
+  inputSchema: z.object({
+    commentId: z.uuid(),
+    reason: z.string().trim().min(1).max(MODERATION_REASON_MAX_LENGTH),
+  }).strict(),
+  outputSchema: z.unknown(),
+});
+
 export const setCommentVoteOperation = defineCommentsOperation({
   capability: 'vote.set',
   kind: 'mutation',
@@ -354,7 +419,9 @@ export type CommentsConversationCapability =
   | 'comment.edit'
   | 'comment.withdraw'
   | 'vote.set'
-  | 'report.create';
+  | 'report.create'
+  | 'moderation.remove'
+  | 'moderation.restore';
 
 export interface CommentsConversationSubject {
   readonly subjectType: string;
@@ -422,6 +489,13 @@ export function createCommentsConversationClient(
       ),
     withdraw: (commentId: string, signal?: AbortSignal) =>
       client.execute(withdrawCommentOperation, { commentId }, { signal }),
+    // Sem `idempotencyKey`, como o `withdraw`: a retirada é idempotente por
+    // construção (a segunda chamada encontra o comentário já retirado) e a rota
+    // não passa por `readAuthorAndKey`.
+    moderationRemove: (commentId: string, reason: string, signal?: AbortSignal) =>
+      client.execute(moderationRemoveCommentOperation, { commentId, reason }, { signal }),
+    moderationRestore: (commentId: string, reason: string, signal?: AbortSignal) =>
+      client.execute(moderationRestoreCommentOperation, { commentId, reason }, { signal }),
     vote: (commentId: string, value: -1 | 0 | 1, signal?: AbortSignal) =>
       client.execute(setCommentVoteOperation, { commentId, value }, { signal }),
     // A denúncia tem validação própria da chave

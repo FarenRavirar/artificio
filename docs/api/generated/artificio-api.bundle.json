@@ -8,9 +8,9 @@
     "glossario": 50,
     "links": 22,
     "mesas": 206,
-    "site": 55
+    "site": 57
   },
-  "total": 494,
+  "total": 496,
   "operations": [
     {
       "app": "accounts",
@@ -6060,6 +6060,30 @@
       "auth": "user",
       "consumers": [],
       "operationId": "putapi_v1_community_conversation_id_vote"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/v1/community/moderation/comments/{id}/removal",
+      "summary": "Cria ou executa api v1 community moderation comments id removal",
+      "owner": "site",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_community_moderation_comments_id_removal"
+    },
+    {
+      "app": "site",
+      "method": "POST",
+      "path": "/api/v1/community/moderation/comments/{id}/restore",
+      "summary": "Cria ou executa api v1 community moderation comments id restore",
+      "owner": "site",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_community_moderation_comments_id_restore"
     },
     {
       "app": "site",
