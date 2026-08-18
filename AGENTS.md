@@ -374,6 +374,25 @@ Já aconteceu 2 vezes: pacote `@artificio/*` novo vira dependency de um app, mas
 
 ## Regras Gerais de Código
 
+### O mantenedor não é programador — pergunta técnica se responde medindo (pétrea)
+
+**O mantenedor não escreve código.** Toda pergunta sobre *como o sistema é* — qual campo, qual formato, de onde vem o dado, qual app faz diferente, o que já existe pronto — **é respondida pelo código, pela documentação ou pela VM**, nunca por ele. Devolver essa pergunta transfere a ele trabalho que é do agente e que ele não tem como fazer: ele não vai abrir o schema, não vai correr o `grep`, não vai comparar os três guards.
+
+Isto não afrouxa §Autorização. Continua indo a ele, sempre: **decisão de produto, de risco, de escopo e toda ação perigosa** (commit, push, deploy, escrita na VM, SQL, DNS, lib nova). O que **não** vai é a pergunta cuja resposta está no repositório — inclusive quando o agente acha que "seria mais rápido confirmar". Não é mais rápido: é mais caro, e chega errado, porque ele responde sobre um sistema que só o agente acabou de medir.
+
+Regra prática: antes de escrever uma pergunta, o agente verifica se ela cabe em `rtk rg`, `psql` read-only, leitura de schema/migration, `\d` de tabela, ou comparação entre apps. Se couber, **não é pergunta — é medição pendente**. Se depois de medir sobrar uma escolha real entre caminhos igualmente válidos, aí sim pergunta, já trazendo as opções **medidas** (§Evidência item 3) e a recomendação.
+
+### Compartilhado por padrão; exceção por app é o defeito (pétrea)
+
+O monorepo existe para que os apps compartilhem contrato, tipo, schema e comportamento. **Toda divergência por app é dívida até prova em contrário**, mesmo quando compila, mesmo quando o app isolado funciona.
+
+- **Buscar o que já existe antes de escrever.** Pacote em `packages/*` que já resolve o problema é a resposta; escrever versão local do mesmo conceito é o erro. Quando dois apps precisam da mesma coisa, ela sobe para o pacote — não se copia.
+- **Contrato do pacote é a autoridade.** Se `packages/*` define um schema/tipo/formato, o app obedece. App que manda outro formato está errado **mesmo que o app não quebre**: quebra no consumidor, camadas adiante, com erro opaco. Incidente real (2026-08-18, spec 090): `subjectAuthorization.ts:135` define `ownerUserId: z.uuid()`; o `mesas` mandava `google_id` de 21 dígitos, e o sintoma foi `400` genérico vindo do `accounts` sete camadas depois — o app de origem não acusou nada.
+- **Guard/validação compartilhada precisa estar LIGADA, não só existir.** No mesmo incidente, `normalizeGuardResult` existia no pacote exatamente para revalidar o retorno de guard escrito noutro app, e **nenhum dos três apps o chamava** — só o `accounts`. Gancho de validação escrito e não ligado é pior que ausente: passa a impressão de cobertura que não existe.
+- **Ao corrigir defeito num app, cruzar com os outros que fazem a mesma coisa.** A pergunta não é "por que este quebrou", é "por que os outros não quebraram" — e a resposta frequentemente é *"porque aquele caminho nunca foi exercitado"*, não *"porque está certo"*. No mesmo incidente: o `site` mandava `null` fixo e o `downloads` tinha a tabela de donos **vazia em beta e em produção**; os dois "funcionavam" sem nunca ter mandado um dono real.
+- **Identidade, formato e vocabulário atravessam apps.** Um id é o mesmo id em todo o monorepo. App que mantém representação paralela da mesma entidade cria tradução, e toda tradução é uma chance de divergir. Preferir sempre a chave que o dono do dado emite.
+- **Solução dinâmica, não caso particular.** Corrigir com condicional por app (`if (app === 'mesas')`), lista fixa ou exceção pontual é sinal de que a correção está no lugar errado: ela pertence ao contrato compartilhado, onde vale para todos, inclusive para o próximo app que ainda não existe.
+
 - Mudança reversível, dentro do escopo, sem refactor massivo não pedido. **"Solução mínima" é proibido como critério de correção de bug/achado de review — foco é solução correta e completa, não a menor edição que faz o sintoma sumir.** Corrigir errado/parcial pra "economizar" gera retrabalho maior depois (o mantenedor tem que redescobrir o problema, pedir de novo, e corrigir o que devia ter sido corrigido direito da primeira vez). Ao corrigir achado de bot de review (Codex/CodeRabbit/Sonar) ou bug reportado: entender a causa raiz, resolver ela por completo (schema/tipo/contrato incluídos se for o caso), não só abafar o sintoma pontual citado no comentário. Escopo mínimo ainda vale pra **abrangência** (não sair mexendo em código não relacionado ao achado) — não vale pra **profundidade** da correção do que está de fato em escopo.
 - Stack canônica única: Frontend React 19/TS/Vite/Tailwind; Backend Node/Express 5/TS/Kysely/Postgres 16; auth via JWT no backend.
 - Python só para scripts fora do runtime principal.

@@ -1,5 +1,6 @@
 import {
   authorize,
+  looksLikeUuid,
   refuse,
   type CommentSubjectGuard,
   type CommentSubjectRef,
@@ -74,6 +75,17 @@ export function createMaterialSubjectGuard(
     // a coisa errada. Recusar como `not_found` mantém o `404` uniforme lá na
     // frente sem que este guard finja ter consultado o domínio de outro módulo.
     if (subject.subjectType !== DOWNLOADS_SUBJECT_TYPE) return refuse('not_found');
+
+    // `download_material.id` é UUID. Sem esta guarda o id malformado — o slug do
+    // material, por exemplo — chega ao Postgres como texto e a query morre com
+    // `invalid input syntax for type uuid`, virando `500` onde o certo é `404`.
+    // Medido em beta (2026-08-18): `GET /community/conversation?subject_id=<slug>`
+    // devolvia "Erro interno no servidor" com `string_to_uuid` no log.
+    //
+    // O `mesas` já tinha esta proteção escrita à mão (`tableSubjectGuard.ts:74`)
+    // e este app não — a assimetria é o defeito, então a checagem agora vem do
+    // pacote e vale para os dois.
+    if (!looksLikeUuid(subject.subjectId)) return refuse('not_found');
 
     // O `JOIN` cobre as DUAS formas de `creator_id`, e isso não é defensividade:
     // material de scraper grava `download_creator.id`, material humano grava o

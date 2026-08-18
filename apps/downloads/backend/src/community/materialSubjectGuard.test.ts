@@ -28,38 +28,38 @@ interface MaterialRow {
 }
 
 const MATERIALS: Record<string, MaterialRow> = {
-  'published-with-owner': {
-    id: 'published-with-owner',
+  'aaaaaaaa-0001-4000-8000-000000000001': {
+    id: 'aaaaaaaa-0001-4000-8000-000000000001',
     slug: 'guia-de-magia',
     editorial_state: 'published',
     owner_user_id: OWNER,
   },
-  'published-orphan': {
-    id: 'published-orphan',
+  'aaaaaaaa-0002-4000-8000-000000000002': {
+    id: 'aaaaaaaa-0002-4000-8000-000000000002',
     slug: 'acervo-importado',
     editorial_state: 'published',
     owner_user_id: null,
   },
-  'draft-of-owner': {
-    id: 'draft-of-owner',
+  'aaaaaaaa-0003-4000-8000-000000000003': {
+    id: 'aaaaaaaa-0003-4000-8000-000000000003',
     slug: 'rascunho',
     editorial_state: 'draft',
     owner_user_id: OWNER,
   },
-  'in-review-orphan': {
-    id: 'in-review-orphan',
+  'aaaaaaaa-0004-4000-8000-000000000004': {
+    id: 'aaaaaaaa-0004-4000-8000-000000000004',
     slug: 'em-revisao',
     editorial_state: 'in_review',
     owner_user_id: null,
   },
-  withdrawn: {
-    id: 'withdrawn',
+  'aaaaaaaa-0005-4000-8000-000000000005': {
+    id: 'aaaaaaaa-0005-4000-8000-000000000005',
     slug: 'retirado',
     editorial_state: 'withdrawn',
     owner_user_id: OWNER,
   },
-  rejected: {
-    id: 'rejected',
+  'aaaaaaaa-0006-4000-8000-000000000006': {
+    id: 'aaaaaaaa-0006-4000-8000-000000000006',
     slug: 'rejeitado',
     editorial_state: 'rejected',
     owner_user_id: OWNER,
@@ -105,27 +105,27 @@ describe('guard de assunto do downloads — suíte de conformidade do pacote', (
     const report = await runSubjectAuthorizationConformance(guard, {
       commentableWithOwner: {
         label: 'material publicado, criador com conta',
-        subject: subject('published-with-owner'),
+        subject: subject('aaaaaaaa-0001-4000-8000-000000000001'),
         actingUserId: STRANGER,
       },
       commentableWithoutOwner: {
         label: 'material publicado do acervo importado, criador sem conta',
-        subject: subject('published-orphan'),
+        subject: subject('aaaaaaaa-0002-4000-8000-000000000002'),
         actingUserId: STRANGER,
       },
       missing: {
         label: 'id que não existe no acervo',
-        subject: subject('nao-existe'),
+        subject: subject('aaaaaaaa-0009-4000-8000-000000000009'),
         actingUserId: STRANGER,
       },
       invisibleToActor: {
         label: 'material em revisão, ator não é o criador',
-        subject: subject('in-review-orphan'),
+        subject: subject('aaaaaaaa-0004-4000-8000-000000000004'),
         actingUserId: STRANGER,
       },
       notCommentable: {
         label: 'material retirado — visível por link, fechado a comentário',
-        subject: subject('withdrawn'),
+        subject: subject('aaaaaaaa-0005-4000-8000-000000000005'),
         actingUserId: STRANGER,
       },
       // `visibleOnlyToActor` é deliberadamente OMITIDA, e a lacuna é medida
@@ -153,7 +153,7 @@ describe('guard de assunto do downloads — suíte de conformidade do pacote', (
 
 describe('guard de assunto do downloads — regras do domínio', () => {
   it('autoriza material publicado devolvendo dono e caminho canônico', async () => {
-    const result = await guard(subject('published-with-owner'), STRANGER);
+    const result = await guard(subject('aaaaaaaa-0001-4000-8000-000000000001'), STRANGER);
 
     expect(result).toEqual({
       authorized: true,
@@ -168,29 +168,29 @@ describe('guard de assunto do downloads — regras do domínio', () => {
   });
 
   it('trata criador sem conta como dono nulo, sem inventar destinatário', async () => {
-    const result = await guard(subject('published-orphan'), STRANGER);
+    const result = await guard(subject('aaaaaaaa-0002-4000-8000-000000000002'), STRANGER);
 
     expect(result.authorized).toBe(true);
     if (result.authorized) expect(result.authorization.ownerUserId).toBeNull();
   });
 
   it('esconde rascunho de terceiro e o revela ao próprio criador, sem abrir comentário', async () => {
-    expect(await guard(subject('draft-of-owner'), STRANGER)).toEqual({
+    expect(await guard(subject('aaaaaaaa-0003-4000-8000-000000000003'), STRANGER)).toEqual({
       authorized: false,
       reason: 'not_visible',
     });
-    expect(await guard(subject('draft-of-owner'), OWNER)).toEqual({
+    expect(await guard(subject('aaaaaaaa-0003-4000-8000-000000000003'), OWNER)).toEqual({
       authorized: false,
       reason: 'not_commentable',
     });
   });
 
   it('recusa material rejeitado e retirado como fechado, não como inexistente', async () => {
-    expect(await guard(subject('rejected'), STRANGER)).toEqual({
+    expect(await guard(subject('aaaaaaaa-0006-4000-8000-000000000006'), STRANGER)).toEqual({
       authorized: false,
       reason: 'not_commentable',
     });
-    expect(await guard(subject('withdrawn'), STRANGER)).toEqual({
+    expect(await guard(subject('aaaaaaaa-0005-4000-8000-000000000005'), STRANGER)).toEqual({
       authorized: false,
       reason: 'not_commentable',
     });
@@ -198,7 +198,7 @@ describe('guard de assunto do downloads — regras do domínio', () => {
 
   it('recusa subject_type de outro módulo sem consultar o acervo', async () => {
     const result = await guard(
-      { subjectType: 'mesas.table', subjectId: 'published-with-owner' },
+      { subjectType: 'mesas.table', subjectId: 'aaaaaaaa-0001-4000-8000-000000000001' },
       STRANGER,
     );
 
@@ -208,5 +208,52 @@ describe('guard de assunto do downloads — regras do domínio', () => {
   it('escapa o slug no caminho canônico', () => {
     expect(materialCanonicalPath('guia de magia')).toBe('/materiais/guia%20de%20magia');
     expect(materialCanonicalPath('a/b')).toBe('/materiais/a%2Fb');
+  });
+});
+
+describe('guard de assunto do downloads — id malformado', () => {
+  /**
+   * Banco que EXPLODE se for consultado.
+   *
+   * Contra o duplo normal este teste passaria mesmo sem a guarda de formato: o
+   * `fakeDb` devolve `undefined` para qualquer id desconhecido, e `undefined`
+   * também vira `not_found`. Ou seja, ele mediria o mock, não a correção
+   * (achado de review, PR #273). Aqui o veredito só pode ser `not_found` se a
+   * guarda tiver recusado ANTES do `selectFrom` — que é exatamente a afirmação
+   * em teste, porque em PostgreSQL real a consulta não devolve vazio: ela morre
+   * com `invalid input syntax for type uuid`.
+   */
+  function explodingDb(): Kysely<Database> {
+    return {
+      selectFrom: () => {
+        throw new Error('invalid input syntax for type uuid');
+      },
+    } as unknown as Kysely<Database>;
+  }
+
+  it('recusa slug como not_found, sem deixar o driver estourar 500', async () => {
+    // O caso real (beta, 2026-08-18): a conversa era pedida com o SLUG do
+    // material no lugar do id, e a query morria com `invalid input syntax for
+    // type uuid` (`uuid.c:133`) — "Erro interno no servidor" ao abrir a página.
+    // `download_material.id` é `uuid`, medido no banco.
+    const strictGuard = createMaterialSubjectGuard(explodingDb());
+
+    expect(await strictGuard(subject('quem-tem-medo-do-valete'), STRANGER)).toEqual({
+      authorized: false,
+      reason: 'not_found',
+    });
+  });
+
+  it('recusa subject_type alheio sem tocar no banco', async () => {
+    // Mesma lógica de prova para a primeira guarda da função: o retorno tem de
+    // vir antes da consulta.
+    const strictGuard = createMaterialSubjectGuard(explodingDb());
+
+    expect(
+      await strictGuard(
+        { subjectType: 'mesas.table', subjectId: 'aaaaaaaa-0001-4000-8000-000000000001' },
+        STRANGER,
+      ),
+    ).toEqual({ authorized: false, reason: 'not_found' });
   });
 });

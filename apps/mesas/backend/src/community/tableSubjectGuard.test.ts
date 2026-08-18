@@ -31,6 +31,8 @@ const ENCERRADA = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 const INEXISTENTE = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
 const ANUNCIADA = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
 const SEM_CONTA = '12121212-1212-4121-8121-121212121212';
+/** Mesa cujo mestre ainda tem `google_sub` legado na coluna (15 de 68 em produção). */
+const DONO_LEGADO = '13131313-1313-4131-8131-131313131313';
 
 /** Conta de quem ANUNCIOU a mesa, que pode não ser quem mestra (`publisher_role`). */
 const ANNOUNCER_GOOGLE_ID = '88888888-8888-4888-8888-888888888888';
@@ -55,6 +57,10 @@ const base = {
 
 const TABLES: Record<string, TableRow> = {
   [ATIVA]: { ...base, id: ATIVA, slug: 'mesa-de-teste', status: 'active', owner_google_id: GM_GOOGLE_ID },
+  // `google_sub` de 21 dígitos, o formato real dos 15 registros legados de
+  // produção. As demais fixtures são UUID, e era essa a lacuna que deixou o
+  // defeito chegar em produção com a suíte verde.
+  [DONO_LEGADO]: { ...base, id: DONO_LEGADO, slug: 'mesa-dono-legado', status: 'active', owner_google_id: '106884162561229573720' },
   // Mesa órfã: `gm_id` nulo, então o LEFT JOIN não casa e o dono é nulo. Caso
   // real do acervo importado, não defensividade.
   [ORFA]: { ...base, id: ORFA, slug: 'mesa-orfa', status: 'active', owner_google_id: null },
@@ -166,7 +172,7 @@ describe('guard de assunto do mesas — domínio', () => {
     expect(fake.joins).toEqual(EXPECTED_JOINS.map((j) => [...j]));
   });
 
-  it('devolve o google_id do mestre, nunca o UUID local (T7.2)', async () => {
+  it('devolve o id do mestre no accounts, nunca o UUID local (T7.2)', async () => {
     const result = await guard(subject(ATIVA), STRANGER);
 
     expect(result.authorized).toBe(true);
@@ -174,8 +180,23 @@ describe('guard de assunto do mesas — domínio', () => {
     // O coração de T7.2: mandar `GM_LOCAL_ID` associaria a mesa a uma conta
     // inexistente no `accounts.`, e o publicador nunca receberia notificação do
     // próprio anúncio — sem erro em lugar nenhum.
+    //
+    // A coluna se chama `google_id` por herança: hoje ela guarda o `users.id` do
+    // `accounts.` (`middleware/auth.ts:73` grava `session.user.id`).
     expect(result.authorization.ownerUserId).toBe(GM_GOOGLE_ID);
     expect(result.authorization.ownerUserId).not.toBe(GM_LOCAL_ID);
+  });
+
+  it('degrada `google_sub` legado para null em vez de estourar 400 no accounts', async () => {
+    // Este caso faltava, e é por isso que o defeito chegou a produção com a
+    // suíte verde: as duas fixtures acima são UUID, então o formato legado —
+    // 21 dígitos, medido em 15 dos 68 usuários de produção — nunca era
+    // exercitado. Bloqueava comentário em 14 mesas.
+    const result = await guard(subject(DONO_LEGADO), STRANGER);
+
+    expect(result.authorized).toBe(true);
+    if (!result.authorized) return;
+    expect(result.authorization.ownerUserId).toBeNull();
   });
 
   it('monta o canonical_path com slug e não com id', async () => {

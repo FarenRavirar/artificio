@@ -1804,7 +1804,7 @@
       "method": "USE",
       "path": "/",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 80,
+      "line": 106,
       "confidence": "high",
       "kind": "mount"
     },
@@ -1822,7 +1822,7 @@
       "method": "USE",
       "path": "/api/admin/activity",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 96,
+      "line": 122,
       "confidence": "high",
       "kind": "mount"
     },
@@ -1840,7 +1840,7 @@
       "method": "USE",
       "path": "/api/admin/feedback",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 98,
+      "line": 124,
       "confidence": "high",
       "kind": "mount"
     },
@@ -1867,7 +1867,7 @@
       "method": "USE",
       "path": "/api/auth",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 84,
+      "line": 110,
       "confidence": "high",
       "kind": "mount"
     },
@@ -1921,7 +1921,7 @@
       "method": "USE",
       "path": "/api/categories",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 89,
+      "line": 115,
       "confidence": "high",
       "kind": "mount"
     },
@@ -1957,7 +1957,7 @@
       "method": "USE",
       "path": "/api/changelog",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 92,
+      "line": 118,
       "confidence": "high",
       "kind": "mount"
     },
@@ -1966,7 +1966,7 @@
       "method": "USE",
       "path": "/api/export",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 94,
+      "line": 120,
       "confidence": "high",
       "kind": "mount"
     },
@@ -1993,7 +1993,7 @@
       "method": "USE",
       "path": "/api/feedback",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 97,
+      "line": 123,
       "confidence": "high",
       "kind": "mount"
     },
@@ -2002,7 +2002,7 @@
       "method": "USE",
       "path": "/api/migration",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 85,
+      "line": 111,
       "confidence": "high",
       "kind": "mount"
     },
@@ -2038,7 +2038,7 @@
       "method": "USE",
       "path": "/api/notifications",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 95,
+      "line": 121,
       "confidence": "high",
       "kind": "mount"
     },
@@ -2083,7 +2083,7 @@
       "method": "USE",
       "path": "/api/scenarios",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 91,
+      "line": 117,
       "confidence": "high",
       "kind": "mount"
     },
@@ -2110,7 +2110,7 @@
       "method": "USE",
       "path": "/api/social",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 93,
+      "line": 119,
       "confidence": "high",
       "kind": "mount"
     },
@@ -2173,7 +2173,7 @@
       "method": "USE",
       "path": "/api/systems",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 90,
+      "line": 116,
       "confidence": "high",
       "kind": "mount"
     },
@@ -2263,7 +2263,7 @@
       "method": "USE",
       "path": "/api/terms",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 87,
+      "line": 113,
       "confidence": "high",
       "kind": "mount"
     },
@@ -2317,7 +2317,7 @@
       "method": "USE",
       "path": "/api/terms/import",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 86,
+      "line": 112,
       "confidence": "high",
       "kind": "mount"
     },
@@ -2326,7 +2326,7 @@
       "method": "USE",
       "path": "/api/users",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 88,
+      "line": 114,
       "confidence": "high",
       "kind": "mount"
     },
@@ -2362,7 +2362,7 @@
       "method": "GET",
       "path": "/health",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 77,
+      "line": 103,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2371,7 +2371,7 @@
       "method": "USE",
       "path": "/og",
       "sourceFile": "apps/glossario/backend/src/index.ts",
-      "line": 81,
+      "line": 107,
       "confidence": "high",
       "kind": "mount"
     },

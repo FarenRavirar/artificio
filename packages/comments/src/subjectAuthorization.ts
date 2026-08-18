@@ -141,6 +141,54 @@ export type CommentSubjectAuthorization = z.infer<
 >;
 
 /**
+ * Normaliza para `ownerUserId` um identificador de dono vindo do domínio.
+ *
+ * Existe aqui, e não dentro de um app, porque o problema é do monorepo inteiro:
+ * o `accounts.` é o dono da identidade e emite UUID (`tokens.ts:8` assina
+ * `sub: user.id`), mas app que mantém tabela própria de usuários acumula
+ * formatos antigos na mesma coluna. Medido em produção (2026-08-18) no `mesas`:
+ * dos 68 usuários, **53 já guardam o UUID do `accounts` e 15 guardam
+ * `google_sub` legado** de antes de o login passar a gravar `session.user.id`.
+ *
+ * Sem esta normalização o valor legado atravessa o app inteiro e só morre no
+ * `accounts.`, como `400` genérico — sete camadas depois, sem nome, e sem que o
+ * app de origem acuse nada. Foram 14 mesas de produção impedidas de receber
+ * comentário por isso.
+ *
+ * **Degrada para `null`, não recusa.** `null` já é o caso previsto e comum do
+ * contrato (post sem autor, mesa órfã): o dono não é notificado, e todo o resto
+ * da conversa funciona. Recusar puniria quem quer comentar por causa de um id
+ * antigo de outra pessoa. O registro legado volta a ser reconhecido sozinho no
+ * próximo login do dono, quando o app regrava a coluna.
+ *
+ * Não aceita `undefined` de propósito: ausência de campo é erro de chamada, e
+ * `z.uuid()` no schema acima pega. Aqui trata-se só de valor presente e velho.
+ */
+export function accountsUserIdOrNull(value: string | null): string | null {
+  if (value === null) return null;
+  return z.uuid().safeParse(value).success ? value : null;
+}
+
+/**
+ * `subject_id` tem forma de UUID? Guarda para o guard consultar o banco.
+ *
+ * Existe no pacote porque a proteção vale para todo app cuja tabela de domínio
+ * tem PK `uuid`, e ela já havia sido escrita à mão em um app só: o `mesas`
+ * tinha a regex inline (`tableSubjectGuard.ts:74`) e o `downloads` não tinha
+ * nada. Resultado medido em beta (2026-08-18): `GET /community/conversation`
+ * com o slug do material no lugar do id devolvia `500` com
+ * `invalid input syntax for type uuid` (`uuid.c:133`, `string_to_uuid`) —
+ * erro de driver vazando como erro do servidor, onde o certo é `404`.
+ *
+ * O `site` não usa: `posts.id` é `BIGINT`, e ele tem a guarda equivalente para
+ * o próprio tipo. Por isso a função é opcional no contrato, não obrigatória —
+ * quem decide é o tipo da PK do domínio.
+ */
+export function looksLikeUuid(value: string): boolean {
+  return z.uuid().safeParse(value).success;
+}
+
+/**
  * Identidade do assunto. `realm` e `source_app` ficam **de fora de propósito**:
  * o `accounts.` os deriva da credencial de serviço, e aceitá-los aqui abriria
  * a porta para uma credencial de beta escrever em produção.

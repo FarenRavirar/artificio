@@ -1,5 +1,7 @@
 import {
+  accountsUserIdOrNull,
   authorize,
+  looksLikeUuid,
   refuse,
   type CommentSubjectGuard,
   type CommentSubjectRef,
@@ -70,9 +72,10 @@ export function createTableSubjectGuard(
     // como texto e a query morre com `invalid input syntax for type uuid` —
     // `500` onde o certo é `404` (mesmo achado da PR #264 no `site`, onde o
     // tipo era `BIGINT`).
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(subject.subjectId)) {
-      return refuse('not_found');
-    }
+    // `looksLikeUuid` do pacote, e não regex local: a mesma guarda faltava no
+    // `downloads` e deixou vazar `500` em beta (2026-08-18). Regra duplicada à
+    // mão é regra que existe num app só.
+    if (!looksLikeUuid(subject.subjectId)) return refuse('not_found');
 
     // ## O JOIN é o ponto inteiro desta função (T7.2, requisito 26c)
     //
@@ -86,10 +89,13 @@ export function createTableSubjectGuard(
     //    linhas — medido em produção: 27 mesas com `gm_id`, 0 resolvidas pelo
     //    join direto, 27 pelo caminho por `gm_profiles` (achado de review,
     //    PR #268). O tipo não pega: as duas colunas são UUID.
-    // 2. Do perfil sai `user_id`, que é o UUID **local** de `mesas.users`. O
-    //    `accounts.` identifica a conta por `users.google_id`
-    //    (`db/types.ts:14`), que é o `session.user.id` do SSO. Mandar o id
-    //    local associaria a mesa a uma conta inexistente no registro central.
+    // 2. Do perfil sai `user_id`, que é o UUID **local** de `mesas.users` —
+    //    mandar esse associaria a mesa a uma conta inexistente no registro
+    //    central. O que o `accounts.` espera é o `users.id` DELE, e é isso que
+    //    `mesas.users.google_id` guarda apesar do nome: `middleware/auth.ts:73`
+    //    grava `session.user.id`, que é o `sub` do JWT, que `accounts`
+    //    (`tokens.ts:8`) assina como `user.id`. A coluna tem nome legado de
+    //    quando de fato guardava o `google_sub`.
     //
     // O sintoma dos dois erros é idêntico e mudo: `ownerUserId: null`, que é um
     // valor legítimo para mesa órfã — então o publicador simplesmente deixa de
@@ -141,7 +147,27 @@ export function createTableSubjectGuard(
       // nomeado só em `actual_gm_name` existem no acervo importado. Comentar
       // ali não notifica ninguém, e responder a um comentário continua
       // notificando quem escreveu o pai (requisitos 15a, 15b).
-      ownerUserId: table.owner_google_id,
+      //
+      // `accountsUserIdOrNull` porque a coluna é HETEROGÊNEA: medido em
+      // produção (2026-08-18), 53 usuários já têm o UUID do `accounts` e 15
+      // guardam `google_sub` legado de antes de `auth.ts:73` passar a gravar
+      // `session.user.id`. O contrato compartilhado exige UUID
+      // (`subjectAuthorization.ts:135`, `ownerUserId: z.uuid().nullable()`), e
+      // o valor legado fazia a escrita inteira falhar com `400` opaco vindo do
+      // `accounts.` — 14 mesas de produção afetadas.
+      //
+      // Degradar para `null` e não recusar: `null` já é o caso previsto do
+      // acervo importado (mesa órfã), e o efeito é o mesmo — o dono não recebe
+      // notificação. Recusar o comentário puniria o leitor por um id legado do
+      // mestre.
+      //
+      // Isto é a REDE, não o conserto. A reconciliação de verdade vive em
+      // `middleware/auth.ts` (`reconcileLegacyGoogleId`), que regrava a coluna
+      // no primeiro login da conta legada. Antes dela, este `null` era
+      // permanente: o `SELECT` de `resolveMesasUser` casa a conta legada por
+      // e-mail e devolvia a linha sem nunca atualizar `google_id` (achado de
+      // review, PR #273) — as 14 mesas afetadas ficariam sem dono para sempre.
+      ownerUserId: accountsUserIdOrNull(table.owner_google_id),
       canonicalPath: tableCanonicalPath(table.slug),
     });
   };

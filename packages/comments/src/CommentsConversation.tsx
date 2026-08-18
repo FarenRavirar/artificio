@@ -171,8 +171,20 @@ function statePlaceholder(state: ConversationComment['state']): string {
     : 'Comentário retirado.';
 }
 
-function errorMessage(error: CommentsErrorShape | null): string {
+/**
+ * Texto genérico de propósito para erro vindo do servidor: `error.message` do
+ * transporte carrega detalhe técnico (status, corpo, nome de operação) que não
+ * serve a quem lê e pode vazar forma interna da API.
+ *
+ * A exceção é `localMessage`, preenchida SÓ por este componente quando ele
+ * mesmo sabe o que aconteceu — hoje, a falha do recarregamento após uma escrita
+ * bem-sucedida (achado de review, PR #273). Ali o texto fixo mentiria: dizer
+ * "não foi possível concluir a ação" sobre um comentário que o servidor já
+ * aceitou leva a pessoa a reenviar e duplicar.
+ */
+function errorMessage(error: (CommentsErrorShape & { localMessage?: string }) | null): string {
   if (!error) return 'Os comentários estão temporariamente indisponíveis.';
+  if (error.localMessage) return error.localMessage;
   return error.retryable
     ? 'Não foi possível atualizar os comentários. Tente novamente.'
     : 'Não foi possível concluir a ação.';
@@ -203,7 +215,9 @@ export function CommentsConversation({
   const [reportReason, setReportReason] = useState<CommentReportReason>('spam_or_off_topic');
   const [reportDetails, setReportDetails] = useState('');
   const [pendingAction, setPendingAction] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<CommentsErrorShape | null>(null);
+  // `localMessage` distingue erro VINDO do servidor (texto genérico) do aviso
+  // que este componente produz sozinho — ver `errorMessage`.
+  const [actionError, setActionError] = useState<(CommentsErrorShape & { localMessage?: string }) | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const panelContainerRef = useRef<HTMLDivElement>(null);
   const rootComposerRef = useRef<HTMLFormElement>(null);
@@ -292,8 +306,16 @@ export function CommentsConversation({
     setPanelDraft('');
     setReportDetails('');
     setAnnouncement(message);
-    await onActionComplete?.();
-    if (origin === 'root') setFocusRootAfterCommit((tick) => tick + 1);
+    try {
+      await onActionComplete?.();
+    } finally {
+      // `finally` e não depois do `await` (achado de review, PR #273):
+      // `onActionComplete` é o recarregamento da thread, e ele PODE falhar
+      // sozinho — a rede cai entre a escrita e o reload. Se o foco só voltasse
+      // no caminho feliz, quem usa teclado ou leitor de tela ficaria com o foco
+      // no nada exatamente no caso em que a tela também não atualizou.
+      if (origin === 'root') setFocusRootAfterCommit((tick) => tick + 1);
+    }
   };
 
   const runAction = async (
@@ -309,9 +331,46 @@ export function CommentsConversation({
     setAnnouncement('');
     try {
       await action();
-      await finishAction(message, origin);
     } catch (error: unknown) {
+      // Falhou: o painel FICA aberto com o texto preservado, de propósito — quem
+      // escreveu não perde o que digitou por causa de um erro de rede ou de
+      // permissão, e pode tentar de novo.
+      //
+      // Só que `finishAction` não pode ficar dentro do `try` junto com a ação
+      // (defeito medido em beta, 2026-08-18): quando a escrita falhava, ela era
+      // pulada pelo `catch` e o painel de EDIÇÃO permanecia aberto com o texto.
+      // O segundo clique então chamava `client.edit` em vez de `client.create`,
+      // e o usuário atualizava um comentário achando que estava publicando um
+      // novo. Foi o que o `403` do `downloads` produziu — sem o escopo
+      // `comment.write`, toda tentativa falhava e o texto nunca saía da caixa.
       setActionError(normalizeCommentsError(error).toJSON());
+      setPendingAction(null);
+      return;
+    }
+    // Fora do `try`: sucesso é a ÚNICA condição que fecha o painel e limpa o
+    // rascunho. Um erro dentro de `finishAction` (foco, anúncio) não pode ser
+    // confundido com falha da escrita — a escrita já aconteceu.
+    try {
+      await finishAction(message, origin);
+    } catch {
+      // A rejeição aqui vem do recarregamento da thread, NUNCA da escrita — ela
+      // já foi confirmada pelo servidor no `await action()` acima. Todo chamador
+      // usa `void runAction(...)`, então sem este `catch` a falha virava
+      // unhandled rejection: a pessoa via o comentário sumir da tela sem
+      // nenhuma explicação (achado de review, PR #273).
+      //
+      // O texto é deliberadamente um AVISO de atualização, não um erro de
+      // envio: dizer "não foi possível publicar" faria a pessoa reenviar e
+      // duplicar o comentário — a mesma classe de dano que o defeito do painel
+      // armado causou em beta.
+      // `retryable: false` não é detalhe: a escrita foi bem-sucedida, então
+      // repetir a ação duplicaria o comentário.
+      setActionError({
+        code: 'unavailable',
+        message: 'reload após escrita confirmada falhou',
+        retryable: false,
+        localMessage: `${message} Não foi possível atualizar a lista — recarregue a página para vê-lo.`,
+      });
     } finally {
       setPendingAction(null);
     }

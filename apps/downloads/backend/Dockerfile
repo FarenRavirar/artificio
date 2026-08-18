@@ -125,6 +125,19 @@ COPY --from=builder /repo/packages/catalog-matching/dist ./packages/catalog-matc
 COPY --from=builder /repo/packages/catalog-matching/dist-cjs ./packages/catalog-matching/dist-cjs
 COPY --from=builder /repo/packages/changelog/dist ./packages/changelog/dist
 COPY --from=builder /repo/packages/changelog/dist-cjs ./packages/changelog/dist-cjs
+
+# O JSON do changelog é a FONTE da rota `GET /api/v1/changelog`, não um artefato de build:
+# `routes/changelog.ts:24` faz `join(__dirname, '../../..', 'database', 'changelogs.json')` e lê o
+# arquivo em disco. Sem este COPY ele não existe na imagem, e a rota responde 500 com
+# `ENOENT: /repo/apps/downloads/database/changelogs.json` — medido em beta, 2026-08-18.
+#
+# O `mesas` já copiava o seu (`apps/mesas/backend/Dockerfile:118`); o downloads nunca copiou, então
+# a tela "Novidades" deste app estava quebrada desde que a rota existe. Mesma familia de E016/E017:
+# build e CI verdes, falha só no container, em runtime.
+#
+# Destino casa com o `../../..` da rota a partir de `dist/routes/`, com WORKDIR
+# `/repo/apps/downloads/backend` — ou seja, `/repo/apps/downloads/database/`.
+COPY --from=builder /repo/apps/downloads/database/changelogs.json ./apps/downloads/database/changelogs.json
 COPY --from=builder /repo/packages/email/dist ./packages/email/dist
 # Mesmo padrao de E016/E017: as rotas do backend (comments, materials, reports,
 # moderation, ratings, admin, creators, materialMetadata, systemSuggestionsAdmin,
