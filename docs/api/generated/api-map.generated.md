@@ -24,8 +24,8 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | glossario | 66 | 66 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | links | 23 | 23 | 0 | 0 | DELETE, GET, PATCH, POST, USE |
 | mesas | 257 | 257 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| site | 66 | 66 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| **Total** | **602** | 602 | 0 | 0 | |
+| site | 69 | 69 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
+| **Total** | **605** | 605 | 0 | 0 | |
 
 ## accounts
 
@@ -592,18 +592,18 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 
 | Método | Path | Confiança | Arquivo | Linha |
 |--------|------|-----------|---------|------|
-| USE | `/admin` | ✅ high | `apps/site/server/server.ts` | 258 |
-| USE | `/admin` | ✅ high | `apps/site/server/server.ts` | 260 |
-| GET | `/admin/preview/:type/:id` | ✅ high | `apps/site/server/server.ts` | 230 |
-| POST | `/admin/rebuild` | ✅ high | `apps/site/server/server.ts` | 125 |
-| GET | `/admin/status` | ✅ high | `apps/site/server/server.ts` | 110 |
-| USE | `/api/admin/v1` | ✅ high | `apps/site/server/server.ts` | 223 |
-| USE | `/api/admin/v1/catalog` | ✅ high | `apps/site/server/server.ts` | 220 |
+| USE | `/admin` | ✅ high | `apps/site/server/server.ts` | 266 |
+| USE | `/admin` | ✅ high | `apps/site/server/server.ts` | 268 |
+| GET | `/admin/preview/:type/:id` | ✅ high | `apps/site/server/server.ts` | 238 |
+| POST | `/admin/rebuild` | ✅ high | `apps/site/server/server.ts` | 126 |
+| GET | `/admin/status` | ✅ high | `apps/site/server/server.ts` | 111 |
+| USE | `/api/admin/v1` | ✅ high | `apps/site/server/server.ts` | 231 |
+| USE | `/api/admin/v1/catalog` | ✅ high | `apps/site/server/server.ts` | 228 |
 | GET | `/api/admin/v1/catalog/health` | ✅ high | `apps/site/server/catalog-api.ts` | 11 |
 | GET | `/api/admin/v1/catalog/material-types` | ✅ high | `apps/site/server/catalog-api.ts` | 72 |
 | GET | `/api/admin/v1/catalog/material-types` | ✅ high | `apps/site/server/catalog-material-types-admin-api.ts` | 12 |
 | POST | `/api/admin/v1/catalog/material-types` | ✅ high | `apps/site/server/catalog-material-types-admin-api.ts` | 21 |
-| USE | `/api/admin/v1/catalog/material-types` | ✅ high | `apps/site/server/server.ts` | 221 |
+| USE | `/api/admin/v1/catalog/material-types` | ✅ high | `apps/site/server/server.ts` | 229 |
 | PUT | `/api/admin/v1/catalog/material-types/:id` | ✅ high | `apps/site/server/catalog-material-types-admin-api.ts` | 29 |
 | POST | `/api/admin/v1/catalog/nodes` | ✅ high | `apps/site/server/catalog-api.ts` | 111 |
 | PUT | `/api/admin/v1/catalog/nodes/:id` | ✅ high | `apps/site/server/catalog-api.ts` | 120 |
@@ -638,7 +638,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/admin/v1/slug-check` | ✅ high | `apps/site/server/admin-api.ts` | 46 |
 | GET | `/api/admin/v1/taxonomies` | ✅ high | `apps/site/server/admin-api.ts` | 180 |
 | POST | `/api/admin/v1/taxonomies` | ✅ high | `apps/site/server/admin-api.ts` | 183 |
-| USE | `/api/catalog/v1` | ✅ high | `apps/site/server/server.ts` | 202 |
+| USE | `/api/catalog/v1` | ✅ high | `apps/site/server/server.ts` | 203 |
 | GET | `/api/catalog/v1/health` | ✅ high | `apps/site/server/catalog-api.ts` | 11 |
 | GET | `/api/catalog/v1/material-types` | ✅ high | `apps/site/server/catalog-api.ts` | 72 |
 | POST | `/api/catalog/v1/nodes` | ✅ high | `apps/site/server/catalog-api.ts` | 111 |
@@ -648,14 +648,17 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/catalog/v1/snapshot` | ✅ high | `apps/site/server/catalog-api.ts` | 53 |
 | GET | `/api/catalog/v1/snapshot` | ✅ high | `apps/site/server/catalog-api.ts` | 107 |
 | GET | `/api/catalog/v1/systems` | ✅ high | `apps/site/server/catalog-api.ts` | 26 |
-| POST | `/api/feedback` | ✅ high | `apps/site/server/server.ts` | 156 |
+| POST | `/api/feedback` | ✅ high | `apps/site/server/server.ts` | 157 |
 | GET | `/api/v1/community/conversation` | ✅ high | `apps/site/server/community-api.ts` | 268 |
 | POST | `/api/v1/community/conversation` | ✅ high | `apps/site/server/community-api.ts` | 310 |
-| USE | `/api/v1/community/conversation` | ✅ high | `apps/site/server/server.ts` | 211 |
+| USE | `/api/v1/community/conversation` | ✅ high | `apps/site/server/server.ts` | 212 |
 | DELETE | `/api/v1/community/conversation/:id` | ✅ high | `apps/site/server/community-api.ts` | 353 |
 | PATCH | `/api/v1/community/conversation/:id` | ✅ high | `apps/site/server/community-api.ts` | 346 |
 | POST | `/api/v1/community/conversation/:id/replies` | ✅ high | `apps/site/server/community-api.ts` | 324 |
 | PUT | `/api/v1/community/conversation/:id/vote` | ✅ high | `apps/site/server/community-api.ts` | 360 |
-| GET | `/healthz` | ✅ high | `apps/site/server/server.ts` | 99 |
-| USE | `/uploads` | ✅ high | `apps/site/server/server.ts` | 227 |
+| USE | `/api/v1/community/moderation` | ✅ high | `apps/site/server/server.ts` | 219 |
+| POST | `/api/v1/community/moderation/comments/:id/removal` | ✅ high | `apps/site/server/community-moderation-api.ts` | 82 |
+| POST | `/api/v1/community/moderation/comments/:id/restore` | ✅ high | `apps/site/server/community-moderation-api.ts` | 91 |
+| GET | `/healthz` | ✅ high | `apps/site/server/server.ts` | 100 |
+| USE | `/uploads` | ✅ high | `apps/site/server/server.ts` | 235 |
 

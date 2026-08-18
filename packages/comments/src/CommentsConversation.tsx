@@ -13,6 +13,7 @@ import {
 import { validateCommentBody } from './commentBody.js';
 import {
   COMMENT_REPORT_REASONS,
+  MODERATION_REASON_MAX_LENGTH,
   commentReportRequiresDetails,
   type CommentReportReason,
   type CommentSortUi,
@@ -234,6 +235,29 @@ export function CommentsConversation({
   const rootSectionRef = useRef<HTMLElement>(null);
   const returnFocusRef = useRef<{ action: NonNullable<OpenPanel>['kind']; commentId: string } | null>(null);
 
+  /**
+   * `data-comments-action` derivado do `kind` do painel, e não escrito à mão em
+   * cada botão. Os dois são a MESMA identidade — `openPanel` grava `next.kind`
+   * em `returnFocusRef`, e `restorePanelTriggerFocus` procura o botão por esse
+   * valor —, então mantê-los como literais independentes é acoplamento sem
+   * verificação.
+   *
+   * E já divergiram: `moderateRemove`/`moderateRestore` nasceram com o atributo
+   * em kebab-case e o `kind` em camelCase, então o seletor não casava com nada
+   * (achado de review, PR #274). As quatro ações antigas — `reply`, `edit`,
+   * `withdraw`, `report` — são uma palavra só e coincidiam por acaso; a
+   * primeira de nome composto expôs isso.
+   *
+   * **Medido:** com a divergência no lugar, o foco ainda pousava no botão certo
+   * ao cancelar o painel (`activeElement === gatilho`), porque o efeito de
+   * `[panel]` acima e a remoção do `<form>` já o levam para lá. Ou seja, era
+   * acoplamento quebrado sem sintoma observável hoje — mas com o seletor
+   * inerte, qualquer mudança futura na ordem dos efeitos passaria a perder o
+   * foco silenciosamente. Derivar custa uma linha e fecha a classe inteira.
+   */
+  const actionAttr = (kind: NonNullable<OpenPanel>['kind']): string =>
+    kind.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+
   const thread = state.data;
   const mutationsEnabled = state.status === 'fresh';
 
@@ -251,7 +275,7 @@ export function CommentsConversation({
 
     rootSectionRef.current
       ?.querySelector<HTMLElement>(
-        `[data-comments-action="${target.action}"][data-comment-id="${target.commentId}"]`,
+        `[data-comments-action="${actionAttr(target.action)}"][data-comment-id="${target.commentId}"]`,
       )
       ?.focus();
     returnFocusRef.current = null;
@@ -483,7 +507,10 @@ export function CommentsConversation({
           <textarea
             id={`comments-moderate-reason-${comment.id}`}
             value={panelDraft}
-            maxLength={4_000}
+            // Da constante, e não `4_000` como o `details` da denúncia logo
+            // abaixo: o `accounts.` recusa `reason` acima de 500 com um `400`
+            // genérico. Ver `MODERATION_REASON_MAX_LENGTH`.
+            maxLength={MODERATION_REASON_MAX_LENGTH}
             required
             aria-required="true"
             disabled={!mutationsEnabled || pendingAction !== null}
@@ -653,7 +680,7 @@ export function CommentsConversation({
             {commentPermissions.reply && comment.depth < 4 && (
               <button
                 type="button"
-                data-comments-action="reply"
+                data-comments-action={actionAttr('reply')}
                 data-comment-id={comment.id}
                 disabled={!canAct}
                 onClick={() => openPanel({ kind: 'reply', commentId: comment.id })}
@@ -664,7 +691,7 @@ export function CommentsConversation({
             {commentPermissions.edit && !legacy && comment.state === 'visible' && body && (
               <button
                 type="button"
-                data-comments-action="edit"
+                data-comments-action={actionAttr('edit')}
                 data-comment-id={comment.id}
                 disabled={!canAct}
                 onClick={() => openPanel({ kind: 'edit', commentId: comment.id }, body)}
@@ -673,31 +700,42 @@ export function CommentsConversation({
             {commentPermissions.withdraw && !legacy && comment.state === 'visible' && (
               <button
                 type="button"
-                data-comments-action="withdraw"
+                data-comments-action={actionAttr('withdraw')}
                 data-comment-id={comment.id}
                 disabled={!canAct}
                 onClick={() => openPanel({ kind: 'withdraw', commentId: comment.id })}
               >Retirar</button>
             )}
-            {commentPermissions.moderateRemove && !legacy && comment.state === 'visible' && (
+            {/* Sem `!legacy` nem `comment.state === 'visible'`, ao contrário
+                dos vizinhos de autoria acima — os dois pares de condições que
+                governam moderação vivem inteiros em `moderateRemove`
+                (`viewerPermissions.ts`), e repetir aqui só metade deles é como
+                as duas divergências abaixo entraram (achado de review, PR #274):
+
+                - `visible` escondia o botão em `pending_review_hidden`, o caso
+                  em que a moderação MAIS é necessária — já denunciado, oculto
+                  aguardando fila. O backend aceita
+                  (`communityModerationCase.ts:820-830`, recusa só os dois
+                  estados de já-retirado).
+                - `!legacy` tornava fala importada permanentemente irremovível,
+                  contra o propósito declarado da própria rota. */}
+            {commentPermissions.moderateRemove && (
               <button
                 type="button"
-                data-comments-action="moderate-remove"
+                data-comments-action={actionAttr('moderateRemove')}
                 data-comment-id={comment.id}
                 disabled={!canAct}
                 onClick={() => openPanel({ kind: 'moderateRemove', commentId: comment.id })}
               >Retirar (moderação)</button>
             )}
-            {/* Sem `comment.state === 'visible'`, ao contrário dos vizinhos: este
-                é o único botão que existe justamente porque o comentário NÃO
-                está visível. A condição de estado já vive em
-                `moderateRestore` (`viewerPermissions.ts`), e repeti-la aqui a
-                inverteria por engano — foi o que quase aconteceu ao copiar a
-                linha do botão de retirada. */}
-            {commentPermissions.moderateRestore && !legacy && (
+            {/* Como o par acima, sem condição de estado: ela já vive em
+                `moderateRestore` (`viewerPermissions.ts`) como `isRemoved`, e
+                repeti-la aqui a inverteria por engano — este botão existe
+                justamente porque o comentário NÃO está visível. */}
+            {commentPermissions.moderateRestore && (
               <button
                 type="button"
-                data-comments-action="moderate-restore"
+                data-comments-action={actionAttr('moderateRestore')}
                 data-comment-id={comment.id}
                 disabled={!canAct}
                 onClick={() => openPanel({ kind: 'moderateRestore', commentId: comment.id })}
@@ -706,7 +744,7 @@ export function CommentsConversation({
             {commentPermissions.report && !legacy && comment.state === 'visible' && (
               <button
                 type="button"
-                data-comments-action="report"
+                data-comments-action={actionAttr('report')}
                 data-comment-id={comment.id}
                 disabled={!canAct}
                 onClick={() => openPanel({ kind: 'report', commentId: comment.id })}

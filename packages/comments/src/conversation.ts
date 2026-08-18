@@ -289,6 +289,28 @@ export const withdrawCommentOperation = defineCommentsOperation({
 });
 
 /**
+ * Teto do `reason` das ações de moderação, **500 e não 4.000**.
+ *
+ * O número vem do `accounts.`, que é quem de fato recusa:
+ * `reasonOnlyBodySchema` em `communityModerationRoutes.ts:180` valida
+ * `z.string().trim().min(1).max(500)` e devolve `400 invalid_body` — genérico,
+ * sem dizer qual campo estourou. As fachadas de `mesas` e `downloads` são
+ * proxies puros e não revalidam, então nada entre o formulário e o banco
+ * corrige a diferença.
+ *
+ * Nasceu como `4_000` aqui, copiado do `details` da denúncia (que é 4.000 de
+ * verdade, `DETAILS_MAX_LENGTH`): o `textarea` aceitava 600 caracteres, o
+ * cliente aceitava, e o `400` chegava sete camadas depois como "não foi
+ * possível concluir a ação" (achado de review, PR #274). É exatamente a falha
+ * que o `AGENTS.md` descreve — app mandando formato que o dono do contrato
+ * recusa, com o sintoma aparecendo longe da origem.
+ *
+ * Exportada porque o `maxLength` do `textarea` precisa do MESMO número: dois
+ * literais iguais em arquivos diferentes é como o primeiro divergiu.
+ */
+export const MODERATION_REASON_MAX_LENGTH = 500;
+
+/**
  * Retirada de comentário **alheio** por moderador global.
  *
  * Distinta de `withdrawCommentOperation` de propósito, e não é redundância:
@@ -305,7 +327,7 @@ export const moderationRemoveCommentOperation = defineCommentsOperation({
   kind: 'mutation',
   inputSchema: z.object({
     commentId: z.uuid(),
-    reason: z.string().trim().min(1).max(4_000),
+    reason: z.string().trim().min(1).max(MODERATION_REASON_MAX_LENGTH),
   }).strict(),
   // Mesma tolerância do `withdraw`: a fachada repassa o que o `accounts.`
   // devolver, e o corpo não é lido pela UI — o que importa é o status.
@@ -326,7 +348,7 @@ export const moderationRestoreCommentOperation = defineCommentsOperation({
   kind: 'mutation',
   inputSchema: z.object({
     commentId: z.uuid(),
-    reason: z.string().trim().min(1).max(4_000),
+    reason: z.string().trim().min(1).max(MODERATION_REASON_MAX_LENGTH),
   }).strict(),
   outputSchema: z.unknown(),
 });

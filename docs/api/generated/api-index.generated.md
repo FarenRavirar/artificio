@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **494 operações**.
+Total: **496 operações**.
 
 ## accounts (53)
 
@@ -470,7 +470,7 @@ Total: **494 operações**.
 | GET | `/og/{type}/{slug}` | media | none | active | — | Consulta og type slug |
 | GET | `/sitemap.xml` | public | none | active | — | Consulta sitemap.xml |
 
-## site (55)
+## site (57)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -528,5 +528,7 @@ Total: **494 operações**.
 | PATCH | `/api/v1/community/conversation/{id}` | public | user | active | — | Atualiza api v1 community conversation id |
 | POST | `/api/v1/community/conversation/{id}/replies` | public | user | active | — | Cria ou executa api v1 community conversation id replies |
 | PUT | `/api/v1/community/conversation/{id}/vote` | public | user | active | — | Substitui api v1 community conversation id vote |
+| POST | `/api/v1/community/moderation/comments/{id}/removal` | public | user | active | — | Cria ou executa api v1 community moderation comments id removal |
+| POST | `/api/v1/community/moderation/comments/{id}/restore` | public | user | active | — | Cria ou executa api v1 community moderation comments id restore |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 

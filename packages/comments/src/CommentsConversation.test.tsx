@@ -569,6 +569,10 @@ describe('CommentsConversation — ações de moderação', () => {
 
   const montar = async (state: 'visible' | 'removed') => {
     const container = document.createElement('div');
+    // Anexado ao documento: `document.activeElement` só aponta para nó que está
+    // na árvore viva — fora dela, `focus()` é no-op silencioso e o teste de
+    // retorno de foco abaixo passaria medindo nada.
+    document.body.append(container);
     const root = createRoot(container);
     await act(async () => {
       root.render(
@@ -652,6 +656,27 @@ describe('CommentsConversation — ações de moderação', () => {
 
     await enviarForm(container);
     expect(client.moderationRestore).toHaveBeenCalledWith(REMOVIDO_ID, 'retirada equivocada');
+  });
+
+  it('devolve o foco ao botão de moderação ao cancelar o painel', async () => {
+    // Cobre o comportamento, não o mecanismo. `restorePanelTriggerFocus` casa o
+    // botão pelo `kind` do painel, e o `kind` das ações de moderação divergia
+    // do `data-comments-action` (camelCase contra kebab) até `actionAttr`
+    // passar a derivar um do outro — achado de review, PR #274.
+    //
+    // **Este teste passa com e sem aquela divergência** (medido): o efeito de
+    // `[panel]` e a remoção do `<form>` levam o foco ao botão de qualquer
+    // forma, então o seletor quebrado não tinha sintoma. O valor daqui é fixar
+    // o resultado que o usuário sente — quem navega por teclado não perde o
+    // lugar na conversa — para que uma mudança futura na ordem dos efeitos, com
+    // o seletor já inerte, não passe despercebida.
+    const container = await montar('visible');
+
+    const gatilho = botao(container, 'Retirar (moderação)');
+    await act(async () => gatilho?.click());
+    await act(async () => botao(container, 'Cancelar')?.click());
+
+    expect(document.activeElement).toBe(gatilho);
   });
 
   it('não mostra nenhuma das duas a usuário comum', async () => {

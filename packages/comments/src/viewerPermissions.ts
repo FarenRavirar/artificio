@@ -150,14 +150,31 @@ export function resolveViewerPermissions(
       // ele: não pede motivo e não vira registro de moderação contra si mesmo.
       // `!isRemoved` porque retirar o que já está retirado é ruído; restaurar é
       // outra ação, e vive na fila de moderação.
-      moderateRemove: moderator && !isMine && !isLegacy && !isRemoved,
+      //
+      // **`isLegacy` NÃO entra aqui, e a ausência é deliberada.** A
+      // imutabilidade do legado (decisão 6) é sobre quem não pode agir sobre a
+      // própria fala importada: edição, voto e auto-retirada dependem de haver
+      // um autor perante o sistema, e o legado tem `community_actor_id` nulo
+      // por construção. Moderação não depende disso — depende de haver
+      // conteúdo no ar. O backend diz isso literalmente: `removeCommentByModerator`
+      // existe para "conteúdo que a moderação encontra navegando — ou que o
+      // legado importou" (`communityModerationCase.ts:792-793`), e recusa
+      // apenas por `visibility_state`, nunca por origem.
+      //
+      // Como nasceu: `!isLegacy` foi copiado da linha de `withdraw` logo acima,
+      // onde ele é correto. O efeito era um comentário importado abusivo
+      // permanentemente irremovível pela conversa nos três apps — o acervo do
+      // `site` são 25 falas do WordPress sem conta por trás, exatamente o
+      // conteúdo mais provável de precisar de moderação e menos provável de ser
+      // retirado pelo autor (achado de review, PR #274).
+      moderateRemove: moderator && !isMine && !isRemoved,
       // Espelho de `moderateRemove`, com `isRemoved` invertido: os dois nunca
       // aparecem juntos, e juntos cobrem os dois estados possíveis do alvo.
       //
       // `pending_review_hidden` fica de fora de propósito — está oculto
       // aguardando revisão, não retirado por decisão; "restaurar" ali daria a
       // um clique o poder de aprovar o que a fila ainda não julgou.
-      moderateRestore: moderator && !isMine && !isLegacy && isRemoved,
+      moderateRestore: moderator && !isMine && isRemoved,
     };
   };
 }

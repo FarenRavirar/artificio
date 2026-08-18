@@ -97,7 +97,7 @@ export function readCorrelationId(header: string | undefined): string | null {
  * Duas razões, e as duas já custaram incidente em algum lugar: caractere de
  * controle num valor que vai para log e para outra requisição é o vetor
  * clássico de response splitting; e `fetch` **lança** `TypeError` em valor
- * não-ASCII, que o `catch` de `proxyAccounts` traduziria em `503` — um erro do
+ * não-ASCII, que o `catch` de `proxyToAccounts` traduziria em `503` — um erro do
  * cliente virando "serviço indisponível".
  *
  * O limite de 128 vem do contrato para `X-Correlation-Id`
@@ -118,7 +118,7 @@ const actingUserIdOf = (req: Request): string | undefined =>
  * saem dela, nunca do payload (§1.1) — aceitar do corpo seria a porta para uma
  * credencial de beta escrever em produção.
  */
-async function proxyAccounts(
+export async function proxyToAccounts(
   req: Request,
   res: Response,
   path: string,
@@ -300,7 +300,7 @@ export function communityApi(subjectGuard: CommentSubjectGuard = createPostSubje
       if (typeof req.query.sort === "string") query.set("sort", req.query.sort);
       if (typeof req.query.cursor === "string") query.set("cursor", req.query.cursor);
 
-      await proxyAccounts(req, res, `/internal/v1/comments?${query.toString()}`, {
+      await proxyToAccounts(req, res, `/internal/v1/comments?${query.toString()}`, {
         actingUserId: actingUserIdOf(req),
       });
     })().catch(next);
@@ -313,7 +313,7 @@ export function communityApi(subjectGuard: CommentSubjectGuard = createPostSubje
       const subject = await authorizeSubject(req.body?.subject_id, actingUserId, res);
       if (!subject) return;
 
-      await proxyAccounts(req, res, "/internal/v1/comments", {
+      await proxyToAccounts(req, res, "/internal/v1/comments", {
         actingUserId,
         body: writeBody(subject, req.body?.body_markdown),
       });
@@ -327,7 +327,7 @@ export function communityApi(subjectGuard: CommentSubjectGuard = createPostSubje
       const subject = await authorizeSubject(req.body?.subject_id, actingUserId, res);
       if (!subject) return;
 
-      await proxyAccounts(
+      await proxyToAccounts(
         req,
         res,
         `/internal/v1/comments/${encodeURIComponent(req.params.id)}/replies`,
@@ -344,21 +344,21 @@ export function communityApi(subjectGuard: CommentSubjectGuard = createPostSubje
    * resposta para a mesma pergunta.
    */
   r.patch("/:id", writeRateLimiter, requireAuth, (req: Request, res: Response, next: NextFunction) => {
-    proxyAccounts(req, res, `/internal/v1/comments/${encodeURIComponent(req.params.id)}`, {
+    proxyToAccounts(req, res, `/internal/v1/comments/${encodeURIComponent(req.params.id)}`, {
       actingUserId: actingUserIdOf(req)!,
       body: { body_markdown: req.body?.body_markdown },
     }).catch(next);
   });
 
   r.delete("/:id", writeRateLimiter, requireAuth, (req: Request, res: Response, next: NextFunction) => {
-    proxyAccounts(req, res, `/internal/v1/comments/${encodeURIComponent(req.params.id)}`, {
+    proxyToAccounts(req, res, `/internal/v1/comments/${encodeURIComponent(req.params.id)}`, {
       actingUserId: actingUserIdOf(req)!,
     }).catch(next);
   });
 
   /** Voto: estado absoluto, sem `Idempotency-Key` por construção (§7, decisão 12). */
   r.put("/:id/vote", writeRateLimiter, requireAuth, (req: Request, res: Response, next: NextFunction) => {
-    proxyAccounts(req, res, `/internal/v1/comments/${encodeURIComponent(req.params.id)}/vote`, {
+    proxyToAccounts(req, res, `/internal/v1/comments/${encodeURIComponent(req.params.id)}/vote`, {
       actingUserId: actingUserIdOf(req)!,
       body: { value: req.body?.value },
     }).catch(next);
