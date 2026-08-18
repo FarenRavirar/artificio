@@ -4,6 +4,13 @@ import type { ContactFormEntry } from '../../../components/ContactsFormBlock';
 import { validateContactValue } from '../../../utils/safeExternalUrl';
 
 /**
+ * Espelha `userMarkdownSchema(5000)` de
+ * backend/src/validators/tableValidators.ts. Exportado porque o editor da
+ * descrição (StepBasic) precisa do mesmo número para contar quanto falta.
+ */
+export const DESCRIPTION_MAX_LENGTH = 5000;
+
+/**
  * Validators reutilizáveis - retornam null se válido, string de erro se inválido
  */
 export const validators = {
@@ -17,7 +24,16 @@ export const validators = {
   description: (v: string): string | null => {
     if (!v || v.trim().length === 0) return 'Descrição obrigatória';
     if (v.length < 10) return 'Descrição muito curta (mínimo 10 caracteres)';
-    if (v.length > 2000) return 'Descrição muito longa (máximo 2000 caracteres)';
+    // 5.000 é o limite REAL do contrato: `description: userMarkdownSchema(5000)`
+    // em backend/src/validators/tableValidators.ts, sobre coluna TEXT sem limite.
+    // O front rejeitava em 2.000 — mais restritivo que o servidor, sem nada no
+    // schema que justificasse. Um anúncio colado de 3.779 caracteres passava no
+    // backend e era barrado aqui, no "Continuar" (achado do mantenedor,
+    // 2026-08-18). Ao mexer aqui, mexer LÁ junto: os dois números são o mesmo
+    // contrato visto de dois lados.
+    if (v.length > DESCRIPTION_MAX_LENGTH) {
+      return `Descrição muito longa (máximo ${DESCRIPTION_MAX_LENGTH} caracteres)`;
+    }
     return null;
   },
 
@@ -103,9 +119,6 @@ export function validateStep(step: number, data: FormState): string[] {
 
     const descError = validators.description(data.form.description);
     if (descError) errors.push(descError);
-
-    const slotsError = validators.slotsTotal(data.form.slots_total);
-    if (slotsError) errors.push(slotsError);
   }
 
   if (step === 2) {
@@ -118,6 +131,18 @@ export function validateStep(step: number, data: FormState): string[] {
     // Step 3: Sessões
     const sessionsError = validators.sessions(data.sessions);
     if (sessionsError) errors.push(sessionsError);
+
+    // Vagas é validado AQUI porque é aqui que o campo existe (StepSessions).
+    // Estava no step 1, que só mostra título e descrição: apagar as vagas
+    // fazia o step "Básico" exibir "Mínimo 1 vaga" e travar o Continuar por
+    // causa de um campo invisível dali, duas telas adiante — sem nada na tela
+    // que o mestre pudesse corrigir (achado do mantenedor, 2026-08-18).
+    //
+    // Regra geral desta função: um step só valida campo que ele renderiza.
+    // Validar campo de outro step produz erro sem alvo, que é indistinguível
+    // de formulário quebrado.
+    const slotsError = validators.slotsTotal(data.form.slots_total);
+    if (slotsError) errors.push(slotsError);
   }
 
   if (step === 4) {

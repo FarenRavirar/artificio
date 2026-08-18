@@ -169,7 +169,7 @@ export function StepFinal(props: StepFinalProps) {
         <label className="text-sm font-medium text-white/70">Regras/Observações da Mesa (opcional)</label>
         <MarkdownEditor
           value={props.rulesNotes}
-          onChange={(text) => props.setRulesNotes(text.slice(0, 1500))}
+          onChange={props.setRulesNotes}
           label="Regras e observações da mesa"
           maxLength={1500}
           placeholder="Ex: Usamos regras homebrew para combate, proibido PvP, etc."
@@ -266,13 +266,12 @@ export function StepFinal(props: StepFinalProps) {
               <label className="text-sm font-medium text-white/70">Sinopse Narrativa (opcional)</label>
               <MarkdownEditor
                 value={props.synopsis}
-                onChange={(text) => props.setSynopsis(text.slice(0, 2000))}
+                onChange={props.setSynopsis}
                 label="Sinopse narrativa"
                 maxLength={2000}
                 placeholder="Uma sinopse mais longa e imersiva da campanha..."
                 height={250}
               />
-              <p className="text-xs text-white/40 text-right">{props.synopsis.length}/2000</p>
             </div>
 
             <MarkdownEditor
@@ -297,7 +296,7 @@ export function StepFinal(props: StepFinalProps) {
               <label className="text-sm font-medium text-white/70">Descrição do Estilo de Jogo (opcional)</label>
               <MarkdownEditor
                 value={props.styleText}
-                onChange={(text) => props.setStyleText(text.slice(0, 500))}
+                onChange={props.setStyleText}
                 label="Descrição do estilo de jogo"
                 maxLength={500}
                 placeholder="Ex: Roleplay pesado, Combate tático, Sandbox político"
@@ -329,7 +328,7 @@ export function StepFinal(props: StepFinalProps) {
               <label className="text-sm font-medium text-white/70">Requisitos Detalhados (opcional)</label>
               <MarkdownEditor
                 value={props.technicalRequirements}
-                onChange={(text) => props.setTechnicalRequirements(text.slice(0, 1000))}
+                onChange={props.setTechnicalRequirements}
                 label="Requisitos técnicos detalhados"
                 maxLength={1000}
                 placeholder="Ex: Roll20 + Discord, Foundry VTT com módulos X, Y"

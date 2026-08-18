@@ -7,6 +7,11 @@ function EditorHarness() {
   return <ContentEditor value={value} onChange={setValue} label="Descrição" />;
 }
 
+function LimitedHarness({ initial = '', max = 10 }: { readonly initial?: string; readonly max?: number }) {
+  const [value, setValue] = useState(initial);
+  return <ContentEditor value={value} onChange={setValue} label="Descrição" maxLength={max} />;
+}
+
 describe('ContentEditor', () => {
   it('edita Markdown e alterna para prévia sanitizada', () => {
     render(<EditorHarness />);
@@ -101,6 +106,55 @@ describe('ContentEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
 
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+  // O limite é AVISO, nunca trava (pedido do mantenedor, 2026-08-18). Estes
+  // testes existem porque o comportamento anterior — truncar em silêncio — era
+  // indistinguível de "funcionou" na tela: o texto colado sumia sem erro.
+  it('conta quanto FALTA, não quanto foi usado', () => {
+    render(<LimitedHarness initial="abc" max={10} />);
+
+    expect(screen.getByText('Faltam 7 de 10').isConnected).toBe(true);
+  });
+
+  it('aceita texto acima do limite e informa o excesso em vez de truncar', () => {
+    render(<LimitedHarness max={10} />);
+    const campo = screen.getByRole('textbox');
+
+    fireEvent.change(campo, { target: { value: 'a'.repeat(13) } });
+
+    // O valor inteiro é preservado: o usuário corta o que quiser, o campo não
+    // decide por ele qual pedaço do texto dele vale menos.
+    expect((campo as HTMLTextAreaElement).value).toBe('a'.repeat(13));
+    expect(screen.getByText('3 caracteres acima do limite').isConnected).toBe(true);
+  });
+
+  it('marca visualmente só o trecho que passou do limite', () => {
+    const { container } = render(<LimitedHarness initial={`${'a'.repeat(10)}bbb`} max={10} />);
+
+    const excesso = container.querySelector('.artificio-content-editor__overflow');
+    expect(excesso?.textContent).toBe('bbb');
+  });
+
+  it('singulariza a mensagem quando o excesso é de um caractere só', () => {
+    render(<LimitedHarness initial={'a'.repeat(11)} max={10} />);
+
+    expect(screen.getByText('1 caractere acima do limite').isConnected).toBe(true);
+  });
+
+  it('não deixa o browser truncar a colagem: o textarea não usa maxLength nativo', () => {
+    render(<LimitedHarness max={10} />);
+
+    expect(screen.getByRole('textbox').hasAttribute('maxlength')).toBe(false);
+  });
+
+  it('mantém os comandos da toolbar funcionando acima do limite', () => {
+    render(<LimitedHarness initial={'a'.repeat(12)} max={10} />);
+
+    // Antes, `replaceSelection`/`prefixLines` faziam `return` mudo perto do
+    // limite: o botão parecia quebrado, sem nenhuma mensagem explicando.
+    fireEvent.click(screen.getByRole('button', { name: 'Negrito' }));
+
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe(`**texto em negrito**${'a'.repeat(12)}`);
   });
 });
 

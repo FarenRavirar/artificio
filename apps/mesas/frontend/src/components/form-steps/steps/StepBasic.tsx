@@ -1,6 +1,7 @@
 import type { ChangeEvent, Dispatch, SetStateAction } from 'react';
 import { MarkdownEditor } from '../../MarkdownEditor';
 import type { BasicFormData } from '../../../features/create-table/types/createTable.types';
+import { DESCRIPTION_MAX_LENGTH } from '../../../features/create-table/utils/validation';
 
 interface StepBasicProps {
   form: BasicFormData;
@@ -36,6 +37,10 @@ export function StepBasic({ form, setForm }: StepBasicProps) {
           label="Descrição da mesa"
           placeholder="Descreva sua campanha, o tom da história, o que esperar..."
           height={300}
+          // Sem isto o editor não mostrava contador nenhum, e o limite só
+          // aparecia como erro no "Continuar" — depois de o mestre já ter
+          // colado o texto inteiro (achado do mantenedor, 2026-08-18).
+          maxLength={DESCRIPTION_MAX_LENGTH}
         />
       </div>
     </div>

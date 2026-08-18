@@ -27,6 +27,12 @@ function isValidParsePreviewResponse(value: unknown): value is ParsePreviewRespo
 
 interface ParsePreviewTextAreaProps {
   readonly onPreviewReady: (initialData: Partial<FormState>) => void;
+  // Campo controlado pela página: o componente é desmontado ao navegar para o
+  // formulário, e o texto colado precisa sobreviver a isso para que o "Voltar"
+  // devolva o anúncio em vez de uma caixa vazia (achado do mantenedor,
+  // 2026-08-18).
+  readonly text: string;
+  readonly onTextChange: (text: string) => void;
   // Requisito 7/8 (spec 079, T5.9): nome de exibição da conta logada — usado
   // só pra decidir se mostra o banner de sugestão abaixo (extraído ≠ conta),
   // nunca pra sobrescrever nada automaticamente.
@@ -34,6 +40,11 @@ interface ParsePreviewTextAreaProps {
 }
 
 type PreviewState = 'idle' | 'sending' | 'error' | 'empty-result';
+
+// Espelha `parsePreviewSchema` em backend/src/routes/gmPanel.ts:584
+// (`z.string().max(20000)`). Um anúncio típico cabe com folga; o número existe
+// para o contador ter referência em vez de só informar quanto já foi digitado.
+const PASTE_TEXT_MAX_LENGTH = 20000;
 
 /**
  * Requisito 8 (spec 079): entrada de texto do fluxo público de pré-
@@ -43,13 +54,13 @@ type PreviewState = 'idle' | 'sending' | 'error' | 'empty-result';
  * sozinho: só devolve os campos sugeridos pro chamador popular o form normal
  * (`CreateTableForm`), que o mestre revisa/edita/confirma como sempre.
  */
-export function ParsePreviewTextArea({ onPreviewReady, currentUserName }: ParsePreviewTextAreaProps) {
-  const [text, setText] = useState('');
+export function ParsePreviewTextArea({ onPreviewReady, currentUserName, text, onTextChange }: ParsePreviewTextAreaProps) {
   const [state, setState] = useState<PreviewState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [suggestedGmName, setSuggestedGmName] = useState<string | null>(null);
 
-  const canSubmit = text.trim().length >= 10 && state !== 'sending';
+  const overflow = Math.max(0, text.length - PASTE_TEXT_MAX_LENGTH);
+  const canSubmit = text.trim().length >= 10 && overflow === 0 && state !== 'sending';
 
   const handleSubmit = useCallback(async (e: FormEvent) => {
     e.preventDefault();
@@ -119,7 +130,7 @@ export function ParsePreviewTextArea({ onPreviewReady, currentUserName }: ParseP
       <textarea
         id="parse-preview-textarea"
         value={text}
-        onChange={(e) => { setText(e.target.value); setState('idle'); setErrorMessage(null); }}
+        onChange={(e) => { onTextChange(e.target.value); setState('idle'); setErrorMessage(null); }}
         placeholder="Cole aqui o texto do seu anúncio (título, sistema, dias/horários, vagas, contato...)"
         disabled={state === 'sending'}
         rows={10}
@@ -144,7 +155,11 @@ export function ParsePreviewTextArea({ onPreviewReady, currentUserName }: ParseP
             </>
           )}
         </button>
-        <span className="text-xs text-white/45">{text.trim().length} caracteres</span>
+        <span className={`text-xs ${overflow > 0 ? 'text-red-300 font-semibold' : 'text-white/45'}`} aria-live="polite">
+          {overflow > 0
+            ? `${overflow} ${overflow === 1 ? 'caractere' : 'caracteres'} acima do limite`
+            : `Faltam ${PASTE_TEXT_MAX_LENGTH - text.length} de ${PASTE_TEXT_MAX_LENGTH}`}
+        </span>
       </div>
 
       <div aria-live="polite">

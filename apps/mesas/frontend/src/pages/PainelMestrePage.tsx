@@ -293,6 +293,12 @@ export const PainelMestrePage = () => {
   // ter um anúncio pronto.
   const [createTableEntryMode, setCreateTableEntryMode] = useState<'choice' | 'manual' | 'paste'>('choice');
   const [pastePreviewData, setPastePreviewData] = useState<Partial<FormState> | null>(null);
+  // O texto colado mora AQUI, não dentro de ParsePreviewTextArea: aquele
+  // componente é desmontado a cada troca de tela, e com ele ia embora o anúncio
+  // inteiro que o mestre tinha acabado de colar — sem aviso e sem desfazer
+  // (achado do mantenedor, 2026-08-18). Elevado à página, sobrevive a ir e
+  // voltar entre "Colar anúncio" e o formulário.
+  const [pasteSourceText, setPasteSourceText] = useState('');
   const [togglingTableId, setTogglingTableId] = useState<string | null>(null); // CORREÇÃO B3
   const [deletingTableId, setDeletingTableId] = useState<string | null>(null); // CORREÇÃO B4
   const [archivingTableId, setArchivingTableId] = useState<string | null>(null); // D-MESAS1
@@ -595,7 +601,7 @@ export const PainelMestrePage = () => {
             <div className="grid gap-4 sm:grid-cols-2">
               <button
                 type="button"
-                onClick={() => { setPastePreviewData(null); setCreateTableEntryMode('manual'); }}
+                onClick={() => { setPastePreviewData(null); setPasteSourceText(''); setCreateTableEntryMode('manual'); }}
                 className="text-left rounded-2xl border border-white/15 bg-white/3 p-6 hover:border-white/30 transition-colors cursor-pointer"
               >
                 <h2 className="text-lg font-bold mb-2">Preencher manualmente</h2>
@@ -627,6 +633,8 @@ export const PainelMestrePage = () => {
             <div className="bg-white/3 border border-white/8 rounded-2xl p-8">
               <ParsePreviewTextArea
                 currentUserName={user?.name}
+                text={pasteSourceText}
+                onTextChange={setPasteSourceText}
                 onPreviewReady={(initialData) => {
                   // Achado de review (CodeRabbit, PR #172, nitpick): sem
                   // limpar o autosave local antes, CreateTableForm ainda
@@ -647,7 +655,18 @@ export const PainelMestrePage = () => {
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="flex items-center gap-3">
               <button
-                onClick={() => (editingTableId ? setView('dashboard') : setCreateTableEntryMode('choice'))}
+                // Voltar devolve à tela DE ONDE se veio. Antes caía sempre em
+                // 'choice', então quem chegou por "Colar anúncio" era jogado
+                // duas telas atrás e reencontrava a caixa vazia — o anúncio
+                // inteiro tinha que ser colado de novo (achado do mantenedor,
+                // 2026-08-18). `pastePreviewData` é o que marca essa origem.
+                onClick={() => {
+                  if (editingTableId) {
+                    setView('dashboard');
+                    return;
+                  }
+                  setCreateTableEntryMode(pastePreviewData ? 'paste' : 'choice');
+                }}
                 className="text-white/40 hover:text-white transition-colors cursor-pointer text-sm"
               >
                 ← Voltar
