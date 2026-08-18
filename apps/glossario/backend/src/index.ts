@@ -2,6 +2,8 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { rateLimit } from 'express-rate-limit';
+import { csrfProtection } from '@artificio/auth';
+import { resolveCsrfAllowedOrigins } from './config/csrfOrigins.js';
 import dotenv from 'dotenv';
 import authRoutes from './routes/authRoutes.js';
 import termRoutes from './routes/termRoutes.js';
@@ -33,7 +35,8 @@ app.set('trust proxy', process.env.TRUSTED_PROXY_CIDR || '172.18.0.0/16');
 
 // CORS restrito: o front é servido same-origin (nginx faz proxy de /api/),
 // então só liberamos origens do próprio domínio Artifício + localhost (dev).
-// Extra via ALLOWED_ORIGINS (CSV). Sem cookies (auth via Bearer), credentials off.
+// Extra via ALLOWED_ORIGINS (CSV). `credentials` off no CORS porque o front é
+// same-origin; isso NÃO dispensa CSRF (ver `csrfProtection` abaixo).
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .split(',')
   .map((o) => o.trim())
@@ -72,6 +75,29 @@ app.use(
 // (captura marcada). Espelha o mesas (express.json({ limit: '10mb' })).
 app.use(express.json({ limit: '10mb' }));
 app.use(cookieParser());
+
+/**
+ * CSRF (achado CodeQL, PR #273): este app lê a sessão do cookie
+ * `artificio_session` (`middlewares/authMiddleware.ts:23`), e o cookie é
+ * `Domain=.artificiorpg.com` — o navegador o anexa em QUALQUER requisição para
+ * cá, inclusive um `<form method="POST">` hospedado em outro site. `credentials:
+ * false` no CORS não protege disso: formulário HTML cross-site não passa por
+ * CORS, e a escrita acontece antes de o navegador descartar a resposta.
+ *
+ * Medido: 30 das 31 rotas mutantes passam por `authMiddleware`, incluindo
+ * `DELETE /api/categories/:id` de admin — todas expostas até aqui. Os outros
+ * três apps que montam `cookieParser` (`accounts`, `links`, `site`) já usavam
+ * `csrfProtection`; só este ficou de fora, que é a assimetria por app que a
+ * governança trata como defeito.
+ *
+ * A allowlist NÃO pode sair só de `ALLOWED_ORIGINS`: medido na VM, ela está
+ * VAZIA em produção e em beta (o front fala com a API por proxy same-origin do
+ * nginx, `location /api/`). Lista vazia faria todo POST com cookie cair em 403,
+ * porque o cliente (`services/api.ts`) usa cookie sem Bearer e não manda o
+ * header `X-XSRF-TOKEN`. Por isso as origens públicas do próprio glossário
+ * entram por padrão, no mesmo formato de `links/server/server.ts:45`.
+ */
+app.use(csrfProtection(resolveCsrfAllowedOrigins(allowedOrigins)));
 
 // Rota de Healthcheck básica para o Docker/Github Actions
 app.get('/health', (req: Request, res: Response) => {
