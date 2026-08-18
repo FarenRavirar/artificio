@@ -7,6 +7,17 @@ services:
     build:
       context: ../..
       dockerfile: apps/site/Dockerfile
+      # Config pública lida em BUILD-TIME (achado de review, PR #271). `astro.config.mjs` usa
+      # `PUBLIC_SITE_URL` para canonical/sitemap e `Analytics.astro` inlina `PUBLIC_GA_ID` no HTML —
+      # o `environment` abaixo é runtime e NÃO alcança o `docker build`. Sem estes args, o `dist` da
+      # imagem de beta sairia com o canonical e o sitemap de PRODUÇÃO (medido) e sem GA4, e o
+      # estrago apareceria justamente quando o fallback servisse esse seed.
+      args:
+        PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-https://beta.artificiorpg.com}
+        PUBLIC_GA_ID: ${PUBLIC_GA_ID:-G-2H50PCM950}
+        # Beta não distribui SEO: com isto o `robots.txt` gerado sai `Disallow: /` e SEM `Sitemap:`.
+        # Precisa estar no BUILD (e não só no `environment` abaixo) porque o endpoint é SSG.
+        SITE_NOINDEX: "true"
     container_name: site-beta-app
     restart: always
     expose:

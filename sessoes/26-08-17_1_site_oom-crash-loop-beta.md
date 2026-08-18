@@ -1,7 +1,7 @@
 # 26-08-17_1 · `site` — OOM no build do container, crash loop e o mesmo defeito armado em prod
 
-**Estado:** aberta · causa raiz medida · **correção implementada e testada localmente, sem commit** · crash loop **contido** (`site-beta-app` parado com autorização em 2026-08-17 23:49)
-**Branch sugerida:** `fix/site-oom-build-container` (partir de `dev` atualizado)
+**Estado:** aberta · **PR #271 aberta** (commit `d5dcaf6`, branch `fix/site-oom-build-container`) · segunda rodada de correções **pronta e testada, sem commit** · crash loop **contido** (`site-beta-app` parado com autorização em 2026-08-17 23:49)
+**Branch:** `fix/site-oom-build-container` (de `origin/dev` `e6332c2`) · **PR #271**
 **Origem:** deploy de beta do `site` disparado após o merge da PR #270 (spec 092), run `32079093164`, `failure`. `mesas` e `downloads` (runs `32079081040` e `32079087349`) subiram verdes no mesmo lote.
 
 ---
@@ -110,6 +110,58 @@ A premissa que mantinha o build no entrypoint estava desatualizada. O `Dockerfil
 ### Fora de escopo, aguardando decisão do mantenedor
 
 Reduzir o custo do build em si (a ilha `client:visible` roda nos 125 posts) **muda comportamento observável do produto** — carregar a conversa sob demanda em vez de por scroll. As 5 mudanças acima não alteram nada do que o leitor vê.
+
+## Segunda rodada — achados de review (pronta, **sem commit**)
+
+Três achados sobre o commit `d5dcaf6`. Os dois primeiros vieram dos bots; o terceiro, do mantenedor, e foi o que revelou defeito **pré-existente**.
+
+### 1. Comentário do entrypoint mentia sobre o próprio código (CodeRabbit) — **procede**
+
+Duas afirmações factualmente erradas, ambas resíduo da versão anterior da correção:
+
+- dizia que se chegava ao rebuild em "duas situações", omitindo a **mais comum**: o `dist` marcado com `.seed-build`, que é o caso de todo container novo. Eu adicionei esse caminho no código e não atualizei o comentário acima dele.
+- chamava o `dist` da imagem de "conteúdo real e completo", contradizendo o que eu mesmo escrevi 15 linhas abaixo: **8 posts contra 125**.
+
+Reescrito para listar as três situações e separar os dois fallbacks (dist real defasado × seed parcial). **Nenhuma linha de código mudou** (`git diff` filtrando comentários confirma). No mesmo bloco, corrigido `RestartCount 8→31` para o valor final medido: **99**.
+
+### 2. `RUN` consecutivos (Sonar, `L74`) — **aplicado em parte, com medição**
+
+Fundidos os três que formam uma unidade lógica: `pnpm run build` + fail-fast de `dist/index.html` + `touch .seed-build`. Buildar sem verificar e sem marcar produz imagem em estado inválido — são inseparáveis.
+
+**`chmod`/`chown` ficaram fora de propósito.** O `chown -R node:node /repo` custa **313s** (medido no log do build de hoje) e é a camada mais cara da imagem; mantê-lo separado preserva o cache do build do Astro quando só o entrypoint muda. Fundir trocaria duas camadas por invalidação de cache a cada mudança de permissão.
+
+Semântica do `RUN` fundido testada nos 3 casos: build ok + `index.html` → `EXIT=0` com marca; build ok **sem** `index.html` → `EXIT=1` **sem** marca; build falha → `EXIT=1` sem checar.
+
+### 3. Config pública não chegava ao build (Codex) — **procede**, e o mantenedor ampliou
+
+`PUBLIC_SITE_URL` (`astro.config.mjs:9`, `process.env`) e `PUBLIC_GA_ID` (`Analytics.astro:6`, `import.meta.env`) são lidas em **build-time**; o `environment` do compose é runtime e **não alcança o `docker build`**. Medido: `dist` buildado sem a variável gera `Sitemap: https://artificiorpg.com/sitemap-index.xml` — URL de **produção** numa imagem de beta.
+
+Corrigido com `ARG`/`ENV` + `build.args`, forma idêntica a `apps/downloads/frontend/Dockerfile:12-25` e `mesas`. A obrigatoriedade de `PUBLIC_SITE_URL` ficou num `test -n` dentro do `RUN`: **`ENV` do Dockerfile não expande `${VAR:?erro}`** — trataria o `:?` como literal.
+
+#### "beta não pode distribuir SEO" — defeito PRÉ-EXISTENTE, não introduzido aqui
+
+Ao verificar, achei que **beta já distribuía SEO antes desta PR**. `SITE_NOINDEX` existia, mas ligava só o header `X-Robots-Tag` (`server/server.ts:53`). O header impede a **indexação** do beta; não impede o beta de **publicar** um `robots.txt` com `Allow: /` e um `Sitemap:` com o mapa completo — e o sitemap seguia gerado como arquivo, acessível direto em `/sitemap-0.xml` mesmo sem referência.
+
+| medição | antes | depois |
+|---|---|---|
+| `robots.txt` em beta | `Allow: /` + `Sitemap:` | **`Disallow: /`**, sem `Sitemap:` |
+| sitemap em beta | gerado e acessível | **nenhum arquivo gerado** |
+| `robots.txt` em prod | `Allow: /` + `Sitemap:` | inalterado |
+| sitemap em prod | gerado, URLs de prod | inalterado |
+
+`SITE_NOINDEX` virou build arg também, porque `robots.txt.ts` é pré-renderizado no SSG.
+
+#### O que verifiquei e deliberadamente NÃO mudei
+
+O canonical continua em `artificiorpg.com` mesmo em beta. **Não é bug:** vem de `SITE.origin` (fixo, D047/D019), não de `PUBLIC_SITE_URL`, e o comentário no código diz "URL final no domínio raiz". Canonical de beta apontando para produção é o comportamento correto contra conteúdo duplicado.
+
+### Validação da segunda rodada
+
+`vitest` **89/89** · `tsc --noEmit` sem erros · `eslint` limpo · `shellcheck` exit 0 · YAML válido nos dois composes · builds de beta e prod verificados no artefato gerado (`robots.txt` e sitemap conferidos arquivo a arquivo).
+
+### Erro meu nesta rodada
+
+O primeiro `pnpm lint` acusou **4932 erros**. Não era código: eram os diretórios `dist.seo2`/`dist.test` dos meus próprios testes, que um `rm -rf` anterior não removeu porque o `cd` falhou (cwd já estava em `apps/site`). Removidos, lint passou limpo. Também afirmei antes que `SITE_NOINDEX` "não é lido em lugar nenhum" — **errado**, é lido em `server/server.ts:53`; meu grep passou caminhos prefixados com o cwd já dentro de `apps/site`.
 
 ## Contenção executada (2026-08-17 ~23:49)
 

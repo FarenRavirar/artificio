@@ -67,22 +67,63 @@ WORKDIR /repo/apps/site
 # dados, que é pior que falhar.
 #
 # `--max-old-space-size` explícito porque o heap do V8 é derivado do cgroup quando não se declara
-# nada: com `memory: 512m` no compose, o Node enxergava 259 MB (medido via `v8.getHeapStatistics()`)
+# nada: com o antigo limite de 512m no compose, o Node enxergava 259 MB (via `v8.getHeapStatistics()`)
 # e o build precisa de ~300 MB. O heap deixa de ser efeito colateral do `mem_limit` e passa a ser
 # escolha explícita — quem mexer em um não muda o outro sem perceber.
 ENV NODE_OPTIONS=--max-old-space-size=1024
-RUN pnpm run build
 
-# Fail-fast do build do site: se o Astro não gerou `index.html`, a imagem não presta. Falhar aqui é
-# falhar no CI; sem esta linha a ausência só apareceria no container, em runtime, já no ar.
-RUN test -f dist/index.html \
-  || (echo "ERRO: astro build nao gerou dist/index.html" && exit 1)
+# Config pública do AMBIENTE, obrigatória no build (achado de review, PR #271).
+#
+# `PUBLIC_SITE_URL` e `PUBLIC_GA_ID` são lidas em BUILD-TIME, não em runtime: `astro.config.mjs:9`
+# usa `process.env.PUBLIC_SITE_URL` para o `site:` (canonical + sitemap) e `Analytics.astro:6` usa
+# `import.meta.env.PUBLIC_GA_ID`, que o Vite inlina no HTML gerado. Defini-las só no compose não
+# alcança este build — o `docker build` não enxerga o environment do serviço.
+#
+# Sem isto o seed de beta sairia com o canonical e o sitemap de PRODUÇÃO (medido: o `dist` buildado
+# sem a variável gera `https://artificiorpg.com` no `sitemap-0.xml`) e sem GA4. O dano apareceria
+# justamente na degradação, quando o fallback serve este `dist` — e canonical de prod servido em
+# beta é o tipo de regressão de SEO que o AGENTS.md trata como inegociável.
+#
+# Sem default aqui de propósito. `astro.config.mjs` já tem o fallback `https://artificiorpg.com`, e
+# repetir um default nesta camada é o que produziria o bug de novo — beta buildando com URL de prod
+# sem ninguém perceber. A obrigatoriedade é checada no `RUN` abaixo, onde existe shell de verdade
+# (`ENV` do Dockerfile não expande `${VAR:?erro}`; trataria o `:?` como parte do literal).
+#
+# Forma idêntica à de `apps/downloads/frontend/Dockerfile:12-25` e `apps/mesas/frontend/Dockerfile`:
+# `ARG` recebe do `build.args` do compose, `ENV` promove para o ambiente do build.
+ARG PUBLIC_SITE_URL
+ENV PUBLIC_SITE_URL=${PUBLIC_SITE_URL}
 
-# Marca este `dist` como "vindo da imagem" (conteúdo do seed, não do banco). O entrypoint usa o
-# arquivo para decidir se precisa rebuildar com conteúdo real e, se o rebuild falhar, para AVISAR
-# no log que o site está no ar com conteúdo parcial. `db/export.ts` + rebuild bem-sucedido apagam
-# a marca. Sem isto, um `dist` de 8 posts seria indistinguível de um `dist` de 125.
-RUN touch dist/.seed-build
+ARG PUBLIC_GA_ID
+ENV PUBLIC_GA_ID=${PUBLIC_GA_ID}
+
+# `SITE_NOINDEX` também é build-time desde a PR #271: `src/pages/robots.txt.ts` é pré-renderizado no
+# SSG e passou a emitir `Disallow: /` (sem `Sitemap:`) quando ligado. Antes a variável só existia em
+# runtime, para o header `X-Robots-Tag` — que impede a indexação do beta mas não impedia o beta de
+# publicar um `robots.txt` com `Allow: /` e o mapa completo do site.
+ARG SITE_NOINDEX
+ENV SITE_NOINDEX=${SITE_NOINDEX}
+
+# Os três passos abaixo são UM só (achado de review, PR #271): buildar sem verificar o resultado e
+# sem marcar a origem do `dist` produziria uma imagem em estado inválido. Ficam na mesma camada
+# porque nenhum deles faz sentido sem os outros dois.
+#   1. `pnpm run build` — Astro + pagefind, a partir dos JSONs versionados.
+#   2. fail-fast: sem `dist/index.html` a imagem não presta, e falhar AQUI é falhar no CI; sem esta
+#      verificação a ausência só apareceria no container, em runtime, já no ar.
+#   3. marca `.seed-build`: identifica este `dist` como vindo do seed, não do banco. O entrypoint a
+#      usa para decidir se precisa rebuildar e, se o rebuild falhar, para AVISAR que o conteúdo é
+#      parcial. Um rebuild bem-sucedido a apaga. Sem ela, um `dist` de 8 posts seria indistinguível
+#      de um de 125.
+# `chmod`/`chown` seguem em camadas próprias de propósito: servem a outro fim (permissões, não
+# conteúdo) e o `chown -R /repo` custa ~313s (medido), então mantê-lo separado preserva o cache do
+# build do Astro quando só o entrypoint muda.
+RUN test -n "$PUBLIC_SITE_URL" \
+    || (echo "ERRO: PUBLIC_SITE_URL ausente no build. Passe via build.args do compose — sem ela o" \
+        && echo "       seed sai com canonical/sitemap de PRODUCAO, inclusive na imagem de beta." \
+        && exit 1) \
+  && pnpm run build \
+  && (test -f dist/index.html || (echo "ERRO: astro build nao gerou dist/index.html" && exit 1)) \
+  && touch dist/.seed-build
 
 RUN chmod +x docker-entrypoint.sh
 RUN chown -R node:node /repo

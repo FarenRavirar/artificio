@@ -7,6 +7,14 @@ services:
     build:
       context: ../..
       dockerfile: apps/site/Dockerfile
+      # Config pública lida em BUILD-TIME (achado de review, PR #271). Ver a explicação completa no
+      # `docker-compose.beta.yml`: o `environment` abaixo é runtime e não alcança o `docker build`,
+      # então canonical, sitemap e GA4 do `dist` da imagem sairiam errados sem estes args. Em prod
+      # os valores coincidem com o fallback do `astro.config.mjs`, mas declarar aqui é o que impede
+      # que uma futura mudança de domínio passe despercebida neste artefato.
+      args:
+        PUBLIC_SITE_URL: ${PUBLIC_SITE_URL:-https://artificiorpg.com}
+        PUBLIC_GA_ID: ${PUBLIC_GA_ID:-G-2H50PCM950}
     container_name: site-prod-app
     restart: always
     expose:

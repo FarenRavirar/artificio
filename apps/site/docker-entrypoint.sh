@@ -43,18 +43,23 @@ fi
 # `SITE_IMPORT_ON_START=true` faria o importer bater no próprio site, receber 404/HTML e, com
 # `set -e`, derrubar o boot de produção. Esse risco deixou de existir junto com o importador.
 
-# Rebuild com conteúdo FRESCO do banco. Só se chega aqui em duas situações: `SITE_FORCE_REBUILD=true`
-# (pedido explícito) ou `dist` ausente na imagem — que o fail-fast do Dockerfile impede de acontecer.
+# Rebuild com conteúdo FRESCO do banco. Chega-se aqui em três situações:
+#   1. `dist` marcado com `.seed-build` — o caso NORMAL de todo container novo, porque a imagem traz
+#      um `dist` buildado do seed versionado e o guard acima recusa servi-lo;
+#   2. `SITE_FORCE_REBUILD=true` — pedido explícito sobre um `dist` já real;
+#   3. `dist` ausente — que o fail-fast do Dockerfile impede de acontecer.
 #
 # O rebuild NUNCA derruba o container (2026-08-17, sessão 26-08-17_1). Antes ele rodava sob `set -e`:
 # qualquer falha — heap estourado, banco fora, SQL quebrado — matava o boot, e com `restart: always`
 # o container repetia a mesma falha determinística para sempre, queimando um core da VM. Medido no
-# incidente: 127% de CPU, `RestartCount` 8→31 em ~20 min, já depois do deploy ter feito rollback.
+# incidente: 127% de CPU, `RestartCount` chegou a 99, já depois do deploy ter feito rollback.
 #
-# Agora a falha degrada em vez de derrubar: serve-se o `dist` da imagem, que é conteúdo real e
-# completo (só não traz posts publicados após o build da imagem). Site no ar com conteúdo levemente
-# defasado é incomparavelmente melhor que site fora do ar em loop — e o erro fica no log, visível,
-# em vez de escondido atrás de um container que reinicia sem parar.
+# Agora a falha degrada em vez de derrubar, e o que sobra para servir depende de qual `dist` existe:
+# o do último rebuild bem-sucedido (conteúdo real, só defasado dos posts mais recentes) ou o SEED da
+# imagem (parcial — ~8 posts contra 125 no banco). Os dois casos estão separados abaixo justamente
+# porque a diferença importa para quem lê o log. Em ambos, site no ar com aviso explícito é melhor
+# que site fora do ar em loop, e o erro fica visível em vez de escondido atrás de um container que
+# reinicia sem parar.
 echo "[site] export + astro build + pagefind"
 # `rebuild_rc` capturado na hora: dentro do `elif` o `$?` já refletiria o teste da condição, e o log
 # sairia com o código de saída errado — ruído justamente no momento em que alguém está diagnosticando.
