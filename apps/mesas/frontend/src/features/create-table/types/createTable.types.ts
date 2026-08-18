@@ -1,3 +1,4 @@
+import type { CropRect } from '@artificio/media/image-kinds';
 import type { SessionSchedule } from '../../../components/SessionRepeater';
 import type { ContactFormEntry } from '../../../components/ContactsFormBlock';
 
@@ -72,7 +73,9 @@ export interface FormState {
   // Finalização
   rulesNotes: string;
   bannerUrl: string;
-  bannerCropData: { x: number; y: number; width: number; height: number } | null;
+  bannerCropData: CropRect | null;
+  bannerWidth: number | null;
+  bannerHeight: number | null;
   gmAvatarUrl: string;
   isCovilMesa: boolean;
   ddal: DdalFormState;
@@ -133,7 +136,11 @@ export interface CreateTablePayload {
   parse_case_id?: string | null;
   rules_notes: string;
   banner_url?: string;
-  banner_crop_data?: { x: number; y: number; width: number; height: number };
+  banner_crop_data?: CropRect;
+  // Dimensoes da imagem armazenada: sem elas o recorte acima nao vira
+  // `object-position` e o enquadramento salvo nao aparece na exibicao.
+  banner_width?: number;
+  banner_height?: number;
   gm_avatar_url?: string;
   is_covil: boolean;
   is_ddal: boolean;

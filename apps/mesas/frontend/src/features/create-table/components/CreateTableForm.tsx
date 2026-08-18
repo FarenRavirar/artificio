@@ -355,6 +355,9 @@ export function CreateTableForm({
             setBannerUrl={formHook.setBannerUrl}
             bannerCropData={formHook.bannerCropData}
             setBannerCropData={formHook.setBannerCropData}
+            bannerWidth={formHook.bannerWidth}
+            bannerHeight={formHook.bannerHeight}
+            setBannerDimensions={formHook.setBannerDimensions}
             bannerError={formHook.bannerError}
             setBannerError={formHook.setBannerError}
             gmAvatarUrl={formHook.gmAvatarUrl}

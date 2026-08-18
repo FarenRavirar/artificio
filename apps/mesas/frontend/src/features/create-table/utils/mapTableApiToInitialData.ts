@@ -139,6 +139,8 @@ export function mapTableApiToInitialData(apiData: unknown): Partial<FormState> &
     rulesNotes: stringValue(data, 'rules_notes'),
     bannerUrl: stringValue(data, 'banner_url') || stringValue(data, 'image_url'),
     bannerCropData: isCropData(data.banner_crop_data) ? data.banner_crop_data : null,
+    bannerWidth: typeof data.banner_width === 'number' ? data.banner_width : null,
+    bannerHeight: typeof data.banner_height === 'number' ? data.banner_height : null,
     gmAvatarUrl: stringValue(data, 'gm_avatar_url'),
     isCovilMesa: booleanValue(data, 'is_covil_mesa'),
 

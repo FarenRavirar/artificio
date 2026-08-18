@@ -1,3 +1,4 @@
+import type { CropRect } from '@artificio/media/image-kinds';
 import { useState, useEffect } from 'react';
 import type { FormState, DdalFormState } from '../types/createTable.types';
 import type { SessionSchedule } from '../../../components/SessionRepeater';
@@ -89,9 +90,18 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
   // Finalização
   const [rulesNotes, setRulesNotes] = useState(initialData?.rulesNotes || '');
   const [bannerUrl, setBannerUrl] = useState(initialData?.bannerUrl || '');
-  const [bannerCropData, setBannerCropData] = useState<{ x: number; y: number; width: number; height: number } | null>(
+  const [bannerCropData, setBannerCropData] = useState<CropRect | null>(
     initialData?.bannerCropData || null
   );
+  // Dimensoes da imagem ARMAZENADA. Sem elas o retangulo de recorte nao vira
+  // `object-position`, e o enquadramento escolhido nao aparece na exibicao —
+  // era por isso que `banner_crop_data` (migration 101) existia sem efeito.
+  const [bannerWidth, setBannerWidth] = useState<number | null>(initialData?.bannerWidth ?? null);
+  const [bannerHeight, setBannerHeight] = useState<number | null>(initialData?.bannerHeight ?? null);
+  const setBannerDimensions = (dimensions: { width: number; height: number } | null) => {
+    setBannerWidth(dimensions?.width ?? null);
+    setBannerHeight(dimensions?.height ?? null);
+  };
   const [gmAvatarUrl, setGmAvatarUrl] = useState(initialData?.gmAvatarUrl || '');
   const [isCovilMesa, setIsCovilMesa] = useState(initialData?.isCovilMesa || false);
   const [bannerError, setBannerError] = useState(false);
@@ -175,6 +185,8 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
     rulesNotes,
     bannerUrl,
     bannerCropData,
+    bannerWidth,
+    bannerHeight,
     gmAvatarUrl,
     isCovilMesa,
     ddal,
@@ -371,6 +383,9 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
     bannerUrl,
     setBannerUrl,
     bannerCropData,
+    bannerWidth,
+    bannerHeight,
+    setBannerDimensions,
     setBannerCropData,
     gmAvatarUrl,
     setGmAvatarUrl,

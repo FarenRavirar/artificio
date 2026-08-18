@@ -7,7 +7,9 @@ import { UserSystemsSelector } from '../components/UserSystemsSelector';
 import { LinksManager } from '../components/LinksManager';
 import { showSuccess, showError } from '../utils/toast';
 import { track } from '../services/analytics';
-import { useImageUrlImport } from '../hooks/useImageUrlImport';
+import { AvatarField } from '../components/AvatarField';
+import { ImageUploader } from '../components/ImageUploader';
+import { isCropRect } from '@artificio/media/image-kinds';
 import { MarkdownEditor } from '../components/MarkdownEditor';
 import { authenticatedFetch, authPost } from '../utils/authenticatedFetch';
 import './ProfileEditPage.css';
@@ -288,18 +290,8 @@ export default function ProfileEditPage() {
   );
 }
 
-// REV-072: helpers extraídos para eliminar duplicação entre TabGeral e TabMestre
-async function uploadAvatarToCloudinary(file: File): Promise<string> {
-  const formData = new FormData();
-  formData.append('file', file);
-  const response = await authPost('/api/v1/upload', formData);
-  const payload = await response.json();
-  if (!response.ok || typeof payload?.secure_url !== 'string') {
-    throw new Error(payload?.error || 'Falha ao enviar imagem.');
-  }
-  return payload.secure_url;
-}
-
+// O upload de arquivo vive em `useImageUpload`: o helper local daqui nao
+// enviava o `purpose`, entao o servidor cortava o avatar como banner de mesa.
 async function fetchGoogleAvatar(): Promise<string> {
   const response = await authPost('/api/v1/profile/me/google-picture');
   const payload = await response.json();
@@ -315,22 +307,8 @@ async function fetchGoogleAvatar(): Promise<string> {
 
 function TabGeral() {
   const { profile, updateUser, updateProfile } = useProfileContext();
-  const [avatarError, setAvatarError] = useState(false);
   const [bio, setBio] = useState(profile?.profile?.bio || '');
   const currentAvatar = profile?.profile?.avatar_url || '';
-
-  const handleAvatarChange = (url: string) => {
-    setAvatarError(false);
-    updateProfile({ avatar_url: url });
-  };
-
-  const avatarUrlImport = useImageUrlImport({
-    purpose: 'profile_avatar',
-    getUrl: () => currentAvatar,
-    onImported: handleAvatarChange,
-    onError: showError,
-    onSuccess: showSuccess,
-  });
 
   if (!profile) return null;
 
@@ -339,128 +317,29 @@ function TabGeral() {
       <section className="form-section">
         <h2>Informações Básicas</h2>
 
-        <div className="form-group">
-          <label>Foto de Perfil</label>
-          <p className="field-description">
-            Esta é a sua foto de usuário. Ela aparece em comentários, avaliações e no cabeçalho do site.
-          </p>
-          <div className="avatar-premium-container">
-            <div className="avatar-premium-preview">
-              {currentAvatar && !avatarError ? (
-                <img 
-                  src={currentAvatar} 
-                  alt="Foto de perfil" 
-                  onError={() => setAvatarError(true)}
-                />
-              ) : (
-                <div className="avatar-preview-placeholder">
-                  {profile.profile?.display_name?.charAt(0).toUpperCase() || '?'}
-                </div>
-              )}
-            </div>
-            <div className="avatar-premium-actions">
-              <div className="avatar-upload-section">
-                <input
-                  type="file"
-                  id="avatar-file-input"
-                  accept="image/png,image/jpeg,image/webp"
-                  style={{ display: 'none' }}
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-
-                    // Validação de tamanho
-                    if (file.size > 5 * 1024 * 1024) {
-                      alert('Arquivo muito grande. Limite de 5 MB.');
-                      return;
-                    }
-
-                    // Validação de tipo
-                    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-                      alert('Formato inválido. Envie apenas JPG, PNG ou WEBP.');
-                      return;
-                    }
-
-                    try {
-                      const url = await uploadAvatarToCloudinary(file);
-                      handleAvatarChange(url);
-                    } catch (error) {
-                      alert(error instanceof Error ? error.message : 'Erro ao fazer upload.');
-                    }
-
-                    e.target.value = '';
-                  }}
-                />
-                <div className="avatar-button-row">
-                  <button 
-                    type="button"
-                    className="btn-avatar-action btn-upload"
-                    onClick={() => document.getElementById('avatar-file-input')?.click()}
-                  >
-                    📤 Enviar nova imagem
-                  </button>
-                  <button 
-                    type="button"
-                    className="btn-avatar-action btn-google"
-                    onClick={async () => {
-                      try {
-                        const url = await fetchGoogleAvatar();
-                        handleAvatarChange(url);
-                        showSuccess('Foto do Google aplicada com sucesso!');
-                      } catch (error) {
-                        showError(error instanceof Error ? error.message : 'Erro ao buscar foto do Google.');
-                      }
-                    }}
-                  >
-                    🔄 Usar imagem do Google
-                  </button>
-                </div>
-              </div>
-              <div className="avatar-button-group">
-                {currentAvatar && (
-                  <button 
-                    type="button"
-                    className="btn-avatar-action btn-remove"
-                    onClick={() => handleAvatarChange('')}
-                  >
-                    Remover foto
-                  </button>
-                )}
-                <details className="avatar-manual-details">
-                  <summary className="btn-avatar-action btn-manual">
-                    🔗 Usar URL manual
-                  </summary>
-                  <div className="avatar-manual-input">
-                    <input
-                      type="url"
-                      id="avatar_url"
-                      value={currentAvatar}
-                      onChange={(e) => handleAvatarChange(e.target.value)}
-                      onBlur={avatarUrlImport.importUrlIfNeeded}
-                      placeholder="https://exemplo.com/avatar.jpg"
-                    />
-                    <label className="avatar-direct-link-option" title={avatarUrlImport.directLinkTooltip}>
-                      <input
-                        type="checkbox"
-                        checked={avatarUrlImport.keepDirectLink}
-                        onChange={(e) => avatarUrlImport.setKeepDirectLink(e.target.checked)}
-                      />
-                      <span>Manter link direto</span>
-                    </label>
-                    <small>
-                      {avatarUrlImport.isImportingUrl
-                        ? 'Importando imagem para a hospedagem do Artifício...'
-                        : 'Desativado por padrão: links externos são importados ao sair do campo.'}
-                    </small>
-                    {avatarError && currentAvatar && (
-                      <small className="error-text">❌ Não foi possível carregar a imagem</small>
-                    )}
-                  </div>
-                </details>
-              </div>
-            </div>
-          </div>
-        </div>
+        <AvatarField
+          idPrefix="avatar"
+          label="Foto de Perfil"
+          description="Esta é a sua foto de usuário. Ela aparece em comentários, avaliações e no cabeçalho do site."
+          value={{
+            url: currentAvatar,
+            crop: isCropRect(profile.profile?.avatar_crop_data) ? profile.profile.avatar_crop_data : null,
+            width: profile.profile?.avatar_width ?? null,
+            height: profile.profile?.avatar_height ?? null,
+          }}
+          onChange={(next) =>
+            updateProfile({
+              avatar_url: next.url,
+              avatar_crop_data: next.crop,
+              avatar_width: next.width,
+              avatar_height: next.height,
+            })
+          }
+          placeholderInitial={profile.profile?.display_name?.charAt(0).toUpperCase() || '?'}
+          onUseGooglePhoto={fetchGoogleAvatar}
+          onNotice={showSuccess}
+          onError={showError}
+        />
 
         <div className="form-group">
           <label htmlFor="display_name">Nome de Exibição</label>
@@ -709,14 +588,7 @@ function TabMestre({
   const [connecting, setConnecting] = useState(false);
   const gmProfile = (profile?.gm || {}) as Partial<GmProfile>;
   const [bioLong, setBioLong] = useState(gmProfile.bio_long || '');
-
-  const gmAvatarUrlImport = useImageUrlImport({
-    purpose: 'profile_avatar',
-    getUrl: () => gmProfile.avatar_url || '',
-    onImported: (url) => updateGm({ avatar_url: url }),
-    onError: showError,
-    onSuccess: showSuccess,
-  });
+  const [bannerHasError, setBannerHasError] = useState(false);
 
   if (!profile) return null;
 
@@ -761,130 +633,52 @@ function TabMestre({
           />
         </div>
 
-        <div className="form-group">
-          <label>Foto de Mestre</label>
-          <p className="field-description">
-            Esta é a sua foto como mestre. Ela aparece nas suas mesas e no seu perfil público de mestre. Se não definir, será usada a foto de perfil geral.
-          </p>
-          <div className="avatar-premium-container">
-            <div className="avatar-premium-preview">
-              {gmProfile.avatar_url ? (
-                <img 
-                  src={gmProfile.avatar_url} 
-                  alt="Foto de mestre" 
-                />
-              ) : profile.profile?.avatar_url ? (
-                <img 
-                  src={profile.profile.avatar_url} 
-                  alt="Foto de perfil (padrão)" 
-                />
-              ) : (
-                <div className="avatar-preview-placeholder">
-                  {profile.profile?.display_name?.charAt(0).toUpperCase() || '?'}
-                </div>
-              )}
-            </div>
-            <div className="avatar-premium-actions">
-              <div className="avatar-upload-section">
-                <input
-                  type="file"
-                  id="gm-avatar-file-input"
-                  accept="image/png,image/jpeg,image/webp"
-                  style={{ display: 'none' }}
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
+        <AvatarField
+          idPrefix="gm-avatar"
+          label="Foto de Mestre"
+          description="Esta é a sua foto como mestre. Ela aparece nas suas mesas e no seu perfil público de mestre. Se não definir, será usada a foto de perfil geral."
+          value={{
+            url: gmProfile.avatar_url || '',
+            crop: isCropRect(gmProfile.avatar_crop_data) ? gmProfile.avatar_crop_data : null,
+            width: gmProfile.avatar_width ?? null,
+            height: gmProfile.avatar_height ?? null,
+          }}
+          onChange={(next) =>
+            updateGm({
+              avatar_url: next.url,
+              avatar_crop_data: next.crop,
+              avatar_width: next.width,
+              avatar_height: next.height,
+            })
+          }
+          inheritedUrl={profile.profile?.avatar_url}
+          placeholderInitial={profile.profile?.display_name?.charAt(0).toUpperCase() || '?'}
+          onUseGooglePhoto={fetchGoogleAvatar}
+          onNotice={showSuccess}
+          onError={showError}
+          removeLabel="Remover foto de mestre"
+        />
 
-                    if (file.size > 5 * 1024 * 1024) {
-                      alert('Arquivo muito grande. Limite de 5 MB.');
-                      return;
-                    }
-
-                    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-                      alert('Formato inválido. Envie apenas JPG, PNG ou WEBP.');
-                      return;
-                    }
-
-                    const formData = new FormData();
-                    formData.append('file', file);
-
-                    try {
-                      const url = await uploadAvatarToCloudinary(file);
-                      updateGm({ avatar_url: url });
-                    } catch (error) {
-                      alert(error instanceof Error ? error.message : 'Erro ao fazer upload.');
-                    }
-
-                    e.target.value = '';
-                  }}
-                />
-                <div className="avatar-button-row">
-                  <button 
-                    type="button"
-                    className="btn-avatar-action btn-upload"
-                    onClick={() => document.getElementById('gm-avatar-file-input')?.click()}
-                  >
-                    📤 Enviar nova imagem
-                  </button>
-                  <button 
-                    type="button"
-                    className="btn-avatar-action btn-google"
-                    onClick={async () => {
-                      try {
-                        const url = await fetchGoogleAvatar();
-                        updateGm({ avatar_url: url });
-                        showSuccess('Foto do Google aplicada como foto de mestre!');
-                      } catch (error) {
-                        showError(error instanceof Error ? error.message : 'Erro ao buscar foto do Google.');
-                      }
-                    }}
-                  >
-                    🔄 Usar imagem do Google
-                  </button>
-                </div>
-              </div>
-              <div className="avatar-button-group">
-                {gmProfile.avatar_url && (
-                  <button 
-                    type="button"
-                    className="btn-avatar-action btn-remove"
-                    onClick={() => updateGm({ avatar_url: '' })}
-                  >
-                    Remover foto de mestre
-                  </button>
-                )}
-                <details className="avatar-manual-details">
-                  <summary className="btn-avatar-action btn-manual">
-                    🔗 Usar URL manual
-                  </summary>
-                  <div className="avatar-manual-input">
-                    <input
-                      type="url"
-                      id="gm_avatar_url"
-                      value={gmProfile.avatar_url || ''}
-                      onChange={(e) => updateGm({ avatar_url: e.target.value })}
-                      onBlur={gmAvatarUrlImport.importUrlIfNeeded}
-                      placeholder="https://exemplo.com/avatar.jpg"
-                    />
-                    <label className="avatar-direct-link-option" title={gmAvatarUrlImport.directLinkTooltip}>
-                      <input
-                        type="checkbox"
-                        checked={gmAvatarUrlImport.keepDirectLink}
-                        onChange={(e) => gmAvatarUrlImport.setKeepDirectLink(e.target.checked)}
-                      />
-                      <span>Manter link direto</span>
-                    </label>
-                    <small>
-                      {gmAvatarUrlImport.isImportingUrl
-                        ? 'Importando imagem para a hospedagem do Artifício...'
-                        : 'Desativado por padrão: links externos são importados ao sair do campo.'}
-                    </small>
-                  </div>
-                </details>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* O backend ja aceitava `banner_url` do mestre (`PUT /gm/profile`) e a
+            coluna existia, mas nenhuma tela oferecia o campo — por isso todo
+            perfil publico ficava com `banner_url: null` e caia no gradiente. */}
+        <ImageUploader
+          idPrefix="gm-banner"
+          manualInputId="gm_banner_url"
+          label="Banner do Perfil (opcional)"
+          kind="profile_banner"
+          value={gmProfile.banner_url || ''}
+          onChange={(url) => updateGm({ banner_url: url })}
+          onError={setBannerHasError}
+          hasError={bannerHasError}
+          initialCropData={isCropRect(gmProfile.banner_crop_data) ? gmProfile.banner_crop_data : null}
+          onCropChange={(crop) => updateGm({ banner_crop_data: crop })}
+          imageWidth={gmProfile.banner_width ?? null}
+          imageHeight={gmProfile.banner_height ?? null}
+          onDimensionsChange={(dimensions) =>
+            updateGm({ banner_width: dimensions?.width ?? null, banner_height: dimensions?.height ?? null })
+          }
+        />
       </section>
 
       <section className="form-section">

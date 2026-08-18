@@ -2,10 +2,16 @@ import type { MasterViewModel, MasterResponse } from '../types/masterView.types'
 import { mapTableToView } from '../../table/mappers/tableViewMapper';
 
 /**
- * Resolve avatar com fallback: custom → google → default
+ * Resolve avatar com fallback para a imagem padrão.
+ *
+ * O fallback anterior lia `master.google_avatar_url`, campo que nenhum backend
+ * do repositório emite (busca em `apps/` e `packages/` só encontrava a
+ * declaração e este uso). Foto do Google chega em `avatar_url` como qualquer
+ * outra, resolvida no servidor — o campo extra nunca teve valor e apenas
+ * sugeria um caminho de dados inexistente para quem lesse o mapper.
  */
 function resolveAvatar(master: MasterResponse): string {
-  return master.avatar_url || master.google_avatar_url || '/default-avatar.png';
+  return master.avatar_url || '/default-avatar.png';
 }
 
 /**
@@ -30,6 +36,9 @@ export function mapMasterToView(
     id: master.id,
     name: master.name,
     avatar: resolveAvatar(master),
+    avatarCrop: master.avatar_crop_data ?? null,
+    avatarWidth: master.avatar_width ?? null,
+    avatarHeight: master.avatar_height ?? null,
     banner: master.banner_url,
     bio: master.bio,
     

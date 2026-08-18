@@ -3,8 +3,19 @@ import toast from 'react-hot-toast';
 import { PageHeader, SectionCard, StatusPill, type PillTone } from '@artificio/ui/admin';
 import { GestaoShell } from '../../components/GestaoShell';
 import { useReportDecision, useReportsQueue } from '../../hooks/useReportsQueue';
-import { ContentEditor, MarkdownContent } from '@artificio/content-editor';
+import { ContentEditor, MarkdownContent, contentOverflow } from '@artificio/content-editor';
 import { Select } from '@artificio/ui';
+
+/**
+ * Teto da nota de resolução, igual ao que o backend recusa:
+ * `reports.ts:255` valida `z.string().trim().max(4000)`.
+ *
+ * Precisa de guarda explícito aqui porque esta tela não tem `<form>` — Resolver
+ * e Dispensar são `type="button"` com `onClick`, e o `setCustomValidity` do
+ * `ContentEditor` só interrompe submit nativo. Sem isto o excesso ia até a API e
+ * voltava como erro genérico (achado P1 do Codex, PR #275, terceira rodada).
+ */
+const RESOLUTION_NOTE_MAX_LENGTH = 4_000;
 
 const PRIORITY_ICON: Record<string, string> = {
   P0: '⛔',
@@ -104,12 +115,13 @@ export function GestaoDenunciasPage() {
                 value={notes[report.id] ?? ''}
                 onChange={(value) => setNotes((prev) => ({ ...prev, [report.id]: value }))}
                 placeholder="Nota de resolução"
-                maxLength={4_000}
+                maxLength={RESOLUTION_NOTE_MAX_LENGTH}
                 minHeight={128}
               />
               <div className="flex flex-wrap gap-2">
               <button
                 type="button"
+                disabled={contentOverflow(notes[report.id] ?? '', RESOLUTION_NOTE_MAX_LENGTH) > 0}
                 onClick={() =>
                   decision
                     .mutateAsync({ id: report.id, case_state: 'resolved', resolution_note: notes[report.id], priority: priorities[report.id] ?? report.priority })
@@ -121,6 +133,7 @@ export function GestaoDenunciasPage() {
               </button>
               <button
                 type="button"
+                disabled={contentOverflow(notes[report.id] ?? '', RESOLUTION_NOTE_MAX_LENGTH) > 0}
                 onClick={() =>
                   decision
                     .mutateAsync({ id: report.id, case_state: 'dismissed', resolution_note: notes[report.id], priority: priorities[report.id] ?? report.priority })

@@ -45,6 +45,9 @@ export interface ProfilesTable {
   display_name: string;
   bio: string | null;
   avatar_url: string | null;
+  avatar_crop_data: { x: number; y: number; width: number; height: number } | null;
+  avatar_width: number | null;
+  avatar_height: number | null;
   languages: Generated<string[]>;
   tags: Generated<string[]>;
   created_at: Generated<Date>;
@@ -103,7 +106,13 @@ export interface GmProfilesTable {
   nickname: string | null;
   bio_long: string | null;
   avatar_url: string | null;
+  avatar_crop_data: { x: number; y: number; width: number; height: number } | null;
+  avatar_width: number | null;
+  avatar_height: number | null;
   banner_url: string | null;
+  banner_crop_data: { x: number; y: number; width: number; height: number } | null;
+  banner_width: number | null;
+  banner_height: number | null;
   languages: Generated<string[]>;
   specialties: Generated<string[]>;
   badges: Generated<string[]>;
@@ -288,6 +297,8 @@ export interface TablesTable {
   rules_notes: string | null;
   banner_url: string | null;
   banner_crop_data: { x: number; y: number; width: number; height: number } | null;
+  banner_width: number | null;
+  banner_height: number | null;
   master_display_name: string | null;
   campaign_length: string | null;
   level_range: string | null;

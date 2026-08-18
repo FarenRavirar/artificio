@@ -2,10 +2,8 @@ import { useRef, useState, type FormEvent } from 'react';
 import { useSession } from '@artificio/auth/client';
 import { ContentEditor, contentOverflow } from '@artificio/content-editor';
 import { useQueryClient } from '@tanstack/react-query';
+import { REPORT_DETAILS_MAX_LENGTH as DETAILS_MAX_LENGTH } from '@artificio/comments';
 import { apiPost } from '../services/apiClient';
-
-// Espelha o limite aceito pelo backend para os detalhes da denuncia.
-const DETAILS_MAX_LENGTH = 4000;
 
 type ReportTarget =
   | { materialId: string; commentId?: never }

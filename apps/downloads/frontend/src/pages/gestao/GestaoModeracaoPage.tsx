@@ -6,7 +6,23 @@ import { GestaoShell } from '../../components/GestaoShell';
 import { useModerationBatchAction, useModerationQueue, useModerationSingleAction } from '../../hooks/useModerationQueue';
 import { useAdminRejectionCategories } from '../../hooks/useAdminRejectionCategories';
 import { EmailLogPanel } from '../../components/EmailLogPanel';
-import { ContentEditor } from '@artificio/content-editor';
+import { ContentEditor, contentOverflow } from '@artificio/content-editor';
+
+/**
+ * Teto do motivo de reprovação — política de UI, não do servidor.
+ *
+ * Medido: `moderation.ts:88` valida só `z.string().trim().min(1)` e a coluna é
+ * `TEXT` (`migration_011`), então nada do lado de lá recusa por tamanho. O
+ * limite existe para o operador não colar um laudo inteiro num campo que vira
+ * e-mail ao autor; por ser só UI, ele precisa ser respeitado AQUI ou não é
+ * respeitado em lugar nenhum.
+ *
+ * Esta tela não tem `<form>` — reprovar sai de `rowActions`/`bulkActions` —, e
+ * o `setCustomValidity` do `ContentEditor` só interrompe submit nativo. O aviso
+ * em vermelho aparecia e o envio seguia assim mesmo (achado P1 do Codex, PR
+ * #275, terceira rodada).
+ */
+const REJECT_REASON_MAX_LENGTH = 4_000;
 import { CommunityModerationWorkspace } from '@artificio/comments/react';
 import {
   useCommunityCase,
@@ -50,10 +66,19 @@ export function GestaoModeracaoPage() {
   const categories = categoriesData?.items ?? [];
   const selectedCategory = categories.find((c) => c.id === rejectCategoryId);
 
+  // Mesmo ponto que já barra motivo vazio: é o único lugar por onde a reprovação
+  // em lote passa, e esta tela não tem `<form>` para o `setCustomValidity` do
+  // editor interromper.
+  const reasonOverflow = contentOverflow(rejectReason, REJECT_REASON_MAX_LENGTH);
+
   async function runBatch(action: 'approve' | 'reject' | 'archive', ids: string[]) {
     if (action === 'reject' && (!rejectReason.trim() || !rejectCategoryId)) {
       window.alert('Categoria e motivo de reprovação são obrigatórios para ação em lote.');
       throw new Error('Categoria e motivo de reprovação são obrigatórios.');
+    }
+    if (action === 'reject' && reasonOverflow > 0) {
+      window.alert(`Reduza ${reasonOverflow} caracteres do motivo: o limite é ${REJECT_REASON_MAX_LENGTH}.`);
+      throw new Error('Motivo de reprovação acima do limite.');
     }
     try {
       await batchAction.mutateAsync({
@@ -73,6 +98,10 @@ export function GestaoModeracaoPage() {
   async function rejectSingle(materialId: string) {
     if (!rejectReason.trim() || !rejectCategoryId) {
       window.alert('Selecione a categoria e preencha o motivo antes de reprovar.');
+      return;
+    }
+    if (reasonOverflow > 0) {
+      window.alert(`Reduza ${reasonOverflow} caracteres do motivo: o limite é ${REJECT_REASON_MAX_LENGTH}.`);
       return;
     }
     try {
@@ -140,7 +169,7 @@ export function GestaoModeracaoPage() {
             value={rejectReason}
             onChange={setRejectReason}
             placeholder="Motivo (obrigatório para reprovar)"
-            maxLength={4_000}
+            maxLength={REJECT_REASON_MAX_LENGTH}
             minHeight={128}
           />
         </div>

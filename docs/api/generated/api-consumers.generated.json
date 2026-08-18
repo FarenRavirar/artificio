@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 284,
-    "uniqueEndpoints": 264,
+    "total": 282,
+    "uniqueEndpoints": 262,
     "byApp": {
       "accounts-frontend": {
         "total": 8,
@@ -38,18 +38,16 @@
         }
       },
       "mesas-frontend": {
-        "total": 166,
+        "total": 164,
         "byConfidence": {
           "medium": 73,
-          "high": 91,
-          "low": 2
+          "high": 91
         },
         "byPattern": {
           "unknown": 6,
           "template-literal": 65,
           "service-wrapper": 38,
-          "literal": 55,
-          "concatenation": 2
+          "literal": 55
         }
       },
       "packages/auth": {
@@ -1698,7 +1696,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authGet",
-      "line": 93
+      "line": 102
     },
     {
       "app": "mesas-frontend",
@@ -1788,7 +1786,7 @@
       "confidence": "medium",
       "pattern": "unknown",
       "wrapper": "authPost",
-      "line": 240
+      "line": 252
     },
     {
       "app": "mesas-frontend",
@@ -1808,7 +1806,7 @@
       "confidence": "medium",
       "pattern": "unknown",
       "wrapper": "authPut",
-      "line": 239
+      "line": 251
     },
     {
       "app": "mesas-frontend",
@@ -2018,7 +2016,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 304
+      "line": 296
     },
     {
       "app": "mesas-frontend",
@@ -2368,7 +2366,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 34
+      "line": 49
     },
     {
       "app": "mesas-frontend",
@@ -2392,26 +2390,6 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/AvatarUploader.tsx",
-      "method": "POST",
-      "endpoint": "/api/v1/upload",
-      "confidence": "low",
-      "pattern": "concatenation",
-      "wrapper": "authPost",
-      "line": 98
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/ImageUploader.tsx",
-      "method": "POST",
-      "endpoint": "/api/v1/upload",
-      "confidence": "low",
-      "pattern": "concatenation",
-      "wrapper": "authPost",
-      "line": 145
-    },
-    {
-      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/discord-sync/useDraftForm.ts",
       "method": "POST",
       "endpoint": "/api/v1/upload",
@@ -2422,13 +2400,13 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/pages/ProfileEditPage.tsx",
+      "consumerFile": "apps/mesas/frontend/src/hooks/useImageUpload.ts",
       "method": "POST",
       "endpoint": "/api/v1/upload",
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 295
+      "line": 58
     },
     {
       "app": "mesas-frontend",
@@ -2468,7 +2446,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authenticatedFetch",
-      "line": 949
+      "line": 743
     },
     {
       "app": "mesas-frontend",
@@ -2478,7 +2456,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authenticatedFetch",
-      "line": 99
+      "line": 101
     },
     {
       "app": "mesas-frontend",

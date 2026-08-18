@@ -1,3 +1,4 @@
+import { isCropRect, upgradeGoogleImageQuality } from '@artificio/media/image-kinds';
 import { Router, Request, Response } from 'express';
 import { authMiddleware } from '../middleware/auth.js';
 import { strictRateLimiter } from '../middleware/rateLimit.js';
@@ -85,11 +86,22 @@ router.patch('/me/profile', authMiddleware, async (req: Request, res: Response) 
 
   const { display_name, bio, avatar_url, languages } = req.body;
 
+  // Enquadramento vem de JSON externo: `unknown` ate ser normalizado.
+  // `isCropRect` recusa retangulo incompleto/negativo; `null` explicito zera o
+  // recorte (imagem trocada), enquanto ausencia do campo preserva o salvo.
+  const rawCrop: unknown = req.body?.avatar_crop_data;
+  const avatar_crop_data = isCropRect(rawCrop) ? rawCrop : rawCrop === null ? null : undefined;
+  const avatar_width = Number.isInteger(req.body?.avatar_width) ? Number(req.body.avatar_width) : undefined;
+  const avatar_height = Number.isInteger(req.body?.avatar_height) ? Number(req.body.avatar_height) : undefined;
+
   try {
     const profile = await profileService.updateProfile(userId, {
       display_name,
       bio,
       avatar_url,
+      avatar_crop_data,
+      avatar_width,
+      avatar_height,
       languages,
     });
     return res.json({ data: profile });
@@ -367,16 +379,23 @@ router.post('/me/google-picture', strictRateLimiter, authMiddleware, async (req:
       });
     }
 
-    // Atualizar avatar_url no perfil
+    // A foto do login vem em miniatura (`=s96-c`, 96px). Salvar assim faz o
+    // avatar ser ampliado pelo navegador e aparecer borrado — o upgrade pede
+    // ao Google a versao maior antes de persistir. O enquadramento e zerado
+    // porque a imagem mudou: o retangulo anterior era de outra foto.
+    const googlePicture = upgradeGoogleImageQuality(userInfo.picture, 400);
     const profile = await profileService.updateProfile(userId, {
-      avatar_url: userInfo.picture,
+      avatar_url: googlePicture,
+      avatar_crop_data: null,
+      avatar_width: null,
+      avatar_height: null,
     });
 
-    return res.json({ 
-      data: { 
-        avatar_url: userInfo.picture,
-        profile 
-      } 
+    return res.json({
+      data: {
+        avatar_url: googlePicture,
+        profile
+      }
     });
   } catch (error: unknown) {
     console.error('[POST /profile/me/google-picture]', error);

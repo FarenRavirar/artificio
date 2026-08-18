@@ -1,3 +1,5 @@
+import type { CropRect } from '@artificio/media/image-kinds';
+
 export interface PlayerProfile {
   experience_level: 'iniciante' | 'intermediario' | 'veterano' | null;
   playstyle: {
@@ -18,7 +20,15 @@ export interface GmProfile {
   nickname: string | null;
   bio_long: string | null;
   avatar_url: string | null;
+  // Enquadramento do avatar: retangulo em pixels da imagem armazenada mais as
+  // dimensoes dela. Viram `object-position` na exibicao, sem alterar o arquivo.
+  avatar_crop_data: CropRect | null;
+  avatar_width: number | null;
+  avatar_height: number | null;
   banner_url: string | null;
+  banner_crop_data: CropRect | null;
+  banner_width: number | null;
+  banner_height: number | null;
   languages: string[];
   specialties: string[];
   discord_connected: boolean;
@@ -70,6 +80,9 @@ export interface FullProfile {
     display_name: string;
     bio: string | null;
     avatar_url: string | null;
+    avatar_crop_data: CropRect | null;
+    avatar_width: number | null;
+    avatar_height: number | null;
     languages: string[];
   } | null;
   player: PlayerProfile | null;

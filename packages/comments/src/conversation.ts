@@ -40,12 +40,45 @@ const canonicalCommentBodySchema = z.string().transform((value, context) => {
   return result.bodyMarkdown;
 });
 
+/**
+ * Schemas de LEITURA são tolerantes a campo desconhecido; os de ESCRITA não.
+ *
+ * A assimetria é deliberada e segue o que `mutatedCommentSchema` já documenta
+ * mais abaixo: `.strict()` num payload que VEM do servidor fecha a porta a um
+ * campo novo do próprio servidor. O que o cliente ENVIA continua `.strict()`,
+ * porque ali um campo a mais é erro de quem escreveu o código, não evolução do
+ * contrato.
+ *
+ * O custo do `.strict()` na leitura foi medido e é desproporcional: Zod recusa
+ * com `unrecognized_keys` e o array inteiro de comentários falha junto, então
+ * um campo novo troca a conversa toda por `schema_incompatible` — tela em
+ * branco, não degradação.
+ *
+ * E não existe janela em que isso não aconteça. O comentário anterior de
+ * `removed_by_moderator` supunha que a esteira sobe `accounts.` e apps no mesmo
+ * ciclo; medido, é falso: `deploy-manifest.json` tem `auto_deploy_on_push:
+ * false` em todos os módulos e `deploy.yml` deploya UM módulo por
+ * `workflow_dispatch`. Some-se que `removed_by_moderator` não existe em
+ * `origin/dev` nem em `origin/main` (medido com `git show`), enquanto os três
+ * frontends que fazem este parse já estão em produção — deployar o `accounts.`
+ * primeiro apagaria a conversa nos três até cada um subir (achado P1 do Codex,
+ * PR #275).
+ *
+ * Isto substitui a instrução de "entrar como `.optional()` no cliente antes de
+ * o servidor emitir": ordem de deploy que precisa ser lembrada a cada campo
+ * novo é exatamente o tipo de trava que falha em silêncio.
+ *
+ * Não é decisão nova no pacote — `moderation.ts:8` já a tomou na PR #262, pelo
+ * mesmo motivo e com a mesma medição ("o `accounts.` é deployado
+ * independentemente da fachada de cada módulo"). Este arquivo era a
+ * inconsistência: as duas fronteiras leem do mesmo servidor.
+ */
 export const commentAuthorSchema = z.object({
   display_name: z.string().nullable(),
   avatar_url: z.url().nullable(),
   badge: z.enum(['admin', 'moderator', 'content_author']).nullable(),
   state: z.enum(['active', 'deleted', 'legacy']),
-}).strict();
+});
 
 export const conversationCommentSchema = z.object({
   id: z.uuid(),
@@ -101,14 +134,14 @@ export const conversationCommentSchema = z.object({
    * nada quebra. Exigi-lo derrubaria o parse da árvore inteira num consumidor
    * desatualizado, trocando um botão ausente por uma conversa em branco.
    *
-   * **A direção inversa não é coberta pelo default, e a ordem de deploy
-   * importa.** `conversationCommentSchema` é `.strict()`, então um bundle
-   * antigo — já em beta antes deste deploy — que receba o campo novo do
-   * `accounts.` recusa a árvore inteira. É a mesma exposição que
-   * `viewer_is_author` teve ao entrar (`7019be8`, fase 5) e que o projeto já
-   * aceitou: a esteira sobe `accounts.` e apps no mesmo ciclo, e a janela é a
-   * de um deploy. Se um dia um app ficar para trás de propósito, o campo
-   * precisa entrar como `.optional()` no cliente antes de o servidor emitir.
+   * **A direção inversa é coberta pela tolerância do schema de leitura**, e não
+   * por ordem de deploy: ver o comentário de `commentAuthorSchema`. Um bundle
+   * antigo que receba este campo antes de conhecê-lo simplesmente o ignora.
+   *
+   * A versão anterior deste trecho dizia que a esteira sobe `accounts.` e apps
+   * no mesmo ciclo e que bastava um deploy de janela. Medido, era falso — o
+   * deploy é por módulo, sob dispatch manual —, e é o que motivou remover o
+   * `.strict()` da leitura em vez de confiar na ordem.
    */
   removed_by_moderator: z.boolean().default(false),
   legacy: z.object({
@@ -145,8 +178,8 @@ export const conversationCommentSchema = z.object({
      * exibido como markdown mostraria `<p>` cru ao leitor.
      */
     format: z.enum(['markdown', 'html']).default('html'),
-  }).strict().nullable(),
-}).strict().superRefine((comment, context) => {
+  }).nullable(),
+}).superRefine((comment, context) => {
   const hidden = comment.state !== 'visible';
   if (hidden && (
     comment.body_markdown !== null
@@ -187,7 +220,7 @@ export const conversationMoreNodeSchema = z.object({
   parent_id: z.uuid().nullable(),
   count: z.number().int().positive(),
   cursor: z.string().min(1),
-}).strict();
+});
 
 export type ConversationMoreNode = z.infer<typeof conversationMoreNodeSchema>;
 
@@ -197,7 +230,7 @@ export const commentsThreadSchema = z.object({
   comments: z.array(conversationCommentSchema),
   more: z.array(conversationMoreNodeSchema),
   truncated: z.boolean(),
-}).strict();
+});
 
 export type CommentsThread = z.infer<typeof commentsThreadSchema>;
 
@@ -343,6 +376,21 @@ export const withdrawCommentOperation = defineCommentsOperation({
 export const MODERATION_REASON_MAX_LENGTH = 500;
 
 /**
+ * Teto do `details` da denúncia — 4.000, e o número vive **aqui**.
+ *
+ * Mesmo motivo de `MODERATION_REASON_MAX_LENGTH` logo acima, e a mesma falha
+ * que ele já corrigiu uma vez: o número precisa ser idêntico no schema que
+ * valida, no `maxLength` do editor e em quem barra o envio, e literal repetido
+ * diverge no primeiro ajuste. Estava em três lugares — `communityCommentReport.ts:87`
+ * (accounts, quem de fato recusa), `ReportButton.tsx:8` (downloads) e inline no
+ * `createCommentReportOperation` abaixo.
+ *
+ * O pacote é o dono porque é ele que valida `details` antes do envio nos três
+ * consumidores; o `accounts.` reexporta deste ponto em vez de manter cópia.
+ */
+export const REPORT_DETAILS_MAX_LENGTH = 4_000;
+
+/**
  * Retirada de comentário **alheio** por moderador global.
  *
  * Distinta de `withdrawCommentOperation` de propósito, e não é redundância:
@@ -425,7 +473,7 @@ export const createCommentReportOperation = defineCommentsOperation({
   inputSchema: z.object({
     commentId: z.uuid(),
     reasonCode: commentReportReasonSchema,
-    details: z.string().trim().max(4_000).optional(),
+    details: z.string().trim().max(REPORT_DETAILS_MAX_LENGTH).optional(),
   }).strict().superRefine((report, context) => {
     if (commentReportRequiresDetails(report.reasonCode) && !report.details) {
       context.addIssue({

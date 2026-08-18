@@ -1,3 +1,4 @@
+import { isCropRect } from '@artificio/media/image-kinds';
 import { Router, Request, Response } from 'express';
 import { sql, type Updateable, type Selectable } from 'kysely';
 import { db } from '../db/index.js';
@@ -270,7 +271,13 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
         'nickname',
         'bio_long',
         'avatar_url',
+        'avatar_crop_data',
+        'avatar_width',
+        'avatar_height',
         'banner_url',
+        'banner_crop_data',
+        'banner_width',
+        'banner_height',
         'languages',
         'specialties',
         'badges',
@@ -326,6 +333,20 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
     preferred_vtt_platforms,
     contact_methods,
   } = req.body;
+
+  // Enquadramento vem de JSON externo: `unknown` ate normalizar. `null`
+  // explicito zera o recorte (imagem trocada); ausencia preserva o salvo, que e
+  // o que `undefined` significa no `.set()` do Kysely.
+  const normalizeCrop = (raw: unknown) => (isCropRect(raw) ? raw : raw === null ? null : undefined);
+  const normalizeDimension = (raw: unknown) =>
+    Number.isInteger(raw) && Number(raw) > 0 ? Number(raw) : raw === null ? null : undefined;
+
+  const safeAvatarCropData = normalizeCrop(req.body?.avatar_crop_data);
+  const safeAvatarWidth = normalizeDimension(req.body?.avatar_width);
+  const safeAvatarHeight = normalizeDimension(req.body?.avatar_height);
+  const safeBannerCropData = normalizeCrop(req.body?.banner_crop_data);
+  const safeBannerWidth = normalizeDimension(req.body?.banner_width);
+  const safeBannerHeight = normalizeDimension(req.body?.banner_height);
 
   if (nickname !== undefined) {
     if (typeof nickname !== 'string' || nickname.trim().length < 2 || nickname.trim().length > 40) {
@@ -415,7 +436,13 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
         specialties: safeSpecialties,
         badges: safeBadges,
         avatar_url: avatar_url ?? undefined,
+        avatar_crop_data: safeAvatarCropData,
+        avatar_width: safeAvatarWidth,
+        avatar_height: safeAvatarHeight,
         banner_url: banner_url ?? undefined,
+        banner_crop_data: safeBannerCropData,
+        banner_width: safeBannerWidth,
+        banner_height: safeBannerHeight,
         tagline: safeTagline,
         promo_badge_text: safePromoBadgeText,
         selling_points: safeSellingPoints,
@@ -433,7 +460,13 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
         'nickname',
         'bio_long',
         'avatar_url',
+        'avatar_crop_data',
+        'avatar_width',
+        'avatar_height',
         'banner_url',
+        'banner_crop_data',
+        'banner_width',
+        'banner_height',
         'languages',
         'specialties',
         'badges',

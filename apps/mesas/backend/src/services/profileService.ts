@@ -1,3 +1,4 @@
+import type { CropRect } from '@artificio/media/image-kinds';
 import { db } from '../db/index.js';
 import type {
   PlayerProfile,
@@ -35,6 +36,9 @@ export interface FullProfile {
     display_name: string;
     bio: string | null;
     avatar_url: string | null;
+    avatar_crop_data: CropRect | null;
+    avatar_width: number | null;
+    avatar_height: number | null;
     languages: string[];
   } | null;
   player: PlayerProfile | null;
@@ -58,7 +62,7 @@ export async function getFullProfile(userId: string): Promise<FullProfile> {
 
   const profile = await db
     .selectFrom('profiles')
-    .select(['display_name', 'bio', 'avatar_url', 'languages'])
+    .select(['display_name', 'bio', 'avatar_url', 'avatar_crop_data', 'avatar_width', 'avatar_height', 'languages'])
     .where('user_id', '=', userId)
     .executeTakeFirst();
 
@@ -157,7 +161,15 @@ export async function checkUsernameExists(
 
 export async function updateProfile(
   userId: string,
-  data: { display_name?: string; bio?: string; avatar_url?: string; languages?: string[] }
+  data: {
+    display_name?: string;
+    bio?: string;
+    avatar_url?: string;
+    avatar_crop_data?: CropRect | null;
+    avatar_width?: number | null;
+    avatar_height?: number | null;
+    languages?: string[];
+  }
 ) {
   const sanitizedBio = sanitizeOptionalUserMarkdown(data.bio);
   const exists = await db
@@ -184,6 +196,9 @@ export async function updateProfile(
         display_name: data.display_name || 'Usuário',
         bio: sanitizedBio || null,
         avatar_url: data.avatar_url || null,
+        avatar_crop_data: data.avatar_crop_data ?? null,
+        avatar_width: data.avatar_width ?? null,
+        avatar_height: data.avatar_height ?? null,
         languages: data.languages || [],
       })
       .execute();
@@ -191,7 +206,7 @@ export async function updateProfile(
 
   const result = await db
     .selectFrom('profiles')
-    .select(['display_name', 'bio', 'avatar_url', 'languages'])
+    .select(['display_name', 'bio', 'avatar_url', 'avatar_crop_data', 'avatar_width', 'avatar_height', 'languages'])
     .where('user_id', '=', userId)
     .executeTakeFirst();
 

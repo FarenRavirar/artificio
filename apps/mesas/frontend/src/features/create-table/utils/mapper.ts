@@ -91,6 +91,8 @@ export function formStateToPayload(state: FormState): CreateTablePayload {
     rules_notes: state.rulesNotes,
     banner_url: state.bannerUrl?.trim() ? state.bannerUrl.trim() : undefined,
     banner_crop_data: state.bannerCropData ?? undefined,
+    banner_width: state.bannerWidth ?? undefined,
+    banner_height: state.bannerHeight ?? undefined,
     gm_avatar_url: state.gmAvatarUrl || undefined,
     is_covil: state.isCovilMesa,
     is_ddal: state.ddal.is_ddal,

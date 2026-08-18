@@ -84,7 +84,13 @@ export const REPORT_REASON_CODES = [
 
 export type ReportReasonCode = (typeof REPORT_REASON_CODES)[number];
 
-export const DETAILS_MAX_LENGTH = 4000;
+/**
+ * Reexport, não literal: o número vive em `@artificio/comments`
+ * (`REPORT_DETAILS_MAX_LENGTH`), que é quem valida `details` no cliente dos três
+ * consumidores. Manter o 4000 escrito aqui também era a duplicata que já fez
+ * `MODERATION_REASON_MAX_LENGTH` divergir uma vez (PR #274).
+ */
+export { REPORT_DETAILS_MAX_LENGTH as DETAILS_MAX_LENGTH } from "@artificio/comments";
 
 export interface CreateReportInput {
   realm: string;

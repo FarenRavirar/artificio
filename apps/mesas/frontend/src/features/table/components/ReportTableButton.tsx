@@ -1,7 +1,20 @@
 import { useState } from 'react';
 import { Flag } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { contentOverflow } from '@artificio/content-editor';
 import { MarkdownEditor } from '../../../components/MarkdownEditor';
+
+/**
+ * Um número só para o editor e para o guarda do envio.
+ *
+ * O `setCustomValidity` do `ContentEditor` só barra submit dentro de um
+ * `<form>`, e este painel é `<div>` + `type="button"` — a trava nativa nunca é
+ * consultada aqui, então o excesso seguia até a API (achado P1 do Codex, PR
+ * #275, terceira rodada). `contentOverflow` é o caminho que o próprio pacote
+ * documenta para este caso; o literal vira constante para o botão e o editor
+ * não poderem divergir.
+ */
+const DETAILS_MAX_LENGTH = 2000;
 
 const REASON_LABELS: Record<string, string> = {
   golpe: 'Golpe / fraude',
@@ -26,8 +39,10 @@ export function ReportTableButton({ slug }: ReportTableButtonProps) {
   const [details, setDetails] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const detailsOverflow = contentOverflow(details, DETAILS_MAX_LENGTH);
+
   const handleSubmit = async () => {
-    if (!reason || isSubmitting) return;
+    if (!reason || isSubmitting || detailsOverflow > 0) return;
     setIsSubmitting(true);
 
     try {
@@ -89,7 +104,7 @@ export function ReportTableButton({ slug }: ReportTableButtonProps) {
         value={details}
         onChange={setDetails}
         placeholder="Detalhes (opcional)"
-        maxLength={2000}
+        maxLength={DETAILS_MAX_LENGTH}
         height={128}
       />
 
@@ -97,7 +112,7 @@ export function ReportTableButton({ slug }: ReportTableButtonProps) {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={!reason || isSubmitting}
+          disabled={!reason || isSubmitting || detailsOverflow > 0}
           className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-red-700 disabled:opacity-50"
         >
           Enviar denúncia

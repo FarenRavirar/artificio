@@ -1,3 +1,4 @@
+import type { CropRect } from '@artificio/media/image-kinds';
 import { useEffect, useMemo, useState } from 'react';
 import type { UserLink } from './useLinks';
 import type { TableCard } from '../types/tables';
@@ -29,7 +30,15 @@ export interface MestrePublicData {
   bio_long: string | null;
   tagline?: string | null;
   avatar_url: string | null;
+  // Enquadramento escolhido pelo mestre. Sem ele a imagem seria recortada
+  // sempre pelo centro geometrico, que foi o defeito medido em producao.
+  avatar_crop_data: CropRect | null;
+  avatar_width: number | null;
+  avatar_height: number | null;
   banner_url: string | null;
+  banner_crop_data: CropRect | null;
+  banner_width: number | null;
+  banner_height: number | null;
   languages: string[];
   specialties: string[];
   badges: string[];
