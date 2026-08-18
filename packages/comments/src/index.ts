@@ -22,6 +22,8 @@ export {
   normalizeGuardResult,
   refuse,
   subjectAuthorizationSchema,
+  accountsUserIdOrNull,
+  looksLikeUuid,
   subjectRefSchema,
   type CommentSubjectAuthorization,
   type CommentSubjectGuard,

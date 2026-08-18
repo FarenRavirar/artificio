@@ -309,9 +309,27 @@ export function CommentsConversation({
     setAnnouncement('');
     try {
       await action();
-      await finishAction(message, origin);
     } catch (error: unknown) {
+      // Falhou: o painel FICA aberto com o texto preservado, de propósito — quem
+      // escreveu não perde o que digitou por causa de um erro de rede ou de
+      // permissão, e pode tentar de novo.
+      //
+      // Só que `finishAction` não pode ficar dentro do `try` junto com a ação
+      // (defeito medido em beta, 2026-08-18): quando a escrita falhava, ela era
+      // pulada pelo `catch` e o painel de EDIÇÃO permanecia aberto com o texto.
+      // O segundo clique então chamava `client.edit` em vez de `client.create`,
+      // e o usuário atualizava um comentário achando que estava publicando um
+      // novo. Foi o que o `403` do `downloads` produziu — sem o escopo
+      // `comment.write`, toda tentativa falhava e o texto nunca saía da caixa.
       setActionError(normalizeCommentsError(error).toJSON());
+      setPendingAction(null);
+      return;
+    }
+    // Fora do `try`: sucesso é a ÚNICA condição que fecha o painel e limpa o
+    // rascunho. Um erro dentro de `finishAction` (foco, anúncio) não pode ser
+    // confundido com falha da escrita — a escrita já aconteceu.
+    try {
+      await finishAction(message, origin);
     } finally {
       setPendingAction(null);
     }

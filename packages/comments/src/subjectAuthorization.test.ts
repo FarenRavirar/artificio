@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  accountsUserIdOrNull,
   authorize,
   canonicalPathSchema,
   normalizeGuardResult,
@@ -167,5 +168,41 @@ describe('normalizeGuardResult', () => {
   it('normaliza motivo desconhecido para not_found, sem propagar string arbitrária', () => {
     const result = normalizeGuardResult({ authorized: false, reason: 'porque sim' });
     expect(result).toEqual({ authorized: false, reason: 'not_found' });
+  });
+});
+
+describe('accountsUserIdOrNull', () => {
+  /**
+   * O caso que motivou a função (produção, 2026-08-18): `mesas.users.google_id`
+   * tem 53 UUIDs do `accounts` e 15 `google_sub` legados na MESMA coluna. O
+   * valor legado atravessava o app e virava `400` opaco no `accounts.`,
+   * bloqueando comentário em 14 mesas.
+   */
+  it('degrada google_sub legado para null em vez de deixar vazar', () => {
+    expect(accountsUserIdOrNull('106884162561229573720')).toBeNull();
+  });
+
+  it('preserva o UUID do accounts, que é o formato do contrato', () => {
+    const uuid = '4ed50549-3346-48d7-89cc-6a4afa9485c7';
+    expect(accountsUserIdOrNull(uuid)).toBe(uuid);
+  });
+
+  it('mantém null como null — dono ausente é caso legítimo, não erro', () => {
+    expect(accountsUserIdOrNull(null)).toBeNull();
+  });
+
+  it('degrada os ids de teste com prefixo, que existem em beta', () => {
+    expect(accountsUserIdOrNull('fake_4da9e061-4590-42c4-adfb-3bb25399c341')).toBeNull();
+  });
+
+  it('o que sobrevive sempre passa no schema do contrato', () => {
+    for (const v of ['106884162561229573720', '4ed50549-3346-48d7-89cc-6a4afa9485c7', null]) {
+      const owner = accountsUserIdOrNull(v);
+      const parsed = subjectAuthorizationSchema.safeParse({
+        exists: true, visible: true, commentable: true,
+        ownerUserId: owner, canonicalPath: '/mesas/x/',
+      });
+      expect(parsed.success, `ownerUserId=${String(owner)} recusado pelo schema`).toBe(true);
+    }
   });
 });
