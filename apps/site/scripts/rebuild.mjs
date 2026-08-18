@@ -40,14 +40,21 @@ try {
   const tmp = `${DIST}.lnk.${process.pid}`;
   if (existsSync(tmp)) rmSync(tmp, { recursive: true, force: true });
   symlinkSync(target, tmp, "junction");
-  let legacyDir = null;
   if (existsSync(DIST) && !lstatSync(DIST).isSymbolicLink()) {
-    // `dist` era dir real (1º uso/legado): move p/ fora antes de pôr o symlink.
-    legacyDir = `${DIST}.legacy.${process.pid}`;
-    renameSync(DIST, legacyDir);
+    // `dist` é dir real (1º uso/legado, ou o build da imagem): remove ANTES de pôr o symlink.
+    //
+    // `rmSync` e não `renameSync` (2026-08-18, PR #271). Desde que o Dockerfile passou a buildar o
+    // site na imagem, este `dist` nasce numa camada do overlayfs, e `rename` para a camada gravável
+    // falha com `EXDEV: cross-device link not permitted` — o kernel não renomeia entre dispositivos.
+    // Sintoma medido em beta: rebuild abortava, o fallback servia o seed de 8 posts, e as imagens
+    // apareciam quebradas porque o seed é anterior à migração para o Cloudinary.
+    //
+    // Remover em vez de mover é seguro justamente aqui: `target` (o dir novo) já está buildado e
+    // completo neste ponto, e o `dist` que sai é o descartável — ou o seed da imagem, ou o build
+    // anterior que este swap veio substituir.
+    rmSync(DIST, { recursive: true, force: true });
   }
   renameSync(tmp, DIST);
-  if (legacyDir) rmSync(legacyDir, { recursive: true, force: true });
   console.log(`[rebuild] OK (symlink dist -> ${basename(target)})`);
 } catch (e) {
   // Fallback sem symlink (Windows): rename com restore. `dist` vira dir real.

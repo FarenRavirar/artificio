@@ -1,5 +1,13 @@
 [
   {
+    "id": "2026-08-17-comentarios-na-mesa-e-notificacoes",
+    "title": "Comentários na mesa, sino de notificações e tela de mesa encerrada",
+    "body": "Conversas chegaram às mesas, e agora você fica sabendo quando alguém responde:\n\n- **Comentários na mesa** - Jogadores e mestre podem conversar direto na página da mesa, com respostas encadeadas\n- **Sino de notificações** - Um sino no topo avisa quando há resposta nova, e atualiza sozinho quando você volta para a aba\n- **Moderação e denúncia** - Comentário fora de linha pode ser reportado, e há caminho de contestação para quem discorda de uma remoção\n- **Tela de mesa encerrada** - Mesa encerrada agora tem página própria, em vez de erro\n- **Contatos mais confiáveis** - A validação de Discord, WhatsApp e e-mail passou a conferir cada canal no formato certo, evitando link que não abre\n- **Correções de contraste** - Ajustes de legibilidade em botões de ação destrutiva no tema escuro\n\n_Atualização publicada em 17/08/2026_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-08-17T18:00:00-03:00"
+  },
+  {
     "id": "2026-07-18-favoritar-review-stats-mestre",
     "title": "Favoritar mesas, avaliar mestres e novo catálogo com estatísticas",
     "body": "Publicamos um pacote grande de novidades para quem busca e quem hospeda mesas:\n\n• **Favoritar mesas** - Marque mesas de interesse com um clique e encontre-as depois direto nos favoritos\n• **Avaliação de mestres** - Jogadores agora podem deixar uma avaliação e comentário sobre a experiência com o mestre, visível no perfil dele\n• **Estatísticas do mestre** - O perfil público do mestre mostra há quanto tempo está na plataforma e quantas mesas já hospedou\n• **Selo de mesa paga** - Mesas com cobrança aparecem com selo próprio no catálogo, facilitando a busca por mesas gratuitas ou pagas\n• **Denunciar mesa** - Novo botão para reportar uma mesa com problema direto na página dela\n• **Catálogo renovado** - Página inicial e catálogo se fundiram em uma única tela com rolagem contínua; os cards agora mostram vagas restantes, preço em destaque e o horário da próxima sessão\n• **Correção de contraste no tema claro** - Corrigido texto escuro sobre fundo escuro no catálogo, na tela de boas-vindas e em telas administrativas quando o tema claro estava ativo\n\n_Atualização publicada em 18/07/2026_",

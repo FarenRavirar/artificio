@@ -1,5 +1,13 @@
 [
   {
+    "id": "2026-08-17-comentarios-no-blog",
+    "title": "Comentários nos posts do blog e busca no site",
+    "body": "O blog deixou de ser via de mão única:\n\n- **Comentários nos posts** - Cada post agora aceita comentários, com respostas encadeadas e moderação\n- **Sino de notificações** - Aviso no topo quando alguém responde você\n- **Comentários antigos preservados** - As conversas que existiam no blog anterior foram importadas e continuam visíveis nos posts\n- **Busca no site** - Ícone de lupa no cabeçalho para procurar em todo o conteúdo publicado\n- **Compartilhamento com prévia** - Título, descrição e imagem próprios ao compartilhar um post em redes sociais e mensageiros\n- **Correção de acentuação** - Textos importados que exibiam códigos no lugar de aspas e acentos foram corrigidos\n\n_Atualização publicada em 17/08/2026_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-08-17T18:00:00-03:00"
+  },
+  {
     "id": "2026-06-21-shell-unificado",
     "title": "Navegacao unificada e busca rapida entre projetos",
     "body": "O portal agora compartilha a mesma navegacao de todos os projetos do Artificio:\n\n• **Cabecalho unificado** - Links para Glossario, Mesas, Downloads, Esferas, SRD e Links direto no topo, em qualquer pagina\n• **Busca rapida** - Pressione / ou clique na lupa para buscar em todo o site\n• **Tema claro/escuro** - Alternador de tema consistente que mantem sua preferencia entre projetos\n• **Menu de conta padronizado** - Perfil Artificio e saida com o mesmo visual dos outros projetos\n• **Rodape alinhado** - Informacoes de copyright, termos e contato padronizados com o restante da suite\n• **Indicador de novidades** - Sino de atualizacoes no cabecalho mostra quando ha novidades nao lidas\n\n_Atualizacao publicada em 21/06/2026_",

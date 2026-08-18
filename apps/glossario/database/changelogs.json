@@ -1,5 +1,13 @@
 [
   {
+    "id": "2026-08-17-conta-unica-e-manutencao",
+    "title": "Login unificado entre projetos e melhorias de estabilidade",
+    "body": "Manutenção com foco em deixar o Glossário afinado com o resto do Artifício:\n\n- **Permissões de conta unificadas** - Seu acesso e suas permissões passaram a ser reconhecidos igualmente em todos os projetos, sem precisar entrar de novo em cada um\n- **Compartilhamento com prévia correta** - Ao compartilhar um link do Glossário, a imagem de prévia agora é a do próprio projeto (antes aparecia a imagem de outro projeto)\n- **Buscas mais previsíveis** - Correção em endereços de busca que, em certos formatos, podiam devolver resultado de outra consulta\n- **Correções de estabilidade** - Ajustes internos de segurança e desempenho, sem mudança no uso do dia a dia\n\n_Atualização publicada em 17/08/2026_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-08-17T18:00:00-03:00"
+  },
+  {
     "id": "2026-06-21-shell-unificado",
     "title": "Navegacao unificada e busca rapida entre projetos",
     "body": "O Glossario agora compartilha a mesma navegacao de todos os projetos do Artificio:\n\n• **Cabecalho unificado** - Links para Portal, Mesas, Downloads, Esferas, SRD e Links direto no topo\n• **Busca rapida** - Icone de lupa no cabecalho para buscar termos em qualquer projeto\n• **Tema claro/escuro consistente** - O alternador de tema mantem sua preferencia entre projetos\n• **Menu de conta padronizado** - Perfil e saida com o mesmo visual dos outros projetos\n• **Rodape alinhado** - Informacoes de copyright, termos e contato padronizados\n• **Indicador de novidades** - Selo de \"novo\" no menu quando ha atualizacoes nao lidas\n\n_Atualizacao publicada em 21/06/2026_",
