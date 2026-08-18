@@ -8,6 +8,10 @@ import * as summaryModule from '../../hooks/useAdminSummary';
 import * as creatorRoleModule from '../../hooks/useCreatorRole';
 
 vi.mock('@artificio/content-editor', () => ({
+  // Mesma conta do pacote real: o mock precisa responder igual, senão o teste
+  // valida um componente que barra o submit por regra diferente da de produção.
+  contentOverflow: (value: string, maxLength?: number) =>
+    maxLength === undefined ? 0 : Math.max(0, value.length - maxLength),
   ContentEditor: ({ value, onChange, label }: { value: string; onChange: (value: string) => void; label: string }) => (
     <textarea aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} />
   ),

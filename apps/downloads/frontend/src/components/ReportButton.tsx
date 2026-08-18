@@ -1,8 +1,11 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { useSession } from '@artificio/auth/client';
-import { ContentEditor } from '@artificio/content-editor';
+import { ContentEditor, contentOverflow } from '@artificio/content-editor';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiPost } from '../services/apiClient';
+
+// Espelha o limite aceito pelo backend para os detalhes da denuncia.
+const DETAILS_MAX_LENGTH = 4000;
 
 type ReportTarget =
   | { materialId: string; commentId?: never }
@@ -87,10 +90,10 @@ export function ReportButton({ target }: Readonly<{ target: ReportTarget }>) {
               {CATEGORY_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
           </label>
-          <ContentEditor label="Detalhes (opcional)" value={details} onChange={setDetails} maxLength={4000} minHeight={112} />
+          <ContentEditor label="Detalhes (opcional)" value={details} onChange={setDetails} maxLength={DETAILS_MAX_LENGTH} minHeight={112} />
           {error && <p id="report-error" role="alert" className="text-sm text-red-600">{error}</p>}
           <div className="flex gap-2">
-            <button type="submit" disabled={submitting} className="min-h-[44px] rounded-md bg-artificio-orange px-4 font-semibold text-white disabled:opacity-50">
+            <button type="submit" disabled={submitting || contentOverflow(details, DETAILS_MAX_LENGTH) > 0} className="min-h-[44px] rounded-md bg-artificio-orange px-4 font-semibold text-white disabled:opacity-50">
               {submitting ? 'Enviando...' : 'Enviar denúncia'}
             </button>
             <button type="button" onClick={toggle} className="min-h-[44px] rounded-md border border-[var(--line)] px-4 text-[var(--fg)]">Cancelar</button>

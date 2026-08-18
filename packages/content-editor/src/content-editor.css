@@ -121,14 +121,25 @@
   background: color-mix(in srgb, var(--color-artificio-orange, #f58220) 35%, transparent);
 }
 
+/* `overflow: auto` (não `hidden`) para que o espelho reserve a mesma faixa de
+   barra de rolagem que o textarea: com larguras internas diferentes as duas
+   camadas quebrariam linha em pontos distintos e o destaque escorregaria. A
+   barra em si fica invisível e o elemento é `pointer-events: none`, então
+   ninguém rola o espelho diretamente — quem manda no scrollTop é o textarea,
+   via syncMirrorScroll. */
 .artificio-content-editor__mirror {
   position: absolute;
   inset: 0;
   z-index: 0;
-  overflow: hidden;
+  overflow: auto;
+  scrollbar-width: none;
   background: var(--surface, #111827);
   color: var(--fg, #f8fafc);
   pointer-events: none;
+}
+
+.artificio-content-editor__mirror::-webkit-scrollbar {
+  display: none;
 }
 
 /* `<mark>` traz fundo amarelo do user-agent; o projeto pinta o excesso em

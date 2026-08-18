@@ -5,6 +5,7 @@ import { SettingStylesField } from '../../SettingStylesField';
 import { ContactsFormBlock, type ContactFormEntry } from '../../ContactsFormBlock';
 import { MarkdownEditor } from '../../MarkdownEditor';
 import { ImageUploader } from '../../ImageUploader';
+import { FINAL_TEXT_LIMITS } from '../../../features/create-table/utils/validation';
 import type {
   ChangeEvent,
   InputHTMLAttributes,
@@ -171,7 +172,7 @@ export function StepFinal(props: StepFinalProps) {
           value={props.rulesNotes}
           onChange={props.setRulesNotes}
           label="Regras e observações da mesa"
-          maxLength={1500}
+          maxLength={FINAL_TEXT_LIMITS.rulesNotes[1]}
           placeholder="Ex: Usamos regras homebrew para combate, proibido PvP, etc."
           height={200}
         />
@@ -268,7 +269,7 @@ export function StepFinal(props: StepFinalProps) {
                 value={props.synopsis}
                 onChange={props.setSynopsis}
                 label="Sinopse narrativa"
-                maxLength={2000}
+                maxLength={FINAL_TEXT_LIMITS.synopsis[1]}
                 placeholder="Uma sinopse mais longa e imersiva da campanha..."
                 height={250}
               />
@@ -278,7 +279,7 @@ export function StepFinal(props: StepFinalProps) {
               label="Benefícios e diferenciais (opcional)"
               value={props.benefitsText}
               onChange={props.setBenefitsText}
-              maxLength={2_000}
+              maxLength={FINAL_TEXT_LIMITS.benefitsText[1]}
               height={180}
               placeholder="Materiais inclusos, suporte entre sessões e outros diferenciais"
             />
@@ -287,7 +288,7 @@ export function StepFinal(props: StepFinalProps) {
               label="Bio do mestre nesta mesa (opcional)"
               value={props.tableGmBio}
               onChange={props.setTableGmBio}
-              maxLength={2_000}
+              maxLength={FINAL_TEXT_LIMITS.tableGmBio[1]}
               height={180}
               placeholder="Apresentação específica para esta mesa"
             />
@@ -298,7 +299,7 @@ export function StepFinal(props: StepFinalProps) {
                 value={props.styleText}
                 onChange={props.setStyleText}
                 label="Descrição do estilo de jogo"
-                maxLength={500}
+                maxLength={FINAL_TEXT_LIMITS.styleText[1]}
                 placeholder="Ex: Roleplay pesado, Combate tático, Sandbox político"
                 height={180}
               />
@@ -330,7 +331,7 @@ export function StepFinal(props: StepFinalProps) {
                 value={props.technicalRequirements}
                 onChange={props.setTechnicalRequirements}
                 label="Requisitos técnicos detalhados"
-                maxLength={1000}
+                maxLength={FINAL_TEXT_LIMITS.technicalRequirements[1]}
                 placeholder="Ex: Roll20 + Discord, Foundry VTT com módulos X, Y"
                 height={180}
               />

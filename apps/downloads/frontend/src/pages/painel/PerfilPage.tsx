@@ -1,10 +1,13 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { ContentEditor } from '@artificio/content-editor';
+import { ContentEditor, contentOverflow } from '@artificio/content-editor';
 import { useSession } from '@artificio/auth/client';
 import { PainelShell } from '../../components/PainelShell';
 import { useCreatorMe, useUpdateOwnCreatorProfile, type CreatorMe } from '../../hooks/useCreatorRole';
+
+// Espelha o limite aceito pelo backend para a bio publica.
+const BIO_MAX_LENGTH = 2000;
 
 function PublicProfileForm({
   profile,
@@ -45,7 +48,7 @@ function PublicProfileForm({
         label="Bio pública"
         value={bio}
         onChange={setBio}
-        maxLength={2000}
+        maxLength={BIO_MAX_LENGTH}
         minHeight={160}
         disabled={updateProfile.isPending}
         placeholder="Conte sobre seu trabalho e os materiais que publica."
@@ -62,7 +65,13 @@ function PublicProfileForm({
 
       <button
         type="submit"
-        disabled={updateProfile.isPending || displayName.trim().length === 0}
+        // O editor avisa sobre o excesso mas não trunca mais, então quem
+        // submete é que barra (achado P1 do Codex, PR #275).
+        disabled={
+          updateProfile.isPending ||
+          displayName.trim().length === 0 ||
+          contentOverflow(bio, BIO_MAX_LENGTH) > 0
+        }
         className="min-h-[44px] rounded-md bg-artificio-orange px-4 py-2 font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
       >
         {updateProfile.isPending ? 'Salvando...' : 'Salvar perfil público'}

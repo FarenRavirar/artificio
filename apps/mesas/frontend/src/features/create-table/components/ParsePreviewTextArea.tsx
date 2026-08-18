@@ -2,6 +2,8 @@ import { useState, useCallback, type FormEvent } from 'react';
 import { Loader2, Sparkles, AlertTriangle } from 'lucide-react';
 import { authPost } from '../../../utils/authenticatedFetch';
 import type { FormState } from '../types/createTable.types';
+// Mesma frase do contador do editor de conteúdo, de uma fonte só.
+import { contentCountLabel, contentOverflow } from '@artificio/content-editor';
 
 interface ParsePreviewResponse {
   parse_case_id: string | null;
@@ -59,7 +61,7 @@ export function ParsePreviewTextArea({ onPreviewReady, currentUserName, text, on
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [suggestedGmName, setSuggestedGmName] = useState<string | null>(null);
 
-  const overflow = Math.max(0, text.length - PASTE_TEXT_MAX_LENGTH);
+  const overflow = contentOverflow(text, PASTE_TEXT_MAX_LENGTH);
   const canSubmit = text.trim().length >= 10 && overflow === 0 && state !== 'sending';
 
   const handleSubmit = useCallback(async (e: FormEvent) => {
@@ -156,9 +158,7 @@ export function ParsePreviewTextArea({ onPreviewReady, currentUserName, text, on
           )}
         </button>
         <span className={`text-xs ${overflow > 0 ? 'text-red-300 font-semibold' : 'text-white/45'}`} aria-live="polite">
-          {overflow > 0
-            ? `${overflow} ${overflow === 1 ? 'caractere' : 'caracteres'} acima do limite`
-            : `Faltam ${PASTE_TEXT_MAX_LENGTH - text.length} de ${PASTE_TEXT_MAX_LENGTH}`}
+          {contentCountLabel(text, PASTE_TEXT_MAX_LENGTH)}
         </span>
       </div>
 

@@ -20,11 +20,18 @@ import {
 
 const ALVO = '44444444-4444-4444-8444-444444444444';
 
+/**
+ * `removed_by_moderator` acompanha `state: 'removed'` por padrão porque é a
+ * combinação que o servidor produz na retirada por moderação — o eixo sob teste
+ * na maioria dos casos é o papel de quem olha, não a origem da retirada. Quem
+ * testa auto-retirada alheia passa `removed_by_moderator: false` explícito.
+ */
 const comment = (over: Partial<ConversationComment> = {}): ConversationComment => ({
   id: ALVO,
   state: 'visible',
   viewer_is_author: false,
   legacy: null,
+  removed_by_moderator: over.state === 'removed',
   ...over,
 } as ConversationComment);
 
@@ -183,19 +190,22 @@ describe('restauração por moderação — o par da retirada', () => {
     expect(permissoes(comment({ state: 'pending_review_hidden' })).moderateRestore).toBe(false);
   });
 
-  it('é condição necessária, não suficiente — quem fecha é o componente', () => {
-    // Achado de review, PR #274. Daqui NÃO dá para saber se a restauração é
-    // possível: o payload colapsa `author_removed` e `moderator_removed` em
-    // `removed` (`communityCommentRead.ts:601-605`), e só o segundo é
-    // reversível (`communityModerationCase.ts:903-909`).
+  it('não promete restaurar auto-retirada alheia, que o servidor sempre recusa', () => {
+    // Achado de review, PR #274. `state` colapsa `author_removed` e
+    // `moderator_removed` em `removed` (`communityCommentRead.ts`), de
+    // propósito — §2 não autoriza dizer ao leitor quem apagou. Mas
+    // `restoreCommentByModerator` recusa `author_removed` com
+    // `409 comment_removed_by_author` (`communityModerationCase.ts:903-909`).
     //
-    // Então esta política devolve `true` para os dois, e `CommentsConversation`
-    // restringe ao que ele mesmo retirou — a fronteira está testada em
-    // `CommentsConversation.test.tsx`. Fixado aqui para que ninguém "conserte"
-    // a política achando que ela mente sozinha: sem o filtro do componente, ela
-    // mentiria mesmo.
+    // `removed_by_moderator` é o que separa os dois sem quebrar o §2: diz se a
+    // ação é possível, não quem a fez.
     const permissoes = resolveViewerPermissions({ viewer: ADMIN });
-    expect(permissoes(comment({ state: 'removed' })).moderateRestore).toBe(true);
+
+    const porModerador = permissoes(comment({ state: 'removed', removed_by_moderator: true }));
+    expect(porModerador.moderateRestore).toBe(true);
+
+    const peloAutor = permissoes(comment({ state: 'removed', removed_by_moderator: false }));
+    expect(peloAutor.moderateRestore).toBe(false);
   });
 
   it('não oferece restauração a usuário comum', () => {

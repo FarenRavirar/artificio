@@ -55,6 +55,40 @@ export interface ContentEditorProps {
   labelledByExternal?: boolean;
 }
 
+/**
+ * Quantos caracteres o valor passou de `maxLength` — 0 quando está dentro do
+ * limite ou quando não há limite.
+ *
+ * Existe porque o editor deixou de TRUNCAR e passou a AVISAR: o excesso agora
+ * entra no valor, então quem submete precisa de uma forma de perguntar se o
+ * conteúdo é enviável. Sem isto cada consumidor reimplementaria
+ * `value.length > max` com o seu próprio número, e a duplicata divergiria do
+ * limite passado ao editor no primeiro ajuste (achado P1 do Codex, PR #275).
+ *
+ * Use para desabilitar o submit:
+ *   `disabled={isPending || contentOverflow(texto, LIMITE) > 0}`
+ */
+export function contentOverflow(value: string, maxLength?: number): number {
+  if (maxLength === undefined) return 0;
+  return Math.max(0, value.length - maxLength);
+}
+
+/**
+ * A frase do contador de caracteres: quanto FALTA enquanto há folga, quanto
+ * PASSOU depois do limite.
+ *
+ * Fica aqui, e não no JSX, porque a versão inline aninhava o ternário do
+ * plural dentro do ternário do estado — ilegível, e apontado pelo Sonar nos
+ * dois lugares onde a mesma frase era montada (PR #275). Sendo uma função só,
+ * o texto do aviso também não diverge entre o editor e quem escreve o próprio
+ * contador, como faz `ParsePreviewTextArea` no mesas.
+ */
+export function contentCountLabel(value: string, maxLength: number): string {
+  const overflow = contentOverflow(value, maxLength);
+  if (overflow === 0) return `Faltam ${maxLength - value.length} de ${maxLength}`;
+  return `${overflow} ${overflow === 1 ? 'caractere' : 'caracteres'} acima do limite`;
+}
+
 type WrapSelection = {
   before: string;
   after?: string;
@@ -104,7 +138,21 @@ export function ContentEditor({
   const editorId = id ?? `content-editor-${generatedId}`;
   const helpId = `${editorId}-help`;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const mirrorRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<'write' | 'preview'>('write');
+
+  // Texto acima do limite costuma passar da altura do campo, e aí o textarea
+  // rola enquanto o espelho — absoluto — ficaria em scrollTop 0. Como o texto
+  // real é transparente, o usuário veria o começo imóvel do espelho enquanto
+  // digita no meio do conteúdo: a marca do excesso deixaria de cair sobre o
+  // texto que ela marca (achado P2 do Codex, PR #275).
+  const syncMirrorScroll = () => {
+    const textarea = textareaRef.current;
+    const mirror = mirrorRef.current;
+    if (!textarea || !mirror) return;
+    mirror.scrollTop = textarea.scrollTop;
+    mirror.scrollLeft = textarea.scrollLeft;
+  };
 
   // O limite passou a ser AVISO, não trava (pedido do mantenedor, 2026-08-18,
   // modelo Twitter). O comportamento anterior — `maxLength` nativo no textarea
@@ -117,8 +165,7 @@ export function ContentEditor({
   // Consequência que o consumidor PRECISA cobrir: o campo agora aceita valor
   // acima do limite, então quem monta o formulário valida antes de enviar
   // (caso contrário o excesso só apareceria como 400 genérico do backend).
-  const overflow = maxLength === undefined ? 0 : Math.max(0, value.length - maxLength);
-  const remaining = maxLength === undefined ? 0 : Math.max(0, maxLength - value.length);
+  const overflow = contentOverflow(value, maxLength);
 
   function replaceSelection({ before, after = before, fallback }: WrapSelection) {
     const textarea = textareaRef.current;
@@ -192,9 +239,7 @@ export function ContentEditor({
             className={`artificio-content-editor__count${overflow > 0 ? ' artificio-content-editor__count--over' : ''}`}
             aria-live="polite"
           >
-            {overflow > 0
-              ? `${overflow} ${overflow === 1 ? 'caractere' : 'caracteres'} acima do limite`
-              : `Faltam ${remaining} de ${maxLength}`}
+            {contentCountLabel(value, maxLength)}
           </span>
         )}
       </div>
@@ -230,9 +275,14 @@ export function ContentEditor({
             caracteres em excesso já é anunciado pelo contador aria-live. */}
         <div className="artificio-content-editor__input-stack">
           {overflow > 0 && (
-            <div className="artificio-content-editor__mirror" aria-hidden="true" style={{ minHeight }}>
+            <div ref={mirrorRef} className="artificio-content-editor__mirror" aria-hidden="true" style={{ minHeight }}>
               {value.slice(0, maxLength)}
               <mark className="artificio-content-editor__overflow">{value.slice(maxLength)}</mark>
+              {/* Fecha o texto com uma quebra: sem ela, um valor terminado em
+                  "\n" perde a última linha vazia no espelho (o HTML colapsa),
+                  e o alinhamento desanda justamente no fim, que é onde o
+                  excesso costuma estar. */}
+              {'\n'}
             </div>
           )}
           <textarea
@@ -240,7 +290,14 @@ export function ContentEditor({
             id={editorId}
             className={`artificio-content-editor__textarea${overflow > 0 ? ' artificio-content-editor__textarea--mirrored' : ''}`}
             value={value}
-            onChange={(event) => onChange(event.target.value)}
+            onChange={(event) => {
+              onChange(event.target.value);
+              // Digitar/colar rola o campo sem emitir `scroll` de forma
+              // confiável em todo browser; sincronizar aqui também mantém o
+              // espelho colado ao texto durante a edição, não só ao rolar.
+              syncMirrorScroll();
+            }}
+            onScroll={syncMirrorScroll}
             aria-label={labelledByExternal ? undefined : label}
             aria-describedby={helpText ? helpId : undefined}
             placeholder={placeholder}

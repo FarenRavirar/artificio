@@ -427,8 +427,16 @@ export const PainelMestrePage = () => {
 
     setEditingTableId(null);
     setEditingTableData(null);
+    // O rascunho colado só deve sobreviver ao ir-e-voltar DENTRO de uma criação
+    // (é para isso que ele subiu para a página). Ao sair para o dashboard —
+    // publicou, arquivou, cancelou — o fluxo acabou, e mantê-lo faria o anúncio
+    // já publicado reaparecer inteiro na próxima "Nova Mesa" (achado P2 do
+    // Codex, PR #275).
+    setPastePreviewData(null);
+    setPasteSourceText('');
+    setCreateTableEntryMode('choice');
     window.history.replaceState({}, '', '/painel');
-    
+
     setView('dashboard');
     setLoadingProfile(true);
 
@@ -662,6 +670,13 @@ export const PainelMestrePage = () => {
                 // 2026-08-18). `pastePreviewData` é o que marca essa origem.
                 onClick={() => {
                   if (editingTableId) {
+                    // Sair da edição precisa desfazer o que a abriu: o estado
+                    // E o `?edit=` da URL. O efeito que carrega o painel
+                    // depende de `searchParams` e reabre a edição enquanto o
+                    // parâmetro estiver lá (achado de review, PR #275).
+                    setEditingTableId(null);
+                    setEditingTableData(null);
+                    window.history.replaceState({}, '', '/painel');
                     setView('dashboard');
                     return;
                   }
@@ -728,7 +743,15 @@ export const PainelMestrePage = () => {
                 )}
                 <button
                   id="btn-nova-mesa"
-                  onClick={() => { setCreateTableEntryMode('choice'); setView('create-table'); }}
+                  // Começar uma mesa nova zera o rascunho colado: sem isto,
+                  // "Colar anúncio" reabriria com o texto de uma criação
+                  // anterior (achado P2 do Codex, PR #275).
+                  onClick={() => {
+                    setPastePreviewData(null);
+                    setPasteSourceText('');
+                    setCreateTableEntryMode('choice');
+                    setView('create-table');
+                  }}
                   className="flex items-center gap-2 px-5 py-3 bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] text-white font-semibold rounded-xl transition-colors cursor-pointer"
                 >
                   <PlusCircle className="w-5 h-5" />

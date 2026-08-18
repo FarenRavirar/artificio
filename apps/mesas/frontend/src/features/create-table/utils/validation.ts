@@ -11,6 +11,29 @@ import { validateContactValue } from '../../../utils/safeExternalUrl';
 export const DESCRIPTION_MAX_LENGTH = 5000;
 
 /**
+ * Limites dos campos livres do StepFinal, espelhando `baseTableSchema` em
+ * backend/src/validators/tableValidators.ts (linhas 152-178). Cada entrada é
+ * `[rótulo exibido no erro, limite]`.
+ *
+ * Existem porque o editor deixou de truncar: antes, `slice()` no `onChange`
+ * garantia o limite calando o excesso; agora o excesso entra no estado e
+ * precisa ser barrado ANTES do envio, senão vira 400 genérico do backend
+ * (achado P1 do Codex, PR #275).
+ *
+ * `rulesNotes` e `styleText` estavam mais restritivos que o backend (1500 e
+ * 500, contra 2000 e 1000) — mesmo defeito da descrição, corrigido junto.
+ */
+export const FINAL_TEXT_LIMITS = {
+  rulesNotes: ['Regras e observações', 2000],
+  synopsis: ['Sinopse', 2000],
+  synopsisNarrative: ['Sinopse narrativa', 3000],
+  benefitsText: ['Benefícios e diferenciais', 2000],
+  tableGmBio: ['Bio do mestre nesta mesa', 2000],
+  styleText: ['Descrição do estilo de jogo', 1000],
+  technicalRequirements: ['Requisitos técnicos', 1000],
+} as const satisfies Record<string, readonly [string, number]>;
+
+/**
  * Validators reutilizáveis - retornam null se válido, string de erro se inválido
  */
 export const validators = {
@@ -162,7 +185,17 @@ export function validateStep(step: number, data: FormState): string[] {
   }
 
   if (step === 5) {
-    // Step 5: Finalização (contatos)
+    // Step 5: Finalização — campos livres + contatos.
+    // O editor avisa sobre o excesso mas não trunca mais; sem esta checagem o
+    // texto acima do limite seguiria para o backend e voltaria como 400
+    // genérico, longe do campo que o causou (achado P1 do Codex, PR #275).
+    for (const [campo, [rotulo, limite]] of Object.entries(FINAL_TEXT_LIMITS)) {
+      const valor = data[campo as keyof FormState];
+      if (typeof valor === 'string' && valor.length > limite) {
+        errors.push(`${rotulo}: ${valor.length - limite} caracteres acima do limite de ${limite}`);
+      }
+    }
+
     const contactsError = validators.contacts(data.contacts);
     if (contactsError) errors.push(contactsError);
   }

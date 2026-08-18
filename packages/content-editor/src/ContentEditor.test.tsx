@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
-import { ContentEditor, renderMarkdown } from './ContentEditor.js';
+import { ContentEditor, contentCountLabel, contentOverflow, renderMarkdown } from './ContentEditor.js';
 
 function EditorHarness() {
   const [value, setValue] = useState('');
@@ -147,6 +147,21 @@ describe('ContentEditor', () => {
     expect(screen.getByRole('textbox').hasAttribute('maxlength')).toBe(false);
   });
 
+  it('acompanha o scroll do textarea com o espelho do excesso', () => {
+    // Texto acima do limite passa da altura do campo: sem sincronizar, o
+    // espelho ficaria no topo enquanto o caret está no meio, e a marca do
+    // excesso escorregaria para longe do texto que ela marca (achado P2 do
+    // Codex, PR #275).
+    const { container } = render(<LimitedHarness initial={'linha\n'.repeat(40)} max={10} />);
+    const campo = screen.getByRole('textbox');
+    const espelho = container.querySelector('.artificio-content-editor__mirror') as HTMLElement;
+
+    campo.scrollTop = 120;
+    fireEvent.scroll(campo);
+
+    expect(espelho.scrollTop).toBe(120);
+  });
+
   it('mantém os comandos da toolbar funcionando acima do limite', () => {
     render(<LimitedHarness initial={'a'.repeat(12)} max={10} />);
 
@@ -155,6 +170,32 @@ describe('ContentEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Negrito' }));
 
     expect((screen.getByRole('textbox') as HTMLTextAreaElement).value).toBe(`**texto em negrito**${'a'.repeat(12)}`);
+  });
+});
+
+describe('contentOverflow', () => {
+  // Contrato que os consumidores usam para barrar o submit: o editor deixou de
+  // truncar, então sem isto o excesso chegaria ao backend como 400 genérico
+  // (achado P1 do Codex, PR #275).
+  it('devolve 0 dentro do limite e a diferença acima dele', () => {
+    expect(contentOverflow('abc', 10)).toBe(0);
+    expect(contentOverflow('a'.repeat(10), 10)).toBe(0);
+    expect(contentOverflow('a'.repeat(13), 10)).toBe(3);
+  });
+
+  it('devolve 0 quando não há limite definido', () => {
+    expect(contentOverflow('a'.repeat(9999))).toBe(0);
+  });
+});
+
+describe('contentCountLabel', () => {
+  it('diz quanto falta enquanto há folga e quanto passou depois do limite', () => {
+    expect(contentCountLabel('abc', 10)).toBe('Faltam 7 de 10');
+    expect(contentCountLabel('a'.repeat(13), 10)).toBe('3 caracteres acima do limite');
+  });
+
+  it('singulariza o excesso de um caractere', () => {
+    expect(contentCountLabel('a'.repeat(11), 10)).toBe('1 caractere acima do limite');
   });
 });
 

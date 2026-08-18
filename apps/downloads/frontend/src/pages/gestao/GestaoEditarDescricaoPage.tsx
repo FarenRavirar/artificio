@@ -1,11 +1,14 @@
 import { useState, type FormEvent } from 'react';
-import { ContentEditor } from '@artificio/content-editor';
+import { ContentEditor, contentOverflow } from '@artificio/content-editor';
 import { PageHeader, SectionCard } from '@artificio/ui/admin';
 import { useParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { GestaoShell } from '../../components/GestaoShell';
 import { useAdminMedia } from '../../hooks/useAdminMedia';
 import { useUpdateMaterialMetadata } from '../../hooks/useUpdateMaterialMetadata';
+
+// Espelha o limite aceito pelo backend para a descricao do material.
+const DESCRIPTION_MAX_LENGTH = 50000;
 
 export function GestaoEditarDescricaoPage() {
   const { materialId } = useParams<{ materialId: string }>();
@@ -55,12 +58,12 @@ export function GestaoEditarDescricaoPage() {
             onChange={setDescriptionMarkdown}
             disabled={updateMetadata.isPending}
             label={`Descrição de ${material.material_title}`}
-            maxLength={50000}
+            maxLength={DESCRIPTION_MAX_LENGTH}
           />
           <div className="mt-4 flex justify-end">
             <button
               type="submit"
-              disabled={updateMetadata.isPending}
+              disabled={updateMetadata.isPending || contentOverflow(descriptionMarkdown, DESCRIPTION_MAX_LENGTH) > 0}
               className="min-h-11 rounded-md bg-artificio-orange px-5 py-2 font-semibold text-white disabled:opacity-50"
             >
               {updateMetadata.isPending ? 'Salvando…' : 'Salvar descrição'}
