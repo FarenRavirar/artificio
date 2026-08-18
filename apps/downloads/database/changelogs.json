@@ -1,5 +1,13 @@
 [
   {
+    "id": "2026-08-17-comentarios-denuncia-e-editor",
+    "title": "Comentários nos materiais, editor de descrição e ferramenta de denúncia",
+    "body": "A maior atualização do Downloads até aqui:\n\n- **Comentários nos materiais** - Cada material agora tem espaço de conversa, com respostas encadeadas e moderação\n- **Sino de notificações** - Aviso no topo quando alguém responde você, atualizado ao voltar para a aba\n- **Editor de descrição rico** - A descrição do material passou a aceitar formatação (negrito, listas, links) em vez de texto puro\n- **Denúncia unificada** - Uma única ferramenta para reportar problema em material, com acompanhamento e caminho de contestação\n- **Triagem de sistemas** - Sugestões de sistema enviadas pela comunidade agora passam por uma tela de triagem, com aprovação, fusão ou recusa\n- **Capas mais seguras** - O envio de capa ficou mais rigoroso quanto a formato e nome de arquivo\n- **Compartilhamento com prévia** - Páginas de material ganharam título, descrição e imagem próprios ao serem compartilhadas\n\n_Atualização publicada em 17/08/2026_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-08-17T18:00:00-03:00"
+  },
+  {
     "id": "2026-07-12-gestao-admin-e-notificacoes",
     "title": "Painel de gestão para moderadores e notificações reais",
     "body": "Lançamos o painel administrativo do Downloads e destravamos notificações que ainda eram só leitura:\n\n• **Painel de gestão** - Moderadores e admins agora têm `/gestao` completo: fila de moderação com ações em lote, denúncias por prioridade, auditoria com histórico completo de links já usados, checagem de link sob demanda e métricas\n• **Notificações de verdade** - Você recebe aviso quando seu material é aprovado ou rejeitado, e quando uma denúncia sua é resolvida\n• **Minhas denúncias** - O painel agora mostra o andamento das denúncias que você mesmo abriu\n• **Adicionar à coleção na ficha** - Dá para adicionar um material a uma das suas coleções direto na página dele, sem precisar ir ao painel\n• **Campo de editora** - Materiais podem informar a editora/selo responsável\n\n_Atualização publicada em 12/07/2026_",
