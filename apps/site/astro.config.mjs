@@ -5,10 +5,19 @@ import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
 
 // Site público (blog) — SSG. Domínio via PUBLIC_SITE_URL (env) p/ beta/prod distintos (spec 030 R11).
+
+// Ambiente não-público não gera sitemap (achado do mantenedor, PR #271).
+//
+// `SITE_NOINDEX` cobria só o header `X-Robots-Tag` em runtime, e o `robots.txt` passou a emitir
+// `Disallow: /` na mesma PR. Faltava o próprio arquivo: o sitemap continuava sendo GERADO e ficava
+// acessível em `/sitemap-0.xml` mesmo sem estar referenciado, listando as URLs de beta para quem
+// (ou o que) fosse direto nele. Um sitemap é um convite explícito a rastrear; beta não emite.
+const noindex = process.env.SITE_NOINDEX === "true";
+
 export default defineConfig({
   site: process.env.PUBLIC_SITE_URL || "https://artificiorpg.com",
   trailingSlash: "always",
-  integrations: [sitemap(), react()],
+  integrations: noindex ? [react()] : [sitemap(), react()],
   // Site sem markdown — desabilita syntax highlighting (remove warning CSP/Shiki)
   markdown: { syntaxHighlight: false },
   vite: {
