@@ -162,6 +162,68 @@ describe('ContentEditor', () => {
     expect(espelho.scrollTop).toBe(120);
   });
 
+  it('barra o submit nativo acima do limite, sem o formulário precisar conferir', () => {
+    // Este é o piso que dispensa adaptar consumidor a consumidor: o form
+    // abaixo NÃO checa tamanho nenhum, e mesmo assim não submete. Adaptar tela
+    // a tela já falhou uma vez — cobri 8 e deixei 13 passando (achado P1 do
+    // Codex, PR #275, segunda rodada).
+    const onSubmit = vi.fn();
+    render(
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit();
+        }}
+      >
+        <ContentEditor value={'a'.repeat(13)} onChange={vi.fn()} label="Mensagem" maxLength={10} />
+        <button type="submit">Enviar</button>
+      </form>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect((screen.getByRole('textbox') as HTMLTextAreaElement).validationMessage).toBe(
+      'Reduza 3 caracteres: o limite é 10.',
+    );
+  });
+
+  it('libera o submit assim que o texto volta para dentro do limite', () => {
+    const onSubmit = vi.fn();
+    render(
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit();
+        }}
+      >
+        <ContentEditor value="curto" onChange={vi.fn()} label="Mensagem" maxLength={10} />
+        <button type="submit">Enviar</button>
+      </form>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it('posiciona o espelho já na primeira vez que o excesso aparece', () => {
+    // Transição de 0 para positivo: o espelho nasce DEPOIS do onChange que o
+    // criou, então sincronizar só no handler o deixaria no topo enquanto o
+    // textarea já está rolado (achado de review, PR #275).
+    const { container } = render(<LimitedHarness max={10} />);
+    const campo = screen.getByRole('textbox') as HTMLTextAreaElement;
+
+    expect(container.querySelector('.artificio-content-editor__mirror')).toBeNull();
+
+    campo.scrollTop = 90;
+    fireEvent.change(campo, { target: { value: 'linha\n'.repeat(40) } });
+
+    const espelho = container.querySelector('.artificio-content-editor__mirror') as HTMLElement;
+    expect(espelho).not.toBeNull();
+    expect(espelho.scrollTop).toBe(90);
+  });
+
   it('mantém os comandos da toolbar funcionando acima do limite', () => {
     render(<LimitedHarness initial={'a'.repeat(12)} max={10} />);
 

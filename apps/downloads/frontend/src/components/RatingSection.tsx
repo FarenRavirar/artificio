@@ -144,7 +144,12 @@ export function RatingSection({ materialId }: Readonly<{ materialId: string }>) 
             // submete é que barra: sem isto o texto acima do limite viraria um
             // 400 do backend em vez de correção na tela (achado P1 do Codex,
             // PR #275).
-            disabled={submitMutation.isPending || contentOverflow(comment, COMMENT_MAX_LENGTH) > 0}
+            //
+            // Medido sobre o valor TRIMADO porque é o que a mutation envia
+            // (`comment.trim()` acima). Conferir o valor cru travaria o botão
+            // por espaços que nunca chegam ao backend — e o contador ao lado
+            // diria que está dentro do limite, sem nada explicando a trava.
+            disabled={submitMutation.isPending || contentOverflow(comment.trim(), COMMENT_MAX_LENGTH) > 0}
             className="min-h-[44px] w-fit rounded-md bg-artificio-orange px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             Avaliar

@@ -197,12 +197,18 @@ export interface PublicComment {
    * reversível por `POST /internal/v1/comments/:id/restore`.
    *
    * Booleano derivado, mesmo padrão de `viewer_is_author`: responde "dá para
-   * restaurar?" sem dizer quem apagou. O estado público continua colapsando
-   * `author_removed` e `moderator_removed` em `removed` (§2), porque o
-   * julgamento de autoria da remoção é dado de moderação; o que atravessa é a
-   * capacidade, não a proveniência.
+   * restaurar?", e **só para quem pode restaurar**. O estado público continua
+   * colapsando `author_removed` e `moderator_removed` em `removed` (§2), porque
+   * o julgamento de autoria da remoção é dado de moderação.
    *
-   * `false` em comentário visível, em auto-retirada e em `pending_review_hidden`.
+   * **Só é `true` quando o leitor tem papel de moderação** (`viewerIsModerator`).
+   * Sem essa trava o campo respondia "foi a moderação ou foi o autor?" para
+   * visitante anônimo — as fachadas repassam esta resposta em `GET` público sem
+   * filtrar campo — e desfazia o colapso do §2 que ele deveria respeitar
+   * (achado de review, PR #275).
+   *
+   * `false` em comentário visível, em auto-retirada, em `pending_review_hidden`
+   * e para todo leitor que não modera.
    */
   removed_by_moderator: boolean;
   /**
@@ -286,6 +292,15 @@ export interface ReadTreeOptions {
   snapshotRevision?: number;
   /** Ator do leitor, para `my_vote`. Ausente em leitura pública. */
   actingActorId?: string | null;
+  /**
+   * O leitor tem papel de moderação. Só isso libera `removed_by_moderator`.
+   *
+   * Derivado de `users.role` no servidor, nunca do request — a mesma origem que
+   * `requireModeratorRole` usa. Ausente ou `false` em leitura pública, que é o
+   * default seguro: o campo responde "quem retirou?", e essa pergunta não pode
+   * ter resposta para quem não modera (`contrato-http-v1.md` §2).
+   */
+  viewerIsModerator?: boolean;
   /**
    * Posição total da última linha servida (`sort_key` do cursor). A query
    * retoma **estritamente depois** dela.
@@ -421,7 +436,7 @@ export async function readSubjectRevision(
  */
 export async function readCommentTree(
   db: Kysely<Database>,
-  { subject, sort, snapshotRevision, actingActorId, after, branchId }: ReadTreeOptions,
+  { subject, sort, snapshotRevision, actingActorId, viewerIsModerator, after, branchId }: ReadTreeOptions,
   fetchLimit: number,
 ): Promise<ReadTreeResult> {
   const revision =
@@ -437,6 +452,9 @@ export async function readCommentTree(
   // condicionalmente daria dois planos de query para manter, e o `LEFT JOIN`
   // com ator nulo simplesmente não casa linha nenhuma.
   const actorParam = actingActorId ?? null;
+  // Default fechado: quem não provou papel de moderação não recebe a origem da
+  // retirada. Ver o comentário no SELECT de `removed_by_moderator`.
+  const moderatorParam = viewerIsModerator === true;
   const afterParam = after ?? null;
   const branchParam = branchId ?? null;
 
@@ -519,7 +537,19 @@ export async function readCommentTree(
         -- false, e nao null, quando o comentario esta visivel: a pergunta so faz
         -- sentido sobre retirado, e null forcaria todo consumidor a tratar o
         -- terceiro estado sem ganhar informacao nenhuma.
-        (c.visibility_state = 'moderator_removed') as removed_by_moderator,
+        --
+        -- ${moderatorParam} e a TRAVA: sem ela o campo respondia "foi a
+        -- moderacao ou foi o autor?" para visitante anonimo, desfazendo o
+        -- colapso que publicState faz de proposito e que o contrato-http-v1 §2
+        -- exige. As fachadas de mesas/downloads/site repassam esta resposta em
+        -- GET publico sem filtrar campo (achado de review, PR #275).
+        --
+        -- Quem nao modera recebe false, que e o mesmo que o campo diz sobre
+        -- auto-retirada: indistinguivel de fora, e suficiente por dentro —
+        -- o unico consumidor e moderateRestore (viewerPermissions.ts:194), que
+        -- ja exige papel de moderacao na mesma linha.
+        (${moderatorParam}::boolean
+          and c.visibility_state = 'moderator_removed') as removed_by_moderator,
         row_number() over (
           partition by c.parent_id
           order by ${order}

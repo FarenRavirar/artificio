@@ -1,6 +1,6 @@
 import DOMPurify from 'dompurify';
 import MarkdownIt from 'markdown-it';
-import { useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
 const markdown = new MarkdownIt({
   html: false,
@@ -154,6 +154,18 @@ export function ContentEditor({
     mirror.scrollLeft = textarea.scrollLeft;
   };
 
+  // O excesso barra o submit pela CONSTRAINT VALIDATION do browser, não por
+  // cada formulário lembrar de conferir. Tentar adaptar consumidor a consumidor
+  // não escala e já falhou: numa primeira passagem eu cobri 8 telas e deixei 13
+  // passando (achado P1 do Codex, PR #275, segunda rodada). O mesmo mecanismo
+  // que faz `required` funcionar aqui — o textarea segue montado inclusive na
+  // Prévia, exatamente para isso (review PR #227) — resolve para todo mundo:
+  // `setCustomValidity` faz `form.submit` parar sozinho e o browser aponta a
+  // mensagem no campo.
+  //
+  // `contentOverflow` continua exportado para quem precisa desabilitar o botão
+  // ou validar fora de um `<form>`; isto aqui é o piso que ninguém precisa
+  // lembrar de ligar.
   // O limite passou a ser AVISO, não trava (pedido do mantenedor, 2026-08-18,
   // modelo Twitter). O comportamento anterior — `maxLength` nativo no textarea
   // mais `return` mudo nos comandos da toolbar — descartava silenciosamente o
@@ -162,10 +174,25 @@ export function ContentEditor({
   // Deixar o excesso entrar e marcá-lo em vermelho preserva o texto do usuário
   // e mostra exatamente quanto precisa cortar.
   //
-  // Consequência que o consumidor PRECISA cobrir: o campo agora aceita valor
-  // acima do limite, então quem monta o formulário valida antes de enviar
-  // (caso contrário o excesso só apareceria como 400 genérico do backend).
+  // O excesso não some do valor, mas também não vaza para o backend: o efeito
+  // logo abaixo o transforma em erro de constraint validation, então qualquer
+  // <form> para o submit sozinho.
   const overflow = contentOverflow(value, maxLength);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.setCustomValidity(
+      overflow > 0 ? `Reduza ${overflow} ${overflow === 1 ? 'caractere' : 'caracteres'}: o limite é ${maxLength}.` : '',
+    );
+  }, [overflow, maxLength]);
+
+  // O espelho só existe no DOM quando há excesso, então na transição de 0 para
+  // positivo ele nasce DEPOIS do `onChange` que o criou — a sincronização
+  // daquele handler roda com `mirrorRef.current` ainda nulo e o espelho aparece
+  // no topo, enquanto o textarea já está rolado (achado de review, PR #275).
+  // Um efeito pós-commit alcança o nó recém-montado.
+  useEffect(syncMirrorScroll, [overflow, value]);
 
   function replaceSelection({ before, after = before, fallback }: WrapSelection) {
     const textarea = textareaRef.current;

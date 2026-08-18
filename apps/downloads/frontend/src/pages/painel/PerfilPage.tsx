@@ -70,7 +70,7 @@ function PublicProfileForm({
         disabled={
           updateProfile.isPending ||
           displayName.trim().length === 0 ||
-          contentOverflow(bio, BIO_MAX_LENGTH) > 0
+          contentOverflow(bio.trim(), BIO_MAX_LENGTH) > 0
         }
         className="min-h-[44px] rounded-md bg-artificio-orange px-4 py-2 font-medium text-white disabled:cursor-not-allowed disabled:opacity-60"
       >

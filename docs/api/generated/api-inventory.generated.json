@@ -364,7 +364,7 @@
       "method": "GET",
       "path": "/internal/v1/comments",
       "sourceFile": "apps/accounts/src/communityCommentRoutes.ts",
-      "line": 154,
+      "line": 181,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -373,7 +373,7 @@
       "method": "POST",
       "path": "/internal/v1/comments",
       "sourceFile": "apps/accounts/src/communityCommentRoutes.ts",
-      "line": 166,
+      "line": 193,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -382,7 +382,7 @@
       "method": "DELETE",
       "path": "/internal/v1/comments/:id",
       "sourceFile": "apps/accounts/src/communityCommentRoutes.ts",
-      "line": 203,
+      "line": 230,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -391,7 +391,7 @@
       "method": "PATCH",
       "path": "/internal/v1/comments/:id",
       "sourceFile": "apps/accounts/src/communityCommentRoutes.ts",
-      "line": 194,
+      "line": 221,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -409,7 +409,7 @@
       "method": "POST",
       "path": "/internal/v1/comments/:id/replies",
       "sourceFile": "apps/accounts/src/communityCommentRoutes.ts",
-      "line": 175,
+      "line": 202,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -445,7 +445,7 @@
       "method": "PUT",
       "path": "/internal/v1/comments/:id/vote",
       "sourceFile": "apps/accounts/src/communityCommentRoutes.ts",
-      "line": 219,
+      "line": 246,
       "confidence": "high",
       "kind": "express-route"
     },

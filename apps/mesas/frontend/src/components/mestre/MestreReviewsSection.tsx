@@ -106,7 +106,7 @@ export function MestreReviewsSection({ slug }: MestreReviewsSectionProps) {
             ))}
           </div>
           <MarkdownEditor label="Comentário (opcional)" value={comment} onChange={setComment} maxLength={REVIEW_COMMENT_MAX_LENGTH} height={128} />
-          <button type="button" onClick={() => void handleSubmit({ rating, tags, comment: comment.trim() })} disabled={rating < 1 || isSubmitting || contentOverflow(comment, REVIEW_COMMENT_MAX_LENGTH) > 0} className="mt-3 rounded-lg bg-artificio-orange px-4 py-2 font-semibold text-white disabled:opacity-50">
+          <button type="button" onClick={() => void handleSubmit({ rating, tags, comment: comment.trim() })} disabled={rating < 1 || isSubmitting || contentOverflow(comment.trim(), REVIEW_COMMENT_MAX_LENGTH) > 0} className="mt-3 rounded-lg bg-artificio-orange px-4 py-2 font-semibold text-white disabled:opacity-50">
             Enviar avaliação
           </button>
         </div>

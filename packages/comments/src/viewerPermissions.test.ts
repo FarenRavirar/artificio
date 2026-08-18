@@ -39,6 +39,31 @@ const MODERATOR = { role: 'moderator' as const };
 const ADMIN = { role: 'admin' as const };
 const COMUM = { role: 'user' as const };
 
+describe('removed_by_moderator inconsistente com state é inerte', () => {
+  // Um review sugeriu rejeitar no parser a combinação
+  // `removed_by_moderator: true` + estado não-retirado. Descartado com medição:
+  // a política já exige `isRemoved` na MESMA expressão, então a combinação não
+  // liga botão nem revela nada — enquanto `superRefine` derruba o parse do
+  // ARRAY inteiro (o próprio conversation.ts documenta isso), trocando a
+  // conversa por `schema_incompatible`. Estes testes fixam a inércia, para que
+  // ninguém precise refazer a medição.
+  it('não oferece restaurar sobre comentário visível', () => {
+    const permissoes = resolveViewerPermissions({ viewer: MODERATOR })(
+      comment({ state: 'visible', removed_by_moderator: true }),
+    );
+
+    expect(permissoes.moderateRestore).toBe(false);
+  });
+
+  it('não oferece restaurar sobre comentário aguardando revisão', () => {
+    const permissoes = resolveViewerPermissions({ viewer: MODERATOR })(
+      comment({ state: 'pending_review_hidden', removed_by_moderator: true }),
+    );
+
+    expect(permissoes.moderateRestore).toBe(false);
+  });
+});
+
 describe('equivalência com o papel global do accounts.', () => {
   it('cobre exatamente os papéis declarados por UserRole em @artificio/auth', () => {
     // `viewerPermissions.ts` reafirma o alias em vez de importá-lo, para não

@@ -63,7 +63,7 @@ export function GestaoEditarDescricaoPage() {
           <div className="mt-4 flex justify-end">
             <button
               type="submit"
-              disabled={updateMetadata.isPending || contentOverflow(descriptionMarkdown, DESCRIPTION_MAX_LENGTH) > 0}
+              disabled={updateMetadata.isPending || contentOverflow(descriptionMarkdown.trim(), DESCRIPTION_MAX_LENGTH) > 0}
               className="min-h-11 rounded-md bg-artificio-orange px-5 py-2 font-semibold text-white disabled:opacity-50"
             >
               {updateMetadata.isPending ? 'Salvando…' : 'Salvar descrição'}

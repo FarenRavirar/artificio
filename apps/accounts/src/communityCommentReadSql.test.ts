@@ -45,10 +45,15 @@ import { readCommentTree } from "./communityCommentRead.js";
 /** Captura o SQL final — o compilador é o de Postgres, o driver só não conecta. */
 function captureDb() {
   const sqls: string[] = [];
+  // Parâmetros junto com o SQL: a trava de `removed_by_moderator` vive no VALOR
+  // ligado, não no texto da query — ler só o SQL não distingue moderador de
+  // anônimo (achado de review, PR #275).
+  const params: readonly unknown[][] = [];
 
   const connection: DatabaseConnection = {
     executeQuery: async <R>(compiled: CompiledQuery): Promise<QueryResult<R>> => {
       sqls.push(compiled.sql);
+      (params as unknown[][]).push([...compiled.parameters]);
       return { rows: [] };
     },
     streamQuery: async function* () {
@@ -76,7 +81,7 @@ function captureDb() {
     },
   });
 
-  return { db, sqls };
+  return { db, sqls, params };
 }
 
 const SUBJECT = {
@@ -106,6 +111,75 @@ async function sqlFor(sort: "best" | "top" | "new" | "old"): Promise<string> {
   // — o teste passaria comparando `new` consigo mesmo.
   return capture.sqls.at(-1) ?? "";
 }
+
+/** Parâmetros ligados na última query capturada. */
+function lastParams(): readonly unknown[] {
+  return capture.params.at(-1) ?? [];
+}
+
+describe("removed_by_moderator — origem da retirada não vaza ao público", () => {
+  // O campo responde "foi a moderação ou foi o autor?". O `state` público
+  // colapsa os dois casos de propósito (`contrato-http-v1.md` §2), e as
+  // fachadas repassam a resposta do accounts em GET público sem filtrar campo:
+  // sem esta trava, qualquer visitante anônimo redescobria a proveniência que o
+  // colapso esconde (achado de review, PR #275).
+  it("liga false para leitor sem papel de moderação", async () => {
+    await readCommentTree(
+      capture.db,
+      { subject: SUBJECT, sort: "best", snapshotRevision: 7, actingActorId: null },
+      100,
+    );
+
+    expect(lastParams()).toContain(false);
+    expect(lastParams()).not.toContain(true);
+  });
+
+  it("liga false também para leitor logado que não modera", async () => {
+    await readCommentTree(
+      capture.db,
+      {
+        subject: SUBJECT,
+        sort: "best",
+        snapshotRevision: 7,
+        actingActorId: "11111111-1111-4111-8111-111111111111",
+        viewerIsModerator: false,
+      },
+      100,
+    );
+
+    expect(lastParams()).not.toContain(true);
+  });
+
+  it("liga true apenas quando o leitor modera", async () => {
+    await readCommentTree(
+      capture.db,
+      {
+        subject: SUBJECT,
+        sort: "best",
+        snapshotRevision: 7,
+        actingActorId: "11111111-1111-4111-8111-111111111111",
+        viewerIsModerator: true,
+      },
+      100,
+    );
+
+    expect(lastParams()).toContain(true);
+  });
+
+  it("condiciona o campo ao parâmetro, e não só ao estado da coluna", async () => {
+    const sql = await sqlFor("best");
+
+    // A trava tem de estar DENTRO da expressão do campo: um `and` solto em
+    // outro lugar do SQL passaria numa asserção frouxa e deixaria o vazamento.
+    const expressao = sql
+      .slice(0, sql.indexOf(" as removed_by_moderator"))
+      .split("(")
+      .at(-1);
+
+    expect(expressao).toContain("::boolean");
+    expect(expressao).toContain("visibility_state = 'moderator_removed'");
+  });
+});
 
 describe("viewer_is_author (DEB-090-VIEWER-AUTHOR)", () => {
   it("deriva o booleano do ator do leitor, sem expor identificador", async () => {
