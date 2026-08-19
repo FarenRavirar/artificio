@@ -336,6 +336,17 @@ parcial por mais tempo e daria ao usuário uma experiência que muda duas vezes.
 - [ ] T3.12 — **`notification_event`/`notification_receipt` é a base única** (requisito 13a-i). **Parcial — depende de T3.13 para se provar.** Das quatro capacidades a absorver, três estão no consolidado: `PATCH /read-all` (T3.6), `metadata` JSONB (migration_010) e FK `ON DELETE CASCADE` em `user_id`. Falta o padrão React Query + Zod do `downloads` na superfície nova, e sobretudo a prova de "nenhuma regressão de função existente" — que só é verificável quando a tela legada ler do consolidado (T3.13), não antes. Não é preferência: é o único dos três com `realm` estrutural (nas chaves únicas, nos índices e no FK composto — `migration_006:472,490,505,512,514`), idempotência do produtor (`event_id` UNIQUE, `:471`) e separação evento/entrega. As três são irreversíveis: retrofitar `realm` ou `event_id` em tabela com dado de produção custa migração, retrofitar separação evento/entrega custa reescrever o modelo. Absorver dos legados o que a base não tem: `PATCH /read-all` e `metadata` JSONB do `mesas` (`apps/mesas/backend/src/routes/notifications.ts:33-52`, `migration_106:13`), padrão React Query + Zod + `invalidateQueries` do `downloads` (`apps/downloads/frontend/src/hooks/useNotifications.ts:9-26`), e FK `ON DELETE CASCADE` em `user_id`, que o `downloads` não tem (`migration_018:14`). · feito quando: o consolidado cobre todas as capacidades dos três, e nenhuma regressão de função existente é aceita como custo da unificação.
 - [ ] T3.13 — **`download_notification` e `notifications` viram produtores, não fontes** (requisito 13a-i). **Parcial: `downloads` emite, mas ainda não lê do consolidado; `mesas` intocado.**
   **Entregue — o caminho de produção existe.** `POST /internal/v1/notifications/events` (`accounts/src/notificationIngestRoutes.ts`, registrada em `app.ts`): guard por credencial de serviço com escopo **`notification.write`** novo (migration_011 amplia o CHECK de `community_service_credential.scopes`; escopo próprio, e não `comment.write`/`moderation.write` — emitir aviso não pode vir junto com criar fala nem decidir caso). `realm`/`source_app` derivados da credencial, nunca do payload; `actor_id` nulo (produtor externo informa destinatário, não autor comunitário); idempotência por `event_id` consultada antes do INSERT, então retry devolve o evento existente sem entrada nova no outbox; evento + `enqueueOutboxEvent` na mesma transação; fan-out fora dela; 202 (não 201 — o recibo ainda não existe neste ponto). `downloads` deixou de gravar em `download_notification`: `notify.ts` enfileira no outbox local e `notificationOutboxDelivery.ts` entrega, com `occurred_at` do fato (não da entrega — é o caso que 19b previu). Os cinco `kind` viajam como snapshot legado versão 1 (`legacy_kind`/`legacy_body`), sem virar tipo oficial do consolidado (24e). Teste `moderation.notify.test.ts` passou a asserir a **ausência** de escrita em `download_notification`, para um chamador não voltar a gravar ali sem ninguém perceber.
+  **⚠️ REGRESSÃO EM PRODUÇÃO — RECONFIRMADA EM 2026-08-19, continua ativa.** Remedida pelo
+  caminho do usuário, não só pelo banco: `GET /api/v1/notifications/unread-count?source_app=mesas`
+  (a chamada exata que `packages/ui/src/NotificationBell.tsx:174` faz) devolve `{"count":0}` com
+  sessão real do mantenedor, enquanto os 12 `insertInto('notifications')` do `mesas` seguem no
+  código (contagem repetida hoje) e o feed local segue acumulando. Nenhum dos deploys de
+  2026-08-19 tocou nisto. A central agregada em si está sã: `GET /api/v1/notifications?limit=10`
+  responde `200` com o contrato certo (`items`, `cursor`) — o defeito é ausência de produtor no
+  `mesas`, não falha da superfície consolidada.
+  **Não é smokável nem depois do deploy da Fase 8:** fechar isto é converter os 12 call-sites
+  para o outbox local (trabalho de implementação da Fase 3), não uma verificação.
+
   **⚠️ REGRESSÃO EM PRODUÇÃO, medida em 2026-08-16 — o `mesas` está sem feed de notificação.**
   Não é risco futuro, é o estado atual, e foi introduzido por esta spec em T3.9b: o header do
   `mesas` passou a montar o sino compartilhado (`HeaderActions.tsx` → `@artificio/ui`), que lê
@@ -618,14 +629,40 @@ O desenho anterior detalhou schema, transação e API, mas deixou o front com du
 linhas — cobrindo quem lê e escreve, não quem modera.
 `POST /internal/v1/comments/:id/removal` existia sem tela que o chamasse.
 
-- [ ] T4.16 — **Fila de moderação como superfície primária** (requisito 27a). Moderar navegando pelo conteúdo público não escala e depende do moderador topar com o problema. A fila lista denunciados, de conta nova (T4.20) e recentes, com filtro por `realm` e `source_app` — **beta nunca misturado com produção** (T0.6). · feito quando: a fila carrega, filtra pelos dois eixos, e nenhum item de beta aparece em produção.
+- [ ] T4.16 — **[eixo de leitura VERIFICADO em produção, 2026-08-19]** **Fila de moderação como superfície primária** (requisito 27a). Moderar navegando pelo conteúdo público não escala e depende do moderador topar com o problema. A fila lista denunciados, de conta nova (T4.20) e recentes, com filtro por `realm` e `source_app` — **beta nunca misturado com produção** (T0.6). · feito quando: a fila carrega, filtra pelos dois eixos, e nenhum item de beta aparece em produção.
   **Estado em 2026-08-14:** a fila por credencial foi implementada no host de referência `downloads`: fachada browser-safe em `backend/src/routes/communityModeration.ts`, hook e tela em `frontend`. Denunciados e contas novas aparecem sem expor `/internal/v1` ao navegador. Continua aberta porque o contrato aprovado é isolado por credencial; não existe fila global cross-app nem coleção genérica de comentários recentes no backend central. Produção também não está ativável: consulta read-only mostrou credenciais `downloads` apenas com `{users.read,secrets.read}`, sem `moderation.write`.
+  **Superado em produção pelo `mesas` — medido em 2026-08-19, sessão admin do mantenedor.** A
+  ressalva acima vale para a credencial do `downloads`; a do `mesas` **tem** `moderation.write`,
+  e as quatro listagens respondem `200` pela fachada do `mesas`:
+  `GET /api/v1/community/moderation/queue` → `{"items":[],"new_account_comments":[]}`,
+  `.../moderation/log` → `{"entries":[]}`,
+  `.../moderation/sanctions?actor_id=<uuid>` → `{"sanctions":[]}`,
+  `.../reports` → `{"reports":[]}`. Sem `actor_id`, sanções devolve
+  `{"error":{"code":"invalid_query","correlation_id":null}}` — validação correta no formato §1.1.
+  **O que isto fecha e o que não fecha:** o eixo de **leitura** da fila está provado em produção
+  (carrega, e o filtro por `source_app` é derivado da credencial, não do cliente — nenhum item de
+  beta pode aparecer). **Não fecha o aceite**, que exige a fila com item dentro: as quatro
+  listagens vieram vazias, então ordenação, prioridade e paginação por cursor seguem sem prova de
+  execução. O caminho para isso é o round-trip de T4.19 depois do deploy — denunciar/remover o
+  comentário do smoke T8.4 põe item na fila e exercita as três de uma vez.
 - [x] T4.17 — **Reusar `packages/ui/src/admin`, não criar padrão novo** (requisito 27b). Já existem `AdminTable` (com seleção e ação em lote), `bulkActions`, `StatusPill`, `PageHeader`, `SectionCard` e `AdminWorkspaceLayout`, em uso no painel de gestão do `downloads`. Divergir do design system exige aprovação (`AGENTS.md` §Regras de Produto). · feito quando: a fila usa os componentes existentes, sem componente admin novo salvo justificativa registrada.
   **Concluída em 2026-08-14:** `CommunityModerationWorkspace.tsx` compõe `AdminTable`, `AdminWorkspaceLayout`, `PageHeader`, `SectionCard`, `StatusPill` e `ConfirmProvider`; nenhum padrão admin paralelo foi criado.
 - [x] T4.18 — **Seguir o padrão de dados de `useModerationQueue`** (requisito 27c; `apps/downloads/frontend/src/hooks/useModerationQueue.ts`): React Query, validação Zod na fronteira, ação individual e em lote, `invalidateQueries` no sucesso. Padrão maduro (specs 075 e 083) — replicar, não reinventar. · feito quando: hook novo espelha a estrutura do existente, com payload validado por schema.
   **Concluída em 2026-08-14:** `useCommunityModeration.ts` usa React Query, schemas Zod de `@artificio/comments/react`, ações individuais/lote e invalidação de fila/log/caso/sanções. Teste prova rejeição de schema inválido, idempotency key e recarga após sucesso.
 - [ ] T4.19 — **Restauração de comentário removido** (requisito 27d). O tombstone preserva o corpo, então desfazer é barato — faltava o caminho. A **DSA** exige janela de contestação de seis meses com reversão pronta de decisão injustificada; sem isso, erro de moderador é permanente. `POST /internal/v1/comments/:id/restore` limpa `removed_at`/`removed_by`/`removed_reason` e registra quem restaurou. · feito quando: remover e restaurar volta ao estado original, com as duas ações no histórico.
   **Estado em 2026-08-14:** UI, adapter e fachada de remoção/restauração existem, com confirmação individual e em lote e preservação do trabalho em `409`. O round-trip contra banco real e as duas entradas reais de auditoria não foram executados porque exigem escrita protegida e deploy/credencial; task permanece aberta pelo aceite executável.
+  **🟢 DESTRAVA COM O DEPLOY DA CORREÇÃO DA FASE 8 (varredura de 2026-08-19).** O bloqueio escrito
+  acima é "escrita protegida e deploy/credencial" — e as duas condições passam a existir juntas
+  no deploy do `accounts` que leva o `::bigint`. Verificado que a superfície está montada:
+  `POST /moderation/comments/:id/removal` e `.../restore` na fachada do `mesas`
+  (`routes/communityModeration.ts:160,163`), sob `moderatorWrite`, proxy para
+  `/internal/v1/comments/:id/{removal,restore}`. A conta do mantenedor já é `role: "admin"`,
+  então **não falta credencial nem promoção de papel**. Cobaia disponível: o comentário do smoke
+  T8.4, já gravado em produção na mesa `x-men-2026-a-era-da-forja-msz5vfg7` — o round-trip
+  remover → conferir auditoria → restaurar usa esse comentário e, se o mantenedor preferir,
+  termina com ele retirado, o que resolve a limpeza do dado de teste no mesmo movimento.
+  **Ordem obrigatória:** só depois do deploy — hoje listar a conversa devolve `500`, e moderar
+  sem conseguir ler o alvo não prova nada.
 - [ ] T4.19b — **Exibir e validar o registro de ação criado na Fase 2** (requisito 27d). A migration coesa T2.1–T2.1f já cria auditoria de conteúdo; esta fase não abre segunda migration. UI mostra ator, alvo, motivo e momento para remoção/restauração e demais transições autorizadas. · feito quando: histórico mostra os quatro campos, exige papel global e não expõe nota interna ao público.
   **Estado em 2026-08-14:** o log global é exibido com ator UUID, alvo, motivo e `<time>`, atrás da fachada e do papel global; nota interna não entra na superfície pública. Continua aberta porque o backend não devolve nome do ator nem filtro por caso/alvo; portanto não existe timeline de caso escalável.
 - [x] T4.20 — **Conta nova tratada como conta nova** (requisito 27e). Hoje conta criada há dez segundos comenta como quem está há dois anos; com login Google a barreira é baixa e essa é a porta de entrada de spam. Forma **mínima**, derivada de dado existente (`users.created_at` + contagem de comentários do autor), **sem tabela nova**: conta nova entra na fila para revisão e tem limite mais apertado no rate limiter de escrita (requisito 12b). **Critério aprovado em 2026-08-12:** menos de 7 dias **OU** menos de 3 comentários; deixa de ser nova somente ao cumprir ambos. **Não é bloqueio de publicação** — é priorização de revisão. · feito quando: o critério está escrito, a fila destaca esses comentários, e nenhum autor legítimo é impedido de publicar.
@@ -1015,6 +1052,15 @@ Primeiro consumidor: necessidade imediata (spec 089) e dado menos delicado.
 
 Segundo consumidor: tem o dado legado, que é o risco real desta spec.
 
+> **Fora do alcance do smoke de 2026-08-19 — medido, para não se reexaminar.** A varredura por
+> tarefas smokáveis junto com o deploy da Fase 8 descartou esta fase por ausência de superfície
+> HTTP: não existe rota de export legado no `site` (busca por rota/`router` em `apps/site/src`
+> devolve zero), e o importador do lado do `accounts` é **script**
+> (`src/scripts/importLegacyComments.ts`), não rota — não aparece em `app.ts`. Rodá-lo é execução
+> na VM, com autorização nominal própria, e não uma verificação que pegue carona neste deploy.
+> O código do importador **existe e tem teste contra Postgres real passando no CI** (o caminho do
+> `site` inclusive), então o que falta aqui é execução e reconciliação, não implementação.
+
 - [ ] T6.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. · feito quando: leitura confirmada.
 - [ ] T6.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
 - [ ] T6.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
@@ -1067,14 +1113,19 @@ Segundo consumidor: tem o dado legado, que é o risco real desta spec.
   **A premissa [P1] desta task caducou — medido em 2026-08-16.** O texto anterior (e `plan.md:315`) afirmava que `apps/site/package.json:16` enumera cinco arquivos fixos no teste e que `lint` é `echo "(site) lint TODO"` (`:15`). O arquivo real traz `"lint": "eslint ."` e `"test": "vitest run"`: o script já varre por padrão, e arquivo novo **não** fica invisível. `rtk git log -3 -- apps/site/package.json` aponta os commits que fecharam a lacuna — `797ccdc` (spec 091, "fechar lacuna de typecheck sobre arquivos de teste e travar com gate") e `4d15b01`; `apps/site/eslint.config.js:6` documenta a troca do `echo`. A task deixa de ser correção e vira **verificação**: rodar `rtk pnpm --filter @artificio/site test` e `lint` depois de criar os testes da fachada e confirmar que aparecem na contagem.
   **O `echo TODO` sobrevive em OUTROS dois apps** — `apps/site-admin/package.json:11` e `apps/links/package.json:15` —, fora do escopo desta fase. Reportado ao mantenedor como achado lateral; pendente de decisão (corrigir/registrar).
 
-## Fase 7 — Adoção no `mesas` [IMPLEMENTADA — falta deploy]
+## Fase 7 — Adoção no `mesas` [EM PRODUÇÃO]
 
 Terceiro consumidor: nada a preservar, mas ganha superfície pública nova.
 
-**Resumo do estado (2026-08-16):** 12/12 tasks fechadas; código na branch local
-`feat/090-fase-7-mesas-comentarios`, **sem commit, sem push, sem deploy**; credencial de serviço
-do `mesas` rotacionada e em uso em prod e beta; validação repo-wide verde (números em §Validação
-da fase). Bloqueio remanescente: nenhum técnico — só as autorizações de commit/push/PR/deploy.
+**Resumo do estado (2026-08-19):** 12/12 tasks fechadas e **em produção**. O código está em
+`main` (`40c7bcf`; `dev` e `main` idênticos) e foi deployado — 6 runs de `deploy.yml` em `main`
+entre 02:47 e 03:14 UTC de 2026-08-19, todos `success`. Credencial de serviço do `mesas`
+rotacionada e em uso em prod e beta. Verificado read-only em produção: a fachada
+`GET /api/v1/community/conversation` do `mesas` devolve `200` com o contrato completo para mesa
+real e `404 {"error":"subject_not_found"}` para assunto inexistente.
+
+> O bloco anterior dizia "sem commit, sem push, sem deploy" (estado de 2026-08-16) e ficou
+> desatualizado depois do merge e do deploy. Reescrito, não anexado (`AGENTS.md` §Conclusão).
 
 ### Estado do código no início da fase, medido em 2026-08-16
 
@@ -1822,10 +1873,129 @@ testada — os testes usam duplo de `fetch`; a credencial só é exigida em runt
 
 ## Fase 8 — Validação integrada
 
-- [ ] T8.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. · feito quando: leitura confirmada.
-- [ ] T8.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
-- [ ] T8.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
-- [ ] T8.1 — `rtk pnpm run lint`, `rtk pnpm run build`, `rtk pnpm run test` e `rtk pnpm verify:api` verdes — **e verdes provando alguma coisa**. A raiz só delega ao Turbo (`package.json:7`), o lint do `site` é no-op e o teste dele usa lista fechada de arquivos (`apps/site/package.json:15-16`). Exigir testes nomeados de fachada, ilha, degradação, árvore/`more`, quatro sorts, Wilson PostgreSQL, voto, Markdown/link/imagem, edição/tombstone, denúncia/caso, auto-hide, recurso, sanção, recibos transacionais, exclusão/expurgo/recadastro e ausência de IP persistido dentro do script efetivamente executado. · feito quando: quatro comandos exit 0, contagem N/N por app/pacote registrada e cada família aparece na saída.
+**Estado (2026-08-19):** T8.0a–c e T8.1 fechadas. As Fases 1–5 e 7 estão em `main` (`40c7bcf`,
+`dev` e `main` idênticos) e deployadas em produção — 6 runs de `deploy.yml` em `main` entre
+02:47 e 03:14 UTC, todos `success`. **T8.4 interrompida por bug P0 achado no próprio smoke** (bloco
+abaixo): a primeira escrita real revelou que a leitura quebra com a conversa não vazia. O smoke
+não continua — e não deve — até a correção estar em produção; retomar a partir de T8.4 (comentar
+e responder nos três módulos, conferir a central de notificações) depois do deploy.
+**T8.5 não iniciada** pelo mesmo motivo: moderar exige listar a conversa, que hoje devolve `500`.
+**T8.2, T8.3 e T8.6–T8.11 seguem bloqueadas por autorização**, não por técnica: exigem
+promoção/revogação de papel, canário em `realm=beta` ou o ciclo de exclusão de conta — ações que
+o agente não executa sem aprovação nominal por ação (`AGENTS.md` §Autorização).
+
+**Medido com sessão real (2026-08-19), conta do mantenedor:** `/api/auth/me` devolve
+`role: "admin"` e `roleVersion: 1` — o papel e o campo de versão de T1.2 estão no payload em
+produção, e **nenhuma promoção via `PATCH /admin/roles/users/{id}` foi necessária** para a
+moderação. Sem sessão, `/api/auth/me` e `POST .../conversation` devolvem `401
+{"error":"unauthorized"}` — falha fechada confirmada na leitura do titular e na escrita.
+Editor de comentário em produção: abas Escrever/Prévia, barra Markdown, e a Prévia renderizou
+`**negrito**` e `[link](...)` corretamente — pipeline Markdown compartilhado funcionando.
+
+**🔴 BUG P0 ACHADO E CORRIGIDO NO SMOKE T8.4 — correção ainda NÃO está em produção.**
+A leitura da conversa quebrava com `500 {"error":"could not determine data type of parameter
+$3"}` **assim que o assunto tivesse pelo menos um comentário**. Achado publicando o primeiro
+comentário real da mesa `x-men-2026-a-era-da-forja-msz5vfg7` em produção: a escrita passou
+(`Comentário publicado.`), a leitura seguinte devolveu `500`.
+
+- **Causa raiz medida:** `communityCommentRead.ts` interpolava `revision` sem cast em três
+  pontos (`s.valid_from_revision <=`, `s.valid_to_revision >`, `c.created_revision <=`). Nos
+  dois primeiros o parâmetro está dentro da condição de um `LEFT JOIN`, onde o PostgreSQL não
+  infere o tipo — as colunas são `BIGINT` (`migration_006_community_comments.sql`).
+- **Por que passou por toda a validação:** com a conversa **vazia** `readSubjectRevision`
+  devolve `null` e `readCommentTree` retorna antes de montar a query — por isso o `200` que o
+  smoke read-only anterior mediu. E `readCommentTree` só era exercitada por
+  `communityCommentReadSql.test.ts`, que usa um **compilador capturador**: casa o texto do SQL
+  e nunca envia ao banco, então erro de inferência de tipo passa verde. Nenhum dos três testes
+  com Postgres real tocava a leitura da árvore.
+- **Corrigido:** `::bigint` nos três usos. Duas redes de teste novas —
+  `communityCommentReadIntegration.test.ts` (Postgres real, cria comentário e lê a árvore nos
+  4 sorts + resposta aninhada + assunto vazio; roda no CI, pula local sem banco) e uma asserção
+  no teste capturador contando `$n::bigint` (validada removendo um cast: falha 2≠3).
+- **Efeito colateral positivo, medido:** a degradação do pacote funcionou como projetada — a
+  página da mesa continuou inteira de pé, com aviso `Não foi possível atualizar os comentários.`
+  isolado na área de comentários. É a prova em produção do que T8.6 exige em teste.
+- **Estado em produção neste momento:** o comentário de smoke está gravado e a conversa dessa
+  mesa segue devolvendo `500` até a correção ser deployada. Sem commit/push/deploy autorizados.
+
+**Varredura do mesmo padrão nas outras fases (2026-08-19), para aproveitar o deploy.**
+Critério: código com `sql` cru + parâmetro interpolado, exercitado só por teste que **não**
+envia a query ao banco. Varri `apps/accounts/src` inteiro (`grep` por `sql\``/`sql<` fora de
+teste): 7 arquivos, dos quais 5 sem risco — `communityModerationAppeal.ts:608` e
+`notificationOutbox.ts:196` são template JS comum (não SQL); `notificationOutbox.ts:187-194`
+usa `sql.raw` e já tem teste com Postgres real; `communityModerationRead.ts` e
+`communityCommentReport.ts` não têm SQL cru (query builder tipado, imune).
+
+- **`globalRoles.ts:16,109` e `users.ts:145`** — `set_config('app.actor_id', ${...}, true)`,
+  parâmetro dentro de chamada de função. **Sem correção necessária, medido:** o valor é a
+  string literal `BOOTSTRAP_ACTOR_ID` e `set_config` espera `text`, sem ambiguidade. O de
+  `users.ts` está no ramo `isBootstrapAdmin` de `upsertGoogleUser` — que **roda em produção a
+  cada login do admin de bootstrap** e funcionou no login desta sessão. Provado por uso.
+- **🟡 `communityModerationQueue.ts:247` e `:453` — MESMO PERFIL DE RISCO, agora coberto.**
+  `(mc.opened_at, mc.id) < (${openedAt}, ${id}::uuid)` e o par equivalente do log comparam
+  tupla com parâmetro; `id` leva `::uuid`, `openedAt`/`occurredAt` **não levam cast**. É o ramo
+  que só executa a partir da **segunda página** da fila/log de moderação — nunca exercitado, e
+  medido: **nenhum teste do repositório passava `cursor`** para `readModerationQueue`/
+  `readModerationLog`, nem os capturadores de SQL. Não corrigi o SQL: diferente do `revision`
+  (`number` → `bigint`), aqui o valor é `Date` → `TIMESTAMPTZ` e o driver `pg` serializa com
+  tipo conhecido, então **não há defeito medido** — adicionar cast por precaução seria mudar
+  código sem evidência. O que faltava era prova, e ela entrou:
+  `communityReadIntegration.test.ts` agora executa as duas listagens **com cursor preenchido**
+  contra Postgres real (mais o combo cursor + `maxPriority`), então uma regressão de tipo ali
+  falha no CI em vez de em produção.
+
+**Smoke read-only da superfície de moderação (2026-08-19, sessão admin) — T8.5 parcial.**
+Com token fresco, as quatro listagens respondem `200` em produção pela fachada do `mesas`:
+`moderation/queue` → `{"items":[],"new_account_comments":[]}`, `moderation/log` →
+`{"entries":[]}`, `moderation/sanctions?actor_id=…` → `{"sanctions":[]}`, `reports` →
+`{"reports":[]}`. Sem `actor_id`, sanções devolve `{"error":{"code":"invalid_query",…}}` —
+validação correta, no formato de erro do contrato §1.1. **Isto fecha o eixo de leitura de
+T4.16** (fila de moderação), que o `tasks.md` ainda marca como aberta na Fase 4.
+
+> **Armadilha de método registrada:** o access token expira em poucos minutos. Numa primeira
+> passada, `queue` respondeu `200` e `sanctions` `401`, e cheguei a investigar diferença de
+> escopo entre as rotas — não existia: o token venceu entre as duas chamadas. Reautenticado,
+> as duas respondem `200`. Smoke longo exige `GET /api/auth/refresh` no meio; diferença de
+> comportamento entre chamadas consecutivas deve ser testada de novo antes de virar achado.
+
+**Central de notificações (`/conta/notificacoes`) verificada em produção:** carrega com filtro
+"Todos os módulos" e mostra "Nenhuma notificação" — correto, porque o comentário do smoke foi
+na própria mesa do autor e T0.13 manda **não notificar o próprio ator**. A regra de
+auto-notificação está valendo em produção.
+
+**Medido read-only em produção (2026-08-19), sem sessão:**
+- Os quatro hosts respondem `200`: `accounts.`, `mesas.`, `downloads.`, raiz.
+- `GET /api/v1/community/conversation` servida pelas **três** fachadas (`mesas`, `downloads`,
+  `site`), nunca pelo `accounts.` direto — o trust boundary de T0.5 está de pé em produção.
+  Assunto real devolve `200` com o contrato completo (`state`, `snapshot_revision`, `comments`,
+  `more`, `truncated`); assunto inexistente devolve `404 {"error":"subject_not_found"}` nos três.
+- **Isolamento de `realm` (gate de T8.7), medido em dois níveis:** `?realm=beta&source_app=site`
+  forjado na query devolve resposta idêntica à sem parâmetro — o cliente não influencia a chave.
+  Confirmado no código: a origem é resolvida por allowlist no `accounts.`
+  (`apps/mesas/backend/src/community/tableSubjectGuard.ts`).
+
+- [x] T8.0a — Ler `AGENTS.md` inteiro antes de agir nesta fase. · feito quando: leitura confirmada.
+- [x] T8.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase. · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
+- [x] T8.0c — Comunicação com o mantenedor nesta fase em português, caveman ultra. · feito quando: mensagens da fase seguem o registro.
+- [x] T8.1 — `rtk pnpm run lint`, `rtk pnpm run build`, `rtk pnpm run test` e `rtk pnpm verify:api` verdes — **e verdes provando alguma coisa**. A raiz só delega ao Turbo (`package.json:7`), o lint do `site` é no-op e o teste dele usa lista fechada de arquivos (`apps/site/package.json:15-16`). Exigir testes nomeados de fachada, ilha, degradação, árvore/`more`, quatro sorts, Wilson PostgreSQL, voto, Markdown/link/imagem, edição/tombstone, denúncia/caso, auto-hide, recurso, sanção, recibos transacionais, exclusão/expurgo/recadastro e ausência de IP persistido dentro do script efetivamente executado. · feito quando: quatro comandos exit 0, contagem N/N por app/pacote registrada e cada família aparece na saída.
+  **Medido em 2026-08-19.** Os quatro exit 0: `lint` 26/26 tasks, `build` 26/26, `test` 43/43,
+  `verify:api` (`breaking=0 non-breaking=0 unclassified=0` nos 6 apps). Contagem por pacote:
+  `accounts` 595+43 skipped (638), `mesas-backend` 822, `downloads-backend` 570,
+  `downloads-frontend` 315, `mesas-frontend` 283, `comments` 268, `site` 94, `media` 63,
+  `glossario-backend` 54, `scripts` 48, `ui` 46, `glossario-frontend` 37, `catalog-matching` 33,
+  `analytics` 17, `image-editor` 15, `catalog-ui` 14, `content-editor` 113, `changelog` 8,
+  `auth`/`content`/`email` 6 cada, `catalog-client` 3.
+  **Os 43 skipped não mascaram falha** — todos são `describe.skipIf(!pool)` por ausência de
+  `COMMUNITY_TEST_DATABASE_URL`, não `.skip` incondicional. A família **Wilson PostgreSQL** que
+  esta task exige na saída **roda de fato no CI**, no step `Accounts community tests on
+  PostgreSQL 16` (`ci.yml:129-135`, banco dedicado): no run `32208098239` (SHA `40c7bcf`, o que
+  está em produção) `communityWilson` 28/28 ✓, `notificationOutboxSavepoint` 1/1 ✓,
+  `notificationRecipientsIntegration` 4/4 ✓, totalizando `accounts` **638/638, 0 skipped**.
+  **Lacuna corrigida nesta task:** `packages/comments/src/degradation.test.ts` cobria 3 dos 5
+  modos que T8.6 exige — faltavam **conexão recusada** e **circuito aberto**. Adicionados
+  (`transport_error` via erro cru de rede, exercitando `normalizeCommentsError`; `unavailable`
+  para circuito aberto). Pacote passou de 266 para 268 testes, 21/21 arquivos, `tsc --noEmit`
+  e `eslint` limpos.
 - [ ] T8.2 — **Validação sem deploy de beta do `accounts.` — ele não existe.** A versão anterior pedia "deploy em beta de `accounts.`": impossível. O manifesto declara o módulo **PROD-ONLY** com `env_override: "prod"`, e a build-matrix do workflow **bloqueia** `dispatch env=beta` para `accounts` (`.github/deploy-manifest.json:147`) — beta reusa o `accounts.` de produção. O aceite nunca poderia ser cumprido. **Estratégia decidida pelo mantenedor (2026-07-27):** mudança central **aditiva, compatível e inicialmente desabilitada**; ativação limitada a `realm=beta` com credenciais allowlisted dos módulos beta; comparação de erro, latência e autenticação contra controle; só depois, habilitação produtiva separada. População, duração, métricas e rollback definidos **antes** de ligar. Cada ação real segue exigindo autorização nominal. · feito quando: o canário roda em `realm=beta` sem afetar prod, com as métricas comparadas e registradas.
 - [ ] T8.3 — **Smoke de SSO que prova mudança de papel**, não só sessão. Login, `/me` e logout não provam nada sobre autorização. Incluir: `moderator` no login, no `/me`, no access token **e no refresh**; promoção e revogação observadas **dentro do SLA** de T1.2; falha fechada durante indisponibilidade; **todos** os consumidores de `packages/auth`; isolamento entre `realm` beta e prod. · feito quando: os cinco verificados em todos os consumidores, com evidência.
 - [ ] T8.4 — **Smoke de agregação, corrigido.** A versão anterior pedia "comentar no `downloads`, **responder pelo `site`**" — contradiz o trust boundary: a fachada do `site` teria de validar um alvo que pertence ao `downloads`, ou a resposta nasceria em outro `source_app`, quebrando a integridade do pai. O correto: comentar e responder **dentro de cada módulo** (`downloads`, `site`, `mesas`); as notificações dos três aparecem na **mesma central**; e cada link leva de volta ao módulo e ao contexto certos. Navegar da central até o `downloads` é o cruzamento legítimo — e é isso que a redação anterior provavelmente queria dizer. · feito quando: os três módulos comentam e respondem, e a central mostra os três com links corretos.

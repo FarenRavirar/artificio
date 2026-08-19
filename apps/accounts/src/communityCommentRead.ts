@@ -559,8 +559,20 @@ export async function readCommentTree(
         on s.realm = c.realm
         and s.source_app = c.source_app
         and s.comment_id = c.id
-        and s.valid_from_revision <= ${revision}
-        and (s.valid_to_revision is null or s.valid_to_revision > ${revision})
+        -- Cast ::bigint explicito nos tres usos de revision (aqui e no
+        -- created_revision abaixo). Sem o cast, o Postgres nao infere o tipo do
+        -- parametro dentro da condicao de um LEFT JOIN e a leitura inteira falha
+        -- com "could not determine data type of parameter $3". O bug so aparecia
+        -- com a conversa NAO vazia: com zero comentarios readSubjectRevision
+        -- devolve null e a funcao retorna antes de montar esta query, entao o
+        -- caminho nunca era exercitado (medido em producao, smoke T8.4 da spec
+        -- 090 — 500 na leitura, 200 na conversa vazia). As colunas sao BIGINT
+        -- (migration_006_community_comments.sql). Regressao coberta por
+        -- communityReadIntegration.test.ts, contra Postgres real: o teste
+        -- capturador de communityCommentReadSql.test.ts casa o TEXTO do SQL e
+        -- nunca envia ao banco, entao nao alcanca erro de inferencia de tipo.
+        and s.valid_from_revision <= ${revision}::bigint
+        and (s.valid_to_revision is null or s.valid_to_revision > ${revision}::bigint)
       left join community_actor_account_link l
         on l.actor_id = c.community_actor_id
       left join users u
@@ -585,7 +597,7 @@ export async function readCommentTree(
         -- Comentário criado depois da revisão congelada não entra: ele não
         -- existia na foto que esta navegação está percorrendo, e deixá-lo
         -- aparecer no meio de uma expansão empurraria os seguintes de posição.
-        and c.created_revision <= ${revision}
+        and c.created_revision <= ${revision}::bigint
     ),
     tree as (
       -- Ancora da recursao. Sem cursor de ramo, sao as raizes do assunto; com
