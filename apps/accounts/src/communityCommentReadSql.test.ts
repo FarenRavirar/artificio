@@ -296,4 +296,23 @@ describe("a foto congelada governa a consulta inteira", () => {
     expect(sql).toMatch(/"?s"?\."?valid_from_revision"?\s*<=/i);
     expect(sql).toMatch(/"?s"?\."?valid_to_revision"?\s+is null or\s+"?s"?\."?valid_to_revision"?\s*>/i);
   });
+
+  it("cada uso de revision carrega ::bigint explícito", async () => {
+    // Regressão do 500 em produção (smoke T8.4 da spec 090): sem o cast, o
+    // PostgreSQL não infere o tipo do parâmetro dentro da condição do LEFT JOIN
+    // e a leitura falha inteira com "could not determine data type of parameter
+    // $3" — mas só quando a conversa tem comentário, porque a árvore vazia
+    // retorna antes de montar esta query.
+    //
+    // Esta asserção é a rede rápida; a prova de execução real está em
+    // `communityReadIntegration.test.ts`, que precisa de Postgres. Aqui
+    // basta casar o texto: o compilador capturador nunca envia o SQL ao banco e
+    // por isso não alcançaria o erro de inferência sozinho.
+    // Conta só cast ligado a placeholder (`$1::bigint`), nunca a palavra solta:
+    // o comentário que explica o cast dentro do próprio SQL contém "::bigint" e
+    // entraria na contagem, deixando o teste verde por motivo errado.
+    const sql = await sqlFor("best");
+    const casts = sql.match(/\$\d+::bigint/gi) ?? [];
+    expect(casts).toHaveLength(3);
+  });
 });

@@ -2,6 +2,11 @@
 set -e
 node scripts/api/pre-commit-verify.mjs
 
+# Testes de integração contra Postgres real, SÓ quando o commit toca schema ou
+# código que monta SQL cru. Commit de frontend/doc/spec não paga o custo.
+# Motivo e incidente: scripts/db/pre-commit-migration-tests.mjs.
+node scripts/db/pre-commit-migration-tests.mjs
+
 # Installed by code-review-graph. Remove this block to disable pre-commit graph checks.
 if command -v uvx >/dev/null 2>&1; then
     PYTHONUTF8=1 uvx code-review-graph@2.3.7 update || true
