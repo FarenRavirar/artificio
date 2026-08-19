@@ -43,9 +43,17 @@ describe('degradação isolada da aplicação host', () => {
     { name: '500', code: 'http_error', status: 500 },
     { name: 'HTML no lugar de JSON', code: 'unexpected_content_type' },
     { name: 'JSON malformado', code: 'malformed_json' },
-    // T8.6 exige cinco modos; `unavailable` é o circuito aberto — a fachada
-    // recusa antes de tentar a rede, e o host precisa sobreviver igual.
-    { name: 'circuito aberto', code: 'unavailable', status: 503 },
+    // T8.6 exige cinco modos; `unavailable` (503) é o upstream fora do ar.
+    //
+    // Achado de review PR #277 sugeriu disparar isto no cliente/fachada e
+    // assertar que `transport.execute` NÃO foi chamado — descartado por
+    // medição: não existe circuit breaker nesta base (`rtk rg "circuit|breaker"`
+    // em transport.ts/resource.ts → 0). `unavailable` é só um código do
+    // contrato (transport.ts:84), classificado como retryable (:117); nada
+    // recusa antes da rede. Assertar não-chamada afirmaria um mecanismo
+    // inexistente. O que este caso cobre — e é o que T8.6 pede — é o host
+    // sobreviver ao 503 com status `unavailable` renderizado.
+    { name: 'upstream indisponível (503)', code: 'unavailable', status: 503 },
   ];
 
   for (const failure of failures) {
@@ -97,7 +105,9 @@ describe('degradação isolada da aplicação host', () => {
       status: 'unavailable',
       error: { code: 'transport_error' },
     });
-    expect(renderHost(resource.getSnapshot().status)).toContain('Aplicação consumidora');
+    const html = renderHost(resource.getSnapshot().status);
+    expect(html).toContain('Aplicação consumidora');
+    expect(html).toContain('Comentários: unavailable');
   });
 
   it('mantém o host renderizado para schema incompatível', async () => {
@@ -115,7 +125,9 @@ describe('degradação isolada da aplicação host', () => {
       status: 'unavailable',
       error: { code: 'schema_incompatible' },
     });
-    expect(renderHost(resource.getSnapshot().status)).toContain('Aplicação consumidora');
+    const html = renderHost(resource.getSnapshot().status);
+    expect(html).toContain('Aplicação consumidora');
+    expect(html).toContain('Comentários: unavailable');
   });
 
   it('mantém o host renderizado para timeout', async () => {

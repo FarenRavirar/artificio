@@ -538,7 +538,7 @@ export async function readCommentTree(
         -- sentido sobre retirado, e null forcaria todo consumidor a tratar o
         -- terceiro estado sem ganhar informacao nenhuma.
         --
-        -- ${moderatorParam} e a TRAVA: sem ela o campo respondia "foi a
+        -- moderatorParam e a TRAVA: sem ela o campo respondia "foi a
         -- moderacao ou foi o autor?" para visitante anonimo, desfazendo o
         -- colapso que publicState faz de proposito e que o contrato-http-v1 §2
         -- exige. As fachadas de mesas/downloads/site repassam esta resposta em
@@ -548,6 +548,15 @@ export async function readCommentTree(
         -- auto-retirada: indistinguivel de fora, e suficiente por dentro —
         -- o unico consumidor e moderateRestore (viewerPermissions.ts:194), que
         -- ja exige papel de moderacao na mesma linha.
+        --
+        -- NAO usar sintaxe de interpolacao de template dentro de comentario SQL
+        -- aqui: o template tagueado interpola antes do Postgres ver o texto,
+        -- entao o placeholder nasce dentro do -- sem cast e o parse falha
+        -- inteiro com 42P18 (could not determine data type of parameter $N),
+        -- mesmo sendo "so um comentario". Foi o que derrubou os 5 testes de
+        -- communityReadIntegration.test.ts no CI (2026-08-19). Citar o binding
+        -- por nome, em texto puro, como acima. Crase tambem nao entra: fecha o
+        -- template literal e quebra o parse do TypeScript antes do SQL.
         (${moderatorParam}::boolean
           and c.visibility_state = 'moderator_removed') as removed_by_moderator,
         row_number() over (
