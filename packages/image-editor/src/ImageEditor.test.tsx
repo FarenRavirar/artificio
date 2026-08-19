@@ -146,27 +146,32 @@ describe('ImageEditor', () => {
     expect(image.style.width).toBe('100%');
   });
 
-  // O ReactCrop mede o elemento; com o zoom mudando a largura real, o elemento
-  // medido É o que a pessoa vê, então a conversão para pixels da imagem
-  // original continua correta em qualquer nível de aproximação.
-  it('o recorte segue em pixels da imagem original mesmo aproximado', () => {
+  /**
+   * O recorte é guardado em porcentagem justamente por isto: o zoom muda a
+   * largura real do elemento, e um retângulo em pixels apontaria para o tamanho
+   * anterior. Como `onComplete` só dispara ao arrastar, Aplicar logo depois de
+   * mexer no zoom salvaria o valor velho — o recorte sairia deslocado.
+   */
+  it('o recorte acompanha o zoom sem depender de novo arraste', () => {
     const { onConfirm } = renderEditor();
     loadImage([1000, 1000], [500, 500]);
 
     fireEvent.change(screen.getByLabelText('Nível de aproximação'), { target: { value: '2' } });
 
-    // Com zoom 2x o elemento mede o dobro; a escala cai de 2 para 1.
+    // Zoom 2x: o elemento passa a medir o dobro, sem qualquer arraste.
     const image = screen.getByAltText('Imagem sendo enquadrada') as HTMLImageElement;
     Object.defineProperty(image, 'width', { value: 1000, configurable: true });
     Object.defineProperty(image, 'height', { value: 1000, configurable: true });
 
     fireEvent.click(screen.getByText('Aplicar'));
 
-    const [crop, naturalWidth] = onConfirm.mock.calls[0] as [CropRect, number, number];
+    const [crop, naturalWidth, naturalHeight] = onConfirm.mock.calls[0] as [CropRect, number, number];
     expect(naturalWidth).toBe(1000);
-    // O recorte cobre a imagem inteira, independentemente do zoom aplicado.
-    expect(crop.width).toBeLessThanOrEqual(1000);
-    expect(crop.width).toBe(crop.height);
+    expect(naturalHeight).toBe(1000);
+    // O retângulo centralizado 1:1 sobre uma imagem 1:1 cobre a imagem
+    // INTEIRA — exatamente, não "no máximo". Um recorte de 500 aqui seria o
+    // sintoma do valor em pixels congelado antes do zoom.
+    expect(crop).toEqual({ x: 0, y: 0, width: 1000, height: 1000 });
   });
 
   it('mostra prévia do enquadramento antes de aplicar', () => {

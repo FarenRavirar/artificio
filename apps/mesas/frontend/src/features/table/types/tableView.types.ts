@@ -1,3 +1,5 @@
+import type { CropRect } from '@artificio/media/image-kinds';
+
 import type { TableSchedule, TableContact } from '../../../types/tables';
 
 /**
@@ -163,7 +165,11 @@ export interface TableViewModel {
 
   // Metadados
   coverUrl?: string;
-  coverCropData?: { x: number; y: number; width: number; height: number };
+  /** Enquadramento do banner, validado — nunca o JSONB cru da API. */
+  coverCropData?: CropRect | null;
+  /** Dimensões da imagem armazenada; sem elas o recorte não é conversível. */
+  coverWidth?: number | null;
+  coverHeight?: number | null;
   status: string;
   archived?: boolean; // D-MESAS1: mesa arquivada (fora do catálogo público)
   origin?: 'manual' | 'imported';

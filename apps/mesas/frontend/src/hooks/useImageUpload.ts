@@ -43,6 +43,33 @@ export function validateImageFile(file: File, kind: ImageKind): string | null {
   return null;
 }
 
+/**
+ * Normaliza a resposta do upload antes de ela virar estado.
+ *
+ * O corpo e `unknown`: nada garante que o servidor devolveu o que promete, e a
+ * asercao `as Record<string, unknown>` que existia aqui so silenciava o
+ * compilador. `width`/`height` viram divisor em `cropToObjectPosition`, entao
+ * valor zero, negativo, fracionario ou `NaN` produziria `object-position` sem
+ * sentido — pior que ausencia, porque parece dado valido.
+ */
+function normalizeUploadResponse(payload: unknown, ok: boolean): UploadedImage {
+  const data = (payload ?? {}) as Record<string, unknown>;
+
+  if (!ok || typeof data.secure_url !== 'string' || data.secure_url.trim() === '') {
+    const message = typeof data.error === 'string' ? data.error : 'Falha ao enviar imagem.';
+    throw new Error(message);
+  }
+
+  const dimension = (raw: unknown): number | null =>
+    typeof raw === 'number' && Number.isSafeInteger(raw) && raw > 0 ? raw : null;
+
+  return {
+    url: data.secure_url,
+    width: dimension(data.width),
+    height: dimension(data.height),
+  };
+}
+
 export function useImageUpload(kind: ImageKind) {
   const [isUploading, setIsUploading] = useState(false);
 
@@ -61,18 +88,7 @@ export function useImageUpload(kind: ImageKind) {
       // corpo vazio fariam `response.json()` lancar erro de parser, e a
       // mensagem do parser apareceria na tela no lugar de algo acionavel.
       const payload: unknown = await response.json().catch(() => null);
-      const data = (payload ?? {}) as Record<string, unknown>;
-
-      if (!response.ok || typeof data.secure_url !== 'string') {
-        const message = typeof data.error === 'string' ? data.error : 'Falha ao enviar imagem.';
-        throw new Error(message);
-      }
-
-      return {
-        url: data.secure_url,
-        width: typeof data.width === 'number' ? data.width : null,
-        height: typeof data.height === 'number' ? data.height : null,
-      };
+      return normalizeUploadResponse(payload, response.ok);
     } finally {
       setIsUploading(false);
     }

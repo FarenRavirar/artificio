@@ -6,6 +6,12 @@ import ReactCrop, {
   type Crop,
   type PixelCrop,
 } from 'react-image-crop';
+// Folha OBRIGATÓRIA da biblioteca: ela posiciona a seleção, a máscara escura e
+// as alças de redimensionamento. Sem isto o editor abre com o recorte
+// invisível — a pessoa vê a imagem e nada mais. Fica junto do componente que
+// depende dela, e não no CSS do pacote, para não virar uma cópia de 5 KB de
+// código de terceiro que envelhece sozinha a cada atualização.
+import 'react-image-crop/dist/ReactCrop.css';
 import { cropToObjectPosition, imageKindSpec, type CropRect, type ImageKind } from '@artificio/media/image-kinds';
 
 export interface ImageEditorProps {
@@ -74,8 +80,17 @@ export function ImageEditor({
   const spec = imageKindSpec(kind);
   const aspect = spec.aspect;
   const imgRef = useRef<HTMLImageElement>(null);
+  /**
+   * O recorte é guardado em PORCENTAGEM, não em pixels.
+   *
+   * O zoom muda a largura real do elemento (é o que mantém o retângulo alinhado
+   * com o que a pessoa vê). Guardar pixels faria o valor apontar para o tamanho
+   * anterior assim que o zoom mudasse, e `onComplete` só dispara quando alguém
+   * arrasta — então Aplicar logo após mexer no zoom salvaria o retângulo velho.
+   * Porcentagem é invariante ao tamanho do elemento: converter para pixels na
+   * hora do uso mantém os dois sempre coerentes.
+   */
   const [crop, setCrop] = useState<Crop>();
-  const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
   const [zoom, setZoom] = useState(ZOOM_MIN);
 
   const onImageLoad = useCallback(
@@ -83,28 +98,38 @@ export function ImageEditor({
       const { width, height, naturalWidth, naturalHeight } = event.currentTarget;
 
       // Reabrir no enquadramento salvo: o retângulo está em pixels da imagem
-      // original e precisa voltar à escala do elemento exibido.
+      // ORIGINAL, e vira porcentagem — que não depende do tamanho exibido.
       if (initialCrop && naturalWidth > 0 && naturalHeight > 0) {
-        const scaleX = width / naturalWidth;
-        const scaleY = height / naturalHeight;
-        const restored: PixelCrop = {
-          unit: 'px',
-          x: initialCrop.x * scaleX,
-          y: initialCrop.y * scaleY,
-          width: initialCrop.width * scaleX,
-          height: initialCrop.height * scaleY,
-        };
-        setCrop(restored);
-        setCompletedCrop(restored);
+        setCrop({
+          unit: '%',
+          x: (initialCrop.x / naturalWidth) * 100,
+          y: (initialCrop.y / naturalHeight) * 100,
+          width: (initialCrop.width / naturalWidth) * 100,
+          height: (initialCrop.height / naturalHeight) * 100,
+        });
         return;
       }
 
-      const centered = centerAspectCrop(width, height, aspect);
-      setCrop(centered);
-      setCompletedCrop(convertToPixelCrop(centered, width, height));
+      setCrop(centerAspectCrop(width, height, aspect));
     },
     [aspect, initialCrop],
   );
+
+  /**
+   * Converte o recorte percentual para pixels do elemento NO MOMENTO DA
+   * CHAMADA — nunca em valor guardado.
+   *
+   * Ler o tamanho durante o render congelaria a medida do render anterior, e o
+   * clique em Aplicar usaria um elemento que já mudou de tamanho. Como função,
+   * cada chamada mede o elemento como ele está agora, então o zoom é
+   * acompanhado sem depender de `onComplete` (que só dispara ao arrastar).
+   */
+  const readPixelCrop = (): PixelCrop | null => {
+    const image = imgRef.current;
+    if (!crop || !image || image.width === 0 || image.height === 0) return null;
+    const pixels = convertToPixelCrop(crop, image.width, image.height);
+    return pixels.width > 0 && pixels.height > 0 ? pixels : null;
+  };
 
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeRef = useRef<() => void>(onCancel);
@@ -156,7 +181,8 @@ export function ImageEditor({
 
   const handleConfirm = () => {
     const image = imgRef.current;
-    if (!image || !completedCrop || completedCrop.width === 0 || completedCrop.height === 0) return;
+    const completedCrop = readPixelCrop();
+    if (!image || !completedCrop) return;
 
     // Converte do elemento renderizado para a imagem original. É o passo que
     // faltava antes: sem ele o retângulo salvo não corresponde ao arquivo.
@@ -179,6 +205,7 @@ export function ImageEditor({
   // resultado real antes de aplicar — e não uma aproximação que diverge depois.
   const previewPosition = (() => {
     const image = imgRef.current;
+    const completedCrop = readPixelCrop();
     if (!image || !completedCrop) return '50% 50%';
     const scaleX = image.naturalWidth / image.width;
     const scaleY = image.naturalHeight / image.height;
@@ -195,7 +222,9 @@ export function ImageEditor({
   })();
 
   const isAvatar = kind === 'profile_avatar';
-  const canConfirm = Boolean(completedCrop && completedCrop.width > 0 && completedCrop.height > 0);
+  // O botão espelha a existência de um recorte utilizável. `crop` é o estado
+  // que muda; o tamanho em pixels é medido na hora do clique.
+  const canConfirm = Boolean(crop && crop.width > 0 && crop.height > 0);
 
   return (
     <dialog
@@ -213,7 +242,6 @@ export function ImageEditor({
           <ReactCrop
             crop={crop}
             onChange={(_pixelCrop, percentCrop) => setCrop(percentCrop)}
-            onComplete={(pixelCrop) => setCompletedCrop(pixelCrop)}
             aspect={aspect}
             circularCrop={isAvatar}
             keepSelection

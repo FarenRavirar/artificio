@@ -95,6 +95,11 @@ router.get('/', async (req: Request, res: Response) => {
         't.description',
         sql<string | null>`t.banner_url`.as('cover_url'),
         sql<Record<string, number> | null>`t.banner_crop_data`.as('cover_crop_data'),
+        // Sem as dimensoes da imagem o recorte acima nao e conversivel em
+        // `object-position`: a conta divide pela FOLGA (imagem menos recorte).
+        // Expor so o retangulo deixava o consumidor sem como aplica-lo.
+        sql<number | null>`t.banner_width`.as('cover_width'),
+        sql<number | null>`t.banner_height`.as('cover_height'),
         't.status',
         't.type',
         't.audience',
@@ -513,6 +518,11 @@ router.get('/:slug', async (req: Request, res: Response) => {
         't.description',
         sql<string | null>`t.banner_url`.as('cover_url'),
         sql<Record<string, number> | null>`t.banner_crop_data`.as('cover_crop_data'),
+        // Sem as dimensoes da imagem o recorte acima nao e conversivel em
+        // `object-position`: a conta divide pela FOLGA (imagem menos recorte).
+        // Expor so o retangulo deixava o consumidor sem como aplica-lo.
+        sql<number | null>`t.banner_width`.as('cover_width'),
+        sql<number | null>`t.banner_height`.as('cover_height'),
         't.status',
         't.type',
         't.audience',

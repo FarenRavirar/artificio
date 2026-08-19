@@ -1,3 +1,4 @@
+import { normalizeImageFrame } from '@artificio/media/image-kinds';
 import type { TableContact, TableDetail } from '../../../types/tables';
 import type { TableViewModel, TableCertifications, CTAConfig, UrgencyConfig, VisibilityConfig } from '../types/tableView.types';
 
@@ -161,6 +162,18 @@ function generateVisibilityConfig(table: TableDetail): VisibilityConfig {
  * Centraliza lógica de transformação e defaults
  */
 export function mapTableToView(table: TableDetail): TableViewModel {
+  // A API nomeia o banner de mesa com prefixo `cover_`; o normalizador do
+  // contrato espera `banner_`. Traduzimos aqui para não existir uma segunda
+  // implementação da mesma validação.
+  const coverFrame = normalizeImageFrame(
+    {
+      banner_crop_data: table.cover_crop_data,
+      banner_width: table.cover_width,
+      banner_height: table.cover_height,
+    },
+    'banner',
+  );
+
   // CORREÇÃO DT-09: Usar slots_open ao invés de calcular slots_total - slots_filled
   // slots_open = vagas abertas para recrutamento (controlado pelo mestre)
   // slots_filled = jogadores já inscritos
@@ -282,7 +295,12 @@ export function mapTableToView(table: TableDetail): TableViewModel {
 
     // Metadados
     coverUrl: table.cover_url ?? undefined,
-    coverCropData: table.cover_crop_data ?? undefined,
+    // JSONB da API é `unknown` até validar: retângulo malformado produziria
+    // `NaN% NaN%`, que o navegador descarta — devolvendo o recorte central que
+    // o enquadramento existe para substituir.
+    coverCropData: coverFrame.crop,
+    coverWidth: coverFrame.width,
+    coverHeight: coverFrame.height,
     status: table.status,
     archived: !!table.archived_at,
     origin: table.origin,

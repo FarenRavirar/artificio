@@ -114,3 +114,36 @@ describe('useImageUpload — resposta não-JSON', () => {
     await expect(result.current.uploadFile(makeFile(1024))).rejects.toThrow('Falha ao enviar imagem.');
   });
 });
+
+describe('useImageUpload — normalização da resposta', () => {
+  async function upload(payload: unknown, ok = true) {
+    const { authPost } = await import('../services/apiClient');
+    vi.mocked(authPost).mockResolvedValue({ ok, json: async () => payload } as Response);
+    const { useImageUpload } = await import('./useImageUpload');
+    const { renderHook } = await import('@testing-library/react');
+    const { result } = renderHook(() => useImageUpload('profile_avatar'));
+    return result.current.uploadFile(makeFile(1024));
+  }
+
+  // `width`/`height` viram divisor em `cropToObjectPosition`. Valor zero,
+  // negativo, fracionário ou NaN produziria `object-position` sem sentido —
+  // pior que ausência, porque tem aparência de dado válido.
+  it('aceita dimensão só como inteiro positivo seguro', async () => {
+    for (const width of [0, -10, 12.5, Number.NaN, Number.POSITIVE_INFINITY, '800', null]) {
+      const uploaded = await upload({ secure_url: 'https://res.cloudinary.com/x/a.png', width, height: 800 });
+      expect(uploaded.width).toBeNull();
+    }
+
+    const valida = await upload({ secure_url: 'https://res.cloudinary.com/x/a.png', width: 800, height: 600 });
+    expect(valida).toEqual({ url: 'https://res.cloudinary.com/x/a.png', width: 800, height: 600 });
+  });
+
+  it('recusa resposta com URL vazia, mesmo com status 200', async () => {
+    await expect(upload({ secure_url: '   ' })).rejects.toThrow('Falha ao enviar imagem.');
+  });
+
+  it('dimensão ausente vira null em vez de quebrar', async () => {
+    const uploaded = await upload({ secure_url: 'https://res.cloudinary.com/x/a.png' });
+    expect(uploaded).toEqual({ url: 'https://res.cloudinary.com/x/a.png', width: null, height: null });
+  });
+});

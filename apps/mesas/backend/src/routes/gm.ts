@@ -214,6 +214,12 @@ router.get('/perfis/:slug', publicRateLimiter, optionalAuth, async (req: Request
         't.title',
         't.description',
         sql<string | null>`t.banner_url`.as('cover_url'),
+        // A capa das mesas do mestre passa pelos mesmos cards da listagem
+        // publica; sem o enquadramento junto da URL, a imagem sairia recortada
+        // pelo centro geometrico ali.
+        sql<Record<string, number> | null>`t.banner_crop_data`.as('cover_crop_data'),
+        sql<number | null>`t.banner_width`.as('cover_width'),
+        sql<number | null>`t.banner_height`.as('cover_height'),
         't.status',
         't.type',
         't.audience',
