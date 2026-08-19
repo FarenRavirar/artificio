@@ -1,3 +1,4 @@
+import { normalizeImageFrame } from '@artificio/media/image-kinds';
 import type { MasterViewModel, MasterResponse } from '../types/masterView.types';
 import { mapTableToView } from '../../table/mappers/tableViewMapper';
 
@@ -27,6 +28,7 @@ export function mapMasterToView(
   master: MasterResponse,
   currentUserId?: string
 ): MasterViewModel {
+  const avatarFrame = normalizeImageFrame(master, 'avatar');
   // Mapear mesas e ordenar: vagas disponíveis primeiro
   const tables = (master.tables || [])
     .map(mapTableToView)
@@ -36,9 +38,13 @@ export function mapMasterToView(
     id: master.id,
     name: master.name,
     avatar: resolveAvatar(master),
-    avatarCrop: master.avatar_crop_data ?? null,
-    avatarWidth: master.avatar_width ?? null,
-    avatarHeight: master.avatar_height ?? null,
+    // Dado de API e JSONB e `unknown` ate ser validado: retangulo malformado
+    // chegaria a `cropToObjectPosition` e produziria `NaN% NaN%`, que o
+    // navegador descarta — devolvendo o recorte central que este trabalho
+    // inteiro existe para evitar.
+    avatarCrop: avatarFrame.crop,
+    avatarWidth: avatarFrame.width,
+    avatarHeight: avatarFrame.height,
     banner: master.banner_url,
     bio: master.bio,
     

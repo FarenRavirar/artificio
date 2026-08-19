@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { CroppedImage } from './CroppedImage';
 
@@ -43,7 +43,6 @@ describe('CroppedImage', () => {
       <CroppedImage src="https://res.cloudinary.com/demo/banner.png" alt="Banner" kind="table_banner" />,
     );
     const wrapper = container.firstElementChild as HTMLElement;
-    // Aqui o valor é um decimal simples, sem normalização em fração.
     // Fração canônica, não decimal: `1200/650` em ponto flutuante vira
     // `1.8461538461538463`, que o CSS trunca ou rejeita.
     expect(wrapper.style.aspectRatio).toBe('1200 / 650');
@@ -73,5 +72,38 @@ describe('CroppedImage', () => {
       />,
     );
     expect((screen.getByAltText('Banner') as HTMLImageElement).getAttribute('src')).toBe('/placeholder.webp');
+  });
+});
+
+describe('CroppedImage — recuperação após falha', () => {
+  const QUEBRADA = 'https://res.cloudinary.com/demo/quebrada.png';
+  const NOVA = 'https://res.cloudinary.com/demo/nova.png';
+
+  it('volta a renderizar quando a imagem é trocada por outra válida', () => {
+    const { rerender } = render(
+      <CroppedImage src={QUEBRADA} alt="Avatar" kind="profile_avatar" fallbackSrc="/placeholder.webp" />,
+    );
+
+    fireEvent.error(screen.getByAltText('Avatar'));
+    expect((screen.getByAltText('Avatar') as HTMLImageElement).getAttribute('src')).toBe('/placeholder.webp');
+
+    // A falha pertence àquela imagem. Enviar outra tem que recuperar sozinho —
+    // senão quem troca a foto quebrada continua vendo o placeholder.
+    rerender(
+      <CroppedImage src={NOVA} alt="Avatar" kind="profile_avatar" fallbackSrc="/placeholder.webp" />,
+    );
+    expect((screen.getByAltText('Avatar') as HTMLImageElement).getAttribute('src')).toBe(NOVA);
+  });
+
+  it('mantém o fallback enquanto a mesma imagem quebrada continuar', () => {
+    const { rerender } = render(
+      <CroppedImage src={QUEBRADA} alt="Avatar" kind="profile_avatar" fallbackSrc="/placeholder.webp" />,
+    );
+    fireEvent.error(screen.getByAltText('Avatar'));
+
+    rerender(
+      <CroppedImage src={QUEBRADA} alt="Avatar" kind="profile_avatar" fallbackSrc="/placeholder.webp" className="x" />,
+    );
+    expect((screen.getByAltText('Avatar') as HTMLImageElement).getAttribute('src')).toBe('/placeholder.webp');
   });
 });

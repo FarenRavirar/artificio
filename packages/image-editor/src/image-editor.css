@@ -3,14 +3,19 @@
    caso de o consumidor ainda não carregar o tema — o modal precisa ser legível
    mesmo assim. */
 
-.artificio-image-editor__backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
+/* `<dialog>` nativo: o browser posiciona, centraliza e torna o resto da página
+   inerte. O `::backdrop` substitui a div de fundo que existia aqui antes. */
+.artificio-image-editor__dialog {
+  max-width: 46rem;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg, #ffffff);
+  overflow: visible;
+}
+
+.artificio-image-editor__dialog::backdrop {
   background: rgba(0, 0, 0, 0.8);
 }
 
@@ -46,7 +51,9 @@
    fora da tela — defeito do editor anterior. */
 .artificio-image-editor__stage {
   display: flex;
-  align-items: center;
+  /* `flex-start` para que a imagem ampliada role a partir do topo em vez de
+     ficar centralizada e cortada nas duas pontas. */
+  align-items: flex-start;
   justify-content: center;
   max-height: 52vh;
   overflow: auto;
@@ -55,10 +62,13 @@
   background: rgba(0, 0, 0, 0.3);
 }
 
+/* Sem `max-height` fixo: a altura acompanha a largura definida pelo zoom, e o
+   `.__stage` acima rola quando a imagem passa do contêiner. Limitar a altura
+   aqui faria o elemento parar de crescer no eixo Y, quebrando a proporção que
+   o recorte assume. */
 .artificio-image-editor__image {
   display: block;
-  max-height: 48vh;
-  object-fit: contain;
+  height: auto;
 }
 
 .artificio-image-editor__controls {
@@ -78,7 +88,7 @@
 
 .artificio-image-editor__zoom input[type='range'] {
   width: 10rem;
-  accent-color: var(--color-artificio-orange, #f97316);
+  accent-color: var(--brand-solid, #cf4317);
 }
 
 .artificio-image-editor__zoom output {
@@ -162,14 +172,19 @@
   background: var(--fill-strong, rgba(255, 255, 255, 0.2));
 }
 
+/* Par de tokens do design system, não a cor de marca crua.
+   Medido: `#ffffff` sobre `--artificio-brand` (#ff5722) dá 3.16:1 — abaixo do
+   mínimo AA de 4.5:1 para texto. O par `--brand-solid`/`--brand-solid-fg`
+   existe exatamente para este caso e vira junto com o tema: 4.70:1 no claro
+   (branco sobre #cf4317) e 6.00:1 no escuro (ink sobre a marca). */
 .artificio-image-editor__button--primary {
-  background: var(--color-artificio-orange, #f97316);
-  color: #ffffff;
+  background: var(--brand-solid, #cf4317);
+  color: var(--brand-solid-fg, #ffffff);
   font-weight: 600;
 }
 
 .artificio-image-editor__button--primary:hover {
-  background: var(--color-artificio-orange-hover, #ea580c);
+  background: var(--artificio-brand-deep, #e64a19);
 }
 
 .artificio-image-editor__button:disabled {

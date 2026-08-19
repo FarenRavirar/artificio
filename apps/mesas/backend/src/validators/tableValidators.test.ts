@@ -119,3 +119,51 @@ describe('contactMethodsSchema — perfil do mestre', () => {
     expect(contactMethodsSchema.safeParse([{ channel: 'whatsapp', value: '11999999999' }]).success).toBe(false);
   });
 });
+
+/**
+ * O enquadramento do banner precisa sobreviver ao `PUT` como qualquer outro
+ * campo. Enquanto o `updateData` da rota trazia só `banner_url`, editar
+ * qualquer outro dado da mesa apagava o recorte já escolhido.
+ */
+describe('updateTableSchema — enquadramento do banner', () => {
+  it('preserva recorte e dimensões válidos', () => {
+    const parsed = updateTableSchema.parse({
+      banner_url: 'https://res.cloudinary.com/demo/banner.png',
+      banner_crop_data: { x: 0, y: 30, width: 1200, height: 650 },
+      banner_width: 1600,
+      banner_height: 900,
+    });
+
+    expect(parsed.banner_crop_data).toEqual({ x: 0, y: 30, width: 1200, height: 650 });
+    expect(parsed.banner_width).toBe(1600);
+    expect(parsed.banner_height).toBe(900);
+  });
+
+  it('aceita null explícito para limpar o enquadramento', () => {
+    const parsed = updateTableSchema.parse({
+      banner_crop_data: null,
+      banner_width: null,
+      banner_height: null,
+    });
+    expect(parsed.banner_crop_data).toBeNull();
+    expect(parsed.banner_width).toBeNull();
+  });
+
+  it('omitir os campos deixa undefined, que o Kysely lê como "não mexe"', () => {
+    const parsed = updateTableSchema.parse({ title: 'Mesa de teste' });
+    expect(parsed.banner_crop_data).toBeUndefined();
+    expect(parsed.banner_width).toBeUndefined();
+    expect(parsed.banner_height).toBeUndefined();
+  });
+
+  it('recusa retângulo com dimensão zero ou origem negativa', () => {
+    expect(updateTableSchema.safeParse({ banner_crop_data: { x: 0, y: 0, width: 0, height: 10 } }).success).toBe(false);
+    expect(updateTableSchema.safeParse({ banner_crop_data: { x: -1, y: 0, width: 10, height: 10 } }).success).toBe(false);
+  });
+
+  it('recusa dimensão não inteira, zero ou negativa', () => {
+    expect(updateTableSchema.safeParse({ banner_width: 0 }).success).toBe(false);
+    expect(updateTableSchema.safeParse({ banner_width: -10 }).success).toBe(false);
+    expect(updateTableSchema.safeParse({ banner_height: 12.5 }).success).toBe(false);
+  });
+});

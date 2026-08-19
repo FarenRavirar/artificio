@@ -1,4 +1,4 @@
-import { isCropRect } from '@artificio/media/image-kinds';
+import { normalizeImageFramePatch } from '@artificio/media/image-kinds';
 import { Router, Request, Response } from 'express';
 import { sql, type Updateable, type Selectable } from 'kysely';
 import { db } from '../db/index.js';
@@ -334,19 +334,11 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
     contact_methods,
   } = req.body;
 
-  // Enquadramento vem de JSON externo: `unknown` ate normalizar. `null`
-  // explicito zera o recorte (imagem trocada); ausencia preserva o salvo, que e
-  // o que `undefined` significa no `.set()` do Kysely.
-  const normalizeCrop = (raw: unknown) => (isCropRect(raw) ? raw : raw === null ? null : undefined);
-  const normalizeDimension = (raw: unknown) =>
-    Number.isInteger(raw) && Number(raw) > 0 ? Number(raw) : raw === null ? null : undefined;
-
-  const safeAvatarCropData = normalizeCrop(req.body?.avatar_crop_data);
-  const safeAvatarWidth = normalizeDimension(req.body?.avatar_width);
-  const safeAvatarHeight = normalizeDimension(req.body?.avatar_height);
-  const safeBannerCropData = normalizeCrop(req.body?.banner_crop_data);
-  const safeBannerWidth = normalizeDimension(req.body?.banner_width);
-  const safeBannerHeight = normalizeDimension(req.body?.banner_height);
+  // Enquadramento vem de JSON externo: `unknown` ate normalizar. O contrato dos
+  // tres estados (valido / `null` zera / ausente preserva) vive no pacote, para
+  // nao existir uma copia por rota que possa divergir.
+  const avatarFrame = normalizeImageFramePatch(req.body, 'avatar');
+  const bannerFrame = normalizeImageFramePatch(req.body, 'banner');
 
   if (nickname !== undefined) {
     if (typeof nickname !== 'string' || nickname.trim().length < 2 || nickname.trim().length > 40) {
@@ -436,13 +428,13 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
         specialties: safeSpecialties,
         badges: safeBadges,
         avatar_url: avatar_url ?? undefined,
-        avatar_crop_data: safeAvatarCropData,
-        avatar_width: safeAvatarWidth,
-        avatar_height: safeAvatarHeight,
+        avatar_crop_data: avatarFrame.crop,
+        avatar_width: avatarFrame.width,
+        avatar_height: avatarFrame.height,
         banner_url: banner_url ?? undefined,
-        banner_crop_data: safeBannerCropData,
-        banner_width: safeBannerWidth,
-        banner_height: safeBannerHeight,
+        banner_crop_data: bannerFrame.crop,
+        banner_width: bannerFrame.width,
+        banner_height: bannerFrame.height,
         tagline: safeTagline,
         promo_badge_text: safePromoBadgeText,
         selling_points: safeSellingPoints,
@@ -953,6 +945,13 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       communication_platform: communicationPlatformResolved ? communicationPlatformResolved.legacy : undefined,
       rules_notes: data.rules_notes,
       banner_url: data.banner_url,
+      // O enquadramento acompanha a URL: sem estes tres campos, editar
+      // qualquer outro dado da mesa apagava o recorte ja escolhido, porque o
+      // `updateData` so trazia `banner_url`. `undefined` preserva o salvo;
+      // `null` (enviado quando a imagem troca) zera de proposito.
+      banner_crop_data: data.banner_crop_data,
+      banner_width: data.banner_width,
+      banner_height: data.banner_height,
       master_display_name: data.master_display_name,
       campaign_length: data.campaign_length,
       level_range: data.level_range,

@@ -86,6 +86,21 @@ export function imageKindSpec(kind: unknown): ImageKindSpec {
 }
 
 /**
+ * Um passo de transformação do Cloudinary.
+ *
+ * Tipado aqui e não no consumidor: com `Record<string, unknown>` cada app
+ * precisava de um cast para o tipo do SDK, e um cast é justamente o lugar onde
+ * um erro de forma deixa de ser detectado.
+ */
+export interface ImageTransformationStep {
+  readonly width?: number;
+  readonly height?: number;
+  readonly crop?: "limit" | "fill" | "fit" | "thumb";
+  readonly quality?: string;
+  readonly fetch_format?: string;
+}
+
+/**
  * Transformação de armazenamento do Cloudinary.
  *
  * `crop: 'limit'` (e não `'fill'`) é o ponto inteiro deste módulo: o upload
@@ -93,7 +108,7 @@ export function imageKindSpec(kind: unknown): ImageKindSpec {
  * upload é destrutivo e irreversível — o enquadramento vive em `*_crop_data`,
  * que o dono da imagem pode reajustar quantas vezes quiser.
  */
-export function storageTransformation(kind: unknown): ReadonlyArray<Record<string, unknown>> {
+export function storageTransformation(kind: unknown): ImageTransformationStep[] {
   const spec = imageKindSpec(kind);
   return [
     { width: spec.maxDimension, height: spec.maxDimension, crop: "limit" },
@@ -113,12 +128,12 @@ export interface CropRect {
 export function isCropRect(value: unknown): value is CropRect {
   if (typeof value !== "object" || value === null) return false;
   const rect = value as Record<string, unknown>;
-  return (
-    typeof rect.x === "number" && Number.isFinite(rect.x) &&
-    typeof rect.y === "number" && Number.isFinite(rect.y) &&
-    typeof rect.width === "number" && Number.isFinite(rect.width) && rect.width > 0 &&
-    typeof rect.height === "number" && Number.isFinite(rect.height) && rect.height > 0
-  );
+  // Origem tem que ser >= 0: coordenada negativa nao descreve area DENTRO da
+  // imagem, e `cropToObjectPosition` a limitaria a 0 de qualquer forma —
+  // persistir o valor so guardaria um retangulo que nunca sera respeitado.
+  const nonNegative = (raw: unknown) => typeof raw === "number" && Number.isFinite(raw) && raw >= 0;
+  const positive = (raw: unknown) => typeof raw === "number" && Number.isFinite(raw) && raw > 0;
+  return nonNegative(rect.x) && nonNegative(rect.y) && positive(rect.width) && positive(rect.height);
 }
 
 /**
@@ -198,4 +213,82 @@ export function upgradeGoogleImageQuality(url: string, size = 400): string {
     `/s${size}/`,
   );
   return segmented;
+}
+
+/** Enquadramento normalizado, pronto para `cropToObjectPosition`. */
+export interface ImageFrame {
+  readonly crop: CropRect | null;
+  readonly width: number | null;
+  readonly height: number | null;
+}
+
+/**
+ * Normaliza o enquadramento vindo de API, JSONB ou localStorage.
+ *
+ * Esses valores são `unknown` até serem validados: JSONB aceita qualquer
+ * forma, e o tipo declarado no TypeScript é promessa, não garantia. Sem esta
+ * passagem, um retângulo malformado chegaria a `cropToObjectPosition` e
+ * produziria `object-position` sem sentido — ou `NaN% NaN%`, que o navegador
+ * descarta silenciosamente, devolvendo o recorte central que este módulo
+ * inteiro existe para evitar.
+ *
+ * Aceita as chaves com prefixo (`avatar_crop_data`, `banner_width`, …) porque
+ * é assim que backend e banco as nomeiam, e devolve sempre os três campos —
+ * `null` quando o valor não sobrevive à validação.
+ */
+export function normalizeImageFrame(source: unknown, prefix: "avatar" | "banner"): ImageFrame {
+  const record = (source ?? {}) as Record<string, unknown>;
+  const rawCrop = record[`${prefix}_crop_data`];
+  const rawWidth = record[`${prefix}_width`];
+  const rawHeight = record[`${prefix}_height`];
+
+  const dimension = (raw: unknown): number | null =>
+    typeof raw === "number" && Number.isSafeInteger(raw) && raw > 0 ? raw : null;
+
+  const width = dimension(rawWidth);
+  const height = dimension(rawHeight);
+
+  // Recorte sem as dimensões da imagem é inútil: a conversão para
+  // `object-position` divide por elas. Guardar um sem o outro só produziria o
+  // centro mais tarde, com aparência de dado válido.
+  if (!isCropRect(rawCrop) || width === null || height === null) {
+    return { crop: null, width, height };
+  }
+
+  return { crop: rawCrop, width, height };
+}
+
+/**
+ * Enquadramento para ESCRITA, com três estados em vez de dois.
+ *
+ * `undefined` é o que distingue esta função de {@link normalizeImageFrame}:
+ * na leitura, valor inválido vira `null` (exibe centralizado); na escrita,
+ * ausência precisa continuar ausente, porque `undefined` é o que o Kysely lê
+ * como "não mexe nesta coluna". Colapsar os dois apagaria o enquadramento
+ * salvo em qualquer `PATCH` parcial que não falasse de imagem.
+ */
+export interface ImageFramePatch {
+  readonly crop: CropRect | null | undefined;
+  readonly width: number | null | undefined;
+  readonly height: number | null | undefined;
+}
+
+function patchValue<T>(raw: unknown, accept: (value: unknown) => value is T): T | null | undefined {
+  if (accept(raw)) return raw;
+  if (raw === null) return null;
+  return undefined;
+}
+
+function isPositiveSafeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+}
+
+/** Normaliza o enquadramento vindo do corpo de uma requisição de escrita. */
+export function normalizeImageFramePatch(source: unknown, prefix: "avatar" | "banner"): ImageFramePatch {
+  const record = (source ?? {}) as Record<string, unknown>;
+  return {
+    crop: patchValue(record[`${prefix}_crop_data`], isCropRect),
+    width: patchValue(record[`${prefix}_width`], isPositiveSafeInteger),
+    height: patchValue(record[`${prefix}_height`], isPositiveSafeInteger),
+  };
 }

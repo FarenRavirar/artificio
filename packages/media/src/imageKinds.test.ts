@@ -7,6 +7,8 @@ import {
   isCropRect,
   isGoogleUserContentUrl,
   isImageKind,
+  normalizeImageFrame,
+  normalizeImageFramePatch,
   storageTransformation,
   upgradeGoogleImageQuality,
 } from "./imageKinds.js";
@@ -89,6 +91,12 @@ describe("isCropRect", () => {
     expect(isCropRect({ x: 0, y: 0, width: 100, height: -1 })).toBe(false);
   });
 
+  it("recusa origem negativa", () => {
+    expect(isCropRect({ x: -1, y: 0, width: 100, height: 50 })).toBe(false);
+    expect(isCropRect({ x: 0, y: -1, width: 100, height: 50 })).toBe(false);
+    expect(isCropRect({ x: 0, y: 0, width: 100, height: 50 })).toBe(true);
+  });
+
   it("recusa campo ausente, NaN e não-objeto", () => {
     expect(isCropRect({ x: 0, y: 0, width: 100 })).toBe(false);
     expect(isCropRect({ x: Number.NaN, y: 0, width: 100, height: 50 })).toBe(false);
@@ -126,8 +134,17 @@ describe("cropToObjectPosition", () => {
     expect(cropToObjectPosition({ x: 0, y: 0, width: 800, height: 400 }, 800, 800)).toBe("50% 0%");
   });
 
-  it("limita a 0-100 mesmo com recorte fora dos limites", () => {
-    expect(cropToObjectPosition({ x: -50, y: 9000, width: 400, height: 400 }, 800, 800)).toBe("0% 100%");
+  it("limita a 0-100 quando o recorte extrapola a imagem", () => {
+    // `x: 0` fica no inicio; `y` alem da altura satura em 100% em vez de
+    // produzir posicao fora da faixa que o CSS aceita.
+    expect(cropToObjectPosition({ x: 0, y: 9000, width: 400, height: 400 }, 800, 800)).toBe("0% 100%");
+  });
+
+  it("origem negativa nao e recorte valido, entao cai no centro", () => {
+    // `isCropRect` recusa coordenada negativa: ela nao descreve area dentro da
+    // imagem, e persistir o valor guardaria um retangulo nunca respeitado.
+    expect(isCropRect({ x: -50, y: 0, width: 400, height: 400 })).toBe(false);
+    expect(cropToObjectPosition({ x: -50, y: 0, width: 400, height: 400 }, 800, 800)).toBe("50% 50%");
   });
 });
 
@@ -173,5 +190,113 @@ describe("upgradeGoogleImageQuality", () => {
   it("devolve intacta quando não há marcador de tamanho reconhecível", () => {
     const url = "https://lh3.googleusercontent.com/proxy/algumhashsemtamanho";
     expect(upgradeGoogleImageQuality(url)).toBe(url);
+  });
+});
+
+describe("normalizeImageFrame", () => {
+  it("aceita enquadramento completo e válido", () => {
+    const frame = normalizeImageFrame(
+      { avatar_crop_data: { x: 10, y: 20, width: 400, height: 400 }, avatar_width: 800, avatar_height: 800 },
+      "avatar",
+    );
+    expect(frame).toEqual({ crop: { x: 10, y: 20, width: 400, height: 400 }, width: 800, height: 800 });
+  });
+
+  // JSONB aceita qualquer forma; o tipo declarado é promessa, não garantia.
+  it("descarta retângulo malformado vindo do banco", () => {
+    for (const crop of [
+      { x: 0, y: 0, width: 0, height: 10 },
+      { x: -1, y: 0, width: 10, height: 10 },
+      { x: 0, y: 0, width: 10 },
+      { x: "0", y: 0, width: 10, height: 10 },
+      "0,0,10,10",
+      [],
+      null,
+    ]) {
+      const frame = normalizeImageFrame({ avatar_crop_data: crop, avatar_width: 100, avatar_height: 100 }, "avatar");
+      expect(frame.crop).toBeNull();
+    }
+  });
+
+  it("recorte sem dimensões vira null, porque a conversão divide por elas", () => {
+    const crop = { x: 0, y: 0, width: 50, height: 50 };
+    expect(normalizeImageFrame({ avatar_crop_data: crop }, "avatar").crop).toBeNull();
+    expect(normalizeImageFrame({ avatar_crop_data: crop, avatar_width: 100 }, "avatar").crop).toBeNull();
+  });
+
+  it("dimensão só passa como inteiro positivo seguro", () => {
+    for (const value of [0, -5, 12.5, Number.NaN, Number.POSITIVE_INFINITY, "800", null]) {
+      expect(normalizeImageFrame({ banner_width: value }, "banner").width).toBeNull();
+    }
+    expect(normalizeImageFrame({ banner_width: 1600 }, "banner").width).toBe(1600);
+  });
+
+  it("avatar e banner não se misturam", () => {
+    const source = { avatar_width: 800, avatar_height: 800, banner_width: 1600, banner_height: 900 };
+    expect(normalizeImageFrame(source, "avatar").width).toBe(800);
+    expect(normalizeImageFrame(source, "banner").width).toBe(1600);
+  });
+
+  it("origem ausente ou nula não quebra", () => {
+    expect(normalizeImageFrame(undefined, "avatar")).toEqual({ crop: null, width: null, height: null });
+    expect(normalizeImageFrame(null, "banner")).toEqual({ crop: null, width: null, height: null });
+  });
+
+  it("o resultado é seguro para cropToObjectPosition", () => {
+    const frame = normalizeImageFrame({ avatar_crop_data: { x: 1 }, avatar_width: 800, avatar_height: 800 }, "avatar");
+    expect(cropToObjectPosition(frame.crop, frame.width, frame.height)).toBe("50% 50%");
+  });
+});
+
+/**
+ * Contrato dos TRÊS estados na escrita. Distinguir `null` de ausente é o que
+ * separa "o dono trocou a imagem e quer zerar o recorte" de "esta requisição
+ * não fala de imagem" — confundir os dois apagaria o enquadramento salvo em
+ * qualquer PATCH parcial.
+ */
+describe("normalizeImageFramePatch", () => {
+  it("valor válido é persistido", () => {
+    const patch = normalizeImageFramePatch(
+      { avatar_crop_data: { x: 10, y: 20, width: 400, height: 400 }, avatar_width: 800, avatar_height: 800 },
+      "avatar",
+    );
+    expect(patch).toEqual({ crop: { x: 10, y: 20, width: 400, height: 400 }, width: 800, height: 800 });
+  });
+
+  it("null zera o enquadramento de propósito", () => {
+    const patch = normalizeImageFramePatch(
+      { banner_crop_data: null, banner_width: null, banner_height: null },
+      "banner",
+    );
+    expect(patch).toEqual({ crop: null, width: null, height: null });
+  });
+
+  it("ausência vira undefined, que o Kysely lê como 'não mexe'", () => {
+    const patch = normalizeImageFramePatch({ nickname: "Mago" }, "avatar");
+    expect(patch.crop).toBeUndefined();
+    expect(patch.width).toBeUndefined();
+    expect(patch.height).toBeUndefined();
+  });
+
+  // Valor inválido NÃO pode virar `null`: apagaria o enquadramento salvo por
+  // causa de um payload malformado, em vez de simplesmente ignorá-lo.
+  it("valor inválido é ignorado, nunca apaga o que está salvo", () => {
+    for (const crop of [{ x: -1, y: 0, width: 10, height: 10 }, { x: 0, y: 0, width: 0, height: 10 }, "texto", 42]) {
+      expect(normalizeImageFramePatch({ avatar_crop_data: crop }, "avatar").crop).toBeUndefined();
+    }
+    for (const width of [0, -5, 12.5, Number.NaN, "800", Number.MAX_SAFE_INTEGER + 2]) {
+      expect(normalizeImageFramePatch({ avatar_width: width }, "avatar").width).toBeUndefined();
+    }
+  });
+
+  it("avatar e banner não se misturam", () => {
+    const body = { avatar_width: 800, banner_width: 1600 };
+    expect(normalizeImageFramePatch(body, "avatar").width).toBe(800);
+    expect(normalizeImageFramePatch(body, "banner").width).toBe(1600);
+  });
+
+  it("corpo ausente não quebra", () => {
+    expect(normalizeImageFramePatch(undefined, "avatar").crop).toBeUndefined();
+    expect(normalizeImageFramePatch(null, "banner").width).toBeUndefined();
   });
 });

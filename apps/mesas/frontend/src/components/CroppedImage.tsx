@@ -41,7 +41,12 @@ export function CroppedImage({
   fallbackSrc,
   placeholder,
 }: Readonly<CroppedImageProps>) {
-  const [loadFailed, setLoadFailed] = useState(false);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  // A falha pertence a UMA imagem, nao ao componente. Guardar so um booleano
+  // prendia o fallback para sempre: quem trocasse a foto quebrada por outra
+  // valida continuaria vendo o placeholder, sem entender por que o envio
+  // "nao funcionou". Guardar QUAL src falhou faz a recuperacao ser automatica.
+  const loadFailed = typeof src === 'string' && src === failedSrc;
   const spec = imageKindSpec(kind);
   const isAvatar = kind === 'profile_avatar';
 
@@ -70,7 +75,10 @@ export function CroppedImage({
         alt={alt}
         className="w-full h-full object-cover"
         style={{ objectPosition: cropToObjectPosition(crop, imageWidth, imageHeight) }}
-        onError={() => setLoadFailed(true)}
+        // Marca a `src` ORIGINAL, nao a resolvida: se o fallback tambem
+        // falhar, gravar o fallback faria a proxima imagem valida herdar a
+        // falha de um arquivo que nem era dela.
+        onError={() => { if (typeof src === 'string') setFailedSrc(src); }}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import type { CropRect } from '@artificio/media/image-kinds';
+import { normalizeImageFrame, type CropRect } from '@artificio/media/image-kinds';
 import { useEffect, useMemo, useState } from 'react';
 import type { UserLink } from './useLinks';
 import type { TableCard } from '../types/tables';
@@ -76,6 +76,30 @@ export interface MestrePublicData {
   tables: Array<Omit<TableCard, 'gm_slug' | 'gm_avatar_url' | 'gm_display_name'>>;
 }
 
+/**
+ * Normaliza o enquadramento antes de o perfil entrar no estado do React.
+ *
+ * O corpo da resposta e `unknown` na pratica: o tipo declarado e promessa, e o
+ * recorte vem de JSONB, que aceita qualquer forma. Retangulo malformado
+ * chegaria a `cropToObjectPosition` no `MestreHero` e produziria
+ * `NaN% NaN%` — descartado pelo navegador, devolvendo justamente o recorte
+ * central que este trabalho existe para evitar.
+ */
+function normalizeMestreProfile(data: MestrePublicData | null | undefined): MestrePublicData | null {
+  if (!data) return null;
+  const avatar = normalizeImageFrame(data, 'avatar');
+  const banner = normalizeImageFrame(data, 'banner');
+  return {
+    ...data,
+    avatar_crop_data: avatar.crop,
+    avatar_width: avatar.width,
+    avatar_height: avatar.height,
+    banner_crop_data: banner.crop,
+    banner_width: banner.width,
+    banner_height: banner.height,
+  };
+}
+
 interface GmProfilePayload {
   data: MestrePublicData;
 }
@@ -110,7 +134,7 @@ export function useMestre(slug?: string) {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const json = (await res.json()) as GmProfilePayload;
-        setProfile(json.data ?? null);
+        setProfile(normalizeMestreProfile(json.data));
       } catch (err: unknown) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         setError('Não foi possível carregar o perfil do mestre.');

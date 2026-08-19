@@ -1,4 +1,4 @@
-import { isCropRect, upgradeGoogleImageQuality } from '@artificio/media/image-kinds';
+import { normalizeImageFramePatch, upgradeGoogleImageQuality } from '@artificio/media/image-kinds';
 import { Router, Request, Response } from 'express';
 import { authMiddleware } from '../middleware/auth.js';
 import { strictRateLimiter } from '../middleware/rateLimit.js';
@@ -89,10 +89,8 @@ router.patch('/me/profile', authMiddleware, async (req: Request, res: Response) 
   // Enquadramento vem de JSON externo: `unknown` ate ser normalizado.
   // `isCropRect` recusa retangulo incompleto/negativo; `null` explicito zera o
   // recorte (imagem trocada), enquanto ausencia do campo preserva o salvo.
-  const rawCrop: unknown = req.body?.avatar_crop_data;
-  const avatar_crop_data = isCropRect(rawCrop) ? rawCrop : rawCrop === null ? null : undefined;
-  const avatar_width = Number.isInteger(req.body?.avatar_width) ? Number(req.body.avatar_width) : undefined;
-  const avatar_height = Number.isInteger(req.body?.avatar_height) ? Number(req.body.avatar_height) : undefined;
+  const avatarFrame = normalizeImageFramePatch(req.body, 'avatar');
+  const { crop: avatar_crop_data, width: avatar_width, height: avatar_height } = avatarFrame;
 
   try {
     const profile = await profileService.updateProfile(userId, {
@@ -175,12 +173,23 @@ async function updateGmProfileHandler(req: Request, res: Response) {
     game_format,
   } = req.body;
 
+  // Enquadramento vem de JSON externo: `unknown` ate normalizar. `null`
+  // explicito zera o recorte (imagem trocada); ausencia preserva o salvo.
+  const avatarFrame = normalizeImageFramePatch(req.body, 'avatar');
+  const bannerFrame = normalizeImageFramePatch(req.body, 'banner');
+
   try {
     const gm = await profileService.updateGmProfile(userId, {
       nickname,
       bio_long,
       avatar_url,
+      avatar_crop_data: avatarFrame.crop,
+      avatar_width: avatarFrame.width,
+      avatar_height: avatarFrame.height,
       banner_url,
+      banner_crop_data: bannerFrame.crop,
+      banner_width: bannerFrame.width,
+      banner_height: bannerFrame.height,
       languages,
       specialties,
       experience_years,

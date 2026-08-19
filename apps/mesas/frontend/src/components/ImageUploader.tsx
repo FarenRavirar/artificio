@@ -125,9 +125,13 @@ export function ImageUploader({
     try {
       const uploaded = await uploadFile(file);
       onChange(uploaded.url);
-      if (uploaded.width && uploaded.height) {
-        onDimensionsChange?.({ width: uploaded.width, height: uploaded.height });
-      }
+      // Imagem nova zera crop E dimensoes juntos. Preservar as dimensoes
+      // antigas quando o servidor nao as devolve deixaria numeros de OUTRA
+      // imagem no estado, e o proximo recorte seria convertido pela escala
+      // errada.
+      onDimensionsChange?.(
+        uploaded.width && uploaded.height ? { width: uploaded.width, height: uploaded.height } : null,
+      );
       onCropChange?.(null);
       if (onCropChange) setEditorSrc(uploaded.url);
     } catch (error) {

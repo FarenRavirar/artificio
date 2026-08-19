@@ -157,6 +157,18 @@ export function CreateTableForm({
     if (savedDraft.actualGmName) formHook.setActualGmName(savedDraft.actualGmName);
     if (savedDraft.rulesNotes) formHook.setRulesNotes(savedDraft.rulesNotes);
     if (savedDraft.bannerUrl) formHook.setBannerUrl(savedDraft.bannerUrl);
+    // O enquadramento acompanha a URL: restaurar so o banner devolvia a imagem
+    // sem o recorte escolhido, e o rascunho parecia ter perdido o ajuste.
+    // Testado por `!== undefined` para que rascunho antigo (sem os campos)
+    // mantenha o comportamento anterior em vez de zerar o que ja existia.
+    if (savedDraft.bannerCropData !== undefined) formHook.setBannerCropData(savedDraft.bannerCropData);
+    if (savedDraft.bannerWidth !== undefined && savedDraft.bannerHeight !== undefined) {
+      formHook.setBannerDimensions(
+        savedDraft.bannerWidth !== null && savedDraft.bannerHeight !== null
+          ? { width: savedDraft.bannerWidth, height: savedDraft.bannerHeight }
+          : null,
+      );
+    }
     if (savedDraft.isCovilMesa !== undefined) formHook.setIsCovilMesa(savedDraft.isCovilMesa);
     if (savedDraft.ddal) formHook.setDdal(savedDraft.ddal);
     if (savedDraft.masterDisplayName) formHook.setMasterDisplayName(savedDraft.masterDisplayName);

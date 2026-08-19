@@ -95,3 +95,22 @@ describe('useImageUpload', () => {
     await expect(result.current.uploadFile(makeFile(1024))).rejects.toThrow('Falha ao enviar imagem.');
   });
 });
+
+describe('useImageUpload — resposta não-JSON', () => {
+  it('não vaza erro de parser quando o corpo não é JSON', async () => {
+    const { authPost } = await import('../services/apiClient');
+    vi.mocked(authPost).mockResolvedValue({
+      ok: false,
+      json: async () => {
+        throw new SyntaxError('Unexpected token < in JSON at position 0');
+      },
+    } as unknown as Response);
+
+    const { useImageUpload } = await import('./useImageUpload');
+    const { renderHook } = await import('@testing-library/react');
+    const { result } = renderHook(() => useImageUpload('profile_avatar'));
+
+    // A pessoa precisa ver algo acionável, não a mensagem do parser.
+    await expect(result.current.uploadFile(makeFile(1024))).rejects.toThrow('Falha ao enviar imagem.');
+  });
+});

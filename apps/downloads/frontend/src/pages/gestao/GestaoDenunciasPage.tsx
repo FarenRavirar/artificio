@@ -121,7 +121,10 @@ export function GestaoDenunciasPage() {
               <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                disabled={contentOverflow(notes[report.id] ?? '', RESOLUTION_NOTE_MAX_LENGTH) > 0}
+                // `isPending` junto do limite: sem ele dava para clicar duas
+                // vezes e disparar duas decisoes concorrentes sobre a mesma
+                // denuncia, e a ultima resposta a chegar definia o estado.
+                disabled={decision.isPending || contentOverflow(notes[report.id] ?? '', RESOLUTION_NOTE_MAX_LENGTH) > 0}
                 onClick={() =>
                   decision
                     .mutateAsync({ id: report.id, case_state: 'resolved', resolution_note: notes[report.id], priority: priorities[report.id] ?? report.priority })
@@ -133,7 +136,10 @@ export function GestaoDenunciasPage() {
               </button>
               <button
                 type="button"
-                disabled={contentOverflow(notes[report.id] ?? '', RESOLUTION_NOTE_MAX_LENGTH) > 0}
+                // `isPending` junto do limite: sem ele dava para clicar duas
+                // vezes e disparar duas decisoes concorrentes sobre a mesma
+                // denuncia, e a ultima resposta a chegar definia o estado.
+                disabled={decision.isPending || contentOverflow(notes[report.id] ?? '', RESOLUTION_NOTE_MAX_LENGTH) > 0}
                 onClick={() =>
                   decision
                     .mutateAsync({ id: report.id, case_state: 'dismissed', resolution_note: notes[report.id], priority: priorities[report.id] ?? report.priority })

@@ -28,11 +28,11 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 /** Validação local, antes de gastar rede. O servidor revalida de qualquer forma. */
 export function validateImageFile(file: File, kind: ImageKind): string | null {
-  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+  if (!ALLOWED_MIME_TYPES.has(file.type)) {
     return 'Formato inválido. Envie apenas JPG, PNG ou WEBP.';
   }
   const spec = imageKindSpec(kind);
@@ -56,7 +56,11 @@ export function useImageUpload(kind: ImageKind) {
       formData.append('file', file);
 
       const response = await authPost('/api/v1/upload', formData);
-      const payload: unknown = await response.json();
+
+      // Nem toda falha devolve JSON: 502 do proxy, HTML de erro do nginx ou
+      // corpo vazio fariam `response.json()` lancar erro de parser, e a
+      // mensagem do parser apareceria na tela no lugar de algo acionavel.
+      const payload: unknown = await response.json().catch(() => null);
       const data = (payload ?? {}) as Record<string, unknown>;
 
       if (!response.ok || typeof data.secure_url !== 'string') {

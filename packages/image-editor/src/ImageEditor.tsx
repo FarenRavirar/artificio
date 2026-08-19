@@ -50,9 +50,14 @@ function centerAspectCrop(mediaWidth: number, mediaHeight: number, aspect: numbe
  *    abaixo). O editor antigo devolvia coordenadas do elemento renderizado na
  *    tela, que muda de tamanho conforme a janela — o retângulo salvo não
  *    correspondia à imagem, então o enquadramento saía errado.
- * 3. **O zoom afeta a imagem, não o modal.** Antes, `transform: scale()` era
- *    aplicado ao contêiner inteiro: aumentava o modal junto e empurrava os
- *    botões para fora da tela, sem aproximar de fato.
+ * 3. **O zoom muda o TAMANHO da imagem, não a transforma.** Antes,
+ *    `transform: scale()` era aplicado ao contêiner inteiro: aumentava o modal
+ *    junto e empurrava os botões para fora da tela. Usar `transform` só na
+ *    imagem também não serve — `transform` não altera o tamanho de layout, e o
+ *    `ReactCrop` mede o elemento não-escalado. O retângulo desenhado deixaria
+ *    de corresponder ao que a pessoa vê na tela a partir de qualquer zoom > 1.
+ *    Com `width` de verdade, layout e visual coincidem, e `image.width` volta a
+ *    ser a escala correta na conversão.
  *
  * O recorte NÃO altera o arquivo. Ele é salvo como dado e vira
  * `object-position` na exibição, então continua reajustável para sempre.
@@ -101,15 +106,53 @@ export function ImageEditor({
     [aspect, initialCrop],
   );
 
-  // Teclado: Esc fecha. Sem isto o modal só sai pelo botão, o que quebra a
-  // expectativa de qualquer diálogo e prende quem navega por teclado.
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const closeRef = useRef<() => void>(onCancel);
+  closeRef.current = onCancel;
+
+  /**
+   * `<dialog>` nativo em vez de `div role="dialog"`.
+   *
+   * O elemento nativo traz de graça o que uma div exige reimplementar à mão:
+   * retenção de foco dentro do modal, foco inicial, devolução ao elemento que
+   * abriu, `Esc` fechando e a camada `::backdrop` que torna o resto da página
+   * inerte. Reimplementar isso é onde a acessibilidade costuma ficar pela
+   * metade — e uma div que só ANUNCIA `role="dialog"` sem o comportamento faz
+   * ao leitor de tela uma promessa que não cumpre.
+   *
+   * `showModal()` não existe no jsdom, então o fallback abre pelo atributo
+   * `open`. Sem ele o conteúdo nem renderizaria em teste, e o componente
+   * ficaria sem cobertura justamente na parte de acessibilidade.
+   */
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCancel();
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+
+    if (typeof dialog.showModal === 'function') {
+      if (!dialog.open) dialog.showModal();
+    } else {
+      dialog.setAttribute('open', '');
+    }
+
+    // O primeiro controle recebe o foco: sem isto o leitor de tela começaria a
+    // leitura do topo do documento, atrás do modal.
+    dialog.querySelector<HTMLElement>('button:not([disabled])')?.focus();
+
+    return () => {
+      if (typeof dialog.close === 'function' && dialog.open) dialog.close();
+      previouslyFocused?.focus?.();
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onCancel]);
+  }, []);
+
+  // `Esc` no `<dialog>` dispara `cancel` antes de fechar. Interceptamos para
+  // que o fechamento passe pelo `onCancel` do componente — senão o consumidor
+  // não saberia que o editor fechou e o estado ficaria dessincronizado.
+  const handleCancelEvent = (event: React.SyntheticEvent<HTMLDialogElement>) => {
+    event.preventDefault();
+    closeRef.current();
+  };
 
   const handleConfirm = () => {
     const image = imgRef.current;
@@ -155,11 +198,11 @@ export function ImageEditor({
   const canConfirm = Boolean(completedCrop && completedCrop.width > 0 && completedCrop.height > 0);
 
   return (
-    <div
-      className="artificio-image-editor__backdrop"
-      role="dialog"
-      aria-modal="true"
+    <dialog
+      ref={dialogRef}
+      className="artificio-image-editor__dialog"
       aria-label={title}
+      onCancel={handleCancelEvent}
     >
       <div className="artificio-image-editor__panel">
         <div className="artificio-image-editor__header">
@@ -182,8 +225,12 @@ export function ImageEditor({
               onLoad={onImageLoad}
               alt="Imagem sendo enquadrada"
               className="artificio-image-editor__image"
-              // O zoom escala a IMAGEM dentro da área rolável, não o modal.
-              style={{ transform: `scale(${zoom})`, transformOrigin: 'center' }}
+              // `width` em vez de `transform: scale()`: o `ReactCrop` mede o
+              // tamanho de LAYOUT do elemento, que `transform` não altera —
+              // com transform, o recorte salvo divergiria do que a pessoa vê
+              // assim que ela aproximasse. A área acima rola quando a imagem
+              // passa do contêiner.
+              style={{ width: `${zoom * 100}%`, maxWidth: 'none' }}
             />
           </ReactCrop>
         </div>
@@ -251,6 +298,6 @@ export function ImageEditor({
           </button>
         </div>
       </div>
-    </div>
+    </dialog>
   );
 }

@@ -97,27 +97,41 @@ describe('ImageEditor', () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
-  it('Cancelar e Esc fecham sem salvar', () => {
+  it('Cancelar fecha sem salvar', () => {
     const { onCancel, onConfirm } = renderEditor();
     loadImage([1000, 1000], [500, 500]);
 
     fireEvent.click(screen.getByText('Cancelar'));
     expect(onCancel).toHaveBeenCalledTimes(1);
-
-    fireEvent.keyDown(window, { key: 'Escape' });
-    expect(onCancel).toHaveBeenCalledTimes(2);
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
-  it('o zoom escala a imagem, não o modal', () => {
+  // No `<dialog>` nativo, Esc dispara o evento `cancel` (é o navegador que
+  // decide, não o componente). O que cabe testar aqui é o que o componente faz
+  // com esse evento: encaminhar para `onCancel`, para o consumidor saber que o
+  // editor fechou. O jsdom não emite o evento sozinho, então disparamos.
+  it('Esc encaminha o fechamento nativo para onCancel', () => {
+    const { onCancel } = renderEditor();
+    loadImage([1000, 1000], [500, 500]);
+
+    fireEvent(screen.getByRole('dialog'), new Event('cancel', { bubbles: false, cancelable: true }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  // `transform: scale()` não altera o tamanho de LAYOUT, e o ReactCrop mede o
+  // layout. Com transform, o retângulo desenhado divergiria do que a pessoa vê
+  // assim que ela aproximasse — o zoom precisa mudar a largura de verdade.
+  it('o zoom muda o tamanho da imagem, não a transforma nem mexe no modal', () => {
     renderEditor();
     const image = loadImage([1000, 1000], [500, 500]);
     const panel = document.querySelector('.artificio-image-editor__panel') as HTMLElement;
 
     fireEvent.change(screen.getByLabelText('Nível de aproximação'), { target: { value: '2' } });
 
-    expect(image.style.transform).toBe('scale(2)');
+    expect(image.style.width).toBe('200%');
+    expect(image.style.transform).toBe('');
     expect(panel.style.transform).toBe('');
+    expect(panel.style.width).toBe('');
   });
 
   it('oferece voltar à imagem inteira só quando há aproximação', () => {
@@ -129,7 +143,30 @@ describe('ImageEditor', () => {
     fireEvent.click(screen.getByText('Ver imagem inteira'));
 
     const image = screen.getByAltText('Imagem sendo enquadrada') as HTMLImageElement;
-    expect(image.style.transform).toBe('scale(1)');
+    expect(image.style.width).toBe('100%');
+  });
+
+  // O ReactCrop mede o elemento; com o zoom mudando a largura real, o elemento
+  // medido É o que a pessoa vê, então a conversão para pixels da imagem
+  // original continua correta em qualquer nível de aproximação.
+  it('o recorte segue em pixels da imagem original mesmo aproximado', () => {
+    const { onConfirm } = renderEditor();
+    loadImage([1000, 1000], [500, 500]);
+
+    fireEvent.change(screen.getByLabelText('Nível de aproximação'), { target: { value: '2' } });
+
+    // Com zoom 2x o elemento mede o dobro; a escala cai de 2 para 1.
+    const image = screen.getByAltText('Imagem sendo enquadrada') as HTMLImageElement;
+    Object.defineProperty(image, 'width', { value: 1000, configurable: true });
+    Object.defineProperty(image, 'height', { value: 1000, configurable: true });
+
+    fireEvent.click(screen.getByText('Aplicar'));
+
+    const [crop, naturalWidth] = onConfirm.mock.calls[0] as [CropRect, number, number];
+    expect(naturalWidth).toBe(1000);
+    // O recorte cobre a imagem inteira, independentemente do zoom aplicado.
+    expect(crop.width).toBeLessThanOrEqual(1000);
+    expect(crop.width).toBe(crop.height);
   });
 
   it('mostra prévia do enquadramento antes de aplicar', () => {
@@ -137,5 +174,48 @@ describe('ImageEditor', () => {
     loadImage([1000, 1000], [500, 500]);
     const preview = screen.getByAltText('Prévia do enquadramento') as HTMLImageElement;
     expect(preview.style.objectPosition).toBeTruthy();
+  });
+});
+
+/**
+ * `role="dialog"` + `aria-modal` anunciam um modal ao leitor de tela. Sem o
+ * comportamento correspondente o anúncio é falso: o foco ficaria no botão que
+ * abriu, Tab escaparia para a página coberta e, ao fechar, cairia no início do
+ * documento.
+ */
+describe('ImageEditor — foco por teclado', () => {
+  it('leva o foco para dentro do diálogo ao abrir', () => {
+    renderEditor();
+    const panel = document.querySelector('.artificio-image-editor__panel') as HTMLElement;
+    expect(panel.contains(document.activeElement)).toBe(true);
+  });
+
+  // A RETENÇÃO de foco (Tab circulando dentro do modal) passou a ser do
+  // `<dialog>` nativo com `showModal()`, que o jsdom não implementa — não há
+  // como exercitá-la aqui, e reimplementá-la à mão só para poder testar
+  // devolveria o problema que o elemento nativo resolve. O que segue testável
+  // é o que o componente controla: usar o elemento certo, colocar o foco
+  // inicial dentro dele e devolvê-lo ao fechar.
+  it('usa <dialog> nativo, não uma div com role', () => {
+    renderEditor();
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.tagName).toBe('DIALOG');
+  });
+
+  it('devolve o foco a quem abriu o editor ao fechar', () => {
+    const opener = document.createElement('button');
+    opener.textContent = 'Ajustar enquadramento';
+    document.body.appendChild(opener);
+    opener.focus();
+    expect(document.activeElement).toBe(opener);
+
+    const { unmount } = render(
+      <ImageEditor imageSrc="blob:teste" kind="profile_avatar" onConfirm={vi.fn()} onCancel={vi.fn()} />,
+    );
+    expect(document.activeElement).not.toBe(opener);
+
+    unmount();
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
   });
 });

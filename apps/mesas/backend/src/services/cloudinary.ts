@@ -1,4 +1,4 @@
-import { v2 as cloudinary, type UploadApiOptions } from 'cloudinary';
+import { v2 as cloudinary } from 'cloudinary';
 import { downloadPublicImage, uploadBuffer } from '@artificio/media';
 import { imageKindSpec, storageTransformation, type ImageKind } from '@artificio/media/image-kinds';
 
@@ -31,7 +31,7 @@ export async function uploadImageToCloudinary(imageUrl: string, kind: ImageKind 
   try {
     const result = await cloudinary.uploader.upload(imageUrl, {
       folder: imageKindSpec(kind).folder,
-      transformation: storageTransformation(kind) as UploadApiOptions['transformation'],
+      transformation: storageTransformation(kind),
     });
 
     return {
@@ -95,7 +95,7 @@ export async function uploadRemoteImageToCloudinary(rawUrl: string, kind: ImageK
   const result = await uploadBuffer(image.buffer, {
     folder: spec.folder,
     resourceType: 'image',
-    transformation: storageTransformation(kind) as UploadApiOptions['transformation'],
+    transformation: storageTransformation(kind),
   });
 
   return {

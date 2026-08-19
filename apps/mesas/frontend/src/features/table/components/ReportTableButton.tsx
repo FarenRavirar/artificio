@@ -13,6 +13,12 @@ import { MarkdownEditor } from '../../../components/MarkdownEditor';
  * #275, terceira rodada). `contentOverflow` é o caminho que o próprio pacote
  * documenta para este caso; o literal vira constante para o botão e o editor
  * não poderem divergir.
+ *
+ * NÃO é o `REPORT_DETAILS_MAX_LENGTH` de `@artificio/comments` (4.000): a
+ * denúncia de MESA é validada por `apps/mesas/backend/src/routes/tables.ts:950`,
+ * que recusa acima de 2.000 — outro endpoint, outro limite. Usar a constante do
+ * pacote aqui deixaria a tela aceitar texto que a API devolve como 400. O
+ * espelho é do backend de mesas; se aquele número mudar, este acompanha.
  */
 const DETAILS_MAX_LENGTH = 2000;
 
