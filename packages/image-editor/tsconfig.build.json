@@ -1,0 +1,8 @@
+{
+  // Projeto de EMIT, separado do `tsconfig.json` pelo mesmo motivo dos demais
+  // pacotes: o lint type-aware precisa INCLUIR teste (senão vira "Parsing
+  // error"), e o build precisa EXCLUIR (o `dist` vai para imagens de produção,
+  // onde `vitest`/`@testing-library` não existem).
+  "extends": "./tsconfig.json",
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**", "src/testSetup.ts"]
+}

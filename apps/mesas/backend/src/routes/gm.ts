@@ -11,7 +11,8 @@ import {
   sanitizeNullableUserMarkdown,
   sanitizeTableMarkdownFields,
 } from '../utils/userMarkdown.js';
-import { upgradeGoogleImageQuality } from '../utils/urlValidation.js';
+import { upgradeGoogleImageQuality } from '@artificio/media/image-kinds';
+import type { CropRect } from '@artificio/media/image-kinds';
 import { getSystemCatalogProvider, hydrateTableSystemFields } from '../services/systemCatalogProvider.js';
 import { processPendingLinks } from '../scripts/processLinkMetadataJobs.js';
 import { logDatabaseError } from '../middleware/requestLogger.js';
@@ -130,7 +131,19 @@ router.get('/perfis/:slug', publicRateLimiter, optionalAuth, async (req: Request
         'gm.bio_long',
         'gm.tagline',
         sql<string>`COALESCE(gm.avatar_url, p.avatar_url)`.as('avatar_url'),
+        // O enquadramento tem que vir da MESMA origem que a URL acima: se o
+        // mestre nao definiu foto propria, cai na foto geral, e aplicar sobre
+        // ela o recorte da foto de mestre enquadraria a imagem errada.
+        sql<CropRect | null>`CASE WHEN gm.avatar_url IS NOT NULL
+          THEN gm.avatar_crop_data ELSE p.avatar_crop_data END`.as('avatar_crop_data'),
+        sql<number | null>`CASE WHEN gm.avatar_url IS NOT NULL
+          THEN gm.avatar_width ELSE p.avatar_width END`.as('avatar_width'),
+        sql<number | null>`CASE WHEN gm.avatar_url IS NOT NULL
+          THEN gm.avatar_height ELSE p.avatar_height END`.as('avatar_height'),
         'gm.banner_url',
+        'gm.banner_crop_data',
+        'gm.banner_width',
+        'gm.banner_height',
         'gm.languages',
         'gm.specialties',
         'gm.badges',
@@ -201,6 +214,12 @@ router.get('/perfis/:slug', publicRateLimiter, optionalAuth, async (req: Request
         't.title',
         't.description',
         sql<string | null>`t.banner_url`.as('cover_url'),
+        // A capa das mesas do mestre passa pelos mesmos cards da listagem
+        // publica; sem o enquadramento junto da URL, a imagem sairia recortada
+        // pelo centro geometrico ali.
+        sql<Record<string, number> | null>`t.banner_crop_data`.as('cover_crop_data'),
+        sql<number | null>`t.banner_width`.as('cover_width'),
+        sql<number | null>`t.banner_height`.as('cover_height'),
         't.status',
         't.type',
         't.audience',

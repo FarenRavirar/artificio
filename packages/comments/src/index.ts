@@ -155,6 +155,8 @@ export {
 export {
   COMMENT_REPORT_REASONS,
   COMMENT_SORTS_UI,
+  MODERATION_REASON_MAX_LENGTH,
+  REPORT_DETAILS_MAX_LENGTH,
   commentAuthorSchema,
   commentReportReasonSchema,
   commentSortUiSchema,

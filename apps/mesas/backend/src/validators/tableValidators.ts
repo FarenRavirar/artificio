@@ -151,12 +151,19 @@ const baseTableSchema = z.object({
   communication_platform: z.string().max(100).nullable().optional(),
   rules_notes: userMarkdownSchema(2000),
   banner_url: z.url().nullable().optional(),
+  // Retangulo de recorte em pixels da imagem ARMAZENADA. Coordenada negativa
+  // ou dimensao <= 0 nao descreve area valida e produziria `object-position`
+  // sem sentido na exibicao.
   banner_crop_data: z.object({
-    x: z.number(),
-    y: z.number(),
-    width: z.number(),
-    height: z.number(),
+    x: z.number().min(0),
+    y: z.number().min(0),
+    width: z.number().positive(),
+    height: z.number().positive(),
   }).nullable().optional(),
+  // Dimensoes da imagem armazenada. Sem elas o recorte acima nao e conversivel
+  // em `object-position` e o enquadramento salvo nao aparece.
+  banner_width: z.number().int().positive().nullable().optional(),
+  banner_height: z.number().int().positive().nullable().optional(),
   gm_avatar_url: z.url().nullable().optional(),
   is_covil: z.boolean().default(false),
   master_display_name: z.string().max(100).nullable().optional(),

@@ -5,6 +5,7 @@ import { SettingStylesField } from '../../SettingStylesField';
 import { ContactsFormBlock, type ContactFormEntry } from '../../ContactsFormBlock';
 import { MarkdownEditor } from '../../MarkdownEditor';
 import { ImageUploader } from '../../ImageUploader';
+import type { CropRect } from '@artificio/media/image-kinds';
 import { FINAL_TEXT_LIMITS } from '../../../features/create-table/utils/validation';
 import type {
   ChangeEvent,
@@ -33,8 +34,11 @@ interface StepFinalProps {
   setRulesNotes: (notes: string) => void;
   bannerUrl: string;
   setBannerUrl: (url: string) => void;
-  bannerCropData: { x: number; y: number; width: number; height: number } | null;
-  setBannerCropData: (data: { x: number; y: number; width: number; height: number } | null) => void;
+  bannerCropData: CropRect | null;
+  bannerWidth: number | null;
+  bannerHeight: number | null;
+  setBannerDimensions: (dimensions: { width: number; height: number } | null) => void;
+  setBannerCropData: (data: CropRect | null) => void;
   bannerError: boolean;
   setBannerError: (error: boolean) => void;
   gmAvatarUrl: string;
@@ -161,8 +165,12 @@ export function StepFinal(props: StepFinalProps) {
         }}
         onError={props.setBannerError}
         hasError={props.bannerError}
+        kind="table_banner"
         initialCropData={props.bannerCropData}
         onCropChange={props.setBannerCropData}
+        imageWidth={props.bannerWidth}
+        imageHeight={props.bannerHeight}
+        onDimensionsChange={props.setBannerDimensions}
       />
 
       {/* Rules Notes */}
@@ -176,7 +184,11 @@ export function StepFinal(props: StepFinalProps) {
           placeholder="Ex: Usamos regras homebrew para combate, proibido PvP, etc."
           height={200}
         />
-        <p className="text-xs text-white/40 text-right">{props.rulesNotes.length}/1500</p>
+        {/* Sem contador próprio aqui: o `ContentEditor` já renderiza o dele a
+            partir do MESMO `maxLength`. O contador manual que existia mostrava
+            `/1500` depois de o limite subir para 2.000, e os dois números
+            apareciam lado a lado — o usuário cortava texto que o backend
+            aceitaria (achado P2 do Codex, PR #275). */}
       </div>
 
       {/* Toggle Campos Avançados */}
@@ -303,7 +315,8 @@ export function StepFinal(props: StepFinalProps) {
                 placeholder="Ex: Roleplay pesado, Combate tático, Sandbox político"
                 height={180}
               />
-              <p className="text-xs text-white/40 text-right">{props.styleText.length}/500</p>
+              {/* Contador removido: o `ContentEditor` já mostra o dele a partir de
+                  `maxLength`. O manual dizia `/500` com o limite em 1.000. */}
               {/* T5.2 (spec 081): este campo é texto livre pro FLAVOR do estilo — não
                   gera as pills de estilo do catálogo/filtro. Achado real: mestres
                   confundiam com o campo abaixo ("Estilos/Temáticas") por nome
@@ -335,7 +348,9 @@ export function StepFinal(props: StepFinalProps) {
                 placeholder="Ex: Roll20 + Discord, Foundry VTT com módulos X, Y"
                 height={180}
               />
-              <p className="text-xs text-white/40 text-right">{props.technicalRequirements.length}/1000</p>
+              {/* Idem: contador único, o do editor. O literal daqui casava com o
+                  limite hoje, mas é a mesma duplicata que divergiu nos dois
+                  campos acima assim que o limite subiu. */}
             </div>
             <div className="space-y-2">
               <div className="flex items-center gap-2">

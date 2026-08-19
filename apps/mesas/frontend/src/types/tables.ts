@@ -38,6 +38,10 @@ export interface TableCard {
   description: string | null;
   cover_url: string | null;
   cover_crop_data?: { x: number; y: number; width: number; height: number } | null;
+  // Dimensões da imagem armazenada. Sem elas o recorte acima não é conversível
+  // em `object-position`: a conta divide pela FOLGA (imagem menos recorte).
+  cover_width?: number | null;
+  cover_height?: number | null;
   status: TableStatus;
   archived_at?: string | null; // D-MESAS1: timestamp de arquivamento (null = ativa)
   type: string;

@@ -175,6 +175,8 @@ export class TableService {
             rules_notes: data.rules_notes ?? null,
             banner_url: data.banner_url ?? null,
             banner_crop_data: data.banner_crop_data ?? null,
+            banner_width: data.banner_width ?? null,
+            banner_height: data.banner_height ?? null,
             is_covil: safeIsCovil,
             master_display_name: data.master_display_name ?? null,
             campaign_length: data.campaign_length ?? null,

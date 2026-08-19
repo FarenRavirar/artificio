@@ -1,0 +1,193 @@
+/* Editor de enquadramento compartilhado (@artificio/image-editor).
+   Cores por variável canônica de `@artificio/ui`, com fallback literal para o
+   caso de o consumidor ainda não carregar o tema — o modal precisa ser legível
+   mesmo assim. */
+
+/* `<dialog>` nativo: o browser posiciona, centraliza e torna o resto da página
+   inerte. O `::backdrop` substitui a div de fundo que existia aqui antes. */
+.artificio-image-editor__dialog {
+  max-width: 46rem;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg, #ffffff);
+  overflow: visible;
+}
+
+.artificio-image-editor__dialog::backdrop {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.artificio-image-editor__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 46rem;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding: 1.25rem;
+  border-radius: 0.875rem;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.12));
+  background: var(--surface-strong, #1a1a2e);
+  color: var(--fg, #ffffff);
+}
+
+.artificio-image-editor__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.artificio-image-editor__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+/* A área da imagem rola por conta própria: com zoom alto a imagem passa do
+   contêiner, e sem isto o modal inteiro crescia e empurrava os botões para
+   fora da tela — defeito do editor anterior. */
+.artificio-image-editor__stage {
+  display: flex;
+  /* `flex-start` para que a imagem ampliada role a partir do topo em vez de
+     ficar centralizada e cortada nas duas pontas. */
+  align-items: flex-start;
+  justify-content: center;
+  max-height: 52vh;
+  overflow: auto;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Sem `max-height` fixo: a altura acompanha a largura definida pelo zoom, e o
+   `.__stage` acima rola quando a imagem passa do contêiner. Limitar a altura
+   aqui faria o elemento parar de crescer no eixo Y, quebrando a proporção que
+   o recorte assume. */
+.artificio-image-editor__image {
+  display: block;
+  height: auto;
+}
+
+.artificio-image-editor__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.artificio-image-editor__zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--fg-muted, rgba(255, 255, 255, 0.7));
+}
+
+.artificio-image-editor__zoom input[type='range'] {
+  width: 10rem;
+  accent-color: var(--brand-solid, #cf4317);
+}
+
+.artificio-image-editor__zoom output {
+  min-width: 3rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.artificio-image-editor__reset {
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.16));
+  border-radius: 0.375rem;
+  background: transparent;
+  color: var(--fg-muted, rgba(255, 255, 255, 0.7));
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.artificio-image-editor__reset:hover {
+  color: var(--fg, #ffffff);
+}
+
+.artificio-image-editor__preview-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.artificio-image-editor__preview-label {
+  font-size: 0.75rem;
+  color: var(--fg-muted, rgba(255, 255, 255, 0.7));
+}
+
+/* A prévia usa exatamente `object-fit: cover` + `object-position`, que é o que
+   a exibição pública faz. Prévia que calcula diferente da tela real é pior que
+   nenhuma: promete um enquadramento e entrega outro. */
+.artificio-image-editor__preview {
+  width: 8rem;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  border: 1px solid var(--line, rgba(255, 255, 255, 0.16));
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.artificio-image-editor__preview--round {
+  width: 5.5rem;
+  border-radius: 50%;
+}
+
+.artificio-image-editor__preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.artificio-image-editor__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--fg-muted, rgba(255, 255, 255, 0.55));
+}
+
+.artificio-image-editor__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.artificio-image-editor__button {
+  /* 44px: alvo mínimo de toque, mesmo critério já aplicado nas estrelas de
+     avaliação do `downloads` (spec 088, T1.16). */
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: var(--fill, rgba(255, 255, 255, 0.1));
+  color: var(--fg, #ffffff);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.artificio-image-editor__button:hover {
+  background: var(--fill-strong, rgba(255, 255, 255, 0.2));
+}
+
+/* Par de tokens do design system, não a cor de marca crua.
+   Medido: `#ffffff` sobre `--artificio-brand` (#ff5722) dá 3.16:1 — abaixo do
+   mínimo AA de 4.5:1 para texto. O par `--brand-solid`/`--brand-solid-fg`
+   existe exatamente para este caso e vira junto com o tema: 4.70:1 no claro
+   (branco sobre #cf4317) e 6.00:1 no escuro (ink sobre a marca). */
+.artificio-image-editor__button--primary {
+  background: var(--brand-solid, #cf4317);
+  color: var(--brand-solid-fg, #ffffff);
+  font-weight: 600;
+}
+
+.artificio-image-editor__button--primary:hover {
+  background: var(--artificio-brand-deep, #e64a19);
+}
+
+.artificio-image-editor__button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

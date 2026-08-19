@@ -20,6 +20,8 @@
     "@artificio/comments": "workspace:*",
     "@artificio/config": "workspace:*",
     "@artificio/content-editor": "workspace:*",
+    "@artificio/image-editor": "workspace:*",
+    "@artificio/media": "workspace:*",
     "@artificio/ui": "workspace:*",
     "@tailwindcss/postcss": "^4.3.1",
     "@tanstack/react-query": "^5.96.2",
@@ -32,7 +34,6 @@
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-hot-toast": "^2.6.0",
-    "react-image-crop": "^11.0.10",
     "react-router-dom": "^7.18.0",
     "tailwind-merge": "^3.5.0",
     "zod": "^4.4.3"

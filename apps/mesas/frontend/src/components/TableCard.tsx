@@ -1,3 +1,4 @@
+import { cropToObjectPosition } from '@artificio/media/image-kinds';
 import { Link } from 'react-router-dom';
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -287,10 +288,21 @@ export function TableCardComponent({ table }: { table: TableCard }) {
     >
       {/* BLOCO 1: HEADER (Imagem + Badges críticos) */}
       <div className="aspect-[16/10] w-full relative overflow-hidden">
+        {/* O card recorta em 16/10, proporção diferente do banner: sem
+            `object-position` ele cortaria pelo centro geométrico e ignoraria o
+            enquadramento que o mestre escolheu, que é justamente onde a capa
+            mais precisa dele — o card é o primeiro contato com a mesa. */}
         <img
           src={resolveTableImageSource(table.cover_url)}
           alt={table.title}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          style={{
+            objectPosition: cropToObjectPosition(
+              table.cover_crop_data,
+              table.cover_width,
+              table.cover_height,
+            ),
+          }}
           onError={applyTableImageFallback}
         />
 

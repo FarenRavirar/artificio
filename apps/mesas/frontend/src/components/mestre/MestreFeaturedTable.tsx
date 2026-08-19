@@ -1,3 +1,4 @@
+import { cropToObjectPosition } from '@artificio/media/image-kinds';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, Star, Globe, MapPin } from 'lucide-react';
 import type { TableCard } from '../../types/tables';
@@ -37,9 +38,19 @@ export function MestreFeaturedTable({ table }: Props) {
         id={`featured-table-${table.slug}`}
       >
         <div className="mestre-featured-table-cover">
+          {/* Mesma regra do card e do hero: sem `object-position` a capa é
+              cortada pelo centro geométrico e o enquadramento escolhido pelo
+              mestre é ignorado. */}
           <img
             src={resolveTableImageSource(table.cover_url)}
             alt={table.title}
+            style={{
+              objectPosition: cropToObjectPosition(
+                table.cover_crop_data,
+                table.cover_width,
+                table.cover_height,
+              ),
+            }}
             onError={applyTableImageFallback}
           />
 

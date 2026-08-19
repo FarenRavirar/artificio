@@ -1,3 +1,4 @@
+import { normalizeImageFramePatch, upgradeGoogleImageQuality } from '@artificio/media/image-kinds';
 import { Router, Request, Response } from 'express';
 import { authMiddleware } from '../middleware/auth.js';
 import { strictRateLimiter } from '../middleware/rateLimit.js';
@@ -85,11 +86,20 @@ router.patch('/me/profile', authMiddleware, async (req: Request, res: Response) 
 
   const { display_name, bio, avatar_url, languages } = req.body;
 
+  // Enquadramento vem de JSON externo: `unknown` ate ser normalizado.
+  // `isCropRect` recusa retangulo incompleto/negativo; `null` explicito zera o
+  // recorte (imagem trocada), enquanto ausencia do campo preserva o salvo.
+  const avatarFrame = normalizeImageFramePatch(req.body, 'avatar');
+  const { crop: avatar_crop_data, width: avatar_width, height: avatar_height } = avatarFrame;
+
   try {
     const profile = await profileService.updateProfile(userId, {
       display_name,
       bio,
       avatar_url,
+      avatar_crop_data,
+      avatar_width,
+      avatar_height,
       languages,
     });
     return res.json({ data: profile });
@@ -163,12 +173,23 @@ async function updateGmProfileHandler(req: Request, res: Response) {
     game_format,
   } = req.body;
 
+  // Enquadramento vem de JSON externo: `unknown` ate normalizar. `null`
+  // explicito zera o recorte (imagem trocada); ausencia preserva o salvo.
+  const avatarFrame = normalizeImageFramePatch(req.body, 'avatar');
+  const bannerFrame = normalizeImageFramePatch(req.body, 'banner');
+
   try {
     const gm = await profileService.updateGmProfile(userId, {
       nickname,
       bio_long,
       avatar_url,
+      avatar_crop_data: avatarFrame.crop,
+      avatar_width: avatarFrame.width,
+      avatar_height: avatarFrame.height,
       banner_url,
+      banner_crop_data: bannerFrame.crop,
+      banner_width: bannerFrame.width,
+      banner_height: bannerFrame.height,
       languages,
       specialties,
       experience_years,
@@ -367,16 +388,23 @@ router.post('/me/google-picture', strictRateLimiter, authMiddleware, async (req:
       });
     }
 
-    // Atualizar avatar_url no perfil
+    // A foto do login vem em miniatura (`=s96-c`, 96px). Salvar assim faz o
+    // avatar ser ampliado pelo navegador e aparecer borrado — o upgrade pede
+    // ao Google a versao maior antes de persistir. O enquadramento e zerado
+    // porque a imagem mudou: o retangulo anterior era de outra foto.
+    const googlePicture = upgradeGoogleImageQuality(userInfo.picture, 400);
     const profile = await profileService.updateProfile(userId, {
-      avatar_url: userInfo.picture,
+      avatar_url: googlePicture,
+      avatar_crop_data: null,
+      avatar_width: null,
+      avatar_height: null,
     });
 
-    return res.json({ 
-      data: { 
-        avatar_url: userInfo.picture,
-        profile 
-      } 
+    return res.json({
+      data: {
+        avatar_url: googlePicture,
+        profile
+      }
     });
   } catch (error: unknown) {
     console.error('[POST /profile/me/google-picture]', error);

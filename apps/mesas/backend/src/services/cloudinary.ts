@@ -1,10 +1,6 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { downloadPublicImage, uploadBuffer } from '@artificio/media';
-
-const REMOTE_IMAGE_TRANSFORMATIONS = [
-  { width: 1200, height: 650, crop: 'fill' },
-  { quality: 'auto', fetch_format: 'auto' },
-];
+import { imageKindSpec, storageTransformation, type ImageKind } from '@artificio/media/image-kinds';
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -18,16 +14,31 @@ console.log('[cloudinary] Config loaded:', {
   api_secret: process.env.CLOUDINARY_API_SECRET ? 'set' : 'MISSING',
 });
 
-export async function uploadImageToCloudinary(imageUrl: string) {
+/**
+ * Sobe imagem preservando o conteudo inteiro.
+ *
+ * Ate 2026-08-18 esta funcao aplicava `{ width: 1200, height: 650, crop: 'fill' }`
+ * a TODO upload, inclusive avatar: o arquivo era recortado no servidor, o
+ * original descartado e nao havia como desfazer. Medido em producao: avatar de
+ * mestre gravado 1200x650, com topo e base da imagem perdidos.
+ *
+ * Agora a transformacao vem de `@artificio/media/image-kinds` e usa
+ * `crop: 'limit'` — so reduz o que excede o limite, nunca descarta pixel. O
+ * enquadramento e decisao de EXIBICAO (`*_crop_data` + `object-position`),
+ * reajustavel pelo dono da imagem quantas vezes quiser.
+ */
+export async function uploadImageToCloudinary(imageUrl: string, kind: ImageKind = 'table_banner') {
   try {
     const result = await cloudinary.uploader.upload(imageUrl, {
-      folder: 'mesas_rpg',
-      transformation: REMOTE_IMAGE_TRANSFORMATIONS,
+      folder: imageKindSpec(kind).folder,
+      transformation: storageTransformation(kind),
     });
-    
+
     return {
       secure_url: result.secure_url,
-      public_id: result.public_id
+      public_id: result.public_id,
+      width: result.width ?? null,
+      height: result.height ?? null,
     };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : error;
@@ -75,16 +86,22 @@ export async function deleteFromCloudinary(publicId: string): Promise<void> {
   }
 }
 
-export async function uploadRemoteImageToCloudinary(rawUrl: string) {
+export async function uploadRemoteImageToCloudinary(rawUrl: string, kind: ImageKind = 'table_banner') {
+  const spec = imageKindSpec(kind);
   const image = await downloadPublicImage(rawUrl, {
-    maxBytes: 5 * 1024 * 1024,
+    maxBytes: spec.maxFileBytes,
     userAgent: 'MesasRPGArtificio/1.0 image-import',
   });
   const result = await uploadBuffer(image.buffer, {
-    folder: 'mesas_rpg',
+    folder: spec.folder,
     resourceType: 'image',
-    transformation: REMOTE_IMAGE_TRANSFORMATIONS,
+    transformation: storageTransformation(kind),
   });
 
-  return { secure_url: result.url, public_id: result.public_id };
+  return {
+    secure_url: result.url,
+    public_id: result.public_id,
+    width: result.width,
+    height: result.height,
+  };
 }

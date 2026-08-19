@@ -31,6 +31,34 @@ export type UserUpdateInput = z.infer<typeof userSchema>;
 // PROFILE
 // ============================================================================
 
+/**
+ * Enquadramento de imagem, compartilhado entre perfil geral e perfil de mestre.
+ *
+ * `z.object` remove chave desconhecida no parse, entao campo ausente aqui NAO
+ * chega ao backend — foi assim que `banner_url` e `avatar_url` do mestre
+ * sumiam silenciosamente do PATCH (medido: parse devolvia so `nickname`).
+ * Todo campo que a UI edita precisa estar declarado.
+ */
+const imageUrlSchema = z
+  .string()
+  .refine((val) => !val || val.trim() === '' || z.url().safeParse(val).success, {
+    message: 'URL de imagem inválida',
+  })
+  .optional()
+  .nullable();
+
+const cropRectSchema = z
+  .object({
+    x: z.number().min(0),
+    y: z.number().min(0),
+    width: z.number().positive(),
+    height: z.number().positive(),
+  })
+  .optional()
+  .nullable();
+
+const imageDimensionSchema = z.number().int().positive().optional().nullable();
+
 export const profileSchema = z.object({
   display_name: z
     .string()
@@ -42,14 +70,10 @@ export const profileSchema = z.object({
     .max(500, 'Bio deve ter no máximo 500 caracteres')
     .optional()
     .nullable(),
-  avatar_url: z
-    .string()
-    .refine(
-      (val) => !val || val.trim() === '' || z.url().safeParse(val).success,
-      { message: 'URL do avatar inválida' }
-    )
-    .optional()
-    .nullable(),
+  avatar_url: imageUrlSchema,
+  avatar_crop_data: cropRectSchema,
+  avatar_width: imageDimensionSchema,
+  avatar_height: imageDimensionSchema,
   languages: z
     .array(z.string())
     .min(1, 'Selecione pelo menos um idioma')
@@ -135,6 +159,14 @@ export const gmProfileSchema = z.object({
   gm_style: gmStyleSchema.optional().nullable(),
   tools: z.array(z.string()).optional().nullable(),
   game_format: gameFormatSchema.optional().nullable(),
+  avatar_url: imageUrlSchema,
+  avatar_crop_data: cropRectSchema,
+  avatar_width: imageDimensionSchema,
+  avatar_height: imageDimensionSchema,
+  banner_url: imageUrlSchema,
+  banner_crop_data: cropRectSchema,
+  banner_width: imageDimensionSchema,
+  banner_height: imageDimensionSchema,
 });
 
 export type GmProfileUpdateInput = z.infer<typeof gmProfileSchema>;

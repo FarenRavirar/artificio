@@ -1,3 +1,4 @@
+import { normalizeImageFrame } from '@artificio/media/image-kinds';
 import type { SessionSchedule } from '../../../components/SessionRepeater';
 import type { ContactFormEntry } from '../../../components/ContactsFormBlock';
 import type { FormState } from '../types/createTable.types';
@@ -34,17 +35,6 @@ function booleanValue(data: ApiRecord, key: string, fallback = false): boolean {
 
 function stringArrayValue(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
-}
-
-function isCropData(value: unknown): value is { x: number; y: number; width: number; height: number } {
-  const crop = asRecord(value);
-  return (
-    crop !== null &&
-    typeof crop.x === 'number' &&
-    typeof crop.y === 'number' &&
-    typeof crop.width === 'number' &&
-    typeof crop.height === 'number'
-  );
 }
 
 function isContactEntry(value: unknown): value is ContactFormEntry {
@@ -90,6 +80,8 @@ function defaultSession(data: ApiRecord): SessionSchedule {
 export function mapTableApiToInitialData(apiData: unknown): Partial<FormState> & { id?: string } {
   const data = asRecord(apiData);
   if (!data) return {};
+
+  const bannerFrame = normalizeImageFrame(data, 'banner');
 
   const sessions = Array.isArray(data.sessions) ? data.sessions.filter(isSessionSchedule) : [];
   const contacts = Array.isArray(data.contacts) ? data.contacts.filter(isContactEntry) : [];
@@ -138,7 +130,12 @@ export function mapTableApiToInitialData(apiData: unknown): Partial<FormState> &
 
     rulesNotes: stringValue(data, 'rules_notes'),
     bannerUrl: stringValue(data, 'banner_url') || stringValue(data, 'image_url'),
-    bannerCropData: isCropData(data.banner_crop_data) ? data.banner_crop_data : null,
+    // `typeof === 'number'` aceitava NaN, Infinity, zero e negativo — todos
+    // inuteis como divisor em `cropToObjectPosition`. O normalizador do pacote
+    // aplica a mesma regra usada pelo backend e pelos demais consumidores.
+    bannerCropData: bannerFrame.crop,
+    bannerWidth: bannerFrame.width,
+    bannerHeight: bannerFrame.height,
     gmAvatarUrl: stringValue(data, 'gm_avatar_url'),
     isCovilMesa: booleanValue(data, 'is_covil_mesa'),
 

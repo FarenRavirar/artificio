@@ -119,9 +119,9 @@ export function MestreContactForm({ mestreSlug }: MestreContactFormProps) {
             minHeight={176}
             placeholder="Conte um pouco sobre você e por que gostaria de participar das mesas deste mestre..."
           />
-          <p className="text-xs text-white/40 mt-1">
-            {message.length}/1000 caracteres
-          </p>
+          {/* Sem contador próprio: o `ContentEditor` já renderiza o dele a partir
+              do mesmo `maxLength`, e dois contadores divergem assim que o limite
+              muda em um só lugar (achado P2 do Codex, PR #275). */}
         </div>
 
         {/* Erro */}

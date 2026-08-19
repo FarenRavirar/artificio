@@ -11,6 +11,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.js"
+    },
+    "./image-kinds": {
+      "types": "./dist/imageKinds.d.ts",
+      "import": "./dist/imageKinds.js",
+      "require": "./dist/imageKinds.js"
     }
   },
   "scripts": {

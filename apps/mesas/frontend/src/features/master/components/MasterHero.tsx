@@ -1,3 +1,4 @@
+import { cropToObjectPosition } from '@artificio/media/image-kinds';
 import type { MasterViewModel } from '../types/masterView.types';
 
 interface MasterHeroProps {
@@ -28,10 +29,14 @@ export function MasterHero({ vm }: MasterHeroProps) {
       
       {/* Avatar + Nome + Covil */}
       <div className="p-6 flex items-center gap-6">
+        {/* `object-position` respeita o enquadramento escolhido pelo mestre.
+            Sem ele, `object-cover` num círculo recorta sempre pelo centro
+            geométrico e descarta as bordas sem que ninguém possa escolher. */}
         <img
           src={vm.avatar}
           alt={vm.name}
           className="w-24 h-24 rounded-full border-2 border-white/20 object-cover"
+          style={{ objectPosition: cropToObjectPosition(vm.avatarCrop, vm.avatarWidth, vm.avatarHeight) }}
         />
         
         <div className="space-y-2">

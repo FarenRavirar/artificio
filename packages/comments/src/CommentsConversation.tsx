@@ -21,6 +21,7 @@ import {
   type ConversationComment,
   type ConversationMoreNode,
   type CommentsThread,
+  REPORT_DETAILS_MAX_LENGTH,
 } from './conversation.js';
 import { normalizeCommentsError, type CommentsErrorShape } from './transport.js';
 import type { CommentsResourceState } from './resource.js';
@@ -590,7 +591,7 @@ export function CommentsConversation({
           <textarea
             id={`comments-report-details-${comment.id}`}
             value={reportDetails}
-            maxLength={4_000}
+            maxLength={REPORT_DETAILS_MAX_LENGTH}
             required={detailsRequired}
             aria-required={detailsRequired}
             disabled={!mutationsEnabled || pendingAction !== null}

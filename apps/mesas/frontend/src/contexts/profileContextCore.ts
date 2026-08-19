@@ -1,4 +1,5 @@
 import { createContext } from 'react';
+import type { CropRect } from '@artificio/media/image-kinds';
 import type { FullProfile, GmProfile, PlayerProfile } from '../types/profileTypes';
 
 export interface ProfileContextValue {
@@ -12,6 +13,9 @@ export interface ProfileContextValue {
     display_name?: string;
     bio?: string;
     avatar_url?: string;
+    avatar_crop_data?: CropRect | null;
+    avatar_width?: number | null;
+    avatar_height?: number | null;
     languages?: string[];
   }) => Promise<void>;
   updatePlayer: (data: Partial<PlayerProfile>) => Promise<void>;

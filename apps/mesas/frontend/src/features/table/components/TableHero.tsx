@@ -1,3 +1,4 @@
+import { cropToObjectPosition } from '@artificio/media/image-kinds';
 import type { TableViewModel, TableHeroVariant } from '../types/tableView.types';
 import { getTableBadges, getBadgeClasses } from '../../../utils/tableBadges';
 import { getButtonStyle, handleCTA } from '../utils/uiHelpers';
@@ -21,11 +22,14 @@ export function TableHero({ vm, variant = 'full', showOverlay = true }: TableHer
     is_covil: vm.certifications.covil !== undefined,
   });
 
-  const cropStyle = vm.coverCropData
-    ? {
-        objectPosition: `${(vm.coverCropData.x / vm.coverCropData.width) * 100}% ${(vm.coverCropData.y / vm.coverCropData.height) * 100}%`,
-      }
-    : {};
+  // A conta anterior dividia a origem pelo tamanho do RECORTE
+  // (`x / crop.width`), que não é a fração de `object-position`. A fração certa
+  // é sobre a FOLGA — imagem menos recorte —, e é por isso que a função precisa
+  // das dimensões da imagem. Medido: um recorte 1200x650 centralizado numa
+  // imagem 1600x900 aparecia como `16.7% 19.2%` em vez de `50% 50%`.
+  const cropStyle = {
+    objectPosition: cropToObjectPosition(vm.coverCropData, vm.coverWidth, vm.coverHeight),
+  };
 
   return (
     <div className="relative rounded-2xl overflow-hidden">

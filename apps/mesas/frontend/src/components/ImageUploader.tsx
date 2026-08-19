@@ -1,11 +1,13 @@
-import { useRef, useState, useCallback, type ChangeEvent } from 'react';
-import { ImageEditor } from './ImageEditor';
-import type { PixelCrop } from 'react-image-crop';
+import { useRef, useState, type ChangeEvent } from 'react';
+import { ImageEditor } from '@artificio/image-editor';
+import '@artificio/image-editor/image-editor.css';
+import { imageKindSpec, type CropRect, type ImageKind } from '@artificio/media/image-kinds';
 import bannerPlaceholder from '../assets/banner_placeholder.webp';
 import { useImageUrlImport } from '../hooks/useImageUrlImport';
-import { authPost } from '../services/apiClient';
+import { useImageUpload } from '../hooks/useImageUpload';
+import { CroppedImage } from './CroppedImage';
 
-interface ImageUploaderProps {
+export interface ImageUploaderProps {
   label: string;
   value: string;
   onChange: (url: string) => void;
@@ -14,19 +16,34 @@ interface ImageUploaderProps {
   idPrefix?: string;
   manualInputId?: string;
   fileInputId?: string;
-  onCropChange?: (cropData: { x: number; y: number; width: number; height: number } | null) => void;
-  initialCropData?: { x: number; y: number; width: number; height: number } | null;
+  /**
+   * Tipo da imagem. Decide a proporção do recorte, o limite de arquivo e a
+   * pasta no servidor — tudo vem de `@artificio/media/image-kinds`, a mesma
+   * definição que o backend usa. Avatar é sempre 1:1.
+   */
+  kind?: ImageKind;
+  /** Enquadramento escolhido, em pixels da imagem armazenada. */
+  onCropChange?: (cropData: CropRect | null) => void;
+  initialCropData?: CropRect | null;
+  /** Dimensões da imagem armazenada, necessárias para aplicar o recorte. */
+  onDimensionsChange?: (dimensions: { width: number; height: number } | null) => void;
+  imageWidth?: number | null;
+  imageHeight?: number | null;
+  placeholderSrc?: string;
 }
 
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
+/**
+ * Envio + enquadramento de imagem, um componente para todos os casos.
+ *
+ * Substitui `AvatarUploader` (que era código morto: nenhum consumidor no repo)
+ * e os blocos de upload inline de `ProfileEditPage`. O que variava entre eles
+ * — proporção, limite de arquivo, pasta — agora vem do `kind`, então
+ * acrescentar um tipo de imagem não cria mais uma cópia deste arquivo.
+ *
+ * O recorte NÃO altera o arquivo enviado: é salvo como dado e aplicado na
+ * exibição via `object-position`. Antes o corte acontecia no servidor, era
+ * destrutivo e não podia ser refeito.
+ */
 export function ImageUploader({
   label,
   value,
@@ -36,30 +53,26 @@ export function ImageUploader({
   idPrefix = 'image-uploader',
   manualInputId,
   fileInputId,
+  kind = 'table_banner',
   onCropChange,
   initialCropData,
-}: ImageUploaderProps) {
+  onDimensionsChange,
+  imageWidth,
+  imageHeight,
+  placeholderSrc,
+}: Readonly<ImageUploaderProps>) {
   const inputId = fileInputId || `${idPrefix}-file`;
   const manualUrlId = manualInputId || `${idPrefix}-url`;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const spec = imageKindSpec(kind);
+  const isAvatar = kind === 'profile_avatar';
+  const fallbackImage = placeholderSrc ?? (isAvatar ? '' : bannerPlaceholder);
 
-  const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [showEditor, setShowEditor] = useState(false);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [pendingImageUrl, setPendingImageUrl] = useState<string>('');
-  const [, setCropData] = useState<{
-    crop: PixelCrop;
-    originalWidth: number;
-    originalHeight: number;
-  } | null>(initialCropData ? { crop: initialCropData as unknown as PixelCrop, originalWidth: 0, originalHeight: 0 } : null);
+  const [editorSrc, setEditorSrc] = useState<string | null>(null);
+  const { isUploading, uploadFile, validateFile } = useImageUpload(kind);
 
-  const cloudName = (import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || '').trim();
-  const apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/api\/v1$/, '');
-  const uploadEndpoint = apiBase + '/api/v1/upload';
-
-  const isCloudinaryConfigured = cloudName.length > 0;
-  const previewSource = value.trim() || bannerPlaceholder;
+  const previewSource = value.trim() || fallbackImage;
 
   const clearError = () => {
     setUploadError(null);
@@ -71,108 +84,68 @@ export function ImageUploader({
     onError(true);
   };
 
-  const {
-    keepDirectLink,
-    setKeepDirectLink,
-    isImportingUrl,
-    importUrlIfNeeded,
-    directLinkTooltip,
-  } = useImageUrlImport({
-    purpose: 'table_banner',
-    getUrl: () => value,
-    onImported: (url) => {
-      onChange(url);
-      onError(false);
-      setUploadError(null);
-    },
-    onError: setError,
-  });
+  const { keepDirectLink, setKeepDirectLink, isImportingUrl, importUrlIfNeeded, directLinkTooltip } =
+    useImageUrlImport({
+      purpose: kind,
+      getUrl: () => value,
+      onImported: (url) => {
+        onChange(url);
+        // Link novo invalida o enquadramento da imagem anterior: manter o
+        // retângulo antigo aplicaria coordenadas de outra imagem.
+        onCropChange?.(null);
+        onDimensionsChange?.(null);
+        clearError();
+      },
+      onError: setError,
+    });
 
-  const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
+  const releaseEditorSrc = () => {
+    if (editorSrc?.startsWith('blob:')) URL.revokeObjectURL(editorSrc);
+    setEditorSrc(null);
+  };
+
+  /**
+   * O arquivo sobe PRIMEIRO e o enquadramento vem depois, sobre a imagem já
+   * hospedada. É o oposto da ordem anterior, e de propósito: o servidor pode
+   * reduzir a imagem (`crop: 'limit'`), então um retângulo medido no arquivo
+   * local não corresponderia ao que foi armazenado.
+   */
+  const handleFileSelect = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
-
     if (!file) return;
 
-    if (!isCloudinaryConfigured) {
-      setError('Cloudinary não configurado. Preencha VITE_CLOUDINARY_CLOUD_NAME e VITE_CLOUDINARY_UPLOAD_PRESET.');
+    const validationError = validateFile(file);
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
-    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-      setError('Formato inválido. Envie apenas JPG, PNG ou WEBP.');
-      return;
-    }
-
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      setError(`Arquivo muito grande (${formatFileSize(file.size)}). Limite de 5 MB.`);
-      return;
-    }
-
-    const imageUrl = URL.createObjectURL(file);
-    setPendingFile(file);
-    setPendingImageUrl(imageUrl);
-    setCropData(null);
-    setShowEditor(true);
     clearError();
-  };
-
-  const handleCropComplete = useCallback((croppedAreaPixels: PixelCrop, originalWidth: number, originalHeight: number) => {
-    const newCropData = {
-      crop: croppedAreaPixels,
-      originalWidth,
-      originalHeight,
-    };
-    setCropData(newCropData);
-    onCropChange?.({
-      x: Math.round(croppedAreaPixels.x),
-      y: Math.round(croppedAreaPixels.y),
-      width: Math.round(croppedAreaPixels.width),
-      height: Math.round(croppedAreaPixels.height),
-    });
-  }, [onCropChange]);
-
-  const handleConfirmCrop = async () => {
-    if (!pendingFile) return;
-
-    setIsUploading(true);
-    setShowEditor(false);
-
     try {
-      const formData = new FormData();
-      formData.append('file', pendingFile);
-
-      const response = await authPost(uploadEndpoint, formData);
-
-      const payload = await response.json();
-
-      if (!response.ok || !payload?.secure_url) {
-        throw new Error(payload?.error || 'Falha ao enviar imagem.');
-      }
-
-      const url = typeof payload.secure_url === 'string' ? payload.secure_url : String(payload.secure_url ?? '');
-      onChange(url);
-      onError(false);
-      setUploadError(null);
+      const uploaded = await uploadFile(file);
+      onChange(uploaded.url);
+      // Imagem nova zera crop E dimensoes juntos. Preservar as dimensoes
+      // antigas quando o servidor nao as devolve deixaria numeros de OUTRA
+      // imagem no estado, e o proximo recorte seria convertido pela escala
+      // errada.
+      onDimensionsChange?.(
+        uploaded.width && uploaded.height ? { width: uploaded.width, height: uploaded.height } : null,
+      );
+      onCropChange?.(null);
+      if (onCropChange) setEditorSrc(uploaded.url);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Falha inesperada no upload.');
-    } finally {
-      setIsUploading(false);
-      if (pendingImageUrl) {
-        URL.revokeObjectURL(pendingImageUrl);
-      }
     }
   };
 
-  const handleCancelCrop = () => {
-    setShowEditor(false);
-    if (pendingImageUrl) {
-      URL.revokeObjectURL(pendingImageUrl);
-    }
-    setPendingFile(null);
-    setPendingImageUrl('');
-    setCropData(null);
+  const handleConfirmCrop = (crop: CropRect, naturalWidth: number, naturalHeight: number) => {
+    onCropChange?.(crop);
+    onDimensionsChange?.({ width: naturalWidth, height: naturalHeight });
+    releaseEditorSrc();
   };
+
+  const limitMb = Math.round(spec.maxFileBytes / (1024 * 1024));
 
   return (
     <section className="flex flex-col gap-3" aria-live="polite">
@@ -196,21 +169,27 @@ export function ImageUploader({
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading || isImportingUrl}
-            className="px-4 py-2 rounded-lg bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
+            className="min-h-[44px] px-4 py-2 rounded-lg bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
           >
             {isUploading ? 'Enviando imagem...' : 'Selecionar imagem'}
           </button>
 
-          <span className="text-xs text-white/60">
-            JPG, PNG ou WEBP até 5 MB
-          </span>
-        </div>
+          {/* Reenquadrar sem reenviar: o recorte é dado de exibição, então a
+              imagem já hospedada pode ser reajustada quantas vezes quiser. */}
+          {value && onCropChange && (
+            <button
+              id={`${idPrefix}-adjust-frame`}
+              type="button"
+              onClick={() => setEditorSrc(value)}
+              disabled={isUploading || isImportingUrl}
+              className="min-h-[44px] px-4 py-2 rounded-lg border border-white/15 text-white/80 hover:text-white text-sm transition-colors"
+            >
+              Ajustar enquadramento
+            </button>
+          )}
 
-        {!isCloudinaryConfigured && (
-          <p className="text-xs text-amber-300/90">
-            Upload direto desativado: configure VITE_CLOUDINARY_CLOUD_NAME e VITE_CLOUDINARY_UPLOAD_PRESET.
-          </p>
-        )}
+          <span className="text-xs text-white/60">JPG, PNG ou WEBP até {limitMb} MB</span>
+        </div>
 
         <div className="flex flex-col gap-1">
           <label htmlFor={manualUrlId} className="text-xs font-medium text-white/70">
@@ -246,37 +225,33 @@ export function ImageUploader({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-white/10">
-        <img
+      <div className={isAvatar ? 'flex items-center gap-4' : 'overflow-hidden rounded-xl border border-white/10'}>
+        <CroppedImage
           src={previewSource}
-          alt={value ? 'Preview do banner informado' : 'Banner padrão aplicado automaticamente'}
-          className="w-full aspect-[1200/650] object-cover"
-          onError={(event) => {
-            const img = event.currentTarget;
-            if (img.dataset.fallbackApplied === 'true') return;
-            img.dataset.fallbackApplied = 'true';
-            img.src = bannerPlaceholder;
-            setError('Não foi possível carregar a imagem informada. O banner padrão foi aplicado na prévia.');
-          }}
+          alt={value ? `Prévia de ${spec.label}` : `${spec.label} padrão`}
+          kind={kind}
+          crop={initialCropData}
+          imageWidth={imageWidth}
+          imageHeight={imageHeight}
+          className={isAvatar ? 'w-24 shrink-0' : 'w-full'}
+          fallbackSrc={fallbackImage || undefined}
         />
-        <div className="bg-black/30 px-3 py-2 flex justify-between items-center">
+        <div className={isAvatar ? 'flex flex-col gap-1' : 'bg-black/30 px-3 py-2 flex justify-between items-center'}>
           <span className="text-xs text-white/70">
-            {value ? 'Banner personalizado em uso' : 'Banner padrão em uso'}
+            {value ? `${spec.label} personalizado em uso` : `${spec.label} padrão em uso`}
           </span>
-          {isImportingUrl && (
-            <span className="text-xs text-amber-200">
-              Importando link...
-            </span>
-          )}
+          {isImportingUrl && <span className="text-xs text-amber-200">Importando link...</span>}
           {value ? (
             <button
               id={`${idPrefix}-remove-image`}
               type="button"
               onClick={() => {
                 onChange('');
+                onCropChange?.(null);
+                onDimensionsChange?.(null);
                 clearError();
               }}
-              className="text-xs text-red-200 hover:text-red-100 transition-colors"
+              className="text-xs text-red-200 hover:text-red-100 transition-colors text-left"
             >
               Remover imagem
             </button>
@@ -290,13 +265,14 @@ export function ImageUploader({
         </p>
       )}
 
-      {showEditor && (
+      {editorSrc && (
         <ImageEditor
-          imageSrc={pendingImageUrl}
-          onCropComplete={handleCropComplete}
-          onCancel={handleCancelCrop}
+          imageSrc={editorSrc}
+          kind={kind}
+          initialCrop={initialCropData}
           onConfirm={handleConfirmCrop}
-          aspect={1200 / 650}
+          onCancel={releaseEditorSrc}
+          title={`Enquadrar ${spec.label}`}
         />
       )}
     </section>

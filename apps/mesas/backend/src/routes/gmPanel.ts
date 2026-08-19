@@ -1,3 +1,4 @@
+import { normalizeImageFramePatch } from '@artificio/media/image-kinds';
 import { Router, Request, Response } from 'express';
 import { sql, type Updateable, type Selectable } from 'kysely';
 import { db } from '../db/index.js';
@@ -270,7 +271,13 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
         'nickname',
         'bio_long',
         'avatar_url',
+        'avatar_crop_data',
+        'avatar_width',
+        'avatar_height',
         'banner_url',
+        'banner_crop_data',
+        'banner_width',
+        'banner_height',
         'languages',
         'specialties',
         'badges',
@@ -326,6 +333,12 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
     preferred_vtt_platforms,
     contact_methods,
   } = req.body;
+
+  // Enquadramento vem de JSON externo: `unknown` ate normalizar. O contrato dos
+  // tres estados (valido / `null` zera / ausente preserva) vive no pacote, para
+  // nao existir uma copia por rota que possa divergir.
+  const avatarFrame = normalizeImageFramePatch(req.body, 'avatar');
+  const bannerFrame = normalizeImageFramePatch(req.body, 'banner');
 
   if (nickname !== undefined) {
     if (typeof nickname !== 'string' || nickname.trim().length < 2 || nickname.trim().length > 40) {
@@ -415,7 +428,13 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
         specialties: safeSpecialties,
         badges: safeBadges,
         avatar_url: avatar_url ?? undefined,
+        avatar_crop_data: avatarFrame.crop,
+        avatar_width: avatarFrame.width,
+        avatar_height: avatarFrame.height,
         banner_url: banner_url ?? undefined,
+        banner_crop_data: bannerFrame.crop,
+        banner_width: bannerFrame.width,
+        banner_height: bannerFrame.height,
         tagline: safeTagline,
         promo_badge_text: safePromoBadgeText,
         selling_points: safeSellingPoints,
@@ -433,7 +452,13 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
         'nickname',
         'bio_long',
         'avatar_url',
+        'avatar_crop_data',
+        'avatar_width',
+        'avatar_height',
         'banner_url',
+        'banner_crop_data',
+        'banner_width',
+        'banner_height',
         'languages',
         'specialties',
         'badges',
@@ -920,6 +945,13 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       communication_platform: communicationPlatformResolved ? communicationPlatformResolved.legacy : undefined,
       rules_notes: data.rules_notes,
       banner_url: data.banner_url,
+      // O enquadramento acompanha a URL: sem estes tres campos, editar
+      // qualquer outro dado da mesa apagava o recorte ja escolhido, porque o
+      // `updateData` so trazia `banner_url`. `undefined` preserva o salvo;
+      // `null` (enviado quando a imagem troca) zera de proposito.
+      banner_crop_data: data.banner_crop_data,
+      banner_width: data.banner_width,
+      banner_height: data.banner_height,
       master_display_name: data.master_display_name,
       campaign_length: data.campaign_length,
       level_range: data.level_range,

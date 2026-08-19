@@ -3,6 +3,7 @@ import { CheckCircle2, Sparkles, Crown, Award, Users, Star, MessageSquare } from
 import type { TableCard } from '../../types/tables';
 import type { MestrePublicData } from '../../hooks/useMestre';
 import { isUsableImageSrc } from '../../utils/imageSource';
+import { cropToObjectPosition } from '@artificio/media/image-kinds';
 
 interface MestreHeroProps {
   profile: MestrePublicData;
@@ -37,6 +38,16 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
           src={profile.banner_url}
           alt=""
           className="hero-banner"
+          // Enquadramento escolhido pelo mestre. Sem `object-position` o
+          // `object-fit: cover` do CSS recorta sempre pelo centro geometrico,
+          // sem que ninguem possa escolher o que fica visivel.
+          style={{
+            objectPosition: cropToObjectPosition(
+              profile.banner_crop_data,
+              profile.banner_width,
+              profile.banner_height,
+            ),
+          }}
           onError={() => setBannerLoadFailed(true)}
         />
       ) : (
@@ -57,6 +68,13 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
             <img
               src={profile.avatar_url}
               alt={profile.display_name}
+              style={{
+                objectPosition: cropToObjectPosition(
+                  profile.avatar_crop_data,
+                  profile.avatar_width,
+                  profile.avatar_height,
+                ),
+              }}
               onError={() => setAvatarLoadFailed(true)}
             />
           ) : (

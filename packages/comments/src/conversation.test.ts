@@ -275,3 +275,102 @@ describe('contrato da conversa', () => {
     }).success).toBe(true);
   });
 });
+
+/**
+ * Campo novo do servidor não pode apagar a conversa.
+ *
+ * O `accounts.` é deployado independentemente de cada fachada
+ * (`deploy-manifest.json`: `auto_deploy_on_push: false` em todos os módulos;
+ * `deploy.yml` deploya um módulo por `workflow_dispatch`), então um campo
+ * aditivo chega ao bundle antigo ANTES de ele saber do campo. Com `.strict()`
+ * o array inteiro falhava junto e a tela ficava em branco — não era degradação,
+ * era perda total da conversa (achado P1 do Codex, PR #275).
+ *
+ * O teste existe porque a regressão é invisível: remover a tolerância continua
+ * passando em todo o resto da suíte, e a falha só aparece em produção, no
+ * intervalo entre dois deploys.
+ */
+describe('leitura tolera campo desconhecido do servidor', () => {
+  const comentario = {
+    id: ROOT_ID,
+    parent_id: null,
+    root_id: ROOT_ID,
+    depth: 0,
+    body_markdown: 'Texto',
+    created_at: '2026-08-13T10:00:00.000Z',
+    edited_at: null,
+    state: 'visible',
+    author: {
+      display_name: 'Ana',
+      avatar_url: null,
+      badge: null,
+      state: 'active',
+    },
+    upvotes: 0,
+    downvotes: 0,
+    score: 0,
+    my_vote: 0,
+    legacy: null,
+  };
+
+  const thread = {
+    state: 'fresh',
+    snapshot_revision: 1,
+    comments: [comentario],
+    more: [],
+    truncated: false,
+  };
+
+  it('aceita a árvore quando o comentário traz campo que o cliente não conhece', () => {
+    const result = commentsThreadSchema.safeParse({
+      ...thread,
+      comments: [{ ...comentario, campo_futuro_do_accounts: true }],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('aceita campo desconhecido no autor, no nó de paginação e na própria thread', () => {
+    const result = commentsThreadSchema.safeParse({
+      ...thread,
+      campo_futuro_na_thread: 'x',
+      comments: [{
+        ...comentario,
+        author: { ...comentario.author, campo_futuro_no_autor: 1 },
+      }],
+      more: [{
+        parent_id: null,
+        count: 3,
+        cursor: 'cursor-1',
+        campo_futuro_no_more: true,
+      }],
+      truncated: true,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('continua recusando o que de fato viola o contrato', () => {
+    // Tolerar campo A MAIS não pode virar tolerar campo ERRADO: a validação do
+    // que a UI lê é a garantia que sobra depois de remover o `.strict()`.
+    expect(commentsThreadSchema.safeParse({
+      ...thread,
+      comments: [{ ...comentario, state: 'estado_inexistente' }],
+    }).success).toBe(false);
+
+    // A invariante do oculto continua valendo com campo extra presente.
+    expect(commentsThreadSchema.safeParse({
+      ...thread,
+      comments: [{ ...comentario, state: 'removed', campo_futuro: true }],
+    }).success).toBe(false);
+  });
+
+  it('a escrita continua estrita — campo a mais ali é erro de quem chamou', () => {
+    expect(createCommentOperation.inputSchema.safeParse({
+      subjectType: 'table',
+      subjectId: 'mesa-1',
+      bodyMarkdown: 'Olá',
+      campo_que_ninguem_definiu: true,
+    }).success).toBe(false);
+  });
+});

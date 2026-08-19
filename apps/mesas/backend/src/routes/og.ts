@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { sql } from 'kysely';
 import escapeHtmlLib from 'escape-html';
 import { db } from '../db/index.js';
-import { upgradeGoogleImageQuality } from '../utils/urlValidation.js';
+import { upgradeGoogleImageQuality } from '@artificio/media/image-kinds';
 import { isImportedTableExpired } from '../utils/tableVisibility.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
 import { hydrateTableSystemFields } from '../services/systemCatalogProvider.js';

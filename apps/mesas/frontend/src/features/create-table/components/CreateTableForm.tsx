@@ -1,3 +1,4 @@
+import { normalizeImageFrame } from '@artificio/media/image-kinds';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import toast from 'react-hot-toast';
 import type { SystemTreeNode } from '../../../types/systems';
@@ -157,6 +158,27 @@ export function CreateTableForm({
     if (savedDraft.actualGmName) formHook.setActualGmName(savedDraft.actualGmName);
     if (savedDraft.rulesNotes) formHook.setRulesNotes(savedDraft.rulesNotes);
     if (savedDraft.bannerUrl) formHook.setBannerUrl(savedDraft.bannerUrl);
+    // O enquadramento acompanha a URL: restaurar so o banner devolvia a imagem
+    // sem o recorte escolhido, e o rascunho parecia ter perdido o ajuste.
+    //
+    // O rascunho vem do storage do navegador — dado externo, `unknown` na
+    // pratica, mesmo com o tipo generico de `draftStorage.load`. Passa pelo
+    // mesmo normalizador do contrato; `!== undefined` preserva o comportamento
+    // antigo para rascunho salvo antes destes campos existirem.
+    if (savedDraft.bannerCropData !== undefined || savedDraft.bannerWidth !== undefined) {
+      const frame = normalizeImageFrame(
+        {
+          banner_crop_data: savedDraft.bannerCropData,
+          banner_width: savedDraft.bannerWidth,
+          banner_height: savedDraft.bannerHeight,
+        },
+        'banner',
+      );
+      formHook.setBannerCropData(frame.crop);
+      formHook.setBannerDimensions(
+        frame.width !== null && frame.height !== null ? { width: frame.width, height: frame.height } : null,
+      );
+    }
     if (savedDraft.isCovilMesa !== undefined) formHook.setIsCovilMesa(savedDraft.isCovilMesa);
     if (savedDraft.ddal) formHook.setDdal(savedDraft.ddal);
     if (savedDraft.masterDisplayName) formHook.setMasterDisplayName(savedDraft.masterDisplayName);
@@ -355,6 +377,9 @@ export function CreateTableForm({
             setBannerUrl={formHook.setBannerUrl}
             bannerCropData={formHook.bannerCropData}
             setBannerCropData={formHook.setBannerCropData}
+            bannerWidth={formHook.bannerWidth}
+            bannerHeight={formHook.bannerHeight}
+            setBannerDimensions={formHook.setBannerDimensions}
             bannerError={formHook.bannerError}
             setBannerError={formHook.setBannerError}
             gmAvatarUrl={formHook.gmAvatarUrl}
