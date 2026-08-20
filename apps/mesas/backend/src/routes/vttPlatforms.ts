@@ -19,6 +19,58 @@ interface VttPlatformPayload {
   website_url?: string | null;
   sort_order?: number;
   is_active?: boolean;
+  aliases?: string[];
+}
+
+// D2 (spec 093): slug de alias — mesmo padrão de scenarioSuggestionsAdmin.ts.
+const aliasSlug = (alias: string): string =>
+  alias.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+/**
+ * Normaliza a lista de aliases recebida: trim, filtra vazio e dedup.
+ *
+ * Achado de review (PR #278): a dedup era por `t.toLowerCase()`, mas a constraint
+ * do banco é `UNIQUE (vtt_platform_id, alias_slug)` (migration_159:23). "Roll 20"
+ * e "Roll-20" são chaves distintas em lowercase e o MESMO slug `roll-20` — o
+ * insert em lote estourava a unique. E alias só de pontuação ("---") produz slug
+ * vazio, linha inútil que quebra o lookup do parser. Dedup e descarte passam a
+ * usar o slug, que é o que o banco de fato restringe.
+ *
+ * Devolve o par {alias, alias_slug} já pronto para não recomputar o slug no
+ * ponto de escrita (era feito em dois lugares, com risco de divergirem).
+ */
+function normalizeAliases(aliases: unknown): { alias: string; alias_slug: string }[] {
+  if (!Array.isArray(aliases)) return [];
+  const seen = new Set<string>();
+  const out: { alias: string; alias_slug: string }[] = [];
+  for (const a of aliases) {
+    if (typeof a !== 'string') continue;
+    const t = a.trim();
+    if (!t || t.length > 100) continue;
+    const slug = aliasSlug(t);
+    if (!slug || seen.has(slug)) continue;
+    seen.add(slug);
+    out.push({ alias: t, alias_slug: slug });
+  }
+  return out;
+}
+
+/**
+ * Valida o campo `aliases` do corpo antes de qualquer escrita.
+ *
+ * Achado de review (PR #278): `normalizeAliases` descarta entrada inválida em
+ * silêncio, então `aliases: "roll20"` (string, não array) virava `[]` e o
+ * delete+insert do update APAGAVA todos os aliases da plataforma. Pedido
+ * malformado não pode ter efeito destrutivo silencioso. `aliases: []` continua
+ * sendo a limpeza explícita e legítima.
+ */
+function validateAliasesInput(aliases: unknown): string | null {
+  if (!Array.isArray(aliases)) return 'Campo "aliases" deve ser uma lista.';
+  for (const a of aliases) {
+    if (typeof a !== 'string') return 'Campo "aliases" deve conter apenas strings.';
+    if (a.trim().length > 100) return 'Alias excede 100 caracteres.';
+  }
+  return null;
 }
 
 const normalizeLogoFilename = (value?: string | null): string | null => {
@@ -188,7 +240,19 @@ router.get('/admin', authMiddleware, requireRole('admin'), async (_req, res) => 
       .orderBy('name', 'asc')
       .execute();
 
-    return res.json({ data: platforms });
+    // D2 (spec 093): aliases em tabela — expostos no CRUD para edição no painel.
+    const aliases = await db
+      .selectFrom('vtt_platform_aliases')
+      .select(['vtt_platform_id', 'alias'])
+      .execute();
+    const aliasMap = new Map<string, string[]>();
+    for (const a of aliases) {
+      const list = aliasMap.get(a.vtt_platform_id) ?? [];
+      list.push(a.alias);
+      aliasMap.set(a.vtt_platform_id, list);
+    }
+
+    return res.json({ data: platforms.map((p) => ({ ...p, aliases: aliasMap.get(p.id) ?? [] })) });
   } catch (error) {
     console.error('[GET /vtt-platforms/admin] Erro ao buscar plataformas:', error);
     return res.status(500).json({ error: 'Erro ao buscar plataformas VTT.' });
@@ -214,32 +278,55 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req, res) => 
 
   const sortOrder = Number.isInteger(payload.sort_order) ? Number(payload.sort_order) : 0;
 
+  if (payload.aliases !== undefined) {
+    const aliasError = validateAliasesInput(payload.aliases);
+    if (aliasError) return res.status(400).json({ error: aliasError });
+  }
+
   try {
     const websiteUrl = normalizeWebsiteUrl(payload.website_url);
     const logoFilename = normalizeLogoFilename(payload.logo_filename);
+    const aliases = normalizeAliases(payload.aliases);
 
-    const created = await db
-      .insertInto('vtt_platforms')
-      .values({
-        name,
-        slug,
-        logo_filename: logoFilename,
-        website_url: websiteUrl,
-        sort_order: sortOrder,
-        is_active: payload.is_active ?? true,
-      })
-      .returning([
-        'id',
-        'name',
-        'slug',
-        'logo_filename',
-        'website_url',
-        'is_active',
-        'sort_order',
-        'created_at',
-        'updated_at',
-      ])
-      .executeTakeFirst();
+    const created = await db.transaction().execute(async (trx) => {
+      const platform = await trx
+        .insertInto('vtt_platforms')
+        .values({
+          name,
+          slug,
+          logo_filename: logoFilename,
+          website_url: websiteUrl,
+          sort_order: sortOrder,
+          is_active: payload.is_active ?? true,
+        })
+        .returning([
+          'id',
+          'name',
+          'slug',
+          'logo_filename',
+          'website_url',
+          'is_active',
+          'sort_order',
+          'created_at',
+          'updated_at',
+        ])
+        .executeTakeFirstOrThrow();
+
+      if (aliases.length > 0) {
+        await trx
+          .insertInto('vtt_platform_aliases')
+          .values(aliases.map((a) => ({
+            vtt_platform_id: platform.id,
+            alias: a.alias,
+            alias_slug: a.alias_slug,
+          })))
+          .onConflict((oc) => oc.columns(['vtt_platform_id', 'alias_slug']).doNothing())
+          .execute();
+      }
+      // O contrato da resposta é lista de strings — o par {alias, alias_slug} é
+      // detalhe de persistência.
+      return { ...platform, aliases: aliases.map((a) => a.alias) };
+    });
 
     return res.status(201).json({ data: created });
   } catch (error) {
@@ -314,27 +401,86 @@ router.put('/admin/:id', authMiddleware, requireRole('admin'), async (req, res) 
     updateData.is_active = payload.is_active;
   }
 
-  if (Object.keys(updateData).length === 0) {
+  const hasAliases = payload.aliases !== undefined;
+
+  // Validar ANTES da transação: o bloco de aliases faz delete + insert, então
+  // entrada malformada silenciosamente normalizada para [] apagaria todos os
+  // aliases da plataforma (achado de review, PR #278).
+  if (hasAliases) {
+    const aliasError = validateAliasesInput(payload.aliases);
+    if (aliasError) return res.status(400).json({ error: aliasError });
+  }
+
+  const nextAliases = hasAliases ? normalizeAliases(payload.aliases) : null;
+
+  if (Object.keys(updateData).length === 0 && !hasAliases) {
     return res.status(400).json({ error: 'Nenhum campo válido para atualização.' });
   }
 
   try {
-    const updated = await db
-      .updateTable('vtt_platforms')
-      .set(updateData)
-      .where('id', '=', id)
-      .returning([
-        'id',
-        'name',
-        'slug',
-        'logo_filename',
-        'website_url',
-        'is_active',
-        'sort_order',
-        'created_at',
-        'updated_at',
-      ])
-      .executeTakeFirst();
+    const updated = await db.transaction().execute(async (trx) => {
+      const platform = Object.keys(updateData).length > 0
+        ? await trx
+            .updateTable('vtt_platforms')
+            .set(updateData)
+            .where('id', '=', id)
+            .returning([
+              'id',
+              'name',
+              'slug',
+              'logo_filename',
+              'website_url',
+              'is_active',
+              'sort_order',
+              'created_at',
+              'updated_at',
+            ])
+            .executeTakeFirst()
+        : await trx
+            .selectFrom('vtt_platforms')
+            .select([
+              'id',
+              'name',
+              'slug',
+              'logo_filename',
+              'website_url',
+              'is_active',
+              'sort_order',
+              'created_at',
+              'updated_at',
+            ])
+            .where('id', '=', id)
+            .executeTakeFirst();
+
+      if (!platform) return null;
+
+      // D2 (spec 093): substitui os aliases da plataforma (delete + insert).
+      if (hasAliases) {
+        await trx.deleteFrom('vtt_platform_aliases').where('vtt_platform_id', '=', id).execute();
+        if (nextAliases && nextAliases.length > 0) {
+          await trx
+            .insertInto('vtt_platform_aliases')
+            .values(nextAliases.map((a) => ({
+              vtt_platform_id: id,
+              alias: a.alias,
+              alias_slug: a.alias_slug,
+            })))
+            .execute();
+        }
+      }
+
+      // Ambos os ramos devolvem lista de strings: o contrato da resposta é o
+      // texto do alias, não o par {alias, alias_slug} usado na persistência.
+      const currentAliases: string[] = hasAliases
+        ? (nextAliases ?? []).map((a) => a.alias)
+        : (await trx
+            .selectFrom('vtt_platform_aliases')
+            .select('alias')
+            .where('vtt_platform_id', '=', id)
+            .execute()).map((a) => a.alias);
+
+      return { ...platform, aliases: currentAliases };
+    });
 
     if (!updated) {
       return res.status(404).json({ error: 'Plataforma VTT não encontrada.' });

@@ -576,12 +576,61 @@ Esta tabela **não depende de o agente lembrar dela**: as regras `script-pesado-
 - **Usar para:** consultar documentação Cloudflare (`cloudflare-docs`, dispensa auth e é a primeira escolha); inspecionar estado real de zona/DNS/tunnel/SSL antes de diagnosticar infra (anti-retrabalho — inspeção read-only precede correção no chute); ler build e observabilidade de Workers/Pages quando aplicável.
 - **Não usar para:** substituir `docs/agents/deploy-runbook.md` como fonte de topologia do projeto; provar comportamento de aplicação (o container e o código continuam sendo a verdade material); nem executar escrita por conveniência durante diagnóstico.
 
+### opencode/DeepSeek a partir do Claude Code — **usar o oficial (`mcp__opencode__*`)**
+
+Existem **dois** servidores registrados que chegam no mesmo opencode/DeepSeek. Não são alternativas de gosto: **o oficial é o padrão, o wrapper é fallback.** Ambos instalados em 2026-08-19 por pedido nominal do mantenedor.
+
+| Servidor | Ferramentas | Quando usar |
+|---|---|---|
+| `opencode` (oficial, ~80 ferramentas) | `opencode_setup`, `opencode_ask`, `opencode_reply`, `opencode_run`, `opencode_fire`, `opencode_check`, `opencode_review_changes`, … | **sempre, por padrão** |
+| `opencode-deepseek` (wrapper local, 1 ferramenta) | `deepseek` | **só se o oficial não responder** |
+
+**Por que o oficial ganha — medido em 2026-08-19, mesma pergunta nos dois:**
+
+- **Sessão persiste.** A primeira pergunta custou 1697 tokens de entrada; o follow-up na mesma sessão custou **74**, porque reusou o contexto em vez de reler o arquivo. O wrapper abre sessão nova a cada chamada — em trabalho de várias rodadas (spec com fases, revisão iterativa) isso relê tudo toda vez.
+- **Informa custo e tokens** por chamada (`$0,0010 | 1697 in, 127 out`). O wrapper não informa nada.
+- **Dá acompanhamento e diff:** `opencode_check` (progresso de tarefa longa), `opencode_review_changes` (diff da sessão), `opencode_session_todo`. O wrapper só devolve o texto final.
+- **Respondeu com mais precisão** na mesma pergunta: distinguiu que `VTT_ALIASES` tem 12 chaves para **6 plataformas** (6 por slug + 6 por nome), enquanto o wrapper disse "12 chaves de plataforma".
+
+**Uso do oficial, na ordem:** `opencode_setup` (checa saúde e providers) → `opencode_provider_models` para confirmar o model ID **em vez de chutar** → `opencode_ask` (tarefa curta) ou `opencode_run`/`opencode_fire` + `opencode_check` (tarefa longa) → `opencode_reply` para continuar na mesma sessão. Passar sempre `providerID`/`modelID` descobertos (ex.: `deepseek` / `deepseek-v4-pro`) — sem isso a resposta pode voltar vazia. Passar `directory` com o caminho absoluto do projeto.
+
+**Passar SEMPRE `agent:` — sem isso a sessão trava no primeiro comando.** Delegação de implementação vai com `agent: "artificio-implementador"`; investigação com `artificio-investigador`; revisão com `artificio-revisor` (lista completa em `.opencode/agents/`). Omitir `agent:` cai no agente default, que **não tem allowlist** e herda `permission: { bash: "ask" }` do `opencode.json` da raiz — cada comando vira um pedido de permissão que só o Claude Code responde (`opencode_permission_list` → `opencode_session_permission`), e o DeepSeek fica parado esperando. **Isso anula o propósito da delegação:** o opencode existe para o trabalho rodar sem consumir contexto do orquestrador; se o orquestrador precisa aprovar comando a comando, ele gasta mais token vigiando do que gastaria fazendo.
+
+**Incidente que originou a regra (2026-08-19, spec 093 Fase 1).** `opencode_fire` disparado sem `agent:` travou no **primeiro** comando — um `rtk rg` na própria `tasks.md` que o prompt mandava ler. A causa não era só o `agent:` ausente: `rtk rg -n "rtk" .opencode/agents/` devolvia **zero** — nenhum dos nove agentes conhecia `rtk`, porque as allowlists foram escritas antes de o `rtk` virar obrigatório neste arquivo. Como toda instrução manda usar `rtk`, **100% dos comandos** caíam no `"*": ask`, com qualquer agente. Corrigido espelhando cada entrada do bloco `bash:` na forma `rtk <cmd>`, **preservando a política de cada linha** (199 entradas nos 9 agentes).
+
+**Por que espelhar e não liberar `"rtk *": allow`:** `rtk *` cru casaria `rtk git push`, passando por cima do `deny` de `git push*` — o prefixo muda a string e o padrão não casa mais. Espelhado, `rtk git push*` herda o `deny` que `git push*` já tinha, e o que não está na lista continua perguntando. **Nunca** afrouxar `opencode.json` para `bash: allow` como atalho: resolveria o travamento e destruiria a trava, já que nada impediria um `git push`. Os `deny` do frontmatter valem sempre; a vigilância do orquestrador vale enquanto ele estiver olhando.
+
+**Ao acrescentar comando novo à allowlist de um agente, acrescentar a forma `rtk` junto** — senão o furo volta a abrir sozinho na próxima vez que alguém editar.
+
+**A notificação do `opencode_fire` NÃO significa que a sessão terminou.** Quando o `fire` estoura o timeout da chamada MCP e vira task de background, a `<task-notification>` que chega depois é do **`fire`**, não da sessão do opencode: ela dispara quando a chamada MCP retorna. **Medido (2026-08-19, spec 093):** a notificação "completed" chegou no exato instante em que o agente **abortou** a sessão, com zero linha escrita. Tomar esse sinal como conclusão é declarar pronto um trabalho que não aconteceu.
+
+**Como saber que a sessão realmente parou.** Não existe endpoint de status — medido: `/api/session/{id}/status` devolve o HTML da UI e `/api/session/status` devolve `InvalidRequestError`. O sinal disponível é `time.updated` do objeto da sessão (`GET /api/session/{id}`, porta padrão `4096`) parando de avançar. As três opções, e por que só uma serve:
+
+| Caminho | Problema |
+|---|---|
+| Esperar a notificação do `fire` | não indica fim da sessão (acima) |
+| `opencode_wait` | bloqueia o orquestrador segurando o turno |
+| Chamar `opencode_check` em ciclo | é o token do orquestrador gasto vigiando — anula o motivo de delegar |
+| **`Monitor` com watcher de `time.updated`** | **o correto**: custo ~zero enquanto roda, uma notificação no fim |
+
+O watcher dispara em **"parou"**, não em "terminou com sucesso" — fim normal, crash e travamento acionam igual. Watcher que só reconhece sucesso fica mudo exatamente no caso em que o mantenedor precisa saber.
+
+**O orquestrador é submantenedor, não executor.** Se ele está investigando, medindo, aprovando permissão a permissão ou construindo ferramenta para vigiar a sessão, está gastando o token que a delegação existia para poupar — e fazendo o trabalho que era do outro agente. O trabalho é do subagente: ele investiga, decide, implementa e valida. Ao orquestrador cabem o prompt, a trava de ação perigosa (commit/push/deploy/SQL seguem exigindo aprovação nominal do mantenedor, §Autorização) e o relato final. Corolário prático: **nunca construir auto-aprovador de permissão** — permissão travando é sintoma de allowlist errada ou `agent:` ausente, e o conserto é a config, não uma babá.
+
+**Wrapper local (`opencode-deepseek`) — fallback.** Código em `docs/agents/opencode-mcp/` (`server.mjs` + `README.md`), **gitignored** (`/docs/agents/*`), fora do fluxo de PR. Spawna o binário nativo (`%APPDATA%\npm\node_modules\opencode-ai\bin\opencode.exe`) com `shell: false` e **stdin fechado** (`stdio: ["ignore","pipe","pipe"]`): sem shell por causa do quoting/encoding do Windows, com stdin fechado porque `opencode run` trava esperando EOF se o stdin fica como pipe aberto. Duas armadilhas já pagas, documentadas no `README.md` — ir lá antes de mexer.
+
+**A armadilha que vale para os dois, e que quase passou:** o `opencode.json` da raiz declara `permission: { edit: "ask", bash: "ask" }`. Em modo headless não há quem responda, e o opencode **auto-rejeita toda chamada de ferramenta**, abortando com **exit 0 e stdout vazio** — falha que se disfarça de sucesso. Prompt trivial ("responda PING") funciona, porque não usa ferramenta nenhuma; só uma tarefa que precise **ler arquivo** expõe o problema. O wrapper passa `--auto` sempre e trata exit 0 sem saída como erro. Consequência para quem valida qualquer um dos dois: **`tools/list` não prova nada** — o smoke que vale é uma chamada real que obrigue o DeepSeek a ler arquivo.
+
+**Trava:** ter qualquer um dos dois disponível **não** é autorização para acionar o outro agente. §Regras Pétreas → Autorização continua valendo: Claude Code ↔ OpenCode só com aprovação nominal por ação, priorizando read-only (análise, revisão, diagnóstico). `--auto` aprova ferramenta dentro da sessão do opencode; não substitui a aprovação do mantenedor para acionar o agente.
+
 ### Ordem de uso
 
 1. `artificio-api-governance` para qualquer pergunta/mudança de API.
 2. LSP para diagnóstico automático de arquivos tocados e impacto semântico.
 3. `codebase-memory-mcp` para mapa estrutural, dependências, chamadas e arquitetura.
 4. `ast-grep`, `rtk rg`, `rtk read`, `git`, leitura direta e validação CLI.
+
+Para delegar ao opencode/DeepSeek (só com aprovação nominal): **`mcp__opencode__*` (oficial)**; `mcp__opencode-deepseek__deepseek` só se o oficial não responder. Detalhe e medição: §opencode/DeepSeek.
 
 **Mapeamento operação → ferramenta:**
 

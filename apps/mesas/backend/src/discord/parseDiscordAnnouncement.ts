@@ -1,5 +1,6 @@
 import type { CoverQuality, ImportRawMessage, DiscordSlotsAmbiguity, ImportTableDraft, DiscordTableDraftTable, TableDraftType, TableDraftModality, TableDraftPriceType, TableDraftFrequency, TableDraftAgeRating, TableDraftExperienceLevel, TableDraftTableLevel } from './types.js';
 import { normalizeSystemName, scoreSystemCandidates, similarity } from '../services/systemSuggestionCandidates.js';
+import { normalizeSettingStyles } from './normalizeSettingStyles.js';
 
 export interface SystemEntry {
   id: string;
@@ -911,6 +912,19 @@ const LINE = String.raw`(?:^|\n)`;          // início de linha
 
 const RE_SLOT_VIA_FORMS = new RegExp(`${D}${SP1}vaga${SP1}via${SP1}forms`, 'i');
 const RE_SLOT_X_DE_Y = new RegExp(`${D}${SP1}de${SP1}${D}`, 'i');
+// Camada D (T1.4b, R9): "N <qualificador> de M" — o qualificador decide o sentido
+// ("N abertas de M" = N é o total de ABERTAS; "N ocupadas de M" = N é o total de
+// PREENCHIDAS). Achado real (anúncio Kingmaker, message_id 1539593774265671751):
+// "1 disponível de 4 jogadores" não casa na forma "X de Y" (o regex exige número
+// colado ao "de") nem em estratégia alguma da cascata — virava {null,null}.
+// Vocabulário compartilhado com classifySlotPairLine (AGENTS.md §Compartilhado
+// por padrão): uma lista única. Vogais acentuadas alternadas ([ií], [oa]) porque
+// classifySlotPairLine testa texto já normalizado (sem acento) e estas regex
+// testam o texto cru (com acento).
+const SLOT_OPEN_QUALIFIERS = String.raw`dispon[ií]ve(?:l|is)|abertas?|livres?|restantes?|sobrando`;
+const SLOT_FILLED_QUALIFIERS = String.raw`ocupad[oa]s?|preenchid[oa]s?|inscritos?`;
+const RE_SLOT_X_OPEN_DE_Y = new RegExp(`${D}${SP1}(${SLOT_OPEN_QUALIFIERS})${SP1}de${SP1}${D}`, 'i');
+const RE_SLOT_X_FILLED_DE_Y = new RegExp(`${D}${SP1}(${SLOT_FILLED_QUALIFIERS})${SP1}de${SP1}${D}`, 'i');
 // Lookahead negativo `(?!${SP0}/${SP0}\d)` em ambas: sem ele, "Vagas
 // Disponíveis: 1/4" casava só o "1" e ignorava o "/4" (mesma classe de bug já
 // documentada abaixo pro caso "grupo de 5 pessoas" vs slotsGroupSize) — a
@@ -933,6 +947,25 @@ function slotsViaForms(cleaned: string): SlotsResult | null {
 }
 
 function slotsXdeY(cleaned: string): SlotsResult | null {
+  // Camada D (T1.4b): "N <qualificador> de M". O qualificador decide o sentido:
+  // aberto → N é o total de ABERTAS (open = N); preenchido → N é o total de
+  // PREENCHIDAS (open = M - N). Sem qualificador, cai na forma histórica abaixo.
+  const qOpen = RE_SLOT_X_OPEN_DE_Y.exec(cleaned);
+  if (qOpen) {
+    const open = Number.parseInt(qOpen[1], 10);
+    const total = Number.parseInt(qOpen[3], 10);
+    return (open <= total && total >= 1 && total <= 20)
+      ? { total, open, ambiguity: null }
+      : null;
+  }
+  const qFilled = RE_SLOT_X_FILLED_DE_Y.exec(cleaned);
+  if (qFilled) {
+    const filled = Number.parseInt(qFilled[1], 10);
+    const total = Number.parseInt(qFilled[3], 10);
+    return (filled <= total && total >= 1 && total <= 20)
+      ? { total, open: Math.max(0, total - filled), ambiguity: null }
+      : null;
+  }
   // "X de Y" (ex: "3 de 5 vagas"). Guard: X ≤ Y, 1 ≤ Y ≤ 20 (evita data/nível).
   const m = RE_SLOT_X_DE_Y.exec(cleaned);
   if (!m) return null;
@@ -983,8 +1016,11 @@ function classifySlotPairLine(
 ): { meaning: SlotPairMeaning; position: SlotPairQualifierPosition } {
   const before = normalize(line.slice(0, pairIndex));
   const after = normalize(line.slice(pairIndex + pairLength));
-  const openSignal = /\b(?:disponiveis?|abertas?|livres?|restantes?|sobrando)\b/;
-  const filledSignal = /\b(?:ocupadas?|preenchidas?|preenchidos?|inscritos?|ocupados?)\b/;
+  // Vocabulário compartilhado com a Camada D (slotsXdeY) — ver constantes
+  // SLOT_OPEN_QUALIFIERS/SLOT_FILLED_QUALIFIERS acima. Normalize() remove acento,
+  // então as alternâncias [ií]/[oa] só casam a vogal sem acento aqui.
+  const openSignal = new RegExp(`\\b(?:${SLOT_OPEN_QUALIFIERS})\\b`);
+  const filledSignal = new RegExp(`\\b(?:${SLOT_FILLED_QUALIFIERS})\\b`);
   const beforeOpen = openSignal.test(before);
   const afterOpen = openSignal.test(after);
   const beforeFilled = filledSignal.test(before);
@@ -1000,21 +1036,91 @@ function classifySlotPairLine(
   return { meaning: hasOpen ? 'open' : 'filled', position };
 }
 
+// Camada B (T1.3): o token vagas?|lugares?|jogadores? precisa estar PRÓXIMO do
+// par — a linha 1008 antiga aceitava qualquer linha que mencionasse "jogador",
+// e prosa narrativa de 300 chars virava candidata. Janela medida contra o
+// corpus (discord-announcements-real.txt): maior distância legítima = 22 chars
+// ("mínimo 4 jogadores" após "1/6", real.txt:672); o falso positivo
+// "nível 3/4 … os jogadores" fica a 47 chars (real.txt:867). Janela de 40.
+const SLOT_TOKEN_WINDOW = 40;
+function slotTokenNearPair(line: string, pair: RegExpExecArray): boolean {
+  const token = /(?:vagas?|lugares?|jogadores?)/i;
+  const before = line.slice(Math.max(0, pair.index - SLOT_TOKEN_WINDOW), pair.index);
+  const after = line.slice(pair.index + pair[0].length, pair.index + pair[0].length + SLOT_TOKEN_WINDOW);
+  return token.test(before) || token.test(after);
+}
+
+// Camada A (T1.2, R7): decide se o par "/" é na verdade uma data.
+// Achado real (anúncio Kingmaker, message_id 1539593774265671751): "…ter jogo já
+// dia 25/08, os jogadores…" entregava slots_total:25. Sinais 1, 2 e 4 do
+// plan.md §Fase 1; o sinal 3 (faixa plausível) foi descartado — rejeitava
+// "Participantes: 30/24 restando 6 vagas" e "4/1 Vagas Abertas".
+function isDatePair(line: string, pair: RegExpExecArray): boolean {
+  // Sinal 4: forma completa DD/MM/AAAA ou DD/MM/AA — o regex do par casa "25/08"
+  // de "25/08/2026"; olhar o caractere seguinte evita o par falso.
+  const after = line.slice(pair.index + pair[0].length);
+  if (/^\s*\/\s*\d{2,4}(?!\d)/.test(after)) return true;
+
+  // Sinal 2: zero à esquerda no segundo número ("08" de "25/08"). É indício de
+  // data, mas NÃO decide sozinho: "3/08" é grafia plausível de vaga (auditoria).
+  const leadingZeroSecond = /^0\d/.test(pair[2]);
+
+  // Sinal 1: contexto textual imediato de data antes do par (dia, data, sessão,
+  // início, nome de mês). Janela pequena — linha inteira pegaria "início" a 65
+  // chars de "3/4" (nível, real.txt:867) e rejeitaria par legítimo.
+  const immediate = line.slice(0, pair.index).slice(-40);
+  const hasDateCtx = /\b(?:dias?|datas?|sess(?:[aã]o|[oõ]es)|in[ií]cio|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b/i.test(immediate);
+
+  // Sinal 2b (achado de review, PR #278): data sem zero à esquerda — "Dia 25/8"
+  // tem contexto mas falha o sinal 2, e virava slots_total:25. O que separa data
+  // de vaga aqui é o PRIMEIRO número: dia do mês vai até 31, e uma mesa com 25
+  // vagas não existe (o teto de vagas do domínio é 20, guard de slotsXdeY).
+  // Deliberadamente NÃO se usa faixa do segundo número (13–31), como a sugestão
+  // do review propunha: "Participantes: 30/24 restando 6 vagas"
+  // (real.txt:179) é vaga legítima com segundo número 24, e
+  // "20:00 - 22:00/23:00" (real.txt:307) fica logo abaixo de "Dias e horários",
+  // isto é, tem contexto de data e cairia na faixa — a regra acertaria o
+  // resultado pelo motivo errado.
+  const firstLooksLikeDayOfMonth = Number.parseInt(pair[1], 10) > 20
+    && Number.parseInt(pair[1], 10) <= 31;
+  const secondLooksLikeMonth = Number.parseInt(pair[2], 10) >= 1
+    && Number.parseInt(pair[2], 10) <= 12;
+
+  return hasDateCtx && (leadingZeroSecond || (firstLooksLikeDayOfMonth && secondLooksLikeMonth));
+}
+
 function slotsLabeledNumericPair(text: string): SlotsResult | null {
   // Matcher estrutural por linha: anúncios reais fecham Markdown depois do
   // separador, omitem ":", usam Nº/N° e até põem o par antes de "Vagas".
   // Vincular label + par na mesma linha evita depender dessa decoração.
+  //
+  // Camada C (T1.4, R8): coletar todos os candidatos e escolher por precedência
+  // (semântico > genérico), empate no primeiro — em vez de `return` na primeira
+  // linha que casa (com dois pares "/", o primeiro vencia independente do sinal).
+  let best: {
+    first: number;
+    second: number;
+    meaning: SlotPairMeaning;
+    position: SlotPairQualifierPosition;
+    rank: number;
+  } | null = null;
+
   for (const line of text.split(/\r?\n/)) {
-    if (!/(?:vagas?|lugares?|jogadores?)/i.test(line)) continue;
     const pair = /(\d{1,3})[^\S\r\n]{0,3}\/[^\S\r\n]{0,3}(\d{1,3})/.exec(line);
     if (!pair) continue;
+    if (!slotTokenNearPair(line, pair)) continue;
+    if (isDatePair(line, pair)) continue;
     const first = Number.parseInt(pair[1], 10);
     const second = Number.parseInt(pair[2], 10);
     if (first > 100 || second > 100) continue;
     const semantic = classifySlotPairLine(line, pair.index, pair[0].length);
-    return slotsFromNumericPair(first, second, semantic.meaning, semantic.position);
+    const rank = semantic.meaning === 'generic' ? 0 : 1;
+    if (!best || rank > best.rank) {
+      best = { first, second, meaning: semantic.meaning, position: semantic.position, rank };
+    }
   }
-  return null;
+  if (!best) return null;
+  return slotsFromNumericPair(best.first, best.second, best.meaning, best.position);
 }
 
 function slotsGroupSize(cleaned: string): SlotsResult | null {
@@ -1418,13 +1524,15 @@ function extractTechnicalRequirements(text: string): {
   };
 }
 
-/** Fase C (spec 058): normaliza lista de texto livre separada por `/`, `,` ou "e"/"ou". */
+/** Fase C (spec 058): normaliza lista de texto livre separada por `/`, `,` ou "e"/"ou".
+ * R19 (spec 093): a forma canônica (capitalização + preposição + pontuação) vem de
+ * normalizeSettingStyles — mesma regra dos demais pontos de escrita do campo. */
 function splitFreeTextList(value: string): string[] | null {
   const parts = value
     .split(/\s*(?:\/|,| e | ou )\s*/i)
     .map((p) => p.trim())
     .filter(Boolean);
-  return parts.length > 0 ? parts : null;
+  return normalizeSettingStyles(parts);
 }
 
 
@@ -1950,13 +2058,13 @@ const FALLBACK_DESCRIPTION_KNOWN_LABEL_KEYS = new Set([
   'mesa', 'titulo', 'título', 'nome da mesa', 'aventura',
   'sistema', 'jogo', 'rpg', 'sistema de jogo', 'sistema utilizado',
   'plataforma', 'plataformas', 'local do jogo',
-  'estilo', 'indicado',
+  'estilo', 'indicado', 'tema', 'temas', 'tema(s)',
   'ambientacao', 'ambientação', 'cenario', 'cenário',
   'dia', 'dia local', 'horario', 'horário', 'data', 'data e horario', 'data e horário',
   'vagas', 'vagas abertas', 'vagas disponiveis', 'vagas disponíveis', 'numero de vagas', 'número de vagas',
   'preco', 'preço', 'valor', 'tipo', 'modalidade', 'frequencia', 'frequência',
   'contato', 'discord', 'link', 'inscricao', 'inscrição', 'candidatura',
-  'mestre', 'gm', 'narrador', 'dm', 'classificacao', 'classificação', 'faixa etaria', 'faixa etária',
+  'mestre', 'gm', 'narrador', 'dm', 'classificacao', 'classificação', 'classificacao indicativa', 'classificação indicativa', 'faixa etaria', 'faixa etária',
 ].map(normalizeLabelKey));
 
 function buildFallbackDescription(body: string): string | null {
@@ -2575,7 +2683,7 @@ export function parseDiscordAnnouncement(
   const tableLevel = extractTableLevel(fullText);
   // Fase C: cenário/ambientação e estilos — sempre extraídos juntos (mesmo componente
   // de UI, SettingStylesField). Sem banco de referência — texto livre normalizado.
-  const settingStylesLabelValue = extractLabelValue(body, ['estilo', 'indicado']);
+  const settingStylesLabelValue = extractLabelValue(body, ['estilo', 'indicado', 'tema', 'temas', 'tema(s)']);
   const settingStyles = settingStylesLabelValue ? splitFreeTextList(settingStylesLabelValue) : null;
   // Achado do mantenedor (2026-07-16): "Época: atual" no anúncio (Duskwood)
   // não caía em nenhum label conhecido — "época" é sinônimo real de
