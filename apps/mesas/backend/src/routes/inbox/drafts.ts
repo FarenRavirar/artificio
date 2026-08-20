@@ -172,6 +172,8 @@ router.patch('/:id', requireAdmin, async (req: Request, res: Response) => {
         if (current.status === 'synced') {
           return { status: 422, body: { error: 'Draft já sincronizado não pode ser alterado.' } };
         }
+        // D5b (spec 093): o guard de `rejected` vive em handlePatchDraft
+        // (utils.ts), que os dois PATCH compartilham — não se repete aqui.
         return null;
       },
       postTransitionChecks: (_current, data) => {

@@ -41,5 +41,13 @@ export function isImportedTableExpired(table: {
   starts_at: string | null;
 }): boolean {
   if (table.origin !== 'imported') return false;
-  return new Date() >= importedTableExpiryDate(table);
+  const expiry = importedTableExpiryDate(table);
+  // Achado de review (PR #279): data inválida produz `Invalid Date`, e QUALQUER
+  // comparação com ela devolve `false` (medido: `new Date() >= new Date('lixo')`
+  // → false). Sem este guard a função respondia "não expirado" para
+  // `created_at` corrompido — falha ABERTA, o oposto do que ela existe para
+  // fazer: o botão apareceria e o link responderia 410. Data que não dá para
+  // calcular é tratada como expirada.
+  if (Number.isNaN(expiry.getTime())) return true;
+  return new Date() >= expiry;
 }

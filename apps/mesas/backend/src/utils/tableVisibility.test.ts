@@ -1,4 +1,4 @@
-import { canReadTableComments, canWriteTableComments, isPublicTable } from './tableVisibility.js';
+import { canReadTableComments, canWriteTableComments, isImportedTableExpired, isPublicTable } from './tableVisibility.js';
 
 const baseTable = {
   status: 'active',
@@ -66,5 +66,35 @@ describe('política de comentário por ciclo de vida da mesa', () => {
     const table = { ...baseTable, status: 'estado_novo_do_enum' };
     expect(canWriteTableComments(table)).toBe(false);
     expect(canReadTableComments(table)).toBe(true);
+  });
+});
+
+// Achado de review (PR #279): `Invalid Date` faz QUALQUER comparação devolver
+// false, então a função respondia "não expirado" para data corrompida — falha
+// aberta, mantendo pública uma divulgação que deveria ter saído do ar.
+describe('isImportedTableExpired — data inválida falha fechado', () => {
+  it('created_at inválido é tratado como expirado', () => {
+    expect(isImportedTableExpired({ origin: 'imported', created_at: 'lixo', starts_at: null })).toBe(true);
+  });
+
+  // `starts_at` inválido NÃO expira sozinho, e isso é correto: a comparação
+  // `limiteEvento < limite5Dias` é false com Invalid Date, então a expiração cai
+  // no limite de 5 dias após `created_at` — que é válido. Só a perda de
+  // `created_at` torna a expiração incalculável.
+  it('starts_at inválido cai no limite de 5 dias, sem expirar mesa recém-criada', () => {
+    expect(isImportedTableExpired({ origin: 'imported', created_at: new Date().toISOString(), starts_at: 'lixo' })).toBe(false);
+  });
+
+  it('starts_at inválido com created_at antigo expira pelo limite de 5 dias', () => {
+    const antigo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString();
+    expect(isImportedTableExpired({ origin: 'imported', created_at: antigo, starts_at: 'lixo' })).toBe(true);
+  });
+
+  it('mesa não importada segue fora da regra, mesmo com data inválida', () => {
+    expect(isImportedTableExpired({ origin: 'manual', created_at: 'lixo', starts_at: null })).toBe(false);
+  });
+
+  it('importada recém-criada com datas válidas NÃO expira', () => {
+    expect(isImportedTableExpired({ origin: 'imported', created_at: new Date().toISOString(), starts_at: null })).toBe(false);
   });
 });

@@ -411,8 +411,8 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | USE | `/api/v1/admin/import/drafts` | ✅ high | `apps/mesas/backend/src/routes/adminImportInbox.ts` | 15 |
 | GET | `/api/v1/admin/import/drafts/:id` | ✅ high | `apps/mesas/backend/src/routes/inbox/drafts.ts` | 104 |
 | PATCH | `/api/v1/admin/import/drafts/:id` | ✅ high | `apps/mesas/backend/src/routes/inbox/drafts.ts` | 164 |
-| POST | `/api/v1/admin/import/drafts/:id/reparse` | ✅ high | `apps/mesas/backend/src/routes/inbox/drafts.ts` | 201 |
-| POST | `/api/v1/admin/import/drafts/:id/restore` | ✅ high | `apps/mesas/backend/src/routes/inbox/drafts.ts` | 288 |
+| POST | `/api/v1/admin/import/drafts/:id/reparse` | ✅ high | `apps/mesas/backend/src/routes/inbox/drafts.ts` | 203 |
+| POST | `/api/v1/admin/import/drafts/:id/restore` | ✅ high | `apps/mesas/backend/src/routes/inbox/drafts.ts` | 290 |
 | POST | `/api/v1/admin/import/drafts/:id/sync` | ✅ high | `apps/mesas/backend/src/routes/inbox/drafts.ts` | 75 |
 | POST | `/api/v1/admin/import/import-text` | ✅ high | `apps/mesas/backend/src/routes/inbox/import.ts` | 62 |
 | USE | `/api/v1/admin/import/import-text` | ✅ high | `apps/mesas/backend/src/routes/adminImportInbox.ts` | 13 |
