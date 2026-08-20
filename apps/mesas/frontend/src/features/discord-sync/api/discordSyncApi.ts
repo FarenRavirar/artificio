@@ -505,6 +505,10 @@ export const discordSyncApi = {
   reparseDraft: (id: string) =>
     apiFetch<DiscordDraft>(`/drafts/${id}/reparse`, { method: 'POST' }),
 
+  // Fase 5 (spec 093/D5a): restaura um descartado reexecutando a normalização.
+  restoreDraft: (id: string) =>
+    apiFetch<DiscordDraft>(`/drafts/${id}/restore`, { method: 'POST' }),
+
   auditCompleteness: async (id: string) =>
     parseCompletenessAudit(await apiFetch<unknown>(`/drafts/${id}/audit-completeness`, { method: 'POST' })),
 

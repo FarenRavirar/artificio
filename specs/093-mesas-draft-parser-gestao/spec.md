@@ -407,7 +407,7 @@ cada campo, não a decisão de exibi-lo.
 | **R10** | O rótulo `Tema(s)`/`Tema`/`Temas` alimenta `setting_styles` e deixa de sobrar na descrição. | 5 |
 | **R11** | As abas Bruto e Normalizado têm botão de copiar o conteúdo integral exibido, acessível sem rolar. | 6 |
 | **R12** | `/gestao/mesas` ganha aba "Descartados" listando `status='rejected'`, com ver, **restaurar** e limpar definitivo. Editar exige restaurar antes — guard 422 mantido (D5b). | 7 |
-| **R13** | Draft descartado pode ser restaurado para `draft`/`needs_review` pela UI. | 7 |
+| **R13** | Draft descartado pode ser restaurado pela UI, reexecutando a normalização — `ready` sem campo faltando, `needs_review` com; nunca `draft` (D5a). | 7 |
 | **R14** | Nenhum `.sql` do app mesas vive fora dos diretórios da allowlist; `006_create_vtt_platforms.sql` e `007_click_tracking.sql` passam a existir sob o contrato, com header de 5 campos e forma idempotente. | 8 |
 | **R15** | O guard `_enforce-migration-dir.yml` deixa de ter ponto cego para arquivo pré-existente fora da allowlist. | 8 |
 | **R16** | As 5 plataformas de `communication_platforms` têm alias, pelo mesmo mecanismo das VTTs. | 9 |

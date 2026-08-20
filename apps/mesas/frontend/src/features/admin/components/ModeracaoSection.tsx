@@ -19,7 +19,7 @@ function inboxDraftToDiscordDraft(draft: InboxDraft): DiscordDraft {
 import { PageHeader, SectionCard, tabButtonClass } from './ui';
 import { TableDuplicatesPanel } from './TableDuplicatesPanel';
 
-type ModSubTab = 'mensagens' | 'rascunhos' | 'duplicatas';
+type ModSubTab = 'mensagens' | 'rascunhos' | 'duplicatas' | 'descartados';
 
 const SUB_TAB_CONTENT: Record<ModSubTab, { title: string; description: string }> = {
   rascunhos: {
@@ -33,6 +33,10 @@ const SUB_TAB_CONTENT: Record<ModSubTab, { title: string; description: string }>
   duplicatas: {
     title: 'Possíveis duplicatas',
     description: 'Pares mesa×mesa e draft×mesa para decisão manual do administrador.',
+  },
+  descartados: {
+    title: 'Descartados',
+    description: 'Rascunhos rejeitados. Ver, restaurar (volta ao fluxo de revisão) ou apagar definitivamente.',
   },
 };
 
@@ -79,6 +83,7 @@ export function ModeracaoSection() {
     if (sub === 'rascunhos') return 'rascunhos';
     if (sub === 'mensagens') return 'mensagens';
     if (sub === 'duplicatas') return 'duplicatas';
+    if (sub === 'descartados') return 'descartados';
     return 'rascunhos';
   });
 
@@ -88,6 +93,7 @@ export function ModeracaoSection() {
       if (sub === 'rascunhos') setSubTab('rascunhos');
       else if (sub === 'mensagens') setSubTab('mensagens');
       else if (sub === 'duplicatas') setSubTab('duplicatas');
+      else if (sub === 'descartados') setSubTab('descartados');
       else setSubTab('rascunhos');
     }, 0);
     return () => clearTimeout(timer);
@@ -106,6 +112,7 @@ export function ModeracaoSection() {
       { before: body.before as Record<string, unknown> | undefined, confirmed_fields: body.confirmed_fields },
     ),
     retryLearningFeedback: (id) => inboxApi.retryLearningFeedback(id),
+    restoreDraft: (id) => inboxApi.restoreDraft(id).then(inboxDraftToDiscordDraft),
   }), []);
 
   const selectSubTab = (tab: ModSubTab) => {
@@ -160,6 +167,9 @@ export function ModeracaoSection() {
         <button onClick={() => selectSubTab('duplicatas')} className={subTabClass('duplicatas')} aria-pressed={subTab === 'duplicatas'}>
           Duplicatas
         </button>
+        <button onClick={() => selectSubTab('descartados')} className={subTabClass('descartados')} aria-pressed={subTab === 'descartados'}>
+          Descartados
+        </button>
       </div>
 
       {/* SonarCloud PR #159: conteúdo por subaba evita ternários aninhados e mantém título/descrição sincronizados. */}
@@ -172,6 +182,9 @@ export function ModeracaoSection() {
 
         {subTab === 'rascunhos' && (
           <DiscordDraftReviewTable inboxApi={inboxDraftApi} onBeforeSync={handleBeforeSync} />
+        )}
+        {subTab === 'descartados' && (
+          <DiscordDraftReviewTable inboxApi={inboxDraftApi} onBeforeSync={handleBeforeSync} lockedStatus="rejected" />
         )}
         {subTab === 'duplicatas' && <TableDuplicatesPanel />}
       </SectionCard>

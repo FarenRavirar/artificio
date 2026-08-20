@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { authGet } from '../../services/apiClient';
-import { normalizeSettingStyles } from '../../utils/normalizeSettingStyles';
+import { normalizeSettingStyles } from '@artificio/catalog-matching';
 import type { DiscordCoverQuality, DiscordDraftPayload, DiscordDraftTablePayload, DiscordSlotsAmbiguity } from './types';
 
 export type DraftTableType = 'campanha' | 'one-shot' | 'oneshot-serie' | 'aberta';

@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **496 operações**.
+Total: **498 operações**.
 
 ## accounts (53)
 
@@ -259,7 +259,7 @@ Total: **496 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (206)
+## mesas (208)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -285,6 +285,7 @@ Total: **496 operações**.
 | GET | `/api/v1/admin/discord/drafts/{id}/duplicates` | admin | admin | active | — | Consulta api v1 admin discord drafts id duplicates |
 | POST | `/api/v1/admin/discord/drafts/{id}/refresh-image` | admin | admin | active | — | Cria ou executa api v1 admin discord drafts id refresh-image |
 | POST | `/api/v1/admin/discord/drafts/{id}/reparse` | admin | admin | active | — | Cria ou executa api v1 admin discord drafts id reparse |
+| POST | `/api/v1/admin/discord/drafts/{id}/restore` | admin | admin | active | — | Cria ou executa api v1 admin discord drafts id restore |
 | POST | `/api/v1/admin/discord/drafts/{id}/sync` | admin | admin | active | — | Cria ou executa api v1 admin discord drafts id sync |
 | PATCH | `/api/v1/admin/discord/drafts/batch` | admin | admin | active | — | Atualiza api v1 admin discord drafts batch |
 | DELETE | `/api/v1/admin/discord/drafts/rejected` | admin | admin | active | — | Apaga drafts descartados (status=rejected) |
@@ -318,6 +319,7 @@ Total: **496 operações**.
 | POST | `/api/v1/admin/import/drafts/{id}/correction` | admin | admin | provisional | — | Registra correção manual em draft de importação |
 | POST | `/api/v1/admin/import/drafts/{id}/correction/retry-learning` | admin | admin | provisional | — | Reprocessa feedback de aprendizado pendente ou falho do draft de importação |
 | POST | `/api/v1/admin/import/drafts/{id}/reparse` | admin | admin | active | — | Cria ou executa api v1 admin import drafts id reparse |
+| POST | `/api/v1/admin/import/drafts/{id}/restore` | admin | admin | active | — | Cria ou executa api v1 admin import drafts id restore |
 | POST | `/api/v1/admin/import/drafts/{id}/sync` | admin | admin | active | — | Cria ou executa api v1 admin import drafts id sync |
 | POST | `/api/v1/admin/import/import-text` | admin | admin | active | — | Cria ou executa api v1 admin import import-text |
 | GET | `/api/v1/admin/scenario-suggestions` | admin | admin | active | — | Consulta api v1 admin scenario-suggestions |

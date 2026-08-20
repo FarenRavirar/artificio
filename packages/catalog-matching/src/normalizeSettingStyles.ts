@@ -1,15 +1,16 @@
-// R19 (spec 093): normalização canônica de setting_styles na escrita.
+// R19 (spec 093): normalizacao canonica de setting_styles na escrita.
 //
-// Forma canônica definida pela migration_152: capitalizar cada palavra — não só
-// a primeira ("dark fantasy" → "Dark Fantasy") —, preservar preposição interna
-// ("Fatia de vida" → "Fatia de Vida", nunca "Fatia De Vida") e remover pontuação
-// terminal ("Exploração." → "Exploração"). Função única e testável, usada nos
-// pontos que gravam o campo.
+// Forma canonica definida pela migration_152 do mesas: capitalizar cada palavra
+// — nao so a primeira ("dark fantasy" -> "Dark Fantasy") —, preservar preposicao
+// interna ("Fatia de vida" -> "Fatia de Vida", nunca "Fatia De Vida") e remover
+// pontuacao terminal ("Exploracao." -> "Exploracao").
 //
-// ESPELHADA em apps/mesas/frontend/src/utils/normalizeSettingStyles.ts — backend
-// e frontend são raízes de build separadas (não há pacote compartilhado de domínio
-// mesas; a migração para `@artificio/*` é decisão do mantenedor, ver spec 086).
-// Não alterar uma sem sincronizar a outra (AGENTS.md §Compartilhado por padrão).
+// Vive aqui, e nao em apps/mesas, porque backend e frontend gravam o campo e
+// precisam da MESMA regra: divergir produz chip duplicado no catalogo, que e o
+// defeito que R19/R20 existem para corrigir. A primeira versao (PR #278) foi
+// escrita duas vezes, uma em cada app, com um comentario mandando "sincronizar
+// as duas" — o Sonar flagrou 68,9%/76,9% de duplicacao e estava certo: instrucao
+// em comentario nao e mecanismo (AGENTS.md §Compartilhado por padrao).
 
 const LOWERCASE_INTERNAL_WORDS = new Set([
   'a', 'as', 'o', 'os', 'ao', 'aos', 'à', 'às',
@@ -22,7 +23,7 @@ const LOWERCASE_INTERNAL_WORDS = new Set([
 ]);
 
 function normalizeStyleWord(raw: string): string {
-  // Remove pontuação/símbolo/whitespace no início e no fim ("Exploração." → "Exploração").
+  // Remove pontuacao/simbolo/whitespace no inicio e no fim ("Exploracao." -> "Exploracao").
   const trimmed = raw.trim().replace(/^[\p{P}\p{S}\s]+|[\p{P}\p{S}\s]+$/gu, '');
   if (!trimmed) return '';
   return trimmed
@@ -35,6 +36,11 @@ function normalizeStyleWord(raw: string): string {
     .join(' ');
 }
 
+/**
+ * Normaliza uma lista de estilos de cenario para a forma canonica.
+ * Devolve `null` para entrada ausente/vazia — nunca `[]` —, porque o chamador
+ * distingue "campo nao enviado" de "campo limpo" (ver gmPanel.ts).
+ */
 export function normalizeSettingStyles(styles: string[] | null | undefined): string[] | null {
   if (!Array.isArray(styles)) return null;
   const normalized = styles

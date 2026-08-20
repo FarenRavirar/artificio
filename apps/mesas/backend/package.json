@@ -37,6 +37,7 @@
   "dependencies": {
     "@artificio/auth": "workspace:*",
     "@artificio/catalog-client": "workspace:*",
+    "@artificio/catalog-matching": "workspace:*",
     "@artificio/changelog": "workspace:*",
     "@artificio/comments": "workspace:*",
     "@artificio/config": "workspace:*",

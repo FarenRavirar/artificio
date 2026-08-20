@@ -96,3 +96,42 @@ describe('PATCH /admin/discord/drafts/:id', () => {
     expect(mockDb.updateTable).not.toHaveBeenCalled();
   });
 });
+
+describe('POST /admin/discord/drafts/:id/reparse', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function mockReparseDraft(status: string) {
+    const selectChain = {
+      selectAll: vi.fn().mockReturnThis(),
+      select: vi.fn().mockReturnThis(),
+      where: vi.fn().mockReturnThis(),
+      executeTakeFirst: vi.fn().mockResolvedValue({ id: 'draft-1', status }),
+    };
+    mockDb.selectFrom.mockReturnValue(selectChain);
+    return selectChain;
+  }
+
+  it('rejects reparsing a rejected draft (422) — D5c', async () => {
+    mockReparseDraft('rejected');
+
+    const response = await request(makeApp())
+      .post('/admin/discord/drafts/draft-1/reparse');
+
+    expect(response.status).toBe(422);
+    expect(response.body.error).toContain('descartado');
+    expect(mockDb.updateTable).not.toHaveBeenCalled();
+  });
+
+  it('rejects reparsing a synced draft (422)', async () => {
+    mockReparseDraft('synced');
+
+    const response = await request(makeApp())
+      .post('/admin/discord/drafts/draft-1/reparse');
+
+    expect(response.status).toBe(422);
+    expect(response.body.error).toContain('sincronizado');
+    expect(mockDb.updateTable).not.toHaveBeenCalled();
+  });
+});

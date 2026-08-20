@@ -16,6 +16,7 @@
   "dependencies": {
     "@artificio/analytics": "workspace:*",
     "@artificio/auth": "workspace:*",
+    "@artificio/catalog-matching": "workspace:*",
     "@artificio/catalog-ui": "workspace:*",
     "@artificio/comments": "workspace:*",
     "@artificio/config": "workspace:*",

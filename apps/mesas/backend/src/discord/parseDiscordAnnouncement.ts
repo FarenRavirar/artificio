@@ -1,6 +1,6 @@
 import type { CoverQuality, ImportRawMessage, DiscordSlotsAmbiguity, ImportTableDraft, DiscordTableDraftTable, TableDraftType, TableDraftModality, TableDraftPriceType, TableDraftFrequency, TableDraftAgeRating, TableDraftExperienceLevel, TableDraftTableLevel } from './types.js';
 import { normalizeSystemName, scoreSystemCandidates, similarity } from '../services/systemSuggestionCandidates.js';
-import { normalizeSettingStyles } from './normalizeSettingStyles.js';
+import { normalizeSettingStyles } from '@artificio/catalog-matching';
 
 export interface SystemEntry {
   id: string;

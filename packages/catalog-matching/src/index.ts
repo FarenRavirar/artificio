@@ -605,3 +605,7 @@ export function matchSystemNameExact(
   const index = Array.isArray(systemsOrIndex) ? buildExactMatchIndex(systemsOrIndex) : systemsOrIndex;
   return index.get(target) ?? null;
 }
+
+// R19 (spec 093) — normalizacao de setting_styles, compartilhada entre o backend
+// e o frontend do mesas (ambos gravam o campo).
+export { normalizeSettingStyles } from './normalizeSettingStyles.js';

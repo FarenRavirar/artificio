@@ -8,6 +8,7 @@ import {
   normalizeDiscordTableDraft,
   parseDiscordAnnouncement,
   normalizeDraftPayload,
+  normalizeImportTableDraft,
   assertDraftReadyTransition,
   DiscordDiscoveryError,
   DiscordIngestError,
@@ -1231,6 +1232,17 @@ export async function handlePatchDraft(
   // Cast básico — callbacks conhecem os campos que precisam
   const currentRow = current as unknown as Record<string, unknown>;
 
+  // D5b (spec 093): descartado não se edita — restaura primeiro (POST /:id/restore).
+  // Achado de review (PR #279): registerDraftCorrection já recusava rejected
+  // (`:185`), mas o PATCH é caminho separado; o handler do Discord não passava
+  // preTransitionChecks algum, então editava um descartado sem revisão. O guard
+  // vive aqui, e não em cada chamador, porque os dois PATCH compartilham esta
+  // função — regra de contrato pertence ao ponto comum (AGENTS.md §Compartilhado
+  // por padrão). Vale antes de qualquer transformData, que já mexeria no payload.
+  if (currentRow.status === 'rejected') {
+    return { status: 422, body: { error: 'Draft descartado não pode ser editado. Restaure-o primeiro.' } };
+  }
+
   if (config.preTransitionChecks) {
     const check = config.preTransitionChecks(currentRow, parsed.data as Record<string, unknown>);
     if (check) return check;
@@ -1291,6 +1303,90 @@ export async function handlePatchDraft(
   }
 
   return { status: 200, body: { data: draft } };
+}
+
+// ─── Fase 5 (spec 093) — restoreDraft (rejeitado → reexecuta normalização) ─────
+
+/**
+ * Restaura um draft descartado (`rejected`) reexecutando a normalização sobre o
+ * payload ATUAL (normalized_payload ?? parsed_payload) — NÃO re-parseia a mensagem
+ * de origem. Decisão D5a (spec 093, respondida pelo mantenedor 2026-08-19):
+ * restaurar NÃO fixa status. `normalizeDiscordTableDraft` deriva o destino de
+ * `missingFields.length` (`status: missingFields.length === 0 ? 'ready' :
+ * 'needs_review'`) — sem campo faltando → `ready`; com → `needs_review`; NUNCA
+ * `draft` nem `rejected`. `draft` é estado de entrada do pipeline; fixar
+ * `needs_review` fabricaria pendência inexistente (needs_review é estado derivado
+ * de "faltam campos", não fila de moderação).
+ *
+ * Só `rejected` pode ser restaurado (senão 422) — simétrico ao guard que protege
+ * `synced`. A correção de descartado segue bloqueada (`registerDraftCorrection`
+ * recusa 422); o caminho é restaurar → editar, com o item de volta sob revisão.
+ *
+ * Extraída para evitar duplicação entre discord/drafts.ts e inbox/drafts.ts
+ * (mesmo padrão de `handlePatchDraft`/`reconcileTerminalDraft`).
+ */
+export async function restoreDraft(draftId: string): Promise<{ status: number; body: unknown }> {
+  const draft = await db
+    .selectFrom('discord_import_table_drafts')
+    .selectAll()
+    .where('id', '=', draftId)
+    .executeTakeFirst();
+
+  if (!draft) {
+    return { status: 404, body: { error: 'Draft não encontrado.' } };
+  }
+  if (draft.status !== 'rejected') {
+    return { status: 422, body: { error: 'Apenas drafts descartados (rejected) podem ser restaurados.' } };
+  }
+
+  let payload: ImportTableDraft;
+  try {
+    payload = normalizeImportTableDraft(draft.normalized_payload ?? draft.parsed_payload);
+  } catch (error: unknown) {
+    return {
+      status: 422,
+      body: { error: error instanceof Error ? error.message : 'Payload do draft malformado; não é possível restaurar.' },
+    };
+  }
+
+  const systems = await loadSystemsForParser();
+
+  // Achado de review (PR #279): `normalizeDiscordTableDraft:83` faz UNIÃO do
+  // `missing_fields` recebido com o recalculado — o que é correto no fluxo de
+  // parse (preserva pendência que o parser não sabe derivar), mas anula D5a aqui:
+  // um marcador derivado de uma versão anterior do payload nunca sairia, o
+  // `length` nunca zeraria, e todo restaurado voltaria como `needs_review` —
+  // exatamente o destino fixo que D5a existe para evitar.
+  // No restore, `missing_fields` é RECONSTRUÍDO a partir do payload atual: tudo
+  // que `getMissingFields` sabe derivar (validateDraftForSync + os marcadores de
+  // UI `system_name*`, `contact_url`, `slots_open:ambiguous_*`,
+  // `system_name:homebrew_suspect`) vem do estado da tabela, então herdar a lista
+  // antiga só carrega pendência que talvez já não exista. Zerar e deixar a
+  // normalização decidir é o que faz D5a valer — quem não tem campo faltando
+  // volta como `ready`.
+  const payloadForRestore: ImportTableDraft = { ...payload, missing_fields: [] };
+  const normalized = normalizeDiscordTableDraft(payloadForRestore, systems);
+
+  // Guard TOCTOU: status checado fora da tx; condiciona o UPDATE a 'rejected'
+  // para não sobrescrever um draft que mudou de estado na janela (mesmo padrão
+  // de registerDraftCorrection).
+  const [updated] = await db
+    .updateTable('discord_import_table_drafts')
+    .set({
+      normalized_payload: normalized.draft,
+      status: normalized.status,
+      updated_at: new Date(),
+    })
+    .where('id', '=', draftId)
+    .where('status', '=', 'rejected')
+    .returningAll()
+    .execute();
+
+  if (!updated) {
+    return { status: 409, body: { error: 'Draft mudou de estado durante a restauração.' } };
+  }
+
+  return { status: 200, body: { data: updated } };
 }
 
 // ─── REV-077 — reconcileTerminalDraft (evita reprocessamento em loop) ─────────

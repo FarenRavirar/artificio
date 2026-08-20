@@ -246,6 +246,8 @@ export interface DraftApiOperations {
   updateDraft: (id: string, body: { normalized_payload?: Record<string, unknown>; status?: DiscordImportDraftStatus; review_notes?: string }) => Promise<DiscordDraft>;
   syncDraft: (id: string) => Promise<{ tableId: string; created: boolean }>;
   reparseDraft: (id: string) => Promise<DiscordDraft>;
+  /** Restaura um draft descartado (rejected) reexecutando a normalização (Fase 5, spec 093/D5a). */
+  restoreDraft?: (id: string) => Promise<DiscordDraft>;
   refreshDraftImage?: (id: string) => Promise<{ draftId: string; tableId: string | null; status: string; url: string | null; error: string | null }>;
   getDraft?: (id: string) => Promise<DiscordDraft>;
   submitCorrection?: (id: string, body: {

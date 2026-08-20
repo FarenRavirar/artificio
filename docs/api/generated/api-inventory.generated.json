@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "total": 605,
+    "total": 607,
     "byApp": {
       "accounts": {
         "total": 56,
@@ -57,17 +57,17 @@
         }
       },
       "mesas": {
-        "total": 257,
+        "total": 259,
         "byMethod": {
           "GET": 76,
-          "POST": 71,
+          "POST": 73,
           "USE": 54,
           "PATCH": 27,
           "DELETE": 18,
           "PUT": 11
         },
         "byConfidence": {
-          "high": 257
+          "high": 259
         }
       },
       "site": {
@@ -2945,6 +2945,15 @@
     {
       "app": "mesas",
       "method": "POST",
+      "path": "/api/v1/admin/discord/drafts/:id/restore",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/drafts.ts",
+      "line": 439,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
       "path": "/api/v1/admin/discord/drafts/:id/sync",
       "sourceFile": "apps/mesas/backend/src/routes/discord/sync.ts",
       "line": 9,
@@ -3325,7 +3334,16 @@
       "method": "POST",
       "path": "/api/v1/admin/import/drafts/:id/reparse",
       "sourceFile": "apps/mesas/backend/src/routes/inbox/drafts.ts",
-      "line": 201,
+      "line": 203,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/import/drafts/:id/restore",
+      "sourceFile": "apps/mesas/backend/src/routes/inbox/drafts.ts",
+      "line": 290,
       "confidence": "high",
       "kind": "express-route"
     },

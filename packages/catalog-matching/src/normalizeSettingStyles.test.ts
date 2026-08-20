@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeSettingStyles } from '../normalizeSettingStyles.js';
+import { normalizeSettingStyles } from './normalizeSettingStyles.js';
 
 // R19 (spec 093): forma canônica da migration_152 — capitalizar cada palavra,
 // preservar preposição interna, remover pontuação terminal.
