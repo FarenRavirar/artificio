@@ -26,21 +26,51 @@ interface VttPlatformPayload {
 const aliasSlug = (alias: string): string =>
   alias.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-// Normaliza a lista de aliases recebida: trim, filtra vazio, dedup case-insensitive.
-function normalizeAliases(aliases: unknown): string[] {
+/**
+ * Normaliza a lista de aliases recebida: trim, filtra vazio e dedup.
+ *
+ * Achado de review (PR #278): a dedup era por `t.toLowerCase()`, mas a constraint
+ * do banco é `UNIQUE (vtt_platform_id, alias_slug)` (migration_159:23). "Roll 20"
+ * e "Roll-20" são chaves distintas em lowercase e o MESMO slug `roll-20` — o
+ * insert em lote estourava a unique. E alias só de pontuação ("---") produz slug
+ * vazio, linha inútil que quebra o lookup do parser. Dedup e descarte passam a
+ * usar o slug, que é o que o banco de fato restringe.
+ *
+ * Devolve o par {alias, alias_slug} já pronto para não recomputar o slug no
+ * ponto de escrita (era feito em dois lugares, com risco de divergirem).
+ */
+function normalizeAliases(aliases: unknown): { alias: string; alias_slug: string }[] {
   if (!Array.isArray(aliases)) return [];
   const seen = new Set<string>();
-  const out: string[] = [];
+  const out: { alias: string; alias_slug: string }[] = [];
   for (const a of aliases) {
     if (typeof a !== 'string') continue;
     const t = a.trim();
     if (!t || t.length > 100) continue;
-    const key = t.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(t);
+    const slug = aliasSlug(t);
+    if (!slug || seen.has(slug)) continue;
+    seen.add(slug);
+    out.push({ alias: t, alias_slug: slug });
   }
   return out;
+}
+
+/**
+ * Valida o campo `aliases` do corpo antes de qualquer escrita.
+ *
+ * Achado de review (PR #278): `normalizeAliases` descarta entrada inválida em
+ * silêncio, então `aliases: "roll20"` (string, não array) virava `[]` e o
+ * delete+insert do update APAGAVA todos os aliases da plataforma. Pedido
+ * malformado não pode ter efeito destrutivo silencioso. `aliases: []` continua
+ * sendo a limpeza explícita e legítima.
+ */
+function validateAliasesInput(aliases: unknown): string | null {
+  if (!Array.isArray(aliases)) return 'Campo "aliases" deve ser uma lista.';
+  for (const a of aliases) {
+    if (typeof a !== 'string') return 'Campo "aliases" deve conter apenas strings.';
+    if (a.trim().length > 100) return 'Alias excede 100 caracteres.';
+  }
+  return null;
 }
 
 const normalizeLogoFilename = (value?: string | null): string | null => {
@@ -248,6 +278,11 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req, res) => 
 
   const sortOrder = Number.isInteger(payload.sort_order) ? Number(payload.sort_order) : 0;
 
+  if (payload.aliases !== undefined) {
+    const aliasError = validateAliasesInput(payload.aliases);
+    if (aliasError) return res.status(400).json({ error: aliasError });
+  }
+
   try {
     const websiteUrl = normalizeWebsiteUrl(payload.website_url);
     const logoFilename = normalizeLogoFilename(payload.logo_filename);
@@ -280,15 +315,17 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req, res) => 
       if (aliases.length > 0) {
         await trx
           .insertInto('vtt_platform_aliases')
-          .values(aliases.map((alias) => ({
+          .values(aliases.map((a) => ({
             vtt_platform_id: platform.id,
-            alias,
-            alias_slug: aliasSlug(alias),
+            alias: a.alias,
+            alias_slug: a.alias_slug,
           })))
           .onConflict((oc) => oc.columns(['vtt_platform_id', 'alias_slug']).doNothing())
           .execute();
       }
-      return { ...platform, aliases };
+      // O contrato da resposta é lista de strings — o par {alias, alias_slug} é
+      // detalhe de persistência.
+      return { ...platform, aliases: aliases.map((a) => a.alias) };
     });
 
     return res.status(201).json({ data: created });
@@ -365,6 +402,15 @@ router.put('/admin/:id', authMiddleware, requireRole('admin'), async (req, res) 
   }
 
   const hasAliases = payload.aliases !== undefined;
+
+  // Validar ANTES da transação: o bloco de aliases faz delete + insert, então
+  // entrada malformada silenciosamente normalizada para [] apagaria todos os
+  // aliases da plataforma (achado de review, PR #278).
+  if (hasAliases) {
+    const aliasError = validateAliasesInput(payload.aliases);
+    if (aliasError) return res.status(400).json({ error: aliasError });
+  }
+
   const nextAliases = hasAliases ? normalizeAliases(payload.aliases) : null;
 
   if (Object.keys(updateData).length === 0 && !hasAliases) {
@@ -414,17 +460,19 @@ router.put('/admin/:id', authMiddleware, requireRole('admin'), async (req, res) 
         if (nextAliases && nextAliases.length > 0) {
           await trx
             .insertInto('vtt_platform_aliases')
-            .values(nextAliases.map((alias) => ({
+            .values(nextAliases.map((a) => ({
               vtt_platform_id: id,
-              alias,
-              alias_slug: aliasSlug(alias),
+              alias: a.alias,
+              alias_slug: a.alias_slug,
             })))
             .execute();
         }
       }
 
-      const currentAliases = hasAliases
-        ? (nextAliases ?? [])
+      // Ambos os ramos devolvem lista de strings: o contrato da resposta é o
+      // texto do alias, não o par {alias, alias_slug} usado na persistência.
+      const currentAliases: string[] = hasAliases
+        ? (nextAliases ?? []).map((a) => a.alias)
         : (await trx
             .selectFrom('vtt_platform_aliases')
             .select('alias')

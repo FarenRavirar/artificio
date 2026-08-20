@@ -743,6 +743,27 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table.slots_open).toBeNull();
   });
 
+  // Achado de review (PR #278): data sem zero à esquerda falhava o sinal 2 e
+  // "Dia 25/8" virava slots_total:25.
+  it('guard de data: "Dia 25/8" (mês sem zero à esquerda) não vira par de vaga', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Sistema: D&D 5e\nDia 25/8, os jogadores confirmados\nContato: https://forms.gle/example' }),
+    );
+
+    expect(draft?.table.slots_total).toBeNull();
+    expect(draft?.table.slots_open).toBeNull();
+  });
+
+  // Contraprova do guard acima: o sinal usa o PRIMEIRO número (dia do mês > 20),
+  // não a faixa do segundo — senão este caso real (real.txt:179) seria rejeitado.
+  it('guard de data NÃO rejeita "Participantes: 30/24", que é vaga legítima', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Sistema: D&D 5e\nParticipantes: 30/24 restando 6 vagas\nContato: https://forms.gle/example' }),
+    );
+
+    expect(draft?.table.slots_total).not.toBeNull();
+  });
+
   it('Camada C: entre dois pares "/", o semântico vence o genérico mesmo vindo depois', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({ content_raw: 'Sistema: D&D 5e\nVagas: 3/5\nVagas Ocupadas: 2/6\nContato: https://forms.gle/example' }),

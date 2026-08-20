@@ -1071,7 +1071,22 @@ function isDatePair(line: string, pair: RegExpExecArray): boolean {
   const immediate = line.slice(0, pair.index).slice(-40);
   const hasDateCtx = /\b(?:dias?|datas?|sess(?:[aã]o|[oõ]es)|in[ií]cio|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b/i.test(immediate);
 
-  return hasDateCtx && leadingZeroSecond;
+  // Sinal 2b (achado de review, PR #278): data sem zero à esquerda — "Dia 25/8"
+  // tem contexto mas falha o sinal 2, e virava slots_total:25. O que separa data
+  // de vaga aqui é o PRIMEIRO número: dia do mês vai até 31, e uma mesa com 25
+  // vagas não existe (o teto de vagas do domínio é 20, guard de slotsXdeY).
+  // Deliberadamente NÃO se usa faixa do segundo número (13–31), como a sugestão
+  // do review propunha: "Participantes: 30/24 restando 6 vagas"
+  // (real.txt:179) é vaga legítima com segundo número 24, e
+  // "20:00 - 22:00/23:00" (real.txt:307) fica logo abaixo de "Dias e horários",
+  // isto é, tem contexto de data e cairia na faixa — a regra acertaria o
+  // resultado pelo motivo errado.
+  const firstLooksLikeDayOfMonth = Number.parseInt(pair[1], 10) > 20
+    && Number.parseInt(pair[1], 10) <= 31;
+  const secondLooksLikeMonth = Number.parseInt(pair[2], 10) >= 1
+    && Number.parseInt(pair[2], 10) <= 12;
+
+  return hasDateCtx && (leadingZeroSecond || (firstLooksLikeDayOfMonth && secondLooksLikeMonth));
 }
 
 function slotsLabeledNumericPair(text: string): SlotsResult | null {

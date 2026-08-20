@@ -966,7 +966,14 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       requires_camera: data.requires_camera,
       requires_microphone: data.requires_microphone,
       setting_name: data.setting_name,
-      setting_styles: normalizeSettingStyles(data.setting_styles),
+      // Achado de review (PR #278): normalizeSettingStyles(undefined) devolve
+      // `null` (medido), e Kysely ignora `undefined` mas GRAVA `null` — então
+      // uma atualização que não mencione setting_styles apagava o valor
+      // guardado. Preservar undefined mantém o campo intocado, como fazem os
+      // vizinhos que passam `data.X` cru.
+      setting_styles: data.setting_styles === undefined
+        ? undefined
+        : normalizeSettingStyles(data.setting_styles),
       synopsis_narrative: data.synopsis_narrative,
       benefits_text: data.benefits_text,
       table_gm_bio: data.table_gm_bio,
