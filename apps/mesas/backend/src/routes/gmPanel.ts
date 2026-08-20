@@ -22,7 +22,7 @@ import { logActivity } from '../services/activityLogger.js';
 import { notifyAdmins } from '../services/adminNotifications.js';
 import { triggerMetaScrape, triggerMetaScrapeOnPublish } from '../services/metaScrapeClient.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
-import { normalizeSettingStyles } from '../discord/normalizeSettingStyles.js';
+import { normalizeSettingStyles } from '@artificio/catalog-matching';
 import { serializeContact, serializeContactMethods, serializeContacts } from '../utils/contactSerializer.js';
 import {
   sanitizeNullableUserMarkdown,

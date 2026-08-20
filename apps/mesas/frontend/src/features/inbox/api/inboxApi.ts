@@ -172,6 +172,10 @@ export const inboxApi = {
   reparseDraft: async (id: string): Promise<InboxDraft> =>
     parseInboxDraft(await apiFetch<unknown>(`/drafts/${id}/reparse`, { method: 'POST' })),
 
+  // Fase 5 (spec 093/D5a): restaura um descartado reexecutando a normalização.
+  restoreDraft: async (id: string): Promise<InboxDraft> =>
+    parseInboxDraft(await apiFetch<unknown>(`/drafts/${id}/restore`, { method: 'POST' })),
+
   registerCorrection: async (id: string, corrections: Record<string, unknown>, reason?: string, options?: { before?: Record<string, unknown>; confirmed_fields?: string[] }): Promise<InboxCorrectionResult> =>
     parseInboxCorrectionResult(await apiFetch<unknown>(`/drafts/${id}/correction`, {
       method: 'POST',

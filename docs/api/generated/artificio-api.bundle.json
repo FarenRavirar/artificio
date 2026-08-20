@@ -7,10 +7,10 @@
     "downloads": 108,
     "glossario": 50,
     "links": 22,
-    "mesas": 206,
+    "mesas": 208,
     "site": 57
   },
-  "total": 496,
+  "total": 498,
   "operations": [
     {
       "app": "accounts",
@@ -3208,6 +3208,18 @@
     {
       "app": "mesas",
       "method": "POST",
+      "path": "/api/v1/admin/discord/drafts/{id}/restore",
+      "summary": "Cria ou executa api v1 admin discord drafts id restore",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_discord_drafts_id_restore"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
       "path": "/api/v1/admin/discord/drafts/{id}/sync",
       "summary": "Cria ou executa api v1 admin discord drafts id sync",
       "owner": "mesas",
@@ -3600,6 +3612,18 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "postapi_v1_admin_import_drafts_id_reparse"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/admin/import/drafts/{id}/restore",
+      "summary": "Cria ou executa api v1 admin import drafts id restore",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "postapi_v1_admin_import_drafts_id_restore"
     },
     {
       "app": "mesas",

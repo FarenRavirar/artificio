@@ -1,9 +1,14 @@
 // @vitest-environment jsdom
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { DiscordDraftPreview } from './DiscordDraftPreview';
 import type { DiscordDraft, DraftApiOperations } from '../types';
 import { authGet, authPut } from '../../../services/apiClient';
+
+// Aba ativa controlável por teste: o mock de useDraftForm é estático, então o
+// valor de activeTab precisa ser mutável para exercitar as abas Bruto/Normalizado
+// (cópia de JSON, R11). vi.hoisted garante a init antes das factories de vi.mock.
+const mockActiveTab = vi.hoisted(() => ({ current: 'editor' as string }));
 
 vi.mock('react-hot-toast', () => ({
   default: { success: vi.fn(), error: vi.fn() },
@@ -47,7 +52,7 @@ vi.mock('../useDraftForm', () => ({
     setNewStatus: vi.fn(),
     reviewNotes: '',
     setReviewNotes: vi.fn(),
-    activeTab: 'editor',
+    activeTab: mockActiveTab.current,
     setActiveTab: vi.fn(),
     coverUploading: false,
     coverError: null,
@@ -94,6 +99,7 @@ describe('DiscordDraftPreview', () => {
     // resolve slug/status real pro botão "Ver Mesa Publicada"). Default: falha,
     // pra não interferir nos testes que não tratam desse fluxo.
     vi.mocked(authGet).mockResolvedValue({ ok: false } as Response);
+    mockActiveTab.current = 'editor';
   });
 
   it('renderiza o modal de preview', () => {
@@ -315,5 +321,160 @@ describe('DiscordDraftPreview', () => {
       expect(screen.getByText('Publicar mesa')).not.toBeDisabled();
     });
     expect(screen.queryByText('Mesa publicada')).not.toBeInTheDocument();
+  });
+
+  describe('Copiar anúncio (R1/R2/D1)', () => {
+    it('mostra botão "Copiar anúncio" quando a mesa vinculada está ativa e não expirada', async () => {
+      vi.mocked(authGet).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          data: {
+            slug: 'mesa-ativa',
+            title: 'Mesa Ativa',
+            status: 'active',
+            archived_at: null,
+            origin: 'manual',
+            created_at: '2024-06-01T00:00:00Z',
+            starts_at: null,
+          },
+        }),
+      } as Response);
+
+      render(
+        <DiscordDraftPreview
+          draft={mockSyncedDraft}
+          onUpdate={vi.fn()}
+          onClose={vi.fn()}
+          api={mockApi}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText('Copiar anúncio')).toBeInTheDocument();
+      });
+    });
+
+    it('não mostra "Copiar anúncio" quando a mesa vinculada é draft (D1: ausente, não desabilitado)', async () => {
+      vi.mocked(authGet).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          data: { slug: 'mesa-draft', title: 'Mesa Draft', status: 'draft' },
+        }),
+      } as Response);
+
+      render(
+        <DiscordDraftPreview
+          draft={mockSyncedDraft}
+          onUpdate={vi.fn()}
+          onClose={vi.fn()}
+          api={mockApi}
+        />,
+      );
+
+      await waitFor(() => {
+        expect(authGet).toHaveBeenCalled();
+      });
+      // D1: o botão não existe (não há estado desabilitado) antes de publicar.
+      expect(screen.queryByText('Copiar anúncio')).not.toBeInTheDocument();
+      expect(screen.queryByText('Ver Mesa Publicada')).not.toBeInTheDocument();
+    });
+
+    it('não mostra "Copiar anúncio" para mesa importada expirada mesmo active — predicado mais forte que publishedSlug', async () => {
+      vi.mocked(authGet).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          data: {
+            slug: 'mesa-expirada',
+            title: 'Mesa Expirada',
+            status: 'active',
+            archived_at: null,
+            origin: 'imported',
+            created_at: '2020-01-01T00:00:00Z',
+            starts_at: null,
+          },
+        }),
+      } as Response);
+
+      render(
+        <DiscordDraftPreview
+          draft={mockSyncedDraft}
+          onUpdate={vi.fn()}
+          onClose={vi.fn()}
+          api={mockApi}
+        />,
+      );
+
+      // "Ver Mesa Publicada" aparece (status active + slug), mas o anúncio não
+      // (expiração de importado) — prova que o predicado não é publishedSlug puro.
+      await waitFor(() => {
+        expect(screen.getByText('Ver Mesa Publicada')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('Copiar anúncio')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Copiar JSON (R11)', () => {
+    const originalClipboard = navigator.clipboard;
+    const writeText = vi.fn();
+
+    const jsonDraft: DiscordDraft = {
+      ...mockDraft,
+      parsed_payload: { raw: 'payload-bruto' },
+      normalized_payload: { clean: 'payload-normalizado' },
+    };
+
+    beforeEach(() => {
+      writeText.mockReset();
+      writeText.mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText },
+      });
+    });
+
+    afterEach(() => {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+    });
+
+    it('copia o JSON bruto com aria-label correto na aba Bruto', async () => {
+      mockActiveTab.current = 'parsed';
+
+      render(
+        <DiscordDraftPreview
+          draft={jsonDraft}
+          onUpdate={vi.fn()}
+          onClose={vi.fn()}
+          api={mockApi}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Copiar JSON bruto' }));
+
+      await waitFor(() => {
+        expect(writeText).toHaveBeenCalledWith(JSON.stringify({ raw: 'payload-bruto' }, null, 2));
+      });
+    });
+
+    it('copia o JSON normalizado com aria-label correto na aba Normalizado', async () => {
+      mockActiveTab.current = 'normalized';
+
+      render(
+        <DiscordDraftPreview
+          draft={jsonDraft}
+          onUpdate={vi.fn()}
+          onClose={vi.fn()}
+          api={mockApi}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Copiar JSON normalizado' }));
+
+      await waitFor(() => {
+        expect(writeText).toHaveBeenCalledWith(JSON.stringify({ clean: 'payload-normalizado' }, null, 2));
+      });
+    });
   });
 });

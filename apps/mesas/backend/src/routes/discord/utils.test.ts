@@ -14,6 +14,7 @@ vi.mock('../../discord/index.js', async (importOriginal) => {
     ...actual,
     parseDiscordAnnouncement: vi.fn(),
     normalizeDiscordTableDraft: vi.fn(),
+    normalizeImportTableDraft: vi.fn(),
   };
 });
 
@@ -69,10 +70,11 @@ vi.mock('../../services/adminNotifications', () => ({
 }));
 
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
-import { processDiscordMessageToDraft, validateReparseMessageIds, MAX_REPARSE_MESSAGE_IDS } from './utils.js';
+import { processDiscordMessageToDraft, validateReparseMessageIds, MAX_REPARSE_MESSAGE_IDS, restoreDraft } from './utils.js';
 import { DiscordChatExporterValidationError } from '../../discord/chatExporterAdapter.js';
 import { db } from '../../db/index.js';
-import { parseDiscordAnnouncement, normalizeDiscordTableDraft } from '../../discord/index.js';
+import { parseDiscordAnnouncement, normalizeDiscordTableDraft, normalizeImportTableDraft } from '../../discord/index.js';
+import { loadSystemsForParser } from '../../discord/shared.js';
 import { assistDiscordParseWithContextPack } from '../../discord/llmAssist.js';
 import { lookupLearningRules, recordLearningRuleApplications } from '../../discord/learningRules.js';
 import { uploadCoverForDraft, updateDraftImageUploadState } from '../../discord/syncHelpers.js';
@@ -80,7 +82,7 @@ import type { DiscordImportMessagesTable } from '../../db/types.js';
 import type { Selectable } from 'kysely';
 
 function chain(overrides: Record<string, Mock> = {}) {
-  const methods = ['select', 'where', 'set', 'values', 'returning', 'execute', 'executeTakeFirst', 'executeTakeFirstOrThrow'];
+  const methods = ['select', 'selectAll', 'where', 'set', 'values', 'returning', 'returningAll', 'execute', 'executeTakeFirst', 'executeTakeFirstOrThrow'];
   const value: Record<string, Mock> = {};
   for (const method of methods) value[method] = vi.fn().mockReturnThis();
   return Object.assign(value, overrides);
@@ -659,5 +661,93 @@ describe('validateReparseMessageIds', () => {
 
   it('undefined passa direto (sem messageIds no payload)', () => {
     expect(validateReparseMessageIds(undefined)).toBeUndefined();
+  });
+});
+
+describe('restoreDraft', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (normalizeDiscordTableDraft as Mock).mockReset();
+    (normalizeImportTableDraft as Mock).mockReset();
+    (loadSystemsForParser as Mock).mockResolvedValue([]);
+  });
+
+  function mockDraftRow(status: string, normalizedPayload: unknown = { table: {} }) {
+    (db.selectFrom as Mock).mockReturnValue(chain({
+      executeTakeFirst: vi.fn().mockResolvedValue({ id: 'draft-1', status, normalized_payload: normalizedPayload, parsed_payload: null }),
+    }));
+  }
+
+  function mockUpdateResult(updated: Record<string, unknown>) {
+    (db.updateTable as Mock).mockReturnValue(chain({ execute: vi.fn().mockResolvedValue([updated]) }));
+  }
+
+  it('restaura rejeitado reexecutando a normalização → ready (sem campos faltando)', async () => {
+    mockDraftRow('rejected');
+    const payload = { source: {}, table: { title: 'Mesa' }, confidence: 1, missing_fields: [] };
+    (normalizeImportTableDraft as Mock).mockReturnValue(payload);
+    (normalizeDiscordTableDraft as Mock).mockReturnValue({ draft: payload, status: 'ready' });
+    mockUpdateResult({ id: 'draft-1', status: 'ready' });
+
+    const result = await restoreDraft('draft-1');
+
+    expect(result.status).toBe(200);
+    expect((result.body as { data: { status: string } }).data.status).toBe('ready');
+    // D5a: destino derivado, não fixado — o status gravado vem do normalizador.
+    const updateChain = (db.updateTable as Mock).mock.results[0]?.value as { set: Mock; where: Mock };
+    expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'ready' }));
+    expect(updateChain.where).toHaveBeenCalledWith('status', '=', 'rejected');
+    expect(normalizeDiscordTableDraft).toHaveBeenCalledWith(payload, []);
+  });
+
+  it('restaura rejeitado com campos faltando → needs_review', async () => {
+    mockDraftRow('rejected', { table: {}, missing_fields: ['title'] });
+    const payload = { source: {}, table: {}, confidence: 1, missing_fields: ['title'] };
+    (normalizeImportTableDraft as Mock).mockReturnValue(payload);
+    (normalizeDiscordTableDraft as Mock).mockReturnValue({ draft: payload, status: 'needs_review' });
+    mockUpdateResult({ id: 'draft-1', status: 'needs_review' });
+
+    const result = await restoreDraft('draft-1');
+
+    expect(result.status).toBe(200);
+    const updateChain = (db.updateTable as Mock).mock.results[0]?.value as { set: Mock };
+    expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({ status: 'needs_review' }));
+  });
+
+  it('rejeita (422) restauração de draft não-descartado', async () => {
+    mockDraftRow('needs_review');
+
+    const result = await restoreDraft('draft-1');
+
+    expect(result.status).toBe(422);
+    expect(db.updateTable).not.toHaveBeenCalled();
+  });
+
+  it('rejeita (422) restauração de draft sincronizado', async () => {
+    mockDraftRow('synced');
+
+    const result = await restoreDraft('draft-1');
+
+    expect(result.status).toBe(422);
+    expect(db.updateTable).not.toHaveBeenCalled();
+  });
+
+  it('rejeita (404) draft inexistente', async () => {
+    (db.selectFrom as Mock).mockReturnValue(chain({ executeTakeFirst: vi.fn().mockResolvedValue(undefined) }));
+
+    const result = await restoreDraft('draft-1');
+
+    expect(result.status).toBe(404);
+    expect(db.updateTable).not.toHaveBeenCalled();
+  });
+
+  it('rejeita (422) payload malformado', async () => {
+    mockDraftRow('rejected');
+    (normalizeImportTableDraft as Mock).mockImplementation(() => { throw new Error('Payload JSONB malformado: sem campos válidos.'); });
+
+    const result = await restoreDraft('draft-1');
+
+    expect(result.status).toBe(422);
+    expect(db.updateTable).not.toHaveBeenCalled();
   });
 });

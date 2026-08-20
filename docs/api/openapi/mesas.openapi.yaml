@@ -774,6 +774,48 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /api/v1/admin/discord/drafts/{id}/restore:
+    post:
+      operationId: postapi_v1_admin_discord_drafts_id_restore
+      summary: "Cria ou executa api v1 admin discord drafts id restore"
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/v1/admin/discord/drafts/{id}/sync:
     post:
       operationId: postapi_v1_admin_discord_drafts_id_sync
@@ -1889,6 +1931,48 @@ paths:
     post:
       operationId: postapi_v1_admin_import_drafts_id_reparse
       summary: "Cria ou executa api v1 admin import drafts id reparse"
+      x-artificio-owner: mesas
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
+  /api/v1/admin/import/drafts/{id}/restore:
+    post:
+      operationId: postapi_v1_admin_import_drafts_id_restore
+      summary: "Cria ou executa api v1 admin import drafts id restore"
       x-artificio-owner: mesas
       x-artificio-scope: admin
       x-artificio-status: active

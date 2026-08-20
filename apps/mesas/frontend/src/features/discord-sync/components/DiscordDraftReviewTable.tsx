@@ -24,6 +24,8 @@ interface Props {
   readonly updateDraftsBatch?: (ids: string[], status: 'draft' | 'needs_review' | 'rejected') => Promise<{ updated: number }>;
   /** Limpeza definitiva dos descartados (status='rejected'). Injetável p/ mock; default = discordSyncApi. */
   readonly purgeRejectedDrafts?: (origin: OriginFilter) => Promise<{ deleted: number }>;
+  /** Aba travada em um status fixo (ex.: 'rejected' na aba Descartados). Fixa o filtro de status e esconde o seletor. */
+  readonly lockedStatus?: DiscordImportDraftStatus;
 }
 
 const DRAFT_STATUS_LABELS: Record<DiscordImportDraftStatus, string> = {
@@ -86,7 +88,7 @@ function readString(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value : null;
 }
 
-export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsProp, syncReadyAction, showSyncReady = true, onBeforeSync, updateDraftsBatch, purgeRejectedDrafts }: Props) {
+export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsProp, syncReadyAction, showSyncReady = true, onBeforeSync, updateDraftsBatch, purgeRejectedDrafts, lockedStatus }: Props) {
   const { confirm } = useConfirm();
   const navigate = useNavigate();
   const draftApi = api ?? discordSyncApi;
@@ -98,7 +100,10 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
   const [drafts, setDrafts] = useState<DiscordDraft[]>([]);
   const [duplicateCounts, setDuplicateCounts] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<DiscordImportDraftStatus | ''>('');
+  // Fase 5 (spec 093): aba travada em status fixo (ex.: 'rejected' na aba
+  // Descartados) fixa o filtro e esconde o seletor — sem lockedStatus, o
+  // comportamento atual (seletor visível, filtro livre) se mantém.
+  const [statusFilter, setStatusFilter] = useState<DiscordImportDraftStatus | ''>(lockedStatus ?? '');
   const [originFilter, setOriginFilter] = useState<OriginFilter>('all');
   // Achado do mantenedor 2026-07-08: filtro "só com contato explícito" saiu
   // daqui (era só ocultação visual pós-import) e virou opção real na tela de
@@ -111,6 +116,9 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [rejectingAll, setRejectingAll] = useState(false);
   const [purging, setPurging] = useState(false);
+  // Ids com restauração em voo — desabilita o botão "Restaurar" da linha p/ evitar
+  // duplo-clique em chamadas idempotentes não garantidas.
+  const [restoringIds, setRestoringIds] = useState<Set<string>>(new Set());
 
   const loadDrafts = useCallback(async () => {
     setLoading(true);
@@ -254,10 +262,12 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
       `Limpar todos os ${rejectableDrafts.length} rascunho(s)? Eles serão rejeitados.`,
     );
 
-  // Há descartados visíveis? Só controla a VISIBILIDADE do botão. Não exibimos a
-  // contagem: a página carrega no máx. 100 linhas, mas o purge é server-side e
-  // remove TODOS os 'rejected' da origem — um número derivado da página enganaria
-  // sobre o escopo real da remoção destrutiva.
+  // Há descartados visíveis? Só controla a VISIBILIDADE do botão na aba Rascunhos.
+  // Não exibimos a contagem: a página carrega no máx. 100 linhas, mas o purge é
+  // server-side e remove TODOS os 'rejected' da origem — um número derivado da
+  // página enganaria sobre o escopo real da remoção destrutiva.
+  // Na aba Descartados (lockedStatus='rejected'), a limpeza é o propósito da tela:
+  // o botão fica sempre visível, independente da página carregada.
   const hasRejected = drafts.some(d => d.status === 'rejected');
 
   const handlePurgeRejected = async () => {
@@ -277,6 +287,32 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
     } finally {
       setPurging(false);
       loadDrafts();
+    }
+  };
+
+  // Fase 5 (spec 093, R13): restaurar um descartado reexecuta a normalização no
+  // backend (POST /drafts/:id/restore) — destino derivado (ready/needs_review),
+  // não fixado. Após sucesso, o draft sai da aba (recarrega) e some da lista
+  // travada em rejected.
+  const handleRestoreDraft = async (draft: DiscordDraft) => {
+    const apiForDraft = resolveApi(draft);
+    if (!apiForDraft.restoreDraft) {
+      toast.error('Restauração não suportada para esta origem.');
+      return;
+    }
+    setRestoringIds(prev => new Set(prev).add(draft.id));
+    try {
+      await apiForDraft.restoreDraft(draft.id);
+      toast.success('Rascunho restaurado.');
+      loadDrafts();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao restaurar rascunho.');
+    } finally {
+      setRestoringIds(prev => {
+        const next = new Set(prev);
+        next.delete(draft.id);
+        return next;
+      });
     }
   };
 
@@ -320,17 +356,19 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
           <option value="inbox">Inbox</option>
         </select>
 
-        <select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value as DiscordImportDraftStatus | '')}
-          className="app-select"
-          aria-label="Filtrar por status"
-        >
-          <option value="">Todos os status</option>
-          {(Object.keys(DRAFT_STATUS_LABELS) as DiscordImportDraftStatus[]).map(s => (
-            <option key={s} value={s}>{DRAFT_STATUS_LABELS[s]}</option>
-          ))}
-        </select>
+        {!lockedStatus && (
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value as DiscordImportDraftStatus | '')}
+            className="app-select"
+            aria-label="Filtrar por status"
+          >
+            <option value="">Todos os status</option>
+            {(Object.keys(DRAFT_STATUS_LABELS) as DiscordImportDraftStatus[]).map(s => (
+              <option key={s} value={s}>{DRAFT_STATUS_LABELS[s]}</option>
+            ))}
+          </select>
+        )}
 
         <button
           onClick={loadDrafts}
@@ -339,7 +377,7 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
           Recarregar
         </button>
 
-        {hasRejected && (
+        {(hasRejected || lockedStatus === 'rejected') && (
           <button
             onClick={handlePurgeRejected}
             disabled={purging}
@@ -520,6 +558,19 @@ export function DiscordDraftReviewTable({ api, inboxApi, listDrafts: listDraftsP
                       Rejeitar
                     </button>
                   </span>
+                )}
+                {/* Fase 5 (spec 093, R13): atalho de linha p/ restaurar um descartado.
+                    Só aparece p/ rejected (o fluxo normal já não mostra ações aqui);
+                    o destino é derivado no backend (ready/needs_review). */}
+                {draft.status === 'rejected' && (
+                  <button
+                    type="button"
+                    onClick={() => handleRestoreDraft(draft)}
+                    disabled={restoringIds.has(draft.id)}
+                    className="px-2 py-1 bg-green-700/80 hover:bg-green-700 text-white text-xs rounded-md transition-colors disabled:opacity-50"
+                  >
+                    {restoringIds.has(draft.id) ? 'Restaurando...' : 'Restaurar'}
+                  </button>
                 )}
                 <span className="text-white/30 text-xs shrink-0 text-right">
                   <span className="block">{new Date(draft.created_at).toLocaleDateString('pt-BR')}</span>

@@ -1,6 +1,6 @@
 # Tasks 093 — Mesas: draft, parser e gestão
 
-**Estado:** Fases 1, 2 e 3 entregues (verde local + `verify:api`), PR pendente de autorização · Fase 4 não iniciada · **Criada:** 2026-08-19 · **Fases:** 8
+**Estado:** Fases 1-3 mergeadas (PR #278) · Fase 4 entregue no working tree, sem commit · **Criada:** 2026-08-19 · **Fases:** 8
 
 Legenda: 🔁 = gate de fase (obrigatório, penúltima task antes do PR).
 
@@ -269,38 +269,70 @@ com passivo fora do contrato seria construir sobre o defeito.
 
 ## Fase 4 — Copiar no draft: anúncio e JSON (R1, R2, R11)
 
-- [ ] T4.1 — Botão único de copiar servindo as abas Bruto e Normalizado
+- [x] T4.1 — Botão único de copiar servindo as abas Bruto e Normalizado
       (`DiscordDraftPreview.tsx:362-366` — mesmo bloco, mesma variável `selectedPayload`
       da linha 91). **Não** criar componente por aba.
-- [ ] T4.2 — Colocação fora do container que rola (`div.flex-1.overflow-auto`, linha 317),
+- [x] T4.2 — Colocação fora do container que rola (`div.flex-1.overflow-auto`, linha 317),
       ou `sticky top-0` com fundo opaco. O botão precisa estar alcançável sem rolagem, que
       é o requisito **R11**.
-- [ ] T4.3 — Reusar `copyTextToClipboard`
+- [x] T4.3 — Reusar `copyTextToClipboard`
       (`features/table/share/whatsappAnnouncement.ts:379`); não escrever novo helper de
       clipboard. Feedback por `toast` + rótulo transitório, no padrão `isCopying` do
       `CopyAnnouncementButton`.
-- [ ] T4.4 — `aria-label` distinguindo a aba copiada ("Copiar JSON bruto" / "Copiar JSON
+- [x] T4.4 — `aria-label` distinguindo a aba copiada ("Copiar JSON bruto" / "Copiar JSON
       normalizado"), já que o mesmo botão serve as duas.
-- [ ] T4.5 — Medir se `/api/v1/tables/:slug` (rota pública usada por
-      `fetchTableDetailBySlug`) responde para admin autenticado. Registrar o resultado.
-      Se não responder, usar a rota admin + `normalizeTableDetailPayload` e comentar a
-      divergência de shape no código.
-- [ ] T4.6 — Renderizar `CopyAnnouncementButton` no preview sob a condição `publishedSlug`
-      (linhas 158-176 já setam esse estado só quando `status === 'active'`), ao lado de
-      "Ver Mesa Publicada" (linhas 416-425). Passar `loadTable` conforme decidido em T4.5.
+- [x] T4.5 — **Reescrita pela auditoria #6 (plan §4b) — rota admin é o caminho primário.**
+      A redação antiga mandava medir se a rota pública `/api/v1/tables/:slug` respondia para
+      admin autenticado. Medido: a pública aplica visibilidade (`active && !archived_at &&
+      !isImportedTableExpired`) e toda mesa deste fluxo nasce `origin: 'imported'` com
+      expiração curta — a cópia falharia para mesa publicada porém expirada/arquivada.
+      Implementado `loadTableDetail` sobre `GET /admin/tables/:id` + `normalizeTableDetailPayload`.
+- [x] T4.6 — Renderizar `CopyAnnouncementButton` no preview ao lado de "Ver Mesa Publicada"
+      (linhas 416-425) sob predicado **mais forte que `publishedSlug`**:
+      `isTableAnnounceable(tableDetail) && !isImportedTableExpired(tableDetail)` — porque
+      `publishedSlug` só checa `status === 'active'`, sem `archived_at` nem expiração.
+      Espelho `isImportedTableExpired` em `apps/mesas/frontend/src/utils/tableVisibility.ts`.
       **Decisão D1: sem estado desabilitado, sem tooltip — o botão simplesmente não existe
       antes de publicar.**
-- [ ] T4.7 — Teste: draft `synced` + mesa `active` → botão presente; draft `synced` + mesa
+- [x] T4.7 — Teste: draft `synced` + mesa `active` → botão presente; draft `synced` + mesa
       `draft` → botão **ausente** (não desabilitado); cópia do JSON em ambas as abas.
-- [ ] T4.8 — 🔁 **GATE DE FASE — cruzar com `spec.md` e `plan.md` antes de fechar.**
+      **Feito:** 5 testes novos, incluindo importada expirada (prova o predicado mais forte
+      que `publishedSlug`).
+- [x] T4.8 — 🔁 **GATE DE FASE — cruzar com `spec.md` e `plan.md` antes de fechar.**
       Reler os requisitos **R1, R2 e R11** da `spec.md`, a decisão **D1**, e a seção
       §"Fase 4" do `plan.md`. Verificar em especial: (a) o botão está **ausente** (não
       desabilitado) quando a mesa não está publicada — D1 foi explícita; (b) o gerador de
-      anúncio **não** foi reimplementado — é o quarto ponto de reuso do mesmo componente,
-      não uma quarta cópia; (c) o texto copiado é idêntico ao da aba Mesas do catálogo
+      anúncio **não** foi reimplementado — é o **terceiro** uso do mesmo componente
+      (2 usos + 1 reimplementação hoje; contagem corrigida, auditoria transversal 10), não
+      uma terceira cópia; (c) o texto copiado é idêntico ao da aba Mesas do catálogo
       (critério de aceite 1); (d) o botão de JSON é alcançável sem rolar, com JSON longo
-      de verdade. Divergência = corrigir antes do PR.
-- [ ] T4.9 — Verde local (frontend) + `rtk pnpm verify:api` + PR contra `dev`.
+      de verdade. Divergência = corrigir antes do PR. **Passou nos 4 itens.**
+- [x] T4.9 — Verde local (frontend) + `rtk pnpm verify:api` + PR contra `dev`.
+      **Verde local confirmado; PR não aberto — aguarda autorização de commit.**
+
+**Resultado da Fase 4 (2026-08-20).** Entregue no working tree, sem commit.
+
+- **O que entrou:** botão único de copiar JSON (R11) em cabeçalho próprio fora do container
+  que rola, com `aria-label` por aba ("Copiar JSON bruto"/"normalizado"); `CopyAnnouncementButton`
+  reusado ao lado de "Ver Mesa Publicada" (R1/R2); `apps/mesas/frontend/src/utils/tableVisibility.ts`
+  (espelho frontend de `importedTableExpiryDate`/`isImportedTableExpired`). Gerador **não**
+  reimplementado — terceiro uso do componente.
+- **Validação (outro agente pode reproduzir):** `cd apps/mesas/frontend && rtk pnpm vitest run
+  src/features/discord-sync/components/DiscordDraftPreview.test.tsx` → **17/17** (12 pré-existentes
+  + 5 novos); `rtk tsc -p tsconfig.json --noEmit` → sem erros; `rtk pnpm verify:api` → exit 0
+  (`api-consumers` 282→283 pela nova chamada `authGet` de `loadTableDetail`).
+- **Predicado de exibição (R2/D1):** `isTableAnnounceable(tableDetail) && !isImportedTableExpired(tableDetail)`
+  — não `publishedSlug` puro. Mesa importada publicada mas expirada mostra "Ver Mesa Publicada"
+  (status `active`) e **não** mostra "Copiar anúncio" (o link do anúncio responderia 410).
+  Teste dedicado cobre esse caso.
+- **Divergências da spec:** nenhuma — T4.5/T4.6 executadas conforme o contrato reescrito da
+  auditoria #6 (plan §4b): rota admin primária, predicado mais forte que `publishedSlug`.
+- **Decisão técnica a confirmar pelo mantenedor:** o espelho `utils/tableVisibility.ts` duplica
+  a regra de expiração do backend (`tableVisibility.ts`) — não há pacote `@artificio/*` de
+  domínio mesas (mesma decisão já registrada na Fase 3, spec 086). Comentário de sincronização
+  no arquivo aponta para o backend. Desvio de implementação menor: passou `table={tableDetail}`
+  (record já carregado no mount e re-buscado após publicar) em vez de `loadTable` — o fetch
+  acontece no mount, não a cada clique.
 
 ---
 

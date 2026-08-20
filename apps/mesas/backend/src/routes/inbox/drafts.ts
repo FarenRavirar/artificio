@@ -7,7 +7,7 @@ import { stripSeparatorLines } from '../../discord/parseDiscordAnnouncement.js';
 import { requireAdmin } from '../../middleware/auth.js';
 import { textToRawMessage } from '../../inbox/adapters/textToRawMessage.js';
 import { syncImportDraftToTable, DraftSyncValidationError } from '../../inbox/syncImportDraftToTable.js';
-import { handlePatchDraft } from '../discord/utils.js';
+import { handlePatchDraft, restoreDraft } from '../discord/utils.js';
 import { loadSystemsForParser } from '../../discord/shared.js';
 import { toNumberOrNull, listDraftsSchema } from './utils.js';
 import type { DiscordImportDraftStatus } from '../../db/types.js';
@@ -210,6 +210,13 @@ router.post('/:id/reparse', requireAdmin, async (req: Request, res: Response) =>
     if (draft.status === 'synced') {
       return res.status(422).json({ error: 'Draft já sincronizado. Não pode ser reparseado.' });
     }
+    // D5c (spec 093): reparse sobre descartado (rejected) sobrescreve o estado sem
+    // gate — segundo caminho de des-descartar, silencioso, que contradiz o guard de
+    // correção. Reparsar um descartado exige restaurar antes (POST /:id/restore),
+    // mesmo princípio do gate que protege synced.
+    if (draft.status === 'rejected') {
+      return res.status(422).json({ error: 'Draft descartado. Restaure antes de reparsar.' });
+    }
     if (!draft.import_message_id) {
       return res.status(422).json({ error: 'Draft de Discord não suporta reparse via Inbox.' });
     }
@@ -270,6 +277,21 @@ router.post('/:id/reparse', requireAdmin, async (req: Request, res: Response) =>
   } catch (error: unknown) {
     console.error('[POST /api/v1/admin/import/drafts/:id/reparse]', error);
     return res.status(500).json({ error: error instanceof Error ? error.message : 'Erro ao reparsar draft.' });
+  }
+});
+
+// ─── POST /drafts/:id/restore ─────────────────────────────────────────────────
+// Fase 5 (spec 093, D5a/R13): restaura um draft descartado (rejected) reexecutando
+// a normalização sobre o payload atual — destino derivado (ready/needs_review), nunca
+// fixado. Lógica compartilhada em restoreDraft (utils.ts).
+
+router.post('/:id/restore', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const result = await restoreDraft(req.params.id);
+    return res.status(result.status).json(result.body);
+  } catch (error: unknown) {
+    console.error('[POST /api/v1/admin/import/drafts/:id/restore]', error);
+    return res.status(500).json({ error: 'Erro ao restaurar draft.' });
   }
 });
 

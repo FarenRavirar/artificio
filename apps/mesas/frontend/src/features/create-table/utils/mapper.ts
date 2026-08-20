@@ -1,5 +1,5 @@
 import type { FormState, CreateTablePayload } from '../types/createTable.types';
-import { normalizeSettingStyles } from '../../../utils/normalizeSettingStyles';
+import { normalizeSettingStyles } from '@artificio/catalog-matching';
 
 /**
  * Transforma o estado do formulário em payload para a API

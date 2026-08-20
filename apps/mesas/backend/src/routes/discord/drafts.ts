@@ -9,7 +9,7 @@ import { auditDiscordDraftCompleteness } from '../../discord/llmAssist.js';
 import { extractDraftScope, recordParseFeedback } from '../../discord/parseLearning.js';
 import { stripSeparatorLines } from '../../discord/parseDiscordAnnouncement.js';
 import { destroyAssetResult } from '@artificio/media';
-import { parseDiscordMessage, ensureSystemSuggestionForDraft, handlePatchDraft } from './utils.js';
+import { parseDiscordMessage, ensureSystemSuggestionForDraft, handlePatchDraft, restoreDraft } from './utils.js';
 
 const router = Router();
 
@@ -381,6 +381,14 @@ router.post('/:id/reparse', requireAdmin, async (req: Request, res: Response) =>
     if (draft.status === 'synced') {
       return res.status(422).json({ error: 'Draft já sincronizado. Não pode ser reparseado.' });
     }
+    // D5c (spec 093): reparse sobre descartado (rejected) sobrescreve o estado sem
+    // gate — segundo caminho de des-descartar, silencioso, que contradiz o guard de
+    // correção (registerDraftCorrection recusa 422 em rejected). Reparsar um
+    // descartado exige restaurar antes (POST /:id/restore), mesmo princípio do gate
+    // que protege synced.
+    if (draft.status === 'rejected') {
+      return res.status(422).json({ error: 'Draft descartado. Restaure antes de reparsar.' });
+    }
     if (!draft.discord_message_id) {
       return res.status(422).json({ error: 'Draft de inbox não suporta reparse via Discord.' });
     }
@@ -420,6 +428,21 @@ router.post('/:id/reparse', requireAdmin, async (req: Request, res: Response) =>
   } catch (error: unknown) {
     console.error('[POST /admin/discord/drafts/:id/reparse]', error);
     return res.status(500).json({ error: 'Erro ao reparsar draft.' });
+  }
+});
+
+// ─── POST /:id/restore ────────────────────────────────────────────────────────
+// Fase 5 (spec 093, D5a/R13): restaura um draft descartado (rejected) reexecutando
+// a normalização sobre o payload atual — destino derivado (ready/needs_review), nunca
+// fixado. Lógica compartilhada em restoreDraft (utils.ts).
+
+router.post('/:id/restore', requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const result = await restoreDraft(req.params.id);
+    return res.status(result.status).json(result.body);
+  } catch (error: unknown) {
+    console.error('[POST /admin/discord/drafts/:id/restore]', error);
+    return res.status(500).json({ error: 'Erro ao restaurar draft.' });
   }
 });
 

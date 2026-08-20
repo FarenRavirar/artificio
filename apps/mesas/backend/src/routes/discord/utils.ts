@@ -8,6 +8,7 @@ import {
   normalizeDiscordTableDraft,
   parseDiscordAnnouncement,
   normalizeDraftPayload,
+  normalizeImportTableDraft,
   assertDraftReadyTransition,
   DiscordDiscoveryError,
   DiscordIngestError,
@@ -1291,6 +1292,75 @@ export async function handlePatchDraft(
   }
 
   return { status: 200, body: { data: draft } };
+}
+
+// ─── Fase 5 (spec 093) — restoreDraft (rejeitado → reexecuta normalização) ─────
+
+/**
+ * Restaura um draft descartado (`rejected`) reexecutando a normalização sobre o
+ * payload ATUAL (normalized_payload ?? parsed_payload) — NÃO re-parseia a mensagem
+ * de origem. Decisão D5a (spec 093, respondida pelo mantenedor 2026-08-19):
+ * restaurar NÃO fixa status. `normalizeDiscordTableDraft` deriva o destino de
+ * `missingFields.length` (`status: missingFields.length === 0 ? 'ready' :
+ * 'needs_review'`) — sem campo faltando → `ready`; com → `needs_review`; NUNCA
+ * `draft` nem `rejected`. `draft` é estado de entrada do pipeline; fixar
+ * `needs_review` fabricaria pendência inexistente (needs_review é estado derivado
+ * de "faltam campos", não fila de moderação).
+ *
+ * Só `rejected` pode ser restaurado (senão 422) — simétrico ao guard que protege
+ * `synced`. A correção de descartado segue bloqueada (`registerDraftCorrection`
+ * recusa 422); o caminho é restaurar → editar, com o item de volta sob revisão.
+ *
+ * Extraída para evitar duplicação entre discord/drafts.ts e inbox/drafts.ts
+ * (mesmo padrão de `handlePatchDraft`/`reconcileTerminalDraft`).
+ */
+export async function restoreDraft(draftId: string): Promise<{ status: number; body: unknown }> {
+  const draft = await db
+    .selectFrom('discord_import_table_drafts')
+    .selectAll()
+    .where('id', '=', draftId)
+    .executeTakeFirst();
+
+  if (!draft) {
+    return { status: 404, body: { error: 'Draft não encontrado.' } };
+  }
+  if (draft.status !== 'rejected') {
+    return { status: 422, body: { error: 'Apenas drafts descartados (rejected) podem ser restaurados.' } };
+  }
+
+  let payload: ImportTableDraft;
+  try {
+    payload = normalizeImportTableDraft(draft.normalized_payload ?? draft.parsed_payload);
+  } catch (error: unknown) {
+    return {
+      status: 422,
+      body: { error: error instanceof Error ? error.message : 'Payload do draft malformado; não é possível restaurar.' },
+    };
+  }
+
+  const systems = await loadSystemsForParser();
+  const normalized = normalizeDiscordTableDraft(payload, systems);
+
+  // Guard TOCTOU: status checado fora da tx; condiciona o UPDATE a 'rejected'
+  // para não sobrescrever um draft que mudou de estado na janela (mesmo padrão
+  // de registerDraftCorrection).
+  const [updated] = await db
+    .updateTable('discord_import_table_drafts')
+    .set({
+      normalized_payload: normalized.draft,
+      status: normalized.status,
+      updated_at: new Date(),
+    })
+    .where('id', '=', draftId)
+    .where('status', '=', 'rejected')
+    .returningAll()
+    .execute();
+
+  if (!updated) {
+    return { status: 409, body: { error: 'Draft mudou de estado durante a restauração.' } };
+  }
+
+  return { status: 200, body: { data: updated } };
 }
 
 // ─── REV-077 — reconcileTerminalDraft (evita reprocessamento em loop) ─────────

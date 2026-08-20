@@ -25,6 +25,7 @@ const mockUpdateDraft = vi.fn();
 const mockSyncDraft = vi.fn();
 const mockReparseDraft = vi.fn();
 const mockPurgeRejected = vi.fn();
+const mockRestoreDraft = vi.fn();
 const mockListTableDuplicates = vi.fn();
 
 vi.mock('../../admin/api/tableDuplicatesApi', () => ({
@@ -39,6 +40,7 @@ vi.mock('../api/discordSyncApi', () => ({
     syncDraft: (...args: unknown[]) => mockSyncDraft(...args),
     reparseDraft: (...args: unknown[]) => mockReparseDraft(...args),
     purgeRejectedDrafts: (...args: unknown[]) => mockPurgeRejected(...args),
+    restoreDraft: (...args: unknown[]) => mockRestoreDraft(...args),
   },
 }));
 
@@ -286,5 +288,72 @@ describe('DiscordDraftReviewTable', () => {
         expect.objectContaining({ status: 'ready' }),
       );
     });
+  });
+
+  it('com lockedStatus="rejected", busca apenas drafts rejected', async () => {
+    render(<DiscordDraftReviewTable lockedStatus="rejected" />);
+
+    await waitFor(() => {
+      expect(mockGetDrafts).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'rejected' }),
+      );
+    });
+  });
+
+  it('com lockedStatus="rejected", esconde o seletor de status mas mantém o de origem', async () => {
+    render(<DiscordDraftReviewTable lockedStatus="rejected" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Recarregar')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Todos os status')).not.toBeInTheDocument();
+    expect(screen.getByText('Todas origens')).toBeInTheDocument();
+  });
+
+  it('com lockedStatus="rejected", mostra "Limpar descartados" mesmo sem drafts na página', async () => {
+    mockGetDrafts.mockResolvedValue([]);
+
+    render(<DiscordDraftReviewTable lockedStatus="rejected" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Limpar descartados')).toBeInTheDocument();
+    });
+  });
+
+  it('com lockedStatus="rejected", limpar descartados chama purge com a origem correta', async () => {
+    mockPurgeRejected.mockResolvedValue({ deleted: 1 });
+    mockGetDrafts.mockResolvedValue([]);
+
+    render(<DiscordDraftReviewTable lockedStatus="rejected" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Limpar descartados')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText('Limpar descartados'));
+
+    await waitFor(() => {
+      expect(mockPurgeRejected).toHaveBeenCalledWith('all');
+    });
+  });
+
+  it('restaura draft rejected: chama restoreDraft, mostra toast e recarrega', async () => {
+    mockRestoreDraft.mockResolvedValue({ id: 'draft-rej-1', status: 'needs_review' });
+    mockGetDrafts.mockResolvedValue([
+      { ...mockDrafts[0], id: 'draft-rej-1', status: 'rejected' },
+    ]);
+
+    render(<DiscordDraftReviewTable lockedStatus="rejected" />);
+
+    const restoreBtn = await screen.findByRole('button', { name: 'Restaurar' });
+    fireEvent.click(restoreBtn);
+
+    await waitFor(() => {
+      expect(mockRestoreDraft).toHaveBeenCalledWith('draft-rej-1');
+      expect(toast.success as Mock).toHaveBeenCalledWith('Rascunho restaurado.');
+    });
+    // recarrega a lista após restaurar
+    expect(mockGetDrafts).toHaveBeenCalledTimes(2);
   });
 });

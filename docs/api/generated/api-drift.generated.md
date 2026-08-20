@@ -10,11 +10,11 @@
 
 | Estado | Quantidade | Bloqueia? |
 |--------|-----------|:---------:|
-| ✅ OK | 198 | ❌ |
+| ✅ OK | 199 | ❌ |
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 5 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
-| 🕳️ UNUSED_ROUTE | 173 | ❌ |
+| 🕳️ UNUSED_ROUTE | 174 | ❌ |
 | 👻 ORPHAN_SUSPECT | 66 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
@@ -280,7 +280,7 @@
 |--------|------|:-----:|:-------:|:----------:|-----|
 | DELETE | `/api/groups/:param/report` | 🔍 CONSUMER_ONLY | ❌ | ✅ | 🆕 Novo (não bloqueante) |
 
-### mesas (165 rotas no inventário)
+### mesas (167 rotas no inventário)
 
 | Method | Path | Estado | OpenAPI | Consumidor | Obs |
 |--------|------|:-----:|:-------:|:----------:|-----|
@@ -388,6 +388,7 @@
 | POST | `/api/v1/admin/discord/drafts/{id}/correction/retry-learning` | 📄 CONTRACT_ONLY | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/drafts/:id/refresh-image` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/drafts/:id/reparse` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/admin/discord/drafts/:id/restore` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/drafts/:id/sync` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/fetch` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/discord/import-json` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -404,6 +405,7 @@
 | POST | `/api/v1/admin/import/drafts/{id}/correction` | 📄 CONTRACT_ONLY | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/import/drafts/{id}/correction/retry-learning` | 📄 CONTRACT_ONLY | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/import/drafts/:id/reparse` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/admin/import/drafts/:id/restore` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/import/drafts/:id/sync` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/import/import-text` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/admin/setting-suggestions` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |

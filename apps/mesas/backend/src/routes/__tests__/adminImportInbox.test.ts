@@ -1026,6 +1026,22 @@ describe('POST /admin/import/drafts/:id/reparse', () => {
     expect(response.body.error).toContain('sincronizado');
   });
 
+  it('rejects rejected draft (422) — D5c', async () => {
+    mockDb.selectFrom.mockReturnValue(mockChain({
+      executeTakeFirst: vi.fn().mockResolvedValue({
+        id: 'draft-1',
+        status: 'rejected',
+        import_message_id: 'import-1',
+      }),
+    }));
+
+    const response = await request(makeApp())
+      .post('/admin/import/drafts/draft-1/reparse');
+
+    expect(response.status).toBe(422);
+    expect(response.body.error).toContain('descartado');
+  });
+
   it('rejects Discord draft (import_message_id=null) with 422', async () => {
     mockDb.selectFrom.mockReturnValue(mockChain({
       executeTakeFirst: vi.fn().mockResolvedValue({

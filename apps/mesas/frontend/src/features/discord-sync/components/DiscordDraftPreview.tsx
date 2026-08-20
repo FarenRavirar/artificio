@@ -6,6 +6,10 @@ import { STATUS_OPTIONS } from '../constants';
 import { useDraftForm } from '../useDraftForm';
 import { DraftEditorTab } from './DraftEditorTab';
 import { DuplicatesTab } from './DuplicatesTab';
+import { CopyAnnouncementButton } from '../../table/components/CopyAnnouncementButton';
+import { copyTextToClipboard, isTableAnnounceable, normalizeTableDetailPayload } from '../../table/share/whatsappAnnouncement';
+import { isImportedTableExpired } from '../../../utils/tableVisibility';
+import type { TableDetail } from '../../../types/tables';
 import { authGet, authPut } from '../../../services/apiClient';
 import { getMesasPublicOrigin } from '../../../utils/auth';
 
@@ -42,6 +46,26 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
   const [detailLoadFailedDraftId, setDetailLoadFailedDraftId] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [publishedSlug, setPublishedSlug] = useState<string | null>(null);
+  const [tableDetail, setTableDetail] = useState<TableDetail | null>(null);
+  const [isCopyingJson, setIsCopyingJson] = useState(false);
+
+  // Busca o registro completo da mesa vinculada pela rota ADMIN. Diferente da
+  // rota pública `/api/v1/tables/:slug`, a admin devolve o detalhe sem aplicar o
+  // filtro de visibilidade (archived_at + expiração de importado) — é exatamente
+  // o que o predicado do "Copiar anúncio" (R2) precisa avaliar por conta própria.
+  const loadTableDetail = useCallback(async (tableId: string): Promise<TableDetail | null> => {
+    try {
+      const response = await authGet(`/api/v1/admin/tables/${tableId}`);
+      if (!response.ok) return null;
+      const payload: unknown = await response.json().catch(() => null);
+      const data = payload && typeof payload === 'object' && 'data' in payload
+        ? (payload as { data?: unknown }).data
+        : null;
+      return normalizeTableDetailPayload(data);
+    } catch {
+      return null;
+    }
+  }, []);
 
   // Publica direto a mesa vinculada (spec 060: PUT /admin/tables/:id não
   // exige gm_id, funciona pra mesa importada). Achado do mantenedor
@@ -77,18 +101,46 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
         : null;
       toast.success('Mesa publicada.');
       setPublishedSlug(slug);
+      // Re-busca o registro completo: o PUT devolve só {id,slug,title,status}, e
+      // o predicado do "Copiar anúncio" precisa de archived_at/origin/created_at/
+      // starts_at. Sem isso, mesa importada recém-publicada (mas expirada) ganharia
+      // botão com link que a rota pública responde 410.
+      const detail = await loadTableDetail(draft.table_id);
+      if (detail) setTableDetail(detail);
     } catch {
       toast.error('Erro ao publicar mesa. Tente novamente.');
     } finally {
       setPublishing(false);
     }
-  }, [draft.table_id]);
+  }, [draft.table_id, loadTableDetail]);
 
   const shouldShowSlotsDisambiguation = Boolean(h.slotsAmbiguity && h.payloadMissingFields.includes('slots_open:ambiguous_x_of_y'));
   // DEB-048-29: badge "autoral?" — anúncio ambíguo p/ sistema próprio. Revisor decide
   // Sincronizar (manter) ou rejeitar (descartar).
   const isHomebrewSuspect = h.payloadMissingFields.includes('system_name:homebrew_suspect');
   const selectedPayload = h.activeTab === 'parsed' ? draft.parsed_payload : (draft.normalized_payload ?? draft.parsed_payload);
+
+  // R2/D1 (spec 093): o "Copiar anúncio" só existe quando a mesa vinculada está
+  // publicada de fato — active, não arquivada e (se importada) não expirada.
+  // `publishedSlug` sozinho é fraco (vem de `status === 'active'` na rota admin,
+  // sem archived_at nem expiração). `isTableAnnounceable` cobre status+archived_at,
+  // mas não expiração; `isImportedTableExpired` espelha o backend (utils/tableVisibility).
+  const canCopyAnnouncement = tableDetail !== null
+    && isTableAnnounceable(tableDetail)
+    && !isImportedTableExpired(tableDetail);
+
+  const handleCopyJson = useCallback(async () => {
+    if (isCopyingJson) return;
+    setIsCopyingJson(true);
+    try {
+      await copyTextToClipboard(JSON.stringify(selectedPayload, null, 2));
+      toast.success('JSON copiado.');
+    } catch {
+      toast.error('Não foi possível copiar o JSON.');
+    } finally {
+      setIsCopyingJson(false);
+    }
+  }, [isCopyingJson, selectedPayload]);
 
   const statusLabel = h.canSync ? 'Pronto'
     : draft.status === 'synced' ? 'Sincronizado'
@@ -170,6 +222,10 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
         if (record.status === 'active' && typeof record.slug === 'string') {
           setPublishedSlug(record.slug);
         }
+        // Registro completo normalizado alimenta o predicado do "Copiar anúncio"
+        // (archived_at + expiração de importado) e o próprio botão.
+        const detail = normalizeTableDetailPayload(data);
+        if (detail) setTableDetail(detail);
       })
       .catch(() => undefined);
     return () => { cancelled = true; };
@@ -314,64 +370,84 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
           )}
         </div>
 
-        <div className="flex-1 overflow-auto px-5 py-3">
-          {h.activeTab === 'editor' && (
-            <DraftEditorTab
-              form={h.form}
-              authorName={h.authorName}
-              missingFields={h.missingFields}
-              systems={h.systems}
-              systemsLoading={h.systemsLoading}
-              systemsError={h.systemsError}
-              systemCandidates={h.systemCandidates}
-              scenarios={h.scenarios}
-              scenariosLoading={h.scenariosLoading}
-              vttPlatforms={h.vttPlatforms}
-              vttPlatformsLoading={h.vttPlatformsLoading}
-              communicationPlatforms={h.communicationPlatforms}
-              communicationPlatformsLoading={h.communicationPlatformsLoading}
-              contentRaw={draft.content_raw}
-              contentRawLoading={draft.content_raw === undefined && Boolean(api.getDraft) && detailLoadFailedDraftId !== draft.id}
-              coverPreviewUrl={h.coverPreviewUrl}
-              coverError={h.coverError}
-              coverUploading={h.coverUploading}
-              coverInputRef={h.coverInputRef}
-              shouldShowSlotsDisambiguation={shouldShowSlotsDisambiguation}
-              slotsAmbiguity={h.slotsAmbiguity}
-              slotsInterpretation={h.slotsInterpretation}
-              fieldInsights={h.fieldInsights}
-              aiConfig={h.aiConfig}
-              llmActivity={h.llmActivity}
-              auditingCompleteness={h.auditingCompleteness}
-              auditingFields={h.auditingFields}
-              completenessSuggestions={h.completenessSuggestions}
-              savingFields={h.savingFields}
-              onUpdateForm={h.updateForm}
-              onApplySuggestion={h.applySuggestion}
-              onAuditCompleteness={api.auditCompleteness ? h.handleAuditCompleteness : undefined}
-              onAuditField={api.auditField ? h.handleAuditField : undefined}
-              onSystemChange={h.handleSystemChange}
-              onRefreshSystems={h.refreshSystems}
-              onCoverUpload={h.handleCoverUpload}
-              onRemoveCover={h.handleRemoveCover}
-              onSetCoverUrl={h.handleSetCoverUrl}
-              onSetSlotsInterpretation={h.setSlotsInterpretation}
-              onConfirmSlots={h.handleConfirmSlots}
-            />
-          )}
-          {(h.activeTab === 'normalized' || h.activeTab === 'parsed') && (
-            <pre className="text-xs text-green-300 bg-black/30 rounded-lg p-4 overflow-auto whitespace-pre-wrap break-words">
-              {JSON.stringify(selectedPayload, null, 2)}
-            </pre>
-          )}
-          {h.activeTab === 'duplicates' && api.listDuplicateCandidates && api.resolveDuplicateCandidate && (
-            <DuplicatesTab
-              draftId={draft.id}
-              listDuplicateCandidates={api.listDuplicateCandidates}
-              resolveDuplicateCandidate={api.resolveDuplicateCandidate}
-            />
-          )}
-        </div>
+        {(h.activeTab === 'editor' || h.activeTab === 'duplicates') && (
+          <div className="flex-1 overflow-auto px-5 py-3">
+            {h.activeTab === 'editor' && (
+              <DraftEditorTab
+                form={h.form}
+                authorName={h.authorName}
+                missingFields={h.missingFields}
+                systems={h.systems}
+                systemsLoading={h.systemsLoading}
+                systemsError={h.systemsError}
+                systemCandidates={h.systemCandidates}
+                scenarios={h.scenarios}
+                scenariosLoading={h.scenariosLoading}
+                vttPlatforms={h.vttPlatforms}
+                vttPlatformsLoading={h.vttPlatformsLoading}
+                communicationPlatforms={h.communicationPlatforms}
+                communicationPlatformsLoading={h.communicationPlatformsLoading}
+                contentRaw={draft.content_raw}
+                contentRawLoading={draft.content_raw === undefined && Boolean(api.getDraft) && detailLoadFailedDraftId !== draft.id}
+                coverPreviewUrl={h.coverPreviewUrl}
+                coverError={h.coverError}
+                coverUploading={h.coverUploading}
+                coverInputRef={h.coverInputRef}
+                shouldShowSlotsDisambiguation={shouldShowSlotsDisambiguation}
+                slotsAmbiguity={h.slotsAmbiguity}
+                slotsInterpretation={h.slotsInterpretation}
+                fieldInsights={h.fieldInsights}
+                aiConfig={h.aiConfig}
+                llmActivity={h.llmActivity}
+                auditingCompleteness={h.auditingCompleteness}
+                auditingFields={h.auditingFields}
+                completenessSuggestions={h.completenessSuggestions}
+                savingFields={h.savingFields}
+                onUpdateForm={h.updateForm}
+                onApplySuggestion={h.applySuggestion}
+                onAuditCompleteness={api.auditCompleteness ? h.handleAuditCompleteness : undefined}
+                onAuditField={api.auditField ? h.handleAuditField : undefined}
+                onSystemChange={h.handleSystemChange}
+                onRefreshSystems={h.refreshSystems}
+                onCoverUpload={h.handleCoverUpload}
+                onRemoveCover={h.handleRemoveCover}
+                onSetCoverUrl={h.handleSetCoverUrl}
+                onSetSlotsInterpretation={h.setSlotsInterpretation}
+                onConfirmSlots={h.handleConfirmSlots}
+              />
+            )}
+            {h.activeTab === 'duplicates' && api.listDuplicateCandidates && api.resolveDuplicateCandidate && (
+              <DuplicatesTab
+                draftId={draft.id}
+                listDuplicateCandidates={api.listDuplicateCandidates}
+                resolveDuplicateCandidate={api.resolveDuplicateCandidate}
+              />
+            )}
+          </div>
+        )}
+
+        {(h.activeTab === 'normalized' || h.activeTab === 'parsed') && (
+          <div className="flex flex-col flex-1 min-h-0">
+            {/* R11: cabeçalho fora do container que rola — o botão de copiar fica
+                alcançável sem rolagem mesmo com JSON longo. */}
+            <div className="px-5 pt-3 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={handleCopyJson}
+                disabled={isCopyingJson}
+                aria-label={h.activeTab === 'parsed' ? 'Copiar JSON bruto' : 'Copiar JSON normalizado'}
+                className="px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-xs rounded-lg transition-colors disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
+              >
+                {isCopyingJson ? 'Copiando...' : 'Copiar JSON'}
+              </button>
+            </div>
+            <div className="flex-1 overflow-auto px-5 py-3">
+              <pre className="text-xs text-green-300 bg-black/30 rounded-lg p-4 overflow-auto whitespace-pre-wrap break-words">
+                {JSON.stringify(selectedPayload, null, 2)}
+              </pre>
+            </div>
+          </div>
+        )}
 
         {draft.review_notes && !h.editingStatus && (
           <div className="px-5 py-2 border-t border-white/10">
@@ -422,6 +498,12 @@ export function DiscordDraftPreview({ draft, onUpdate, onClose, api, onBeforeSyn
             >
               Ver Mesa Publicada
             </a>
+          )}
+          {canCopyAnnouncement && tableDetail && (
+            <CopyAnnouncementButton
+              table={tableDetail}
+              className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
+            />
           )}
         </div>
       </div>
