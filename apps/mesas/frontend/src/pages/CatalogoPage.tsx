@@ -459,7 +459,7 @@ export const CatalogoPage = () => {
                 value={filters.search}
                 onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }))}
                 placeholder="Buscar mesas..."
-                className="w-full rounded-lg border border-transparent bg-[var(--surface)] h-10 pl-9 pr-3 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-muted)] transition-colors focus:border-[var(--artificio-brand)]"
+                className="w-full rounded-lg border border-transparent bg-[var(--surface)] h-10 pl-9 pr-3 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-muted)] transition-colors focus:border-[var(--artificio-brand)] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--artificio-focus)]"
               />
             </div>
 
@@ -536,10 +536,14 @@ export const CatalogoPage = () => {
             </SealToggle>
 
             {activeFiltersCount > 0 && (
+              /* T6.4 trocou a borda por superfície; sem anel, o foco de teclado ficava
+                 invisível neste botão. Mesmo token/geometria de `.artificio-button`
+                 (packages/ui/styles.css:1081), não valor próprio (T6.5).
+                 Achado real (review PR #280, coderabbit, funcional/acessibilidade). */
               <button
                 type="button"
                 onClick={clearFilters}
-                className="ml-auto flex shrink-0 items-center gap-2 rounded-lg border border-transparent bg-[var(--surface)] px-3 h-10 text-sm font-semibold text-[var(--fg)] transition-colors hover:bg-[var(--surface-strong)]"
+                className="ml-auto flex shrink-0 items-center gap-2 rounded-lg border border-transparent bg-[var(--surface)] px-3 h-10 text-sm font-semibold text-[var(--fg)] transition-colors hover:bg-[var(--surface-strong)] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--artificio-focus)]"
               >
                 <RotateCcw className="h-4 w-4" />
                 Limpar

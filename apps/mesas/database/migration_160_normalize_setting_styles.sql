@@ -63,11 +63,22 @@ BEGIN
     END LOOP;
     result := array_append(result, array_to_string(normalized_words, ' '));
   END LOOP;
-  -- dedup (um chip por estilo canônico)
-  SELECT array_agg(DISTINCT x ORDER BY x) INTO result
-  FROM unnest(result) AS x
-  WHERE x <> '';
-  RETURN coalesce(result, '{}'::text[]);
+  -- Dedup preservando a ORDEM DE PRIMEIRA OCORRÊNCIA, espelhando o `[...new Set()]`
+  -- de normalizeSettingStyles. A versão anterior usava `array_agg(DISTINCT x ORDER BY x)`,
+  -- que reordenava alfabeticamente: o backfill embaralhava a ordem que o mestre digitou
+  -- e a escrita seguinte a devolvia, produzindo UPDATE perpétuo entre os dois caminhos.
+  -- Achado real (review PR #280, coderabbit, inline).
+  SELECT array_agg(x ORDER BY first_pos) INTO result
+  FROM (
+    SELECT x, MIN(ord) AS first_pos
+    FROM unnest(result) WITH ORDINALITY AS t(x, ord)
+    WHERE x <> ''
+    GROUP BY x
+  ) AS deduped;
+  -- Sem valor válido devolve NULL, como o normalizador do TS — `'{}'` faria o
+  -- `IS DISTINCT FROM` do UPDATE trocar NULL por array vazio, que são estados
+  -- diferentes para o chamador ("campo não enviado" vs "campo limpo").
+  RETURN result;
 END;
 $func$;
 

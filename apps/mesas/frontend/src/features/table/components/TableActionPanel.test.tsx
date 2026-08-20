@@ -79,14 +79,23 @@ describe('TableActionPanel — Fase 7 (R21/R22/R23/R24)', () => {
     expect(screen.queryByText('Local')).toBeNull();
   });
 
-  it('mostra idioma quando diferente de pt-BR (R24)', () => {
+  it('mostra idioma quando preenchido (R24)', () => {
     render(<TableActionPanel vm={makeVm({ language: 'English' })} />);
     expect(screen.getByText('Idioma')).toBeTruthy();
     expect(screen.getByText('English')).toBeTruthy();
   });
 
-  it('não renderiza idioma quando é pt-BR (R24)', () => {
+  // Achado real (review PR #280, codex, P2): esconder `pt-BR` contradizia o aceite 13
+  // ("todo campo preenchido aparece"). E `pt-BR` nao e default de banco — o default do
+  // schema e 'Português'; `pt-BR` vem do sync de importada e da escolha do mestre.
+  it('mostra idioma tambem quando e pt-BR (R21/R24, aceite 13)', () => {
     render(<TableActionPanel vm={makeVm({ language: 'pt-BR' })} />);
+    expect(screen.getByText('Idioma')).toBeTruthy();
+    expect(screen.getByText('pt-BR')).toBeTruthy();
+  });
+
+  it('não renderiza idioma quando o campo esta vazio (R21)', () => {
+    render(<TableActionPanel vm={makeVm({ language: '' })} />);
     expect(screen.queryByText('Idioma')).toBeNull();
   });
 });

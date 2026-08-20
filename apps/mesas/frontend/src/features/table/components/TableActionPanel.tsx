@@ -137,9 +137,15 @@ function QuickInfoPanel({ vm, showStatus = false, className = '' }: { readonly v
         <span className="text-[var(--fg-muted)]">Experiência</span>
         <span className="text-[var(--fg)] font-medium">{vm.experience}</span>
       </div>
-      {/* R24 (spec 093): idioma só quando difere do default `pt-BR` — medido em
-          produção: 92/94 mesas são `pt-BR`; exibir sempre viraria ruído em ~98%. */}
-      {vm.language && vm.language !== 'pt-BR' && (
+      {/* R24 + aceite 13 (spec 093): idioma aparece sempre que preenchido, inclusive
+          `pt-BR`. A versão anterior escondia `pt-BR` alegando ruído (92/94 em produção),
+          mas isso contradizia o aceite — e a premissa estava errada: `pt-BR` NÃO é default
+          de banco (`migration_01_base_schema.sql:141` usa `'Português'`). Os 92 vêm de
+          `syncHelpers.ts:336`, que grava `'pt-BR'` fixo em mesa importada, e do formulário
+          (`useCreateTableForm.ts:39`), onde o mestre pode escolher `pt-BR` de propósito —
+          caso indistinguível do sync, então esconder apagava escolha real.
+          Achado real (review PR #280, codex, P2). */}
+      {vm.language && (
         <div className="flex justify-between">
           <span className="text-[var(--fg-muted)]">Idioma</span>
           <span className="text-[var(--fg)] font-medium">{vm.language}</span>

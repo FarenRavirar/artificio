@@ -17,10 +17,18 @@ interface SealToggleProps {
 // compartilhado. `activeClassName` cobre a cor de destaque por selo
 // (âmbar/DDAL, roxo/Covil), já que cada um usa uma cor diferente quando ativo.
 export function SealToggle({ active, onClick, variant, icon, children, activeClassName }: SealToggleProps) {
+  // T6.4 (spec 093) trocou a borda inativa por superfície; sem anel de foco, quem
+  // navega por teclado perdia a única pista de onde está — a borda ERA o indicador.
+  // Usa o mesmo `--artificio-focus` / 3px / offset 2px de `.artificio-button` em
+  // packages/ui/styles.css:1081, e não valor próprio (T6.5: não divergir do DS).
+  // Achado real (review PR #280, coderabbit, funcional/acessibilidade).
+  const focusRing =
+    'focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--artificio-focus)]';
+
   const base = {
-    pill: 'rounded-full px-3 py-1 text-xs transition-colors',
-    toolbar: 'flex shrink-0 items-center gap-1.5 rounded-lg border px-3 h-10 text-xs font-semibold transition-all whitespace-nowrap',
-    drawer: 'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all',
+    pill: `rounded-full px-3 py-1 text-xs transition-colors ${focusRing}`,
+    toolbar: `flex shrink-0 items-center gap-1.5 rounded-lg border px-3 h-10 text-xs font-semibold transition-all whitespace-nowrap ${focusRing}`,
+    drawer: `flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all ${focusRing}`,
   }[variant];
 
   const inactive = {

@@ -1177,6 +1177,23 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table.setting_styles).toEqual(['Dark Fantasy', 'Exploração', 'Sword']);
   });
 
+  // Achado real (review PR #280, codex, P2): `\s*&\s*` partia nome composto —
+  // "D&D" virava ["D","D"]. O separador exige espaco dos dois lados.
+  it('nao parte nome composto com & colado (D&D, Hack&Slash), mas ainda separa " & "', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: D&D 5e',
+          'Estilo: Hack&Slash & dark fantasy',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.setting_styles).toEqual(['Hack&Slash', 'Dark Fantasy']);
+  });
+
   it('remove "Classificação Indicativa" da descrição (Gap 5 segundo sintoma, spec 093)', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({

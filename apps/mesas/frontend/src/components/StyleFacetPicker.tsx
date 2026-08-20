@@ -22,6 +22,14 @@ export function StyleFacetPicker({ facets, selected, onToggle }: StyleFacetPicke
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
+  // T6.4 (spec 093) trocou a borda inativa destes chips por superfície. A borda era
+  // a única pista de foco; sem anel, quem navega por teclado percorria a fileira às
+  // cegas. Mesmo token/geometria de `.artificio-button` (packages/ui/styles.css:1081),
+  // não valor próprio (T6.5: não divergir do design system).
+  // Achado real (review PR #280, coderabbit, funcional/acessibilidade).
+  const ring =
+    ' focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--artificio-focus)]';
+
   const visibleFacets = facets.slice(0, VISIBLE_COUNT);
   const overflowFacets = facets.slice(VISIBLE_COUNT);
 
@@ -69,7 +77,7 @@ export function StyleFacetPicker({ facets, selected, onToggle }: StyleFacetPicke
           type="button"
           onClick={() => onToggle(style)}
           aria-pressed={selected.includes(style)}
-          className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs transition-all whitespace-nowrap ${
+          className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs transition-all whitespace-nowrap${ring} ${
             selected.includes(style)
               ? 'border-orange-500 bg-orange-500/20 text-orange-100'
               : 'border-transparent bg-[var(--surface)] text-[var(--fg-muted)] hover:border-transparent hover:bg-[var(--surface-strong)]'
@@ -92,7 +100,7 @@ export function StyleFacetPicker({ facets, selected, onToggle }: StyleFacetPicke
             type="button"
             onClick={() => setIsOpen((prev) => !prev)}
             aria-expanded={isOpen}
-            className={`flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all whitespace-nowrap ${
+            className={`flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all whitespace-nowrap${ring} ${
               hasSelectedInOverflow
                 ? 'border-orange-500 bg-orange-500/20 text-orange-100'
                 : 'border-transparent bg-[var(--surface)] text-[var(--fg-muted)] hover:border-transparent hover:bg-[var(--surface-strong)]'

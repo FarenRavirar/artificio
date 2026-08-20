@@ -24,6 +24,21 @@ describe('normalizeSettingStyles (R19, spec 093)', () => {
     expect(normalizeSettingStyles(['slice of life', 'dungeons and dragons'])).toEqual(['Slice of Life', 'Dungeons and Dragons']);
   });
 
+  // Achado real (review PR #280, codex, P2): sem dedup no normalizador o backfill
+  // da migration_160 regride na proxima escrita e o chip conta a mesma mesa 2x.
+  it('deduplica apos normalizar, preservando ordem de primeira ocorrencia', () => {
+    expect(normalizeSettingStyles(['exploração', 'Exploração'])).toEqual(['Exploração']);
+    expect(normalizeSettingStyles(['Terror', 'Aventura', 'terror.'])).toEqual(['Terror', 'Aventura']);
+  });
+
+  // Achado real (review PR #280, coderabbit, inline): a lista de typos de acento
+  // vivia so na migration_160. Regra que existe num caminho e nao no outro faz a
+  // escrita reproduzir o valor que o backfill acabou de limpar.
+  it('corrige typo de acento, alinhado a migration_160', () => {
+    expect(normalizeSettingStyles(['politica', 'Politico'])).toEqual(['Política', 'Político']);
+    expect(normalizeSettingStyles(['intriga politica'])).toEqual(['Intriga Política']);
+  });
+
   it('devolve null para entrada vazia ou nula', () => {
     expect(normalizeSettingStyles(null)).toBeNull();
     expect(normalizeSettingStyles(undefined)).toBeNull();

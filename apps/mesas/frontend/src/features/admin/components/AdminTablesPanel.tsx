@@ -21,8 +21,13 @@ async function extractErrorMessage(response: Response, fallback: string): Promis
   try {
     const contentType = response.headers.get('content-type');
     if (contentType?.includes('application/json')) {
-      const data = await response.json();
-      return data.error || fallback;
+      // `data` vem de JSON: é `unknown` até ser validado. Sem a checagem de tipo,
+      // um `error` que volte como objeto/array renderizaria "[object Object]" na
+      // tela (AGENTS.md §Regras Gerais de Código — normalização obrigatória).
+      // Achado real (review PR #280, coderabbit, inline).
+      const data: unknown = await response.json();
+      const raw = typeof data === 'object' && data !== null ? (data as { error?: unknown }).error : undefined;
+      return typeof raw === 'string' && raw.length > 0 ? raw : fallback;
     }
     const text = await response.text();
     return text.slice(0, 200) || fallback;
@@ -30,6 +35,18 @@ async function extractErrorMessage(response: Response, fallback: string): Promis
     return fallback;
   }
 }
+
+// Rótulo único por status: a coluna mostrava o valor cru do banco ("active",
+// "full") enquanto a faceta ao lado já usava português ("Ativa", "Cheia") — mesma
+// informação com dois vocabulários na mesma tela. Faceta e coluna leem daqui.
+// Achado real (review PR #280, coderabbit, nitpick).
+const STATUS_LABEL: Record<string, string> = {
+  draft: 'Rascunho (não publicada)',
+  active: 'Ativa',
+  full: 'Cheia',
+  cancelled: 'Cancelada',
+  ended: 'Encerrada',
+};
 
 function normalizeTables(value: unknown): AdminTableRow[] {
   if (!Array.isArray(value)) return [];
@@ -174,8 +191,17 @@ export function AdminTablesPanel() {
       toast.error(await extractErrorMessage(response, 'Erro na ação em lote.'));
       return;
     }
+    // A rota devolve `data.updated` com a contagem REAL (`RETURNING id`, adminTables.ts:117):
+    // id inexistente ou já no estado alvo não entra no retorno. Reportar `ids.length` dizia
+    // ao admin que N mesas mudaram quando podiam ter mudado menos — número inventado sobre
+    // ação destrutiva. Cai para `ids.length` só se a resposta não trouxer o campo.
+    // Achado real (review PR #280, coderabbit, integridade de dados).
     const verb = action === 'delete' ? 'apagada(s)' : action === 'archive' ? 'arquivada(s)' : 'desarquivada(s)';
-    toast.success(`${ids.length} mesa(s) ${verb}.`);
+    const payload: unknown = await response.json().catch(() => null);
+    const data = payload && typeof payload === 'object' ? (payload as Record<string, unknown>).data : null;
+    const rawUpdated = data && typeof data === 'object' ? (data as Record<string, unknown>).updated : undefined;
+    const updated = typeof rawUpdated === 'number' && Number.isFinite(rawUpdated) ? rawUpdated : ids.length;
+    toast.success(`${updated} mesa(s) ${verb}.`);
     await fetchAllTables();
   };
 
@@ -193,7 +219,11 @@ export function AdminTablesPanel() {
     {
       key: 'status',
       header: 'Status',
-      render: (table: AdminTableRow) => <StatusPill tone={table.status === 'active' ? 'success' : 'neutral'}>{table.status}</StatusPill>,
+      render: (table: AdminTableRow) => (
+        <StatusPill tone={table.status === 'active' ? 'success' : 'neutral'}>
+          {STATUS_LABEL[table.status] ?? table.status}
+        </StatusPill>
+      ),
     },
     {
       key: 'covil',
@@ -214,13 +244,7 @@ export function AdminTablesPanel() {
         {
           key: 'status',
           label: 'Status',
-          options: [
-            { value: 'draft', label: 'Rascunho (não publicada)' },
-            { value: 'active', label: 'Ativa' },
-            { value: 'full', label: 'Cheia' },
-            { value: 'cancelled', label: 'Cancelada' },
-            { value: 'ended', label: 'Encerrada' },
-          ],
+          options: Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label })),
           getValue: (table) => table.status,
         },
         {
@@ -246,7 +270,18 @@ export function AdminTablesPanel() {
           hidden: (table) => table.status !== 'active' || !table.slug,
           onRun: handleCopyAnnouncement,
         },
-        { key: 'status', label: 'Publicar/ativar/cancelar', icon: <Power size={15} />, onRun: handleToggleTableStatus },
+        {
+          key: 'status',
+          label: 'Publicar/ativar/cancelar',
+          icon: <Power size={15} />,
+          // Espelha o guard do handler (`handleToggleTableStatus`): status fora de
+          // active/cancelled/draft — `full` e `ended` — só recebia toast de erro ao
+          // clicar. Ação visível que sempre falha é pior que ação ausente, e o gate
+          // de T8.2 continua atendido: o botão segue nas linhas em que opera.
+          // Achado real (review PR #280, coderabbit, inline).
+          hidden: (table) => table.status !== 'active' && table.status !== 'cancelled' && table.status !== 'draft',
+          onRun: handleToggleTableStatus,
+        },
         { key: 'covil', label: 'Alternar Covil', icon: <ShieldCheck size={15} />, onRun: handleToggleCovil },
         { key: 'delete', label: 'Apagar', icon: <Trash2 size={15} />, tone: 'danger', onRun: handleDeleteTable },
       ]}

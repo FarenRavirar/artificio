@@ -7,6 +7,7 @@ import { MessagesView } from '../../../features/discord-sync/components/Messages
 import { DiscordDraftReviewTable } from '../../../features/discord-sync/components/DiscordDraftReviewTable';
 import { discordSyncApi } from '../../../features/discord-sync/api/discordSyncApi';
 import { inboxApi } from '../../../features/inbox/api/inboxApi';
+import { resolveSubTab, SUB_TAB_CONTENT, type ModSubTab } from './moderacaoSubTabs';
 
 // Achado do mantenedor (2026-07-16): cast direto `as DiscordDraft` compilava mas
 // nunca preenchia content_raw de verdade — o inbox devolve o texto original em
@@ -19,31 +20,6 @@ function inboxDraftToDiscordDraft(draft: InboxDraft): DiscordDraft {
 import { PageHeader, SectionCard, tabButtonClass } from './ui';
 import { TableDuplicatesPanel } from './TableDuplicatesPanel';
 import { AdminTablesPanel } from './AdminTablesPanel';
-
-type ModSubTab = 'mensagens' | 'rascunhos' | 'duplicatas' | 'descartados' | 'mesas';
-
-const SUB_TAB_CONTENT: Record<ModSubTab, { title: string; description: string }> = {
-  rascunhos: {
-    title: 'Rascunhos de mesas',
-    description: 'Revisão unificada de entradas do Bot, Exporter e texto colado antes de publicar mesas reais.',
-  },
-  mensagens: {
-    title: 'Mensagens capturadas',
-    description: 'Apuração das mensagens brutas antes de gerar ou ignorar rascunhos.',
-  },
-  duplicatas: {
-    title: 'Possíveis duplicatas',
-    description: 'Pares mesa×mesa e draft×mesa para decisão manual do administrador.',
-  },
-  descartados: {
-    title: 'Descartados',
-    description: 'Rascunhos rejeitados. Ver, restaurar (volta ao fluxo de revisão) ou apagar definitivamente.',
-  },
-  mesas: {
-    title: 'Mesas',
-    description: 'Lista de mesas de qualquer status (R5/R6, spec 093), migrada da aba do catálogo — busca, facetas e ações em lote/linha.',
-  },
-};
 
 /**
  * Computa diff entre campos editáveis de dois payloads para correction-tracking.
@@ -84,25 +60,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function ModeracaoSection() {
   const { sub } = useParams<{ sub?: string }>();
   const navigate = useNavigate();
-  const [subTab, setSubTab] = useState<ModSubTab>(() => {
-    if (sub === 'rascunhos') return 'rascunhos';
-    if (sub === 'mensagens') return 'mensagens';
-    if (sub === 'duplicatas') return 'duplicatas';
-    if (sub === 'descartados') return 'descartados';
-    if (sub === 'mesas') return 'mesas';
-    return 'rascunhos';
-  });
+  const [subTab, setSubTab] = useState<ModSubTab>(() => resolveSubTab(sub));
 
   // Sincronizar subTab com a URL quando o param muda (ex.: deep-link direto)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (sub === 'rascunhos') setSubTab('rascunhos');
-      else if (sub === 'mensagens') setSubTab('mensagens');
-      else if (sub === 'duplicatas') setSubTab('duplicatas');
-      else if (sub === 'descartados') setSubTab('descartados');
-      else if (sub === 'mesas') setSubTab('mesas');
-      else setSubTab('rascunhos');
-    }, 0);
+    const timer = setTimeout(() => setSubTab(resolveSubTab(sub)), 0);
     return () => clearTimeout(timer);
   }, [sub]);
 

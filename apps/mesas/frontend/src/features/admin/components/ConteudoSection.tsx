@@ -16,7 +16,10 @@ const TAB_LABEL: Record<CatalogTab, string> = {
   'setting-styles': 'Estilos por cenário',
 };
 
-const TAB_VALUES: ReadonlySet<CatalogTab> = new Set(['systems', 'platforms', 'scenarios', 'setting-styles']);
+// Derivado de TAB_LABEL, não lista paralela: aba nova entrava num só dos dois
+// lugares e o deep-link `?tab=` caía silenciosamente na primeira aba.
+// Achado real (review PR #280, coderabbit, nitpick).
+const TAB_VALUES: ReadonlySet<CatalogTab> = new Set(Object.keys(TAB_LABEL) as CatalogTab[]);
 
 export function ConteudoSection() {
   const [urlParams] = useSearchParams();

@@ -1530,14 +1530,18 @@ function extractTechnicalRequirements(text: string): {
  * normalizeSettingStyles — mesma regra dos demais pontos de escrita do campo.
  * R20 (spec 093): remove menções cruas de role/usuário/canal do Discord ("<@&...>")
  * — o parser não resolve menções para o nome, então elas viravam lixo no estoque
- * (medido em prod: 2 mesas com "<@&id>" dentro de setting_styles). */
+ * (medido em prod: 2 mesas com "<@&id>" dentro de setting_styles).
+ * O "&" exige espaço dos DOIS lados: como `\s*&\s*`, ele partia nome composto —
+ * medido: "D&D" virava ["D","D"] e "Hack&Slash" virava ["Hack","Slash"], gravando
+ * lixo em setting_styles. Com `\s+&\s+`, "Dark Fantasy & Terror" continua separando.
+ * Achado real (review PR #280, codex, P2). */
 function splitFreeTextList(value: string): string[] | null {
   const cleaned = value
     .replace(/<[@#][!&]?\d+>/g, '') // menção crua de role/usuário/canal
     .replace(/\s{2,}/g, ' ')
     .trim();
   const parts = cleaned
-    .split(/\s*(?:\/|,|•|·|\s*&\s*|\s+(?:e|ou|x)\s+)\s*/i)
+    .split(/\s*(?:\/|,|•|·|\s+&\s+|\s+(?:e|ou|x)\s+)\s*/i)
     .map((p) => p.trim())
     .filter(Boolean);
   return normalizeSettingStyles(parts);

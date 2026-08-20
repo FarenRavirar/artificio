@@ -7,8 +7,13 @@ import { AdminTablesPanel } from './AdminTablesPanel';
 vi.mock('react-hot-toast', () => ({
   default: { success: vi.fn(), error: vi.fn() },
 }));
+import toast from 'react-hot-toast';
 
-vi.mock('@artificio/ui', () => ({
+// Achado real (review PR #280, coderabbit, nitpick): substituir o modulo inteiro
+// fazia qualquer novo import de @artificio/ui na arvore falhar com "export ausente"
+// em vez de asserção clara. Sobrescreve só `useConfirm`.
+vi.mock('@artificio/ui', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   useConfirm: () => ({ confirm: vi.fn().mockResolvedValue(true) }),
 }));
 
@@ -38,8 +43,19 @@ function renderPanel() {
 }
 
 beforeEach(() => {
+  // Achado real (review PR #280, coderabbit, nitpick): sem reset os mocks de
+  // escrita acumulavam chamadas entre testes, e uma assercao de "chamou com X"
+  // passaria por causa do teste anterior.
+  vi.mocked(toast.success).mockClear();
+  vi.mocked(toast.error).mockClear();
   mockAuthGet.mockReset();
+  mockAuthDelete.mockReset();
+  mockAuthPost.mockReset();
+  mockAuthPut.mockReset();
   mockAuthGet.mockResolvedValue({ ok: true, json: async () => ({ data: tablesFixture }) });
+  mockAuthDelete.mockResolvedValue({ ok: true, json: async () => ({}) });
+  mockAuthPost.mockResolvedValue({ ok: true, json: async () => ({}) });
+  mockAuthPut.mockResolvedValue({ ok: true, json: async () => ({}) });
 });
 
 describe('AdminTablesPanel — Fase 8 (R5/R6, spec 093)', () => {
@@ -80,5 +96,91 @@ describe('AdminTablesPanel — Fase 8 (R5/R6, spec 093)', () => {
     expect(screen.getAllByTitle('Publicar/ativar/cancelar').length).toBe(2);
     expect(screen.getAllByTitle('Alternar Covil').length).toBe(2);
     expect(screen.getAllByTitle('Apagar').length).toBe(2);
+  });
+});
+
+// Achado real (review PR #280, coderabbit, nitpick): a suíte original só checava
+// que os controles renderizam. Estes exercitam o comportamento — qual rota é
+// chamada, com que payload, e se a lista é refeita depois da escrita.
+describe('AdminTablesPanel — comportamento das ações', () => {
+  it('ação em lote chama authPost com os ids selecionados e a ação', async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText('Mesa Ativa')).toBeTruthy());
+    fireEvent.click(screen.getAllByLabelText('Selecionar linha')[0]);
+    fireEvent.click(screen.getByText('Arquivar'));
+
+    await waitFor(() => expect(mockAuthPost).toHaveBeenCalled());
+    const [url, payload] = mockAuthPost.mock.calls[0];
+    expect(url).toBe('/api/v1/admin/tables/batch');
+    expect(payload).toEqual({ ids: ['t1'], action: 'archive' });
+  });
+
+  // Achado real (review PR #280, coderabbit, integridade de dados): o toast reportava
+  // ids.length; a rota devolve a contagem real via RETURNING.
+  it('reporta a contagem devolvida pela rota, nao a quantidade selecionada', async () => {
+    mockAuthPost.mockResolvedValue({ ok: true, json: async () => ({ data: { updated: 1 } }) });
+    renderPanel();
+    await waitFor(() => expect(screen.getByText('Mesa Ativa')).toBeTruthy());
+    fireEvent.click(screen.getAllByLabelText('Selecionar linha')[0]);
+    fireEvent.click(screen.getAllByLabelText('Selecionar linha')[1]);
+    fireEvent.click(screen.getByText('Arquivar'));
+
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('1 mesa(s) arquivada(s).'));
+  });
+
+  it('apagar linha chama authDelete com o id e refaz a busca', async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText('Mesa Ativa')).toBeTruthy());
+    expect(mockAuthGet).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getAllByTitle('Apagar')[0]);
+
+    await waitFor(() => expect(mockAuthDelete).toHaveBeenCalledWith('/api/v1/admin/tables/t1'));
+    await waitFor(() => expect(mockAuthGet).toHaveBeenCalledTimes(2));
+  });
+
+  it('publica rascunho (draft -> active) via authPut', async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText('Mesa Rascunho')).toBeTruthy());
+    fireEvent.click(screen.getAllByTitle('Publicar/ativar/cancelar')[1]);
+
+    await waitFor(() => expect(mockAuthPut).toHaveBeenCalledWith('/api/v1/admin/tables/t2', { status: 'active' }));
+  });
+
+  it('cancela mesa ativa (active -> cancelled) via authPut', async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText('Mesa Ativa')).toBeTruthy());
+    fireEvent.click(screen.getAllByTitle('Publicar/ativar/cancelar')[0]);
+
+    await waitFor(() => expect(mockAuthPut).toHaveBeenCalledWith('/api/v1/admin/tables/t1', { status: 'cancelled' }));
+  });
+
+  it('esconde a ação de status em mesa full/ended, que o handler recusaria', async () => {
+    mockAuthGet.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: [
+          { id: 't3', slug: 'cheia', title: 'Mesa Cheia', status: 'full', created_at: '2026-08-03', is_covil: false },
+          { id: 't4', slug: 'fim', title: 'Mesa Encerrada', status: 'ended', created_at: '2026-08-04', is_covil: false },
+        ],
+      }),
+    });
+    renderPanel();
+    await waitFor(() => expect(screen.getByText('Mesa Cheia')).toBeTruthy());
+
+    expect(screen.queryAllByTitle('Publicar/ativar/cancelar').length).toBe(0);
+    // As demais ações por linha continuam disponíveis — o gate de T8.2 segue atendido.
+    expect(screen.getAllByTitle('Alternar Covil').length).toBe(2);
+  });
+
+  it('falha na busca vira mensagem de erro na tela, não acervo vazio silencioso', async () => {
+    mockAuthGet.mockResolvedValue({
+      ok: false,
+      headers: { get: () => 'application/json' },
+      json: async () => ({ error: 'Sem permissão' }),
+    });
+    renderPanel();
+
+    await waitFor(() => expect(screen.getByText('Sem permissão')).toBeTruthy());
   });
 });

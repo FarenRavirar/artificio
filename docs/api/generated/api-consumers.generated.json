@@ -1086,7 +1086,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.submitCorrection",
-      "line": 146
+      "line": 108
     },
     {
       "app": "mesas-frontend",
@@ -1326,7 +1326,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.updateDraft",
-      "line": 113
+      "line": 75
     },
     {
       "app": "mesas-frontend",
@@ -1336,7 +1336,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.getDraft",
-      "line": 114
+      "line": 76
     },
     {
       "app": "mesas-frontend",
@@ -1346,7 +1346,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.registerCorrection",
-      "line": 115
+      "line": 77
     },
     {
       "app": "mesas-frontend",
@@ -1356,7 +1356,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.retryLearningFeedback",
-      "line": 121
+      "line": 83
     },
     {
       "app": "mesas-frontend",
@@ -1366,7 +1366,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.reparseDraft",
-      "line": 112
+      "line": 74
     },
     {
       "app": "mesas-frontend",
@@ -1376,7 +1376,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.restoreDraft",
-      "line": 122
+      "line": 84
     },
     {
       "app": "mesas-frontend",
@@ -1386,7 +1386,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.syncDraft",
-      "line": 111
+      "line": 73
     },
     {
       "app": "mesas-frontend",
@@ -1526,7 +1526,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 74
+      "line": 91
     },
     {
       "app": "mesas-frontend",
@@ -1536,7 +1536,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 102
+      "line": 119
     },
     {
       "app": "mesas-frontend",
@@ -1546,7 +1546,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPut",
-      "line": 126
+      "line": 143
     },
     {
       "app": "mesas-frontend",
@@ -1576,7 +1576,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 331
+      "line": 337
     },
     {
       "app": "mesas-frontend",
@@ -1596,7 +1596,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 172
+      "line": 189
     },
     {
       "app": "mesas-frontend",
@@ -1826,7 +1826,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 331
+      "line": 337
     },
     {
       "app": "mesas-frontend",

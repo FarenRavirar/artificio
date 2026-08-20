@@ -666,16 +666,56 @@ devolve 410 e renderiza a tela "Mesa encerrada") — R22 vale para `active`/`ful
       | `apps/mesas/frontend/.../TableActionPanel.tsx` | `TableActionPanel.test.tsx` | **Novo** (9) |
       | `apps/mesas/frontend/.../TableContent.tsx` | `TableContent.test.tsx` | **Novo** (3) |
       | `apps/mesas/frontend/.../ConteudoSection.tsx` | coberto por `AdminTablesPanel.test.tsx` (lógica extraída); o que resta é markup de abas + redirect | — |
-      | `apps/mesas/frontend/.../ModeracaoSection.tsx` | montagem da sub-aba; lógica testada no painel extraído | — |
-      | `CatalogoPage.tsx`, `SealToggle.tsx`, `StyleFacetPicker.tsx`, `DashboardSection.tsx` | mudança de classe CSS / link — sem lógica nova | — |
+      | `apps/mesas/frontend/.../ModeracaoSection.tsx` | montagem da sub-aba; a resolução de sub-aba saiu para `moderacaoSubTabs.ts` | — |
+      | `apps/mesas/frontend/.../moderacaoSubTabs.ts` | `moderacaoSubTabs.test.ts` | **Novo** (2) |
+      | `CatalogoPage.tsx`, `SealToggle.tsx`, `StyleFacetPicker.tsx`, `DashboardSection.tsx` | mudança de classe CSS / link — sem lógica nova; o anel de foco de T8.13 é CSS, verificável só na validação visual (T6.14) | — |
       | `apps/mesas/database/migration_160_normalize_setting_styles.sql` | aceite exige execução real — ver T8.15 | Bloqueado |
 
 - [x] T8.11 — Repo-wide, um comando de cada vez: **`lint` 26/26**, **`build` 26/26**,
       **`test` 43/43 tarefas · 861 testes**. Nenhum encadeado, nenhum em paralelo.
 - [x] T8.12 — `rtk pnpm verify:api` final: **exit 0**, breaking=0 nos 6 apps.
-- [ ] T8.13 — Achados de review de bot: **pendente** — PR recém-aberta, bots ainda não
-      rodaram. Fix que proceder vira commit normal com comentário citando origem no padrão
-      `Achado real (review PR #NNN, <bot>, <P1|P2|nitpick>): …`.
+- [x] T8.13 — **Achados de review da PR #280 resolvidos** (Codex + CodeRabbit), cada fix
+      com comentário no próprio código citando `Achado real (review PR #280, <bot>, <sev>)`.
+      Nenhuma resposta, reação ou thread tocada no PR.
+
+      **Codex (3 × P2, todos procedem):** (1) idioma `pt-BR` escondido contradizia o aceite
+      13 — e a premissa da T7.7 estava errada: `pt-BR` **não** é default de banco
+      (`migration_01_base_schema.sql:141` usa `'Português'`); os 92/94 vêm de
+      `syncHelpers.ts:336`, que grava `'pt-BR'` fixo em mesa importada, e da escolha do
+      mestre no formulário — casos indistinguíveis, então esconder apagava escolha real.
+      (2) `\s*&\s*` partia nome composto: medido, `"D&D"` → `["D","D"]`; passou a exigir
+      espaço dos dois lados. (3) `normalizeSettingStyles` não deduplicava, então o estoque
+      regredia na escrita seguinte ao backfill e `/tables/style-facets` (`COUNT(*)` sobre
+      `unnest`) contava a mesma mesa duas vezes.
+
+      **CodeRabbit — acessibilidade (o mais grave):** medido `rtk rg "focus"` nos 3 arquivos
+      da Fase 6: **nenhum** controle tinha `focus-visible`. T6.4 trocou a borda inativa por
+      superfície, e nesses controles a borda **era** o indicador de foco — defeito que a
+      própria fase introduziu. Anel aplicado em `SealToggle`, chips e "+N estilos" do
+      `StyleFacetPicker`, input de busca e botão "Limpar", com o token e a geometria de
+      `.artificio-button` (`packages/ui/styles.css:1081`), sem valor próprio (T6.5).
+      `.app-select` **não** foi tocado: já tem `:focus` e é global a 19 arquivos (T6.3).
+
+      **CodeRabbit — integridade de dados:** o toast do lote reportava `ids.length`, mas a
+      rota devolve a contagem real (`RETURNING id`, `adminTables.ts:117`) — id inexistente
+      ou já no estado alvo não entra. Passou a usar `data.updated`.
+
+      **CodeRabbit — demais:** `extractErrorMessage` devolvia `data.error` sem validar tipo;
+      ação de status aparecia em mesa `full`/`ended` que o handler recusa; `STATUS_LABEL`
+      unificado entre coluna e faceta; sub-abas derivadas de `SUB_TAB_CONTENT` em vez de
+      duas cadeias de `if`; jargão de spec fora da descrição visível ao admin; mock de
+      `@artificio/ui` com `importOriginal`; mocks de escrita resetados no `beforeEach`.
+
+      **Verificado sem ação:** "referências residuais à aba `tables` do catálogo" — as
+      ocorrências restantes são o redirect intencional, comentários e usos não relacionados
+      (`GmInsightsDashboard`, `ActivityFilters`, `useSystems`).
+
+      **Divergência assumida contra o achado:** o inline pedia **remover** as correções de
+      acento da `migration_160`. T6.12 exige "regra genérica **+ lista de typos**" e o gate
+      T6.15(e) registra que `initcap` sozinho deixa R20 incompleto. Alinhei no sentido
+      inverso — subi os typos para `normalizeSettingStyles`, onde cobrem os 4 pontos de
+      escrita —, e alinhei a migration ao TS no que era divergência real: dedup por ordem de
+      primeira ocorrência (era alfabética) e retorno `NULL` (era `'{}'`).
 - [x] T8.14 — Nenhuma pendência desta spec ficou só no chat. Registro em `specs/backlog.md`,
       sessão ou `project-state.md` **não** foi feito — o mantenedor não mandou registrar.
 - [ ] T8.15 — **Smoke real pós-deploy — BLOQUEADO até o merge/deploy.** Aceites 8 e 9 exigem
