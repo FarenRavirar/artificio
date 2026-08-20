@@ -22,6 +22,7 @@ import { logActivity } from '../services/activityLogger.js';
 import { notifyAdmins } from '../services/adminNotifications.js';
 import { triggerMetaScrape, triggerMetaScrapeOnPublish } from '../services/metaScrapeClient.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
+import { normalizeSettingStyles } from '../discord/normalizeSettingStyles.js';
 import { serializeContact, serializeContactMethods, serializeContacts } from '../utils/contactSerializer.js';
 import {
   sanitizeNullableUserMarkdown,
@@ -965,7 +966,7 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       requires_camera: data.requires_camera,
       requires_microphone: data.requires_microphone,
       setting_name: data.setting_name,
-      setting_styles: data.setting_styles,
+      setting_styles: normalizeSettingStyles(data.setting_styles),
       synopsis_narrative: data.synopsis_narrative,
       benefits_text: data.benefits_text,
       table_gm_bio: data.table_gm_bio,

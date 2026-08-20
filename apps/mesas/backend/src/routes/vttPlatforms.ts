@@ -19,6 +19,28 @@ interface VttPlatformPayload {
   website_url?: string | null;
   sort_order?: number;
   is_active?: boolean;
+  aliases?: string[];
+}
+
+// D2 (spec 093): slug de alias — mesmo padrão de scenarioSuggestionsAdmin.ts.
+const aliasSlug = (alias: string): string =>
+  alias.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+// Normaliza a lista de aliases recebida: trim, filtra vazio, dedup case-insensitive.
+function normalizeAliases(aliases: unknown): string[] {
+  if (!Array.isArray(aliases)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const a of aliases) {
+    if (typeof a !== 'string') continue;
+    const t = a.trim();
+    if (!t || t.length > 100) continue;
+    const key = t.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(t);
+  }
+  return out;
 }
 
 const normalizeLogoFilename = (value?: string | null): string | null => {
@@ -188,7 +210,19 @@ router.get('/admin', authMiddleware, requireRole('admin'), async (_req, res) => 
       .orderBy('name', 'asc')
       .execute();
 
-    return res.json({ data: platforms });
+    // D2 (spec 093): aliases em tabela — expostos no CRUD para edição no painel.
+    const aliases = await db
+      .selectFrom('vtt_platform_aliases')
+      .select(['vtt_platform_id', 'alias'])
+      .execute();
+    const aliasMap = new Map<string, string[]>();
+    for (const a of aliases) {
+      const list = aliasMap.get(a.vtt_platform_id) ?? [];
+      list.push(a.alias);
+      aliasMap.set(a.vtt_platform_id, list);
+    }
+
+    return res.json({ data: platforms.map((p) => ({ ...p, aliases: aliasMap.get(p.id) ?? [] })) });
   } catch (error) {
     console.error('[GET /vtt-platforms/admin] Erro ao buscar plataformas:', error);
     return res.status(500).json({ error: 'Erro ao buscar plataformas VTT.' });
@@ -217,29 +251,45 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req, res) => 
   try {
     const websiteUrl = normalizeWebsiteUrl(payload.website_url);
     const logoFilename = normalizeLogoFilename(payload.logo_filename);
+    const aliases = normalizeAliases(payload.aliases);
 
-    const created = await db
-      .insertInto('vtt_platforms')
-      .values({
-        name,
-        slug,
-        logo_filename: logoFilename,
-        website_url: websiteUrl,
-        sort_order: sortOrder,
-        is_active: payload.is_active ?? true,
-      })
-      .returning([
-        'id',
-        'name',
-        'slug',
-        'logo_filename',
-        'website_url',
-        'is_active',
-        'sort_order',
-        'created_at',
-        'updated_at',
-      ])
-      .executeTakeFirst();
+    const created = await db.transaction().execute(async (trx) => {
+      const platform = await trx
+        .insertInto('vtt_platforms')
+        .values({
+          name,
+          slug,
+          logo_filename: logoFilename,
+          website_url: websiteUrl,
+          sort_order: sortOrder,
+          is_active: payload.is_active ?? true,
+        })
+        .returning([
+          'id',
+          'name',
+          'slug',
+          'logo_filename',
+          'website_url',
+          'is_active',
+          'sort_order',
+          'created_at',
+          'updated_at',
+        ])
+        .executeTakeFirstOrThrow();
+
+      if (aliases.length > 0) {
+        await trx
+          .insertInto('vtt_platform_aliases')
+          .values(aliases.map((alias) => ({
+            vtt_platform_id: platform.id,
+            alias,
+            alias_slug: aliasSlug(alias),
+          })))
+          .onConflict((oc) => oc.columns(['vtt_platform_id', 'alias_slug']).doNothing())
+          .execute();
+      }
+      return { ...platform, aliases };
+    });
 
     return res.status(201).json({ data: created });
   } catch (error) {
@@ -314,27 +364,75 @@ router.put('/admin/:id', authMiddleware, requireRole('admin'), async (req, res) 
     updateData.is_active = payload.is_active;
   }
 
-  if (Object.keys(updateData).length === 0) {
+  const hasAliases = payload.aliases !== undefined;
+  const nextAliases = hasAliases ? normalizeAliases(payload.aliases) : null;
+
+  if (Object.keys(updateData).length === 0 && !hasAliases) {
     return res.status(400).json({ error: 'Nenhum campo válido para atualização.' });
   }
 
   try {
-    const updated = await db
-      .updateTable('vtt_platforms')
-      .set(updateData)
-      .where('id', '=', id)
-      .returning([
-        'id',
-        'name',
-        'slug',
-        'logo_filename',
-        'website_url',
-        'is_active',
-        'sort_order',
-        'created_at',
-        'updated_at',
-      ])
-      .executeTakeFirst();
+    const updated = await db.transaction().execute(async (trx) => {
+      const platform = Object.keys(updateData).length > 0
+        ? await trx
+            .updateTable('vtt_platforms')
+            .set(updateData)
+            .where('id', '=', id)
+            .returning([
+              'id',
+              'name',
+              'slug',
+              'logo_filename',
+              'website_url',
+              'is_active',
+              'sort_order',
+              'created_at',
+              'updated_at',
+            ])
+            .executeTakeFirst()
+        : await trx
+            .selectFrom('vtt_platforms')
+            .select([
+              'id',
+              'name',
+              'slug',
+              'logo_filename',
+              'website_url',
+              'is_active',
+              'sort_order',
+              'created_at',
+              'updated_at',
+            ])
+            .where('id', '=', id)
+            .executeTakeFirst();
+
+      if (!platform) return null;
+
+      // D2 (spec 093): substitui os aliases da plataforma (delete + insert).
+      if (hasAliases) {
+        await trx.deleteFrom('vtt_platform_aliases').where('vtt_platform_id', '=', id).execute();
+        if (nextAliases && nextAliases.length > 0) {
+          await trx
+            .insertInto('vtt_platform_aliases')
+            .values(nextAliases.map((alias) => ({
+              vtt_platform_id: id,
+              alias,
+              alias_slug: aliasSlug(alias),
+            })))
+            .execute();
+        }
+      }
+
+      const currentAliases = hasAliases
+        ? (nextAliases ?? [])
+        : (await trx
+            .selectFrom('vtt_platform_aliases')
+            .select('alias')
+            .where('vtt_platform_id', '=', id)
+            .execute()).map((a) => a.alias);
+
+      return { ...platform, aliases: currentAliases };
+    });
 
     if (!updated) {
       return res.status(404).json({ error: 'Plataforma VTT não encontrada.' });

@@ -641,6 +641,34 @@ export type CommunicationPlatform = Selectable<CommunicationPlatformsTable>;
 export type NewCommunicationPlatform = Insertable<CommunicationPlatformsTable>;
 export type CommunicationPlatformUpdate = Updateable<CommunicationPlatformsTable>;
 
+// VTT Platform Aliases (spec 093 / D2 — espelha scenario_aliases)
+export interface VttPlatformAliasesTable {
+  id: Generated<string>;
+  vtt_platform_id: string;
+  alias: string;
+  alias_slug: string;
+  is_official: Generated<boolean>;
+  created_at: Generated<Date>;
+}
+
+export type VttPlatformAlias = Selectable<VttPlatformAliasesTable>;
+export type NewVttPlatformAlias = Insertable<VttPlatformAliasesTable>;
+export type VttPlatformAliasUpdate = Updateable<VttPlatformAliasesTable>;
+
+// Communication Platform Aliases (spec 093 / D2 — espelha scenario_aliases)
+export interface CommunicationPlatformAliasesTable {
+  id: Generated<string>;
+  communication_platform_id: string;
+  alias: string;
+  alias_slug: string;
+  is_official: Generated<boolean>;
+  created_at: Generated<Date>;
+}
+
+export type CommunicationPlatformAlias = Selectable<CommunicationPlatformAliasesTable>;
+export type NewCommunicationPlatformAlias = Insertable<CommunicationPlatformAliasesTable>;
+export type CommunicationPlatformAliasUpdate = Updateable<CommunicationPlatformAliasesTable>;
+
 export type VttSuggestionStatus = 'pending' | 'approved' | 'rejected';
 
 export interface VttPlatformSuggestionsTable {
@@ -1103,11 +1131,13 @@ export interface Database {
 
   // VTT Platforms (Migration 006)
   vtt_platforms: VttPlatformsTable;
+  vtt_platform_aliases: VttPlatformAliasesTable; // spec 093 / D2
   vtt_platform_suggestions: VttPlatformSuggestionsTable;
   gm_preferred_vtt_platforms: GmPreferredVttPlatformsTable; // Migration 109
 
   // Communication Platforms (Migration 105)
   communication_platforms: CommunicationPlatformsTable;
+  communication_platform_aliases: CommunicationPlatformAliasesTable; // spec 093 / D2
 
   // Migration 17: Sistema de Changelog/Atualizações
   update_log: UpdateLogTable;

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { authGet } from '../../services/apiClient';
+import { normalizeSettingStyles } from '../../utils/normalizeSettingStyles';
 import type { DiscordCoverQuality, DiscordDraftPayload, DiscordDraftTablePayload, DiscordSlotsAmbiguity } from './types';
 
 export type DraftTableType = 'campanha' | 'one-shot' | 'oneshot-serie' | 'aberta';
@@ -448,9 +449,11 @@ export function buildUpdatedPayload(base: DiscordDraftPayload, form: DraftForm):
     experience_level: form.experience_level || null,
     table_level: form.table_level || null,
     setting_name: form.setting_name.trim() || null,
-    setting_styles: form.setting_styles.trim()
-      ? form.setting_styles.split(',').map((s) => s.trim()).filter(Boolean)
-      : null,
+    setting_styles: normalizeSettingStyles(
+      form.setting_styles.trim()
+        ? form.setting_styles.split(',').map((s) => s.trim()).filter(Boolean)
+        : null,
+    ),
     requires_pc: form.requires_pc,
     requires_camera: form.requires_camera,
     requires_microphone: form.requires_microphone,

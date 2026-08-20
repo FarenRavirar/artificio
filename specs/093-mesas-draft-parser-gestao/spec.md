@@ -235,15 +235,18 @@ status" (`DiscordDraftPreview.tsx:299-303`) tem gate só em `synced` — logo **
 R13 passa a ser, portanto, **atalho de linha para um fluxo que já existe** — não capacidade
 nova. Isso reduz o valor da fase, e o mantenedor precisa saber disso antes de aprová-la.
 
-**Dois achados que restringem R12** ("ver, **editar**, limpar"):
+**Dois achados que restringiram R12** — ambos resolvidos por **D5** (2026-08-19), que trocou
+"ver, editar, limpar" por **"ver, restaurar, limpar"**:
 
 - **Editar campos de descartado é impossível hoje**, por decisão de backend:
   `POST /:id/correction` → `registerDraftCorrection` devolve **422** "Draft rejeitado não
-  pode ser corrigido" (`routes/discord/utils.ts:184`). Cumprir R12 como escrito exigiria
-  afrouxar um guard deliberado — decisão de produto, não de implementação.
+  pode ser corrigido" (`routes/discord/utils.ts:184`). **Decidido (D5b): o guard fica.** Ele
+  é simétrico ao `:183`, que protege `synced`; editar exige restaurar antes.
 - **Existe um segundo vetor de "des-descartar" não mapeado:** `POST /:id/reparse`
   (`drafts.ts:372-386`) bloqueia apenas `synced`, re-deriva o status e **sobrescreve
   `rejected`**. O botão "Reparsar" no preview (linha 383) não tem gate de status.
+  **Decidido (D5c): barrar** — mesmo gate do `:183` estendido a `rejected`, senão o reparse
+  contradiz o guard acima.
 
 ### Gap 8 — Dois `.sql` fora do contrato de migration, invisíveis à esteira
 
@@ -403,7 +406,7 @@ cada campo, não a decisão de exibi-lo.
 | **R9** ‡ | O anúncio do Gap 4 produz as vagas declaradas no texto (`1 disponível de 4`), não `25`. | 4 |
 | **R10** | O rótulo `Tema(s)`/`Tema`/`Temas` alimenta `setting_styles` e deixa de sobrar na descrição. | 5 |
 | **R11** | As abas Bruto e Normalizado têm botão de copiar o conteúdo integral exibido, acessível sem rolar. | 6 |
-| **R12** | `/gestao/mesas` ganha aba "Descartados" listando `status='rejected'`, com ver, editar e limpar definitivo. | 7 |
+| **R12** | `/gestao/mesas` ganha aba "Descartados" listando `status='rejected'`, com ver, **restaurar** e limpar definitivo. Editar exige restaurar antes — guard 422 mantido (D5b). | 7 |
 | **R13** | Draft descartado pode ser restaurado para `draft`/`needs_review` pela UI. | 7 |
 | **R14** | Nenhum `.sql` do app mesas vive fora dos diretórios da allowlist; `006_create_vtt_platforms.sql` e `007_click_tracking.sql` passam a existir sob o contrato, com header de 5 campos e forma idempotente. | 8 |
 | **R15** | O guard `_enforce-migration-dir.yml` deixa de ter ponto cego para arquivo pré-existente fora da allowlist. | 8 |
@@ -469,22 +472,33 @@ existe para corrigir. **Esta parte permanece decisão técnica.** → **R12**
 item ausente". Falso — restaurar **já funciona** pelo preview. R13 é atalho, não capacidade
 nova.)*
 
-### Pendente de decisão do mantenedor — reclassificado após auditoria
+**D5 — Destino da restauração, e o que "editar descartado" significa.** **Respondida pelo
+mantenedor em 2026-08-19:** seguir a melhor prática de mercado para moderação — *soft-delete
+com restauração ao estado anterior*, em que descartar não destrói informação e restaurar
+devolve o item ao fluxo sem inventar estado que ele nunca teve. Reclassificada de técnica
+para produto pela auditoria (transversal 8); o `CHECK` da `migration_118` só restringe
+`ready` (`status <> 'ready'`), então não decidia nada. Os três pontos, decididos:
 
-**D5 — Destino da restauração, e o que "editar descartado" significa.** A auditoria
-(transversal 8) apontou que isto foi tratado como decisão técnica quando é **de produto**:
-para onde um descartado volta é comportamento observável do fluxo de moderação, e o `CHECK`
-da `migration_118` só restringe `ready`, não decide nada. Duas questões abertas:
+1. **Destino: recalcular a normalização, não fixar status.** A task fixava `needs_review`
+   para todo restaurado. Contradiz a semântica medida em `normalizeDiscordTableDraft.ts:92`
+   (`status: missingFields.length === 0 ? 'ready' : 'needs_review'`): `needs_review` é estado
+   **derivado** de "faltam campos", não fila de moderação. Fixá-lo fabrica pendência
+   inexistente e manda o revisor procurar campo que nunca faltou. Restaurar reexecuta a
+   normalização: sem campo faltando → `ready`; com → `needs_review`. `draft` fica de fora —
+   é estado de entrada do pipeline, não de retorno.
+2. **R12 vira "ver, restaurar e limpar"; o guard 422 permanece.** `registerDraftCorrection`
+   (`routes/discord/utils.ts:184`) recusa correção em `rejected`, simétrico ao `:183` que
+   protege `synced`. Editar descartado produz registro que ninguém revisou naquele conteúdo —
+   exatamente o que o padrão evita. O caminho correto já existe e custa um clique: restaurar,
+   depois editar, com o item de volta sob revisão. Afrouxar o guard trocaria trava deliberada
+   por conveniência.
+3. **`POST /:id/reparse` sobre `rejected`: barrar.** Hoje (`drafts.ts:381`) bloqueia só
+   `synced`, então sobrescreve `rejected` sem gate — segundo caminho de des-descartar,
+   silencioso, que contradiz o item 2: o guard de correção recusa 422 enquanto o reparse
+   reescreve o mesmo registro. Passa a exigir restauração explícita antes, estendendo a
+   `rejected` o mesmo gate do `:183`.
 
-1. **Destino:** R13 diz "`draft`/`needs_review`" (dois), a task fixou `needs_review` (um) —
-   deriva não registrada. **Inferência a confirmar**, nunca decidido.
-2. **"Editar" descartado é impossível hoje:** `registerDraftCorrection` devolve 422
-   (`routes/discord/utils.ts:184`). Cumprir R12 como escrito exige afrouxar um guard
-   deliberado. Alternativa: reescrever R12 para "ver, restaurar e limpar".
-
-Além disso, há um **segundo caminho de des-descartar** não previsto: `POST /:id/reparse`
-(`drafts.ts:372-386`) bloqueia só `synced` e sobrescreve `rejected`. Se isso é desejado ou
-não, é chamada do mantenedor. → **R12, R13**
+→ **R12, R13**
 
 ---
 

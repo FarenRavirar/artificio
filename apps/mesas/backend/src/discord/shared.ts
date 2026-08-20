@@ -46,43 +46,37 @@ export async function loadSystemsForParser(): Promise<SystemEntry[]> {
 }
 
 // ─── Fase A/C (spec 058) — VTT e plataforma de comunicação p/ parse de anúncios ──
-
-// Achado do mantenedor (2026-07-08): "Foundry VTT" (nome do catálogo) nunca bate
-// em anúncio real, que sempre cita só "Foundry"/"FoundryVTT" — matcher exige o
-// nome inteiro como substring (candidateMatchesText). Sem tabela de aliases para
-// vtt_platforms/communication_platforms no banco (só systems/scenarios têm),
-// mapa estático por slug é o fix mais barato até existir vtt_platform_aliases.
-// Achado CodeRabbit (PR #132): admin pode editar slug/name livre via
-// routes/vttPlatforms.ts (PATCH) — se um registro seed sair dessas chaves,
-// VTT_ALIASES[...] vira [] em silêncio e o parser volta a exigir o nome
-// completo. Chaveado por slug E name (segunda tentativa) reduz o risco sem
-// exigir migration nova; risco residual documentado, não eliminado.
-const VTT_ALIASES: Record<string, string[]> = {
-  'foundry-vtt': ['Foundry', 'FoundryVTT'],
-  'tabletop-simulator': ['TTS', 'Tabletop Simulator'],
-  'fantasy-grounds-unity': ['Fantasy Grounds', 'FGU'],
-  'owlbear-rodeo': ['Owlbear'],
-  'dndbeyond-maps': ['D&D Beyond', 'DDB Maps', 'DnD Beyond'],
-  'alchemy-rpg': ['Alchemy'],
-  'Foundry VTT': ['Foundry', 'FoundryVTT'],
-  'Tabletop Simulator (TTS)': ['TTS', 'Tabletop Simulator'],
-  'Fantasy Grounds Unity': ['Fantasy Grounds', 'FGU'],
-  'Owlbear Rodeo': ['Owlbear'],
-  'D&D Beyond Maps': ['D&D Beyond', 'DDB Maps', 'DnD Beyond'],
-  'Alchemy RPG': ['Alchemy'],
-};
+//
+// Aliases vêm da tabela (vtt_platform_aliases / communication_platform_aliases),
+// decisão D2 da spec 093. O mapa hardcoded VTT_ALIASES e o aliases: [] fixo foram
+// removidos: slug/name divergente virava [] em silêncio, e VTT criada pelo CRUD
+// admin não podia ganhar alias. Carregamento segue o padrão de
+// loadScenariosForParser (duas queries + Map) — catálogo inteiro uma vez por batch.
 
 /** Carrega plataformas VTT ativas do banco para o parse de anúncios Discord. */
 export async function loadVttPlatformsForParser(): Promise<MatchEntry[]> {
   const platforms = await db
     .selectFrom('vtt_platforms')
-    .select(['id', 'name', 'slug'])
+    .select(['id', 'name'])
     .where('is_active', '=', true)
     .execute();
+
+  const aliases = await db
+    .selectFrom('vtt_platform_aliases')
+    .select(['vtt_platform_id', 'alias'])
+    .execute();
+
+  const aliasMap = new Map<string, string[]>();
+  for (const a of aliases) {
+    const list = aliasMap.get(a.vtt_platform_id) ?? [];
+    list.push(a.alias);
+    aliasMap.set(a.vtt_platform_id, list);
+  }
+
   return platforms.map((p) => ({
     id: p.id,
     name: p.name,
-    aliases: VTT_ALIASES[p.slug] ?? VTT_ALIASES[p.name] ?? [],
+    aliases: aliasMap.get(p.id) ?? [],
   }));
 }
 
@@ -93,7 +87,24 @@ export async function loadCommunicationPlatformsForParser(): Promise<MatchEntry[
     .select(['id', 'name'])
     .where('is_active', '=', true)
     .execute();
-  return platforms.map((p) => ({ id: p.id, name: p.name, aliases: [] }));
+
+  const aliases = await db
+    .selectFrom('communication_platform_aliases')
+    .select(['communication_platform_id', 'alias'])
+    .execute();
+
+  const aliasMap = new Map<string, string[]>();
+  for (const a of aliases) {
+    const list = aliasMap.get(a.communication_platform_id) ?? [];
+    list.push(a.alias);
+    aliasMap.set(a.communication_platform_id, list);
+  }
+
+  return platforms.map((p) => ({
+    id: p.id,
+    name: p.name,
+    aliases: aliasMap.get(p.id) ?? [],
+  }));
 }
 
 /** Carrega cenarios e aliases do banco para o parse de anuncios Discord. */

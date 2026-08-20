@@ -1,4 +1,5 @@
 import type { FormState, CreateTablePayload } from '../types/createTable.types';
+import { normalizeSettingStyles } from '../../../utils/normalizeSettingStyles';
 
 /**
  * Transforma o estado do formulário em payload para a API
@@ -147,7 +148,8 @@ export function formStateToPayload(state: FormState): CreateTablePayload {
   if (state.requiresMicrophone) payload.requires_microphone = state.requiresMicrophone;
   if (state.settingName) payload.setting_name = state.settingName;
   if (state.settingStyles && state.settingStyles.length > 0) {
-    payload.setting_styles = state.settingStyles;
+    const normalized = normalizeSettingStyles(state.settingStyles);
+    if (normalized) payload.setting_styles = normalized;
   }
   
   // Campos editoriais Fase 6 (REQ-28)

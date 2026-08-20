@@ -1,6 +1,7 @@
 name: _enforce-migration-dir
 
-# Reusável: bloqueia PR que adiciona/altera .sql fora de diretórios de migration allowlisted.
+# Reusável: bloqueia PR que adiciona/altera .sql fora de diretórios de migration allowlisted,
+# e varre TODO .sql rastreado no repo para fechar o ponto cego de passivo pré-existente (R15).
 # Mantém migrations rastreáveis e dentro do contrato de módulo (D039 / contrato de módulo G1).
 on:
   workflow_call:
@@ -19,7 +20,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Validate changed SQL paths
+      - name: Validate SQL paths (allowlist + full scan)
         env:
           BASE_REF: ${{ github.base_ref }}
         run: |
@@ -66,29 +67,37 @@ jobs:
             echo "::error::self-test allowlist permitiu SQL arbitrário em specs"
             exit 1
           fi
+          # Regressão do ponto cego (spec 093, R15): o diretório órfão
+          # apps/mesas/backend/migrations/ estava fora da allowlist e nunca
+          # disparava bloqueio porque o check antigo só via --diff-filter=AM.
+          if is_allowed_sql_path "apps/mesas/backend/migrations/006_create_vtt_platforms.sql"; then
+            echo "::error::self-test allowlist permitiu orfao fora da allowlist (regressao R15)"
+            exit 1
+          fi
           echo "Self-test allowlist: permitido/bloqueado OK."
 
+          fail=0
+
+          # Varredura COMPLETA: todo .sql rastreado no repo precisa estar na
+          # allowlist. Fecha o ponto cego do --diff-filter=AM (arquivo
+          # pré-existente fora da allowlist nunca disparava bloqueio).
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            if is_allowed_sql_path "$f"; then
+              continue
+            fi
+            echo "::error file=$f::SQL fora dos caminhos allowlisted em .github/migration-dir-allowlist"
+            fail=1
+          done < <(git ls-files '*.sql')
+
+          # Proteção de fluxo: arquivos .sql adicionados (A) ou modificados (M)
+          # no diff do PR também precisam estar na allowlist.
           git fetch origin "$BASE_REF" --depth=1
           base_sha=$(git rev-parse "origin/${BASE_REF}")
-
-          # Apenas arquivos .sql adicionados (A) ou modificados (M)
           mapfile -t changed_sql < <(git diff --name-only --diff-filter=AM "${base_sha}...HEAD" -- '*.sql')
-
-          if [ "${#changed_sql[@]}" -eq 0 ]; then
-            echo "Sem .sql adicionado/alterado. OK."
-            exit 0
-          fi
-
-          fail=0
           for f in "${changed_sql[@]}"; do
             [ -z "$f" ] && continue
-            ok=0
-            if is_allowed_sql_path "$f"; then
-              ok=1
-            fi
-            if [ "$ok" -eq 1 ]; then
-              echo "permitido: $f"
-            else
+            if ! is_allowed_sql_path "$f"; then
               echo "::error file=$f::SQL fora dos caminhos allowlisted em .github/migration-dir-allowlist"
               fail=1
             fi
@@ -98,4 +107,4 @@ jobs:
             echo "BLOCKED: mova o SQL para um caminho allowlisted em .github/migration-dir-allowlist."
             exit 1
           fi
-          echo "Todas as migrations dentro do contrato. OK."
+          echo "Todos os .sql rastreados dentro do contrato. OK."

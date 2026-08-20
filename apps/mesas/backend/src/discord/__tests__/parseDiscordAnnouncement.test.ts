@@ -3,6 +3,7 @@ import { normalizeDiscordTableDraft } from '../normalizeDiscordTableDraft.js';
 import type { ImportRawMessage } from '../types.js';
 import { chatExporterSampleMessages } from './fixtures/chatExporterSample.js';
 import { parserPhase11Samples } from './fixtures/parserPhase11Samples.js';
+import { gap4KingmakerAnnouncement } from './fixtures/gap4Kingmaker.js';
 
 function makeMessage(overrides: Partial<ImportRawMessage>): ImportRawMessage {
   return {
@@ -692,6 +693,96 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table._slots_ambiguity).toEqual({ first, second, source: 'x_slash_y' });
   });
 
+  // — Fase 1 da spec 093 (R7, R8, R9): guard de data + qualificador "de M" —
+
+  it('Gap 4 (anúncio Kingmaker sintético): "1 disponível de 4" vira {total:4, open:1}, não 25 nem {null,null}', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: gap4KingmakerAnnouncement }),
+    );
+
+    expect(draft?.table.slots_total).toBe(4);
+    expect(draft?.table.slots_open).toBe(1);
+    expect(draft?.table._slots_ambiguity).toBeNull();
+  });
+
+  it('Camada D: "2 abertas de 6" é lida como open/total', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Sistema: D&D 5e\nVagas: 2 abertas de 6\nContato: https://forms.gle/example' }),
+    );
+
+    expect(draft?.table.slots_total).toBe(6);
+    expect(draft?.table.slots_open).toBe(2);
+    expect(draft?.table._slots_ambiguity).toBeNull();
+  });
+
+  it('Camada D: "3 ocupadas de 5" é lida como filled/total', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Sistema: D&D 5e\nVagas: 3 ocupadas de 5\nContato: https://forms.gle/example' }),
+    );
+
+    expect(draft?.table.slots_total).toBe(5);
+    expect(draft?.table.slots_open).toBe(2);
+    expect(draft?.table._slots_ambiguity).toBeNull();
+  });
+
+  it('guard de data: "dia 25/08" em linha com "jogadores" não vira par de vaga', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Sistema: D&D 5e\njogo já dia 25/08, os jogadores confirmados\nContato: https://forms.gle/example' }),
+    );
+
+    expect(draft?.table.slots_total).toBeNull();
+    expect(draft?.table.slots_open).toBeNull();
+  });
+
+  it('guard de data: "25/08/2026" (forma completa) não vira par de vaga', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Sistema: D&D 5e\nPróximo jogo dia 25/08/2026, aguardo os jogadores\nContato: https://forms.gle/example' }),
+    );
+
+    expect(draft?.table.slots_total).toBeNull();
+    expect(draft?.table.slots_open).toBeNull();
+  });
+
+  it('Camada C: entre dois pares "/", o semântico vence o genérico mesmo vindo depois', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Sistema: D&D 5e\nVagas: 3/5\nVagas Ocupadas: 2/6\nContato: https://forms.gle/example' }),
+    );
+
+    expect(draft?.table.slots_total).toBe(6);
+    expect(draft?.table.slots_open).toBe(4);
+    expect(draft?.table._slots_ambiguity).toBeNull();
+  });
+
+  it('preserva "8/25" como par ambíguo (sem guard de faixa — sinal 3 descartado)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Sistema: D&D 5e\nVagas: 8/25\nContato: https://forms.gle/example' }),
+    );
+
+    expect(draft?.table.slots_total).toBe(25);
+    expect(draft?.table.slots_open).toBeNull();
+    expect(draft?.table._slots_ambiguity).toEqual({ first: 8, second: 25, source: 'x_slash_y' });
+  });
+
+  it('preserva "1 vaga / grupo de 5 pessoas" como open/total (slotsGroupSize)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Sistema: D&D 5e\nVagas: 1 vaga / grupo de 5 pessoas\nContato: https://forms.gle/example' }),
+    );
+
+    expect(draft?.table.slots_total).toBe(5);
+    expect(draft?.table.slots_open).toBe(1);
+    expect(draft?.table._slots_ambiguity).toBeNull();
+  });
+
+  it('não regride: "Participantes: 30/24 restando 6 vagas" segue ambíguo (30/24)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Sistema: D&D 5e\n▬ Participantes: 30/24 restando 6 vagas.\nContato: https://forms.gle/example' }),
+    );
+
+    expect(draft?.table.slots_total).toBe(30);
+    expect(draft?.table.slots_open).toBeNull();
+    expect(draft?.table._slots_ambiguity).toEqual({ first: 30, second: 24, source: 'x_slash_y' });
+  });
+
   it('keeps Vagas: 0 as an explicit closed table instead of missing slots (spec 017 Fase E regression)', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({
@@ -1012,6 +1103,126 @@ describe('parseDiscordAnnouncement', () => {
 
     expect(draft?.table.age_rating).toBe('+18');
     expect(draft?.table.setting_styles).toEqual(['Fantasia', 'Investigação', 'Mistério']);
+  });
+
+  // — Fase 3 da spec 093: rótulo "Tema(s)", aliases e normalização de setting_styles —
+
+  it('reconhece "Tema(s): a, b, c" como setting_styles capitalizado e remove o rótulo da descrição (R10/R19)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: D&D 5e',
+          'Tema(s): a, b, c',
+          'Vagas: 4',
+          '',
+          'Uma campanha épica de exploração.',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.setting_styles).toEqual(['A', 'B', 'C']);
+    expect(draft?.table.description).toContain('Uma campanha épica');
+    expect(draft?.table.description).not.toContain('Tema(s)');
+  });
+
+  it('reconhece "Tema" e "Temas" como sinônimos de estilo, preservando preposição interna (R10/R19)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: D&D 5e',
+          'Tema: exploração, gestão de reino, fatia de vida',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.setting_styles).toEqual(['Exploração', 'Gestão de Reino', 'Fatia de Vida']);
+  });
+
+  it('remove "Classificação Indicativa" da descrição (Gap 5 segundo sintoma, spec 093)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: D&D 5e',
+          'Classificação Indicativa: +18',
+          'Vagas: 4',
+          '',
+          'Uma aventura sombria.',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.age_rating).toBe('+18');
+    expect(draft?.table.description).toContain('Uma aventura sombria');
+    expect(draft?.table.description).not.toMatch(/Classifica[çc][ãa]o Indicativa/i);
+  });
+
+  it('reconhece "Fantasy Grounds Classic" como fantasy-grounds-unity via alias (R4, spec 093)', () => {
+    const vttPlatforms = [
+      { id: 'fantasy-grounds-unity', name: 'Fantasy Grounds Unity', aliases: ['Fantasy Grounds', 'FGU', 'FGC', 'Fantasy Grounds Classic'] },
+      { id: 'foundry-vtt', name: 'Foundry VTT', aliases: ['Foundry', 'FoundryVTT'] },
+    ];
+    const communicationPlatforms = [{ id: 'discord', name: 'Discord', aliases: [] }];
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: 'Plataformas: Fantasy Grounds Classic, Discord\nVagas: 4\nSistema: D&D 5e',
+      }),
+      undefined,
+      undefined,
+      { vtt: vttPlatforms, communication: communicationPlatforms },
+    );
+
+    expect(draft?.table.vtt_platform_id).toBe('fantasy-grounds-unity');
+  });
+
+  it.each([
+    ['Roll 20', 'roll20'],
+    ['Tale Spire', 'talespire'],
+    ['QuestPortal', 'quest-portal'],
+    ['Table Plop', 'tableplop'],
+  ])('reconhece o alias "%s" como %s (R3, spec 093)', (alias, expectedId) => {
+    const vttPlatforms = [
+      { id: 'roll20', name: 'Roll20', aliases: ['Roll 20'] },
+      { id: 'talespire', name: 'TaleSpire', aliases: ['Tale Spire'] },
+      { id: 'quest-portal', name: 'Quest Portal', aliases: ['QuestPortal'] },
+      { id: 'tableplop', name: 'Tableplop', aliases: ['Table Plop'] },
+    ];
+    const communicationPlatforms = [{ id: 'discord', name: 'Discord', aliases: [] }];
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: `Plataformas: ${alias}, Discord\nVagas: 4\nSistema: D&D 5e`,
+      }),
+      undefined,
+      undefined,
+      { vtt: vttPlatforms, communication: communicationPlatforms },
+    );
+
+    expect(draft?.table.vtt_platform_id).toBe(expectedId);
+  });
+
+  it.each([
+    ['Meet', 'google-meet'],
+    ['Teams', 'microsoft-teams'],
+  ])('reconhece o alias de comunicação "%s" como %s (R16, spec 093)', (alias, expectedId) => {
+    const vttPlatforms: { id: string; name: string; aliases: string[] }[] = [];
+    const communicationPlatforms = [
+      { id: 'discord', name: 'Discord', aliases: [] },
+      { id: 'google-meet', name: 'Google Meet', aliases: ['Meet'] },
+      { id: 'microsoft-teams', name: 'Microsoft Teams', aliases: ['Teams'] },
+    ];
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: `Plataformas: ${alias}\nVagas: 4\nSistema: D&D 5e`,
+      }),
+      undefined,
+      undefined,
+      { vtt: vttPlatforms, communication: communicationPlatforms },
+    );
+
+    expect(draft?.table.communication_platform_id).toBe(expectedId);
   });
 
   it('trata faixa etária acima de 18 (ex.: "20+") como +18 — não existe faixa mais restrita no enum (achado do mantenedor 2026-07-16)', () => {
