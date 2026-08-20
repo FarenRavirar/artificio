@@ -1162,6 +1162,21 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table.setting_styles).toEqual(['Exploração', 'Gestão de Reino', 'Fatia de Vida']);
   });
 
+  it('separa multi-valores por • · & e remove menção crua de role (R20)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: D&D 5e',
+          'Estilo: dark fantasy • exploração & sword <@&1012065638598049918>',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.setting_styles).toEqual(['Dark Fantasy', 'Exploração', 'Sword']);
+  });
+
   it('remove "Classificação Indicativa" da descrição (Gap 5 segundo sintoma, spec 093)', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({

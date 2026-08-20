@@ -459,7 +459,7 @@ export const CatalogoPage = () => {
                 value={filters.search}
                 onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }))}
                 placeholder="Buscar mesas..."
-                className="w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] py-2.5 pl-9 pr-3 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-muted)] transition-colors focus:border-[var(--artificio-brand)]"
+                className="w-full rounded-lg border border-transparent bg-[var(--surface)] h-10 pl-9 pr-3 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-muted)] transition-colors focus:border-[var(--artificio-brand)]"
               />
             </div>
 
@@ -480,7 +480,7 @@ export const CatalogoPage = () => {
               id="catalog-desktop-modality"
               value={filters.modality}
               onChange={(e) => updateFilter(setFilters, 'modality', pickOptionalOption(e.target.value, VALID_MODALITIES))}
-              className="app-select shrink-0 py-2.5"
+              className="app-select shrink-0 h-10"
             >
               <option value="">Modalidade</option>
               <option value="online">Online</option>
@@ -493,7 +493,7 @@ export const CatalogoPage = () => {
               id="catalog-desktop-price"
               value={filters.priceType}
               onChange={(e) => updateFilter(setFilters, 'priceType', pickOptionalOption(e.target.value, VALID_PRICE_TYPES))}
-              className="app-select shrink-0 py-2.5"
+              className="app-select shrink-0 h-10"
             >
               <option value="">Preço</option>
               <option value="gratuita">Gratuita</option>
@@ -505,7 +505,7 @@ export const CatalogoPage = () => {
               id="catalog-desktop-experience"
               value={filters.experience}
               onChange={(e) => updateFilter(setFilters, 'experience', pickOptionalOption(e.target.value, VALID_EXPERIENCE_LEVELS))}
-              className="app-select shrink-0 py-2.5"
+              className="app-select shrink-0 h-10"
             >
               <option value="">Nível</option>
               <option value="iniciante">Iniciante</option>
@@ -539,7 +539,7 @@ export const CatalogoPage = () => {
               <button
                 type="button"
                 onClick={clearFilters}
-                className="ml-auto flex shrink-0 items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-[var(--fg)] transition-colors hover:bg-[var(--surface-strong)]"
+                className="ml-auto flex shrink-0 items-center gap-2 rounded-lg border border-transparent bg-[var(--surface)] px-3 h-10 text-sm font-semibold text-[var(--fg)] transition-colors hover:bg-[var(--surface-strong)]"
               >
                 <RotateCcw className="h-4 w-4" />
                 Limpar

@@ -18,8 +18,9 @@ function inboxDraftToDiscordDraft(draft: InboxDraft): DiscordDraft {
 }
 import { PageHeader, SectionCard, tabButtonClass } from './ui';
 import { TableDuplicatesPanel } from './TableDuplicatesPanel';
+import { AdminTablesPanel } from './AdminTablesPanel';
 
-type ModSubTab = 'mensagens' | 'rascunhos' | 'duplicatas' | 'descartados';
+type ModSubTab = 'mensagens' | 'rascunhos' | 'duplicatas' | 'descartados' | 'mesas';
 
 const SUB_TAB_CONTENT: Record<ModSubTab, { title: string; description: string }> = {
   rascunhos: {
@@ -37,6 +38,10 @@ const SUB_TAB_CONTENT: Record<ModSubTab, { title: string; description: string }>
   descartados: {
     title: 'Descartados',
     description: 'Rascunhos rejeitados. Ver, restaurar (volta ao fluxo de revisão) ou apagar definitivamente.',
+  },
+  mesas: {
+    title: 'Mesas',
+    description: 'Lista de mesas de qualquer status (R5/R6, spec 093), migrada da aba do catálogo — busca, facetas e ações em lote/linha.',
   },
 };
 
@@ -84,6 +89,7 @@ export function ModeracaoSection() {
     if (sub === 'mensagens') return 'mensagens';
     if (sub === 'duplicatas') return 'duplicatas';
     if (sub === 'descartados') return 'descartados';
+    if (sub === 'mesas') return 'mesas';
     return 'rascunhos';
   });
 
@@ -94,6 +100,7 @@ export function ModeracaoSection() {
       else if (sub === 'mensagens') setSubTab('mensagens');
       else if (sub === 'duplicatas') setSubTab('duplicatas');
       else if (sub === 'descartados') setSubTab('descartados');
+      else if (sub === 'mesas') setSubTab('mesas');
       else setSubTab('rascunhos');
     }, 0);
     return () => clearTimeout(timer);
@@ -170,6 +177,9 @@ export function ModeracaoSection() {
         <button onClick={() => selectSubTab('descartados')} className={subTabClass('descartados')} aria-pressed={subTab === 'descartados'}>
           Descartados
         </button>
+        <button onClick={() => selectSubTab('mesas')} className={subTabClass('mesas')} aria-pressed={subTab === 'mesas'}>
+          Mesas
+        </button>
       </div>
 
       {/* SonarCloud PR #159: conteúdo por subaba evita ternários aninhados e mantém título/descrição sincronizados. */}
@@ -187,6 +197,7 @@ export function ModeracaoSection() {
           <DiscordDraftReviewTable inboxApi={inboxDraftApi} onBeforeSync={handleBeforeSync} lockedStatus="rejected" />
         )}
         {subTab === 'duplicatas' && <TableDuplicatesPanel />}
+        {subTab === 'mesas' && <AdminTablesPanel />}
       </SectionCard>
     </div>
   );

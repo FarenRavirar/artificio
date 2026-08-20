@@ -16,6 +16,14 @@ describe('normalizeSettingStyles (R19, spec 093)', () => {
     expect(normalizeSettingStyles(['Exploração.', 'Macabro.', 'SOBREVIVÊNCIA'])).toEqual(['Exploração', 'Macabro', 'Sobrevivência']);
   });
 
+  it('preserva camelCase interno (não achata maiúscula interna)', () => {
+    expect(normalizeSettingStyles(['MegaDungeon', 'Sci-Fi', 'Super-Herói'])).toEqual(['MegaDungeon', 'Sci-Fi', 'Super-Herói']);
+  });
+
+  it('rebaixa preposição inglesa interna', () => {
+    expect(normalizeSettingStyles(['slice of life', 'dungeons and dragons'])).toEqual(['Slice of Life', 'Dungeons and Dragons']);
+  });
+
   it('devolve null para entrada vazia ou nula', () => {
     expect(normalizeSettingStyles(null)).toBeNull();
     expect(normalizeSettingStyles(undefined)).toBeNull();

@@ -32,7 +32,7 @@ export function DashboardSection() {
           value={metrics?.activeTables ?? 0}
           hint={metricsError ? 'Falha ao carregar catálogo' : 'Catálogo público'}
           icon={<LayoutDashboard size={18} />}
-          to="/gestao/catalogo"
+          to="/gestao/mesas/mesas"
           loading={loadingMetrics}
         />
         <MetricCard

@@ -72,9 +72,15 @@ export function StyleFacetPicker({ facets, selected, onToggle }: StyleFacetPicke
           className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs transition-all whitespace-nowrap ${
             selected.includes(style)
               ? 'border-orange-500 bg-orange-500/20 text-orange-100'
-              : 'border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)] hover:border-[var(--line)] hover:bg-[var(--surface-strong)]'
+              : 'border-transparent bg-[var(--surface)] text-[var(--fg-muted)] hover:border-transparent hover:bg-[var(--surface-strong)]'
           }`}
         >
+          {/* R20 (spec 093): NÃO usar `class="capitalize"` aqui. As facetas vêm de
+              GET /api/v1/tables/style-facets, que faz GROUP BY style sobre string
+              exata (tables.ts:362-374) — "exploração" e "Exploração" já são duas
+              facetas com contagens separadas. `capitalize` deixaria dois chips
+              idênticos na tela com números diferentes, pior que hoje. A correção
+              é de dado (normalizar na escrita + migration de estoque), não de CSS. */}
           {style} <span className="text-[var(--fg-muted)]">({count})</span>
         </button>
       ))}
@@ -89,7 +95,7 @@ export function StyleFacetPicker({ facets, selected, onToggle }: StyleFacetPicke
             className={`flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all whitespace-nowrap ${
               hasSelectedInOverflow
                 ? 'border-orange-500 bg-orange-500/20 text-orange-100'
-                : 'border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)] hover:border-[var(--line)] hover:bg-[var(--surface-strong)]'
+                : 'border-transparent bg-[var(--surface)] text-[var(--fg-muted)] hover:border-transparent hover:bg-[var(--surface-strong)]'
             }`}
           >
             +{overflowFacets.length} estilos

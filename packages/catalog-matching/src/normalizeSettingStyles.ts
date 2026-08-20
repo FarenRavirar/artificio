@@ -20,7 +20,24 @@ const LOWERCASE_INTERNAL_WORDS = new Set([
   'até', 'após', 'desde', 'contra', 'ante', 'perante', 'trás',
   'e', 'ou', 'nem', 'mas',
   'pelo', 'pela', 'pelos', 'pelas',
+  // Preposicoes/artigos em ingles — aparecem em estilos importados ("Slice of
+  // Life", "Dungeons and Dragons"). Sem elas, "of"/"and" sairiam capitalizados
+  // ("Slice Of Life"), divergindo da grafia consolidada do proprio estoque.
+  'of', 'and', 'the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'from',
 ]);
+
+function capitalizeWord(word: string): string {
+  // ALL CAPS ("SOBREVIVENCIA") -> normaliza para capitalizada ("Sobrevivencia").
+  // Distingue de camelCase ("MegaDungeon"), que preserva a maiuscula interna:
+  // o initcap/`.toLowerCase()` global anterior achatava "MegaDungeon" para
+  // "Megadungeon" (regressao medida no estoque em 2026-08-20, spec 093 R20).
+  const isAllCaps = word.length > 1 && word === word.toUpperCase() && word !== word.toLowerCase();
+  if (isAllCaps) {
+    const lower = word.toLowerCase();
+    return lower.charAt(0).toUpperCase() + lower.slice(1);
+  }
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
 
 function normalizeStyleWord(raw: string): string {
   // Remove pontuacao/simbolo/whitespace no inicio e no fim ("Exploracao." -> "Exploracao").
@@ -31,7 +48,7 @@ function normalizeStyleWord(raw: string): string {
     .map((word, i) => {
       const lower = word.toLowerCase();
       if (i > 0 && LOWERCASE_INTERNAL_WORDS.has(lower)) return lower;
-      return lower.charAt(0).toUpperCase() + lower.slice(1);
+      return capitalizeWord(word);
     })
     .join(' ');
 }

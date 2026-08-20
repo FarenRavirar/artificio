@@ -19,13 +19,13 @@ interface SealToggleProps {
 export function SealToggle({ active, onClick, variant, icon, children, activeClassName }: SealToggleProps) {
   const base = {
     pill: 'rounded-full px-3 py-1 text-xs transition-colors',
-    toolbar: 'flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all whitespace-nowrap',
+    toolbar: 'flex shrink-0 items-center gap-1.5 rounded-lg border px-3 h-10 text-xs font-semibold transition-all whitespace-nowrap',
     drawer: 'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-semibold transition-all',
   }[variant];
 
   const inactive = {
     pill: 'bg-white/10 text-white/70 hover:bg-white/20',
-    toolbar: 'border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)] hover:border-[var(--line)] hover:bg-[var(--surface-strong)]',
+    toolbar: 'border-transparent bg-[var(--surface)] text-[var(--fg-muted)] hover:border-transparent hover:bg-[var(--surface-strong)]',
     drawer: 'border-white/10 bg-[#13213f] text-white/70',
   }[variant];
 
