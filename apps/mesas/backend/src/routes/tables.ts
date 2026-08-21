@@ -30,6 +30,22 @@ const VALID_REPORT_REASONS: Set<TableReportReason> = new Set(['golpe', 'conteudo
 
 const router = Router();
 
+/**
+ * `req.query` é `unknown` na prática: Express entrega array em chave repetida
+ * (`?styles=a&styles=b`) e objeto em notação de bracket. Valor fora de `string`
+ * é ignorado (filtro não aplicado), nunca 500.
+ */
+export function parseStylesQuery(styles: unknown): string[] {
+  if (typeof styles !== 'string') return [];
+  return styles.split(',').filter(Boolean).map((style) => {
+    try {
+      return decodeURIComponent(style);
+    } catch {
+      return style;
+    }
+  });
+}
+
 type PublicTableContact = {
   channel: string;
   value: string;
@@ -204,9 +220,8 @@ router.get('/', async (req: Request, res: Response) => {
     }
 
     // NOVO: Filtro de estilos de jogo
-    const styles = req.query.styles as string | undefined;
-    if (styles) {
-      const styleArray = styles.split(',').filter(Boolean);
+    {
+      const styleArray = parseStylesQuery(req.query.styles);
       if (styleArray.length > 0) {
         // Filtrar mesas que contenham QUALQUER um dos estilos selecionados
         query = query.where(sql<boolean>`t.setting_styles && ARRAY[${sql.join(styleArray.map(s => sql.lit(s)))}]::text[]`);
@@ -257,8 +272,18 @@ router.get('/', async (req: Request, res: Response) => {
         .clearOrderBy()
         .orderBy('t.price_value', 'desc')
         .orderBy('t.created_at', 'desc');
+    } else if (sort === 'slots') {
+      // D0.4 (spec 094): sort por vagas abertas — slots_open DESC com recência
+      // como desempate. slots_open e NOT NULL desde a migration 100, então não
+      // há linha com NULL para tratar neste ramo.
+      query = query
+        .clearOrderBy()
+        .orderBy('t.slots_open', 'desc')
+        .orderBy('t.created_at', 'desc');
     }
-    // TODO: ending_soon e slots requerem campos end_date e slots_available no banco
+    // ending_soon permanece fora do contrato (D0.4, spec 094): não existe
+    // coluna de data final de encerramento. Entra quando o contrato de data
+    // final for aprovado e implementado.
 
     // CORREÇÃO BE-03: Contagem otimizada - usar query original sem SELECT complexos
     // Isso evita duplicar lógica de filtros e mantém type-safety do Kysely

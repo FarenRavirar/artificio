@@ -331,4 +331,94 @@ describe('CatalogTree', () => {
 
     expect(onAddChildAtLevel).toHaveBeenCalledWith(1, tree[0]);
   });
+
+  describe('presentation (D0.5 — spec 094)', () => {
+    it('default é "full": parágrafo técnico, nome PT e alias badge renderizam', () => {
+      render(
+        <CatalogTree
+          tree={tree}
+          selectedIds={[]}
+          onSelectionChange={vi.fn()}
+          idPrefix="systems"
+        />
+      );
+
+      // Parágrafo técnico visível sem interação.
+      expect(screen.getByText(/Cada nível é um nó/)).toBeInTheDocument();
+
+      fireEvent.change(screen.getByPlaceholderText('Buscar sistema...'), {
+        target: { value: 'Dungeons' },
+      });
+
+      expect(screen.getByText(/nome PT:/)).toBeInTheDocument();
+      // Badge de alias: "D&D" com +1 (5e tem "5th ed", mas o badge é por nó raiz).
+      expect(screen.getByText('D&D +1')).toBeInTheDocument();
+    });
+
+    it('em "selection" não renderiza parágrafo técnico, nome PT nem alias badge', () => {
+      render(
+        <CatalogTree
+          tree={tree}
+          selectedIds={[]}
+          onSelectionChange={vi.fn()}
+          idPrefix="systems"
+          presentation="selection"
+        />
+      );
+
+      expect(screen.queryByText(/Cada nível é um nó/)).not.toBeInTheDocument();
+
+      fireEvent.change(screen.getByPlaceholderText('Buscar sistema...'), {
+        target: { value: 'Dungeons' },
+      });
+
+      expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument();
+      expect(screen.queryByText(/nome PT:/)).not.toBeInTheDocument();
+      expect(screen.queryByText('D&D +1')).not.toBeInTheDocument();
+    });
+
+    it('em "selection" a busca por alias continua encontrando o nó', () => {
+      const onSelectionChange = vi.fn();
+
+      render(
+        <CatalogTree
+          tree={tree}
+          selectedIds={[]}
+          onSelectionChange={onSelectionChange}
+          idPrefix="systems"
+          presentation="selection"
+        />
+      );
+
+      fireEvent.change(screen.getByPlaceholderText('Buscar sistema...'), {
+        target: { value: 'DnD' },
+      });
+
+      expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument();
+      expect(screen.queryByText('Vampire')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /Dungeons & Dragons/ }));
+      expect(onSelectionChange).toHaveBeenCalledWith(['dnd']);
+    });
+
+    it('em "selection" a busca por nome PT continua encontrando o nó', () => {
+      render(
+        <CatalogTree
+          tree={tree}
+          selectedIds={[]}
+          onSelectionChange={vi.fn()}
+          idPrefix="systems"
+          presentation="selection"
+        />
+      );
+
+      // "Vampiro" é o name_pt do nó Vampire.
+      fireEvent.change(screen.getByPlaceholderText('Buscar sistema...'), {
+        target: { value: 'Vampiro' },
+      });
+
+      expect(screen.getByText('Vampire')).toBeInTheDocument();
+      expect(screen.queryByText('Dungeons & Dragons')).not.toBeInTheDocument();
+    });
+  });
 });

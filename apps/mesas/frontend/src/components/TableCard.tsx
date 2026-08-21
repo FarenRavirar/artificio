@@ -130,11 +130,13 @@ function VttPlatformBadge({ table }: { table: TableCard }) {
 
   if (table.vtt_platform.website_url) {
     return (
+      // PR #282 · chatgpt-codex-connector P2: o conteúdo do card bloqueia pointer events para
+      // deixar o link overlay clicável; o link VTT precisa reativá-los para não abrir a mesa.
       <a
         href={table.vtt_platform.website_url}
         target="_blank"
         rel="noopener noreferrer"
-        className="absolute bottom-3 right-3 h-9 min-w-9 px-2 rounded-lg bg-black/55 border border-white/20 backdrop-blur-sm inline-flex items-center justify-center hover:bg-black/70 hover:border-white/40 transition-colors"
+        className="pointer-events-auto absolute bottom-3 right-3 h-9 min-w-9 px-2 rounded-lg bg-black/55 border border-white/20 backdrop-blur-sm inline-flex items-center justify-center hover:bg-black/70 hover:border-white/40 transition-colors"
         title={`${table.vtt_platform.name} - Abrir site oficial`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -174,7 +176,7 @@ function TableCardMasterRow({ table }: { table: TableCard }) {
         <Link
           to={`/mestre/${table.gm_slug}`}
           onClick={(e) => e.stopPropagation()}
-          className="min-w-0 truncate text-sm font-medium text-white/70 transition-colors hover:text-white hover:underline"
+          className="pointer-events-auto min-w-0 truncate text-sm font-medium text-white/70 transition-colors hover:text-white hover:underline"
         >
           {table.gm_display_name}
         </Link>
@@ -278,14 +280,29 @@ export function TableCardComponent({ table }: { table: TableCard }) {
     ? { label: 'Entrar na mesa →', variant: 'primary' as const }
     : { label: 'Ver detalhes →', variant: 'secondary' as const };
 
+  // O CTA visível é uma div decorativa (pointer-events-none): este Link é o
+  // único elemento acessível do card, então seu nome acessível tem que
+  // acompanhar o rótulo visível (WCAG 2.5.3, Label in Name).
+  const cardLinkLabel = `${isFull ? 'Mesa lotada' : primaryCTA.label.replace(' →', '')}: ${table.title}`;
+
   return (
-    <Link
-      to={`/mesas/${table.slug}`}
-      onClick={handleClick}
-      onMouseEnter={handleMouseEnter}
+    <article
       className="group relative flex h-full min-h-[430px] w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#1B2A4A] shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-[var(--color-artificio-orange)]/40 hover:shadow-[0_0_30px_rgba(255,87,34,0.15)]"
       id={`table-card-${table.slug}`}
     >
+      <Link
+        to={`/mesas/${table.slug}`}
+        onClick={handleClick}
+        onMouseEnter={handleMouseEnter}
+        aria-label={cardLinkLabel}
+        className="peer/card-link absolute inset-0 z-0 rounded-2xl"
+      />
+      <div
+        data-card-focus-ring
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-20 rounded-2xl peer-focus-visible/card-link:outline peer-focus-visible/card-link:outline-[3px] peer-focus-visible/card-link:outline-offset-[-3px] peer-focus-visible/card-link:outline-[var(--artificio-focus)]"
+      />
+      <div className="pointer-events-none relative z-10 flex h-full min-h-[430px] w-full min-w-0 flex-col">
       {/* BLOCO 1: HEADER (Imagem + Badges críticos) */}
       <div className="aspect-[16/10] w-full relative overflow-hidden">
         {/* O card recorta em 16/10, proporção diferente do banner: sem
@@ -327,13 +344,13 @@ export function TableCardComponent({ table }: { table: TableCard }) {
         </div>
 
         {/* Favoritar (T3.6) */}
-        <button
+          <button
           type="button"
           onClick={handleToggleFavorite}
           disabled={isTogglingFavorite}
           aria-pressed={isFavorited}
           aria-label={isFavorited ? 'Remover dos favoritos' : 'Favoritar mesa'}
-          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-panel)]/85 backdrop-blur-sm transition-colors hover:bg-[var(--surface-panel)] hover:border-[var(--border-strong)] disabled:opacity-50"
+            className="pointer-events-auto absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-panel)]/85 backdrop-blur-sm transition-colors hover:bg-[var(--surface-panel)] hover:border-[var(--border-strong)] disabled:opacity-50"
         >
           <Bookmark className={`h-4 w-4 ${isFavorited ? 'fill-[var(--color-artificio-orange)] text-[var(--color-artificio-orange)]' : 'text-[var(--fg)]'}`} />
         </button>
@@ -351,11 +368,13 @@ export function TableCardComponent({ table }: { table: TableCard }) {
       <div className="flex flex-1 flex-col p-4">
         <div className="mb-3 flex min-h-[34px] min-w-0 flex-wrap items-center gap-2">
           {table.system_name && (
-            <SystemBadge
-              name={table.system_name}
-              logoFilename={table.system_logo_filename}
-              websiteUrl={table.system_website_url}
-            />
+            <span className="pointer-events-auto">
+              <SystemBadge
+                name={table.system_name}
+                logoFilename={table.system_logo_filename}
+                websiteUrl={table.system_website_url}
+              />
+            </span>
           )}
           <span className="shrink-0 whitespace-nowrap flex items-center gap-1 px-2 py-1 bg-[#13213f] rounded-md text-xs font-semibold text-white/80 border border-white/10">
             {table.modality === 'online' ? <Globe className="w-3 h-3" /> : <MapPin className="w-3 h-3" />}
@@ -402,6 +421,7 @@ export function TableCardComponent({ table }: { table: TableCard }) {
           </div>
         </div>
       </div>
-    </Link>
+      </div>
+    </article>
   );
 }

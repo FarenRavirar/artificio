@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { RotateCcw, Search, ShieldCheck, Star, SlidersHorizontal, Megaphone } from 'lucide-react';
+import { Megaphone } from 'lucide-react';
 import { TableCardComponent, TableCardSkeleton } from '../components/TableCard';
-import { SealToggle } from '../components/SealToggle';
-import { StyleFacetPicker } from '../components/StyleFacetPicker';
 import { FilterDrawer } from '../components/FilterDrawer';
-import { ActiveFiltersChips } from '../components/ActiveFiltersChips';
+import { CatalogFiltersBar } from '../components/CatalogFiltersBar';
+import { CatalogAdvancedFilters } from '../components/CatalogAdvancedFilters';
 import { ResultsHeader } from '../components/ResultsHeader';
-import { SystemPicker } from '../components/SystemPicker';
 import { D20Glyph } from '../components/D20Glyph';
 import type { CatalogSeal, TableCard } from '../types/tables';
 import { applySeo } from '../utils/seo';
@@ -18,29 +16,21 @@ import { useSystemsCatalog } from '../hooks/useSystemsCatalog';
 import { trackFilterSistema } from '@artificio/analytics';
 import { useAuth } from '../contexts/useAuth';
 import { startSsoLogin } from '../utils/auth';
-import type { SystemTreeNode } from '../types/systems';
 import type {
   CatalogFilters,
   ExperienceLevelOption,
   ModalityOption,
   PriceTypeOption,
-  SortOption,
   StyleOption,
 } from '../services/catalogService';
-
-// Constantes de validação (compartilhadas com parser)
-const VALID_MODALITIES: ModalityOption[] = ['online', 'presencial', 'hibrida'];
-const VALID_PRICE_TYPES: PriceTypeOption[] = ['gratuita', 'paga'];
-const VALID_EXPERIENCE_LEVELS: ExperienceLevelOption[] = ['iniciante', 'intermediario', 'veterano'];
-const VALID_SORTS: SortOption[] = ['popular', 'recent', 'slots', 'price_asc', 'price_desc', 'ending_soon'];
-const VALID_SEALS: CatalogSeal[] = ['ddal', 'covil-do-lich', ''];
+import {
+  SORT_VALUES,
+  activeCatalogFiltersCount,
+  type TableTypeOption,
+} from '../utils/catalogFilterOptions';
 
 function pickOption<T extends string>(value: string, validOptions: readonly T[], fallback: T): T {
   return validOptions.includes(value as T) ? (value as T) : fallback;
-}
-
-function pickOptionalOption<T extends string>(value: string, validOptions: readonly T[]): T | '' {
-  return value !== '' && validOptions.includes(value as T) ? (value as T) : '';
 }
 
 const updateFilter = <K extends keyof CatalogFilters>(
@@ -54,59 +44,16 @@ const updateFilter = <K extends keyof CatalogFilters>(
   setFilters((prev) => ({ ...prev, [key]: value, ...(key === 'page' ? {} : { page: 1 }) }));
 };
 
-type CatalogSystemFilterProps = Readonly<{
-  tree: SystemTreeNode[];
-  loading: boolean;
-  error: string | null;
-  selectedSystemId: string | null;
-  idPrefix: string;
-  loadingClassName: string;
-  onSelect: (systemId: string | null) => void;
-}>;
+type AdvancedFiltersDraft = Pick<CatalogFilters, 'experience' | 'type' | 'seal' | 'styles'>;
 
-const getSelectedSystemIds = (selectedSystemId: string | null): string[] => {
-  if (!selectedSystemId) return [];
-  return [selectedSystemId];
-};
-
-const CatalogSystemFilter = ({
-  tree,
-  loading,
-  error,
-  selectedSystemId,
-  idPrefix,
-  loadingClassName,
-  onSelect,
-}: CatalogSystemFilterProps) => {
-  const selectedIds = getSelectedSystemIds(selectedSystemId);
-
-  if (loading) {
-    return (
-      <p className={`rounded-lg border border-[var(--line)] px-3 py-2.5 text-sm text-[var(--fg-muted)] ${loadingClassName}`}>
-        Carregando sistemas...
-      </p>
-    );
-  }
-
-  if (error) {
-    return (
-      <p className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2.5 text-sm text-red-200">
-        Sistemas indisponíveis.
-      </p>
-    );
-  }
-
-  return (
-    <SystemPicker
-      tree={tree}
-      selectedIds={selectedIds}
-      onSelectionChange={(ids) => onSelect(ids[0] ?? null)}
-      idPrefix={idPrefix}
-      mode="single"
-      role="user"
-    />
-  );
-};
+function advancedFiltersFrom(filters: CatalogFilters): AdvancedFiltersDraft {
+  return {
+    experience: filters.experience,
+    type: filters.type,
+    seal: filters.seal,
+    styles: [...filters.styles],
+  };
+}
 
 type CatalogEmptyStateProps = Readonly<{
   activeFiltersCount: number;
@@ -142,10 +89,10 @@ export const CatalogoPage = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const [searchParams] = useSearchParams();
-  const [heroSearchInput, setHeroSearchInput] = useState('');
 
-  // STATE - URL-driven filters (hook genérico)
-  const [filters, setFilters] = useCatalogFilters();
+  // STATE - URL-driven filters + busca draft/confirmada (D0.3, spec 094):
+  // digitar mexe só no draft; botão "Buscar"/Enter promovem para filters.search.
+  const { filters, setFilters, draftSearch, setDraftSearch, submitSearch } = useCatalogFilters();
 
   // Estilos reais em uso, por frequência (não é lista fixa)
   const { facets: styleFacets } = useStyleFacets();
@@ -159,6 +106,9 @@ export const CatalogoPage = () => {
     forceRefresh: retrySystemsTree,
   } = useSystemsCatalog();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [mobileAdvancedDraft, setMobileAdvancedDraft] = useState<AdvancedFiltersDraft>(() =>
+    advancedFiltersFrom(filters),
+  );
 
   // Flatten tree para mapear ID -> slug
   const systemsMap = useMemo(() => {
@@ -178,7 +128,7 @@ export const CatalogoPage = () => {
     return map;
   }, [systemsFlat]);
 
-  // Converter slug do filtro para ID (para SystemPicker)
+  // Converter slug do filtro para ID (para o seletor de sistema)
   const selectedSystemId = useMemo(() => {
     if (!filters.system) return null;
     const entry = Array.from(systemsMap.entries()).find(([, slug]) => slug === filters.system);
@@ -215,7 +165,7 @@ export const CatalogoPage = () => {
   const loadNextPage = useCallback(() => {
     if (isAdvancingPageRef.current || !hasMore || isLoading || isRefreshing) return;
     isAdvancingPageRef.current = true;
-    setFilters(prev => ({ ...prev, page: prev.page + 1 }));
+    setFilters(prev => ({ ...prev, page: prev.page + 1 }), { replace: true });
   }, [hasMore, isLoading, isRefreshing, setFilters]);
 
   useEffect(() => {
@@ -240,6 +190,10 @@ export const CatalogoPage = () => {
   // ============================================================================
   
   const clearFilters = () => {
+    // "Limpar tudo" também esvazia o campo de busca visual: sem isto, o draft
+    // digitado e não submetido sobreviveria ao reset (o efeito de sincronização
+    // do hook só reage a mudanças de filters.search).
+    setDraftSearch('');
     setFilters(() => ({
       search: '',
       system: '',
@@ -248,6 +202,7 @@ export const CatalogoPage = () => {
       experience: '',
       seal: '',
       styles: [],
+      type: '',
       sort: 'popular',
       page: 1,
       limit: 24,
@@ -288,9 +243,50 @@ export const CatalogoPage = () => {
     }));
   };
 
-  const handleHeroSearch = () => {
-    const term = heroSearchInput.trim();
-    setFilters(prev => ({ ...prev, search: term, page: 1 }));
+  const handleModalityChange = (value: ModalityOption | '') => {
+    updateFilter(setFilters, 'modality', value);
+  };
+
+  const handlePriceChange = (value: PriceTypeOption | '') => {
+    updateFilter(setFilters, 'priceType', value);
+  };
+
+  const handleExperienceChange = (value: ExperienceLevelOption | '') => {
+    updateFilter(setFilters, 'experience', value);
+  };
+
+  const handleTypeChange = (value: TableTypeOption | '') => {
+    updateFilter(setFilters, 'type', value);
+  };
+
+  const openMobileFilters = () => {
+    setMobileAdvancedDraft(advancedFiltersFrom(filters));
+    setIsFilterOpen(true);
+  };
+
+  const clearMobileAdvancedFilters = () => {
+    setMobileAdvancedDraft({ experience: '', type: '', seal: '', styles: [] });
+  };
+
+  const applyMobileAdvancedFilters = () => {
+    setFilters((previous) => ({ ...previous, ...mobileAdvancedDraft, page: 1 }));
+    setIsFilterOpen(false);
+  };
+
+  const toggleMobileStyle = (style: StyleOption) => {
+    setMobileAdvancedDraft((previous) => ({
+      ...previous,
+      styles: previous.styles.includes(style)
+        ? previous.styles.filter((value) => value !== style)
+        : [...previous.styles, style],
+    }));
+  };
+
+  const toggleMobileSeal = (seal: CatalogSeal) => {
+    setMobileAdvancedDraft((previous) => ({
+      ...previous,
+      seal: previous.seal === seal ? '' : seal,
+    }));
   };
 
   const handleAnnounceTable = () => {
@@ -301,6 +297,9 @@ export const CatalogoPage = () => {
     }
   };
 
+  // Callback canônico de seleção de sistema (R23): `trackFilterSistema` dispara
+  // exatamente uma vez por mudança confirmada de sistema, e só aqui — abrir o
+  // painel, submeter busca ou aplicar filtro avançado NÃO emite evento novo.
   const handleSystemSelect = (systemId: string | null) => {
     if (!systemId) {
       setFilters(prev => ({ ...prev, system: '', page: 1 }));
@@ -323,13 +322,13 @@ export const CatalogoPage = () => {
   // COMPUTED
   // ============================================================================
   
-  const activeFiltersCount = useMemo(() => {
+  const activeFiltersCount = useMemo(() => activeCatalogFiltersCount(filters), [filters]);
+
+  // Quantidade de filtros avançados ativos (badge do botão "Mais filtros").
+  const advancedCount = useMemo(() => {
     return [
-      filters.search,
-      filters.system,
-      filters.modality,
-      filters.priceType,
       filters.experience,
+      filters.type,
       filters.seal,
       ...(filters.styles || []),
     ].filter(Boolean).length;
@@ -357,7 +356,18 @@ export const CatalogoPage = () => {
     if (filters.page === 1) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, [filters.search, filters.system, filters.modality, filters.priceType, filters.experience, filters.seal, filters.sort, filters.page]);
+  }, [
+    filters.search,
+    filters.system,
+    filters.modality,
+    filters.priceType,
+    filters.experience,
+    filters.type,
+    filters.styles,
+    filters.seal,
+    filters.sort,
+    filters.page,
+  ]);
 
   // ============================================================================
   // RENDER
@@ -376,7 +386,9 @@ export const CatalogoPage = () => {
           nunca notado porque ninguém tinha testado o catálogo em light antes.
           Fix: usar a MESMA variável que o resto do app (AppShell) usa pro
           fundo sempre-escuro-que-também-vira-light, pra fundo e texto
-          remaparem juntos e coerente com o resto do produto. */}
+          remaparem juntos e coerente com o resto do produto.
+          Fase 2 (spec 094, R1): a busca saiu do hero — busca geral é UMA, na
+          barra do catálogo. Hero mantém só o chamado de anúncio. */}
       <section className="relative w-full overflow-hidden bg-[var(--color-artificio-blue)] text-white py-10 lg:py-12">
         <div className="orange-glow" />
         <div className="container relative z-10 mx-auto space-y-4 px-6 text-center">
@@ -394,29 +406,7 @@ export const CatalogoPage = () => {
             De mestres da comunidade Artifício e parceiros.
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <div className="glass flex w-full max-w-md items-center rounded-full p-1.5 shadow-2xl transition-all focus-within:ring-2 focus-within:ring-[var(--color-artificio-orange)]/50">
-              <Search className="ml-3 hidden h-5 w-5 text-white/50 sm:block" />
-              <input
-                id="input-busca-mesas"
-                type="text"
-                aria-label="Buscar mesas"
-                value={heroSearchInput}
-                onChange={(e) => setHeroSearchInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleHeroSearch()}
-                placeholder="Ex: D&D, Vampiro, Mesa iniciante..."
-                className="flex-1 border-none bg-transparent px-3 py-2 text-sm text-white placeholder-white/50 outline-none"
-              />
-              <button
-                id="btn-buscar-mesas"
-                type="button"
-                onClick={handleHeroSearch}
-                className="cursor-pointer rounded-full bg-[var(--color-artificio-orange)] px-5 py-2 text-sm font-semibold text-white transition-colors duration-200 hover:bg-[var(--color-artificio-orange-hover)]"
-              >
-                Buscar
-              </button>
-            </div>
-
+          <div className="flex items-center justify-center gap-3 pt-2">
             <button
               id="btn-anunciar-mesa-home"
               type="button"
@@ -446,264 +436,58 @@ export const CatalogoPage = () => {
         </section>
       )}
 
-      {/* FILTROS - DESKTOP (barra horizontal única, full-bleed) */}
-      <section className="hidden border-b border-[var(--line)] bg-[var(--surface-subtle)] md:block">
-        <div className="px-6 py-5">
-          <div className="flex flex-wrap items-center gap-3 overflow-x-auto pb-1">
-            <div className="relative min-w-[220px]">
-              <label htmlFor="catalog-desktop-search" className="sr-only">Buscar mesas</label>
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--fg-muted)]" />
-              <input
-                id="catalog-desktop-search"
-                type="text"
-                value={filters.search}
-                onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }))}
-                placeholder="Buscar mesas..."
-                className="w-full rounded-lg border border-transparent bg-[var(--surface)] h-10 pl-9 pr-3 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-muted)] transition-colors focus:border-[var(--artificio-brand)] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--artificio-focus)]"
-              />
-            </div>
+      {/* BARRA DE FILTROS — uma interface responsiva (desktop e mobile), linha
+          primária em grid deliberado (spec 094, Fase 2). Substitui a antiga
+          barra desktop + FAB mobile: uma busca geral, sistema compacto em
+          popover/dialog, modalidade/preço, "Mais filtros" e ação Buscar. */}
+      <CatalogFiltersBar
+        filters={filters}
+        draftSearch={draftSearch}
+        onDraftSearchChange={setDraftSearch}
+        onSearchSubmit={submitSearch}
+        systemsTree={systemsTree}
+        systemsLoading={systemsLoading}
+        systemsError={systemsTreeError}
+        selectedSystemId={selectedSystemId}
+        onSystemSelect={handleSystemSelect}
+        onModalityChange={handleModalityChange}
+        onPriceChange={handlePriceChange}
+        onExperienceChange={handleExperienceChange}
+        onTypeChange={handleTypeChange}
+        onSealToggle={toggleSeal}
+        onStyleToggle={toggleStyle}
+        styleFacets={styleFacets}
+        advancedCount={advancedCount}
+        systemName={selectedSystemName}
+        onRemoveFilter={removeFilter}
+        onClearFilters={clearFilters}
+        onOpenMobileFilters={openMobileFilters}
+        mobileFiltersOpen={isFilterOpen}
+      />
 
-            <div className="min-w-[180px] shrink-0">
-              <CatalogSystemFilter
-                tree={systemsTree}
-                loading={systemsLoading}
-                error={systemsTreeError}
-                selectedSystemId={selectedSystemId}
-                idPrefix="catalog-desktop"
-                loadingClassName="bg-[var(--surface)]"
-                onSelect={handleSystemSelect}
-              />
-            </div>
-
-            <label htmlFor="catalog-desktop-modality" className="sr-only">Modalidade</label>
-            <select
-              id="catalog-desktop-modality"
-              value={filters.modality}
-              onChange={(e) => updateFilter(setFilters, 'modality', pickOptionalOption(e.target.value, VALID_MODALITIES))}
-              className="app-select shrink-0 h-10"
-            >
-              <option value="">Modalidade</option>
-              <option value="online">Online</option>
-              <option value="presencial">Presencial</option>
-              <option value="hibrida">Híbrida</option>
-            </select>
-
-            <label htmlFor="catalog-desktop-price" className="sr-only">Preço</label>
-            <select
-              id="catalog-desktop-price"
-              value={filters.priceType}
-              onChange={(e) => updateFilter(setFilters, 'priceType', pickOptionalOption(e.target.value, VALID_PRICE_TYPES))}
-              className="app-select shrink-0 h-10"
-            >
-              <option value="">Preço</option>
-              <option value="gratuita">Gratuita</option>
-              <option value="paga">Paga</option>
-            </select>
-
-            <label htmlFor="catalog-desktop-experience" className="sr-only">Nível de experiência</label>
-            <select
-              id="catalog-desktop-experience"
-              value={filters.experience}
-              onChange={(e) => updateFilter(setFilters, 'experience', pickOptionalOption(e.target.value, VALID_EXPERIENCE_LEVELS))}
-              className="app-select shrink-0 h-10"
-            >
-              <option value="">Nível</option>
-              <option value="iniciante">Iniciante</option>
-              <option value="intermediario">Intermediário</option>
-              <option value="veterano">Veterano</option>
-            </select>
-
-            <div className="h-6 w-px shrink-0 bg-[var(--line)]" />
-
-            <SealToggle
-              variant="toolbar"
-              active={filters.seal === 'ddal'}
-              onClick={() => toggleSeal('ddal')}
-              icon={<ShieldCheck className="w-3.5 h-3.5" />}
-              activeClassName="border-amber-300/50 bg-amber-500/20 text-amber-100"
-            >
-              DDAL
-            </SealToggle>
-
-            <SealToggle
-              variant="toolbar"
-              active={filters.seal === 'covil-do-lich'}
-              onClick={() => toggleSeal('covil-do-lich')}
-              icon={<Star className="w-3.5 h-3.5" />}
-              activeClassName="border-purple-300/50 bg-purple-500/20 text-purple-100"
-            >
-              Covil do Lich
-            </SealToggle>
-
-            {activeFiltersCount > 0 && (
-              /* T6.4 trocou a borda por superfície; sem anel, o foco de teclado ficava
-                 invisível neste botão. Mesmo token/geometria de `.artificio-button`
-                 (packages/ui/styles.css:1081), não valor próprio (T6.5).
-                 Achado real (review PR #280, coderabbit, funcional/acessibilidade). */
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="ml-auto flex shrink-0 items-center gap-2 rounded-lg border border-transparent bg-[var(--surface)] px-3 h-10 text-sm font-semibold text-[var(--fg)] transition-colors hover:bg-[var(--surface-strong)] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--artificio-focus)]"
-              >
-                <RotateCcw className="h-4 w-4" />
-                Limpar
-              </button>
-            )}
-          </div>
-
-          {/* ESTILOS — top N sempre visível (já vem ordenado por frequência do
-              backend) + popover com busca pro resto. Achado do mantenedor
-              (2026-07-18): scroll horizontal sem indicador visual pros 48
-              estilos lia como "quebrado". */}
-          <div className="mt-3">
-            <StyleFacetPicker facets={styleFacets} selected={filters.styles} onToggle={toggleStyle} />
-          </div>
-        </div>
-      </section>
-
-      {/* BOTÃO FILTROS - MOBILE (acima do FAB de feedback, que fica em bottom-5) */}
-      <button
-        type="button"
-        onClick={() => setIsFilterOpen(true)}
-        className="fixed bottom-20 right-4 z-30 flex items-center gap-2 rounded-full bg-[var(--color-artificio-orange)] px-5 py-3 font-bold text-white shadow-lg transition-colors hover:bg-[var(--color-artificio-orange-hover)] md:hidden"
-      >
-        <SlidersHorizontal className="w-5 h-5" />
-        Filtros
-        {activeFiltersCount > 0 && (
-          <span className="bg-white text-[var(--color-artificio-orange)] rounded-full w-6 h-6 flex items-center justify-center text-xs font-black">
-            {activeFiltersCount}
-          </span>
-        )}
-      </button>
-
-      {/* DRAWER MOBILE */}
+      {/* DRAWER MOBILE — hospeda a MESMA definição canônica de filtros avançados
+          que o painel desktop (R15): nenhuma lista/mapper duplicado. */}
       <FilterDrawer
         isOpen={isFilterOpen}
         onClose={() => setIsFilterOpen(false)}
-        onClear={clearFilters}
+        onClear={clearMobileAdvancedFilters}
+        onApply={applyMobileAdvancedFilters}
         isApplying={isRefreshing}
       >
-        {/* BLOCO 1 — busca textual + sistema (filtros primários) */}
-        <div className="space-y-3">
-          <div className="relative">
-            <label htmlFor="catalog-mobile-search" className="sr-only">Buscar mesas</label>
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
-            <input
-              id="catalog-mobile-search"
-              type="text"
-              value={filters.search}
-              onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value, page: 1 }))}
-              placeholder="Buscar mesas..."
-              className="w-full rounded-lg bg-[var(--surface)] border border-[var(--line)] pl-9 pr-3 py-2.5 text-sm outline-none focus:border-[var(--color-artificio-orange)] transition-colors"
-            />
-          </div>
-
-          <CatalogSystemFilter
-            tree={systemsTree}
-            loading={systemsLoading}
-            error={systemsTreeError}
-            selectedSystemId={selectedSystemId}
-            idPrefix="catalog-mobile"
-            loadingClassName="bg-[var(--surface)]"
-            onSelect={handleSystemSelect}
-          />
-        </div>
-
-        <div className="h-px bg-white/10" />
-
-        {/* BLOCO 2 — refinamento por atributo da mesa */}
-        <div className="space-y-3">
-          <select
-            value={filters.modality}
-            onChange={(e) => updateFilter(setFilters, 'modality', pickOptionalOption(e.target.value, VALID_MODALITIES))}
-            className="app-select w-full py-2.5"
-          >
-            <option value="">Modalidade</option>
-            <option value="online">Online</option>
-            <option value="presencial">Presencial</option>
-            <option value="hibrida">Híbrida</option>
-          </select>
-
-          <select
-            value={filters.priceType}
-            onChange={(e) => updateFilter(setFilters, 'priceType', pickOptionalOption(e.target.value, VALID_PRICE_TYPES))}
-            className="app-select w-full py-2.5"
-          >
-            <option value="">Preço</option>
-            <option value="gratuita">Gratuita</option>
-            <option value="paga">Paga</option>
-          </select>
-
-          <select
-            value={filters.experience}
-            onChange={(e) => updateFilter(setFilters, 'experience', pickOptionalOption(e.target.value, VALID_EXPERIENCE_LEVELS))}
-            className="app-select w-full py-2.5"
-          >
-            <option value="">Nível</option>
-            <option value="iniciante">Iniciante</option>
-            <option value="intermediario">Intermediário</option>
-            <option value="veterano">Veterano</option>
-          </select>
-
-          <select
-            value={filters.sort}
-            onChange={(e) => updateFilter(setFilters, 'sort', pickOption(e.target.value, VALID_SORTS, 'popular'))}
-            className="app-select w-full py-2.5"
-          >
-            <option value="popular">Mais populares</option>
-            <option value="recent">Mais recentes</option>
-            <option value="ending_soon">Encerrando em breve</option>
-          </select>
-        </div>
-
-        <div className="h-px bg-white/10" />
-
-        {/* BLOCO 3 — selos (curados) e estilos (livres, com contagem) */}
-        <div>
-          <p className="text-xs text-white/50 mb-2 font-semibold">Selos</p>
-          <div className="flex gap-2">
-            <SealToggle
-              variant="drawer"
-              active={filters.seal === 'ddal'}
-              onClick={() => toggleSeal('ddal')}
-              icon={<ShieldCheck className="w-3.5 h-3.5" />}
-              activeClassName="border-amber-300/50 bg-amber-500/20 text-amber-100"
-            >
-              DDAL
-            </SealToggle>
-
-            <SealToggle
-              variant="drawer"
-              active={filters.seal === 'covil-do-lich'}
-              onClick={() => toggleSeal('covil-do-lich')}
-              icon={<Star className="w-3.5 h-3.5" />}
-              activeClassName="border-purple-300/50 bg-purple-500/20 text-purple-100"
-            >
-              Covil
-            </SealToggle>
-          </div>
-        </div>
-
-        {/* Estilos */}
-        <div>
-          <p className="text-xs text-white/50 mb-2 font-semibold">Estilos</p>
-          <div className="flex flex-wrap gap-2">
-            {styleFacets.map(({ style, count }) => (
-              <button
-                key={style}
-                type="button"
-                onClick={() => toggleStyle(style)}
-                className={`px-3 py-1.5 rounded-lg border text-xs transition-all ${
-                  filters.styles.includes(style)
-                    ? 'border-orange-500 bg-orange-500/20 text-orange-100'
-                    : 'border-[var(--line)] bg-[var(--surface)] text-white/70'
-                }`}
-              >
-                {style} <span className="text-white/40">({count})</span>
-              </button>
-            ))}
-          </div>
-        </div>
+        <CatalogAdvancedFilters
+          filters={{
+            experience: mobileAdvancedDraft.experience,
+            type: mobileAdvancedDraft.type,
+            seal: mobileAdvancedDraft.seal,
+            styles: mobileAdvancedDraft.styles,
+          }}
+          styleFacets={styleFacets}
+          onExperienceChange={(experience) => setMobileAdvancedDraft((previous) => ({ ...previous, experience }))}
+          onTypeChange={(type) => setMobileAdvancedDraft((previous) => ({ ...previous, type }))}
+          onSealToggle={toggleMobileSeal}
+          onStyleToggle={toggleMobileStyle}
+          idPrefix="catalog-advanced-mobile"
+        />
       </FilterDrawer>
 
       {/* CONTEÚDO */}
@@ -720,25 +504,9 @@ export const CatalogoPage = () => {
           <ResultsHeader
             count={totalCount}
             sort={filters.sort}
-            onSortChange={(newSort) => updateFilter(setFilters, 'sort', pickOption(newSort, VALID_SORTS, 'popular'))}
+            onSortChange={(newSort) => updateFilter(setFilters, 'sort', pickOption(newSort, SORT_VALUES, 'popular'))}
             isLoading={isLoading}
             hasMore={hasMore}
-          />
-
-          {/* CHIPS DE FILTROS ATIVOS */}
-          <ActiveFiltersChips
-            filters={{
-              search: filters.search,
-              system: filters.system,
-              modality: filters.modality,
-              priceType: filters.priceType,
-              experience: filters.experience,
-              seal: pickOptionalOption(filters.seal, VALID_SEALS),
-              styles: filters.styles,
-              sort: filters.sort,
-            }}
-            systemName={selectedSystemName}
-            onRemove={removeFilter}
           />
         </div>
 
