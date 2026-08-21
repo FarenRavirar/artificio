@@ -57,27 +57,28 @@ RUN rm /etc/nginx/conf.d/default.conf
 # Achado Snyk (spec 081, 2026-07-18): curl/libcurl e c-ares na imagem base
 # (alpine 3.23) tinham CVEs abertos (CVE-2026-6276 SSRF/cleartext alto,
 # CVE-2026-5773 SSRF, CVE-2026-7168 auth bypass, entre outros).
-# Versão fixada (nitpick Codex) em vez de --upgrade solto: pin original
-# (curl/libcurl=8.20.0-r0, 2026-07-18) quebrou o deploy beta — não é questão
-# de arch/runner (build roda via SSH na mesma VM aarch64 pros dois estágios,
-# frontend e backend). Log real da run (29645440355): no mesmo build, o
-# estágio mesas-beta-api instalou curl/libcurl=8.21.0-r0 com sucesso
-# ("Installing curl (8.21.0-r0)", OK), enquanto o estágio mesas-beta-app
-# (este arquivo) falhou pedindo 8.20.0-r0 com "breaks: world[curl=8.20.0-r0]"
-# — o resolvedor do apk queria 8.21.0-r0 pra satisfazer dependência interna
-# e o pin antigo virou inconsistente entre estágios da mesma run (mirror
-# Alpine avança o índice entre o momento em que confirmei a versão via
-# `apk info`/cache local e o momento real do build via BuildKit, que busca
-# índice próprio). Corrigido pra 8.21.0-r0 igual ao backend. Build
-# reprodutível; bump manual exigido a cada novo CVE — antes de fixar,
-# confirmar candidato via `apk update && apk policy <pacote>` (não `apk
-# info` sozinho, que só lista cache local desatualizado) na mesma VM que
-# roda o deploy real.
+# `>=` e não `=` (2026-08-21): o pin de patch exato quebrou o deploy três vezes
+# — libexpat=2.8.1-r0 (2026-07-16), curl=8.20.0-r0 (2026-07-18) e
+# libexpat=2.8.2-r0 (2026-08-21, run 32435929546). O piso preserva a proteção
+# de CVE (apk recusa versão abaixo do corte) sem quebrar quando o Alpine
+# promove o patch e tira a antiga de catálogo. Mesmo tratamento no backend.
+#
+# Os pisos AQUI são menores que os do backend de propósito: as bases divergem.
+# Medido na VM em 2026-08-21 (`docker run --rm nginx:1.31-alpine apk policy`),
+# este mirror oferece no máximo curl/libcurl 8.20.0-r0 e c-ares 1.34.8-r0,
+# enquanto node:24-alpine já tem curl 8.21.0-r0. O pin anterior deste arquivo
+# pedia curl=8.21.0-r0 — versão que NÃO EXISTE nesta base: estava impossível e
+# só não estourava porque o build do backend falhava antes e cancelava este
+# estágio. Foi exatamente o inverso do incidente de 2026-07-18 (run 29645440355),
+# quando este arquivo ficou atrás do backend; alinhar os dois números por
+# simetria é o erro que se repete — o que vale é o que cada mirror oferece.
+# Antes de mexer nos pisos, medir com `apk update && apk policy <pacote>` na
+# imagem base REAL (não `apk info`, que só lê cache local desatualizado).
 RUN apk add --no-cache --upgrade \
-    libexpat=2.8.2-r0 \
-    curl=8.21.0-r0 \
-    libcurl=8.21.0-r0 \
-    c-ares=1.34.8-r0
+    "libexpat>=2.8.3-r0" \
+    "curl>=8.20.0-r0" \
+    "libcurl>=8.20.0-r0" \
+    "c-ares>=1.34.8-r0"
 
 COPY apps/mesas/frontend/nginx.conf /etc/nginx/templates/default.conf.template
 

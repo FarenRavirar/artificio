@@ -24,19 +24,29 @@ FROM node:24-alpine AS production
 WORKDIR /repo
 ENV NODE_PATH=/repo/apps/mesas/backend/node_modules
 
-# Versões fixadas em curl/libcurl/c-ares/libexpat (achado Snyk + nitpick Codex,
+# Pisos de versão em curl/libcurl/c-ares/libexpat (achado Snyk + nitpick Codex,
 # spec 081, 2026-07-18): CVEs abertos na imagem base (alpine 3.23) —
 # CVE-2026-6276 (SSRF/cleartext alto), CVE-2026-5773 (SSRF), CVE-2026-7168
 # (auth bypass), CVE-2026-56131/... (expat use-after-free/integer overflow).
-# Versão confirmada via `docker run --rm node:24-alpine apk info` (VM, 2026-07-18):
-# mirror já tem c-ares 1.34.8-r0 / curl+libcurl 8.21.0-r0 / expat 2.8.2-r0
-# corrigidos. Fixar (em vez de --upgrade solto) trava build reprodutível —
-# bump manual exigido a cada novo CVE, checar de novo via apk info na imagem real.
+# --upgrade obrigatório: sem ele o apk não troca a lib se a base já satisfaz a
+# dependência com a versão vulnerável instalada, reabrindo o CVE em silêncio.
+#
+# `>=` e não `=`: pin de patch EXATO contra mirror rolling já quebrou o deploy
+# três vezes — libexpat=2.8.1-r0 (2026-07-16), curl=8.20.0-r0 (2026-07-18) e
+# libexpat=2.8.2-r0 (2026-08-21, run 32435929546: "libexpat-2.8.3-r0 breaks:
+# world[libexpat=2.8.2-r0]"). O mecanismo é sempre o mesmo: o Alpine promove o
+# patch, a versão antiga sai de catálogo e o `=` passa a pedir algo que não
+# existe mais. O comentário do frontend já chamava isso de "bomba-relógio
+# certa" — e continuou explodindo porque a lição virou texto, não regra.
+# O piso preserva o que o pin protegia (apk recusa versão abaixo do corte, logo
+# nenhum CVE listado acima volta) e para de quebrar sozinho no bump de patch.
+# Medido na VM em 2026-08-21 (`docker run --rm node:24-alpine apk policy`):
+# c-ares 1.34.8-r0, curl/libcurl 8.21.0-r0, libexpat 2.8.3-r0.
 RUN apk add --no-cache --upgrade \
-    curl=8.21.0-r0 \
-    libcurl=8.21.0-r0 \
-    c-ares=1.34.8-r0 \
-    libexpat=2.8.2-r0
+    "curl>=8.21.0-r0" \
+    "libcurl>=8.21.0-r0" \
+    "c-ares>=1.34.8-r0" \
+    "libexpat>=2.8.3-r0"
 
 RUN corepack enable && corepack prepare pnpm@11.8.0 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
