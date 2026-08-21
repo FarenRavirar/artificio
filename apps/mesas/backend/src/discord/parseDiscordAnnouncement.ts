@@ -1541,12 +1541,21 @@ function splitFreeTextList(value: string): string[] | null {
     .replace(/\s{2,}/g, ' ')
     .trim();
   const parts = cleaned
-    // Dois grupos SEM `\s*` externo: pontuação absorve o espaço ao redor, e
-    // separador-palavra exige espaço dos dois lados. A forma anterior punha `\s*`
-    // por fora de alternativas que já começavam com `\s+`, e o mesmo espaço podia
-    // ser casado pelos dois — ambiguidade que dá backtracking super-linear
-    // (Sonar, regex/performance, review PR #280). Comportamento medido idêntico.
-    .split(/(?:\s*[/,•·]\s*|\s+(?:&|e|ou|x)\s+)/i)
+    // SEM `\s*` nas bordas: o `.trim()` da linha seguinte já remove o espaço
+    // residual de cada parte, então quantificador de whitespace aqui era redundante
+    // — e era ele o backtracking. Qualquer forma com `\s*`/`\s+` no início da
+    // alternância deixa o motor reposicionar dentro de uma corrida de espaços.
+    // Medido sobre "terror" + 20 mil espaços + "exploracao": forma original ~749 ms,
+    // a 1ª correção (dois grupos) ainda ~787 ms — quadrática também —, esta 0,1 ms.
+    // Separador é pontuação pura ou palavra delimitada por espaço dos dois lados,
+    // o que preserva "D&D" e ainda separa " & ". 11 casos de fronteira medidos,
+    // saída idêntica. (Sonar, regex/performance, review PR #280 — reincidente.)
+    //
+    // Sem teste de linearidade porque ele não seria honesto por este caminho: o
+    // `.replace(/\s{2,}/g, ' ')` acima colapsa a corrida ANTES do split, então o
+    // caso patológico não chega aqui via parser. Cobrir exigiria exportar esta
+    // função só para o teste; a defesa real é o replace, não uma asserção de tempo.
+    .split(/[/,•·]|\s(?:&|e|ou|x)\s/i)
     .map((p) => p.trim())
     .filter(Boolean);
   return normalizeSettingStyles(parts);

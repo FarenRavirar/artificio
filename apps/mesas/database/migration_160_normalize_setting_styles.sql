@@ -30,7 +30,11 @@ LANGUAGE plpgsql
 IMMUTABLE
 AS $seg$
 BEGIN
-  IF word = '' THEN
+  -- `word IS NULL OR word = ''`, não só `word = ''`: com NULL a comparação devolve
+  -- NULL, o IF não entra e o NULL seguiria propagando pelas linhas abaixo até virar
+  -- elemento nulo no array. A função é pública e o Sonar apontou a comparação
+  -- (review PR #280, sql/null-handling).
+  IF word IS NULL OR word = '' THEN
     RETURN word;
   END IF;
   IF length(word) > 1 AND word = upper(word) AND word <> lower(word) THEN
@@ -40,9 +44,11 @@ BEGIN
 END;
 $seg$;
 
--- Espelha capitalizeWord: sigla composta por "&" ("D&D", "AD&D") tem cada
--- segmento normalizado por si. Tratando a string inteira, o ramo de ALL CAPS
--- rebaixava o resto — medido no TS: "D&D" -> "D&d", "AD&D" -> "Ad&d".
+-- Espelha capitalizeWord: sigla composta por "&" ("D&D") tem cada segmento
+-- normalizado por si. Tratando a string inteira, o ramo de ALL CAPS rebaixava o
+-- resto — medido no TS: "D&D" -> "D&d". Limite conhecido, igual ao do pacote:
+-- segmento ALL CAPS de 2+ letras segue rebaixado ("AD&D" -> "Ad&D"), porque e a
+-- mesma regra de "SOBREVIVENCIA" -> "Sobrevivencia" e "RPG" -> "Rpg".
 -- Achado real (review PR #280, coderabbit, inline).
 CREATE OR REPLACE FUNCTION public.normalize_style_word(word text)
 RETURNS text
@@ -54,7 +60,9 @@ DECLARE
   out_parts text[] := '{}';
   k int;
 BEGIN
-  IF position('&' in word) = 0 THEN
+  -- Mesmo motivo do guard em normalize_style_segment: `position()` sobre NULL
+  -- devolve NULL e a comparacao nunca entra no IF (review PR #280, sql/null-handling).
+  IF word IS NULL OR position('&' in word) = 0 THEN
     RETURN public.normalize_style_segment(word);
   END IF;
   parts := string_to_array(word, '&');
@@ -85,7 +93,10 @@ BEGIN
     elem := regexp_replace(styles[i], '<[@#][!&]?\d+>', '', 'g');
     -- trim de pontuação/símbolo no início e fim
     elem := regexp_replace(elem, '^[^[:alnum:]]+|[^[:alnum:]]+$', '', 'g');
-    IF elem = '' THEN
+    -- `elem IS NULL OR elem = ''`: array de texto aceita elemento NULL, e o
+    -- regexp_replace acima devolve NULL para entrada NULL — sem o guard o valor
+    -- seguia adiante em vez de ser pulado (review PR #280, sql/null-handling).
+    IF elem IS NULL OR elem = '' THEN
       CONTINUE;
     END IF;
     words := regexp_split_to_array(elem, '\s+');
@@ -123,7 +134,7 @@ BEGIN
   FROM (
     SELECT x, MIN(ord) AS first_pos
     FROM unnest(result) WITH ORDINALITY AS t(x, ord)
-    WHERE x <> ''
+    WHERE x IS NOT NULL AND x <> ''
     GROUP BY x
   ) AS deduped;
   -- Sem valor válido devolve NULL, como o normalizador do TS — `'{}'` faria o

@@ -729,6 +729,25 @@ devolve 410 e renderiza a tela "Mesa encerrada") — R22 vale para `active`/`ful
       rede ficava sem captura e a tela seguia idêntica, sem erro nem confirmação;
       passaram por um helper `runMutation` único.
 
+      **Rodada 4 — Sonar (SQL/null e regex reincidente):** guards de `NULL` nos quatro
+      pontos da `migration_160` que comparavam com string vazia — `word = ''` devolve
+      `NULL` quando `word` é `NULL`, o `IF` não entra e o valor propaga até virar
+      elemento nulo no array; as duas funções são públicas no schema, então o caso é
+      alcançável. **A regex de `splitFreeTextList` voltou porque a correção da rodada 2
+      não resolveu:** trocou a forma mas manteve `\s*`/`\s+` no início da alternância,
+      que era a causa real. Medido sobre `"terror"` + 20 mil espaços + `"exploracao"`:
+      original ~749 ms, 1ª correção ~787 ms (sem ganho), forma atual 0,1 ms. A saída foi
+      remover o `\s*` das bordas — o `.trim()` seguinte já fazia esse trabalho. 11 casos
+      de fronteira medidos, saída idêntica.
+
+      **Teste escrito e removido, com o motivo (rodada 4):** criei um teste de
+      linearidade e verifiquei que ele **não discriminava** — com separador antes da
+      corrida, a regex antiga também roda em 0,1 ms. O caso que discrimina não chega ao
+      `splitFreeTextList` pelo parser, porque `.replace(/\s{2,}/g, ' ')` colapsa a
+      corrida antes; cobrir exigiria exportar a função só para teste. Removido e
+      registrado no código que a defesa real é o `replace`. Teste que passa dos dois
+      jeitos simula cobertura — é pior que a ausência dele.
+
       **Limite assumido (rodada 3):** `AD&D` continua virando `Ad&D`. O segmento `AD`
       cai na regra de ALL CAPS existente, a mesma de `SOBREVIVENCIA` → `Sobrevivencia`
       e `RPG` → `Rpg`; distinguir sigla de palavra gritada não é feito para palavra
