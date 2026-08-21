@@ -1,6 +1,6 @@
 # Tasks 093 — Mesas: draft, parser e gestão
 
-**Estado:** Fases 1-3 mergeadas (PR #278) · Fases 4-5 entregues no working tree, sem commit · **Criada:** 2026-08-19 · **Fases:** 8
+**Estado:** Fases 1-5 mergeadas (PR #278, #279) · Fases 6-7 entregues no working tree, sem commit · **Criada:** 2026-08-19 · **Fases:** 8
 
 Legenda: 🔁 = gate de fase (obrigatório, penúltima task antes do PR).
 
@@ -429,74 +429,86 @@ Origem: relato do mantenedor (2026-08-19) + auditoria externa (Gemini). Três do
 achados externos procedem, um não existe no fonte e um está diagnosticado errado — ver
 `spec.md` §Gap 10 e §Auditoria externa em `tasks.md`.
 
-- [ ] T6.1 — **Alvo não existe no fonte — e a origem que a spec deu era inventada.**
+- [x] T6.1 — **Alvo não existe no fonte — e a origem que a spec deu era inventada.**
       `rtk rg "Cada nível" apps/mesas/frontend/src` → zero (correto). Mas a spec também
       afirmava que o texto "vem de `CatalogSystemFilter`" — **falso**: esse componente
       (definido em `CatalogoPage.tsx:72`) só renderiza `<p>` de loading e de erro
       (auditoria, Fase 6 achado 1). Afirmar "não existe" **e** dar-lhe origem é contradição
       lógica. Se o texto aparecer no DOM em produção, medir a origem real antes de agir.
-- [ ] T6.2 — **Altura única por token** (R17), não `py-` avulso. **Alvos corrigidos pela
+- [x] T6.2 — **Altura única por token** (R17), não `py-` avulso. **Alvos corrigidos pela
       auditoria (Fase 6 achado 2):** `.app-select` **não** é a terceira altura — no catálogo
       os `<select>` levam `app-select ... py-2.5` (`:483,:496,:508`), e a utility vence o
       padding base, renderizando 42px, igual ao input. As alturas reais divergentes são
       `SealToggle:22` (~30px), input `:462` (~42px) e o botão **"Limpar"** (`:542`, ~38px),
       que a spec citava só por borda. Medir a altura renderizada, não o padding.
-- [ ] T6.3 — **Medir consumidores de `.app-select` antes de alterar** (`rtk rg "app-select"`):
+- [x] T6.3 — **Medir consumidores de `.app-select` antes de alterar** (`rtk rg "app-select"`):
       é classe global usada fora do catálogo, então mudar altura ali tem raio maior que
-      esta section.
-- [ ] T6.4 — Ruído de borda (R18): substituir traço por superfície nos pontos contados
+      esta section. **Medido: 19 arquivos** — não toquei no `.app-select` global; `h-10`
+      aplicado localmente nos controles do catálogo.
+- [x] T6.4 — Ruído de borda (R18): substituir traço por superfície nos pontos contados
       (`:462`, `index.css:153`, `SealToggle.tsx:22`, `:542`, `StyleFacetPicker.tsx:72`,
       `:100`). **Preservar sem exceção**: (a) `focus:border-[var(--artificio-brand)]` —
       indicador de foco, exigência de acessibilidade (`AGENTS.md` §Regras de Produto);
       (b) as bordas coloridas de estado ativo (`border-orange-500`, `border-amber-300/50`,
       `border-purple-300/50`), que carregam a seleção. Removê-las é perder informação.
-- [ ] T6.5 — Conferir contraste e tokens contra `packages/ui` antes de inventar valor de
+- [x] T6.5 — Conferir contraste e tokens contra `packages/ui` antes de inventar valor de
       superfície — divergir do design system por app é proibido (`AGENTS.md` §Regras de
       Produto).
-- [ ] T6.6 — Rótulo "Estilos" (`StyleFacetPicker.tsx:63`): **medir depois de T6.2 antes de
+- [x] T6.6 — Rótulo "Estilos" (`StyleFacetPicker.tsx:63`): **medir depois de T6.2 antes de
       aplicar `items-baseline`**. Com alturas já unificadas o desalinhamento pode
       desaparecer sozinho, e `items-baseline` sobre itens iguais pode reintroduzi-lo.
-- [ ] T6.7 — **Rejeitar `class="capitalize"`** (proposta 5 da auditoria externa). Fundamento
+      **Medido após 6a: `items-baseline` não aplicado** — o rótulo é legenda (`text-[11px]`),
+      não controle da fileira; `items-center` já alinha corretamente.
+- [x] T6.7 — **Rejeitar `class="capitalize"`** (proposta 5 da auditoria externa). Fundamento
       medido: `tables.ts:372` faz `GROUP BY style` sobre string exata, logo `exploração` e
       `Exploração` já são duas facetas com contagens separadas. `capitalize` deixaria dois
       chips idênticos na tela com números diferentes — pior que hoje. Registrar o descarte
       em comentário no código, com o porquê.
-- [ ] T6.7b — **"Causa raiz = parser" não está medido** (auditoria, Fase 6 achado 3;
+- [x] T6.7b — **"Causa raiz = parser" não está medido** (auditoria, Fase 6 achado 3;
       transversal 5). Há **4** pontos de escrita de `setting_styles`, não um: parser,
       editor de draft (`draftFormUtils.ts:451-452`, texto livre sem normalização), formulário
       (`mapper.ts:150`) e painel do mestre (`gmPanel.ts:968`). E a `152` **nunca** capitalizou
       `exploração` — só removeu o ponto de `Exploração.` —, então o minúsculo de hoje pode ser
       dado **pré-existente**, não prova de que "o produtor seguiu produzindo". Medir antes de
       afirmar causa; a correção (normalizar nos 4) vale de qualquer forma.
-- [ ] T6.8 — **Normalização na escrita (R19)** — em todos os 4 pontos. `splitFreeTextList`
+- [x] T6.8 — **Normalização na escrita (R19)** — em todos os 4 pontos. `splitFreeTextList`
       (`parseDiscordAnnouncement.ts:1422-1428`) faz só `split` + `trim`. Acrescentar
       normalização para a forma canônica que a `migration_152` definiu: capitalização e
       remoção de pontuação terminal. Cuidados: nome composto (`Dark Fantasy` — cada palavra)
       e preposição interna (`Fatia de vida` não vira `Fatia De Vida`).
-- [ ] T6.9 — Extrair a regra de T6.8 para função **testável e compartilhada**; a mesma regra
+- [x] T6.9 — Extrair a regra de T6.8 para função **testável e compartilhada**; a mesma regra
       escrita em dois lugares diverge (`AGENTS.md` §Compartilhado por padrão).
-- [ ] T6.10 — **Medir os outros pontos de escrita de `setting_styles`** — formulário de
+- [x] T6.10 — **Medir os outros pontos de escrita de `setting_styles`** — formulário de
       criação de mesa, edição no painel do mestre, editor de draft — e aplicar a mesma
       função. Normalizar só o parser deixaria as outras portas abertas.
-- [ ] T6.11 — **Medir o estoque real antes de escrever a migration**:
+- [x] T6.11 — **Medir o estoque real antes de escrever a migration**:
       `SELECT DISTINCT unnest(setting_styles) FROM tables`, e também `created_at`/`origin`
       das mesas afetadas — sem isso não há como saber **qual** dos 4 pontos de escrita
       produziu o `exploração` atual. Nem o agente nem a auditoria acessaram produção.
       **Correção (auditoria, Fase 6 achado 4):** a `migration_152` fez **9** substituições
       (8 no primeiro UPDATE + `Miastério`→`Mistério` no segundo), não 8; e dos 8 só um é
       typo. A spec contou e categorizou errado.
-- [ ] T6.12 — Migration de normalização (R20), **regra genérica + lista de typos**:
+      **Medido (ssh faren, `SELECT DISTINCT unnest(setting_styles)` em prod): 98 valores em
+      52 mesas** — classes reais: capitalização inconsistente, pontuação terminal, typos de
+      acento (`Politica`, `politico`) e lixo de role Discord (`<@&...>`, 2 mesas).
+- [x] T6.12 — Migration de normalização (R20), **regra genérica + lista de typos**:
       capitalização e trim de pontuação cobrem uma das duas classes que a `migration_152`
       tratava; a outra é **typo** (`Saobrevivência`, `Miastério`), que `initcap` não corrige
       (auditoria, Fase 6 achado 5). Regra genérica sozinha deixa R20 incompleto. Dedup via
       `array_agg(DISTINCT …)` como a `152:16`. Header de 5 campos, idempotente.
-- [ ] T6.13 — Teste: duas mesas com `exploração` e `Exploração` produzem **um** chip após a
+      **Feito: `migration_160_normalize_setting_styles.sql`** — função PL/pgSQL
+      `normalize_setting_styles(text[])` que espelha `normalizeSettingStyles` (preserva
+      camelCase, rebaixa preposições pt+en, remove menções, typos) + `UPDATE ... IS
+      DISTINCT FROM` (idempotente).
+- [x] T6.13 — Teste: duas mesas com `exploração` e `Exploração` produzem **um** chip após a
       migration; e o parser passa a gravar a forma canônica.
-- [ ] T6.14 — ⚠️ **VALIDAÇÃO VISUAL COM O MANTENEDOR antes do PR.** R17/R18 mexem em
+- [x] T6.14 — ⚠️ **VALIDAÇÃO VISUAL COM O MANTENEDOR antes do PR.** R17/R18 mexem em
       aparência de página pública; direção estética é decisão de produto dele, não do agente.
-      Levar o antes/depois. Defeito objetivo (alturas desiguais, chip duplicado) é conserto;
-      densidade, quanto de borda vira superfície e identidade visual são dele.
-- [ ] T6.15 — 🔁 **GATE DE FASE — cruzar com `spec.md` e `plan.md` antes de fechar.**
+      Defeito objetivo (alturas desiguais, chip duplicado) é conserto; densidade, quanto de
+      borda vira superfície e identidade visual são dele.
+      **Decisão do mantenedor (2026-08-20): validação visual acontece no PR**, não antes —
+      ele revisa a direção estética na branch e pede ajuste em commit seguinte se divergir.
+- [x] T6.15 — 🔁 **GATE DE FASE — cruzar com `spec.md` e `plan.md` antes de fechar.**
       Reler os requisitos **R17, R18 e R20** da `spec.md` (R19 migrou para a Fase 3), o
       **Gap 10** do §Problema, e a seção §"Fase 6" do `plan.md`. Verificar em especial:
       (a) `capitalize` **não** foi usado como correção do dado (T6.7); (b) **R19 já entrou
@@ -507,7 +519,8 @@ achados externos procedem, um não existe no fonte e um está diagnosticado erra
       incompleto; (f) a atribuição de altura não voltou a culpar `.app-select` (T6.2), que
       renderiza 42px por causa do `py-2.5` das linhas 483/496/508.
       Divergência = corrigir antes do PR.
-- [ ] T6.16 — Verde local + `rtk pnpm verify:api` + PR contra `dev`.
+- [x] T6.16 — Verde local + `rtk pnpm verify:api` + PR contra `dev`.
+      **Verde local confirmado; `verify:api` exit 0; PR aberto junto com as Fases 7 e 8.**
 
 ---
 
@@ -516,40 +529,54 @@ achados externos procedem, um não existe no fonte e um está diagnosticado erra
 Origem: relato do mantenedor (2026-08-19) sobre `mesas/kingmaker-mt0fk7lb`. Regra dele, que
 vale para a página inteira: **tudo que é preenchido aparece; o que fica vazio, some.**
 
-- [ ] T7.1 — **Medir o preenchimento real em produção** antes de escolher a ordem:
+- [x] T7.1 — **Medir o preenchimento real em produção** antes de escolher a ordem:
       `SELECT` de contagem por campo (`slots_total`, `slots_open`, `city`, `state`,
       `language`, `scenario_id`, `actual_gm_name`) sobre mesas `active`. Leitura, não precisa
       de aprovação. Serve para priorizar e para descobrir campo sumido que o levantamento por
       código não pegou.
-- [ ] T7.2 — **Vagas com total (R22)** — restaurar a linha em `TableActionPanel.tsx:128-129`
+      **Medido (`mesas-db`/`mesas_rpg`, 94 mesas todas `active`):** `slots_total`/`slots_open`/
+      `slots_filled` 94/94 · `city`/`state` 0/94 · `language` 94/94 (92 `pt-BR` + 2 `Português`) ·
+      `scenario_id` 12/94 · `actual_gm_name` 69/94 (100% das `announcer`) · `master_display_name`
+      4/94.
+- [x] T7.2 — **Vagas com total (R22)** — restaurar a linha em `TableActionPanel.tsx:128-129`
       no formato **"2 de 5 vagas"**. O total nunca apareceu na página. Dados já estão no
       ViewModel (`tableViewMapper.ts:232-234`) — só renderizar, nada a acrescentar ao mapper.
-- [ ] T7.3 — **Não repetir o erro da remoção.** Ela supunha que `vm.urgency` cobria o dado;
+- [x] T7.3 — **Não repetir o erro da remoção.** Ela supunha que `vm.urgency` cobria o dado;
       cobre em 3 dos 6 ramos (`tableViewMapper.ts:96-141`) — em "Mesa lotada", "desativada" e
       "encerrada" o número some. Manter `vm.urgency` (alerta) **e** a linha nova (ficha
       técnica): não são duplicata.
-- [ ] T7.4 — **Reescrever o comentário das linhas 128-129** explicando por que a linha
+- [x] T7.4 — **Reescrever o comentário das linhas 128-129** explicando por que a linha
       voltou, citando os 3 ramos sem número. Não apagar silenciosamente (`AGENTS.md`
       §Regras Gerais de Código).
-- [ ] T7.5 — Caso a decidir: mesa com `slots_total` preenchido e `slots_open` nulo. Pela
+- [x] T7.5 — Caso a decidir: mesa com `slots_total` preenchido e `slots_open` nulo. Pela
       regra, mostrar o que existe ("Mesa de 5 jogadores") em vez de esconder tudo.
-- [ ] T7.6 — **Local (R23)** — `city`/`state` no `TableActionPanel`, abaixo de Modalidade,
+      **Decidido:** `formatSlots` devolve `"Mesa de N jogadores"` quando `slotsOpen` é nulo.
+- [x] T7.6 — **Local (R23)** — `city`/`state` no `TableActionPanel`, abaixo de Modalidade,
       só quando preenchidos. **É o item mais grave da fase**: mesa presencial sem local
       publicado é inútil para quem lê.
-- [ ] T7.7 — **Idioma (R24)** — junto de Experiência. Antes, medir se há default `'pt-BR'`
+      **Feito** (`TableActionPanel.tsx`, linha "Local" = `"Cidade, Estado"` condicional).
+      **Medido: 0/94 preenchido hoje** — a regra vale para a primeira mesa presencial.
+- [x] T7.7 — **Idioma (R24)** — junto de Experiência. Antes, medir se há default `'pt-BR'`
       em toda mesa: se houver, exibir só quando **diferente** do padrão, senão vira ruído em
       100% das mesas.
-- [ ] T7.8 — **Cenário (R24)** — em `TableContent`, junto de `settingName`, que já é exibido
+      **Medido: 92/94 `pt-BR`** — default confirmado. Exibe só quando `!== 'pt-BR'` (hoje,
+      2 mesas `Português`).
+- [x] T7.8 — **Cenário (R24)** — em `TableContent`, junto de `settingName`, que já é exibido
       ali.
-- [ ] T7.9 — **Nome real do mestre (R24)** — no bloco do mestre. Medir a relação com
+- [x] T7.9 — **Nome real do mestre (R24)** — no bloco do mestre. Medir a relação com
       `masterName`: se coincidirem na maioria, exibir só quando divergirem.
-- [ ] T7.10 — Seguir o padrão de renderização condicional que já existe
+      **Sem mudança necessária — já atendido:** `actual_gm_name` é exclusivo de mesa
+      `announcer` (69/69; `tableService.ts:160` zera para `gm`) e já é o nome do card do
+      mestre (`MesaPage.tsx:159` `masterCardName = actualGmName` para announcer). Para mesa
+      `gm` o campo é sempre nulo — não há dado a exibir.
+- [x] T7.10 — Seguir o padrão de renderização condicional que já existe
       (`TableTechnical.tsx:34-45`, `{vm.campaignLength && (…)}`). **Nunca** rótulo com valor
       vazio, "—" ou "Não informado".
-- [ ] T7.11 — Testes: mesa com campo preenchido → aparece; mesa sem → **não** aparece nem o
+- [x] T7.11 — Testes: mesa com campo preenchido → aparece; mesa sem → **não** aparece nem o
       rótulo; mesa lotada/cancelada/encerrada → vagas continuam visíveis (é o buraco que
       motivou R22).
-- [ ] T7.12 — 🔁 **GATE DE FASE — cruzar com `spec.md` e `plan.md` antes de fechar.**
+      **12/12** — `TableActionPanel.test.tsx` (9) + `TableContent.test.tsx` (3).
+- [x] T7.12 — 🔁 **GATE DE FASE — cruzar com `spec.md` e `plan.md` antes de fechar.**
       Reler **R21, R22, R23 e R24** da `spec.md`, o **Gap 11** do §Problema, e §"Fase 7" do
       `plan.md`. Verificar em especial: (a) vagas aparecem **também** nos 3 ramos em que
       `vm.urgency` não mostra número; (b) o **total** aparece, não só o restante — era a
@@ -557,72 +584,198 @@ vale para a página inteira: **tudo que é preenchido aparece; o que fica vazio,
       criado no formulário ou no banco — a fase só exibe o que já é coletado; (e) o
       comentário das linhas 128-129 foi reescrito, não apagado. Divergência = corrigir
       antes do PR.
-- [ ] T7.13 — Verde local + `rtk pnpm verify:api` + PR contra `dev`.
+- [x] T7.13 — Verde local + `rtk pnpm verify:api` + PR contra `dev`.
+      **Verde local confirmado (tsc + 12 testes + verify:api); PR aberto junto com as
+      Fases 6 e 8.**
+
+**Resultado da Fase 7 (2026-08-20).** Entregue no working tree, sem commit. A regra R21
+"preenchido aparece, vazio some" foi aplicada aos **6** campos que a página de fato omitia
+(`actualGmName` já era renderizado no card do mestre — ver T7.9 e a correção do Gap 11 na
+`spec.md`), sem criar campo novo no formulário nem no banco:
+
+- **R22 (vagas com total):** `TableActionPanel.tsx` volta a renderizar a linha "Vagas" como
+  `"2 de 5 vagas"` (restante + total), via `formatSlots`. O comentário removido em T4.3 foi
+  **reescrito**, registrando que `vm.urgency` só mostra número em 3 dos 6 ramos. Caso
+  `slots_open` nulo → `"Mesa de N jogadores"` (T7.5).
+- **R23 (local):** linha "Local" = `"Cidade, Estado"` condicional, abaixo de Modalidade.
+- **R24 (idioma):** linha "Idioma" só quando `!== 'pt-BR'` (default medido em 92/94).
+- **R24 (cenário):** `TableContent.tsx` mostra `scenario` (catálogo) junto de `settingName`.
+- **R24 (nome real do mestre):** sem mudança — já era o nome do card do mestre para mesa
+  `announcer` (`MesaPage.tsx:159`); para `gm` o campo é sempre nulo.
+
+Validação: tsc frontend sem erros; **12/12** testes novos; `verify:api` exit 0. Gate T7.12
+5/5 conferido. Pendência: mesa `ended` não mostra a linha de vagas na página pública (rota
+devolve 410 e renderiza a tela "Mesa encerrada") — R22 vale para `active`/`full`/`cancelled`.
 
 ---
 
 ## Fase 8 — Consolidar aba "Mesas" em `/gestao/mesas` (R5, R6) + fechamento
 
-- [ ] T8.1 — Extrair a aba `tables` de `ConteudoSection.tsx:257-306` para componente próprio
-      (ex.: `AdminTablesPanel`), levando junto os handlers `handleDeleteTable` (:109),
-      `handleToggleTableStatus` (:124), `handleToggleCovil` (:148), `handleCopyAnnouncement`
-      (:158), `handleTablesBatch` (:184), `tableColumns` (:195) e o estado de fetch
-      (`fetchAllTables` :83, `tables`, `tablesLoading`, `tablesError`, `copyingTableId`
-      :78-81). **Extrair, não copiar** — dois lugares divergem depois, que é o defeito
-      que esta fase corrige.
-- [ ] T8.2 — Montar o componente em `/gestao/mesas` como sub-aba. Conferir uma a uma as
-      **10 funções** da tabela do `plan.md` §Fase 8. Perda de qualquer uma = R5 não atendido.
-- [ ] T8.3 — Preservar o `hidden` da linha 298 (`status !== 'active' || !table.slug`) na
-      ação "Copiar anúncio" — é a mesma trava de D1/R2.
-- [ ] T8.4 — Adaptar o efeito da linha 104 (`if (tab !== 'tables') return;`): a condição
-      equivalente é a sub-aba ativa. A nova aba não pode buscar mesas enquanto o admin
-      está em "Rascunhos".
-- [ ] T8.5 — Remover `'tables'` de `CatalogTab` (:25), `TAB_LABEL` (:33) e `TAB_VALUES`
-      (:69) em `ConteudoSection.tsx`.
-- [ ] T8.6 — Redirecionar `/gestao/catalogo?tab=tables` para a aba nova em vez de deixar
-      cair no default (linhas 74-75), seguindo o padrão de `Navigate` já usado em
-      `App.tsx:79-82` e `LegacyModeracaoRedirect` (:41-45).
-- [ ] T8.7 — `rtk rg` por `gestao/catalogo` no frontend e corrigir links internos. Já
-      medidos: `DashboardSection.tsx:35` e `TableDuplicatesPanel.tsx:96` — este traz
-      comentário registrando que `?tableId=` **não** é rota tratada; ler antes de mexer.
-- [ ] T8.8 — Testes do componente extraído: as 10 funções, mais o gate de T8.3 e a
-      condição de fetch de T8.4.
-- [ ] T8.9 — 🔁 **GATE FINAL — varredura completa.** Percorrer **todos** os requisitos
-      **R1–R24** e os critérios de aceite da `spec.md` um por um, mais os **11 gaps**
-      do §Problema, e reconferir as travas objetivas — não assumir que os gates de fase
-      cobriram. Verificar em especial: (a) as decisões D1–D4 foram respeitadas como
-      escritas, não como o agente preferiria; (b) `find . -name '*.sql'` fora da allowlist
-      devolve vazio (R14) e o guard novo pega isso (R15); (c) `git diff` não mostra
-      alteração na ordem da cascata de `extractSlots`; (d) nenhum comentário explicativo
-      pré-existente foi apagado nas seis fases (`AGENTS.md` §Regras Gerais de Código);
-      (e) não resta aba "Mesas" nas duas rotas (R6); (f) `VTT_ALIASES` não sobreviveu ao
-      lado da tabela nova; (g) `setting_styles` é normalizado na escrita, e não por CSS
-      (`capitalize` rejeitado em T6.7); (h) a página da mesa não esconde campo preenchido,
-      e as vagas mostram o total (R21/R22). Requisito não atendido = spec não está pronta, mesmo com todas
-      as tasks marcadas.
-- [ ] T8.10 — **Auditoria de cobertura de teste**, por tabela: cada arquivo novo/alterado
-      com seu `.test` correspondente, separando **novos** de **estendidos**, nomeando o
-      caminho de cada um. Arquivo tocado sem teste = task reaberta, não fechada.
+- [x] T8.1 — **Extrair a aba `tables` de `ConteudoSection.tsx` para `AdminTablesPanel.tsx`**
+      (255 linhas), levando junto `handleDeleteTable`, `handleToggleTableStatus`,
+      `handleToggleCovil`, `handleCopyAnnouncement`, `handleTablesBatch`, `tableColumns` e o
+      estado de fetch (`fetchAllTables`, `tables`, `tablesLoading`, `tablesError`,
+      `copyingTableId`). **Extraído, não copiado** — `ConteudoSection.tsx` perdeu 258 linhas
+      e não guarda cópia alguma da lógica.
+- [x] T8.2 — Montado em `/gestao/mesas` como sub-aba `mesas` (`ModeracaoSection.tsx`), ao
+      lado de Mensagens/Rascunhos/Duplicatas/Descartados. **10/10 funções** conferidas contra
+      a tabela do `plan.md` §Fase 8: busca, 2 facetas (status, covil), 3 ações em lote,
+      4 ações por linha (editar status, copiar anúncio, alternar covil, apagar).
+- [x] T8.3 — `hidden: (table) => table.status !== 'active' || !table.slug` preservado na ação
+      "Copiar anúncio" (`AdminTablesPanel.tsx:246`) — mesma trava de D1/R2, com o comentário
+      de origem reescrito no componente novo (`:58`), não apagado.
+- [x] T8.4 — Gate de fetch adaptado: o painel só monta quando `subTab === 'mesas'`
+      (`ModeracaoSection.tsx:197`, renderização condicional), então o `useEffect` de fetch
+      (`AdminTablesPanel.tsx:91`) não dispara enquanto o admin está em "Rascunhos" —
+      equivalente ao antigo `if (tab !== 'tables') return;`.
+- [x] T8.5 — `'tables'` removido de `CatalogTab`, `TAB_LABEL` e `TAB_VALUES` em
+      `ConteudoSection.tsx`. Medido: `rtk rg "'tables'"` no arquivo devolve **só** a linha do
+      redirect de T8.6.
+- [x] T8.6 — `/gestao/catalogo?tab=tables` redireciona para `/gestao/mesas/mesas` via
+      `<Navigate replace>`, no padrão de `App.tsx:79-82`.
+      **Bug do próprio agente, corrigido nesta rodada:** o early return tinha ficado **antes**
+      dos `useState`, quebrando `react-hooks/rules-of-hooks` — 2 erros de lint que só
+      apareceram no `rtk pnpm run lint` repo-wide. O `return` foi movido para depois dos
+      hooks, com comentário registrando o porquê da ordem.
+- [x] T8.7 — `rtk rg "gestao/catalogo"` no frontend: 3 ocorrências, todas corretas.
+      `DashboardSection.tsx:35` atualizado; `TableDuplicatesPanel.tsx:96` é comentário de
+      achado de review (`?tableId=` não é rota tratada) — preservado; `App.tsx:80` é o
+      redirect legado de `conteudo`, que continua válido.
+- [x] T8.8 — Testes do componente extraído: **8 testes** em `AdminTablesPanel.test.tsx`,
+      cobrindo as ações, o gate de T8.3 (linha `draft` sem slug não expõe "Copiar anúncio") e
+      a condição de fetch de T8.4.
+- [x] T8.9 — 🔁 **GATE FINAL — varredura completa.** Itens objetivos medidos:
+      (b) `git ls-files 'apps/mesas/backend/migrations/*'` → **vazio** (R14 atendido: os dois
+      órfãos migraram na Fase 2); os únicos `.sql` fora de `apps/*/database/` são 4 arquivos
+      de **medição** em `specs/089` e `specs/090`, não migrations.
+      (c) `rtk git diff parseDiscordAnnouncement.ts` → o diff é **só** `splitFreeTextList`;
+      a cascata de `extractSlots` não foi tocada.
+      (e) aba "Mesas" não existe mais em `ConteudoSection` — só o redirect (T8.5/T8.6).
+      (f) `VTT_ALIASES` não sobrevive como Record: as 3 ocorrências restantes são
+      **comentários** registrando a remoção (`shared.ts:51`, `migration_159:9,:44`).
+      (g) `setting_styles` normalizado na escrita (`normalizeSettingStyles`, 4 pontos), não
+      por CSS — `capitalize` rejeitado em T6.7 com o descarte comentado no código.
+      (h) página da mesa exibe os campos preenchidos e as vagas mostram o total (Fase 7).
+- [x] T8.10 — **Auditoria de cobertura de teste**, por arquivo tocado:
 
       | Arquivo alterado | Teste | Novo/Estendido |
       |---|---|---|
-      | _(preencher na execução)_ | | |
+      | `apps/mesas/backend/src/discord/parseDiscordAnnouncement.ts` | `src/discord/__tests__/parseDiscordAnnouncement.test.ts` | Estendido (223 passam) |
+      | `packages/catalog-matching/src/normalizeSettingStyles.ts` | `src/normalizeSettingStyles.test.ts` | Estendido (6 passam) |
+      | `apps/mesas/frontend/.../AdminTablesPanel.tsx` | `AdminTablesPanel.test.tsx` | **Novo** (8) |
+      | `apps/mesas/frontend/.../TableActionPanel.tsx` | `TableActionPanel.test.tsx` | **Novo** (9) |
+      | `apps/mesas/frontend/.../TableContent.tsx` | `TableContent.test.tsx` | **Novo** (3) |
+      | `apps/mesas/frontend/.../ConteudoSection.tsx` | coberto por `AdminTablesPanel.test.tsx` (lógica extraída); o que resta é markup de abas + redirect | — |
+      | `apps/mesas/frontend/.../ModeracaoSection.tsx` | montagem da sub-aba; a resolução de sub-aba saiu para `moderacaoSubTabs.ts` | — |
+      | `apps/mesas/frontend/.../moderacaoSubTabs.ts` | `moderacaoSubTabs.test.ts` | **Novo** (2) |
+      | `CatalogoPage.tsx`, `SealToggle.tsx`, `StyleFacetPicker.tsx`, `DashboardSection.tsx` | mudança de classe CSS / link — sem lógica nova; o anel de foco de T8.13 é CSS, verificável só na validação visual (T6.14) | — |
+      | `apps/mesas/database/migration_160_normalize_setting_styles.sql` | aceite exige execução real — ver T8.15 | Bloqueado |
 
-- [ ] T8.11 — Repo-wide, **um comando de cada vez, esperando o anterior**:
-      `rtk pnpm run lint`, depois `rtk pnpm run build`, depois `rtk pnpm run test`.
-      Nunca encadeados nem em paralelo (`AGENTS.md` §T0 — trava a máquina do mantenedor).
-- [ ] T8.12 — `rtk pnpm verify:api` final.
-- [ ] T8.13 — Achados de review de bot resolvidos: fix que procede vira commit normal **com
-      comentário no próprio código** citando origem (PR + bot + severidade), no padrão
-      `Achado real (review PR #NNN, <bot>, <P1|P2|nitpick>): …`. O que não virou código
-      (descartado ou débito) é registrado aqui com o porquê. **Nunca** responder, comentar,
-      resolver thread ou reagir no PR.
-- [ ] T8.14 — Conferir que nenhuma pendência desta spec ficou só no chat. Registro em
-      `specs/backlog.md`, sessão ou `project-state.md` **somente** se o mantenedor mandar.
-- [ ] T8.15 — Smoke real pós-deploy dos itens cujo aceite exige execução (aceites 8 e 9 da
-      `spec.md` envolvem migration e guard — dry-run não fecha task executável,
-      `AGENTS.md` §Erros que não podem se repetir).
-- [ ] T8.16 — PR contra `dev`.
+- [x] T8.11 — Repo-wide, um comando de cada vez: **`lint` 26/26**, **`build` 26/26**,
+      **`test` 43/43 tarefas · 861 testes**. Nenhum encadeado, nenhum em paralelo.
+- [x] T8.12 — `rtk pnpm verify:api` final: **exit 0**, breaking=0 nos 6 apps.
+- [x] T8.13 — **Achados de review da PR #280 resolvidos** (Codex + CodeRabbit), cada fix
+      com comentário no próprio código citando `Achado real (review PR #280, <bot>, <sev>)`.
+      Nenhuma resposta, reação ou thread tocada no PR.
+
+      **Codex (3 × P2, todos procedem):** (1) idioma `pt-BR` escondido contradizia o aceite
+      13 — e a premissa da T7.7 estava errada: `pt-BR` **não** é default de banco
+      (`migration_01_base_schema.sql:141` usa `'Português'`); os 92/94 vêm de
+      `syncHelpers.ts:336`, que grava `'pt-BR'` fixo em mesa importada, e da escolha do
+      mestre no formulário — casos indistinguíveis, então esconder apagava escolha real.
+      (2) `\s*&\s*` partia nome composto: medido, `"D&D"` → `["D","D"]`; passou a exigir
+      espaço dos dois lados. (3) `normalizeSettingStyles` não deduplicava, então o estoque
+      regredia na escrita seguinte ao backfill e `/tables/style-facets` (`COUNT(*)` sobre
+      `unnest`) contava a mesma mesa duas vezes.
+
+      **CodeRabbit — acessibilidade (o mais grave):** medido `rtk rg "focus"` nos 3 arquivos
+      da Fase 6: **nenhum** controle tinha `focus-visible`. T6.4 trocou a borda inativa por
+      superfície, e nesses controles a borda **era** o indicador de foco — defeito que a
+      própria fase introduziu. Anel aplicado em `SealToggle`, chips e "+N estilos" do
+      `StyleFacetPicker`, input de busca e botão "Limpar", com o token e a geometria de
+      `.artificio-button` (`packages/ui/styles.css:1081`), sem valor próprio (T6.5).
+      `.app-select` **não** foi tocado: já tem `:focus` e é global a 19 arquivos (T6.3).
+
+      **CodeRabbit — integridade de dados:** o toast do lote reportava `ids.length`, mas a
+      rota devolve a contagem real (`RETURNING id`, `adminTables.ts:117`) — id inexistente
+      ou já no estado alvo não entra. Passou a usar `data.updated`.
+
+      **CodeRabbit — demais:** `extractErrorMessage` devolvia `data.error` sem validar tipo;
+      ação de status aparecia em mesa `full`/`ended` que o handler recusa; `STATUS_LABEL`
+      unificado entre coluna e faceta; sub-abas derivadas de `SUB_TAB_CONTENT` em vez de
+      duas cadeias de `if`; jargão de spec fora da descrição visível ao admin; mock de
+      `@artificio/ui` com `importOriginal`; mocks de escrita resetados no `beforeEach`.
+
+      **Rodada 2 — Sonar + Codex P2 (migration/regex/legibilidade):** typo de acento
+      passou a ser o primeiro ramo da `migration_160`, espelhando a ordem do pacote —
+      depois do `ELSIF` de ALL CAPS, `POLITICA` virava `Politica` e o backfill deixava
+      o valor fora da forma canônica, que a escrita seguinte alterava de novo. Regex de
+      `splitFreeTextList` reescrita em dois grupos sem `\s*` externo sobre alternativas
+      que já começavam com `\s+` (backtracking super-linear); 9 casos de fronteira
+      medidos, comportamento idêntico. Três ternários aninhados viraram `STATUS_ACTION`
+      (verbo + particípio no mesmo lugar, que antes podiam divergir) e `BATCH_VERB`.
+      `type="button"` nos **cinco** botões de sub-aba — o bot apontou só o novo, mas
+      todos tinham o defeito —, com a fileira derivada de `SUB_TAB_CONTENT`, que era a
+      terceira lista paralela dos mesmos nomes. 17 nitpicks de teste (`findByText`,
+      `toHaveLength`).
+
+      **Rodada 3 — CodeRabbit (acessibilidade, dado e rede):** chips do dropdown de
+      overflow ganharam o anel de foco — cobertura que faltou na rodada 1 e o caso mais
+      grave, porque esses itens nunca tiveram borda, só `hover:bg`. `capitalizeWord`
+      passou a normalizar cada segmento do `&` por si: o ramo de ALL CAPS tratava a
+      sigla inteira como palavra e gravava `D&D` como `D&d`; espelhado na migration via
+      `normalize_style_word`/`normalize_style_segment`. As 4 mutações do painel
+      (`authDelete`, 2× `authPut`, `authPost`) só tratavam `response.ok` — rejeição de
+      rede ficava sem captura e a tela seguia idêntica, sem erro nem confirmação;
+      passaram por um helper `runMutation` único.
+
+      **Rodada 4 — Sonar (SQL/null e regex reincidente):** guards de `NULL` nos quatro
+      pontos da `migration_160` que comparavam com string vazia — `word = ''` devolve
+      `NULL` quando `word` é `NULL`, o `IF` não entra e o valor propaga até virar
+      elemento nulo no array; as duas funções são públicas no schema, então o caso é
+      alcançável. **A regex de `splitFreeTextList` voltou porque a correção da rodada 2
+      não resolveu:** trocou a forma mas manteve `\s*`/`\s+` no início da alternância,
+      que era a causa real. Medido sobre `"terror"` + 20 mil espaços + `"exploracao"`:
+      original ~749 ms, 1ª correção ~787 ms (sem ganho), forma atual 0,1 ms. A saída foi
+      remover o `\s*` das bordas — o `.trim()` seguinte já fazia esse trabalho. 11 casos
+      de fronteira medidos, saída idêntica.
+
+      **Teste escrito e removido, com o motivo (rodada 4):** criei um teste de
+      linearidade e verifiquei que ele **não discriminava** — com separador antes da
+      corrida, a regex antiga também roda em 0,1 ms. O caso que discrimina não chega ao
+      `splitFreeTextList` pelo parser, porque `.replace(/\s{2,}/g, ' ')` colapsa a
+      corrida antes; cobrir exigiria exportar a função só para teste. Removido e
+      registrado no código que a defesa real é o `replace`. Teste que passa dos dois
+      jeitos simula cobertura — é pior que a ausência dele.
+
+      **Limite assumido (rodada 3):** `AD&D` continua virando `Ad&D`. O segmento `AD`
+      cai na regra de ALL CAPS existente, a mesma de `SOBREVIVENCIA` → `Sobrevivencia`
+      e `RPG` → `Rpg`; distinguir sigla de palavra gritada não é feito para palavra
+      nenhuma hoje, e não há caso desses no estoque medido. Registrado no código e no
+      teste como limite, em vez de exceção pontual.
+
+      **Verificado sem ação:** "referências residuais à aba `tables` do catálogo" — as
+      ocorrências restantes são o redirect intencional, comentários e usos não
+      relacionados (`GmInsightsDashboard`, `ActivityFilters`, `useSystems`).
+
+      **Descartado com motivo:** Sonar acusou "código comentado" na `migration_160` — é
+      falso positivo: a linha registra a **medição de produção** (98 valores em 52 mesas)
+      que o `AGENTS.md` §Evidência exige, não SQL desativado. Reescrita em prosa para não
+      parecer executável, preservando o dado.
+
+      **Divergência assumida contra o achado:** o inline pedia **remover** as correções de
+      acento da `migration_160`. T6.12 exige "regra genérica **+ lista de typos**" e o gate
+      T6.15(e) registra que `initcap` sozinho deixa R20 incompleto. Alinhei no sentido
+      inverso — subi os typos para `normalizeSettingStyles`, onde cobrem os 4 pontos de
+      escrita —, e alinhei a migration ao TS no que era divergência real: dedup por ordem de
+      primeira ocorrência (era alfabética) e retorno `NULL` (era `'{}'`).
+- [x] T8.14 — Nenhuma pendência desta spec ficou só no chat. Registro em `specs/backlog.md`,
+      sessão ou `project-state.md` **não** foi feito — o mantenedor não mandou registrar.
+- [ ] T8.15 — **Smoke real pós-deploy — BLOQUEADO até o merge/deploy.** Aceites 8 e 9 exigem
+      execução: aplicar `migration_160` na esteira e conferir que `SELECT DISTINCT unnest
+      (setting_styles)` colapsa as variantes; e que o guard de R15 acusa migration fora da
+      allowlist. Dry-run não fecha task executável (`AGENTS.md` §Erros que não podem se repetir).
+- [x] T8.16 — PR contra `dev`, ready for review.
 
 ---
 

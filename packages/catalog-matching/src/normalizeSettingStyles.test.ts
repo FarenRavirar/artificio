@@ -16,6 +16,53 @@ describe('normalizeSettingStyles (R19, spec 093)', () => {
     expect(normalizeSettingStyles(['Exploração.', 'Macabro.', 'SOBREVIVÊNCIA'])).toEqual(['Exploração', 'Macabro', 'Sobrevivência']);
   });
 
+  it('preserva camelCase interno (não achata maiúscula interna)', () => {
+    expect(normalizeSettingStyles(['MegaDungeon', 'Sci-Fi', 'Super-Herói'])).toEqual(['MegaDungeon', 'Sci-Fi', 'Super-Herói']);
+  });
+
+  it('rebaixa preposição inglesa interna', () => {
+    expect(normalizeSettingStyles(['slice of life', 'dungeons and dragons'])).toEqual(['Slice of Life', 'Dungeons and Dragons']);
+  });
+
+  // Achado real (review PR #280, codex, P2): sem dedup no normalizador o backfill
+  // da migration_160 regride na proxima escrita e o chip conta a mesma mesa 2x.
+  it('deduplica apos normalizar, preservando ordem de primeira ocorrencia', () => {
+    expect(normalizeSettingStyles(['exploração', 'Exploração'])).toEqual(['Exploração']);
+    expect(normalizeSettingStyles(['Terror', 'Aventura', 'terror.'])).toEqual(['Terror', 'Aventura']);
+  });
+
+  // Achado real (review PR #280, coderabbit, inline): a lista de typos de acento
+  // vivia so na migration_160. Regra que existe num caminho e nao no outro faz a
+  // escrita reproduzir o valor que o backfill acabou de limpar.
+  it('corrige typo de acento, alinhado a migration_160', () => {
+    expect(normalizeSettingStyles(['politica', 'Politico'])).toEqual(['Política', 'Político']);
+    expect(normalizeSettingStyles(['intriga politica'])).toEqual(['Intriga Política']);
+  });
+
+  // Achado real (review PR #280, codex, P2): na migration o ramo de ALL CAPS vinha
+  // ANTES do typo e interceptava "POLITICA", devolvendo "Politica". Aqui o typo
+  // sempre vence; o teste trava a ordem nos dois caminhos.
+  it('aplica o typo mesmo em ALL CAPS, antes do ramo de caixa alta', () => {
+    expect(normalizeSettingStyles(['POLITICA', 'POLITICO'])).toEqual(['Política', 'Político']);
+    expect(normalizeSettingStyles(['INTRIGA POLITICA'])).toEqual(['Intriga Política']);
+  });
+
+  // Achado real (review PR #280, coderabbit, inline): o ramo de ALL CAPS tratava a
+  // sigla inteira como uma palavra e rebaixava tudo apos a 1a letra — medido:
+  // "D&D" -> "D&d". Cada segmento do "&" passou a ser normalizado por si.
+  // Limite conhecido: segmento ALL CAPS com 2+ letras ainda e rebaixado ("AD&D" ->
+  // "Ad&D"), porque e a regra de ALL CAPS existente ("SOBREVIVENCIA" ->
+  // "Sobrevivencia") agindo sobre sigla curta — mesmo comportamento de "RPG" ->
+  // "Rpg", pre-existente e fora deste achado. Nao ha sigla assim no estoque medido
+  // (98 valores, 2026-08-20); tratar exigiria distinguir sigla de palavra gritada,
+  // que a regra atual nao faz para NENHUMA palavra.
+  it('preserva sigla composta por & (D&D) sem rebaixar segmento', () => {
+    expect(normalizeSettingStyles(['D&D'])).toEqual(['D&D']);
+    expect(normalizeSettingStyles(['Hack&Slash'])).toEqual(['Hack&Slash']);
+    expect(normalizeSettingStyles(['d&d'])).toEqual(['D&D']);
+    expect(normalizeSettingStyles(['AD&D'])).toEqual(['Ad&D']);
+  });
+
   it('devolve null para entrada vazia ou nula', () => {
     expect(normalizeSettingStyles(null)).toBeNull();
     expect(normalizeSettingStyles(undefined)).toBeNull();

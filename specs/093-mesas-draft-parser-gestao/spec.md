@@ -349,7 +349,7 @@ preenchido, não mostra."*
 
 Levantamento completo: dos 78 campos do ViewModel, a maioria **já é exibida** e já segue
 essa regra — `TableTechnical.tsx:34-45` é o padrão (`{vm.campaignLength && (…)}`). O buraco
-é pontual: **7 campos de conteúdo que o mestre preenche e a página nunca mostra.**
+é pontual: **6 campos de conteúdo que o mestre preenche e a página nunca mostra.**
 
 | Campo | Situação |
 |---|---|
@@ -357,7 +357,7 @@ essa regra — `TableTechnical.tsx:34-45` é o padrão (`{vm.campaignLength && (
 | `city`, `state` | nunca renderizados |
 | `language` | nunca renderizado |
 | `scenario` | nunca renderizado |
-| `actualGmName` | nunca renderizado |
+| `actualGmName` | já renderizado no card do mestre (`MesaPage.tsx:159`, para mesa `announcer`) — não é buraco desta fase |
 
 **Causa das vagas — remoção deliberada, com raciocínio incompleto.** `TableActionPanel.tsx:128-129`
 traz o comentário: *"Vagas removida daqui (T4.3) — duplicava o aviso de urgência acima

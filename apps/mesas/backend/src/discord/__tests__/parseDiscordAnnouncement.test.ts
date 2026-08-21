@@ -1162,6 +1162,55 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table.setting_styles).toEqual(['Exploração', 'Gestão de Reino', 'Fatia de Vida']);
   });
 
+  it('separa multi-valores por • · & e remove menção crua de role (R20)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: D&D 5e',
+          'Estilo: dark fantasy • exploração & sword <@&1012065638598049918>',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.setting_styles).toEqual(['Dark Fantasy', 'Exploração', 'Sword']);
+  });
+
+  // Achado real (review PR #280, codex, P2): `\s*&\s*` partia nome composto —
+  // "D&D" virava ["D","D"]. O separador exige espaco dos dois lados.
+  it('nao parte nome composto com & colado (D&D, Hack&Slash), mas ainda separa " & "', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: D&D 5e',
+          'Estilo: Hack&Slash & dark fantasy',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.setting_styles).toEqual(['Hack&Slash', 'Dark Fantasy']);
+  });
+
+  // Achado real (review PR #280, coderabbit, inline): a sigla precisa sobreviver ao
+  // split E a normalizacao — "D&D" nao pode virar "D&d" ao ser gravada.
+  it('preserva sigla D&D como estilo, separando so o & isolado', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Pathfinder',
+          'Estilo: D&D & Hack&Slash',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.setting_styles).toEqual(['D&D', 'Hack&Slash']);
+  });
+
   it('remove "Classificação Indicativa" da descrição (Gap 5 segundo sintoma, spec 093)', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({

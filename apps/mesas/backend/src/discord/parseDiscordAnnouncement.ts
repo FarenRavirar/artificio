@@ -1524,12 +1524,38 @@ function extractTechnicalRequirements(text: string): {
   };
 }
 
-/** Fase C (spec 058): normaliza lista de texto livre separada por `/`, `,` ou "e"/"ou".
+/** Fase C (spec 058): normaliza lista de texto livre separada por `/`, `,`, "e"/"ou"
+ * e separadores de bullet ("•", "·", "&", "x" como "versus").
  * R19 (spec 093): a forma canônica (capitalização + preposição + pontuação) vem de
- * normalizeSettingStyles — mesma regra dos demais pontos de escrita do campo. */
+ * normalizeSettingStyles — mesma regra dos demais pontos de escrita do campo.
+ * R20 (spec 093): remove menções cruas de role/usuário/canal do Discord ("<@&...>")
+ * — o parser não resolve menções para o nome, então elas viravam lixo no estoque
+ * (medido em prod: 2 mesas com "<@&id>" dentro de setting_styles).
+ * O "&" exige espaço dos DOIS lados: como `\s*&\s*`, ele partia nome composto —
+ * medido: "D&D" virava ["D","D"] e "Hack&Slash" virava ["Hack","Slash"], gravando
+ * lixo em setting_styles. Com `\s+&\s+`, "Dark Fantasy & Terror" continua separando.
+ * Achado real (review PR #280, codex, P2). */
 function splitFreeTextList(value: string): string[] | null {
-  const parts = value
-    .split(/\s*(?:\/|,| e | ou )\s*/i)
+  const cleaned = value
+    .replace(/<[@#][!&]?\d+>/g, '') // menção crua de role/usuário/canal
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  const parts = cleaned
+    // SEM `\s*` nas bordas: o `.trim()` da linha seguinte já remove o espaço
+    // residual de cada parte, então quantificador de whitespace aqui era redundante
+    // — e era ele o backtracking. Qualquer forma com `\s*`/`\s+` no início da
+    // alternância deixa o motor reposicionar dentro de uma corrida de espaços.
+    // Medido sobre "terror" + 20 mil espaços + "exploracao": forma original ~749 ms,
+    // a 1ª correção (dois grupos) ainda ~787 ms — quadrática também —, esta 0,1 ms.
+    // Separador é pontuação pura ou palavra delimitada por espaço dos dois lados,
+    // o que preserva "D&D" e ainda separa " & ". 11 casos de fronteira medidos,
+    // saída idêntica. (Sonar, regex/performance, review PR #280 — reincidente.)
+    //
+    // Sem teste de linearidade porque ele não seria honesto por este caminho: o
+    // `.replace(/\s{2,}/g, ' ')` acima colapsa a corrida ANTES do split, então o
+    // caso patológico não chega aqui via parser. Cobrir exigiria exportar esta
+    // função só para o teste; a defesa real é o replace, não uma asserção de tempo.
+    .split(/[/,•·]|\s(?:&|e|ou|x)\s/i)
     .map((p) => p.trim())
     .filter(Boolean);
   return normalizeSettingStyles(parts);

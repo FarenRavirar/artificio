@@ -7,6 +7,7 @@ import { MessagesView } from '../../../features/discord-sync/components/Messages
 import { DiscordDraftReviewTable } from '../../../features/discord-sync/components/DiscordDraftReviewTable';
 import { discordSyncApi } from '../../../features/discord-sync/api/discordSyncApi';
 import { inboxApi } from '../../../features/inbox/api/inboxApi';
+import { resolveSubTab, SUB_TAB_CONTENT, type ModSubTab } from './moderacaoSubTabs';
 
 // Achado do mantenedor (2026-07-16): cast direto `as DiscordDraft` compilava mas
 // nunca preenchia content_raw de verdade — o inbox devolve o texto original em
@@ -18,27 +19,7 @@ function inboxDraftToDiscordDraft(draft: InboxDraft): DiscordDraft {
 }
 import { PageHeader, SectionCard, tabButtonClass } from './ui';
 import { TableDuplicatesPanel } from './TableDuplicatesPanel';
-
-type ModSubTab = 'mensagens' | 'rascunhos' | 'duplicatas' | 'descartados';
-
-const SUB_TAB_CONTENT: Record<ModSubTab, { title: string; description: string }> = {
-  rascunhos: {
-    title: 'Rascunhos de mesas',
-    description: 'Revisão unificada de entradas do Bot, Exporter e texto colado antes de publicar mesas reais.',
-  },
-  mensagens: {
-    title: 'Mensagens capturadas',
-    description: 'Apuração das mensagens brutas antes de gerar ou ignorar rascunhos.',
-  },
-  duplicatas: {
-    title: 'Possíveis duplicatas',
-    description: 'Pares mesa×mesa e draft×mesa para decisão manual do administrador.',
-  },
-  descartados: {
-    title: 'Descartados',
-    description: 'Rascunhos rejeitados. Ver, restaurar (volta ao fluxo de revisão) ou apagar definitivamente.',
-  },
-};
+import { AdminTablesPanel } from './AdminTablesPanel';
 
 /**
  * Computa diff entre campos editáveis de dois payloads para correction-tracking.
@@ -79,23 +60,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function ModeracaoSection() {
   const { sub } = useParams<{ sub?: string }>();
   const navigate = useNavigate();
-  const [subTab, setSubTab] = useState<ModSubTab>(() => {
-    if (sub === 'rascunhos') return 'rascunhos';
-    if (sub === 'mensagens') return 'mensagens';
-    if (sub === 'duplicatas') return 'duplicatas';
-    if (sub === 'descartados') return 'descartados';
-    return 'rascunhos';
-  });
+  const [subTab, setSubTab] = useState<ModSubTab>(() => resolveSubTab(sub));
 
   // Sincronizar subTab com a URL quando o param muda (ex.: deep-link direto)
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (sub === 'rascunhos') setSubTab('rascunhos');
-      else if (sub === 'mensagens') setSubTab('mensagens');
-      else if (sub === 'duplicatas') setSubTab('duplicatas');
-      else if (sub === 'descartados') setSubTab('descartados');
-      else setSubTab('rascunhos');
-    }, 0);
+    const timer = setTimeout(() => setSubTab(resolveSubTab(sub)), 0);
     return () => clearTimeout(timer);
   }, [sub]);
 
@@ -157,19 +126,23 @@ export function ModeracaoSection() {
         description="Fila central de rascunhos e mensagens capturadas, com filtros por origem/status e ações em lote."
       />
 
+      {/* Fileira derivada de SUB_TAB_CONTENT: era a terceira lista paralela dos
+          mesmos 5 nomes. `type="button"` explícito nos cinco — sem ele o default
+          é "submit", que dispararia envio caso a fileira caia dentro de um <form>
+          (Sonar, react/reliability, review PR #280, apontado só no botão novo;
+          os outros quatro tinham o mesmo defeito e foram corrigidos junto). */}
       <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--admin-surface)] p-1">
-        <button onClick={() => selectSubTab('rascunhos')} className={subTabClass('rascunhos')} aria-pressed={subTab === 'rascunhos'}>
-          Rascunhos
-        </button>
-        <button onClick={() => selectSubTab('mensagens')} className={subTabClass('mensagens')} aria-pressed={subTab === 'mensagens'}>
-          Mensagens
-        </button>
-        <button onClick={() => selectSubTab('duplicatas')} className={subTabClass('duplicatas')} aria-pressed={subTab === 'duplicatas'}>
-          Duplicatas
-        </button>
-        <button onClick={() => selectSubTab('descartados')} className={subTabClass('descartados')} aria-pressed={subTab === 'descartados'}>
-          Descartados
-        </button>
+        {(Object.keys(SUB_TAB_CONTENT) as ModSubTab[]).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => selectSubTab(tab)}
+            className={subTabClass(tab)}
+            aria-pressed={subTab === tab}
+          >
+            {SUB_TAB_CONTENT[tab].tab}
+          </button>
+        ))}
       </div>
 
       {/* SonarCloud PR #159: conteúdo por subaba evita ternários aninhados e mantém título/descrição sincronizados. */}
@@ -187,6 +160,7 @@ export function ModeracaoSection() {
           <DiscordDraftReviewTable inboxApi={inboxDraftApi} onBeforeSync={handleBeforeSync} lockedStatus="rejected" />
         )}
         {subTab === 'duplicatas' && <TableDuplicatesPanel />}
+        {subTab === 'mesas' && <AdminTablesPanel />}
       </SectionCard>
     </div>
   );

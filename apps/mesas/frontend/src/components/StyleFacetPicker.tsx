@@ -22,6 +22,14 @@ export function StyleFacetPicker({ facets, selected, onToggle }: StyleFacetPicke
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
+  // T6.4 (spec 093) trocou a borda inativa destes chips por superfície. A borda era
+  // a única pista de foco; sem anel, quem navega por teclado percorria a fileira às
+  // cegas. Mesmo token/geometria de `.artificio-button` (packages/ui/styles.css:1081),
+  // não valor próprio (T6.5: não divergir do design system).
+  // Achado real (review PR #280, coderabbit, funcional/acessibilidade).
+  const ring =
+    ' focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--artificio-focus)]';
+
   const visibleFacets = facets.slice(0, VISIBLE_COUNT);
   const overflowFacets = facets.slice(VISIBLE_COUNT);
 
@@ -69,12 +77,18 @@ export function StyleFacetPicker({ facets, selected, onToggle }: StyleFacetPicke
           type="button"
           onClick={() => onToggle(style)}
           aria-pressed={selected.includes(style)}
-          className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs transition-all whitespace-nowrap ${
+          className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs transition-all whitespace-nowrap${ring} ${
             selected.includes(style)
               ? 'border-orange-500 bg-orange-500/20 text-orange-100'
-              : 'border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)] hover:border-[var(--line)] hover:bg-[var(--surface-strong)]'
+              : 'border-transparent bg-[var(--surface)] text-[var(--fg-muted)] hover:border-transparent hover:bg-[var(--surface-strong)]'
           }`}
         >
+          {/* R20 (spec 093): NÃO usar `class="capitalize"` aqui. As facetas vêm de
+              GET /api/v1/tables/style-facets, que faz GROUP BY style sobre string
+              exata (tables.ts:362-374) — "exploração" e "Exploração" já são duas
+              facetas com contagens separadas. `capitalize` deixaria dois chips
+              idênticos na tela com números diferentes, pior que hoje. A correção
+              é de dado (normalizar na escrita + migration de estoque), não de CSS. */}
           {style} <span className="text-[var(--fg-muted)]">({count})</span>
         </button>
       ))}
@@ -86,10 +100,10 @@ export function StyleFacetPicker({ facets, selected, onToggle }: StyleFacetPicke
             type="button"
             onClick={() => setIsOpen((prev) => !prev)}
             aria-expanded={isOpen}
-            className={`flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all whitespace-nowrap ${
+            className={`flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all whitespace-nowrap${ring} ${
               hasSelectedInOverflow
                 ? 'border-orange-500 bg-orange-500/20 text-orange-100'
-                : 'border-[var(--line)] bg-[var(--surface)] text-[var(--fg-muted)] hover:border-[var(--line)] hover:bg-[var(--surface-strong)]'
+                : 'border-transparent bg-[var(--surface)] text-[var(--fg-muted)] hover:border-transparent hover:bg-[var(--surface-strong)]'
             }`}
           >
             +{overflowFacets.length} estilos
@@ -114,13 +128,17 @@ export function StyleFacetPicker({ facets, selected, onToggle }: StyleFacetPicke
                 {filteredOverflow.length === 0 ? (
                   <p className="px-2 py-3 text-center text-xs text-[var(--fg-muted)]">Nenhum estilo encontrado.</p>
                 ) : (
+                  /* Mesmo anel dos chips visíveis e do gatilho. Estes itens nunca
+                     tiveram borda — só `hover:bg` —, então sem foco visível a navegação
+                     por teclado DENTRO do dropdown ficava cega, que é o caso mais grave,
+                     não o menor. Achado real (review PR #280, coderabbit, acessibilidade). */
                   filteredOverflow.map(({ style, count }) => (
                     <button
                       key={style}
                       type="button"
                       onClick={() => onToggle(style)}
                       aria-pressed={selected.includes(style)}
-                      className={`flex items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs transition-colors ${
+                      className={`flex items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs transition-colors${ring} ${
                         selected.includes(style)
                           ? 'bg-orange-500/20 text-orange-100'
                           : 'text-[var(--fg)] hover:bg-[var(--surface-strong)]'

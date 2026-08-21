@@ -1086,7 +1086,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.submitCorrection",
-      "line": 139
+      "line": 108
     },
     {
       "app": "mesas-frontend",
@@ -1326,7 +1326,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.updateDraft",
-      "line": 106
+      "line": 75
     },
     {
       "app": "mesas-frontend",
@@ -1336,7 +1336,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.getDraft",
-      "line": 107
+      "line": 76
     },
     {
       "app": "mesas-frontend",
@@ -1346,7 +1346,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.registerCorrection",
-      "line": 108
+      "line": 77
     },
     {
       "app": "mesas-frontend",
@@ -1356,7 +1356,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.retryLearningFeedback",
-      "line": 114
+      "line": 83
     },
     {
       "app": "mesas-frontend",
@@ -1366,7 +1366,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.reparseDraft",
-      "line": 105
+      "line": 74
     },
     {
       "app": "mesas-frontend",
@@ -1376,7 +1376,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.restoreDraft",
-      "line": 115
+      "line": 84
     },
     {
       "app": "mesas-frontend",
@@ -1386,7 +1386,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "inboxApi.syncDraft",
-      "line": 104
+      "line": 73
     },
     {
       "app": "mesas-frontend",
@@ -1520,33 +1520,33 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/ConteudoSection.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/AdminTablesPanel.tsx",
       "method": "GET",
       "endpoint": "/api/v1/admin/tables",
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 89
+      "line": 136
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/ConteudoSection.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/AdminTablesPanel.tsx",
       "method": "DELETE",
       "endpoint": "/api/v1/admin/tables/:param",
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 115
+      "line": 165
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/ConteudoSection.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/AdminTablesPanel.tsx",
       "method": "PUT",
       "endpoint": "/api/v1/admin/tables/:param",
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPut",
-      "line": 139
+      "line": 193
     },
     {
       "app": "mesas-frontend",
@@ -1576,7 +1576,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 290
+      "line": 337
     },
     {
       "app": "mesas-frontend",
@@ -1590,13 +1590,13 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/admin/components/ConteudoSection.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/AdminTablesPanel.tsx",
       "method": "POST",
       "endpoint": "/api/v1/admin/tables/batch",
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 185
+      "line": 239
     },
     {
       "app": "mesas-frontend",
@@ -1826,7 +1826,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 290
+      "line": 337
     },
     {
       "app": "mesas-frontend",

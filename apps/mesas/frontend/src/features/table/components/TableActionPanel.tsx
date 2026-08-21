@@ -110,7 +110,23 @@ function StatusText({ vm }: { readonly vm: PanelVm }) {
   return <span className={`font-medium ${statusClass[vm.status] ?? 'text-[var(--fg)]'}`}>{statusLabels[vm.status] ?? vm.status}</span>;
 }
 
+/**
+ * Formata a linha de vagas (R22, spec 093). O total nunca apareceu na página;
+ * a ficha técnica passa a dizer "2 de 5 vagas" em vez de só o restante — ou
+ * nada, nos ramos em que `vm.urgency` não cita número algum.
+ */
+function formatSlots(vm: PanelVm): string | null {
+  if (vm.slotsTotal == null) return null;
+  // T7.5: total preenchido mas `slots_open` nulo — mostrar o que existe,
+  // sem inventar o restante.
+  if (vm.slotsOpen == null) {
+    return `Mesa de ${vm.slotsTotal} ${vm.slotsTotal === 1 ? 'jogador' : 'jogadores'}`;
+  }
+  return `${vm.slotsLeft} de ${vm.slotsTotal} vagas`;
+}
+
 function QuickInfoPanel({ vm, showStatus = false, className = '' }: { readonly vm: PanelVm; readonly showStatus?: boolean; readonly className?: string }) {
+  const slotsLabel = formatSlots(vm);
   return (
     <div className={`p-4 rounded-xl bg-[var(--fill-subtle)] border border-[var(--line)] space-y-2 text-sm ${className}`.trim()}>
       <div className="flex justify-between items-center">
@@ -121,12 +137,43 @@ function QuickInfoPanel({ vm, showStatus = false, className = '' }: { readonly v
         <span className="text-[var(--fg-muted)]">Experiência</span>
         <span className="text-[var(--fg)] font-medium">{vm.experience}</span>
       </div>
+      {/* R24 + aceite 13 (spec 093): idioma aparece sempre que preenchido, inclusive
+          `pt-BR`. A versão anterior escondia `pt-BR` alegando ruído (92/94 em produção),
+          mas isso contradizia o aceite — e a premissa estava errada: `pt-BR` NÃO é default
+          de banco (`migration_01_base_schema.sql:141` usa `'Português'`). Os 92 vêm de
+          `syncHelpers.ts:336`, que grava `'pt-BR'` fixo em mesa importada, e do formulário
+          (`useCreateTableForm.ts:39`), onde o mestre pode escolher `pt-BR` de propósito —
+          caso indistinguível do sync, então esconder apagava escolha real.
+          Achado real (review PR #280, codex, P2). */}
+      {vm.language && (
+        <div className="flex justify-between">
+          <span className="text-[var(--fg-muted)]">Idioma</span>
+          <span className="text-[var(--fg)] font-medium">{vm.language}</span>
+        </div>
+      )}
       <div className="flex justify-between">
         <span className="text-[var(--fg-muted)]">Modalidade</span>
         <span className="text-[var(--fg)] font-medium">{vm.modality}</span>
       </div>
-      {/* Vagas removida daqui (T4.3) — duplicava o aviso de urgência acima
-          (vm.urgency.label, "🔥 Últimas N vagas") que já cobre o mesmo dado com mais contexto. */}
+      {/* R23 (spec 093): cidade/estado só quando preenchidos — mesa online
+          legítima não tem local, e rótulo vazio é ruído. */}
+      {(vm.city || vm.state) && (
+        <div className="flex justify-between">
+          <span className="text-[var(--fg-muted)]">Local</span>
+          <span className="text-[var(--fg)] font-medium">{[vm.city, vm.state].filter(Boolean).join(', ')}</span>
+        </div>
+      )}
+      {/* R22 (spec 093): vagas com total. A linha original foi removida (T4.3)
+          supondo que `vm.urgency` cobria o dado; cobre em 3 dos 6 ramos
+          (tableViewMapper.ts:96-141) — em "Mesa lotada", "desativada" e
+          "encerrada" o número some. Mantém-se `vm.urgency` (alerta, o tom) e
+          esta linha (ficha técnica, o fato): não são duplicata. */}
+      {slotsLabel && (
+        <div className="flex justify-between">
+          <span className="text-[var(--fg-muted)]">Vagas</span>
+          <span className="text-[var(--fg)] font-medium">{slotsLabel}</span>
+        </div>
+      )}
       {showStatus && (
         <div className="flex justify-between">
           <span className="text-[var(--fg-muted)]">Status</span>
