@@ -1,7 +1,12 @@
 import type { TablesResponse } from '../types/tables';
+import type { TableTypeOption } from '../utils/catalogFilterOptions';
+import { normalizeStyles } from '../utils/catalogFilterOptions';
 
 // Tipos fortes para filtros
-export type SortOption = 'popular' | 'recent' | 'slots' | 'price_asc' | 'price_desc' | 'ending_soon';
+// Sorts finais por D0.4 (spec 094): `ending_soon` saiu do contrato enquanto não
+// existir coluna de data final. `slots` é implementado no backend desde a
+// Fase 1 (slots_open DESC, created_at DESC).
+export type SortOption = 'popular' | 'recent' | 'slots' | 'price_asc' | 'price_desc';
 export type ModalityOption = 'online' | 'presencial' | 'hibrida';
 export type PriceTypeOption = 'gratuita' | 'paga';
 export type ExperienceLevelOption = 'iniciante' | 'intermediario' | 'veterano';
@@ -22,15 +27,21 @@ export interface CatalogFilters {
   experience: ExperienceLevelOption | '';
   seal: string;
   styles: StyleOption[];
+  // Facetas habilitadas pela medição T0.2a (2026-08-21): somente `type`.
+  // `audience`, `state` e `city` foram reprovadas e ficam fora do contrato do
+  // frontend até haver dados; `featured` nunca entra (D0.2).
+  type: TableTypeOption | '';
   sort: SortOption;
   page: number;
   limit: number;
 }
 
 /**
- * Mapeia filtros do frontend (camelCase) para query params do backend (snake_case)
+ * Mapeia filtros do frontend (camelCase) para query params do backend (snake_case).
+ * `featured` não existe aqui de propósito (D0.2): o parâmetro preexistente do
+ * backend segue sem consumidor novo no catálogo.
  */
-function mapFiltersToQueryParams(filters: CatalogFilters): URLSearchParams {
+export function mapFiltersToQueryParams(filters: CatalogFilters): URLSearchParams {
   const params = new URLSearchParams();
 
   // Paginação
@@ -48,11 +59,17 @@ function mapFiltersToQueryParams(filters: CatalogFilters): URLSearchParams {
   if (filters.priceType) params.set('price_type', filters.priceType);
   if (filters.experience) params.set('experience_level', filters.experience);
 
+  // Facetas habilitadas por T0.2a
+  if (filters.type) params.set('type', filters.type);
+
   // Selos e estilos
   if (filters.seal) params.set('seal', filters.seal);
   if (filters.styles && filters.styles.length > 0) {
-    // Normalizar para cache determinístico
-    params.set('styles', [...filters.styles].sort().join(','));
+    // Normalizar para cache determinístico (R11): trim + dedupe + sort.
+    const normalizedStyles = normalizeStyles(filters.styles);
+    if (normalizedStyles.length > 0) {
+      params.set('styles', normalizedStyles.join(','));
+    }
   }
 
   // Ordenação (não adicionar se for padrão)

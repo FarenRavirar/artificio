@@ -1,3 +1,5 @@
+import { SORT_OPTIONS } from '../utils/catalogFilterOptions';
+
 interface ResultsHeaderProps {
   count: number;
   sort: string;
@@ -20,7 +22,7 @@ export function ResultsHeader({ count, sort, onSortChange, isLoading, hasMore }:
         )}
       </div>
 
-      {/* Ordenação */}
+      {/* Ordenação — lista final de sorts vem da fonte única (D0.4/R6/R13). */}
       <div className="flex items-center gap-2">
         <label htmlFor="sort-select" className="text-sm text-white/70 whitespace-nowrap">
           Ordenar por:
@@ -31,11 +33,9 @@ export function ResultsHeader({ count, sort, onSortChange, isLoading, hasMore }:
           onChange={(e) => onSortChange(e.target.value)}
           className="app-select"
         >
-          <option value="popular">Mais relevantes</option>
-          <option value="recent">Mais recentes</option>
-          <option value="slots">Mais vagas</option>
-          <option value="price_asc">Menor preço</option>
-          <option value="price_desc">Maior preço</option>
+          {SORT_OPTIONS.map(({ value, label }) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
         </select>
       </div>
     </div>

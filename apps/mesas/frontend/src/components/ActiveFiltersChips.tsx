@@ -1,5 +1,13 @@
 import { X } from 'lucide-react';
 import type { CatalogSeal } from '../types/tables';
+import {
+  EXPERIENCE_LEVEL_OPTIONS,
+  MODALITY_OPTIONS,
+  PRICE_TYPE_OPTIONS,
+  SEAL_OPTIONS,
+  SORT_OPTIONS,
+  TABLE_TYPE_OPTIONS,
+} from '../utils/catalogFilterOptions';
 
 interface ActiveFilter {
   key: string;
@@ -14,6 +22,7 @@ interface ActiveFiltersChipsProps {
     modality?: string;
     priceType?: string;
     experience?: string;
+    type?: string;
     seal?: CatalogSeal;
     styles?: string[];
     sort?: string;
@@ -22,35 +31,10 @@ interface ActiveFiltersChipsProps {
   onRemove: (key: string, value?: string) => void;
 }
 
-const modalityLabels: Record<string, string> = {
-  online: 'Online',
-  presencial: 'Presencial',
-  hibrida: 'Híbrida',
-};
-
-const priceLabels: Record<string, string> = {
-  gratuita: 'Gratuita',
-  paga: 'Paga',
-};
-
-const experienceLabels: Record<string, string> = {
-  iniciante: 'Iniciante',
-  intermediario: 'Intermediário',
-  veterano: 'Veterano',
-};
-
-const sealLabels: Record<string, string> = {
-  ddal: 'DDAL',
-  'covil-do-lich': 'Covil do Lich',
-};
-
-const sortLabels: Record<string, string> = {
-  popular: 'Mais relevantes',
-  recent: 'Mais recentes',
-  slots: 'Mais vagas',
-  price_asc: 'Menor preço',
-  price_desc: 'Maior preço',
-};
+// Labels derivados da fonte única (R6): nenhuma lista de valores paralela.
+function optionLabel(options: readonly { value: string; label: string }[], value: string): string | undefined {
+  return options.find((option) => option.value === value)?.label;
+}
 
 export function ActiveFiltersChips({ filters, systemName, onRemove }: ActiveFiltersChipsProps) {
   const activeFilters: ActiveFilter[] = [];
@@ -64,19 +48,24 @@ export function ActiveFiltersChips({ filters, systemName, onRemove }: ActiveFilt
   }
 
   if (filters.modality) {
-    activeFilters.push({ key: 'modality', label: modalityLabels[filters.modality] || filters.modality, value: filters.modality });
+    activeFilters.push({ key: 'modality', label: optionLabel(MODALITY_OPTIONS, filters.modality) || filters.modality, value: filters.modality });
   }
 
   if (filters.priceType) {
-    activeFilters.push({ key: 'priceType', label: priceLabels[filters.priceType] || filters.priceType, value: filters.priceType });
+    activeFilters.push({ key: 'priceType', label: optionLabel(PRICE_TYPE_OPTIONS, filters.priceType) || filters.priceType, value: filters.priceType });
   }
 
   if (filters.experience) {
-    activeFilters.push({ key: 'experience', label: experienceLabels[filters.experience] || filters.experience, value: filters.experience });
+    activeFilters.push({ key: 'experience', label: optionLabel(EXPERIENCE_LEVEL_OPTIONS, filters.experience) || filters.experience, value: filters.experience });
+  }
+
+  // Faceta habilitada por T0.2a (spec 094): somente `type` entra nos chips.
+  if (filters.type) {
+    activeFilters.push({ key: 'type', label: optionLabel(TABLE_TYPE_OPTIONS, filters.type) || filters.type, value: filters.type });
   }
 
   if (filters.seal) {
-    activeFilters.push({ key: 'seal', label: sealLabels[filters.seal] || filters.seal, value: filters.seal });
+    activeFilters.push({ key: 'seal', label: optionLabel(SEAL_OPTIONS, filters.seal) || filters.seal, value: filters.seal });
   }
 
   if (filters.styles && filters.styles.length > 0) {
@@ -86,7 +75,7 @@ export function ActiveFiltersChips({ filters, systemName, onRemove }: ActiveFilt
   }
 
   if (filters.sort && filters.sort !== 'popular') {
-    activeFilters.push({ key: 'sort', label: sortLabels[filters.sort] || filters.sort, value: filters.sort });
+    activeFilters.push({ key: 'sort', label: optionLabel(SORT_OPTIONS, filters.sort) || filters.sort, value: filters.sort });
   }
 
   if (activeFilters.length === 0) return null;
@@ -97,8 +86,9 @@ export function ActiveFiltersChips({ filters, systemName, onRemove }: ActiveFilt
         <button
           key={`${filter.key}-${filter.value}-${idx}`}
           onClick={() => onRemove(filter.key, filter.value)}
-          className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-[var(--color-artificio-orange)]/40 bg-[var(--color-artificio-orange)]/20 px-3 py-1.5 text-sm text-white transition-colors hover:bg-[var(--color-artificio-orange)]/30 group"
+          className="inline-flex max-w-full min-h-11 items-center gap-1.5 rounded-lg border border-[var(--color-artificio-orange)]/40 bg-[var(--color-artificio-orange)]/20 px-3 py-1.5 text-sm text-[var(--fg)] transition-colors hover:bg-[var(--color-artificio-orange)]/30 group"
           title={`Remover filtro ${filter.label}`}
+          aria-label={`Remover filtro ${filter.label}`}
         >
           <span className="min-w-0 truncate">{filter.label}</span>
           <X className="h-3.5 w-3.5 shrink-0 opacity-70 group-hover:opacity-100" />

@@ -22,6 +22,15 @@ export type CatalogTreeProps = Readonly<{
    * criação embutido (ex.: CatalogExplorer), em vez do fluxo de busca+onCreateNow.
    * Achado Codex (PR #148): sem isto, o botão só marcava um estado sem nenhuma ação. */
   onAddChildAtLevel?: (depth: number, parent: CatalogUiNode | null) => void;
+  /** D0.5 (spec 094): política aditiva de apresentação, default `full` para não
+   * alterar consumidores existentes (site-admin via CatalogExplorer).
+   * - `full`: comportamento atual — linha "nome PT", badge de aliases e
+   *   parágrafo técnico final visíveis;
+   * - `selection`: superfície pública compacta — NÃO RENDERIZA o parágrafo
+   *   técnico, a linha "nome PT" nem badges de aliases. `nodeMatchesQuery`
+   *   continua buscando por nome PT/alias (não-renderização, não perda de
+   *   matcher — esconder por CSS não satisfaz R18). */
+  presentation?: 'full' | 'selection';
 }>;
 
 const nodeMatchesQuery = (node: CatalogUiNode, normalizedQuery: string): boolean => {
@@ -121,6 +130,7 @@ type CatalogTreeLevelProps = Readonly<{
   onToggleMulti?: (node: CatalogUiNode) => void;
   multiSelectedIds?: Set<string>;
   role: CatalogTreeRole;
+  presentation: 'full' | 'selection';
   onEdit?: (node: CatalogUiNode) => void;
   onAdd?: () => void;
 }>;
@@ -134,6 +144,7 @@ const CatalogTreeLevel = ({
   onToggleMulti,
   multiSelectedIds,
   role,
+  presentation,
   onEdit,
   onAdd,
 }: CatalogTreeLevelProps) => {
@@ -185,12 +196,14 @@ const CatalogTreeLevel = ({
               aria-pressed={selected}
             >
               <span className="block text-[13px] font-bold">{node.name}</span>
-              <span className="block text-[11px] text-[var(--fg-muted)]">
-                nome PT: {node.name_pt || '—'}
-              </span>
+              {presentation !== 'selection' && (
+                <span className="block text-[11px] text-[var(--fg-muted)]">
+                  nome PT: {node.name_pt || '—'}
+                </span>
+              )}
             </button>
 
-            {aliasBadge && (
+            {presentation !== 'selection' && aliasBadge && (
               <span className="max-w-40 shrink-0 truncate rounded-full bg-[var(--fill)] px-2 py-0.5 text-[10px] text-[var(--fg-muted)] sm:max-w-64">
                 {aliasBadge}
               </span>
@@ -232,6 +245,7 @@ type RenderLevelContentArgs = Readonly<{
   nodes: CatalogUiNode[];
   mode: CatalogTreeMode;
   role: CatalogTreeRole;
+  presentation: 'full' | 'selection';
   idPrefix: string;
   effectiveNavPath: CatalogUiNode[];
   noRootResults: boolean;
@@ -251,6 +265,7 @@ const renderLevelContent = ({
   nodes,
   mode,
   role,
+  presentation,
   idPrefix,
   effectiveNavPath,
   noRootResults,
@@ -292,6 +307,7 @@ const renderLevelContent = ({
       onToggleMulti={depth === 0 && mode === 'multi' ? onToggleMultiAtRoot : undefined}
       multiSelectedIds={depth === 0 && mode === 'multi' ? selectedIdSet : undefined}
       role={role}
+      presentation={presentation}
       onEdit={onEdit}
       onAdd={role === 'admin' ? () => onAddAtLevel(depth, effectiveNavPath[depth - 1] ?? null) : undefined}
     />
@@ -306,6 +322,7 @@ export function CatalogTree({
   mode = 'single',
   role = 'user',
   searchPlaceholder = 'Buscar sistema...',
+  presentation = 'full',
   onSuggest,
   onCreateNow,
   onEdit,
@@ -418,6 +435,7 @@ export function CatalogTree({
                 nodes,
                 mode,
                 role,
+                presentation,
                 idPrefix,
                 effectiveNavPath,
                 noRootResults,
@@ -525,9 +543,11 @@ export function CatalogTree({
         </div>
       )}
 
-      <p className="text-[11px] text-[var(--fg-muted)]">
-        Cada nível é um nó com nome, nome PT e aliases próprios; o caminho selecionado é só a leitura da árvore de cima a baixo, não um campo salvo.
-      </p>
+      {presentation !== 'selection' && (
+        <p className="text-[11px] text-[var(--fg-muted)]">
+          Cada nível é um nó com nome, nome PT e aliases próprios; o caminho selecionado é só a leitura da árvore de cima a baixo, não um campo salvo.
+        </p>
+      )}
     </div>
   );
 }

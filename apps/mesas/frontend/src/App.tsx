@@ -87,6 +87,42 @@ function AppRoutes() {
   );
 }
 
+export function BackendStatusScreen({ status }: Readonly<{ status: 'loading' | 'unavailable' }>) {
+  const unavailable = status === 'unavailable';
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        backgroundColor: 'var(--surface)',
+        color: 'var(--fg)',
+      }}
+    >
+      <div style={{ textAlign: 'center', maxWidth: '500px', padding: '32px' }}>
+        {unavailable && <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>}
+        <div style={{ fontSize: '24px', marginBottom: '16px', fontWeight: unavailable ? 'bold' : undefined }}>
+          {unavailable ? 'Atualização sendo executada' : 'Conectando ao backend...'}
+        </div>
+        <div style={{ fontSize: '14px', opacity: unavailable ? 0.8 : 0.6, marginBottom: unavailable ? '24px' : undefined }}>
+          {unavailable
+            ? 'Estamos trazendo a versão beta para a principal, aguarde um instante para terminarmos.'
+            : 'Aguarde'}
+        </div>
+        {unavailable && (
+          <button
+            onClick={() => window.location.reload()}
+            style={{ padding: '12px 24px', fontSize: '16px', cursor: 'pointer', borderRadius: '8px', border: 'none', backgroundColor: 'var(--color-artificio-orange)', color: 'white' }}
+          >
+            Tentar novamente
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [backendHealthy, setBackendHealthy] = React.useState<boolean | null>(null);
 
@@ -108,34 +144,11 @@ function App() {
   }, []);
 
   if (backendHealthy === null) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'white' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '24px', marginBottom: '16px' }}>Conectando ao backend...</div>
-          <div style={{ fontSize: '14px', opacity: 0.6 }}>Aguarde</div>
-        </div>
-      </div>
-    );
+    return <BackendStatusScreen status="loading" />;
   }
 
   if (backendHealthy === false) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', color: 'white', backgroundColor: '#1a1a1a' }}>
-        <div style={{ textAlign: 'center', maxWidth: '500px', padding: '32px' }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏳</div>
-          <div style={{ fontSize: '24px', marginBottom: '16px', fontWeight: 'bold' }}>Atualização sendo executada</div>
-          <div style={{ fontSize: '14px', opacity: 0.8, marginBottom: '24px' }}>
-            Estamos trazendo a versão beta para a principal, aguarde um instante para terminarmos.
-          </div>
-          <button 
-            onClick={() => window.location.reload()} 
-            style={{ padding: '12px 24px', fontSize: '16px', cursor: 'pointer', borderRadius: '8px', border: 'none', backgroundColor: '#ff6b35', color: 'white' }}
-          >
-            Tentar novamente
-          </button>
-        </div>
-      </div>
-    );
+    return <BackendStatusScreen status="unavailable" />;
   }
 
   return (

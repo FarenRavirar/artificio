@@ -1,44 +1,52 @@
+import { useCallback, useState } from 'react';
 import { useUrlState } from './useUrlState';
 import { parseCatalogFilters, buildCatalogParams } from '../utils/catalogFilters';
 import type { CatalogFilters } from '../services/catalogService';
 
 /**
- * Hook especializado para filtros do catálogo
- * 
- * Wrapper sobre useUrlState que fornece interface específica
- * para os filtros do catálogo de mesas.
- * 
- * @example
- * ```ts
- * const [filters, setFilters] = useCatalogFilters();
- * 
- * // Atualizar página
- * setFilters(prev => ({ ...prev, page: prev.page + 1 }));
- * 
- * // Aplicar filtro
- * setFilters(prev => ({ ...prev, system: 'dnd', page: 1 }));
- * 
- * // Limpar filtros
- * setFilters(() => ({ 
- *   search: '', 
- *   system: '', 
- *   modality: '', 
- *   priceType: '', 
- *   experience: '', 
- *   seal: '', 
- *   styles: [], 
- *   sort: 'popular', 
- *   page: 1, 
- *   limit: 24 
- * }));
- * ```
+ * Controle completo dos filtros do catálogo (spec 094, D0.3).
+ *
+ * A busca geral tem dois estados: `draftSearch` (visual, digitado) e
+ * `filters.search` (confirmado, na URL). Digitar só mexe no draft; a promoção
+ * para o estado confirmado acontece exclusivamente em `submitSearch`
+ * (botão "Buscar" ou Enter). Nenhuma request de mesas é disparada por caractere
+ * — o draft não alimenta `filters` até a submissão.
+ *
+ * Back/forward (ou qualquer mudança externa da URL) sincroniza o draft com o
+ * valor confirmado: o efeito abaixo só reage a `filters.search` e escreve em
+ * estado local, nunca em `setSearchParams`, então não há loop de navegação.
  */
-export function useCatalogFilters(): readonly [
-  CatalogFilters,
-  (updater: (prev: CatalogFilters) => CatalogFilters) => void
-] {
-  return useUrlState<CatalogFilters>({
+export interface CatalogFiltersController {
+  filters: CatalogFilters;
+  setFilters: (updater: (prev: CatalogFilters) => CatalogFilters) => void;
+  draftSearch: string;
+  setDraftSearch: (value: string) => void;
+  submitSearch: () => void;
+}
+
+export function useCatalogFilters(): CatalogFiltersController {
+  const [filters, setFilters] = useUrlState<CatalogFilters>({
     parse: parseCatalogFilters,
     serialize: buildCatalogParams,
   });
+
+  const [draftSearch, setDraftSearch] = useState(filters.search);
+
+  // Back/forward (ou qualquer mudança externa da URL) sincroniza o draft com o
+  // valor confirmado. Ajuste durante o render (padrão oficial do React para
+  // "ajustar estado quando props mudam"), e não em efeito: escreve apenas em
+  // estado local, nunca em `setSearchParams`, então não há loop de navegação —
+  // e o React refaz o render antes do commit, sem render extra agendado.
+  const [lastConfirmedSearch, setLastConfirmedSearch] = useState(filters.search);
+  if (lastConfirmedSearch !== filters.search) {
+    setLastConfirmedSearch(filters.search);
+    setDraftSearch(filters.search);
+  }
+
+  const submitSearch = useCallback(() => {
+    const term = draftSearch.trim();
+    setFilters((prev) => ({ ...prev, search: term, page: 1 }));
+  }, [draftSearch, setFilters]);
+
+  return { filters, setFilters, draftSearch, setDraftSearch, submitSearch };
 }
