@@ -128,13 +128,17 @@ export function StyleFacetPicker({ facets, selected, onToggle }: StyleFacetPicke
                 {filteredOverflow.length === 0 ? (
                   <p className="px-2 py-3 text-center text-xs text-[var(--fg-muted)]">Nenhum estilo encontrado.</p>
                 ) : (
+                  /* Mesmo anel dos chips visíveis e do gatilho. Estes itens nunca
+                     tiveram borda — só `hover:bg` —, então sem foco visível a navegação
+                     por teclado DENTRO do dropdown ficava cega, que é o caso mais grave,
+                     não o menor. Achado real (review PR #280, coderabbit, acessibilidade). */
                   filteredOverflow.map(({ style, count }) => (
                     <button
                       key={style}
                       type="button"
                       onClick={() => onToggle(style)}
                       aria-pressed={selected.includes(style)}
-                      className={`flex items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs transition-colors ${
+                      className={`flex items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs transition-colors${ring} ${
                         selected.includes(style)
                           ? 'bg-orange-500/20 text-orange-100'
                           : 'text-[var(--fg)] hover:bg-[var(--surface-strong)]'

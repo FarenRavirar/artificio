@@ -36,6 +36,34 @@ async function extractErrorMessage(response: Response, fallback: string): Promis
   }
 }
 
+/**
+ * Executa uma mutação e devolve a Response, ou `null` se ela falhou — HTTP não-ok
+ * OU rejeição de rede. O toast de erro sai aqui, uma vez, para os dois casos.
+ *
+ * As quatro mutações do painel (`authDelete`, 2× `authPut`, `authPost`) só tratavam
+ * `response.ok`: com a rede caindo, a promise rejeitava sem captura e o admin
+ * clicava em "Apagar" sem ver erro nem confirmação — a tela ficava idêntica, que
+ * lê como "não aconteceu nada" quando a ação pode ter partido.
+ * Achado real (review PR #280, coderabbit, outside-diff).
+ */
+async function runMutation(
+  request: () => Promise<Response>,
+  fallbackMessage: string,
+): Promise<Response | null> {
+  let response: Response;
+  try {
+    response = await request();
+  } catch {
+    toast.error(fallbackMessage);
+    return null;
+  }
+  if (!response.ok) {
+    toast.error(await extractErrorMessage(response, fallbackMessage));
+    return null;
+  }
+  return response;
+}
+
 // Rótulo único por status: a coluna mostrava o valor cru do banco ("active",
 // "full") enquanto a faceta ao lado já usava português ("Ativa", "Cheia") — mesma
 // informação com dois vocabulários na mesma tela. Faceta e coluna leem daqui.
@@ -46,6 +74,23 @@ const STATUS_LABEL: Record<string, string> = {
   full: 'Cheia',
   cancelled: 'Cancelada',
   ended: 'Encerrada',
+};
+
+// Verbo e particípio da mesma ação em um lugar só. Eram dois ternários aninhados
+// (`action` e a mensagem de sucesso) que precisavam concordar entre si — nada
+// impedia "publicar" acabar em "cancelada". Sonar (confusing, review PR #280)
+// apontou o aninhamento; o mapa resolve a legibilidade e o acoplamento junto.
+const STATUS_ACTION = {
+  publicar: { infinitive: 'publicar', past: 'publicada' },
+  ativar: { infinitive: 'ativar', past: 'ativada' },
+  cancelar: { infinitive: 'cancelar', past: 'cancelada' },
+} as const;
+
+// Rótulo do resultado de cada ação em lote — mesma razão: era ternário aninhado.
+const BATCH_VERB: Record<'archive' | 'unarchive' | 'delete', string> = {
+  delete: 'apagada(s)',
+  archive: 'arquivada(s)',
+  unarchive: 'desarquivada(s)',
 };
 
 function normalizeTables(value: unknown): AdminTableRow[] {
@@ -116,11 +161,11 @@ export function AdminTablesPanel() {
       message: `Apagar a mesa "${table.title}"? Esta ação não pode ser desfeita.`,
       variant: 'danger',
     }))) return;
-    const response = await authDelete(`/api/v1/admin/tables/${table.id}`);
-    if (!response.ok) {
-      toast.error(await extractErrorMessage(response, 'Erro ao apagar mesa.'));
-      return;
-    }
+    const response = await runMutation(
+      () => authDelete(`/api/v1/admin/tables/${table.id}`),
+      'Erro ao apagar mesa.',
+    );
+    if (!response) return;
     toast.success('Mesa apagada.');
     await fetchAllTables();
   };
@@ -133,28 +178,32 @@ export function AdminTablesPanel() {
     // Rascunho (mesa importada via Discord sync, sem gm_id) só tem caminho
     // pra frente: publicar. Cancelar/reativar segue o ciclo normal (spec 060).
     const newStatus = table.status === 'active' ? 'cancelled' : 'active';
-    const action = table.status === 'draft' ? 'publicar' : newStatus === 'active' ? 'ativar' : 'cancelar';
+    let actionKey: keyof typeof STATUS_ACTION;
+    if (table.status === 'draft') actionKey = 'publicar';
+    else if (newStatus === 'active') actionKey = 'ativar';
+    else actionKey = 'cancelar';
+    const action = STATUS_ACTION[actionKey].infinitive;
     if (!(await confirm({
       title: `${action.charAt(0).toUpperCase() + action.slice(1)} mesa`,
       message: `${action.charAt(0).toUpperCase() + action.slice(1)} a mesa "${table.title}"?`,
       variant: 'warning',
     }))) return;
 
-    const response = await authPut(`/api/v1/admin/tables/${table.id}`, { status: newStatus });
-    if (!response.ok) {
-      toast.error(await extractErrorMessage(response, `Erro ao ${action} mesa.`));
-      return;
-    }
-    toast.success(`Mesa ${action === 'publicar' ? 'publicada' : action === 'ativar' ? 'ativada' : 'cancelada'}.`);
+    const response = await runMutation(
+      () => authPut(`/api/v1/admin/tables/${table.id}`, { status: newStatus }),
+      `Erro ao ${action} mesa.`,
+    );
+    if (!response) return;
+    toast.success(`Mesa ${STATUS_ACTION[actionKey].past}.`);
     await fetchAllTables();
   };
 
   const handleToggleCovil = async (table: AdminTableRow) => {
-    const response = await authPut(`/api/v1/admin/tables/${table.id}`, { is_covil: !table.is_covil });
-    if (!response.ok) {
-      toast.error(await extractErrorMessage(response, 'Erro ao atualizar Covil.'));
-      return;
-    }
+    const response = await runMutation(
+      () => authPut(`/api/v1/admin/tables/${table.id}`, { is_covil: !table.is_covil }),
+      'Erro ao atualizar Covil.',
+    );
+    if (!response) return;
     toast.success(!table.is_covil ? 'Mesa marcada como Covil do Lich.' : 'Marca Covil removida.');
     await fetchAllTables();
   };
@@ -186,17 +235,17 @@ export function AdminTablesPanel() {
   };
 
   const handleTablesBatch = async (ids: string[], action: 'archive' | 'unarchive' | 'delete') => {
-    const response = await authPost('/api/v1/admin/tables/batch', { ids, action });
-    if (!response.ok) {
-      toast.error(await extractErrorMessage(response, 'Erro na ação em lote.'));
-      return;
-    }
+    const response = await runMutation(
+      () => authPost('/api/v1/admin/tables/batch', { ids, action }),
+      'Erro na ação em lote.',
+    );
+    if (!response) return;
     // A rota devolve `data.updated` com a contagem REAL (`RETURNING id`, adminTables.ts:117):
     // id inexistente ou já no estado alvo não entra no retorno. Reportar `ids.length` dizia
     // ao admin que N mesas mudaram quando podiam ter mudado menos — número inventado sobre
     // ação destrutiva. Cai para `ids.length` só se a resposta não trouxer o campo.
     // Achado real (review PR #280, coderabbit, integridade de dados).
-    const verb = action === 'delete' ? 'apagada(s)' : action === 'archive' ? 'arquivada(s)' : 'desarquivada(s)';
+    const verb = BATCH_VERB[action];
     const payload: unknown = await response.json().catch(() => null);
     const data = payload && typeof payload === 'object' ? (payload as Record<string, unknown>).data : null;
     const rawUpdated = data && typeof data === 'object' ? (data as Record<string, unknown>).updated : undefined;

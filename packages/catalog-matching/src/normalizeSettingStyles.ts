@@ -38,6 +38,26 @@ const ACCENT_TYPOS = new Map<string, string>([
 ]);
 
 function capitalizeWord(word: string): string {
+  // Sigla composta por "&" ("D&D"): cada segmento e uma palavra propria, entao
+  // normaliza segmento a segmento. Tratando a string inteira, o ramo de ALL CAPS
+  // rebaixava tudo depois da primeira letra — medido: "D&D" -> "D&d", gravando o
+  // nome de sistema errado no estoque. Casos com minuscula ("Hack&Slash") ja
+  // passavam, e continuam identicos.
+  // Limite conhecido: segmento ALL CAPS de 2+ letras segue rebaixado ("AD&D" ->
+  // "Ad&D"), porque e a MESMA regra que trata "SOBREVIVENCIA" -> "Sobrevivencia" e
+  // "RPG" -> "Rpg". Distinguir sigla de palavra gritada nao e feito para nenhuma
+  // palavra aqui, e nao ha caso desses no estoque medido (98 valores, 2026-08-20).
+  // Achado real (review PR #280, coderabbit, inline).
+  if (word.includes('&')) {
+    return word
+      .split('&')
+      .map((segment) => (segment ? capitalizeSegment(segment) : segment))
+      .join('&');
+  }
+  return capitalizeSegment(word);
+}
+
+function capitalizeSegment(word: string): string {
   // ALL CAPS ("SOBREVIVENCIA") -> normaliza para capitalizada ("Sobrevivencia").
   // Distingue de camelCase ("MegaDungeon"), que preserva a maiuscula interna:
   // o initcap/`.toLowerCase()` global anterior achatava "MegaDungeon" para

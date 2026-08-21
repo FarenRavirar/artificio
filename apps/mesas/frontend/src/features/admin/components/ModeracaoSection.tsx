@@ -126,22 +126,23 @@ export function ModeracaoSection() {
         description="Fila central de rascunhos e mensagens capturadas, com filtros por origem/status e ações em lote."
       />
 
+      {/* Fileira derivada de SUB_TAB_CONTENT: era a terceira lista paralela dos
+          mesmos 5 nomes. `type="button"` explícito nos cinco — sem ele o default
+          é "submit", que dispararia envio caso a fileira caia dentro de um <form>
+          (Sonar, react/reliability, review PR #280, apontado só no botão novo;
+          os outros quatro tinham o mesmo defeito e foram corrigidos junto). */}
       <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--admin-surface)] p-1">
-        <button onClick={() => selectSubTab('rascunhos')} className={subTabClass('rascunhos')} aria-pressed={subTab === 'rascunhos'}>
-          Rascunhos
-        </button>
-        <button onClick={() => selectSubTab('mensagens')} className={subTabClass('mensagens')} aria-pressed={subTab === 'mensagens'}>
-          Mensagens
-        </button>
-        <button onClick={() => selectSubTab('duplicatas')} className={subTabClass('duplicatas')} aria-pressed={subTab === 'duplicatas'}>
-          Duplicatas
-        </button>
-        <button onClick={() => selectSubTab('descartados')} className={subTabClass('descartados')} aria-pressed={subTab === 'descartados'}>
-          Descartados
-        </button>
-        <button onClick={() => selectSubTab('mesas')} className={subTabClass('mesas')} aria-pressed={subTab === 'mesas'}>
-          Mesas
-        </button>
+        {(Object.keys(SUB_TAB_CONTENT) as ModSubTab[]).map((tab) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => selectSubTab(tab)}
+            className={subTabClass(tab)}
+            aria-pressed={subTab === tab}
+          >
+            {SUB_TAB_CONTENT[tab].tab}
+          </button>
+        ))}
       </div>
 
       {/* SonarCloud PR #159: conteúdo por subaba evita ternários aninhados e mantém título/descrição sincronizados. */}

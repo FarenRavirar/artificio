@@ -1194,6 +1194,23 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table.setting_styles).toEqual(['Hack&Slash', 'Dark Fantasy']);
   });
 
+  // Achado real (review PR #280, coderabbit, inline): a sigla precisa sobreviver ao
+  // split E a normalizacao — "D&D" nao pode virar "D&d" ao ser gravada.
+  it('preserva sigla D&D como estilo, separando so o & isolado', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: Pathfinder',
+          'Estilo: D&D & Hack&Slash',
+          'Vagas: 4',
+          'Contato: https://forms.gle/example',
+        ].join('\n'),
+      }),
+    );
+
+    expect(draft?.table.setting_styles).toEqual(['D&D', 'Hack&Slash']);
+  });
+
   it('remove "Classificação Indicativa" da descrição (Gap 5 segundo sintoma, spec 093)', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({

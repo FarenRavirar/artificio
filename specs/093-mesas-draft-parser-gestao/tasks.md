@@ -706,9 +706,43 @@ devolve 410 e renderiza a tela "Mesa encerrada") — R22 vale para `active`/`ful
       duas cadeias de `if`; jargão de spec fora da descrição visível ao admin; mock de
       `@artificio/ui` com `importOriginal`; mocks de escrita resetados no `beforeEach`.
 
+      **Rodada 2 — Sonar + Codex P2 (migration/regex/legibilidade):** typo de acento
+      passou a ser o primeiro ramo da `migration_160`, espelhando a ordem do pacote —
+      depois do `ELSIF` de ALL CAPS, `POLITICA` virava `Politica` e o backfill deixava
+      o valor fora da forma canônica, que a escrita seguinte alterava de novo. Regex de
+      `splitFreeTextList` reescrita em dois grupos sem `\s*` externo sobre alternativas
+      que já começavam com `\s+` (backtracking super-linear); 9 casos de fronteira
+      medidos, comportamento idêntico. Três ternários aninhados viraram `STATUS_ACTION`
+      (verbo + particípio no mesmo lugar, que antes podiam divergir) e `BATCH_VERB`.
+      `type="button"` nos **cinco** botões de sub-aba — o bot apontou só o novo, mas
+      todos tinham o defeito —, com a fileira derivada de `SUB_TAB_CONTENT`, que era a
+      terceira lista paralela dos mesmos nomes. 17 nitpicks de teste (`findByText`,
+      `toHaveLength`).
+
+      **Rodada 3 — CodeRabbit (acessibilidade, dado e rede):** chips do dropdown de
+      overflow ganharam o anel de foco — cobertura que faltou na rodada 1 e o caso mais
+      grave, porque esses itens nunca tiveram borda, só `hover:bg`. `capitalizeWord`
+      passou a normalizar cada segmento do `&` por si: o ramo de ALL CAPS tratava a
+      sigla inteira como palavra e gravava `D&D` como `D&d`; espelhado na migration via
+      `normalize_style_word`/`normalize_style_segment`. As 4 mutações do painel
+      (`authDelete`, 2× `authPut`, `authPost`) só tratavam `response.ok` — rejeição de
+      rede ficava sem captura e a tela seguia idêntica, sem erro nem confirmação;
+      passaram por um helper `runMutation` único.
+
+      **Limite assumido (rodada 3):** `AD&D` continua virando `Ad&D`. O segmento `AD`
+      cai na regra de ALL CAPS existente, a mesma de `SOBREVIVENCIA` → `Sobrevivencia`
+      e `RPG` → `Rpg`; distinguir sigla de palavra gritada não é feito para palavra
+      nenhuma hoje, e não há caso desses no estoque medido. Registrado no código e no
+      teste como limite, em vez de exceção pontual.
+
       **Verificado sem ação:** "referências residuais à aba `tables` do catálogo" — as
-      ocorrências restantes são o redirect intencional, comentários e usos não relacionados
-      (`GmInsightsDashboard`, `ActivityFilters`, `useSystems`).
+      ocorrências restantes são o redirect intencional, comentários e usos não
+      relacionados (`GmInsightsDashboard`, `ActivityFilters`, `useSystems`).
+
+      **Descartado com motivo:** Sonar acusou "código comentado" na `migration_160` — é
+      falso positivo: a linha registra a **medição de produção** (98 valores em 52 mesas)
+      que o `AGENTS.md` §Evidência exige, não SQL desativado. Reescrita em prosa para não
+      parecer executável, preservando o dado.
 
       **Divergência assumida contra o achado:** o inline pedia **remover** as correções de
       acento da `migration_160`. T6.12 exige "regra genérica **+ lista de typos**" e o gate

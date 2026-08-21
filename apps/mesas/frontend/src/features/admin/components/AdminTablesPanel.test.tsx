@@ -66,7 +66,7 @@ describe('AdminTablesPanel — Fase 8 (R5/R6, spec 093)', () => {
 
   it('renderiza busca e as 2 facetas (funções 1-3)', async () => {
     renderPanel();
-    await waitFor(() => expect(screen.getByText('Mesa Ativa')).toBeTruthy());
+    expect(await screen.findByText('Mesa Ativa')).toBeTruthy();
     expect(screen.getByPlaceholderText('Buscar mesa...')).toBeTruthy();
     expect(screen.getByText('Status: todos')).toBeTruthy();
     expect(screen.getByText('Covil: todos')).toBeTruthy();
@@ -74,14 +74,14 @@ describe('AdminTablesPanel — Fase 8 (R5/R6, spec 093)', () => {
 
   it('esconde "Copiar anúncio" para mesa não-active ou sem slug (T8.3)', async () => {
     renderPanel();
-    await waitFor(() => expect(screen.getByText('Mesa Ativa')).toBeTruthy());
+    expect(await screen.findByText('Mesa Ativa')).toBeTruthy();
     // 2 linhas; "Copiar anúncio" só aparece na mesa ativa com slug.
-    expect(screen.getAllByTitle('Copiar anúncio').length).toBe(1);
+    expect(screen.getAllByTitle('Copiar anúncio')).toHaveLength(1);
   });
 
   it('expõe as 3 ações em lote ao selecionar (funções 4-6)', async () => {
     renderPanel();
-    await waitFor(() => expect(screen.getByText('Mesa Ativa')).toBeTruthy());
+    expect(await screen.findByText('Mesa Ativa')).toBeTruthy();
     fireEvent.click(screen.getAllByLabelText('Selecionar linha')[0]);
     expect(screen.getByText('Arquivar')).toBeTruthy();
     expect(screen.getByText('Desarquivar')).toBeTruthy();
@@ -90,12 +90,12 @@ describe('AdminTablesPanel — Fase 8 (R5/R6, spec 093)', () => {
 
   it('expõe as 4 ações por linha (funções 7-10)', async () => {
     renderPanel();
-    await waitFor(() => expect(screen.getByText('Mesa Ativa')).toBeTruthy());
+    expect(await screen.findByText('Mesa Ativa')).toBeTruthy();
     // Por linha: Publicar/ativar/cancelar, Alternar Covil, Apagar sempre;
     // Copiar anúncio só na ativa.
-    expect(screen.getAllByTitle('Publicar/ativar/cancelar').length).toBe(2);
-    expect(screen.getAllByTitle('Alternar Covil').length).toBe(2);
-    expect(screen.getAllByTitle('Apagar').length).toBe(2);
+    expect(screen.getAllByTitle('Publicar/ativar/cancelar')).toHaveLength(2);
+    expect(screen.getAllByTitle('Alternar Covil')).toHaveLength(2);
+    expect(screen.getAllByTitle('Apagar')).toHaveLength(2);
   });
 });
 
@@ -105,7 +105,7 @@ describe('AdminTablesPanel — Fase 8 (R5/R6, spec 093)', () => {
 describe('AdminTablesPanel — comportamento das ações', () => {
   it('ação em lote chama authPost com os ids selecionados e a ação', async () => {
     renderPanel();
-    await waitFor(() => expect(screen.getByText('Mesa Ativa')).toBeTruthy());
+    expect(await screen.findByText('Mesa Ativa')).toBeTruthy();
     fireEvent.click(screen.getAllByLabelText('Selecionar linha')[0]);
     fireEvent.click(screen.getByText('Arquivar'));
 
@@ -120,7 +120,7 @@ describe('AdminTablesPanel — comportamento das ações', () => {
   it('reporta a contagem devolvida pela rota, nao a quantidade selecionada', async () => {
     mockAuthPost.mockResolvedValue({ ok: true, json: async () => ({ data: { updated: 1 } }) });
     renderPanel();
-    await waitFor(() => expect(screen.getByText('Mesa Ativa')).toBeTruthy());
+    expect(await screen.findByText('Mesa Ativa')).toBeTruthy();
     fireEvent.click(screen.getAllByLabelText('Selecionar linha')[0]);
     fireEvent.click(screen.getAllByLabelText('Selecionar linha')[1]);
     fireEvent.click(screen.getByText('Arquivar'));
@@ -130,7 +130,7 @@ describe('AdminTablesPanel — comportamento das ações', () => {
 
   it('apagar linha chama authDelete com o id e refaz a busca', async () => {
     renderPanel();
-    await waitFor(() => expect(screen.getByText('Mesa Ativa')).toBeTruthy());
+    expect(await screen.findByText('Mesa Ativa')).toBeTruthy();
     expect(mockAuthGet).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getAllByTitle('Apagar')[0]);
@@ -141,7 +141,7 @@ describe('AdminTablesPanel — comportamento das ações', () => {
 
   it('publica rascunho (draft -> active) via authPut', async () => {
     renderPanel();
-    await waitFor(() => expect(screen.getByText('Mesa Rascunho')).toBeTruthy());
+    expect(await screen.findByText('Mesa Rascunho')).toBeTruthy();
     fireEvent.click(screen.getAllByTitle('Publicar/ativar/cancelar')[1]);
 
     await waitFor(() => expect(mockAuthPut).toHaveBeenCalledWith('/api/v1/admin/tables/t2', { status: 'active' }));
@@ -149,7 +149,7 @@ describe('AdminTablesPanel — comportamento das ações', () => {
 
   it('cancela mesa ativa (active -> cancelled) via authPut', async () => {
     renderPanel();
-    await waitFor(() => expect(screen.getByText('Mesa Ativa')).toBeTruthy());
+    expect(await screen.findByText('Mesa Ativa')).toBeTruthy();
     fireEvent.click(screen.getAllByTitle('Publicar/ativar/cancelar')[0]);
 
     await waitFor(() => expect(mockAuthPut).toHaveBeenCalledWith('/api/v1/admin/tables/t1', { status: 'cancelled' }));
@@ -166,11 +166,35 @@ describe('AdminTablesPanel — comportamento das ações', () => {
       }),
     });
     renderPanel();
-    await waitFor(() => expect(screen.getByText('Mesa Cheia')).toBeTruthy());
+    expect(await screen.findByText('Mesa Cheia')).toBeTruthy();
 
-    expect(screen.queryAllByTitle('Publicar/ativar/cancelar').length).toBe(0);
+    expect(screen.queryAllByTitle('Publicar/ativar/cancelar')).toHaveLength(0);
     // As demais ações por linha continuam disponíveis — o gate de T8.2 segue atendido.
-    expect(screen.getAllByTitle('Alternar Covil').length).toBe(2);
+    expect(screen.getAllByTitle('Alternar Covil')).toHaveLength(2);
+  });
+
+  // Achado real (review PR #280, coderabbit, outside-diff): as mutações só tratavam
+  // response.ok. Com a rede caindo a promise rejeitava sem captura e a tela ficava
+  // idêntica — o admin não sabia se a ação partiu.
+  it('rejeição de rede na exclusão vira toast de erro, não silêncio', async () => {
+    mockAuthDelete.mockRejectedValue(new Error('network down'));
+    renderPanel();
+    expect(await screen.findByText('Mesa Ativa')).toBeTruthy();
+
+    fireEvent.click(screen.getAllByTitle('Apagar')[0]);
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Erro ao apagar mesa.'));
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
+  it('rejeição de rede na ação em lote vira toast de erro', async () => {
+    mockAuthPost.mockRejectedValue(new Error('network down'));
+    renderPanel();
+    expect(await screen.findByText('Mesa Ativa')).toBeTruthy();
+    fireEvent.click(screen.getAllByLabelText('Selecionar linha')[0]);
+    fireEvent.click(screen.getByText('Arquivar'));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Erro na ação em lote.'));
   });
 
   it('falha na busca vira mensagem de erro na tela, não acervo vazio silencioso', async () => {
@@ -181,6 +205,6 @@ describe('AdminTablesPanel — comportamento das ações', () => {
     });
     renderPanel();
 
-    await waitFor(() => expect(screen.getByText('Sem permissão')).toBeTruthy());
+    expect(await screen.findByText('Sem permissão')).toBeTruthy();
   });
 });

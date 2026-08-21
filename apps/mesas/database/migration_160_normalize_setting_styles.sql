@@ -16,8 +16,54 @@
 --   * remove menção crua de role/usuário/canal ("<@&...>");
 --   * typos de acento ("Politica" -> "Política").
 --
--- Medido (SELECT DISTINCT unnest(setting_styles) FROM tables, 2026-08-20): 98 valores
--- distintos em 52 mesas.
+-- Estoque medido em producao (2026-08-20), consultando os valores distintos de
+-- setting_styles na tabela tables: 98 valores distintos, em 52 mesas. A medicao
+-- fica registrada aqui porque foi ela que definiu o escopo da regra (AGENTS.md
+-- §Evidencia). Nao e SQL desativado — o Sonar sinalizou como "codigo comentado"
+-- (review PR #280), e a frase foi reescrita em prosa para nao parecer executavel.
+
+-- Espelha capitalizeSegment do pacote: ALL CAPS vira capitalizada, camelCase
+-- preserva a maiuscula interna.
+CREATE OR REPLACE FUNCTION public.normalize_style_segment(word text)
+RETURNS text
+LANGUAGE plpgsql
+IMMUTABLE
+AS $seg$
+BEGIN
+  IF word = '' THEN
+    RETURN word;
+  END IF;
+  IF length(word) > 1 AND word = upper(word) AND word <> lower(word) THEN
+    RETURN upper(substr(lower(word),1,1)) || substr(lower(word),2);
+  END IF;
+  RETURN upper(substr(word,1,1)) || substr(word,2);
+END;
+$seg$;
+
+-- Espelha capitalizeWord: sigla composta por "&" ("D&D", "AD&D") tem cada
+-- segmento normalizado por si. Tratando a string inteira, o ramo de ALL CAPS
+-- rebaixava o resto — medido no TS: "D&D" -> "D&d", "AD&D" -> "Ad&d".
+-- Achado real (review PR #280, coderabbit, inline).
+CREATE OR REPLACE FUNCTION public.normalize_style_word(word text)
+RETURNS text
+LANGUAGE plpgsql
+IMMUTABLE
+AS $wrd$
+DECLARE
+  parts text[];
+  out_parts text[] := '{}';
+  k int;
+BEGIN
+  IF position('&' in word) = 0 THEN
+    RETURN public.normalize_style_segment(word);
+  END IF;
+  parts := string_to_array(word, '&');
+  FOR k IN 1..array_length(parts, 1) LOOP
+    out_parts := array_append(out_parts, public.normalize_style_segment(parts[k]));
+  END LOOP;
+  RETURN array_to_string(out_parts, '&');
+END;
+$wrd$;
 
 CREATE OR REPLACE FUNCTION public.normalize_setting_styles(styles text[])
 RETURNS text[]
@@ -50,15 +96,20 @@ BEGIN
       -- preposição interna (pt + en) em minúsculo
       IF j > 1 AND lower_word = ANY(ARRAY['a', 'as', 'o', 'os', 'ao', 'aos', 'à', 'às', 'de', 'da', 'do', 'das', 'dos', 'dum', 'duma', 'duns', 'dumas', 'em', 'no', 'na', 'nos', 'nas', 'num', 'numa', 'nuns', 'numas', 'com', 'por', 'para', 'per', 'sem', 'sob', 'sobre', 'entre', 'até', 'após', 'desde', 'contra', 'ante', 'perante', 'trás', 'e', 'ou', 'nem', 'mas', 'pelo', 'pela', 'pelos', 'pelas', 'of', 'and', 'the', 'an', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'from']) THEN
         normalized_words := array_append(normalized_words, lower_word);
-      -- ALL CAPS -> capitalizada (ex.: "SOBREVIVENCIA" -> "Sobrevivencia")
-      ELSIF length(word) > 1 AND word = upper(word) AND word <> lower_word THEN
-        normalized_words := array_append(normalized_words, upper(substr(lower_word,1,1)) || substr(lower_word,2));
-      -- capitaliza 1ª letra preservando maiúscula interna (camelCase)
+      -- Typo de acento ANTES do ramo de caixa alta, espelhando a ordem de
+      -- normalizeSettingStyles (ACCENT_TYPOS é consultado antes de capitalizeWord).
+      -- Depois do ELSIF de ALL CAPS, "POLITICA" virava "Politica" e nunca chegava
+      -- à correção: o backfill deixava o valor fora da forma canônica e a escrita
+      -- seguinte o alterava de novo, em desacordo com o contrato do pacote.
+      -- Achado real (review PR #280, codex, P2).
+      ELSIF lower_word = 'politica' THEN
+        normalized_words := array_append(normalized_words, 'Política');
+      ELSIF lower_word = 'politico' THEN
+        normalized_words := array_append(normalized_words, 'Político');
+      -- Capitalizacao (ALL CAPS, camelCase e sigla com "&") em normalize_style_word,
+      -- que espelha capitalizeWord do pacote.
       ELSE
-        word := upper(substr(word,1,1)) || substr(word,2);
-        IF lower_word = 'politica' THEN word := 'Política'; END IF;
-        IF lower_word = 'politico' THEN word := 'Político'; END IF;
-        normalized_words := array_append(normalized_words, word);
+        normalized_words := array_append(normalized_words, public.normalize_style_word(word));
       END IF;
     END LOOP;
     result := array_append(result, array_to_string(normalized_words, ' '));

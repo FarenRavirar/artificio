@@ -1541,7 +1541,12 @@ function splitFreeTextList(value: string): string[] | null {
     .replace(/\s{2,}/g, ' ')
     .trim();
   const parts = cleaned
-    .split(/\s*(?:\/|,|•|·|\s+&\s+|\s+(?:e|ou|x)\s+)\s*/i)
+    // Dois grupos SEM `\s*` externo: pontuação absorve o espaço ao redor, e
+    // separador-palavra exige espaço dos dois lados. A forma anterior punha `\s*`
+    // por fora de alternativas que já começavam com `\s+`, e o mesmo espaço podia
+    // ser casado pelos dois — ambiguidade que dá backtracking super-linear
+    // (Sonar, regex/performance, review PR #280). Comportamento medido idêntico.
+    .split(/(?:\s*[/,•·]\s*|\s+(?:&|e|ou|x)\s+)/i)
     .map((p) => p.trim())
     .filter(Boolean);
   return normalizeSettingStyles(parts);
