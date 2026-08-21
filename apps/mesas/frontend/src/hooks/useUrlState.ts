@@ -18,6 +18,11 @@ export interface UseUrlStateConfig<T> {
   serialize: (state: T) => URLSearchParams;
 }
 
+export type UrlStateSetter<T> = (
+  value: T | ((prev: T) => T),
+  options?: Readonly<{ replace?: boolean }>,
+) => void;
+
 /**
  * Hook genérico para sincronizar estado com URL
  * 
@@ -42,7 +47,7 @@ export interface UseUrlStateConfig<T> {
 export function useUrlState<T>({
   parse,
   serialize,
-}: UseUrlStateConfig<T>): readonly [T, (value: T | ((prev: T) => T)) => void] {
+}: UseUrlStateConfig<T>): readonly [T, UrlStateSetter<T>] {
   const [searchParams, setSearchParams] = useSearchParams();
   
   // Ref para prevenir loops de normalização
@@ -81,14 +86,14 @@ export function useUrlState<T>({
     }
   }, [normalizedString, searchParams, setSearchParams]); // Usa normalizedString memoizado
 
-  // Setter com updater function (padrão React)
-  // Aceita valor direto ou função updater
-  const setState = (value: T | ((prev: T) => T)) => {
+  // Ações explícitas criam histórico por padrão. Atualizações técnicas podem
+  // optar por replace; a normalização silenciosa acima sempre substitui.
+  const setState: UrlStateSetter<T> = (value, options) => {
     const nextState = typeof value === 'function' 
       ? (value as (prev: T) => T)(state)
       : value;
     const params = serialize(nextState);
-    setSearchParams(params, { replace: true });
+    setSearchParams(params, { replace: options?.replace ?? false });
   };
 
   return [state, setState] as const;

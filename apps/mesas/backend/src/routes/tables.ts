@@ -30,7 +30,13 @@ const VALID_REPORT_REASONS: Set<TableReportReason> = new Set(['golpe', 'conteudo
 
 const router = Router();
 
-export function parseStylesQuery(styles: string): string[] {
+/**
+ * `req.query` é `unknown` na prática: Express entrega array em chave repetida
+ * (`?styles=a&styles=b`) e objeto em notação de bracket. Valor fora de `string`
+ * é ignorado (filtro não aplicado), nunca 500.
+ */
+export function parseStylesQuery(styles: unknown): string[] {
+  if (typeof styles !== 'string') return [];
   return styles.split(',').filter(Boolean).map((style) => {
     try {
       return decodeURIComponent(style);
@@ -214,9 +220,8 @@ router.get('/', async (req: Request, res: Response) => {
     }
 
     // NOVO: Filtro de estilos de jogo
-    const styles = req.query.styles as string | undefined;
-    if (styles) {
-      const styleArray = parseStylesQuery(styles);
+    {
+      const styleArray = parseStylesQuery(req.query.styles);
       if (styleArray.length > 0) {
         // Filtrar mesas que contenham QUALQUER um dos estilos selecionados
         query = query.where(sql<boolean>`t.setting_styles && ARRAY[${sql.join(styleArray.map(s => sql.lit(s)))}]::text[]`);

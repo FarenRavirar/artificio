@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useUrlState } from './useUrlState';
+import type { UrlStateSetter } from './useUrlState';
 import { parseCatalogFilters, buildCatalogParams } from '../utils/catalogFilters';
 import type { CatalogFilters } from '../services/catalogService';
 
@@ -18,7 +19,7 @@ import type { CatalogFilters } from '../services/catalogService';
  */
 export interface CatalogFiltersController {
   filters: CatalogFilters;
-  setFilters: (updater: (prev: CatalogFilters) => CatalogFilters) => void;
+  setFilters: UrlStateSetter<CatalogFilters>;
   draftSearch: string;
   setDraftSearch: (value: string) => void;
   submitSearch: () => void;

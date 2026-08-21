@@ -138,6 +138,17 @@ export function CatalogFiltersBar({
     }
   };
 
+  // O mesmo botão controla o painel avançado no desktop e o drawer no mobile
+  // (handleMoreClick decide por media query), então aria-controls aponta para o
+  // que estiver aberto — e some quando nada está, já que referenciar id ausente
+  // deixa a relação quebrada para tecnologia assistiva.
+  let moreFiltersControls: string | undefined;
+  if (isMoreOpen) {
+    moreFiltersControls = 'catalog-advanced-panel';
+  } else if (mobileFiltersOpen) {
+    moreFiltersControls = 'catalog-mobile-filters-drawer';
+  }
+
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     onSearchSubmit();
@@ -249,11 +260,7 @@ export function CatalogFiltersBar({
               type="button"
               onClick={handleMoreClick}
               aria-expanded={isMoreOpen || mobileFiltersOpen}
-              aria-controls={isMoreOpen
-                ? 'catalog-advanced-panel'
-                : mobileFiltersOpen
-                  ? 'catalog-mobile-filters-drawer'
-                  : undefined}
+              aria-controls={moreFiltersControls}
               className="flex h-11 w-full min-w-0 items-center justify-center gap-2 rounded-lg border border-transparent bg-[var(--surface)] px-3 text-sm font-semibold whitespace-nowrap text-[var(--fg)] transition-colors hover:bg-[var(--surface-strong)] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--artificio-focus)]"
             >
               <SlidersHorizontal className="h-4 w-4 shrink-0" />

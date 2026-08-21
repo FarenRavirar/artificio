@@ -97,6 +97,40 @@ function orderByCalls(builder: QueryBuilder): Array<[string, string]> {
   return builder.orderBy.mock.calls.map((call) => [call[0] as string, call[1] as string]);
 }
 
+type CatalogBody = {
+  pagination: { total: number };
+  data: Array<{ id: string; slots_open: number }>;
+};
+
+/**
+ * Valida a resposta antes de indexá-la. Sem isso, `body.data.map(...)` sobre um
+ * payload inesperado quebra com erro opaco ou compara `undefined` em silêncio.
+ */
+function normalizeCatalogBody(body: unknown): CatalogBody {
+  if (typeof body !== 'object' || body === null) {
+    throw new Error(`resposta não é objeto: ${JSON.stringify(body)}`);
+  }
+  const { pagination, data } = body as { pagination?: unknown; data?: unknown };
+  if (typeof pagination !== 'object' || pagination === null || typeof (pagination as { total?: unknown }).total !== 'number') {
+    throw new Error(`pagination.total ausente ou não numérico: ${JSON.stringify(pagination)}`);
+  }
+  if (!Array.isArray(data)) {
+    throw new Error(`data não é array: ${JSON.stringify(data)}`);
+  }
+  const rows = data.map((row, index) => {
+    if (typeof row !== 'object' || row === null) {
+      throw new Error(`data[${index}] não é objeto`);
+    }
+    const { id, slots_open: slotsOpen } = row as { id?: unknown; slots_open?: unknown };
+    if (typeof id !== 'string') throw new Error(`data[${index}].id não é string: ${JSON.stringify(id)}`);
+    if (typeof slotsOpen !== 'number') {
+      throw new Error(`data[${index}].slots_open não é número: ${JSON.stringify(slotsOpen)}`);
+    }
+    return { id, slots_open: slotsOpen };
+  });
+  return { pagination: { total: (pagination as { total: number }).total }, data: rows };
+}
+
 describe('GET /api/v1/tables — catálogo público (ordenacao e filtros)', () => {
   let builders: QueryBuilder[];
 
@@ -169,6 +203,23 @@ describe('GET /api/v1/tables — catálogo público (ordenacao e filtros)', () =
     expect(parseStylesQuery('%E0%A4%A')).toEqual(['%E0%A4%A']);
   });
 
+  // Express entrega array em chave repetida; antes o cast `as string` mentia e
+  // o `.split` derrubava a rota em 500.
+  it('não quebra com styles repetido na query (styles=a&styles=b)', async () => {
+    const response = await request(makeApp()).get('/api/v1/tables?styles=epico&styles=sombrio');
+
+    expect(response.status).toBe(200);
+  });
+
+  it('aplica o filtro de styles quando a query traz lista separada por vírgula', async () => {
+    const response = await request(makeApp()).get('/api/v1/tables?styles=epico,sombrio');
+
+    expect(response.status).toBe(200);
+    expect(parseStylesQuery('epico,sombrio')).toEqual(['epico', 'sombrio']);
+    expect(parseStylesQuery(['epico', 'sombrio'])).toEqual([]);
+    expect(parseStylesQuery(undefined)).toEqual([]);
+  });
+
   it('featured permanece aceito pelo backend (parâmetro preexistente intocado)', async () => {
     const response = await request(makeApp()).get('/api/v1/tables?featured=true');
 
@@ -187,15 +238,16 @@ describe('GET /api/v1/tables — catálogo público (ordenacao e filtros)', () =
     const response = await request(makeApp()).get('/api/v1/tables?sort=slots');
 
     expect(response.status).toBe(200);
-    expect(response.body.pagination.total).toBe(4);
-    expect(response.body.data).toHaveLength(4);
-    const slotsOpen = response.body.data.map((table: { slots_open: unknown }) => table.slots_open);
-    expect(slotsOpen).toEqual([5, 5, 2, 0]);
-    expect(response.body.data.slice(0, 2).map((table: { id: string }) => table.id)).toEqual([
+    // `response.body` é `any` no supertest: normalizar antes de indexar, senão
+    // uma resposta em formato inesperado passa como `undefined` em vez de falhar.
+    const body = normalizeCatalogBody(response.body);
+    expect(body.pagination.total).toBe(4);
+    expect(body.data).toHaveLength(4);
+    expect(body.data.map((table) => table.slots_open)).toEqual([5, 5, 2, 0]);
+    expect(body.data.slice(0, 2).map((table) => table.id)).toEqual([
       'table-5',
       'table-5-older',
     ]);
-    expect(slotsOpen.every((value: unknown) => typeof value === 'number')).toBe(true);
   });
 
   it('mantém os demais sorts aprovados (popular, recent, price_asc, price_desc)', async () => {

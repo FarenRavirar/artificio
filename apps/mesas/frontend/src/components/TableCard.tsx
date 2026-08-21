@@ -280,6 +280,11 @@ export function TableCardComponent({ table }: { table: TableCard }) {
     ? { label: 'Entrar na mesa →', variant: 'primary' as const }
     : { label: 'Ver detalhes →', variant: 'secondary' as const };
 
+  // O CTA visível é uma div decorativa (pointer-events-none): este Link é o
+  // único elemento acessível do card, então seu nome acessível tem que
+  // acompanhar o rótulo visível (WCAG 2.5.3, Label in Name).
+  const cardLinkLabel = `${isFull ? 'Mesa lotada' : primaryCTA.label.replace(' →', '')}: ${table.title}`;
+
   return (
     <article
       className="group relative flex h-full min-h-[430px] w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#1B2A4A] shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-[var(--color-artificio-orange)]/40 hover:shadow-[0_0_30px_rgba(255,87,34,0.15)]"
@@ -289,7 +294,7 @@ export function TableCardComponent({ table }: { table: TableCard }) {
         to={`/mesas/${table.slug}`}
         onClick={handleClick}
         onMouseEnter={handleMouseEnter}
-        aria-label={`Ver detalhes da mesa ${table.title}`}
+        aria-label={cardLinkLabel}
         className="peer/card-link absolute inset-0 z-0 rounded-2xl"
       />
       <div

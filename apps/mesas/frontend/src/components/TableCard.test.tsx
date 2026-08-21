@@ -63,6 +63,8 @@ describe('TableCardComponent — semântica de links', () => {
     const tableWithVtt: TableCard = {
       ...table,
       vtt_platform: {
+        id: '11111111-1111-4111-8111-111111111111',
+        slug: 'foundry-vtt',
         name: 'Foundry VTT',
         logo_filename: 'foundry.svg',
         website_url: 'https://foundryvtt.com/',
@@ -80,6 +82,39 @@ describe('TableCardComponent — semântica de links', () => {
     expect(vttLink).not.toBeNull();
     expect(vttLink).toHaveClass('pointer-events-auto');
     expect(vttLink).toHaveAttribute('target', '_blank');
+    expect(vttLink).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  // O CTA visível é decorativo; o Link de fundo é o único elemento acessível,
+  // então seu nome acessível tem que bater com o rótulo visível (WCAG 2.5.3).
+  it('alinha o aria-label do link do card ao CTA visível em ambos os estados', () => {
+    const queryClient = new QueryClient();
+    const { container, rerender } = render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TableCardComponent table={table} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(container.querySelector('article > a')).toHaveAttribute(
+      'aria-label',
+      'Entrar na mesa: Mesa teste',
+    );
+
+    const endedTable: TableCard = { ...table, status: 'ended' };
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TableCardComponent table={endedTable} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(container.querySelector('article > a')).toHaveAttribute(
+      'aria-label',
+      'Ver detalhes: Mesa teste',
+    );
   });
 
   it('renderiza o indicador de foco do link do card acima do conteúdo sem bloquear controles', () => {

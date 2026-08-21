@@ -165,7 +165,7 @@ export const CatalogoPage = () => {
   const loadNextPage = useCallback(() => {
     if (isAdvancingPageRef.current || !hasMore || isLoading || isRefreshing) return;
     isAdvancingPageRef.current = true;
-    setFilters(prev => ({ ...prev, page: prev.page + 1 }));
+    setFilters(prev => ({ ...prev, page: prev.page + 1 }), { replace: true });
   }, [hasMore, isLoading, isRefreshing, setFilters]);
 
   useEffect(() => {

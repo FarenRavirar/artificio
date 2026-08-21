@@ -20,8 +20,9 @@ export function trapModalTab(event: KeyboardEvent, container: HTMLElement): void
     return;
   }
 
-  const first = focusable[0];
-  const last = focusable.at(-1);
+  // `focusable.length > 0` acima garante ambos; o TS não estreita índice/`at()`, daí o `!`.
+  const first = focusable[0]!;
+  const last = focusable[focusable.length - 1]!;
   if (event.shiftKey && document.activeElement === first) {
     event.preventDefault();
     last.focus();
