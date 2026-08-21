@@ -3,8 +3,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CatalogFiltersBar } from './CatalogFiltersBar';
 import { ResultsHeader } from './ResultsHeader';
-import type { CatalogFilters } from '../services/catalogService';
 import { SORT_OPTIONS } from '../utils/catalogFilterOptions';
+import { makeCatalogFilters } from '../test/catalogFixtures';
 
 /**
  * Spec 094 Fase 2 (T2.10): uma busca geral única, submissão por botão/Enter
@@ -29,27 +29,11 @@ const originalMatchMedia = window.matchMedia;
 
 afterEach(() => {
   window.matchMedia = originalMatchMedia;
+  vi.clearAllMocks();
 });
 
-function makeFilters(overrides: Partial<CatalogFilters> = {}): CatalogFilters {
-  return {
-    search: '',
-    system: '',
-    modality: '',
-    priceType: '',
-    experience: '',
-    seal: '',
-    styles: [],
-    type: '',
-    sort: 'popular',
-    page: 1,
-    limit: 24,
-    ...overrides,
-  };
-}
-
 const baseProps = {
-  filters: makeFilters(),
+  filters: makeCatalogFilters(),
   draftSearch: '',
   onDraftSearchChange: vi.fn(),
   onSearchSubmit: vi.fn(),
@@ -155,6 +139,12 @@ describe('CatalogFiltersBar — busca geral única (R1/D0.3)', () => {
 });
 
 describe('CatalogFiltersBar — atalhos como aliases de filtros reais (R10–R12)', () => {
+  it('expõe os atalhos como grupo acessível', () => {
+    render(<CatalogFiltersBar {...baseProps} />);
+
+    expect(screen.getByRole('group', { name: 'Atalhos de filtro' })).toBeInTheDocument();
+  });
+
   it('omite atalhos sem resultado público conforme R22', () => {
     render(<CatalogFiltersBar {...baseProps} />);
 
@@ -199,7 +189,7 @@ describe('CatalogFiltersBar — chips e limpar tudo (R10)', () => {
     render(
       <CatalogFiltersBar
         {...baseProps}
-        filters={makeFilters({ search: 'vamp', type: 'campanha' })}
+        filters={makeCatalogFilters({ search: 'vamp', type: 'campanha' })}
         onClearFilters={onClearFilters}
         onRemoveFilter={onRemoveFilter}
       />
@@ -219,7 +209,7 @@ describe('CatalogFiltersBar — chips e limpar tudo (R10)', () => {
   });
 
   it('renderiza chip e limpar tudo quando apenas o sort não padrão está ativo', () => {
-    render(<CatalogFiltersBar {...baseProps} filters={makeFilters({ sort: 'slots' })} />);
+    render(<CatalogFiltersBar {...baseProps} filters={makeCatalogFilters({ sort: 'slots' })} />);
 
     expect(screen.getByRole('button', { name: /Remover filtro Mais vagas/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Limpar tudo/ })).toBeInTheDocument();
@@ -234,11 +224,13 @@ describe('CatalogFiltersBar — "Mais filtros" (R4, painel desktop / drawer mobi
 
     const moreButton = screen.getByRole('button', { name: /Mais filtros/ });
     expect(moreButton).toHaveAttribute('aria-expanded', 'false');
+    expect(moreButton).not.toHaveAttribute('aria-controls');
     expect(screen.getByLabelText('2 filtros avançados ativos')).toBeInTheDocument();
 
     fireEvent.click(moreButton);
 
     expect(moreButton).toHaveAttribute('aria-expanded', 'true');
+    expect(moreButton).toHaveAttribute('aria-controls', 'catalog-advanced-panel');
     expect(document.getElementById('catalog-advanced-panel')).not.toBeNull();
     // Mesma definição canônica de campos (fonte única catalogFilterOptions).
     expect(screen.getByLabelText('Experiência')).toBeInTheDocument();
@@ -249,6 +241,25 @@ describe('CatalogFiltersBar — "Mais filtros" (R4, painel desktop / drawer mobi
     expect(document.getElementById('catalog-advanced-panel')).toBeNull();
     expect(moreButton).toHaveAttribute('aria-expanded', 'false');
     expect(document.activeElement).toBe(moreButton);
+  });
+
+  it('clique externo fecha sem roubar foco do controle clicado', () => {
+    window.matchMedia = vi.fn().mockReturnValue(mockMediaQueryList(true)) as unknown as typeof window.matchMedia;
+
+    render(
+      <>
+        <button type="button">Controle externo</button>
+        <CatalogFiltersBar {...baseProps} />
+      </>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Mais filtros/ }));
+    const outside = screen.getByRole('button', { name: 'Controle externo' });
+    outside.focus();
+
+    fireEvent.mouseDown(outside);
+
+    expect(document.getElementById('catalog-advanced-panel')).toBeNull();
+    expect(document.activeElement).toBe(outside);
   });
 
   it('mobile: botão "Mais filtros" abre o drawer via callback (não monta painel inline)', () => {
@@ -268,30 +279,29 @@ describe('CatalogFiltersBar — "Mais filtros" (R4, painel desktop / drawer mobi
 
     render(<CatalogFiltersBar {...baseProps} mobileFiltersOpen />);
 
-    expect(screen.getByRole('button', { name: /Mais filtros/ })).toHaveAttribute('aria-expanded', 'true');
+    const moreButton = screen.getByRole('button', { name: /Mais filtros/ });
+    expect(moreButton).toHaveAttribute('aria-expanded', 'true');
+    expect(moreButton).toHaveAttribute('aria-controls', 'catalog-mobile-filters-drawer');
   });
 });
 
-describe('CatalogFiltersBar — matriz de paridade desktop/mobile (aceite 14)', () => {
+describe('ResultsHeader — contrato único de ordenação responsiva', () => {
   it.each(SORT_OPTIONS.map((option) => [option.value, option.label]))(
-    'sort %s emite o mesmo valor por interação nas duas larguras',
+    'sort %s está disponível e emite o valor por interação',
     (sort, label) => {
-      const desktopChange = vi.fn();
-      window.matchMedia = vi.fn().mockReturnValue(mockMediaQueryList(true)) as unknown as typeof window.matchMedia;
-      const desktop = render(
-        <ResultsHeader count={25} sort="popular" onSortChange={desktopChange} isLoading={false} hasMore={false} />,
-      );
-      fireEvent.change(screen.getByLabelText('Ordenar por:'), { target: { value: sort } });
-      desktop.unmount();
-
-      const mobileChange = vi.fn();
-      window.matchMedia = vi.fn().mockReturnValue(mockMediaQueryList(false)) as unknown as typeof window.matchMedia;
-      render(<ResultsHeader count={25} sort="popular" onSortChange={mobileChange} isLoading={false} hasMore={false} />);
+      const onSortChange = vi.fn();
+      render(<ResultsHeader count={25} sort="popular" onSortChange={onSortChange} isLoading={false} hasMore={false} />);
       expect(screen.getByRole('option', { name: label })).toBeInTheDocument();
       fireEvent.change(screen.getByLabelText('Ordenar por:'), { target: { value: sort } });
 
-      expect(desktopChange).toHaveBeenCalledWith(sort);
-      expect(mobileChange).toHaveBeenCalledWith(sort);
+      expect(onSortChange).toHaveBeenCalledWith(sort);
     }
   );
+
+  it('usa tokens de tema no contador e no rótulo', () => {
+    render(<ResultsHeader count={25} sort="popular" onSortChange={vi.fn()} isLoading={false} hasMore={false} />);
+
+    expect(screen.getByText('25 mesas encontradas')).toHaveClass('text-[var(--fg)]');
+    expect(screen.getByText('Ordenar por:')).toHaveClass('text-[var(--fg-muted)]');
+  });
 });

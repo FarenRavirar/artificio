@@ -68,7 +68,10 @@ export function mapFiltersToQueryParams(filters: CatalogFilters): URLSearchParam
     // Normalizar para cache determinístico (R11): trim + dedupe + sort.
     const normalizedStyles = normalizeStyles(filters.styles);
     if (normalizedStyles.length > 0) {
-      params.set('styles', normalizedStyles.join(','));
+      // Cada valor é codificado antes da vírgula delimitadora; URLSearchParams
+      // codifica o `%` novamente ao serializar e o backend recebe a separação sem
+      // confundir uma vírgula pertencente ao próprio estilo com outro item.
+      params.set('styles', normalizedStyles.map((style) => encodeURIComponent(style)).join(','));
     }
   }
 

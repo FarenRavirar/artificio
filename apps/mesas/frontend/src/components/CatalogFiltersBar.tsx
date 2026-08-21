@@ -11,6 +11,8 @@ import { CatalogAdvancedFilters } from './CatalogAdvancedFilters';
 import { CatalogSystemPopover } from './CatalogSystemPopover';
 import type {
   CatalogFilters,
+  ModalityOption,
+  PriceTypeOption,
   StyleFacet,
   StyleOption,
 } from '../services/catalogService';
@@ -21,8 +23,9 @@ import {
   PUBLIC_SHORTCUT_OPTIONS,
   PRICE_TYPE_OPTIONS,
   SEAL_VALUES,
+  hasActiveCatalogFilters,
+  pickOptional,
 } from '../utils/catalogFilterOptions';
-import type { ModalityOption, PriceTypeOption } from '../services/catalogService';
 
 /**
  * Barra de filtros do catálogo (spec 094, R1–R3, R10–R12).
@@ -40,10 +43,6 @@ import type { ModalityOption, PriceTypeOption } from '../services/catalogService
  * `CatalogAdvancedFilters` é o MESMO componente no painel desktop e no drawer
  * mobile (fonte única de campos, R15).
  */
-
-function pickOptional<T extends string>(value: string, valid: readonly T[]): T | '' {
-  return value !== '' && (valid as readonly string[]).includes(value) ? (value as T) : '';
-}
 
 export type CatalogFiltersBarProps = Readonly<{
   filters: CatalogFilters;
@@ -101,16 +100,16 @@ export function CatalogFiltersBar({
   const moreButtonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const closeMore = () => {
+  const closeMore = (restoreFocus = false) => {
     setIsMoreOpen(false);
-    moreButtonRef.current?.focus();
+    if (restoreFocus) moreButtonRef.current?.focus();
   };
 
   // Escape fecha o painel avançado e devolve o foco ao gatilho (R16).
   useEffect(() => {
     if (!isMoreOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') closeMore();
+      if (event.key === 'Escape') closeMore(true);
     };
     const handlePointerDown = (event: MouseEvent) => {
       const target = event.target as Node;
@@ -169,11 +168,7 @@ export function CatalogFiltersBar({
     };
   });
 
-  const hasActiveFilters =
-    [filters.search, filters.system, filters.modality, filters.priceType, filters.experience, filters.type, filters.seal,
-      filters.sort !== 'popular' ? filters.sort : '']
-      .filter(Boolean).length > 0
-    || filters.styles.length > 0;
+  const hasActiveFilters = hasActiveCatalogFilters(filters);
 
   return (
     <section aria-label="Filtros de mesas" className="border-b border-[var(--line)] bg-[var(--surface-subtle)]">
@@ -254,7 +249,11 @@ export function CatalogFiltersBar({
               type="button"
               onClick={handleMoreClick}
               aria-expanded={isMoreOpen || mobileFiltersOpen}
-              aria-controls="catalog-advanced-panel catalog-mobile-filters-drawer"
+              aria-controls={isMoreOpen
+                ? 'catalog-advanced-panel'
+                : mobileFiltersOpen
+                  ? 'catalog-mobile-filters-drawer'
+                  : undefined}
               className="flex h-11 w-full min-w-0 items-center justify-center gap-2 rounded-lg border border-transparent bg-[var(--surface)] px-3 text-sm font-semibold whitespace-nowrap text-[var(--fg)] transition-colors hover:bg-[var(--surface-strong)] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--artificio-focus)]"
             >
               <SlidersHorizontal className="h-4 w-4 shrink-0" />
@@ -286,6 +285,7 @@ export function CatalogFiltersBar({
         {/* ATALHOS — aliases de filtros reais; rolagem horizontal deliberada no
             mobile (D0.1), sem flex-wrap emergente no desktop. */}
         <div
+          role="group"
           aria-label="Atalhos de filtro"
           className="mt-3 flex items-center gap-2 overflow-x-auto pb-1 md:flex-wrap md:overflow-visible"
         >

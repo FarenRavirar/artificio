@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CatalogAdvancedFilters } from './CatalogAdvancedFilters';
 import type { CatalogFilters, StyleFacet } from '../services/catalogService';
 
@@ -32,6 +32,10 @@ const baseProps = {
   idPrefix: 'catalog-advanced-desktop',
 };
 
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
 describe('CatalogAdvancedFilters — experiência', () => {
   it('omite nível sem resultado público e mantém os níveis aptos por R22', () => {
     render(<CatalogAdvancedFilters {...baseProps} />);
@@ -51,6 +55,15 @@ describe('CatalogAdvancedFilters — experiência', () => {
     fireEvent.change(screen.getByLabelText('Experiência'), { target: { value: 'veterano' } });
 
     expect(onExperienceChange).toHaveBeenCalledWith('veterano');
+  });
+
+  it('valor fora das opções públicas é normalizado para vazio', () => {
+    const onExperienceChange = vi.fn();
+    render(<CatalogAdvancedFilters {...baseProps} onExperienceChange={onExperienceChange} />);
+
+    fireEvent.change(screen.getByLabelText('Experiência'), { target: { value: 'invalido' } });
+
+    expect(onExperienceChange).toHaveBeenCalledWith('');
   });
 });
 
@@ -101,6 +114,12 @@ describe('CatalogAdvancedFilters — selos (R12)', () => {
 });
 
 describe('CatalogAdvancedFilters — estilos via style-facets (R11/T2.7)', () => {
+  it('não renderiza label órfão quando não há facetas', () => {
+    render(<CatalogAdvancedFilters {...baseProps} styleFacets={[]} />);
+
+    expect(screen.queryByText('Estilos')).not.toBeInTheDocument();
+  });
+
   it('renderiza facetas recebidas por props (sem lista fixa nem fetch próprio)', () => {
     const onStyleToggle = vi.fn();
     render(<CatalogAdvancedFilters {...baseProps} onStyleToggle={onStyleToggle} />);
@@ -110,6 +129,7 @@ describe('CatalogAdvancedFilters — estilos via style-facets (R11/T2.7)', () =>
 
     expect(screen.getByRole('button', { name: /exploracao/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /combate/ })).toBeInTheDocument();
+    expect(screen.getAllByText('Estilos')).toHaveLength(1);
   });
 
   it('estilos selecionados aparecem como aria-pressed=true', () => {

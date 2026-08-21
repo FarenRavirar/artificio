@@ -12,6 +12,7 @@ import {
   PUBLIC_EXPERIENCE_LEVEL_OPTIONS,
   PUBLIC_SEAL_OPTIONS,
   PUBLIC_TABLE_TYPE_OPTIONS,
+  pickOptional,
 } from '../utils/catalogFilterOptions';
 import type { TableTypeOption } from '../utils/catalogFilterOptions';
 
@@ -61,7 +62,10 @@ export function CatalogAdvancedFilters({
           <select
             id={`${idPrefix}-experience`}
             value={filters.experience}
-            onChange={(event) => onExperienceChange(event.target.value as ExperienceLevelOption | '')}
+            onChange={(event) => onExperienceChange(pickOptional(
+              event.target.value,
+              PUBLIC_EXPERIENCE_LEVEL_OPTIONS.map((option) => option.value),
+            ))}
             className="app-select h-11 w-full min-w-0"
           >
             <option value="">Qualquer nível</option>
@@ -78,7 +82,10 @@ export function CatalogAdvancedFilters({
           <select
             id={`${idPrefix}-type`}
             value={filters.type}
-            onChange={(event) => onTypeChange(event.target.value as TableTypeOption | '')}
+            onChange={(event) => onTypeChange(pickOptional(
+              event.target.value,
+              PUBLIC_TABLE_TYPE_OPTIONS.map((option) => option.value),
+            ))}
             className="app-select h-11 w-full min-w-0"
           >
             <option value="">Todos os tipos</option>
@@ -109,13 +116,14 @@ export function CatalogAdvancedFilters({
         </div>
       )}
 
+      {styleFacets.length > 0 && (
       <div className="min-w-0">
-        <p className="mb-1.5 text-xs font-semibold text-[var(--fg-muted)]">Estilos</p>
         {/* StyleFacetPicker = top facetas visíveis + popover pesquisável pro
             resto (T2.7/R11): fonte real `style-facets`, sem lista fixa completa,
             sem scroll horizontal sem affordance. Reusado no desktop e no mobile. */}
         <StyleFacetPicker facets={styleFacets} selected={filters.styles} onToggle={onStyleToggle} />
       </div>
+      )}
     </div>
   );
 }

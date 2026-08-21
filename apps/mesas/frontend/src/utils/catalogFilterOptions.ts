@@ -19,6 +19,7 @@
  * Fase 2), não de contrato.
  */
 import type {
+  CatalogFilters,
   ExperienceLevelOption,
   ModalityOption,
   PriceTypeOption,
@@ -132,6 +133,39 @@ export function isAudienceOption(value: string): value is AudienceOption {
   return (AUDIENCE_VALUES as readonly string[]).includes(value);
 }
 
+export function pickOptional<T extends string>(value: string, valid: readonly T[]): T | '' {
+  return value !== '' && (valid as readonly string[]).includes(value) ? (value as T) : '';
+}
+
+type ActiveCatalogFilters = Pick<
+  CatalogFilters,
+  'search' | 'system' | 'modality' | 'priceType' | 'experience' | 'type' | 'seal' | 'styles' | 'sort'
+>;
+
+function activeCatalogScalarValues(filters: ActiveCatalogFilters): string[] {
+  return [
+    filters.search,
+    filters.system,
+    filters.modality,
+    filters.priceType,
+    filters.experience,
+    filters.type,
+    filters.seal,
+    filters.sort !== 'popular' ? filters.sort : '',
+  ];
+}
+
+/** Fonte única para chips, limpeza e estado vazio; sort popular é o default inativo. */
+export function activeCatalogFiltersCount(filters: ActiveCatalogFilters): number {
+  const scalarCount = activeCatalogScalarValues(filters)
+    .reduce((count, value) => count + Number(Boolean(value)), 0);
+  return scalarCount + filters.styles.length;
+}
+
+export function hasActiveCatalogFilters(filters: ActiveCatalogFilters): boolean {
+  return activeCatalogScalarValues(filters).some(Boolean) || filters.styles.length > 0;
+}
+
 /**
  * Normalização canônica de estilos (R11): trim, descarte de lixo óbvio (vazio
  * ou gigante) e ordenação determinística com dedupe. Aplicada no parser e no
@@ -149,5 +183,5 @@ export function normalizeStyles(styles: readonly string[]): string[] {
         .map((style) => style.trim())
         .filter((style) => style.length > 0 && style.length <= 50)
     ),
-  ].sort();
+  ].sort((left, right) => left.localeCompare(right));
 }

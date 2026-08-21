@@ -47,7 +47,8 @@ export function CatalogSystemPopover({
   const [isOpen, setIsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDialogElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   const uiTree = useMemo(() => tree.map(systemTreeNodeToUiNode), [tree]);
 
@@ -98,12 +99,23 @@ export function CatalogSystemPopover({
     };
   }, [isOpen, isMobile, close]);
 
-  // Ao abrir, o foco vai para a busca interna de sistemas (padrão dialog).
+  useEffect(() => {
+    if (!isOpen) return;
+    const mediaQuery = window.matchMedia('(min-width: 768px)');
+    const syncViewport = (event: MediaQueryListEvent | MediaQueryList) => {
+      setIsMobile(!event.matches);
+    };
+    syncViewport(mediaQuery);
+    mediaQuery.addEventListener('change', syncViewport);
+    return () => mediaQuery.removeEventListener('change', syncViewport);
+  }, [isOpen]);
+
+  // Ao abrir, o foco vai para a busca; loading/erro usam o botão Fechar do dialog.
   useEffect(() => {
     if (!isOpen) return;
     const input = panelRef.current?.querySelector<HTMLInputElement>('input[type="search"]');
-    input?.focus();
-  }, [isOpen]);
+    (input ?? closeButtonRef.current)?.focus();
+  }, [isOpen, isMobile, loading, error]);
 
   const selectedIds = useMemo(() => (selectedSystemId ? [selectedSystemId] : []), [selectedSystemId]);
 
@@ -112,31 +124,39 @@ export function CatalogSystemPopover({
     [onSelect],
   );
 
-  const treeContent = loading ? (
-    <p className="rounded-lg border border-[var(--line)] px-3 py-6 text-center text-sm text-[var(--fg-muted)]">
-      Carregando sistemas...
-    </p>
-  ) : error ? (
-    <p className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-6 text-center text-sm text-red-200">
-      Sistemas indisponíveis.
-    </p>
-  ) : (
-    <CatalogTree
-      tree={uiTree}
-      selectedIds={selectedIds}
-      onSelectionChange={handleSelectionChange}
-      idPrefix="catalog-system"
-      mode="single"
-      role="user"
-      presentation="selection"
-      searchPlaceholder="Buscar sistema"
-    />
-  );
+  let treeContent;
+  if (loading) {
+    treeContent = (
+      <p className="rounded-lg border border-[var(--line)] px-3 py-6 text-center text-sm text-[var(--fg-muted)]">
+        Carregando sistemas...
+      </p>
+    );
+  } else if (error) {
+    treeContent = (
+      <p className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-6 text-center text-sm text-red-200">
+        Sistemas indisponíveis.
+      </p>
+    );
+  } else {
+    treeContent = (
+      <CatalogTree
+        tree={uiTree}
+        selectedIds={selectedIds}
+        onSelectionChange={handleSelectionChange}
+        idPrefix="catalog-system"
+        mode="single"
+        role="user"
+        presentation="selection"
+        searchPlaceholder="Buscar sistema"
+      />
+    );
+  }
 
   const panelHeader = (
     <div className="mb-2 flex items-center justify-between gap-2">
       <p className="text-sm font-semibold text-[var(--fg)]">Sistema</p>
       <button
+        ref={closeButtonRef}
         type="button"
         onClick={close}
         aria-label="Fechar seletor de sistema"
@@ -166,32 +186,39 @@ export function CatalogSystemPopover({
       </button>
 
       {isOpen && !isMobile && (
-        <div
+        <dialog
+          open
           ref={panelRef}
           id="catalog-system-panel"
-          role="dialog"
           aria-label="Selecionar sistema"
-          className="absolute left-0 top-full z-30 mt-2 w-[min(420px,calc(100vw-2rem))] rounded-xl border border-[var(--line)] bg-[var(--surface-panel)] p-3 shadow-2xl"
+          className="absolute left-0 top-full z-30 m-0 mt-2 w-[min(420px,calc(100vw-2rem))] max-w-none rounded-xl border border-[var(--line)] bg-[var(--surface-panel)] p-3 text-[var(--fg)] shadow-2xl"
         >
           {panelHeader}
           <div className="max-h-[min(60vh,480px)] overflow-y-auto pr-1">{treeContent}</div>
-        </div>
+        </dialog>
       )}
 
       {isOpen && isMobile && (
         <>
-          <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm" onClick={close} />
-          <div
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label="Fechar ao clicar fora do seletor de sistema"
+            className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm"
+            onClick={close}
+          />
+          <dialog
+            open
             ref={panelRef}
             id="catalog-system-panel"
-            role="dialog"
             aria-modal="true"
             aria-label="Selecionar sistema"
-            className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col rounded-t-2xl border-t border-[var(--line)] bg-[var(--surface-panel)] p-4 shadow-2xl"
+            className="fixed inset-x-0 bottom-0 top-auto z-50 m-0 flex max-h-[85dvh] w-full max-w-none flex-col rounded-t-2xl border-0 border-t border-[var(--line)] bg-[var(--surface-panel)] p-4 text-[var(--fg)] shadow-2xl"
           >
             <div className="mb-3 flex items-center justify-between gap-2">
               <p className="text-base font-bold text-[var(--fg)]">Sistema</p>
               <button
+                ref={closeButtonRef}
                 type="button"
                 onClick={close}
                 aria-label="Fechar seletor de sistema"
@@ -201,7 +228,7 @@ export function CatalogSystemPopover({
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">{treeContent}</div>
-          </div>
+          </dialog>
         </>
       )}
     </div>

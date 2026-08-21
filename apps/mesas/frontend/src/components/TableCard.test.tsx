@@ -57,4 +57,45 @@ describe('TableCardComponent — semântica de links', () => {
     expect(container.querySelector('article > a[href="/mesas/mesa-teste"]')).not.toBeNull();
     expect(container.querySelector('a[href="/mestre/mestre-teste"]')).not.toBeNull();
   });
+
+  it('mantém o link externo da plataforma VTT interativo sobre o link de fundo', () => {
+    const queryClient = new QueryClient();
+    const tableWithVtt: TableCard = {
+      ...table,
+      vtt_platform: {
+        name: 'Foundry VTT',
+        logo_filename: 'foundry.svg',
+        website_url: 'https://foundryvtt.com/',
+      },
+    };
+    const { container } = render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TableCardComponent table={tableWithVtt} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const vttLink = container.querySelector<HTMLAnchorElement>('a[href="https://foundryvtt.com/"]');
+    expect(vttLink).not.toBeNull();
+    expect(vttLink).toHaveClass('pointer-events-auto');
+    expect(vttLink).toHaveAttribute('target', '_blank');
+  });
+
+  it('renderiza o indicador de foco do link do card acima do conteúdo sem bloquear controles', () => {
+    const queryClient = new QueryClient();
+    const { container } = render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TableCardComponent table={table} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    const cardLink = container.querySelector('article > a[href="/mesas/mesa-teste"]');
+    const focusRing = container.querySelector('[data-card-focus-ring]');
+    expect(cardLink).toHaveClass('peer/card-link');
+    expect(focusRing).toHaveClass('pointer-events-none', 'z-20');
+    expect(focusRing?.className).toContain('peer-focus-visible/card-link:outline');
+  });
 });

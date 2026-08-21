@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   AUDIENCE_VALUES,
   EXPERIENCE_LEVEL_VALUES,
+  activeCatalogFiltersCount,
+  hasActiveCatalogFilters,
   isAudienceOption,
   isCatalogSeal,
   isExperienceLevelOption,
@@ -11,6 +13,7 @@ import {
   isTableTypeOption,
   MODALITY_VALUES,
   normalizeStyles,
+  pickOptional,
   PRICE_TYPE_VALUES,
   SEAL_VALUES,
   SORT_OPTIONS,
@@ -18,6 +21,7 @@ import {
   TABLE_TYPE_VALUES,
 } from './catalogFilterOptions';
 import { parseCatalogFilters } from './catalogFilters';
+import { makeCatalogFilters } from '../test/catalogFixtures';
 
 describe('fonte única — igualdade entre UI e parser (R6, critério de aceite 6)', () => {
   it('SORT_OPTIONS e SORT_VALUES derivam da mesma lista', () => {
@@ -83,6 +87,12 @@ describe('fonte única — enums de modalidade, preço, experiência, selo, tipo
 });
 
 describe('fonte única — type guards derivados das listas', () => {
+  it('pickOptional propaga apenas valor válido ou vazio', () => {
+    expect(pickOptional('online', MODALITY_VALUES)).toBe('online');
+    expect(pickOptional('', MODALITY_VALUES)).toBe('');
+    expect(pickOptional('telepatica', MODALITY_VALUES)).toBe('');
+  });
+
   it('isSortOption aceita exatamente SORT_VALUES', () => {
     for (const value of SORT_VALUES) expect(isSortOption(value)).toBe(true);
     expect(isSortOption('ending_soon')).toBe(false);
@@ -117,6 +127,15 @@ describe('fonte única — type guards derivados das listas', () => {
     expect(isAudienceOption('livre')).toBe(true);
     expect(isAudienceOption('adultos')).toBe(true);
     expect(isAudienceOption('todos')).toBe(false);
+  });
+});
+
+describe('fonte única — filtros ativos', () => {
+  it('popular é inativo e sort não padrão é contado', () => {
+    expect(activeCatalogFiltersCount(makeCatalogFilters())).toBe(0);
+    expect(hasActiveCatalogFilters(makeCatalogFilters())).toBe(false);
+    expect(activeCatalogFiltersCount(makeCatalogFilters({ sort: 'slots' }))).toBe(1);
+    expect(hasActiveCatalogFilters(makeCatalogFilters({ sort: 'slots' }))).toBe(true);
   });
 });
 

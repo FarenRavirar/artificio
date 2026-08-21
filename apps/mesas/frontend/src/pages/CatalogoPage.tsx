@@ -23,7 +23,11 @@ import type {
   PriceTypeOption,
   StyleOption,
 } from '../services/catalogService';
-import { SORT_VALUES, type TableTypeOption } from '../utils/catalogFilterOptions';
+import {
+  SORT_VALUES,
+  activeCatalogFiltersCount,
+  type TableTypeOption,
+} from '../utils/catalogFilterOptions';
 
 function pickOption<T extends string>(value: string, validOptions: readonly T[], fallback: T): T {
   return validOptions.includes(value as T) ? (value as T) : fallback;
@@ -318,18 +322,7 @@ export const CatalogoPage = () => {
   // COMPUTED
   // ============================================================================
   
-  const activeFiltersCount = useMemo(() => {
-    return [
-      filters.search,
-      filters.system,
-      filters.modality,
-      filters.priceType,
-      filters.experience,
-      filters.type,
-      filters.seal,
-      ...(filters.styles || []),
-    ].filter(Boolean).length;
-  }, [filters]);
+  const activeFiltersCount = useMemo(() => activeCatalogFiltersCount(filters), [filters]);
 
   // Quantidade de filtros avançados ativos (badge do botão "Mais filtros").
   const advancedCount = useMemo(() => {

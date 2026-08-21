@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CatalogSystemPopover } from './CatalogSystemPopover';
 import type { SystemTreeNode } from '../types/systems';
@@ -64,6 +64,7 @@ const originalMatchMedia = window.matchMedia;
 
 afterEach(() => {
   window.matchMedia = originalMatchMedia;
+  baseProps.onSelect.mockClear();
 });
 
 const baseProps = {
@@ -104,6 +105,45 @@ describe('CatalogSystemPopover — gatilho e abertura', () => {
     await waitFor(() => {
       expect(document.activeElement).toBe(screen.getByLabelText('Buscar sistema'));
     });
+  });
+
+  it.each([
+    { loading: true, error: null },
+    { loading: false, error: 'Falha de rede.' },
+  ])('sem busca, move o foco para Fechar em loading/erro', async ({ loading, error }) => {
+    render(<CatalogSystemPopover {...baseProps} loading={loading} error={error} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sistema' }));
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'Fechar seletor de sistema' }),
+      );
+    });
+  });
+
+  it('acompanha mudança de viewport enquanto aberto e remove o listener ao fechar', () => {
+    const mediaQuery = mockMediaQueryList(false);
+    window.matchMedia = vi.fn().mockReturnValue(mediaQuery) as unknown as typeof window.matchMedia;
+    render(<CatalogSystemPopover {...baseProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sistema' }));
+    const mobileDialog = screen.getByRole('dialog', { name: 'Selecionar sistema' });
+    expect(mobileDialog.tagName).toBe('DIALOG');
+    expect(mobileDialog).toHaveClass('fixed');
+
+    const changeHandler = vi.mocked(mediaQuery.addEventListener).mock.calls.find(
+      ([eventName]) => eventName === 'change',
+    )?.[1] as EventListener;
+    expect(changeHandler).toBeDefined();
+
+    act(() => changeHandler({ matches: true } as unknown as MediaQueryListEvent));
+    const desktopDialog = screen.getByRole('dialog', { name: 'Selecionar sistema' });
+    expect(desktopDialog.tagName).toBe('DIALOG');
+    expect(desktopDialog).toHaveClass('absolute');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(mediaQuery.removeEventListener).toHaveBeenCalledWith('change', changeHandler);
   });
 });
 

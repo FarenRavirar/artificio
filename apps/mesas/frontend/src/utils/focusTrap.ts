@@ -12,15 +12,16 @@ export function trapModalTab(event: KeyboardEvent, container: HTMLElement): void
   if (event.key !== 'Tab') return;
 
   const focusable = Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
-    .filter((element) => element.getAttribute('aria-hidden') !== 'true');
+    .filter((element) => !element.closest('[hidden], [aria-hidden="true"], [inert]'));
   if (focusable.length === 0) {
     event.preventDefault();
+    container.tabIndex = -1;
     container.focus();
     return;
   }
 
   const first = focusable[0];
-  const last = focusable[focusable.length - 1];
+  const last = focusable.at(-1);
   if (event.shiftKey && document.activeElement === first) {
     event.preventDefault();
     last.focus();

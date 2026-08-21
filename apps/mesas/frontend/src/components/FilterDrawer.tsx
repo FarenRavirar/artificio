@@ -2,14 +2,14 @@ import { useEffect, useRef } from 'react';
 import { X, RotateCcw } from 'lucide-react';
 import { trapModalTab } from '../utils/focusTrap';
 
-interface FilterDrawerProps {
+type FilterDrawerProps = Readonly<{
   isOpen: boolean;
   onClose: () => void;
   onClear: () => void;
   onApply: () => void;
   children: React.ReactNode;
   isApplying?: boolean;
-}
+}>;
 
 /**
  * Drawer mobile de filtros (spec 094, R15–R17).
@@ -19,15 +19,25 @@ interface FilterDrawerProps {
  * sem duplicar lista/mapper). "Aplicar" e "Limpar" ficam no footer sticky
  * (shrink-0 no flex column), sempre visíveis.
  *
- * A11y (padrão W3C Modal Dialog + R16): `role="dialog"`/`aria-modal`, Escape
+ * A11y (padrão W3C Modal Dialog + R16): `<dialog>`/`aria-modal`, Escape
  * fecha (respeitando o bloqueio de `isApplying`), foco inicial no botão de
  * fechar e retorno de foco ao gatilho ao fechar. Fundo/bordas usam tokens de
  * tema (não cores fixas) para o conteúdo hospedado — que usa tokens — ser
  * legível em dark e light.
  */
 export function FilterDrawer({ isOpen, onClose, onClear, onApply, children, isApplying = false }: FilterDrawerProps) {
-  const drawerRef = useRef<HTMLDivElement>(null);
+  const drawerRef = useRef<HTMLDialogElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  const isApplyingRef = useRef(isApplying);
+  // PR #282 · chatgpt-codex-connector P2: callbacks inline e o rascunho móvel rerenderizam o
+  // drawer; refs mantêm o handler atual sem reiniciar o ciclo modal nem recapturar o foco.
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+  useEffect(() => {
+    isApplyingRef.current = isApplying;
+  }, [isApplying]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -37,17 +47,28 @@ export function FilterDrawer({ isOpen, onClose, onClear, onApply, children, isAp
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (drawerRef.current) trapModalTab(event, drawerRef.current);
-      if (event.key === 'Escape' && !isApplying) {
-        onClose();
+      if (event.key === 'Escape' && !isApplyingRef.current) {
+        onCloseRef.current();
       }
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose, isApplying]);
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen) return;
     previousFocusRef.current?.focus();
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const desktopQuery = window.matchMedia('(min-width: 768px)');
+    const closeOnDesktop = (event: MediaQueryListEvent | MediaQueryList) => {
+      if (event.matches) onCloseRef.current();
+    };
+    closeOnDesktop(desktopQuery);
+    desktopQuery.addEventListener('change', closeOnDesktop);
+    return () => desktopQuery.removeEventListener('change', closeOnDesktop);
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -55,19 +76,23 @@ export function FilterDrawer({ isOpen, onClose, onClear, onApply, children, isAp
   return (
     <>
       {/* Backdrop */}
-      <div
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label="Fechar ao clicar fora dos filtros"
+        disabled={isApplying}
         className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm md:hidden"
-        onClick={isApplying ? undefined : onClose}
+        onClick={onClose}
       />
 
       {/* Drawer */}
-      <div
+      <dialog
+        open
         ref={drawerRef}
         id="catalog-mobile-filters-drawer"
-        role="dialog"
         aria-modal="true"
         aria-label="Filtros"
-        className={`fixed inset-y-0 right-0 z-50 flex h-dvh w-[min(92vw,26rem)] flex-col bg-[var(--surface-panel)] shadow-2xl md:hidden ${isApplying ? 'opacity-60 pointer-events-none' : ''}`}
+        className={`fixed inset-y-0 left-auto right-0 z-50 m-0 flex h-dvh max-h-none w-[min(92vw,26rem)] max-w-none flex-col border-0 bg-[var(--surface-panel)] p-0 text-[var(--fg)] shadow-2xl md:hidden ${isApplying ? 'opacity-60 pointer-events-none' : ''}`}
       >
         {/* Header */}
         <div className="flex shrink-0 items-center justify-between border-b border-[var(--line)] p-4">
@@ -93,6 +118,7 @@ export function FilterDrawer({ isOpen, onClose, onClear, onApply, children, isAp
           <button
             type="button"
             onClick={onClear}
+            disabled={isApplying}
             className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--fill)] px-4 py-3 font-semibold text-[var(--fg)] transition-colors hover:bg-[var(--fill-20)] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--artificio-focus)]"
           >
             <RotateCcw className="h-4 w-4" />
@@ -101,12 +127,13 @@ export function FilterDrawer({ isOpen, onClose, onClear, onApply, children, isAp
           <button
             type="button"
             onClick={onApply}
+            disabled={isApplying}
             className="flex min-h-11 flex-1 items-center justify-center rounded-lg bg-[var(--color-artificio-orange)] px-4 py-3 font-semibold text-white transition-colors hover:bg-[var(--color-artificio-orange-hover)] focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-2 focus-visible:outline-[var(--artificio-focus)]"
           >
             Aplicar
           </button>
         </div>
-      </div>
+      </dialog>
     </>
   );
 }

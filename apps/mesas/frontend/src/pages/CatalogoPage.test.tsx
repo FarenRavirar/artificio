@@ -151,14 +151,14 @@ describe('CatalogoPage — busca geral única (R1/D0.3)', () => {
 
     fireEvent.submit(screen.getByRole('search'));
 
-    // Uma única promoção do draft: o hook pode ser chamado mais de uma vez por
-    // render, mas só UM valor confirmado de busca aparece — o React Query
-    // deduplica por queryKey (URL), então uma request real por ação.
+    // Uma única promoção do draft: renders repetidos podem repetir o mesmo
+    // valor, então contamos transições para "vamp", não valores distintos.
     await waitFor(() => {
-      const confirmedSearches = new Set(
-        mockInfinite.mock.calls.map((call) => call[0].search).filter((search) => search === 'vamp'),
+      const confirmedSearches = mockInfinite.mock.calls.map((call) => call[0].search);
+      const transitionsToVamp = confirmedSearches.filter(
+        (search, index) => search === 'vamp' && confirmedSearches[index - 1] !== 'vamp',
       );
-      expect(confirmedSearches.size).toBe(1);
+      expect(transitionsToVamp).toHaveLength(1);
     });
     expect(
       mockInfinite.mock.calls.map((call) => call[0].search),
@@ -198,6 +198,12 @@ describe('CatalogoPage — round-trip da URL (R7)', () => {
 
     const lastCall = mockInfinite.mock.calls[mockInfinite.mock.calls.length - 1][0];
     expect(lastCall.sort).toBe('popular');
+  });
+
+  it('sort não padrão conta como filtro ativo no estado vazio', () => {
+    renderPage('/?sort=slots');
+
+    expect(screen.getByRole('button', { name: 'Limpar todos os filtros' })).toBeInTheDocument();
   });
 });
 

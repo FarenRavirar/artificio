@@ -130,11 +130,13 @@ function VttPlatformBadge({ table }: { table: TableCard }) {
 
   if (table.vtt_platform.website_url) {
     return (
+      // PR #282 · chatgpt-codex-connector P2: o conteúdo do card bloqueia pointer events para
+      // deixar o link overlay clicável; o link VTT precisa reativá-los para não abrir a mesa.
       <a
         href={table.vtt_platform.website_url}
         target="_blank"
         rel="noopener noreferrer"
-        className="absolute bottom-3 right-3 h-9 min-w-9 px-2 rounded-lg bg-black/55 border border-white/20 backdrop-blur-sm inline-flex items-center justify-center hover:bg-black/70 hover:border-white/40 transition-colors"
+        className="pointer-events-auto absolute bottom-3 right-3 h-9 min-w-9 px-2 rounded-lg bg-black/55 border border-white/20 backdrop-blur-sm inline-flex items-center justify-center hover:bg-black/70 hover:border-white/40 transition-colors"
         title={`${table.vtt_platform.name} - Abrir site oficial`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -288,7 +290,12 @@ export function TableCardComponent({ table }: { table: TableCard }) {
         onClick={handleClick}
         onMouseEnter={handleMouseEnter}
         aria-label={`Ver detalhes da mesa ${table.title}`}
-        className="absolute inset-0 z-0 rounded-2xl focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-[-3px] focus-visible:outline-[var(--artificio-focus)]"
+        className="peer/card-link absolute inset-0 z-0 rounded-2xl"
+      />
+      <div
+        data-card-focus-ring
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-20 rounded-2xl peer-focus-visible/card-link:outline peer-focus-visible/card-link:outline-[3px] peer-focus-visible/card-link:outline-offset-[-3px] peer-focus-visible/card-link:outline-[var(--artificio-focus)]"
       />
       <div className="pointer-events-none relative z-10 flex h-full min-h-[430px] w-full min-w-0 flex-col">
       {/* BLOCO 1: HEADER (Imagem + Badges críticos) */}

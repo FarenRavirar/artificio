@@ -1,24 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildCatalogParams, parseCatalogFilters } from './catalogFilters';
-import type { CatalogFilters } from '../services/catalogService';
 import { SORT_VALUES, TABLE_TYPE_VALUES } from './catalogFilterOptions';
-
-function makeFilters(overrides: Partial<CatalogFilters> = {}): CatalogFilters {
-  return {
-    search: '',
-    system: '',
-    modality: '',
-    priceType: '',
-    experience: '',
-    seal: '',
-    styles: [],
-    type: '',
-    sort: 'popular',
-    page: 1,
-    limit: 24,
-    ...overrides,
-  };
-}
+import { makeCatalogFilters } from '../test/catalogFixtures';
 
 describe('parseCatalogFilters — defaults', () => {
   it('URL vazia produz o estado default completo', () => {
@@ -73,7 +56,7 @@ describe('parseCatalogFilters — enums e round-trip', () => {
   });
 
   it('faz round-trip: estado → URL → mesmo estado', () => {
-    const filters = makeFilters({
+    const filters = makeCatalogFilters({
       search: 'vampiro',
       system: 'vampire-a-mascara',
       modality: 'online',
@@ -110,7 +93,7 @@ describe('parseCatalogFilters — sort legado ending_soon', () => {
   });
 
   it('build nunca serializa ending_soon (não faz parte do tipo)', () => {
-    const params = buildCatalogParams(makeFilters({ sort: 'popular' }));
+    const params = buildCatalogParams(makeCatalogFilters({ sort: 'popular' }));
     expect(params.get('sort')).toBeNull();
   });
 });
@@ -128,9 +111,22 @@ describe('parseCatalogFilters — estilos normalizados (R11)', () => {
     expect(parsed.styles).toEqual(['a', 'b']);
   });
 
+  it('descarta estilos acima do limite canônico de 50 caracteres', () => {
+    const params = new URLSearchParams();
+    params.set('styles', `válido,${'x'.repeat(51)}`);
+
+    expect(parseCatalogFilters(params).styles).toEqual(['válido']);
+  });
+
+  it('preserva o valor bruto quando decodeURIComponent recebe encoding malformado', () => {
+    const params = new URLSearchParams({ styles: '%E0%A4%A' });
+
+    expect(parseCatalogFilters(params).styles).toEqual(['%E0%A4%A']);
+  });
+
   it('build normaliza antes de encodar (ordem de clique não muda a URL)', () => {
-    const a = buildCatalogParams(makeFilters({ styles: ['b', 'a', 'b'] }));
-    const b = buildCatalogParams(makeFilters({ styles: ['a', 'b'] }));
+    const a = buildCatalogParams(makeCatalogFilters({ styles: ['b', 'a', 'b'] }));
+    const b = buildCatalogParams(makeCatalogFilters({ styles: ['a', 'b'] }));
     expect(a.get('styles')).toBe(b.get('styles'));
   });
 });
@@ -142,7 +138,7 @@ describe('parseCatalogFilters / buildCatalogParams — featured e facetas reprov
     expect(parsed).not.toHaveProperty('featured');
     expect(parsed.type).toBe('campanha');
 
-    const built = buildCatalogParams(makeFilters({ type: 'campanha' }));
+    const built = buildCatalogParams(makeCatalogFilters({ type: 'campanha' }));
     expect(built.has('featured')).toBe(false);
     expect(built.toString()).not.toContain('featured');
   });
@@ -160,22 +156,22 @@ describe('parseCatalogFilters / buildCatalogParams — featured e facetas reprov
 
 describe('buildCatalogParams — page reset e defaults', () => {
   it('omite page=1 (default), mantém page>1', () => {
-    expect(buildCatalogParams(makeFilters({ page: 1 })).has('page')).toBe(false);
-    expect(buildCatalogParams(makeFilters({ page: 2 })).get('page')).toBe('2');
+    expect(buildCatalogParams(makeCatalogFilters({ page: 1 })).has('page')).toBe(false);
+    expect(buildCatalogParams(makeCatalogFilters({ page: 2 })).get('page')).toBe('2');
   });
 
   // R14: o reset para página 1 em mudança de filtro é feito pelos callers
   // (updateFilter em CatalogoPage). O contrato garante o lado que lhe cabe:
   // depois do reset, page=1 some da URL e o parse devolve 1.
   it('filtro alterado com page resetada produz URL sem page e parse devolve 1', () => {
-    const reset = makeFilters({ type: 'campanha', page: 1 });
+    const reset = makeCatalogFilters({ type: 'campanha', page: 1 });
     const params = buildCatalogParams(reset);
     expect(params.has('page')).toBe(false);
     expect(parseCatalogFilters(params).page).toBe(1);
   });
 
   it('omite sort=popular (default)', () => {
-    expect(buildCatalogParams(makeFilters({ sort: 'popular' })).has('sort')).toBe(false);
-    expect(buildCatalogParams(makeFilters({ sort: 'slots' })).get('sort')).toBe('slots');
+    expect(buildCatalogParams(makeCatalogFilters({ sort: 'popular' })).has('sort')).toBe(false);
+    expect(buildCatalogParams(makeCatalogFilters({ sort: 'slots' })).get('sort')).toBe('slots');
   });
 });

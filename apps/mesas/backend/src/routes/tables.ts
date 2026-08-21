@@ -30,6 +30,16 @@ const VALID_REPORT_REASONS: Set<TableReportReason> = new Set(['golpe', 'conteudo
 
 const router = Router();
 
+export function parseStylesQuery(styles: string): string[] {
+  return styles.split(',').filter(Boolean).map((style) => {
+    try {
+      return decodeURIComponent(style);
+    } catch {
+      return style;
+    }
+  });
+}
+
 type PublicTableContact = {
   channel: string;
   value: string;
@@ -206,7 +216,7 @@ router.get('/', async (req: Request, res: Response) => {
     // NOVO: Filtro de estilos de jogo
     const styles = req.query.styles as string | undefined;
     if (styles) {
-      const styleArray = styles.split(',').filter(Boolean);
+      const styleArray = parseStylesQuery(styles);
       if (styleArray.length > 0) {
         // Filtrar mesas que contenham QUALQUER um dos estilos selecionados
         query = query.where(sql<boolean>`t.setting_styles && ARRAY[${sql.join(styleArray.map(s => sql.lit(s)))}]::text[]`);

@@ -29,7 +29,7 @@ vi.mock('../services/systemCatalogProvider.js', () => ({
   loadSystemCatalogTree: vi.fn(async () => []),
 }));
 
-import tablesRoutes from './tables.js';
+import tablesRoutes, { parseStylesQuery } from './tables.js';
 
 function makeQueryBuilder() {
   return {
@@ -159,6 +159,14 @@ describe('GET /api/v1/tables — catálogo público (ordenacao e filtros)', () =
 
     expect(response.status).toBe(200);
     expect(builders[0].where).toHaveBeenCalledWith('t.type', '=', 'campanha');
+  });
+
+  it('decodifica cada estilo depois de separar o delimitador da lista', () => {
+    expect(parseStylesQuery('intriga%2Cpol%C3%ADtica,narrativo')).toEqual([
+      'intriga,política',
+      'narrativo',
+    ]);
+    expect(parseStylesQuery('%E0%A4%A')).toEqual(['%E0%A4%A']);
   });
 
   it('featured permanece aceito pelo backend (parâmetro preexistente intocado)', async () => {
