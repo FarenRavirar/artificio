@@ -281,11 +281,22 @@ function buildAboutTable(table: TableDetail, synopsisSource: string): string {
     .filter(Boolean)
     .join('\n');
 
+  // Doações são exclusivas de mesa gratuita (regra de schema no backend); o
+  // anúncio guarda por price_type para nunca vazar linha de doação em mesa paga.
+  const donations = table.price_type === 'gratuita' && table.accepts_donations === true
+    ? joinNonEmpty([
+        'Aceita doações',
+        table.suggested_donation_value == null ? '' : `Valor sugerido: R$ ${table.suggested_donation_value}/sessão`,
+      ], '\n')
+    : '';
+
   const price = joinNonEmpty([
     table.billing_text,
     table.price_value == null ? '' : `Valor: R$ ${table.price_value}`,
+    table.price_value_monthly == null ? '' : `Pacote mensal: R$ ${table.price_value_monthly}/sessão`,
     table.price_frequency ? `Frequência: ${table.price_frequency}` : '',
     table.session_zero_free ? 'Sessão zero gratuita' : '',
+    donations,
   ], '\n');
 
   const requirements = joinNonEmpty([

@@ -237,6 +237,10 @@ export function mapTableToView(table: TableDetail): TableViewModel {
     // Preço
     price: table.price_value ?? undefined,
     priceFrequency: table.price_frequency ?? undefined,
+    priceMonthly: table.price_value_monthly ?? undefined,
+    priceType: table.price_type,
+    acceptsDonations: table.accepts_donations,
+    suggestedDonationValue: table.suggested_donation_value ?? undefined,
 
     // Certificações
     certifications,

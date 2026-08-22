@@ -10,6 +10,9 @@ interface StepReviewProps {
     audience: string;
     price_type: string;
     price_value: string;
+    price_value_monthly?: string;
+    accepts_donations?: boolean;
+    suggested_donation_value?: string;
     slots_total: string;
     experience_level: string;
     language: string;
@@ -107,6 +110,28 @@ export function StepReview({
                 : 'Gratuita'}
             </span>
           </div>
+          {form.price_type === 'paga' && form.price_value_monthly && (
+            <div>
+              <span className="text-white/60">Pacote Mensal:</span>{' '}
+              <span className="text-white">R$ {form.price_value_monthly} / sessão</span>
+            </div>
+          )}
+          {/* Auditoria adversarial final (sessão 26-08-22_1, achado #3): review
+              não exibia a configuração de doações de mesa gratuita. */}
+          {form.price_type === 'gratuita' && form.accepts_donations === true && (
+            <>
+              <div>
+                <span className="text-white/60">Aceita doações:</span>{' '}
+                <span className="text-white">Sim</span>
+              </div>
+              {form.suggested_donation_value && (
+                <div>
+                  <span className="text-white/60">Valor sugerido:</span>{' '}
+                  <span className="text-white">R$ {form.suggested_donation_value} / sessão</span>
+                </div>
+              )}
+            </>
+          )}
           <div>
             <span className="text-white/60">Experiência:</span>{' '}
             <span className="text-white">{form.experience_level}</span>

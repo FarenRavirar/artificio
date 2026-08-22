@@ -260,6 +260,9 @@ export interface TablesTable {
   communication_platform: string | null; // DEPRECATED: fallback legado de texto livre
   price_type: Generated<PriceType>;
   price_value: number | null;
+  price_value_monthly: number | null; // Valor individual por sessão no pacote mensal (opcional, mesa paga)
+  accepts_donations: Generated<boolean>; // Doações (exclusivo de mesa gratuita; regra de schema no Zod)
+  suggested_donation_value: number | null; // Valor sugerido por sessão (opcional; exige accepts_donations)
   price_frequency: PriceFrequency | null;
   slots_total: Generated<number>;
   slots_filled: Generated<number>;

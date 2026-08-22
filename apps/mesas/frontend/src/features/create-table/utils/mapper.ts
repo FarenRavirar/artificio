@@ -69,6 +69,32 @@ export function formStateToPayload(state: FormState): CreateTablePayload {
       sort_order: index,
     }));
 
+  // Auditoria adversarial da feature price_value_monthly (sessão 26-08-22_1, A4):
+  // parseFloat de string não numérica vira NaN, que JSON.stringify serializa como
+  // null e limpa o campo silenciosamente no payload. Guard Number.isFinite: valor
+  // não finito não é enviado (undefined omite o campo na serialização).
+  // Correção pós-auditoria (achado do implementador, sessão 26-08-22_1): o mesmo
+  // defeito existia em price_value, que usava parseFloat direto; o helper foi
+  // generalizado para servir os dois campos.
+  const parsePriceValue = (raw: string | undefined): number | undefined => {
+    if (!raw) return undefined;
+    const parsed = parseFloat(raw);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+
+  // Auditoria adversarial final (sessão 26-08-22_1, achados #1 e #2): campo
+  // esvaziado pelo usuário precisa zerar no banco. '' → null (backend zera);
+  // undefined → omitido (backend preserva o salvo); não numérico → undefined
+  // (guard Number.isFinite impede NaN de virar null e limpar sem intenção).
+  // Só vale para price_value_monthly e suggested_donation_value — o contrato
+  // de price_value (campo obrigatório de mesa paga) fica inalterado.
+  const parseClearablePriceValue = (raw: string | undefined): number | null | undefined => {
+    if (raw === undefined) return undefined;
+    if (raw.trim() === '') return null;
+    const parsed = parseFloat(raw);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  };
+
   // Construir payload base
   const payload: CreateTablePayload = {
     title: state.form.title,
@@ -116,7 +142,31 @@ export function formStateToPayload(state: FormState): CreateTablePayload {
       state.communicationPlatformId === 'custom' && state.communicationPlatformCustom.trim().length > 0
         ? state.communicationPlatformCustom.trim()
         : undefined,
-    price_value: state.form.price_value ? parseFloat(state.form.price_value) : undefined,
+    // Decisão A2 do mantenedor (sessão 26-08-22_1, "endurecer"): campos de
+    // preço/doação são enviados POR MODALIDADE, com price_type como fonte de
+    // verdade. O form já limpa o state ao trocar paga↔gratuita (StepConfig),
+    // mas draft/transição pode carregar valor residual da outra modalidade —
+    // o mapper garante que o banco NUNCA acumula campo da modalidade oposta:
+    // gratuita zera preços (null) e carrega doações; paga zera doações
+    // (false/null) e carrega preços. Enviar o residual cru quebraria a troca
+    // de modalidade: o validador do backend rejeita gratuita com preço (A2).
+    ...(normalizePriceType(state.form.price_type) === 'gratuita'
+      ? {
+          price_value: null,
+          price_value_monthly: null,
+          // Doações: flag vai como boolean literal (false também é enviado —
+          // coluna NOT NULL DEFAULT false); valor sugerido usa
+          // parseClearablePriceValue: vazio = limpar (null), ausente =
+          // preservar, não numérico = omitir.
+          accepts_donations: state.form.accepts_donations === true,
+          suggested_donation_value: parseClearablePriceValue(state.form.suggested_donation_value),
+        }
+      : {
+          price_value: parsePriceValue(state.form.price_value),
+          price_value_monthly: parseClearablePriceValue(state.form.price_value_monthly),
+          accepts_donations: false,
+          suggested_donation_value: null,
+        }),
     price_frequency: state.form.price_frequency || undefined,
   };
 

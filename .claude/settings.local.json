@@ -249,5 +249,6 @@
   "enabledMcpjsonServers": [
     "code-review-graph"
   ],
-  "prefersReducedMotion": false
+  "prefersReducedMotion": false,
+  "outputStyle": "Concise"
 }

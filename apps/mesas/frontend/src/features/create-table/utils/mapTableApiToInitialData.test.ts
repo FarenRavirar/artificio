@@ -31,4 +31,34 @@ describe('mapTableApiToInitialData', () => {
     const result = mapTableApiToInitialData(null);
     expect(result).toEqual({});
   });
+
+  it('popula price_value_monthly do payload na edicao', () => {
+    const result = mapTableApiToInitialData({ price_value_monthly: 40 });
+    expect(result.form?.price_value_monthly).toBe('40');
+  });
+
+  it('price_value_monthly fica vazio quando ausente no payload (mesa sem pacote mensal)', () => {
+    const result = mapTableApiToInitialData({ price_type: 'paga', price_value: 55 });
+    expect(result.form?.price_value_monthly).toBe('');
+  });
+
+  it('popula accepts_donations do payload na edicao (mesa gratuita que aceita doacoes)', () => {
+    const result = mapTableApiToInitialData({ price_type: 'gratuita', accepts_donations: true });
+    expect(result.form?.accepts_donations).toBe(true);
+  });
+
+  it('accepts_donations fica false quando ausente no payload (mesa sem doacoes)', () => {
+    const result = mapTableApiToInitialData({ price_type: 'gratuita' });
+    expect(result.form?.accepts_donations).toBe(false);
+  });
+
+  it('popula suggested_donation_value do payload como string na edicao', () => {
+    const result = mapTableApiToInitialData({ accepts_donations: true, suggested_donation_value: 10 });
+    expect(result.form?.suggested_donation_value).toBe('10');
+  });
+
+  it('suggested_donation_value fica vazio quando ausente no payload', () => {
+    const result = mapTableApiToInitialData({ price_type: 'gratuita', accepts_donations: true });
+    expect(result.form?.suggested_donation_value).toBe('');
+  });
 });

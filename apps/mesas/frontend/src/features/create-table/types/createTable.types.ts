@@ -26,6 +26,9 @@ export interface BasicFormData {
   age_rating: string;
   price_type: string;
   price_value: string;
+  price_value_monthly?: string; // Valor individual por sessão no pacote mensal (opcional, mesa paga)
+  accepts_donations?: boolean; // Doações (exclusivo de mesa gratuita)
+  suggested_donation_value?: string; // Valor sugerido por sessão (opcional; exige accepts_donations)
   slots_total: string;
   slots_open: string; // REQ-02: Vagas abertas para recrutamento
   experience_level: string;
@@ -161,7 +164,16 @@ export interface CreateTablePayload {
   game_platform_custom?: string;
   communication_platform_id?: string;
   communication_platform?: string;
-  price_value?: number;
+  // Endurecimento A2 (sessão 26-08-22_1): mesa gratuita envia null explícito
+  // (backend zera no banco); mesa paga envia number. undefined = omitir
+  // (PUT preserva o valor salvo; POST é rejeitado pelo refine de paga exige
+  // valor). O mapper decide por modalidade (price_type é a fonte de verdade).
+  price_value?: number | null;
+  // Auditoria adversarial final (sessão 26-08-22_1): null = esvaziar campo
+  // (backend zera), undefined = omitir (backend preserva o valor salvo).
+  price_value_monthly?: number | null;
+  accepts_donations?: boolean;
+  suggested_donation_value?: number | null;
   price_frequency?: string;
   ddal_code?: string;
   ddal_name?: string;

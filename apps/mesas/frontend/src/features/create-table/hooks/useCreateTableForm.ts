@@ -1,6 +1,6 @@
 import type { CropRect } from '@artificio/media/image-kinds';
 import { useState, useEffect } from 'react';
-import type { FormState, DdalFormState } from '../types/createTable.types';
+import type { FormState, DdalFormState, BasicFormData } from '../types/createTable.types';
 import type { SessionSchedule } from '../../../components/SessionRepeater';
 import type { ContactFormEntry } from '../../../components/ContactsFormBlock';
 import { formStateToPayload } from '../utils/mapper';
@@ -23,7 +23,7 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
   const { initialData, onSuccess } = options;
 
   // Estado do formulário básico
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<BasicFormData>({
     title: initialData?.form?.title || '',
     description: initialData?.form?.description || '',
     type: initialData?.form?.type || 'campanha',
@@ -32,6 +32,9 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
     age_rating: initialData?.form?.age_rating || 'livre',
     price_type: initialData?.form?.price_type || 'free',
     price_value: initialData?.form?.price_value || '',
+    price_value_monthly: initialData?.form?.price_value_monthly || '',
+    accepts_donations: initialData?.form?.accepts_donations || false,
+    suggested_donation_value: initialData?.form?.suggested_donation_value || '',
     slots_total: initialData?.form?.slots_total || '4',
     slots_open: initialData?.form?.slots_open || '4', // REQ-02: Vagas abertas
     experience_level: initialData?.form?.experience_level || 'todos',
@@ -291,6 +294,9 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
         age_rating: 'livre',
         price_type: 'free',
         price_value: '',
+        price_value_monthly: '',
+        accepts_donations: false,
+        suggested_donation_value: '',
         slots_total: '4',
         slots_open: '4', // REQ-02: Vagas abertas
         experience_level: 'todos',

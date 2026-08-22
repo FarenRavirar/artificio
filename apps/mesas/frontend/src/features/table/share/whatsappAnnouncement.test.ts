@@ -20,6 +20,9 @@ function makeTable(overrides: Partial<TableDetail> = {}): TableDetail {
     price_type: 'paga',
     price_value: 50,
     price_frequency: 'sessao',
+    price_value_monthly: null,
+    accepts_donations: false,
+    suggested_donation_value: null,
     slots_total: 5,
     slots_filled: 2,
     slots_open: 3,
@@ -176,6 +179,65 @@ describe('buildWhatsAppTableAnnouncement', () => {
     const text = buildWhatsAppTableAnnouncement(makeTable({ experience_level: 'todos', level_range: null }));
     expect(text).toContain('Experiência: todos');
     expect(text).not.toMatch(/\n\ntodos\n\n/);
+  });
+
+  it('inclui linha do pacote mensal quando price_value_monthly está presente', () => {
+    const text = buildWhatsAppTableAnnouncement(makeTable({ price_value_monthly: 40 }));
+    expect(text).toContain('Pacote mensal: R$ 40/sessão');
+  });
+
+  it('não menciona pacote mensal quando price_value_monthly está ausente', () => {
+    const text = buildWhatsAppTableAnnouncement(makeTable({ price_value_monthly: null }));
+    expect(text).not.toContain('Pacote mensal');
+    expect(text).toContain('Valor: R$ 50');
+  });
+
+  it('inclui doação com valor sugerido em mesa gratuita', () => {
+    const text = buildWhatsAppTableAnnouncement(makeTable({
+      price_type: 'gratuita',
+      price_value: null,
+      price_frequency: null,
+      accepts_donations: true,
+      suggested_donation_value: 10,
+    }));
+    expect(text).toContain('Aceita doações');
+    expect(text).toContain('Valor sugerido: R$ 10/sessão');
+    expect(text).toContain('▬ Mesa: Gratuita');
+  });
+
+  it('inclui doação sem valor sugerido quando só o flag está marcado', () => {
+    const text = buildWhatsAppTableAnnouncement(makeTable({
+      price_type: 'gratuita',
+      price_value: null,
+      price_frequency: null,
+      accepts_donations: true,
+      suggested_donation_value: null,
+    }));
+    expect(text).toContain('Aceita doações');
+    expect(text).not.toContain('Valor sugerido');
+  });
+
+  it('não menciona doação em mesa gratuita sem o flag (saída atual preservada)', () => {
+    const text = buildWhatsAppTableAnnouncement(makeTable({
+      price_type: 'gratuita',
+      price_value: null,
+      price_frequency: null,
+      accepts_donations: false,
+      suggested_donation_value: null,
+    }));
+    expect(text).not.toContain('doações');
+    expect(text).not.toContain('Valor sugerido');
+  });
+
+  it('não menciona doação em mesa paga mesmo com flag inconsistente (guard por price_type)', () => {
+    const text = buildWhatsAppTableAnnouncement(makeTable({
+      price_type: 'paga',
+      price_value: 50,
+      accepts_donations: true,
+      suggested_donation_value: 10,
+    }));
+    expect(text).not.toContain('Aceita doações');
+    expect(text).not.toContain('Valor sugerido');
   });
 
   it('keeps age rating empty when absent and converts markdown/html to plain text', () => {

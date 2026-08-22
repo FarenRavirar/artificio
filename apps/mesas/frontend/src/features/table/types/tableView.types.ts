@@ -1,6 +1,6 @@
 import type { CropRect } from '@artificio/media/image-kinds';
 
-import type { TableSchedule, TableContact } from '../../../types/tables';
+import type { TableSchedule, TableContact, PriceType } from '../../../types/tables';
 
 /**
  * Variantes de renderização para componentes de mesa
@@ -103,6 +103,12 @@ export interface TableViewModel {
   // Preço
   price?: number;
   priceFrequency?: string;
+  priceMonthly?: number; // Valor individual por sessão no pacote mensal (opcional)
+  // Fonte de verdade da modalidade de cobrança: mesa gratuita renderiza o
+  // banner "Gratuita" mesmo sem `price` (price_value é null nesse caso).
+  priceType?: PriceType;
+  acceptsDonations?: boolean; // Doações (exclusivo de mesa gratuita)
+  suggestedDonationValue?: number; // Valor sugerido por sessão (opcional)
 
   // Badges/Certificações
   certifications: TableCertifications;

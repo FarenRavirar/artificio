@@ -167,3 +167,325 @@ describe('updateTableSchema — enquadramento do banner', () => {
     expect(updateTableSchema.safeParse({ banner_height: 12.5 }).success).toBe(false);
   });
 });
+
+/**
+ * `price_value_monthly` é o valor individual por sessão no pacote mensal —
+ * adicional opcional da mesa paga, nunca percentual. Sem CHECK de relação com
+ * o avulso no banco; a regra "mensal exige mesa paga" vive aqui no schema.
+ */
+describe('schemas de mesa — price_value_monthly (pacote mensal)', () => {
+  const basePaidTable = {
+    title: 'Mesa mensal',
+    system_id: '123e4567-e89b-42d3-a456-426614174000',
+    type: 'campanha',
+    modality: 'online',
+    contacts: [{ channel: 'discord', value: 'mestre' }],
+    price_type: 'paga',
+    price_value: 55,
+  };
+
+  it('aceita mesa paga com pacote mensal válido', () => {
+    const result = createTableSchema.safeParse({
+      ...basePaidTable,
+      price_value_monthly: 40,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.price_value_monthly).toBe(40);
+    }
+  });
+
+  it('aceita pacote mensal maior que o avulso (sem CHECK de relação)', () => {
+    const result = createTableSchema.safeParse({
+      ...basePaidTable,
+      price_value_monthly: 70,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('aceita mesa paga sem pacote mensal (campo opcional)', () => {
+    const result = createTableSchema.safeParse(basePaidTable);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.price_value_monthly).toBeUndefined();
+    }
+  });
+
+  it('rejeita pacote mensal em mesa gratuita', () => {
+    const result = createTableSchema.safeParse({
+      ...basePaidTable,
+      price_type: 'gratuita',
+      price_value: null,
+      price_value_monthly: 40,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((issue) =>
+        issue.path.join('.') === 'price_value_monthly' && issue.message.includes('mesas pagas'),
+      )).toBe(true);
+    }
+  });
+
+  it('rejeita pacote mensal negativo', () => {
+    const result = createTableSchema.safeParse({
+      ...basePaidTable,
+      price_value_monthly: -1,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('PUT: rejeita price_value_monthly isolado sem price_type (default degradaria a mesa para gratuita)', () => {
+    // `price_type` tem `.default('gratuita')` no base e o `.partial()` preserva
+    // o default — sem price_type explícito, o resultado seria mesa gratuita com
+    // pacote mensal, contradição de contrato.
+    const result = updateTableSchema.safeParse({ price_value_monthly: 40 });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('PUT: aceita price_value_monthly com price_type paga', () => {
+    const result = updateTableSchema.safeParse({
+      price_type: 'paga',
+      price_value_monthly: 40,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('PUT: rejeita price_value_monthly quando price_type vem explícito como gratuita', () => {
+    const result = updateTableSchema.safeParse({
+      price_type: 'gratuita',
+      price_value_monthly: 40,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('PUT: aceita price_value_monthly null para limpar o pacote mensal', () => {
+    const result = updateTableSchema.safeParse({ price_value_monthly: null });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.price_value_monthly).toBeNull();
+    }
+  });
+});
+
+/**
+ * Doações são exclusivas de mesa gratuita (decisão do mantenedor, sessão
+ * 26-08-22_1): `accepts_donations` + `suggested_donation_value` opcional.
+ * Regras de relação vivem no Zod, sem CHECK no banco (paridade com o mensal).
+ */
+describe('schemas de mesa — doações (aceita doações / valor sugerido)', () => {
+  const baseDonationTable = {
+    title: 'Mesa gratuita',
+    system_id: '123e4567-e89b-42d3-a456-426614174000',
+    type: 'campanha',
+    modality: 'online',
+    contacts: [{ channel: 'discord', value: 'mestre' }],
+    price_type: 'gratuita',
+    price_value: null,
+  };
+
+  it('aceita mesa gratuita que aceita doações, sem valor sugerido', () => {
+    const result = createTableSchema.safeParse({
+      ...baseDonationTable,
+      accepts_donations: true,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.accepts_donations).toBe(true);
+      expect(result.data.suggested_donation_value).toBeUndefined();
+    }
+  });
+
+  it('rejeita doação em mesa paga', () => {
+    const result = createTableSchema.safeParse({
+      ...baseDonationTable,
+      price_type: 'paga',
+      price_value: 55,
+      accepts_donations: true,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((issue) =>
+        issue.message.includes('mesas gratuitas'),
+      )).toBe(true);
+    }
+  });
+
+  it('rejeita valor sugerido sem marcar "Aceita doações"', () => {
+    const result = createTableSchema.safeParse({
+      ...baseDonationTable,
+      suggested_donation_value: 10,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((issue) =>
+        issue.path.join('.') === 'suggested_donation_value' &&
+        issue.message.includes("Aceita doações"),
+      )).toBe(true);
+    }
+  });
+
+  it('aceita valor sugerido junto com "Aceita doações"', () => {
+    const result = createTableSchema.safeParse({
+      ...baseDonationTable,
+      accepts_donations: true,
+      suggested_donation_value: 10,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.suggested_donation_value).toBe(10);
+    }
+  });
+
+  it('aceita mesa gratuita sem campos de doação (ausentes)', () => {
+    const result = createTableSchema.safeParse(baseDonationTable);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.accepts_donations).toBeUndefined();
+      expect(result.data.suggested_donation_value).toBeUndefined();
+    }
+  });
+
+  it('rejeita valor sugerido negativo', () => {
+    const result = createTableSchema.safeParse({
+      ...baseDonationTable,
+      accepts_donations: true,
+      suggested_donation_value: -1,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('PUT: rejeita doação quando price_type vem explícito como paga', () => {
+    const result = updateTableSchema.safeParse({
+      price_type: 'paga',
+      accepts_donations: true,
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('PUT: rejeita valor sugerido isolado sem accepts_donations (campo não tem default — undefined preserva salvo, mas sugerido sem aceitar é contradição)', () => {
+    const result = updateTableSchema.safeParse({ suggested_donation_value: 10 });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('PUT: aceita limpar valor sugerido com null', () => {
+    const result = updateTableSchema.safeParse({
+      accepts_donations: true,
+      suggested_donation_value: null,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.suggested_donation_value).toBeNull();
+    }
+  });
+});
+
+/**
+ * Endurecimento A2 (decisão do mantenedor, sessão 26-08-22_1): mesa gratuita
+ * não pode ter preço — nem avulso nem mensal. O refine do mensal já existia;
+ * o do preço avulso era o buraco simétrico que faltava (create e update).
+ */
+describe('schemas de mesa — preço avulso em mesa gratuita (endurecimento A2)', () => {
+  const baseFreeTable = {
+    title: 'Mesa gratuita',
+    system_id: '123e4567-e89b-42d3-a456-426614174000',
+    type: 'campanha',
+    modality: 'online',
+    contacts: [{ channel: 'discord', value: 'mestre' }],
+    price_type: 'gratuita',
+  };
+
+  it('POST: rejeita mesa gratuita com price_value avulso', () => {
+    const result = createTableSchema.safeParse({
+      ...baseFreeTable,
+      price_value: 55,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((issue) =>
+        issue.path.join('.') === 'price_value' && issue.message.includes('não pode ter preço'),
+      )).toBe(true);
+    }
+  });
+
+  it('POST: aceita mesa gratuita com price_value null (front zera ao trocar de modalidade)', () => {
+    const result = createTableSchema.safeParse({
+      ...baseFreeTable,
+      price_value: null,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.price_value).toBeNull();
+    }
+  });
+
+  it('POST: continua aceitando mesa paga com preço avulso (caminho paga intacto)', () => {
+    const result = createTableSchema.safeParse({
+      ...baseFreeTable,
+      price_type: 'paga',
+      price_value: 55,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('PUT: rejeita price_value quando price_type vem explícito como gratuita', () => {
+    const result = updateTableSchema.safeParse({
+      price_type: 'gratuita',
+      price_value: 55,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues.some((issue) =>
+        issue.path.join('.') === 'price_value' && issue.message.includes('não pode ter preço'),
+      )).toBe(true);
+    }
+  });
+
+  it('PUT: rejeita price_value isolado sem price_type (default degradaria a mesa paga para gratuita com valor órfão — fecha o achado lateral pré-existente)', () => {
+    const result = updateTableSchema.safeParse({ price_value: 55 });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('PUT: aceita price_value null com price_type gratuita (limpar preço ao trocar para gratuita)', () => {
+    const result = updateTableSchema.safeParse({
+      price_type: 'gratuita',
+      price_value: null,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.price_value).toBeNull();
+    }
+  });
+
+  it('PUT: aceita price_value com price_type paga (edição de mesa paga continua passando)', () => {
+    const result = updateTableSchema.safeParse({
+      price_type: 'paga',
+      price_value: 55,
+    });
+
+    expect(result.success).toBe(true);
+  });
+});

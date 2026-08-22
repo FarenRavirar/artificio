@@ -118,6 +118,14 @@ const baseTableSchema = z.object({
   modality: z.enum(TABLE_MODALITIES),
   price_type: z.enum(PRICE_TYPES).default('gratuita'),
   price_value: z.number().min(0).nullable().optional(),
+  price_value_monthly: z.number().min(0).nullable().optional(),
+  // Doações são exclusivas de mesa gratuita. `accepts_donations` é optional
+  // SEM `.default(false)` de propósito: no PUT (.partial()), campo omitido
+  // fica undefined e o Kysely preserva o valor salvo — um default reescreveria
+  // false em toda edição que não manda o campo, apagando a doação. No create,
+  // omitido também vira undefined e o service grava false (coluna DEFAULT).
+  accepts_donations: z.boolean().optional(),
+  suggested_donation_value: z.number().min(0).nullable().optional(),
   price_frequency: z.enum(PRICE_FREQUENCIES).nullable().optional(),
   slots_total: z.number().int().min(1).max(100).default(4),
   slots_filled: z.number().int().min(0).default(0),
@@ -216,6 +224,50 @@ export const createTableSchema = baseTableSchema
     path: ['price_value'] 
   })
   .refine((data) => {
+    // Decisão A2 do mantenedor (sessão 26-08-22_1, "endurecer"): mesa gratuita
+    // não pode ter preço — avulso nem mensal. Simétrico ao refine do pacote
+    // mensal abaixo (monthly exige paga): aqui o valor avulso também exige
+    // paga. Sem este refine, mesa gratuita com price_value ficaria salva com
+    // valor órfão (nunca exibido nem cobrado) — inconsistência silenciosa no
+    // banco. `null` (front zera ao trocar para gratuita) não dispara o refine.
+    if (data.price_value != null && data.price_type === 'gratuita') {
+      return false;
+    }
+    return true;
+  }, { 
+    message: 'Mesa gratuita não pode ter preço — use o valor sugerido de doação', 
+    path: ['price_value'] 
+  })
+  .refine((data) => {
+    if (data.price_value_monthly != null && data.price_type !== 'paga') {
+      return false;
+    }
+    return true;
+  }, { 
+    message: 'Pacote mensal só é permitido em mesas pagas', 
+    path: ['price_value_monthly'] 
+  })
+  .refine((data) => {
+    // `!= null` (e não "chave presente"): `suggested_donation_value: null`
+    // significa "sem sugestão" e não pode forçar a mesa a ser gratuita.
+    if ((data.accepts_donations === true || data.suggested_donation_value != null) && data.price_type !== 'gratuita') {
+      return false;
+    }
+    return true;
+  }, { 
+    message: 'Doações são exclusivas de mesas gratuitas', 
+    path: ['accepts_donations'] 
+  })
+  .refine((data) => {
+    if (data.suggested_donation_value != null && data.accepts_donations !== true) {
+      return false;
+    }
+    return true;
+  }, { 
+    message: "Valor sugerido exige marcar 'Aceita doações'", 
+    path: ['suggested_donation_value'] 
+  })
+  .refine((data) => {
     if (data.publisher_role === 'announcer' && !data.actual_gm_name) return false;
     return true;
   }, { 
@@ -304,6 +356,62 @@ export const updateTableSchema = baseTableSchema
   }, {
     message: 'Horário a definir não deve enviar horário preenchido',
     path: ['schedule_time_hint']
+  })
+  .refine((data) => {
+    // Decisão A2 do mantenedor (sessão 26-08-22_1, "endurecer"): simétrico do
+    // refine do create — mesa gratuita não pode ter preço avulso. Mesma
+    // interação `.default('gratuita')`/`.partial()` do refine do mensal abaixo:
+    // PUT parcial que envie price_value sem price_type parseia como gratuita e
+    // agora é REJEITADO, em vez de rebaixar silenciosamente a mesa paga para
+    // gratuita com valor órfão — fecha o achado lateral pré-existente ("PUT
+    // parcial sem price_type"). O form de edição envia price_type sempre
+    // (mapper.ts) e zera price_value com null ao trocar para gratuita, então o
+    // fluxo normal não é afetado.
+    if (data.price_value != null && data.price_type === 'gratuita') {
+      return false;
+    }
+    return true;
+  }, {
+    message: 'Mesa gratuita não pode ter preço — use o valor sugerido de doação',
+    path: ['price_value']
+  })
+  .refine((data) => {
+    // `price_type` tem `.default('gratuita')` no baseTableSchema e o `.partial()`
+    // preserva o default: num PUT que envie monthly sem price_type, o dado
+    // resultante seria mesa gratuita com pacote mensal — contradição de
+    // contrato, então rejeita igual. O form de edição envia price_type sempre
+    // (mapper.ts), então o fluxo normal não é afetado.
+    if (data.price_value_monthly != null && data.price_type === 'gratuita') {
+      return false;
+    }
+    return true;
+  }, {
+    message: 'Pacote mensal só é permitido em mesas pagas',
+    path: ['price_value_monthly']
+  })
+  .refine((data) => {
+    // Mesma interação `.default()`/`.partial()` do refine acima, invertida:
+    // PUT com doação mas sem price_type parseia como gratuita (default), que é
+    // o único caso válido — o refine então passa, e o preço salvo da mesa paga
+    // é o que fica inconsistente no banco (achado pré-existente "PUT parcial
+    // sem price_type", fora desta feature). `accepts_donations` não tem default:
+    // omitido fica undefined e o Kysely preserva o valor salvo.
+    if ((data.accepts_donations === true || data.suggested_donation_value != null) && data.price_type === 'paga') {
+      return false;
+    }
+    return true;
+  }, {
+    message: 'Doações são exclusivas de mesas gratuitas',
+    path: ['accepts_donations']
+  })
+  .refine((data) => {
+    if (data.suggested_donation_value != null && data.accepts_donations !== true) {
+      return false;
+    }
+    return true;
+  }, {
+    message: "Valor sugerido exige marcar 'Aceita doações'",
+    path: ['suggested_donation_value']
   });
 
 export type CreateTableInput = z.infer<typeof createTableSchema>;
