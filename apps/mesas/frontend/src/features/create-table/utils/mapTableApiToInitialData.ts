@@ -100,7 +100,7 @@ export function mapTableApiToInitialData(apiData: unknown): Partial<FormState> &
       modality: stringValue(data, 'modality', 'online'),
       audience: stringValue(data, 'audience', 'livre'),
       age_rating: stringValue(data, 'age_rating', 'livre'),
-      price_type: stringValue(data, 'price_type', 'free'),
+      price_type: stringValue(data, 'price_type', 'gratuita'),
       price_value: stringValue(data, 'price_value'),
       price_value_monthly: stringValue(data, 'price_value_monthly'),
       accepts_donations: booleanValue(data, 'accepts_donations'),

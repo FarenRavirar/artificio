@@ -192,6 +192,15 @@ describe('buildWhatsAppTableAnnouncement', () => {
     expect(text).toContain('Valor: R$ 50');
   });
 
+  it('não menciona pacote mensal em mesa gratuita mesmo com price_value_monthly residual (guard por price_type, achado Codex PR #283)', () => {
+    const text = buildWhatsAppTableAnnouncement(makeTable({
+      price_type: 'gratuita',
+      price_value: null,
+      price_value_monthly: 40,
+    }));
+    expect(text).not.toContain('Pacote mensal');
+  });
+
   it('inclui doação com valor sugerido em mesa gratuita', () => {
     const text = buildWhatsAppTableAnnouncement(makeTable({
       price_type: 'gratuita',

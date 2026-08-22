@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { formStateToPayload } from './mapper';
+import { formStateToPayload, normalizePriceType } from './mapper';
 import type { FormState } from '../types/createTable.types';
 
 /**
@@ -184,10 +184,26 @@ describe('formStateToPayload — doações (mesa gratuita)', () => {
     expect(JSON.stringify(payload)).not.toContain('suggested_donation_value');
   });
 
-  it('valor sugerido ausente vira campo ausente (backend preserva o valor salvo)', () => {
+  it('valor sugerido ausente com doações desmarcadas vira null (zera o salvo — desmarcar limpa a sugestão, achado Codex PR #283)', () => {
+    // Comportamento antigo (undefined = omitir) preservaria o valor sugerido
+    // salvo junto de accepts_donations false — estado que o backend rejeita.
     const payload = formStateToPayload(makeState({ price_type: 'gratuita', accepts_donations: false, suggested_donation_value: undefined }));
-    expect(payload.suggested_donation_value).toBeUndefined();
-    expect(JSON.stringify(payload)).not.toContain('suggested_donation_value');
+    expect(payload.suggested_donation_value).toBeNull();
+    expect(JSON.stringify(payload)).toContain('"suggested_donation_value":null');
+  });
+
+  it('valor residual com doações desmarcadas vira null, não rejeita o save (achado Codex PR #283)', () => {
+    // Usuário digitou sugestão, desmarcou "Aceita doações" e o state reteve o
+    // texto (input escondido). Enviar o residual dispararia 400 "Valor
+    // sugerido exige marcar 'Aceita doações'" e quebraria o save sem mensagem.
+    const payload = formStateToPayload(makeState({
+      price_type: 'gratuita',
+      accepts_donations: false,
+      suggested_donation_value: '20',
+    }));
+    expect(payload.accepts_donations).toBe(false);
+    expect(payload.suggested_donation_value).toBeNull();
+    expect(JSON.stringify(payload)).toContain('"suggested_donation_value":null');
   });
 });
 
@@ -252,5 +268,25 @@ describe('formStateToPayload — campos por modalidade (endurecimento A2)', () =
     expect(payload.price_value).toBe(55);
     expect(payload.accepts_donations).toBe(false);
     expect(payload.suggested_donation_value).toBeNull();
+  });
+});
+
+describe('normalizePriceType — legado free/paid (achado Codex PR #283)', () => {
+  it("'free' vira 'gratuita' (valor fantasma do form antigo; nunca existiu no banco)", () => {
+    expect(normalizePriceType('free')).toBe('gratuita');
+  });
+
+  it("'paid' (draft antigo em inglês) vira 'paga'", () => {
+    expect(normalizePriceType('paid')).toBe('paga');
+  });
+
+  it('undefined/null viram gratuita (default do produto)', () => {
+    expect(normalizePriceType(undefined)).toBe('gratuita');
+    expect(normalizePriceType(null)).toBe('gratuita');
+  });
+
+  it('valores atuais passam intactos', () => {
+    expect(normalizePriceType('gratuita')).toBe('gratuita');
+    expect(normalizePriceType('paga')).toBe('paga');
   });
 });

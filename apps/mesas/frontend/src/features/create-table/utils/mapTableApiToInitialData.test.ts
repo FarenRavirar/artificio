@@ -61,4 +61,9 @@ describe('mapTableApiToInitialData', () => {
     const result = mapTableApiToInitialData({ price_type: 'gratuita', accepts_donations: true });
     expect(result.form?.suggested_donation_value).toBe('');
   });
+
+  it('price_type ausente vira gratuita, nao o valor fantasma legado free (achado Codex PR #283)', () => {
+    const result = mapTableApiToInitialData({ title: 'Mesa X' });
+    expect(result.form?.price_type).toBe('gratuita');
+  });
 });

@@ -201,6 +201,100 @@ const baseTableSchema = z.object({
   parse_case_id: z.string().uuid().nullable().optional(),
 });
 
+/**
+ * Invariantes de cobrança da mesa (decisão A2 do mantenedor, sessão
+ * 26-08-22_1, "endurecer"): gratuita não pode ter preço, paga exige preço,
+ * mensal e doações são exclusivos da própria modalidade. Cada regra define
+ * check/message/path UMA vez e é aplicada em três pontos, na ordem da cadeia
+ * de cada schema:
+ *
+ * - createTableSchema: as 5 regras sobre o payload completo;
+ * - updateTableSchema: as 4 regras que dependem só do que veio (sem
+ *   paidNeedsPrice — price_value ausente num PUT parcial não significa "sem
+ *   preço", pode já estar salvo);
+ * - handler PUT /gm/tables/:id: as 5 regras via pricingConsistencySchema
+ *   sobre o ESTADO RESULTANTE (linha salva + payload) antes de gravar —
+ *   achado Codex (PR #283): validar só o payload deixava passar PUT parcial
+ *   que produzia mesa inválida no banco (ex.: doações numa mesa paga).
+ *
+ * `z.coerce.number()` (e não `z.number()`) no schema completo: no handler,
+ * price_value salvo chega do Kysely como string quando o pg não tem parser
+ * para o OID 1700 (db/types.ts:903) — o mesmo formato que o front normaliza
+ * no mapper (tableViewMapper.normalizeNumeric). Coerce é neutro para número
+ * já parseado nos usos de payload.
+ */
+type PricingData = {
+  // Propriedade opcional (e não `price_type: ... | undefined`) para casar com
+  // o output type do `.partial()` do updateTableSchema. Em runtime o
+  // `.default('gratuita')` garante 'gratuita' | 'paga' nos três usos.
+  price_type?: 'gratuita' | 'paga';
+  price_value?: number | null;
+  price_value_monthly?: number | null;
+  accepts_donations?: boolean;
+  suggested_donation_value?: number | null;
+};
+
+export const pricingRules = {
+  paidNeedsPrice: {
+    check: (d: PricingData) => !(d.price_type === 'paga' && (d.price_value == null || d.price_value <= 0)),
+    message: 'Valor obrigatório para mesas pagas',
+    path: ['price_value'],
+  },
+  freeCannotHavePrice: {
+    check: (d: PricingData) => !(d.price_value != null && d.price_type === 'gratuita'),
+    message: 'Mesa gratuita não pode ter preço — use o valor sugerido de doação',
+    path: ['price_value'],
+  },
+  monthlyOnlyPaid: {
+    check: (d: PricingData) => !(d.price_value_monthly != null && d.price_type !== 'paga'),
+    message: 'Pacote mensal só é permitido em mesas pagas',
+    path: ['price_value_monthly'],
+  },
+  donationOnlyFree: {
+    check: (d: PricingData) =>
+      !(
+        (d.accepts_donations === true || d.suggested_donation_value != null) &&
+        d.price_type !== 'gratuita'
+      ),
+    message: 'Doações são exclusivas de mesas gratuitas',
+    path: ['accepts_donations'],
+  },
+  suggestedNeedsAccept: {
+    check: (d: PricingData) => !(d.suggested_donation_value != null && d.accepts_donations !== true),
+    message: "Valor sugerido exige marcar 'Aceita doações'",
+    path: ['suggested_donation_value'],
+  },
+} as const;
+
+export const pricingConsistencySchema = z
+  .object({
+    price_type: z.enum(PRICE_TYPES),
+    price_value: z.coerce.number().min(0).nullable().optional(),
+    price_value_monthly: z.coerce.number().min(0).nullable().optional(),
+    accepts_donations: z.boolean().optional(),
+    suggested_donation_value: z.coerce.number().min(0).nullable().optional(),
+  })
+  .refine(pricingRules.paidNeedsPrice.check, {
+    message: pricingRules.paidNeedsPrice.message,
+    path: [...pricingRules.paidNeedsPrice.path],
+  })
+  .refine(pricingRules.freeCannotHavePrice.check, {
+    message: pricingRules.freeCannotHavePrice.message,
+    path: [...pricingRules.freeCannotHavePrice.path],
+  })
+  .refine(pricingRules.monthlyOnlyPaid.check, {
+    message: pricingRules.monthlyOnlyPaid.message,
+    path: [...pricingRules.monthlyOnlyPaid.path],
+  })
+  .refine(pricingRules.donationOnlyFree.check, {
+    message: pricingRules.donationOnlyFree.message,
+    path: [...pricingRules.donationOnlyFree.path],
+  })
+  .refine(pricingRules.suggestedNeedsAccept.check, {
+    message: pricingRules.suggestedNeedsAccept.message,
+    path: [...pricingRules.suggestedNeedsAccept.path],
+  });
+
 export const createTableSchema = baseTableSchema
   .strict()
   .refine((data) => !!data.system_id, { 
@@ -214,58 +308,28 @@ export const createTableSchema = baseTableSchema
     message: 'Vagas abertas não pode ser maior que vagas totais', 
     path: ['slots_open'] 
   })
-  .refine((data) => {
-    if (data.price_type === 'paga' && (!data.price_value || data.price_value <= 0)) {
-      return false;
-    }
-    return true;
-  }, { 
-    message: 'Valor obrigatório para mesas pagas', 
-    path: ['price_value'] 
+  // Invariantes de cobrança: mesmos check/message/path de pricingRules (fonte
+  // única, ver comentário no bloco do pricingConsistencySchema), aplicados na
+  // posição da cadeia que preserva a ordem de issues do 400 da rota.
+  .refine(pricingRules.paidNeedsPrice.check, {
+    message: pricingRules.paidNeedsPrice.message,
+    path: [...pricingRules.paidNeedsPrice.path],
   })
-  .refine((data) => {
-    // Decisão A2 do mantenedor (sessão 26-08-22_1, "endurecer"): mesa gratuita
-    // não pode ter preço — avulso nem mensal. Simétrico ao refine do pacote
-    // mensal abaixo (monthly exige paga): aqui o valor avulso também exige
-    // paga. Sem este refine, mesa gratuita com price_value ficaria salva com
-    // valor órfão (nunca exibido nem cobrado) — inconsistência silenciosa no
-    // banco. `null` (front zera ao trocar para gratuita) não dispara o refine.
-    if (data.price_value != null && data.price_type === 'gratuita') {
-      return false;
-    }
-    return true;
-  }, { 
-    message: 'Mesa gratuita não pode ter preço — use o valor sugerido de doação', 
-    path: ['price_value'] 
+  .refine(pricingRules.freeCannotHavePrice.check, {
+    message: pricingRules.freeCannotHavePrice.message,
+    path: [...pricingRules.freeCannotHavePrice.path],
   })
-  .refine((data) => {
-    if (data.price_value_monthly != null && data.price_type !== 'paga') {
-      return false;
-    }
-    return true;
-  }, { 
-    message: 'Pacote mensal só é permitido em mesas pagas', 
-    path: ['price_value_monthly'] 
+  .refine(pricingRules.monthlyOnlyPaid.check, {
+    message: pricingRules.monthlyOnlyPaid.message,
+    path: [...pricingRules.monthlyOnlyPaid.path],
   })
-  .refine((data) => {
-    // `!= null` (e não "chave presente"): `suggested_donation_value: null`
-    // significa "sem sugestão" e não pode forçar a mesa a ser gratuita.
-    if ((data.accepts_donations === true || data.suggested_donation_value != null) && data.price_type !== 'gratuita') {
-      return false;
-    }
-    return true;
-  }, { 
-    message: 'Doações são exclusivas de mesas gratuitas', 
-    path: ['accepts_donations'] 
+  .refine(pricingRules.donationOnlyFree.check, {
+    message: pricingRules.donationOnlyFree.message,
+    path: [...pricingRules.donationOnlyFree.path],
   })
-  .refine((data) => {
-    if (data.suggested_donation_value != null && data.accepts_donations !== true) {
-      return false;
-    }
-    return true;
-  }, { 
-    message: "Valor sugerido exige marcar 'Aceita doações'", 
-    path: ['suggested_donation_value'] 
+  .refine(pricingRules.suggestedNeedsAccept.check, {
+    message: pricingRules.suggestedNeedsAccept.message,
+    path: [...pricingRules.suggestedNeedsAccept.path],
   })
   .refine((data) => {
     if (data.publisher_role === 'announcer' && !data.actual_gm_name) return false;
@@ -357,62 +421,72 @@ export const updateTableSchema = baseTableSchema
     message: 'Horário a definir não deve enviar horário preenchido',
     path: ['schedule_time_hint']
   })
-  .refine((data) => {
-    // Decisão A2 do mantenedor (sessão 26-08-22_1, "endurecer"): simétrico do
-    // refine do create — mesa gratuita não pode ter preço avulso. Mesma
-    // interação `.default('gratuita')`/`.partial()` do refine do mensal abaixo:
-    // PUT parcial que envie price_value sem price_type parseia como gratuita e
-    // agora é REJEITADO, em vez de rebaixar silenciosamente a mesa paga para
-    // gratuita com valor órfão — fecha o achado lateral pré-existente ("PUT
-    // parcial sem price_type"). O form de edição envia price_type sempre
-    // (mapper.ts) e zera price_value com null ao trocar para gratuita, então o
-    // fluxo normal não é afetado.
-    if (data.price_value != null && data.price_type === 'gratuita') {
-      return false;
-    }
-    return true;
-  }, {
-    message: 'Mesa gratuita não pode ter preço — use o valor sugerido de doação',
-    path: ['price_value']
+  // Invariantes de cobrança do payload parcial: as 4 regras que dependem só do
+  // que veio (price_value ausente num PUT não significa "sem preço" — pode já
+  // estar salvo, então paidNeedsPrice fica para o estado resultante). O default
+  // 'gratuita' do price_type mantém o comportamento anterior nos casos de
+  // payload (ex.: monthly sem price_type parseia como gratuita e é rejeitado).
+  // O caso que o payload sozinho não cobre — PUT parcial válido isolado mas
+  // inválido contra a linha salva (ex.: doações numa mesa paga) — é validado no
+  // handler com o ESTADO RESULTANTE antes de gravar (achado Codex PR #283; ver
+  // mergePricingState). O form de edição envia price_type sempre (mapper.ts) e
+  // zera os valores ao trocar de modalidade, então o fluxo normal não muda.
+  .refine(pricingRules.freeCannotHavePrice.check, {
+    message: pricingRules.freeCannotHavePrice.message,
+    path: [...pricingRules.freeCannotHavePrice.path],
   })
-  .refine((data) => {
-    // `price_type` tem `.default('gratuita')` no baseTableSchema e o `.partial()`
-    // preserva o default: num PUT que envie monthly sem price_type, o dado
-    // resultante seria mesa gratuita com pacote mensal — contradição de
-    // contrato, então rejeita igual. O form de edição envia price_type sempre
-    // (mapper.ts), então o fluxo normal não é afetado.
-    if (data.price_value_monthly != null && data.price_type === 'gratuita') {
-      return false;
-    }
-    return true;
-  }, {
-    message: 'Pacote mensal só é permitido em mesas pagas',
-    path: ['price_value_monthly']
+  .refine(pricingRules.monthlyOnlyPaid.check, {
+    message: pricingRules.monthlyOnlyPaid.message,
+    path: [...pricingRules.monthlyOnlyPaid.path],
   })
-  .refine((data) => {
-    // Mesma interação `.default()`/`.partial()` do refine acima, invertida:
-    // PUT com doação mas sem price_type parseia como gratuita (default), que é
-    // o único caso válido — o refine então passa, e o preço salvo da mesa paga
-    // é o que fica inconsistente no banco (achado pré-existente "PUT parcial
-    // sem price_type", fora desta feature). `accepts_donations` não tem default:
-    // omitido fica undefined e o Kysely preserva o valor salvo.
-    if ((data.accepts_donations === true || data.suggested_donation_value != null) && data.price_type === 'paga') {
-      return false;
-    }
-    return true;
-  }, {
-    message: 'Doações são exclusivas de mesas gratuitas',
-    path: ['accepts_donations']
+  .refine(pricingRules.donationOnlyFree.check, {
+    message: pricingRules.donationOnlyFree.message,
+    path: [...pricingRules.donationOnlyFree.path],
   })
-  .refine((data) => {
-    if (data.suggested_donation_value != null && data.accepts_donations !== true) {
-      return false;
-    }
-    return true;
-  }, {
-    message: "Valor sugerido exige marcar 'Aceita doações'",
-    path: ['suggested_donation_value']
-  });
+  .refine(pricingRules.suggestedNeedsAccept.check, {
+    message: pricingRules.suggestedNeedsAccept.message,
+    path: [...pricingRules.suggestedNeedsAccept.path],
+  });;
+
+/**
+ * Linha salva com os campos de cobrança, para a validação do PUT parcial.
+ */
+export interface TablePricingRow {
+  price_type: 'gratuita' | 'paga';
+  price_value: number | null;
+  price_value_monthly: number | null;
+  accepts_donations: boolean;
+  suggested_donation_value: number | null;
+}
+
+/**
+ * Estado resultante dos campos de cobrança para a validação do PUT parcial:
+ * campo ENVIADO no body vence; campo omitido herda o valor salvo. Distinguir
+ * enviado de omitido exige `hasOwnProperty` no body cru — o schema com
+ * `.default('gratuita')` materializa price_type mesmo quando omitido, então
+ * `payload.price_type` não serve como sinal de envio. Usado pelo handler
+ * PUT /gm/tables/:id antes de gravar (achado Codex PR #283).
+ */
+export function mergePricingState(
+  payload: UpdateTableInput,
+  body: Record<string, unknown>,
+  existing: TablePricingRow,
+): TablePricingRow {
+  const sent = (key: string) => Object.prototype.hasOwnProperty.call(body, key);
+  return {
+    price_type: sent('price_type') ? (payload.price_type ?? existing.price_type) : existing.price_type,
+    price_value: sent('price_value') ? (payload.price_value ?? null) : existing.price_value,
+    price_value_monthly: sent('price_value_monthly')
+      ? (payload.price_value_monthly ?? null)
+      : existing.price_value_monthly,
+    accepts_donations: sent('accepts_donations')
+      ? (payload.accepts_donations ?? existing.accepts_donations)
+      : existing.accepts_donations,
+    suggested_donation_value: sent('suggested_donation_value')
+      ? (payload.suggested_donation_value ?? null)
+      : existing.suggested_donation_value,
+  };
+}
 
 export type CreateTableInput = z.infer<typeof createTableSchema>;
 export type UpdateTableInput = z.infer<typeof updateTableSchema>;

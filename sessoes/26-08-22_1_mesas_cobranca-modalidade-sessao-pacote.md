@@ -36,11 +36,11 @@ Catálogo, sort `price_asc/desc`, `gm.ts`, `TableCard` e `MestreFeaturedTable` *
 - **(b) default `'free'` do hook não casa com options do select (`'gratuita'`/`'paga'`):** pré-existente; fora do escopo da feature.
 - **(c) `/ sessão` hardcoded em `TableCard`/`MestreFeaturedTable`:** **correto manter** — card só avulso é decisão; sem correção.
 
-## Pendências para o commit
+## Pendências para o commit — RESOLVIDAS
 
-- **2 arquivos de outras frentes no working tree** (`specs/095-infra-blue-green-prod/plan.md`, `.claude/settings.local.json`) — decisão de inclusão no commit é do mantenedor.
+- **2 arquivos de outras frentes** (`specs/095-infra-blue-green-prod/plan.md`, `.claude/settings.local.json`) — o mantenedor autorizou "commit all": ambos entraram no commit.
 - **`price_value` opcional vs obrigatório no `CreateTablePayload`:** implementador usou opcional preservando semântica (refine "Valor obrigatório para mesas pagas" em `tableValidators.ts`) — **confirmado**.
 
 ## Próxima fase
 
-Commit (aguarda autorização nominal).
+**Concluída:** commit `b3993fc` (30 arquivos, +1314/−51) + push + PR #283 (base `dev`, ready for review), 2026-08-22. Sem acompanhamento de checks (regra).

@@ -2,6 +2,21 @@ import type { FormState, CreateTablePayload } from '../types/createTable.types';
 import { normalizeSettingStyles } from '@artificio/catalog-matching';
 
 /**
+ * Normaliza o discriminador de cobrança para o conjunto real do contrato.
+ * 'free' nunca existiu no banco — o enum price_type é 'gratuita' | 'paga'
+ * desde migration_01_base_schema.sql — e era default fantasma no estado do
+ * form; 'paid' vem de drafts antigos em inglês. Qualquer valor fora do
+ * conjunto vira 'gratuita' (default do produto). Usada no envio do payload e
+ * na carga do estado inicial (useCreateTableForm), para que valor legado
+ * restaurado nunca alcance o select/controles condicionais (achado Codex
+ * PR #283).
+ */
+export function normalizePriceType(value?: string | null): 'gratuita' | 'paga' {
+  if (value === 'paga' || value === 'paid') return 'paga';
+  return 'gratuita';
+}
+
+/**
  * Transforma o estado do formulário em payload para a API
  */
 export function formStateToPayload(state: FormState): CreateTablePayload {
@@ -27,11 +42,6 @@ export function formStateToPayload(state: FormState): CreateTablePayload {
     }
 
     return 'semanal';
-  };
-
-  const normalizePriceType = (value?: string | null): 'gratuita' | 'paga' => {
-    if (value === 'paga' || value === 'paid') return 'paga';
-    return 'gratuita';
   };
 
   let hasUndefinedDay = false;
@@ -78,7 +88,7 @@ export function formStateToPayload(state: FormState): CreateTablePayload {
   // generalizado para servir os dois campos.
   const parsePriceValue = (raw: string | undefined): number | undefined => {
     if (!raw) return undefined;
-    const parsed = parseFloat(raw);
+    const parsed = Number.parseFloat(raw);
     return Number.isFinite(parsed) ? parsed : undefined;
   };
 
@@ -91,7 +101,7 @@ export function formStateToPayload(state: FormState): CreateTablePayload {
   const parseClearablePriceValue = (raw: string | undefined): number | null | undefined => {
     if (raw === undefined) return undefined;
     if (raw.trim() === '') return null;
-    const parsed = parseFloat(raw);
+    const parsed = Number.parseFloat(raw);
     return Number.isFinite(parsed) ? parsed : undefined;
   };
 
@@ -155,11 +165,18 @@ export function formStateToPayload(state: FormState): CreateTablePayload {
           price_value: null,
           price_value_monthly: null,
           // Doações: flag vai como boolean literal (false também é enviado —
-          // coluna NOT NULL DEFAULT false); valor sugerido usa
-          // parseClearablePriceValue: vazio = limpar (null), ausente =
-          // preservar, não numérico = omitir.
+          // coluna NOT NULL DEFAULT false). Valor sugerido só segue quando
+          // 'Aceita doações' está marcado: usuário pode desmarcar sem limpar o
+          // campo (o input fica escondido mas o state retém o valor digitado),
+          // e enviar o residual dispararia 400 "Valor sugerido exige marcar
+          // 'Aceita doações'" — o save quebraria sem mensagem no form (achado
+          // Codex PR #283). parseClearablePriceValue segue para o caso
+          // marcado: vazio = limpar (null), ausente = preservar, não numérico
+          // = omitir.
           accepts_donations: state.form.accepts_donations === true,
-          suggested_donation_value: parseClearablePriceValue(state.form.suggested_donation_value),
+          suggested_donation_value: state.form.accepts_donations === true
+            ? parseClearablePriceValue(state.form.suggested_donation_value)
+            : null,
         }
       : {
           price_value: parsePriceValue(state.form.price_value),

@@ -1,4 +1,10 @@
-import { contactMethodsSchema, createTableSchema, updateTableSchema } from './tableValidators.js';
+import {
+  contactMethodsSchema,
+  createTableSchema,
+  updateTableSchema,
+  pricingConsistencySchema,
+  mergePricingState,
+} from './tableValidators.js';
 
 describe('updateTableSchema — Markdown de usuário', () => {
   it.each([
@@ -487,5 +493,126 @@ describe('schemas de mesa — preço avulso em mesa gratuita (endurecimento A2)'
     });
 
     expect(result.success).toBe(true);
+  });
+});
+
+describe('pricingConsistencySchema — estado resultante do PUT (achado Codex PR #283)', () => {
+  it('rejeita mesa paga sem price_value', () => {
+    const result = pricingConsistencySchema.safeParse({
+      price_type: 'paga',
+      price_value: null,
+      price_value_monthly: null,
+      accepts_donations: false,
+      suggested_donation_value: null,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toBe('Valor obrigatório para mesas pagas');
+      expect(result.error.issues[0].path).toEqual(['price_value']);
+    }
+  });
+
+  it('rejeita mesa gratuita retendo price_value salvo (transição paga→gratuita sem zerar)', () => {
+    const result = pricingConsistencySchema.safeParse({
+      price_type: 'gratuita',
+      price_value: 50,
+      price_value_monthly: null,
+      accepts_donations: false,
+      suggested_donation_value: null,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toBe('Mesa gratuita não pode ter preço — use o valor sugerido de doação');
+    }
+  });
+
+  it('rejeita doações em mesa paga (PUT parcial accepts_donations em mesa paga)', () => {
+    const result = pricingConsistencySchema.safeParse({
+      price_type: 'paga',
+      price_value: 50,
+      price_value_monthly: null,
+      accepts_donations: true,
+      suggested_donation_value: null,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toBe('Doações são exclusivas de mesas gratuitas');
+    }
+  });
+
+  it('rejeita opt-out de doação mantendo valor sugerido salvo', () => {
+    const result = pricingConsistencySchema.safeParse({
+      price_type: 'gratuita',
+      price_value: null,
+      price_value_monthly: null,
+      accepts_donations: false,
+      suggested_donation_value: 20,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toBe("Valor sugerido exige marcar 'Aceita doações'");
+    }
+  });
+
+  it('aceita mesa paga válida, inclusive com NUMERIC vindo do pg como string (coerce)', () => {
+    const result = pricingConsistencySchema.safeParse({
+      price_type: 'paga',
+      price_value: '50.00',
+      price_value_monthly: '40.00',
+      accepts_donations: false,
+      suggested_donation_value: null,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.price_value).toBe(50);
+      expect(result.data.price_value_monthly).toBe(40);
+    }
+  });
+
+  it('aceita mesa gratuita com doações válidas', () => {
+    const result = pricingConsistencySchema.safeParse({
+      price_type: 'gratuita',
+      price_value: null,
+      price_value_monthly: null,
+      accepts_donations: true,
+      suggested_donation_value: 15,
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('mergePricingState — merge payload parcial × linha salva', () => {
+  const saved = {
+    price_type: 'paga' as const,
+    price_value: 50,
+    price_value_monthly: null,
+    accepts_donations: false,
+    suggested_donation_value: null,
+  };
+
+  it('campo enviado vence a linha salva', () => {
+    const payload = updateTableSchema.parse({ accepts_donations: true });
+    const merged = mergePricingState(payload, { accepts_donations: true }, saved);
+    expect(merged.accepts_donations).toBe(true);
+    expect(merged.price_type).toBe('paga');
+    expect(merged.price_value).toBe(50);
+  });
+
+  it('campo omitido herda a linha salva (price_type default do Zod não conta como enviado)', () => {
+    // Caso exato do achado Codex PR #283: PUT parcial { accepts_donations: true }
+    // parseia com price_type default 'gratuita' (válido isolado), mas o estado
+    // resultante contra uma linha paga é inválido — e o gate do handler rejeita.
+    const payload = updateTableSchema.parse({ accepts_donations: true });
+    expect(payload.price_type).toBe('gratuita');
+    const merged = mergePricingState(payload, { accepts_donations: true }, saved);
+    expect(merged.price_type).toBe('paga');
+    expect(merged.accepts_donations).toBe(true);
+    expect(pricingConsistencySchema.safeParse(merged).success).toBe(false);
+  });
+
+  it('price_value enviado como null vira null (não herda o salvo)', () => {
+    const payload = updateTableSchema.parse({ price_value: null });
+    const merged = mergePricingState(payload, { price_value: null }, saved);
+    expect(merged.price_value).toBeNull();
   });
 });
