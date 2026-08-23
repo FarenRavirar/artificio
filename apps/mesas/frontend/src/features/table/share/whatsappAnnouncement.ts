@@ -268,7 +268,13 @@ function buildPriceBlock(table: TableDetail): string {
 
   return joinNonEmpty([
     table.billing_text,
-    table.price_value == null ? '' : `Valor: R$ ${table.price_value}`,
+    // Valor avulso só em mesa paga: mesmo guard do pacote mensal abaixo —
+    // mesa gratuita com price_value residual de dado legado inconsistente não
+    // pode anunciar preço (achado Codex PR #283, segunda rodada; invariante
+    // do pricingConsistencySchema no backend).
+    (table.price_type !== 'paga' || table.price_value == null)
+      ? ''
+      : `Valor: R$ ${table.price_value}`,
     // Pacote mensal só em mesa paga: linha guardada por price_type para nunca
     // vazar preço mensal em mesa gratuita, mesmo que a linha salva carregue
     // price_value_monthly residual de dado legado inconsistente (achado Codex

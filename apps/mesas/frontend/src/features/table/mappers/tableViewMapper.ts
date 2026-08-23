@@ -164,13 +164,20 @@ function generateVisibilityConfig(table: TableDetail): VisibilityConfig {
  * `"50.00"` — e checks como `typeof v === 'number'` (TableActionPanel)
  * falhavam, escondendo pacote mensal e doação sugerida na página da mesa.
  * Achado Codex (PR #283): normalizar na fronteira do view model.
- * Idempotente: aceita number e string; devolve undefined para valor
- * não numérico em vez de propagar NaN para a UI.
+ * Estrito por tipo (achado Codex PR #283, segunda rodada): aceita number
+ * finito ou string não-branca que parseia para number finito. Boolean,
+ * string vazia/só espaços e demais tipos devolvem undefined — Number()
+ * direto coagiria `true`→1 e `''`→0, fabricando preço onde não existe.
  */
-function normalizeNumeric(value: unknown): number | undefined {
-  if (value == null) return undefined;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
+export function normalizeNumeric(value: unknown): number | undefined {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
 }
 
 /**

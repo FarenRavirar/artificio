@@ -209,13 +209,15 @@ const baseTableSchema = z.object({
  * de cada schema:
  *
  * - createTableSchema: as 5 regras sobre o payload completo;
- * - updateTableSchema: as 4 regras que dependem só do que veio (sem
- *   paidNeedsPrice — price_value ausente num PUT parcial não significa "sem
- *   preço", pode já estar salvo);
  * - handler PUT /gm/tables/:id: as 5 regras via pricingConsistencySchema
  *   sobre o ESTADO RESULTANTE (linha salva + payload) antes de gravar —
  *   achado Codex (PR #283): validar só o payload deixava passar PUT parcial
- *   que produzia mesa inválida no banco (ex.: doações numa mesa paga).
+ *   que produzia mesa inválida no banco (ex.: doações numa mesa paga);
+ * - updateTableSchema NÃO aplica as regras de relação: o `.partial()` com o
+ *   `.default('gratuita')` materializado rejeitava PUT parcial válido contra a
+ *   linha salva antes do merge (ex.: mesa paga + `{ price_value_monthly: 40 }`
+ *   sem price_type) — achado Codex (PR #283, segunda rodada). A relação é do
+ *   estado resultante; o schema do update mantém só a forma de cada campo.
  *
  * `z.coerce.number()` (e não `z.number()`) no schema completo: no handler,
  * price_value salvo chega do Kysely como string quando o pg não tem parser
@@ -266,72 +268,65 @@ export const pricingRules = {
   },
 } as const;
 
-export const pricingConsistencySchema = z
-  .object({
+/**
+ * Aplica os 5 invariantes de cobrança (pricingRules) na ordem canônica.
+ * Usado por createTableSchema (sobre o payload completo) e por
+ * pricingConsistencySchema (sobre o estado resultante do PUT) — o bloco de
+ * refine fica definido uma única vez (achado SonarQube: blocos duplicados nos
+ * dois schemas). A ordem fixa preserva a ordem de issues do 400 da rota.
+ */
+function withPricingRules<S extends z.ZodTypeAny>(schema: S) {
+  // Cast para PricingData: o generic de output não é afunilado pelo TS, mas os
+  // dois únicos usos (createTableSchema e pricingConsistencySchema) garantem
+  // os cinco campos no objeto que chega a estes checks.
+  return schema
+    .refine((d) => pricingRules.paidNeedsPrice.check(d as PricingData), {
+      message: pricingRules.paidNeedsPrice.message,
+      path: [...pricingRules.paidNeedsPrice.path],
+    })
+    .refine((d) => pricingRules.freeCannotHavePrice.check(d as PricingData), {
+      message: pricingRules.freeCannotHavePrice.message,
+      path: [...pricingRules.freeCannotHavePrice.path],
+    })
+    .refine((d) => pricingRules.monthlyOnlyPaid.check(d as PricingData), {
+      message: pricingRules.monthlyOnlyPaid.message,
+      path: [...pricingRules.monthlyOnlyPaid.path],
+    })
+    .refine((d) => pricingRules.donationOnlyFree.check(d as PricingData), {
+      message: pricingRules.donationOnlyFree.message,
+      path: [...pricingRules.donationOnlyFree.path],
+    })
+    .refine((d) => pricingRules.suggestedNeedsAccept.check(d as PricingData), {
+      message: pricingRules.suggestedNeedsAccept.message,
+      path: [...pricingRules.suggestedNeedsAccept.path],
+    });
+}
+
+export const pricingConsistencySchema = withPricingRules(
+  z.object({
     price_type: z.enum(PRICE_TYPES),
     price_value: z.coerce.number().min(0).nullable().optional(),
     price_value_monthly: z.coerce.number().min(0).nullable().optional(),
     accepts_donations: z.boolean().optional(),
     suggested_donation_value: z.coerce.number().min(0).nullable().optional(),
-  })
-  .refine(pricingRules.paidNeedsPrice.check, {
-    message: pricingRules.paidNeedsPrice.message,
-    path: [...pricingRules.paidNeedsPrice.path],
-  })
-  .refine(pricingRules.freeCannotHavePrice.check, {
-    message: pricingRules.freeCannotHavePrice.message,
-    path: [...pricingRules.freeCannotHavePrice.path],
-  })
-  .refine(pricingRules.monthlyOnlyPaid.check, {
-    message: pricingRules.monthlyOnlyPaid.message,
-    path: [...pricingRules.monthlyOnlyPaid.path],
-  })
-  .refine(pricingRules.donationOnlyFree.check, {
-    message: pricingRules.donationOnlyFree.message,
-    path: [...pricingRules.donationOnlyFree.path],
-  })
-  .refine(pricingRules.suggestedNeedsAccept.check, {
-    message: pricingRules.suggestedNeedsAccept.message,
-    path: [...pricingRules.suggestedNeedsAccept.path],
-  });
+  }),
+);
 
-export const createTableSchema = baseTableSchema
-  .strict()
-  .refine((data) => !!data.system_id, { 
-    message: 'Sistema é obrigatório', 
-    path: ['system_id'] 
-  })
-  .refine((data) => {
-    const slotsOpen = data.slots_open ?? data.slots_total;
-    return slotsOpen <= data.slots_total;
-  }, { 
-    message: 'Vagas abertas não pode ser maior que vagas totais', 
-    path: ['slots_open'] 
-  })
-  // Invariantes de cobrança: mesmos check/message/path de pricingRules (fonte
-  // única, ver comentário no bloco do pricingConsistencySchema), aplicados na
-  // posição da cadeia que preserva a ordem de issues do 400 da rota.
-  .refine(pricingRules.paidNeedsPrice.check, {
-    message: pricingRules.paidNeedsPrice.message,
-    path: [...pricingRules.paidNeedsPrice.path],
-  })
-  .refine(pricingRules.freeCannotHavePrice.check, {
-    message: pricingRules.freeCannotHavePrice.message,
-    path: [...pricingRules.freeCannotHavePrice.path],
-  })
-  .refine(pricingRules.monthlyOnlyPaid.check, {
-    message: pricingRules.monthlyOnlyPaid.message,
-    path: [...pricingRules.monthlyOnlyPaid.path],
-  })
-  .refine(pricingRules.donationOnlyFree.check, {
-    message: pricingRules.donationOnlyFree.message,
-    path: [...pricingRules.donationOnlyFree.path],
-  })
-  .refine(pricingRules.suggestedNeedsAccept.check, {
-    message: pricingRules.suggestedNeedsAccept.message,
-    path: [...pricingRules.suggestedNeedsAccept.path],
-  })
-  .refine((data) => {
+export const createTableSchema = withPricingRules(
+  baseTableSchema
+    .strict()
+    .refine((data) => !!data.system_id, { 
+      message: 'Sistema é obrigatório', 
+      path: ['system_id'] 
+    })
+    .refine((data) => {
+      const slotsOpen = data.slots_open ?? data.slots_total;
+      return slotsOpen <= data.slots_total;
+    }, { 
+      message: 'Vagas abertas não pode ser maior que vagas totais', 
+      path: ['slots_open'] 
+    }),
+).refine((data) => {
     if (data.publisher_role === 'announcer' && !data.actual_gm_name) return false;
     return true;
   }, { 
@@ -421,32 +416,17 @@ export const updateTableSchema = baseTableSchema
     message: 'Horário a definir não deve enviar horário preenchido',
     path: ['schedule_time_hint']
   })
-  // Invariantes de cobrança do payload parcial: as 4 regras que dependem só do
-  // que veio (price_value ausente num PUT não significa "sem preço" — pode já
-  // estar salvo, então paidNeedsPrice fica para o estado resultante). O default
-  // 'gratuita' do price_type mantém o comportamento anterior nos casos de
-  // payload (ex.: monthly sem price_type parseia como gratuita e é rejeitado).
-  // O caso que o payload sozinho não cobre — PUT parcial válido isolado mas
-  // inválido contra a linha salva (ex.: doações numa mesa paga) — é validado no
-  // handler com o ESTADO RESULTANTE antes de gravar (achado Codex PR #283; ver
-  // mergePricingState). O form de edição envia price_type sempre (mapper.ts) e
-  // zera os valores ao trocar de modalidade, então o fluxo normal não muda.
-  .refine(pricingRules.freeCannotHavePrice.check, {
-    message: pricingRules.freeCannotHavePrice.message,
-    path: [...pricingRules.freeCannotHavePrice.path],
-  })
-  .refine(pricingRules.monthlyOnlyPaid.check, {
-    message: pricingRules.monthlyOnlyPaid.message,
-    path: [...pricingRules.monthlyOnlyPaid.path],
-  })
-  .refine(pricingRules.donationOnlyFree.check, {
-    message: pricingRules.donationOnlyFree.message,
-    path: [...pricingRules.donationOnlyFree.path],
-  })
-  .refine(pricingRules.suggestedNeedsAccept.check, {
-    message: pricingRules.suggestedNeedsAccept.message,
-    path: [...pricingRules.suggestedNeedsAccept.path],
-  });;
+  // Invariantes de cobrança NÃO são validados neste schema: com o `.partial()`
+  // e o `.default('gratuita')` do price_type, um PUT parcial válido contra a
+  // linha salva (ex.: mesa paga + `{ price_value_monthly: 40 }` sem
+  // price_type) era rejeitado ANTES do merge — o default materializado fazia o
+  // payload parecer gratuita. A relação entre os campos é validada
+  // exclusivamente sobre o ESTADO RESULTANTE no handler PUT /gm/tables/:id
+  // (mergePricingState + pricingConsistencySchema; achado Codex PR #283,
+  // segunda rodada). Aqui fica só a FORMA de cada campo (z.number().min(0)
+  // etc. do baseTableSchema) — price_value_monthly: -1 continua rejeitado no
+  // parse. O form de edição envia price_type sempre (mapper.ts), então o
+  // fluxo normal não muda.;
 
 /**
  * Linha salva com os campos de cobrança, para a validação do PUT parcial.

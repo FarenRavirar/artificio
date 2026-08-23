@@ -245,13 +245,24 @@ describe('schemas de mesa — price_value_monthly (pacote mensal)', () => {
     expect(result.success).toBe(false);
   });
 
-  it('PUT: rejeita price_value_monthly isolado sem price_type (default degradaria a mesa para gratuita)', () => {
-    // `price_type` tem `.default('gratuita')` no base e o `.partial()` preserva
-    // o default — sem price_type explícito, o resultado seria mesa gratuita com
-    // pacote mensal, contradição de contrato.
+  it('PUT: aceita price_value_monthly isolado sem price_type (relação validada no estado resultante — achado Codex PR #283, segunda rodada)', () => {
+    // Antes: o default 'gratuita' materializado rejeitava o payload, impedindo
+    // mesa paga de alterar só o pacote mensal. O schema agora valida a forma;
+    // a relação é do merge no handler.
     const result = updateTableSchema.safeParse({ price_value_monthly: 40 });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.price_value_monthly).toBe(40);
+
+      // Estado resultante de uma mesa paga com o mesmo payload: válido.
+      const merged = mergePricingState(
+        result.data,
+        { price_value_monthly: 40 },
+        { price_type: 'paga', price_value: 50, price_value_monthly: null, accepts_donations: false, suggested_donation_value: null },
+      );
+      expect(pricingConsistencySchema.safeParse(merged).success).toBe(true);
+    }
   });
 
   it('PUT: aceita price_value_monthly com price_type paga', () => {
@@ -263,13 +274,25 @@ describe('schemas de mesa — price_value_monthly (pacote mensal)', () => {
     expect(result.success).toBe(true);
   });
 
-  it('PUT: rejeita price_value_monthly quando price_type vem explícito como gratuita', () => {
+  it('PUT: price_value_monthly com price_type explícito gratuita passa no schema; o estado resultante rejeita', () => {
     const result = updateTableSchema.safeParse({
       price_type: 'gratuita',
       price_value_monthly: 40,
     });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const merged = mergePricingState(
+        result.data,
+        { price_type: 'gratuita', price_value_monthly: 40 },
+        { price_type: 'gratuita', price_value: null, price_value_monthly: null, accepts_donations: false, suggested_donation_value: null },
+      );
+      const pricing = pricingConsistencySchema.safeParse(merged);
+      expect(pricing.success).toBe(false);
+      if (!pricing.success) {
+        expect(pricing.error.issues[0].message).toBe('Pacote mensal só é permitido em mesas pagas');
+      }
+    }
   });
 
   it('PUT: aceita price_value_monthly null para limpar o pacote mensal', () => {
@@ -375,19 +398,48 @@ describe('schemas de mesa — doações (aceita doações / valor sugerido)', ()
     expect(result.success).toBe(false);
   });
 
-  it('PUT: rejeita doação quando price_type vem explícito como paga', () => {
+  it('PUT: doação com price_type explícito paga passa no schema; o estado resultante rejeita', () => {
     const result = updateTableSchema.safeParse({
       price_type: 'paga',
       accepts_donations: true,
     });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const merged = mergePricingState(
+        result.data,
+        { price_type: 'paga', accepts_donations: true },
+        { price_type: 'paga', price_value: 50, price_value_monthly: null, accepts_donations: false, suggested_donation_value: null },
+      );
+      const pricing = pricingConsistencySchema.safeParse(merged);
+      expect(pricing.success).toBe(false);
+      if (!pricing.success) {
+        expect(pricing.error.issues[0].message).toBe('Doações são exclusivas de mesas gratuitas');
+      }
+    }
   });
 
-  it('PUT: rejeita valor sugerido isolado sem accepts_donations (campo não tem default — undefined preserva salvo, mas sugerido sem aceitar é contradição)', () => {
+  it('PUT: valor sugerido isolado passa no schema; no estado resultante vale contra o accepts_donations salvo', () => {
     const result = updateTableSchema.safeParse({ suggested_donation_value: 10 });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      // Linha que já aceita doações: alterar só o valor sugerido é válido.
+      const mergedAccepted = mergePricingState(
+        result.data,
+        { suggested_donation_value: 10 },
+        { price_type: 'gratuita', price_value: null, price_value_monthly: null, accepts_donations: true, suggested_donation_value: 5 },
+      );
+      expect(pricingConsistencySchema.safeParse(mergedAccepted).success).toBe(true);
+
+      // Linha que não aceita: rejeita.
+      const mergedRejected = mergePricingState(
+        result.data,
+        { suggested_donation_value: 10 },
+        { price_type: 'gratuita', price_value: null, price_value_monthly: null, accepts_donations: false, suggested_donation_value: null },
+      );
+      expect(pricingConsistencySchema.safeParse(mergedRejected).success).toBe(false);
+    }
   });
 
   it('PUT: aceita limpar valor sugerido com null', () => {
@@ -454,24 +506,45 @@ describe('schemas de mesa — preço avulso em mesa gratuita (endurecimento A2)'
     expect(result.success).toBe(true);
   });
 
-  it('PUT: rejeita price_value quando price_type vem explícito como gratuita', () => {
+  it('PUT: price_value com price_type explícito gratuita passa no schema; o estado resultante rejeita', () => {
     const result = updateTableSchema.safeParse({
       price_type: 'gratuita',
       price_value: 55,
     });
 
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues.some((issue) =>
-        issue.path.join('.') === 'price_value' && issue.message.includes('não pode ter preço'),
-      )).toBe(true);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const merged = mergePricingState(
+        result.data,
+        { price_type: 'gratuita', price_value: 55 },
+        { price_type: 'paga', price_value: 50, price_value_monthly: null, accepts_donations: false, suggested_donation_value: null },
+      );
+      const pricing = pricingConsistencySchema.safeParse(merged);
+      expect(pricing.success).toBe(false);
+      if (!pricing.success) {
+        expect(pricing.error.issues.some((issue) =>
+          issue.path.join('.') === 'price_value' && issue.message.includes('não pode ter preço'),
+        )).toBe(true);
+      }
     }
   });
 
-  it('PUT: rejeita price_value isolado sem price_type (default degradaria a mesa paga para gratuita com valor órfão — fecha o achado lateral pré-existente)', () => {
+  it('PUT: price_value isolado sem price_type passa no schema; o estado resultante rejeita (achado Codex PR #283, segunda rodada)', () => {
     const result = updateTableSchema.safeParse({ price_value: 55 });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const merged = mergePricingState(
+        result.data,
+        { price_value: 55 },
+        { price_type: 'gratuita', price_value: null, price_value_monthly: null, accepts_donations: false, suggested_donation_value: null },
+      );
+      const pricing = pricingConsistencySchema.safeParse(merged);
+      expect(pricing.success).toBe(false);
+      if (!pricing.success) {
+        expect(pricing.error.issues[0].message).toBe('Mesa gratuita não pode ter preço — use o valor sugerido de doação');
+      }
+    }
   });
 
   it('PUT: aceita price_value null com price_type gratuita (limpar preço ao trocar para gratuita)', () => {

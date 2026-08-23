@@ -50,6 +50,7 @@ vi.mock('../middleware/auth', () => ({
 
 import gmPanelRoutes from './gmPanel.js';
 import { db } from '../db/index.js';
+import { TableRepository } from '../repositories/tableRepository.js';
 
 function mockChain(overrides: Record<string, Mock> = {}) {
   const methods = ['select', 'selectAll', 'where', 'returning', 'set', 'execute', 'executeTakeFirst', 'executeTakeFirstOrThrow'];
@@ -139,5 +140,26 @@ describe('PUT /api/v1/gm/tables/:id — validação do estado resultante de cobr
     expect(res.status).toBe(400);
     expect(res.body.error).toBe('Valor obrigatório para mesas pagas');
     expect(res.body.field).toBe('price_value');
+  });
+
+  it('aceita PUT parcial consistente em mesa paga (estado resultante válido) e grava', async () => {
+    (TableRepository.updateTableWithRelations as Mock).mockResolvedValue({
+      id: 'table-1',
+      slug: 'mesa-teste',
+      title: 'Mesa Teste',
+      status: 'active',
+      updated_at: new Date(),
+    });
+
+    const res = await putWithRow(savedRow(), { price_type: 'paga', price_value: 60 });
+
+    expect(res.status).toBe(200);
+    expect(TableRepository.updateTableWithRelations).toHaveBeenCalledWith(
+      'table-1',
+      null,
+      expect.objectContaining({ price_type: 'paga', price_value: 60 }),
+      undefined,
+      undefined,
+    );
   });
 });
