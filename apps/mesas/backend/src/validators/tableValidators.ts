@@ -118,6 +118,14 @@ const baseTableSchema = z.object({
   modality: z.enum(TABLE_MODALITIES),
   price_type: z.enum(PRICE_TYPES).default('gratuita'),
   price_value: z.number().min(0).nullable().optional(),
+  price_value_monthly: z.number().min(0).nullable().optional(),
+  // Doações são exclusivas de mesa gratuita. `accepts_donations` é optional
+  // SEM `.default(false)` de propósito: no PUT (.partial()), campo omitido
+  // fica undefined e o Kysely preserva o valor salvo — um default reescreveria
+  // false em toda edição que não manda o campo, apagando a doação. No create,
+  // omitido também vira undefined e o service grava false (coluna DEFAULT).
+  accepts_donations: z.boolean().optional(),
+  suggested_donation_value: z.number().min(0).nullable().optional(),
   price_frequency: z.enum(PRICE_FREQUENCIES).nullable().optional(),
   slots_total: z.number().int().min(1).max(100).default(4),
   slots_filled: z.number().int().min(0).default(0),
@@ -193,29 +201,132 @@ const baseTableSchema = z.object({
   parse_case_id: z.string().uuid().nullable().optional(),
 });
 
-export const createTableSchema = baseTableSchema
-  .strict()
-  .refine((data) => !!data.system_id, { 
-    message: 'Sistema é obrigatório', 
-    path: ['system_id'] 
-  })
-  .refine((data) => {
-    const slotsOpen = data.slots_open ?? data.slots_total;
-    return slotsOpen <= data.slots_total;
-  }, { 
-    message: 'Vagas abertas não pode ser maior que vagas totais', 
-    path: ['slots_open'] 
-  })
-  .refine((data) => {
-    if (data.price_type === 'paga' && (!data.price_value || data.price_value <= 0)) {
-      return false;
-    }
-    return true;
-  }, { 
-    message: 'Valor obrigatório para mesas pagas', 
-    path: ['price_value'] 
-  })
-  .refine((data) => {
+/**
+ * Invariantes de cobrança da mesa (decisão A2 do mantenedor, sessão
+ * 26-08-22_1, "endurecer"): gratuita não pode ter preço, paga exige preço,
+ * mensal e doações são exclusivos da própria modalidade. Cada regra define
+ * check/message/path UMA vez e é aplicada em três pontos, na ordem da cadeia
+ * de cada schema:
+ *
+ * - createTableSchema: as 5 regras sobre o payload completo;
+ * - handler PUT /gm/tables/:id: as 5 regras via pricingConsistencySchema
+ *   sobre o ESTADO RESULTANTE (linha salva + payload) antes de gravar —
+ *   achado Codex (PR #283): validar só o payload deixava passar PUT parcial
+ *   que produzia mesa inválida no banco (ex.: doações numa mesa paga);
+ * - updateTableSchema NÃO aplica as regras de relação: o `.partial()` com o
+ *   `.default('gratuita')` materializado rejeitava PUT parcial válido contra a
+ *   linha salva antes do merge (ex.: mesa paga + `{ price_value_monthly: 40 }`
+ *   sem price_type) — achado Codex (PR #283, segunda rodada). A relação é do
+ *   estado resultante; o schema do update mantém só a forma de cada campo.
+ *
+ * `z.coerce.number()` (e não `z.number()`) no schema completo: no handler,
+ * price_value salvo chega do Kysely como string quando o pg não tem parser
+ * para o OID 1700 (db/types.ts:903) — o mesmo formato que o front normaliza
+ * no mapper (tableViewMapper.normalizeNumeric). Coerce é neutro para número
+ * já parseado nos usos de payload.
+ */
+type PricingData = {
+  // Propriedade opcional (e não `price_type: ... | undefined`) para casar com
+  // o output type do `.partial()` do updateTableSchema. Em runtime o
+  // `.default('gratuita')` garante 'gratuita' | 'paga' nos três usos.
+  price_type?: 'gratuita' | 'paga';
+  price_value?: number | null;
+  price_value_monthly?: number | null;
+  accepts_donations?: boolean;
+  suggested_donation_value?: number | null;
+};
+
+export const pricingRules = {
+  paidNeedsPrice: {
+    check: (d: PricingData) => !(d.price_type === 'paga' && (d.price_value == null || d.price_value <= 0)),
+    message: 'Valor obrigatório para mesas pagas',
+    path: ['price_value'],
+  },
+  freeCannotHavePrice: {
+    check: (d: PricingData) => !(d.price_value != null && d.price_type === 'gratuita'),
+    message: 'Mesa gratuita não pode ter preço — use o valor sugerido de doação',
+    path: ['price_value'],
+  },
+  monthlyOnlyPaid: {
+    check: (d: PricingData) => !(d.price_value_monthly != null && d.price_type !== 'paga'),
+    message: 'Pacote mensal só é permitido em mesas pagas',
+    path: ['price_value_monthly'],
+  },
+  donationOnlyFree: {
+    check: (d: PricingData) =>
+      !(
+        (d.accepts_donations === true || d.suggested_donation_value != null) &&
+        d.price_type !== 'gratuita'
+      ),
+    message: 'Doações são exclusivas de mesas gratuitas',
+    path: ['accepts_donations'],
+  },
+  suggestedNeedsAccept: {
+    check: (d: PricingData) => !(d.suggested_donation_value != null && d.accepts_donations !== true),
+    message: "Valor sugerido exige marcar 'Aceita doações'",
+    path: ['suggested_donation_value'],
+  },
+} as const;
+
+/**
+ * Aplica os 5 invariantes de cobrança (pricingRules) na ordem canônica.
+ * Usado por createTableSchema (sobre o payload completo) e por
+ * pricingConsistencySchema (sobre o estado resultante do PUT) — o bloco de
+ * refine fica definido uma única vez (achado SonarQube: blocos duplicados nos
+ * dois schemas). A ordem fixa preserva a ordem de issues do 400 da rota.
+ */
+function withPricingRules<S extends z.ZodTypeAny>(schema: S) {
+  // Cast para PricingData: o generic de output não é afunilado pelo TS, mas os
+  // dois únicos usos (createTableSchema e pricingConsistencySchema) garantem
+  // os cinco campos no objeto que chega a estes checks.
+  return schema
+    .refine((d) => pricingRules.paidNeedsPrice.check(d as PricingData), {
+      message: pricingRules.paidNeedsPrice.message,
+      path: [...pricingRules.paidNeedsPrice.path],
+    })
+    .refine((d) => pricingRules.freeCannotHavePrice.check(d as PricingData), {
+      message: pricingRules.freeCannotHavePrice.message,
+      path: [...pricingRules.freeCannotHavePrice.path],
+    })
+    .refine((d) => pricingRules.monthlyOnlyPaid.check(d as PricingData), {
+      message: pricingRules.monthlyOnlyPaid.message,
+      path: [...pricingRules.monthlyOnlyPaid.path],
+    })
+    .refine((d) => pricingRules.donationOnlyFree.check(d as PricingData), {
+      message: pricingRules.donationOnlyFree.message,
+      path: [...pricingRules.donationOnlyFree.path],
+    })
+    .refine((d) => pricingRules.suggestedNeedsAccept.check(d as PricingData), {
+      message: pricingRules.suggestedNeedsAccept.message,
+      path: [...pricingRules.suggestedNeedsAccept.path],
+    });
+}
+
+export const pricingConsistencySchema = withPricingRules(
+  z.object({
+    price_type: z.enum(PRICE_TYPES),
+    price_value: z.coerce.number().min(0).nullable().optional(),
+    price_value_monthly: z.coerce.number().min(0).nullable().optional(),
+    accepts_donations: z.boolean().optional(),
+    suggested_donation_value: z.coerce.number().min(0).nullable().optional(),
+  }),
+);
+
+export const createTableSchema = withPricingRules(
+  baseTableSchema
+    .strict()
+    .refine((data) => !!data.system_id, { 
+      message: 'Sistema é obrigatório', 
+      path: ['system_id'] 
+    })
+    .refine((data) => {
+      const slotsOpen = data.slots_open ?? data.slots_total;
+      return slotsOpen <= data.slots_total;
+    }, { 
+      message: 'Vagas abertas não pode ser maior que vagas totais', 
+      path: ['slots_open'] 
+    }),
+).refine((data) => {
     if (data.publisher_role === 'announcer' && !data.actual_gm_name) return false;
     return true;
   }, { 
@@ -304,7 +415,58 @@ export const updateTableSchema = baseTableSchema
   }, {
     message: 'Horário a definir não deve enviar horário preenchido',
     path: ['schedule_time_hint']
-  });
+  })
+  // Invariantes de cobrança NÃO são validados neste schema: com o `.partial()`
+  // e o `.default('gratuita')` do price_type, um PUT parcial válido contra a
+  // linha salva (ex.: mesa paga + `{ price_value_monthly: 40 }` sem
+  // price_type) era rejeitado ANTES do merge — o default materializado fazia o
+  // payload parecer gratuita. A relação entre os campos é validada
+  // exclusivamente sobre o ESTADO RESULTANTE no handler PUT /gm/tables/:id
+  // (mergePricingState + pricingConsistencySchema; achado Codex PR #283,
+  // segunda rodada). Aqui fica só a FORMA de cada campo (z.number().min(0)
+  // etc. do baseTableSchema) — price_value_monthly: -1 continua rejeitado no
+  // parse. O form de edição envia price_type sempre (mapper.ts), então o
+  // fluxo normal não muda.;
+
+/**
+ * Linha salva com os campos de cobrança, para a validação do PUT parcial.
+ */
+export interface TablePricingRow {
+  price_type: 'gratuita' | 'paga';
+  price_value: number | null;
+  price_value_monthly: number | null;
+  accepts_donations: boolean;
+  suggested_donation_value: number | null;
+}
+
+/**
+ * Estado resultante dos campos de cobrança para a validação do PUT parcial:
+ * campo ENVIADO no body vence; campo omitido herda o valor salvo. Distinguir
+ * enviado de omitido exige `hasOwnProperty` no body cru — o schema com
+ * `.default('gratuita')` materializa price_type mesmo quando omitido, então
+ * `payload.price_type` não serve como sinal de envio. Usado pelo handler
+ * PUT /gm/tables/:id antes de gravar (achado Codex PR #283).
+ */
+export function mergePricingState(
+  payload: UpdateTableInput,
+  body: Record<string, unknown>,
+  existing: TablePricingRow,
+): TablePricingRow {
+  const sent = (key: string) => Object.prototype.hasOwnProperty.call(body, key);
+  return {
+    price_type: sent('price_type') ? (payload.price_type ?? existing.price_type) : existing.price_type,
+    price_value: sent('price_value') ? (payload.price_value ?? null) : existing.price_value,
+    price_value_monthly: sent('price_value_monthly')
+      ? (payload.price_value_monthly ?? null)
+      : existing.price_value_monthly,
+    accepts_donations: sent('accepts_donations')
+      ? (payload.accepts_donations ?? existing.accepts_donations)
+      : existing.accepts_donations,
+    suggested_donation_value: sent('suggested_donation_value')
+      ? (payload.suggested_donation_value ?? null)
+      : existing.suggested_donation_value,
+  };
+}
 
 export type CreateTableInput = z.infer<typeof createTableSchema>;
 export type UpdateTableInput = z.infer<typeof updateTableSchema>;

@@ -141,6 +141,11 @@ export class TableService {
             modality: data.modality,
             price_type: data.price_type,
             price_value: data.price_value ?? null,
+            price_value_monthly: data.price_value_monthly ?? null,
+            // Coluna NOT NULL DEFAULT false: `?? false` cobre create sem o
+            // campo (schema não tem default — ver tableValidators.ts).
+            accepts_donations: data.accepts_donations ?? false,
+            suggested_donation_value: data.suggested_donation_value ?? null,
             price_frequency: data.price_frequency ?? null,
             slots_total: data.slots_total,
             slots_filled: data.slots_filled,

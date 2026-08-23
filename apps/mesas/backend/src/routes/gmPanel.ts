@@ -9,6 +9,8 @@ import crypto from 'crypto';
 import {
   createTableSchema,
   updateTableSchema,
+  pricingConsistencySchema,
+  mergePricingState,
   CreateTableInput,
   UpdateTableInput,
   TableContact,
@@ -835,12 +837,28 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
     // gm_id abaixo. Achado do mantenedor 2026-07-08: editar mesa órfã pelo painel
     // do mestre dava 404 sempre. Admin edita qualquer mesa (órfã ou não) reusando
     // este mesmo form/validação, em vez de duplicar handler em adminTables.ts.
-    let existingTable: { id: string; gm_id: string | null; system_id: string | null; slug: string; banner_url: string | null; status: string } | undefined;
+    let existingTable: {
+      id: string;
+      gm_id: string | null;
+      system_id: string | null;
+      slug: string;
+      banner_url: string | null;
+      status: string;
+      // Campos de cobrança: necessários para validar o ESTADO RESULTANTE do
+      // PUT parcial (achado Codex PR #283). price_value* é NUMERIC no banco —
+      // o Kysely devolve string em runtime (sem parser para o OID 1700), e o
+      // pricingConsistencySchema usa z.coerce.number() exatamente por isso.
+      price_type: 'gratuita' | 'paga';
+      price_value: number | null;
+      price_value_monthly: number | null;
+      accepts_donations: boolean;
+      suggested_donation_value: number | null;
+    } | undefined;
     let updaterGmProfileId: string | null = null;
     if (userRole === 'admin') {
       existingTable = await db
         .selectFrom('tables')
-        .select(['id', 'gm_id', 'system_id', 'slug', 'banner_url', 'status'])
+        .select(['id', 'gm_id', 'system_id', 'slug', 'banner_url', 'status', 'price_type', 'price_value', 'price_value_monthly', 'accepts_donations', 'suggested_donation_value'])
         .where('id', '=', id)
         .executeTakeFirst();
     } else {
@@ -857,7 +875,7 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
 
       existingTable = await db
         .selectFrom('tables')
-        .select(['id', 'gm_id', 'system_id', 'slug', 'banner_url', 'status'])
+        .select(['id', 'gm_id', 'system_id', 'slug', 'banner_url', 'status', 'price_type', 'price_value', 'price_value_monthly', 'accepts_donations', 'suggested_donation_value'])
         .where('id', '=', id)
         .where('gm_id', '=', gmProfile.id)
         .executeTakeFirst();
@@ -865,6 +883,23 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
 
     if (!existingTable) {
       return res.status(404).json({ error: 'Mesa não encontrada ou sem permissão.' });
+    }
+
+    // Achado Codex (PR #283): a validação do payload (updateTableSchema) não
+    // enxerga a linha salva, então um PUT parcial válido isolado podia gravar
+    // estado inválido — ex.: `{ accepts_donations: true }` numa mesa paga
+    // parseava price_type como 'gratuita' (default do schema) e passava,
+    // gravando doação em mesa paga com preço preservado. Aqui validamos o
+    // ESTADO RESULTANTE (campo enviado vence, omitido herda o salvo) com os
+    // mesmos invariantes (pricingConsistencySchema) antes de qualquer escrita.
+    const effectivePricing = mergePricingState(data, req.body as Record<string, unknown>, existingTable);
+    const pricingCheck = pricingConsistencySchema.safeParse(effectivePricing);
+    if (!pricingCheck.success) {
+      const firstError = pricingCheck.error.issues[0];
+      return res.status(400).json({
+        error: firstError.message,
+        field: firstError.path.join('.'),
+      });
     }
 
     // Achado Codex (PR #145): mesma checagem do POST /gm/tables — system_id
@@ -901,6 +936,11 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       : null;
 
     // Preparar dados de atualização
+    // price_type: o schema aplica `.default('gratuita')` mesmo quando o campo
+    // não veio no body — gravar esse default rebaixaria mesa paga para
+    // gratuita num PUT parcial sem o campo (mesma causa do achado Codex
+    // PR #283). Só gravamos quando o chamador enviou price_type de fato;
+    // omitido fica undefined e o Kysely preserva o valor salvo.
     const updateData: Updateable<TablesTable> = {
       title: data.title,
       description: data.description,
@@ -909,8 +949,11 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       type: data.type,
       audience: data.audience,
       modality: data.modality,
-      price_type: data.price_type,
+      price_type: Object.prototype.hasOwnProperty.call(req.body, 'price_type') ? data.price_type : undefined,
       price_value: data.price_value,
+      price_value_monthly: data.price_value_monthly,
+      accepts_donations: data.accepts_donations,
+      suggested_donation_value: data.suggested_donation_value,
       price_frequency: data.price_frequency,
       slots_total: data.slots_total,
       slots_filled: data.slots_filled,
@@ -1070,6 +1113,9 @@ router.get('/tables', authMiddleware, async (req: Request, res: Response) => {
         't.audience',
         't.price_type',
         't.price_value',
+        't.price_value_monthly',
+        't.accepts_donations',
+        't.suggested_donation_value',
         't.price_frequency',
         't.slots_total',
         't.slots_filled',

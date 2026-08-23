@@ -111,6 +111,41 @@ export function StepConfig({
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  // Auditoria adversarial da feature price_value_monthly (sessão 26-08-22_1, A1):
+  // ao trocar Cobrança para "gratuita", os inputs de valor somem da tela mas os
+  // valores persistiam no form state — o mapper enviava price_value_monthly com
+  // price_type='gratuita' e o backend respondia 400 ("Pacote mensal só é
+  // permitido em mesas pagas") sobre campo invisível, sem como o usuário saber
+  // o que corrigir. Limpar os dois valores aqui cobre criação e edição, que
+  // compartilham este mesmo StepConfig.
+  // Ampliação (doações, sessão 26-08-22_1): simétrico — virar "paga" limpa os
+  // campos de doação, que são exclusivos de mesa gratuita e também ficariam
+  // invisíveis causando 400 ("Doações são exclusivas de mesas gratuitas").
+  const handlePriceTypeChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    if (e.target.value === 'gratuita') {
+      setForm({ ...form, price_type: e.target.value, price_value: '', price_value_monthly: '' });
+      return;
+    }
+    setForm({
+      ...form,
+      price_type: e.target.value,
+      accepts_donations: false,
+      suggested_donation_value: '',
+    });
+  };
+
+  // Desmarcar "Aceita doações" limpa o valor sugerido junto: sem o flag, o
+  // valor sugerido é contrato inválido no backend ("Valor sugerido exige
+  // marcar 'Aceita doações'") — limpar aqui evita 400 sobre campo invisível.
+  const handleAcceptsDonationsChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const accepts = e.target.checked;
+    setForm({
+      ...form,
+      accepts_donations: accepts,
+      ...(accepts ? {} : { suggested_donation_value: '' }),
+    });
+  };
+
   const isOnline = form.modality === 'online' || form.modality === 'hibrida';
 
   return (
@@ -305,23 +340,75 @@ export function StepConfig({
           <option value="+18">🔴 +18 anos</option>
         </SelectField>
 
-        <SelectField label="Cobrança" id="price_type" name="price_type" value={form.price_type} onChange={handleChange}>
+        <SelectField label="Cobrança" id="price_type" name="price_type" value={form.price_type} onChange={handlePriceTypeChange}>
           <option value="gratuita">Gratuita</option>
           <option value="paga">Paga</option>
         </SelectField>
 
         {form.price_type === 'paga' && (
-          <InputField
-            label="Valor (R$)"
-            id="price_value"
-            name="price_value"
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.price_value}
-            onChange={handleChange}
-            placeholder="Ex: 25.00"
-          />
+          <div className="space-y-2">
+            <InputField
+              label="Valor (Avulso) (R$)"
+              id="price_value"
+              name="price_value"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.price_value}
+              onChange={handleChange}
+              placeholder="Ex: 25.00"
+            />
+            <p className="text-xs text-white/40">
+              Valor cobrado por sessão avulsa — obrigatório para mesa paga.
+            </p>
+            <InputField
+              label="Valor por sessão no Pacote Mensal (R$)"
+              id="price_value_monthly"
+              name="price_value_monthly"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.price_value_monthly || ''}
+              onChange={handleChange}
+              placeholder="Ex: 40.00 — opcional"
+            />
+            <p className="text-xs text-white/40">
+              Opcional — valor individual por sessão para quem fecha o pacote mensal.
+            </p>
+          </div>
+        )}
+
+        {form.price_type === 'gratuita' && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="accepts_donations"
+                checked={form.accepts_donations === true}
+                onChange={handleAcceptsDonationsChange}
+                className="h-4 w-4 rounded border-white/20 bg-white/10 text-[var(--color-artificio-orange)] focus:ring-[var(--color-artificio-orange)]"
+              />
+              <label htmlFor="accepts_donations" className="text-sm text-white/70 cursor-pointer">
+                Aceita doações
+              </label>
+            </div>
+            <p className="text-xs text-white/40">
+              Mesa gratuita pode aceitar doações combinadas diretamente com o mestre, fora da plataforma.
+            </p>
+            {form.accepts_donations === true && (
+              <InputField
+                label="Valor sugerido por sessão (R$)"
+                id="suggested_donation_value"
+                name="suggested_donation_value"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.suggested_donation_value || ''}
+                onChange={handleChange}
+                placeholder="Ex: 10.00 — opcional"
+              />
+            )}
+          </div>
         )}
 
         <SelectField

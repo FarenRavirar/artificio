@@ -99,3 +99,125 @@ describe('TableActionPanel — Fase 7 (R21/R22/R23/R24)', () => {
     expect(screen.queryByText('Idioma')).toBeNull();
   });
 });
+
+/**
+ * PricePanel — pacote mensal (price_value_monthly). Regras de produto:
+ * catálogo mostra só o avulso; página da mesa mostra os dois quando o mensal
+ * existe; economia % é derivada só na exibição, apenas quando mensal < avulso.
+ */
+describe('TableActionPanel — PricePanel com pacote mensal', () => {
+  const showPrice = { showPrice: true, showSchedules: false, showMaster: true, showFullDetails: true, compact: false };
+
+  it('mostra pacote mensal e economia derivada quando mensal < avulso', () => {
+    render(
+      <TableActionPanel
+        vm={makeVm({ visibility: showPrice, price: 55, priceFrequency: 'sessao', priceMonthly: 40 })}
+      />,
+    );
+    expect(screen.getByText('Pacote mensal:', { exact: false })).toBeTruthy();
+    expect(screen.getByText('R$ 40')).toBeTruthy();
+    // 1 - 40/55 = 27.27... → arredondado para 27
+    expect(screen.getByText('economize ~27%')).toBeTruthy();
+  });
+
+  it('não mostra economia quando mensal >= avulso, mas mostra o valor mensal', () => {
+    render(
+      <TableActionPanel
+        vm={makeVm({ visibility: showPrice, price: 40, priceFrequency: 'sessao', priceMonthly: 40 })}
+      />,
+    );
+    expect(screen.getByText('Pacote mensal:', { exact: false })).toBeTruthy();
+    expect(screen.queryByText(/economize ~/)).toBeNull();
+  });
+
+  it('não renderiza linha mensal quando priceMonthly ausente', () => {
+    render(
+      <TableActionPanel
+        vm={makeVm({ visibility: showPrice, price: 55, priceFrequency: 'sessao', priceMonthly: undefined })}
+      />,
+    );
+    expect(screen.queryByText('Pacote mensal:', { exact: false })).toBeNull();
+    expect(screen.getByText('R$ 55', { exact: false })).toBeTruthy();
+  });
+});
+
+/**
+ * PricePanel — banner de mesa gratuita (doações). Regras de produto (sessão
+ * 26-08-22_1): gratuita renderiza banner claro mesmo sem showPrice (price_value
+ * é null nesse caso); doações são exclusivas de gratuita; valor sugerido
+ * opcional. priceType é a fonte de verdade — VM antigo (priceType ausente)
+ * mantém o comportamento anterior.
+ */
+describe('TableActionPanel — PricePanel de mesa gratuita (doações)', () => {
+  const showPrice = { showPrice: true, showSchedules: false, showMaster: true, showFullDetails: true, compact: false };
+
+  it('mostra banner "Gratuita" sem doação, mesmo com showPrice false e price ausente', () => {
+    render(
+      <TableActionPanel
+        vm={makeVm({ priceType: 'gratuita', price: undefined, acceptsDonations: false })}
+      />,
+    );
+    expect(screen.getByText(/Gratuita/)).toBeTruthy();
+    expect(screen.getByText('Mesa gratuita — sem cobrança, jogue de graça.')).toBeTruthy();
+    expect(screen.queryByText(/Aceita doações/)).toBeNull();
+  });
+
+  it('mostra "Aceita doações" sem valor sugerido quando só o flag está marcado', () => {
+    render(
+      <TableActionPanel
+        vm={makeVm({
+          priceType: 'gratuita',
+          price: undefined,
+          acceptsDonations: true,
+          suggestedDonationValue: undefined,
+        })}
+      />,
+    );
+    expect(screen.getByText(/Gratuita/)).toBeTruthy();
+    expect(screen.getByText(/Aceita doações/)).toBeTruthy();
+    expect(screen.queryByText(/Valor sugerido/)).toBeNull();
+  });
+
+  it('mostra valor sugerido quando doação está marcada com valor', () => {
+    render(
+      <TableActionPanel
+        vm={makeVm({
+          priceType: 'gratuita',
+          price: undefined,
+          acceptsDonations: true,
+          suggestedDonationValue: 10,
+        })}
+      />,
+    );
+    expect(screen.getByText(/Gratuita/)).toBeTruthy();
+    expect(screen.getByText(/Aceita doações/)).toBeTruthy();
+    expect(screen.getByText(/Valor sugerido: R\$ 10 \/ sessão/)).toBeTruthy();
+    expect(screen.getByText('Doação combinada diretamente com o mestre, fora da plataforma.')).toBeTruthy();
+  });
+
+  it('mesa paga continua renderizando o painel pago (badge "Paga", sem banner de gratuita)', () => {
+    render(
+      <TableActionPanel
+        vm={makeVm({ visibility: showPrice, priceType: 'paga', price: 55, priceFrequency: 'sessao' })}
+      />,
+    );
+    expect(screen.getByText(/Paga/)).toBeTruthy();
+    expect(screen.getByText('R$ 55', { exact: false })).toBeTruthy();
+    expect(screen.queryByText('Mesa gratuita — sem cobrança, jogue de graça.')).toBeNull();
+  });
+
+  it('VM antigo (priceType ausente, paga com price) mantém comportamento anterior', () => {
+    render(
+      <TableActionPanel
+        vm={makeVm({ visibility: showPrice, price: 55, priceFrequency: 'sessao' })}
+      />,
+    );
+    expect(screen.getByText(/Paga/)).toBeTruthy();
+  });
+
+  it('VM antigo (priceType ausente, sem showPrice) não renderiza painel', () => {
+    render(<TableActionPanel vm={makeVm({ price: undefined })} />);
+    expect(screen.queryByText(/Gratuita/)).toBeNull();
+    expect(screen.queryByText(/Paga/)).toBeNull();
+  });
+});

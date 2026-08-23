@@ -250,6 +250,44 @@ function buildPublicTableUrl(table: TableDetail, publicOrigin?: string): string 
   return origin ? `${origin}${path}` : path;
 }
 
+/**
+ * Bloco de cobrança do anúncio: preço avulso, pacote mensal, frequência,
+ * sessão zero e doações. Extraído de buildAboutTable para manter a função
+ * principal dentro do limite de complexidade cognitiva (achado SonarQube) sem
+ * mudar o texto gerado — os testes do anúncio seguem como contrato.
+ */
+function buildPriceBlock(table: TableDetail): string {
+  // Doações são exclusivas de mesa gratuita (regra de schema no backend); o
+  // anúncio guarda por price_type para nunca vazar linha de doação em mesa paga.
+  const donations = table.price_type === 'gratuita' && table.accepts_donations === true
+    ? joinNonEmpty([
+        'Aceita doações',
+        table.suggested_donation_value == null ? '' : `Valor sugerido: R$ ${table.suggested_donation_value}/sessão`,
+      ], '\n')
+    : '';
+
+  return joinNonEmpty([
+    table.billing_text,
+    // Valor avulso só em mesa paga: mesmo guard do pacote mensal abaixo —
+    // mesa gratuita com price_value residual de dado legado inconsistente não
+    // pode anunciar preço (achado Codex PR #283, segunda rodada; invariante
+    // do pricingConsistencySchema no backend).
+    (table.price_type !== 'paga' || table.price_value == null)
+      ? ''
+      : `Valor: R$ ${table.price_value}`,
+    // Pacote mensal só em mesa paga: linha guardada por price_type para nunca
+    // vazar preço mensal em mesa gratuita, mesmo que a linha salva carregue
+    // price_value_monthly residual de dado legado inconsistente (achado Codex
+    // PR #283 — mesmo invariante do pricingConsistencySchema no backend).
+    (table.price_type !== 'paga' || table.price_value_monthly == null)
+      ? ''
+      : `Pacote mensal: R$ ${table.price_value_monthly}/sessão`,
+    table.price_frequency ? `Frequência: ${table.price_frequency}` : '',
+    table.session_zero_free ? 'Sessão zero gratuita' : '',
+    donations,
+  ], '\n');
+}
+
 function buildAboutTable(table: TableDetail, synopsisSource: string): string {
   const blocks: string[] = [];
 
@@ -281,12 +319,7 @@ function buildAboutTable(table: TableDetail, synopsisSource: string): string {
     .filter(Boolean)
     .join('\n');
 
-  const price = joinNonEmpty([
-    table.billing_text,
-    table.price_value == null ? '' : `Valor: R$ ${table.price_value}`,
-    table.price_frequency ? `Frequência: ${table.price_frequency}` : '',
-    table.session_zero_free ? 'Sessão zero gratuita' : '',
-  ], '\n');
+  const price = buildPriceBlock(table);
 
   const requirements = joinNonEmpty([
     table.technical_requirements,

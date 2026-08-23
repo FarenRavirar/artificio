@@ -158,6 +158,29 @@ function generateVisibilityConfig(table: TableDetail): VisibilityConfig {
 }
 
 /**
+ * NUMERIC do Postgres chega como string quando o driver não tem parser
+ * registrado para o OID 1700 (apps/mesas/backend/src/db/types.ts:903). O
+ * contrato TS declara `number`, então o valor real em runtime pode ser
+ * `"50.00"` — e checks como `typeof v === 'number'` (TableActionPanel)
+ * falhavam, escondendo pacote mensal e doação sugerida na página da mesa.
+ * Achado Codex (PR #283): normalizar na fronteira do view model.
+ * Estrito por tipo (achado Codex PR #283, segunda rodada): aceita number
+ * finito ou string não-branca que parseia para number finito. Boolean,
+ * string vazia/só espaços e demais tipos devolvem undefined — Number()
+ * direto coagiria `true`→1 e `''`→0, fabricando preço onde não existe.
+ */
+export function normalizeNumeric(value: unknown): number | undefined {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return undefined;
+}
+
+/**
  * Transforma TableDetail (API) em TableViewModel (UI)
  * Centraliza lógica de transformação e defaults
  */
@@ -235,8 +258,12 @@ export function mapTableToView(table: TableDetail): TableViewModel {
     isFull: slotsLeft <= 0,
 
     // Preço
-    price: table.price_value ?? undefined,
+    price: normalizeNumeric(table.price_value),
     priceFrequency: table.price_frequency ?? undefined,
+    priceMonthly: normalizeNumeric(table.price_value_monthly),
+    priceType: table.price_type,
+    acceptsDonations: table.accepts_donations,
+    suggestedDonationValue: normalizeNumeric(table.suggested_donation_value),
 
     // Certificações
     certifications,

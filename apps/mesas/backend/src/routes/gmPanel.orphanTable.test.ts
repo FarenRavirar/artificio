@@ -79,6 +79,14 @@ const ORPHAN_TABLE = {
   table_gm_bio: '<script>alert(3)</script>bio',
   banner_url: 'https://cdn.discordapp.com/attachments/1/2/banner.png?ex=expired',
   updated_at: new Date(),
+  // Campos de cobrança do select do PUT (validação do estado resultante,
+  // achado Codex PR #283): colunas NOT NULL com default no schema real —
+  // mesa gratuita sem preço é o estado mínimo válido.
+  price_type: 'gratuita',
+  price_value: null,
+  price_value_monthly: null,
+  accepts_donations: false,
+  suggested_donation_value: null,
 };
 
 describe('GET /api/v1/gm/tables/:id — mesa órfã (gm_id: null)', () => {

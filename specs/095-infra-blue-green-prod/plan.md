@@ -309,3 +309,5 @@ Estes itens não bloqueiam a fundação, mas precisam de valor medido antes do r
 5. se o Host atual do Tunnel chega inalterado ou exige `httpHostHeader` em cada rota.
 
 Até a medição, esses valores permanecem parâmetros sem default canônico; não devem ser inventados no workflow.
+
+Padrão ideal: file:///C:/Users/paulo/.codex/visualizations/2026/07/23/019f8fa0-519e-7972-adeb-baf87818db4b/mesas-catalogo-atual-standalone.html

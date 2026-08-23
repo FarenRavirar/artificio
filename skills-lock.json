@@ -67,11 +67,23 @@
       "skillPath": "skills/deepen/SKILL.md",
       "computedHash": "e5dfb63254191543708356c62fe4b45bf76dc43e5abb00547c60fef07ee3dbbf"
     },
+    "dry-refactoring": {
+      "source": "kucherenko/jscpd",
+      "sourceType": "github",
+      "skillPath": "skills/dry-refactoring/SKILL.md",
+      "computedHash": "a82aa9f8e2ee2799e67435c1ae54a1ece34e0801751d3a035a64f6d9bb87faf7"
+    },
     "grill": {
       "source": "JuliusBrussee/cavekit",
       "sourceType": "github",
       "skillPath": "skills/grill/SKILL.md",
       "computedHash": "2e9209444b174c3a1ba994539112099f6794356627f1481eaf57671775e5fbf3"
+    },
+    "jscpd": {
+      "source": "kucherenko/jscpd",
+      "sourceType": "github",
+      "skillPath": "skills/jscpd/SKILL.md",
+      "computedHash": "2a5c740c47db98c0f97559daab92d667d1b7e3ae8c9c08932d90d9ec96fec67d"
     },
     "research": {
       "source": "JuliusBrussee/cavekit",

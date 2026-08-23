@@ -28,7 +28,50 @@ function AnnouncementSlot({ announcementTable }: AnnouncementSlotProps) {
 }
 
 function PricePanel({ vm, className = '' }: { readonly vm: PanelVm; readonly className?: string }) {
+  // `priceType` é a fonte de verdade (ampliação doações, sessão 26-08-22_1):
+  // mesa gratuita renderiza o banner "Gratuita" mesmo quando showPrice é false
+  // (showPrice = !!price_value, que é null em mesa gratuita). priceType ausente
+  // = ViewModel antigo construído sem o campo → comportamento anterior.
+  if (vm.priceType === 'gratuita') {
+    const hasSuggested = typeof vm.suggestedDonationValue === 'number';
+
+    return (
+      <div className={`p-4 rounded-xl bg-[var(--surface-subtle)] border border-[var(--state-success-line)] ${className}`.trim()}>
+        <div className="flex items-center gap-2">
+          <p className="text-xs text-[var(--fg-muted)] uppercase tracking-wide">Cobrança</p>
+          <span className="rounded-full bg-green-500 px-2 py-0.5 text-[10px] font-black tracking-wide text-black">
+            🎉 Gratuita
+          </span>
+        </div>
+        <p className="text-sm font-semibold text-[var(--state-success-fg)] mt-1">
+          Mesa gratuita — sem cobrança, jogue de graça.
+        </p>
+        {vm.acceptsDonations && (
+          <>
+            <p className="text-sm text-[var(--fg)] mt-2">
+              💝 Aceita doações
+              {hasSuggested && (
+                <span className="text-[var(--fg-muted)]"> · Valor sugerido: R$ {vm.suggestedDonationValue} / sessão</span>
+              )}
+            </p>
+            <p className="text-xs text-[var(--fg-muted)] mt-1">
+              Doação combinada diretamente com o mestre, fora da plataforma.
+            </p>
+          </>
+        )}
+      </div>
+    );
+  }
+
   if (!vm.visibility.showPrice || vm.price === undefined) return null;
+
+  const monthly = vm.priceMonthly;
+  const hasMonthly = typeof monthly === 'number' && monthly >= 0;
+  // Economia é derivada só na exibição, nunca armazenada (decisão de produto):
+  // só quando o mensal é estritamente mais barato que o avulso.
+  const savingsPercent = hasMonthly && monthly < vm.price
+    ? Math.round((1 - monthly / vm.price) * 100)
+    : null;
 
   return (
     <div className={`p-4 rounded-xl bg-[var(--surface-subtle)] border border-[var(--state-warning-line)] ${className}`.trim()}>
@@ -45,6 +88,15 @@ function PricePanel({ vm, className = '' }: { readonly vm: PanelVm; readonly cla
           <span className="text-sm text-[var(--fg-muted)] font-normal ml-1">/ {vm.priceFrequency}</span>
         )}
       </p>
+      {hasMonthly && (
+        <p className="text-sm text-[var(--fg-muted)] mt-1">
+          Pacote mensal: <span className="text-[var(--fg)] font-medium">R$ {monthly}</span>
+          <span className="text-[var(--fg-muted)]"> / sessão</span>
+          {savingsPercent !== null && savingsPercent > 0 && (
+            <span className="text-green-400 ml-2">economize ~{savingsPercent}%</span>
+          )}
+        </p>
+      )}
       {/* T6.4 (spec 081): mesa paga é anúncio dentro de plataforma gratuita —
           cobrança é acordo direto com o mestre, não passa pela Artifício. */}
       <p className="text-xs text-[var(--fg-muted)] mt-2">

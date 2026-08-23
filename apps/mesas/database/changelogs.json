@@ -1,5 +1,29 @@
 [
   {
+    "id": "2026-08-22-cobranca-avulso-pacote-mensal-doacoes",
+    "title": "Cobrança com Valor Avulso, Pacote Mensal e Doações",
+    "body": "Nova forma de cobrar as mesas, do jeito que os narradores trabalham:\n\n- **Valor (Avulso) como base** - O valor da sessão avulsa continua sendo o principal e obrigatório para mesa paga\n- **Pacote mensal** - Opção adicional: defina um valor por sessão no pacote mensal, geralmente com desconto. A página da mesa mostra os dois valores e quanto se economiza\n- **Doações em mesa gratuita** - Mesa gratuita pode marcar que aceita doações e sugerir um valor por sessão, exibido na página da mesa\n- **Selo de mesa gratuita** - Mesa sem cobrança agora exibe o aviso claro de que é gratuita\n- **Anúncio completo** - O anúncio de WhatsApp acompanha: pacote mensal e doações aparecem quando configurados\n\n_Atualização publicada em 22/08/2026_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-08-22T18:00:00-03:00"
+  },
+  {
+    "id": "2026-08-21-catalogo-busca-filtros-redesenhados",
+    "title": "Busca e filtros do catálogo renovados",
+    "body": "Redesenhamos a busca de mesas para achar o que você quer em menos passos:\n\n- **Busca única** - Um campo de busca geral que pesquisa ao confirmar, sem consultas a cada letra\n- **Filtros principais à vista** - Sistema, modalidade e preço na barra principal; refinamentos como tipo, público e cidade em \"Mais filtros\"\n- **Chips removíveis** - Filtros aplicados aparecem logo abaixo, com \"Limpar tudo\" à mão\n- **Ordenação no cabeçalho** - Ordene por vagas, mais recentes e preço direto no topo\n- **Mobile no mesmo nível** - Filtros em tela própria com aplicar e limpar visíveis\n- **Busca compartilhável** - O endereço da página guarda busca, filtros e ordenação para compartilhar ou voltar depois\n\n_Atualização publicada em 21/08/2026_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-08-21T18:00:00-03:00"
+  },
+  {
+    "id": "2026-08-20-pagina-da-mesa-completa-drafts-e-imagens",
+    "title": "Página da mesa mais completa e melhorias para mestres",
+    "body": "Novidades para quem joga e para quem mestra:\n\n- **Página da mesa completa** - Idioma, cenário e nome real do mestre aparecem quando preenchidos; mesas presenciais ou híbridas exibem cidade e estado\n- **Vagas com total** - Agora dá para ver o tamanho do grupo (ex.: 2 de 5 vagas), inclusive quando a mesa está lotada\n- **Copiar anúncio no rascunho** - Draft vinculado a uma mesa publicada ganhou botão de copiar o anúncio pronto\n- **Aba Descartados** - Rascunho descartado pode ser visto e restaurado; apagar definitivo fica explícito\n- **Imagens sem corte forçado** - Capa e foto do mestre não são mais cortadas no upload; o enquadramento é ajustável\n- **Editor melhor** - Limite de texto avisa em vez de cortar sozinho, e voltar não apaga o que foi digitado\n- **Vagas e temas certos** - Datas no texto não são mais confundidas com vagas, e \"Tema(s)\" vira tema de verdade no cadastro\n\n_Atualização publicada em 20/08/2026_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-08-20T18:00:00-03:00"
+  },
+  {
     "id": "2026-08-17-comentarios-na-mesa-e-notificacoes",
     "title": "Comentários na mesa, sino de notificações e tela de mesa encerrada",
     "body": "Conversas chegaram às mesas, e agora você fica sabendo quando alguém responde:\n\n- **Comentários na mesa** - Jogadores e mestre podem conversar direto na página da mesa, com respostas encadeadas\n- **Sino de notificações** - Um sino no topo avisa quando há resposta nova, e atualiza sozinho quando você volta para a aba\n- **Moderação e denúncia** - Comentário fora de linha pode ser reportado, e há caminho de contestação para quem discorda de uma remoção\n- **Tela de mesa encerrada** - Mesa encerrada agora tem página própria, em vez de erro\n- **Contatos mais confiáveis** - A validação de Discord, WhatsApp e e-mail passou a conferir cada canal no formato certo, evitando link que não abre\n- **Correções de contraste** - Ajustes de legibilidade em botões de ação destrutiva no tema escuro\n\n_Atualização publicada em 17/08/2026_",

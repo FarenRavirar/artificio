@@ -1,9 +1,9 @@
 import type { CropRect } from '@artificio/media/image-kinds';
 import { useState, useEffect } from 'react';
-import type { FormState, DdalFormState } from '../types/createTable.types';
+import type { FormState, DdalFormState, BasicFormData } from '../types/createTable.types';
 import type { SessionSchedule } from '../../../components/SessionRepeater';
 import type { ContactFormEntry } from '../../../components/ContactsFormBlock';
-import { formStateToPayload } from '../utils/mapper';
+import { formStateToPayload, normalizePriceType } from '../utils/mapper';
 import { validateAll } from '../utils/validation';
 import { authPost, authPut } from '../../../utils/authenticatedFetch';
 
@@ -23,15 +23,23 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
   const { initialData, onSuccess } = options;
 
   // Estado do formulário básico
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<BasicFormData>({
     title: initialData?.form?.title || '',
     description: initialData?.form?.description || '',
     type: initialData?.form?.type || 'campanha',
     modality: initialData?.form?.modality || 'online',
     audience: initialData?.form?.audience || 'livre',
     age_rating: initialData?.form?.age_rating || 'livre',
-    price_type: initialData?.form?.price_type || 'free',
+    // normalizePriceType cobre o valor legado 'free'/'paid' que pode vir de
+    // draft antigo restaurado (initialData) — nunca existiu no banco (enum
+    // 'gratuita' | 'paga' desde migration_01), e 'free' no state faria o
+    // select da StepConfig não casar com nenhuma opção, escondendo o bloco de
+    // doações (achado Codex PR #283).
+    price_type: normalizePriceType(initialData?.form?.price_type),
     price_value: initialData?.form?.price_value || '',
+    price_value_monthly: initialData?.form?.price_value_monthly || '',
+    accepts_donations: initialData?.form?.accepts_donations || false,
+    suggested_donation_value: initialData?.form?.suggested_donation_value || '',
     slots_total: initialData?.form?.slots_total || '4',
     slots_open: initialData?.form?.slots_open || '4', // REQ-02: Vagas abertas
     experience_level: initialData?.form?.experience_level || 'todos',
@@ -289,8 +297,11 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
         modality: 'online',
         audience: 'livre',
         age_rating: 'livre',
-        price_type: 'free',
+        price_type: 'gratuita',
         price_value: '',
+        price_value_monthly: '',
+        accepts_donations: false,
+        suggested_donation_value: '',
         slots_total: '4',
         slots_open: '4', // REQ-02: Vagas abertas
         experience_level: 'todos',

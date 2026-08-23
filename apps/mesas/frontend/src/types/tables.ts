@@ -103,6 +103,9 @@ export interface TableCard {
 export interface TableDetail extends TableCard {
   age_rating: TableAgeRating | null;
   price_frequency: string | null;
+  price_value_monthly: number | null; // Valor individual por sessão no pacote mensal (opcional, mesa paga)
+  accepts_donations: boolean; // Doações (exclusivo de mesa gratuita)
+  suggested_donation_value: number | null; // Valor sugerido por sessão (opcional; exige accepts_donations)
   starts_at: string | null;
   schedule_day_status?: ScheduleDefinitionStatus;
   schedule_time_status?: ScheduleDefinitionStatus;
