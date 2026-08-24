@@ -32,7 +32,16 @@ export const prodDb = new Proxy({} as Kysely<Database> & { isProdConnection: boo
     // Lazy-initialize on first method/property access
     const instance = getProdDb();
     const value = Reflect.get(instance, prop, instance);
-    // Bind methods to the instance to preserve 'this' context
-    return typeof value === 'function' ? value.bind(instance) : value;
+    if (typeof value !== 'function') return value;
+    // `prodDb.fn` do Kysely e um objeto *callable* com metodos anexados
+    // (`count`, `sum`, `countAll`, ...). `Function.prototype.bind` cria uma
+    // funcao nova e DESCARTA essas propriedades, entao `db.fn.count` virava
+    // `undefined` (medido em producao: `db.fn.count is not a function` no
+    // POST /api/v1/profile/links do mesas-api). Bind preserva o `this` dos
+    // metodos herdados do prototype; copiar as own properties de volta
+    // preserva os modulos callable.
+    const bound = value.bind(instance) as typeof value;
+    Object.defineProperties(bound, Object.getOwnPropertyDescriptors(value));
+    return bound;
   },
 });

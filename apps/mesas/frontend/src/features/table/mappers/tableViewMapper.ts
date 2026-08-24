@@ -249,6 +249,10 @@ export function mapTableToView(table: TableDetail): TableViewModel {
     systemWebsiteUrl: table.system_website_url ?? undefined,
     experience: table.experience_level,
     modality: table.modality,
+    // R24/A27 (spec 096): faixa etária crua da API. A filtragem de exibição
+    // ('livre'/null não aparecem) é decisão da UI, não do mapper — o VM
+    // carrega o dado, os componentes escolhem o que renderizar.
+    ageRating: table.age_rating ?? undefined,
 
     // Vagas
     slotsLeft,

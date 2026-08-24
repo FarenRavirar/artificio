@@ -399,10 +399,6 @@ export function CreateTableForm({
             setBannerDimensions={formHook.setBannerDimensions}
             bannerError={formHook.bannerError}
             setBannerError={formHook.setBannerError}
-            gmAvatarUrl={formHook.gmAvatarUrl}
-            setGmAvatarUrl={formHook.setGmAvatarUrl}
-            avatarError={formHook.avatarError}
-            setAvatarError={formHook.setAvatarError}
             isCovilMesa={formHook.isCovilMesa}
             setIsCovilMesa={formHook.setIsCovilMesa}
             isDdalEligibleSelection={isDdalEligibleSelection}

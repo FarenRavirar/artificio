@@ -10,6 +10,7 @@ import { SystemBadge } from './SystemBadge';
 import { CertificationBadges } from './CertificationBadges';
 import { applyTableImageFallback, resolveTableImageSource } from '../utils/tableImage';
 import { isUsableImageSrc } from '../utils/imageSource';
+import { ageRatingLabel, isRestrictedAgeRating } from '../utils/ageRating';
 import { useAuth } from '../contexts/useAuth';
 import { startSsoLogin } from '../utils/auth';
 import { GmReviewSummary } from '@artificio/ui';
@@ -339,6 +340,24 @@ export function TableCardComponent({ table }: { table: TableCard }) {
           ) : (
             <span className="rounded-md bg-[var(--surface-panel)]/85 px-2 py-1 text-[11px] font-bold text-[var(--fg)] backdrop-blur-sm">
               {slotsLeft} {slotsLeft === 1 ? 'vaga' : 'vagas'}
+            </span>
+          )}
+          {/* R24/A27 (spec 096): faixa etária visível no card do catálogo —
+              corrige as 57 mesas importadas que já têm faixa real sem nenhum
+              mestre editar nada. 'livre' aparece como marcador discreto (sem o
+              🔞 de restrição — decisão do mantenedor 2026-08-24); null/valor
+              fora do enum ficam em silêncio. */}
+          {ageRatingLabel(table.age_rating) !== null && (
+            <span
+              className={`rounded-md bg-black/55 px-2 py-1 text-[11px] backdrop-blur-sm ${
+                isRestrictedAgeRating(table.age_rating)
+                  ? 'font-black tracking-wide text-white'
+                  : 'font-semibold tracking-wide text-white/90'
+              }`}
+            >
+              {isRestrictedAgeRating(table.age_rating)
+                ? `🔞 ${table.age_rating}`
+                : ageRatingLabel(table.age_rating)}
             </span>
           )}
         </div>

@@ -1,6 +1,6 @@
 import type { CropRect } from '@artificio/media/image-kinds';
 
-import type { TableSchedule, TableContact, PriceType } from '../../../types/tables';
+import type { TableSchedule, TableContact, PriceType, TableAgeRating } from '../../../types/tables';
 
 /**
  * Variantes de renderização para componentes de mesa
@@ -92,6 +92,12 @@ export interface TableViewModel {
   systemWebsiteUrl?: string | null;
   experience: string;
   modality: string;
+  /**
+   * R24/A27 (spec 096): faixa etária real da mesa, quando existe. A UI decide
+   * exibir: `'livre'` legítima não ganha selo — silêncio é o comportamento
+   * correto, sem ruído visual.
+   */
+  ageRating?: TableAgeRating;
 
   // Vagas
   slotsLeft: number;

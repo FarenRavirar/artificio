@@ -67,3 +67,86 @@ describe('mapTableApiToInitialData', () => {
     expect(result.form?.price_type).toBe('gratuita');
   });
 });
+
+/**
+ * Fixture no formato REAL da resposta de GET /api/v1/gm/tables/:id
+ * (gmPanel.ts:564-576): linha flat de `tables` (selectAll) + `contacts` +
+ * `schedules` (selectAll de table_schedules, ordenado por sort_order) +
+ * `slots_available` calculado. `is_covil` é coluna real da linha; `sessions`
+ * e `is_covil_mesa` NÃO existem em resposta nenhuma.
+ */
+function makeRealGmPanelTable(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: '11111111-1111-1111-1111-111111111111',
+    title: 'Mesa Covil real',
+    is_covil: true,
+    schedules: [
+      {
+        id: 'sched-1',
+        table_id: '11111111-1111-1111-1111-111111111111',
+        day_of_week: 'sexta',
+        start_time: '19:00:00',
+        end_time: '22:00:00',
+        frequency: 'semanal',
+        slots_per_session: 4,
+        is_ongoing: false,
+        notes: null,
+        sort_order: 0,
+        created_at: '2026-08-01T00:00:00.000Z',
+      },
+      {
+        id: 'sched-2',
+        table_id: '11111111-1111-1111-1111-111111111111',
+        day_of_week: 'sábado',
+        start_time: '14:00:00',
+        end_time: null,
+        frequency: 'semanal',
+        slots_per_session: null,
+        is_ongoing: false,
+        notes: null,
+        sort_order: 1,
+        created_at: '2026-08-01T00:00:00.000Z',
+      },
+    ],
+    contacts: [],
+    ...overrides,
+  };
+}
+
+describe('mapTableApiToInitialData — resposta real de GET /gm/tables/:id', () => {
+  it('preserva todos os schedules reais da API (bug 2: lia data.sessions, que nunca existe na resposta)', () => {
+    const result = mapTableApiToInitialData(makeRealGmPanelTable());
+
+    expect(result.sessions).toHaveLength(2);
+    expect(result.sessions?.[0].day_of_week).toBe('sexta');
+    expect(result.sessions?.[1].day_of_week).toBe('sábado');
+  });
+
+  it('is_covil true da API vira isCovilMesa true (bug 1: lia is_covil_mesa, que nunca existe)', () => {
+    const result = mapTableApiToInitialData(makeRealGmPanelTable());
+
+    expect(result.isCovilMesa).toBe(true);
+  });
+
+  it('is_covil false da API vira isCovilMesa false (mesa comum não vira Covil)', () => {
+    const result = mapTableApiToInitialData(makeRealGmPanelTable({ is_covil: false }));
+
+    expect(result.isCovilMesa).toBe(false);
+  });
+
+  it('schedules vazio cai no defaultSession com os hints da linha (fallback preservado)', () => {
+    const result = mapTableApiToInitialData(
+      makeRealGmPanelTable({
+        schedules: [],
+        schedule_day_status: 'defined',
+        schedule_time_status: 'defined',
+        schedule_day_hint: 'quarta',
+        schedule_time_hint: '20:00',
+      }),
+    );
+
+    expect(result.sessions).toHaveLength(1);
+    expect(result.sessions?.[0].day_of_week).toBe('quarta');
+    expect(result.sessions?.[0].start_time).toBe('20:00');
+  });
+});

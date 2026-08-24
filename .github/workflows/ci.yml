@@ -80,6 +80,19 @@ jobs:
       - name: CJS workspace exports smoke
         run: pnpm smoke:cjs-exports
 
+      # Carrega cada Proxy lazy de `db` e confere que `db.fn` chega com os 11
+      # metodos do Kysely. O commit 85063da (19/06/2026, D078) fez o handler
+      # bindar todo valor `function`, e `bind` DESCARTA as own properties de um
+      # objeto callable: `db.fn.count` virou `undefined` e todo
+      # POST /api/v1/profile/links respondeu 500 por mais de dois meses. Lint,
+      # build, typecheck e os 114 testes passaram verdes — `bind` e valido em
+      # TS e nenhum teste tocava a rota. So um smoke de runtime pega isto.
+      - name: DB Proxy callable modules smoke
+        env:
+          DATABASE_URL: postgres://smoke:smoke@127.0.0.1:5432/smoke
+          PROD_DB_URL: postgres://smoke:smoke@127.0.0.1:5432/smoke
+        run: pnpm smoke:db-proxy
+
       # Confere que o passo seguinte tem o que checar: pacote com teste que
       # nenhum `tsc` alcança falha aqui. Sem isto, a cobertura dependeria de
       # cada autor lembrar de criar a tarefa `typecheck` ao adicionar pacote —

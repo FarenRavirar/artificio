@@ -110,10 +110,8 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
     setBannerWidth(dimensions?.width ?? null);
     setBannerHeight(dimensions?.height ?? null);
   };
-  const [gmAvatarUrl, setGmAvatarUrl] = useState(initialData?.gmAvatarUrl || '');
   const [isCovilMesa, setIsCovilMesa] = useState(initialData?.isCovilMesa || false);
   const [bannerError, setBannerError] = useState(false);
-  const [avatarError, setAvatarError] = useState(false);
 
   // DDAL
   const [ddal, setDdal] = useState<DdalFormState>({
@@ -195,7 +193,6 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
     bannerCropData,
     bannerWidth,
     bannerHeight,
-    gmAvatarUrl,
     isCovilMesa,
     ddal,
     masterDisplayName,
@@ -398,12 +395,8 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
     bannerHeight,
     setBannerDimensions,
     setBannerCropData,
-    gmAvatarUrl,
-    setGmAvatarUrl,
     bannerError,
     setBannerError,
-    avatarError,
-    setAvatarError,
     isCovilMesa,
     setIsCovilMesa,
     ddal,

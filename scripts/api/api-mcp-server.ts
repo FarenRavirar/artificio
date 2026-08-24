@@ -117,6 +117,19 @@ async function handle(message: Record<string, unknown>): Promise<void> {
     return;
   }
 
+  // O Codex consulta recursos e templates durante a descoberta mesmo quando o
+  // servidor anuncia apenas `tools`. Responder listas vazias mantém o servidor
+  // compatível sem declarar uma capability de recursos que ele não oferece.
+  if (method === 'resources/list') {
+    respond(id, { resources: [] });
+    return;
+  }
+
+  if (method === 'resources/templates/list') {
+    respond(id, { resourceTemplates: [] });
+    return;
+  }
+
   if (method === 'tools/call') {
     const name = String(params.name ?? '');
     const args = (params.arguments && typeof params.arguments === 'object')

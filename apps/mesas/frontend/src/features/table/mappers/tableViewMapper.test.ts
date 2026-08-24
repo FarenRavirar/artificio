@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeNumeric } from './tableViewMapper';
+import { normalizeNumeric, mapTableToView } from './tableViewMapper';
+import type { TableDetail } from '../../../types/tables';
 
 // normalizeNumeric é a fronteira que converte NUMERIC do pg (string sem parser
 // para o OID 1700) no view model da página da mesa. Estrito por tipo: boolean,
@@ -38,5 +39,75 @@ describe('normalizeNumeric — fronteira NUMERIC do view model', () => {
     expect(normalizeNumeric(Infinity)).toBeUndefined();
     expect(normalizeNumeric({})).toBeUndefined();
     expect(normalizeNumeric(['50'])).toBeUndefined();
+  });
+});
+
+/**
+ * Fixture mínima de TableDetail para os testes de mapeamento. Apenas os
+ * campos obrigatórios do contrato (types/tables.ts); o resto entra por
+ * override em cada caso.
+ */
+function makeTableDetail(overrides: Partial<TableDetail> = {}): TableDetail {
+  return {
+    id: 'table-1',
+    slug: 'mesa-teste',
+    title: 'Mesa teste',
+    description: null,
+    cover_url: null,
+    status: 'active',
+    type: 'campanha',
+    audience: 'livre',
+    modality: 'online',
+    price_type: 'gratuita',
+    price_value: null,
+    slots_total: 5,
+    slots_filled: 1,
+    slots_open: 4,
+    language: 'pt-BR',
+    experience_level: 'intermediario',
+    featured: false,
+    publisher_role: 'gm',
+    actual_gm_name: null,
+    contacts: [],
+    system_name: 'Dungeons & Dragons',
+    system_slug: 'dungeons-dragons',
+    gm_slug: null,
+    gm_avatar_url: null,
+    gm_display_name: 'Mestre Teste',
+    gm_bio_long: null,
+    is_ddal: false,
+    is_covil: false,
+    created_at: '2026-08-21T00:00:00.000Z',
+    price_frequency: null,
+    price_value_monthly: null,
+    accepts_donations: false,
+    suggested_donation_value: null,
+    starts_at: null,
+    city: null,
+    state: null,
+    content_warnings: [],
+    safety_tools: [],
+    table_gm_bio: null,
+    ...overrides,
+  };
+}
+
+// R24/A27 (spec 096): a faixa etária viaja crua da API para o ViewModel; a
+// decisão de EXIBIR (faixa real sim, 'livre' não) é dos componentes, não do
+// mapper — o VM carrega o dado para os dois lados decidirem igual.
+describe('mapTableToView — ageRating (R24/A27)', () => {
+  it('mapeia faixa etária real da API para o ViewModel', () => {
+    const vm = mapTableToView(makeTableDetail({ age_rating: '+16' }));
+    expect(vm.ageRating).toBe('+16');
+  });
+
+  it('preserva "livre" no ViewModel (a filtragem de exibição é da UI)', () => {
+    const vm = mapTableToView(makeTableDetail({ age_rating: 'livre' }));
+    expect(vm.ageRating).toBe('livre');
+  });
+
+  it('mapeia faixa ausente (null) como undefined, sem quebrar', () => {
+    const vm = mapTableToView(makeTableDetail({ age_rating: null }));
+    expect(vm.ageRating).toBeUndefined();
   });
 });

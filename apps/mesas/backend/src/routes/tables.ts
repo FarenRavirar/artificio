@@ -120,6 +120,10 @@ router.get('/', async (req: Request, res: Response) => {
         't.type',
         't.audience',
         't.modality',
+        // R24/A27 (spec 096): faixa etária no card do catálogo — a rota de
+        // detalhe já expunha o campo; a lista, não. Sem ele, as 57 mesas
+        // importadas com faixa real (+14/+16/+18) não têm como exibi-la.
+        't.age_rating',
         't.price_type',
         't.price_value',
         // CORREÇÃO DT-05: Documentação de campos de vagas

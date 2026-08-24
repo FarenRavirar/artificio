@@ -114,10 +114,18 @@ describe('TableActionPanel — PricePanel com pacote mensal', () => {
         vm={makeVm({ visibility: showPrice, price: 55, priceFrequency: 'sessao', priceMonthly: 40 })}
       />,
     );
-    expect(screen.getByText('Pacote mensal:', { exact: false })).toBeTruthy();
-    expect(screen.getByText('R$ 40')).toBeTruthy();
+    // A8: o avulso de R$ 55 permanece visível junto com o pacote mensal.
+    expect(screen.getByText('R$ 55', { exact: false })).toBeTruthy();
+    const monthlyLine = screen.getByText('Pacote mensal:', { exact: false });
+    expect(monthlyLine).toBeTruthy();
+    // A8: "R$ 40 / sessão" — valor individual do pacote mensal explícito.
+    expect(monthlyLine.textContent).toContain('R$ 40 / sessão');
     // 1 - 40/55 = 27.27... → arredondado para 27
     expect(screen.getByText('economize ~27%')).toBeTruthy();
+    // A8: economia exibida apenas como percentual — nenhum valor monetário
+    // derivado (ex.: "economize R$ 15") pode aparecer.
+    expect(screen.queryByText(/economize R\$/)).toBeNull();
+    expect(screen.queryByText('R$ 15', { exact: false })).toBeNull();
   });
 
   it('não mostra economia quando mensal >= avulso, mas mostra o valor mensal', () => {
@@ -219,5 +227,41 @@ describe('TableActionPanel — PricePanel de mesa gratuita (doações)', () => {
     render(<TableActionPanel vm={makeVm({ price: undefined })} />);
     expect(screen.queryByText(/Gratuita/)).toBeNull();
     expect(screen.queryByText(/Paga/)).toBeNull();
+  });
+});
+
+/**
+ * Ficha técnica (QuickInfoPanel) — faixa etária (R24/A27, spec 096). Mesma
+ * regra dos demais campos da ficha: preenchido aparece, vazio some. A exceção
+ * de produto: 'livre' legítima NÃO ganha linha — silêncio é o correto.
+ */
+describe('TableActionPanel — faixa etária na ficha técnica (R24/A27)', () => {
+  it('mostra linha "Faixa etária" com o valor quando há faixa real', () => {
+    render(<TableActionPanel vm={makeVm({ ageRating: '+16' })} />);
+    expect(screen.getByText('Faixa etária')).toBeTruthy();
+    expect(screen.getByText('+16')).toBeTruthy();
+  });
+
+  it('mostra linha "Faixa etária" com "Livre" para mesa livre', () => {
+    // Decisão do mantenedor (2026-08-24): ao escolher Livre, tem que aparecer
+    // — na ficha é a linha comum, sem selo de restrição.
+    render(<TableActionPanel vm={makeVm({ ageRating: 'livre' })} />);
+    expect(screen.getByText('Faixa etária')).toBeTruthy();
+    expect(screen.getByText('Livre')).toBeTruthy();
+  });
+
+  it('não mostra linha quando a faixa é ausente', () => {
+    render(<TableActionPanel vm={makeVm({ ageRating: undefined })} />);
+    expect(screen.queryByText('Faixa etária')).toBeNull();
+  });
+
+  it('não mostra linha para valor fora do enum (lista positiva)', () => {
+    render(
+      <TableActionPanel
+        vm={makeVm({ ageRating: 'Livre' as unknown as TableViewModel['ageRating'] })}
+      />,
+    );
+    expect(screen.queryByText('Faixa etária')).toBeNull();
+    expect(screen.queryByText('Livre')).toBeNull();
   });
 });

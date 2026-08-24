@@ -948,6 +948,14 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       scenario_id: data.scenario_id,
       type: data.type,
       audience: data.audience,
+      // T3.2 (spec 096): age_rating/table_level seguem o MESMO padrão do
+      // price_type acima — o updateTableSchema (.partial() sobre baseTableSchema
+      // com .default()) materializa 'livre'/'todos' mesmo quando o body não
+      // enviou os campos; gravar esse default rebaixaria a faixa salva em toda
+      // edição que não toca nela. Só grava quando o chamador enviou o campo;
+      // omitido fica undefined e o Kysely preserva o valor salvo.
+      age_rating: Object.prototype.hasOwnProperty.call(req.body, 'age_rating') ? data.age_rating : undefined,
+      table_level: Object.prototype.hasOwnProperty.call(req.body, 'table_level') ? data.table_level : undefined,
       modality: data.modality,
       price_type: Object.prototype.hasOwnProperty.call(req.body, 'price_type') ? data.price_type : undefined,
       price_value: data.price_value,

@@ -9,6 +9,7 @@ import { CopyAnnouncementButton } from './CopyAnnouncementButton';
 import { isTableAnnounceable } from '../share/whatsappAnnouncement';
 import { useTracking } from '../../../hooks/useTracking';
 import { authDelete } from '../../../services/apiClient';
+import { ageRatingLabel } from '../../../utils/ageRating';
 
 interface TableActionPanelProps {
   readonly vm: TableViewModel;
@@ -189,6 +190,16 @@ function QuickInfoPanel({ vm, showStatus = false, className = '' }: { readonly v
         <span className="text-[var(--fg-muted)]">Experiência</span>
         <span className="text-[var(--fg)] font-medium">{vm.experience}</span>
       </div>
+      {/* R24/A27 (spec 096): faixa etária visível ao jogador na página da mesa.
+          Faixas reais e 'livre' aparecem ("Livre" é a informação, não o selo
+          🔞 de restrição — decisão do mantenedor 2026-08-24); null/valor fora
+          do enum ficam em silêncio. */}
+      {ageRatingLabel(vm.ageRating) !== null && (
+        <div className="flex justify-between">
+          <span className="text-[var(--fg-muted)]">Faixa etária</span>
+          <span className="text-[var(--fg)] font-medium">{ageRatingLabel(vm.ageRating)}</span>
+        </div>
+      )}
       {/* R24 + aceite 13 (spec 093): idioma aparece sempre que preenchido, inclusive
           `pt-BR`. A versão anterior escondia `pt-BR` alegando ruído (92/94 em produção),
           mas isso contradizia o aceite — e a premissa estava errada: `pt-BR` NÃO é default

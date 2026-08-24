@@ -43,11 +43,14 @@ export function LinksManager() {
     setAddError(null);
 
     const result = await addLink(newUrl.trim());
-    
-    if (result) {
+
+    if (result.ok) {
       setNewUrl('');
     } else {
-      setAddError('Erro ao adicionar link. Verifique a URL e tente novamente.');
+      // Mostrar a mensagem real do backend ("Limite de 10 links atingido",
+      // "URL invalida", falha de servidor). A mensagem generica anterior
+      // atribuia todo erro a URL e escondia 500/401 do usuario.
+      setAddError(result.error);
     }
     
     setAdding(false);

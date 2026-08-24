@@ -105,6 +105,21 @@ export function formStateToPayload(state: FormState): CreateTablePayload {
     return Number.isFinite(parsed) ? parsed : undefined;
   };
 
+  // T3.2d (spec 096): slots_filled ganha ESCRITOR no fluxo manual. Decisão
+  // medida: o parser escreve slots_total - slots_open
+  // (parseDiscordAnnouncement.ts:2820), o leitor visual deriva
+  // filled = total - open quando slots_open existe (utils/slots.ts:46) e o
+  // GET /gm/tables/:id expõe slots_available = total - filled (gmPanel.ts:575)
+  // — uma semântica só: filled = total - open. O form coleta os dois
+  // (StepSessions.tsx), então o payload deriva e envia o terceiro; sem isso,
+  // mesas manuais ficavam slots_filled=0 (default da coluna) e os leitores
+  // que usam total - filled (painel do mestre, useMestre.ts:164) contavam
+  // vagas abertas erradas. Clamp [0, total] preserva os CHECKs do Postgres
+  // (slots_filled_valid / check_slots_valid) mesmo com estado inválido.
+  const parsedSlotsTotal = parseInt(state.form.slots_total) || 0;
+  const parsedSlotsOpen = parseInt(state.form.slots_open) || 0;
+  const slotsFilled = Math.min(Math.max(parsedSlotsTotal - parsedSlotsOpen, 0), parsedSlotsTotal);
+
   // Construir payload base
   const payload: CreateTablePayload = {
     title: state.form.title,
@@ -112,8 +127,9 @@ export function formStateToPayload(state: FormState): CreateTablePayload {
     type: state.form.type,
     modality: state.form.modality,
     price_type: normalizePriceType(state.form.price_type),
-    slots_total: parseInt(state.form.slots_total) || 0,
-    slots_open: parseInt(state.form.slots_open) || 0, // REQ-02: Vagas abertas
+    slots_total: parsedSlotsTotal,
+    slots_open: parsedSlotsOpen, // REQ-02: Vagas abertas
+    slots_filled: slotsFilled,
     language: state.form.language,
     system_id: state.selectedSystemId,
     scenario_id: state.selectedScenarioId,
@@ -130,11 +146,16 @@ export function formStateToPayload(state: FormState): CreateTablePayload {
     banner_crop_data: state.bannerCropData ?? undefined,
     banner_width: state.bannerWidth ?? undefined,
     banner_height: state.bannerHeight ?? undefined,
-    gm_avatar_url: state.gmAvatarUrl || undefined,
     is_covil: state.isCovilMesa,
     is_ddal: state.ddal.is_ddal,
     // CORREÇÃO REG-04, REG-05, REG-06: Adicionar campos ausentes
     audience: state.form.audience,
+    // T3.2 (spec 096): enviar faixa etária e nível da mesa coletados no form
+    // (StepConfig.tsx) — antes descartados aqui e o banco gravava os defaults.
+    // table_level vazio ('') omite o campo: create cai no DEFAULT 'todos' da
+    // coluna, PUT preserva o valor salvo (mesmo comportamento de hoje).
+    age_rating: state.form.age_rating,
+    table_level: state.form.table_level || undefined,
     experience_level: state.form.experience_level,
     starts_at: state.form.starts_at || undefined,
     city: state.form.city || undefined,

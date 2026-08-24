@@ -83,7 +83,12 @@ export function mapTableApiToInitialData(apiData: unknown): Partial<FormState> &
 
   const bannerFrame = normalizeImageFrame(data, 'banner');
 
-  const sessions = Array.isArray(data.sessions) ? data.sessions.filter(isSessionSchedule) : [];
+  // T3.1 (spec 096, bug 2 de edição): a resposta de GET /gm/tables/:id devolve
+  // `schedules` (selectAll de table_schedules, gmPanel.ts:562-574) — `sessions`
+  // nunca existiu no contrato e fazia TODO o fluxo de edição cair no
+  // defaultSession (dados de agenda descartados no primeiro save). O filtro e o
+  // fallback continuam iguais, só a chave muda.
+  const sessions = Array.isArray(data.schedules) ? data.schedules.filter(isSessionSchedule) : [];
   const contacts = Array.isArray(data.contacts) ? data.contacts.filter(isContactEntry) : [];
 
   return {
@@ -139,8 +144,10 @@ export function mapTableApiToInitialData(apiData: unknown): Partial<FormState> &
     bannerCropData: bannerFrame.crop,
     bannerWidth: bannerFrame.width,
     bannerHeight: bannerFrame.height,
-    gmAvatarUrl: stringValue(data, 'gm_avatar_url'),
-    isCovilMesa: booleanValue(data, 'is_covil_mesa'),
+    // T3.1 (spec 096, bug 1 de edição): a coluna/resposta é `is_covil` —
+    // `is_covil_mesa` nunca existiu e fazia toda edição enviar is_covil:false
+    // (mapper.ts), desmarcando mesa Covil a cada save.
+    isCovilMesa: booleanValue(data, 'is_covil'),
 
     ddal: {
       is_ddal: booleanValue(data, 'is_ddal'),

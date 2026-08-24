@@ -12,6 +12,10 @@ function makeState(overrides: {
   price_value_monthly?: string;
   accepts_donations?: boolean;
   suggested_donation_value?: string;
+  table_level?: string;
+  slots_total?: string;
+  slots_open?: string;
+  age_rating?: string;
 } = {}): FormState {
   const state: FormState = {
     form: {
@@ -20,16 +24,16 @@ function makeState(overrides: {
       type: 'campanha',
       modality: 'online',
       audience: 'livre',
-      age_rating: 'livre',
+      age_rating: overrides.age_rating ?? 'livre',
       price_type: overrides.price_type ?? 'paga',
       price_value: overrides.price_value ?? '25',
       price_value_monthly: overrides.price_value_monthly,
       accepts_donations: overrides.accepts_donations ?? false,
       suggested_donation_value: overrides.suggested_donation_value,
-      slots_total: '4',
-      slots_open: '4',
+      slots_total: overrides.slots_total ?? '4',
+      slots_open: overrides.slots_open ?? '4',
       experience_level: 'todos',
-      table_level: '',
+      table_level: overrides.table_level ?? '',
       language: 'pt-BR',
     },
     selectedSystemId: 'system-1',
@@ -55,7 +59,6 @@ function makeState(overrides: {
     bannerCropData: null,
     bannerWidth: null,
     bannerHeight: null,
-    gmAvatarUrl: '',
     isCovilMesa: false,
     ddal: {
       is_ddal: false,
@@ -288,5 +291,61 @@ describe('normalizePriceType — legado free/paid (achado Codex PR #283)', () =>
   it('valores atuais passam intactos', () => {
     expect(normalizePriceType('gratuita')).toBe('gratuita');
     expect(normalizePriceType('paga')).toBe('paga');
+  });
+});
+
+describe('formStateToPayload — age_rating e table_level (T3.2, spec 096)', () => {
+  it('envia age_rating escolhida no form (+18 não vira o default do banco)', () => {
+    const payload = formStateToPayload(makeState({ age_rating: '+18' }));
+    expect(payload.age_rating).toBe('+18');
+    expect(JSON.stringify(payload)).toContain('"age_rating":"+18"');
+  });
+
+  it('envia table_level escolhida no form (avancado não vira o default do banco)', () => {
+    const payload = formStateToPayload(makeState({ table_level: 'avancado' }));
+    expect(payload.table_level).toBe('avancado');
+    expect(JSON.stringify(payload)).toContain('"table_level":"avancado"');
+  });
+
+  it('table_level vazio (não escolhido) omite o campo — create usa o DEFAULT do banco e PUT preserva o salvo', () => {
+    const payload = formStateToPayload(makeState({ table_level: '' }));
+    expect(payload.table_level).toBeUndefined();
+    expect(JSON.stringify(payload)).not.toContain('table_level');
+  });
+
+  it('table_level "todos" (valor real do enum do banco) é enviado', () => {
+    const payload = formStateToPayload(makeState({ table_level: 'todos' }));
+    expect(payload.table_level).toBe('todos');
+  });
+});
+
+describe('formStateToPayload — gm_avatar_url fora do contrato do form (T3.2c, spec 096)', () => {
+  it('payload não contém gm_avatar_url (decisão 2026-08-23 opção C; o alias da resposta da API continua)', () => {
+    const payload = formStateToPayload(makeState({}));
+    expect('gm_avatar_url' in payload).toBe(false);
+    expect(JSON.stringify(payload)).not.toContain('gm_avatar_url');
+  });
+});
+
+describe('formStateToPayload — slots_filled (T3.2d, spec 096)', () => {
+  it('deriva slots_filled = total - abertas (mesma semântica do parser, parseDiscordAnnouncement.ts:2820)', () => {
+    const payload = formStateToPayload(makeState({ slots_total: '4', slots_open: '2' }));
+    expect(payload.slots_filled).toBe(2);
+    expect(JSON.stringify(payload)).toContain('"slots_filled":2');
+  });
+
+  it('todas as vagas abertas → slots_filled 0 (mesa nova padrão)', () => {
+    const payload = formStateToPayload(makeState({ slots_total: '4', slots_open: '4' }));
+    expect(payload.slots_filled).toBe(0);
+  });
+
+  it('recrutamento fechado (0 abertas) → slots_filled igual ao total', () => {
+    const payload = formStateToPayload(makeState({ slots_total: '4', slots_open: '0' }));
+    expect(payload.slots_filled).toBe(4);
+  });
+
+  it('abertas maiores que o total (estado inválido) clampa para 0 em vez de negativo', () => {
+    const payload = formStateToPayload(makeState({ slots_total: '4', slots_open: '9' }));
+    expect(payload.slots_filled).toBe(0);
   });
 });

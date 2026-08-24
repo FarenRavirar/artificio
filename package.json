@@ -29,6 +29,7 @@
     "verify:api:full": "tsx scripts/api/verify-api.ts --full",
     "smoke:cjs-exports": "node scripts/ci/check-cjs-workspace-exports.cjs",
     "smoke:test-typecheck-coverage": "node scripts/check-test-typecheck-coverage.mjs",
+    "smoke:db-proxy": "node scripts/ci/check-db-proxy-callable-modules.mjs",
     "prepare": "node scripts/git-hooks/install-hooks.mjs || true"
   },
   "devDependencies": {

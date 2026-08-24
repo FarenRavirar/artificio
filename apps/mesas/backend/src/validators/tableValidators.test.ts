@@ -689,3 +689,124 @@ describe('mergePricingState — merge payload parcial × linha salva', () => {
     expect(merged.price_value).toBeNull();
   });
 });
+
+describe('createTableSchema — age_rating e table_level (T3.2, spec 096)', () => {
+  it('aceita faixa etária e nível escolhidos no form (valores do enum real do Postgres)', () => {
+    const result = createTableSchema.safeParse({
+      title: 'Mesa adulta avançada',
+      system_id: '123e4567-e89b-42d3-a456-426614174000',
+      type: 'campanha',
+      modality: 'online',
+      contacts: [{ channel: 'discord', value: 'mestre' }],
+      age_rating: '+18',
+      table_level: 'avancado',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.age_rating).toBe('+18');
+      expect(result.data.table_level).toBe('avancado');
+    }
+  });
+
+  it('omissão aplica os defaults reais das colunas (livre/todos, medido via information_schema)', () => {
+    const result = createTableSchema.safeParse({
+      title: 'Mesa sem faixa',
+      system_id: '123e4567-e89b-42d3-a456-426614174000',
+      type: 'campanha',
+      modality: 'online',
+      contacts: [{ channel: 'discord', value: 'mestre' }],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.age_rating).toBe('livre');
+      expect(result.data.table_level).toBe('todos');
+    }
+  });
+
+  it.each([
+    ['faixa etária fora do enum', { age_rating: 'x18' }],
+    ['nível fora do enum', { table_level: 'epico' }],
+    ['faixa como número', { age_rating: 18 }],
+    ['nível como número', { table_level: 2 }],
+  ])('rejeita %s', (_label, fields) => {
+    const result = createTableSchema.safeParse({
+      title: 'Mesa inválida',
+      system_id: '123e4567-e89b-42d3-a456-426614174000',
+      type: 'campanha',
+      modality: 'online',
+      contacts: [{ channel: 'discord', value: 'mestre' }],
+      ...fields,
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('updateTableSchema — age_rating e table_level (T3.2, spec 096)', () => {
+  it('PUT com os dois campos gravados preserva os valores', () => {
+    const result = updateTableSchema.parse({ age_rating: '+16', table_level: 'iniciante' });
+    expect(result.age_rating).toBe('+16');
+    expect(result.table_level).toBe('iniciante');
+  });
+
+  it('PUT sem os campos materializa os defaults do schema — o handler só grava com hasOwnProperty', () => {
+    // Este teste documenta a armadilha: `.partial()` preserva o `.default()`,
+    // então o updateData do PUT precisa do guard hasOwnProperty (gmPanel.ts)
+    // para não rebaixar a faixa salva a cada edição que não envia o campo.
+    const result = updateTableSchema.parse({ title: 'Só título' });
+    expect(result.age_rating).toBe('livre');
+    expect(result.table_level).toBe('todos');
+  });
+});
+
+describe('schemas de mesa — slots_filled (T3.2d, spec 096)', () => {
+  it('create aceita slots_filled derivado (total - abertas)', () => {
+    const result = createTableSchema.safeParse({
+      title: 'Mesa com vagas',
+      system_id: '123e4567-e89b-42d3-a456-426614174000',
+      type: 'campanha',
+      modality: 'online',
+      contacts: [{ channel: 'discord', value: 'mestre' }],
+      slots_total: 4,
+      slots_open: 2,
+      slots_filled: 2,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('create rejeita slots_filled > slots_total (espelha o CHECK slots_filled_valid do Postgres)', () => {
+    const result = createTableSchema.safeParse({
+      title: 'Mesa com vagas',
+      system_id: '123e4567-e89b-42d3-a456-426614174000',
+      type: 'campanha',
+      modality: 'online',
+      contacts: [{ channel: 'discord', value: 'mestre' }],
+      slots_total: 4,
+      slots_filled: 9,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('PUT rejeita slots_filled > slots_total quando os dois campos vêm juntos', () => {
+    const result = updateTableSchema.safeParse({ slots_total: 4, slots_filled: 9 });
+    expect(result.success).toBe(false);
+  });
+
+  it('PUT aceita slots_filled válido', () => {
+    const result = updateTableSchema.safeParse({ slots_total: 6, slots_filled: 5 });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('gm_avatar_url fora do contrato do form (T3.2c, spec 096)', () => {
+  it('create rejeita gm_avatar_url como chave desconhecida (strict) — payload do form não envia mais', () => {
+    const result = createTableSchema.safeParse({
+      title: 'Mesa sem avatar',
+      system_id: '123e4567-e89b-42d3-a456-426614174000',
+      type: 'campanha',
+      modality: 'online',
+      contacts: [{ channel: 'discord', value: 'mestre' }],
+      gm_avatar_url: 'https://example.com/avatar.png',
+    });
+    expect(result.success).toBe(false);
+  });
+});

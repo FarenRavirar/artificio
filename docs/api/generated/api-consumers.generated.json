@@ -1576,7 +1576,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 389
+      "line": 400
     },
     {
       "app": "mesas-frontend",
@@ -1586,7 +1586,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 553
+      "line": 571
     },
     {
       "app": "mesas-frontend",
@@ -1686,7 +1686,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 316
+      "line": 321
     },
     {
       "app": "mesas-frontend",
@@ -1776,7 +1776,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 197
+      "line": 198
     },
     {
       "app": "mesas-frontend",
@@ -1786,7 +1786,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPut",
-      "line": 782
+      "line": 800
     },
     {
       "app": "mesas-frontend",
@@ -1796,7 +1796,7 @@
       "confidence": "medium",
       "pattern": "unknown",
       "wrapper": "authPost",
-      "line": 260
+      "line": 257
     },
     {
       "app": "mesas-frontend",
@@ -1806,7 +1806,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 341
+      "line": 346
     },
     {
       "app": "mesas-frontend",
@@ -1816,7 +1816,7 @@
       "confidence": "medium",
       "pattern": "unknown",
       "wrapper": "authPut",
-      "line": 259
+      "line": 256
     },
     {
       "app": "mesas-frontend",
@@ -1826,7 +1826,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 389
+      "line": 400
     },
     {
       "app": "mesas-frontend",
@@ -1836,7 +1836,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authGet",
-      "line": 394
+      "line": 399
     },
     {
       "app": "mesas-frontend",
@@ -1846,7 +1846,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 553
+      "line": 571
     },
     {
       "app": "mesas-frontend",
@@ -1866,7 +1866,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPatch",
-      "line": 527
+      "line": 545
     },
     {
       "app": "mesas-frontend",
@@ -1886,7 +1886,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPatch",
-      "line": 485
+      "line": 497
     },
     {
       "app": "mesas-frontend",
@@ -1966,7 +1966,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 98
+      "line": 102
     },
     {
       "app": "mesas-frontend",
@@ -1976,7 +1976,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 131
+      "line": 137
     },
     {
       "app": "mesas-frontend",
@@ -1986,7 +1986,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 167
+      "line": 178
     },
     {
       "app": "mesas-frontend",
@@ -1996,7 +1996,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPatch",
-      "line": 192
+      "line": 203
     },
     {
       "app": "mesas-frontend",
@@ -2296,7 +2296,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 251
+      "line": 252
     },
     {
       "app": "mesas-frontend",
@@ -2326,7 +2326,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 260
+      "line": 261
     },
     {
       "app": "mesas-frontend",
@@ -2356,7 +2356,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 74
+      "line": 75
     },
     {
       "app": "mesas-frontend",
@@ -2366,7 +2366,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 99
+      "line": 100
     },
     {
       "app": "mesas-frontend",
