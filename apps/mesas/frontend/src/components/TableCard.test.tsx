@@ -136,7 +136,9 @@ describe('TableCardComponent — semântica de links', () => {
 });
 
 // R24/A27 (spec 096): faixa etária visível no card do catálogo. Faixas reais
-// ganham selo; 'livre' legítima e ausente (null) ficam em silêncio.
+// ganham o selo 🔞; 'livre' aparece como marcador discreto "Livre", sem o selo
+// de restrição (decisão do mantenedor, 2026-08-24); ausente (null) ou valor
+// fora do enum fica em silêncio.
 describe('TableCardComponent — faixa etária (R24/A27)', () => {
   function renderCard(card: TableCard) {
     const queryClient = new QueryClient();

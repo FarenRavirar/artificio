@@ -153,7 +153,10 @@ export interface CreateTablePayload {
   table_level?: string;
   // T3.2d (spec 096): slots_filled ganhou escritor no fluxo manual (antes só
   // o parser escrevia; mesas manuais ficavam com 0 e os leitores que derivam
-  // total - filled contavam vagas erradas). Semântica única: total - open.
+  // total - filled contavam vagas erradas). Opcional de propósito: só a
+  // CRIAÇÃO deriva total - open; a EDIÇÃO omite o campo para preservar os
+  // jogadores confirmados já salvos (achado Codex, PR #285) — filled e open
+  // são contagens independentes, ver mapper.ts.
   slots_filled?: number;
   experience_level?: string;
   starts_at?: string;

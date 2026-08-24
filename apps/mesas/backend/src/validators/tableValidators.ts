@@ -542,6 +542,64 @@ export function mergePricingState(
   };
 }
 
+/**
+ * Linha salva com os campos de vagas, para a validação do PUT parcial.
+ */
+export interface TableSlotsRow {
+  slots_total: number;
+  slots_filled: number;
+  slots_open: number;
+}
+
+/**
+ * Estado resultante das vagas para a validação do PUT parcial: campo ENVIADO
+ * no body vence, omitido herda o salvo. Mesmo padrão de `mergePricingState`.
+ *
+ * Por que o refine do `updateTableSchema` não basta (achado Codex, PR #285):
+ * a linha salva não é visível de dentro do schema. O patch que escapava é o
+ * de **só `slots_total`**, reduzido abaixo do `slots_filled` salvo — que é
+ * exatamente o que o form de edição envia, já que ele omite `slots_filled`
+ * (mapper.ts). Medido: patch só com `slots_filled` ou só com `slots_open` NÃO
+ * escapa, porque o `.partial()` preserva o `.default(4)` de `slots_total` e o
+ * refine dispara no parse comparando contra esse default.
+ *
+ * Não havia corrupção de dado: os CHECKs do Postgres (`slots_filled_valid`,
+ * `check_slots_valid`) barram a escrita. O defeito era o mestre levar 500 em
+ * vez de 400 com mensagem. Medido em produção: 9 mesas com
+ * `slots_filled >= 3` alcançam esse caminho ao reduzir o total.
+ */
+export function mergeSlotsState(
+  payload: UpdateTableInput,
+  body: Record<string, unknown>,
+  existing: TableSlotsRow,
+): TableSlotsRow {
+  const sent = (key: string) => Object.prototype.hasOwnProperty.call(body, key);
+  return {
+    slots_total: sent('slots_total') ? (payload.slots_total ?? existing.slots_total) : existing.slots_total,
+    slots_filled: sent('slots_filled') ? (payload.slots_filled ?? existing.slots_filled) : existing.slots_filled,
+    slots_open: sent('slots_open') ? (payload.slots_open ?? existing.slots_open) : existing.slots_open,
+  };
+}
+
+/**
+ * Invariantes de vagas sobre o ESTADO RESULTANTE, espelhando os CHECKs do
+ * Postgres para devolver 400 com mensagem em vez de 500 do banco.
+ */
+export const slotsConsistencySchema = z
+  .object({
+    slots_total: z.number().int().min(0),
+    slots_filled: z.number().int().min(0),
+    slots_open: z.number().int().min(0),
+  })
+  .refine((s) => s.slots_filled <= s.slots_total, {
+    message: 'Vagas preenchidas não pode ser maior que vagas totais',
+    path: ['slots_filled'],
+  })
+  .refine((s) => s.slots_open <= s.slots_total, {
+    message: 'Vagas abertas não pode ser maior que vagas totais',
+    path: ['slots_open'],
+  });
+
 export type CreateTableInput = z.infer<typeof createTableSchema>;
 export type UpdateTableInput = z.infer<typeof updateTableSchema>;
 export type TableContact = z.infer<typeof contactSchema>;

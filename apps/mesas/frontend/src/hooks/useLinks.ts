@@ -156,13 +156,15 @@ export function useLinks(): UseLinksReturn {
         return { ok: true, link: newLink };
       } catch (err: unknown) {
         console.error('Error adding link:', err);
-        // Devolve a mensagem real do backend junto com o resultado: o state
-        // `error` e assincrono e ainda nao esta atualizado quando o chamador
-        // le o retorno, e foi por isso que o painel mostrava sempre
-        // "Verifique a URL" para um 500 (`db.fn.count is not a function`).
-        const message = getErrorMessage(err, 'Erro ao adicionar link');
-        setError(message);
-        return { ok: false, error: message };
+        // Canal unico: a falha volta SO no resultado, para o LinksManager
+        // guardar em `addError` e renderizar junto do formulario. Nao setamos
+        // o `error` do hook aqui — ele alimenta outro bloco de render (a
+        // mensagem de carregamento da lista), e escrever nos dois fazia a
+        // mesma falha aparecer duas vezes na tela (achado Codex, PR #285).
+        // O retorno carrega a mensagem real porque o state e assincrono e
+        // ainda nao estaria atualizado quando o chamador le o resultado — foi
+        // por isso que o painel mostrava sempre "Verifique a URL" para um 500.
+        return { ok: false, error: getErrorMessage(err, 'Erro ao adicionar link') };
       }
     },
     [isAuthenticated]

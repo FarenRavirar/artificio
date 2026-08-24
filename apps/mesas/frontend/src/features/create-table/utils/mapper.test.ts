@@ -327,8 +327,11 @@ describe('formStateToPayload — gm_avatar_url fora do contrato do form (T3.2c, 
   });
 });
 
-describe('formStateToPayload — slots_filled (T3.2d, spec 096)', () => {
-  it('deriva slots_filled = total - abertas (mesma semântica do parser, parseDiscordAnnouncement.ts:2820)', () => {
+describe('formStateToPayload — slots_filled na CRIAÇÃO (T3.2d, spec 096)', () => {
+  // Na criação não há contagem anterior a preservar, então derivar
+  // total - open é correto — é como o parser de anúncio faz a mesa nascer
+  // (parseDiscordAnnouncement.ts:2820).
+  it('deriva slots_filled = total - abertas', () => {
     const payload = formStateToPayload(makeState({ slots_total: '4', slots_open: '2' }));
     expect(payload.slots_filled).toBe(2);
     expect(JSON.stringify(payload)).toContain('"slots_filled":2');
@@ -347,5 +350,44 @@ describe('formStateToPayload — slots_filled (T3.2d, spec 096)', () => {
   it('abertas maiores que o total (estado inválido) clampa para 0 em vez de negativo', () => {
     const payload = formStateToPayload(makeState({ slots_total: '4', slots_open: '9' }));
     expect(payload.slots_filled).toBe(0);
+  });
+});
+
+describe('formStateToPayload — slots_filled na EDIÇÃO (achado Codex, PR #285)', () => {
+  // slots_filled são jogadores confirmados; slots_open é quanto o mestre quer
+  // recrutar. O contrato permite open < total - filled quando ele limita ou
+  // fecha o recrutamento (routes/tables.ts:130-135), então total - open NÃO
+  // reconstrói filled. Como o form nem carrega o valor salvo
+  // (mapTableApiToInitialData.ts:113-114), derivar na edição sobrescreve a
+  // contagem real com um número que ninguém digitou.
+  it('OMITE slots_filled do payload — a chave não pode chegar ao PUT', () => {
+    const payload = formStateToPayload(makeState({ slots_total: '5', slots_open: '1' }), true);
+    expect('slots_filled' in payload).toBe(false);
+    expect(JSON.stringify(payload)).not.toContain('slots_filled');
+  });
+
+  it('recrutamento limitado (total=5, open=1) não inventa filled=4', () => {
+    // Cenário do achado: mestre com 2 confirmados limita o recrutamento a 1
+    // vaga. Derivar diria filled=4 e apagaria a contagem real.
+    const payload = formStateToPayload(makeState({ slots_total: '5', slots_open: '1' }), true);
+    expect(payload.slots_filled).toBeUndefined();
+  });
+
+  it('recrutamento fechado (0 abertas) não força filled = total', () => {
+    const payload = formStateToPayload(makeState({ slots_total: '4', slots_open: '0' }), true);
+    expect(payload.slots_filled).toBeUndefined();
+  });
+
+  it('mesa cheia com recrutamento reaberto (total=4, open=4) não zera os confirmados', () => {
+    // Caso real medido em produção: "Somewhere in Duskwood" (total=4,
+    // filled=4, open=4). Derivar zeraria os 4 jogadores confirmados.
+    const payload = formStateToPayload(makeState({ slots_total: '4', slots_open: '4' }), true);
+    expect(payload.slots_filled).toBeUndefined();
+  });
+
+  it('slots_total e slots_open continuam sendo enviados na edição', () => {
+    const payload = formStateToPayload(makeState({ slots_total: '5', slots_open: '1' }), true);
+    expect(payload.slots_total).toBe(5);
+    expect(payload.slots_open).toBe(1);
   });
 });

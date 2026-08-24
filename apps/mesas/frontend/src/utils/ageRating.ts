@@ -35,3 +35,18 @@ export function ageRatingLabel(value: unknown): string | null {
   if (value === 'livre') return 'Livre';
   return null;
 }
+
+/**
+ * Normaliza faixa etária vinda da API para o enum do produto.
+ *
+ * O tipo `TableDetail.age_rating` é uma promessa de compilação sobre um
+ * payload de rede — não uma garantia de runtime (AGENTS.md: dado de API é
+ * `unknown` até passar por normalizador tipado). Sem isto, um backend antigo
+ * mandando `'Livre'` capitalizado entrava no ViewModel como se fosse do enum,
+ * e só sumia da tela lá na frente, no `ageRatingLabel` (achado Codex, PR #285).
+ * Normalizar na fronteira mantém o VM sempre válido.
+ */
+export function normalizeAgeRating(value: unknown): TableAgeRating | undefined {
+  if (value === 'livre' || isRestrictedAgeRating(value)) return value;
+  return undefined;
+}

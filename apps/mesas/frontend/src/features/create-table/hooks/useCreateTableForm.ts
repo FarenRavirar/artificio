@@ -244,10 +244,14 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
     }
 
     try {
-      const payload = formStateToPayload(formState);
-
       const tableId = typeof initialData?.id === 'string' ? initialData.id : null;
       const isEditing = tableId !== null;
+
+      // `isEditing` precisa chegar ao mapper: na edicao o payload OMITE
+      // slots_filled para preservar os jogadores confirmados ja salvos
+      // (derivar total - open sobrescreveria a contagem real). Ver mapper.ts.
+      const payload = formStateToPayload(formState, isEditing);
+
       const endpoint = isEditing 
         ? `/api/v1/gm/tables/${tableId}` 
         : `/api/v1/gm/tables`;

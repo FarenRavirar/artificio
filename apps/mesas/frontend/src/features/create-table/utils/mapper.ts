@@ -19,7 +19,10 @@ export function normalizePriceType(value?: string | null): 'gratuita' | 'paga' {
 /**
  * Transforma o estado do formulário em payload para a API
  */
-export function formStateToPayload(state: FormState): CreateTablePayload {
+// `isEditing` decide se `slots_filled` e derivado (criacao) ou omitido para
+// preservar a contagem real de jogadores confirmados (edicao). Ver o bloco de
+// slots abaixo.
+export function formStateToPayload(state: FormState, isEditing = false): CreateTablePayload {
   // Filtrar contatos válidos
   const validContacts = state.contacts
     .filter((c) => c.value.trim().length > 0)
@@ -105,20 +108,33 @@ export function formStateToPayload(state: FormState): CreateTablePayload {
     return Number.isFinite(parsed) ? parsed : undefined;
   };
 
-  // T3.2d (spec 096): slots_filled ganha ESCRITOR no fluxo manual. Decisão
-  // medida: o parser escreve slots_total - slots_open
-  // (parseDiscordAnnouncement.ts:2820), o leitor visual deriva
-  // filled = total - open quando slots_open existe (utils/slots.ts:46) e o
-  // GET /gm/tables/:id expõe slots_available = total - filled (gmPanel.ts:575)
-  // — uma semântica só: filled = total - open. O form coleta os dois
-  // (StepSessions.tsx), então o payload deriva e envia o terceiro; sem isso,
-  // mesas manuais ficavam slots_filled=0 (default da coluna) e os leitores
+  // T3.2d (spec 096): slots_filled ganha ESCRITOR no fluxo manual — mas SÓ na
+  // criação. Na CRIAÇÃO derivar total - open é correto: a mesa não tem
+  // contagem anterior a preservar, e é a mesma semântica com que o parser de
+  // anúncio faz nascer a mesa (parseDiscordAnnouncement.ts:2820). Sem isso,
+  // mesa manual nascia com slots_filled=0 (default da coluna) e os leitores
   // que usam total - filled (painel do mestre, useMestre.ts:164) contavam
-  // vagas abertas erradas. Clamp [0, total] preserva os CHECKs do Postgres
-  // (slots_filled_valid / check_slots_valid) mesmo com estado inválido.
-  const parsedSlotsTotal = parseInt(state.form.slots_total) || 0;
-  const parsedSlotsOpen = parseInt(state.form.slots_open) || 0;
-  const slotsFilled = Math.min(Math.max(parsedSlotsTotal - parsedSlotsOpen, 0), parsedSlotsTotal);
+  // vagas erradas.
+  //
+  // Na EDIÇÃO derivar DESTRÓI dado (achado Codex, PR #285). slots_filled são
+  // jogadores confirmados; slots_open é quanto o mestre quer recrutar, e o
+  // contrato permite open < total - filled quando ele limita ou fecha o
+  // recrutamento (routes/tables.ts:130-135). As duas contagens são
+  // independentes, então total - open NÃO reconstrói filled. Pior: o form nem
+  // carrega o valor salvo (mapTableApiToInitialData.ts:113-114 lê só total e
+  // open), então derivar sobrescreve com um número que ninguém digitou.
+  // Medido em produção: 43 das 114 mesas teriam slots_filled sobrescrito por
+  // uma edição, 4 delas com jogadores reais — "Somewhere in Duskwood"
+  // (total=4, filled=4, open=4) perderia os 4 confirmados de uma vez.
+  // Omitir é o caminho suportado: updateTableSchema é `.partial()` e
+  // `undefined` preserva o valor salvo (gmPanel.ts:1002).
+  const parsedSlotsTotal = Number.parseInt(state.form.slots_total, 10) || 0;
+  const parsedSlotsOpen = Number.parseInt(state.form.slots_open, 10) || 0;
+  // Clamp [0, total] preserva os CHECKs do Postgres (slots_filled_valid /
+  // check_slots_valid) mesmo com estado inválido.
+  const slotsFilled = isEditing
+    ? undefined
+    : Math.min(Math.max(parsedSlotsTotal - parsedSlotsOpen, 0), parsedSlotsTotal);
 
   // Construir payload base
   const payload: CreateTablePayload = {
@@ -129,7 +145,9 @@ export function formStateToPayload(state: FormState): CreateTablePayload {
     price_type: normalizePriceType(state.form.price_type),
     slots_total: parsedSlotsTotal,
     slots_open: parsedSlotsOpen, // REQ-02: Vagas abertas
-    slots_filled: slotsFilled,
+    // Spread condicional em vez de `slots_filled: undefined`: a chave nem
+    // aparece no JSON, entao o PUT nao toca a coluna.
+    ...(slotsFilled !== undefined ? { slots_filled: slotsFilled } : {}),
     language: state.form.language,
     system_id: state.selectedSystemId,
     scenario_id: state.selectedScenarioId,

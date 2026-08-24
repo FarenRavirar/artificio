@@ -9,6 +9,8 @@ import crypto from 'crypto';
 import {
   createTableSchema,
   updateTableSchema,
+mergeSlotsState,
+slotsConsistencySchema,
   pricingConsistencySchema,
   mergePricingState,
   CreateTableInput,
@@ -853,12 +855,17 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       price_value_monthly: number | null;
       accepts_donations: boolean;
       suggested_donation_value: number | null;
+      // Campos de vagas: mesma razão, para validar o ESTADO RESULTANTE do PUT
+      // parcial antes de bater no CHECK do Postgres (achado Codex PR #285).
+      slots_total: number;
+      slots_filled: number;
+      slots_open: number;
     } | undefined;
     let updaterGmProfileId: string | null = null;
     if (userRole === 'admin') {
       existingTable = await db
         .selectFrom('tables')
-        .select(['id', 'gm_id', 'system_id', 'slug', 'banner_url', 'status', 'price_type', 'price_value', 'price_value_monthly', 'accepts_donations', 'suggested_donation_value'])
+        .select(['id', 'gm_id', 'system_id', 'slug', 'banner_url', 'status', 'price_type', 'price_value', 'price_value_monthly', 'accepts_donations', 'suggested_donation_value', 'slots_total', 'slots_filled', 'slots_open'])
         .where('id', '=', id)
         .executeTakeFirst();
     } else {
@@ -875,7 +882,7 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
 
       existingTable = await db
         .selectFrom('tables')
-        .select(['id', 'gm_id', 'system_id', 'slug', 'banner_url', 'status', 'price_type', 'price_value', 'price_value_monthly', 'accepts_donations', 'suggested_donation_value'])
+        .select(['id', 'gm_id', 'system_id', 'slug', 'banner_url', 'status', 'price_type', 'price_value', 'price_value_monthly', 'accepts_donations', 'suggested_donation_value', 'slots_total', 'slots_filled', 'slots_open'])
         .where('id', '=', id)
         .where('gm_id', '=', gmProfile.id)
         .executeTakeFirst();
@@ -885,21 +892,33 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       return res.status(404).json({ error: 'Mesa não encontrada ou sem permissão.' });
     }
 
-    // Achado Codex (PR #283): a validação do payload (updateTableSchema) não
-    // enxerga a linha salva, então um PUT parcial válido isolado podia gravar
-    // estado inválido — ex.: `{ accepts_donations: true }` numa mesa paga
-    // parseava price_type como 'gratuita' (default do schema) e passava,
-    // gravando doação em mesa paga com preço preservado. Aqui validamos o
-    // ESTADO RESULTANTE (campo enviado vence, omitido herda o salvo) com os
-    // mesmos invariantes (pricingConsistencySchema) antes de qualquer escrita.
-    const effectivePricing = mergePricingState(data, req.body as Record<string, unknown>, existingTable);
-    const pricingCheck = pricingConsistencySchema.safeParse(effectivePricing);
-    if (!pricingCheck.success) {
-      const firstError = pricingCheck.error.issues[0];
-      return res.status(400).json({
-        error: firstError.message,
-        field: firstError.path.join('.'),
-      });
+    // O `updateTableSchema` valida o payload isolado e NÃO enxerga a linha
+    // salva, então um PUT parcial válido por si só podia gravar estado
+    // inválido. Cada grupo abaixo revalida o ESTADO RESULTANTE (campo enviado
+    // vence, omitido herda o salvo) com os mesmos invariantes, antes de
+    // qualquer escrita:
+    //   - cobrança (achado Codex PR #283): `{ accepts_donations: true }` numa
+    //     mesa paga parseava price_type como 'gratuita' (default do schema) e
+    //     gravava doação em mesa paga com o preço preservado;
+    //   - vagas (achado Codex PR #285): o refine só compara slots_filled com
+    //     slots_total quando os DOIS vêm no body, então um PUT só com
+    //     `slots_total` reduzido abaixo do slots_filled salvo — o que o form
+    //     de edição envia — passava e batia no CHECK `slots_filled_valid` do
+    //     Postgres, devolvendo 500 em vez de 400 com mensagem.
+    const rawBody = req.body as Record<string, unknown>;
+    const effectiveStateChecks = [
+      pricingConsistencySchema.safeParse(mergePricingState(data, rawBody, existingTable)),
+      slotsConsistencySchema.safeParse(mergeSlotsState(data, rawBody, existingTable)),
+    ];
+
+    for (const check of effectiveStateChecks) {
+      if (!check.success) {
+        const firstError = check.error.issues[0];
+        return res.status(400).json({
+          error: firstError.message,
+          field: firstError.path.join('.'),
+        });
+      }
     }
 
     // Achado Codex (PR #145): mesma checagem do POST /gm/tables — system_id
@@ -920,13 +939,13 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       }
     }
 
-    const hasVttPlatformField = Object.prototype.hasOwnProperty.call(data, 'vtt_platform_id');
+    const hasVttPlatformField = Object.hasOwn(data, 'vtt_platform_id');
     const vttPlatformUuid = hasVttPlatformField
       ? await TableService.validateVttPlatform(data.vtt_platform_id ?? null)
       : undefined;
 
-    const hasCommunicationPlatformIdField = Object.prototype.hasOwnProperty.call(data, 'communication_platform_id');
-    const hasCommunicationPlatformLegacyField = Object.prototype.hasOwnProperty.call(data, 'communication_platform');
+    const hasCommunicationPlatformIdField = Object.hasOwn(data, 'communication_platform_id');
+    const hasCommunicationPlatformLegacyField = Object.hasOwn(data, 'communication_platform');
 
     const communicationPlatformResolved = (hasCommunicationPlatformIdField || hasCommunicationPlatformLegacyField)
       ? await TableService.validateCommunicationPlatform(
@@ -954,10 +973,10 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       // enviou os campos; gravar esse default rebaixaria a faixa salva em toda
       // edição que não toca nela. Só grava quando o chamador enviou o campo;
       // omitido fica undefined e o Kysely preserva o valor salvo.
-      age_rating: Object.prototype.hasOwnProperty.call(req.body, 'age_rating') ? data.age_rating : undefined,
-      table_level: Object.prototype.hasOwnProperty.call(req.body, 'table_level') ? data.table_level : undefined,
+      age_rating: Object.hasOwn(req.body, 'age_rating') ? data.age_rating : undefined,
+      table_level: Object.hasOwn(req.body, 'table_level') ? data.table_level : undefined,
       modality: data.modality,
-      price_type: Object.prototype.hasOwnProperty.call(req.body, 'price_type') ? data.price_type : undefined,
+      price_type: Object.hasOwn(req.body, 'price_type') ? data.price_type : undefined,
       price_value: data.price_value,
       price_value_monthly: data.price_value_monthly,
       accepts_donations: data.accepts_donations,

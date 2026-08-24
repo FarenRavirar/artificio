@@ -4,6 +4,9 @@ import {
   updateTableSchema,
   pricingConsistencySchema,
   mergePricingState,
+  mergeSlotsState,
+  slotsConsistencySchema,
+  updateTableSchema as updateTableSchemaForSlots,
 } from './tableValidators.js';
 
 describe('updateTableSchema — Markdown de usuário', () => {
@@ -808,5 +811,50 @@ describe('gm_avatar_url fora do contrato do form (T3.2c, spec 096)', () => {
       gm_avatar_url: 'https://example.com/avatar.png',
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('mergeSlotsState + slotsConsistencySchema (achado Codex, PR #285)', () => {
+  // A linha salva nao e visivel de dentro do updateTableSchema, entao o refine
+  // dele so compara quando os DOIS campos vem no body. Estes casos sao os
+  // patches parciais que escapavam e batiam no CHECK do Postgres (500 em vez
+  // de 400 com mensagem).
+  const salva = { slots_total: 5, slots_filled: 4, slots_open: 1 };
+
+  const efetivo = (body: Record<string, unknown>) => {
+    const parsed = updateTableSchemaForSlots.parse(body);
+    return slotsConsistencySchema.safeParse(mergeSlotsState(parsed, body, salva));
+  };
+
+  it('patch so com slots_total reduzido abaixo do slots_filled salvo e rejeitado', () => {
+    const result = efetivo({ slots_total: 2 });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].path).toEqual(['slots_filled']);
+    }
+  });
+
+  // Medido: patch so com slots_filled/slots_open NAO chega ao merge — o
+  // `.partial()` mantem o `.default(4)` de slots_total, entao o refine do
+  // proprio updateTableSchema ja dispara no parse. A lacuna real era so a
+  // reducao de slots_total, coberta acima.
+  it('patch so com slots_filled ja e barrado no parse do schema', () => {
+    expect(updateTableSchemaForSlots.safeParse({ slots_filled: 9 }).success).toBe(false);
+  });
+
+  it('patch so com slots_open ja e barrado no parse do schema', () => {
+    expect(updateTableSchemaForSlots.safeParse({ slots_open: 9 }).success).toBe(false);
+  });
+
+  it('reducao de total que ainda comporta os preenchidos e aceita', () => {
+    expect(efetivo({ slots_total: 4 }).success).toBe(true);
+  });
+
+  it('campo omitido herda o salvo — patch sem vagas nao invalida a mesa', () => {
+    expect(efetivo({ title: 'Outro titulo' }).success).toBe(true);
+  });
+
+  it('reduzir total junto com filled coerente e aceito', () => {
+    expect(efetivo({ slots_total: 3, slots_filled: 3, slots_open: 0 }).success).toBe(true);
   });
 });

@@ -92,16 +92,18 @@ function makeTableDetail(overrides: Partial<TableDetail> = {}): TableDetail {
   };
 }
 
-// R24/A27 (spec 096): a faixa etária viaja crua da API para o ViewModel; a
-// decisão de EXIBIR (faixa real sim, 'livre' não) é dos componentes, não do
-// mapper — o VM carrega o dado para os dois lados decidirem igual.
+// R24/A27 (spec 096): a faixa etária é normalizada para o enum do produto na
+// entrada do ViewModel; a decisão de EXIBIR é dos componentes. 'livre' É
+// exibido, como marcador discreto "Livre" (decisão do mantenedor, 2026-08-24);
+// o que não aparece é ausente/fora do enum. O VM carrega o dado para os dois
+// lados decidirem igual.
 describe('mapTableToView — ageRating (R24/A27)', () => {
   it('mapeia faixa etária real da API para o ViewModel', () => {
     const vm = mapTableToView(makeTableDetail({ age_rating: '+16' }));
     expect(vm.ageRating).toBe('+16');
   });
 
-  it('preserva "livre" no ViewModel (a filtragem de exibição é da UI)', () => {
+  it('preserva "livre" no ViewModel (a UI o renderiza como "Livre")', () => {
     const vm = mapTableToView(makeTableDetail({ age_rating: 'livre' }));
     expect(vm.ageRating).toBe('livre');
   });

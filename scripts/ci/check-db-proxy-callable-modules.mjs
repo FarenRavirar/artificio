@@ -4,11 +4,11 @@
  *
  * Incidente que originou (medido 2026-08-24): o commit `85063da` (19/06/2026,
  * D078/T28d) trocou `export const db = new Kysely(...)` por um Proxy lazy cujo
- * handler fazia `value.bind(instance)` em TODO valor do tipo `function`.
+ * handler fazia `value.bind(instance)` em qualquer valor do tipo `function`.
  * `db.fn` do Kysely e um objeto *callable* com metodos anexados (`count`,
  * `sum`, `countAll`, ...) e `Function.prototype.bind` cria uma funcao nova
  * DESCARTANDO essas own properties. Efeito: `db.fn.count` virou `undefined` e
- * todo `POST /api/v1/profile/links` respondeu 500
+ * cada `POST /api/v1/profile/links` respondeu 500
  * (`TypeError: db.fn.count is not a function`) por mais de dois meses, sem
  * nenhum gate acusar — lint, build, typecheck e os 114 testes passavam, porque
  * `bind` e valido em TS e nenhum teste exercitava a rota.
@@ -21,8 +21,7 @@
  * `db` Proxy de fora — foi assim que `apps/links/db/index.ts` ficou com o mesmo
  * defeito sem ninguem notar.
  */
-import { readFileSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { readFileSync, readdirSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
@@ -57,18 +56,50 @@ function expectedFnMethods() {
   );
 }
 
+// Diretorios que nunca contem fonte do repo. Pular explicitamente e o que
+// substitui o `.gitignore` agora que a varredura e feita em Node puro.
+const SKIP_DIRS = new Set([
+  "node_modules",
+  "dist",
+  "dist-cjs",
+  ".git",
+  ".turbo",
+  ".astro",
+  "coverage",
+  "build",
+]);
+
+/** Caminha `apps/` e `packages/` procurando `**\/db/*.ts`, sem subprocesso. */
+function* walkDbModules(dir) {
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return; // diretorio ausente (ex.: packages/ sem db/) nao e erro
+  }
+  for (const entry of entries) {
+    const full = `${dir}/${entry.name}`;
+    if (entry.isDirectory()) {
+      if (!SKIP_DIRS.has(entry.name)) yield* walkDbModules(full);
+    } else if (entry.isFile() && entry.name.endsWith(".ts") && dir.endsWith("/db")) {
+      yield full;
+    }
+  }
+}
+
+// Varredura em Node puro, sem `git grep`: alem de nao depender do binario do
+// git no PATH (S4036 — PATH e gravavel, entao invocar comando por nome nao e
+// seguro), o gate passa a rodar igual em qualquer checkout, inclusive fora de
+// um repositorio git.
 function findProxyModules() {
-  // `git grep` respeita .gitignore — nao entra em node_modules/dist.
-  const out = execFileSync(
-    "git",
-    ["grep", "-l", "-e", "new Proxy", "--", "apps/**/db/*.ts", "packages/**/db/*.ts"],
-    { encoding: "utf8" }
-  );
-  return out
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .filter((f) => /Kysely/.test(readFileSync(f, "utf8")));
+  const found = [];
+  for (const root of ["apps", "packages"]) {
+    for (const file of walkDbModules(root)) {
+      const src = readFileSync(file, "utf8");
+      if (src.includes("new Proxy") && src.includes("Kysely")) found.push(file);
+    }
+  }
+  return found.sort();
 }
 
 // Cada app valida DATABASE_URL no primeiro acesso (DT-004). O Pool do `pg` so
@@ -147,7 +178,7 @@ function regressionProof() {
     },
   });
   if (typeof brokenProxy.fn.count === "function") {
-    throw new Error(
+    throw new TypeError(
       "prova de regressao falhou: o Proxy defeituoso deveria perder `fn.count`, " +
         "mas nao perdeu — este gate parou de detectar o bug que existe para pegar"
     );

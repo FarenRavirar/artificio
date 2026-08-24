@@ -85,7 +85,7 @@ export function mapTableApiToInitialData(apiData: unknown): Partial<FormState> &
 
   // T3.1 (spec 096, bug 2 de edição): a resposta de GET /gm/tables/:id devolve
   // `schedules` (selectAll de table_schedules, gmPanel.ts:562-574) — `sessions`
-  // nunca existiu no contrato e fazia TODO o fluxo de edição cair no
+  // nunca existiu no contrato e fazia o fluxo inteiro de edição cair no
   // defaultSession (dados de agenda descartados no primeiro save). O filtro e o
   // fallback continuam iguais, só a chave muda.
   const sessions = Array.isArray(data.schedules) ? data.schedules.filter(isSessionSchedule) : [];

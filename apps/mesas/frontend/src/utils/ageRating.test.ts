@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ageRatingLabel,
   isRestrictedAgeRating,
+  normalizeAgeRating,
   RESTRICTED_AGE_RATINGS,
 } from './ageRating';
 
@@ -42,5 +43,27 @@ describe('ageRating — regra de exibição da faixa etária', () => {
     expect(ageRatingLabel('Livre')).toBeNull();
     expect(ageRatingLabel('adultos')).toBeNull();
     expect(ageRatingLabel('')).toBeNull();
+  });
+});
+
+describe('normalizeAgeRating (achado Codex, PR #285)', () => {
+  it('preserva os valores do enum', () => {
+    expect(normalizeAgeRating('livre')).toBe('livre');
+    expect(normalizeAgeRating('+16')).toBe('+16');
+  });
+
+  it('descarta valor fora do enum antes de entrar no ViewModel', () => {
+    // O caso real: backend antigo mandando 'Livre' capitalizado. O tipo
+    // TableDetail promete o enum, mas e payload de rede — sem normalizar,
+    // entrava no VM tipado e so sumia la na frente, no ageRatingLabel.
+    expect(normalizeAgeRating('Livre')).toBeUndefined();
+    expect(normalizeAgeRating('16+')).toBeUndefined();
+  });
+
+  it('trata ausencia e tipo errado como sem faixa', () => {
+    expect(normalizeAgeRating(null)).toBeUndefined();
+    expect(normalizeAgeRating(undefined)).toBeUndefined();
+    expect(normalizeAgeRating(16)).toBeUndefined();
+    expect(normalizeAgeRating({})).toBeUndefined();
   });
 });

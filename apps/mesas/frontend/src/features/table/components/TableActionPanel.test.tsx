@@ -233,7 +233,8 @@ describe('TableActionPanel — PricePanel de mesa gratuita (doações)', () => {
 /**
  * Ficha técnica (QuickInfoPanel) — faixa etária (R24/A27, spec 096). Mesma
  * regra dos demais campos da ficha: preenchido aparece, vazio some. A exceção
- * de produto: 'livre' legítima NÃO ganha linha — silêncio é o correto.
+ * de produto: 'livre' ganha a linha com o texto "Livre" (decisão do mantenedor,
+ * 2026-08-24); só ausente/fora do enum fica em silêncio.
  */
 describe('TableActionPanel — faixa etária na ficha técnica (R24/A27)', () => {
   it('mostra linha "Faixa etária" com o valor quando há faixa real', () => {
