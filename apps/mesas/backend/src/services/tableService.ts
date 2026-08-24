@@ -4,7 +4,21 @@ import { Insertable, sql } from 'kysely';
 import { TablesTable } from '../db/types.js';
 import { getSystemCatalogProvider } from './systemCatalogProvider.js';
 
-const DDAL_ELIGIBLE_PATH = 'dungeons-dragons/5e/2024';
+/**
+ * Sistemas elegíveis ao selo DDAL (D&D Adventurers League).
+ *
+ * Correção do mantenedor (2026-08-24): a liga cobre **D&D 5e 2014 E 2024**, não
+ * só a edição de 2024. Até esta data a lista tinha só o path de 2024, então mesa
+ * de 5e 2014 — que é DDAL legítima — não conseguia marcar o selo.
+ *
+ * Os slugs vêm do catálogo real (medido em produção): a edição de 2014 está sob
+ * `dungeons-dragons/5e/dungeons-dragons-5e-2014`, não sob um `.../5e/2014`
+ * simétrico ao de 2024. Conferir o catálogo antes de acrescentar path novo aqui.
+ */
+const DDAL_ELIGIBLE_PATHS = [
+    'dungeons-dragons/5e/2024',
+    'dungeons-dragons/5e/dungeons-dragons-5e-2014',
+] as const;
 
 export class TableService {
     /**
@@ -16,7 +30,9 @@ export class TableService {
         const path = system?.path_slug ?? null;
         if (!path) return false;
 
-        return path === DDAL_ELIGIBLE_PATH || path.startsWith(`${DDAL_ELIGIBLE_PATH}/`);
+        return DDAL_ELIGIBLE_PATHS.some(
+            (eligible) => path === eligible || path.startsWith(`${eligible}/`),
+        );
     }
 
     /**

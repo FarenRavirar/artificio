@@ -32,23 +32,72 @@ export interface ImageKindSpec {
    * enquadramento é decisão de exibição (`*_crop_data`), não de upload.
    */
   readonly maxDimension: number;
+  /**
+   * Dimensões RECOMENDADAS, para a legenda dizer ao usuário o que se espera —
+   * não são validação. Vêm do maior consumo real de cada tipo: banner de mesa e
+   * de perfil viram `og:image` (declarado 1200x630 em `og.ts`), e o avatar é
+   * exibido a 140px no perfil público (`MestrePage.css:70`), o que pede 280 em
+   * tela 2x.
+   */
+  readonly recommendedWidth: number;
+  readonly recommendedHeight: number;
+  /**
+   * Piso abaixo do qual o resultado degrada de forma visível. Para os banners é
+   * o mínimo que as plataformas sociais aceitam sem rebaixar o card
+   * (600x315 é o piso de Discord/WhatsApp/Twitter/Facebook); para o avatar, o
+   * dobro da exibição.
+   *
+   * Acrescentado em 2026-08-24 (spec 096, R19) com autorização nominal do
+   * mantenedor para tocar pacote compartilhado. Motivo medido: dos 9 banners de
+   * mesa com dimensão registrada em produção, 7 estavam abaixo de 1200px de
+   * largura — mediana 720, menor 473 —, então o preview compartilhado saía
+   * rebaixado sem que nada avisasse o mestre.
+   *
+   * É orientação, não bloqueio: quem valida decide se avisa ou recusa. Um
+   * upload abaixo do piso continua tecnicamente válido.
+   */
+  readonly minWidth: number;
+  readonly minHeight: number;
   /** Pasta no Cloudinary. Separar por tipo evita avatar dentro de `mesas_rpg/`. */
   readonly folder: string;
   /** Limite de arquivo aceito no upload, em bytes. */
   readonly maxFileBytes: number;
+  /**
+   * Formatos aceitos no upload, como MIME. Fonte única: até 2026-08-24 a lista
+   * vivia duplicada em três pontos (`ImageUploader` no `accept`, `useImageUpload`
+   * na validação do cliente e `upload.ts` no `fileFilter` do multer), que é
+   * exatamente a divergência que este pacote existe para evitar.
+   *
+   * O Cloudinary não restringe formato (`services/cloudinary.ts` não define
+   * `allowed_formats`), e a ENTREGA usa `fetch_format:"auto"` — o arquivo
+   * enviado pode ser servido como WebP/AVIF conforme o navegador. Portanto:
+   * não prometer preservação de transparência ao usuário.
+   */
+  readonly acceptedMimeTypes: readonly string[];
   /** Rótulo em português para mensagem de erro ao usuário. */
   readonly label: string;
 }
 
 const MB = 1024 * 1024;
 
+/** JPG, PNG e WEBP — os três já aceitos de ponta a ponta (cliente, multer e
+ * Cloudinary), confirmados em produção com 45 banners jpg, 40 png e 2 webp. */
+const IMAGE_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+
 export const IMAGE_KINDS = {
   table_banner: {
     aspect: 1200 / 650,
     aspectRatioCss: "1200 / 650",
     maxDimension: 1600,
+    // Recomendado igual ao og:image que o banner alimenta (og.ts:75-76).
+    recommendedWidth: 1200,
+    recommendedHeight: 650,
+    // 600x325 mantém a proporção e fica no piso social (600x315).
+    minWidth: 600,
+    minHeight: 325,
     folder: "mesas_rpg",
     maxFileBytes: 5 * MB,
+    acceptedMimeTypes: IMAGE_MIME_TYPES,
     label: "banner da mesa",
   },
   profile_avatar: {
@@ -58,16 +107,27 @@ export const IMAGE_KINDS = {
     aspect: 1,
     aspectRatioCss: "1 / 1",
     maxDimension: 1024,
+    // Exibido a 140px no perfil público (MestrePage.css:70); 280 cobre tela 2x.
+    recommendedWidth: 280,
+    recommendedHeight: 280,
+    minWidth: 140,
+    minHeight: 140,
     folder: "artificio_avatars",
     maxFileBytes: 5 * MB,
+    acceptedMimeTypes: IMAGE_MIME_TYPES,
     label: "foto de perfil",
   },
   profile_banner: {
     aspect: 1200 / 650,
     aspectRatioCss: "1200 / 650",
     maxDimension: 1600,
+    recommendedWidth: 1200,
+    recommendedHeight: 650,
+    minWidth: 600,
+    minHeight: 325,
     folder: "artificio_profile_banners",
     maxFileBytes: 5 * MB,
+    acceptedMimeTypes: IMAGE_MIME_TYPES,
     label: "banner do perfil",
   },
 } as const satisfies Record<ImageKind, ImageKindSpec>;
@@ -83,6 +143,34 @@ export function isImageKind(value: unknown): value is ImageKind {
 /** Spec do tipo informado; cai em `table_banner` quando a origem não é confiável. */
 export function imageKindSpec(kind: unknown): ImageKindSpec {
   return IMAGE_KINDS[isImageKind(kind) ? kind : "table_banner"];
+}
+
+/**
+ * Frase de orientação exibida ao lado do campo de upload, montada a partir do
+ * spec — nunca escrita à mão no componente. Existe porque o único texto que o
+ * uploader mostrava era "JPG, PNG ou WEBP até 5 MB", **sem a proporção**, que é
+ * justamente o que decide o enquadramento: o usuário enviava imagem quadrada,
+ * ela entrava num 1200x650 e o corte só aparecia depois do envio (spec 096,
+ * §Gap 10).
+ *
+ * O que a frase deliberadamente NÃO diz:
+ * - "máximo 1600px" — `maxDimension` usa `crop:'limit'`, que REDUZ a imagem
+ *   maior em vez de recusá-la; anunciar teto seria falso.
+ * - "mantém transparência" — a entrega usa `fetch_format:"auto"`.
+ * - mínimo como regra — `minWidth`/`minHeight` são orientação, não bloqueio.
+ */
+export function imageKindHint(kind: unknown): string {
+  const spec = imageKindSpec(kind);
+  const formats = spec.acceptedMimeTypes
+    .map((mime) => mime.replace("image/", "").toUpperCase())
+    .map((name) => (name === "JPEG" ? "JPG" : name))
+    .join(", ");
+  const limitMb = Math.round(spec.maxFileBytes / (1024 * 1024));
+  return (
+    `Recomendado ${spec.recommendedWidth} × ${spec.recommendedHeight} px` +
+    ` · ${formats} até ${limitMb} MB` +
+    ` · abaixo de ${spec.minWidth} × ${spec.minHeight} px a imagem perde nitidez`
+  );
 }
 
 /**

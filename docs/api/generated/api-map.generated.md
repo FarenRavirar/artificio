@@ -223,7 +223,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | POST | `/api/v1/system-suggestions` | ✅ high | `apps/downloads/backend/src/routes/systemSuggestions.ts` | 18 |
 | USE | `/api/v1/system-suggestions` | ✅ high | `apps/downloads/backend/src/server.ts` | 138 |
 | GET | `/api/v1/system-suggestions/mine` | ✅ high | `apps/downloads/backend/src/routes/systemSuggestions.ts` | 53 |
-| GET | `/materiais/:slug` | ✅ high | `apps/downloads/backend/src/routes/publicShell.ts` | 205 |
+| GET | `/materiais/:slug` | ✅ high | `apps/downloads/backend/src/routes/publicShell.ts` | 203 |
 | GET | `/robots.txt` | ✅ high | `apps/downloads/backend/src/routes/publicSeo.ts` | 19 |
 | GET | `/sitemap.xml` | ✅ high | `apps/downloads/backend/src/routes/publicSeo.ts` | 30 |
 
@@ -295,7 +295,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | PATCH | `/api/users/profile` | ✅ high | `apps/glossario/backend/src/routes/userRoutes.ts` | 10 |
 | GET | `/health` | ✅ high | `apps/glossario/backend/src/index.ts` | 103 |
 | USE | `/og` | ✅ high | `apps/glossario/backend/src/index.ts` | 107 |
-| GET | `/og/termo/:id` | ✅ high | `apps/glossario/backend/src/routes/ogRoutes.ts` | 13 |
+| GET | `/og/termo/:id` | ✅ high | `apps/glossario/backend/src/routes/ogRoutes.ts` | 14 |
 | GET | `/sitemap.xml` | ✅ high | `apps/glossario/backend/src/routes/sitemapRoutes.ts` | 7 |
 
 ## links
@@ -586,8 +586,8 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/auth/google/callback` | ✅ high | `apps/mesas/backend/src/routes/auth.ts` | 27 |
 | POST | `/auth/logout` | ✅ high | `apps/mesas/backend/src/routes/auth.ts` | 31 |
 | USE | `/og` | ✅ high | `apps/mesas/backend/src/server.ts` | 156 |
-| GET | `/og/:type/:slug` | ✅ high | `apps/mesas/backend/src/routes/og.ts` | 159 |
-| GET | `/og/{*splat}` | ✅ high | `apps/mesas/backend/src/routes/og.ts` | 293 |
+| GET | `/og/:type/:slug` | ✅ high | `apps/mesas/backend/src/routes/og.ts` | 133 |
+| GET | `/og/{*splat}` | ✅ high | `apps/mesas/backend/src/routes/og.ts` | 267 |
 | GET | `/sitemap.xml` | ✅ high | `apps/mesas/backend/src/routes/sitemap.ts` | 8 |
 
 ## site

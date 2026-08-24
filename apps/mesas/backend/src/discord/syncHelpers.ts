@@ -388,7 +388,12 @@ export function buildTableDraftFields(
     system_id: t.system_id ?? null,
     scenario_id: t.scenario_id ?? null,
     title: t.title,
-    description: t.description ?? null,
+    // Normaliza branco-puro → null (mesma classe do bug OG 2026-08-22): este
+    // caminho persiste direto via Kysely, fora do zod, então a regra do
+    // userMarkdownSchema não cobre o sync do Discord. `hasText` devolve a
+    // string ORIGINAL quando há conteúdo (não trima texto legítimo) e rejeita
+    // só-whitespace, que viraria `og:description` vazio na cadeia de seleção.
+    description: hasText(t.description) ? t.description : null,
     rules_notes: t.rules_notes ?? null,
     type: t.type ?? 'campanha',
     age_rating: normalizeAgeRating(t.age_rating) as Insertable<TablesTable>['age_rating'],

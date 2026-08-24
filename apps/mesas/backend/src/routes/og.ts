@@ -7,6 +7,7 @@ import { upgradeGoogleImageQuality } from '@artificio/media/image-kinds';
 import { isImportedTableExpired } from '../utils/tableVisibility.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
 import { hydrateTableSystemFields } from '../services/systemCatalogProvider.js';
+import { buildTableDescription, buildGmDescription } from '../utils/ogDescription.js';
 
 const router = Router();
 
@@ -39,14 +40,6 @@ async function loadIndexHtml(): Promise<string> {
 function escapeHtml(input: string | null | undefined): string {
   if (!input) return '';
   return escapeHtmlLib(String(input));
-}
-
-function truncate(input: string | null | undefined, max: number): string {
-  if (!input) return '';
-
-  const cleaned = input.replace(/\s+/g, ' ').trim();
-  if (cleaned.length <= max) return cleaned;
-  return `${cleaned.slice(0, max - 1).trimEnd()}…`;
 }
 
 interface MetaFields {
@@ -126,25 +119,6 @@ function resolveOgImageUrl(...candidates: Array<string | null | undefined>): str
   return DEFAULT_OG_IMAGE;
 }
 
-function buildTableDescription(table: {
-  listing_excerpt: string | null;
-  synopsis_narrative: string | null;
-  synopsis: string | null;
-  description: string | null;
-  title: string;
-  system_name: string | null;
-  gm_display_name: string | null;
-}): string {
-  const primary =
-    table.listing_excerpt || table.synopsis_narrative || table.synopsis || table.description;
-  if (primary) return truncate(primary, 200);
-
-  const parts = [table.title];
-  if (table.system_name) parts.push(table.system_name);
-  if (table.gm_display_name) parts.push(`mestrada por ${table.gm_display_name}`);
-  return truncate(parts.join(' — '), 200);
-}
-
 function getFallbackMeta(pathname = '/'): MetaFields {
   return {
     title: 'Artifício Mesas — Encontre sua próxima aventura de RPG',
@@ -190,12 +164,12 @@ router.get('/:type/:slug', async (req: Request, res: Response) => {
 
         const displayName = gm.display_name || 'Mestre de RPG';
         const title = `${displayName} — Mestre de RPG | ${SITE_NAME}`;
-        const description = truncate(
-          gm.tagline ||
-            gm.bio_long ||
-            `Conheça o perfil do mestre ${displayName} e descubra suas mesas ativas no ${SITE_NAME}.`,
-          200
-        );
+        const description = buildGmDescription({
+          tagline: gm.tagline,
+          bioLong: gm.bio_long,
+          displayName,
+          siteName: SITE_NAME,
+        });
         
         // Aumenta tamanho de imagens do Google para atender requisitos do Facebook (mínimo 200x200)
         let imageUrl = gm.avatar_url || gm.banner_url || DEFAULT_OG_IMAGE;

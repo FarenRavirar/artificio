@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { normalizeOgDescription } from '@artificio/content';
 import { db } from '../config/database.js';
 
 const router = Router();
@@ -14,7 +15,17 @@ router.get('/termo/:id', async (req, res) => {
   const { rows } = await db.query(`SELECT id, name_en, name_pt, additional_info FROM terms WHERE id = $1 AND status = 'verificado'`, [req.params.id]);
   const term = rows[0];
   const title = term ? `${term.name_en} — ${term.name_pt} | Grande Glossário de RPG` : 'Grande Glossário de RPG · Artifício RPG';
-  const description = term?.additional_info || (term ? `Tradução de ${term.name_en}: ${term.name_pt}.` : 'Glossário colaborativo de tradução para RPG de mesa.');
+  // A cadeia anterior (`term?.additional_info || fallback`) tratava string
+  // só-whitespace como conteúdo (truthy em JS) — mesmo defeito medido em
+  // produção no mesas (bug OG 2026-08-22). Migrada para o helper
+  // compartilhado de @artificio/content: a migração introduz normalização de
+  // whitespace (colapso + trim) e branco-puro → fallback, sem mudar o
+  // truncamento (o glossario não truncava e segue não truncando — `max: null`).
+  const description = normalizeOgDescription(
+    [term?.additional_info],
+    term ? `Tradução de ${term.name_en}: ${term.name_pt}.` : 'Glossário colaborativo de tradução para RPG de mesa.',
+    { max: null },
+  );
   const canonical = term ? `${SITE_URL}/termo/${encodeURIComponent(term.id)}` : SITE_URL;
   res.type('html').set('Cache-Control', 'public, max-age=300').send(socialHtml(title, description, canonical));
 });

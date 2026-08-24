@@ -46,9 +46,11 @@ export const MestrePage = () => {
       profile
         ? `${profile.display_name} | Mestre | Artifício Mesas`
         : 'Mestre | Artifício Mesas',
-      profile?.tagline ||
-        profile?.bio_long?.slice(0, 150) ||
-        'Landing pública de mestre com mesas ativas e especialidades.'
+      // Seleção não-branca (classe: cadeia `a || b || fallback` trata só-whitespace
+      // como conteúdo); write path normaliza, a leitura é defensiva.
+      [profile?.tagline, profile?.bio_long?.slice(0, 150)].find(
+        (candidate) => candidate != null && candidate.trim() !== ''
+      ) ?? 'Landing pública de mestre com mesas ativas e especialidades.'
     );
   }, [profile]);
 

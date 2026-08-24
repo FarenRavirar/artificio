@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import { Router, type Request, type Response } from 'express';
-import { buildMeta, type MetaTag } from '@artificio/content';
+import { buildMeta, normalizeOgDescription, type MetaTag } from '@artificio/content';
 import { findPublishedMaterialBySlug, type PublicMaterial } from '../services/publicMaterial';
 
 const router = Router();
@@ -26,11 +26,6 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
-}
-
-function normalizeDescription(value: string | null | undefined, fallback: string): string {
-  const normalized = value?.replace(/\s+/g, ' ').trim() || fallback;
-  return normalized.length <= 200 ? normalized : `${normalized.slice(0, 199).trimEnd()}…`;
 }
 
 function publicHttpUrl(value: string | null | undefined): string | null {
@@ -103,8 +98,11 @@ function injectHead(html: string, block: string): string {
 function buildMaterialHead(material: PublicMaterial): { block: string; isFallbackImage: boolean } {
   const canonical = `${SITE_ORIGIN}/materiais/${encodeURIComponent(material.slug)}`;
   const title = `${material.title} | ${SITE_NAME}`;
-  const description = normalizeDescription(
-    material.summary,
+  // Descrição OG normalizada pelo helper compartilhado de @artificio/content
+  // (mesmo primitivo usado por mesas e glossario): primeiro candidato
+  // não-branco, colapso de whitespace, trim e corte em 200 com `…`.
+  const description = normalizeOgDescription(
+    [material.summary],
     `Material gratuito de RPG em português: ${material.title}.`,
   );
   const cover = publicHttpUrl(material.cover_image_url);
