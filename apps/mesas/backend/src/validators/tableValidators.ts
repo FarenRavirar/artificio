@@ -440,26 +440,20 @@ export const createTableSchema = withPricingRules(
 export const updateTableSchema = baseTableSchema
   .partial()
   .strict()
-  .refine((data) => {
-    if (data.slots_open !== undefined && data.slots_total !== undefined) {
-      return data.slots_open <= data.slots_total;
-    }
-    return true;
-  }, { 
-    message: 'Vagas abertas não pode ser maior que vagas totais', 
-    path: ['slots_open'] 
-  })
-  .refine((data) => {
-    // PUT parcial: só valida a relação quando os DOIS campos vieram no body
-    // (mesmo padrão do slots_open acima) — a linha salva não é visível aqui.
-    if (data.slots_filled !== undefined && data.slots_total !== undefined) {
-      return data.slots_filled <= data.slots_total;
-    }
-    return true;
-  }, {
-    message: 'Vagas preenchidas não pode ser maior que vagas totais',
-    path: ['slots_filled']
-  })
+  // As relações entre vagas NÃO são validadas aqui de propósito (achado Codex,
+  // PR #285). O `.partial()` não remove os `.default()` do baseTableSchema,
+  // então `slots_total` chega como `4` mesmo num PUT que não o enviou — e o
+  // refine comparava contra esse default em vez da linha salva. Medido:
+  // `{ slots_filled: 5 }` era REJEITADO, embora 64 das 114 mesas em produção
+  // tenham `slots_total > 4` e a atualização fosse legítima. Um refine que
+  // depende de campo que o cliente não mandou só pode errar: rejeita o válido
+  // (aqui) ou aprova o inválido (a outra face, corrigida na rodada anterior).
+  //
+  // A relação é verificada uma vez só, sobre o ESTADO RESULTANTE, em
+  // `slotsConsistencySchema` + `mergeSlotsState` (chamados no handler PUT,
+  // gmPanel.ts) — mesmo desenho já usado pelas regras de cobrança. O
+  // `createTableSchema` mantém o refine próprio porque lá o payload é completo
+  // e os defaults SÃO os valores reais da mesa nova.
   .refine((data) => {
     if (data.publisher_role === 'announcer' && !data.actual_gm_name) return false;
     return true;

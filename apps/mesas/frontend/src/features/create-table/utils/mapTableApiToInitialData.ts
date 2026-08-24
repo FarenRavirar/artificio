@@ -1,4 +1,5 @@
 import { normalizeImageFrame } from '@artificio/media/image-kinds';
+import { normalizeAgeRating } from '../../../utils/ageRating';
 import type { SessionSchedule } from '../../../components/SessionRepeater';
 import type { ContactFormEntry } from '../../../components/ContactsFormBlock';
 import type { FormState } from '../types/createTable.types';
@@ -109,7 +110,13 @@ export function mapTableApiToInitialData(apiData: unknown): Partial<FormState> &
       // edicao gravar essa faixa em mesa que nunca a escolheu (achado Codex,
       // PR #285) — 10 mesas em producao estao nesse estado. Vazio mantem o
       // select sem selecao e o mapper omite o campo.
-      age_rating: stringValue(data, 'age_rating'),
+      //
+      // `normalizeAgeRating` em vez de `stringValue`: este e payload de rede,
+      // e `String(value)` aceitaria qualquer coisa — medido, `16` virava
+      // `"16"` e `{}` virava `"[object Object]"`. Valor fora do enum e truthy,
+      // entao seria REENVIADO no PUT e nao casa com nenhuma opcao do select
+      // (achado Codex, PR #285). Fora do enum vira '' = "nao informado".
+      age_rating: normalizeAgeRating(data.age_rating) ?? '',
       price_type: stringValue(data, 'price_type', 'gratuita'),
       price_value: stringValue(data, 'price_value'),
       price_value_monthly: stringValue(data, 'price_value_monthly'),

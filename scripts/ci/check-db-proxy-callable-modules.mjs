@@ -99,10 +99,12 @@ function findProxyModules() {
       if (src.includes("new Proxy") && src.includes("Kysely")) found.push(file);
     }
   }
-  // Comparador explicito: `sort()` sem argumento ordena pela representacao
-  // UTF-16 de cada elemento, que so coincide com ordem alfabetica por acidente.
-  // Aqui a ordem so serve para a saida do gate ser estavel entre execucoes.
-  return found.sort((a, b) => a.localeCompare(b));
+  // Ordem UTF-16 (comparador explicito, mesma coisa que `sort()` sem
+  // argumento). A ordem aqui existe so para a saida do gate ser identica entre
+  // execucoes e entre runners — e `localeCompare` sem locale fixo depende do
+  // ambiente (medido: `a-b`/`a_b`/`aB` saem em ordens diferentes nos dois),
+  // o que e exatamente o nao-determinismo que se quer evitar num gate de CI.
+  return found.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 }
 
 // Cada app valida DATABASE_URL no primeiro acesso (DT-004). O Pool do `pg` so

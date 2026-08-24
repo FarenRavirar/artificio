@@ -222,3 +222,60 @@ describe('PUT /api/v1/gm/tables/:id — vagas omitidas no PUT parcial (Codex, PR
     expect(updateData.slots_filled).toBeUndefined();
   });
 });
+
+describe('PUT /api/v1/gm/tables/:id — slots_filled parcial vs linha salva (Codex, PR #285)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // O refine antigo do updateTableSchema comparava slots_filled com o
+  // `.default(4)` materializado pelo `.partial()`, nao com a mesa salva. 64
+  // das 114 mesas em producao tem slots_total > 4 e levavam 400 indevido.
+  it('aceita slots_filled=5 em mesa com slots_total=5 salvo (era falso 400)', async () => {
+    (TableRepository.updateTableWithRelations as Mock).mockResolvedValue({
+      id: 'table-1',
+      slug: 'mesa-teste',
+      title: 'Mesa Teste',
+      status: 'active',
+      updated_at: new Date(),
+    });
+
+    const res = await putWithRow(
+      savedRow({ price_type: 'gratuita', price_value: null, slots_total: 5, slots_filled: 2, slots_open: 3 }),
+      { slots_filled: 5 },
+    );
+
+    expect(res.status).toBe(200);
+    const updateData = (TableRepository.updateTableWithRelations as Mock).mock.calls[0][2];
+    expect(updateData.slots_filled).toBe(5);
+  });
+
+  it('continua rejeitando slots_filled acima do total salvo, com 400 e mensagem', async () => {
+    const res = await putWithRow(
+      savedRow({ price_type: 'gratuita', price_value: null, slots_total: 3, slots_filled: 1, slots_open: 2 }),
+      { slots_filled: 5 },
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Vagas preenchidas não pode ser maior que vagas totais');
+    expect(res.body.field).toBe('slots_filled');
+    expect(TableRepository.updateTableWithRelations).not.toHaveBeenCalled();
+  });
+
+  it('aceita slots_open=5 em mesa com slots_total=6 salvo', async () => {
+    (TableRepository.updateTableWithRelations as Mock).mockResolvedValue({
+      id: 'table-1',
+      slug: 'mesa-teste',
+      title: 'Mesa Teste',
+      status: 'active',
+      updated_at: new Date(),
+    });
+
+    const res = await putWithRow(
+      savedRow({ price_type: 'gratuita', price_value: null, slots_total: 6, slots_filled: 1, slots_open: 5 }),
+      { slots_open: 5 },
+    );
+
+    expect(res.status).toBe(200);
+  });
+});

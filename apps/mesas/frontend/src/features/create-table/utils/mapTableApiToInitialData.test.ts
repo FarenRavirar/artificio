@@ -175,4 +175,32 @@ describe('mapTableApiToInitialData — age_rating (achado Codex, PR #285)', () =
     const result = mapTableApiToInitialData({ id: 'table-1', title: 'Mesa X', age_rating: 'livre' });
     expect(result.form?.age_rating).toBe('livre');
   });
+
+  // `stringValue` fazia `String(value)` e aceitava qualquer coisa: medido,
+  // `16` virava `"16"` e `{}` virava `"[object Object]"`. Valor fora do enum e
+  // truthy, entao seria reenviado no PUT e nao casa com opcao nenhuma do
+  // select (achado Codex, PR #285).
+  it('valor numerico nao entra no estado', () => {
+    const result = mapTableApiToInitialData({ id: 'table-1', title: 'Mesa X', age_rating: 16 });
+    expect(result.form?.age_rating).toBe('');
+  });
+
+  it('string fora do enum nao entra no estado', () => {
+    for (const invalido of ['Livre', '16+', '+17', 'adulto']) {
+      const result = mapTableApiToInitialData({ id: 'table-1', title: 'Mesa X', age_rating: invalido });
+      expect(result.form?.age_rating).toBe('');
+    }
+  });
+
+  it('tipo nao-string nao vira "[object Object]" nem "true"', () => {
+    expect(mapTableApiToInitialData({ id: 't', title: 'X', age_rating: {} }).form?.age_rating).toBe('');
+    expect(mapTableApiToInitialData({ id: 't', title: 'X', age_rating: true }).form?.age_rating).toBe('');
+  });
+
+  it('todas as faixas restritivas do enum sao preservadas', () => {
+    for (const faixa of ['+10', '+12', '+14', '+16', '+18']) {
+      const result = mapTableApiToInitialData({ id: 'table-1', title: 'Mesa X', age_rating: faixa });
+      expect(result.form?.age_rating).toBe(faixa);
+    }
+  });
 });

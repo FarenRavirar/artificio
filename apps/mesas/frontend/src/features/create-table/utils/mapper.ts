@@ -257,32 +257,34 @@ function applyDdalFields(payload: CreateTablePayload, state: FormState): void {
  * complexidade cognitiva de `formStateToPayload`.
  */
 function applyOptionalFields(payload: CreateTablePayload, state: FormState): void {
-  const optional: [keyof CreateTablePayload, unknown][] = [
-    ['master_display_name', state.masterDisplayName],
-    ['campaign_length', state.campaignLength],
-    ['level_range', state.levelRange],
-    ['billing_text', state.billingText],
-    ['session_zero_free', state.sessionZeroFree],
-    ['synopsis', state.synopsis],
-    ['style_text', state.styleText],
-    ['listing_excerpt', state.listingExcerpt],
-    ['technical_requirements', state.technicalRequirements],
-    ['requires_pc', state.requiresPc],
-    ['requires_camera', state.requiresCamera],
-    ['requires_microphone', state.requiresMicrophone],
-    ['setting_name', state.settingName],
+  // Cada entrada e um setter tipado em vez de um par [chave, valor]: assim o
+  // compilador casa a chave com o TIPO do campo (string x boolean x id), o que
+  // um `Record<string, unknown>` nao faria — e foi justamente o cast frouxo
+  // que quebrou o build do CI (TS2352, `tsc -b`).
+  const optional: [unknown, (p: CreateTablePayload) => void][] = [
+    [state.masterDisplayName, (p) => { p.master_display_name = state.masterDisplayName; }],
+    [state.campaignLength, (p) => { p.campaign_length = state.campaignLength; }],
+    [state.levelRange, (p) => { p.level_range = state.levelRange; }],
+    [state.billingText, (p) => { p.billing_text = state.billingText; }],
+    [state.sessionZeroFree, (p) => { p.session_zero_free = state.sessionZeroFree; }],
+    [state.synopsis, (p) => { p.synopsis = state.synopsis; }],
+    [state.styleText, (p) => { p.style_text = state.styleText; }],
+    [state.listingExcerpt, (p) => { p.listing_excerpt = state.listingExcerpt; }],
+    [state.technicalRequirements, (p) => { p.technical_requirements = state.technicalRequirements; }],
+    [state.requiresPc, (p) => { p.requires_pc = state.requiresPc; }],
+    [state.requiresCamera, (p) => { p.requires_camera = state.requiresCamera; }],
+    [state.requiresMicrophone, (p) => { p.requires_microphone = state.requiresMicrophone; }],
+    [state.settingName, (p) => { p.setting_name = state.settingName; }],
     // Campos editoriais Fase 6 (REQ-28)
-    ['synopsis_narrative', state.synopsisNarrative],
-    ['benefits_text', state.benefitsText],
-    ['table_gm_bio', state.tableGmBio],
+    [state.synopsisNarrative, (p) => { p.synopsis_narrative = state.synopsisNarrative; }],
+    [state.benefitsText, (p) => { p.benefits_text = state.benefitsText; }],
+    [state.tableGmBio, (p) => { p.table_gm_bio = state.tableGmBio; }],
     // Requisito 8 (spec 079): fecha o loop de aprendizado do pre-preenchimento.
-    ['parse_case_id', state.parseCaseId],
+    [state.parseCaseId, (p) => { p.parse_case_id = state.parseCaseId; }],
   ];
 
-  for (const [key, value] of optional) {
-    if (value) {
-      (payload as Record<string, unknown>)[key] = value;
-    }
+  for (const [value, assign] of optional) {
+    if (value) assign(payload);
   }
 
   // Fora da tabela: precisa de normalizacao antes, e o normalizador pode

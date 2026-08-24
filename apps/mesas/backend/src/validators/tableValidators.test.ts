@@ -789,9 +789,23 @@ describe('schemas de mesa — slots_filled (T3.2d, spec 096)', () => {
     expect(result.success).toBe(false);
   });
 
-  it('PUT rejeita slots_filled > slots_total quando os dois campos vêm juntos', () => {
-    const result = updateTableSchema.safeParse({ slots_total: 4, slots_filled: 9 });
-    expect(result.success).toBe(false);
+  it('PUT com slots_filled > slots_total passa no parse e é barrado no estado resultante', () => {
+    // A relação saiu do updateTableSchema (achado Codex, PR #285): validá-la
+    // sobre o payload comparava contra o `.default(4)` de slots_total e
+    // rejeitava patch legítimo. O par inválido continua barrado — agora em
+    // slotsConsistencySchema, que enxerga a linha salva.
+    const body = { slots_total: 4, slots_filled: 9 };
+    const parsed = updateTableSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+
+    const efetivo = slotsConsistencySchema.safeParse(
+      mergeSlotsState(
+        updateTableSchema.parse(body),
+        body,
+        { slots_total: 6, slots_filled: 2, slots_open: 4 },
+      ),
+    );
+    expect(efetivo.success).toBe(false);
   });
 
   it('PUT aceita slots_filled válido', () => {
@@ -834,16 +848,28 @@ describe('mergeSlotsState + slotsConsistencySchema (achado Codex, PR #285)', () 
     }
   });
 
-  // Medido: patch so com slots_filled/slots_open NAO chega ao merge — o
-  // `.partial()` mantem o `.default(4)` de slots_total, entao o refine do
-  // proprio updateTableSchema ja dispara no parse. A lacuna real era so a
-  // reducao de slots_total, coberta acima.
-  it('patch so com slots_filled ja e barrado no parse do schema', () => {
-    expect(updateTableSchemaForSlots.safeParse({ slots_filled: 9 }).success).toBe(false);
+  // O schema NAO compara mais as vagas entre si (achado Codex, PR #285): o
+  // `.partial()` mantem o `.default(4)` de slots_total, entao o refine antigo
+  // comparava contra esse default em vez da linha salva — e rejeitava patch
+  // legitimo em mesa com total > 4 (64 das 114 em producao).
+  it('patch so com slots_filled passa no parse — a relacao e do estado resultante', () => {
+    expect(updateTableSchemaForSlots.safeParse({ slots_filled: 5 }).success).toBe(true);
   });
 
-  it('patch so com slots_open ja e barrado no parse do schema', () => {
-    expect(updateTableSchemaForSlots.safeParse({ slots_open: 9 }).success).toBe(false);
+  it('slots_filled=5 em mesa com total 5 salvo e ACEITO (era falso 400 antes)', () => {
+    expect(efetivo({ slots_filled: 5 }).success).toBe(true);
+  });
+
+  it('slots_filled acima do total salvo continua rejeitado no estado resultante', () => {
+    const result = efetivo({ slots_filled: 9 });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].path).toEqual(['slots_filled']);
+    }
+  });
+
+  it('slots_open acima do total salvo continua rejeitado no estado resultante', () => {
+    expect(efetivo({ slots_open: 9 }).success).toBe(false);
   });
 
   it('reducao de total que ainda comporta os preenchidos e aceita', () => {
