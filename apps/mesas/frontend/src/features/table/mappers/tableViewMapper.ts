@@ -1,4 +1,5 @@
 import { normalizeImageFrame } from '@artificio/media/image-kinds';
+import { normalizeAgeRating } from '../../../utils/ageRating';
 import type { TableContact, TableDetail } from '../../../types/tables';
 import type { TableViewModel, TableCertifications, CTAConfig, UrgencyConfig, VisibilityConfig } from '../types/tableView.types';
 
@@ -249,6 +250,14 @@ export function mapTableToView(table: TableDetail): TableViewModel {
     systemWebsiteUrl: table.system_website_url ?? undefined,
     experience: table.experience_level,
     modality: table.modality,
+    // R24/A27 (spec 096): faixa etária normalizada para o enum do produto. O
+    // que EXIBIR continua sendo decisão da UI (ageRatingLabel): faixa
+    // restritiva vira selo 🔞, 'livre' é preservado e renderizado como "Livre"
+    // — marcador discreto, decisão do mantenedor em 2026-08-24 — e ausente ou
+    // fora do enum não aparece. O mapper só garante que valor inesperado
+    // ('Livre' capitalizado de um backend antigo) não entre no VM tipado
+    // (achado Codex, PR #285).
+    ageRating: normalizeAgeRating(table.age_rating),
 
     // Vagas
     slotsLeft,

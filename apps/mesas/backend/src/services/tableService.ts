@@ -154,6 +154,12 @@ export class TableService {
             description: data.description ?? null,
             type: data.type,
             audience: data.audience,
+            // T3.2 (spec 096): gravar a faixa etária e o nível da mesa escolhidos
+            // no form — o schema aplica os defaults reais das colunas
+            // ('livre'/'todos', medidos via information_schema em produção) quando
+            // o payload omite; null explícito continua sendo null.
+            age_rating: data.age_rating ?? null,
+            table_level: data.table_level ?? null,
             modality: data.modality,
             price_type: data.price_type,
             price_value: data.price_value ?? null,

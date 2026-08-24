@@ -67,3 +67,140 @@ describe('mapTableApiToInitialData', () => {
     expect(result.form?.price_type).toBe('gratuita');
   });
 });
+
+/**
+ * Fixture no formato REAL da resposta de GET /api/v1/gm/tables/:id
+ * (gmPanel.ts:564-576): linha flat de `tables` (selectAll) + `contacts` +
+ * `schedules` (selectAll de table_schedules, ordenado por sort_order) +
+ * `slots_available` calculado. `is_covil` é coluna real da linha; `sessions`
+ * e `is_covil_mesa` NÃO existem em resposta nenhuma.
+ */
+function makeRealGmPanelTable(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: '11111111-1111-1111-1111-111111111111',
+    title: 'Mesa Covil real',
+    is_covil: true,
+    schedules: [
+      {
+        id: 'sched-1',
+        table_id: '11111111-1111-1111-1111-111111111111',
+        day_of_week: 'sexta',
+        start_time: '19:00:00',
+        end_time: '22:00:00',
+        frequency: 'semanal',
+        slots_per_session: 4,
+        is_ongoing: false,
+        notes: null,
+        sort_order: 0,
+        created_at: '2026-08-01T00:00:00.000Z',
+      },
+      {
+        id: 'sched-2',
+        table_id: '11111111-1111-1111-1111-111111111111',
+        day_of_week: 'sábado',
+        start_time: '14:00:00',
+        end_time: null,
+        frequency: 'semanal',
+        slots_per_session: null,
+        is_ongoing: false,
+        notes: null,
+        sort_order: 1,
+        created_at: '2026-08-01T00:00:00.000Z',
+      },
+    ],
+    contacts: [],
+    ...overrides,
+  };
+}
+
+describe('mapTableApiToInitialData — resposta real de GET /gm/tables/:id', () => {
+  it('preserva todos os schedules reais da API (bug 2: lia data.sessions, que nunca existe na resposta)', () => {
+    const result = mapTableApiToInitialData(makeRealGmPanelTable());
+
+    expect(result.sessions).toHaveLength(2);
+    expect(result.sessions?.[0].day_of_week).toBe('sexta');
+    expect(result.sessions?.[1].day_of_week).toBe('sábado');
+  });
+
+  it('is_covil true da API vira isCovilMesa true (bug 1: lia is_covil_mesa, que nunca existe)', () => {
+    const result = mapTableApiToInitialData(makeRealGmPanelTable());
+
+    expect(result.isCovilMesa).toBe(true);
+  });
+
+  it('is_covil false da API vira isCovilMesa false (mesa comum não vira Covil)', () => {
+    const result = mapTableApiToInitialData(makeRealGmPanelTable({ is_covil: false }));
+
+    expect(result.isCovilMesa).toBe(false);
+  });
+
+  it('schedules vazio cai no defaultSession com os hints da linha (fallback preservado)', () => {
+    const result = mapTableApiToInitialData(
+      makeRealGmPanelTable({
+        schedules: [],
+        schedule_day_status: 'defined',
+        schedule_time_status: 'defined',
+        schedule_day_hint: 'quarta',
+        schedule_time_hint: '20:00',
+      }),
+    );
+
+    expect(result.sessions).toHaveLength(1);
+    expect(result.sessions?.[0].day_of_week).toBe('quarta');
+    expect(result.sessions?.[0].start_time).toBe('20:00');
+  });
+});
+
+describe('mapTableApiToInitialData — age_rating (achado Codex, PR #285)', () => {
+  // A coluna e nullable e faixa nula significa "nao informado". O fallback
+  // 'livre' que existia aqui materializava uma faixa que o mestre nunca
+  // escolheu, e o payload de edicao a gravava — inclusive editando outro
+  // campo. 10 mesas em producao estao com faixa nula.
+  it('faixa ausente vira string vazia, nao "livre"', () => {
+    const result = mapTableApiToInitialData({ id: 'table-1', title: 'Mesa X' });
+    expect(result.form?.age_rating).toBe('');
+  });
+
+  it('faixa null explicita vira string vazia, nao "livre"', () => {
+    const result = mapTableApiToInitialData({ id: 'table-1', title: 'Mesa X', age_rating: null });
+    expect(result.form?.age_rating).toBe('');
+  });
+
+  it('faixa real e preservada', () => {
+    const result = mapTableApiToInitialData({ id: 'table-1', title: 'Mesa X', age_rating: '+16' });
+    expect(result.form?.age_rating).toBe('+16');
+  });
+
+  it('"livre" salvo de verdade e preservado (distinto de ausente)', () => {
+    const result = mapTableApiToInitialData({ id: 'table-1', title: 'Mesa X', age_rating: 'livre' });
+    expect(result.form?.age_rating).toBe('livre');
+  });
+
+  // `stringValue` fazia `String(value)` e aceitava qualquer coisa: medido,
+  // `16` virava `"16"` e `{}` virava `"[object Object]"`. Valor fora do enum e
+  // truthy, entao seria reenviado no PUT e nao casa com opcao nenhuma do
+  // select (achado Codex, PR #285).
+  it('valor numerico nao entra no estado', () => {
+    const result = mapTableApiToInitialData({ id: 'table-1', title: 'Mesa X', age_rating: 16 });
+    expect(result.form?.age_rating).toBe('');
+  });
+
+  it('string fora do enum nao entra no estado', () => {
+    for (const invalido of ['Livre', '16+', '+17', 'adulto']) {
+      const result = mapTableApiToInitialData({ id: 'table-1', title: 'Mesa X', age_rating: invalido });
+      expect(result.form?.age_rating).toBe('');
+    }
+  });
+
+  it('tipo nao-string nao vira "[object Object]" nem "true"', () => {
+    expect(mapTableApiToInitialData({ id: 't', title: 'X', age_rating: {} }).form?.age_rating).toBe('');
+    expect(mapTableApiToInitialData({ id: 't', title: 'X', age_rating: true }).form?.age_rating).toBe('');
+  });
+
+  it('todas as faixas restritivas do enum sao preservadas', () => {
+    for (const faixa of ['+10', '+12', '+14', '+16', '+18']) {
+      const result = mapTableApiToInitialData({ id: 'table-1', title: 'Mesa X', age_rating: faixa });
+      expect(result.form?.age_rating).toBe(faixa);
+    }
+  });
+});

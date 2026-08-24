@@ -14,9 +14,19 @@ import {
 export const TABLE_TYPES = ['campanha', 'one-shot', 'oneshot-serie', 'aberta'] as const;
 export const TABLE_MODALITIES = ['online', 'presencial', 'hibrida'] as const;
 export const TABLE_AUDIENCES = ['livre', 'adultos'] as const;
+// Valores reais do ENUM Postgres `age_rating` (medido em produção via
+// pg_enum: livre|+10|+12|+14|+16|+18; coluna nullable DEFAULT 'livre').
+// Mesma lista do parser (syncHelpers.ts VALID_AGE_RATINGS) e do select do
+// StepConfig — fonte única para o contrato do payload (T3.2, spec 096).
+export const TABLE_AGE_RATINGS = ['livre', '+10', '+12', '+14', '+16', '+18'] as const;
 export const PRICE_TYPES = ['gratuita', 'paga'] as const;
 export const PRICE_FREQUENCIES = ['sessao', 'mes', 'campanha'] as const;
 export const EXPERIENCE_LEVELS = ['todos', 'iniciante', 'intermediario', 'veterano'] as const;
+// Valores reais do ENUM Postgres `table_level` (medido em produção via
+// pg_enum: iniciante|intermediario|avancado|todos; coluna nullable DEFAULT
+// 'todos'). 'todos' é o próprio DEFAULT da coluna — o tipo em db/types.ts
+// espelha a mesma lista.
+export const TABLE_LEVELS = ['iniciante', 'intermediario', 'avancado', 'todos'] as const;
 export const PUBLISHER_ROLES = ['gm', 'announcer'] as const;
 export const CONTACT_CHANNELS = ['whatsapp', 'discord', 'phone', 'email', 'facebook', 'instagram', 'form'] as const;
 export const DAYS_OF_WEEK = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'] as const;
@@ -141,6 +151,16 @@ const baseTableSchema = z.object({
   scenario_id: z.string().uuid('Cenário inválido').nullable().optional(),
   type: z.enum(TABLE_TYPES),
   audience: z.enum(TABLE_AUDIENCES).default('livre'),
+  // T3.2 (spec 096): a UI coletava faixa etária e nível da mesa, o payload
+  // descartava (strict + campos ausentes do schema) e o banco gravava o
+  // default — mestre que escolheu "+18" tinha mesa "livre". Defaults espelham
+  // os defaults reais das colunas (DEFAULT 'livre' / DEFAULT 'todos', medido
+  // via information_schema em produção). CUIDADO no PUT: `.partial()`
+  // materializa estes defaults — o handler só grava quando o body enviou o
+  // campo (hasOwnProperty), senão editar qualquer coisa rebaixaria a faixa
+  // salva para 'livre' (mesma armadilha do price_type, gmPanel.ts:944-953).
+  age_rating: z.enum(TABLE_AGE_RATINGS).nullable().default('livre'),
+  table_level: z.enum(TABLE_LEVELS).nullable().default('todos'),
   modality: z.enum(TABLE_MODALITIES),
   price_type: z.enum(PRICE_TYPES).default('gratuita'),
   price_value: z.number().min(0).nullable().optional(),
@@ -154,6 +174,12 @@ const baseTableSchema = z.object({
   suggested_donation_value: z.number().min(0).nullable().optional(),
   price_frequency: z.enum(PRICE_FREQUENCIES).nullable().optional(),
   slots_total: z.number().int().min(1).max(100).default(4),
+  // T3.2d (spec 096): slots_filled ganhou ESCRITOR no fluxo manual — o mapper
+  // envia slots_total - slots_open (mesma semântica do parser,
+  // parseDiscordAnnouncement.ts:2820, e do leitor getSlotsVisualState). A
+  // relação <= slots_total é o CHECK `slots_filled_valid` do Postgres; sem o
+  // refine, um cliente fora do form mandaria filled > total e levaria 500 do
+  // banco em vez de 400 (classe do bug normalizeSlots, syncHelpers.ts:361).
   slots_filled: z.number().int().min(0).default(0),
   slots_open: z.number().int().min(0).optional(),
   language: z.string().max(50).default('Português'),
@@ -198,7 +224,10 @@ const baseTableSchema = z.object({
   // em `object-position` e o enquadramento salvo nao aparece.
   banner_width: z.number().int().positive().nullable().optional(),
   banner_height: z.number().int().positive().nullable().optional(),
-  gm_avatar_url: z.url().nullable().optional(),
+  // T3.2c (spec 096, decisão 2026-08-23 opção C): gm_avatar_url sai do
+  // contrato do FORM — campo sem UI no fluxo atual. A resposta da API
+  // continua (alias computado COALESCE(gm.avatar_url, p.avatar_url) em
+  // routes/tables.ts:160,638); só o payload de create/update perde o campo.
   is_covil: z.boolean().default(false),
   master_display_name: z.string().max(100).nullable().optional(),
   campaign_length: z.string().max(100).nullable().optional(),
@@ -351,6 +380,14 @@ export const createTableSchema = withPricingRules(
     }, { 
       message: 'Vagas abertas não pode ser maior que vagas totais', 
       path: ['slots_open'] 
+    })
+    .refine((data) => {
+      // Espelha o CHECK `slots_filled_valid` do Postgres (filled <= total) —
+      // 400 antes de chegar no banco (T3.2d, spec 096).
+      return data.slots_filled <= data.slots_total;
+    }, {
+      message: 'Vagas preenchidas não pode ser maior que vagas totais',
+      path: ['slots_filled']
     }),
 ).refine((data) => {
     if (data.publisher_role === 'announcer' && !data.actual_gm_name) return false;
@@ -403,15 +440,20 @@ export const createTableSchema = withPricingRules(
 export const updateTableSchema = baseTableSchema
   .partial()
   .strict()
-  .refine((data) => {
-    if (data.slots_open !== undefined && data.slots_total !== undefined) {
-      return data.slots_open <= data.slots_total;
-    }
-    return true;
-  }, { 
-    message: 'Vagas abertas não pode ser maior que vagas totais', 
-    path: ['slots_open'] 
-  })
+  // As relações entre vagas NÃO são validadas aqui de propósito (achado Codex,
+  // PR #285). O `.partial()` não remove os `.default()` do baseTableSchema,
+  // então `slots_total` chega como `4` mesmo num PUT que não o enviou — e o
+  // refine comparava contra esse default em vez da linha salva. Medido:
+  // `{ slots_filled: 5 }` era REJEITADO, embora 64 das 114 mesas em produção
+  // tenham `slots_total > 4` e a atualização fosse legítima. Um refine que
+  // depende de campo que o cliente não mandou só pode errar: rejeita o válido
+  // (aqui) ou aprova o inválido (a outra face, corrigida na rodada anterior).
+  //
+  // A relação é verificada uma vez só, sobre o ESTADO RESULTANTE, em
+  // `slotsConsistencySchema` + `mergeSlotsState` (chamados no handler PUT,
+  // gmPanel.ts) — mesmo desenho já usado pelas regras de cobrança. O
+  // `createTableSchema` mantém o refine próprio porque lá o payload é completo
+  // e os defaults SÃO os valores reais da mesa nova.
   .refine((data) => {
     if (data.publisher_role === 'announcer' && !data.actual_gm_name) return false;
     return true;
@@ -478,7 +520,7 @@ export function mergePricingState(
   body: Record<string, unknown>,
   existing: TablePricingRow,
 ): TablePricingRow {
-  const sent = (key: string) => Object.prototype.hasOwnProperty.call(body, key);
+  const sent = (key: string) => Object.hasOwn(body, key);
   return {
     price_type: sent('price_type') ? (payload.price_type ?? existing.price_type) : existing.price_type,
     price_value: sent('price_value') ? (payload.price_value ?? null) : existing.price_value,
@@ -493,6 +535,64 @@ export function mergePricingState(
       : existing.suggested_donation_value,
   };
 }
+
+/**
+ * Linha salva com os campos de vagas, para a validação do PUT parcial.
+ */
+export interface TableSlotsRow {
+  slots_total: number;
+  slots_filled: number;
+  slots_open: number;
+}
+
+/**
+ * Estado resultante das vagas para a validação do PUT parcial: campo ENVIADO
+ * no body vence, omitido herda o salvo. Mesmo padrão de `mergePricingState`.
+ *
+ * Por que o refine do `updateTableSchema` não basta (achado Codex, PR #285):
+ * a linha salva não é visível de dentro do schema. O patch que escapava é o
+ * de **só `slots_total`**, reduzido abaixo do `slots_filled` salvo — que é
+ * exatamente o que o form de edição envia, já que ele omite `slots_filled`
+ * (mapper.ts). Medido: patch só com `slots_filled` ou só com `slots_open` NÃO
+ * escapa, porque o `.partial()` preserva o `.default(4)` de `slots_total` e o
+ * refine dispara no parse comparando contra esse default.
+ *
+ * Não havia corrupção de dado: os CHECKs do Postgres (`slots_filled_valid`,
+ * `check_slots_valid`) barram a escrita. O defeito era o mestre levar 500 em
+ * vez de 400 com mensagem. Medido em produção: 9 mesas com
+ * `slots_filled >= 3` alcançam esse caminho ao reduzir o total.
+ */
+export function mergeSlotsState(
+  payload: UpdateTableInput,
+  body: Record<string, unknown>,
+  existing: TableSlotsRow,
+): TableSlotsRow {
+  const sent = (key: string) => Object.hasOwn(body, key);
+  return {
+    slots_total: sent('slots_total') ? (payload.slots_total ?? existing.slots_total) : existing.slots_total,
+    slots_filled: sent('slots_filled') ? (payload.slots_filled ?? existing.slots_filled) : existing.slots_filled,
+    slots_open: sent('slots_open') ? (payload.slots_open ?? existing.slots_open) : existing.slots_open,
+  };
+}
+
+/**
+ * Invariantes de vagas sobre o ESTADO RESULTANTE, espelhando os CHECKs do
+ * Postgres para devolver 400 com mensagem em vez de 500 do banco.
+ */
+export const slotsConsistencySchema = z
+  .object({
+    slots_total: z.number().int().min(0),
+    slots_filled: z.number().int().min(0),
+    slots_open: z.number().int().min(0),
+  })
+  .refine((s) => s.slots_filled <= s.slots_total, {
+    message: 'Vagas preenchidas não pode ser maior que vagas totais',
+    path: ['slots_filled'],
+  })
+  .refine((s) => s.slots_open <= s.slots_total, {
+    message: 'Vagas abertas não pode ser maior que vagas totais',
+    path: ['slots_open'],
+  });
 
 export type CreateTableInput = z.infer<typeof createTableSchema>;
 export type UpdateTableInput = z.infer<typeof updateTableSchema>;

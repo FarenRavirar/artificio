@@ -269,7 +269,11 @@ export interface TablesTable {
   slots_open: Generated<number>; // REQ-02: Vagas abertas para recrutamento
   language: Generated<string>;
   experience_level: Generated<ExperienceLevel>;
-  table_level: 'iniciante' | 'intermediario' | 'avancado' | null;
+  // Espelha o enum Postgres `table_level`, cujos 4 rotulos foram medidos em
+  // producao (pg_enum): iniciante, intermediario, avancado, todos. 'todos' e
+  // o proprio DEFAULT da coluna e faltava aqui, o que fazia o valor default do
+  // banco nao compilar no TS.
+  table_level: 'iniciante' | 'intermediario' | 'avancado' | 'todos' | null;
   starts_at: Date | null;
   schedule_day_status: Generated<ScheduleDefinitionStatus>;
   schedule_time_status: Generated<ScheduleDefinitionStatus>;

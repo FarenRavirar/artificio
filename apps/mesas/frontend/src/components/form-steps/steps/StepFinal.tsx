@@ -41,10 +41,6 @@ interface StepFinalProps {
   setBannerCropData: (data: CropRect | null) => void;
   bannerError: boolean;
   setBannerError: (error: boolean) => void;
-  gmAvatarUrl: string;
-  setGmAvatarUrl: (url: string) => void;
-  avatarError: boolean;
-  setAvatarError: (error: boolean) => void;
   isCovilMesa: boolean;
   setIsCovilMesa: (is: boolean) => void;
   userRole?: string; // Role do usuário para controlar visibilidade de campos admin

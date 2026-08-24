@@ -16,11 +16,15 @@ export interface UserLink {
   updated_at: string;
 }
 
+export type AddLinkResult =
+  | { ok: true; link: UserLink }
+  | { ok: false; error: string };
+
 interface UseLinksReturn {
   links: UserLink[];
   loading: boolean;
   error: string | null;
-  addLink: (url: string) => Promise<UserLink | null>;
+  addLink: (url: string) => Promise<AddLinkResult>;
   removeLink: (linkId: string) => Promise<boolean>;
   reorderLinks: (linkIds: string[]) => Promise<boolean>;
   refresh: () => Promise<void>;
@@ -122,8 +126,10 @@ export function useLinks(): UseLinksReturn {
   }, [fetchLinks]);
 
   const addLink = useCallback(
-    async (url: string): Promise<UserLink | null> => {
-      if (!isAuthenticated) return null;
+    async (url: string): Promise<AddLinkResult> => {
+      if (!isAuthenticated) {
+        return { ok: false, error: 'Sessao expirada. Entre novamente para adicionar links.' };
+      }
 
       try {
         setError(null);
@@ -147,11 +153,18 @@ export function useLinks(): UseLinksReturn {
         }
 
         setLinks((prev) => [...prev, newLink]);
-        return newLink;
+        return { ok: true, link: newLink };
       } catch (err: unknown) {
         console.error('Error adding link:', err);
-        setError(getErrorMessage(err, 'Erro ao adicionar link'));
-        return null;
+        // Canal unico: a falha volta SO no resultado, para o LinksManager
+        // guardar em `addError` e renderizar junto do formulario. Nao setamos
+        // o `error` do hook aqui — ele alimenta outro bloco de render (a
+        // mensagem de carregamento da lista), e escrever nos dois fazia a
+        // mesma falha aparecer duas vezes na tela (achado Codex, PR #285).
+        // O retorno carrega a mensagem real porque o state e assincrono e
+        // ainda nao estaria atualizado quando o chamador le o resultado — foi
+        // por isso que o painel mostrava sempre "Verifique a URL" para um 500.
+        return { ok: false, error: getErrorMessage(err, 'Erro ao adicionar link') };
       }
     },
     [isAuthenticated]

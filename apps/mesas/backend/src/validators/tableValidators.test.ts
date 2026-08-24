@@ -4,6 +4,9 @@ import {
   updateTableSchema,
   pricingConsistencySchema,
   mergePricingState,
+  mergeSlotsState,
+  slotsConsistencySchema,
+  updateTableSchema as updateTableSchemaForSlots,
 } from './tableValidators.js';
 
 describe('updateTableSchema — Markdown de usuário', () => {
@@ -687,5 +690,197 @@ describe('mergePricingState — merge payload parcial × linha salva', () => {
     const payload = updateTableSchema.parse({ price_value: null });
     const merged = mergePricingState(payload, { price_value: null }, saved);
     expect(merged.price_value).toBeNull();
+  });
+});
+
+describe('createTableSchema — age_rating e table_level (T3.2, spec 096)', () => {
+  it('aceita faixa etária e nível escolhidos no form (valores do enum real do Postgres)', () => {
+    const result = createTableSchema.safeParse({
+      title: 'Mesa adulta avançada',
+      system_id: '123e4567-e89b-42d3-a456-426614174000',
+      type: 'campanha',
+      modality: 'online',
+      contacts: [{ channel: 'discord', value: 'mestre' }],
+      age_rating: '+18',
+      table_level: 'avancado',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.age_rating).toBe('+18');
+      expect(result.data.table_level).toBe('avancado');
+    }
+  });
+
+  it('omissão aplica os defaults reais das colunas (livre/todos, medido via information_schema)', () => {
+    const result = createTableSchema.safeParse({
+      title: 'Mesa sem faixa',
+      system_id: '123e4567-e89b-42d3-a456-426614174000',
+      type: 'campanha',
+      modality: 'online',
+      contacts: [{ channel: 'discord', value: 'mestre' }],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.age_rating).toBe('livre');
+      expect(result.data.table_level).toBe('todos');
+    }
+  });
+
+  it.each([
+    ['faixa etária fora do enum', { age_rating: 'x18' }],
+    ['nível fora do enum', { table_level: 'epico' }],
+    ['faixa como número', { age_rating: 18 }],
+    ['nível como número', { table_level: 2 }],
+  ])('rejeita %s', (_label, fields) => {
+    const result = createTableSchema.safeParse({
+      title: 'Mesa inválida',
+      system_id: '123e4567-e89b-42d3-a456-426614174000',
+      type: 'campanha',
+      modality: 'online',
+      contacts: [{ channel: 'discord', value: 'mestre' }],
+      ...fields,
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('updateTableSchema — age_rating e table_level (T3.2, spec 096)', () => {
+  it('PUT com os dois campos gravados preserva os valores', () => {
+    const result = updateTableSchema.parse({ age_rating: '+16', table_level: 'iniciante' });
+    expect(result.age_rating).toBe('+16');
+    expect(result.table_level).toBe('iniciante');
+  });
+
+  it('PUT sem os campos materializa os defaults do schema — o handler só grava com hasOwnProperty', () => {
+    // Este teste documenta a armadilha: `.partial()` preserva o `.default()`,
+    // então o updateData do PUT precisa do guard hasOwnProperty (gmPanel.ts)
+    // para não rebaixar a faixa salva a cada edição que não envia o campo.
+    const result = updateTableSchema.parse({ title: 'Só título' });
+    expect(result.age_rating).toBe('livre');
+    expect(result.table_level).toBe('todos');
+  });
+});
+
+describe('schemas de mesa — slots_filled (T3.2d, spec 096)', () => {
+  it('create aceita slots_filled derivado (total - abertas)', () => {
+    const result = createTableSchema.safeParse({
+      title: 'Mesa com vagas',
+      system_id: '123e4567-e89b-42d3-a456-426614174000',
+      type: 'campanha',
+      modality: 'online',
+      contacts: [{ channel: 'discord', value: 'mestre' }],
+      slots_total: 4,
+      slots_open: 2,
+      slots_filled: 2,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('create rejeita slots_filled > slots_total (espelha o CHECK slots_filled_valid do Postgres)', () => {
+    const result = createTableSchema.safeParse({
+      title: 'Mesa com vagas',
+      system_id: '123e4567-e89b-42d3-a456-426614174000',
+      type: 'campanha',
+      modality: 'online',
+      contacts: [{ channel: 'discord', value: 'mestre' }],
+      slots_total: 4,
+      slots_filled: 9,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('PUT com slots_filled > slots_total passa no parse e é barrado no estado resultante', () => {
+    // A relação saiu do updateTableSchema (achado Codex, PR #285): validá-la
+    // sobre o payload comparava contra o `.default(4)` de slots_total e
+    // rejeitava patch legítimo. O par inválido continua barrado — agora em
+    // slotsConsistencySchema, que enxerga a linha salva.
+    const body = { slots_total: 4, slots_filled: 9 };
+    const parsed = updateTableSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+
+    const efetivo = slotsConsistencySchema.safeParse(
+      mergeSlotsState(
+        updateTableSchema.parse(body),
+        body,
+        { slots_total: 6, slots_filled: 2, slots_open: 4 },
+      ),
+    );
+    expect(efetivo.success).toBe(false);
+  });
+
+  it('PUT aceita slots_filled válido', () => {
+    const result = updateTableSchema.safeParse({ slots_total: 6, slots_filled: 5 });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('gm_avatar_url fora do contrato do form (T3.2c, spec 096)', () => {
+  it('create rejeita gm_avatar_url como chave desconhecida (strict) — payload do form não envia mais', () => {
+    const result = createTableSchema.safeParse({
+      title: 'Mesa sem avatar',
+      system_id: '123e4567-e89b-42d3-a456-426614174000',
+      type: 'campanha',
+      modality: 'online',
+      contacts: [{ channel: 'discord', value: 'mestre' }],
+      gm_avatar_url: 'https://example.com/avatar.png',
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('mergeSlotsState + slotsConsistencySchema (achado Codex, PR #285)', () => {
+  // A linha salva nao e visivel de dentro do updateTableSchema, entao o refine
+  // dele so compara quando os DOIS campos vem no body. Estes casos sao os
+  // patches parciais que escapavam e batiam no CHECK do Postgres (500 em vez
+  // de 400 com mensagem).
+  const salva = { slots_total: 5, slots_filled: 4, slots_open: 1 };
+
+  const efetivo = (body: Record<string, unknown>) => {
+    const parsed = updateTableSchemaForSlots.parse(body);
+    return slotsConsistencySchema.safeParse(mergeSlotsState(parsed, body, salva));
+  };
+
+  it('patch so com slots_total reduzido abaixo do slots_filled salvo e rejeitado', () => {
+    const result = efetivo({ slots_total: 2 });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].path).toEqual(['slots_filled']);
+    }
+  });
+
+  // O schema NAO compara mais as vagas entre si (achado Codex, PR #285): o
+  // `.partial()` mantem o `.default(4)` de slots_total, entao o refine antigo
+  // comparava contra esse default em vez da linha salva — e rejeitava patch
+  // legitimo em mesa com total > 4 (64 das 114 em producao).
+  it('patch so com slots_filled passa no parse — a relacao e do estado resultante', () => {
+    expect(updateTableSchemaForSlots.safeParse({ slots_filled: 5 }).success).toBe(true);
+  });
+
+  it('slots_filled=5 em mesa com total 5 salvo e ACEITO (era falso 400 antes)', () => {
+    expect(efetivo({ slots_filled: 5 }).success).toBe(true);
+  });
+
+  it('slots_filled acima do total salvo continua rejeitado no estado resultante', () => {
+    const result = efetivo({ slots_filled: 9 });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].path).toEqual(['slots_filled']);
+    }
+  });
+
+  it('slots_open acima do total salvo continua rejeitado no estado resultante', () => {
+    expect(efetivo({ slots_open: 9 }).success).toBe(false);
+  });
+
+  it('reducao de total que ainda comporta os preenchidos e aceita', () => {
+    expect(efetivo({ slots_total: 4 }).success).toBe(true);
+  });
+
+  it('campo omitido herda o salvo — patch sem vagas nao invalida a mesa', () => {
+    expect(efetivo({ title: 'Outro titulo' }).success).toBe(true);
+  });
+
+  it('reduzir total junto com filled coerente e aceito', () => {
+    expect(efetivo({ slots_total: 3, slots_filled: 3, slots_open: 0 }).success).toBe(true);
   });
 });

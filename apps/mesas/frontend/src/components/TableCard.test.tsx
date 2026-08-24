@@ -134,3 +134,56 @@ describe('TableCardComponent — semântica de links', () => {
     expect(focusRing?.className).toContain('peer-focus-visible/card-link:outline');
   });
 });
+
+// R24/A27 (spec 096): faixa etária visível no card do catálogo. Faixas reais
+// ganham o selo 🔞; 'livre' aparece como marcador discreto "Livre", sem o selo
+// de restrição (decisão do mantenedor, 2026-08-24); ausente (null) ou valor
+// fora do enum fica em silêncio.
+describe('TableCardComponent — faixa etária (R24/A27)', () => {
+  function renderCard(card: TableCard) {
+    const queryClient = new QueryClient();
+    const { container } = render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TableCardComponent table={card} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    return container;
+  }
+
+  it('exibe o selo quando a mesa tem faixa etária real (+16)', () => {
+    const container = renderCard({ ...table, age_rating: '+16' });
+    expect(container.querySelector('article')).not.toBeNull();
+    expect(container.textContent).toContain('+16');
+    expect(container.textContent).toContain('🔞');
+  });
+
+  it('exibe o marcador "Livre" para mesa livre, sem o selo de restrição', () => {
+    // Decisão do mantenedor (2026-08-24): ao escolher Livre, tem que aparecer
+    // no card — mas discreto, sem o 🔞 (A27: "não ganha selo ruidoso").
+    const container = renderCard({ ...table, age_rating: 'livre' });
+    expect(container.textContent).toContain('Mesa teste');
+    expect(container.textContent).toContain('Livre');
+    expect(container.textContent).not.toContain('🔞');
+  });
+
+  it('não quebra e não exibe marcador quando a faixa é ausente (null)', () => {
+    const container = renderCard({ ...table, age_rating: null });
+    expect(container.textContent).toContain('Mesa teste');
+    expect(container.textContent).not.toContain('🔞');
+    expect(container.textContent).not.toContain('Livre');
+  });
+
+  it('não exibe marcador para valor fora do enum (lista positiva)', () => {
+    // Valor inesperado (ex.: 'Livre' capitalizado vindo de backend antigo)
+    // fica em silêncio — nunca vira selo com texto estranho.
+    const container = renderCard({
+      ...table,
+      age_rating: 'Livre' as unknown as NonNullable<TableCard['age_rating']>,
+    });
+    expect(container.textContent).toContain('Mesa teste');
+    expect(container.textContent).not.toContain('Livre');
+    expect(container.textContent).not.toContain('🔞');
+  });
+});

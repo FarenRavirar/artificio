@@ -1,4 +1,5 @@
 import { normalizeImageFrame } from '@artificio/media/image-kinds';
+import { normalizeAgeRating } from '../../../utils/ageRating';
 import type { SessionSchedule } from '../../../components/SessionRepeater';
 import type { ContactFormEntry } from '../../../components/ContactsFormBlock';
 import type { FormState } from '../types/createTable.types';
@@ -83,7 +84,12 @@ export function mapTableApiToInitialData(apiData: unknown): Partial<FormState> &
 
   const bannerFrame = normalizeImageFrame(data, 'banner');
 
-  const sessions = Array.isArray(data.sessions) ? data.sessions.filter(isSessionSchedule) : [];
+  // T3.1 (spec 096, bug 2 de edição): a resposta de GET /gm/tables/:id devolve
+  // `schedules` (selectAll de table_schedules, gmPanel.ts:562-574) — `sessions`
+  // nunca existiu no contrato e fazia o fluxo inteiro de edição cair no
+  // defaultSession (dados de agenda descartados no primeiro save). O filtro e o
+  // fallback continuam iguais, só a chave muda.
+  const sessions = Array.isArray(data.schedules) ? data.schedules.filter(isSessionSchedule) : [];
   const contacts = Array.isArray(data.contacts) ? data.contacts.filter(isContactEntry) : [];
 
   return {
@@ -99,7 +105,18 @@ export function mapTableApiToInitialData(apiData: unknown): Partial<FormState> &
       type: stringValue(data, 'type', 'campanha'),
       modality: stringValue(data, 'modality', 'online'),
       audience: stringValue(data, 'audience', 'livre'),
-      age_rating: stringValue(data, 'age_rating', 'livre'),
+      // Sem fallback: a coluna e nullable e faixa nula significa "nao
+      // informado", nao 'livre'. Materializar 'livre' aqui fazia o payload de
+      // edicao gravar essa faixa em mesa que nunca a escolheu (achado Codex,
+      // PR #285) — 10 mesas em producao estao nesse estado. Vazio mantem o
+      // select sem selecao e o mapper omite o campo.
+      //
+      // `normalizeAgeRating` em vez de `stringValue`: este e payload de rede,
+      // e `String(value)` aceitaria qualquer coisa — medido, `16` virava
+      // `"16"` e `{}` virava `"[object Object]"`. Valor fora do enum e truthy,
+      // entao seria REENVIADO no PUT e nao casa com nenhuma opcao do select
+      // (achado Codex, PR #285). Fora do enum vira '' = "nao informado".
+      age_rating: normalizeAgeRating(data.age_rating) ?? '',
       price_type: stringValue(data, 'price_type', 'gratuita'),
       price_value: stringValue(data, 'price_value'),
       price_value_monthly: stringValue(data, 'price_value_monthly'),
@@ -139,8 +156,10 @@ export function mapTableApiToInitialData(apiData: unknown): Partial<FormState> &
     bannerCropData: bannerFrame.crop,
     bannerWidth: bannerFrame.width,
     bannerHeight: bannerFrame.height,
-    gmAvatarUrl: stringValue(data, 'gm_avatar_url'),
-    isCovilMesa: booleanValue(data, 'is_covil_mesa'),
+    // T3.1 (spec 096, bug 1 de edição): a coluna/resposta é `is_covil` —
+    // `is_covil_mesa` nunca existiu e fazia toda edição enviar is_covil:false
+    // (mapper.ts), desmarcando mesa Covil a cada save.
+    isCovilMesa: booleanValue(data, 'is_covil'),
 
     ddal: {
       is_ddal: booleanValue(data, 'is_ddal'),

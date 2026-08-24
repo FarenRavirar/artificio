@@ -332,6 +332,11 @@ export function StepConfig({
         )}
 
         <SelectField label="Faixa Etária *" id="age_rating" name="age_rating" value={form.age_rating} onChange={handleChange}>
+          {/* Mesa antiga pode ter faixa nula ("não informado", 10 casos em
+              produção). Sem esta opção, o valor '' renderizaria a primeira da
+              lista e o mestre leria "Livre" sem ter escolhido (achado Codex,
+              PR #285). Mesa nova nasce em 'livre' e nunca cai aqui. */}
+          <option value="">Selecione a faixa etária</option>
           <option value="livre">🟢 Livre (Todos os públicos)</option>
           <option value="+10">🟡 +10 anos</option>
           <option value="+12">🟡 +12 anos</option>

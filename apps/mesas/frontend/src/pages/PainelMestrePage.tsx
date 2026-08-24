@@ -3,6 +3,7 @@ import type { FormEvent, InputHTMLAttributes } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PlusCircle, ChevronRight, MapPin, Sparkles, PencilLine } from 'lucide-react';
 import { useAuth } from '../contexts/useAuth';
+import { useConfirm } from '@artificio/ui';
 import toast from 'react-hot-toast';
 import { authGet, authPost, authPut, authPatch, authDelete } from '../services/apiClient';
 import type { TableContact } from '../types/tables';
@@ -279,6 +280,10 @@ export const PainelMestrePage = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  // T3.4b (spec 096): diálogo do design system no lugar do confirm() nativo
+  // do navegador (inacessível e fora do tema). ConfirmProvider já monta no
+  // App.tsx:159 cobrindo esta página — o hook só consome o contexto.
+  const { confirm } = useConfirm();
 
   const [gmProfile, setGmProfile] = useState<GmProfile | null>(null);
   const [myTables, setMyTables] = useState<MyTableEnhanced[]>([]);
@@ -474,8 +479,15 @@ export const PainelMestrePage = () => {
     if (!isAuthenticated) return;
     const newStatus = currentStatus === 'active' ? 'cancelled' : 'active';
     const action = newStatus === 'active' ? 'ativar' : 'desativar';
-
-    if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} mesa "${title}"?`)) return;
+    // Texto preservado do confirm() nativo ("Ativar mesa "T"?") — agora no
+    // dialog do design system (T3.4b, spec 096). Variante warning = ação de
+    // mesa reversível, mesmo padrão do AdminTablesPanel.
+    const actionLabel = `${action.charAt(0).toUpperCase() + action.slice(1)} mesa`;
+    if (!(await confirm({
+      title: actionLabel,
+      message: `${actionLabel} "${title}"?`,
+      variant: 'warning',
+    }))) return;
 
     setTogglingTableId(tableId);
     try {
@@ -519,8 +531,14 @@ export const PainelMestrePage = () => {
   const handleArchiveTable = async (tableId: string, archived: boolean, title: string) => {
     if (!isAuthenticated) return;
     const verb = archived ? 'arquivar' : 'desarquivar';
-
-    if (!confirm(`${verb.charAt(0).toUpperCase() + verb.slice(1)} mesa "${title}"?`)) return;
+    // Texto preservado do confirm() nativo ("Arquivar mesa "T"?") — agora no
+    // dialog do design system (T3.4b, spec 096).
+    const verbLabel = `${verb.charAt(0).toUpperCase() + verb.slice(1)} mesa`;
+    if (!(await confirm({
+      title: verbLabel,
+      message: `${verbLabel} "${title}"?`,
+      variant: 'warning',
+    }))) return;
 
     setArchivingTableId(tableId);
     try {

@@ -47,6 +47,16 @@ export const db = new Proxy({} as Kysely<Database>, {
   get(_target, prop) {
     const instance = getDb();
     const value = Reflect.get(instance, prop, instance);
-    return typeof value === 'function' ? value.bind(instance) : value;
+    if (typeof value !== 'function') return value;
+    // `db.fn` do Kysely e um objeto *callable* com metodos anexados
+    // (`count`, `sum`, `countAll`, ...). `Function.prototype.bind` cria uma
+    // funcao nova e DESCARTA essas propriedades, entao `db.fn.count` virava
+    // `undefined` e todo POST /profile/links respondia 500 em producao
+    // ("db.fn.count is not a function", medido nos logs do mesas-api).
+    // Bind preserva o `this` dos metodos herdados do prototype; copiar as
+    // own properties de volta preserva os modulos callable.
+    const bound = value.bind(instance) as typeof value;
+    Object.defineProperties(bound, Object.getOwnPropertyDescriptors(value));
+    return bound;
   },
 });

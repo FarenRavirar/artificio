@@ -29,7 +29,12 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
     type: initialData?.form?.type || 'campanha',
     modality: initialData?.form?.modality || 'online',
     audience: initialData?.form?.audience || 'livre',
-    age_rating: initialData?.form?.age_rating || 'livre',
+    // `??` e nao `||`: mesa existente com faixa nula chega aqui como '' (string
+    // vazia), que e falsy — com `||` o fallback 'livre' voltaria a materializar
+    // a faixa que o mestre nunca escolheu, que e justamente o bug corrigido em
+    // mapTableApiToInitialData (achado Codex, PR #285). Mesa NOVA (initialData
+    // ausente) continua nascendo em 'livre', o default de produto.
+    age_rating: initialData?.form?.age_rating ?? 'livre',
     // normalizePriceType cobre o valor legado 'free'/'paid' que pode vir de
     // draft antigo restaurado (initialData) — nunca existiu no banco (enum
     // 'gratuita' | 'paga' desde migration_01), e 'free' no state faria o
@@ -110,10 +115,8 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
     setBannerWidth(dimensions?.width ?? null);
     setBannerHeight(dimensions?.height ?? null);
   };
-  const [gmAvatarUrl, setGmAvatarUrl] = useState(initialData?.gmAvatarUrl || '');
   const [isCovilMesa, setIsCovilMesa] = useState(initialData?.isCovilMesa || false);
   const [bannerError, setBannerError] = useState(false);
-  const [avatarError, setAvatarError] = useState(false);
 
   // DDAL
   const [ddal, setDdal] = useState<DdalFormState>({
@@ -195,7 +198,6 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
     bannerCropData,
     bannerWidth,
     bannerHeight,
-    gmAvatarUrl,
     isCovilMesa,
     ddal,
     masterDisplayName,
@@ -247,10 +249,11 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
     }
 
     try {
-      const payload = formStateToPayload(formState);
-
       const tableId = typeof initialData?.id === 'string' ? initialData.id : null;
       const isEditing = tableId !== null;
+
+      const payload = formStateToPayload(formState);
+
       const endpoint = isEditing 
         ? `/api/v1/gm/tables/${tableId}` 
         : `/api/v1/gm/tables`;
@@ -398,12 +401,8 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
     bannerHeight,
     setBannerDimensions,
     setBannerCropData,
-    gmAvatarUrl,
-    setGmAvatarUrl,
     bannerError,
     setBannerError,
-    avatarError,
-    setAvatarError,
     isCovilMesa,
     setIsCovilMesa,
     ddal,

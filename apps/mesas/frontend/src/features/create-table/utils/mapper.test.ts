@@ -12,6 +12,10 @@ function makeState(overrides: {
   price_value_monthly?: string;
   accepts_donations?: boolean;
   suggested_donation_value?: string;
+  table_level?: string;
+  slots_total?: string;
+  slots_open?: string;
+  age_rating?: string;
 } = {}): FormState {
   const state: FormState = {
     form: {
@@ -20,16 +24,16 @@ function makeState(overrides: {
       type: 'campanha',
       modality: 'online',
       audience: 'livre',
-      age_rating: 'livre',
+      age_rating: overrides.age_rating ?? 'livre',
       price_type: overrides.price_type ?? 'paga',
       price_value: overrides.price_value ?? '25',
       price_value_monthly: overrides.price_value_monthly,
       accepts_donations: overrides.accepts_donations ?? false,
       suggested_donation_value: overrides.suggested_donation_value,
-      slots_total: '4',
-      slots_open: '4',
+      slots_total: overrides.slots_total ?? '4',
+      slots_open: overrides.slots_open ?? '4',
       experience_level: 'todos',
-      table_level: '',
+      table_level: overrides.table_level ?? '',
       language: 'pt-BR',
     },
     selectedSystemId: 'system-1',
@@ -55,7 +59,6 @@ function makeState(overrides: {
     bannerCropData: null,
     bannerWidth: null,
     bannerHeight: null,
-    gmAvatarUrl: '',
     isCovilMesa: false,
     ddal: {
       is_ddal: false,
@@ -290,3 +293,93 @@ describe('normalizePriceType — legado free/paid (achado Codex PR #283)', () =>
     expect(normalizePriceType('paga')).toBe('paga');
   });
 });
+
+describe('formStateToPayload — age_rating e table_level (T3.2, spec 096)', () => {
+  it('envia age_rating escolhida no form (+18 não vira o default do banco)', () => {
+    const payload = formStateToPayload(makeState({ age_rating: '+18' }));
+    expect(payload.age_rating).toBe('+18');
+    expect(JSON.stringify(payload)).toContain('"age_rating":"+18"');
+  });
+
+  it('envia table_level escolhida no form (avancado não vira o default do banco)', () => {
+    const payload = formStateToPayload(makeState({ table_level: 'avancado' }));
+    expect(payload.table_level).toBe('avancado');
+    expect(JSON.stringify(payload)).toContain('"table_level":"avancado"');
+  });
+
+  it('table_level vazio (não escolhido) omite o campo — create usa o DEFAULT do banco e PUT preserva o salvo', () => {
+    const payload = formStateToPayload(makeState({ table_level: '' }));
+    expect(payload.table_level).toBeUndefined();
+    expect(JSON.stringify(payload)).not.toContain('table_level');
+  });
+
+  it('table_level "todos" (valor real do enum do banco) é enviado', () => {
+    const payload = formStateToPayload(makeState({ table_level: 'todos' }));
+    expect(payload.table_level).toBe('todos');
+  });
+});
+
+describe('formStateToPayload — gm_avatar_url fora do contrato do form (T3.2c, spec 096)', () => {
+  it('payload não contém gm_avatar_url (decisão 2026-08-23 opção C; o alias da resposta da API continua)', () => {
+    const payload = formStateToPayload(makeState({}));
+    expect('gm_avatar_url' in payload).toBe(false);
+    expect(JSON.stringify(payload)).not.toContain('gm_avatar_url');
+  });
+});
+
+describe('formStateToPayload — slots_filled nunca e escrito pelo form (Codex, PR #285)', () => {
+  // O form coleta "Vagas Totais" e "Vagas Abertas para Recrutamento"
+  // (StepSessions.tsx) — nunca jogadores confirmados. Derivar total - open
+  // inventaria a contagem: na criacao com jogadores ficticios, na edicao
+  // sobrescrevendo os confirmados reais. Omitido, a criacao cai no DEFAULT 0
+  // da coluna e o PUT parcial preserva o valor salvo.
+  it('OMITE slots_filled na criacao — a chave nao chega ao POST', () => {
+    const payload = formStateToPayload(makeState({ slots_total: '5', slots_open: '1' }));
+    expect('slots_filled' in payload).toBe(false);
+    expect(JSON.stringify(payload)).not.toContain('slots_filled');
+  });
+
+  it('mesa nova com recrutamento limitado nao nasce com jogadores ficticios', () => {
+    // Cenario do achado: 5 lugares, 0 confirmados, 1 vaga aberta. Derivar
+    // gravaria 4 jogadores que nao existem.
+    const payload = formStateToPayload(makeState({ slots_total: '5', slots_open: '1' }));
+    expect(payload.slots_filled).toBeUndefined();
+  });
+
+  it('recrutamento fechado (0 abertas) nao vira mesa cheia', () => {
+    const payload = formStateToPayload(makeState({ slots_total: '4', slots_open: '0' }));
+    expect(payload.slots_filled).toBeUndefined();
+  });
+
+  it('mesa cheia com recrutamento reaberto nao zera os confirmados', () => {
+    // Caso real em producao: "Somewhere in Duskwood" (total=4/filled=4/open=4).
+    const payload = formStateToPayload(makeState({ slots_total: '4', slots_open: '4' }));
+    expect(payload.slots_filled).toBeUndefined();
+  });
+
+  it('slots_total e slots_open continuam sendo enviados', () => {
+    const payload = formStateToPayload(makeState({ slots_total: '5', slots_open: '1' }));
+    expect(payload.slots_total).toBe(5);
+    expect(payload.slots_open).toBe(1);
+  });
+});
+
+describe('formStateToPayload — age_rating (achado Codex, PR #285)', () => {
+  // Coluna nullable: faixa nula significa "nao informado", nao 'livre'. Enviar
+  // o fallback visual do form gravaria 'livre' numa mesa que nunca escolheu —
+  // e 'livre' agora aparece publicamente no card e na ficha.
+  it('OMITE age_rating quando o form esta sem faixa selecionada', () => {
+    const payload = formStateToPayload(makeState({ age_rating: '' }));
+    expect(payload.age_rating).toBeUndefined();
+    // O que importa e o corpo serializado: `undefined` some no JSON.stringify
+    // do fetch, entao o campo nao chega ao backend (mesmo padrao de
+    // table_level e price_value).
+    expect(JSON.stringify(payload)).not.toContain('age_rating');
+  });
+
+  it('envia a faixa quando o mestre de fato escolheu', () => {
+    expect(formStateToPayload(makeState({ age_rating: '+16' })).age_rating).toBe('+16');
+    expect(formStateToPayload(makeState({ age_rating: 'livre' })).age_rating).toBe('livre');
+  });
+});
+

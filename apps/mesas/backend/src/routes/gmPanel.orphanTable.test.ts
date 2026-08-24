@@ -87,6 +87,11 @@ const ORPHAN_TABLE = {
   price_value_monthly: null,
   accepts_donations: false,
   suggested_donation_value: null,
+  // Colunas de vagas: o handler valida o ESTADO RESULTANTE das vagas antes de
+  // gravar (achado Codex, PR #285), entao a linha salva precisa trazer.
+  slots_total: 5,
+  slots_filled: 2,
+  slots_open: 3,
 };
 
 describe('GET /api/v1/gm/tables/:id — mesa órfã (gm_id: null)', () => {

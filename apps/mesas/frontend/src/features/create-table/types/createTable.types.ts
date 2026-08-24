@@ -79,7 +79,6 @@ export interface FormState {
   bannerCropData: CropRect | null;
   bannerWidth: number | null;
   bannerHeight: number | null;
-  gmAvatarUrl: string;
   isCovilMesa: boolean;
   ddal: DdalFormState;
   
@@ -144,11 +143,21 @@ export interface CreateTablePayload {
   // `object-position` e o enquadramento salvo nao aparece na exibicao.
   banner_width?: number;
   banner_height?: number;
-  gm_avatar_url?: string;
   is_covil: boolean;
   is_ddal: boolean;
   // CORREÇÃO REG-04, REG-05, REG-06: Campos ausentes no payload
   audience?: string;
+  // T3.2 (spec 096): faixa etária e nível da mesa — antes coletados no form
+  // e descartados no payload (banco gravava os defaults 'livre'/'todos').
+  age_rating?: string;
+  table_level?: string;
+  // T3.2d (spec 096): slots_filled ganhou escritor no fluxo manual (antes só
+  // o parser escrevia; mesas manuais ficavam com 0 e os leitores que derivam
+  // total - filled contavam vagas erradas). Opcional de propósito: só a
+  // CRIAÇÃO deriva total - open; a EDIÇÃO omite o campo para preservar os
+  // jogadores confirmados já salvos (achado Codex, PR #285) — filled e open
+  // são contagens independentes, ver mapper.ts.
+  slots_filled?: number;
   experience_level?: string;
   starts_at?: string;
   schedule_day_status?: 'defined' | 'to_define';

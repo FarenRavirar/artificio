@@ -105,6 +105,32 @@ export function formStateToPayload(state: FormState): CreateTablePayload {
     return Number.isFinite(parsed) ? parsed : undefined;
   };
 
+  // slots_filled NAO e escrito por este form, nem na criacao nem na edicao
+  // (achados Codex, PR #285 — duas rodadas).
+  //
+  // O form coleta "Vagas Totais" e "Vagas Abertas para Recrutamento"
+  // (StepSessions.tsx:36,52) — nunca jogadores confirmados. E `slots_filled`
+  // e justamente a contagem de confirmados, independente de quanto o mestre
+  // quer recrutar: o contrato permite open < total - filled quando ele limita
+  // ou fecha o recrutamento (routes/tables.ts:130-135). Logo total - open nao
+  // reconstroi filled, e derivar inventa numero que ninguem digitou:
+  //   - na CRIACAO: mesa com 5 lugares, 0 confirmados e 1 vaga aberta nasceria
+  //     com 4 jogadores ficticios;
+  //   - na EDICAO: pior, sobrescreve a contagem real — o form nem carrega o
+  //     valor salvo (mapTableApiToInitialData.ts:113-114 le so total e open).
+  //     Medido em producao: 43 das 114 mesas seriam sobrescritas, 4 com
+  //     jogadores reais ("Somewhere in Duskwood", total=4/filled=4/open=4,
+  //     perderia os 4 confirmados).
+  //
+  // Omitir e o caminho suportado nos dois fluxos: na criacao a coluna cai no
+  // DEFAULT 0 (medido em information_schema), e no PUT o updateTableSchema e
+  // `.partial()`, entao `undefined` preserva o salvo (gmPanel.ts:1002). Quem
+  // escreve confirmados e o parser de anuncio, que faz a mesa nascer de um
+  // anuncio ja preenchido (parseDiscordAnnouncement.ts:2820) — origem
+  // `imported`, nao `manual`.
+  const parsedSlotsTotal = Number.parseInt(state.form.slots_total, 10) || 0;
+  const parsedSlotsOpen = Number.parseInt(state.form.slots_open, 10) || 0;
+
   // Construir payload base
   const payload: CreateTablePayload = {
     title: state.form.title,
@@ -112,8 +138,8 @@ export function formStateToPayload(state: FormState): CreateTablePayload {
     type: state.form.type,
     modality: state.form.modality,
     price_type: normalizePriceType(state.form.price_type),
-    slots_total: parseInt(state.form.slots_total) || 0,
-    slots_open: parseInt(state.form.slots_open) || 0, // REQ-02: Vagas abertas
+    slots_total: parsedSlotsTotal,
+    slots_open: parsedSlotsOpen, // REQ-02: Vagas abertas
     language: state.form.language,
     system_id: state.selectedSystemId,
     scenario_id: state.selectedScenarioId,
@@ -130,11 +156,22 @@ export function formStateToPayload(state: FormState): CreateTablePayload {
     banner_crop_data: state.bannerCropData ?? undefined,
     banner_width: state.bannerWidth ?? undefined,
     banner_height: state.bannerHeight ?? undefined,
-    gm_avatar_url: state.gmAvatarUrl || undefined,
     is_covil: state.isCovilMesa,
     is_ddal: state.ddal.is_ddal,
     // CORREÇÃO REG-04, REG-05, REG-06: Adicionar campos ausentes
     audience: state.form.audience,
+    // T3.2 (spec 096): enviar faixa etária e nível da mesa coletados no form
+    // (StepConfig.tsx) — antes descartados aqui e o banco gravava os defaults.
+    // Vazio ('') OMITE o campo nos dois: no create a coluna cai no seu DEFAULT,
+    // no PUT o `.partial()` preserva o valor salvo.
+    //
+    // age_rating precisa disso porque a coluna é nullable e 10 mesas em
+    // produção têm faixa nula (medido). Enviar incondicionalmente convertia
+    // esse "não informado" em 'livre' a cada edição — inclusive de outro campo
+    // — e 'livre' agora aparece publicamente no card e na ficha (achado Codex,
+    // PR #285). O fallback visual do form não é escolha do mestre.
+    age_rating: state.form.age_rating || undefined,
+    table_level: state.form.table_level || undefined,
     experience_level: state.form.experience_level,
     starts_at: state.form.starts_at || undefined,
     city: state.form.city || undefined,
@@ -188,44 +225,72 @@ export function formStateToPayload(state: FormState): CreateTablePayload {
   };
 
   // Adicionar campos DDAL se aplicável
-  if (state.ddal.is_ddal) {
-    payload.ddal_code = state.ddal.ddal_code || undefined;
-    payload.ddal_name = state.ddal.ddal_name || undefined;
-    payload.ddal_tier = state.ddal.ddal_tier ? parseInt(state.ddal.ddal_tier) : undefined;
-    payload.ddal_season = state.ddal.ddal_season || undefined;
-    payload.ddal_duration = state.ddal.ddal_duration || undefined;
-    payload.ddal_format = state.ddal.ddal_format || undefined;
-    payload.ddal_org_code = state.ddal.ddal_org_code || undefined;
-    payload.ddal_setting = state.ddal.ddal_setting || undefined;
-    payload.ddal_rules_notes = state.ddal.ddal_rules_notes || undefined;
+  applyDdalFields(payload, state);
+  applyOptionalFields(payload, state);
+
+  return payload;
+}
+
+/**
+ * Campos DDAL: so entram quando o selo esta marcado. Extraido de
+ * `formStateToPayload` para manter a funcao principal legivel — sao 9 campos
+ * que compartilham a mesma condicao.
+ */
+function applyDdalFields(payload: CreateTablePayload, state: FormState): void {
+  if (!state.ddal.is_ddal) return;
+
+  payload.ddal_code = state.ddal.ddal_code || undefined;
+  payload.ddal_name = state.ddal.ddal_name || undefined;
+  payload.ddal_tier = state.ddal.ddal_tier ? Number.parseInt(state.ddal.ddal_tier, 10) : undefined;
+  payload.ddal_season = state.ddal.ddal_season || undefined;
+  payload.ddal_duration = state.ddal.ddal_duration || undefined;
+  payload.ddal_format = state.ddal.ddal_format || undefined;
+  payload.ddal_org_code = state.ddal.ddal_org_code || undefined;
+  payload.ddal_setting = state.ddal.ddal_setting || undefined;
+  payload.ddal_rules_notes = state.ddal.ddal_rules_notes || undefined;
+}
+
+/**
+ * Campos avancados e editoriais: todos seguem a mesma regra — valor falsy
+ * (string vazia, false) OMITE a chave, para o backend preservar o salvo. A
+ * tabela abaixo troca 16 `if` repetidos por dado, o que era a maior fonte de
+ * complexidade cognitiva de `formStateToPayload`.
+ */
+function applyOptionalFields(payload: CreateTablePayload, state: FormState): void {
+  // Cada entrada e um setter tipado em vez de um par [chave, valor]: assim o
+  // compilador casa a chave com o TIPO do campo (string x boolean x id), o que
+  // um `Record<string, unknown>` nao faria — e foi justamente o cast frouxo
+  // que quebrou o build do CI (TS2352, `tsc -b`).
+  const optional: [unknown, (p: CreateTablePayload) => void][] = [
+    [state.masterDisplayName, (p) => { p.master_display_name = state.masterDisplayName; }],
+    [state.campaignLength, (p) => { p.campaign_length = state.campaignLength; }],
+    [state.levelRange, (p) => { p.level_range = state.levelRange; }],
+    [state.billingText, (p) => { p.billing_text = state.billingText; }],
+    [state.sessionZeroFree, (p) => { p.session_zero_free = state.sessionZeroFree; }],
+    [state.synopsis, (p) => { p.synopsis = state.synopsis; }],
+    [state.styleText, (p) => { p.style_text = state.styleText; }],
+    [state.listingExcerpt, (p) => { p.listing_excerpt = state.listingExcerpt; }],
+    [state.technicalRequirements, (p) => { p.technical_requirements = state.technicalRequirements; }],
+    [state.requiresPc, (p) => { p.requires_pc = state.requiresPc; }],
+    [state.requiresCamera, (p) => { p.requires_camera = state.requiresCamera; }],
+    [state.requiresMicrophone, (p) => { p.requires_microphone = state.requiresMicrophone; }],
+    [state.settingName, (p) => { p.setting_name = state.settingName; }],
+    // Campos editoriais Fase 6 (REQ-28)
+    [state.synopsisNarrative, (p) => { p.synopsis_narrative = state.synopsisNarrative; }],
+    [state.benefitsText, (p) => { p.benefits_text = state.benefitsText; }],
+    [state.tableGmBio, (p) => { p.table_gm_bio = state.tableGmBio; }],
+    // Requisito 8 (spec 079): fecha o loop de aprendizado do pre-preenchimento.
+    [state.parseCaseId, (p) => { p.parse_case_id = state.parseCaseId; }],
+  ];
+
+  for (const [value, assign] of optional) {
+    if (value) assign(payload);
   }
 
-  // Adicionar campos avançados opcionais
-  if (state.masterDisplayName) payload.master_display_name = state.masterDisplayName;
-  if (state.campaignLength) payload.campaign_length = state.campaignLength;
-  if (state.levelRange) payload.level_range = state.levelRange;
-  if (state.billingText) payload.billing_text = state.billingText;
-  if (state.sessionZeroFree) payload.session_zero_free = state.sessionZeroFree;
-  if (state.synopsis) payload.synopsis = state.synopsis;
-  if (state.styleText) payload.style_text = state.styleText;
-  if (state.listingExcerpt) payload.listing_excerpt = state.listingExcerpt;
-  if (state.technicalRequirements) payload.technical_requirements = state.technicalRequirements;
-  if (state.requiresPc) payload.requires_pc = state.requiresPc;
-  if (state.requiresCamera) payload.requires_camera = state.requiresCamera;
-  if (state.requiresMicrophone) payload.requires_microphone = state.requiresMicrophone;
-  if (state.settingName) payload.setting_name = state.settingName;
+  // Fora da tabela: precisa de normalizacao antes, e o normalizador pode
+  // devolver vazio.
   if (state.settingStyles && state.settingStyles.length > 0) {
     const normalized = normalizeSettingStyles(state.settingStyles);
     if (normalized) payload.setting_styles = normalized;
   }
-  
-  // Campos editoriais Fase 6 (REQ-28)
-  if (state.synopsisNarrative) payload.synopsis_narrative = state.synopsisNarrative;
-  if (state.benefitsText) payload.benefits_text = state.benefitsText;
-  if (state.tableGmBio) payload.table_gm_bio = state.tableGmBio;
-
-  // Requisito 8 (spec 079): fecha o loop de aprendizado do pré-preenchimento.
-  if (state.parseCaseId) payload.parse_case_id = state.parseCaseId;
-
-  return payload;
 }

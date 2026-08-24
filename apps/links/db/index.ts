@@ -44,6 +44,15 @@ export const db = new Proxy({} as Kysely<Database>, {
   get(_target, prop) {
     const instance = getDb();
     const value = Reflect.get(instance, prop, instance);
-    return typeof value === "function" ? value.bind(instance) : value;
+    if (typeof value !== "function") return value;
+    // `db.fn` do Kysely e um objeto *callable* com metodos anexados
+    // (`count`, `sum`, `countAll`, ...). `Function.prototype.bind` cria uma
+    // funcao nova e DESCARTA essas propriedades, entao `db.fn.count` virava
+    // `undefined` em runtime. Bind preserva o `this` dos metodos herdados do
+    // prototype; copiar as own properties de volta preserva os callable.
+    // Gate que trava a regressao: `pnpm smoke:db-proxy`.
+    const bound = value.bind(instance) as typeof value;
+    Object.defineProperties(bound, Object.getOwnPropertyDescriptors(value));
+    return bound;
   },
 });

@@ -98,10 +98,12 @@ export interface TableCard {
     website_url: string | null;
   } | null;
   game_platform_custom?: string | null; // Quando mestre escolhe "Personalizado"
+  // R24/A27 (spec 096): faixa etária no card do catálogo. Opcional para não
+  // quebrar consumidores/fixtures montados antes do campo existir na lista.
+  age_rating?: TableAgeRating | null;
 }
 
 export interface TableDetail extends TableCard {
-  age_rating: TableAgeRating | null;
   price_frequency: string | null;
   price_value_monthly: number | null; // Valor individual por sessão no pacote mensal (opcional, mesa paga)
   accepts_donations: boolean; // Doações (exclusivo de mesa gratuita)

@@ -83,6 +83,11 @@ function savedRow(overrides: Record<string, unknown> = {}) {
     price_value_monthly: null,
     accepts_donations: false,
     suggested_donation_value: null,
+    // Colunas de vagas: o handler valida o ESTADO RESULTANTE das vagas antes
+    // de gravar (achado Codex, PR #285), entao a linha salva precisa trazer.
+    slots_total: 5,
+    slots_filled: 2,
+    slots_open: 3,
     ...overrides,
   };
 }
@@ -161,5 +166,116 @@ describe('PUT /api/v1/gm/tables/:id — validação do estado resultante de cobr
       undefined,
       undefined,
     );
+  });
+});
+
+describe('PUT /api/v1/gm/tables/:id — vagas omitidas no PUT parcial (Codex, PR #285)', () => {
+  // Sem isto, `mock.calls[0]` traria a chamada do describe anterior.
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // O `.partial()` do updateTableSchema NAO remove os `.default()` do
+  // baseTableSchema: parse({ title }) materializa slots_total: 4 e
+  // slots_filled: 0. Gravar isso rebaixava a mesa aos defaults num PUT que
+  // nem mencionou vagas — 94 das 114 mesas em producao seriam corrompidas.
+  it('PUT so com titulo NAO grava slots_total/filled/open', async () => {
+    (TableRepository.updateTableWithRelations as Mock).mockResolvedValue({
+      id: 'table-1',
+      slug: 'mesa-teste',
+      title: 'Novo titulo',
+      status: 'active',
+      updated_at: new Date(),
+    });
+
+    const res = await putWithRow(savedRow(), { title: 'Novo titulo' });
+
+    expect(res.status).toBe(200);
+    const updateData = (TableRepository.updateTableWithRelations as Mock).mock.calls[0][2];
+    expect(updateData.slots_total).toBeUndefined();
+    expect(updateData.slots_filled).toBeUndefined();
+    expect(updateData.slots_open).toBeUndefined();
+  });
+
+  it('vagas enviadas de fato continuam sendo gravadas', async () => {
+    (TableRepository.updateTableWithRelations as Mock).mockResolvedValue({
+      id: 'table-1',
+      slug: 'mesa-teste',
+      title: 'Mesa Teste',
+      status: 'active',
+      updated_at: new Date(),
+    });
+
+    // Mesa gratuita: com mesa paga, omitir price_type faz o guard de cobranca
+    // (PR #283) responder 400 antes de chegar na escrita — comportamento
+    // correto, mas mascararia o que este teste quer medir.
+    const res = await putWithRow(
+      savedRow({ price_type: 'gratuita', price_value: null }),
+      { slots_total: 6, slots_open: 2 },
+    );
+
+    expect(res.status).toBe(200);
+    const updateData = (TableRepository.updateTableWithRelations as Mock).mock.calls[0][2];
+    expect(updateData.slots_total).toBe(6);
+    expect(updateData.slots_open).toBe(2);
+    // slots_filled nao foi enviado: continua preservado.
+    expect(updateData.slots_filled).toBeUndefined();
+  });
+});
+
+describe('PUT /api/v1/gm/tables/:id — slots_filled parcial vs linha salva (Codex, PR #285)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // O refine antigo do updateTableSchema comparava slots_filled com o
+  // `.default(4)` materializado pelo `.partial()`, nao com a mesa salva. 64
+  // das 114 mesas em producao tem slots_total > 4 e levavam 400 indevido.
+  it('aceita slots_filled=5 em mesa com slots_total=5 salvo (era falso 400)', async () => {
+    (TableRepository.updateTableWithRelations as Mock).mockResolvedValue({
+      id: 'table-1',
+      slug: 'mesa-teste',
+      title: 'Mesa Teste',
+      status: 'active',
+      updated_at: new Date(),
+    });
+
+    const res = await putWithRow(
+      savedRow({ price_type: 'gratuita', price_value: null, slots_total: 5, slots_filled: 2, slots_open: 3 }),
+      { slots_filled: 5 },
+    );
+
+    expect(res.status).toBe(200);
+    const updateData = (TableRepository.updateTableWithRelations as Mock).mock.calls[0][2];
+    expect(updateData.slots_filled).toBe(5);
+  });
+
+  it('continua rejeitando slots_filled acima do total salvo, com 400 e mensagem', async () => {
+    const res = await putWithRow(
+      savedRow({ price_type: 'gratuita', price_value: null, slots_total: 3, slots_filled: 1, slots_open: 2 }),
+      { slots_filled: 5 },
+    );
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Vagas preenchidas não pode ser maior que vagas totais');
+    expect(res.body.field).toBe('slots_filled');
+    expect(TableRepository.updateTableWithRelations).not.toHaveBeenCalled();
+  });
+
+  it('aceita slots_open=5 em mesa com slots_total=6 salvo', async () => {
+    (TableRepository.updateTableWithRelations as Mock).mockResolvedValue({
+      id: 'table-1',
+      slug: 'mesa-teste',
+      title: 'Mesa Teste',
+      status: 'active',
+      updated_at: new Date(),
+    });
+
+    const res = await putWithRow(
+      savedRow({ price_type: 'gratuita', price_value: null, slots_total: 6, slots_filled: 1, slots_open: 5 }),
+      { slots_open: 5 },
+    );
+
+    expect(res.status).toBe(200);
   });
 });
