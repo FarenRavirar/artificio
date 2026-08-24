@@ -27,9 +27,12 @@ const fmt = (d: Date | string | null) => {
 export function renderGroupPage(g: Group): string {
   const slug = g.slug ?? "";
   const title = `${g.name} · Grupo de WhatsApp · Artifício RPG`;
+  // Seleção não-branca (classe: `a ?? fallback` trata só-whitespace como
+  // conteúdo); write path (validate/server) já normaliza, a leitura é defensiva.
   const desc =
-    g.description ??
-    `Entre no grupo de WhatsApp ${g.name} da comunidade Artifício RPG.`;
+    g.description != null && g.description.trim() !== ''
+      ? g.description
+      : `Entre no grupo de WhatsApp ${g.name} da comunidade Artifício RPG.`;
   const canonical = `${SITE}/grupo/${slug}`;
   const ogImg = g.logo_url ?? `${SITE}/og-default.png`;
   const enviado = fmt(g.created_at);

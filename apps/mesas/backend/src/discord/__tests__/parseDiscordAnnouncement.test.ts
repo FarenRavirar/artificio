@@ -2772,13 +2772,29 @@ describe('parseDiscordAnnouncement', () => {
   });
 
   describe('extractContactUrl — domínio conhecido de contato vence sobre link institucional (DEB-058-05, T9.17)', () => {
-    it('com múltiplas URLs, prioriza MesaQuest (contato/inscrição real) sobre link de "diferenciais" institucional (caso real D:\\teste.json — Ravenloft/Heróis de Thylea)', () => {
+    // INVERTIDO em 2026-08-24 por decisão do mantenedor: MesaQuest é plataforma
+    // CONCORRENTE de anúncio de mesas, não canal de recrutamento do Artifício.
+    // Saiu de KNOWN_CONTACT_URL_PATTERNS e entrou em NON_RECRUITMENT_HOST_RE.
+    // Até esta data o teste afirmava o oposto (prioriza MesaQuest), fixado pela
+    // spec 058 T9.17 quando o domínio era lido só como "link de inscrição real".
+    // O caso real (Ravenloft/Heróis de Thylea) é preservado de propósito: é a
+    // evidência de que o parser precisa escolher entre duas URLs no mesmo texto.
+    it('com múltiplas URLs, NÃO usa MesaQuest (concorrente) como contato — caso real D:\\teste.json (Ravenloft/Heróis de Thylea)', () => {
       const draft = parseDiscordAnnouncement(
         makeMessage({
           content_raw: 'Sistema: D&D 24\n[Diferenciais](https://docs.google.com/document/d/1CD9zEjDtaT_a8E19IOwNvt59j4z4N1rYkrB9ujME1AY/edit?usp=sharing)\nValores, candidatura e detalhes: https://mesaquest.com.br/mesas/01KW06F7Q679103K384ZH550SH\nVagas: 3/6',
         }),
       );
-      expect(draft?.table.contact_url).toBe('https://mesaquest.com.br/mesas/01KW06F7Q679103K384ZH550SH');
+      expect(draft?.table.contact_url).not.toBe('https://mesaquest.com.br/mesas/01KW06F7Q679103K384ZH550SH');
+    });
+
+    it('URL de plataforma concorrente é recusada como contato (isSuspiciousUrl), para não contar como "contato confirmado" na importação', () => {
+      expect(isSuspiciousUrl('https://mesaquest.com.br/mesas/01KW06F7Q679103K384ZH550SH')).toBe(true);
+      expect(isSuspiciousUrl('https://startplaying.games/gm/algum-mestre')).toBe(true);
+      expect(isSuspiciousUrl('https://www.startplaying.games/play/12345')).toBe(true);
+      // Contraprova: os domínios de inscrição legítimos continuam passando.
+      expect(isSuspiciousUrl('https://forms.gle/abc123')).toBe(false);
+      expect(isSuspiciousUrl('https://discord.gg/abc123')).toBe(false);
     });
 
     it('prioriza linktr.ee sobre site institucional generico quando ambos aparecem', () => {

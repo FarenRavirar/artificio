@@ -105,8 +105,34 @@ const scheduleSchema = z.object({
   sort_order: z.number().int().min(0).optional(),
 });
 
+// Campos markdown do usuário: sanitiza na escrita e normaliza branco-puro
+// para null. Vale para TODOS os campos do baseTableSchema que usam este schema
+// (9, medido via `rg "userMarkdownSchema(" tableValidators.ts`): description,
+// rules_notes, synopsis, style_text, listing_excerpt, technical_requirements,
+// synopsis_narrative, benefits_text, table_gm_bio. Amplitude intencional
+// (aprovada): um ponto só cobre create + update.
+//
+// Motivo do branco→null: causa raiz do bug OG medido em produção (2026-08-22)
+// — `synopsis: "\n"` persistida fazia a cadeia de descrição escolher "\n" e o
+// `og:description` sair vazio. Normalizar aqui fecha a escrita em todas as
+// portas de create/update (o fluxo Discord persiste fora do zod e tem
+// normalização própria em syncHelpers.ts).
+//
+// null/undefined de entrada DEVEM continuar passando intactos — a ordem
+// `.transform(...).nullable().optional()` garante isso (o transform só roda
+// para string). Inverter a ordem (nullable ANTES do transform) reintroduziria
+// o bug do PATCH apagar campo salvo: gmPanel.ts (~1012-1019, PR #278) confia
+// em que campo omitido fique `undefined` e o Kysely preserve o valor gravado.
 const userMarkdownSchema = (maxLength: number) =>
-  z.string().max(maxLength).transform(sanitizeUserMarkdown).nullable().optional();
+  z
+    .string()
+    .max(maxLength)
+    .transform((value) => {
+      const sanitized = sanitizeUserMarkdown(value);
+      return sanitized.trim() === '' ? null : sanitized;
+    })
+    .nullable()
+    .optional();
 
 const baseTableSchema = z.object({
   title: z.string().min(3, 'Título deve ter pelo menos 3 caracteres').max(200, 'Título muito longo'),

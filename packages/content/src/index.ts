@@ -5,3 +5,4 @@ export { buildMeta } from "./meta.js";
 export { renderJsonLd, organizationLd, websiteLd, articleLd, breadcrumbLd } from "./jsonld.js";
 export { sitemapXml } from "./sitemap.js";
 export { robotsTxt, type RobotsOptions } from "./robots.js";
+export { normalizeOgDescription, type NormalizeOgDescriptionOptions } from "./description.js";

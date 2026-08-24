@@ -3,6 +3,7 @@ import {
   IMAGE_KINDS,
   IMAGE_KIND_LIST,
   cropToObjectPosition,
+  imageKindHint,
   imageKindSpec,
   isCropRect,
   isGoogleUserContentUrl,
@@ -298,5 +299,83 @@ describe("normalizeImageFramePatch", () => {
   it("corpo ausente não quebra", () => {
     expect(normalizeImageFramePatch(undefined, "avatar").crop).toBeUndefined();
     expect(normalizeImageFramePatch(null, "banner").width).toBeUndefined();
+  });
+});
+
+describe("dimensões recomendadas e mínimas (spec 096, R19)", () => {
+  it("todo tipo declara recomendado e mínimo coerentes", () => {
+    for (const kind of IMAGE_KIND_LIST) {
+      const spec = imageKindSpec(kind);
+      expect(spec.minWidth).toBeGreaterThan(0);
+      expect(spec.minHeight).toBeGreaterThan(0);
+      // Recomendado nunca abaixo do piso — senão a legenda se contradiz.
+      expect(spec.recommendedWidth).toBeGreaterThanOrEqual(spec.minWidth);
+      expect(spec.recommendedHeight).toBeGreaterThanOrEqual(spec.minHeight);
+      // Nem acima do que o armazenamento preserva.
+      expect(spec.recommendedWidth).toBeLessThanOrEqual(spec.maxDimension);
+    }
+  });
+
+  it("recomendado respeita a proporção do tipo", () => {
+    for (const kind of IMAGE_KIND_LIST) {
+      const spec = imageKindSpec(kind);
+      const ratio = spec.recommendedWidth / spec.recommendedHeight;
+      expect(Math.abs(ratio - spec.aspect)).toBeLessThan(0.02);
+    }
+  });
+
+  it("banner de mesa recomenda o tamanho do og:image que ele alimenta", () => {
+    const spec = imageKindSpec("table_banner");
+    expect(spec.recommendedWidth).toBe(1200);
+    // 600x325 mantém a proporção e fica no piso social (600x315).
+    expect(spec.minWidth).toBe(600);
+  });
+
+  it("avatar pede o dobro da exibição de 140px do perfil público", () => {
+    const spec = imageKindSpec("profile_avatar");
+    expect(spec.recommendedWidth).toBe(280);
+    expect(spec.minWidth).toBe(140);
+  });
+});
+
+describe("acceptedMimeTypes", () => {
+  it("os três tipos aceitam JPG, PNG e WEBP — PNG incluído", () => {
+    for (const kind of IMAGE_KIND_LIST) {
+      const mimes = imageKindSpec(kind).acceptedMimeTypes;
+      expect(mimes).toContain("image/png");
+      expect(mimes).toContain("image/jpeg");
+      expect(mimes).toContain("image/webp");
+    }
+  });
+
+  it("não aceita formato fora da lista", () => {
+    expect(imageKindSpec("table_banner").acceptedMimeTypes).not.toContain("image/gif");
+    expect(imageKindSpec("table_banner").acceptedMimeTypes).not.toContain("image/svg+xml");
+  });
+});
+
+describe("imageKindHint", () => {
+  it("diz proporção, formatos e limite — a proporção é o que faltava na UI", () => {
+    const hint = imageKindHint("table_banner");
+    expect(hint).toContain("1200 × 650");
+    expect(hint).toContain("JPG");
+    expect(hint).toContain("PNG");
+    expect(hint).toContain("5 MB");
+  });
+
+  it("não promete o que o sistema não garante", () => {
+    for (const kind of IMAGE_KIND_LIST) {
+      const hint = imageKindHint(kind);
+      // maxDimension REDUZ, não rejeita — anunciar teto seria falso.
+      expect(hint).not.toContain("1600");
+      expect(hint.toLowerCase()).not.toContain("máximo");
+      // fetch_format:"auto" pode converter na entrega.
+      expect(hint.toLowerCase()).not.toContain("transparên");
+    }
+  });
+
+  it("origem não confiável cai no banner de mesa, como o resto do módulo", () => {
+    expect(imageKindHint("inexistente")).toBe(imageKindHint("table_banner"));
+    expect(imageKindHint(undefined)).toBe(imageKindHint("table_banner"));
   });
 });

@@ -1777,7 +1777,7 @@
       "method": "GET",
       "path": "/materiais/:slug",
       "sourceFile": "apps/downloads/backend/src/routes/publicShell.ts",
-      "line": 205,
+      "line": 203,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -2380,7 +2380,7 @@
       "method": "GET",
       "path": "/og/termo/:id",
       "sourceFile": "apps/glossario/backend/src/routes/ogRoutes.ts",
-      "line": 13,
+      "line": 14,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4909,7 +4909,7 @@
       "method": "GET",
       "path": "/og/:type/:slug",
       "sourceFile": "apps/mesas/backend/src/routes/og.ts",
-      "line": 159,
+      "line": 133,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4918,7 +4918,7 @@
       "method": "GET",
       "path": "/og/{*splat}",
       "sourceFile": "apps/mesas/backend/src/routes/og.ts",
-      "line": 293,
+      "line": 267,
       "confidence": "high",
       "kind": "express-route"
     },

@@ -1563,6 +1563,14 @@ function splitFreeTextList(value: string): string[] | null {
 
 
 // Dominios reais de contato/inscricao vistos no corpus (D:\teste.json).
+//
+// `mesaquest.com.br` foi REMOVIDO desta lista em 2026-08-24, por decisão do
+// mantenedor: é plataforma concorrente de anúncio de mesas, não canal de
+// inscrição do Artifício. Tratar como "contato conhecido" fazia o parser
+// eleger o link da concorrência como `contact_url` preferido — inclusive
+// acima de um Google Forms no mesmo anúncio (era o caso fixado no teste
+// "Ravenloft/Heróis de Thylea", spec 058 T9.17, agora invertido). Passou a
+// integrar `NON_RECRUITMENT_HOST_RE`.
 const KNOWN_CONTACT_URL_PATTERNS = [
   /discord(?:app)?\.com\/invite\//i,
   /discord\.gg\//i,
@@ -1572,7 +1580,6 @@ const KNOWN_CONTACT_URL_PATTERNS = [
   /wa\.me\//i,
   /chat\.whatsapp\.com\//i,
   /t\.me\//i,
-  /mesaquest\.com\.br\//i,
   /linktr\.ee\//i,
 ];
 
@@ -2357,18 +2364,35 @@ const NON_CONTACT_FILE_EXTENSION_RE =
   /\.(jpe?g|png|gif|webp|avif|bmp|svg|mp4|webm|mov|mp3|wav|ogg|pdf|zip|rar)$/i;
 
 /**
- * Hosts cuja função é hospedar mídia/consumo, não receber inscrição. Não é
- * allowlist invertida de "domínio bom": é a lista dos que, quando aparecem como
- * `contact_url`, são **certamente** o link errado.
+ * Hosts que, quando aparecem como `contact_url`, são **certamente** o link
+ * errado. Não é allowlist invertida de "domínio bom" — é evidência positiva de
+ * que aquela URL não é onde o jogador se candidata.
  *
- * Relato do mantenedor (2026-08-11): o draft "Blue Lock - Awakening" gravou
- * `contact_url: https://i.pinimg.com/736x/.../48084b3c....jpg` — a imagem do
- * embed do anúncio — e o campo passou como "link válido". Mesmo caso já visto
- * com YouTube e Spotify. A URL é bem formada, então a validação de forma a
- * aprovava; o defeito é que ela nunca perguntou *para que serve*.
+ * São dois motivos distintos, e a lista carrega os dois:
+ *
+ * 1. **Mídia/consumo** (Pinterest, YouTube, Spotify, Imgur, Tenor…). Relato do
+ *    mantenedor (2026-08-11): o draft "Blue Lock - Awakening" gravou
+ *    `contact_url: https://i.pinimg.com/736x/.../48084b3c....jpg` — a imagem do
+ *    embed do anúncio — e o campo passou como "link válido". Mesmo caso já visto
+ *    com YouTube e Spotify. A URL é bem formada, então a validação de forma a
+ *    aprovava; o defeito é que ela nunca perguntou *para que serve*.
+ *
+ * 2. **Plataforma concorrente de anúncio de mesas** (`mesaquest.com.br` e
+ *    `startplaying.games`, acrescentados em 2026-08-24 por decisão do
+ *    mantenedor). O link existe e é clicável, mas leva o jogador para fora do
+ *    Artifício — não é canal de recrutamento *desta* plataforma. No caso do
+ *    MesaQuest o domínio estava até então na lista OPOSTA
+ *    (`KNOWN_CONTACT_URL_PATTERNS`), então o parser o elegia como contato
+ *    preferido, acima até de um Google Forms no mesmo anúncio.
+ *
+ * O efeito prático que motivou a inclusão: com "Importar só mesas com contato
+ * confirmado" (`requireExplicitContact`) ligado, uma URL aqui listada deixa de
+ * contar como contato — o anúncio cujo único link é de mídia ou da concorrência
+ * não entra como se tivesse canal de inscrição. Sem o filtro, o parser tratava
+ * "tem URL" como "tem recrutamento".
  */
-const MEDIA_HOST_RE =
-  /(^|\.)(pinimg\.com|pinterest\.[a-z.]+|youtube\.com|youtu\.be|spotify\.com|open\.spotify\.com|soundcloud\.com|imgur\.com|i\.redd\.it|redd\.it|tenor\.com|giphy\.com|cdn\.discordapp\.com|media\.discordapp\.net|twimg\.com)$/i;
+const NON_RECRUITMENT_HOST_RE =
+  /(^|\.)(pinimg\.com|pinterest\.[a-z.]+|youtube\.com|youtu\.be|spotify\.com|open\.spotify\.com|soundcloud\.com|imgur\.com|i\.redd\.it|redd\.it|tenor\.com|giphy\.com|cdn\.discordapp\.com|media\.discordapp\.net|twimg\.com|mesaquest\.com\.br|startplaying\.games)$/i;
 
 /**
  * true quando a URL não serve como canal de inscrição.
@@ -2377,9 +2401,9 @@ const MEDIA_HOST_RE =
  *
  * 1. **Forma** — sem esquema http/https ou sem hostname válido. Era a única
  *    checagem até 2026-08-11.
- * 2. **Função** — host de mídia ou caminho que aponta para arquivo. Acrescentada
- *    pelo relato do "Blue Lock": URL sintaticamente perfeita e semanticamente
- *    impossível como inscrição.
+ * 2. **Função** — host que não recruta (mídia ou plataforma concorrente) ou
+ *    caminho que aponta para arquivo. Acrescentada pelo relato do "Blue Lock":
+ *    URL sintaticamente perfeita e semanticamente impossível como inscrição.
  *
  * Continua **não** sendo allowlist de domínio: site pessoal de GM real
  * (`dm.yanbraga.com/join`) segue passando, que foi o achado de 2026-07-10 e o
@@ -2393,7 +2417,7 @@ export function isSuspiciousUrl(url: string): boolean {
     if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i.test(parsed.hostname)) {
       return true;
     }
-    if (MEDIA_HOST_RE.test(parsed.hostname)) return true;
+    if (NON_RECRUITMENT_HOST_RE.test(parsed.hostname)) return true;
     // Só o pathname: `?utm=x.png` na query não faz de um formulário uma imagem.
     return NON_CONTACT_FILE_EXTENSION_RE.test(parsed.pathname);
   } catch {

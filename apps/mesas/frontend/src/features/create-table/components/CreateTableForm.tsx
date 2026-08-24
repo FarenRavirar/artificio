@@ -23,7 +23,22 @@ import { StepReview } from '../../../components/form-steps/steps/StepReview';
 // Utils
 import { draftStorage } from '../utils/draftStorage';
 
-const DDAL_ELIGIBLE_PATH = 'dungeons-dragons/5e/2024';
+/**
+ * Sistemas elegíveis ao selo DDAL (D&D Adventurers League).
+ *
+ * Correção do mantenedor (2026-08-24): a liga cobre **D&D 5e 2014 E 2024**, não
+ * só a de 2024. Antes disso, mesa de 5e 2014 — DDAL legítima — não conseguia
+ * marcar o selo. Espelha `DDAL_ELIGIBLE_PATHS` de `backend/services/tableService.ts`;
+ * mudar aqui exige mudar lá (o backend revalida a elegibilidade no submit).
+ *
+ * Slugs medidos no catálogo real: a edição de 2014 vive sob
+ * `dungeons-dragons/5e/dungeons-dragons-5e-2014`, e não num `.../5e/2014`
+ * simétrico ao de 2024.
+ */
+const DDAL_ELIGIBLE_PATHS = [
+  'dungeons-dragons/5e/2024',
+  'dungeons-dragons/5e/dungeons-dragons-5e-2014',
+] as const;
 
 interface CreateTableFormProps {
   onSuccess: () => void;
@@ -218,9 +233,11 @@ export function CreateTableForm({
   // Dados derivados
   const flattenedSystems = flattenTree(systemsTree);
   const selectedSystem = flattenedSystems.find((s) => s.id === formHook.selectedSystemId) ?? null;
-  const isDdalEligibleSelection =
-    selectedSystem?.path_slug === DDAL_ELIGIBLE_PATH ||
-    selectedSystem?.path_slug?.startsWith(`${DDAL_ELIGIBLE_PATH}/`) === true;
+  const isDdalEligibleSelection = DDAL_ELIGIBLE_PATHS.some(
+    (eligible) =>
+      selectedSystem?.path_slug === eligible ||
+      selectedSystem?.path_slug?.startsWith(`${eligible}/`) === true,
+  );
 
   // Nome do sistema e cenário para review
   const selectedSystemName = selectedSystem?.name || null;
