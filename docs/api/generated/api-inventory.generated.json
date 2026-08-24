@@ -4018,7 +4018,7 @@
       "method": "GET",
       "path": "/api/v1/gm/insights",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1678,
+      "line": 1687,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4126,7 +4126,7 @@
       "method": "GET",
       "path": "/api/v1/gm/tables",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1110,
+      "line": 1119,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4144,7 +4144,7 @@
       "method": "DELETE",
       "path": "/api/v1/gm/tables/:id",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1470,
+      "line": 1479,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4171,7 +4171,7 @@
       "method": "PATCH",
       "path": "/api/v1/gm/tables/:id/archive",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1398,
+      "line": 1407,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4180,7 +4180,7 @@
       "method": "POST",
       "path": "/api/v1/gm/tables/:id/click",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1569,
+      "line": 1578,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4189,7 +4189,7 @@
       "method": "POST",
       "path": "/api/v1/gm/tables/:id/contact",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1605,
+      "line": 1614,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4198,7 +4198,7 @@
       "method": "POST",
       "path": "/api/v1/gm/tables/:id/favorite",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1641,
+      "line": 1650,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4207,7 +4207,7 @@
       "method": "PATCH",
       "path": "/api/v1/gm/tables/:id/status",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1262,
+      "line": 1271,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4216,7 +4216,7 @@
       "method": "POST",
       "path": "/api/v1/gm/tables/:slug/view",
       "sourceFile": "apps/mesas/backend/src/routes/gmPanel.ts",
-      "line": 1527,
+      "line": 1536,
       "confidence": "high",
       "kind": "express-route"
     },

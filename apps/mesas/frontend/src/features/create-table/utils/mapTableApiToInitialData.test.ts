@@ -150,3 +150,29 @@ describe('mapTableApiToInitialData — resposta real de GET /gm/tables/:id', () 
     expect(result.sessions?.[0].start_time).toBe('20:00');
   });
 });
+
+describe('mapTableApiToInitialData — age_rating (achado Codex, PR #285)', () => {
+  // A coluna e nullable e faixa nula significa "nao informado". O fallback
+  // 'livre' que existia aqui materializava uma faixa que o mestre nunca
+  // escolheu, e o payload de edicao a gravava — inclusive editando outro
+  // campo. 10 mesas em producao estao com faixa nula.
+  it('faixa ausente vira string vazia, nao "livre"', () => {
+    const result = mapTableApiToInitialData({ id: 'table-1', title: 'Mesa X' });
+    expect(result.form?.age_rating).toBe('');
+  });
+
+  it('faixa null explicita vira string vazia, nao "livre"', () => {
+    const result = mapTableApiToInitialData({ id: 'table-1', title: 'Mesa X', age_rating: null });
+    expect(result.form?.age_rating).toBe('');
+  });
+
+  it('faixa real e preservada', () => {
+    const result = mapTableApiToInitialData({ id: 'table-1', title: 'Mesa X', age_rating: '+16' });
+    expect(result.form?.age_rating).toBe('+16');
+  });
+
+  it('"livre" salvo de verdade e preservado (distinto de ausente)', () => {
+    const result = mapTableApiToInitialData({ id: 'table-1', title: 'Mesa X', age_rating: 'livre' });
+    expect(result.form?.age_rating).toBe('livre');
+  });
+});

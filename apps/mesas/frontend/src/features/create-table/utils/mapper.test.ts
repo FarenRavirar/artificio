@@ -327,67 +327,59 @@ describe('formStateToPayload — gm_avatar_url fora do contrato do form (T3.2c, 
   });
 });
 
-describe('formStateToPayload — slots_filled na CRIAÇÃO (T3.2d, spec 096)', () => {
-  // Na criação não há contagem anterior a preservar, então derivar
-  // total - open é correto — é como o parser de anúncio faz a mesa nascer
-  // (parseDiscordAnnouncement.ts:2820).
-  it('deriva slots_filled = total - abertas', () => {
-    const payload = formStateToPayload(makeState({ slots_total: '4', slots_open: '2' }));
-    expect(payload.slots_filled).toBe(2);
-    expect(JSON.stringify(payload)).toContain('"slots_filled":2');
-  });
-
-  it('todas as vagas abertas → slots_filled 0 (mesa nova padrão)', () => {
-    const payload = formStateToPayload(makeState({ slots_total: '4', slots_open: '4' }));
-    expect(payload.slots_filled).toBe(0);
-  });
-
-  it('recrutamento fechado (0 abertas) → slots_filled igual ao total', () => {
-    const payload = formStateToPayload(makeState({ slots_total: '4', slots_open: '0' }));
-    expect(payload.slots_filled).toBe(4);
-  });
-
-  it('abertas maiores que o total (estado inválido) clampa para 0 em vez de negativo', () => {
-    const payload = formStateToPayload(makeState({ slots_total: '4', slots_open: '9' }));
-    expect(payload.slots_filled).toBe(0);
-  });
-});
-
-describe('formStateToPayload — slots_filled na EDIÇÃO (achado Codex, PR #285)', () => {
-  // slots_filled são jogadores confirmados; slots_open é quanto o mestre quer
-  // recrutar. O contrato permite open < total - filled quando ele limita ou
-  // fecha o recrutamento (routes/tables.ts:130-135), então total - open NÃO
-  // reconstrói filled. Como o form nem carrega o valor salvo
-  // (mapTableApiToInitialData.ts:113-114), derivar na edição sobrescreve a
-  // contagem real com um número que ninguém digitou.
-  it('OMITE slots_filled do payload — a chave não pode chegar ao PUT', () => {
-    const payload = formStateToPayload(makeState({ slots_total: '5', slots_open: '1' }), true);
+describe('formStateToPayload — slots_filled nunca e escrito pelo form (Codex, PR #285)', () => {
+  // O form coleta "Vagas Totais" e "Vagas Abertas para Recrutamento"
+  // (StepSessions.tsx) — nunca jogadores confirmados. Derivar total - open
+  // inventaria a contagem: na criacao com jogadores ficticios, na edicao
+  // sobrescrevendo os confirmados reais. Omitido, a criacao cai no DEFAULT 0
+  // da coluna e o PUT parcial preserva o valor salvo.
+  it('OMITE slots_filled na criacao — a chave nao chega ao POST', () => {
+    const payload = formStateToPayload(makeState({ slots_total: '5', slots_open: '1' }));
     expect('slots_filled' in payload).toBe(false);
     expect(JSON.stringify(payload)).not.toContain('slots_filled');
   });
 
-  it('recrutamento limitado (total=5, open=1) não inventa filled=4', () => {
-    // Cenário do achado: mestre com 2 confirmados limita o recrutamento a 1
-    // vaga. Derivar diria filled=4 e apagaria a contagem real.
-    const payload = formStateToPayload(makeState({ slots_total: '5', slots_open: '1' }), true);
+  it('mesa nova com recrutamento limitado nao nasce com jogadores ficticios', () => {
+    // Cenario do achado: 5 lugares, 0 confirmados, 1 vaga aberta. Derivar
+    // gravaria 4 jogadores que nao existem.
+    const payload = formStateToPayload(makeState({ slots_total: '5', slots_open: '1' }));
     expect(payload.slots_filled).toBeUndefined();
   });
 
-  it('recrutamento fechado (0 abertas) não força filled = total', () => {
-    const payload = formStateToPayload(makeState({ slots_total: '4', slots_open: '0' }), true);
+  it('recrutamento fechado (0 abertas) nao vira mesa cheia', () => {
+    const payload = formStateToPayload(makeState({ slots_total: '4', slots_open: '0' }));
     expect(payload.slots_filled).toBeUndefined();
   });
 
-  it('mesa cheia com recrutamento reaberto (total=4, open=4) não zera os confirmados', () => {
-    // Caso real medido em produção: "Somewhere in Duskwood" (total=4,
-    // filled=4, open=4). Derivar zeraria os 4 jogadores confirmados.
-    const payload = formStateToPayload(makeState({ slots_total: '4', slots_open: '4' }), true);
+  it('mesa cheia com recrutamento reaberto nao zera os confirmados', () => {
+    // Caso real em producao: "Somewhere in Duskwood" (total=4/filled=4/open=4).
+    const payload = formStateToPayload(makeState({ slots_total: '4', slots_open: '4' }));
     expect(payload.slots_filled).toBeUndefined();
   });
 
-  it('slots_total e slots_open continuam sendo enviados na edição', () => {
-    const payload = formStateToPayload(makeState({ slots_total: '5', slots_open: '1' }), true);
+  it('slots_total e slots_open continuam sendo enviados', () => {
+    const payload = formStateToPayload(makeState({ slots_total: '5', slots_open: '1' }));
     expect(payload.slots_total).toBe(5);
     expect(payload.slots_open).toBe(1);
   });
 });
+
+describe('formStateToPayload — age_rating (achado Codex, PR #285)', () => {
+  // Coluna nullable: faixa nula significa "nao informado", nao 'livre'. Enviar
+  // o fallback visual do form gravaria 'livre' numa mesa que nunca escolheu —
+  // e 'livre' agora aparece publicamente no card e na ficha.
+  it('OMITE age_rating quando o form esta sem faixa selecionada', () => {
+    const payload = formStateToPayload(makeState({ age_rating: '' }));
+    expect(payload.age_rating).toBeUndefined();
+    // O que importa e o corpo serializado: `undefined` some no JSON.stringify
+    // do fetch, entao o campo nao chega ao backend (mesmo padrao de
+    // table_level e price_value).
+    expect(JSON.stringify(payload)).not.toContain('age_rating');
+  });
+
+  it('envia a faixa quando o mestre de fato escolheu', () => {
+    expect(formStateToPayload(makeState({ age_rating: '+16' })).age_rating).toBe('+16');
+    expect(formStateToPayload(makeState({ age_rating: 'livre' })).age_rating).toBe('livre');
+  });
+});
+

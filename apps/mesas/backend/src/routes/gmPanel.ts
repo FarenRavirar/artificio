@@ -982,9 +982,18 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       accepts_donations: data.accepts_donations,
       suggested_donation_value: data.suggested_donation_value,
       price_frequency: data.price_frequency,
-      slots_total: data.slots_total,
-      slots_filled: data.slots_filled,
-      slots_open: data.slots_open,
+      // Mesma causa do price_type acima (achado Codex, PR #285): o
+      // `.partial()` NAO remove os `.default()` do baseTableSchema, entao
+      // `updateTableSchema.parse({ title })` materializa `slots_total: 4` e
+      // `slots_filled: 0` mesmo sem o cliente ter enviado nada de vagas —
+      // medido. Gravar isso rebaixava a mesa aos defaults num PUT parcial:
+      // 94 das 114 mesas em producao tem `slots_total <> 4 or
+      // slots_filled <> 0` e seriam corrompidas ao editar so o titulo.
+      // `hasOwn` no body cru e o unico sinal confiavel de "foi enviado";
+      // omitido fica undefined e o Kysely preserva o valor salvo.
+      slots_total: Object.hasOwn(req.body, 'slots_total') ? data.slots_total : undefined,
+      slots_filled: Object.hasOwn(req.body, 'slots_filled') ? data.slots_filled : undefined,
+      slots_open: Object.hasOwn(req.body, 'slots_open') ? data.slots_open : undefined,
       language: data.language,
       experience_level: data.experience_level,
       starts_at: data.starts_at ? new Date(data.starts_at) : undefined,

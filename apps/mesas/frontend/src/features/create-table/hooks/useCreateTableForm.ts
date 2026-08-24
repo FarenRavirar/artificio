@@ -29,7 +29,12 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
     type: initialData?.form?.type || 'campanha',
     modality: initialData?.form?.modality || 'online',
     audience: initialData?.form?.audience || 'livre',
-    age_rating: initialData?.form?.age_rating || 'livre',
+    // `??` e nao `||`: mesa existente com faixa nula chega aqui como '' (string
+    // vazia), que e falsy — com `||` o fallback 'livre' voltaria a materializar
+    // a faixa que o mestre nunca escolheu, que e justamente o bug corrigido em
+    // mapTableApiToInitialData (achado Codex, PR #285). Mesa NOVA (initialData
+    // ausente) continua nascendo em 'livre', o default de produto.
+    age_rating: initialData?.form?.age_rating ?? 'livre',
     // normalizePriceType cobre o valor legado 'free'/'paid' que pode vir de
     // draft antigo restaurado (initialData) — nunca existiu no banco (enum
     // 'gratuita' | 'paga' desde migration_01), e 'free' no state faria o
@@ -247,10 +252,7 @@ export function useCreateTableForm(options: UseCreateTableFormOptions) {
       const tableId = typeof initialData?.id === 'string' ? initialData.id : null;
       const isEditing = tableId !== null;
 
-      // `isEditing` precisa chegar ao mapper: na edicao o payload OMITE
-      // slots_filled para preservar os jogadores confirmados ja salvos
-      // (derivar total - open sobrescreveria a contagem real). Ver mapper.ts.
-      const payload = formStateToPayload(formState, isEditing);
+      const payload = formStateToPayload(formState);
 
       const endpoint = isEditing 
         ? `/api/v1/gm/tables/${tableId}` 

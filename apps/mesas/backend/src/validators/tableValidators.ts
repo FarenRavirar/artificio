@@ -526,7 +526,7 @@ export function mergePricingState(
   body: Record<string, unknown>,
   existing: TablePricingRow,
 ): TablePricingRow {
-  const sent = (key: string) => Object.prototype.hasOwnProperty.call(body, key);
+  const sent = (key: string) => Object.hasOwn(body, key);
   return {
     price_type: sent('price_type') ? (payload.price_type ?? existing.price_type) : existing.price_type,
     price_value: sent('price_value') ? (payload.price_value ?? null) : existing.price_value,
@@ -573,7 +573,7 @@ export function mergeSlotsState(
   body: Record<string, unknown>,
   existing: TableSlotsRow,
 ): TableSlotsRow {
-  const sent = (key: string) => Object.prototype.hasOwnProperty.call(body, key);
+  const sent = (key: string) => Object.hasOwn(body, key);
   return {
     slots_total: sent('slots_total') ? (payload.slots_total ?? existing.slots_total) : existing.slots_total,
     slots_filled: sent('slots_filled') ? (payload.slots_filled ?? existing.slots_filled) : existing.slots_filled,

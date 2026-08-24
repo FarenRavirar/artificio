@@ -9,15 +9,28 @@ interface JsonRpcResponse {
   error?: { code: number; message: string };
 }
 
+// `typeof x === 'object'` sozinho aceita array e null, entao a versao anterior
+// deste guard prometia `JsonRpcResponse` sem conferir a forma de `error` nem
+// recusar `result: []` (achado Codex, PR #285). Um guard que mente e pior que
+// nenhum: o `as` seguinte passa a ser confianca infundada.
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isJsonRpcError(value: unknown): value is { code: number; message: string } {
+  return isPlainObject(value) && typeof value.code === 'number' && typeof value.message === 'string';
+}
+
 function isJsonRpcResponse(value: unknown): value is JsonRpcResponse {
-  if (typeof value !== 'object' || value === null) return false;
-  const candidate = value as Record<string, unknown>;
-  if (candidate.jsonrpc !== '2.0') return false;
-  if (typeof candidate.id !== 'number') return false;
-  const hasResult = typeof candidate.result === 'object' && candidate.result !== null;
-  const hasError = typeof candidate.error === 'object' && candidate.error !== null;
-  // JSON-RPC 2.0: exatamente um dos dois.
-  return hasResult !== hasError;
+  if (!isPlainObject(value)) return false;
+  if (value.jsonrpc !== '2.0') return false;
+  if (typeof value.id !== 'number') return false;
+
+  const hasResult = 'result' in value;
+  const hasError = 'error' in value;
+  // JSON-RPC 2.0: exatamente um dos dois, e cada um na forma declarada.
+  if (hasResult === hasError) return false;
+  return hasResult ? isPlainObject(value.result) : isJsonRpcError(value.error);
 }
 
 const SERVER_PATH = resolve(import.meta.dirname, 'api-mcp-server.ts');

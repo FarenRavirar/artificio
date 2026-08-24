@@ -104,7 +104,12 @@ export function mapTableApiToInitialData(apiData: unknown): Partial<FormState> &
       type: stringValue(data, 'type', 'campanha'),
       modality: stringValue(data, 'modality', 'online'),
       audience: stringValue(data, 'audience', 'livre'),
-      age_rating: stringValue(data, 'age_rating', 'livre'),
+      // Sem fallback: a coluna e nullable e faixa nula significa "nao
+      // informado", nao 'livre'. Materializar 'livre' aqui fazia o payload de
+      // edicao gravar essa faixa em mesa que nunca a escolheu (achado Codex,
+      // PR #285) — 10 mesas em producao estao nesse estado. Vazio mantem o
+      // select sem selecao e o mapper omite o campo.
+      age_rating: stringValue(data, 'age_rating'),
       price_type: stringValue(data, 'price_type', 'gratuita'),
       price_value: stringValue(data, 'price_value'),
       price_value_monthly: stringValue(data, 'price_value_monthly'),

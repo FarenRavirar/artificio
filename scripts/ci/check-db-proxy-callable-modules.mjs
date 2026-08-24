@@ -99,7 +99,10 @@ function findProxyModules() {
       if (src.includes("new Proxy") && src.includes("Kysely")) found.push(file);
     }
   }
-  return found.sort();
+  // Comparador explicito: `sort()` sem argumento ordena pela representacao
+  // UTF-16 de cada elemento, que so coincide com ordem alfabetica por acidente.
+  // Aqui a ordem so serve para a saida do gate ser estavel entre execucoes.
+  return found.sort((a, b) => a.localeCompare(b));
 }
 
 // Cada app valida DATABASE_URL no primeiro acesso (DT-004). O Pool do `pg` so
