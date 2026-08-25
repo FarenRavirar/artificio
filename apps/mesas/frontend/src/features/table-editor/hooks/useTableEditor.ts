@@ -11,7 +11,7 @@ import {
   mapGmMeToSnapshot,
   toProfileContactMethods,
 } from '../utils/editorMapping';
-import type { GmProfileSnapshot } from '../utils/editorMapping';
+import type { EditorPayload, GmProfileSnapshot } from '../utils/editorMapping';
 import { useAutosave } from '../../create-table/hooks/useAutosave';
 import { draftStorage } from '../../create-table/utils/draftStorage';
 import { authGet, authPost, authPut, authPatch } from '../../../utils/authenticatedFetch';
@@ -200,6 +200,48 @@ function resolveWriteTarget(
     return { method: 'PUT', endpoint: `/api/v1/gm/tables/${draftId}`, reusesExistingTable: true };
   }
   return { method: 'POST', endpoint: '/api/v1/gm/tables', reusesExistingTable: false };
+}
+
+/**
+ * Escreve o conteúdo da mesa e devolve o id NOVO quando foi um POST de criação
+ * (null quando a escrita reusou uma mesa que já existia).
+ */
+async function writeTable(
+  target: { method: 'PUT' | 'POST'; endpoint: string; reusesExistingTable: boolean },
+  payload: EditorPayload,
+  isEditing: boolean,
+): Promise<string | null> {
+  const res = target.method === 'PUT'
+    ? await authPut(target.endpoint, payload)
+    : await authPost(target.endpoint, payload);
+
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({} as Record<string, unknown>));
+    throw new Error(submitErrorMessage(json, isEditing));
+  }
+
+  if (target.reusesExistingTable) return null;
+
+  const json = (await res.json().catch(() => ({}))) as { data?: { id?: unknown } };
+  // Criação sem id de volta é falha de publicação, não sucesso silencioso: sem
+  // id não há como promover para 'active', e seguir adiante limparia o rascunho
+  // local de uma mesa que ficou em draft.
+  if (typeof json.data?.id !== 'string') {
+    throw new Error('Erro ao criar mesa: resposta do servidor sem identificador.');
+  }
+  return json.data.id;
+}
+
+/** PATCH de promoção — o único caminho que grava `published_at`. */
+async function promoteTableToActive(tableId: string): Promise<void> {
+  const res = await authPatch(`/api/v1/gm/tables/${tableId}/status`, { status: 'active' });
+  if (res.ok) return;
+
+  const json = await res.json().catch(() => ({} as Record<string, unknown>));
+  throw new Error(
+    (typeof json.error === 'string' && json.error) ||
+    'Erro ao publicar a mesa. O rascunho foi salvo — tente publicar novamente.',
+  );
 }
 
 /** Mensagem de erro do submit, na ordem json.error → json.message → default. */
@@ -636,6 +678,29 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
   // antes de qualquer re-render recompor a closure do useCallback.
   const remoteDraftIdRef = useRef<string | null>(null);
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Serializa a CRIAÇÃO do rascunho remoto: sem isto, digitar de novo (ou
+  // publicar) enquanto o primeiro POST está em voo dispara um segundo POST,
+  // porque `remoteDraftId` ainda é null — dois rascunhos da mesma mesa no
+  // painel. Guarda a promessa em curso para que a próxima escrita a aguarde em
+  // vez de recriar (achado Codex, PR #286).
+  const draftCreationRef = useRef<Promise<string | null> | null>(null);
+
+  /**
+   * Aguarda uma criação de rascunho JÁ em voo (não inicia nenhuma).
+   *
+   * O autosave pode ter disparado o POST segundos antes do publish. Sem esta
+   * espera, o publish lê `remoteDraftId === null` — o POST ainda não voltou — e
+   * cria a mesa de novo: dois rascunhos da mesma mesa no painel. Falha da
+   * criação em voo não derruba o publish: ele segue e cria por conta própria.
+   */
+  const pendingDraftCreation = useCallback(async (): Promise<string | null> => {
+    if (!draftCreationRef.current) return null;
+    try {
+      return await draftCreationRef.current;
+    } catch {
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
     if (publishingRef.current || !isDirty || isActive) return;
@@ -651,22 +716,40 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
           // campo herdado que o mestre não editou (senão o draft viraria a
           // "decisão" da mesa antes do publish).
           const payload = editorStateToPayload(state, { omitInherited });
-          if (remoteDraftId) {
-            const res = await authPut(`/api/v1/gm/tables/${remoteDraftId}`, payload);
+          // Uma criação em voo vale por todas: se outro disparo já está criando
+          // o rascunho, espera o id dele em vez de emitir um segundo POST.
+          const knownId =
+            remoteDraftIdRef.current ?? remoteDraftId ?? (await pendingDraftCreation());
+
+          if (knownId) {
+            const res = await authPut(`/api/v1/gm/tables/${knownId}`, payload);
             if (!res.ok) throw new Error('PUT rascunho falhou');
-          } else {
+            return;
+          }
+
+          const creation = (async () => {
             const res = await authPost('/api/v1/gm/tables', payload);
             if (!res.ok) throw new Error('POST rascunho falhou');
-            const json = (await res.json().catch(() => ({}))) as {
-              data?: { id?: unknown };
-            };
-            // C4a: sem setState após desmonte/reagendamento — o cleanup do
-            // effect alcança o timer, não o corpo async já em voo.
-            if (!active) return;
-            if (typeof json.data?.id === 'string') {
-              remoteDraftIdRef.current = json.data.id;
-              setRemoteDraftId(json.data.id);
-            }
+            const json = (await res.json().catch(() => ({}))) as { data?: { id?: unknown } };
+            if (typeof json.data?.id !== 'string') return null;
+            // O id é gravado no ref ANTES de qualquer guard de desmonte: a mesa
+            // JÁ existe no servidor. Descartá-lo aqui (o `if (!active) return`
+            // que vivia nesta linha) fazia a próxima escrita ver
+            // `remoteDraftId === null` e criar a mesa outra vez.
+            remoteDraftIdRef.current = json.data.id;
+            return json.data.id;
+          })();
+          draftCreationRef.current = creation;
+
+          try {
+            const createdId = await creation;
+            // setState só depois do guard — o cleanup do effect alcança o
+            // timer, não o corpo async já em voo (C4a).
+            if (createdId && active) setRemoteDraftId(createdId);
+          } catch (err) {
+            // Nada foi gravado: liberar para a próxima tentativa criar de novo.
+            draftCreationRef.current = null;
+            throw err;
           }
         } catch {
           if (active) {
@@ -681,7 +764,7 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
       if (autosaveTimerRef.current === timer) autosaveTimerRef.current = null;
       clearTimeout(timer);
     };
-  }, [state, isDirty, isActive, remoteDraftId, omitInherited]);
+  }, [state, isDirty, isActive, remoteDraftId, omitInherited, pendingDraftCreation]);
 
   /** Cancela o timer pendente do autosave remoto (usado pelo publish — C1). */
   const cancelPendingAutosave = useCallback(() => {
@@ -800,65 +883,35 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
       // Id devolvido pelo POST de criação (null nas demais rotas de escrita).
       let createdTableId: string | null = null;
 
-      // Na criação, o autosave remoto pode JÁ ter criado o rascunho no
-      // servidor (debounce 2,5s). Se criou, o publish REUSA esse id via PUT
-      // e promove ELE — um segundo POST duplicaria a mesa e deixaria o
-      // rascunho remoto órfão no painel. Publicou antes do primeiro autosave
-      // (remoteDraftId null) → POST único, como sempre.
-      const draftIdNow = remoteDraftIdRef.current ?? remoteDraftId;
-      const target = resolveWriteTarget(isEditing, state.id, isEditing ? null : draftIdNow);
       // C3: o parse_case_id só viaja no SUBMIT (publish) — o autosave remoto
       // usa o default (omite) para não reenviar o id do preview a cada 2,5s.
       const payload = editorStateToPayload(state, { omitInherited, includeParseCaseId: true });
-      const res = target.method === 'PUT'
-        ? await authPut(target.endpoint, payload)
-        : await authPost(target.endpoint, payload);
 
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({} as Record<string, unknown>));
-        throw new Error(submitErrorMessage(json, isEditing));
-      }
+      // Na criação, o autosave remoto pode já ter criado — ou estar criando
+      // AGORA — o rascunho no servidor. Aguardar a criação em voo (em vez de só
+      // ler o id) fecha a corrida que duplicava a mesa: com um POST a caminho,
+      // o publish espera o id e faz PUT nele; sem nenhum, cria aqui.
+      const draftIdNow = isEditing
+        ? null
+        : remoteDraftIdRef.current ?? remoteDraftId ?? (await pendingDraftCreation());
 
-      // O POST de criação acabou de materializar a mesa no servidor: guardar o
-      // id ANTES de qualquer await seguinte. Se o PATCH de promoção falhar, a
-      // mesa criada continua lá como rascunho — sem esta linha, remoteDraftId
-      // seguiria null e o próximo autosave/publish faria um SEGUNDO POST,
-      // duplicando a mesa e deixando a primeira órfã no painel.
-      if (!target.reusesExistingTable) {
-        const json = (await res.json().catch(() => ({}))) as {
-          data?: { id?: unknown };
-        };
-        // Criação sem id de volta é falha de publicação, não sucesso silencioso:
-        // sem id não há como promover para 'active', e seguir adiante limparia o
-        // rascunho local de uma mesa que ficou em draft.
-        if (typeof json.data?.id !== 'string') {
-          throw new Error('Erro ao criar mesa: resposta do servidor sem identificador.');
-        }
-        createdTableId = json.data.id;
+      const target = resolveWriteTarget(isEditing, state.id, draftIdNow);
+      createdTableId = await writeTable(target, payload, isEditing);
+      if (createdTableId) {
+        // O POST acabou de materializar a mesa: guardar o id ANTES do próximo
+        // await. Se o PATCH de promoção falhar, a mesa criada continua lá como
+        // rascunho — sem isto, o próximo autosave/publish faria um SEGUNDO POST.
         remoteDraftIdRef.current = createdTableId;
         setRemoteDraftId(createdTableId);
       }
 
-      // Promoção para o ar: criação sempre (nasceu draft) e edição de mesa
-      // que ainda estava em rascunho. Mesa já ativa não passa pelo PATCH.
-      if (!isActive) {
-        // O PATCH promove o MESMO id da escrita acima: na criação sem rascunho
-        // prévio é o id do POST; nos demais casos, o id que o PUT reusou
-        // (rascunho remoto na criação, state.id na edição).
-        const tableId = createdTableId ?? (isEditing ? state.id : draftIdNow);
-        if (tableId) {
-          const patchRes = await authPatch(`/api/v1/gm/tables/${tableId}/status`, {
-            status: 'active',
-          });
-          if (!patchRes.ok) {
-            const patchJson = await patchRes.json().catch(() => ({} as Record<string, unknown>));
-            throw new Error(
-              (typeof patchJson.error === 'string' && patchJson.error) ||
-              'Erro ao publicar a mesa. O rascunho foi salvo — tente publicar novamente.',
-            );
-          }
-          publishedTableId = tableId;
-        }
+      // Promoção para o ar: criação sempre (nasceu draft) e edição de mesa que
+      // ainda estava em rascunho. Mesa já ativa não passa pelo PATCH, que
+      // promove o MESMO id da escrita acima.
+      const tableId = createdTableId ?? (isEditing ? state.id : draftIdNow);
+      if (!isActive && tableId) {
+        await promoteTableToActive(tableId);
+        publishedTableId = tableId;
       }
 
       // T4.0i: publicação com sucesso (só este caminho chega aqui — qualquer
@@ -885,6 +938,7 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
     isEditing,
     isActive,
     remoteDraftId,
+    pendingDraftCreation,
     clearDraft,
     onPublished,
     gmProfileStatus.kind,

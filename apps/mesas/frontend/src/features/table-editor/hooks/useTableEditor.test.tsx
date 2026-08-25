@@ -157,9 +157,7 @@ describe('publish — criação, edição ativa e edição de rascunho', () => {
     // null e a tentativa seguinte fazia OUTRO POST, duplicando a mesa e
     // deixando a primeira como rascunho órfão no painel.
     mockAuthPost.mockImplementation(() => okResponse({ data: { id: 't-criada' } }));
-    mockAuthPatch.mockImplementationOnce(() =>
-      Promise.resolve({ ok: false, json: () => Promise.resolve({ error: 'falha ao promover' }) }),
-    );
+    mockAuthPatch.mockImplementationOnce(() => failResponse({ error: 'falha ao promover' }));
     mockAuthPatch.mockImplementation(() => okResponse());
     mockAuthPut.mockImplementation(() => okResponse());
     const onPublished = vi.fn();
@@ -444,6 +442,60 @@ describe('autosave remoto — debounce 2,5s, só rascunho', () => {
       await vi.advanceTimersByTimeAsync(2_600);
     });
     expect(mockAuthPost).toHaveBeenCalledTimes(2);
+  });
+
+  it('POST do autosave EM VOO: o publish aguarda o id em vez de criar a mesa de novo', async () => {
+    // Achado Codex (PR #286): o guard `if (!active) return` descartava o id de
+    // uma mesa que o servidor JÁ tinha criado. O publish então via
+    // remoteDraftId === null e emitia outro POST — dois rascunhos da mesma mesa
+    // no painel. O id passa a ser gravado antes do guard, e o publish espera a
+    // criação em voo.
+    vi.useFakeTimers();
+
+    let resolvePost: ((value: Response) => void) | undefined;
+    mockAuthPost.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolvePost = resolve;
+        }) as Promise<Response>,
+    );
+    mockAuthPut.mockImplementation(() => okResponse());
+    mockAuthPatch.mockImplementation(() => okResponse());
+
+    const { result } = renderHook(() =>
+      useTableEditor({
+        initialData: makeValidState({
+          publisherRole: 'announcer',
+          actualGmName: 'Mestre Real da Mesa',
+        }),
+        onPublished: vi.fn(),
+      }),
+    );
+
+    // Digitar + debounce dispara o POST do autosave, que fica PENDENTE.
+    act(() => {
+      result.current.patch({ title: 'Rascunho em voo' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_600);
+    });
+    expect(mockAuthPost).toHaveBeenCalledTimes(1);
+
+    // Publicar com o POST ainda no ar; a resposta chega no meio da cadeia.
+    let published: boolean | undefined;
+    await act(async () => {
+      const publishing = result.current.publish();
+      resolvePost?.({ ok: true, json: async () => ({ data: { id: 't-em-voo' } }) } as Response);
+      published = await publishing;
+    });
+
+    expect(published).toBe(true);
+    // O ponto do teste: nenhum POST novo — o publish reusou o id em voo.
+    expect(mockAuthPost).toHaveBeenCalledTimes(1);
+    expect(mockAuthPut).toHaveBeenCalledWith('/api/v1/gm/tables/t-em-voo', expect.anything());
+    expect(mockAuthPatch).toHaveBeenCalledWith('/api/v1/gm/tables/t-em-voo/status', {
+      status: 'active',
+    });
   });
 
   it('C1: publish com timer de autosave pendente NÃO gera POST concorrente (timer cancelado + guard)', async () => {

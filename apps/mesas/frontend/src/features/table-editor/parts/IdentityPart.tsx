@@ -1,11 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Button, Panel, TextInput } from '@artificio/ui';
 import { CatalogSystemSelector } from '@artificio/catalog-ui';
 import type { CatalogUiNode } from '@artificio/catalog-ui';
 import { systemTreeNodeToUiNode } from '../../../utils/systemTreeNodeToUiNode';
 import { authGet } from '../../../utils/authenticatedFetch';
 import { normalizeSystemsResponse } from '../../../hooks/useSystemsCatalog';
-import type { SystemTreeNode } from '../../../types/systems';
 import type { TableEditorApi } from '../hooks/useTableEditor';
 import { EditorField, ToggleButton } from './EditorField';
 import { ContentEditor } from '@artificio/content-editor';
@@ -24,6 +23,8 @@ import { DESCRIPTION_MAX_LENGTH, EDITOR_TEXT_LIMITS } from '../utils/editorValid
  * catálogo inteiro.
  */
 const SYSTEM_SEARCH_LIMIT = 5;
+/** Margem sobre o exibido: a resposta traz níveis que a coluna Sistema descarta. */
+const SYSTEM_SEARCH_FETCH_LIMIT = 25;
 
 /**
  * Normaliza a resposta de busca server-side de sistemas (R18/A21) e converte
@@ -75,13 +76,26 @@ export function IdentityPart({
   // refaz a busca por re-render (contrato documentado no pacote).
   const fetchSystemOptions = useCallback(
     async (query: string, signal: AbortSignal): Promise<CatalogUiNode[]> => {
-      const params = new URLSearchParams({ search: query, limit: String(SYSTEM_SEARCH_LIMIT) });
+      // O `limit` pedido é MAIOR que o exibido de propósito: o servidor corta
+      // antes de sabermos quais nós são raiz, e sem margem uma busca cujos
+      // primeiros resultados são edições devolveria a coluna vazia.
+      const params = new URLSearchParams({
+        search: query,
+        limit: String(SYSTEM_SEARCH_FETCH_LIMIT),
+      });
       const response = await authGet(`/api/v1/systems?${params.toString()}`, { signal });
       if (!response.ok) {
         throw new Error('Falha ao buscar sistemas.');
       }
       const json: unknown = await response.json();
-      return normalizeSystemsSearchResponse(json);
+      // Só RAÍZES nesta coluna: `?search=` achata a árvore filtrada
+      // (`flattenTree(filterCatalogTree(...))` em systems.ts), então a resposta
+      // mistura edições e variantes que casaram. Sem este filtro, buscar "5e"
+      // listava o nó de edição ao lado do D&D como se fosse sistema — escolhê-lo
+      // pulava um nível e a coluna "Edição" passava a exibir variantes.
+      return normalizeSystemsSearchResponse(json)
+        .filter((node) => node.parent_id === null)
+        .slice(0, SYSTEM_SEARCH_LIMIT);
     },
     [],
   );

@@ -549,6 +549,29 @@ function defaultSession(data: ApiRecord): SessionSchedule {
 
 export type EditorInitialData = Partial<TableEditorState> & { id?: string };
 
+/**
+ * Plataforma de comunicação na leitura: id do catálogo quando existe; senão
+ * 'custom' + o texto livre, que é como o editor representa a opção fora da
+ * lista. Os dois campos derivam da MESMA decisão, por isso saem juntos.
+ */
+function communicationFields(data: ApiRecord): {
+  communicationPlatformId: string;
+  communicationPlatformCustom: string;
+} {
+  if (data.communication_platform_id) {
+    return {
+      communicationPlatformId: stringValue(data, 'communication_platform_id'),
+      communicationPlatformCustom: '',
+    };
+  }
+
+  const custom = stringValue(data, 'communication_platform');
+  return {
+    communicationPlatformId: custom ? 'custom' : '',
+    communicationPlatformCustom: custom,
+  };
+}
+
 export function mapApiToEditorState(apiData: unknown): EditorInitialData {
   const data = asRecord(apiData);
   if (!data) return {};
@@ -601,14 +624,7 @@ export function mapApiToEditorState(apiData: unknown): EditorInitialData {
     modality: stringValue(data, 'modality', 'online'),
     vttPlatformId: stringValue(data, 'vtt_platform_id'),
     gamePlatformCustom: stringValue(data, 'game_platform_custom'),
-    communicationPlatformId: data.communication_platform_id
-      ? stringValue(data, 'communication_platform_id')
-      : data.communication_platform
-        ? 'custom'
-        : '',
-    communicationPlatformCustom: data.communication_platform_id
-      ? ''
-      : stringValue(data, 'communication_platform'),
+    ...communicationFields(data),
 
     requiresPc: booleanValue(data, 'requires_pc'),
     requiresCamera: booleanValue(data, 'requires_camera'),

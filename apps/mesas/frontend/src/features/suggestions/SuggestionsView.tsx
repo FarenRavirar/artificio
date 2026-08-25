@@ -84,14 +84,15 @@ function SuggestionList({
 }>) {
   const titleId = `list-${title.toLowerCase().replace(/\s+/g, '-')}`;
 
-  return (
-    <section aria-labelledby={titleId}>
-      <h2 id={titleId} className="text-xl font-bold mb-4">
-        {title}
-      </h2>
-      {state.loading ? (
-        <LoadingState title={`Carregando ${title.toLowerCase()}...`} variant="panel" />
-      ) : state.error ? (
+  // Os quatro estados da lista em early returns: como cadeia de ternários
+  // aninhados, achar qual ramo desenha o quê exigia contar parênteses.
+  const renderBody = () => {
+    if (state.loading) {
+      return <LoadingState title={`Carregando ${title.toLowerCase()}...`} variant="panel" />;
+    }
+
+    if (state.error) {
+      return (
         <ErrorState
           title={`Não foi possível carregar ${title.toLowerCase()}`}
           message={state.error}
@@ -101,9 +102,14 @@ function SuggestionList({
             </Button>
           }
         />
-      ) : state.items.length === 0 ? (
-        <EmptyState title="Nada por aqui ainda" message={emptyMessage} />
-      ) : (
+      );
+    }
+
+    if (state.items.length === 0) {
+      return <EmptyState title="Nada por aqui ainda" message={emptyMessage} />;
+    }
+
+    return (
         <ul className="grid grid-cols-1 md:grid-cols-2 gap-4 list-none p-0 m-0">
           {state.items.map((item) => (
             <li key={item.id} id={`suggestion-${item.id}`} className="scroll-mt-24">
@@ -111,7 +117,15 @@ function SuggestionList({
             </li>
           ))}
         </ul>
-      )}
+    );
+  };
+
+  return (
+    <section aria-labelledby={titleId}>
+      <h2 id={titleId} className="text-xl font-bold mb-4">
+        {title}
+      </h2>
+      {renderBody()}
     </section>
   );
 }

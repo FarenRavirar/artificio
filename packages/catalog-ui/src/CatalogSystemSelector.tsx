@@ -38,13 +38,26 @@ function isCatalogUiNode(value: unknown): value is CatalogUiNode {
   );
 }
 
-/** Descarta o que não é nó válido em vez de deixar o render quebrar. */
+/**
+ * Descarta o que não é nó válido em vez de deixar o render quebrar.
+ *
+ * Recursivo de propósito: `subtreeMatchesQuery` desce em `children` e chama
+ * `normalizeText(child.name)`, então um descendente malformado quebra a busca
+ * mesmo com o nó de topo íntegro. Os campos opcionais que a busca lê
+ * (`aliases`, `name_pt`, `path_slug`) também são checados por tipo — vindos de
+ * HTTP, "string" é promessa de compilação, não garantia.
+ */
 function normalizeNodes(value: unknown): CatalogUiNode[] {
   if (!Array.isArray(value)) return [];
   return value.filter(isCatalogUiNode).map((node) => ({
     ...node,
+    name_pt: typeof node.name_pt === 'string' ? node.name_pt : null,
+    path_slug: typeof node.path_slug === 'string' ? node.path_slug : null,
+    aliases: Array.isArray(node.aliases)
+      ? node.aliases.filter((alias): alias is string => typeof alias === 'string')
+      : undefined,
     // `children` é obrigatório no tipo e percorrido sem guard na navegação.
-    children: Array.isArray(node.children) ? node.children : [],
+    children: normalizeNodes(node.children),
   }));
 }
 
@@ -250,7 +263,10 @@ export function CatalogSystemSelector({
   // Caminho resolvido pelo servidor quando o consumidor não carrega a árvore
   // (`fetchNodePath`): sem isto, reconstituir a seleção de uma mesa já
   // publicada obrigaria a baixar o catálogo inteiro só para um findPath.
-  const [remotePath, setRemotePath] = useState<CatalogUiNode[]>([]);
+  // O id viaja JUNTO do caminho: sem isso, trocar de sistema exibia a linhagem
+  // do sistema ANTERIOR até o novo fetch voltar (achado CodeRabbit, PR #286) —
+  // e limpar com setState no corpo do effect dispararia render em cascata.
+  const [remote, setRemote] = useState<{ id: string; path: CatalogUiNode[] } | null>(null);
   const fetchNodePathRef = useRef(fetchNodePath);
   fetchNodePathRef.current = fetchNodePath;
 
@@ -262,22 +278,19 @@ export function CatalogSystemSelector({
   useEffect(() => {
     const fetchPath = fetchNodePathRef.current;
     // A árvore local já resolveu: nada a buscar.
-    if (!selectedId || !fetchPath || localPath) {
-      setRemotePath([]);
-      return;
-    }
+    if (!selectedId || !fetchPath || localPath) return;
 
     const controller = new AbortController();
     let active = true;
     fetchPath(selectedId, controller.signal)
       .then((path) => {
         if (!active || controller.signal.aborted) return;
-        setRemotePath(normalizeNodes(path));
+        setRemote({ id: selectedId, path: normalizeNodes(path) });
       })
       .catch(() => {
         // Caminho é conveniência de exibição: falhar aqui deixa o seletor no
         // estado navegável, nunca quebra a seleção que o consumidor já tem.
-        if (active) setRemotePath([]);
+        if (active) setRemote({ id: selectedId, path: [] });
       });
 
     return () => {
@@ -289,8 +302,10 @@ export function CatalogSystemSelector({
   const selectedPath = useMemo(() => {
     if (!selectedId) return navPath;
     if (localPath) return localPath;
+    // Só o caminho DESTE id: resposta de uma seleção anterior é ignorada.
+    const remotePath = remote?.id === selectedId ? remote.path : [];
     return remotePath.length > 0 ? remotePath : navPath;
-  }, [selectedId, localPath, remotePath, navPath]);
+  }, [selectedId, localPath, remote, navPath]);
 
   const loadChildrenFor = (parent: CatalogUiNode, column: 'edition' | 'variant') => {
     const abortRef = column === 'edition' ? editionAbortRef : variantAbortRef;

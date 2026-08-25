@@ -96,15 +96,26 @@ describe('POST /api/v1/gm/parse-preview', () => {
     mockUserId = 'gm-user-1';
   });
 
-  it('exige gm_profiles — 403 sem perfil de mestre (achado de review, CodeRabbit PR #172)', async () => {
+  it('mestre SEM perfil usa o parser — o perfil nasce no publish (T4.0p2), não antes', async () => {
+    // O 403 por `gm_profiles` (achado CodeRabbit PR #172) foi removido em
+    // 2026-08-25: com o perfil nascendo no primeiro publish, "crie seu perfil
+    // primeiro" virou instrução impossível e "Colar anúncio" quebrava para todo
+    // mestre novo (achado Codex PR #286). O parser não escreve mesa nenhuma; a
+    // checagem de perfil segue no POST /gm/tables, que é onde há escrita.
     (db.selectFrom as Mock).mockReturnValue(mockSelectChain({ executeTakeFirst: vi.fn().mockResolvedValue(undefined) }));
+    mockParseTextForPreview.mockResolvedValue({
+      parseCaseId: PARSE_CASE_ID,
+      table: { title: 'Mesa de Teste', system_id: null, actual_gm_name: null },
+      contacts: [],
+      schedules: [],
+    });
 
     const res = await request(makeApp())
       .post('/api/v1/gm/parse-preview')
       .send({ text: 'Título: Mesa de Teste\nSistema: D&D 5e\nVagas: 4' });
 
-    expect(res.status).toBe(403);
-    expect(mockParseTextForPreview).not.toHaveBeenCalled();
+    expect(res.status).toBe(200);
+    expect(mockParseTextForPreview).toHaveBeenCalled();
   });
 
   it('retorna parse_case_id + table quando o parser reconhece o anúncio', async () => {

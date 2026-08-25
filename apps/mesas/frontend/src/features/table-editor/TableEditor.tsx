@@ -7,7 +7,7 @@ import { useAuth } from '../../contexts/useAuth';
 import { useSelectedSystemNode } from './hooks/useSelectedSystemNode';
 import { useTableEditor } from './hooks/useTableEditor';
 import type { TableEditorApi, TableEditorInitialData } from './hooks/useTableEditor';
-import type { EditorPartId, TableEditorState } from './types';
+import type { EditorPartId } from './types';
 import { partOfField, pendingParts, fieldLevel, isFieldFilled, REQUIRED_FIELD_IDS } from './utils/editorValidation';
 import { buildStateFromPreview } from './utils/previewMerge';
 import { EDITOR_PARTS, getPartLabel } from './utils/editorParts';
@@ -64,7 +64,8 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
   // ── Sistema selecionado: UM nó por id (?id=), não a árvore inteira. A21
   //    proíbe `view=tree` no editor — a árvore custava 503.907 bytes por
   //    abertura (§Gap 9, causa 2) para alimentar dois lookups sobre o mesmo nó.
-  const selectedSystemNode = useSelectedSystemNode(state.selectedSystemId);
+  const { node: selectedSystemNode, resolved: systemNodeResolved } =
+    useSelectedSystemNode(state.selectedSystemId);
 
   // ── Elegibilidade DDAL (T4.0b) ──────────────────────────────────────────
   const isDdalEligible = useMemo(() => {
@@ -78,6 +79,10 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
   // Desmarca DDAL ao trocar para sistema não elegível (A14 — efeito herdado
   // do CreateTableForm antigo, wizard removido na T4.8, :274-278).
   useEffect(() => {
+    // Só desmarca depois que a busca do sistema VOLTOU: enquanto ela está em
+    // voo o nó é `null`, e tratar isso como "não elegível" apagaria o selo que
+    // o mestre marcou, a cada abertura do editor.
+    if (!systemNodeResolved) return;
     if (isDdalEligible || !state.ddal.is_ddal) return;
     let active = true;
     // setState deferido p/ fora do corpo síncrono do effect.
@@ -87,7 +92,7 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
       api.patch({ ddal: { ...state.ddal, is_ddal: false } });
     })();
     return () => { active = false; };
-  }, [isDdalEligible, state.ddal.is_ddal, state.ddal, api]);
+  }, [systemNodeResolved, isDdalEligible, state.ddal.is_ddal, state.ddal, api]);
 
   // ── Nome do cenário (SettingStylesField usa para o selo de selecionado) ──
   // B4 (revisão adversarial Fase 4): fetch cru → authGet (padrão do repo —
@@ -333,6 +338,13 @@ type EditorTopBarProps = Readonly<{
   onPublish: () => void;
 }>;
 
+/** Texto do estado do rascunho local; `null` não desenha nada. */
+function draftStatusLabel(status: DraftStatus): string | null {
+  if (status === 'saving') return 'Salvando rascunho…';
+  if (status === 'saved') return 'Rascunho salvo';
+  return null;
+}
+
 function EditorTopBar({
   isEditing,
   isActive,
@@ -348,22 +360,18 @@ function EditorTopBar({
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Voltar ao painel
         </Button>
-        {isEditing ? (
-          isActive ? (
-            <Badge variant="success">No ar</Badge>
-          ) : (
-            <Badge variant="warning">Rascunho</Badge>
-          )
+        {/* Só mesa em edição E no ar mostra "No ar"; todo o resto é rascunho
+            (criação, ou edição de mesa que ainda não foi publicada). */}
+        {isEditing && isActive ? (
+          <Badge variant="success">No ar</Badge>
         ) : (
           <Badge variant="warning">Rascunho</Badge>
         )}
       </div>
 
       <div aria-live="polite">
-        {draftStatus === 'saving' ? (
-          <span className="text-xs opacity-60">Salvando rascunho…</span>
-        ) : draftStatus === 'saved' ? (
-          <span className="text-xs opacity-60">Rascunho salvo</span>
+        {draftStatusLabel(draftStatus) ? (
+          <span className="text-xs opacity-60">{draftStatusLabel(draftStatus)}</span>
         ) : null}
       </div>
 

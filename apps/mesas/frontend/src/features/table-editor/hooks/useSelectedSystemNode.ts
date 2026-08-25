@@ -20,14 +20,26 @@ import type { SystemTreeNode } from '../../../types/systems';
  * inelegível (o backend revalida no submit e é a autoridade), nunca quebra o
  * editor.
  */
-export function useSelectedSystemNode(systemId: string): SystemTreeNode | null {
-  const [node, setNode] = useState<SystemTreeNode | null>(null);
+export interface SelectedSystemNodeState {
+  node: SystemTreeNode | null;
+  /**
+   * `false` enquanto a busca do id atual não voltou. Quem decide POR AUSÊNCIA
+   * de dado precisa esperar: o DDAL, por exemplo, desmarcaria o selo do mestre
+   * tratando o `null` em voo como "sistema não elegível".
+   */
+  resolved: boolean;
+}
+
+export function useSelectedSystemNode(systemId: string): SelectedSystemNodeState {
+  // O id resolvido viaja JUNTO do nó: assim o retorno é derivado por comparação
+  // (`fetched.id === systemId`) em vez de exigir um setState síncrono no effect
+  // para limpar o nó anterior — o que dispara render em cascata
+  // (react-hooks/set-state-in-effect). Trocar de sistema devolve `null` no
+  // mesmo render, sem passo intermediário mostrando o sistema antigo.
+  const [fetched, setFetched] = useState<{ id: string; node: SystemTreeNode | null } | null>(null);
 
   useEffect(() => {
-    if (!systemId) {
-      setNode(null);
-      return;
-    }
+    if (!systemId) return;
 
     const controller = new AbortController();
     let active = true;
@@ -41,9 +53,9 @@ export function useSelectedSystemNode(systemId: string): SystemTreeNode | null {
         if (!response.ok) throw new Error('Falha ao carregar o sistema selecionado.');
         const json: unknown = await response.json();
         if (!active) return;
-        setNode(normalizeSystemsResponse(json)[0] ?? null);
+        setFetched({ id: systemId, node: normalizeSystemsResponse(json)[0] ?? null });
       } catch {
-        if (active) setNode(null);
+        if (active) setFetched({ id: systemId, node: null });
       }
     })();
 
@@ -53,5 +65,9 @@ export function useSelectedSystemNode(systemId: string): SystemTreeNode | null {
     };
   }, [systemId]);
 
-  return node;
+  // Sem sistema escolhido não há o que buscar: resolvido, e vazio.
+  if (!systemId) return { node: null, resolved: true };
+  // Busca do id ATUAL ainda não voltou (ou é resposta de um id anterior).
+  if (fetched?.id !== systemId) return { node: null, resolved: false };
+  return { node: fetched.node, resolved: true };
 }

@@ -695,28 +695,27 @@ async function recordPublishedParseCase(parseCaseId: string, publishedPayload: u
 // curadoria admin); só grava o caso de aprendizado em discord_parse_cases
 // pra correlacionar com a submissão real depois (parse_case_id).
 router.post('/parse-preview', authMiddleware, async (req: Request, res: Response) => {
-  const userId = req.user!.userId;
-
   const validation = parsePreviewSchema.safeParse(req.body);
   if (!validation.success) {
     return res.status(400).json({ error: validation.error.issues[0]?.message ?? 'Payload inválido.' });
   }
 
   try {
-    // Achado de review (CodeRabbit, PR #172): rota validava só login (SSO),
-    // não checava gm_profiles como POST /gm/tables já faz — comentário da
-    // rota dizia "Auth de mestre logado" mas o código deixava qualquer
-    // usuário autenticado acionar o parser. Mesma checagem do submit real.
-    const gmProfile = await db
-      .selectFrom('gm_profiles')
-      .select(['id'])
-      .where('user_id', '=', userId)
-      .executeTakeFirst();
-
-    if (!gmProfile) {
-      return res.status(403).json({ error: 'Perfil de mestre não encontrado. Crie seu perfil primeiro.' });
-    }
-
+    // Sem gate de `gm_profiles` (removido em 2026-08-25, spec 096).
+    //
+    // O gate veio do achado CodeRabbit da PR #172, que pedia espelhar o
+    // `POST /gm/tables`. O pressuposto daquele espelhamento caiu na T4.0p2: o
+    // perfil de mestre agora NASCE no primeiro publish, então "crie seu perfil
+    // primeiro" virou instrução impossível — não há mais tela de criar perfil
+    // antes da mesa. Mantido o gate, "Colar anúncio" respondia 403 para todo
+    // mestre novo exatamente no passo em que ele preencheria o formulário
+    // (achado Codex, PR #286).
+    //
+    // Por que é seguro: o parser NÃO escreve mesa, não lê dado de terceiro e
+    // não devolve nada do catálogo que `GET /systems` já não exponha sem auth.
+    // Ele só interpreta o texto que o próprio usuário colou. O que continua
+    // valendo é o `authMiddleware` (usuário logado por SSO) — e a escrita de
+    // verdade, no `POST /gm/tables`, mantém a checagem de perfil intacta.
     const systems = await loadSystemsForParser();
     const result = await parseTextForPreview(validation.data.text, systems);
 

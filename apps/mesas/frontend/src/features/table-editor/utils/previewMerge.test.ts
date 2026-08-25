@@ -94,6 +94,27 @@ describe('buildStateFromPreview — prévia do parser não apaga o que o mestre 
     expect(merged.ddal.is_ddal).toBe(true);
   });
 
+  it('valor EXPLÍCITO igual ao default do mapper sobrescreve o formulário', () => {
+    // Achado CodeRabbit (PR #286): comparar com o mapeamento de uma fonte vazia
+    // confundia "o parser achou 'gratuita'" com "o mapper preencheu 'gratuita'".
+    // A fonte traz price_type de propósito — tem de rebaixar a mesa paga.
+    const current = filled({ priceType: 'paga', priceValue: '55' });
+
+    const merged = buildStateFromPreview({ price_type: 'gratuita' }, current);
+
+    expect(merged.priceType).toBe('gratuita');
+  });
+
+  it('boolean EXPLÍCITO false na fonte desmarca a opção', () => {
+    // `false` que veio do parser vale; `false` que o mapper inventou para uma
+    // chave ausente, não (caso coberto pelo teste "boolean ausente"). A
+    // sondagem distingue os dois: trocar `requires_pc` por `true` muda o campo,
+    // provando que a chave o alimenta.
+    const merged = buildStateFromPreview({ requires_pc: false }, filled({ requiresPc: true }));
+
+    expect(merged.requiresPc).toBe(false);
+  });
+
   it('lista vazia da prévia não apaga contatos já preenchidos', () => {
     const current = filled();
 

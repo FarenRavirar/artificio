@@ -39,14 +39,14 @@ export interface CardPreviewOptions {
 }
 
 /** Status aceitos pelo contrato de leitura do catálogo. */
-const TABLE_STATUSES: readonly string[] = [
+const TABLE_STATUSES: ReadonlySet<string> = new Set([
   'draft',
   'active',
   'full',
   'cancelled',
   'ended',
   'pending_review',
-];
+]);
 
 export function editorStateToCardPreview(
   state: TableEditorState,
@@ -88,7 +88,7 @@ export function editorStateToCardPreview(
     cover_height: state.bannerHeight ?? null,
     // O card só distingue 'active' das demais (CTA "Entrar"/"Ver detalhes");
     // valor fora do contrato cai em 'draft' — ramo seguro para a prévia.
-    status: (TABLE_STATUSES.includes(state.status ?? '') ? state.status : 'draft') as TableStatus,
+    status: (TABLE_STATUSES.has(state.status ?? '') ? state.status : 'draft') as TableStatus,
     type: state.type,
     audience: state.audience || 'livre',
     modality: (state.modality as TableModality) || 'online',

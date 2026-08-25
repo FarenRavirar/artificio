@@ -244,6 +244,56 @@ describe('CatalogSystemSelector — fonte server-side (R18)', () => {
     expect(await screen.findByText('Dungeons & Dragons')).toBeInTheDocument();
   });
 
+  it('fetchNodePath: caminho da seleção ANTERIOR não aparece enquanto o novo carrega', async () => {
+    // Achado CodeRabbit (PR #286): o caminho remoto vivia num estado sem dono,
+    // então trocar de sistema exibia a linhagem do sistema anterior até a nova
+    // resposta chegar — o usuário via "Vampire › 5ª Edição" sob um D&D recém
+    // escolhido.
+    const vampire = { ...tree[1], children: [] };
+    const dnd = { ...tree[0], children: [] };
+
+    let resolveSecond: ((path: unknown[]) => void) | undefined;
+    const fetchNodePath = vi
+      .fn()
+      .mockResolvedValueOnce([vampire])
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveSecond = resolve as (path: unknown[]) => void;
+          }),
+      );
+
+    const { rerender } = render(
+      <CatalogSystemSelector
+        selectedIds={[vampire.id]}
+        onSelectionChange={vi.fn()}
+        idPrefix="selector"
+        fetchSystemOptions={vi.fn().mockResolvedValue([])}
+        fetchNodePath={fetchNodePath}
+      />
+    );
+
+    expect(await screen.findByText(vampire.name)).toBeInTheDocument();
+
+    // Troca a seleção; a busca do novo caminho fica PENDENTE.
+    rerender(
+      <CatalogSystemSelector
+        selectedIds={[dnd.id]}
+        onSelectionChange={vi.fn()}
+        idPrefix="selector"
+        fetchSystemOptions={vi.fn().mockResolvedValue([])}
+        fetchNodePath={fetchNodePath}
+      />
+    );
+
+    await waitFor(() => expect(fetchNodePath).toHaveBeenCalledTimes(2));
+    // O ponto do teste: o caminho antigo sumiu no mesmo render da troca.
+    expect(screen.queryByText(vampire.name)).not.toBeInTheDocument();
+
+    resolveSecond?.([dnd]);
+    expect(await screen.findByText(dnd.name)).toBeInTheDocument();
+  });
+
   it('fetchChildOptions abre a coluna Edição sob demanda (parent_id) e coluna vazia não aparece', async () => {
     const system = { ...tree[0], children: [] };
     const edition = { ...tree[0].children[1], children: [] };
