@@ -1,11 +1,15 @@
 import { normalizeImageFrame } from '@artificio/media/image-kinds';
 import { normalizeSettingStyles } from '@artificio/catalog-matching';
 import { normalizeAgeRating } from '../../../utils/ageRating';
-import type { ContactMethodInput, TableContactChannel } from '../../../types/tables';
+import type {
+  ContactMethodInput,
+  DayOfWeek,
+  ScheduleFrequency,
+  TableContactChannel,
+} from '../../../types/tables';
 import { TABLE_CONTACT_CHANNELS } from '../../../types/tables';
 import type { TableEditorState } from '../types';
 import type { SessionSchedule } from '../../../components/SessionRepeater';
-import type { DayOfWeek, ScheduleFrequency } from '../../../types/tables';
 // ── Normalizadores de preço (T4.8) ─────────────────────────────────────────
 // Herdados do mapper do wizard antigo (features/create-table/utils/mapper,
 // removido na T4.8): sobem para cá com os comentários de auditoria intactos
@@ -164,7 +168,10 @@ export function deriveSchedule(state: TableEditorState): ScheduleDerivation {
 
   if (state.isPersonalizedSchedule) {
     return {
-      schedules: state.schedules.map(toScheduleRow),
+      // Índice passado explicitamente: `toScheduleRow` usa o 2º parâmetro como
+      // `sort_order` de propósito, e a forma point-free esconde isso (é o que
+      // a regra do Sonar sinaliza — aqui o índice é intencional, não acidental).
+      schedules: state.schedules.map((schedule, index) => toScheduleRow(schedule, index)),
       schedule_day_status: 'to_define',
       schedule_time_status: 'to_define',
       schedule_day_hint: null,
@@ -188,7 +195,7 @@ export function deriveSchedule(state: TableEditorState): ScheduleDerivation {
   }
 
   return {
-    schedules: state.schedules.map(toScheduleRow),
+    schedules: state.schedules.map((schedule, index) => toScheduleRow(schedule, index)),
     schedule_day_status: 'defined',
     schedule_time_status: 'defined',
     schedule_day_hint: null,
@@ -201,6 +208,54 @@ export function deriveSchedule(state: TableEditorState): ScheduleDerivation {
 // coluna; a promoção é contrato do `PATCH /gm/tables/:id/status` (medido na
 // onda 1 do backend, PR ainda aberta). A opção antiga `EditorPayloadOptions`
 // foi removida para não dar a impressão de contrato que não existe.
+
+/**
+ * Plataformas (VTT e comunicação): slug do catálogo, ou o texto livre quando o
+ * mestre escolheu "custom" — nunca os dois. Mesmo contrato do mapper antigo.
+ */
+function platformFields(state: TableEditorState): EditorPayload {
+  const isCustomVtt = state.vttPlatformId === 'custom';
+  const isCustomComm = state.communicationPlatformId === 'custom';
+  const customComm = state.communicationPlatformCustom.trim();
+
+  return {
+    vtt_platform_id: !isCustomVtt && state.vttPlatformId ? state.vttPlatformId : undefined,
+    game_platform_custom:
+      isCustomVtt && state.gamePlatformCustom ? state.gamePlatformCustom : undefined,
+    communication_platform_id:
+      !isCustomComm && state.communicationPlatformId ? state.communicationPlatformId : undefined,
+    communication_platform: isCustomComm && customComm ? customComm : undefined,
+  };
+}
+
+/**
+ * Preços e doação POR MODALIDADE (decisão A2 do mantenedor, sessão
+ * 26-08-22_1): `price_type` é a fonte de verdade. O form limpa o state ao
+ * trocar paga↔gratuita (T4.0d), mas draft/transição pode carregar valor
+ * residual da outra modalidade; o payload garante que o banco NUNCA acumula
+ * campo da modalidade oposta (o validator rejeita gratuita com preço e paga
+ * com doação).
+ */
+function priceFields(state: TableEditorState): EditorPayload {
+  if (normalizePriceType(state.priceType) !== 'gratuita') {
+    return {
+      price_value: parsePriceValue(state.priceValue),
+      price_value_monthly: parseClearablePriceValue(state.priceValueMonthly),
+      accepts_donations: false,
+      suggested_donation_value: null,
+    };
+  }
+
+  const acceptsDonations = state.acceptsDonations === true;
+  return {
+    price_value: null,
+    price_value_monthly: null,
+    accepts_donations: acceptsDonations,
+    suggested_donation_value: acceptsDonations
+      ? parseClearablePriceValue(state.suggestedDonationValue)
+      : null,
+  };
+}
 
 export function editorStateToPayload(
   state: TableEditorState,
@@ -264,44 +319,14 @@ export function editorStateToPayload(
     state: state.state || undefined,
     content_warnings: state.contentWarnings || undefined,
     safety_tools: state.safetyTools || undefined,
-    // VTT: slug do catálogo ou nada quando "custom" (o texto livre vai em
-    // game_platform_custom, mesmo contrato do mapper antigo).
-    vtt_platform_id:
-      state.vttPlatformId && state.vttPlatformId !== 'custom' ? state.vttPlatformId : undefined,
-    game_platform_custom:
-      state.vttPlatformId === 'custom' && state.gamePlatformCustom
-        ? state.gamePlatformCustom
-        : undefined,
-    communication_platform_id:
-      state.communicationPlatformId && state.communicationPlatformId !== 'custom'
-        ? state.communicationPlatformId
-        : undefined,
-    communication_platform:
-      state.communicationPlatformId === 'custom' && state.communicationPlatformCustom.trim().length > 0
-        ? state.communicationPlatformCustom.trim()
-        : undefined,
+    ...platformFields(state),
     // Decisão A2 do mantenedor (sessão 26-08-22_1): preços/doação POR
     // MODALIDADE — price_type é a fonte de verdade. O form limpa o state ao
     // trocar paga↔gratuita (T4.0d), mas draft/transição pode carregar valor
     // residual da outra modalidade; o payload garante que o banco NUNCA
     // acumula campo da modalidade oposta (o validator rejeita gratuita com
     // preço e paga com doação).
-    ...(normalizePriceType(state.priceType) === 'gratuita'
-      ? {
-          price_value: null,
-          price_value_monthly: null,
-          accepts_donations: state.acceptsDonations === true,
-          suggested_donation_value:
-            state.acceptsDonations === true
-              ? parseClearablePriceValue(state.suggestedDonationValue)
-              : null,
-        }
-      : {
-          price_value: parsePriceValue(state.priceValue),
-          price_value_monthly: parseClearablePriceValue(state.priceValueMonthly),
-          accepts_donations: false,
-          suggested_donation_value: null,
-        }),
+    ...priceFields(state),
   };
 
   // Requisito 8 (spec 079): fecha o loop de aprendizado do parser — SÓ no
@@ -392,9 +417,18 @@ function asRecord(value: unknown): ApiRecord | null {
   return typeof value === 'object' && value !== null ? (value as ApiRecord) : null;
 }
 
+/**
+ * Campo de texto do payload. `String()` cru aceitava objeto/array e gravava
+ * "[object Object]" no estado — que o PUT REENVIA como se fosse conteúdo do
+ * mestre (mesmo defeito que o `normalizeAgeRating` corrigiu na PR #285).
+ * Número e boolean continuam convertidos: a API devolve `slots_total` numérico
+ * e o estado do editor trabalha com string.
+ */
 function stringValue(data: ApiRecord, key: string, fallback = ''): string {
   const value = data[key];
-  return value == null ? fallback : String(value);
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return fallback;
 }
 
 function nullableStringValue(data: ApiRecord, key: string): string | null {
@@ -432,7 +466,15 @@ function settingStylesValue(value: unknown): string[] {
 
 function isContactEntry(value: unknown): value is ContactMethodInput {
   const contact = asRecord(value);
-  return contact !== null && typeof contact.channel === 'string' && typeof contact.value === 'string';
+  return (
+    contact !== null &&
+    // `channel` tipa TableContactChannel: aceitar qualquer string deixava canal
+    // desconhecido entrar no estado e cair no `default` de quem despacha por
+    // canal (ícone/URL), com o tipo mentindo sobre o conteúdo.
+    typeof contact.channel === 'string' &&
+    (TABLE_CONTACT_CHANNELS as readonly string[]).includes(contact.channel) &&
+    typeof contact.value === 'string'
+  );
 }
 
 /** Normaliza a lista de contatos da API para o formato do editor. */
@@ -443,8 +485,11 @@ function mapContacts(data: ApiRecord): ContactMethodInput[] {
     .map((contact) => ({
       channel: contact.channel,
       value: contact.value,
-      label: contact.label ?? '',
-      discord_server_url: contact.discord_server_url ?? '',
+      // Campos opcionais: `?? ''` só cobre null/undefined — valor não-string
+      // (número, objeto) passava direto e virava conteúdo de input de texto.
+      label: typeof contact.label === 'string' ? contact.label : '',
+      discord_server_url:
+        typeof contact.discord_server_url === 'string' ? contact.discord_server_url : '',
     }));
 }
 
@@ -476,7 +521,10 @@ function mapSchedules(data: ApiRecord): SessionSchedule[] {
     .map((session) => ({
       ...session,
       start_time: toTimeInput(session.start_time),
-      end_time: session.end_time ? toTimeInput(session.end_time) : undefined,
+      // Checar o TIPO, não a veracidade: `end_time` truthy não-string (número
+      // vindo de payload legado) entrava em toTimeInput e estourava no
+      // `.trim()`, derrubando o mapeamento da mesa inteira.
+      end_time: typeof session.end_time === 'string' ? toTimeInput(session.end_time) : undefined,
     }));
 }
 

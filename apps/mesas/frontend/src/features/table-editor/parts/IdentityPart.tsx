@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Panel, TextInput } from '@artificio/ui';
+import { Button, Panel, TextInput } from '@artificio/ui';
 import { CatalogSystemSelector } from '@artificio/catalog-ui';
 import type { CatalogUiNode } from '@artificio/catalog-ui';
 import { systemTreeNodeToUiNode } from '../../../utils/systemTreeNodeToUiNode';
@@ -45,25 +45,16 @@ const normalizeSystemsSearchResponse = (json: unknown): CatalogUiNode[] =>
  * Os campos cortados por R17/A17 (§Gap 8) NÃO existem aqui: synopsis,
  * synopsis_narrative, style_text, listing_excerpt, benefits_text.
  */
-interface IdentityPartProps {
+type IdentityPartProps = Readonly<{
   api: TableEditorApi;
-  systemsTree: SystemTreeNode[];
-  systemsLoading: boolean;
-  systemsError: string | null;
-  onRefreshSystems: () => void;
   selectedScenarioName: string | null;
   parseText: string;
   onParseTextChange: (text: string) => void;
   onPreviewReady: (result: { data: unknown; parseCaseId: string | null }) => void;
-  currentUserName?: string | null;
-}
+  currentUserName?: string | null;}>;
 
 export function IdentityPart({
   api,
-  systemsTree,
-  systemsLoading,
-  systemsError,
-  onRefreshSystems,
   selectedScenarioName,
   parseText,
   onParseTextChange,
@@ -78,14 +69,6 @@ export function IdentityPart({
   const [showScenarioSuggestion, setShowScenarioSuggestion] = useState(false);
   const [scenarioRefreshKey, setScenarioRefreshKey] = useState(0);
 
-  // Árvore local convertida para o contrato do pacote. Com a busca
-  // server-side (fetchSystemOptions/fetchChildOptions abaixo) ela NÃO é a
-  // fonte da busca — serve para o findPath reconstituir o caminho de uma
-  // seleção pré-existente (edição de mesa já publicada) e para o fallback
-  // enquanto o fetch não está ligado. Sem ela, o bloco "Selecionado" só
-  // apareceria depois de um clique, e o rascunho aberto pareceria sem
-  // sistema.
-  const uiTree = useMemo(() => systemsTree.map(systemTreeNodeToUiNode), [systemsTree]);
 
   // Fonte server-side do nível sistema (R18/A21): GET /systems?search=.
   // useCallback estabiliza a referência — o componente guarda a função e não
@@ -113,6 +96,40 @@ export function IdentityPart({
       }
       const json: unknown = await response.json();
       return normalizeSystemsSearchResponse(json);
+    },
+    [],
+  );
+
+  /**
+   * Caminho (raiz→nó) da seleção JÁ existente, sem baixar a árvore (R18/A21).
+   *
+   * Abrir uma mesa publicada precisa mostrar "Vampire › 5ª Edição" antes de
+   * qualquer clique. Como `search` casa nome/slug/alias mas nunca id, a rota
+   * ganhou `?id=` (spec 096): daí se pede o nó e se sobe por `parent_id` até a
+   * raiz — no máximo 3 requisições de um nó cada, contra os 503.907 bytes que a
+   * árvore inteira custava por abertura (§Gap 9, causa 2).
+   */
+  const fetchNodePath = useCallback(
+    async (selectedId: string, signal: AbortSignal): Promise<CatalogUiNode[]> => {
+      const nodeById = async (id: string): Promise<CatalogUiNode | null> => {
+        const params = new URLSearchParams({ id });
+        const response = await authGet(`/api/v1/systems?${params.toString()}`, { signal });
+        if (!response.ok) throw new Error('Falha ao resolver o sistema selecionado.');
+        return normalizeSystemsSearchResponse(await response.json())[0] ?? null;
+      };
+
+      const path: CatalogUiNode[] = [];
+      let currentId: string | null = selectedId;
+
+      // Profundidade máxima do catálogo: sistema → edição → variante.
+      for (let step = 0; step < 3 && currentId; step++) {
+        const node: CatalogUiNode | null = await nodeById(currentId);
+        if (!node) break;
+        path.unshift(node);
+        currentId = node.parent_id;
+      }
+
+      return path;
     },
     [],
   );
@@ -245,9 +262,10 @@ export function IdentityPart({
           (T4.0h-bis): Sistema é só busca (?search=), Edição/Variante carregam
           sob demanda (?parent_id=), coluna sem filho não aparece, aliases por
           extenso nas opções (R18). selectedIds pré-carregados reconstituem o
-          caminho via findPath na uiTree; onSelectionChange só dispara em
-          clique do usuário — nunca por efeito de montagem —, então o autosave
-          não é sobrescrito por estado vazio. */}
+          caminho via ?id= (fetchNodePath) — a árvore inteira NÃO é baixada
+          (A21: "nunca view=tree"); onSelectionChange só dispara em clique do
+          usuário — nunca por efeito de montagem —, então o autosave não é
+          sobrescrito por estado vazio. */}
       <Panel tone="subtle">
         <EditorField
           fieldId="selectedSystemId"
@@ -255,30 +273,29 @@ export function IdentityPart({
           label="Sistema da mesa"
           error={errors.selectedSystemId}
         >
-          {systemsLoading ? (
-            <p className="text-[13px] opacity-60">Carregando árvore de sistemas…</p>
-          ) : systemsError ? (
-            <p className="text-[13px] text-[var(--state-danger-fg)]">{systemsError}</p>
-          ) : (
-            <CatalogSystemSelector
-              tree={uiTree}
-              selectedIds={state.selectedSystemId ? [state.selectedSystemId] : []}
-              onSelectionChange={(ids) => patch({ selectedSystemId: ids[0] ?? '' })}
-              fetchSystemOptions={fetchSystemOptions}
-              fetchChildOptions={fetchChildOptions}
-              onSuggest={openSystemSuggestion}
-              idPrefix="table-editor-system"
-            />
-          )}
+          <CatalogSystemSelector
+            selectedIds={state.selectedSystemId ? [state.selectedSystemId] : []}
+            onSelectionChange={(ids) => patch({ selectedSystemId: ids[0] ?? '' })}
+            fetchSystemOptions={fetchSystemOptions}
+            fetchChildOptions={fetchChildOptions}
+            fetchNodePath={fetchNodePath}
+            onSuggest={openSystemSuggestion}
+            idPrefix="table-editor-system"
+          />
         </EditorField>
         <div className="flex justify-end gap-2">
-          <ToggleButton
+          {/* Ação de uma via (abre modal), não controle de duas posições: como
+              ToggleButton, expunha aria-pressed="false" fixo e o leitor de tela
+              anunciava um botão alternável que nunca alterna. */}
+          <Button
             id="table-editor-suggest-system"
-            pressed={false}
-            onToggle={() => openSystemSuggestion('')}
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => openSystemSuggestion('')}
           >
             + Adicionar Sistema
-          </ToggleButton>
+          </Button>
         </div>
       </Panel>
 
@@ -299,13 +316,15 @@ export function IdentityPart({
           />
         </EditorField>
         <div className="flex justify-end gap-2">
-          <ToggleButton
+          <Button
             id="table-editor-suggest-scenario"
-            pressed={false}
-            onToggle={() => setShowScenarioSuggestion(true)}
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setShowScenarioSuggestion(true)}
           >
             + Sugerir Cenário
-          </ToggleButton>
+          </Button>
         </div>
 
         <EditorField
@@ -334,10 +353,11 @@ export function IdentityPart({
           initialName={systemSuggestionName}
           onSuccess={(createdSystem) => {
             setShowSystemSuggestion(false);
+            // Sem árvore local para revalidar: o seletor resolve o nó novo
+            // pelo próprio ?id= (fetchNodePath) ao receber o selectedIds.
             if (createdSystem?.id) {
               patch({ selectedSystemId: createdSystem.id });
             }
-            onRefreshSystems();
           }}
         />
       )}

@@ -1,5 +1,4 @@
-import { normalizePriceType, parsePriceValue } from '../utils/editorMapping';
-import { deriveSchedule } from '../utils/editorMapping';
+import { deriveSchedule, normalizePriceType, parsePriceValue } from '../utils/editorMapping';
 import { normalizeAgeRating } from '../../../utils/ageRating';
 import type { TableEditorState } from '../types';
 import type {

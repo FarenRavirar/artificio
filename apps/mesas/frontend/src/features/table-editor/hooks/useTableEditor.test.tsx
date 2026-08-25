@@ -152,6 +152,66 @@ describe('publish — criação, edição ativa e edição de rascunho', () => {
     expect(onPublished).toHaveBeenCalledTimes(1);
   });
 
+  it('criação: PATCH falhando NÃO deixa a mesa criada órfã — o republish reusa o id via PUT, sem segundo POST', async () => {
+    // O id do POST não era guardado: se o PATCH falhava, remoteDraftId seguia
+    // null e a tentativa seguinte fazia OUTRO POST, duplicando a mesa e
+    // deixando a primeira como rascunho órfão no painel.
+    mockAuthPost.mockImplementation(() => okResponse({ data: { id: 't-criada' } }));
+    mockAuthPatch.mockImplementationOnce(() =>
+      Promise.resolve({ ok: false, json: () => Promise.resolve({ error: 'falha ao promover' }) }),
+    );
+    mockAuthPatch.mockImplementation(() => okResponse());
+    mockAuthPut.mockImplementation(() => okResponse());
+    const onPublished = vi.fn();
+    const { result } = renderHook(() =>
+      useTableEditor({ initialData: makeValidState(), onPublished }),
+    );
+
+    await act(async () => {
+      await result.current.publish();
+    });
+    expect(onPublished).not.toHaveBeenCalled();
+
+    // Segunda tentativa: a mesa já existe — PUT no id guardado, zero POST novo.
+    let republished: boolean | undefined;
+    await act(async () => {
+      republished = await result.current.publish();
+    });
+
+    expect(republished).toBe(true);
+    // Zero POST NOVO de mesa: o único /gm/tables é o da primeira tentativa.
+    // (o outro POST é /gm/profile — mestre sem perfil, criado a cada publish
+    // enquanto o GET /gm/me segue 404, comportamento já documentado no hook.)
+    const tablePosts = mockAuthPost.mock.calls.filter(([url]) => url === '/api/v1/gm/tables');
+    expect(tablePosts).toHaveLength(1);
+    expect(mockAuthPut).toHaveBeenCalledWith('/api/v1/gm/tables/t-criada', expect.anything());
+    expect(mockAuthPatch).toHaveBeenLastCalledWith('/api/v1/gm/tables/t-criada/status', {
+      status: 'active',
+    });
+    expect(onPublished).toHaveBeenCalledTimes(1);
+  });
+
+  it('criação: resposta SEM id é falha de publicação, não sucesso silencioso', async () => {
+    // Sem id não há como promover; antes o fluxo pulava o PATCH e mesmo assim
+    // limpava o rascunho e chamava onPublished, com a mesa parada em draft.
+    mockAuthPost.mockImplementation(() => okResponse({ data: {} }));
+    mockAuthPatch.mockImplementation(() => okResponse());
+    const onPublished = vi.fn();
+    const { result } = renderHook(() =>
+      useTableEditor({ initialData: makeValidState(), onPublished }),
+    );
+
+    let published: boolean | undefined;
+    await act(async () => {
+      published = await result.current.publish();
+    });
+
+    expect(published).toBe(false);
+    expect(mockAuthPatch).not.toHaveBeenCalled();
+    expect(onPublished).not.toHaveBeenCalled();
+    expect(result.current.publishError).toBeTruthy();
+  });
+
   it('criação com rascunho remoto do autosave: publish REUSA o id via PUT e promove o MESMO id (zero segundo POST)', async () => {
     vi.useFakeTimers();
     mockAuthPost.mockImplementation(() => okResponse({ data: { id: 't-draft' } }));

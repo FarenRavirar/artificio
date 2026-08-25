@@ -13,13 +13,15 @@ import { HelpCenter } from '../components/HelpCenter';
 import { VttPlatformsEditor } from '../components/mestre/VttPlatformsEditor';
 import { ContactMethodsEditor } from '../components/mestre/ContactMethodsEditor';
 import { GmInsightsDashboard } from '../components/mestre/GmInsightsDashboard';
-import { toProfileContactMethods } from '../features/table-editor/utils/editorMapping';
+import {
+  mapApiToEditorState,
+  toProfileContactMethods,
+} from '../features/table-editor/utils/editorMapping';
 // T4.0r/regra do repo: o fluxo do perfil de mestre usa authenticatedFetch,
 // não apiClient (duplicação pré-existente; decisão registrada com o mantenedor).
 import { authPut as authenticatedPut } from '../utils/authenticatedFetch';
 // Editor de anúncio (spec 096, Fase 4): substitui o wizard CreateTableForm.
 import { TableEditor } from '../features/table-editor/TableEditor';
-import { mapApiToEditorState } from '../features/table-editor/utils/editorMapping';
 import type { TableEditorInitialData } from '../features/table-editor/hooks/useTableEditor';
 
 type TableStatus = 'draft' | 'active' | 'full' | 'cancelled' | 'ended' | 'pending_review';
@@ -154,12 +156,12 @@ function DraftTableCard({
   onContinue,
   onDelete,
   isDeleting,
-}: {
+}: Readonly<{
   table: MyTableEnhanced;
   onContinue: () => void;
   onDelete: () => void;
   isDeleting: boolean;
-}) {
+}>) {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   return (
@@ -336,7 +338,11 @@ export const PainelMestrePage = () => {
     }
 
     setEditingTableData(null);
-    window.history.replaceState({}, '', '/painel');
+    // navigate (e não window.history.replaceState) porque `editIdFromUrl` vem
+    // de useSearchParams: mexer no history nativo tira o `?edit=` da barra sem
+    // avisar o router, então o param seguia "presente" para o efeito e reabrir
+    // o MESMO rascunho depois não disparava recarga (o valor nunca mudava).
+    navigate('/painel', { replace: true });
 
     setView('dashboard');
     setLoadingProfile(true);
@@ -513,7 +519,9 @@ export const PainelMestrePage = () => {
       // da URL. O efeito que carrega o painel depende de `searchParams` e
       // reabre a edição enquanto o parâmetro estiver lá (achado PR #275).
       setEditingTableData(null);
-      window.history.replaceState({}, '', '/painel');
+      // Mesma razão do refreshData: sair da edição precisa limpar o `?edit=`
+      // PELO router, senão o efeito continua vendo o id antigo em searchParams.
+      navigate('/painel', { replace: true });
       setView('dashboard');
     };
 
@@ -695,6 +703,10 @@ export const PainelMestrePage = () => {
                   </section>
                 )}
 
+                {/* Só com mesa NO AR: mestre que tem apenas rascunho via a
+                    seção "Suas mesas" vazia logo abaixo dos rascunhos, como se
+                    tivesse perdido as mesas. */}
+                {publishedTables.length > 0 && (
                 <section className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4">
                   <h2 className="text-lg font-bold inline-flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-[var(--color-artificio-orange)]" />
@@ -718,6 +730,7 @@ export const PainelMestrePage = () => {
                     ))}
                   </div>
                 </section>
+                )}
               </>
             ) : (
               <div className="text-center py-20 text-white/30 border border-dashed border-white/10 rounded-2xl">

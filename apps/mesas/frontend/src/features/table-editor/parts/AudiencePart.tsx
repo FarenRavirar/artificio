@@ -45,9 +45,9 @@ const LEVEL_OPTIONS = [
  * segurança de mesa (R23/T4.0w): content_warnings/safety_tools com os 14
  * termos do glossário como pills + entrada livre.
  */
-interface AudiencePartProps {
+type AudiencePartProps = Readonly<{
   api: TableEditorApi;
-}
+}>;
 
 export function AudiencePart({ api }: AudiencePartProps) {
   const { state, patch, validateFieldOnBlur } = api;
@@ -186,7 +186,7 @@ export function AudiencePart({ api }: AudiencePartProps) {
  * Termos já salvos que não estão no glossário continuam aparecendo como
  * chips removíveis (mesa legada com termo livre não perde o valor).
  */
-interface SafetyTermsFieldProps {
+type SafetyTermsFieldProps = Readonly<{
   fieldId: string;
   state: TableEditorState;
   label: string;
@@ -196,7 +196,7 @@ interface SafetyTermsFieldProps {
   descriptions: Record<string, string>;
   selected: string[];
   onChange: (next: string[]) => void;
-}
+}>;
 
 function SafetyTermsField({
   fieldId,

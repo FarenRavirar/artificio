@@ -26,17 +26,14 @@ describe('prepareTableData — status da mesa (T4.7, spec 096)', () => {
     expect(result.status).toBe('draft');
   });
 
-  it('create COM status explícito draft persiste draft', () => {
-    const result = prepare({ ...BASE_PAYLOAD, status: 'draft' });
-    expect(result.status).toBe('draft');
-  });
-
-  it('create COM status explícito active continua permitido (publica direto)', () => {
-    const result = prepare({ ...BASE_PAYLOAD, status: 'active' });
-    expect(result.status).toBe('active');
-  });
-
-  it('status fora do enum real da coluna é rejeitado no parse (pg_enum: draft|active|full|cancelled|ended|pending_review)', () => {
-    expect(() => prepare({ ...BASE_PAYLOAD, status: 'publicado' })).toThrow();
+  // O create aceitava `status` explícito até 2026-08-25: qualquer mestre
+  // autenticado podia mandar 'active' no POST e publicar sem passar pelo
+  // PATCH, que é quem grava published_at. Resultado: mesa no catálogo sem
+  // âncora de auto-arquivamento (COALESCE(published_at, created_at) cai em
+  // created_at e arquiva precocemente mesa que ficou dias em rascunho), sem
+  // notificação a admin e sem scrape de OG.
+  it('status no payload é rejeitado no parse — publicação só pelo PATCH /gm/tables/:id/status', () => {
+    expect(() => prepare({ ...BASE_PAYLOAD, status: 'active' })).toThrow();
+    expect(() => prepare({ ...BASE_PAYLOAD, status: 'draft' })).toThrow();
   });
 });

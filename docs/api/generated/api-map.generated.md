@@ -554,9 +554,9 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/system-suggestions/mine` | ✅ high | `apps/mesas/backend/src/routes/systemSuggestions.ts` | 189 |
 | GET | `/api/v1/systems` | ✅ high | `apps/mesas/backend/src/routes/systems.ts` | 28 |
 | USE | `/api/v1/systems` | ✅ high | `apps/mesas/backend/src/server.ts` | 124 |
-| POST | `/api/v1/systems/admin` | ✅ high | `apps/mesas/backend/src/routes/systems.ts` | 108 |
-| DELETE | `/api/v1/systems/admin/:id` | ✅ high | `apps/mesas/backend/src/routes/systems.ts` | 164 |
-| PUT | `/api/v1/systems/admin/:id` | ✅ high | `apps/mesas/backend/src/routes/systems.ts` | 134 |
+| POST | `/api/v1/systems/admin` | ✅ high | `apps/mesas/backend/src/routes/systems.ts` | 142 |
+| DELETE | `/api/v1/systems/admin/:id` | ✅ high | `apps/mesas/backend/src/routes/systems.ts` | 198 |
+| PUT | `/api/v1/systems/admin/:id` | ✅ high | `apps/mesas/backend/src/routes/systems.ts` | 168 |
 | GET | `/api/v1/systems/health` | ✅ high | `apps/mesas/backend/src/routes/systems.ts` | 18 |
 | GET | `/api/v1/tables` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 66 |
 | USE | `/api/v1/tables` | ✅ high | `apps/mesas/backend/src/server.ts` | 123 |

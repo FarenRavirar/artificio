@@ -7,6 +7,7 @@ export type {
   CatalogSystemSelectorProps,
   CatalogSystemSearchFetch,
   CatalogSystemChildrenFetch,
+  CatalogSystemPathFetch,
 } from './CatalogSystemSelector.js';
 export { CatalogNodeForm, sanitizeCatalogForm } from './CatalogNodeForm.js';
 export type { CatalogNodeFormProps } from './CatalogNodeForm.js';

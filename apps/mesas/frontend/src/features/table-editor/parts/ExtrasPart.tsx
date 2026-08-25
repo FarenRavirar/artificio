@@ -11,11 +11,11 @@ import { EDITOR_TEXT_LIMITS } from '../utils/editorValidation';
  * sem role='admin' não vê nem envia o campo) e o bloco DDAL (9 campos,
  * elegível em D&D 5e 2014 E 2024 — T4.0b).
  */
-interface ExtrasPartProps {
+type ExtrasPartProps = Readonly<{
   api: TableEditorApi;
   userRole?: string;
   isDdalEligible: boolean;
-}
+}>;
 
 export function ExtrasPart({ api, userRole, isDdalEligible }: ExtrasPartProps) {
   const { state, patch, errors } = api;
@@ -100,11 +100,11 @@ export function ExtrasPart({ api, userRole, isDdalEligible }: ExtrasPartProps) {
  * `DDAL_ELIGIBLE_PATHS`), e desmarca sozinho ao trocar para sistema não
  * elegível (efeito no TableEditor).
  */
-interface DdalBlockProps {
+type DdalBlockProps = Readonly<{
   state: TableEditorState;
   ddal: DdalFormState;
   onChange: (ddal: DdalFormState) => void;
-}
+}>;
 
 const TIER_OPTIONS = [
   { value: '1', label: 'Tier 1' },
@@ -134,7 +134,7 @@ function DdalBlock({ state, ddal, onChange }: DdalBlockProps) {
 
       {ddal.is_ddal && (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-2.5">
-          <EditorField fieldId="ddal" state={state} label="Código da Aventura">
+          <EditorField fieldId="ddal" controlId="ddal_code" state={state} label="Código da Aventura">
             <TextInput
               id="ddal_code"
               value={ddal.ddal_code}
@@ -143,7 +143,7 @@ function DdalBlock({ state, ddal, onChange }: DdalBlockProps) {
             />
           </EditorField>
 
-          <EditorField fieldId="ddal" state={state} label="Nome da Aventura">
+          <EditorField fieldId="ddal" controlId="ddal_name" state={state} label="Nome da Aventura">
             <TextInput
               id="ddal_name"
               value={ddal.ddal_name}
@@ -152,7 +152,7 @@ function DdalBlock({ state, ddal, onChange }: DdalBlockProps) {
             />
           </EditorField>
 
-          <EditorField fieldId="ddal" state={state} label="Tier">
+          <EditorField fieldId="ddal" controlId="ddal_tier" state={state} label="Tier">
             <Select
               id="ddal_tier"
               value={ddal.ddal_tier}
@@ -167,7 +167,7 @@ function DdalBlock({ state, ddal, onChange }: DdalBlockProps) {
             </Select>
           </EditorField>
 
-          <EditorField fieldId="ddal" state={state} label="Season">
+          <EditorField fieldId="ddal" controlId="ddal_season" state={state} label="Season">
             <TextInput
               id="ddal_season"
               value={ddal.ddal_season}
@@ -176,7 +176,7 @@ function DdalBlock({ state, ddal, onChange }: DdalBlockProps) {
             />
           </EditorField>
 
-          <EditorField fieldId="ddal" state={state} label="Duração esperada">
+          <EditorField fieldId="ddal" controlId="ddal_duration" state={state} label="Duração esperada">
             <TextInput
               id="ddal_duration"
               value={ddal.ddal_duration}
@@ -185,7 +185,7 @@ function DdalBlock({ state, ddal, onChange }: DdalBlockProps) {
             />
           </EditorField>
 
-          <EditorField fieldId="ddal" state={state} label="Formato">
+          <EditorField fieldId="ddal" controlId="ddal_format" state={state} label="Formato">
             <TextInput
               id="ddal_format"
               value={ddal.ddal_format}
@@ -194,7 +194,7 @@ function DdalBlock({ state, ddal, onChange }: DdalBlockProps) {
             />
           </EditorField>
 
-          <EditorField fieldId="ddal" state={state} label="Código expandido / organização">
+          <EditorField fieldId="ddal" controlId="ddal_org_code" state={state} label="Código expandido / organização">
             <TextInput
               id="ddal_org_code"
               value={ddal.ddal_org_code}
@@ -203,7 +203,7 @@ function DdalBlock({ state, ddal, onChange }: DdalBlockProps) {
             />
           </EditorField>
 
-          <EditorField fieldId="ddal" state={state} label="Ambientação">
+          <EditorField fieldId="ddal" controlId="ddal_setting" state={state} label="Ambientação">
             <TextInput
               id="ddal_setting"
               value={ddal.ddal_setting}
@@ -214,6 +214,7 @@ function DdalBlock({ state, ddal, onChange }: DdalBlockProps) {
 
           <EditorField
             fieldId="ddal"
+            controlId="ddal_rules_notes"
             state={state}
             label="Notas de regras da temporada"
           >

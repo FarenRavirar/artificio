@@ -232,11 +232,12 @@ export class TableService {
             table_gm_bio: data.table_gm_bio ?? null,
             // T4.7 (spec 096, R10): a mesa nasce RASCUNHO — DEFAULT real da
             // coluna (medido em produção: 'draft'::table_status) — e entra no
-            // catálogo só ao publicar (PATCH /gm/tables/:id/status → active).
-            // Antes o create forçava 'active' aqui, o que tornava o default
-            // da coluna inalcançável. `status` explícito no payload continua
-            // aceito (ex.: admin/publicador que publica direto).
-            status: data.status ?? 'draft',
+            // catálogo só ao publicar (PATCH /gm/tables/:id/status → active),
+            // único caminho que grava published_at. Fixo, sem ler do payload:
+            // o schema do create não aceita mais `status` (ver
+            // tableValidators.ts), justamente para que não exista porta que
+            // publique pulando a âncora de auto-arquivamento.
+            status: 'draft',
         };
     }
 }

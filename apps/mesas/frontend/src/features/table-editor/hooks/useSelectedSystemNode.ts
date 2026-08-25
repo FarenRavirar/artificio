@@ -1,0 +1,57 @@
+import { useEffect, useState } from 'react';
+import { authGet } from '../../../utils/authenticatedFetch';
+import { normalizeSystemsResponse } from '../../../hooks/useSystemsCatalog';
+import type { SystemTreeNode } from '../../../types/systems';
+
+/**
+ * O nó do catálogo correspondente ao sistema selecionado, buscado por id.
+ *
+ * O editor precisa de três coisas do catálogo, todas sobre ESTE nó: `path_slug`
+ * (elegibilidade DDAL) e `name`/`logo_filename`/`website_url` (selo do card da
+ * prévia). Antes isso vinha de `useSystemsCatalog()`, que baixa a árvore inteira
+ * (`?view=tree`): **503.907 bytes por abertura do editor**, medido no §Gap 9 da
+ * spec 096 — exatamente o que o A21 proíbe ("a chamada usa search/limit/
+ * parent_id, nunca view=tree").
+ *
+ * `?id=` é o filtro que a rota ganhou para este caso: `search` casa nome, slug,
+ * path_slug e alias, mas nunca id, então não havia como pedir "este nó".
+ *
+ * Falha de rede devolve `null` — o card perde o selo do sistema e o DDAL fica
+ * inelegível (o backend revalida no submit e é a autoridade), nunca quebra o
+ * editor.
+ */
+export function useSelectedSystemNode(systemId: string): SystemTreeNode | null {
+  const [node, setNode] = useState<SystemTreeNode | null>(null);
+
+  useEffect(() => {
+    if (!systemId) {
+      setNode(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    let active = true;
+
+    void (async () => {
+      try {
+        const params = new URLSearchParams({ id: systemId });
+        const response = await authGet(`/api/v1/systems?${params.toString()}`, {
+          signal: controller.signal,
+        });
+        if (!response.ok) throw new Error('Falha ao carregar o sistema selecionado.');
+        const json: unknown = await response.json();
+        if (!active) return;
+        setNode(normalizeSystemsResponse(json)[0] ?? null);
+      } catch {
+        if (active) setNode(null);
+      }
+    })();
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [systemId]);
+
+  return node;
+}

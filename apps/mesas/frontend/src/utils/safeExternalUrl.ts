@@ -128,24 +128,20 @@ export function toWhatsAppUrl(value: string | null | undefined): string | null {
  * vez de quebrar a exibição.
  */
 export function formatWhatsAppDisplay(value: string): string {
-  // Remover o +55 do início
-  const withoutCountry = value.replace(/^\+55/, '');
+  // O valor vem do banco: o canal `phone` entra sem validação de formato e
+  // contato antigo foi gravado antes das regras atuais. A estrutura inteira
+  // precisa casar — antes o código só media o COMPRIMENTO do resto da string
+  // depois de cortar o `+55`, então 'ab123456789' era exibido como
+  // '(ab) 12345-6789', inventando um telefone que ninguém cadastrou.
+  const match = /^(?:\+?55)?(\d{2})(\d{8,9})$/.exec(value.trim());
+  if (!match) return value;
 
-  // Extrair DDD (2 dígitos) e número (9 ou 8 dígitos)
-  const ddd = withoutCountry.slice(0, 2);
-  const numero = withoutCountry.slice(2);
+  const [, ddd, numero] = match;
 
-  // Formatar número: 99268-1119 ou 9268-1119
-  if (numero.length === 9) {
-    // Celular com 9 dígitos: 99268-1119
-    return `(${ddd}) ${numero.slice(0, 5)}-${numero.slice(5)}`;
-  } else if (numero.length === 8) {
-    // Fixo com 8 dígitos: 9268-1119
-    return `(${ddd}) ${numero.slice(0, 4)}-${numero.slice(4)}`;
-  }
-
-  // Fallback: retornar original se não conseguir formatar
-  return value;
+  // Celular: 99268-1119 · Fixo: 9268-1119
+  return numero.length === 9
+    ? `(${ddd}) ${numero.slice(0, 5)}-${numero.slice(5)}`
+    : `(${ddd}) ${numero.slice(0, 4)}-${numero.slice(4)}`;
 }
 
 /**

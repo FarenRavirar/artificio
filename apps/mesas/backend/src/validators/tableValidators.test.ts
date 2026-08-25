@@ -853,25 +853,20 @@ describe('createTableSchema — status (T4.7, spec 096)', () => {
     contacts: [{ channel: 'discord', value: 'mestre' }],
   };
 
+  // O CREATE aceitava `status` explícito até 2026-08-25 — porta lateral sem
+  // consumidor que deixava qualquer mestre autenticado publicar direto,
+  // pulando o PATCH que grava published_at (mesa ativa sem âncora de
+  // auto-arquivamento: COALESCE cai em created_at e arquiva cedo demais).
   it.each(['draft', 'active', 'full', 'cancelled', 'ended', 'pending_review'])(
-    'aceita status %s (enum real da coluna, medido via pg_enum em produção)',
+    'POST rejeita status %s como chave desconhecida — publicação é contrato do PATCH',
     (status) => {
-      const result = createTableSchema.safeParse({ ...baseTable, status });
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.status).toBe(status);
-      }
+      expect(createTableSchema.safeParse({ ...baseTable, status }).success).toBe(false);
     },
   );
 
-  it('omissão deixa status undefined — prepareTableData aplica o default draft da coluna', () => {
-    const result = createTableSchema.parse(baseTable);
-    expect(result.status).toBeUndefined();
-  });
-
-  it('rejeita status fora do enum real', () => {
-    expect(createTableSchema.safeParse({ ...baseTable, status: 'publicado' }).success).toBe(false);
-    expect(createTableSchema.safeParse({ ...baseTable, status: 1 }).success).toBe(false);
+  it('payload sem status é aceito — prepareTableData grava o default draft da coluna', () => {
+    const result = createTableSchema.safeParse(baseTable);
+    expect(result.success).toBe(true);
   });
 });
 

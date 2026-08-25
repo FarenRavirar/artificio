@@ -625,6 +625,17 @@ describe('mapApiToEditorState — normalizadores: valor inesperado não vaza (PR
     expect(mapApiToEditorState({ schedules: 'x' }).schedules).toHaveLength(1); // defaultSession
   });
 
+  it('campo de texto rejeita objeto/array — "[object Object]" não vira conteúdo do mestre', () => {
+    // Achado Sonar (PR #286): `String(value)` cru aceitava qualquer coisa, e o
+    // resultado é REENVIADO no PUT como se o mestre tivesse digitado (mesmo
+    // defeito que normalizeAgeRating corrigiu na PR #285).
+    expect(mapApiToEditorState({ title: { pt: 'Mesa' } }).title).toBe('');
+    expect(mapApiToEditorState({ description: ['a', 'b'] }).description).toBe('');
+    // Número e boolean seguem convertidos: a API devolve slots_total numérico
+    // e o estado do editor trabalha com string.
+    expect(mapApiToEditorState({ slots_total: 6 }).slotsTotal).toBe('6');
+  });
+
   it('setting_styles: forma canônica na leitura; valor fora do catálogo é preservado (T4.0g)', () => {
     // Grafia do estoque legado normaliza para a forma canônica — a MESMA que
     // o backend aplica na escrita (gmPanel.ts) e o mapper antigo no payload.

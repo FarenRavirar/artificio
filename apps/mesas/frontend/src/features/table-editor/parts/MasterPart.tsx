@@ -21,9 +21,9 @@ import { EDITOR_TEXT_LIMITS } from '../utils/editorValidation';
  * O "resumo curto" do registro antigo era `listing_excerpt`, CORTADO por
  * R17/A17 (§Gap 8) — não existe editor dele aqui.
  */
-interface MasterPartProps {
+type MasterPartProps = Readonly<{
   api: TableEditorApi;
-}
+}>;
 
 export function MasterPart({ api }: MasterPartProps) {
   const { state, patch, errors, validateFieldOnBlur } = api;

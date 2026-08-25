@@ -44,8 +44,26 @@ router.get('/', async (req: Request, res: Response) => {
   const parentId = typeof req.query.parent_id === 'string' && req.query.parent_id.trim().length > 0
     ? req.query.parent_id.trim()
     : undefined;
+  // Spec 096 (R18/A21): nó(s) por id, para o editor resolver a seleção que já
+  // existe (mesa publicada) sem baixar a árvore — `search` casa nome/slug/
+  // path_slug/alias, NUNCA id (filterCatalogTree), então não havia como pedir
+  // "este nó". Sem isto o editor caía em `?view=tree` (503.907 bytes por
+  // abertura, medido no §Gap 9), exatamente o que o A21 proíbe. Mesmo padrão do
+  // parent_id: sobre loadFlat() da INTERFACE compartilhada, valendo igual em
+  // produção (centralProvider) e beta/dev (localProvider).
+  const ids = parseIdList(req.query.id ?? req.query.ids);
 
   try {
+    if (ids.length > 0) {
+      const flat = await getSystemCatalogProvider().loadFlat();
+      const wanted = new Set(ids);
+      // Preserva a ordem do catálogo e devolve só o que existe — id
+      // desconhecido some da resposta em vez de virar erro (o consumidor
+      // trata lista menor, como já faz com busca sem resultado).
+      const nodes = flat.filter((node) => wanted.has(node.id));
+      return res.json(paginateNodes(nodes, limit, cursor));
+    }
+
     if (parentId !== undefined) {
       const flat = await getSystemCatalogProvider().loadFlat();
       // O formato é o mesmo de nó já usado: aliases/has_children/
@@ -78,6 +96,22 @@ router.get('/', async (req: Request, res: Response) => {
     return res.status(503).json({ error: 'Catálogo central indisponível.' });
   }
 });
+
+/**
+ * `?id=` aceita um id ou vários separados por vírgula (`?id=a,b`), e repetição
+ * do parâmetro (`?id=a&id=b`), que o Express entrega como array. Entrada
+ * inválida vira lista vazia — a rota segue para os demais caminhos.
+ */
+function parseIdList(raw: unknown): string[] {
+  const values = Array.isArray(raw) ? raw : [raw];
+  const ids = values
+    .filter((value): value is string => typeof value === 'string')
+    .flatMap((value) => value.split(','))
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  return [...new Set(ids)];
+}
 
 /**
  * Paginação por cursor de id — comportamento idêntico ao que a rota já tinha

@@ -372,17 +372,17 @@ export const pricingConsistencySchema = withPricingRules(
   }),
 );
 
-// T4.7 (spec 096): o CREATE aceita `status` explícito com o enum real da
-// coluna (medido via pg_enum em produção). Omitido → a mesa nasce 'draft'
-// (prepareTableData aplica o default real da coluna: DEFAULT 'draft').
-// O PUT NÃO aceita `status` de propósito: promoção/publicação é contrato do
-// PATCH /tables/:id/status, que grava a âncora published_at, notifica admins
-// e dispara o scrape de OG — promover via PUT pularia essa cadeia e deixaria
-// a mesa publicada sem âncora de auto-arquivamento (COALESCE cairia em
-// created_at, arquivando precocemente mesa que ficou dias em rascunho).
-const createTableObjectSchema = baseTableSchema
-  .extend({ status: z.enum(TABLE_STATUSES).optional() })
-  .strict();
+// T4.7 (spec 096): a mesa SEMPRE nasce 'draft' — prepareTableData aplica o
+// default real da coluna (medido via pg_enum em produção: DEFAULT 'draft').
+// Nem o CREATE nem o PUT aceitam `status`: promoção/publicação é contrato
+// exclusivo do PATCH /tables/:id/status, que grava a âncora published_at,
+// notifica admins e dispara o scrape de OG. Publicar por qualquer outra porta
+// pula essa cadeia e deixa a mesa ativa sem âncora de auto-arquivamento
+// (COALESCE cairia em created_at, arquivando precocemente mesa que ficou dias
+// em rascunho). O CREATE aceitava `status` explícito até 2026-08-25 — porta
+// lateral sem consumidor (o editor nunca envia status no POST) que permitia a
+// qualquer mestre autenticado publicar direto, com esse dano exato.
+const createTableObjectSchema = baseTableSchema.strict();
 
 export const createTableSchema = withPricingRules(
   createTableObjectSchema

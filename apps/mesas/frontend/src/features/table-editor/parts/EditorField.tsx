@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Button, Field } from '@artificio/ui';
-import type { TableEditorState } from '../types';
+import type { FieldLevel, TableEditorState } from '../types';
 import { fieldLevel, RECOMMENDED_GAIN } from '../utils/editorValidation';
 
 // Blocos de campo compartilhados do editor (spec 096, Fase 4). Um arquivo só
@@ -22,8 +22,15 @@ import { fieldLevel, RECOMMENDED_GAIN } from '../utils/editorValidation';
  * registro `REQUIRED_FIELD_IDS`/condicionais de editorValidation.ts, que é a
  * MESMA fonte que a validação usa.
  */
-interface EditorFieldProps {
+type EditorFieldProps = Readonly<{
   fieldId: string;
+  /**
+   * `id` do control quando ele NÃO é o `fieldId` — caso de vários controls sob
+   * uma mesma chave de validação (os nove campos DDAL, as linhas de horário).
+   * Sem isto o label apontaria `htmlFor` para um id inexistente e o leitor de
+   * tela não anunciaria rótulo nenhum. A validação continua no `fieldId`.
+   */
+  controlId?: string;
   /** Estado real — decide o nível de campos condicionais (ex.: nome do mestre). */
   state: TableEditorState;
   label: string;
@@ -31,10 +38,17 @@ interface EditorFieldProps {
   error?: string;
   children: ReactNode;
   className?: string;
+}>;
+
+/** Campo obrigatório prefixa "Obrigatório." no hint; os demais mantêm o texto. */
+function buildHint(level: FieldLevel, hint?: string): string | undefined {
+  if (level !== 'required') return hint;
+  return hint ? `Obrigatório. ${hint}` : 'Obrigatório.';
 }
 
 export function EditorField({
   fieldId,
+  controlId,
   state,
   label,
   hint,
@@ -47,13 +61,12 @@ export function EditorField({
 
   const fieldLabel = level === 'optional' ? `${label} (opcional)` : label;
 
-  const resolvedHint =
-    level === 'required' ? (hint ? `Obrigatório. ${hint}` : 'Obrigatório.') : hint;
+  const resolvedHint = buildHint(level, hint);
 
   return (
     <div className={className} data-ob={level} data-field={fieldId}>
       <Field
-        id={fieldId}
+        id={controlId ?? fieldId}
         label={fieldLabel}
         hint={resolvedHint}
         error={error}
@@ -76,7 +89,7 @@ export function EditorField({
  * `aria-pressed` é o controle de duas posições do design system (A16: zero
  * `<input type="checkbox">` cru no editor).
  */
-interface ToggleButtonProps {
+type ToggleButtonProps = Readonly<{
   pressed: boolean;
   onToggle: (pressed: boolean) => void;
   children: ReactNode;
@@ -84,7 +97,7 @@ interface ToggleButtonProps {
   disabled?: boolean;
   className?: string;
   title?: string;
-}
+}>;
 
 export function ToggleButton({
   pressed,

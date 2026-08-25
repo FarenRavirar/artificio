@@ -13,9 +13,9 @@ import { useCommunicationPlatforms } from '../../../hooks/useCommunicationPlatfo
  * existem e são editáveis); cidade/estado só quando a modalidade NÃO é
  * online (R23, T4.0w).
  */
-interface WherePartProps {
+type WherePartProps = Readonly<{
   api: TableEditorApi;
-}
+}>;
 
 export function WherePart({ api }: WherePartProps) {
   const { state, patch, errors, validateFieldOnBlur } = api;
@@ -233,7 +233,7 @@ export interface CatalogPlatformOption {
  *   fica sem saída) com Banner de aviso;
  * - "Personalizado" → campo livre com aviso de obrigatório.
  */
-interface CatalogPlatformSelectProps {
+type CatalogPlatformSelectProps = Readonly<{
   state: TableEditorState;
   /** fieldId do select (vttPlatformId | communicationPlatformId). */
   fieldId: string;
@@ -255,7 +255,7 @@ interface CatalogPlatformSelectProps {
   onValueChange: (value: string) => void;
   onCustomChange: (value: string) => void;
   onFieldBlur: (fieldId: string) => void;
-}
+}>;
 
 function CatalogPlatformSelect({
   state,

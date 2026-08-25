@@ -19,12 +19,12 @@ import type { TableEditorState } from '../types';
  * funciona porque o nginx serve o SPA com fallback para /mesas/:slug
  * (nginx.conf "Fallback SPA").
  */
-interface CardPreviewProps {
+type CardPreviewProps = Readonly<{
   state: TableEditorState;
   systemName?: string | null;
   systemLogoFilename?: string | null;
   systemWebsiteUrl?: string | null;
-}
+}>;
 
 export function CardPreview({
   state,

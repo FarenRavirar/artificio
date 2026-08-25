@@ -32,9 +32,9 @@ const FREQUENCY_OPTIONS = [
  * personalizado") + vagas totais/abertas (1–20). SEM repeater e SEM "Vagas
  * por sessão" (slots_per_session — removido por R20).
  */
-interface WhenPartProps {
+type WhenPartProps = Readonly<{
   api: TableEditorApi;
-}
+}>;
 
 export function WhenPart({ api }: WhenPartProps) {
   const { state, patch, errors, validateFieldOnBlur } = api;
@@ -108,7 +108,7 @@ export function WhenPart({ api }: WhenPartProps) {
  * observação. SEM repeater e SEM "Vagas por sessão" (slots_per_session —
  * removido por R20; o payload nunca o envia).
  */
-interface SingleScheduleEditorProps {
+type SingleScheduleEditorProps = Readonly<{
   state: TableEditorState;
   schedule: SessionSchedule;
   isPersonalized: boolean;
@@ -116,7 +116,7 @@ interface SingleScheduleEditorProps {
   onTogglePersonalized: (personalized: boolean) => void;
   error?: string;
   onFieldBlur: (fieldId: string) => void;
-}
+}>;
 
 function SingleScheduleEditor({
   state,
@@ -170,6 +170,8 @@ function SingleScheduleEditor({
           hint="Ex.: quinzenal, alternando sábado e domingo, combinado no grupo."
         >
           <ContentEditor
+            id="isPersonalizedSchedule"
+            labelledByExternal
             value={schedule.notes ?? ''}
             onChange={(value) => onChange({ notes: value })}
             label="Explicação da agenda personalizada"
@@ -183,6 +185,7 @@ function SingleScheduleEditor({
           <div>
             <EditorField
               fieldId="schedules"
+              controlId="schedules-time"
               state={state}
               label="Horário de início"
             >
@@ -195,7 +198,7 @@ function SingleScheduleEditor({
                 onBlur={() => onFieldBlur('schedules')}
               />
             </EditorField>
-            <EditorField fieldId="schedules" state={state} label="Frequência">
+            <EditorField fieldId="schedules" controlId="schedules-frequency" state={state} label="Frequência">
               <Select
                 id="schedules-frequency"
                 value={schedule.frequency}
@@ -212,7 +215,7 @@ function SingleScheduleEditor({
           </div>
 
           <div>
-            <EditorField fieldId="schedules" state={state} label="Horário de término">
+            <EditorField fieldId="schedules" controlId="schedules-end" state={state} label="Horário de término">
               <TextInput
                 id="schedules-end"
                 type="time"
@@ -238,8 +241,10 @@ function SingleScheduleEditor({
             Sessão em andamento
           </ToggleButton>
 
-          <EditorField fieldId="schedules" state={state} label="Observações">
+          <EditorField fieldId="schedules" controlId="schedules-notes" state={state} label="Observações">
             <ContentEditor
+              id="schedules-notes"
+              labelledByExternal
               value={schedule.notes ?? ''}
               onChange={(value) => onChange({ notes: value })}
               label="Observações da sessão"

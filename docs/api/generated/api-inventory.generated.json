@@ -4621,7 +4621,7 @@
       "method": "POST",
       "path": "/api/v1/systems/admin",
       "sourceFile": "apps/mesas/backend/src/routes/systems.ts",
-      "line": 108,
+      "line": 142,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4630,7 +4630,7 @@
       "method": "DELETE",
       "path": "/api/v1/systems/admin/:id",
       "sourceFile": "apps/mesas/backend/src/routes/systems.ts",
-      "line": 164,
+      "line": 198,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4639,7 +4639,7 @@
       "method": "PUT",
       "path": "/api/v1/systems/admin/:id",
       "sourceFile": "apps/mesas/backend/src/routes/systems.ts",
-      "line": 134,
+      "line": 168,
       "confidence": "high",
       "kind": "express-route"
     },

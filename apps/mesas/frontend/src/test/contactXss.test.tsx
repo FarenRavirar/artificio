@@ -187,6 +187,13 @@ describe('canais de contato continuam alcançáveis após a validação de URL',
     expect(formatWhatsAppDisplay('+551132154321')).toBe('(11) 3215-4321');
     expect(formatWhatsAppDisplay('119999999')).toBe('119999999');
     expect(formatWhatsAppDisplay('12345')).toBe('12345');
+
+    // O valor vem do banco (canal `phone` entra sem validação de formato).
+    // Antes a função só media o comprimento depois de cortar o `+55`, então
+    // texto com letra virava telefone formatado — '(ab) 12345-6789'.
+    expect(formatWhatsAppDisplay('ab123456789')).toBe('ab123456789');
+    expect(formatWhatsAppDisplay('+1 415 555 2671')).toBe('+1 415 555 2671');
+    expect(formatWhatsAppDisplay('63992681119')).toBe('(63) 99268-1119');
   });
 });
 

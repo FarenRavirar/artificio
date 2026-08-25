@@ -1,11 +1,52 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Check, Search, Send, X } from 'lucide-react';
-import { filterRoots, findPath, formatAliases } from './CatalogTree.js';
+import { filterRoots, findPath, formatAliases, nodeMatchesQuery } from './CatalogTree.js';
+import { normalizeText } from './normalize.js';
 import type { CatalogUiNode } from './types.js';
 
 /** Debounce da busca server-side de sistemas: evita uma chamada por tecla,
  * sem depender do consumidor montar o próprio debounce. */
 const SYSTEM_SEARCH_DEBOUNCE_MS = 250;
+
+/**
+ * Filtra pelo nome DO PRÓPRIO nó, sem olhar a subárvore.
+ *
+ * `filterRoots` casa em descendente de propósito (buscar "5e" na coluna de
+ * sistemas precisa achar o D&D pela edição). Nas colunas Edição/Variante o
+ * usuário está filtrando aquela lista, então match em filho só produz linha
+ * que não bate com o que ele digitou.
+ */
+function filterByOwnName(nodes: CatalogUiNode[], query: string): CatalogUiNode[] {
+  const normalizedQuery = normalizeText(query);
+  if (!normalizedQuery) return nodes;
+  return nodes.filter((node) => nodeMatchesQuery(node, normalizedQuery));
+}
+
+/**
+ * Nó vindo do fetch do consumidor é `unknown` na prática: o tipo é promessa de
+ * compilação, e a resposta atravessa HTTP/JSON. Sem esta checagem, resposta que
+ * não é array quebra em `.filter`, e nó sem `name`/`children` derruba o render
+ * dentro de `nodeMatchesQuery` (`normalizeText(undefined)`) ou da navegação.
+ */
+function isCatalogUiNode(value: unknown): value is CatalogUiNode {
+  if (typeof value !== 'object' || value === null) return false;
+  const node = value as Record<string, unknown>;
+  return (
+    typeof node.id === 'string' &&
+    typeof node.name === 'string' &&
+    typeof node.canonical_slug === 'string'
+  );
+}
+
+/** Descarta o que não é nó válido em vez de deixar o render quebrar. */
+function normalizeNodes(value: unknown): CatalogUiNode[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isCatalogUiNode).map((node) => ({
+    ...node,
+    // `children` é obrigatório no tipo e percorrido sem guard na navegação.
+    children: Array.isArray(node.children) ? node.children : [],
+  }));
+}
 
 /** Fonte server-side de opções do nível sistema (R18/A21): o consumidor monta
  * a chamada real (ex.: GET /systems?search=<query>&limit=N) e devolve os nós.
@@ -16,6 +57,16 @@ export type CatalogSystemSearchFetch = (query: string, signal: AbortSignal) => P
  * real (ex.: GET /systems?parent_id=<parent.id>) e devolve os filhos diretos.
  * Devolver lista vazia significa "sem filhos" — a coluna não aparece. */
 export type CatalogSystemChildrenFetch = (parent: CatalogUiNode, signal: AbortSignal) => Promise<CatalogUiNode[]>;
+
+/** Fonte server-side do CAMINHO de um nó já selecionado (R18/A21): o consumidor
+ * devolve a linhagem raiz→nó (ex.: [sistema, edição, variante]) do id recebido.
+ * Existe para o consumidor NÃO precisar carregar a árvore inteira só para
+ * reconstituir a seleção pré-existente — sem ela, `tree` volta a ser necessária
+ * nesse caso. Lista vazia = id desconhecido. */
+export type CatalogSystemPathFetch = (
+  selectedId: string,
+  signal: AbortSignal,
+) => Promise<CatalogUiNode[]>;
 
 export type CatalogSystemSelectorProps = Readonly<{
   idPrefix: string;
@@ -37,6 +88,10 @@ export type CatalogSystemSelectorProps = Readonly<{
    * Edição/Variante carregam sob demanda ao selecionar o pai; lista vazia =
    * coluna não aparece. Sem ela, usa `node.children` da árvore. */
   fetchChildOptions?: CatalogSystemChildrenFetch;
+  /** Resolve o caminho de uma seleção pré-existente sem `tree` (ver
+   * CatalogSystemPathFetch). Quando fornecida, tem precedência sobre o findPath
+   * local. Estabilizar com useCallback no consumidor. */
+  fetchNodePath?: CatalogSystemPathFetch;
   /** Ligado no mesmo fluxo de sugestão do CatalogTree: busca sem resultado
    * oferece "Sugerir" com o termo digitado. */
   onSuggest?: (query: string) => void;
@@ -93,6 +148,7 @@ export function CatalogSystemSelector({
   tree,
   fetchSystemOptions,
   fetchChildOptions,
+  fetchNodePath,
   onSuggest,
   searchPlaceholder = 'Buscar sistema...',
   editionSearchPlaceholder = 'Filtrar edições...',
@@ -119,7 +175,13 @@ export function CatalogSystemSelector({
   const [navPath, setNavPath] = useState<CatalogUiNode[]>([]);
 
   const systemAbortRef = useRef<AbortController | null>(null);
-  const childAbortRef = useRef<AbortController | null>(null);
+  // Um controller POR COLUNA: com um só, abrir mesa que já tem sistema E edição
+  // dispara os dois efeitos de progressão juntos, e o de variante abortava o
+  // fetch das edições. Como o `finally` também sai cedo quando o controller foi
+  // abortado, `loadingEdition` ficava preso em true e a coluna congelava em
+  // "Carregando edições...".
+  const editionAbortRef = useRef<AbortController | null>(null);
+  const variantAbortRef = useRef<AbortController | null>(null);
 
   // Refs atualizadas a cada render: o consumidor pode não memoizar as funções,
   // e o efeito de busca não deve refazer fetch por causa disso.
@@ -154,7 +216,7 @@ export function CatalogSystemSelector({
       fetchSystem(query, controller.signal)
         .then((options) => {
           if (controller.signal.aborted) return;
-          setSystemOptions(options);
+          setSystemOptions(normalizeNodes(options));
         })
         .catch((error: unknown) => {
           if ((error as Error)?.name === 'AbortError') return;
@@ -177,19 +239,62 @@ export function CatalogSystemSelector({
   useEffect(
     () => () => {
       systemAbortRef.current?.abort();
-      childAbortRef.current?.abort();
+      editionAbortRef.current?.abort();
+      variantAbortRef.current?.abort();
     },
     [],
   );
 
   const selectedId = selectedIds[0] ?? null;
+
+  // Caminho resolvido pelo servidor quando o consumidor não carrega a árvore
+  // (`fetchNodePath`): sem isto, reconstituir a seleção de uma mesa já
+  // publicada obrigaria a baixar o catálogo inteiro só para um findPath.
+  const [remotePath, setRemotePath] = useState<CatalogUiNode[]>([]);
+  const fetchNodePathRef = useRef(fetchNodePath);
+  fetchNodePathRef.current = fetchNodePath;
+
+  const localPath = useMemo(
+    () => (selectedId ? findPath(tree ?? [], selectedId) : null),
+    [tree, selectedId],
+  );
+
+  useEffect(() => {
+    const fetchPath = fetchNodePathRef.current;
+    // A árvore local já resolveu: nada a buscar.
+    if (!selectedId || !fetchPath || localPath) {
+      setRemotePath([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    let active = true;
+    fetchPath(selectedId, controller.signal)
+      .then((path) => {
+        if (!active || controller.signal.aborted) return;
+        setRemotePath(normalizeNodes(path));
+      })
+      .catch(() => {
+        // Caminho é conveniência de exibição: falhar aqui deixa o seletor no
+        // estado navegável, nunca quebra a seleção que o consumidor já tem.
+        if (active) setRemotePath([]);
+      });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [selectedId, localPath]);
+
   const selectedPath = useMemo(() => {
     if (!selectedId) return navPath;
-    return findPath(tree ?? [], selectedId) ?? navPath;
-  }, [tree, selectedId, navPath]);
+    if (localPath) return localPath;
+    return remotePath.length > 0 ? remotePath : navPath;
+  }, [selectedId, localPath, remotePath, navPath]);
 
   const loadChildrenFor = (parent: CatalogUiNode, column: 'edition' | 'variant') => {
-    childAbortRef.current?.abort();
+    const abortRef = column === 'edition' ? editionAbortRef : variantAbortRef;
+    abortRef.current?.abort();
     if (column === 'edition') {
       setEditionError(false);
       setEditionOptions([]);
@@ -207,15 +312,16 @@ export function CatalogSystemSelector({
     }
 
     const controller = new AbortController();
-    childAbortRef.current = controller;
+    abortRef.current = controller;
     if (column === 'edition') setLoadingEdition(true);
     else setLoadingVariant(true);
 
     fetchChildren(parent, controller.signal)
       .then((children) => {
         if (controller.signal.aborted) return;
-        if (column === 'edition') setEditionOptions(children);
-        else setVariantOptions(children);
+        const normalized = normalizeNodes(children);
+        if (column === 'edition') setEditionOptions(normalized);
+        else setVariantOptions(normalized);
       })
       .catch((error: unknown) => {
         if ((error as Error)?.name === 'AbortError') return;
@@ -305,12 +411,17 @@ export function CatalogSystemSelector({
     systemQuery.trim().length > 0 && !searching && !systemError && systemOptions.length === 0;
   const canSuggest = noSystemResults && Boolean(onSuggest);
 
+  // Colunas Edição/Variante filtram pelo nó DA COLUNA, não pela subárvore:
+  // `filterRoots` casa em descendente (certo na busca de sistema, onde "5e"
+  // deve achar o D&D pela edição), mas aqui o campo diz "Filtrar edições" e o
+  // match em descendente mostrava edição cujo nome não bate com o termo, só
+  // porque uma variante abaixo dela batia.
   const visibleEditionOptions = useMemo(
-    () => filterRoots(editionOptions, editionQuery),
+    () => filterByOwnName(editionOptions, editionQuery),
     [editionOptions, editionQuery],
   );
   const visibleVariantOptions = useMemo(
-    () => filterRoots(variantOptions, variantQuery),
+    () => filterByOwnName(variantOptions, variantQuery),
     [variantOptions, variantQuery],
   );
 

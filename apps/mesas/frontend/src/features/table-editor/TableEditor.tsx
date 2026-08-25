@@ -4,13 +4,13 @@ import { ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { DraftStatus } from '../create-table/hooks/useAutosave';
 import { useAuth } from '../../contexts/useAuth';
-import { useSystemsCatalog } from '../../hooks/useSystemsCatalog';
-import { useTableEditor, buildInitialEditorState } from './hooks/useTableEditor';
+import { useSelectedSystemNode } from './hooks/useSelectedSystemNode';
+import { useTableEditor } from './hooks/useTableEditor';
 import type { TableEditorApi, TableEditorInitialData } from './hooks/useTableEditor';
 import type { EditorPartId, TableEditorState } from './types';
 import { partOfField, pendingParts, fieldLevel, isFieldFilled, REQUIRED_FIELD_IDS } from './utils/editorValidation';
+import { buildStateFromPreview } from './utils/previewMerge';
 import { EDITOR_PARTS, getPartLabel } from './utils/editorParts';
-import { mapApiToEditorState } from './utils/editorMapping';
 import { authGet } from '../../utils/authenticatedFetch';
 import { IdentityPart } from './parts/IdentityPart';
 import { WhenPart } from './parts/WhenPart';
@@ -38,11 +38,11 @@ const DDAL_ELIGIBLE_PATHS = [
   'dungeons-dragons/5e/dungeons-dragons-5e-2014',
 ] as const;
 
-interface TableEditorProps {
+type TableEditorProps = Readonly<{
   initialData?: TableEditorInitialData;
   onPublished: () => void;
   onBack: () => void;
-}
+}>;
 
 /**
  * Editor de anúncio (R1/R2): casca de 3 faixas, lateral com as 7 partes,
@@ -61,35 +61,19 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
   // (lição do achado 2026-08-18 em PainelMestrePage.tsx:301-306).
   const [parseSourceText, setParseSourceText] = useState('');
 
-  // ── Árvore de sistemas: hook compartilhado useSystemsCatalog (padrão do
-  //    repo — CatalogoPage/OnboardingPage usam o mesmo; o editor NÃO
-  //    reimplementa fetch/normalização de sistemas). O SystemPicker recebe a
-  //    árvore por props; a troca pela busca server-side em 3 colunas é da
-  //    T4.0h-bis (onda 2). ─────────────────────────────────────────────────
-  const {
-    tree: systemsTree,
-    loading: systemsLoading,
-    error: systemsError,
-    flat: flattenedSystems,
-    forceRefresh: refreshSystems,
-  } = useSystemsCatalog();
+  // ── Sistema selecionado: UM nó por id (?id=), não a árvore inteira. A21
+  //    proíbe `view=tree` no editor — a árvore custava 503.907 bytes por
+  //    abertura (§Gap 9, causa 2) para alimentar dois lookups sobre o mesmo nó.
+  const selectedSystemNode = useSelectedSystemNode(state.selectedSystemId);
 
   // ── Elegibilidade DDAL (T4.0b) ──────────────────────────────────────────
   const isDdalEligible = useMemo(() => {
-    const selected = flattenedSystems.find((node) => node.id === state.selectedSystemId);
-    const path = selected?.path_slug ?? null;
+    const path = selectedSystemNode?.path_slug ?? null;
     if (!path) return false;
     return DDAL_ELIGIBLE_PATHS.some(
       (eligible) => path === eligible || path.startsWith(`${eligible}/`),
     );
-  }, [flattenedSystems, state.selectedSystemId]);
-
-  // ── Sistema selecionado (T4.2b): nome/logo/site do catálogo para o selo do
-  //    card da prévia. Leitura do catálogo, não estado do editor.
-  const selectedSystemNode = useMemo(
-    () => flattenedSystems.find((node) => node.id === state.selectedSystemId),
-    [flattenedSystems, state.selectedSystemId],
-  );
+  }, [selectedSystemNode]);
 
   // Desmarca DDAL ao trocar para sistema não elegível (A14 — efeito herdado
   // do CreateTableForm antigo, wizard removido na T4.8, :274-278).
@@ -201,9 +185,8 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
   //    PainelMestrePage, agora dentro do editor). ───────────────────────────
   const handlePreviewReady = useCallback(
     (result: { data: unknown; parseCaseId: string | null }) => {
-      const mapped = mapApiToEditorState(result.data);
       api.replaceState({
-        ...(buildStateFromPreview(mapped)),
+        ...buildStateFromPreview(result.data, api.state),
         parseCaseId: result.parseCaseId,
       });
       toast.success('Anúncio analisado — revise os campos antes de publicar');
@@ -253,10 +236,6 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
             {activePartId === 'identity' && (
               <IdentityPart
                 api={api}
-                systemsTree={systemsTree}
-                systemsLoading={systemsLoading}
-                systemsError={systemsError}
-                onRefreshSystems={() => void refreshSystems()}
                 selectedScenarioName={selectedScenarioName}
                 parseText={parseSourceText}
                 onParseTextChange={setParseSourceText}
@@ -332,12 +311,6 @@ function readScenarioName(json: unknown): string | null {
   return typeof name === 'string' && name.trim().length > 0 ? name.trim() : null;
 }
 
-function buildStateFromPreview(preview: ReturnType<typeof mapApiToEditorState>): TableEditorState {
-  // A prévia vem SEM defaults (o mapper emite só o que a fonte tem); mescla
-  // sobre o default para o estado ficar completo.
-  return buildInitialEditorState(preview);
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Casca do editor (spec 096, Fase 4): as 3 faixas da grade (barra de estado,
 // lateral, rodapé de pendências) — chrome do TableEditor. O registro das 7
@@ -351,14 +324,14 @@ function buildStateFromPreview(preview: ReturnType<typeof mapApiToEditorState>):
  * mesa (Rascunho × No ar — a única diferença entre criar e editar é o estado,
  * R2/T4.4), indicador de autosave e o botão de publicar.
  */
-interface EditorTopBarProps {
+type EditorTopBarProps = Readonly<{
   isEditing: boolean;
   isActive: boolean;
   draftStatus: DraftStatus;
   publishing: boolean;
   onBack: () => void;
   onPublish: () => void;
-}
+}>;
 
 function EditorTopBar({
   isEditing,
@@ -420,12 +393,12 @@ function EditorTopBar({
  * junto com cada tecla do documento; as props só mudam em eventos de
  * validação (blur/publicar) e troca de parte.
  */
-interface EditorSidebarProps {
+type EditorSidebarProps = Readonly<{
   activePartId: EditorPartId;
   pendingCounts: Record<EditorPartId, number>;
   progress: number;
   onSelect: (partId: EditorPartId) => void;
-}
+}>;
 
 const EditorSidebar = memo(function EditorSidebar({
   activePartId,
@@ -439,12 +412,13 @@ const EditorSidebar = memo(function EditorSidebar({
         <div className="mb-1.5 text-xs opacity-70">
           {Math.round(progress * 100)}% preenchido
         </div>
+        {/* Barra decorativa: o valor já é anunciado pelo texto "N% preenchido"
+            logo acima, então marcar role="progressbar" aqui duplicaria o
+            anúncio no leitor de tela. `<progress>` nativo não aceita esta
+            estilização sem herdar o desenho do agente de usuário. */}
         <div
           className="h-1.5 overflow-hidden rounded-full bg-[var(--fill)]"
-          role="progressbar"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.round(progress * 100)}
+          aria-hidden="true"
         >
           <div
             className="h-full bg-[var(--color-artificio-orange)] transition-[width]"
@@ -490,18 +464,19 @@ const EditorSidebar = memo(function EditorSidebar({
  * pendência — clicar salta para a parte. Fora disso fica em silêncio (faixa
  * fina, sem inventar conteúdo).
  */
-interface EditorPendingFooterProps {
+type EditorPendingFooterProps = Readonly<{
   pendingParts: EditorPartId[];
   onSelect: (partId: EditorPartId) => void;
-}
+}>;
 
 function EditorPendingFooter({ pendingParts, onSelect }: EditorPendingFooterProps) {
   if (pendingParts.length === 0) return null;
 
   return (
-    <footer
+    // `<output>` no lugar de role="status": mesma semântica de região viva
+    // (role=status implícito), com suporte melhor entre leitores de tela.
+    <output
       className="flex items-center gap-2.5 overflow-hidden border-t border-[var(--state-danger-line)] bg-[var(--state-danger-bg)] px-4 py-2"
-      role="status"
     >
       <span className="whitespace-nowrap text-[13px] text-[var(--state-danger-fg)]">
         Campos obrigatórios faltando em:
@@ -517,6 +492,6 @@ function EditorPendingFooter({ pendingParts, onSelect }: EditorPendingFooterProp
           {getPartLabel(partId)}
         </Button>
       ))}
-    </footer>
+    </output>
   );
 }

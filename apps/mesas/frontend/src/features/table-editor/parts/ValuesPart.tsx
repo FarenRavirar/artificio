@@ -15,9 +15,9 @@ import { EDITOR_TEXT_LIMITS } from '../utils/editorValidation';
  * - desmarcar doação LIMPA o valor sugerido;
  * - detalhes de cobrança aparecem se `paga` OU já houver billingText.
  */
-interface ValuesPartProps {
+type ValuesPartProps = Readonly<{
   api: TableEditorApi;
-}
+}>;
 
 export function ValuesPart({ api }: ValuesPartProps) {
   const { state, patch, errors, validateFieldOnBlur } = api;
@@ -29,7 +29,10 @@ export function ValuesPart({ api }: ValuesPartProps) {
   // residual e o backend responde 400 sobre campo invisível.
   const handlePriceTypeChange = (value: string) => {
     if (value === 'gratuita') {
-      patch({ priceType: value, priceValue: '', priceValueMonthly: '' });
+      // sessionZeroFree entra junto: o toggle só existe no bloco de mesa paga,
+      // então marcá-lo e depois virar gratuita deixava "sessão zero é
+      // gratuita" viajando no payload de uma mesa que já é toda gratuita.
+      patch({ priceType: value, priceValue: '', priceValueMonthly: '', sessionZeroFree: false });
       return;
     }
     patch({ priceType: value, acceptsDonations: false, suggestedDonationValue: '' });

@@ -164,7 +164,11 @@ export function ContactMethodsEditor({
 
   const handleSave = async () => {
     if (!onSave) return;
-    const errors = current.map(validateContactMethod);
+    // Linha sem value é descartada, não validada: validar primeiro fazia o
+    // salvamento travar em "Corrija os erros" por causa de linha em branco que
+    // o próprio filtro abaixo ia jogar fora — o mestre não tinha o que corrigir.
+    const filled = current.filter((c) => c.value.trim());
+    const errors = filled.map(validateContactMethod);
     if (errors.some((e) => e !== null)) {
       setSaveError('Corrija os erros antes de salvar');
       return;
@@ -173,10 +177,9 @@ export function ContactMethodsEditor({
     setSaving(true);
     setSaveError(null);
     try {
-      // Filtrar contatos vazios e limpar campos opcionais vazios (mesma
-      // regra do editor antigo — o perfil não grava linha sem value).
-      const validContacts: ContactMethodInput[] = current
-        .filter((c) => c.value.trim())
+      // Limpar campos opcionais vazios (mesma regra do editor antigo — o
+      // perfil não grava linha sem value).
+      const validContacts: ContactMethodInput[] = filled
         .map((c) => ({
           channel: c.channel,
           value: c.value,

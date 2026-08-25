@@ -34,7 +34,7 @@ import {
   validateVttSuggestionName,
 } from './suggestionModels';
 
-function SuggestionCard({ item }: { item: SuggestionListItem }) {
+function SuggestionCard({ item }: Readonly<{ item: SuggestionListItem }>) {
   const status = SUGGESTION_STATUS_LABELS[item.status];
 
   return (
@@ -76,12 +76,12 @@ function SuggestionList({
   emptyMessage,
   state,
   onRetry,
-}: {
+}: Readonly<{
   title: string;
   emptyMessage: string;
   state: SuggestionListState;
   onRetry: () => void;
-}) {
+}>) {
   const titleId = `list-${title.toLowerCase().replace(/\s+/g, '-')}`;
 
   return (
@@ -150,10 +150,12 @@ function VttSuggestionForm() {
         // Eco normalizado antes de qualquer uso (regra de normalização do
         // repo); se o eco não normalizar, cai na mensagem do backend.
         const created = normalizeVttSuggestionResult(readPayloadData(body));
+        const fallbackMessage =
+          readBackendMessage(body) ?? 'Sugestão enviada com sucesso! Será analisada pela equipe.';
         setSuccessMessage(
           created
             ? `Sugestão "${created.suggested_name}" enviada! Será analisada pela equipe.`
-            : readBackendMessage(body) ?? 'Sugestão enviada com sucesso! Será analisada pela equipe.',
+            : fallbackMessage,
         );
         setName('');
       } else {
@@ -210,7 +212,7 @@ function VttSuggestionForm() {
   );
 }
 
-export function SuggestionsView({ highlightId }: { highlightId?: string | null }) {
+export function SuggestionsView({ highlightId }: Readonly<{ highlightId?: string | null }>) {
   const { systems, scenarios, reload } = useMySuggestions();
   const loaded = !systems.loading && !scenarios.loading;
 

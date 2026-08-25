@@ -172,3 +172,77 @@ describe('GET /api/v1/systems?parent_id — filhos diretos (T4.0h-ter)', () => {
     expect(provider.loadTree).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('GET /api/v1/systems?id — nó(s) por id (spec 096, R18/A21)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // O editor precisa do nó JÁ selecionado (path_slug do DDAL, nome/logo do card
+  // e o caminho visível) ao abrir uma mesa publicada. `search` casa nome/slug/
+  // path_slug/alias, nunca id — sem este filtro o editor caía em `?view=tree`
+  // (503.907 bytes por abertura), o que o A21 proíbe.
+  it('devolve o nó pedido, com aliases e metadados populados', async () => {
+    const provider = mockProvider('central', CENTRAL_FLAT);
+
+    const res = await request(makeApp()).get('/api/v1/systems?id=ed-5e');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual([
+      expect.objectContaining({
+        id: 'ed-5e',
+        parent_id: 'sys-dnd',
+        aliases: ['5e'],
+        has_children: true,
+      }),
+    ]);
+    expect(provider.loadFlat).toHaveBeenCalledTimes(1);
+    // Nunca cai no caminho da árvore inteira — é o ponto do requisito.
+    expect(provider.loadTree).not.toHaveBeenCalled();
+  });
+
+  it('aceita vários ids por vírgula e por repetição do parâmetro', async () => {
+    mockProvider('central', CENTRAL_FLAT);
+
+    const byComma = await request(makeApp()).get('/api/v1/systems?id=sys-dnd,ed-5e,var-2024');
+    expect(byComma.status).toBe(200);
+    expect(byComma.body.data.map((n: MesasSystemNode) => n.id)).toEqual([
+      'sys-dnd',
+      'ed-5e',
+      'var-2024',
+    ]);
+
+    const byRepeat = await request(makeApp()).get('/api/v1/systems?id=sys-vamp&id=ed-v5');
+    expect(byRepeat.status).toBe(200);
+    expect(byRepeat.body.data.map((n: MesasSystemNode) => n.id)).toEqual(['sys-vamp', 'ed-v5']);
+  });
+
+  it('id desconhecido sai da resposta em vez de virar erro', async () => {
+    mockProvider('central', CENTRAL_FLAT);
+
+    const res = await request(makeApp()).get('/api/v1/systems?id=ed-5e,nao-existe');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.map((n: MesasSystemNode) => n.id)).toEqual(['ed-5e']);
+  });
+
+  it('localProvider: mesma interface, mesmo resultado — o filtro não especializa por fonte', async () => {
+    const provider = mockProvider('local', LOCAL_FLAT);
+
+    const res = await request(makeApp()).get('/api/v1/systems?id=ed-coc7');
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.map((n: MesasSystemNode) => n.id)).toEqual(['ed-coc7']);
+    expect(provider.loadFlat).toHaveBeenCalledTimes(1);
+  });
+
+  it('id vazio não sequestra a rota — cai no caminho normal (view/search)', async () => {
+    const provider = mockProvider('central', CENTRAL_FLAT);
+
+    const res = await request(makeApp()).get('/api/v1/systems?id=');
+
+    expect(res.status).toBe(200);
+    expect(provider.loadFlat).toHaveBeenCalled();
+    expect(res.body.data.length).toBeGreaterThan(1);
+  });
+});

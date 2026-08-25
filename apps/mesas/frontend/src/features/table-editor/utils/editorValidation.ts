@@ -1,5 +1,6 @@
 import type { EditorPartId, FieldLevel, TableEditorState } from '../types';
 import { normalizePriceType } from './editorMapping';
+import { EDITOR_PARTS } from './editorParts';
 import { contentOverflow } from '@artificio/content-editor';
 import { validateContactValue } from '../../../utils/safeExternalUrl';
 
@@ -416,9 +417,13 @@ export function pendingParts(errors: EditorErrorMap): EditorPartId[] {
   return [...parts].sort((a, b) => partOrderIndex(a) - partOrderIndex(b));
 }
 
+/**
+ * Ordem da lateral, derivada de EDITOR_PARTS — a mesma lista que renderiza a
+ * navegação. Era duplicada aqui como array literal: reordenar a lateral não
+ * reordenava as pendências, e a divergência não quebraria teste nenhum.
+ */
 function partOrderIndex(partId: EditorPartId): number {
-  const order: EditorPartId[] = ['identity', 'when', 'where', 'values', 'audience', 'master', 'extras'];
-  return order.indexOf(partId);
+  return EDITOR_PARTS.findIndex((part) => part.id === partId);
 }
 
 /** Primeiro campo com erro, na ordem das partes — alvo do foco no A4. */
@@ -426,6 +431,5 @@ export function firstErrorField(errors: EditorErrorMap): string | null {
   const parts = pendingParts(errors);
   if (parts.length === 0) return null;
   const firstPart = parts[0];
-  const candidates = Object.keys(errors).filter((fieldId) => partOfField(fieldId) === firstPart);
-  return candidates[0] ?? null;
+  return Object.keys(errors).find((fieldId) => partOfField(fieldId) === firstPart) ?? null;
 }

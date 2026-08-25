@@ -154,7 +154,7 @@ describe('CatalogSystemSelector (R18/A21 — três colunas)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Vampire/ }));
 
     // 'Vampire' aparece na opção (lista) e no caminho selecionado — nada mais.
-    expect(screen.getAllByText('Vampire').length).toBe(2);
+    expect(screen.getAllByText('Vampire')).toHaveLength(2);
     expect(screen.queryByText('Edição')).not.toBeInTheDocument();
     expect(screen.queryByText('Variante')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Filtrar edições...')).not.toBeInTheDocument();
@@ -241,7 +241,7 @@ describe('CatalogSystemSelector — fonte server-side (R18)', () => {
     await waitFor(() =>
       expect(fetchSystemOptions).toHaveBeenCalledWith('dnd', expect.any(AbortSignal))
     );
-    await waitFor(() => expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument());
+    expect(await screen.findByText('Dungeons & Dragons')).toBeInTheDocument();
   });
 
   it('fetchChildOptions abre a coluna Edição sob demanda (parent_id) e coluna vazia não aparece', async () => {
@@ -267,13 +267,13 @@ describe('CatalogSystemSelector — fonte server-side (R18)', () => {
       target: { value: 'Dungeons' },
     });
 
-    await waitFor(() => expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument());
+    expect(await screen.findByText('Dungeons & Dragons')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Dungeons & Dragons/ }));
 
     await waitFor(() =>
       expect(fetchChildOptions).toHaveBeenCalledWith(system, expect.any(AbortSignal))
     );
-    await waitFor(() => expect(screen.getByText('Edição')).toBeInTheDocument());
+    expect(await screen.findByText('Edição')).toBeInTheDocument();
     expect(screen.getByText('5e')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /^5e/ }));
@@ -301,9 +301,7 @@ describe('CatalogSystemSelector — fonte server-side (R18)', () => {
       target: { value: 'shadowdark' },
     });
 
-    await waitFor(() =>
-      expect(screen.getByText('Nenhum sistema encontrado.')).toBeInTheDocument()
-    );
+    expect(await screen.findByText('Nenhum sistema encontrado.')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Sugerir' }));
     expect(onSuggest).toHaveBeenCalledWith('shadowdark');
