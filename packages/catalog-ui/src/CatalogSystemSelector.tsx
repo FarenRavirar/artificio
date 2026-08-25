@@ -304,7 +304,12 @@ export function CatalogSystemSelector({
     if (localPath) return localPath;
     // Só o caminho DESTE id: resposta de uma seleção anterior é ignorada.
     const remotePath = remote?.id === selectedId ? remote.path : [];
-    return remotePath.length > 0 ? remotePath : navPath;
+    if (remotePath.length > 0) return remotePath;
+    // `navPath` vem de CLIQUE e sobrevive a uma troca externa de `selectedIds`:
+    // sem esta checagem, o caminho da seleção anterior seguia exibido enquanto
+    // o fetch do id novo estava pendente — e as colunas carregavam os filhos
+    // dele, deixando escolher um descendente que não pertence à seleção atual.
+    return navPath.at(-1)?.id === selectedId ? navPath : [];
   }, [selectedId, localPath, remote, navPath]);
 
   const loadChildrenFor = (parent: CatalogUiNode, column: 'edition' | 'variant') => {

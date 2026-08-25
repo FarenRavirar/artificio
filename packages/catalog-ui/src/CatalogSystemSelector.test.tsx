@@ -244,6 +244,50 @@ describe('CatalogSystemSelector — fonte server-side (R18)', () => {
     expect(await screen.findByText('Dungeons & Dragons')).toBeInTheDocument();
   });
 
+  it('navPath de clique não sobrevive a uma troca EXTERNA de selectedIds', async () => {
+    // Achado CodeRabbit (PR #286): `navPath` é preenchido pelo clique e não era
+    // invalidado quando o consumidor trocava a seleção por fora. Com o
+    // fetchNodePath do id novo pendente, o caminho antigo seguia valendo — e a
+    // coluna Edição continuava carregando os filhos do sistema ANTERIOR,
+    // deixando escolher um descendente que não pertence à seleção atual.
+    const dnd = { ...tree[0], children: [] };
+    const edition = { ...tree[0].children[1], children: [] };
+    const vampire = { ...tree[1], children: [] };
+
+    const fetchNodePath = vi.fn().mockReturnValue(new Promise(() => {})); // nunca resolve
+    const fetchSystemOptions = vi.fn().mockResolvedValue([dnd]);
+    const fetchChildOptions = vi.fn().mockResolvedValue([edition]);
+
+    const props = (selectedIds: string[]) => ({
+      selectedIds,
+      onSelectionChange: vi.fn(),
+      idPrefix: 'selector',
+      fetchSystemOptions,
+      fetchChildOptions,
+      fetchNodePath,
+    });
+
+    const { rerender } = render(<CatalogSystemSelector {...props([])} />);
+
+    // Clique no sistema e depois na edição: navPath = [dnd, dnd-5e].
+    fireEvent.change(screen.getByLabelText('Buscar sistema...'), {
+      target: { value: 'dnd' },
+    });
+    fireEvent.click(await screen.findByText(dnd.name));
+    fireEvent.click(await screen.findByText(edition.name));
+    await waitFor(() => expect(fetchChildOptions).toHaveBeenCalledWith(edition, expect.anything()));
+    fetchChildOptions.mockClear();
+
+    // O consumidor troca a seleção por fora; o fetch do caminho novo fica preso.
+    rerender(<CatalogSystemSelector {...props([vampire.id])} />);
+
+    await waitFor(() => expect(fetchNodePath).toHaveBeenCalledWith(vampire.id, expect.anything()));
+    // Sem a invalidação, selectedPath[0] continuaria sendo o D&D e a coluna
+    // Edição seguiria carregando os filhos dele sob a seleção do Vampire.
+    expect(fetchChildOptions).not.toHaveBeenCalledWith(dnd, expect.anything());
+    expect(screen.queryByText(edition.name)).not.toBeInTheDocument();
+  });
+
   it('fetchNodePath: caminho da seleção ANTERIOR não aparece enquanto o novo carrega', async () => {
     // Achado CodeRabbit (PR #286): o caminho remoto vivia num estado sem dono,
     // então trocar de sistema exibia a linhagem do sistema anterior até a nova

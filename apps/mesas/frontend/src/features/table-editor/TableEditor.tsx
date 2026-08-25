@@ -64,8 +64,11 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
   // ── Sistema selecionado: UM nó por id (?id=), não a árvore inteira. A21
   //    proíbe `view=tree` no editor — a árvore custava 503.907 bytes por
   //    abertura (§Gap 9, causa 2) para alimentar dois lookups sobre o mesmo nó.
-  const { node: selectedSystemNode, resolved: systemNodeResolved } =
-    useSelectedSystemNode(state.selectedSystemId);
+  const {
+    node: selectedSystemNode,
+    resolved: systemNodeResolved,
+    failed: systemNodeFailed,
+  } = useSelectedSystemNode(state.selectedSystemId);
 
   // ── Elegibilidade DDAL (T4.0b) ──────────────────────────────────────────
   const isDdalEligible = useMemo(() => {
@@ -79,10 +82,12 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
   // Desmarca DDAL ao trocar para sistema não elegível (A14 — efeito herdado
   // do CreateTableForm antigo, wizard removido na T4.8, :274-278).
   useEffect(() => {
-    // Só desmarca depois que a busca do sistema VOLTOU: enquanto ela está em
-    // voo o nó é `null`, e tratar isso como "não elegível" apagaria o selo que
-    // o mestre marcou, a cada abertura do editor.
-    if (!systemNodeResolved) return;
+    // Só desmarca depois que a busca do sistema VOLTOU E DEU CERTO: com ela em
+    // voo (ou falhada por rede) o nó é `null`, e tratar isso como "não
+    // elegível" apagaria o selo que o mestre marcou. O backend revalida o DDAL
+    // no submit e é a autoridade — deixar o selo de pé até haver resposta é o
+    // lado seguro.
+    if (!systemNodeResolved || systemNodeFailed) return;
     if (isDdalEligible || !state.ddal.is_ddal) return;
     let active = true;
     // setState deferido p/ fora do corpo síncrono do effect.
@@ -92,7 +97,7 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
       api.patch({ ddal: { ...state.ddal, is_ddal: false } });
     })();
     return () => { active = false; };
-  }, [systemNodeResolved, isDdalEligible, state.ddal.is_ddal, state.ddal, api]);
+  }, [systemNodeResolved, systemNodeFailed, isDdalEligible, state.ddal.is_ddal, state.ddal, api]);
 
   // ── Nome do cenário (SettingStylesField usa para o selo de selecionado) ──
   // B4 (revisão adversarial Fase 4): fetch cru → authGet (padrão do repo —
