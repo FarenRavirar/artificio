@@ -3676,7 +3676,7 @@
       "method": "GET",
       "path": "/api/v1/communication-platforms",
       "sourceFile": "apps/mesas/backend/src/routes/communicationPlatforms.ts",
-      "line": 22,
+      "line": 29,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3694,7 +3694,7 @@
       "method": "GET",
       "path": "/api/v1/communication-platforms/admin",
       "sourceFile": "apps/mesas/backend/src/routes/communicationPlatforms.ts",
-      "line": 40,
+      "line": 58,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3703,7 +3703,7 @@
       "method": "POST",
       "path": "/api/v1/communication-platforms/admin",
       "sourceFile": "apps/mesas/backend/src/routes/communicationPlatforms.ts",
-      "line": 57,
+      "line": 89,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3712,7 +3712,7 @@
       "method": "DELETE",
       "path": "/api/v1/communication-platforms/admin/:id",
       "sourceFile": "apps/mesas/backend/src/routes/communicationPlatforms.ts",
-      "line": 175,
+      "line": 274,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3721,7 +3721,7 @@
       "method": "PUT",
       "path": "/api/v1/communication-platforms/admin/:id",
       "sourceFile": "apps/mesas/backend/src/routes/communicationPlatforms.ts",
-      "line": 105,
+      "line": 165,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4756,7 +4756,7 @@
       "method": "GET",
       "path": "/api/v1/vtt-platforms",
       "sourceFile": "apps/mesas/backend/src/routes/vttPlatforms.ts",
-      "line": 95,
+      "line": 103,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4774,7 +4774,7 @@
       "method": "GET",
       "path": "/api/v1/vtt-platforms/admin",
       "sourceFile": "apps/mesas/backend/src/routes/vttPlatforms.ts",
-      "line": 224,
+      "line": 237,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4783,7 +4783,7 @@
       "method": "POST",
       "path": "/api/v1/vtt-platforms/admin",
       "sourceFile": "apps/mesas/backend/src/routes/vttPlatforms.ts",
-      "line": 266,
+      "line": 284,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4792,7 +4792,7 @@
       "method": "DELETE",
       "path": "/api/v1/vtt-platforms/admin/:id",
       "sourceFile": "apps/mesas/backend/src/routes/vttPlatforms.ts",
-      "line": 505,
+      "line": 570,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4801,7 +4801,7 @@
       "method": "PUT",
       "path": "/api/v1/vtt-platforms/admin/:id",
       "sourceFile": "apps/mesas/backend/src/routes/vttPlatforms.ts",
-      "line": 352,
+      "line": 389,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4810,7 +4810,7 @@
       "method": "POST",
       "path": "/api/v1/vtt-platforms/suggest",
       "sourceFile": "apps/mesas/backend/src/routes/vttPlatforms.ts",
-      "line": 124,
+      "line": 137,
       "confidence": "high",
       "kind": "express-route"
     },

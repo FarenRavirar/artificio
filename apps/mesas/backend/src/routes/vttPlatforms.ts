@@ -20,6 +20,14 @@ interface VttPlatformPayload {
   sort_order?: number;
   is_active?: boolean;
   aliases?: string[];
+  // Requisitos implicados (migration_162, spec 096 Fase 5): o admin edita os
+  // flags que alimentam a auto-marcação no editor de anúncio. As colunas
+  // existem em tabela exatamente porque o admin já edita o catálogo
+  // (plan.md §Regras VTT → requisitos:486-487) — CRUD sem os flags
+  // contradiria a premissa da migration.
+  implies_pc?: boolean;
+  implies_microphone?: boolean;
+  implies_camera?: boolean;
 }
 
 // D2 (spec 093): slug de alias — mesmo padrão de scenarioSuggestionsAdmin.ts.
@@ -103,6 +111,11 @@ router.get('/', async (req, res) => {
         'logo_filename',
         'website_url',
         'sort_order',
+        // Requisitos implicados (migration_162, spec 096 R3): o catálogo
+        // público alimenta a auto-marcação "com o porquê" no editor.
+        'implies_pc',
+        'implies_microphone',
+        'implies_camera',
       ])
       .where('is_active', '=', true)
       .orderBy('sort_order', 'asc')
@@ -235,6 +248,11 @@ router.get('/admin', authMiddleware, requireRole('admin'), async (_req, res) => 
         'sort_order',
         'created_at',
         'updated_at',
+        // Requisitos implicados (migration_162, spec 096 Fase 5): expostos
+        // no CRUD para o admin editar.
+        'implies_pc',
+        'implies_microphone',
+        'implies_camera',
       ])
       .orderBy('sort_order', 'asc')
       .orderBy('name', 'asc')
@@ -283,6 +301,19 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req, res) => 
     if (aliasError) return res.status(400).json({ error: aliasError });
   }
 
+  // Requisitos implicados (spec 096 Fase 5): validação ANTES da escrita —
+  // flag que não é boolean derruba o pedido com 400 (mesma regra do aliases:
+  // entrada malformada não pode ter efeito).
+  if (payload.implies_pc !== undefined && typeof payload.implies_pc !== 'boolean') {
+    return res.status(400).json({ error: 'implies_pc deve ser boolean.' });
+  }
+  if (payload.implies_microphone !== undefined && typeof payload.implies_microphone !== 'boolean') {
+    return res.status(400).json({ error: 'implies_microphone deve ser boolean.' });
+  }
+  if (payload.implies_camera !== undefined && typeof payload.implies_camera !== 'boolean') {
+    return res.status(400).json({ error: 'implies_camera deve ser boolean.' });
+  }
+
   try {
     const websiteUrl = normalizeWebsiteUrl(payload.website_url);
     const logoFilename = normalizeLogoFilename(payload.logo_filename);
@@ -298,6 +329,9 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req, res) => 
           website_url: websiteUrl,
           sort_order: sortOrder,
           is_active: payload.is_active ?? true,
+          implies_pc: payload.implies_pc ?? false,
+          implies_microphone: payload.implies_microphone ?? false,
+          implies_camera: payload.implies_camera ?? false,
         })
         .returning([
           'id',
@@ -309,6 +343,9 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req, res) => 
           'sort_order',
           'created_at',
           'updated_at',
+          'implies_pc',
+          'implies_microphone',
+          'implies_camera',
         ])
         .executeTakeFirstOrThrow();
 
@@ -401,6 +438,28 @@ router.put('/admin/:id', authMiddleware, requireRole('admin'), async (req, res) 
     updateData.is_active = payload.is_active;
   }
 
+  // Requisitos implicados (spec 096 Fase 5): validação ANTES da escrita,
+  // mesmo padrão dos demais campos — só entra no updateData se definido
+  // (mantém o PUT parcial, ex. handleToggleActive que envia só is_active).
+  if (payload.implies_pc !== undefined) {
+    if (typeof payload.implies_pc !== 'boolean') {
+      return res.status(400).json({ error: 'implies_pc deve ser boolean.' });
+    }
+    updateData.implies_pc = payload.implies_pc;
+  }
+  if (payload.implies_microphone !== undefined) {
+    if (typeof payload.implies_microphone !== 'boolean') {
+      return res.status(400).json({ error: 'implies_microphone deve ser boolean.' });
+    }
+    updateData.implies_microphone = payload.implies_microphone;
+  }
+  if (payload.implies_camera !== undefined) {
+    if (typeof payload.implies_camera !== 'boolean') {
+      return res.status(400).json({ error: 'implies_camera deve ser boolean.' });
+    }
+    updateData.implies_camera = payload.implies_camera;
+  }
+
   const hasAliases = payload.aliases !== undefined;
 
   // Validar ANTES da transação: o bloco de aliases faz delete + insert, então
@@ -434,6 +493,9 @@ router.put('/admin/:id', authMiddleware, requireRole('admin'), async (req, res) 
               'sort_order',
               'created_at',
               'updated_at',
+              'implies_pc',
+              'implies_microphone',
+              'implies_camera',
             ])
             .executeTakeFirst()
         : await trx
@@ -448,6 +510,9 @@ router.put('/admin/:id', authMiddleware, requireRole('admin'), async (req, res) 
               'sort_order',
               'created_at',
               'updated_at',
+              'implies_pc',
+              'implies_microphone',
+              'implies_camera',
             ])
             .where('id', '=', id)
             .executeTakeFirst();

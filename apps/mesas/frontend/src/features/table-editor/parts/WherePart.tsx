@@ -9,9 +9,10 @@ import { useCommunicationPlatforms } from '../../../hooks/useCommunicationPlatfo
 /**
  * Parte "Onde joga": modalidade; VTT e comunicação (catálogos + "✏️
  * Personalizado"); os 3 requisitos técnicos NA MESMA PARTE da plataforma
- * (R3/R21/T4.0v — a auto-marcação por VTT é da Fase 5; os checkboxes
- * existem e são editáveis); cidade/estado só quando a modalidade NÃO é
- * online (R23, T4.0w).
+ * (R3/R21/T4.0v) — a seleção de plataforma auto-marca os requisitos que ela
+ * implica e a legenda ao lado explica o porquê (T5.3, migration_162); os
+ * checkboxes continuam editáveis pelo mestre; cidade/estado só quando a
+ * modalidade NÃO é online (R23, T4.0w).
  */
 type WherePartProps = Readonly<{
   api: TableEditorApi;
@@ -83,6 +84,59 @@ export function WherePart({ api }: WherePartProps) {
     return () => { active = false; };
   }, [errorVtts, errorCommunicationPlatforms, state.vttPlatformId, state.communicationPlatformId, patch]);
 
+  // T5.3 (spec 096, R3): auto-marcação na TROCA de seleção — só marca, nunca
+  // desmarca; o mestre pode desmarcar depois e a escolha persiste até ele
+  // trocar de plataforma de novo. A marcação vive no handler do select (e não
+  // em efeito de render), então abrir o editor numa mesa existente NÃO
+  // re-marca nada — só a ação do mestre no select dispara.
+  const handleVttPlatformChange = (value: string) => {
+    const patchData: Partial<TableEditorState> = { vttPlatformId: value };
+    if (value && value !== 'custom') {
+      // VTT é identificado por slug no select (optionValue="slug").
+      const platform = vttPlatforms.find((p) => p.slug === value || p.id === value);
+      if (platform?.implies_pc) patchData.requiresPc = true;
+      if (platform?.implies_microphone) patchData.requiresMicrophone = true;
+      if (platform?.implies_camera) patchData.requiresCamera = true;
+    }
+    patch(patchData);
+  };
+
+  const handleCommunicationPlatformChange = (value: string) => {
+    const patchData: Partial<TableEditorState> = { communicationPlatformId: value };
+    if (value && value !== 'custom') {
+      // Comunicação é identificada por id no select (optionValue="id").
+      const platform = communicationPlatforms.find((p) => p.id === value);
+      if (platform?.implies_pc) patchData.requiresPc = true;
+      if (platform?.implies_microphone) patchData.requiresMicrophone = true;
+      if (platform?.implies_camera) patchData.requiresCamera = true;
+    }
+    patch(patchData);
+  };
+
+  // T5.3 (spec 096, R3): o porquê da auto-marcação, DERIVADO em render das
+  // plataformas selecionadas — não é estado. A legenda ("Exigido por
+  // Foundry VTT") continua visível quando o mestre desmarca o requisito
+  // manualmente: a plataforma segue exigindo, quem mudou foi a escolha do
+  // mestre. Sem plataforma implicante selecionada → sem legenda.
+  const selectedVttPlatform = vttPlatforms.find(
+    (p) => p.slug === state.vttPlatformId || p.id === state.vttPlatformId,
+  );
+  const selectedCommunicationPlatform = communicationPlatforms.find(
+    (p) => p.id === state.communicationPlatformId,
+  );
+  // VttPlatform e CommunicationPlatform satisfazem CatalogPlatformOption
+  // estruturalmente — o array tipado evita o type predicate sobre a união.
+  const selectedCatalogPlatforms: CatalogPlatformOption[] = [];
+  if (selectedVttPlatform) selectedCatalogPlatforms.push(selectedVttPlatform);
+  if (selectedCommunicationPlatform) selectedCatalogPlatforms.push(selectedCommunicationPlatform);
+  const impliesPcNames = selectedCatalogPlatforms.filter((p) => p.implies_pc).map((p) => p.name);
+  const impliesCameraNames = selectedCatalogPlatforms
+    .filter((p) => p.implies_camera)
+    .map((p) => p.name);
+  const impliesMicrophoneNames = selectedCatalogPlatforms
+    .filter((p) => p.implies_microphone)
+    .map((p) => p.name);
+
   return (
     <div className="flex flex-col gap-3.5 max-w-[900px] h-full overflow-hidden">
       <EditorField
@@ -121,7 +175,7 @@ export function WherePart({ api }: WherePartProps) {
             customErrorMessage={errors.gamePlatformCustom}
             customPlaceholder="Ex: Teatro da Mente, Plataforma própria"
             emptyLabel="Selecione a plataforma"
-            onValueChange={(value) => patch({ vttPlatformId: value })}
+            onValueChange={handleVttPlatformChange}
             onCustomChange={(value) => patch({ gamePlatformCustom: value })}
             onFieldBlur={validateFieldOnBlur}
           />
@@ -142,40 +196,63 @@ export function WherePart({ api }: WherePartProps) {
             customErrorMessage={errors.communicationPlatformCustom}
             customPlaceholder="Ex: Discord da comunidade, TeamSpeak"
             emptyLabel="Selecione a plataforma"
-            onValueChange={(value) => patch({ communicationPlatformId: value })}
+            onValueChange={handleCommunicationPlatformChange}
             onCustomChange={(value) => patch({ communicationPlatformCustom: value })}
             onFieldBlur={validateFieldOnBlur}
           />
         </Panel>
       )}
 
-      {/* Requisitos técnicos em lista explícita, junto da plataforma (R21) —
-          auto-marcação por VTT é da Fase 5 (T5.3); aqui os checkboxes são
-          editáveis pelo mestre. */}
+      {/* Requisitos técnicos em lista explícita, junto da plataforma (R21).
+          Auto-marcação com o porquê (spec 096 R3/T5.3): os handlers de
+          seleção acima marcam o que a plataforma implica e a legenda abaixo
+          de cada checkbox explica de onde veio a marca — sempre derivada da
+          seleção atual, nunca estado. Os checkboxes continuam editáveis: o
+          mestre pode desmarcar e a escolha persiste até a próxima troca de
+          plataforma. */}
       <Panel tone="subtle">
         <p className="mb-2 font-semibold">Requisitos técnicos da mesa</p>
-        <div className="flex flex-wrap gap-2 items-center">
-          <ToggleButton
-            id="requires_pc"
-            pressed={state.requiresPc}
-            onToggle={(pressed) => patch({ requiresPc: pressed })}
-          >
-            Requer computador (não funciona em mobile)
-          </ToggleButton>
-          <ToggleButton
-            id="requires_camera"
-            pressed={state.requiresCamera}
-            onToggle={(pressed) => patch({ requiresCamera: pressed })}
-          >
-            Requer câmera ligada durante as sessões
-          </ToggleButton>
-          <ToggleButton
-            id="requires_microphone"
-            pressed={state.requiresMicrophone}
-            onToggle={(pressed) => patch({ requiresMicrophone: pressed })}
-          >
-            Requer microfone funcional
-          </ToggleButton>
+        <div className="flex flex-wrap gap-x-6 gap-y-2 items-start">
+          <div>
+            <ToggleButton
+              id="requires_pc"
+              pressed={state.requiresPc}
+              onToggle={(pressed) => patch({ requiresPc: pressed })}
+            >
+              Requer computador (não funciona em mobile)
+            </ToggleButton>
+            {impliesPcNames.length > 0 ? (
+              <p className="mt-1 text-xs opacity-75">Exigido por {impliesPcNames.join(', ')}.</p>
+            ) : null}
+          </div>
+          <div>
+            <ToggleButton
+              id="requires_camera"
+              pressed={state.requiresCamera}
+              onToggle={(pressed) => patch({ requiresCamera: pressed })}
+            >
+              Requer câmera ligada durante as sessões
+            </ToggleButton>
+            {impliesCameraNames.length > 0 ? (
+              <p className="mt-1 text-xs opacity-75">
+                Exigido por {impliesCameraNames.join(', ')}.
+              </p>
+            ) : null}
+          </div>
+          <div>
+            <ToggleButton
+              id="requires_microphone"
+              pressed={state.requiresMicrophone}
+              onToggle={(pressed) => patch({ requiresMicrophone: pressed })}
+            >
+              Requer microfone funcional
+            </ToggleButton>
+            {impliesMicrophoneNames.length > 0 ? (
+              <p className="mt-1 text-xs opacity-75">
+                Exigido por {impliesMicrophoneNames.join(', ')}.
+              </p>
+            ) : null}
+          </div>
         </div>
       </Panel>
 
@@ -223,6 +300,11 @@ export interface CatalogPlatformOption {
   id: string;
   name: string;
   slug?: string;
+  /** Requisitos implicados pela plataforma (migration_162, spec 096 R3):
+      alimentam a auto-marcação e a legenda do porquê (T5.3). */
+  implies_pc: boolean;
+  implies_microphone: boolean;
+  implies_camera: boolean;
 }
 
 /**

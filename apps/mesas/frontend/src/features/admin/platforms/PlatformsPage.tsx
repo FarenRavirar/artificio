@@ -12,6 +12,12 @@ interface PlatformBase {
   website_url: string | null;
   is_active: boolean;
   sort_order: number;
+  // Requisitos implicados (migration_162, spec 096 Fase 5): editáveis no
+  // CRUD porque as colunas vivem em tabela justamente por o admin já editar
+  // o catálogo (plan.md §Regras VTT → requisitos:486-487).
+  implies_pc: boolean;
+  implies_microphone: boolean;
+  implies_camera: boolean;
 }
 
 interface VttPlatform extends PlatformBase {
@@ -27,6 +33,9 @@ interface PlatformFormState {
   logo_filename: string;
   sort_order: string;
   is_active: boolean;
+  implies_pc: boolean;
+  implies_microphone: boolean;
+  implies_camera: boolean;
 }
 
 const DEFAULT_FORM: PlatformFormState = {
@@ -36,6 +45,9 @@ const DEFAULT_FORM: PlatformFormState = {
   logo_filename: '',
   sort_order: '0',
   is_active: true,
+  implies_pc: false,
+  implies_microphone: false,
+  implies_camera: false,
 };
 
 const getEndpoint = (kind: PlatformKind): string => (
@@ -138,6 +150,15 @@ export function PlatformsPage({ initialKind }: PlatformsPageProps) {
       logo_filename: isVttPlatform(item) ? (item.logo_filename || '') : '',
       sort_order: String(item.sort_order),
       is_active: item.is_active,
+      // `?? false` é normalização defensiva do JSON cru na fronteira do
+      // painel (o admin consome o fetch sem normalizador, diferente dos
+      // hooks públicos com schema zod): o contrato do GET /admin garante os
+      // flags — mesmo deploy do backend, mesma esteira de migrations
+      // (migration_162) — e o schema zod dos hooks os exige como boolean.
+      // O fallback só impede undefined de vazar para o checked do checkbox.
+      implies_pc: item.implies_pc ?? false,
+      implies_microphone: item.implies_microphone ?? false,
+      implies_camera: item.implies_camera ?? false,
     });
   };
 
@@ -158,6 +179,11 @@ export function PlatformsPage({ initialKind }: PlatformsPageProps) {
       sort_order: sortOrder,
       is_active: form.is_active,
       website_url: form.website_url.trim() || null,
+      // Requisitos implicados (spec 096 Fase 5): o backend valida boolean e
+      // aplica default false quando ausente.
+      implies_pc: form.implies_pc,
+      implies_microphone: form.implies_microphone,
+      implies_camera: form.implies_camera,
     };
 
     if (form.slug.trim()) {
@@ -338,6 +364,46 @@ export function PlatformsPage({ initialKind }: PlatformsPageProps) {
             Plataforma ativa
           </label>
 
+          {/* Requisitos implicados (spec 096 Fase 5): alimentam a
+              auto-marcação "com o porquê" no editor de anúncio (R3). O admin
+              edita os flags porque as colunas vivem em tabela (plan.md
+              §Regras VTT → requisitos:486-487). */}
+          <div className="space-y-2">
+            <p className="text-white/60 text-xs font-semibold">
+              Requisitos implicados (auto-marcação no editor de anúncio)
+            </p>
+            <label htmlFor="platform-implies-pc" className="flex items-center gap-2 text-white/80 text-sm">
+              <input
+                id="platform-implies-pc"
+                type="checkbox"
+                checked={form.implies_pc}
+                onChange={(e) => setForm((prev) => ({ ...prev, implies_pc: e.target.checked }))}
+                className="w-4 h-4"
+              />
+              Implica computador (não funciona em mobile)
+            </label>
+            <label htmlFor="platform-implies-microphone" className="flex items-center gap-2 text-white/80 text-sm">
+              <input
+                id="platform-implies-microphone"
+                type="checkbox"
+                checked={form.implies_microphone}
+                onChange={(e) => setForm((prev) => ({ ...prev, implies_microphone: e.target.checked }))}
+                className="w-4 h-4"
+              />
+              Implica microfone
+            </label>
+            <label htmlFor="platform-implies-camera" className="flex items-center gap-2 text-white/80 text-sm">
+              <input
+                id="platform-implies-camera"
+                type="checkbox"
+                checked={form.implies_camera}
+                onChange={(e) => setForm((prev) => ({ ...prev, implies_camera: e.target.checked }))}
+                className="w-4 h-4"
+              />
+              Implica câmera
+            </label>
+          </div>
+
           <div className="flex gap-2">
             <button
               onClick={handleSubmit}
@@ -387,6 +453,14 @@ export function PlatformsPage({ initialKind }: PlatformsPageProps) {
                     <p className="text-white/50 text-xs">
                       status: {item.is_active ? 'ativo' : 'inativo'}
                     </p>
+                    {/* Flags de requisitos (spec 096 Fase 5): linha discreta
+                        para o admin conferir o seed; some quando nenhum está
+                        marcado. */}
+                    {(item.implies_pc || item.implies_microphone || item.implies_camera) && (
+                      <p className="text-white/50 text-xs">
+                        requisitos: {[item.implies_pc && 'computador', item.implies_microphone && 'microfone', item.implies_camera && 'câmera'].filter(Boolean).join(', ')}
+                      </p>
+                    )}
                     {item.website_url && (
                       <p className="text-white/50 text-xs break-all">site: {item.website_url}</p>
                     )}

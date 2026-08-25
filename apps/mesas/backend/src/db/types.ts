@@ -615,6 +615,11 @@ export interface VttPlatformsTable {
   sort_order: Generated<number>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
+  // Requisitos implicados pela plataforma (migration_162, spec 096 R3):
+  // alimentam a auto-marcação "com o porquê" no editor de anúncio.
+  implies_pc: Generated<boolean>;
+  implies_microphone: Generated<boolean>;
+  implies_camera: Generated<boolean>;
 }
 
 export type VttPlatform = Selectable<VttPlatformsTable>;
@@ -642,6 +647,11 @@ export interface CommunicationPlatformsTable {
   sort_order: Generated<number>;
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
+  // Requisitos implicados pela plataforma (migration_162, spec 096 R3):
+  // alimentam a auto-marcação "com o porquê" no editor de anúncio.
+  implies_pc: Generated<boolean>;
+  implies_microphone: Generated<boolean>;
+  implies_camera: Generated<boolean>;
 }
 
 export type CommunicationPlatform = Selectable<CommunicationPlatformsTable>;

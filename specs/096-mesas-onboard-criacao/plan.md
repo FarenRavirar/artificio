@@ -117,23 +117,16 @@ Cadeia: `POST /api/v1/gm/parse-preview` (`gmPanel.ts:611-700`) → `parseTextFor
 | Produção (contexto): 107 mesas — 66 imported, 41 manual; 79 gratuita, 28 paga; 5 com `price_value_monthly`; 0 doações; 10 `vtt_platforms`; 0 `vtt_platform_suggestions` | queries `ssh faren docker exec mesas-db psql -U admin -d mesas_rpg` (read-only) |
 | **Achados novos da auditoria adversarial (fora do inventário anterior):** (1) `rules_notes` sem exibição pública — 53/107 não-nulos, **35 com conteúdo não-branco** (o número que vale: conteúdo não-branco, contra 53 não-nulos); (2) par `synopsis`×`synopsis_narrative` invertido — editor grava `synopsis`, "História" lê `synopsis_narrative` (0/107); (3) `gm_avatar_url` validado e descartado; (4) `slots_filled` lido em 3 lugares e escrito só pelo parser (painel/WhatsApp contam vagas erradas no manual); (5) `featured` sem escritor; (6) `gm_profiles` 20 colunas 0/39 × `preferred_vtt_platforms`/`contact_methods` 39/39 ignoradas; (7) `notifications.link` morta (0/66); (8) `imported_expires_at` fantasma no contrato do hydration; (9) família `system-suggestions` duplicada mesas×downloads (medido: mesma família de rotas nos dois apps); (10) learning store (37 regras vivas) fora do parse-preview |
 
-### Estado do working tree (colisão)
+### Estado de entrega (2026-08-25)
 
-- Branch atual: `fix/mesas-og-descricao-vazia` — diff **não commitado com DOIS donos**
-  (inventário completo, 2ª auditoria de 2026-08-24):
-  - **Frente OG:** `og.ts`, `syncHelpers.ts`, `parseDiscordAnnouncement.ts` (+teste),
-    `tableValidators.ts`, `MestrePage.tsx`, `ogDescription.ts` (**novo**),
-    `packages/content/*` (+`description.ts` **novo**), `publicShell.ts` (downloads),
-    `ogRoutes.ts` (glossario), `render.ts` (links).
-  - **Spec 096:** `packages/media/src/imageKinds.ts` (+teste) — R19/§Gap 10, autorizado, e
-    **entra no PRÓXIMO commit, junto com o diff OG** (decisão do mantenedor, 2026-08-24 —
-    **não** espera o 1º PR da spec).
-  - **Ambíguo, decidido ficar no OG:** o fix DDAL (`tableService.ts`,
-    `CreateTableForm.tsx`) — separar exigiria desfazer e refazer, com `--amend` proibido.
-- PR #283 (cobrança: avulso/mensal/doação) **já mergeado em `dev`** (`182d063`). Spec 094
-  também já mergeada (`006e721`).
-- Qualquer edição desta spec deve partir de `origin/dev` (regra de branch) — a frente OG
-  precisa ser commitada/mergida antes ou em paralelo, a coordenar com o mantenedor.
+- **Fase 4 merged em `dev`** (PR #286, `38f58f4`): 95 arquivos, +13.472 −5.792. O wizard
+  saiu, o editor unificado entrou. Falta o gate T4.9, o smoke visual do mantenedor e o
+  **deploy** — o editor ainda não está em produção.
+- A colisão de working tree de 24/08 (diff com dois donos: frente OG × spec 096) está
+  **resolvida** — a frente OG e o `imageKinds` foram commitados como decidido na época.
+- Mergeados antes desta fase: PR #283 (cobrança avulso/mensal/doação, `182d063`), spec
+  094 (`006e721`), PR #285 (perda de dado nas vagas).
+- Fases 5-7 não iniciadas. Qualquer branch nova parte de `origin/dev` atualizado.
 
 ## Pesquisa de mercado (Fase 2 — 2026-08-23)
 
@@ -441,10 +434,10 @@ central, podendo ter uma direção universal: onde é inserido em um, os outros 
 a mesma classe do dup de 560 linhas do `catalog-matching` (T7.1b): o pacote existe e o app
 reimplementa.
 
-### §Backend — `GET /systems` com `parent_id` (R18, Gap 9)
+### §Backend — `GET /systems` com `parent_id` e `id` (R18, Gap 9)
 
-Única mudança de servidor exigida pelo redesenho do seletor de sistema. Medido em
-2026-08-24:
+Mudanças de servidor exigidas pelo redesenho do seletor de sistema. Medido em
+2026-08-24 (o `id` entrou em 2026-08-25 — ver adiante):
 
 | Fato | Evidência |
 |---|---|
@@ -460,6 +453,20 @@ usado (incluindo `aliases`, que a resposta já traz populados).
 
 Aditivo — não muda contrato existente, não exige migration. Toca `docs/api/openapi/**`,
 então `pnpm verify:api` é obrigatório antes do commit.
+
+**`?id=` (acrescentado em 2026-08-25, PR #286).** O `parent_id` resolve a DESCIDA
+(escolher nível a nível), mas não a SUBIDA: ao abrir uma mesa já publicada, o editor
+precisa do nó que já está selecionado — `path_slug` para a elegibilidade DDAL, nome/logo
+para o selo do card, e a linhagem para o caminho visível que o R18 exige ("o caminho
+escolhido sempre visível"). `search` casa nome, slug, `path_slug` e alias, **nunca id**
+(`catalogClient.ts:filterCatalogTree`), e `GET /systems/:id` continua 404. Sem o filtro
+por id o editor caía no `?view=tree` — os 503.907 bytes que o A21 proíbe textualmente.
+
+Aceita um id ou vários (`?id=a,b` ou `?id=a&id=b`); id desconhecido sai da resposta em
+vez de virar erro. Implementado sobre o MESMO `loadFlat()` da interface compartilhada,
+então vale no `centralProvider` (produção) e no `localProvider` (beta/dev), como o
+`parent_id`. **Isto diverge da frase "única mudança de backend deste gap" no R18** — o
+texto do requisito precisa acompanhar, e alterá-lo é call do mantenedor.
 
 ### §Backend — payload e parser
 

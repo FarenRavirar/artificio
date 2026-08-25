@@ -226,118 +226,85 @@ correção de dado — sem pacote compartilhado, sem aprovação nominal pendent
       `verify:api` exit 0 (breaking=0). PR #285 aberta e **mergeada** em `dev`
       (`5da15b3`).
 
-## Fase 4 — Editor de anúncio (frontend) · PR próprio — EM ANDAMENTO (2026-08-24)
+## Fase 4 — Editor de anúncio (frontend) · PR próprio — MERGED (PR #286, 2026-08-25)
 
-**Estado:** Ondas 1 e 2 concluídas, seguidas de duas rodadas de revisão adversarial
-(docs→código e bugs/duplicação/normalização) e duas ondas corretivas — ver a nota de
-auditoria abaixo. Onda 1: backend (T4.0h-ter, T4.0p2, T4.0r, T4.7-backend), pacote
-`catalog-ui` (T4.0h-bis) e esqueleto do editor no frontend (`features/table-editor/`).
-Onda 2: consumo do seletor de 3 colunas (T4.0h-bis), legenda do banner (T4.0t-bis),
-card "Horário Personalizado" (T4.0u), identidade do mestre (T4.0p/p2/q/r), prévia do
-card (T4.2b), instrumentação (T4.0i), tela "minhas sugestões" (T4.0k), fechamento do
-`catalog-matching` (T4.0g), migração do CSS e remoção do form antigo (T4.8). Restam:
-conferência formal de gate (T4.9), validação final + PR (T4.10) e smoke visual do
-mantenedor (A1/A2/A10 runtime).
+**Estado:** entregue em `dev` (`38f58f4`). Delta da fase: **95 arquivos, +13.472
+−5.792**. O wizard de 6 etapas saiu (`CreateTableForm`, `useStepNavigation`,
+`form-steps/*`, mappers e validação — T4.8) e o editor unificado
+(`features/table-editor/`) ficou no lugar, com criar e editar na MESMA tela.
+Abertos: **T4.9** (gate formal de releitura) e **T4.10** (smoke visual do
+mantenedor — A1/A2/A10 em runtime), ambos abaixo.
 
 **Regra de processo do mantenedor (2026-08-24):** agregar arquivos de código na
-faixa ~300-700 linhas (nada de arquivo novo pequeno espalhado — o esqueleto foi
-consolidado de 24 para 15 arquivos); testes só DEPOIS do desenho estabilizar (não
-criar teste para arquivo que será refeito). Todo estado abaixo foi verificado
-contra o código (o 3º subagente foi cancelado — sem relatório dele).
-
-**Testes da onda 1 concluídos (2026-08-24):** 89/89 em 4 arquivos do editor —
-`editorValidation.test.ts` (31), `editorMapping.test.ts` (35, entrada+saída),
-`useTableEditor.test.tsx` (11, publish/autosave/restauração), `TableEditor.test.tsx`
-(12, casca/navegação/A4/A15). Correções que os testes revelaram: import `DraftStatus`
-com caminho errado no TableEditor (1 linha) e 7 chamadas a `setEditingTableId`
-remanescentes no PainelMestrePage (estado redundante removido).
+faixa ~300-700 linhas (nada de arquivo novo pequeno espalhado); testes só DEPOIS
+do desenho estabilizar (não criar teste para arquivo que será refeito).
 
 **Normalizadores/helpers (regra do mantenedor, 2026-08-24 — vale em TODAS as fases e
 tasks):** toda task de código cita QUAL normalizador/helper existente usou — nunca
 criar versão local do que o repo já tem. Inventário: `@artificio/media/image-kinds`
 (`normalizeImageFrame`, `imageKindHint`), `utils/ageRating` (`normalizeAgeRating`),
 `utils/safeExternalUrl` (`validateContactValue`), `table-editor/utils/editorMapping`
-(`normalizePriceType` — subiu do mapper antigo na T4.8, junto com os comentários de
-auditoria), `@artificio/catalog-matching`
-(`normalizeSettingStyles`). Medição do editor (onda 2): editorMapping usa
-`normalizeImageFrame` + `normalizeAgeRating` + `normalizePriceType` +
-`normalizeSettingStyles`; editorValidation usa `validateContactValue` +
-`normalizePriceType`; `normalizeFrequency` é helper local de 3 linhas sem equivalente
-compartilhado. **`catalog-matching` consumido (onda 2 — T4.0g fechado):** `setting_styles`
-é lido com `normalizeSettingStyles` do pacote, que preserva e deduplica — nunca
-descarta; o backend já normalizava na escrita (medido).
+(`normalizePriceType`), `@artificio/catalog-matching` (`normalizeSettingStyles`).
+`normalizeFrequency` é helper local de 3 linhas sem equivalente compartilhado.
 
-**CSS do editor (migrado na onda 2 — achado do mantenedor de 2026-08-24):**
-`TableEditor.css` caiu de ~354 para **89 linhas**, permanecendo só a casca imersiva
-(fixed/`100dvh`/grid de 3 faixas/coluna de 212px/`min(900px,100%)`), que nenhum pacote
-fornece. As regras utilitárias (flex/gap/padding/fonte/largura) viraram classes
-Tailwind no markup; as reestilizações de primitives (`.artificio-field`/
-`.artificio-control` 206px, campo de 120px) migraram por **markup com `!important`
-medido e justificado** (Baymard 206px/120px) — sem reestilização local de primitive.
+**Padrões do código novo (auditados em 2026-08-24, mantidos até o merge):**
+primitives de `@artificio/ui` nos controles; tokens `var(--*)` (sem hex fixo);
+`authenticatedFetch` em toda escrita; `ContentEditor` do pacote (não o
+`MarkdownEditor` adaptador legado); ícones lucide-react. **Regra para as próximas
+fases:** antes de criar helper/fetch/estilo local, verificar o hook/pacote/utilitário
+existente — reimplementar padrão existente é o desvio.
 
-**Auditoria de padrões do código novo (2026-08-24 — preocupação do mantenedor: aderência
-aos padrões, não só funcionamento).** Conforme: primitives de `@artificio/ui` nos
-controles; tokens `var(--*)` do pacote (sem hex fixo); `authenticatedFetch`
-(`authPost`/`authPut`/`authPatch`) em toda escrita; `fetch` cru SÓ em rotas públicas
-(sistemas/cenários — mesmo precedente de `useVttPlatforms`); ícones e convenções de
-acessibilidade. **Desvios encontrados e CORRIGIDOS nesta rodada:**
-- `TableEditor` reimplementava o fetch/normalização/flatten de sistemas quando o repo
-  JÁ tem `hooks/useSystemsCatalog` — trocado pelo hook compartilhado
-  (`CatalogoPage`/`OnboardingPage` usam o mesmo);
-- as parts usavam o `MarkdownEditor` local, que é **adaptador temporário legado** do
-  `@artificio/content-editor` — código novo agora importa o `ContentEditor` do pacote
-  direto (IdentityPart/ExtrasPart/ValuesPart);
-- "← Voltar" com seta de texto → ícone `ArrowLeft` do lucide-react (padrão do app).
-Regra para as próximas ondas: antes de criar helper/fetch/estilo local, verificar o
-hook/pacote/utilitário existente — reimplementar padrão existente é o desvio.
-**Segunda varredura (mesma sessão) — mais desvios achados e corrigidos:**
-- `parsePriceValue`/`parseClearablePriceValue` estavam **copiados** no editorMapping
-  (função + comentários de auditoria NaN→null duplicados do mapper antigo) → agora
-  exportados do mapper antigo e importados (fonte única; migram para `editorMapping`
-  na T4.8, junto com os normalizadores de preço);
-- `getPartIndex` export morto no TableEditor → removido;
-- **limites do editor mais lenientes que o backend** (causaria 400 no submit):
-  `notes` de sessão (backend 500, editor sem limite — 2 editores) e `city` (backend
-  100, editor sem limite) → `maxLength` adicionados; conferido o resto do contrato
-  (description 5000, rules_notes 2000, billing 500, technical 1000, bio 2000, title
-  200 — editor = backend);
-- `textLimitError`/`titleError`/`descriptionError` recalculavam o excesso → agora
-  usam `contentOverflow` do `@artificio/content-editor`.
-**Revisão adversarial (onda 2) — 2 revisores (docs→código e bugs/duplicação/normalização),
-aprovado com ressalvas; correções aplicadas e testadas:**
-- **C1 (race autosave×publish):** timer de autosave pendente fazia `POST` concorrente
-  ao publish → mesa duplicada. Corrigido com `publishingRef` + `cancelPendingAutosave`
-  + flag `active`; teste com fake timers.
-- **C2 (rascunho local contaminando criação):** dado de edição vazava para uma criação
-  nova — autosave local desabilitado em `isEditing`; `clearDraft` cancela timers (evita
-  ghost pós-publish).
-- **C3 (parse_case_id reenviado):** o id era mandado a cada autosave remoto — agora só
-  no payload do publish (`includeParseCaseId`).
-- **B1 (restauração sem validação de shape):** rascunho inválido crashava o publish —
-  `isValidDraftState` valida arrays/objetos/elementos; inválido → warn + clear.
-- **B2/B3 (sem normalização):** `next_schedule` e `useVttPlatforms` não normalizavam —
-  guard no card + zod no hook.
-- **A3 (obrigatórios duplicados):** `REQUIRED_FIELDS_FOR_PROGRESS` × `REQUIRED_FIELD_IDS`
-  unificados — `isFieldFilled` derivada em `editorValidation`.
-- **D5 (city/state presos ao trocar para online):** limpos em `handleModalityChange`.
-- **D7 (limites nos contatos):** `maxLength` value 500 / label 100 / discord 500.
-- **A4 (DDAL espelhado front/back):** `DDAL_ELIGIBLE_PATHS` com comentário cruzado entre
-  as duas camadas (já em `origin/dev`).
-- **A2 (validação do Discord):** já delegava a `safeExternalUrl` — medido, sem
-  reimplementação.
-**Validação final das rodadas corretivas:** front `tsc -p tsconfig.test.json` 0 erros;
-backend `tsc` 0; suítes pontuais 179/179 (onda 1) e 76/76 (onda 2); eslint 0;
-`verify:api` exit 0 (breaking=0, rodado pelo orquestrador).
-**Achados laterais em aberto para o mantenedor (não são do editor):**
+**CSS do editor:** `TableEditor.css` em **89 linhas** — só a casca imersiva
+(fixed/`100dvh`/grid de 3 faixas/`min(900px,100%)`), que nenhum pacote fornece. O
+resto é Tailwind no markup; as reestilizações de primitives migraram por markup com
+`!important` medido e justificado (Baymard 206px/120px).
+
+**Revisões da PR #286 (4 rodadas: Codex, CodeRabbit, Sonar, CI).** O que os bots
+acharam e foi corrigido, agrupado por consequência — o detalhe de cada decisão vive
+no comentário do próprio código:
+- **Mesa duplicada em duas corridas distintas.** O id do POST não era guardado
+  (falha no PATCH de promoção → segundo POST) e o guard de desmonte descartava o id
+  de uma mesa que o servidor JÁ tinha criado. Hoje o id vai para o ref antes de
+  qualquer guard e a criação é serializada numa promessa compartilhada.
+- **Publicação pulando a âncora de arquivamento.** O `POST /gm/tables` aceitava
+  `status`, permitindo publicar sem passar pelo `PATCH /status` — único caminho que
+  grava `published_at`. Sem a âncora, `COALESCE(published_at, created_at)` arquivava
+  precocemente mesa que ficou dias em rascunho. `status` saiu do schema de create.
+- **`?view=tree` no editor (descumpria o A21).** T4.0h-bis fechou dizendo "consumo no
+  editor completo", mas o `useSystemsCatalog` seguia baixando os **503.907 bytes** por
+  abertura (§Gap 9, causa 2). Corrigido: `GET /systems` ganhou `?id=` e o editor busca
+  só o nó selecionado. Ver a nota de contrato em T4.0h-ter.
+- **Parser inacessível para mestre novo.** `POST /gm/parse-preview` exigia
+  `gm_profiles`, mas o perfil só nasce no primeiro publish (T4.0p2) — "Colar anúncio"
+  respondia 403 justamente para quem ia preencher o formulário. Gate removido (o
+  parser não escreve mesa; a checagem segue no `POST /gm/tables`).
+- **Prévia do parser apagando o formulário.** Aplicar a prévia substituía o estado
+  inteiro, e `mapApiToEditorState` preenche TODA chave — inclusive defaults
+  não-vazios. Hoje a extração é detectada por sondagem da fonte crua
+  (`utils/previewMerge.ts`).
+- **Dado de fronteira sem normalização:** `"[object Object]"` entrando no estado e
+  sendo reenviado no PUT; `channel` fora do enum; `end_time` não-string; contato/
+  schedule corrompidos no rascunho local; `formatWhatsAppDisplay` inventando telefone
+  para texto com letra (encerra o achado lateral que estava aberto aqui).
+- **Acessibilidade:** 9 campos DDAL e 3 de horário com `htmlFor` apontando para id
+  inexistente (leitor de tela não anunciava rótulo); `role="progressbar"` duplicando
+  anúncio; rodapé de pendências como `<output>`.
+- **Seletor de catálogo:** abort controllers separados por coluna (o de variante
+  abortava o de edição e travava "Carregando edições…"); normalização recursiva;
+  caminho remoto e `navPath` amarrados ao `selectedId` atual; DDAL não desmarca por
+  falha de rede.
+
+**Validação no merge:** `verify:api` exit 0 (breaking=0 nos 6 apps); `tsc -b` e
+`eslint .` limpos em `mesas-frontend`, `mesas-backend` e `catalog-ui`; suítes
+pontuais 178/178 (`table-editor`), 31/31 (`catalog-ui`), 127/127 (backend mesas).
+
+**Achados laterais ainda em aberto (não são do editor):**
 - `services/apiClient.ts` × `utils/authenticatedFetch.ts` são dois wrappers HTTP/auth
   no repo (retry/dedup/refreshSession em ambos); o editor usa `authenticatedFetch`,
   consistente com o fluxo antigo que substitui — unificar é decisão do mantenedor.
-- `formatWhatsAppDisplay` (`utils/safeExternalUrl`) exibe número internacional errado:
-  `+1415...` vira `(14) 15555-2671` — o link do WhatsApp sai correto, o **display é
-  inventado** para número fora do padrão BR. Correção é decisão do mantenedor.
-- **Janela de deploy:** o form antigo (`CreateTableForm`) segue em produção até a
-  Fase 4 ser deployada; o backend novo já aceita os dois fluxos — sem janela de
-  quebra, mas a remoção do form antigo só chega à prod junto do deploy da Fase 4.
+- **Janela de deploy:** o editor está em `dev`, não em produção. O form antigo já não
+  existe no código, então o deploy da Fase 4 é o que leva o editor à prod — sem janela
+  de quebra (o backend aceita os dois fluxos desde a onda 1).
 
 - [x] T4.0 — **Cruzar a tabela de paridade** (`plan.md` §Frontend — paridade de features)
       linha a linha antes de escrever. Feature não migrada = task reaberta. · A12
@@ -493,8 +460,7 @@ backend `tsc` 0; suítes pontuais 179/179 (onda 1) e 76/76 (onda 2); eslint 0;
       D0.5, vale também no `CatalogSystemPopover`); teste do popover atualizado. Demais
       consumidores (`SystemPicker`, `ScenarioSelector`, `DraftEditorTab`, admin, catálogo)
       mantêm o empilhamento. 29/29 testes do pacote.
-- [x] T4.0h-ter — **`GET /systems` aceita `parent_id`** (R18, A21) — **única mudança de
-      backend do Gap 9**. Medido: a rota só aceita `view`/`search`/`limit`/`cursor`
+- [x] T4.0h-ter — **`GET /systems` aceita `parent_id` e `id`** (R18, A21). Medido: a rota só aceita `view`/`search`/`limit`/`cursor`
       (`systems.ts:28-35`); a busca devolve `has_children: true` com `children: []`
       (`?search=vampire&limit=3` → "Buffy the Vampire Slayer", `children_count: 1`,
       `children: []`); e `GET /systems/:id` responde **404** (só existem `/health`, `/` e
@@ -510,6 +476,15 @@ backend `tsc` 0; suítes pontuais 179/179 (onda 1) e 76/76 (onda 2); eslint 0;
       três colunas com busca por nível entra como **variante de apresentação**, preservando o
       empilhamento dos demais consumidores (R13/R18/A21). Edição de pacote autorizada por
       escopo desde 2026-08-24.
+      **`?id=` acrescentado em 2026-08-25 — DIVERGE do R18, que diz "única mudança de
+      backend deste gap" (só o `parent_id`).** Sem ele não há como cumprir o A21: ao abrir
+      uma mesa publicada, o editor precisa do nó JÁ selecionado (`path_slug` do DDAL,
+      nome/logo do card, caminho visível), e `search` casa nome/slug/path_slug/alias mas
+      **nunca id** (`catalogClient.ts:filterCatalogTree`). A alternativa medida era manter
+      o `?view=tree` (503.907 bytes por abertura), que o A21 proíbe textualmente. Aditivo,
+      sem migration, sobre o MESMO `loadFlat()` da interface compartilhada — vale nas duas
+      fontes, como o `parent_id`. **A frase do R18 precisa acompanhar** (a alteração do
+      texto do requisito não foi feita: é call do mantenedor).
       **Encerrada a pendência do `plan.md`** ("conferir se a rota devolve `aliases`"):
       devolve populado — medido `"aliases":["The Masquerade","Vampiro","VtM"]` na resposta
       real; 199 sistemas têm alias. A busca por apelido funciona.
@@ -699,23 +674,60 @@ backend `tsc` 0; suítes pontuais 179/179 (onda 1) e 76/76 (onda 2); eslint 0;
       6 features (autosave, modal de rascunho, `beforeunload`, Covil admin-only, DDAL
       condicional, contatos multi-canal) porque a tabela foi montada por grep — aqui se
       confere contra o arquivo, não contra a memória.
-- [ ] T4.10 — Validação do pacote afetado; PR contra `dev`.
-      **Nota de validação (medido 2026-08-24):** no frontend do mesas,
-      `tsc -p tsconfig.json --noEmit` é FALSO VERDE (project references, checa 0
-      arquivos) — o type-check real é `npx tsc -p tsconfig.test.json --noEmit`.
-      **Estado:** não iniciada (só depois de T4.8 + T4.9).
+      **Estado: NÃO executada — a PR #286 foi merged sem este gate.** A conferência
+      informal aconteceu (as revisões dos bots encontraram o A21 descumprido em task já
+      marcada `[x]`, exatamente o tipo de furo que este gate existe para pegar), mas a
+      releitura requisito a requisito contra o arquivo não foi feita. Continua devida
+      antes do deploy da fase.
+- [x] T4.10 — Validação do pacote afetado; PR contra `dev`.
+      **Feito:** PR #286 merged em 2026-08-25 (`38f58f4`), após 4 rodadas de revisão
+      (Codex, CodeRabbit, Sonar, CI) — achados e correções no bloco de estado da fase.
+      **Nota de validação (medido 2026-08-24, confirmado no CI de 25/08):** no frontend
+      do mesas, `tsc -p tsconfig.json --noEmit` é FALSO VERDE (project references, checa
+      0 arquivos) e **também não aplica `noUnusedLocals`** — foi assim que 3 imports
+      órfãos passaram por validação local e quebraram o build no CI. O type-check real é
+      `npx tsc -b` (o mesmo que o CI roda); `tsconfig.test.json` cobre os testes.
+      **Pendente:** smoke visual do mantenedor (A1/A2/A10 em runtime) — não é
+      verificável por comando.
 
-## Fase 5 — Regras VTT → requisitos · PR próprio
+## Fase 5 — Regras VTT → requisitos · PR próprio — IMPLEMENTADA (aguardando commit)
 
-- [ ] T5.1 — Migration `online-safe` **única**: `implies_pc`/`implies_microphone`/
-      `implies_camera` em `vtt_platforms` **e** `communication_platforms`, com seed
-      (Foundry/Roll20/Fantasy Grounds → PC; Discord/Teams → mic; Meet/Zoom → mic+câmera).
-      Header de 5 campos conferido contra o vizinho verde mais recente.
-- [ ] T5.2 — Expor as colunas nas rotas de catálogo; consumir no editor.
-- [ ] T5.3 — Auto-marcação **com o porquê ao lado** do requisito; mestre pode desmarcar.
-      Requisito e plataforma na mesma parte. · R3
-- [ ] T5.4 — 🔁 **GATE DE FASE** — reler `spec.md` §Gap 2 e R3.
-- [ ] T5.5 — Validação + `pnpm verify:api`; PR contra `dev`.
+**Estado:** implementada e validada; **nada commitado ainda** — PR contra `dev`
+pendente de autorização de commit do mantenedor. Delta da fase: **15 arquivos
+modificados (+848/−228) + 4 novos** (inclui docs de spec de sessão anterior e
+artefatos `docs/api/generated/*` regenerados). Validação: `tsc` backend+frontend
+verdes (incl. `tsc -b`), `vitest` 31/31 (apiEnvelope + hooks + WherePart), ESLint
+limpo nos arquivos alterados, `rtk pnpm verify:api` exit 0 com breaking=0. Revisão
+adversarial APROVADA — os 2 achados menores foram corrigidos a pedido do mantenedor
+(helper `apiEnvelope` compartilhado nos 3 hooks de catálogo; comentário do `?? false`
+do painel alinhado ao contrato). **Pendência:** smoke visual do mantenedor
+(auto-marcação com o porquê em runtime) — não verificável por comando.
+
+- [x] T5.1 — Migration `online-safe` **única**: `implies_pc`/`implies_microphone`/
+      `implies_camera BOOLEAN NOT NULL DEFAULT false` em `vtt_platforms` **e**
+      `communication_platforms` (`migration_162_vtt_implies_requirements.sql`),
+      com seed (Foundry/Roll20/Fantasy Grounds Unity → PC; Discord/Teams → mic;
+      Meet/Zoom → mic+câmera). Header de 5 campos conferido contra o vizinho verde
+      mais recente; idempotente.
+- [x] T5.2 — Colunas expostas nas rotas de catálogo: públicas e `/admin`
+      (GET/POST/PUT) das duas plataformas expõem/validam/persistem os flags;
+      validação `typeof boolean` → 400 antes de escrita. Frontend consumiu no
+      editor via hooks tipados com zod (comunicação ganhou normalização que
+      faltava).
+- [x] T5.3 — Auto-marcação **com o porquê ao lado** do requisito; mestre pode
+      desmarcar. `WherePart` auto-marca só na troca de seleção, com legenda
+      derivada "Exigido por X"; requisito e plataforma na mesma parte. `PlatformsPage`
+      com 3 checkboxes admin. · R3
+- [x] T5.4 — 🔁 **GATE DE FASE** — releitura de `spec.md` §Gap 2 e R3 concluída;
+      revisão adversarial APROVADA (2 achados menores, corrigidos).
+- [ ] T5.5 — **PARCIAL** — Validação + `rtk pnpm verify:api` **concluídos**; **PR contra
+      `dev` pendente de autorização de commit** — nada commitado ainda.
+
+**Complemento decidido pelo mantenedor (premissa do `plan.md`:486-487):** o CRUD
+admin edita os flags `implies_*`.
+
+**Achado lateral corrigido:** validação de `is_active` no PUT de comunicação
+alinhada ao VTT.
 
 ## Fase 6 — Parser · PR próprio
 
