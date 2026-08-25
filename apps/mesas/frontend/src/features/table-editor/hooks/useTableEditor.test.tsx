@@ -1123,7 +1123,11 @@ describe('perfil do mestre — criação no primeiro publish (T4.0p2)', () => {
   it('criação sem corpo legível ainda publica — o perfil FOI criado (res.ok)', async () => {
     mockAuthPost.mockImplementation((url: string) =>
       url === '/api/v1/gm/profile'
-        ? ({ ok: true, status: 201, json: () => Promise.reject(new Error('sem corpo')) } as unknown as Response)
+        ? Promise.resolve({
+            ok: true,
+            status: 201,
+            json: () => Promise.reject(new Error('sem corpo')),
+          } as unknown as Response)
         : okResponse({ data: { id: 't-1' } }),
     );
     mockAuthPatch.mockImplementation(() => okResponse());
