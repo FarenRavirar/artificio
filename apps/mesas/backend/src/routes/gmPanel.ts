@@ -207,6 +207,7 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
     closed_group_systems,
     closed_group_description,
     closed_group_min_price_cents,
+    contact_methods,
   } = req.body;
 
   if (!slug || typeof slug !== 'string' || !/^[a-z0-9-]+$/.test(slug)) {
@@ -215,6 +216,35 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
 
   if (!nickname || typeof nickname !== 'string' || nickname.trim().length < 2 || nickname.trim().length > 40) {
     return res.status(400).json({ error: 'Nickname inválido. Use entre 2 e 40 caracteres.' });
+  }
+
+  // T4.0p2 (spec 096, R12): o perfil nasce DENTRO do editor, junto com a
+  // mesa — o POST passa a aceitar contact_methods com o MESMO schema do PUT
+  // (formato único: {channel, value, label, discord_server_url}). Antes,
+  // criar com contatos exigia uma segunda escrita (PUT), e a falha dela
+  // deixava o perfil pela metade. Compatibilidade de transporte idem PUT:
+  // JSON-string de array é aceita (hotfix D3/D8), todo payload inválido
+  // rejeita a operação inteira.
+  let parsedContactMethods = contact_methods;
+  if (typeof contact_methods === 'string') {
+    try {
+      parsedContactMethods = JSON.parse(contact_methods);
+    } catch {
+      return res.status(400).json({ error: 'contact_methods deve ser um array JSON válido.' });
+    }
+  }
+
+  let safeContactMethods: ReturnType<typeof contactMethodsSchema.parse> | undefined;
+  if (contact_methods !== undefined) {
+    const validation = contactMethodsSchema.safeParse(parsedContactMethods);
+    if (!validation.success) {
+      const firstError = validation.error.issues[0];
+      return res.status(400).json({
+        error: firstError.message,
+        field: ['contact_methods', ...firstError.path].join('.'),
+      });
+    }
+    safeContactMethods = validation.data;
   }
 
   const safeLanguages = Array.isArray(languages) ? languages.filter(v => typeof v === 'string') : [];
@@ -269,6 +299,9 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
         closed_group_systems: safeClosedGroupSystems,
         closed_group_description: safeClosedGroupDescription,
         closed_group_min_price_cents: safeClosedGroupMinPriceCents,
+        // undefined preserva o DEFAULT '[]' da coluna (gm_profiles.contact_methods,
+        // migration_112) quando o chamador não envia contatos.
+        contact_methods: safeContactMethods === undefined ? undefined : JSON.stringify(safeContactMethods),
       })
       .returning([
         'id',
@@ -293,6 +326,7 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
         'closed_group_systems',
         'closed_group_description',
         'closed_group_min_price_cents',
+        'contact_methods',
         'created_at',
       ])
       .execute();
@@ -309,6 +343,10 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
         ...gmProfile,
         bio_long: sanitizeNullableUserMarkdown(gmProfile.bio_long),
         closed_group_description: sanitizeNullableUserMarkdown(gmProfile.closed_group_description),
+        // Mesma serialização de leitura do GET /gm/me: canais canonicalizados
+        // (o que o POST gravou já passou pelo schema, mas a leitura responde
+        // no formato que o editor consome de uma vez só).
+        contact_methods: serializeContactMethods(gmProfile.contact_methods),
       },
     });
   } catch (error) {

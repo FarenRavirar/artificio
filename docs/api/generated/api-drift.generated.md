@@ -10,11 +10,11 @@
 
 | Estado | Quantidade | Bloqueia? |
 |--------|-----------|:---------:|
-| ✅ OK | 199 | ❌ |
+| ✅ OK | 200 | ❌ |
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 5 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
-| 🕳️ UNUSED_ROUTE | 174 | ❌ |
+| 🕳️ UNUSED_ROUTE | 173 | ❌ |
 | 👻 ORPHAN_SUSPECT | 66 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
@@ -442,7 +442,7 @@
 | POST | `/api/v1/upload` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/upload/url` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/api/v1/vtt-platforms/admin` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| POST | `/api/v1/vtt-platforms/suggest` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| POST | `/api/v1/vtt-platforms/suggest` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | POST | `/auth/discord/verify-covil` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | POST | `/auth/logout` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | PUT | `/api/v1/admin/discord/settings/bot-token` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |

@@ -4,8 +4,13 @@ import { isValidEmail } from '../utils/validation.js';
 import {
   canonicalizeContactValue,
   canonicalizeDiscordInviteUrl,
-  PROFILE_CONTACT_CHANNELS,
+  CONTACT_CHANNELS,
 } from '../utils/contactUrls.js';
+
+// Re-export do enum de canal canônico: a lista mora em contactUrls.ts (junto
+// do serializer e do canonicalizador, que a consomem), mas o export histórico
+// deste arquivo é preservado para quem já importava daqui.
+export { CONTACT_CHANNELS } from '../utils/contactUrls.js';
 
 // ============================================================================
 // ENUMS E CONSTANTES
@@ -28,10 +33,15 @@ export const EXPERIENCE_LEVELS = ['todos', 'iniciante', 'intermediario', 'vetera
 // espelha a mesma lista.
 export const TABLE_LEVELS = ['iniciante', 'intermediario', 'avancado', 'todos'] as const;
 export const PUBLISHER_ROLES = ['gm', 'announcer'] as const;
-export const CONTACT_CHANNELS = ['whatsapp', 'discord', 'phone', 'email', 'facebook', 'instagram', 'form'] as const;
 export const DAYS_OF_WEEK = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'] as const;
 export const SCHEDULE_FREQUENCIES = ['semanal', 'quinzenal', 'mensal', 'avulsa'] as const;
 export const SCHEDULE_DEFINITION_STATUSES = ['defined', 'to_define'] as const;
+
+// Valores reais do ENUM Postgres `table_status` (medido em produção via
+// pg_enum: draft|active|full|cancelled|ended|pending_review — mesmo conjunto
+// de db/types.ts TableStatus). Fonte única para o payload de create
+// (T4.7, spec 096): a mesa nasce 'draft' e entra no catálogo só ao publicar.
+export const TABLE_STATUSES = ['draft', 'active', 'full', 'cancelled', 'ended', 'pending_review'] as const;
 
 // ============================================================================
 // SCHEMAS DE VALIDAÇÃO
@@ -92,17 +102,12 @@ export const contactSchema = z.object({
   };
 });
 
-export const contactMethodsSchema = z.array(contactSchema).superRefine((contacts, ctx) => {
-  contacts.forEach((contact, index) => {
-    if (!PROFILE_CONTACT_CHANNELS.has(contact.channel)) {
-      ctx.addIssue({
-        code: 'custom',
-        path: [index, 'channel'],
-        message: 'Canal não suportado no perfil do mestre',
-      });
-    }
-  });
-});
+export const contactMethodsSchema = z.array(contactSchema);
+// Nota (T4.0r, spec 096 R12): o refine "restringe perfil aos 4 canais" que
+// vivia aqui virou tautologia — `contactSchema.channel` já é
+// `z.enum(CONTACT_CHANNELS)` (os 7), e PROFILE_CONTACT_CHANNELS passou a ser
+// o MESMO conjunto (decisão 2026-08-24: os 7 valem nos dois lados). Um refine
+// que nunca dispara era validação morta que sugeria restrição inexistente.
 
 const scheduleSchema = z.object({
   day_of_week: z.enum(DAYS_OF_WEEK),
@@ -367,9 +372,20 @@ export const pricingConsistencySchema = withPricingRules(
   }),
 );
 
+// T4.7 (spec 096): o CREATE aceita `status` explícito com o enum real da
+// coluna (medido via pg_enum em produção). Omitido → a mesa nasce 'draft'
+// (prepareTableData aplica o default real da coluna: DEFAULT 'draft').
+// O PUT NÃO aceita `status` de propósito: promoção/publicação é contrato do
+// PATCH /tables/:id/status, que grava a âncora published_at, notifica admins
+// e dispara o scrape de OG — promover via PUT pularia essa cadeia e deixaria
+// a mesa publicada sem âncora de auto-arquivamento (COALESCE cairia em
+// created_at, arquivando precocemente mesa que ficou dias em rascunho).
+const createTableObjectSchema = baseTableSchema
+  .extend({ status: z.enum(TABLE_STATUSES).optional() })
+  .strict();
+
 export const createTableSchema = withPricingRules(
-  baseTableSchema
-    .strict()
+  createTableObjectSchema
     .refine((data) => !!data.system_id, { 
       message: 'Sistema é obrigatório', 
       path: ['system_id'] 

@@ -1,24 +1,26 @@
 import { useEffect, useState } from 'react';
-import type { FormEvent, InputHTMLAttributes } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { PlusCircle, ChevronRight, MapPin, Sparkles, PencilLine } from 'lucide-react';
+import { PlusCircle, MapPin, Sparkles, PencilLine, Lightbulb } from 'lucide-react';
 import { useAuth } from '../contexts/useAuth';
-import { useConfirm } from '@artificio/ui';
+import { useConfirm, Badge, Button, Panel } from '@artificio/ui';
 import toast from 'react-hot-toast';
-import { authGet, authPost, authPut, authPatch, authDelete } from '../services/apiClient';
-import type { TableContact } from '../types/tables';
+import { authGet, authPut, authPatch, authDelete } from '../services/apiClient';
+import type { TableContact, TableContactChannel } from '../types/tables';
 import { TableCardDashboard } from '../components/TableCardDashboard';
+import { InlineDeleteConfirmation } from '../components/InlineDeleteConfirmation';
 import { LinksManager } from '../components/LinksManager';
 import { HelpCenter } from '../components/HelpCenter';
 import { VttPlatformsEditor } from '../components/mestre/VttPlatformsEditor';
 import { ContactMethodsEditor } from '../components/mestre/ContactMethodsEditor';
 import { GmInsightsDashboard } from '../components/mestre/GmInsightsDashboard';
-// Componente refatorado
-import { CreateTableForm } from '../features/create-table/components/CreateTableForm';
-import { ParsePreviewTextArea } from '../features/create-table/components/ParsePreviewTextArea';
-import { draftStorage } from '../features/create-table/utils/draftStorage';
-import { MarkdownEditor } from '../components/MarkdownEditor';
-import type { FormState } from '../features/create-table/types/createTable.types';
+import { toProfileContactMethods } from '../features/table-editor/utils/editorMapping';
+// T4.0r/regra do repo: o fluxo do perfil de mestre usa authenticatedFetch,
+// não apiClient (duplicação pré-existente; decisão registrada com o mantenedor).
+import { authPut as authenticatedPut } from '../utils/authenticatedFetch';
+// Editor de anúncio (spec 096, Fase 4): substitui o wizard CreateTableForm.
+import { TableEditor } from '../features/table-editor/TableEditor';
+import { mapApiToEditorState } from '../features/table-editor/utils/editorMapping';
+import type { TableEditorInitialData } from '../features/table-editor/hooks/useTableEditor';
 
 type TableStatus = 'draft' | 'active' | 'full' | 'cancelled' | 'ended' | 'pending_review';
 
@@ -46,11 +48,13 @@ interface GmProfile {
   tables_count: number;
   avg_rating: number | null;
   preferred_vtt_platforms?: string[];
+  // T4.0r: o perfil aceita os MESMOS 7 canais da mesa (TableContactChannel);
+  // o GET /gm/me devolve label/discord_server_url ausentes/null quando vazios.
   contact_methods?: Array<{
-    channel: 'whatsapp' | 'email' | 'discord' | 'form';
+    channel: TableContactChannel;
     value: string;
-    label?: string;
-    discord_server_url?: string;
+    label?: string | null;
+    discord_server_url?: string | null;
   }>;
 }
 
@@ -97,10 +101,6 @@ interface MyTableApi extends MyTable {
   metrics_favorites?: number | null;
 }
 
-function getErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof Error && error.message ? error.message : fallback;
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -144,137 +144,62 @@ function toEnhancedTable(table: MyTableApi): MyTableEnhanced {
   };
 }
 
-
-const slugifyFromNickname = (value: string): string => {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .replace(/-{2,}/g, '-');
-};
-
-function InputField({ label, id, ...props }: InputHTMLAttributes<HTMLInputElement> & { label: string }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-sm font-medium text-white/70">{label}</label>
-      <input
-        id={id}
-        {...props}
-        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 outline-none focus:border-[var(--color-artificio-orange)]/60 focus:ring-1 focus:ring-[var(--color-artificio-orange)]/30 transition-all"
-      />
-    </div>
-  );
-}
-
-function CreateGmProfileForm({ onSuccess }: { onSuccess: () => void }) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [nickname, setNickname] = useState('');
-  const [slug, setSlug] = useState('');
-  const [slugEdited, setSlugEdited] = useState(false);
-  const [bio, setBio] = useState('');
-
-  // slug acompanha o nickname enquanto não editado manualmente — ajuste durante
-  // o render (sem effect).
-  const slugSyncKey = `${nickname}|${slugEdited}`;
-  const [prevSlugSync, setPrevSlugSync] = useState(slugSyncKey);
-  if (prevSlugSync !== slugSyncKey) {
-    setPrevSlugSync(slugSyncKey);
-    if (!slugEdited) {
-      setSlug(slugifyFromNickname(nickname));
-    }
-  }
-
-  const suggestedSlug = slugifyFromNickname(nickname);
-
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    try {
-      const res = await authPost('/api/v1/gm/profile', { slug, nickname, bio_long: bio });
-      const data: unknown = await res.json();
-      const apiError = isRecord(data) && typeof data.error === 'string' ? data.error : 'Erro desconhecido';
-      if (!res.ok) throw new Error(apiError);
-      onSuccess();
-    } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Erro desconhecido'));
-    } finally {
-      setLoading(false);
-    }
-  };
+/**
+ * Card de mesa em rascunho (spec 096, R10/T4.7): selo "Rascunho" + CTA de
+ * continuar edição. Rascunho não aparece no catálogo e não tem
+ * ativar/arquivar/copiar — só continuar ou deletar.
+ */
+function DraftTableCard({
+  table,
+  onContinue,
+  onDelete,
+  isDeleting,
+}: {
+  table: MyTableEnhanced;
+  onContinue: () => void;
+  onDelete: () => void;
+  isDeleting: boolean;
+}) {
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-w-lg mx-auto">
-      <p className="text-white/60 text-sm leading-relaxed">
-        Para publicar mesas, você precisa criar seu perfil de Mestre. Escolha um identificador único — ele vai aparecer na URL do seu perfil.
+    <Panel tone="subtle" className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <Badge variant="warning">Rascunho</Badge>
+        <span className="text-xs opacity-60">
+          {table.modality} · {table.system_name ?? 'Sistema livre'}
+        </span>
+      </div>
+      <p className="font-semibold line-clamp-2">{table.title}</p>
+      <p className="text-xs opacity-60">
+        Não publicado — não aparece no catálogo. O rascunho segue você entre
+        dispositivos, sem prazo.
       </p>
-      <InputField
-        label="Nick público *"
-        id="gm-nickname"
-        value={nickname}
-        onChange={(e) => setNickname(e.target.value)}
-        placeholder="Ex: Mestre Corvo"
-        minLength={2}
-        maxLength={40}
-        required
-      />
-
-      <InputField
-        label="Identificador (slug) *"
-        id="gm-slug"
-        value={slug}
-        onChange={(e) => {
-          setSlugEdited(true);
-          setSlug(slugifyFromNickname(e.target.value));
-        }}
-        placeholder="ex: mestre-corvo"
-        required
-      />
-      <p className="text-xs text-white/30 -mt-2">Apenas letras minúsculas, números e hífens. Não pode ser alterado depois.</p>
-      {slugEdited && suggestedSlug && suggestedSlug !== slug && (
-        <button
-          type="button"
-          id="btn-gm-slug-usar-sugestao"
-          onClick={() => {
-            setSlug(suggestedSlug);
-            setSlugEdited(false);
-          }}
-          className="text-left text-xs text-[var(--color-artificio-orange)] hover:text-[var(--color-artificio-orange-hover)] transition-colors"
-        >
-          Usar sugestão automática: {suggestedSlug}
-        </button>
-      )}
-      <div className="flex flex-col gap-1">
-        {/* O <label> antes não tinha htmlFor: não associava nada e o aria-label
-            interno era o único nome acessível, perdendo o "(opcional)" visível.
-            Agora rotula o campo de verdade (review PR #227). */}
-        <label htmlFor="painel-mestre-bio" className="text-sm font-medium text-white/70">Bio (opcional)</label>
-        <MarkdownEditor
-          id="painel-mestre-bio"
-          value={bio}
-          onChange={setBio}
-          label="Bio do mestre"
-          labelledByExternal
-          placeholder="Conte um pouco sobre você como mestre..."
-          height={200}
+      <div className="flex gap-2">
+        <Button variant="primary" size="sm" onClick={onContinue} className="flex-1">
+          Continuar edição
+        </Button>
+        <InlineDeleteConfirmation
+          title={table.title}
+          isOpen={isDeleteConfirmOpen}
+          onOpen={() => setIsDeleteConfirmOpen(true)}
+          onCancel={() => setIsDeleteConfirmOpen(false)}
+          onConfirm={onDelete}
+          isProcessing={isDeleting}
+          className="flex-1"
+          compact
+          triggerLabel="Excluir rascunho"
         />
       </div>
-      {error && <div className="p-3 bg-red-900/40 border border-red-700/50 rounded-xl text-red-300 text-sm">{error}</div>}
-      <button
-        type="submit"
-        disabled={loading}
-        id="btn-criar-perfil-gm"
-        className="w-full py-4 bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] disabled:opacity-50 text-white font-bold rounded-xl transition-colors cursor-pointer"
-      >
-        {loading ? 'Criando perfil...' : 'Criar Perfil de Mestre'}
-      </button>
-    </form>
+    </Panel>
   );
 }
+
+// T4.0p2 (spec 096, R12): o formulário CreateGmProfileForm foi REMOVIDO —
+// o perfil de mestre nasce DENTRO do editor, junto com a mesa, no primeiro
+// publish (useTableEditor.ts, createGmProfileOnFirstPublish). O painel deixa
+// de ser pré-requisito: sem perfil, o mestre publica direto e o perfil é
+// criado com nickname/bio/contatos preenchidos na parte "Mestre e contato".
 
 export const PainelMestrePage = () => {
   const { user, isAuthenticated } = useAuth();
@@ -287,23 +212,12 @@ export const PainelMestrePage = () => {
 
   const [gmProfile, setGmProfile] = useState<GmProfile | null>(null);
   const [myTables, setMyTables] = useState<MyTableEnhanced[]>([]);
-  const [view, setView] = useState<'dashboard' | 'create-table' | 'create-profile' | 'help'>('dashboard');
+  const [view, setView] = useState<'dashboard' | 'create-table' | 'help'>('dashboard');
   const [loadingProfile, setLoadingProfile] = useState(true);
-  const [editingTableId, setEditingTableId] = useState<string | null>(null);
-  const [editingTableData, setEditingTableData] = useState<Partial<FormState> | null>(null);
-  // Requisito 8 (spec 079): passo 0 do fluxo de criação (não aparece ao
-  // editar mesa existente) — mestre escolhe entre form em branco ou colar
-  // anúncio pra pré-preencher. Nunca lembrada entre sessões (sempre pergunta
-  // de novo em cada "Nova Mesa"), reflete melhor a realidade de nem sempre
-  // ter um anúncio pronto.
-  const [createTableEntryMode, setCreateTableEntryMode] = useState<'choice' | 'manual' | 'paste'>('choice');
-  const [pastePreviewData, setPastePreviewData] = useState<Partial<FormState> | null>(null);
-  // O texto colado mora AQUI, não dentro de ParsePreviewTextArea: aquele
-  // componente é desmontado a cada troca de tela, e com ele ia embora o anúncio
-  // inteiro que o mestre tinha acabado de colar — sem aviso e sem desfazer
-  // (achado do mantenedor, 2026-08-18). Elevado à página, sobrevive a ir e
-  // voltar entre "Colar anúncio" e o formulário.
-  const [pasteSourceText, setPasteSourceText] = useState('');
+  // Dado da mesa para o editor (criar e editar são a MESMA tela — spec 096;
+  // null = criação). O parser "colar anúncio" mora dentro do editor agora,
+  // então a página não guarda mais estado de escolha/colagem.
+  const [editingTableData, setEditingTableData] = useState<TableEditorInitialData | null>(null);
   const [togglingTableId, setTogglingTableId] = useState<string | null>(null); // CORREÇÃO B3
   const [deletingTableId, setDeletingTableId] = useState<string | null>(null); // CORREÇÃO B4
   const [archivingTableId, setArchivingTableId] = useState<string | null>(null); // D-MESAS1
@@ -320,10 +234,11 @@ export const PainelMestrePage = () => {
       try {
         const profileRes = await authGet('/api/v1/gm/me');
 
+        // T4.0p2: SEM perfil não é mais pré-requisito — o painel segue para o
+        // dashboard e o perfil nasce dentro do editor, no primeiro publish
+        // (useTableEditor.ts). Sem perfil não há mesas para listar (gm_id vem
+        // do perfil), então o grid começa vazio.
         if (!profileRes.ok) {
-          if (user.role !== 'gm') {
-            setView('create-profile');
-          }
           setGmProfile(null);
           setMyTables([]);
           return;
@@ -333,9 +248,6 @@ export const PainelMestrePage = () => {
         const profile = getPayloadData(profileJson);
 
         if (!isGmProfile(profile)) {
-          if (user.role !== 'gm') {
-            setView('create-profile');
-          }
           setGmProfile(null);
           setMyTables([]);
           return;
@@ -363,7 +275,6 @@ export const PainelMestrePage = () => {
         if (!urlParams.has('edit') && urlParams.get('action') !== 'nova-mesa') {
           setView('dashboard');
         } else if (urlParams.get('action') === 'nova-mesa') {
-          setCreateTableEntryMode('choice');
           setView('create-table');
         }
       } catch {
@@ -384,7 +295,6 @@ export const PainelMestrePage = () => {
       // setState deferido p/ fora do corpo síncrono do effect.
       void (async () => {
         await Promise.resolve();
-        setEditingTableId(null);
         setEditingTableData(null);
       })();
       return;
@@ -394,22 +304,18 @@ export const PainelMestrePage = () => {
     void (async () => {
       await Promise.resolve();
       if (!active) return;
-      setEditingTableId(editIdFromUrl);
       try {
         const response = await authGet(`/api/v1/gm/tables/${editIdFromUrl}`);
         if (!active) return;
         if (response.ok) {
           const data: unknown = await response.json();
-          const { mapTableApiToInitialData } = await import('../features/create-table/utils/mapTableApiToInitialData');
           if (!active) return;
-          setEditingTableData(mapTableApiToInitialData(getPayloadData(data)));
-          // Edição de mesa existente pula o passo 0 (escolha só faz sentido
-          // ao CRIAR — mesa editada já tem dados reais, não precisa de preview).
-          setCreateTableEntryMode('manual');
+          // Editor novo (spec 096): o mapper do editor substitui o do wizard
+          // antigo (is_covil/schedules corretos — T3.1 — e estado do editor).
+          setEditingTableData(mapApiToEditorState(getPayloadData(data)));
           setView('create-table');
         } else {
           toast.error('Mesa não encontrada');
-          setEditingTableId(null);
         }
       } catch (error) {
         // AbortError é ruído esperado do dedup de apiClient.ts (cancela GET
@@ -418,7 +324,6 @@ export const PainelMestrePage = () => {
         if (error instanceof DOMException && error.name === 'AbortError') return;
         console.error('[PainelMestrePage] Erro ao carregar mesa para edição:', error);
         toast.error('Erro ao carregar mesa');
-        if (active) setEditingTableId(null);
       }
     })();
     return () => { active = false; };
@@ -430,16 +335,7 @@ export const PainelMestrePage = () => {
       return;
     }
 
-    setEditingTableId(null);
     setEditingTableData(null);
-    // O rascunho colado só deve sobreviver ao ir-e-voltar DENTRO de uma criação
-    // (é para isso que ele subiu para a página). Ao sair para o dashboard —
-    // publicou, arquivou, cancelou — o fluxo acabou, e mantê-lo faria o anúncio
-    // já publicado reaparecer inteiro na próxima "Nova Mesa" (achado P2 do
-    // Codex, PR #275).
-    setPastePreviewData(null);
-    setPasteSourceText('');
-    setCreateTableEntryMode('choice');
     window.history.replaceState({}, '', '/painel');
 
     setView('dashboard');
@@ -603,118 +499,38 @@ export const PainelMestrePage = () => {
 
   if (!user) return null;
 
+  // R10/T4.7: o painel distingue rascunho de mesa no ar. O catálogo público
+  // já filtra status='active' (6 pontos medidos) — o painel é o que muda.
+  const draftTables = myTables.filter((table) => table.status === 'draft');
+  const publishedTables = myTables.filter((table) => table.status !== 'draft');
+
+  // Editor de anúncio (spec 096): criar e editar são a MESMA tela. Renderizado
+  // fora do container com padding — o editor é uma casca `position: fixed;
+  // height: 100dvh` (zero rolagem, A1) e o container da página atrapalharia.
+  if (view === 'create-table') {
+    const handleEditorBack = () => {
+      // Sair da edição precisa desfazer o que a abriu: o estado E o `?edit=`
+      // da URL. O efeito que carrega o painel depende de `searchParams` e
+      // reabre a edição enquanto o parâmetro estiver lá (achado PR #275).
+      setEditingTableData(null);
+      window.history.replaceState({}, '', '/painel');
+      setView('dashboard');
+    };
+
+    return (
+      <TableEditor
+        initialData={editingTableData ?? undefined}
+        onPublished={refreshData}
+        onBack={handleEditorBack}
+      />
+    );
+  }
+
   return (
     <main className="w-full">
       <div className="container mx-auto px-6 py-10">
         {loadingProfile ? (
           <div className="flex justify-center py-20 animate-pulse text-white/40">Carregando painel...</div>
-        ) : view === 'create-profile' ? (
-          <div className="max-w-lg mx-auto text-center space-y-8">
-            <div>
-              <h1 className="text-4xl font-extrabold mb-3">Torne-se um Mestre</h1>
-              <p className="text-white/50">Crie seu perfil público e comece a publicar mesas gratuitamente.</p>
-            </div>
-            <CreateGmProfileForm onSuccess={refreshData} />
-          </div>
-        ) : view === 'create-table' && createTableEntryMode === 'choice' ? (
-          <div className="max-w-3xl mx-auto space-y-8">
-            <div className="flex items-center gap-3">
-              <button onClick={() => setView('dashboard')} className="text-white/40 hover:text-white transition-colors cursor-pointer text-sm">← Voltar</button>
-              <ChevronRight className="w-4 h-4 text-white/20" />
-              <h1 className="text-2xl font-bold">Nova Mesa</h1>
-            </div>
-            <p className="text-white/60">Como você quer começar?</p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => { setPastePreviewData(null); setPasteSourceText(''); setCreateTableEntryMode('manual'); }}
-                className="text-left rounded-2xl border border-white/15 bg-white/3 p-6 hover:border-white/30 transition-colors cursor-pointer"
-              >
-                <h2 className="text-lg font-bold mb-2">Preencher manualmente</h2>
-                <p className="text-sm text-white/50">Comece do zero e preencha cada campo do formulário.</p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setCreateTableEntryMode('paste')}
-                className="text-left rounded-2xl border-2 border-[var(--color-artificio-orange)] bg-[var(--color-artificio-orange)]/10 p-6 hover:brightness-110 transition-all cursor-pointer relative"
-              >
-                <span className="absolute -top-2.5 right-4 rounded-full bg-[var(--color-artificio-orange)] px-2.5 py-0.5 text-xs font-semibold text-white">
-                  Mais rápido
-                </span>
-                <h2 className="text-lg font-bold mb-2">Colar anúncio</h2>
-                <p className="text-sm text-white/50">Já tem o texto do anúncio pronto? Cole aqui e a gente pré-preenche o formulário pra você revisar.</p>
-              </button>
-            </div>
-            <p className="text-xs text-white/40">
-              Em nenhum dos dois casos a mesa é publicada sozinha — você sempre revisa e confirma cada campo antes de salvar.
-            </p>
-          </div>
-        ) : view === 'create-table' && createTableEntryMode === 'paste' ? (
-          <div className="max-w-3xl mx-auto space-y-8">
-            <div className="flex items-center gap-3">
-              <button onClick={() => setCreateTableEntryMode('choice')} className="text-white/40 hover:text-white transition-colors cursor-pointer text-sm">← Voltar</button>
-              <ChevronRight className="w-4 h-4 text-white/20" />
-              <h1 className="text-2xl font-bold">Colar anúncio</h1>
-            </div>
-            <div className="bg-white/3 border border-white/8 rounded-2xl p-8">
-              <ParsePreviewTextArea
-                currentUserName={user?.name}
-                text={pasteSourceText}
-                onTextChange={setPasteSourceText}
-                onPreviewReady={(initialData) => {
-                  // Achado de review (CodeRabbit, PR #172, nitpick): sem
-                  // limpar o autosave local antes, CreateTableForm ainda
-                  // detecta o draft antigo (de sessão anterior não
-                  // descartada) e mostra o modal de restore, competindo com
-                  // o resultado recém-analisado do preview.
-                  draftStorage.clear('create-table-draft');
-                  setPastePreviewData(initialData);
-                  setCreateTableEntryMode('manual');
-                }}
-              />
-            </div>
-            <p className="text-xs text-white/40">
-              A mesa não é publicada sozinha — depois de analisar o texto, você revisa e confirma cada campo antes de salvar.
-            </p>
-          </div>
-        ) : view === 'create-table' ? (
-          <div className="max-w-4xl mx-auto space-y-8">
-            <div className="flex items-center gap-3">
-              <button
-                // Voltar devolve à tela DE ONDE se veio. Antes caía sempre em
-                // 'choice', então quem chegou por "Colar anúncio" era jogado
-                // duas telas atrás e reencontrava a caixa vazia — o anúncio
-                // inteiro tinha que ser colado de novo (achado do mantenedor,
-                // 2026-08-18). `pastePreviewData` é o que marca essa origem.
-                onClick={() => {
-                  if (editingTableId) {
-                    // Sair da edição precisa desfazer o que a abriu: o estado
-                    // E o `?edit=` da URL. O efeito que carrega o painel
-                    // depende de `searchParams` e reabre a edição enquanto o
-                    // parâmetro estiver lá (achado de review, PR #275).
-                    setEditingTableId(null);
-                    setEditingTableData(null);
-                    window.history.replaceState({}, '', '/painel');
-                    setView('dashboard');
-                    return;
-                  }
-                  setCreateTableEntryMode(pastePreviewData ? 'paste' : 'choice');
-                }}
-                className="text-white/40 hover:text-white transition-colors cursor-pointer text-sm"
-              >
-                ← Voltar
-              </button>
-              <ChevronRight className="w-4 h-4 text-white/20" />
-              <h1 className="text-2xl font-bold">{editingTableId ? 'Editar Mesa' : 'Nova Mesa'}</h1>
-            </div>
-            <div className="bg-white/3 border border-white/8 rounded-2xl p-8">
-              <CreateTableForm
-                key={pastePreviewData ? 'from-paste-preview' : 'manual'}
-                onSuccess={refreshData}
-                initialData={editingTableData || pastePreviewData || undefined}
-              />
-            </div>
-          </div>
         ) : view === 'help' ? (
           <div className="space-y-6">
             <button
@@ -749,6 +565,18 @@ export const PainelMestrePage = () => {
                   <span className="text-lg">❓</span>
                   Ajuda
                 </button>
+                {/* T4.0k (spec 096): entrada da tela "minhas sugestões"
+                    (/perfil/minhas-sugestoes). Fora do `gmProfile &&` — sugerir
+                    sistema/cenário não depende de perfil de mestre criado. */}
+                <button
+                  id="btn-minhas-sugestoes"
+                  onClick={() => navigate('/perfil/minhas-sugestoes')}
+                  className="flex items-center gap-2 px-4 py-3 border border-white/20 hover:border-white/35 text-white font-semibold rounded-xl transition-colors cursor-pointer"
+                  title="Minhas sugestões"
+                >
+                  <Lightbulb className="w-4 h-4" />
+                  Minhas sugestões
+                </button>
                 {gmProfile && (
                   <button
                     id="btn-editar-perfil-mestre"
@@ -761,13 +589,8 @@ export const PainelMestrePage = () => {
                 )}
                 <button
                   id="btn-nova-mesa"
-                  // Começar uma mesa nova zera o rascunho colado: sem isto,
-                  // "Colar anúncio" reabriria com o texto de uma criação
-                  // anterior (achado P2 do Codex, PR #275).
                   onClick={() => {
-                    setPastePreviewData(null);
-                    setPasteSourceText('');
-                    setCreateTableEntryMode('choice');
+                    setEditingTableData(null);
                     setView('create-table');
                   }}
                   className="flex items-center gap-2 px-5 py-3 bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] text-white font-semibold rounded-xl transition-colors cursor-pointer"
@@ -791,13 +614,26 @@ export const PainelMestrePage = () => {
               </section>
             )}
 
-            {/* Contact Methods Editor - PRIORIDADE: Contato é o principal */}
+            {/* Contact Methods Editor - PRIORIDADE: Contato é o principal.
+                T4.0r: o MESMO editor de contatos do editor de mesa (7 canais,
+                ícone por canal, setas ↑↓, menu de adicionar) — "se o painel do
+                mestre não tem, tem que adicionar também". Salva no perfil via
+                PUT /gm/profile com authenticatedFetch (regra do repo). */}
             {gmProfile && (
               <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                <div className="mb-4">
+                  <h2 className="text-lg font-bold text-white">Formas de Contato</h2>
+                  <p className="text-sm text-white/60 mt-1">
+                    Configure como os jogadores podem entrar em contato com você.
+                  </p>
+                </div>
                 <ContactMethodsEditor
                   contacts={gmProfile.contact_methods || []}
+                  idPrefix="painel-mestre"
                   onSave={async (contacts) => {
-                    const res = await authPut('/api/v1/gm/profile', { contact_methods: contacts });
+                    const res = await authenticatedPut('/api/v1/gm/profile', {
+                      contact_methods: toProfileContactMethods(contacts),
+                    });
                     if (!res.ok) {
                       const body: unknown = await res.json().catch(() => null);
                       const apiError = isRecord(body) && typeof body.error === 'string'
@@ -835,30 +671,54 @@ export const PainelMestrePage = () => {
             )}
 
             {myTables.length > 0 ? (
-              <section className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4">
-                <h2 className="text-lg font-bold inline-flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[var(--color-artificio-orange)]" />
-                  Suas mesas publicadas
-                </h2>
+              <>
+                {/* Rascunhos (spec 096, R10/T4.7): mesa não publicada fica no
+                    painel, distinguida da que está no ar, com CTA de
+                    continuar edição. */}
+                {draftTables.length > 0 && (
+                  <section className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4">
+                    <h2 className="text-lg font-bold inline-flex items-center gap-2">
+                      <PencilLine className="w-4 h-4 text-[var(--color-artificio-orange)]" />
+                      Rascunhos
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {draftTables.map((table) => (
+                        <DraftTableCard
+                          key={table.id}
+                          table={table}
+                          onContinue={() => navigate(`/painel?edit=${table.id}`)}
+                          onDelete={() => handleDeleteTable(table.id)}
+                          isDeleting={deletingTableId === table.id}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                )}
 
+                <section className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4">
+                  <h2 className="text-lg font-bold inline-flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[var(--color-artificio-orange)]" />
+                    Suas mesas
+                  </h2>
 
-                {/* GRID DE CARDS */}
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {myTables.map((table) => (
-                    <TableCardDashboard
-                      key={table.id}
-                      table={table}
-                      onEdit={(id: string) => navigate(`/painel?edit=${id}`)}
-                      onToggle={(table) => handleToggleTableStatus(table.id, table.status, table.title)}
-                      onDelete={(table) => handleDeleteTable(table.id)}
-                      onArchive={(table) => handleArchiveTable(table.id, !table.archived, table.title)}
-                      isToggling={togglingTableId === table.id}
-                      isDeleting={deletingTableId === table.id}
-                      isArchiving={archivingTableId === table.id}
-                    />
-                  ))}
-                </div>
-              </section>
+                  {/* GRID DE CARDS */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {publishedTables.map((table) => (
+                      <TableCardDashboard
+                        key={table.id}
+                        table={table}
+                        onEdit={(id: string) => navigate(`/painel?edit=${id}`)}
+                        onToggle={(table) => handleToggleTableStatus(table.id, table.status, table.title)}
+                        onDelete={(table) => handleDeleteTable(table.id)}
+                        onArchive={(table) => handleArchiveTable(table.id, !table.archived, table.title)}
+                        isToggling={togglingTableId === table.id}
+                        isDeleting={deletingTableId === table.id}
+                        isArchiving={archivingTableId === table.id}
+                      />
+                    ))}
+                  </div>
+                </section>
+              </>
             ) : (
               <div className="text-center py-20 text-white/30 border border-dashed border-white/10 rounded-2xl">
                 <MapPin className="w-10 h-10 mx-auto mb-4 opacity-30" />

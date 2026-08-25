@@ -204,8 +204,9 @@ function QuickInfoPanel({ vm, showStatus = false, className = '' }: { readonly v
           `pt-BR`. A versão anterior escondia `pt-BR` alegando ruído (92/94 em produção),
           mas isso contradizia o aceite — e a premissa estava errada: `pt-BR` NÃO é default
           de banco (`migration_01_base_schema.sql:141` usa `'Português'`). Os 92 vêm de
-          `syncHelpers.ts:336`, que grava `'pt-BR'` fixo em mesa importada, e do formulário
-          (`useCreateTableForm.ts:39`), onde o mestre pode escolher `pt-BR` de propósito —
+          `syncHelpers.ts:336`, que grava `'pt-BR'` fixo em mesa importada, e do editor
+          de anúncio (spec 096, AudiencePart — antes, `useCreateTableForm.ts:39`), onde o
+          mestre pode escolher `pt-BR` de propósito —
           caso indistinguível do sync, então esconder apagava escolha real.
           Achado real (review PR #280, codex, P2). */}
       {vm.language && (

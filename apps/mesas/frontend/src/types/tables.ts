@@ -5,7 +5,41 @@ export type PriceType = 'gratuita' | 'paga';
 export type ExperienceLevel = 'todos' | 'iniciante' | 'intermediario' | 'veterano';
 export type CatalogSeal = 'ddal' | 'covil-do-lich' | '';
 export type PublisherRole = 'gm' | 'announcer';
-export type TableContactChannel = 'whatsapp' | 'discord' | 'phone' | 'email' | 'facebook' | 'instagram' | 'form';
+/**
+ * Os 7 canais de contato — MESA e PERFIL (T4.0r, spec 096 R12, decisão
+ * 2026-08-24: "os 7 valem nos dois lados"). Espelha CONTACT_CHANNELS do
+ * backend (`utils/contactUrls.ts`), que é a fonte canônica: divergir faria o
+ * editor aceitar canal que a API recusa, ou o contato sumir na serialização.
+ *
+ * Antes o MESMO conceito vivia em três lugares (ContactMethodsEditor,
+ * MestreContactMethods e ContactsFormBlock), com os dois primeiros restritos a
+ * 4 valores — um canal novo salvo pelo perfil nem aparecia na página pública.
+ * A lista em RUNTIME (`TABLE_CONTACT_CHANNELS`) existe para normalizar payload
+ * de rede (canal fora do enum não vaza — mesma regra do PR #285).
+ */
+export const TABLE_CONTACT_CHANNELS = [
+  'whatsapp',
+  'discord',
+  'phone',
+  'email',
+  'facebook',
+  'instagram',
+  'form',
+] as const;
+export type TableContactChannel = (typeof TABLE_CONTACT_CHANNELS)[number];
+
+/**
+ * Contato no formato de EDIÇÃO (perfil E mesa) — shape único consolidado
+ * (T4.0r). É o que o editor de contatos lê/escreve; `label` e
+ * `discord_server_url` são strings vazias quando ausentes (diferente de
+ * `TableContact` de leitura pública, que usa null).
+ */
+export interface ContactMethodInput {
+  channel: TableContactChannel;
+  value: string;
+  label: string;
+  discord_server_url: string;
+}
 
 export interface TableContact {
   channel: TableContactChannel;
@@ -71,7 +105,15 @@ export interface TableCard {
   gm_reviews_count?: number | null;
   // T3.4 (spec 081): primeiro horário configurado (day_of_week/start_time recorrentes,
   // sem data absoluta — não existe "próxima sessão" calculável, é o padrão da mesa).
-  next_schedule?: { day_of_week: DayOfWeek; start_time: string; frequency: ScheduleFrequency } | null;
+  // T4.0u (spec 096): schedule_day_status/notes chegam da lista (backend compõe no
+  // next_schedule) para o card exibir "Horário Personalizado" (R20) — aditivo.
+  next_schedule?: {
+    day_of_week: DayOfWeek;
+    start_time: string;
+    frequency: ScheduleFrequency;
+    schedule_day_status?: ScheduleDefinitionStatus;
+    notes?: string | null;
+  } | null;
   is_ddal: boolean;
   is_covil: boolean; // CORREÇÃO C01: Padronizado para is_covil (mesmo nome do backend)
   ddal_code?: string | null;

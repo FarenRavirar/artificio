@@ -139,6 +139,10 @@ router.get('/', async (req: Request, res: Response) => {
         't.language',
         't.experience_level',
         't.starts_at',
+        // T4.0u (spec 096): o card do catálogo decide "Horário Personalizado"
+        // (R20) pelo status da TABELA — sentinela 'to_define' do SessionRepeater,
+        // sem coluna nova. Vai no objeto da lista e é composto no next_schedule.
+        't.schedule_day_status',
         't.content_warnings',
         't.safety_tools',
         't.publisher_role',
@@ -342,31 +346,46 @@ router.get('/', async (req: Request, res: Response) => {
       // Schedules são recorrentes (day_of_week + start_time), sem data absoluta —
       // não há "próxima ocorrência" calculável no banco; expõe o primeiro
       // horário configurado (menor sort_order) como representativo do padrão da mesa.
+      // T4.0u (spec 096): `notes` viaja junto — é onde o editor grava a
+      // explicação da agenda quando a mesa usa "Horário Personalizado" (R20).
       const schedules = await db
         .selectFrom('table_schedules')
-        .select(['table_id', 'day_of_week', 'start_time', 'frequency', 'sort_order'])
+        .select(['table_id', 'day_of_week', 'start_time', 'frequency', 'sort_order', 'notes'])
         .where('table_id', 'in', tableIds)
         .orderBy('sort_order', 'asc')
         .orderBy('day_of_week', 'asc')
         .orderBy('start_time', 'asc')
         .execute();
 
-      const nextScheduleByTable = new Map<string, { day_of_week: string; start_time: string; frequency: string }>();
+      // T4.0u (spec 096): next_schedule agora carrega também o texto livre da
+      // agenda (table_schedules.notes). O schedule_day_status NÃO mora em
+      // table_schedules — é coluna da tabela (`t.schedule_day_status`) e é
+      // composto no objeto final do card, abaixo, vindo do próprio table.
+      const nextScheduleByTable = new Map<string, { day_of_week: string; start_time: string; frequency: string; notes: string | null }>();
       for (const schedule of schedules) {
         if (!nextScheduleByTable.has(schedule.table_id)) {
           nextScheduleByTable.set(schedule.table_id, {
             day_of_week: schedule.day_of_week,
             start_time: schedule.start_time,
             frequency: schedule.frequency,
+            notes: schedule.notes,
           });
         }
       }
 
-      tablesWithContacts = publicTables.map((table) => ({
-        ...sanitizeTableMarkdownFields(table),
-        contacts: contactsByTable.get(table.id) ?? [],
-        next_schedule: nextScheduleByTable.get(table.id) ?? null,
-      }));
+      tablesWithContacts = publicTables.map((table) => {
+        const nextSchedule = nextScheduleByTable.get(table.id);
+        return {
+          ...sanitizeTableMarkdownFields(table),
+          contacts: contactsByTable.get(table.id) ?? [],
+          // T4.0u (spec 096): campos novos, aditivos e não-breaking — o card
+          // decide pelo status da tabela; quem só lê os 3 campos antigos
+          // (dia/horário/frequência) segue intacto.
+          next_schedule: nextSchedule
+            ? { ...nextSchedule, schedule_day_status: table.schedule_day_status }
+            : null,
+        };
+      });
     }
 
     res.json({

@@ -943,13 +943,20 @@ auditoria apontar que não havia índice único (auditoria da 2ª rodada).
   repeater de contatos entra vazio, como hoje.
 - **R24 (novo, 2026-08-24 — decisão do mantenedor):** **Faixa etária aparece para o
   jogador.** Medido: `age_rating` é coletado no form, descartado no payload (T3.2) **e nunca
-  exibido** — enquanto **57 mesas importadas** do Discord têm faixa real gravada
-  (+14: 2, +16: 13, +18: 42) e a página pública mostra **nenhuma**. Corrigir só o payload
-  (A5) deixaria essas 57 invisíveis do mesmo jeito. Então: **exibir na página da mesa e no
-  card do catálogo**, o que corrige as 57 sem nenhum mestre tocar em nada. As 41 manuais com
-  `'livre'` errado só corrigem quando o mestre editar — mas aí ele vê o campo na tela e
-  percebe. Toca `features/table` e `features/catalog`, fora do editor (exceção nomeada em
-  §Fora de escopo). · A27
+  exibido** — enquanto as mesas importadas do Discord têm faixa real gravada
+  (+14: 2, +16: 13, +18: 42 na medição de 2026-08-23) e a página pública mostrava
+  **nenhuma**. Corrigir só o payload (A5) deixaria essas invisíveis do mesmo jeito. Então:
+  **exibir na página da mesa e no card do catálogo**, o que corrige as importadas sem
+  nenhum mestre tocar em nada. As manuais com `'livre'` errado só corrigem quando o mestre
+  editar — mas aí ele vê o campo na tela e percebe. Toca `features/table` e
+  `features/catalog`, fora do editor (exceção nomeada em §Fora de escopo). · A27
+
+  **Regra de exibição (decisão do mantenedor, 2026-08-24, durante a implementação da
+  Fase 3):** faixa **preenchida** `'livre'` → marcador **"Livre"** discreto, **sem 🔞**;
+  faixa **preenchida** `+10`…`+18` → **🔞 +N**; faixa **não preenchida (`null`)** →
+  **nada**; valor fora do enum → nada. Ou seja: o "ruidoso" que a A27 proíbe é o selo de
+  restrição — a informação "Livre" aparece. Regra única em
+  `frontend/src/utils/ageRating.ts`.
 - **R23 (novo, 2026-08-24 — decisão do mantenedor):** **Segurança de mesa entra no editor;
   local só em **modalidade não-online** (presencial ou híbrida).** Detalhe e medição em §Gap 11.
   - **`content_warnings` e `safety_tools` ganham campo**, oferecendo os **14 termos do
@@ -1096,7 +1103,7 @@ Objetivos (verificáveis por teste ou medição):
 | A24 | **Requisitos junto da plataforma; valores numa parte só** | os 3 checkboxes de requisito e o select de VTT/comunicação na **mesma parte**, com a auto-marcação dizendo o porquê; e `price_type`, valores, doação, sessão zero e detalhes de cobrança **todos na parte Valores** — nenhum campo de preço fora dela · R21 |
 | A25 | **O mestre vê o que publica, sem sair do editor** | a prévia do card na lateral usa o **`TableCardComponent` real** (grep provando o import de `components/TableCard`, não um card desenhado à mão) e reflete o estado atual do editor; **"Ver como jogador"** abre a página da mesa como o público a vê · R22 |
 | A26 | **Segurança de mesa coletável; local condicionado à modalidade** | criar mesa marcando X-Card e "terror" → ler a linha em `tables` e ver os valores em `content_warnings`/`safety_tools`, e a página pública renderizando as descrições do glossário; escolher modalidade **online** → campos de cidade/estado **não aparecem**; escolher presencial/híbrida → aparecem; grep provando zero editor de `custom_scenario`, `style_tags` e `features` · R23 |
-| A27 | **Faixa etária visível ao jogador** | abrir uma das 57 mesas importadas com faixa real → a página exibe +14/+16/+18; o card do catálogo idem; mesa `livre` legítima não ganha selo ruidoso · R24 |
+| A27 | **Faixa etária visível ao jogador** | abrir uma das mesas importadas com faixa real → a página exibe +14/+16/+18 e o card do catálogo idem; faixa preenchida `'livre'` → marcador **"Livre"** discreto **sem 🔞**; faixa **não preenchida (`null`)** → **nada**; valor fora do enum → nada · R24 |
 
 Smoke visual (quem valida: **mantenedor**): criar mesa do zero, editar mesa no ar
 mudando um campo só, colar anúncio e conferir o que o parser marcou, abrir os `<select>`

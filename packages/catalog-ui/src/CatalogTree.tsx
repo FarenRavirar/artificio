@@ -22,18 +22,22 @@ export type CatalogTreeProps = Readonly<{
    * criação embutido (ex.: CatalogExplorer), em vez do fluxo de busca+onCreateNow.
    * Achado Codex (PR #148): sem isto, o botão só marcava um estado sem nenhuma ação. */
   onAddChildAtLevel?: (depth: number, parent: CatalogUiNode | null) => void;
-  /** D0.5 (spec 094): política aditiva de apresentação, default `full` para não
-   * alterar consumidores existentes (site-admin via CatalogExplorer).
-   * - `full`: comportamento atual — linha "nome PT", badge de aliases e
-   *   parágrafo técnico final visíveis;
+  /** D0.5 (spec 094), REVISADA por R18 (spec 096): política aditiva de
+   * apresentação, default `full` para não alterar consumidores existentes
+   * (site-admin via CatalogExplorer).
+   * - `full`: comportamento atual — linha "nome PT", badge de aliases
+   *   (formato compacto "primeiro +N") e parágrafo técnico final visíveis;
    * - `selection`: superfície pública compacta — NÃO RENDERIZA o parágrafo
-   *   técnico, a linha "nome PT" nem badges de aliases. `nodeMatchesQuery`
-   *   continua buscando por nome PT/alias (não-renderização, não perda de
-   *   matcher — esconder por CSS não satisfaz R18). */
+   *   técnico nem a linha "nome PT", MAS RENDERIZA os aliases nas opções
+   *   (reversão da D0.5, decisão do mantenedor 2026-08-24, R18/A21: com
+   *   1.269 nós e 409 aliases, distinguir nomes parecidos vale mais que a
+   *   economia visual). `nodeMatchesQuery` continua buscando por nome
+   *   PT/alias (não-renderização, não perda de matcher — esconder por CSS
+   *   não satisfaz R18). */
   presentation?: 'full' | 'selection';
 }>;
 
-const nodeMatchesQuery = (node: CatalogUiNode, normalizedQuery: string): boolean => {
+export const nodeMatchesQuery = (node: CatalogUiNode, normalizedQuery: string): boolean => {
   return normalizeText(node.name).includes(normalizedQuery)
     || normalizeText(node.name_pt ?? '').includes(normalizedQuery)
     || normalizeText(node.canonical_slug).includes(normalizedQuery)
@@ -44,18 +48,18 @@ const nodeMatchesQuery = (node: CatalogUiNode, normalizedQuery: string): boolean
 /** Acha match em qualquer nível (nome/slug/alias de sistema, edição ou variante) —
  * comportamento do antigo filterTree do site-admin (achado Codex PR #148): buscar
  * "5e" precisa achar a edição, não só sistemas de nível raiz cujo próprio nome bate. */
-const subtreeMatchesQuery = (node: CatalogUiNode, normalizedQuery: string): boolean => {
+export const subtreeMatchesQuery = (node: CatalogUiNode, normalizedQuery: string): boolean => {
   if (nodeMatchesQuery(node, normalizedQuery)) return true;
   return (node.children ?? []).some((child) => subtreeMatchesQuery(child, normalizedQuery));
 };
 
-const filterRoots = (nodes: CatalogUiNode[], query: string): CatalogUiNode[] => {
+export const filterRoots = (nodes: CatalogUiNode[], query: string): CatalogUiNode[] => {
   const normalizedQuery = normalizeText(query);
   if (!normalizedQuery) return nodes;
   return nodes.filter((node) => subtreeMatchesQuery(node, normalizedQuery));
 };
 
-const findPath = (nodes: CatalogUiNode[], id: string): CatalogUiNode[] | null => {
+export const findPath = (nodes: CatalogUiNode[], id: string): CatalogUiNode[] | null => {
   for (const node of nodes) {
     if (node.id === id) return [node];
     const childPath = findPath(node.children ?? [], id);
@@ -64,7 +68,7 @@ const findPath = (nodes: CatalogUiNode[], id: string): CatalogUiNode[] | null =>
   return null;
 };
 
-const collectSelectedPaths = (tree: CatalogUiNode[], selectedIds: string[]): CatalogUiNode[][] => {
+export const collectSelectedPaths = (tree: CatalogUiNode[], selectedIds: string[]): CatalogUiNode[][] => {
   return selectedIds
     .map((id) => findPath(tree, id))
     .filter((path): path is CatalogUiNode[] => Boolean(path));
@@ -96,6 +100,11 @@ const getAliasBadge = (aliases?: string[]): string | null => {
   if (list.length === 1) return list[0];
   return `${list[0]} +${list.length - 1}`;
 };
+
+/** Aliases completos para leitura (R18/A21): "Vampiro · VtM · The Masquerade".
+ * Formato usado no modo `selection` — a reversão da D0.5 quer TODOS os aliases
+ * na linha da opção, não o resumo compacto "primeiro +N" do modo `full`. */
+export const formatAliases = (aliases?: string[]): string => (aliases ?? []).join(' · ');
 
 const LEVEL_LABEL: Record<number, string> = {
   0: 'sistema',
@@ -203,9 +212,13 @@ const CatalogTreeLevel = ({
               )}
             </button>
 
-            {presentation !== 'selection' && aliasBadge && (
-              <span className="max-w-40 shrink-0 truncate rounded-full bg-[var(--fill)] px-2 py-0.5 text-[10px] text-[var(--fg-muted)] sm:max-w-64">
-                {aliasBadge}
+            {aliasBadge && (
+              <span
+                className={`shrink-0 rounded-full bg-[var(--fill)] px-2 py-0.5 text-[10px] text-[var(--fg-muted)] ${
+                  presentation === 'selection' ? 'max-w-[45%]' : 'max-w-40 truncate sm:max-w-64'
+                }`}
+              >
+                {presentation === 'selection' ? formatAliases(node.aliases) : aliasBadge}
               </span>
             )}
 

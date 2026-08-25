@@ -16,6 +16,7 @@ import { MestrePage } from './pages/MestrePage';
 import { PlayerPage } from './pages/PlayerPage';
 import { MasterProfilePage } from './features/master/MasterProfilePage';
 import ProfileEditPage from './pages/ProfileEditPage';
+import { MinhasSugestoesPage } from './pages/MinhasSugestoesPage';
 import { GestaoLayout } from './features/admin/components/GestaoLayout';
 import { DashboardSection } from './features/admin/components/DashboardSection';
 import { ConteudoSection } from './features/admin/components/ConteudoSection';
@@ -65,6 +66,9 @@ function AppRoutes() {
           </ErrorBoundary>
         </ProtectedRoute>
       } />
+      {/* T4.0k (spec 096): tela "minhas sugestões". :suggestionId opcional =
+          deep link do action_url das notificações de sugestão do backend. */}
+      <Route path="/perfil/minhas-sugestoes/:suggestionId?" element={<ProtectedRoute><MinhasSugestoesPage /></ProtectedRoute>} />
       <Route path="/painel" element={<ProtectedRoute><PainelMestrePage /></ProtectedRoute>} />
       <Route path="/gestao" element={<ProtectedRoute requiredRole="admin"><GestaoLayout /></ProtectedRoute>}>
         <Route index element={<Navigate to="visao-geral" replace />} />

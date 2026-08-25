@@ -116,6 +116,39 @@ export function toWhatsAppUrl(value: string | null | undefined): string | null {
 }
 
 /**
+ * Formata WhatsApp para exibição brasileira: +5563992681119 → (63) 99268-1119.
+ *
+ * A5 (revisão adversarial Fase 4): vivia local em MestreContactMethods e
+ * assumia +55/DDD de 2 dígitos sem dono — agora mora junto do `toWhatsAppUrl`,
+ * que é quem decide o formato do canal (mesma regra de telefone que abre
+ * WhatsApp). Comportamento preservado na movimentação.
+ *
+ * Frágil por contrato: só formata número brasileiro (+55, DDD de 2 dígitos,
+ * 8-9 dígitos). Qualquer outra forma devolve o valor original (fallback) em
+ * vez de quebrar a exibição.
+ */
+export function formatWhatsAppDisplay(value: string): string {
+  // Remover o +55 do início
+  const withoutCountry = value.replace(/^\+55/, '');
+
+  // Extrair DDD (2 dígitos) e número (9 ou 8 dígitos)
+  const ddd = withoutCountry.slice(0, 2);
+  const numero = withoutCountry.slice(2);
+
+  // Formatar número: 99268-1119 ou 9268-1119
+  if (numero.length === 9) {
+    // Celular com 9 dígitos: 99268-1119
+    return `(${ddd}) ${numero.slice(0, 5)}-${numero.slice(5)}`;
+  } else if (numero.length === 8) {
+    // Fixo com 8 dígitos: 9268-1119
+    return `(${ddd}) ${numero.slice(0, 4)}-${numero.slice(4)}`;
+  }
+
+  // Fallback: retornar original se não conseguir formatar
+  return value;
+}
+
+/**
  * `mailto:` para endereço já validado, sem deixar o valor virar href cru.
  *
  * O backend valida e-mail na escrita (`isValidEmail`), mas contato antigo foi

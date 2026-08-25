@@ -211,8 +211,8 @@ describe('CatalogSystemPopover — fechamento (R8/R16)', () => {
   });
 });
 
-describe('CatalogSystemPopover — presentation selection (R18/D0.5)', () => {
-  it('não renderiza parágrafo técnico, "nome PT" nem badge de aliases', () => {
+describe('CatalogSystemPopover — presentation selection (R18 — reversão da D0.5)', () => {
+  it('renderiza aliases por extenso nas opções, sem parágrafo técnico nem "nome PT"', () => {
     render(<CatalogSystemPopover {...baseProps} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Sistema' }));
@@ -221,9 +221,11 @@ describe('CatalogSystemPopover — presentation selection (R18/D0.5)', () => {
     });
 
     expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument();
+    // R18 (2026-08-24): aliases completos nas opções em selection — o
+    // formato do pacote é join ' · ' (formatAliases em CatalogTree.tsx).
+    expect(screen.getByText('D&D · DnD')).toBeInTheDocument();
     expect(screen.queryByText(/Cada nível é um nó/)).not.toBeInTheDocument();
     expect(screen.queryByText(/nome PT:/)).not.toBeInTheDocument();
-    expect(screen.queryByText('D&D +1')).not.toBeInTheDocument();
   });
 
   it('busca por alias ainda encontra e seleciona o nó', () => {

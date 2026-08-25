@@ -1,0 +1,89 @@
+/* ============================================================================
+   Casca do editor de anúncio (spec 096, T4.1/T4.2/T4.3)
+   ----------------------------------------------------------------------------
+   Este arquivo contém SÓ a casca imersiva (achado do mantenedor, 2026-08-24;
+   migração de 2026-08-25): regras utilitárias (flex/gap/padding/fonte/largura/
+   cor) vivem como classes Tailwind no markup, e as reestilizações de
+   primitives (`.artificio-control`/`.artificio-button`) também — com `!` onde
+   o styles.css unlayered do pacote declara a mesma propriedade (layered
+   utilities perdem para unlayered). A largura dos campos por conteúdo
+   esperado (Baymard — campo curto não estica pela largura da tela) é markup
+   também: `!w-[206px]` nos controls das linhas de campo e `!w-[120px]` nos
+   `type="number"`. Aqui permanecem fixed/`100dvh`/grid de 3 faixas/coluna
+   lateral de 300px/coluna de trabalho `min(900px,100%)`/sem rolagem nos
+   níveis (A1) e a exceção documentada da prévia.
+
+   Altura fixa `100dvh` com `overflow: hidden` — nenhuma barra de rolagem em
+   nenhum nível (A1). Grade de 3 faixas: barra de estado, corpo (lateral +
+   documento) e rodapé de pendências.
+   EXCEÇÃO AO A1 (R22/T4.2b, posterior ao A1): a área da PRÉVIA do card na
+   lateral rola internamente quando a tela é baixa — o card real tem altura
+   mínima fixa (430px) e o A1 cobria as faixas de EDIÇÃO; esconder a prévia em
+   notebook roubaria a feature. Fora dela, nada rola.
+
+   POSICIONAMENTO FIXO: o AppShell (App.tsx) monta Header + Footer ao redor da
+   página; um `100dvh` dentro do fluxo somaria a altura do shell e criaria
+   rolagem no body. O editor toma a viewport inteira de propósito — é uma tela
+   de edição imersiva (mesmo padrão de editor de anúncio de marketplace), e a
+   saída é o "Voltar ao painel" da barra de estado.
+
+   A10/R9: este CSS NÃO redefine `color-scheme` nem cor de `<option>` — o
+   contrato do `<select>` vive em packages/ui/src/styles.css:1008-1058.
+   A18: o alinhamento dos controles vem do `Field` do pacote
+   (`.artificio-field`); nenhuma regra de alinhamento própria do editor aqui.
+   ============================================================================ */
+
+.table-editor {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+/* ── Faixa 2: corpo (lateral + documento) ───────────────────────────────── */
+.table-editor-body {
+  display: grid;
+  /* Lateral a 300px (era 212): a prévia do card real (R22/T4.2b) exige a
+     largura mínima com que o catálogo desenha o TableCardComponent (grid do
+     catálogo: minmax(280px, 420px) — medido). O documento continua
+     minmax(0,1fr) com a coluna de trabalho ≤900px centrada. */
+  grid-template-columns: 300px minmax(0, 1fr);
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Documento: uma parte visível por vez, campos sempre abertos, coluna ≤900px
+   centrada, sem rolagem em nenhum nível (A1). */
+.table-editor-document {
+  display: flex;
+  justify-content: center;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.table-editor-part {
+  width: min(900px, 100%);
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Prévia do card (R22/T4.2b): espelho vivo do estado, com o
+      TableCardComponent real. Só a área do card rola (exceção ao A1 no
+      cabeçalho deste arquivo). */
+.table-editor-preview {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.table-editor-preview-card {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* O card é um ESPELHO não-interativo (inert no componente): a rolagem não
+     conflita com clique — não há o que clicar dentro da prévia. */
+}

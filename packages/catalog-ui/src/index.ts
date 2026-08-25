@@ -2,6 +2,12 @@ export type { CatalogNodeType, CatalogNodeStatus, CatalogUiNode, CatalogUiNodeIn
 export { normalizeText } from './normalize.js';
 export { CatalogTree } from './CatalogTree.js';
 export type { CatalogTreeMode, CatalogTreeRole, CatalogTreeProps } from './CatalogTree.js';
+export { CatalogSystemSelector } from './CatalogSystemSelector.js';
+export type {
+  CatalogSystemSelectorProps,
+  CatalogSystemSearchFetch,
+  CatalogSystemChildrenFetch,
+} from './CatalogSystemSelector.js';
 export { CatalogNodeForm, sanitizeCatalogForm } from './CatalogNodeForm.js';
 export type { CatalogNodeFormProps } from './CatalogNodeForm.js';
 export { CatalogExplorer } from './CatalogExplorer.js';

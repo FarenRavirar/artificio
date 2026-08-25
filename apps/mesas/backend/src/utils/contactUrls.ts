@@ -21,8 +21,31 @@ export const URL_VALUE_CHANNELS = new Set(['form', 'facebook', 'instagram']);
 /** Subconjunto de URL_VALUE_CHANNELS cujo host precisa ser da própria rede. */
 export const SOCIAL_PROFILE_CHANNELS = new Set(['facebook', 'instagram']);
 
-/** Canais aceitos no perfil do mestre (subconjunto de CONTACT_CHANNELS). */
-export const PROFILE_CONTACT_CHANNELS = new Set(['whatsapp', 'email', 'discord', 'form']);
+/**
+ * Os 7 canais de contato aceitos — MESA **e** PERFIL (T4.0r, spec 096 R12,
+ * decisão do mantenedor 2026-08-24: "os 7 valem nos dois lados").
+ *
+ * Fonte única do enum de canal: `contactSchema` (tableValidators.ts) valida a
+ * escrita por esta lista e `serializeContactMethods` (contactSerializer.ts)
+ * filtra a leitura por `PROFILE_CONTACT_CHANNELS`, que agora é o MESMO
+ * conjunto. Antes o perfil aceitava só 4 (whatsapp/email/discord/form) e a
+ * mesa 7 — duas listas divergentes no mesmo repo, com a serialização
+ * descartando em silêncio o canal novo do perfil.
+ */
+export const CONTACT_CHANNELS = [
+  'whatsapp',
+  'discord',
+  'phone',
+  'email',
+  'facebook',
+  'instagram',
+  'form',
+] as const;
+
+export type ContactChannel = (typeof CONTACT_CHANNELS)[number];
+
+/** Canais aceitos no perfil do mestre — idêntico a CONTACT_CHANNELS (R12). */
+export const PROFILE_CONTACT_CHANNELS = new Set<string>(CONTACT_CHANNELS);
 
 export type ContactUrlResult =
   | { ok: true; value: string }

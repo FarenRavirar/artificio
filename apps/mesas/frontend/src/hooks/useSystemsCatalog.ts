@@ -74,13 +74,25 @@ const normalizeSystemTree = (raw: unknown): SystemTreeNode[] => {
   return raw.map(normalizeSystemTreeNode);
 };
 
+/**
+ * Normaliza a resposta de GET /systems — o envelope `{ data: [...] }` é o
+ * MESMO em todos os caminhos da rota (systems.ts do backend: `?view=tree`,
+ * `?search=` e `?parent_id=` devolvem `{ data }` sobre o mesmo shape
+ * `MesasSystemNode`). Exportado para o editor (spec 096, R18/A21): o
+ * IdentityPart consome `?search=`/`?parent_id=` e mantinha um schema
+ * duplicado por nó porque o normalizador não era exportado — agora os dois
+ * validam com o MESMO schema.
+ */
+export const normalizeSystemsResponse = (json: unknown): SystemTreeNode[] =>
+  normalizeSystemTree(asRecord(json).data);
+
 const fetchSystemsCatalog = async (): Promise<SystemTreeNode[]> => {
   const response = await authGet('/api/v1/systems?view=tree');
   if (!response.ok) {
     throw new Error('Erro ao carregar sistemas.');
   }
   const json: unknown = await response.json();
-  return normalizeSystemTree(asRecord(json).data);
+  return normalizeSystemsResponse(json);
 };
 
 export const loadSystemsCatalog = (forceRefresh = false): Promise<SystemTreeNode[]> => {

@@ -187,3 +187,110 @@ describe('TableCardComponent — faixa etária (R24/A27)', () => {
     expect(container.textContent).not.toContain('🔞');
   });
 });
+
+// T4.0u (spec 096): o card decide "Horário Personalizado" (R20) pelo status da
+// TABELA (schedule_day_status='to_define') que o backend compõe no
+// next_schedule, junto do texto livre gravado em table_schedules.notes.
+describe('TableCardComponent — horário personalizado (T4.0u)', () => {
+  function renderCard(card: TableCard) {
+    const queryClient = new QueryClient();
+    const { container } = render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TableCardComponent table={card} />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    return container;
+  }
+
+  it('exibe "Horário Personalizado" com a explicação da agenda quando status é to_define e há notes', () => {
+    const container = renderCard({
+      ...table,
+      next_schedule: {
+        day_of_week: 'sexta',
+        start_time: '20:00:00',
+        frequency: 'semanal',
+        schedule_day_status: 'to_define',
+        notes: 'Sessões combinadas direto com o grupo',
+      },
+    });
+    expect(container.textContent).toContain('Horário Personalizado');
+    expect(container.textContent).toContain('Sessões combinadas direto com o grupo');
+    // O dia/horário placeholder da linha (day_of_week/start_time são NOT NULL)
+    // nunca vira rótulo quando a agenda é personalizada.
+    expect(container.textContent).not.toContain('SEX 20:00');
+  });
+
+  it('exibe "Horário Personalizado" sem subtítulo quando status é to_define sem notes', () => {
+    const container = renderCard({
+      ...table,
+      next_schedule: {
+        day_of_week: 'sexta',
+        start_time: '20:00:00',
+        frequency: 'semanal',
+        schedule_day_status: 'to_define',
+        notes: null,
+      },
+    });
+    expect(container.textContent).toContain('Horário Personalizado');
+    expect(container.textContent).not.toContain('SEX 20:00');
+  });
+
+  it('exibe dia e horário normalmente quando o status é defined', () => {
+    const container = renderCard({
+      ...table,
+      next_schedule: {
+        day_of_week: 'sexta',
+        start_time: '20:00:00',
+        frequency: 'semanal',
+        schedule_day_status: 'defined',
+        notes: null,
+      },
+    });
+    expect(container.textContent).toContain('SEX 20:00');
+    expect(container.textContent).not.toContain('Horário Personalizado');
+  });
+
+  it('mantém o comportamento antigo quando o payload não traz o status novo (retrocompatibilidade)', () => {
+    const container = renderCard({
+      ...table,
+      next_schedule: { day_of_week: 'sexta', start_time: '20:00:00', frequency: 'semanal' },
+    });
+    expect(container.textContent).toContain('SEX 20:00');
+    expect(container.textContent).not.toContain('Horário Personalizado');
+  });
+
+  // B2 (revisão adversarial Fase 4): a lista de mesas não tem normalizador
+  // (useFetchTables/catalogService devolvem `json.data` cru) — o guard de tipo
+  // no card garante que payload fora do contrato não quebra a renderização.
+  it('não quebra quando o payload traz dia/horário fora do contrato (B2)', () => {
+    const container = renderCard({
+      ...table,
+      next_schedule: {
+        day_of_week: null,
+        start_time: '20:00:00',
+        frequency: 'semanal',
+      } as unknown as TableCard['next_schedule'],
+    });
+    // Sem crash e sem bloco de agenda: o card inteiro continua de pé.
+    expect(container.textContent).toContain('Mesa teste');
+    expect(container.textContent).not.toContain('20:00');
+  });
+
+  it('ignora notes fora do contrato no ramo to_define (B2)', () => {
+    const container = renderCard({
+      ...table,
+      next_schedule: {
+        day_of_week: 'sexta',
+        start_time: '20:00:00',
+        frequency: 'semanal',
+        schedule_day_status: 'to_define',
+        notes: { hostil: true } as unknown as string,
+      },
+    });
+    // `notes` não-string nunca vira child do React (objeto quebraria o render).
+    expect(container.textContent).toContain('Horário Personalizado');
+    expect(container.textContent).not.toContain('hostil');
+  });
+});

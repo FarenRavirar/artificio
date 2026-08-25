@@ -117,6 +117,10 @@ describe('CatalogTree', () => {
     expect(screen.getByText('3.5e')).toBeInTheDocument();
     expect(screen.getByText('5e')).toBeInTheDocument();
     expect(screen.queryByText('2024')).not.toBeInTheDocument();
+    // Regressão do empilhamento (R18/A21): o CatalogTree continua empilhando
+    // os níveis com o rótulo "Edições de X" — a variante de três colunas é o
+    // CatalogSystemSelector, não uma mudança aqui.
+    expect(screen.getByText(/edições de Dungeons & Dragons/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /^5e/ }));
     expect(onSelectionChange).toHaveBeenCalledWith(['dnd-5e']);
@@ -355,7 +359,7 @@ describe('CatalogTree', () => {
       expect(screen.getByText('D&D +1')).toBeInTheDocument();
     });
 
-    it('em "selection" não renderiza parágrafo técnico, nome PT nem alias badge', () => {
+    it('em "selection" não renderiza parágrafo técnico nem "nome PT", mas RENDERIZA os aliases nas opções (reversão da D0.5 — R18/A21, spec 096)', () => {
       render(
         <CatalogTree
           tree={tree}
@@ -374,6 +378,9 @@ describe('CatalogTree', () => {
 
       expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument();
       expect(screen.queryByText(/nome PT:/)).not.toBeInTheDocument();
+      // Reversão da D0.5: aliases completos na linha da opção (não o resumo
+      // compacto "D&D +1" do modo full).
+      expect(screen.getByText('D&D · DnD')).toBeInTheDocument();
       expect(screen.queryByText('D&D +1')).not.toBeInTheDocument();
     });
 

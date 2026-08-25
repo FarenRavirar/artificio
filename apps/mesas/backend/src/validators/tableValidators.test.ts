@@ -119,8 +119,24 @@ describe('contactMethodsSchema — perfil do mestre', () => {
     expect(result.success).toBe(false);
   });
 
-  it('restringe perfil aos quatro canais suportados', () => {
-    expect(contactMethodsSchema.safeParse([{ channel: 'facebook', value: 'facebook.com/mestre' }]).success).toBe(false);
+  // T4.0r (spec 096 R12, decisão 2026-08-24): o perfil passa a aceitar os
+  // MESMOS 7 canais da mesa. O enum é um só (CONTACT_CHANNELS, fonte única em
+  // contactUrls.ts) — o refine antigo "4 canais no perfil" virou tautologia
+  // e foi removido.
+  it.each([
+    ['whatsapp', '+5511999999999'],
+    ['discord', 'mestre'],
+    ['phone', '+55 11 99999-9999'],
+    ['email', 'mestre@exemplo.com'],
+    ['facebook', 'facebook.com/mestre'],
+    ['instagram', 'instagram.com/mestre'],
+    ['form', 'https://forms.gle/abc'],
+  ])('aceita %s no perfil do mestre', (channel, value) => {
+    expect(contactMethodsSchema.safeParse([{ channel, value }]).success).toBe(true);
+  });
+
+  it('rejeita canal fora do enum compartilhado dos 7', () => {
+    expect(contactMethodsSchema.safeParse([{ channel: 'telegram', value: 'mestre' }]).success).toBe(false);
   });
 
   it('preserva validações de email e WhatsApp da rota antiga', () => {
@@ -825,6 +841,55 @@ describe('gm_avatar_url fora do contrato do form (T3.2c, spec 096)', () => {
       gm_avatar_url: 'https://example.com/avatar.png',
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('createTableSchema — status (T4.7, spec 096)', () => {
+  const baseTable = {
+    title: 'Mesa rascunho',
+    system_id: '123e4567-e89b-42d3-a456-426614174000',
+    type: 'campanha',
+    modality: 'online',
+    contacts: [{ channel: 'discord', value: 'mestre' }],
+  };
+
+  it.each(['draft', 'active', 'full', 'cancelled', 'ended', 'pending_review'])(
+    'aceita status %s (enum real da coluna, medido via pg_enum em produção)',
+    (status) => {
+      const result = createTableSchema.safeParse({ ...baseTable, status });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.status).toBe(status);
+      }
+    },
+  );
+
+  it('omissão deixa status undefined — prepareTableData aplica o default draft da coluna', () => {
+    const result = createTableSchema.parse(baseTable);
+    expect(result.status).toBeUndefined();
+  });
+
+  it('rejeita status fora do enum real', () => {
+    expect(createTableSchema.safeParse({ ...baseTable, status: 'publicado' }).success).toBe(false);
+    expect(createTableSchema.safeParse({ ...baseTable, status: 1 }).success).toBe(false);
+  });
+});
+
+describe('updateTableSchema — status (T4.7, spec 096)', () => {
+  it('PUT rejeita status como chave desconhecida — promoção é contrato do PATCH /gm/tables/:id/status', () => {
+    // O PATCH grava a âncora published_at, notifica admins e dispara o scrape
+    // de OG; promover via PUT pularia essa cadeia e deixaria mesa publicada
+    // sem âncora de auto-arquivamento. O 400 aqui orienta o cliente à rota
+    // certa em vez de aceitar um campo que a rota ignoraria.
+    const result = updateTableSchema.safeParse({ status: 'active' });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toContain('status');
+    }
+  });
+
+  it('PUT sem status continua válido (autosave de rascunho não mexe no ciclo de vida)', () => {
+    expect(updateTableSchema.safeParse({ title: 'Edição de rascunho' }).success).toBe(true);
   });
 });
 
