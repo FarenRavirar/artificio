@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildStateFromPreview } from './previewMerge';
+import { applyParserPreview, buildStateFromPreview } from './previewMerge';
 import { createDefaultEditorState } from '../hooks/useTableEditor';
 import type { TableEditorState } from '../types';
 
@@ -130,5 +130,169 @@ describe('buildStateFromPreview — prévia do parser não apaga o que o mestre 
 
     expect(merged.contacts).toHaveLength(1);
     expect(merged.contacts[0]).toMatchObject({ channel: 'discord', value: 'mestre#1234' });
+  });
+
+  it('F2 (spec 096, T6.6): a fonte lê `schedules` — a chave `sessions` do contrato antigo nunca existiu e não alimenta nada', () => {
+    // A correção T3.1 (spec 096) fez o mapper ler `schedules` (o que o
+    // backend devolve desde o GM panel). A fixture fixa o contrato ATUAL:
+    // fonte com `schedules` alimenta o horário; fonte com `sessions` (bug
+    // histórico) cai no default — nada é lido de lá.
+    const current = filled();
+
+    const withSchedules = buildStateFromPreview({
+      schedules: [{
+        day_of_week: 'sexta',
+        start_time: '20:30',
+        frequency: 'quinzenal',
+        is_ongoing: false,
+        sort_order: 0,
+      }],
+    }, current);
+
+    expect(withSchedules.schedules[0].day_of_week).toBe('sexta');
+    expect(withSchedules.schedules[0].start_time).toBe('20:30');
+    expect(withSchedules.schedules[0].frequency).toBe('quinzenal');
+
+    const withSessionsOnly = buildStateFromPreview({
+      // Nome do contrato ANTIGO do wizard (mapTableApiToInitialData:86) —
+      // o backend nunca devolveu esta chave; o parser novo não a lê.
+      sessions: [{ day_of_week: 'sabado', start_time: '10:00', frequency: 'mensal' }],
+    }, current);
+
+    expect(withSessionsOnly.schedules[0].day_of_week).toBe(current.schedules[0].day_of_week);
+  });
+});
+
+describe('applyParserPreview (Fase 6, T6.2) — prévia + campos que a fonte produziu', () => {
+  it('devolve os campos extraídos para a marca visual "Pelo anúncio"', () => {
+    const current = filled();
+
+    const { state, extractedFields } = applyParserPreview(
+      { title: 'Título do anúncio', price_type: 'paga', price_value: 40 },
+      current,
+    );
+
+    expect(state.title).toBe('Título do anúncio');
+    expect(state.priceType).toBe('paga');
+    expect(state.priceValue).toBe('40');
+    expect(extractedFields).toContain('title');
+    expect(extractedFields).toContain('priceType');
+    expect(extractedFields).toContain('priceValue');
+    // O que a fonte NÃO trouxe não entra na lista de marcas.
+    expect(extractedFields).not.toContain('description');
+  });
+
+  // Payload REAL de parseTextForPreview para o texto "Mesa do Corvo" (medido no
+  // backend): buildTableDraftFields devolve o objeto COMPLETO, com defaults nas
+  // chaves que o parser não achou. Sem o recorte de defaults, todo campo não
+  // citado no anúncio exibia "Pelo anúncio".
+  it('defaults do backend não viram marca "Pelo anúncio" (texto só com título)', () => {
+    const current = filled();
+    const { extractedFields } = applyParserPreview(
+      {
+        system_id: null,
+        scenario_id: null,
+        title: 'Mesa do Corvo',
+        description: 'Mesa do Corvo',
+        rules_notes: null,
+        type: 'campanha',
+        age_rating: null,
+        modality: 'online',
+        vtt_platform_id: null,
+        communication_platform_id: null,
+        price_type: 'gratuita',
+        price_value: null,
+        price_frequency: null,
+        price_value_monthly: null,
+        accepts_donations: false,
+        suggested_donation_value: null,
+        slots_total: 0,
+        slots_filled: 0,
+        slots_open: 0,
+        experience_level: 'todos',
+        table_level: null,
+        setting_name: null,
+        setting_styles: null,
+        requires_pc: false,
+        requires_camera: false,
+        requires_microphone: false,
+        session_zero_free: false,
+        actual_gm_name: null,
+        is_covil: false,
+        cover_url: null,
+        banner_url: null,
+        schedule_day_status: 'defined',
+        schedule_time_status: 'to_define',
+        schedule_day_hint: null,
+        schedule_time_hint: null,
+        // Medido no backend para este mesmo texto: só o título foi extraído.
+        _extracted_fields: ['title'],
+        missing_fields: ['system_name', 'day_of_week', 'start_time', 'slots_total', 'contact_url'],
+        _slots_ambiguity: null,
+        _price_ambiguity: false,
+        _schedule_ambiguity: false,
+        raw_system_hint: null,
+      },
+      current,
+    );
+
+    // O que o anúncio de fato trouxe.
+    expect(extractedFields).toContain('title');
+    // Defaults do builder — o mestre não citou nada disso.
+    expect(extractedFields).not.toContain('priceType');
+    expect(extractedFields).not.toContain('type');
+    expect(extractedFields).not.toContain('experienceLevel');
+    expect(extractedFields).not.toContain('requiresPc');
+    expect(extractedFields).not.toContain('requiresCamera');
+    expect(extractedFields).not.toContain('requiresMicrophone');
+    expect(extractedFields).not.toContain('acceptsDonations');
+    expect(extractedFields).not.toContain('sessionZeroFree');
+    expect(extractedFields).not.toContain('slotsTotal');
+  });
+
+  it('valor igual ao default AINDA marca quando o anúncio o cita (gratuita explícito)', () => {
+    const current = filled();
+    const { extractedFields } = applyParserPreview(
+      {
+        title: 'Mesa',
+        price_type: 'gratuita',
+        // Medido: com "Valor: gratuito" no texto, price_type entra na lista.
+        _extracted_fields: ['title', 'price_type'],
+        missing_fields: [],
+      },
+      current,
+    );
+    expect(extractedFields).toContain('priceType');
+  });
+
+  it('sem _extracted_fields (payload antigo) mantém a sondagem como fallback', () => {
+    const current = filled();
+    const { extractedFields } = applyParserPreview(
+      { title: 'Mesa', price_type: 'paga', price_value: 40 },
+      current,
+    );
+    expect(extractedFields).toContain('title');
+    expect(extractedFields).toContain('priceType');
+    expect(extractedFields).toContain('priceValue');
+  });
+
+  it('chaves de sinal (_*/missing_fields/raw_system_hint) não alimentam nenhum campo do estado', () => {
+    const current = filled();
+    const { extractedFields } = applyParserPreview(
+      {
+        title: 'Mesa',
+        missing_fields: ['day_of_week'],
+        _price_ambiguity: true,
+        _schedule_ambiguity: true,
+        _slots_ambiguity: { first: 2, second: 5, source: 'x_slash_y' },
+        raw_system_hint: 'Xyz',
+      },
+      current,
+    );
+
+    expect(extractedFields).toContain('title');
+    for (const field of extractedFields) {
+      expect(['missing_fields', '_price_ambiguity', '_schedule_ambiguity', '_slots_ambiguity', 'raw_system_hint']).not.toContain(field);
+    }
   });
 });

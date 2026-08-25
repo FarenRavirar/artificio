@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Button, Field } from '@artificio/ui';
+import { Badge, Button, Field } from '@artificio/ui';
 import type { FieldLevel, TableEditorState } from '../types';
 import { fieldLevel, RECOMMENDED_GAIN } from '../utils/editorValidation';
 
@@ -21,6 +21,11 @@ import { fieldLevel, RECOMMENDED_GAIN } from '../utils/editorValidation';
  * validação): os testes cruzam os `[data-ob="required"]` renderizados com o
  * registro `REQUIRED_FIELD_IDS`/condicionais de editorValidation.ts, que é a
  * MESMA fonte que a validação usa.
+ *
+ * Fase 6 (spec 096, T6.2/R5): `parserMarked` marca o campo preenchido pela
+ * prévia do parser — badge "Pelo anúncio" + `data-parser-source` (gancho do
+ * teste). Publicar NUNCA é bloqueado por esta marca (T6.5): ela é só visual,
+ * nenhum validador a consulta.
  */
 type EditorFieldProps = Readonly<{
   fieldId: string;
@@ -38,6 +43,8 @@ type EditorFieldProps = Readonly<{
   error?: string;
   children: ReactNode;
   className?: string;
+  /** Fase 6 (T6.2): true quando o valor atual veio da prévia do parser. */
+  parserMarked?: boolean;
 }>;
 
 /** Campo obrigatório prefixa "Obrigatório." no hint; os demais mantêm o texto. */
@@ -55,6 +62,7 @@ export function EditorField({
   error,
   children,
   className,
+  parserMarked = false,
 }: EditorFieldProps) {
   // O nível vem do registro de validação — fonte única da marca e da regra.
   const level = fieldLevel(fieldId, state);
@@ -64,7 +72,15 @@ export function EditorField({
   const resolvedHint = buildHint(level, hint);
 
   return (
-    <div className={className} data-ob={level} data-field={fieldId}>
+    <div className={className} data-ob={level} data-field={fieldId} data-parser-source={parserMarked || undefined}>
+      {parserMarked ? (
+        <p className="mb-0.5 flex items-center gap-1.5">
+          <Badge variant="info">Pelo anúncio</Badge>
+          <span className="text-xs opacity-75">
+            O texto colado preencheu este campo — confira antes de publicar.
+          </span>
+        </p>
+      ) : null}
       <Field
         id={controlId ?? fieldId}
         label={fieldLabel}

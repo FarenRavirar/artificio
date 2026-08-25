@@ -26,7 +26,7 @@ type MasterPartProps = Readonly<{
 }>;
 
 export function MasterPart({ api }: MasterPartProps) {
-  const { state, patch, errors, validateFieldOnBlur } = api;
+  const { state, patch, errors, validateFieldOnBlur, parserFilledFields } = api;
   const isAnnouncer = state.publisherRole === 'announcer';
 
   return (
@@ -65,6 +65,7 @@ export function MasterPart({ api }: MasterPartProps) {
         <EditorField
           fieldId="actualGmName"
           state={state}
+          parserMarked={parserFilledFields.has('actualGmName')}
           label="Nome do mestre real"
           error={errors.actualGmName}
         >
@@ -82,6 +83,7 @@ export function MasterPart({ api }: MasterPartProps) {
       <EditorField
         fieldId="masterDisplayName"
         state={state}
+        parserMarked={parserFilledFields.has('masterDisplayName')}
         label="Nome de exibição do mestre"
         hint="Se não for alterado, a mesa exibe o nome do seu perfil de mestre."
       >
@@ -117,6 +119,7 @@ export function MasterPart({ api }: MasterPartProps) {
       <EditorField
         fieldId="contacts"
         state={state}
+        parserMarked={parserFilledFields.has('contacts')}
         label="Canais de recrutamento"
         hint="Ao menos um canal para jogadores entrarem em contato."
         error={errors.contacts}

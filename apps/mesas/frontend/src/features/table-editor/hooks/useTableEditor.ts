@@ -12,6 +12,7 @@ import {
   toProfileContactMethods,
 } from '../utils/editorMapping';
 import type { EditorPayload, GmProfileSnapshot } from '../utils/editorMapping';
+import type { ParserSignals } from '../utils/parserSignals';
 import { useAutosave } from '../../create-table/hooks/useAutosave';
 import { draftStorage } from '../../create-table/utils/draftStorage';
 import { authGet, authPost, authPut, authPatch } from '../../../utils/authenticatedFetch';
@@ -256,6 +257,32 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+/**
+ * Snapshot do perfil recém-criado (POST /gm/profile). Preferimos o corpo da
+ * resposta; `fallback` cobre resposta sem corpo/ilegível — o perfil FOI criado
+ * (res.ok), então falhar aqui perderia o publish por um detalhe de payload.
+ *
+ * Extraída de createGmProfileOnFirstPublish junto com readProfileErrorMessage
+ * (Sonar: complexidade cognitiva 18 > 15) — a função ficou com uma
+ * responsabilidade só, o retry de slug, e a leitura da resposta vive aqui.
+ */
+async function readCreatedProfile(
+  res: Response,
+  fallback: GmProfileSnapshot,
+): Promise<GmProfileSnapshot> {
+  const json: unknown = await res.json().catch(() => null);
+  const created = isRecord(json) ? mapGmMeToSnapshot(json.data) : null;
+  return created ?? fallback;
+}
+
+/** Mensagem de erro do POST /gm/profile, com fallback quando o corpo não traz uma. */
+async function readProfileErrorMessage(res: Response): Promise<string> {
+  const json: unknown = await res.json().catch(() => null);
+  return isRecord(json) && typeof json.error === 'string'
+    ? json.error
+    : 'Erro ao criar perfil de mestre';
+}
+
 // ── B1 (revisão adversarial Fase 4): shape do rascunho local restaurado ──
 // O draftStorage valida só o ENVELOPE (version/updatedAt/data); o DATA é
 // mesclado sem checar tipo — campo de array que não é array (JSON antigo/
@@ -346,6 +373,25 @@ export interface TableEditorApi {
   patch: (partial: Partial<TableEditorState>) => void;
   /** Substitui o estado inteiro (rascunho restaurado, prévia do parser). */
   replaceState: (next: TableEditorState) => void;
+  /**
+   * Fase 6 (spec 096, T6.2/R5): aplica a prévia do parser registrando QUAIS
+   * campos a fonte produziu (marca visual "de onde veio") e os sinais de
+   * ambiguidade (exibidos ao mestre). Diferente de replaceState, que LIMPA
+   * os sinais (restaurar rascunho não é "usar o parser").
+   */
+  applyParserPreview: (
+    next: TableEditorState,
+    extractedFields: readonly (keyof TableEditorState)[],
+    signals: ParserSignals | null,
+  ) => void;
+  /**
+   * Campos do estado preenchidos pela ÚLTIMA prévia do parser — alimentam a
+   * marca visual por campo (EditorField `parserMarked`). Estado de UI: nunca
+   * vai ao payload nem ao rascunho remoto.
+   */
+  parserFilledFields: ReadonlySet<string>;
+  /** Sinais de ambiguidade da última prévia — null = nenhuma prévia aplicada. */
+  parserSignals: ParserSignals | null;
   /** Valida um campo no blur — nunca a cada tecla. */
   validateFieldOnBlur: (fieldId: string) => void;
   errors: EditorErrorMap;
@@ -400,8 +446,25 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
   const [inheritedBaseline, setInheritedBaseline] = useState<InheritedBaseline | null>(null);
   const [syncingProfile, setSyncingProfile] = useState(false);
 
+  // ── Prévia do parser (T6.2, spec 096): marcas e sinais ───────────────────
+  // Estado de UI, fora do TableEditorState de propósito: não viaja no payload
+  // (editorStateToPayload monta objeto explícito), não vai ao rascunho remoto
+  // nem ao draft local — restaurar rascunho ou editar não re-exibe "veio do
+  // anúncio". A marca só vale para a prévia aplicada na sessão.
+  const [parserFilledFields, setParserFilledFields] = useState<ReadonlySet<string>>(
+    () => new Set<string>(),
+  );
+  const [parserSignals, setParserSignals] = useState<ParserSignals | null>(null);
+
   const isEditing = typeof state.id === 'string' && state.id.length > 0;
   const isActive = state.status === 'active';
+
+  // Fase 6 (T6.4): "edição no MOUNT" para a herança do idioma — o effect da
+  // herança roda uma vez com deps [], e a closure precisa da decisão do
+  // ESTADO INICIAL (edição mantém o valor salvo; criação herda o idioma).
+  // Ref no lugar de dep: re-rodar a herança a cada render re-aplicaria o
+  // pré-preenchimento e brigaria com a digitação do mestre.
+  const editingAtMountRef = useRef(isEditing);
 
   // ── Instrumentação (T4.0i, R15): editor_open/publish/abandon/parser_use ──
   // Convenção REAL do repo (MesaPage.tsx/CatalogoPage.tsx): import direto do
@@ -500,6 +563,25 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
             next.contacts = profile.contactMethods.map((c) => ({ ...c }));
             changed = true;
           }
+          // Fase 6 (spec 096, T6.4): plataforma VTT preferida — o PRIMEIRO
+          // UUID do perfil entra no estado (o WherePart converte UUID→slug
+          // quando o catálogo carrega, mesma mecânica da edição de mesa
+          // legada). Só preenche campo vazio, como os demais herdados.
+          if (!next.vttPlatformId && profile.preferredVttPlatforms.length > 0) {
+            next.vttPlatformId = profile.preferredVttPlatforms[0];
+            changed = true;
+          }
+          // Fase 6 (spec 096, T6.4): idioma do perfil — SÓ na criação. Em
+          // edição o valor salvo vence (o default 'pt-BR' do estado é do
+          // mapper, não decisão do mestre; na criação ele ainda não decidiu).
+          if (
+            !editingAtMountRef.current &&
+            profile.languages.length > 0 &&
+            profile.languages[0] !== next.language
+          ) {
+            next.language = profile.languages[0];
+            changed = true;
+          }
           return changed ? next : prev;
         });
       }
@@ -585,6 +667,19 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
       }
       return changed ? next : prev;
     });
+    // Fase 6 (T6.2, achado de review PR #288): campo editado pelo mestre deixa
+    // de ser "Pelo anúncio". A marca só saía em replaceState/nova prévia, então
+    // um título ou preço substituído à mão continuava afirmando origem do
+    // parser — indicação de origem errada justamente onde o mestre corrigiu.
+    setParserFilledFields((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Set(prev);
+      let changed = false;
+      for (const key of Object.keys(partial)) {
+        if (next.delete(key)) changed = true;
+      }
+      return changed ? next : prev;
+    });
     setPublishError(null);
   }, []);
 
@@ -599,7 +694,26 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
     setErrors({});
     setRevealedPending(false);
     setPublishError(null);
+    // Fase 6 (T6.2): trocar o estado inteiro (restaurar rascunho, editar)
+    // desfaz as marcas/sinais da prévia — "veio do anúncio" só vale para a
+    // prévia aplicada nesta sessão. A prévia em si usa applyParserPreview,
+    // que re-aplica as marcas logo depois.
+    setParserFilledFields(new Set());
+    setParserSignals(null);
   }, []);
+
+  const applyParserPreview = useCallback(
+    (
+      next: TableEditorState,
+      extractedFields: readonly (keyof TableEditorState)[],
+      signals: ParserSignals | null,
+    ) => {
+      replaceState(next);
+      setParserFilledFields(new Set(extractedFields as string[]));
+      setParserSignals(signals);
+    },
+    [replaceState],
+  );
 
   const validateFieldOnBlur = useCallback((fieldId: string) => {
     const message = validateEditorField(fieldId, state);
@@ -824,13 +938,15 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
       });
 
       if (res.ok) {
-        const json: unknown = await res.json().catch(() => null);
-        const created = isRecord(json) ? mapGmMeToSnapshot(json.data) : null;
-        const profile: GmProfileSnapshot = created ?? {
+        const profile = await readCreatedProfile(res, {
           nickname,
           bioLong: state.tableGmBio,
           contactMethods: state.contacts,
-        };
+          // Fase 6 (T6.4): perfil recém-criado no publish não tem VTT/idioma
+          // herdáveis (o POST de criação não os recebe) — snapshot mínimo.
+          preferredVttPlatforms: [],
+          languages: state.language ? [state.language] : [],
+        });
         setGmProfileStatus({ kind: 'profile', profile });
         // O que o perfil TEM agora é o estado atual da mesa — referência
         // zerada para "nada foi editado ainda" (o botão de sincronizar só
@@ -843,19 +959,13 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
         return true;
       }
 
-      if (res.status !== 409) {
-        const json: unknown = await res.json().catch(() => null);
-        const message =
-          isRecord(json) && typeof json.error === 'string'
-            ? json.error
-            : 'Erro ao criar perfil de mestre';
-        throw new Error(message);
-      }
-      // 409 (slug em uso): tenta o sufixo numérico.
+      // 409 (slug em uso) é o único status que continua o laço: tenta o sufixo
+      // numérico. Qualquer outro erro sobe com a mensagem do backend.
+      if (res.status !== 409) throw new Error(await readProfileErrorMessage(res));
     }
 
     throw new Error('Não foi possível criar o perfil de mestre (identificador em uso).');
-  }, [state.masterDisplayName, state.tableGmBio, state.contacts, user?.name]);
+  }, [state.masterDisplayName, state.tableGmBio, state.contacts, state.language, user?.name]);
 
   const publish = useCallback(async (): Promise<boolean> => {
     // C1: levantar o guard ANTES de qualquer await — o effect do autosave
@@ -1003,6 +1113,12 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
       setGmProfileStatus({
         kind: 'profile',
         profile: {
+          // Fase 6 (T6.4): a sincronização mexe só em nickname/bio/contatos —
+          // VTT preferido e idiomas do perfil são PRESERVADOS do snapshot
+          // atual (não são tocados por este botão).
+          ...(gmProfileStatus.kind === 'profile'
+            ? gmProfileStatus.profile
+            : { preferredVttPlatforms: [], languages: [] as string[] }),
           nickname,
           bioLong: state.tableGmBio,
           contactMethods: state.contacts,
@@ -1016,7 +1132,7 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
     } finally {
       setSyncingProfile(false);
     }
-  }, [gmProfileStatus.kind, state.masterDisplayName, state.tableGmBio, state.contacts]);
+  }, [gmProfileStatus, state.masterDisplayName, state.tableGmBio, state.contacts]);
 
   // Campo com erro para foco no A4 (o TableEditor foca quando revealedPending
   // muda). Derivado do mapa de erros, na ordem das partes.
@@ -1026,6 +1142,9 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
     state,
     patch,
     replaceState,
+    applyParserPreview,
+    parserFilledFields,
+    parserSignals,
     validateFieldOnBlur,
     errors,
     revealedPending,

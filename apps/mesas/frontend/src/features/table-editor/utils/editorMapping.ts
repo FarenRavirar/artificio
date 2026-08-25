@@ -720,6 +720,20 @@ export interface GmProfileSnapshot {
   nickname: string;
   bioLong: string;
   contactMethods: ContactMethodInput[];
+  /**
+   * Fase 6 (spec 096, T6.4): plataformas VTT preferidas do mestre — UUIDs do
+   * catálogo `vtt_platforms` (gm_profiles.preferred_vtt_platforms, 39/39 em
+   * produção). A herança pré-carrega o PRIMEIRO no estado do editor; o
+   * WherePart já reconcilia UUID→slug quando o catálogo carrega (mesma
+   * mecânica da edição de mesa legada).
+   */
+  preferredVttPlatforms: string[];
+  /**
+   * Fase 6 (spec 096, T6.4): idiomas do perfil (gm_profiles.languages,
+   * códigos como 'pt-BR'). A herança pré-carrega o PRIMEIRO no estado do
+   * editor, só na criação — mesa em edição mantém o valor salvo.
+   */
+  languages: string[];
 }
 
 function isProfileContact(value: unknown): value is ContactMethodInput {
@@ -730,6 +744,21 @@ function isProfileContact(value: unknown): value is ContactMethodInput {
   // Canal fora do enum não vaza (mesma regra do PR #285): o snapshot alimenta
   // o estado do editor e um canal desconhecido quebraria a UI a jusante.
   return (TABLE_CONTACT_CHANNELS as readonly string[]).includes(contact.channel);
+}
+
+/**
+ * Lista de string vinda de payload externo: descarta não-string, apara espaço e
+ * remove o que sobra vazio. O trim/descarte não é cosmético — a herança usa
+ * `preferredVttPlatforms[0]` como vttPlatformId (useTableEditor), e o guard de
+ * lá testa o array, não o item: um "" no perfil viraria plataforma selecionada
+ * em branco no editor. Não-array devolve [] (nunca propaga o valor inválido).
+ */
+function normalizeStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
 }
 
 /**
@@ -757,5 +786,9 @@ export function mapGmMeToSnapshot(value: unknown): GmProfileSnapshot | null {
     nickname: typeof data.nickname === 'string' ? data.nickname : '',
     bioLong: typeof data.bio_long === 'string' ? data.bio_long : '',
     contactMethods,
+    // Fase 6 (T6.4): listas de string do perfil — entradas não-string saem
+    // (payload externo, normalização obrigatória do repo).
+    preferredVttPlatforms: normalizeStringList(data.preferred_vtt_platforms),
+    languages: normalizeStringList(data.languages),
   };
 }

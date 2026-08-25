@@ -46,6 +46,16 @@ vi.mock('../services/metaScrapeClient', () => ({
 }));
 vi.mock('../discord/shared', () => ({
   loadSystemsForParser: vi.fn().mockResolvedValue([]),
+  loadVttPlatformsForParser: vi.fn().mockResolvedValue([
+    { id: 'vtt-roll20', name: 'Roll20', aliases: [] },
+  ]),
+  loadCommunicationPlatformsForParser: vi.fn().mockResolvedValue([
+    { id: 'comm-discord', name: 'Discord', aliases: [] },
+  ]),
+  loadScenariosForParser: vi.fn().mockResolvedValue([]),
+}));
+vi.mock('../discord/learningRules', () => ({
+  loadActiveLabelAliases: vi.fn().mockResolvedValue({}),
 }));
 
 const mockParseTextForPreview = vi.fn();
@@ -116,6 +126,34 @@ describe('POST /api/v1/gm/parse-preview', () => {
 
     expect(res.status).toBe(200);
     expect(mockParseTextForPreview).toHaveBeenCalled();
+  });
+
+  it('F1 (spec 096, T6.1): liga os catálogos — a rota passa VTT/comunicação/cenário + aliases aprendidos ao parser', async () => {
+    // Falha 1 do §Gap 4: a rota chamava o parser SEM os catálogos, então
+    // "Plataformas: Roll20" virava vtt_platform_id: null com o hint descartado.
+    (db.selectFrom as Mock).mockReturnValue(mockSelectChain({ executeTakeFirst: vi.fn().mockResolvedValue({ id: 'gm-profile-1' }) }));
+    mockParseTextForPreview.mockResolvedValue({
+      parseCaseId: PARSE_CASE_ID,
+      table: { title: 'Mesa de Teste', vtt_platform_id: 'vtt-roll20' },
+      contacts: [],
+      schedules: [],
+    });
+
+    const res = await request(makeApp())
+      .post('/api/v1/gm/parse-preview')
+      .send({ text: 'Título: Mesa de Teste\nPlataformas: Roll20\nVagas: 4' });
+
+    expect(res.status).toBe(200);
+    // O parser foi chamado com os 4 insumos: sistemas + catálogos + aliases.
+    const [text, systems, platforms, labelAliases] = mockParseTextForPreview.mock.calls[0] as unknown[];
+    expect(text).toBe('Título: Mesa de Teste\nPlataformas: Roll20\nVagas: 4');
+    expect(Array.isArray(systems)).toBe(true);
+    expect(platforms).toEqual({
+      vtt: [{ id: 'vtt-roll20', name: 'Roll20', aliases: [] }],
+      communication: [{ id: 'comm-discord', name: 'Discord', aliases: [] }],
+      scenarios: [],
+    });
+    expect(labelAliases).toEqual({});
   });
 
   it('retorna parse_case_id + table quando o parser reconhece o anúncio', async () => {

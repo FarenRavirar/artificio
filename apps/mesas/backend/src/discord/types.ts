@@ -77,6 +77,13 @@ export interface DiscordTableDraftTable {
   modality: TableDraftModality | null;
   price_type: TableDraftPriceType | null;
   price_value: number | null;
+  /** Fase 6 (spec 096, T6.3/Falha 7): valor mensal extraído do texto
+   * ("Mensal: 40", "R$ 40/mês") — espelha tables.price_value_monthly. */
+  price_value_monthly: number | null;
+  /** Fase 6 (spec 096, T6.3/Falha 7): mesa gratuita que aceita doações. */
+  accepts_donations: boolean;
+  /** Fase 6 (spec 096, T6.3/Falha 7): valor sugerido de doação por sessão. */
+  suggested_donation_value: number | null;
   slots_total: number | null;
   slots_filled: number | null;
   slots_open: number | null;

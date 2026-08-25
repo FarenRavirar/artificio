@@ -14,6 +14,7 @@ import { SettingStylesField } from '../../../components/SettingStylesField';
 import { SystemSuggestionModal } from '../../../components/SystemSuggestionModal';
 import { ScenarioSuggestionModal } from '../../../components/ScenarioSuggestionModal';
 import { ParsePreviewTextArea } from '../../create-table/components/ParsePreviewTextArea';
+import { ParserSignalsPanel } from '../components/ParserSignalsPanel';
 import { DESCRIPTION_MAX_LENGTH, EDITOR_TEXT_LIMITS } from '../utils/editorValidation';
 
 /**
@@ -62,7 +63,7 @@ export function IdentityPart({
   onPreviewReady,
   currentUserName,
 }: IdentityPartProps) {
-  const { state, patch, errors, validateFieldOnBlur } = api;
+  const { state, patch, errors, validateFieldOnBlur, parserFilledFields, parserSignals } = api;
 
   const [showParser, setShowParser] = useState(false);
   const [showSystemSuggestion, setShowSystemSuggestion] = useState(false);
@@ -186,6 +187,13 @@ export function IdentityPart({
             />
           </Panel>
         )}
+        {/* Fase 6 (spec 096, T6.2/R5): sinais da última prévia — ambiguidades
+            calculadas pelo backend e o que ele não reconheceu, exibidos ao
+            mestre. Aviso, não validação: publicar nunca é bloqueado por isto
+            (T6.5). */}
+        {parserSignals ? (
+          <ParserSignalsPanel signals={parserSignals} onSuggestSystem={openSystemSuggestion} />
+        ) : null}
       </div>
 
       {/* Título — largura ampla (o nome que o jogador lê primeiro; limite 200,
@@ -195,6 +203,7 @@ export function IdentityPart({
       <EditorField
         fieldId="title"
         state={state}
+        parserMarked={parserFilledFields.has('title')}
         label="Título da mesa"
         hint="É o nome que o jogador lê primeiro — mostre o título inteiro enquanto escreve."
         error={errors.title}
@@ -246,6 +255,7 @@ export function IdentityPart({
       <EditorField
         fieldId="description"
         state={state}
+        parserMarked={parserFilledFields.has('description')}
         label="Descrição da mesa"
         error={errors.description}
       >
@@ -261,7 +271,12 @@ export function IdentityPart({
 
       {/* "Regras e observações da mesa" — sobe para logo abaixo da Descrição
           (T4.0o); antes vivia no colapsável de avançados do StepFinal. */}
-      <EditorField fieldId="rulesNotes" state={state} label="Regras e observações da mesa">
+      <EditorField
+        fieldId="rulesNotes"
+        state={state}
+        parserMarked={parserFilledFields.has('rulesNotes')}
+        label="Regras e observações da mesa"
+      >
         <ContentEditor
           value={state.rulesNotes}
           onChange={(text) => patch({ rulesNotes: text })}
@@ -284,6 +299,7 @@ export function IdentityPart({
         <EditorField
           fieldId="selectedSystemId"
           state={state}
+          parserMarked={parserFilledFields.has('selectedSystemId')}
           label="Sistema da mesa"
           error={errors.selectedSystemId}
         >
@@ -319,6 +335,7 @@ export function IdentityPart({
         <EditorField
           fieldId="selectedScenarioId"
           state={state}
+          parserMarked={parserFilledFields.has('selectedScenarioId')}
           label="Cenário"
           hint="Cenários são independentes de sistemas. Ex: Forgotten Realms pode ser jogado em D&D ou Pathfinder."
         >
@@ -344,6 +361,7 @@ export function IdentityPart({
         <EditorField
           fieldId="settingName"
           state={state}
+          parserMarked={parserFilledFields.has('settingName')}
           label="Ambientação e estilos"
           hint="Para quando o cenário não está no catálogo — o texto livre da ambientação própria da mesa."
         >

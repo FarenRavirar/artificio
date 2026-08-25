@@ -37,13 +37,14 @@ type WhenPartProps = Readonly<{
 }>;
 
 export function WhenPart({ api }: WhenPartProps) {
-  const { state, patch, errors, validateFieldOnBlur } = api;
+  const { state, patch, errors, validateFieldOnBlur, parserFilledFields } = api;
   const schedule = state.schedules[0];
 
   return (
     <div className="flex flex-col gap-3.5 max-w-[900px] h-full overflow-hidden">
       <SingleScheduleEditor
         state={state}
+        parserMarked={parserFilledFields.has('schedules')}
         schedule={schedule}
         isPersonalized={state.isPersonalizedSchedule}
         onChange={(partial) => {
@@ -61,6 +62,7 @@ export function WhenPart({ api }: WhenPartProps) {
         <EditorField
           fieldId="slotsTotal"
           state={state}
+          parserMarked={parserFilledFields.has('slotsTotal')}
           label="Vagas totais"
           hint="Entre 1 e 20."
           error={errors.slotsTotal}
@@ -81,6 +83,7 @@ export function WhenPart({ api }: WhenPartProps) {
         <EditorField
           fieldId="slotsOpen"
           state={state}
+          parserMarked={parserFilledFields.has('slotsOpen')}
           label="Vagas abertas para recrutamento"
           hint="Menor ou igual ao total."
           error={errors.slotsOpen}
@@ -110,6 +113,7 @@ export function WhenPart({ api }: WhenPartProps) {
  */
 type SingleScheduleEditorProps = Readonly<{
   state: TableEditorState;
+  parserMarked?: boolean;
   schedule: SessionSchedule;
   isPersonalized: boolean;
   onChange: (patch: Partial<SessionSchedule>) => void;
@@ -120,6 +124,7 @@ type SingleScheduleEditorProps = Readonly<{
 
 function SingleScheduleEditor({
   state,
+  parserMarked = false,
   schedule,
   isPersonalized,
   onChange,
@@ -143,6 +148,7 @@ function SingleScheduleEditor({
       <EditorField
         fieldId="schedules"
         state={state}
+        parserMarked={parserMarked}
         label="Horário das sessões"
         hint="Um horário fixo, uma agenda a definir ou uma agenda personalizada explicada por você."
         error={error}
