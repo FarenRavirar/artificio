@@ -7,6 +7,7 @@ import {
   filterCatalogTree,
   flattenTree,
   invalidateCatalogCache,
+  type MesasSystemNode,
 } from '../services/catalogClient.js';
 import { getSystemCatalogProvider } from '../services/systemCatalogProvider.js';
 
@@ -33,8 +34,48 @@ router.get('/', async (req: Request, res: Response) => {
       : '';
   const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : undefined;
   const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : undefined;
+  // T4.0h-ter (spec 096, R18/A21): filhos DIRETOS de um nó, sob demanda — o
+  // seletor progressivo pede edições/variantes sem baixar a árvore inteira
+  // (~504 KB). Implementado sobre loadFlat() da INTERFACE compartilhada de
+  // propósito: production (centralProvider) e beta/dev (localProvider)
+  // passam pelo MESMO caminho — resolver só numa fonte faria o editor quebrar
+  // exatamente no ambiente não testado (diretriz do catálogo central,
+  // plan.md §Catálogo central). Aditivo: view/search/limit/cursor intactos.
+  const parentId = typeof req.query.parent_id === 'string' && req.query.parent_id.trim().length > 0
+    ? req.query.parent_id.trim()
+    : undefined;
+  // Spec 096 (R18/A21): nó(s) por id, para o editor resolver a seleção que já
+  // existe (mesa publicada) sem baixar a árvore — `search` casa nome/slug/
+  // path_slug/alias, NUNCA id (filterCatalogTree), então não havia como pedir
+  // "este nó". Sem isto o editor caía em `?view=tree` (503.907 bytes por
+  // abertura, medido no §Gap 9), exatamente o que o A21 proíbe. Mesmo padrão do
+  // parent_id: sobre loadFlat() da INTERFACE compartilhada, valendo igual em
+  // produção (centralProvider) e beta/dev (localProvider).
+  const ids = parseIdList(req.query.id ?? req.query.ids);
 
   try {
+    if (ids.length > 0) {
+      const flat = await getSystemCatalogProvider().loadFlat();
+      const wanted = new Set(ids);
+      // Preserva a ordem do catálogo e devolve só o que existe — id
+      // desconhecido some da resposta em vez de virar erro (o consumidor
+      // trata lista menor, como já faz com busca sem resultado).
+      const nodes = flat.filter((node) => wanted.has(node.id));
+      return res.json(paginateNodes(nodes, limit, cursor));
+    }
+
+    if (parentId !== undefined) {
+      const flat = await getSystemCatalogProvider().loadFlat();
+      // O formato é o mesmo de nó já usado: aliases/has_children/
+      // children_count vêm populados do loadFlat; children fica [] (os filhos
+      // deste nível são a própria resposta).
+      let children = flat.filter((node) => node.parent_id === parentId);
+      if (search.trim().length > 0) {
+        children = filterCatalogTree(children, search);
+      }
+      return res.json(paginateNodes(children, limit, cursor));
+    }
+
     if (view === 'tree') {
       const tree = await getSystemCatalogProvider().loadTree();
       const filteredTree = search.trim().length > 0 ? filterCatalogTree(tree, search) : tree;
@@ -49,25 +90,54 @@ router.get('/', async (req: Request, res: Response) => {
       ? flattenTree(filterCatalogTree(await getSystemCatalogProvider().loadTree(), search))
       : flat;
 
-    const shouldPaginate = limit !== undefined && limit > 0;
-    const startIndex = cursor ? Math.max(filtered.findIndex((node) => node.id === cursor) + 1, 0) : 0;
-    const page = shouldPaginate ? filtered.slice(startIndex, startIndex + limit + 1) : filtered;
-    const hasMore = shouldPaginate && page.length > limit;
-    if (hasMore) page.pop();
-
-    return res.json({
-      data: page,
-      pagination: {
-        // Achado Sonar (PR #145): .at(-1) em vez de [.length - 1].
-        next_cursor: shouldPaginate && hasMore ? page.at(-1)?.id ?? null : null,
-        has_more: shouldPaginate ? hasMore : false,
-      },
-    });
+    return res.json(paginateNodes(filtered, limit, cursor));
   } catch (error) {
     console.error('[GET /systems] central catalog failed', error);
     return res.status(503).json({ error: 'Catálogo central indisponível.' });
   }
 });
+
+/**
+ * `?id=` aceita um id ou vários separados por vírgula (`?id=a,b`), e repetição
+ * do parâmetro (`?id=a&id=b`), que o Express entrega como array. Entrada
+ * inválida vira lista vazia — a rota segue para os demais caminhos.
+ */
+function parseIdList(raw: unknown): string[] {
+  const values = Array.isArray(raw) ? raw : [raw];
+  const ids = values
+    .filter((value): value is string => typeof value === 'string')
+    .flatMap((value) => value.split(','))
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  return [...new Set(ids)];
+}
+
+/**
+ * Paginação por cursor de id — comportamento idêntico ao que a rota já tinha
+ * (limit+1 para derivar has_more, next_cursor = último id devolvido). Extraída
+ * para o caminho `parent_id` usar a MESMA semântica sem duplicar.
+ */
+function paginateNodes(
+  nodes: MesasSystemNode[],
+  limit: number | undefined,
+  cursor: string | undefined,
+): { data: MesasSystemNode[]; pagination: { next_cursor: string | null; has_more: boolean } } {
+  const shouldPaginate = limit !== undefined && limit > 0;
+  const startIndex = cursor ? Math.max(nodes.findIndex((node) => node.id === cursor) + 1, 0) : 0;
+  const page = shouldPaginate ? nodes.slice(startIndex, startIndex + limit + 1) : nodes;
+  const hasMore = shouldPaginate && page.length > limit;
+  if (hasMore) page.pop();
+
+  return {
+    data: page,
+    pagination: {
+      // Achado Sonar (PR #145): .at(-1) em vez de [.length - 1].
+      next_cursor: shouldPaginate && hasMore ? page.at(-1)?.id ?? null : null,
+      has_more: shouldPaginate ? hasMore : false,
+    },
+  };
+}
 
 router.post('/admin', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
   const { name, name_pt, description, node_type, parent_id } = req.body;

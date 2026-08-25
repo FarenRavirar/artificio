@@ -229,6 +229,38 @@ function TableCardSchedule({ table }: { table: TableCard }) {
   const schedule = table.next_schedule;
   if (!schedule) return null;
 
+  // T4.0u (spec 096): "Horário Personalizado" (R20) — o editor grava
+  // schedule_day_status='to_define' + a explicação da agenda em
+  // table_schedules.notes; o card decide pelo status da TABELA, não pelo dia da
+  // linha (day_of_week/start_time são NOT NULL e carregam placeholder). O notes
+  // aparece como subtítulo discreto, truncado em uma linha para nunca estourar
+  // o layout do card (altura mínima fixa do bloco de metadata).
+  if (schedule.schedule_day_status === 'to_define') {
+    return (
+      <span className="flex shrink-0 min-w-0 flex-col gap-0.5 text-[11px] font-semibold text-white/50">
+        <span className="flex items-center gap-1">
+          <Clock className="h-3 w-3 shrink-0" />
+          Horário Personalizado
+        </span>
+        {typeof schedule.notes === 'string' && schedule.notes ? (
+          <span className="line-clamp-1 text-[11px] font-normal text-white/35">{schedule.notes}</span>
+        ) : null}
+      </span>
+    );
+  }
+
+  // B2 (revisão adversarial Fase 4): a lista de mesas não tem normalizador —
+  // medido: useFetchTables.ts:39 e catalogService.ts:98 devolvem `json.data`
+  // cru, e o único fetch com schema do front é o useSystemsCatalog. `notes`
+  // e `day_of_week`/`start_time` vêm de payload desconhecido; chamar
+  // `.toLowerCase()`/`.slice()` sem guard quebrava o card inteiro se o
+  // backend mandasse null ou não-string. Introduzir schema da lista inteira
+  // (TableCard tem ~40 campos) é refactor maior que este achado (baixo) —
+  // o guard no ponto de consumo mantém o comportamento atual.
+  if (typeof schedule.day_of_week !== 'string' || typeof schedule.start_time !== 'string') {
+    return null;
+  }
+
   const dayLabel = dayAbbrev[schedule.day_of_week.toLowerCase()] ?? schedule.day_of_week.slice(0, 3).toUpperCase();
   const time = schedule.start_time.slice(0, 5);
 

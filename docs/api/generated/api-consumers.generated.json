@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 284,
-    "uniqueEndpoints": 263,
+    "total": 290,
+    "uniqueEndpoints": 268,
     "byApp": {
       "accounts-frontend": {
         "total": 8,
@@ -38,16 +38,16 @@
         }
       },
       "mesas-frontend": {
-        "total": 166,
+        "total": 172,
         "byConfidence": {
-          "medium": 74,
-          "high": 92
+          "medium": 78,
+          "high": 94
         },
         "byPattern": {
-          "unknown": 6,
-          "template-literal": 66,
+          "unknown": 4,
+          "template-literal": 72,
           "service-wrapper": 39,
-          "literal": 55
+          "literal": 57
         }
       },
       "packages/auth": {
@@ -1576,7 +1576,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 400
+      "line": 401
     },
     {
       "app": "mesas-frontend",
@@ -1586,7 +1586,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 571
+      "line": 473
     },
     {
       "app": "mesas-frontend",
@@ -1680,13 +1680,23 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/table-editor/hooks/useTableEditor.ts",
+      "method": "GET",
+      "endpoint": "/api/v1/gm/me",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "authGet",
+      "line": 461
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/pages/PainelMestrePage.tsx",
       "method": "GET",
       "endpoint": "/api/v1/gm/me",
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 321
+      "line": 237
     },
     {
       "app": "mesas-frontend",
@@ -1696,7 +1706,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 75
+      "line": 84
     },
     {
       "app": "mesas-frontend",
@@ -1770,13 +1780,23 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/pages/PainelMestrePage.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/table-editor/hooks/useTableEditor.ts",
       "method": "POST",
       "endpoint": "/api/v1/gm/profile",
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 198
+      "line": 819
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/table-editor/hooks/useTableEditor.ts",
+      "method": "PUT",
+      "endpoint": "/api/v1/gm/profile",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "authPut",
+      "line": 984
     },
     {
       "app": "mesas-frontend",
@@ -1786,17 +1806,17 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPut",
-      "line": 800
+      "line": 665
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/create-table/hooks/useCreateTableForm.ts",
+      "consumerFile": "apps/mesas/frontend/src/features/table-editor/hooks/useTableEditor.ts",
       "method": "POST",
       "endpoint": "/api/v1/gm/tables",
-      "confidence": "medium",
-      "pattern": "unknown",
+      "confidence": "high",
+      "pattern": "literal",
       "wrapper": "authPost",
-      "line": 263
+      "line": 712
     },
     {
       "app": "mesas-frontend",
@@ -1806,17 +1826,17 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 346
+      "line": 260
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/create-table/hooks/useCreateTableForm.ts",
+      "consumerFile": "apps/mesas/frontend/src/features/table-editor/hooks/useTableEditor.ts",
       "method": "PUT",
       "endpoint": "/api/v1/gm/tables/:param",
       "confidence": "medium",
-      "pattern": "unknown",
+      "pattern": "template-literal",
       "wrapper": "authPut",
-      "line": 262
+      "line": 745
     },
     {
       "app": "mesas-frontend",
@@ -1826,7 +1846,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 400
+      "line": 401
     },
     {
       "app": "mesas-frontend",
@@ -1836,7 +1856,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authGet",
-      "line": 399
+      "line": 310
     },
     {
       "app": "mesas-frontend",
@@ -1846,7 +1866,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 571
+      "line": 473
     },
     {
       "app": "mesas-frontend",
@@ -1866,7 +1886,17 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPatch",
-      "line": 545
+      "line": 447
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/table-editor/hooks/useTableEditor.ts",
+      "method": "PATCH",
+      "endpoint": "/api/v1/gm/tables/:param/status",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authPatch",
+      "line": 237
     },
     {
       "app": "mesas-frontend",
@@ -1886,7 +1916,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPatch",
-      "line": 497
+      "line": 399
     },
     {
       "app": "mesas-frontend",
@@ -2100,13 +2130,13 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/create-table/components/CreateTableForm.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/table-editor/TableEditor.tsx",
       "method": "GET",
       "endpoint": "/api/v1/scenarios/:param",
       "confidence": "medium",
       "pattern": "template-literal",
-      "wrapper": "fetch",
-      "line": 258
+      "wrapper": "authGet",
+      "line": 121
     },
     {
       "app": "mesas-frontend",
@@ -2200,13 +2230,23 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/features/create-table/components/CreateTableForm.tsx",
+      "consumerFile": "apps/mesas/frontend/src/features/table-editor/hooks/useSelectedSystemNode.ts",
       "method": "GET",
       "endpoint": "/api/v1/systems",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "fetch",
-      "line": 126
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authGet",
+      "line": 59
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/table-editor/parts/IdentityPart.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/systems",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authGet",
+      "line": 86
     },
     {
       "app": "mesas-frontend",
@@ -2216,7 +2256,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 78
+      "line": 90
     },
     {
       "app": "mesas-frontend",
@@ -2296,7 +2336,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 252
+      "line": 284
     },
     {
       "app": "mesas-frontend",
@@ -2326,7 +2366,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 261
+      "line": 293
     },
     {
       "app": "mesas-frontend",
@@ -2446,7 +2486,17 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 24
+      "line": 62
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/suggestions/SuggestionsView.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/vtt-platforms/suggest",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "authPost",
+      "line": 161
     },
     {
       "app": "mesas-frontend",
@@ -2476,7 +2526,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 134
+      "line": 138
     },
     {
       "app": "packages/auth",

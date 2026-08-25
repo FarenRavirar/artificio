@@ -1,7 +1,6 @@
 import { useState, useCallback, type FormEvent } from 'react';
 import { Loader2, Sparkles, AlertTriangle } from 'lucide-react';
 import { authPost } from '../../../utils/authenticatedFetch';
-import type { FormState } from '../types/createTable.types';
 // Mesma frase do contador do editor de conteúdo, de uma fonte só.
 import { contentCountLabel, contentOverflow } from '@artificio/content-editor';
 
@@ -10,6 +9,15 @@ interface ParsePreviewResponse {
   table: Record<string, unknown> | null;
   contacts: unknown[];
   schedules: unknown[];
+}
+
+/** Dado moldado (table + contacts + schedules) que o chamador mapeia para o
+ * estado do editor — spec 096 Fase 4: o componente deixou de conhecer o
+ * mapper do fluxo antigo; quem consome decide o formato de destino (o editor
+ * novo usa mapApiToEditorState). */
+export interface ParsePreviewResult {
+  data: Record<string, unknown>;
+  parseCaseId: string | null;
 }
 
 // Achado de review (CodeRabbit, PR #172): resposta da API era usada via cast
@@ -28,11 +36,11 @@ function isValidParsePreviewResponse(value: unknown): value is ParsePreviewRespo
 }
 
 interface ParsePreviewTextAreaProps {
-  readonly onPreviewReady: (initialData: Partial<FormState>) => void;
-  // Campo controlado pela página: o componente é desmontado ao navegar para o
-  // formulário, e o texto colado precisa sobreviver a isso para que o "Voltar"
-  // devolva o anúncio em vez de uma caixa vazia (achado do mantenedor,
-  // 2026-08-18).
+  readonly onPreviewReady: (result: ParsePreviewResult) => void;
+  // Campo controlado pelo chamador: o componente é desmontado ao navegar
+  // (troca de parte/tela), e o texto colado precisa sobreviver a isso para
+  // que o "Voltar" devolva o anúncio em vez de uma caixa vazia (achado do
+  // mantenedor, 2026-08-18).
   readonly text: string;
   readonly onTextChange: (text: string) => void;
   // Requisito 7/8 (spec 079, T5.9): nome de exibição da conta logada — usado
@@ -53,8 +61,9 @@ const PASTE_TEXT_MAX_LENGTH = 20000;
  * preenchimento (`create-table`, Card "Colar anúncio"). Chama a rota nova
  * `POST /gm/parse-preview` — reaproveita a MESMA engine de parser/aprendizado
  * do fluxo admin/Discord (`parseTextForPreview` no backend), nunca publica
- * sozinho: só devolve os campos sugeridos pro chamador popular o form normal
- * (`CreateTableForm`), que o mestre revisa/edita/confirma como sempre.
+ * sozinho: só devolve os campos sugeridos pro chamador popular o editor de
+ * anúncio (spec 096, Fase 4 — antes, o CreateTableForm do wizard removido na
+ * T4.8), que o mestre revisa/edita/confirma como sempre.
  */
 export function ParsePreviewTextArea({ onPreviewReady, currentUserName, text, onTextChange }: ParsePreviewTextAreaProps) {
   const [state, setState] = useState<PreviewState>('idle');
@@ -90,24 +99,20 @@ export function ParsePreviewTextArea({ onPreviewReady, currentUserName, text, on
         return;
       }
 
-      const apiShapedData = {
+      const apiShapedData: Record<string, unknown> = {
         ...data.table,
         contacts: data.contacts,
         schedules: data.schedules,
       };
-      // Import dinâmico igual ao já usado em PainelMestrePage.tsx (modo
-      // edição) — achado no build repo-wide (INEFFECTIVE_DYNAMIC_IMPORT):
-      // import estático aqui anulava o code-split que já existia lá, porque
-      // o bundler não consegue isolar o módulo em chunk separado quando ele
-      // é importado das duas formas ao mesmo tempo.
-      const { mapTableApiToInitialData } = await import('../utils/mapTableApiToInitialData');
-      const initialData = mapTableApiToInitialData(apiShapedData);
 
       // Requisito 7/8 (T5.9): extraído do texto (actual_gm_name, vindo de
       // raw_gm_name — "Mestre:"/"Narrador:"/etc no anúncio) pode divergir de
       // quem está logado (caso comum: alguém posta anúncio por outra pessoa).
       // Mostra como sugestão visível, nunca sobrescreve o nome da conta.
-      const extractedGmName = initialData.actualGmName?.trim() || null;
+      const extractedGmName =
+        typeof apiShapedData.actual_gm_name === 'string' && apiShapedData.actual_gm_name.trim()
+          ? apiShapedData.actual_gm_name.trim()
+          : null;
       const trimmedUserName = currentUserName?.trim() || null;
       setSuggestedGmName(
         extractedGmName && trimmedUserName && extractedGmName !== trimmedUserName
@@ -115,7 +120,7 @@ export function ParsePreviewTextArea({ onPreviewReady, currentUserName, text, on
           : null,
       );
 
-      onPreviewReady({ ...initialData, parseCaseId: data.parse_case_id });
+      onPreviewReady({ data: apiShapedData, parseCaseId: data.parse_case_id });
       setState('idle');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro ao processar texto colado.';

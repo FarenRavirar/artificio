@@ -207,6 +207,7 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
     closed_group_systems,
     closed_group_description,
     closed_group_min_price_cents,
+    contact_methods,
   } = req.body;
 
   if (!slug || typeof slug !== 'string' || !/^[a-z0-9-]+$/.test(slug)) {
@@ -215,6 +216,35 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
 
   if (!nickname || typeof nickname !== 'string' || nickname.trim().length < 2 || nickname.trim().length > 40) {
     return res.status(400).json({ error: 'Nickname inválido. Use entre 2 e 40 caracteres.' });
+  }
+
+  // T4.0p2 (spec 096, R12): o perfil nasce DENTRO do editor, junto com a
+  // mesa — o POST passa a aceitar contact_methods com o MESMO schema do PUT
+  // (formato único: {channel, value, label, discord_server_url}). Antes,
+  // criar com contatos exigia uma segunda escrita (PUT), e a falha dela
+  // deixava o perfil pela metade. Compatibilidade de transporte idem PUT:
+  // JSON-string de array é aceita (hotfix D3/D8), todo payload inválido
+  // rejeita a operação inteira.
+  let parsedContactMethods = contact_methods;
+  if (typeof contact_methods === 'string') {
+    try {
+      parsedContactMethods = JSON.parse(contact_methods);
+    } catch {
+      return res.status(400).json({ error: 'contact_methods deve ser um array JSON válido.' });
+    }
+  }
+
+  let safeContactMethods: ReturnType<typeof contactMethodsSchema.parse> | undefined;
+  if (contact_methods !== undefined) {
+    const validation = contactMethodsSchema.safeParse(parsedContactMethods);
+    if (!validation.success) {
+      const firstError = validation.error.issues[0];
+      return res.status(400).json({
+        error: firstError.message,
+        field: ['contact_methods', ...firstError.path].join('.'),
+      });
+    }
+    safeContactMethods = validation.data;
   }
 
   const safeLanguages = Array.isArray(languages) ? languages.filter(v => typeof v === 'string') : [];
@@ -269,6 +299,9 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
         closed_group_systems: safeClosedGroupSystems,
         closed_group_description: safeClosedGroupDescription,
         closed_group_min_price_cents: safeClosedGroupMinPriceCents,
+        // undefined preserva o DEFAULT '[]' da coluna (gm_profiles.contact_methods,
+        // migration_112) quando o chamador não envia contatos.
+        contact_methods: safeContactMethods === undefined ? undefined : JSON.stringify(safeContactMethods),
       })
       .returning([
         'id',
@@ -293,6 +326,7 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
         'closed_group_systems',
         'closed_group_description',
         'closed_group_min_price_cents',
+        'contact_methods',
         'created_at',
       ])
       .execute();
@@ -309,6 +343,10 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
         ...gmProfile,
         bio_long: sanitizeNullableUserMarkdown(gmProfile.bio_long),
         closed_group_description: sanitizeNullableUserMarkdown(gmProfile.closed_group_description),
+        // Mesma serialização de leitura do GET /gm/me: canais canonicalizados
+        // (o que o POST gravou já passou pelo schema, mas a leitura responde
+        // no formato que o editor consome de uma vez só).
+        contact_methods: serializeContactMethods(gmProfile.contact_methods),
       },
     });
   } catch (error) {
@@ -657,28 +695,27 @@ async function recordPublishedParseCase(parseCaseId: string, publishedPayload: u
 // curadoria admin); só grava o caso de aprendizado em discord_parse_cases
 // pra correlacionar com a submissão real depois (parse_case_id).
 router.post('/parse-preview', authMiddleware, async (req: Request, res: Response) => {
-  const userId = req.user!.userId;
-
   const validation = parsePreviewSchema.safeParse(req.body);
   if (!validation.success) {
     return res.status(400).json({ error: validation.error.issues[0]?.message ?? 'Payload inválido.' });
   }
 
   try {
-    // Achado de review (CodeRabbit, PR #172): rota validava só login (SSO),
-    // não checava gm_profiles como POST /gm/tables já faz — comentário da
-    // rota dizia "Auth de mestre logado" mas o código deixava qualquer
-    // usuário autenticado acionar o parser. Mesma checagem do submit real.
-    const gmProfile = await db
-      .selectFrom('gm_profiles')
-      .select(['id'])
-      .where('user_id', '=', userId)
-      .executeTakeFirst();
-
-    if (!gmProfile) {
-      return res.status(403).json({ error: 'Perfil de mestre não encontrado. Crie seu perfil primeiro.' });
-    }
-
+    // Sem gate de `gm_profiles` (removido em 2026-08-25, spec 096).
+    //
+    // O gate veio do achado CodeRabbit da PR #172, que pedia espelhar o
+    // `POST /gm/tables`. O pressuposto daquele espelhamento caiu na T4.0p2: o
+    // perfil de mestre agora NASCE no primeiro publish, então "crie seu perfil
+    // primeiro" virou instrução impossível — não há mais tela de criar perfil
+    // antes da mesa. Mantido o gate, "Colar anúncio" respondia 403 para todo
+    // mestre novo exatamente no passo em que ele preencheria o formulário
+    // (achado Codex, PR #286).
+    //
+    // Por que é seguro: o parser NÃO escreve mesa, não lê dado de terceiro e
+    // não devolve nada do catálogo que `GET /systems` já não exponha sem auth.
+    // Ele só interpreta o texto que o próprio usuário colou. O que continua
+    // valendo é o `authMiddleware` (usuário logado por SSO) — e a escrita de
+    // verdade, no `POST /gm/tables`, mantém a checagem de perfil intacta.
     const systems = await loadSystemsForParser();
     const result = await parseTextForPreview(validation.data.text, systems);
 

@@ -14,6 +14,14 @@ import { getSystemCatalogProvider } from './systemCatalogProvider.js';
  * Os slugs vêm do catálogo real (medido em produção): a edição de 2014 está sob
  * `dungeons-dragons/5e/dungeons-dragons-5e-2014`, não sob um `.../5e/2014`
  * simétrico ao de 2024. Conferir o catálogo antes de acrescentar path novo aqui.
+ *
+ * A4 (revisão adversarial Fase 4): ESPELHA `DDAL_ELIGIBLE_PATHS` do front
+ * (`apps/mesas/frontend/src/features/table-editor/TableEditor.tsx:32`).
+ * Contrato entre as camadas: o front usa a lista para a UX (mostrar o selo e
+ * desmarcá-lo ao trocar de sistema); ESTA função é a autoridade — revalida no
+ * submit e o selo não entra se o path não casar aqui. Divergir deixaria o
+ * front exibir um selo que o submit recusa (ou esconder um que o backend
+ * aceitaria). Mudou de um lado, muda do outro no mesmo passo.
  */
 const DDAL_ELIGIBLE_PATHS = [
     'dungeons-dragons/5e/2024',
@@ -222,7 +230,14 @@ export class TableService {
             synopsis_narrative: data.synopsis_narrative ?? null,
             benefits_text: data.benefits_text ?? null,
             table_gm_bio: data.table_gm_bio ?? null,
-            status: 'active',
+            // T4.7 (spec 096, R10): a mesa nasce RASCUNHO — DEFAULT real da
+            // coluna (medido em produção: 'draft'::table_status) — e entra no
+            // catálogo só ao publicar (PATCH /gm/tables/:id/status → active),
+            // único caminho que grava published_at. Fixo, sem ler do payload:
+            // o schema do create não aceita mais `status` (ver
+            // tableValidators.ts), justamente para que não exista porta que
+            // publique pulando a âncora de auto-arquivamento.
+            status: 'draft',
         };
     }
 }

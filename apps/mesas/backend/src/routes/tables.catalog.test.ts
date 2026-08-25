@@ -250,6 +250,48 @@ describe('GET /api/v1/tables — catálogo público (ordenacao e filtros)', () =
     ]);
   });
 
+  it('select da lista inclui t.schedule_day_status (T4.0u, card "Horário Personalizado")', async () => {
+    await request(makeApp()).get('/api/v1/tables');
+
+    const mainSelect = builders[0].select.mock.calls[0]?.[0];
+    expect(Array.isArray(mainSelect)).toBe(true);
+    expect(mainSelect).toContain('t.schedule_day_status');
+  });
+
+  // T4.0u (spec 096): next_schedule do catálogo agora carrega o status da
+  // TABELA (schedule_day_status — sentinela 'to_define') + o texto livre de
+  // table_schedules.notes, que o editor grava na agenda personalizada (R20).
+  it('compõe next_schedule com schedule_day_status e notes (T4.0u)', async () => {
+    dbMocks.execute
+      .mockResolvedValueOnce([{ id: 'table-5', slug: 'mesa-cinco-vagas', schedule_day_status: 'to_define' }])
+      .mockResolvedValueOnce([]) // table_contacts
+      .mockResolvedValueOnce([
+        {
+          table_id: 'table-5',
+          day_of_week: 'sexta',
+          start_time: '20:00:00',
+          frequency: 'semanal',
+          sort_order: 1,
+          notes: 'Agenda combinada com o grupo',
+        },
+      ]); // table_schedules
+    dbMocks.executeTakeFirst.mockResolvedValue({ count: '1' });
+
+    const response = await request(makeApp()).get('/api/v1/tables');
+
+    expect(response.status).toBe(200);
+    const row = (response.body as { data?: unknown }).data as Array<Record<string, unknown>> | undefined;
+    expect(Array.isArray(row)).toBe(true);
+    const nextSchedule = row?.[0]?.next_schedule;
+    expect(nextSchedule).toMatchObject({
+      day_of_week: 'sexta',
+      start_time: '20:00:00',
+      frequency: 'semanal',
+      schedule_day_status: 'to_define',
+      notes: 'Agenda combinada com o grupo',
+    });
+  });
+
   it('mantém os demais sorts aprovados (popular, recent, price_asc, price_desc)', async () => {
     await request(makeApp()).get('/api/v1/tables?sort=popular');
     await request(makeApp()).get('/api/v1/tables?sort=recent');

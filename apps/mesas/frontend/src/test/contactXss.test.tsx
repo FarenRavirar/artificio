@@ -3,10 +3,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ContactMethodsEditor } from '../components/mestre/ContactMethodsEditor';
 import { MestreContactMethods } from '../components/mestre/MestreContactMethods';
-import { ContactsFormBlock } from '../components/ContactsFormBlock';
 import { TableContactsBlock } from '../features/table/components/TableContactsBlock';
 import { handleCTA } from '../features/table/utils/uiHelpers';
 import {
+  formatWhatsAppDisplay,
   toSafeHttpsUrl,
   toSafeMailtoUrl,
   toSafeSocialProfileUrl,
@@ -15,7 +15,6 @@ import {
   validateContactValue,
   validateHttpsUrl,
 } from '../utils/safeExternalUrl';
-import { validators } from '../features/create-table/utils/validation';
 
 vi.mock('../hooks/useTracking', () => ({
   useTracking: () => ({ trackGmContactClick: vi.fn() }),
@@ -178,6 +177,24 @@ describe('canais de contato continuam alcançáveis após a validação de URL',
     expect(toWhatsAppUrl('+5511999999999')).toBe('https://wa.me/5511999999999');
     expect(toWhatsAppUrl('(11) 99999-9999')).toBe('https://wa.me/5511999999999');
   });
+
+  it('formatWhatsAppDisplay formata BR e devolve o original quando não reconhece', () => {
+    // A5 (revisão adversarial Fase 4): função movida de MestreContactMethods
+    // para safeExternalUrl com comportamento preservado — celular de 9
+    // dígitos, fixo de 8 e fallback devolvendo o valor original.
+    expect(formatWhatsAppDisplay('+5563992681119')).toBe('(63) 99268-1119');
+    expect(formatWhatsAppDisplay('+5511987654321')).toBe('(11) 98765-4321');
+    expect(formatWhatsAppDisplay('+551132154321')).toBe('(11) 3215-4321');
+    expect(formatWhatsAppDisplay('119999999')).toBe('119999999');
+    expect(formatWhatsAppDisplay('12345')).toBe('12345');
+
+    // O valor vem do banco (canal `phone` entra sem validação de formato).
+    // Antes a função só media o comprimento depois de cortar o `+55`, então
+    // texto com letra virava telefone formatado — '(ab) 12345-6789'.
+    expect(formatWhatsAppDisplay('ab123456789')).toBe('ab123456789');
+    expect(formatWhatsAppDisplay('+1 415 555 2671')).toBe('+1 415 555 2671');
+    expect(formatWhatsAppDisplay('63992681119')).toBe('(63) 99268-1119');
+  });
 });
 
 describe('link de contato exige endereço alcançável', () => {
@@ -204,31 +221,12 @@ describe('link de contato exige endereço alcançável', () => {
     expect(validateContactLinkUrl('http://forms.gle/abc').success).toBe(false);
   });
 
-  it('formulário de criação de mesa bloqueia nick em canal de URL', () => {
-    expect(validators.contacts([
-      { channel: 'form', value: 'uwill', label: '', discord_server_url: '' },
-    ])).toContain('Discord');
-
-    expect(validators.contacts([
-      { channel: 'form', value: 'https://forms.gle/abc', label: '', discord_server_url: '' },
-    ])).toBeNull();
-  });
-
-  it('formulário de criação de mesa bloqueia e-mail malformado', () => {
-    // Mensagem vem de validateContactValue, compartilhada com o editor de
-    // perfil — casa sem depender da caixa da primeira letra.
-    expect(validators.contacts([
-      { channel: 'email', value: 'vitima@x.com?subject=x', label: '', discord_server_url: '' },
-    ])).toMatch(/e-mail/i);
-
-    expect(validators.contacts([
-      { channel: 'email', value: 'mestre@example.com', label: '', discord_server_url: '' },
-    ])).toBeNull();
-  });
-
   it('aviso do formulário diz o que é aceito e para onde vai o nick', () => {
+    // ContactsFormBlock (form antigo de mesa) foi removido na T4.8 — o
+    // editor ÚNICO (ContactMethodsEditor) herdou as capacidades dele,
+    // incluindo este aviso (teste migrado na revisão adversarial Fase 4).
     render(
-      <ContactsFormBlock
+      <ContactMethodsEditor
         contacts={[{ channel: 'form', value: '', label: '', discord_server_url: '' }]}
         onChange={vi.fn()}
       />,
@@ -250,8 +248,10 @@ describe('formulários explicam e aplicam HTTPS antes do envio', () => {
   });
 
   it('edição de mesa mostra regra para formulário e convite Discord', () => {
+    // Migrado do ContactsFormBlock (removido) para o editor ÚNICO em modo
+    // controlado (o modo do editor de mesa) — mesmas regras de hint.
     const { rerender } = render(
-      <ContactsFormBlock
+      <ContactMethodsEditor
         contacts={[{ channel: 'form', value: '', label: '', discord_server_url: '' }]}
         onChange={vi.fn()}
       />,
@@ -259,7 +259,7 @@ describe('formulários explicam e aplicam HTTPS antes do envio', () => {
     expect(screen.getByText(/Nome de usuário sozinho não funciona como link/i)).toBeInTheDocument();
 
     rerender(
-      <ContactsFormBlock
+      <ContactMethodsEditor
         contacts={[{ channel: 'discord', value: '', label: '', discord_server_url: '' }]}
         onChange={vi.fn()}
       />,

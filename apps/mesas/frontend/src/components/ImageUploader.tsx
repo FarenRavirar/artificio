@@ -1,7 +1,12 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { ImageEditor } from '@artificio/image-editor';
 import '@artificio/image-editor/image-editor.css';
-import { imageKindSpec, type CropRect, type ImageKind } from '@artificio/media/image-kinds';
+import {
+  imageKindHint,
+  imageKindSpec,
+  type CropRect,
+  type ImageKind,
+} from '@artificio/media/image-kinds';
 import bannerPlaceholder from '../assets/banner_placeholder.webp';
 import { useImageUrlImport } from '../hooks/useImageUrlImport';
 import { useImageUpload } from '../hooks/useImageUpload';
@@ -145,8 +150,6 @@ export function ImageUploader({
     releaseEditorSrc();
   };
 
-  const limitMb = Math.round(spec.maxFileBytes / (1024 * 1024));
-
   return (
     <section className="flex flex-col gap-3" aria-live="polite">
       <label htmlFor={inputId} className="text-sm font-medium text-white/70">
@@ -188,7 +191,13 @@ export function ImageUploader({
             </button>
           )}
 
-          <span className="text-xs text-white/60">JPG, PNG ou WEBP até {limitMb} MB</span>
+          {/* Legenda única do contrato (T4.0t-bis, R19/A22): a frase vem de
+              `imageKindHint(kind)` — proporção recomendada (1200 × 650 para o
+              banner), formatos e limite lidos do imageKindSpec, nunca escritos
+              à mão. A proporção é o que o mestre precisa para prever o corte
+              ANTES de enviar: a imagem entra num 1200/650 e o enquadramento só
+              aparece depois. */}
+          <span className="text-xs text-white/60">{imageKindHint(kind)}</span>
         </div>
 
         <div className="flex flex-col gap-1">

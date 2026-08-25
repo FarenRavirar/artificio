@@ -77,9 +77,19 @@ jobs:
         run: |
           set -euo pipefail
           tarball="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          # --retry cobre falha transitoria de rede no download do release: sem
+          # ele, um `curl: (35) Recv failure: Connection reset by peer` derruba
+          # o gate inteiro sem nenhum achado de lint (medido em 2026-08-25, PR
+          # #286). Mesmo motivo pelo qual o wrapper do reviewdog saiu daqui: o
+          # gate nao pode ficar vermelho por indisponibilidade alheia.
+          # `--retry-all-errors` e necessario porque reset de conexao nao e
+          # erro HTTP — sem ele, `--retry` sozinho nao tenta de novo.
           curl --fail --silent --show-error --location \
+            --retry 5 --retry-delay 3 --retry-all-errors --connect-timeout 20 \
             -o "${tarball}" \
             "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${tarball}"
+          # O checksum segue sendo a trava de supply-chain: retry muda quantas
+          # vezes se tenta baixar, nunca o que se aceita.
           echo "${ACTIONLINT_SHA256}  ${tarball}" | sha256sum --check --strict
           tar -xzf "${tarball}" actionlint
           rm -f "${tarball}"
