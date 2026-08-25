@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
+import { z } from 'zod';
 import { Edit, Trash2, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { authGet, authPost, authPut, authDelete } from '../../../services/apiClient';
+import { readEnvelopeData } from '../../../utils/apiEnvelope';
 
 type PlatformKind = 'vtt' | 'communication';
 
@@ -75,6 +77,52 @@ const isVttPlatform = (item: PlatformRecord): item is VttPlatform => (
   'logo_filename' in item
 );
 
+/**
+ * Normalização do catálogo de admin (achado P1 da revisão da Fase 5, spec 096).
+ *
+ * Antes, `Array.isArray(data.data) ? data.data : []` entrava cru no estado
+ * tipado como `VttPlatform[]`/`PlatformBase[]` — o array era checado, os itens
+ * não. Isso quebrava a regra de normalização obrigatória do AGENTS.md (payload
+ * externo é `unknown` até passar por normalizador tipado) e tinha consequência
+ * real de escrita: `handleSubmit` envia SEMPRE os três `implies_*`, então um
+ * item degradado no estado gravava esses valores por cima do banco ao editar
+ * qualquer outro campo. O `?? false` do `handleEdit` era só o sintoma visível.
+ *
+ * Mesmo padrão dos hooks públicos (`useVttPlatforms`): schema mínimo por item
+ * + TypeError com a mensagem que a UI exibe. `aliases` (só no GET admin de VTT)
+ * não é declarado de propósito — a página não o consome, e zod ignora extras.
+ */
+const platformBaseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  website_url: z.string().nullable(),
+  is_active: z.boolean(),
+  sort_order: z.number(),
+  implies_pc: z.boolean(),
+  implies_microphone: z.boolean(),
+  implies_camera: z.boolean(),
+});
+
+const vttPlatformSchema: z.ZodType<VttPlatform> = platformBaseSchema.extend({
+  logo_filename: z.string().nullable(),
+});
+
+const CATALOG_ERROR = 'Resposta do catálogo de plataformas em formato inesperado.';
+
+function normalizePlatforms<T extends PlatformRecord>(
+  json: unknown,
+  schema: z.ZodType<T>
+): T[] {
+  return readEnvelopeData(json, CATALOG_ERROR).map((raw) => {
+    const parsed = schema.safeParse(raw);
+    if (!parsed.success) {
+      throw new TypeError(CATALOG_ERROR);
+    }
+    return parsed.data;
+  });
+}
+
 interface PlatformsPageProps {
   /** Kind inicial (opcional, default 'vtt'). Usado pela ConteudoSection para subnav VTTs/Comunicação. */
   initialKind?: PlatformKind;
@@ -116,13 +164,12 @@ export function PlatformsPage({ initialKind }: PlatformsPageProps) {
         throw new Error(message);
       }
 
-      const data = await response.json();
-      const items = Array.isArray(data.data) ? data.data : [];
+      const json: unknown = await response.json();
 
       if (targetKind === 'vtt') {
-        setVttPlatforms(items);
+        setVttPlatforms(normalizePlatforms(json, vttPlatformSchema));
       } else {
-        setCommunicationPlatforms(items);
+        setCommunicationPlatforms(normalizePlatforms(json, platformBaseSchema));
       }
     } catch (error) {
       console.error('[PlatformsPage] Erro ao carregar plataformas:', error);
@@ -150,15 +197,12 @@ export function PlatformsPage({ initialKind }: PlatformsPageProps) {
       logo_filename: isVttPlatform(item) ? (item.logo_filename || '') : '',
       sort_order: String(item.sort_order),
       is_active: item.is_active,
-      // `?? false` é normalização defensiva do JSON cru na fronteira do
-      // painel (o admin consome o fetch sem normalizador, diferente dos
-      // hooks públicos com schema zod): o contrato do GET /admin garante os
-      // flags — mesmo deploy do backend, mesma esteira de migrations
-      // (migration_162) — e o schema zod dos hooks os exige como boolean.
-      // O fallback só impede undefined de vazar para o checked do checkbox.
-      implies_pc: item.implies_pc ?? false,
-      implies_microphone: item.implies_microphone ?? false,
-      implies_camera: item.implies_camera ?? false,
+      // Sem `?? false`: os itens do estado passaram por `normalizePlatforms`,
+      // que exige os três flags como boolean (achado P1 da revisão da Fase 5).
+      // O fallback anterior mascarava item malformado em vez de rejeitá-lo.
+      implies_pc: item.implies_pc,
+      implies_microphone: item.implies_microphone,
+      implies_camera: item.implies_camera,
     });
   };
 

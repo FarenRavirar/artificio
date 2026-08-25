@@ -936,7 +936,7 @@
       "confidence": "medium",
       "pattern": "unknown",
       "wrapper": "authPut",
-      "line": 203
+      "line": 247
     },
     {
       "app": "mesas-frontend",
@@ -946,7 +946,7 @@
       "confidence": "medium",
       "pattern": "unknown",
       "wrapper": "authPost",
-      "line": 204
+      "line": 248
     },
     {
       "app": "mesas-frontend",
@@ -956,7 +956,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 230
+      "line": 274
     },
     {
       "app": "mesas-frontend",

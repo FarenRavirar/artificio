@@ -7,10 +7,45 @@ import {
   normalizePlatformWebsiteUrl as normalizeWebsiteUrl,
   isPlatformUniqueViolation as isUniqueViolation,
   getPlatformErrorMessage as getErrorMessage,
+  validateImpliesInput,
+  impliesInsertValues,
+  applyImpliesUpdate,
+  IMPLIES_COLUMNS,
 } from '../utils/platformUtils.js';
 import { resolveActorName } from '../services/actorNameResolver.js';
 
 const router = Router();
+
+// Achado Sonar (PR #287): a enumeração de colunas era repetida em 5 pontos
+// (select público, select do admin, returning do POST, e o par
+// update/select do PUT). Acrescentar uma coluna exigia lembrar dos 5 — foi
+// assim que os `implies_*` nasceram duplicados. Uma constante por forma de
+// resposta; a pública omite is_active/timestamps de propósito (contrato
+// menor para consumo anônimo).
+const PUBLIC_COLUMNS = [
+  'id',
+  'name',
+  'slug',
+  'logo_filename',
+  'website_url',
+  'sort_order',
+  // Requisitos implicados (migration_162, spec 096 R3): o catálogo público
+  // alimenta a auto-marcação "com o porquê" no editor.
+  ...IMPLIES_COLUMNS,
+] as const;
+
+const ADMIN_COLUMNS = [
+  'id',
+  'name',
+  'slug',
+  'logo_filename',
+  'website_url',
+  'is_active',
+  'sort_order',
+  'created_at',
+  'updated_at',
+  ...IMPLIES_COLUMNS,
+] as const;
 
 interface VttPlatformPayload {
   name?: string;
@@ -104,19 +139,7 @@ router.get('/', async (req, res) => {
   try {
     const platforms = await db
       .selectFrom('vtt_platforms')
-      .select([
-        'id',
-        'name',
-        'slug',
-        'logo_filename',
-        'website_url',
-        'sort_order',
-        // Requisitos implicados (migration_162, spec 096 R3): o catálogo
-        // público alimenta a auto-marcação "com o porquê" no editor.
-        'implies_pc',
-        'implies_microphone',
-        'implies_camera',
-      ])
+      .select(PUBLIC_COLUMNS)
       .where('is_active', '=', true)
       .orderBy('sort_order', 'asc')
       .orderBy('name', 'asc')
@@ -238,22 +261,7 @@ router.get('/admin', authMiddleware, requireRole('admin'), async (_req, res) => 
   try {
     const platforms = await db
       .selectFrom('vtt_platforms')
-      .select([
-        'id',
-        'name',
-        'slug',
-        'logo_filename',
-        'website_url',
-        'is_active',
-        'sort_order',
-        'created_at',
-        'updated_at',
-        // Requisitos implicados (migration_162, spec 096 Fase 5): expostos
-        // no CRUD para o admin editar.
-        'implies_pc',
-        'implies_microphone',
-        'implies_camera',
-      ])
+      .select(ADMIN_COLUMNS)
       .orderBy('sort_order', 'asc')
       .orderBy('name', 'asc')
       .execute();
@@ -304,14 +312,9 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req, res) => 
   // Requisitos implicados (spec 096 Fase 5): validação ANTES da escrita —
   // flag que não é boolean derruba o pedido com 400 (mesma regra do aliases:
   // entrada malformada não pode ter efeito).
-  if (payload.implies_pc !== undefined && typeof payload.implies_pc !== 'boolean') {
-    return res.status(400).json({ error: 'implies_pc deve ser boolean.' });
-  }
-  if (payload.implies_microphone !== undefined && typeof payload.implies_microphone !== 'boolean') {
-    return res.status(400).json({ error: 'implies_microphone deve ser boolean.' });
-  }
-  if (payload.implies_camera !== undefined && typeof payload.implies_camera !== 'boolean') {
-    return res.status(400).json({ error: 'implies_camera deve ser boolean.' });
+  const impliesError = validateImpliesInput(payload);
+  if (impliesError) {
+    return res.status(400).json({ error: impliesError });
   }
 
   try {
@@ -329,24 +332,9 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req, res) => 
           website_url: websiteUrl,
           sort_order: sortOrder,
           is_active: payload.is_active ?? true,
-          implies_pc: payload.implies_pc ?? false,
-          implies_microphone: payload.implies_microphone ?? false,
-          implies_camera: payload.implies_camera ?? false,
+          ...impliesInsertValues(payload),
         })
-        .returning([
-          'id',
-          'name',
-          'slug',
-          'logo_filename',
-          'website_url',
-          'is_active',
-          'sort_order',
-          'created_at',
-          'updated_at',
-          'implies_pc',
-          'implies_microphone',
-          'implies_camera',
-        ])
+        .returning(ADMIN_COLUMNS)
         .executeTakeFirstOrThrow();
 
       if (aliases.length > 0) {
@@ -441,24 +429,11 @@ router.put('/admin/:id', authMiddleware, requireRole('admin'), async (req, res) 
   // Requisitos implicados (spec 096 Fase 5): validação ANTES da escrita,
   // mesmo padrão dos demais campos — só entra no updateData se definido
   // (mantém o PUT parcial, ex. handleToggleActive que envia só is_active).
-  if (payload.implies_pc !== undefined) {
-    if (typeof payload.implies_pc !== 'boolean') {
-      return res.status(400).json({ error: 'implies_pc deve ser boolean.' });
-    }
-    updateData.implies_pc = payload.implies_pc;
+  const impliesUpdateError = validateImpliesInput(payload);
+  if (impliesUpdateError) {
+    return res.status(400).json({ error: impliesUpdateError });
   }
-  if (payload.implies_microphone !== undefined) {
-    if (typeof payload.implies_microphone !== 'boolean') {
-      return res.status(400).json({ error: 'implies_microphone deve ser boolean.' });
-    }
-    updateData.implies_microphone = payload.implies_microphone;
-  }
-  if (payload.implies_camera !== undefined) {
-    if (typeof payload.implies_camera !== 'boolean') {
-      return res.status(400).json({ error: 'implies_camera deve ser boolean.' });
-    }
-    updateData.implies_camera = payload.implies_camera;
-  }
+  applyImpliesUpdate(payload, updateData);
 
   const hasAliases = payload.aliases !== undefined;
 
@@ -483,37 +458,11 @@ router.put('/admin/:id', authMiddleware, requireRole('admin'), async (req, res) 
             .updateTable('vtt_platforms')
             .set(updateData)
             .where('id', '=', id)
-            .returning([
-              'id',
-              'name',
-              'slug',
-              'logo_filename',
-              'website_url',
-              'is_active',
-              'sort_order',
-              'created_at',
-              'updated_at',
-              'implies_pc',
-              'implies_microphone',
-              'implies_camera',
-            ])
+            .returning(ADMIN_COLUMNS)
             .executeTakeFirst()
         : await trx
             .selectFrom('vtt_platforms')
-            .select([
-              'id',
-              'name',
-              'slug',
-              'logo_filename',
-              'website_url',
-              'is_active',
-              'sort_order',
-              'created_at',
-              'updated_at',
-              'implies_pc',
-              'implies_microphone',
-              'implies_camera',
-            ])
+            .select(ADMIN_COLUMNS)
             .where('id', '=', id)
             .executeTakeFirst();
 
