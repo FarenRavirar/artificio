@@ -747,6 +747,21 @@ function isProfileContact(value: unknown): value is ContactMethodInput {
 }
 
 /**
+ * Lista de string vinda de payload externo: descarta não-string, apara espaço e
+ * remove o que sobra vazio. O trim/descarte não é cosmético — a herança usa
+ * `preferredVttPlatforms[0]` como vttPlatformId (useTableEditor), e o guard de
+ * lá testa o array, não o item: um "" no perfil viraria plataforma selecionada
+ * em branco no editor. Não-array devolve [] (nunca propaga o valor inválido).
+ */
+function normalizeStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+/**
  * Normaliza o corpo de GET /api/v1/gm/me para o snapshot de herança.
  * Devolve null quando não é perfil (id/slug ausentes) — o hook decide entre
  * "sem perfil" (404 do endpoint) e "inválido" (aqui).
@@ -773,11 +788,7 @@ export function mapGmMeToSnapshot(value: unknown): GmProfileSnapshot | null {
     contactMethods,
     // Fase 6 (T6.4): listas de string do perfil — entradas não-string saem
     // (payload externo, normalização obrigatória do repo).
-    preferredVttPlatforms: Array.isArray(data.preferred_vtt_platforms)
-      ? data.preferred_vtt_platforms.filter((item): item is string => typeof item === 'string')
-      : [],
-    languages: Array.isArray(data.languages)
-      ? data.languages.filter((item): item is string => typeof item === 'string')
-      : [],
+    preferredVttPlatforms: normalizeStringList(data.preferred_vtt_platforms),
+    languages: normalizeStringList(data.languages),
   };
 }

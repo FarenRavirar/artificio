@@ -72,7 +72,23 @@ function extractedStateKeys(
   const previewRecord = preview as Record<string, unknown>;
   const extracted = new Set<string>();
 
-  for (const sourceKey of Object.keys(rawPreviewData)) {
+  // Achado de review (PR #288): a sondagem prova quais campos do estado uma
+  // chave ALIMENTA, não se o parser de fato extraiu aquele valor. O objeto do
+  // backend chega completo, com defaults (`price_type:'gratuita'`,
+  // `type:'campanha'`, `requires_pc:false`) nas chaves que o anúncio não citou
+  // — e sem este recorte todas elas exibiam "Pelo anúncio". `_extracted_fields`
+  // é a lista que o backend emite antes de aplicar os defaults; quando vem,
+  // manda. Sonda-se apenas o que ela lista, e a sondagem segue necessária para
+  // traduzir chave da fonte → campo do estado (os nomes diferem).
+  const declared = Array.isArray(rawPreviewData._extracted_fields)
+    ? new Set(rawPreviewData._extracted_fields.filter((k): k is string => typeof k === 'string'))
+    : null;
+
+  const sourceKeys = declared
+    ? Object.keys(rawPreviewData).filter((key) => declared.has(key))
+    : Object.keys(rawPreviewData);
+
+  for (const sourceKey of sourceKeys) {
     // Sondagem no lugar do valor real: revela QUAIS campos do estado aquela
     // chave alimenta, mesmo quando o valor que ela traz coincide com o default
     // do mapper. Só remover a chave não bastava — `price_type: 'gratuita'`

@@ -257,6 +257,32 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+/**
+ * Snapshot do perfil recém-criado (POST /gm/profile). Preferimos o corpo da
+ * resposta; `fallback` cobre resposta sem corpo/ilegível — o perfil FOI criado
+ * (res.ok), então falhar aqui perderia o publish por um detalhe de payload.
+ *
+ * Extraída de createGmProfileOnFirstPublish junto com readProfileErrorMessage
+ * (Sonar: complexidade cognitiva 18 > 15) — a função ficou com uma
+ * responsabilidade só, o retry de slug, e a leitura da resposta vive aqui.
+ */
+async function readCreatedProfile(
+  res: Response,
+  fallback: GmProfileSnapshot,
+): Promise<GmProfileSnapshot> {
+  const json: unknown = await res.json().catch(() => null);
+  const created = isRecord(json) ? mapGmMeToSnapshot(json.data) : null;
+  return created ?? fallback;
+}
+
+/** Mensagem de erro do POST /gm/profile, com fallback quando o corpo não traz uma. */
+async function readProfileErrorMessage(res: Response): Promise<string> {
+  const json: unknown = await res.json().catch(() => null);
+  return isRecord(json) && typeof json.error === 'string'
+    ? json.error
+    : 'Erro ao criar perfil de mestre';
+}
+
 // ── B1 (revisão adversarial Fase 4): shape do rascunho local restaurado ──
 // O draftStorage valida só o ENVELOPE (version/updatedAt/data); o DATA é
 // mesclado sem checar tipo — campo de array que não é array (JSON antigo/
@@ -641,6 +667,19 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
       }
       return changed ? next : prev;
     });
+    // Fase 6 (T6.2, achado de review PR #288): campo editado pelo mestre deixa
+    // de ser "Pelo anúncio". A marca só saía em replaceState/nova prévia, então
+    // um título ou preço substituído à mão continuava afirmando origem do
+    // parser — indicação de origem errada justamente onde o mestre corrigiu.
+    setParserFilledFields((prev) => {
+      if (prev.size === 0) return prev;
+      const next = new Set(prev);
+      let changed = false;
+      for (const key of Object.keys(partial)) {
+        if (next.delete(key)) changed = true;
+      }
+      return changed ? next : prev;
+    });
     setPublishError(null);
   }, []);
 
@@ -899,9 +938,7 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
       });
 
       if (res.ok) {
-        const json: unknown = await res.json().catch(() => null);
-        const created = isRecord(json) ? mapGmMeToSnapshot(json.data) : null;
-        const profile: GmProfileSnapshot = created ?? {
+        const profile = await readCreatedProfile(res, {
           nickname,
           bioLong: state.tableGmBio,
           contactMethods: state.contacts,
@@ -909,7 +946,7 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
           // herdáveis (o POST de criação não os recebe) — snapshot mínimo.
           preferredVttPlatforms: [],
           languages: state.language ? [state.language] : [],
-        };
+        });
         setGmProfileStatus({ kind: 'profile', profile });
         // O que o perfil TEM agora é o estado atual da mesa — referência
         // zerada para "nada foi editado ainda" (o botão de sincronizar só
@@ -922,15 +959,9 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
         return true;
       }
 
-      if (res.status !== 409) {
-        const json: unknown = await res.json().catch(() => null);
-        const message =
-          isRecord(json) && typeof json.error === 'string'
-            ? json.error
-            : 'Erro ao criar perfil de mestre';
-        throw new Error(message);
-      }
-      // 409 (slug em uso): tenta o sufixo numérico.
+      // 409 (slug em uso) é o único status que continua o laço: tenta o sufixo
+      // numérico. Qualquer outro erro sobe com a mensagem do backend.
+      if (res.status !== 409) throw new Error(await readProfileErrorMessage(res));
     }
 
     throw new Error('Não foi possível criar o perfil de mestre (identificador em uso).');

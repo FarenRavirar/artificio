@@ -102,6 +102,7 @@ export async function parseTextForPreview(
     table: tableFields
       ? {
           ...tableFields,
+          _extracted_fields: extractedDraftFields(draft),
           missing_fields: draft.missing_fields,
           _slots_ambiguity: draft.table._slots_ambiguity ?? null,
           _price_ambiguity: draft.table._price_ambiguity ?? null,
@@ -112,6 +113,47 @@ export async function parseTextForPreview(
     contacts,
     schedules,
   };
+}
+
+/**
+ * Fase 6 (T6.2, achado de review PR #288): quais campos o parser REALMENTE
+ * extraiu do texto, lidos do draft ANTES de buildTableDraftFields aplicar os
+ * defaults (`?? 'gratuita'`, `?? 'campanha'`, `?? false`).
+ *
+ * Sem isso o front só via o objeto já completo e não tinha como separar
+ * "o anúncio diz que é gratuita" de "o anúncio não fala de preço" — os dois
+ * chegam como `price_type: 'gratuita'`. O resultado era a marca "Pelo anúncio"
+ * em campo que o mestre nunca citou, inclusive vazio. `missing_fields` não
+ * resolve: cobre 6 campos, não o conjunto todo.
+ *
+ * Só chave presente E não-nula no draft entra — a mesma definição de "o parser
+ * achou" que o próprio builder usa para decidir se aplica o default.
+ */
+function extractedDraftFields(draft: ImportTableDraft): string[] {
+  const table = draft.table as unknown as Record<string, unknown>;
+  return Object.keys(table).filter((key) => {
+    // Sinais de preview (`_*`) não são campo de mesa — nunca viram marca.
+    if (key.startsWith('_')) return false;
+    // Campos cujo default nasce DENTRO do parser (não em buildTableDraftFields),
+    // e por isso chegam preenchidos mesmo sem o anúncio citar nada. Cada um tem
+    // um teste próprio para o que distingue extração de default — medido:
+    //   - modality: `?? 'online'` no parser; 'presencial' só aparece se citado,
+    //     então só 'online' é ambíguo.
+    //   - description: cai no TÍTULO quando o anúncio não tem corpo próprio.
+    //   - accepts_donations: `false` é o default; true é sempre sinal real.
+    if (key === 'modality' && table.modality === 'online') return false;
+    if (key === 'description' && table.description === table.title) return false;
+    if (key === 'accepts_donations' && table.accepts_donations === false) return false;
+    // `contact_discord_explicit` é metadado de origem do contato, não campo
+    // editável do formulário — nunca é marca de "veio do anúncio".
+    if (key === 'contact_discord_explicit') return false;
+    const value = table[key];
+    if (value === undefined || value === null) return false;
+    // String vazia é ausência de valor, não extração (o parser devolve '' onde
+    // não achou texto).
+    if (typeof value === 'string' && value.trim() === '') return false;
+    return true;
+  });
 }
 
 async function recordPreviewCase(

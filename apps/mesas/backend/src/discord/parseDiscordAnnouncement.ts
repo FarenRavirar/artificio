@@ -908,9 +908,15 @@ const BARE_MONTHLY_PRICE_RE = /\b(\d{1,9}(?:[,.]\d{1,2})?)\s{1,3}(?:por\s+)?mens
 /** "40/mês" sem R$ ("Valor: 40/mês"). A barra é o que separa de data ("25/08"). */
 const SLASH_MONTHLY_PRICE_RE = /\b(\d{1,9}(?:[,.]\d{1,2})?)\s{0,3}\/\s{0,3}(?:por\s+)?m[eê]s\b/i;
 
+const MONTHLY_PRICE_PATTERNS: readonly RegExp[] = [
+  ...MONTHLY_PRICE_RE_LIST,
+  BARE_MONTHLY_PRICE_RE,
+  SLASH_MONTHLY_PRICE_RE,
+];
+
 function extractMonthlyPrice(text: string): number | null {
   const cleaned = text.replaceAll('*', '');
-  for (const pattern of [...MONTHLY_PRICE_RE_LIST, BARE_MONTHLY_PRICE_RE, SLASH_MONTHLY_PRICE_RE]) {
+  for (const pattern of MONTHLY_PRICE_PATTERNS) {
     const match = pattern.exec(cleaned);
     if (!match) continue;
     const value = Number.parseFloat(match[1].replace(',', '.'));
@@ -920,16 +926,67 @@ function extractMonthlyPrice(text: string): number | null {
   return null;
 }
 
-const DONATION_VALUE_RE = /\bdoa[cç][oõ]es?\s*:?\s{0,3}R?\$?\s{0,3}(\d{1,9}(?:[,.]\d{1,2})?)\b/i;
-const DONATION_SIGNAL_RE = /\bdoa[cç][oõ]es?\b|\bcontribui[cç][aã]o\s+(?:volunt[aá]ria|livre)\b/i;
+/**
+ * Remove a expressão mensal do texto antes do extractPrice, pelo mesmo motivo
+ * de stripDonationPricePhrases: extractPrice captura o primeiro "R$ N" que
+ * encontra e ignora o sufixo, então "Valor: R$ 40/mês" preenchia price_value=40
+ * (por sessão) E price_value_monthly=40 — o mesmo número contado duas vezes,
+ * com sentidos diferentes, exibido como se a mesa cobrasse os dois.
+ * Reusa MONTHLY_PRICE_PATTERNS para não haver duas definições do que é "mensal".
+ */
+function stripMonthlyPricePhrases(value: string): string {
+  return MONTHLY_PRICE_PATTERNS.reduce(
+    (acc, pattern) => acc.replace(new RegExp(pattern.source, 'gi'), ''),
+    value,
+  );
+}
+
+// Singular E plural, com e sem acento: "doação"/"doacao"/"doações"/"doacoes".
+// O padrão anterior (`doa[cç][oõ]es?`) exigia o "e" e só casava o PLURAL — com
+// "Doação: R$ 10" no singular a frase não era removida do priceBody e os R$ 10
+// do doador viravam o preço da mesa (mesa gratuita saía como paga).
+const DONATION_WORD = String.raw`doa[cç](?:[aã]o|[oõ]es)`;
+const DONATION_VALUE_RE = new RegExp(
+  String.raw`\b${DONATION_WORD}\s*:?\s{0,3}R?\$?\s{0,3}(\d{1,9}(?:[,.]\d{1,2})?)\b`,
+  'i',
+);
+const DONATION_SIGNAL_RE = new RegExp(
+  String.raw`\b${DONATION_WORD}\b|\bcontribui[cç][aã]o\s+(?:volunt[aá]ria|livre)\b`,
+  'i',
+);
 
 /** Remove "Doações: R$ 10" do texto antes do extractPrice (ver cabeçalho acima). */
 function stripDonationPricePhrases(value: string): string {
-  return value.replace(/\bdoa[cç][oõ]es?\s*:?\s{0,3}R?\$?\s{0,3}\d{1,9}(?:[,.]\d{1,2})?\b/gi, '');
+  return value.replace(
+    new RegExp(
+      String.raw`\b${DONATION_WORD}\s*:?\s{0,3}R?\$?\s{0,3}\d{1,9}(?:[,.]\d{1,2})?\b`,
+      'gi',
+    ),
+    '',
+  );
+}
+
+/**
+ * Frase que NEGA doação ("não aceitamos doações", "sem doações", "nada de
+ * contribuição voluntária"). Sai do texto antes de avaliar o sinal, mesmo
+ * recorte que extractPrice já faz com NEGATED_PAID_RE — sem isso a mera
+ * presença da palavra marcava accepts_donations=true e o mestre publicava
+ * aceitando contribuição justamente onde o anúncio dizia o contrário
+ * (achado de review, PR #288).
+ */
+const NEGATED_DONATION_RE = new RegExp(
+  String.raw`\b(?:n[aã]o|nao)\s+(?:\w+\s+){0,2}(?:${DONATION_WORD}|contribui[cç][aã]o)\b`
+  + String.raw`|\bsem\s+(?:${DONATION_WORD}|contribui[cç][aã]o)\b`
+  + String.raw`|\bnada\s+de\s+(?:${DONATION_WORD}|contribui[cç][aã]o)\b`,
+  'gi',
+);
+
+function stripNegatedDonationPhrases(value: string): string {
+  return value.replace(NEGATED_DONATION_RE, '');
 }
 
 function extractDonation(text: string): { accepts: boolean; suggested: number | null } {
-  const cleaned = text.replaceAll('*', '');
+  const cleaned = stripNegatedDonationPhrases(text.replaceAll('*', ''));
   const valueMatch = DONATION_VALUE_RE.exec(cleaned);
   const suggestedRaw = valueMatch ? Number.parseFloat(valueMatch[1].replace(',', '.')) : null;
   const suggested =
@@ -1192,8 +1249,8 @@ function slotsGroupSize(cleaned: string): SlotsResult | null {
 // SLOT_FILLED_QUALIFIERS) — mesma semântica: "abertas/disponíveis" = N é o
 // total de abertas; "ocupadas/preenchidas" = N é o total de preenchidas
 // (open = total - N).
-const RE_SLOT_PAREN_OPEN = new RegExp(`${D}${SP0}\\(${SP0}${D}${SP1}(?:${SLOT_OPEN_QUALIFIERS})`, 'i');
-const RE_SLOT_PAREN_FILLED = new RegExp(`${D}${SP0}\\(${SP0}${D}${SP1}(?:${SLOT_FILLED_QUALIFIERS})`, 'i');
+const RE_SLOT_PAREN_OPEN = new RegExp(String.raw`${D}${SP0}\(${SP0}${D}${SP1}(?:${SLOT_OPEN_QUALIFIERS})`, 'i');
+const RE_SLOT_PAREN_FILLED = new RegExp(String.raw`${D}${SP0}\(${SP0}${D}${SP1}(?:${SLOT_FILLED_QUALIFIERS})`, 'i');
 
 function slotsParenthetical(cleaned: string): SlotsResult | null {
   const openMatch = RE_SLOT_PAREN_OPEN.exec(cleaned);
@@ -1824,15 +1881,25 @@ const DISCORD_USERNAME_PATTERN = /(?:^|[\s:(])(@[\w.]{2,32})\b/;
 
 function extractContactDiscord(text: string): string | null {
   const mentionPattern = /<#\d+>|<@!?\d+>/;
-  const contactLine = text
+  // TODAS as linhas de contato, não só a primeira (achado de review, PR #288):
+  // anúncio com "Contato: WhatsApp ..." seguido de "Contato: Discord @ricardo"
+  // parava na linha do WhatsApp — que não tem identificador Discord — e devolvia
+  // null, perdendo o contato da linha seguinte. Duas passadas para preservar a
+  // precedência: menção `<@id>` de QUALQUER linha vence o @username de outra,
+  // por ser o formato que resolve em qualquer servidor.
+  const contactLines = text
     .split(/\r?\n/)
-    .find((line) => /\b(contato|ticket|interesse|inscri[cç][aã]o)\b/i.test(line));
-  if (!contactLine) return null;
-  // Menção `<@id>` vence: é o formato que resolve em qualquer servidor.
-  const mentionMatch = mentionPattern.exec(contactLine);
-  if (mentionMatch) return mentionMatch[0];
-  const usernameMatch = DISCORD_USERNAME_PATTERN.exec(contactLine);
-  return usernameMatch ? usernameMatch[1] : null;
+    .filter((line) => /\b(contato|ticket|interesse|inscri[cç][aã]o)\b/i.test(line));
+  if (contactLines.length === 0) return null;
+  for (const line of contactLines) {
+    const mentionMatch = mentionPattern.exec(line);
+    if (mentionMatch) return mentionMatch[0];
+  }
+  for (const line of contactLines) {
+    const usernameMatch = DISCORD_USERNAME_PATTERN.exec(line);
+    if (usernameMatch) return usernameMatch[1];
+  }
+  return null;
 }
 
 // Requisito 4 (spec 079, achado real 2026-07-16): "93 992155816 no Whatsapp",
@@ -2677,10 +2744,12 @@ export function parseDiscordAnnouncement(
   // Campos extraídos do corpo
   const modality = extractModality(body) ?? 'online';
   const type = extractType(fullText) ?? (threadName ? 'campanha' : null);
-  // Fase 6 (spec 096, T6.3/Falha 7): a frase de doação com número sai ANTES do
-  // extractPrice ("Doações: R$ 10" não é o preço da mesa); mensal e doação são
-  // extraídos em paralelo (funções acima, logo após extractPrice).
-  const priceBody = stripDonationPricePhrases(body);
+  // Fase 6 (spec 096, T6.3/Falha 7): doação E mensal saem ANTES do extractPrice
+  // — nenhum dos dois é o preço POR SESSÃO ("Doações: R$ 10" é do doador,
+  // "R$ 40/mês" é a mensalidade). Sem isso o mesmo número era contado duas
+  // vezes: price_value e price_value_monthly com 40. Os valores continuam
+  // extraídos do `body` íntegro logo abaixo, cada um pela sua função.
+  const priceBody = stripMonthlyPricePhrases(stripDonationPricePhrases(body));
   const extractedPrice = extractPrice(priceBody, [
     ...(labelAliases?.price_type ?? []),
     ...(labelAliases?.price_value ?? []),

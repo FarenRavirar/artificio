@@ -371,6 +371,32 @@ describe('mapGmMeToSnapshot — GET /gm/me para o snapshot de herança (T4.0p/T6
     expect(snapshot?.languages).toEqual(['pt-BR', 'en']);
   });
 
+  it('Fase 6 (T6.4): apara espaço e descarta vazio — "" não vira plataforma herdada em branco', () => {
+    const snapshot = mapGmMeToSnapshot({
+      id: 'p-1',
+      slug: 'mestre-corvo',
+      nickname: 'Mestre Corvo',
+      bio_long: null,
+      preferred_vtt_platforms: ['', '   ', '  vtt-uuid-1  '],
+      languages: ['  pt-BR  ', '', '\t'],
+    });
+    expect(snapshot?.preferredVttPlatforms).toEqual(['vtt-uuid-1']);
+    expect(snapshot?.languages).toEqual(['pt-BR']);
+  });
+
+  it('Fase 6 (T6.4): campo não-array devolve lista vazia (nunca propaga o valor inválido)', () => {
+    const snapshot = mapGmMeToSnapshot({
+      id: 'p-1',
+      slug: 'mestre-corvo',
+      nickname: 'Mestre Corvo',
+      bio_long: null,
+      preferred_vtt_platforms: 'vtt-uuid-1',
+      languages: { 0: 'pt-BR' },
+    });
+    expect(snapshot?.preferredVttPlatforms).toEqual([]);
+    expect(snapshot?.languages).toEqual([]);
+  });
+
   it('devolve null quando não é perfil (id/slug ausentes)', () => {
     expect(mapGmMeToSnapshot(null)).toBeNull();
     expect(mapGmMeToSnapshot({ nickname: 'x' })).toBeNull();

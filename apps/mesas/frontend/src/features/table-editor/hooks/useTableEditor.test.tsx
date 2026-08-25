@@ -1092,6 +1092,59 @@ describe('perfil do mestre — criação no primeiro publish (T4.0p2)', () => {
       .map(([, payload]) => (payload as { slug: string }).slug);
     expect(slugs).toEqual(['mestre-novo', 'mestre-novo-1']);
   });
+
+  it('erro que NÃO é 409 aborta o publish com a mensagem do backend (sem retry de slug)', async () => {
+    mockAuthPost.mockImplementation((url: string) =>
+      url === '/api/v1/gm/profile'
+        ? failResponse({ error: 'Perfil bloqueado por moderação' }, 422)
+        : okResponse({ data: { id: 't-1' } }),
+    );
+    mockAuthPatch.mockImplementation(() => okResponse());
+    const { result } = renderHook(() =>
+      useTableEditor({
+        initialData: makeValidState({ masterDisplayName: 'Mestre Novo' }),
+        onPublished: vi.fn(),
+      }),
+    );
+    await waitFor(() => expect(result.current.gmProfileLoading).toBe(false));
+
+    let published: boolean | undefined;
+    await act(async () => {
+      published = await result.current.publish();
+    });
+
+    expect(published).toBe(false);
+    expect(result.current.publishError).toBe('Perfil bloqueado por moderação');
+    // Um POST só: status != 409 não tenta sufixo numérico.
+    const tentativas = mockAuthPost.mock.calls.filter(([url]) => url === '/api/v1/gm/profile');
+    expect(tentativas).toHaveLength(1);
+  });
+
+  it('criação sem corpo legível ainda publica — o perfil FOI criado (res.ok)', async () => {
+    mockAuthPost.mockImplementation((url: string) =>
+      url === '/api/v1/gm/profile'
+        ? ({ ok: true, status: 201, json: () => Promise.reject(new Error('sem corpo')) } as unknown as Response)
+        : okResponse({ data: { id: 't-1' } }),
+    );
+    mockAuthPatch.mockImplementation(() => okResponse());
+    const { result } = renderHook(() =>
+      useTableEditor({
+        initialData: makeValidState({ masterDisplayName: 'Mestre Novo', tableGmBio: 'Bio nova.' }),
+        onPublished: vi.fn(),
+      }),
+    );
+    await waitFor(() => expect(result.current.gmProfileLoading).toBe(false));
+
+    let published: boolean | undefined;
+    await act(async () => {
+      published = await result.current.publish();
+    });
+
+    expect(published).toBe(true);
+    // Fallback aplicado: o mestre passa a ter perfil mesmo sem corpo na
+    // resposta (o snapshot vem do estado da mesa).
+    expect(result.current.hasGmProfile).toBe(true);
+  });
 });
 
 describe('perfil do mestre — sincronizar (T4.0q, A20)', () => {
@@ -1428,6 +1481,30 @@ describe('Fase 6 — prévia do parser: marcas e sinais (T6.2, R5)', () => {
     });
     expect(result.current.parserFilledFields.size).toBe(0);
     expect(result.current.parserSignals).toBeNull();
+  });
+
+  it('campo editado pelo mestre perde a marca "Pelo anúncio"; os demais permanecem', async () => {
+    const { result } = renderHook(() =>
+      useTableEditor({ initialData: makeValidState(), onPublished: vi.fn() }),
+    );
+
+    await act(async () => {
+      result.current.applyParserPreview(
+        { ...makeValidState(), parseCaseId: 'case-1', title: 'Título do anúncio' },
+        ['title', 'priceType'],
+        null,
+      );
+    });
+    expect(result.current.parserFilledFields.has('title')).toBe(true);
+    expect(result.current.parserFilledFields.has('priceType')).toBe(true);
+
+    // O mestre reescreve o título: aquele campo passa a ser manual, os outros
+    // continuam vindos do anúncio.
+    await act(async () => {
+      result.current.patch({ title: 'Título reescrito pelo mestre' });
+    });
+    expect(result.current.parserFilledFields.has('title')).toBe(false);
+    expect(result.current.parserFilledFields.has('priceType')).toBe(true);
   });
 
   it('T6.5: publicar NUNCA é bloqueado por campo preenchido pelo parser — estado 100% do anúncio publica', async () => {

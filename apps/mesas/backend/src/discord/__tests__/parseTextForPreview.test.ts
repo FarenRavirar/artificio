@@ -88,6 +88,32 @@ describe('parseTextForPreview (requisito 8, spec 079)', () => {
     expect(result.table?.missing_fields).toContain('price_type:ambiguous');
   });
 
+  it('T6.2: _extracted_fields lista SÓ o que o texto trouxe — default do builder fica de fora', async () => {
+    const soTitulo = await parseTextForPreview('Mesa do Corvo');
+    // O objeto de campos chega completo (price_type:'gratuita', type:'campanha',
+    // requires_pc:false...), mas nada disso foi extraído do texto.
+    expect(soTitulo.table?.price_type).toBe('gratuita');
+    expect(soTitulo.table?._extracted_fields).toEqual(['title']);
+
+    const comPreco = await parseTextForPreview('Mesa do Corvo\nValor: gratuito');
+    // Mesmo valor final, origem diferente: aqui o anúncio CITA a gratuidade.
+    expect(comPreco.table?.price_type).toBe('gratuita');
+    expect(comPreco.table?._extracted_fields).toContain('price_type');
+  });
+
+  it('T6.2: _extracted_fields cobre os campos citados num anúncio rico', async () => {
+    const result = await parseTextForPreview(
+      'Mesa do Corvo\nDescrição: aventura sombria.\nModalidade: presencial\nValor: R$ 30\nVagas: 4',
+    );
+    const fields = result.table?._extracted_fields as string[];
+    expect(fields).toContain('title');
+    expect(fields).toContain('description');
+    expect(fields).toContain('modality');
+    expect(fields).toContain('price_type');
+    expect(fields).toContain('price_value');
+    expect(fields).toContain('slots_total');
+  });
+
   it('F7: "Mensal: 40" → price_value_monthly no preview; "Doações: R$ 10" → doação em mesa gratuita', async () => {
     const monthly = await parseTextForPreview('Título: Mesa Paga\nMensal: 40');
     expect(monthly.table?.price_type).toBe('paga');

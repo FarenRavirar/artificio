@@ -182,6 +182,100 @@ describe('applyParserPreview (Fase 6, T6.2) — prévia + campos que a fonte pro
     expect(extractedFields).not.toContain('description');
   });
 
+  // Payload REAL de parseTextForPreview para o texto "Mesa do Corvo" (medido no
+  // backend): buildTableDraftFields devolve o objeto COMPLETO, com defaults nas
+  // chaves que o parser não achou. Sem o recorte de defaults, todo campo não
+  // citado no anúncio exibia "Pelo anúncio".
+  it('defaults do backend não viram marca "Pelo anúncio" (texto só com título)', () => {
+    const current = filled();
+    const { extractedFields } = applyParserPreview(
+      {
+        system_id: null,
+        scenario_id: null,
+        title: 'Mesa do Corvo',
+        description: 'Mesa do Corvo',
+        rules_notes: null,
+        type: 'campanha',
+        age_rating: null,
+        modality: 'online',
+        vtt_platform_id: null,
+        communication_platform_id: null,
+        price_type: 'gratuita',
+        price_value: null,
+        price_frequency: null,
+        price_value_monthly: null,
+        accepts_donations: false,
+        suggested_donation_value: null,
+        slots_total: 0,
+        slots_filled: 0,
+        slots_open: 0,
+        experience_level: 'todos',
+        table_level: null,
+        setting_name: null,
+        setting_styles: null,
+        requires_pc: false,
+        requires_camera: false,
+        requires_microphone: false,
+        session_zero_free: false,
+        actual_gm_name: null,
+        is_covil: false,
+        cover_url: null,
+        banner_url: null,
+        schedule_day_status: 'defined',
+        schedule_time_status: 'to_define',
+        schedule_day_hint: null,
+        schedule_time_hint: null,
+        // Medido no backend para este mesmo texto: só o título foi extraído.
+        _extracted_fields: ['title'],
+        missing_fields: ['system_name', 'day_of_week', 'start_time', 'slots_total', 'contact_url'],
+        _slots_ambiguity: null,
+        _price_ambiguity: false,
+        _schedule_ambiguity: false,
+        raw_system_hint: null,
+      },
+      current,
+    );
+
+    // O que o anúncio de fato trouxe.
+    expect(extractedFields).toContain('title');
+    // Defaults do builder — o mestre não citou nada disso.
+    expect(extractedFields).not.toContain('priceType');
+    expect(extractedFields).not.toContain('type');
+    expect(extractedFields).not.toContain('experienceLevel');
+    expect(extractedFields).not.toContain('requiresPc');
+    expect(extractedFields).not.toContain('requiresCamera');
+    expect(extractedFields).not.toContain('requiresMicrophone');
+    expect(extractedFields).not.toContain('acceptsDonations');
+    expect(extractedFields).not.toContain('sessionZeroFree');
+    expect(extractedFields).not.toContain('slotsTotal');
+  });
+
+  it('valor igual ao default AINDA marca quando o anúncio o cita (gratuita explícito)', () => {
+    const current = filled();
+    const { extractedFields } = applyParserPreview(
+      {
+        title: 'Mesa',
+        price_type: 'gratuita',
+        // Medido: com "Valor: gratuito" no texto, price_type entra na lista.
+        _extracted_fields: ['title', 'price_type'],
+        missing_fields: [],
+      },
+      current,
+    );
+    expect(extractedFields).toContain('priceType');
+  });
+
+  it('sem _extracted_fields (payload antigo) mantém a sondagem como fallback', () => {
+    const current = filled();
+    const { extractedFields } = applyParserPreview(
+      { title: 'Mesa', price_type: 'paga', price_value: 40 },
+      current,
+    );
+    expect(extractedFields).toContain('title');
+    expect(extractedFields).toContain('priceType');
+    expect(extractedFields).toContain('priceValue');
+  });
+
   it('chaves de sinal (_*/missing_fields/raw_system_hint) não alimentam nenhum campo do estado', () => {
     const current = filled();
     const { extractedFields } = applyParserPreview(

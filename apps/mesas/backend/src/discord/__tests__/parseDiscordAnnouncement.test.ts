@@ -3210,12 +3210,77 @@ describe('Fase 6 (spec 096) — fixtures do §Gap 4', () => {
     expect(draft?.table.suggested_donation_value).toBe(10);
   });
 
+  it('F7-b2: "Doação: R$ 10" no SINGULAR tem o mesmo tratamento do plural (não vira preço da mesa)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Título: Mesa\nValor: gratuito\nDoação: R$ 10' }),
+    );
+    expect(draft?.table.price_type).toBe('gratuita');
+    expect(draft?.table.price_value).toBeNull();
+    expect(draft?.table.accepts_donations).toBe(true);
+    expect(draft?.table.suggested_donation_value).toBe(10);
+  });
+
+  it('F7-d: "R$ 40/mês" preenche SÓ price_value_monthly (o mesmo número não vira preço por sessão)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Título: Mesa\nValor: R$ 40/mês' }),
+    );
+    expect(draft?.table.price_type).toBe('paga');
+    expect(draft?.table.price_value_monthly).toBe(40);
+    expect(draft?.table.price_value).toBeNull();
+  });
+
+  it('F7-e: mensal e por sessão juntos preservam os DOIS valores distintos', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Título: Mesa\nValor: R$ 30 por sessão\nMensalidade: R$ 100' }),
+    );
+    expect(draft?.table.price_type).toBe('paga');
+    expect(draft?.table.price_value).toBe(30);
+    expect(draft?.table.price_value_monthly).toBe(100);
+  });
+
   it('F7-c: mesa paga que cita doações NÃO carrega accepts_donations (contrato do validator)', () => {
     const draft = parseDiscordAnnouncement(
       makeMessage({ content_raw: 'Título: Mesa\nValor: R$ 30\nTambém aceitamos doações' }),
     );
     expect(draft?.table.price_type).toBe('paga');
     expect(draft?.table.accepts_donations).toBe(false);
+  });
+
+  it('F7-f: "Não aceitamos doações" NÃO marca accepts_donations (negação vence a palavra solta)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Título: Mesa\nValor: gratuito\nNão aceitamos doações' }),
+    );
+    expect(draft?.table.price_type).toBe('gratuita');
+    expect(draft?.table.accepts_donations).toBe(false);
+  });
+
+  it('F7-g: "Sem doações" e "nada de contribuição voluntária" também não marcam aceite', () => {
+    const semDoacoes = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Título: Mesa\nValor: gratuito\nSem doações' }),
+    );
+    expect(semDoacoes?.table.accepts_donations).toBe(false);
+    const nadaDe = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Título: Mesa\nValor: gratuito\nNada de contribuição voluntária' }),
+    );
+    expect(nadaDe?.table.accepts_donations).toBe(false);
+  });
+
+  it('F4-b: linha de contato Discord posterior a outra linha de contato ainda é lida', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: 'Título: Mesa\nContato: WhatsApp 11 99999-8888\nContato: Discord @ricardo',
+      }),
+    );
+    expect(draft?.table.contact_discord).toBe('@ricardo');
+  });
+
+  it('F4-c: menção <@id> em qualquer linha de contato vence @username de outra linha', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: 'Título: Mesa\nContato: Discord @ricardo\nContato: chamar <@123456789>',
+      }),
+    );
+    expect(draft?.table.contact_discord).toBe('<@123456789>');
   });
 
   it('F8: sistema que não casa no catálogo preserva raw_system_hint (sem inventar correspondência)', () => {
