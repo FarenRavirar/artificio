@@ -6,9 +6,41 @@ import {
   normalizePlatformWebsiteUrl as normalizeWebsiteUrl,
   isPlatformUniqueViolation as isUniqueViolation,
   getPlatformErrorMessage as getErrorMessage,
+  validateImpliesInput,
+  impliesInsertValues,
+  applyImpliesUpdate,
+  IMPLIES_COLUMNS,
 } from '../utils/platformUtils.js';
 
 const router = Router();
+
+// Achado Sonar (PR #287): a enumeração de colunas era repetida em 4 pontos
+// (select público, select do admin, returning do POST e do PUT). Acrescentar
+// uma coluna exigia lembrar dos 4 — foi assim que os `implies_*` nasceram
+// duplicados. Uma constante por forma de resposta; a pública omite
+// is_active/timestamps de propósito (contrato menor para consumo anônimo).
+const PUBLIC_COLUMNS = [
+  'id',
+  'name',
+  'slug',
+  'website_url',
+  'sort_order',
+  // Requisitos implicados (migration_162, spec 096 R3): o catálogo público
+  // alimenta a auto-marcação "com o porquê" no editor.
+  ...IMPLIES_COLUMNS,
+] as const;
+
+const ADMIN_COLUMNS = [
+  'id',
+  'name',
+  'slug',
+  'website_url',
+  'is_active',
+  'sort_order',
+  'created_at',
+  'updated_at',
+  ...IMPLIES_COLUMNS,
+] as const;
 
 interface CommunicationPlatformPayload {
   name?: string;
@@ -16,6 +48,13 @@ interface CommunicationPlatformPayload {
   website_url?: string | null;
   sort_order?: number;
   is_active?: boolean;
+  // Requisitos implicados (migration_162, spec 096 Fase 5): o admin edita os
+  // flags que alimentam a auto-marcação no editor de anúncio. As colunas
+  // existem em tabela exatamente porque o admin já edita o catálogo
+  // (plan.md §Regras VTT → requisitos:486-487).
+  implies_pc?: boolean;
+  implies_microphone?: boolean;
+  implies_camera?: boolean;
 }
 
 // GET /api/v1/communication-platforms — Catálogo público (somente ativos)
@@ -23,7 +62,7 @@ router.get('/', async (_req: Request, res: Response) => {
   try {
     const platforms = await db
       .selectFrom('communication_platforms')
-      .select(['id', 'name', 'slug', 'website_url', 'sort_order'])
+      .select(PUBLIC_COLUMNS)
       .where('is_active', '=', true)
       .orderBy('sort_order', 'asc')
       .orderBy('name', 'asc')
@@ -41,7 +80,7 @@ router.get('/admin', authMiddleware, requireRole('admin'), async (_req: Request,
   try {
     const platforms = await db
       .selectFrom('communication_platforms')
-      .select(['id', 'name', 'slug', 'website_url', 'is_active', 'sort_order', 'created_at', 'updated_at'])
+      .select(ADMIN_COLUMNS)
       .orderBy('sort_order', 'asc')
       .orderBy('name', 'asc')
       .execute();
@@ -69,6 +108,14 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req: Request,
 
   const sortOrder = Number.isInteger(payload.sort_order) ? Number(payload.sort_order) : 0;
 
+  // Requisitos implicados (spec 096 Fase 5): validação ANTES da escrita —
+  // flag que não é boolean derruba o pedido com 400 (entrada malformada não
+  // pode ter efeito).
+  const impliesError = validateImpliesInput(payload);
+  if (impliesError) {
+    return res.status(400).json({ error: impliesError });
+  }
+
   try {
     const websiteUrl = normalizeWebsiteUrl(payload.website_url);
 
@@ -80,8 +127,9 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req: Request,
         website_url: websiteUrl,
         sort_order: sortOrder,
         is_active: payload.is_active ?? true,
+        ...impliesInsertValues(payload),
       })
-      .returning(['id', 'name', 'slug', 'website_url', 'is_active', 'sort_order', 'created_at', 'updated_at'])
+      .returning(ADMIN_COLUMNS)
       .executeTakeFirst();
 
     return res.status(201).json({ data: created });
@@ -139,9 +187,23 @@ router.put('/admin/:id', authMiddleware, requireRole('admin'), async (req: Reque
     updateData.sort_order = payload.sort_order;
   }
 
+  // Alinhamento com vttPlatforms.ts PUT (achado lateral Fase 5, spec 096):
+  // is_active sem validação de tipo aceitava qualquer valor no update.
   if (payload.is_active !== undefined) {
+    if (typeof payload.is_active !== 'boolean') {
+      return res.status(400).json({ error: 'is_active deve ser boolean.' });
+    }
     updateData.is_active = payload.is_active;
   }
+
+  // Requisitos implicados (spec 096 Fase 5): validação ANTES da escrita,
+  // mesmo padrão dos demais campos — só entra no updateData se definido
+  // (mantém o PUT parcial, ex. handleToggleActive que envia só is_active).
+  const impliesError = validateImpliesInput(payload);
+  if (impliesError) {
+    return res.status(400).json({ error: impliesError });
+  }
+  applyImpliesUpdate(payload, updateData);
 
   if (Object.keys(updateData).length === 0) {
     return res.status(400).json({ error: 'Nenhum campo válido para atualização.' });
@@ -152,7 +214,7 @@ router.put('/admin/:id', authMiddleware, requireRole('admin'), async (req: Reque
       .updateTable('communication_platforms')
       .set(updateData)
       .where('id', '=', id)
-      .returning(['id', 'name', 'slug', 'website_url', 'is_active', 'sort_order', 'created_at', 'updated_at'])
+      .returning(ADMIN_COLUMNS)
       .executeTakeFirst();
 
     if (!updated) {

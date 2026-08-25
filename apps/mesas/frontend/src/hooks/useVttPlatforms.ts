@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { z } from 'zod';
+import { readEnvelopeData } from '../utils/apiEnvelope';
 
 export interface VttPlatform {
   id: string;
@@ -8,6 +9,11 @@ export interface VttPlatform {
   logo_filename: string | null;
   website_url: string | null;
   sort_order: number;
+  // Requisitos implicados (migration_162, spec 096 R3): alimentam a
+  // auto-marcação "com o porquê" no editor (WherePart, T5.3).
+  implies_pc: boolean;
+  implies_microphone: boolean;
+  implies_camera: boolean;
 }
 
 const vttPlatformSchema: z.ZodType<VttPlatform> = z.object({
@@ -17,11 +23,10 @@ const vttPlatformSchema: z.ZodType<VttPlatform> = z.object({
   logo_filename: z.string().nullable(),
   website_url: z.string().nullable(),
   sort_order: z.number(),
+  implies_pc: z.boolean(),
+  implies_microphone: z.boolean(),
+  implies_camera: z.boolean(),
 });
-
-const asRecord = (value: unknown): Record<string, unknown> => (
-  value && typeof value === 'object' ? value as Record<string, unknown> : {}
-);
 
 /**
  * Normaliza a resposta de GET /vtt-platforms — envelope `{ data: [...] }`
@@ -34,10 +39,7 @@ const asRecord = (value: unknown): Record<string, unknown> => (
  * (`{ platforms, loading, error }` — o erro vira a mensagem exibida).
  */
 export const normalizeVttPlatformsResponse = (json: unknown): VttPlatform[] => {
-  const data = asRecord(json).data;
-  if (!Array.isArray(data)) {
-    throw new TypeError('Resposta de plataformas VTT em formato inesperado.');
-  }
+  const data = readEnvelopeData(json, 'Resposta de plataformas VTT em formato inesperado.');
   return data.map((raw) => {
     const parsed = vttPlatformSchema.safeParse(raw);
     if (!parsed.success) {

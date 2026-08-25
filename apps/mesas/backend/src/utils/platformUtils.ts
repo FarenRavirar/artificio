@@ -43,3 +43,64 @@ export const getPlatformErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message;
   return 'Erro interno';
 };
+
+// Achado Sonar (PR #287): a validação dos requisitos implicados nasceu
+// duplicada byte-a-byte nas duas rotas — 3 blocos no POST e 3 no PUT, ×2
+// arquivos. Mesma origem do achado da PR #145 que criou este util: a regra é
+// do conceito "plataforma", não de cada catálogo, então vive aqui (AGENTS.md,
+// "compartilhado por padrão; exceção por app é o defeito").
+
+/** Colunas de requisito implicado (migration_162, spec 096 Fase 5). */
+export const IMPLIES_COLUMNS = [
+  'implies_pc',
+  'implies_microphone',
+  'implies_camera',
+] as const;
+
+export type ImpliesColumn = typeof IMPLIES_COLUMNS[number];
+
+type ImpliesPayload = Partial<Record<ImpliesColumn, unknown>>;
+
+/**
+ * Valida os flags presentes no corpo. Devolve a mensagem de erro do primeiro
+ * inválido, ou `null` se todos os definidos forem boolean.
+ *
+ * Chamado ANTES de qualquer escrita: flag que não é boolean derruba o pedido
+ * com 400, mesma regra do `aliases` (entrada malformada não pode ter efeito).
+ */
+export const validateImpliesInput = (payload: ImpliesPayload): string | null => {
+  for (const column of IMPLIES_COLUMNS) {
+    const value = payload[column];
+    if (value !== undefined && typeof value !== 'boolean') {
+      return `${column} deve ser boolean.`;
+    }
+  }
+  return null;
+};
+
+/** Valores para o INSERT: ausente vira `false`, o mesmo default da coluna. */
+export const impliesInsertValues = (
+  payload: ImpliesPayload
+): Record<ImpliesColumn, boolean> => ({
+  implies_pc: payload.implies_pc === true,
+  implies_microphone: payload.implies_microphone === true,
+  implies_camera: payload.implies_camera === true,
+});
+
+/**
+ * Acrescenta ao `updateData` só os flags definidos no corpo — preserva o PUT
+ * parcial (ex.: `handleToggleActive`, que envia apenas `is_active`, não pode
+ * zerar os requisitos como efeito colateral).
+ *
+ * Pressupõe `validateImpliesInput` já chamado; por isso não revalida o tipo.
+ */
+export const applyImpliesUpdate = (
+  payload: ImpliesPayload,
+  updateData: Record<string, unknown>
+): void => {
+  for (const column of IMPLIES_COLUMNS) {
+    if (payload[column] !== undefined) {
+      updateData[column] = payload[column];
+    }
+  }
+};

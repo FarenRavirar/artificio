@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
 import { authGet } from '../services/apiClient';
 import type { SystemTreeNode } from '../types/systems';
+import { readEnvelopeData } from '../utils/apiEnvelope';
 
 const SYSTEMS_CATALOG_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -51,10 +52,6 @@ export const invalidateSystemsCatalogCache = () => {
   systemsCatalogCache = null;
 };
 
-const asRecord = (value: unknown): Record<string, unknown> => (
-  value && typeof value === 'object' ? value as Record<string, unknown> : {}
-);
-
 const normalizeSystemTreeNode = (raw: unknown): SystemTreeNode => {
   const parsed = systemTreeNodeSchema.safeParse(raw);
   if (!parsed.success) {
@@ -84,7 +81,7 @@ const normalizeSystemTree = (raw: unknown): SystemTreeNode[] => {
  * validam com o MESMO schema.
  */
 export const normalizeSystemsResponse = (json: unknown): SystemTreeNode[] =>
-  normalizeSystemTree(asRecord(json).data);
+  normalizeSystemTree(readEnvelopeData(json, 'Resposta de sistemas em formato inesperado.'));
 
 const fetchSystemsCatalog = async (): Promise<SystemTreeNode[]> => {
   const response = await authGet('/api/v1/systems?view=tree');

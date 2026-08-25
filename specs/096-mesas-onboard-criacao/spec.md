@@ -1,14 +1,22 @@
 # Spec 096 — Mesas: editor de anúncio da mesa (substitui o onboard de criação)
 
 **App:** `mesas` · **Status:** aberto · **Criada:** 2026-08-23 · **Fase 2 concluída:** 2026-08-23
+**Fase 4 (editor) merged em `dev`:** 2026-08-25 (PR #286) — falta o gate T4.9, o smoke
+visual do mantenedor e o deploy. Fases 5-7 não iniciadas.
 **Última rodada de decisões:** 2026-08-24 (R6.1, **R18-R24**, §Gap 9, §Gap 10, §Gap 11, autorização de escopo)
 **Origem:** demanda direta do mantenedor (2026-08-23). Fluxo em 4 etapas definido pelo
 mantenedor: (1) levantamento inicial pelo orquestrador, (2) conferência externa (Claude),
 (3) levantamento de protótipos/fluxos com pesquisa de mercado + grill, (4) implementação.
 
 **O que esta spec entrega, em uma linha:** o wizard de 6 etapas dá lugar a um **editor de
-anúncio** — campos sempre abertos, editados no lugar, sem etapa, sem gaveta e sem rolagem;
-criar e editar são a mesma tela.
+anúncio** — campos sempre abertos, editados no lugar, sem etapa e sem gaveta; criar e
+editar são a mesma tela.
+
+**Precisão sobre "sem rolagem" (esclarecido pelo mantenedor em 2026-08-25):** o que R1
+proíbe são as **rolagens internas** — caixinha que rola dentro da página, gaveta,
+sub-área com barra própria. A página em si rola normalmente. A leitura literal de "sem
+rolagem" (documento inteiro travado em `overflow: hidden`) chegou a ser tomada como
+requisito numa revisão e não é o desenho.
 
 - **Módulo/Pacote:** apps/mesas
 - **Gate relacionado:** D (projeto `mesas` em ciclo contínuo)
@@ -734,8 +742,11 @@ auditoria apontar que não havia índice único (auditoria da 2ª rodada).
 
 - **R1:** Criar mesa acontece num **editor de anúncio**: todos os campos são campos
   abertos e sempre editáveis, editados no lugar. **Sem wizard, sem etapa que destrava,
-  sem gaveta/modal e sem rolagem** — o conteúdo é dividido em partes que cabem na
-  viewport, e a lateral salta entre elas sem travar nenhuma.
+  sem gaveta/modal e sem rolagem INTERNA** — o conteúdo é dividido em partes, e a
+  lateral salta entre elas sem travar nenhuma. O que a regra proíbe é a caixinha que
+  rola dentro da página (gaveta, sub-área com barra própria); **a página em si rola
+  normalmente** (precisão do mantenedor, 2026-08-25 — a leitura literal chegou a ser
+  tomada como "documento travado em `overflow: hidden`", e não é o desenho).
 - **R2:** Editar mesa usa **a mesma tela** da criação, sem passar por fluxo nenhum:
   alterar um campo de mesa no ar são dois cliques (a parte na lateral, e o campo).
   A diferença entre criar e editar é só o estado (selo, rótulo do botão).
@@ -1034,9 +1045,15 @@ auditoria apontar que não havia índice único (auditoria da 2ª rodada).
     `DraftEditorTab` **mantêm o empilhamento atual**. O comportamento de busca-primeiro e os
     níveis progressivos **já existem** no componente (`:355`, `:78-91`, `:398-478`) — o novo
     é o layout, os aliases nas opções e a ligação server-side.
-  - **Mudança de backend (a única deste gap):** `GET /systems` aceita `parent_id`, para
-    entregar os filhos de um nó sob demanda — hoje a busca diz `has_children: true` e devolve
-    `children: []`, e `GET /systems/:id` não existe (404). Aditivo, sem migration.
+  - **Mudanças de backend deste gap:** `GET /systems` aceita `parent_id`, para entregar
+    os filhos de um nó sob demanda — a busca diz `has_children: true` e devolve
+    `children: []` —, **e `id`**, para o editor resolver a seleção que já existe sem
+    baixar a árvore. Ambas aditivas, sem migration. O `id` foi acrescentado em
+    2026-08-25 (PR #286): este requisito dizia "a única mudança é o `parent_id`", mas
+    sem filtro por id não há como cumprir o A21 — `search` casa nome/slug/path_slug/
+    alias e **nunca id**, e a alternativa medida era manter o `?view=tree` (503.907
+    bytes por abertura) que o próprio A21 proíbe. `GET /systems/:id` continua não
+    existindo (404): o acesso por id é por query na rota de listagem.
   - **O catálogo é CENTRAL nos dois sentidos, e a spec não pode quebrar isso:** o `mesas`
     **lê** o central em produção (`systemCatalogProvider.ts:49`) e o admin **escreve** nele
     (`catalogFetch('/api/admin/v1/catalog/nodes', POST)`, servido pelo `site-admin`) — o que

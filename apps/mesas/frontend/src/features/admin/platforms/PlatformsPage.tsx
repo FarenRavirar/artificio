@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
+import { z } from 'zod';
 import { Edit, Trash2, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { authGet, authPost, authPut, authDelete } from '../../../services/apiClient';
+import { readEnvelopeData } from '../../../utils/apiEnvelope';
 
 type PlatformKind = 'vtt' | 'communication';
 
@@ -12,6 +14,12 @@ interface PlatformBase {
   website_url: string | null;
   is_active: boolean;
   sort_order: number;
+  // Requisitos implicados (migration_162, spec 096 Fase 5): editáveis no
+  // CRUD porque as colunas vivem em tabela justamente por o admin já editar
+  // o catálogo (plan.md §Regras VTT → requisitos:486-487).
+  implies_pc: boolean;
+  implies_microphone: boolean;
+  implies_camera: boolean;
 }
 
 interface VttPlatform extends PlatformBase {
@@ -27,6 +35,9 @@ interface PlatformFormState {
   logo_filename: string;
   sort_order: string;
   is_active: boolean;
+  implies_pc: boolean;
+  implies_microphone: boolean;
+  implies_camera: boolean;
 }
 
 const DEFAULT_FORM: PlatformFormState = {
@@ -36,6 +47,9 @@ const DEFAULT_FORM: PlatformFormState = {
   logo_filename: '',
   sort_order: '0',
   is_active: true,
+  implies_pc: false,
+  implies_microphone: false,
+  implies_camera: false,
 };
 
 const getEndpoint = (kind: PlatformKind): string => (
@@ -62,6 +76,52 @@ const parseErrorMessage = async (response: Response, fallback: string): Promise<
 const isVttPlatform = (item: PlatformRecord): item is VttPlatform => (
   'logo_filename' in item
 );
+
+/**
+ * Normalização do catálogo de admin (achado P1 da revisão da Fase 5, spec 096).
+ *
+ * Antes, `Array.isArray(data.data) ? data.data : []` entrava cru no estado
+ * tipado como `VttPlatform[]`/`PlatformBase[]` — o array era checado, os itens
+ * não. Isso quebrava a regra de normalização obrigatória do AGENTS.md (payload
+ * externo é `unknown` até passar por normalizador tipado) e tinha consequência
+ * real de escrita: `handleSubmit` envia SEMPRE os três `implies_*`, então um
+ * item degradado no estado gravava esses valores por cima do banco ao editar
+ * qualquer outro campo. O `?? false` do `handleEdit` era só o sintoma visível.
+ *
+ * Mesmo padrão dos hooks públicos (`useVttPlatforms`): schema mínimo por item
+ * + TypeError com a mensagem que a UI exibe. `aliases` (só no GET admin de VTT)
+ * não é declarado de propósito — a página não o consome, e zod ignora extras.
+ */
+const platformBaseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  slug: z.string(),
+  website_url: z.string().nullable(),
+  is_active: z.boolean(),
+  sort_order: z.number(),
+  implies_pc: z.boolean(),
+  implies_microphone: z.boolean(),
+  implies_camera: z.boolean(),
+});
+
+const vttPlatformSchema: z.ZodType<VttPlatform> = platformBaseSchema.extend({
+  logo_filename: z.string().nullable(),
+});
+
+const CATALOG_ERROR = 'Resposta do catálogo de plataformas em formato inesperado.';
+
+function normalizePlatforms<T extends PlatformRecord>(
+  json: unknown,
+  schema: z.ZodType<T>
+): T[] {
+  return readEnvelopeData(json, CATALOG_ERROR).map((raw) => {
+    const parsed = schema.safeParse(raw);
+    if (!parsed.success) {
+      throw new TypeError(CATALOG_ERROR);
+    }
+    return parsed.data;
+  });
+}
 
 interface PlatformsPageProps {
   /** Kind inicial (opcional, default 'vtt'). Usado pela ConteudoSection para subnav VTTs/Comunicação. */
@@ -104,13 +164,12 @@ export function PlatformsPage({ initialKind }: PlatformsPageProps) {
         throw new Error(message);
       }
 
-      const data = await response.json();
-      const items = Array.isArray(data.data) ? data.data : [];
+      const json: unknown = await response.json();
 
       if (targetKind === 'vtt') {
-        setVttPlatforms(items);
+        setVttPlatforms(normalizePlatforms(json, vttPlatformSchema));
       } else {
-        setCommunicationPlatforms(items);
+        setCommunicationPlatforms(normalizePlatforms(json, platformBaseSchema));
       }
     } catch (error) {
       console.error('[PlatformsPage] Erro ao carregar plataformas:', error);
@@ -138,6 +197,12 @@ export function PlatformsPage({ initialKind }: PlatformsPageProps) {
       logo_filename: isVttPlatform(item) ? (item.logo_filename || '') : '',
       sort_order: String(item.sort_order),
       is_active: item.is_active,
+      // Sem `?? false`: os itens do estado passaram por `normalizePlatforms`,
+      // que exige os três flags como boolean (achado P1 da revisão da Fase 5).
+      // O fallback anterior mascarava item malformado em vez de rejeitá-lo.
+      implies_pc: item.implies_pc,
+      implies_microphone: item.implies_microphone,
+      implies_camera: item.implies_camera,
     });
   };
 
@@ -158,6 +223,11 @@ export function PlatformsPage({ initialKind }: PlatformsPageProps) {
       sort_order: sortOrder,
       is_active: form.is_active,
       website_url: form.website_url.trim() || null,
+      // Requisitos implicados (spec 096 Fase 5): o backend valida boolean e
+      // aplica default false quando ausente.
+      implies_pc: form.implies_pc,
+      implies_microphone: form.implies_microphone,
+      implies_camera: form.implies_camera,
     };
 
     if (form.slug.trim()) {
@@ -338,6 +408,46 @@ export function PlatformsPage({ initialKind }: PlatformsPageProps) {
             Plataforma ativa
           </label>
 
+          {/* Requisitos implicados (spec 096 Fase 5): alimentam a
+              auto-marcação "com o porquê" no editor de anúncio (R3). O admin
+              edita os flags porque as colunas vivem em tabela (plan.md
+              §Regras VTT → requisitos:486-487). */}
+          <div className="space-y-2">
+            <p className="text-white/60 text-xs font-semibold">
+              Requisitos implicados (auto-marcação no editor de anúncio)
+            </p>
+            <label htmlFor="platform-implies-pc" className="flex items-center gap-2 text-white/80 text-sm">
+              <input
+                id="platform-implies-pc"
+                type="checkbox"
+                checked={form.implies_pc}
+                onChange={(e) => setForm((prev) => ({ ...prev, implies_pc: e.target.checked }))}
+                className="w-4 h-4"
+              />
+              Implica computador (não funciona em mobile)
+            </label>
+            <label htmlFor="platform-implies-microphone" className="flex items-center gap-2 text-white/80 text-sm">
+              <input
+                id="platform-implies-microphone"
+                type="checkbox"
+                checked={form.implies_microphone}
+                onChange={(e) => setForm((prev) => ({ ...prev, implies_microphone: e.target.checked }))}
+                className="w-4 h-4"
+              />
+              Implica microfone
+            </label>
+            <label htmlFor="platform-implies-camera" className="flex items-center gap-2 text-white/80 text-sm">
+              <input
+                id="platform-implies-camera"
+                type="checkbox"
+                checked={form.implies_camera}
+                onChange={(e) => setForm((prev) => ({ ...prev, implies_camera: e.target.checked }))}
+                className="w-4 h-4"
+              />
+              Implica câmera
+            </label>
+          </div>
+
           <div className="flex gap-2">
             <button
               onClick={handleSubmit}
@@ -387,6 +497,14 @@ export function PlatformsPage({ initialKind }: PlatformsPageProps) {
                     <p className="text-white/50 text-xs">
                       status: {item.is_active ? 'ativo' : 'inativo'}
                     </p>
+                    {/* Flags de requisitos (spec 096 Fase 5): linha discreta
+                        para o admin conferir o seed; some quando nenhum está
+                        marcado. */}
+                    {(item.implies_pc || item.implies_microphone || item.implies_camera) && (
+                      <p className="text-white/50 text-xs">
+                        requisitos: {[item.implies_pc && 'computador', item.implies_microphone && 'microfone', item.implies_camera && 'câmera'].filter(Boolean).join(', ')}
+                      </p>
+                    )}
                     {item.website_url && (
                       <p className="text-white/50 text-xs break-all">site: {item.website_url}</p>
                     )}
