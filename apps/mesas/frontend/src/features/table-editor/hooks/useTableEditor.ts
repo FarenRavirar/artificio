@@ -702,61 +702,75 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
     }
   }, []);
 
+  /**
+   * Cria o rascunho no servidor e devolve o id, registrando a promessa em
+   * `draftCreationRef` para que quem chegar no meio a aguarde em vez de emitir
+   * um segundo POST (é o que a `pendingDraftCreation` lê).
+   */
+  const startDraftCreation = useCallback(async (payload: EditorPayload): Promise<string | null> => {
+    const creation = (async () => {
+      const res = await authPost('/api/v1/gm/tables', payload);
+      if (!res.ok) throw new Error('POST rascunho falhou');
+      const json = (await res.json().catch(() => ({}))) as { data?: { id?: unknown } };
+      if (typeof json.data?.id !== 'string') return null;
+      // O id é gravado no ref ANTES de qualquer guard de desmonte: a mesa JÁ
+      // existe no servidor. Descartá-lo aqui (o `if (!active) return` que vivia
+      // nesta linha) fazia a próxima escrita ver `remoteDraftId === null` e
+      // criar a mesa outra vez.
+      remoteDraftIdRef.current = json.data.id;
+      return json.data.id;
+    })();
+
+    draftCreationRef.current = creation;
+    try {
+      return await creation;
+    } catch (err) {
+      // Nada foi gravado: liberar para a próxima tentativa criar de novo.
+      draftCreationRef.current = null;
+      throw err;
+    }
+  }, []);
+
+  /** Uma passada do autosave remoto: PUT no rascunho conhecido, ou cria um. */
+  const saveRemoteDraft = useCallback(async (): Promise<string | null> => {
+    // Mesma regra A19 do publish: o rascunho remoto não materializa campo
+    // herdado que o mestre não editou (senão o draft viraria a "decisão" da
+    // mesa antes do publish).
+    const payload = editorStateToPayload(state, { omitInherited });
+    // Uma criação em voo vale por todas: se outro disparo já está criando o
+    // rascunho, espera o id dele em vez de emitir um segundo POST.
+    const knownId = remoteDraftIdRef.current ?? remoteDraftId ?? (await pendingDraftCreation());
+
+    if (knownId) {
+      const res = await authPut(`/api/v1/gm/tables/${knownId}`, payload);
+      if (!res.ok) throw new Error('PUT rascunho falhou');
+      return null;
+    }
+
+    return startDraftCreation(payload);
+  }, [state, omitInherited, remoteDraftId, pendingDraftCreation, startDraftCreation]);
+
   useEffect(() => {
     if (publishingRef.current || !isDirty || isActive) return;
     let active = true;
+
+    const runAutosave = async () => {
+      // C1: o timer pode ter disparado um instante antes do publish — rechecar
+      // antes de qualquer fetch fecha a janela restante.
+      if (!active || publishingRef.current) return;
+      try {
+        const createdId = await saveRemoteDraft();
+        // setState só depois do guard — o cleanup do effect alcança o timer,
+        // não o corpo async já em voo (C4a).
+        if (createdId && active) setRemoteDraftId(createdId);
+      } catch {
+        if (active) toast.error('Não foi possível salvar o rascunho no servidor.');
+      }
+    };
+
     const timer = setTimeout(() => {
       if (!active || publishingRef.current) return;
-      void (async () => {
-        // C1: o timer pode ter disparado um instante antes do publish —
-        // rechecar antes de qualquer fetch fecha a janela restante.
-        if (!active || publishingRef.current) return;
-        try {
-          // Mesma regra A19 do publish: o rascunho remoto não materializa
-          // campo herdado que o mestre não editou (senão o draft viraria a
-          // "decisão" da mesa antes do publish).
-          const payload = editorStateToPayload(state, { omitInherited });
-          // Uma criação em voo vale por todas: se outro disparo já está criando
-          // o rascunho, espera o id dele em vez de emitir um segundo POST.
-          const knownId =
-            remoteDraftIdRef.current ?? remoteDraftId ?? (await pendingDraftCreation());
-
-          if (knownId) {
-            const res = await authPut(`/api/v1/gm/tables/${knownId}`, payload);
-            if (!res.ok) throw new Error('PUT rascunho falhou');
-            return;
-          }
-
-          const creation = (async () => {
-            const res = await authPost('/api/v1/gm/tables', payload);
-            if (!res.ok) throw new Error('POST rascunho falhou');
-            const json = (await res.json().catch(() => ({}))) as { data?: { id?: unknown } };
-            if (typeof json.data?.id !== 'string') return null;
-            // O id é gravado no ref ANTES de qualquer guard de desmonte: a mesa
-            // JÁ existe no servidor. Descartá-lo aqui (o `if (!active) return`
-            // que vivia nesta linha) fazia a próxima escrita ver
-            // `remoteDraftId === null` e criar a mesa outra vez.
-            remoteDraftIdRef.current = json.data.id;
-            return json.data.id;
-          })();
-          draftCreationRef.current = creation;
-
-          try {
-            const createdId = await creation;
-            // setState só depois do guard — o cleanup do effect alcança o
-            // timer, não o corpo async já em voo (C4a).
-            if (createdId && active) setRemoteDraftId(createdId);
-          } catch (err) {
-            // Nada foi gravado: liberar para a próxima tentativa criar de novo.
-            draftCreationRef.current = null;
-            throw err;
-          }
-        } catch {
-          if (active) {
-            toast.error('Não foi possível salvar o rascunho no servidor.');
-          }
-        }
-      })();
+      void runAutosave();
     }, 2500);
     autosaveTimerRef.current = timer;
     return () => {
@@ -764,7 +778,7 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
       if (autosaveTimerRef.current === timer) autosaveTimerRef.current = null;
       clearTimeout(timer);
     };
-  }, [state, isDirty, isActive, remoteDraftId, omitInherited, pendingDraftCreation]);
+  }, [isDirty, isActive, saveRemoteDraft]);
 
   /** Cancela o timer pendente do autosave remoto (usado pelo publish — C1). */
   const cancelPendingAutosave = useCallback(() => {
