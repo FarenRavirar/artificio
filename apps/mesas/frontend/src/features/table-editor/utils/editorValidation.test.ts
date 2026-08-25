@@ -476,3 +476,46 @@ describe('validateEditorAll / pendingParts / firstErrorField — publicar com pe
     expect(firstErrorField({})).toBeNull();
   });
 });
+
+
+describe('T6.5 (spec 096, decisão 2026-08-23) — publicar NUNCA é bloqueado por campo adivinhado', () => {
+  it('estado inteiro preenchido pelo parser/herança (obrigatórios ok) não gera erro de publish', () => {
+    // Simula o resultado de "Colar anúncio" + herança do perfil: título,
+    // descrição, sistema, vagas, contato e nome de mestre vieram de fonte
+    // automática — a validação não distingue origem, e NÃO pode bloquear o
+    // publish por isso (o que bloqueia é campo VAZIO/inválido, nunca a marca).
+    const state = makeState({
+      title: 'Mesa do anúncio',
+      description: 'Descrição extraída do anúncio colado pelo mestre.',
+      selectedSystemId: 'sys-1',
+      slotsTotal: '4',
+      slotsOpen: '2',
+      contacts: [{ channel: 'discord' as TableContactChannel, value: '@ricardo', label: '', discord_server_url: '' }],
+      masterDisplayName: 'Mestre Herdado do Perfil',
+      tableGmBio: 'Bio herdada do perfil.',
+      vttPlatformId: 'vtt-uuid-1',
+      priceType: 'paga',
+      priceValue: '55',
+    });
+
+    const errors = validateEditorAll(state);
+    expect(errors).toEqual({});
+    expect(pendingParts(errors)).toEqual([]);
+  });
+
+  it('campo adivinhado com valor válido passa no blur como qualquer outro (sem tratamento especial)', () => {
+    const state = makeState({ title: 'Mesa do anúncio', selectedSystemId: 'sys-1' });
+    expect(validateEditorField('title', state)).toBeNull();
+    expect(validateEditorField('selectedSystemId', state)).toBeNull();
+  });
+
+  it('a marca visual do parser não participa da validação: nenhum registro de obrigatório consulta origem', () => {
+    // O contrato da marca é data-parser-source (EditorField) e o conjunto
+    // parserFilledFields (useTableEditor) — ambos FORA do TableEditorState e
+    // fora do editorValidation. Este teste fixa que a validação recebe SÓ o
+    // estado: origem nenhuma pode mudar o resultado.
+    const fromParser = makeState({ title: 'T', description: '', selectedSystemId: '' });
+    const manual = makeState({ title: 'T', description: '', selectedSystemId: '' });
+    expect(validateEditorAll(fromParser)).toEqual(validateEditorAll(manual));
+  });
+});

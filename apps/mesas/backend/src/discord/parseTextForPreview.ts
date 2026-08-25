@@ -3,7 +3,7 @@ import { normalizeLooseText } from '../inbox/normalizeLooseText.js';
 import { segmentAnnouncements } from '../inbox/segmentation.js';
 import { textToRawMessage } from '../inbox/adapters/textToRawMessage.js';
 import { parseDiscordAnnouncement, stripNullBytes } from './parseDiscordAnnouncement.js';
-import type { SystemEntry } from './parseDiscordAnnouncement.js';
+import type { SystemEntry, MatchEntry } from './parseDiscordAnnouncement.js';
 import { buildTableDraftFields, extractContacts, extractSchedules, DraftStateError } from './syncHelpers.js';
 import { recordParseCase } from './parseLearning.js';
 import type { ImportTableDraft } from './types.js';
@@ -14,6 +14,13 @@ export interface ParsePreviewResult {
   contacts: ReturnType<typeof extractContacts>;
   schedules: ReturnType<typeof extractSchedules>;
 }
+
+/** Catálogos de plataforma/cenário para o parse-preview (mesmo shape do fluxo admin). */
+export type PreviewParserCatalogs = {
+  vtt?: MatchEntry[];
+  communication?: MatchEntry[];
+  scenarios?: MatchEntry[];
+};
 
 /**
  * Requisito 8 (spec 079): reaproveita a MESMA engine do fluxo admin
@@ -33,10 +40,25 @@ export interface ParsePreviewResult {
  * (`parseCaseId`) é reenviado pelo front na submissão real (`parse_case_id`
  * no payload de `POST /gm/tables`), fechando o loop de aprendizado com a
  * correção humana quando o mestre publica.
+ *
+ * Fase 6 (spec 096, T6.1): `platforms` (VTT/comunicação/cenário) e
+ * `labelAliases` (correções humanas aprendidas) são os MESMOS insumos que o
+ * fluxo admin carrega em routes/discord/utils.ts — sem eles o parser lia
+ * "Plataformas: Roll20" e descartava a informação (vtt_platform_id null).
+ *
+ * Fase 6 (T6.2/Falha 6): o `table` devolvido carrega também os sinais que o
+ * front consome para avisar o mestre — `missing_fields` (o que o parser não
+ * achou) e as três ambiguidades (`_slots_ambiguity`, `_price_ambiguity`,
+ * `_schedule_ambiguity`), mais `raw_system_hint` (Falha 8: nome de sistema
+ * que não casou no catálogo, para o front pré-preencher a sugestão sem
+ * inventar correspondência). Os sinais são metadados de preview — nunca são
+ * reenviados como campos de mesa.
  */
 export async function parseTextForPreview(
   rawText: string,
   systems: SystemEntry[] = [],
+  platforms?: PreviewParserCatalogs,
+  labelAliases?: Record<string, string[]>,
 ): Promise<ParsePreviewResult> {
   const segments = segmentAnnouncements(rawText);
   const firstSegment = segments[0];
@@ -46,7 +68,7 @@ export async function parseTextForPreview(
 
   const normalized = normalizeLooseText(stripNullBytes(firstSegment));
   const rawMessage = textToRawMessage(normalized, undefined);
-  const draft = parseDiscordAnnouncement(rawMessage, systems);
+  const draft = parseDiscordAnnouncement(rawMessage, systems, undefined, platforms, labelAliases);
 
   if (!draft) {
     return { parseCaseId: null, table: null, contacts: [], schedules: [] };
@@ -74,7 +96,19 @@ export async function parseTextForPreview(
 
   return {
     parseCaseId,
-    table: tableFields,
+    // Fase 6 (spec 096, T6.2): sinais de ambiguidade + hint de sistema não
+    // casado viajam JUNTO do table (o front lê do objeto cru). `tableFields`
+    // null (sem título) também devolve null — sem campos, sem sinais.
+    table: tableFields
+      ? {
+          ...tableFields,
+          missing_fields: draft.missing_fields,
+          _slots_ambiguity: draft.table._slots_ambiguity ?? null,
+          _price_ambiguity: draft.table._price_ambiguity ?? null,
+          _schedule_ambiguity: draft.table._schedule_ambiguity ?? null,
+          raw_system_hint: draft.table.raw_system_hint ?? null,
+        }
+      : null,
     contacts,
     schedules,
   };

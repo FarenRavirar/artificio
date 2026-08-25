@@ -403,6 +403,14 @@ export function buildTableDraftFields(
     price_type: t.price_type ?? 'gratuita',
     price_value: t.price_value ?? null,
     price_frequency: t.price_type === 'paga' ? 'sessao' : null,
+    // Fase 6 (spec 096, T6.3/Falha 7): mesmos guardas de modalidade que o
+    // parser aplica — o valor mensal só entra em mesa paga e a doação só em
+    // mesa gratuita (contrato do pricingConsistencySchema). buildTableDraftFields
+    // persiste fora do zod (Kysely direto), então a defesa vive aqui.
+    price_value_monthly: t.price_type === 'paga' ? (t.price_value_monthly ?? null) : null,
+    accepts_donations: t.price_type !== 'paga' ? (t.accepts_donations ?? false) : false,
+    suggested_donation_value:
+      t.price_type !== 'paga' && t.accepts_donations ? (t.suggested_donation_value ?? null) : null,
     ...normalizeSlots(t.slots_total, t.slots_filled, t.slots_open),
     experience_level: t.experience_level ?? 'todos',
     table_level: t.table_level ?? null,

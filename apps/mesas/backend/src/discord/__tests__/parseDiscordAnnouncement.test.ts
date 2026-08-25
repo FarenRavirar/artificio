@@ -3125,3 +3125,105 @@ describe('stripNullBytes (achado 2026-07-15: JSONB do Postgres rejeita 0x00)', (
     expect(JSON.stringify(draft)).not.toContain('\\u0000');
   });
 });
+
+// ─── Fase 6 (spec 096, T6.6/A9) — fixtures do §Gap 4 do plan.md ───────────
+// Uma fixture por falha; as extrações do parseDiscordAnnouncement que mudaram
+// nesta fase. F1 (catálogos no preview) é coberta por gmPanel.parsePreview.test.ts
+// e F2 (schedules×sessions) pelo frontend (editorMapping/previewMerge — a
+// correção T3.1 já faz o mapper ler `schedules`; a fixture fixa o contrato atual).
+describe('Fase 6 (spec 096) — fixtures do §Gap 4', () => {
+  it('F3: "Vagas: 4 (2 abertas)" extrai slots_total=4 e slots_open=2 (o parêntese é o total de abertas)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Título: Mesa\nVagas: 4 (2 abertas)' }),
+    );
+    expect(draft?.table.slots_total).toBe(4);
+    expect(draft?.table.slots_open).toBe(2);
+    expect(draft?.table.slots_filled).toBe(2);
+  });
+
+  it('F3-b: "Vagas: 5 (2 ocupadas)" extrai slots_total=5 e slots_open=3 (parêntese de ocupadas)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Título: Mesa\nVagas: 5 (2 ocupadas)' }),
+    );
+    expect(draft?.table.slots_total).toBe(5);
+    expect(draft?.table.slots_open).toBe(3);
+  });
+
+  it('F3-c: parêntese fora da faixa de vagas (ex.: data) não vira slot', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Título: Mesa\nData: 25 (2 abertas) não conta\nVagas: 6' }),
+    );
+    expect(draft?.table.slots_total).toBe(6);
+  });
+
+  it('F4: "Contato: Discord @ricardo" vira contato discord com o @username', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Título: Mesa\nContato: Discord @ricardo' }),
+    );
+    expect(draft?.table.contact_discord).toBe('@ricardo');
+  });
+
+  it('F4-b: email em linha de contato NÃO vira @username (o @ está no meio do token)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Título: Mesa\nContato: fulano@email.com' }),
+    );
+    expect(draft?.table.contact_discord).not.toBe('@email.com');
+  });
+
+  it('F4-c: menção <@id> continua vencendo o @username quando os dois aparecem', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Título: Mesa\nContato: <@123456789012345678> ou @ricardo' }),
+    );
+    expect(draft?.table.contact_discord).toBe('<@123456789012345678>');
+  });
+
+  it('F5: "necessário ter PC e microfone" extrai pc=true E mic=true (coordenação)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Título: Mesa\nRequisitos: necessário ter PC e microfone' }),
+    );
+    expect(draft?.table.requires_pc).toBe(true);
+    expect(draft?.table.requires_microphone).toBe(true);
+  });
+
+  it('F5-b: "não é necessário ter PC e microfone" NÃO marca nada (negação distribuída)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Título: Mesa\nRequisitos: não é necessário ter PC e microfone' }),
+    );
+    expect(draft?.table.requires_pc).not.toBe(true);
+    expect(draft?.table.requires_microphone).not.toBe(true);
+  });
+
+  it('F7: "Mensal: 40" extrai price_type=paga e price_value_monthly=40', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Título: Mesa\nMensal: 40' }),
+    );
+    expect(draft?.table.price_type).toBe('paga');
+    expect(draft?.table.price_value_monthly).toBe(40);
+  });
+
+  it('F7-b: "Doações: R$ 10" em mesa gratuita extrai accepts_donations + valor sugerido, SEM virar mesa paga', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Título: Mesa\nValor: gratuito\nDoações: R$ 10' }),
+    );
+    expect(draft?.table.price_type).toBe('gratuita');
+    expect(draft?.table.accepts_donations).toBe(true);
+    expect(draft?.table.suggested_donation_value).toBe(10);
+  });
+
+  it('F7-c: mesa paga que cita doações NÃO carrega accepts_donations (contrato do validator)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Título: Mesa\nValor: R$ 30\nTambém aceitamos doações' }),
+    );
+    expect(draft?.table.price_type).toBe('paga');
+    expect(draft?.table.accepts_donations).toBe(false);
+  });
+
+  it('F8: sistema que não casa no catálogo preserva raw_system_hint (sem inventar correspondência)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({ content_raw: 'Título: Mesa\nSistema: Xyz Nada a Ver' }),
+      [],
+    );
+    expect(draft?.table.system_id).toBeNull();
+    expect(draft?.table.raw_system_hint).toBe('Xyz Nada a Ver');
+  });
+});

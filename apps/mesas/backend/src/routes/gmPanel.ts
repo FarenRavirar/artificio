@@ -34,7 +34,13 @@ import {
   sanitizeUserMarkdown,
 } from '../utils/userMarkdown.js';
 import { parseTextForPreview } from '../discord/parseTextForPreview.js';
-import { loadSystemsForParser } from '../discord/shared.js';
+import {
+  loadSystemsForParser,
+  loadVttPlatformsForParser,
+  loadCommunicationPlatformsForParser,
+  loadScenariosForParser,
+} from '../discord/shared.js';
+import { loadActiveLabelAliases } from '../discord/learningRules.js';
 import { z } from 'zod';
 
 const router = Router();
@@ -716,8 +722,27 @@ router.post('/parse-preview', authMiddleware, async (req: Request, res: Response
     // Ele só interpreta o texto que o próprio usuário colou. O que continua
     // valendo é o `authMiddleware` (usuário logado por SSO) — e a escrita de
     // verdade, no `POST /gm/tables`, mantém a checagem de perfil intacta.
-    const systems = await loadSystemsForParser();
-    const result = await parseTextForPreview(validation.data.text, systems);
+    // Fase 6 (spec 096, T6.1): o preview agora carrega o MESMO conjunto de
+    // insumos do fluxo admin (routes/discord/utils.ts:567-601) — catálogos de
+    // VTT/comunicação/cenário (com aliases) e os rótulos aprendidos por
+    // correção humana. Sem eles o parser lia "Plataformas: Roll20" e
+    // descartava a informação (vtt_platform_id sempre null). O escopo de
+    // label_alias é GLOBAL (sem guild/canal/autor — texto colado não tem
+    // servidor), o mesmo que o learning-store consulta para regras globais.
+    const [systems, vttPlatforms, communicationPlatforms, scenarios, labelAliases] = await Promise.all([
+      loadSystemsForParser(),
+      loadVttPlatformsForParser(),
+      loadCommunicationPlatformsForParser(),
+      loadScenariosForParser(),
+      // Escopo nulo = só regras globais (texto colado não tem servidor/canal).
+      loadActiveLabelAliases(null),
+    ]);
+    const result = await parseTextForPreview(
+      validation.data.text,
+      systems,
+      { vtt: vttPlatforms, communication: communicationPlatforms, scenarios },
+      labelAliases,
+    );
 
     if (!result.table) {
       return res.json({

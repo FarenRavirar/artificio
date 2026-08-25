@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Banner, Panel, Select, TextInput } from '@artificio/ui';
+import { Badge, Banner, Panel, Select, TextInput } from '@artificio/ui';
 import type { TableEditorApi } from '../hooks/useTableEditor';
 import { EditorField, ToggleButton } from './EditorField';
 import type { TableEditorState } from '../types';
@@ -19,7 +19,7 @@ type WherePartProps = Readonly<{
 }>;
 
 export function WherePart({ api }: WherePartProps) {
-  const { state, patch, errors, validateFieldOnBlur } = api;
+  const { state, patch, errors, validateFieldOnBlur, parserFilledFields } = api;
   // VTT/comunicação: online OU híbrida (spec 096, R3; backend
   // tableValidators.ts refine — "Plataforma VTT só para mesas online ou
   // híbridas").
@@ -161,6 +161,7 @@ export function WherePart({ api }: WherePartProps) {
         <Panel tone="subtle">
           <CatalogPlatformSelect
             state={state}
+            parserMarked={parserFilledFields.has('vttPlatformId')}
             fieldId="vttPlatformId"
             customFieldId="gamePlatformCustom"
             label="Plataforma de jogo (VTT)"
@@ -182,6 +183,7 @@ export function WherePart({ api }: WherePartProps) {
 
           <CatalogPlatformSelect
             state={state}
+            parserMarked={parserFilledFields.has('communicationPlatformId')}
             fieldId="communicationPlatformId"
             customFieldId="communicationPlatformCustom"
             label="Plataforma de comunicação"
@@ -213,7 +215,15 @@ export function WherePart({ api }: WherePartProps) {
       <Panel tone="subtle">
         <p className="mb-2 font-semibold">Requisitos técnicos da mesa</p>
         <div className="flex flex-wrap gap-x-6 gap-y-2 items-start">
-          <div>
+          <div data-parser-source={parserFilledFields.has('requiresPc') || undefined}>
+            {parserFilledFields.has('requiresPc') ? (
+              <p className="mb-0.5 flex items-center gap-1.5">
+                <Badge variant="info">Pelo anúncio</Badge>
+                <span className="text-xs opacity-75">
+                  O texto colado preencheu este campo — confira antes de publicar.
+                </span>
+              </p>
+            ) : null}
             <ToggleButton
               id="requires_pc"
               pressed={state.requiresPc}
@@ -225,7 +235,15 @@ export function WherePart({ api }: WherePartProps) {
               <p className="mt-1 text-xs opacity-75">Exigido por {impliesPcNames.join(', ')}.</p>
             ) : null}
           </div>
-          <div>
+          <div data-parser-source={parserFilledFields.has('requiresCamera') || undefined}>
+            {parserFilledFields.has('requiresCamera') ? (
+              <p className="mb-0.5 flex items-center gap-1.5">
+                <Badge variant="info">Pelo anúncio</Badge>
+                <span className="text-xs opacity-75">
+                  O texto colado preencheu este campo — confira antes de publicar.
+                </span>
+              </p>
+            ) : null}
             <ToggleButton
               id="requires_camera"
               pressed={state.requiresCamera}
@@ -239,7 +257,15 @@ export function WherePart({ api }: WherePartProps) {
               </p>
             ) : null}
           </div>
-          <div>
+          <div data-parser-source={parserFilledFields.has('requiresMicrophone') || undefined}>
+            {parserFilledFields.has('requiresMicrophone') ? (
+              <p className="mb-0.5 flex items-center gap-1.5">
+                <Badge variant="info">Pelo anúncio</Badge>
+                <span className="text-xs opacity-75">
+                  O texto colado preencheu este campo — confira antes de publicar.
+                </span>
+              </p>
+            ) : null}
             <ToggleButton
               id="requires_microphone"
               pressed={state.requiresMicrophone}
@@ -317,6 +343,8 @@ export interface CatalogPlatformOption {
  */
 type CatalogPlatformSelectProps = Readonly<{
   state: TableEditorState;
+  /** Fase 6 (T6.2): true quando o valor atual veio da prévia do parser. */
+  parserMarked?: boolean;
   /** fieldId do select (vttPlatformId | communicationPlatformId). */
   fieldId: string;
   /** fieldId do campo livre aberto pelo "Personalizado". */
@@ -341,6 +369,7 @@ type CatalogPlatformSelectProps = Readonly<{
 
 function CatalogPlatformSelect({
   state,
+  parserMarked = false,
   fieldId,
   customFieldId,
   label,
@@ -361,7 +390,13 @@ function CatalogPlatformSelect({
 }: CatalogPlatformSelectProps) {
   return (
     <div>
-      <EditorField fieldId={fieldId} state={state} label={label} error={errorMessage}>
+      <EditorField
+        fieldId={fieldId}
+        state={state}
+        parserMarked={parserMarked}
+        label={label}
+        error={errorMessage}
+      >
         <Select
           id={fieldId}
           value={value}

@@ -9,7 +9,8 @@ import { useTableEditor } from './hooks/useTableEditor';
 import type { TableEditorApi, TableEditorInitialData } from './hooks/useTableEditor';
 import type { EditorPartId } from './types';
 import { partOfField, pendingParts, fieldLevel, isFieldFilled, REQUIRED_FIELD_IDS } from './utils/editorValidation';
-import { buildStateFromPreview } from './utils/previewMerge';
+import { applyParserPreview } from './utils/previewMerge';
+import { parseParserSignals } from './utils/parserSignals';
 import { EDITOR_PARTS, getPartLabel } from './utils/editorParts';
 import { authGet } from '../../utils/authenticatedFetch';
 import { IdentityPart } from './parts/IdentityPart';
@@ -192,13 +193,18 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
   }, [api.revealedPending, api.firstErrorFieldToFocus, activePartId]);
 
   // ── Prévia do parser: aplica como estado novo (criar fluxo do antigo
-  //    PainelMestrePage, agora dentro do editor). ───────────────────────────
+  //    PainelMestrePage, agora dentro do editor). Fase 6 (T6.2): registra
+  //    TAMBÉM quais campos a fonte produziu (marca "Pelo anúncio") e os sinais
+  //    de ambiguidade exibidos no IdentityPart. ─────────────────────────────
   const handlePreviewReady = useCallback(
     (result: { data: unknown; parseCaseId: string | null }) => {
-      api.replaceState({
-        ...buildStateFromPreview(result.data, api.state),
-        parseCaseId: result.parseCaseId,
-      });
+      const applied = applyParserPreview(result.data, api.state);
+      const signals = parseParserSignals(result.data);
+      api.applyParserPreview(
+        { ...applied.state, parseCaseId: result.parseCaseId },
+        applied.extractedFields,
+        signals,
+      );
       toast.success('Anúncio analisado — revise os campos antes de publicar');
     },
     [api],

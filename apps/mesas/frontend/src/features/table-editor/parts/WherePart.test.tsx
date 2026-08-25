@@ -83,6 +83,9 @@ function makeApi(modality: 'online' | 'presencial' | 'hibrida'): TableEditorApi 
     state: { ...createDefaultEditorState(), modality },
     patch: vi.fn(),
     replaceState: vi.fn(),
+    applyParserPreview: vi.fn(),
+    parserFilledFields: new Set<string>(),
+    parserSignals: null,
     validateFieldOnBlur: vi.fn(),
     errors: {},
     revealedPending: false,
@@ -317,5 +320,50 @@ describe('WherePart — auto-marcação com o porquê (R3/T5.3)', () => {
     renderStateful({ vttPlatformId: 'owlbear-rodeo' });
 
     expect(screen.queryByText(/Exigido por/)).not.toBeInTheDocument();
+  });
+});
+
+
+describe('Fase 6 (T6.2/R5) — marca visual "Pelo anúncio" no WherePart', () => {
+  function renderWithParserMarks(fields: string[]) {
+    const api: TableEditorApi = {
+      ...makeApi('online'),
+      parserFilledFields: new Set(fields),
+    };
+    render(<WherePart api={api} />);
+  }
+
+  it('campo preenchido pelo parser carrega a marca e diz de onde veio', () => {
+    mockCatalogs.vtts = [foundryVtt];
+    mockCatalogs.comms = [discordComm];
+    renderWithParserMarks(['vttPlatformId']);
+
+    // A marca visual vive no wrapper do campo (data-parser-source) e o badge
+    // diz a origem — R5: "campo preenchido pelo parser é visualmente distinto
+    // e diz de onde veio".
+    const marked = document.querySelector('[data-field="vttPlatformId"]');
+    expect(marked).not.toBeNull();
+    expect(marked?.getAttribute('data-parser-source')).toBe('true');
+    expect(screen.getAllByText('Pelo anúncio').length).toBeGreaterThan(0);
+  });
+
+  it('campo que a prévia NÃO produziu fica sem a marca', () => {
+    mockCatalogs.vtts = [foundryVtt];
+    mockCatalogs.comms = [discordComm];
+    renderWithParserMarks(['vttPlatformId']);
+
+    const communication = document.querySelector('[data-field="communicationPlatformId"]');
+    expect(communication).not.toBeNull();
+    expect(communication?.getAttribute('data-parser-source')).toBeNull();
+  });
+
+  it('requisito técnico preenchido pelo parser também é marcado (data-parser-source)', () => {
+    mockCatalogs.vtts = [];
+    mockCatalogs.comms = [];
+    renderWithParserMarks(['requiresPc']);
+
+    const marked = document.querySelector('[data-parser-source="true"]');
+    expect(marked).not.toBeNull();
+    expect(screen.getByText(/O texto colado preencheu este campo/)).toBeInTheDocument();
   });
 });

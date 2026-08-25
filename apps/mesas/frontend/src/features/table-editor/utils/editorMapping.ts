@@ -720,6 +720,20 @@ export interface GmProfileSnapshot {
   nickname: string;
   bioLong: string;
   contactMethods: ContactMethodInput[];
+  /**
+   * Fase 6 (spec 096, T6.4): plataformas VTT preferidas do mestre — UUIDs do
+   * catálogo `vtt_platforms` (gm_profiles.preferred_vtt_platforms, 39/39 em
+   * produção). A herança pré-carrega o PRIMEIRO no estado do editor; o
+   * WherePart já reconcilia UUID→slug quando o catálogo carrega (mesma
+   * mecânica da edição de mesa legada).
+   */
+  preferredVttPlatforms: string[];
+  /**
+   * Fase 6 (spec 096, T6.4): idiomas do perfil (gm_profiles.languages,
+   * códigos como 'pt-BR'). A herança pré-carrega o PRIMEIRO no estado do
+   * editor, só na criação — mesa em edição mantém o valor salvo.
+   */
+  languages: string[];
 }
 
 function isProfileContact(value: unknown): value is ContactMethodInput {
@@ -757,5 +771,13 @@ export function mapGmMeToSnapshot(value: unknown): GmProfileSnapshot | null {
     nickname: typeof data.nickname === 'string' ? data.nickname : '',
     bioLong: typeof data.bio_long === 'string' ? data.bio_long : '',
     contactMethods,
+    // Fase 6 (T6.4): listas de string do perfil — entradas não-string saem
+    // (payload externo, normalização obrigatória do repo).
+    preferredVttPlatforms: Array.isArray(data.preferred_vtt_platforms)
+      ? data.preferred_vtt_platforms.filter((item): item is string => typeof item === 'string')
+      : [],
+    languages: Array.isArray(data.languages)
+      ? data.languages.filter((item): item is string => typeof item === 'string')
+      : [],
   };
 }

@@ -20,7 +20,7 @@ type ValuesPartProps = Readonly<{
 }>;
 
 export function ValuesPart({ api }: ValuesPartProps) {
-  const { state, patch, errors, validateFieldOnBlur } = api;
+  const { state, patch, errors, validateFieldOnBlur, parserFilledFields } = api;
 
   const isPaid = normalizePriceType(state.priceType) === 'paga';
 
@@ -50,6 +50,7 @@ export function ValuesPart({ api }: ValuesPartProps) {
       <EditorField
         fieldId="priceType"
         state={state}
+        parserMarked={parserFilledFields.has('priceType')}
         label="Cobrança"
         hint="Gratuita ou paga."
       >
@@ -70,6 +71,7 @@ export function ValuesPart({ api }: ValuesPartProps) {
             <EditorField
               fieldId="priceValue"
               state={state}
+              parserMarked={parserFilledFields.has('priceValue')}
               label="Valor por sessão avulsa (R$)"
               hint="Obrigatório para mesa paga."
               error={errors.priceValue}
@@ -91,6 +93,7 @@ export function ValuesPart({ api }: ValuesPartProps) {
             <EditorField
               fieldId="priceValueMonthly"
               state={state}
+              parserMarked={parserFilledFields.has('priceValueMonthly')}
               label="Valor por sessão no pacote mensal (R$)"
               hint="Opcional — valor individual por sessão para quem fecha o pacote mensal."
             >
@@ -111,6 +114,7 @@ export function ValuesPart({ api }: ValuesPartProps) {
             <EditorField
               fieldId="sessionZeroFree"
               state={state}
+              parserMarked={parserFilledFields.has('sessionZeroFree')}
               label="Sessão zero"
             >
               <ToggleButton
@@ -129,6 +133,7 @@ export function ValuesPart({ api }: ValuesPartProps) {
         <EditorField
           fieldId="acceptsDonations"
           state={state}
+          parserMarked={parserFilledFields.has('acceptsDonations') || parserFilledFields.has('suggestedDonationValue')}
           label="Doações"
           hint="Mesa gratuita pode aceitar doações combinadas diretamente com o mestre, fora da plataforma."
         >

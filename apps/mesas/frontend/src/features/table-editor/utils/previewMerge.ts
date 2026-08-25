@@ -140,3 +140,24 @@ function mergeExtracted(
   }
   return merged;
 }
+
+/**
+ * Fase 6 (spec 096, T6.2): aplica a prévia e devolve TAMBÉM quais campos do
+ * estado a fonte produziu — é a marca visual do R5 ("campo preenchido pelo
+ * parser é visualmente distinto e diz de onde veio"). Os sinais de
+ * ambiguidade não passam por aqui: são lidos do objeto cru por
+ * `parseParserSignals` (utils/parserSignals.ts), que conhece as chaves `_*`.
+ *
+ * O custo é um segundo mapeamento da fonte (buildStateFromPreview já mapeia
+ * uma vez): objeto de ~50 chaves, desprezível frente ao valor da marca.
+ */
+export function applyParserPreview(
+  rawPreviewData: unknown,
+  current: TableEditorState,
+): { state: TableEditorState; extractedFields: (keyof TableEditorState)[] } {
+  const preview = mapApiToEditorState(rawPreviewData);
+  return {
+    state: buildStateFromPreview(rawPreviewData, current),
+    extractedFields: extractedStateKeys(rawPreviewData, preview),
+  };
+}

@@ -50,7 +50,7 @@ type AudiencePartProps = Readonly<{
 }>;
 
 export function AudiencePart({ api }: AudiencePartProps) {
-  const { state, patch, validateFieldOnBlur } = api;
+  const { state, patch, validateFieldOnBlur, parserFilledFields } = api;
 
   return (
     <div className="flex flex-col gap-3.5 max-w-[900px] h-full overflow-hidden">
@@ -58,6 +58,7 @@ export function AudiencePart({ api }: AudiencePartProps) {
         <EditorField
           fieldId="type"
           state={state}
+          parserMarked={parserFilledFields.has('type')}
           label="Tipo de mesa"
           hint="Campanha, one-shot, série ou mesa aberta."
         >
@@ -81,6 +82,7 @@ export function AudiencePart({ api }: AudiencePartProps) {
         <EditorField
           fieldId="ageRating"
           state={state}
+          parserMarked={parserFilledFields.has('ageRating')}
           label="Faixa etária"
           hint="O dado certo resolve o erro de produção: o payload agora grava a escolha (T3.2)."
         >
@@ -104,7 +106,12 @@ export function AudiencePart({ api }: AudiencePartProps) {
       </div>
 
       <div className="flex flex-wrap gap-3.5 items-start">
-        <EditorField fieldId="experienceLevel" state={state} label="Experiência do jogador">
+        <EditorField
+          fieldId="experienceLevel"
+          state={state}
+          parserMarked={parserFilledFields.has('experienceLevel')}
+          label="Experiência do jogador"
+        >
           <Select
             id="experienceLevel"
             value={state.experienceLevel}
@@ -119,7 +126,12 @@ export function AudiencePart({ api }: AudiencePartProps) {
           </Select>
         </EditorField>
 
-        <EditorField fieldId="tableLevel" state={state} label="Complexidade da mesa">
+        <EditorField
+          fieldId="tableLevel"
+          state={state}
+          parserMarked={parserFilledFields.has('tableLevel')}
+          label="Complexidade da mesa"
+        >
           <Select
             id="tableLevel"
             value={state.tableLevel}
@@ -134,7 +146,12 @@ export function AudiencePart({ api }: AudiencePartProps) {
           </Select>
         </EditorField>
 
-        <EditorField fieldId="language" state={state} label="Idioma">
+        <EditorField
+          fieldId="language"
+          state={state}
+          parserMarked={parserFilledFields.has('language')}
+          label="Idioma"
+        >
           <TextInput
             id="language"
             value={state.language}

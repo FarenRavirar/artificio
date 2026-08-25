@@ -887,6 +887,57 @@ function extractPrice(
   return { priceType: null, priceValue: null, ambiguous: false };
 }
 
+// ─── Fase 6 (spec 096, T6.3/Falha 7) — mensal e doações ────────────────────
+// extractPrice capta UM número só; mensal/doação citados no mesmo anúncio
+// morriam na descrição. "Mensal: 40"/"R$ 40/mês"/"75 mensal" →
+// price_value_monthly; "Doações: R$ 10" → accepts_donations +
+// suggested_donation_value. A frase de doação com número é REMOVIDA do texto
+// que alimenta extractPrice — sem isso "Doações: R$ 10" virava mesa PAGA de
+// 10 reais (o valor citado é do doador, não o preço da mesa).
+
+/** "R$ 40/mês", "R$ 40 por mês", "Mensal: 40", "Mensalidade: R$ 40". */
+const MONTHLY_PRICE_RE_LIST: readonly RegExp[] = [
+  /\b(?:mensal|mensalidade)\s*:?\s{0,3}R?\$?\s{0,3}(\d{1,9}(?:[,.]\d{1,2})?)\b/i,
+  /\bR\$\s{0,3}(\d{1,9}(?:[,.]\d{1,2})?)\s{0,3}\/\s{0,3}(?:por\s+)?m[eê]s\b/i,
+  /\bR\$\s{0,3}(\d{1,9}(?:[,.]\d{1,2})?)\s{1,3}(?:por\s+)?m[eê]s\b/i,
+];
+
+/** "75 mensal" (template real da comunidade: "Mesa: Paga (75 Mensal…)" — sem R$). */
+const BARE_MONTHLY_PRICE_RE = /\b(\d{1,9}(?:[,.]\d{1,2})?)\s{1,3}(?:por\s+)?mensal\b/i;
+
+/** "40/mês" sem R$ ("Valor: 40/mês"). A barra é o que separa de data ("25/08"). */
+const SLASH_MONTHLY_PRICE_RE = /\b(\d{1,9}(?:[,.]\d{1,2})?)\s{0,3}\/\s{0,3}(?:por\s+)?m[eê]s\b/i;
+
+function extractMonthlyPrice(text: string): number | null {
+  const cleaned = text.replaceAll('*', '');
+  for (const pattern of [...MONTHLY_PRICE_RE_LIST, BARE_MONTHLY_PRICE_RE, SLASH_MONTHLY_PRICE_RE]) {
+    const match = pattern.exec(cleaned);
+    if (!match) continue;
+    const value = Number.parseFloat(match[1].replace(',', '.'));
+    if (!Number.isFinite(value) || value <= 0) continue;
+    return value;
+  }
+  return null;
+}
+
+const DONATION_VALUE_RE = /\bdoa[cç][oõ]es?\s*:?\s{0,3}R?\$?\s{0,3}(\d{1,9}(?:[,.]\d{1,2})?)\b/i;
+const DONATION_SIGNAL_RE = /\bdoa[cç][oõ]es?\b|\bcontribui[cç][aã]o\s+(?:volunt[aá]ria|livre)\b/i;
+
+/** Remove "Doações: R$ 10" do texto antes do extractPrice (ver cabeçalho acima). */
+function stripDonationPricePhrases(value: string): string {
+  return value.replace(/\bdoa[cç][oõ]es?\s*:?\s{0,3}R?\$?\s{0,3}\d{1,9}(?:[,.]\d{1,2})?\b/gi, '');
+}
+
+function extractDonation(text: string): { accepts: boolean; suggested: number | null } {
+  const cleaned = text.replaceAll('*', '');
+  const valueMatch = DONATION_VALUE_RE.exec(cleaned);
+  const suggestedRaw = valueMatch ? Number.parseFloat(valueMatch[1].replace(',', '.')) : null;
+  const suggested =
+    suggestedRaw !== null && Number.isFinite(suggestedRaw) && suggestedRaw > 0 ? suggestedRaw : null;
+  const accepts = valueMatch !== null || DONATION_SIGNAL_RE.test(cleaned);
+  return { accepts, suggested };
+}
+
 // Extrai número de vagas do texto
 type SlotsResult = { total: number | null; open: number | null; ambiguity: DiscordSlotsAmbiguity | null };
 
@@ -1134,6 +1185,36 @@ function slotsGroupSize(cleaned: string): SlotsResult | null {
     : null;
 }
 
+// Fase 6 (spec 096, T6.3/Falha 3): "Vagas: 4 (2 abertas)" — o número do
+// parêntese é o TOTAL de ABERTAS (ou de ocupadas), e a cascata antiga parava
+// no "4" do rótulo (slotsLabeled/slotsViaLabel), publicando total=abertas=4.
+// Qualificadores compartilhados com as demais camadas (SLOT_OPEN_QUALIFIERS/
+// SLOT_FILLED_QUALIFIERS) — mesma semântica: "abertas/disponíveis" = N é o
+// total de abertas; "ocupadas/preenchidas" = N é o total de preenchidas
+// (open = total - N).
+const RE_SLOT_PAREN_OPEN = new RegExp(`${D}${SP0}\\(${SP0}${D}${SP1}(?:${SLOT_OPEN_QUALIFIERS})`, 'i');
+const RE_SLOT_PAREN_FILLED = new RegExp(`${D}${SP0}\\(${SP0}${D}${SP1}(?:${SLOT_FILLED_QUALIFIERS})`, 'i');
+
+function slotsParenthetical(cleaned: string): SlotsResult | null {
+  const openMatch = RE_SLOT_PAREN_OPEN.exec(cleaned);
+  if (openMatch) {
+    const total = Number.parseInt(openMatch[1], 10);
+    const open = Number.parseInt(openMatch[2], 10);
+    return (open <= total && total >= 1 && total <= 20)
+      ? { total, open, ambiguity: null }
+      : null;
+  }
+  const filledMatch = RE_SLOT_PAREN_FILLED.exec(cleaned);
+  if (filledMatch) {
+    const total = Number.parseInt(filledMatch[1], 10);
+    const filled = Number.parseInt(filledMatch[2], 10);
+    return (filled <= total && total >= 1 && total <= 20)
+      ? { total, open: total - filled, ambiguity: null }
+      : null;
+  }
+  return null;
+}
+
 function slotsLabeled(cleaned: string): SlotsResult | null {
   const m = RE_SLOT_LABELED.exec(cleaned);
   if (!m) return null;
@@ -1177,6 +1258,10 @@ function extractSlots(
     // (retorna {total:null, open:1} e a cascata para, "grupo de 5" nunca é
     // lido) — achado em teste real ponta a ponta, 2026-07-07.
     ?? slotsGroupSize(cleaned)
+    // Fase 6 (spec 096, T6.3/Falha 3): parenthetical ANTES dos extratores que
+    // param no primeiro número do rótulo — "Vagas: 4 (2 abertas)" caía em
+    // slotsLabeled com total=open=4.
+    ?? slotsParenthetical(cleaned)
     ?? slotsLabeledNumericPair(text)
     ?? slotsTotalOpen(cleaned)
     ?? slotsLabeled(cleaned)
@@ -1480,6 +1565,12 @@ function extractTechnicalRequirement(
   const source = normalize(text);
   const negativePatterns = [
     new RegExp(String.raw`\bnao\s+(?:(?:e|sendo)\s+)?(?:necessari[oa]|obrigatori[oa]|exigid[oa])\s+(?:ter|possuir|usar)?\s*(?:um|uma)?\s*(?:${subjectPattern})\b`, 'gi'),
+    // Fase 6 (spec 096, T6.3/Falha 5): negação com coordenação — "não é
+    // necessário ter PC e microfone" distribui o verbo sobre a lista, e a
+    // negativa direta acima não alcança o segundo item. Janela de 32 chars
+    // após o verbo (mesmo teto dos demais padrões com contexto), sem cruzar
+    // fim de sentença.
+    new RegExp(String.raw`\bnao\s+(?:(?:e|sendo)\s+)?(?:necessari[oa]|obrigatori[oa]|exigid[oa])\s+(?:ter|possuir|usar)\b[^.\n;]{0,32}\b(?:${subjectPattern})\b`, 'gi'),
     new RegExp(String.raw`\bnao\s+precisa(?:m)?\s+(?:ter|possuir|usar)?\s*(?:um|uma)?\s*(?:${subjectPattern})\b`, 'gi'),
     new RegExp(String.raw`\b(?:${subjectPattern})\b[^.\n;]{0,32}\b(?:opcional|dispensavel|nao\s+obrigatori[oa])\b`, 'gi'),
     new RegExp(String.raw`\b(?:recomendavel|recomendo|desejavel|preferencia\s+por)\b[^.\n;]{0,32}\b(?:${subjectPattern})\b`, 'gi'),
@@ -1496,6 +1587,12 @@ function extractTechnicalRequirement(
 
   const positivePatterns = [
     new RegExp(String.raw`\b(?:necessari[oa]|obrigatori[oa]|exigid[oa])\s+(?:ter|possuir|usar)?\s*(?:um|uma)?\s*(?:${subjectPattern})\b`, 'i'),
+    // Fase 6 (spec 096, T6.3/Falha 5): coordenação — "necessário ter PC e
+    // microfone" distribui o verbo de obrigação sobre a lista e o padrão
+    // direto acima só alcança o primeiro item. Espelho do padrão de negação
+    // correspondente (mesma janela), para os dois lados concordarem sobre o
+    // mesmo trecho.
+    new RegExp(String.raw`\b(?:necessari[oa]|obrigatori[oa]|exigid[oa])\s+(?:ter|possuir|usar)\b[^.\n;]{0,32}\b(?:${subjectPattern})\b`, 'i'),
     new RegExp(String.raw`\b(?:${subjectPattern})\b[^.\n;]{0,24}\b(?:necessari[oa]|obrigatori[oa]|exigid[oa])\b`, 'i'),
     new RegExp(String.raw`\b(?:precisa|precisam|deve|devem|tem\s+que|ter\s+que)\s+(?:ter|possuir|usar)?\s*(?:um|uma)?\s*(?:${subjectPattern})\b`, 'i'),
     new RegExp(String.raw`\b(?:requisito|exigencia)\b[^.\n;]{0,32}\b(?:${subjectPattern})\b`, 'i'),
@@ -1717,13 +1814,25 @@ function extractContactUrl(text: string, labelAliases: string[] = []): { url: st
   return { url: allMatches[0], confident: false };
 }
 
+// Fase 6 (spec 096, T6.3/Falha 4): contato por @username do Discord ("Contato:
+// Discord @ricardo") — antes só menção `<@id>` era lida e o @username virava
+// vazio. O @username é identificador localizável (extractContacts já trata o
+// canal discord como valor solto). O padrão exige fronteira antes do @
+// (início de linha, espaço, ':' ou '('): email como "fulano@x.com" tem o @ no
+// meio do token e continua fora — não vira contato Discord falso.
+const DISCORD_USERNAME_PATTERN = /(?:^|[\s:(])(@[\w.]{2,32})\b/;
+
 function extractContactDiscord(text: string): string | null {
   const mentionPattern = /<#\d+>|<@!?\d+>/;
   const contactLine = text
     .split(/\r?\n/)
-    .find((line) => /\b(contato|ticket|interesse|inscri[cç][aã]o)\b/i.test(line) && mentionPattern.test(line));
-  const match = contactLine ? mentionPattern.exec(contactLine) : null;
-  return match ? match[0] : null;
+    .find((line) => /\b(contato|ticket|interesse|inscri[cç][aã]o)\b/i.test(line));
+  if (!contactLine) return null;
+  // Menção `<@id>` vence: é o formato que resolve em qualquer servidor.
+  const mentionMatch = mentionPattern.exec(contactLine);
+  if (mentionMatch) return mentionMatch[0];
+  const usernameMatch = DISCORD_USERNAME_PATTERN.exec(contactLine);
+  return usernameMatch ? usernameMatch[1] : null;
 }
 
 // Requisito 4 (spec 079, achado real 2026-07-16): "93 992155816 no Whatsapp",
@@ -2568,10 +2677,26 @@ export function parseDiscordAnnouncement(
   // Campos extraídos do corpo
   const modality = extractModality(body) ?? 'online';
   const type = extractType(fullText) ?? (threadName ? 'campanha' : null);
-  const { priceType, priceValue, ambiguous: priceAmbiguous } = extractPrice(body, [
+  // Fase 6 (spec 096, T6.3/Falha 7): a frase de doação com número sai ANTES do
+  // extractPrice ("Doações: R$ 10" não é o preço da mesa); mensal e doação são
+  // extraídos em paralelo (funções acima, logo após extractPrice).
+  const priceBody = stripDonationPricePhrases(body);
+  const extractedPrice = extractPrice(priceBody, [
     ...(labelAliases?.price_type ?? []),
     ...(labelAliases?.price_value ?? []),
   ]);
+  const monthlyPrice = extractMonthlyPrice(body);
+  const donation = extractDonation(body);
+  // Valor mensal explícito é mesa PAGA — sem isso o price_type ficava null e o
+  // price_value_monthly seria rejeitado pelo contrato (refine exige
+  // price_type='paga' quando há valor mensal). Só decide quando o extractPrice
+  // NÃO decidiu nada (null E sem ambiguidade): nunca sobrescreve gratuidade
+  // explícita nem conflito já sinalizado.
+  let { priceType } = extractedPrice;
+  const { priceValue, ambiguous: priceAmbiguous } = extractedPrice;
+  if (monthlyPrice !== null && priceType === null && !priceAmbiguous) {
+    priceType = 'paga';
+  }
   const { total: slotsTotal, open: slotsOpen, ambiguity: slotsAmbiguity } = extractSlots(body, {
     open: labelAliases?.slots_open,
     total: labelAliases?.slots_total,
@@ -2816,6 +2941,13 @@ export function parseDiscordAnnouncement(
     modality,
     price_type: priceType,
     price_value: priceValue,
+    // Fase 6 (spec 096, T6.3/Falha 7): mensal e doações — doação é exclusiva
+    // de mesa gratuita (mesmo contrato do validator), então mesa paga nunca
+    // carrega accepts_donations, mesmo que o texto cite "doações" junto de um
+    // valor avulso/mensal.
+    price_value_monthly: monthlyPrice,
+    accepts_donations: priceType !== 'paga' ? donation.accepts : false,
+    suggested_donation_value: priceType !== 'paga' && donation.accepts ? donation.suggested : null,
     slots_total: slotsTotal,
     slots_filled: slotsTotal != null && slotsOpen != null ? slotsTotal - slotsOpen : null,
     slots_open: slotsOpen,

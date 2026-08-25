@@ -51,4 +51,78 @@ describe('parseTextForPreview (requisito 8, spec 079)', () => {
     const result = await parseTextForPreview(`${first}\n---\n${second}`);
     expect(result.table?.title).toBe('Primeira Mesa');
   });
+
+  // ─── Fase 6 (spec 096, T6.6/A9) — fixtures do §Gap 4, ponta a ponta ──────
+  // O preview é a fronteira que o front consome: além do valor extraído, o
+  // `table` carrega os sinais de ambiguidade (T6.2) e o raw_system_hint (F8).
+  // F1 (catálogos ligados na ROTA) vive em gmPanel.parsePreview.test.ts e F2
+  // (schedules×sessions) no frontend.
+
+  it('F3: "Vagas: 4 (2 abertas)" → slots_total=4, slots_open=2 no preview', async () => {
+    const result = await parseTextForPreview('Título: Mesa\nVagas: 4 (2 abertas)');
+    expect(result.table?.slots_total).toBe(4);
+    expect(result.table?.slots_open).toBe(2);
+  });
+
+  it('F4: "Contato: Discord @ricardo" → contato discord com o @username no preview', async () => {
+    const result = await parseTextForPreview('Título: Mesa\nContato: Discord @ricardo');
+    expect(result.contacts).toContainEqual(
+      expect.objectContaining({ channel: 'discord', value: '@ricardo' }),
+    );
+  });
+
+  it('F5: "necessário ter PC e microfone" → requires_pc=true e requires_microphone=true', async () => {
+    const result = await parseTextForPreview('Título: Mesa\nRequisitos: necessário ter PC e microfone');
+    expect(result.table?.requires_pc).toBe(true);
+    expect(result.table?.requires_microphone).toBe(true);
+  });
+
+  it('F6: ambiguidade de preço chega no payload do preview (sinal + missing_fields)', async () => {
+    // Gratuidade + sinal de cobrança, sem padrão de período promocional: o
+    // parser não decide e sinaliza (um "R$ N" explícito seria resolvido como
+    // paga — nível 1 do extractPrice é o sinal mais forte que existe).
+    const result = await parseTextForPreview(
+      'Título: Mesa\nMesa gratuita\nPagamento via PIX\nVagas: 4',
+    );
+    expect(result.table?._price_ambiguity).toBe(true);
+    expect(result.table?.missing_fields).toContain('price_type:ambiguous');
+  });
+
+  it('F7: "Mensal: 40" → price_value_monthly no preview; "Doações: R$ 10" → doação em mesa gratuita', async () => {
+    const monthly = await parseTextForPreview('Título: Mesa Paga\nMensal: 40');
+    expect(monthly.table?.price_type).toBe('paga');
+    expect(monthly.table?.price_value_monthly).toBe(40);
+
+    const donation = await parseTextForPreview(
+      'Título: Mesa Gratuita\nValor: gratuito\nDoações: R$ 10',
+    );
+    expect(donation.table?.price_type).toBe('gratuita');
+    expect(donation.table?.accepts_donations).toBe(true);
+    expect(donation.table?.suggested_donation_value).toBe(10);
+  });
+
+  it('F8: sistema não casado devolve raw_system_hint no preview (sem inventar correspondência)', async () => {
+    const result = await parseTextForPreview('Título: Mesa\nSistema: Xyz Nada a Ver');
+    expect(result.table?.system_id).toBeNull();
+    expect(result.table?.raw_system_hint).toBe('Xyz Nada a Ver');
+  });
+
+  it('T6.1: catálogo VTT passado ao preview casa "Plataformas: Roll20" (era sempre null)', async () => {
+    const result = await parseTextForPreview(
+      'Título: Mesa\nPlataformas: Roll20\nVagas: 4',
+      [],
+      { vtt: [{ id: 'vtt-roll20', name: 'Roll20', aliases: [] }] },
+    );
+    expect(result.table?.vtt_platform_id).toBe('vtt-roll20');
+  });
+
+  it('T6.1: aliases aprendidos são passados ao parser (rótulo fora da allowlist fixa)', async () => {
+    const result = await parseTextForPreview(
+      'Título: Mesa\nJogo do dia: D&D\nVagas: 4',
+      [],
+      undefined,
+      { system_name: ['jogo do dia'] },
+    );
+    expect(result.table?.raw_system_hint).toBe('D&D');
+  });
 });

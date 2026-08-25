@@ -333,7 +333,7 @@ describe('toProfileContactMethods — contatos para POST/PUT /gm/profile (T4.0p2
   });
 });
 
-describe('mapGmMeToSnapshot — GET /gm/me para o snapshot de herança (T4.0p)', () => {
+describe('mapGmMeToSnapshot — GET /gm/me para o snapshot de herança (T4.0p/T6.4)', () => {
   it('normaliza nickname/bio/contatos com shape real do backend', () => {
     const snapshot = mapGmMeToSnapshot({
       id: 'p-1',
@@ -352,7 +352,23 @@ describe('mapGmMeToSnapshot — GET /gm/me para o snapshot de herança (T4.0p)',
         { channel: 'whatsapp', value: '+5511999999999', label: 'Zap', discord_server_url: '' },
         { channel: 'discord', value: '@usuario', label: '', discord_server_url: '' },
       ],
+      // Fase 6 (T6.4): campos de herança novos — ausentes viram listas vazias.
+      preferredVttPlatforms: [],
+      languages: [],
     });
+  });
+
+  it('Fase 6 (T6.4): normaliza preferred_vtt_platforms e languages — entradas não-string saem', () => {
+    const snapshot = mapGmMeToSnapshot({
+      id: 'p-1',
+      slug: 'mestre-corvo',
+      nickname: 'Mestre Corvo',
+      bio_long: null,
+      preferred_vtt_platforms: ['vtt-uuid-1', 42, null],
+      languages: ['pt-BR', 'en', 7],
+    });
+    expect(snapshot?.preferredVttPlatforms).toEqual(['vtt-uuid-1']);
+    expect(snapshot?.languages).toEqual(['pt-BR', 'en']);
   });
 
   it('devolve null quando não é perfil (id/slug ausentes)', () => {

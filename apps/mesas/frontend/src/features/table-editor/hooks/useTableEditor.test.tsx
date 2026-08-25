@@ -1320,3 +1320,142 @@ describe('instrumentação (T4.0i) — eventos de analytics do editor', () => {
     expect(trackEventMock).not.toHaveBeenCalledWith('editor_parser_use', expect.anything());
   });
 });
+
+// ─── Fase 6 (spec 096): T6.4 (herança VTT/idioma) e T6.2/T6.5 (parser) ──────
+
+describe('Fase 6 — herança de VTT e idioma (T6.4, R7)', () => {
+  it('criação herda a plataforma VTT preferida (UUID) e o idioma do perfil, sem marcar dirty', async () => {
+    mockProfileFetch(makeProfileData({
+      preferred_vtt_platforms: ['vtt-uuid-roll20'],
+      languages: ['en'],
+    }));
+    const { result } = renderHook(() =>
+      useTableEditor({
+        initialData: makeValidState({ vttPlatformId: '', language: 'pt-BR' }),
+        onPublished: vi.fn(),
+      }),
+    );
+
+    await waitFor(() => expect(result.current.gmProfileLoading).toBe(false));
+    // O UUID entra no estado; o WherePart converte para slug quando o
+    // catálogo carrega (mesma mecânica da edição de mesa legada).
+    expect(result.current.state.vttPlatformId).toBe('vtt-uuid-roll20');
+    expect(result.current.state.language).toBe('en');
+    // Herdar é estado inicial, não edição (dirty criaria rascunho remoto só
+    // por abrir o editor).
+    expect(result.current.isDirty).toBe(false);
+  });
+
+  it('mesa em edição mantém o idioma salvo — a herança de language é só na criação', async () => {
+    mockProfileFetch(makeProfileData({ languages: ['en'] }));
+    const { result } = renderHook(() =>
+      useTableEditor({
+        initialData: { ...makeValidState(), id: 't-9', status: 'draft', language: 'pt-BR' },
+        onPublished: vi.fn(),
+      }),
+    );
+
+    await waitFor(() => expect(result.current.gmProfileLoading).toBe(false));
+    expect(result.current.state.language).toBe('pt-BR');
+  });
+
+  it('mesa em edição com VTT vazio herda a preferida (mesma regra dos demais campos: só preenche vazio)', async () => {
+    mockProfileFetch(makeProfileData({ preferred_vtt_platforms: ['vtt-uuid-foundry'] }));
+    const { result } = renderHook(() =>
+      useTableEditor({
+        initialData: { ...makeValidState(), id: 't-9', status: 'draft', vttPlatformId: '' },
+        onPublished: vi.fn(),
+      }),
+    );
+
+    await waitFor(() => expect(result.current.gmProfileLoading).toBe(false));
+    expect(result.current.state.vttPlatformId).toBe('vtt-uuid-foundry');
+  });
+
+  it('anunciante não herda VTT nem idioma', async () => {
+    mockProfileFetch(makeProfileData({
+      preferred_vtt_platforms: ['vtt-uuid-roll20'],
+      languages: ['en'],
+    }));
+    const { result } = renderHook(() =>
+      useTableEditor({
+        initialData: makeValidState({
+          publisherRole: 'announcer',
+          vttPlatformId: '',
+          language: 'pt-BR',
+        }),
+        onPublished: vi.fn(),
+      }),
+    );
+
+    await waitFor(() => expect(result.current.gmProfileLoading).toBe(false));
+    expect(result.current.state.vttPlatformId).toBe('');
+    expect(result.current.state.language).toBe('pt-BR');
+  });
+});
+
+describe('Fase 6 — prévia do parser: marcas e sinais (T6.2, R5)', () => {
+  it('applyParserPreview registra os campos preenchidos e os sinais; replaceState limpa ambos', async () => {
+    const { result } = renderHook(() =>
+      useTableEditor({ initialData: makeValidState(), onPublished: vi.fn() }),
+    );
+
+    const signals = {
+      missingFields: ['day_of_week'],
+      priceAmbiguous: true,
+      scheduleAmbiguous: false,
+      slotsAmbiguous: null,
+      rawSystemHint: null,
+    };
+
+    await act(async () => {
+      result.current.applyParserPreview(
+        { ...makeValidState(), parseCaseId: 'case-1', title: 'Título do anúncio' },
+        ['title'],
+        signals,
+      );
+    });
+
+    expect(result.current.state.title).toBe('Título do anúncio');
+    expect(result.current.parserFilledFields.has('title')).toBe(true);
+    expect(result.current.parserFilledFields.has('description')).toBe(false);
+    expect(result.current.parserSignals).toEqual(signals);
+
+    // Trocar o estado inteiro (ex.: restaurar rascunho) desfaz as marcas —
+    // "veio do anúncio" só vale para a prévia desta sessão.
+    await act(async () => {
+      result.current.replaceState({ ...makeValidState(), parseCaseId: null });
+    });
+    expect(result.current.parserFilledFields.size).toBe(0);
+    expect(result.current.parserSignals).toBeNull();
+  });
+
+  it('T6.5: publicar NUNCA é bloqueado por campo preenchido pelo parser — estado 100% do anúncio publica', async () => {
+    mockAuthPost.mockImplementation(() => okResponse({ data: { id: 't-1' } }));
+    mockAuthPatch.mockImplementation(() => okResponse());
+    const { result } = renderHook(() =>
+      useTableEditor({ initialData: makeValidState(), onPublished: vi.fn() }),
+    );
+
+    // Aplica a prévia "adivinhando" todos os obrigatórios (título, sistema,
+    // vagas, contato) e com sinais de ambiguidade abertos.
+    await act(async () => {
+      result.current.applyParserPreview(
+        makeValidState(),
+        ['title', 'description', 'selectedSystemId', 'slotsTotal', 'slotsOpen', 'contacts'],
+        {
+          missingFields: [],
+          priceAmbiguous: true,
+          scheduleAmbiguous: true,
+          slotsAmbiguous: { first: 2, second: 4 },
+          rawSystemHint: 'Xyz',
+        },
+      );
+    });
+
+    // Nenhuma ambiguidade bloqueia: o publish segue para a escrita.
+    const published = await act(async () => result.current.publish());
+    expect(published).toBe(true);
+    expect(mockAuthPost).toHaveBeenCalledWith('/api/v1/gm/tables', expect.anything());
+  });
+});
