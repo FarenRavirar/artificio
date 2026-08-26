@@ -114,7 +114,19 @@ CREATE TABLE IF NOT EXISTS mesas_notification_outbox (
   -- ADIOU o abandono para a quinta falha, porque o incremento continuava. Agora
   -- `attempt_count` conta so culpa da MENSAGEM (400/422) e e o unico criterio de
   -- descarte; `transient_count` conta culpa do AMBIENTE e so espaca a retentativa.
-  transient_count INTEGER NOT NULL DEFAULT 0 CHECK (transient_count >= 0)
+  transient_count INTEGER NOT NULL DEFAULT 0 CHECK (transient_count >= 0),
+
+  -- Somente MIGRACAO de historico legado (achado de review, PR #289, Codex P2):
+  -- preenchido, a entrega manda `read_at` ao ingest e o fan-out do accounts cria
+  -- o recibo JA LIDO. NULL (o padrao) e o fluxo normal — aviso novo nasce
+  -- pendente.
+  --
+  -- Sem isto, os 4 avisos ja lidos do `mesas` (medido 2026-08-26: 66 nao lidos,
+  -- 4 lidos) reapareceriam como nao lidos ao migrar, inflando o contador do sino
+  -- de quem ja os tinha despachado — e nao migra-los os deixaria sem NENHUM
+  -- caminho de leitura, ja que esta fase removeu `/api/v1/notifications` do
+  -- mesas e o NotificationBell passou a ler so do consolidado.
+  read_at TIMESTAMPTZ
 );
 
 -- Parcial: o sweep so varre o que ainda pode ser entregue. O predicado espelha

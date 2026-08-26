@@ -42,6 +42,12 @@ export interface OutboxEntry {
   created_at: Date;
   attempt_count: number;
   transient_count: number;
+  /**
+   * Somente migração de histórico legado: preenchido, pede ao ingest que o
+   * recibo nasça já lido. `null`/ausente no fluxo normal — aviso novo é
+   * pendente por definição.
+   */
+  read_at?: Date | null;
 }
 
 /** Campos que a entrega grava de volta na linha. */
@@ -368,6 +374,10 @@ function buildIngestBody(entry: OutboxEntry, recipients: string[]): string {
     // sweep atrasado ordenaria os avisos pela hora em que a fila esvaziou, não
     // pela hora em que o fato aconteceu.
     occurred_at: entry.created_at.toISOString(),
+    // Omitido quando nulo: o schema do ingest é `.strict()` e o campo é
+    // opcional, então mandar `read_at: null` explícito seria aceito, mas dizer
+    // nada é mais honesto — o produtor não está afirmando estado de leitura.
+    ...(entry.read_at ? { read_at: entry.read_at.toISOString() } : {}),
   });
 }
 

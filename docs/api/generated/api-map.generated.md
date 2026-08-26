@@ -83,7 +83,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/internal/v1/moderation/sanctions` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 348 |
 | POST | `/internal/v1/moderation/sanctions` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 398 |
 | DELETE | `/internal/v1/moderation/sanctions/:id` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 408 |
-| POST | `/internal/v1/notifications/events` | ✅ high | `apps/accounts/src/notificationIngestRoutes.ts` | 195 |
+| POST | `/internal/v1/notifications/events` | ✅ high | `apps/accounts/src/notificationIngestRoutes.ts` | 220 |
 | GET | `/internal/v1/report-reasons` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 257 |
 | DELETE | `/internal/v1/reports/:id` | ✅ high | `apps/accounts/src/communityModerationRoutes.ts` | 275 |
 | GET | `/login` | ✅ high | `apps/accounts/src/app.ts` | 595 |

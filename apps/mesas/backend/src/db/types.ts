@@ -561,6 +561,11 @@ export interface MesasNotificationOutboxTable {
    * por ele, entao indisponibilidade longa atrasa a entrega sem nunca descartar.
    */
   transient_count: Generated<number>;
+  /**
+   * Somente migracao de historico legado: preenchido, a entrega pede ao ingest
+   * que o recibo nasca ja lido. `null` no fluxo normal.
+   */
+  read_at: Date | null;
 }
 
 export type MesasNotificationOutbox = Selectable<MesasNotificationOutboxTable>;

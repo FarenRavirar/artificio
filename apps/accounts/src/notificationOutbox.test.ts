@@ -11,6 +11,8 @@ import { processOutboxEntry } from "./notificationOutbox.js";
 
 interface FakeRecipient {
   recipient_user_id: string;
+  /** `null` no fluxo normal; preenchido só em migração de histórico legado. */
+  read_at: Date | null;
 }
 
 interface DbMock {
@@ -27,7 +29,13 @@ interface DbMock {
  * não usa try/catch pra duplicata (achado CodeRabbit, PR #255: erro de
  * constraint sem savepoint abortaria a transação inteira).
  */
-function makeDb(existingReceipts: string[], recipients: string[] = []): DbMock {
+function makeDb(
+  existingReceipts: string[],
+  recipients: string[] = [],
+  // Só migração de histórico legado preenche isto (achado de review, PR #289,
+  // Codex P2). `null` é o fluxo de todo aviso novo.
+  eventReadAt: Date | null = null,
+): DbMock {
   const inserted: FakeRecipient[] = [];
 
   const selectFrom = vi.fn().mockImplementation((_table: string) => {
@@ -38,7 +46,7 @@ function makeDb(existingReceipts: string[], recipients: string[] = []): DbMock {
       limit: vi.fn().mockReturnThis(),
       executeTakeFirst: vi.fn().mockResolvedValue(
         _table === "notification_event"
-          ? { event_type: "comment.replied" }
+          ? { event_type: "comment.replied", read_at: eventReadAt }
           : _table === "notification_outbox"
             ? { recipients }
             : null,
@@ -144,6 +152,39 @@ describe("processOutboxEntry (T3.15)", () => {
     expect(db.inserted[0].recipient_user_id).toBe(
       "33333333-3333-3333-3333-333333333333",
     );
+  });
+
+  // Achado de review (PR #289, Codex P2). A fase 7 da spec 096 removeu
+  // `/api/v1/notifications` do `mesas`; sem preservar o estado de leitura, os
+  // avisos migrados reapareceriam como pendentes no sino de quem já os leu.
+  it("recibo nasce lido quando o evento traz read_at (migração de histórico)", async () => {
+    const lidoEm = new Date("2026-08-13T10:00:00.000Z");
+    const db = makeDb([], ["44444444-4444-4444-4444-444444444444"], lidoEm);
+
+    const count = await processOutboxEntry(db as never, {
+      id: "out-1",
+      realm: "prod",
+      source_app: "mesas",
+      event_id: "evt-1",
+    });
+
+    expect(count).toBe(1);
+    expect(db.inserted[0].read_at).toEqual(lidoEm);
+  });
+
+  it("recibo nasce pendente quando o evento não traz read_at", async () => {
+    // O caminho de todo produtor corrente. Se quebrar, o campo novo virou
+    // regressão silenciosa e o sino nunca mais acenderia.
+    const db = makeDb([], ["44444444-4444-4444-4444-444444444444"]);
+
+    await processOutboxEntry(db as never, {
+      id: "out-1",
+      realm: "prod",
+      source_app: "downloads",
+      event_id: "evt-1",
+    });
+
+    expect(db.inserted[0].read_at).toBeNull();
   });
 });
 

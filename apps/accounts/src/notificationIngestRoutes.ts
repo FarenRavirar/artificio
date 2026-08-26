@@ -83,6 +83,27 @@ const ingestSchema = z
      * com `occurred_at` retroativo faz as duas ordens divergirem.
      */
     occurred_at: z.string().datetime().optional(),
+    /**
+     * Marca o recibo como JÁ LIDO no fan-out, em vez do `read_at: null` padrão.
+     *
+     * Existe só para MIGRAÇÃO DE HISTÓRICO (achado de review, PR #289, Codex
+     * P2). O caso concreto: a spec 096 removeu as rotas `/api/v1/notifications`
+     * do `mesas`, e o `NotificationBell` passou a ler exclusivamente daqui —
+     * então avisos que o usuário já tinha lido na tabela antiga ficariam sem
+     * nenhum caminho de leitura. Sem este campo, migrá-los os faria reaparecer
+     * como não lidos, inflando o contador do sino de quem já os despachou.
+     *
+     * NÃO é para uso corrente: evento novo nasce não lido por definição, e
+     * produtor que mandar isto num fluxo normal está descrevendo um fato que não
+     * aconteceu. Opcional e ausente por padrão, então nenhum produtor atual
+     * muda de comportamento (o `downloads` não manda).
+     *
+     * A listagem já devolve recibo lido (`notificationData.ts` seleciona
+     * `read_at` sem filtrar; só `unread-count` filtra), então o aviso migrado
+     * aparece no histórico sem contar como pendente — que é o comportamento
+     * correto.
+     */
+    read_at: z.string().datetime().optional(),
   })
   .strict();
 
@@ -141,6 +162,10 @@ async function handleIngestEvent(
         snapshot: input.snapshot,
         metadata: input.metadata ?? null,
         ...(input.occurred_at ? { occurred_at: new Date(input.occurred_at) } : {}),
+        // Viaja pelo EVENTO, e não pelo outbox: o fan-out já lê a linha do
+        // evento (`notificationOutbox.ts:58`), então não precisa de coluna nova
+        // na fila nem de mudança em `enqueueOutboxEvent`.
+        read_at: input.read_at ? new Date(input.read_at) : null,
       })
       .onConflict((oc) => oc.column("event_id").doNothing())
       .executeTakeFirst();

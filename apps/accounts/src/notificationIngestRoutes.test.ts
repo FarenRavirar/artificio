@@ -239,3 +239,37 @@ describe("POST /internal/v1/notifications/events — gravação", () => {
     expect(enqueueMock).not.toHaveBeenCalled();
   });
 });
+
+// Achado de review (PR #289, Codex P2): a fase 7 da spec 096 removeu
+// `/api/v1/notifications` do `mesas`, então avisos que o usuário já tinha lido
+// lá ficariam sem caminho de leitura. Migrá-los sem preservar o estado seria
+// pior — reapareceriam como pendentes no sino.
+describe("POST /internal/v1/notifications/events — read_at (migração de histórico)", () => {
+  it("grava read_at quando o produtor informa", async () => {
+    const captured: { values?: Record<string, unknown> } = {};
+    const app = createApp(env, fakeDb(await credentialRow(), undefined, captured));
+
+    await post(app)
+      .send({ ...VALID_BODY, read_at: "2026-08-13T10:00:00.000Z" })
+      .expect(202);
+
+    expect(captured.values?.read_at).toEqual(new Date("2026-08-13T10:00:00.000Z"));
+  });
+
+  it("read_at nulo quando ausente: aviso novo nasce pendente", async () => {
+    // O caminho de TODO produtor corrente. Se este quebrar, o campo novo virou
+    // regressão silenciosa — todo aviso nasceria lido e o sino nunca acenderia.
+    const captured: { values?: Record<string, unknown> } = {};
+    const app = createApp(env, fakeDb(await credentialRow(), undefined, captured));
+
+    await post(app).send(VALID_BODY).expect(202);
+
+    expect(captured.values?.read_at).toBeNull();
+  });
+
+  it("400 quando read_at não é datetime ISO", async () => {
+    const app = createApp(env, fakeDb(await credentialRow()));
+
+    await post(app).send({ ...VALID_BODY, read_at: "ontem" }).expect(400);
+  });
+});

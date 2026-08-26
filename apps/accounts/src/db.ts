@@ -290,6 +290,12 @@ export interface NotificationEventRow {
   /** `unknown` já cobre `null` — mantém sem `| null` redundante. */
   metadata: unknown;
   occurred_at: Generated<Date>;
+  /**
+   * Somente MIGRAÇÃO de histórico legado: preenchido, o fan-out cria o recibo já
+   * lido em vez de pendente. `null` (o padrão) é o comportamento normal de aviso
+   * novo. Ver `migration_012` e o campo homônimo do ingest.
+   */
+  read_at: Date | null;
   created_at: Generated<Date>;
 }
 

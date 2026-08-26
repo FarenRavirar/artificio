@@ -77,7 +77,13 @@ type LinhaLegada = {
 };
 
 /** Linha aprovada para migração, com o que a decisão já resolveu. */
-type Migravel = { eventType: string; centralId: string; canonicalPath: string };
+type Migravel = {
+  eventType: string;
+  centralId: string;
+  canonicalPath: string;
+  /** Preenchido só para aviso já lido — faz o recibo nascer lido. */
+  readAt: Date | null;
+};
 
 /**
  * Decide se uma linha legada vira evento no outbox.
@@ -97,23 +103,6 @@ function avaliarLinha(row: LinhaLegada): Migravel | { motivo: string } {
     return { motivo: `destinatário ${row.user_id} sem id central em UUID` };
   }
 
-  // Achado real (review PR #289, Codex, P2): aviso JÁ LIDO não é migrado.
-  //
-  // O fan-out do `accounts.` cria `notification_receipt.read_at` sempre NULL
-  // (`notificationOutbox.ts:136`) e o ingest não aceita parâmetro para mudar
-  // isso — não existe caminho para nascer lido. A versão anterior gravava
-  // `already_read` no snapshot, o que não preservava estado nenhum: ninguém o
-  // consome, e o aviso reapareceria como não lido, inflando o contador do sino
-  // de quem já o tinha despachado.
-  //
-  // Migrar só o não lido resolve sem tocar no `accounts.` (app sagrado): o que
-  // está pendente continua pendente, e o que já foi lido fica no histórico da
-  // tabela antiga, que não é apagada por esta spec. Medido em 2026-08-26:
-  // 66 não lidas, 4 lidas.
-  if (row.read === true) {
-    return { motivo: 'já lido — o accounts não cria recibo lido' };
-  }
-
   // `action_url` é a origem do `canonical_path`. Nulo ou degenerado cai no
   // painel — o aviso continua chegando, só sem destino específico.
   const rawPath = typeof row.action_url === 'string' ? row.action_url : '';
@@ -121,6 +110,24 @@ function avaliarLinha(row: LinhaLegada): Migravel | { motivo: string } {
     eventType,
     centralId,
     canonicalPath: isValidCanonicalPath(rawPath) ? rawPath : '/gestao',
+    // Aviso JÁ LIDO migra igual, com o estado preservado (achado de review,
+    // PR #289, Codex P2 — duas rodadas).
+    //
+    // A rodada anterior EXCLUÍA o lido, para não reapresentar como pendente algo
+    // que o usuário já tinha despachado. Mas esta fase removeu
+    // `/api/v1/notifications` do `mesas` e o `NotificationBell` passou a ler só
+    // do consolidado: excluir deixava os 4 lidos (medido em 2026-08-26, contra
+    // 66 não lidos) sem NENHUM caminho de leitura. Trocava um defeito por uma
+    // perda de histórico.
+    //
+    // `read_at` no ingest (migration_012 do `accounts`) resolve os dois: o
+    // recibo nasce lido, aparece no histórico e não conta no `/unread-count`.
+    //
+    // `created_at` como aproximação de quando foi lido: a tabela do `mesas` só
+    // tem `read` booleano, sem timestamp. É a data do FATO, não da leitura —
+    // e ordena o histórico pelo mesmo critério dos não lidos, que é o que o
+    // usuário espera ver.
+    readAt: row.read === true ? row.created_at : null,
   };
 }
 
@@ -139,6 +146,10 @@ async function main(): Promise<void> {
     .execute();
 
   let enfileirados = 0;
+  // Contado à parte para o dry-run mostrar quantos avisos migram JÁ LIDOS — é o
+  // número que prova que o estado de leitura foi preservado, e não que 4 avisos
+  // antigos vão reaparecer como pendentes no sino de alguém.
+  let jaLidos = 0;
   const pulados: Array<{ id: string; motivo: string }> = [];
 
   for (const row of rows) {
@@ -147,7 +158,8 @@ async function main(): Promise<void> {
       pulados.push({ id: row.id, motivo: decisao.motivo });
       continue;
     }
-    const { eventType, centralId, canonicalPath } = decisao;
+    const { eventType, centralId, canonicalPath, readAt } = decisao;
+    if (readAt) jaLidos++;
 
     if (!apply) {
       enfileirados++;
@@ -183,6 +195,7 @@ async function main(): Promise<void> {
         recipients: JSON.stringify([centralId]),
         // Hora do FATO, não do backfill.
         created_at: row.created_at,
+        read_at: readAt,
       })
       .onConflict((oc) => oc.column('event_id').doNothing())
       .execute();
@@ -191,6 +204,7 @@ async function main(): Promise<void> {
 
   console.log(`[backfill] lidas: ${rows.length}`);
   console.log(`[backfill] ${apply ? 'enfileiradas' : 'seriam enfileiradas'}: ${enfileirados}`);
+  console.log(`[backfill] destas, já lidas (recibo nasce lido): ${jaLidos}`);
   console.log(`[backfill] puladas: ${pulados.length}`);
   for (const p of pulados) console.log(`  - ${p.id}: ${p.motivo}`);
   if (!apply) console.log('[backfill] DRY-RUN — nada foi gravado. Rode com --apply para valer.');

@@ -57,7 +57,7 @@ export async function processOutboxEntry(
   // 1. Lê o evento
   const event = await db
     .selectFrom("notification_event")
-    .select(["event_type"])
+    .select(["event_type", "read_at"])
     .where("id", "=", entry.event_id)
     .where("realm", "=", entry.realm)
     .where("source_app", "=", entry.source_app)
@@ -133,7 +133,12 @@ export async function processOutboxEntry(
         source_app: entry.source_app,
         event_id: entry.event_id,
         recipient_user_id: recipientUserId,
-        read_at: null,
+        // Normalmente `null` — aviso novo nasce pendente. Só migração de
+        // histórico legado preenche `event.read_at` (achado de review, PR #289,
+        // Codex P2): sem isso, os avisos que o usuário já tinha lido no `mesas`
+        // reapareceriam como não lidos ao serem migrados, inflando o contador do
+        // sino de quem já os despachou. Ver `migration_012`.
+        read_at: event.read_at ?? null,
         created_at: now,
       })
       .onConflict((oc) =>
