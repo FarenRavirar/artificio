@@ -190,7 +190,12 @@ export async function enqueueNotification(
       canonical_path: input.canonicalPath,
       // `legacy_body` é o campo que o formatador do `accounts.` lê; o resto do
       // snapshot viaja junto como metadado estruturado.
-      snapshot: JSON.stringify({ legacy_body: input.body, ...input.snapshot }),
+      //
+      // A ordem importa (achado de review, PR #289): com `legacy_body` ANTES do
+      // spread, um `snapshot.legacy_body` vindo do chamador vencia `input.body`
+      // — e é `input.body` que o contrato desta função promete como texto do
+      // aviso. Metadado de chamador não redefine campo reservado.
+      snapshot: JSON.stringify({ ...input.snapshot, legacy_body: input.body }),
       recipients: JSON.stringify(recipients),
     })
     .execute();

@@ -553,6 +553,12 @@ export interface DownloadNotificationOutboxTable {
   last_error: string | null;
   /** Lease de processamento: impede dois sweeps de entregarem a mesma linha. */
   claimed_until: Date | null;
+  /**
+   * Backoff: momento a partir do qual a entrada volta a ser elegivel ao sweep.
+   * `null` = elegivel agora. Falha de ambiente (5xx/429/rede) adia aqui em vez
+   * de gastar `attempt_count`, que so descarta defeito de payload (400/422).
+   */
+  next_attempt_at: Date | null;
 }
 
 export type DownloadNotificationOutbox = Selectable<DownloadNotificationOutboxTable>;

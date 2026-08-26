@@ -97,7 +97,17 @@ CREATE TABLE IF NOT EXISTS mesas_notification_outbox (
   --
   -- Com prazo, e nao booleano: worker que morre no meio da varredura nao prende
   -- a entrada para sempre — ela volta a fila quando o lease expira.
-  claimed_until TIMESTAMPTZ
+  claimed_until TIMESTAMPTZ,
+
+  -- Agendamento da proxima tentativa (backoff exponencial: 1, 2, 4... ate 60
+  -- min). NULL = elegivel agora (nunca falhou, ou falha ja reagendada).
+  --
+  -- Existe porque `attempt_count` sozinho confundia duas coisas: "quantas vezes
+  -- tentou" e "pode tentar de novo". Como o sweep filtra `attempt_count < 5`,
+  -- cinco falhas transitorias seguidas (accounts fora por ~25 min) abandonavam
+  -- permanentemente aviso valido. Agora falha de ambiente ADIA; so defeito de
+  -- payload (400/422) esgota o teto.
+  next_attempt_at TIMESTAMPTZ
 );
 
 -- Parcial: o sweep so varre o que ainda pode ser entregue. O predicado espelha
@@ -106,7 +116,7 @@ CREATE TABLE IF NOT EXISTS mesas_notification_outbox (
 -- ao seq scan. `5` e o `MAX_ATTEMPTS` de `notificationOutboxDelivery.ts`: mudar
 -- um exige mudar o outro.
 CREATE INDEX IF NOT EXISTS idx_mesas_notification_outbox_pending
-  ON mesas_notification_outbox (created_at)
+  ON mesas_notification_outbox (next_attempt_at NULLS FIRST, created_at)
   WHERE delivered_at IS NULL AND attempt_count < 5;
 
 DO $$

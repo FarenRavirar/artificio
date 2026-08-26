@@ -130,6 +130,13 @@ async function main(): Promise<void> {
         subject_id: row.id,
         canonical_path: canonicalPath,
         snapshot: JSON.stringify({
+          // `metadata` é JSONB de origem — dado externo, `unknown` até checado.
+          // Vem PRIMEIRO de propósito (achado de review, PR #289): com ele por
+          // último, uma linha antiga com `metadata.legacy_body` sobrescreveria o
+          // texto real do aviso, e `metadata.title`/`legacy_type` mentiriam
+          // sobre a origem. Campo reservado do snapshot não se deixa redefinir
+          // por payload legado.
+          ...asRecord(row.metadata),
           // Campo que o formatador do `accounts.` lê para evento externo
           // (`notificationFormatter.ts:76`). Sem ele, o aviso migrado apareceria
           // como "Notificação: mesas.suggestion.approved" — achado de review
@@ -138,7 +145,6 @@ async function main(): Promise<void> {
           legacy_type: row.type,
           title: row.title,
           backfilled: true,
-          ...asRecord(row.metadata),
         }),
         recipients: JSON.stringify([centralId]),
         // Hora do FATO, não do backfill.

@@ -49,6 +49,7 @@ export interface OutboxUpdate {
   last_error?: string | null;
   attempt_count?: number;
   claimed_until?: Date | null;
+  next_attempt_at?: Date | null;
 }
 
 /**
@@ -72,6 +73,27 @@ export interface OutboxStore {
    */
   claimPending(limit: number, maxAttempts: number, claimedUntil: Date): Promise<OutboxEntry[]>;
   update(id: string, values: OutboxUpdate): Promise<void>;
+}
+
+/**
+ * Espera antes da próxima tentativa, por número de tentativas já feitas.
+ *
+ * Backoff exponencial com teto: 1min, 2, 4, 8, 16, 32, 60, 60… A entrada NÃO é
+ * abandonada por falha transitória — ela só volta mais devagar, para que uma
+ * indisponibilidade longa do `accounts.` não vire uma rajada de retentativas a
+ * cada 5 minutos por entrada da fila inteira.
+ *
+ * Achado de review (PR #289, Codex P1): antes, `attempt_count` era incrementado
+ * igual em 5xx/429/rede, e `claimPending` filtra `attempt_count < 5` — ou seja,
+ * uma queda de ~25min do `accounts.` (cinco sweeps) abandonava permanentemente
+ * avisos válidos, mesmo depois da recuperação. Contagem de tentativas deixou de
+ * ser critério de descarte para falha de ambiente; ela agora só decide o
+ * intervalo. Quem descarta é `OUTBOX_MAX_ATTEMPTS`, e só o alcança quem
+ * comprovadamente tem defeito de payload (400/422).
+ */
+export function backoffDelayMs(attemptCount: number): number {
+  const minutes = Math.min(2 ** attemptCount, OUTBOX_BACKOFF_CAP_MINUTES);
+  return minutes * 60 * 1000;
 }
 
 /**
@@ -106,8 +128,24 @@ export interface OutboxQueryable {
  * Claim atômico + update, na tabela que o app indicar.
  *
  * `UPDATE ... RETURNING` com sub-select: um único comando marca e devolve as
- * linhas, e um segundo worker não enxerga o que o primeiro reservou — sem manter
- * transação aberta durante a chamada de rede.
+ * linhas, sem manter transação aberta durante a chamada de rede.
+ *
+ * ## Por que a condição de lease se repete no UPDATE externo
+ *
+ * Achado de review (PR #289, Codex P2). Com a condição SÓ na sub-consulta, dois
+ * claims concorrentes (o sweep periódico e o disparo pós-commit, que rodam
+ * juntos por construção) podem avaliar a sub-consulta antes de qualquer lease
+ * ser gravado e escolher os mesmos ids. O segundo `UPDATE` bloqueia no lock de
+ * linha do primeiro, e quando ele libera, o segundo reavalia apenas
+ * `id IN (...)` — que continua verdadeiro — e devolve as MESMAS linhas de novo.
+ * Resultado: POST duplicado, consumo em dobro do bucket da credencial e 429 que
+ * a idempotência do `accounts.` não evita, porque ela dedupe o *efeito*, não o
+ * trabalho.
+ *
+ * Repetindo `delivered_at`/`claimed_until` no `UPDATE` externo, o Postgres
+ * reavalia essas colunas após o lock (`EvalPlanQual`) e vê o lease que o
+ * primeiro acabou de gravar: a linha sai do conjunto e não é devolvida duas
+ * vezes.
  */
 export function createKyselyOutboxStore(ref: OutboxTableRef): OutboxStore {
   const { table, db } = ref;
@@ -116,6 +154,10 @@ export function createKyselyOutboxStore(ref: OutboxTableRef): OutboxStore {
   const query = db as unknown as {
     updateTable: (t: string) => Record<string, (...args: unknown[]) => unknown>;
   };
+
+  /** `claimed_until` livre OU expirado, no instante `now`. */
+  const leaseLivre = (eb: KyselyExpressionBuilder, now: Date): unknown =>
+    eb.or([eb.eb('claimed_until', 'is', null), eb.eb('claimed_until', '<', now)]);
 
   return {
     async claimPending(limit, maxAttempts, claimedUntil): Promise<OutboxEntry[]> {
@@ -129,15 +171,20 @@ export function createKyselyOutboxStore(ref: OutboxTableRef): OutboxStore {
             .select('id')
             .where('delivered_at', 'is', null)
             .where('attempt_count', '<', maxAttempts)
+            // Entrada em backoff ainda não é elegível. `NULL` = nunca falhou.
             .where((inner: KyselyExpressionBuilder) =>
               inner.or([
-                inner.eb('claimed_until', 'is', null),
-                inner.eb('claimed_until', '<', now),
+                inner.eb('next_attempt_at', 'is', null),
+                inner.eb('next_attempt_at', '<=', now),
               ]),
             )
+            .where((inner: KyselyExpressionBuilder) => leaseLivre(inner, now))
             .orderBy('created_at', 'asc')
             .limit(limit),
         )
+        // Reavaliadas após o lock — é o que impede o claim duplo descrito acima.
+        .where('delivered_at', 'is', null)
+        .where((eb: KyselyExpressionBuilder) => leaseLivre(eb, now))
         .returningAll()
         .execute() as Promise<OutboxEntry[]>;
     },
@@ -206,15 +253,27 @@ const REQUEST_TIMEOUT_MS = 5000;
 export const OUTBOX_BATCH_SIZE = 50;
 
 /**
- * Depois disso a entrada para de ser tentada e fica registrada com o último
- * erro. Sem teto, um evento com payload permanentemente inválido (400) seria
- * retentado para sempre e empurraria a fila inteira.
+ * Teto de tentativas — alcançado APENAS por defeito de payload (400/422), que a
+ * política abaixo grava de uma vez. Sem ele, um evento permanentemente inválido
+ * seria retentado para sempre e empurraria a fila inteira.
+ *
+ * Falha de ambiente (5xx, 429, 401/403, rede) NÃO caminha para este teto: ela
+ * agenda `next_attempt_at` e mantém `attempt_count` como medida de espera, não
+ * de descarte (ver `backoffDelayMs`). Foi o achado P1 da PR #289 — com o
+ * incremento antigo, 25 minutos de `accounts.` fora abandonavam avisos válidos.
  *
  * Exportado porque o índice parcial da migration espelha este número
  * (`WHERE delivered_at IS NULL AND attempt_count < 5`): mudar um exige mudar o
  * outro, e o valor precisa ser legível dos dois lados.
  */
 export const OUTBOX_MAX_ATTEMPTS = 5;
+
+/**
+ * Teto do backoff, em minutos. Acima disto a espera para de dobrar: uma queda
+ * longa não deve empurrar a próxima tentativa para horas adiante, senão o aviso
+ * chega tarde demais para ser útil mesmo com o `accounts.` já recuperado.
+ */
+export const OUTBOX_BACKOFF_CAP_MINUTES = 60;
 
 /**
  * Validade do claim. Precisa cobrir o pior caso de uma varredura inteira
@@ -360,14 +419,21 @@ export async function deliverOutboxEntries(options: DeliveryOptions): Promise<De
         // Libera o claim: a entrada volta à fila na próxima varredura em vez de
         // esperar o lease inteiro expirar.
         claimed_until: null,
+        // Defeito de payload já saiu da fila pelo teto — agendar seria ruído.
+        // Falha de ambiente espera o backoff antes de voltar a ser elegível.
+        next_attempt_at: permanent
+          ? null
+          : new Date(Date.now() + backoffDelayMs(entry.attempt_count + 1)),
       });
       result.failed++;
     } catch (error: unknown) {
       const reason = error instanceof Error && error.name === 'AbortError' ? 'timeout' : String(error);
+      // Falha de rede/timeout é ambiente por definição: mesmo tratamento do 5xx.
       await store.update(entry.id, {
         attempt_count: entry.attempt_count + 1,
         last_error: reason,
         claimed_until: null,
+        next_attempt_at: new Date(Date.now() + backoffDelayMs(entry.attempt_count + 1)),
       });
       result.failed++;
     } finally {

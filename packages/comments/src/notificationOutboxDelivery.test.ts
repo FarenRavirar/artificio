@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  backoffDelayMs,
   deliverOutboxEntries,
+  OUTBOX_BACKOFF_CAP_MINUTES,
+  OUTBOX_MAX_ATTEMPTS,
   type OutboxEntry,
   type OutboxStore,
   type OutboxUpdate,
@@ -114,7 +117,9 @@ describe('deliverPendingNotifications — política de retry (T7.4b)', () => {
     const result = await deliver(store, spy);
 
     expect(result.failed).toBe(1);
-    expect(updates[0].attempt_count).toBe(5);
+    expect(updates[0].attempt_count).toBe(OUTBOX_MAX_ATTEMPTS);
+    // Fora da fila de vez: agendar retorno de payload defeituoso seria ruído.
+    expect(updates[0].next_attempt_at).toBeNull();
   });
 
   it.each([
@@ -137,6 +142,10 @@ describe('deliverPendingNotifications — política de retry (T7.4b)', () => {
     expect(updates[0].last_error).toBe(`HTTP ${status}`);
     // Libera o claim: volta à fila na próxima varredura, sem esperar o lease.
     expect(updates[0].claimed_until).toBeNull();
+    // ...mas só depois do backoff (achado P1, PR #289): sem agendar, o sweep a
+    // cada 5 min queimava as 5 tentativas em 25 min de indisponibilidade e o
+    // aviso saía da fila para sempre.
+    expect(updates[0].next_attempt_at).toBeInstanceOf(Date);
   });
 
   it('registra timeout de rede como tentativa, não como defeito permanente', async () => {
@@ -149,6 +158,8 @@ describe('deliverPendingNotifications — política de retry (T7.4b)', () => {
     expect(result.failed).toBe(1);
     expect(updates[0].attempt_count).toBe(1);
     expect(updates[0].last_error).toBe('timeout');
+    // Rede é ambiente por definição: adia, não descarta.
+    expect(updates[0].next_attempt_at).toBeInstanceOf(Date);
   });
 
   // Achado real (review PR #289): a checagem aceitava qualquer string. O
@@ -226,5 +237,26 @@ describe('deliverOutboxEntries — robustez da varredura', () => {
 
     expect(result.delivered).toBe(1);
     expect(updates[0].delivered_at).toBeInstanceOf(Date);
+  });
+});
+
+// Achado de review (PR #289, Codex P1).
+describe('backoffDelayMs — falha de ambiente adia, não descarta', () => {
+  it('dobra a espera a cada tentativa', () => {
+    expect(backoffDelayMs(1)).toBe(2 * 60_000);
+    expect(backoffDelayMs(2)).toBe(4 * 60_000);
+    expect(backoffDelayMs(3)).toBe(8 * 60_000);
+  });
+
+  it('para de dobrar no teto (queda longa não empurra o aviso para horas)', () => {
+    const teto = OUTBOX_BACKOFF_CAP_MINUTES * 60_000;
+    expect(backoffDelayMs(10)).toBe(teto);
+    expect(backoffDelayMs(50)).toBe(teto);
+  });
+
+  it('nunca devolve espera não-positiva (entrada travaria fora da fila)', () => {
+    for (let i = 0; i <= 12; i += 1) {
+      expect(backoffDelayMs(i)).toBeGreaterThan(0);
+    }
   });
 });

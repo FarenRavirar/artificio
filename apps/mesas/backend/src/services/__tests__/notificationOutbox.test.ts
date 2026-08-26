@@ -122,7 +122,7 @@ describe('enqueueNotification — enfileiramento (T7.4b)', () => {
     });
   });
 
-  it('o snapshot do chamador não sobrescreve legacy_body por acidente', async () => {
+  it('o snapshot do chamador não sobrescreve legacy_body', async () => {
     mockUsers([{ id: UUID_LOCAL, google_id: UUID_CENTRAL }]);
     const insert = mockInsert();
 
@@ -134,9 +134,13 @@ describe('enqueueNotification — enfileiramento (T7.4b)', () => {
 
     const values = insert.values.mock.calls[0][0] as Record<string, unknown>;
     const snapshot = JSON.parse(values.snapshot as string) as Record<string, unknown>;
-    // O spread do chamador vem DEPOIS, então ele vence — comportamento
-    // deliberado: quem passa `legacy_body` explícito sabe o que quer.
-    expect(snapshot.legacy_body).toBe('texto errado');
+    // Achado de review (PR #289): este teste afirmava o oposto, chamando a
+    // precedência do chamador de "deliberada" — contra o próprio nome do caso e
+    // contra o contrato da função, que exige `body` justamente por ser ELE o
+    // texto do aviso. `snapshot` é metadado estruturado; metadado não redefine
+    // campo reservado, senão o formatador do `accounts.` renderiza um texto que
+    // nenhum chamador quis mandar como corpo.
+    expect(snapshot.legacy_body).toBe('texto real');
     expect(snapshot.outro).toBe(1);
   });
 

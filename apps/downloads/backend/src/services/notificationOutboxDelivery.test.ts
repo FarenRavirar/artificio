@@ -58,19 +58,31 @@ function makeEntry(overrides: Partial<FakeEntry> = {}): FakeEntry {
 function fakeDb(entries: FakeEntry[], captured: Array<Record<string, unknown>>) {
   let claimed = false;
 
+  /**
+   * `where` encadeável: o claim aplica VÁRIOS (`id in`, o predicado de backoff e
+   * a reavaliação de `delivered_at`/`claimed_until` no UPDATE externo, que é o
+   * que impede dois workers de reservarem a mesma linha — achado P2, PR #289).
+   * Um mock com `where` de um nível só quebraria a cada `where` acrescentado,
+   * escondendo a mudança real atrás de um TypeError.
+   */
+  const chain = (resultado: unknown): Record<string, unknown> => {
+    const node: Record<string, unknown> = {
+      returningAll: () => node,
+      execute: vi.fn().mockResolvedValue(resultado),
+    };
+    node.where = () => node;
+    return node;
+  };
+
   return {
     updateTable: () => ({
       set: (values: Record<string, unknown>) => {
         if (!claimed) {
           claimed = true;
-          return {
-            where: () => ({
-              returningAll: () => ({ execute: vi.fn().mockResolvedValue(entries) }),
-            }),
-          };
+          return chain(entries);
         }
         captured.push(values);
-        return { where: () => ({ execute: vi.fn().mockResolvedValue([]) }) };
+        return chain([]);
       },
     }),
   } as unknown as Kysely<Database>;
@@ -171,6 +183,8 @@ describe('deliverPendingNotifications', () => {
     await deliverPendingNotifications(fakeDb([makeEntry()], captured));
 
     expect(captured[0]).toMatchObject({ attempt_count: 5, last_error: 'HTTP 400' });
+    // Fora da fila de vez: agendar retorno de payload defeituoso seria ruído.
+    expect(captured[0].next_attempt_at).toBeNull();
   });
 
   it.each([401, 403, 404])(
@@ -186,6 +200,11 @@ describe('deliverPendingNotifications', () => {
       await deliverPendingNotifications(fakeDb([makeEntry({ attempt_count: 2 })], captured));
 
       expect(captured[0]).toMatchObject({ attempt_count: 3, last_error: `HTTP ${status}` });
+      // Achado P1 (PR #289): incrementar sem agendar fazia `claimPending`
+      // (`attempt_count < 5`) descartar de vez o aviso depois de cinco falhas
+      // transitórias — ~25 min de `accounts.` fora bastavam. Agora a entrada só
+      // volta mais devagar; quem some da fila é payload defeituoso (400/422).
+      expect(captured[0].next_attempt_at).toBeInstanceOf(Date);
     },
   );
 
