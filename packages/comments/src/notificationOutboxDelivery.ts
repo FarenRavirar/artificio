@@ -480,46 +480,65 @@ async function deliverOne(entry: OutboxEntry, options: DeliveryOptions): Promise
   const { store, logTag } = options;
   const recipients = entry.recipients;
 
+  /**
+   * Grava o desfecho da entrada, engolindo falha do próprio `update`.
+   *
+   * TODA gravação passa por aqui (achado de review, PR #289, CodeRabbit). O
+   * banco pode falhar em qualquer um dos quatro desfechos, e um `update` solto
+   * que lança aborta a VARREDURA inteira: as demais entradas já reservadas
+   * ficam com o claim preso até o lease expirar — 10 minutos de fila parada por
+   * causa de uma linha.
+   *
+   * O caminho de `recipients` inválido já tinha esse cuidado; os outros três
+   * ficaram de fora quando extraí `deliverOne` do laço, e o `catch` externo
+   * fazia parecer que estavam cobertos — não estavam: ele chamava `update` de
+   * novo, e a segunda falha propagava.
+   *
+   * Devolve `false` quando não conseguiu gravar, e aí o desfecho é `failed`:
+   * dizer `delivered` sem ter marcado a linha faria o sweep seguinte reentregar
+   * o mesmo aviso, contando como entregue duas vezes.
+   */
+  const gravar = async (values: OutboxUpdate, contexto: string): Promise<boolean> => {
+    try {
+      await store.update(entry.id, values);
+      return true;
+    } catch (error: unknown) {
+      console.error(`${logTag} falha ao gravar desfecho (${contexto}) da entrada ${entry.id}:`, error);
+      return false;
+    }
+  };
+
   if (!isUuidArray(recipients) || recipients.length === 0) {
     // Payload que o `accounts.` recusaria com 400 em toda tentativa. Marca
     // entregue com erro registrado em vez de retentar cinco vezes o que não tem
     // como dar certo — e o `last_error` deixa o caso auditável.
-    //
-    // Dentro de try/catch (achado de review, PR #289, CodeRabbit): este `update`
-    // estava solto, então uma falha dele abortava a VARREDURA inteira, e as
-    // demais entradas já reservadas ficavam com o claim preso até o lease
-    // expirar — 10 minutos de fila parada por causa de uma linha.
-    try {
-      await store.update(entry.id, {
-        delivered_at: new Date(),
-        last_error: 'recipients inválido',
-        claimed_until: null,
-      });
-      return 'skipped';
-    } catch (error: unknown) {
-      console.error(`${logTag} falha ao marcar entrada com recipients inválido:`, error);
-      return 'failed';
-    }
+    const marcou = await gravar({
+      delivered_at: new Date(),
+      last_error: 'recipients inválido',
+      claimed_until: null,
+    }, 'recipients inválido');
+    return marcou ? 'skipped' : 'failed';
   }
 
   try {
     const status = await postEntry(entry, recipients, options);
 
     if (status === 202 || status === 200) {
-      await store.update(entry.id, {
+      // `delivered` só quando a linha foi de fato marcada — ver `gravar`.
+      const marcou = await gravar({
         delivered_at: new Date(),
         last_error: null,
         claimed_until: null,
-      });
-      return 'delivered';
+      }, `HTTP ${status}`);
+      return marcou ? 'delivered' : 'failed';
     }
 
-    await store.update(entry.id, rejectionUpdate(entry, status, logTag));
+    await gravar(rejectionUpdate(entry, status, logTag), `HTTP ${status}`);
     return 'failed';
   } catch (error: unknown) {
     const reason = error instanceof Error && error.name === 'AbortError' ? 'timeout' : String(error);
     // Falha de rede/timeout é ambiente por definição: mesmo tratamento do 5xx.
-    await store.update(entry.id, transientUpdate(entry, reason));
+    await gravar(transientUpdate(entry, reason), reason);
     return 'failed';
   }
 }

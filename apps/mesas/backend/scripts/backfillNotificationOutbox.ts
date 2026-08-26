@@ -17,6 +17,16 @@
  * destinatário com id central resolvível; 1 cai no `google_id` legado de 21
  * dígitos e é PULADA com registro, não silenciosamente.
  *
+ * **PRÉ-REQUISITO antes do `--apply`: a credencial de serviço do `mesas` precisa
+ * do escopo `notification.migrate`.** Os avisos já lidos viajam com `read_at`
+ * para nascerem lidos no `accounts.`, e o ingest recusa esse campo com 403
+ * (`forbidden_scope`) sem o escopo — trava deliberada, porque criar aviso já
+ * lido é silenciar aviso (achado de review, PR #289, CodeRabbit). Nenhuma
+ * credencial tem o escopo por padrão; concedê-lo é UPDATE explícito em
+ * `community_service_credential`, e removê-lo depois do backfill é o caminho
+ * seguro. Sem ele, as entradas dos 4 lidos falham na entrega e ficam na fila com
+ * `last_error: HTTP 403` — nada se perde, mas nada chega.
+ *
  * Uso (dry-run é o default — nada é gravado sem `--apply`):
  *   tsx scripts/backfillNotificationOutbox.ts
  *   tsx scripts/backfillNotificationOutbox.ts --apply

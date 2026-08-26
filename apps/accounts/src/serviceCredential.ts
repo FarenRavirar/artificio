@@ -53,6 +53,16 @@ export const SERVICE_SCOPES = [
   // nome de usuário nem de decidir caso de moderação. Espelha o CHECK de
   // `scopes` na migration 011.
   "notification.write",
+  // T7.4b (spec 096) — MIGRAÇÃO de histórico legado: autoriza `read_at` no corpo
+  // do ingest, que faz o recibo nascer JÁ LIDO. Escopo separado de
+  // `notification.write` porque a capacidade é de outra natureza: criar aviso
+  // pendente é o trabalho normal de um produtor; criar aviso já lido é
+  // SILENCIAR um aviso — nas mãos do fluxo corrente, bastaria mandar o campo
+  // para o sino nunca acender (achado de review, PR #289, CodeRabbit).
+  //
+  // Nenhuma credencial tem este escopo: conceder exige UPDATE explícito, e o
+  // CHECK da migration_012 garante que o nome sequer é aceito sem ela.
+  "notification.migrate",
 ] as const;
 
 export type ServiceScope = (typeof SERVICE_SCOPES)[number];

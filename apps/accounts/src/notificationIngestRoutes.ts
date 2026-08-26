@@ -120,6 +120,22 @@ async function handleIngestEvent(
     return;
   }
 
+  // `read_at` exige escopo próprio (achado de review, PR #289, CodeRabbit).
+  //
+  // A checagem vem ANTES do parse do corpo, e devolve 403 em vez de 400: o
+  // problema não é a forma do payload, é a credencial não ter a capacidade. Um
+  // 400 aqui diria ao chamador que o campo está malformado, quando ele está
+  // correto e apenas não é permitido para quem pediu.
+  if (
+    req.body !== null
+    && typeof req.body === "object"
+    && "read_at" in (req.body as Record<string, unknown>)
+    && !identity.scopes.includes("notification.migrate")
+  ) {
+    res.status(403).json({ error: "forbidden_scope" });
+    return;
+  }
+
   const parsed = ingestSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "invalid_body" });

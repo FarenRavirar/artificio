@@ -47,7 +47,12 @@ describe('fronteiras do pacote', () => {
     expect(packageJson.scripts?.build).toContain('copyFileSync');
   });
 
-  it('mantém o root livre de React, TanStack e globals de navegador', async () => {
+  // 15s em vez dos 5s default: o caso só lê arquivos, mas o `pnpm run test`
+  // repo-wide roda 43 pacotes concorrentes e a contenção de I/O estourava o
+  // limite (medido em 2026-08-26: `5123ms`, verde isolado em 3/3 execuções).
+  // Aumentar o teto de um teste de leitura é o custo certo; o que ele afere não
+  // tem nada a ver com tempo.
+  it('mantém o root livre de React, TanStack e globals de navegador', { timeout: 15_000 }, async () => {
     const sourceDirectory = resolve(packageRoot, 'src');
     const rootModules = (await readdir(sourceDirectory))
       .filter((name) => name.endsWith('.ts') && !name.endsWith('.test.ts') && name !== 'react.ts')

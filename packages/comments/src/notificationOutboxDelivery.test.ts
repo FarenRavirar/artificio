@@ -218,6 +218,42 @@ describe('deliverOutboxEntries — robustez da varredura', () => {
     expect(updates).toBe(2);
   });
 
+  // Achado de review (PR #289, CodeRabbit). Defeito que EU introduzi ao extrair
+  // `deliverOne` do laço: só o caminho de `recipients` inválido tinha try/catch,
+  // e o `catch` externo fazia parecer que os outros estavam cobertos — ele
+  // chamava `update` de novo, e a segunda falha propagava, abortando a varredura.
+  it('falha ao marcar entrega não conta como entregue nem aborta a varredura', async () => {
+    const spy = vi.fn().mockResolvedValue({ status: 202 });
+    const updates: OutboxUpdate[] = [];
+    const store: OutboxStore = {
+      claimPending: async () => [{ ...ENTRY, id: 'outbox-1' }, { ...ENTRY, id: 'outbox-2' }],
+      // Falha SÓ na marcação de entrega. Um mock que lançasse em todo `update`
+      // não distinguiria os dois códigos: o `catch` externo chamaria `update` de
+      // novo, e a segunda falha seria engolida do mesmo jeito.
+      update: async (id, values) => {
+        if (id === 'outbox-1' && values.delivered_at) {
+          throw new Error('banco indisponível');
+        }
+        updates.push(values);
+      },
+    };
+
+    const result = await deliver(store, spy);
+
+    // A primeira POSTou com sucesso mas não conseguiu marcar a linha. Dizer
+    // `delivered` faria o sweep seguinte reentregar o mesmo aviso e contá-lo
+    // duas vezes — por isso conta como falha.
+    expect(result.delivered).toBe(1);
+    expect(result.failed).toBe(1);
+    // E a segunda entrada foi processada: a varredura não abortou.
+    expect(spy).toHaveBeenCalledTimes(2);
+    // Sem `gravar`, o `update` lançava DENTRO do try, o `catch` externo o tomava
+    // por falha de rede e gravava `transient_count`/`next_attempt_at` — ou seja,
+    // agendava retentativa para uma entrega que o `accounts.` já aceitou. Com o
+    // helper, a falha é registrada onde aconteceu e nada é reagendado.
+    expect(updates.some((u) => u.transient_count !== undefined)).toBe(false);
+  });
+
   it('cancela o corpo da resposta, inclusive no sucesso (libera a conexão)', async () => {
     const cancelBody = vi.fn().mockResolvedValue(undefined);
     const spy = vi.fn().mockResolvedValue({ status: 202, cancelBody });
@@ -340,6 +376,11 @@ describe('falha transitória prolongada não abandona o aviso', () => {
     const agendado = (updates[0].next_attempt_at as Date).getTime() - antes;
     // Não vira "daqui a 2^41 minutos": o aviso precisa continuar entregável
     // assim que o `accounts.` voltar.
-    expect(agendado).toBeLessThanOrEqual(OUTBOX_BACKOFF_CAP_MINUTES * 60_000);
+    //
+    // A margem existe porque `antes` é capturado FORA da execução: o `Date.now()`
+    // interno corre alguns ms depois, e a comparação exata falhava por 1ms
+    // (medido). O que o caso prova é a ordem de grandeza — teto de 60 min contra
+    // as horas que o backoff sem limite geraria —, não o milissegundo.
+    expect(agendado).toBeLessThanOrEqual(OUTBOX_BACKOFF_CAP_MINUTES * 60_000 + 5_000);
   });
 });

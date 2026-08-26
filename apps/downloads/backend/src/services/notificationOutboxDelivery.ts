@@ -1,6 +1,6 @@
 import type { Kysely } from 'kysely';
 import { fetch as undiciFetch } from 'undici';
-import { createOutboxRunner, type DeliveryResult } from '@artificio/comments';
+import { createOutboxRunner } from '@artificio/comments';
 import { db } from '../db';
 import type { Database } from '../db/types';
 
@@ -22,7 +22,7 @@ import type { Database } from '../db/types';
 
 const OUTBOX_TABLE = 'download_notification_outbox';
 
-export type { DeliveryResult };
+export type { DeliveryResult } from '@artificio/comments';
 
 const runner = createOutboxRunner<Kysely<Database>>({
   table: OUTBOX_TABLE,

@@ -1,5 +1,5 @@
 import type { Kysely } from 'kysely';
-import { createOutboxRunner, type DeliveryResult } from '@artificio/comments';
+import { createOutboxRunner } from '@artificio/comments';
 import { db } from '../db/index.js';
 import type { Database } from '../db/types.js';
 
@@ -19,7 +19,7 @@ import type { Database } from '../db/types.js';
 
 const OUTBOX_TABLE = 'mesas_notification_outbox';
 
-export type { DeliveryResult };
+export type { DeliveryResult } from '@artificio/comments';
 
 const runner = createOutboxRunner<Kysely<Database>>({
   table: OUTBOX_TABLE,
