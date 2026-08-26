@@ -1,9 +1,14 @@
 // @vitest-environment jsdom
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDefaultEditorState } from './hooks/useTableEditor';
 import type { TableEditorApi } from './hooks/useTableEditor';
 import { TableEditor } from './TableEditor';
+
+/** Diretório deste arquivo, relativo à raiz do app (cwd do vitest). */
+const DIR = resolve(process.cwd(), 'src/features/table-editor');
 
 /**
  * Teste da CASCA do editor: lateral com as 7 partes, navegação, pendências,
@@ -302,5 +307,118 @@ describe('nome do cenário (B4) — via authGet (wrapper padrão) + leitura defe
     });
     // Editor segue renderizado — o nome não-string virou null sem crash.
     expect(container.querySelector('.table-editor')).toBeInTheDocument();
+  });
+});
+
+/**
+ * A1 (spec 096) — a coluna de trabalho tem de ser ALCANÇÁVEL.
+ *
+ * O critério escrito em `spec.md:1097` é `scrollHeight <= clientHeight` em cada
+ * parte. Medido em beta (2026-08-26), a parte `identity` reprovava esse
+ * critério nas DUAS resoluções que ele nomeia — 2166px de excedente a
+ * 1366×768 e 1854px a 1920×1080. O `overflow:hidden` não fazia A1 passar: ele
+ * ESCONDIA a falha, cortando 774px de formulário — cinco campos, dois deles
+ * obrigatórios (`Descrição da mesa`, `Sistema da mesa`) — sem barra, com a
+ * roda do mouse inerte e sem nenhum ancestral rolável, enquanto o rodapé
+ * acusava "Campos obrigatórios faltando em: Identidade".
+ *
+ * O R1 corrigido pelo mantenedor (`spec.md:15-19`, 2026-08-25) proíbe rolagem
+ * INTERNA — gaveta, sub-área com barra própria —, e diz que "a página em si
+ * rola normalmente"; a leitura literal de "documento travado em
+ * `overflow:hidden`" é nomeada ali como NÃO sendo o desenho. Era essa leitura
+ * que o código tinha.
+ *
+ * jsdom não faz layout: `scrollHeight` é sempre 0 aqui, então medir o critério
+ * numérico neste ambiente daria verde vazio (E022). O que este teste trava é a
+ * REGRESSÃO estrutural: que nenhum nível da casca volte a `overflow:hidden` e
+ * que os wrappers das partes não voltem a `h-full overflow-hidden`. A medição
+ * numérica de A1 é de navegador real.
+ */
+describe('A1 — conteúdo da parte não pode ficar inalcançável', () => {
+  // Lê os ARQUIVOS-FONTE das 7 parts: neste teste as parts estão mockadas, e
+  // um assert sobre o DOM renderizado passaria com o defeito reinjetado
+  // (verificado — o teste anterior não mordia). A fonte é o que prova.
+  const PARTS = [
+    'IdentityPart',
+    'WhenPart',
+    'WherePart',
+    'ValuesPart',
+    'AudiencePart',
+    'MasterPart',
+    'ExtrasPart',
+  ];
+
+  it.each(PARTS)('%s não corta o próprio conteúdo com h-full/overflow-hidden', (part) => {
+    const fonte = readFileSync(
+      resolve(DIR, 'parts', `${part}.tsx`),
+      'utf8',
+    );
+
+    // O wrapper interno cortava ANTES de o pai poder rolar: `h-full
+    // overflow-hidden` estava repetido nos 7 arquivos, e por isso a parte
+    // `identity` escondia 774px — cinco campos, dois obrigatórios.
+    expect(fonte).not.toMatch(/max-w-\[900px\][^"]*overflow-hidden/);
+    expect(fonte).not.toMatch(/max-w-\[900px\][^"]*h-full/);
+  });
+
+  it('a casca deixa a coluna de trabalho rolar em vez de cortar', () => {
+    // Comentários de bloco no CSS contêm chaves, então recortar a regra por
+    // regex é frágil: compara-se o arquivo com os comentários removidos.
+    const css = readFileSync(resolve(DIR, 'TableEditor.css'), 'utf8').replace(
+      /\/\*[\s\S]*?\*\//g,
+      '',
+    );
+
+    // R1 corrigido pelo mantenedor (spec.md:15-19, 2026-08-25): o que se
+    // proíbe é rolagem INTERNA (gaveta, sub-área com barra própria); "a página
+    // em si rola normalmente", e a leitura literal de "documento travado em
+    // overflow:hidden" é nomeada ali como NÃO sendo o desenho. Era essa
+    // leitura que o código tinha, e ela escondia 774px de formulário.
+    // Quem rola é o DOCUMENTO (achado de review, PR #290, Codex P1): com o
+    // overflow em cada parte, toda parte virava uma subárea rolável
+    // independente — a "caixinha que rola dentro da página" que o R1 proíbe.
+    expect(css).toMatch(/\.table-editor-document\s*\{[^}]*overflow-y:\s*auto/);
+    expect(css).not.toMatch(/\.table-editor-document\s*\{[^}]*overflow:\s*hidden/);
+    // E a parte NÃO pode ter barra própria de volta.
+    expect(css).not.toMatch(/\.table-editor-part\s*\{[^}]*overflow-y:\s*auto/);
+    expect(css).not.toMatch(/\.table-editor-part\s*\{[^}]*overflow:\s*hidden/);
+  });
+
+  it('a nav de partes expõe o gancho da media query de tela estreita', () => {
+    // Sem esta classe a regra que vira a lateral em faixa horizontal abaixo de
+    // 720px deixa de casar em silêncio, e o formulário volta a receber 90px de
+    // largura em 390px (medido antes da correção).
+    const { container } = renderEditor(makeApi());
+
+    expect(container.querySelector('.table-editor-parts-nav')).toBeInTheDocument();
+  });
+
+  it('trocar de parte volta o documento ao topo', () => {
+    // Achado de review (PR #290, Codex P2): a <section> é a mesma em todas as
+    // partes — só os filhos condicionais trocam —, então o scrollTop sobrevivia
+    // à navegação. Medido com duas partes altas: 800px de scroll persistiam
+    // intactos na parte de destino, escondendo os primeiros campos dela.
+    const { container } = renderEditor(makeApi());
+    const doc = container.querySelector('.table-editor-document') as HTMLElement;
+    expect(doc).toBeInTheDocument();
+
+    // jsdom não faz layout, então `scrollTop` fica em 0 sozinho: simula-se a
+    // posição rolada antes de trocar de parte para que o assert tenha o que
+    // provar. Foi este teste que denunciou o uso de `Element.scrollTo`, que o
+    // jsdom não implementa — e que teria quebrado o editor no mesmo ambiente.
+    doc.scrollTop = 800;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Valores' }));
+
+    expect(doc.scrollTop).toBe(0);
+  });
+
+  it('a casca declara o ponto de quebra para tela estreita', () => {
+    const css = readFileSync(resolve(DIR, 'TableEditor.css'), 'utf8');
+
+    // Antes da correção não havia NENHUMA media query no arquivo e nenhuma
+    // classe responsiva no diretório: o grid `300px` fixo deixava 90px para o
+    // formulário inteiro em 390px, com 428 elementos estourando a viewport.
+    expect(css).toMatch(/@media[^{]*max-width:\s*719px/);
   });
 });

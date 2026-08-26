@@ -21,7 +21,7 @@ export function ExtrasPart({ api, userRole, isDdalEligible }: ExtrasPartProps) {
   const { state, patch, errors } = api;
 
   return (
-    <div className="flex flex-col gap-3.5 max-w-[900px] h-full overflow-hidden">
+    <div className="flex flex-col gap-3.5 max-w-[900px]">
       <EditorField
         fieldId="technicalRequirements"
         state={state}

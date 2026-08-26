@@ -20,7 +20,9 @@ export default {
           success: "#10B981",
           "success-text": "#15803D",
           warning: "#F59E0B",
-          "warning-text": "#A16207",
+          // amber 800 (era #A16207): 4.42:1 reprovava AA sobre o fundo real do
+          // badge de warning; #854D0E mede 6.16:1. Ver tokens.ts.
+          "warning-text": "#854D0E",
           danger: "#EF4444",
           "danger-text": "#B91C1C",
           info: "#38BDF8",

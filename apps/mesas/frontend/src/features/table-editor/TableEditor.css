@@ -55,19 +55,108 @@
   overflow: hidden;
 }
 
+/* Mobile/tela estreita (achado do mantenedor, 2026-08-26): o grid de duas
+   colunas era FIXO — nenhuma media query existia neste arquivo e nenhuma
+   classe responsiva no diretório do editor. Medido simulando 390px: a lateral
+   de 300px tomava 77% da tela, sobravam 90px para o formulário inteiro e 428
+   elementos estouravam a viewport na horizontal.
+   Abaixo de 720px (300 da lateral + 900 da coluna de trabalho não cabem, e
+   nem faz sentido tentar), a lateral deixa de ser coluna e vira uma faixa no
+   topo: navegação entre partes rolando na horizontal, documento ocupando a
+   largura inteira. A prévia do card é escondida aqui de propósito — ela exige
+   280px+ para desenhar o card real, e disputar essa largura com o formulário
+   entregaria os dois ruins. */
+@media (max-width: 719px) {
+  .table-editor-body {
+    grid-template-columns: 100%;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .table-editor-body > aside {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  /* A lista de partes vira faixa horizontal rolável: em coluna, sete botões
+     empilhados comeriam a tela inteira antes do primeiro campo. */
+  .table-editor-parts-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .table-editor-parts-nav > * {
+    flex: 0 0 auto;
+  }
+
+  /* Só a prévia some; a navegação entre partes continua acessível. */
+  .table-editor-preview {
+    display: none;
+  }
+
+  /* A coluna de trabalho encosta menos nas bordas: os 28px do `px-7` de cada
+     lado, num viewport de 390, custariam 14% da largura útil do campo.
+     Unlayered vence a utility layered do Tailwind v4 (mesma mecânica descrita
+     no cabeçalho deste arquivo), então não precisa de `!`. */
+  .table-editor-part {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
 /* Documento: uma parte visível por vez, campos sempre abertos, coluna ≤900px
    centrada, sem rolagem em nenhum nível (A1). */
+/* Quem rola é o DOCUMENTO, não cada parte (achado de review, PR #290, Codex
+   P1). A distinção importa: o documento é o contêiner que representa a página
+   dentro da casca imersiva, e uma barra ali é a rolagem do documento — não a
+   "caixinha que rola dentro da página" (gaveta, sub-área com barra própria)
+   que o R1 proíbe. Com o overflow em cada `.table-editor-part`, toda parte
+   virava uma subárea rolável independente; com ele aqui, existe UMA rolagem, a
+   do documento.
+
+   Por que não jogar a rolagem para o `body`, que seria a leitura mais literal
+   do R1: medido nesta revisão — tirando o `position:fixed`, a página rola
+   2134px e leva a barra de estado junto, e o botão "Publicar"/"Salvar
+   alterações" sai da viewport (`top: -2006`). O mestre preencheria o
+   formulário sem ter como publicar sem voltar ao topo. O `fixed` existe
+   justamente porque o AppShell monta Header + Footer em volta (ver cabeçalho
+   deste arquivo); a casca imersiva é decisão da spec, e o documento é o nível
+   mais alto que pode rolar sem levar as ações embora. */
 .table-editor-document {
   display: flex;
   justify-content: center;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .table-editor-part {
   width: min(900px, 100%);
   height: 100%;
-  overflow: hidden;
+  /* A1 REVISTO (mantenedor, 2026-08-26): era `overflow: hidden`. Medido em
+     beta: a parte `identity` tem 1588px de conteúdo em 814px de caixa e
+     cortava 774px SEM rolagem alcançável — roda do mouse inerte, sem barra,
+     nenhum ancestral rolável, página fixa em 100dvh. Cinco campos ficavam
+     invisíveis, dois deles obrigatórios (`Descrição da mesa`, `Sistema da
+     mesa`), enquanto o rodapé acusava "Campos obrigatórios faltando em:
+     Identidade" — o usuário era informado do erro e impedido de corrigi-lo.
+     `master` cortava 38px; as outras partes cabiam por folga de conteúdo, não
+     por design.
+     A1 pressupunha que toda parte coubesse na viewport; a premissa é falsa e
+     não se sustenta com conteúdo variável (texto do usuário, tela baixa,
+     zoom). A casca segue imersiva e sem rolagem no BODY — o que rola agora é
+     o documento, um nível acima (ver `.table-editor-document`).
+
+     A parte em si NÃO rola: ela cresce, e a rolagem é do documento. Ter a
+     barra aqui faria de cada parte uma subárea rolável independente — a
+     "caixinha que rola dentro da página" que o R1 proíbe (achado de review,
+     PR #290, Codex P1). `height` fixo a prenderia à altura da caixa e traria a
+     barra de volta para dentro dela; `min-height: 100%` mantém o fundo
+     ocupando a faixa inteira quando o conteúdo é curto. */
+  min-height: 100%;
+  height: auto;
 }
 
 /* ── Prévia do card (R22/T4.2b): espelho vivo do estado, com o

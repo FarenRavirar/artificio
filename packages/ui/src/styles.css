@@ -17,7 +17,12 @@
   --artificio-success: #10b981;
   --artificio-success-text: #15803d;
   --artificio-warning: #f59e0b;
-  --artificio-warning-text: #a16207;
+  /* #a16207 → #854d0e (achado do mantenedor, 2026-08-26): o token nasceu para
+     ser "AA sobre claro" (bug B7, comentário acima), mas não cumpria sobre o
+     fundo real do próprio badge. `--state-warning-bg` é `rgba(245,158,11,.14)`
+     — sobre branco compõe rgb(254,241,221), e ali o #a16207 media 4.42:1,
+     abaixo do mínimo 4.5 de AA. #854d0e mede 6.16:1 no mesmo fundo. */
+  --artificio-warning-text: #854d0e;
   --artificio-danger: #ef4444;
   --artificio-danger-text: #b91c1c;
   --artificio-info: #38bdf8;

@@ -138,7 +138,7 @@ export function WherePart({ api }: WherePartProps) {
     .map((p) => p.name);
 
   return (
-    <div className="flex flex-col gap-3.5 max-w-[900px] h-full overflow-hidden">
+    <div className="flex flex-col gap-3.5 max-w-[900px]">
       <EditorField
         fieldId="modality"
         state={state}

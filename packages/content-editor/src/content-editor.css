@@ -10,6 +10,13 @@
 .artificio-content-editor__toolbar {
   display: flex;
   align-items: center;
+  /* `wrap` (achado do mantenedor, 2026-08-26): sem ele os botões da barra não
+     cabem em tela estreita e o último ("Link") vazava 15px para fora da
+     viewport em 390px — medido no editor de anúncio do mesas. Envolver é o
+     comportamento correto para uma barra de ferramentas; encolher os botões
+     comprometeria o alvo de toque. Vale para os três consumidores do pacote
+     (mesas, downloads, site). */
+  flex-wrap: wrap;
   gap: 0.25rem;
   border-bottom: 1px solid var(--line, rgba(148, 163, 184, 0.35));
   padding: 0.5rem;

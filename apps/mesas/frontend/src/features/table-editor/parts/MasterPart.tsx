@@ -30,7 +30,7 @@ export function MasterPart({ api }: MasterPartProps) {
   const isAnnouncer = state.publisherRole === 'announcer';
 
   return (
-    <div className="flex flex-col gap-3.5 max-w-[900px] h-full overflow-hidden">
+    <div className="flex flex-col gap-3.5 max-w-[900px]">
       <EditorField
         fieldId="publisherRole"
         state={state}

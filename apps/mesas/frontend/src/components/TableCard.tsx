@@ -381,10 +381,17 @@ export function TableCardComponent({ table }: { table: TableCard }) {
               fora do enum ficam em silêncio. */}
           {ageRatingLabel(table.age_rating) !== null && (
             <span
-              className={`rounded-md bg-black/55 px-2 py-1 text-[11px] backdrop-blur-sm ${
+              /* `!text-white` nos dois ramos (achado do mantenedor,
+                 2026-08-26): o fundo é `bg-black/55` FIXO, então o texto tem
+                 de ser branco fixo também. No light, a cor computada de
+                 "Livre" vinha escura (`rgba(11,18,32,0.92)` — medido) porque
+                 uma regra de tema vencia a utility `text-white/90`, dando
+                 3.67:1, escuro sobre escuro. O ramo restrito já era `text-white`
+                 e não falhava; a divergência entre os dois ramos era o defeito. */
+              className={`rounded-md bg-black/55 px-2 py-1 text-[11px] !text-white backdrop-blur-sm ${
                 isRestrictedAgeRating(table.age_rating)
-                  ? 'font-black tracking-wide text-white'
-                  : 'font-semibold tracking-wide text-white/90'
+                  ? 'font-black tracking-wide'
+                  : 'font-semibold tracking-wide'
               }`}
             >
               {isRestrictedAgeRating(table.age_rating)
@@ -449,7 +456,11 @@ export function TableCardComponent({ table }: { table: TableCard }) {
                 o mestre fecha recrutamento manualmente (slots_open menor que o cálculo cru). */}
             <div className="flex flex-col gap-1">
               <SlotsIndicator table={table} variant="compact" />
-              <span className="text-[11px] text-white/40">
+              {/* Token, não branco fixo (achado do mantenedor, 2026-08-26):
+                  `text-white/40` media 3.76:1 no light — branco a 40% sobre
+                  superfície clara. `--fg-muted` acompanha o tema e mede
+                  6.07:1 sobre branco. */}
+              <span className="text-[11px] text-[var(--fg-muted)]">
                 {getSlotsVisualState(table).filled}/{getSlotsVisualState(table).total} preenchidas
               </span>
             </div>
