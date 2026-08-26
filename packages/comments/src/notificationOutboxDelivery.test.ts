@@ -29,6 +29,7 @@ const ENTRY = {
   created_at: new Date('2026-08-25T12:00:00.000Z'),
   delivered_at: null,
   attempt_count: 0,
+  transient_count: 0,
   last_error: null,
   claimed_until: null,
 };
@@ -136,15 +137,15 @@ describe('deliverPendingNotifications — política de retry (T7.4b)', () => {
 
     await deliver(store, spy);
 
-    // Incrementa UMA tentativa — não salta para o teto. Tratar qualquer um
-    // destes como terminal apagaria o aviso por uma janela já encerrada.
-    expect(updates[0].attempt_count).toBe(1);
+    // NÃO toca `attempt_count` — este é o ponto do achado P1 (PR #289, segunda
+    // rodada). Incrementar aqui fazia a quinta falha transitória gravar 5, e
+    // `claimPending` filtra `attempt_count < 5`: o aviso saía da fila para
+    // sempre. Acrescentar só o backoff tinha apenas ADIADO esse abandono.
+    expect(updates[0].attempt_count).toBeUndefined();
+    expect(updates[0].transient_count).toBe(1);
     expect(updates[0].last_error).toBe(`HTTP ${status}`);
     // Libera o claim: volta à fila na próxima varredura, sem esperar o lease.
     expect(updates[0].claimed_until).toBeNull();
-    // ...mas só depois do backoff (achado P1, PR #289): sem agendar, o sweep a
-    // cada 5 min queimava as 5 tentativas em 25 min de indisponibilidade e o
-    // aviso saía da fila para sempre.
     expect(updates[0].next_attempt_at).toBeInstanceOf(Date);
   });
 
@@ -156,9 +157,10 @@ describe('deliverPendingNotifications — política de retry (T7.4b)', () => {
     const result = await deliver(store, spy);
 
     expect(result.failed).toBe(1);
-    expect(updates[0].attempt_count).toBe(1);
-    expect(updates[0].last_error).toBe('timeout');
     // Rede é ambiente por definição: adia, não descarta.
+    expect(updates[0].attempt_count).toBeUndefined();
+    expect(updates[0].transient_count).toBe(1);
+    expect(updates[0].last_error).toBe('timeout');
     expect(updates[0].next_attempt_at).toBeInstanceOf(Date);
   });
 
@@ -258,5 +260,86 @@ describe('backoffDelayMs — falha de ambiente adia, não descarta', () => {
     for (let i = 0; i <= 12; i += 1) {
       expect(backoffDelayMs(i)).toBeGreaterThan(0);
     }
+  });
+});
+
+// Achado P1 da PR #289, segunda rodada: a primeira correção acrescentou o
+// backoff mas manteve o incremento de `attempt_count`, então o abandono apenas
+// mudou de hora. Este caso é o que prova que ele sumiu.
+describe('falha transitória prolongada não abandona o aviso', () => {
+  it('não esgota o teto nem na décima falha seguida', async () => {
+    const spy = vi.fn().mockResolvedValue({ status: 503 });
+    // Entrada que já sofreu 9 quedas do `accounts.` — bem além das 5 do teto.
+    const { store, updates } = makeStore([{ ...ENTRY, transient_count: 9 }]);
+
+    await deliver(store, spy);
+
+    // `attempt_count` intocado: o claim continua enxergando a entrada, porque
+    // `attempt_count < OUTBOX_MAX_ATTEMPTS` segue verdadeiro.
+    expect(updates[0].attempt_count).toBeUndefined();
+    expect(updates[0].transient_count).toBe(10);
+    expect(updates[0].next_attempt_at).toBeInstanceOf(Date);
+  });
+
+  // Achado de review (PR #289, CodeRabbit): "adicione um teste cobrindo a quinta
+  // falha transitória seguida de uma entrega bem-sucedida". Os dois casos acima
+  // olham UMA varredura isolada; este percorre o ciclo inteiro, que é onde o
+  // defeito original aparecia — a entrada sumia da fila ENTRE varreduras, e
+  // nenhuma asserção sobre um `update` avulso pegaria isso.
+  it('sobrevive a cinco quedas seguidas e entrega quando o accounts volta', async () => {
+    // Store que se comporta como o banco: aplica cada `update` na linha e
+    // reavalia o filtro do claim (`attempt_count < OUTBOX_MAX_ATTEMPTS`) na
+    // varredura seguinte. Um store que sempre devolve a entrada esconderia
+    // exatamente o abandono que este teste existe para detectar.
+    // `delivered_at`/`last_error` não estão em `OutboxEntry` (a entrega só LÊ o
+    // que precisa para montar o POST), mas existem na linha real e são o que o
+    // claim e a asserção final consultam.
+    const linha: OutboxEntry & { delivered_at: Date | null; last_error: string | null } = {
+      ...ENTRY,
+      delivered_at: null,
+      last_error: null,
+    };
+    const store: OutboxStore = {
+      claimPending: async (_limit, maxAttempts) =>
+        (linha.delivered_at === null && linha.attempt_count < maxAttempts ? [linha] : []),
+      update: async (_id, values) => {
+        Object.assign(linha, values);
+      },
+    };
+
+    const spy = vi.fn().mockResolvedValue({ status: 503 });
+    for (let queda = 1; queda <= 5; queda += 1) {
+      const parcial = await deliver(store, spy);
+      // A entrada continua sendo reservada em TODA varredura — inclusive a 5a,
+      // que era exatamente onde ela desaparecia antes.
+      expect(parcial.failed).toBe(1);
+      expect(linha.transient_count).toBe(queda);
+    }
+
+    // `attempt_count` nunca se moveu: cinco quedas do ambiente não gastam o
+    // orçamento de descarte, que pertence só a defeito de payload.
+    expect(linha.attempt_count).toBe(0);
+    expect(linha.delivered_at).toBeNull();
+
+    // `accounts.` volta.
+    spy.mockResolvedValue({ status: 202 });
+    const final = await deliver(store, spy);
+
+    expect(final.delivered).toBe(1);
+    expect(linha.delivered_at).toBeInstanceOf(Date);
+    expect(linha.last_error).toBeNull();
+  });
+
+  it('o backoff satura no teto em vez de crescer sem limite', async () => {
+    const spy = vi.fn().mockResolvedValue({ status: 503 });
+    const { store, updates } = makeStore([{ ...ENTRY, transient_count: 40 }]);
+    const antes = Date.now();
+
+    await deliver(store, spy);
+
+    const agendado = (updates[0].next_attempt_at as Date).getTime() - antes;
+    // Não vira "daqui a 2^41 minutos": o aviso precisa continuar entregável
+    // assim que o `accounts.` voltar.
+    expect(agendado).toBeLessThanOrEqual(OUTBOX_BACKOFF_CAP_MINUTES * 60_000);
   });
 });

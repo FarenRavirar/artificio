@@ -62,6 +62,68 @@ function asRecord(value: unknown): Record<string, unknown> {
     : {};
 }
 
+/** Uma linha de `notifications` com o `google_id` do destinatário já resolvido. */
+type LinhaLegada = {
+  id: string;
+  user_id: string;
+  type: unknown;
+  title: string;
+  message: string;
+  action_url: unknown;
+  metadata: unknown;
+  read: boolean;
+  created_at: Date;
+  google_id: string | null;
+};
+
+/** Linha aprovada para migração, com o que a decisão já resolveu. */
+type Migravel = { eventType: string; centralId: string; canonicalPath: string };
+
+/**
+ * Decide se uma linha legada vira evento no outbox.
+ *
+ * Extraída de `main` (Sonar: complexidade cognitiva 16 > 15). As três exclusões
+ * respondem à mesma pergunta — "esta linha é migrável?" —, então lê melhor junto
+ * do que intercalado com o laço de escrita.
+ */
+function avaliarLinha(row: LinhaLegada): Migravel | { motivo: string } {
+  const eventType = EVENT_TYPE[row.type as string];
+  if (!eventType) {
+    return { motivo: `type desconhecido: ${String(row.type)}` };
+  }
+
+  const centralId = row.google_id;
+  if (typeof centralId !== 'string' || !CENTRAL_USER_ID_RE.test(centralId)) {
+    return { motivo: `destinatário ${row.user_id} sem id central em UUID` };
+  }
+
+  // Achado real (review PR #289, Codex, P2): aviso JÁ LIDO não é migrado.
+  //
+  // O fan-out do `accounts.` cria `notification_receipt.read_at` sempre NULL
+  // (`notificationOutbox.ts:136`) e o ingest não aceita parâmetro para mudar
+  // isso — não existe caminho para nascer lido. A versão anterior gravava
+  // `already_read` no snapshot, o que não preservava estado nenhum: ninguém o
+  // consome, e o aviso reapareceria como não lido, inflando o contador do sino
+  // de quem já o tinha despachado.
+  //
+  // Migrar só o não lido resolve sem tocar no `accounts.` (app sagrado): o que
+  // está pendente continua pendente, e o que já foi lido fica no histórico da
+  // tabela antiga, que não é apagada por esta spec. Medido em 2026-08-26:
+  // 66 não lidas, 4 lidas.
+  if (row.read === true) {
+    return { motivo: 'já lido — o accounts não cria recibo lido' };
+  }
+
+  // `action_url` é a origem do `canonical_path`. Nulo ou degenerado cai no
+  // painel — o aviso continua chegando, só sem destino específico.
+  const rawPath = typeof row.action_url === 'string' ? row.action_url : '';
+  return {
+    eventType,
+    centralId,
+    canonicalPath: isValidCanonicalPath(rawPath) ? rawPath : '/gestao',
+  };
+}
+
 async function main(): Promise<void> {
   const apply = process.argv.includes('--apply');
 
@@ -80,40 +142,12 @@ async function main(): Promise<void> {
   const pulados: Array<{ id: string; motivo: string }> = [];
 
   for (const row of rows) {
-    const eventType = EVENT_TYPE[row.type as string];
-    if (!eventType) {
-      pulados.push({ id: row.id, motivo: `type desconhecido: ${String(row.type)}` });
+    const decisao = avaliarLinha(row as LinhaLegada);
+    if ('motivo' in decisao) {
+      pulados.push({ id: row.id, motivo: decisao.motivo });
       continue;
     }
-
-    const centralId = row.google_id;
-    if (typeof centralId !== 'string' || !CENTRAL_USER_ID_RE.test(centralId)) {
-      pulados.push({ id: row.id, motivo: `destinatário ${row.user_id} sem id central em UUID` });
-      continue;
-    }
-
-    // Achado real (review PR #289, Codex, P2): aviso JÁ LIDO não é migrado.
-    //
-    // O fan-out do `accounts.` cria `notification_receipt.read_at` sempre NULL
-    // (`notificationOutbox.ts:136`) e o ingest não aceita parâmetro para mudar
-    // isso — não existe caminho para nascer lido. A versão anterior gravava
-    // `already_read` no snapshot, o que não preservava estado nenhum: ninguém o
-    // consome, e o aviso reapareceria como não lido, inflando o contador do sino
-    // de quem já o tinha despachado.
-    //
-    // Migrar só o não lido resolve sem tocar no `accounts.` (app sagrado): o que
-    // está pendente continua pendente, e o que já foi lido fica no histórico da
-    // tabela antiga, que não é apagada por esta spec. Medido em 2026-08-26:
-    // 66 não lidas, 4 lidas.
-    if (row.read === true) {
-      pulados.push({ id: row.id, motivo: 'já lido — o accounts não cria recibo lido' });
-      continue;
-    }
-
-    // `action_url` é a origem do `canonical_path`. Nulo ou degenerado cai no
-    // painel — o aviso continua chegando, só sem destino específico.
-    const rawPath = typeof row.action_url === 'string' ? row.action_url : '';
-    const canonicalPath = isValidCanonicalPath(rawPath) ? rawPath : '/gestao';
+    const { eventType, centralId, canonicalPath } = decisao;
 
     if (!apply) {
       enfileirados++;

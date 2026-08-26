@@ -58,13 +58,17 @@ export {
 // da resolução de destinatários, porque `mesas` e `downloads` faziam a MESMA
 // coisa em cópias separadas — 80,8% duplicado, medido pelo Sonar na PR #289.
 export {
+  backoffDelayMs,
   createKyselyOutboxStore,
+  createOutboxRunner,
   deliverOutboxEntries,
+  OUTBOX_BACKOFF_CAP_MINUTES,
   OUTBOX_BATCH_SIZE,
   OUTBOX_MAX_ATTEMPTS,
   OUTBOX_CLAIM_LEASE_MS,
   OUTBOX_SWEEP_INTERVAL_MS,
   type DeliveryOptions,
+  type OutboxRunnerConfig,
   type DeliveryResult,
   type OutboxEntry,
   type OutboxFetch,

@@ -556,6 +556,11 @@ export interface MesasNotificationOutboxTable {
    * de gastar `attempt_count`, que so descarta defeito de payload (400/422).
    */
   next_attempt_at: Date | null;
+  /**
+   * Falhas de ambiente acumuladas. Alimenta so o backoff — o claim nao filtra
+   * por ele, entao indisponibilidade longa atrasa a entrega sem nunca descartar.
+   */
+  transient_count: Generated<number>;
 }
 
 export type MesasNotificationOutbox = Selectable<MesasNotificationOutboxTable>;

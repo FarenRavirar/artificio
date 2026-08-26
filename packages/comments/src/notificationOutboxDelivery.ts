@@ -41,6 +41,7 @@ export interface OutboxEntry {
   recipients: unknown;
   created_at: Date;
   attempt_count: number;
+  transient_count: number;
 }
 
 /** Campos que a entrega grava de volta na linha. */
@@ -48,6 +49,7 @@ export interface OutboxUpdate {
   delivered_at?: Date;
   last_error?: string | null;
   attempt_count?: number;
+  transient_count?: number;
   claimed_until?: Date | null;
   next_attempt_at?: Date | null;
 }
@@ -83,13 +85,13 @@ export interface OutboxStore {
  * indisponibilidade longa do `accounts.` não vire uma rajada de retentativas a
  * cada 5 minutos por entrada da fila inteira.
  *
- * Achado de review (PR #289, Codex P1): antes, `attempt_count` era incrementado
- * igual em 5xx/429/rede, e `claimPending` filtra `attempt_count < 5` — ou seja,
- * uma queda de ~25min do `accounts.` (cinco sweeps) abandonava permanentemente
- * avisos válidos, mesmo depois da recuperação. Contagem de tentativas deixou de
- * ser critério de descarte para falha de ambiente; ela agora só decide o
- * intervalo. Quem descarta é `OUTBOX_MAX_ATTEMPTS`, e só o alcança quem
- * comprovadamente tem defeito de payload (400/422).
+ * Recebe `transient_count`, NÃO `attempt_count` — são contadores distintos de
+ * propósito (ver `transientUpdate`). Achado de review (PR #289, Codex P1): antes
+ * `attempt_count` era incrementado igual em 5xx/429/rede, e `claimPending`
+ * filtra `attempt_count < 5`, então uma queda de ~25min do `accounts.` (cinco
+ * sweeps) abandonava permanentemente avisos válidos. A primeira correção
+ * acrescentou este backoff mas manteve o incremento, o que apenas ADIOU o
+ * abandono para a quinta falha; a segunda separou os contadores.
  */
 export function backoffDelayMs(attemptCount: number): number {
   const minutes = Math.min(2 ** attemptCount, OUTBOX_BACKOFF_CAP_MINUTES);
@@ -258,8 +260,8 @@ export const OUTBOX_BATCH_SIZE = 50;
  * seria retentado para sempre e empurraria a fila inteira.
  *
  * Falha de ambiente (5xx, 429, 401/403, rede) NÃO caminha para este teto: ela
- * agenda `next_attempt_at` e mantém `attempt_count` como medida de espera, não
- * de descarte (ver `backoffDelayMs`). Foi o achado P1 da PR #289 — com o
+ * nem toca neste contador, e sim `transient_count`, que só espaça a próxima
+ * tentativa (ver `transientUpdate`). Foi o achado P1 da PR #289 — com o
  * incremento antigo, 25 minutos de `accounts.` fora abandonavam avisos válidos.
  *
  * Exportado porque o índice parcial da migration espelha este número
@@ -310,135 +312,223 @@ function normalizeSnapshot(value: unknown): Record<string, unknown> {
   return {};
 }
 
-export async function deliverOutboxEntries(options: DeliveryOptions): Promise<DeliveryResult> {
-  const { store, fetchImpl, baseUrl, credential, logTag } = options;
+/**
+ * Gravação de uma falha de AMBIENTE (5xx, 429, 401/403, 404, 408, rede).
+ *
+ * Não toca `attempt_count` — e é esse o ponto inteiro. Achado de review
+ * (PR #289, Codex P1, segunda rodada): a primeira correção acrescentou o backoff
+ * mas manteve o incremento, então a quinta falha transitória ainda gravava
+ * `attempt_count = 5` e `claimPending` — que filtra `attempt_count < maxAttempts`
+ * — descartava a entrada de vez. O backoff só tinha adiado o abandono.
+ *
+ * Os dois contadores medem coisas diferentes e por isso não podem ser um só:
+ *
+ * - `attempt_count` conta o que é CULPA DA MENSAGEM (400/422) e é critério de
+ *   descarte. Só o caminho `permanent` escreve nele, e escreve o teto de uma vez.
+ * - `transient_count` conta o que é CULPA DO AMBIENTE, e serve só para espaçar
+ *   a próxima tentativa. Cresce sem limite de propósito: uma indisponibilidade
+ *   longa faz a entrada voltar cada vez mais devagar (até o teto de
+ *   `OUTBOX_BACKOFF_CAP_MINUTES`), nunca sair da fila.
+ *
+ * O preço de crescer sem limite é uma entrada que tenta para sempre contra um
+ * `accounts.` permanentemente quebrado. É o preço certo: aviso preso na fila com
+ * `last_error` legível é operável — alguém vê e conserta —, enquanto aviso
+ * descartado em silêncio é perda de dado que ninguém descobre.
+ */
+function transientUpdate(entry: OutboxEntry, reason: string): OutboxUpdate {
+  const transient = entry.transient_count + 1;
+  return {
+    // `attempt_count` deliberadamente ausente: falha de ambiente não gasta o
+    // orçamento de descarte.
+    transient_count: transient,
+    last_error: reason,
+    // Libera o claim: a entrada volta à fila sem esperar o lease inteiro.
+    claimed_until: null,
+    next_attempt_at: new Date(Date.now() + backoffDelayMs(transient)),
+  };
+}
 
+/**
+ * Corpo do POST de ingestão, a partir da linha do outbox.
+ *
+ * Separado do laço só para que `deliverOutboxEntries` fique legível: montar o
+ * payload não é decisão, é tradução de formato.
+ */
+function buildIngestBody(entry: OutboxEntry, recipients: string[]): string {
+  return JSON.stringify({
+    event_id: entry.event_id,
+    event_type: entry.event_type,
+    event_version: entry.event_version,
+    subject_type: entry.subject_type,
+    subject_id: entry.subject_id,
+    canonical_path: entry.canonical_path,
+    snapshot: normalizeSnapshot(entry.snapshot),
+    recipients,
+    // Momento real do fato no módulo de origem, não o da entrega: sem isto, um
+    // sweep atrasado ordenaria os avisos pela hora em que a fila esvaziou, não
+    // pela hora em que o fato aconteceu.
+    occurred_at: entry.created_at.toISOString(),
+  });
+}
+
+/**
+ * Envia uma entrada e devolve o status HTTP.
+ *
+ * O timeout vive aqui inteiro (`AbortController` + `clearTimeout` no `finally`)
+ * para que o chamador não precise de um `try/finally` só por causa dele.
+ */
+async function postEntry(
+  entry: OutboxEntry,
+  recipients: string[],
+  options: DeliveryOptions,
+): Promise<number> {
+  const { fetchImpl, baseUrl, credential } = options;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const response = await fetchImpl(`${baseUrl}/internal/v1/notifications/events`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Service-Token': credential,
+      },
+      body: buildIngestBody(entry, recipients),
+      signal: controller.signal,
+    });
+
+    // O corpo não é lido em nenhum caminho — só o status importa. Cancelar logo
+    // aqui libera a conexão para o pool, inclusive no caminho de sucesso.
+    if (response.cancelBody) {
+      await response.cancelBody().catch(() => {
+        // Corpo já consumido ou conexão encerrada: não há o que liberar.
+      });
+    }
+
+    return response.status;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Traduz um status de recusa na gravação correspondente.
+ *
+ * Só esgota o teto o que é comprovadamente defeito do payload — 400 e 422. Todo
+ * o resto do 4xx descreve o *ambiente*, não a mensagem, e o ambiente muda
+ * sozinho:
+ *
+ * - `401`/`403`: credencial em rotação, ainda não emitida, ou sem
+ *   `notification.write`. Corrigida a configuração, a mesma entrega passa.
+ * - `404`: durante deploy escalonado o `accounts.` antigo ainda não tem a rota
+ *   de ingestão. O deploy termina e a rota aparece.
+ * - `429`: a rota passa por `communityRateLimit`, e um lote de até 50 entregas
+ *   estoura o bucket da credencial com facilidade.
+ * - `408`: timeout declarado pelo servidor é transitório por definição.
+ *
+ * Tratar qualquer um deles como terminal gravaria `attempt_count = 5` e o aviso
+ * nunca mais voltaria ao sweep — perda silenciosa causada por uma janela de
+ * operação que já passou (achado de review, PR #257). Por isso eles nem sequer
+ * INCREMENTAM `attempt_count`: ver `transientUpdate`.
+ */
+function rejectionUpdate(entry: OutboxEntry, status: number, logTag: string): OutboxUpdate {
+  // Credencial quebrada não se resolve sozinha: a entrada fica retentando em
+  // backoff até alguém corrigir a configuração. Log explícito para que esse
+  // alguém veja a causa, já que a fila não vai mais estourar teto nenhum para
+  // chamar atenção.
+  if (status === 401 || status === 403) {
+    console.error(
+      `${logTag} HTTP ${status} — credencial de serviço ausente, revogada ou sem escopo notification.write. Falha transitória ${entry.transient_count + 1}; a entrega continuará sendo retentada em backoff.`,
+    );
+  }
+
+  if (status === 400 || status === 422) {
+    return {
+      // Defeito de payload: sai da fila de vez. `next_attempt_at` fica nulo
+      // porque agendar retorno de algo que nunca vai passar é ruído.
+      attempt_count: OUTBOX_MAX_ATTEMPTS,
+      last_error: `HTTP ${status}`,
+      claimed_until: null,
+      next_attempt_at: null,
+    };
+  }
+
+  return transientUpdate(entry, `HTTP ${status}`);
+}
+
+/** Chave do resultado que esta entrada incrementou. */
+type DeliveryOutcome = keyof DeliveryResult;
+
+/**
+ * Entrega UMA entrada e devolve o que ela somou ao resultado.
+ *
+ * Existe separada porque o laço de `deliverOutboxEntries` só precisa saber
+ * "quantas entregaram, falharam ou foram descartadas" — a decisão por entrada é
+ * assunto local (Sonar: complexidade cognitiva do laço).
+ */
+async function deliverOne(entry: OutboxEntry, options: DeliveryOptions): Promise<DeliveryOutcome> {
+  const { store, logTag } = options;
+  const recipients = entry.recipients;
+
+  if (!isUuidArray(recipients) || recipients.length === 0) {
+    // Payload que o `accounts.` recusaria com 400 em toda tentativa. Marca
+    // entregue com erro registrado em vez de retentar cinco vezes o que não tem
+    // como dar certo — e o `last_error` deixa o caso auditável.
+    //
+    // Dentro de try/catch (achado de review, PR #289, CodeRabbit): este `update`
+    // estava solto, então uma falha dele abortava a VARREDURA inteira, e as
+    // demais entradas já reservadas ficavam com o claim preso até o lease
+    // expirar — 10 minutos de fila parada por causa de uma linha.
+    try {
+      await store.update(entry.id, {
+        delivered_at: new Date(),
+        last_error: 'recipients inválido',
+        claimed_until: null,
+      });
+      return 'skipped';
+    } catch (error: unknown) {
+      console.error(`${logTag} falha ao marcar entrada com recipients inválido:`, error);
+      return 'failed';
+    }
+  }
+
+  try {
+    const status = await postEntry(entry, recipients, options);
+
+    if (status === 202 || status === 200) {
+      await store.update(entry.id, {
+        delivered_at: new Date(),
+        last_error: null,
+        claimed_until: null,
+      });
+      return 'delivered';
+    }
+
+    await store.update(entry.id, rejectionUpdate(entry, status, logTag));
+    return 'failed';
+  } catch (error: unknown) {
+    const reason = error instanceof Error && error.name === 'AbortError' ? 'timeout' : String(error);
+    // Falha de rede/timeout é ambiente por definição: mesmo tratamento do 5xx.
+    await store.update(entry.id, transientUpdate(entry, reason));
+    return 'failed';
+  }
+}
+
+export async function deliverOutboxEntries(options: DeliveryOptions): Promise<DeliveryResult> {
   const claimedUntil = new Date(Date.now() + OUTBOX_CLAIM_LEASE_MS);
-  const pending = await store.claimPending(OUTBOX_BATCH_SIZE, OUTBOX_MAX_ATTEMPTS, claimedUntil);
+  const pending = await options.store.claimPending(
+    OUTBOX_BATCH_SIZE,
+    OUTBOX_MAX_ATTEMPTS,
+    claimedUntil,
+  );
 
   const result: DeliveryResult = { delivered: 0, failed: 0, skipped: 0 };
 
+  // Sequencial de propósito: paralelizar aqui multiplicaria o pico contra o
+  // `communityRateLimit` da credencial, que é justamente o 429 que a política de
+  // retry existe para absorver.
   for (const entry of pending) {
-    const recipients = entry.recipients;
-    if (!isUuidArray(recipients) || recipients.length === 0) {
-      // Payload que o `accounts.` recusaria com 400 em toda tentativa. Marca
-      // entregue com erro registrado em vez de retentar cinco vezes o que não
-      // tem como dar certo — e o `last_error` deixa o caso auditável.
-      //
-      // Dentro de try/catch (achado de review, PR #289, CodeRabbit): este
-      // `update` estava solto, então uma falha dele abortava a VARREDURA
-      // inteira, e as demais entradas já reservadas ficavam com o claim preso
-      // até o lease expirar — 10 minutos de fila parada por causa de uma linha.
-      try {
-        await store.update(entry.id, {
-          delivered_at: new Date(),
-          last_error: 'recipients inválido',
-          claimed_until: null,
-        });
-        result.skipped++;
-      } catch (error: unknown) {
-        console.error(`${logTag} falha ao marcar entrada com recipients inválido:`, error);
-        result.failed++;
-      }
-      continue;
-    }
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-    try {
-      const response = await fetchImpl(`${baseUrl}/internal/v1/notifications/events`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Service-Token': credential,
-        },
-        body: JSON.stringify({
-          event_id: entry.event_id,
-          event_type: entry.event_type,
-          event_version: entry.event_version,
-          subject_type: entry.subject_type,
-          subject_id: entry.subject_id,
-          canonical_path: entry.canonical_path,
-          snapshot: normalizeSnapshot(entry.snapshot),
-          recipients,
-          // Momento real do fato no módulo de origem, não o da entrega: sem
-          // isto, um sweep atrasado ordenaria os avisos pela hora em que a fila
-          // esvaziou, não pela hora em que o fato aconteceu.
-          occurred_at: entry.created_at.toISOString(),
-        }),
-        signal: controller.signal,
-      });
-
-      // O corpo não é lido em nenhum caminho — só o status importa. Cancelar
-      // logo aqui libera a conexão para o pool, inclusive no caminho de sucesso.
-      if (response.cancelBody) {
-        await response.cancelBody().catch(() => {
-          // Corpo já consumido ou conexão encerrada: não há o que liberar.
-        });
-      }
-
-      if (response.status === 202 || response.status === 200) {
-        await store.update(entry.id, {
-          delivered_at: new Date(),
-          last_error: null,
-          claimed_until: null,
-        });
-        result.delivered++;
-        continue;
-      }
-
-      // Só esgota o teto o que é comprovadamente defeito do payload — 400 e
-      // 422. Todo o resto do 4xx descreve o *ambiente*, não a mensagem, e o
-      // ambiente muda sozinho:
-      //
-      // - `401`/`403`: credencial em rotação, ainda não emitida, ou sem
-      //   `notification.write`. Corrigida a configuração, a mesma entrega passa.
-      // - `404`: durante deploy escalonado o `accounts.` antigo ainda não tem a
-      //   rota de ingestão. O deploy termina e a rota aparece.
-      // - `429`: a rota passa por `communityRateLimit`, e um lote de até 50
-      //   entregas estoura o bucket da credencial com facilidade.
-      // - `408`: timeout declarado pelo servidor é transitório por definição.
-      //
-      // Tratar qualquer um deles como terminal gravaria `attempt_count = 5` e o
-      // aviso nunca mais voltaria ao sweep — perda silenciosa causada por uma
-      // janela de operação que já passou (achado de review, PR #257).
-      const permanent = response.status === 400 || response.status === 422;
-
-      // Falha de configuração se parece com falha transitória e consome as 5
-      // tentativas em silêncio. Log explícito para o operador ver a causa antes
-      // de a entrada esgotar o teto.
-      if (response.status === 401 || response.status === 403) {
-        console.error(
-          `${logTag} HTTP ${response.status} — credencial de serviço ausente, revogada ou sem escopo notification.write. Tentativa ${entry.attempt_count + 1}/${OUTBOX_MAX_ATTEMPTS}.`,
-        );
-      }
-      await store.update(entry.id, {
-        attempt_count: permanent ? OUTBOX_MAX_ATTEMPTS : entry.attempt_count + 1,
-        last_error: `HTTP ${response.status}`,
-        // Libera o claim: a entrada volta à fila na próxima varredura em vez de
-        // esperar o lease inteiro expirar.
-        claimed_until: null,
-        // Defeito de payload já saiu da fila pelo teto — agendar seria ruído.
-        // Falha de ambiente espera o backoff antes de voltar a ser elegível.
-        next_attempt_at: permanent
-          ? null
-          : new Date(Date.now() + backoffDelayMs(entry.attempt_count + 1)),
-      });
-      result.failed++;
-    } catch (error: unknown) {
-      const reason = error instanceof Error && error.name === 'AbortError' ? 'timeout' : String(error);
-      // Falha de rede/timeout é ambiente por definição: mesmo tratamento do 5xx.
-      await store.update(entry.id, {
-        attempt_count: entry.attempt_count + 1,
-        last_error: reason,
-        claimed_until: null,
-        next_attempt_at: new Date(Date.now() + backoffDelayMs(entry.attempt_count + 1)),
-      });
-      result.failed++;
-    } finally {
-      clearTimeout(timeout);
-    }
+    result[await deliverOne(entry, options)]++;
   }
 
   return result;
@@ -446,3 +536,78 @@ export async function deliverOutboxEntries(options: DeliveryOptions): Promise<De
 
 /** Intervalo do sweep, igual nos dois apps e no `accounts.`. */
 export const OUTBOX_SWEEP_INTERVAL_MS = 5 * 60 * 1000;
+
+/** O que cada app precisa informar para montar o seu par entrega+sweep. */
+export interface OutboxRunnerConfig<TDb> {
+  /** Nome da tabela de outbox do app (`mesas_notification_outbox`, etc.). */
+  table: string;
+  /** `fetch` global ou `undici` — cada app usa o que já traz. */
+  fetchImpl: OutboxFetch;
+  /** Prefixo dos logs, para o operador saber de qual app veio. */
+  logTag: string;
+  /**
+   * `db` do app, usado quando o chamador não passa um.
+   *
+   * Fica no config, e não só como parâmetro default de cada função, para que os
+   * apps não precisem reescrever as duas assinaturas só para aplicar o default —
+   * era o clone de 14% que sobrava depois da primeira extração (Sonar, PR #289).
+   * Os testes continuam injetando um `db` falso por chamada.
+   */
+  defaultDb: TDb;
+}
+
+/**
+ * Monta `deliverPendingNotifications` + `startNotificationOutboxSweep` para um
+ * app, a partir do que de fato é dele.
+ *
+ * Achado de review (PR #289, Sonar): depois de extrair a lógica de entrega, os
+ * dois wrappers continuavam duplicados — 27,1% no `mesas`, 20,0% no `downloads`.
+ * A leitura de env, a guarda de configuração ausente, o `setInterval`, o
+ * `unref()` e o tratamento de erro da varredura eram idênticos; divergiam apenas
+ * o nome da tabela, o transporte e o rótulo do log — que é exatamente o que este
+ * config recebe.
+ *
+ * O `db` fica como parâmetro das funções devolvidas, e não do config, porque os
+ * testes de cada app injetam um `db` falso por chamada.
+ */
+export function createOutboxRunner<TDb>(config: OutboxRunnerConfig<TDb>): {
+  deliverPendingNotifications: (database?: TDb) => Promise<DeliveryResult>;
+  startNotificationOutboxSweep: (database?: TDb) => { unref: () => void };
+} {
+  const { table, fetchImpl, logTag, defaultDb } = config;
+
+  async function deliverPendingNotifications(database: TDb = defaultDb): Promise<DeliveryResult> {
+    const baseUrl = process.env.ACCOUNTS_URL?.trim().replace(/\/$/, '');
+    const serviceCredential = process.env.SERVICE_CREDENTIAL?.trim() || undefined;
+
+    if (!baseUrl || !serviceCredential) {
+      // Avisa e não lança: a entrada fica pendente e sai na próxima varredura
+      // quando a configuração existir — nada se perde por falta de env.
+      console.warn(`${logTag} ACCOUNTS_URL ou SERVICE_CREDENTIAL não configurado — entrega adiada.`);
+      return { delivered: 0, failed: 0, skipped: 0 };
+    }
+
+    return deliverOutboxEntries({
+      store: createKyselyOutboxStore({ table, db: database as never }),
+      fetchImpl,
+      baseUrl,
+      credential: serviceCredential,
+      logTag,
+    });
+  }
+
+  function startNotificationOutboxSweep(database: TDb = defaultDb): { unref: () => void } {
+    const timer = setInterval(() => {
+      void deliverPendingNotifications(database).catch((error: unknown) => {
+        console.error(`${logTag} falha na varredura periódica:`, error);
+      });
+    }, OUTBOX_SWEEP_INTERVAL_MS);
+
+    // `unref` para o timer não segurar o processo no encerramento — sem isso, o
+    // container demoraria até 5 min para sair em cada deploy.
+    timer.unref();
+    return timer;
+  }
+
+  return { deliverPendingNotifications, startNotificationOutboxSweep };
+}

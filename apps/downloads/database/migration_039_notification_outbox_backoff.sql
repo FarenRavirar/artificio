@@ -2,7 +2,7 @@
 -- @requires-backup: false
 -- @author: spec-096
 -- @created: 2026-08-26
--- @description: Adiciona next_attempt_at ao outbox de notificacao do downloads para que falha transitoria do accounts adie a entrega em backoff em vez de consumir o teto de tentativas e abandonar aviso valido
+-- @description: Adiciona next_attempt_at e transient_count ao outbox de notificacao do downloads para que falha transitoria do accounts adie a entrega em backoff sem consumir o teto de tentativas e sem abandonar aviso valido
 
 -- Achado de review (PR #289, Codex P1), corrigido nos dois produtores de outbox
 -- ao mesmo tempo: `mesas` recebe o campo na propria migration_163 (ainda nao
@@ -23,11 +23,25 @@
 --
 -- ## A correcao
 --
--- `attempt_count` deixa de ser criterio de descarte para falha de ambiente e
--- passa a decidir so o intervalo (`backoffDelayMs`: 1, 2, 4, 8, 16, 32, 60 min,
--- com teto). Quem descarta continua sendo `attempt_count >= 5`, mas so alcanca
--- esse valor quem tem defeito comprovado de payload (400/422), que o worker
--- grava de uma vez.
+-- DOIS contadores, porque sao duas medidas diferentes:
+--
+-- - `attempt_count` conta culpa da MENSAGEM (400/422) e continua sendo o unico
+--   criterio de descarte do claim. So o caminho permanente escreve nele, e
+--   escreve o teto de uma vez.
+-- - `transient_count` (novo) conta culpa do AMBIENTE e alimenta so o backoff
+--   (`backoffDelayMs`: 1, 2, 4, 8, 16, 32, 60 min, com teto). O claim NAO filtra
+--   por ele, entao cresce sem limite e a entrada nunca sai da fila por
+--   indisponibilidade — so volta cada vez mais devagar.
+--
+-- Um contador so nao resolve, e a primeira tentativa de correcao provou isso:
+-- acrescentar `next_attempt_at` mantendo o incremento de `attempt_count` apenas
+-- ADIOU o abandono para a quinta falha transitoria, porque o filtro
+-- `attempt_count < 5` continuava valendo (achado P1, segunda rodada de review).
+--
+-- O preco de `transient_count` crescer sem limite e uma entrada que tenta para
+-- sempre contra um accounts permanentemente quebrado. E o preco certo: aviso
+-- preso na fila com `last_error` legivel e operavel, aviso descartado em
+-- silencio e perda de dado que ninguem descobre.
 --
 -- Idempotente: `ADD COLUMN IF NOT EXISTS` + recriacao do indice parcial.
 -- Compativel com codigo antigo: coluna anulavel, e `NULL` significa "elegivel
@@ -37,8 +51,29 @@
 ALTER TABLE download_notification_outbox
   ADD COLUMN IF NOT EXISTS next_attempt_at TIMESTAMPTZ;
 
+-- NOT NULL com DEFAULT e seguro em online-safe no PG 16: desde o PG 11 a coluna
+-- nova com default nao reescreve a tabela (o default fica no catalogo).
+ALTER TABLE download_notification_outbox
+  ADD COLUMN IF NOT EXISTS transient_count INTEGER NOT NULL DEFAULT 0;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'download_notification_outbox_transient_count_check'
+  ) THEN
+    ALTER TABLE download_notification_outbox
+      ADD CONSTRAINT download_notification_outbox_transient_count_check
+      CHECK (transient_count >= 0);
+  END IF;
+END
+$$;
+
 COMMENT ON COLUMN download_notification_outbox.next_attempt_at IS
   'Momento a partir do qual a entrada volta a ser elegivel ao sweep. NULL = elegivel agora (nunca falhou, ou defeito permanente ja fora da fila pelo attempt_count).';
+
+COMMENT ON COLUMN download_notification_outbox.transient_count IS
+  'Falhas de ambiente acumuladas (5xx, 429, 401/403, 404, 408, rede). Alimenta so o backoff; o claim nao filtra por ele, entao indisponibilidade longa atrasa a entrega sem nunca descartar o aviso.';
 
 -- O indice parcial precisa cobrir o novo predicado do claim
 -- (`next_attempt_at IS NULL OR next_attempt_at <= now()`), senao a consulta
@@ -52,6 +87,6 @@ CREATE INDEX IF NOT EXISTS idx_download_notification_outbox_pending
 
 DO $$
 BEGIN
-  RAISE NOTICE 'migration_039: download_notification_outbox.next_attempt_at ok';
+  RAISE NOTICE 'migration_039: download_notification_outbox.next_attempt_at + transient_count ok';
 END
 $$;

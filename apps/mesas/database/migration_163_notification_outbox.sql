@@ -101,13 +101,20 @@ CREATE TABLE IF NOT EXISTS mesas_notification_outbox (
 
   -- Agendamento da proxima tentativa (backoff exponencial: 1, 2, 4... ate 60
   -- min). NULL = elegivel agora (nunca falhou, ou falha ja reagendada).
+  next_attempt_at TIMESTAMPTZ,
+
+  -- Falhas de AMBIENTE acumuladas (5xx, 429, 401/403, 404, 408, rede). Alimenta
+  -- so o backoff; o sweep NAO filtra por ele, entao cresce sem limite e a
+  -- entrada nunca sai da fila por indisponibilidade.
   --
   -- Existe porque `attempt_count` sozinho confundia duas coisas: "quantas vezes
   -- tentou" e "pode tentar de novo". Como o sweep filtra `attempt_count < 5`,
   -- cinco falhas transitorias seguidas (accounts fora por ~25 min) abandonavam
-  -- permanentemente aviso valido. Agora falha de ambiente ADIA; so defeito de
-  -- payload (400/422) esgota o teto.
-  next_attempt_at TIMESTAMPTZ
+  -- permanentemente aviso valido. Acrescentar so o backoff nao resolveu: apenas
+  -- ADIOU o abandono para a quinta falha, porque o incremento continuava. Agora
+  -- `attempt_count` conta so culpa da MENSAGEM (400/422) e e o unico criterio de
+  -- descarte; `transient_count` conta culpa do AMBIENTE e so espaca a retentativa.
+  transient_count INTEGER NOT NULL DEFAULT 0 CHECK (transient_count >= 0)
 );
 
 -- Parcial: o sweep so varre o que ainda pode ser entregue. O predicado espelha

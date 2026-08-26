@@ -22,6 +22,7 @@ const ENTRY = {
   created_at: new Date('2026-08-25T12:00:00.000Z'),
   delivered_at: null,
   attempt_count: 0,
+  transient_count: 0,
   last_error: null,
   claimed_until: null,
 };

@@ -26,6 +26,7 @@ interface FakeEntry {
   recipients: unknown;
   created_at: Date;
   attempt_count: number;
+  transient_count: number;
 }
 
 const RECIPIENT = '11111111-1111-4111-8111-111111111111';
@@ -43,6 +44,7 @@ function makeEntry(overrides: Partial<FakeEntry> = {}): FakeEntry {
     recipients: [RECIPIENT],
     created_at: new Date('2026-08-12T10:00:00.000Z'),
     attempt_count: 0,
+    transient_count: 0,
     ...overrides,
   };
 }
@@ -139,7 +141,10 @@ describe('deliverPendingNotifications', () => {
     const result = await deliverPendingNotifications(fakeDb([makeEntry({ attempt_count: 1 })], captured));
 
     expect(result.failed).toBe(1);
-    expect(captured[0]).toMatchObject({ attempt_count: 2, last_error: 'HTTP 503' });
+    // Falha de ambiente NÃO gasta `attempt_count` (achado P1, PR #289): o claim
+    // filtra por ele, então incrementar aqui abandonava o aviso na 5a queda.
+    expect(captured[0]).toMatchObject({ transient_count: 1, last_error: 'HTTP 503' });
+    expect(captured[0].attempt_count).toBeUndefined();
   });
 
   it('429 é retentado, não descartado como 4xx terminal', async () => {
@@ -153,7 +158,8 @@ describe('deliverPendingNotifications', () => {
 
     await deliverPendingNotifications(fakeDb([makeEntry({ attempt_count: 1 })], captured));
 
-    expect(captured[0]).toMatchObject({ attempt_count: 2, last_error: 'HTTP 429' });
+    expect(captured[0]).toMatchObject({ transient_count: 1, last_error: 'HTTP 429' });
+    expect(captured[0].attempt_count).toBeUndefined();
   });
 
   it('408 é retentado: timeout declarado pelo servidor é transitório', async () => {
@@ -162,7 +168,7 @@ describe('deliverPendingNotifications', () => {
 
     await deliverPendingNotifications(fakeDb([makeEntry()], captured));
 
-    expect(captured[0]).toMatchObject({ attempt_count: 1 });
+    expect(captured[0]).toMatchObject({ transient_count: 1 });
   });
 
   it('libera o claim ao terminar, para a entrada não esperar o lease', async () => {
@@ -199,7 +205,8 @@ describe('deliverPendingNotifications', () => {
 
       await deliverPendingNotifications(fakeDb([makeEntry({ attempt_count: 2 })], captured));
 
-      expect(captured[0]).toMatchObject({ attempt_count: 3, last_error: `HTTP ${status}` });
+      expect(captured[0]).toMatchObject({ transient_count: 1, last_error: `HTTP ${status}` });
+      expect(captured[0].attempt_count).toBeUndefined();
       // Achado P1 (PR #289): incrementar sem agendar fazia `claimPending`
       // (`attempt_count < 5`) descartar de vez o aviso depois de cinco falhas
       // transitórias — ~25 min de `accounts.` fora bastavam. Agora a entrada só
@@ -239,6 +246,7 @@ describe('deliverPendingNotifications', () => {
     const result = await deliverPendingNotifications(fakeDb([makeEntry()], captured));
 
     expect(result.failed).toBe(1);
-    expect(captured[0]).toMatchObject({ attempt_count: 1, last_error: 'timeout' });
+    expect(captured[0]).toMatchObject({ transient_count: 1, last_error: 'timeout' });
+    expect(captured[0].attempt_count).toBeUndefined();
   });
 });
