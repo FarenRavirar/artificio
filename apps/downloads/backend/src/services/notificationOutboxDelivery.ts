@@ -43,7 +43,18 @@ export async function deliverPendingNotifications(
   return deliverOutboxEntries({
     store: createKyselyOutboxStore({ table: OUTBOX_TABLE, db: database as never }),
     // Mesmo transporte já usado por `accountsClient.ts` (undici explícito).
-    fetchImpl: (url, init) => undiciFetch(url, init as Parameters<typeof undiciFetch>[1]),
+    //
+    // `cancelBody` é obrigatório aqui: o undici mantém o corpo pendente e a
+    // conexão presa até alguém consumi-lo ou cancelá-lo, e esta entrega só olha
+    // o status (achado de review, PR #289, CodeRabbit). Sem isto, cada entrega
+    // vazaria uma conexão do pool.
+    fetchImpl: async (url, init) => {
+      const response = await undiciFetch(url, init as Parameters<typeof undiciFetch>[1]);
+      return {
+        status: response.status,
+        cancelBody: () => response.body?.cancel() ?? Promise.resolve(),
+      };
+    },
     baseUrl,
     credential: serviceCredential,
     logTag: '[notificationOutboxDelivery]',

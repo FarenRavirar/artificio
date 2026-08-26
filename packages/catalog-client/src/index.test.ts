@@ -206,6 +206,30 @@ describe('createCatalogNode / updateCatalogNode', () => {
     expect(body.aliases).toEqual(['dnd']);
   });
 
+  // `parent_id: null` não apaga um campo — REPARENTA o nó para a raiz.
+  it('PUT omite parent_id e name_pt quando o input não os menciona', async () => {
+    const spy = mockFetchOk();
+    await updateCatalogNode('node-1', { name: 'D&D', node_type: 'edition' });
+
+    const body = bodyOf(spy);
+    expect(body).not.toHaveProperty('parent_id');
+    expect(body).not.toHaveProperty('name_pt');
+  });
+
+  it('PUT envia parent_id e name_pt explícitos, inclusive null', async () => {
+    const spy = mockFetchOk();
+    await updateCatalogNode('node-1', {
+      name: 'D&D',
+      node_type: 'edition',
+      parent_id: null,
+      name_pt: 'Dungeons',
+    });
+
+    const body = bodyOf(spy);
+    expect(body.parent_id).toBeNull();
+    expect(body.name_pt).toBe('Dungeons');
+  });
+
   it('PUT envia null quando o input o declara EXPLICITAMENTE (limpeza intencional)', async () => {
     const spy = mockFetchOk();
     await updateCatalogNode('node-1', {

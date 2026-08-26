@@ -102,6 +102,7 @@ router.patch('/scenario-suggestions/:id/approve', async (req: Request, res: Resp
           subjectType: 'scenario_suggestion',
           subjectId: id,
           canonicalPath: `/catalogo?scenario=${newScenario.slug}`,
+          body: `Seu cenário "${suggestion.name}" foi adicionado ao catálogo.`,
           snapshot: {
             legacy_type: 'suggestion_approved',
             title: 'Sugestão aprovada',

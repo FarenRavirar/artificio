@@ -415,6 +415,7 @@ async function performApprove(
       subjectType: 'system_suggestion',
       subjectId: id,
       canonicalPath: `/catalogo?system=${newSystem.path_slug}`,
+      body: `Seu sistema "${suggestion.name}" foi adicionado ao catálogo.`,
       snapshot: {
         legacy_type: 'suggestion_approved',
         title: 'Sugestão aprovada',
@@ -546,6 +547,7 @@ async function resolveReject(ctx: ResolveContext): Promise<{ resolution_type: st
       subjectType: 'system_suggestion',
       subjectId: id,
       canonicalPath: `/perfil/minhas-sugestoes/${id}`,
+      body: `Sua sugestão "${suggestion.name}" não foi aceita desta vez.`,
       snapshot: {
         legacy_type: 'suggestion_rejected',
         title: 'Sugestão revisada',
@@ -610,6 +612,7 @@ async function resolveMergeExisting(ctx: ResolveContext): Promise<ResolveOutcome
       subjectType: 'system_suggestion',
       subjectId: id,
       canonicalPath: `/catalogo?system=${target.path_slug ?? ''}`,
+      body: `Sua sugestão "${suggestion.name}" já está coberta por "${target.name}" no catálogo.`,
       snapshot: {
         legacy_type: 'suggestion_approved',
         title: 'Sugestão revisada',
@@ -704,6 +707,7 @@ async function resolveCreateAlias(ctx: ResolveContext): Promise<ResolveOutcome> 
       subjectType: 'system_suggestion',
       subjectId: id,
       canonicalPath: `/catalogo?system=${target.path_slug ?? ''}`,
+      body: `Sua sugestão "${suggestion.name}" foi adicionada como nome alternativo de "${target.name}".`,
       snapshot: {
         legacy_type: 'suggestion_approved',
         title: 'Sugestão aprovada',
@@ -832,6 +836,7 @@ async function resolveCreateChain(ctx: ResolveContext): Promise<ResolveOutcome> 
       subjectType: 'system_suggestion',
       subjectId: id,
       canonicalPath: `/catalogo?system=${lastCreated.path_slug ?? ''}`,
+      body: `Sua sugestão "${suggestion.name}" foi adicionada ao catálogo.`,
       snapshot: {
         legacy_type: 'suggestion_approved',
         title: 'Sugestão aprovada',
@@ -937,6 +942,7 @@ async function resolveCreateChild(ctx: ResolveContext): Promise<ResolveOutcome> 
       subjectType: 'system_suggestion',
       subjectId: id,
       canonicalPath: `/catalogo?system=${newSystem.path_slug}`,
+      body: `Sua sugestão "${suggestion.name}" foi adicionada ao catálogo.`,
       snapshot: {
         legacy_type: 'suggestion_approved',
         title: 'Sugestão aprovada',
@@ -1047,6 +1053,7 @@ async function resolveCreateSystem(ctx: ResolveContext): Promise<ResolveOutcome>
       subjectType: 'system_suggestion',
       subjectId: id,
       canonicalPath: `/catalogo?system=${createdNode.path_slug}`,
+      body: `Seu sistema "${suggestion.name}" foi adicionado ao catálogo.`,
       snapshot: {
         legacy_type: 'suggestion_approved',
         title: 'Sugestão aprovada',

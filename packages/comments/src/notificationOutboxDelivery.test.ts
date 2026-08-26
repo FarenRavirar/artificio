@@ -179,3 +179,52 @@ describe('deliverPendingNotifications — política de retry (T7.4b)', () => {
     expect(updates[0].delivered_at).toBeInstanceOf(Date);
   });
 });
+
+// Achados de review (PR #289, CodeRabbit, nitpicks).
+describe('deliverOutboxEntries — robustez da varredura', () => {
+  it('uma falha ao marcar entrada inválida não aborta a varredura inteira', async () => {
+    const spy = vi.fn().mockResolvedValue({ status: 202 });
+    const boa = { ...ENTRY, id: 'outbox-2' };
+    const ruim = { ...ENTRY, id: 'outbox-1', recipients: ['nao-uuid'] };
+    let updates = 0;
+
+    const store: OutboxStore = {
+      claimPending: async () => [ruim, boa],
+      update: async (id) => {
+        updates += 1;
+        if (id === 'outbox-1') throw new Error('banco indisponível');
+      },
+    };
+
+    const result = await deliver(store, spy);
+
+    // Sem o try/catch, o throw da primeira abortava tudo e a segunda ficava com
+    // o claim preso até o lease expirar (10 min de fila parada).
+    expect(result.delivered).toBe(1);
+    expect(result.failed).toBe(1);
+    expect(updates).toBe(2);
+  });
+
+  it('cancela o corpo da resposta, inclusive no sucesso (libera a conexão)', async () => {
+    const cancelBody = vi.fn().mockResolvedValue(undefined);
+    const spy = vi.fn().mockResolvedValue({ status: 202, cancelBody });
+    const { store } = makeStore([ENTRY]);
+
+    await deliver(store, spy);
+
+    // O undici prende a conexão até o corpo ser consumido ou cancelado, e esta
+    // entrega só olha o status.
+    expect(cancelBody).toHaveBeenCalledOnce();
+  });
+
+  it('falha ao cancelar o corpo não derruba a entrega', async () => {
+    const cancelBody = vi.fn().mockRejectedValue(new Error('já consumido'));
+    const spy = vi.fn().mockResolvedValue({ status: 202, cancelBody });
+    const { store, updates } = makeStore([ENTRY]);
+
+    const result = await deliver(store, spy);
+
+    expect(result.delivered).toBe(1);
+    expect(updates[0].delivered_at).toBeInstanceOf(Date);
+  });
+});

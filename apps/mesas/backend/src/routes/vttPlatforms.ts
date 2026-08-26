@@ -230,6 +230,7 @@ router.post('/suggest', authMiddleware, async (req, res) => {
             subjectType: 'vtt_platform_suggestion',
             subjectId: created.id,
             canonicalPath: '/gestao',
+            body: `${userName} sugeriu "${created.suggested_name}" como plataforma de jogo.`,
             snapshot: {
               legacy_type: 'system',
               title: 'Nova sugestão de plataforma',

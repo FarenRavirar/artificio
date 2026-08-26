@@ -1,4 +1,6 @@
+import type { Kysely, Transaction } from 'kysely';
 import { db } from '../db/index.js';
+import type { Database } from '../db/types.js';
 import { enqueueNotification, isValidCanonicalPath, type MesasEventType } from './notificationOutbox.js';
 import { deliverPendingNotifications } from './notificationOutboxDelivery.js';
 
@@ -36,6 +38,12 @@ export interface AdminNotificationInput {
 /**
  * Enfileira uma notificação para cada admin, exceto `excludeUserId`.
  *
+ * `executor` opcional (achado de review, PR #289, CodeRabbit): passado, a busca
+ * dos admins e a escrita no outbox entram na transação do chamador — que é o que
+ * o parágrafo abaixo já prometia e a implementação não cumpria. Nenhum dos 4
+ * chamadores atuais está em transação, mas a doc não pode mentir sobre o
+ * contrato.
+ *
  * T7.4b (spec 096): antes gravava direto em `notifications`, tabela própria do
  * mesas; agora enfileira no outbox e o `accounts.` é quem entrega. O
  * `NotificationBell` de `packages/ui` já lê por `source_app`, então a leitura
@@ -52,9 +60,11 @@ export interface AdminNotificationInput {
  */
 export async function notifyAdmins(
   input: AdminNotificationInput,
+  executor?: Kysely<Database> | Transaction<Database>,
 ): Promise<void> {
+  const database = executor ?? db;
   try {
-    let query = db.selectFrom('users').select('id').where('role', '=', 'admin');
+    let query = database.selectFrom('users').select('id').where('role', '=', 'admin');
     if (input.excludeUserId) {
       query = query.where('id', '!=', input.excludeUserId);
     }
@@ -77,19 +87,26 @@ export async function notifyAdmins(
       canonicalPath: input.action_url && isValidCanonicalPath(input.action_url)
         ? input.action_url
         : '/gestao',
+      body: input.message,
       snapshot: {
         legacy_type: input.type,
         title: input.title,
         message: input.message,
-        ...(input.metadata ?? {}),
+        // `...undefined` é no-op em spread de objeto — o `?? {}` era supérfluo (Sonar).
+        ...input.metadata,
       },
       recipients: admins.map((admin) => admin.id),
-    });
+    }, database);
 
-    // Entrega imediata; o sweep periódico cobre o que falhar aqui.
-    void deliverPendingNotifications().catch((deliveryError: unknown) => {
-      console.error('[notifyAdmins] Falha na entrega pós-commit do outbox:', deliveryError);
-    });
+    // Entrega imediata — mas SÓ fora de transação. Dentro de uma, a linha do
+    // outbox ainda não commitou: o sweep não a enxergaria, e disparar aqui só
+    // gastaria uma volta à toa. Quem chama dentro de `trx` dispara depois do
+    // commit, como fazem os handlers de sugestão.
+    if (!executor) {
+      void deliverPendingNotifications().catch((deliveryError: unknown) => {
+        console.error('[notifyAdmins] Falha na entrega pós-commit do outbox:', deliveryError);
+      });
+    }
   } catch (error) {
     console.error('[notifyAdmins]', input.type, error);
   }

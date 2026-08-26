@@ -166,10 +166,21 @@ interface KyselyExpressionBuilder {
   limit: (n: number) => KyselyExpressionBuilder;
 }
 
+/**
+ * Transporte injetado pelo app.
+ *
+ * `cancelBody` existe por causa do `undici` (achado de review, PR #289,
+ * CodeRabbit): ele mantém o corpo da resposta pendente e a conexão presa até que
+ * alguém o consuma ou cancele. Esta entrega só olha o `status`, então o corpo
+ * NUNCA é lido — sem cancelar, cada entrega vazaria uma conexão do pool.
+ *
+ * Opcional porque o `fetch` global não sofre disso; o adaptador do `downloads` o
+ * fornece.
+ */
 export type OutboxFetch = (
   url: string,
   init: { method: string; headers: Record<string, string>; body: string; signal: AbortSignal },
-) => Promise<{ status: number }>;
+) => Promise<{ status: number; cancelBody?: () => Promise<void> }>;
 
 export interface DeliveryOptions {
   store: OutboxStore;
@@ -254,12 +265,22 @@ export async function deliverOutboxEntries(options: DeliveryOptions): Promise<De
       // Payload que o `accounts.` recusaria com 400 em toda tentativa. Marca
       // entregue com erro registrado em vez de retentar cinco vezes o que não
       // tem como dar certo — e o `last_error` deixa o caso auditável.
-      await store.update(entry.id, {
-        delivered_at: new Date(),
-        last_error: 'recipients inválido',
-        claimed_until: null,
-      });
-      result.skipped++;
+      //
+      // Dentro de try/catch (achado de review, PR #289, CodeRabbit): este
+      // `update` estava solto, então uma falha dele abortava a VARREDURA
+      // inteira, e as demais entradas já reservadas ficavam com o claim preso
+      // até o lease expirar — 10 minutos de fila parada por causa de uma linha.
+      try {
+        await store.update(entry.id, {
+          delivered_at: new Date(),
+          last_error: 'recipients inválido',
+          claimed_until: null,
+        });
+        result.skipped++;
+      } catch (error: unknown) {
+        console.error(`${logTag} falha ao marcar entrada com recipients inválido:`, error);
+        result.failed++;
+      }
       continue;
     }
 
@@ -289,6 +310,14 @@ export async function deliverOutboxEntries(options: DeliveryOptions): Promise<De
         }),
         signal: controller.signal,
       });
+
+      // O corpo não é lido em nenhum caminho — só o status importa. Cancelar
+      // logo aqui libera a conexão para o pool, inclusive no caminho de sucesso.
+      if (response.cancelBody) {
+        await response.cancelBody().catch(() => {
+          // Corpo já consumido ou conexão encerrada: não há o que liberar.
+        });
+      }
 
       if (response.status === 202 || response.status === 200) {
         await store.update(entry.id, {

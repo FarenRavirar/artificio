@@ -78,6 +78,7 @@ export async function rejectHandler(config: RejectConfig, req: Request, res: Res
           subjectType: `${config.suggestionKind}_suggestion`,
           subjectId: id,
           canonicalPath: `/perfil/minhas-sugestoes/${id}`,
+          body: `Sua sugestão "${suggestion.name}" não foi aceita desta vez.`,
           snapshot: {
             legacy_type: 'suggestion_rejected',
             title: 'Sugestão revisada',

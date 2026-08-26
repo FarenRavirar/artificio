@@ -475,6 +475,7 @@ export async function notifyAdminsAboutImageFailure(tableId: string, title: stri
     subjectType: 'table',
     subjectId: tableId,
     canonicalPath: '/gestao',
+    body: `A mesa "${title}" foi sincronizada sem imagem porque o upload da imagem falhou.`,
     snapshot: {
       legacy_type: 'system',
       title: 'Mesa publicada sem imagem',

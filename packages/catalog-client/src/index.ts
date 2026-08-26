@@ -173,8 +173,14 @@ export function slugifyCatalogSegment(value: string): string {
   let end = collapsed.length;
   while (start < end && collapsed[start] === '-') start += 1;
   while (end > start && collapsed[end - 1] === '-') end -= 1;
-  const truncated = collapsed.slice(start, end).slice(0, 80);
-  return truncated.replace(/-+$/, '');
+  // Trim manual também DEPOIS do corte, pela mesma razão do de cima: `/-+$/`
+  // tem quantificador guloso ancorado, e o Sonar o aponta como super-linear por
+  // backtracking. A PR #145 já havia trocado `/^-+|-+$/g` por trim manual nas
+  // pontas; o corte em 80 chars, que veio depois (PR #204), reintroduziu a
+  // regex. Um laço simples faz o mesmo em tempo linear.
+  let cut = Math.min(end, start + 80);
+  while (cut > start && collapsed[cut - 1] === '-') cut -= 1;
+  return collapsed.slice(start, cut);
 }
 
 /**
@@ -231,10 +237,16 @@ export async function updateCatalogNode(
 
   // Campo que o chamador não mencionou sai do corpo; o que ele mencionou fica,
   // inclusive valendo `null`.
+  //
+  // `parent_id` e `name_pt` entraram na lista pelo mesmo motivo (achado de
+  // review, PR #289, CodeRabbit): omitidos, viravam `null` — e `parent_id: null`
+  // REPARENTA o nó para a raiz do catálogo, que é pior que apagar um campo.
   for (const [field, column] of [
     ['description', 'description'],
     ['website_url', 'official_website_url'],
     ['logo_filename', 'logo_media_id'],
+    ['parent_id', 'parent_id'],
+    ['name_pt', 'name_pt'],
   ] as const) {
     if (!(field in input)) delete payload[column];
   }

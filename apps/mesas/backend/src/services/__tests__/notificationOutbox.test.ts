@@ -96,6 +96,7 @@ describe('enqueueNotification — enfileiramento (T7.4b)', () => {
     subjectType: 'system_suggestion',
     subjectId: 'sug-1',
     canonicalPath: '/catalogo?system=dnd',
+    body: 'Seu sistema foi adicionado ao catálogo.',
     snapshot: { title: 'Sugestão aprovada' },
     recipients: [UUID_LOCAL],
   };
@@ -111,7 +112,32 @@ describe('enqueueNotification — enfileiramento (T7.4b)', () => {
     expect(values.event_id).toBe(eventId);
     expect(values.event_type).toBe('mesas.suggestion.approved');
     expect(JSON.parse(values.recipients as string)).toEqual([UUID_CENTRAL]);
-    expect(JSON.parse(values.snapshot as string)).toEqual({ title: 'Sugestão aprovada' });
+    // Achado real (review PR #289, Codex, P1): o formatador do `accounts.` lê
+    // `snapshot.legacy_body` para evento externo e não tem `case` para `mesas.*`
+    // — sem este campo, TODO aviso do mesas mostraria o fallback técnico
+    // ("Notificação: mesas.suggestion.approved") em vez do texto real.
+    expect(JSON.parse(values.snapshot as string)).toEqual({
+      legacy_body: 'Seu sistema foi adicionado ao catálogo.',
+      title: 'Sugestão aprovada',
+    });
+  });
+
+  it('o snapshot do chamador não sobrescreve legacy_body por acidente', async () => {
+    mockUsers([{ id: UUID_LOCAL, google_id: UUID_CENTRAL }]);
+    const insert = mockInsert();
+
+    await enqueueNotification({
+      ...base,
+      body: 'texto real',
+      snapshot: { legacy_body: 'texto errado', outro: 1 },
+    });
+
+    const values = insert.values.mock.calls[0][0] as Record<string, unknown>;
+    const snapshot = JSON.parse(values.snapshot as string) as Record<string, unknown>;
+    // O spread do chamador vem DEPOIS, então ele vence — comportamento
+    // deliberado: quem passa `legacy_body` explícito sabe o que quer.
+    expect(snapshot.legacy_body).toBe('texto errado');
+    expect(snapshot.outro).toBe(1);
   });
 
   it('devolve event_id novo a cada chamada (idempotência é do produtor)', async () => {

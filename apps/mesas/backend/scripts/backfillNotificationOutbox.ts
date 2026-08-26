@@ -23,6 +23,10 @@
  */
 import { createHash } from 'node:crypto';
 import { db } from '../src/db/index.js';
+// Achado real (review PR #289, CodeRabbit, nitpick): o script mantinha cópias
+// locais da regex de id central e da validação de path. Regra duplicada
+// diverge — e aqui ela decide o que é migrado.
+import { CENTRAL_USER_ID_RE, isValidCanonicalPath } from '../src/services/notificationOutbox.js';
 
 /** `notifications.type` → `event_type` do registro central. */
 const EVENT_TYPE: Record<string, string> = {
@@ -31,7 +35,6 @@ const EVENT_TYPE: Record<string, string> = {
   system: 'mesas.system.notice',
 };
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * `event_id` DERIVADO do id da notificação, nunca aleatório.
@@ -47,22 +50,11 @@ function deterministicEventId(notificationId: string): string {
     hash.slice(0, 8),
     hash.slice(8, 12),
     `4${hash.slice(13, 16)}`,
-    ((parseInt(hash.slice(16, 17), 16) & 0x3) | 0x8).toString(16) + hash.slice(17, 20),
+    ((Number.parseInt(hash.slice(16, 17), 16) & 0x3) | 0x8).toString(16) + hash.slice(17, 20),
     hash.slice(20, 32),
   ].join('-');
 }
 
-/** Espelha o CHECK da migration_163 e o do ingest. */
-function isValidCanonicalPath(value: string): boolean {
-  return (
-    value.length >= 1
-    && value.length <= 1024
-    && value.startsWith('/')
-    && !value.startsWith('//')
-    && !value.includes('\\')
-    && !value.includes('://')
-  );
-}
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value)
@@ -95,8 +87,26 @@ async function main(): Promise<void> {
     }
 
     const centralId = row.google_id;
-    if (typeof centralId !== 'string' || !UUID_RE.test(centralId)) {
+    if (typeof centralId !== 'string' || !CENTRAL_USER_ID_RE.test(centralId)) {
       pulados.push({ id: row.id, motivo: `destinatário ${row.user_id} sem id central em UUID` });
+      continue;
+    }
+
+    // Achado real (review PR #289, Codex, P2): aviso JÁ LIDO não é migrado.
+    //
+    // O fan-out do `accounts.` cria `notification_receipt.read_at` sempre NULL
+    // (`notificationOutbox.ts:136`) e o ingest não aceita parâmetro para mudar
+    // isso — não existe caminho para nascer lido. A versão anterior gravava
+    // `already_read` no snapshot, o que não preservava estado nenhum: ninguém o
+    // consome, e o aviso reapareceria como não lido, inflando o contador do sino
+    // de quem já o tinha despachado.
+    //
+    // Migrar só o não lido resolve sem tocar no `accounts.` (app sagrado): o que
+    // está pendente continua pendente, e o que já foi lido fica no histórico da
+    // tabela antiga, que não é apagada por esta spec. Medido em 2026-08-26:
+    // 66 não lidas, 4 lidas.
+    if (row.read === true) {
+      pulados.push({ id: row.id, motivo: 'já lido — o accounts não cria recibo lido' });
       continue;
     }
 
@@ -120,13 +130,14 @@ async function main(): Promise<void> {
         subject_id: row.id,
         canonical_path: canonicalPath,
         snapshot: JSON.stringify({
+          // Campo que o formatador do `accounts.` lê para evento externo
+          // (`notificationFormatter.ts:76`). Sem ele, o aviso migrado apareceria
+          // como "Notificação: mesas.suggestion.approved" — achado de review
+          // (PR #289, Codex, P1).
+          legacy_body: row.message,
           legacy_type: row.type,
           title: row.title,
-          message: row.message,
           backfilled: true,
-          // Preserva o estado de leitura: quem já leu no sino antigo não deve
-          // reencontrar o aviso como não lido.
-          already_read: row.read === true,
           ...asRecord(row.metadata),
         }),
         recipients: JSON.stringify([centralId]),
@@ -149,9 +160,15 @@ async function main(): Promise<void> {
 // `main()`, então uma rejeição no meio deixava o pool aberto e o processo
 // pendurado — justo no caminho de erro, em que o operador precisa ver a falha e
 // o script sair. O `finally` fecha em qualquer desfecho, e exatamente uma vez.
-main()
-  .catch((error: unknown) => {
-    console.error('[backfill] falhou:', error);
-    process.exitCode = 1;
-  })
-  .finally(() => db.destroy());
+//
+// Top-level await em vez de cadeia de promise (Sonar): o módulo é ESM
+// (`"type": "module"`), e o `try/catch/finally` deixa a ordem — falhou, registra,
+// fecha o pool — legível de cima para baixo.
+try {
+  await main();
+} catch (error: unknown) {
+  console.error('[backfill] falhou:', error);
+  process.exitCode = 1;
+} finally {
+  await db.destroy();
+}

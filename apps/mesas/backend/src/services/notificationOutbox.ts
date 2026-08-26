@@ -59,7 +59,8 @@ export type MesasEventType =
  * rastreável do que o lote inteiro rejeitado. A limpeza dos 14 registros é
  * escrita em produção e corre por fora.
  */
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Formato do id central do `accounts.`. Exportado para o backfill não manter cópia. */
+export const CENTRAL_USER_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function resolveAccountsUserIds(
   localUserIds: string[],
@@ -76,7 +77,7 @@ export async function resolveAccountsUserIds(
   const resolved: string[] = [];
   for (const row of rows) {
     const centralId = row.google_id;
-    if (typeof centralId === 'string' && UUID_RE.test(centralId)) {
+    if (typeof centralId === 'string' && CENTRAL_USER_ID_RE.test(centralId)) {
       resolved.push(centralId);
       continue;
     }
@@ -94,8 +95,22 @@ export interface EnqueueNotificationInput {
   /** Path relativo — validado aqui e pelo CHECK da migration_163. */
   canonicalPath: string;
   /**
-   * Estruturado, nunca mensagem pronta. `title`/`message` do formato legado
-   * entram aqui como campos do snapshot: o `accounts.` monta o texto final.
+   * Texto que o usuário lê no sino.
+   *
+   * Achado real (review PR #289, Codex, P1): o formatador do `accounts.` lê
+   * `snapshot.legacy_body` para evento de produtor externo
+   * (`notificationFormatter.ts:76,98-101`) e NÃO tem `case` para `mesas.*` —
+   * então, sem este campo, todo aviso do mesas cairia no fallback técnico
+   * ("Notificação: mesas.suggestion.approved"). O `downloads` já grava assim
+   * (`notify.ts:101`).
+   *
+   * Fica no topo da entrada, e não a cargo de cada emissor, porque esquecê-lo
+   * não quebra teste nem compilação: só aparece como aviso ilegível em produção.
+   */
+  body: string;
+  /**
+   * Estruturado, nunca mensagem pronta. `title` e os metadados do formato legado
+   * entram aqui: o texto final já viaja em `body`.
    */
   snapshot: Record<string, unknown>;
   /**
@@ -173,7 +188,9 @@ export async function enqueueNotification(
       subject_type: input.subjectType,
       subject_id: input.subjectId,
       canonical_path: input.canonicalPath,
-      snapshot: JSON.stringify(input.snapshot),
+      // `legacy_body` é o campo que o formatador do `accounts.` lê; o resto do
+      // snapshot viaja junto como metadado estruturado.
+      snapshot: JSON.stringify({ legacy_body: input.body, ...input.snapshot }),
       recipients: JSON.stringify(recipients),
     })
     .execute();
