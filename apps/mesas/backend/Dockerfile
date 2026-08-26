@@ -99,8 +99,10 @@ COPY --from=builder /repo/packages/media/dist ./packages/media/dist
 # MODULE_NOT_FOUND em runtime (dist-cjs so existia no estagio builder).
 COPY --from=builder /repo/packages/catalog-client/dist ./packages/catalog-client/dist
 COPY --from=builder /repo/packages/catalog-client/dist-cjs ./packages/catalog-client/dist-cjs
-# catalog-matching: importado por systemSuggestionCandidates.ts desde a spec 086
-# e por parseDiscordAnnouncement/gmPanel desde a 093 (normalizeSettingStyles).
+# catalog-matching: importado por parseDiscordAnnouncement/gmPanel desde a 093
+# (normalizeSettingStyles) e, desde a T7.1b da spec 096, também pelas funções de
+# scoring — a cópia local `systemSuggestionCandidates.ts` (561 linhas idênticas
+# ao pacote) foi apagada e os dois importadores passaram a ler daqui.
 # Faltava aqui — mesma classe de E016/E017: build e CI verdes, container crasha
 # com MODULE_NOT_FOUND só ao subir. Tem `main`, então precisa de dist E dist-cjs.
 COPY --from=builder /repo/packages/catalog-matching/dist ./packages/catalog-matching/dist

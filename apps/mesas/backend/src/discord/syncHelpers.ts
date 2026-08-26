@@ -1,4 +1,6 @@
 import { db } from '../db/index.js';
+import { enqueueNotification } from '../services/notificationOutbox.js';
+import { deliverPendingNotifications } from '../services/notificationOutboxDelivery.js';
 import { Insertable, sql } from 'kysely';
 import { TablesTable, TableContactsTable, TableSchedulesTable, DayOfWeek, ScheduleFrequency, TableContactChannel, Database } from '../db/types.js';
 import { TableRepository } from '../repositories/tableRepository.js';
@@ -467,21 +469,26 @@ export async function notifyAdminsAboutImageFailure(tableId: string, title: stri
 
   if (admins.length === 0) return;
 
-  await db
-    .insertInto('notifications')
-    .values(admins.map((admin) => ({
-      user_id: admin.id,
-      type: 'system',
+  // T7.4b (spec 096): enfileira no outbox em vez de gravar em `notifications`.
+  await enqueueNotification({
+    eventType: 'mesas.system.notice',
+    subjectType: 'table',
+    subjectId: tableId,
+    canonicalPath: '/gestao',
+    snapshot: {
+      legacy_type: 'system',
       title: 'Mesa publicada sem imagem',
       message: `A mesa "${title}" foi sincronizada sem imagem porque o upload da imagem falhou.`,
-      action_url: '/gestao',
-      metadata: JSON.stringify({
-        table_id: tableId,
-        image_upload_status: status,
-        error,
-      }),
-    })))
-    .execute();
+      table_id: tableId,
+      image_upload_status: status,
+      error,
+    },
+    recipients: admins.map((admin) => admin.id),
+  });
+
+  void deliverPendingNotifications().catch((error: unknown) => {
+    console.error('[syncHelpers] Falha na entrega pós-commit do outbox:', error);
+  });
 }
 
 export async function uploadCoverForDraft(draftId: string, payload: ImportTableDraft, currentAttempts: number): Promise<{

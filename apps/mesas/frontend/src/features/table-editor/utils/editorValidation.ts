@@ -187,6 +187,7 @@ export const FIELD_PART: Record<string, EditorPartId> = {
   priceType: 'values',
   priceValue: 'values',
   priceValueMonthly: 'values',
+  priceFrequency: 'values',
   acceptsDonations: 'values',
   suggestedDonationValue: 'values',
   billingText: 'values',

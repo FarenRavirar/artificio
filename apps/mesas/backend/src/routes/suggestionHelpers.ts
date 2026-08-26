@@ -1,4 +1,6 @@
 import type { Request, Response } from 'express';
+import { deliverPendingNotifications } from '../services/notificationOutboxDelivery.js';
+import { enqueueNotification } from '../services/notificationOutbox.js';
 import { db } from '../db/index.js';
 import { logActivity } from '../services/activityLogger.js';
 import { resolveActorName } from '../services/actorNameResolver.js';
@@ -69,21 +71,25 @@ export async function rejectHandler(config: RejectConfig, req: Request, res: Res
         throw new Error('NOT_FOUND_OR_REVIEWED');
       }
 
-      await trx
-        .insertInto('notifications')
-        .values({
-          user_id: suggestion.user_id,
-          type: 'suggestion_rejected',
-          title: 'Sugestão revisada',
-          message: `Sua sugestão "${suggestion.name}" não foi aceita desta vez.`,
-          action_url: `/perfil/minhas-sugestoes/${id}`,
-          metadata: JSON.stringify({
+      // T7.4b (spec 096): outbox na mesma transação, entrega fora dela.
+      await enqueueNotification(
+        {
+          eventType: 'mesas.suggestion.rejected',
+          subjectType: `${config.suggestionKind}_suggestion`,
+          subjectId: id,
+          canonicalPath: `/perfil/minhas-sugestoes/${id}`,
+          snapshot: {
+            legacy_type: 'suggestion_rejected',
+            title: 'Sugestão revisada',
+            message: `Sua sugestão "${suggestion.name}" não foi aceita desta vez.`,
             suggestion_id: id,
             suggestion_kind: config.suggestionKind,
             ...(reason ? { reason } : {}),
-          }),
-        })
-        .execute();
+          },
+          recipients: [suggestion.user_id],
+        },
+        trx,
+      );
 
       await logActivity({
         actorId: adminId,
@@ -99,6 +105,12 @@ export async function rejectHandler(config: RejectConfig, req: Request, res: Res
           ...(reason ? { reason } : {}),
         },
       }, trx);
+    });
+
+    // T7.4b (spec 096): entrega imediata pós-commit. O sweep periódico é a rede
+    // de segurança; sem isto o aviso normal esperaria a próxima varredura.
+    void deliverPendingNotifications().catch((error: unknown) => {
+      console.error(`[PATCH /admin/${config.logTag}/:id/reject] Falha na entrega pós-commit do outbox:`, error);
     });
 
     res.json({ success: true });

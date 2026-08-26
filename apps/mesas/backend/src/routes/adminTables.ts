@@ -238,7 +238,11 @@ router.patch('/table-duplicate-candidates/:id', authMiddleware, async (req: Requ
 router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) => {
   const userRole = req.user?.role;
   const { id } = req.params;
-  const { status, is_covil } = req.body as { status?: unknown; is_covil?: unknown };
+  const { status, is_covil, featured } = req.body as {
+    status?: unknown;
+    is_covil?: unknown;
+    featured?: unknown;
+  };
 
   if (userRole !== 'admin') {
     return res.status(403).json({ error: 'Acesso restrito a administradores.' });
@@ -256,6 +260,15 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
 
     if (is_covil !== undefined) {
       updateData.is_covil = Boolean(is_covil);
+    }
+
+    // T7.2c (spec 096): `featured` tinha leitor, filtro (`tables.ts:204`), peso
+    // na ordenação do catálogo (`tables.ts:256`), ordenação no perfil do mestre
+    // (`gm.ts:266`) e selo no CSS — e NENHUM escritor. Capacidade completa sem
+    // ponto de entrada: nenhuma mesa podia ser destacada. O admin é o dono da
+    // decisão de destaque, então entra aqui, ao lado de `is_covil`.
+    if (featured !== undefined) {
+      updateData.featured = Boolean(featured);
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -282,7 +295,7 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       .updateTable('tables')
       .set(updateData)
       .where('id', '=', id)
-      .returning(['id', 'slug', 'title', 'status', 'is_covil'])
+      .returning(['id', 'slug', 'title', 'status', 'is_covil', 'featured'])
       .execute();
 
     // Achado Codex (PR #157): PUT /admin/tables/:id (acoes administrativas de
@@ -313,7 +326,7 @@ router.get('/tables', authMiddleware, async (req: Request, res: Response) => {
   try {
     let query = db
       .selectFrom('tables')
-      .select(['id', 'slug', 'title', 'status', 'gm_id', 'origin', 'created_at', 'is_covil'])
+      .select(['id', 'slug', 'title', 'status', 'gm_id', 'origin', 'created_at', 'is_covil', 'featured'])
       .orderBy('created_at', 'desc');
 
     if (typeof status === 'string' && status) {

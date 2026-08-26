@@ -321,6 +321,10 @@ export function mapTableToView(table: TableDetail): TableViewModel {
     billingText: table.billing_text ?? undefined,
     sessionZeroFree: table.session_zero_free ?? false,
     technicalRequirements: table.technical_requirements ?? undefined,
+    // T7.2b (spec 096): `rules_notes` da mesa, que o editor grava e a página
+    // nunca exibiu. `certifications.ddal.rulesNotes` acima continua sendo o
+    // `ddal_rules_notes` — são campos diferentes com nomes parecidos.
+    tableRules: table.rules_notes ?? undefined,
     requiresPC: table.requires_pc ?? false,
     requiresCamera: table.requires_camera ?? false,
     requiresMicrophone: table.requires_microphone ?? false,

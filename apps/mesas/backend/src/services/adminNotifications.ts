@@ -1,4 +1,6 @@
 import { db } from '../db/index.js';
+import { enqueueNotification, type MesasEventType } from './notificationOutbox.js';
+import { deliverPendingNotifications } from './notificationOutboxDelivery.js';
 
 // Tipos canonicos de notificacao para o feed do admin.
 export type AdminNotificationType =
@@ -7,6 +9,19 @@ export type AdminNotificationType =
   | 'table_published'
   | 'member_joined'
   | 'dev_feedback';
+
+/**
+ * T7.4b (spec 096): tradução do vocabulário local para o do registro central.
+ * Os nomes antigos continuam sendo a API desta função — os 4 chamadores
+ * (`devFeedback.ts`, `discord/utils.ts`, `gmPanel.ts` ×2) não mudaram.
+ */
+const ADMIN_EVENT_TYPE: Record<AdminNotificationType, MesasEventType> = {
+  system_suggestion: 'mesas.admin.system_suggestion',
+  scenario_suggestion: 'mesas.admin.scenario_suggestion',
+  table_published: 'mesas.admin.table_published',
+  member_joined: 'mesas.admin.member_joined',
+  dev_feedback: 'mesas.admin.dev_feedback',
+};
 
 export interface AdminNotificationInput {
   type: AdminNotificationType;
@@ -19,9 +34,21 @@ export interface AdminNotificationInput {
 }
 
 /**
- * Cria uma notificacao para cada admin, exceto `excludeUserId`.
- * Nao-fatal: erros sao logados e engolidos para nao quebrar a acao principal.
- * Nao use dentro de transacao: erro SQL em transacao aborta o contexto do chamador.
+ * Enfileira uma notificação para cada admin, exceto `excludeUserId`.
+ *
+ * T7.4b (spec 096): antes gravava direto em `notifications`, tabela própria do
+ * mesas; agora enfileira no outbox e o `accounts.` é quem entrega. O
+ * `NotificationBell` de `packages/ui` já lê por `source_app`, então a leitura
+ * não muda para o usuário.
+ *
+ * **Não-fatal por decisão, e agora sem o custo que isso tinha.** O `catch` que
+ * engole continua aqui — um aviso não deve derrubar a ação de mérito —, mas
+ * antes ele significava *aviso perdido sem registro*: o INSERT falhava e não
+ * sobrava nenhum rastro. Agora a falha possível é só a de enfileirar; entregue
+ * ao outbox, o evento tem `attempt_count` e `last_error`, e o sweep retenta.
+ *
+ * O aviso "nao use dentro de transacao" caiu junto: `enqueueNotification` aceita
+ * `trx` justamente para ser chamada lá dentro.
  */
 export async function notifyAdmins(
   input: AdminNotificationInput,
@@ -34,19 +61,27 @@ export async function notifyAdmins(
     const admins = await query.execute();
     if (admins.length === 0) return;
 
-    await db
-      .insertInto('notifications')
-      .values(
-        admins.map((admin) => ({
-          user_id: admin.id,
-          type: input.type,
-          title: input.title,
-          message: input.message,
-          action_url: input.action_url ?? null,
-          metadata: JSON.stringify(input.metadata ?? {}),
-        })),
-      )
-      .execute();
+    await enqueueNotification({
+      eventType: ADMIN_EVENT_TYPE[input.type],
+      subjectType: 'admin_notice',
+      subjectId: input.type,
+      // Fallback para o painel do admin: `action_url` é opcional na API antiga,
+      // e o outbox exige path válido. Sem isto, um chamador que omite o campo
+      // levaria a exceção do CHECK em vez do aviso.
+      canonicalPath: input.action_url ?? '/gestao',
+      snapshot: {
+        legacy_type: input.type,
+        title: input.title,
+        message: input.message,
+        ...(input.metadata ?? {}),
+      },
+      recipients: admins.map((admin) => admin.id),
+    });
+
+    // Entrega imediata; o sweep periódico cobre o que falhar aqui.
+    void deliverPendingNotifications().catch((deliveryError: unknown) => {
+      console.error('[notifyAdmins] Falha na entrega pós-commit do outbox:', deliveryError);
+    });
   } catch (error) {
     console.error('[notifyAdmins]', input.type, error);
   }

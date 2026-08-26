@@ -613,6 +613,12 @@ router.get('/:slug', async (req: Request, res: Response) => {
         't.ddal_org_code',
         't.ddal_setting',
         't.ddal_rules_notes',
+        // T7.2b (spec 096): `rules_notes` é o campo "Regras e observações" que o
+        // editor e o parser gravam há tempo, mas que NUNCA saía no detalhe
+        // público — 35 mesas com conteúdo não-branco em produção nunca foram
+        // exibidas. Não confundir com `ddal_rules_notes` acima, que é a nota da
+        // certificação DDAL e vive em `certifications.ddal.rulesNotes`.
+        't.rules_notes',
         // CORREÇÃO: Retornar campos avançados (REQ-26)
         't.master_display_name',
         't.campaign_length',

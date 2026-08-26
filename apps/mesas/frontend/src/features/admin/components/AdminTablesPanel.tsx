@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Archive, ArchiveRestore, Copy, Power, ShieldCheck, Trash2 } from 'lucide-react';
+import { Archive, ArchiveRestore, Copy, Power, ShieldCheck, Star, Trash2 } from 'lucide-react';
 import { useConfirm } from '@artificio/ui';
 import toast from 'react-hot-toast';
 import { authDelete, authGet, authPost, authPut } from '../../../services/apiClient';
@@ -15,6 +15,7 @@ interface AdminTableRow {
   status: string;
   created_at: string;
   is_covil: boolean;
+  featured: boolean;
 }
 
 async function extractErrorMessage(response: Response, fallback: string): Promise<string> {
@@ -107,6 +108,7 @@ function normalizeTables(value: unknown): AdminTableRow[] {
       status: typeof row.status === 'string' ? row.status : 'unknown',
       created_at: typeof row.created_at === 'string' ? row.created_at : '',
       is_covil: row.is_covil === true,
+      featured: row.featured === true,
     });
   }
   return rows;
@@ -116,7 +118,7 @@ function normalizeTables(value: unknown): AdminTableRow[] {
  * Aba "Mesas" de `/gestao/mesas` (R5/R6, spec 093) — extraída de
  * `ConteudoSection.tsx` para deixar de viver pendurada no catálogo de taxonomia.
  * Lista mesas de **qualquer status** via `GET /api/v1/admin/tables`, com busca,
- * 2 facetas, 3 ações em lote e 4 ações por linha. O gate de "Copiar anúncio"
+ * 3 facetas, 3 ações em lote e 5 ações por linha (a de destaque entrou em T7.2c). O gate de "Copiar anúncio"
  * (`status === 'active'` e `slug` presente) sobrevive à extração — a mesma trava
  * de D1/R2. Extrair (não copiar) é o que impede dois lugares de divergirem.
  */
@@ -208,6 +210,20 @@ export function AdminTablesPanel() {
     await fetchAllTables();
   };
 
+  // T7.2c (spec 096): `featured` tinha filtro, peso na ordenação do catálogo e
+  // selo no perfil do mestre, mas nenhum escritor — nenhuma mesa conseguia ser
+  // destacada. Mesmo formato do Covil ao lado: alternância direta, sem confirmar,
+  // porque é reversível e não destrutiva.
+  const handleToggleFeatured = async (table: AdminTableRow) => {
+    const response = await runMutation(
+      () => authPut(`/api/v1/admin/tables/${table.id}`, { featured: !table.featured }),
+      'Erro ao atualizar destaque.',
+    );
+    if (!response) return;
+    toast.success(!table.featured ? 'Mesa marcada como destaque.' : 'Destaque removido.');
+    await fetchAllTables();
+  };
+
   const handleCopyAnnouncement = async (table: AdminTableRow) => {
     if (copyingTableId) return;
     if (!table.slug || table.status !== 'active') {
@@ -279,6 +295,11 @@ export function AdminTablesPanel() {
       header: 'Covil',
       render: (table: AdminTableRow) => table.is_covil ? <StatusPill tone="brand">Covil</StatusPill> : <StatusPill>não</StatusPill>,
     },
+    {
+      key: 'featured',
+      header: 'Destaque',
+      render: (table: AdminTableRow) => table.featured ? <StatusPill tone="brand">Destaque</StatusPill> : <StatusPill>não</StatusPill>,
+    },
   ], []);
 
   return (
@@ -301,6 +322,12 @@ export function AdminTablesPanel() {
           label: 'Covil',
           options: [{ value: 'true', label: 'Covil' }, { value: 'false', label: 'Sem selo' }],
           getValue: (table) => String(table.is_covil),
+        },
+        {
+          key: 'featured',
+          label: 'Destaque',
+          options: [{ value: 'true', label: 'Destaque' }, { value: 'false', label: 'Sem destaque' }],
+          getValue: (table) => String(table.featured),
         },
       ]}
       loading={tablesLoading}
@@ -332,6 +359,7 @@ export function AdminTablesPanel() {
           onRun: handleToggleTableStatus,
         },
         { key: 'covil', label: 'Alternar Covil', icon: <ShieldCheck size={15} />, onRun: handleToggleCovil },
+        { key: 'featured', label: 'Alternar destaque', icon: <Star size={15} />, onRun: handleToggleFeatured },
         { key: 'delete', label: 'Apagar', icon: <Trash2 size={15} />, tone: 'danger', onRun: handleDeleteTable },
       ]}
     />

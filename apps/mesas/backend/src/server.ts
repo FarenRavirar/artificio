@@ -1,4 +1,5 @@
 import express from 'express';
+import { startNotificationOutboxSweep } from './services/notificationOutboxDelivery.js';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import authRoutes from './routes/auth.js';
@@ -13,7 +14,6 @@ import systemSuggestionsAdminRoutes from './routes/systemSuggestionsAdmin.js';
 import scenarioSuggestionsAdminRoutes from './routes/scenarioSuggestionsAdmin.js';
 import devFeedbackRoutes from './routes/devFeedback.js';
 import devFeedbackAdminRoutes from './routes/devFeedbackAdmin.js';
-import notificationsRoutes from './routes/notifications.js';
 import communityCommentsRoutes from './routes/communityComments.js';
 import communityModerationRoutes from './routes/communityModeration.js';
 import meRoutes from './routes/me.js';
@@ -126,12 +126,15 @@ app.use('/api/v1/scenarios', scenariosRoutes);
 app.use('/api/v1/system-suggestions', systemSuggestionsRoutes);
 app.use('/api/v1/scenario-suggestions', scenarioSuggestionsRoutes);
 app.use('/api/v1/dev-feedback', devFeedbackRoutes);
-app.use('/api/v1/notifications', notificationsRoutes);
-// T7.5 (spec 090, requisito 26d) — namespace PRÓPRIO, e não uma extensão de
-// `/api/v1/notifications` acima: aquela URL é do feed administrativo do `mesas`
-// e o frontend depende dela. Mesmo caminho que `downloads` e `site` já expõem
-// (`downloads/server.ts:132`), para o pacote cliente falar com os três sem
-// condicional por app.
+// T7.4b (spec 096): `/api/v1/notifications` SAIU. As 3 rotas de leitura
+// (GET /, PATCH /read-all, PATCH /:id/read) ficaram órfãs quando o
+// `NotificationBell` de `packages/ui` passou a ler do `accounts.` por
+// `source_app` — medido: zero consumidores no frontend do mesas. O comentário
+// da T7.5 abaixo dizia que "o frontend depende dela", e isso deixou de valer.
+//
+// T7.5 (spec 090, requisito 26d) — namespace PRÓPRIO para a conversa. Mesmo
+// caminho que `downloads` e `site` já expõem (`downloads/server.ts:132`), para
+// o pacote cliente falar com os três sem condicional por app.
 app.use('/api/v1/community/conversation', communityCommentsRoutes);
 // T7.7 — moderação sobre a superfície nova. Registrada DEPOIS da conversa, como
 // no `downloads` (`server.ts:132-133`): a rota mais específica casa primeiro.
@@ -189,4 +192,10 @@ app.use((err: HttpError, req: express.Request, res: express.Response, next: expr
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
+  // T7.4b (spec 096): varredura periódica do outbox de notificação. O disparo
+  // pós-commit (nos pontos de emissão) cobre o caso normal; este sweep é a rede
+  // de segurança para o que ficou pendente por queda de processo, accounts fora
+  // do ar ou credencial ainda não emitida. `unref` no timer — não segura o
+  // encerramento do container.
+  startNotificationOutboxSweep();
 });

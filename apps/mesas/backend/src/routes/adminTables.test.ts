@@ -262,4 +262,49 @@ describe('PUT /api/v1/admin/tables/:id', () => {
       .send({});
     expect(res.status).toBe(400);
   });
+
+  // T7.2c (spec 096): `featured` era lido pelo filtro do catálogo, pelo score de
+  // ordenação e pelo perfil do mestre, mas nenhuma rota o escrevia — capacidade
+  // completa sem ponto de entrada. Sem o aceite aqui, o toggle do painel não teria
+  // efeito nenhum.
+  it('T7.2c: aceita featured e o grava no update', async () => {
+    const updateChain = mockChain({
+      returning: vi.fn().mockReturnValue(
+        mockChain({
+          execute: vi.fn().mockResolvedValue([
+            { id: 't1', slug: 'mesa-teste', title: 'Mesa', status: 'active', is_covil: false, featured: true },
+          ]),
+        }),
+      ),
+    });
+    (db.updateTable as Mock).mockReturnValue(updateChain);
+
+    const res = await request(makeApp())
+      .put('/api/v1/admin/tables/t1')
+      .send({ featured: true });
+
+    expect(res.status).toBe(200);
+    expect(updateChain.set).toHaveBeenCalledWith({ featured: true });
+    expect(res.body.data.featured).toBe(true);
+  });
+
+  it('T7.2c: featured=false desmarca o destaque (não é ignorado como ausente)', async () => {
+    const updateChain = mockChain({
+      returning: vi.fn().mockReturnValue(
+        mockChain({
+          execute: vi.fn().mockResolvedValue([
+            { id: 't1', slug: 'mesa-teste', title: 'Mesa', status: 'active', is_covil: false, featured: false },
+          ]),
+        }),
+      ),
+    });
+    (db.updateTable as Mock).mockReturnValue(updateChain);
+
+    const res = await request(makeApp())
+      .put('/api/v1/admin/tables/t1')
+      .send({ featured: false });
+
+    expect(res.status).toBe(200);
+    expect(updateChain.set).toHaveBeenCalledWith({ featured: false });
+  });
 });

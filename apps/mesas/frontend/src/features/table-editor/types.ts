@@ -50,10 +50,9 @@ export interface DdalFormState {
  * (T7.3b) e o payload simplesmente não as envia — `undefined` preserva o
  * valor salvo no PUT.
  *
- * `price_frequency` também não tem campo aqui (o fluxo atual não coleta e a
- * entrada no editor é a T7.2b2, Fase 7): o payload omite o campo e o backend
- * preserva o valor salvo — a capacidade (leitor público em
- * TableActionPanel.tsx) não é perdida por esta ausência.
+ * `price_frequency` ganhou campo em T7.2b2 (Fase 7): a coluna já tinha leitor,
+ * escritor e exibição pública (`TableActionPanel.tsx` renderiza "/ {frequência}"
+ * ao lado do preço) e só faltava o ponto de entrada no editor.
  */
 export interface TableEditorState {
   /** id da mesa no servidor — presente só em edição (e após criar rascunho). */
@@ -117,6 +116,12 @@ export interface TableEditorState {
   priceType: string;
   priceValue: string;
   priceValueMonthly: string;
+  /**
+   * Periodicidade da cobrança (`'sessao' | 'mes' | 'campanha'`), exibida no
+   * público ao lado do preço. Só existe em mesa paga — string vazia quando
+   * gratuita, que o payload traduz para `null` (T7.2b2).
+   */
+  priceFrequency: string;
   acceptsDonations: boolean;
   suggestedDonationValue: string;
   billingText: string;

@@ -241,6 +241,10 @@ function priceFields(state: TableEditorState): EditorPayload {
     return {
       price_value: parsePriceValue(state.priceValue),
       price_value_monthly: parseClearablePriceValue(state.priceValueMonthly),
+      // T7.2b2: periodicidade acompanha a modalidade, como os demais campos
+      // desta função. Vazio vira null — "paga sem periodicidade declarada" é
+      // estado legítimo, e o público simplesmente não exibe o sufixo.
+      price_frequency: state.priceFrequency || null,
       accepts_donations: false,
       suggested_donation_value: null,
     };
@@ -250,6 +254,9 @@ function priceFields(state: TableEditorState): EditorPayload {
   return {
     price_value: null,
     price_value_monthly: null,
+    // Mesa gratuita não tem periodicidade de cobrança — mesma regra que o
+    // parser já aplicava (`syncHelpers.ts:405`).
+    price_frequency: null,
     accepts_donations: acceptsDonations,
     suggested_donation_value: acceptsDonations
       ? parseClearablePriceValue(state.suggestedDonationValue)
@@ -635,6 +642,7 @@ export function mapApiToEditorState(apiData: unknown): EditorInitialData {
     priceType: normalizePriceType(stringValue(data, 'price_type', 'gratuita')),
     priceValue: stringValue(data, 'price_value'),
     priceValueMonthly: stringValue(data, 'price_value_monthly'),
+    priceFrequency: stringValue(data, 'price_frequency'),
     acceptsDonations: booleanValue(data, 'accepts_donations'),
     suggestedDonationValue: stringValue(data, 'suggested_donation_value'),
     billingText: stringValue(data, 'billing_text'),

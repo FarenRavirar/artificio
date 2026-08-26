@@ -190,6 +190,9 @@ export interface TableDetail extends TableCard {
   style_text?: string | null;
   listing_excerpt?: string | null;
   technical_requirements?: string | null;
+  // T7.2b (spec 096): regras da mesa em si — distinto de `ddal_rules_notes`,
+  // que é a nota da certificação DDAL.
+  rules_notes?: string | null;
   requires_pc?: boolean;
   requires_camera?: boolean;
   requires_microphone?: boolean;

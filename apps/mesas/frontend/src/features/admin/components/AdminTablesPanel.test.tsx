@@ -30,8 +30,11 @@ vi.mock('../../../services/apiClient', () => ({
 }));
 
 const tablesFixture = [
+  // T7.2c: `featured` ausente na primeira linha de propósito — exercita o
+  // normalizador (`row.featured === true`), que precisa devolver `false` em vez
+  // de `undefined` para a faceta e a coluna não quebrarem com dado antigo.
   { id: 't1', slug: 'mesa-ativa', title: 'Mesa Ativa', status: 'active', created_at: '2026-08-01', is_covil: false },
-  { id: 't2', slug: '', title: 'Mesa Rascunho', status: 'draft', created_at: '2026-08-02', is_covil: true },
+  { id: 't2', slug: '', title: 'Mesa Rascunho', status: 'draft', created_at: '2026-08-02', is_covil: true, featured: true },
 ];
 
 function renderPanel() {
@@ -64,12 +67,13 @@ describe('AdminTablesPanel — Fase 8 (R5/R6, spec 093)', () => {
     await waitFor(() => expect(mockAuthGet).toHaveBeenCalledWith('/api/v1/admin/tables'));
   });
 
-  it('renderiza busca e as 2 facetas (funções 1-3)', async () => {
+  it('renderiza busca e as 3 facetas (funções 1-3; destaque entrou em T7.2c)', async () => {
     renderPanel();
     expect(await screen.findByText('Mesa Ativa')).toBeTruthy();
     expect(screen.getByPlaceholderText('Buscar mesa...')).toBeTruthy();
     expect(screen.getByText('Status: todos')).toBeTruthy();
     expect(screen.getByText('Covil: todos')).toBeTruthy();
+    expect(screen.getByText('Destaque: todos')).toBeTruthy();
   });
 
   it('esconde "Copiar anúncio" para mesa não-active ou sem slug (T8.3)', async () => {
@@ -88,14 +92,59 @@ describe('AdminTablesPanel — Fase 8 (R5/R6, spec 093)', () => {
     expect(screen.getByText('Apagar')).toBeTruthy();
   });
 
-  it('expõe as 4 ações por linha (funções 7-10)', async () => {
+  it('expõe as 5 ações por linha (funções 7-10 + destaque de T7.2c)', async () => {
     renderPanel();
     expect(await screen.findByText('Mesa Ativa')).toBeTruthy();
-    // Por linha: Publicar/ativar/cancelar, Alternar Covil, Apagar sempre;
-    // Copiar anúncio só na ativa.
+    // Por linha: Publicar/ativar/cancelar, Alternar Covil, Alternar destaque e
+    // Apagar sempre; Copiar anúncio só na ativa.
     expect(screen.getAllByTitle('Publicar/ativar/cancelar')).toHaveLength(2);
     expect(screen.getAllByTitle('Alternar Covil')).toHaveLength(2);
+    expect(screen.getAllByTitle('Alternar destaque')).toHaveLength(2);
     expect(screen.getAllByTitle('Apagar')).toHaveLength(2);
+  });
+});
+
+// T7.2c (spec 096): `featured` tinha filtro, peso na ordenação e selo, e nenhum
+// escritor — nenhuma mesa podia ser destacada. O toggle é o ponto de entrada.
+describe('AdminTablesPanel — toggle de destaque (T7.2c)', () => {
+  it('marca destaque na mesa que não tem, e recarrega a lista', async () => {
+    renderPanel();
+    expect(await screen.findByText('Mesa Ativa')).toBeTruthy();
+    mockAuthGet.mockClear();
+
+    fireEvent.click(screen.getAllByTitle('Alternar destaque')[0]);
+
+    await waitFor(() =>
+      expect(mockAuthPut).toHaveBeenCalledWith('/api/v1/admin/tables/t1', { featured: true }),
+    );
+    await waitFor(() => expect(mockAuthGet).toHaveBeenCalledWith('/api/v1/admin/tables'));
+  });
+
+  it('remove o destaque da mesa que já tem', async () => {
+    renderPanel();
+    expect(await screen.findByText('Mesa Rascunho')).toBeTruthy();
+
+    fireEvent.click(screen.getAllByTitle('Alternar destaque')[1]);
+
+    await waitFor(() =>
+      expect(mockAuthPut).toHaveBeenCalledWith('/api/v1/admin/tables/t2', { featured: false }),
+    );
+  });
+
+  it('avisa o admin quando a escrita falha, sem recarregar a lista', async () => {
+    mockAuthPut.mockResolvedValue({
+      ok: false,
+      headers: { get: () => 'application/json' },
+      json: async () => ({ error: 'Erro ao atualizar mesa.' }),
+    });
+    renderPanel();
+    expect(await screen.findByText('Mesa Ativa')).toBeTruthy();
+    mockAuthGet.mockClear();
+
+    fireEvent.click(screen.getAllByTitle('Alternar destaque')[0]);
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalled());
+    expect(mockAuthGet).not.toHaveBeenCalled();
   });
 });
 

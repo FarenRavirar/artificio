@@ -32,7 +32,15 @@ export function ValuesPart({ api }: ValuesPartProps) {
       // sessionZeroFree entra junto: o toggle só existe no bloco de mesa paga,
       // então marcá-lo e depois virar gratuita deixava "sessão zero é
       // gratuita" viajando no payload de uma mesa que já é toda gratuita.
-      patch({ priceType: value, priceValue: '', priceValueMonthly: '', sessionZeroFree: false });
+      // priceFrequency entra junto pela mesma razão: só existe em mesa paga, e
+      // o payload já a força a null quando gratuita (T7.2b2).
+      patch({
+        priceType: value,
+        priceValue: '',
+        priceValueMonthly: '',
+        priceFrequency: '',
+        sessionZeroFree: false,
+      });
       return;
     }
     patch({ priceType: value, acceptsDonations: false, suggestedDonationValue: '' });
@@ -111,6 +119,30 @@ export function ValuesPart({ api }: ValuesPartProps) {
           </div>
 
           <div className="flex flex-wrap gap-3.5 items-start">
+            {/* T7.2b2 (spec 096): a coluna `price_frequency` já era exibida no
+                público ("/ sessão" ao lado do preço, TableActionPanel.tsx) e
+                gravada pelo parser, mas o editor não a coletava — o mestre não
+                tinha como dizer se o valor era por sessão, por mês ou pela
+                campanha inteira. */}
+            <EditorField
+              fieldId="priceFrequency"
+              state={state}
+              parserMarked={parserFilledFields.has('priceFrequency')}
+              label="Periodicidade da cobrança"
+              hint="Como o valor é cobrado. Aparece ao lado do preço na página da mesa."
+            >
+              <Select
+                id="priceFrequency"
+                value={state.priceFrequency}
+                onChange={(e) => patch({ priceFrequency: e.target.value })}
+              >
+                <option value="">Não informar</option>
+                <option value="sessao">Por sessão</option>
+                <option value="mes">Por mês</option>
+                <option value="campanha">Pela campanha</option>
+              </Select>
+            </EditorField>
+
             <EditorField
               fieldId="sessionZeroFree"
               state={state}

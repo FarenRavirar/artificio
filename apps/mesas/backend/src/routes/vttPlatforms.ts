@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { deliverPendingNotifications } from '../services/notificationOutboxDelivery.js';
+import { enqueueNotification } from '../services/notificationOutbox.js';
 import { sql } from 'kysely'; // CORREÇÃO G03: Import sql para queries case-insensitive
 import { db } from '../db/index.js';
 import { authMiddleware, requireRole } from '../middleware/auth.js'; // CORREÇÃO A02: Import middleware
@@ -221,27 +223,37 @@ router.post('/suggest', authMiddleware, async (req, res) => {
         .executeTakeFirstOrThrow();
 
       if (admins.length > 0) {
-        await trx
-          .insertInto('notifications')
-          .values(admins.map((admin) => ({
-            user_id: admin.id,
-            type: 'system',
-            title: 'Nova sugestão de plataforma',
-            message: `${userName} sugeriu "${created.suggested_name}" como plataforma de jogo.`,
-            action_url: '/gestao',
-            metadata: JSON.stringify({
+        // T7.4b (spec 096): outbox na mesma transação, entrega fora dela.
+        await enqueueNotification(
+          {
+            eventType: 'mesas.system.notice',
+            subjectType: 'vtt_platform_suggestion',
+            subjectId: created.id,
+            canonicalPath: '/gestao',
+            snapshot: {
+              legacy_type: 'system',
+              title: 'Nova sugestão de plataforma',
+              message: `${userName} sugeriu "${created.suggested_name}" como plataforma de jogo.`,
               suggestion_id: created.id,
               suggestion_kind: 'vtt_platform',
               table_id: table_id || null,
-            }),
-          })))
-          .execute();
+            },
+            recipients: admins.map((admin) => admin.id),
+          },
+          trx,
+        );
       }
 
       return created;
     });
 
     console.log(`[POST /vtt-platforms/suggest] Nova sugestão: "${suggested_name}" por user ${userId}`);
+
+    // T7.4b (spec 096): entrega imediata pós-commit; o sweep periódico cobre o
+    // que falhar aqui. Falha de entrega não afeta a resposta ao mestre.
+    void deliverPendingNotifications().catch((error: unknown) => {
+      console.error('[POST /vtt-platforms/suggest] Falha na entrega pós-commit do outbox:', error);
+    });
 
     return res.status(201).json({ 
       data: suggestion,

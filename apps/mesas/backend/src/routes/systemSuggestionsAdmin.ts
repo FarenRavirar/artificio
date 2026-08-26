@@ -1,16 +1,22 @@
 import { Router, Request, Response } from 'express';
+import { deliverPendingNotifications } from '../services/notificationOutboxDelivery.js';
 import { sql, type Transaction } from 'kysely';
 import { authMiddleware, requireRole } from '../middleware/auth.js';
 import { db } from '../db/index.js';
 import { logActivity } from '../services/activityLogger.js';
 import { resolveActorName } from '../services/actorNameResolver.js';
 import { listAdminHandler, rejectHandler } from './suggestionHelpers.js';
-import { scoreSystemCandidates } from '../services/systemSuggestionCandidates.js';
-import type { CandidateSystemInput, CandidateAliasInput, CandidateResult } from '../services/systemSuggestionCandidates.js';
+// T7.1b (spec 096): era a cópia local, idêntica ao pacote compartilhado.
+import { scoreSystemCandidates } from '@artificio/catalog-matching';
+import type { CandidateSystemInput, CandidateAliasInput, CandidateResult } from '@artificio/catalog-matching';
 import { slugify } from './systems.js';
 import { validateSystemParentType } from '../services/systemHierarchy.js';
 import type { Database, SystemNodeType } from '../db/types.js';
 import { normalizeDraftPayload } from '../discord/index.js';
+// T7.4b (spec 096): os 7 avisos deste arquivo rodavam DENTRO de `trx` — falha
+// ao notificar revertia a aprovação da sugestão. Agora enfileiram no outbox
+// (mesma transação, entrega fora dela).
+import { enqueueNotification } from '../services/notificationOutbox.js';
 import { sanitizeNullableUserMarkdown } from '../utils/userMarkdown.js';
 // Achado CodeRabbit (PR #145): esta rota aprovava/resolvia sugestoes gravando
 // direto em systems/system_aliases LOCAIS, enquanto GET /api/v1/systems ja le
@@ -81,14 +87,26 @@ type SuggestionForResolve = {
 // concorrentes na mesma sugestao podiam ambas passar a checagem e criar nos
 // duplicados. pg_advisory_xact_lock(hashtext(id)) roda dentro da transacao
 // Kysely (trx) ja usada pelas escritas locais (system_suggestions/
-// notifications/activity_log); o lock so libera no COMMIT/ROLLBACK, entao a
+// mesas_notification_outbox/activity_log — o outbox substituiu a escrita direta
+// em `notifications` na T7.4b); o lock so libera no COMMIT/ROLLBACK, entao a
 // chamada HTTP ao catalogo central roda com a trx aberta (aceitavel: fluxo
 // admin de baixa frequencia, nao dado de usuario publico).
-async function withSuggestionLock<T>(
+/**
+ * Envolve a resolução da sugestão na transação com advisory lock e, DEPOIS do
+ * commit, dispara a entrega do outbox.
+ *
+ * T7.4b (spec 096): o disparo mora aqui, e não em cada handler, para que uma
+ * resolução nova não possa esquecer dele. O sweep periódico continua sendo a
+ * rede de segurança, mas só roda a cada 5 minutos.
+ *
+ * `void` + `catch`: falha de entrega não afeta a resposta ao admin — a entrada
+ * segue na fila com `attempt_count`/`last_error` registrados.
+ */
+async function withSuggestionLockAndDeliver<T>(
   id: string,
   fn: (trx: Transaction<Database>, suggestion: SuggestionForResolve) => Promise<T>,
 ): Promise<T> {
-  return db.transaction().execute(async (trx) => {
+  const result = await db.transaction().execute(async (trx) => {
     await sql`select pg_advisory_xact_lock(hashtext(${id}))`.execute(trx);
     const suggestion = await trx
       .selectFrom('system_suggestions')
@@ -101,6 +119,11 @@ async function withSuggestionLock<T>(
     }
     return fn(trx, suggestion);
   });
+
+  void deliverPendingNotifications().catch((error: unknown) => {
+    console.error('[systemSuggestionsAdmin] Falha na entrega pós-commit do outbox:', error);
+  });
+  return result;
 }
 
 // Adapta o catalogo central (MesasSystemNode[], aliases embutidos por no) para
@@ -386,22 +409,25 @@ async function performApprove(
     .where('id', '=', id)
     .execute();
 
-  await trx
-    .insertInto('notifications')
-    .values({
-      user_id: suggestion.user_id,
-      type: 'suggestion_approved',
-      title: 'Sugestão aprovada',
-      message: `Seu sistema "${suggestion.name}" foi adicionado ao catálogo.`,
-      action_url: `/catalogo?system=${newSystem.path_slug}`,
-      metadata: JSON.stringify({
+  await enqueueNotification(
+    {
+      eventType: 'mesas.suggestion.approved',
+      subjectType: 'system_suggestion',
+      subjectId: id,
+      canonicalPath: `/catalogo?system=${newSystem.path_slug}`,
+      snapshot: {
+        legacy_type: 'suggestion_approved',
+        title: 'Sugestão aprovada',
+        message: `Seu sistema "${suggestion.name}" foi adicionado ao catálogo.`,
         suggestion_id: id,
         suggestion_kind: 'system',
         system_id: newSystem.id,
         path_slug: newSystem.path_slug,
-      }),
-    })
-    .execute();
+      },
+      recipients: [suggestion.user_id],
+    },
+    trx,
+  );
 
   await logActivity({
     actorId: adminId,
@@ -438,10 +464,10 @@ router.patch('/system-suggestions/:id/approve', async (req: Request, res: Respon
     }
 
     // Achado CodeRabbit (PR #145): approve inteiro roda sob pg_advisory_xact_lock
-    // por suggestion_id (withSuggestionLock) — a checagem de status='pending' e
+    // por suggestion_id (withSuggestionLockAndDeliver) — a checagem de status='pending' e
     // a criacao do no no catalogo central agora sao atomicas entre requisicoes
     // concorrentes na MESMA sugestao.
-    const result = await withSuggestionLock(id, (trx, suggestion) => performApprove(trx, suggestion, id, adminId));
+    const result = await withSuggestionLockAndDeliver(id, (trx, suggestion) => performApprove(trx, suggestion, id, adminId));
 
     // Achado Sonar (PR #145): bloco de relink duplicava relinkDiscordDrafts
     // (mesma logica, so log-tag diferente) e inflava a complexidade cognitiva
@@ -491,7 +517,7 @@ type ResolveOutcome = {
 // Achado Sonar (PR #145): handler /resolve tinha complexidade cognitiva 56
 // (todos os resolutionType num so bloco). Cada resolutionType agora e uma
 // funcao propria; o handler so despacha e trata erro num catch central.
-// Achado CodeRabbit (PR #145): todo o dispatch roda dentro de withSuggestionLock
+// Achado CodeRabbit (PR #145): todo o dispatch roda dentro de withSuggestionLockAndDeliver
 // (mesmo pg_advisory_xact_lock do approve) — cada resolver usa ctx.trx em vez
 // de abrir a propria transacao, entao o lock cobre a checagem de status e as
 // escritas (local + catalogo central) como uma unidade atomica por sugestao.
@@ -514,21 +540,24 @@ async function resolveReject(ctx: ResolveContext): Promise<{ resolution_type: st
     .where('id', '=', id)
     .execute();
 
-  await trx
-    .insertInto('notifications')
-    .values({
-      user_id: suggestion.user_id,
-      type: 'suggestion_rejected',
-      title: 'Sugestão revisada',
-      message: `Sua sugestão "${suggestion.name}" não foi aceita desta vez.`,
-      action_url: `/perfil/minhas-sugestoes/${id}`,
-      metadata: JSON.stringify({
+  await enqueueNotification(
+    {
+      eventType: 'mesas.suggestion.rejected',
+      subjectType: 'system_suggestion',
+      subjectId: id,
+      canonicalPath: `/perfil/minhas-sugestoes/${id}`,
+      snapshot: {
+        legacy_type: 'suggestion_rejected',
+        title: 'Sugestão revisada',
+        message: `Sua sugestão "${suggestion.name}" não foi aceita desta vez.`,
         suggestion_id: id,
         suggestion_kind: 'system',
         ...(reason ? { reason } : {}),
-      }),
-    })
-    .execute();
+      },
+      recipients: [suggestion.user_id],
+    },
+    trx,
+  );
 
   await logActivity({
     actorId: adminId,
@@ -575,22 +604,25 @@ async function resolveMergeExisting(ctx: ResolveContext): Promise<ResolveOutcome
     .where('id', '=', id)
     .execute();
 
-  await trx
-    .insertInto('notifications')
-    .values({
-      user_id: suggestion.user_id,
-      type: 'suggestion_approved',
-      title: 'Sugestão revisada',
-      message: `Sua sugestão "${suggestion.name}" já está coberta por "${target.name}" no catálogo.`,
-      action_url: `/catalogo?system=${target.path_slug ?? ''}`,
-      metadata: JSON.stringify({
+  await enqueueNotification(
+    {
+      eventType: 'mesas.suggestion.approved',
+      subjectType: 'system_suggestion',
+      subjectId: id,
+      canonicalPath: `/catalogo?system=${target.path_slug ?? ''}`,
+      snapshot: {
+        legacy_type: 'suggestion_approved',
+        title: 'Sugestão revisada',
+        message: `Sua sugestão "${suggestion.name}" já está coberta por "${target.name}" no catálogo.`,
         suggestion_id: id,
         suggestion_kind: 'system',
         resolution_type: 'merge_existing',
         system_id: target.id,
-      }),
-    })
-    .execute();
+      },
+      recipients: [suggestion.user_id],
+    },
+    trx,
+  );
 
   await logActivity({
     actorId: adminId,
@@ -666,23 +698,26 @@ async function resolveCreateAlias(ctx: ResolveContext): Promise<ResolveOutcome> 
     .where('id', '=', id)
     .execute();
 
-  await trx
-    .insertInto('notifications')
-    .values({
-      user_id: suggestion.user_id,
-      type: 'suggestion_approved',
-      title: 'Sugestão aprovada',
-      message: `Sua sugestão "${suggestion.name}" foi adicionada como nome alternativo de "${target.name}".`,
-      action_url: `/catalogo?system=${target.path_slug ?? ''}`,
-      metadata: JSON.stringify({
+  await enqueueNotification(
+    {
+      eventType: 'mesas.suggestion.approved',
+      subjectType: 'system_suggestion',
+      subjectId: id,
+      canonicalPath: `/catalogo?system=${target.path_slug ?? ''}`,
+      snapshot: {
+        legacy_type: 'suggestion_approved',
+        title: 'Sugestão aprovada',
+        message: `Sua sugestão "${suggestion.name}" foi adicionada como nome alternativo de "${target.name}".`,
         suggestion_id: id,
         suggestion_kind: 'system',
         resolution_type: 'create_alias',
         system_id: target.id,
         alias_id: aliasId,
-      }),
-    })
-    .execute();
+      },
+      recipients: [suggestion.user_id],
+    },
+    trx,
+  );
 
   await logActivity({
     actorId: adminId,
@@ -791,24 +826,27 @@ async function resolveCreateChain(ctx: ResolveContext): Promise<ResolveOutcome> 
     .where('id', 'in', chainRows.map((row) => row.id))
     .execute();
 
-  await trx
-    .insertInto('notifications')
-    .values({
-      user_id: suggestion.user_id,
-      type: 'suggestion_approved',
-      title: 'Sugestão aprovada',
-      message: `Sua sugestão "${suggestion.name}" foi adicionada ao catálogo.`,
-      action_url: `/catalogo?system=${lastCreated.path_slug ?? ''}`,
-      metadata: JSON.stringify({
+  await enqueueNotification(
+    {
+      eventType: 'mesas.suggestion.approved',
+      subjectType: 'system_suggestion',
+      subjectId: id,
+      canonicalPath: `/catalogo?system=${lastCreated.path_slug ?? ''}`,
+      snapshot: {
+        legacy_type: 'suggestion_approved',
+        title: 'Sugestão aprovada',
+        message: `Sua sugestão "${suggestion.name}" foi adicionada ao catálogo.`,
         suggestion_id: id,
         suggestion_kind: 'system',
         resolution_type: 'create_chain',
         system_id: lastCreated.system_id,
         path_slug: lastCreated.path_slug,
         batch_id: suggestion.batch_id,
-      }),
-    })
-    .execute();
+      },
+      recipients: [suggestion.user_id],
+    },
+    trx,
+  );
 
   await logActivity({
     actorId: adminId,
@@ -893,23 +931,26 @@ async function resolveCreateChild(ctx: ResolveContext): Promise<ResolveOutcome> 
     .where('id', '=', id)
     .execute();
 
-  await trx
-    .insertInto('notifications')
-    .values({
-      user_id: suggestion.user_id,
-      type: 'suggestion_approved',
-      title: 'Sugestão aprovada',
-      message: `Sua sugestão "${suggestion.name}" foi adicionada ao catálogo.`,
-      action_url: `/catalogo?system=${newSystem.path_slug}`,
-      metadata: JSON.stringify({
+  await enqueueNotification(
+    {
+      eventType: 'mesas.suggestion.approved',
+      subjectType: 'system_suggestion',
+      subjectId: id,
+      canonicalPath: `/catalogo?system=${newSystem.path_slug}`,
+      snapshot: {
+        legacy_type: 'suggestion_approved',
+        title: 'Sugestão aprovada',
+        message: `Sua sugestão "${suggestion.name}" foi adicionada ao catálogo.`,
         suggestion_id: id,
         suggestion_kind: 'system',
         resolution_type: 'create_child',
         system_id: newSystem.id,
         path_slug: newSystem.path_slug,
-      }),
-    })
-    .execute();
+      },
+      recipients: [suggestion.user_id],
+    },
+    trx,
+  );
 
   await logActivity({
     actorId: adminId,
@@ -1000,23 +1041,26 @@ async function resolveCreateSystem(ctx: ResolveContext): Promise<ResolveOutcome>
     .where('id', '=', id)
     .execute();
 
-  await trx
-    .insertInto('notifications')
-    .values({
-      user_id: suggestion.user_id,
-      type: 'suggestion_approved',
-      title: 'Sugestão aprovada',
-      message: `Seu sistema "${suggestion.name}" foi adicionado ao catálogo.`,
-      action_url: `/catalogo?system=${createdNode.path_slug}`,
-      metadata: JSON.stringify({
+  await enqueueNotification(
+    {
+      eventType: 'mesas.suggestion.approved',
+      subjectType: 'system_suggestion',
+      subjectId: id,
+      canonicalPath: `/catalogo?system=${createdNode.path_slug}`,
+      snapshot: {
+        legacy_type: 'suggestion_approved',
+        title: 'Sugestão aprovada',
+        message: `Seu sistema "${suggestion.name}" foi adicionado ao catálogo.`,
         suggestion_id: id,
         suggestion_kind: 'system',
         resolution_type: 'create_system',
         system_id: createdNode.id,
         path_slug: createdNode.path_slug,
-      }),
-    })
-    .execute();
+      },
+      recipients: [suggestion.user_id],
+    },
+    trx,
+  );
 
   await logActivity({
     actorId: adminId,
@@ -1113,12 +1157,12 @@ router.post('/system-suggestions/:id/resolve', async (req: Request, res: Respons
 
   try {
     if (resolutionType === 'reject') {
-      const outcome = await withSuggestionLock(id, (trx, suggestion) =>
+      const outcome = await withSuggestionLockAndDeliver(id, (trx, suggestion) =>
         resolveReject({ id, adminId, trx, suggestion, body, extraAliases, parentAliases }));
       return res.json({ success: true, data: { suggestion_id: id, resolution_type: outcome.resolution_type, pending_drafts: outcome.pending_drafts } });
     }
 
-    const outcome = await withSuggestionLock(id, (trx, suggestion) =>
+    const outcome = await withSuggestionLockAndDeliver(id, (trx, suggestion) =>
       resolvers[resolutionType]({ id, adminId, trx, suggestion, body, extraAliases, parentAliases }));
     return res.json({
       success: true,

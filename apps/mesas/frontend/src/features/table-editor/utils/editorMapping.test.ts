@@ -27,6 +27,45 @@ function payloadOf(state: TableEditorState): Record<string, unknown> {
   return editorStateToPayload(state) as Record<string, unknown>;
 }
 
+// T7.2b2 (spec 096): `price_frequency` tinha leitor (`tableViewMapper.ts`),
+// escritor (`gmPanel.ts:1046`) e exibição pública ("/ sessão" ao lado do preço
+// em `TableActionPanel.tsx`) — e nenhum ponto de entrada no editor. A ida e a
+// volta precisam fechar, senão editar uma mesa apagaria a periodicidade salva.
+describe('editorStateToPayload/mapApiToEditorState — periodicidade (T7.2b2)', () => {
+  it('mesa paga leva a periodicidade escolhida ao payload', () => {
+    const payload = payloadOf(makeState({ priceType: 'paga', priceValue: '30', priceFrequency: 'mes' }));
+    expect(payload.price_frequency).toBe('mes');
+  });
+
+  it('mesa paga sem periodicidade declarada manda null (estado legítimo)', () => {
+    const payload = payloadOf(makeState({ priceType: 'paga', priceValue: '30', priceFrequency: '' }));
+    expect(payload.price_frequency).toBeNull();
+  });
+
+  it('mesa gratuita força null, mesmo com resíduo no state', () => {
+    const payload = payloadOf(makeState({ priceType: 'gratuita', priceFrequency: 'sessao' }));
+    expect(payload.price_frequency).toBeNull();
+  });
+
+  it('a volta lê price_frequency da API para o state do editor', () => {
+    const state = mapApiToEditorState({ price_type: 'paga', price_frequency: 'campanha' });
+    expect(state.priceFrequency).toBe('campanha');
+  });
+
+  it('a volta trata price_frequency ausente/null como não informado', () => {
+    expect(mapApiToEditorState({ price_type: 'paga' }).priceFrequency).toBe('');
+    expect(mapApiToEditorState({ price_type: 'paga', price_frequency: null }).priceFrequency).toBe('');
+  });
+
+  // Ida e volta: editar uma mesa paga e salvar sem tocar no campo preserva o
+  // valor que estava no banco — é o que impede a entrada nova de virar perda.
+  it('round-trip preserva a periodicidade salva', () => {
+    const loaded = mapApiToEditorState({ price_type: 'paga', price_value: 30, price_frequency: 'sessao' });
+    const payload = payloadOf(makeState({ ...loaded, priceType: 'paga', priceValue: '30' }));
+    expect(payload.price_frequency).toBe('sessao');
+  });
+});
+
 describe('editorStateToPayload — regras do mapper que sobrevivem (T4.0f)', () => {
   it("'' zera × undefined preserva: price_value_monthly vazio vira null; ausente omite; não numérico omite (guard Number.isFinite)", () => {
     const empty = payloadOf(makeState({ priceType: 'paga', priceValueMonthly: '' }));
