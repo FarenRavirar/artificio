@@ -29,7 +29,12 @@ export const tokens = {
     success: "#10B981", // emerald 600 (mesas --success-strong) — fill/borda/acento
     successText: "#15803D", // green 700 — texto/ícone AA sobre claro
     warning: "#F59E0B", // amber 500 (mesas --warn-strong)
-    warningText: "#A16207", // amber 700 — texto AA sobre claro
+    // amber 800 — texto AA sobre o fundo real do badge/banner de warning.
+    // Era #A16207 (amber 700), que media 4.42:1 sobre rgb(254,241,221) — o que
+    // `--state-warning-bg` compõe no light — e reprovava o mínimo 4.5 de AA
+    // apesar do comentário que já prometia "AA sobre claro" (achado do
+    // mantenedor, 2026-08-26). #854D0E mede 6.16:1 no mesmo fundo.
+    warningText: "#854D0E",
     danger: "#EF4444", // red 500 (mesas --danger)
     dangerText: "#B91C1C", // red 700 — texto AA sobre claro
     info: "#38BDF8", // sky 400 (mesas --info)

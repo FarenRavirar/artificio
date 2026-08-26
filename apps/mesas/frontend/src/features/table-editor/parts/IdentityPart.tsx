@@ -160,7 +160,7 @@ export function IdentityPart({
   };
 
   return (
-    <div className="flex flex-col gap-3.5 max-w-[900px] h-full overflow-hidden">
+    <div className="flex flex-col gap-3.5 max-w-[900px]">
       {/* Parser "colar anúncio" (R5): componente preservado do fluxo antigo,
           agora dentro do editor. Texto levantado para o shell (sobrevive à
           troca de parte — lição do achado de 2026-08-18 em

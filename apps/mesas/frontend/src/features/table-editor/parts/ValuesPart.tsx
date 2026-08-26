@@ -54,7 +54,7 @@ export function ValuesPart({ api }: ValuesPartProps) {
   };
 
   return (
-    <div className="flex flex-col gap-3.5 max-w-[900px] h-full overflow-hidden">
+    <div className="flex flex-col gap-3.5 max-w-[900px]">
       <EditorField
         fieldId="priceType"
         state={state}

@@ -138,9 +138,14 @@ export const SettingStylesField: React.FC<SettingStylesFieldProps> = ({
           Estilos/Temáticas <span className="optional">(opcional — aparece como filtro/tag no catálogo)</span>
         </label>
 
-        {/* CORREÇÃO DT-23: Indicação visual quando campo está vazio */}
+        {/* CORREÇÃO DT-23: Indicação visual quando campo está vazio.
+            Cor pelo token, não hex fixo (achado do mantenedor, 2026-08-26):
+            `#95a5a6` era cinza hardcoded que ignorava o tema e media 2.28:1 no
+            light — reprova o mínimo 4.5:1 de WCAG AA para texto normal.
+            `--fg-muted` é o token de texto secundário do design system e
+            acompanha claro/escuro. */}
         {settingStyles.length === 0 && !isLoadingSuggestions && suggestions.length === 0 && (
-          <p className="form-hint" style={{ fontStyle: 'italic', color: '#95a5a6' }}>
+          <p className="form-hint" style={{ fontStyle: 'italic', color: 'var(--fg-muted)' }}>
             Nenhum estilo selecionado. Digite um cenário acima para ver sugestões.
           </p>
         )}

@@ -41,7 +41,7 @@ export function WhenPart({ api }: WhenPartProps) {
   const schedule = state.schedules[0];
 
   return (
-    <div className="flex flex-col gap-3.5 max-w-[900px] h-full overflow-hidden">
+    <div className="flex flex-col gap-3.5 max-w-[900px]">
       <SingleScheduleEditor
         state={state}
         parserMarked={parserFilledFields.has('schedules')}

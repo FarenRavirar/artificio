@@ -53,7 +53,7 @@ export function AudiencePart({ api }: AudiencePartProps) {
   const { state, patch, validateFieldOnBlur, parserFilledFields } = api;
 
   return (
-    <div className="flex flex-col gap-3.5 max-w-[900px] h-full overflow-hidden">
+    <div className="flex flex-col gap-3.5 max-w-[900px]">
       <div className="flex flex-wrap gap-3.5 items-start">
         <EditorField
           fieldId="type"

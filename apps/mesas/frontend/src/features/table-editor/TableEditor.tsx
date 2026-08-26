@@ -245,8 +245,13 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
         </aside>
 
         <main className="table-editor-document">
+          {/* pt 18px→24px (achado do mantenedor, 2026-08-26): com 18px o
+              primeiro elemento da parte encostava na barra de abas e o botão
+              "Colar anúncio" lia como cortado ao meio, embora estivesse
+              inteiro (medido: 32 de 32px visíveis). O respiro é o conserto,
+              não o recorte. */}
           <section
-            className="table-editor-part px-7 pb-6 pt-[18px]"
+            className="table-editor-part px-7 pb-6 pt-6"
             aria-label={getPartLabel(activePartId)}
           >
             {activePartId === 'identity' && (
@@ -446,7 +451,14 @@ const EditorSidebar = memo(function EditorSidebar({
         </div>
       </div>
 
-      <nav className="flex flex-col gap-1 overflow-hidden" aria-label="Partes do anúncio">
+      {/* `table-editor-parts-nav`: gancho estável para a media query da casca
+          (TableEditor.css) virar esta lista em faixa horizontal abaixo de
+          720px. Sem a classe, a regra dependeria do seletor de elemento e
+          quebraria silenciosamente ao mudar o markup. */}
+      <nav
+        className="table-editor-parts-nav flex flex-col gap-1 overflow-hidden"
+        aria-label="Partes do anúncio"
+      >
         {EDITOR_PARTS.map((part) => {
           const pending = pendingCounts[part.id] ?? 0;
           const active = part.id === activePartId;
