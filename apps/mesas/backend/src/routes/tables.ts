@@ -28,6 +28,38 @@ import type { TableModality, TableType, TableAudience, PriceType, ExperienceLeve
 
 const VALID_REPORT_REASONS: Set<TableReportReason> = new Set(['golpe', 'conteudo_inadequado', 'spam', 'informacao_falsa', 'outro']);
 
+/**
+ * Colunas de identidade e capa que a lista do catálogo e a rota de detalhe
+ * selecionam igual.
+ *
+ * Extraídas porque eram um clone exato entre os dois `select` (Sonar acusou
+ * 100% de duplicação nas linhas novas de `tables.ts`). O risco de manter a cópia
+ * não é estético: acrescentar coluna em um `select` e esquecer o outro faz a
+ * mesma mesa voltar com campo na tela de detalhe e sem ele no card, e nada
+ * falha — o consumidor é que descobre, renderizando vazio.
+ *
+ * `as const` para o Kysely inferir os nomes literais em vez de `string[]`, que
+ * derrubaria a checagem de coluna inexistente.
+ */
+const TABLE_CARD_COLUMNS = [
+  't.id',
+  't.slug',
+  't.title',
+  't.description',
+  sql<string | null>`t.banner_url`.as('cover_url'),
+  sql<Record<string, number> | null>`t.banner_crop_data`.as('cover_crop_data'),
+  // Sem as dimensoes da imagem o recorte acima nao e conversivel em
+  // `object-position`: a conta divide pela FOLGA (imagem menos recorte).
+  // Expor so o retangulo deixava o consumidor sem como aplica-lo.
+  sql<number | null>`t.banner_width`.as('cover_width'),
+  sql<number | null>`t.banner_height`.as('cover_height'),
+  't.status',
+  't.type',
+  't.audience',
+  't.modality',
+] as const;
+
+
 const router = Router();
 
 /**
@@ -105,21 +137,7 @@ router.get('/', async (req: Request, res: Response) => {
       // CORREÇÃO A-HIGH-01: JOIN com vtt_platforms para consistência com rota de detalhes
       .leftJoin('vtt_platforms as vtt', 'vtt.id', 't.vtt_platform_id')
       .select([
-        't.id',
-        't.slug',
-        't.title',
-        't.description',
-        sql<string | null>`t.banner_url`.as('cover_url'),
-        sql<Record<string, number> | null>`t.banner_crop_data`.as('cover_crop_data'),
-        // Sem as dimensoes da imagem o recorte acima nao e conversivel em
-        // `object-position`: a conta divide pela FOLGA (imagem menos recorte).
-        // Expor so o retangulo deixava o consumidor sem como aplica-lo.
-        sql<number | null>`t.banner_width`.as('cover_width'),
-        sql<number | null>`t.banner_height`.as('cover_height'),
-        't.status',
-        't.type',
-        't.audience',
-        't.modality',
+        ...TABLE_CARD_COLUMNS,
         // R24/A27 (spec 096): faixa etária no card do catálogo — a rota de
         // detalhe já expunha o campo; a lista, não. Sem ele, as 57 mesas
         // importadas com faixa real (+14/+16/+18) não têm como exibi-la.
@@ -560,21 +578,7 @@ router.get('/:slug', async (req: Request, res: Response) => {
       .leftJoin('vtt_platforms as vtt', 'vtt.id', 't.vtt_platform_id')
       .leftJoin('communication_platforms as cp', 'cp.id', 't.communication_platform_id')
       .select([
-        't.id',
-        't.slug',
-        't.title',
-        't.description',
-        sql<string | null>`t.banner_url`.as('cover_url'),
-        sql<Record<string, number> | null>`t.banner_crop_data`.as('cover_crop_data'),
-        // Sem as dimensoes da imagem o recorte acima nao e conversivel em
-        // `object-position`: a conta divide pela FOLGA (imagem menos recorte).
-        // Expor so o retangulo deixava o consumidor sem como aplica-lo.
-        sql<number | null>`t.banner_width`.as('cover_width'),
-        sql<number | null>`t.banner_height`.as('cover_height'),
-        't.status',
-        't.type',
-        't.audience',
-        't.modality',
+        ...TABLE_CARD_COLUMNS,
         't.age_rating',
         't.price_type',
         't.price_value',
@@ -613,6 +617,12 @@ router.get('/:slug', async (req: Request, res: Response) => {
         't.ddal_org_code',
         't.ddal_setting',
         't.ddal_rules_notes',
+        // T7.2b (spec 096): `rules_notes` é o campo "Regras e observações" que o
+        // editor e o parser gravam há tempo, mas que NUNCA saía no detalhe
+        // público — 35 mesas com conteúdo não-branco em produção nunca foram
+        // exibidas. Não confundir com `ddal_rules_notes` acima, que é a nota da
+        // certificação DDAL e vive em `certifications.ddal.rulesNotes`.
+        't.rules_notes',
         // CORREÇÃO: Retornar campos avançados (REQ-26)
         't.master_display_name',
         't.campaign_length',

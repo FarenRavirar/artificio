@@ -7,10 +7,10 @@
     "downloads": 108,
     "glossario": 50,
     "links": 22,
-    "mesas": 208,
+    "mesas": 205,
     "site": 57
   },
-  "total": 498,
+  "total": 495,
   "operations": [
     {
       "app": "accounts",
@@ -4716,42 +4716,6 @@
       "auth": "user",
       "consumers": [],
       "operationId": "putapi_v1_me_preferences"
-    },
-    {
-      "app": "mesas",
-      "method": "GET",
-      "path": "/api/v1/notifications",
-      "summary": "Consulta api v1 notifications",
-      "owner": "mesas",
-      "scope": "public",
-      "status": "active",
-      "auth": "user",
-      "consumers": [],
-      "operationId": "getapi_v1_notifications"
-    },
-    {
-      "app": "mesas",
-      "method": "PATCH",
-      "path": "/api/v1/notifications/{id}/read",
-      "summary": "Atualiza api v1 notifications id read",
-      "owner": "mesas",
-      "scope": "public",
-      "status": "active",
-      "auth": "user",
-      "consumers": [],
-      "operationId": "patchapi_v1_notifications_id_read"
-    },
-    {
-      "app": "mesas",
-      "method": "PATCH",
-      "path": "/api/v1/notifications/read-all",
-      "summary": "Atualiza api v1 notifications read-all",
-      "owner": "mesas",
-      "scope": "public",
-      "status": "active",
-      "auth": "user",
-      "consumers": [],
-      "operationId": "patchapi_v1_notifications_read_all"
     },
     {
       "app": "mesas",

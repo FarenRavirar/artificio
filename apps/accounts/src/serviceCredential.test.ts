@@ -229,7 +229,7 @@ describe("hasScope", () => {
 });
 
 describe("SERVICE_SCOPES", () => {
-  it("espelha o CHECK das migrations 007 e 011", () => {
+  it("espelha o CHECK das migrations 007, 011 e 012", () => {
     // Divergir daqui faz o INSERT falhar em runtime com erro de constraint, o que
     // só apareceria no deploy. Manter os dois lados no mesmo teste.
     //
@@ -246,6 +246,11 @@ describe("SERVICE_SCOPES", () => {
       "report.write",
       "moderation.write",
       "notification.write",
+      // T7.4b (spec 096, migration 012): autoriza `read_at` no ingest, que faz o
+      // recibo nascer JÁ LIDO. Separado de `notification.write` porque criar
+      // aviso pendente é o trabalho normal de um produtor, enquanto criar aviso
+      // já lido é SILENCIAR um aviso.
+      "notification.migrate",
     ]);
   });
 });

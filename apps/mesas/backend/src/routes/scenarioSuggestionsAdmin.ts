@@ -1,4 +1,6 @@
 import { Router, Request, Response } from 'express';
+import { deliverPendingNotifications } from '../services/notificationOutboxDelivery.js';
+import { enqueueNotification } from '../services/notificationOutbox.js';
 import { authMiddleware, requireRole } from '../middleware/auth.js';
 import { db } from '../db/index.js';
 import { logActivity } from '../services/activityLogger.js';
@@ -92,23 +94,28 @@ router.patch('/scenario-suggestions/:id/approve', async (req: Request, res: Resp
         .where('id', '=', id)
         .execute();
 
-      // 5. INSERT em notifications
-      await trx
-        .insertInto('notifications')
-        .values({
-          user_id: suggestion.user_id,
-          type: 'suggestion_approved',
-          title: 'Sugestão aprovada',
-          message: `Seu cenário "${suggestion.name}" foi adicionado ao catálogo.`,
-          action_url: `/catalogo?scenario=${newScenario.slug}`,
-          metadata: JSON.stringify({
+      // 5. Enfileira o aviso no outbox (T7.4b, spec 096). Na MESMA transação:
+      // o aviso não se perde, e uma falha de entrega não reverte a aprovação.
+      await enqueueNotification(
+        {
+          eventType: 'mesas.suggestion.approved',
+          subjectType: 'scenario_suggestion',
+          subjectId: id,
+          canonicalPath: `/catalogo?scenario=${newScenario.slug}`,
+          body: `Seu cenário "${suggestion.name}" foi adicionado ao catálogo.`,
+          snapshot: {
+            legacy_type: 'suggestion_approved',
+            title: 'Sugestão aprovada',
+            message: `Seu cenário "${suggestion.name}" foi adicionado ao catálogo.`,
             suggestion_id: id,
             suggestion_kind: 'scenario',
             scenario_id: newScenario.id,
             slug: newScenario.slug,
-          }),
-        })
-        .execute();
+          },
+          recipients: [suggestion.user_id],
+        },
+        trx,
+      );
 
       await logActivity({
         actorId: adminId,
@@ -131,6 +138,15 @@ router.patch('/scenario-suggestions/:id/approve', async (req: Request, res: Resp
         scenario_id: newScenario.id,
         slug: newScenario.slug,
       };
+    });
+
+
+    // T7.4b (spec 096): entrega imediata pós-commit. O sweep periódico (a cada
+    // 5 min) é a rede de segurança; sem este disparo, o aviso normal esperaria
+    // até a próxima varredura. `void` + `catch`: falha de entrega não afeta a
+    // resposta — a entrada continua na fila com `attempt_count` registrado.
+    void deliverPendingNotifications().catch((error: unknown) => {
+      console.error('[PATCH /admin/scenario-suggestions/:id/approve] Falha na entrega pós-commit do outbox:', error);
     });
 
     return res.json({ success: true, data: result });

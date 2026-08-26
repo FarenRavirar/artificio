@@ -234,33 +234,77 @@ router.patch('/table-duplicate-candidates/:id', authMiddleware, async (req: Requ
   }
 });
 
+const VALID_STATUSES: TableStatus[] = ['active', 'full', 'cancelled', 'ended'];
+
+/**
+ * Traduz o corpo do PUT administrativo em `updateData`, ou na mensagem de 400.
+ *
+ * Função pura, extraída do handler (Sonar: complexidade cognitiva 17 > 15). O
+ * handler ficou com o fluxo — autorizar, montar, gravar, responder — e a
+ * validação virou algo que se testa sem HTTP.
+ *
+ * Achado real (review PR #289, inline): `Boolean(valor)` transforma QUALQUER
+ * string não-vazia em `true` — `"false"` inclusive. Um cliente fora do painel
+ * (curl, script de automação, form que serializa booleano como texto) pedindo
+ * para DESMARCAR acabava marcando, silenciosamente e sem erro. O `is_covil`
+ * tinha o mesmo defeito, anterior a esta spec: a causa é a coerção, não o campo,
+ * então os dois passam pelo mesmo guard.
+ *
+ * T7.2c (spec 096): `featured` tinha leitor, filtro (`tables.ts:204`), peso na
+ * ordenação do catálogo (`tables.ts:256`), ordenação no perfil do mestre
+ * (`gm.ts:266`) e selo no CSS — e NENHUM escritor. Capacidade completa sem ponto
+ * de entrada: nenhuma mesa podia ser destacada.
+ */
+export function parseAdminTableUpdate(body: {
+  status?: unknown;
+  is_covil?: unknown;
+  featured?: unknown;
+}): { updateData: Updateable<TablesTable> } | { error: string } {
+  const updateData: Updateable<TablesTable> = {};
+
+  if (body.status !== undefined) {
+    if (typeof body.status !== 'string' || !VALID_STATUSES.includes(body.status as TableStatus)) {
+      return { error: `Status inválido. Valores: ${VALID_STATUSES.join(', ')}` };
+    }
+    updateData.status = body.status as TableStatus;
+  }
+
+  for (const field of ['is_covil', 'featured'] as const) {
+    const value = body[field];
+    if (value === undefined) continue;
+    if (typeof value !== 'boolean') {
+      return { error: `${field} deve ser booleano (true ou false).` };
+    }
+    updateData[field] = value;
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return { error: 'Nenhum dado para atualizar.' };
+  }
+
+  return { updateData };
+}
+
 // PUT /api/v1/admin/tables/:id — Ações administrativas (status, covil, etc.)
 router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) => {
   const userRole = req.user?.role;
   const { id } = req.params;
-  const { status, is_covil } = req.body as { status?: unknown; is_covil?: unknown };
+  const { status, is_covil, featured } = req.body as {
+    status?: unknown;
+    is_covil?: unknown;
+    featured?: unknown;
+  };
 
   if (userRole !== 'admin') {
     return res.status(403).json({ error: 'Acesso restrito a administradores.' });
   }
 
   try {
-    const updateData: Updateable<TablesTable> = {};
-    if (status !== undefined) {
-      const validStatuses: TableStatus[] = ['active', 'full', 'cancelled', 'ended'];
-      if (typeof status !== 'string' || !validStatuses.includes(status as TableStatus)) {
-        return res.status(400).json({ error: `Status inválido. Valores: ${validStatuses.join(', ')}` });
-      }
-      updateData.status = status as TableStatus;
+    const parsed = parseAdminTableUpdate({ status, is_covil, featured });
+    if ('error' in parsed) {
+      return res.status(400).json({ error: parsed.error });
     }
-
-    if (is_covil !== undefined) {
-      updateData.is_covil = Boolean(is_covil);
-    }
-
-    if (Object.keys(updateData).length === 0) {
-      return res.status(400).json({ error: 'Nenhum dado para atualizar.' });
-    }
+    const updateData = parsed.updateData;
 
     // 1a publicacao via ativacao admin grava published_at (mesma ancora do fluxo GM,
     // gmPanel). Sem isso, ativar um rascunho/importado antigo deixaria o auto-arquivamento
@@ -282,7 +326,7 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       .updateTable('tables')
       .set(updateData)
       .where('id', '=', id)
-      .returning(['id', 'slug', 'title', 'status', 'is_covil'])
+      .returning(['id', 'slug', 'title', 'status', 'is_covil', 'featured'])
       .execute();
 
     // Achado Codex (PR #157): PUT /admin/tables/:id (acoes administrativas de
@@ -313,7 +357,7 @@ router.get('/tables', authMiddleware, async (req: Request, res: Response) => {
   try {
     let query = db
       .selectFrom('tables')
-      .select(['id', 'slug', 'title', 'status', 'gm_id', 'origin', 'created_at', 'is_covil'])
+      .select(['id', 'slug', 'title', 'status', 'gm_id', 'origin', 'created_at', 'is_covil', 'featured'])
       .orderBy('created_at', 'desc');
 
     if (typeof status === 'string' && status) {

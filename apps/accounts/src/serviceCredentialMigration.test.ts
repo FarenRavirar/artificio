@@ -14,14 +14,13 @@ const migration = readFileSync(migrationPath, "utf8");
 // ausente do banco.
 const scopeMigrations = [
   migration,
-  readFileSync(
-    fileURLToPath(
-      new URL(
-        "../database/migration_011_notification_ingest_scope.sql",
-        import.meta.url,
-      ),
-    ),
-    "utf8",
+  ...[
+    "../database/migration_011_notification_ingest_scope.sql",
+    // T7.4b (spec 096): `notification.migrate` entrou pela 012, pelo mesmo
+    // mecanismo — sem ela aqui, o escopo novo pareceria ausente do banco.
+    "../database/migration_012_notification_event_read_at.sql",
+  ].map((relativo) =>
+    readFileSync(fileURLToPath(new URL(relativo, import.meta.url)), "utf8"),
   ),
 ].join("\n");
 

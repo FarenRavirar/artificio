@@ -266,6 +266,37 @@ describe('GET /api/v1/tables/:slug — visibilidade pública', () => {
 
     expect(response.status).toBe(200);
   });
+
+  // T7.2b (spec 096): `rules_notes` era gravado pelo editor e pelo parser e
+  // ficava de fora do select do detalhe — 35 mesas com regras escritas em
+  // produção nunca apareciam no público. Sem a coluna no select, nenhum ajuste
+  // de frontend consegue exibir nada.
+  it('T7.2b: seleciona t.rules_notes no detalhe público', async () => {
+    const builder = makeQueryBuilder();
+    dbMocks.selectFrom.mockImplementation(() => builder);
+    dbMocks.executeTakeFirst.mockResolvedValue(visibleTable);
+
+    await request(makeApp()).get('/api/v1/tables/mesa-publica');
+
+    const selectedColumns = builder.select.mock.calls.flatMap(([columns]) =>
+      Array.isArray(columns) ? columns : [columns],
+    );
+    expect(selectedColumns).toContain('t.rules_notes');
+    // A nota do DDAL continua sendo outra coluna — uma não substitui a outra.
+    expect(selectedColumns).toContain('t.ddal_rules_notes');
+  });
+
+  it('T7.2b: devolve rules_notes sanitizado no payload do detalhe', async () => {
+    dbMocks.executeTakeFirst.mockResolvedValue({
+      ...visibleTable,
+      rules_notes: 'Sem PVP.',
+    });
+
+    const response = await request(makeApp()).get('/api/v1/tables/mesa-publica');
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.rules_notes).toContain('Sem PVP.');
+  });
 });
 
 describe('interações de mesa pública — visibilidade', () => {

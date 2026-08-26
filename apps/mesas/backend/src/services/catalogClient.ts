@@ -6,6 +6,8 @@ import {
   catalogNodeTypeSchema,
   catalogFetch,
   archiveCatalogNode as sharedArchiveCatalogNode,
+  createCatalogNode as sharedCreateCatalogNode,
+  updateCatalogNode as sharedUpdateCatalogNode,
   flattenTree as sharedFlattenTree,
 } from '@artificio/catalog-client';
 
@@ -69,14 +71,13 @@ interface CatalogTreeNode {
 
 const catalogSnapshotSchema = z.object({ tree: z.array(catalogTreeNodeSchema) });
 
-// Achado CodeRabbit (PR #145): createCatalogNode/updateCatalogNode validavam
-// a resposta de POST/PUT com catalogTreeNodeSchema (exige `children`), mas o
-// endpoint de escrita do site (POST/PUT /api/admin/v1/catalog/nodes) retorna
-// CatalogNodeRow — linha flat do banco, sem `children` (so a arvore/snapshot
-// publica tem esse campo). O parse falhava sempre em runtime real. Schema
-// proprio para resposta de escrita, reusando catalogNodeBaseSchema (sem
-// `children`); normalizado com children: [] logo apos o parse.
-const catalogNodeWriteResponseSchema = catalogNodeBaseSchema;
+// O schema da resposta de ESCRITA saiu daqui em T7.1c (spec 096) — vive em
+// @artificio/catalog-client (`catalogNodeWriteResponseSchema`), junto do POST/PUT.
+// O achado que o motivou continua valendo e está registrado lá: o endpoint de
+// escrita devolve a linha flat do banco, SEM `children` (só a árvore pública tem
+// esse campo), então validar a escrita com o schema de árvore falhava sempre em
+// runtime real (CodeRabbit, PR #145). Os wrappers daqui normalizam com
+// `children: []` logo após receber.
 
 export interface MesasSystemNode {
   id: string;
@@ -117,21 +118,14 @@ export const invalidateCatalogCache = (): void => {
   treeCache = null;
 };
 
-// Achado Sonar (PR #145): /^-+|-+$/g tem altern\u00e2ncia de quantificadores gulosos
-// nas duas pontas \u2014 trocado por trim manual de hifens (sem regex, sem backtracking).
-export const slugifyCatalogSegment = (value: string): string => {
-  const collapsed = value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replaceAll('&', ' e ')
-    .replace(/[^a-z0-9]+/g, '-');
-  let start = 0;
-  let end = collapsed.length;
-  while (start < end && collapsed[start] === '-') start += 1;
-  while (end > start && collapsed[end - 1] === '-') end -= 1;
-  return collapsed.slice(start, end).slice(0, 80);
-};
+// T7.1c (spec 096): a implementação subiu para @artificio/catalog-client, onde
+// os achados das duas cópias foram reunidos — o trim manual sem backtracking
+// (Sonar, PR #145, que nasceu aqui) e o trim DEPOIS do corte em 80 chars
+// (Codex, PR #204, que estava só na cópia do downloads). Medido antes de
+// unificar: 0 slugs em produção terminam em hífen e 0 passam de 78 chars, então
+// a correção não mexe em nada já gravado. Reexportado porque o hydrator e o
+// provider do mesas consomem daqui.
+export { slugifyCatalogSegment } from '@artificio/catalog-client';
 
 // Achado durante revisao PR #145: rotas publicas criticas (GET /tables, filtro
 // ?system= e busca por nome) dependiam hard deste fetch. Catalogo indisponivel
@@ -164,26 +158,21 @@ export async function loadCatalogFlat(forceRefresh = false): Promise<MesasSystem
   return flattenTree(await loadCatalogTree(forceRefresh));
 }
 
+// T7.1c (spec 096): o POST e o contrato de resposta subiram para
+// @artificio/catalog-client — os dois apps que escrevem no catálogo central
+// falavam com a MESMA rota validando shapes diferentes. O que fica aqui é o que
+// de fato é do mesas: invalidar o cache de árvore e anexar a contagem de mesas.
 export async function createCatalogNode(input: CatalogNodeInput): Promise<MesasSystemNode> {
-  const created = catalogNodeWriteResponseSchema.parse(await catalogFetch<unknown>('/api/admin/v1/catalog/nodes', {
-    method: 'POST',
-    body: JSON.stringify(toCatalogInput(input)),
-  }));
+  const created = await sharedCreateCatalogNode(input);
   invalidateCatalogCache();
   const tableCounts = await loadLocalTableCounts();
   return toMesasNode({ ...created, children: [] }, depthFromPath(created.path_slug), tableCounts);
 }
 
+// T7.1c: idem — o PUT (e a regra de não apagar aliases, achado CodeRabbit da
+// PR #145) vive no pacote; o wrapper cuida do cache e do formato do mesas.
 export async function updateCatalogNode(id: string, input: CatalogNodeInput): Promise<MesasSystemNode | null> {
-  // Achado CodeRabbit (PR #145): PUT nao pode mandar aliases:[] quando o campo
-  // nao veio no input — o site trata array (mesmo vazio) como replace explicito
-  // e apaga todos os aliases existentes. So inclui o campo quando foi enviado.
-  const { aliases, ...body } = toCatalogInput(input);
-  const payload = Array.isArray(input.aliases) ? { ...body, aliases } : body;
-  const updated = catalogNodeWriteResponseSchema.parse(await catalogFetch<unknown>(`/api/admin/v1/catalog/nodes/${encodeURIComponent(id)}`, {
-    method: 'PUT',
-    body: JSON.stringify(payload),
-  }));
+  const updated = await sharedUpdateCatalogNode(id, input);
   invalidateCatalogCache();
   const tableCounts = await loadLocalTableCounts();
   return toMesasNode({ ...updated, children: [] }, depthFromPath(updated.path_slug), tableCounts);
@@ -244,25 +233,6 @@ function toMesasNode(node: CatalogTreeNode, depth: number, tableCounts: Map<stri
     tables_count: tableCounts.get(node.id) ?? 0,
     aliases_count: aliases.length,
     children,
-  };
-}
-
-function toCatalogInput(input: CatalogNodeInput): Record<string, unknown> {
-  return {
-    parent_id: input.parent_id || null,
-    node_type: input.node_type,
-    canonical_slug: slugifyCatalogSegment(input.name),
-    name: input.name,
-    name_pt: input.name_pt ?? null,
-    description: input.description ?? null,
-    official_website_url: input.node_type === 'system' ? input.website_url ?? null : null,
-    logo_media_id: input.node_type === 'system' ? input.logo_filename ?? null : null,
-    // Achado CodeRabbit (PR #145): defesa em profundidade — chamadores internos
-    // (systemSuggestionsAdmin.ts) tambem passam por aqui sem passar pela
-    // normalizacao de systems.ts. Filtra item nao-string antes de enviar.
-    aliases: Array.isArray(input.aliases)
-      ? input.aliases.filter((a): a is string => typeof a === 'string' && a.trim().length > 0)
-      : [],
   };
 }
 

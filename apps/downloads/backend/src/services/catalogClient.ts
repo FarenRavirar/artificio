@@ -1,4 +1,7 @@
-import { catalogFetch } from '@artificio/catalog-client';
+import {
+  catalogFetch,
+  createCatalogNode as sharedCreateCatalogNode,
+} from '@artificio/catalog-client';
 import { z } from 'zod';
 
 // Downloads acessa o catalogo central da spec 062 via @artificio/catalog-client
@@ -272,7 +275,6 @@ export async function getCatalogMaterialTypeBySlug(slug: string): Promise<Catalo
   ) ?? null;
 }
 
-const catalogNodeWriteResponseSchema = catalogTreeNodeBaseSchema;
 
 export interface CatalogNodeCreateInput {
   name: string;
@@ -282,23 +284,6 @@ export interface CatalogNodeCreateInput {
   aliases?: string[];
 }
 
-// Achado real (review PR #204, Codex): truncar em 80 chars após remover
-// hifens das pontas podia deixar hifen trailing de volta (corte no meio de
-// um separador). Trim final garante canonical_slug nunca termina em hifen.
-function slugifyCatalogSegment(value: string): string {
-  const collapsed = value
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replaceAll('&', ' e ')
-    .replace(/[^a-z0-9]+/g, '-');
-  let start = 0;
-  let end = collapsed.length;
-  while (start < end && collapsed[start] === '-') start += 1;
-  while (end > start && collapsed[end - 1] === '-') end -= 1;
-  const truncated = collapsed.slice(start, end).slice(0, 80);
-  return truncated.replace(/-+$/, '');
-}
 
 // T4.9 — escrita no catalogo central so por acao admin na triagem (nunca
 // pelo scraper direto, requisito 8). Chamado so por
@@ -306,17 +291,7 @@ function slugifyCatalogSegment(value: string): string {
 // recordSystemEntityRule do mesas: aprovacao ensina o sistema, registrando
 // o raw_value como alias do node escolhido.
 export async function createCatalogNode(input: CatalogNodeCreateInput): Promise<FlatCatalogSystem> {
-  const created = catalogNodeWriteResponseSchema.parse(await catalogFetch<unknown>('/api/admin/v1/catalog/nodes', {
-    method: 'POST',
-    body: JSON.stringify({
-      parent_id: input.parent_id ?? null,
-      node_type: input.node_type,
-      canonical_slug: slugifyCatalogSegment(input.name),
-      name: input.name,
-      name_pt: input.name_pt ?? null,
-      aliases: input.aliases ?? [],
-    }),
-  }));
+  const created = await sharedCreateCatalogNode(input);
   invalidateCatalogSnapshotCache();
   return {
     id: created.id,

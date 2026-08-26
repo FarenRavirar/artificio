@@ -7,7 +7,7 @@ interface TableContentProps {
 
 /**
  * Conteúdo narrativo (Engajamento)
- * Ordem: Sobre → Sinopse → Narrativa → Benefícios → Estilo
+ * Ordem: Sobre → História → Benefícios → Estilo → Regras da Mesa → Cenário
  */
 export function TableContent({ vm }: TableContentProps) {
   return (
@@ -42,6 +42,17 @@ export function TableContent({ vm }: TableContentProps) {
         <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
           <h2 className="text-lg font-bold mb-3">🎲 Estilo de Jogo</h2>
           <MarkdownContent value={vm.styleText} className="text-white/80 leading-relaxed" />
+        </section>
+      )}
+
+      {/* Regras da Mesa (T7.2b, spec 096): `rules_notes` era gravado pelo
+          editor e pelo parser desde a migration_09 e nunca aparecia no público —
+          35 mesas com conteúdo não-branco em produção. Não é o
+          `ddal_rules_notes`, que continua em TableTechnical sob a certificação. */}
+      {vm.tableRules && (
+        <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <h2 className="text-lg font-bold mb-3">📜 Regras da Mesa</h2>
+          <MarkdownContent value={vm.tableRules} className="text-white/80 leading-relaxed" />
         </section>
       )}
 

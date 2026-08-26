@@ -113,3 +113,30 @@ describe('mapTableToView — ageRating (R24/A27)', () => {
     expect(vm.ageRating).toBeUndefined();
   });
 });
+
+// T7.2b (spec 096): `rules_notes` (regras da própria mesa) e `ddal_rules_notes`
+// (nota da certificação DDAL) são campos diferentes com nomes parecidos — o VM
+// os mantém em lugares distintos para que um nunca sobrescreva o outro.
+describe('mapTableToView — tableRules (T7.2b)', () => {
+  it('leva rules_notes para vm.tableRules', () => {
+    const vm = mapTableToView(makeTableDetail({ rules_notes: 'Sem PVP.' }));
+    expect(vm.tableRules).toBe('Sem PVP.');
+  });
+
+  it('mapeia rules_notes ausente como undefined', () => {
+    const vm = mapTableToView(makeTableDetail({ rules_notes: null }));
+    expect(vm.tableRules).toBeUndefined();
+  });
+
+  it('mantém ddal_rules_notes na certificação, separado de tableRules', () => {
+    const vm = mapTableToView(
+      makeTableDetail({
+        is_ddal: true,
+        ddal_rules_notes: 'Nota DDAL',
+        rules_notes: 'Regras da mesa',
+      }),
+    );
+    expect(vm.certifications.ddal?.rulesNotes).toBe('Nota DDAL');
+    expect(vm.tableRules).toBe('Regras da mesa');
+  });
+});

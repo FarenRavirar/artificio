@@ -27,6 +27,15 @@ export type EditorPartId =
  */
 export type FieldLevel = 'required' | 'recommended' | 'optional';
 
+/**
+ * Periodicidade da cobrança. Espelha `PRICE_FREQUENCIES` do backend
+ * (`validators/tableValidators.ts:28`), que é quem o `z.enum` valida — string
+ * livre aqui viajaria até lá e voltaria como 400 (achado real, review PR #289).
+ * `''` é o estado "não informar", traduzido para `null` no payload.
+ */
+export const PRICE_FREQUENCIES = ['sessao', 'mes', 'campanha'] as const;
+export type PriceFrequency = (typeof PRICE_FREQUENCIES)[number];
+
 export interface DdalFormState {
   is_ddal: boolean;
   ddal_code: string;
@@ -50,10 +59,9 @@ export interface DdalFormState {
  * (T7.3b) e o payload simplesmente não as envia — `undefined` preserva o
  * valor salvo no PUT.
  *
- * `price_frequency` também não tem campo aqui (o fluxo atual não coleta e a
- * entrada no editor é a T7.2b2, Fase 7): o payload omite o campo e o backend
- * preserva o valor salvo — a capacidade (leitor público em
- * TableActionPanel.tsx) não é perdida por esta ausência.
+ * `price_frequency` ganhou campo em T7.2b2 (Fase 7): a coluna já tinha leitor,
+ * escritor e exibição pública (`TableActionPanel.tsx` renderiza "/ {frequência}"
+ * ao lado do preço) e só faltava o ponto de entrada no editor.
  */
 export interface TableEditorState {
   /** id da mesa no servidor — presente só em edição (e após criar rascunho). */
@@ -117,6 +125,12 @@ export interface TableEditorState {
   priceType: string;
   priceValue: string;
   priceValueMonthly: string;
+  /**
+   * Periodicidade da cobrança (`'sessao' | 'mes' | 'campanha'`), exibida no
+   * público ao lado do preço. Só existe em mesa paga — string vazia quando
+   * gratuita, que o payload traduz para `null` (T7.2b2).
+   */
+  priceFrequency: PriceFrequency | '';
   acceptsDonations: boolean;
   suggestedDonationValue: string;
   billingText: string;

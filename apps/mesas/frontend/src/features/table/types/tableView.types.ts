@@ -167,6 +167,12 @@ export interface TableViewModel {
   billingText?: string;
   sessionZeroFree?: boolean;
   technicalRequirements?: string;
+  /**
+   * T7.2b (spec 096): regras e observações da própria mesa (`rules_notes`).
+   * Nome distinto de `certifications.ddal.rulesNotes` de propósito — aquele é a
+   * nota da certificação DDAL e reusá-lo aqui quebraria a certificação.
+   */
+  tableRules?: string;
   requiresPC?: boolean;
   requiresCamera?: boolean;
   requiresMicrophone?: boolean;

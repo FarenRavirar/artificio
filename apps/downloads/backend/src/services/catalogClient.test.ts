@@ -3,7 +3,15 @@
 // + escrita (createCatalogNode/addCatalogNodeAlias).
 
 const catalogFetchMock = vi.hoisted(() => vi.fn());
-vi.mock('@artificio/catalog-client', () => ({
+// T7.1c (spec 096): mock PARCIAL. A leitura daqui continua chamando
+// `catalogFetch` direto (por isso o mock), mas `createCatalogNode` deixou de ser
+// cópia local e agora vem do pacote — substituir o módulo inteiro apagava a
+// função real que o wrapper chama. O `importOriginal` preserva o resto; o teste
+// da escrita stuba `globalThis.fetch`, um nível abaixo, porque o
+// `createCatalogNode` do pacote fecha sobre o `catalogFetch` interno dele e não
+// enxerga este mock.
+vi.mock('@artificio/catalog-client', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   catalogFetch: catalogFetchMock,
 }));
 
@@ -147,27 +155,40 @@ describe('material types catalog', () => {
 });
 
 describe('createCatalogNode', () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
   it('envia POST com canonical_slug derivado do nome e invalida o cache', async () => {
     catalogFetchMock.mockResolvedValueOnce({ tree: TREE }); // popula cache
     await loadCatalogSystemsFlat();
 
-    catalogFetchMock.mockResolvedValueOnce({
-      id: 'novo', parent_id: null, node_type: 'system', canonical_slug: 'sistema-novo', path_slug: 'sistema-novo',
-      name: 'Sistema Novo', name_pt: null, aliases: [{ alias: 'Hint Bruto' }],
+    process.env.CATALOG_API_URL = 'https://site.artificiorpg.com';
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 'novo', parent_id: null, node_type: 'system', canonical_slug: 'sistema-novo', path_slug: 'sistema-novo',
+        name: 'Sistema Novo', name_pt: null, aliases: [{ alias: 'Hint Bruto' }],
+      }),
     });
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
     const created = await createCatalogNode({ name: 'Sistema Novo', node_type: 'system', aliases: ['Hint Bruto'] });
 
     expect(created.id).toBe('novo');
-    expect(catalogFetchMock).toHaveBeenLastCalledWith('/api/admin/v1/catalog/nodes', expect.objectContaining({ method: 'POST' }));
-    const body = JSON.parse((catalogFetchMock.mock.calls.at(-1)?.[1] as { body: string }).body);
+    expect(String(fetchSpy.mock.calls[0][0])).toContain('/api/admin/v1/catalog/nodes');
+    expect((fetchSpy.mock.calls[0][1] as { method: string }).method).toBe('POST');
+    const body = JSON.parse((fetchSpy.mock.calls[0][1] as { body: string }).body);
     expect(body.canonical_slug).toBe('sistema-novo');
     expect(body.aliases).toEqual(['Hint Bruto']);
 
-    // Cache invalidado — próxima leitura busca de novo.
+    // Cache invalidado — próxima leitura busca de novo (pelo catalogFetch daqui).
+    globalThis.fetch = originalFetch;
     catalogFetchMock.mockResolvedValueOnce({ tree: TREE });
     await loadCatalogSystemsFlat();
-    expect(catalogFetchMock).toHaveBeenCalledTimes(3);
+    expect(catalogFetchMock).toHaveBeenCalledTimes(2);
   });
 });
 

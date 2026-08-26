@@ -31,6 +31,45 @@ overrides:
   # que dependem dele (medido ao subir sem o teto).
   # Quando markdown-it passar a aceitar `^6`, este teto sai.
   "linkify-it@<5.0.2": ">=5.0.2 <6"
+  # Snyk SNYK-JS-NANOID-18506897 / CVE-2026-67213 (CWE-835, CVSS 8.2): loop
+  # infinito em `customRandom` quando `size` é 0 — a thread trava.
+  #
+  # A faixa 3.x precisa de entrada própria: o override `nanoid@>=4.0.0 <5.0.9`
+  # acima não a alcança, e é o 3.3.16 que está instalado (via
+  # `sanitize-html -> postcss -> nanoid`, medido no lock).
+  #
+  # O Snyk marca "no supported fix" porque o postcss ainda não publicou release
+  # com a bump; o 3.3.17 existe no npm e é semver-compatível, então o override
+  # resolve sem esperar por ele. Nosso código não chama `customRandom` em lugar
+  # nenhum (busca negativa em `apps/` e `packages/`) — o postcss o usa com
+  # tamanho fixo —, então o risco aqui é de cadeia, não de caminho alcançável.
+  "nanoid@<3.3.17": ">=3.3.17 <4"
+  # Snyk SNYK-JS-BODYPARSER-17906397 / CVE-2026-12590 (CWE-770, CVSS 6.3):
+  # `normalizeOptions` ignora o `limit` quando ele não parseia, e o parser passa
+  # a aceitar corpo de tamanho arbitrário.
+  #
+  # Transitiva de `express@5.2.1` e `express-rate-limit@8.5.2`. O 2.3.0 é a
+  # correção e satisfaz o `^2.2.0` que o express 5 declara.
+  "body-parser@<2.3.0": ">=2.3.0 <3"
+  # Snyk CWE-918 (SSRF, CVSS 6.9), 3 ocorrências: `fromURL` aceitava host que
+  # não é IPv6 em vez de falhar como o contrato promete.
+  #
+  # Sem versão corrigida nomeada pelo Snyk — o override aponta para o 10.5.0,
+  # cujo release ("Honor the fromURL graceful-failure contract for non-IPv6
+  # hosts", PR #218 do upstream) é o que trata esse contrato. Por isso o alerta
+  # pode continuar aberto no painel até o Snyk classificar a versão; o que a
+  # bump garante é não ficar numa release anterior à correção.
+  #
+  # O vetor NÃO é alcançável pelo nosso uso, medido: `ip-address` chega só via
+  # `express-rate-limit@8.5.2`, que importa exclusivamente `Address6`
+  # (`ipKeyGenerator`, para agrupar por sub-rede) e nunca chama `fromURL`; o
+  # valor que entra ali é o IP do socket, não payload de usuário. Busca negativa
+  # por `fromURL`/`ip-address` em `apps/`, `packages/` e `scripts/`: nenhum uso
+  # direto. Isto é defesa em profundidade, não correção de caminho explorável.
+  #
+  # `^10.2.0` é o que o express-rate-limit declara, então o 10.5.0 entra sem
+  # quebrar semver.
+  "ip-address@<10.5.0": ">=10.5.0 <11"
 patchedDependencies:
   "@types/express-serve-static-core@5.1.1": patches/@types__express-serve-static-core@5.1.1.patch
 allowBuilds:

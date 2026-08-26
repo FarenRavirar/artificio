@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **498 operações**.
+Total: **495 operações**.
 
 ## accounts (53)
 
@@ -259,7 +259,7 @@ Total: **498 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (208)
+## mesas (205)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -411,9 +411,6 @@ Total: **498 operações**.
 | GET | `/api/v1/me` | public | user | active | — | Consulta api v1 me |
 | GET | `/api/v1/me/options` | public | user | active | — | Consulta api v1 me options |
 | PUT | `/api/v1/me/preferences` | public | user | active | — | Substitui api v1 me preferences |
-| GET | `/api/v1/notifications` | public | user | active | — | Consulta api v1 notifications |
-| PATCH | `/api/v1/notifications/{id}/read` | public | user | active | — | Atualiza api v1 notifications id read |
-| PATCH | `/api/v1/notifications/read-all` | public | user | active | — | Atualiza api v1 notifications read-all |
 | PATCH | `/api/v1/profile/gm` | public | user | active | — | Atualiza api v1 profile gm |
 | GET | `/api/v1/profile/links` | public | user | active | — | Consulta api v1 profile links |
 | POST | `/api/v1/profile/links` | public | user | active | — | Cria ou executa api v1 profile links |

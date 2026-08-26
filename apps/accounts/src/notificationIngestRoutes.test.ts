@@ -239,3 +239,69 @@ describe("POST /internal/v1/notifications/events — gravação", () => {
     expect(enqueueMock).not.toHaveBeenCalled();
   });
 });
+
+// Achado de review (PR #289, Codex P2): a fase 7 da spec 096 removeu
+// `/api/v1/notifications` do `mesas`, então avisos que o usuário já tinha lido
+// lá ficariam sem caminho de leitura. Migrá-los sem preservar o estado seria
+// pior — reapareceriam como pendentes no sino.
+describe("POST /internal/v1/notifications/events — read_at (migração de histórico)", () => {
+  it("grava read_at quando a credencial tem notification.migrate", async () => {
+    const captured: { values?: Record<string, unknown> } = {};
+    const credencial = await credentialRow({
+      scopes: ["notification.write", "notification.migrate"],
+    });
+    const app = createApp(env, fakeDb(credencial, undefined, captured));
+
+    await post(app)
+      .send({ ...VALID_BODY, read_at: "2026-08-13T10:00:00.000Z" })
+      .expect(202);
+
+    expect(captured.values?.read_at).toEqual(new Date("2026-08-13T10:00:00.000Z"));
+  });
+
+  // Achado de review (PR #289, CodeRabbit): criar aviso pendente é o trabalho
+  // normal de um produtor; criar aviso JÁ LIDO é silenciar um aviso. Sem esta
+  // trava, qualquer credencial com `notification.write` — seis em produção,
+  // medido em 2026-08-26 — poderia mandar `read_at` no fluxo corrente e o sino
+  // nunca acenderia.
+  it("403 quando manda read_at sem o escopo notification.migrate", async () => {
+    const captured: { values?: Record<string, unknown> } = {};
+    const app = createApp(env, fakeDb(await credentialRow(), undefined, captured));
+
+    const response = await post(app)
+      .send({ ...VALID_BODY, read_at: "2026-08-13T10:00:00.000Z" })
+      .expect(403);
+
+    expect(response.body).toEqual({ error: "forbidden_scope" });
+    // Recusa ANTES de gravar: nada chega ao banco.
+    expect(captured.values).toBeUndefined();
+  });
+
+  it("read_at nulo quando ausente: aviso novo nasce pendente", async () => {
+    // O caminho de TODO produtor corrente. Se este quebrar, o campo novo virou
+    // regressão silenciosa — todo aviso nasceria lido e o sino nunca acenderia.
+    const captured: { values?: Record<string, unknown> } = {};
+    const app = createApp(env, fakeDb(await credentialRow(), undefined, captured));
+
+    await post(app).send(VALID_BODY).expect(202);
+
+    expect(captured.values?.read_at).toBeNull();
+  });
+
+  it("400 quando read_at não é datetime ISO", async () => {
+    // Com o escopo concedido — senão a recusa viria do guard (403) e o caso não
+    // provaria nada sobre a validação do formato.
+    const app = createApp(env, fakeDb(await credentialRow({
+      scopes: ["notification.write", "notification.migrate"],
+    })));
+
+    const response = await post(app)
+      .send({ ...VALID_BODY, read_at: "ontem" })
+      .expect(400);
+
+    // Achado de review (PR #289, CodeRabbit): sem asserir o corpo, o caso
+    // passaria com qualquer 400 — inclusive um vindo do guard de credencial ou
+    // do rate limit, que não provariam nada sobre a validação do campo.
+    expect(response.body).toEqual({ error: "invalid_body" });
+  });
+});

@@ -28,7 +28,7 @@ vi.mock('../middleware/auth', () => ({
 vi.mock('../services/activityLogger', () => ({ logActivity: vi.fn() }));
 vi.mock('../services/tableDuplicateDetection', () => ({ scanTableDuplicateCandidates: vi.fn() }));
 
-import adminTablesRoutes from './adminTables.js';
+import adminTablesRoutes, { parseAdminTableUpdate } from './adminTables.js';
 import { db } from '../db/index.js';
 import { TableRepository } from '../repositories/tableRepository.js';
 import { scanTableDuplicateCandidates } from '../services/tableDuplicateDetection.js';
@@ -261,5 +261,111 @@ describe('PUT /api/v1/admin/tables/:id', () => {
       .put('/api/v1/admin/tables/t1')
       .send({});
     expect(res.status).toBe(400);
+  });
+
+  // T7.2c (spec 096): `featured` era lido pelo filtro do catálogo, pelo score de
+  // ordenação e pelo perfil do mestre, mas nenhuma rota o escrevia — capacidade
+  // completa sem ponto de entrada. Sem o aceite aqui, o toggle do painel não teria
+  // efeito nenhum.
+  it('T7.2c: aceita featured e o grava no update', async () => {
+    const updateChain = mockChain({
+      returning: vi.fn().mockReturnValue(
+        mockChain({
+          execute: vi.fn().mockResolvedValue([
+            { id: 't1', slug: 'mesa-teste', title: 'Mesa', status: 'active', is_covil: false, featured: true },
+          ]),
+        }),
+      ),
+    });
+    (db.updateTable as Mock).mockReturnValue(updateChain);
+
+    const res = await request(makeApp())
+      .put('/api/v1/admin/tables/t1')
+      .send({ featured: true });
+
+    expect(res.status).toBe(200);
+    expect(updateChain.set).toHaveBeenCalledWith({ featured: true });
+    expect(res.body.data.featured).toBe(true);
+  });
+
+  // Achado real (review PR #289, inline): `Boolean("false")` é `true`. Um cliente
+  // fora do painel pedindo para DESMARCAR acabava marcando, sem erro nenhum.
+  it.each([
+    ['featured como string "false"', { featured: 'false' }],
+    ['featured como string "true"', { featured: 'true' }],
+    ['featured como número', { featured: 0 }],
+    ['is_covil como string "false"', { is_covil: 'false' }],
+  ])('T7.2c: recusa %s com 400, em vez de coagir', async (_label, body) => {
+    const res = await request(makeApp()).put('/api/v1/admin/tables/t1').send(body);
+
+    expect(res.status).toBe(400);
+    expect(db.updateTable as Mock).not.toHaveBeenCalled();
+  });
+
+  it('T7.2c: featured=false desmarca o destaque (não é ignorado como ausente)', async () => {
+    const updateChain = mockChain({
+      returning: vi.fn().mockReturnValue(
+        mockChain({
+          execute: vi.fn().mockResolvedValue([
+            { id: 't1', slug: 'mesa-teste', title: 'Mesa', status: 'active', is_covil: false, featured: false },
+          ]),
+        }),
+      ),
+    });
+    (db.updateTable as Mock).mockReturnValue(updateChain);
+
+    const res = await request(makeApp())
+      .put('/api/v1/admin/tables/t1')
+      .send({ featured: false });
+
+    expect(res.status).toBe(200);
+    expect(updateChain.set).toHaveBeenCalledWith({ featured: false });
+  });
+});
+
+// Extraída do handler quando o Sonar apontou complexidade cognitiva 17 > 15
+// (PR #289). O ganho de testá-la direto: cada regra de validação vira um caso
+// próprio, sem montar requisição HTTP para exercitar um `if`.
+describe('parseAdminTableUpdate', () => {
+  it('aceita status válido', () => {
+    expect(parseAdminTableUpdate({ status: 'active' })).toEqual({
+      updateData: { status: 'active' },
+    });
+  });
+
+  it('recusa status fora do enum', () => {
+    const result = parseAdminTableUpdate({ status: 'arquivada' });
+    expect(result).toHaveProperty('error');
+  });
+
+  it('recusa status que não é string', () => {
+    expect(parseAdminTableUpdate({ status: 1 })).toHaveProperty('error');
+  });
+
+  it('aceita os dois booleanos juntos', () => {
+    expect(parseAdminTableUpdate({ is_covil: true, featured: false })).toEqual({
+      updateData: { is_covil: true, featured: false },
+    });
+  });
+
+  // `Boolean("false")` é `true`: era o defeito que o guard fecha.
+  it.each([
+    ['string "false"', 'false'],
+    ['string "true"', 'true'],
+    ['número', 1],
+    ['null', null],
+  ])('recusa featured como %s', (_label, value) => {
+    expect(parseAdminTableUpdate({ featured: value })).toHaveProperty('error');
+  });
+
+  it('recusa corpo sem nenhum campo conhecido', () => {
+    expect(parseAdminTableUpdate({})).toHaveProperty('error');
+  });
+
+  it('ignora campo ausente sem transformá-lo em escrita', () => {
+    const result = parseAdminTableUpdate({ featured: true });
+    expect(result).toEqual({ updateData: { featured: true } });
+    // `is_covil` omitido não pode virar `false` no UPDATE — apagaria o selo.
+    expect(Object.keys((result as { updateData: object }).updateData)).toEqual(['featured']);
   });
 });

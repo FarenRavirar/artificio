@@ -1,6 +1,14 @@
 import type { CoverQuality, ImportRawMessage, DiscordSlotsAmbiguity, ImportTableDraft, DiscordTableDraftTable, TableDraftType, TableDraftModality, TableDraftPriceType, TableDraftFrequency, TableDraftAgeRating, TableDraftExperienceLevel, TableDraftTableLevel } from './types.js';
-import { normalizeSystemName, scoreSystemCandidates, similarity } from '../services/systemSuggestionCandidates.js';
-import { normalizeSettingStyles } from '@artificio/catalog-matching';
+// T7.1b (spec 096): as quatro funções vinham de uma cópia local de 561 linhas
+// (`services/systemSuggestionCandidates.ts`) idêntica ao pacote — este arquivo
+// já importava `normalizeSettingStyles` do pacote na linha de baixo, ou seja,
+// duas fontes para a mesma biblioteca. A cópia foi apagada.
+import {
+  normalizeSystemName,
+  scoreSystemCandidates,
+  similarity,
+  normalizeSettingStyles,
+} from '@artificio/catalog-matching';
 
 export interface SystemEntry {
   id: string;

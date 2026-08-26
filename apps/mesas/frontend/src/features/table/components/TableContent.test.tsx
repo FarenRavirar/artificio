@@ -49,3 +49,31 @@ describe('TableContent — Fase 7 (R24 cenário)', () => {
     expect(screen.queryByText('🗺️ Cenário')).toBeNull();
   });
 });
+
+describe('TableContent — T7.2b (spec 096): regras da mesa no público', () => {
+  it('exibe a seção "Regras da Mesa" quando tableRules tem conteúdo', () => {
+    render(<TableContent vm={makeVm({ tableRules: 'Sem PVP. Sessão zero obrigatória.' })} />);
+    expect(screen.getByText('📜 Regras da Mesa')).toBeTruthy();
+    expect(screen.getByText(/Sem PVP\. Sessão zero obrigatória\./)).toBeTruthy();
+  });
+
+  it('omite a seção quando tableRules está ausente', () => {
+    render(<TableContent vm={makeVm({ tableRules: undefined })} />);
+    expect(screen.queryByText('📜 Regras da Mesa')).toBeNull();
+  });
+
+  // A nota da certificação DDAL (`certifications.ddal.rulesNotes`) vive em
+  // TableTechnical: um não pode substituir o outro (T7.2b).
+  it('não confunde a nota DDAL com as regras da mesa', () => {
+    render(
+      <TableContent
+        vm={makeVm({
+          tableRules: undefined,
+          certifications: { ddal: { rulesNotes: 'Nota da certificação DDAL' } },
+        })}
+      />,
+    );
+    expect(screen.queryByText('📜 Regras da Mesa')).toBeNull();
+    expect(screen.queryByText(/Nota da certificação DDAL/)).toBeNull();
+  });
+});

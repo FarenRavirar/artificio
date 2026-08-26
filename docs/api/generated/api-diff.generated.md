@@ -6,5 +6,21 @@
 
 ---
 
-✅ **Nenhuma mudança detectada entre a versão atual e dev.**
+## Sumário
+
+| App | Breaking | Non-breaking | Unclassified |
+|-----|:--------:|:------------:|:------------:|
+| mesas | ❌ 3 | ✅ 0 | ⚪ 0 |
+
+---
+
+### mesas
+
+#### ❌ Breaking Changes (3)
+
+| Path | Method | Ação | Código |
+|------|--------|------|--------|
+| `/api/v1/notifications` |  | remove | `path.remove` |
+| `/api/v1/notifications/:id/read` |  | remove | `path.remove` |
+| `/api/v1/notifications/read-all` |  | remove | `path.remove` |
 

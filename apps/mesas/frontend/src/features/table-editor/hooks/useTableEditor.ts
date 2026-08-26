@@ -86,6 +86,7 @@ export function createDefaultEditorState(): TableEditorState {
     priceType: 'gratuita',
     priceValue: '',
     priceValueMonthly: '',
+    priceFrequency: '',
     acceptsDonations: false,
     suggestedDonationValue: '',
     billingText: '',

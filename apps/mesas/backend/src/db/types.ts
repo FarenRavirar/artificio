@@ -300,7 +300,10 @@ export interface TablesTable {
   ddal_setting: string | null;
   ddal_rules_notes: string | null;
   is_covil: Generated<boolean>;
-  imported_expires_at: Date | null;
+  // T7.2 (spec 096): `imported_expires_at` foi removida daqui — a coluna não
+  // existe no banco desde a migration_99 (`DROP COLUMN IF EXISTS`), medido em
+  // produção pelo `information_schema`. Declará-la no tipo do Kysely deixava um
+  // SELECT/INSERT sobre ela compilar e falhar só em runtime.
   rules_notes: string | null;
   banner_url: string | null;
   banner_crop_data: { x: number; y: number; width: number; height: number } | null;
@@ -513,6 +516,59 @@ export interface NotificationsTable {
 
 export type Notification = Selectable<NotificationsTable>;
 export type NewNotification = Insertable<NotificationsTable>;
+
+/**
+ * T7.4b (spec 096, migration_163): fila local de eventos a entregar ao par
+ * consolidado do `accounts.` (`POST /internal/v1/notifications/events`). Mesmo
+ * desenho que o `downloads` já roda em produção desde a spec 090.
+ *
+ * A linha entra na MESMA transação da ação de mérito — por isso o aviso não se
+ * perde — e o envio HTTP roda fora dela, por isso uma falha de notificação não
+ * derruba mais a aprovação da sugestão (eram 7 INSERTs dentro de `trx`).
+ */
+export interface MesasNotificationOutboxTable {
+  id: Generated<string>;
+  /** Idempotência do produtor: reenvio no retry vira no-op no `accounts.`. */
+  event_id: string;
+  event_type: string;
+  event_version: Generated<number>;
+  subject_type: string;
+  subject_id: string;
+  canonical_path: string;
+  /**
+   * JSONB: sai do banco já parseado, entra como string serializada. O
+   * `ColumnType` obriga o `JSON.stringify` na escrita — com `unknown` dos dois
+   * lados, esquecer de serializar compilava e só falhava no driver. Mesmo padrão
+   * de `activity_log.metadata` e `dev_feedback.console_errors`.
+   */
+  snapshot: ColumnType<Record<string, unknown>, string, string>;
+  /** Array de `user_id` resolvido na transação. Idem: parseado na leitura. */
+  recipients: ColumnType<string[], string, string>;
+  created_at: Generated<Date>;
+  delivered_at: Date | null;
+  attempt_count: Generated<number>;
+  last_error: string | null;
+  /** Lease de processamento: impede dois sweeps de entregarem a mesma linha. */
+  claimed_until: Date | null;
+  /**
+   * Backoff: momento a partir do qual a entrada volta a ser elegivel ao sweep.
+   * `null` = elegivel agora. Falha de ambiente (5xx/429/rede) adia aqui em vez
+   * de gastar `attempt_count`, que so descarta defeito de payload (400/422).
+   */
+  next_attempt_at: Date | null;
+  /**
+   * Falhas de ambiente acumuladas. Alimenta so o backoff — o claim nao filtra
+   * por ele, entao indisponibilidade longa atrasa a entrega sem nunca descartar.
+   */
+  transient_count: Generated<number>;
+  /**
+   * Somente migracao de historico legado: preenchido, a entrega pede ao ingest
+   * que o recibo nasca ja lido. `null` no fluxo normal.
+   */
+  read_at: Date | null;
+}
+
+export type MesasNotificationOutbox = Selectable<MesasNotificationOutboxTable>;
 export type NotificationUpdate = Updateable<NotificationsTable>;
 
 export interface ActivityLogTable {
@@ -1123,6 +1179,7 @@ export interface Database {
   system_suggestions: SystemSuggestionsTable;
   scenario_suggestions: ScenarioSuggestionsTable;
   notifications: NotificationsTable;
+  mesas_notification_outbox: MesasNotificationOutboxTable;
   activity_log: ActivityLogTable;
   tags: TagsTable;
   platforms: PlatformsTable;
