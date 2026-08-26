@@ -28,6 +28,8 @@
     "discord:retry-image-uploads": "node dist/scripts/retryDiscordImageUploads.js",
     "discord:retry-image-uploads:dev": "ts-node src/scripts/retryDiscordImageUploads.ts",
     "discord:cleanup-orphan-images": "node dist/scripts/cleanupOrphanDraftImages.js",
+    "notifications:backfill": "node dist/scripts/backfillNotificationOutbox.js",
+    "notifications:backfill:dev": "ts-node --esm src/scripts/backfillNotificationOutbox.ts",
     "discord:cleanup-orphan-images:dev": "ts-node src/scripts/cleanupOrphanDraftImages.ts"
   },
   "keywords": [],

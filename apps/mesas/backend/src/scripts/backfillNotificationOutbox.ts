@@ -17,26 +17,58 @@
  * destinatário com id central resolvível; 1 cai no `google_id` legado de 21
  * dígitos e é PULADA com registro, não silenciosamente.
  *
- * **PRÉ-REQUISITO antes do `--apply`: a credencial de serviço do `mesas` precisa
- * do escopo `notification.migrate`.** Os avisos já lidos viajam com `read_at`
- * para nascerem lidos no `accounts.`, e o ingest recusa esse campo com 403
- * (`forbidden_scope`) sem o escopo — trava deliberada, porque criar aviso já
- * lido é silenciar aviso (achado de review, PR #289, CodeRabbit). Nenhuma
- * credencial tem o escopo por padrão; concedê-lo é UPDATE explícito em
- * `community_service_credential`, e removê-lo depois do backfill é o caminho
- * seguro. Sem ele, as entradas dos 4 lidos falham na entrega e ficam na fila com
- * `last_error: HTTP 403` — nada se perde, mas nada chega.
+ * **PRÉ-REQUISITO: a credencial de serviço do `mesas` precisa do escopo
+ * `notification.migrate` — e precisa MANTÊ-LO até a fila drenar.**
+ *
+ * Os avisos já lidos viajam com `read_at` para nascerem lidos no `accounts.`, e
+ * o ingest recusa esse campo com 403 (`forbidden_scope`) sem o escopo — trava
+ * deliberada, porque criar aviso já lido é silenciar aviso (achado de review,
+ * PR #289, CodeRabbit). Nenhuma credencial tem o escopo por padrão.
+ *
+ * **A janela que engana (achado de review, PR #289, CodeRabbit):** `--apply` só
+ * ENFILEIRA. Quem entrega é o sweep, que roda a cada 5 min, ou o disparo
+ * pós-commit de outra ação. Entre o script terminar e a fila drenar existe um
+ * intervalo em que o escopo ainda é necessário; removê-lo ao ver o script
+ * imprimir "enfileiradas" deixa exatamente os avisos já lidos presos com
+ * `last_error: HTTP 403`. Nada se perde — o outbox retenta em backoff —, mas
+ * nada chega até o escopo voltar.
+ *
+ * Procedimento, na ordem:
+ *   1. conceder `notification.migrate` à credencial do `mesas`;
+ *   2. `--apply`;
+ *   3. `--status` até dizer que a fila drenou (o sweep leva até ~5 min);
+ *   4. só então remover o escopo.
+ *
+ * **Onde roda:** dentro do container do `mesas-api`, pelos scripts do
+ * `package.json` — que é o único caminho que existe em produção (achado de
+ * review, PR #289, Codex P1). O arquivo vive em `src/scripts/` de propósito: é o
+ * padrão dos outros scripts operacionais do app (`og:worker`, `discord:sync`,
+ * `metrics:cleanup`), e é o que garante as duas coisas que faltavam quando ele
+ * estava em `scripts/` na raiz —
+ *
+ *   1. o `tsconfig.json` só inclui `src/**`, então o arquivo NÃO era checado por
+ *      tipo por nada: nem `tsc -p`, nem `tsc -b`, nem o build (mesmo defeito de
+ *      falso-verde registrado em `errors.md` E022);
+ *   2. o `Dockerfile` copia apenas `apps/mesas/backend/dist` e a instalação
+ *      `--prod` não traz `tsx` nem `ts-node`, então `tsx scripts/...` era um
+ *      comando que não existia no container — e sem ele o histórico legado
+ *      ficaria fora do `accounts.` para sempre, já que esta fase removeu as
+ *      rotas antigas do `mesas`.
  *
  * Uso (dry-run é o default — nada é gravado sem `--apply`):
- *   tsx scripts/backfillNotificationOutbox.ts
- *   tsx scripts/backfillNotificationOutbox.ts --apply
+ *   docker exec mesas-api pnpm run notifications:backfill
+ *   docker exec mesas-api pnpm run notifications:backfill -- --apply
+ *   docker exec mesas-api pnpm run notifications:backfill -- --status
+ *
+ * Localmente, com `ts-node` disponível:
+ *   pnpm run notifications:backfill:dev
  */
 import { createHash } from 'node:crypto';
-import { db } from '../src/db/index.js';
+import { db } from '../db/index.js';
 // Achado real (review PR #289, CodeRabbit, nitpick): o script mantinha cópias
 // locais da regex de id central e da validação de path. Regra duplicada
 // diverge — e aqui ela decide o que é migrado.
-import { CENTRAL_USER_ID_RE, isValidCanonicalPath } from '../src/services/notificationOutbox.js';
+import { CENTRAL_USER_ID_RE, isValidCanonicalPath } from '../services/notificationOutbox.js';
 
 /** `notifications.type` → `event_type` do registro central. */
 const EVENT_TYPE: Record<string, string> = {
@@ -141,8 +173,61 @@ function avaliarLinha(row: LinhaLegada): Migravel | { motivo: string } {
   };
 }
 
+/**
+ * Relata o dreno das entradas do backfill, para que a remoção do escopo
+ * `notification.migrate` seja uma decisão MEDIDA e não um palpite de tempo
+ * (achado de review, PR #289, CodeRabbit).
+ *
+ * Olha só o que este script escreveu (`subject_type = 'legacy_notification'`),
+ * então tráfego normal do outbox não polui a contagem.
+ */
+async function relatarStatus(): Promise<void> {
+  const linhas = await db
+    .selectFrom('mesas_notification_outbox')
+    .select(['id', 'delivered_at', 'attempt_count', 'last_error', 'read_at'])
+    .where('subject_type', '=', 'legacy_notification')
+    .execute();
+
+  if (linhas.length === 0) {
+    console.log('[status] nenhuma entrada de backfill no outbox — rode --apply primeiro.');
+    return;
+  }
+
+  const entregues = linhas.filter((l) => l.delivered_at !== null);
+  const pendentes = linhas.filter((l) => l.delivered_at === null);
+  const lidas = linhas.filter((l) => l.read_at !== null);
+  // 403 é o sintoma exato do escopo ausente ou removido cedo demais.
+  const bloqueadas = pendentes.filter((l) => l.last_error?.includes('403'));
+
+  console.log(`[status] entradas do backfill: ${linhas.length} (${lidas.length} com read_at)`);
+  console.log(`[status] entregues: ${entregues.length}`);
+  console.log(`[status] pendentes: ${pendentes.length}`);
+
+  if (bloqueadas.length > 0) {
+    console.log(`[status] ${bloqueadas.length} recusadas com 403 — a credencial do mesas está SEM \`notification.migrate\`.`);
+    console.log('[status] conceda o escopo; o sweep reentrega sozinho no próximo ciclo.');
+    return;
+  }
+
+  if (pendentes.length > 0) {
+    console.log('[status] AINDA NÃO remova o escopo: o sweep roda a cada ~5 min.');
+    for (const l of pendentes) {
+      console.log(`  - ${l.id}: tentativas=${l.attempt_count} último erro=${l.last_error ?? '(nenhum)'}`);
+    }
+    return;
+  }
+
+  console.log('[status] fila drenada. Pode remover `notification.migrate` da credencial do mesas.');
+}
+
 async function main(): Promise<void> {
   const apply = process.argv.includes('--apply');
+
+  // `--status` não lê `notifications` nem grava nada: só confere o dreno.
+  if (process.argv.includes('--status')) {
+    await relatarStatus();
+    return;
+  }
 
   const rows = await db
     .selectFrom('notifications as n')
@@ -217,7 +302,17 @@ async function main(): Promise<void> {
   console.log(`[backfill] destas, já lidas (recibo nasce lido): ${jaLidos}`);
   console.log(`[backfill] puladas: ${pulados.length}`);
   for (const p of pulados) console.log(`  - ${p.id}: ${p.motivo}`);
-  if (!apply) console.log('[backfill] DRY-RUN — nada foi gravado. Rode com --apply para valer.');
+  if (!apply) {
+    console.log('[backfill] DRY-RUN — nada foi gravado. Rode com --apply para valer.');
+    return;
+  }
+
+  if (jaLidos > 0) {
+    console.log('');
+    console.log(`[backfill] ${jaLidos} entrada(s) viajam com \`read_at\` e exigem \`notification.migrate\` NA ENTREGA.`);
+    console.log('[backfill] A entrega é do sweep (~5 min), não deste script: NÃO remova o escopo agora.');
+    console.log('[backfill] Confirme com: tsx scripts/backfillNotificationOutbox.ts --status');
+  }
 }
 
 // Achado real (review PR #289, inline): o `db.destroy()` ficava no fim de

@@ -11,19 +11,24 @@ export default [
     files: ["**/*.{ts,tsx}"],
     languageOptions: {
       parserOptions: {
-        // `scripts/*.ts` fica FORA do `include` do tsconfig (que é `src/**/*`,
-        // com `rootDir: ./src` — incluir `scripts/` moveria a saída para
-        // `dist/src/…` e quebraria o `CMD ["node", "dist/server.js"]` do
-        // Dockerfile). Sem `allowDefaultProject`, o `projectService` recusa o
-        // arquivo com "was not found by the project service" e o lint falha —
-        // medido no CI da PR #289, com `scripts/backfillNotificationOutbox.ts`.
+        // `allowDefaultProject` SAIU (PR #289). Ele existia para um único
+        // arquivo, `scripts/backfillNotificationOutbox.ts`, que ficava fora do
+        // `include` do tsconfig — e essa exceção era o próprio defeito, não a
+        // solução: fora do `include`, o script não era checado por tipo por
+        // NADA (nem `tsc -p`, nem `tsc -b`, nem o build) e o lint o aceitava
+        // sem projeto, produzindo o falso-verde da família registrada em
+        // `errors.md` E022.
         //
-        // Script operacional entra aqui, um a um: a lista é explícita de
-        // propósito, para que código de runtime nunca escape do type-check real
-        // do projeto por descuido.
-        projectService: {
-          allowDefaultProject: ['scripts/*.ts'],
-        },
+        // O arquivo foi para `src/scripts/`, que é onde os outros scripts
+        // operacionais deste app já viviam (`og:worker`, `discord:sync`,
+        // `metrics:cleanup`): entra no type-check real, compila para
+        // `dist/scripts/` e passa a existir no container — sem tocar em
+        // `rootDir` nem no `CMD ["node", "dist/server.js"]`.
+        //
+        // Script operacional novo vai para `src/scripts/`. Se algum dia
+        // precisar de exceção aqui, ela é sinal de que o arquivo está no lugar
+        // errado.
+        projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
     },
