@@ -108,11 +108,28 @@
 
 /* Documento: uma parte visível por vez, campos sempre abertos, coluna ≤900px
    centrada, sem rolagem em nenhum nível (A1). */
+/* Quem rola é o DOCUMENTO, não cada parte (achado de review, PR #290, Codex
+   P1). A distinção importa: o documento é o contêiner que representa a página
+   dentro da casca imersiva, e uma barra ali é a rolagem do documento — não a
+   "caixinha que rola dentro da página" (gaveta, sub-área com barra própria)
+   que o R1 proíbe. Com o overflow em cada `.table-editor-part`, toda parte
+   virava uma subárea rolável independente; com ele aqui, existe UMA rolagem, a
+   do documento.
+
+   Por que não jogar a rolagem para o `body`, que seria a leitura mais literal
+   do R1: medido nesta revisão — tirando o `position:fixed`, a página rola
+   2134px e leva a barra de estado junto, e o botão "Publicar"/"Salvar
+   alterações" sai da viewport (`top: -2006`). O mestre preencheria o
+   formulário sem ter como publicar sem voltar ao topo. O `fixed` existe
+   justamente porque o AppShell monta Header + Footer em volta (ver cabeçalho
+   deste arquivo); a casca imersiva é decisão da spec, e o documento é o nível
+   mais alto que pode rolar sem levar as ações embora. */
 .table-editor-document {
   display: flex;
   justify-content: center;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .table-editor-part {
@@ -130,9 +147,16 @@
      A1 pressupunha que toda parte coubesse na viewport; a premissa é falsa e
      não se sustenta com conteúdo variável (texto do usuário, tela baixa,
      zoom). A casca segue imersiva e sem rolagem no BODY — o que rola agora é
-     só a coluna de trabalho, quando o conteúdo exige. */
-  overflow-y: auto;
-  overflow-x: hidden;
+     o documento, um nível acima (ver `.table-editor-document`).
+
+     A parte em si NÃO rola: ela cresce, e a rolagem é do documento. Ter a
+     barra aqui faria de cada parte uma subárea rolável independente — a
+     "caixinha que rola dentro da página" que o R1 proíbe (achado de review,
+     PR #290, Codex P1). `height` fixo a prenderia à altura da caixa e traria a
+     barra de volta para dentro dela; `min-height: 100%` mantém o fundo
+     ocupando a faixa inteira quando o conteúdo é curto. */
+  min-height: 100%;
+  height: auto;
 }
 
 /* ── Prévia do card (R22/T4.2b): espelho vivo do estado, com o

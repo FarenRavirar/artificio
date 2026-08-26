@@ -374,7 +374,13 @@ describe('A1 — conteúdo da parte não pode ficar inalcançável', () => {
     // em si rola normalmente", e a leitura literal de "documento travado em
     // overflow:hidden" é nomeada ali como NÃO sendo o desenho. Era essa
     // leitura que o código tinha, e ela escondia 774px de formulário.
-    expect(css).toMatch(/\.table-editor-part\s*\{[^}]*overflow-y:\s*auto/);
+    // Quem rola é o DOCUMENTO (achado de review, PR #290, Codex P1): com o
+    // overflow em cada parte, toda parte virava uma subárea rolável
+    // independente — a "caixinha que rola dentro da página" que o R1 proíbe.
+    expect(css).toMatch(/\.table-editor-document\s*\{[^}]*overflow-y:\s*auto/);
+    expect(css).not.toMatch(/\.table-editor-document\s*\{[^}]*overflow:\s*hidden/);
+    // E a parte NÃO pode ter barra própria de volta.
+    expect(css).not.toMatch(/\.table-editor-part\s*\{[^}]*overflow-y:\s*auto/);
     expect(css).not.toMatch(/\.table-editor-part\s*\{[^}]*overflow:\s*hidden/);
   });
 
@@ -385,6 +391,26 @@ describe('A1 — conteúdo da parte não pode ficar inalcançável', () => {
     const { container } = renderEditor(makeApi());
 
     expect(container.querySelector('.table-editor-parts-nav')).toBeInTheDocument();
+  });
+
+  it('trocar de parte volta o documento ao topo', () => {
+    // Achado de review (PR #290, Codex P2): a <section> é a mesma em todas as
+    // partes — só os filhos condicionais trocam —, então o scrollTop sobrevivia
+    // à navegação. Medido com duas partes altas: 800px de scroll persistiam
+    // intactos na parte de destino, escondendo os primeiros campos dela.
+    const { container } = renderEditor(makeApi());
+    const doc = container.querySelector('.table-editor-document') as HTMLElement;
+    expect(doc).toBeInTheDocument();
+
+    // jsdom não faz layout, então `scrollTop` fica em 0 sozinho: simula-se a
+    // posição rolada antes de trocar de parte para que o assert tenha o que
+    // provar. Foi este teste que denunciou o uso de `Element.scrollTo`, que o
+    // jsdom não implementa — e que teria quebrado o editor no mesmo ambiente.
+    doc.scrollTop = 800;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Valores' }));
+
+    expect(doc.scrollTop).toBe(0);
   });
 
   it('a casca declara o ponto de quebra para tela estreita', () => {

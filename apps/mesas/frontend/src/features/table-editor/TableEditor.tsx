@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Modal, Button } from '@artificio/ui';
 import { ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -56,6 +56,8 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
   const { state } = api;
 
   const [activePartId, setActivePartId] = useState<EditorPartId>('identity');
+  /** O documento — é ele que rola (não cada parte), e volta ao topo a cada troca. */
+  const documentRef = useRef<HTMLElement>(null);
 
   // Texto colado do parser vive AQUI, não dentro do componente: a parte é
   // desmontada ao trocar de parte, e com ela iria embora o anúncio inteiro
@@ -192,6 +194,26 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
     return () => clearTimeout(timer);
   }, [api.revealedPending, api.firstErrorFieldToFocus, activePartId]);
 
+  // Troca de parte volta ao topo (achado de review, PR #290, Codex P2).
+  // A <section> é a mesma em todas as partes — só os filhos condicionais
+  // trocam —, então o scrollTop sobrevive à navegação: descer em "Identidade"
+  // e saltar para outra parte a abria no mesmo deslocamento, escondendo os
+  // primeiros campos dela. Medido com duas partes altas: 800px de scroll
+  // persistiam intactos na parte de destino.
+  //
+  // Não conflita com o A4 (foco no primeiro erro): quando `revealedPending`
+  // está ligado, quem manda no scroll é o `focus()` do efeito acima, que roda
+  // depois deste e traz o controle à vista por conta própria.
+  useEffect(() => {
+    if (api.revealedPending) return;
+    const doc = documentRef.current;
+    if (!doc) return;
+    // `scrollTo` de ELEMENTO não existe em todo ambiente (jsdom não o
+    // implementa, e é o que denunciou isto aqui) — atribuir `scrollTop` é o
+    // caminho universal e suficiente: não há animação a preservar.
+    doc.scrollTop = 0;
+  }, [activePartId, api.revealedPending]);
+
   // ── Prévia do parser: aplica como estado novo (criar fluxo do antigo
   //    PainelMestrePage, agora dentro do editor). Fase 6 (T6.2): registra
   //    TAMBÉM quais campos a fonte produziu (marca "Pelo anúncio") e os sinais
@@ -244,7 +266,7 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
           />
         </aside>
 
-        <main className="table-editor-document">
+        <main ref={documentRef} className="table-editor-document">
           {/* pt 18px→24px (achado do mantenedor, 2026-08-26): com 18px o
               primeiro elemento da parte encostava na barra de abas e o botão
               "Colar anúncio" lia como cortado ao meio, embora estivesse
@@ -370,7 +392,12 @@ function EditorTopBar({
   onPublish,
 }: EditorTopBarProps) {
   return (
-    <header className="flex items-center justify-between gap-3 border-b border-[var(--line)] bg-[var(--surface)] px-4 py-2">
+    // `flex-wrap` + `gap-y` (achado de review, PR #290, Codex P1): os Button do
+    // design system são `white-space: nowrap`, e em 390px o pior caso real —
+    // "Rascunho salvo" com "Salvar alterações" — exige 439px de largura mínima
+    // (medido). Sem quebrar, a raiz em `overflow:hidden` recortava justamente o
+    // botão de publicar/salvar.
+    <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b border-[var(--line)] bg-[var(--surface)] px-4 py-2">
       <div className="flex items-center gap-2.5">
         <Button variant="ghost" size="sm" onClick={onBack} type="button">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -506,8 +533,13 @@ function EditorPendingFooter({ pendingParts, onSelect }: EditorPendingFooterProp
   return (
     // `<output>` no lugar de role="status": mesma semântica de região viva
     // (role=status implícito), com suporte melhor entre leitores de tela.
+    // `flex-wrap` no lugar de `overflow-hidden` (achado de review, PR #290,
+    // Codex P1): com as 7 partes pendentes a faixa exige 864px de largura
+    // mínima (medido) — em 390px o `overflow-hidden` engolia os últimos
+    // botões, e são eles que levam o mestre ao campo que falta. Recortar o
+    // atalho de erro é o oposto do que esta faixa existe para fazer.
     <output
-      className="flex items-center gap-2.5 overflow-hidden border-t border-[var(--state-danger-line)] bg-[var(--state-danger-bg)] px-4 py-2"
+      className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 border-t border-[var(--state-danger-line)] bg-[var(--state-danger-bg)] px-4 py-2"
     >
       <span className="whitespace-nowrap text-[13px] text-[var(--state-danger-fg)]">
         Campos obrigatórios faltando em:
