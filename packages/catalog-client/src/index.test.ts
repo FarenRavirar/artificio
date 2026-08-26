@@ -189,6 +189,48 @@ describe('createCatalogNode / updateCatalogNode', () => {
     expect(bodyOf(spy)).not.toHaveProperty('aliases');
   });
 
+  // Achado real (review PR #289): o PUT mandava `null` em campo OMITIDO, e o
+  // site trata `null` como "apague isto". O caminho real é
+  // `appendAliasesToNode` no mesas, que passa nome/descrição/parent e não passa
+  // site/logo — toda aprovação de sugestão com alias novo os limparia.
+  it('PUT omite campos que o input não menciona, em vez de mandar null', async () => {
+    const spy = mockFetchOk();
+    await updateCatalogNode('node-1', { name: 'D&D', node_type: 'system', aliases: ['dnd'] });
+
+    const body = bodyOf(spy);
+    expect(body).not.toHaveProperty('official_website_url');
+    expect(body).not.toHaveProperty('logo_media_id');
+    expect(body).not.toHaveProperty('description');
+    // O que o chamador mandou continua indo.
+    expect(body.name).toBe('D&D');
+    expect(body.aliases).toEqual(['dnd']);
+  });
+
+  it('PUT envia null quando o input o declara EXPLICITAMENTE (limpeza intencional)', async () => {
+    const spy = mockFetchOk();
+    await updateCatalogNode('node-1', {
+      name: 'D&D',
+      node_type: 'system',
+      website_url: null,
+      description: null,
+    });
+
+    const body = bodyOf(spy);
+    expect(body.official_website_url).toBeNull();
+    expect(body.description).toBeNull();
+    // Não mencionado: continua fora.
+    expect(body).not.toHaveProperty('logo_media_id');
+  });
+
+  it('POST segue mandando null em campo ausente (nó nascendo, nada a perder)', async () => {
+    const spy = mockFetchOk();
+    await createCatalogNode({ name: 'D&D', node_type: 'system' });
+
+    const body = bodyOf(spy);
+    expect(body.official_website_url).toBeNull();
+    expect(body.logo_media_id).toBeNull();
+  });
+
   it('PUT envia aliases quando o input os declara, inclusive vazio (replace explícito)', async () => {
     const spy = mockFetchOk();
     await updateCatalogNode('node-1', { name: 'D&D', node_type: 'system', aliases: [] });

@@ -4,11 +4,10 @@ vi.mock('../../db/index.js', () => ({ db: {} }));
 
 import { deliverPendingNotifications } from '../notificationOutboxDelivery.js';
 
-// T7.4b (spec 096). A política de retry é onde um erro custa caro e não aparece:
-// tratar 401/403/404/429 como permanente gravaria `attempt_count = 5` e o aviso
-// nunca mais voltaria ao sweep — perda silenciosa causada por uma janela de
-// operação (credencial em rotação, deploy escalonado, rate limit) que já passou.
-// Foi o achado de review da PR #257 no gêmeo deste arquivo, no `downloads`.
+// T7.4b (spec 096). A LÓGICA de entrega (claim, retry, timeout) vive em
+// `@artificio/comments` e é testada lá, contra a porta `OutboxStore` — este
+// arquivo cobre só o que sobrou aqui: a leitura das envs e o claim escrito com o
+// Kysely deste app.
 
 const ENTRY = {
   id: 'outbox-1',
@@ -27,18 +26,17 @@ const ENTRY = {
   claimed_until: null,
 };
 
-/**
- * Simula o banco: o claim (`updateTable ... returningAll`) devolve as entradas
- * pendentes, e cada update posterior é capturado para asserção.
- */
+/** Captura o que o claim monta, sem banco. */
 function makeDb(entries: Array<typeof ENTRY>) {
+  const claims: Array<Record<string, unknown>> = [];
   const updates: Array<Record<string, unknown>> = [];
   let first = true;
   const database = {
-    updateTable: () => {
+    updateTable: (table: string) => {
+      const isClaim = first;
       const chain: Record<string, unknown> = {
         set: (values: Record<string, unknown>) => {
-          if (!first) updates.push(values);
+          (isClaim ? claims : updates).push({ table, ...values });
           return chain;
         },
         where: () => chain,
@@ -54,7 +52,7 @@ function makeDb(entries: Array<typeof ENTRY>) {
       return chain;
     },
   };
-  return { database, updates };
+  return { database, claims, updates };
 }
 
 const originalFetch = globalThis.fetch;
@@ -70,8 +68,8 @@ afterEach(() => {
   process.env = { ...originalEnv };
 });
 
-describe('deliverPendingNotifications — transporte (T7.4b)', () => {
-  it('POSTa no ingest do accounts com o token de serviço e o occurred_at do fato', async () => {
+describe('deliverPendingNotifications — wrapper do mesas (T7.4b)', () => {
+  it('lê ACCOUNTS_URL/SERVICE_CREDENTIAL e entrega no ingest do accounts', async () => {
     const spy = vi.fn().mockResolvedValue({ status: 202 });
     globalThis.fetch = spy as unknown as typeof fetch;
     const { database } = makeDb([ENTRY]);
@@ -82,100 +80,60 @@ describe('deliverPendingNotifications — transporte (T7.4b)', () => {
     expect(String(spy.mock.calls[0][0])).toBe(
       'https://accounts.artificiorpg.com/internal/v1/notifications/events',
     );
-    const init = spy.mock.calls[0][1] as { headers: Record<string, string>; body: string };
+    const init = spy.mock.calls[0][1] as { headers: Record<string, string> };
     expect(init.headers['X-Service-Token']).toBe('cred-de-teste');
-    const body = JSON.parse(init.body) as Record<string, unknown>;
-    expect(body.event_id).toBe(ENTRY.event_id);
-    // Hora do fato, não da entrega: um sweep atrasado ordenaria os avisos pela
-    // hora em que a fila esvaziou, não pela hora da aprovação.
-    expect(body.occurred_at).toBe('2026-08-25T12:00:00.000Z');
   });
 
-  it('não chama a rede quando falta ACCOUNTS_URL ou SERVICE_CREDENTIAL', async () => {
-    delete process.env.SERVICE_CREDENTIAL;
+  it('remove a barra final de ACCOUNTS_URL, para a URL não sair com barra dupla', async () => {
+    process.env.ACCOUNTS_URL = 'https://accounts.artificiorpg.com/';
+    const spy = vi.fn().mockResolvedValue({ status: 202 });
+    globalThis.fetch = spy as unknown as typeof fetch;
+    const { database } = makeDb([ENTRY]);
+
+    await deliverPendingNotifications(database as never);
+
+    expect(String(spy.mock.calls[0][0])).toBe(
+      'https://accounts.artificiorpg.com/internal/v1/notifications/events',
+    );
+  });
+
+  it.each([
+    ['SERVICE_CREDENTIAL', 'SERVICE_CREDENTIAL'],
+    ['ACCOUNTS_URL', 'ACCOUNTS_URL'],
+  ])('não chama a rede quando falta %s', async (_label, envVar) => {
+    delete process.env[envVar];
     const spy = vi.fn();
     globalThis.fetch = spy as unknown as typeof fetch;
     const { database } = makeDb([ENTRY]);
 
     const result = await deliverPendingNotifications(database as never);
 
-    // Nada se perde: a entrada fica pendente e sai na próxima varredura.
+    // Nada se perde: a entrada fica pendente e sai na próxima varredura quando a
+    // configuração existir.
     expect(result).toEqual({ delivered: 0, failed: 0, skipped: 0 });
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it('trata 200 como entregue, além de 202', async () => {
-    globalThis.fetch = vi.fn().mockResolvedValue({ status: 200 }) as unknown as typeof fetch;
-    const { database, updates } = makeDb([ENTRY]);
+  it('reserva as linhas na tabela do mesas antes de qualquer HTTP', async () => {
+    const spy = vi.fn().mockResolvedValue({ status: 202 });
+    globalThis.fetch = spy as unknown as typeof fetch;
+    const { database, claims } = makeDb([ENTRY]);
 
-    const result = await deliverPendingNotifications(database as never);
+    await deliverPendingNotifications(database as never);
 
-    expect(result.delivered).toBe(1);
-    expect(updates[0].delivered_at).toBeInstanceOf(Date);
-    expect(updates[0].last_error).toBeNull();
-  });
-});
-
-describe('deliverPendingNotifications — política de retry (T7.4b)', () => {
-  it.each([
-    ['400 payload inválido', 400],
-    ['422 payload recusado', 422],
-  ])('esgota o teto em %s (retry não melhora payload defeituoso)', async (_label, status) => {
-    globalThis.fetch = vi.fn().mockResolvedValue({ status }) as unknown as typeof fetch;
-    const { database, updates } = makeDb([ENTRY]);
-
-    const result = await deliverPendingNotifications(database as never);
-
-    expect(result.failed).toBe(1);
-    expect(updates[0].attempt_count).toBe(5);
+    // O claim é o que impede o sweep periódico e o disparo pós-commit de
+    // entregarem a mesma linha duas vezes.
+    expect(claims[0].table).toBe('mesas_notification_outbox');
+    expect(claims[0].claimed_until).toBeInstanceOf(Date);
   });
 
-  it.each([
-    ['401 credencial em rotação', 401],
-    ['403 sem escopo notification.write', 403],
-    ['404 accounts antigo em deploy escalonado', 404],
-    ['429 rate limit da credencial', 429],
-    ['408 timeout do servidor', 408],
-    ['500 erro do accounts', 500],
-    ['503 accounts fora do ar', 503],
-  ])('mantém o aviso na fila em %s (o ambiente muda sozinho)', async (_label, status) => {
-    globalThis.fetch = vi.fn().mockResolvedValue({ status }) as unknown as typeof fetch;
+  it('grava o resultado da entrega na tabela do mesas', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({ status: 202 }) as unknown as typeof fetch;
     const { database, updates } = makeDb([ENTRY]);
 
     await deliverPendingNotifications(database as never);
 
-    // Incrementa UMA tentativa — não salta para o teto. Tratar qualquer um
-    // destes como terminal apagaria o aviso por uma janela já encerrada.
-    expect(updates[0].attempt_count).toBe(1);
-    expect(updates[0].last_error).toBe(`HTTP ${status}`);
-    // Libera o claim: volta à fila na próxima varredura, sem esperar o lease.
-    expect(updates[0].claimed_until).toBeNull();
-  });
-
-  it('registra timeout de rede como tentativa, não como defeito permanente', async () => {
-    const abortError = Object.assign(new Error('abortado'), { name: 'AbortError' });
-    globalThis.fetch = vi.fn().mockRejectedValue(abortError) as unknown as typeof fetch;
-    const { database, updates } = makeDb([ENTRY]);
-
-    const result = await deliverPendingNotifications(database as never);
-
-    expect(result.failed).toBe(1);
-    expect(updates[0].attempt_count).toBe(1);
-    expect(updates[0].last_error).toBe('timeout');
-  });
-
-  it('descarta entrada com recipients malformado em vez de retentar 5 vezes', async () => {
-    const spy = vi.fn();
-    globalThis.fetch = spy as unknown as typeof fetch;
-    const { database, updates } = makeDb([{ ...ENTRY, recipients: 'nao-e-array' as never }]);
-
-    const result = await deliverPendingNotifications(database as never);
-
-    // O accounts recusaria com 400 em toda tentativa; `last_error` deixa o caso
-    // auditável em vez de silencioso.
-    expect(result.skipped).toBe(1);
-    expect(spy).not.toHaveBeenCalled();
-    expect(updates[0].last_error).toBe('recipients inválido');
+    expect(updates[0].table).toBe('mesas_notification_outbox');
     expect(updates[0].delivered_at).toBeInstanceOf(Date);
   });
 });

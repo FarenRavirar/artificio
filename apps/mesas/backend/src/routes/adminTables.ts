@@ -258,17 +258,29 @@ router.put('/tables/:id', authMiddleware, async (req: Request, res: Response) =>
       updateData.status = status as TableStatus;
     }
 
-    if (is_covil !== undefined) {
-      updateData.is_covil = Boolean(is_covil);
-    }
-
-    // T7.2c (spec 096): `featured` tinha leitor, filtro (`tables.ts:204`), peso
-    // na ordenação do catálogo (`tables.ts:256`), ordenação no perfil do mestre
-    // (`gm.ts:266`) e selo no CSS — e NENHUM escritor. Capacidade completa sem
-    // ponto de entrada: nenhuma mesa podia ser destacada. O admin é o dono da
-    // decisão de destaque, então entra aqui, ao lado de `is_covil`.
-    if (featured !== undefined) {
-      updateData.featured = Boolean(featured);
+    // Achado real (review PR #289, inline): `Boolean(valor)` transforma QUALQUER
+    // string não-vazia em `true` — `"false"` inclusive. Um cliente fora do painel
+    // (curl, script de automação, form que serializa booleano como texto) pedindo
+    // para DESMARCAR acabava marcando, silenciosamente e sem erro.
+    //
+    // O `is_covil` ao lado tinha o mesmo defeito, anterior a esta spec: a causa é
+    // a coerção, não o campo, então os dois passam pelo mesmo guard. 400 explícito
+    // é melhor que adivinhar a intenção de um payload malformado.
+    const booleanFields: Array<[string, unknown, 'is_covil' | 'featured']> = [
+      ['is_covil', is_covil, 'is_covil'],
+      // T7.2c (spec 096): `featured` tinha leitor, filtro (`tables.ts:204`), peso
+      // na ordenação do catálogo (`tables.ts:256`), ordenação no perfil do mestre
+      // (`gm.ts:266`) e selo no CSS — e NENHUM escritor. Capacidade completa sem
+      // ponto de entrada: nenhuma mesa podia ser destacada. O admin é o dono da
+      // decisão de destaque, então entra aqui, ao lado de `is_covil`.
+      ['featured', featured, 'featured'],
+    ];
+    for (const [label, value, column] of booleanFields) {
+      if (value === undefined) continue;
+      if (typeof value !== 'boolean') {
+        return res.status(400).json({ error: `${label} deve ser booleano (true ou false).` });
+      }
+      updateData[column] = value;
     }
 
     if (Object.keys(updateData).length === 0) {

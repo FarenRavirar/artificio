@@ -535,9 +535,15 @@ export interface MesasNotificationOutboxTable {
   subject_type: string;
   subject_id: string;
   canonical_path: string;
-  snapshot: unknown;
-  /** Array de `user_id` resolvido na transação. */
-  recipients: unknown;
+  /**
+   * JSONB: sai do banco já parseado, entra como string serializada. O
+   * `ColumnType` obriga o `JSON.stringify` na escrita — com `unknown` dos dois
+   * lados, esquecer de serializar compilava e só falhava no driver. Mesmo padrão
+   * de `activity_log.metadata` e `dev_feedback.console_errors`.
+   */
+  snapshot: ColumnType<Record<string, unknown>, string, string>;
+  /** Array de `user_id` resolvido na transação. Idem: parseado na leitura. */
+  recipients: ColumnType<string[], string, string>;
   created_at: Generated<Date>;
   delivered_at: Date | null;
   attempt_count: Generated<number>;

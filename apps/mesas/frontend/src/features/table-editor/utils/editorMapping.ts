@@ -8,7 +8,8 @@ import type {
   TableContactChannel,
 } from '../../../types/tables';
 import { TABLE_CONTACT_CHANNELS } from '../../../types/tables';
-import type { TableEditorState } from '../types';
+import { PRICE_FREQUENCIES } from '../types';
+import type { PriceFrequency, TableEditorState } from '../types';
 import type { SessionSchedule } from '../../../components/SessionRepeater';
 // ── Normalizadores de preço (T4.8) ─────────────────────────────────────────
 // Herdados do mapper do wizard antigo (features/create-table/utils/mapper,
@@ -431,6 +432,20 @@ function asRecord(value: unknown): ApiRecord | null {
  * Número e boolean continuam convertidos: a API devolve `slots_total` numérico
  * e o estado do editor trabalha com string.
  */
+/**
+ * Achado real (review PR #289, inline): `price_frequency` entrava no state por
+ * `stringValue`, que aceita QUALQUER string (e converte número/booleano em
+ * texto). Valor fora do enum atravessava o editor e só era recusado lá no
+ * `z.enum(PRICE_FREQUENCIES)` do backend, como 400 na hora de publicar — erro
+ * longe da causa. Normalizado na fronteira: o que não pertence ao enum vira
+ * `''` ("não informar"), que o payload traduz para `null`.
+ */
+export function normalizePriceFrequency(value: unknown): PriceFrequency | '' {
+  return typeof value === 'string' && (PRICE_FREQUENCIES as readonly string[]).includes(value)
+    ? (value as PriceFrequency)
+    : '';
+}
+
 function stringValue(data: ApiRecord, key: string, fallback = ''): string {
   const value = data[key];
   if (typeof value === 'string') return value;
@@ -642,7 +657,7 @@ export function mapApiToEditorState(apiData: unknown): EditorInitialData {
     priceType: normalizePriceType(stringValue(data, 'price_type', 'gratuita')),
     priceValue: stringValue(data, 'price_value'),
     priceValueMonthly: stringValue(data, 'price_value_monthly'),
-    priceFrequency: stringValue(data, 'price_frequency'),
+    priceFrequency: normalizePriceFrequency(data.price_frequency),
     acceptsDonations: booleanValue(data, 'accepts_donations'),
     suggestedDonationValue: stringValue(data, 'suggested_donation_value'),
     billingText: stringValue(data, 'billing_text'),

@@ -200,9 +200,24 @@ export async function createCatalogNode(
 /**
  * Atualiza um nó existente.
  *
- * Achado CodeRabbit (PR #145), preservado na subida: o PUT não pode mandar
- * `aliases: []` quando o campo não veio no input — o site trata array (mesmo
- * vazio) como replace explícito e apagaria todos os aliases existentes.
+ * **Omitido ≠ limpar.** O POST pode mandar `null` em campo ausente (o nó está
+ * nascendo, não há o que perder); o PUT não pode, porque `null` é instrução de
+ * apagar o que já está lá.
+ *
+ * Dois achados, mesma regra:
+ * - CodeRabbit (PR #145): `aliases: []` num PUT sem aliases apagaria todos os
+ *   existentes — o site trata array, mesmo vazio, como replace explícito.
+ * - Review PR #289: `website_url` e `logo_filename` omitidos viravam `null` e
+ *   apagavam site e logo do sistema. O caminho real é `appendAliasesToNode`
+ *   (`mesas/systemSuggestionsAdmin.ts:316`), que passa nome/descrição/parent e
+ *   NÃO passa esses dois: toda aprovação de sugestão que acrescenta um alias
+ *   limparia os campos. Medido em produção (2026-08-26): 0 de 717 sistemas têm
+ *   site ou logo no catálogo central e 0 de 1269 na projeção do mesas — o campo
+ *   nunca foi populado, então nada se perdeu até aqui. O defeito é latente, e
+ *   dispararia no primeiro sistema que ganhasse um dos dois.
+ *
+ * `null` EXPLÍCITO continua chegando ao site como limpeza intencional: a
+ * distinção é entre a chave ausente no input e a chave presente valendo `null`.
  */
 export async function updateCatalogNode(
   id: string,
@@ -210,7 +225,19 @@ export async function updateCatalogNode(
   options: CatalogFetchOptions = {},
 ): Promise<CatalogNodeWriteResponse> {
   const { aliases, ...body } = toCatalogNodeBody(input);
-  const payload = Array.isArray(input.aliases) ? { ...body, aliases } : body;
+  const payload: Record<string, unknown> = Array.isArray(input.aliases)
+    ? { ...body, aliases }
+    : { ...body };
+
+  // Campo que o chamador não mencionou sai do corpo; o que ele mencionou fica,
+  // inclusive valendo `null`.
+  for (const [field, column] of [
+    ['description', 'description'],
+    ['website_url', 'official_website_url'],
+    ['logo_filename', 'logo_media_id'],
+  ] as const) {
+    if (!(field in input)) delete payload[column];
+  }
 
   return catalogNodeWriteResponseSchema.parse(
     await catalogFetch<unknown>(`/api/admin/v1/catalog/nodes/${encodeURIComponent(id)}`, {

@@ -1,5 +1,5 @@
 import { db } from '../db/index.js';
-import { enqueueNotification, type MesasEventType } from './notificationOutbox.js';
+import { enqueueNotification, isValidCanonicalPath, type MesasEventType } from './notificationOutbox.js';
 import { deliverPendingNotifications } from './notificationOutboxDelivery.js';
 
 // Tipos canonicos de notificacao para o feed do admin.
@@ -66,9 +66,17 @@ export async function notifyAdmins(
       subjectType: 'admin_notice',
       subjectId: input.type,
       // Fallback para o painel do admin: `action_url` é opcional na API antiga,
-      // e o outbox exige path válido. Sem isto, um chamador que omite o campo
-      // levaria a exceção do CHECK em vez do aviso.
-      canonicalPath: input.action_url ?? '/gestao',
+      // e o outbox exige path válido.
+      //
+      // Achado real (review PR #289, inline): o `??` cobria só a AUSÊNCIA. Um
+      // `action_url` inválido fazia `enqueueNotification` lançar dentro do
+      // `try`, e o `catch` abaixo — que existe para o aviso não derrubar a ação
+      // de mérito — engolia o erro: aviso perdido em silêncio. Medido nos 4
+      // chamadores: `/gestao`, `/gestao/sistema` e dois `/mesas/${slug}`
+      // interpolados, que degeneram para `/mesas/` se o slug vier vazio.
+      canonicalPath: input.action_url && isValidCanonicalPath(input.action_url)
+        ? input.action_url
+        : '/gestao',
       snapshot: {
         legacy_type: input.type,
         title: input.title,

@@ -143,11 +143,15 @@ async function main(): Promise<void> {
   console.log(`[backfill] puladas: ${pulados.length}`);
   for (const p of pulados) console.log(`  - ${p.id}: ${p.motivo}`);
   if (!apply) console.log('[backfill] DRY-RUN — nada foi gravado. Rode com --apply para valer.');
-
-  await db.destroy();
 }
 
-main().catch((error: unknown) => {
-  console.error('[backfill] falhou:', error);
-  process.exitCode = 1;
-});
+// Achado real (review PR #289, inline): o `db.destroy()` ficava no fim de
+// `main()`, então uma rejeição no meio deixava o pool aberto e o processo
+// pendurado — justo no caminho de erro, em que o operador precisa ver a falha e
+// o script sair. O `finally` fecha em qualquer desfecho, e exatamente uma vez.
+main()
+  .catch((error: unknown) => {
+    console.error('[backfill] falhou:', error);
+    process.exitCode = 1;
+  })
+  .finally(() => db.destroy());

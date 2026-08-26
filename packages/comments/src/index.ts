@@ -54,6 +54,26 @@ export {
   type RecipientCandidates,
 } from './notificationRecipients.js';
 
+// Entrega do outbox local ao par consolidado do `accounts.`. Vive aqui, ao lado
+// da resolução de destinatários, porque `mesas` e `downloads` faziam a MESMA
+// coisa em cópias separadas — 80,8% duplicado, medido pelo Sonar na PR #289.
+export {
+  createKyselyOutboxStore,
+  deliverOutboxEntries,
+  OUTBOX_BATCH_SIZE,
+  OUTBOX_MAX_ATTEMPTS,
+  OUTBOX_CLAIM_LEASE_MS,
+  OUTBOX_SWEEP_INTERVAL_MS,
+  type DeliveryOptions,
+  type DeliveryResult,
+  type OutboxEntry,
+  type OutboxFetch,
+  type OutboxStore,
+  type OutboxQueryable,
+  type OutboxTableRef,
+  type OutboxUpdate,
+} from './notificationOutboxDelivery.js';
+
 export {
   MAX_COMMENT_DEPTH,
   placeComment,

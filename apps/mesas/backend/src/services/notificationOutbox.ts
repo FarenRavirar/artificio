@@ -119,7 +119,7 @@ export interface EnqueueNotificationInput {
  * (`notificationIngestRoutes.ts:58-61`) — por isso a checagem existe dos dois
  * lados.
  */
-function isValidCanonicalPath(value: string): boolean {
+export function isValidCanonicalPath(value: string): boolean {
   return (
     value.length >= 1
     && value.length <= 1024
@@ -144,6 +144,15 @@ export async function enqueueNotification(
   input: EnqueueNotificationInput,
   executor: Kysely<Database> | Transaction<Database> = db,
 ): Promise<string | null> {
+  // ANTES de qualquer early return por destinatário (achado real, review PR
+  // #289, inline): validar depois tornava o defeito INTERMITENTE — chamador com
+  // path quebrado cujos destinatários caíssem todos no formato legado saía
+  // `null` em silêncio, e o erro só aparecia quando outro usuário recebesse o
+  // mesmo aviso. Path é propriedade do chamador, não do destinatário.
+  if (!isValidCanonicalPath(input.canonicalPath)) {
+    throw new Error(`canonical_path inválido: ${input.canonicalPath.slice(0, 120)}`);
+  }
+
   const localIds = input.recipients.filter(
     (id) => typeof id === 'string' && id.trim().length > 0,
   );
@@ -153,10 +162,6 @@ export async function enqueueNotification(
   // Todos os destinatários caíram no formato legado. Nada a enfileirar — e o
   // `resolveAccountsUserIds` já registrou cada um no log.
   if (recipients.length === 0) return null;
-
-  if (!isValidCanonicalPath(input.canonicalPath)) {
-    throw new Error(`canonical_path inválido: ${input.canonicalPath.slice(0, 120)}`);
-  }
 
   const eventId = randomUUID();
   await executor

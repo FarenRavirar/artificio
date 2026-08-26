@@ -2,7 +2,7 @@ import { Select, TextInput } from '@artificio/ui';
 import { ContentEditor } from '@artificio/content-editor';
 import type { TableEditorApi } from '../hooks/useTableEditor';
 import { EditorField, ToggleButton } from './EditorField';
-import { normalizePriceType } from '../utils/editorMapping';
+import { normalizePriceType, normalizePriceFrequency } from '../utils/editorMapping';
 import { EDITOR_TEXT_LIMITS } from '../utils/editorValidation';
 
 /**
@@ -134,7 +134,10 @@ export function ValuesPart({ api }: ValuesPartProps) {
               <Select
                 id="priceFrequency"
                 value={state.priceFrequency}
-                onChange={(e) => patch({ priceFrequency: e.target.value })}
+                // Normaliza também aqui, e não só na leitura da API: o valor do
+                // `<select>` é `string` para o compilador, e o state é a union.
+                // Mesma função dos dois lados — regra do enum num lugar só.
+                onChange={(e) => patch({ priceFrequency: normalizePriceFrequency(e.target.value) })}
               >
                 <option value="">Não informar</option>
                 <option value="sessao">Por sessão</option>

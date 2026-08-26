@@ -57,6 +57,26 @@ describe('editorStateToPayload/mapApiToEditorState — periodicidade (T7.2b2)', 
     expect(mapApiToEditorState({ price_type: 'paga', price_frequency: null }).priceFrequency).toBe('');
   });
 
+  // Achado real (review PR #289, inline): a leitura usava `stringValue`, que
+  // aceita QUALQUER string e converte número/booleano em texto. Valor fora do
+  // enum atravessava o editor e só era recusado pelo `z.enum` do backend, como
+  // 400 na hora de publicar — erro longe da causa.
+  it.each([
+    ['string fora do enum', 'trimestral'],
+    ['número', 30],
+    ['booleano', true],
+    ['objeto', { periodo: 'mes' }],
+  ])('normaliza price_frequency inválido (%s) para não informado', (_label, value) => {
+    const state = mapApiToEditorState({ price_type: 'paga', price_frequency: value });
+    expect(state.priceFrequency).toBe('');
+  });
+
+  it('valor inválido vindo da API não vira price_frequency no payload', () => {
+    const loaded = mapApiToEditorState({ price_type: 'paga', price_frequency: 'trimestral' });
+    const payload = payloadOf(makeState({ ...loaded, priceType: 'paga', priceValue: '30' }));
+    expect(payload.price_frequency).toBeNull();
+  });
+
   // Ida e volta: editar uma mesa paga e salvar sem tocar no campo preserva o
   // valor que estava no banco — é o que impede a entrada nova de virar perda.
   it('round-trip preserva a periodicidade salva', () => {

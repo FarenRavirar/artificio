@@ -27,6 +27,15 @@ export type EditorPartId =
  */
 export type FieldLevel = 'required' | 'recommended' | 'optional';
 
+/**
+ * Periodicidade da cobrança. Espelha `PRICE_FREQUENCIES` do backend
+ * (`validators/tableValidators.ts:28`), que é quem o `z.enum` valida — string
+ * livre aqui viajaria até lá e voltaria como 400 (achado real, review PR #289).
+ * `''` é o estado "não informar", traduzido para `null` no payload.
+ */
+export const PRICE_FREQUENCIES = ['sessao', 'mes', 'campanha'] as const;
+export type PriceFrequency = (typeof PRICE_FREQUENCIES)[number];
+
 export interface DdalFormState {
   is_ddal: boolean;
   ddal_code: string;
@@ -121,7 +130,7 @@ export interface TableEditorState {
    * público ao lado do preço. Só existe em mesa paga — string vazia quando
    * gratuita, que o payload traduz para `null` (T7.2b2).
    */
-  priceFrequency: string;
+  priceFrequency: PriceFrequency | '';
   acceptsDonations: boolean;
   suggestedDonationValue: string;
   billingText: string;

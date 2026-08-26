@@ -154,6 +154,26 @@ describe('enqueueNotification — enfileiramento (T7.4b)', () => {
     expect(dbMocks.insertInto).not.toHaveBeenCalled();
   });
 
+  // Achado real (review PR #289, inline): a validação de path corria DEPOIS dos
+  // early returns por destinatário, então um chamador com path quebrado cujos
+  // destinatários caíssem todos no formato legado saía `null` em silêncio — e o
+  // defeito só aparecia quando outro usuário recebesse o mesmo aviso. Path é
+  // propriedade do chamador, não do destinatário: o erro tem de ser determinístico.
+  it('recusa path inválido mesmo sem destinatário nenhum', async () => {
+    mockInsert();
+    await expect(
+      enqueueNotification({ ...base, canonicalPath: 'https://exemplo.com/x', recipients: [] }),
+    ).rejects.toThrow();
+  });
+
+  it('recusa path inválido mesmo quando todos os destinatários são legados', async () => {
+    mockUsers([{ id: UUID_LOCAL, google_id: GOOGLE_SUB_LEGADO }]);
+    mockInsert();
+    await expect(
+      enqueueNotification({ ...base, canonicalPath: 'https://exemplo.com/x' }),
+    ).rejects.toThrow();
+  });
+
   it('usa o executor recebido (trx) em vez do db global', async () => {
     const selectChain = {
       select: vi.fn().mockReturnThis(),

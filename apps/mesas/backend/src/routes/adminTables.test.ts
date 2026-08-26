@@ -288,6 +288,20 @@ describe('PUT /api/v1/admin/tables/:id', () => {
     expect(res.body.data.featured).toBe(true);
   });
 
+  // Achado real (review PR #289, inline): `Boolean("false")` é `true`. Um cliente
+  // fora do painel pedindo para DESMARCAR acabava marcando, sem erro nenhum.
+  it.each([
+    ['featured como string "false"', { featured: 'false' }],
+    ['featured como string "true"', { featured: 'true' }],
+    ['featured como número', { featured: 0 }],
+    ['is_covil como string "false"', { is_covil: 'false' }],
+  ])('T7.2c: recusa %s com 400, em vez de coagir', async (_label, body) => {
+    const res = await request(makeApp()).put('/api/v1/admin/tables/t1').send(body);
+
+    expect(res.status).toBe(400);
+    expect(db.updateTable as Mock).not.toHaveBeenCalled();
+  });
+
   it('T7.2c: featured=false desmarca o destaque (não é ignorado como ausente)', async () => {
     const updateChain = mockChain({
       returning: vi.fn().mockReturnValue(
