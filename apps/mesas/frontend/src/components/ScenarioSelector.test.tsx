@@ -85,3 +85,52 @@ describe('ScenarioSelector — sem busca não há lista', () => {
     await screen.findByText(/Nenhum cenário encontrado com esse termo/i);
   });
 });
+
+describe('ScenarioSelector — payload de API é unknown até prova de tipo', () => {
+  // Achado de review (Codex, PR #291): `data.data || []` aceitava qualquer
+  // coisa não-nula, e `scenario.subgenres.some(...)` no filtro derrubava a tela.
+  const render1 = () => render(<ScenarioSelector selectedScenarioId={null} onSelect={vi.fn()} />);
+
+  const buscar = (termo: string) =>
+    fireEvent.change(screen.getByPlaceholderText(/Buscar cenário/i), { target: { value: termo } });
+
+  it('resposta sem array em data não quebra a tela', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: { nope: 1 } }) }));
+    render1();
+    await screen.findByText(/Digite acima para buscar entre os 0 cenários/i);
+    buscar('qualquer');
+    await screen.findByText(/Nenhum cenário encontrado/i);
+  });
+
+  it('item com subgenres ausente ou inválido não quebra a busca', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: [
+          { id: 'a', name: 'Sem subgeneros', name_pt: null, slug: 'sem' },
+          { id: 'b', name: 'Subgeneros string', name_pt: null, slug: 'str', subgenres: 'nao-e-array' },
+          { id: 'c', name: 'Subgeneros sujos', name_pt: null, slug: 'sujo', subgenres: ['ok', 42, null] },
+        ],
+      }),
+    }));
+    render1();
+    await screen.findByText(/Digite acima para buscar entre os 3 cenários/i);
+
+    // O filtro chama `.some` em todos os três — sem normalizar, isto lançava.
+    buscar('subgeneros');
+    await waitFor(() => expect(screen.getByText('Subgeneros string')).toBeTruthy());
+
+    // O número 42 e o null foram descartados; a string sobreviveu.
+    buscar('ok');
+    await waitFor(() => expect(screen.getByText('Subgeneros sujos')).toBeTruthy());
+  });
+
+  it('item sem id ou sem name é descartado, não entra meio-construído', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [{ name: 'sem id' }, { id: 'x' }, null, 'texto solto'] }),
+    }));
+    render1();
+    await screen.findByText(/Digite acima para buscar entre os 0 cenários/i);
+  });
+});

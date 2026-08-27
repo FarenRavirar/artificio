@@ -17,6 +17,33 @@ interface ScenarioSelectorProps {
 
 const normalizeText = (value: string): string => value.trim().toLowerCase();
 
+/**
+ * Payload de API é `unknown` até prova de tipo (AGENTS.md §Regras Gerais de
+ * Código): `data.data || []` aceitava qualquer coisa não-nula, e um `data`
+ * objeto — ou um item sem `subgenres` array — derrubava a tela em
+ * `scenarios.filter(...).subgenres.some(...)`. Achado de review (Codex, PR #291).
+ */
+const normalizeScenarios = (payload: unknown): Scenario[] => {
+  if (typeof payload !== 'object' || payload === null) return [];
+  const data = (payload as { data?: unknown }).data;
+  if (!Array.isArray(data)) return [];
+
+  return data.flatMap((raw): Scenario[] => {
+    if (typeof raw !== 'object' || raw === null) return [];
+    const item = raw as Record<string, unknown>;
+    if (typeof item.id !== 'string' || typeof item.name !== 'string') return [];
+    return [{
+      id: item.id,
+      name: item.name,
+      name_pt: typeof item.name_pt === 'string' ? item.name_pt : null,
+      slug: typeof item.slug === 'string' ? item.slug : '',
+      subgenres: Array.isArray(item.subgenres)
+        ? item.subgenres.filter((g): g is string => typeof g === 'string')
+        : [],
+    }];
+  });
+};
+
 const getDisplayName = (scenario: Scenario, lang: 'en' | 'pt'): string => {
   if (lang === 'pt' && scenario.name_pt) {
     return scenario.name_pt;
@@ -47,8 +74,8 @@ export const ScenarioSelector = ({
           throw new Error('Erro ao buscar cenários');
         }
 
-        const data = await response.json();
-        setScenarios(data.data || []);
+        const payload: unknown = await response.json();
+        setScenarios(normalizeScenarios(payload));
       } catch (err: unknown) {
         console.error('[ScenarioSelector] Erro ao buscar cenários:', err);
         setError(err instanceof Error && err.message ? err.message : 'Erro desconhecido');

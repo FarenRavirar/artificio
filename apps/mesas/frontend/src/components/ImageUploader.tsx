@@ -35,6 +35,18 @@ export interface ImageUploaderProps {
   imageWidth?: number | null;
   imageHeight?: number | null;
   placeholderSrc?: string;
+  /**
+   * Largura máxima da PRÉVIA (não do campo). Existe porque a prévia é
+   * `w-full` e a altura vem da proporção do `kind`: num banner 1200×650
+   * dentro da coluna de trabalho do editor (900px), ela desenhava 456px de
+   * altura — medido no beta — e sozinha respondia por 778px dos 3085px da
+   * parte `identity`, forçando ~5 telas de rolagem em 1366×768.
+   * Limitar a LARGURA reduz a altura proporcionalmente, sem distorcer e sem
+   * recortar: a imagem continua inteira, só menor. Default `undefined`
+   * preserva o comportamento antigo para os outros consumidores
+   * (ProfileEditPage).
+   */
+  previewMaxWidthClass?: string;
 }
 
 /**
@@ -65,6 +77,7 @@ export function ImageUploader({
   imageWidth,
   imageHeight,
   placeholderSrc,
+  previewMaxWidthClass,
 }: Readonly<ImageUploaderProps>) {
   const inputId = fileInputId || `${idPrefix}-file`;
   const manualUrlId = manualInputId || `${idPrefix}-url`;
@@ -234,7 +247,13 @@ export function ImageUploader({
         </div>
       </div>
 
-      <div className={isAvatar ? 'flex items-center gap-4' : 'overflow-hidden rounded-xl border border-white/10'}>
+      <div
+        className={
+          isAvatar
+            ? 'flex items-center gap-4'
+            : `overflow-hidden rounded-xl border border-white/10 ${previewMaxWidthClass ?? ''}`.trim()
+        }
+      >
         <CroppedImage
           src={previewSource}
           alt={value ? `Prévia de ${spec.label}` : `${spec.label} padrão`}

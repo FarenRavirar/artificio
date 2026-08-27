@@ -248,6 +248,14 @@ export function IdentityPart({
               bannerHeight: dimensions?.height ?? null,
             })
           }
+          /* Prévia a 480px de largura (achado do mantenedor, 2026-08-27):
+             solta, ela desenhava 842×456 e sozinha respondia por 778px dos
+             3085px da parte — medido no beta. Na proporção 1200×650 do
+             `table_banner`, 480px de largura dão ~260px de altura: corta ~200px
+             da parte sem distorcer nem recortar a imagem, que continua inteira.
+             480 é o mesmo patamar do `!max-w-[560px]` do campo acima — largura
+             por conteúdo esperado, não pela largura da tela (Baymard). */
+          previewMaxWidthClass="max-w-[480px]"
         />
         <p className="mt-1 text-xs opacity-75">
           Recomendado — mesas com banner aparecem em destaque.

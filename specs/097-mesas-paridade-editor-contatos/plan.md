@@ -439,18 +439,41 @@ incompletas pelo mesmo motivo: **eu tratei o delta prod×beta como uma questão 
 editor**, e ele não é. O delta carrega **um bug ativo de produção, com 52 falhas
 medidas, cuja correção já passou por PR e está parada em `dev`**.
 
-Não muda a conclusão de que **promover hoje levaria o `z-index: 40` junto** — o
-editor continua cortado nos dois ambientes. O que muda é o custo do lado oposto:
-**não promover mantém os links quebrados**. É trade-off real, e é decisão do
-mantenedor, não conclusão técnica minha. As duas opções, medidas:
+**O conserto não é decisão de produto — é bug, e a correção é a mesma sob
+qualquer resposta do mantenedor.** O que exige aprovação nominal é a **ação**
+(§Autorização), não o achado. Medido, para chegar com ele pronto:
 
-| opção | ganho | custo |
-|---|---|---|
-| promover agora | links voltam a funcionar (52 falhas/3 dias cessam) | leva o editor cortado para produção |
-| corrigir o editor primeiro, promover depois | produção recebe tudo consertado de uma vez | links seguem quebrados por mais N dias |
-| PR só do `db/index.ts` para `main` | corrige links sem levar o editor | fora do fluxo `dev`→`main` fast-forward; exige decisão do mantenedor |
+- o defeito vive em **4 arquivos de Proxy de `db`**, e o diff entre `main` e
+  `dev` neles é de **43 linhas**: `apps/mesas/backend/src/db/index.ts` (+12),
+  `apps/mesas/backend/src/db/prod.ts` (+13),
+  `apps/downloads/backend/src/db/index.ts` (+12), `apps/links/db/index.ts` (+11);
+- `git diff --stat origin/main..origin/dev -- '<esses arquivos>'` confirma; o
+  `prod.ts` de `main` ainda tem `value.bind(instance)` cru (linha 36);
+- o guard de CI que o `5fd32db` trouxe roda limpo em `dev`: **4 Proxies
+  verificados, módulos callable intactos**
+  (`node scripts/ci/check-db-proxy-callable-modules.mjs`);
+- **cherry-pick isolado não serve**: `5fd32db` toca 15 arquivos (inclui
+  `ageRating`, `TableCard`, `gmPanel`, `tableService`), então separar só o `db`
+  exigiria um commit novo, não o commit existente.
 
-**Nenhuma foi executada.** Produção não é tocada sem autorização nominal.
+**Estado:** com o editor consertado nesta sessão (z-index, cenário, estilos,
+banner) e nesta PR, o argumento que travava a promoção deixa de valer — era
+"promover leva o editor cortado junto". Depois do merge desta PR em `dev`,
+promover `dev`→`main` leva **o editor consertado e a correção dos links na mesma
+viagem**.
+
+Sequência, para quando o mantenedor autorizar (§Autorização — cada uma é ação
+própria, nominal):
+1. merge desta PR em `dev`;
+2. `promote-prod-fast-forward.yml` (fast-forward limpo, medido);
+3. `gh workflow run deploy.yml --ref main -f module=mesas -f mode=deploy -f env=prod`
+   — **a promoção não deploya**, trava pétrea;
+4. mesma coisa para `downloads` e `links`, que compartilham o defeito do Proxy.
+
+Migrations que entram junto: **2**, ambas `online-safe`, `2 < MAX_AUTO_PENDING=5`
+— aplicam automáticas.
+
+**Nada foi executado em produção.**
 
 #### 7. O que isto muda no recorte da spec (corrige a fase F)
 
@@ -860,10 +883,14 @@ do P0:
 - lista de **118 cenários em caixa de 240px** (7418px de conteúdo, 30× a caixa);
 - duas caixas de texto com **barra de rolagem própria** — a "caixinha que rola
   dentro da página" que o R1 proíbe;
-- parte **Identidade com 2732px**: 4,6 telas de rolagem em 1366×768, 5,0 em
-  1280×720.
-*Custo:* não estimado — depende de decisão de layout, e é o que a spec de
-implementação precisa desenhar.
+- parte **Identidade com 3085px**: 4,6 telas de rolagem em 1366×768, 5,0 em
+  1280×720. Maior bloco isolado: a **prévia do banner, 778px** — desenhava
+  842×456 por ser `w-full` sem teto, com a altura vindo da proporção
+  `1200/650` do `table_banner`.
+*Corrigido nesta sessão:* prévia limitada a 480px de largura
+(`previewMaxWidthClass`, default `undefined` preserva o `ProfileEditPage`).
+Na mesma proporção isso dá ~260px de altura — **~200px a menos na parte**, sem
+distorcer nem recortar: a imagem continua inteira, só menor.
 
 **Duplicatas do catálogo — FORA DE ESCOPO por decisão do mantenedor
 (2026-08-27): _"depois eu corrijo manualmente. é pouca coisa para você se

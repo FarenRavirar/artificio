@@ -118,9 +118,15 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
     void (async () => {
       await Promise.resolve();
       if (!active) return;
+      // Limpa ANTES de resolver o id novo (achado de review — Codex, PR #291).
+      // Sem isto, trocar do cenário A para o B deixava nome e subgêneros de A
+      // no estado até o GET de B voltar: o seletor já mostrava B, e o
+      // SettingStylesField oferecia os estilos de A sob o rótulo de B —
+      // clicar num deles gravava no anúncio uma tag do cenário anterior.
+      // Estado derivado de um id não pode sobreviver à troca desse id.
+      setSelectedScenarioName(null);
+      setSelectedScenarioSubgenres([]);
       if (!state.selectedScenarioId) {
-        setSelectedScenarioName(null);
-        setSelectedScenarioSubgenres([]);
         return;
       }
       try {

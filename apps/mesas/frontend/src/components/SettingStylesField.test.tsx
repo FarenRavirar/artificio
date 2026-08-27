@@ -164,3 +164,131 @@ describe('SettingStylesField — entrada manual de estilo', () => {
     expect(screen.getByText(/Limite máximo de 10 estilos atingido/i)).toBeTruthy();
   });
 });
+
+describe('SettingStylesField — achados de review (Codex, PR #291)', () => {
+  const base = {
+    settingName: '',
+    settingStyles: [] as string[],
+    onSettingNameChange: vi.fn(),
+    onSettingStylesChange: vi.fn(),
+  };
+
+  it('resposta fora de ordem não sobrescreve o cenário atual', async () => {
+    // A resposta do cenário A resolve DEPOIS da de B. Sem abort/guarda, os
+    // estilos de A apareciam sob o rótulo de B.
+    const resolvers: Array<(v: unknown) => void> = [];
+    const fetchMock = vi.fn((_url: string, init?: { signal?: AbortSignal }) => {
+      return new Promise((resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          const err = new Error('aborted');
+          err.name = 'AbortError';
+          reject(err);
+        });
+        resolvers.push(resolve);
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { rerender } = render(
+      <SettingStylesField {...base} selectedScenarioName="Cenario A" selectedScenarioSubgenres={[]} />,
+    );
+    await vi.advanceTimersByTimeAsync(600);
+
+    rerender(
+      <SettingStylesField {...base} selectedScenarioName="Cenario B" selectedScenarioSubgenres={[]} />,
+    );
+    await vi.advanceTimersByTimeAsync(600);
+
+    // A (índice 0) resolve por último, com estilo próprio.
+    resolvers[1]?.({ ok: true, json: async () => ({ suggestions: [{ suggested_styles: ['DeB'] }] }) });
+    await vi.advanceTimersByTimeAsync(50);
+    resolvers[0]?.({ ok: true, json: async () => ({ suggestions: [{ suggested_styles: ['DeA'] }] }) });
+    await vi.advanceTimersByTimeAsync(50);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: '+ DeB' })).toBeTruthy());
+    expect(screen.queryByRole('button', { name: '+ DeA' })).toBeNull();
+  });
+
+  it('abort ao trocar de cenário não vira erro de rede na tela', async () => {
+    // NOTA DE HONESTIDADE (medido): este teste passa mesmo removendo o ramo
+    // `AbortError` do catch, porque o mesmo cleanup que aborta já põe
+    // `active = false`, e o `if (!active) return` logo abaixo barra o setState
+    // de erro. Ou seja: o ramo de abort é defesa em profundidade, não conserto
+    // de um caso hoje observável. O teste fica porque trava o COMPORTAMENTO
+    // (trocar de cenário não pinta erro de rede), que é o que importa para o
+    // mestre — e continuaria valendo se alguém removesse a guarda `active`.
+    vi.useRealTimers();
+    const fetchMock = vi.fn((_url: string, init?: { signal?: AbortSignal }) =>
+      new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          const err = new Error('aborted');
+          err.name = 'AbortError';
+          reject(err);
+        });
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { rerender } = render(
+      <SettingStylesField {...base} selectedScenarioName="Cenario A" selectedScenarioSubgenres={[]} />,
+    );
+    await screen.findByText(/Buscando sugestões/i, {}, { timeout: 3000 });
+
+    // Troca de cenário: aborta a requisição de A ainda em voo.
+    rerender(
+      <SettingStylesField {...base} selectedScenarioName="Cenario B" selectedScenarioSubgenres={[]} />,
+    );
+
+    // 800ms > 500ms do debounce: sem isto o effect de B nem dispara (medido:
+    // 400ms davam UM fetch só) e o teste nunca alcança o catch que trata o
+    // abort — passava por não exercitar nada.
+    await new Promise((r) => setTimeout(r, 800));
+
+    expect(screen.queryByText(/Erro ao conectar com o servidor/i)).toBeNull();
+    expect(screen.queryByText(/Não foi possível buscar sugestões/i)).toBeNull();
+  });
+
+  it('subgêneros do cenário continuam visíveis durante a busca remota', async () => {
+    // Timers REAIS aqui de propósito: com `useFakeTimers` o debounce dispara,
+    // mas o `setIsLoadingSuggestions(true)` não chega a pintar a tela, e o
+    // teste passava mesmo com o defeito de volta (medido — era teste frouxo).
+    // Com timer real o "Buscando sugestões..." aparece de fato, que é a
+    // condição sob a qual os subgêneros locais sumiam.
+    vi.useRealTimers();
+    vi.stubGlobal('fetch', vi.fn(() => new Promise(() => {})));
+
+    render(
+      <SettingStylesField
+        {...base}
+        selectedScenarioName="2300 AD"
+        selectedScenarioSubgenres={['ópera espacial']}
+      />,
+    );
+
+    // Espera o estado de carregamento REALMENTE aparecer.
+    await screen.findByText(/Buscando sugestões/i, {}, { timeout: 3000 });
+
+    // Local, não depende de rede — não pode sumir porque a API demora.
+    expect(screen.getByRole('button', { name: '+ ópera espacial' })).toBeTruthy();
+  });
+
+  it('payload malformado não vira estilo', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        suggestions: [
+          { suggested_styles: ['Valido', 42, null, '  '] },
+          { suggested_styles: 'nao-e-array' },
+          null,
+          'texto solto',
+        ],
+      }),
+    }));
+
+    render(<SettingStylesField {...base} selectedScenarioName="Qualquer" selectedScenarioSubgenres={[]} />);
+    await vi.advanceTimersByTimeAsync(600);
+
+    await waitFor(() => expect(screen.getByRole('button', { name: '+ Valido' })).toBeTruthy());
+    expect(screen.queryByRole('button', { name: '+ 42' })).toBeNull();
+  });
+});

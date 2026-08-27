@@ -14,15 +14,31 @@ interface SettingStylesFieldProps {
   selectedScenarioSubgenres?: string[];
 }
 
-interface StyleSuggestion {
-  setting_name: string;
-  suggested_styles: string[];
-}
-
 // CORREÇÃO DT-10: Limite máximo de caracteres para o cenário
 const MAX_SETTING_LENGTH = 100;
 // CORREÇÃO DT-09: Limite máximo de estilos selecionados
 const MAX_STYLES_COUNT = 10;
+
+/**
+ * Payload de API é `unknown` até prova de tipo (AGENTS.md §Regras Gerais de
+ * Código). A anotação `StyleSuggestion` no `flatMap` era só um cast: não
+ * validava nada em runtime, e um `suggested_styles` com número dentro entrava
+ * como estilo. Achado de review (Codex, PR #291).
+ */
+const normalizeSuggestedStyles = (payload: unknown, already: ReadonlySet<string>): string[] => {
+  if (typeof payload !== 'object' || payload === null) return [];
+  const suggestions = (payload as { suggestions?: unknown }).suggestions;
+  if (!Array.isArray(suggestions)) return [];
+
+  const styles = suggestions.flatMap((entry): string[] => {
+    if (typeof entry !== 'object' || entry === null) return [];
+    const list = (entry as { suggested_styles?: unknown }).suggested_styles;
+    if (!Array.isArray(list)) return [];
+    return list.filter((style): style is string => typeof style === 'string' && style.trim().length > 0);
+  });
+
+  return Array.from(new Set(styles)).filter((style) => !already.has(style));
+};
 
 export const SettingStylesField: React.FC<SettingStylesFieldProps> = ({
   settingName,
@@ -53,9 +69,19 @@ export const SettingStylesField: React.FC<SettingStylesFieldProps> = ({
   const lookupName = (selectedScenarioName || settingName || '').trim();
 
   useEffect(() => {
+    // `active` + AbortController: `lookupName` muda ao trocar de cenário, e o
+    // cleanup antigo cancelava só o timer — a requisição de A já em voo seguia
+    // viva e, chegando depois da de B, sobrescrevia `suggestions` com os
+    // estilos do cenário anterior sob o rótulo do novo. Achado de review
+    // (Codex, PR #291). O abort corta a requisição; o `active` cobre a corrida
+    // que o abort não pega (resposta já resolvida entre o cleanup e o setState).
+    let active = true;
+    const controller = new AbortController();
+
     // Todos os setState dentro do timer (debounce) — fora do corpo síncrono do
     // effect, evitando cascading render (react-hooks/set-state-in-effect).
     const timer = setTimeout(async () => {
+      if (!active) return;
       setSuggestionError(null);
 
       if (lookupName.length < 3) {
@@ -67,37 +93,43 @@ export const SettingStylesField: React.FC<SettingStylesFieldProps> = ({
       setIsLoadingSuggestions(true);
       try {
         const response = await fetch(
-          `/api/v1/settings/suggest-styles?setting=${encodeURIComponent(lookupName)}`
+          `/api/v1/settings/suggest-styles?setting=${encodeURIComponent(lookupName)}`,
+          { signal: controller.signal }
         );
 
         if (response.ok) {
-          const data = await response.json();
-          const raw = Array.isArray(data?.suggestions) ? data.suggestions : [];
-          const allStyles = raw.flatMap((s: StyleSuggestion) =>
-            Array.isArray(s?.suggested_styles) ? s.suggested_styles : []
-          );
-          const uniqueStyles = Array.from(new Set(allStyles)).filter(
-            (style): style is string => typeof style === 'string' && !selectedStylesSet.has(style)
-          );
-          setSuggestions(uniqueStyles);
+          const payload: unknown = await response.json();
+          if (!active) return;
+          setSuggestions(normalizeSuggestedStyles(payload, selectedStylesSet));
           setSuggestionError(null);
         } else {
+          if (!active) return;
           // CORREÇÃO DT-06: Tratar erro de resposta não-ok
           setSuggestions([]);
           setSuggestionError('Não foi possível buscar sugestões no momento.');
         }
       } catch (error) {
+        // Abort é troca de cenário, não falha de rede: reportá-lo como erro
+        // pintaria a tela de vermelho toda vez que o mestre mudasse de cenário.
+        if (controller.signal.aborted || (error instanceof Error && error.name === 'AbortError')) {
+          return;
+        }
+        if (!active) return;
         // CORREÇÃO DT-06: Tratar erro de rede
         console.error('Erro ao buscar sugestões:', error);
         setSuggestions([]);
         setSuggestionError('Erro ao conectar com o servidor.');
       } finally {
         // CORREÇÃO DT-07: Desativar loading state
-        setIsLoadingSuggestions(false);
+        if (active) setIsLoadingSuggestions(false);
       }
     }, 500);
 
-    return () => clearTimeout(timer);
+    return () => {
+      active = false;
+      controller.abort();
+      clearTimeout(timer);
+    };
   }, [lookupName, selectedStylesSet]);
 
   // Os subgêneros do cenário do catálogo entram ANTES das sugestões da API e
@@ -266,7 +298,15 @@ export const SettingStylesField: React.FC<SettingStylesFieldProps> = ({
           </p>
         )}
 
-        {offeredStyles.length > 0 && !isLoadingSuggestions && (
+        {/* SEM `!isLoadingSuggestions` aqui: `offeredStyles` começa com os
+            subgêneros do cenário, que são locais e não dependem de rede alguma.
+            Prendê-los ao estado de carregamento fazia eles sumirem assim que o
+            debounce disparava a consulta remota — e ficarem invisíveis o tempo
+            todo se a resposta demorasse ou nunca chegasse, que é justamente o
+            caso desta base (a tabela `suggest-styles` não conhece o catálogo).
+            O "Buscando sugestões..." logo acima já sinaliza a busca em curso.
+            Achado de review (Codex, PR #291). */}
+        {offeredStyles.length > 0 && (
           <div className="suggestions-container">
             <span className="suggestions-label">
               {selectedScenarioName
