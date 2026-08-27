@@ -58,7 +58,7 @@ describe('ScenarioSelector — sem busca não há lista', () => {
       target: { value: 'Cenario 1' },
     });
 
-    await waitFor(() => expect(itensNaLista().length).toBe(29));
+    await waitFor(() => expect(itensNaLista()).toHaveLength(29));
   });
 
   it('busca casa subgênero, não só o nome — o PT/EN só troca o rótulo', async () => {
@@ -70,7 +70,7 @@ describe('ScenarioSelector — sem busca não há lista', () => {
     });
 
     // Só o item 7 do corpus tem esse subgênero.
-    await waitFor(() => expect(itensNaLista().length).toBe(1));
+    await waitFor(() => expect(itensNaLista()).toHaveLength(1));
     expect(screen.getByText('Cenario 7')).toBeTruthy();
   });
 
@@ -82,7 +82,10 @@ describe('ScenarioSelector — sem busca não há lista', () => {
       target: { value: 'zzzzz' },
     });
 
-    await screen.findByText(/Nenhum cenário encontrado com esse termo/i);
+    // `findByText` já lança se não achar, mas sem um `expect` o teste não
+    // declara o que verifica — nem para o Sonar, nem para quem lê depois.
+    expect(await screen.findByText(/Nenhum cenário encontrado com esse termo/i)).toBeTruthy();
+    expect(itensNaLista()).toHaveLength(0);
   });
 });
 
@@ -97,9 +100,10 @@ describe('ScenarioSelector — payload de API é unknown até prova de tipo', ()
   it('resposta sem array em data não quebra a tela', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: { nope: 1 } }) }));
     render1();
-    await screen.findByText(/Digite acima para buscar entre os 0 cenários/i);
+    expect(await screen.findByText(/Digite acima para buscar entre os 0 cenários/i)).toBeTruthy();
     buscar('qualquer');
-    await screen.findByText(/Nenhum cenário encontrado/i);
+    expect(await screen.findByText(/Nenhum cenário encontrado/i)).toBeTruthy();
+    expect(itensNaLista()).toHaveLength(0);
   });
 
   it('item com subgenres ausente ou inválido não quebra a busca', async () => {
@@ -131,6 +135,9 @@ describe('ScenarioSelector — payload de API é unknown até prova de tipo', ()
       json: async () => ({ data: [{ name: 'sem id' }, { id: 'x' }, null, 'texto solto'] }),
     }));
     render1();
-    await screen.findByText(/Digite acima para buscar entre os 0 cenários/i);
+    // Os quatro itens são descartados: nenhum tem id E name string.
+    expect(await screen.findByText(/Digite acima para buscar entre os 0 cenários/i)).toBeTruthy();
+    buscar('sem id');
+    expect(itensNaLista()).toHaveLength(0);
   });
 });

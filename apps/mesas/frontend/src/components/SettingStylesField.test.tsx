@@ -272,6 +272,79 @@ describe('SettingStylesField — achados de review (Codex, PR #291)', () => {
     expect(screen.getByRole('button', { name: '+ ópera espacial' })).toBeTruthy();
   });
 
+  it('cenário vazio cai no texto livre (o `||` não pode virar `??`)', async () => {
+    // Trava a recusa do achado do Sonar (PR #291): com `??`, um
+    // `selectedScenarioName` igual a `''` venceria o fallback e o termo viraria
+    // `''`, ignorando o texto livre preenchido.
+    vi.useRealTimers();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ suggestions: [] }) });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <SettingStylesField
+        {...base}
+        settingName="Eberron"
+        selectedScenarioName=""
+        selectedScenarioSubgenres={[]}
+      />,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled(), { timeout: 3000 });
+    expect(String(fetchMock.mock.calls[0][0])).toContain('Eberron');
+  });
+
+  it('adicionar estilo não refaz a busca do mesmo cenário', async () => {
+    // Achado de review (Codex, PR #291): `selectedStylesSet` nas dependências
+    // do effect fazia a busca reexecutar a cada clique. Medido antes da
+    // correção: 1 requisição virava 2 ao adicionar um estilo — com 10 estilos
+    // seriam 11 chamadas para o mesmo cenário.
+    vi.useRealTimers();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ suggestions: [{ suggested_styles: ['A', 'B'] }] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const props = { ...base, selectedScenarioName: 'Forgotten Realms', selectedScenarioSubgenres: [] };
+    const { rerender } = render(<SettingStylesField {...props} settingStyles={[]} />);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1), { timeout: 3000 });
+
+    // O mestre escolhe um estilo: `settingStyles` muda, o cenário não.
+    rerender(<SettingStylesField {...props} settingStyles={['A']} />);
+    await new Promise((r) => setTimeout(r, 900));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('estilo removido volta a ser oferecido, sem nova busca', async () => {
+    // `handleAddStyle` mutava `suggestions`, apagando a resposta da API: tirado
+    // o estilo do anúncio, ele não reaparecia até uma busca nova. O CLIQUE é
+    // essencial aqui — só `rerender` não executa `handleAddStyle`, e o teste
+    // passava com o defeito de volta (medido).
+    vi.useRealTimers();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ suggestions: [{ suggested_styles: ['A', 'B'] }] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const props = { ...base, selectedScenarioName: 'Forgotten Realms', selectedScenarioSubgenres: [] };
+    const { rerender } = render(<SettingStylesField {...props} settingStyles={[]} />);
+
+    // Clique real: passa por handleAddStyle, que é onde estava a mutação.
+    fireEvent.click(await screen.findByRole('button', { name: '+ A' }, { timeout: 3000 }));
+
+    // O pai aplica a escolha…
+    rerender(<SettingStylesField {...props} settingStyles={['A']} />);
+    await waitFor(() => expect(screen.queryByRole('button', { name: '+ A' })).toBeNull());
+
+    // …e depois o mestre remove. 'A' tem de voltar da resposta já em memória.
+    rerender(<SettingStylesField {...props} settingStyles={[]} />);
+    expect(await screen.findByRole('button', { name: '+ A' })).toBeTruthy();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it('payload malformado não vira estilo', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,

@@ -114,6 +114,76 @@ export const ScenarioSelector = ({
 
   const selectedScenario = scenarios.find((s) => s.id === selectedScenarioId);
 
+  const renderResultado = () => {
+    if (loading) {
+      return (
+        <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center text-sm text-white/60">
+          Carregando cenários...
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+          {error}
+        </div>
+      );
+    }
+
+    if (filteredScenarios.length > 0) {
+      // `max-h-96` (384px): a barra interna só existe quando uma BUSCA devolve
+      // muitos resultados, que é quando rolar de fato ajuda a comparar. Fora
+      // isso a caixa não existe na tela — o R1 proíbe a "caixinha que rola
+      // dentro da página" como estado permanente, não a lista de uma busca.
+      return (
+        <div className="max-h-96 space-y-2 overflow-auto pr-1">
+          {filteredScenarios.map((scenario) => {
+            const isSelected = scenario.id === selectedScenarioId;
+
+            return (
+              <button
+                type="button"
+                key={scenario.id}
+                onClick={() => onSelect(isSelected ? null : scenario.id)}
+                disabled={disabled}
+                className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  isSelected
+                    ? 'border-[var(--color-artificio-orange)] bg-[var(--color-artificio-orange)]/10 text-white'
+                    : 'border-white/10 bg-white/5 text-white/80 hover:border-white/20'
+                }`}
+              >
+                <p className="font-semibold">{getDisplayName(scenario, language)}</p>
+                {scenario.subgenres.length > 0 && (
+                  <p className="text-xs text-white/55 mt-0.5">
+                    {scenario.subgenres.join(' · ')}
+                  </p>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+
+    if (searchTerm) {
+      return (
+        <div className="rounded-xl border border-dashed border-white/20 bg-white/5 p-4 text-sm text-white/60">
+          Nenhum cenário encontrado com esse termo.
+        </div>
+      );
+    }
+
+    // Estado ocioso: sem busca não há lista (ver `filteredScenarios`). O texto
+    // precisa dizer o que fazer, senão o campo vazio lê como defeito — é a
+    // diferença entre "não achei nada" e "ainda não procurei".
+    return (
+      <p className="px-1 text-xs text-white/55">
+        Digite acima para buscar entre os {scenarios.length} cenários do catálogo.
+      </p>
+    );
+  };
+
   return (
     <div className="space-y-3">
       {/* Campo de busca */}
@@ -180,58 +250,11 @@ export const ScenarioSelector = ({
         </div>
       )}
 
-      {/* Lista de resultados */}
-      {loading ? (
-        <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center text-sm text-white/60">
-          Carregando cenários...
-        </div>
-      ) : error ? (
-        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
-          {error}
-        </div>
-      ) : filteredScenarios.length > 0 ? (
-        // `max-h-96` (384px): a barra interna só existe quando uma BUSCA devolve
-        // muitos resultados, que é quando rolar de fato ajuda a comparar. Fora
-        // isso a caixa não existe na tela — o R1 proíbe a "caixinha que rola
-        // dentro da página" como estado permanente, não a lista de uma busca.
-        <div className="max-h-96 space-y-2 overflow-auto pr-1">
-          {filteredScenarios.map((scenario) => {
-            const isSelected = scenario.id === selectedScenarioId;
-
-            return (
-              <button
-                type="button"
-                key={scenario.id}
-                onClick={() => onSelect(isSelected ? null : scenario.id)}
-                disabled={disabled}
-                className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  isSelected
-                    ? 'border-[var(--color-artificio-orange)] bg-[var(--color-artificio-orange)]/10 text-white'
-                    : 'border-white/10 bg-white/5 text-white/80 hover:border-white/20'
-                }`}
-              >
-                <p className="font-semibold">{getDisplayName(scenario, language)}</p>
-                {scenario.subgenres.length > 0 && (
-                  <p className="text-xs text-white/55 mt-0.5">
-                    {scenario.subgenres.join(' · ')}
-                  </p>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      ) : searchTerm ? (
-        <div className="rounded-xl border border-dashed border-white/20 bg-white/5 p-4 text-sm text-white/60">
-          Nenhum cenário encontrado com esse termo.
-        </div>
-      ) : (
-        // Estado ocioso: sem busca não há lista (ver `filteredScenarios`). O
-        // texto precisa dizer o que fazer, senão o campo vazio lê como defeito —
-        // é a diferença entre "não achei nada" e "ainda não procurei".
-        <p className="px-1 text-xs text-white/55">
-          Digite acima para buscar entre os {scenarios.length} cenários do catálogo.
-        </p>
-      )}
+      {/* Lista de resultados: quatro estados exclusivos, extraídos do ternário
+          encadeado que os aninhava (achado de review — Sonar, PR #291). Cada um
+          tem nome, e a ordem de precedência fica explícita em vez de implícita
+          na indentação. */}
+      {renderResultado()}
 
       {/* Hint */}
       {!selectedScenarioId && !search && (

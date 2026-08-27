@@ -25,7 +25,7 @@ const MAX_STYLES_COUNT = 10;
  * validava nada em runtime, e um `suggested_styles` com número dentro entrava
  * como estilo. Achado de review (Codex, PR #291).
  */
-const normalizeSuggestedStyles = (payload: unknown, already: ReadonlySet<string>): string[] => {
+const normalizeSuggestedStyles = (payload: unknown): string[] => {
   if (typeof payload !== 'object' || payload === null) return [];
   const suggestions = (payload as { suggestions?: unknown }).suggestions;
   if (!Array.isArray(suggestions)) return [];
@@ -37,7 +37,12 @@ const normalizeSuggestedStyles = (payload: unknown, already: ReadonlySet<string>
     return list.filter((style): style is string => typeof style === 'string' && style.trim().length > 0);
   });
 
-  return Array.from(new Set(styles)).filter((style) => !already.has(style));
+  // Não filtra os já selecionados aqui: `suggestions` guarda a RESPOSTA da API,
+  // e a subtração do que está escolhido é derivação de tela — feita em
+  // `offeredStyles`. Misturar as duas coisas fazia o effect depender do que o
+  // mestre já escolheu e refazer a busca a cada clique (achado de review,
+  // Codex, PR #291; medido: 1 requisição virava 2 ao adicionar um estilo).
+  return Array.from(new Set(styles));
 };
 
 export const SettingStylesField: React.FC<SettingStylesFieldProps> = ({
@@ -66,6 +71,15 @@ export const SettingStylesField: React.FC<SettingStylesFieldProps> = ({
   // (achado do mantenedor 2026-08-27: "a parte de estilos/temáticas está zero
   // funcionando"; medido no beta: API respondendo 200 para "Forgotten Realms" e
   // a tela em branco com "2300 AD" selecionado.)
+  // `||` aqui é deliberado, NÃO um esquecimento de `??` (achado de review —
+  // Sonar, PR #291, recusado). O que se quer é "primeiro valor NÃO-VAZIO", e
+  // só `||` faz isso: com `??`, um `selectedScenarioName` igual a `''` venceria
+  // o fallback (string vazia não é nullish) e o termo de consulta viraria `''`
+  // mesmo havendo texto livre preenchido — o campo voltaria a não sugerir nada,
+  // que é o defeito consertado logo acima. Verificado em node:
+  // `('' ?? 'Eberron')` → `''`, enquanto `('' || 'Eberron')` → `'Eberron'`.
+  // O chamador de hoje (TableEditor) normaliza para `null` e não expõe o caso,
+  // mas a prop é pública e o contrato correto é este.
   const lookupName = (selectedScenarioName || settingName || '').trim();
 
   useEffect(() => {
@@ -100,7 +114,7 @@ export const SettingStylesField: React.FC<SettingStylesFieldProps> = ({
         if (response.ok) {
           const payload: unknown = await response.json();
           if (!active) return;
-          setSuggestions(normalizeSuggestedStyles(payload, selectedStylesSet));
+          setSuggestions(normalizeSuggestedStyles(payload));
           setSuggestionError(null);
         } else {
           if (!active) return;
@@ -130,7 +144,7 @@ export const SettingStylesField: React.FC<SettingStylesFieldProps> = ({
       controller.abort();
       clearTimeout(timer);
     };
-  }, [lookupName, selectedStylesSet]);
+  }, [lookupName]);
 
   // Os subgêneros do cenário do catálogo entram ANTES das sugestões da API e
   // sem esperar rede: são o dado que o próprio cenário já carrega, e cobrem 94%
@@ -156,9 +170,10 @@ export const SettingStylesField: React.FC<SettingStylesFieldProps> = ({
     }
 
     onSettingStylesChange([...settingStyles, style]);
-    
-    // CORREÇÃO DT-14: Remover sugestão após adicionar
-    setSuggestions((prev) => prev.filter((s) => s !== style));
+    // DT-14 (remover a sugestão da lista ao adicionar) agora é consequência de
+    // `offeredStyles`, que subtrai o que já está selecionado. Mutar
+    // `suggestions` aqui apagava a resposta da API: removido o estilo do
+    // anúncio, ele não voltava a ser oferecido sem uma nova busca.
   };
 
   const handleRemoveStyle = (style: string) => {
