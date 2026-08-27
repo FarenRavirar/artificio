@@ -122,12 +122,26 @@ router.get('/perfis/:slug', publicRateLimiter, optionalAuth, async (req: Request
     const gm = await db
       .selectFrom('gm_profiles as gm')
       .innerJoin('users as u', 'u.id', 'gm.user_id')
-      .innerJoin('profiles as p', 'p.user_id', 'u.id')
+      // `profiles` é OPCIONAL para o mestre: a linha só nasce quando o usuário
+      // salva o perfil geral em `PUT /me`, e quem cria mesa pelo editor tem o
+      // `gm_profiles` criado no publish sem nunca passar por lá. Com `innerJoin`
+      // o perfil EXISTENTE sumia e a página pública devolvia "Mestre não
+      // encontrado" — medido em produção 2026-08-27: 22 dos 48 perfis de mestre
+      // (46%) sem linha em `profiles`. O resto da base já trata `profiles` como
+      // opcional (`tables.ts`, `activityLog.ts`, `adminProfile.ts`); estas
+      // quatro consultas eram a exceção. Todo campo de `p` abaixo já passa por
+      // COALESCE com a coluna equivalente de `gm`.
+      .leftJoin('profiles as p', 'p.user_id', 'u.id')
       .select([
         'gm.id',
         'gm.user_id',
         'gm.slug',
-        sql<string>`COALESCE(gm.nickname, p.display_name)`.as('display_name'),
+        // Terceiro fallback: `gm.nickname` e `p.display_name` são AMBOS
+        // nullable no schema, então com `leftJoin` o COALESCE de dois termos
+        // podia devolver NULL enquanto o tipo promete `string`. Nenhum dos 22
+        // perfis sem `profiles` está nesse estado hoje (medido), mas o schema
+        // permite — o slug é público e sempre presente (UNIQUE NOT NULL).
+        sql<string>`COALESCE(gm.nickname, p.display_name, gm.slug)`.as('display_name'),
         'gm.bio_long',
         'gm.tagline',
         sql<string>`COALESCE(gm.avatar_url, p.avatar_url)`.as('avatar_url'),
@@ -558,10 +572,14 @@ router.post('/perfis/:slug/contact', publicRateLimiter, async (req: Request, res
     const profile = await db
       .selectFrom('gm_profiles as gp')
       .innerJoin('users as u', 'gp.user_id', 'u.id')
-      .innerJoin('profiles as p', 'p.user_id', 'u.id')
+      // `profiles` é opcional (ver GET /gm/perfis/:slug): com `innerJoin`, o
+      // formulário de contato dava 404 para mestre que nunca salvou o perfil
+      // geral — 22 dos 48 em produção (medido 2026-08-27). O e-mail vem de
+      // `users`, que continua obrigatório.
+      .leftJoin('profiles as p', 'p.user_id', 'u.id')
       .select((eb) => [
         eb.ref('u.email').as('email'),
-        sql<string>`COALESCE(gp.nickname, p.display_name)`.as('display_name'),
+        sql<string>`COALESCE(gp.nickname, p.display_name, gp.slug)`.as('display_name'),
       ])
       .where('gp.slug', '=', slug)
       .executeTakeFirst();
@@ -658,14 +676,20 @@ router.get('/perfis/:slug/reviews', publicRateLimiter, async (req: Request, res:
     const reviews = await db
       .selectFrom('gm_reviews as r')
       .innerJoin('users as u', 'u.id', 'r.author_user_id')
-      .innerJoin('profiles as p', 'p.user_id', 'u.id')
+      // Aqui o join é sobre o AUTOR da review, não o mestre — mas a regra é a
+      // mesma: `profiles` só existe para quem salvou o perfil geral, então o
+      // `innerJoin` fazia a review DESAPARECER da lista (some a nota junto, o
+      // que distorce a média exibida) quando o autor nunca passou por `PUT /me`.
+      // Diferente das outras consultas, estes dois campos eram lidos direto de
+      // `p`: sem `profiles` viriam nulos, por isso o fallback explícito abaixo.
+      .leftJoin('profiles as p', 'p.user_id', 'u.id')
       .select([
         'r.id',
         'r.rating',
         'r.tags',
         'r.comment',
         'r.created_at',
-        'p.display_name as author_name',
+        sql<string>`COALESCE(p.display_name, 'Usuário')`.as('author_name'),
         'p.avatar_url as author_avatar',
       ])
       .where('r.gm_user_id', '=', gm.user_id)

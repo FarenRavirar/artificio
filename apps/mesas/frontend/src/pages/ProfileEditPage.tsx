@@ -1,6 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useConfirm } from "@artificio/ui";
 import { useProfileContext } from '../contexts/useProfileContext';
 import type { PlayerProfile, GmProfile } from '../types/profileTypes';
 import { UserSystemsSelector } from '../components/UserSystemsSelector';
@@ -11,7 +10,7 @@ import { AvatarField } from '../components/AvatarField';
 import { ImageUploader } from '../components/ImageUploader';
 import { isCropRect } from '@artificio/media/image-kinds';
 import { MarkdownEditor } from '../components/MarkdownEditor';
-import { authenticatedFetch, authPost } from '../utils/authenticatedFetch';
+import { authPost } from '../utils/authenticatedFetch';
 import './ProfileEditPage.css';
 
 /**
@@ -34,8 +33,6 @@ export default function ProfileEditPage() {
   const tabFromUrl = sanitizeTab(searchParams.get('tab'));
   const [activeTab, setActiveTab] = useState<TabType>(tabFromUrl);
   const [showSaved, setShowSaved] = useState(false);
-  const [disconnecting, setDisconnecting] = useState(false);
-  const { confirm } = useConfirm();
 
   // Sincroniza a aba com a URL — ajuste durante o render (sem effect).
   const [prevTabUrl, setPrevTabUrl] = useState(tabFromUrl);
@@ -69,7 +66,12 @@ export default function ProfileEditPage() {
     return () => { active = false; if (timer) clearTimeout(timer); };
   }, [saving, profile]);
 
-  // Feedback de conexão Discord
+  // Feedback de conexão Discord. MANTIDO apesar de a seção da UI ter sido
+  // adiada (2026-08-27): o backend continua redirecionando para
+  // `/perfil?discord=connected|error` (discord.ts:46/68/149/156), então quem
+  // chegar por esse retorno — link direto, fluxo iniciado antes da remoção, ou
+  // a retomada da feature — ainda recebe o aviso em vez de cair numa tela muda
+  // com query string pendurada.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const discordStatus = params.get('discord');
@@ -91,33 +93,9 @@ export default function ProfileEditPage() {
     }
   }, [refetch]);
 
-  // Handler para desconexão Discord
-  const handleDisconnectDiscord = useCallback(async () => {
-    if (!(await confirm({ title: "Desconectar Discord", message: "Deseja desconectar sua conta Discord?", variant: "warning" }))) return;
-    
-    setDisconnecting(true);
-    try {
-      const apiUrl = import.meta.env.VITE_API_URL || '';
-      const response = await authenticatedFetch(`${apiUrl}/auth/discord/disconnect`, {
-        method: 'DELETE',
-      });
-      
-      if (response.ok) {
-        showSuccess('Discord desconectado com sucesso!');
-        track('discord_disconnected');
-        await refetch();
-      } else {
-        showError('Erro ao desconectar Discord.');
-        track('discord_disconnection_failed');
-      }
-    } catch (error) {
-      console.error('Erro ao desconectar Discord:', error);
-      showError('Erro ao desconectar Discord.');
-      track('discord_disconnection_failed', { error: String(error) });
-    } finally {
-      setDisconnecting(false);
-    }
-  }, [refetch, confirm]);
+  // O handler de desconexão do Discord saiu junto com a seção adiada
+  // (2026-08-27). `DELETE /auth/discord/disconnect` continua existindo no
+  // backend — só não há mais botão que o chame.
 
   if (loading) {
     return (
@@ -279,10 +257,7 @@ export default function ProfileEditPage() {
             role="tabpanel"
             aria-labelledby="tab-mestre"
           >
-            <TabMestre 
-              onDisconnectDiscord={handleDisconnectDiscord}
-              disconnecting={disconnecting}
-            />
+            <TabMestre />
           </div>
         )}
       </div>
@@ -577,15 +552,10 @@ function TabJogador() {
 // TAB MESTRE
 // =============================================================================
 
-function TabMestre({ 
-  onDisconnectDiscord, 
-  disconnecting 
-}: { 
-  onDisconnectDiscord: () => void;
-  disconnecting: boolean;
-}) {
+// As props `onDisconnectDiscord`/`disconnecting` e o estado `connecting` saíram
+// junto com a seção Discord (adiada em 2026-08-27) — só existiam para ela.
+function TabMestre() {
   const { profile, updateGm, addSystem, removeSystem } = useProfileContext();
-  const [connecting, setConnecting] = useState(false);
   const gmProfile = (profile?.gm || {}) as Partial<GmProfile>;
   const [bioLong, setBioLong] = useState(gmProfile.bio_long || '');
   const [bannerHasError, setBannerHasError] = useState(false);
@@ -701,69 +671,13 @@ function TabMestre({
         <LinksManager />
       </section>
 
-      {/* Seção Discord */}
-      <section className="form-section">
-        <h2>Conexão Discord</h2>
-        <p className="section-description">
-          Conecte sua conta Discord para verificação e badges especiais
-        </p>
-        
-        {profile?.gm?.discord_connected ? (
-          <div className="discord-connected">
-            <p>✅ Discord conectado</p>
-            <p className="discord-username">
-              🟣 {profile.gm.discord_username}
-            </p>
-            {profile.gm.covil_verified && (
-              <div className="covil-badge">
-                🏰 Membro Verificado do Covil
-              </div>
-            )}
-            <button
-              onClick={onDisconnectDiscord}
-              className="btn-disconnect-discord"
-              disabled={disconnecting} // CORREÇÃO P14: Desabilitar durante loading
-            >
-              {disconnecting ? '⏳ Desconectando...' : 'Desconectar Discord'}
-            </button>
-          </div>
-        ) : (
-          <div className="discord-disconnected">
-            <p>Conecte sua conta Discord para:</p>
-            <ul>
-              <li>Verificar membro do servidor Covil</li>
-              <li>Exibir badge no perfil público</li>
-              <li>Futuras integrações comunitárias</li>
-            </ul>
-            <button
-              onClick={async () => {
-                setConnecting(true);
-                try {
-                  const apiUrl = import.meta.env.VITE_API_URL || '';
-                  const response = await authenticatedFetch(`${apiUrl}/auth/discord/connect`);
-                  
-                  if (response.redirected) {
-                    // Backend retornou redirect para Discord OAuth
-                    window.location.href = response.url;
-                  } else if (!response.ok) {
-                    const data = await response.json();
-                    showError(data.error || 'Erro ao conectar Discord');
-                    setConnecting(false);
-                  }
-                } catch (error) {
-                  console.error('Erro ao conectar Discord:', error);
-                  showError('Erro ao conectar Discord');
-                  setConnecting(false);
-                }
-              }}
-              className="btn-connect-discord"
-              disabled={connecting}
-            >
-              {connecting ? '⏳ Conectando...' : '🟣 Conectar Discord'}
-            </button>
-          </div>
-        )}
-      </section>
+      {/* Seção "Conexão Discord" removida da UI em 2026-08-27: a integração foi
+          ADIADA (decisão do mantenedor), não cancelada. O backend permanece
+          intacto e funcional — `/auth/discord/connect`, `/auth/discord/callback`,
+          `POST /profile/discord/disconnect` e os campos `discord_connected`/
+          `discord_username`/`covil_verified` continuam servidos e exibidos no
+          perfil público. Para retomar, basta reintroduzir este bloco: nada foi
+          removido do lado do servidor. */}
     </div>
   );
 }

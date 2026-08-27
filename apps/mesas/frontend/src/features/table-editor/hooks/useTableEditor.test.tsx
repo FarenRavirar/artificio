@@ -416,6 +416,46 @@ describe('autosave remoto — debounce 2,5s, só rascunho', () => {
     expect(mockAuthPatch).not.toHaveBeenCalled();
   });
 
+  // Relato de produção 2026-08-27: 7 POST /gm/tables com 400 idêntico numa
+  // sessão. O autosave reenviava o mesmo corpo recusado a cada tecla e o toast
+  // genérico escondia o motivo que o backend já mandava em `{ error, field }`.
+  it('400 no autosave mostra o motivo do servidor e NÃO reenvia o mesmo corpo', async () => {
+    vi.useFakeTimers();
+    mockAuthPost.mockImplementation(() =>
+      failResponse({ error: 'Sistema inválido ou não encontrado no catálogo.', field: 'system_id' }),
+    );
+    const { result } = renderHook(() =>
+      useTableEditor({ initialData: makeValidState(), onPublished: vi.fn() }),
+    );
+
+    act(() => {
+      result.current.patch({ title: 'Primeira tentativa' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_600);
+    });
+
+    expect(mockAuthPost).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith(
+      'Não foi possível salvar o rascunho: Sistema inválido ou não encontrado no catálogo. (campo: system_id)',
+    );
+
+    // Sem mudança real de conteúdo, o ciclo seguinte não repete o POST recusado.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(mockAuthPost).toHaveBeenCalledTimes(1);
+
+    // Mestre corrige algo: o corpo muda, então vale tentar de novo.
+    act(() => {
+      result.current.patch({ title: 'Título corrigido' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_600);
+    });
+    expect(mockAuthPost).toHaveBeenCalledTimes(2);
+  });
+
   it('falha de fetch no autosave não derruba a digitação (toast)', async () => {
     vi.useFakeTimers();
     mockAuthPost.mockImplementation(() => Promise.reject(new Error('rede caiu')));

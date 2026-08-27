@@ -141,9 +141,14 @@ router.get('/:type/:slug', async (req: Request, res: Response) => {
       const gm = await db
           .selectFrom('gm_profiles as gm')
           .innerJoin('users as u', 'u.id', 'gm.user_id')
-          .innerJoin('profiles as p', 'p.user_id', 'u.id')
+          // `profiles` é opcional (ver GET /gm/perfis/:slug). Aqui o custo do
+          // `innerJoin` era o maior dos quatro: esta rota serve CRAWLER
+          // (Google, WhatsApp, Discord), então 22 dos 48 mestres estavam sendo
+          // indexados como "Mestre não encontrado" — dano de SEO invisível na
+          // navegação normal. Medido em produção 2026-08-27.
+          .leftJoin('profiles as p', 'p.user_id', 'u.id')
           .select([
-            sql<string>`COALESCE(gm.nickname, p.display_name)`.as('display_name'),
+            sql<string>`COALESCE(gm.nickname, p.display_name, gm.slug)`.as('display_name'),
             'gm.bio_long',
             'gm.tagline',
             sql<string>`COALESCE(gm.avatar_url, p.avatar_url)`.as('avatar_url'),

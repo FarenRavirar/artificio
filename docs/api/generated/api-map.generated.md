@@ -491,12 +491,12 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/gm/me` | ✅ high | `apps/mesas/backend/src/routes/gmPanel.ts` | 539 |
 | POST | `/api/v1/gm/parse-preview` | ✅ high | `apps/mesas/backend/src/routes/gmPanel.ts` | 703 |
 | GET | `/api/v1/gm/perfis/:slug` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 118 |
-| POST | `/api/v1/gm/perfis/:slug/contact` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 530 |
-| POST | `/api/v1/gm/perfis/:slug/contact-click` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 598 |
-| GET | `/api/v1/gm/perfis/:slug/insights` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 477 |
-| GET | `/api/v1/gm/perfis/:slug/reviews` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 644 |
-| POST | `/api/v1/gm/perfis/:slug/reviews` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 686 |
-| POST | `/api/v1/gm/perfis/:slug/view` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 409 |
+| POST | `/api/v1/gm/perfis/:slug/contact` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 544 |
+| POST | `/api/v1/gm/perfis/:slug/contact-click` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 616 |
+| GET | `/api/v1/gm/perfis/:slug/insights` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 491 |
+| GET | `/api/v1/gm/perfis/:slug/reviews` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 662 |
+| POST | `/api/v1/gm/perfis/:slug/reviews` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 710 |
+| POST | `/api/v1/gm/perfis/:slug/view` | ✅ high | `apps/mesas/backend/src/routes/gm.ts` | 423 |
 | POST | `/api/v1/gm/profile` | ✅ high | `apps/mesas/backend/src/routes/gmPanel.ts` | 200 |
 | PUT | `/api/v1/gm/profile` | ✅ high | `apps/mesas/backend/src/routes/gmPanel.ts` | 365 |
 | GET | `/api/v1/gm/tables` | ✅ high | `apps/mesas/backend/src/routes/gmPanel.ts` | 1181 |
@@ -524,16 +524,16 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | PATCH | `/api/v1/profile/links/reorder` | ✅ high | `apps/mesas/backend/src/routes/links.ts` | 115 |
 | GET | `/api/v1/profile/me` | ✅ high | `apps/mesas/backend/src/routes/profile.ts` | 18 |
 | PATCH | `/api/v1/profile/me` | ✅ high | `apps/mesas/backend/src/routes/profile.ts` | 38 |
-| DELETE | `/api/v1/profile/me/connect/discord` | ✅ high | `apps/mesas/backend/src/routes/profile.ts` | 308 |
-| POST | `/api/v1/profile/me/connect/discord` | ✅ high | `apps/mesas/backend/src/routes/profile.ts` | 282 |
-| GET | `/api/v1/profile/me/discord` | ✅ high | `apps/mesas/backend/src/routes/profile.ts` | 262 |
+| DELETE | `/api/v1/profile/me/connect/discord` | ✅ high | `apps/mesas/backend/src/routes/profile.ts` | 316 |
+| POST | `/api/v1/profile/me/connect/discord` | ✅ high | `apps/mesas/backend/src/routes/profile.ts` | 290 |
+| GET | `/api/v1/profile/me/discord` | ✅ high | `apps/mesas/backend/src/routes/profile.ts` | 270 |
 | PATCH | `/api/v1/profile/me/gm` | ✅ high | `apps/mesas/backend/src/routes/profile.ts` | 208 |
-| POST | `/api/v1/profile/me/google-picture` | ✅ high | `apps/mesas/backend/src/routes/profile.ts` | 328 |
+| POST | `/api/v1/profile/me/google-picture` | ✅ high | `apps/mesas/backend/src/routes/profile.ts` | 336 |
 | PATCH | `/api/v1/profile/me/player` | ✅ high | `apps/mesas/backend/src/routes/profile.ts` | 144 |
 | PATCH | `/api/v1/profile/me/profile` | ✅ high | `apps/mesas/backend/src/routes/profile.ts` | 80 |
 | PATCH | `/api/v1/profile/player` | ✅ high | `apps/mesas/backend/src/routes/profile.ts` | 146 |
 | POST | `/api/v1/profile/systems` | ✅ high | `apps/mesas/backend/src/routes/profile.ts` | 213 |
-| DELETE | `/api/v1/profile/systems/:id` | ✅ high | `apps/mesas/backend/src/routes/profile.ts` | 240 |
+| DELETE | `/api/v1/profile/systems/:id` | ✅ high | `apps/mesas/backend/src/routes/profile.ts` | 248 |
 | POST | `/api/v1/scenario-suggestions` | ✅ high | `apps/mesas/backend/src/routes/scenarioSuggestions.ts` | 16 |
 | USE | `/api/v1/scenario-suggestions` | ✅ high | `apps/mesas/backend/src/server.ts` | 127 |
 | GET | `/api/v1/scenario-suggestions/mine` | ✅ high | `apps/mesas/backend/src/routes/scenarioSuggestions.ts` | 98 |
@@ -583,7 +583,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | POST | `/auth/logout` | ✅ high | `apps/mesas/backend/src/routes/auth.ts` | 31 |
 | USE | `/og` | ✅ high | `apps/mesas/backend/src/server.ts` | 159 |
 | GET | `/og/:type/:slug` | ✅ high | `apps/mesas/backend/src/routes/og.ts` | 133 |
-| GET | `/og/{*splat}` | ✅ high | `apps/mesas/backend/src/routes/og.ts` | 267 |
+| GET | `/og/{*splat}` | ✅ high | `apps/mesas/backend/src/routes/og.ts` | 272 |
 | GET | `/sitemap.xml` | ✅ high | `apps/mesas/backend/src/routes/sitemap.ts` | 8 |
 
 ## site

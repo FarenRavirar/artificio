@@ -70,9 +70,13 @@ function useTableFavorite(slug: string) {
 
   useEffect(() => {
     if (!isAuthenticated) return;
+    // Card de mesa ainda sem slug (rascunho/prévia) montava
+    // `/api/v1/tables//favorite` e gerava um 404 garantido no console do
+    // usuário. Medido no relato de 2026-08-27. Sem slug não há o que consultar.
+    if (!slug) return;
     let cancelled = false;
 
-    fetch(`/api/v1/tables/${slug}/favorite`)
+    fetch(`/api/v1/tables/${encodeURIComponent(slug)}/favorite`)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
@@ -94,10 +98,11 @@ function useTableFavorite(slug: string) {
       return;
     }
 
-    if (isTogglingFavorite) return;
+    // Mesmo guard do efeito de leitura: sem slug a URL vira `/tables//favorite`.
+    if (isTogglingFavorite || !slug) return;
     setIsTogglingFavorite(true);
 
-    fetch(`/api/v1/tables/${slug}/favorite`, { method: 'POST' })
+    fetch(`/api/v1/tables/${encodeURIComponent(slug)}/favorite`, { method: 'POST' })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();

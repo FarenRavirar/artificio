@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { z } from 'zod';
 import { Edit, Trash2, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { authGet, authPost, authPut, authDelete } from '../../../services/apiClient';
+import { authGet, authPost, authPut, authDelete, isAbortError } from '../../../services/apiClient';
 import { readEnvelopeData } from '../../../utils/apiEnvelope';
 
 type PlatformKind = 'vtt' | 'communication';
@@ -172,6 +172,10 @@ export function PlatformsPage({ initialKind }: PlatformsPageProps) {
         setCommunicationPlatforms(normalizePlatforms(json, platformBaseSchema));
       }
     } catch (error) {
+      // Abort = dedup do apiClient na chamada duplicada; a vencedora preenche a
+      // lista. Sem o guard, o texto do DOMException virava toast de erro com os
+      // dados já carregados (mesmo defeito medido em 2026-08-27).
+      if (isAbortError(error)) return;
       console.error('[PlatformsPage] Erro ao carregar plataformas:', error);
       toast.error(error instanceof Error ? error.message : 'Erro ao carregar plataformas');
     } finally {

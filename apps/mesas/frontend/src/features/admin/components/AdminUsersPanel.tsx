@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { authGet, authPatch } from '../../../services/apiClient';
+import { authGet, authPatch, isAbortError } from '../../../services/apiClient';
 import { AdminTable, StatusPill } from './ui';
 import { formatDate } from '../utils/format';
 
@@ -88,6 +88,11 @@ export function AdminUsersPanel() {
       const data = payload && typeof payload === 'object' ? (payload as Record<string, unknown>).data : [];
       setUsers(normalizeUsers(data));
     } catch (err) {
+      // Abort é a dedup do apiClient cancelando a chamada duplicada do mount —
+      // a vencedora preenche a lista. Sem este guard, o texto do DOMException
+      // ("signal is aborted without reason") virava erro NA TELA com os dados
+      // já carregados. O `finally` abaixo continua limpando o loading.
+      if (isAbortError(err)) return;
       const message = err instanceof Error ? err.message : 'Erro ao carregar usuários.';
       setError(message);
       toast.error(message);
