@@ -446,9 +446,51 @@ describe('autosave remoto — debounce 2,5s, só rascunho', () => {
     });
     expect(mockAuthPost).toHaveBeenCalledTimes(1);
 
-    // Mestre corrige algo: o corpo muda, então vale tentar de novo.
+    // Achado Codex (PR #292): digitar em campo NÃO relacionado não pode
+    // destravar o autosave — o `system_id` recusado continua igual, então o
+    // POST tomaria o mesmo 400 e a rajada voltaria.
     act(() => {
-      result.current.patch({ title: 'Título corrigido' });
+      result.current.patch({ title: 'Mexendo em outro campo' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_600);
+    });
+    expect(mockAuthPost).toHaveBeenCalledTimes(1);
+
+    // Corrigir o CAMPO APONTADO pelo backend é o que libera a retentativa.
+    act(() => {
+      result.current.patch({ selectedSystemId: 'sistema-valido-agora' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_600);
+    });
+    expect(mockAuthPost).toHaveBeenCalledTimes(2);
+  });
+
+  // Achado Codex (PR #292): 401/403/404 não são "o corpo está errado" — o mesmo
+  // payload passa a valer sem edição nenhuma quando a condição se resolve.
+  // `POST /gm/tables` responde 403 enquanto o perfil de mestre não existe.
+  it('403 no autosave NÃO trava o retry: mesmo payload volta a ser tentado', async () => {
+    vi.useFakeTimers();
+    mockAuthPost.mockImplementation(() =>
+      failResponse({ error: 'Perfil de mestre não encontrado.' }, 403),
+    );
+    const { result } = renderHook(() =>
+      useTableEditor({ initialData: makeValidState(), onPublished: vi.fn() }),
+    );
+
+    act(() => {
+      result.current.patch({ title: 'Primeira tentativa' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_600);
+    });
+    expect(mockAuthPost).toHaveBeenCalledTimes(1);
+
+    // Perfil passa a existir; o conteúdo é o mesmo e precisa ser reenviado.
+    mockAuthPost.mockImplementation(() => okResponse({ data: { id: 't-403' } }));
+    act(() => {
+      result.current.patch({ title: 'Segunda tentativa' });
     });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2_600);

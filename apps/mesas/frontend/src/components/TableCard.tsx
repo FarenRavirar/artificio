@@ -93,13 +93,17 @@ function useTableFavorite(slug: string) {
     e.preventDefault();
     e.stopPropagation();
 
+    // Sem slug não há nada a favoritar, e o guard vem ANTES do SSO: deixado
+    // depois, o usuário deslogado fazia o login inteiro para ser devolvido a
+    // `/mesas/` — uma rota inválida (achado Codex/CodeRabbit, PR #292).
+    if (!slug) return;
+
     if (!isAuthenticated) {
       startSsoLogin(`/mesas/${slug}`);
       return;
     }
 
-    // Mesmo guard do efeito de leitura: sem slug a URL vira `/tables//favorite`.
-    if (isTogglingFavorite || !slug) return;
+    if (isTogglingFavorite) return;
     setIsTogglingFavorite(true);
 
     fetch(`/api/v1/tables/${encodeURIComponent(slug)}/favorite`, { method: 'POST' })

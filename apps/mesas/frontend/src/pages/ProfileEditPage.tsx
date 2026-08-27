@@ -674,7 +674,8 @@ function TabMestre() {
       {/* Seção "Conexão Discord" removida da UI em 2026-08-27: a integração foi
           ADIADA (decisão do mantenedor), não cancelada. O backend permanece
           intacto e funcional — `/auth/discord/connect`, `/auth/discord/callback`,
-          `POST /profile/discord/disconnect` e os campos `discord_connected`/
+          `DELETE /auth/discord/disconnect` (discord.ts:164, montado em
+          server.ts:118) e os campos `discord_connected`/
           `discord_username`/`covil_verified` continuam servidos e exibidos no
           perfil público. Para retomar, basta reintroduzir este bloco: nada foi
           removido do lado do servidor. */}

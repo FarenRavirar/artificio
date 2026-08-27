@@ -4351,7 +4351,7 @@
       "method": "DELETE",
       "path": "/api/v1/profile/me/connect/discord",
       "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
-      "line": 316,
+      "line": 324,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4360,7 +4360,7 @@
       "method": "POST",
       "path": "/api/v1/profile/me/connect/discord",
       "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
-      "line": 290,
+      "line": 298,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4369,7 +4369,7 @@
       "method": "GET",
       "path": "/api/v1/profile/me/discord",
       "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
-      "line": 270,
+      "line": 278,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4387,7 +4387,7 @@
       "method": "POST",
       "path": "/api/v1/profile/me/google-picture",
       "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
-      "line": 336,
+      "line": 344,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4432,7 +4432,7 @@
       "method": "DELETE",
       "path": "/api/v1/profile/systems/:id",
       "sourceFile": "apps/mesas/backend/src/routes/profile.ts",
-      "line": 248,
+      "line": 256,
       "confidence": "high",
       "kind": "express-route"
     },
