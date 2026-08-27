@@ -2136,7 +2136,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authGet",
-      "line": 124
+      "line": 127
     },
     {
       "app": "mesas-frontend",
@@ -2196,7 +2196,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 51
+      "line": 69
     },
     {
       "app": "mesas-frontend",
@@ -2246,7 +2246,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authGet",
-      "line": 87
+      "line": 90
     },
     {
       "app": "mesas-frontend",

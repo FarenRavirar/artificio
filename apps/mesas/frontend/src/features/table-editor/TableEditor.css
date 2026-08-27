@@ -36,7 +36,24 @@
 .table-editor {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  /* 60, não 40 (achado do mantenedor 2026-08-26: "o texto ou elementos no top
+     estão escondidos", depois de duas rodadas de correção de altura que não
+     adiantaram nada). A causa nunca foi altura nem rolagem, foi empilhamento:
+     o header do AppShell é `.artificio-header[data-sticky="true"]` com
+     `z-index: 50` (packages/ui/src/styles.css:236) e ocupa `top: 0 → 104`.
+     Com o editor em 40, o site desenhava POR CIMA dos primeiros 104px dele —
+     medido com `elementsFromPoint(900, 30)`, que devolvia `HEADER.artificio-
+     header`, não o editor. Some a barra de estado inteira (0→57: "Voltar ao
+     painel", selo de rascunho, "Publicar", % preenchido) e mais 47px do topo
+     do conteúdo.
+     Por que o `position: fixed` não bastava: `fixed` tira do fluxo, não do
+     empilhamento — quem decide quem cobre quem entre dois elementos posicionados
+     é o z-index, e 40 < 50.
+     A escala do pacote é a referência: header 50, modal/drawer 100
+     (styles.css:1242), toast 9999. 60 fica acima do header e abaixo do modal,
+     que precisa continuar cobrindo o editor (o diálogo "Rascunho encontrado"
+     abre sobre ele). Verificado ao vivo em beta antes de escrever isto. */
+  z-index: 60;
   height: 100dvh;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;

@@ -170,3 +170,42 @@
   font-size: 0.95rem;
   font-weight: 500;
 }
+
+/* Linha de entrada manual de estilo (2026-08-27): input + "Adicionar".
+   Antes, a única forma de pôr um estilo era clicar numa sugestão — e a sugestão
+   dependia da tabela `suggest-styles`, que não conhecia nenhum dos 25 cenários
+   testados. O mestre não conseguia marcar temática nenhuma. Cores por token,
+   como o resto deste arquivo (nada de hex fixo: quebra no tema claro). */
+.setting-styles-field .style-draft-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.setting-styles-field .style-draft-row .form-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.setting-styles-field .style-draft-add {
+  flex: 0 0 auto;
+  padding: 0.5rem 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: var(--fg);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.setting-styles-field .style-draft-add:hover:not(:disabled) {
+  background: var(--state-info-bg);
+  color: var(--state-info-fg);
+  border-color: var(--state-info-line);
+}
+
+.setting-styles-field .style-draft-add:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

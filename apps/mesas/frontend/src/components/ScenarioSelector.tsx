@@ -60,11 +60,22 @@ export const ScenarioSelector = ({
     fetchScenarios();
   }, []);
 
-  // Filtrar cenários por busca
-  const filteredScenarios = useMemo(() => {
-    if (!search.trim()) return scenarios;
+  // Sem busca digitada, NENHUM resultado é listado (decisão do mantenedor,
+  // 2026-08-27): "não faz sentido ter lista, são cenários demais (…) apenas
+  // pesquisar e aparecer na lista o que der match".
+  // Antes, o catálogo inteiro era renderizado de saída: 118 itens, 7418px de
+  // conteúdo numa caixa de 240px — 30x a altura da caixa, medido no beta. O
+  // mestre caçava o cenário rolando uma janelinha dentro de uma página que já
+  // rola. É o mesmo padrão que o seletor de SISTEMA ao lado já usa desde a
+  // T4.0h-bis: busca primeiro, resultado depois, nunca a árvore inteira (A21).
+  // A busca continua casando nome EN, nome PT, slug e subgêneros — o alternador
+  // PT/EN só troca o rótulo exibido, nunca o que é pesquisável.
+  const searchTerm = search.trim();
 
-    const normalizedSearch = normalizeText(search);
+  const filteredScenarios = useMemo(() => {
+    if (!searchTerm) return [];
+
+    const normalizedSearch = normalizeText(searchTerm);
 
     return scenarios.filter((scenario) => {
       return normalizeText(scenario.name).includes(normalizedSearch)
@@ -72,7 +83,7 @@ export const ScenarioSelector = ({
         || normalizeText(scenario.slug).includes(normalizedSearch)
         || scenario.subgenres.some((subgenre) => normalizeText(subgenre).includes(normalizedSearch));
     });
-  }, [scenarios, search]);
+  }, [scenarios, searchTerm]);
 
   const selectedScenario = scenarios.find((s) => s.id === selectedScenarioId);
 
@@ -152,7 +163,11 @@ export const ScenarioSelector = ({
           {error}
         </div>
       ) : filteredScenarios.length > 0 ? (
-        <div className="max-h-60 space-y-2 overflow-auto pr-1">
+        // `max-h-96` (384px): a barra interna só existe quando uma BUSCA devolve
+        // muitos resultados, que é quando rolar de fato ajuda a comparar. Fora
+        // isso a caixa não existe na tela — o R1 proíbe a "caixinha que rola
+        // dentro da página" como estado permanente, não a lista de uma busca.
+        <div className="max-h-96 space-y-2 overflow-auto pr-1">
           {filteredScenarios.map((scenario) => {
             const isSelected = scenario.id === selectedScenarioId;
 
@@ -178,12 +193,17 @@ export const ScenarioSelector = ({
             );
           })}
         </div>
-      ) : (
+      ) : searchTerm ? (
         <div className="rounded-xl border border-dashed border-white/20 bg-white/5 p-4 text-sm text-white/60">
-          {search.trim()
-            ? 'Nenhum cenário encontrado com esse termo.'
-            : 'Nenhum cenário disponível.'}
+          Nenhum cenário encontrado com esse termo.
         </div>
+      ) : (
+        // Estado ocioso: sem busca não há lista (ver `filteredScenarios`). O
+        // texto precisa dizer o que fazer, senão o campo vazio lê como defeito —
+        // é a diferença entre "não achei nada" e "ainda não procurei".
+        <p className="px-1 text-xs text-white/55">
+          Digite acima para buscar entre os {scenarios.length} cenários do catálogo.
+        </p>
       )}
 
       {/* Hint */}

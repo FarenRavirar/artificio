@@ -50,6 +50,8 @@ const normalizeSystemsSearchResponse = (json: unknown): CatalogUiNode[] =>
 type IdentityPartProps = Readonly<{
   api: TableEditorApi;
   selectedScenarioName: string | null;
+  /** Subgêneros do cenário do catálogo — sugestões de estilo sem rede extra. */
+  selectedScenarioSubgenres?: string[];
   parseText: string;
   onParseTextChange: (text: string) => void;
   onPreviewReady: (result: { data: unknown; parseCaseId: string | null }) => void;
@@ -58,6 +60,7 @@ type IdentityPartProps = Readonly<{
 export function IdentityPart({
   api,
   selectedScenarioName,
+  selectedScenarioSubgenres = [],
   parseText,
   onParseTextChange,
   onPreviewReady,
@@ -371,6 +374,7 @@ export function IdentityPart({
             onSettingNameChange={(name) => patch({ settingName: name })}
             onSettingStylesChange={(styles) => patch({ settingStyles: styles })}
             selectedScenarioName={selectedScenarioName}
+            selectedScenarioSubgenres={selectedScenarioSubgenres}
           />
         </EditorField>
       </Panel>

@@ -421,4 +421,45 @@ describe('A1 — conteúdo da parte não pode ficar inalcançável', () => {
     // formulário inteiro em 390px, com 428 elementos estourando a viewport.
     expect(css).toMatch(/@media[^{]*max-width:\s*719px/);
   });
+
+  it('a casca empilha ACIMA do header do AppShell', () => {
+    const css = readFileSync(resolve(DIR, 'TableEditor.css'), 'utf8');
+    const shell = readFileSync(
+      resolve(process.cwd(), '../../../packages/ui/src/styles.css'),
+      'utf8',
+    );
+
+    // O par medido, não um número solto: o header sticky do pacote cobria os
+    // primeiros 104px do editor porque 40 < 50, escondendo a barra de estado
+    // inteira ("Voltar ao painel", "Publicar", % preenchido). Duas rodadas de
+    // correção de ALTURA não adiantaram nada — o defeito era empilhamento.
+    //
+    // O teste lê os DOIS arquivos e compara, em vez de fixar `z-index: 60` à
+    // mão: se o pacote subir o header, este teste falha e aponta a causa, que é
+    // exatamente o que faltou da primeira vez. Comparar contra uma constante
+    // repetida aqui não pegaria isso.
+    // Comentários fora ANTES de casar: o bloco que documenta esta correção cita
+    // `z-index: 50` no texto, e o `[\s\S]*?` casava a menção em vez da
+    // declaração — o teste lia 50 e reprovava a correção que estava certa.
+    const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '');
+    const cssCode = strip(css);
+    const shellCode = strip(shell);
+
+    const editorZ = Number(/\.table-editor\s*\{[^}]*?z-index:\s*(\d+)/.exec(cssCode)?.[1]);
+    const headerZ = Number(
+      /\.artificio-header\[data-sticky="true"\]\s*\{[^}]*?z-index:\s*(\d+)/.exec(shellCode)?.[1],
+    );
+    const modalZ = Number(
+      /\.artificio-modal-root[^{]*\{[^}]*?z-index:\s*(\d+)/.exec(shellCode)?.[1],
+    );
+
+    expect(Number.isFinite(editorZ)).toBe(true);
+    expect(Number.isFinite(headerZ)).toBe(true);
+    expect(Number.isFinite(modalZ)).toBe(true);
+
+    expect(editorZ).toBeGreaterThan(headerZ);
+    // E abaixo do modal: o diálogo "Rascunho encontrado" abre SOBRE o editor e
+    // precisa continuar cobrindo — subir demais troca um defeito por outro.
+    expect(editorZ).toBeLessThan(modalZ);
+  });
 });

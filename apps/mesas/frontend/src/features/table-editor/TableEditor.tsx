@@ -110,6 +110,8 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
   // o wrapper dá retry/dedup/credenciais com zero custo aqui) + leitura
   // defensiva do `data.data.name` (payload é unknown até prova de string).
   const [selectedScenarioName, setSelectedScenarioName] = useState<string | null>(null);
+  // Os subgêneros vêm da MESMA resposta que o nome — nenhuma requisição a mais.
+  const [selectedScenarioSubgenres, setSelectedScenarioSubgenres] = useState<string[]>([]);
   useEffect(() => {
     let active = true;
     // setState só após await (sem set síncrono no corpo do effect).
@@ -118,19 +120,27 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
       if (!active) return;
       if (!state.selectedScenarioId) {
         setSelectedScenarioName(null);
+        setSelectedScenarioSubgenres([]);
         return;
       }
       try {
         const res = await authGet(`/api/v1/scenarios/${state.selectedScenarioId}`);
         if (res.ok && active) {
           const json: unknown = await res.json().catch(() => null);
-          if (active) setSelectedScenarioName(readScenarioName(json));
+          if (active) {
+            setSelectedScenarioName(readScenarioName(json));
+            setSelectedScenarioSubgenres(readScenarioSubgenres(json));
+          }
         } else if (active) {
           setSelectedScenarioName(null);
+          setSelectedScenarioSubgenres([]);
         }
       } catch (err) {
         console.error('[TableEditor] Erro ao buscar nome do cenário:', err);
-        if (active) setSelectedScenarioName(null);
+        if (active) {
+          setSelectedScenarioName(null);
+          setSelectedScenarioSubgenres([]);
+        }
       }
     })();
     return () => { active = false; };
@@ -280,6 +290,7 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
               <IdentityPart
                 api={api}
                 selectedScenarioName={selectedScenarioName}
+                selectedScenarioSubgenres={selectedScenarioSubgenres}
                 parseText={parseSourceText}
                 onParseTextChange={setParseSourceText}
                 onPreviewReady={handlePreviewReady}
@@ -352,6 +363,22 @@ function readScenarioName(json: unknown): string | null {
   if (typeof data !== 'object' || data === null) return null;
   const name = (data as { name?: unknown }).name;
   return typeof name === 'string' && name.trim().length > 0 ? name.trim() : null;
+}
+
+/** Subgêneros do cenário: a fonte real de sugestão de estilo. 111 dos 118
+ *  cenários do catálogo têm ao menos um (94%, medido 2026-08-27), enquanto a
+ *  tabela `suggest-styles` não conhecia nenhum de 25 testados — era por isso que
+ *  "Estilos/Temáticas" não sugeria nada, nunca. Mesma leitura defensiva do nome:
+ *  payload de API é `unknown` até prova de tipo. */
+function readScenarioSubgenres(json: unknown): string[] {
+  if (typeof json !== 'object' || json === null) return [];
+  const data = (json as { data?: unknown }).data;
+  if (typeof data !== 'object' || data === null) return [];
+  const subgenres = (data as { subgenres?: unknown }).subgenres;
+  if (!Array.isArray(subgenres)) return [];
+  return subgenres
+    .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
+    .map((s) => s.trim());
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
