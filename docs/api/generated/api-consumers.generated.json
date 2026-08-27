@@ -2116,7 +2116,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "fetch",
-      "line": 45
+      "line": 72
     },
     {
       "app": "mesas-frontend",
@@ -2136,7 +2136,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authGet",
-      "line": 124
+      "line": 133
     },
     {
       "app": "mesas-frontend",
@@ -2196,7 +2196,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 51
+      "line": 109
     },
     {
       "app": "mesas-frontend",
@@ -2246,7 +2246,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authGet",
-      "line": 87
+      "line": 90
     },
     {
       "app": "mesas-frontend",

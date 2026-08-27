@@ -421,4 +421,119 @@ describe('A1 — conteúdo da parte não pode ficar inalcançável', () => {
     // formulário inteiro em 390px, com 428 elementos estourando a viewport.
     expect(css).toMatch(/@media[^{]*max-width:\s*719px/);
   });
+
+  it('a casca empilha ACIMA do header do AppShell', () => {
+    const css = readFileSync(resolve(DIR, 'TableEditor.css'), 'utf8');
+    const shell = readFileSync(
+      resolve(process.cwd(), '../../../packages/ui/src/styles.css'),
+      'utf8',
+    );
+
+    // O par medido, não um número solto: o header sticky do pacote cobria os
+    // primeiros 104px do editor porque 40 < 50, escondendo a barra de estado
+    // inteira ("Voltar ao painel", "Publicar", % preenchido). Duas rodadas de
+    // correção de ALTURA não adiantaram nada — o defeito era empilhamento.
+    //
+    // O teste lê os DOIS arquivos e compara, em vez de fixar `z-index: 60` à
+    // mão: se o pacote subir o header, este teste falha e aponta a causa, que é
+    // exatamente o que faltou da primeira vez. Comparar contra uma constante
+    // repetida aqui não pegaria isso.
+    // Comentários fora ANTES de casar: o bloco que documenta esta correção cita
+    // `z-index: 50` no texto, e o `[\s\S]*?` casava a menção em vez da
+    // declaração — o teste lia 50 e reprovava a correção que estava certa.
+    const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '');
+    const cssCode = strip(css);
+    const shellCode = strip(shell);
+
+    const editorZ = Number(/\.table-editor\s*\{[^}]*?z-index:\s*(\d+)/.exec(cssCode)?.[1]);
+    const headerZ = Number(
+      /\.artificio-header\[data-sticky="true"\]\s*\{[^}]*?z-index:\s*(\d+)/.exec(shellCode)?.[1],
+    );
+    const modalZ = Number(
+      /\.artificio-modal-root[^{]*\{[^}]*?z-index:\s*(\d+)/.exec(shellCode)?.[1],
+    );
+
+    expect(Number.isFinite(editorZ)).toBe(true);
+    expect(Number.isFinite(headerZ)).toBe(true);
+    expect(Number.isFinite(modalZ)).toBe(true);
+
+    expect(editorZ).toBeGreaterThan(headerZ);
+    // E abaixo do modal: o diálogo "Rascunho encontrado" abre SOBRE o editor e
+    // precisa continuar cobrindo — subir demais troca um defeito por outro.
+    expect(editorZ).toBeLessThan(modalZ);
+  });
+});
+
+describe('Altura da parte Identidade — prévia do banner limitada', () => {
+  // Achado do mantenedor (2026-08-27): a parte `identity` media 3085px, o que
+  // dá ~5 telas de rolagem em 1366×768. A prévia do banner sozinha respondia
+  // por 778px — desenhava 842×456 por ser `w-full` sem teto, com a altura
+  // vindo da proporção 1200/650 do `table_banner`.
+  const DIR = resolve(__dirname);
+
+  it('o editor passa uma largura máxima para a prévia do banner', () => {
+    const src = readFileSync(resolve(DIR, 'parts/IdentityPart.tsx'), 'utf8');
+    const uploader = src.slice(src.indexOf('idPrefix="table-editor-banner"'));
+    const bloco = uploader.slice(0, uploader.indexOf('/>'));
+    const match = /previewMaxWidthClass="max-w-\[(\d+)px\]"/.exec(bloco);
+
+    expect(match).not.toBeNull();
+    // Solta, a prévia ocupava 842px de largura na coluna de trabalho (900px).
+    expect(Number(match![1])).toBeLessThan(842);
+  });
+
+  it('a largura escolhida mantém a prévia abaixo de 300px de altura', () => {
+    const src = readFileSync(resolve(DIR, 'parts/IdentityPart.tsx'), 'utf8');
+    const largura = Number(/previewMaxWidthClass="max-w-\[(\d+)px\]"/.exec(src)![1]);
+
+    // `table_banner` é 1200/650 (packages/media/src/imageKinds.ts:89) e
+    // CroppedImage preserva a proporção — a altura é consequência da largura.
+    const altura = largura / (1200 / 650);
+    expect(altura).toBeLessThan(300);
+  });
+
+  it('a prop tem default que não altera os outros consumidores', () => {
+    const src = readFileSync(resolve(DIR, '../../components/ImageUploader.tsx'), 'utf8');
+    // Sem valor passado, a classe some da string em vez de virar "undefined".
+    expect(src).toMatch(/previewMaxWidthClass \?\? ''/);
+    expect(src).toMatch(/previewMaxWidthClass\?: string;/);
+  });
+});
+
+describe('Metadados do cenário não sobrevivem à troca do id', () => {
+  // Achado de review (Codex, PR #291): trocando do cenário A para o B, nome e
+  // subgêneros de A ficavam no estado até o GET de B voltar. O seletor já
+  // mostrava B e o SettingStylesField oferecia os estilos de A sob o rótulo de
+  // B — clicar num deles GRAVAVA no anúncio a tag do cenário anterior.
+  const src = readFileSync(resolve(__dirname, 'TableEditor.tsx'), 'utf8');
+
+  const efeito = () => {
+    const ini = src.indexOf('const res = await authGet(`/api/v1/scenarios/');
+    const inicioEfeito = src.lastIndexOf('useEffect(() => {', ini);
+    return src.slice(inicioEfeito, ini);
+  };
+
+  it('limpa nome e subgêneros ANTES de resolver o id novo', () => {
+    const antesDoFetch = efeito();
+    // As duas limpezas têm de acontecer no caminho comum, não só no ramo do
+    // id vazio: é a troca A→B que expõe o estado obsoleto.
+    expect(antesDoFetch).toMatch(/setSelectedScenarioName\(null\)/);
+    expect(antesDoFetch).toMatch(/setSelectedScenarioSubgenres\(\[\]\)/);
+  });
+
+  it('a limpeza vem antes do early-return do id vazio', () => {
+    const antesDoFetch = efeito();
+    const posLimpeza = antesDoFetch.indexOf('setSelectedScenarioSubgenres([])');
+    const posGuarda = antesDoFetch.indexOf('if (!state.selectedScenarioId)');
+    // Se a limpeza ficar depois da guarda, ela volta a valer só para o caso
+    // "removeu o cenário" e a troca A→B fica descoberta de novo.
+    expect(posLimpeza).toBeGreaterThan(-1);
+    expect(posGuarda).toBeGreaterThan(posLimpeza);
+  });
+
+  it('o effect reexecuta quando o id do cenário muda', () => {
+    // Sem `state.selectedScenarioId` nas dependências, nada disso dispara.
+    const depois = src.slice(src.indexOf('const res = await authGet(`/api/v1/scenarios/'));
+    expect(depois).toMatch(/\}, \[state\.selectedScenarioId\]\);/);
+  });
 });
