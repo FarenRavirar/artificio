@@ -70,6 +70,31 @@ overrides:
   # `^10.2.0` é o que o express-rate-limit declara, então o 10.5.0 entra sem
   # quebrar semver.
   "ip-address@<10.5.0": ">=10.5.0 <11"
+  # NÃO é CVE: é duplicata de instância que quebra o editor do site-admin.
+  #
+  # `@blocknote/core@0.51.4` depende de `prosemirror-model@1.25.7` direto, e da
+  # `1.25.11` por dentro do `@tiptap/pm@3.26.0` — que é dependência dele mesmo.
+  # As duas cópias entram no bundle, e o ProseMirror recusa nó criado pela outra
+  # instância: `RangeError: Can not convert <...> to a Fragment (looks like
+  # multiple versions of prosemirror-model were loaded)`, seguido de
+  # `TypeError: ... reading 'localsInner'` na montagem da view.
+  #
+  # Efeito medido em produção (2026-08-28): tela branca ao abrir QUALQUER post e
+  # também em `/admin/posts/new` — criar e editar conteúdo indisponíveis.
+  #
+  # O piso `1.25.11` é a mais alta das duas já presentes, e satisfaz todas as
+  # faixas declaradas na árvore (`^1.0.0`, `^1.7.1`, `^1.19.3` — nenhum
+  # consumidor declara teto). O `<2` evita um major que mudaria a API do modelo.
+  "prosemirror-model@<1.25.11": ">=1.25.11 <2"
+  # `prosemirror-view` tinha a MESMA duplicata (`1.41.8` via `@blocknote/core`,
+  # `1.42.2` via `@tiptap/pm`), e precisa da própria entrada: unificar só o
+  # `model` deixou o editor ainda quebrado, agora em
+  # `DecorationGroup.locals -> undefined.localsInner` — código do `view`, medido
+  # no dev server depois do primeiro override. Decoration criada por uma cópia
+  # não é reconhecida pela outra.
+  #
+  # Faixas declaradas na árvore: `^1.0.0`, `^1.9.10`, `^1.32.4`, sem teto.
+  "prosemirror-view@<1.42.2": ">=1.42.2 <2"
 patchedDependencies:
   "@types/express-serve-static-core@5.1.1": patches/@types__express-serve-static-core@5.1.1.patch
 allowBuilds:
