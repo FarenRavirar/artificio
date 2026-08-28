@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api, openPreview, type PostFull, type Term, type MediaItem } from "../api";
+import { api, openPreview, type PostFull, type Term, type MediaItem, type ContentId } from "../api";
 import { BlockEditor, type EditorHandle } from "../editor/BlockEditor";
 import { SeoPanel } from "../editor/SeoPanel";
 import { MediaPicker } from "../media/MediaPicker";
@@ -11,6 +11,22 @@ const EMPTY: PostFull = {
   og_title: null, og_description: null, og_image: null, twitter_card: "summary_large_image",
   noindex: false, cats: [], tags: [],
 };
+
+// `req<PostFull>` faz cast cru do JSON, então `cats`/`tags` são promessa, não garantia
+// (AGENTS.md: todo dado de API é `unknown` até passar por normalizador tipado). Um
+// `cats: null` do backend sobrescreveria o `[]` de EMPTY no spread e o `.some()` do render
+// quebraria a tela; item inválido dentro do array geraria checkbox fantasma. Aqui o array
+// inválido cai para o default de EMPTY, e entradas inválidas são descartadas — a edição
+// segue possível, sem herdar taxonomia corrompida.
+const isContentId = (v: unknown): v is ContentId =>
+  (typeof v === "number" && Number.isSafeInteger(v)) || (typeof v === "string" && /^\d+$/.test(v));
+
+const idsOrDefault = (v: unknown): ContentId[] =>
+  Array.isArray(v) ? v.filter(isContentId) : [];
+
+function normalizePostFull(p: PostFull): PostFull {
+  return { ...EMPTY, ...p, cats: idsOrDefault(p.cats), tags: idsOrDefault(p.tags) };
+}
 
 export function PostEditor() {
   const { id } = useParams();
@@ -48,8 +64,8 @@ export function PostEditor() {
     // tem categorias em vez de saber que a lista não carregou (achado Codex P2 na #267).
     api.listTerms().then(setTerms).catch((e) => note(`Categorias e tags não carregaram: ${String((e as Error).message)}`, true));
     if (id) {
-      api.getPost(Number(id)).then((p) => {
-        setPost({ ...EMPTY, ...p }); setOrigSlug(p.slug); setOrigStatus(p.status); setReady(true);
+      api.getPost(id).then((p) => {
+        setPost(normalizePostFull(p)); setOrigSlug(p.slug); setOrigStatus(p.status); setReady(true);
       }).catch((e) => setErr(String(e.message)));
     }
   }, [id]);
@@ -85,10 +101,17 @@ export function PostEditor() {
 
   const set = <K extends keyof PostFull>(k: K, v: PostFull[K]) => setPost((p) => ({ ...p, [k]: v }));
 
-  const toggleTerm = (termId: number, kind: "category" | "tag") => {
+  // Compara por String() de propósito: `id` é BIGINT e o driver `pg` o devolve como string,
+  // mas nem todo caminho do payload garante a mesma forma — `cats` pode chegar `[12]` e o
+  // `termId` do checkbox `"12"`. Com `includes`/`!==` estritos isso nunca casa: a marcação
+  // não aparece e o toggle duplica a entrada, sem erro de tipo que denuncie.
+  const sameId = (a: ContentId, b: ContentId) => String(a) === String(b);
+
+  const toggleTerm = (termId: ContentId, kind: "category" | "tag") => {
     const key = kind === "category" ? "cats" : "tags";
     const cur = post[key];
-    set(key, cur.includes(termId) ? cur.filter((x) => x !== termId) : [...cur, termId]);
+    const marcado = cur.some((x) => sameId(x, termId));
+    set(key, marcado ? cur.filter((x) => !sameId(x, termId)) : [...cur, termId]);
   };
 
   const suggestSlug = async () => {
@@ -103,14 +126,14 @@ export function PostEditor() {
 
   // Persiste com o status dado. O servidor dispara o rebuild quando o status afeta o público
   // (publicar/despublicar) — sem 2ª requisição do cliente.
-  const persist = async (status: string, okMsg: string): Promise<number | null> => {
+  const persist = async (status: string, okMsg: string): Promise<ContentId | null> => {
     setSaving(true); setErr("");
     try {
       const body = await collect(status);
-      const r = isNew ? await api.createPost(body) : await api.updatePost(Number(id), body);
+      const r = isNew ? await api.createPost(body) : await api.updatePost(id, body);
       const msg = r.rebuild?.started ? `${okMsg} (rebuild disparado)` : r.rebuild?.busy ? `${okMsg} (rebuild já em curso)` : okMsg;
       if (isNew) { note(msg); navigate(`/posts/${r.id}`, { replace: true }); return r.id; }
-      setPost((p) => ({ ...p, status, slug: r.slug })); note(msg); return Number(id);
+      setPost((p) => ({ ...p, status, slug: r.slug })); note(msg); return id;
     } catch (e) { setErr(String((e as Error).message)); note("Erro ao salvar.", true); return null; }
     finally { setSaving(false); }
   };
@@ -204,14 +227,14 @@ export function PostEditor() {
             <h3>Categorias <button className="btn" type="button" style={{ float: "right", padding: "2px 8px" }} onClick={() => addTerm("category")}>+</button></h3>
             <div className="checks">
               {cats.map((t) => (
-                <label key={t.id}><input type="checkbox" checked={post.cats.includes(t.id)} onChange={() => toggleTerm(t.id, "category")} />{t.name}</label>
+                <label key={t.id}><input type="checkbox" checked={post.cats.some((x) => sameId(x, t.id))} onChange={() => toggleTerm(t.id, "category")} />{t.name}</label>
               ))}
               {!cats.length && <p className="muted">Nenhuma. Crie com +</p>}
             </div>
             <h3 style={{ marginTop: 14 }}>Tags <button className="btn" type="button" style={{ float: "right", padding: "2px 8px" }} onClick={() => addTerm("tag")}>+</button></h3>
             <div className="checks">
               {tags.map((t) => (
-                <label key={t.id}><input type="checkbox" checked={post.tags.includes(t.id)} onChange={() => toggleTerm(t.id, "tag")} />{t.name}</label>
+                <label key={t.id}><input type="checkbox" checked={post.tags.some((x) => sameId(x, t.id))} onChange={() => toggleTerm(t.id, "tag")} />{t.name}</label>
               ))}
               {!tags.length && <p className="muted">Nenhuma. Crie com +</p>}
             </div>

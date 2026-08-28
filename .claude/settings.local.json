@@ -243,7 +243,11 @@
       "Bash(rm -f src/scripts/__e2e.test.ts)",
       "Bash(rtk ssh *)",
       "Bash(rm -f /tmp/pgpw.txt /tmp/mig.tgz)",
-      "Bash(pkill -f \"ssh -f -N -L 55432\")"
+      "Bash(pkill -f \"ssh -f -N -L 55432\")",
+      "Bash(pkill -f \"ssh -f -N -L 55432\")",
+      "mcp__plugin_cloudflare_cloudflare-api__execute",
+      "mcp__plugin_cloudflare_cloudflare-api__search",
+      "mcp__plugin_cloudflare_cloudflare-api__docs"
     ]
   },
   "enabledMcpjsonServers": [

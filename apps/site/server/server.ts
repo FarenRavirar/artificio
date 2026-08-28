@@ -58,6 +58,42 @@ if (process.env.SITE_NOINDEX === "true") {
   });
 }
 
+// Nenhuma resposta de API entra em cache compartilhado (incidente 2026-08-28).
+// O servidor não declarava `Cache-Control` em rota alguma, então quem decidia era
+// a borda: a regra "Cache Everything — HTML" da Cloudflare tinha lista de exceções
+// herdada do WordPress (/wp-admin/, /wp-json/, cookie wordpress_logged_in) que não
+// cobria `/api/`. Resultado medido: `GET /api/admin/v1/posts` respondeu 200 com 50
+// registros a QUALQUER anônimo, servido do cache da borda (cf-cache-status: HIT,
+// Age 482s), enquanto o mesmo path com query ia à origem e devolvia 401.
+// A regra da borda foi corrigida, mas depender só dela é frágil — o próximo
+// endpoint criado herdaria o mesmo defeito sem nenhum sinal. `no-store` na origem
+// é a defesa que viaja com o código.
+// Vale para TODO `/api/`, não só `/api/admin/`: rota pública de API também é
+// dinâmica (paginação, filtro, sessão) e nunca deve ser servida de cache
+// compartilhado sem decisão explícita de quem a escreveu.
+// `/admin` entra junto porque três rotas autenticadas vivem fora de `/api/`:
+// `/admin/status`, `/admin/rebuild` e `/admin/preview/:type/:id`. A de preview é a
+// mais sensível das duas listas — renderiza rascunho NÃO publicado (D053), então
+// uma entrada de cache ali vaza conteúdo inédito, não só metadado de post público.
+//
+// `/admin/assets/` é a exceção (achado Codex P2 na #294): são os bundles versionados
+// pelo Vite servidos por `express.static(ADMIN_DIST)`, 2,2 MB medidos — o BlockNote
+// sozinho passa de 1,4 MB. Sem esta exceção o prefixo `/admin` marcaria `no-store`
+// neles também, e cada abertura do painel rebaixaria o bundle inteiro. O nome carrega
+// hash de conteúdo (`index-Cv9LI3MM.js`), então o arquivo é imutável por construção:
+// mudou o conteúdo, muda a URL. Cachear é seguro e não serve versão velha.
+// O `index.html` da SPA NÃO tem hash e continua coberto pelo `no-store`, senão o
+// admin ficaria preso a um build antigo apontando para assets que já não existem.
+// A exceção casa em `req.originalUrl` e não em `req.path`: com o mount por array,
+// `req.path` é relativo ao prefixo, então `/assets/` sozinho também liberaria
+// `/api/assets/...` — uma rota de API futura com esse nome nasceria cacheável, que é
+// exatamente o defeito que este middleware existe para impedir.
+app.use(["/api", "/admin"], (req, res, next) => {
+  if (req.originalUrl.startsWith("/admin/assets/")) return next();
+  res.setHeader("Cache-Control", "no-store, private");
+  next();
+});
+
 const requireAdmin: RequestHandler = (req, res, next) => {
   const session = (req as AuthenticatedRequest).session;
   if (!session || session.user.role !== "admin") {

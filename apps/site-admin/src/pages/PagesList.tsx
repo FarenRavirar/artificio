@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useConfirm } from "@artificio/ui";
-import { api, type PageListItem } from "../api";
+import { api, type PageListItem, type ContentId } from "../api";
 
 const FILTERS: { value: string; label: string }[] = [
   { value: "", label: "Ativas" },
@@ -30,7 +30,7 @@ export function PagesList() {
   const [status, setStatus] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
-  const [busyId, setBusyId] = useState<number | null>(null);
+  const [busyId, setBusyId] = useState<ContentId | null>(null);
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
 
   const { confirm } = useConfirm();

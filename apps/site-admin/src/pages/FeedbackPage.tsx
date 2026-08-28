@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useConfirm } from "@artificio/ui";
-import { api, type FeedbackItem } from "../api";
+import { api, type FeedbackItem, type ContentId } from "../api";
 
 const STATUS_OPTIONS = [
   { value: "new", label: "Novo" },
@@ -18,10 +18,10 @@ export function FeedbackPage() {
   const [status, setStatus] = useState("");
   const [kind, setKind] = useState("");
   const [archived, setArchived] = useState("false");
-  const [notes, setNotes] = useState<Record<number, string>>({});
+  const [notes, setNotes] = useState<Record<string, string>>({});
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
-  const [busyId, setBusyId] = useState<number | null>(null);
+  const [busyId, setBusyId] = useState<ContentId | null>(null);
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
 
   const { confirm } = useConfirm();
@@ -139,13 +139,13 @@ export function FeedbackPage() {
                   onChange={(e) => patch(it, { status: e.target.value }, "Status atualizado.")}>
                   {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
-                <textarea value={notes[it.id] ?? ""} rows={2} placeholder="Notas internas (admin)"
+                <textarea value={notes[String(it.id)] ?? ""} rows={2} placeholder="Notas internas (admin)"
                   style={{ flex: 1, minWidth: 220 }}
-                  onChange={(e) => setNotes((p) => ({ ...p, [it.id]: e.target.value }))} />
+                  onChange={(e) => setNotes((p) => ({ ...p, [String(it.id)]: e.target.value }))} />
               </div>
               <div className="actions" style={{ marginTop: 8 }}>
                 <button className="btn tiny" disabled={busyId === it.id}
-                  onClick={() => patch(it, { admin_notes: notes[it.id] ?? "" }, "Notas salvas.")}>Salvar notas</button>
+                  onClick={() => patch(it, { admin_notes: notes[String(it.id)] ?? "" }, "Notas salvas.")}>Salvar notas</button>
                 <button className="btn tiny" disabled={busyId === it.id}
                   onClick={() => patch(it, { archived: it.archived_at === null }, it.archived_at === null ? "Arquivado." : "Desarquivado.")}>
                   {it.archived_at === null ? "Arquivar" : "Desarquivar"}
