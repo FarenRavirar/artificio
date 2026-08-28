@@ -4,6 +4,7 @@ import type { TableCard } from '../../types/tables';
 import type { MestrePublicData } from '../../hooks/useMestre';
 import { isUsableImageSrc } from '../../utils/imageSource';
 import { cropToObjectPosition } from '@artificio/media/image-kinds';
+import { toFiniteNumber } from '@artificio/ui';
 
 interface MestreHeroProps {
   profile: MestrePublicData;
@@ -12,9 +13,15 @@ interface MestreHeroProps {
 }
 
 export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
+  // `avg_rating` é NUMERIC no Postgres e pode chegar como string do backend.
+  // O tipo declarado (`number | null`) não garante nada em runtime: enquanto
+  // nenhum mestre tinha review o valor era `null` e o caminho nunca rodou; o
+  // primeiro review real trouxe `"5.00"` e `.toFixed()` derrubou a página.
+  const avgRating = toFiniteNumber(profile.avg_rating);
+
   const hasAnyStat =
     (profile.tables_count ?? 0) > 0 ||
-    (profile.avg_rating ?? 0) > 0 ||
+    (avgRating ?? 0) > 0 ||
     (profile.reviews_count ?? 0) > 0;
 
   const hasAnyTrust =
@@ -181,10 +188,10 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
                 </span>
               </div>
             )}
-            {(profile.avg_rating ?? 0) > 0 && (
+            {(avgRating ?? 0) > 0 && (
               <div className="stat">
                 <Star className="stat-icon" />
-                <span className="stat-value">{profile.avg_rating!.toFixed(1)}★</span>
+                <span className="stat-value">{avgRating!.toFixed(1)}★</span>
                 <span className="stat-label">Avaliação</span>
               </div>
             )}

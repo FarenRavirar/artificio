@@ -23,13 +23,39 @@ export interface GmReviewItem {
 }
 
 export interface GmReviewSummaryProps {
-  readonly avgRating: number | null;
-  readonly reviewsCount: number;
+  /**
+   * Aceita `unknown` de propósito: `avg_rating` é `NUMERIC` no Postgres e o
+   * parser default do `pg` entrega **string** (`"4.50"`), não number. Tipar como
+   * `number | null` não impedia isso em runtime — só escondia o problema até
+   * `.toFixed()` estourar `TypeError: e.toFixed is not a function` e derrubar a
+   * árvore React inteira (tela azul em mesas.artificiorpg.com, 2026-08-28).
+   * A normalização mora aqui, no pacote compartilhado, para valer em todo app
+   * consumidor em vez de depender de cada backend lembrar do cast.
+   */
+  readonly avgRating: unknown;
+  readonly reviewsCount: unknown;
   readonly className?: string;
 }
 
+/**
+ * Converte valor externo (string do `pg`, number, null) em number finito ou null.
+ * Exportado porque o mesmo `avg_rating` chega cru em telas que não usam
+ * `GmReviewSummary` (MestreHero, PainelMestrePage) e precisam do mesmo tratamento.
+ */
+export function toFiniteNumber(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 /** Resumo compacto de rating — usável em card do catálogo e sidebar (T3.7/T8.6). */
-export function GmReviewSummary({ avgRating, reviewsCount, className }: GmReviewSummaryProps) {
+export function GmReviewSummary({ avgRating: rawAvgRating, reviewsCount: rawReviewsCount, className }: GmReviewSummaryProps) {
+  const avgRating = toFiniteNumber(rawAvgRating);
+  const reviewsCount = toFiniteNumber(rawReviewsCount) ?? 0;
+
   if (reviewsCount === 0 || avgRating === null) {
     return (
       <span className={`text-xs text-[var(--fg-muted)] ${className ?? ""}`.trim()}>

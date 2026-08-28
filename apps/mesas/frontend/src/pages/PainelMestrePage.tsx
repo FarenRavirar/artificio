@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { PlusCircle, MapPin, Sparkles, PencilLine, Lightbulb } from 'lucide-react';
 import { useAuth } from '../contexts/useAuth';
-import { useConfirm, Badge, Button, Panel } from '@artificio/ui';
+import { useConfirm, Badge, Button, Panel, toFiniteNumber } from '@artificio/ui';
 import toast from 'react-hot-toast';
 import { authGet, authPut, authPatch, authDelete } from '../services/apiClient';
 import type { TableContact, TableContactChannel } from '../types/tables';
@@ -559,7 +559,8 @@ export const PainelMestrePage = () => {
                 {gmProfile && (
                   <p className="text-white/40 mt-1 text-sm">
                     {gmProfile.tables_count} mesa{gmProfile.tables_count !== 1 ? 's' : ''} publicada{gmProfile.tables_count !== 1 ? 's' : ''}
-                    {gmProfile.avg_rating ? ` · ★ ${gmProfile.avg_rating.toFixed(1)}` : ''}
+                    {/* toFiniteNumber: avg_rating é NUMERIC e pode chegar como string do backend. */}
+                    {toFiniteNumber(gmProfile.avg_rating) !== null ? ` · ★ ${toFiniteNumber(gmProfile.avg_rating)!.toFixed(1)}` : ''}
                   </p>
                 )}
               </div>
