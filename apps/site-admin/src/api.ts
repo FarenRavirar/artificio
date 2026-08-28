@@ -61,7 +61,7 @@ export interface PostListItem {
 }
 export interface PageListItem { id: ContentId; slug: string; title: string; status: string; updated_at: string | null; }
 export interface Term { id: ContentId; kind: "category" | "tag"; slug: string; name: string; parent_id: ContentId | null; count: number; }
-export interface SaveResult { id: number; slug: string; rebuild?: { started: boolean; busy?: boolean }; }
+export interface SaveResult { id: ContentId; slug: string; rebuild?: { started: boolean; busy?: boolean }; }
 export interface MediaItem {
   id: number; source: string; url: string; mime: string | null;
   size_bytes: number | null; width: number | null; height: number | null;
@@ -70,7 +70,7 @@ export interface MediaItem {
 export interface MediaUploadResult { id: number; url: string; source: string; mime: string; width: number | null; height: number | null; }
 
 export interface FeedbackItem {
-  id: number; kind: "bug" | "suggestion"; title: string; description: string;
+  id: ContentId; kind: "bug" | "suggestion"; title: string; description: string;
   reporter_id: string | null; reporter_role: string | null; contact_email: string | null;
   page_url: string | null; route_path: string | null; environment: string | null; viewport: string | null;
   console_errors: unknown[]; network_errors: unknown[];
@@ -100,14 +100,14 @@ export interface CatalogNodeInput {
 }
 
 export interface PostFull {
-  id?: number; title: string; slug: string; excerpt: string; content_html: string;
+  id?: ContentId; title: string; slug: string; excerpt: string; content_html: string;
   block_doc: unknown | null; status: string; published_at: string | null;
   featured_url: string | null; seo_title: string | null; seo_description: string | null;
   canonical: string | null; og_title: string | null; og_description: string | null;
   og_image: string | null; twitter_card: string; noindex: boolean; cats: ContentId[]; tags: ContentId[];
 }
 export interface PageFull {
-  id?: number; title: string; slug: string; excerpt: string; content_html: string;
+  id?: ContentId; title: string; slug: string; excerpt: string; content_html: string;
   block_doc: unknown | null; status: string; seo_title: string | null; seo_description: string | null;
   canonical: string | null; og_title: string | null; og_description: string | null; og_image: string | null; noindex: boolean;
 }
@@ -160,10 +160,13 @@ async function reqItems<T>(path: string, recurso: string, isValidItem: (item: un
 // o admin inteiro inacessível: posts, páginas, taxonomias e feedback compartilham este
 // validador. Mesmo defeito de `avg_rating` (NUMERIC → string) no mesas, mesma raiz:
 // tipo declarado no cliente não descreve o que o driver entrega.
-const hasNumericId = (item: unknown): item is { id: number | string } => {
+// `isSafeInteger` e não `isFinite`: `isFinite(12.5)` é `true`, então um id fracionário
+// passava e viraria `/posts/12.5` na rota. Acima de 2^53 o number já perdeu precisão na
+// origem — nesse caso o valor correto só existe na forma string, aceita abaixo.
+const hasNumericId = (item: unknown): item is { id: ContentId } => {
   if (!item || typeof item !== "object") return false;
   const id = (item as { id?: unknown }).id;
-  if (typeof id === "number") return Number.isFinite(id);
+  if (typeof id === "number") return Number.isSafeInteger(id);
   return typeof id === "string" && /^\d+$/.test(id);
 };
 
@@ -281,9 +284,9 @@ export const api = {
   // ---- Feedback (Spec 021) ----
   listFeedback: (status = "", kind = "", archived = "false") =>
     reqItems<FeedbackItem>(`/feedback${qs({ archived, status, kind })}`, "feedback", isKindedItem),
-  updateFeedback: (id: number, patch: { status?: string; admin_notes?: string | null; archived?: boolean }) =>
+  updateFeedback: (id: ContentId, patch: { status?: string; admin_notes?: string | null; archived?: boolean }) =>
     req<{ item: FeedbackItem }>(`/feedback/${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
-  deleteFeedback: (id: number) => req<{ ok: boolean }>(`/feedback/${id}`, { method: "DELETE" }),
+  deleteFeedback: (id: ContentId) => req<{ ok: boolean }>(`/feedback/${id}`, { method: "DELETE" }),
 
   // ---- Catálogo canônico de sistemas (Spec 062) ----
   // `tree` validado aqui, não no componente: assim vale para a carga inicial e para o

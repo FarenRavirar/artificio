@@ -12,6 +12,22 @@ const EMPTY: PostFull = {
   noindex: false, cats: [], tags: [],
 };
 
+// `req<PostFull>` faz cast cru do JSON, então `cats`/`tags` são promessa, não garantia
+// (AGENTS.md: todo dado de API é `unknown` até passar por normalizador tipado). Um
+// `cats: null` do backend sobrescreveria o `[]` de EMPTY no spread e o `.some()` do render
+// quebraria a tela; item inválido dentro do array geraria checkbox fantasma. Aqui o array
+// inválido cai para o default de EMPTY, e entradas inválidas são descartadas — a edição
+// segue possível, sem herdar taxonomia corrompida.
+const isContentId = (v: unknown): v is ContentId =>
+  (typeof v === "number" && Number.isSafeInteger(v)) || (typeof v === "string" && /^\d+$/.test(v));
+
+const idsOrDefault = (v: unknown): ContentId[] =>
+  Array.isArray(v) ? v.filter(isContentId) : [];
+
+function normalizePostFull(p: PostFull): PostFull {
+  return { ...EMPTY, ...p, cats: idsOrDefault(p.cats), tags: idsOrDefault(p.tags) };
+}
+
 export function PostEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -48,8 +64,8 @@ export function PostEditor() {
     // tem categorias em vez de saber que a lista não carregou (achado Codex P2 na #267).
     api.listTerms().then(setTerms).catch((e) => note(`Categorias e tags não carregaram: ${String((e as Error).message)}`, true));
     if (id) {
-      api.getPost(Number(id)).then((p) => {
-        setPost({ ...EMPTY, ...p }); setOrigSlug(p.slug); setOrigStatus(p.status); setReady(true);
+      api.getPost(id).then((p) => {
+        setPost(normalizePostFull(p)); setOrigSlug(p.slug); setOrigStatus(p.status); setReady(true);
       }).catch((e) => setErr(String(e.message)));
     }
   }, [id]);
@@ -110,14 +126,14 @@ export function PostEditor() {
 
   // Persiste com o status dado. O servidor dispara o rebuild quando o status afeta o público
   // (publicar/despublicar) — sem 2ª requisição do cliente.
-  const persist = async (status: string, okMsg: string): Promise<number | null> => {
+  const persist = async (status: string, okMsg: string): Promise<ContentId | null> => {
     setSaving(true); setErr("");
     try {
       const body = await collect(status);
-      const r = isNew ? await api.createPost(body) : await api.updatePost(Number(id), body);
+      const r = isNew ? await api.createPost(body) : await api.updatePost(id, body);
       const msg = r.rebuild?.started ? `${okMsg} (rebuild disparado)` : r.rebuild?.busy ? `${okMsg} (rebuild já em curso)` : okMsg;
       if (isNew) { note(msg); navigate(`/posts/${r.id}`, { replace: true }); return r.id; }
-      setPost((p) => ({ ...p, status, slug: r.slug })); note(msg); return Number(id);
+      setPost((p) => ({ ...p, status, slug: r.slug })); note(msg); return id;
     } catch (e) { setErr(String((e as Error).message)); note("Erro ao salvar.", true); return null; }
     finally { setSaving(false); }
   };

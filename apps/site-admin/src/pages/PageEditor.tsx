@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api, openPreview, type PageFull, type MediaItem } from "../api";
+import { api, openPreview, type PageFull, type MediaItem, type ContentId } from "../api";
 import { BlockEditor, type EditorHandle } from "../editor/BlockEditor";
 import { SeoPanel } from "../editor/SeoPanel";
 import { MediaPicker } from "../media/MediaPicker";
@@ -33,7 +33,7 @@ export function PageEditor() {
   const note = (msg: string, isErr = false) => { setToast({ msg, err: isErr }); setTimeout(() => setToast(null), 3500); };
 
   useEffect(() => {
-    if (id) api.getPage(Number(id)).then((p) => {
+    if (id) api.getPage(id).then((p) => {
       setPage({ ...EMPTY, ...p }); setOrigSlug(p.slug); setOrigStatus(p.status); setReady(true);
     }).catch((e) => setErr(String(e.message)));
   }, [id]);
@@ -47,15 +47,15 @@ export function PageEditor() {
   };
 
   // Persiste com o status dado; o servidor dispara o rebuild quando afeta o público.
-  const persist = async (status: string, okMsg: string): Promise<number | null> => {
+  const persist = async (status: string, okMsg: string): Promise<ContentId | null> => {
     setSaving(true); setErr("");
     try {
       const { html, blockDoc } = (await editorRef.current?.getContent()) ?? { html: page.content_html, blockDoc: page.block_doc };
       const body: Partial<PageFull> = { ...page, status, content_html: html, block_doc: blockDoc };
-      const r = isNew ? await api.createPage(body) : await api.updatePage(Number(id), body);
+      const r = isNew ? await api.createPage(body) : await api.updatePage(id, body);
       const msg = r.rebuild?.started ? `${okMsg} (rebuild disparado)` : r.rebuild?.busy ? `${okMsg} (rebuild já em curso)` : okMsg;
       if (isNew) { note(msg); navigate(`/pages/${r.id}`, { replace: true }); return r.id; }
-      setPage((p) => ({ ...p, status, slug: r.slug })); note(msg); return Number(id);
+      setPage((p) => ({ ...p, status, slug: r.slug })); note(msg); return id;
     } catch (e) { setErr(String((e as Error).message)); note("Erro ao salvar.", true); return null; }
     finally { setSaving(false); }
   };

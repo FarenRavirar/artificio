@@ -2666,7 +2666,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.createPost",
-      "line": 117
+      "line": 133
     },
     {
       "app": "site-admin",
@@ -2676,7 +2676,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.getPost",
-      "line": 51
+      "line": 67
     },
     {
       "app": "site-admin",
@@ -2686,7 +2686,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.updatePost",
-      "line": 117
+      "line": 133
     },
     {
       "app": "site-admin",
@@ -2716,7 +2716,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.createTerm",
-      "line": 138
+      "line": 154
     },
     {
       "app": "site-admin",
@@ -2736,7 +2736,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 268
+      "line": 271
     },
     {
       "app": "site-admin",
@@ -2746,7 +2746,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 311
+      "line": 314
     }
   ]
 }

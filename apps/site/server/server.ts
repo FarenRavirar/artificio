@@ -75,7 +75,21 @@ if (process.env.SITE_NOINDEX === "true") {
 // `/admin/status`, `/admin/rebuild` e `/admin/preview/:type/:id`. A de preview é a
 // mais sensível das duas listas — renderiza rascunho NÃO publicado (D053), então
 // uma entrada de cache ali vaza conteúdo inédito, não só metadado de post público.
-app.use(["/api", "/admin"], (_req, res, next) => {
+//
+// `/admin/assets/` é a exceção (achado Codex P2 na #294): são os bundles versionados
+// pelo Vite servidos por `express.static(ADMIN_DIST)`, 2,2 MB medidos — o BlockNote
+// sozinho passa de 1,4 MB. Sem esta exceção o prefixo `/admin` marcaria `no-store`
+// neles também, e cada abertura do painel rebaixaria o bundle inteiro. O nome carrega
+// hash de conteúdo (`index-Cv9LI3MM.js`), então o arquivo é imutável por construção:
+// mudou o conteúdo, muda a URL. Cachear é seguro e não serve versão velha.
+// O `index.html` da SPA NÃO tem hash e continua coberto pelo `no-store`, senão o
+// admin ficaria preso a um build antigo apontando para assets que já não existem.
+// A exceção casa em `req.originalUrl` e não em `req.path`: com o mount por array,
+// `req.path` é relativo ao prefixo, então `/assets/` sozinho também liberaria
+// `/api/assets/...` — uma rota de API futura com esse nome nasceria cacheável, que é
+// exatamente o defeito que este middleware existe para impedir.
+app.use(["/api", "/admin"], (req, res, next) => {
+  if (req.originalUrl.startsWith("/admin/assets/")) return next();
   res.setHeader("Cache-Control", "no-store, private");
   next();
 });
