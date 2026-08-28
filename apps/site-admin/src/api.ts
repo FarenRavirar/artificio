@@ -48,12 +48,19 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
+// `ContentId`: as colunas `id` são BIGINT (001_init.sql) e o parser default do `pg` as
+// devolve como STRING. Declarar `number` era mentira de tipo — o valor em produção é
+// `"18623"` —, e foi ela que produziu o validador quebrado abaixo. O id só é usado como
+// `key` de lista e como segmento de URL, e ambos aceitam as duas formas; o que não se
+// pode é fazer aritmética com ele.
+export type ContentId = number | string;
+
 export interface PostListItem {
-  id: number; slug: string; title: string; status: string;
+  id: ContentId; slug: string; title: string; status: string;
   published_at: string | null; updated_at: string | null;
 }
-export interface PageListItem { id: number; slug: string; title: string; status: string; updated_at: string | null; }
-export interface Term { id: number; kind: "category" | "tag"; slug: string; name: string; parent_id: number | null; count: number; }
+export interface PageListItem { id: ContentId; slug: string; title: string; status: string; updated_at: string | null; }
+export interface Term { id: ContentId; kind: "category" | "tag"; slug: string; name: string; parent_id: ContentId | null; count: number; }
 export interface SaveResult { id: number; slug: string; rebuild?: { started: boolean; busy?: boolean }; }
 export interface MediaItem {
   id: number; source: string; url: string; mime: string | null;
@@ -97,7 +104,7 @@ export interface PostFull {
   block_doc: unknown | null; status: string; published_at: string | null;
   featured_url: string | null; seo_title: string | null; seo_description: string | null;
   canonical: string | null; og_title: string | null; og_description: string | null;
-  og_image: string | null; twitter_card: string; noindex: boolean; cats: number[]; tags: number[];
+  og_image: string | null; twitter_card: string; noindex: boolean; cats: ContentId[]; tags: ContentId[];
 }
 export interface PageFull {
   id?: number; title: string; slug: string; excerpt: string; content_html: string;
@@ -145,8 +152,20 @@ async function reqItems<T>(path: string, recurso: string, isValidItem: (item: un
 // Validadores de item, por recurso. Checam a identidade (`id`, usada como `key` e em rota)
 // e os campos que o render consome de forma estrutural — não é validação de schema
 // completo, e sim a garantia de que a lista pode ser percorrida sem quebrar.
-const hasNumericId = (item: unknown): item is { id: number } =>
-  !!item && typeof item === "object" && typeof (item as { id?: unknown }).id === "number";
+//
+// `id` aceita number OU string de dígitos porque a coluna é `BIGINT` (001_init.sql) e o
+// parser default do `pg` devolve BIGINT como STRING — `{"id":"18623"}` na resposta real de
+// produção. Exigir `typeof id === "number"` fazia `every()` reprovar TODO item e a tela
+// morrer em "Resposta inesperada do servidor ao listar posts" (medido 2026-08-28), com
+// o admin inteiro inacessível: posts, páginas, taxonomias e feedback compartilham este
+// validador. Mesmo defeito de `avg_rating` (NUMERIC → string) no mesas, mesma raiz:
+// tipo declarado no cliente não descreve o que o driver entrega.
+const hasNumericId = (item: unknown): item is { id: number | string } => {
+  if (!item || typeof item !== "object") return false;
+  const id = (item as { id?: unknown }).id;
+  if (typeof id === "number") return Number.isFinite(id);
+  return typeof id === "string" && /^\d+$/.test(id);
+};
 
 const isContentListItem = (item: unknown): boolean =>
   hasNumericId(item) && typeof (item as { status?: unknown }).status === "string";
@@ -178,24 +197,24 @@ function isCatalogNode(node: unknown): boolean {
 export const api = {
   listPosts: (q = "", status = "") =>
     reqItems<PostListItem>(`/posts${qs({ q, status })}`, "posts", isContentListItem),
-  getPost: (id: number) => req<PostFull>(`/posts/${id}`),
+  getPost: (id: ContentId) => req<PostFull>(`/posts/${id}`),
   createPost: (body: Partial<PostFull>) => req<SaveResult>(`/posts`, { method: "POST", body: JSON.stringify(body) }),
-  updatePost: (id: number, body: Partial<PostFull>) => req<SaveResult>(`/posts/${id}`, { method: "PUT", body: JSON.stringify(body) }),
-  setPostStatus: (id: number, status: string) =>
+  updatePost: (id: ContentId, body: Partial<PostFull>) => req<SaveResult>(`/posts/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  setPostStatus: (id: ContentId, status: string) =>
     req<{ ok: boolean; rebuild?: { started: boolean; busy?: boolean } }>(`/posts/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
-  deletePost: (id: number) => req<{ ok: boolean }>(`/posts/${id}`, { method: "DELETE" }),
+  deletePost: (id: ContentId) => req<{ ok: boolean }>(`/posts/${id}`, { method: "DELETE" }),
 
   listPages: (q = "", status = "") =>
     reqItems<PageListItem>(`/pages${qs({ q, status })}`, "páginas", isContentListItem),
-  getPage: (id: number) => req<PageFull>(`/pages/${id}`),
+  getPage: (id: ContentId) => req<PageFull>(`/pages/${id}`),
   createPage: (body: Partial<PageFull>) => req<SaveResult>(`/pages`, { method: "POST", body: JSON.stringify(body) }),
-  updatePage: (id: number, body: Partial<PageFull>) => req<SaveResult>(`/pages/${id}`, { method: "PUT", body: JSON.stringify(body) }),
-  setPageStatus: (id: number, status: string) =>
+  updatePage: (id: ContentId, body: Partial<PageFull>) => req<SaveResult>(`/pages/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  setPageStatus: (id: ContentId, status: string) =>
     req<{ ok: boolean; rebuild?: { started: boolean; busy?: boolean } }>(`/pages/${id}/status`, { method: "POST", body: JSON.stringify({ status }) }),
-  deletePage: (id: number) => req<{ ok: boolean }>(`/pages/${id}`, { method: "DELETE" }),
+  deletePage: (id: ContentId) => req<{ ok: boolean }>(`/pages/${id}`, { method: "DELETE" }),
 
   listTerms: (kind?: "category" | "tag") => reqItems<Term>(`/taxonomies${qs({ kind })}`, "categorias e tags", isKindedItem),
-  createTerm: (kind: "category" | "tag", name: string, parent_id?: number | null) =>
+  createTerm: (kind: "category" | "tag", name: string, parent_id?: ContentId | null) =>
     req<Term>(`/taxonomies`, { method: "POST", body: JSON.stringify({ kind, name, parent_id }) }),
 
   // Normaliza na fronteira: `req` faz cast cru do JSON, e `available` decide se o aviso de

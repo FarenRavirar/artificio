@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useConfirm } from "@artificio/ui";
-import { api, type PostListItem } from "../api";
+import { api, type PostListItem, type ContentId } from "../api";
 
 // Filtros de status (R4a): "" = ativos (API exclui trash por padrão).
 const FILTERS: { value: string; label: string }[] = [
@@ -36,7 +36,7 @@ export function PostsList() {
   const [status, setStatus] = useState("");
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(true);
-  const [busyId, setBusyId] = useState<number | null>(null);
+  const [busyId, setBusyId] = useState<ContentId | null>(null);
   const [toast, setToast] = useState<{ msg: string; err?: boolean } | null>(null);
 
   const { confirm } = useConfirm();

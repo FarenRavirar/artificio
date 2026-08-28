@@ -1,5 +1,5 @@
 import { NavLink, Route, Routes } from "react-router-dom";
-import { ConfirmProvider } from "@artificio/ui";
+import { ConfirmProvider, Header } from "@artificio/ui";
 import { PostsList } from "./pages/PostsList";
 import { PostEditor } from "./pages/PostEditor";
 import { PagesList } from "./pages/PagesList";
@@ -11,6 +11,13 @@ import { CatalogSystemsPage } from "./pages/CatalogSystemsPage";
 export function App() {
   return (
     <ConfirmProvider>
+    {/* Header do portal no admin: dá acesso ao nav cross-subdomínio e ao menu de conta,
+        que a sidebar própria não oferece — de dentro do admin não havia como ver quem
+        está logado nem pular para outro projeto sem editar a URL na mão.
+        `sticky={false}` de propósito: o admin é ferramenta de trabalho com tabelas longas,
+        e um header fixo comeria altura útil em toda rolagem. A sidebar continua sendo a
+        navegação primária daqui. */}
+    <Header sticky={false} />
     <div className="admin-shell">
       <aside className="admin-side">
         <h1>Artifício <b>RPG</b><br />Administração</h1>

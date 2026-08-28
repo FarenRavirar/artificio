@@ -4900,7 +4900,7 @@
       "method": "USE",
       "path": "/admin",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 266,
+      "line": 288,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4909,7 +4909,7 @@
       "method": "USE",
       "path": "/admin",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 268,
+      "line": 290,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4918,7 +4918,7 @@
       "method": "GET",
       "path": "/admin/preview/:type/:id",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 238,
+      "line": 260,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4927,7 +4927,7 @@
       "method": "POST",
       "path": "/admin/rebuild",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 126,
+      "line": 148,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4936,7 +4936,7 @@
       "method": "GET",
       "path": "/admin/status",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 111,
+      "line": 133,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4945,7 +4945,7 @@
       "method": "USE",
       "path": "/api/admin/v1",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 231,
+      "line": 253,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4954,7 +4954,7 @@
       "method": "USE",
       "path": "/api/admin/v1/catalog",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 228,
+      "line": 250,
       "confidence": "high",
       "kind": "mount"
     },
@@ -4999,7 +4999,7 @@
       "method": "USE",
       "path": "/api/admin/v1/catalog/material-types",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 229,
+      "line": 251,
       "confidence": "high",
       "kind": "mount"
     },
@@ -5314,7 +5314,7 @@
       "method": "USE",
       "path": "/api/catalog/v1",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 203,
+      "line": 225,
       "confidence": "high",
       "kind": "mount"
     },
@@ -5404,7 +5404,7 @@
       "method": "POST",
       "path": "/api/feedback",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 157,
+      "line": 179,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -5431,7 +5431,7 @@
       "method": "USE",
       "path": "/api/v1/community/conversation",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 212,
+      "line": 234,
       "confidence": "high",
       "kind": "mount"
     },
@@ -5476,7 +5476,7 @@
       "method": "USE",
       "path": "/api/v1/community/moderation",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 219,
+      "line": 241,
       "confidence": "high",
       "kind": "mount"
     },
@@ -5503,7 +5503,7 @@
       "method": "GET",
       "path": "/healthz",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 100,
+      "line": 122,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -5512,7 +5512,7 @@
       "method": "USE",
       "path": "/uploads",
       "sourceFile": "apps/site/server/server.ts",
-      "line": 235,
+      "line": 257,
       "confidence": "high",
       "kind": "mount"
     }

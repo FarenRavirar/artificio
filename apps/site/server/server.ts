@@ -58,6 +58,28 @@ if (process.env.SITE_NOINDEX === "true") {
   });
 }
 
+// Nenhuma resposta de API entra em cache compartilhado (incidente 2026-08-28).
+// O servidor não declarava `Cache-Control` em rota alguma, então quem decidia era
+// a borda: a regra "Cache Everything — HTML" da Cloudflare tinha lista de exceções
+// herdada do WordPress (/wp-admin/, /wp-json/, cookie wordpress_logged_in) que não
+// cobria `/api/`. Resultado medido: `GET /api/admin/v1/posts` respondeu 200 com 50
+// registros a QUALQUER anônimo, servido do cache da borda (cf-cache-status: HIT,
+// Age 482s), enquanto o mesmo path com query ia à origem e devolvia 401.
+// A regra da borda foi corrigida, mas depender só dela é frágil — o próximo
+// endpoint criado herdaria o mesmo defeito sem nenhum sinal. `no-store` na origem
+// é a defesa que viaja com o código.
+// Vale para TODO `/api/`, não só `/api/admin/`: rota pública de API também é
+// dinâmica (paginação, filtro, sessão) e nunca deve ser servida de cache
+// compartilhado sem decisão explícita de quem a escreveu.
+// `/admin` entra junto porque três rotas autenticadas vivem fora de `/api/`:
+// `/admin/status`, `/admin/rebuild` e `/admin/preview/:type/:id`. A de preview é a
+// mais sensível das duas listas — renderiza rascunho NÃO publicado (D053), então
+// uma entrada de cache ali vaza conteúdo inédito, não só metadado de post público.
+app.use(["/api", "/admin"], (_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store, private");
+  next();
+});
+
 const requireAdmin: RequestHandler = (req, res, next) => {
   const session = (req as AuthenticatedRequest).session;
   if (!session || session.user.role !== "admin") {

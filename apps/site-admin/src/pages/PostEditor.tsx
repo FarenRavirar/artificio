@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api, openPreview, type PostFull, type Term, type MediaItem } from "../api";
+import { api, openPreview, type PostFull, type Term, type MediaItem, type ContentId } from "../api";
 import { BlockEditor, type EditorHandle } from "../editor/BlockEditor";
 import { SeoPanel } from "../editor/SeoPanel";
 import { MediaPicker } from "../media/MediaPicker";
@@ -85,10 +85,17 @@ export function PostEditor() {
 
   const set = <K extends keyof PostFull>(k: K, v: PostFull[K]) => setPost((p) => ({ ...p, [k]: v }));
 
-  const toggleTerm = (termId: number, kind: "category" | "tag") => {
+  // Compara por String() de propósito: `id` é BIGINT e o driver `pg` o devolve como string,
+  // mas nem todo caminho do payload garante a mesma forma — `cats` pode chegar `[12]` e o
+  // `termId` do checkbox `"12"`. Com `includes`/`!==` estritos isso nunca casa: a marcação
+  // não aparece e o toggle duplica a entrada, sem erro de tipo que denuncie.
+  const sameId = (a: ContentId, b: ContentId) => String(a) === String(b);
+
+  const toggleTerm = (termId: ContentId, kind: "category" | "tag") => {
     const key = kind === "category" ? "cats" : "tags";
     const cur = post[key];
-    set(key, cur.includes(termId) ? cur.filter((x) => x !== termId) : [...cur, termId]);
+    const marcado = cur.some((x) => sameId(x, termId));
+    set(key, marcado ? cur.filter((x) => !sameId(x, termId)) : [...cur, termId]);
   };
 
   const suggestSlug = async () => {
@@ -204,14 +211,14 @@ export function PostEditor() {
             <h3>Categorias <button className="btn" type="button" style={{ float: "right", padding: "2px 8px" }} onClick={() => addTerm("category")}>+</button></h3>
             <div className="checks">
               {cats.map((t) => (
-                <label key={t.id}><input type="checkbox" checked={post.cats.includes(t.id)} onChange={() => toggleTerm(t.id, "category")} />{t.name}</label>
+                <label key={t.id}><input type="checkbox" checked={post.cats.some((x) => sameId(x, t.id))} onChange={() => toggleTerm(t.id, "category")} />{t.name}</label>
               ))}
               {!cats.length && <p className="muted">Nenhuma. Crie com +</p>}
             </div>
             <h3 style={{ marginTop: 14 }}>Tags <button className="btn" type="button" style={{ float: "right", padding: "2px 8px" }} onClick={() => addTerm("tag")}>+</button></h3>
             <div className="checks">
               {tags.map((t) => (
-                <label key={t.id}><input type="checkbox" checked={post.tags.includes(t.id)} onChange={() => toggleTerm(t.id, "tag")} />{t.name}</label>
+                <label key={t.id}><input type="checkbox" checked={post.tags.some((x) => sameId(x, t.id))} onChange={() => toggleTerm(t.id, "tag")} />{t.name}</label>
               ))}
               {!tags.length && <p className="muted">Nenhuma. Crie com +</p>}
             </div>

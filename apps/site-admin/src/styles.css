@@ -8,9 +8,15 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; color: var(--ink); background: #f6f7fb; }
+/* Coluna Header + shell: o `flex: 1` do `.admin-shell` precisa de um pai flex para poder
+   esticar até o rodapé da viewport, senão a sidebar para na altura do conteúdo. */
+#root { display: flex; flex-direction: column; min-height: 100vh; }
 a { color: var(--navy); }
 
-.admin-shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+/* `min-height: 100vh` viraria 100vh + altura do Header depois que ele passou a ficar acima
+   do shell, criando rolagem vertical mesmo em tela vazia. `auto` deixa o grid ocupar o que
+   sobra; `flex: 1` no wrapper garante que a sidebar continue descendo até o rodapé. */
+.admin-shell { display: grid; grid-template-columns: 220px 1fr; min-height: auto; flex: 1; }
 .admin-side { background: var(--navy); color: #fff; padding: 20px 16px; }
 .admin-side h1 { font-size: 15px; letter-spacing: .04em; margin: 0 0 20px; }
 .admin-side h1 b { color: var(--orange); }
