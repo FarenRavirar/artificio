@@ -13,10 +13,11 @@ interface MestreHeroProps {
 }
 
 export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
-  // `avg_rating` é NUMERIC no Postgres e pode chegar como string do backend.
-  // O tipo declarado (`number | null`) não garante nada em runtime: enquanto
-  // nenhum mestre tinha review o valor era `null` e o caminho nunca rodou; o
-  // primeiro review real trouxe `"5.00"` e `.toFixed()` derrubou a página.
+  // Defesa secundária: a normalização primária de `avg_rating` vive em
+  // `normalizeMestreProfile` (useMestre.ts), na entrada do estado. Mantida aqui
+  // porque o componente aceita `MestrePublicData` de qualquer origem, e o campo
+  // é NUMERIC(3,2) — o parser default do `pg` entrega string, que já derrubou o
+  // catálogo em produção via `.toFixed()`.
   const avgRating = toFiniteNumber(profile.avg_rating);
 
   const hasAnyStat =

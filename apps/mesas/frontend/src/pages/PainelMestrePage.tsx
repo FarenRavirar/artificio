@@ -121,6 +121,19 @@ function isGmProfile(value: unknown): value is GmProfile {
   );
 }
 
+/**
+ * Normaliza o payload externo antes de entrar no estado. `isGmProfile` afirma
+ * `avg_rating: number | null` mas não valida esse campo, e a coluna é
+ * NUMERIC(3,2) — o parser default do `pg` entrega string. Hoje `GET /gm/me`
+ * devolve `avg_rating: null` fixo (gmPanel.ts), então nada quebra; sem esta
+ * normalização, porém, passar a expor o valor real reintroduz o
+ * `TypeError: toFixed is not a function` que derrubou o catálogo em produção.
+ */
+function normalizeGmProfile(value: unknown): GmProfile | null {
+  if (!isGmProfile(value)) return null;
+  return { ...value, avg_rating: toFiniteNumber(value.avg_rating) };
+}
+
 function isMyTableApi(value: unknown): value is MyTableApi {
   return (
     isRecord(value) &&
@@ -247,9 +260,9 @@ export const PainelMestrePage = () => {
         }
 
         const profileJson: unknown = await profileRes.json();
-        const profile = getPayloadData(profileJson);
+        const profile = normalizeGmProfile(getPayloadData(profileJson));
 
-        if (!isGmProfile(profile)) {
+        if (!profile) {
           setGmProfile(null);
           setMyTables([]);
           return;
@@ -354,8 +367,7 @@ export const PainelMestrePage = () => {
       .then(async ([profileRes, tablesRes]) => {
         if (profileRes.ok) {
           const profileJson: unknown = await profileRes.json();
-          const profile = getPayloadData(profileJson);
-          setGmProfile(isGmProfile(profile) ? profile : null);
+          setGmProfile(normalizeGmProfile(getPayloadData(profileJson)));
         }
 
 
@@ -559,8 +571,10 @@ export const PainelMestrePage = () => {
                 {gmProfile && (
                   <p className="text-white/40 mt-1 text-sm">
                     {gmProfile.tables_count} mesa{gmProfile.tables_count !== 1 ? 's' : ''} publicada{gmProfile.tables_count !== 1 ? 's' : ''}
-                    {/* toFiniteNumber: avg_rating é NUMERIC e pode chegar como string do backend. */}
-                    {toFiniteNumber(gmProfile.avg_rating) !== null ? ` · ★ ${toFiniteNumber(gmProfile.avg_rating)!.toFixed(1)}` : ''}
+                    {/* avg_rating já chega normalizado por normalizeGmProfile.
+                        Condição truthy (não `!== null`): rating 0 significa "sem
+                        nota", e não deve renderizar "★ 0.0". */}
+                    {gmProfile.avg_rating ? ` · ★ ${gmProfile.avg_rating.toFixed(1)}` : ''}
                   </p>
                 )}
               </div>

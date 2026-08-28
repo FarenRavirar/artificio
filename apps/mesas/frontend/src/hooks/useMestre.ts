@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { UserLink } from './useLinks';
 import type { TableCard } from '../types/tables';
 import { authGet } from '../services/apiClient';
+import { toFiniteNumber } from '@artificio/ui';
 
 export interface ViewerContext {
   is_owner: boolean;
@@ -97,6 +98,13 @@ function normalizeMestreProfile(data: MestrePublicData | null | undefined): Mest
     banner_crop_data: banner.crop,
     banner_width: banner.width,
     banner_height: banner.height,
+    // `avg_rating` é NUMERIC(3,2) e o parser default do `pg` entrega string.
+    // O payload chega por cast (`as GmProfilePayload`), sem validação, então o
+    // tipo `number | null` não garante nada em runtime. Converter aqui, na
+    // entrada, mantém o estado honesto: durante um deploy em que o frontend sobe
+    // antes do backend a API ainda devolve "5.00", e sem isso qualquer consumidor
+    // novo repete o `.toFixed()` que derrubou o catálogo em produção.
+    avg_rating: toFiniteNumber(data.avg_rating),
   };
 }
 
