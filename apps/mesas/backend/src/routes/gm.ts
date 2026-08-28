@@ -182,7 +182,10 @@ router.get('/perfis/:slug', publicRateLimiter, optionalAuth, async (req: Request
         // de gm.experience_years (autodeclarado pelo mestre no formulário, achado D2
         // da investigação): não fundir os dois campos na UI.
         sql<number>`GREATEST(0, EXTRACT(YEAR FROM AGE(NOW(), gm.created_at))::int)`.as('years_on_platform'),
-        'gm.avg_rating',
+        // `::float8` obrigatório: a coluna é NUMERIC(3,2) e o parser default do
+        // `pg` devolve NUMERIC como string. Sem o cast, `avg_rating!.toFixed(1)`
+        // no MestreHero/PainelMestrePage quebrava a renderização inteira.
+        sql<number | null>`gm.avg_rating::float8`.as('avg_rating'),
         'gm.reviews_count',
         'gm.created_at',
         // Campos extras para prova social

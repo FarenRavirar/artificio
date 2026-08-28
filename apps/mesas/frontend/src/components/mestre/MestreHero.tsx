@@ -4,6 +4,7 @@ import type { TableCard } from '../../types/tables';
 import type { MestrePublicData } from '../../hooks/useMestre';
 import { isUsableImageSrc } from '../../utils/imageSource';
 import { cropToObjectPosition } from '@artificio/media/image-kinds';
+import { toFiniteNumber } from '@artificio/ui';
 
 interface MestreHeroProps {
   profile: MestrePublicData;
@@ -12,9 +13,16 @@ interface MestreHeroProps {
 }
 
 export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
+  // Defesa secundária: a normalização primária de `avg_rating` vive em
+  // `normalizeMestreProfile` (useMestre.ts), na entrada do estado. Mantida aqui
+  // porque o componente aceita `MestrePublicData` de qualquer origem, e o campo
+  // é NUMERIC(3,2) — o parser default do `pg` entrega string, que já derrubou o
+  // catálogo em produção via `.toFixed()`.
+  const avgRating = toFiniteNumber(profile.avg_rating);
+
   const hasAnyStat =
     (profile.tables_count ?? 0) > 0 ||
-    (profile.avg_rating ?? 0) > 0 ||
+    (avgRating ?? 0) > 0 ||
     (profile.reviews_count ?? 0) > 0;
 
   const hasAnyTrust =
@@ -181,10 +189,10 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
                 </span>
               </div>
             )}
-            {(profile.avg_rating ?? 0) > 0 && (
+            {(avgRating ?? 0) > 0 && (
               <div className="stat">
                 <Star className="stat-icon" />
-                <span className="stat-value">{profile.avg_rating!.toFixed(1)}★</span>
+                <span className="stat-value">{avgRating!.toFixed(1)}★</span>
                 <span className="stat-label">Avaliação</span>
               </div>
             )}

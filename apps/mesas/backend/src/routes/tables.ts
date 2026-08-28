@@ -182,7 +182,11 @@ router.get('/', async (req: Request, res: Response) => {
         sql<string | null>`COALESCE(gm.avatar_url, p.avatar_url)`.as('gm_avatar_url'),
         'gm.badges as gm_badges',
         sql<string>`COALESCE(gm.nickname, p.display_name)`.as('gm_display_name'),
-        'gm.avg_rating as gm_avg_rating', // T3.7/T8.6 (spec 081): rating resumido no card do catálogo
+        // T3.7/T8.6 (spec 081): rating resumido no card do catálogo.
+        // `::float8` obrigatório: a coluna é NUMERIC(3,2) e o parser default do
+        // `pg` devolve NUMERIC como string, que quebrava `.toFixed()` no
+        // frontend (mesmo motivo do cast em routes/gm.ts na agregação).
+        sql<number | null>`gm.avg_rating::float8`.as('gm_avg_rating'),
         'gm.reviews_count as gm_reviews_count',
         // CORREÇÃO A-HIGH-01: Retornar objeto vtt_platform para cards de catálogo
         sql<VttPlatformSummary>`
@@ -669,7 +673,9 @@ router.get('/:slug', async (req: Request, res: Response) => {
         'u.id as gm_user_id', // CORREÇÃO DT-025: Adicionar user_id para verificação de ownership
         sql<string>`COALESCE(gm.nickname, p.display_name)`.as('gm_display_name'),
         'gm.bio_long as gm_bio_long', // CORREÇÃO REG-13: Renomeado para evitar conflito com t.gm_bio
-        'gm.avg_rating as gm_avg_rating', // T6 (spec 081): rating resumido no card da mesa
+        // T6 (spec 081): rating resumido no card da mesa. `::float8` pelo mesmo
+        // motivo do SELECT do catálogo acima — NUMERIC vira string no `pg`.
+        sql<number | null>`gm.avg_rating::float8`.as('gm_avg_rating'),
         'gm.reviews_count as gm_reviews_count',
         't.archived_by',
         't.closed_reason',
