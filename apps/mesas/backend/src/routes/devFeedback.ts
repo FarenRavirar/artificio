@@ -81,7 +81,10 @@ router.post('/', strictRateLimiter, optionalAuth, async (req: Request, res: Resp
       type: 'dev_feedback',
       title: `Novo feedback de desenvolvimento (${kindLabel})`,
       message: `${input.title}${input.route_path ? ` — ${input.route_path}` : ''}`,
-      action_url: '/gestao/sistema',
+      // `?tab=feedback` e obrigatorio: a pagina abre em "Usuarios" por padrao,
+      // entao sem a query o admin caia numa aba que nao mostra o feedback que
+      // acabou de chegar (relato de 2026-08-27).
+      action_url: '/gestao/sistema?tab=feedback',
       metadata: {
         feedback_id: created.id,
         kind: input.kind,

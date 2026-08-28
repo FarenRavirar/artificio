@@ -488,7 +488,12 @@
   font-weight: 500;
 }
 
-/* Discord Section */
+/* Discord Section
+   Sem consumidor no JSX desde 2026-08-27: a seção da aba Mestre foi ADIADA
+   (decisão do mantenedor), não cancelada, e o backend segue inteiro. O estilo
+   fica aqui de propósito — apagá-lo obrigaria reescrevê-lo na retomada, e o
+   custo de manter é uma regra CSS morta. Se a integração for cancelada de vez,
+   este bloco (até `.discord-disconnected li`) sai junto. */
 .discord-connected,
 .discord-disconnected {
   padding: 1.25rem;

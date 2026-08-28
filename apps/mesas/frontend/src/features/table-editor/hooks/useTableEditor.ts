@@ -431,6 +431,75 @@ export interface TableEditorApi {
   syncingProfile: boolean;
 }
 
+/**
+ * Erro de gravação do rascunho que preserva o motivo dado pelo servidor.
+ *
+ * Antes o autosave descartava o corpo da resposta (`new Error('POST rascunho
+ * falhou')`) e o toast dizia só "não foi possível salvar". O backend já
+ * responde `{ error, field }` no 400 (`gmPanel.ts` → `createTableSchema`), ou
+ * seja: a informação que o mestre precisava para consertar o campo existia e
+ * era jogada fora. `permanent` marca o 4xx de validação, que reenviar não
+ * resolve — distingue do 5xx/rede, onde repetir é o comportamento correto.
+ */
+class DraftSaveError extends Error {
+  readonly permanent: boolean;
+  /** Campo apontado pelo backend no 400 (`{ field }`), quando houver. */
+  readonly field: string | null;
+
+  constructor(message: string, permanent: boolean, field: string | null) {
+    super(message);
+    this.name = 'DraftSaveError';
+    this.permanent = permanent;
+    this.field = field;
+  }
+}
+
+/** Lê `{ error, field }` da resposta e classifica se vale reenviar. */
+async function draftSaveError(res: Response, fallback: string): Promise<DraftSaveError> {
+  // Resposta de rede é `unknown` até ser normalizada — nunca confiar no shape.
+  const body: unknown = await res.json().catch(() => null);
+  const record = typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : null;
+  const serverMessage = typeof record?.error === 'string' ? record.error.trim() : '';
+  const field = typeof record?.field === 'string' ? record.field.trim() : '';
+
+  // SÓ 400/422 são permanentes — os status em que o servidor diz que o CORPO
+  // está errado. 401/403/404 são 4xx que o mesmo payload resolve sem edição
+  // nenhuma: reautenticação, criação do perfil de mestre (o `POST /gm/tables`
+  // responde 403 enquanto o perfil não existe) ou o recurso voltando a existir.
+  // Tratá-los como permanentes suprimia o autosave de conteúdo inalterado
+  // mesmo depois de a condição se resolver (achado Codex, PR #292).
+  const permanent = res.status === 400 || res.status === 422;
+
+  const message = serverMessage
+    ? (field ? `${serverMessage} (campo: ${field})` : serverMessage)
+    : fallback;
+
+  return new DraftSaveError(message, permanent, field || null);
+}
+
+/**
+ * Serializa o trecho do payload que o backend recusou.
+ *
+ * Com `field`, só aquele valor entra na comparação — é o que permite ao mestre
+ * seguir editando os outros campos sem destravar um POST que continuaria
+ * inválido. O backend manda o caminho já achatado por `path.join('.')`
+ * (`gmPanel.ts`), então um campo aninhado (`contacts.0.value`) é percorrido
+ * segmento a segmento; caminho que não resolve cai no payload inteiro, para
+ * nunca destravar por engano.
+ */
+function rejectedValueOf(payload: unknown, field: string | null): string {
+  if (!field) return JSON.stringify(payload);
+
+  let cursor: unknown = payload;
+  for (const segment of field.split('.')) {
+    if (cursor === null || typeof cursor !== 'object') return JSON.stringify(payload);
+    cursor = (cursor as Record<string, unknown>)[segment];
+  }
+  // `undefined` não sobrevive ao JSON.stringify de topo — marca explícita para
+  // que "campo ausente" continue comparável com "campo ausente".
+  return cursor === undefined ? '<undefined>' : JSON.stringify(cursor);
+}
+
 export function useTableEditor({ initialData, onPublished }: TableEditorOptions): TableEditorApi {
   const { user } = useAuth();
   const [state, setState] = useState<TableEditorState>(() =>
@@ -799,6 +868,21 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
   // painel. Guarda a promessa em curso para que a próxima escrita a aguarde em
   // vez de recriar (achado Codex, PR #286).
   const draftCreationRef = useRef<Promise<string | null> | null>(null);
+  // O que o servidor JÁ recusou com 400/422. Um 400 é erro permanente: o mesmo
+  // conteúdo será recusado de novo, e o autosave reagenda a cada tecla — foi
+  // assim que o relato de 2026-08-27 acumulou 7 POST /gm/tables idênticos.
+  //
+  // Guarda o CAMPO apontado pelo backend e o valor dele, não o payload inteiro
+  // (achado Codex, PR #292): com o payload todo, digitar em qualquer outro
+  // campo mudava a serialização e liberava um POST novo enquanto o campo
+  // inválido continuava igual — a rajada de 400 voltava. Bloqueando pelo par
+  // (campo, valor), o autosave só volta quando o mestre corrige AQUELE campo, e
+  // segue salvando normalmente as demais edições... exceto que elas também
+  // dependem do campo inválido, então ficam retidas até a correção.
+  //
+  // `field: null` = backend não disse qual campo (400 sem `{ field }`): aí o
+  // fallback é o payload inteiro, o comportamento conservador anterior.
+  const rejectedDraftRef = useRef<{ field: string | null; value: string } | null>(null);
 
   /**
    * Aguarda uma criação de rascunho JÁ em voo (não inicia nenhuma).
@@ -825,7 +909,7 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
   const startDraftCreation = useCallback(async (payload: EditorPayload): Promise<string | null> => {
     const creation = (async () => {
       const res = await authPost('/api/v1/gm/tables', payload);
-      if (!res.ok) throw new Error('POST rascunho falhou');
+      if (!res.ok) throw await draftSaveError(res, 'POST rascunho falhou');
       const json = (await res.json().catch(() => ({}))) as { data?: { id?: unknown } };
       if (typeof json.data?.id !== 'string') return null;
       // O id é gravado no ref ANTES de qualquer guard de desmonte: a mesa JÁ
@@ -852,17 +936,39 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
     // herdado que o mestre não editou (senão o draft viraria a "decisão" da
     // mesa antes do publish).
     const payload = editorStateToPayload(state, { omitInherited });
+    // Se o conteúdo que o servidor recusou continua igual, reenviar dá o mesmo
+    // 400 — o autosave espera a correção em vez de repetir a rajada.
+    const rejected = rejectedDraftRef.current;
+    if (rejected && rejectedValueOf(payload, rejected.field) === rejected.value) return null;
     // Uma criação em voo vale por todas: se outro disparo já está criando o
     // rascunho, espera o id dele em vez de emitir um segundo POST.
     const knownId = remoteDraftIdRef.current ?? remoteDraftId ?? (await pendingDraftCreation());
 
-    if (knownId) {
-      const res = await authPut(`/api/v1/gm/tables/${knownId}`, payload);
-      if (!res.ok) throw new Error('PUT rascunho falhou');
-      return null;
-    }
+    try {
+      if (knownId) {
+        const res = await authPut(`/api/v1/gm/tables/${knownId}`, payload);
+        if (!res.ok) throw await draftSaveError(res, 'PUT rascunho falhou');
+        // Salvou: o que estava recusado deixou de estar. Sem esta limpeza, um
+        // marcador antigo (de outro campo) continuaria valendo e poderia
+        // bloquear um save legítimo mais adiante na mesma sessão.
+        rejectedDraftRef.current = null;
+        return null;
+      }
 
-    return startDraftCreation(payload);
+      const createdId = await startDraftCreation(payload);
+      rejectedDraftRef.current = null;
+      return createdId;
+    } catch (err) {
+      if (err instanceof DraftSaveError && err.permanent) {
+        // Guarda o campo apontado pelo servidor e o valor exato que ele
+        // recusou: é esse par que precisa mudar para o autosave voltar.
+        rejectedDraftRef.current = {
+          field: err.field,
+          value: rejectedValueOf(payload, err.field),
+        };
+      }
+      throw err;
+    }
   }, [state, omitInherited, remoteDraftId, pendingDraftCreation, startDraftCreation]);
 
   useEffect(() => {
@@ -878,8 +984,16 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
         // setState só depois do guard — o cleanup do effect alcança o timer,
         // não o corpo async já em voo (C4a).
         if (createdId && active) setRemoteDraftId(createdId);
-      } catch {
-        if (active) toast.error('Não foi possível salvar o rascunho no servidor.');
+      } catch (err) {
+        // O motivo do servidor ("Título obrigatório", "Sistema inválido…") diz
+        // ao mestre o que consertar; o texto genérico anterior não dizia nada.
+        if (!active) return;
+        const detail = err instanceof DraftSaveError ? err.message : '';
+        toast.error(
+          detail
+            ? `Não foi possível salvar o rascunho: ${detail}`
+            : 'Não foi possível salvar o rascunho no servidor.',
+        );
       }
     };
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Archive, ArchiveRestore, Copy, Power, ShieldCheck, Star, Trash2 } from 'lucide-react';
 import { useConfirm } from '@artificio/ui';
 import toast from 'react-hot-toast';
-import { authDelete, authGet, authPost, authPut } from '../../../services/apiClient';
+import { authDelete, authGet, authPost, authPut, isAbortError } from '../../../services/apiClient';
 import { AdminTable, StatusPill } from './ui';
 import { formatDate } from '../utils/format';
 import { getMesasPublicOrigin } from '../../../utils/auth';
@@ -141,6 +141,10 @@ export function AdminTablesPanel() {
       const raw = payload && typeof payload === 'object' ? (payload as Record<string, unknown>).data : null;
       setTables(normalizeTables(raw));
     } catch (error) {
+      // Abort = dedup do apiClient na chamada duplicada do mount; a vencedora
+      // preenche a lista. Sem o guard, o texto do DOMException virava erro na
+      // tela com os dados já carregados (mesmo defeito medido em 2026-08-27).
+      if (isAbortError(error)) return;
       const message = error instanceof Error ? error.message : 'Erro ao buscar mesas.';
       setTablesError(message);
       toast.error(message);

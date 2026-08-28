@@ -8,7 +8,7 @@ import type {
   UserSystem,
   UserUpdate,
 } from '../db/types.js';
-import { systemExistsInCatalog } from './systemCatalogProvider.js';
+import { getSystemCatalogProvider } from './systemCatalogProvider.js';
 import {
   sanitizeNullableUserMarkdown,
   sanitizeOptionalUserMarkdown,
@@ -329,9 +329,24 @@ export async function addUserSystem(
   // /api/v1/systems (catalogo central, spec 062), mas esta checagem batia na
   // tabela local `systems` — nó criado só no catálogo central sempre falhava
   // aqui ("Sistema não encontrado"), impedindo salvar favorito/sistema-que-mestra.
-  const systemExists = await systemExistsInCatalog(systemId);
+  //
+  // Achado Codex (PR #292): NÃO usar `systemExistsInCatalog` aqui. Ele converte
+  // exceção em `false` (systemCatalogProvider.ts:114) e `loadCatalogTree`
+  // devolve `[]` quando o catálogo central cai sem cache quente
+  // (catalogClient.ts:153) — as duas coisas fazem indisponibilidade transitória
+  // ficar indistinguível de "sistema não existe". Como o handler passou a
+  // traduzir essa negativa em 404, um sistema válido viraria "não encontrado"
+  // durante uma queda do catálogo. Chamar o provider direto deixa a exceção
+  // subir e virar 500, que é o status honesto para falha de dependência.
+  const catalog = await getSystemCatalogProvider().loadFlat();
 
-  if (!systemExists) {
+  // Catálogo vazio é sintoma de falha, não de catálogo sem sistemas: o central
+  // devolve `[]` no fallback de erro sem cache. Tratar como negativa daria 404.
+  if (catalog.length === 0) {
+    throw new Error('Catálogo de sistemas indisponível');
+  }
+
+  if (!catalog.some((node) => node.id === systemId)) {
     throw new Error('Sistema não encontrado');
   }
 

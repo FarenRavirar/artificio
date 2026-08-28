@@ -40,7 +40,21 @@ function hasStatus(error: unknown): error is { status: number } {
   );
 }
 
-function isAbortError(error: unknown): error is { name: 'AbortError' } {
+/**
+ * Abort NUNCA é erro do usuário — é a dedup desta camada (linha ~99) cancelando
+ * a chamada perdedora quando dois efeitos pedem o mesmo GET no mount, ou o
+ * caller cancelando por desmonte. A chamada sobrevivente resolve normalmente.
+ *
+ * Exportado porque quem chama precisa distinguir: `DOMException` é
+ * `instanceof Error`, então `err.message` passa por qualquer
+ * `err instanceof Error ? err.message : ...` e o texto NATIVO do navegador
+ * ("signal is aborted without reason") vazava para a TELA via `setError` +
+ * `toast.error` — com a lista já carregada pela chamada vencedora, ou seja, um
+ * erro visível onde nada falhou. Medido no relato de 2026-08-27 em
+ * `/gestao/sistema`. Todo `catch` em torno de `authGet` deve descartar abort
+ * antes de montar mensagem para o usuário.
+ */
+export function isAbortError(error: unknown): error is { name: 'AbortError' } {
   return (
     typeof error === 'object' &&
     error !== null &&

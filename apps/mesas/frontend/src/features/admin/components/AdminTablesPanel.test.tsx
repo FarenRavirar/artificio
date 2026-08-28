@@ -22,7 +22,13 @@ const mockAuthDelete = vi.fn();
 const mockAuthPost = vi.fn();
 const mockAuthPut = vi.fn();
 
-vi.mock('../../../services/apiClient', () => ({
+// Mesma razão do mock de @artificio/ui acima: substituir o módulo inteiro faz
+// qualquer helper novo (ex.: `isAbortError`) chegar como `undefined` e explodir
+// com TypeError dentro do catch do painel — o erro real some da tela e o teste
+// falha por um motivo que não é o que ele mede. `importOriginal` preserva o
+// resto do módulo; só os verbos HTTP são substituídos.
+vi.mock('../../../services/apiClient', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   authGet: (...args: unknown[]) => mockAuthGet(...args),
   authDelete: (...args: unknown[]) => mockAuthDelete(...args),
   authPost: (...args: unknown[]) => mockAuthPost(...args),
@@ -255,5 +261,19 @@ describe('AdminTablesPanel — comportamento das ações', () => {
     renderPanel();
 
     expect(await screen.findByText('Sem permissão')).toBeTruthy();
+  });
+
+  // Relato de produção 2026-08-27: a dedup do apiClient cancela a chamada
+  // duplicada do mount e o DOMException do abort ("signal is aborted without
+  // reason") aparecia como erro NA TELA, apesar de a chamada vencedora ter
+  // carregado a lista. Abort não é falha do usuário.
+  it('abort da dedup não vira mensagem de erro na tela', async () => {
+    const abortError = new DOMException('signal is aborted without reason', 'AbortError');
+    mockAuthGet.mockRejectedValue(abortError);
+    renderPanel();
+
+    await waitFor(() => expect(mockAuthGet).toHaveBeenCalled());
+    expect(screen.queryByText(/aborted/i)).toBeNull();
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });

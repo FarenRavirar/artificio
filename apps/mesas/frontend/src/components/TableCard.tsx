@@ -70,9 +70,13 @@ function useTableFavorite(slug: string) {
 
   useEffect(() => {
     if (!isAuthenticated) return;
+    // Card de mesa ainda sem slug (rascunho/prévia) montava
+    // `/api/v1/tables//favorite` e gerava um 404 garantido no console do
+    // usuário. Medido no relato de 2026-08-27. Sem slug não há o que consultar.
+    if (!slug) return;
     let cancelled = false;
 
-    fetch(`/api/v1/tables/${slug}/favorite`)
+    fetch(`/api/v1/tables/${encodeURIComponent(slug)}/favorite`)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
@@ -89,6 +93,11 @@ function useTableFavorite(slug: string) {
     e.preventDefault();
     e.stopPropagation();
 
+    // Sem slug não há nada a favoritar, e o guard vem ANTES do SSO: deixado
+    // depois, o usuário deslogado fazia o login inteiro para ser devolvido a
+    // `/mesas/` — uma rota inválida (achado Codex/CodeRabbit, PR #292).
+    if (!slug) return;
+
     if (!isAuthenticated) {
       startSsoLogin(`/mesas/${slug}`);
       return;
@@ -97,7 +106,7 @@ function useTableFavorite(slug: string) {
     if (isTogglingFavorite) return;
     setIsTogglingFavorite(true);
 
-    fetch(`/api/v1/tables/${slug}/favorite`, { method: 'POST' })
+    fetch(`/api/v1/tables/${encodeURIComponent(slug)}/favorite`, { method: 'POST' })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();

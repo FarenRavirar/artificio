@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Save, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { authDelete, authGet, authPost, authPut } from '../../../services/apiClient';
+import { authDelete, authGet, authPost, authPut, isAbortError } from '../../../services/apiClient';
 import { AdminTable, StatusPill } from './ui';
 
 interface SettingStyleSuggestion {
@@ -89,6 +89,10 @@ export function SettingSuggestionsPanel() {
       const data = payload && typeof payload === 'object' ? (payload as Record<string, unknown>).suggestions : [];
       setRows(normalizeSuggestions(data));
     } catch (err) {
+      // Abort = dedup do apiClient na chamada duplicada do mount; a vencedora
+      // preenche a lista. Sem o guard, o texto do DOMException virava erro na
+      // tela com os dados já carregados (mesmo defeito medido em 2026-08-27).
+      if (isAbortError(err)) return;
       const message = err instanceof Error ? err.message : 'Erro ao carregar estilos por cenário.';
       setError(message);
       toast.error(message);

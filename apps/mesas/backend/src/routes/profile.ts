@@ -232,6 +232,22 @@ router.post('/systems', authMiddleware, async (req: Request, res: Response) => {
     return res.json({ data: userSystem });
   } catch (error: unknown) {
     console.error('[POST /profile/systems]', error);
+    // A checagem no catálogo (profileService.addUserSystem) é a única barreira
+    // contra id inválido depois que a FK local saiu (migration_164) — e o 500
+    // genérico escondia o motivo: o relato de 2026-08-27 chegou como "dá erro",
+    // sem nada que dissesse ao usuário que o sistema não existia.
+    //
+    // Os dois casos são distintos e não podem colapsar no mesmo status (achado
+    // Codex, PR #292): 404 só quando o catálogo respondeu e o sistema não está
+    // nele; catálogo fora do ar é 503, porque o mesmo pedido volta a funcionar
+    // sozinho e dizer "não encontrado" mandaria o usuário procurar um defeito
+    // que não existe no lado dele.
+    if (error instanceof Error && error.message === 'Catálogo de sistemas indisponível') {
+      return res.status(503).json({ error: 'Catálogo de sistemas indisponível. Tente novamente em instantes.' });
+    }
+    if (error instanceof Error && error.message === 'Sistema não encontrado') {
+      return res.status(404).json({ error: 'Sistema não encontrado no catálogo.' });
+    }
     return res.status(500).json({ error: 'Erro ao adicionar sistema' });
   }
 });
