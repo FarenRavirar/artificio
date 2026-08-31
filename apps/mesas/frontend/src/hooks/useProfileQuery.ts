@@ -1,4 +1,3 @@
-import { useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuth } from '../contexts/useAuth';
 import { api } from '../services/apiClient';
@@ -162,14 +161,36 @@ export function useUpdatePlayer() {
 }
 
 /**
- * Mutation para atualizar perfil de mestre com optimistic update
+ * Snapshot de "o perfil de mestre ja existia?", tirado na PRIMEIRA escrita
+ * otimista do ciclo de autosave e consumido pelo `mutationFn` do `useUpdateGm`.
+ *
+ * Por que no modulo e nao num `useRef` do hook: quem grava primeiro no cache
+ * NAO e o `onMutate` da mutation — e o `updateGm` do `ProfileContext`, que faz
+ * optimistic update no enqueue (para os TagInput lerem a prop atualizada
+ * durante os 500ms de debounce). Quando o `onMutate` roda, o cache ja tem `gm`
+ * preenchido, e ler `previousProfile.gm` ali daria `true` mesmo para mestre
+ * novo — reintroduzindo o 404 do PUT que o ramo POST existe para evitar
+ * (regressao introduzida ao corrigir o achado das tags; PR #297).
+ *
+ * `marcarGmExistente` e idempotente por ciclo: so a primeira chamada decide.
+ * `limparSnapshotGm` fecha o ciclo quando a mutation assenta.
  */
-export function useUpdateGm() {
-  // Snapshot de "o perfil já existia?", gravado no `onMutate` (antes do
-  // optimistic update) e lido no `mutationFn`. Ref e não state: precisa estar
-  // legível no mesmo tick, sem provocar re-render.
-  const gmExistiaAntesRef = useRef<boolean | null>(null);
+let gmExistiaAntes: boolean | null = null;
 
+export function marcarGmExistente(existe: boolean): void {
+  if (gmExistiaAntes === null) gmExistiaAntes = existe;
+}
+
+/** Leitura do snapshot — usada pelo `mutationFn` e pelos testes de contrato. */
+export function lerSnapshotGm(): boolean | null {
+  return gmExistiaAntes;
+}
+
+export function limparSnapshotGm(): void {
+  gmExistiaAntes = null;
+}
+
+export function useUpdateGm() {
   return useMutation({
     mutationFn: async (data: Partial<GmProfile>) => {
       const sanitized = sanitizeObject(data as Record<string, unknown>);
@@ -181,13 +202,13 @@ export function useUpdateGm() {
       // preserva o upsert na camada do cliente: perfil existe → PUT; não existe
       // → POST com slug e nickname derivados.
       //
-      // A decisão do endpoint usa `gmExistiaAntesRef`, NÃO o cache: o `onMutate`
-      // desta mesma mutation roda ANTES do `mutationFn` e grava `newData` em
-      // `['profile','me'].gm` quando o perfil não existe (optimistic update
-      // abaixo). Ler o cache aqui encontraria `gm` sempre truthy e mandaria todo
-      // mestre novo para o PUT, que responde 404 — o ramo POST ficava
-      // inalcançável (achado de review, PR #297).
-      const criar = gmExistiaAntesRef.current === false;
+      // A decisão usa `gmExistiaAntes` (snapshot de modulo), NAO o cache: quando
+      // o `mutationFn` roda, o cache JA foi escrito otimisticamente — primeiro
+      // pelo `updateGm` do contexto (no enqueue, 500ms antes) e depois pelo
+      // `onMutate`. Ler `gm` do cache aqui daria truthy mesmo para mestre novo,
+      // mandando todo mundo ao PUT (404) e deixando o POST inalcancavel
+      // (achado de review, PR #297).
+      const criar = gmExistiaAntes === false;
 
       if (!criar) {
         // PUT preserva o que não veio; a engine só faz retry/refresh para
@@ -212,9 +233,10 @@ export function useUpdateGm() {
     onMutate: async (newData) => {
       await queryClient.cancelQueries({ queryKey: ['profile', 'me'] });
       const previousProfile = queryClient.getQueryData<FullProfile>(['profile', 'me']);
-      // Capturado ANTES do optimistic update abaixo — é o que o `mutationFn` lê
-      // para escolher POST vs PUT (ver comentário lá).
-      gmExistiaAntesRef.current = Boolean(previousProfile?.gm);
+      // Rede de seguranca: se nada marcou o snapshot antes (chamada direta da
+      // mutation, fora do autosave do contexto), o `onMutate` ainda e o ponto
+      // mais cedo disponivel. Idempotente — nao sobrescreve o do contexto.
+      marcarGmExistente(Boolean(previousProfile?.gm));
 
       if (previousProfile) {
         queryClient.setQueryData<FullProfile>(['profile', 'me'], {
@@ -237,6 +259,9 @@ export function useUpdateGm() {
       notifyProfileUpdate();
     },
     onSettled: () => {
+      // Fecha o ciclo do snapshot: a proxima edicao volta a medir o estado real
+      // (apos o refetch, o perfil recem-criado ja existe e o caminho e o PUT).
+      limparSnapshotGm();
       queryClient.invalidateQueries({ queryKey: ['profile', 'me'] });
     },
   });

@@ -1806,7 +1806,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "api.put",
-      "line": 195
+      "line": 216
     },
     {
       "app": "mesas-frontend",
@@ -1816,7 +1816,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "api.post",
-      "line": 205
+      "line": 226
     },
     {
       "app": "mesas-frontend",
@@ -2046,7 +2046,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "api.get",
-      "line": 30
+      "line": 29
     },
     {
       "app": "mesas-frontend",
@@ -2056,7 +2056,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "api.patch",
-      "line": 46
+      "line": 45
     },
     {
       "app": "mesas-frontend",
@@ -2076,7 +2076,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "api.patch",
-      "line": 92
+      "line": 91
     },
     {
       "app": "mesas-frontend",
@@ -2086,7 +2086,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "api.patch",
-      "line": 131
+      "line": 130
     },
     {
       "app": "mesas-frontend",
@@ -2096,7 +2096,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "api.post",
-      "line": 251
+      "line": 276
     },
     {
       "app": "mesas-frontend",
@@ -2106,7 +2106,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "api.delete",
-      "line": 270
+      "line": 295
     },
     {
       "app": "mesas-frontend",
