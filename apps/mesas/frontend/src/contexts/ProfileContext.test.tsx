@@ -26,6 +26,7 @@ const {
   mutatePlayerAsync,
   mutateAddSystemAsync,
   mutateRemoveSystemAsync,
+  marcarGmExistenteSpy,
 } = vi.hoisted(() => ({
   mutateGmAsync: vi.fn(),
   mutateUserAsync: vi.fn(),
@@ -33,6 +34,7 @@ const {
   mutatePlayerAsync: vi.fn(),
   mutateAddSystemAsync: vi.fn(),
   mutateRemoveSystemAsync: vi.fn(),
+  marcarGmExistenteSpy: vi.fn(),
 }));
 
 vi.mock('../hooks/useProfileQuery', () => ({
@@ -48,6 +50,11 @@ vi.mock('../hooks/useProfileQuery', () => ({
     error: null,
     refetch: vi.fn(),
   }),
+  // Exports novos (#297): o contexto marca o snapshot de `gm` ANTES do
+  // optimistic update do enqueue — e o que permite ao `mutationFn` escolher
+  // POST para mestre novo (o mock acima tem `gm: null`).
+  marcarGmExistente: (existe: boolean) => marcarGmExistenteSpy(existe),
+  limparSnapshotGm: () => {},
   useUpdateUser: () => ({ isPending: false, mutateAsync: mutateUserAsync }),
   useUpdateProfile: () => ({ isPending: false, mutateAsync: mutateProfileAsync }),
   useUpdatePlayer: () => ({ isPending: false, mutateAsync: mutatePlayerAsync }),
@@ -231,5 +238,59 @@ describe('ProfileContext.updateGm — autosave com debounce (spec 099 B8)', () =
     });
 
     expect(mutateGmAsync).toHaveBeenLastCalledWith({ bio_long: 'valor B mais novo' });
+  });
+
+  // Achado de review (#297): o `return` do catch encerrava o pump, e como
+  // `flushGmBuffer` havia retornado cedo durante o voo (pump ativo), a edicao
+  // nova ficava parada no buffer ate a proxima digitacao.
+  it('edicao chegada durante voo que FALHA e enviada sozinha, sem nova digitacao', async () => {
+    let liberaVoo: (() => void) | undefined;
+    mutateGmAsync.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          liberaVoo = () => reject(new Error('rejeitado'));
+        }),
+    );
+    renderProvider();
+
+    await act(async () => {
+      await updateGm({ bio_long: 'A' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    await act(async () => {
+      await updateGm({ tagline: 'chegou durante o voo' });
+    });
+
+    await act(async () => {
+      liberaVoo?.();
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    // Sem digitar de novo: o flush agendado pelo catch reenvia o acumulado.
+    expect(mutateGmAsync).toHaveBeenCalledTimes(2);
+    expect(mutateGmAsync).toHaveBeenLastCalledWith({
+      bio_long: 'A',
+      tagline: 'chegou durante o voo',
+    });
+  });
+
+  it('falha SEM edicao nova nao reenvia (trava anti-loop preservada)', async () => {
+    mutateGmAsync.mockRejectedValueOnce(new Error('rejeicao deterministica'));
+    renderProvider();
+
+    await act(async () => {
+      await updateGm({ bio_long: 'unico' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+
+    expect(mutateGmAsync).toHaveBeenCalledTimes(1);
   });
 });

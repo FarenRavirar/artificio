@@ -9,6 +9,7 @@ import {
   useUpdateProfile,
   useUpdatePlayer,
   useUpdateGm,
+  marcarGmExistente,
   useAddSystem,
   useRemoveSystem,
 } from '../hooks/useProfileQuery';
@@ -117,8 +118,27 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
           // digitacao nova pode te-lo repovoado. O patch que falhou entra
           // PRIMEIRO por ser o mais antigo: o que chegou depois sobrescreve, que
           // a mesma precedencia do merge feito no enqueue de `updateGm`.
-          gmBufferRef.current = { ...patch, ...(gmBufferRef.current ?? {}) };
+          const chegouDuranteOVoo = gmBufferRef.current;
+          gmBufferRef.current = { ...patch, ...(chegouDuranteOVoo ?? {}) };
           setSaveError(toErrorMessage(error));
+
+          // Sem edicao nova: encerra. Reenviar o mesmo patch que acabou de ser
+          // recusado looparia numa rejeicao deterministica (ex.: validacao do
+          // PUT), e o usuario ja ve o erro no indicador.
+          //
+          // COM edicao nova: agenda UM flush. Enquanto este pump rodava,
+          // `flushGmBuffer` retornava cedo (`gmPumpRef` ativo) confiando que o
+          // loop veria o buffer — mas o `return` daqui encerra o pump antes
+          // disso, e o valor mais recente ficava parado ate a proxima
+          // digitacao. Um unico flush agendado, nao re-entrada no loop: mantem
+          // a trava anti-loop e nao perde a edicao (achado de review, PR #297).
+          if (chegouDuranteOVoo) {
+            if (gmTimerRef.current) clearTimeout(gmTimerRef.current);
+            gmTimerRef.current = setTimeout(() => {
+              gmTimerRef.current = null;
+              flushGmBuffer();
+            }, AUTOSAVE_DEBOUNCE_MS);
+          }
           return;
         } finally {
           gmInFlightRef.current = null;
@@ -183,6 +203,11 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
         // do MESMO array, e como o buffer é "último valor vence" por campo, a
         // segunda apaga a primeira em silêncio (achado de review, PR #297).
         const anterior = queryClient.getQueryData<FullProfile>(['profile', 'me']);
+        // ANTES de escrever: este e o ponto mais cedo em que o estado real do
+        // `gm` ainda e visivel. A escrita logo abaixo preenche `gm` mesmo quando
+        // era null, e o `onMutate` (500ms depois) ja nao consegue distinguir
+        // mestre novo de existente — o que mandaria todo mundo ao PUT (404).
+        marcarGmExistente(Boolean(anterior?.gm));
         if (anterior) {
           queryClient.setQueryData<FullProfile>(['profile', 'me'], {
             ...anterior,
