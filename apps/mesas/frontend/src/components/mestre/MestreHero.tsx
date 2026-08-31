@@ -5,6 +5,11 @@ import type { MestrePublicData } from '../../hooks/useMestre';
 import { isUsableImageSrc } from '../../utils/imageSource';
 import { cropToObjectPosition } from '@artificio/media/image-kinds';
 import { toFiniteNumber } from '@artificio/ui';
+// Spec 099 B10: o hero carrega o PRÓPRIO CSS (movido de MestrePage.css) para
+// que a prévia dos editores (MestreProfilePreview) consuma o componente real
+// com os mesmos estilos — sem importar a página pública inteira, cujas classes
+// (.container, .section-title) colidem com os editores.
+import './MestreHero.css';
 
 interface MestreHeroProps {
   profile: MestrePublicData;

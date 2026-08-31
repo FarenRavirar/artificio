@@ -217,8 +217,27 @@ function formatSchedules(table: TableDetail): string {
       .join('; ');
   }
 
-  const day = table.schedule_day_status === 'defined' ? table.schedule_day_hint : '';
-  const time = table.schedule_time_status === 'defined' ? table.schedule_time_hint : '';
+  // Sem linhas em `table_schedules`, a agenda vive nas colunas do topo da mesa.
+  // Os dois eixos sao INDEPENDENTES (editorMapping.deriveSchedule): da pra ter
+  // dia 'to_define' com horario 'defined' e vice-versa.
+  //
+  // Achado do mantenedor (2026-08-31): quando QUALQUER eixo era 'to_define' a
+  // linha saia vazia ("Data e Hora:" e nada) — inclusive com o horario
+  // definido, porque o hint do eixo indefinido e sempre null e o outro eixo
+  // dependia de um hint que o editor NUNCA grava (medido: zero ocorrencias de
+  // schedule_day_hint/schedule_time_hint em features/table-editor; so o
+  // importador do Discord os preenche). O anuncio ficava mudo sobre a agenda
+  // em vez de dizer o que ja estava decidido.
+  //
+  // Cada eixo passa a render o rotulo explicito de "a definir", no mesmo texto
+  // que a pagina publica ja mostra (TableSchedules), e o hint vira fallback
+  // opcional do eixo definido em vez de requisito.
+  const day = table.schedule_day_status === 'to_define'
+    ? 'Dia a definir'
+    : cleanText(table.schedule_day_hint);
+  const time = table.schedule_time_status === 'to_define'
+    ? 'Horário a definir'
+    : cleanText(table.schedule_time_hint).slice(0, 5);
   return joinNonEmpty([day, time]);
 }
 

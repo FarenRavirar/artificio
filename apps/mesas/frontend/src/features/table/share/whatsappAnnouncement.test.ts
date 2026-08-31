@@ -141,6 +141,78 @@ describe('buildWhatsAppTableAnnouncement', () => {
     expect(text).not.toContain('NaN');
   });
 
+  // Achado do mantenedor (2026-08-31): mesa "a definir" copiava a linha de
+  // agenda VAZIA mesmo com o horario preenchido. Os dois eixos sao
+  // independentes (editorMapping.deriveSchedule), e o hint que o codigo antigo
+  // exigia so e gravado pelo importador do Discord — pelo editor, nunca.
+  // Os quatro cruzamentos ficam cobertos para o eixo definido nunca mais
+  // desaparecer por causa do indefinido.
+  describe('agenda sem linhas — statuses "a definir" (achado 2026-08-31)', () => {
+    const semLinhas = {
+      schedules: [],
+      schedule_day_hint: null,
+      schedule_time_hint: null,
+    } as const;
+
+    it('dia a definir + horario definido mantem o horario na linha', () => {
+      const text = buildWhatsAppTableAnnouncement(makeTable({
+        ...semLinhas,
+        schedule_day_status: 'to_define',
+        schedule_time_status: 'defined',
+        schedule_time_hint: '20:00',
+      }));
+
+      expect(text).toContain('▬ Data e Hora: Dia a definir · 20:00');
+    });
+
+    it('dia definido + horario a definir mantem o dia na linha', () => {
+      const text = buildWhatsAppTableAnnouncement(makeTable({
+        ...semLinhas,
+        schedule_day_status: 'defined',
+        schedule_time_status: 'to_define',
+        schedule_day_hint: 'quinta',
+      }));
+
+      expect(text).toContain('▬ Data e Hora: quinta · Horário a definir');
+    });
+
+    it('os dois a definir dizem isso explicitamente, em vez de linha vazia', () => {
+      const text = buildWhatsAppTableAnnouncement(makeTable({
+        ...semLinhas,
+        schedule_day_status: 'to_define',
+        schedule_time_status: 'to_define',
+      }));
+
+      expect(text).toContain('▬ Data e Hora: Dia a definir · Horário a definir');
+    });
+
+    // O editor nao grava hint nenhum (medido: zero ocorrencias em
+    // features/table-editor). Sem hint e sem linha, a agenda nao tem o que
+    // dizer — a linha fica vazia de proposito, sem inventar rotulo.
+    it('status definido sem hint nem linha continua vazio, sem texto inventado', () => {
+      const text = buildWhatsAppTableAnnouncement(makeTable({
+        ...semLinhas,
+        schedule_day_status: 'defined',
+        schedule_time_status: 'defined',
+      }));
+
+      expect(text).toContain('▬ Data e Hora:\n');
+      expect(text).not.toContain('a definir');
+    });
+
+    it('linhas reais continuam vencendo os statuses do topo', () => {
+      const text = buildWhatsAppTableAnnouncement(makeTable({
+        schedule_day_status: 'to_define',
+        schedule_time_status: 'to_define',
+        schedule_day_hint: null,
+        schedule_time_hint: null,
+      }));
+
+      expect(text).toContain('▬ Data e Hora: sábado · 19:00-23:00 · semanal');
+      expect(text).not.toContain('Dia a definir');
+    });
+  });
+
   it('keeps empty labels empty and formats free table with age rating Livre', () => {
     const text = buildWhatsAppTableAnnouncement(makeTable({
       age_rating: 'livre',

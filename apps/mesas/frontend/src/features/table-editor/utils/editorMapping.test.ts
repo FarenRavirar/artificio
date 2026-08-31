@@ -414,6 +414,24 @@ describe('mapGmMeToSnapshot — GET /gm/me para o snapshot de herança (T4.0p/T6
       // Fase 6 (T6.4): campos de herança novos — ausentes viram listas vazias.
       preferredVttPlatforms: [],
       languages: [],
+      // Spec 099 B10: campos crus da prévia do perfil — ausentes viram null
+      // (id/slug vêm do input, já validados como string por mapGmMeToSnapshot).
+      id: 'p-1',
+      slug: 'mestre-corvo',
+      avatar_url: null,
+      avatar_crop_data: null,
+      avatar_width: null,
+      avatar_height: null,
+      banner_url: null,
+      banner_crop_data: null,
+      banner_width: null,
+      banner_height: null,
+      tagline: null,
+      promo_badge_text: null,
+      covil_verified: null,
+      experience_years: null,
+      created_at: null,
+      tables_count: null,
     });
   });
 
@@ -454,6 +472,62 @@ describe('mapGmMeToSnapshot — GET /gm/me para o snapshot de herança (T4.0p/T6
     });
     expect(snapshot?.preferredVttPlatforms).toEqual([]);
     expect(snapshot?.languages).toEqual([]);
+  });
+
+  it('Spec 099 B10: carrega os campos crus da prévia do perfil com leitura defensiva', () => {
+    const snapshot = mapGmMeToSnapshot({
+      id: 'p-1',
+      slug: 'mestre-corvo',
+      nickname: 'Mestre Corvo',
+      bio_long: null,
+      avatar_url: 'https://cdn.example/avatar.png',
+      avatar_crop_data: { x: 0.5, y: 0.2, width: 0.4, height: 0.4 },
+      avatar_width: 800,
+      avatar_height: 600,
+      banner_url: 'https://cdn.example/banner.png',
+      banner_crop_data: { x: 0, y: 0, width: 1, height: 1 },
+      banner_width: 1600,
+      banner_height: 400,
+      tagline: 'Aventuras épicas toda quinta',
+      promo_badge_text: 'Campanha nova em janeiro',
+      covil_verified: true,
+      experience_years: 14,
+      created_at: '2024-01-01T00:00:00Z',
+      tables_count: 3,
+    });
+    expect(snapshot?.avatar_url).toBe('https://cdn.example/avatar.png');
+    expect(snapshot?.avatar_crop_data).toEqual({ x: 0.5, y: 0.2, width: 0.4, height: 0.4 });
+    expect(snapshot?.banner_crop_data).toEqual({ x: 0, y: 0, width: 1, height: 1 });
+    expect(snapshot?.tagline).toBe('Aventuras épicas toda quinta');
+    expect(snapshot?.covil_verified).toBe(true);
+    expect(snapshot?.experience_years).toBe(14);
+    expect(snapshot?.tables_count).toBe(3);
+  });
+
+  it('Spec 099 B10: campo da prévia fora do tipo vira null (nunca propaga valor inválido)', () => {
+    const snapshot = mapGmMeToSnapshot({
+      id: 'p-1',
+      slug: 'mestre-corvo',
+      nickname: 'Mestre Corvo',
+      bio_long: null,
+      avatar_url: 42,
+      avatar_crop_data: { x: 'nope' },
+      avatar_width: '800',
+      banner_url: null,
+      tagline: 7,
+      covil_verified: 'sim',
+      experience_years: '14',
+      created_at: 2024,
+      tables_count: '3',
+    });
+    expect(snapshot?.avatar_url).toBeNull();
+    expect(snapshot?.avatar_crop_data).toBeNull();
+    expect(snapshot?.avatar_width).toBeNull();
+    expect(snapshot?.tagline).toBeNull();
+    expect(snapshot?.covil_verified).toBeNull();
+    expect(snapshot?.experience_years).toBeNull();
+    expect(snapshot?.created_at).toBeNull();
+    expect(snapshot?.tables_count).toBeNull();
   });
 
   it('devolve null quando não é perfil (id/slug ausentes)', () => {

@@ -432,6 +432,21 @@ function scoreSystemDescendant(text: string, system: SystemEntry): number {
     }
     if (candidate.baseTokens.length > 0) {
       score = Math.max(score, sequenceMatchScore(90, candidate.baseTokens, hint.baseTokens));
+      // Passo 3 da busca humana (sistema -> edicao -> variante): o no da
+      // variante pode se chamar so "Remaster"/"Anniversary", palavras que o
+      // normalizador tira da BASE do texto por serem qualificador de edicao —
+      // "Pathfinder 2e Remaster" tem base ["pathfinder"], e o nome do no nunca
+      // casava por sequencia. `editionWords` preserva o que saiu, entao o nome
+      // do no volta a ser comparavel contra o texto completo.
+      //
+      // Sem isto, 20 nos do catalogo eram inalcancaveis (medido 2026-08-31, 17
+      // variantes + 3 edicoes): a travessia parava na edicao e o mestre
+      // escolhia a variante na mao. Pontua abaixo do casamento por edicao
+      // (110/120) porque e sinal de nome, nao de versao.
+      if (hint.editionWords.length > 0
+        && sequenceMatchScore(1, candidate.baseTokens, hint.editionWords) > 0) {
+        score = Math.max(score, 100);
+      }
     }
     if (candidate.editionTokens.length === 0 || !hasEditionSignal) continue;
     const availableEditionSignals = hint.editionTokens.length + shortYearMatches.length;
@@ -1402,9 +1417,18 @@ function slotsViaLabel(
 // aninhada, mesma cobertura.
 const DAY_TO_DEFINE_PATTERNS = [
   /\b(?:a\s+)?(?:decidir|combinar|definir)\s+com\s+os?\s+jogadores?\b/,
-  /\bdias?\s+(?:e\s+hor[aá]rios?\s+)?a\s+(?:decidir|combinar|definir)\b/,
+  // `(?:\s+da\s+semana)?` cobre o caso real "dia da semana a definir"
+  // (anúncio "Ameaça sob Otari", 2026-08-31): o interposto entre "dia" e "a
+  // definir" fazia os padrões falharem e o dia caía em `null`, perdendo o
+  // sentinela que o mestre JÁ tinha declarado no texto.
+  /\bdias?(?:\s+da\s+semana)?\s+(?:e\s+hor[aá]rios?\s+)?a\s+(?:decidir|combinar|definir)\b/,
   /\bhor[aá]rios?\s+a\s+(?:decidir|combinar|definir)\b/,
-  /\bdia\s+a\s+(?:decidir|combinar|definir)\b/,
+  /\bdia(?:\s+da\s+semana)?\s+a\s+(?:decidir|combinar|definir)\b/,
+  // "Sem dia fixo"/"sem horário fixo": forma negativa do mesmo sentinela,
+  // frequente nos anúncios reais (fixture discord-announcements-real.txt:177
+  // — "Sem dia Fixo porém sempre as 19h"). Sem isto o dia virava `null`, que a
+  // UI trata como pendência de seleção em vez de "a definir" já resolvido.
+  /\bsem\s+(?:dia|hor[aá]rio)\s+fixo\b/,
   // Achado real (2026-07-16, anúncio "A Censura"): label "Data e hora: a
   // definir" — sem "dia(s)"/"horário(s)" no valor em si (o rótulo já diz
   // isso), os 4 padrões acima nunca batiam. `[:：]?` opcional cobre o rótulo
@@ -1444,10 +1468,26 @@ function extractStartTime(text: string, labelAliases: string[] = []): string | n
   const learnedLabelValue = labelAliases.length > 0 ? extractLabelValue(text, labelAliases) : null;
   const target = learnedLabelValue ?? text;
   const match = /\b(\d{1,2})[hH:](\d{0,2})\b/.exec(target)
-    ?? /\bàs\s{1,3}(\d{1,2})h(\d{0,2})/i.exec(target);
+    ?? /\bàs\s{1,3}(\d{1,2})h(\d{0,2})/i.exec(target)
+    // "8 às 11 horas da manhã" / "das 19 às 23 horas" / "as 21 horas": hora
+    // por extenso, sem o "h" colado nem os dois-pontos que os dois padrões
+    // acima exigem. Caso real medido (anúncio "Ameaça sob Otari",
+    // 2026-08-31): o mestre declarou o horário e o parser devolvia
+    // `start_time: null`, jogando o campo em missing_fields como se o texto
+    // fosse omisso.
+    //
+    // Captura a PRIMEIRA hora do intervalo (o início, que é o que
+    // `start_time` significa) — em "8 às 11", 8; em "das 19 às 23", 19. O
+    // grupo vazio `()` mantém o índice do minuto alinhado com os padrões
+    // acima, e cai no '00' logo abaixo.
+    ?? /\b(\d{1,2})()\s{0,3}(?:às|as|até|ate|a)\s{1,3}\d{1,2}\s{0,3}(?:h\b|horas?\b)/i.exec(target)
+    ?? /\b(\d{1,2})()\s{1,3}horas?\b/i.exec(target);
   if (match) {
     const h = match[1].padStart(2, '0');
     const m = (match[2] || '00').padStart(2, '0');
+    // Hora fora de 0-23 não é horário: "24 horas de campanha", "30 horas de
+    // gravação". Sem o guard o parser gravaria "24:00"/"30:00" no banco.
+    if (Number.parseInt(h, 10) > 23) return null;
     return `${h}:${m}`;
   }
   return null;

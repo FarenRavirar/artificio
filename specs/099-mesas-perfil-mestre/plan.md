@@ -1,6 +1,6 @@
 # Plano 099 — Perfil do mestre
 
-**Status:** decisões D1–D11 fechadas. **Fase A executada (gate A fechado). Fase B executada (B0–B9, gate B fechado com 1 pendência nomeada); B10/B11 adiadas por decisão do mantenedor (2026-08-31).** Fases C e D não iniciadas.
+**Status:** decisões D1–D11 fechadas. **Fase A executada (gate A fechado). Fase B executada (B0–B10, gate B fechado com 1 pendência nomeada); B11 pendente.** Fases C e D não iniciadas.
 Sequência, gates e pré-requisitos técnicos. As tasks estão em `tasks.md`; o estado medido
 e a forma dos dados, em `spec.md`.
 

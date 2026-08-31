@@ -25,6 +25,14 @@ export interface NormalizedSystemName {
   canonicalTokens: string[];
   /** Chaves de comparacao tolerantes: compacta, sigla e variacao &/and/n. */
   matchKeys: string[];
+  /**
+   * Palavras de edicao que sairam da base por serem qualificador ("Revised",
+   * "Anniversary", "Remaster"). Ficam aqui em vez de sumir: o catalogo tem nos
+   * cujo nome E uma dessas palavras, e comparar o no contra o texto completo
+   * exige saber que o texto a mencionou. Vazio quando a palavra era o nome
+   * inteiro — nesse caso ela e base, nao qualificador.
+   */
+  editionWords: string[];
   /** Tokens de edicao detectados, ex.: ['5a', '2024'], ['1.3'], ['2e']. */
   editionTokens: string[];
   /** Slug do nome base. */
@@ -182,6 +190,23 @@ export function normalizeSystemName(raw: unknown): NormalizedSystemName {
 
   const editionTokens: string[] = [];
   const baseTokens: string[] = [];
+  const editionWords: string[] = [];
+
+  // Uma palavra de EDITION_WORDS normalmente e ruido de sufixo ("Revised
+  // Edition", "Anniversary Edition") e sai da base. Mas quando ela e TUDO o
+  // que o texto tem, ela e o nome proprio do no — nao ha o que qualificar.
+  //
+  // Achado do mantenedor (2026-08-31): o catalogo tem 20 nos cujo nome inteiro
+  // e palavra de edicao (17 variantes + 3 edicoes) — "Remaster" em
+  // `pathfinder/pathfinder--2e/remaster`, "Anniversary" em 16 ramos de
+  // Vampire/Mage/Shadowrun. Descartados, ficavam com baseTokens E editionTokens
+  // vazios, davam score 0 em scoreSystemDescendant (apps/mesas) e eram
+  // eliminados pelo filtro `score > 0`: a travessia parava na edicao e o mestre
+  // tinha que escolher a variante na mao. Comparar "Pathfinder 2e Remaster" com
+  // o no "Remaster" e exatamente o passo 3 da busca humana (sistema → edicao →
+  // variante), e ele nao acontecia.
+  const todosSaoPalavraDeEdicao = tokens.length > 0
+    && tokens.every((token) => EDITION_WORDS.has(token));
 
   for (const token of tokens) {
     const compactSystemEdition = token.match(/^([a-z]{2,})(\d{1,2})$/);
@@ -190,8 +215,10 @@ export function normalizeSystemName(raw: unknown): NormalizedSystemName {
       editionTokens.push(`${compactSystemEdition[2]}e`);
     } else if (isEditionToken(token)) {
       editionTokens.push(canonicalizeEditionToken(token));
-    } else if (EDITION_WORDS.has(token)) {
-      // palavra de edicao: descartada da base, nao vira token util
+    } else if (EDITION_WORDS.has(token) && !todosSaoPalavraDeEdicao) {
+      // palavra de edicao qualificando outra coisa: sai da base, mas fica
+      // registrada em `editionWords` para o matcher de variante enxerga-la.
+      editionWords.push(token);
     } else {
       baseTokens.push(token);
     }
@@ -204,7 +231,7 @@ export function normalizeSystemName(raw: unknown): NormalizedSystemName {
   const canonicalTokens = trimmedBaseTokens;
   const matchKeys = buildMatchKeys(trimmedBaseTokens);
 
-  return { raw: original, normalized, base, baseTokens: trimmedBaseTokens, canonicalTokens, matchKeys, editionTokens, slug };
+  return { raw: original, normalized, base, baseTokens: trimmedBaseTokens, canonicalTokens, matchKeys, editionTokens, editionWords, slug };
 }
 
 // Achado do mantenedor (2026-07-16, apps/mesas): typo simples ("owbear" por

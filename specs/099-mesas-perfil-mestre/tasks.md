@@ -1,6 +1,6 @@
 # Tasks 099 — Perfil do mestre
 
-**Status: fase A executada (A1–A3, gate A fechado); fase B executada (B0–B9, gate B fechado com 1 pendência nomeada); B10/B11 adiadas por decisão do mantenedor (2026-08-31).** Decisões D1–D11 fechadas (`spec.md` §3).
+**Status: fase A executada (A1–A3, gate A fechado); fase B executada (B0–B10, gate B fechado com 1 pendência nomeada); B11 pendente (retomada pelo mantenedor em 2026-08-31 — próxima task).** Decisões D1–D11 fechadas (`spec.md` §3).
 
 Ordem de execução: **A → B → C**, com a fase de forma (**F**) em paralelo — ver a colisão com a 098 em F0.
 Cada task só é dada como concluída com **medição citada** — comando rodado e o que voltou.
@@ -80,13 +80,13 @@ dado some. Criar campo antes disto entrega porta falsa.
 | **B7** | `aria-describedby` no controle de todo campo com erro/hint | **plan §B, armadilha 1** · critério A6 · **§11.1 (9/9 sem o atributo, medido)** | **concluída com pendência nomeada**: atributo explícito nos controles (campos novos + AvatarField/ImageUploader/LinksManager); A9 verificado. **Pendência**: `closed_group_systems` tem hint sem o atributo — o controle é o `CatalogTree` do `@artificio/catalog-ui`, sem prop de aria (medido); tocar o pacote exige aprovação |
 | **B8** | Autosave: debounce real + **indicador que exista e fique visível** | spec §2.5 · **§11.1** | **concluída**: debounce 500ms com buffer no `ProfileContext.updateGm` (último valor vence, nada descartado — substitui o `if (isPending) return`); indicador sempre montado nas 3 tabs, `position: fixed`, estados erro/salvando/salvo; A9 verificado (2 pontos) |
 | **B9** | Listar os sistemas escolhidos, não só contar; remover `Preço Médio` do front (D4) | spec §2.1 · §2.5 · D4 | **concluída**: `UserSystemsSelector` lista os nomes via catálogo; `average_price` removido da UI, do schema e do tipo `GmProfile`; banco e PUT intactos; A9 verificado |
-| **B10** | Prévia do perfil público nas 3 telas (D5) e prévia do véu do banner (D8) | D5 · **D8** (scrim fixo — é decisão, não está na fase D do plan) | **ADIADA por decisão do mantenedor (2026-08-31)** — o gate B fecha sem ela (a prévia não tem item de gate); decisão registrada, não silenciada (A1) |
+| **B10** | Prévia do perfil público nas 3 telas (D5) e prévia do véu do banner (D8) | D5 · **D8** (scrim fixo — é decisão, não está na fase D do plan) | **concluída**: `MestreProfilePreview` reusa o `MestreHero` real (scrim D8 vem do próprio componente, sem réplica nem controle de opacidade) nas 3 telas: 1ª `/perfil?tab=mestre`, 2ª `/painel`, 3ª **editor de mesa** (`MasterPart` do TableEditor; identificação medida — spec §2.1 nomeia "editor de mesa" como superfície de edição e `OnboardingPage` medido sem campo gm). Mapeamento `buildMestrePreviewData` (gm→`MestrePublicData`, passa pelo `normalizeMestreProfile` real) em `profilePreviewMapping.ts`, separado do componente por exigência do lint `react-refresh/only-export-components` (padrão `cardPreviewMapping.ts`). CSS do hero movido de `MestrePage.css` para `MestreHero.css` (importado pelo componente — a prévia usa o hero real nas 3 telas sem importar a página pública; página pública inalterada, mesmas regras). A9: tagline fake → 2 falhas, restaurado 8/8. Validação: 6 arquivos 150/150 testes, `tsc` limpo, eslint 0 |
 
 ### B-11 · Extração assistida (D11) — por último na fase
 
 | # | Fazer | LER ANTES | Aceite medido |
 |---|---|---|---|
-| **B11** | Extrair atributos da bio e **oferecer para confirmação** | D11 (**trava**) · plan §B "extração assistida" | **ADIADA por decisão do mantenedor (2026-08-31)** — máquina sugere, mestre confirma, publicação nunca travada; enquanto não existir, o número na bio fica como está (spec §12.3) |
+| **B11** | Extrair atributos da bio e **oferecer para confirmação** | D11 (**trava**) · plan §B "extração assistida" | **pendente — próxima task** (mantenedor retomou B10/B11 em 2026-08-31; B10 concluída, pausa após ela para atualização de docs). Aceite: máquina **sugere**, mestre confirma, publicação nunca travada; enquanto não existir, o número na bio fica como está (spec §12.3) |
 
 **⚠️ Trava de B11:** nada é gravado sem confirmação. O F1 do Airbnb é 75% — gravar direto
 erraria um em cada quatro atributos exibidos ao jogador. `llmAssist.ts` já faz a chamada

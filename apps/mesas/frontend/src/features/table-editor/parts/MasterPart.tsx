@@ -3,6 +3,14 @@ import { ContentEditor } from '@artificio/content-editor';
 import type { TableEditorApi } from '../hooks/useTableEditor';
 import { EditorField } from './EditorField';
 import { ContactMethodsEditor } from '../../../components/mestre/ContactMethodsEditor';
+// Spec 099 B10 (D5): prévia do perfil público na parte "Mestre" — a 3ª tela
+// de edição (old_spec.md:850 nomeia o editor de mesa). Mesmo componente e
+// mesmo mapeamento das outras duas telas; o snapshot cru (snake_case) vira
+// MestrePreviewSource com a conversão mínima dos campos herdados.
+import {
+  MestreProfilePreview,
+} from '../../../components/mestre/editor/MestreProfilePreview';
+import { buildMestrePreviewData } from '../../../components/mestre/editor/profilePreviewMapping';
 import { EDITOR_TEXT_LIMITS } from '../utils/editorValidation';
 
 /**
@@ -23,9 +31,12 @@ import { EDITOR_TEXT_LIMITS } from '../utils/editorValidation';
  */
 type MasterPartProps = Readonly<{
   api: TableEditorApi;
+  /** Nome da conta (user.name) — fallback de display_name da prévia, igual ao
+   *  COALESCE do GET público quando o nickname do perfil está vazio (B10). */
+  userName?: string;
 }>;
 
-export function MasterPart({ api }: MasterPartProps) {
+export function MasterPart({ api, userName }: MasterPartProps) {
   const { state, patch, errors, validateFieldOnBlur, parserFilledFields } = api;
   const isAnnouncer = state.publisherRole === 'announcer';
 
@@ -148,6 +159,30 @@ export function MasterPart({ api }: MasterPartProps) {
             Sincronizar com o Perfil Principal de Mestre
           </Button>
         </div>
+      )}
+
+      {/* Spec 099 B10 (D5/D8): prévia do perfil público com os dados REAIS do
+          GET /gm/me. Aparece só quando o perfil EXISTE (snapshot carregado) —
+          sem perfil não há o que espelhar. O hero é o componente público real,
+          com o scrim fixo do banner (D8); nenhum dado é inventado: campos que
+          o GET não trouxe caem nos fallbacks neutros do mapeamento. */}
+      {api.gmProfilePreview && (
+        <MestreProfilePreview
+          profile={buildMestrePreviewData(
+            {
+              ...api.gmProfilePreview,
+              bio_long: api.gmProfilePreview.bioLong,
+              // O snapshot converte nickname NULL do banco em '' (mapGmMeToSnapshot)
+              // e perde a nulidade; o COALESCE do GET público devolve o nome da
+              // conta nesse caso. Restaurar o null aqui faz a prévia espelhar o
+              // nome que o jogador vê, em vez de um nome vazio.
+              nickname: api.gmProfilePreview.nickname.trim()
+                ? api.gmProfilePreview.nickname
+                : null,
+            },
+            userName,
+          )}
+        />
       )}
     </div>
   );

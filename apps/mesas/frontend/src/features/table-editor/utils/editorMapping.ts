@@ -1,4 +1,4 @@
-import { normalizeImageFrame } from '@artificio/media/image-kinds';
+import { normalizeImageFrame, isCropRect, type CropRect } from '@artificio/media/image-kinds';
 import { normalizeSettingStyles } from '@artificio/catalog-matching';
 import { normalizeAgeRating } from '../../../utils/ageRating';
 import type {
@@ -757,6 +757,28 @@ export interface GmProfileSnapshot {
    * editor, só na criação — mesa em edição mantém o valor salvo.
    */
   languages: string[];
+  // ── Spec 099 B10: campos crus do GET /gm/me para a PRÉVIA do perfil público
+  //    na parte "Mestre" (D5 — o editor de mesa é a 3ª tela de edição).
+  //    snake_case de propósito: passagem direta do payload da API, sem a
+  //    semântica de herança dos campos acima. Opcionais: os construtores de
+  //    POST/PUT (criação no publish e sincronizar) não os preenchem — nesses
+  //    casos o buildMestrePreviewData cai para os fallbacks neutros.
+  id?: string;
+  slug?: string;
+  avatar_url?: string | null;
+  avatar_crop_data?: CropRect | null;
+  avatar_width?: number | null;
+  avatar_height?: number | null;
+  banner_url?: string | null;
+  banner_crop_data?: CropRect | null;
+  banner_width?: number | null;
+  banner_height?: number | null;
+  tagline?: string | null;
+  promo_badge_text?: string | null;
+  covil_verified?: boolean | null;
+  experience_years?: number | null;
+  created_at?: string | null;
+  tables_count?: number | null;
 }
 
 function isProfileContact(value: unknown): value is ContactMethodInput {
@@ -813,5 +835,24 @@ export function mapGmMeToSnapshot(value: unknown): GmProfileSnapshot | null {
     // (payload externo, normalização obrigatória do repo).
     preferredVttPlatforms: normalizeStringList(data.preferred_vtt_platforms),
     languages: normalizeStringList(data.languages),
+    // Spec 099 B10: leitura defensiva dos campos da prévia (payload externo).
+    // Crop inválido vira null — não chega `NaN%` no object-position do hero;
+    // string/número fora do tipo vira null. id/slug já foram validados acima.
+    id: data.id,
+    slug: data.slug,
+    avatar_url: typeof data.avatar_url === 'string' ? data.avatar_url : null,
+    avatar_crop_data: isCropRect(data.avatar_crop_data) ? data.avatar_crop_data : null,
+    avatar_width: typeof data.avatar_width === 'number' ? data.avatar_width : null,
+    avatar_height: typeof data.avatar_height === 'number' ? data.avatar_height : null,
+    banner_url: typeof data.banner_url === 'string' ? data.banner_url : null,
+    banner_crop_data: isCropRect(data.banner_crop_data) ? data.banner_crop_data : null,
+    banner_width: typeof data.banner_width === 'number' ? data.banner_width : null,
+    banner_height: typeof data.banner_height === 'number' ? data.banner_height : null,
+    tagline: typeof data.tagline === 'string' ? data.tagline : null,
+    promo_badge_text: typeof data.promo_badge_text === 'string' ? data.promo_badge_text : null,
+    covil_verified: typeof data.covil_verified === 'boolean' ? data.covil_verified : null,
+    experience_years: typeof data.experience_years === 'number' ? data.experience_years : null,
+    created_at: typeof data.created_at === 'string' ? data.created_at : null,
+    tables_count: typeof data.tables_count === 'number' ? data.tables_count : null,
   };
 }

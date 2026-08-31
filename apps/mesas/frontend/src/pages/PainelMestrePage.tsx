@@ -13,6 +13,9 @@ import { HelpCenter } from '../components/HelpCenter';
 import { VttPlatformsEditor } from '../components/mestre/VttPlatformsEditor';
 import { ContactMethodsEditor } from '../components/mestre/ContactMethodsEditor';
 import { GmInsightsDashboard } from '../components/mestre/GmInsightsDashboard';
+// Spec 099 B10 (D5/D8): prévia do perfil público com os dados REAIS do painel.
+import { MestreProfilePreview } from '../components/mestre/editor/MestreProfilePreview';
+import { buildMestrePreviewData } from '../components/mestre/editor/profilePreviewMapping';
 import {
   mapApiToEditorState,
   toProfileContactMethods,
@@ -690,6 +693,20 @@ export const PainelMestrePage = () => {
             {gmProfile && (
               <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
                 <LinksManager />
+              </section>
+            )}
+
+            {/* Spec 099 B10 (D5/D8): prévia do perfil público ao fim do bloco de
+                edição do perfil (contatos → VTT → links). O painel não usa
+                ProfileContext — o MESMO mapeamento do editor alimenta a MESMA
+                prévia; display_name cai para `user.name` quando o nickname
+                está vazio (COALESCE do GET público). Véu do banner = scrim fixo
+                do MestreHero real (D8), sem controle de opacidade. */}
+            {gmProfile && (
+              <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                <MestreProfilePreview
+                  profile={buildMestrePreviewData(gmProfile, user?.name)}
+                />
               </section>
             )}
 
