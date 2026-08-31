@@ -1,13 +1,13 @@
 # 26-08-28_1 · `site-admin` — editor morto por duas cópias de prosemirror, 124 imagens em URL de WordPress e refresh do SSO em 503
 
-**Estado:** Defeitos 1 e 2 **corrigidos e verificados**; Defeito 3 **não se reproduz** (era transitório). Correção do editor **sem commit**; `UPDATE` de mídia **já aplicado em produção** com autorização nominal.
+**Estado:** **encerrada.** Defeitos 1 e 2 corrigidos, em produção e validados no navegador; Defeito 3 não se reproduz (era transitório). Editor entrou pela PR #295 (`main` = `dev` = `5f16f00`); `UPDATE` de mídia aplicado direto no banco com autorização nominal.
 **Origem:** smoke manual do admin em produção (Chrome logado, autorizado pelo mantenedor) depois do deploy da PR #294. A listagem de posts, que era o alvo do teste, **voltou a funcionar** — os três defeitos abaixo são pré-existentes e independentes daquela correção.
 
 ---
 
 ## Resultado da investigação, em uma linha
 
-O admin lista, filtra e navega. Três defeitos foram encontrados: editor que não monta (duas cópias de `prosemirror-model` e de `prosemirror-view` no bundle) e 124 imagens em 404 (URLs de um WordPress que não existe mais) — **ambos corrigidos**; e um `503` no refresh do SSO que **não se reproduz** e era transitório.
+O admin lista, filtra e navega. Três defeitos foram encontrados: editor que não monta (duas cópias de `prosemirror-model` e de `prosemirror-view` no bundle) e 124 imagens em 404 (URLs de um WordPress que não existe mais) — **ambos corrigidos e em produção**; e um `503` no refresh do SSO que **não se reproduz** e era transitório.
 
 ## O que foi verificado e está funcionando
 
@@ -50,25 +50,27 @@ As duas cópias entram no bundle. O ProseMirror rejeita nó criado pela outra in
 
 **Consequência:** criar e editar post e página estão indisponíveis. É o que bloqueia, entre outras coisas, a correção do link do glossário (ver Pendências).
 
-**CORRIGIDO** (local, sem commit) — dois overrides em `pnpm-workspace.yaml`:
+**CORRIGIDO e em produção** — PR #295, dois overrides em `pnpm-workspace.yaml`
+(`prosemirror-model` e `prosemirror-view`). Unificar só o `model` não bastou: matou o
+`RangeError` e o editor seguiu quebrado em `localsInner`, código do `view`. O raciocínio
+completo está nos comentários do próprio `pnpm-workspace.yaml`.
 
-```yaml
-"prosemirror-model@<1.25.11": ">=1.25.11 <2"
-"prosemirror-view@<1.42.2":  ">=1.42.2 <2"
-```
+**Verificação no bundle servido** — a mensagem `multiple versions of prosemirror-model`
+existe uma vez por cópia embutida da lib, então contá-la mede a duplicata direto:
 
-O `model` sozinho **não bastou**: matou o `RangeError`, mas o editor seguiu quebrado em
-`DecorationGroup.locals -> undefined.localsInner` — `prosemirror-view` tinha a mesma
-duplicata (`1.41.8` via `@blocknote/core`, `1.42.2` via `@tiptap/pm`). Só a segunda
-entrada fechou o caso.
+| bundle | ocorrências |
+|---|---|
+| prod antes (`index-Del_ExNn.js`, 1.485.793 B) | **2** |
+| prod agora (`index-gir4h54x.js`, 1.350.988 B) | **1** |
 
-Nenhum consumidor declara teto (`^1.0.0`, `^1.7.1`, `^1.19.3`, `^1.9.10`, `^1.32.4`), então
-os pisos satisfazem a árvore inteira.
+Prod é byte-a-byte idêntico ao validado em beta (`cmp` → igual). Lock com uma versão de
+cada: `prosemirror-model@1.25.11`, `prosemirror-view@1.42.2`.
 
-**Verificação:** `pnpm why` para `model`, `view`, `state`, `transform`, `schema-list` e
-`keymap` → **1 versão cada**. No dev server: `/admin/posts/new` renderiza completo (título,
-área de edição, painéis de Publicação/Resumo/Categorias), **console limpo** (zero erros), e
-a digitação entra no editor. `tsc` limpo, build ok.
+**Validação no Chrome logado, em produção** (autorizada): `/admin/posts/18623` — o post que
+dava tela branca — monta completo, com corpo formatado, imagem inline e painéis;
+`/admin/posts/new` monta com o placeholder do BlockNote; **console sem uma única mensagem**
+após hard reload com tracking ligado desde o load. Digitação testada num parágrafo e
+desfeita em seguida — **nada foi salvo**.
 
 ## Defeito 2 — as 124 imagens da biblioteca estão quebradas
 
@@ -119,8 +121,9 @@ Backup: `pg_dump -t media --data-only` → `/tmp/media_backup_20260828.sql` na V
 dúvida ao mantenedor e não houve resposta, então o `UPDATE` mexeu só na URL. Fica como
 inferência a confirmar — o campo hoje não descreve a realidade.
 
-**Verificação:** amostra aleatória de 6 URLs gravadas → todas `200`. Na interface do admin,
-a grade renderiza as imagens de verdade (antes exibia alt text).
+**Verificação:** amostra aleatória de 6 URLs gravadas → todas `200`. Reconfirmado no Chrome
+logado (2026-08-28, após o deploy de prod): a grade de `/admin/media` renderiza as imagens
+de verdade, não mais o alt text.
 
 ## Defeito 3 — refresh de sessão do SSO devolveu 503 (transitório)
 
@@ -164,7 +167,8 @@ Feitas hoje, já em produção, e **não** são causa dos defeitos acima:
 
 ## Pendências
 
-- **Link do glossário no post** continua `glossariorpg.artificiorpg.com` (3 ocorrências). O redirect cobre quem clica, mas o conteúdo segue ensinando o endereço errado. Depende do Defeito 1 para ser corrigido pelo admin.
+- **Link do glossário no post** continua `glossariorpg.artificiorpg.com` (3 ocorrências no post `18623`, visíveis no editor). O redirect cobre quem clica, mas o conteúdo segue ensinando o endereço errado. **Desbloqueado** — o editor funciona; falta só editar o conteúdo.
+- **`source = 'wp'` na tabela `media`**: o `UPDATE` mexeu só na URL, então o campo não descreve mais a realidade (as URLs são Cloudinary). Inferência a confirmar, não decisão registrada.
 - **Débito da sessão `26-08-16_1`**: 6 erros de `eslint-plugin-react-hooks` no `site-admin`, ainda abertos. Não tocados aqui.
 - **`Number(id)` no backend do `site`** (`asInt`/`parseId`): achado do Codex na PR #294, deliberadamente não aplicado — sem defeito medido, ids reais longe de 2^53.
 
@@ -172,10 +176,16 @@ Feitas hoje, já em produção, e **não** são causa dos defeitos acima:
 
 | Defeito | Situação |
 |---|---|
-| 1 · editor não monta | ✅ corrigido (2 overlays em `pnpm-workspace.yaml`) · **sem commit** |
-| 2 · 124 imagens 404 | ✅ corrigido em produção (`UPDATE 124`) · backup na VM |
+| 1 · editor não monta | ✅ em produção (PR #295) · validado no Chrome logado |
+| 2 · 124 imagens 404 | ✅ em produção (`UPDATE 124`) · backup na VM · grade validada |
 | 3 · refresh 503 | ⚪ não se reproduz · era transitório |
 
-**Falta:** commit + PR da correção do editor (`pnpm-workspace.yaml` + `pnpm-lock.yaml`), e
-deploy para que ela chegue a produção. Enquanto não subir, o editor segue quebrado no ar —
-a correção do Defeito 2 já está valendo porque foi no banco, não no código.
+**Entrega da correção do editor** (2026-08-28): validação repo-wide antes do commit — lint
+26/26, build 26/26, test 43/43 tasks. PR #295 mergeada; `main` = `dev` = `5f16f00`.
+Deploy beta (`33196635254`) → promote fast-forward (`33197288000`) → deploy prod
+(`33197321262`), os três verdes, os dois deploys com `deploy=true` no log. Admin responde
+`200` com `Cache-Control: no-store, private` e `cf-cache-status: DYNAMIC`.
+
+**Armadilha que reapareceu duas vezes nesta sessão:** o navegador serve o bundle antigo do
+cache e o admin *parece* continuar quebrado depois de um deploy verde. `Ctrl+Shift+R` antes
+de concluir qualquer coisa sobre o estado do admin em produção.

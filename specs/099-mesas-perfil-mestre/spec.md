@@ -1,534 +1,548 @@
 # Spec 099 — Perfil do mestre: o que o mestre insere e o que o sistema expõe
 
-**App:** `mesas` · **Criada:** 2026-08-27 · **Status:** grill concluído (2026-08-27), **não implementada**
-**Origem:** pedido do mantenedor (2026-08-27): *"voce vai ver como é hoje o perfil dos
-mestres, como https://mesas.artificiorpg.com/mestre/mestre-hermes. e tudo que dá para
-melhorar."*
-
-**Recorte, dito por ele, na segunda mensagem:** *"foco em pegar as melhores práticas do
-mercado: design, heuristicas, modelos, elementos, design, vendas. as mais modernas, não
-as classicas, padrões e exageradas landingpages. foco em funcionalidade e clarificação
-da informação de forma que dá para o mestre inserir e, depois, nosso sistema expor."*
-
-**Esta spec não implementa nada.** É material para o *grill* que o mantenedor fará com
-outro agente. Nenhuma task foi executada; nenhum arquivo de `apps/` ou `packages/` foi
-alterado.
+**App:** `mesas` · **Status:** decisões fechadas (D1–D11), **nenhuma task executada**
+**Escrita para implementar.** Investigação, medições e fontes que sustentam cada decisão
+estão em `old_spec.md` (temporário, será removido após conferência do mantenedor).
 
 ---
 
-## 0. A frase que resume o achado
+## 1. O problema, em uma frase
 
 **O perfil do mestre não tem onde inserir aquilo que ele expõe.**
 
-Vinte perfis de mestre em produção, medidos na API em 2026-08-27:
+Sete campos que a página pública renderiza — ou que o banco guarda para ela — **não têm
+nenhum campo de formulário em lugar nenhum do frontend**. Todos estão em 0/20 perfis de
+produção. A correlação é perfeita: todo campo com porta de entrada tem ao menos um perfil
+preenchido; nenhum campo sem porta tem qualquer um.
 
-| campo | mestres que preencheram | tem campo no editor? |
-|---|---|---|
-| `tagline` | **0 / 20** | **não** |
-| `specialties` | **0 / 20** | **não** |
-| `languages` | **0 / 20** | **não** |
-| `selling_points` | **0 / 20** | **não** |
-| `badges` | **0 / 20** | **não** |
-| `bio_long` | 10 / 20 | sim (texto livre) |
-| `experience_years` | 11 / 20 | sim |
-| `contact_methods` | 10 / 20 | sim (no editor de mesa) |
-| `avatar_url` | 10 / 20 | sim |
-| `banner_url` | 3 / 20 | sim |
-| `links` | **1 / 20** | sim |
-| `reviews_count > 0` | **0 / 20** | — (depende de terceiros) |
+**Cuidado com a inferência:** o que está medido é a **ausência de porta**, não a motivação
+de quem não preencheu. Não se afirma que os 20 queriam preencher — afirma-se que nenhum
+teve como.
 
-Os cinco campos com **0 de 20** são exatamente os cinco que **não têm nenhum campo de
-formulário em lugar nenhum do frontend**. Não é desinteresse do mestre: é ausência de
-porta de entrada. Medição da ausência em §2.3.
-
-Isto não é um problema de layout. A 098 tratava de forma (caixa baixa, espaçamento,
-alvo de clique). Aqui o defeito é de **modelo de informação**: o sistema define,
-armazena, serve e renderiza campos que ninguém consegue preencher.
+**O critério que governa cada decisão desta spec:** o jogador vai passar 3 ou 4 horas por
+semana com um desconhecido conduzindo a história dele. Todo campo aqui existe para
+responder uma pergunta que ele faz antes de sentar à mesa. Campo que não responde nenhuma
+não entra, por mais que a coluna exista.
 
 ---
 
-## 1. O que foi medido, e com quê
+## 2. Estado atual, medido (2026-08-30)
 
-Tudo em **produção** (`mesas.artificiorpg.com`), 2026-08-27, Chrome com sessão real do
-mantenedor (autorizado nominalmente nesta sessão), viewport 1815×962, tema escuro.
-Medições de tela por `getBoundingClientRect`/`getComputedStyle`; medições de dado por
-`fetch` autenticado contra a API pública.
+### 2.1 Inventário: cada campo, onde entra e onde sai
 
-Perfil de referência: `mestre-hermes` (4 mesas ativas). Agregados: os 20 mestres com
-mesa ativa, obtidos de `/api/v1/tables?limit=100` → `gm_slug` distintos →
-`/api/v1/gm/perfis/{slug}`.
+Fonte de verdade para as fases B e C. Toda linha "sem entrada" é código já escrito,
+testado e deployado que nunca chegou a ninguém.
 
-**O que não foi medido, e fica dito:** mobile (o editor tem media query em 719px, não
-abri nessa largura); tema claro; o fluxo de quem chega pelo catálogo em vez de link
-direto; e o comportamento com um perfil realmente preenchido — **não existe nenhum**
-entre os 20 para servir de controle.
+| campo | edita hoje | exibe hoje | estado |
+|---|---|---|---|
+| `avatar_url` + `avatar_crop_*` | `AvatarField` (recorte 1:1) | `MestreHero` | ✅ completo |
+| `banner_url` + `banner_crop_*` | **`ImageUploader`** (`kind="profile_banner"`) | fundo do hero, sob scrim fixo | ✅ completo |
+| `bio_long` | `MarkdownEditor` (300px) | `MestreBio` | ✅ completo |
+| `experience_years` | editor | `MestreHero`, só se `>= 3` | ⚠️ divergente (task A3) |
+| `links` | `LinksManager` | `LinksDisplay` | ✅ completo |
+| `contact_methods` | editor de mesa **e** `PainelMestrePage` | `MestreContactMethods` + `MestreContactForm` | ✅ funciona |
+| `preferred_vtt_platforms` | `PainelMestrePage` (`VttPlatformsEditor`) | `MestreVttPlatforms` | ✅ funciona |
+| `systems.gm` | `UserSystemsSelector` (**só conta**) | **ninguém** | 🔴 entrada sem saída |
+| `average_price` | editor | **ninguém** | 🔴 sai por D4 |
+| `tagline` | **nenhum** | `MestreHero` + **2 descrições** (§2.3) | 🔴 saída sem entrada |
+| `selling_points` | **nenhum** | `MestreSellingPoints` | 🔴 saída sem entrada |
+| `promo_badge_text` | **nenhum** | faixa no topo do `MestreHero` | 🔴 saída sem entrada |
+| `closed_group_*` (4 col.) | **nenhum** | `MestreClosedGroupSection` (seção inteira) | 🔴 saída sem entrada |
+| `specialties` | **nenhum** | **ninguém** | 🔴 órfão dos 2 lados |
+| `languages` | **nenhum** ¹ | **ninguém** | 🔴 órfão dos 2 lados |
+| `badges` | **nenhum** | **ninguém** | 🔴 órfão dos 2 lados |
+| `covil_verified`, `discord_connected`, `reviews_count` | colunas, outros fluxos | `MestreHero` | ✅ correto |
+| `tables_count`, `tables_hosted_count`, `years_on_platform` | **subconsultas** em `gm.ts` | `MestreHero` | ✅ correto |
 
----
+¹ há picker no onboarding, mas grava em `/api/v1/me/preferences` — outra entidade.
 
-## 2. Diagnóstico
+**Saldo:** 7 grupos sem porta de entrada, 5 sem exibição, 3 sem nenhuma das duas.
 
-### 2.1 A página pública gasta a dobra sem informar nada
+### 2.2 Forma exata dos dados (errar aqui é bug silencioso)
 
-`main.mestre-page` tem **5341px — 5,55 telas**. Composição medida:
-
-| # | seção | altura | telas | conteúdo real |
-|---|---|---|---|---|
-| 0 | `hero-section` | 693px | 0,72 | nome, 2 botões, 3 números |
-| 1 | Entre em Contato | 242px | 0,25 | WhatsApp + Discord |
-| 2 | Plataformas que uso | 238px | 0,25 | **1 ícone** |
-| 3 | Mesas Disponíveis | 1530px | 1,59 | 4 cartões |
-| 4 | Avaliações | 634px | 0,66 | **formulário vazio**, 0 avaliações |
-| 5 | Insights (privado) | 794px | 0,83 | só o dono/admin vê |
-| 6 | CTA final | 581px | 0,60 | repete "explorar mesas" |
-
-**A dobra (primeira tela) contém:** o nome, dois botões, e três números
-(`4 mesas ativas`, `10+ anos de experiência`, `4 mesas hospedadas`). A headline é
-`"Viva aventuras com Mestre Hermes"` — texto gerado pelo sistema, igual para todos.
-
-Não há **uma frase escrita pelo mestre** acima da dobra. Não há especialidade, não há
-sistema que ele domina, não há como ele conduz. NN/g mede que o conteúdo acima da dobra
-recebe **57% do tempo de visualização** e que a diferença de tratamento entre acima e
-abaixo é de **84%** ([Scrolling and Attention](https://www.nngroup.com/articles/scrolling-and-attention/)).
-A parte mais cara da página está ocupada por texto que o sistema escreveu sozinho.
-
-**"Plataformas que uso" (238px) para exibir um ícone** é o caso extremo da mesma
-doença: contêiner de seção inteiro para um dado de uma palavra.
-
-### 2.2 A seção de prova social pede trabalho em vez de dar prova
-
-`Avaliações` com **0 avaliações** renderiza 634px de **formulário para escrever uma**:
-5 estrelas, 8 etiquetas (`Pontual`, `Bom narrador`, `Justo com as regras`…), editor
-Markdown com barra de ferramentas, e botão `Enviar avaliação`.
-
-O visitante que chegou para decidir se joga com este mestre recebe uma tarefa. E
-**0 de 20** mestres têm qualquer avaliação — então esta é a aparência da seção em
-**100% dos perfis de produção hoje**.
-
-O mesmo padrão aparece no `hero`: `4 mesas hospedadas` é o total histórico
-(`tables_hosted_count`), que hoje é igual às 4 ativas — o número não distingue um mestre
-novo de um veterano, mas é apresentado como se distinguisse.
-
-### 2.3 Os campos de venda existem no sistema inteiro, menos onde se preenche
-
-Rastreado com `rtk rg`, camada por camada:
-
-| camada | `selling_points` | `tagline` | `specialties` | `languages` | `badges` |
-|---|---|---|---|---|---|
-| migration (`migration_107`) | ✔ | ✔ | ✔ | ✔ | ✔ |
-| `db/types.ts` | ✔ | ✔ | ✔ | ✔ | ✔ |
-| hidratação (`hydration/config.ts`) | ✔ | ✔ | ✔ | ✔ | ✔ |
-| API serve (`gm.ts:146-154`) | ✔ | ✔ | ✔ | ✔ | ✔ |
-| API aceita escrita (`gmPanel.ts:211,377`) | ✔ | ✔ | — | — | — |
-| tipo do front (`useMestre.ts`) | ✔ | ✔ | ✔ | ✔ | ✔ |
-| componente que renderiza | ✔ | ✔ | ✔ | ✔ | ✔ |
-| **campo de formulário** | **✘** | **✘** | **✘** | **✘** | **✘** |
-
-Busca que sustenta a última linha:
-`rtk rg "selling_point|tagline|specialt|languages|promo_badge" apps/mesas/frontend/src/pages/ProfileEditPage.tsx`
-→ **0 ocorrências** (exceto 1 menção a `badges` fora de contexto de campo).
-Nenhuma chamada do frontend envia esses campos: as quatro escritas para
-`/api/v1/gm/profile` (`PainelMestrePage.tsx:642,665`, `useTableEditor.ts:934,1095`)
-mandam outros campos.
-
-O backend tem `PUT /api/v1/gm/profile` aceitando `selling_points` com validação
-(`isSellingPoint`) — **código de escrita que nenhum cliente exercita**. É o padrão que o
-AGENTS.md nomeia: *"por que os outros não quebraram — porque aquele caminho nunca foi
-exercitado"*.
-
-### 2.4 O mestre inventa estrutura dentro da caixa de texto
-
-Bio de `Faren Ravirar`, transcrita da tela do editor:
-
-```
-Mestre há 11 anos
-Editor do site Toca do Coruja RPG
-Fanático por The Witcher
-Mais de 30 feedbacks positivos sobre a forma de narrar.
+```ts
+selling_points: Array<{ icon: string; title: string; description: string; highlight?: string }>
 ```
 
-Quatro linhas, quatro **fatos estruturados diferentes**, digitados em Markdown numa
-caixa de fonte monoespaçada porque não há campo para nenhum deles:
+`icon` é chave de **dicionário fechado de 14 valores** (`SELLING_POINT_ICONS`):
 
-| o que ele escreveu | que campo seria | existe? |
+```
+clock · monitor · coins · sparkles · shield · heart · zap
+users · trophy · headphones · mic · video · film · book
+```
+
+Chave fora da lista **não quebra** — cai em `Sparkles` sem aviso. Por isso o campo é
+**seleção**, nunca texto livre. O backend (`isSellingPoint`) exige `icon`/`title`/
+`description` como `string` e **descarta em silêncio** (via `.filter`) o item que não bate:
+sem `throw`, sem log. O formulário valida antes de enviar.
+
+| campo | tipo real | atenção |
 |---|---|---|
-| `Mestre há 11 anos` | `experience_years` | **existe e está preenchido com 14** |
-| `Editor do site Toca do Coruja RPG` | credencial / link | não |
-| `Fanático por The Witcher` | especialidade / cenário | coluna existe, campo não |
-| `Mais de 30 feedbacks positivos` | prova social | não |
+| `specialties`, `languages`, `badges` | `Generated<string[]>` | texto livre, sem vocabulário fechado |
+| `tagline` | `string \| null` | sem limite no banco |
+| `experience_years` | `number \| null` | autodeclarado; **≠** `years_on_platform` (task A3) |
+| `promo_badge_text` | `string \| null` | — |
+| `closed_group_enabled` | `Generated<boolean>` | — |
+| `closed_group_systems` | `Generated<string[]>` | **UUID**, não nome |
+| `closed_group_description` | `string \| null` | — |
+| `closed_group_min_price_cents` | `number \| null` | **centavos** — o campo mostra reais |
+| `selling_points` | `unknown` (JSONB) | normalizar na fronteira |
 
-**A primeira linha contradiz o campo ao lado dela.** `Anos de Experiência` = `14` no
-formulário, `11` na bio, e a página pública exibe `10+`. Três números para o mesmo fato,
-na mesma tela, porque o dado tem duas moradas e nenhuma manda na outra.
+**Achado aberto (tasks A1/A2):** a API devolve `{}` — objeto, não array — em **7/20** perfis, apesar
+do `DEFAULT '[]'::jsonb`. Não quebra porque `MestreSellingPoints` sai cedo com
+`!Array.isArray(...)`. **A causa não foi medida.**
 
-Isto é o comportamento que a spec precisa levar a sério: **o mestre já quer dar a
-informação estruturada.** Ele a estrutura à mão, em texto, no único lugar onde cabe.
+### 2.3 `tagline` alimenta três cadeias, com cortes diferentes
 
-### 2.5 O que o mestre insere e o sistema não expõe (e vice-versa)
-
-Cruzamento entre a aba `Mestre` do editor e as 7 seções da página pública:
-
-| no editor | na página pública |
-|---|---|
-| Anos de Experiência | sim (como `10+`, arredondado) |
-| Preço Médio | **não aparece** em nenhuma seção |
-| Bio Detalhada | sim (`MestreBio`) |
-| Foto de Mestre | sim (avatar) |
-| Banner do Perfil | sim (fundo do hero) |
-| **Sistemas que Mestra** | **não aparece** — nenhuma seção lista sistemas |
-| Links e Conteúdo | sim (`LinksDisplay`, no fim) |
-| Conexão Discord | vira badge |
-| — | Plataformas VTT (editado no **painel**, não aqui) |
-| — | Contatos (editados no **editor de mesa**, não aqui) |
-| — | Grupo fechado (sem editor encontrado) |
-
-**Dois campos que o mestre preenche não são exibidos** (`Preço Médio`, `Sistemas que
-Mestra`), e **três coisas exibidas se editam em outras telas**. O mestre não tem um
-lugar onde veja o que o seu perfil é.
-
-`Sistemas que Mestra` é o caso mais claro: o editor diz `2 sistema(s) que você mestra` —
-**um contador, sem listar quais**. O mestre não vê o que escolheu, e o visitante nunca vê.
-
-### 2.6 O editor repete os defeitos de forma da 098
-
-Aba `Mestre`: **3607px, 3,75 telas**, 4 seções.
-
-**Sem botão salvar** — `rtk rg "Salvar" ProfileEditPage.tsx` → 0. Há autosave com
-debounce de 500ms (`ProfileEditPage.tsx:20`) e indicador (`.autosave-indicator`), mas o
-CSS **não tem `position: fixed` nem `sticky`** (`ProfileEditPage.css:204-212`): o
-indicador fica no topo e rola para fora. Quem edita a bio — que começa em 597px e tem
-300px de altura — não vê nenhuma confirmação de que o trabalho foi salvo. Nielsen #1.
-
-Largura e altura dos controles, medidas:
-
-| campo | largura | altura | resposta esperada |
+| consumidor | onde vive | corte de `bio_long` | fallback final |
 |---|---|---|---|
-| `Anos de Experiência` | **802px** | 50px | 2 dígitos |
-| `Preço Médio` | **802px** | 50px | 2-3 dígitos |
-| `Bio Detalhada` | 800px | 300px | parágrafos |
-| `URL manual` (avatar) | 148px | 50px | uma URL longa |
-| `URL manual` (banner) | 768px | 38px | uma URL longa |
-| `Buscar sistema` | 802px | 42px | uma palavra |
-| `Cole o link` | 649px | 48px | uma URL |
-| `Manter link direto` | 16px | **16px** | caixa de seleção |
+| `MestreHero` (dobra) | `components/mestre/MestreHero.tsx` | 1ª frase (`split(/[.!?]\s+/)[0]`), truncada em 140 **só se exceder** | nada renderizado |
+| `buildGmDescription` (**backend**, serve o crawler) | `backend/src/utils/ogDescription.ts`, servido por `backend/src/routes/og.ts` | conforme a função | *"Conheça o perfil do mestre {nome}…"* |
+| `applySeo` (**front**, SPA) | inline em `pages/MestrePage.tsx:45` (`utils/seo`) | `slice(0, 150)` — substring crua | *"Landing pública de mestre…"* |
 
-Alturas distintas: **16, 38, 42, 48, 50, 300** — sem escala, exatamente como a 098 mediu
-no editor de anúncio (§2.6 de lá). Duas URLs longas recebem **148px e 768px**; um número
-de dois dígitos recebe **802px**. É a violação de Baymard de §6.2 da 098, repetida.
+**Rede de segurança existente:** `backend/src/utils/ogDescription.test.ts` fixa a frase de
+fallback. Mexer na cadeia do backend quebra esse teste — é sinal, não obstáculo.
 
-A caixa de seleção de **16px** reprova WCAG 2.2 SC 2.5.8 (24×24, nível AA) — e é o mesmo
-controle `Manter link direto` que a 098 já havia listado no editor de anúncio. **O
-mesmo defeito, no mesmo componente, em duas telas.**
+**Mexer numa não mexe nas outras.** Com `tagline` em 0/20 e `bio_long` em 10/20, metade dos
+perfis compartilhados hoje mostra uma frase genérica idêntica para todos. Encher `tagline`
+melhora as três de uma vez, porque encabeça todas.
 
-### 2.7 Espaçamento entre seções da página pública, sem regra
+### 2.4 O que o jogador consegue buscar
 
-Vãos medidos entre as 7 seções: **48, 48, 0, 48, 0, 0**.
+A busca textual do catálogo tem **quatro** predicados:
 
-Três junções com `0px`. É a proximidade invertida que a 098 §6.6 identificou como o
-defeito real (não a falta de escala): sem espaço entre grupos, o olho não sabe onde uma
-seção termina.
+```sql
+(  t.title ILIKE %q%
+   OR t.description ILIKE %q%
+   OR t.system_id IN (…ids resolvidos do nome do sistema…)
+   OR COALESCE(gm.nickname, p.display_name) ILIKE %q%  )
+```
 
-### 2.8 Alvos de clique abaixo do piso, e um deles é do pacote
+Do mestre entra **só o nome**. Nenhum atributo descritivo (`specialties`, `languages`,
+`tagline`) é buscável, e os filtros estruturados são todos sobre `tables`.
 
-Controles com altura < 24px na página pública:
+**Consequência de escopo:** esta spec melhora a **decisão** de quem chegou ao perfil, não a
+**descoberta** de quem não chegou (D6).
 
-| controle | altura | onde mora |
+### 2.5 Defeitos de forma (editor, página pública e pacote)
+
+Os dois primeiros são do editor; os alvos e os vãos atravessam editor, página pública e
+`packages/ui` — o que decide o alcance de A6/A7/A8.
+
+- **Autosave sem debounce:** a mutation dispara a cada `onChange` — uma requisição por
+  tecla. O JSDoc promete 500ms que **não existem no código**.
+- **Indicador de "salvo" rola para fora:** `.autosave-indicator` não tem `position: fixed`
+  nem `sticky`; a aba tem 3,75 telas e quem edita a bio nunca vê confirmação.
+- **Alvos < 24px** (reprova WCAG 2.2 SC 2.5.8): `Manter link direto` em `AvatarField` e
+  `ImageUploader` (16px); no rodapé de `packages/ui`, `Ver termos` (≈20px) e
+  `.artificio-footer-nav-link` (≈17px); e o link do nome do mestre em
+  `TableCard.tsx:185-192` (≈20px, `text-sm` sem `min-height`), presente nos 4 cartões da
+  página pública.
+- **Larguras sem relação com a resposta:** `Anos de Experiência` (2 dígitos) com 802px.
+  Alturas medidas: 16 · 38 · 42 · 48 · 50 · 300 — sem escala.
+- **Sistemas só contados:** `UserSystemsSelector` mostra `2 sistema(s) que você mestra`,
+  sem listar quais.
+- **Vãos de seção sem regra** na página pública: 48 · 48 · 0 · 48 · 0 · 0.
+
+---
+
+## 3. Decisões fechadas (D1–D11)
+
+Vinculantes. O *porquê* de cada uma, com fontes e medições, está em `old_spec.md` §3–§4.
+
+| # | Decisão | Consequência direta |
 |---|---|---|
-| `Mestre Hermes` (nome nos 4 cartões) | 20px | `apps/mesas` (`TableCard`) |
-| navegação global (`Portal`, `Glossário`, `Mesas`…) | 22px | **`packages/ui`** |
-| `Ver termos de uso` (rodapé) | 18px | **`packages/ui`** |
+| **D1** | Modelo de informação **não muda** | sem migration, sem coluna nova |
+| **D2** | Dobra carrega `tagline` + etiquetas dos **atributos-chave: `specialties`, `selling_points`, `languages`** | headline gerada vira fallback; `featured` continua **do admin** (`adminTables.ts`; o editor fixa `featured: false`) — mesa em destaque não entra na dobra |
+| **D3** | Seção de Avaliações **fica como está** | nada a fazer |
+| **D4** | `Preço Médio` **sai do front** | banco e migration intactos. **Só o campo `average_price` do editor de perfil** (`ProfileEditPage.tsx:583-590`): o preço da mesa (`MestreFeaturedTable.tsx:148-155`) e o do grupo fechado (`MestreClosedGroupSection.tsx:68-73`) **continuam** — são a mitigação registrada |
+| **D5** | Mantém as **3 telas** de edição | entregar prévia, não unificar |
+| **D6** | Busca por atributo do mestre **fora do escopo** | por **ordem** (dado antes do filtro), **não** por D1 |
+| **D7** | **Nada** de descrição composta por template | resolver pela origem: encher `tagline` |
+| **D8** | Scrim do banner **fica fixo** | entrega é **prévia**, não controle de opacidade |
+| **D9** | Todas as capacidades órfãs entram na fase B | inclusive `closed_group`. **Não decide** preço, comissão, regra de contrato do grupo fixo nem política comercial — é só ligar o que já existe |
+| **D10** | Todo campo recomendado leva **frase do ganho** | padrão `RECOMMENDED_GAIN` do editor de mesa |
+| **D11** | Extração da bio **entra**, com confirmação | formulário primeiro; máquina sugere, nunca grava |
 
-Os dois últimos **atingem todos os apps do monorepo**, não só o `mesas`. Pela regra
-pétrea (§Compartilhado por padrão), a correção pertence ao pacote — e a verificação
-precisa cruzar os outros apps antes.
-
-### 2.9 Achado de contrato: `selling_points` volta como objeto
-
-A migration declara `JSONB NOT NULL DEFAULT '[]'::jsonb`
-(`migration_107_gm_public_profile_v2.sql:14`), o tipo do frontend declara
-`SellingPoint[]`, e a API devolveu **`{}`** para o `mestre-hermes` — e para **7 dos 20**
-perfis medidos.
-
-`MestrePage.tsx:99` passa `profile.selling_points ?? []` ao componente. `{}` não é
-`null`, então o `??` não dispara: o componente recebe um objeto onde espera array. Não
-quebrou porque `MestreSellingPoints` sai cedo quando não há itens — mas é exatamente a
-classe de defeito que o AGENTS.md cobre em *"Normalização obrigatória"*: dado de JSONB
-entrando em props sem normalizador tipado.
-
-**Não medi a causa** (se é escrita antiga, migração de dado, ou serialização). Fica como
-achado a investigar, não como diagnóstico.
-
-### 2.10 O contraste que enquadra a spec inteira
-
-A tabela `tables` tem **~40 colunas de conteúdo estruturado** para descrever *uma mesa*:
-`synopsis`, `synopsis_narrative`, `style_tags`, `setting_styles`, `benefits_text`,
-`features`, `technical_requirements`, `content_warnings`, `safety_tools`,
-`campaign_length`, `level_range`, `table_gm_bio`…
-
-O perfil do mestre tem **um** campo de texto livre.
-
-O anúncio da mesa é um modelo de informação rico. Quem mestra a mesa é um parágrafo.
+**Trava de D11, não negociável:** a máquina sugere, o mestre confirma, **nada trava a
+publicação**. É a regra do Airbnb (F1 de 75% — gravar direto erraria 1 em 4) e já é a regra
+escrita no código do parser deste app: *"aviso, não validação"*.
 
 ---
 
-## 3. Pesquisa: o que as fontes modernas dizem (2026-08-27)
+## 4. Critérios de aceite
 
-Pesquisada depois das medições. O recorte pedido — *práticas modernas, funcionalidade e
-clareza da informação, não landing page persuasiva* — orientou a escolha das fontes.
+Cada um exige **medição citada** para ser dado como cumprido.
 
-### 3.1 Texto livre não é filtrável, comparável nem governável
-
-O argumento decisivo do recorte não é estético, é funcional. Campo de texto livre
-produz classificação inconsistente: *"AI", "A.I.", "ai" e "artificial-intelligence"*
-convivem como quatro coisas para o sistema e uma para o leitor, e a consulta perde o
-conteúdo ([Contentstack, Content Modeling — taxonomia e
-classificação](https://www.contentstack.com/academy/courses/content-modeling-with-contentstack/taxonomy-tags-and-classification-systems)).
-
-Consequência direta para o `mesas`: enquanto `Fanático por The Witcher` viver dentro da
-bio, **nenhuma busca por cenário encontra este mestre**, nenhum filtro o agrupa, nenhum
-crosslink o conecta à mesa de Witcher, e nenhum sistema pode exibir isso como atributo.
-O dado existe e é inalcançável.
-
-Isto redefine o objetivo: não é "deixar o perfil bonito", é **transformar em atributo
-consultável aquilo que hoje é prosa**.
-
-### 3.2 A dobra é cara e está sendo gasta com texto do sistema
-
-[NN/g, Scrolling and Attention](https://www.nngroup.com/articles/scrolling-and-attention/):
-**57%** do tempo de visualização fica acima da dobra, **17%** na segunda tela, e a regra
-do estudo é *"reserve o topo da página para conteúdo de alta prioridade: metas-chave do
-negócio e do usuário"*.
-
-[NN/g, The Fold Manifesto](https://www.nngroup.com/articles/page-fold-manifesto/): a
-diferença média de tratamento acima/abaixo da dobra é de **84%**, e os 100px logo acima
-dela são vistos **102% mais** que os 100px logo abaixo. Usuários rolam — *"mas só se o
-que está acima da dobra for promissor o bastante"*.
-
-Hoje o que está acima da dobra é uma headline gerada (`Viva aventuras com…`), dois
-botões e três números. **Zero informação específica deste mestre.** Pela fonte, é o
-espaço mais caro da página aplicado ao conteúdo menos diferenciador.
-
-### 3.3 Credibilidade vem de especificidade, não de adjetivo
-
-[NN/g, Trustworthy Design — 4 fatores](https://www.nngroup.com/articles/trustworthy-design/)
-e [Trust or Bust](https://www.nngroup.com/articles/communicating-trustworthiness/):
-os quatro fatores são qualidade de design, **divulgação antecipada**, conteúdo
-**abrangente e atual**, e conexão com o resto da web.
-
-O achado mais aplicável: ao avaliar um serviço, as pessoas queriam ver **o processo e
-quem executa**, não só o resultado — *"users want to get a better understanding of whom
-they will do business with"* — e buscavam evidência específica (casos, fotos,
-depoimentos), não afirmação genérica. O estudo registra uma usuária que descartou um
-serviço de limpeza em **35 segundos** por não ver a tarifa exposta: *"I feel they are
-not open enough"*.
-
-Traduzido para o perfil de mestre: *"Viva aventuras"* é adjetivo. *"D&D 5e, 14 anos,
-mesa quinzenal, foco em investigação, R$25/sessão"* é evidência. A segunda forma exige
-campo estruturado; a primeira sai de graça do sistema.
-
-A fonte também diz que **pedir antes de dar valor quebra a confiança** — o que descreve
-a seção de Avaliações de §2.2, que abre com um formulário.
-
-### 3.4 Coleta progressiva, não formulário de 3,75 telas
-
-[Progressive profiling](https://userguiding.com/blog/progressive-profiling) —
-coletar aos poucos, no contexto, em vez de tudo de uma vez. Fontes de 2026 relatam
-conclusão subindo para **75%** com divulgação contextual disparada por comportamento,
-contra formulário monolítico
-([Poptin, playbook 2026](https://www.poptin.com/blog/progressive-profiling-popups/)).
-
-**Ressalva honesta:** este número vem de material de fornecedor, não de estudo
-controlado. Trago como sinal de direção, não como medida confiável — e o registro é
-proposital: o handoff da 099 cobra registrar o que se descarta e o que não se sustenta.
-
-O que se sustenta com mais firmeza é a estrutura do argumento, que a própria 098 já
-mediu por Baymard: **a contagem percebida de campos importa mais que a real** —
-15 campos em 3 passos superam 10 campos numa página só em **11-14%** de conclusão
-(098 §6.7). O editor de perfil hoje é o caso ruim: uma coluna de 3,75 telas.
-
-### 3.5 Cartão: a unidade que serve para comparar
-
-[UI Card Design, 2026](https://www.alfdesigngroup.com/post/best-practices-to-design-ui-cards-for-your-website):
-cartão é *bloco autocontido que agrupa conteúdo relacionado numa unidade escaneável*, e
-funciona porque **as pessoas comparam em vez de ler**, o que reduz o esforço de escolher.
-Regra da fonte: **um cartão, um propósito** — cartão que tenta fazer tudo não faz nada.
-
-Aplicável direto: os cartões de mesa (§2.1, seção 3) são hoje a única parte densa e
-comparável da página. O perfil do mestre em si não tem unidade comparável nenhuma.
-
-### 3.6 O que foi descartado, e por quê
-
-- **Landing page persuasiva com prova social empilhada** — descartada pelo recorte
-  explícito do mantenedor. É também o que a página já tenta ser (hero + CTA duplicado +
-  CTA final) e o que produziu 5,55 telas com pouca informação.
-- **Baymard sobre "campos estruturados vs. texto livre em perfil"** — busquei, **não
-  existe** estudo com esse recorte no material público. Não vou citar Baymard para
-  sustentar o que Baymard não mediu. O que dele se aplica (largura de campo, contagem
-  percebida) já está na 098 e é reusado aqui.
-- **Comparação com Airbnb/Upwork como fonte** — a busca devolveu material de marketing
-  de terceiros, não pesquisa. Descartado por não sustentar afirmação.
-- **Acessibilidade por teclado** — fora de escopo na 098 por decisão do mantenedor;
-  mantenho fora aqui por coerência, até ele dizer o contrário.
+| # | Critério | Como medir |
+|---|---|---|
+| **A1** | Nenhum campo que a página renderiza fica sem porta de entrada | busca por campo de formulário para cada campo lido por `mestre/*`. Cumprível **porque D9 não deixou nada de fora** — se alguma entrega da fase B for adiada, A1 vira **incumprível** e a decisão de adiar tem de ser registrada, não silenciada |
+| **A2** | O que o mestre insere, o sistema expõe | tabela §2.1 sem linha 🔴 |
+| **A3** | A dobra contém informação escrita pelo mestre | `getBoundingClientRect` em 1366×768 e 1920×1080 |
+| **A4** | Nenhum dado apresentado como fato tem duas fontes divergentes | os três números de experiência viram um (task A3) |
+| **A5** | Todo dado de JSONB/API passa por normalizador tipado antes de virar prop | inspeção do caminho de `selling_points` |
+| **A6** | Nenhum alvo < 24px na página pública nem no editor **e** todo campo com erro/hint tem `aria-describedby` no controle | medição de alvo + busca do atributo |
+| **A7** | Cada correção no nível que impede recorrência | "ajustei os N valores do `mesas`" **reprova** |
+| **A8** | Defeito fora do `mesas` foi verificado nos outros apps | medido, não suposto |
+| **A9** | Cada correção com teste que falha sem ela | **verificado reintroduzindo o defeito** |
+| **A10** | Medição antes/depois nos 20 perfis reais | `/api/v1/tables?limit=100` → `gm_slug` distintos → `/api/v1/gm/perfis/{slug}`. Não só no `mestre-hermes` |
 
 ---
 
-## 4. As decisões que o grill precisa resolver
+## 5. Fora de escopo
 
-Estas são de fato do mantenedor: mudam regra de produto, comportamento observável ou
-custo. Cada uma vem com o que **já foi medido**, para o grill não gastar volta com o que
-já tem resposta.
-
-**Protocolo do grill (definido pelo mantenedor, 2026-08-27):** as perguntas seguem as
-melhores práticas modernas de mercado — estudos publicados, exemplos, conteúdo de design,
-heurísticas e padrões. O mantenedor só responde o que essas fontes **não** respondem:
-decisão de produto, risco ou custo. O que a pesquisa já decide vira recomendação, nunca
-pergunta; pergunta "para cumprir tabela" é proibida. Cada decisão abaixo separa o que já
-está medido/pesquisado (fundo) do resíduo que só ele responde (pergunta).
-
-**Grill concluído (2026-08-27).** As decisões D1-D5 abaixo estão resolvidas; o fundo
-medido de cada uma permanece registrado junto com a decisão.
-
-### D1 — Modelo de informação: não mexe (decidido, 2026-08-27)
-
-**Decisão do mantenedor:** o modelo de informação não muda. Sem migration nova, sem
-campo novo — usa-se o que já existe no banco desde a `migration_107` (`tagline`,
-`specialties`, `languages`, `selling_points`, `badges`, `links`, `experience_years`).
-
-O fundo medido que motivava a pergunta fica registrado: `selling_points` (livre) e
-`specialties` (estruturado) existem ambos desde a `migration_107`, **nenhum dos dois**
-tem editor e ambos estão em 0/20 (§2.3); o mestre já estrutura à mão dentro da bio, e a
-estrutura dele contradiz o campo que existe (§2.4). Com o modelo intacto, a fase A se
-reduz a: inventário dos campos existentes, resolução de C1 (fonte única para
-experiência) e normalização na fronteira (C2).
-
-### D2 — O que ocupa a dobra: respondida por pesquisa (delegado pelo mantenedor, 2026-08-27)
-
-**O mantenedor delegou a decisão aos estudos.** O que a pesquisa prescreve (§3.2, §3.3):
-a dobra — 57% da atenção, 84% de diferença de tratamento, 102% mais olhadas nos 100px
-acima dela — carrega **quem é o mestre na voz dele**: `tagline` + etiquetas dos
-atributos-chave (`specialties`/`selling_points`/`languages`). A headline gerada sai do
-topo; enquanto `tagline` está vazia (0/20 hoje), fallback para a headline atual. A fase
-B cria a porta de entrada **antes** de a fase C mudar a dobra.
-
-`featured` permanece **do admin** (`adminTables.ts`; o editor de mesa fixa
-`featured: false` em `cardPreviewMapping.ts:107`): mesa em destaque não entra na dobra,
-e o mestre não ganha controle da vitrine nesta spec.
-
-### D3 — Avaliações sem avaliações: manter a seção como está (decidido, 2026-08-27)
-
-**Decisão do mantenedor:** a seção de avaliações é feature recente — fica como está.
-Nada a esconder nem inverter.
-
-**Trade-off registrado:** a pesquisa aponta o padrão atual (634px de formulário, 0
-avaliações, em 100% dos perfis) como quebra de confiança — NN/g: *"asking for
-information before providing any value is a breach of trust"* (§3.3). A decisão é de
-produto (cold start de marketplace recente) e fica documentada com este lastro
-contrário.
-
-### D4 — Preço: `Preço Médio` sai do front (decidido, 2026-08-27)
-
-**Decisão do mantenedor:** o campo `Preço Médio` é removido do front (editor de perfil).
-Migration e dado no banco permanecem intactos.
-
-**Trade-off registrado:** NN/g (Trustworthy Design) traz usuária que descartou um
-serviço em 35 segundos por não ver a tarifa — divulgação antecipada de preço é um dos 4
-fatores de confiança (§3.3). Mitigação: o preço por mesa continua aparecendo nos
-cartões de mesa.
-
-### D5 — Onde o mestre edita: manter as 3 telas, funcionando (decidido, 2026-08-27)
-
-**Decisão do mantenedor:** as 3 telas permanecem (`/perfil?tab=mestre`, `PainelMestrePage`,
-editor de mesa) — elas já consomem e comunicam no mesmo dado. O que precisa existir é
-que **funcionem**: C3 (autosave visível), C9 (sistemas listados, não só contados),
-prévia do perfil público. Coleta progressiva (§3.4) **não entra** nesta passada.
-
----
-
-## 5. O que é conserto, não pergunta
-
-Pelo critério do AGENTS.md (*"a correção é a mesma sob qualquer resposta do
-mantenedor?"*), estes **não** vão ao grill como opção — entram como trabalho, seja qual
-for a decisão de D1-D5. Alguns exigem aprovação da **ação** (§Autorização), não do
-achado.
-
-| # | o quê | onde pertence | por que é conserto |
-|---|---|---|---|
-| C1 | contradição `experience_years` 14 × bio "11 anos" × exibido "10+" | `mesas` | dado com duas moradas; uma tem de mandar |
-| C2 | `selling_points` chegando como `{}` onde o tipo diz array | investigar antes | contrato violado; normalizar na fronteira é regra pétrea |
-| C3 | indicador de autosave que rola para fora em página de 3,75 telas | `mesas` (CSS local) | Nielsen #1; sem alternativa defensável |
-| C4 | `Manter link direto` com 16px | **`packages/ui`** (verificar) | reprova WCAG 2.2 SC 2.5.8, nível AA |
-| C5 | nav global (22px) e rodapé (18px) abaixo de 24px | **`packages/ui`** | idem — e atinge todos os apps |
-| C6 | `Anos de Experiência` (2 dígitos) com 802px de largura | componente de campo | Baymard; mesmo defeito da 098 |
-| C7 | alturas de campo `38/42/48/50` sem escala | componente de campo | escala já existe em `--space-1..6` |
-| C8 | vãos de seção `48/48/0/48/0/0` | `mesas` | proximidade invertida (098 §6.6) |
-| C9 | `2 sistema(s) que você mestra` sem listar quais | `mesas` | Nielsen #6: reconhecer, não lembrar |
-*(Não há C10. Ver §8 — a hipótese de código morto no `MestreFeaturedTable` foi medida e
-é falsa.)*
-
-**C4, C5, C6 e C7 são os mesmos defeitos que a 098 mediu no editor de anúncio.** Isso é
-a evidência prática da regra pétrea: corrigidos lá "no `mesas`", reapareceriam aqui. A
-correção pertence ao pacote. **Decisão de escopo (2026-08-27):** a 099 leva estes
-consertos (T11-T13), **independente da 098** — sem coordenação nem dependência entre as
-duas specs.
-
----
-
-## 6. Critérios de aceite (para quando houver implementação)
-
-- **A1.** Nenhum campo que a página pública renderiza fica sem porta de entrada. Medida:
-  para cada campo lido pelos componentes `mestre/*`, existe campo de formulário que o
-  escreve — verificado por busca, não por suposição.
-- **A2.** O que o mestre insere, o sistema expõe. Medida: a tabela de §2.5 sem linha
-  "não aparece" e sem linha "editado em outra tela" não resolvida por D5.
-- **A3.** A dobra contém pelo menos uma informação escrita pelo mestre. Medida por
-  `getBoundingClientRect` contra a altura da viewport, em 1366×768 e 1920×1080.
-- **A4.** Nenhum dado que o sistema apresenta como fato tem duas fontes divergentes
-  (C1). Medida: os três números de experiência viram um.
-- **A5.** Todo dado vindo de JSONB/API passa por normalizador tipado antes de entrar em
-  props (C2), conforme AGENTS.md §Normalização obrigatória.
-- **A6.** Nenhum alvo de clique abaixo de 24px na página pública nem no editor.
-- **A7.** Cada correção **no nível em que impede a recorrência**, medido. Entrega do tipo
-  "ajustei os N valores do `mesas`" reprova (AGENTS.md §Compartilhado por padrão).
-  Concretamente: C4/C5/C6/C7 no pacote, não no app.
-- **A8.** Onde o defeito existe fora do `mesas`, o outro app foi verificado junto —
-  medido, não suposto.
-- **A9.** Cada correção com teste que falha sem ela, **verificado reintroduzindo o
-  defeito**. (Erro registrado na 098: três testes passavam com o bug de volta.)
-- **A10.** Medição antes/depois nos 20 perfis reais de produção, não só no `mestre-hermes`.
-
----
-
-## 7. Fora de escopo
-
-- Acessibilidade por teclado (coerência com a decisão da 098).
+- Acessibilidade por teclado (coerência com a 098).
 - Contraste como prioridade.
-- Reescrever o editor de anúncio de mesa — é a 098, ainda não implementada.
-- Sistema de avaliações em si (moderação, antifraude, cálculo de nota). D3 decidida
-  (2026-08-27): a seção permanece como está; trade-off registrado em §4.
-- Mobile: **não medi**. Precisa entrar antes de qualquer implementação, não como escopo
-  cortado — só não foi medido nesta passada.
+- Editor de anúncio de mesa — é a 098.
+- Sistema de avaliações (moderação, antifraude, cálculo) — D3.
+- Busca/filtro por atributo do mestre — D6, por ordem: primeiro o dado.
+- **Mobile e tema claro: não medidos.** Não são escopo cortado — só não foram medidos
+  nesta passada. **Resolvido por medição (2026-08-30):** ver §7.
 
 ---
 
-## 8. Erros e limites desta investigação
+## 6. O que continua sem medição
 
-Registrados porque o mantenedor cobra ver, não cobra ausência.
+Não afirmar nada sobre estes pontos sem medir antes.
 
-- **Chutei rota de API** (`/api/v1/mesas`) e recebi lista vazia; quase tomei o vazio por
-  achado. A rota é `/api/v1/tables`, encontrada em `docs/api/generated/`. É exatamente o
-  erro 4.3 do handoff, cometido de novo — desta vez pego antes de virar afirmação.
-- **Escrevi que `MestreFeaturedTable` era código morto, e estava errado.** A busca por
-  `MestreFeaturedTable` mostrou que `MestreTablesSection.tsx:26` o renderiza; o motivo de
-  não aparecer é `featured: false` em todas as mesas, e `featured` é campo de admin.
-  Corrigido em D2 antes de a spec sair. Registro porque a afirmação chegou a ser escrita:
-  vi um componente ausente da tela e concluí "não ligado" sem rodar a busca que a
-  derrubaria — o item 5 da regra de Evidência do AGENTS.md, cometido e pego.
-- **Não medi a causa do `selling_points: {}`** (§2.9). Está registrado como achado a
-  investigar, não como diagnóstico.
-- **Não medi mobile nem tema claro.**
-- **Não existe perfil de controle:** nenhum dos 20 está preenchido, então não sei como a
-  página se comporta cheia. Toda avaliação de exibição aqui vale para o estado vazio —
-  que é, hoje, o estado real de 100% dos perfis.
-- **Um número de §3.4 vem de material de fornecedor**, não de estudo controlado, e está
-  marcado como tal no próprio texto.
-- Medi como **admin** (`viewer_context: {is_owner: false, is_admin: true}`), então vi a
-  seção de Insights, que um visitante comum não vê. As outras 6 seções são públicas.
+| o quê | estado |
+|---|---|
+| causa de `selling_points` voltar `{}` em 7/20 | **não medida** (tasks A1/A2) |
+| mobile (719px) | **medido** (§11): sem overflow nem texto estourando. **Só a página pública** — o editor exige sessão |
+| tema claro | **não medido** |
+| editor de perfil em runtime | **não medido** — exige sessão (§11.1) |
+| comportamento com perfil cheio | **impossível hoje** — nenhum dos 20 preenchido |
+| nav global com alvo de 22px | **não reproduz** no CSS do pacote (`min-height: 40px`) — re-medir em runtime |
+| custo do esquema de extração para bio | **não medido** (o parser atual é calibrado para anúncio) |
+| os 3 perfis com banner real | **não inspecionados** visualmente |
+| soma da tabela de seções (§2.1 de `old_spec.md`) | **inconsistente**: 4856px medidos × 5341px declarados — faltam 485px. A tabela é recorte do que apareceu naquela medição, não o inventário do componente, que monta **11 blocos** |
+
+**Ressalva de método que vale para toda medição de tela desta spec:** foi medida como
+**admin** (`viewer_context: { is_owner: false, is_admin: true }`), então a seção de
+**Insights** apareceu — um visitante comum **não a vê**. As outras seções da tabela são
+públicas. Remedir como visitante antes de concluir qualquer coisa sobre altura de página.
+
+---
+
+## 7. Quando medir mobile — resolvido por medição
+
+**Decisão: a medição de mobile entra na fase C (task C4), não antes da fase B.** A
+investigação pedia "antes de qualquer implementação"; o que decide entre os dois alcances
+é o que as media queries de fato fazem — e isso não tinha sido lido.
+
+**Medido em `ProfileEditPage.css`:** existem **duas** media queries, não uma em 719px como
+a investigação registrou.
+
+| query | o que altera |
+|---|---|
+| `max-width: 768px` (`:586`) | `padding` da página, `flex-direction` do header, `overflow-x` das abas, `white-space` do tab, `padding` do conteúdo, `playstyle-grid` para 1 coluna |
+| `max-width: 640px` (`:858`) | `flex-direction` do container de avatar, dimensão do preview (100px), largura do wrapper |
+
+**Nenhuma das duas muda a estrutura de um campo de formulário.** São ajustes de container,
+avatar e navegação por abas. Como a fase B **acrescenta campos** dentro dessa mesma coluna,
+o risco que justificaria medir antes — descobrir em C que o layout mobile exige outra
+arquitetura de formulário e refazer B — **não se sustenta na medição**: não há arquitetura
+mobile distinta a descobrir.
+
+**O que muda de verdade a resposta**, e por isso continua obrigatório: os campos novos da
+fase B **nascem** com as duas queries em mente (largura fluida, alvo ≥ 24px, sem grade fixa
+de 2+ colunas), e C4 mede o resultado. Medir antes de B produziria a fotografia de um
+formulário que a fase B vai substituir.
+
+**Ressalva que fica:** isto resolve o **editor**. A **página pública** do mestre não teve as
+media queries lidas — C4 cobre as duas, e a página pública é onde a dobra (D2) muda.
+Se a medição de C4 achar defeito estrutural na página pública, ele volta como task própria,
+não como retrabalho de B.
+
+---
+
+## 8. Classificação campo→nível (D10) — derivada, não arbitrada
+
+D10 manda frase de ganho em "todo campo recomendado", mas a investigação nunca definiu
+**quais** campos são obrigatórios, recomendados ou opcionais. Sem o mapa, o gate B fica
+inverificável. A classificação abaixo é **derivada das fontes que a própria investigação
+levantou**, com o critério declarado em §1: *responde uma pergunta que o jogador faz antes
+de sentar à mesa?*
+
+**As três regras que a produzem:**
+
+1. **Obrigatório = o jogador não consegue decidir sem.** Piso mínimo de identidade. O
+   StartPlaying só torna obrigatório o que protege a mesa (ferramenta de segurança);
+   completude nunca é obrigação.
+2. **Recomendado = par certo, não completude.** É o enquadramento do StartPlaying
+   (*"reflita suas especialidades reais; não anuncie um estilo que você não é, porque
+   jogadores procurando outro estilo provavelmente não são um bom par"*) e o que LinkedIn
+   (+100% de completude com cartão que explica o ganho) e Upwork (4,5× mais contratações
+   com perfil completo) medem. **Todo recomendado carrega a frase do ganho — é o que D10
+   exige.**
+3. **Opcional = enriquece, não decide.** Sem frase de ganho: frase em campo que não muda a
+   decisão vira ruído e gasta a atenção que os recomendados precisam.
+
+| campo | nível | por quê |
+|---|---|---|
+| `nickname` | **obrigatório** | sem nome não há perfil |
+| `avatar_url` | **obrigatório** | NN/g Trustworthy Design: rosto é fator de confiança; 3-4h com um desconhecido |
+| `tagline` | **recomendado** | encabeça as **três** cadeias (§2.3); é o maior alcance por campo da spec |
+| `bio_long` | **recomendado** | única fonte de voz própria hoje; alimenta o fallback das 3 cadeias |
+| `specialties` | **recomendado** | par certo — o argumento do StartPlaying, literal |
+| `languages` | **recomendado** | **filtro de busca no concorrente**; aqui está em 0/20 (§2.4) |
+| `selling_points` | **recomendado** | entra na dobra por D2; 14 ícones fechados (§2.2) |
+| `experience_years` | **recomendado** | só renderiza se `>= 3` — o mestre precisa saber disso |
+| `links` | **recomendado** | prova social externa, e o mestre já preenche |
+| `closed_group_*` | **opcional condicional** | só existe se `closed_group_enabled`; nível dos filhos segue o pai |
+| `preferred_vtt_platforms` | **opcional** | logística, não decisão de par |
+| `contact_methods` | **opcional** | a plataforma já oferece caminho de contato |
+| `badges` | **opcional** | sem vocabulário fechado (§2.2) — sem regra, não sustenta cobrança |
+| `promo_badge_text` | **opcional** | promocional; alcance menor, reconhecido em B.1..B.5 |
+| `banner_url` | **opcional** | estética; o scrim é fixo (D8) |
+
+**Nenhum campo novo vira obrigatório.** Cobrar o que hoje está em 0/20 puniria o mestre por
+uma porta que **o sistema** nunca ofereceu (§1) — e NN/g é explícito: *"asking for
+information before providing any value is a breach of trust"*.
+
+**Forma da entrega (B6):** registro único no padrão de `editorValidation.ts:72`
+(`RECOMMENDED_GAIN` como `Record`), com `data-ob` por campo e teste cruzando os dois. A
+frase de cada recomendado é escrita **na linguagem do jogador**, não na do sistema — o
+padrão medido em produção é *"mesas com banner aparecem em destaque"*, não *"campo
+recomendado"*.
+
+**Confirmação pedida ao mantenedor:** a tabela é derivada das fontes, não decidida por ele.
+Os dois pontos onde uma escolha diferente é defensável: **`avatar_url` como obrigatório**
+(alternativa: recomendado com frase forte) e **`badges` como opcional** (se ganhar
+vocabulário fechado, vira recomendado). O resto segue as três regras acima.
+
+---
+
+## 9. Fidelidade visual do editor de perfil — medido (2026-08-30)
+
+A fase B acrescenta campos a uma tela que hoje **não consome o pacote de UI**. Sem esta
+seção, cada campo novo herda o desvio em vez do design system. O critério **não é novo**: a
+098 §6.3 já decidiu que *"não se declara escala nova; adota-se a que o pacote já tem —
+declarar outra seria a divergência por app que o AGENTS.md trata como dívida"*. A 099 aplica
+a mesma regra ao editor de **perfil**.
+
+### 9.1 O que foi medido
+
+| medida | comando | resultado |
+|---|---|---|
+| componentes do pacote no editor | `rtk rg "@artificio/ui" ProfileEditPage.tsx` | **0 imports** — 684 linhas de TSX sem um primitivo |
+| CSS próprio | `wc -l ProfileEditPage.css` | **874 linhas** |
+| tokens de espaçamento | `rtk rg "var\(--space-" ProfileEditPage.css` | **0** — a régua do pacote (`--space-1..6`, base 4px, `styles.css:62-66`) não é usada |
+| tokens de cor | `rtk rg "var\(--artificio-"` | 20 (16 `brand`, 2 `brand-deep`, 2 `danger*`) |
+| valores de espaçamento distintos | `gap`/`padding`/`margin` | **11** — contra 6 na régua do pacote |
+| fora da grade de 4px | — | `0.375rem` (6px), `0.875rem` (**14px**), `0.4rem` (6,4px) |
+| paridade de tokens do pacote | `node packages/ui/scripts/check-token-parity.mjs` | **verde**, 30 papéis de cor |
+
+O `14px` é o mesmo valor que a 098 §6.3 mediu como o único fora da grade no editor de mesa
+(`gap-3.5`, 14 ocorrências). **O defeito é do repositório, não de uma tela.**
+
+### 9.2 O que NÃO é dívida — não "corrigir"
+
+`rtk rg -o "#[0-9a-fA-F]{3,6}|rgba?\("` devolve **51** cores literais, mas o cabeçalho do
+arquivo (spec 022 T8) declara as exceções, e a leitura do contexto confirma cada uma:
+
+- **marca, Discord (`#5865f2`), Google (`#4285f4`)** — identidade de plataforma, não muda com tema;
+- **gradientes decorativos** (avatar, badges de papel) e **scrims `rgba(0,0,0,*)`**;
+- os **11 `color: #ffffff`** estão **todos sobre fundo opaco escuro** (gradiente ou
+  `var(--artificio-brand)`) — branco sobre marca é correto nos dois temas. **Não quebram.**
+
+O tema vira pelas vars do pacote; o bloco `[data-theme=light]` foi removido de propósito.
+Quem "consertar" isso reintroduz o bug que a 022 fechou.
+
+### 9.3 O que a fase B tem de obedecer
+
+1. **Campo novo usa primitivo do pacote** (`Field`, `TextInput`, `Textarea`, `Select`,
+   `Badge`, `Button`, `Panel`), não `<input>` cru com classe local. Exceções medidas em
+   `plan.md` §B: o pacote **não** tem checkbox nem tag input, e `Field` não emite
+   `aria-describedby`.
+2. **Espaçamento sai de `--space-1..6`.** Valor novo fora da grade de 4px precisa de
+   justificativa inline — é o que impede o 12º valor de nascer.
+3. **Altura de controle sai da escala** `artificio-control-sm/md/lg` (34/40/48). Exceção
+   medida: `Textarea` ignora a escala (`plan.md` §B, armadilha 2).
+4. **Cor nova sai de token.** Literal só nas três exceções de §9.2, com comentário citando
+   a origem, no padrão que o arquivo já usa.
+5. **Nenhuma cor de texto fixa sobre fundo que vira com o tema** — é a única forma de
+   `#ffffff` virar defeito, e hoje não ocorre.
+
+### 9.4 Guard de tokens — **corrigido nesta sessão**
+
+`check-token-parity.mjs` existia (impede drift entre `tokens.ts`, `styles.css` e
+`tailwind-preset.js`; o comentário registra que o drift *"já causou bug real — preset com
+ink #10103A / brand #FC9054"*) e **não era chamado por script nem por CI**. Guarda escrita e
+não ligada é pior que ausente.
+
+**Consertado:** `packages/ui/package.json` → `"test": "node scripts/check-token-parity.mjs
+&& vitest run"`. O CI já roda `turbo run test` repo-wide (`ci.yml:126`), então passa a
+cobrir. Verificado reintroduzindo o defeito (A9): com `ink` alterado no preset, sai
+`PARITY FAIL … preset.js=#deadbe`, exit 1; restaurado, verde nos 30 papéis.
+
+**Fica aberto:** nenhum app consome o `./tailwind-preset` exportado. Não é dívida da 099 —
+os apps consomem os tokens por `styles.css`, que está verde e agora protegido.
+
+### 9.5 Reimplementação do que o pacote já define — o defeito mais caro
+
+Medido depois de §9.1, e é pior que a ausência de tokens: o editor **reescreveu localmente**
+conceitos que `@artificio/ui` já exporta, com outro nome. O nome diferente esconde a
+duplicação, e as duas versões divergem.
+
+| local | o pacote já tem | divergência medida |
+|---|---|---|
+| `@keyframes spin` (1s, borda 4px) | `@keyframes artificio-spin` (**760ms**, borda 2px) | dois spinners em ritmos diferentes na mesma suíte |
+| `.btn-view-public-profile`, `.btn-connect-discord`, `.btn-disconnect-discord`, `.btn-avatar-action` | `.artificio-button*` (+ `-primary/-secondary/-ghost/-danger`, `-sm/-md/-lg`) | padding, gap e altura próprios |
+| `.spinner`, `.spinner-small` | `.artificio-button-spinner` | 48px/borda 4px × 14px/borda 2px |
+
+**Total medido: 5 classes + 1 `@keyframes`.**
+
+**Correção de uma afirmação anterior desta seção:** eu havia contado **20** classes e
+listado `.field-description` e as 15 `.avatar-*` como duplicação. Estava errado, e a
+medição refeita mostra por quê: `.artificio-field-description` **não existe** (o pacote tem
+`field-hint` e `field-error`), e o pacote só oferece `avatar`, `avatar-fallback` e
+`avatar-link` — `.avatar-premium-container` e afins são **composição local legítima**. O
+número real é 5. Acusar por prefixo obrigaria a renomear classe para escapar do scanner.
+
+**Consequência para a fase B:** cada campo novo escrito nesse arquivo herda o vocabulário
+paralelo. É o que o AGENTS.md nomeia — *"compartilhado por padrão; exceção por app é o
+defeito"*, e *"buscar o que já existe antes de escrever"*.
+
+**Regra para B e F5:** antes de escrever regra de estilo, rodar a skill (§9.6). Se o
+conceito existe no pacote, usa-se o do pacote. Se o primitivo não cobre o caso, o
+comentário inline diz **qual** limitação — senão o próximo agente reescreve de novo.
+
+### 9.6 Skill de auditoria — `ui-fidelity-audit`
+
+As sete medições desta seção são mecânicas e se repetem a cada tela. Viraram skill:
+
+```bash
+node .agents/skills/ui-fidelity-audit/audit.mjs <tsx> <css>
+```
+
+Roda as 7, marca falha por linha, exit 1 se reprovar. **Discrimina** (verificado):
+`MasterPart.tsx` do editor de mesa → tudo verde; `ProfileEditPage` → 3 falhas, idênticas às
+medidas à mão em §9.1. Não acusa cor literal automaticamente — §9.2 exige ler o contexto, e
+o script só informa a contagem.
+
+---
+
+## 10. O defeito de fundo — medido no repo inteiro
+
+A 099 achou o sintoma no editor de perfil. A varredura (`pnpm ui:fidelity`, 468 arquivos de
+fonte) mostra que **o defeito não é desta tela nem deste app**:
+
+| app | fora-régua | tailwind | reimplementação |
+|---|---|---|---|
+| mesas | 77 | 207 | 9 |
+| glossario | 26 | 98 | 0 |
+| downloads | 75 | 50 | 0 |
+| site | 115 | 0 | 0 |
+| links | 56 | 1 | 2 |
+| site-admin | 49 | 0 | 5 |
+| accounts | 48 | 0 | 0 |
+| catalog-ui (**pacote**) | 0 | 20 | 0 |
+
+**A causa não é descuido — é que o pacote compartilhado não tinha autoridade.** Ele existe,
+mas nada obrigava a usá-lo: cada spec que toca frontend reescreve o que já existe, com outro
+nome, e o agente seguinte não descobre porque o nome é diferente. Duas provas medidas nesta
+sessão, ambas de guardas **escritas e nunca ligadas**:
+
+- `check-token-parity.mjs` — protegia contra um drift que **já causou bug real**
+  (registrado no próprio script) e não era chamado por script nem CI;
+- `tailwind-preset` — exportado pelo pacote, consumido por **zero** apps.
+
+**O que passou a existir (fora do escopo da 099, mas ligado nesta sessão):**
+
+1. **Medição [8]** — espaçamento em classe utilitária Tailwind, o furo por onde o mesmo
+   `gap-3.5` (14px) escapou na 098 **e** na 099. 376 usos fora da régua, invisíveis até
+   agora.
+2. **Gate de não-regressão no CI** (`pnpm ui:fidelity:gate`) — falha só se a divergência
+   **aumentar** contra `baseline.json`. Exigir zero com 555 achados seria gate morto, e
+   gate morto é o defeito original. Verificado reintroduzindo o defeito: verde → reprova
+   (+1 em `links.foraRegua`) → verde ao restaurar.
+
+**Consequência para esta spec:** a fase B não consegue mais acrescentar divergência sem o CI
+reprovar. F5 continua sendo a limpeza do que já existe no editor de perfil.
+
+---
+
+## 11. Medição em viewport — mobile deixou de ser pendência
+
+Rodado em `mesasbeta.artificiorpg.com/mestre/farenravirar` via Playwright MCP (sem sessão,
+página pública), 2026-08-31. Isto é o que a análise estática **não alcança**: leitor de
+DOM+CSS não resolve — medido nesta base, `jsdom` devolve `getBoundingClientRect` **0×0** e
+`scrollWidth` **0**, porque não tem motor de layout.
+
+| medição | 1366×768 | 719×900 |
+|---|---|---|
+| altura da página | 7440px = **9,69 telas** | **12,15 telas** |
+| alvos < 24px | **17** | **17** |
+| texto estourando/cortado | 0 | 0 |
+| overflow horizontal | não | **não** |
+| contraste abaixo do piso WCAG | **8** | — |
+
+**Isto fecha C4 e a pendência de mobile (§7):** em 719px **não há overflow horizontal nem
+texto estourando**. O layout responsivo da página pública está correto; o que sobra é o
+mesmo defeito das duas larguras.
+
+**Achados novos, que nenhuma medição estática pegaria:**
+
+1. **`Ver termos` tem 18px de altura real** (§2.5 registrava ≈20px por estimativa) e
+   `.artificio-footer-nav-link` tem **22px** — os dois abaixo do piso de 24px, no
+   **pacote**, atingindo todos os apps. Confirma F2 com número medido.
+2. **8 elementos abaixo do contraste WCAG AA**, sendo o pior a etiqueta `💰 Paga`
+   (`bg-yellow-500`) com **1,48:1** contra piso de 4,5. `Entrar em contato` (o CTA
+   principal) está em **3,16:1**. Contraste era "fora de escopo por prioridade" (§5) —
+   continua fora, mas agora está **medido**, não suposto.
+3. **O link do nome do mestre aparece 8 vezes** com 20px (task F1b, medida antes só no
+   código). Em mobile, os mesmos 17 alvos.
+4. **A página tem 9,69 telas** em 1366×768, contra as 5,55 registradas na investigação —
+   que foi medida em 1815×962 **como admin**. Coerente com a ressalva de método de §6.
+
+**Fora de escopo desta spec, registrado:** 2 erros de console na carga da página pública.
+Não investigados.
+
+---
+
+## 11.1 O editor de perfil, medido em runtime (sessão real, autorizada)
+
+`mesasbeta.artificiorpg.com/perfil?tab=mestre`, Chrome com a sessão do mantenedor
+(autorização nominal 2026-08-31), viewport **1815×962**. Só leitura de DOM — nenhum campo
+alterado, nenhum formulário enviado.
+
+**Esta é a tela que a fase B vai alterar.** Cada número abaixo confirma ou corrige o que
+§2.5 registrava por leitura de CSS.
+
+| medição | valor |
+|---|---|
+| altura da página | 3413px = **3,55 telas** |
+| coluna do formulário | **852px** |
+| campos de entrada | 9 |
+| campos **sem `aria-describedby`** | **9 de 9** |
+| alvos < 24px | **13** |
+| texto estourando / overflow horizontal | **0 / não** |
+| `.autosave-indicator` | **ausente do DOM** |
+
+**Alturas de controle: 12 distintas, 9 fora da escala do pacote** (34/40/48):
+`16 · 28 · 34 · 36 · 38 · 40 · 42 · 44 · 48 · 49 · 50 · 300`. Confirma que a task F4 é
+adoção da escala existente, não criação.
+
+**Correções ao que a spec afirmava:**
+
+1. **`Anos de Experiência` com 802px de largura para 2 dígitos** — confirmado exatamente
+   (§2.5 estava certa). `Preço Médio` idem, 802px, e sai por D4.
+2. **`Manter link direto`: 16×16px reais**, duas instâncias — confirma F1 com medição.
+3. **`.autosave-indicator` não existe no DOM.** §2.5 dizia que ele "rola para fora" por não
+   ter `position: fixed`. **É mais grave:** o elemento não está montado nesta aba, então
+   quem edita **não tem indicador nenhum**. B8 muda de "prender o indicador" para
+   "garantir que ele exista e fique visível".
+4. **3 links de rede (`.link-item-url`) com 18px de altura** e 660px de largura — alvos
+   abaixo do piso que nenhuma passagem anterior tinha listado.
+5. **`aria-describedby` ausente em 9/9 campos** — a armadilha 1 do pacote (`Field` não
+   emite o atributo) medida no produto, não só no código. É o critério A6 e a task B7.
+
+**`/painel-mestre` (a 2ª das 3 telas de D5):** 1 tela de altura, **sem** estouro de texto e
+**sem** overflow; alturas de controle `40` e `44` — só o `44` fora da escala. É a tela mais
+saudável das três.
+
+**O que NÃO foi medido, e fica dito:** o editor em **719px**. A janela do Chrome não
+redimensionou (`innerWidth` permaneceu 1815 em duas tentativas) e a medição por `iframe`
+voltou vazia. **Não vou afirmar nada sobre o editor em mobile** — continua pendente para
+C4, agora só para o editor, já que a página pública foi medida em §11.
