@@ -35,7 +35,26 @@ export interface GmProfile {
   discord_username: string | null;
   covil_verified: boolean;
   experience_years: number | null;
-  average_price: number | null;
+  // Spec 099 B9 / D4: `average_price` saiu do tipo junto com o campo do editor
+  // (nenhum leitor restante — medido por rg no front). O backend ainda devolve
+  // a chave no GET; chave extra sem declaração é tolerada pelo cast de `api`.
+  // O preço exibido ao jogador é o da MESA (table.price_value) e do grupo
+  // fechado (min_price_cents) — ambos continuam (D4).
+  // Campos do perfil público v2 gravados pelo PUT /api/v1/gm/profile
+  // (spec 099 B1/B2): `tagline` encabeça as três cadeias (hero/OG/SEO);
+  // `closed_group_*` alimenta a seção de grupos fechados.
+  tagline?: string | null;
+  closed_group_enabled?: boolean | null;
+  closed_group_systems?: string[] | null;
+  closed_group_description?: string | null;
+  closed_group_min_price_cents?: number | null;
+  // Spec 099 B3/B4/B5: `badges`/`promo_badge_text` aceitos pelo PUT e pelo
+  // `gmProfileSchema`; `selling_points` vem cru do JSONB (o achado A1 mediu
+  // `{}` em 7/12 perfis do beta) — tipado `unknown` para obrigar o consumidor
+  // a normalizar antes de usar (normalizeSellingPoints, useMestre.ts).
+  badges?: string[] | null;
+  promo_badge_text?: string | null;
+  selling_points?: unknown;
   gm_style: {
     narrative?: number;
     tactical?: number;

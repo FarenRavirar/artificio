@@ -10,13 +10,28 @@ import { AvatarField } from '../components/AvatarField';
 import { ImageUploader } from '../components/ImageUploader';
 import { isCropRect } from '@artificio/media/image-kinds';
 import { MarkdownEditor } from '../components/MarkdownEditor';
+// Campos do editor de mestre consolidados num único arquivo (spec 099, fase B
+// pós-B5): componentes e props inalterados, só a casa mudou. B6: `bio_long` e
+// `experience_years` saíram do JSX da TabMestre para cá (BioLongField/
+// ExperienceYearsField) — mesmo markup, visual preservado — para o teste
+// cruzado alcançar o `data-ob` deles.
+import {
+  TaglineField,
+  ClosedGroupSection,
+  ProfileTagsSection,
+  SellingPointsEditor,
+  PromoBadgeField,
+  BioLongField,
+  ExperienceYearsField,
+} from '../components/mestre/editor/GmProfileFields';
 import { authPost } from '../utils/authenticatedFetch';
 import './ProfileEditPage.css';
 
 /**
  * Página de edição de perfil com tabs
  * Tabs: Geral | Jogador | Mestre
- * Autosave com debounce 500ms
+ * Autosave com debounce 500ms (spec 099 B8): o debounce real vive no
+ * `ProfileContext.updateGm` — esta página só reflete o estado no indicador.
  */
 
 type TabType = 'geral' | 'jogador' | 'mestre';
@@ -28,7 +43,7 @@ const sanitizeTab = (tab: string | null): TabType => {
 };
 
 export default function ProfileEditPage() {
-  const { profile, loading, saving, error, refetch } = useProfileContext();
+  const { profile, loading, saving, error, saveError, refetch } = useProfileContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = sanitizeTab(searchParams.get('tab'));
   const [activeTab, setActiveTab] = useState<TabType>(tabFromUrl);
@@ -49,22 +64,26 @@ export default function ProfileEditPage() {
   };
 
   // Feedback de autosave com timeout. setState deferido p/ fora do corpo síncrono.
-  // Só dispara na transição saving: true→false (não no load inicial).
+  // Só dispara na transição saving: true→false (não no load inicial). Se a última
+  // gravação falhou (saveError), NÃO mostra "Salvo" — o indicador fica no estado
+  // de erro até a próxima gravação bem-sucedida limpar o erro.
   const prevSavingRef = useRef(saving);
   useEffect(() => {
     const wasSaving = prevSavingRef.current;
     prevSavingRef.current = saving;
     if (saving || !profile || !wasSaving) return;
+    // Gravação falhou: garante "Salvo" apagado (o indicador mostra o erro).
+    const nextSaved = !saveError;
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     void (async () => {
       await Promise.resolve();
       if (!active) return;
-      setShowSaved(true);
-      timer = setTimeout(() => setShowSaved(false), 2000);
+      setShowSaved(nextSaved);
+      if (nextSaved) timer = setTimeout(() => setShowSaved(false), 2000);
     })();
     return () => { active = false; if (timer) clearTimeout(timer); };
-  }, [saving, profile]);
+  }, [saving, profile, saveError]);
 
   // Feedback de conexão Discord. MANTIDO apesar de a seção da UI ter sido
   // adiada (2026-08-27): o backend continua redirecionando para
@@ -169,27 +188,33 @@ export default function ProfileEditPage() {
                 <span>👁️</span> Ver perfil público
               </a>
             )}
-            {saving ? (
-              <div 
-                className="autosave-indicator saving"
-                role="status"
-                aria-live="polite"
-                aria-atomic="true"
-              >
-                <span className="spinner-small"></span>
-                <span>Salvando alterações...</span>
-              </div>
-            ) : showSaved ? (
-              <div 
-                className="autosave-indicator saved"
-                role="status"
-                aria-live="polite"
-                aria-atomic="true"
-              >
-                <span>✓</span>
-                <span>Alterações salvas</span>
-              </div>
-            ) : null}
+            {/* Spec 099 B8: o indicador fica SEMPRE montado (antes só existia
+                durante saving/salvo — medido em runtime, §11.1, que na aba
+                mestre ele estava AUSENTE do DOM). O CSS o mantém fixo no
+                viewport (`position: fixed`), então a aba de 3,75 telas não
+                o rola para fora. Estados: saving / saved / error, nesta
+                prioridade — `title` carrega o detalhe do erro. */}
+            <div
+              className={`autosave-indicator ${saveError ? 'error' : saving ? 'saving' : showSaved ? 'saved' : ''}`}
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              title={saveError ?? undefined}
+            >
+              {saveError ? (
+                <span>Erro ao salvar</span>
+              ) : saving ? (
+                <>
+                  <span className="spinner-small"></span>
+                  <span>Salvando…</span>
+                </>
+              ) : showSaved ? (
+                <>
+                  <span>✓</span>
+                  <span>Salvo</span>
+                </>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
@@ -557,7 +582,6 @@ function TabJogador() {
 function TabMestre() {
   const { profile, updateGm, addSystem, removeSystem } = useProfileContext();
   const gmProfile = (profile?.gm || {}) as Partial<GmProfile>;
-  const [bioLong, setBioLong] = useState(gmProfile.bio_long || '');
   const [bannerHasError, setBannerHasError] = useState(false);
 
   if (!profile) return null;
@@ -567,41 +591,42 @@ function TabMestre() {
       <section className="form-section">
         <h2>Perfil de Mestre</h2>
 
-        <div className="form-group">
-          <label htmlFor="experience_years">Anos de Experiência</label>
-          <input
-            type="number"
-            id="experience_years"
-            min="0"
-            defaultValue={gmProfile.experience_years || ''}
-            onChange={(e) => updateGm({ experience_years: parseInt(e.target.value) || null })}
-            placeholder="Quantos anos você mestra?"
-          />
-        </div>
+        {/* Spec 099 B6: anos de experiência — recomendado, com frase do ganho.
+            Componente extraído para GmProfileFields (mesmo markup de antes). */}
+        <ExperienceYearsField value={gmProfile.experience_years ?? null} />
 
-        <div className="form-group">
-          <label htmlFor="average_price">Preço Médio (R$)</label>
-          <input
-            type="number"
-            id="average_price"
-            min="0"
-            step="0.01"
-            defaultValue={gmProfile.average_price || ''}
-            onChange={(e) => updateGm({ average_price: parseFloat(e.target.value) || null })}
-            placeholder="Valor médio por sessão"
-          />
-        </div>
+        {/* Spec 099 B9 / D4: o campo "Preço Médio" (average_price) saiu do
+            editor. Banco e PUT do backend intactos — o preço da mesa
+            (MestreFeaturedTable, table.price_value) e o do grupo fechado
+            (MestreClosedGroupSection, min_price_cents) continuam. */}
 
-        <div className="form-group">
-          <label>Bio Detalhada</label>
-          <MarkdownEditor
-            value={bioLong}
-            onChange={(text) => { setBioLong(text); updateGm({ bio_long: text }); }}
-            label="Bio detalhada"
-            placeholder="Conte sobre sua experiência como mestre..."
-            height={300}
-          />
-        </div>
+        {/* Spec 099 B6: bio detalhada — recomendado, com frase do ganho.
+            Componente extraído para GmProfileFields (mesmo markup de antes). */}
+        <BioLongField value={gmProfile.bio_long ?? ''} />
+
+        {/* Spec 099 B1: slogan — encabeça as três cadeias (hero/OG/SEO, §2.3).
+            Grava via PUT /gm/profile, uma chamada por campo (padrão da página). */}
+        <TaglineField
+          value={gmProfile.tagline ?? ''}
+          onChange={(tagline) => updateGm({ tagline: tagline || null })}
+        />
+
+        {/* Spec 099 B5: faixa promocional — junto do slogan (os dois dividem a
+            dobra, §2.1); a exibição já existe no MestreHero (hero-promo-badge). */}
+        <PromoBadgeField value={gmProfile.promo_badge_text ?? ''} />
+
+        {/* Spec 099 B3: specialties/languages/badges (string[], TagInput).
+            Gravação via updateGm vive dentro do componente (testada lá). */}
+        <ProfileTagsSection
+          specialties={gmProfile.specialties ?? []}
+          languages={gmProfile.languages ?? []}
+          badges={gmProfile.badges ?? []}
+        />
+
+        {/* Spec 099 B4: selling_points — seleção entre os 14 ícones fechados
+            (nunca texto livre); item inválido fica no formulário com erro e
+            não é enviado. Gravação via updateGm dentro do componente. */}
+        <SellingPointsEditor value={gmProfile.selling_points} />
 
         <AvatarField
           idPrefix="gm-avatar"
@@ -666,6 +691,29 @@ function TabMestre() {
           }}
         />
       </section>
+
+      {/* Spec 099 B2: grupo fechado — os 4 campos + liga/desliga, todos via PUT
+          /gm/profile. Chave ausente no patch NÃO entra no updateGm: o
+          optimistic update espalha `...newData` sobre o cache e chave
+          `undefined` apagaria o valor salvo de um campo irmão. */}
+      <ClosedGroupSection
+        value={{
+          enabled: gmProfile.closed_group_enabled ?? false,
+          systems: gmProfile.closed_group_systems ?? [],
+          description: gmProfile.closed_group_description ?? '',
+          min_price_cents: gmProfile.closed_group_min_price_cents ?? null,
+        }}
+        onChange={(patch) => {
+          const data: Partial<GmProfile> = {};
+          if (patch.enabled !== undefined) data.closed_group_enabled = patch.enabled;
+          if (patch.systems !== undefined) data.closed_group_systems = patch.systems;
+          if (patch.description !== undefined) data.closed_group_description = patch.description;
+          if (patch.min_price_cents !== undefined) {
+            data.closed_group_min_price_cents = patch.min_price_cents;
+          }
+          updateGm(data);
+        }}
+      />
 
       <section className="form-section">
         <LinksManager />

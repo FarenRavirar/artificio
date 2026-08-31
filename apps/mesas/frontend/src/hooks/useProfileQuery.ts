@@ -168,7 +168,24 @@ export function useUpdateGm() {
     mutationFn: async (data: Partial<GmProfile>) => {
       const sanitized = sanitizeObject(data as Record<string, unknown>);
       const validated = validateOrThrow(gmProfileSchema, sanitized);
-      const result = await api.patch<{ data: FullProfile['gm'] }>('/api/v1/profile/gm', validated);
+
+      // Spec 099 B0: o PATCH /api/v1/profile/gm fazia upsert — criava o perfil
+      // (slug derivado + role elevada a 'gm') quando o usuário ainda não tinha
+      // um. O PUT /api/v1/gm/profile responde 404 sem perfil, então a migração
+      // preserva o upsert na camada do cliente: perfil existe → PUT; não existe
+      // → POST com slug derivado da MESMA regra do PATCH service
+      // (profileService.updateGmProfile). Lê o mesmo cache que o onMutate usa.
+      const profile = queryClient.getQueryData<FullProfile>(['profile', 'me']);
+
+      if (profile?.gm) {
+        // PUT preserva o que não veio; a engine só faz retry/refresh para
+        // métodos não-idempotentes (REV-055).
+        const result = await api.put<{ data: FullProfile['gm'] }>('/api/v1/gm/profile', validated);
+        return result.data;
+      }
+
+      const slug = deriveGmSlug(profile?.user ?? { id: '' });
+      const result = await api.post<{ data: FullProfile['gm'] }>('/api/v1/gm/profile', { ...validated, slug });
       return result.data;
     },
     onMutate: async (newData) => {
@@ -233,4 +250,36 @@ export function useRemoveSystem() {
       track('system_removed');
     },
   });
+}
+
+/**
+ * Deriva o slug do perfil de mestre para o POST /api/v1/gm/profile
+ * (spec 099, resíduo pós-B0).
+ *
+ * O POST exige slug casando `/^[a-z0-9-]+$/` (gmPanel.ts) — antes esta
+ * derivação vivia inline em `useUpdateGm` e podia violar o regex (username com
+ * `_`, e-mail com `.`/`+`/acento). Regra base espelha a do PATCH service
+ * (`profileService.updateGmProfile`): username → local do e-mail → fallback
+ * `user-<id 8>`. Sanitização garante o contrato do POST.
+ *
+ * Vivia em `utils/gmSlug.ts`; veio para cá na consolidação do editor
+ * (pós-B5) porque o único consumidor é o `useUpdateGm` deste mesmo arquivo —
+ * evita util pequeno e import cruzado. Exportado para o teste do contrato.
+ */
+
+export interface GmSlugSource {
+  id: string;
+  username?: string | null;
+  email?: string;
+}
+
+export function deriveGmSlug(user: GmSlugSource): string {
+  const base =
+    user.username ||
+    (user.email ? user.email.split('@')[0] : '') ||
+    `user-${user.id.slice(0, 8)}`;
+  const sanitized = base.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  // Guarda final: base não-vazia sempre produz sanitizado não-vazio, mas o
+  // contrato do POST não admite slug vazio em hipótese nenhuma.
+  return sanitized.length > 0 ? sanitized : `user-${user.id.slice(0, 8)}`;
 }

@@ -1,6 +1,6 @@
 # Tasks 099 — Perfil do mestre
 
-**Status: nenhuma task executada.** Decisões D1–D11 fechadas (`spec.md` §3).
+**Status: fase A executada (A1–A3, gate A fechado); fase B executada (B0–B9, gate B fechado com 1 pendência nomeada); B10/B11 adiadas por decisão do mantenedor (2026-08-31).** Decisões D1–D11 fechadas (`spec.md` §3).
 
 Ordem de execução: **A → B → C**, com a fase de forma (**F**) em paralelo — ver a colisão com a 098 em F0.
 Cada task só é dada como concluída com **medição citada** — comando rodado e o que voltou.
@@ -29,13 +29,21 @@ Cada task só é dada como concluída com **medição citada** — comando rodad
 
 | # | Fazer | LER ANTES | Aceite medido |
 |---|---|---|---|
-| **A1** | Investigar por que `selling_points` volta `{}` (objeto) em 7/20 perfis, apesar do `DEFAULT '[]'::jsonb` | spec §2.2 (forma + achado aberto) | causa nomeada com a consulta que a provou — ou bloqueio explícito |
-| **A2** | Normalizador tipado para `selling_points` na fronteira, antes de virar prop | spec §2.2 · critério A5 · A9 | teste que **falha sem** o normalizador, verificado reintroduzindo o defeito |
-| **A3** | Fonte única para "anos de experiência" (`14` editor × `11` bio × `10+` página) | spec §2.1 (linha ⚠️) · **plan fase A, trava** | os três números viram um; medição do que a API devolve × o que o editor mostra |
+| **A1** | Investigar por que `selling_points` volta `{}` (objeto) — 7/12 no beta, 39/48 em prod — apesar do `DEFAULT '[]'::jsonb` | spec §2.2 (forma + achado medido) | **fechada**: causa do beta = hidratação `admin/sync/enrich` copiando de prod (ids batem; SELECTs no banco beta + 12 pontos de escrita lidos). Bloqueio nomeado: origem primária em prod não medida (spec §2.2) |
+| **A2** | Normalizador tipado para `selling_points` na fronteira, antes de virar prop | spec §2.2 · critério A5 · A9 | **concluída**: `normalizeSellingPoints` em `useMestre.ts`, chamado em `normalizeMestreProfile`; 10 testes em `useMestre.test.ts`; A9: defeito reintroduzido → 4 falhas, restaurado → 10/10 |
+| **A3** | **Separar "verificado" de "declarado pelo mestre"** no hero (`years_on_platform` já oculto quando 0 — medido) | **spec §12 (decisão + medição dos 7 perfis)** · spec §2.1 · plan fase A | **concluída**: `experience_years` com `Medal` + "Declara {n}+ anos de experiência" (sem `CheckCircle2`); `covil_verified` mantém `CheckCircle2`; 4 testes em `MestreHero.test.tsx`; A9: defeito reintroduzido → 2 falhas, restaurado → 4/4; `years_on_platform` já oculto quando 0; coluna e migration intactas |
 
-**⚠️ Trava de A3:** `experience_years` (autodeclarado) e `years_on_platform` (calculado de
-`created_at`) **são dados distintos e o código proíbe fundi-los** (`gm.ts`, spec 081 T9.1).
-A divergência é entre editor × bio × API do `experience_years`.
+**⚠️ Trava de A3 (revista por medição — ver spec §12):** `experience_years` (autodeclarado)
+e `years_on_platform` (calculado de `created_at`) **são distintos e o código proíbe
+fundi-los** (`gm.ts:181-184`, spec 081 T9.1).
+
+**A task NÃO é "os três números viram um".** A pesquisa desaconselha escolher uma fonte às
+pressas — isso destrói informação (spec §12.2). Medido: 3 de 7 mestres citam anos na bio, 2
+contradizem a coluna, e `albuquerque` tem "15 anos" na bio com a **coluna vazia**.
+
+O defeito real: o autodeclarado é exibido com o **mesmo ícone de verificado** do
+`covil_verified`. A3 separa os dois. **O número dentro da bio não se toca** — é texto do
+mestre, e o destino dele é B11 (D11, extração com confirmação).
 
 **→ Fechar o GATE A antes de seguir** (`plan.md`).
 
@@ -47,8 +55,8 @@ A divergência é entre editor × bio × API do `experience_years`.
 
 | # | Fazer | LER ANTES | Aceite medido |
 |---|---|---|---|
-| **B0** | Consolidar a escrita no `PUT /api/v1/gm/profile` (que já valida os 6 campos), migrando o `mutationFn` de `useUpdateGm` | **plan §B.0 inteiro** (tabela das 4 camadas + Merge Endpoints) | os 6 campos chegam à coluna de ponta a ponta; **nenhuma porta falsa** |
-| **B0.1** | Conferir o write path de `closed_group_*` — **não passa por nenhuma das duas portas** e não foi medido | plan §B.0, última linha | caminho de escrita nomeado, com o comando que o encontrou |
+| **B0** | Consolidar a escrita no `PUT /api/v1/gm/profile`: **estender o PUT** com `experience_years`/`average_price` (medido: não aceitos hoje), migrar o `mutationFn` (upsert via POST quando `profile.gm` é null) e **alinhar `gmProfileSchema`** (+`tagline`/`selling_points`/`badges`/`promo_badge_text`; −`gm_style`/`tools`/`game_format`; nickname 2-40) | **plan §B.0 inteiro** (tabela das 4 camadas + Merge Endpoints) | **concluída**: PUT estendido (2 campos + returning), mutationFn migrado com upsert via POST, schema alinhado; backend 35/35 testes (8 novos em `gmPanel.profilePut.test.ts`; A9: 3 falham sem o campo), frontend 23/23 (A9: 1 falha com `gm_style` de volta); tsc limpo nos dois. **Resíduos pós-B0** (corrigidos no lote B1/B2): objeto `api` sem `put` (usado `apiClient` cru no hook) e slug derivado pode violar o regex `/^[a-z0-9-]+$/` do POST |
+| **B0.1** | Conferir o write path de `closed_group_*` | plan §B.0, última linha | **concluída**: passa pelo `POST`/`PUT /api/v1/gm/profile` (gmPanel, destructuring + `.set`); não passa pelo PATCH; `systemProjectionHydrator` (admin) e hidratação beta nos demais |
 
 **Por que primeiro:** hoje `tagline`, `selling_points`, `badges` e `promo_badge_text`
 morrem no Zod e no handler **em silêncio** — o mestre digita, o indicador diz "salvo", o
@@ -58,27 +66,27 @@ dado some. Criar campo antes disto entrega porta falsa.
 
 | # | Fazer | LER ANTES | Aceite medido |
 |---|---|---|---|
-| **B1** | Campo de `tagline` | spec §2.3 (**três cadeias**) · **§9 (fidelidade visual)** · D2, D7 · D10 | campo grava; as 3 cadeias conferidas, nenhuma regredida |
-| **B2** | Campos de `closed_group_*` (4 + liga/desliga) | spec §2.2 (**centavos** e **UUID**) · D9 · write path **não medido** (plan B.0) | preço em reais grava centavos — testado; sistemas gravam UUID. A leitura já tem `formatPriceBRL` (`MestreClosedGroupSection.tsx:15`): a escrita é o inverso dela, não uma conversão nova |
-| **B3** | Campos de `specialties`, `languages`, `badges` — **com a exibição junto** (C2) | spec §2.1 (órfãos dos 2 lados) · **§9** · plan "o que reusar" | campo grava **e** a página exibe; sem isso, defeito invertido |
-| **B4** | Campo de `selling_points` | spec §2.2 (**14 ícones fechados**, descarte silencioso) · **§9** | seleção entre os 14, nunca texto livre; item inválido barrado **no formulário** |
-| **B5** | Campo de `promo_badge_text` | spec §2.1 · D9 | campo grava; faixa aparece no topo do hero |
+| **B1** | Campo de `tagline` | spec §2.3 (**três cadeias**) · **§9 (fidelidade visual)** · D2, D7 · D10 | **concluída**: `TaglineField` (TextInput do pacote, max 200); grava via PUT; 3 cadeias conferidas por leitura (`MestreHero.tsx:112-113`, `ogDescription.ts:67-71`, `MestrePage.tsx:51`), nenhuma regredida |
+| **B2** | Campos de `closed_group_*` (4 + liga/desliga) | spec §2.2 (**centavos** e **UUID**) · D9 · write path **medido** (plan B.0) | **concluída**: `ClosedGroupSection` (toggle `aria-pressed`, sistemas via SystemPicker multi gravando UUID, MarkdownEditor, preço reais→centavos); `reaisParaCentavos` com 12 testes e round-trip; A9 verificado |
+| **B3** | Campos de `specialties`, `languages`, `badges` — **com a exibição junto** (C2) | spec §2.1 (órfãos dos 2 lados) · **§9** · plan "o que reusar" | **concluída**: `ProfileTagsSection` (TagInput ×3) + exibição `MestreHighlights` na página pública (chips saíram do `MestreBio` para a seção nova, sem duplicação); A9 verificado |
+| **B4** | Campo de `selling_points` | spec §2.2 (**14 ícones fechados**, descarte silencioso) · **§9** | **concluída**: `SellingPointsEditor` — `Select` com as 14 chaves do dicionário compartilhado (`sellingPointIcons.ts`, cópia única exibição+editor); item inválido barrado no form; A9 verificado |
+| **B5** | Campo de `promo_badge_text` | spec §2.1 · D9 | **concluída**: `PromoBadgeField` (max 120); faixa já renderizava no `MestreHero.tsx:67-72` (conferido por leitura, intocado); A9 verificado |
 
 ### B-6..B-9 · Qualidade da tela (D5, D10)
 
 | # | Fazer | LER ANTES | Aceite medido |
 |---|---|---|---|
-| **B6** | Frase do ganho em todo campo recomendado, no padrão `EditorField` + `RECOMMENDED_GAIN` | **spec §8 (tabela campo→nível)** · D10 · plan "o que reusar" | os 7 recomendados de §8 têm frase, na linguagem do jogador; nível em `data-ob`; registro único no padrão `editorValidation.ts:72`, cruzado por teste |
-| **B7** | `aria-describedby` no controle de todo campo com erro/hint | **plan §B, armadilha 1** · critério A6 · **§11.1 (9/9 sem o atributo, medido)** | busca pelo atributo em cada campo — o `Field` **não** o emite |
-| **B8** | Autosave: debounce real + **indicador que exista e fique visível** | spec §2.5 · **§11.1** | requisição por pausa, não por tecla; indicador presente no DOM e visível ao editar a bio. **Medido: `.autosave-indicator` está ausente do DOM** — não é só posicionamento |
-| **B9** | Listar os sistemas escolhidos, não só contar; remover `Preço Médio` do front (D4) | spec §2.1 · §2.5 · D4 | os nomes aparecem; `average_price` sai do editor, banco intacto |
-| **B10** | Prévia do perfil público nas 3 telas (D5) e prévia do véu do banner (D8) | D5 · **D8** (scrim fixo — é decisão, não está na fase D do plan) | prévia mostra o texto real sobre a foto real |
+| **B6** | Frase do ganho em todo campo recomendado, no padrão `EditorField` + `RECOMMENDED_GAIN` | **spec §8 (tabela campo→nível)** · D10 · plan "o que reusar" | **concluída**: registro único `RECOMMENDED_GAIN` (7 chaves) em `profileEditorDomain.ts`; 3 frases novas (`bioLong`, `experienceYears`, `links`); teste cruzado `profileRecommendedGain.test.tsx`; A9 verificado |
+| **B7** | `aria-describedby` no controle de todo campo com erro/hint | **plan §B, armadilha 1** · critério A6 · **§11.1 (9/9 sem o atributo, medido)** | **concluída com pendência nomeada**: atributo explícito nos controles (campos novos + AvatarField/ImageUploader/LinksManager); A9 verificado. **Pendência**: `closed_group_systems` tem hint sem o atributo — o controle é o `CatalogTree` do `@artificio/catalog-ui`, sem prop de aria (medido); tocar o pacote exige aprovação |
+| **B8** | Autosave: debounce real + **indicador que exista e fique visível** | spec §2.5 · **§11.1** | **concluída**: debounce 500ms com buffer no `ProfileContext.updateGm` (último valor vence, nada descartado — substitui o `if (isPending) return`); indicador sempre montado nas 3 tabs, `position: fixed`, estados erro/salvando/salvo; A9 verificado (2 pontos) |
+| **B9** | Listar os sistemas escolhidos, não só contar; remover `Preço Médio` do front (D4) | spec §2.1 · §2.5 · D4 | **concluída**: `UserSystemsSelector` lista os nomes via catálogo; `average_price` removido da UI, do schema e do tipo `GmProfile`; banco e PUT intactos; A9 verificado |
+| **B10** | Prévia do perfil público nas 3 telas (D5) e prévia do véu do banner (D8) | D5 · **D8** (scrim fixo — é decisão, não está na fase D do plan) | **ADIADA por decisão do mantenedor (2026-08-31)** — o gate B fecha sem ela (a prévia não tem item de gate); decisão registrada, não silenciada (A1) |
 
 ### B-11 · Extração assistida (D11) — por último na fase
 
 | # | Fazer | LER ANTES | Aceite medido |
 |---|---|---|---|
-| **B11** | Extrair atributos da bio e **oferecer para confirmação** | D11 (**trava**) · plan §B "extração assistida" | máquina **sugere**, mestre confirma, publicação nunca travada |
+| **B11** | Extrair atributos da bio e **oferecer para confirmação** | D11 (**trava**) · plan §B "extração assistida" | **ADIADA por decisão do mantenedor (2026-08-31)** — máquina sugere, mestre confirma, publicação nunca travada; enquanto não existir, o número na bio fica como está (spec §12.3) |
 
 **⚠️ Trava de B11:** nada é gravado sem confirmação. O F1 do Airbnb é 75% — gravar direto
 erraria um em cada quatro atributos exibidos ao jogador. `llmAssist.ts` já faz a chamada
@@ -145,7 +153,8 @@ esperando o anterior.
 
 | o quê | estado |
 |---|---|
-| causa do `selling_points: {}` | **não medida** → A1 |
+| causa do `selling_points: {}` | **beta medida** (hidratação `admin/sync/enrich`) → A1 fechada; **prod não medida** (39/48 `{}`, nascendo até 08-28; **hidratação/escrita manual no período descartada pelo mantenedor** 2026-08-31) — única via de medição: `log_statement=all` em prod (aprovação); **data fix do dado sujo de prod não decidido** (SQL write → aprovação) |
+| `aria-describedby` do `closed_group_systems` (B7) | campo tem hint sem associação — o controle é o `CatalogTree` do `@artificio/catalog-ui`, sem prop de aria (medido); corrigir exige aprovação de pacote |
 | mobile e tema claro | **não medidos** → C4 |
 | perfil de controle preenchido | **não existe** — nenhum dos 20 |
 | nav global 22px | **não reproduz** no CSS do pacote → F3 |

@@ -122,6 +122,16 @@ export function ImageUploader({
     setEditorSrc(null);
   };
 
+  // B7 (spec 099): o campo exibe hint fixo (proporção/formatos, do
+  // imageKindHint) e erro condicional; o botão de seleção — controle
+  // acionável principal, já que o input de arquivo é `display:none` — recebe
+  // a associação a ambos, quando presentes.
+  const hintId = `${idPrefix}-hint`;
+  const errorId = `${idPrefix}-error`;
+  const describedBy = [hintId, uploadError || hasError ? errorId : undefined]
+    .filter(Boolean)
+    .join(' ') || undefined;
+
   /**
    * O arquivo sobe PRIMEIRO e o enquadramento vem depois, sobre a imagem já
    * hospedada. É o oposto da ordem anterior, e de propósito: o servidor pode
@@ -186,6 +196,7 @@ export function ImageUploader({
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading || isImportingUrl}
             className="min-h-[44px] px-4 py-2 rounded-lg bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
+            aria-describedby={describedBy}
           >
             {isUploading ? 'Enviando imagem...' : 'Selecionar imagem'}
           </button>
@@ -209,8 +220,8 @@ export function ImageUploader({
               banner), formatos e limite lidos do imageKindSpec, nunca escritos
               à mão. A proporção é o que o mestre precisa para prever o corte
               ANTES de enviar: a imagem entra num 1200/650 e o enquadramento só
-              aparece depois. */}
-          <span className="text-xs text-white/60">{imageKindHint(kind)}</span>
+              aparece depois. B7: `id` para o aria-describedby do botão. */}
+          <span className="text-xs text-white/60" id={hintId}>{imageKindHint(kind)}</span>
         </div>
 
         <div className="flex flex-col gap-1">
@@ -288,7 +299,7 @@ export function ImageUploader({
       </div>
 
       {(uploadError || hasError) && (
-        <p className="text-xs text-red-300" role="alert">
+        <p className="text-xs text-red-300" role="alert" id={errorId}>
           {uploadError || 'Não foi possível validar a imagem enviada.'}
         </p>
       )}
