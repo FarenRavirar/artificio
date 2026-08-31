@@ -1,6 +1,6 @@
 # Plano 099 — Perfil do mestre
 
-**Status:** decisões D1–D11 fechadas. **Nenhuma fase executada.**
+**Status:** decisões D1–D11 fechadas. **Fase A executada (gate A fechado). Fase B executada (B0–B9, gate B fechado com 1 pendência nomeada); B10/B11 adiadas por decisão do mantenedor (2026-08-31).** Fases C e D não iniciadas.
 Sequência, gates e pré-requisitos técnicos. As tasks estão em `tasks.md`; o estado medido
 e a forma dos dados, em `spec.md`.
 
@@ -27,27 +27,33 @@ Sem migration (D1). Nada aqui toca layout — se produzir mudança visual, saiu 
 
 1. **Normalização na fronteira** — todo JSONB/payload externo passa por normalizador
    tipado antes de virar prop (A5). Alvo imediato: `selling_points`, que volta `{}` em
-   7/20.
-2. **Investigar a causa do `{}`** — escrita antiga, migração de dado ou serialização.
-   Medir antes de decidir o conserto.
-3. **Fonte única de "anos de experiência"** (task A3) — hoje `14` no editor, `11` na bio,
-   `10+` na página.
+   7/12 no beta (39/48 em prod — medido 2026-08-31, spec §2.2).
+2. **Investigar a causa do `{}`** — **medido**: no beta, é a hidratação `admin/sync/enrich`
+   copiando de prod; serialização descartada com medição; nenhum dos 12 pontos de escrita do
+   código atual grava `{}`. **Bloqueio nomeado:** origem primária em prod (39/48) não medida
+   — detalhe em spec §2.2.
+3. **Separar "verificado" de "declarado pelo mestre"** (task A3) — decisão e medição dos 7
+   perfis em `spec.md` §12. Não é escolher entre os números.
 
-**Não é só escolher um número:** o `11` mora dentro do texto livre da bio
-(*"Mestre há 11 anos"*), visível na página pública. Definir a fonte única **não apaga a
-frase** — a task A3 só fecha com destino definido para o texto que contradiz (reescrever,
-pedir ao mestre, ou aceitar e registrar por quê).
+**O destino do texto da bio está decidido (spec §12.3):** o número em prosa **não se
+toca** — é fala do mestre, e a plataforma não a corrige. Vai para B11 (extração assistida,
+D11), que sugere e deixa o mestre confirmar. A3 fecha sem tocar na bio; só registra a
+medição para B11 saber que o caso existe em 3 de 7 perfis.
 
 **Trava da task A3 (não confundir dois dados):** `experience_years` (autodeclarado, coluna) e
 `years_on_platform` (calculado de `created_at`, subconsulta) **são distintos e o código
-proíbe fundi-los** — comentário em `gm.ts` (spec 081, T9.1). A divergência da task A3 é entre
-**editor × bio × API** do `experience_years`, nunca entre autodeclarado e calculado.
+proíbe fundi-los** — comentário em `gm.ts:181-184` (spec 081, T9.1).
+
+**O defeito não é a divergência entre os números** — o jogador nunca vê as duas fontes
+juntas. É que o autodeclarado sai com o **mesmo ícone `CheckCircle2` do `covil_verified`**
+(`MestreHero.tsx:147-162`, ambos dentro de `.trust-item`): a plataforma parece atestar um
+número que ninguém conferiu. Medição e fontes em `spec.md` §12.
 
 ### ── GATE A ──
-- [ ] `selling_points` normalizado, com teste que falha sem o normalizador (A9)
-- [ ] causa do `{}` medida e registrada (ou bloqueio nomeado)
-- [ ] fonte única de experiência definida, com a divergência explicada por medição
-- [ ] `rtk pnpm vitest run` do pacote afetado, verde, com número citado
+- [x] `selling_points` normalizado, com teste que falha sem o normalizador (A9) — 10 testes em `useMestre.test.ts`; defeito reintroduzido → 4 falhas
+- [x] causa do `{}` medida e registrada: beta = hidratação `admin/sync/enrich`; bloqueio nomeado = origem primária em prod (spec §2.2)
+- [x] `experience_years` sem o selo de verificado — medido no hero renderizado (4 testes em `MestreHero.test.tsx`; defeito reintroduzido → 2 falhas); `years_on_platform` já oculto quando 0, medido — nada a fazer
+- [x] `rtk pnpm vitest run` do pacote afetado, verde: 62 arquivos, 842/842 testes
 
 ---
 
@@ -86,11 +92,20 @@ Migrar o editor para o `PUT` em vez de estender o `PATCH` segue o padrão catalo
 lugar só. Estender o `PATCH` duplicaria `isSellingPoint` e a sanitização, deixando duas
 portas que divergem a cada manutenção.
 
-**O que a consolidação exige, medido — são dois passos, não um:** (1) trocar o
-`mutationFn` de `useUpdateGm` de `api.patch('/api/v1/profile/gm')` para o `PUT`; e (2)
-**alinhar `gmProfileSchema` ao contrato que o `gmPanel` já aceita**. Sem o passo 2 a porta
-falsa sobrevive **do lado do cliente**: o Zod do app continua descartando os 6 campos antes
-de a requisição sair, e o sintoma é idêntico ao de hoje.
+**O que a consolidação exige, medido — são três passos, não dois:** (1) **estender o `PUT`**
+com os campos que o editor grava hoje e que ele ainda não aceita: `experience_years` e
+`average_price` (medido: ausentes do destructuring e do `.set` — migrar sem isto regride os
+dois). `gm_style`, `tools` e `game_format` ficam **fora**: o `PUT` não os aceita e nenhuma UI
+os envia (mantê-los no schema = porta falsa); (2) trocar o `mutationFn` de `useUpdateGm` de
+`api.patch('/api/v1/profile/gm')` para o `PUT`, **preservando o upsert**: o `PATCH` cria
+perfil (e eleva role) quando ausente; o `PUT` responde 404 — medido que a TabMestre renderiza
+com `(profile?.gm || {})` para qualquer role, então o cliente passa a usar o `POST` com slug
+derivado (mesma regra do PATCH service) quando `profile.gm` é null; (3) **alinhar
+`gmProfileSchema` ao contrato que o `gmPanel` aceita** (adicionar `tagline`,
+`selling_points`, `badges`, `promo_badge_text`; remover `gm_style`/`tools`/`game_format`;
+`nickname` 2-40). Sem o passo 3 a porta falsa sobrevive **do lado do cliente**: o Zod do app
+continua descartando os campos antes de a requisição sair, e o sintoma é idêntico ao de
+hoje.
 
 **Consumidores medidos do `PATCH`:** **um** (`useUpdateGm`, `useProfileQuery.ts:171`). A
 migração move um `mutationFn`; as **duas** rotas `PATCH` ficam sem cliente e podem ser
@@ -104,8 +119,10 @@ O editor de perfil entra como **quinto** cliente da mesma porta: ao mudar payloa
 validação ou resposta do `PUT`, conferir os quatro — `useTableEditor.test.tsx` cobre o
 comportamento atual e é a rede de segurança.
 
-`closed_group_*` **não passa por nenhuma das duas portas** — conferir o write path dele
-antes da **task B2** (é ela que cria os campos de grupo fechado; não medido).
+`closed_group_*` **medido**: passa pelo `POST`/`PUT /api/v1/gm/profile` (destructuring +
+`.set` no gmPanel) — **não** passa pelo `PATCH` (o handler não o destrutura). Outros pontos:
+`systemProjectionHydrator` (admin, só `closed_group_systems`) e a hidratação beta (bloqueada
+em prod). A task B2 usa o `PUT`.
 
 ### B.1..B.5 — Ordem dos campos, por custo × alcance
 
@@ -157,14 +174,13 @@ O `parse-preview` do editor de mesa é o precedente de **arquitetura** (sugerir 
 não de técnica: aquele parser é **motor de regras**, sem modelo.
 
 ### ── GATE B ──
-- [ ] busca do **critério A1** volta **sem lacuna**: todo campo lido por `mestre/*` tem formulário
-- [ ] os 6 campos chegam ao banco de ponta a ponta (**nenhuma porta falsa**)
-- [ ] todo campo recomendado tem frase de ganho (D10) — verificável contra a tabela
-      **campo→nível de `spec.md` §8**: os 7 recomendados, com frase na linguagem do jogador
-- [ ] `aria-describedby` no controle de todo campo com erro/hint (A6)
-- [ ] autosave com debounce e indicador visível em página longa
-- [ ] preço do grupo fechado grava **centavos** a partir de reais — testado
-- [ ] `rtk pnpm vitest run` do pacote afetado, verde, número citado
+- [x] busca do **critério A1** volta **sem lacuna**: todo campo lido por `mestre/*` tem formulário (busca 2026-08-31: campos lidos em `mestre/*` cruzados com a tabela §2.1 — todos os renderizados têm form após B1–B5; derivados/outros fluxos corretos)
+- [x] os 6 campos chegam ao banco de ponta a ponta (**nenhuma porta falsa**): form (B1/B3/B4/B5) → `gmProfileSchema` (B0) → `PUT /gm/profile` (B0) → coluna, com testes em cada camada
+- [x] todo campo recomendado tem frase de ganho (D10) — os 7 recomendados no registro único `RECOMMENDED_GAIN`, cruzado por teste (B6)
+- [ ] `aria-describedby` no controle de todo campo com erro/hint (A6) — **pendência nomeada**: `closed_group_systems` (controle `CatalogTree` do `@artificio/catalog-ui` não tem prop de aria, medido — tocar o pacote exige aprovação); demais campos cobertos (B7)
+- [x] autosave com debounce e indicador visível em página longa (B8)
+- [x] preço do grupo fechado grava **centavos** a partir de reais — testado (B2: 12 testes com round-trip)
+- [x] `rtk pnpm vitest run` do pacote afetado, verde: frontend 73 arquivos / 952 testes; backend 74 arquivos / 1056 testes (2026-08-31)
 
 ---
 

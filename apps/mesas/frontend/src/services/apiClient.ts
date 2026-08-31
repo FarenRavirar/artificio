@@ -260,6 +260,16 @@ export const api = {
       body: data ? JSON.stringify(data) : undefined,
     }),
 
+  // Spec 099 (resíduo pós-B0): o objeto `api` não expunha `put`, e o hook
+  // `useUpdateGm` usava o executor `apiClient` cru para o PUT /gm/profile.
+  // Mesmo padrão de `post`/`patch`: a engine compartilhada trata retry/refresh.
+  put: <T>(url: string, data?: unknown, options?: ApiClientOptions) =>
+    apiClient<T>(url, {
+      ...options,
+      method: 'PUT',
+      body: data ? JSON.stringify(data) : undefined,
+    }),
+
   delete: <T>(url: string, options?: ApiClientOptions) =>
     apiClient<T>(url, { ...options, method: 'DELETE' }),
 };

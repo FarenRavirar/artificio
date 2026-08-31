@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, Sparkles, Crown, Award, Users, Star, MessageSquare } from 'lucide-react';
+import { CheckCircle2, Medal, Sparkles, Crown, Award, Users, Star, MessageSquare } from 'lucide-react';
 import type { TableCard } from '../../types/tables';
 import type { MestrePublicData } from '../../hooks/useMestre';
 import { isUsableImageSrc } from '../../utils/imageSource';
@@ -150,15 +150,18 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
               </span>
             )}
             {profile.covil_verified && (
-              <span className="trust-item">
+              <span className="trust-item" data-testid="trust-covil">
                 <CheckCircle2 className="w-4 h-4" />
                 Verificado no Covil
               </span>
             )}
+            {/* Spec 099: `experience_years` é autodeclarado pelo mestre — ícone
+                Medal e rótulo "Declara N+ anos" para não parecer verificado
+                pela plataforma (só `covil_verified` usa CheckCircle2). */}
             {(profile.experience_years ?? 0) >= 3 && (
-              <span className="trust-item">
-                <CheckCircle2 className="w-4 h-4" />
-                {profile.experience_years}+ anos de experiência
+              <span className="trust-item" data-testid="trust-experience">
+                <Medal className="w-4 h-4" />
+                Declara {profile.experience_years}+ anos de experiência
               </span>
             )}
             {/* T9.1 (spec 081): calculado (created_at), rótulo distinto do

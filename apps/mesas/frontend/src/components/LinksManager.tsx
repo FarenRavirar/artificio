@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Trash2, Video, Music, Radio, MessageCircle, FileText, Globe, Plus, Loader, Camera, Share2, Briefcase } from 'lucide-react';
 import { useLinks, type UserLink } from '../hooks/useLinks';
 import { useConfirm } from "@artificio/ui";
+import { RECOMMENDED_GAIN } from './mestre/editor/profileEditorDomain';
 import './LinksManager.css';
 
 const LINK_TYPE_ICONS = {
@@ -80,12 +81,16 @@ export function LinksManager() {
   }
 
   return (
-    <div className="links-manager">
+    // Spec 099 B6: `links` é RECOMENDADO — data-ob/data-field (gancho do teste
+    // cruzado) + frase do ganho. O componente vive em duas telas
+    // (ProfileEditPage e PainelMestrePage): uma edição cobre as duas.
+    <div className="links-manager" data-ob="recommended" data-field="links">
       <div className="links-manager-header">
         <h3>Links e Conteúdo</h3>
         <p className="links-manager-subtitle">
           Adicione links para YouTube, Spotify, artigos e mais. Máximo de 10 links.
         </p>
+        <p className="text-xs opacity-75">Recomendado — {RECOMMENDED_GAIN.links}.</p>
       </div>
 
       {error && (
@@ -103,6 +108,9 @@ export function LinksManager() {
             placeholder="Cole o link aqui (YouTube, Spotify, etc)"
             className="links-add-input"
             disabled={adding || links.length >= 10}
+            // B7: a associação ao erro é condicional — o `<p>` só existe
+            // quando há mensagem (regra: sem hint/erro, sem atributo).
+            aria-describedby={addError ? 'links-add-error' : undefined}
           />
           <button
             type="submit"
@@ -121,7 +129,7 @@ export function LinksManager() {
         </div>
         
         {addError && (
-          <p className="links-add-error">{addError}</p>
+          <p className="links-add-error" id="links-add-error">{addError}</p>
         )}
         
         {links.length >= 10 && (

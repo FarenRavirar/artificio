@@ -369,6 +369,8 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
     bio_long,
     languages,
     specialties,
+    experience_years,
+    average_price,
     badges,
     avatar_url,
     banner_url,
@@ -426,6 +428,11 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
   const safeClosedGroupMinPriceCents = normalizeNullableNonNegativeInteger(
     closed_group_min_price_cents,
   );
+  // Spec 099 B0: o PUT passa a gravar experiência e preço médio, que o editor
+  // antes persistia via PATCH. Mesmo contrato de três estados dos vizinhos:
+  // inteiro >= 0 grava, `null` zera, ausente/outro tipo preserva o salvo.
+  const safeExperienceYears = normalizeNullableNonNegativeInteger(experience_years);
+  const safeAveragePrice = normalizeNullableNonNegativeInteger(average_price);
   const safePreferredVttPlatforms = Array.isArray(preferred_vtt_platforms)
     ? preferred_vtt_platforms.filter(
         (value) => typeof value === 'string' && /^[0-9a-fA-F-]{36}$/.test(value)
@@ -491,6 +498,8 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
         closed_group_systems: safeClosedGroupSystems,
         closed_group_description: safeClosedGroupDescription,
         closed_group_min_price_cents: safeClosedGroupMinPriceCents,
+        experience_years: safeExperienceYears,
+        average_price: safeAveragePrice,
         preferred_vtt_platforms: safePreferredVttPlatforms,
         contact_methods: safeContactMethods === undefined ? undefined : JSON.stringify(safeContactMethods),
       })
@@ -514,6 +523,8 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
         'tagline',
         'promo_badge_text',
         'selling_points',
+        'experience_years',
+        'average_price',
         'closed_group_enabled',
         'closed_group_systems',
         'closed_group_description',

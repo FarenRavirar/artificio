@@ -116,23 +116,18 @@ export type PlayerProfileUpdateInput = z.infer<typeof playerProfileSchema>;
 // GM PROFILE
 // ============================================================================
 
-export const gmStyleSchema = z.object({
-  narrative: z.number().min(1).max(5).optional(),
-  tactical: z.number().min(1).max(5).optional(),
-  sandbox: z.number().min(1).max(5).optional(),
-  railroad: z.number().min(1).max(5).optional(),
-});
-
-export const gameFormatSchema = z.object({
-  session_length: z.string().optional(),
-  frequency: z.string().optional(),
-  group_size: z.string().optional(),
+export const sellingPointSchema = z.object({
+  icon: z.string(),
+  title: z.string(),
+  description: z.string(),
+  highlight: z.string().optional(),
 });
 
 export const gmProfileSchema = z.object({
   nickname: z
     .string()
-    .max(50, 'Apelido deve ter no máximo 50 caracteres')
+    .min(2, 'Apelido deve ter no mínimo 2 caracteres')
+    .max(40, 'Apelido deve ter no máximo 40 caracteres')
     .optional()
     .nullable(),
   bio_long: z
@@ -151,14 +146,48 @@ export const gmProfileSchema = z.object({
     .max(100, 'Anos de experiência deve ser no máximo 100')
     .optional()
     .nullable(),
-  average_price: z
-    .number()
-    .min(0, 'Preço médio deve ser positivo')
+  // Spec 099 B9 / D4: `average_price` ("Preço Médio") saiu do editor e deste
+  // schema. O backend continua aceitando a chave no PUT (inofensivo — a coluna
+  // e o handler ficam intactos), mas o front não a envia mais: removida aqui,
+  // `z.object` descarta chave extra no parse e nenhum payload do cliente volta
+  // a carregar o valor. O preço da MESA e o do GRUPO FECHADO continuam (D4).
+  // Campos do perfil público v2: o PUT /api/v1/gm/profile os aceita com os
+  // mesmos cortes do backend (200/120) — declarados aqui porque `z.object`
+  // descarta chave desconhecida no parse e o campo nunca chegaria à rota.
+  tagline: z
+    .string()
+    .max(200, 'Slogan deve ter no máximo 200 caracteres')
     .optional()
     .nullable(),
-  gm_style: gmStyleSchema.optional().nullable(),
-  tools: z.array(z.string()).optional().nullable(),
-  game_format: gameFormatSchema.optional().nullable(),
+  promo_badge_text: z
+    .string()
+    .max(120, 'Texto do selo deve ter no máximo 120 caracteres')
+    .optional()
+    .nullable(),
+  // `.optional()` SEM `.nullable()`: estas colunas sao NOT NULL DEFAULT no banco
+  // (`badges TEXT[] DEFAULT '{}'`, migration_01:97; `selling_points JSONB NOT
+  // NULL DEFAULT '[]'`, migration_107:14). Aceitar `null` aqui era contrato
+  // falso — o PUT normaliza para `undefined` e IGNORA o campo, entao "limpar
+  // com null" nunca limpou nada, e gravar SQL null violaria a constraint.
+  // Para esvaziar, o cliente manda o array VAZIO, que e o que o editor ja faz
+  // (achado de review, PR #297).
+  badges: z.array(z.string()).optional(),
+  selling_points: z.array(sellingPointSchema).optional(),
+  // B2: campos de grupo fechado — o PUT /api/v1/gm/profile os aceita com as
+  // mesmas regras do backend (boolean; UUIDs; markdown sanitizado; inteiro
+  // não-negativo em centavos). Declarados aqui porque `z.object` descarta
+  // chave desconhecida no parse (mesma lição de tagline/promo_badge_text).
+  // Mesma razao dos dois acima: NOT NULL DEFAULT (migration_107:15-16). Para
+  // desligar o grupo fechado manda-se `false`; para esvaziar, array vazio.
+  closed_group_enabled: z.boolean().optional(),
+  closed_group_systems: z.array(z.string()).optional(),
+  closed_group_description: z.string().optional().nullable(),
+  closed_group_min_price_cents: z
+    .number()
+    .int('Preço mínimo deve ser em centavos inteiros')
+    .min(0, 'Preço mínimo deve ser positivo')
+    .optional()
+    .nullable(),
   avatar_url: imageUrlSchema,
   avatar_crop_data: cropRectSchema,
   avatar_width: imageDimensionSchema,
