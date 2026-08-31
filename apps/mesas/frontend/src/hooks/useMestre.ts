@@ -101,8 +101,13 @@ export function normalizeSellingPoints(input: unknown): SellingPoint[] {
     const title = item.title;
     const description = item.description;
     if (typeof icon !== 'string' || icon.length === 0) continue;
-    if (typeof title !== 'string' || title.length === 0) continue;
-    if (typeof description !== 'string' || description.length === 0) continue;
+    // `.trim()` e nao `.length`: "   " tem length 3 e passava, renderizando um
+    // destaque em branco na pagina publica. O formulario ja usa trim
+    // (`isValidSellingPoint`, profileEditorDomain.ts:48) — sem isto as duas
+    // camadas divergem, e o item entra por qualquer caminho que nao seja o
+    // editor (achado de review, PR #297).
+    if (typeof title !== 'string' || title.trim().length === 0) continue;
+    if (typeof description !== 'string' || description.trim().length === 0) continue;
 
     const point: SellingPoint = { icon, title, description };
     if (typeof item.highlight === 'string') {

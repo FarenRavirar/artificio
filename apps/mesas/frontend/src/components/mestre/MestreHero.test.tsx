@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { MestreHero } from './MestreHero';
-import type { MestrePublicData } from '../../hooks/useMestre';
+import { makeMestreProfile } from '../../test/mestreFixtures';
 
 /**
  * Hero do mestre (spec 099): `experience_years` e autodeclarado — icone Medal
@@ -10,34 +10,9 @@ import type { MestrePublicData } from '../../hooks/useMestre';
  * `data-testid` (`trust-covil` / `trust-experience`), sem mudanca visual.
  */
 
-function fakeProfile(overrides: Partial<MestrePublicData> = {}): MestrePublicData {
-  return {
-    id: 'm1',
-    slug: 'mestre-teste',
-    display_name: 'Mestre Teste',
-    bio_long: null,
-    avatar_url: null,
-    avatar_crop_data: null,
-    avatar_width: null,
-    avatar_height: null,
-    banner_url: null,
-    banner_crop_data: null,
-    banner_width: null,
-    banner_height: null,
-    languages: [],
-    specialties: [],
-    badges: [],
-    avg_rating: null,
-    reviews_count: 0,
-    tables_count: 0,
-    created_at: '2024-01-01T00:00:00Z',
-    tables: [],
-    ...overrides,
-  };
-}
 
 describe('MestreHero — verificado vs autodeclarado', () => {
-  const profile = fakeProfile({ covil_verified: true, experience_years: 14 });
+  const profile = makeMestreProfile({ covil_verified: true, experience_years: 14 });
 
   it('rotula a experiencia como autodeclarada', () => {
     render(<MestreHero profile={profile} mappedTables={[]} totalOpenSlots={0} />);

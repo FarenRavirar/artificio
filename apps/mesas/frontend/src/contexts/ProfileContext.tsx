@@ -1,7 +1,8 @@
 import React from 'react';
 import type { ReactNode } from 'react';
 import { ProfileContext, type ProfileContextValue } from './profileContextCore';
-import type { GmProfile } from '../types/profileTypes';
+import type { FullProfile, GmProfile } from '../types/profileTypes';
+import { queryClient } from '../lib/queryClient';
 import {
   useProfileQuery,
   useUpdateUser,
@@ -111,7 +112,12 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
           // Devolve o patch ao buffer: a próxima digitação reenvia o valor
           // que falhou. Sem re-agendar o flush — retry automático looparia
           // numa rejeição determinística (ex.: validação do PUT).
-          gmBufferRef.current = { ...gmBufferRef.current, ...patch };
+          // `?? {}`: o buffer e zerado antes do voo, entao o TS sabe que
+          // `current` e `null` aqui (TS2698) — mas durante o `await` acima uma
+          // digitacao nova pode te-lo repovoado. O patch que falhou entra
+          // PRIMEIRO por ser o mais antigo: o que chegou depois sobrescreve, que
+          // a mesma precedencia do merge feito no enqueue de `updateGm`.
+          gmBufferRef.current = { ...patch, ...(gmBufferRef.current ?? {}) };
           setSaveError(toErrorMessage(error));
           return;
         } finally {
@@ -169,6 +175,22 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
         // Debounce com buffer: acumula o patch e re-agenda o flush a cada
         // chamada — 500ms de pausa = uma mutation com o patch mesclado.
         gmBufferRef.current = { ...gmBufferRef.current, ...data };
+
+        // Optimistic update NO ENQUEUE, não só no `onMutate` da mutation.
+        // Sem isto, durante os 500ms de debounce o cache fica no valor antigo e
+        // os campos compostos (TagInput de specialties/languages/badges) leem a
+        // prop desatualizada: duas tags digitadas rápido calculam `[...value, x]`
+        // do MESMO array, e como o buffer é "último valor vence" por campo, a
+        // segunda apaga a primeira em silêncio (achado de review, PR #297).
+        const anterior = queryClient.getQueryData<FullProfile>(['profile', 'me']);
+        if (anterior) {
+          queryClient.setQueryData<FullProfile>(['profile', 'me'], {
+            ...anterior,
+            gm: anterior.gm
+              ? { ...anterior.gm, ...data }
+              : (data as FullProfile['gm']),
+          });
+        }
         if (gmTimerRef.current) clearTimeout(gmTimerRef.current);
         gmTimerRef.current = setTimeout(() => {
           gmTimerRef.current = null;

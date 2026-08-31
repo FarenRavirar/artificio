@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useAuth } from '../contexts/useAuth';
 import { api } from '../services/apiClient';
@@ -164,6 +165,11 @@ export function useUpdatePlayer() {
  * Mutation para atualizar perfil de mestre com optimistic update
  */
 export function useUpdateGm() {
+  // Snapshot de "o perfil já existia?", gravado no `onMutate` (antes do
+  // optimistic update) e lido no `mutationFn`. Ref e não state: precisa estar
+  // legível no mesmo tick, sem provocar re-render.
+  const gmExistiaAntesRef = useRef<boolean | null>(null);
+
   return useMutation({
     mutationFn: async (data: Partial<GmProfile>) => {
       const sanitized = sanitizeObject(data as Record<string, unknown>);
@@ -173,24 +179,42 @@ export function useUpdateGm() {
       // (slug derivado + role elevada a 'gm') quando o usuário ainda não tinha
       // um. O PUT /api/v1/gm/profile responde 404 sem perfil, então a migração
       // preserva o upsert na camada do cliente: perfil existe → PUT; não existe
-      // → POST com slug derivado da MESMA regra do PATCH service
-      // (profileService.updateGmProfile). Lê o mesmo cache que o onMutate usa.
-      const profile = queryClient.getQueryData<FullProfile>(['profile', 'me']);
+      // → POST com slug e nickname derivados.
+      //
+      // A decisão do endpoint usa `gmExistiaAntesRef`, NÃO o cache: o `onMutate`
+      // desta mesma mutation roda ANTES do `mutationFn` e grava `newData` em
+      // `['profile','me'].gm` quando o perfil não existe (optimistic update
+      // abaixo). Ler o cache aqui encontraria `gm` sempre truthy e mandaria todo
+      // mestre novo para o PUT, que responde 404 — o ramo POST ficava
+      // inalcançável (achado de review, PR #297).
+      const criar = gmExistiaAntesRef.current === false;
 
-      if (profile?.gm) {
+      if (!criar) {
         // PUT preserva o que não veio; a engine só faz retry/refresh para
         // métodos não-idempotentes (REV-055).
         const result = await api.put<{ data: FullProfile['gm'] }>('/api/v1/gm/profile', validated);
         return result.data;
       }
 
-      const slug = deriveGmSlug(profile?.user ?? { id: '' });
-      const result = await api.post<{ data: FullProfile['gm'] }>('/api/v1/gm/profile', { ...validated, slug });
+      const user = queryClient.getQueryData<FullProfile>(['profile', 'me'])?.user;
+      const slug = deriveGmSlug(user ?? { id: '' });
+      // `POST /gm/profile` (gmPanel.ts:223) rejeita nickname ausente com 400, e
+      // nenhuma chamada de `updateGm` manda nickname — ele edita um campo por
+      // vez. Sem este fallback o upsert falharia para todo mestre novo.
+      const nickname = deriveGmNickname(user, validated as Partial<GmProfile>);
+      const result = await api.post<{ data: FullProfile['gm'] }>('/api/v1/gm/profile', {
+        ...validated,
+        slug,
+        nickname,
+      });
       return result.data;
     },
     onMutate: async (newData) => {
       await queryClient.cancelQueries({ queryKey: ['profile', 'me'] });
       const previousProfile = queryClient.getQueryData<FullProfile>(['profile', 'me']);
+      // Capturado ANTES do optimistic update abaixo — é o que o `mutationFn` lê
+      // para escolher POST vs PUT (ver comentário lá).
+      gmExistiaAntesRef.current = Boolean(previousProfile?.gm);
 
       if (previousProfile) {
         queryClient.setQueryData<FullProfile>(['profile', 'me'], {
@@ -282,4 +306,29 @@ export function deriveGmSlug(user: GmSlugSource): string {
   // Guarda final: base não-vazia sempre produz sanitizado não-vazio, mas o
   // contrato do POST não admite slug vazio em hipótese nenhuma.
   return sanitized.length > 0 ? sanitized : `user-${user.id.slice(0, 8)}`;
+}
+
+/**
+ * Deriva o nickname para o POST /api/v1/gm/profile (achado de review, PR #297).
+ *
+ * `gmPanel.ts:223` rejeita nickname ausente ou fora de 2-40 caracteres com 400,
+ * e nenhuma chamada de `updateGm` manda nickname — o editor grava um campo por
+ * vez. Sem este fallback o upsert falhava para TODO mestre novo, mesmo depois
+ * de o ramo POST voltar a ser alcançável.
+ *
+ * Ordem: o que o próprio patch trouxer → username → local do e-mail → o slug
+ * derivado (que já garante não-vazio). O corte em 40 é do contrato do backend;
+ * o piso de 2 cai no slug, porque um nickname de 1 caractere seria recusado.
+ */
+export function deriveGmNickname(
+  user: GmSlugSource | undefined,
+  patch: Partial<GmProfile>,
+): string {
+  const doPatch = typeof patch.nickname === 'string' ? patch.nickname.trim() : '';
+  if (doPatch.length >= 2) return doPatch.slice(0, 40);
+
+  const fonte = user ?? { id: '' };
+  const bruto = (fonte.username || (fonte.email ? fonte.email.split('@')[0] : '') || '').trim();
+  const candidato = bruto.length >= 2 ? bruto : deriveGmSlug(fonte);
+  return candidato.slice(0, 40);
 }

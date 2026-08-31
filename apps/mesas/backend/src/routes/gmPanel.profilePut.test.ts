@@ -183,7 +183,13 @@ describe('PUT /api/v1/gm/profile — normalização dos campos livres (spec 099 
     }));
   });
 
-  it('tagline/badges null zeram (não filtram como array)', async () => {
+  // Nome anterior ("null zeram") descrevia mal o que a assercao prova, e os dois
+  // bots de review leram como bug (PR #297). O comportamento esta CERTO:
+  // `tagline` e coluna nullable, entao null vira SQL null e limpa; `badges` e
+  // NOT NULL DEFAULT '{}' (migration_01:97), entao null vira `undefined` e o
+  // campo sai do UPDATE — gravar SQL null ali violaria a constraint. Esvaziar
+  // `badges` e mandar `[]`. O schema do cliente foi alinhado a isto.
+  it('null limpa coluna nullable (tagline) e e IGNORADO em NOT NULL (badges)', async () => {
     const updateChain = mockPutFlow();
 
     const res = await request(makeApp())

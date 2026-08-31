@@ -195,4 +195,41 @@ describe('ProfileContext.updateGm — autosave com debounce (spec 099 B8)', () =
     });
     expect(capturedBox.value?.saveError).toBeNull();
   });
+
+  // Achado de review (#297): quando a mutation com o valor A falha e o usuario
+  // ja digitou B no MESMO campo, a ordem do merge decide qual vence. Com
+  // `{ ...buffer, ...patch }` o A antigo sobrescrevia o B recente — o mestre
+  // digitava e via o valor voltar. A ordem correta poe o patch que falhou
+  // PRIMEIRO, e o buffer mais recente por ultimo.
+  it('patch que falhou NAO sobrescreve edicao mais nova do mesmo campo', async () => {
+    let liberaVoo: (() => void) | undefined;
+    mutateGmAsync.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          liberaVoo = () => reject(new Error('rejeitado pelo servidor'));
+        }),
+    );
+    renderProvider();
+
+    // A entra no buffer e sobe (mutation em voo, ainda sem resposta).
+    await act(async () => {
+      await updateGm({ bio_long: 'valor A' });
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    // B chega no MESMO campo enquanto A esta em voo.
+    await act(async () => {
+      await updateGm({ bio_long: 'valor B mais novo' });
+    });
+
+    // Agora A falha: volta ao buffer sem apagar o B.
+    await act(async () => {
+      liberaVoo?.();
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(mutateGmAsync).toHaveBeenLastCalledWith({ bio_long: 'valor B mais novo' });
+  });
 });

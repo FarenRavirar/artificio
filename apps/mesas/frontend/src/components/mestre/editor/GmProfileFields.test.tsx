@@ -269,22 +269,28 @@ describe('SellingPointsEditor', () => {
     });
   });
 
-  it('item com título vazio: erro visível e NÃO enviado', () => {
+  // Achado de review (#297): estes dois testes cobravam `selling_points: []` —
+  // codificavam a EXCLUSAO do item ja salvo enquanto o mestre apagava o titulo
+  // para reescrever. O nome dizia "NAO enviado" e a assercao mandava enviar
+  // array vazio. Com a guarda de `salvosNoMonte` a gravacao e SUSPENSA enquanto
+  // um item salvo esta invalido: o erro aparece, nada e enviado, e o ponto
+  // sobrevive a uma pausa de 500ms no meio da edicao.
+  it('item salvo com título vazio: erro visível e NADA enviado (não apaga o salvo)', () => {
     render(<SellingPointsEditor value={[validPoint]} />);
     fireEvent.change(screen.getByLabelText('Título'), { target: { value: '' } });
     expect(
       screen.getByText('Título e descrição são obrigatórios para salvar o destaque.'),
     ).toBeTruthy();
-    expect(updateGm).toHaveBeenCalledWith({ selling_points: [] });
+    expect(updateGm).not.toHaveBeenCalled();
   });
 
-  it('item com descrição vazia: barrado igual', () => {
+  it('item salvo com descrição vazia: barrado igual, sem apagar o salvo', () => {
     render(<SellingPointsEditor value={[validPoint]} />);
     fireEvent.change(screen.getByLabelText('Descrição'), { target: { value: '' } });
     expect(
       screen.getByText('Título e descrição são obrigatórios para salvar o destaque.'),
     ).toBeTruthy();
-    expect(updateGm).toHaveBeenCalledWith({ selling_points: [] });
+    expect(updateGm).not.toHaveBeenCalled();
   });
 
   it('nenhum payload enviado contém item inválido (contrato do formulário)', () => {
@@ -534,9 +540,33 @@ describe('BioLongField e ExperienceYearsField (B6 — recomendados extraídos da
     fireEvent.change(input, { target: { value: '' } });
     expect(updateGm).toHaveBeenLastCalledWith({ experience_years: null });
   });
+
+  // Achado de review (#297): `parseInt(v) || null` transformava o ZERO valido em
+  // null (0 e falsy) e deixava passar decimal e negativo.
+  it('experiência: zero e valido; decimal e negativo nao gravam', () => {
+    render(<ExperienceYearsField value={null} />);
+    const input = screen.getByLabelText('Anos de Experiência');
+
+    fireEvent.change(input, { target: { value: '0' } });
+    expect(updateGm).toHaveBeenLastCalledWith({ experience_years: 0 });
+
+    const chamadasAntes = updateGm.mock.calls.length;
+    fireEvent.change(input, { target: { value: '1.5' } });
+    fireEvent.change(input, { target: { value: '-3' } });
+    expect(updateGm.mock.calls.length).toBe(chamadasAntes);
+  });
 });
 
 describe('aria-describedby (B7) — controle aponta para o <p> de hint/erro do Field', () => {
+  // Achado de review (#297): a descricao ficava `invalid` sem apontar para a
+  // explicacao — leitor de tela anunciava "invalido" sem dizer por que.
+  it('SellingPointsEditor: descricao invalida aponta para o texto do erro', () => {
+    render(<SellingPointsEditor value={[validPoint]} />);
+    fireEvent.change(screen.getByLabelText('Título'), { target: { value: '' } });
+    const descricao = screen.getByLabelText('Descrição');
+    expect(descricao).toHaveAttribute('aria-describedby', 'gm-selling-point-0-title-description');
+  });
+
   it('TaglineField: input aponta para o hint/erro do Field', () => {
     render(<TaglineField value="" onChange={() => {}} />);
     expect(screen.getByLabelText('Slogan')).toHaveAttribute(

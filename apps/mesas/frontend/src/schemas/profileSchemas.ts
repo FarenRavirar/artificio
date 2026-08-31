@@ -164,14 +164,23 @@ export const gmProfileSchema = z.object({
     .max(120, 'Texto do selo deve ter no máximo 120 caracteres')
     .optional()
     .nullable(),
-  badges: z.array(z.string()).optional().nullable(),
-  selling_points: z.array(sellingPointSchema).optional().nullable(),
+  // `.optional()` SEM `.nullable()`: estas colunas sao NOT NULL DEFAULT no banco
+  // (`badges TEXT[] DEFAULT '{}'`, migration_01:97; `selling_points JSONB NOT
+  // NULL DEFAULT '[]'`, migration_107:14). Aceitar `null` aqui era contrato
+  // falso — o PUT normaliza para `undefined` e IGNORA o campo, entao "limpar
+  // com null" nunca limpou nada, e gravar SQL null violaria a constraint.
+  // Para esvaziar, o cliente manda o array VAZIO, que e o que o editor ja faz
+  // (achado de review, PR #297).
+  badges: z.array(z.string()).optional(),
+  selling_points: z.array(sellingPointSchema).optional(),
   // B2: campos de grupo fechado — o PUT /api/v1/gm/profile os aceita com as
   // mesmas regras do backend (boolean; UUIDs; markdown sanitizado; inteiro
   // não-negativo em centavos). Declarados aqui porque `z.object` descarta
   // chave desconhecida no parse (mesma lição de tagline/promo_badge_text).
-  closed_group_enabled: z.boolean().optional().nullable(),
-  closed_group_systems: z.array(z.string()).optional().nullable(),
+  // Mesma razao dos dois acima: NOT NULL DEFAULT (migration_107:15-16). Para
+  // desligar o grupo fechado manda-se `false`; para esvaziar, array vazio.
+  closed_group_enabled: z.boolean().optional(),
+  closed_group_systems: z.array(z.string()).optional(),
   closed_group_description: z.string().optional().nullable(),
   closed_group_min_price_cents: z
     .number()

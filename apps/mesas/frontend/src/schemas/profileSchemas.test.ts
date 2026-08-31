@@ -80,17 +80,25 @@ describe('gmProfileSchema', () => {
     ]);
   });
 
-  it('aceita null explícito para limpar tagline/promo_badge_text/badges/selling_points', () => {
-    const parsed = gmProfileSchema.parse({
-      tagline: null,
-      promo_badge_text: null,
-      badges: null,
-      selling_points: null,
-    });
+  it('aceita null explícito para limpar tagline/promo_badge_text (colunas nullable)', () => {
+    const parsed = gmProfileSchema.parse({ tagline: null, promo_badge_text: null });
     expect(parsed.tagline).toBeNull();
     expect(parsed.promo_badge_text).toBeNull();
-    expect(parsed.badges).toBeNull();
-    expect(parsed.selling_points).toBeNull();
+  });
+
+  // Achado de review (#297): o teste anterior afirmava que `null` limpava
+  // `badges`/`selling_points`. Nao limpava — as colunas sao NOT NULL DEFAULT
+  // (migration_01:97, migration_107:14-16), o PUT normalizava o null para
+  // `undefined` e IGNORAVA o campo. Contrato falso, mesma classe do B0.
+  // Esvaziar e mandar array vazio; desligar o grupo fechado e mandar `false`.
+  it('rejeita null em coluna NOT NULL — esvaziar e array vazio, nao null', () => {
+    expect(() => gmProfileSchema.parse({ badges: null })).toThrow();
+    expect(() => gmProfileSchema.parse({ selling_points: null })).toThrow();
+    expect(() => gmProfileSchema.parse({ closed_group_enabled: null })).toThrow();
+    expect(() => gmProfileSchema.parse({ closed_group_systems: null })).toThrow();
+
+    expect(gmProfileSchema.parse({ badges: [] }).badges).toEqual([]);
+    expect(gmProfileSchema.parse({ closed_group_enabled: false }).closed_group_enabled).toBe(false);
   });
 
   it('recusa selling_points com item sem title', () => {
@@ -140,15 +148,15 @@ describe('gmProfileSchema', () => {
     expect(parsed.closed_group_min_price_cents).toBe(1050);
   });
 
-  it('aceita null explícito para limpar os campos de grupo fechado', () => {
+  // Dos quatro campos de grupo fechado, so DOIS sao nullable no banco:
+  // `closed_group_description TEXT` e `closed_group_min_price_cents INTEGER`
+  // (migration_107:17-18; a constraint de nao-negativo aceita `IS NULL`).
+  // `enabled` e `systems` sao NOT NULL DEFAULT — ver o teste acima.
+  it('aceita null nos campos de grupo fechado que sao nullable no banco', () => {
     const parsed = gmProfileSchema.parse({
-      closed_group_enabled: null,
-      closed_group_systems: null,
       closed_group_description: null,
       closed_group_min_price_cents: null,
     });
-    expect(parsed.closed_group_enabled).toBeNull();
-    expect(parsed.closed_group_systems).toBeNull();
     expect(parsed.closed_group_description).toBeNull();
     expect(parsed.closed_group_min_price_cents).toBeNull();
   });

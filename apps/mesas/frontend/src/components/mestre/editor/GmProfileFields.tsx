@@ -11,7 +11,7 @@
  * Organização: uma seção `// ── Nome ──` por campo, na ordem do formulário.
  */
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button, Field, Select, TextInput, Textarea } from '@artificio/ui';
 import { TagInput } from '../../TagInput';
 import { SystemPicker } from '../../SystemPicker';
@@ -244,9 +244,26 @@ export function SellingPointsEditor({ value }: SellingPointsEditorProps) {
   const { updateGm } = useProfileContext();
   const [items, setItems] = useState<SellingPoint[]>(() => normalizeSellingPoints(value));
 
-  const commit = (next: SellingPoint[]) => {
+  // Quantos itens VÁLIDOS já estavam salvos quando o editor montou. Serve para
+  // distinguir os dois casos que o `.filter` confundia (achado de review, #297):
+  // item novo ainda em branco é rascunho (não grava, não apaga nada), mas item
+  // JÁ SALVO que ficou temporariamente inválido — o mestre apagou o título para
+  // reescrever — não pode sumir do array enviado. Sem esta guarda, uma pausa de
+  // 500ms no meio da edição persistia a exclusão de um ponto que o mestre nunca
+  // mandou remover, e o cartão continuava visível como rascunho.
+  const salvosNoMonte = useRef(normalizeSellingPoints(value).filter(isValidSellingPoint).length);
+
+  const commit = (next: SellingPoint[], opcoes?: { removendo?: boolean }) => {
     setItems(next);
-    updateGm({ selling_points: next.filter(isValidSellingPoint) });
+    const validos = next.filter(isValidSellingPoint);
+
+    // Remoção explícita sempre grava — é o mestre pedindo. Fora dela, gravar um
+    // array MENOR do que o salvo significa que uma edição em curso derrubou um
+    // item válido: suspende a gravação até ele voltar a ser válido.
+    if (!opcoes?.removendo && validos.length < salvosNoMonte.current) return;
+
+    salvosNoMonte.current = validos.length;
+    updateGm({ selling_points: validos });
   };
 
   const updateItem = (index: number, patch: Partial<SellingPoint>) => {
@@ -254,7 +271,7 @@ export function SellingPointsEditor({ value }: SellingPointsEditorProps) {
   };
 
   const removeItem = (index: number) => {
-    commit(items.filter((_, i) => i !== index));
+    commit(items.filter((_, i) => i !== index), { removendo: true });
   };
 
   const addItem = () => {
@@ -331,6 +348,12 @@ export function SellingPointsEditor({ value }: SellingPointsEditorProps) {
                   onChange={(e) => updateItem(index, { description: e.target.value })}
                   invalid={!!itemError}
                   placeholder="Ex: Histórias com começo, meio e fim em 4 a 6 sessões."
+                  // B7: `itemError` cobre o par título+descrição e é renderizado
+                  // uma vez só, no `Field` do título. A descrição fica `invalid`
+                  // sem apontar para a explicação — leitor de tela anunciava
+                  // "inválido" sem dizer por quê (achado de review, PR #297).
+                  // Aponta para o MESMO `<p>`, que é onde o texto existe.
+                  aria-describedby={itemError ? `${controlId('title')}-description` : undefined}
                 />
               </Field>
 
@@ -587,7 +610,20 @@ export function ExperienceYearsField({ value }: ExperienceYearsFieldProps) {
           id="experience_years"
           min="0"
           defaultValue={value ?? ''}
-          onChange={(e) => updateGm({ experience_years: parseInt(e.target.value) || null })}
+          // `parseInt(v) || null` transformava o ZERO valido em null (0 e
+          // falsy), e ainda aceitava "1.5" (parseInt trunca) e negativos apesar
+          // do `min="0"` — o atributo so barra o spinner, nao a digitacao
+          // (achado de review, PR #297). Campo vazio continua null.
+          onChange={(e) => {
+            const bruto = e.target.value.trim();
+            if (bruto === '') {
+              updateGm({ experience_years: null });
+              return;
+            }
+            const n = Number(bruto);
+            if (!Number.isInteger(n) || n < 0) return;
+            updateGm({ experience_years: n });
+          }}
           placeholder="Quantos anos você mestra?"
         />
       </div>
