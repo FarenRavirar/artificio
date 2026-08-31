@@ -75,7 +75,18 @@ const SCRIPT_COLETA = `() => {
     if (!visivel(el)) continue;
     if (el.children.length > 0) continue;          // so folha, para nao contar o pai
     const s = getComputedStyle(el);
-    if (s.overflow !== "visible" && s.overflow !== "clip") continue; // rolagem propria e intencional
+    // Rolagem propria (auto/scroll) e intencional e sai. 'hidden' NAO sai: e
+    // exatamente onde o texto e cortado sem aviso, e 'text-overflow: ellipsis'
+    // EXIGE overflow != visible — com o filtro antigo a deteccao de truncamento
+    // era inalcancavel. Medido em mesasbeta: 61 elementos descartados, 40 deles
+    // com ellipsis.
+    const ox = s.overflowX;
+    const rolavel = ox === "auto" || ox === "scroll";
+    if (rolavel) continue;
+    // Texto so para leitor de tela (.sr-only) e recortado a 1px DE PROPOSITO —
+    // acusa-lo como truncamento e falso positivo (medido: label.sr-only com
+    // scrollW 84 e clientW 1).
+    if (el.clientWidth <= 1 || el.clientHeight <= 1) continue;
     const estouraX = el.scrollWidth - el.clientWidth > 1;
     const cortado = s.textOverflow === "ellipsis" && el.scrollWidth > el.clientWidth + 1;
     if (estouraX || cortado) {
@@ -128,7 +139,14 @@ const SCRIPT_COLETA = `() => {
     const fg = parse(s.color);
     if (!fg) continue;
     const bg = fundoReal(el);
-    const l1 = lum(fg.rgb), l2 = lum(bg);
+    // Cor de texto com alfa ('text-white/70' e afins) precisa ser COMPOSTA sobre o
+    // fundo antes do contraste — usar fg.rgb cru infla o resultado e silencia o
+    // defeito. Medido: branco a 40% sobre #0f172a da 3.81:1 (reprova), e o calculo
+    // sem compor dizia 17.85:1 (passa). Em mesasbeta, 19 textos tem alfa na cor.
+    const fgComposto = fg.a >= 1
+      ? fg.rgb
+      : fg.rgb.map((v, i) => Math.round(v * fg.a + bg[i] * (1 - fg.a)));
+    const l1 = lum(fgComposto), l2 = lum(bg);
     const ratio = (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
     const px = parseFloat(s.fontSize);
     const bold = parseInt(s.fontWeight, 10) >= 700;
@@ -183,6 +201,31 @@ if (argv.includes("--check")) {
   const coletas = Array.isArray(dados) ? dados : [dados];
 
   let fail = 0;
+
+  // Coleta vazia ou incompleta NAO pode sair verde: com `[]` o script dizia
+  // "Tudo verde em runtime" e exit 0, permitindo declarar A3/mobile medidos sem
+  // nenhuma amostra. Auditoria que aprova o que nao mediu e o defeito que esta
+  // skill existe para combater.
+  if (coletas.length === 0) {
+    console.error("FAIL coleta vazia — nenhuma amostra para avaliar");
+    process.exit(1);
+  }
+
+  const esperadas = ROTAS.flatMap((r) => VIEWPORTS.map((v) => ({
+    chave: `${r.path} @ ${v.width}`, path: r.path, width: v.width,
+  })));
+  const presentes = coletas.map((c) => {
+    let path = "?";
+    try { path = new URL(c.url).pathname; } catch { /* url ausente ou invalida */ }
+    return `${path} @ ${c.viewport?.w}`;
+  });
+  const faltando = esperadas.filter((e) => !presentes.includes(e.chave));
+  if (faltando.length) {
+    console.error(`FAIL coleta incompleta — ${faltando.length} de ${esperadas.length} combinacoes ausentes:`);
+    for (const f of faltando) console.error(`  - ${f.path} @ ${f.width}px`);
+    console.error("Rode as combinacoes que faltam (node runtime.mjs --plan) antes de concluir.");
+    process.exit(1);
+  }
   const linha = (ok, txt) => { if (!ok) fail++; console.log(`${ok ? "OK  " : "FAIL"} ${txt}`); };
 
   for (const c of coletas) {

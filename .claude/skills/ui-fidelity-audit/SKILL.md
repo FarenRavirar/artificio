@@ -109,6 +109,10 @@ espaçamento, grade de 4px, token vs literal, paridade do pacote, e reimplementa
 | 6 | paridade de tokens do pacote | `node packages/ui/scripts/check-token-parity.mjs` verde |
 | **7** | **classes locais sobre conceito que o pacote já define** | **0** |
 | **7b** | **`@keyframes` redeclarado** | **0** |
+
+O gate compara **quatro** contadores por app: `dup`, `kfDup`, `twFora` e `foraRegua` —
+este último por **ocorrência**, não por valor distinto. Contar valores únicos deixava
+passar acrescentar `margin: 100px` num arquivo que já tinha `padding: 100px`.
 | **8** | **espaçamento Tailwind (`gap-3.5`) fora da régua** | **0** |
 
 ## A medição 8 fecha o furo por onde o mesmo defeito passou duas vezes

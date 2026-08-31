@@ -56,7 +56,7 @@ const porApp = new Map();
 const somar = (chave, n = 1) => {
   const m = alvoAtual.replace(/\\/g, "/").match(/(?:apps|packages)\/([^/]+)/);
   const app = m ? m[1] : "(raiz)";
-  const r = porApp.get(app) || { arquivos: new Set(), foraRegua: 0, dup: 0, semImport: 0, twFora: 0 };
+  const r = porApp.get(app) || { arquivos: new Set(), foraRegua: 0, dup: 0, semImport: 0, twFora: 0, kfDup: 0 };
   r[chave] += n;
   r.arquivos.add(alvoAtual);
   porApp.set(app, r);
@@ -151,6 +151,10 @@ for (const arg of args) {
     const vals = new Set();
     const offGrid = new Set();
     const foraRegua = new Set();
+    // Contagem de OCORRENCIAS, separada do Set de valores distintos: com so o Set,
+    // acrescentar `margin: 100px` num arquivo que ja tinha `padding: 100px` nao
+    // mudava o numero e o gate seguia verde, apesar de a divida ter crescido.
+    let foraReguaOcorrencias = 0;
     const naRegua = (rem) => RULE_SPACING.some((r) => Math.abs(r - rem) < 0.001);
     for (const d of decls) {
       // `\d*\.?\d+` e nao `[0-9.]+`: o segundo casava ".px" em valores como
@@ -160,15 +164,15 @@ for (const arg of args) {
         if (rem * 16 <= 2) continue; // 1-2px sao hairline/borda, nao espacamento
         vals.add(rem);
         if (!onGrid4(rem)) offGrid.add(`${m[1]}${m[2]}`);
-        if (!naRegua(rem)) foraRegua.add(`${m[1]}${m[2]}`);
+        if (!naRegua(rem)) { foraRegua.add(`${m[1]}${m[2]}`); foraReguaOcorrencias++; }
       }
     }
     // Pertencer a regua e mais forte que "estar na grade de 4px": 2rem e 3rem passam
     // na grade e NAO estao em --space-1..6. Contar valores distintos tambem nao pega:
     // um CSS com 2 valores, ambos fora da escala, passaria como verde.
-    if (MODO_REPO && foraRegua.size) somar("foraRegua", foraRegua.size);
+    if (MODO_REPO && foraReguaOcorrencias) somar("foraRegua", foraReguaOcorrencias);
     line(foraRegua.size === 0,
-      `[3] valores fora da regua --space-1..6: ${foraRegua.size} (distintos: ${vals.size})`,
+      `[3] fora da regua --space-1..6: ${foraReguaOcorrencias} uso(s), ${foraRegua.size} valor(es)`,
       foraRegua.size
         ? [...foraRegua].join(", ") + ` — regua: ${RULE_SPACING.map((r) => r + "rem").join(", ")}`
         : "");
@@ -211,7 +215,7 @@ if (existsSync(PKG_CSS)) {
     // Ja validado no laco principal; aqui so re-filtra os .css legiveis.
     if (!existsSync(file) || statSync(file).isDirectory()) continue;
     if (extname(file).toLowerCase() !== ".css") continue;
-    if (/packages[\/]ui[\/]/.test(file)) continue; // o definidor nao reimplementa a si mesmo
+    if (/packages[\\\/]ui[\\\/]/.test(file)) continue; // o definidor nao reimplementa a si mesmo
     const src = readFileSync(file, "utf8");
     const locais = [...new Set((src.match(/^\.[a-z][a-z0-9-]*/gm) || [])
       .map((c) => c.slice(1)))];
@@ -254,6 +258,10 @@ if (existsSync(PKG_CSS)) {
     if (!MODO_REPO) console.log(`
 == ${arg} — reimplementacao`);
     if (MODO_REPO && suspeitos.length) { alvoAtual = arg; somar("dup", suspeitos.length); }
+    // [7b] tambem entra no gate: sem isto, acrescentar um `@keyframes spin` ja
+    // definido pelo pacote — a duplicacao que ORIGINOU esta medicao — passava com
+    // GATE OK, porque so `fail` era incrementado e o gate nao le `fail`.
+    if (MODO_REPO && kfDup.length) { alvoAtual = arg; somar("kfDup", kfDup.length); }
     line(suspeitos.length === 0,
       `[7] classes locais sobre conceito ja definido no pacote: ${suspeitos.length}`,
       suspeitos.length ? suspeitos.slice(0, 12).join(", ") + (suspeitos.length > 12 ? " …" : "") : "");
@@ -272,14 +280,15 @@ try {
 }
 
 if (MODO_REPO) {
-  console.log("app             arqs  fora-regua  tailwind  reimplem.  sem-import");
+  console.log("app             arqs  fora-regua  tailwind  reimplem.  keyfr.  sem-import");
   const linhas = [...porApp.entries()]
-    .sort((a, b) => (b[1].dup * 10 + b[1].foraRegua + b[1].twFora) -
-                    (a[1].dup * 10 + a[1].foraRegua + a[1].twFora));
+    .sort((a, b) => ((b[1].dup + b[1].kfDup) * 10 + b[1].foraRegua + b[1].twFora) -
+                    ((a[1].dup + a[1].kfDup) * 10 + a[1].foraRegua + a[1].twFora));
   for (const [app, r] of linhas) {
     console.log(app.padEnd(15) + String(r.arquivos.size).padStart(5) +
       String(r.foraRegua).padStart(12) + String(r.twFora).padStart(10) +
-      String(r.dup).padStart(11) + String(r.semImport).padStart(12));
+      String(r.dup).padStart(11) + String(r.kfDup).padStart(8) +
+      String(r.semImport).padStart(12));
   }
   console.log("\nPrioridade: reimplementacao (duplica regra do pacote) pesa 10x fora-regua.");
   console.log("`sem-import` sozinho NAO e defeito — componente pode nao precisar de primitivo.");
@@ -291,7 +300,7 @@ if (MODO_REPO) {
 if (MODO_REPO && (argv.includes("--baseline") || argv.includes("--gate"))) {
   const BASE = join(REPO, ".agents/skills/ui-fidelity-audit/baseline.json");
   const atual = Object.fromEntries([...porApp.entries()].map(([app, r]) => [app, {
-    foraRegua: r.foraRegua, twFora: r.twFora, dup: r.dup,
+    foraRegua: r.foraRegua, twFora: r.twFora, dup: r.dup, kfDup: r.kfDup,
   }]));
 
   if (argv.includes("--baseline")) {
@@ -307,8 +316,8 @@ if (MODO_REPO && (argv.includes("--baseline") || argv.includes("--gate"))) {
   const base = JSON.parse(readFileSync(BASE, "utf8"));
   const pioras = [];
   for (const [app, r] of Object.entries(atual)) {
-    const b = base[app] || { foraRegua: 0, twFora: 0, dup: 0 };
-    for (const k of ["dup", "twFora", "foraRegua"]) {
+    const b = base[app] || { foraRegua: 0, twFora: 0, dup: 0, kfDup: 0 };
+    for (const k of ["dup", "kfDup", "twFora", "foraRegua"]) {
       if (r[k] > b[k]) pioras.push(`${app}.${k}: ${b[k]} -> ${r[k]} (+${r[k] - b[k]})`);
     }
   }
@@ -321,7 +330,7 @@ if (MODO_REPO && (argv.includes("--baseline") || argv.includes("--gate"))) {
     process.exit(1);
   }
   const melhorou = Object.entries(atual).some(([app, r]) =>
-    ["dup", "twFora", "foraRegua"].some((k) => r[k] < (base[app]?.[k] ?? 0)));
+    ["dup", "kfDup", "twFora", "foraRegua"].some((k) => r[k] < (base[app]?.[k] ?? 0)));
   console.log(melhorou
     ? "GATE OK — e a divergencia DIMINUIU; regrave a baseline para travar o ganho."
     : "GATE OK — nenhuma divergencia nova.");
