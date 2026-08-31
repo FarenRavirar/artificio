@@ -76,3 +76,6 @@ temp/
 .code-review-graph/
 directMcpHost.js
 /rtk
+
+# Artefatos de sessao do Playwright MCP (snapshots, logs de console)
+.playwright-mcp/

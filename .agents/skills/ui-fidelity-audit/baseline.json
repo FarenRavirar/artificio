@@ -1,0 +1,57 @@
+{
+  "accounts": {
+    "foraRegua": 48,
+    "twFora": 0,
+    "dup": 0
+  },
+  "downloads": {
+    "foraRegua": 75,
+    "twFora": 50,
+    "dup": 0
+  },
+  "glossario": {
+    "foraRegua": 26,
+    "twFora": 98,
+    "dup": 0
+  },
+  "links": {
+    "foraRegua": 56,
+    "twFora": 1,
+    "dup": 2
+  },
+  "mesas": {
+    "foraRegua": 77,
+    "twFora": 207,
+    "dup": 9
+  },
+  "site": {
+    "foraRegua": 115,
+    "twFora": 0,
+    "dup": 0
+  },
+  "site-admin": {
+    "foraRegua": 49,
+    "twFora": 0,
+    "dup": 5
+  },
+  "catalog-ui": {
+    "foraRegua": 0,
+    "twFora": 20,
+    "dup": 0
+  },
+  "comments": {
+    "foraRegua": 2,
+    "twFora": 0,
+    "dup": 0
+  },
+  "content-editor": {
+    "foraRegua": 2,
+    "twFora": 0,
+    "dup": 0
+  },
+  "image-editor": {
+    "foraRegua": 2,
+    "twFora": 0,
+    "dup": 0
+  }
+}

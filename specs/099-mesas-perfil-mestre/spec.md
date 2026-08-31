@@ -208,7 +208,9 @@ Não afirmar nada sobre estes pontos sem medir antes.
 | o quê | estado |
 |---|---|
 | causa de `selling_points` voltar `{}` em 7/20 | **não medida** (tasks A1/A2) |
-| mobile (719px) e tema claro | **não medidos** |
+| mobile (719px) | **medido** (§11): sem overflow nem texto estourando. **Só a página pública** — o editor exige sessão |
+| tema claro | **não medido** |
+| editor de perfil em runtime | **não medido** — exige sessão (§11.1) |
 | comportamento com perfil cheio | **impossível hoje** — nenhum dos 20 preenchido |
 | nav global com alvo de 22px | **não reproduz** no CSS do pacote (`min-height: 40px`) — re-medir em runtime |
 | custo do esquema de extração para bio | **não medido** (o parser atual é calibrado para anúncio) |
@@ -387,10 +389,16 @@ duplicação, e as duas versões divergem.
 |---|---|---|
 | `@keyframes spin` (1s, borda 4px) | `@keyframes artificio-spin` (**760ms**, borda 2px) | dois spinners em ritmos diferentes na mesma suíte |
 | `.btn-view-public-profile`, `.btn-connect-discord`, `.btn-disconnect-discord`, `.btn-avatar-action` | `.artificio-button*` (+ `-primary/-secondary/-ghost/-danger`, `-sm/-md/-lg`) | padding, gap e altura próprios |
-| `.field-description` | `.artificio-field-description` | mesmo nome, prefixo diferente |
-| 15 classes `.avatar-*` | `.artificio-avatar`, `-fallback`, `-link` | — |
+| `.spinner`, `.spinner-small` | `.artificio-button-spinner` | 48px/borda 4px × 14px/borda 2px |
 
-**Total: 20 classes sobre conceito já coberto + 1 `@keyframes`.**
+**Total medido: 5 classes + 1 `@keyframes`.**
+
+**Correção de uma afirmação anterior desta seção:** eu havia contado **20** classes e
+listado `.field-description` e as 15 `.avatar-*` como duplicação. Estava errado, e a
+medição refeita mostra por quê: `.artificio-field-description` **não existe** (o pacote tem
+`field-hint` e `field-error`), e o pacote só oferece `avatar`, `avatar-fallback` e
+`avatar-link` — `.avatar-premium-container` e afins são **composição local legítima**. O
+número real é 5. Acusar por prefixo obrigaria a renomear classe para escapar do scanner.
 
 **Consequência para a fase B:** cada campo novo escrito nesse arquivo herda o vocabulário
 paralelo. É o que o AGENTS.md nomeia — *"compartilhado por padrão; exceção por app é o
@@ -412,3 +420,129 @@ Roda as 7, marca falha por linha, exit 1 se reprovar. **Discrimina** (verificado
 `MasterPart.tsx` do editor de mesa → tudo verde; `ProfileEditPage` → 3 falhas, idênticas às
 medidas à mão em §9.1. Não acusa cor literal automaticamente — §9.2 exige ler o contexto, e
 o script só informa a contagem.
+
+---
+
+## 10. O defeito de fundo — medido no repo inteiro
+
+A 099 achou o sintoma no editor de perfil. A varredura (`pnpm ui:fidelity`, 468 arquivos de
+fonte) mostra que **o defeito não é desta tela nem deste app**:
+
+| app | fora-régua | tailwind | reimplementação |
+|---|---|---|---|
+| mesas | 77 | 207 | 9 |
+| glossario | 26 | 98 | 0 |
+| downloads | 75 | 50 | 0 |
+| site | 115 | 0 | 0 |
+| links | 56 | 1 | 2 |
+| site-admin | 49 | 0 | 5 |
+| accounts | 48 | 0 | 0 |
+| catalog-ui (**pacote**) | 0 | 20 | 0 |
+
+**A causa não é descuido — é que o pacote compartilhado não tinha autoridade.** Ele existe,
+mas nada obrigava a usá-lo: cada spec que toca frontend reescreve o que já existe, com outro
+nome, e o agente seguinte não descobre porque o nome é diferente. Duas provas medidas nesta
+sessão, ambas de guardas **escritas e nunca ligadas**:
+
+- `check-token-parity.mjs` — protegia contra um drift que **já causou bug real**
+  (registrado no próprio script) e não era chamado por script nem CI;
+- `tailwind-preset` — exportado pelo pacote, consumido por **zero** apps.
+
+**O que passou a existir (fora do escopo da 099, mas ligado nesta sessão):**
+
+1. **Medição [8]** — espaçamento em classe utilitária Tailwind, o furo por onde o mesmo
+   `gap-3.5` (14px) escapou na 098 **e** na 099. 376 usos fora da régua, invisíveis até
+   agora.
+2. **Gate de não-regressão no CI** (`pnpm ui:fidelity:gate`) — falha só se a divergência
+   **aumentar** contra `baseline.json`. Exigir zero com 555 achados seria gate morto, e
+   gate morto é o defeito original. Verificado reintroduzindo o defeito: verde → reprova
+   (+1 em `links.foraRegua`) → verde ao restaurar.
+
+**Consequência para esta spec:** a fase B não consegue mais acrescentar divergência sem o CI
+reprovar. F5 continua sendo a limpeza do que já existe no editor de perfil.
+
+---
+
+## 11. Medição em viewport — mobile deixou de ser pendência
+
+Rodado em `mesasbeta.artificiorpg.com/mestre/farenravirar` via Playwright MCP (sem sessão,
+página pública), 2026-08-31. Isto é o que a análise estática **não alcança**: leitor de
+DOM+CSS não resolve — medido nesta base, `jsdom` devolve `getBoundingClientRect` **0×0** e
+`scrollWidth` **0**, porque não tem motor de layout.
+
+| medição | 1366×768 | 719×900 |
+|---|---|---|
+| altura da página | 7440px = **9,69 telas** | **12,15 telas** |
+| alvos < 24px | **17** | **17** |
+| texto estourando/cortado | 0 | 0 |
+| overflow horizontal | não | **não** |
+| contraste abaixo do piso WCAG | **8** | — |
+
+**Isto fecha C4 e a pendência de mobile (§7):** em 719px **não há overflow horizontal nem
+texto estourando**. O layout responsivo da página pública está correto; o que sobra é o
+mesmo defeito das duas larguras.
+
+**Achados novos, que nenhuma medição estática pegaria:**
+
+1. **`Ver termos` tem 18px de altura real** (§2.5 registrava ≈20px por estimativa) e
+   `.artificio-footer-nav-link` tem **22px** — os dois abaixo do piso de 24px, no
+   **pacote**, atingindo todos os apps. Confirma F2 com número medido.
+2. **8 elementos abaixo do contraste WCAG AA**, sendo o pior a etiqueta `💰 Paga`
+   (`bg-yellow-500`) com **1,48:1** contra piso de 4,5. `Entrar em contato` (o CTA
+   principal) está em **3,16:1**. Contraste era "fora de escopo por prioridade" (§5) —
+   continua fora, mas agora está **medido**, não suposto.
+3. **O link do nome do mestre aparece 8 vezes** com 20px (task F1b, medida antes só no
+   código). Em mobile, os mesmos 17 alvos.
+4. **A página tem 9,69 telas** em 1366×768, contra as 5,55 registradas na investigação —
+   que foi medida em 1815×962 **como admin**. Coerente com a ressalva de método de §6.
+
+**Fora de escopo desta spec, registrado:** 2 erros de console na carga da página pública.
+Não investigados.
+
+---
+
+## 11.1 O editor de perfil, medido em runtime (sessão real, autorizada)
+
+`mesasbeta.artificiorpg.com/perfil?tab=mestre`, Chrome com a sessão do mantenedor
+(autorização nominal 2026-08-31), viewport **1815×962**. Só leitura de DOM — nenhum campo
+alterado, nenhum formulário enviado.
+
+**Esta é a tela que a fase B vai alterar.** Cada número abaixo confirma ou corrige o que
+§2.5 registrava por leitura de CSS.
+
+| medição | valor |
+|---|---|
+| altura da página | 3413px = **3,55 telas** |
+| coluna do formulário | **852px** |
+| campos de entrada | 9 |
+| campos **sem `aria-describedby`** | **9 de 9** |
+| alvos < 24px | **13** |
+| texto estourando / overflow horizontal | **0 / não** |
+| `.autosave-indicator` | **ausente do DOM** |
+
+**Alturas de controle: 12 distintas, 9 fora da escala do pacote** (34/40/48):
+`16 · 28 · 34 · 36 · 38 · 40 · 42 · 44 · 48 · 49 · 50 · 300`. Confirma que a task F4 é
+adoção da escala existente, não criação.
+
+**Correções ao que a spec afirmava:**
+
+1. **`Anos de Experiência` com 802px de largura para 2 dígitos** — confirmado exatamente
+   (§2.5 estava certa). `Preço Médio` idem, 802px, e sai por D4.
+2. **`Manter link direto`: 16×16px reais**, duas instâncias — confirma F1 com medição.
+3. **`.autosave-indicator` não existe no DOM.** §2.5 dizia que ele "rola para fora" por não
+   ter `position: fixed`. **É mais grave:** o elemento não está montado nesta aba, então
+   quem edita **não tem indicador nenhum**. B8 muda de "prender o indicador" para
+   "garantir que ele exista e fique visível".
+4. **3 links de rede (`.link-item-url`) com 18px de altura** e 660px de largura — alvos
+   abaixo do piso que nenhuma passagem anterior tinha listado.
+5. **`aria-describedby` ausente em 9/9 campos** — a armadilha 1 do pacote (`Field` não
+   emite o atributo) medida no produto, não só no código. É o critério A6 e a task B7.
+
+**`/painel-mestre` (a 2ª das 3 telas de D5):** 1 tela de altura, **sem** estouro de texto e
+**sem** overflow; alturas de controle `40` e `44` — só o `44` fora da escala. É a tela mais
+saudável das três.
+
+**O que NÃO foi medido, e fica dito:** o editor em **719px**. A janela do Chrome não
+redimensionou (`innerWidth` permaneceu 1815 em duas tentativas) e a medição por `iframe`
+voltou vazia. **Não vou afirmar nada sobre o editor em mobile** — continua pendente para
+C4, agora só para o editor, já que a página pública foi medida em §11.

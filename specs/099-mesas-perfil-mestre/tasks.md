@@ -69,8 +69,8 @@ dado some. Criar campo antes disto entrega porta falsa.
 | # | Fazer | LER ANTES | Aceite medido |
 |---|---|---|---|
 | **B6** | Frase do ganho em todo campo recomendado, no padrão `EditorField` + `RECOMMENDED_GAIN` | **spec §8 (tabela campo→nível)** · D10 · plan "o que reusar" | os 7 recomendados de §8 têm frase, na linguagem do jogador; nível em `data-ob`; registro único no padrão `editorValidation.ts:72`, cruzado por teste |
-| **B7** | `aria-describedby` no controle de todo campo com erro/hint | **plan §B, armadilha 1** · critério A6 | busca pelo atributo em cada campo — o `Field` **não** o emite |
-| **B8** | Autosave: debounce real + indicador que não rola para fora | spec §2.5 | requisição por pausa, não por tecla; indicador visível ao editar a bio |
+| **B7** | `aria-describedby` no controle de todo campo com erro/hint | **plan §B, armadilha 1** · critério A6 · **§11.1 (9/9 sem o atributo, medido)** | busca pelo atributo em cada campo — o `Field` **não** o emite |
+| **B8** | Autosave: debounce real + **indicador que exista e fique visível** | spec §2.5 · **§11.1** | requisição por pausa, não por tecla; indicador presente no DOM e visível ao editar a bio. **Medido: `.autosave-indicator` está ausente do DOM** — não é só posicionamento |
 | **B9** | Listar os sistemas escolhidos, não só contar; remover `Preço Médio` do front (D4) | spec §2.1 · §2.5 · D4 | os nomes aparecem; `average_price` sai do editor, banco intacto |
 | **B10** | Prévia do perfil público nas 3 telas (D5) e prévia do véu do banner (D8) | D5 · **D8** (scrim fixo — é decisão, não está na fase D do plan) | prévia mostra o texto real sobre a foto real |
 
@@ -102,7 +102,7 @@ ofereceu. §8 marca os dois pontos onde o mantenedor pode decidir diferente.
 | **C1** | Dobra: promover `tagline` a portador primário + etiquetas dos **atributos-chave: `specialties`, `selling_points`, `languages`** (D2 — a lista é fechada, não escolha do implementador) | spec §2.3 · D2 · plan fase C (trava) | **critério A3** medido em 1366×768 e 1920×1080; **não cria componente** — o slot existe |
 | **C2** | Exibir `specialties`, `languages`, `badges` (anda junto com B3) | spec §2.1 | os três aparecem na página |
 | **C3** | Vãos de seção com regra (hoje 48/48/0/48/0/0) | spec §2.5 | escala aplicada; sem junção 0px entre grupos |
-| **C4** | Medir **mobile (719px) e tema claro** — pendência desde a investigação | spec §5, §6 | medição registrada; defeitos achados viram task |
+| **C4** | Medir **o editor em 719px** e **tema claro** | spec §5, §6 · §11 (página pública **já medida**, sem overflow) · §11.1 (editor em mobile **não medido** — a janela não redimensionou) | medição registrada; defeitos achados viram task |
 
 **→ Fechar o GATE C.**
 
@@ -114,11 +114,11 @@ ofereceu. §8 marca os dois pontos onde o mantenedor pode decidir diferente.
 |---|---|---|---|---|
 | **F0** | **Combinar a ordem com a 098** antes de tocar qualquer componente | plan fase D (colisão medida) | ordem definida pelo mantenedor | a 098 cita `Manter link direto` — mesmos componentes |
 | **F1** | Primitivo de checkbox no pacote **+** migrar as 2 instâncias (`AvatarField`, `ImageUploader`) | plan fase D (F1) · A7 | alvo ≥ 24px nas duas; primitivo no pacote | aprovação nominal (`packages/ui`) |
-| **F1b** | Link do nome do mestre em `TableCard.tsx:185-192` (≈20px) — **página pública**, 4 cartões | plan fase D (F1b) · A6 | alvo ≥ 24px medido em runtime | local ao `mesas`, sem aprovação de pacote |
-| **F2** | Rodapé: `Ver termos` e `.artificio-footer-nav-link` ≥ 24px | plan fase D (F2) · A8 | medido no `mesas`, `downloads` e `glossario` | aprovação nominal |
+| **F1b** | Alvos < 24px **medidos em runtime**: link do nome do mestre (**20px**, 8 ocorrências na página pública, §11) e 3 `.link-item-url` do editor (**18px**, §11.1) | plan fase D (F1b) · A6 · §11, §11.1 | alvo ≥ 24px medido em runtime | local ao `mesas`, sem aprovação de pacote |
+| **F2** | Rodapé: `Ver termos` (**18px medido**, não ≈20) e `.artificio-footer-nav-link` (**22px medido**) ≥ 24px | plan fase D (F2) · A8 · §11, §11.1 (aparecem em **todas** as telas medidas) | medido no `mesas`, `downloads` e `glossario` | aprovação nominal |
 | **F3** | **Re-medir a nav em runtime** antes de tratá-la como defeito | plan fase D (F3) | 22px reproduzido ou descartado | não tocar antes de medir |
-| **F5** | Editor de perfil: adotar a régua `--space-1..6` (**0 usos**, 3 valores fora da grade) **e** trocar o que reimplementa o pacote (**20 classes + `@keyframes spin`**, spec §9.5) | **spec §9** (inteira) · 098 §6.3 | `node .agents/skills/ui-fidelity-audit/audit.mjs <tsx> <css>` verde nas medições 1–4 **e 7/7b** | local ao `mesas`; **não** reintroduzir `[data-theme=light]` (§9.2); primitivo que não cobrir o caso leva comentário dizendo qual limitação |
-| **F4** | Adotar a escala do pacote (34/40/48) nos campos do editor | plan §B armadilha 2 (`Textarea` é exceção) | alturas na régua; largura por tamanho de resposta | aprovação se tocar o pacote |
+| **F5** | Editor de perfil: adotar a régua `--space-1..6` (**0 usos**, 3 valores fora da grade) **e** trocar o que reimplementa o pacote (**5 classes + `@keyframes spin`**, spec §9.5) | **spec §9** (inteira) · 098 §6.3 | `node .agents/skills/ui-fidelity-audit/audit.mjs <tsx> <css>` verde nas medições 1–4 **e 7/7b** | local ao `mesas`; **não** reintroduzir `[data-theme=light]` (§9.2); primitivo que não cobrir o caso leva comentário dizendo qual limitação |
+| **F4** | Adotar a escala do pacote (34/40/48) nos campos do editor | plan §B armadilha 2 (`Textarea` é exceção) · **§11.1: 12 alturas distintas, 9 fora da escala** | alturas na régua; largura por tamanho de resposta (`Anos de Experiência` mede **802px** para 2 dígitos) | aprovação se tocar o pacote |
 
 **→ Fechar o GATE D** (`plan.md`, fase D).
 

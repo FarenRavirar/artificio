@@ -80,6 +80,13 @@ jobs:
       - name: CJS workspace exports smoke
         run: pnpm smoke:cjs-exports
 
+      # Gate de nao-regressao do design system: falha so se a divergencia contra
+      # `@artificio/ui` AUMENTAR em relacao a baseline.json. Exigir zero seria gate
+      # morto (555 achados hoje); o que impede a recorrencia e travar o crescimento.
+      # Baixou de proposito? `pnpm ui:fidelity:baseline` regrava o retrato.
+      - name: UI fidelity gate (design system)
+        run: pnpm ui:fidelity:gate
+
       # Carrega cada Proxy lazy de `db` e confere que `db.fn` chega com os 11
       # metodos do Kysely. O commit 85063da (19/06/2026, D078) fez o handler
       # bindar todo valor `function`, e `bind` DESCARTA as own properties de um
