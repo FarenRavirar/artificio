@@ -10,7 +10,7 @@
 
 | Categoria | Quantidade | Bloqueia? |
 |-----------|:----------:|:---------:|
-| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 68 | ❌ |
+| 👻 Órfãs suspeitas (ORPHAN_SUSPECT) | 67 | ❌ |
 
 ## Rotas órfãs suspeitas
 
@@ -85,12 +85,11 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
 | GET | `/api/systems/catalog-health` | ✅ | public | Scope "public" sem consumidor |
-### mesas (4 rota(s))
+### mesas (3 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
 | DELETE | `/auth/discord/disconnect` | ✅ | public | Scope "public" sem consumidor |
-| PATCH | `/api/v1/profile/gm` | ✅ | public | Scope "public" sem consumidor |
 | PATCH | `/api/v1/profile/me/gm` | ✅ | public | Scope "public" sem consumidor |
 | PATCH | `/api/v1/profile/me/player` | ✅ | public | Scope "public" sem consumidor |
 ### site (7 rota(s))

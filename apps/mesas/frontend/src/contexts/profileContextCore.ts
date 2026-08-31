@@ -7,12 +7,6 @@ export interface ProfileContextValue {
   loading: boolean;
   error: string | null;
   saving: boolean;
-  /**
-   * Erro da última tentativa de gravação (autosave). `null` quando a última
-   * gravação foi bem-sucedida. Alimenta o indicador `.autosave-indicator` da
-   * página de edição (estado `error`) — spec 099 B8.
-   */
-  saveError: string | null;
   refetch: () => void;
   updateUser: (data: { username?: string; location?: string }) => Promise<void>;
   updateProfile: (data: {

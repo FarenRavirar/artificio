@@ -6,7 +6,6 @@ import { MestreClosedGroupSection } from '../components/mestre/MestreClosedGroup
 import { MestreError } from '../components/mestre/MestreError';
 import { MestreFinalCta } from '../components/mestre/MestreFinalCta';
 import { MestreHero } from '../components/mestre/MestreHero';
-import { MestreHighlights } from '../components/mestre/MestreHighlights';
 import { MestreInsightsSection } from '../components/mestre/MestreInsightsSection';
 import { MestreNotFound } from '../components/mestre/MestreNotFound';
 import { MestreRecommendationsSection } from '../components/mestre/MestreRecommendationsSection';
@@ -100,10 +99,6 @@ export const MestrePage = () => {
       />
 
       <MestreBio profile={profile} />
-
-      {/* Spec 099 B3/C2: specialties/languages/badges — antes órfãos de
-          exibição (`badges` nunca renderizou). Só renderiza quando há dado. */}
-      <MestreHighlights profile={profile} />
 
       <MestreSellingPoints sellingPoints={profile.selling_points ?? []} />
 

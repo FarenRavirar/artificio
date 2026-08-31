@@ -201,17 +201,7 @@
   border-color: var(--artificio-brand);
 }
 
-/* Spec 099 B8: o indicador fica FIXO no viewport — a aba mestre tem 3,75
-   telas (medido, §11.1) e, em fluxo normal dentro do header, quem edita a bio
-   nunca o vê. `top: 7rem` posiciona logo abaixo do Header sticky do pacote
-   (linha principal 64px + subnav 36px + borda 2px + folga 10px); `z-index: 40`
-   fica ABAIXO do header (z-50), que continua por cima ao rolar. Posição à
-   direita segue o padrão "Salvando…/Salvo" estilo Google Docs. */
 .autosave-indicator {
-  position: fixed;
-  top: 7rem;
-  right: 1.25rem;
-  z-index: 40;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -231,15 +221,6 @@
   background: var(--state-success-bg);
   border: 1px solid var(--state-success-line);
   color: var(--state-success-fg);
-  animation: fadeIn 0.3s ease;
-}
-
-/* Estado de erro do autosave (spec 099 B8): mesma família `--state-*` do
-   pacote, como os outros dois estados. */
-.autosave-indicator.error {
-  background: var(--state-danger-bg);
-  border: 1px solid var(--state-danger-line);
-  color: var(--state-danger-fg);
   animation: fadeIn 0.3s ease;
 }
 

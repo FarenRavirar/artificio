@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { SystemPicker } from './SystemPicker';
 import { useSystemsCatalog } from '../hooks/useSystemsCatalog';
 import './UserSystemsSelector.css';
@@ -19,21 +19,7 @@ export const UserSystemsSelector = React.memo(function UserSystemsSelector({
   onAdd,
   onRemove,
 }: UserSystemsSelectorProps) {
-  const { tree, flat, loading, error, forceRefresh } = useSystemsCatalog();
-
-  // Spec 099 B9: além de contar, LISTAR os nomes dos sistemas selecionados.
-  // Nome resolve pelo catálogo (system_id → nó) — nunca se grava nome, só o
-  // id; id que não existe mais no catálogo é omitido da lista (a contagem
-  // continua sendo a verdade dos ids salvos no servidor).
-  const selectedSystems = useMemo(() => {
-    const byId = new Map(flat.map((node) => [node.id, node]));
-    const resolved: Array<{ id: string; name: string }> = [];
-    for (const id of selectedSystemIds) {
-      const node = byId.get(id);
-      if (node) resolved.push({ id, name: node.name });
-    }
-    return resolved;
-  }, [flat, selectedSystemIds]);
+  const { tree, loading, error, forceRefresh } = useSystemsCatalog();
 
   const handleSelectionChange = useCallback((nextIds: string[]) => {
     for (const systemId of selectedSystemIds) {
@@ -76,16 +62,6 @@ export const UserSystemsSelector = React.memo(function UserSystemsSelector({
           {selectedSystemIds.length} {type === 'favorite' ? 'favorito(s)' : 'sistema(s) que você mestra'}
         </p>
       </div>
-
-      {selectedSystems.length > 0 && (
-        <div className="selected-systems-list">
-          <div className="selected-systems-container">
-            {selectedSystems.map(({ id, name }) => (
-              <span key={id} className="selected-system-badge">{name}</span>
-            ))}
-          </div>
-        </div>
-      )}
 
       <SystemPicker
         tree={tree}

@@ -1,6 +1,6 @@
 # Spec 099 — Perfil do mestre: o que o mestre insere e o que o sistema expõe
 
-**App:** `mesas` · **Status:** fase A executada (A1–A3, gate A fechado); fase B executada (B0–B9, gate B fechado com 1 pendência nomeada); B10/B11 **adiadas por decisão do mantenedor (2026-08-31)**; fases C e D não iniciadas
+**App:** `mesas` · **Status:** decisões fechadas (D1–D11), **nenhuma task executada**
 **Escrita para implementar.** Investigação, medições e fontes que sustentam cada decisão
 estão em `old_spec.md` (temporário, será removido após conferência do mantenedor).
 
@@ -38,7 +38,7 @@ testado e deployado que nunca chegou a ninguém.
 | `avatar_url` + `avatar_crop_*` | `AvatarField` (recorte 1:1) | `MestreHero` | ✅ completo |
 | `banner_url` + `banner_crop_*` | **`ImageUploader`** (`kind="profile_banner"`) | fundo do hero, sob scrim fixo | ✅ completo |
 | `bio_long` | `MarkdownEditor` (300px) | `MestreBio` | ✅ completo |
-| `experience_years` | editor | `MestreHero`, só se `>= 3` — **com selo de verificado** | ⚠️ autodeclarado exibido como verificado (task A3, §12) |
+| `experience_years` | editor | `MestreHero`, só se `>= 3` | ⚠️ divergente (task A3) |
 | `links` | `LinksManager` | `LinksDisplay` | ✅ completo |
 | `contact_methods` | editor de mesa **e** `PainelMestrePage` | `MestreContactMethods` + `MestreContactForm` | ✅ funciona |
 | `preferred_vtt_platforms` | `PainelMestrePage` (`VttPlatformsEditor`) | `MestreVttPlatforms` | ✅ funciona |
@@ -80,7 +80,7 @@ sem `throw`, sem log. O formulário valida antes de enviar.
 |---|---|---|
 | `specialties`, `languages`, `badges` | `Generated<string[]>` | texto livre, sem vocabulário fechado |
 | `tagline` | `string \| null` | sem limite no banco |
-| `experience_years` | `number \| null` | autodeclarado; **≠** `years_on_platform`, que é 0 em 7/7 (§12) |
+| `experience_years` | `number \| null` | autodeclarado; **≠** `years_on_platform` (task A3) |
 | `promo_badge_text` | `string \| null` | — |
 | `closed_group_enabled` | `Generated<boolean>` | — |
 | `closed_group_systems` | `Generated<string[]>` | **UUID**, não nome |
@@ -88,26 +88,9 @@ sem `throw`, sem log. O formulário valida antes de enviar.
 | `closed_group_min_price_cents` | `number \| null` | **centavos** — o campo mostra reais |
 | `selling_points` | `unknown` (JSONB) | normalizar na fronteira |
 
-**Achado A1 — medido (2026-08-31):** a API devolve `{}` — objeto, não array — em **7 de 12**
-perfis do beta (banco e API espelham 1:1; a hipótese de serialização na leitura está
-descartada com medição). Em **produção** a proporção é pior: **39 de 48** perfis têm `{}`, e
-nascem assim até 08-28. Não quebra porque `MestreSellingPoints` sai cedo com
-`!Array.isArray(...)`.
-
-**Causa no beta, medida:** a hidratação `POST /admin/sync/enrich` (`adminEnrichment.ts` +
-allowlist `hydration/config.ts:10`) copiou `selling_points` de produção — os ids batem (5 dos
-7 `{}` do beta têm o mesmo id e valor em prod). Os 12 pontos de escrita do código atual foram
-todos lidos e **nenhum grava `{}`** (POST grava sempre array; PUT não toca a coluna; demais
-omitem → default `[]`).
-
-**Bloqueio nomeado:** a origem primária dos `{}` de **produção** não foi medida — nenhum
-código atual nem deployado explica os nascimentos de jul/ago. O mantenedor descartou
-hidratação/operação manual no período (2026-08-31, histórico operacional dele) — resta como
-única via de medição o `log_statement=all` em prod por um período (escrita na VM →
-aprovação). Com operação manual descartada, ganha peso a hipótese de ponto de escrita não
-encontrado na primeira varredura — re-verificar antes de dar o bloqueio por fechado. Data
-fix do dado sujo de prod só depois de medir a origem, senão re-suja (`SQL write` →
-aprovação).
+**Achado aberto (tasks A1/A2):** a API devolve `{}` — objeto, não array — em **7/20** perfis, apesar
+do `DEFAULT '[]'::jsonb`. Não quebra porque `MestreSellingPoints` sai cedo com
+`!Array.isArray(...)`. **A causa não foi medida.**
 
 ### 2.3 `tagline` alimenta três cadeias, com cortes diferentes
 
@@ -224,7 +207,7 @@ Não afirmar nada sobre estes pontos sem medir antes.
 
 | o quê | estado |
 |---|---|
-| causa de `selling_points` voltar `{}` — **beta medida** (hidratação `admin/sync/enrich` copiando de prod); **prod não medida** (39/48 `{}`, nascendo até 08-28; hidratação/escrita manual no período descartada pelo mantenedor) | bloqueio nomeado em §2.2 |
+| causa de `selling_points` voltar `{}` em 7/20 | **não medida** (tasks A1/A2) |
 | mobile (719px) | **medido** (§11): sem overflow nem texto estourando. **Só a página pública** — o editor exige sessão |
 | tema claro | **não medido** |
 | editor de perfil em runtime | **não medido** — exige sessão (§11.1) |
@@ -563,91 +546,3 @@ saudável das três.
 redimensionou (`innerWidth` permaneceu 1815 em duas tentativas) e a medição por `iframe`
 voltou vazia. **Não vou afirmar nada sobre o editor em mobile** — continua pendente para
 C4, agora só para o editor, já que a página pública foi medida em §11.
-
----
-
-## 12. Task A3 resolvida — o que fazer com "anos de experiência"
-
-A trava de A3 dizia que `experience_years` (autodeclarado) e `years_on_platform`
-(calculado) não podem ser fundidos, e que a divergência é editor × bio × API. **Medido nos
-perfis reais do beta (2026-08-31), o problema é maior do que a spec descrevia.**
-
-### 12.1 O que a medição mostrou
-
-`/api/v1/tables?limit=100` → `gm_slug` distintos → `/api/v1/gm/perfis/{slug}`:
-
-| mestre | `experience_years` | `years_on_platform` | nº de anos citado na bio |
-|---|---|---|---|
-| farenravirar | 14 | 0 | **11** |
-| mestre-pollux | 10 | 0 | **12** |
-| albuquerque | **null** | 0 | **15** |
-| mestre-almarai | 8 | 0 | — |
-| nocturne · tami · tamii | null | 0 | — |
-
-**Três correções ao que a spec afirmava:**
-
-1. **Não é um caso isolado do Faren.** Três dos sete mestres com mesa ativa citam um número
-   de anos na bio; **dois** contradizem a coluna, e um (`albuquerque`) declara "15 anos" na
-   bio com a coluna **vazia** — a informação existe só em texto livre.
-2. **`years_on_platform` é `0` para todos os sete.** O cálculo (`AGE(NOW(), gm.created_at)`)
-   está correto — a plataforma é nova. Ele não é alternativa ao autodeclarado hoje: não
-   carrega informação nenhuma.
-3. **O dado autodeclarado é exibido com o selo de verificado.** `MestreHero.tsx:158-162`
-   renderiza `{experience_years}+ anos de experiência` dentro de `.trust-item`, com o ícone
-   `CheckCircle2` — **o mesmo componente e o mesmo ícone** de "Verificado no Covil"
-   (`:147-151`). O jogador não tem como distinguir o que a plataforma verificou do que o
-   mestre digitou.
-
-### 12.2 A decisão, e o princípio que a sustenta
-
-**A pesquisa desaconselha o que a task pedia.** "Os três números viram um" é escolher uma
-fonte como verdade e descartar as outras. A literatura de modelagem é explícita no
-contrário: *"em vez de escolher às pressas uma fonte como verdade, modele a discordância,
-preserve de onde os valores vieram, e só então decida o que é canônico"* — escolher rápido
-**destrói informação útil**
-([DB Designer](https://www.dbdesigner.net/designing-databases-when-data-sources-disagree)).
-O princípio de fundo é o mesmo do SSOT: cada elemento é *mastered* em um lugar só, e cópia
-de dado mestre exige mecanismo de reconciliação
-([SSOT](https://en.wikipedia.org/wiki/Single_source_of_truth)).
-
-Aplicado aqui, "um lugar só" **não** significa uma coluna só. Significa que cada número tem
-**um dono**, e que a UI diz qual é:
-
-| dado | dono | tratamento |
-|---|---|---|
-| `experience_years` | o **mestre** (autodeclarado) | continua sendo a fonte de "anos de experiência". **Perde o selo de verificado** |
-| `years_on_platform` | a **plataforma** (derivado) | permanece separado, com rótulo próprio. Hoje vale 0 para todos — **medido (2026-08-31): o hero já não exibe quando 0** (condição `>= 1` em `MestreHero.tsx:166` e no `hasAnyTrust`); nada a implementar |
-| o número dentro da bio | o **mestre**, em texto livre | não é fonte de dado. Ver 12.3 |
-
-**A correção de A3 não é escolher entre 14 e 11 — é parar de apresentar o autodeclarado
-como verificado.** O defeito que o jogador sofre não é a divergência (ele nunca vê as duas
-fontes juntas); é o selo `CheckCircle2` afirmando que a plataforma confere um número que
-ninguém conferiu. Isso é a mesma classe do que NN/g chama de quebra de confiança, e é o
-critério que §1 desta spec já declara: o jogador vai passar horas com um desconhecido.
-
-**Entrega de A3:**
-
-1. Separar visualmente **verificado** (`covil_verified`) de **declarado pelo mestre**
-   (`experience_years`) — ícone e/ou rótulo distintos. Não fundir, não remover o campo.
-   Forma adotada na implementação: `covil_verified` mantém `CheckCircle2` + "Verificado no
-   Covil"; `experience_years` usa ícone neutro (`Medal`) e rótulo **"Declara {n}+ anos de
-   experiência"** — decisão de execução a conferir pelo mantenedor.
-2. **Não exibir `years_on_platform` enquanto for 0** — **já satisfeito no código** (medido:
-   condição `>= 1`; runtime confirma que 0 não renderiza). Nada a fazer.
-3. A coluna `experience_years` continua sendo a fonte; **nenhuma migration** (D1).
-
-### 12.3 O número dentro da bio — o que se faz com ele
-
-`albuquerque` prova que a bio carrega informação que a coluna não tem. **Apagar ou
-reescrever a bio de um mestre é intervir no texto dele — não se faz.**
-
-O destino é o **D11**, que já está decidido nesta spec: a extração assistida lê a bio,
-**sugere** o valor e o mestre confirma. `albuquerque` é o caso de uso exato — "15 anos" na
-bio, coluna vazia, e o mestre nunca teve formulário para preencher (§1).
-
-**A3 fecha sem tocar na bio.** O que A3 deve registrar é a medição da tabela 12.1, para que
-B11 saiba que o caso existe em pelo menos 3 de 7 perfis.
-
-**Trava:** enquanto B11 não existir, o número da bio **fica como está**. Divergência entre
-prosa e coluna não é bug de dado — é o mestre falando, e a plataforma não corrige a fala
-dele.

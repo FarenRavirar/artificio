@@ -78,47 +78,6 @@ export interface MestrePublicData {
 }
 
 /**
- * Normaliza `selling_points` vindo da API antes de entrar no estado.
- *
- * O campo vem cru do banco (JSONB) e no beta 7/12 perfis devolvem `{}` em vez
- * de array. O cast (`as GmProfilePayload`) nao valida nada, e o `?? []` dos
- * consumidores nao protege contra objeto. Aqui, todo nao-array vira `[]` e
- * cada item precisa de `icon`, `title` e `description` como strings nao
- * vazias; `highlight` so entra quando e string. Quem renderiza recebe
- * `SellingPoint[]` de verdade (spec 099, criterios A5/A9).
- *
- * Nao lanca nunca: so usa `Array.isArray` e `typeof` sobre entrada `unknown`.
- */
-export function normalizeSellingPoints(input: unknown): SellingPoint[] {
-  if (!Array.isArray(input)) return [];
-
-  const points: SellingPoint[] = [];
-  for (const raw of input) {
-    if (typeof raw !== 'object' || raw === null) continue;
-    const item = raw as Record<string, unknown>;
-
-    const icon = item.icon;
-    const title = item.title;
-    const description = item.description;
-    if (typeof icon !== 'string' || icon.length === 0) continue;
-    // `.trim()` e nao `.length`: "   " tem length 3 e passava, renderizando um
-    // destaque em branco na pagina publica. O formulario ja usa trim
-    // (`isValidSellingPoint`, profileEditorDomain.ts:48) — sem isto as duas
-    // camadas divergem, e o item entra por qualquer caminho que nao seja o
-    // editor (achado de review, PR #297).
-    if (typeof title !== 'string' || title.trim().length === 0) continue;
-    if (typeof description !== 'string' || description.trim().length === 0) continue;
-
-    const point: SellingPoint = { icon, title, description };
-    if (typeof item.highlight === 'string') {
-      point.highlight = item.highlight;
-    }
-    points.push(point);
-  }
-  return points;
-}
-
-/**
  * Normaliza o enquadramento antes de o perfil entrar no estado do React.
  *
  * O corpo da resposta e `unknown` na pratica: o tipo declarado e promessa, e o
@@ -126,11 +85,8 @@ export function normalizeSellingPoints(input: unknown): SellingPoint[] {
  * chegaria a `cropToObjectPosition` no `MestreHero` e produziria
  * `NaN% NaN%` — descartado pelo navegador, devolvendo justamente o recorte
  * central que este trabalho existe para evitar.
- *
- * Exportada para teste direto da normalizacao de entrada (mesmo padrao dos
- * utils puros do repo); consumidores seguem usando apenas o hook.
  */
-export function normalizeMestreProfile(data: MestrePublicData | null | undefined): MestrePublicData | null {
+function normalizeMestreProfile(data: MestrePublicData | null | undefined): MestrePublicData | null {
   if (!data) return null;
   const avatar = normalizeImageFrame(data, 'avatar');
   const banner = normalizeImageFrame(data, 'banner');
@@ -142,11 +98,6 @@ export function normalizeMestreProfile(data: MestrePublicData | null | undefined
     banner_crop_data: banner.crop,
     banner_width: banner.width,
     banner_height: banner.height,
-    // `selling_points` cru do banco: `{}` em 7/12 perfis do beta (JSONB).
-    // Normalizar aqui e o que garante `SellingPoint[]` para todo consumidor —
-    // sem isso `MestrePage` passaria `{}` adiante e `MestreSellingPoints`
-    // renderizaria lixo no lugar da secao.
-    selling_points: normalizeSellingPoints(data.selling_points),
     // `avg_rating` é NUMERIC(3,2) e o parser default do `pg` entrega string.
     // O payload chega por cast (`as GmProfilePayload`), sem validação, então o
     // tipo `number | null` não garante nada em runtime. Converter aqui, na

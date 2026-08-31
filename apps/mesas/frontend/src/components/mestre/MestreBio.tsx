@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Sparkles, Globe, Languages } from 'lucide-react';
 import type { MestrePublicData } from '../../hooks/useMestre';
 import { MarkdownContent } from '@artificio/content-editor';
 
@@ -8,10 +9,12 @@ interface Props {
 
 export function MestreBio({ profile }: Props) {
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  const hasSpecialties = (profile.specialties?.length ?? 0) > 0;
+  const hasLanguages = (profile.languages?.length ?? 0) > 0;
   const hasTagline = !!profile.tagline?.trim();
   const hasBio = !!profile.bio_long?.trim();
 
-  if (!hasTagline && !hasBio) return null;
+  if (!hasSpecialties && !hasLanguages && !hasTagline && !hasBio) return null;
 
   return (
     <section className="mestre-bio-section">
@@ -36,10 +39,35 @@ export function MestreBio({ profile }: Props) {
               </div>
             )}
 
-            {/* Os chips de especialidades e idiomas saíram daqui em 2026-08-31
-                (spec 099 B3/C2): a exibição dos três grupos (especialidades,
-                idiomas, selos) vive agora em `MestreHighlights`, seção própria
-                logo depois desta — aqui os dois ficariam duplicados na página. */}
+            {hasSpecialties && (
+              <div className="mestre-bio-chips">
+                <span className="mestre-bio-chips-label">
+                  <Sparkles className="w-4 h-4" /> Especialidades
+                </span>
+                <div className="mestre-bio-chips-list">
+                  {profile.specialties!.map((s, i) => (
+                    <span key={i} className="mestre-bio-chip">
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {hasLanguages && (
+              <div className="mestre-bio-chips">
+                <span className="mestre-bio-chips-label">
+                  <Languages className="w-4 h-4" /> Idiomas
+                </span>
+                <div className="mestre-bio-chips-list">
+                  {profile.languages!.map((l, i) => (
+                    <span key={i} className="mestre-bio-chip mestre-bio-chip--outline">
+                      <Globe className="w-3 h-3" /> {l}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {hasTagline && (
               <blockquote className="mestre-bio-tagline">

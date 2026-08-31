@@ -117,22 +117,10 @@ export function AvatarField({
   const displayedUrl = value.url || inheritedUrl || '';
   const isInherited = !value.url && Boolean(inheritedUrl);
 
-  // B7 (spec 099): o campo exibe hint (description) e erro condicional; o
-  // controle acionável principal (botão de envio) recebe a associação a
-  // ambos, quando presentes — o input de arquivo é `display:none` (não
-  // focusável), então apontar nele não alcançaria leitor de tela nenhum.
-  const descriptionId = description ? `${idPrefix}-description` : undefined;
-  const errorId = fieldError ? `${idPrefix}-error` : undefined;
-  const describedBy = [descriptionId, errorId].filter(Boolean).join(' ') || undefined;
-
   return (
     <div className="form-group">
       <label htmlFor={`${idPrefix}-file-input`}>{label}</label>
-      {description && (
-        <p className="field-description" id={descriptionId}>
-          {description}
-        </p>
-      )}
+      {description && <p className="field-description">{description}</p>}
 
       <div className="avatar-premium-container">
         <div className="avatar-premium-preview">
@@ -166,7 +154,6 @@ export function AvatarField({
                 className="btn-avatar-action btn-upload"
                 disabled={isUploading || urlImport.isImportingUrl}
                 onClick={() => fileInputRef.current?.click()}
-                aria-describedby={describedBy}
               >
                 {isUploading ? 'Enviando...' : '📤 Enviar nova imagem'}
               </button>
@@ -239,9 +226,9 @@ export function AvatarField({
 
       {/* Erro visível no campo, no lugar do `alert()` bloqueante que estava
           aqui antes: `alert` interrompe a página inteira e some sem deixar
-          rastro do que falhou. B7: `id` para o aria-describedby do botão. */}
+          rastro do que falhou. */}
       {fieldError && (
-        <small className="error-text" role="alert" id={errorId}>
+        <small className="error-text" role="alert">
           {fieldError}
         </small>
       )}

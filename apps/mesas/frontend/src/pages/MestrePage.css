@@ -563,46 +563,46 @@
   font-size: 1.0625rem;
 }
 
-/* Especialidades / idiomas / selos (spec 099 B3/C2 — MestreHighlights).
-   Regras novas na régua do pacote (--space-1..6): nenhum valor de
-   espaçamento fora da escala, diferente dos blocos antigos desta página
-   (dívida da fase F/C, fora do escopo aqui). */
-.mestre-highlights-section {
-  padding: var(--space-6);
+.mestre-bio-chips {
+  margin-top: 2rem;
 }
 
-.mestre-highlights-groups {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: var(--space-4);
-}
-
-.mestre-highlights-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.mestre-highlights-label {
+.mestre-bio-chips-label {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: 0.5rem;
   font-size: 0.8rem;
   font-weight: 700;
   color: var(--artificio-brand);
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
 }
 
-.mestre-highlights-chips {
+.mestre-bio-chips-list {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: 0.5rem;
 }
 
-/* Os chips em si são o `Badge` do pacote (pill 999px, tokens de estado) —
-   nenhuma regra local: reimplementar aqui seria o defeito que a spec §9.5
-   mede. A composição de seção/grupo/rótulo acima é página, não primitivo. */
+.mestre-bio-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 9999px;
+  background: var(--state-warning-bg);
+  border: 1px solid var(--state-warning-line);
+  color: var(--state-warning-fg);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.mestre-bio-chip--outline {
+  background: var(--fill-subtle);
+  border-color: var(--line-strong);
+  color: var(--fg-muted);
+}
 
 .mestre-bio-tagline {
   margin-top: 2rem;

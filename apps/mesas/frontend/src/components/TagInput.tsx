@@ -4,27 +4,13 @@ interface Props {
   value: string[];
   onChange: (next: string[]) => void;
   placeholder?: string;
-  /**
-   * `id`/`aria-label` do input interno — opcionais para nao quebrar os usos
-   * anteriores. Obrigatorios quando o TagInput vive dentro de um `Field` do
-   * pacote: o `label` do `Field` aponta `htmlFor` para o `id`, e sem ele o
-   * leitor de tela nao anuncia rotulo nenhum (spec 099 B3).
-   */
-  id?: string;
-  ariaLabel?: string;
-  /**
-   * Id do `<p>` de hint/erro do `Field` do pacote (`${id}-description`), que
-   * nao associa o controle automaticamente (spec 099 B7) — repassado direto
-   * ao input como `aria-describedby`.
-   */
-  describedBy?: string;
 }
 
 /**
  * Input de tags estilo WordPress: digita e Enter (ou virgula) adiciona um chip.
  * Backspace com campo vazio remove o ultimo. Deduplica ignorando caixa/espacos.
  */
-export const TagInput = ({ value, onChange, placeholder, id, ariaLabel, describedBy }: Props) => {
+export const TagInput = ({ value, onChange, placeholder }: Props) => {
   const [draft, setDraft] = useState('');
 
   const add = (raw: string) => {
@@ -67,9 +53,6 @@ export const TagInput = ({ value, onChange, placeholder, id, ariaLabel, describe
         </span>
       ))}
       <input
-        id={id}
-        aria-label={ariaLabel}
-        aria-describedby={describedBy}
         className="flex-1 min-w-[8rem] bg-transparent px-1 py-0.5 text-white text-sm outline-none"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
