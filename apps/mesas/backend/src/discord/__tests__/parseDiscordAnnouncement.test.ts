@@ -1372,6 +1372,35 @@ describe('parseDiscordAnnouncement', () => {
       expect(draft?.table.start_time).toBe('20:00');
     });
 
+    // Achados de review (PR #300), os tres na mesma area de agenda.
+    it('hora invalida no meio do texto nao descarta o horario valido seguinte', () => {
+      const draft = parseDiscordAnnouncement(makeMessage({
+        content_raw: 'Erro de digitacao 99h, o certo e 20h\nVagas: 4',
+      }));
+      expect(draft?.table.start_time).toBe('20:00');
+    });
+
+    it('"as" no fim de palavra nao vira marcador de horario', () => {
+      const draft = parseDiscordAnnouncement(makeMessage({
+        content_raw: 'Aulas 3 horas por semana\nVagas: 4',
+      }));
+      expect(draft?.table.start_time).toBeNull();
+    });
+
+    it('"sem horario fixo" nao marca o DIA como a definir', () => {
+      const draft = parseDiscordAnnouncement(makeMessage({
+        content_raw: 'Sistema: D&D 5e\nSem horario fixo, combinamos no grupo\nVagas: 4',
+      }));
+      expect(draft?.table.day_of_week).toBeNull();
+    });
+
+    it('"sem dia fixo" continua marcando o dia como a definir', () => {
+      const draft = parseDiscordAnnouncement(makeMessage({
+        content_raw: 'Sem dia fixo, combinamos no grupo\nVagas: 4',
+      }));
+      expect(draft?.table.day_of_week).toBe('to_define');
+    });
+
     it('"vou definir a data depois" NÃO é sentinela (frase livre, não declaração)', () => {
       const draft = parseDiscordAnnouncement(makeMessage({
         content_raw: 'Ainda vou definir a data depois de fechar o elenco\nVagas: 4',

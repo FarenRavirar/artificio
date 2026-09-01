@@ -15,6 +15,7 @@ import { ContactMethodsEditor } from '../components/mestre/ContactMethodsEditor'
 import { GmInsightsDashboard } from '../components/mestre/GmInsightsDashboard';
 // Spec 099 B10 (D5/D8): prévia do perfil público com os dados REAIS do painel.
 import { MestreProfilePreview } from '../components/mestre/editor/MestreProfilePreview';
+import type { CropRect } from '@artificio/media/image-kinds';
 import { buildMestrePreviewData } from '../components/mestre/editor/profilePreviewMapping';
 import {
   mapApiToEditorState,
@@ -35,6 +36,15 @@ interface GmProfile {
   nickname: string | null;
   bio_long: string | null;
   avatar_url: string | null;
+  // Foto do perfil geral, devolvida por `GET /gm/me` so quando `avatar_url`
+  // acima e null — deixa a previa espelhar o COALESCE da rota publica sem
+  // esta tela buscar `/profile/me` (achado Codex P2, PR #300).
+  general_avatar?: {
+    avatar_url: string | null;
+    avatar_crop_data: CropRect | null;
+    avatar_width: number | null;
+    avatar_height: number | null;
+  } | null;
   banner_url: string | null;
   tagline: string | null;
   promo_badge_text: string | null;
@@ -705,7 +715,7 @@ export const PainelMestrePage = () => {
             {gmProfile && (
               <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
                 <MestreProfilePreview
-                  profile={buildMestrePreviewData(gmProfile, user?.name)}
+                  profile={buildMestrePreviewData(gmProfile, user?.name, gmProfile.general_avatar)}
                 />
               </section>
             )}

@@ -772,6 +772,18 @@ export interface GmProfileSnapshot {
   //    casos o buildMestrePreviewData cai para os fallbacks neutros.
   id?: string;
   slug?: string;
+  /**
+   * Foto do perfil GERAL, devolvida por `GET /gm/me` só quando o mestre não
+   * tem foto própria — deixa as três prévias espelharem o
+   * `COALESCE(gm.avatar_url, p.avatar_url)` da rota pública sem cada tela
+   * precisar buscar `/profile/me` por conta.
+   */
+  general_avatar?: {
+    avatar_url?: string | null;
+    avatar_crop_data?: CropRect | null;
+    avatar_width?: number | null;
+    avatar_height?: number | null;
+  } | null;
   avatar_url?: string | null;
   avatar_crop_data?: CropRect | null;
   avatar_width?: number | null;
@@ -876,5 +888,15 @@ export function mapGmMeToSnapshot(value: unknown): GmProfileSnapshot | null {
     experience_years: asNumberOrNull(data.experience_years),
     created_at: asStringOrNull(data.created_at),
     tables_count: asNumberOrNull(data.tables_count),
+    general_avatar: (() => {
+      const geral = asRecord(data.general_avatar);
+      if (!geral) return null;
+      return {
+        avatar_url: asStringOrNull(geral.avatar_url),
+        avatar_crop_data: isCropRect(geral.avatar_crop_data) ? geral.avatar_crop_data : null,
+        avatar_width: asNumberOrNull(geral.avatar_width),
+        avatar_height: asNumberOrNull(geral.avatar_height),
+      };
+    })(),
   };
 }

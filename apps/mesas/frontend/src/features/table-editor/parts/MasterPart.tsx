@@ -181,6 +181,10 @@ export function MasterPart({ api, userName }: MasterPartProps) {
                 : null,
             },
             userName,
+            // Foto do perfil geral (so vem quando o mestre nao tem a propria):
+            // mesma cadeia de fallback da rota publica, sem a tela buscar
+            // `/profile/me` por conta (achado Codex P2, PR #300).
+            api.gmProfilePreview.general_avatar,
           )}
         />
       )}

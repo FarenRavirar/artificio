@@ -259,7 +259,13 @@
   background: var(--fill-strong);
   transform: translateY(-2px);
 }
-/* Sobre banner custom (scrim navy): CTA secundário volta a claro p/ AA. */
+/* Sobre banner custom (scrim navy): CTA secundário volta a claro p/ AA.
+   Contraste medido no pior caso (foto totalmente branca sob o scrim): as DUAS
+   camadas de `.hero-overlay` acima empilham, e o #ffffff fica em 10.11:1 —
+   folgado sobre os 4.5:1 de AA. O Sonar sinaliza porque avalia uma camada por
+   vez (a mais fraca, alpha .36, daria 2.28 isolada) e não compõe o alpha das
+   duas; esse cenário de camada única não existe na página. Não clarear o
+   scrim sem refazer a medição composta. */
 .hero-section:has(.hero-banner) .cta-button.cta-secondary {
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.34);

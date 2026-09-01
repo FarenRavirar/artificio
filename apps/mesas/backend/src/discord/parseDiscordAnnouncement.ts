@@ -434,6 +434,57 @@ function hasIncompatibleEdition(
   ));
 }
 
+/**
+ * Pontuacao por NOME: a base do no aparecendo no texto.
+ *
+ * O segundo ramo e o passo 3 da busca humana (sistema -> edicao -> variante):
+ * o no da variante pode se chamar so "Remaster"/"Anniversary", palavras que o
+ * normalizador tira da BASE do texto por serem qualificador de edicao —
+ * "Pathfinder 2e Remaster" tem base ["pathfinder"], e o nome do no nunca casava
+ * por sequencia. `editionWords` preserva o que saiu, entao o nome do no volta a
+ * ser comparavel contra o texto completo.
+ *
+ * Sem isto, 20 nos do catalogo eram inalcancaveis (medido 2026-08-31: 17
+ * variantes + 3 edicoes): a travessia parava na edicao e o mestre escolhia a
+ * variante na mao. Pontua abaixo do casamento por edicao (110/120) porque e
+ * sinal de nome, nao de versao.
+ */
+function scoreByName(
+  candidate: ReturnType<typeof normalizeSystemName>,
+  hint: ReturnType<typeof normalizeSystemName>,
+): number {
+  if (candidate.baseTokens.length === 0) return 0;
+  const bySequence = sequenceMatchScore(90, candidate.baseTokens, hint.baseTokens);
+  const byEditionWord = hint.editionWords.length > 0
+    && sequenceMatchScore(1, candidate.baseTokens, hint.editionWords) > 0
+    ? 100
+    : 0;
+  return Math.max(bySequence, byEditionWord);
+}
+
+/**
+ * Pontuacao por EDICAO: quanto os tokens de versao do no batem os do texto.
+ * Extraida de `scoreSystemDescendant` para manter a funcao dentro do limite de
+ * complexidade cognitiva do Sonar (era 18 > 15), sem mudar o resultado.
+ */
+function scoreByEdition(
+  candidate: ReturnType<typeof normalizeSystemName>,
+  hint: ReturnType<typeof normalizeSystemName>,
+  shortYearMatches: readonly string[],
+  system: SystemEntry,
+): number {
+  const availableEditionSignals = hint.editionTokens.length + shortYearMatches.length;
+  const exactSet = candidate.editionTokens.length === availableEditionSignals;
+  const firstTokenIndex = Math.min(...candidate.editionTokens.map((token) => {
+    const exactIndex = hint.editionTokens.indexOf(token);
+    return exactIndex >= 0 ? exactIndex : hint.editionTokens.length + hint.baseTokens.indexOf(token.slice(-2));
+  }));
+  const orderBonus = Math.max(0, 5 - firstTokenIndex);
+  const nodeBonus = system.node_type === 'edition' ? 5 : 0;
+  return (exactSet ? 120 : 110) + nodeBonus + orderBonus;
+}
+
+
 function scoreSystemDescendant(text: string, system: SystemEntry): number {
   const hint = normalizeSystemHint(text);
   const representations = [
@@ -454,34 +505,11 @@ function scoreSystemDescendant(text: string, system: SystemEntry): number {
       score = Math.max(score, 140);
       continue;
     }
-    if (candidate.baseTokens.length > 0) {
-      score = Math.max(score, sequenceMatchScore(90, candidate.baseTokens, hint.baseTokens));
-      // Passo 3 da busca humana (sistema -> edicao -> variante): o no da
-      // variante pode se chamar so "Remaster"/"Anniversary", palavras que o
-      // normalizador tira da BASE do texto por serem qualificador de edicao —
-      // "Pathfinder 2e Remaster" tem base ["pathfinder"], e o nome do no nunca
-      // casava por sequencia. `editionWords` preserva o que saiu, entao o nome
-      // do no volta a ser comparavel contra o texto completo.
-      //
-      // Sem isto, 20 nos do catalogo eram inalcancaveis (medido 2026-08-31, 17
-      // variantes + 3 edicoes): a travessia parava na edicao e o mestre
-      // escolhia a variante na mao. Pontua abaixo do casamento por edicao
-      // (110/120) porque e sinal de nome, nao de versao.
-      if (hint.editionWords.length > 0
-        && sequenceMatchScore(1, candidate.baseTokens, hint.editionWords) > 0) {
-        score = Math.max(score, 100);
-      }
-    }
+    // Nome do no batendo a base do texto — inclui o passo 3 da busca humana
+    // (sistema -> edicao -> variante). Detalhe em `scoreByName`.
+    score = Math.max(score, scoreByName(candidate, hint));
     if (candidate.editionTokens.length === 0 || !hasEditionSignal) continue;
-    const availableEditionSignals = hint.editionTokens.length + shortYearMatches.length;
-    const exactSet = candidate.editionTokens.length === availableEditionSignals;
-    const firstTokenIndex = Math.min(...candidate.editionTokens.map((token) => {
-      const exactIndex = hint.editionTokens.indexOf(token);
-      return exactIndex >= 0 ? exactIndex : hint.editionTokens.length + hint.baseTokens.indexOf(token.slice(-2));
-    }));
-    const orderBonus = Math.max(0, 5 - firstTokenIndex);
-    const nodeBonus = system.node_type === 'edition' ? 5 : 0;
-    score = Math.max(score, (exactSet ? 120 : 110) + nodeBonus + orderBonus);
+    score = Math.max(score, scoreByEdition(candidate, hint, shortYearMatches, system));
   }
   return score;
 }
@@ -1448,11 +1476,16 @@ const DAY_TO_DEFINE_PATTERNS = [
   /\bdias?(?:\s+da\s+semana)?\s+(?:e\s+hor[aá]rios?\s+)?a\s+(?:decidir|combinar|definir)\b/,
   /\bhor[aá]rios?\s+a\s+(?:decidir|combinar|definir)\b/,
   /\bdia(?:\s+da\s+semana)?\s+a\s+(?:decidir|combinar|definir)\b/,
-  // "Sem dia fixo"/"sem horário fixo": forma negativa do mesmo sentinela,
-  // frequente nos anúncios reais (fixture discord-announcements-real.txt:177
-  // — "Sem dia Fixo porém sempre as 19h"). Sem isto o dia virava `null`, que a
-  // UI trata como pendência de seleção em vez de "a definir" já resolvido.
-  /\bsem\s+(?:dia|hor[aá]rio)\s+fixo\b/,
+  // "Sem dia fixo": forma negativa do mesmo sentinela, frequente nos anúncios
+  // reais (fixture discord-announcements-real.txt:177 — "Sem dia Fixo porém
+  // sempre as 19h"). Sem isto o dia virava `null`, que a UI trata como
+  // pendência de seleção em vez de "a definir" já resolvido.
+  //
+  // Só "dia": estes padrões decidem o DIA, e "sem horário fixo" não diz nada
+  // sobre ele — incluí-lo aqui marcava dia indefinido em anúncio que só falava
+  // do horário (achado de review, PR #300). O horário indefinido já é coberto
+  // pelo padrão de `horário a definir` acima, no eixo correto.
+  /\bsem\s+dia\s+fixo\b/,
   // Achado real (2026-07-16, anúncio "A Censura"): label "Data e hora: a
   // definir" — sem "dia(s)"/"horário(s)" no valor em si (o rótulo já diz
   // isso), os 4 padrões acima nunca batiam. `[:：]?` opcional cobre o rótulo
@@ -1511,7 +1544,7 @@ const START_TIME_PATTERNS: readonly { readonly re: RegExp; readonly minute: bool
   // tirando o campo dos avisos de revisao do importador (achado Codex P1, PR
   // #300). Sem `\b` antes do marcador — acento nao e caractere de palavra, e
   // `\bàs` nunca casa.
-  { re: /(?:às|as)\s{1,3}(\d{1,2})\s{1,3}horas?\b/i, minute: false },
+  { re: /(?:^|[^\p{L}])(?:às|as)\s{1,3}(\d{1,2})\s{1,3}horas?\b/iu, minute: false },
 ];
 
 // Extrai horário do texto: "19h", "19:00", "às 20h30", "das 19 às 23 horas"
@@ -1520,14 +1553,18 @@ function extractStartTime(text: string, labelAliases: string[] = []): string | n
   const target = learnedLabelValue ?? text;
 
   for (const { re, minute } of START_TIME_PATTERNS) {
-    const match = re.exec(target);
-    if (!match) continue;
-    const h = match[1].padStart(2, '0');
-    // Hora fora de 0-23 nao e horario: "24 horas de campanha", "30 horas de
-    // gravacao". Sem o guard o parser gravaria "24:00"/"30:00" no banco.
-    if (Number.parseInt(h, 10) > 23) return null;
-    const m = ((minute ? match[2] : '') || '00').padStart(2, '0');
-    return `${h}:${m}`;
+    // `matchAll` (regex global) em vez de `exec`: um numero fora de 0-23 nao
+    // pode descartar o horario valido que vem depois no mesmo texto. "sessao
+    // 99h nao, 20h sim" abortava em 99 e devolvia null, perdendo o 20h (achado
+    // de review, PR #300). Agora o candidato invalido e pulado e a busca segue.
+    for (const match of target.matchAll(new RegExp(re.source, `${re.flags}g`))) {
+      const h = match[1].padStart(2, '0');
+      // Hora fora de 0-23 nao e horario: "24 horas de campanha", "30 horas de
+      // gravacao".
+      if (Number.parseInt(h, 10) > 23) continue;
+      const m = ((minute ? match[2] : '') || '00').padStart(2, '0');
+      return `${h}:${m}`;
+    }
   }
   return null;
 }

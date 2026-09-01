@@ -438,6 +438,9 @@ describe('mapGmMeToSnapshot — GET /gm/me para o snapshot de herança (T4.0p/T6
       experience_years: null,
       created_at: null,
       tables_count: null,
+      // Foto do perfil geral: null quando o GET nao devolve o campo (so vem
+      // quando o mestre nao tem foto propria).
+      general_avatar: null,
     });
   });
 

@@ -85,8 +85,14 @@ export function buildMestrePreviewData(
   // origem que a URL — aplicar o recorte da foto de mestre sobre a foto geral
   // enquadraria a imagem errada. Sem isto a prévia mostrava placeholder
   // enquanto o jogador via a foto geral (achado Codex P2, PR #300).
-  const usaAvatarDoMestre = Boolean(source.avatar_url);
-  const avatar = usaAvatarDoMestre ? source : (avatarFallback ?? {});
+  // `!= null` (nao `Boolean`): o COALESCE do SQL so cai no proximo termo com
+  // NULL, e string vazia CONTA como foto propria. `AvatarField.tsx:204` manda
+  // `url: ''` ao remover a foto, e o PUT preserva esse valor
+  // (`gmPanel.ts:486`, `avatar_url ?? undefined`) — com `Boolean` a previa
+  // mostraria a foto geral enquanto o jogador ve o placeholder (achado Codex
+  // P2, PR #300). Hoje nao ha nenhum '' em producao (medido: 46 NULL, 0
+  // vazios em 48 perfis), mas o caminho existe no codigo.
+  const avatar = source.avatar_url != null ? source : (avatarFallback ?? {});
 
   const raw: MestrePublicData = {
     id: source.id ?? '',

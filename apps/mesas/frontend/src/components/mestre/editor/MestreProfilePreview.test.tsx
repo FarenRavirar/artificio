@@ -51,6 +51,48 @@ describe('buildMestrePreviewData — mapeamento do editor para a prévia', () =>
     ).toBe('mestre-corvo');
   });
 
+  // Achado Codex (PR #300): a previa tem que espelhar o
+  // COALESCE(gm.avatar_url, p.avatar_url) da rota publica (gm.ts:147-156),
+  // inclusive na semantica de nulidade — string vazia CONTA como foto propria
+  // no SQL, e `AvatarField` manda '' ao remover a foto.
+  describe('fallback de avatar — mesma cadeia da rota publica', () => {
+    const fallback = {
+      avatar_url: 'https://cdn/geral.jpg',
+      avatar_crop_data: { x: 1, y: 2, width: 3, height: 4 },
+      avatar_width: 100,
+      avatar_height: 200,
+    };
+
+    it('sem foto de mestre, usa a foto do perfil geral com o crop dela', () => {
+      const preview = buildMestrePreviewData({ ...baseSource, avatar_url: null }, null, fallback);
+      expect(preview.avatar_url).toBe('https://cdn/geral.jpg');
+      expect(preview.avatar_width).toBe(100);
+    });
+
+    it('com foto de mestre, o fallback e ignorado', () => {
+      const preview = buildMestrePreviewData(
+        { ...baseSource, avatar_url: 'https://cdn/mestre.jpg' },
+        null,
+        fallback,
+      );
+      expect(preview.avatar_url).toBe('https://cdn/mestre.jpg');
+      expect(preview.avatar_width).toBeNull();
+    });
+
+    // O SQL usa COALESCE, que so cai no proximo termo com NULL: '' e foto
+    // propria e leva ao placeholder. Com `Boolean('')` a previa mostraria a
+    // foto geral, divergindo do que o jogador ve.
+    it('string vazia conta como foto propria, igual ao COALESCE', () => {
+      const preview = buildMestrePreviewData({ ...baseSource, avatar_url: '' }, null, fallback);
+      expect(preview.avatar_url).toBe('');
+    });
+
+    it('sem fallback disponivel, segue sem imagem', () => {
+      const preview = buildMestrePreviewData({ ...baseSource, avatar_url: null }, null, null);
+      expect(preview.avatar_url).toBeNull();
+    });
+  });
+
   it('campo ausente no editor vira fallback neutro, nunca valor inventado', () => {
     const preview = buildMestrePreviewData(baseSource);
     // Sempre 0: o contador do editor conta TODAS as mesas, o publico so as
