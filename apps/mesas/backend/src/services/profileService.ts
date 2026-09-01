@@ -49,6 +49,36 @@ export interface FullProfile {
   };
 }
 
+/**
+ * Nickname de um `gm_profiles` recem-criado.
+ *
+ * Relato do mantenedor (2026-09-01, mestre `dadoviciadopodcast`): o perfil
+ * nascia com `nickname` NULL por estes dois inserts, que derivavam so o `slug`.
+ * O `POST /api/v1/gm/profile` (`gmPanel.ts:250`) EXIGE nickname de 2-40
+ * caracteres — dois caminhos de criacao da mesma tabela com contratos
+ * diferentes. Medido em producao no dia do relato: 7 de 49 perfis sem
+ * nickname, e o mestre travado sem publicar mesa nem salvar o proprio nome.
+ *
+ * A ordem espelha `deriveGmNickname` do front
+ * (`useProfileQuery.ts:349`), que ja resolvia o mesmo problema no upsert do
+ * cliente: patch → username → local do e-mail → slug (que nunca e vazio). O
+ * corte em 40 e o piso de 2 vem do contrato do backend; manter as duas regras
+ * iguais e o que impede o perfil criado por um caminho de ser invalido pelo
+ * outro.
+ */
+export function deriveGmNickname(
+  user: { username: string | null; email: string } | undefined,
+  slug: string,
+  patch?: Record<string, unknown>,
+): string {
+  const doPatch = typeof patch?.nickname === 'string' ? patch.nickname.trim() : '';
+  if (doPatch.length >= 2) return doPatch.slice(0, 40);
+
+  const bruto = (user?.username || user?.email?.split('@')[0] || '').trim();
+  const candidato = bruto.length >= 2 ? bruto : slug;
+  return candidato.slice(0, 40);
+}
+
 export async function getFullProfile(userId: string): Promise<FullProfile> {
   const user = await db
     .selectFrom('users')
@@ -291,6 +321,7 @@ export async function updateGmProfile(userId: string, data: GmProfileUpdate): Pr
       .values({
         user_id: userId,
         slug,
+        nickname: deriveGmNickname(user, slug, sanitizedData),
         ...sanitizedData,
       })
       .execute();
@@ -457,6 +488,7 @@ export async function connectDiscord(
       .values({
         user_id: userId,
         slug,
+        nickname: deriveGmNickname(user, slug),
         discord_connected: true,
         discord_username: discordData.username,
         discord_id: discordData.id,

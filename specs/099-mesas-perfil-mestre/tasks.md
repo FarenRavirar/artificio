@@ -1,6 +1,6 @@
 # Tasks 099 — Perfil do mestre
 
-**Status: fase A executada (A1–A3, gate A fechado); fase B executada (B0–B11, gate B fechado com 1 pendência nomeada).** Decisões D1–D11 fechadas (`spec.md` §3).
+**Status: fase A executada (A1–A3, gate A fechado); fase B executada (B0–B11, gate B fechado com 1 pendência nomeada); fase E executada em 2026-09-01 por incidente em produção (E1–E3 concluídas).** Decisões D1–D11 fechadas (`spec.md` §3).
 
 Ordem de execução: **A → B → C**, com a fase de forma (**F**) em paralelo — ver a colisão com a 098 em F0.
 Cada task só é dada como concluída com **medição citada** — comando rodado e o que voltou.
@@ -177,6 +177,49 @@ ofereceu. §8 marca os dois pontos onde o mantenedor pode decidir diferente.
 | **C4** | Medir **o editor em 719px** e **tema claro** | spec §5, §6 · §11 (página pública **já medida**, sem overflow) · §11.1 (editor em mobile **não medido** — a janela não redimensionou) | medição registrada; defeitos achados viram task |
 
 **→ Fechar o GATE C.**
+
+---
+
+## Fase E — Integridade do perfil já existente (aberta em 2026-09-01 por incidente em produção)
+
+Fase criada **depois** de A/B/C fecharem, por relato do mantenedor: o mestre
+`dadoviciadopodcast` não conseguia salvar o próprio nome, gravar sistemas que mestra
+nem publicar mesa. A B0 alinhou `nickname` (2-40) no schema e no upsert do editor, e a
+§8 já classificava o campo como **obrigatório** ("sem nome não há perfil") — mas o
+alinhamento cobriu **duas** das quatro portas de escrita que `old_spec.md:174` havia
+mapeado. O perfil quebrado nasceu pela terceira.
+
+**O que a spec previa e o que não previa.** O contrato do campo estava decidido (§8) e
+a B0 o implementou onde olhou; o que faltou foi aplicá-lo em `updateGmProfile`
+(`profileService.ts`), alcançado por `PATCH /api/v1/profile/gm` e `/me/gm`. Nada na 099
+trata de **dado legado já inconsistente** — a spec governa o contrato daqui pra frente,
+e os 7 perfis quebrados são consequência acumulada, não decisão pendente.
+
+| # | Fazer | LER ANTES | Aceite medido |
+|---|---|---|---|
+| **E1** | Fechar a porta que criava `gm_profiles` sem `nickname` | §8 (nickname **obrigatório**) · `old_spec.md:174` (as 4 portas) · B0 | **concluída (2026-09-01):** `deriveGmNickname` no `profileService`, aplicado aos **dois** inserts (o de `updateGmProfile` e o do vínculo Discord). A ordem espelha a do front (`useProfileQuery.ts:349`) — patch → username → local do e-mail → slug —, porque duas regras para o mesmo contrato divergiriam. Medição: `src/services`+`src/routes` 360/360, `tsc -b` limpo, 6 testes novos; A9: fallback do slug removido → 2 falhas |
+| **E2** | Clique em sistema não pode sumir em silêncio | logs de produção (2026-09-01) · spec 099 B8 (mesma falha, já corrigida no `updateGm`) | **concluída (2026-09-01):** removido `if (isPending) return` de `addSystem`/`removeSystem` no `ProfileContext`. Medido nos logs do `mesas-api`: **6** `DELETE /profile/systems/6552a50a` — o mesmo id, em pares de ~1s — o mestre clicava, a tela não reagia, clicava de novo. Seguro porque `addUserSystem` já faz `onConflict(...).doNothing()` (`profileService.ts:390`). Frontend 7/7, `tsc -b` limpo |
+| **E3** | Recuperar os 7 perfis já gravados sem `nickname` | §8 · E1 (impede novos casos, não conserta os velhos) | **concluída (2026-09-01):** `UPDATE gm_profiles` preenchendo `nickname` a partir de `username` → local do e-mail → `slug` (mesma ordem de E1), com `pg_dump` de `gm_profiles` antes (`/tmp/gm_profiles_pre_nickname.sql`, 45.843 bytes). Resultado: **`UPDATE 7`**; verificação `SELECT count(*) FILTER (WHERE nickname IS NULL OR length(btrim(nickname))=0), count(*) FROM gm_profiles` → **`0\|49`**. Executado pelo mantenedor: o classificador do harness recusa SQL de escrita em produção mesmo com `Bash(ssh faren *)` na allowlist — a autorização dele não destrava essa camada |
+
+**Medição que abriu a fase (produção, 2026-09-01):**
+
+| medida | valor |
+|---|---|
+| perfis sem `nickname` | **7 de 49** (14%) |
+| sintoma no `mesas-api` | `POST /gm/tables` → 403 "Perfil não encontrado"; `POST /gm/profile` → 500 `duplicate key gm_profiles_user_id_key` |
+| o que o F5 resolvia | zera `gmExistiaAntes` (estado de módulo) e o refetch traz `gm` → vira PUT; **não** preenche o nickname |
+
+**Contradição que localizou a causa:** a publicação dizia "perfil não encontrado" enquanto
+a criação dizia "chave duplicada". O perfil existia — nascido incompleto por uma porta que
+não exigia o campo que a outra exige.
+
+**Descartado com medição, para não ser reinvestigado:** a divergência de ids entre
+`catalog_nodes` (central) e a tabela `systems` (projeção legada, 1269 linhas) é real —
+`user_systems` tem **0 de 23** ids presentes na projeção —, mas **não afeta o usuário**:
+`mesasHydrationSystemGuard` importa `prodDb` e só é consumido por `adminEnrichment`
+(cópia prod→beta). Os três caminhos que o mestre exercita
+(`POST /profile/systems`, `GET /systems?view=tree`, `hydrateTableSystemFields`) leem do
+catálogo central. O 3D&T do relato estava gravado com id central válido e ativo.
 
 ---
 

@@ -222,8 +222,18 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
           flushGmBuffer();
         }, AUTOSAVE_DEBOUNCE_MS);
       },
+      // Sem `if (isPending) return`: o guard descartava o clique EM SILENCIO
+      // enquanto uma chamada estava em voo, e a tela nao dava sinal nenhum —
+      // o mestre clicava de novo, e de novo. Medido em producao (2026-09-01,
+      // logs do `mesas-api`): 6 `DELETE .../profile/systems/6552a50a`, o MESMO
+      // id, em pares de ~1s. E a mesma falha que a spec 099 B8 tirou do
+      // `updateGm`; aqui ela tinha ficado de pe.
+      //
+      // A mutation ja e idempotente do lado do servidor (`addUserSystem` faz
+      // `onConflict(...).doNothing()`), entao deixar o clique passar custa uma
+      // requisicao a mais e devolve o que o usuario pediu — ao contrario de
+      // engolir a acao, que ensina que o botao nao funciona.
       addSystem: async (systemId, type = 'favorite') => {
-        if (addSystemMutation.isPending) return;
         try {
           await addSystemMutation.mutateAsync({ systemId, type });
           setSaveError(null);
@@ -231,8 +241,8 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
           setSaveError(toErrorMessage(mutationError));
         }
       },
+      // Mesmo motivo do `addSystem` acima — os 6 DELETEs medidos eram daqui.
       removeSystem: async (systemId) => {
-        if (removeSystemMutation.isPending) return;
         try {
           await removeSystemMutation.mutateAsync(systemId);
           setSaveError(null);

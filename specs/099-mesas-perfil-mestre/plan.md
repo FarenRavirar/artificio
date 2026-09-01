@@ -1,6 +1,6 @@
 # Plano 099 — Perfil do mestre
 
-**Status:** decisões D1–D11 fechadas. **Fase A executada (gate A fechado). Fase B executada (B0–B11, gate B fechado com 1 pendência nomeada).** Fases C e D não iniciadas.
+**Status:** decisões D1–D11 fechadas. **Fase A executada (gate A fechado). Fase B executada (B0–B11, gate B fechado com 1 pendência nomeada). Fase E executada em 2026-09-01 por incidente em produção (E1–E3 concluídas).** Fases C e D não iniciadas.
 Sequência, gates e pré-requisitos técnicos. As tasks estão em `tasks.md`; o estado medido
 e a forma dos dados, em `spec.md`.
 
@@ -220,6 +220,29 @@ hero, 150 por substring no SPA).
       resolvido por medição em spec §7: entra aqui, não antes de B, porque nenhuma media
       query do editor muda a estrutura de campo
 - [ ] A10: antes/depois nos 20 perfis reais
+
+---
+
+## Fase E — Integridade do perfil já existente (aberta em 2026-09-01, fora da sequência original)
+
+Não estava planejada: entrou por incidente em produção, depois de A/B/C fecharem. A §8 da
+spec já classificava `nickname` como **obrigatório** e a B0 alinhou o contrato (2-40) —
+mas só nas duas portas do editor (`POST`/`PUT /api/v1/gm/profile`). A terceira porta
+(`PATCH /api/v1/profile/gm` → `profileService.updateGmProfile`) criava `gm_profiles`
+derivando apenas o `slug`, e o perfil nascia com `nickname` NULL.
+
+**Por que isso trava o mestre inteiro, e não só o campo do nome:** o `POST /gm/profile`
+recusa nickname ausente com 400, então o upsert do cliente falhava; o `onError` restaurava
+o cache com `gm: null`, o snapshot `gmExistiaAntes` voltava a `false`, e a tentativa
+seguinte era POST de novo — batendo em `duplicate key`. Toda gravação do perfil ficava
+presa nesse laço, incluindo sistemas e a publicação de mesa.
+
+- [x] E1: `deriveGmNickname` no `profileService`, nos dois inserts — 360/360, A9 com 2 falhas
+- [x] E2: guard silencioso fora de `addSystem`/`removeSystem` — 7/7, medido em 6 DELETEs repetidos nos logs
+- [x] E3: `UPDATE` nos 7 perfis legados — `UPDATE 7`, verificação `0|49`; rodado pelo mantenedor (o classificador do harness recusa SQL de escrita em produção)
+
+**Ordem:** E1 antes de E3. Corrigir o dado sem fechar a porta faria os perfis voltarem a
+nascer quebrados; fechar a porta sem corrigir o dado deixa os 7 mestres travados.
 
 ---
 
