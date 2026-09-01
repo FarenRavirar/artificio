@@ -1,6 +1,6 @@
 # Spec 099 — Perfil do mestre: o que o mestre insere e o que o sistema expõe
 
-**App:** `mesas` · **Status:** fase A executada (A1–A3, gate A fechado); fase B executada (B0–B10, gate B fechado com 1 pendência nomeada); **B11 pendente**; fases C e D não iniciadas
+**App:** `mesas` · **Status:** fase A executada (A1–A3, gate A fechado); fase B executada (B0–B11, gate B fechado com 1 pendência nomeada); fases C e D não iniciadas
 **Escrita para implementar.** Investigação, medições e fontes que sustentam cada decisão
 estão em `old_spec.md` (temporário, será removido após conferência do mantenedor).
 
@@ -230,7 +230,7 @@ Não afirmar nada sobre estes pontos sem medir antes.
 | editor de perfil em runtime | **não medido** — exige sessão (§11.1) |
 | comportamento com perfil cheio | **impossível hoje** — nenhum dos 20 preenchido |
 | nav global com alvo de 22px | **não reproduz** no CSS do pacote (`min-height: 40px`) — re-medir em runtime |
-| custo do esquema de extração para bio | **não medido** (o parser atual é calibrado para anúncio) |
+| custo do esquema de extração para bio | **medido em B11 (2026-09-01), conferido em revisão independente:** 4 atributos estritos (`experience_years`, `specialties`, `languages`, `badges`), endpoint autenticado sem escrita, painel local de confirmação e cache generalizado por schema. Sem migration, lib nova ou pacote compartilhado. Superfície final medida em `git status`: **4 arquivos de produção + 3 de teste**; validação e vetores verificados em `tasks.md` B11 |
 | os 3 perfis com banner real | **não inspecionados** visualmente |
 | soma da tabela de seções (§2.1 de `old_spec.md`) | **inconsistente**: 4856px medidos × 5341px declarados — faltam 485px. A tabela é recorte do que apareceu naquela medição, não o inventário do componente, que monta **11 blocos** |
 

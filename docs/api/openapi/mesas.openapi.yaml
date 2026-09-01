@@ -4743,6 +4743,42 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /api/v1/gm/profile/bio-suggestions:
+    post:
+      operationId: postapi_v1_gm_profile_bio_suggestions
+      summary: "Cria ou executa api v1 gm profile bio-suggestions"
+      x-artificio-owner: mesas
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: user
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/v1/gm/tables:
     get:
       operationId: getapi_v1_gm_tables

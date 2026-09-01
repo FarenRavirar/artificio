@@ -34,6 +34,7 @@ import {
   sanitizeUserMarkdown,
 } from '../utils/userMarkdown.js';
 import { parseTextForPreview } from '../discord/parseTextForPreview.js';
+import { extractProfileBioAttributes } from '../discord/llmAssist.js';
 import {
   loadSystemsForParser,
   loadVttPlatformsForParser,
@@ -543,6 +544,45 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
   } catch (error) {
     console.error('[PUT /gm/profile]', error);
     return res.status(500).json({ error: 'Erro ao atualizar perfil de mestre.' });
+  }
+});
+
+const profileBioSuggestionsRequestSchema = z.object({
+  bio: z.string().trim().min(1, 'Escreva uma bio antes de buscar sugestões.').max(2000),
+}).strict();
+
+// POST /api/v1/gm/profile/bio-suggestions — D11 (spec 099).
+// A rota só lê texto e devolve candidatos. A escrita continua exclusivamente
+// no PUT/POST /gm/profile e só é chamada pelo front após confirmação explícita.
+router.post('/profile/bio-suggestions', authMiddleware, async (req: Request, res: Response) => {
+  const validation = profileBioSuggestionsRequestSchema.safeParse(req.body);
+  if (!validation.success) {
+    return res.status(400).json({ error: validation.error.issues[0]?.message ?? 'Payload inválido.' });
+  }
+
+  const userId = req.user!.userId;
+  try {
+    const profile = await db
+      .selectFrom('gm_profiles')
+      .select(['experience_years', 'specialties', 'languages', 'badges'])
+      .where('user_id', '=', userId)
+      .executeTakeFirst();
+    const result = await extractProfileBioAttributes({
+      bio: validation.data.bio,
+      currentFields: {
+        experience_years: profile?.experience_years ?? null,
+        specialties: profile?.specialties ?? [],
+        languages: profile?.languages ?? [],
+        badges: profile?.badges ?? [],
+      },
+    });
+    if (!result) {
+      return res.status(503).json({ error: 'Sugestões indisponíveis agora. O perfil continua editável normalmente.' });
+    }
+    return res.json({ data: result });
+  } catch (error: unknown) {
+    console.error('[POST /gm/profile/bio-suggestions]', error);
+    return res.status(500).json({ error: 'Erro ao analisar a bio. O perfil continua editável normalmente.' });
   }
 });
 

@@ -1,6 +1,6 @@
 # Tasks 099 — Perfil do mestre
 
-**Status: fase A executada (A1–A3, gate A fechado); fase B executada (B0–B10, gate B fechado com 1 pendência nomeada); B11 pendente (retomada pelo mantenedor em 2026-08-31 — próxima task).** Decisões D1–D11 fechadas (`spec.md` §3).
+**Status: fase A executada (A1–A3, gate A fechado); fase B executada (B0–B11, gate B fechado com 1 pendência nomeada).** Decisões D1–D11 fechadas (`spec.md` §3).
 
 Ordem de execução: **A → B → C**, com a fase de forma (**F**) em paralelo — ver a colisão com a 098 em F0.
 Cada task só é dada como concluída com **medição citada** — comando rodado e o que voltou.
@@ -86,11 +86,24 @@ dado some. Criar campo antes disto entrega porta falsa.
 
 | # | Fazer | LER ANTES | Aceite medido |
 |---|---|---|---|
-| **B11** | Extrair atributos da bio e **oferecer para confirmação** | D11 (**trava**) · plan §B "extração assistida" | **pendente — próxima task** (mantenedor retomou B10/B11 em 2026-08-31; B10 concluída, pausa após ela para atualização de docs). Aceite: máquina **sugere**, mestre confirma, publicação nunca travada; enquanto não existir, o número na bio fica como está (spec §12.3) |
+| **B11** | Extrair atributos da bio e **oferecer para confirmação** | D11 (**trava**) · plan §B "extração assistida" | **concluída (2026-09-01):** schema discriminado (`experience_years`/`specialties`/`languages`/`badges`) com `evidence` + `confidence` obrigatórios e `.strict()`; `POST /api/v1/gm/profile/bio-suggestions` autenticado, só `selectFrom`, sem nenhum caminho de escrita; a resposta fica em estado local do `BioAttributeSuggestions` e apenas `Confirmar e aplicar` chama `updateGm`; falha da IA devolve 503 não bloqueante e a bio segue editável. Cache de `llmAssist` generalizado por schema (era preso ao `extractedFieldsSchema` do anúncio). **Medição, conferida em revisão independente (2026-09-01):** backend 14/14, frontend 61/61, `rtk tsc -b` limpo nos 2 pacotes (`-b`, não `-p`: é o `-b` que inclui os tsconfig de teste e foi o que pegou o CI vermelho da PR #300), eslint 0 em 7 arquivos, `verify:api` verde com `mesas: breaking=0 non-breaking=1`. A9: autoaplicação reintroduzida → "analisar só mostra a sugestão" falhou com 1 chamada indevida a `updateGm`; restaurado → 61/61 |
 
 **⚠️ Trava de B11:** nada é gravado sem confirmação. O F1 do Airbnb é 75% — gravar direto
-erraria um em cada quatro atributos exibidos ao jogador. `llmAssist.ts` já faz a chamada
-com esquema + Zod + cache; o trabalho é o esquema novo, não a infraestrutura.
+erraria um em cada quatro atributos exibidos ao jogador. `llmAssist.ts` já fazia a chamada
+com esquema + Zod; a medição de B11 encontrou o cache preso ao schema de anúncio e a task
+generalizou essa leitura antes de ligar o schema da bio.
+
+**Escalar substitui, lista acumula — é D11 implementado, não descuido.** `experience_years`
+é sobrescrito ao confirmar; as três listas checam duplicata e acrescentam. A revisão
+independente levantou a assimetria como possível defeito e a pesquisa na spec a
+**descartou**: §12.3 define o caso de uso como *coluna vazia* com número na bio (3 de 7
+perfis medidos) e a trava de D11 é "nada trava a publicação" — avisar antes de substituir
+poria fricção onde a spec a proíbe, e confirmar é a fala do mestre, que a plataforma não
+corrige. Registrado porque quem olhar só o código tende a "consertar" isso.
+
+**Débito herdado, não da B11:** `503` aparece **0 vezes** em `mesas.openapi.yaml` contra
+~10 rotas que o retornam no código (`systems.ts`, `profile.ts`, `adminTables.ts`,
+e agora `bio-suggestions`). O gerador não emite 503; o contrato mente sobre todas elas.
 
 **Sobre B6 — a classificação campo→nível está em `spec.md` §8.** Ela não existia em
 nenhum documento da spec (nem na investigação); foi **derivada** das fontes já levantadas —
@@ -158,7 +171,7 @@ esperando o anterior.
 | mobile e tema claro | **não medidos** → C4 |
 | perfil de controle preenchido | **não existe** — nenhum dos 20 |
 | nav global 22px | **não reproduz** no CSS do pacote → F3 |
-| custo do esquema de extração para bio | **não medido** → B11 |
+| custo do esquema de extração para bio | **medido e concluído em B11** — 4 atributos estritos, 4 arquivos de produção + 3 arquivos de teste, sem migration/lib/pacote compartilhado; cache exigiu generalização tipada |
 | write path de `closed_group_*` | **não medido** → B0.1 |
 | `gmProfileSchema` sem `selling_points`/`tagline`/`promo_badge_text`/`badges` | **medido** — pré-requisito da fase B (plan B.0, passo 2), antes de qualquer campo novo |
 | checkbox sem dimensão no `AdminTable` de `packages/ui` (`admin/AdminTable.tsx:288,304` — as classes de tamanho estão no `th`/`td`, não no `input`, então vale o default do agente de usuário) | **fora do A6** (que cobre página pública + editor), usado em telas admin do `mesas`. Registrado para não sumir; se entrar, exige **aprovação de pacote**. O "~13px" é default de runtime, **não medível na fonte** — precisa de navegador. `AdminTable` sai do subpath `@artificio/ui/admin`, não do índice raiz |

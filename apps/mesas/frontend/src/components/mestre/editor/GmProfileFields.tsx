@@ -19,6 +19,7 @@ import { useSystemsCatalog } from '../../../hooks/useSystemsCatalog';
 import { MarkdownEditor } from '../../MarkdownEditor';
 import { normalizeSellingPoints } from '../../../hooks/useMestre';
 import { useProfileContext } from '../../../contexts/useProfileContext';
+import { BioAttributeSuggestions } from './BioAttributeSuggestions';
 // Vocabulário fechado de `selling_points` (spec 099 §2.2): o dicionário vive
 // no módulo `../sellingPointIcons` (fonte única entre exibição e editor —
 // módulo `.ts` porque `react-refresh/only-export-components` proíbe exportar
@@ -558,7 +559,7 @@ interface BioLongFieldProps {
  * fica de fora).
  */
 export function BioLongField({ value }: BioLongFieldProps) {
-  const { updateGm } = useProfileContext();
+  const { profile, updateGm } = useProfileContext();
   // Rascunho local, mesmo padrão do estado que vivia na TabMestre: o texto
   // digitado não é reformatado pelo valor externo a cada autosave.
   const [bioLong, setBioLong] = useState(value);
@@ -578,6 +579,19 @@ export function BioLongField({ value }: BioLongFieldProps) {
           height={300}
         />
       </div>
+      <BioAttributeSuggestions
+        bio={bioLong}
+        onConfirm={(candidate) => {
+          if (candidate.field === 'experience_years') {
+            updateGm({ experience_years: candidate.value });
+            return;
+          }
+          const current = profile?.gm?.[candidate.field] ?? [];
+          const normalized = candidate.value.toLocaleLowerCase('pt-BR');
+          const exists = current.some((value) => value.toLocaleLowerCase('pt-BR') === normalized);
+          if (!exists) updateGm({ [candidate.field]: [...current, candidate.value] });
+        }}
+      />
       <p className="text-xs opacity-75">Recomendado — {RECOMMENDED_GAIN.bioLong}.</p>
     </div>
   );

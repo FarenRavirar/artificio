@@ -1,6 +1,6 @@
 # Plano 099 — Perfil do mestre
 
-**Status:** decisões D1–D11 fechadas. **Fase A executada (gate A fechado). Fase B executada (B0–B10, gate B fechado com 1 pendência nomeada); B11 pendente.** Fases C e D não iniciadas.
+**Status:** decisões D1–D11 fechadas. **Fase A executada (gate A fechado). Fase B executada (B0–B11, gate B fechado com 1 pendência nomeada).** Fases C e D não iniciadas.
 Sequência, gates e pré-requisitos técnicos. As tasks estão em `tasks.md`; o estado medido
 e a forma dos dados, em `spec.md`.
 
@@ -167,8 +167,12 @@ O editor de anúncio de mesa (spec 096) já resolveu este problema de interface.
 ### Extração assistida (D11) — depois do formulário
 
 Sem formulário não há onde confirmar nem corrigir. A infraestrutura **já roda**:
-`discord/llmAssist.ts` chama a API DeepSeek com esquema, normaliza com Zod, remove cercas
-de markdown e cacheia por `model`. O trabalho é um esquema novo, não uma capacidade nova.
+`discord/llmAssist.ts` chama a API DeepSeek com esquema, normaliza com Zod e remove cercas
+de markdown. **Medição B11 (2026-09-01):** o cache existente não era genérico —
+`readCachedDecision` validava sempre com `extractedFieldsSchema`, próprio do anúncio. B11
+generalizou a leitura para receber o schema Zod do resultado e passou a cachear a extração
+da bio por `model` + `prompt_version` + hash do request. Foi capacidade existente com uma
+adaptação de infraestrutura, não só a declaração de um schema.
 
 O `parse-preview` do editor de mesa é o precedente de **arquitetura** (sugerir + confirmar),
 não de técnica: aquele parser é **motor de regras**, sem modelo.
