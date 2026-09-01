@@ -85,7 +85,11 @@ export function MestreReviewsSection({ slug }: MestreReviewsSectionProps) {
   };
 
   return (
-    <section className="container" style={{ marginTop: '3rem' }}>
+    // Sem `marginTop` próprio: o vão entre seções é do container
+    // (`.mestre-section-flow`, C3). A margem local sobrevivera à remoção das
+    // outras três e somava 48px ao `gap`, dando 96px só antes de Avaliações
+    // (achado de review, PR #302).
+    <section className="container">
       <h2 className="text-xl font-bold text-white mb-4">Avaliações</h2>
 
       {isAuthenticated ? (

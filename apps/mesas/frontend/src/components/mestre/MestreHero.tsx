@@ -59,7 +59,11 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
   const bannerFailed = bannerFailure === profile.banner_url;
   const avatarFailed = avatarFailure === profile.avatar_url;
   const tagline = profile.tagline?.trim() || null;
-  const bioFallback = !tagline && profile.bio_long
+  // Apoio da dobra, não fallback da tagline: §2.3 põe a `tagline` no `h1` **e**
+  // mantém a 1ª frase da bio abaixo. A primeira versão de C1 condicionava este
+  // resumo a `!tagline`, então o perfil que preenchesse os dois campos perdia a
+  // bio da dobra — justamente o perfil mais completo (achado de review, PR #302).
+  const bioSummary = profile.bio_long
     ? (() => {
         const firstSentence = profile.bio_long.split(/[.!?]\s+/)[0];
         return firstSentence.length > 140
@@ -173,7 +177,7 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
           )}
         </h1>
 
-        {bioFallback && <p className="hero-bio">{bioFallback}</p>}
+        {bioSummary && <p className="hero-bio">{bioSummary}</p>}
 
         {hasHeroAttributes && (
           <div className="hero-attributes" aria-label="Atributos principais do mestre">

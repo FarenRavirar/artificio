@@ -72,6 +72,40 @@ describe('MestreHero — dobra escrita pelo mestre (spec 099 C1)', () => {
     ).toBeTruthy();
   });
 
+  // §2.3 põe a tagline no `h1` **e** mantém a 1ª frase da bio como apoio: são
+  // camadas somadas, não alternativas. A primeira versão de C1 tratava a bio
+  // como fallback e a escondia justamente no perfil que preenche os dois campos
+  // — o mais completo (achado de review, PR #302).
+  it('mantém o resumo da bio abaixo da tagline quando os dois existem', () => {
+    const profile = makeMestreProfile({
+      display_name: 'Mestre Aurora',
+      tagline: 'Mistério, escolhas difíceis e personagens que importam',
+      bio_long: 'Narro há doze anos. Prefiro mesas longas e investigativas.',
+    });
+
+    render(<MestreHero profile={profile} mappedTables={[]} totalOpenSlots={0} />);
+
+    expect(
+      screen.getByRole('heading', {
+        level: 1,
+        name: 'Mistério, escolhas difíceis e personagens que importam',
+      }),
+    ).toBeTruthy();
+    expect(screen.getByText('Narro há doze anos.')).toBeTruthy();
+  });
+
+  it('trunca o resumo da bio em 140 caracteres só quando excede', () => {
+    const profile = makeMestreProfile({
+      display_name: 'Mestre Aurora',
+      tagline: 'Uma tagline curta',
+      bio_long: `${'a'.repeat(200)}. Segunda frase.`,
+    });
+
+    render(<MestreHero profile={profile} mappedTables={[]} totalOpenSlots={0} />);
+
+    expect(screen.getByText(`${'a'.repeat(140)}…`)).toBeTruthy();
+  });
+
   it('leva para a dobra somente specialties, selling_points e languages', () => {
     const profile = makeMestreProfile({
       specialties: ['Horror', 'Intriga', 'Exploração'],
