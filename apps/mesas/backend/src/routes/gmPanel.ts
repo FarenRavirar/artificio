@@ -48,6 +48,28 @@ import {
 import { loadActiveLabelAliases } from '../discord/learningRules.js';
 import { z } from 'zod';
 
+/**
+ * Teto de `languages`/`specialties`/`badges` (achado de review, PR #301).
+ * O filtro anterior so checava `typeof string`: sem limite de quantidade nem de
+ * tamanho, e o servidor aceita JSON de ate 12 MB (`server.ts:92`). O dado
+ * entrava inteiro no banco e era relido por todo consumidor — inclusive o
+ * prompt e a auditoria da extracao de bio (`llmAssist.ts`), que multiplicava o
+ * volume por analise.
+ *
+ * Os numeros espelham limites que este mesmo handler ja aplicava a campos de
+ * texto (`tagline`, `.slice(0, 200)`): cortar abuso sem estorvar uso real —
+ * 40 itens de ate 120 caracteres cobrem qualquer perfil legitimo. Devolve
+ * `undefined` para entrada nao-array, preservando a distincao que o PUT usa
+ * entre "campo ausente" e "lista vazia".
+ */
+function sanitizeProfileList(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .slice(0, 40)
+    .map((item) => item.slice(0, 120));
+}
+
 const router = Router();
 
 const SITE_URL = process.env.PUBLIC_SITE_URL || 'https://mesas.artificiorpg.com';
@@ -258,9 +280,9 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
     safeContactMethods = validation.data;
   }
 
-  const safeLanguages = Array.isArray(languages) ? languages.filter(v => typeof v === 'string') : [];
-  const safeSpecialties = Array.isArray(specialties) ? specialties.filter(v => typeof v === 'string') : [];
-  const safeBadges = Array.isArray(badges) ? badges.filter(v => typeof v === 'string') : [];
+  const safeLanguages = sanitizeProfileList(languages) ?? [];
+  const safeSpecialties = sanitizeProfileList(specialties) ?? [];
+  const safeBadges = sanitizeProfileList(badges) ?? [];
   const safeTagline = typeof tagline === 'string' ? tagline.trim().slice(0, 200) : null;
   const safePromoBadgeText = typeof promo_badge_text === 'string' ? promo_badge_text.trim().slice(0, 120) : null;
   const safeSellingPoints = Array.isArray(selling_points)
@@ -403,9 +425,9 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
   }
 
   const safeNickname = typeof nickname === 'string' ? nickname.trim() : undefined;
-  const safeLanguages = Array.isArray(languages) ? languages.filter((v) => typeof v === 'string') : undefined;
-  const safeSpecialties = Array.isArray(specialties) ? specialties.filter((v) => typeof v === 'string') : undefined;
-  const safeBadges = Array.isArray(badges) ? badges.filter((v) => typeof v === 'string') : undefined;
+  const safeLanguages = sanitizeProfileList(languages);
+  const safeSpecialties = sanitizeProfileList(specialties);
+  const safeBadges = sanitizeProfileList(badges);
   // Achado real (Sonar, Medium, fase 7 da spec 089): normalizadores explícitos
   // preservam string/null/undefined sem ternários aninhados nos handlers.
   const safeTagline = normalizeNullableString(tagline, (value) => value.trim().slice(0, 200));
@@ -576,13 +598,19 @@ router.post(
         .select(['experience_years', 'specialties', 'languages', 'badges'])
         .where('user_id', '=', userId)
         .executeTakeFirst();
+      // `sanitizeProfileList` tambem na LEITURA, nao so na escrita: perfis
+      // gravados antes do teto seguem no banco com o array inteiro, e daqui o
+      // dado vai para o prompt e para a auditoria da extracao (achado de
+      // review, PR #301). A extracao aplica o mesmo corte por dentro, para o
+      // proximo consumidor; esta camada garante que a rota nunca entregue mais
+      // do que precisa, inclusive para linha antiga.
       const result = await extractProfileBioAttributes({
         bio: validation.data.bio,
         currentFields: {
           experience_years: profile?.experience_years ?? null,
-          specialties: profile?.specialties ?? [],
-          languages: profile?.languages ?? [],
-          badges: profile?.badges ?? [],
+          specialties: sanitizeProfileList(profile?.specialties) ?? [],
+          languages: sanitizeProfileList(profile?.languages) ?? [],
+          badges: sanitizeProfileList(profile?.badges) ?? [],
         },
       });
       if (!result) {

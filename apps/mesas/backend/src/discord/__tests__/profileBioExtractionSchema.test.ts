@@ -55,6 +55,22 @@ describe('filterCandidatesByEvidence — evidencia tem de estar na bio', () => {
     expect(filtered.candidates[0]?.value).toBe('The Witcher');
   });
 
+  // Achado de review (PR #301): `z.string().trim().min(1)` aceita "🎲🎲" e "...",
+  // que o `normalize` esvazia por descartar tudo fora de [a-z0-9\s]. Como
+  // `includes('')` e sempre true, essas evidencias atravessavam o filtro inteiro
+  // e chegavam a tela como se fossem trecho literal da bio.
+  it.each([
+    ['emoji sozinho', '🎲🎲'],
+    ['pontuacao sozinha', '...'],
+    ['travessao e aspas', '— ""'],
+    ['espaco em branco', '   '],
+  ])('evidencia que normaliza para vazio nao passa (%s)', (_caso, evidence) => {
+    const filtered = filterCandidatesByEvidence({
+      candidates: [{ field: 'badges', value: 'Streamer', evidence, confidence: 0.99 }],
+    }, bio);
+    expect(filtered.candidates).toHaveLength(0);
+  });
+
   it('parafrase nao passa — o contrato do modulo e extracao literal', () => {
     const filtered = filterCandidatesByEvidence({
       candidates: [

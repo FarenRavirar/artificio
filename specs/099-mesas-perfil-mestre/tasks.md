@@ -127,11 +127,26 @@ corrige. Registrado porque quem olhar só o código tende a "consertar" isso.
    pergunta que o parser já fazia sobre nome de sistema, e duas normalizações para o mesmo
    fim divergiriam no primeiro ajuste. A9: filtro neutralizado → 2 falhas, a alucinação
    passando. Paráfrase não passa: o contrato do módulo é extração literal.
+   **Segunda rodada no mesmo filtro:** evidência que normaliza para vazio (`"🎲🎲"`,
+   `"..."`) atravessava tudo, porque `z.string().trim().min(1)` a aceita e
+   `includes('')` é sempre `true` — quem esvazia é o `normalize`, que descarta o que
+   está fora de `[a-z0-9\s]`. Guarda explícita antes do `includes`; A9: 4 falhas, uma
+   por caso.
 4. **`TimeoutError` classificado** (P2 Codex). `AbortSignal.timeout` lança `TimeoutError`,
    não `AbortError`; todo estouro dos 15s caía como `error` e a coluna `status` perdia a
    distinção entre provedor lento e falha interna — que é o que se olha quando a rota
    degrada.
-5. **Rate limit em duas camadas** (P1 Codex). Cada chamada gasta crédito pago, e uma
+5. **Teto em `languages`/`specialties`/`badges`** (P1 Codex). O `PUT`/`POST /gm/profile`
+   filtrava os arrays só por `typeof string` — sem limite de quantidade nem de tamanho,
+   enquanto `tagline` já tinha `.slice(0, 200)` no mesmo handler — e o servidor aceita
+   JSON de até 12 MB (`server.ts:92`). O dado entrava inteiro no banco e era relido pelo
+   prompt **e** pela auditoria da extração, multiplicando o volume por análise.
+   `sanitizeProfileList` (40 itens × 120 chars) na escrita **e** na leitura da rota,
+   porque perfil gravado antes do teto continua no banco com o array inteiro; a extração
+   repete o corte por dentro, para o próximo consumidor. **A correção foi na raiz, não só
+   na B11** — o defeito era do handler de perfil, que a B11 apenas expôs. A9: `.slice`
+   removido → 1 falha com 500 itens chegando à IA.
+6. **Rate limit em duas camadas** (P1 Codex). Cada chamada gasta crédito pago, e uma
    sessão autenticada burla o cache variando um caractere. `bioSuggestionsIpRateLimiter`
    (30/15min) vem **antes** do `authMiddleware`, na ordem que a PR #268 fixou contra
    amplificação; `bioSuggestionsUserRateLimiter` (10/15min, chave `userId`) vem depois.

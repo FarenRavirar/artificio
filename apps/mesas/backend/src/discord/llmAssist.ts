@@ -102,9 +102,17 @@ export function filterCandidatesByEvidence(
 ): ProfileBioExtractionResult {
   const haystack = normalizeEvidenceText(bio);
   return {
-    candidates: result.candidates.filter(
-      (candidate) => haystack.includes(normalizeEvidenceText(candidate.evidence)),
-    ),
+    candidates: result.candidates.filter((candidate) => {
+      const needle = normalizeEvidenceText(candidate.evidence);
+      // Evidencia que normaliza para vazio nao prova nada, e `includes('')` e
+      // sempre `true` — entao emoji ou pontuacao sozinhos ("...", "🎲🎲")
+      // atravessavam o filtro inteiro e chegavam a tela como se fossem trecho
+      // literal da bio (achado de review, PR #301). `z.string().trim().min(1)`
+      // nao pega o caso: a string nao e vazia, quem esvazia e o `normalize`,
+      // que descarta tudo fora de `[a-z0-9\s]`.
+      if (needle === '') return false;
+      return haystack.includes(needle);
+    }),
   };
 }
 
@@ -225,10 +233,30 @@ export async function extractProfileBioAttributes(input: {
 }): Promise<ProfileBioExtractionResult | null> {
   const model = input.model ?? 'deepseek-chat';
   const promptVersion = 'profile-bio-attributes-v1';
+
+  // Teto nos campos atuais (achado de review, PR #301). `current_fields` existe
+  // so para o modelo nao sugerir o que ja esta preenchido, mas ia inteiro para
+  // DOIS lugares: o prompt e a auditoria. O `PUT /gm/profile` filtra os arrays
+  // por `typeof string` sem limitar quantidade nem tamanho (`gmPanel.ts:261-263`,
+  // ao contrario de `tagline`, que tem `.slice(0, 200)`), e o servidor aceita
+  // JSON de ate 12 MB (`server.ts:92`) — entao uma gravacao grande seguida das
+  // 10 analises da janela multiplicaria dezenas de MB na tabela de decisoes,
+  // mesmo com o provedor recusando o prompt. Os limites espelham o que a bio ja
+  // fazia (`.slice(0, 2000)`): cortar o excesso sem perder a funcao, ja que
+  // dezenas de especialidades bastam para o modelo saber o que nao repetir.
+  const capList = (values: string[]): string[] =>
+    values.slice(0, 40).map((value) => value.slice(0, 120));
+  const currentFields = {
+    experience_years: input.currentFields.experience_years,
+    specialties: capList(input.currentFields.specialties),
+    languages: capList(input.currentFields.languages),
+    badges: capList(input.currentFields.badges),
+  };
+
   const requestJson = {
     prompt_version: promptVersion,
     bio: input.bio.slice(0, 2000),
-    current_fields: input.currentFields,
+    current_fields: currentFields,
     allowed_fields: ['experience_years', 'specialties', 'languages', 'badges'],
     rules: [
       'Extraia somente fatos afirmados literalmente pelo mestre na bio.',
@@ -258,7 +286,7 @@ export async function extractProfileBioAttributes(input: {
   const auditJson = {
     prompt_version: promptVersion,
     bio_chars: input.bio.length,
-    current_fields: input.currentFields,
+    current_fields: currentFields,
     allowed_fields: requestJson.allowed_fields,
   };
 

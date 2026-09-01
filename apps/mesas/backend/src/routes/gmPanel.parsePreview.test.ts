@@ -238,6 +238,30 @@ describe('POST /api/v1/gm/profile/bio-suggestions — spec 099 B11', () => {
     expect(TableRepository.createTableWithRelations).not.toHaveBeenCalled();
   });
 
+  // Achado de review (PR #301): `current_fields` ia inteiro para o prompt e para
+  // a auditoria. O `PUT /gm/profile` nao limitava os arrays e o servidor aceita
+  // 12 MB, entao uma gravacao grande seguida das 10 analises da janela
+  // multiplicaria dezenas de MB na tabela de decisoes.
+  it('corta arrays gigantes do perfil antes de mandar para a IA', async () => {
+    (db.selectFrom as Mock).mockReturnValue(mockSelectChain({
+      executeTakeFirst: vi.fn().mockResolvedValue({
+        experience_years: 3,
+        specialties: Array.from({ length: 500 }, (_, i) => `especialidade ${i}`),
+        languages: ['x'.repeat(5000)],
+        badges: [],
+      }),
+    }));
+    mockExtractProfileBioAttributes.mockResolvedValue({ candidates: [] });
+
+    await request(makeApp())
+      .post('/api/v1/gm/profile/bio-suggestions')
+      .send({ bio: 'Uma bio qualquer.' });
+
+    const enviado = mockExtractProfileBioAttributes.mock.calls[0][0];
+    expect(enviado.currentFields.specialties).toHaveLength(40);
+    expect(enviado.currentFields.languages[0]).toHaveLength(120);
+  });
+
   it('falha da IA é não bloqueante e não escreve', async () => {
     (db.selectFrom as Mock).mockReturnValue(mockSelectChain({ executeTakeFirst: vi.fn().mockResolvedValue(undefined) }));
     mockExtractProfileBioAttributes.mockResolvedValue(null);
