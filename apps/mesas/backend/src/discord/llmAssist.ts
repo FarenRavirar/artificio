@@ -214,6 +214,20 @@ export async function extractProfileBioAttributes(input: {
     ],
   };
   const contextPackHash = hashUnknown(requestJson);
+
+  // Auditoria SEM a bio (achado de review, PR #301). `requestJson` carrega o
+  // rascunho integral do mestre e ia inteiro para `discord_llm_decisions`, que
+  // nao tem retencao: um texto que ele nunca salvou nem confirmou ficaria
+  // gravado para sempre, contra a promessa de "analisa sem gravar" desta rota.
+  // O `contextPackHash` (indice unico da tabela) e calculado sobre o request
+  // completo, entao o cache continua exato; o que se perde e so a copia do
+  // texto, que a auditoria nao precisa ter para explicar uma decisao.
+  const auditJson = {
+    prompt_version: promptVersion,
+    bio_chars: input.bio.length,
+    current_fields: input.currentFields,
+    allowed_fields: requestJson.allowed_fields,
+  };
   const cached = await readCachedValidatedResult(
     { model, contextPackHash, promptVersion },
     profileBioExtractionResultSchema,
@@ -223,7 +237,7 @@ export async function extractProfileBioAttributes(input: {
       model,
       contextPackHash,
       promptVersion,
-      requestJson,
+      requestJson: auditJson,
       validatedResult: cached,
       status: 'cache_hit',
     });
@@ -260,7 +274,7 @@ export async function extractProfileBioAttributes(input: {
     });
     const latencyMs = Date.now() - started;
     if (!response.ok) {
-      await recordLlmDecision({ model, contextPackHash, promptVersion, requestJson, latencyMs, status: 'http_error', error: `HTTP ${response.status}` });
+      await recordLlmDecision({ model, contextPackHash, promptVersion, requestJson: auditJson, latencyMs, status: 'http_error', error: `HTTP ${response.status}` });
       return null;
     }
 
@@ -268,7 +282,7 @@ export async function extractProfileBioAttributes(input: {
     const parsedResponse = llmResponseSchema.safeParse(body);
     const content = parsedResponse.success ? parsedResponse.data.choices[0]?.message?.content : null;
     if (!content) {
-      await recordLlmDecision({ model, contextPackHash, promptVersion, requestJson, responseJson: body, latencyMs, status: 'invalid_response', error: 'api_schema' });
+      await recordLlmDecision({ model, contextPackHash, promptVersion, requestJson: auditJson, latencyMs, status: 'invalid_response', error: 'api_schema' });
       return null;
     }
 
@@ -276,15 +290,18 @@ export async function extractProfileBioAttributes(input: {
     try {
       decoded = JSON.parse(stripCodeFence(content));
     } catch {
-      await recordLlmDecision({ model, contextPackHash, promptVersion, requestJson, responseJson: body, latencyMs, status: 'invalid_response', error: 'json_parse' });
+      await recordLlmDecision({ model, contextPackHash, promptVersion, requestJson: auditJson, latencyMs, status: 'invalid_response', error: 'json_parse' });
       return null;
     }
     const result = profileBioExtractionResultSchema.safeParse(decoded);
     if (!result.success) {
-      await recordLlmDecision({ model, contextPackHash, promptVersion, requestJson, responseJson: body, latencyMs, status: 'invalid_response', error: 'result_schema' });
+      await recordLlmDecision({ model, contextPackHash, promptVersion, requestJson: auditJson, latencyMs, status: 'invalid_response', error: 'result_schema' });
       return null;
     }
-    await recordLlmDecision({ model, contextPackHash, promptVersion, requestJson, responseJson: body, validatedResult: result.data, latencyMs, status: 'success' });
+    // `responseJson` fica de fora: o corpo cru da LLM traz `evidence`, que sao
+    // trechos literais da bio — gravar a resposta reintroduziria pela porta dos
+    // fundos o texto que `auditJson` acabou de tirar da frente.
+    await recordLlmDecision({ model, contextPackHash, promptVersion, requestJson: auditJson, validatedResult: result.data, latencyMs, status: 'success' });
     return result.data;
   } catch (error: unknown) {
     const isTimeout = error instanceof DOMException && error.name === 'AbortError';
@@ -292,7 +309,7 @@ export async function extractProfileBioAttributes(input: {
       model,
       contextPackHash,
       promptVersion,
-      requestJson,
+      requestJson: auditJson,
       latencyMs: Date.now() - started,
       status: isTimeout ? 'timeout' : 'error',
       error: error instanceof Error ? error.message : 'unknown',

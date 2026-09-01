@@ -101,6 +101,25 @@ perfis medidos) e a trava de D11 é "nada trava a publicação" — avisar antes
 poria fricção onde a spec a proíbe, e confirmar é a fala do mestre, que a plataforma não
 corrige. Registrado porque quem olhar só o código tende a "consertar" isso.
 
+**Três correções de review na PR #301, todas com A9:**
+
+1. **Sugestão não sobrevive à edição da bio.** `evidence` é trecho literal do texto
+   analisado; a lista ficava na tela depois de o mestre reescrever a bio, citando frase
+   inexistente, e confirmar gravaria atributo tirado de bio antiga. Agora `isStale`
+   (derivado, sem `useEffect`) esconde a lista, e a resposta em voo é descartada se a bio
+   mudou. A9: `isStale = false` → 2 falhas apontando o botão de confirmar sobrevivente.
+2. **Bio fora da auditoria** (P2 Codex). `request_json` levava o rascunho integral para
+   `discord_llm_decisions`, que não tem retenção — texto nunca salvo ficaria gravado para
+   sempre, contra a promessa da rota. Passou a gravar só `bio_chars` + metadados; e
+   `responseJson` saiu junto, porque o corpo cru da LLM traz `evidence` e reporia o texto
+   pela porta dos fundos (esse segundo vazamento o review não citou). O cache é exato
+   porque a chave é o `context_pack_hash`, calculado sobre o request completo.
+3. **Rate limit em duas camadas** (P1 Codex). Cada chamada gasta crédito pago, e uma
+   sessão autenticada burla o cache variando um caractere. `bioSuggestionsIpRateLimiter`
+   (30/15min) vem **antes** do `authMiddleware`, na ordem que a PR #268 fixou contra
+   amplificação; `bioSuggestionsUserRateLimiter` (10/15min, chave `userId`) vem depois.
+   Só IP não servia: NAT compartilhado puniria vizinhos, e troca de IP escaparia da cota.
+
 **Débito herdado, não da B11:** `503` aparece **0 vezes** em `mesas.openapi.yaml` contra
 ~10 rotas que o retornam no código (`systems.ts`, `profile.ts`, `adminTables.ts`,
 e agora `bio-suggestions`). O gerador não emite 503; o contrato mente sobre todas elas.

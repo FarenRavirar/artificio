@@ -4,6 +4,10 @@ import { sql, type Updateable, type Selectable } from 'kysely';
 import { db } from '../db/index.js';
 import type { TablesTable, TableSchedulesTable } from '../db/types.js';
 import { authMiddleware } from '../middleware/auth.js';
+import {
+  bioSuggestionsIpRateLimiter,
+  bioSuggestionsUserRateLimiter,
+} from '../middleware/rateLimit.js';
 import { resolveActorName } from '../services/actorNameResolver.js';
 import crypto from 'crypto';
 import {
@@ -554,37 +558,43 @@ const profileBioSuggestionsRequestSchema = z.object({
 // POST /api/v1/gm/profile/bio-suggestions — D11 (spec 099).
 // A rota só lê texto e devolve candidatos. A escrita continua exclusivamente
 // no PUT/POST /gm/profile e só é chamada pelo front após confirmação explícita.
-router.post('/profile/bio-suggestions', authMiddleware, async (req: Request, res: Response) => {
-  const validation = profileBioSuggestionsRequestSchema.safeParse(req.body);
-  if (!validation.success) {
-    return res.status(400).json({ error: validation.error.issues[0]?.message ?? 'Payload inválido.' });
-  }
-
-  const userId = req.user!.userId;
-  try {
-    const profile = await db
-      .selectFrom('gm_profiles')
-      .select(['experience_years', 'specialties', 'languages', 'badges'])
-      .where('user_id', '=', userId)
-      .executeTakeFirst();
-    const result = await extractProfileBioAttributes({
-      bio: validation.data.bio,
-      currentFields: {
-        experience_years: profile?.experience_years ?? null,
-        specialties: profile?.specialties ?? [],
-        languages: profile?.languages ?? [],
-        badges: profile?.badges ?? [],
-      },
-    });
-    if (!result) {
-      return res.status(503).json({ error: 'Sugestões indisponíveis agora. O perfil continua editável normalmente.' });
+router.post(
+  '/profile/bio-suggestions',
+  bioSuggestionsIpRateLimiter,
+  authMiddleware,
+  bioSuggestionsUserRateLimiter,
+  async (req: Request, res: Response) => {
+    const validation = profileBioSuggestionsRequestSchema.safeParse(req.body);
+    if (!validation.success) {
+      return res.status(400).json({ error: validation.error.issues[0]?.message ?? 'Payload inválido.' });
     }
-    return res.json({ data: result });
-  } catch (error: unknown) {
-    console.error('[POST /gm/profile/bio-suggestions]', error);
-    return res.status(500).json({ error: 'Erro ao analisar a bio. O perfil continua editável normalmente.' });
-  }
-});
+
+    const userId = req.user!.userId;
+    try {
+      const profile = await db
+        .selectFrom('gm_profiles')
+        .select(['experience_years', 'specialties', 'languages', 'badges'])
+        .where('user_id', '=', userId)
+        .executeTakeFirst();
+      const result = await extractProfileBioAttributes({
+        bio: validation.data.bio,
+        currentFields: {
+          experience_years: profile?.experience_years ?? null,
+          specialties: profile?.specialties ?? [],
+          languages: profile?.languages ?? [],
+          badges: profile?.badges ?? [],
+        },
+      });
+      if (!result) {
+        return res.status(503).json({ error: 'Sugestões indisponíveis agora. O perfil continua editável normalmente.' });
+      }
+      return res.json({ data: result });
+    } catch (error: unknown) {
+      console.error('[POST /gm/profile/bio-suggestions]', error);
+      return res.status(500).json({ error: 'Erro ao analisar a bio. O perfil continua editável normalmente.' });
+    }
+  },
+);
 
 // GET /api/v1/gm/me — Retorna perfil próprio do mestre logado
 router.get('/me', authMiddleware, async (req: Request, res: Response) => {

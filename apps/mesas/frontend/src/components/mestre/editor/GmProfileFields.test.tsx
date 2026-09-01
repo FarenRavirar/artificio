@@ -589,6 +589,63 @@ describe('BioLongField e ExperienceYearsField (B6 — recomendados extraídos da
     expect(updateGm).toHaveBeenCalledWith({ bio_long: 'Minha bio continua.' });
   });
 
+  // Achado de review (PR #301): os candidatos ficavam na tela depois de o mestre
+  // editar a bio. Como `evidence` e trecho literal do texto analisado, a
+  // sugestao sobrevivente citava frase que ja nao existia — e confirma-la
+  // gravaria atributo tirado de bio antiga.
+  it('B11: editar a bio retira as sugestoes da analise anterior', async () => {
+    authPost.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          candidates: [
+            { field: 'specialties', value: 'The Witcher', evidence: 'Fanático por The Witcher', confidence: 0.91 },
+          ],
+        },
+      }),
+    });
+    render(<BioLongField value="Fanático por The Witcher." />);
+    updateGm.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Sugerir atributos da bio' }));
+    await screen.findByText('Especialidade: The Witcher');
+
+    fireEvent.change(screen.getByLabelText('Bio detalhada'), { target: { value: 'Outro texto completamente diferente.' } });
+
+    // O botao de confirmar sai da tela: nao ha como gravar a sugestao velha.
+    expect(screen.queryByRole('button', { name: 'Confirmar e aplicar' })).toBeNull();
+    expect(screen.queryByText('Especialidade: The Witcher')).toBeNull();
+    expect(screen.getByText(/A bio mudou desde a última análise/)).toBeTruthy();
+    expect(updateGm).not.toHaveBeenCalledWith({ specialties: ['The Witcher'] });
+  });
+
+  it('B11: resposta que chega depois de a bio mudar nao repovoa a lista', async () => {
+    let liberaResposta: (() => void) | undefined;
+    authPost.mockReturnValue(new Promise((resolve) => {
+      liberaResposta = () => resolve({
+        ok: true,
+        json: async () => ({
+          data: {
+            candidates: [
+              { field: 'badges', value: 'Editor', evidence: 'Editor do site', confidence: 0.9 },
+            ],
+          },
+        }),
+      });
+    }));
+    render(<BioLongField value="Editor do site." />);
+    updateGm.mockClear();
+    authPost.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Sugerir atributos da bio' }));
+
+    // A bio muda ANTES de a analise voltar.
+    fireEvent.change(screen.getByLabelText('Bio detalhada'), { target: { value: 'Texto novo do mestre.' } });
+    liberaResposta?.();
+
+    await waitFor(() => expect(authPost).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText('Selo: Editor')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Confirmar e aplicar' })).toBeNull();
+  });
+
   it('experiência: marcada como recomendada com frase do ganho do registro', () => {
     const { container } = render(<ExperienceYearsField value={null} />);
     expect(
