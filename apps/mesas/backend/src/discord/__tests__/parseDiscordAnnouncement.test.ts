@@ -1348,29 +1348,39 @@ describe('parseDiscordAnnouncement', () => {
       expect(draft?.table.start_time).toBe('19:00');
     });
 
-    // Guard do padrão novo: "N horas" também aparece como DURAÇÃO. Hora fora
-    // de 0-23 nunca é horário de início — sem o guard, "24 horas" viraria
-    // "24:00" no banco.
-    it('duração em horas não vira start_time', () => {
+    // Duracao vs horario: "N horas" serve para os dois, e o parser so pode
+    // gravar `start_time` quando o texto marca HORARIO. Tres guards, um por
+    // forma de duracao que ja produziu horario inventado:
+    //  - hora avulsa sem marcador ("de 3 horas") — achado Codex P1;
+    //  - faixa ligada por "a"/"ate", que nao sao marcadores ("de 3 a 5 horas");
+    //  - valor fora de 0-23 ("24 horas").
+    // Horario inventado e pior que campo vazio: alem de errado, tira o campo
+    // dos avisos de revisao do importador, entao ninguem confere.
+    it.each([
+      ['hora avulsa sem marcador', 'Sessões de 3 horas de duração'],
+      ['faixa ligada por "a"', 'Sessões de 3 a 5 horas de duração'],
+      ['faixa ligada por "até"', 'Mesas de 2 até 4 horas'],
+      ['valor fora de 0-23', 'Maratona de 24 horas de campanha'],
+    ])('duração (%s) não vira start_time', (_caso, texto) => {
       const draft = parseDiscordAnnouncement(makeMessage({
-        content_raw: 'Maratona de 24 horas de campanha\nVagas: 4',
+        content_raw: `${texto}\nVagas: 4`,
       }));
       expect(draft?.table.start_time).toBeNull();
     });
 
-    it('duração plausível como hora ("3 horas") também não vira start_time', () => {
+    // O outro lado do mesmo guard: restringir o conector nao pode calar o
+    // horario real. "ate" aparece como conector legitimo na fixture, sempre
+    // com a hora em formato de relogio — que o padrao de relogio resolve antes.
+    it.each([
+      ['duração antes do horário', 'Sessões de 4 horas, as 20 horas', '20:00'],
+      ['"até" com hora de relógio', 'Segundas-feiras das 20h até às 23:30h', '20:00'],
+    ])('horário real é lido (%s)', (_caso, texto, esperado) => {
       const draft = parseDiscordAnnouncement(makeMessage({
-        content_raw: 'Sessões de 3 horas de duração\nVagas: 4',
+        content_raw: `${texto}\nVagas: 4`,
       }));
-      expect(draft?.table.start_time).toBeNull();
+      expect(draft?.table.start_time).toBe(esperado);
     });
 
-    it('mas o horário real é lido mesmo quando a duração aparece antes', () => {
-      const draft = parseDiscordAnnouncement(makeMessage({
-        content_raw: 'Sessões de 4 horas, as 20 horas\nVagas: 4',
-      }));
-      expect(draft?.table.start_time).toBe('20:00');
-    });
 
     // Achados de review (PR #300), os tres na mesma area de agenda.
     it('hora invalida no meio do texto nao descarta o horario valido seguinte', () => {

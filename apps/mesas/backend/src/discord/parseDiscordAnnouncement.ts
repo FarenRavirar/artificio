@@ -1535,9 +1535,16 @@ const START_TIME_PATTERNS: readonly { readonly re: RegExp; readonly minute: bool
   { re: /\bàs\s{1,3}(\d{1,2})h(\d{0,2})/i, minute: true },
   // Intervalo por extenso: "8 às 11 horas da manhã", "das 19 às 23 horas".
   // Captura a PRIMEIRA hora (o inicio, que e o que `start_time` significa).
-  // `(?:^|[^\dh:])` no lugar de `\b` evita casar o "0" de "20:00" ja tratado
+  // `(?:^|[^\dh:])` no lugar de `\b` evita casar o 0 de 20:00, ja tratado
   // pelo padrao de relogio.
-  { re: /(?:^|[^\dh:])(\d{1,2})\s{0,3}(?:às|as|até|ate|a)\s{1,3}\d{1,2}\s{0,3}(?:h\b|horas?\b)/i, minute: false },
+  //
+  // Conector limitado a "as"/"às": sao marcadores de HORARIO. Com "a" e "ate"
+  // na lista, "Sessoes de 3 a 5 horas de duracao" casava e virava 03:00 —
+  // duracao persistida como horario definido, ainda tirando o campo dos avisos
+  // de revisao (achado Codex P1, PR #300). Os anuncios reais que usam "ate" como
+  // conector de horario trazem a hora em formato de relogio ("19h00 ate 23h30",
+  // "de 13h ate 16:30") e ja saem pelo padrao acima, medido na fixture.
+  { re: /(?:^|[^\dh:])(\d{1,2})\s{0,3}(?:às|as)\s{1,3}\d{1,2}\s{0,3}(?:h\b|horas?\b)/i, minute: false },
   // Hora avulsa por extenso, SEMPRE precedida do marcador temporal "as"/"às".
   // O marcador e obrigatorio: sem ele, "Sessoes de 3 horas" (duracao) casaria
   // e viraria start_time 03:00, inventando um horario que o anuncio nao tem e

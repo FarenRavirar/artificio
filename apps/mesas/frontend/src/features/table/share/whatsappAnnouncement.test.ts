@@ -194,6 +194,23 @@ describe('buildWhatsAppTableAnnouncement', () => {
     // O editor nao grava hint nenhum (medido: zero ocorrencias em
     // features/table-editor). Sem hint e sem linha, a agenda nao tem o que
     // dizer — a linha fica vazia de proposito, sem inventar rotulo.
+    // Payload da rota de LISTA: ela seleciona `schedule_day_status` sem os
+    // hints nem `schedule_time_status` (`tables.ts:163`), entao os campos
+    // chegam undefined. Sem status nao ha o que afirmar sobre o eixo — a linha
+    // fica vazia, sem rotulo inventado (achado de review, PR #300).
+    it('status ausente (payload de lista) nao inventa rotulo', () => {
+      const text = buildWhatsAppTableAnnouncement(makeTable({
+        schedules: [],
+        schedule_day_status: undefined,
+        schedule_time_status: undefined,
+        schedule_day_hint: null,
+        schedule_time_hint: null,
+      }));
+
+      expect(text).not.toContain('a definir');
+      expect(text).not.toContain('undefined');
+    });
+
     it('status definido sem hint nem linha continua vazio, sem texto inventado', () => {
       const text = buildWhatsAppTableAnnouncement(makeTable({
         ...semLinhas,
