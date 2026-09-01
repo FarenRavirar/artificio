@@ -1,6 +1,6 @@
 # Tasks 099 — Perfil do mestre
 
-**Status: fase A executada (A1–A3, gate A fechado); fase B executada (B0–B11, gate B fechado com 1 pendência nomeada); fase C em execução (C1 e C3 implementadas localmente, C2 já concluída com B3, C4 e gate runtime pendentes); fase E executada em 2026-09-01 por incidente em produção (E1–E3 concluídas).** Decisões D1–D11 fechadas (`spec.md` §3).
+**Status: fase A executada (A1–A3, gate A fechado); fase B executada (B0–B11, gate B fechado com 1 pendência nomeada); fase C merged em `dev` pela PR #302 (C1 e C3 entregues, C2 já concluída com B3; C4 e gate runtime pendentes); fase E executada em 2026-09-01 por incidente em produção (E1–E3 concluídas); fase F implementada e revisada (F0–F5 + F6 do achado de revisão), com aceite runtime de F1b/F2/F4 e a decisão dos 6 espaçamentos pendentes.** Decisões D1–D11 fechadas (`spec.md` §3).
 
 Ordem de execução: **A → B → C**, com a fase de forma (**F**) em paralelo — ver a colisão com a 098 em F0.
 Cada task só é dada como concluída com **medição citada** — comando rodado e o que voltou.
@@ -227,15 +227,29 @@ catálogo central. O 3D&T do relato estava gravado com id central válido e ativ
 
 | # | Fazer | LER ANTES | Aceite medido | Trava |
 |---|---|---|---|---|
-| **F0** | **Combinar a ordem com a 098** antes de tocar qualquer componente | plan fase D (colisão medida) | ordem definida pelo mantenedor | a 098 cita `Manter link direto` — mesmos componentes |
-| **F1** | Primitivo de checkbox no pacote **+** migrar as 2 instâncias (`AvatarField`, `ImageUploader`) | plan fase D (F1) · A7 | alvo ≥ 24px nas duas; primitivo no pacote | aprovação nominal (`packages/ui`) |
-| **F1b** | Alvos < 24px **medidos em runtime**: link do nome do mestre (**20px**, 8 ocorrências na página pública, §11) e 3 `.link-item-url` do editor (**18px**, §11.1) | plan fase D (F1b) · A6 · §11, §11.1 | alvo ≥ 24px medido em runtime | local ao `mesas`, sem aprovação de pacote |
-| **F2** | Rodapé: `Ver termos` (**18px medido**, não ≈20) e `.artificio-footer-nav-link` (**22px medido**) ≥ 24px | plan fase D (F2) · A8 · §11, §11.1 (aparecem em **todas** as telas medidas) | medido no `mesas`, `downloads` e `glossario` | aprovação nominal |
-| **F3** | **Re-medir a nav em runtime** antes de tratá-la como defeito | plan fase D (F3) | 22px reproduzido ou descartado | não tocar antes de medir |
-| **F5** | Editor de perfil: adotar a régua `--space-1..6` (**0 usos**, 3 valores fora da grade) **e** trocar o que reimplementa o pacote (**5 classes + `@keyframes spin`**, spec §9.5) | **spec §9** (inteira) · 098 §6.3 | `node .agents/skills/ui-fidelity-audit/audit.mjs <tsx> <css>` verde nas medições 1–4 **e 7/7b** | local ao `mesas`; **não** reintroduzir `[data-theme=light]` (§9.2); primitivo que não cobrir o caso leva comentário dizendo qual limitação |
-| **F4** | Adotar a escala do pacote (34/40/48) nos campos do editor | plan §B armadilha 2 (`Textarea` é exceção) · **§11.1: 12 alturas distintas, 9 fora da escala** | alturas na régua; largura por tamanho de resposta (`Anos de Experiência` mede **802px** para 2 dígitos) | aprovação se tocar o pacote |
+| **F0** | **Concluída:** branch `feat/099-fase-f` criada a partir de `origin/dev`; ordem da 099 definida pelo mantenedor antes da edição | plan fase D (colisão medida) | `rtk git status --short --branch` → `feat/099-fase-f...origin/dev`, limpa no início | a 098 cita `Manter link direto` — mesmos componentes |
+| **F1** | **Concluída:** `Checkbox` no pacote + 2 migrações (`AvatarField`, `ImageUploader`) | plan fase D (F1) · A7 | 24×24 **e `flex-shrink: 0`** no contrato; pacote 57/57; A9 sem `flex-shrink` → 1 falha | aprovação nominal dada ao mandar implementar a Fase F |
+| **F1b** | **Implementada; runtime do build novo pendente:** link do mestre e `.link-item-url` com `min-height: 24px` | plan fase D (F1b) · A6 · §11, §11.1 | contrato do frontend nos 1020/1020; A9 sem os alvos → falha | local ao `mesas` |
+| **F2** | **Implementada; runtime do build novo pendente:** duas famílias do rodapé com `min-height: 24px` | plan fase D (F2) · A8 · §11, §11.1 | teste do pacote; consumidores localizados e typecheck limpo em mesas, downloads e glossario; A9 a 18px → falha | pacote compartilhado |
+| **F3** | **Concluída sem edição:** nav re-medida em runtime e defeito descartado | plan fase D (F3) | principal 42,6px; subnav 37,1px; ações 40px; 22px não reproduziu | nenhuma regra da nav tocada |
+| **F5** | **Concluída:** editor usa régua e primitivos; duplicações removidas | **spec §9** (inteira) · 098 §6.3 | auditoria: 43 tokens, 0 fora da régua/grade, 0 classes/keyframes duplicados; baseline `mesas` 232→219 fora-régua, 9→3 duplicações, 9→8 keyframes; gate verde; A9 com `spin` → falha | `[data-theme=light]` não reintroduzido |
+| **F4** | **Implementada; runtime do build novo pendente:** controles a 40px; experiência em `TextInput`, max 8rem | plan §B armadilha 2 · §11.1 | frontend 1020/1020; A9 com largura 100% → falha; `Textarea` preservada como exceção | local ao `mesas` |
+| **F6** | **Concluída (achado da revisão da F):** colisão global de `.spinner` eliminada — `PlayerPage` usa `LoadingState`, `LinksManager` prefixa as suas (`.links-manager-spinner*`, reusando `artificio-spin`), `UserSystemsSelector` deixa de usar classe órfã | — | bundle tinha **3** `.spinner` concorrendo decididas por ordem de import; fonte agora tem **0** global; contrato varre todo CSS do app via `import.meta.glob` (guarda contra glob vazio); A9 reintroduzindo `.spinner` global → 1 falha | `App.tsx` não usa `lazy()`: todo CSS de rota cai no mesmo bundle |
 
-**→ Fechar o GATE D** (`plan.md`, fase D).
+**→ Fechar o GATE D** (`plan.md`, fase D). O que falta, nomeado:
+
+- **Bloqueio: aceite runtime de F1b, F2 e F4.** Os três estão implementados e cobertos por
+  contrato de fonte, mas o aceite é alvo medido **em navegador contra o build novo** —
+  teste de fonte não substitui. Nenhum outro item da F depende disto.
+- **Decisão pendente do mantenedor: 6 espaçamentos que a F5 mudou de valor**, não só de
+  notação. A régua não tem `--space-5` (ausência deliberada — `styles.css:69-72` "sem alias,
+  sem variedade redundante"; registrada em `old_spec.md` C7 e `old_plan.md`), então todo
+  `1.25rem` foi arredondado. Medido: `.playstyle-item` gap 6→8px e `.autosave-indicator`
+  padding-y 6→8px são **conserto** (6px violava a grade de 4px de §9.3.2);
+  `.form-group` margin-bottom (14 usos), `.profile-header` e `.avatar-premium-container`
+  vão 20→24px; `.user-systems-selector-loading` padding vai 32→24px, o único que aperta.
+  Como está, obedece §9.3.2. Alternativa medida: criar `--space-5` no pacote reverteria a
+  decisão de escala — exigiria aprovação nominal em `packages/ui`.
 
 ---
 

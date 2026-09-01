@@ -258,24 +258,29 @@ nascer quebrados; fechar a porta sem corrigir o dado deixa os 7 mestres travados
 
 ---
 
-## Fase D — Correções de forma (independente; pode correr em paralelo)
+## Fase D — Correções de forma (implementada localmente; gate runtime pendente)
 
 **Moradias medidas** (os códigos são os das tasks `F0..F4`; os antigos `C4/C5/C6/C7` da
 investigação saíram porque colidiam com as tasks da fase C):
 
-- **F1** = `apps/mesas`: checkbox `Manter link direto` em `components/AvatarField.tsx` e
-  `components/ImageUploader.tsx` (`h-4 w-4`). **Não existe primitivo de checkbox no
-  pacote** — criar lá **e** migrar as duas, nunca só ajustar valores (A7).
-- **F2** = rodapé, no **pacote**: `Ver termos` (≈20px), `.artificio-footer-nav-link`
-  (≈17px). Atinge mesas, downloads e glossario.
-- **F1b** = `apps/mesas`: link do nome do mestre em `components/TableCard.tsx:185-192`
-  (≈20px, `text-sm` sem `min-height`) — aparece nos 4 cartões da página pública, dentro do
-  alcance de A6.
-- **F3** = nav de 22px **não reproduz** no pacote (`min-height: 40px`) — **re-medir em
-  runtime** antes de tratar como defeito.
-- **F4** = campos locais do `mesas`. A escala do pacote **já existe** (34/40/48) e o
-  editor não a usa: aqui a correção é **adotar o que existe**, não criar escala.
-  `--space-5` **não existe** (régua é 1..4 + 6).
+- **F1 — concluída em código:** `Checkbox` criado no pacote com alvo 24×24px e as duas
+  instâncias de `Manter link direto` migradas. Testes do pacote 11/11; A9 reduziu os
+  tamanhos e produziu 2 falhas.
+- **F2 — concluída em código:** `Ver termos` e `.artificio-footer-nav-link` têm
+  `min-height: 24px` no pacote. O mesmo `Footer` foi localizado em mesas, downloads e
+  glossario; o typecheck dirigido ficou limpo nos três frontends. Medição runtime do build novo
+  permanece no gate.
+- **F1b — concluída em código:** link do nome do mestre e `.link-item-url` recebem
+  `min-height: 24px`; contrato dirigido falha se os alvos forem retirados.
+- **F3 — descartada por medição runtime:** links principais 42,6px, subnav 37,1px e ações
+  40px; o alvo de 22px não reproduziu e nenhum código da nav foi alterado.
+- **F4 — implementada localmente:** controles do formulário adotam 40px; experiência usa
+  `TextInput` e largura máxima de 8rem. `Textarea` preserva a exceção medida. Aceite das
+  alturas reais fica para o build novo.
+
+- **F5 — concluída:** auditoria dirigida passou de 6 reprovações para tudo verde (43 usos
+  da régua, 0 fora da régua/grade, 0 classe e 0 keyframe duplicados). Baseline repo-wide
+  atualizado (`mesas`: fora-régua 232→219, duplicações 9→3, keyframes 9→8) e gate verde.
 
 **⚠️ Colisão com a 098, medida:** a 098 cita `Manter link direto` na sua lista de alvos
 abaixo do piso — as duas specs tocam os **mesmos três arquivos**: `AvatarField.tsx`,
@@ -288,10 +293,10 @@ verificação de impacto nos consumidores. Chegar com o conserto **medido e pron
 aprovação da ação — não apresentar o achado como bifurcação.
 
 ### ── GATE D ──
-- [ ] A6: nenhum alvo < 24px na página pública nem no editor
-- [ ] A7: correção no nível que impede recorrência (primitivo no pacote **+** migração)
-- [ ] A8: outros consumidores do pacote verificados (downloads, glossario)
-- [ ] aprovação nominal registrada antes de tocar `packages/ui`
+- [ ] A6: contratos locais cobrem 24px; falta medir o build novo na página pública e no editor
+- [x] A7: primitivo no pacote + duas migrações; A9 falhou 2/2 sem os tamanhos
+- [x] A8: consumidores do `Footer` localizados e com typecheck limpo em mesas, downloads e glossario; falta apenas o runtime de A6
+- [x] aprovação nominal: o mantenedor mandou implementar a Fase F na branch `feat/099-fase-f`
 
 ---
 

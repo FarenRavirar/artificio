@@ -29,6 +29,21 @@ import { SistemaSection } from './features/admin/components/SistemaSection';
 import { Toaster } from 'react-hot-toast';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
+// Os 12 avisos `Could not parse CSS stylesheet` na suite deste app saem daqui,
+// e nao sao defeito: com `css: true` no `vitest.config.ts`, este import faz o
+// jsdom parsear o CSS compilado do Tailwind v4, que emite `space-y-*` e
+// `divide-*` com CSS Nesting (`:where(& > :not(:last-child))`). O parser do
+// jsdom nao implementa nesting e recusa uma regra por utilitario -- 12 no
+// total: `space-y-{0.5,1,1.5,2,2.5,3,4,5,6,8}`, `divide-y`, `divide-white/5`.
+// A folha NAO e descartada (73 regras de topo entram normalmente) e o bundle de
+// producao passa limpo, porque o build compila o nesting para plano.
+//
+// `downloads` e `glossario` tem a mesma config e usam os mesmos utilitarios,
+// mas nao emitem: la o `index.css` so entra por `main.tsx`, que os testes nao
+// carregam. Aqui ele entra pelo `App.tsx`, que os testes montam.
+//
+// Nao silenciar com filtro de console: esconderia erro de CSS de verdade.
+// Some sozinho quando o jsdom implementar nesting.
 import './index.css';
 
 function AnalyticsPageviews() {

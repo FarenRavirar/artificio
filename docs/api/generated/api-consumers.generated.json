@@ -2006,7 +2006,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 77
+      "line": 78
     },
     {
       "app": "mesas-frontend",
@@ -2526,7 +2526,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 138
+      "line": 153
     },
     {
       "app": "packages/auth",

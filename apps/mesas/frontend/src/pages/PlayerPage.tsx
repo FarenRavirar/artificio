@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { User, Clock, DollarSign, Gamepad2, Star } from 'lucide-react';
+import { LoadingState } from '@artificio/ui';
 import { applySeo } from '../utils/seo';
 import './PlayerPage.css';
 
@@ -109,10 +110,7 @@ export const PlayerPage = () => {
     return (
       <main className="player-page">
         <div className="container">
-          <div className="loading-state">
-            <div className="spinner"></div>
-            <p>Carregando perfil...</p>
-          </div>
+          <LoadingState variant="page" message="Carregando perfil..." />
         </div>
       </main>
     );

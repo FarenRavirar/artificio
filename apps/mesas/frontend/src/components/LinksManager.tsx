@@ -74,7 +74,7 @@ export function LinksManager() {
   if (loading) {
     return (
       <div className="links-manager-loading">
-        <Loader className="spinner" />
+        <Loader className="links-manager-spinner" />
         <p>Carregando links...</p>
       </div>
     );
@@ -118,7 +118,7 @@ export function LinksManager() {
             disabled={adding || !newUrl.trim() || links.length >= 10}
           >
             {adding ? (
-              <Loader className="spinner-small" />
+              <Loader className="links-manager-spinner-small" />
             ) : (
               <>
                 <Plus className="w-4 h-4" />

@@ -186,7 +186,7 @@ function TableCardMasterRow({ table }: { table: TableCard }) {
         <Link
           to={`/mestre/${table.gm_slug}`}
           onClick={(e) => e.stopPropagation()}
-          className="pointer-events-auto min-w-0 truncate text-sm font-medium text-white/70 transition-colors hover:text-white hover:underline"
+          className="pointer-events-auto inline-flex min-h-6 min-w-0 items-center truncate text-sm font-medium text-white/70 transition-colors hover:text-white hover:underline"
         >
           {table.gm_display_name}
         </Link>

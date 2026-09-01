@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { Button, LoadingState } from '@artificio/ui';
 import { useProfileContext } from '../contexts/useProfileContext';
 import type { PlayerProfile, GmProfile } from '../types/profileTypes';
 import { UserSystemsSelector } from '../components/UserSystemsSelector';
@@ -111,10 +112,7 @@ export default function ProfileEditPage() {
   if (loading) {
     return (
       <div className="profile-edit-page">
-        <div className="loading-state">
-          <div className="spinner"></div>
-          <p>Carregando perfil...</p>
-        </div>
+        <LoadingState variant="page" message="Carregando perfil..." />
       </div>
     );
   }
@@ -170,15 +168,17 @@ export default function ProfileEditPage() {
           </div>
           <div className="profile-meta">
             {profile.gm?.slug && (
-              <a 
+              <Button
                 href={`/mestre/${profile.gm.slug}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-view-public-profile"
+                variant="primary"
+                size="sm"
                 title="Abrir perfil público em nova aba"
+                leftIcon={<span>👁️</span>}
               >
-                <span>👁️</span> Ver perfil público
-              </a>
+                Ver perfil público
+              </Button>
             )}
             {/* Spec 099 B8: o indicador fica SEMPRE montado (antes só existia
                 durante saving/salvo — medido em runtime, §11.1, que na aba
@@ -197,7 +197,7 @@ export default function ProfileEditPage() {
                 <span>Erro ao salvar</span>
               ) : saving ? (
                 <>
-                  <span className="spinner-small"></span>
+                  <span className="artificio-button-spinner" aria-hidden="true"></span>
                   <span>Salvando…</span>
                 </>
               ) : showSaved ? (

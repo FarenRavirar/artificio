@@ -184,6 +184,20 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
   );
 });
 
+export type CheckboxProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type">;
+
+/** Checkbox compartilhado com alvo nativo de 24px (WCAG 2.2 SC 2.5.8). */
+export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Checkbox({
+  className,
+  ...props
+}, ref) {
+  // `{...props}` ANTES do `type`: o tipo remove `type` da assinatura, mas isso so
+  // vale em TS. Consumidor JS que passasse `type` sobrescrevia o atributo e saia
+  // um controle de outro tipo carregando `.artificio-checkbox` -- o alvo de 24px
+  // aplicado a algo que nao e checkbox (achado de review, PR #303).
+  return <input ref={ref} {...props} type="checkbox" className={cx("artificio-checkbox", className)} />;
+});
+
 export type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & ControlStateProps;
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea({

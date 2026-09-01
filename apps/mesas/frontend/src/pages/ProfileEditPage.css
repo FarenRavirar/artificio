@@ -10,51 +10,27 @@
   min-height: 100vh;
 }
 
-/* Loading & Error States */
-.loading-state,
+/* Error State */
 .error-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   min-height: 400px;
-  gap: 1rem;
+  gap: var(--space-4);
   color: var(--fg);
-}
-
-.spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid var(--line);
-  border-left-color: var(--artificio-brand);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-.spinner-small {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--line);
-  border-left-color: var(--artificio-brand);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 /* Header */
 .profile-header {
   display: flex;
   align-items: center;
-  gap: 1.25rem;
-  padding: 1.5rem;
+  gap: var(--space-6);
+  padding: var(--space-6);
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 12px;
-  margin-bottom: 1.5rem;
+  margin-bottom: var(--space-6);
   justify-content: space-between;
 }
 
@@ -88,19 +64,19 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--space-3);
 }
 
 .profile-main {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: var(--space-1);
 }
 
 .profile-name-row {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-3);
   flex-wrap: wrap;
 }
 
@@ -151,35 +127,8 @@
 .profile-meta {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-3);
   flex-wrap: wrap;
-}
-
-.btn-view-public-profile {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0;
-  padding: 0.5rem 0.875rem;
-  background: var(--artificio-brand);
-  border: none;
-  border-radius: 8px;
-  color: #ffffff;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  text-decoration: none;
-  transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.3);
-}
-
-.btn-view-public-profile:hover {
-  background: var(--artificio-brand-deep);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
-}
-
-.btn-view-public-profile span {
-  font-size: 1rem;
 }
 
 .profile-public-link {
@@ -214,8 +163,8 @@
   z-index: 40;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.375rem 0.75rem;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   border-radius: 6px;
   font-size: 0.8125rem;
   transition: all 0.3s ease;
@@ -251,8 +200,8 @@
 /* Tabs */
 .profile-tabs {
   display: flex;
-  gap: 0.25rem;
-  margin-bottom: 1.5rem;
+  gap: var(--space-1);
+  margin-bottom: var(--space-6);
   border-bottom: 2px solid var(--line);
 }
 
@@ -287,12 +236,12 @@
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 1.5rem;
+  padding: var(--space-6);
 }
 
 /* Form Sections */
 .form-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: var(--space-6);
 }
 
 .form-section:last-child {
@@ -300,21 +249,21 @@
 }
 
 .form-section h2 {
-  margin: 0 0 0.75rem 0;
+  margin: 0 0 var(--space-3) 0;
   font-size: 1.125rem;
   color: var(--fg);
   font-weight: 600;
 }
 
 .section-description {
-  margin: 0 0 0.75rem 0;
+  margin: 0 0 var(--space-3) 0;
   color: var(--fg-muted);
   font-size: 0.875rem;
   line-height: 1.5;
 }
 
 .field-description {
-  margin: 0 0 0.75rem 0;
+  margin: 0 0 var(--space-3) 0;
   color: var(--fg-muted);
   font-size: 0.8125rem;
   line-height: 1.4;
@@ -323,7 +272,7 @@
 
 /* Form Groups */
 .form-group {
-  margin-bottom: 1.25rem;
+  margin-bottom: var(--space-6);
 }
 
 .form-group:last-child {
@@ -332,7 +281,7 @@
 
 .form-group label {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-2);
   font-weight: 500;
   color: var(--fg);
   font-size: 0.875rem;
@@ -350,6 +299,7 @@
   color: var(--fg);
   border-radius: 8px;
   font-size: 1rem;
+  min-height: 40px;
   transition: all 0.2s;
 }
 
@@ -369,8 +319,9 @@
   border: 1px solid var(--line);
   background: var(--fill-subtle);
   color: var(--fg);
-  padding: 0.5rem 0.75rem;
+  padding: var(--space-2) var(--space-3);
   font-size: 0.875rem;
+  min-height: 40px;
 }
 
 /* dropdown nativo: fundo branco do SO (acessibilidade), exceção */
@@ -391,7 +342,7 @@
 
 .form-group small {
   display: block;
-  margin-top: 0.5rem;
+  margin-top: var(--space-2);
   color: var(--fg-muted);
   font-size: 0.75rem;
 }
@@ -405,16 +356,16 @@
 .playstyle-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .playstyle-item {
   display: flex;
   flex-direction: column;
-  gap: 0.375rem;
+  gap: var(--space-2);
   background: var(--surface-subtle);
   border: 1px solid var(--line);
-  padding: 0.75rem;
+  padding: var(--space-3);
   border-radius: 10px;
   transition: all 0.2s;
 }
@@ -507,107 +458,13 @@
   font-weight: 500;
 }
 
-/* Discord Section
-   Sem consumidor no JSX desde 2026-08-27: a seção da aba Mestre foi ADIADA
-   (decisão do mantenedor), não cancelada, e o backend segue inteiro. O estilo
-   fica aqui de propósito — apagá-lo obrigaria reescrevê-lo na retomada, e o
-   custo de manter é uma regra CSS morta. Se a integração for cancelada de vez,
-   este bloco (até `.discord-disconnected li`) sai junto. */
-.discord-connected,
-.discord-disconnected {
-  padding: 1.25rem;
-  border-radius: 8px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-}
-
-.discord-connected {
-  border: 2px solid var(--state-success-line);
-  background: var(--state-success-bg);
-}
-
-.discord-disconnected {
-  border: 2px solid var(--line-strong);
-}
-
-.discord-connected p,
-.discord-disconnected p {
-  margin: 0 0 0.75rem 0;
-  font-weight: 500;
-  font-size: 0.9375rem;
-}
-
-.covil-badge {
-  display: inline-block;
-  padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-  color: #ffffff;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 0.875rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* Discord = identidade de plataforma (exceção, cor própria preservada) */
-.btn-connect-discord {
-  padding: 0.75rem 1.5rem;
-  background: #5865f2;
-  color: #ffffff;
-  border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 0.9375rem;
-}
-
-.btn-connect-discord:hover {
-  background: #4752c4;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(88, 101, 242, 0.3);
-}
-
-.btn-disconnect-discord {
-  padding: 0.5rem 1rem;
-  background: var(--artificio-danger);
-  color: #ffffff;
-  border: none;
-  border-radius: 8px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  margin-top: 0.75rem;
-  font-size: 0.875rem;
-}
-
-.btn-disconnect-discord:hover {
-  background: var(--artificio-danger-text);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
-}
-
-.discord-username {
-  font-weight: 600;
-  color: #5865f2;
-}
-
-.discord-disconnected ul {
-  margin: 1rem 0;
-  padding-left: 1.5rem;
-}
-
-.discord-disconnected li {
-  margin: 0.5rem 0;
-  color: var(--fg-muted);
-}
-
 /* Responsive */
 @media (max-width: 768px) {
-  .profile-edit-page { padding: 1rem; }
+  .profile-edit-page { padding: var(--space-4); }
   .profile-header { flex-direction: column; text-align: center; }
   .profile-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .tab { white-space: nowrap; }
-  .tab-content { padding: 1.5rem; }
+  .tab-content { padding: var(--space-6); }
   .playstyle-grid { grid-template-columns: 1fr; }
 }
 
@@ -619,8 +476,8 @@
 .user-systems-selector-loading {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 2rem;
+  gap: var(--space-3);
+  padding: var(--space-6);
   justify-content: center;
   color: var(--fg-muted);
   font-size: 0.875rem;
@@ -641,8 +498,8 @@
 .avatar-premium-container {
   display: flex;
   align-items: flex-start;
-  gap: 1.25rem;
-  padding: 1rem;
+  gap: var(--space-6);
+  padding: var(--space-4);
   background: var(--surface-subtle);
   border-radius: 12px;
   border: 1px solid var(--line);
@@ -669,7 +526,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.5rem;
+  gap: var(--space-2);
   width: 100%;
 }
 
@@ -681,68 +538,20 @@
 
 .avatar-button-group {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-2);
   flex-wrap: wrap;
   justify-content: flex-start;
 }
 
-.btn-avatar-action {
-  padding: 0.4rem 0.75rem;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.btn-avatar-action.btn-remove {
-  background: var(--state-danger-bg);
-  color: var(--state-danger-fg);
-  border: 1px solid var(--state-danger-line);
-}
-
-.btn-avatar-action.btn-remove:hover {
-  background: var(--state-danger-bg);
-  border-color: var(--state-danger-fg);
-  transform: translateY(-1px);
-}
-
-.btn-avatar-action.btn-manual {
-  background: var(--fill-subtle);
-  color: var(--fg-muted);
-  border: 1px solid var(--line);
-}
-
-.btn-avatar-action.btn-manual:hover {
-  background: var(--fill);
-  color: var(--fg);
-  border-color: var(--line-strong);
-}
-
-.btn-avatar-action.btn-upload {
-  background: var(--artificio-brand);
-  color: #ffffff;
-  border: 1px solid transparent;
-  font-weight: 600;
-}
-
-.btn-avatar-action.btn-upload:hover {
-  background: var(--artificio-brand-deep);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(249, 115, 22, 0.3);
-}
-
 /* Google = identidade de plataforma (exceção) */
-.btn-avatar-action.btn-google {
+.avatar-google-action { /* ui-fidelity: Button do pacote com cor fixa da plataforma Google */
   background: #4285f4;
   color: #ffffff;
   border: 1px solid transparent;
   font-weight: 600;
 }
 
-.btn-avatar-action.btn-google:hover {
+.avatar-google-action:hover {
   background: #357ae8;
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(66, 133, 244, 0.3);
@@ -750,14 +559,14 @@
 
 .avatar-button-row {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-2);
   flex-wrap: wrap;
   width: 100%;
 }
 
 .avatar-upload-section {
   width: 100%;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-2);
 }
 
 .avatar-manual-details {
@@ -776,15 +585,15 @@
 }
 
 .avatar-manual-details[open] summary {
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-2);
 }
 
 .avatar-manual-input {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding-top: 0.5rem;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
   border-top: 1px solid var(--line);
   animation: slideDown 0.2s ease;
 }
@@ -794,9 +603,9 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-.avatar-manual-input input {
+.avatar-manual-input input[type='url'] {
   width: 100%;
-  padding: 0.5rem;
+  padding: var(--space-2);
   border: 1px solid var(--line-strong);
   background: var(--surface);
   color: var(--fg);
@@ -804,7 +613,7 @@
   font-size: 0.8125rem;
 }
 
-.avatar-manual-input input:focus {
+.avatar-manual-input input[type='url']:focus {
   outline: none;
   border-color: var(--artificio-brand);
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
@@ -819,23 +628,16 @@
 .avatar-direct-link-option {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   color: var(--fg-muted);
   font-size: 0.75rem;
   cursor: help;
 }
 
-.avatar-direct-link-option input {
-  width: 1rem;
-  height: 1rem;
-  accent-color: var(--artificio-brand);
-  cursor: pointer;
-}
-
 /* Legacy avatar styles (manter para compatibilidade) */
 .avatar-upload-container {
   display: flex;
-  gap: 1.5rem;
+  gap: var(--space-6);
   align-items: flex-start;
 }
 
@@ -871,7 +673,11 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-2);
+}
+
+.experience-years-input {
+  max-width: 8rem;
 }
 
 @media (max-width: 640px) {

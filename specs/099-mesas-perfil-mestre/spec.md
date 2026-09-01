@@ -1,6 +1,6 @@
 # Spec 099 — Perfil do mestre: o que o mestre insere e o que o sistema expõe
 
-**App:** `mesas` · **Status:** fase A executada (A1–A3, gate A fechado); fase B executada (B0–B11, gate B fechado com 1 pendência nomeada); **fase C em execução** (C1 e C3 implementadas localmente, C2 concluída com B3, C4 e gate runtime pendentes); **fase E executada em 2026-09-01 por incidente em produção** (E1–E3 concluídas); fase D não iniciada
+**App:** `mesas` · **Status:** fase A executada (A1–A3, gate A fechado); fase B executada (B0–B11, gate B fechado com 1 pendência nomeada); **fase C em execução** (C1 e C3 implementadas localmente, C2 concluída com B3, C4 e gate runtime pendentes); **fase E executada em 2026-09-01 por incidente em produção** (E1–E3 concluídas); **fase D/F implementada localmente** (F0–F5, gate D runtime pendente)
 **Escrita para implementar.** Investigação, medições e fontes que sustentam cada decisão
 estão em `old_spec.md` (temporário, será removido após conferência do mantenedor).
 
@@ -242,7 +242,7 @@ Não afirmar nada sobre estes pontos sem medir antes.
 | tema claro | **medido parcialmente em C4** no editor antigo: sem overflow horizontal; tokens efetivos `#f4f6fb`/`#0b1220`. Build novo ainda pendente |
 | editor de perfil em runtime | desktop medido no baseline e 719×900 medido parcialmente em C4 (§11.1); comportamento pós-B/C ainda não medido porque o beta acessível está defasado |
 | comportamento com perfil cheio | **impossível hoje** — nenhum dos 20 preenchido |
-| nav global com alvo de 22px | **não reproduz** no CSS do pacote (`min-height: 40px`) — re-medir em runtime |
+| nav global com alvo de 22px | **descartado por medição runtime (2026-09-01)**: links principais 42,6px (`min-height: 40px`), subnav 37,1px (`min-height: 36px`) e ações 40px; nenhum alvo de 22px |
 | custo do esquema de extração para bio | **medido em B11 (2026-09-01), conferido em revisão independente:** 4 atributos estritos (`experience_years`, `specialties`, `languages`, `badges`), endpoint autenticado sem escrita, painel local de confirmação e cache generalizado por schema. Sem migration, lib nova ou pacote compartilhado. Superfície final medida em `git status`: **4 arquivos de produção + 3 de teste**; validação e vetores verificados em `tasks.md` B11 |
 | os 3 perfis com banner real | **não inspecionados** visualmente |
 | soma da tabela de seções (§2.1 de `old_spec.md`) | **inconsistente**: 4856px medidos × 5341px declarados — faltam 485px. A tabela é recorte do que apareceu naquela medição, não o inventário do componente, que monta **11 blocos** |
@@ -463,6 +463,32 @@ Roda as 7, marca falha por linha, exit 1 se reprovar. **Discrimina** (verificado
 medidas à mão em §9.1. Não acusa cor literal automaticamente — §9.2 exige ler o contexto, e
 o script só informa a contagem.
 
+### 9.7 Fase F implementada localmente (2026-09-01)
+
+O baseline dirigido do editor reprovava 6 linhas: 0 imports do pacote, 0 usos da régua,
+5 ocorrências fora dela, 3 fora da grade de 4px, 5 classes que reimplementavam conceitos
+do pacote e `@keyframes spin`. Após F5, o mesmo comando ficou verde: 1 import,
+43 usos de `--space-*`, 0 fora da régua, 0 fora da grade, 0 classe duplicada e 0 keyframe
+duplicado. O bloco `[data-theme=light]` não voltou; a exceção de cor Google permanece
+comentada sobre um `Button` compartilhado.
+
+O baseline repo-wide foi regravado após a queda: `mesas.foraRegua` 232→219,
+`mesas.dup` 9→3 e `mesas.kfDup` 9→8. `rtk pnpm run ui:fidelity:gate` voltou
+`GATE OK — nenhuma divergencia nova` nos 485 arquivos varridos.
+
+F1 criou `Checkbox` em `@artificio/ui`, com alvo nativo 24×24px, e migrou as duas
+instâncias de `Manter link direto`. F1b dá `min-height: 24px` ao link do mestre no card e
+a `.link-item-url`. F2 eleva as duas famílias do rodapé para 24px no pacote; busca
+estrutural confirmou o mesmo `Footer` em `mesas`, `downloads` e `glossario`, e os três
+frontends passaram no typecheck dirigido. F4 aplica
+40px aos controles do formulário e limita `Anos de Experiência` a 8rem; `Textarea`
+continua a exceção já documentada.
+
+**A9:** tamanhos do checkbox/rodapé reduzidos novamente fizeram o teste do pacote falhar
+2/2; retirar os alvos locais, devolver experiência a 100% e reintroduzir `@keyframes spin`
+fez o contrato do frontend falhar 3/4. Restaurados, os conjuntos ficaram 11/11 e 81/81.
+O aceite runtime do build novo continua pendente; implementação local não fecha o gate D.
+
 ---
 
 ## 10. O defeito de fundo — medido no repo inteiro
@@ -501,7 +527,8 @@ sessão, ambas de guardas **escritas e nunca ligadas**:
    (+1 em `links.foraRegua`) → verde ao restaurar.
 
 **Consequência para esta spec:** a fase B não consegue mais acrescentar divergência sem o CI
-reprovar. F5 continua sendo a limpeza do que já existe no editor de perfil.
+reprovar. F5 executou a limpeza local do editor de perfil; o baseline repo-wide continua
+sendo reduzido somente pelas specs donas de cada tela.
 
 ---
 
