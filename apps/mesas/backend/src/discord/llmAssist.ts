@@ -267,7 +267,24 @@ export async function extractProfileBioAttributes(input: {
       'Retorne apenas JSON valido no formato {"candidates":[{"field":"experience_years","value":10,"evidence":"mestre ha 10 anos","confidence":0.9}]}.',
     ],
   };
-  const contextPackHash = hashUnknown(requestJson);
+  // Hash exclusivo por analise (achado de review, PR #301). O indice
+  // `idx_discord_llm_decisions_cache` e unico em
+  // (provider, model, prompt_version, context_pack_hash) WHERE status='success'
+  // — feito para o cache do parser de anuncio, onde hash repetido significa
+  // "reaproveite a decisao anterior". Esta extracao **nao usa cache** (a
+  // auditoria nao guarda `evidence`), entao reanalisar a MESMA bio sem mudar
+  // nada gera o mesmo hash, e o segundo INSERT de `success` colide. Como
+  // `recordLlmDecision` termina em `.catch(() => {})`, a colisao e silenciosa:
+  // a chamada paga ao DeepSeek acontece e some da auditoria e da contagem de
+  // `/admin/discord/automation/llm-activity` — o oposto do que a tabela existe
+  // para fazer.
+  //
+  // O sufixo aleatorio quebra a colisao sem migration (a coluna `status` tem
+  // CHECK fechado, entao nao da para inventar um status novo) e sem afetar a
+  // auditoria, que agrupa por `prompt_version` + `status`, nunca pelo hash
+  // (`automation.ts:116`). Perde-se a capacidade de casar duas analises pelo
+  // hash — que nao existia aqui de qualquer forma, porque nao ha cache.
+  const contextPackHash = `${hashUnknown(requestJson)}:${crypto.randomUUID()}`;
 
   // Auditoria SEM nenhum pedaco da bio (achado de review, PR #301). Havia TRES
   // caminhos de persistencia do rascunho, e fechar dois deixava o terceiro
