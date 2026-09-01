@@ -15,6 +15,7 @@ import {
   TextInput,
   Toolbar,
 } from "./primitives.js";
+import type { CheckboxProps } from "./primitives.js";
 
 describe("ui primitives", () => {
   it("renders buttons with semantic variant, size and loading state", () => {
@@ -80,6 +81,19 @@ describe("ui primitives", () => {
     expect(html).toContain('type="checkbox"');
     expect(html).toContain("artificio-checkbox");
     expect(html).toContain("checked");
+  });
+
+  // O `Omit<..., "type">` de `CheckboxProps` so protege em TS. Consumidor JS
+  // (ou um `as any`) que passasse `type` sobrescrevia o atributo e produzia um
+  // controle de outro tipo com a classe do checkbox: o alvo de 24px aplicado a
+  // algo que nao e checkbox (achado de review, PR #303).
+  it("keeps type=checkbox even when a JS consumer passes a conflicting type", () => {
+    const props = { type: "radio" } as unknown as CheckboxProps;
+    const html = renderToStaticMarkup(<Checkbox aria-label="Manter link direto" {...props} />);
+
+    expect(html).toContain('type="checkbox"');
+    expect(html).not.toContain('type="radio"');
+    expect(html).toContain("artificio-checkbox");
   });
 
   it("renders layout primitives without domain behavior", () => {
