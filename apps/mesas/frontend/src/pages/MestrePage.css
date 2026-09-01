@@ -11,6 +11,15 @@
   color: var(--fg);
 }
 
+/* Spec 099 C3: uma única regra de proximidade para todos os blocos públicos.
+   `--space-6` é o topo da régua compartilhada (24px); duas unidades preservam
+   o vão de 48px que já existia nas junções saudáveis e eliminam as de 0px. */
+.mestre-section-flow {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-6) * 2);
+}
+
 /* Estilos do hero movidos para components/mestre/MestreHero.css (spec 099
    B10): o componente importa o próprio CSS para a prévia dos editores reusar
    o hero real. Regras copiadas byte a byte, mesma ordem relativa. */

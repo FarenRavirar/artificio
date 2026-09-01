@@ -1,6 +1,6 @@
 # Plano 099 — Perfil do mestre
 
-**Status:** decisões D1–D11 fechadas. **Fase A executada (gate A fechado). Fase B executada (B0–B11, gate B fechado com 1 pendência nomeada). Fase E executada em 2026-09-01 por incidente em produção (E1–E3 concluídas).** Fases C e D não iniciadas.
+**Status:** decisões D1–D11 fechadas. **Fase A executada (gate A fechado). Fase B executada (B0–B11, gate B fechado com 1 pendência nomeada). Fase C em execução (C1 e C3 implementadas localmente, C2 concluída com B3, C4 e gate runtime pendentes). Fase E executada em 2026-09-01 por incidente em produção (E1–E3 concluídas).** Fase D não iniciada.
 Sequência, gates e pré-requisitos técnicos. As tasks estão em `tasks.md`; o estado medido
 e a forma dos dados, em `spec.md`.
 
@@ -194,32 +194,44 @@ não de técnica: aquele parser é **motor de regras**, sem modelo.
 
 **Entrega:**
 
-1. **Dobra** (D2): `tagline` promovida a portador primário + etiquetas dos
+1. **Dobra** (D2) — **implementada localmente; runtime pendente**: `tagline` promovida a portador primário + etiquetas dos
    **atributos-chave — `specialties`, `selling_points`, `languages`** —, com fallback para
    a headline atual enquanto vazia. A lista vem de D2 e é fechada.
    **O slot já existe e está ligado** — a task C1 não cria componente, promove.
-   Tipografia atual: `.hero-title` 3rem/900, `.hero-bio` 1.125rem, `max-width: 600px`.
-2. **Exibição de `specialties`, `languages`, `badges`** — hoje nenhum componente os
-   renderiza. Sem isso, a fase B vira formulário que não aparece.
-3. **Remover `average_price` do front** (D4) — banco intacto. **Alcance: só o campo do
+   Forma implementada: `tagline` no `h1`, nome visível acima dele, headline gerada como
+   fallback e até dois valores por categoria de D2 (`selling_points` usa o título). `badges`
+   não entra na dobra. Os chips usam `Badge` de `@artificio/ui`.
+2. **Exibição de `specialties`, `languages`, `badges`** — **concluída com B3/C2** em
+   `MestreHighlights`; a seção completa continua responsável por mostrar os valores além do
+   resumo da dobra.
+3. **Remover `average_price` do front** (D4) — **concluída em B9**; banco intacto. **Alcance: só o campo do
    editor de perfil** (`ProfileEditPage.tsx:583-590`). O preço da mesa
    (`MestreFeaturedTable.tsx:148-155`) e o do grupo fechado
    (`MestreClosedGroupSection.tsx:68-73`) **ficam** — são a mitigação de confiança que
    sustenta D4.
-4. **Vãos de seção com regra** (hoje 48/48/0/48/0/0).
+4. **Vãos de seção com regra** — **implementada localmente; runtime pendente**: um único
+   container pós-hero aplica `gap: calc(var(--space-6) * 2)` = 48px; as três margens inline
+   que produziam junções diferentes foram removidas.
 
 **Trava:** ao mexer na precedência da dobra, conferir as **três** cadeias de `tagline`
 (spec §2.3) — mexer numa não mexe nas outras, e os cortes são diferentes (140 por frase no
 hero, 150 por substring no SPA).
 
 ### ── GATE C ──
-- [ ] A2: tabela §2.1 da spec sem nenhuma linha 🔴
-- [ ] A3: dobra com informação do mestre, medida em 1366×768 e 1920×1080
-- [ ] as três cadeias de descrição conferidas, nenhuma regredida
-- [ ] **mobile e tema claro medidos** (editor **e** página pública) — o alcance está
+- [ ] A2: implementação local cobre as saídas antes órfãs; confirmar no build novo e reconciliar a tabela §2.1 sem nenhuma linha 🔴
+- [ ] A3: dobra com informação do mestre, medida em 1366×768 e 1920×1080 no build novo
+- [ ] as três cadeias de descrição conferidas, nenhuma regredida — hero e backend estão verdes localmente; falta o aceite runtime
+- [ ] **mobile e tema claro medidos** (editor **e** página pública) — **parcial em C4**:
+      editor antigo medido em 719×900 nos dois temas, sem overflow horizontal; o alcance está
       resolvido por medição em spec §7: entra aqui, não antes de B, porque nenhuma media
-      query do editor muda a estrutura de campo
+      query do editor muda a estrutura de campo. Repetir no build pós-B/C
 - [ ] A10: antes/depois nos 20 perfis reais
+
+**Validação local já registrada em C1/C3:** hero 7/7, consumidores 23/23, cadeia OG 6/6,
+teste estrutural do fluxo 3/3, `tsc -b` limpo e eslint 0. A9 reintroduziu headline gerada +
+atributos ocultos (2 falhas) e `gap: 0` (1 falha), restaurando ambos ao verde. A medição no
+Chrome não fecha o gate porque o beta acessível retornou 0 `.hero-attributes` e 0
+`.mestre-section-flow`.
 
 ---
 
@@ -237,8 +249,8 @@ o cache com `gm: null`, o snapshot `gmExistiaAntes` voltava a `false`, e a tenta
 seguinte era POST de novo — batendo em `duplicate key`. Toda gravação do perfil ficava
 presa nesse laço, incluindo sistemas e a publicação de mesa.
 
-- [x] E1: `deriveGmNickname` no `profileService`, nos dois inserts — 360/360, A9 com 2 falhas
-- [x] E2: guard silencioso fora de `addSystem`/`removeSystem` — 7/7, medido em 6 DELETEs repetidos nos logs
+- [x] E1: `deriveGmNickname` no `profileService`, nos dois inserts — `src/services`+`src/routes` 364/364; teste dirigido 11/11; A9 com 2 falhas no fallback e 1 na ordem do insert
+- [x] E2: guard silencioso fora de `addSystem`/`removeSystem` — teste dirigido 9/9; A9 com 2 falhas; origem medida em 6 DELETEs repetidos nos logs
 - [x] E3: `UPDATE` nos 7 perfis legados — `UPDATE 7`, verificação `0|49`; rodado pelo mantenedor (o classificador do harness recusa SQL de escrita em produção)
 
 **Ordem:** E1 antes de E3. Corrigir o dado sem fechar a porta faria os perfis voltarem a

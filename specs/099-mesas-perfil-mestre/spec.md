@@ -1,6 +1,6 @@
 # Spec 099 — Perfil do mestre: o que o mestre insere e o que o sistema expõe
 
-**App:** `mesas` · **Status:** fase A executada (A1–A3, gate A fechado); fase B executada (B0–B11, gate B fechado com 1 pendência nomeada); **fase E executada em 2026-09-01 por incidente em produção** (E1–E3 concluídas); fases C e D não iniciadas
+**App:** `mesas` · **Status:** fase A executada (A1–A3, gate A fechado); fase B executada (B0–B11, gate B fechado com 1 pendência nomeada); **fase C em execução** (C1 e C3 implementadas localmente, C2 concluída com B3, C4 e gate runtime pendentes); **fase E executada em 2026-09-01 por incidente em produção** (E1–E3 concluídas); fase D não iniciada
 **Escrita para implementar.** Investigação, medições e fontes que sustentam cada decisão
 estão em `old_spec.md` (temporário, será removido após conferência do mantenedor).
 
@@ -26,12 +26,13 @@ não entra, por mais que a coluna exista.
 
 ---
 
-## 2. Estado atual, medido (2026-08-30)
+## 2. Estado de entrada, medido (2026-08-30)
 
 ### 2.1 Inventário: cada campo, onde entra e onde sai
 
-Fonte de verdade para as fases B e C. Toda linha "sem entrada" é código já escrito,
-testado e deployado que nunca chegou a ninguém.
+Baseline que abriu as fases B e C. Toda linha "sem entrada" era código já escrito,
+testado e deployado que nunca tinha chegado a ninguém; o estado reconciliado da execução
+fica logo abaixo da tabela e nas tasks.
 
 | campo | edita hoje | exibe hoje | estado |
 |---|---|---|---|
@@ -57,6 +58,13 @@ testado e deployado que nunca chegou a ninguém.
 ¹ há picker no onboarding, mas grava em `/api/v1/me/preferences` — outra entidade.
 
 **Saldo:** 7 grupos sem porta de entrada, 5 sem exibição, 3 sem nenhuma das duas.
+
+**Estado local após B/C (2026-09-01):** B abriu as portas de entrada; C2, entregue junto
+com B3, expõe `specialties`, `languages` e `badges` em `MestreHighlights`; C1 promove
+`tagline` ao `h1` e leva para a dobra até dois valores de cada categoria fechada de D2;
+C3 aplica um fluxo pós-hero único com vão de 48px. O beta acessível ainda é anterior a
+essas entregas, portanto esta reconciliação **não** transforma implementação local em aceite
+runtime: A3, A10 e o gate C permanecem abertos.
 
 ### 2.2 Forma exata dos dados (errar aqui é bug silencioso)
 
@@ -113,7 +121,7 @@ aprovação).
 
 | consumidor | onde vive | corte de `bio_long` | fallback final |
 |---|---|---|---|
-| `MestreHero` (dobra) | `components/mestre/MestreHero.tsx` | 1ª frase (`split(/[.!?]\s+/)[0]`), truncada em 140 **só se exceder** | nada renderizado |
+| `MestreHero` (dobra) | `components/mestre/MestreHero.tsx` | `tagline` ocupa o `h1`; a 1ª frase da bio (`split(/[.!?]\s+/)[0]`), truncada em 140 **só se exceder**, permanece como apoio abaixo | headline `Viva aventuras com {nome}` no `h1` |
 | `buildGmDescription` (**backend**, serve o crawler) | `backend/src/utils/ogDescription.ts`, servido por `backend/src/routes/og.ts` | conforme a função | *"Conheça o perfil do mestre {nome}…"* |
 | `applySeo` (**front**, SPA) | inline em `pages/MestrePage.tsx:45` (`utils/seo`) | `slice(0, 150)` — substring crua | *"Landing pública de mestre…"* |
 
@@ -121,8 +129,11 @@ aprovação).
 fallback. Mexer na cadeia do backend quebra esse teste — é sinal, não obstáculo.
 
 **Mexer numa não mexe nas outras.** Com `tagline` em 0/20 e `bio_long` em 10/20, metade dos
-perfis compartilhados hoje mostra uma frase genérica idêntica para todos. Encher `tagline`
-melhora as três de uma vez, porque encabeça todas.
+perfis compartilhados no baseline mostrava uma frase genérica idêntica para todos. Encher
+`tagline` melhora as três de uma vez, porque encabeça todas. Na implementação local de C1,
+o nome continua visível acima do `h1` quando há `tagline`; a dobra resume D2 com até dois
+valores de `specialties`, até dois títulos de `selling_points` e até dois `languages`.
+`badges` permanece na seção completa de C2 e não entra nessa lista fechada.
 
 ### 2.4 O que o jogador consegue buscar
 
@@ -159,7 +170,9 @@ Os dois primeiros são do editor; os alvos e os vãos atravessam editor, página
   Alturas medidas: 16 · 38 · 42 · 48 · 50 · 300 — sem escala.
 - **Sistemas só contados:** `UserSystemsSelector` mostra `2 sistema(s) que você mestra`,
   sem listar quais.
-- **Vãos de seção sem regra** na página pública: 48 · 48 · 0 · 48 · 0 · 0.
+- **Vãos de seção sem regra** na página pública, no baseline: 48 · 48 · 0 · 48 · 0 · 0.
+  **C3 implementada localmente:** todos os blocos após o hero ficam sob um fluxo único com
+  `gap: calc(var(--space-6) * 2)` = 48px; aceite runtime ainda pendente.
 
 ---
 
@@ -213,8 +226,8 @@ Cada um exige **medição citada** para ser dado como cumprido.
 - Editor de anúncio de mesa — é a 098.
 - Sistema de avaliações (moderação, antifraude, cálculo) — D3.
 - Busca/filtro por atributo do mestre — D6, por ordem: primeiro o dado.
-- **Mobile e tema claro: não medidos.** Não são escopo cortado — só não foram medidos
-  nesta passada. **Resolvido por medição (2026-08-30):** ver §7.
+- **Mobile e tema claro não são escopo cortado.** A página pública de entrada foi medida em
+  §11; o editor antigo, em §11.1. A repetição no build pós-B/C continua no gate C.
 
 ---
 
@@ -225,9 +238,9 @@ Não afirmar nada sobre estes pontos sem medir antes.
 | o quê | estado |
 |---|---|
 | causa de `selling_points` voltar `{}` — **beta medida** (hidratação `admin/sync/enrich` copiando de prod); **prod não medida** (39/48 `{}`, nascendo até 08-28; hidratação/escrita manual no período descartada pelo mantenedor) | bloqueio nomeado em §2.2 |
-| mobile (719px) | **medido** (§11): sem overflow nem texto estourando. **Só a página pública** — o editor exige sessão |
-| tema claro | **não medido** |
-| editor de perfil em runtime | **não medido** — exige sessão (§11.1) |
+| mobile (719px) | página pública medida em §11; editor autenticado medido parcialmente em C4 (§11.1), sem overflow horizontal, porém no build beta anterior às fases B/C |
+| tema claro | **medido parcialmente em C4** no editor antigo: sem overflow horizontal; tokens efetivos `#f4f6fb`/`#0b1220`. Build novo ainda pendente |
+| editor de perfil em runtime | desktop medido no baseline e 719×900 medido parcialmente em C4 (§11.1); comportamento pós-B/C ainda não medido porque o beta acessível está defasado |
 | comportamento com perfil cheio | **impossível hoje** — nenhum dos 20 preenchido |
 | nav global com alvo de 22px | **não reproduz** no CSS do pacote (`min-height: 40px`) — re-medir em runtime |
 | custo do esquema de extração para bio | **medido em B11 (2026-09-01), conferido em revisão independente:** 4 atributos estritos (`experience_years`, `specialties`, `languages`, `badges`), endpoint autenticado sem escrita, painel local de confirmação e cache generalizado por schema. Sem migration, lib nova ou pacote compartilhado. Superfície final medida em `git status`: **4 arquivos de produção + 3 de teste**; validação e vetores verificados em `tasks.md` B11 |
@@ -492,7 +505,7 @@ reprovar. F5 continua sendo a limpeza do que já existe no editor de perfil.
 
 ---
 
-## 11. Medição em viewport — mobile deixou de ser pendência
+## 11. Medição em viewport — página pública de entrada
 
 Rodado em `mesasbeta.artificiorpg.com/mestre/farenravirar` via Playwright MCP (sem sessão,
 página pública), 2026-08-31. Isto é o que a análise estática **não alcança**: leitor de
@@ -507,9 +520,9 @@ DOM+CSS não resolve — medido nesta base, `jsdom` devolve `getBoundingClientRe
 | overflow horizontal | não | **não** |
 | contraste abaixo do piso WCAG | **8** | — |
 
-**Isto fecha C4 e a pendência de mobile (§7):** em 719px **não há overflow horizontal nem
-texto estourando**. O layout responsivo da página pública está correto; o que sobra é o
-mesmo defeito das duas larguras.
+**Isto fechou a pendência de mobile da página pública de entrada (§7), mas não fecha C4:**
+em 719px **não há overflow horizontal nem texto estourando** nesse build. A fase C altera a
+dobra e o fluxo de seções; por isso o mesmo ensaio precisa ser repetido no build pós-B/C.
 
 **Achados novos, que nenhuma medição estática pegaria:**
 
@@ -571,10 +584,22 @@ adoção da escala existente, não criação.
 **sem** overflow; alturas de controle `40` e `44` — só o `44` fora da escala. É a tela mais
 saudável das três.
 
-**O que NÃO foi medido, e fica dito:** o editor em **719px**. A janela do Chrome não
-redimensionou (`innerWidth` permaneceu 1815 em duas tentativas) e a medição por `iframe`
-voltou vazia. **Não vou afirmar nada sobre o editor em mobile** — continua pendente para
-C4, agora só para o editor, já que a página pública foi medida em §11.
+**Medição parcial de C4 (2026-09-01, Chrome autorizado):** o editor autenticado foi medido
+em **719×900**, nos temas escuro e claro, sem alterar campo nem enviar formulário.
+
+| medição | valor |
+|---|---|
+| overflow horizontal | **não**, nos dois temas (`scrollWidth = clientWidth = 704px`) |
+| tema claro | fundo `#f4f6fb`; texto `#0b1220` |
+| altura da página | 3465px = **3,85 telas** |
+| alvos abaixo de 44px | **13** |
+| textos com overflow próprio | **2**, ambos em metadados de links |
+
+Esta medição **não fecha C4**: o build acessível em beta ainda exibe `Preço Médio` e não
+contém `tagline`, `specialties`, `languages`, `badges` nem sugestões da bio. A rota pública
+no mesmo beta, medida em 1366×768, retornou 0 `.mestre-section-flow` e 0
+`.hero-attributes`. Portanto a responsividade e o tema da implementação pós-B/C, A3 e A10
+continuam pendentes até o build novo estar acessível.
 
 ---
 

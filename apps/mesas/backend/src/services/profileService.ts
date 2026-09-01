@@ -316,13 +316,21 @@ export async function updateGmProfile(userId: string, data: GmProfileUpdate): Pr
 
     const slug = user?.username || user?.email.split('@')[0] || `user-${userId.slice(0, 8)}`;
 
+    // `nickname` DEPOIS do spread (achado de review, PR #301). Na primeira
+    // correcao a chave derivada vinha antes de `...sanitizedData`, e o patch
+    // sobrescrevia o valor calculado — o PATCH manda `nickname` explicitamente
+    // (`profile.ts:183`), entao um `null`, uma string de 1 caractere ou uma de
+    // 60 voltava a gravar registro fora do contrato de 2-40, que e exatamente o
+    // que E1 existe para impedir. `deriveGmNickname` ja recebe o patch e
+    // decide: usa o valor do mestre quando ele serve, cai no fallback quando
+    // nao serve. Vindo por ultimo, e a decisao dela que prevalece.
     await db
       .insertInto('gm_profiles')
       .values({
         user_id: userId,
         slug,
-        nickname: deriveGmNickname(user, slug, sanitizedData),
         ...sanitizedData,
+        nickname: deriveGmNickname(user, slug, sanitizedData),
       })
       .execute();
 

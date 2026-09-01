@@ -4,7 +4,7 @@ import type { TableCard } from '../../types/tables';
 import type { MestrePublicData } from '../../hooks/useMestre';
 import { isUsableImageSrc } from '../../utils/imageSource';
 import { cropToObjectPosition } from '@artificio/media/image-kinds';
-import { toFiniteNumber } from '@artificio/ui';
+import { Badge, toFiniteNumber, type BadgeVariant } from '@artificio/ui';
 // Spec 099 B10: o hero carrega o PRÓPRIO CSS (movido de MestrePage.css) para
 // que a prévia dos editores (MestreProfilePreview) consuma o componente real
 // com os mesmos estilos — sem importar a página pública inteira, cujas classes
@@ -58,6 +58,43 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
   // o React recomenda para estado derivado de prop.
   const bannerFailed = bannerFailure === profile.banner_url;
   const avatarFailed = avatarFailure === profile.avatar_url;
+  const tagline = profile.tagline?.trim() || null;
+  const bioFallback = !tagline && profile.bio_long
+    ? (() => {
+        const firstSentence = profile.bio_long.split(/[.!?]\s+/)[0];
+        return firstSentence.length > 140
+          ? `${firstSentence.slice(0, 140)}…`
+          : firstSentence + (profile.bio_long.includes('.') ? '.' : '');
+      })()
+    : null;
+
+  // A dobra é um resumo, não a morada completa dos atributos: dois valores por
+  // categoria preservam as três categorias fechadas de D2 sem empurrar CTA e
+  // prova para fora da primeira tela. As seções abaixo continuam exibindo tudo.
+  const heroAttributeGroups: Array<{
+    key: 'specialties' | 'selling_points' | 'languages';
+    variant: BadgeVariant;
+    values: string[];
+  }> = [
+    {
+      key: 'specialties',
+      variant: 'warning',
+      values: (Array.isArray(profile.specialties) ? profile.specialties : []).slice(0, 2),
+    },
+    {
+      key: 'selling_points',
+      variant: 'brand',
+      values: (Array.isArray(profile.selling_points) ? profile.selling_points : [])
+        .slice(0, 2)
+        .map((point) => point.title),
+    },
+    {
+      key: 'languages',
+      variant: 'info',
+      values: (Array.isArray(profile.languages) ? profile.languages : []).slice(0, 2),
+    },
+  ];
+  const hasHeroAttributes = heroAttributeGroups.some((group) => group.values.length > 0);
 
   return (
     <section className="hero-section">
@@ -113,34 +150,42 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
         </div>
 
         <div className="hero-badges">
-          <span className="badge badge-mestre">
+          <Badge variant="warning" className="gap-2">
             <Crown className="w-4 h-4" /> Mestre
-          </span>
+          </Badge>
           {profile.covil_verified && (
-            <span className="badge badge-covil">
+            <Badge variant="warning" className="gap-2">
               <Award className="w-4 h-4" /> Mestre do Covil
-            </span>
+            </Badge>
           )}
         </div>
 
+        {tagline && <p className="hero-master-name">{profile.display_name}</p>}
+
         <h1 className="hero-title">
-          Viva aventuras com{' '}
-          <span className="hero-title-accent">{profile.display_name}</span>
+          {tagline ? (
+            tagline
+          ) : (
+            <>
+              Viva aventuras com{' '}
+              <span className="hero-title-accent">{profile.display_name}</span>
+            </>
+          )}
         </h1>
 
-        {(() => {
-          if (profile.tagline) {
-            return <p className="hero-bio">{profile.tagline}</p>;
-          }
-          if (profile.bio_long) {
-            const firstSentence = profile.bio_long.split(/[.!?]\s+/)[0];
-            const truncated = firstSentence.length > 140 
-              ? firstSentence.slice(0, 140) + '…' 
-              : firstSentence + (profile.bio_long.includes('.') ? '.' : '');
-            return <p className="hero-bio">{truncated}</p>;
-          }
-          return null;
-        })()}
+        {bioFallback && <p className="hero-bio">{bioFallback}</p>}
+
+        {hasHeroAttributes && (
+          <div className="hero-attributes" aria-label="Atributos principais do mestre">
+            {heroAttributeGroups.flatMap((group) =>
+              group.values.map((value, index) => (
+                <Badge key={`${group.key}-${index}-${value}`} variant={group.variant}>
+                  {value}
+                </Badge>
+              )),
+            )}
+          </div>
+        )}
 
         <div className="hero-ctas">
           <button
