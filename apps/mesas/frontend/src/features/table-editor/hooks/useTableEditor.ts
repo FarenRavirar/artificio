@@ -418,6 +418,13 @@ export interface TableEditorApi {
   gmProfileLoading: boolean;
   /** Perfil de mestre EXISTE (T4.0q: o botão de sincronizar só faz sentido com ele). */
   hasGmProfile: boolean;
+  /**
+   * Spec 099 B10: snapshot do perfil para a prévia do perfil público na parte
+   * "Mestre" (D5 — 3ª tela de edição). null enquanto o GET /gm/me não
+   * respondeu, sem perfil ou erro — a prévia simplesmente não monta (não há
+   * o que espelhar).
+   */
+  gmProfilePreview: GmProfileSnapshot | null;
   /** Por campo herdado, true quando o mestre EDITOU (valor != snapshot do perfil). */
   inheritedEdits: { displayName: boolean; bio: boolean; contacts: boolean };
   /** Algum campo herdado foi editado (condição do botão de sincronizar). */
@@ -1277,6 +1284,7 @@ export function useTableEditor({ initialData, onPublished }: TableEditorOptions)
     firstErrorFieldToFocus: firstField,
     gmProfileLoading: gmProfileStatus.kind === 'loading',
     hasGmProfile: gmProfileStatus.kind === 'profile',
+    gmProfilePreview: gmProfileStatus.kind === 'profile' ? gmProfileStatus.profile : null,
     inheritedEdits,
     hasInheritedEdit,
     syncProfileToMaster,

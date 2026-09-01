@@ -307,7 +307,7 @@ export function TableEditor({ initialData, onPublished, onBack }: TableEditorPro
             {activePartId === 'where' && <WherePart api={api} />}
             {activePartId === 'values' && <ValuesPart api={api} />}
             {activePartId === 'audience' && <AudiencePart api={api} />}
-            {activePartId === 'master' && <MasterPart api={api} />}
+            {activePartId === 'master' && <MasterPart api={api} userName={user?.name} />}
             {activePartId === 'extras' && (
               <ExtrasPart api={api} userRole={user?.role} isDdalEligible={isDdalEligible} />
             )}

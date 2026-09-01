@@ -1,4 +1,4 @@
-import { normalizeImageFrame } from '@artificio/media/image-kinds';
+import { normalizeImageFrame, isCropRect, type CropRect } from '@artificio/media/image-kinds';
 import { normalizeSettingStyles } from '@artificio/catalog-matching';
 import { normalizeAgeRating } from '../../../utils/ageRating';
 import type {
@@ -184,14 +184,21 @@ export function deriveSchedule(state: TableEditorState): ScheduleDerivation {
   const timeDefined = !!first && !!first.start_time;
 
   if (!dayDefined || !timeDefined) {
-    // Flexível: sem linhas, statuses de tabela + hints nulos (o hint só vale
-    // com status 'defined' — refine do validator proíbe o contrário).
+    // Flexível: sem linhas (uma linha exige dia E horário, ambos NOT NULL), o
+    // que o mestre declarou vive nas colunas de status + hint do topo.
+    //
+    // O hint do eixo DEFINIDO é preservado — antes os dois iam a `null`, e o
+    // eixo que o mestre tinha preenchido sumia: mesa com "dia a definir, 20:00"
+    // gravava só o status e o anúncio saía sem o horário (achado Codex P2, PR
+    // #300). O validator do backend só proíbe hint no eixo `to_define`
+    // (`tableValidators.ts` refines de schedule_day_hint/schedule_time_hint),
+    // então mandar o hint do eixo definido é o contrato, não uma exceção.
     return {
       schedules: [],
       schedule_day_status: dayDefined ? 'defined' : 'to_define',
       schedule_time_status: timeDefined ? 'defined' : 'to_define',
-      schedule_day_hint: null,
-      schedule_time_hint: null,
+      schedule_day_hint: dayDefined ? (first.day_of_week as DayOfWeek) : null,
+      schedule_time_hint: timeDefined ? first.start_time : null,
     };
   }
 
@@ -757,6 +764,40 @@ export interface GmProfileSnapshot {
    * editor, só na criação — mesa em edição mantém o valor salvo.
    */
   languages: string[];
+  // ── Spec 099 B10: campos crus do GET /gm/me para a PRÉVIA do perfil público
+  //    na parte "Mestre" (D5 — o editor de mesa é a 3ª tela de edição).
+  //    snake_case de propósito: passagem direta do payload da API, sem a
+  //    semântica de herança dos campos acima. Opcionais: os construtores de
+  //    POST/PUT (criação no publish e sincronizar) não os preenchem — nesses
+  //    casos o buildMestrePreviewData cai para os fallbacks neutros.
+  id?: string;
+  slug?: string;
+  /**
+   * Foto do perfil GERAL, devolvida por `GET /gm/me` só quando o mestre não
+   * tem foto própria — deixa as três prévias espelharem o
+   * `COALESCE(gm.avatar_url, p.avatar_url)` da rota pública sem cada tela
+   * precisar buscar `/profile/me` por conta.
+   */
+  general_avatar?: {
+    avatar_url?: string | null;
+    avatar_crop_data?: CropRect | null;
+    avatar_width?: number | null;
+    avatar_height?: number | null;
+  } | null;
+  avatar_url?: string | null;
+  avatar_crop_data?: CropRect | null;
+  avatar_width?: number | null;
+  avatar_height?: number | null;
+  banner_url?: string | null;
+  banner_crop_data?: CropRect | null;
+  banner_width?: number | null;
+  banner_height?: number | null;
+  tagline?: string | null;
+  promo_badge_text?: string | null;
+  covil_verified?: boolean | null;
+  experience_years?: number | null;
+  created_at?: string | null;
+  tables_count?: number | null;
 }
 
 function isProfileContact(value: unknown): value is ContactMethodInput {
@@ -785,6 +826,21 @@ function normalizeStringList(value: unknown): string[] {
 }
 
 /**
+ * Coercao de campo de payload externo: devolve o valor so quando o tipo bate,
+ * senao `null`. Extraidos porque a coercao inline repetida 20x era o que
+ * levava `mapGmMeToSnapshot` a estourar a complexidade cognitiva do Sonar
+ * (19 > 15) — cada ternario contava, sem que nenhum deles fosse uma decisao
+ * de verdade.
+ */
+const asStringOrNull = (value: unknown): string | null => (
+  typeof value === 'string' ? value : null
+);
+
+const asNumberOrNull = (value: unknown): number | null => (
+  typeof value === 'number' ? value : null
+);
+
+/**
  * Normaliza o corpo de GET /api/v1/gm/me para o snapshot de herança.
  * Devolve null quando não é perfil (id/slug ausentes) — o hook decide entre
  * "sem perfil" (404 do endpoint) e "inválido" (aqui).
@@ -800,18 +856,47 @@ export function mapGmMeToSnapshot(value: unknown): GmProfileSnapshot | null {
         .map((c) => ({
           channel: c.channel as TableContactChannel,
           value: c.value,
-          label: typeof c.label === 'string' ? c.label : '',
-          discord_server_url: typeof c.discord_server_url === 'string' ? c.discord_server_url : '',
+          label: asStringOrNull(c.label) ?? '',
+          discord_server_url: asStringOrNull(c.discord_server_url) ?? '',
         }))
     : [];
 
   return {
-    nickname: typeof data.nickname === 'string' ? data.nickname : '',
-    bioLong: typeof data.bio_long === 'string' ? data.bio_long : '',
+    nickname: asStringOrNull(data.nickname) ?? '',
+    bioLong: asStringOrNull(data.bio_long) ?? '',
     contactMethods,
     // Fase 6 (T6.4): listas de string do perfil — entradas não-string saem
     // (payload externo, normalização obrigatória do repo).
     preferredVttPlatforms: normalizeStringList(data.preferred_vtt_platforms),
     languages: normalizeStringList(data.languages),
+    // Spec 099 B10: leitura defensiva dos campos da prévia (payload externo).
+    // Crop inválido vira null — não chega `NaN%` no object-position do hero;
+    // string/número fora do tipo vira null. id/slug já foram validados acima.
+    id: data.id,
+    slug: data.slug,
+    avatar_url: asStringOrNull(data.avatar_url),
+    avatar_crop_data: isCropRect(data.avatar_crop_data) ? data.avatar_crop_data : null,
+    avatar_width: asNumberOrNull(data.avatar_width),
+    avatar_height: asNumberOrNull(data.avatar_height),
+    banner_url: asStringOrNull(data.banner_url),
+    banner_crop_data: isCropRect(data.banner_crop_data) ? data.banner_crop_data : null,
+    banner_width: asNumberOrNull(data.banner_width),
+    banner_height: asNumberOrNull(data.banner_height),
+    tagline: asStringOrNull(data.tagline),
+    promo_badge_text: asStringOrNull(data.promo_badge_text),
+    covil_verified: typeof data.covil_verified === 'boolean' ? data.covil_verified : null,
+    experience_years: asNumberOrNull(data.experience_years),
+    created_at: asStringOrNull(data.created_at),
+    tables_count: asNumberOrNull(data.tables_count),
+    general_avatar: (() => {
+      const geral = asRecord(data.general_avatar);
+      if (!geral) return null;
+      return {
+        avatar_url: asStringOrNull(geral.avatar_url),
+        avatar_crop_data: isCropRect(geral.avatar_crop_data) ? geral.avatar_crop_data : null,
+        avatar_width: asNumberOrNull(geral.avatar_width),
+        avatar_height: asNumberOrNull(geral.avatar_height),
+      };
+    })(),
   };
 }

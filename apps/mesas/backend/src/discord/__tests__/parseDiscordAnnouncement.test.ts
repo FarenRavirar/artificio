@@ -1314,6 +1314,111 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table.start_time).toBeNull();
   });
 
+  // Achados do mantenedor (2026-08-31, anúncio real "Ameaça sob Otari"): o
+  // texto declarava "dia da semana a definir, 8 às 11 horas da manhã" e o
+  // parser devolvia day_of_week=null E start_time=null — perdendo as DUAS
+  // informações que o mestre havia escrito. Dois defeitos independentes: o
+  // interposto "da semana" quebrava os padrões de sentinela, e a hora por
+  // extenso não batia com nenhum dos dois formatos aceitos ("19h"/"19:00").
+  describe('agenda: "a definir" com interposto e hora por extenso', () => {
+    const OTARI = 'Dia e horário: dia da semana a definir, 8 às 11 horas da manhã\nVagas: 2';
+
+    it('"dia da semana a definir" marca to_define (o interposto fazia os padrões falharem)', () => {
+      const draft = parseDiscordAnnouncement(makeMessage({ content_raw: OTARI }));
+      expect(draft?.table.day_of_week).toBe('to_define');
+    });
+
+    it('hora por extenso ("8 às 11 horas") vira start_time — o início do intervalo', () => {
+      const draft = parseDiscordAnnouncement(makeMessage({ content_raw: OTARI }));
+      expect(draft?.table.start_time).toBe('08:00');
+    });
+
+    it('"das 19 às 23 horas" captura o início, não o fim', () => {
+      const draft = parseDiscordAnnouncement(makeMessage({
+        content_raw: 'Sessões quintas, das 19 às 23 horas\nVagas: 4',
+      }));
+      expect(draft?.table.start_time).toBe('19:00');
+    });
+
+    it('"sem dia fixo" é sentinela, e o horário do mesmo texto é preservado', () => {
+      const draft = parseDiscordAnnouncement(makeMessage({
+        content_raw: 'Data e Hora: Sem dia Fixo porém sempre as 19h\nVagas: 3',
+      }));
+      expect(draft?.table.day_of_week).toBe('to_define');
+      expect(draft?.table.start_time).toBe('19:00');
+    });
+
+    // Duracao vs horario: "N horas" serve para os dois, e o parser so pode
+    // gravar `start_time` quando o texto marca HORARIO. Tres guards, um por
+    // forma de duracao que ja produziu horario inventado:
+    //  - hora avulsa sem marcador ("de 3 horas") — achado Codex P1;
+    //  - faixa ligada por "a"/"ate", que nao sao marcadores ("de 3 a 5 horas");
+    //  - valor fora de 0-23 ("24 horas").
+    // Horario inventado e pior que campo vazio: alem de errado, tira o campo
+    // dos avisos de revisao do importador, entao ninguem confere.
+    it.each([
+      ['hora avulsa sem marcador', 'Sessões de 3 horas de duração'],
+      ['faixa ligada por "a"', 'Sessões de 3 a 5 horas de duração'],
+      ['faixa ligada por "até"', 'Mesas de 2 até 4 horas'],
+      ['valor fora de 0-23', 'Maratona de 24 horas de campanha'],
+    ])('duração (%s) não vira start_time', (_caso, texto) => {
+      const draft = parseDiscordAnnouncement(makeMessage({
+        content_raw: `${texto}\nVagas: 4`,
+      }));
+      expect(draft?.table.start_time).toBeNull();
+    });
+
+    // O outro lado do mesmo guard: restringir o conector nao pode calar o
+    // horario real. "ate" aparece como conector legitimo na fixture, sempre
+    // com a hora em formato de relogio — que o padrao de relogio resolve antes.
+    it.each([
+      ['duração antes do horário', 'Sessões de 4 horas, as 20 horas', '20:00'],
+      ['"até" com hora de relógio', 'Segundas-feiras das 20h até às 23:30h', '20:00'],
+    ])('horário real é lido (%s)', (_caso, texto, esperado) => {
+      const draft = parseDiscordAnnouncement(makeMessage({
+        content_raw: `${texto}\nVagas: 4`,
+      }));
+      expect(draft?.table.start_time).toBe(esperado);
+    });
+
+
+    // Achados de review (PR #300), os tres na mesma area de agenda.
+    it('hora invalida no meio do texto nao descarta o horario valido seguinte', () => {
+      const draft = parseDiscordAnnouncement(makeMessage({
+        content_raw: 'Erro de digitacao 99h, o certo e 20h\nVagas: 4',
+      }));
+      expect(draft?.table.start_time).toBe('20:00');
+    });
+
+    it('"as" no fim de palavra nao vira marcador de horario', () => {
+      const draft = parseDiscordAnnouncement(makeMessage({
+        content_raw: 'Aulas 3 horas por semana\nVagas: 4',
+      }));
+      expect(draft?.table.start_time).toBeNull();
+    });
+
+    it('"sem horario fixo" nao marca o DIA como a definir', () => {
+      const draft = parseDiscordAnnouncement(makeMessage({
+        content_raw: 'Sistema: D&D 5e\nSem horario fixo, combinamos no grupo\nVagas: 4',
+      }));
+      expect(draft?.table.day_of_week).toBeNull();
+    });
+
+    it('"sem dia fixo" continua marcando o dia como a definir', () => {
+      const draft = parseDiscordAnnouncement(makeMessage({
+        content_raw: 'Sem dia fixo, combinamos no grupo\nVagas: 4',
+      }));
+      expect(draft?.table.day_of_week).toBe('to_define');
+    });
+
+    it('"vou definir a data depois" NÃO é sentinela (frase livre, não declaração)', () => {
+      const draft = parseDiscordAnnouncement(makeMessage({
+        content_raw: 'Ainda vou definir a data depois de fechar o elenco\nVagas: 4',
+      }));
+      expect(draft?.table.day_of_week).toBeNull();
+    });
+  });
+
   it('assume slots_total=5 quando só slots_open é declarado (achado 2026-07-16, mesmo caso "As Crônicas do Norte")', () => {
     const draft = parseDiscordAnnouncement(makeMessage({
       content_raw: 'Vagas disponíveis: 3\nSistema: D&D 5e',
@@ -1628,6 +1733,73 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table.system_id).toBe('dnd');
     expect(draft?.table.system_name).toBe('Dungeons & Dragons');
     expect(draft?.table.raw_system_hint).toBeNull();
+  });
+
+  // Achado do mantenedor (2026-08-31): a busca tem que descer como um humano
+  // procura — sistema (nome ou alias), depois edição (nome ou alias), depois
+  // variante. A travessia de `findSystemMatch` já fazia isso, mas parava na
+  // edição quando o nome da VARIANTE era uma palavra de edição ("Remaster",
+  // "Anniversary"): `normalizeSystemName` as tira da base por serem
+  // qualificador, então o nó ficava sem baseTokens e sem editionTokens, dava
+  // score 0 e era eliminado pelo filtro `score > 0`.
+  //
+  // Medido no catálogo de produção (`site/catalog_nodes`, a fonte real — não
+  // `mesas_rpg.systems`, que é legada): 20 nós têm nome inteiramente composto
+  // dessas palavras — 17 variantes + 3 edições, incluindo
+  // `pathfinder/pathfinder--2e/remaster` e 16 ramos "Anniversary" de
+  // Vampire/Mage/Shadowrun. Nenhum era alcançável, e o mestre escolhia na mão.
+  //
+  // Cadastrar alias resolveria UM nó; o defeito era do matcher e valia para os
+  // 20 (só a variante `2024` do D&D tinha alias — daí "D&D 5.5" funcionar e
+  // "Pathfinder 2e Remaster" não).
+  describe('travessia até a variante quando o nome dela é palavra de edição', () => {
+    const pathfinder = [
+      { id: 'pf', name: 'Pathfinder', name_pt: null, aliases: ['PF', 'Pathfinder 2e'], node_type: 'system', parent_id: null },
+      { id: 'pf-1e', name: '1e', name_pt: null, aliases: [], node_type: 'edition', parent_id: 'pf' },
+      { id: 'pf-2e', name: '2e', name_pt: null, aliases: [], node_type: 'edition', parent_id: 'pf' },
+      { id: 'pf-2e-rpg', name: 'Roleplaying Game', name_pt: null, aliases: [], node_type: 'variant', parent_id: 'pf-2e' },
+      { id: 'pf-2e-remaster', name: 'Remaster', name_pt: null, aliases: [], node_type: 'variant', parent_id: 'pf-2e' },
+    ];
+
+    it('"Pathfinder 2e Remaster" chega na variante, sem alias cadastrado', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({ content_raw: 'Sistema: Pathfinder 2e Remaster\nVagas: 4' }),
+        pathfinder,
+      );
+      expect(draft?.table.system_id).toBe('pf-2e-remaster');
+    });
+
+    it('sem a palavra da variante, para na edição — não inventa a variante', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({ content_raw: 'Sistema: Pathfinder 2e\nVagas: 4' }),
+        pathfinder,
+      );
+      expect(draft?.table.system_id).toBe('pf-2e');
+    });
+
+    it('a edição errada não é escolhida pela palavra da variante', () => {
+      const draft = parseDiscordAnnouncement(
+        makeMessage({ content_raw: 'Sistema: Pathfinder 1e\nVagas: 4' }),
+        pathfinder,
+      );
+      expect(draft?.table.system_id).toBe('pf-1e');
+    });
+
+    // O mesmo caminho para "Anniversary", que se repete em 16 ramos do
+    // catálogo — confirma que a correção é do matcher, não um caso especial
+    // do Pathfinder.
+    it('vale para "Anniversary", que se repete em vários sistemas', () => {
+      const vampire = [
+        { id: 'v', name: 'Vampire', name_pt: null, aliases: [], node_type: 'system', parent_id: null },
+        { id: 'v-5e', name: '5e', name_pt: null, aliases: [], node_type: 'edition', parent_id: 'v' },
+        { id: 'v-5e-anniv', name: 'Anniversary', name_pt: null, aliases: [], node_type: 'variant', parent_id: 'v-5e' },
+      ];
+      const draft = parseDiscordAnnouncement(
+        makeMessage({ content_raw: 'Sistema: Vampire 5e Anniversary\nVagas: 4' }),
+        vampire,
+      );
+      expect(draft?.table.system_id).toBe('v-5e-anniv');
+    });
   });
 
   it('prefers an exact edition before falling back to the parent system', () => {

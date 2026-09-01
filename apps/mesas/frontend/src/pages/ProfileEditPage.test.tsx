@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import ProfileEditPage from './ProfileEditPage';
+import type { FullProfile } from '../types/profileTypes';
 
 /**
  * Página de edição de perfil — indicador de autosave (spec 099 B8) e remoção
@@ -15,7 +16,9 @@ import ProfileEditPage from './ProfileEditPage';
  */
 
 const { mockCtx } = vi.hoisted(() => {
-  const profile = {
+  // Tipado como FullProfile para o teste da prévia (B10) poder escrever
+  // campos opcionais do gm (tagline) — sem o tipo, o literal recusa a chave.
+  const profile: FullProfile = {
     user: {
       id: 'u1',
       email: 'a@b.com',
@@ -194,5 +197,25 @@ describe('ProfileEditPage — campo Preço Médio removido (spec 099 B9 / D4)', 
 
     expect(screen.queryByLabelText('Preço Médio (R$)')).not.toBeInTheDocument();
     expect(container.querySelector('#average_price')).toBeNull();
+  });
+});
+
+describe('ProfileEditPage — prévia do perfil público (spec 099 B10)', () => {
+  it('renderiza o texto REAL do editor na prévia (tagline atual do profile.gm)', () => {
+    // Valor ATUAL dos campos do editor (nada de dado fake): o que o
+    // profile.gm carrega é o que a prévia deve espelhar.
+    mockCtx.profile.gm!.tagline = 'Aventuras épicas toda quinta';
+    mockCtx.profile.gm!.nickname = null;
+
+    renderPage();
+    fireEvent.click(screen.getByRole('tab', { name: 'Mestre' }));
+
+    expect(screen.getByLabelText('Prévia do perfil')).toBeInTheDocument();
+    expect(screen.getByText('Aventuras épicas toda quinta')).toBeInTheDocument();
+    // Sem nickname, o display_name cai para o perfil do usuário (COALESCE do
+    // GET público: nickname → display_name → slug). Escopo na prévia: o h1 da
+    // página também mostra "Mago".
+    const preview = screen.getByLabelText('Prévia do perfil');
+    expect(within(preview).getByText('Mago')).toBeInTheDocument();
   });
 });

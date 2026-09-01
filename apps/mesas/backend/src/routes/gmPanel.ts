@@ -569,6 +569,22 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
 
     const tablesCount = Number(tablesCountRow?.count ?? 0);
 
+    // Foto do perfil GERAL, para a previa do perfil publico espelhar o
+    // COALESCE(gm.avatar_url, p.avatar_url) da rota publica (`gm.ts:147-156`).
+    // Resolvido AQUI e nao em cada tela: sao tres previas (painel, editor de
+    // mesa e edicao de perfil) e so uma delas tinha o perfil geral carregado —
+    // as outras mostrariam placeholder enquanto o jogador ve a foto geral
+    // (achado Codex P2, PR #300). O crop acompanha a MESMA origem que a URL,
+    // como no SQL publico: aplicar o recorte da foto de mestre sobre a foto
+    // geral enquadraria a imagem errada.
+    const generalProfile = gmProfile.avatar_url == null
+      ? await db
+        .selectFrom('profiles')
+        .select(['avatar_url', 'avatar_crop_data', 'avatar_width', 'avatar_height'])
+        .where('user_id', '=', userId)
+        .executeTakeFirst()
+      : undefined;
+
     return res.json({
       data: {
         ...gmProfile,
@@ -577,6 +593,14 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
         closed_group_description: sanitizeNullableUserMarkdown(gmProfile.closed_group_description),
         tables_count: tablesCount,
         avg_rating: null,
+        general_avatar: generalProfile
+          ? {
+            avatar_url: generalProfile.avatar_url,
+            avatar_crop_data: generalProfile.avatar_crop_data,
+            avatar_width: generalProfile.avatar_width,
+            avatar_height: generalProfile.avatar_height,
+          }
+          : null,
       },
     });
   } catch (error) {

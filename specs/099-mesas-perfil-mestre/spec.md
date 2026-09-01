@@ -1,6 +1,6 @@
 # Spec 099 — Perfil do mestre: o que o mestre insere e o que o sistema expõe
 
-**App:** `mesas` · **Status:** fase A executada (A1–A3, gate A fechado); fase B executada (B0–B9, gate B fechado com 1 pendência nomeada); B10/B11 **adiadas por decisão do mantenedor (2026-08-31)**; fases C e D não iniciadas
+**App:** `mesas` · **Status:** fase A executada (A1–A3, gate A fechado); fase B executada (B0–B10, gate B fechado com 1 pendência nomeada); **B11 pendente**; fases C e D não iniciadas
 **Escrita para implementar.** Investigação, medições e fontes que sustentam cada decisão
 estão em `old_spec.md` (temporário, será removido após conferência do mantenedor).
 

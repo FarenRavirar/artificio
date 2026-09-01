@@ -1,4 +1,4 @@
-import type { TableDetail, TableSchedule } from '../../../types/tables';
+import type { TableDetail, TableSchedule, ScheduleDefinitionStatus } from '../../../types/tables';
 import { authGet } from '../../../services/apiClient';
 
 export type WhatsAppAnnouncementOptions = {
@@ -202,6 +202,24 @@ function formatScheduleTime(schedule: TableSchedule): string {
   return start || end;
 }
 
+/**
+ * Rotulo de UM eixo da agenda (dia ou horario) quando a mesa nao tem linhas em
+ * `table_schedules`. Os eixos sao independentes: da pra ter dia 'to_define'
+ * com horario 'defined' e vice-versa (`editorMapping.deriveSchedule`).
+ *
+ * Status ausente devolve '' — nao ha o que afirmar sobre o eixo, e inventar
+ * rotulo seria pior que a linha curta.
+ */
+function axisLabel(
+  status: ScheduleDefinitionStatus | undefined,
+  hint: string,
+  rotuloIndefinido: string,
+): string {
+  if (status === 'to_define') return rotuloIndefinido;
+  if (status === 'defined') return hint;
+  return '';
+}
+
 function formatSchedules(table: TableDetail): string {
   const schedules = [...(table.schedules ?? [])].sort((a, b) => a.sort_order - b.sort_order);
 
@@ -217,8 +235,37 @@ function formatSchedules(table: TableDetail): string {
       .join('; ');
   }
 
-  const day = table.schedule_day_status === 'defined' ? table.schedule_day_hint : '';
-  const time = table.schedule_time_status === 'defined' ? table.schedule_time_hint : '';
+  // Sem linhas em `table_schedules`, a agenda vive nas colunas do topo da mesa.
+  // Os dois eixos sao INDEPENDENTES (editorMapping.deriveSchedule): da pra ter
+  // dia 'to_define' com horario 'defined' e vice-versa.
+  //
+  // Achado do mantenedor (2026-08-31): quando QUALQUER eixo era 'to_define' a
+  // linha saia vazia ("Data e Hora:" e nada) — inclusive com o horario
+  // definido, porque o hint do eixo indefinido e sempre null e o outro eixo
+  // dependia de um hint que o editor NUNCA grava (medido: zero ocorrencias de
+  // schedule_day_hint/schedule_time_hint em features/table-editor; so o
+  // importador do Discord os preenche). O anuncio ficava mudo sobre a agenda
+  // em vez de dizer o que ja estava decidido.
+  //
+  // Cada eixo passa a render o rotulo explicito de "a definir", no mesmo texto
+  // que a pagina publica ja mostra (TableSchedules), e o hint vira fallback
+  // opcional do eixo definido em vez de requisito.
+  // Cada eixo casa o status EXPLICITAMENTE, sem `else` de fallback: os dois
+  // campos sao opcionais no tipo, e a rota de LISTA seleciona
+  // `schedule_day_status` sem os hints nem `schedule_time_status`
+  // (`tables.ts:163` vs. `tables.ts:599-602`, que traz os quatro). Com `else`,
+  // `undefined` caia no ramo do hint como se fosse 'defined' — hoje devolve
+  // string vazia do mesmo jeito, mas por coincidencia da forma do dado, nao
+  // por garantia: um status novo no enum passaria a ser tratado como definido
+  // em silencio (achado de review, PR #300).
+  const day = axisLabel(table.schedule_day_status, cleanText(table.schedule_day_hint), 'Dia a definir');
+  // `slice(0, 5)`: o hint vem como TIME do Postgres ("20:00:00") e o anuncio
+  // mostra so HH:MM. So se aplica ao valor real, nunca ao rotulo.
+  const time = axisLabel(
+    table.schedule_time_status,
+    cleanText(table.schedule_time_hint).slice(0, 5),
+    'Horário a definir',
+  );
   return joinNonEmpty([day, time]);
 }
 

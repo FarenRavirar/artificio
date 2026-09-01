@@ -48,6 +48,7 @@ function makeApi(overrides: Partial<TableEditorApi> = {}): TableEditorApi {
     firstErrorFieldToFocus: null,
     gmProfileLoading: false,
     hasGmProfile: false,
+    gmProfilePreview: null,
     inheritedEdits: { displayName: false, bio: false, contacts: false },
     hasInheritedEdit: false,
     syncProfileToMaster: vi.fn(async () => true),
@@ -93,5 +94,41 @@ describe('botão de sincronizar (T4.0q)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: SYNC_BUTTON_TEXT }));
     expect(syncProfileToMaster).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('prévia do perfil público (spec 099 B10)', () => {
+  const snapshot = {
+    id: 'p-1',
+    slug: 'mestre-corvo',
+    nickname: 'Mestre Corvo',
+    bioLong: 'Bio do perfil.',
+    contactMethods: [],
+    preferredVttPlatforms: [],
+    languages: ['pt-BR'],
+    tagline: 'Aventuras épicas toda quinta',
+  };
+
+  it('não renderiza sem snapshot do perfil (loading/none/error)', () => {
+    render(<MasterPart api={makeApi({ gmProfilePreview: null })} />);
+    expect(screen.queryByLabelText('Prévia do perfil')).not.toBeInTheDocument();
+  });
+
+  it('renderiza o hero real com o texto REAL do perfil (tagline atual aparece)', () => {
+    render(<MasterPart api={makeApi({ gmProfilePreview: snapshot })} />);
+    expect(screen.getByLabelText('Prévia do perfil')).toBeInTheDocument();
+    // Texto real do snapshot — nada de valor fake nem réplica do hero.
+    expect(screen.getByText('Aventuras épicas toda quinta')).toBeInTheDocument();
+    expect(screen.getByText('Mestre Corvo')).toBeInTheDocument();
+  });
+
+  it('sem nickname, o display_name cai para o nome da conta (COALESCE do GET público)', () => {
+    render(
+      <MasterPart
+        api={makeApi({ gmProfilePreview: { ...snapshot, nickname: '' } })}
+        userName="Conta Do Mestre"
+      />,
+    );
+    expect(screen.getByText('Conta Do Mestre')).toBeInTheDocument();
   });
 });

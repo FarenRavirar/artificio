@@ -2,6 +2,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TableDetail } from '../../../types/tables';
 import { buildWhatsAppTableAnnouncement, copyTextToClipboard } from './whatsappAnnouncement';
+import { deriveSchedule } from '../../table-editor/utils/editorMapping';
+import { createDefaultEditorState } from '../../table-editor/hooks/useTableEditor';
 
 function makeTable(overrides: Partial<TableDetail> = {}): TableDetail {
   return {
@@ -139,6 +141,128 @@ describe('buildWhatsAppTableAnnouncement', () => {
     expect(text).not.toContain('undefined');
     expect(text).not.toContain('null');
     expect(text).not.toContain('NaN');
+  });
+
+  // Achado do mantenedor (2026-08-31): mesa "a definir" copiava a linha de
+  // agenda VAZIA mesmo com o horario preenchido. Os dois eixos sao
+  // independentes (editorMapping.deriveSchedule), e o hint que o codigo antigo
+  // exigia so e gravado pelo importador do Discord — pelo editor, nunca.
+  // Os quatro cruzamentos ficam cobertos para o eixo definido nunca mais
+  // desaparecer por causa do indefinido.
+  describe('agenda sem linhas — statuses "a definir" (achado 2026-08-31)', () => {
+    // Sem `as const`: ele congela `schedules` como `readonly []`, que nao e
+    // atribuivel a `TableDetail['schedules']` (array mutavel) — o CI reprova no
+    // `tsc` mesmo com os testes verdes, porque o vitest nao type-checa.
+    const semLinhas: Partial<TableDetail> = {
+      schedules: [],
+      schedule_day_hint: null,
+      schedule_time_hint: null,
+    };
+
+    it('dia a definir + horario definido mantem o horario na linha', () => {
+      const text = buildWhatsAppTableAnnouncement(makeTable({
+        ...semLinhas,
+        schedule_day_status: 'to_define',
+        schedule_time_status: 'defined',
+        schedule_time_hint: '20:00',
+      }));
+
+      expect(text).toContain('▬ Data e Hora: Dia a definir · 20:00');
+    });
+
+    it('dia definido + horario a definir mantem o dia na linha', () => {
+      const text = buildWhatsAppTableAnnouncement(makeTable({
+        ...semLinhas,
+        schedule_day_status: 'defined',
+        schedule_time_status: 'to_define',
+        schedule_day_hint: 'quinta',
+      }));
+
+      expect(text).toContain('▬ Data e Hora: quinta · Horário a definir');
+    });
+
+    it('os dois a definir dizem isso explicitamente, em vez de linha vazia', () => {
+      const text = buildWhatsAppTableAnnouncement(makeTable({
+        ...semLinhas,
+        schedule_day_status: 'to_define',
+        schedule_time_status: 'to_define',
+      }));
+
+      expect(text).toContain('▬ Data e Hora: Dia a definir · Horário a definir');
+    });
+
+    // O editor nao grava hint nenhum (medido: zero ocorrencias em
+    // features/table-editor). Sem hint e sem linha, a agenda nao tem o que
+    // dizer — a linha fica vazia de proposito, sem inventar rotulo.
+    // Payload da rota de LISTA: ela seleciona `schedule_day_status` sem os
+    // hints nem `schedule_time_status` (`tables.ts:163`), entao os campos
+    // chegam undefined. Sem status nao ha o que afirmar sobre o eixo — a linha
+    // fica vazia, sem rotulo inventado (achado de review, PR #300).
+    it('status ausente (payload de lista) nao inventa rotulo', () => {
+      const text = buildWhatsAppTableAnnouncement(makeTable({
+        schedules: [],
+        schedule_day_status: undefined,
+        schedule_time_status: undefined,
+        schedule_day_hint: null,
+        schedule_time_hint: null,
+      }));
+
+      expect(text).not.toContain('a definir');
+      expect(text).not.toContain('undefined');
+    });
+
+    it('status definido sem hint nem linha continua vazio, sem texto inventado', () => {
+      const text = buildWhatsAppTableAnnouncement(makeTable({
+        ...semLinhas,
+        schedule_day_status: 'defined',
+        schedule_time_status: 'defined',
+      }));
+
+      expect(text).toContain('▬ Data e Hora:\n');
+      expect(text).not.toContain('a definir');
+    });
+
+    // Fluxo real, sem hint escrito a mao: o payload sai de `deriveSchedule`
+    // (o que o editor de fato manda) e alimenta o anuncio. Os testes acima
+    // preenchem `schedule_time_hint` diretamente, o que mascarava o caso do
+    // mestre — o editor zerava os dois hints e o horario nunca chegava aqui
+    // (achado Codex P2, PR #300).
+    it('payload do editor com dia a definir + horario preenchido mantem o horario no anuncio', () => {
+      const payload = deriveSchedule({
+        ...createDefaultEditorState(),
+        isPersonalizedSchedule: false,
+        schedules: [{
+          day_of_week: 'to_define',
+          start_time: '20:00',
+          frequency: 'semanal',
+          is_ongoing: false,
+          notes: '',
+          sort_order: 0,
+        }],
+      });
+
+      const text = buildWhatsAppTableAnnouncement(makeTable({
+        schedules: [],
+        schedule_day_status: payload.schedule_day_status,
+        schedule_time_status: payload.schedule_time_status,
+        schedule_day_hint: payload.schedule_day_hint,
+        schedule_time_hint: payload.schedule_time_hint,
+      }));
+
+      expect(text).toContain('▬ Data e Hora: Dia a definir · 20:00');
+    });
+
+    it('linhas reais continuam vencendo os statuses do topo', () => {
+      const text = buildWhatsAppTableAnnouncement(makeTable({
+        schedule_day_status: 'to_define',
+        schedule_time_status: 'to_define',
+        schedule_day_hint: null,
+        schedule_time_hint: null,
+      }));
+
+      expect(text).toContain('▬ Data e Hora: sábado · 19:00-23:00 · semanal');
+      expect(text).not.toContain('Dia a definir');
+    });
   });
 
   it('keeps empty labels empty and formats free table with age rating Livre', () => {

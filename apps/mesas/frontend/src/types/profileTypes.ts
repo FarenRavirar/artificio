@@ -29,6 +29,18 @@ export interface GmProfile {
   banner_crop_data: CropRect | null;
   banner_width: number | null;
   banner_height: number | null;
+  /**
+   * Foto do perfil GERAL (`profiles`), devolvida por `GET /gm/me` somente
+   * quando `avatar_url` acima e null. Existe para as previas do perfil
+   * publico espelharem o `COALESCE(gm.avatar_url, p.avatar_url)` da rota
+   * publica sem cada tela precisar buscar `/profile/me` por conta.
+   */
+  general_avatar?: {
+    avatar_url: string | null;
+    avatar_crop_data: CropRect | null;
+    avatar_width: number | null;
+    avatar_height: number | null;
+  } | null;
   languages: string[];
   specialties: string[];
   discord_connected: boolean;

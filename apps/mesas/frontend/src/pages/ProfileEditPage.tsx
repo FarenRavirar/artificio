@@ -24,6 +24,9 @@ import {
   BioLongField,
   ExperienceYearsField,
 } from '../components/mestre/editor/GmProfileFields';
+// Spec 099 B10 (D5/D8): prévia do perfil público com os dados REAIS do editor.
+import { MestreProfilePreview } from '../components/mestre/editor/MestreProfilePreview';
+import { buildMestrePreviewData } from '../components/mestre/editor/profilePreviewMapping';
 import { authPost } from '../utils/authenticatedFetch';
 import './ProfileEditPage.css';
 
@@ -586,6 +589,17 @@ function TabMestre() {
 
   if (!profile) return null;
 
+  // Spec 099 B10: prévia do perfil público — espelha o que o editor TEM AGORA
+  // (nada de dado fake). Sem perfil de mestre (profile.gm null) não há o que
+  // espelhar: a prévia não monta. display_name segue o COALESCE do GET público
+  // (nickname → display_name do usuário → slug), mesmo fallback do backend.
+  // 3o argumento: foto do perfil GERAL, usada so quando o mestre nao tem a
+  // propria — mesmo COALESCE do GET publico (backend gm.ts:147). Sem ele a
+  // previa mostrava placeholder enquanto o jogador via a foto geral.
+  const previewData = profile.gm
+    ? buildMestrePreviewData(profile.gm, profile.profile?.display_name, profile.profile)
+    : null;
+
   return (
     <div className="tab-mestre">
       <section className="form-section">
@@ -675,6 +689,16 @@ function TabMestre() {
           }
         />
       </section>
+
+      {/* Spec 099 B10 (D5/D8): prévia do perfil público logo após os campos de
+          identidade — o mestre vê o texto real que digitou sobre a foto real
+          (aceite B10). O véu do banner é o scrim FIXO do MestreHero real (D8):
+          a prévia reusa o componente, não replica nem expõe opacidade. */}
+      {previewData && (
+        <section className="form-section">
+          <MestreProfilePreview profile={previewData} />
+        </section>
+      )}
 
       <section className="form-section">
         <h2>Sistemas que Mestra</h2>
