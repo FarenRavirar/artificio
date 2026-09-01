@@ -85,6 +85,9 @@ function makeApi(overrides: Partial<TableEditorApi> = {}): TableEditorApi {
     inheritedEdits: { displayName: false, bio: false, contacts: false },
     hasInheritedEdit: false,
     syncProfileToMaster: vi.fn(async () => true),
+    // B10: o preview do perfil de mestre e obrigatorio em
+    // `TableEditorApi`; sem perfil carregado o valor real e `null`.
+    gmProfilePreview: null,
     syncingProfile: false,
     ...overrides,
   };

@@ -403,6 +403,37 @@ function findRootSystem(text: string, systems: SystemEntry[]): SystemEntry | nul
   return ranked[0].system;
 }
 
+/**
+ * Ano curto do texto batendo o ano cheio do candidato: "5e'24" traz "24" na
+ * base do hint, e o no do catalogo se chama "2024".
+ */
+function matchShortYears(
+  candidate: ReturnType<typeof normalizeSystemName>,
+  hint: ReturnType<typeof normalizeSystemName>,
+): string[] {
+  return candidate.editionTokens.filter((token) => (
+    /^(?:19|20)\d{2}$/.test(token) && hint.baseTokens.includes(token.slice(-2))
+  ));
+}
+
+/**
+ * Candidato tem edicao que o texto nao confirma. Extraido de
+ * `scoreSystemDescendant` para manter a funcao dentro do limite de
+ * complexidade cognitiva do Sonar (era 19 > 15), sem mudar o resultado.
+ */
+function hasIncompatibleEdition(
+  candidate: ReturnType<typeof normalizeSystemName>,
+  hintEditions: ReadonlySet<string>,
+  shortYearMatches: readonly string[],
+  hasEditionSignal: boolean,
+): boolean {
+  if (candidate.editionTokens.length === 0) return false;
+  if (!hasEditionSignal) return true;
+  return !candidate.editionTokens.every((token) => (
+    hintEditions.has(token) || shortYearMatches.includes(token)
+  ));
+}
+
 function scoreSystemDescendant(text: string, system: SystemEntry): number {
   const hint = normalizeSystemHint(text);
   const representations = [
@@ -414,18 +445,11 @@ function scoreSystemDescendant(text: string, system: SystemEntry): number {
   for (const representation of representations) {
     const candidate = normalizeSystemRepresentation(representation);
     const hintEditions = new Set(hint.editionTokens);
-    const shortYearMatches = candidate.editionTokens.filter((token) => (
-      /^(?:19|20)\d{2}$/.test(token) && hint.baseTokens.includes(token.slice(-2))
-    ));
+    const shortYearMatches = matchShortYears(candidate, hint);
     const hasEditionSignal = hint.editionTokens.length > 0 || shortYearMatches.length > 0;
-    const hasIncompatibleEdition = candidate.editionTokens.length > 0
-      && (!hasEditionSignal
-        || !candidate.editionTokens.every((token) => (
-          hintEditions.has(token) || shortYearMatches.includes(token)
-        )));
     // Um alias como "D&D 5.5" não pode pontuar pela base "D&D" contra
     // "D&D 5e". A edição faz parte do mesmo sinal.
-    if (hasIncompatibleEdition) continue;
+    if (hasIncompatibleEdition(candidate, hintEditions, shortYearMatches, hasEditionSignal)) continue;
     if (candidate.normalized && candidate.normalized === hint.normalized) {
       score = Math.max(score, 140);
       continue;
@@ -1463,31 +1487,46 @@ function extractDayOfWeek(text: string, labelAliases: string[] = []): string | n
   return null;
 }
 
-// Extrai horário do texto: "19h", "19:00", "às 20h30"
+/**
+ * Padroes de horario, do mais especifico ao mais generico. O primeiro que casa
+ * vence, e a ordem importa: "16h as 20h" tem que sair 16:00 pelo padrao de
+ * relogio, nao 16:00 pelo de intervalo (mesmo valor, mas o de relogio tambem
+ * captura minuto).
+ *
+ * `minute: false` marca padrao que so captura a hora — o minuto vira '00'.
+ */
+const START_TIME_PATTERNS: readonly { readonly re: RegExp; readonly minute: boolean }[] = [
+  // "19h", "19:00", "20h30"
+  { re: /\b(\d{1,2})[hH:](\d{0,2})\b/, minute: true },
+  // "as 20h30"
+  { re: /\bàs\s{1,3}(\d{1,2})h(\d{0,2})/i, minute: true },
+  // Intervalo por extenso: "8 às 11 horas da manhã", "das 19 às 23 horas".
+  // Captura a PRIMEIRA hora (o inicio, que e o que `start_time` significa).
+  // `(?:^|[^\dh:])` no lugar de `\b` evita casar o "0" de "20:00" ja tratado
+  // pelo padrao de relogio.
+  { re: /(?:^|[^\dh:])(\d{1,2})\s{0,3}(?:às|as|até|ate|a)\s{1,3}\d{1,2}\s{0,3}(?:h\b|horas?\b)/i, minute: false },
+  // Hora avulsa por extenso, SEMPRE precedida do marcador temporal "as"/"às".
+  // O marcador e obrigatorio: sem ele, "Sessoes de 3 horas" (duracao) casaria
+  // e viraria start_time 03:00, inventando um horario que o anuncio nao tem e
+  // tirando o campo dos avisos de revisao do importador (achado Codex P1, PR
+  // #300). Sem `\b` antes do marcador — acento nao e caractere de palavra, e
+  // `\bàs` nunca casa.
+  { re: /(?:às|as)\s{1,3}(\d{1,2})\s{1,3}horas?\b/i, minute: false },
+];
+
+// Extrai horário do texto: "19h", "19:00", "às 20h30", "das 19 às 23 horas"
 function extractStartTime(text: string, labelAliases: string[] = []): string | null {
   const learnedLabelValue = labelAliases.length > 0 ? extractLabelValue(text, labelAliases) : null;
   const target = learnedLabelValue ?? text;
-  const match = /\b(\d{1,2})[hH:](\d{0,2})\b/.exec(target)
-    ?? /\bàs\s{1,3}(\d{1,2})h(\d{0,2})/i.exec(target)
-    // "8 às 11 horas da manhã" / "das 19 às 23 horas" / "as 21 horas": hora
-    // por extenso, sem o "h" colado nem os dois-pontos que os dois padrões
-    // acima exigem. Caso real medido (anúncio "Ameaça sob Otari",
-    // 2026-08-31): o mestre declarou o horário e o parser devolvia
-    // `start_time: null`, jogando o campo em missing_fields como se o texto
-    // fosse omisso.
-    //
-    // Captura a PRIMEIRA hora do intervalo (o início, que é o que
-    // `start_time` significa) — em "8 às 11", 8; em "das 19 às 23", 19. O
-    // grupo vazio `()` mantém o índice do minuto alinhado com os padrões
-    // acima, e cai no '00' logo abaixo.
-    ?? /\b(\d{1,2})()\s{0,3}(?:às|as|até|ate|a)\s{1,3}\d{1,2}\s{0,3}(?:h\b|horas?\b)/i.exec(target)
-    ?? /\b(\d{1,2})()\s{1,3}horas?\b/i.exec(target);
-  if (match) {
+
+  for (const { re, minute } of START_TIME_PATTERNS) {
+    const match = re.exec(target);
+    if (!match) continue;
     const h = match[1].padStart(2, '0');
-    const m = (match[2] || '00').padStart(2, '0');
-    // Hora fora de 0-23 não é horário: "24 horas de campanha", "30 horas de
-    // gravação". Sem o guard o parser gravaria "24:00"/"30:00" no banco.
+    // Hora fora de 0-23 nao e horario: "24 horas de campanha", "30 horas de
+    // gravacao". Sem o guard o parser gravaria "24:00"/"30:00" no banco.
     if (Number.parseInt(h, 10) > 23) return null;
+    const m = ((minute ? match[2] : '') || '00').padStart(2, '0');
     return `${h}:${m}`;
   }
   return null;

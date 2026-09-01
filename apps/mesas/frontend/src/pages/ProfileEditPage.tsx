@@ -593,8 +593,11 @@ function TabMestre() {
   // (nada de dado fake). Sem perfil de mestre (profile.gm null) não há o que
   // espelhar: a prévia não monta. display_name segue o COALESCE do GET público
   // (nickname → display_name do usuário → slug), mesmo fallback do backend.
+  // 3o argumento: foto do perfil GERAL, usada so quando o mestre nao tem a
+  // propria — mesmo COALESCE do GET publico (backend gm.ts:147). Sem ele a
+  // previa mostrava placeholder enquanto o jogador via a foto geral.
   const previewData = profile.gm
-    ? buildMestrePreviewData(profile.gm, profile.profile?.display_name)
+    ? buildMestrePreviewData(profile.gm, profile.profile?.display_name, profile.profile)
     : null;
 
   return (

@@ -184,14 +184,21 @@ export function deriveSchedule(state: TableEditorState): ScheduleDerivation {
   const timeDefined = !!first && !!first.start_time;
 
   if (!dayDefined || !timeDefined) {
-    // Flexível: sem linhas, statuses de tabela + hints nulos (o hint só vale
-    // com status 'defined' — refine do validator proíbe o contrário).
+    // Flexível: sem linhas (uma linha exige dia E horário, ambos NOT NULL), o
+    // que o mestre declarou vive nas colunas de status + hint do topo.
+    //
+    // O hint do eixo DEFINIDO é preservado — antes os dois iam a `null`, e o
+    // eixo que o mestre tinha preenchido sumia: mesa com "dia a definir, 20:00"
+    // gravava só o status e o anúncio saía sem o horário (achado Codex P2, PR
+    // #300). O validator do backend só proíbe hint no eixo `to_define`
+    // (`tableValidators.ts` refines de schedule_day_hint/schedule_time_hint),
+    // então mandar o hint do eixo definido é o contrato, não uma exceção.
     return {
       schedules: [],
       schedule_day_status: dayDefined ? 'defined' : 'to_define',
       schedule_time_status: timeDefined ? 'defined' : 'to_define',
-      schedule_day_hint: null,
-      schedule_time_hint: null,
+      schedule_day_hint: dayDefined ? (first.day_of_week as DayOfWeek) : null,
+      schedule_time_hint: timeDefined ? first.start_time : null,
     };
   }
 
@@ -807,6 +814,21 @@ function normalizeStringList(value: unknown): string[] {
 }
 
 /**
+ * Coercao de campo de payload externo: devolve o valor so quando o tipo bate,
+ * senao `null`. Extraidos porque a coercao inline repetida 20x era o que
+ * levava `mapGmMeToSnapshot` a estourar a complexidade cognitiva do Sonar
+ * (19 > 15) — cada ternario contava, sem que nenhum deles fosse uma decisao
+ * de verdade.
+ */
+const asStringOrNull = (value: unknown): string | null => (
+  typeof value === 'string' ? value : null
+);
+
+const asNumberOrNull = (value: unknown): number | null => (
+  typeof value === 'number' ? value : null
+);
+
+/**
  * Normaliza o corpo de GET /api/v1/gm/me para o snapshot de herança.
  * Devolve null quando não é perfil (id/slug ausentes) — o hook decide entre
  * "sem perfil" (404 do endpoint) e "inválido" (aqui).
@@ -822,14 +844,14 @@ export function mapGmMeToSnapshot(value: unknown): GmProfileSnapshot | null {
         .map((c) => ({
           channel: c.channel as TableContactChannel,
           value: c.value,
-          label: typeof c.label === 'string' ? c.label : '',
-          discord_server_url: typeof c.discord_server_url === 'string' ? c.discord_server_url : '',
+          label: asStringOrNull(c.label) ?? '',
+          discord_server_url: asStringOrNull(c.discord_server_url) ?? '',
         }))
     : [];
 
   return {
-    nickname: typeof data.nickname === 'string' ? data.nickname : '',
-    bioLong: typeof data.bio_long === 'string' ? data.bio_long : '',
+    nickname: asStringOrNull(data.nickname) ?? '',
+    bioLong: asStringOrNull(data.bio_long) ?? '',
     contactMethods,
     // Fase 6 (T6.4): listas de string do perfil — entradas não-string saem
     // (payload externo, normalização obrigatória do repo).
@@ -840,19 +862,19 @@ export function mapGmMeToSnapshot(value: unknown): GmProfileSnapshot | null {
     // string/número fora do tipo vira null. id/slug já foram validados acima.
     id: data.id,
     slug: data.slug,
-    avatar_url: typeof data.avatar_url === 'string' ? data.avatar_url : null,
+    avatar_url: asStringOrNull(data.avatar_url),
     avatar_crop_data: isCropRect(data.avatar_crop_data) ? data.avatar_crop_data : null,
-    avatar_width: typeof data.avatar_width === 'number' ? data.avatar_width : null,
-    avatar_height: typeof data.avatar_height === 'number' ? data.avatar_height : null,
-    banner_url: typeof data.banner_url === 'string' ? data.banner_url : null,
+    avatar_width: asNumberOrNull(data.avatar_width),
+    avatar_height: asNumberOrNull(data.avatar_height),
+    banner_url: asStringOrNull(data.banner_url),
     banner_crop_data: isCropRect(data.banner_crop_data) ? data.banner_crop_data : null,
-    banner_width: typeof data.banner_width === 'number' ? data.banner_width : null,
-    banner_height: typeof data.banner_height === 'number' ? data.banner_height : null,
-    tagline: typeof data.tagline === 'string' ? data.tagline : null,
-    promo_badge_text: typeof data.promo_badge_text === 'string' ? data.promo_badge_text : null,
+    banner_width: asNumberOrNull(data.banner_width),
+    banner_height: asNumberOrNull(data.banner_height),
+    tagline: asStringOrNull(data.tagline),
+    promo_badge_text: asStringOrNull(data.promo_badge_text),
     covil_verified: typeof data.covil_verified === 'boolean' ? data.covil_verified : null,
-    experience_years: typeof data.experience_years === 'number' ? data.experience_years : null,
-    created_at: typeof data.created_at === 'string' ? data.created_at : null,
-    tables_count: typeof data.tables_count === 'number' ? data.tables_count : null,
+    experience_years: asNumberOrNull(data.experience_years),
+    created_at: asStringOrNull(data.created_at),
+    tables_count: asNumberOrNull(data.tables_count),
   };
 }

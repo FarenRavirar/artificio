@@ -1358,6 +1358,20 @@ describe('parseDiscordAnnouncement', () => {
       expect(draft?.table.start_time).toBeNull();
     });
 
+    it('duração plausível como hora ("3 horas") também não vira start_time', () => {
+      const draft = parseDiscordAnnouncement(makeMessage({
+        content_raw: 'Sessões de 3 horas de duração\nVagas: 4',
+      }));
+      expect(draft?.table.start_time).toBeNull();
+    });
+
+    it('mas o horário real é lido mesmo quando a duração aparece antes', () => {
+      const draft = parseDiscordAnnouncement(makeMessage({
+        content_raw: 'Sessões de 4 horas, as 20 horas\nVagas: 4',
+      }));
+      expect(draft?.table.start_time).toBe('20:00');
+    });
+
     it('"vou definir a data depois" NÃO é sentinela (frase livre, não declaração)', () => {
       const draft = parseDiscordAnnouncement(makeMessage({
         content_raw: 'Ainda vou definir a data depois de fechar o elenco\nVagas: 4',

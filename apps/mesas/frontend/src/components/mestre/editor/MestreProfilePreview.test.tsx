@@ -52,7 +52,10 @@ describe('buildMestrePreviewData — mapeamento do editor para a prévia', () =>
   });
 
   it('campo ausente no editor vira fallback neutro, nunca valor inventado', () => {
-    const preview = buildMestrePreviewData({ ...baseSource, tables_count: undefined });
+    const preview = buildMestrePreviewData(baseSource);
+    // Sempre 0: o contador do editor conta TODAS as mesas, o publico so as
+    // ativas — a previa omite em vez de rotular rascunho como ativa (achado
+    // Codex P2, PR #300).
     expect(preview.tables_count).toBe(0);
     expect(preview.reviews_count).toBe(0);
     expect(preview.avg_rating).toBeNull();

@@ -2,6 +2,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { TableDetail } from '../../../types/tables';
 import { buildWhatsAppTableAnnouncement, copyTextToClipboard } from './whatsappAnnouncement';
+import { deriveSchedule } from '../../table-editor/utils/editorMapping';
+import { createDefaultEditorState } from '../../table-editor/hooks/useTableEditor';
 
 function makeTable(overrides: Partial<TableDetail> = {}): TableDetail {
   return {
@@ -148,11 +150,14 @@ describe('buildWhatsAppTableAnnouncement', () => {
   // Os quatro cruzamentos ficam cobertos para o eixo definido nunca mais
   // desaparecer por causa do indefinido.
   describe('agenda sem linhas — statuses "a definir" (achado 2026-08-31)', () => {
-    const semLinhas = {
+    // Sem `as const`: ele congela `schedules` como `readonly []`, que nao e
+    // atribuivel a `TableDetail['schedules']` (array mutavel) — o CI reprova no
+    // `tsc` mesmo com os testes verdes, porque o vitest nao type-checa.
+    const semLinhas: Partial<TableDetail> = {
       schedules: [],
       schedule_day_hint: null,
       schedule_time_hint: null,
-    } as const;
+    };
 
     it('dia a definir + horario definido mantem o horario na linha', () => {
       const text = buildWhatsAppTableAnnouncement(makeTable({
@@ -198,6 +203,36 @@ describe('buildWhatsAppTableAnnouncement', () => {
 
       expect(text).toContain('▬ Data e Hora:\n');
       expect(text).not.toContain('a definir');
+    });
+
+    // Fluxo real, sem hint escrito a mao: o payload sai de `deriveSchedule`
+    // (o que o editor de fato manda) e alimenta o anuncio. Os testes acima
+    // preenchem `schedule_time_hint` diretamente, o que mascarava o caso do
+    // mestre — o editor zerava os dois hints e o horario nunca chegava aqui
+    // (achado Codex P2, PR #300).
+    it('payload do editor com dia a definir + horario preenchido mantem o horario no anuncio', () => {
+      const payload = deriveSchedule({
+        ...createDefaultEditorState(),
+        isPersonalizedSchedule: false,
+        schedules: [{
+          day_of_week: 'to_define',
+          start_time: '20:00',
+          frequency: 'semanal',
+          is_ongoing: false,
+          notes: '',
+          sort_order: 0,
+        }],
+      });
+
+      const text = buildWhatsAppTableAnnouncement(makeTable({
+        schedules: [],
+        schedule_day_status: payload.schedule_day_status,
+        schedule_time_status: payload.schedule_time_status,
+        schedule_day_hint: payload.schedule_day_hint,
+        schedule_time_hint: payload.schedule_time_hint,
+      }));
+
+      expect(text).toContain('▬ Data e Hora: Dia a definir · 20:00');
     });
 
     it('linhas reais continuam vencendo os statuses do topo', () => {

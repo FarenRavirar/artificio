@@ -43,8 +43,19 @@ export interface MestrePreviewSource {
   covil_verified?: boolean | null;
   experience_years?: number | null;
   created_at?: string | null;
-  tables_count?: number | null;
   avg_rating?: number | null;
+}
+
+/**
+ * Foto do perfil GERAL do usuário (`profiles`), usada quando o mestre não
+ * definiu foto própria — espelha o `COALESCE(gm.avatar_url, p.avatar_url)` da
+ * rota pública.
+ */
+export interface AvatarFallback {
+  avatar_url?: string | null;
+  avatar_crop_data?: CropRect | null;
+  avatar_width?: number | null;
+  avatar_height?: number | null;
 }
 
 /**
@@ -67,17 +78,26 @@ export interface MestrePreviewSource {
 export function buildMestrePreviewData(
   source: MestrePreviewSource,
   userDisplayName?: string | null,
+  avatarFallback?: AvatarFallback | null,
 ): MestrePublicData {
+  // Mesma regra do GET público (backend gm.ts:147-156): a URL cai na foto
+  // geral quando o mestre não tem a própria, e o enquadramento vem da MESMA
+  // origem que a URL — aplicar o recorte da foto de mestre sobre a foto geral
+  // enquadraria a imagem errada. Sem isto a prévia mostrava placeholder
+  // enquanto o jogador via a foto geral (achado Codex P2, PR #300).
+  const usaAvatarDoMestre = Boolean(source.avatar_url);
+  const avatar = usaAvatarDoMestre ? source : (avatarFallback ?? {});
+
   const raw: MestrePublicData = {
     id: source.id ?? '',
     slug: source.slug ?? '',
     display_name: source.nickname ?? userDisplayName ?? source.slug ?? '',
     bio_long: source.bio_long ?? null,
     tagline: source.tagline ?? null,
-    avatar_url: source.avatar_url ?? null,
-    avatar_crop_data: source.avatar_crop_data ?? null,
-    avatar_width: source.avatar_width ?? null,
-    avatar_height: source.avatar_height ?? null,
+    avatar_url: avatar.avatar_url ?? null,
+    avatar_crop_data: avatar.avatar_crop_data ?? null,
+    avatar_width: avatar.avatar_width ?? null,
+    avatar_height: avatar.avatar_height ?? null,
     banner_url: source.banner_url ?? null,
     banner_crop_data: source.banner_crop_data ?? null,
     banner_width: source.banner_width ?? null,
@@ -89,7 +109,14 @@ export function buildMestrePreviewData(
     promo_badge_text: source.promo_badge_text ?? null,
     covil_verified: source.covil_verified ?? false,
     experience_years: source.experience_years ?? null,
-    tables_count: source.tables_count ?? 0,
+    // Sempre 0, mesmo quando o editor tem o numero: `GET /gm/me` conta TODAS
+    // as mesas do mestre (gmPanel.ts:568), enquanto o publico so conta as
+    // `active`, nao arquivadas e com importacao vigente (gm.ts:170-177).
+    // Passar o total faria a previa rotular rascunho e mesa encerrada como
+    // "mesa ativa" — numero que o jogador nunca ve (achado Codex P2, PR #300).
+    // O cliente nao tem como aplicar o filtro (nao conhece o status das mesas),
+    // entao a previa omite a estatistica: o hero ja some com o bloco zerado.
+    tables_count: 0,
     avg_rating: source.avg_rating ?? null,
     reviews_count: 0,
     created_at: source.created_at ?? '',

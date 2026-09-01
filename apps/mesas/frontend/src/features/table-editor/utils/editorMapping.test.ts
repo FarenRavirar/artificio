@@ -196,6 +196,12 @@ describe('editorStateToPayload — horário único (T4.0u)', () => {
     expect(payload.schedule_day_status).toBe('to_define');
     expect(payload.schedule_time_status).toBe('defined');
     expect(payload.schedules).toHaveLength(0);
+    // O eixo DEFINIDO conserva o valor: antes os dois hints iam a `null` e o
+    // horario que o mestre digitou sumia do payload — o anuncio saia sem ele
+    // (achado Codex P2, PR #300). O eixo `to_define` continua nulo, que e o
+    // que o refine do backend exige.
+    expect(payload.schedule_time_hint).toBe('19:00');
+    expect(payload.schedule_day_hint).toBeNull();
   });
 
   it('mesa legada com 2+ horários: a lista inteira é preservada no payload (nunca apagar o que não se mostra)', () => {

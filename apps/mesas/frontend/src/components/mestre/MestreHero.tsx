@@ -41,12 +41,27 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const [bannerLoadFailed, setBannerLoadFailed] = useState(false);
-  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
+  // Guarda a URL que falhou (nao um booleano): assim o reset e automatico
+  // quando a prop muda, sem efeito nenhum.
+  const [bannerFailure, setBannerFailure] = useState<string | null>(null);
+  const [avatarFailure, setAvatarFailure] = useState<string | null>(null);
+
+  // A falha pertence a URL que falhou, nao ao componente: trocar a imagem tem
+  // que dar nova chance ao `<img>`, senao o placeholder fica preso ate
+  // desmontar. Vale em qualquer navegacao entre mestres, e ficou visivel com a
+  // previa do editor (B10), que re-renderiza a cada troca de foto: uma URL
+  // quebrada deixava o mestre sem ver a foto que acabou de subir.
+  //
+  // Guardamos a URL JUNTO do estado e comparamos no render, em vez de resetar
+  // por `useEffect`: efeito com `setState` sincrono dispara render em cascata
+  // (reprovado por `react-hooks`), e o ajuste durante o render e o padrao que
+  // o React recomenda para estado derivado de prop.
+  const bannerFailed = bannerFailure === profile.banner_url;
+  const avatarFailed = avatarFailure === profile.avatar_url;
 
   return (
     <section className="hero-section">
-      {isUsableImageSrc(profile.banner_url) && !bannerLoadFailed ? (
+      {isUsableImageSrc(profile.banner_url) && !bannerFailed ? (
         <img
           src={profile.banner_url}
           alt=""
@@ -61,7 +76,7 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
               profile.banner_height,
             ),
           }}
-          onError={() => setBannerLoadFailed(true)}
+          onError={() => setBannerFailure(profile.banner_url ?? null)}
         />
       ) : (
         <div className="hero-banner-gradient" />
@@ -77,7 +92,7 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
         )}
 
         <div className="hero-avatar">
-          {isUsableImageSrc(profile.avatar_url) && !avatarLoadFailed ? (
+          {isUsableImageSrc(profile.avatar_url) && !avatarFailed ? (
             <img
               src={profile.avatar_url}
               alt={profile.display_name}
@@ -88,7 +103,7 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
                   profile.avatar_height,
                 ),
               }}
-              onError={() => setAvatarLoadFailed(true)}
+              onError={() => setAvatarFailure(profile.avatar_url ?? null)}
             />
           ) : (
             <div className="hero-avatar-placeholder">
