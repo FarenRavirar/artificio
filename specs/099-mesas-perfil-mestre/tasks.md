@@ -101,20 +101,37 @@ perfis medidos) e a trava de D11 é "nada trava a publicação" — avisar antes
 poria fricção onde a spec a proíbe, e confirmar é a fala do mestre, que a plataforma não
 corrige. Registrado porque quem olhar só o código tende a "consertar" isso.
 
-**Três correções de review na PR #301, todas com A9:**
+**Correções de review na PR #301, todas com A9:**
 
 1. **Sugestão não sobrevive à edição da bio.** `evidence` é trecho literal do texto
    analisado; a lista ficava na tela depois de o mestre reescrever a bio, citando frase
    inexistente, e confirmar gravaria atributo tirado de bio antiga. Agora `isStale`
    (derivado, sem `useEffect`) esconde a lista, e a resposta em voo é descartada se a bio
    mudou. A9: `isStale = false` → 2 falhas apontando o botão de confirmar sobrevivente.
-2. **Bio fora da auditoria** (P2 Codex). `request_json` levava o rascunho integral para
-   `discord_llm_decisions`, que não tem retenção — texto nunca salvo ficaria gravado para
-   sempre, contra a promessa da rota. Passou a gravar só `bio_chars` + metadados; e
-   `responseJson` saiu junto, porque o corpo cru da LLM traz `evidence` e reporia o texto
-   pela porta dos fundos (esse segundo vazamento o review não citou). O cache é exato
-   porque a chave é o `context_pack_hash`, calculado sobre o request completo.
-3. **Rate limit em duas camadas** (P1 Codex). Cada chamada gasta crédito pago, e uma
+2. **Bio fora da auditoria** (P2 Codex, 2 rodadas). Eram **três** caminhos de persistência
+   do rascunho em `discord_llm_decisions`, tabela sem retenção: `request_json` (bio
+   inteira), `response_json` (corpo cru, com `evidence`) e `validated_result_json`
+   (resultado validado, também com `evidence`). Fechei os dois primeiros na rodada
+   anterior e **deixei o terceiro aberto** — o review acertou ao voltar. Agora a auditoria
+   guarda só a *forma* da decisão: `bio_chars`, contagem de candidatos, quantos o filtro
+   de evidência derrubou e quais campos. **Consequência aceita: a extração deixou de usar
+   cache**, porque o cache lia exatamente `validated_result_json` e candidato sem
+   `evidence` é inútil (o painel precisa do trecho). Custo baixo e medido pela forma da
+   chave: `context_pack_hash` cobre a bio inteira, então só haveria acerto em reanálise de
+   texto idêntico byte a byte. Quem segura custo por conta é o limiter (10/15min).
+3. **`evidence` validada contra a bio** (P2 Codex). O schema aceitava qualquer string não
+   vazia: alucinação estruturalmente válida chegava à tela como `Trecho: "…"` e o mestre
+   confirmava acreditando que a frase era dele. `filterCandidatesByEvidence` descarta
+   candidato cuja evidência não existe no texto. **Reusa o `normalize` de
+   `parseDiscordAnnouncement`** (exportado para isto) em vez de cópia local — é a mesma
+   pergunta que o parser já fazia sobre nome de sistema, e duas normalizações para o mesmo
+   fim divergiriam no primeiro ajuste. A9: filtro neutralizado → 2 falhas, a alucinação
+   passando. Paráfrase não passa: o contrato do módulo é extração literal.
+4. **`TimeoutError` classificado** (P2 Codex). `AbortSignal.timeout` lança `TimeoutError`,
+   não `AbortError`; todo estouro dos 15s caía como `error` e a coluna `status` perdia a
+   distinção entre provedor lento e falha interna — que é o que se olha quando a rota
+   degrada.
+5. **Rate limit em duas camadas** (P1 Codex). Cada chamada gasta crédito pago, e uma
    sessão autenticada burla o cache variando um caractere. `bioSuggestionsIpRateLimiter`
    (30/15min) vem **antes** do `authMiddleware`, na ordem que a PR #268 fixou contra
    amplificação; `bioSuggestionsUserRateLimiter` (10/15min, chave `userId`) vem depois.

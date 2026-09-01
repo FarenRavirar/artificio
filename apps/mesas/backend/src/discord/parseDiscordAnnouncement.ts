@@ -197,8 +197,11 @@ function cleanTrademark(s: string): string {
   return s.replace(/[™®]/g, '').trim();
 }
 
-// Normaliza string para comparação: remove acentos, lowercase, colapsa espaços
-function normalize(s: string): string {
+// Normaliza string para comparação: remove acentos, lowercase, colapsa espaços.
+// Exportado (PR #301) para `llmAssist` conferir se a `evidence` devolvida pelo
+// modelo existe mesmo na bio — é a mesma pergunta que o parser já fazia sobre
+// nome de sistema, e duplicar a normalização faria as duas divergirem com o tempo.
+export function normalize(s: string): string {
   return s
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')

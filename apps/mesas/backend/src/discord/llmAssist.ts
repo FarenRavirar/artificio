@@ -14,6 +14,7 @@ import crypto from 'node:crypto';
 import { z } from 'zod';
 import { db } from '../db/index.js';
 import { getSecret } from '../services/adminSecrets.js';
+import { normalize as normalizeEvidenceText } from './parseDiscordAnnouncement.js';
 import {
   CONTEXT_PACK_PROMPT_VERSION,
   buildContextPack,
@@ -82,6 +83,31 @@ const profileBioCandidateBaseSchema = z.object({
  * extraídos literalmente da bio. O discriminador impede a LLM de devolver
  * campo arbitrário ou valor com forma incompatível com o PUT do perfil.
  */
+/**
+ * `evidence` tem de existir LITERALMENTE na bio (achado de review, PR #301).
+ * O schema sozinho aceita qualquer string nao vazia, entao uma alucinacao do
+ * modelo chegaria a tela como `Trecho: "..."` e o mestre confirmaria o atributo
+ * acreditando que a frase e dele. O contrato deste modulo e extracao literal:
+ * candidato cuja evidencia nao esta no texto e descartado, nao exibido.
+ *
+ * Reusa o `normalize` do parser de anuncio (mesmo diretorio) em vez de uma
+ * copia local: caixa, acento, pontuacao e espaco em excesso variam na volta do
+ * modelo sem que a frase deixe de ser a mesma, e e a mesma pergunta que aquele
+ * modulo ja fazia sobre nome de sistema. Duas normalizacoes para o mesmo fim
+ * divergiriam na primeira vez que uma delas fosse ajustada.
+ */
+export function filterCandidatesByEvidence(
+  result: ProfileBioExtractionResult,
+  bio: string,
+): ProfileBioExtractionResult {
+  const haystack = normalizeEvidenceText(bio);
+  return {
+    candidates: result.candidates.filter(
+      (candidate) => haystack.includes(normalizeEvidenceText(candidate.evidence)),
+    ),
+  };
+}
+
 export const profileBioExtractionResultSchema = z.object({
   candidates: z.array(z.discriminatedUnion('field', [
     profileBioCandidateBaseSchema.extend({
@@ -215,34 +241,26 @@ export async function extractProfileBioAttributes(input: {
   };
   const contextPackHash = hashUnknown(requestJson);
 
-  // Auditoria SEM a bio (achado de review, PR #301). `requestJson` carrega o
-  // rascunho integral do mestre e ia inteiro para `discord_llm_decisions`, que
-  // nao tem retencao: um texto que ele nunca salvou nem confirmou ficaria
-  // gravado para sempre, contra a promessa de "analisa sem gravar" desta rota.
-  // O `contextPackHash` (indice unico da tabela) e calculado sobre o request
-  // completo, entao o cache continua exato; o que se perde e so a copia do
-  // texto, que a auditoria nao precisa ter para explicar uma decisao.
+  // Auditoria SEM nenhum pedaco da bio (achado de review, PR #301). Havia TRES
+  // caminhos de persistencia do rascunho, e fechar dois deixava o terceiro
+  // aberto: `request_json` (a bio inteira), `response_json` (o corpo cru, com
+  // `evidence`) e `validated_result_json` (o resultado validado, tambem com
+  // `evidence`). Todos os tres carregavam trecho de um texto que o mestre pode
+  // nunca salvar, numa tabela sem retencao.
+  //
+  // Consequencia deliberada: **esta extracao nao usa cache**. O cache guardava
+  // justamente `validated_result_json`, e guardar candidato sem `evidence` o
+  // tornaria inutil (o painel precisa do trecho para o mestre conferir). O
+  // custo e baixo e medido pela forma da chave: `context_pack_hash` cobre a bio
+  // inteira, entao so haveria acerto se o mestre reanalisasse texto identico,
+  // byte a byte — caso que o botao de analisar torna raro. O limiter por
+  // usuario (10/15min) e que segura o custo por conta, nao o cache.
   const auditJson = {
     prompt_version: promptVersion,
     bio_chars: input.bio.length,
     current_fields: input.currentFields,
     allowed_fields: requestJson.allowed_fields,
   };
-  const cached = await readCachedValidatedResult(
-    { model, contextPackHash, promptVersion },
-    profileBioExtractionResultSchema,
-  );
-  if (cached) {
-    await recordLlmDecision({
-      model,
-      contextPackHash,
-      promptVersion,
-      requestJson: auditJson,
-      validatedResult: cached,
-      status: 'cache_hit',
-    });
-    return cached;
-  }
 
   const apiKey = await getSecret('deepseek_api_key');
   if (!apiKey) return null;
@@ -298,13 +316,35 @@ export async function extractProfileBioAttributes(input: {
       await recordLlmDecision({ model, contextPackHash, promptVersion, requestJson: auditJson, latencyMs, status: 'invalid_response', error: 'result_schema' });
       return null;
     }
-    // `responseJson` fica de fora: o corpo cru da LLM traz `evidence`, que sao
-    // trechos literais da bio — gravar a resposta reintroduziria pela porta dos
-    // fundos o texto que `auditJson` acabou de tirar da frente.
-    await recordLlmDecision({ model, contextPackHash, promptVersion, requestJson: auditJson, validatedResult: result.data, latencyMs, status: 'success' });
-    return result.data;
+    // Descarta o que o modelo nao conseguir provar no proprio texto do mestre.
+    const filtered = filterCandidatesByEvidence(result.data, input.bio);
+
+    // Nem `responseJson` nem `validatedResult`: os dois trazem `evidence`, que
+    // e trecho literal da bio. A auditoria guarda a FORMA da decisao (quantos
+    // candidatos, de quais campos, quantos o filtro de evidencia derrubou) —
+    // o suficiente para explicar o comportamento do modelo sem arquivar o
+    // rascunho de ninguem.
+    await recordLlmDecision({
+      model,
+      contextPackHash,
+      promptVersion,
+      requestJson: auditJson,
+      validatedResult: {
+        candidate_count: filtered.candidates.length,
+        dropped_by_evidence: result.data.candidates.length - filtered.candidates.length,
+        fields: filtered.candidates.map((candidate) => candidate.field),
+      },
+      latencyMs,
+      status: 'success',
+    });
+    return filtered;
   } catch (error: unknown) {
-    const isTimeout = error instanceof DOMException && error.name === 'AbortError';
+    // `AbortSignal.timeout` lanca `TimeoutError`, nao `AbortError` (achado de
+    // review, PR #301): sem os dois nomes, todo estouro dos 15s caia como
+    // `error` e a coluna `status` perdia a distincao entre provedor lento e
+    // falha interna — que e justamente o que se olha quando a rota degrada.
+    const isTimeout = error instanceof DOMException
+      && (error.name === 'TimeoutError' || error.name === 'AbortError');
     await recordLlmDecision({
       model,
       contextPackHash,
