@@ -1,6 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { ImageEditor } from '@artificio/image-editor';
 import '@artificio/image-editor/image-editor.css';
+import { Checkbox } from '@artificio/ui';
 import {
   imageKindHint,
   imageKindSpec,
@@ -244,11 +245,9 @@ export function ImageUploader({
             className="mt-2 inline-flex items-center gap-2 text-xs text-white/70"
             title={directLinkTooltip}
           >
-            <input
-              type="checkbox"
+            <Checkbox
               checked={keepDirectLink}
               onChange={(event) => setKeepDirectLink(event.target.checked)}
-              className="h-4 w-4 rounded border-white/20 bg-white/5 accent-[var(--color-artificio-orange)]"
             />
             <span>Manter link direto</span>
           </label>

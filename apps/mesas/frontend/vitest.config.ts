@@ -9,6 +9,9 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
+    // Ligar isto faz o jsdom parsear o CSS do Tailwind e emitir 12 avisos
+    // `Could not parse CSS stylesheet` (nesting nao suportado). Causa medida e
+    // lista das 12 regras no comentario do `import './index.css'` em `App.tsx`.
     css: true,
     // 191 testes de jsdom que, na suíte do monorepo, disputam CPU com os outros
     // 37 pacotes rodando em paralelo. Com o default de 5s, `suggestionModals`

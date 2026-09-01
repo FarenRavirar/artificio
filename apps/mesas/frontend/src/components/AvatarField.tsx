@@ -2,6 +2,7 @@ import { useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { ImageEditor } from '@artificio/image-editor';
 import '@artificio/image-editor/image-editor.css';
 import type { CropRect } from '@artificio/media/image-kinds';
+import { Button, Checkbox } from '@artificio/ui';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { useImageUrlImport } from '../hooks/useImageUrlImport';
 import { CroppedImage } from './CroppedImage';
@@ -161,25 +162,28 @@ export function AvatarField({
               onChange={handleFileSelect}
             />
             <div className="avatar-button-row">
-              <button
+              <Button
                 type="button"
-                className="btn-avatar-action btn-upload"
+                variant="primary"
+                size="sm"
                 disabled={isUploading || urlImport.isImportingUrl}
                 onClick={() => fileInputRef.current?.click()}
                 aria-describedby={describedBy}
               >
                 {isUploading ? 'Enviando...' : '📤 Enviar nova imagem'}
-              </button>
+              </Button>
 
               {onUseGooglePhoto && (
-                <button
+                <Button
                   type="button"
-                  className="btn-avatar-action btn-google"
+                  variant="primary"
+                  size="sm"
+                  className="avatar-google-action"
                   disabled={isUploading || urlImport.isImportingUrl}
                   onClick={handleGooglePhoto}
                 >
                   🔄 Usar imagem do Google
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -188,27 +192,31 @@ export function AvatarField({
             {/* Reenquadrar sem reenviar: o recorte é dado de exibição, então a
                 imagem já hospedada pode ser reajustada quantas vezes quiser. */}
             {value.url && (
-              <button
+              <Button
                 type="button"
-                className="btn-avatar-action btn-manual"
+                variant="secondary"
+                size="sm"
                 onClick={() => setEditorSrc(value.url)}
               >
                 🖼️ Ajustar enquadramento
-              </button>
+              </Button>
             )}
 
             {value.url && (
-              <button
+              <Button
                 type="button"
-                className="btn-avatar-action btn-remove"
+                variant="danger"
+                size="sm"
                 onClick={() => onChange({ url: '', crop: null, width: null, height: null })}
               >
                 {removeLabel}
-              </button>
+              </Button>
             )}
 
             <details className="avatar-manual-details">
-              <summary className="btn-avatar-action btn-manual">🔗 Usar URL manual</summary>
+              <summary className="artificio-button artificio-button-secondary artificio-button-sm">
+                🔗 Usar URL manual
+              </summary>
               <div className="avatar-manual-input">
                 <input
                   type="url"
@@ -219,8 +227,7 @@ export function AvatarField({
                   placeholder="https://exemplo.com/avatar.jpg"
                 />
                 <label className="avatar-direct-link-option" title={urlImport.directLinkTooltip}>
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={urlImport.keepDirectLink}
                     onChange={(event) => urlImport.setKeepDirectLink(event.target.checked)}
                   />

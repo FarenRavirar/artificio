@@ -13,8 +13,10 @@
   padding: 1.5rem;
 }
 
-/* Loading & Error States */
-.loading-state,
+/* Error State. O estado de carregamento usa `LoadingState` do pacote: este
+   arquivo definia um `.spinner` global de 40px que colidia com o `.spinner` de
+   24px do `LinksManager` no mesmo bundle (nao ha lazy em `App.tsx`), e quem
+   vencia era ordem de import. */
 .error-state {
   min-height: 60vh;
   display: flex;
@@ -22,19 +24,6 @@
   align-items: center;
   justify-content: center;
   gap: 1rem;
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: var(--color-artificio-orange);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }
 
 .error-state h1 {

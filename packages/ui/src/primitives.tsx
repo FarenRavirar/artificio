@@ -184,6 +184,16 @@ export const TextInput = forwardRef<HTMLInputElement, TextInputProps>(function T
   );
 });
 
+export type CheckboxProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type">;
+
+/** Checkbox compartilhado com alvo nativo de 24px (WCAG 2.2 SC 2.5.8). */
+export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Checkbox({
+  className,
+  ...props
+}, ref) {
+  return <input ref={ref} type="checkbox" className={cx("artificio-checkbox", className)} {...props} />;
+});
+
 export type TextareaProps = TextareaHTMLAttributes<HTMLTextAreaElement> & ControlStateProps;
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textarea({

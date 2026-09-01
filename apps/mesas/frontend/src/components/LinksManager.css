@@ -177,13 +177,15 @@
 }
 
 .link-item-url {
+  align-items: center;
+  display: inline-flex;
   font-size: 0.75rem;
+  min-height: 24px;
   color: var(--fg-muted);
   text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  display: block;
 }
 
 .link-item-url:hover {
@@ -240,21 +242,22 @@
   color: var(--fg-muted);
 }
 
-/* Spinner */
-.spinner {
+/* Spinner do proprio componente: gira o `<Loader>` do lucide, que ja e um
+   icone (sem borda, ao contrario de `.artificio-button-spinner`). Os nomes sao
+   prefixados porque `.spinner`/`.spinner-small` sem prefixo eram GLOBAIS: como
+   `App.tsx` nao usa lazy, todo CSS entra no mesmo bundle e havia 3 definicoes
+   de `.spinner` colidindo (medido no bundle), decidido por ordem de import. O
+   `@keyframes` reusa o do pacote em vez de redeclarar `spin`. */
+.links-manager-spinner {
   width: 24px;
   height: 24px;
-  animation: spin 1s linear infinite;
+  animation: artificio-spin 1s linear infinite;
 }
 
-.spinner-small {
+.links-manager-spinner-small {
   width: 16px;
   height: 16px;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
+  animation: artificio-spin 1s linear infinite;
 }
 
 /* Responsive */

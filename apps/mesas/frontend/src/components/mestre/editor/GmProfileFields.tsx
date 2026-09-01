@@ -619,7 +619,7 @@ export function ExperienceYearsField({ value }: ExperienceYearsFieldProps) {
     <div data-ob="recommended" data-field="experienceYears">
       <div className="form-group">
         <label htmlFor="experience_years">Anos de Experiência</label>
-        <input
+        <TextInput
           type="number"
           id="experience_years"
           min="0"
@@ -639,6 +639,7 @@ export function ExperienceYearsField({ value }: ExperienceYearsFieldProps) {
             updateGm({ experience_years: n });
           }}
           placeholder="Quantos anos você mestra?"
+          className="experience-years-input"
         />
       </div>
       <p className="text-xs opacity-75">Recomendado — {RECOMMENDED_GAIN.experienceYears}.</p>

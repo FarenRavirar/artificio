@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   Badge,
   Button,
+  Checkbox,
   Drawer,
   EmptyState,
   Field,
@@ -71,6 +72,14 @@ describe("ui primitives", () => {
     expect(html).toContain("artificio-control-sm");
     expect(html).toContain("artificio-control-lg");
     expect(html).toContain("artificio-badge-success");
+  });
+
+  it("renders checkbox with the shared target-size class", () => {
+    const html = renderToStaticMarkup(<Checkbox aria-label="Manter link direto" defaultChecked />);
+
+    expect(html).toContain('type="checkbox"');
+    expect(html).toContain("artificio-checkbox");
+    expect(html).toContain("checked");
   });
 
   it("renders layout primitives without domain behavior", () => {

@@ -52,7 +52,12 @@ export const UserSystemsSelector = React.memo(function UserSystemsSelector({
   if (loading) {
     return (
       <div className="user-systems-selector-loading">
-        <div className="spinner-small"></div>
+        {/* Spinner do pacote: a F5 removeu `.spinner-small` de
+            `ProfileEditPage.css`, e esta classe so funcionava porque aquele CSS
+            estava carregado na mesma pagina (o Vite injeta global). A dependencia
+            era acidental e a div ficou 0x0, sem indicador nenhum enquanto o
+            catalogo de sistemas carrega. */}
+        <span className="artificio-button-spinner" aria-hidden="true"></span>
         <p>Carregando sistemas...</p>
       </div>
     );
