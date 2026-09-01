@@ -197,8 +197,11 @@ function cleanTrademark(s: string): string {
   return s.replace(/[™®]/g, '').trim();
 }
 
-// Normaliza string para comparação: remove acentos, lowercase, colapsa espaços
-function normalize(s: string): string {
+// Normaliza string para comparação: remove acentos, lowercase, colapsa espaços.
+// Exportado (PR #301) para `llmAssist` conferir se a `evidence` devolvida pelo
+// modelo existe mesmo na bio — é a mesma pergunta que o parser já fazia sobre
+// nome de sistema, e duplicar a normalização faria as duas divergirem com o tempo.
+export function normalize(s: string): string {
   return s
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')
@@ -3003,8 +3006,23 @@ export function parseDiscordAnnouncement(
   // texto (Local do Jogo), descartando o valor real de VTT (Roll20) sem nunca
   // chegar a comparar contra o catálogo. "Local do jogo" só serve de fallback
   // quando não há label "Plataforma(s)" dedicado.
+  // `local` puro entra por ULTIMO, depois de `local do jogo` (relato do
+  // mantenedor 2026-09-01, draft "Lua Branca"): o anuncio traz
+  // "Local: Discord + Owlbear Rodeo" e a VTT ficava `null` porque nenhum dos
+  // dois caminhos alcancava a linha — nao ha label `Plataforma(s)`, o rotulo
+  // e `Local` e nao `Local do jogo`, e a linha tambem nao casa
+  // `PLATFORM_CONTEXT_LINE_RE` (medido: `false`), que exige verbo de uso.
+  //
+  // Entra por ultimo de proposito, preservando a precedencia da PR anterior:
+  // quando existe `Plataforma(s)` dedicado, ele continua vencendo, e o anuncio
+  // que separa "Local do Jogo: Servidor proprio no Discord" de "Plataformas:
+  // Roll20" segue lendo a VTT certa.
+  //
+  // Mesa presencial ("Local: Bar do Ze") nao vira falso positivo: o valor ainda
+  // passa por `findPlatformMatch` contra o catalogo, que nao casa endereco.
   const platformsLabelValue = extractLabelValue(body, ['plataforma', 'plataformas'])
-    ?? extractLabelValue(body, ['local do jogo']);
+    ?? extractLabelValue(body, ['local do jogo'])
+    ?? extractLabelValue(body, ['local']);
   // Relato do mantenedor (2026-08-11, draft "Digimon RPG - Neon Hounds"): a VTT
   // ficou `null` com `_vtt_source_hint: "Discord"`. O anúncio traz
   // "Plataforma: Discord" numa linha e cita a VTT em outra (prosa: "mapas rodam

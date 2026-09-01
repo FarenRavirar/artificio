@@ -1520,6 +1520,75 @@ describe('parseDiscordAnnouncement', () => {
     expect(draft?.table.vtt_platform_id).toBe('owlbear');
   });
 
+  // Caso real relatado pelo mantenedor (2026-09-01, draft "Lua Branca",
+  // aaf736bc-34d2-4383-a1ff-d3739ccffd6e): "Local: Discord + Owlbear Rodeo"
+  // devolvia `vtt_platform_id: null`. Nenhum dos dois caminhos alcancava a
+  // linha — nao ha label "Plataforma(s)", o rotulo e "Local" e nao "Local do
+  // jogo", e a linha nao casa PLATFORM_CONTEXT_LINE_RE (medido: false), que
+  // exige verbo de uso.
+  it('reconhece VTT no rotulo "Local:" (sem "do jogo"), com a comunicacao na mesma linha', () => {
+    const vttPlatforms = [{ id: 'owlbear', name: 'Owlbear Rodeo', aliases: ['Owlbear'] }];
+    const communicationPlatforms = [{ id: 'discord-plat', name: 'Discord', aliases: [] }];
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Mesa Gratuita',
+          'Sistema: D&D 5e',
+          'Local: Discord + Owlbear Rodeo',
+          'Vagas: 5',
+        ].join('\n'),
+      }),
+      [],
+      undefined,
+      { vtt: vttPlatforms, communication: communicationPlatforms },
+    );
+
+    expect(draft?.table.vtt_platform_id).toBe('owlbear');
+    expect(draft?.table.communication_platform_id).toBe('discord-plat');
+  });
+
+  // "Local" puro entra por ULTIMO: quando o anuncio separa os dois labels, o
+  // dedicado continua vencendo — senao a correcao acima quebraria o caso que a
+  // PR #171 consertou ("Local do Jogo: Discord" + "Plataformas: Roll20").
+  it('label "Plataforma(s)" dedicado ainda vence "Local"', () => {
+    const vttPlatforms = [{ id: 'roll20', name: 'Roll20', aliases: [] }];
+    const communicationPlatforms = [{ id: 'discord-plat', name: 'Discord', aliases: [] }];
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Local: Servidor proprio no Discord',
+          'Plataformas: Roll20',
+          'Vagas: 4',
+        ].join('\n'),
+      }),
+      [],
+      undefined,
+      { vtt: vttPlatforms, communication: communicationPlatforms },
+    );
+
+    expect(draft?.table.vtt_platform_id).toBe('roll20');
+  });
+
+  // Mesa presencial nao vira falso positivo: o valor de "Local" continua
+  // passando pelo catalogo, que nao casa endereco.
+  it('"Local" com endereco presencial nao inventa VTT', () => {
+    const vttPlatforms = [{ id: 'owlbear', name: 'Owlbear Rodeo', aliases: ['Owlbear'] }];
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: [
+          'Sistema: D&D 5e',
+          'Local: Bar do Ze, rua das Flores 42',
+          'Vagas: 5',
+        ].join('\n'),
+      }),
+      [],
+      undefined,
+      { vtt: vttPlatforms, communication: [] },
+    );
+
+    expect(draft?.table.vtt_platform_id).toBeNull();
+  });
+
   // "owlbear" como CRIATURA na sinopse não é plataforma. O que distingue os
   // dois usos está no texto (verbo de uso vs. narrativa), então o parser tem
   // de ler isso — não o revisor corrigir depois no painel.

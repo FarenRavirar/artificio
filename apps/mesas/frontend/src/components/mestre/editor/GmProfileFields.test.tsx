@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   TaglineField,
@@ -35,11 +35,18 @@ import type { SystemTreeNode } from '../../../types/systems';
  * MestreSellingPoints (fonte das 14 opções do Select).
  */
 
-const { updateGm } = vi.hoisted(() => ({ updateGm: vi.fn() }));
+const { updateGm, authPost } = vi.hoisted(() => ({ updateGm: vi.fn(), authPost: vi.fn() }));
 
 vi.mock('../../../contexts/useProfileContext', () => ({
-  useProfileContext: () => ({ updateGm }),
+  useProfileContext: () => ({
+    updateGm,
+    profile: {
+      gm: { experience_years: null, specialties: [], languages: ['Português'], badges: [] },
+    },
+  }),
 }));
+
+vi.mock('../../../services/apiClient', () => ({ authPost }));
 
 const SYSTEM_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
 
@@ -520,6 +527,123 @@ describe('BioLongField e ExperienceYearsField (B6 — recomendados extraídos da
       target: { value: 'Mestro há 10 anos.' },
     });
     expect(updateGm).toHaveBeenCalledWith({ bio_long: 'Mestro há 10 anos.' });
+  });
+
+  it('B11: analisar só mostra a sugestão; nenhuma escrita ocorre antes da confirmação', async () => {
+    authPost.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          candidates: [
+            { field: 'experience_years', value: 15, evidence: 'Mestro há 15 anos', confidence: 0.98 },
+          ],
+        },
+      }),
+    });
+    render(<BioLongField value="Mestro há 15 anos." />);
+    updateGm.mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sugerir atributos da bio' }));
+
+    expect(await screen.findByText('Anos de experiência: 15')).toBeTruthy();
+    expect(updateGm).not.toHaveBeenCalled();
+    expect(authPost).toHaveBeenCalledWith('/api/v1/gm/profile/bio-suggestions', {
+      bio: 'Mestro há 15 anos.',
+    });
+  });
+
+  it('B11: só o clique explícito em confirmar chama updateGm com o atributo', async () => {
+    authPost.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          candidates: [
+            { field: 'specialties', value: 'The Witcher', evidence: 'Fanático por The Witcher', confidence: 0.91 },
+          ],
+        },
+      }),
+    });
+    render(<BioLongField value="Fanático por The Witcher." />);
+    updateGm.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Sugerir atributos da bio' }));
+    await screen.findByText('Especialidade: The Witcher');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar e aplicar' }));
+
+    await waitFor(() => expect(updateGm).toHaveBeenCalledTimes(1));
+    expect(updateGm).toHaveBeenCalledWith({ specialties: ['The Witcher'] });
+  });
+
+  it('B11: falha da análise não grava e mantém a bio editável', async () => {
+    authPost.mockResolvedValue({
+      ok: false,
+      json: async () => ({ error: 'Sugestões indisponíveis agora. O perfil continua editável normalmente.' }),
+    });
+    render(<BioLongField value="Minha bio." />);
+    updateGm.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Sugerir atributos da bio' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('continua editável normalmente');
+    expect(updateGm).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Bio detalhada'), { target: { value: 'Minha bio continua.' } });
+    expect(updateGm).toHaveBeenCalledWith({ bio_long: 'Minha bio continua.' });
+  });
+
+  // Achado de review (PR #301): os candidatos ficavam na tela depois de o mestre
+  // editar a bio. Como `evidence` e trecho literal do texto analisado, a
+  // sugestao sobrevivente citava frase que ja nao existia — e confirma-la
+  // gravaria atributo tirado de bio antiga.
+  it('B11: editar a bio retira as sugestoes da analise anterior', async () => {
+    authPost.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          candidates: [
+            { field: 'specialties', value: 'The Witcher', evidence: 'Fanático por The Witcher', confidence: 0.91 },
+          ],
+        },
+      }),
+    });
+    render(<BioLongField value="Fanático por The Witcher." />);
+    updateGm.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Sugerir atributos da bio' }));
+    await screen.findByText('Especialidade: The Witcher');
+
+    fireEvent.change(screen.getByLabelText('Bio detalhada'), { target: { value: 'Outro texto completamente diferente.' } });
+
+    // O botao de confirmar sai da tela: nao ha como gravar a sugestao velha.
+    expect(screen.queryByRole('button', { name: 'Confirmar e aplicar' })).toBeNull();
+    expect(screen.queryByText('Especialidade: The Witcher')).toBeNull();
+    expect(screen.getByText(/A bio mudou desde a última análise/)).toBeTruthy();
+    expect(updateGm).not.toHaveBeenCalledWith({ specialties: ['The Witcher'] });
+  });
+
+  it('B11: resposta que chega depois de a bio mudar nao repovoa a lista', async () => {
+    let liberaResposta: (() => void) | undefined;
+    authPost.mockReturnValue(new Promise((resolve) => {
+      liberaResposta = () => resolve({
+        ok: true,
+        json: async () => ({
+          data: {
+            candidates: [
+              { field: 'badges', value: 'Editor', evidence: 'Editor do site', confidence: 0.9 },
+            ],
+          },
+        }),
+      });
+    }));
+    render(<BioLongField value="Editor do site." />);
+    updateGm.mockClear();
+    authPost.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Sugerir atributos da bio' }));
+
+    // A bio muda ANTES de a analise voltar.
+    fireEvent.change(screen.getByLabelText('Bio detalhada'), { target: { value: 'Texto novo do mestre.' } });
+    liberaResposta?.();
+
+    await waitFor(() => expect(authPost).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText('Selo: Editor')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Confirmar e aplicar' })).toBeNull();
   });
 
   it('experiência: marcada como recomendada com frase do ganho do registro', () => {

@@ -1,6 +1,6 @@
 # Tasks 099 — Perfil do mestre
 
-**Status: fase A executada (A1–A3, gate A fechado); fase B executada (B0–B10, gate B fechado com 1 pendência nomeada); B11 pendente (retomada pelo mantenedor em 2026-08-31 — próxima task).** Decisões D1–D11 fechadas (`spec.md` §3).
+**Status: fase A executada (A1–A3, gate A fechado); fase B executada (B0–B11, gate B fechado com 1 pendência nomeada); fase E executada em 2026-09-01 por incidente em produção (E1–E3 concluídas).** Decisões D1–D11 fechadas (`spec.md` §3).
 
 Ordem de execução: **A → B → C**, com a fase de forma (**F**) em paralelo — ver a colisão com a 098 em F0.
 Cada task só é dada como concluída com **medição citada** — comando rodado e o que voltou.
@@ -86,11 +86,75 @@ dado some. Criar campo antes disto entrega porta falsa.
 
 | # | Fazer | LER ANTES | Aceite medido |
 |---|---|---|---|
-| **B11** | Extrair atributos da bio e **oferecer para confirmação** | D11 (**trava**) · plan §B "extração assistida" | **pendente — próxima task** (mantenedor retomou B10/B11 em 2026-08-31; B10 concluída, pausa após ela para atualização de docs). Aceite: máquina **sugere**, mestre confirma, publicação nunca travada; enquanto não existir, o número na bio fica como está (spec §12.3) |
+| **B11** | Extrair atributos da bio e **oferecer para confirmação** | D11 (**trava**) · plan §B "extração assistida" | **concluída (2026-09-01):** schema discriminado (`experience_years`/`specialties`/`languages`/`badges`) com `evidence` + `confidence` obrigatórios e `.strict()`; `POST /api/v1/gm/profile/bio-suggestions` autenticado, só `selectFrom`, sem nenhum caminho de escrita; a resposta fica em estado local do `BioAttributeSuggestions` e apenas `Confirmar e aplicar` chama `updateGm`; falha da IA devolve 503 não bloqueante e a bio segue editável. Cache de `llmAssist` generalizado por schema (era preso ao `extractedFieldsSchema` do anúncio). **Medição, conferida em revisão independente (2026-09-01):** backend 14/14, frontend 61/61, `rtk tsc -b` limpo nos 2 pacotes (`-b`, não `-p`: é o `-b` que inclui os tsconfig de teste e foi o que pegou o CI vermelho da PR #300), eslint 0 em 7 arquivos, `verify:api` verde com `mesas: breaking=0 non-breaking=1`. A9: autoaplicação reintroduzida → "analisar só mostra a sugestão" falhou com 1 chamada indevida a `updateGm`; restaurado → 61/61 |
 
 **⚠️ Trava de B11:** nada é gravado sem confirmação. O F1 do Airbnb é 75% — gravar direto
-erraria um em cada quatro atributos exibidos ao jogador. `llmAssist.ts` já faz a chamada
-com esquema + Zod + cache; o trabalho é o esquema novo, não a infraestrutura.
+erraria um em cada quatro atributos exibidos ao jogador. `llmAssist.ts` já fazia a chamada
+com esquema + Zod; a medição de B11 encontrou o cache preso ao schema de anúncio e a task
+generalizou essa leitura antes de ligar o schema da bio.
+
+**Escalar substitui, lista acumula — é D11 implementado, não descuido.** `experience_years`
+é sobrescrito ao confirmar; as três listas checam duplicata e acrescentam. A revisão
+independente levantou a assimetria como possível defeito e a pesquisa na spec a
+**descartou**: §12.3 define o caso de uso como *coluna vazia* com número na bio (3 de 7
+perfis medidos) e a trava de D11 é "nada trava a publicação" — avisar antes de substituir
+poria fricção onde a spec a proíbe, e confirmar é a fala do mestre, que a plataforma não
+corrige. Registrado porque quem olhar só o código tende a "consertar" isso.
+
+**Correções de review na PR #301, todas com A9:**
+
+1. **Sugestão não sobrevive à edição da bio.** `evidence` é trecho literal do texto
+   analisado; a lista ficava na tela depois de o mestre reescrever a bio, citando frase
+   inexistente, e confirmar gravaria atributo tirado de bio antiga. Agora `isStale`
+   (derivado, sem `useEffect`) esconde a lista, e a resposta em voo é descartada se a bio
+   mudou. A9: `isStale = false` → 2 falhas apontando o botão de confirmar sobrevivente.
+2. **Bio fora da auditoria** (P2 Codex, 2 rodadas). Eram **três** caminhos de persistência
+   do rascunho em `discord_llm_decisions`, tabela sem retenção: `request_json` (bio
+   inteira), `response_json` (corpo cru, com `evidence`) e `validated_result_json`
+   (resultado validado, também com `evidence`). Fechei os dois primeiros na rodada
+   anterior e **deixei o terceiro aberto** — o review acertou ao voltar. Agora a auditoria
+   guarda só a *forma* da decisão: `bio_chars`, contagem de candidatos, quantos o filtro
+   de evidência derrubou e quais campos. **Consequência aceita: a extração deixou de usar
+   cache**, porque o cache lia exatamente `validated_result_json` e candidato sem
+   `evidence` é inútil (o painel precisa do trecho). Custo baixo e medido pela forma da
+   chave: `context_pack_hash` cobre a bio inteira, então só haveria acerto em reanálise de
+   texto idêntico byte a byte. Quem segura custo por conta é o limiter (10/15min).
+3. **`evidence` validada contra a bio** (P2 Codex). O schema aceitava qualquer string não
+   vazia: alucinação estruturalmente válida chegava à tela como `Trecho: "…"` e o mestre
+   confirmava acreditando que a frase era dele. `filterCandidatesByEvidence` descarta
+   candidato cuja evidência não existe no texto. **Reusa o `normalize` de
+   `parseDiscordAnnouncement`** (exportado para isto) em vez de cópia local — é a mesma
+   pergunta que o parser já fazia sobre nome de sistema, e duas normalizações para o mesmo
+   fim divergiriam no primeiro ajuste. A9: filtro neutralizado → 2 falhas, a alucinação
+   passando. Paráfrase não passa: o contrato do módulo é extração literal.
+   **Segunda rodada no mesmo filtro:** evidência que normaliza para vazio (`"🎲🎲"`,
+   `"..."`) atravessava tudo, porque `z.string().trim().min(1)` a aceita e
+   `includes('')` é sempre `true` — quem esvazia é o `normalize`, que descarta o que
+   está fora de `[a-z0-9\s]`. Guarda explícita antes do `includes`; A9: 4 falhas, uma
+   por caso.
+4. **`TimeoutError` classificado** (P2 Codex). `AbortSignal.timeout` lança `TimeoutError`,
+   não `AbortError`; todo estouro dos 15s caía como `error` e a coluna `status` perdia a
+   distinção entre provedor lento e falha interna — que é o que se olha quando a rota
+   degrada.
+5. **Teto em `languages`/`specialties`/`badges`** (P1 Codex). O `PUT`/`POST /gm/profile`
+   filtrava os arrays só por `typeof string` — sem limite de quantidade nem de tamanho,
+   enquanto `tagline` já tinha `.slice(0, 200)` no mesmo handler — e o servidor aceita
+   JSON de até 12 MB (`server.ts:92`). O dado entrava inteiro no banco e era relido pelo
+   prompt **e** pela auditoria da extração, multiplicando o volume por análise.
+   `sanitizeProfileList` (40 itens × 120 chars) na escrita **e** na leitura da rota,
+   porque perfil gravado antes do teto continua no banco com o array inteiro; a extração
+   repete o corte por dentro, para o próximo consumidor. **A correção foi na raiz, não só
+   na B11** — o defeito era do handler de perfil, que a B11 apenas expôs. A9: `.slice`
+   removido → 1 falha com 500 itens chegando à IA.
+6. **Rate limit em duas camadas** (P1 Codex). Cada chamada gasta crédito pago, e uma
+   sessão autenticada burla o cache variando um caractere. `bioSuggestionsIpRateLimiter`
+   (30/15min) vem **antes** do `authMiddleware`, na ordem que a PR #268 fixou contra
+   amplificação; `bioSuggestionsUserRateLimiter` (10/15min, chave `userId`) vem depois.
+   Só IP não servia: NAT compartilhado puniria vizinhos, e troca de IP escaparia da cota.
+
+**Débito herdado, não da B11:** `503` aparece **0 vezes** em `mesas.openapi.yaml` contra
+~10 rotas que o retornam no código (`systems.ts`, `profile.ts`, `adminTables.ts`,
+e agora `bio-suggestions`). O gerador não emite 503; o contrato mente sobre todas elas.
 
 **Sobre B6 — a classificação campo→nível está em `spec.md` §8.** Ela não existia em
 nenhum documento da spec (nem na investigação); foi **derivada** das fontes já levantadas —
@@ -113,6 +177,49 @@ ofereceu. §8 marca os dois pontos onde o mantenedor pode decidir diferente.
 | **C4** | Medir **o editor em 719px** e **tema claro** | spec §5, §6 · §11 (página pública **já medida**, sem overflow) · §11.1 (editor em mobile **não medido** — a janela não redimensionou) | medição registrada; defeitos achados viram task |
 
 **→ Fechar o GATE C.**
+
+---
+
+## Fase E — Integridade do perfil já existente (aberta em 2026-09-01 por incidente em produção)
+
+Fase criada **depois** de A/B/C fecharem, por relato do mantenedor: o mestre
+`dadoviciadopodcast` não conseguia salvar o próprio nome, gravar sistemas que mestra
+nem publicar mesa. A B0 alinhou `nickname` (2-40) no schema e no upsert do editor, e a
+§8 já classificava o campo como **obrigatório** ("sem nome não há perfil") — mas o
+alinhamento cobriu **duas** das quatro portas de escrita que `old_spec.md:174` havia
+mapeado. O perfil quebrado nasceu pela terceira.
+
+**O que a spec previa e o que não previa.** O contrato do campo estava decidido (§8) e
+a B0 o implementou onde olhou; o que faltou foi aplicá-lo em `updateGmProfile`
+(`profileService.ts`), alcançado por `PATCH /api/v1/profile/gm` e `/me/gm`. Nada na 099
+trata de **dado legado já inconsistente** — a spec governa o contrato daqui pra frente,
+e os 7 perfis quebrados são consequência acumulada, não decisão pendente.
+
+| # | Fazer | LER ANTES | Aceite medido |
+|---|---|---|---|
+| **E1** | Fechar a porta que criava `gm_profiles` sem `nickname` | §8 (nickname **obrigatório**) · `old_spec.md:174` (as 4 portas) · B0 | **concluída (2026-09-01):** `deriveGmNickname` no `profileService`, aplicado aos **dois** inserts (o de `updateGmProfile` e o do vínculo Discord). A ordem espelha a do front (`useProfileQuery.ts:349`) — patch → username → local do e-mail → slug —, porque duas regras para o mesmo contrato divergiriam. Medição: `src/services`+`src/routes` 360/360, `tsc -b` limpo, 6 testes novos; A9: fallback do slug removido → 2 falhas |
+| **E2** | Clique em sistema não pode sumir em silêncio | logs de produção (2026-09-01) · spec 099 B8 (mesma falha, já corrigida no `updateGm`) | **concluída (2026-09-01):** removido `if (isPending) return` de `addSystem`/`removeSystem` no `ProfileContext`. Medido nos logs do `mesas-api`: **6** `DELETE /profile/systems/6552a50a` — o mesmo id, em pares de ~1s — o mestre clicava, a tela não reagia, clicava de novo. Seguro porque `addUserSystem` já faz `onConflict(...).doNothing()` (`profileService.ts:390`). Frontend 7/7, `tsc -b` limpo |
+| **E3** | Recuperar os 7 perfis já gravados sem `nickname` | §8 · E1 (impede novos casos, não conserta os velhos) | **concluída (2026-09-01):** `UPDATE gm_profiles` preenchendo `nickname` a partir de `username` → local do e-mail → `slug` (mesma ordem de E1), com `pg_dump` de `gm_profiles` antes (`/tmp/gm_profiles_pre_nickname.sql`, 45.843 bytes). Resultado: **`UPDATE 7`**; verificação `SELECT count(*) FILTER (WHERE nickname IS NULL OR length(btrim(nickname))=0), count(*) FROM gm_profiles` → **`0\|49`**. Executado pelo mantenedor: o classificador do harness recusa SQL de escrita em produção mesmo com `Bash(ssh faren *)` na allowlist — a autorização dele não destrava essa camada |
+
+**Medição que abriu a fase (produção, 2026-09-01):**
+
+| medida | valor |
+|---|---|
+| perfis sem `nickname` | **7 de 49** (14%) |
+| sintoma no `mesas-api` | `POST /gm/tables` → 403 "Perfil não encontrado"; `POST /gm/profile` → 500 `duplicate key gm_profiles_user_id_key` |
+| o que o F5 resolvia | zera `gmExistiaAntes` (estado de módulo) e o refetch traz `gm` → vira PUT; **não** preenche o nickname |
+
+**Contradição que localizou a causa:** a publicação dizia "perfil não encontrado" enquanto
+a criação dizia "chave duplicada". O perfil existia — nascido incompleto por uma porta que
+não exigia o campo que a outra exige.
+
+**Descartado com medição, para não ser reinvestigado:** a divergência de ids entre
+`catalog_nodes` (central) e a tabela `systems` (projeção legada, 1269 linhas) é real —
+`user_systems` tem **0 de 23** ids presentes na projeção —, mas **não afeta o usuário**:
+`mesasHydrationSystemGuard` importa `prodDb` e só é consumido por `adminEnrichment`
+(cópia prod→beta). Os três caminhos que o mestre exercita
+(`POST /profile/systems`, `GET /systems?view=tree`, `hydrateTableSystemFields`) leem do
+catálogo central. O 3D&T do relato estava gravado com id central válido e ativo.
 
 ---
 
@@ -158,7 +265,7 @@ esperando o anterior.
 | mobile e tema claro | **não medidos** → C4 |
 | perfil de controle preenchido | **não existe** — nenhum dos 20 |
 | nav global 22px | **não reproduz** no CSS do pacote → F3 |
-| custo do esquema de extração para bio | **não medido** → B11 |
+| custo do esquema de extração para bio | **medido e concluído em B11** — 4 atributos estritos, 4 arquivos de produção + 3 arquivos de teste, sem migration/lib/pacote compartilhado; cache exigiu generalização tipada |
 | write path de `closed_group_*` | **não medido** → B0.1 |
 | `gmProfileSchema` sem `selling_points`/`tagline`/`promo_badge_text`/`badges` | **medido** — pré-requisito da fase B (plan B.0, passo 2), antes de qualquer campo novo |
 | checkbox sem dimensão no `AdminTable` de `packages/ui` (`admin/AdminTable.tsx:288,304` — as classes de tamanho estão no `th`/`td`, não no `input`, então vale o default do agente de usuário) | **fora do A6** (que cobre página pública + editor), usado em telas admin do `mesas`. Registrado para não sumir; se entrar, exige **aprovação de pacote**. O "~13px" é default de runtime, **não medível na fonte** — precisa de navegador. `AdminTable` sai do subpath `@artificio/ui/admin`, não do índice raiz |

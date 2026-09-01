@@ -63,6 +63,11 @@ vi.mock('../discord/parseTextForPreview', () => ({
   parseTextForPreview: (...args: unknown[]) => mockParseTextForPreview(...args),
 }));
 
+const mockExtractProfileBioAttributes = vi.fn();
+vi.mock('../discord/llmAssist', () => ({
+  extractProfileBioAttributes: (...args: unknown[]) => mockExtractProfileBioAttributes(...args),
+}));
+
 let mockRole: UserRole = 'gm';
 let mockUserId = 'gm-user-1';
 vi.mock('../middleware/auth', () => ({
@@ -189,6 +194,95 @@ describe('POST /api/v1/gm/parse-preview', () => {
   it('400 em payload inválido (texto vazio)', async () => {
     const res = await request(makeApp()).post('/api/v1/gm/parse-preview').send({ text: '' });
     expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/v1/gm/profile/bio-suggestions — spec 099 B11', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockRole = 'gm';
+    mockUserId = 'gm-user-1';
+  });
+
+  it('só devolve candidatos: não executa nenhuma escrita antes da confirmação', async () => {
+    (db.selectFrom as Mock).mockReturnValue(mockSelectChain({
+      executeTakeFirst: vi.fn().mockResolvedValue({
+        experience_years: null,
+        specialties: [],
+        languages: ['Português'],
+        badges: [],
+      }),
+    }));
+    mockExtractProfileBioAttributes.mockResolvedValue({
+      candidates: [
+        { field: 'experience_years', value: 15, evidence: 'Mestro há 15 anos', confidence: 0.98 },
+      ],
+    });
+
+    const res = await request(makeApp())
+      .post('/api/v1/gm/profile/bio-suggestions')
+      .send({ bio: 'Mestro há 15 anos.' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.candidates).toHaveLength(1);
+    expect(mockExtractProfileBioAttributes).toHaveBeenCalledWith({
+      bio: 'Mestro há 15 anos.',
+      currentFields: {
+        experience_years: null,
+        specialties: [],
+        languages: ['Português'],
+        badges: [],
+      },
+    });
+    expect(db.updateTable).not.toHaveBeenCalled();
+    expect(TableRepository.createTableWithRelations).not.toHaveBeenCalled();
+  });
+
+  // Achado de review (PR #301): `current_fields` ia inteiro para o prompt e para
+  // a auditoria. O `PUT /gm/profile` nao limitava os arrays e o servidor aceita
+  // 12 MB, entao uma gravacao grande seguida das 10 analises da janela
+  // multiplicaria dezenas de MB na tabela de decisoes.
+  it('corta arrays gigantes do perfil antes de mandar para a IA', async () => {
+    (db.selectFrom as Mock).mockReturnValue(mockSelectChain({
+      executeTakeFirst: vi.fn().mockResolvedValue({
+        experience_years: 3,
+        specialties: Array.from({ length: 500 }, (_, i) => `especialidade ${i}`),
+        languages: ['x'.repeat(5000)],
+        badges: [],
+      }),
+    }));
+    mockExtractProfileBioAttributes.mockResolvedValue({ candidates: [] });
+
+    await request(makeApp())
+      .post('/api/v1/gm/profile/bio-suggestions')
+      .send({ bio: 'Uma bio qualquer.' });
+
+    const enviado = mockExtractProfileBioAttributes.mock.calls[0][0];
+    expect(enviado.currentFields.specialties).toHaveLength(40);
+    expect(enviado.currentFields.languages[0]).toHaveLength(120);
+  });
+
+  it('falha da IA é não bloqueante e não escreve', async () => {
+    (db.selectFrom as Mock).mockReturnValue(mockSelectChain({ executeTakeFirst: vi.fn().mockResolvedValue(undefined) }));
+    mockExtractProfileBioAttributes.mockResolvedValue(null);
+
+    const res = await request(makeApp())
+      .post('/api/v1/gm/profile/bio-suggestions')
+      .send({ bio: 'Uma bio válida.' });
+
+    expect(res.status).toBe(503);
+    expect(res.body.error).toContain('continua editável normalmente');
+    expect(db.updateTable).not.toHaveBeenCalled();
+  });
+
+  it('rejeita bio vazia ou acima do limite antes de chamar a IA', async () => {
+    for (const bio of ['', 'x'.repeat(2001)]) {
+      const res = await request(makeApp())
+        .post('/api/v1/gm/profile/bio-suggestions')
+        .send({ bio });
+      expect(res.status).toBe(400);
+    }
+    expect(mockExtractProfileBioAttributes).not.toHaveBeenCalled();
   });
 });
 

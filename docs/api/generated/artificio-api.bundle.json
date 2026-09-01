@@ -7,10 +7,10 @@
     "downloads": 108,
     "glossario": 50,
     "links": 22,
-    "mesas": 205,
+    "mesas": 206,
     "site": 57
   },
-  "total": 495,
+  "total": 496,
   "operations": [
     {
       "app": "accounts",
@@ -4536,6 +4536,18 @@
       "auth": "user",
       "consumers": [],
       "operationId": "putapi_v1_gm_profile"
+    },
+    {
+      "app": "mesas",
+      "method": "POST",
+      "path": "/api/v1/gm/profile/bio-suggestions",
+      "summary": "Cria ou executa api v1 gm profile bio-suggestions",
+      "owner": "mesas",
+      "scope": "public",
+      "status": "active",
+      "auth": "user",
+      "consumers": [],
+      "operationId": "postapi_v1_gm_profile_bio_suggestions"
     },
     {
       "app": "mesas",

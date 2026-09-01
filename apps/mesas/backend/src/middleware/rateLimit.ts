@@ -162,3 +162,46 @@ export const commentAppealRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+/**
+ * Sugestao de atributos da bio (spec 099 B11) — camada de IP, **antes** do
+ * `authMiddleware`, na ordem que a PR #268 fixou: sem isso a rota vira
+ * amplificador, porque toda rajada paga verificacao de JWT antes de qualquer
+ * freio. Chaveia por IP, que existe antes de autenticar.
+ */
+export const bioSuggestionsIpRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  message: 'Muitas requisições deste IP. Tente novamente em alguns minutos.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
+ * Segunda camada da mesma rota, **depois** do `authMiddleware`: por usuario, e
+ * nao por IP (achado de review, PR #301). O bucket de IP sozinho nao resolve o
+ * caso real — cada chamada gasta credito pago no DeepSeek, e uma sessao
+ * autenticada burla o cache so variando um caractere da bio, que muda o
+ * `context_pack_hash`. Sem chave de identidade, uma conta atras de NAT
+ * compartilhado derrubaria a cota dos vizinhos, e uma conta trocando de IP
+ * escaparia da cota.
+ *
+ * Teto baixo de proposito: analisar a propria bio e ação pontual de edicao de
+ * perfil, nao fluxo de navegacao. 10 por 15 minutos cobre o mestre que edita e
+ * reanalisa varias vezes, e ainda assim limita o custo por conta.
+ *
+ * `keyGenerator` sem `ipKeyGenerator`: a chave e so o `userId`, nunca um IP —
+ * entao a normalizacao de IPv6 exigida pela v8 nao se aplica aqui. Este
+ * limiter roda depois do auth, onde `req.user` ja existe; o fallback por IP
+ * seria inalcancavel, mas fica explicito para nao depender de suposicao.
+ */
+export const bioSuggestionsUserRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  message: 'Muitas análises de bio em pouco tempo. Tente novamente em alguns minutos.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    const userId = (req as { user?: { userId?: string } }).user?.userId;
+    return userId ? `bio-suggestions:${userId}` : `bio-suggestions:anon`;
+  },
+});

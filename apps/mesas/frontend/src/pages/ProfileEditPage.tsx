@@ -46,7 +46,7 @@ const sanitizeTab = (tab: string | null): TabType => {
 };
 
 export default function ProfileEditPage() {
-  const { profile, loading, saving, error, saveError, refetch } = useProfileContext();
+  const { profile, loading, saving, error, saveError } = useProfileContext();
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = sanitizeTab(searchParams.get('tab'));
   const [activeTab, setActiveTab] = useState<TabType>(tabFromUrl);
@@ -88,32 +88,21 @@ export default function ProfileEditPage() {
     return () => { active = false; if (timer) clearTimeout(timer); };
   }, [saving, profile, saveError]);
 
-  // Feedback de conexão Discord. MANTIDO apesar de a seção da UI ter sido
-  // adiada (2026-08-27): o backend continua redirecionando para
-  // `/perfil?discord=connected|error` (discord.ts:46/68/149/156), então quem
-  // chegar por esse retorno — link direto, fluxo iniciado antes da remoção, ou
-  // a retomada da feature — ainda recebe o aviso em vez de cair numa tela muda
-  // com query string pendurada.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const discordStatus = params.get('discord');
-    const reason = params.get('reason');
-    
-    if (discordStatus === 'connected') {
-      showSuccess('Discord conectado com sucesso!');
-      track('discord_connected');
-      window.history.replaceState({}, '', '/perfil');
-      refetch();
-    } else if (discordStatus === 'error') {
-      if (reason === 'no_gm_profile') {
-        showError('Você precisa criar um perfil de Mestre antes de conectar o Discord.\n\nVá para a aba "Mestre" e preencha seus dados primeiro.', 6000);
-      } else {
-        showError('Erro ao conectar Discord. Tente novamente.');
-      }
-      track('discord_connection_failed', { error: reason });
-      window.history.replaceState({}, '', '/perfil');
-    }
-  }, [refetch]);
+  // Discord: NENHUM código de conexão vive mais neste arquivo (2026-09-01,
+  // decisão do mantenedor). A seção da UI saíra em 2026-08-27 como "adiada", e
+  // o `useEffect` que lia `?discord=connected|error` ficara para atender quem
+  // voltasse de um fluxo já iniciado. A decisão agora é outra: a integração
+  // será **reescrita do zero** quando for a hora, então não há fluxo antigo a
+  // atender nem bloco a reintroduzir — manter o handler só deixava código morto
+  // esperando por uma feature que não vai voltar nesta forma.
+  //
+  // O backend continua servindo `/auth/discord/*` (`discord.ts`, montado em
+  // `server.ts:118`) e os campos `discord_connected`/`discord_username`/
+  // `covil_verified` seguem exibidos no perfil público — nada foi removido do
+  // servidor. Quem chegar em `/perfil?discord=...` por link direto vê a query
+  // string ignorada, sem aviso: consequência aceita, porque o front não tem
+  // mais como iniciar esse fluxo (medido: zero referências a
+  // `auth/discord`/`discord/connect` fora de comentário).
 
   // O handler de desconexão do Discord saiu junto com a seção adiada
   // (2026-08-27). `DELETE /auth/discord/disconnect` continua existindo no
@@ -743,14 +732,12 @@ function TabMestre() {
         <LinksManager />
       </section>
 
-      {/* Seção "Conexão Discord" removida da UI em 2026-08-27: a integração foi
-          ADIADA (decisão do mantenedor), não cancelada. O backend permanece
-          intacto e funcional — `/auth/discord/connect`, `/auth/discord/callback`,
-          `DELETE /auth/discord/disconnect` (discord.ts:164, montado em
-          server.ts:118) e os campos `discord_connected`/
-          `discord_username`/`covil_verified` continuam servidos e exibidos no
-          perfil público. Para retomar, basta reintroduzir este bloco: nada foi
-          removido do lado do servidor. */}
+      {/* Sem seção de Discord: a UI saiu em 2026-08-27 e o handler de retorno
+          em 2026-09-01. A integração será REESCRITA do zero quando entrar de
+          novo (decisão do mantenedor) — não é bloco a reintroduzir. O que
+          sobrevive é do lado do servidor, intacto: rotas `/auth/discord/*` e os
+          campos `discord_connected`/`discord_username`/`covil_verified`, ainda
+          exibidos no perfil público. Ver o comentário no topo deste arquivo. */}
     </div>
   );
 }

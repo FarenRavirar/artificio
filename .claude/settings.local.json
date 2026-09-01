@@ -247,7 +247,9 @@
       "Bash(pkill -f \"ssh -f -N -L 55432\")",
       "mcp__plugin_cloudflare_cloudflare-api__execute",
       "mcp__plugin_cloudflare_cloudflare-api__search",
-      "mcp__plugin_cloudflare_cloudflare-api__docs"
+      "mcp__plugin_cloudflare_cloudflare-api__docs",
+      "Bash(ssh faren docker exec -i mesas-db psql *)",
+      "Bash(ssh faren docker exec mesas-db psql *)"
     ]
   },
   "enabledMcpjsonServers": [

@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 290,
-    "uniqueEndpoints": 267,
+    "total": 291,
+    "uniqueEndpoints": 268,
     "byApp": {
       "accounts-frontend": {
         "total": 8,
@@ -38,16 +38,16 @@
         }
       },
       "mesas-frontend": {
-        "total": 172,
+        "total": 173,
         "byConfidence": {
           "medium": 77,
-          "high": 95
+          "high": 96
         },
         "byPattern": {
           "unknown": 4,
           "template-literal": 71,
           "service-wrapper": 39,
-          "literal": 58
+          "literal": 59
         }
       },
       "packages/auth": {
@@ -1830,6 +1830,16 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/components/mestre/editor/BioAttributeSuggestions.tsx",
+      "method": "POST",
+      "endpoint": "/api/v1/gm/profile/bio-suggestions",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "authPost",
+      "line": 74
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/table-editor/hooks/useTableEditor.ts",
       "method": "POST",
       "endpoint": "/api/v1/gm/tables",
@@ -2066,7 +2076,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 299
+      "line": 288
     },
     {
       "app": "mesas-frontend",

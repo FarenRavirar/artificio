@@ -1,6 +1,6 @@
 # Spec 099 — Perfil do mestre: o que o mestre insere e o que o sistema expõe
 
-**App:** `mesas` · **Status:** fase A executada (A1–A3, gate A fechado); fase B executada (B0–B10, gate B fechado com 1 pendência nomeada); **B11 pendente**; fases C e D não iniciadas
+**App:** `mesas` · **Status:** fase A executada (A1–A3, gate A fechado); fase B executada (B0–B11, gate B fechado com 1 pendência nomeada); **fase E executada em 2026-09-01 por incidente em produção** (E1–E3 concluídas); fases C e D não iniciadas
 **Escrita para implementar.** Investigação, medições e fontes que sustentam cada decisão
 estão em `old_spec.md` (temporário, será removido após conferência do mantenedor).
 
@@ -230,7 +230,7 @@ Não afirmar nada sobre estes pontos sem medir antes.
 | editor de perfil em runtime | **não medido** — exige sessão (§11.1) |
 | comportamento com perfil cheio | **impossível hoje** — nenhum dos 20 preenchido |
 | nav global com alvo de 22px | **não reproduz** no CSS do pacote (`min-height: 40px`) — re-medir em runtime |
-| custo do esquema de extração para bio | **não medido** (o parser atual é calibrado para anúncio) |
+| custo do esquema de extração para bio | **medido em B11 (2026-09-01), conferido em revisão independente:** 4 atributos estritos (`experience_years`, `specialties`, `languages`, `badges`), endpoint autenticado sem escrita, painel local de confirmação e cache generalizado por schema. Sem migration, lib nova ou pacote compartilhado. Superfície final medida em `git status`: **4 arquivos de produção + 3 de teste**; validação e vetores verificados em `tasks.md` B11 |
 | os 3 perfis com banner real | **não inspecionados** visualmente |
 | soma da tabela de seções (§2.1 de `old_spec.md`) | **inconsistente**: 4856px medidos × 5341px declarados — faltam 485px. A tabela é recorte do que apareceu naquela medição, não o inventário do componente, que monta **11 blocos** |
 
@@ -316,6 +316,18 @@ de sentar à mesa?*
 **Nenhum campo novo vira obrigatório.** Cobrar o que hoje está em 0/20 puniria o mestre por
 uma porta que **o sistema** nunca ofereceu (§1) — e NN/g é explícito: *"asking for
 information before providing any value is a breach of trust"*.
+
+**Obrigatório precisa valer nas QUATRO portas de escrita, não só nas do editor
+(incidente de 2026-09-01, fase E).** `old_spec.md:174` mapeou quatro portas: `POST` e
+`PUT /api/v1/gm/profile` (`gmPanel.ts`) e `PATCH /api/v1/profile/gm` + `/me/gm`
+(`profile.ts` → `profileService.updateGmProfile`). A B0 alinhou `nickname` (2-40) nas
+duas primeiras; a terceira criava `gm_profiles` derivando **só o slug**, e o perfil
+nascia com `nickname` NULL. Medido em produção no dia do relato: **7 de 49 perfis**
+(14%) sem nickname, e o mestre atingido não conseguia salvar o próprio nome nem
+publicar mesa — a publicação respondia "perfil não encontrado" enquanto a criação
+respondia "chave duplicada". Corrigido em E1. **Regra que fica:** classificar um campo
+como obrigatório nesta tabela obriga a conferir as quatro portas; alinhar só a porta do
+editor deixa a outra criando registro que o próprio contrato recusa depois.
 
 **Forma da entrega (B6):** registro único no padrão de `editorValidation.ts:72`
 (`RECOMMENDED_GAIN` como `Record`), com `data-ob` por campo e teste cruzando os dois. A
