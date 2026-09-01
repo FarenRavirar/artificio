@@ -79,6 +79,44 @@ export function deriveGmNickname(
   return candidato.slice(0, 40);
 }
 
+/**
+ * Identidade de um `gm_profile` que ainda nao existe, para os dois caminhos que
+ * o criam: o upsert do painel (`updateGmProfile`) e o vinculo do Discord.
+ *
+ * Extraido por achado de duplicacao do Sonar (PR #302), mas o motivo nao e a
+ * metrica: os dois blocos ja repetiam a busca do usuario, a derivacao do `slug`
+ * e a elevacao de role, e E1 acabou de mostrar o custo disso — o `nickname`
+ * precisou ser corrigido nos dois lugares, e a segunda rodada de review achou a
+ * ordem errada em um deles. Duas copias da regra de identidade divergem; foi
+ * assim que 7 perfis de producao nasceram fora do contrato.
+ *
+ * O `slug` mantem o fallback `user-<prefixo do id>` porque e o unico valor que
+ * nunca e vazio — `deriveGmNickname` depende dele como ultimo degrau.
+ */
+export async function prepareNewGmProfileIdentity(
+  userId: string,
+  patch?: Record<string, unknown>,
+): Promise<{ slug: string; nickname: string }> {
+  const user = await db
+    .selectFrom('users')
+    .select(['username', 'email'])
+    .where('id', '=', userId)
+    .executeTakeFirst();
+
+  const slug = user?.username || user?.email.split('@')[0] || `user-${userId.slice(0, 8)}`;
+
+  return { slug, nickname: deriveGmNickname(user, slug, patch) };
+}
+
+/**
+ * Criar perfil de mestre eleva o papel do usuario. Estava escrito identico nos
+ * dois caminhos de criacao; um `role` novo ou uma regra de elevacao diferente
+ * teria de ser lembrada em dois lugares.
+ */
+async function promoteUserToGm(userId: string): Promise<void> {
+  await db.updateTable('users').set({ role: 'gm' }).where('id', '=', userId).execute();
+}
+
 export async function getFullProfile(userId: string): Promise<FullProfile> {
   const user = await db
     .selectFrom('users')
@@ -308,26 +346,27 @@ export async function updateGmProfile(userId: string, data: GmProfileUpdate): Pr
       .execute();
   } else {
     // Insert (precisa de slug)
-    const user = await db
-      .selectFrom('users')
-      .select(['username', 'email'])
-      .where('id', '=', userId)
-      .executeTakeFirst();
+    const { slug, nickname } = await prepareNewGmProfileIdentity(userId, sanitizedData);
 
-    const slug = user?.username || user?.email.split('@')[0] || `user-${userId.slice(0, 8)}`;
-
+    // `nickname` DEPOIS do spread (achado de review, PR #301). Na primeira
+    // correcao a chave derivada vinha antes de `...sanitizedData`, e o patch
+    // sobrescrevia o valor calculado — o PATCH manda `nickname` explicitamente
+    // (`profile.ts:183`), entao um `null`, uma string de 1 caractere ou uma de
+    // 60 voltava a gravar registro fora do contrato de 2-40, que e exatamente o
+    // que E1 existe para impedir. `prepareNewGmProfileIdentity` ja recebeu o
+    // patch e decidiu: usa o valor do mestre quando ele serve, cai no fallback
+    // quando nao serve. Vindo por ultimo, e a decisao dela que prevalece.
     await db
       .insertInto('gm_profiles')
       .values({
         user_id: userId,
         slug,
-        nickname: deriveGmNickname(user, slug, sanitizedData),
         ...sanitizedData,
+        nickname,
       })
       .execute();
 
-    // Elevar role para 'gm'
-    await db.updateTable('users').set({ role: 'gm' }).where('id', '=', userId).execute();
+    await promoteUserToGm(userId);
   }
 
   const result = await db
@@ -474,29 +513,23 @@ export async function connectDiscord(
       .where('user_id', '=', userId)
       .execute();
   } else {
-    // Criar gm_profile se não existir
-    const user = await db
-      .selectFrom('users')
-      .select(['username', 'email'])
-      .where('id', '=', userId)
-      .executeTakeFirst();
-
-    const slug = user?.username || user?.email.split('@')[0] || `user-${userId.slice(0, 8)}`;
+    // Criar gm_profile se não existir. Sem patch: este caminho nao recebe campos
+    // do painel, entao a identidade sai inteira do usuario.
+    const { slug, nickname } = await prepareNewGmProfileIdentity(userId);
 
     await db
       .insertInto('gm_profiles')
       .values({
         user_id: userId,
         slug,
-        nickname: deriveGmNickname(user, slug),
+        nickname,
         discord_connected: true,
         discord_username: discordData.username,
         discord_id: discordData.id,
       })
       .execute();
 
-    // Elevar role para 'gm'
-    await db.updateTable('users').set({ role: 'gm' }).where('id', '=', userId).execute();
+    await promoteUserToGm(userId);
   }
 
   // Registrar em auth_providers

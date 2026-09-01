@@ -54,6 +54,7 @@
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
 }
 .hero-section:has(.hero-banner) .hero-bio,
+.hero-section:has(.hero-banner) .hero-master-name,
 .hero-section:has(.hero-banner) .trust-item { color: rgba(255, 255, 255, 0.88); }
 .hero-section:has(.hero-banner) .stat-label { color: rgba(255, 255, 255, 0.72); }
 
@@ -109,29 +110,6 @@
   flex-wrap: wrap;
 }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: 9999px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  border: 1px solid;
-}
-
-.badge-mestre {
-  background: var(--state-warning-bg);
-  border-color: var(--state-warning-line);
-  color: var(--state-warning-fg);
-}
-
-.badge-covil {
-  background: var(--state-warning-bg);
-  border-color: var(--state-warning-line);
-  color: var(--state-warning-fg);
-}
-
 .hero-title {
   font-size: 3rem;
   font-weight: 900;
@@ -139,6 +117,15 @@
   line-height: 1.1;
   /* sem text-shadow no hero gradiente (halo escuro atrapalha no light); o shadow
      entra só sobre foto de banner (.hero-section:has(.hero-banner) .hero-title). */
+}
+
+.hero-master-name {
+  margin-bottom: var(--space-2);
+  color: var(--fg-muted);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .hero-bio {
@@ -149,6 +136,15 @@
   max-width: 600px;
   margin-left: auto;
   margin-right: auto;
+}
+
+.hero-attributes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
+  max-width: 600px;
+  margin: 0 auto var(--space-6);
 }
 
 .hero-stats {

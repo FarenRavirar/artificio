@@ -26,6 +26,7 @@ const {
   mutatePlayerAsync,
   mutateAddSystemAsync,
   mutateRemoveSystemAsync,
+  systemPendingState,
   marcarGmExistenteSpy,
 } = vi.hoisted(() => ({
   mutateGmAsync: vi.fn(),
@@ -34,6 +35,7 @@ const {
   mutatePlayerAsync: vi.fn(),
   mutateAddSystemAsync: vi.fn(),
   mutateRemoveSystemAsync: vi.fn(),
+  systemPendingState: { add: false, remove: false },
   marcarGmExistenteSpy: vi.fn(),
 }));
 
@@ -59,8 +61,14 @@ vi.mock('../hooks/useProfileQuery', () => ({
   useUpdateProfile: () => ({ isPending: false, mutateAsync: mutateProfileAsync }),
   useUpdatePlayer: () => ({ isPending: false, mutateAsync: mutatePlayerAsync }),
   useUpdateGm: () => ({ isPending: false, mutateAsync: mutateGmAsync }),
-  useAddSystem: () => ({ isPending: false, mutateAsync: mutateAddSystemAsync }),
-  useRemoveSystem: () => ({ isPending: false, mutateAsync: mutateRemoveSystemAsync }),
+  useAddSystem: () => ({
+    get isPending() { return systemPendingState.add; },
+    mutateAsync: mutateAddSystemAsync,
+  }),
+  useRemoveSystem: () => ({
+    get isPending() { return systemPendingState.remove; },
+    mutateAsync: mutateRemoveSystemAsync,
+  }),
 }));
 
 // Caixa mutável preenchida em effect: os rules react-hooks/globals e
@@ -102,6 +110,8 @@ describe('ProfileContext.updateGm — autosave com debounce (spec 099 B8)', () =
     mutateAddSystemAsync.mockResolvedValue({});
     mutateRemoveSystemAsync.mockReset();
     mutateRemoveSystemAsync.mockResolvedValue(undefined);
+    systemPendingState.add = false;
+    systemPendingState.remove = false;
     capturedBox.value = null;
   });
 
@@ -292,5 +302,27 @@ describe('ProfileContext.updateGm — autosave com debounce (spec 099 B8)', () =
     });
 
     expect(mutateGmAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it('addSystem nao engole o clique quando a mutation informa pending', async () => {
+    renderProvider();
+    systemPendingState.add = true;
+
+    await act(async () => {
+      await capturedBox.value?.addSystem('sistema-1', 'gm');
+    });
+
+    expect(mutateAddSystemAsync).toHaveBeenCalledWith({ systemId: 'sistema-1', type: 'gm' });
+  });
+
+  it('removeSystem nao engole o clique quando a mutation informa pending', async () => {
+    renderProvider();
+    systemPendingState.remove = true;
+
+    await act(async () => {
+      await capturedBox.value?.removeSystem('sistema-1');
+    });
+
+    expect(mutateRemoveSystemAsync).toHaveBeenCalledWith('sistema-1');
   });
 });

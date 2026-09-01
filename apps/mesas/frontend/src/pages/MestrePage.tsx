@@ -99,67 +99,65 @@ export const MestrePage = () => {
         totalOpenSlots={totalOpenSlots}
       />
 
-      <MestreBio profile={profile} />
+      <div className="mestre-section-flow">
+        <MestreBio profile={profile} />
 
-      {/* Spec 099 B3/C2: specialties/languages/badges — antes órfãos de
-          exibição (`badges` nunca renderizou). Só renderiza quando há dado. */}
-      <MestreHighlights profile={profile} />
+        {/* Spec 099 B3/C2: specialties/languages/badges — antes órfãos de
+            exibição (`badges` nunca renderizou). Só renderiza quando há dado. */}
+        <MestreHighlights profile={profile} />
 
-      <MestreSellingPoints sellingPoints={profile.selling_points ?? []} />
+        <MestreSellingPoints sellingPoints={profile.selling_points ?? []} />
 
-      {/* PRIORIDADE: Contato é o principal - ANTES de Mesas Disponíveis */}
-      
-      {/* Contact Methods */}
-      {profile.contact_methods && profile.contact_methods.length > 0 && (
-        <section className="container" style={{ marginTop: '3rem' }}>
-          <MestreContactMethods contacts={profile.contact_methods} gmSlug={slug || ''} />
-        </section>
-      )}
+        {/* PRIORIDADE: Contato é o principal - ANTES de Mesas Disponíveis */}
+        {profile.contact_methods && profile.contact_methods.length > 0 && (
+          <section className="container">
+            <MestreContactMethods contacts={profile.contact_methods} gmSlug={slug || ''} />
+          </section>
+        )}
 
-      {/* VTT Platforms */}
-      {profile.preferred_vtt_platforms && profile.preferred_vtt_platforms.length > 0 && (
-        <section className="container" style={{ marginTop: '3rem' }}>
-          <MestreVttPlatforms platforms={profile.preferred_vtt_platforms} />
-        </section>
-      )}
+        {profile.preferred_vtt_platforms && profile.preferred_vtt_platforms.length > 0 && (
+          <section className="container">
+            <MestreVttPlatforms platforms={profile.preferred_vtt_platforms} />
+          </section>
+        )}
 
-      {/* Contact Form */}
-      {profile.contact_methods && profile.contact_methods.some(c => c.channel === 'form') && slug && (
-        <section className="container" style={{ marginTop: '3rem' }}>
-          <MestreContactForm mestreSlug={slug} />
-        </section>
-      )}
+        {profile.contact_methods && profile.contact_methods.some(c => c.channel === 'form') && slug && (
+          <section className="container">
+            <MestreContactForm mestreSlug={slug} />
+          </section>
+        )}
 
-      <MestreTablesSection mappedTables={mappedTables} />
+        <MestreTablesSection mappedTables={mappedTables} />
 
-      {slug && <MestreReviewsSection slug={slug} />}
+        {slug && <MestreReviewsSection slug={slug} />}
 
-      <MestreClosedGroupSection closedGroup={profile.closed_group} />
+        <MestreClosedGroupSection closedGroup={profile.closed_group} />
 
-      {canSeeInsights && (insightsLoading || metrics.length > 0) && (
-        <MestreInsightsSection insightsLoading={insightsLoading} metrics={metrics} />
-      )}
+        {canSeeInsights && (insightsLoading || metrics.length > 0) && (
+          <MestreInsightsSection insightsLoading={insightsLoading} metrics={metrics} />
+        )}
 
-      {canSeeInsights && recommendations.length > 0 && (
-        <MestreRecommendationsSection recommendations={recommendations} />
-      )}
+        {canSeeInsights && recommendations.length > 0 && (
+          <MestreRecommendationsSection recommendations={recommendations} />
+        )}
 
-      {/* Links - Após contatos */}
-      {links.length > 0 && (
-        <section id="contato" className="links-section">
-          <div className="container">
-            <LinksDisplay links={links} />
-          </div>
-        </section>
-      )}
+        {/* Links - Após contatos */}
+        {links.length > 0 && (
+          <section id="contato" className="links-section">
+            <div className="container">
+              <LinksDisplay links={links} />
+            </div>
+          </section>
+        )}
 
-      {mappedTables.length > 0 && (
-        <MestreFinalCta
-          totalOpenSlots={totalOpenSlots}
-          tablesCount={mappedTables.length}
-          mappedTables={mappedTables}
-        />
-      )}
+        {mappedTables.length > 0 && (
+          <MestreFinalCta
+            totalOpenSlots={totalOpenSlots}
+            tablesCount={mappedTables.length}
+            mappedTables={mappedTables}
+          />
+        )}
+      </div>
     </main>
   );
 };
