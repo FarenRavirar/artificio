@@ -88,8 +88,36 @@ describe('updateGmProfile — o nickname derivado vence o patch invalido', () =>
     expect(updateStart).toBeGreaterThanOrEqual(0);
     expect(insertStart).toBeGreaterThanOrEqual(0);
     expect(insertSource.indexOf('...sanitizedData')).toBeGreaterThanOrEqual(0);
-    expect(insertSource.indexOf('nickname: deriveGmNickname')).toBeGreaterThan(
+    // A chave e so `nickname` desde a extracao de `prepareNewGmProfileIdentity`
+    // (achado de duplicacao do Sonar, PR #302). O que o teste guarda continua
+    // sendo a POSICAO: vindo depois do spread, o patch nao a sobrescreve.
+    expect(/(^|\s)nickname,/.test(insertSource)).toBe(true);
+    expect(insertSource.search(/(^|\s)nickname,/)).toBeGreaterThan(
       insertSource.indexOf('...sanitizedData'),
     );
+  });
+});
+
+/**
+ * A duplicacao entre os dois caminhos de criacao foi o que permitiu que E1
+ * precisasse ser corrigida duas vezes (a segunda por review). Se alguem voltar
+ * a escrever a derivacao inline num deles, as copias divergem de novo.
+ */
+describe('prepareNewGmProfileIdentity — um caminho so para criar perfil', () => {
+  it('e usado pelos dois inserts de gm_profiles, sem derivacao inline', () => {
+    const source = readFileSync(new URL('../profileService.ts', import.meta.url), 'utf8');
+
+    const chamadas = source.match(/prepareNewGmProfileIdentity\(/g) ?? [];
+    // 2 chamadas + a declaracao da funcao.
+    expect(chamadas).toHaveLength(3);
+
+    // A unica derivacao legitima vive DENTRO de `prepareNewGmProfileIdentity`;
+    // procurar a partir do inicio dela acusaria a propria funcao. O corte e o
+    // `promoteUserToGm` declarado logo abaixo — dali para a frente, qualquer
+    // `nickname: deriveGmNickname(` inline e uma copia voltando.
+    const depoisDaDeclaracao = source.slice(
+      source.indexOf('async function promoteUserToGm'),
+    );
+    expect(depoisDaDeclaracao.match(/nickname: deriveGmNickname\(/g)).toBeNull();
   });
 });

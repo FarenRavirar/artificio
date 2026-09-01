@@ -17,6 +17,24 @@ interface MestreHeroProps {
   totalOpenSlots: number;
 }
 
+/**
+ * Apoio da dobra, não fallback da tagline: §2.3 põe a `tagline` no `h1` **e**
+ * mantém a 1ª frase da bio abaixo. A primeira versão de C1 condicionava este
+ * resumo a `!tagline`, então o perfil que preenchesse os dois campos perdia a
+ * bio da dobra — justamente o perfil mais completo (achado de review, PR #302).
+ *
+ * Fora do componente e sem ternário de default (segundo achado da mesma
+ * rodada): a guarda de entrada devolve `null` direto, e a função não é
+ * recriada a cada render.
+ */
+function summarizeBio(bioLong: string | null | undefined): string | null {
+  if (!bioLong) return null;
+
+  const firstSentence = bioLong.split(/[.!?]\s+/)[0];
+  if (firstSentence.length > 140) return `${firstSentence.slice(0, 140)}…`;
+  return firstSentence + (bioLong.includes('.') ? '.' : '');
+}
+
 export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
   // Defesa secundária: a normalização primária de `avg_rating` vive em
   // `normalizeMestreProfile` (useMestre.ts), na entrada do estado. Mantida aqui
@@ -59,18 +77,7 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
   const bannerFailed = bannerFailure === profile.banner_url;
   const avatarFailed = avatarFailure === profile.avatar_url;
   const tagline = profile.tagline?.trim() || null;
-  // Apoio da dobra, não fallback da tagline: §2.3 põe a `tagline` no `h1` **e**
-  // mantém a 1ª frase da bio abaixo. A primeira versão de C1 condicionava este
-  // resumo a `!tagline`, então o perfil que preenchesse os dois campos perdia a
-  // bio da dobra — justamente o perfil mais completo (achado de review, PR #302).
-  const bioSummary = profile.bio_long
-    ? (() => {
-        const firstSentence = profile.bio_long.split(/[.!?]\s+/)[0];
-        return firstSentence.length > 140
-          ? `${firstSentence.slice(0, 140)}…`
-          : firstSentence + (profile.bio_long.includes('.') ? '.' : '');
-      })()
-    : null;
+  const bioSummary = summarizeBio(profile.bio_long);
 
   // A dobra é um resumo, não a morada completa dos atributos: dois valores por
   // categoria preservam as três categorias fechadas de D2 sem empurrar CTA e
