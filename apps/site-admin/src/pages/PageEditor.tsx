@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api, openPreview, type PageFull, type MediaItem, type ContentId } from "../api";
+import { api, openPreview, type PageFull, type MediaItem, type ContentId, type JobPhase, type JobState } from "../api";
 import { BlockEditor, type EditorHandle } from "../editor/BlockEditor";
 import { SeoPanel } from "../editor/SeoPanel";
 import { MediaPicker } from "../media/MediaPicker";
@@ -9,6 +9,30 @@ const EMPTY: PageFull = {
   title: "", slug: "", excerpt: "", content_html: "", block_doc: null, status: "draft",
   seo_title: null, seo_description: null, canonical: null, og_title: null, og_description: null, og_image: null, noindex: false,
 };
+
+
+// Rótulo por fase do rebuild. O editor mostra isto DEPOIS de publicar: antes, o único
+// sinal era o toast "rebuild disparado", que sumia em 3,5s e deixava o mantenedor sem
+// saber se o build seguia, tinha acabado ou tinha quebrado (incidente 2026-09-02).
+const FASE_LABEL: Record<JobPhase, string> = {
+  iniciando: "Iniciando rebuild...",
+  exportando: "Exportando conteúdo...",
+  build: "Gerando páginas...",
+  busca: "Indexando busca...",
+  publicando: "Publicando arquivos...",
+  purgando: "Limpando cache do site...",
+  concluido: "Concluído.",
+};
+
+/** Mensagem final: distingue "no ar agora" de "no ar em até 2h" (purga falhou). */
+function resumoFinal(job: JobState): { msg: string; err: boolean } {
+  if (!job.ok) return { msg: "O rebuild falhou. O site continua na versão anterior.", err: true };
+  const p = job.purge;
+  if (p?.attempted && p.ok === false) {
+    return { msg: "Publicado, mas a limpeza do cache falhou — pode levar até 2h para aparecer.", err: true };
+  }
+  return { msg: "Publicado e no ar.", err: false };
+}
 
 export function PageEditor() {
   const { id } = useParams();
@@ -31,6 +55,24 @@ export function PageEditor() {
   };
 
   const note = (msg: string, isErr = false) => { setToast({ msg, err: isErr }); setTimeout(() => setToast(null), 3500); };
+  // Progresso do rebuild. Fora do `toast` de propósito: o toast some em 3,5s e o build
+  // leva minutos — era exatamente essa lacuna que fazia a publicação parecer travada.
+  const [rebuildFase, setRebuildFase] = useState<JobPhase | null>(null);
+
+  // Acompanha o rebuild disparado pelo servidor até o fim, traduzindo cada fase para o
+  // indicador do topo. Não bloqueia a edição: o autor segue mexendo enquanto roda.
+  const acompanharRebuild = (desde: string) => {
+    setRebuildFase("iniciando");
+    void api
+      .trackRebuild((job) => setRebuildFase(job.phase ?? null), { startedAfter: desde })
+      .then((job) => {
+        if (!job) { setRebuildFase(null); note("Parei de acompanhar o rebuild (demorou demais).", true); return; }
+        const { msg, err } = resumoFinal(job);
+        setRebuildFase(null);
+        note(msg, err);
+      })
+      .catch(() => setRebuildFase(null));
+  };
 
   useEffect(() => {
     if (id) api.getPage(id).then((p) => {
@@ -52,8 +94,12 @@ export function PageEditor() {
     try {
       const { html, blockDoc } = (await editorRef.current?.getContent()) ?? { html: page.content_html, blockDoc: page.block_doc };
       const body: Partial<PageFull> = { ...page, status, content_html: html, block_doc: blockDoc };
+      // `desde` é lido ANTES da requisição: o servidor dispara o rebuild dentro dela, e
+      // um carimbo posterior descartaria o job recém-criado como se fosse antigo.
+      const desde = new Date().toISOString();
       const r = isNew ? await api.createPage(body) : await api.updatePage(id, body);
-      const msg = r.rebuild?.started ? `${okMsg} (rebuild disparado)` : r.rebuild?.busy ? `${okMsg} (rebuild já em curso)` : okMsg;
+      const msg = r.rebuild?.started || r.rebuild?.busy ? `${okMsg} Publicando no site...` : okMsg;
+      if (r.rebuild?.started || r.rebuild?.busy) acompanharRebuild(desde);
       if (isNew) { note(msg); navigate(`/pages/${r.id}`, { replace: true }); return r.id; }
       setPage((p) => ({ ...p, status, slug: r.slug })); note(msg); return id;
     } catch (e) { setErr(String((e as Error).message)); note("Erro ao salvar.", true); return null; }
@@ -76,6 +122,12 @@ export function PageEditor() {
       <div className="row">
         <h2 className="title">{isNew ? "Nova página" : "Editar página"}</h2>
         <span className={`badge ${page.status}`}>{page.status}</span>
+        {rebuildFase && (
+          <span className="rebuild-progress" role="status" aria-live="polite">
+            <span className="rebuild-spinner" aria-hidden="true" />
+            {FASE_LABEL[rebuildFase]}
+          </span>
+        )}
         <div className="spacer" />
         <button className="btn" onClick={() => setPicker("insert")} disabled={saving}>🖼 Inserir imagem</button>
         <button className="btn" onClick={preview} disabled={saving}>Pré-visualizar ↗</button>

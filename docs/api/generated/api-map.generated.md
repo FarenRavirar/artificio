@@ -24,8 +24,8 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | glossario | 66 | 66 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | links | 23 | 23 | 0 | 0 | DELETE, GET, PATCH, POST, USE |
 | mesas | 261 | 261 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| site | 69 | 69 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| **Total** | **609** | 609 | 0 | 0 | |
+| site | 70 | 70 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
+| **Total** | **610** | 610 | 0 | 0 | |
 
 ## accounts
 
@@ -397,7 +397,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/admin/discord/metrics/shadow` | ✅ high | `apps/mesas/backend/src/routes/discord/metrics.ts` | 85 |
 | GET | `/api/v1/admin/discord/role-mappings` | ✅ high | `apps/mesas/backend/src/routes/discord/roleMappings.ts` | 41 |
 | USE | `/api/v1/admin/discord/role-mappings` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 35 |
-| DELETE | `/api/v1/admin/discord/role-mappings/:id` | ✅ high | `apps/mesas/backend/src/routes/discord/roleMappings.ts` | 113 |
+| DELETE | `/api/v1/admin/discord/role-mappings/:id` | ✅ high | `apps/mesas/backend/src/routes/discord/roleMappings.ts` | 118 |
 | PATCH | `/api/v1/admin/discord/role-mappings/:id` | ✅ high | `apps/mesas/backend/src/routes/discord/roleMappings.ts` | 75 |
 | GET | `/api/v1/admin/discord/settings` | ✅ high | `apps/mesas/backend/src/routes/discord/settings.ts` | 27 |
 | USE | `/api/v1/admin/discord/settings` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 26 |
@@ -637,6 +637,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | POST | `/api/admin/v1/posts/:id/status` | ✅ high | `apps/site/server/admin-api.ts` | 103 |
 | POST | `/api/admin/v1/preview` | ✅ high | `apps/site/server/admin-api.ts` | 276 |
 | POST | `/api/admin/v1/rebuild` | ✅ high | `apps/site/server/admin-api.ts` | 320 |
+| GET | `/api/admin/v1/rebuild/status` | ✅ high | `apps/site/server/admin-api.ts` | 329 |
 | GET | `/api/admin/v1/redirects` | ✅ high | `apps/site/server/admin-api.ts` | 194 |
 | POST | `/api/admin/v1/redirects` | ✅ high | `apps/site/server/admin-api.ts` | 195 |
 | GET | `/api/admin/v1/slug-check` | ✅ high | `apps/site/server/admin-api.ts` | 46 |

@@ -297,6 +297,22 @@ const roleMappingSchema = z.object({
 
 export type RoleMapping = z.infer<typeof roleMappingSchema>;
 
+// Só o que o seletor precisa. A rota devolve a árvore do catálogo; ler apenas `id`/`name`
+// mantém a normalização barata e não acopla o painel ao formato completo.
+const systemOptionSchema = z.object({ id: z.string(), name: z.string() });
+export type SystemOption = z.infer<typeof systemOptionSchema>;
+
+function parseSystemOptions(data: unknown): SystemOption[] {
+  const bruto = (data as { data?: unknown } | null)?.data ?? data;
+  if (!Array.isArray(bruto)) return [];
+  // `safeParse` por item: um nó malformado no catálogo não pode esvaziar o seletor
+  // inteiro e fazer o admin concluir que não há sistema nenhum cadastrado.
+  return bruto.flatMap((n) => {
+    const r = systemOptionSchema.safeParse(n);
+    return r.success ? [r.data] : [];
+  });
+}
+
 function parseRoleMappings(data: unknown): RoleMapping[] {
   const parsed = z.object({ data: z.array(roleMappingSchema) }).safeParse(data);
   // Lista vazia em caso de shape inesperado esconderia regressão como "nada a
@@ -532,6 +548,25 @@ export const discordSyncApi = {
       confirmar?: boolean;
     },
   ) => parseRoleMapping(await apiFetch<unknown>(`/role-mappings/${id}`, { method: 'PATCH', body: JSON.stringify(body) })),
+
+  /**
+   * Sistemas do catálogo para o seletor do painel de mapeamentos.
+   *
+   * Sem isto a tela mandava o NOME do sistema em `target_text`, e o backend recusava com
+   * 400 — a constraint da migration exige `target_system_id` para `kind='system'`, que é
+   * exatamente o caso central da feature (`Sistema: <@&id>`). Achado do Codex (P1).
+   *
+   * `authenticatedFetch` direto porque `apiFetch` fixa o BASE do discord-sync, e o
+   * catálogo vive em `/api/v1/systems`. Diferente de `useSystemsSearch`, aqui NÃO se
+   * filtra por raiz: o admin pode querer vincular a role a uma edição específica
+   * ("D&D 5.2"), não só ao sistema-pai.
+   */
+  searchSystems: async (query: string, signal?: AbortSignal): Promise<SystemOption[]> => {
+    const params = new URLSearchParams({ search: query, limit: '20' });
+    const res = await authenticatedFetch(`/api/v1/systems?${params.toString()}`, { signal });
+    if (!res.ok) throw new Error('Falha ao buscar sistemas.');
+    return parseSystemOptions(await res.json());
+  },
 
   deleteRoleMapping: async (id: string) =>
     parseDeletedResult(await apiFetch<unknown>(`/role-mappings/${id}`, { method: 'DELETE' })),

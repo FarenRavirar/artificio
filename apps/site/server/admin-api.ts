@@ -7,7 +7,7 @@ import type { AuthenticatedRequest } from "@artificio/auth";
 import { cleanHtml, withToc, readingTime, slugify, uniqueSlug, excerptFromHtml } from "./lib/content.js";
 import { renderPreviewFromContent } from "./preview.js";
 import { storeUpload } from "./lib/media-store.js";
-import { runJob } from "./jobs.js";
+import { runJob, jobState } from "./jobs.js";
 import * as Posts from "../db/repo/posts.js";
 import * as Pages from "../db/repo/pages.js";
 import * as Tax from "../db/repo/taxonomies.js";
@@ -320,6 +320,14 @@ export function adminApi(requireAuth: RequestHandler, requireAdmin: RequestHandl
   r.post("/rebuild", (_req, res) => {
     const out = runJob("rebuild", "rebuild");
     res.status(out.started ? 202 : 409).json(out);
+  });
+
+  // Estado do rebuild em curso, para o editor acompanhar depois de publicar.
+  // Separado de `/admin/status` de propósito: aquele roda quatro `count(*)` para montar
+  // as estatísticas do painel, e o editor consulta isto de 2 em 2 segundos enquanto o
+  // job corre — contar a tabela inteira a cada 2s durante um build inteiro é custo puro.
+  r.get("/rebuild/status", (_req, res) => {
+    res.json({ job: jobState() });
   });
 
   return r;

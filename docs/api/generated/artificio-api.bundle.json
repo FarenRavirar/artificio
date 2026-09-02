@@ -8,9 +8,9 @@
     "glossario": 50,
     "links": 22,
     "mesas": 210,
-    "site": 57
+    "site": 58
   },
-  "total": 500,
+  "total": 501,
   "operations": [
     {
       "app": "accounts",
@@ -5868,6 +5868,18 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "postapi_admin_v1_rebuild"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/admin/v1/rebuild/status",
+      "summary": "Consulta api admin v1 rebuild status",
+      "owner": "site",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_admin_v1_rebuild_status"
     },
     {
       "app": "site",

@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Button, Select, TextInput } from '@artificio/ui';
-import { discordSyncApi, type RoleMapping, type RoleMappingKind } from '../../discord-sync/api/discordSyncApi';
+import {
+  discordSyncApi,
+  type RoleMapping,
+  type RoleMappingKind,
+  type SystemOption,
+} from '../../discord-sync/api/discordSyncApi';
 
 /**
  * Revisão dos ids de role/emoji que o parser observou (spec 099).
@@ -27,6 +32,13 @@ const KIND_LABEL: Record<RoleMappingKind, string> = {
 
 type Escopo = 'pendentes' | 'confirmados' | 'todos';
 
+/** Edição em curso de uma linha. `systemId` só é usado quando `kind === 'system'`. */
+interface Rascunho {
+  kind: RoleMappingKind;
+  texto: string;
+  systemId: string;
+}
+
 export function RoleMappingsPanel() {
   const [itens, setItens] = useState<RoleMapping[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -35,7 +47,10 @@ export function RoleMappingsPanel() {
   const [salvandoId, setSalvandoId] = useState<string | null>(null);
   // Rascunho por linha: o admin edita o valor antes de confirmar, e o estado
   // não pode viver na lista (recarregar a lista apagaria o que ele digitou).
-  const [rascunhos, setRascunhos] = useState<Record<string, { kind: RoleMappingKind; texto: string }>>({});
+  const [rascunhos, setRascunhos] = useState<Record<string, Rascunho>>({});
+  // Catálogo para o seletor de sistema. Carregado uma vez: a fila costuma ter poucos
+  // itens e refazer a busca por linha multiplicaria requisição sem ganho.
+  const [sistemas, setSistemas] = useState<SystemOption[]>([]);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -60,26 +75,60 @@ export function RoleMappingsPanel() {
     return () => clearTimeout(timer);
   }, [carregar]);
 
-  const rascunhoDe = (item: RoleMapping) =>
-    rascunhos[item.id] ?? { kind: item.kind, texto: item.target_text ?? item.last_seen_text ?? '' };
+  // Catálogo de sistemas para o seletor. Falha aqui NÃO derruba a fila: os outros tipos
+  // (estilo, época, letra) continuam confirmáveis por texto, e só a confirmação de
+  // sistema fica bloqueada — com aviso próprio na linha, em vez de um select vazio.
+  useEffect(() => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => {
+      void discordSyncApi
+        .searchSystems('', ctrl.signal)
+        .then(setSistemas)
+        .catch(() => setSistemas([]));
+    }, 0);
+    return () => { clearTimeout(timer); ctrl.abort(); };
+  }, []);
 
-  const editar = (id: string, patch: Partial<{ kind: RoleMappingKind; texto: string }>) => {
+  const rascunhoDe = (item: RoleMapping): Rascunho =>
+    rascunhos[item.id] ?? {
+      kind: item.kind,
+      texto: item.target_text ?? item.last_seen_text ?? '',
+      systemId: item.target_system_id ?? '',
+    };
+
+  const editar = (id: string, patch: Partial<Rascunho>) => {
     setRascunhos((prev) => {
-      const atual = prev[id] ?? { kind: 'style' as RoleMappingKind, texto: '' };
+      const atual = prev[id] ?? { kind: 'style' as RoleMappingKind, texto: '', systemId: '' };
       return { ...prev, [id]: { ...atual, ...patch } };
     });
   };
 
   const confirmar = async (item: RoleMapping) => {
-    const { kind, texto } = rascunhoDe(item);
-    if (!texto.trim()) {
+    const { kind, texto, systemId } = rascunhoDe(item);
+
+    // O alvo depende do tipo, porque a constraint da migration os separa:
+    // `kind='system'` guarda o UUID (`target_text` obrigatoriamente NULL), todo o resto
+    // guarda texto. Mandar texto para 'system' devolvia 400 e tornava o caso central da
+    // feature (`Sistema: <@&id>`) impossível de confirmar. Achado do Codex (P1).
+    const ehSistema = kind === 'system';
+    if (ehSistema && !systemId) {
+      toast.error('Escolha o sistema do catálogo antes de confirmar.');
+      return;
+    }
+    if (!ehSistema && !texto.trim()) {
       toast.error('Informe o que este id significa antes de confirmar.');
       return;
     }
+
+    const alvo = ehSistema
+      ? { target_system_id: systemId, target_text: null }
+      : { target_system_id: null, target_text: texto.trim() };
+    const rotulo = ehSistema ? (sistemas.find((x) => x.id === systemId)?.name ?? 'sistema') : texto.trim();
+
     setSalvandoId(item.id);
     try {
-      await discordSyncApi.updateRoleMapping(item.id, { kind, target_text: texto.trim(), confirmar: true });
-      toast.success(`${KIND_LABEL[kind]} "${texto.trim()}" confirmado.`);
+      await discordSyncApi.updateRoleMapping(item.id, { kind, ...alvo, confirmar: true });
+      toast.success(`${KIND_LABEL[kind]} "${rotulo}" confirmado.`);
       await carregar();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao confirmar.');
@@ -170,6 +219,22 @@ export function RoleMappingsPanel() {
                     </p>
                   )}
 
+                  {/* Sem isto, um vínculo de sistema já confirmado aparecia sem alvo
+                      visível: o nome não está em `target_text` (a constraint o proíbe),
+                      e a linha lia como se nada tivesse sido decidido. */}
+                  {item.target_system_name && (
+                    <p className="text-sm">
+                      <span className="text-[var(--fg-muted)]">Sistema vinculado: </span>
+                      <strong>{item.target_system_name}</strong>
+                    </p>
+                  )}
+
+                  {rascunho.kind === 'system' && sistemas.length === 0 && (
+                    <p className="text-sm text-[var(--state-danger-fg)]" role="alert">
+                      Catálogo de sistemas indisponível — recarregue para confirmar este vínculo.
+                    </p>
+                  )}
+
                   <div className="flex flex-wrap items-center gap-2">
                     <Select
                       value={rascunho.kind}
@@ -182,13 +247,29 @@ export function RoleMappingsPanel() {
                         </option>
                       ))}
                     </Select>
-                    <TextInput
-                      value={rascunho.texto}
-                      onChange={(e) => editar(item.id, { texto: e.target.value })}
-                      placeholder="O que este id significa"
-                      aria-label="Significado do id"
-                      className="min-w-56 flex-1"
-                    />
+                    {rascunho.kind === 'system' ? (
+                      <Select
+                        value={rascunho.systemId}
+                        onChange={(e) => editar(item.id, { systemId: e.target.value })}
+                        aria-label="Sistema do catálogo"
+                        className="min-w-56 flex-1"
+                      >
+                        <option value="">Escolha o sistema...</option>
+                        {sistemas.map((sis) => (
+                          <option key={sis.id} value={sis.id}>
+                            {sis.name}
+                          </option>
+                        ))}
+                      </Select>
+                    ) : (
+                      <TextInput
+                        value={rascunho.texto}
+                        onChange={(e) => editar(item.id, { texto: e.target.value })}
+                        placeholder="O que este id significa"
+                        aria-label="Significado do id"
+                        className="min-w-56 flex-1"
+                      />
+                    )}
                     <Button
                       type="button"
                       size="sm"

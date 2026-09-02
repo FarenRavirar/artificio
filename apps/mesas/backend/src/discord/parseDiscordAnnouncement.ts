@@ -2528,7 +2528,7 @@ function letraDeEmoji(nome: string): string | null {
  */
 function stripRegionalIndicators(text: string): string {
   return text.replace(/[\u{1F1E6}-\u{1F1FF}]/gu, (ch) =>
-    String.fromCharCode(65 + ((ch.codePointAt(0) ?? 0) - 0x1f1e6)),
+    String.fromCodePoint(65 + ((ch.codePointAt(0) ?? 0) - 0x1f1e6)),
   );
 }
 
@@ -2839,9 +2839,11 @@ export type HomebrewClass = 'discard' | 'review' | 'none';
  * sistema autoral/próprio anunciado sob esse rótulo escapa do descarte. */
 function getAnnouncementSystemHint(message: ImportRawMessage, labelAliasesSystem?: string[]): string | null {
   const threadName = normalizeDiscordEmojis(stripNullBytes(message.discord_thread_name ?? ''));
-  // `normalizeDiscordEmojis` ANTES de qualquer extração: emoji de letra vira a
-  // letra (senão o parágrafo perde a inicial) e o resto some, em vez de virar
-  // `:emoji 19:154...` no título. Achado do mantenedor (draft 85f669da).
+  // `normalizeDiscordEmojis` ANTES da extração: emoji de letra vira a letra e o resto
+  // some, em vez de virar `:emoji 19:154...` no hint de sistema.
+  // Sem `aplicarMapeamentos` aqui de propósito: esta função só extrai o HINT para decidir
+  // descarte por sistema autoral, e não recebe `roleMappings`. Uma role de sistema não
+  // traduzida vira hint nulo, que é o comportamento seguro — não descarta nada por engano.
   const rawBody = normalizeDiscordEmojis(stripNullBytes(message.content_raw ?? ''));
   const body = stripSeparatorLines(rawBody.trim() || extractBodyFromEmbeds(message.embeds ?? []));
   if (!body.trim()) return null;
@@ -2902,20 +2904,38 @@ export function parseDiscordAnnouncement(
   // aceita 0x00 dentro de string JSON escapada, mas rejeita ao extrair/
   // re-inserir como texto. Sanitiza na entrada, antes de qualquer extração.
   const threadName = normalizeDiscordEmojis(stripNullBytes(message.discord_thread_name ?? ''));
-  // `normalizeDiscordEmojis` ANTES de qualquer extração: emoji de letra vira a
-  // letra (senão o parágrafo perde a inicial) e o resto some, em vez de virar
-  // `:emoji 19:154...` no título. Achado do mantenedor (draft 85f669da).
-  const rawBody = normalizeDiscordEmojis(stripNullBytes(message.content_raw ?? ''));
-  // Fóruns Discord frequentemente colocam o conteúdo em embeds em vez do campo content
-  // DEB-058-XX: linhas separadoras de seção (▬▬▬, ━━━, ═══) removidas ANTES de
-  // qualquer extração de campo — nunca contaminam título/sistema/descrição/vagas.
-  // Traduz role/emoji ANTES da extração: `Sistema: <@&123>` vira
-  // `Sistema: D&D 2024`, e daí toda a extração existente funciona sem saber que
-  // houve tradução — inclusive o casamento com o catálogo. Servidores que usam
-  // role como tag (PlayRay, Império) não expõem o nome em lugar nenhum do
-  // export, então sem isto o dado se perdia. Spec 099.
-  const bodyBruto = stripSeparatorLines(rawBody.trim() || extractBodyFromEmbeds(message.embeds ?? []));
-  const body = roleMappings ? aplicarMapeamentos(bodyBruto, roleMappings) : bodyBruto;
+
+  // ORDEM: mapeamento ANTES de `normalizeDiscordEmojis`.
+  //
+  // `normalizeDiscordEmojis` apaga todo emoji custom que não seja letra (vira `''`).
+  // Normalizar primeiro destruía o id de um emoji CONFIRMADO como tag antes de o mapa
+  // poder traduzi-lo: `<:emoji_15:123>` sumia e o mapeamento nunca casava. Vale igual
+  // para a capitular — o id precisa chegar inteiro em `aplicarMapeamentos`.
+  // Achado do Codex (P2); os testes cobriam `aplicarMapeamentos` isolada, nunca a ordem.
+  //
+  // Fóruns Discord frequentemente põem o conteúdo em embeds em vez de `content`, e o
+  // embed passa pelo mesmo tratamento: tem as mesmas roles que o corpo teria.
+  //
+  // O fallback compara os textos JÁ tratados, não os crus: `content_raw` com apenas um
+  // emoji custom não é vazio, mas vira '' na normalização — decidir pelo cru faria o
+  // anúncio virar draft de string vazia em vez de usar o embed (regressão coberta em
+  // `roleMappingsOrdem.test.ts`).
+  //
+  // Depois do mapa a normalização segue necessária para o que NÃO tem mapeamento: emoji
+  // de letra vira a letra (senão o parágrafo perde a inicial) e o resto some, em vez de
+  // virar `:emoji 19:154...` no título. Achado do mantenedor (draft 85f669da).
+  const tratar = (t: string) =>
+    normalizeDiscordEmojis(roleMappings ? aplicarMapeamentos(t, roleMappings) : t).trim();
+  const corpoNormalizado =
+    tratar(stripNullBytes(message.content_raw ?? '')) || tratar(extractBodyFromEmbeds(message.embeds ?? []));
+
+  // DEB-058-XX: linhas separadoras de seção (▬▬▬, ━━━, ═══) removidas ANTES de qualquer
+  // extração de campo — nunca contaminam título/sistema/descrição/vagas.
+  //
+  // A partir daqui toda a extração funciona sem saber que houve tradução — inclusive o
+  // casamento com o catálogo. Servidores que usam role como tag (PlayRay, Império) não
+  // expõem o nome em lugar nenhum do export, então sem isto o dado se perdia. Spec 099.
+  const body = stripSeparatorLines(corpoNormalizado);
   // T-F1-05: sem corpo nem texto em embeds não há matéria-prima. Mesmo starters
   // de fórum agora retornam null em vez de fabricar draft a partir só do thread
   // name. Drafts vazios eram a maior fonte de needs_review imutável (spec 016

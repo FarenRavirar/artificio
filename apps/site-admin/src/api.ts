@@ -62,6 +62,21 @@ export interface PostListItem {
 export interface PageListItem { id: ContentId; slug: string; title: string; status: string; updated_at: string | null; }
 export interface Term { id: ContentId; kind: "category" | "tag"; slug: string; name: string; parent_id: ContentId | null; count: number; }
 export interface SaveResult { id: ContentId; slug: string; rebuild?: { started: boolean; busy?: boolean }; }
+
+/** Fases do rebuild, na ordem em que o servidor as reporta. */
+export type JobPhase = "iniciando" | "exportando" | "build" | "busca" | "publicando" | "purgando" | "concluido";
+/** Resultado da purga do cache da borda. `attempted: false` = ambiente sem Cloudflare. */
+export interface PurgeResult { attempted: boolean; ok?: boolean; purged?: number; reason?: string; }
+export interface JobState {
+  name: string;
+  startedAt: string;
+  finishedAt?: string;
+  ok?: boolean;
+  code?: number | null;
+  logTail?: string;
+  phase?: JobPhase;
+  purge?: PurgeResult;
+}
 export interface MediaItem {
   id: number; source: string; url: string; mime: string | null;
   size_bytes: number | null; width: number | null; height: number | null;
@@ -243,6 +258,45 @@ export const api = {
   },
 
   rebuild: () => req<{ started: boolean }>(`/rebuild`, { method: "POST" }),
+
+  rebuildStatus: () => req<{ job: JobState | null }>(`/rebuild/status`),
+
+  /**
+   * Acompanha o rebuild até terminar, chamando `onPhase` a cada mudança de fase.
+   *
+   * Existe porque publicar dizia só "rebuild disparado" e silenciava por minutos: sem
+   * sinal de progresso nem de fim, o mantenedor não tinha como distinguir "ainda
+   * buildando" de "quebrou" — e na primeira publicação real (2026-09-02) esperou o
+   * suficiente para concluir que nada tinha acontecido.
+   *
+   * `startedAt` identifica ESTE job: sem essa checagem, o polling adotaria o estado de
+   * um rebuild anterior já terminado e anunciaria conclusão imediata.
+   */
+  async trackRebuild(
+    onPhase: (job: JobState) => void,
+    opts: { intervalMs?: number; timeoutMs?: number; startedAfter?: string } = {},
+  ): Promise<JobState | null> {
+    const intervalo = opts.intervalMs ?? 2000;
+    const limite = Date.now() + (opts.timeoutMs ?? 10 * 60 * 1000);
+    let ultima: JobPhase | undefined;
+
+    while (Date.now() < limite) {
+      await new Promise((r) => setTimeout(r, intervalo));
+      let job: JobState | null;
+      try {
+        ({ job } = await this.rebuildStatus());
+      } catch {
+        // Falha de rede num poll não encerra o acompanhamento: o build segue no
+        // servidor, e desistir aqui devolveria o silêncio que isto veio corrigir.
+        continue;
+      }
+      if (!job) continue;
+      if (opts.startedAfter && job.startedAt < opts.startedAfter) continue;
+      if (job.phase && job.phase !== ultima) { ultima = job.phase; onPhase(job); }
+      if (job.finishedAt) return job;
+    }
+    return null; // timeout: o chamador avisa que parou de acompanhar, não que falhou.
+  },
 
   // ---- Mídia (T18/T19) ----
   // `limit`/`offset` são numéricos e vão sempre: `qs` só descarta `undefined` e

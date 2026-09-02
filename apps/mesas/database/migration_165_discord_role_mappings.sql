@@ -87,6 +87,10 @@ CREATE INDEX IF NOT EXISTS discord_role_mappings_pending_idx
 ALTER TABLE discord_role_mappings
   DROP CONSTRAINT IF EXISTS discord_role_mappings_target_coherent;
 ALTER TABLE discord_role_mappings
+  -- O literal 'system' se repete aqui e no CHECK de `kind` (Sonar aponta 3 ocorrencias).
+  -- Mantido de proposito: SQL nao tem constante, e extrair exigiria um DOMAIN/ENUM
+  -- proprio — mudanca de schema desproporcional para evitar repetir uma palavra, que
+  -- ainda por cima tornaria a leitura da constraint indireta.
   ADD CONSTRAINT discord_role_mappings_target_coherent CHECK (
     (kind = 'system' AND target_text IS NULL)
     OR (kind <> 'system' AND target_system_id IS NULL)

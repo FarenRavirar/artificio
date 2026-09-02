@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { api, openPreview, type PostFull, type Term, type MediaItem, type ContentId } from "../api";
+import { api, openPreview, type PostFull, type Term, type MediaItem, type ContentId, type JobPhase, type JobState } from "../api";
 import { BlockEditor, type EditorHandle } from "../editor/BlockEditor";
 import { SeoPanel } from "../editor/SeoPanel";
 import { MediaPicker } from "../media/MediaPicker";
@@ -26,6 +26,30 @@ const idsOrDefault = (v: unknown): ContentId[] =>
 
 function normalizePostFull(p: PostFull): PostFull {
   return { ...EMPTY, ...p, cats: idsOrDefault(p.cats), tags: idsOrDefault(p.tags) };
+}
+
+
+// Rótulo por fase do rebuild. O editor mostra isto DEPOIS de publicar: antes, o único
+// sinal era o toast "rebuild disparado", que sumia em 3,5s e deixava o mantenedor sem
+// saber se o build seguia, tinha acabado ou tinha quebrado (incidente 2026-09-02).
+const FASE_LABEL: Record<JobPhase, string> = {
+  iniciando: "Iniciando rebuild...",
+  exportando: "Exportando conteúdo...",
+  build: "Gerando páginas...",
+  busca: "Indexando busca...",
+  publicando: "Publicando arquivos...",
+  purgando: "Limpando cache do site...",
+  concluido: "Concluído.",
+};
+
+/** Mensagem final: distingue "no ar agora" de "no ar em até 2h" (purga falhou). */
+function resumoFinal(job: JobState): { msg: string; err: boolean } {
+  if (!job.ok) return { msg: "O rebuild falhou. O site continua na versão anterior.", err: true };
+  const p = job.purge;
+  if (p?.attempted && p.ok === false) {
+    return { msg: "Publicado, mas a limpeza do cache falhou — pode levar até 2h para aparecer.", err: true };
+  }
+  return { msg: "Publicado e no ar.", err: false };
 }
 
 export function PostEditor() {
@@ -57,6 +81,24 @@ export function PostEditor() {
   };
 
   const note = (msg: string, isErr = false) => { setToast({ msg, err: isErr }); setTimeout(() => setToast(null), 3500); };
+  // Progresso do rebuild. Fora do `toast` de propósito: o toast some em 3,5s e o build
+  // leva minutos — era exatamente essa lacuna que fazia a publicação parecer travada.
+  const [rebuildFase, setRebuildFase] = useState<JobPhase | null>(null);
+
+  // Acompanha o rebuild disparado pelo servidor até o fim, traduzindo cada fase para o
+  // indicador do topo. Não bloqueia a edição: o autor segue mexendo enquanto roda.
+  const acompanharRebuild = (desde: string) => {
+    setRebuildFase("iniciando");
+    void api
+      .trackRebuild((job) => setRebuildFase(job.phase ?? null), { startedAfter: desde })
+      .then((job) => {
+        if (!job) { setRebuildFase(null); note("Parei de acompanhar o rebuild (demorou demais).", true); return; }
+        const { msg, err } = resumoFinal(job);
+        setRebuildFase(null);
+        note(msg, err);
+      })
+      .catch(() => setRebuildFase(null));
+  };
 
   useEffect(() => {
     // Falha aqui não bloqueia a edição (o post salva sem mexer em taxonomia), mas some com
@@ -130,8 +172,12 @@ export function PostEditor() {
     setSaving(true); setErr("");
     try {
       const body = await collect(status);
+      // `desde` é lido ANTES da requisição: o servidor dispara o rebuild dentro dela, e
+      // um carimbo posterior descartaria o job recém-criado como se fosse antigo.
+      const desde = new Date().toISOString();
       const r = isNew ? await api.createPost(body) : await api.updatePost(id, body);
-      const msg = r.rebuild?.started ? `${okMsg} (rebuild disparado)` : r.rebuild?.busy ? `${okMsg} (rebuild já em curso)` : okMsg;
+      const msg = r.rebuild?.started || r.rebuild?.busy ? `${okMsg} Publicando no site...` : okMsg;
+      if (r.rebuild?.started || r.rebuild?.busy) acompanharRebuild(desde);
       if (isNew) { note(msg); navigate(`/posts/${r.id}`, { replace: true }); return r.id; }
       setPost((p) => ({ ...p, status, slug: r.slug })); note(msg); return id;
     } catch (e) { setErr(String((e as Error).message)); note("Erro ao salvar.", true); return null; }
@@ -164,6 +210,12 @@ export function PostEditor() {
       <div className="row">
         <h2 className="title">{isNew ? "Novo post" : "Editar post"}</h2>
         <span className={`badge ${post.status}`}>{post.status}</span>
+        {rebuildFase && (
+          <span className="rebuild-progress" role="status" aria-live="polite">
+            <span className="rebuild-spinner" aria-hidden="true" />
+            {FASE_LABEL[rebuildFase]}
+          </span>
+        )}
         <div className="spacer" />
         <button className="btn" onClick={() => setPicker("insert")} disabled={saving}>🖼 Inserir imagem</button>
         <button className="btn" onClick={preview} disabled={saving}>Pré-visualizar ↗</button>

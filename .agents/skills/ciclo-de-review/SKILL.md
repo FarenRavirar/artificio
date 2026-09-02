@@ -529,6 +529,21 @@ Os bots já acharam aqui, e todos eram reais:
 | `cp` direto no destino (CodeRabbit) | janela com arquivo truncado; agora `mktemp` + `mv` |
 | comparar contagem de linhas (CodeRabbit) | arquivos diferentes com mesmo total passavam |
 
+Duas tentativas erradas antes da certa, e vale registrar porque a armadilha é
+sutil:
+
+| Tentativa | Por que falhou |
+|---|---|
+| `\|\| true` no fim do pipe | zerava o status inteiro — a falha voltava mascarada |
+| `rc == 1 → 0` | pior: `gh` usa exit 1 para falha de rede/API (`gh help exit-codes`), então consulta quebrada não contava |
+| `${PIPESTATUS[0]}` | **não atravessa `$( )`** — a substituição é subshell, e o array chega com um elemento só |
+
+A forma que funciona é separar em duas etapas: consultar primeiro (status limpo,
+guardado numa global), transformar depois. Medido: com `pipefail`, o `$?` de fora
+do `$( )` era o do **último** estágio — o `jq`, que sai **5 quando o filtro não
+produz saída**, ou seja vazio legítimo. A colheita acusava 2 falhas inexistentes
+na PR #304 até isso ser separado.
+
 O terceiro é o que mais importa: era o **mesmo defeito** que este ciclo tinha
 acabado de corrigir no `CatalogTree` — confundir falha com vazio — reproduzido no
 script que colhe os achados. Hoje o `colher.sh` conta as falhas, sai com código 1

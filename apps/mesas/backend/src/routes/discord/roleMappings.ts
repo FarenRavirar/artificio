@@ -79,7 +79,12 @@ router.patch('/:id', requireAdmin, async (req: Request, res: Response) => {
   }
 
   const { kind, target_system_id, target_text, confirmar } = parsed.data;
-  const adminId = (req as Request & { user?: { id?: string } }).user?.id ?? null;
+  // `req.user.userId` — o mesmo campo que as rotas irmãs usam (`drafts.ts:248`,
+  // `duplicates.ts:132`). O cast local para `.id` que estava aqui não existia no
+  // contrato do middleware, então `adminId` era SEMPRE null e toda confirmação perdia o
+  // autor em `confirmed_by`, esvaziando a trilha de auditoria que a migration criou.
+  // Achado do Codex (P2).
+  const adminId = req.user?.userId ?? null;
 
   try {
     const [linha] = await db

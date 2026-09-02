@@ -1,10 +1,14 @@
 import { Router, Response, Request } from 'express';
 import { carregarMapeamentos, observarIdsDoAnuncio, registrarObservacoes } from '../../discord/roleMappings.js';
-import type { DiscordRoleMapping } from '../../db/types.js';
 import { z } from 'zod';
 import type { Selectable } from 'kysely';
 import { db } from '../../db/index.js';
-import type { DiscordSourceChannelType, DiscordImportMessagesTable, NewDiscordImportRun } from '../../db/types.js';
+import type {
+  DiscordRoleMapping,
+  DiscordSourceChannelType,
+  DiscordImportMessagesTable,
+  NewDiscordImportRun,
+} from '../../db/types.js';
 import type { MatchEntry } from '../../discord/parseDiscordAnnouncement.js';
 import {
   normalizeDiscordTableDraft,

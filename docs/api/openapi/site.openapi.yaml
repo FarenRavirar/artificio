@@ -1201,6 +1201,35 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /api/admin/v1/rebuild/status:
+    get:
+      operationId: getapi_admin_v1_rebuild_status
+      summary: "Consulta api admin v1 rebuild status"
+      x-artificio-owner: site
+      x-artificio-scope: admin
+      x-artificio-status: active
+      x-artificio-auth: admin
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/admin/v1/redirects:
     get:
       operationId: getapi_admin_v1_redirects

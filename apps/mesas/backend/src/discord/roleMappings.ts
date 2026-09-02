@@ -167,16 +167,31 @@ export async function registrarObservacoes(
  * Só confirmados: o parser não consome palpite. O que está inferido e não
  * confirmado existe apenas para aparecer na fila de revisão.
  */
+/**
+ * Linha do mapeamento com o alvo já RESOLVIDO em texto.
+ *
+ * `target_system_name` vem do join com `systems`: para `kind='system'` o vínculo é o
+ * UUID, e é este campo que dá ao parser o texto a escrever no lugar do id.
+ */
+export type MapeamentoResolvido = DiscordRoleMapping & { target_system_name?: string | null };
+
 export async function carregarMapeamentos(
   guildId: string | null,
-): Promise<Map<string, DiscordRoleMapping>> {
+): Promise<Map<string, MapeamentoResolvido>> {
   if (!guildId) return new Map();
 
+  // JOIN com `systems` e não `selectAll` sozinho: para `kind='system'` a constraint
+  // `discord_role_mappings_target_coherent` EXIGE `target_text IS NULL` — o vínculo mora
+  // em `target_system_id`. Sem trazer o nome do sistema junto, `aplicarMapeamentos` não
+  // teria o que escrever no lugar de `<@&id>` e a role continuaria intraduzida, que é
+  // justamente o caso que motivou a feature (`Sistema: <@&123>`). Achado do Codex (P1).
   const linhas = await db
-    .selectFrom('discord_role_mappings')
-    .selectAll()
-    .where('guild_id', '=', guildId)
-    .where('confirmed_at', 'is not', null)
+    .selectFrom('discord_role_mappings as m')
+    .leftJoin('systems as s', 's.id', 'm.target_system_id')
+    .selectAll('m')
+    .select('s.name as target_system_name')
+    .where('m.guild_id', '=', guildId)
+    .where('m.confirmed_at', 'is not', null)
     .execute();
 
   // `Array.isArray` antes de `.map` (AGENTS.md §Normalização): o retorno é dado
@@ -195,16 +210,31 @@ export async function carregarMapeamentos(
  * existente funciona sem saber que houve tradução — inclusive o casamento com o
  * catálogo de sistemas. Id sem mapeamento confirmado é removido, como já era.
  */
+/**
+ * Texto que um mapeamento representa.
+ *
+ * A constraint da migration reparte o alvo por tipo: `kind='system'` guarda
+ * `target_system_id` (e `target_text` obrigatoriamente NULL); todo o resto guarda
+ * `target_text`. Ler só `target_text` deixava a role de sistema sem tradução — o caso
+ * central da feature. Achado do Codex (P1).
+ */
+function textoAlvo(m: MapeamentoResolvido): string | null {
+  const bruto = m.kind === 'system' ? m.target_system_name : m.target_text;
+  const limpo = bruto?.trim();
+  return limpo ? limpo : null;
+}
+
 export function aplicarMapeamentos(
   body: string,
-  mapa: Map<string, DiscordRoleMapping>,
+  mapa: Map<string, MapeamentoResolvido>,
 ): string {
   if (mapa.size === 0) return body;
 
   return body
     .replace(ROLE_MENTION_RE, (todo, id: string) => {
       const m = mapa.get(`role:${id}`);
-      return m?.target_text ? ` ${m.target_text} ` : todo;
+      const texto = m ? textoAlvo(m) : null;
+      return texto ? ` ${texto} ` : todo;
     })
     .replace(EMOJI_MENTION_RE, (todo, id: string) => {
       const m = mapa.get(`emoji:${id}`);
@@ -212,6 +242,7 @@ export function aplicarMapeamentos(
       // Capitular: a letra cola na palavra seguinte, sem espaço — `<:e:1>ra`
       // precisa virar "Era", não "E ra".
       if (m.kind === 'letter') return m.target_text ?? '';
-      return m.target_text ? ` ${m.target_text} ` : todo;
+      const texto = textoAlvo(m);
+      return texto ? ` ${texto} ` : todo;
     });
 }

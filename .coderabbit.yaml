@@ -4,3 +4,24 @@ reviews:
     - "!docs/api/generated/**"
     - "!docs/api/openapi/**"
     - "!.claude/**"
+
+  auto_review:
+    # Todo commit novo dispara review, e review COMPLETA — decisão do mantenedor
+    # (2026-09-02), depois de o bot pausar sozinho no meio do ciclo da spec 099.
+    enabled: true
+
+    # `false` = cada push revisa o diff INTEIRO da PR, não só os commits desde a
+    # última passada. É o que o `@coderabbitai full review` faz manualmente; aqui
+    # vira o padrão. Custa mais que o incremental, e é o ponto: numa PR longa, um
+    # achado do commit 3 que só apareceu por causa do commit 9 nunca seria visto
+    # pela review incremental, que olha apenas o delta.
+    auto_incremental_review: false
+
+    # `0` desativa a pausa automática (o default é 5).
+    # Sem isto o CodeRabbit para sozinho depois de N commits revisados e anuncia
+    # "Reviews paused" — foi o que aconteceu nesta branch, no meio do laço da skill
+    # `ciclo-de-review`. A pausa existe para não afogar quem faz muitos commits
+    # pequenos; aqui ela produz o defeito oposto, porque o ciclo DEPENDE de o bot
+    # responder a cada volta, e uma pausa silenciosa vira "sem achado" — que é a
+    # falha que a própria skill existe para impedir.
+    auto_pause_after_reviewed_commits: 0

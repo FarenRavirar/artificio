@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 297,
-    "uniqueEndpoints": 273,
+    "total": 298,
+    "uniqueEndpoints": 274,
     "byApp": {
       "accounts-frontend": {
         "total": 8,
@@ -38,14 +38,14 @@
         }
       },
       "mesas-frontend": {
-        "total": 179,
+        "total": 180,
         "byConfidence": {
-          "medium": 78,
+          "medium": 79,
           "high": 101
         },
         "byPattern": {
           "unknown": 4,
-          "template-literal": 72,
+          "template-literal": 73,
           "service-wrapper": 44,
           "literal": 59
         }
@@ -1256,7 +1256,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.listRoleMappings",
-      "line": 44
+      "line": 59
     },
     {
       "app": "mesas-frontend",
@@ -1266,7 +1266,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.updateRoleMapping",
-      "line": 81
+      "line": 130
     },
     {
       "app": "mesas-frontend",
@@ -1276,7 +1276,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.deleteRoleMapping",
-      "line": 97
+      "line": 146
     },
     {
       "app": "mesas-frontend",
@@ -2290,6 +2290,16 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/api/discordSyncApi.ts",
+      "method": "GET",
+      "endpoint": "/api/v1/systems",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authenticatedFetch",
+      "line": 566
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/table-editor/hooks/useSelectedSystemNode.ts",
       "method": "GET",
       "endpoint": "/api/v1/systems",
@@ -2686,7 +2696,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.createPage",
-      "line": 55
+      "line": 100
     },
     {
       "app": "site-admin",
@@ -2696,7 +2706,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.getPage",
-      "line": 36
+      "line": 78
     },
     {
       "app": "site-admin",
@@ -2706,7 +2716,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.updatePage",
-      "line": 55
+      "line": 100
     },
     {
       "app": "site-admin",
@@ -2736,7 +2746,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.createPost",
-      "line": 133
+      "line": 178
     },
     {
       "app": "site-admin",
@@ -2746,7 +2756,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.getPost",
-      "line": 67
+      "line": 109
     },
     {
       "app": "site-admin",
@@ -2756,7 +2766,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.updatePost",
-      "line": 133
+      "line": 178
     },
     {
       "app": "site-admin",
@@ -2786,7 +2796,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.createTerm",
-      "line": 154
+      "line": 200
     },
     {
       "app": "site-admin",
@@ -2806,7 +2816,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 271
+      "line": 325
     },
     {
       "app": "site-admin",
@@ -2816,7 +2826,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 314
+      "line": 368
     }
   ]
 }

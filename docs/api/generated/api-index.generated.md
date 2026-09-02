@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **500 operações**.
+Total: **501 operações**.
 
 ## accounts (53)
 
@@ -474,7 +474,7 @@ Total: **500 operações**.
 | GET | `/og/{type}/{slug}` | media | none | active | — | Consulta og type slug |
 | GET | `/sitemap.xml` | public | none | active | — | Consulta sitemap.xml |
 
-## site (57)
+## site (58)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -512,6 +512,7 @@ Total: **500 operações**.
 | POST | `/api/admin/v1/posts/{id}/status` | admin | admin | active | — | Cria ou executa api admin v1 posts id status |
 | POST | `/api/admin/v1/preview` | admin | admin | active | — | Cria ou executa api admin v1 preview |
 | POST | `/api/admin/v1/rebuild` | admin | admin | active | — | Cria ou executa api admin v1 rebuild |
+| GET | `/api/admin/v1/rebuild/status` | admin | admin | active | — | Consulta api admin v1 rebuild status |
 | GET | `/api/admin/v1/redirects` | admin | admin | active | — | Consulta api admin v1 redirects |
 | POST | `/api/admin/v1/redirects` | admin | admin | active | — | Cria ou executa api admin v1 redirects |
 | GET | `/api/admin/v1/slug-check` | admin | admin | active | — | Consulta api admin v1 slug-check |
