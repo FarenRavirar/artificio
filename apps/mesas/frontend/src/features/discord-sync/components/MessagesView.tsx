@@ -128,10 +128,16 @@ export function MessagesView({ lockedStatus }: MessagesViewProps = {}) {
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_400px] gap-4 items-start">
           <div className="space-y-2 lg:max-h-[68vh] lg:overflow-y-auto lg:pr-1">
           {messages.map(msg => {
-            const ignorable = msg.status !== 'synced' && msg.status !== 'ignored';
+            // Quem pode ser selecionado depende do MODO: na aba Ignoradas o alvo são
+            // justamente as `ignored` (reprocessar/apagar), e a regra geral as excluía —
+            // a aba ficava com os botões de lote e nenhum checkbox por linha, só o
+            // "selecionar todas". Achado do CodeRabbit.
+            const selecionavel = modoIgnoradas
+              ? msg.status === 'ignored'
+              : msg.status !== 'synced' && msg.status !== 'ignored';
             return (
             <div key={msg.id} className="flex items-start gap-2">
-              {ignorable && (
+              {selecionavel && (
                 <input
                   type="checkbox"
                   checked={selectedMessageIds.has(msg.id)}

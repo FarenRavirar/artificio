@@ -30,6 +30,12 @@ import type { DiscordRoleMapping, DiscordRoleMappingKind } from '../db/types.js'
 const ROLE_MENTION_RE = /<@&!?(\d{15,25})>/g;
 /** `<:nome:123>` / `<a:nome:123>` → id. */
 const EMOJI_MENTION_RE = /<a?:[\w~]+:(\d{15,25})>/g;
+/**
+ * Emoji COLADO à palavra seguinte, sem espaço: o uso capitular (`<:e:1>ra uma vez`).
+ * O grupo 2 captura o resto da palavra, que é a evidência de qual letra o emoji
+ * representa — o export não traz o nome real do emoji em lugar nenhum.
+ */
+const CAPITULAR_RE = /<a?:[\w~]+:(\d{15,25})>([\p{L}][\p{L}\s]{0,40})/gu;
 
 /**
  * Rótulo da linha → significado. As chaves espelham os rótulos que o parser já
@@ -88,16 +94,33 @@ export function observarIdsDoAnuncio(body: string): ObservacaoDeId[] {
 
   for (const linha of body.split(/\r?\n/)) {
     const kind = kindDoRotulo(linha);
-    if (!kind) continue;
 
-    const vizinho = textoVizinho(linha) || null;
+    if (kind) {
+      const vizinho = textoVizinho(linha) || null;
 
-    for (const m of linha.matchAll(ROLE_MENTION_RE)) {
-      achados.push({ discordId: m[1], sourceType: 'role', kind, textoVizinho: vizinho });
+      for (const m of linha.matchAll(ROLE_MENTION_RE)) {
+        achados.push({ discordId: m[1], sourceType: 'role', kind, textoVizinho: vizinho });
+      }
+      for (const m of linha.matchAll(EMOJI_MENTION_RE)) {
+        // Emoji sob rótulo de dado (não capitular): mesmo tratamento da role.
+        achados.push({ discordId: m[1], sourceType: 'emoji', kind, textoVizinho: vizinho });
+      }
+      continue;
     }
-    for (const m of linha.matchAll(EMOJI_MENTION_RE)) {
-      // Emoji sob rótulo de dado (não capitular): mesmo tratamento da role.
-      achados.push({ discordId: m[1], sourceType: 'emoji', kind, textoVizinho: vizinho });
+
+    // CAPITULAR: emoji colado à palavra seguinte, em linha SEM rótulo — `<:e:1>ra uma
+    // vez`. Sem este ramo o `kind: 'letter'` era inalcançável: nada o produzia, então o
+    // emoji nunca chegava à fila de revisão e a normalização seguia comendo a inicial
+    // do parágrafo. Achado do Codex (P2).
+    for (const m of linha.matchAll(CAPITULAR_RE)) {
+      achados.push({
+        discordId: m[1],
+        sourceType: 'emoji',
+        kind: 'letter',
+        // A palavra que o emoji inicia é a evidência: com "ra uma vez" à vista, o
+        // revisor deduz que a letra é "E". É a única pista que o export oferece.
+        textoVizinho: m[2] ? m[2].slice(0, 40) : null,
+      });
     }
   }
 
@@ -147,11 +170,17 @@ export async function registrarObservacoes(
           last_seen_text: o.textoVizinho ?? eb.ref('discord_role_mappings.last_seen_text'),
           last_seen_at: agora,
           updated_at: agora,
-          // `kind` só é corrigido enquanto o vínculo não foi confirmado — depois
-          // disso a observação nova é evidência, não autoridade.
+          // `kind` só é corrigido enquanto NINGUÉM decidiu — depois disso a observação
+          // nova é evidência, não autoridade.
+          //
+          // A condição é `source <> 'manual'`, não `confirmed_at IS NULL`: `PATCH` com
+          // `confirmar: false` devolve a linha para a fila gravando `source='manual'` COM
+          // `confirmed_at` nulo. Olhando só a confirmação, a próxima observação
+          // sobrescreveria o `kind` que o admin acabou de escolher — e ele veria a
+          // correção dele desfeita sozinha, sem aviso. Achado do CodeRabbit.
           kind: eb
             .case()
-            .when('discord_role_mappings.confirmed_at', 'is', null)
+            .when('discord_role_mappings.source', '<>', 'manual')
             .then(o.kind)
             .else(eb.ref('discord_role_mappings.kind'))
             .end(),
@@ -241,7 +270,10 @@ export function aplicarMapeamentos(
       if (!m) return todo;
       // Capitular: a letra cola na palavra seguinte, sem espaço — `<:e:1>ra`
       // precisa virar "Era", não "E ra".
-      if (m.kind === 'letter') return m.target_text ?? '';
+      // Sem alvo, PRESERVA a menção em vez de apagar (`?? ''` fazia sumir), igual ao
+      // ramo de role acima: mapeamento confirmado sem texto é dado faltando, e engolir
+      // o emoji tira do parágrafo a inicial que ele carregava. Achado do CodeRabbit.
+      if (m.kind === 'letter') return m.target_text?.trim() ? m.target_text : todo;
       const texto = textoAlvo(m);
       return texto ? ` ${texto} ` : todo;
     });

@@ -41,7 +41,10 @@ export interface MatchEntry {
 }
 
 // Extrai texto dos embeds Discord quando content_raw está vazio
-function extractBodyFromEmbeds(embeds: unknown[]): string {
+/** Texto util dentro dos embeds. Exportada para que a OBSERVACAO de roles
+ * (`routes/discord/utils.ts`) veja o mesmo conteudo que o parser ve — anuncio
+ * de forum vive no embed, e sem isto ele nunca ensinaria role nenhuma. */
+export function extractBodyFromEmbeds(embeds: unknown[]): string {
   if (!embeds || embeds.length === 0) return '';
   const parts: string[] = [];
   for (const embed of embeds) {
@@ -2131,11 +2134,42 @@ function extractHostDiscordId(text: string): string | null {
 // duplica lógica de parsing de label. Valor puramente de menção (`<@id>`
 // sozinho) ou vazio após limpar a menção não conta como nome de texto — isso
 // já é coberto por `extractHostDiscordId`.
+/**
+ * Sinais de que a linha JA NAO e o nome do mestre: chamada de inscricao, link de
+ * formulario, ou o rodape que a maioria dos anuncios traz depois do separador.
+ *
+ * Existe porque `stripSeparatorLines` remove os `▬▬▬` ANTES da extracao, entao a
+ * barreira visual que separava "Mestre: <@id>" do rodape desaparece e
+ * `collectLabelContinuation` agrega o rodape inteiro como continuacao do nome.
+ *
+ * Incidente real (mesa `alem-de-celestia-mtk69wt3`, producao, 2026-09-02): o campo
+ * "Mestre responsavel" na pagina publica exibia
+ * "Caso tenha interesse em participar, peco que preencha este formulario com atencao:
+ * https://forms.gle/... A sessao 0 ... sera neste Sabado as 18h." — duas linhas de
+ * instrucao no lugar de um nome, porque o valor real de `Mestre:` era so a mencao.
+ */
+const GM_NAME_STOP_RE =
+  /https?:\/\/|forms\.gle|discord\.gg|\bcaso (?:tenha|voc[e\u00ea]|voc[e\u00ea]s|haja)\b|\binteresse em participar\b|\bpreencha\b|\bformul[a\u00e1]rio\b|\binscri[c\u00e7][a\u00e3]o\b|\bsess\u00e3o (?:zero|0)\b|\bsessao (?:zero|0)\b/i;
+
 function extractHostName(text: string): string | null {
   const raw = extractLabelValue(text, ['mestre', 'gm', 'narrador', 'dm']);
   if (!raw) return null;
-  const withoutMention = raw.replace(/<@!?\d+>/g, '').trim();
+
+  // Corta na PRIMEIRA linha que deixa de ser nome. Linha a linha, e nao pelo texto
+  // inteiro, para nao descartar um nome legitimo so porque o rodape veio colado —
+  // "Mestre: Mariana" seguido do convite continua devolvendo "Mariana".
+  const linhas = raw.split(/\r?\n/);
+  const corte = linhas.findIndex((l) => GM_NAME_STOP_RE.test(l));
+  const nome = (corte === -1 ? linhas : linhas.slice(0, corte)).join(' ');
+
+  const withoutMention = nome.replace(/<@!?\d+>/g, '').replace(/\s+/g, ' ').trim();
   if (!withoutMention) return null;
+
+  // Nome de mestre e curto. Acima disto e texto que escapou do corte acima, e um
+  // paragrafo no lugar do nome e pior que nome ausente: `host_discord_id` ja cobre a
+  // identidade, e a pagina publica exibe o campo cru para o leitor.
+  if (withoutMention.length > 120) return null;
+
   return withoutMention;
 }
 
@@ -2527,8 +2561,18 @@ function letraDeEmoji(nome: string): string | null {
  * bandeiras, mas isolados são usados como capitular. U+1F1E6 é 'A'.
  */
 function stripRegionalIndicators(text: string): string {
-  return text.replace(/[\u{1F1E6}-\u{1F1FF}]/gu, (ch) =>
-    String.fromCodePoint(65 + ((ch.codePointAt(0) ?? 0) - 0x1f1e6)),
+  // Um `replace` só, alternando PAR antes de indicador solto: a regex tenta o par
+  // primeiro, então "🇧🇷" cai no primeiro ramo e volta intacto, enquanto um indicador
+  // isolado cai no segundo e vira letra.
+  //
+  // Sem isto o código contradizia o comentário acima e convertia bandeira também —
+  // "mesa 🇧🇷" saía como "mesa BR". Achado do CodeRabbit.
+  return text.replace(
+    /[\u{1F1E6}-\u{1F1FF}]{2}|[\u{1F1E6}-\u{1F1FF}]/gu,
+    (trecho) =>
+      [...trecho].length === 2
+        ? trecho
+        : String.fromCodePoint(65 + ((trecho.codePointAt(0) ?? 0) - 0x1f1e6)),
   );
 }
 
@@ -2903,8 +2947,6 @@ export function parseDiscordAnnouncement(
   // learning feedback) com "invalid input syntax for type json" — Postgres
   // aceita 0x00 dentro de string JSON escapada, mas rejeita ao extrair/
   // re-inserir como texto. Sanitiza na entrada, antes de qualquer extração.
-  const threadName = normalizeDiscordEmojis(stripNullBytes(message.discord_thread_name ?? ''));
-
   // ORDEM: mapeamento ANTES de `normalizeDiscordEmojis`.
   //
   // `normalizeDiscordEmojis` apaga todo emoji custom que não seja letra (vira `''`).
@@ -2926,6 +2968,13 @@ export function parseDiscordAnnouncement(
   // virar `:emoji 19:154...` no título. Achado do mantenedor (draft 85f669da).
   const tratar = (t: string) =>
     normalizeDiscordEmojis(roleMappings ? aplicarMapeamentos(t, roleMappings) : t).trim();
+
+  // O thread name passa pelo MESMO tratamento do corpo: servidores põem a role de
+  // sistema no título do tópico ("<@&123>: Curse of Strahd"), e sem traduzir aqui o
+  // `splitThreadName` recebia o id cru e o hint de sistema saía vazio. Achado do
+  // CodeRabbit.
+  const threadName = tratar(stripNullBytes(message.discord_thread_name ?? ''));
+
   const corpoNormalizado =
     tratar(stripNullBytes(message.content_raw ?? '')) || tratar(extractBodyFromEmbeds(message.embeds ?? []));
 

@@ -61,12 +61,55 @@ export interface PostListItem {
 }
 export interface PageListItem { id: ContentId; slug: string; title: string; status: string; updated_at: string | null; }
 export interface Term { id: ContentId; kind: "category" | "tag"; slug: string; name: string; parent_id: ContentId | null; count: number; }
-export interface SaveResult { id: ContentId; slug: string; rebuild?: { started: boolean; busy?: boolean }; }
+export interface SaveResult {
+  id: ContentId;
+  slug: string;
+  // `startedAt` vem do SERVIDOR e identifica o job no polling. Comparar com um carimbo
+  // gerado no navegador falharia com relógios dessincronizados (achado Codex P2).
+  rebuild?: { started: boolean; busy?: boolean; startedAt?: string };
+}
 
 /** Fases do rebuild, na ordem em que o servidor as reporta. */
 export type JobPhase = "iniciando" | "exportando" | "build" | "busca" | "publicando" | "purgando" | "concluido";
 /** Resultado da purga do cache da borda. `attempted: false` = ambiente sem Cloudflare. */
 export interface PurgeResult { attempted: boolean; ok?: boolean; purged?: number; reason?: string; }
+const JOB_PHASES: readonly JobPhase[] = [
+  "iniciando", "exportando", "build", "busca", "publicando", "purgando", "concluido",
+];
+
+const texto = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
+
+function normalizePurge(v: unknown): PurgeResult | undefined {
+  if (!v || typeof v !== "object") return undefined;
+  const o = v as Record<string, unknown>;
+  return {
+    attempted: o.attempted === true,
+    ok: typeof o.ok === "boolean" ? o.ok : undefined,
+    purged: typeof o.purged === "number" ? o.purged : undefined,
+    reason: texto(o.reason),
+  };
+}
+
+/** `null` para qualquer coisa que não seja um job reconhecível — inclusive `startedAt`
+ *  ausente, que é o campo pelo qual o polling identifica ESTE job. */
+function normalizeJob(v: unknown): JobState | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  const startedAt = texto(o.startedAt);
+  if (!startedAt) return null;
+  const phase = texto(o.phase);
+  return {
+    name: texto(o.name) ?? "rebuild",
+    startedAt,
+    finishedAt: texto(o.finishedAt),
+    ok: typeof o.ok === "boolean" ? o.ok : undefined,
+    code: typeof o.code === "number" ? o.code : null,
+    logTail: texto(o.logTail),
+    phase: JOB_PHASES.includes(phase as JobPhase) ? (phase as JobPhase) : undefined,
+    purge: normalizePurge(o.purge),
+  };
+}
+
 export interface JobState {
   name: string;
   startedAt: string;
@@ -259,7 +302,19 @@ export const api = {
 
   rebuild: () => req<{ started: boolean }>(`/rebuild`, { method: "POST" }),
 
-  rebuildStatus: () => req<{ job: JobState | null }>(`/rebuild/status`),
+  /**
+   * Estado do rebuild, normalizado no limite.
+   *
+   * O payload vem da rede e entra direto em render (o rótulo da fase) e em controle de
+   * fluxo (o `finishedAt` encerra o polling), então é `unknown` até ser checado —
+   * AGENTS.md §Normalização. Uma `phase` fora do conjunto viraria `undefined` no
+   * `FASE_LABEL` e imprimiria vazio; um `finishedAt` de tipo errado deixaria o
+   * acompanhamento rodando até o timeout. Achado do CodeRabbit.
+   */
+  async rebuildStatus(): Promise<{ job: JobState | null }> {
+    const bruto = await req<unknown>(`/rebuild/status`);
+    return { job: normalizeJob((bruto as { job?: unknown } | null)?.job) };
+  },
 
   /**
    * Acompanha o rebuild até terminar, chamando `onPhase` a cada mudança de fase.

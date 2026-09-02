@@ -42,17 +42,27 @@ FALHAS=0
 #
 # O exit 1 do `grep` sem match e legitimo e some sozinho: ele nao e o primeiro
 # estagio de nenhum pipe daqui, logo nao entra em `PIPESTATUS[0]`.
-# `consultar` roda o comando da FONTE isoladamente e guarda o status dele em
-# `RC_CONSULTA`. Sem isto o status se perde: `PIPESTATUS` nao atravessa `$( )`
-# (subshell), e com `pipefail` o `$?` de fora e o do ULTIMO estagio — o `jq`,
-# que sai 5 quando o filtro nao produz saida (vazio legitimo, nao falha).
-# Medido na PR #304: a colheita acusava 2 falhas inexistentes.
+# `consultar` roda o comando da FONTE e guarda o status em `RC_CONSULTA` + a saida no
+# arquivo `$BRUTO`. Chame SEMPRE fora de `$( )` e leia a saida com `cat "$BRUTO"`.
+#
+# Duas armadilhas ja pagas aqui, nesta ordem:
+#
+#   1. `PIPESTATUS` nao atravessa `$( )`, e com `pipefail` o `$?` de fora e o do ULTIMO
+#      estagio do pipe — o `jq`, que sai 5 quando o filtro nao produz saida (vazio
+#      legitimo, nao falha). Medido na PR #304: a colheita acusava 2 falhas inexistentes.
+#
+#   2. `bruto="$(consultar ...)"` NAO resolve: a substituicao de comando tambem e
+#      subshell, entao `RC_CONSULTA=$?` era atribuido la dentro e morria junto com ela —
+#      o pai lia sempre o valor inicial 0. Medido: `consultar bash -c 'exit 42'` dentro
+#      de `$( )` devolveu rc=0; fora dela, 42. Achado do Codex (P1) na PR #304, DEPOIS
+#      de a tentativa anterior ter sido validada so no caminho em que TODAS as consultas
+#      falham — onde o contador subia por outro motivo e escondia o defeito.
+BRUTO="$(mktemp)"
+trap 'rm -f "$BRUTO"' EXIT
 RC_CONSULTA=0
 consultar() {
-  local bruto
-  bruto="$("$@" 2>&1)"
+  "$@" >"$BRUTO" 2>&1
   RC_CONSULTA=$?
-  printf '%s' "$bruto"
 }
 
 emitir() {
@@ -92,16 +102,16 @@ emitir "$out" $rc
 
 echo
 echo "== 2+3. achados inline (CodeRabbit, Codex) =="
-bruto="$(consultar gh api "repos/$repo/pulls/$pr/comments" --paginate)"; rc=$RC_CONSULTA
-out="$(printf '%s' "$bruto" | jq -s -r 'add | .[] | select(.created_at > env.DESDE) | "  [\(.user.login)] \(.path):\(.line // "-")\n\(.body)\n  ---"' 2>/dev/null)"
+consultar gh api "repos/$repo/pulls/$pr/comments" --paginate; rc=$RC_CONSULTA
+out="$(< "$BRUTO" jq -s -r 'add | .[] | select(.created_at > env.DESDE) | "  [\(.user.login)] \(.path):\(.line // "-")\n\(.body)\n  ---"' 2>/dev/null)"
 emitir "$out" $rc
 
 echo
 echo "== 4. Sonar / issue comments =="
 # Sonar comenta como issue; o CodeRabbit EDITA um comentario antigo para anunciar
 # limite ou progresso - por isso updated_at, nao created_at.
-bruto="$(consultar gh api "repos/$repo/issues/$pr/comments" --paginate)"; rc=$RC_CONSULTA
-out="$(printf '%s' "$bruto" | jq -s -r 'add | .[] | select(.updated_at > env.DESDE) | select(.user.login|test("sonar|coderabbit";"i")) | "  \(.user.login) (editado \(.updated_at))"' 2>/dev/null)"
+consultar gh api "repos/$repo/issues/$pr/comments" --paginate; rc=$RC_CONSULTA
+out="$(< "$BRUTO" jq -s -r 'add | .[] | select(.updated_at > env.DESDE) | select(.user.login|test("sonar|coderabbit";"i")) | "  \(.user.login) (editado \(.updated_at))"' 2>/dev/null)"
 emitir "$out" $rc
 
 # QUAL commit o Sonar analisou. O comentario dele NAO cita SHA - so
@@ -114,12 +124,23 @@ echo
 echo "   qual commit o Sonar analisou:"
 head_sha="$(git rev-parse HEAD)"
 head_curto="$(git rev-parse --short HEAD)"
-sonar_run="$(gh api "repos/$repo/commits/$head_sha/check-runs" --jq '.check_runs[] | select(.name|test("sonar";"i")) | "\(.status)|\(.conclusion)|\(.started_at)|\(.completed_at)"' 2>/dev/null | head -1)"
-if [[ -z "$sonar_run" ]]; then
+# `consultar` e nao `2>/dev/null`: falha de rede aqui saia como string vazia e caia no
+# ramo "SEM scan do Sonar", dizendo ao agente que o comentario e do commit anterior —
+# conclusao inventada a partir de uma consulta que nem chegou a rodar.
+consultar gh api "repos/$repo/commits/$head_sha/check-runs"; rc=$RC_CONSULTA
+if [[ $rc -ne 0 ]]; then
+  echo "     !! FALHA ao consultar o check-run do Sonar (exit $rc) - NAO concluir nada"
+  head -3 "$BRUTO" | sed 's/^/        /'
+  FALHAS=$((FALHAS + 1))
+  sonar_run=""
+else
+  sonar_run="$(< "$BRUTO" jq -r '.check_runs[] | select(.name|test("sonar";"i")) | "\(.status)|\(.conclusion)|\(.started_at)|\(.completed_at)"' 2>/dev/null | head -1)"
+fi
+if [[ $rc -eq 0 && -z "$sonar_run" ]]; then
   echo "     * SEM scan do Sonar no HEAD ($head_curto)."
   echo "       O comentario acima e do commit ANTERIOR - normal. LER assim mesmo:"
   echo "       verificar cada achado contra o codigo ATUAL antes de agir."
-else
+elif [[ $rc -eq 0 ]]; then
   IFS='|' read -r st cc ini fim <<< "$sonar_run"
   echo "     HEAD $head_curto: $st/$cc (inicio $ini, fim $fim)"
   if [[ "$st" != "completed" ]]; then
@@ -129,8 +150,8 @@ fi
 
 echo
 echo "== reviews desde $DESDE =="
-bruto="$(consultar gh api "repos/$repo/pulls/$pr/reviews" --paginate)"; rc=$RC_CONSULTA
-out="$(printf '%s' "$bruto" | jq -s -r 'add | .[] | select(.submitted_at > env.DESDE) | "  \(.submitted_at) \(.user.login) \(.state)"' 2>/dev/null)"
+consultar gh api "repos/$repo/pulls/$pr/reviews" --paginate; rc=$RC_CONSULTA
+out="$(< "$BRUTO" jq -s -r 'add | .[] | select(.submitted_at > env.DESDE) | "  \(.submitted_at) \(.user.login) \(.state)"' 2>/dev/null)"
 emitir "$out" $rc
 
 # NITPICKS e demais secoes colapsadas vivem no BODY DA REVIEW, nao na API de
@@ -141,29 +162,32 @@ emitir "$out" $rc
 echo
 echo "== secoes colapsadas no corpo da review (nitpick, outside-diff, duplicate) =="
 Q='query($owner:String!,$nome:String!,$pr:Int!,$endCursor:String){repository(owner:$owner,name:$nome){pullRequest(number:$pr){reviews(first:100,after:$endCursor){nodes{author{login} submittedAt body} pageInfo{hasNextPage endCursor}}}}}'
-bruto="$(consultar gh api graphql --paginate -F owner="$owner" -F nome="$nome" -F pr="$pr" -f query="$Q" --jq '.data.repository.pullRequest.reviews.nodes[] | select(.submittedAt > env.DESDE) | .body')"; rc=$RC_CONSULTA
-out="$(printf '%s' "$bruto" | grep -oiE '<summary>[^<]*\([0-9]+\)</summary>|\*\*[A-Z][^*]{10,90}\*\*' | sed 's/^/  /' | head -30)"
+consultar gh api graphql --paginate -F owner="$owner" -F nome="$nome" -F pr="$pr" -f query="$Q" --jq '.data.repository.pullRequest.reviews.nodes[] | select(.submittedAt > env.DESDE) | .body'; rc=$RC_CONSULTA
+# SEM `head`: truncar a colheita e o mesmo defeito que `|| true` — o laco encerraria
+# com achado por ler, so que por corte de saida em vez de erro engolido. Uma PR com
+# muitas secoes colapsadas e exatamente o caso em que perder as ultimas custa caro.
+out="$(< "$BRUTO" grep -oiE '<summary>[^<]*\([0-9]+\)</summary>|\*\*[A-Z][^*]{10,90}\*\*' | sed 's/^/  /')"
 emitir "$out" $rc
 
 echo
 echo "== metricas do Sonar (gate passa mesmo com issue) =="
 # O Quality Gate PASSA com issue aberta - "Quality Gate Passed" NAO significa
 # "sem achado". Ler a contagem, e buscar a issue na API publica.
-bruto="$(consultar gh api "repos/$repo/issues/$pr/comments" --paginate)"; rc=$RC_CONSULTA
-out="$(printf '%s' "$bruto" | jq -s -r 'add | map(select(.user.login=="sonarqubecloud[bot]")) | last | .body // ""' 2>/dev/null | grep -oE '[0-9]+ (New issue|Accepted issue|Security Hotspot)s?|[0-9.]+% (Coverage|Duplication)' | sed 's/^/  /')"
+consultar gh api "repos/$repo/issues/$pr/comments" --paginate; rc=$RC_CONSULTA
+out="$(< "$BRUTO" jq -s -r 'add | map(select(.user.login=="sonarqubecloud[bot]")) | last | .body // ""' 2>/dev/null | grep -oE '[0-9]+ (New issue|Accepted issue|Security Hotspot)s?|[0-9.]+% (Coverage|Duplication)' | sed 's/^/  /')"
 emitir "$out" $rc
 
 echo
 echo "   issues abertas no SonarCloud:"
 chave="$(echo "$repo" | tr '/' '_')"
-bruto="$(consultar curl -sf "https://sonarcloud.io/api/issues/search?componentKeys=$chave&pullRequest=$pr&issueStatuses=OPEN,CONFIRMED&ps=20")"; rc=$RC_CONSULTA
-out="$(printf '%s' "$bruto" | jq -r '.issues[]? | "     \(.severity) | \(.component | split(":")|last):\(.line) | \(.message)"' 2>/dev/null)"
+consultar curl -sf "https://sonarcloud.io/api/issues/search?componentKeys=$chave&pullRequest=$pr&issueStatuses=OPEN,CONFIRMED&ps=20"; rc=$RC_CONSULTA
+out="$(< "$BRUTO" jq -r '.issues[]? | "     \(.severity) | \(.component | split(":")|last):\(.line) | \(.message)"' 2>/dev/null)"
 emitir "$out" $rc
 
 echo
 echo "== marcador terminal do CodeRabbit =="
-bruto="$(consultar gh api "repos/$repo/issues/$pr/comments" --paginate)"; rc=$RC_CONSULTA
-out="$(printf '%s' "$bruto" | jq -s -r 'add | .[] | select(.updated_at > env.DESDE) | .body' 2>/dev/null | grep -oiE 'Actionable comments posted: [0-9]+|Review limit reached|review in progress' | sort -u | sed 's/^/  /')"
+consultar gh api "repos/$repo/issues/$pr/comments" --paginate; rc=$RC_CONSULTA
+out="$(< "$BRUTO" jq -s -r 'add | .[] | select(.updated_at > env.DESDE) | .body' 2>/dev/null | grep -oiE 'Actionable comments posted: [0-9]+|Review limit reached|review in progress' | sort -u | sed 's/^/  /')"
 emitir "$out" $rc
 
 echo

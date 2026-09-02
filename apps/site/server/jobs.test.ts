@@ -53,6 +53,44 @@ describe('runJob', () => {
     expect(jobs.jobState()?.phase).toBe('publicando');
   });
 
+  it('detecta marcador PARTIDO entre dois eventos de stdout', async () => {
+    // `spawn` entrega chunks arbitrarios: o marcador pode chegar cortado ao meio, e
+    // testar cada chunk isolado deixaria a fase congelada na anterior.
+    const child = fakeChild();
+    mocks.spawn.mockReturnValue(child);
+
+    jobs.runJob('rebuild', 'rebuild');
+    child.saida('[rebuild] astr');
+    expect(jobs.jobState()?.phase).toBe('iniciando');
+
+    child.saida('o build -> dist.a\n');
+    expect(jobs.jobState()?.phase).toBe('build');
+  });
+
+  it('a fase e a do ULTIMO marcador visto, nao a do primeiro', async () => {
+    // O log acumulado contem TODOS os marcadores ja emitidos; varrer na ordem direta
+    // deixaria a fase presa em "exportando" para sempre.
+    const child = fakeChild();
+    mocks.spawn.mockReturnValue(child);
+
+    jobs.runJob('rebuild', 'rebuild');
+    child.saida('[rebuild] export store -> json\n');
+    child.saida('[rebuild] astro build -> dist.a\n');
+    child.saida('[rebuild] pagefind -> dist.a\n');
+
+    expect(jobs.jobState()?.phase).toBe('busca');
+  });
+
+  it('marcador que chega pelo STDERR tambem conta', async () => {
+    const child = fakeChild();
+    mocks.spawn.mockReturnValue(child);
+
+    jobs.runJob('rebuild', 'rebuild');
+    child.stderr.emit('data', Buffer.from('[rebuild] swap atomico\n'));
+
+    expect(jobs.jobState()?.phase).toBe('publicando');
+  });
+
   it('purga a borda depois de um rebuild que deu certo', async () => {
     const child = fakeChild();
     mocks.spawn.mockReturnValue(child);

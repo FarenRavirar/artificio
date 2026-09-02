@@ -87,6 +87,35 @@ router.patch('/:id', requireAdmin, async (req: Request, res: Response) => {
   const adminId = req.user?.userId ?? null;
 
   try {
+    // Valida o estado FINAL (linha atual + patch), não só o patch.
+    //
+    // O `refine` do schema só enxerga os campos enviados, então trocar um mapeamento de
+    // estilo para `kind: 'system'` sem limpar o `target_text` que já estava lá passava a
+    // validação e só quebrava no CHECK do Postgres — devolvendo 500 opaco onde o certo é
+    // um 400 que diz o que fazer. Achado do CodeRabbit.
+    const atual = await db
+      .selectFrom('discord_role_mappings')
+      .select(['kind', 'target_system_id', 'target_text'])
+      .where('id', '=', req.params.id)
+      .executeTakeFirst();
+
+    if (!atual) return res.status(404).json({ error: 'Mapeamento não encontrado.' });
+
+    const finalKind = kind ?? atual.kind;
+    const finalSystemId = target_system_id !== undefined ? target_system_id : atual.target_system_id;
+    const finalText = target_text !== undefined ? target_text : atual.target_text;
+
+    if (finalKind === 'system' && finalText != null) {
+      return res.status(400).json({
+        error: 'kind=system exige target_system_id e target_text nulo. Envie target_text: null.',
+      });
+    }
+    if (finalKind !== 'system' && finalSystemId != null) {
+      return res.status(400).json({
+        error: 'Só kind=system aceita target_system_id. Envie target_system_id: null.',
+      });
+    }
+
     const [linha] = await db
       .updateTable('discord_role_mappings')
       .set({

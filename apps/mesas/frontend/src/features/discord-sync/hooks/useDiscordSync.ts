@@ -331,9 +331,20 @@ export function useDiscordSync(statusInicial?: DiscordImportMessageStatus) {
     try {
       const result = await discordSyncApi.updateMessagesBatch(ids, 'pending');
       toast.success(`${result.updated} mensagem(ns) devolvida(s) ao fluxo. Reprocessando...`);
-      // Reabrir sem parsear deixaria o trabalho pela metade; o parse-batch varre
-      // `pending` e `error`, que é exatamente onde elas acabaram de cair.
-      await handleParseBatch();
+
+      // Parseia SÓ as selecionadas, uma a uma. `handleParseBatch` varre toda a base
+      // `pending`/`error`: reprocessar 3 mensagens escolhidas dispararia o parse de
+      // centenas de outras, com custo e efeito que o admin não pediu nem esperava.
+      // Achado do CodeRabbit.
+      const falhas = (
+        await Promise.allSettled(ids.map((id) => discordSyncApi.parseMessage(id)))
+      ).filter((r) => r.status === 'rejected').length;
+
+      if (falhas > 0) {
+        // Falha parcial precisa aparecer: as mensagens já voltaram para `pending` e
+        // ficariam paradas ali, sem rascunho, sem ninguém saber.
+        toast.error(`${falhas} de ${ids.length} não puderam ser reprocessadas.`);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erro ao reprocessar em lote.');
     } finally {

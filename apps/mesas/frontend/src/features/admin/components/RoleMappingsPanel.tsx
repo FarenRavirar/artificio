@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Button, Select, TextInput } from '@artificio/ui';
 import {
@@ -50,20 +50,40 @@ export function RoleMappingsPanel() {
   const [rascunhos, setRascunhos] = useState<Record<string, Rascunho>>({});
   // Catálogo para o seletor de sistema. Carregado uma vez: a fila costuma ter poucos
   // itens e refazer a busca por linha multiplicaria requisição sem ganho.
-  const [sistemas, setSistemas] = useState<SystemOption[]>([]);
+  // Busca de sistema POR LINHA, não catálogo carregado de uma vez: são 1289 sistemas
+  // (medido em beta, 2026-09-02) e a rota devolve 20 por página — um `<Select>` fixo
+  // deixava 98% do catálogo inalcançável e o vínculo impossível de confirmar para
+  // quase todos os sistemas. Achado do Codex (P1).
+  const [buscaSistema, setBuscaSistema] = useState<Record<string, string>>({});
+  const [achados, setAchados] = useState<Record<string, SystemOption[]>>({});
+  const [buscando, setBuscando] = useState<string | null>(null);
+
+  // Geração da requisição: trocar o filtro rápido dispara cargas concorrentes, e a que
+  // chega por último vence — não a mais recente. Sem esta guarda, uma resposta lenta de
+  // "pendentes" sobrescreveria a lista de "confirmados" que o admin acabou de pedir.
+  // Achado do CodeRabbit.
+  const geracaoRef = useRef(0);
+  const buscaTimer = useRef<Record<string, number>>({});
+  const buscaCtrl = useRef<Record<string, AbortController>>({});
 
   const carregar = useCallback(async () => {
+    const minhaGeracao = ++geracaoRef.current;
     setCarregando(true);
     setErro(null);
     try {
-      setItens(await discordSyncApi.listRoleMappings({ escopo }));
+      const dados = await discordSyncApi.listRoleMappings({ escopo });
+      if (minhaGeracao !== geracaoRef.current) return;
+      setItens(dados);
     } catch (err) {
+      if (minhaGeracao !== geracaoRef.current) return;
       // Falha de rede não pode virar "nada a revisar": a lista vazia lê como
       // trabalho concluído e o admin nunca voltaria aqui.
       setErro(err instanceof Error ? err.message : 'Erro ao carregar mapeamentos.');
       setItens([]);
     } finally {
-      setCarregando(false);
+      // `carregando` só é liberado pela requisição vigente: a obsoleta desligando o
+      // spinner deixaria a tela "pronta" enquanto a atual ainda vem.
+      if (minhaGeracao === geracaoRef.current) setCarregando(false);
     }
   }, [escopo]);
 
@@ -75,18 +95,38 @@ export function RoleMappingsPanel() {
     return () => clearTimeout(timer);
   }, [carregar]);
 
-  // Catálogo de sistemas para o seletor. Falha aqui NÃO derruba a fila: os outros tipos
-  // (estilo, época, letra) continuam confirmáveis por texto, e só a confirmação de
-  // sistema fica bloqueada — com aviso próprio na linha, em vez de um select vazio.
-  useEffect(() => {
+  // Busca sob demanda, com debounce: digitar o nome filtra no servidor em vez de
+  // paginar 1289 sistemas no cliente. Falha aqui NÃO derruba a fila — os outros tipos
+  // (estilo, época, letra) seguem confirmáveis por texto.
+  const buscarSistemas = useCallback((itemId: string, termo: string) => {
+    setBuscaSistema((prev) => ({ ...prev, [itemId]: termo }));
+    if (termo.trim().length < 2) {
+      setAchados((prev) => ({ ...prev, [itemId]: [] }));
+      return;
+    }
+    setBuscando(itemId);
     const ctrl = new AbortController();
-    const timer = setTimeout(() => {
+    buscaCtrl.current[itemId]?.abort();
+    buscaCtrl.current[itemId] = ctrl;
+    window.clearTimeout(buscaTimer.current[itemId]);
+    buscaTimer.current[itemId] = window.setTimeout(() => {
       void discordSyncApi
-        .searchSystems('', ctrl.signal)
-        .then(setSistemas)
-        .catch(() => setSistemas([]));
-    }, 0);
-    return () => { clearTimeout(timer); ctrl.abort(); };
+        .searchSystems(termo.trim(), ctrl.signal)
+        .then((r) => setAchados((prev) => ({ ...prev, [itemId]: r })))
+        .catch(() => setAchados((prev) => ({ ...prev, [itemId]: [] })))
+        .finally(() => setBuscando((atual) => (atual === itemId ? null : atual)));
+    }, 300);
+  }, []);
+
+  // Desmontar com busca em voo deixaria timer e requisição pendentes escrevendo em
+  // estado morto. As refs são lidas dentro do cleanup, no momento em que ele roda.
+  useEffect(() => {
+    const timers = buscaTimer.current;
+    const ctrls = buscaCtrl.current;
+    return () => {
+      Object.values(timers).forEach((t) => window.clearTimeout(t));
+      Object.values(ctrls).forEach((c) => c.abort());
+    };
   }, []);
 
   const rascunhoDe = (item: RoleMapping): Rascunho =>
@@ -123,7 +163,9 @@ export function RoleMappingsPanel() {
     const alvo = ehSistema
       ? { target_system_id: systemId, target_text: null }
       : { target_system_id: null, target_text: texto.trim() };
-    const rotulo = ehSistema ? (sistemas.find((x) => x.id === systemId)?.name ?? 'sistema') : texto.trim();
+    const rotulo = ehSistema
+      ? ((achados[item.id] ?? []).find((x) => x.id === systemId)?.name ?? 'sistema')
+      : texto.trim();
 
     setSalvandoId(item.id);
     try {
@@ -229,11 +271,7 @@ export function RoleMappingsPanel() {
                     </p>
                   )}
 
-                  {rascunho.kind === 'system' && sistemas.length === 0 && (
-                    <p className="text-sm text-[var(--state-danger-fg)]" role="alert">
-                      Catálogo de sistemas indisponível — recarregue para confirmar este vínculo.
-                    </p>
-                  )}
+
 
                   <div className="flex flex-wrap items-center gap-2">
                     <Select
@@ -248,19 +286,49 @@ export function RoleMappingsPanel() {
                       ))}
                     </Select>
                     {rascunho.kind === 'system' ? (
-                      <Select
-                        value={rascunho.systemId}
-                        onChange={(e) => editar(item.id, { systemId: e.target.value })}
-                        aria-label="Sistema do catálogo"
-                        className="min-w-56 flex-1"
-                      >
-                        <option value="">Escolha o sistema...</option>
-                        {sistemas.map((sis) => (
-                          <option key={sis.id} value={sis.id}>
-                            {sis.name}
-                          </option>
-                        ))}
-                      </Select>
+                      <div className="min-w-56 flex-1">
+                        <TextInput
+                          value={buscaSistema[item.id] ?? ''}
+                          onChange={(e) => buscarSistemas(item.id, e.target.value)}
+                          placeholder="Buscar sistema no catálogo..."
+                          aria-label="Buscar sistema do catálogo"
+                          className="w-full"
+                        />
+                        {rascunho.systemId && (
+                          <p className="mt-1 text-xs text-[var(--state-success-fg)]">
+                            Selecionado: {(achados[item.id] ?? []).find((x) => x.id === rascunho.systemId)?.name
+                              ?? item.target_system_name
+                              ?? rascunho.systemId}
+                          </p>
+                        )}
+                        {buscando === item.id && (
+                          <p className="mt-1 text-xs text-[var(--fg-muted)]">Buscando...</p>
+                        )}
+                        {(achados[item.id] ?? []).length > 0 && (
+                          <ul className="mt-1 max-h-40 overflow-y-auto rounded border border-[var(--line)]">
+                            {(achados[item.id] ?? []).map((sis) => (
+                              <li key={sis.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => editar(item.id, { systemId: sis.id })}
+                                  className={`w-full px-2 py-1 text-left text-sm hover:bg-[var(--fill)] ${
+                                    rascunho.systemId === sis.id ? 'bg-[var(--fill)] font-semibold' : ''
+                                  }`}
+                                >
+                                  {sis.name}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {/* Termo curto demais para buscar: dizer isso evita que a lista
+                            vazia leia como "não existe sistema com esse nome". */}
+                        {(buscaSistema[item.id] ?? '').trim().length === 1 && (
+                          <p className="mt-1 text-xs text-[var(--fg-muted)]">
+                            Digite ao menos 2 letras.
+                          </p>
+                        )}
+                      </div>
                     ) : (
                       <TextInput
                         value={rascunho.texto}

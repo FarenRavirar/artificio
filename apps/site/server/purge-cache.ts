@@ -58,8 +58,13 @@ export interface PurgeResult {
  */
 function prefixosDoSite(base: string): string[] {
   const host = base.replace(/^https?:\/\//, "").replace(/\/+$/, "");
-  // `www` é hostname próprio na regra de cache da zona e tem entradas próprias no cache.
-  return host.startsWith("www.") ? [`${host}/`] : [`${host}/`, `www.${host}/`];
+  // `www` é hostname próprio na regra de cache da zona e tem entradas próprias no cache,
+  // então o apex purga os dois. Só o APEX ganha o par: em `beta.artificiorpg.com` um
+  // `www.beta.…` não existe e seria prefixo morto na chamada (medido em 2026-09-02, beta
+  // aponta para o subdomínio). Dois rótulos = apex (`artificiorpg.com`); três ou mais =
+  // subdomínio, que purga só a si mesmo.
+  const ehApex = host.split(".").length === 2;
+  return ehApex ? [`${host}/`, `www.${host}/`] : [`${host}/`];
 }
 
 /**

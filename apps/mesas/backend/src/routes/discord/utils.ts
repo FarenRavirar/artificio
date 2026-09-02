@@ -412,7 +412,7 @@ export async function recordImportRun(counts: {
 
 // ─── T-G7 — registra decisão shadow (o que o sistema teria autoaprovado?) ──
 
-import { classifyConfidence, isHomebrewSystem } from '../../discord/parseDiscordAnnouncement.js';
+import { classifyConfidence, isHomebrewSystem, extractBodyFromEmbeds } from '../../discord/parseDiscordAnnouncement.js';
 
 function buildShadowReason(
   tier: ReturnType<typeof classifyConfidence> | null,
@@ -623,7 +623,13 @@ export async function parseDiscordMessage(
       console.warn('[roleMappings] falha ao carregar (parse segue sem tradução):', err);
       return new Map<string, DiscordRoleMapping>();
     }),
-    registrarObservacoes(guildId, observarIdsDoAnuncio(raw.content_raw ?? '')).catch((err: unknown) => {
+    // MESMO fallback do parser: anuncio de forum poe o conteudo no embed, e observar
+    // so `content_raw` deixava a fila de revisao vazia exatamente nos servidores que
+    // mais usam role como tag. Achado do CodeRabbit.
+    registrarObservacoes(
+      guildId,
+      observarIdsDoAnuncio(raw.content_raw?.trim() || extractBodyFromEmbeds(raw.embeds ?? [])),
+    ).catch((err: unknown) => {
       console.warn('[roleMappings] falha ao registrar observação (parse segue):', err);
     }),
   ]);

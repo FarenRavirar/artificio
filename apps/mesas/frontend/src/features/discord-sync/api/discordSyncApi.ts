@@ -313,18 +313,22 @@ function parseSystemOptions(data: unknown): SystemOption[] {
   });
 }
 
+// SEM envelope `{ data }` aqui: `apiFetch` já devolve `data.data`, então exigir o
+// envelope de novo fazia TODA carga da fila estourar "formato inesperado" — a tela nunca
+// teria funcionado. Mesmo formato do `parseDeletedResult` logo abaixo, que estava certo.
+// Achado do CodeRabbit.
 function parseRoleMappings(data: unknown): RoleMapping[] {
-  const parsed = z.object({ data: z.array(roleMappingSchema) }).safeParse(data);
+  const parsed = z.array(roleMappingSchema).safeParse(data);
   // Lista vazia em caso de shape inesperado esconderia regressão como "nada a
   // revisar" — e a fila de revisão silenciosamente vazia é o pior desfecho aqui.
   if (!parsed.success) throw new Error('Lista de mapeamentos em formato inesperado.');
-  return parsed.data.data;
+  return parsed.data;
 }
 
 function parseRoleMapping(data: unknown): RoleMapping {
-  const parsed = z.object({ data: roleMappingSchema }).safeParse(data);
+  const parsed = roleMappingSchema.safeParse(data);
   if (!parsed.success) throw new Error('Mapeamento em formato inesperado.');
-  return parsed.data.data;
+  return parsed.data;
 }
 
 function parseDeletedResult(data: unknown): { deleted: number } {

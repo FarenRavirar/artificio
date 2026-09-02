@@ -54,11 +54,20 @@ function spawnJob(name: string, script: string): StartResult {
   const child = spawn("pnpm", ["run", script], { cwd: APP_ROOT, shell: true });
   let log = "";
   const append = (d: Buffer) => {
-    const txt = d.toString();
-    log += txt;
+    log += d.toString();
     if (log.length > 8000) log = log.slice(-8000);
     if (current && !current.finishedAt) {
-      for (const m of MARCADORES) if (m.re.test(txt)) current.phase = m.phase;
+      // Testa o LOG ACUMULADO, não o chunk: `spawn` entrega pedaços arbitrários e
+      // stdout/stderr são streams separados, então `[rebuild] astro build` pode chegar
+      // cortado ao meio e nenhum chunk isolado casaria — a fase ficaria congelada na
+      // anterior. Achado do CodeRabbit.
+      //
+      // Varre do fim para o começo e para no primeiro: os marcadores estão em ordem de
+      // execução, então o último presente no log é a fase atual. Testar na ordem direta
+      // deixaria a fase na PRIMEIRA que já apareceu — sempre "exportando".
+      for (let i = MARCADORES.length - 1; i >= 0; i--) {
+        if (MARCADORES[i].re.test(log)) { current.phase = MARCADORES[i].phase; break; }
+      }
     }
   };
   child.stdout.on("data", append);

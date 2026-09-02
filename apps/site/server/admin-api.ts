@@ -341,11 +341,18 @@ function isInternalPath(path: string): boolean {
 
 // Dispara rebuild SSG no servidor quando a mudança afeta o público (publicar OU despublicar).
 // Single-flight (jobs.ts); o cliente não precisa de uma 2ª requisição (corrige inconsistência DB↔SSG).
-function maybeRebuild(newStatus: string, prevStatus?: string): { started: boolean; busy?: boolean } {
+function maybeRebuild(
+  newStatus: string,
+  prevStatus?: string,
+): { started: boolean; busy?: boolean; startedAt?: string } {
   const affectsPublic = newStatus === "publish" || prevStatus === "publish";
   if (!affectsPublic) return { started: false };
   const r = runJob("rebuild", "rebuild");
-  return { started: r.started, busy: r.busy };
+  // `startedAt` VAI JUNTO: o editor usa este carimbo para reconhecer o job no polling.
+  // Sem ele o cliente carimbava a própria hora e comparava com a do servidor — um
+  // relógio adiantado no navegador descartaria o rebuild recém-disparado em todos os
+  // polls, até o timeout de 10 min. Achado do Codex (P2).
+  return { started: r.started, busy: r.busy, startedAt: r.job?.startedAt };
 }
 
 // Monta PostWrite a partir do body do editor (sanitiza HTML, toc, fallbacks, slug único).

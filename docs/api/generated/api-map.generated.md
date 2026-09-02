@@ -397,7 +397,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | GET | `/api/v1/admin/discord/metrics/shadow` | ✅ high | `apps/mesas/backend/src/routes/discord/metrics.ts` | 85 |
 | GET | `/api/v1/admin/discord/role-mappings` | ✅ high | `apps/mesas/backend/src/routes/discord/roleMappings.ts` | 41 |
 | USE | `/api/v1/admin/discord/role-mappings` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 35 |
-| DELETE | `/api/v1/admin/discord/role-mappings/:id` | ✅ high | `apps/mesas/backend/src/routes/discord/roleMappings.ts` | 118 |
+| DELETE | `/api/v1/admin/discord/role-mappings/:id` | ✅ high | `apps/mesas/backend/src/routes/discord/roleMappings.ts` | 147 |
 | PATCH | `/api/v1/admin/discord/role-mappings/:id` | ✅ high | `apps/mesas/backend/src/routes/discord/roleMappings.ts` | 75 |
 | GET | `/api/v1/admin/discord/settings` | ✅ high | `apps/mesas/backend/src/routes/discord/settings.ts` | 27 |
 | USE | `/api/v1/admin/discord/settings` | ✅ high | `apps/mesas/backend/src/routes/adminDiscordSync.ts` | 26 |

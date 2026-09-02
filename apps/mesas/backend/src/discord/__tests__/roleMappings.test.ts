@@ -98,3 +98,40 @@ describe('roleMappings — aplicacao', () => {
     expect(out).toContain('<@&999999999999999999>');
   });
 });
+
+describe('roleMappings — capitular (emoji colado a palavra)', () => {
+  it('observa emoji colado como kind letter, fora de linha rotulada', () => {
+    // Sem este caso o kind 'letter' era INALCANCAVEL: nada o produzia, o emoji nunca
+    // chegava a fila de revisao, e a normalizacao seguia comendo a inicial do
+    // paragrafo. Achado do Codex (P2).
+    const obs = observarIdsDoAnuncio('<:emoji_15:1544078433875927091>ra uma vez');
+    expect(obs).toHaveLength(1);
+    expect(obs[0].kind).toBe('letter');
+    expect(obs[0].sourceType).toBe('emoji');
+    expect(obs[0].discordId).toBe('1544078433875927091');
+    // O resto da palavra e a unica evidencia da letra: com "ra uma vez" a vista, o
+    // revisor deduz "E".
+    expect(obs[0].textoVizinho).toContain('ra');
+  });
+
+  it('emoji SEGUIDO DE ESPACO nao e capitular', () => {
+    // Emoji decorativo no meio do texto nao inicia palavra nenhuma.
+    const obs = observarIdsDoAnuncio('mesa <:decorativo:1544078433875927092> nova');
+    expect(obs).toHaveLength(0);
+  });
+
+  it('linha ROTULADA continua sendo tratada como dado, nao capitular', () => {
+    // A ordem importa: o ramo do rotulo tem precedencia e faz `continue`.
+    const obs = observarIdsDoAnuncio('Estilo: <:emoji_9:1544078433875927093>investigacao');
+    expect(obs).toHaveLength(1);
+    expect(obs[0].kind).toBe('style');
+  });
+
+  it('varios capitulares na mesma mensagem viram observacoes distintas', () => {
+    const obs = observarIdsDoAnuncio(
+      ['<:a:1544078433875927094>ntes', '<:d:1544078433875927095>epois'].join('\n'),
+    );
+    expect(obs).toHaveLength(2);
+    expect(obs.every((o) => o.kind === 'letter')).toBe(true);
+  });
+});

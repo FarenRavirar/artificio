@@ -67,6 +67,18 @@ describe('purgeCache', () => {
     expect(corpo(fetchSpy).purge_everything).toBeUndefined();
   });
 
+  it('subdominio purga so a si mesmo — nao existe www.beta.<host>', async () => {
+    // Medido em 2026-09-02: beta aponta para `beta.artificiorpg.com`. O par com `www.`
+    // so faz sentido no apex; num subdominio seria prefixo morto na chamada.
+    comCredenciais('https://beta.artificiorpg.com');
+    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, text: async () => '' });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    await purgeCache();
+
+    expect(corpo(fetchSpy).prefixes).toEqual(['beta.artificiorpg.com/']);
+  });
+
   it('nao duplica o host quando PUBLIC_SITE_URL ja e o www', async () => {
     comCredenciais('https://www.artificiorpg.com');
     const fetchSpy = vi.fn().mockResolvedValue({ ok: true, text: async () => '' });
