@@ -493,6 +493,33 @@ curl -s "https://sonarcloud.io/api/issues/search?componentKeys=<owner>_<repo>&pu
 
 O `colher.sh` já faz as duas coisas.
 
+### Os scripts DESTA skill também são revisados
+
+`.agents/skills/*/**.sh` entra no diff, logo entra no scan. Medido: o Sonar abriu
+**5 MAJOR** (`[` em vez de `[[`) no `colher.sh` e no `sync.sh` no push seguinte à
+criação deles. Achado legítimo — os dois declaram `#!/usr/bin/env bash`, então
+`[[` está disponível e é mais seguro.
+
+Corrigir como qualquer outro achado, e **rodar os scripts depois de mexer neles**:
+quebrar o `colher.sh` cega a colheita da volta seguinte sem nenhum sinal.
+
+Os bots já acharam aqui, e todos eram reais:
+
+| Achado | Consequência |
+|---|---|
+| `[` em vez de `[[` (Sonar, 5×) | teste condicional frágil |
+| `reviews(last:5)` (CodeRabbit) | só as 5 últimas reviews da PR — nitpick some em PR longa |
+| `\|\| echo "(nenhum)"` (CodeRabbit) | **falha de rede virava "sem achado"** e encerraria o laço cego |
+| `-L` sem resolver alvo (CodeRabbit) | symlink quebrado passava, `sync` saía 0 sem sincronizar |
+| `cp` direto no destino (CodeRabbit) | janela com arquivo truncado; agora `mktemp` + `mv` |
+| comparar contagem de linhas (CodeRabbit) | arquivos diferentes com mesmo total passavam |
+
+O terceiro é o que mais importa: era o **mesmo defeito** que este ciclo tinha
+acabado de corrigir no `CatalogTree` — confundir falha com vazio — reproduzido no
+script que colhe os achados. Hoje o `colher.sh` conta as falhas, sai com código 1
+e diz que a colheita está incompleta; encerrar o laço com base numa colheita que
+falhou é o pior desfecho possível.
+
 ### Colher por DATA deixa achado para trás — conferir as threads abertas
 
 Filtrar comentário por data mostra só o que chegou na última rodada. Achado de
