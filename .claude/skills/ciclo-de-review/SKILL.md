@@ -68,7 +68,7 @@ onde a anterior terminou:
 ```
   commit + push            ← automático dentro da skill (Exceção 2)
         ↓
-  esperar 5 min
+  esperar 7 min
         ↓
   conferir os checks  ──── vermelho? → corrigir → volta ao topo
         ↓
@@ -95,7 +95,7 @@ onde a anterior terminou:
   relatar em ≤5 linhas e encerrar
 ```
 
-Os dois únicos tempos: **5 min** após o push, **40 min** após comentar.
+Os dois únicos tempos: **7 min** após o push, **40 min** após comentar.
 Na PRIMEIRA ativação da skill numa PR — e só nela — lê-se o prazo que o bot
 anuncia, porque pode haver janela aberta de antes (Passo 2).
 
@@ -177,9 +177,11 @@ Antes de montar o commit, tocando `apps/**`, `packages/**`, `scripts/api/**` ou
 rtk pnpm verify:api        # ANTES do git add — o hook regenera artefatos
 ```
 
-Depois do push, **esperar 5 minutos** antes de conferir. Não é chute: é o tempo
+Depois do push, **esperar 7 minutos** antes de conferir. Não é chute: é o tempo
 de o GitHub registrar os checks e de o CodeRabbit decidir se aceita ou recusa a
-revisão. Conferir antes disso devolve "nenhuma linha do CodeRabbit", que **não é
+revisão. Eram 5, subiu para 7 por decisão do mantenedor (2026-09-02): build de
+app grande estoura 5 min, e conferir com check ainda rodando não conclui nada.
+Conferir cedo devolve "nenhuma linha do CodeRabbit", que **não é
 resposta** — é ausência de dado, e lê-la como "não vai revisar" leva a comentar à
 toa e queimar a janela.
 
@@ -187,11 +189,11 @@ Esperar com `Bash` em `run_in_background`, que avisa uma vez e não consome
 contexto enquanto roda:
 
 ```bash
-sleep 300 && gh pr checks <N> --json name,state,description   | jq -r '.[] | select(.state=="FAILURE") | "FALHOU: \(.name)"
+sleep 420 && gh pr checks <N> --json name,state,description   | jq -r '.[] | select(.state=="FAILURE") | "FALHOU: \(.name)"
               , (select(.name|test("CodeRabbit";"i")) | "CODERABBIT: \(.state) — \(.description)")'
 ```
 
-Passados os 5 minutos, o resultado desencadeia o que já se sabe:
+Passados os 7 minutos, o resultado desencadeia o que já se sabe:
 
 | O que a conferência mostra | Para onde vai |
 |---|---|
@@ -231,14 +233,34 @@ Decisão do mantenedor (2026-09-02), depois de a configuração se provar estáv
 
 | Momento | Espera |
 |---|---|
-| depois de commit + push | **5 min**, então conferir |
+| depois de commit + push | **7 min**, então conferir |
 | depois de comentar `@coderabbitai full review` | **40 min**, então conferir |
 
 A configuração acima sempre dá certo. Se ao conferir ainda estiver em progresso
 ou limitado: reagendar mais 40 min e **não comentar de novo** — comentar duas
 vezes na mesma janela é como ela se fecha.
 
-#### A única exceção: a PRIMEIRA ativação da skill nesta PR
+#### Exceção 1: disparo RECUSADO — o relógio é o prazo anunciado
+
+Os 40 min pressupõem disparo **aceito**. Se o CodeRabbit responder ao comentário
+com recusa, os 40 min chegam tarde e a janela passa sem ninguém redisparar.
+
+**Sempre conferir a resposta ao disparo**, no comentário mais recente dele:
+
+```bash
+gh api repos/<owner>/<repo>/issues/<N>/comments --paginate   | jq -s -r 'add | map(select(.user.login=="coderabbitai[bot]")) | last | .body'   | grep -oiE "Full review triggered|limit reached|available in [0-9]+ minutes"
+```
+
+| Resposta | Reagendar para |
+|---|---|
+| `Full review triggered` | 40 min |
+| `available in N minutes` | **N + 5 min**, e não recomentar antes |
+
+Medido na PR #304: disparo às 06:21:45Z recusado com "available in 16 minutes" →
+janela em 06:37:45Z. Um agendamento de 40 min cairia às 07:01, 23 minutos depois
+de a janela abrir — tempo perdido sem ninguém para redisparar.
+
+#### Exceção 2: a PRIMEIRA ativação da skill nesta PR
 
 Ao entrar numa PR que já vinha sendo revisada à mão, pode haver uma janela aberta
 de antes — e aí o prazo do bot é a única informação disponível, porque o laço
@@ -551,12 +573,18 @@ volta N — <sha> · <X> achados: <Y> corrigidos, <Z> descartados
 corrigido: <arquivo:linha> <o que era>  (uma linha por achado)
 descartado: <arquivo:linha> <motivo em ~8 palavras>
 validação: tsc ok · N/N testes · lint ok · gate ok
-próximo: <disparo agendado para HH:MM | encerrado, sem achado>
+próximo: <agendado HH:MM local | encerrado, sem achado>
 ```
 
 O que **não** entra: recapitulação do que foi pedido, explicação de como a
 correção funciona (isso vive no comentário do código, §Regras Gerais de Código),
 elogio à própria entrega, tabela decorativa, e narrativa de processo.
+
+**Hora sempre em LOCAL, nunca em UTC.** A máquina é UTC−3: `date -u` devolve
+06:15Z quando o relógio do mantenedor marca 03:15. Reportar em UTC faz o horário
+parecer três horas no futuro — ele lê "confiro às 06:20" às 3 da manhã e a frase
+não faz sentido. As APIs devolvem UTC (usar assim nos filtros); o que se ESCREVE
+para ele é `date "+%H:%M"`.
 
 **O que SEMPRE entra, por mais curto que fique:**
 

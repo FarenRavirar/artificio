@@ -621,21 +621,14 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Só a largura fica: o campo virou `TextInput` (@artificio/ui), e `padding`,
+   `border`, `background`, `color`, `border-radius` e `font-size` vêm de
+   `.artificio-control-md`. Esta regra vencia o primitivo por especificidade e
+   redefinia 8px/13px onde a escala compartilhada diz 9px/14px — a divergência
+   local que a migração existia para remover continuava de pé, no URL manual do
+   avatar Geral e do Mestre. Achado do Codex na PR #304. */
 .avatar-manual-input input[type='url'] {
   width: 100%;
-  padding: var(--space-2);
-  border: 1px solid var(--line-strong);
-  background: var(--surface);
-  color: var(--fg);
-  border-radius: 8px;
-  font-size: 0.8125rem;
-}
-
-.avatar-manual-input input[type='url']:focus {
-  outline: none;
-  border-color: var(--artificio-brand);
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
-  background: var(--surface);
 }
 
 .avatar-manual-input small {
@@ -751,7 +744,11 @@
    oposto do que a fase pretendia. 1240px = 900 de conteúdo + 300 de lateral +
    gap, então a coluna de campos volta à largura para a qual foi desenhada.
    Achado do Codex na PR #304. */
-.profile-edit-page:has(> .profile-editor-shell) {
+/* SEM o combinador `>`: o shell não é filho direto — mora em
+   `.tab-content > #tab-panel-mestre` (ProfileEditPage.tsx:268,289,696). A
+   primeira versão desta regra usava `:has(> …)` e não casava com nada, deixando
+   o limite de 900px de pé. Achado do Codex na PR #304. */
+.profile-edit-page:has(.profile-editor-shell) {
   max-width: 1240px;
 }
 

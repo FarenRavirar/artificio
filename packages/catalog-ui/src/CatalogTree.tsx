@@ -499,6 +499,12 @@ export function CatalogTree({
       return;
     }
 
+    // Zera o que a busca ANTERIOR devolveu, antes do debounce e da requisição
+    // nova: a lista velha continuava renderizada e CLICÁVEL enquanto o novo termo
+    // era digitado, então dava para escrever "D&D" e selecionar o "Pathfinder"
+    // que ainda estava na tela — escolha errada, sem nada indicando o engano.
+    // Achado do Codex na PR #304.
+    setRemoteRoots([]);
     setSearching(true);
     const controller = new AbortController();
     searchAbortRef.current = controller;
