@@ -130,6 +130,17 @@ let sharedLinksOwner: string | null = null;
  */
 let linksGeneration = 0;
 
+/**
+ * Token do GET mais recente, SEPARADO da geração.
+ *
+ * A geração só sobe em escrita autoritativa, então dois GETs disparados sem
+ * mutação entre eles nascem na MESMA geração — e o mais antigo, respondendo por
+ * último, publicava por cima do mais novo sem nada barrá-lo. Duas instâncias na
+ * mesma tela é o caso comum (o `LinksManager` e a lateral que conta), e a rede
+ * não garante ordem de resposta. Achado do CodeRabbit na PR #304.
+ */
+let linksFetchToken = 0;
+
 function publishLinks(next: UserLink[], owner: string | null = sharedLinksOwner): void {
   linksGeneration += 1;
   sharedLinks = next;
@@ -165,9 +176,18 @@ function resetLinksOwnerIfChanged(owner: string | null): boolean {
   return true;
 }
 
-/** Publica só se a geração de origem ainda for a corrente (ver acima). */
-function publishLinksIfCurrent(next: UserLink[], generation: number, owner: string | null): void {
+/**
+ * Publica só se NADA mais novo tiver acontecido: nem escrita autoritativa
+ * (`generation`), nem um GET disparado depois deste (`token`).
+ */
+function publishLinksIfCurrent(
+  next: UserLink[],
+  generation: number,
+  token: number,
+  owner: string | null,
+): void {
   if (generation !== linksGeneration) return;
+  if (token !== linksFetchToken) return;
   publishLinks(next, owner);
 }
 
@@ -219,6 +239,9 @@ export function useLinks(): UseLinksReturn {
     // publicar enquanto ele está em voo, a resposta que chegar depois já não é
     // autoritativa e é descartada — senão o link recém-criado sumiria da tela.
     const generation = linksGeneration;
+    // Token próprio: identifica ESTE GET entre os concorrentes da mesma geração.
+    linksFetchToken += 1;
+    const token = linksFetchToken;
 
     try {
       setLoading(true);
@@ -237,7 +260,7 @@ export function useLinks(): UseLinksReturn {
       }
 
       const data: unknown = await res.json();
-      publishLinksIfCurrent(normalizeLinksPayload(data), generation, owner);
+      publishLinksIfCurrent(normalizeLinksPayload(data), generation, token, owner);
     } catch (err: unknown) {
       console.error('Error fetching links:', err);
       setError(getErrorMessage(err, 'Erro ao carregar links'));

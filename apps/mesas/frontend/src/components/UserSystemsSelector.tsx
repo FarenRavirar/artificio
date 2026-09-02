@@ -37,7 +37,7 @@ export const UserSystemsSelector = React.memo(function UserSystemsSelector({
   // era mecânica idêntica à do `GmProfileFields` — ref para não reentrar,
   // chave estável da seleção, aviso amarrado à seleção atual. Extraída depois
   // de o Sonar medir a duplicação na PR #304, não por antecipação.
-  const { nodes: visibleSelectedNodes, failed: resolveFailed } =
+  const { nodes: visibleSelectedNodes, failed: resolveFailed, retry: retryResolve } =
     useResolvedSystemNodes(selectedSystemIds);
 
 
@@ -74,7 +74,13 @@ export const UserSystemsSelector = React.memo(function UserSystemsSelector({
 
       {resolveFailed && (
         <p className="user-systems-selector-resolve-error" role="alert">
-          Não foi possível carregar os nomes dos sistemas escolhidos. Eles continuam salvos.
+          Não foi possível carregar os nomes dos sistemas escolhidos. Eles continuam salvos.{' '}
+          {/* Sem o botão, falha transitória só se recuperava trocando a seleção
+              ou recarregando a página: o efeito depende de `selectedKey`, que
+              não muda. Achado do Codex na PR #304. */}
+          <button type="button" className="underline underline-offset-2" onClick={retryResolve}>
+            Tentar de novo
+          </button>
         </p>
       )}
 

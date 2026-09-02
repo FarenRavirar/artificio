@@ -17,6 +17,9 @@ import { TagInput } from '../../TagInput';
 import { SystemPicker } from '../../SystemPicker';
 import { useSystemsSearch } from '../../../hooks/useSystemsSearch';
 import { useResolvedSystemNodes } from '../../../hooks/useResolvedSystemNodes';
+
+/** Estável de propósito: `[]` literal a cada render trocaria a identidade da prop. */
+const SEM_SISTEMAS: readonly string[] = [];
 import { MarkdownEditor } from '../../MarkdownEditor';
 import { normalizeSellingPoints } from '../../../hooks/useMestre';
 import { useProfileContext } from '../../../contexts/useProfileContext';
@@ -475,8 +478,13 @@ export function ClosedGroupSection({ value, onChange }: ClosedGroupSectionProps)
   // era mecânica idêntica à do `UserSystemsSelector` — ref para não reentrar,
   // chave estável da seleção, aviso amarrado à seleção atual. Extraída depois
   // de o Sonar medir a duplicação na PR #304, não por antecipação.
-  const { nodes: visibleSelectedNodes, failed: resolveFailed } =
-    useResolvedSystemNodes(value.systems);
+  // Seleção VAZIA quando o grupo está desligado: o seletor só é renderizado sob
+  // `value.enabled` (abaixo), então resolver os ids com ele fechado dispara um
+  // `fetchSystemsByIds` cujo resultado ninguém vê — requisição paga por nada, em
+  // toda montagem da aba. Achado do CodeRabbit na PR #304.
+  const idsParaResolver = value.enabled ? value.systems : SEM_SISTEMAS;
+  const { nodes: visibleSelectedNodes, failed: resolveFailed, retry: retryResolve } =
+    useResolvedSystemNodes(idsParaResolver);
 
   return (
     <section className="form-section">
@@ -521,7 +529,17 @@ export function ClosedGroupSection({ value, onChange }: ClosedGroupSectionProps)
               {resolveFailed && (
                 <p className="text-sm text-[var(--state-danger-fg)]" role="alert">
                   Não foi possível carregar os nomes dos sistemas escolhidos. Eles continuam
-                  salvos.
+                  salvos.{' '}
+                  {/* Falha transitória só se recuperava trocando a seleção ou
+                      recarregando: o efeito depende de `selectedKey`, que não
+                      muda. Achado do Codex na PR #304. */}
+                  <button
+                    type="button"
+                    className="underline underline-offset-2"
+                    onClick={retryResolve}
+                  >
+                    Tentar de novo
+                  </button>
                 </p>
               )}
               <SystemPicker

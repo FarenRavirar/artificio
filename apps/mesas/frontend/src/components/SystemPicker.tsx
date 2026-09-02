@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { CatalogTree } from '@artificio/catalog-ui';
 import { systemTreeNodeToUiNode } from '../utils/systemTreeNodeToUiNode';
 import type { SystemTreeNode } from '../types/systems';
@@ -95,22 +95,31 @@ export function SystemPicker({
   // `CatalogUiNode`. Os wrappers são memoizados porque o `CatalogTree` guarda a
   // referência — recriar a função a cada render não refaz busca, mas manter a
   // identidade estável é o contrato documentado da prop.
+  // Nós vindos do servidor, por id: as fontes remotas devolvem `SystemTreeNode`,
+  // convertem para o nó da UI e o original se perderia. Ref porque isto é
+  // preenchido DENTRO do fetch — setState aqui reentraria no ciclo de render.
+  const remotosPorId = useRef(new Map<string, SystemTreeNode>());
+  const registrarRemotos = useCallback((nodes: SystemTreeNode[]): SystemTreeNode[] => {
+    for (const node of nodes) remotosPorId.current.set(node.id, node);
+    return nodes;
+  }, []);
+
   const uiFetchSystemOptions = useMemo(
     () =>
       fetchSystemOptions
         ? async (query: string, signal: AbortSignal) =>
-            (await fetchSystemOptions(query, signal)).map(systemTreeNodeToUiNode)
+            registrarRemotos(await fetchSystemOptions(query, signal)).map(systemTreeNodeToUiNode)
         : undefined,
-    [fetchSystemOptions],
+    [fetchSystemOptions, registrarRemotos],
   );
 
   const uiFetchChildOptions = useMemo(
     () =>
       fetchChildOptions
         ? async (parent: { id: string }, signal: AbortSignal) =>
-            (await fetchChildOptions(parent.id, signal)).map(systemTreeNodeToUiNode)
+            registrarRemotos(await fetchChildOptions(parent.id, signal)).map(systemTreeNodeToUiNode)
         : undefined,
-    [fetchChildOptions],
+    [fetchChildOptions, registrarRemotos],
   );
 
   return (
@@ -120,12 +129,20 @@ export function SystemPicker({
       fetchSystemOptions={uiFetchSystemOptions}
       fetchChildOptions={uiFetchChildOptions}
       selectedNodes={uiSelectedNodes}
+      /* `byId` indexa só a ÁRVORE LOCAL, e com fonte remota (fase G) nenhum nó
+         buscado está lá: `onEdit` nunca disparava e `onAddChildAtLevel` recebia
+         `null`, abrindo o modal de "novo filho" sem saber de quem. Os nós vistos
+         via `fetchSystemOptions`/`fetchChildOptions` passam a ser registrados em
+         `remotosPorId` (ref, não estado: alimentar isto por setState reentraria
+         no render). Achado do CodeRabbit na PR #304. */
       onEdit={onEdit ? (uiNode) => {
-        const original = byId.get(uiNode.id);
+        const original = byId.get(uiNode.id) ?? remotosPorId.current.get(uiNode.id);
         if (original) onEdit(original);
       } : undefined}
       onAddChildAtLevel={onAddChildAtLevel ? (depth, uiParent) => {
-        const original = uiParent ? (byId.get(uiParent.id) ?? null) : null;
+        const original = uiParent
+          ? (byId.get(uiParent.id) ?? remotosPorId.current.get(uiParent.id) ?? null)
+          : null;
         onAddChildAtLevel(depth, original);
       } : undefined}
     />

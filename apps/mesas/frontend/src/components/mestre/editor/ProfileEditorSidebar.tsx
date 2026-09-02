@@ -146,7 +146,19 @@ function PublicLinkDoor({
     const tab = window.open('', '_blank');
     if (tab) tab.opener = null;
     try {
-      const saved = await onBeforeOpen();
+      // `onBeforeOpen` REJEITANDO (rede caiu, 500 no autosave) caía direto no
+      // `finally` sem fechar a aba nem avisar: sobrava uma aba em branco e
+      // nenhuma mensagem, com a impressão de que o clique não funcionou.
+      // Rejeição é falha de gravação e recebe o mesmo tratamento dela.
+      // Achado do CodeRabbit na PR #304.
+      let saved: boolean;
+      try {
+        saved = await onBeforeOpen();
+      } catch {
+        tab?.close();
+        setFailure('save');
+        return;
+      }
       if (!saved) {
         // Gravação falhou: NÃO navega, e fecha a aba em branco para não deixar
         // janela órfã. Levar o mestre a uma página sem o que ele acabou de

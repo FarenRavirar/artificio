@@ -1,4 +1,5 @@
 import type { GmProfile } from '../../../types/profileTypes';
+import { normalizeSellingPoints } from '../../../hooks/useMestre';
 
 /**
  * Casca do editor de perfil de mestre: as 5 partes e o cálculo de pendências
@@ -138,7 +139,12 @@ export function isProfileFieldFilled(
     case 'languages':
       return hasItems(profile.languages);
     case 'sellingPoints':
-      return hasItems(profile.selling_points);
+      // Normaliza antes de contar: `hasItems` só olha o comprimento, e o JSONB
+      // pode trazer `[{}]` ou `['x']` — array não-vazio de item inválido. O
+      // `SellingPointsEditor` passa o mesmo valor por `normalizeSellingPoints` e
+      // mostra ZERO itens, então a lateral marcava a parte como preenchida (até
+      // 100%) enquanto o campo estava vazio na tela. Achado do Codex na PR #304.
+      return normalizeSellingPoints(profile.selling_points).length > 0;
     default:
       return false;
   }

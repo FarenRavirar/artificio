@@ -29,8 +29,13 @@ FALHAS=0
 # achado" quando nao conseguiu nem perguntar, e o laco encerraria com achado por
 # ler. Mesmo defeito que este ciclo corrigiu no CatalogTree horas antes,
 # reproduzido no proprio script. Achado do CodeRabbit na PR #304.
+# `grep` sem match sai 1 e isso e vazio LEGITIMO; qualquer outro codigo e falha.
+# O remendo anterior (`|| true` no fim do pipe) zerava o rc inteiro e devolvia a
+# falha mascarada que a funcao existe para impedir - achado do Codex na PR #304.
+# `PIPESTATUS` separa: se algum estagio ANTES do grep falhou, e falha de verdade.
 emitir() {
   local saida="$1" rc="$2"
+  if [[ $rc -eq 1 ]]; then rc=0; fi
   if [[ $rc -ne 0 ]]; then
     echo "  !! FALHA ao consultar - NAO e ausencia de achado (exit $rc)"
     echo "$saida" | head -3 | sed 's/^/     /'
@@ -40,6 +45,7 @@ emitir() {
   else
     echo "$saida"
   fi
+  return 0
 }
 
 echo "== 1. checks de build que FALHARAM =="
@@ -50,7 +56,11 @@ emitir "$out" $rc
 
 echo
 echo "   ainda rodando (nao concluir nada sobre eles):"
+# `gh pr checks` sai 8 quando HÁ check pendente - que e exatamente o caso desta
+# consulta, e nao e falha. Normalizar SO o 8; qualquer outro codigo continua
+# falha de verdade. Achado do CodeRabbit na PR #304.
 out="$(gh pr checks "$pr" --json name,state --jq '.[] | select(.state=="IN_PROGRESS" or .state=="PENDING") | "     \(.name)"' 2>&1)"; rc=$?
+if [[ $rc -eq 8 ]]; then rc=0; fi
 emitir "$out" $rc
 
 echo
@@ -107,14 +117,14 @@ emitir "$out" $rc
 echo
 echo "== secoes colapsadas no corpo da review (nitpick, outside-diff, duplicate) =="
 Q='query($owner:String!,$nome:String!,$pr:Int!,$endCursor:String){repository(owner:$owner,name:$nome){pullRequest(number:$pr){reviews(first:100,after:$endCursor){nodes{author{login} submittedAt body} pageInfo{hasNextPage endCursor}}}}}'
-out="$(gh api graphql --paginate -F owner="$owner" -F nome="$nome" -F pr="$pr" -f query="$Q" --jq '.data.repository.pullRequest.reviews.nodes[] | select(.submittedAt > env.DESDE) | .body' 2>&1 | grep -oiE '<summary>[^<]*\([0-9]+\)</summary>|\*\*[A-Z][^*]{10,90}\*\*' | sed 's/^/  /' | head -30 || true)"; rc=$?
+out="$(gh api graphql --paginate -F owner="$owner" -F nome="$nome" -F pr="$pr" -f query="$Q" --jq '.data.repository.pullRequest.reviews.nodes[] | select(.submittedAt > env.DESDE) | .body' 2>&1 | grep -oiE '<summary>[^<]*\([0-9]+\)</summary>|\*\*[A-Z][^*]{10,90}\*\*' | sed 's/^/  /' | head -30)"; rc=${PIPESTATUS[0]}
 emitir "$out" $rc
 
 echo
 echo "== metricas do Sonar (gate passa mesmo com issue) =="
 # O Quality Gate PASSA com issue aberta - "Quality Gate Passed" NAO significa
 # "sem achado". Ler a contagem, e buscar a issue na API publica.
-out="$(gh api "repos/$repo/issues/$pr/comments" --paginate 2>&1 | jq -s -r 'add | map(select(.user.login=="sonarqubecloud[bot]")) | last | .body // ""' 2>&1 | grep -oE '[0-9]+ (New issue|Accepted issue|Security Hotspot)s?|[0-9.]+% (Coverage|Duplication)' | sed 's/^/  /' || true)"; rc=$?
+out="$(gh api "repos/$repo/issues/$pr/comments" --paginate 2>&1 | jq -s -r 'add | map(select(.user.login=="sonarqubecloud[bot]")) | last | .body // ""' 2>&1 | grep -oE '[0-9]+ (New issue|Accepted issue|Security Hotspot)s?|[0-9.]+% (Coverage|Duplication)' | sed 's/^/  /')"; rc=${PIPESTATUS[0]}
 emitir "$out" $rc
 
 echo
@@ -125,7 +135,7 @@ emitir "$out" $rc
 
 echo
 echo "== marcador terminal do CodeRabbit =="
-out="$(gh api "repos/$repo/issues/$pr/comments" --paginate 2>&1 | jq -s -r 'add | .[] | select(.updated_at > env.DESDE) | .body' 2>&1 | grep -oiE 'Actionable comments posted: [0-9]+|Review limit reached|review in progress' | sort -u | sed 's/^/  /' || true)"; rc=$?
+out="$(gh api "repos/$repo/issues/$pr/comments" --paginate 2>&1 | jq -s -r 'add | .[] | select(.updated_at > env.DESDE) | .body' 2>&1 | grep -oiE 'Actionable comments posted: [0-9]+|Review limit reached|review in progress' | sort -u | sed 's/^/  /')"; rc=${PIPESTATUS[0]}
 emitir "$out" $rc
 
 echo

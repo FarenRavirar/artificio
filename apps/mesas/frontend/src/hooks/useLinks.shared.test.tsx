@@ -226,3 +226,30 @@ describe('useLinks — mutação em voo não publica na conta nova', () => {
     expect(result.current.links).toHaveLength(0);
   });
 });
+
+describe('useLinks — GET antigo não vence GET mais novo', () => {
+  it('resposta atrasada do primeiro GET não sobrescreve a do segundo', async () => {
+    // Sem mutação entre eles, os dois GETs nascem na MESMA geração — então a
+    // geração sozinha não desempata, e o mais antigo publicava por cima do mais
+    // novo. Achado do CodeRabbit na PR #304.
+    let concluirPrimeiro!: (r: unknown) => void;
+    authGet.mockReturnValueOnce(new Promise((resolve) => { concluirPrimeiro = resolve; }));
+
+    const primeira = renderHook(() => useLinks());
+
+    // Segundo GET (outra instância na mesma tela) responde primeiro, com a lista nova.
+    authGet.mockResolvedValue(jsonOk([link('novo', 'https://twitch.tv/novo')]));
+    const segunda = renderHook(() => useLinks());
+    await waitFor(() => expect(segunda.result.current.links).toHaveLength(1));
+
+    // Só AGORA o primeiro responde, com a lista antiga (vazia).
+    await act(async () => {
+      concluirPrimeiro(jsonOk([]));
+      await Promise.resolve();
+    });
+
+    // É esta asserção que falha sem o token por requisição.
+    expect(segunda.result.current.links).toHaveLength(1);
+    expect(primeira.result.current.links).toHaveLength(1);
+  });
+});

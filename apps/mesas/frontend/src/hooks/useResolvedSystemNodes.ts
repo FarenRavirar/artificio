@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SystemTreeNode } from '../types/systems';
 import { useSystemsSearch } from './useSystemsSearch';
 
@@ -20,6 +20,8 @@ export function useResolvedSystemNodes(selectedIds: readonly string[]): {
   nodes: SystemTreeNode[];
   /** A resolução da seleção ATUAL falhou (falha antiga não acusa erro). */
   failed: boolean;
+  /** Refaz a resolução da MESMA seleção após falha transitória. */
+  retry: () => void;
 } {
   const { fetchSystemsByIds } = useSystemsSearch();
   const [resolvedNodes, setResolvedNodes] = useState<SystemTreeNode[]>([]);
@@ -27,6 +29,12 @@ export function useResolvedSystemNodes(selectedIds: readonly string[]): {
   // seleção muda, sem setState no início do efeito (que encadearia um render
   // extra a cada passagem).
   const [failedKey, setFailedKey] = useState<string | null>(null);
+  // Sobe a cada pedido de retry e entra na dep do efeito. Sem isto o efeito
+  // dependia só de `selectedKey`: depois de uma falha transitória, manter a
+  // mesma seleção NUNCA tentava de novo, e os nomes dos sistemas ficavam
+  // ausentes até trocar a seleção ou recarregar — com os ids salvos o tempo
+  // todo. Mesmo remédio do `CatalogTree` (retryTick). Achado do Codex, PR #304.
+  const [retryTick, setRetryTick] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
   // A função entra por REF, não por dependência: o hook devolve funções
@@ -80,7 +88,7 @@ export function useResolvedSystemNodes(selectedIds: readonly string[]): {
       });
 
     return () => controller.abort();
-  }, [selectedKey]);
+  }, [selectedKey, retryTick]);
 
   // Derivado, não estado: enquanto a resolução do lote novo não chega, exibir
   // nome de sistema que não está mais selecionado seria mostrar dado errado.
@@ -97,5 +105,7 @@ export function useResolvedSystemNodes(selectedIds: readonly string[]): {
     [resolvedNodes, selectedKey],
   );
 
-  return { nodes, failed: failedKey !== null && failedKey === selectedKey };
+  const retry = useCallback(() => setRetryTick((tick) => tick + 1), []);
+
+  return { nodes, failed: failedKey !== null && failedKey === selectedKey, retry };
 }
