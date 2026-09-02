@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button, LoadingState, TextInput } from '@artificio/ui';
 import { useProfileContext } from '../contexts/useProfileContext';
@@ -624,8 +624,28 @@ function TabMestre() {
   const [activePartId, setActivePartId] = useState<ProfilePartId>('quem');
 
   const linkCount = Array.isArray(links) ? links.length : 0;
+  // Derivadas SEM `useMemo`, de propósito — o CodeRabbit sugeriu memoizar, e medido
+  // (2026-09-02) isso QUEBRA a tela: `ProfileEditPage.test.tsx` falha em achar
+  // "1 campo(s) recomendado(s) por preencher". O autosave do mestre acumula o patch em
+  // refs e não re-renderiza a cada tecla (ProfileContext, spec 099 B8), então `profile.gm`
+  // não muda de identidade enquanto se digita; presas a essa dependência, as duas
+  // contagens congelariam e a lateral pararia de acompanhar o preenchimento. São duas
+  // varreduras de um objeto pequeno — o custo real está na estabilidade da CALLBACK
+  // abaixo, essa sim prop de um componente `memo`.
   const pendingCounts = computeProfilePendingCounts(profile?.gm, linkCount);
   const progress = computeProfileProgress(profile?.gm, linkCount);
+
+  // `useCallback` aqui em cima, ANTES do `if (!profile) return null` lá embaixo: hook
+  // depois de retorno condicional muda a ordem entre renders e o React quebra.
+  // `ProfileEditorSidebar` é `memo` e esta é a única prop que era recriada a cada
+  // render, então sem isto o `memo` nunca segurava nada. Achado do CodeRabbit.
+  const handleSelectPart = useCallback((partId: ProfilePartId) => {
+    setActivePartId(partId);
+    const target = document.getElementById(profilePartDomId(partId));
+    // `scroll-margin-top` da seção (ProfileEditPage.css) tira o título de baixo
+    // do header sticky; sem ele o mestre clicaria e cairia num título invisível.
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
 
   // Marca a parte ativa conforme o mestre rola: a lateral acompanha a leitura
   // em vez de só responder a clique. `rootMargin` superior de -104px é a altura
@@ -677,14 +697,6 @@ function TabMestre() {
   }, []);
 
   if (!profile) return null;
-
-  const handleSelectPart = (partId: ProfilePartId) => {
-    setActivePartId(partId);
-    const target = document.getElementById(profilePartDomId(partId));
-    // `scroll-margin-top` da seção (ProfileEditPage.css) tira o título de baixo
-    // do header sticky; sem ele o mestre clicaria e cairia num título invisível.
-    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
 
   // Endereço público real (§13.15): a rota canônica é `/mestre/<slug>` — a que
   // tem os 5 consumidores no app, incluindo o "Ver perfil público" do topo

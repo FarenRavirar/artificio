@@ -39,6 +39,22 @@ interface Rascunho {
   systemId: string;
 }
 
+/**
+ * Estado inicial do rascunho de uma linha: os valores que a PRÓPRIA linha já traz.
+ *
+ * Fonte única de propósito. Enquanto `rascunhoDe` partia do item e `editar` partia de um
+ * default fixo `'style'`, as duas discordavam sobre a mesma linha ainda não editada, e o
+ * primeiro clique num resultado de busca rebaixava uma pendência `kind='system'` a
+ * `style`. Achado do Codex (P1).
+ */
+function rascunhoInicial(item: RoleMapping): Rascunho {
+  return {
+    kind: item.kind,
+    texto: item.target_text ?? item.last_seen_text ?? '',
+    systemId: item.target_system_id ?? '',
+  };
+}
+
 export function RoleMappingsPanel() {
   const [itens, setItens] = useState<RoleMapping[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -100,21 +116,32 @@ export function RoleMappingsPanel() {
   // (estilo, época, letra) seguem confirmáveis por texto.
   const buscarSistemas = useCallback((itemId: string, termo: string) => {
     setBuscaSistema((prev) => ({ ...prev, [itemId]: termo }));
+    // Apagar ou encurtar o termo CANCELA o que já está em voo. Sem isto a busca do termo
+    // anterior seguia viva e repopulava `achados` depois da limpeza, deixando na tela
+    // opções de um texto que não está mais no campo — e clicáveis, o que grava vínculo
+    // errado. O `buscando` também tem de cair, senão o spinner fica permanente para uma
+    // busca que ninguém vai receber. Achado do Codex (P2).
+    window.clearTimeout(buscaTimer.current[itemId]);
+    buscaCtrl.current[itemId]?.abort();
+    delete buscaCtrl.current[itemId];
     if (termo.trim().length < 2) {
       setAchados((prev) => ({ ...prev, [itemId]: [] }));
+      setBuscando((atual) => (atual === itemId ? null : atual));
       return;
     }
     setBuscando(itemId);
     const ctrl = new AbortController();
-    buscaCtrl.current[itemId]?.abort();
     buscaCtrl.current[itemId] = ctrl;
-    window.clearTimeout(buscaTimer.current[itemId]);
     buscaTimer.current[itemId] = window.setTimeout(() => {
+      // `vigente()` guarda TODOS os desfechos, não só o feliz: a busca abortada acima
+      // ainda resolve seu `catch`/`finally`, e sem esta checagem ela limparia os achados
+      // ou desligaria o spinner da busca que a substituiu.
+      const vigente = () => buscaCtrl.current[itemId] === ctrl;
       void discordSyncApi
         .searchSystems(termo.trim(), ctrl.signal)
-        .then((r) => setAchados((prev) => ({ ...prev, [itemId]: r })))
-        .catch(() => setAchados((prev) => ({ ...prev, [itemId]: [] })))
-        .finally(() => setBuscando((atual) => (atual === itemId ? null : atual)));
+        .then((r) => { if (vigente()) setAchados((prev) => ({ ...prev, [itemId]: r })); })
+        .catch(() => { if (vigente()) setAchados((prev) => ({ ...prev, [itemId]: [] })); })
+        .finally(() => { if (vigente()) setBuscando((atual) => (atual === itemId ? null : atual)); });
     }, 300);
   }, []);
 
@@ -129,17 +156,16 @@ export function RoleMappingsPanel() {
     };
   }, []);
 
-  const rascunhoDe = (item: RoleMapping): Rascunho =>
-    rascunhos[item.id] ?? {
-      kind: item.kind,
-      texto: item.target_text ?? item.last_seen_text ?? '',
-      systemId: item.target_system_id ?? '',
-    };
+  const rascunhoDe = (item: RoleMapping): Rascunho => rascunhos[item.id] ?? rascunhoInicial(item);
 
-  const editar = (id: string, patch: Partial<Rascunho>) => {
+  // Recebe o ITEM, não só o id: sem ele não há como derivar `rascunhoInicial`.
+  const editar = (item: RoleMapping, patch: Partial<Rascunho>) => {
+    // Updater funcional, e o fallback derivado do item DENTRO dele: dois patches no
+    // mesmo tick (trocar tipo e escolher sistema em sequência) precisam encadear sobre
+    // o estado já atualizado, não sobre o do render que os agendou.
     setRascunhos((prev) => {
-      const atual = prev[id] ?? { kind: 'style' as RoleMappingKind, texto: '', systemId: '' };
-      return { ...prev, [id]: { ...atual, ...patch } };
+      const base = prev[item.id] ?? rascunhoInicial(item);
+      return { ...prev, [item.id]: { ...base, ...patch } };
     });
   };
 
@@ -276,7 +302,7 @@ export function RoleMappingsPanel() {
                   <div className="flex flex-wrap items-center gap-2">
                     <Select
                       value={rascunho.kind}
-                      onChange={(e) => editar(item.id, { kind: e.target.value as RoleMappingKind })}
+                      onChange={(e) => editar(item, { kind: e.target.value as RoleMappingKind })}
                       aria-label="Tipo do mapeamento"
                     >
                       {(Object.keys(KIND_LABEL) as RoleMappingKind[]).map((k) => (
@@ -310,7 +336,7 @@ export function RoleMappingsPanel() {
                               <li key={sis.id}>
                                 <button
                                   type="button"
-                                  onClick={() => editar(item.id, { systemId: sis.id })}
+                                  onClick={() => editar(item, { systemId: sis.id })}
                                   className={`w-full px-2 py-1 text-left text-sm hover:bg-[var(--fill)] ${
                                     rascunho.systemId === sis.id ? 'bg-[var(--fill)] font-semibold' : ''
                                   }`}
@@ -332,7 +358,7 @@ export function RoleMappingsPanel() {
                     ) : (
                       <TextInput
                         value={rascunho.texto}
-                        onChange={(e) => editar(item.id, { texto: e.target.value })}
+                        onChange={(e) => editar(item, { texto: e.target.value })}
                         placeholder="O que este id significa"
                         aria-label="Significado do id"
                         className="min-w-56 flex-1"

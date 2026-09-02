@@ -32,6 +32,27 @@
 
 const API = "https://api.cloudflare.com/client/v4";
 
+/**
+ * Remove as barras finais. Sem regex de propósito: `/\/+$/` é quadrática, porque sem
+ * âncora à esquerda o motor tenta cada posição de partida e cada uma reconsome o resto
+ * das barras. Não é alerta teórico — medido em 2026-09-02, `'/'.repeat(60000)` levou
+ * **2,6 segundos**; este laço leva 1,1 ms com 200 mil caracteres. `PUBLIC_SITE_URL` é
+ * variável de ambiente, não entrada de usuário, mas o custo de escrever a forma linear
+ * é zero e assim a função não vira armadilha se alguém a reaproveitar com outro dado.
+ * Achado do Sonar.
+ */
+function semBarraFinal(s: string): string {
+  let fim = s.length;
+  while (fim > 0 && s[fim - 1] === "/") fim--;
+  return s.slice(0, fim);
+}
+
+/** Envelope padrão da API v4 da Cloudflare. Tudo opcional: é dado de fora, não contrato. */
+interface CloudflareEnvelope {
+  success?: boolean;
+  errors?: Array<{ code?: number; message?: string } | null>;
+}
+
 export interface PurgeResult {
   attempted: boolean;
   ok?: boolean;
@@ -57,7 +78,7 @@ export interface PurgeResult {
  * jogaria fora cache alheio.
  */
 function prefixosDoSite(base: string): string[] {
-  const host = base.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  const host = semBarraFinal(base.replace(/^https?:\/\//, ""));
   // `www` é hostname próprio na regra de cache da zona e tem entradas próprias no cache,
   // então o apex purga os dois. Só o APEX ganha o par: em `beta.artificiorpg.com` um
   // `www.beta.…` não existe e seria prefixo morto na chamada (medido em 2026-09-02, beta
@@ -75,7 +96,7 @@ function prefixosDoSite(base: string): string[] {
 export async function purgeCache(): Promise<PurgeResult> {
   const token = process.env.CLOUDFLARE_PURGE_TOKEN;
   const zone = process.env.CLOUDFLARE_ZONE_ID;
-  const base = (process.env.PUBLIC_SITE_URL || "").replace(/\/+$/, "");
+  const base = semBarraFinal(process.env.PUBLIC_SITE_URL || "");
 
   if (!token || !zone) return { attempted: false, reason: "sem CLOUDFLARE_PURGE_TOKEN/ZONE_ID" };
   if (!base) return { attempted: false, reason: "sem PUBLIC_SITE_URL" };
@@ -92,6 +113,26 @@ export async function purgeCache(): Promise<PurgeResult> {
     if (!resp.ok) {
       const corpo = await resp.text().catch(() => "");
       return { attempted: true, ok: false, reason: `HTTP ${resp.status} ${corpo.slice(0, 200)}` };
+    }
+
+    // `resp.ok` NÃO basta: a API da Cloudflare responde **200 com `success: false`** em
+    // erro de negócio — token sem `Cache Purge` nesta zona, prefixo fora dela, zona
+    // errada. Confiar só no status HTTP faria a purga falhada reportar `ok: true`, o
+    // editor anunciaria "Publicado e no ar", e a borda seguiria servindo o HTML velho:
+    // exatamente o incidente de 2026-09-02 que esta feature existe para impedir, agora
+    // com um selo de sucesso por cima. Achado do CodeRabbit.
+    const envelope = (await resp.json().catch(() => null)) as CloudflareEnvelope | null;
+    if (envelope?.success !== true) {
+      const erros = (envelope?.errors ?? [])
+        .map((e) => (e?.code ? `${e.code}: ${e.message ?? ""}` : e?.message ?? ""))
+        .filter(Boolean)
+        .join("; ");
+      return {
+        attempted: true,
+        ok: false,
+        // Envelope ilegível também cai aqui: não dá para afirmar que purgou.
+        reason: erros ? erros.slice(0, 200) : "resposta da Cloudflare sem success:true",
+      };
     }
     return { attempted: true, ok: true, purged: prefixes.length };
   } catch (e) {

@@ -73,9 +73,11 @@ export interface SaveResult {
 export type JobPhase = "iniciando" | "exportando" | "build" | "busca" | "publicando" | "purgando" | "concluido";
 /** Resultado da purga do cache da borda. `attempted: false` = ambiente sem Cloudflare. */
 export interface PurgeResult { attempted: boolean; ok?: boolean; purged?: number; reason?: string; }
-const JOB_PHASES: readonly JobPhase[] = [
+// `Set` e nao array: o unico uso e teste de pertencimento na validacao de fronteira
+// abaixo, e a ordem nao importa aqui (quem ordena as fases e o servidor). Achado do Sonar.
+const JOB_PHASES: ReadonlySet<JobPhase> = new Set<JobPhase>([
   "iniciando", "exportando", "build", "busca", "publicando", "purgando", "concluido",
-];
+]);
 
 const texto = (v: unknown): string | undefined => (typeof v === "string" ? v : undefined);
 
@@ -105,7 +107,7 @@ function normalizeJob(v: unknown): JobState | null {
     ok: typeof o.ok === "boolean" ? o.ok : undefined,
     code: typeof o.code === "number" ? o.code : null,
     logTail: texto(o.logTail),
-    phase: JOB_PHASES.includes(phase as JobPhase) ? (phase as JobPhase) : undefined,
+    phase: JOB_PHASES.has(phase as JobPhase) ? (phase as JobPhase) : undefined,
     purge: normalizePurge(o.purge),
   };
 }

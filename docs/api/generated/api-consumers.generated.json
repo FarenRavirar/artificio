@@ -1106,7 +1106,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.fetchMessages",
-      "line": 170
+      "line": 191
     },
     {
       "app": "mesas-frontend",
@@ -1166,7 +1166,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getMessages",
-      "line": 126
+      "line": 147
     },
     {
       "app": "mesas-frontend",
@@ -1176,7 +1176,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.updateMessage",
-      "line": 191
+      "line": 212
     },
     {
       "app": "mesas-frontend",
@@ -1186,7 +1186,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.diagnoseMessageContent",
-      "line": 221
+      "line": 242
     },
     {
       "app": "mesas-frontend",
@@ -1196,7 +1196,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.parseMessage",
-      "line": 205
+      "line": 226
     },
     {
       "app": "mesas-frontend",
@@ -1206,7 +1206,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.updateMessagesBatch",
-      "line": 295
+      "line": 316
     },
     {
       "app": "mesas-frontend",
@@ -1216,7 +1216,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.deleteMessagesBatch",
-      "line": 373
+      "line": 394
     },
     {
       "app": "mesas-frontend",
@@ -1226,7 +1226,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.parseBatch",
-      "line": 256
+      "line": 277
     },
     {
       "app": "mesas-frontend",
@@ -1256,7 +1256,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.listRoleMappings",
-      "line": 74
+      "line": 90
     },
     {
       "app": "mesas-frontend",
@@ -1266,7 +1266,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.updateRoleMapping",
-      "line": 172
+      "line": 198
     },
     {
       "app": "mesas-frontend",
@@ -1276,7 +1276,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.deleteRoleMapping",
-      "line": 188
+      "line": 214
     },
     {
       "app": "mesas-frontend",
@@ -1326,7 +1326,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getSources",
-      "line": 107
+      "line": 128
     },
     {
       "app": "mesas-frontend",
@@ -1356,7 +1356,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.reingestForce",
-      "line": 239
+      "line": 260
     },
     {
       "app": "mesas-frontend",
@@ -2816,7 +2816,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 380
+      "line": 382
     },
     {
       "app": "site-admin",
@@ -2826,7 +2826,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 423
+      "line": 425
     }
   ]
 }

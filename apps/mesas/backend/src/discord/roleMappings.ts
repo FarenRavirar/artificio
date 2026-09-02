@@ -35,7 +35,7 @@ const EMOJI_MENTION_RE = /<a?:[\w~]+:(\d{15,25})>/g;
  * O grupo 2 captura o resto da palavra, que é a evidência de qual letra o emoji
  * representa — o export não traz o nome real do emoji em lugar nenhum.
  */
-const CAPITULAR_RE = /<a?:[\w~]+:(\d{15,25})>([\p{L}][\p{L}\s]{0,40})/gu;
+const CAPITULAR_RE = /<a?:[\w~]+:(\d{15,25})>(\p{L}[\p{L}\s]{0,40})/gu;
 
 /**
  * Rótulo da linha → significado. As chaves espelham os rótulos que o parser já
@@ -249,8 +249,10 @@ export async function carregarMapeamentos(
  */
 function textoAlvo(m: MapeamentoResolvido): string | null {
   const bruto = m.kind === 'system' ? m.target_system_name : m.target_text;
-  const limpo = bruto?.trim();
-  return limpo ? limpo : null;
+  // `|| null` e nao `?? null`: string VAZIA tambem tem de virar `null` aqui, senao
+  // `aplicarMapeamentos` trocaria a mencao por nada e o rotulo ficaria orfao. Achado
+  // do Sonar (a ternaria era redundante, mas o `||` e semantico, nao estilo).
+  return bruto?.trim() || null;
 }
 
 export function aplicarMapeamentos(

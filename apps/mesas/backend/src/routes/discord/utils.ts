@@ -623,12 +623,20 @@ export async function parseDiscordMessage(
       console.warn('[roleMappings] falha ao carregar (parse segue sem tradução):', err);
       return new Map<string, DiscordRoleMapping>();
     }),
-    // MESMO fallback do parser: anuncio de forum poe o conteudo no embed, e observar
-    // so `content_raw` deixava a fila de revisao vazia exatamente nos servidores que
-    // mais usam role como tag. Achado do CodeRabbit.
+    // Observa `content_raw` E os embeds, SOMADOS — não um ou outro. O parser escolhe uma
+    // fonte porque precisa de UM corpo; a observação não escolhe nada, ela só aprende
+    // ids, e todo id visto é evidência. Com `||`, mensagem que tem as duas coisas (corpo
+    // de uma linha + campos no embed, arranjo comum em fórum) nunca ensinava as roles do
+    // embed, e elas não chegavam à fila de revisão. `registrarObservacoes` já deduplica
+    // por id, então id repetido nas duas fontes continua virando uma linha só. Achado do
+    // CodeRabbit.
     registrarObservacoes(
       guildId,
-      observarIdsDoAnuncio(raw.content_raw?.trim() || extractBodyFromEmbeds(raw.embeds ?? [])),
+      observarIdsDoAnuncio(
+        [raw.content_raw?.trim() ?? '', extractBodyFromEmbeds(raw.embeds ?? [])]
+          .filter(Boolean)
+          .join('\n'),
+      ),
     ).catch((err: unknown) => {
       console.warn('[roleMappings] falha ao registrar observação (parse segue):', err);
     }),

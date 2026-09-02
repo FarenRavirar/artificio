@@ -44,27 +44,32 @@ export interface MatchEntry {
 /** Texto util dentro dos embeds. Exportada para que a OBSERVACAO de roles
  * (`routes/discord/utils.ts`) veja o mesmo conteudo que o parser ve — anuncio
  * de forum vive no embed, e sem isto ele nunca ensinaria role nenhuma. */
-export function extractBodyFromEmbeds(embeds: unknown[]): string {
-  if (!embeds || embeds.length === 0) return '';
-  const parts: string[] = [];
-  for (const embed of embeds) {
-    if (typeof embed !== 'object' || embed === null) continue;
-    const e = embed as Record<string, unknown>;
-    if (typeof e.description === 'string' && e.description.trim()) {
-      parts.push(e.description.trim());
-    }
-    if (Array.isArray(e.fields)) {
-      for (const field of e.fields) {
-        if (typeof field === 'object' && field !== null) {
-          const f = field as Record<string, unknown>;
-          if (typeof f.name === 'string' && typeof f.value === 'string') {
-            parts.push(`${f.name}: ${f.value}`);
-          }
-        }
-      }
+/** `nome: valor` de UM campo de embed, ou `null` se o campo nao tiver os dois. */
+function textoDoCampoDeEmbed(field: unknown): string | null {
+  if (typeof field !== 'object' || field === null) return null;
+  const f = field as Record<string, unknown>;
+  if (typeof f.name !== 'string' || typeof f.value !== 'string') return null;
+  return `${f.name}: ${f.value}`;
+}
+
+/** Trechos uteis de UM embed: a description, depois cada campo. */
+function textosDeUmEmbed(embed: unknown): string[] {
+  if (typeof embed !== 'object' || embed === null) return [];
+  const e = embed as Record<string, unknown>;
+  const partes: string[] = [];
+  if (typeof e.description === 'string' && e.description.trim()) partes.push(e.description.trim());
+  if (Array.isArray(e.fields)) {
+    for (const field of e.fields) {
+      const texto = textoDoCampoDeEmbed(field);
+      if (texto) partes.push(texto);
     }
   }
-  return parts.join('\n');
+  return partes;
+}
+
+export function extractBodyFromEmbeds(embeds: unknown[]): string {
+  if (!embeds || embeds.length === 0) return '';
+  return embeds.flatMap(textosDeUmEmbed).join('\n');
 }
 
 function readStringField(value: Record<string, unknown>, key: string): string | null {
@@ -1487,7 +1492,15 @@ const DAY_TO_DEFINE_PATTERNS = [
   // nada entre eles, então o "da mesa:" interposto derrubava o casamento e o
   // dia caía em `null` — a UI passava a pedir seleção de um dado que o mestre
   // JÁ havia declarado como indefinido.
-  /\bdias?(?:\s+da\s+(?:semana|mesa))?\s*(?:e\s+hor[aá]rios?(?:\s+da\s+mesa)?)?\s*:?\s*a\s+(?:decidir|combinar|definir)\b/,
+  //
+  // A forma `\s*(?:e\s+…)?\s*:?\s*` era ReDoS REAL, nao alerta teorico: os tres `\s*`
+  // separados por opcionais repartem a mesma sequencia de espacos de N maneiras, e o
+  // motor testa todas antes de desistir. Medido em 2026-09-02 com "dias" + 5 mil
+  // espacos + "X": 27 SEGUNDOS de CPU. O texto vem de anuncio do Discord — entrada
+  // externa —, entao o custo e de quem quiser paga-lo. A forma abaixo e deterministica
+  // (`[\s:]*` como classe unica, e o `\s+` do opcional consumindo o proprio separador):
+  // 0,28 ms com 50 mil caracteres. Achado do Sonar.
+  /\bdias?(?:\s+da\s+(?:semana|mesa))?(?:\s+e\s+hor[aá]rios?(?:\s+da\s+mesa)?)?[\s:]*a\s+(?:decidir|combinar|definir)\b/,
   /\bhor[aá]rios?\s+a\s+(?:decidir|combinar|definir)\b/,
   /\bdia(?:\s+da\s+semana)?\s+a\s+(?:decidir|combinar|definir)\b/,
   // "Sem dia fixo": forma negativa do mesmo sentinela, frequente nos anúncios
@@ -2975,8 +2988,12 @@ export function parseDiscordAnnouncement(
   // CodeRabbit.
   const threadName = tratar(stripNullBytes(message.discord_thread_name ?? ''));
 
+  // `stripNullBytes` nos DOIS caminhos: o embed é tão externo quanto o `content_raw`, e
+  // sanitizar só um deixava o `\x00` chegar ao draft justamente no caso de fórum, onde o
+  // embed é a única fonte de texto. Postgres recusa `\x00` em `text`. Achado do CodeRabbit.
   const corpoNormalizado =
-    tratar(stripNullBytes(message.content_raw ?? '')) || tratar(extractBodyFromEmbeds(message.embeds ?? []));
+    tratar(stripNullBytes(message.content_raw ?? '')) ||
+    tratar(stripNullBytes(extractBodyFromEmbeds(message.embeds ?? [])));
 
   // DEB-058-XX: linhas separadoras de seção (▬▬▬, ━━━, ═══) removidas ANTES de qualquer
   // extração de campo — nunca contaminam título/sistema/descrição/vagas.

@@ -73,7 +73,19 @@ function spawnJob(name: string, script: string): StartResult {
   child.stdout.on("data", append);
   child.stderr.on("data", append);
 
+  // `error` e `close` NÃO são exclusivos: um spawn que falha (script ausente, permissão)
+  // emite os dois, nesta ordem. Sem a trava, `finish` roda duas vezes e a segunda é
+  // destrutiva de verdade — a primeira já disparou o rebuild enfileirado (fim desta
+  // função), e a segunda sobrescreve `current` com o estado TERMINAL do job velho por
+  // cima do job novo que acabou de começar. O painel então acompanha um "concluído"
+  // enquanto o rebuild real corre invisível, e o autor conclui que a publicação travou.
+  // Achado do CodeRabbit.
+  let encerrado = false;
+
   const finish = async (ok: boolean, code: number | null, tail: string) => {
+    if (encerrado) return;
+    encerrado = true;
+
     const base: JobState = {
       name,
       startedAt: current!.startedAt,

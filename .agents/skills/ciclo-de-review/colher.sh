@@ -48,8 +48,13 @@ FALHAS=0
 # Duas armadilhas ja pagas aqui, nesta ordem:
 #
 #   1. `PIPESTATUS` nao atravessa `$( )`, e com `pipefail` o `$?` de fora e o do ULTIMO
-#      estagio do pipe — o `jq`, que sai 5 quando o filtro nao produz saida (vazio
-#      legitimo, nao falha). Medido na PR #304: a colheita acusava 2 falhas inexistentes.
+#      estagio do pipe, nao o da consulta. Medido na PR #304: a colheita acusava 2
+#      falhas inexistentes.
+#      CORRECAO DA PREMISSA (medido em 2026-09-02, e o comentario anterior aqui dizia o
+#      contrario): `jq` NAO sai 5 por saida vazia. Array vazio e `[][]` do `--paginate`
+#      devolvem rc=0 com saida vazia; rc=5 e erro de verdade — JSON invalido, binario
+#      ausente, filtro que nao compila. Foi essa premissa errada que justificou jogar o
+#      status do `jq` fora, e por isso o pos-processamento passou a falhar em silencio.
 #
 #   2. `bruto="$(consultar ...)"` NAO resolve: a substituicao de comando tambem e
 #      subshell, entao `RC_CONSULTA=$?` era atribuido la dentro e morria junto com ela —
@@ -63,7 +68,44 @@ RC_CONSULTA=0
 consultar() {
   "$@" >"$BRUTO" 2>&1
   RC_CONSULTA=$?
+  # `return 0` explicito, e nao `return $RC_CONSULTA`: o rc da consulta viaja pela
+  # VARIAVEL, de proposito. A colheita CONTA falhas em vez de abortar na primeira
+  # (uma review pode faltar sem que as outras tres faltem), e o rc pelo exit status
+  # convidaria um `set -e` futuro a matar o script justamente no caso que ele existe
+  # para relatar. Explicitar tambem evita que o rc do proximo comando escape daqui
+  # por acidente, que era o defeito da forma original. Achado do Sonar.
+  return 0
 }
+
+# Aplica o filtro `jq` sobre `$BRUTO` e COMBINA seu status com o da consulta.
+#
+# Sem isto, qualquer falha do pos-processamento — `jq` ausente, JSON truncado, formato
+# que mudou do lado do GitHub — era engolida pelo `2>/dev/null` enquanto `emitir` recebia
+# so o rc do `gh`, ja bem-sucedido. A secao entao imprimia `(nenhum)` e `FALHAS` ficava
+# em zero: a colheita terminava "completa" sem ter interpretado uma linha de resposta,
+# que e exatamente o desfecho que este script existe para tornar impossivel. Achado do
+# Codex (P1).
+#
+# `RC_FILTRO` recebe o pior dos dois: consulta falhou tem precedencia; senao, o do `jq`.
+RC_FILTRO=0
+filtrar() {
+  local rc_consulta="$1" prog="$2" rc_jq
+  SAIDA_FILTRO="$(< "$BRUTO" jq -s -r "$prog" 2>/dev/null)"
+  rc_jq=$?
+  if [[ $rc_consulta -ne 0 ]]; then
+    RC_FILTRO=$rc_consulta
+  else
+    RC_FILTRO=$rc_jq
+  fi
+  return 0
+}
+
+# Onde ainda ha `grep`/`sed` DEPOIS do `jq`, o padrao e: `filtrar` primeiro (capturando
+# o status do `jq` sozinho), e so entao o pos-processamento sobre `$SAIDA_FILTRO`, numa
+# linha separada. `PIPESTATUS` NAO resolveria: ele nao atravessa `$( )` — medido em
+# 2026-09-02, dentro da substituicao ele reflete a atribuicao e nao o `jq` —, que e a
+# mesma armadilha ja documentada no topo deste arquivo. E `grep` sem match sai 1, que
+# aqui e ausencia legitima de achado e nunca deve contar como falha.
 
 emitir() {
   local saida="$1" rc="$2"
@@ -103,16 +145,16 @@ emitir "$out" $rc
 echo
 echo "== 2+3. achados inline (CodeRabbit, Codex) =="
 consultar gh api "repos/$repo/pulls/$pr/comments" --paginate; rc=$RC_CONSULTA
-out="$(< "$BRUTO" jq -s -r 'add | .[] | select(.created_at > env.DESDE) | "  [\(.user.login)] \(.path):\(.line // "-")\n\(.body)\n  ---"' 2>/dev/null)"
-emitir "$out" $rc
+filtrar $rc 'add | .[] | select(.created_at > env.DESDE) | "  [\(.user.login)] \(.path):\(.line // "-")\n\(.body)\n  ---"'
+emitir "$SAIDA_FILTRO" $RC_FILTRO
 
 echo
 echo "== 4. Sonar / issue comments =="
 # Sonar comenta como issue; o CodeRabbit EDITA um comentario antigo para anunciar
 # limite ou progresso - por isso updated_at, nao created_at.
 consultar gh api "repos/$repo/issues/$pr/comments" --paginate; rc=$RC_CONSULTA
-out="$(< "$BRUTO" jq -s -r 'add | .[] | select(.updated_at > env.DESDE) | select(.user.login|test("sonar|coderabbit";"i")) | "  \(.user.login) (editado \(.updated_at))"' 2>/dev/null)"
-emitir "$out" $rc
+filtrar $rc 'add | .[] | select(.updated_at > env.DESDE) | select(.user.login|test("sonar|coderabbit";"i")) | "  \(.user.login) (editado \(.updated_at))"'
+emitir "$SAIDA_FILTRO" $RC_FILTRO
 
 # QUAL commit o Sonar analisou. O comentario dele NAO cita SHA - so
 # `pullRequest=<N>` - entao pela data e impossivel saber se reporta o commit
@@ -134,7 +176,16 @@ if [[ $rc -ne 0 ]]; then
   FALHAS=$((FALHAS + 1))
   sonar_run=""
 else
+  # `PIPESTATUS[0]` e nao `$?`: com `pipefail` o `$?` seria o do `head`, que sai 0
+  # sempre. Falha do `jq` aqui (JSON truncado, formato mudado) deixaria `sonar_run`
+  # vazio e cairia no ramo "SEM scan do Sonar" logo abaixo — a mesma conclusao inventada
+  # que a consulta via `consultar` ja evita. Achado do Codex (P1).
   sonar_run="$(< "$BRUTO" jq -r '.check_runs[] | select(.name|test("sonar";"i")) | "\(.status)|\(.conclusion)|\(.started_at)|\(.completed_at)"' 2>/dev/null | head -1)"
+  if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
+    echo "     !! FALHA ao interpretar o check-run do Sonar - NAO concluir nada"
+    FALHAS=$((FALHAS + 1))
+    rc=1
+  fi
 fi
 if [[ $rc -eq 0 && -z "$sonar_run" ]]; then
   echo "     * SEM scan do Sonar no HEAD ($head_curto)."
@@ -151,8 +202,8 @@ fi
 echo
 echo "== reviews desde $DESDE =="
 consultar gh api "repos/$repo/pulls/$pr/reviews" --paginate; rc=$RC_CONSULTA
-out="$(< "$BRUTO" jq -s -r 'add | .[] | select(.submitted_at > env.DESDE) | "  \(.submitted_at) \(.user.login) \(.state)"' 2>/dev/null)"
-emitir "$out" $rc
+filtrar $rc 'add | .[] | select(.submitted_at > env.DESDE) | "  \(.submitted_at) \(.user.login) \(.state)"'
+emitir "$SAIDA_FILTRO" $RC_FILTRO
 
 # NITPICKS e demais secoes colapsadas vivem no BODY DA REVIEW, nao na API de
 # comentarios - medido: `issues/comments` e `pulls/comments` devolveram ZERO
@@ -166,7 +217,13 @@ consultar gh api graphql --paginate -F owner="$owner" -F nome="$nome" -F pr="$pr
 # SEM `head`: truncar a colheita e o mesmo defeito que `|| true` — o laco encerraria
 # com achado por ler, so que por corte de saida em vez de erro engolido. Uma PR com
 # muitas secoes colapsadas e exatamente o caso em que perder as ultimas custa caro.
-out="$(< "$BRUTO" grep -oiE '<summary>[^<]*\([0-9]+\)</summary>|\*\*[A-Z][^*]{10,90}\*\*' | sed 's/^/  /')"
+# Aqui nao ha `jq`: o corpo da review e texto, e o `grep` roda sobre `$BRUTO`.
+# Status do `grep` capturado FORA de qualquer pipe — 1 e "sem secao colapsada",
+# ausencia legitima; >1 e erro real (arquivo ilegivel, regex invalida).
+bruto_secoes="$(< "$BRUTO" grep -oiE '<summary>[^<]*\([0-9]+\)</summary>|\*\*[A-Z][^*]{10,90}\*\*')"
+rc_grep=$?
+if [[ $rc -eq 0 && $rc_grep -gt 1 ]]; then rc=$rc_grep; fi
+out="$(printf '%s' "$bruto_secoes" | sed 's/^/  /')"
 emitir "$out" $rc
 
 echo
@@ -174,21 +231,26 @@ echo "== metricas do Sonar (gate passa mesmo com issue) =="
 # O Quality Gate PASSA com issue aberta - "Quality Gate Passed" NAO significa
 # "sem achado". Ler a contagem, e buscar a issue na API publica.
 consultar gh api "repos/$repo/issues/$pr/comments" --paginate; rc=$RC_CONSULTA
-out="$(< "$BRUTO" jq -s -r 'add | map(select(.user.login=="sonarqubecloud[bot]")) | last | .body // ""' 2>/dev/null | grep -oE '[0-9]+ (New issue|Accepted issue|Security Hotspot)s?|[0-9.]+% (Coverage|Duplication)' | sed 's/^/  /')"
-emitir "$out" $rc
+filtrar $rc 'add | map(select(.user.login=="sonarqubecloud[bot]")) | last | .body // ""'
+out="$(printf '%s' "$SAIDA_FILTRO" | grep -oE '[0-9]+ (New issue|Accepted issue|Security Hotspot)s?|[0-9.]+% (Coverage|Duplication)' | sed 's/^/  /')"
+emitir "$out" $RC_FILTRO
 
 echo
 echo "   issues abertas no SonarCloud:"
 chave="$(echo "$repo" | tr '/' '_')"
 consultar curl -sf "https://sonarcloud.io/api/issues/search?componentKeys=$chave&pullRequest=$pr&issueStatuses=OPEN,CONFIRMED&ps=20"; rc=$RC_CONSULTA
-out="$(< "$BRUTO" jq -r '.issues[]? | "     \(.severity) | \(.component | split(":")|last):\(.line) | \(.message)"' 2>/dev/null)"
-emitir "$out" $rc
+# `jq` sem `-s`: a resposta e um objeto unico, nao o fluxo de arrays do `--paginate`.
+SAIDA_FILTRO="$(< "$BRUTO" jq -r '.issues[]? | "     \(.severity) | \(.component | split(":")|last):\(.line) | \(.message)"' 2>/dev/null)"
+rc_jq=$?
+if [[ $rc -eq 0 ]]; then rc=$rc_jq; fi
+emitir "$SAIDA_FILTRO" $rc
 
 echo
 echo "== marcador terminal do CodeRabbit =="
 consultar gh api "repos/$repo/issues/$pr/comments" --paginate; rc=$RC_CONSULTA
-out="$(< "$BRUTO" jq -s -r 'add | .[] | select(.updated_at > env.DESDE) | .body' 2>/dev/null | grep -oiE 'Actionable comments posted: [0-9]+|Review limit reached|review in progress' | sort -u | sed 's/^/  /')"
-emitir "$out" $rc
+filtrar $rc 'add | .[] | select(.updated_at > env.DESDE) | .body'
+out="$(printf '%s' "$SAIDA_FILTRO" | grep -oiE 'Actionable comments posted: [0-9]+|Review limit reached|review in progress' | sort -u | sed 's/^/  /')"
+emitir "$out" $RC_FILTRO
 
 echo
 if [[ $FALHAS -gt 0 ]]; then

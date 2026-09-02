@@ -182,4 +182,42 @@ describe('alvo do mapeamento por tipo (constraint da migration 165)', () => {
     expect(draft?.table.setting_styles).toContain('Roleplay Pesado');
     expect(JSON.stringify(draft)).not.toContain(ROLE_ID);
   });
+
+  it('byte nulo vindo do EMBED nao chega ao draft', () => {
+    // Antes, `stripNullBytes` cobria so o caminho do `content_raw`; o do embed passava
+    // direto. Em anuncio de forum o embed e a UNICA fonte de texto, entao era
+    // exatamente ali que o U+0000 chegava ao draft — e o Postgres recusa esse byte em
+    // coluna `text`. Achado do CodeRabbit.
+    //
+    // Duas armadilhas na hora de escrever ESTE teste, ambas pagas:
+    //   1. `String.fromCharCode(0)` e nao literal no fonte — o byte cru nao sobrevive
+    //      a edicao do arquivo, e o teste passaria sem exercitar nada.
+    //   2. Asserir sobre `JSON.stringify(draft)` NAO mede: o stringify escapa o byte
+    //      como a sequencia de 6 caracteres `\u0000`, entao `.includes(NUL)` da false
+    //      mesmo com o byte presente no campo. Medido: a versao sem a correcao passava
+    //      nessa forma. Asserir sobre os CAMPOS.
+    const NUL = String.fromCharCode(0);
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        content_raw: '',
+        embeds: [
+          {
+            description: [
+              'Sistema: Vampiro',
+              'Estilo: Investigacao',
+              'Vagas: 3',
+              '',
+              `Uma cronica sombria${NUL} em Chicago.`,
+            ].join('\n'),
+          },
+        ],
+      }),
+    );
+
+    expect(draft).not.toBeNull();
+    expect(draft?.table.description ?? []).not.toContain(NUL);
+    expect(draft?.table.system_name ?? '').not.toContain(NUL);
+    // E o conteudo continua chegando: sanitizar nao pode esvaziar o draft.
+    expect(draft?.table.description ?? []).toContain('Chicago');
+  });
 });

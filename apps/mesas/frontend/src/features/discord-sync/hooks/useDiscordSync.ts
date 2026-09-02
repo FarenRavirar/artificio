@@ -23,6 +23,28 @@ export const MESSAGE_STATUS_COLORS: Record<DiscordImportMessageStatus, string> =
 
 export type PanelTab = 'configuracao' | 'fontes' | 'mensagens' | 'drafts' | 'import-json';
 
+/**
+ * Opções de montagem do hook.
+ *
+ * `tabInicial` existe porque os dois efeitos de carga de mensagens são gateados em
+ * `tab === 'mensagens'`, e esse estado só é alterado pelo painel de abas do
+ * DiscordSyncPanel. Quando o hook é montado DIRETAMENTE por uma view que já é a de
+ * mensagens — `MessagesView`, tanto a aba normal quanto a Ignoradas —, ninguém troca a
+ * `tab`, os efeitos nunca disparam, e a tela abre afirmando "Nenhuma mensagem
+ * encontrada" sem ter feito o GET; só carrega depois de o admin clicar em Recarregar.
+ * O Codex (P2) apontou isso na aba Ignoradas; a aba normal tinha o MESMO defeito, pela
+ * mesma causa, e as duas são corrigidas aqui.
+ *
+ * Valor inicial e não efeito de sincronização: `setState` dentro de efeito encadeia
+ * render em cascata, e não há o que sincronizar — o valor é fixo pela view que montou.
+ */
+export interface UseDiscordSyncOptions {
+  /** Filtra a lista num status desde a primeira carga (aba Ignoradas: `'ignored'`). */
+  statusInicial?: DiscordImportMessageStatus;
+  /** Aba em que o hook nasce. Views de mensagens passam `'mensagens'`. */
+  tabInicial?: PanelTab;
+}
+
 export const REVIEW_ACTIONS: Array<{ status: DiscordImportMessageStatus; label: string; className: string }> = [
   { status: 'needs_review', label: 'Enviar para revisão', className: 'bg-orange-600 hover:bg-orange-700' },
   { status: 'parsed', label: 'Marcar como conferida', className: 'bg-blue-600 hover:bg-blue-700' },
@@ -65,8 +87,9 @@ export function didDiscordApiOmitBody(message: DiscordMessage): boolean {
   return Boolean(message.discord_thread_id && message.discord_thread_name && !message.content_raw.trim());
 }
 
-export function useDiscordSync(statusInicial?: DiscordImportMessageStatus) {
-  const [tab, setTab] = useState<PanelTab>('configuracao');
+export function useDiscordSync(opcoes?: UseDiscordSyncOptions) {
+  const { statusInicial, tabInicial } = opcoes ?? {};
+  const [tab, setTab] = useState<PanelTab>(tabInicial ?? 'configuracao');
   const [sources, setSources] = useState<DiscordSource[]>([]);
   const [messages, setMessages] = useState<DiscordMessage[]>([]);
   const [loadingSources, setLoadingSources] = useState(false);
@@ -75,9 +98,7 @@ export function useDiscordSync(statusInicial?: DiscordImportMessageStatus) {
   const [reingestingSourceId, setReingestingSourceId] = useState<string | null>(null);
   const [parsingBatch, setParsingBatch] = useState(false);
   // `statusInicial` (spec 099): a aba "Ignoradas" nasce filtrada em `ignored`.
-  // Como VALOR INICIAL e não como efeito de sincronização — `setState` dentro de
-  // efeito encadeia render em cascata, e aqui não há o que sincronizar: o valor
-  // é fixo pela aba que montou o hook.
+  // Valor inicial, não efeito — ver `UseDiscordSyncOptions`.
   const [messageStatusFilter, setMessageStatusFilter] = useState<DiscordImportMessageStatus | ''>(
     statusInicial ?? '',
   );

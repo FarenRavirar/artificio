@@ -9,6 +9,18 @@ function comCredenciais(site = 'https://artificiorpg.com') {
   process.env.PUBLIC_SITE_URL = site;
 }
 
+/**
+ * Resposta de SUCESSO como a Cloudflare de fato responde: `200` **e** `success: true`
+ * no envelope. Os dois importam — a API responde 200 com `success: false` em erro de
+ * negócio (token sem escopo na zona, prefixo fora dela), e é justamente esse caso que
+ * fazia a purga falhada ser anunciada como "no ar".
+ */
+const respostaOk = () => ({
+  ok: true,
+  text: async () => '',
+  json: async () => ({ success: true, errors: [], result: { id: 'zona' } }),
+});
+
 /** Corpo JSON da n-ésima chamada ao fetch. */
 function corpo(spy: ReturnType<typeof vi.fn>, n = 0): Record<string, unknown> {
   return JSON.parse((spy.mock.calls[n][1] as RequestInit).body as string);
@@ -45,7 +57,7 @@ describe('purgeCache', () => {
 
   it('purga por prefixo do host, cobrindo o site inteiro numa chamada', async () => {
     comCredenciais();
-    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, text: async () => '' });
+    const fetchSpy = vi.fn().mockResolvedValue(respostaOk());
     vi.stubGlobal('fetch', fetchSpy);
 
     const r = await purgeCache();
@@ -59,7 +71,7 @@ describe('purgeCache', () => {
 
   it('nunca manda purge_everything: a zona serve os outros subdominios', async () => {
     comCredenciais();
-    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, text: async () => '' });
+    const fetchSpy = vi.fn().mockResolvedValue(respostaOk());
     vi.stubGlobal('fetch', fetchSpy);
 
     await purgeCache();
@@ -71,7 +83,7 @@ describe('purgeCache', () => {
     // Medido em 2026-09-02: beta aponta para `beta.artificiorpg.com`. O par com `www.`
     // so faz sentido no apex; num subdominio seria prefixo morto na chamada.
     comCredenciais('https://beta.artificiorpg.com');
-    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, text: async () => '' });
+    const fetchSpy = vi.fn().mockResolvedValue(respostaOk());
     vi.stubGlobal('fetch', fetchSpy);
 
     await purgeCache();
@@ -81,7 +93,7 @@ describe('purgeCache', () => {
 
   it('nao duplica o host quando PUBLIC_SITE_URL ja e o www', async () => {
     comCredenciais('https://www.artificiorpg.com');
-    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, text: async () => '' });
+    const fetchSpy = vi.fn().mockResolvedValue(respostaOk());
     vi.stubGlobal('fetch', fetchSpy);
 
     await purgeCache();
@@ -91,7 +103,7 @@ describe('purgeCache', () => {
 
   it('barra final sobrando na env nao vira prefixo com barra dupla', async () => {
     comCredenciais('https://artificiorpg.com/');
-    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, text: async () => '' });
+    const fetchSpy = vi.fn().mockResolvedValue(respostaOk());
     vi.stubGlobal('fetch', fetchSpy);
 
     await purgeCache();
@@ -101,7 +113,7 @@ describe('purgeCache', () => {
 
   it('manda o token no Authorization', async () => {
     comCredenciais();
-    const fetchSpy = vi.fn().mockResolvedValue({ ok: true, text: async () => '' });
+    const fetchSpy = vi.fn().mockResolvedValue(respostaOk());
     vi.stubGlobal('fetch', fetchSpy);
 
     await purgeCache();
@@ -133,5 +145,43 @@ describe('purgeCache', () => {
     expect(r.ok).toBe(false);
     expect(r.reason).toContain('403');
     expect(r.reason).toContain('forbidden');
+  });
+
+  it('HTTP 200 com success:false e FALHA — o caso que o status HTTP sozinho esconde', async () => {
+    // A Cloudflare responde 200 em erro de negocio: token sem `Cache Purge` nesta zona,
+    // prefixo fora dela, zona errada. Aceitar so `resp.ok` fazia a purga falhada
+    // reportar sucesso, o editor anunciava "Publicado e no ar", e a borda seguia
+    // servindo o HTML velho — o incidente de 2026-09-02 de novo, agora com selo de
+    // sucesso por cima. Achado do CodeRabbit.
+    comCredenciais();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => '',
+      json: async () => ({
+        success: false,
+        errors: [{ code: 10000, message: 'Authentication error' }],
+      }),
+    }));
+
+    const r = await purgeCache();
+
+    expect(r.attempted).toBe(true);
+    expect(r.ok).toBe(false);
+    expect(r.reason).toContain('10000');
+    expect(r.reason).toContain('Authentication error');
+  });
+
+  it('envelope ilegivel tambem e falha — nao da para afirmar que purgou', async () => {
+    comCredenciais();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () => '',
+      json: async () => { throw new SyntaxError('Unexpected token'); },
+    }));
+
+    const r = await purgeCache();
+
+    expect(r.ok).toBe(false);
+    expect(r.reason).toContain('success');
   });
 });

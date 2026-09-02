@@ -185,4 +185,59 @@ describe('runJob', () => {
 
     expect(jobs.jobBusy()).toBe(false);
   });
+
+  it('error seguido de close encerra UMA vez so', async () => {
+    // `spawn` que falha emite os DOIS eventos, nesta ordem. Sem trava, o segundo
+    // `finish` sobrescrevia o estado com um `code` diferente do primeiro desfecho.
+    const child = fakeChild();
+    mocks.spawn.mockReturnValue(child);
+
+    jobs.runJob('rebuild', 'rebuild');
+    child.emit('error', new Error('pnpm ausente'));
+    await assenta();
+
+    const depoisDoErro = jobs.jobState();
+    expect(depoisDoErro?.ok).toBe(false);
+    expect(depoisDoErro?.code).toBeNull();
+
+    child.fecha(1);
+    await assenta();
+
+    // O `close` posterior NAO pode reescrever o desfecho ja registrado.
+    expect(jobs.jobState()?.code).toBeNull();
+    expect(jobs.jobState()?.finishedAt).toBe(depoisDoErro?.finishedAt);
+  });
+
+  it('error+close NAO derruba o rebuild que ja foi enfileirado e comecou', async () => {
+    // O caso destrutivo: o `finish` do erro dispara o rebuild pendente (single-flight),
+    // e o `close` que chega logo depois sobrescrevia `current` com o estado TERMINAL do
+    // job velho — por cima do job novo que acabara de comecar. O painel passava a
+    // acompanhar um "concluido" enquanto o rebuild real corria invisivel.
+    const primeiro = fakeChild();
+    const segundo = fakeChild();
+    mocks.spawn.mockReturnValueOnce(primeiro).mockReturnValueOnce(segundo);
+
+    jobs.runJob('rebuild', 'rebuild');
+    const inicioDoPrimeiro = jobs.jobState()?.startedAt;
+
+    // Pedido durante o job em curso: fica pendente, roda no fim.
+    expect(jobs.runJob('rebuild', 'rebuild')).toMatchObject({ started: false, queued: true });
+
+    primeiro.emit('error', new Error('pnpm ausente'));
+    await assenta();
+
+    // O segundo rebuild comecou.
+    expect(mocks.spawn).toHaveBeenCalledTimes(2);
+    const emCurso = jobs.jobState();
+    expect(emCurso?.finishedAt).toBeUndefined();
+    expect(emCurso?.startedAt).not.toBe(inicioDoPrimeiro);
+
+    // E o `close` atrasado do PRIMEIRO nao pode encerra-lo.
+    primeiro.fecha(1);
+    await assenta();
+
+    expect(jobs.jobState()?.finishedAt).toBeUndefined();
+    expect(jobs.jobBusy()).toBe(true);
+    expect(jobs.jobState()?.startedAt).toBe(emCurso?.startedAt);
+  });
 });
