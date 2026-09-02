@@ -65,7 +65,7 @@ export function didDiscordApiOmitBody(message: DiscordMessage): boolean {
   return Boolean(message.discord_thread_id && message.discord_thread_name && !message.content_raw.trim());
 }
 
-export function useDiscordSync() {
+export function useDiscordSync(statusInicial?: DiscordImportMessageStatus) {
   const [tab, setTab] = useState<PanelTab>('configuracao');
   const [sources, setSources] = useState<DiscordSource[]>([]);
   const [messages, setMessages] = useState<DiscordMessage[]>([]);
@@ -74,7 +74,13 @@ export function useDiscordSync() {
   const [fetchingSourceId, setFetchingSourceId] = useState<string | null>(null);
   const [reingestingSourceId, setReingestingSourceId] = useState<string | null>(null);
   const [parsingBatch, setParsingBatch] = useState(false);
-  const [messageStatusFilter, setMessageStatusFilter] = useState<DiscordImportMessageStatus | ''>('');
+  // `statusInicial` (spec 099): a aba "Ignoradas" nasce filtrada em `ignored`.
+  // Como VALOR INICIAL e não como efeito de sincronização — `setState` dentro de
+  // efeito encadeia render em cascata, e aqui não há o que sincronizar: o valor
+  // é fixo pela aba que montou o hook.
+  const [messageStatusFilter, setMessageStatusFilter] = useState<DiscordImportMessageStatus | ''>(
+    statusInicial ?? '',
+  );
   const [messageSourceFilter, setMessageSourceFilter] = useState('');
   const [messageWindowFilter, setMessageWindowFilter] = useState<MessageWindowOption>('7d');
   const [selectedMessage, setSelectedMessage] = useState<DiscordMessage | null>(null);
@@ -296,6 +302,75 @@ export function useDiscordSync() {
     }
   };
 
+  // ── Aba "Ignoradas" (spec 099) ────────────────────────────────────────────
+  // Lá a seleção é o inverso da de cima: só interessa o que ESTÁ ignorado.
+  const ignoredMessages = messages.filter(m => m.status === 'ignored');
+  const selectedIgnored = ignoredMessages.filter(m => selectedMessageIds.has(m.id));
+
+  const toggleSelectAllIgnored = () => {
+    setSelectedMessageIds(prev => {
+      if (ignoredMessages.length > 0 && ignoredMessages.every(m => prev.has(m.id))) {
+        return new Set();
+      }
+      return new Set(ignoredMessages.map(m => m.id));
+    });
+  };
+
+  /**
+   * Devolve as ignoradas ao fluxo (`pending`) e JÁ dispara o parse.
+   *
+   * Os dois passos juntos porque separá-los é o que trava hoje: reabrir sem
+   * reparsear deixa a mensagem numa fila que o admin precisa lembrar de rodar,
+   * e o sintoma ("0 rascunhos a partir de 0 mensagens pendentes") não diz que
+   * falta um clique noutra aba.
+   */
+  const handleReprocessSelectedMessages = async () => {
+    const ids = selectedIgnored.map(m => m.id);
+    if (ids.length === 0) return;
+    setIgnoringBatch(true);
+    try {
+      const result = await discordSyncApi.updateMessagesBatch(ids, 'pending');
+      toast.success(`${result.updated} mensagem(ns) devolvida(s) ao fluxo. Reprocessando...`);
+      // Reabrir sem parsear deixaria o trabalho pela metade; o parse-batch varre
+      // `pending` e `error`, que é exatamente onde elas acabaram de cair.
+      await handleParseBatch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao reprocessar em lote.');
+    } finally {
+      setIgnoringBatch(false);
+      setSelectedMessageIds(new Set());
+      loadMessages();
+    }
+  };
+
+  /**
+   * Apaga DEFINITIVAMENTE. É a única saída para reimportar o mesmo arquivo: o
+   * importador não reabre mensagem já conhecida (guarda de `content_hash` em
+   * `chatExporterImportService.ts`), então enquanto a linha existir o JSON
+   * reimportado não devolve nada. Rascunhos vinculados caem por CASCADE.
+   */
+  const handleDeleteSelectedMessages = async () => {
+    const ids = selectedIgnored.map(m => m.id);
+    if (ids.length === 0) return;
+    if (!globalThis.confirm(
+      `Apagar DEFINITIVAMENTE ${ids.length} mensagem(ns)? ` +
+      'Rascunhos vinculados a elas também serão removidos. ' +
+      'Isto libera o arquivo original para ser reimportado do zero.',
+    )) return;
+    setIgnoringBatch(true);
+    try {
+      const result = await discordSyncApi.deleteMessagesBatch(ids);
+      const extra = result.draftsRemoved > 0 ? ` e ${result.draftsRemoved} rascunho(s)` : '';
+      toast.success(`${result.deleted} mensagem(ns)${extra} apagada(s).`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao apagar em lote.');
+    } finally {
+      setIgnoringBatch(false);
+      setSelectedMessageIds(new Set());
+      loadMessages();
+    }
+  };
+
   const handleSelectMessage = (message: DiscordMessage) => {
     setSelectedMessage(message);
     setContentDiagnostic(null);
@@ -317,6 +392,8 @@ export function useDiscordSync() {
     selectedMessage, contentDiagnostic,
     detailRef, queueStats,
     selectedMessageIds, ignoringBatch, ignorableMessages, selectedIgnorable,
+    ignoredMessages, selectedIgnored, toggleSelectAllIgnored,
+    handleReprocessSelectedMessages, handleDeleteSelectedMessages,
     toggleMessageSelected, toggleSelectAllMessages, handleIgnoreSelectedMessages,
     loadSources, loadMessages,
     handleFetchMessages, handleUpdateMessageStatus,

@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **496 operações**.
+Total: **500 operações**.
 
 ## accounts (53)
 
@@ -259,7 +259,7 @@ Total: **496 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (206)
+## mesas (210)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -300,10 +300,14 @@ Total: **496 operações**.
 | PATCH | `/api/v1/admin/discord/messages/{id}` | admin | admin | active | — | Atualiza api v1 admin discord messages id |
 | POST | `/api/v1/admin/discord/messages/{id}/diagnose-content` | admin | admin | active | — | Cria ou executa api v1 admin discord messages id diagnose-content |
 | POST | `/api/v1/admin/discord/messages/{id}/parse` | admin | admin | active | — | Cria ou executa api v1 admin discord messages id parse |
+| DELETE | `/api/v1/admin/discord/messages/batch` | admin | admin | active | — | Remove api v1 admin discord messages batch |
 | PATCH | `/api/v1/admin/discord/messages/batch` | admin | admin | active | — | Atualiza api v1 admin discord messages batch |
 | POST | `/api/v1/admin/discord/messages/parse-batch` | admin | admin | active | — | Cria ou executa api v1 admin discord messages parse-batch |
 | GET | `/api/v1/admin/discord/metrics` | admin | admin | active | — | Consulta api v1 admin discord metrics |
 | GET | `/api/v1/admin/discord/metrics/shadow` | admin | admin | active | — | Consulta api v1 admin discord metrics shadow |
+| GET | `/api/v1/admin/discord/role-mappings` | admin | admin | active | — | Consulta api v1 admin discord role-mappings |
+| DELETE | `/api/v1/admin/discord/role-mappings/{id}` | admin | admin | active | — | Remove api v1 admin discord role-mappings id |
+| PATCH | `/api/v1/admin/discord/role-mappings/{id}` | admin | admin | active | — | Atualiza api v1 admin discord role-mappings id |
 | GET | `/api/v1/admin/discord/settings` | admin | admin | active | — | Consulta api v1 admin discord settings |
 | DELETE | `/api/v1/admin/discord/settings/bot-token` | admin | admin | active | — | Remove api v1 admin discord settings bot-token |
 | PUT | `/api/v1/admin/discord/settings/bot-token` | admin | admin | active | — | Substitui api v1 admin discord settings bot-token |

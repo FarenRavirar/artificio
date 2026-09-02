@@ -9,7 +9,17 @@ import { MessagesToolbar } from './MessagesToolbar';
  * Instancia useDiscordSync() próprio — independente do hook usado por DiscordSourceList.
  * Aceitável: cada seção instancia seu próprio hook (sources buscado 2x).
  */
-export function MessagesView() {
+type MessagesViewProps = Readonly<{
+  /**
+   * Trava a view num status (spec 099). Com `'ignored'` a aba deixa de ser
+   * "apurar mensagens brutas" e vira "o que o parser recusou": a barra de lote
+   * troca ignorar por reprocessar/apagar, porque re-ignorar o que já está
+   * ignorado não é ação. Mesmo padrão do `lockedStatus` da aba Descartados.
+   */
+  lockedStatus?: 'ignored';
+}>;
+
+export function MessagesView({ lockedStatus }: MessagesViewProps = {}) {
   const {
     sources, messages,
     loadingMessages,
@@ -21,15 +31,25 @@ export function MessagesView() {
     selectedMessage, contentDiagnostic,
     detailRef, queueStats,
     selectedMessageIds, ignoringBatch, ignorableMessages, selectedIgnorable,
+    ignoredMessages, selectedIgnored, toggleSelectAllIgnored,
+    handleReprocessSelectedMessages, handleDeleteSelectedMessages,
     toggleMessageSelected, toggleSelectAllMessages, handleIgnoreSelectedMessages,
     loadMessages,
     handleUpdateMessageStatus,
     handleParseMessage, handleDiagnoseContent,
     handleParseBatch,
     handleSelectMessage,
-  } = useDiscordSync();
+  } = useDiscordSync(lockedStatus);
 
-  const allMessagesSelected = ignorableMessages.length > 0 && ignorableMessages.every(m => selectedMessageIds.has(m.id));
+  const modoIgnoradas = lockedStatus === 'ignored';
+  // A lista da barra de lote muda com o modo: na aba normal são as ainda
+  // pendentes de decisão; na de ignoradas, exatamente as recusadas.
+  const selecionaveis = modoIgnoradas ? ignoredMessages : ignorableMessages;
+  const selecionadas = modoIgnoradas ? selectedIgnored : selectedIgnorable;
+  const alternarTodas = modoIgnoradas ? toggleSelectAllIgnored : toggleSelectAllMessages;
+  const allMessagesSelected = selecionaveis.length > 0 && selecionaveis.every(m => selectedMessageIds.has(m.id));
+
+
 
   return (
     <div>
@@ -43,33 +63,58 @@ export function MessagesView() {
         onSourceFilterChange={setMessageSourceFilter}
         onWindowFilterChange={setMessageWindowFilter}
         onStatusFilterChange={setMessageStatusFilter}
+        hideStatusFilter={modoIgnoradas}
         onReload={() => loadMessages()}
         onParseBatch={handleParseBatch}
       />
 
       {/* Barra de seleção em lote */}
-      {ignorableMessages.length > 0 && (
+      {selecionaveis.length > 0 && (
         <div className="flex items-center gap-3 my-3 flex-wrap">
           <label className="flex items-center gap-2 text-white/60 text-sm cursor-pointer select-none">
             <input
               type="checkbox"
               checked={allMessagesSelected}
-              onChange={toggleSelectAllMessages}
+              onChange={alternarTodas}
               aria-label="Selecionar todas as mensagens"
               className="h-4 w-4 accent-blue-600"
             />
-            Selecionar todas ({ignorableMessages.length})
+            Selecionar todas ({selecionaveis.length})
           </label>
-          {selectedIgnorable.length > 0 && (
+          {selecionadas.length > 0 && (
             <>
-              <span className="text-white/40 text-sm">{selectedIgnorable.length} selecionada(s)</span>
-              <button
-                onClick={handleIgnoreSelectedMessages}
-                disabled={ignoringBatch}
-                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
-              >
-                {ignoringBatch ? 'Ignorando...' : `Ignorar selecionadas (${selectedIgnorable.length})`}
-              </button>
+              <span className="text-white/40 text-sm">{selecionadas.length} selecionada(s)</span>
+              {modoIgnoradas ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleReprocessSelectedMessages}
+                    disabled={ignoringBatch}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {ignoringBatch ? 'Reprocessando...' : `✦ Reprocessar (${selecionadas.length})`}
+                  </button>
+                  {/* Destrutivo em vermelho e por último: some do banco, e é o
+                      que libera o JSON original para ser reimportado. */}
+                  <button
+                    type="button"
+                    onClick={handleDeleteSelectedMessages}
+                    disabled={ignoringBatch}
+                    className="px-4 py-2 bg-[var(--state-danger-bg)] text-[var(--state-danger-fg)] hover:opacity-80 text-sm rounded-lg transition-opacity disabled:opacity-50"
+                  >
+                    {ignoringBatch ? 'Apagando...' : `Apagar (${selecionadas.length})`}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleIgnoreSelectedMessages}
+                  disabled={ignoringBatch}
+                  className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {ignoringBatch ? 'Ignorando...' : `Ignorar selecionadas (${selecionadas.length})`}
+                </button>
+              )}
             </>
           )}
         </div>

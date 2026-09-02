@@ -1,4 +1,6 @@
 import { Router, Response, Request } from 'express';
+import { carregarMapeamentos, observarIdsDoAnuncio, registrarObservacoes } from '../../discord/roleMappings.js';
+import type { DiscordRoleMapping } from '../../db/types.js';
 import { z } from 'zod';
 import type { Selectable } from 'kysely';
 import { db } from '../../db/index.js';
@@ -599,7 +601,30 @@ export async function parseDiscordMessage(
     channel_id: raw.discord_channel_id || null,
     author_id: raw.discord_author_id || null,
   });
-  const parsed = parseDiscordAnnouncement(raw, sys, replyContext, { vtt: vttPlatforms, communication: communicationPlatforms, scenarios }, labelAliases);
+  // Spec 099 — role/emoji como tag. Duas coisas acontecem aqui, e são
+  // independentes de propósito:
+  //
+  // 1. OBSERVAR: registra o que cada id parece significar, a partir do rótulo
+  //    da linha e do texto ao lado. Isso alimenta a fila de revisão; nada entra
+  //    no draft por conta disso. Falha aqui não pode derrubar o parse — é
+  //    aprendizado, não requisito —, daí o catch silencioso.
+  // 2. APLICAR: traduz os ids já CONFIRMADOS antes da extração, para que
+  //    `Sistema: <@&123>` seja lido como `Sistema: D&D 2024`.
+  const guildId = raw.discord_guild_id || null;
+  const [roleMappings] = await Promise.all([
+    // Sem mapeamento o parse degrada para o comportamento antigo (id some do
+    // texto); com exceção, ele morreria. Recurso opcional não derruba o
+    // caminho principal.
+    carregarMapeamentos(guildId).catch((err: unknown) => {
+      console.warn('[roleMappings] falha ao carregar (parse segue sem tradução):', err);
+      return new Map<string, DiscordRoleMapping>();
+    }),
+    registrarObservacoes(guildId, observarIdsDoAnuncio(raw.content_raw ?? '')).catch((err: unknown) => {
+      console.warn('[roleMappings] falha ao registrar observação (parse segue):', err);
+    }),
+  ]);
+
+  const parsed = parseDiscordAnnouncement(raw, sys, replyContext, { vtt: vttPlatforms, communication: communicationPlatforms, scenarios }, labelAliases, roleMappings);
   if (!parsed) return null;
   const normalized = normalizeDiscordTableDraft(parsed, sys);
   return { parsed, normalized, systems: sys };

@@ -941,6 +941,44 @@ export type DiscordParseCase = Selectable<DiscordParseCasesTable>;
 export type NewDiscordParseCase = Insertable<DiscordParseCasesTable>;
 export type DiscordParseCaseUpdate = Updateable<DiscordParseCasesTable>;
 
+/** O que um id opaco do Discord significa. Ver migration_165. */
+export type DiscordRoleMappingKind = 'system' | 'style' | 'setting' | 'era' | 'letter';
+export type DiscordRoleMappingSource = 'inferred' | 'manual';
+
+/**
+ * Traduz id de role/emoji do Discord para dado do catálogo (spec 099).
+ *
+ * Servidores usam role como tag ("Sistema: <@&123>") e emoji como capitular
+ * ("<:emoji_15:…>ra uma vez"). O export do Chat Exporter não carrega o nome de
+ * nenhum dos dois — medido em 2026-09-02 nos três arquivos reais —, então sem
+ * este mapa o dado se perde.
+ */
+export interface DiscordRoleMappingsTable {
+  id: Generated<string>;
+  guild_id: string;
+  /** Id CRU, só dígitos — nunca o token `<@&…>`. */
+  discord_id: string;
+  source_type: 'role' | 'emoji';
+  kind: DiscordRoleMappingKind;
+  target_system_id: string | null;
+  /** Nome do estilo/ambientação/época, ou a LETRA quando `kind = 'letter'`. */
+  target_text: string | null;
+  source: Generated<DiscordRoleMappingSource>;
+  occurrences: Generated<number>;
+  /** Inferido só entra no parse depois de confirmado aqui. */
+  confirmed_at: Date | null;
+  confirmed_by: string | null;
+  /** Evidência que o mantenedor lê na tela de revisão. */
+  last_seen_text: string | null;
+  last_seen_at: Date | null;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+}
+
+export type DiscordRoleMapping = Selectable<DiscordRoleMappingsTable>;
+export type NewDiscordRoleMapping = Insertable<DiscordRoleMappingsTable>;
+export type DiscordRoleMappingUpdate = Updateable<DiscordRoleMappingsTable>;
+
 export interface DiscordParseFeedbackTable {
   id: Generated<string>;
   parse_case_id: string | null;
@@ -1236,6 +1274,7 @@ export interface Database {
 
   // Migration 136: Parser learning durável (Spec 058)
   discord_parse_cases: DiscordParseCasesTable;
+  discord_role_mappings: DiscordRoleMappingsTable;
   discord_parse_feedback: DiscordParseFeedbackTable;
   discord_duplicate_candidates: DiscordDuplicateCandidatesTable;
   table_duplicate_candidates: TableDuplicateCandidatesTable;

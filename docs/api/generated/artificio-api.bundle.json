@@ -7,10 +7,10 @@
     "downloads": 108,
     "glossario": 50,
     "links": 22,
-    "mesas": 206,
+    "mesas": 210,
     "site": 57
   },
-  "total": 496,
+  "total": 500,
   "operations": [
     {
       "app": "accounts",
@@ -3387,6 +3387,18 @@
     },
     {
       "app": "mesas",
+      "method": "DELETE",
+      "path": "/api/v1/admin/discord/messages/batch",
+      "summary": "Remove api v1 admin discord messages batch",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "deleteapi_v1_admin_discord_messages_batch"
+    },
+    {
+      "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/admin/discord/messages/batch",
       "summary": "Atualiza api v1 admin discord messages batch",
@@ -3432,6 +3444,42 @@
       "auth": "admin",
       "consumers": [],
       "operationId": "getapi_v1_admin_discord_metrics_shadow"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/admin/discord/role-mappings",
+      "summary": "Consulta api v1 admin discord role-mappings",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "getapi_v1_admin_discord_role_mappings"
+    },
+    {
+      "app": "mesas",
+      "method": "DELETE",
+      "path": "/api/v1/admin/discord/role-mappings/{id}",
+      "summary": "Remove api v1 admin discord role-mappings id",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "deleteapi_v1_admin_discord_role_mappings_id"
+    },
+    {
+      "app": "mesas",
+      "method": "PATCH",
+      "path": "/api/v1/admin/discord/role-mappings/{id}",
+      "summary": "Atualiza api v1 admin discord role-mappings id",
+      "owner": "mesas",
+      "scope": "admin",
+      "status": "active",
+      "auth": "admin",
+      "consumers": [],
+      "operationId": "patchapi_v1_admin_discord_role_mappings_id"
     },
     {
       "app": "mesas",

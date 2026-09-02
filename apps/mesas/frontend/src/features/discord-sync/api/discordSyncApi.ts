@@ -263,6 +263,54 @@ function parseBatchResult(data: unknown): { updated: number } {
 // se o payload sair do contrato — silenciar como 0 esconderia a regressão e a UI
 // mostraria "0 apagado(s)" como sucesso (CodeRabbit).
 const deletedResultSchema = z.object({ deleted: z.number().int().nonnegative() });
+// Exclusão de mensagens devolve TAMBÉM os drafts que caíram por CASCADE
+// (migration_115:64). O número entra no aviso ao admin — apagar 3 mensagens e
+// levar 3 rascunhos junto precisa ser dito, não descoberto depois.
+const deletedMessagesSchema = z.object({
+  deleted: z.number().int().nonnegative(),
+  draftsRemoved: z.number().int().nonnegative(),
+});
+function parseDeletedMessagesResult(data: unknown): { deleted: number; draftsRemoved: number } {
+  const parsed = deletedMessagesSchema.safeParse(data);
+  if (!parsed.success) throw new Error('Resposta de exclusão em formato inesperado.');
+  return parsed.data;
+}
+
+// Entra em render, então normalização tipada obrigatória (AGENTS.md).
+export type RoleMappingKind = 'system' | 'style' | 'setting' | 'era' | 'letter';
+
+const roleMappingSchema = z.object({
+  id: z.string(),
+  guild_id: z.string(),
+  discord_id: z.string(),
+  source_type: z.enum(['role', 'emoji']),
+  kind: z.enum(['system', 'style', 'setting', 'era', 'letter']),
+  target_system_id: z.string().nullable(),
+  target_text: z.string().nullable(),
+  source: z.enum(['inferred', 'manual']),
+  occurrences: z.number(),
+  confirmed_at: z.string().nullable(),
+  last_seen_text: z.string().nullable(),
+  last_seen_at: z.string().nullable(),
+  target_system_name: z.string().nullable().optional(),
+});
+
+export type RoleMapping = z.infer<typeof roleMappingSchema>;
+
+function parseRoleMappings(data: unknown): RoleMapping[] {
+  const parsed = z.object({ data: z.array(roleMappingSchema) }).safeParse(data);
+  // Lista vazia em caso de shape inesperado esconderia regressão como "nada a
+  // revisar" — e a fila de revisão silenciosamente vazia é o pior desfecho aqui.
+  if (!parsed.success) throw new Error('Lista de mapeamentos em formato inesperado.');
+  return parsed.data.data;
+}
+
+function parseRoleMapping(data: unknown): RoleMapping {
+  const parsed = z.object({ data: roleMappingSchema }).safeParse(data);
+  if (!parsed.success) throw new Error('Mapeamento em formato inesperado.');
+  return parsed.data.data;
+}
+
 function parseDeletedResult(data: unknown): { deleted: number } {
   const parsed = deletedResultSchema.safeParse(data);
   if (!parsed.success) throw new Error('Resposta de limpeza em formato inesperado.');
@@ -464,6 +512,36 @@ export const discordSyncApi = {
 
   updateMessagesBatch: async (ids: string[], status: DiscordImportMessageStatus) =>
     parseBatchResult(await apiFetch<unknown>('/messages/batch', { method: 'PATCH', body: JSON.stringify({ ids, status }) })),
+
+  // ── Mapeamentos de role/emoji (spec 099) ─────────────────────────────────
+  // Servidores usam role como tag ("Sistema: <@&123>") e o export do Discord
+  // não carrega o nome dela. O parser observa e propõe; aqui o admin confirma.
+  listRoleMappings: async (params?: { guild_id?: string; escopo?: 'pendentes' | 'confirmados' | 'todos' }) => {
+    const qs = new URLSearchParams();
+    if (params?.guild_id) qs.set('guild_id', params.guild_id);
+    if (params?.escopo) qs.set('escopo', params.escopo);
+    return parseRoleMappings(await apiFetch<unknown>(`/role-mappings?${qs}`));
+  },
+
+  updateRoleMapping: async (
+    id: string,
+    body: {
+      kind?: RoleMappingKind;
+      target_system_id?: string | null;
+      target_text?: string | null;
+      confirmar?: boolean;
+    },
+  ) => parseRoleMapping(await apiFetch<unknown>(`/role-mappings/${id}`, { method: 'PATCH', body: JSON.stringify(body) })),
+
+  deleteRoleMapping: async (id: string) =>
+    parseDeletedResult(await apiFetch<unknown>(`/role-mappings/${id}`, { method: 'DELETE' })),
+
+  // Apaga DEFINITIVAMENTE. É a única forma de reimportar o mesmo JSON: o
+  // importador não reabre mensagem que já conhece (guarda de `content_hash`).
+  deleteMessagesBatch: async (ids: string[]) =>
+    parseDeletedMessagesResult(
+      await apiFetch<unknown>('/messages/batch', { method: 'DELETE', body: JSON.stringify({ ids }) }),
+    ),
 
   parseMessage: (id: string) =>
     apiFetch<DiscordDraft>(`/messages/${id}/parse`, { method: 'POST' }),

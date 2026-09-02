@@ -2,16 +2,20 @@ import { useSearchParams } from 'react-router-dom';
 import { AdminUsersPanel } from './AdminUsersPanel';
 import { PageHeader, SectionCard, tabButtonClass } from './ui';
 import { DevFeedbackPanel } from '../dev-feedback/DevFeedbackPanel';
+import { RoleMappingsPanel } from './RoleMappingsPanel';
 
-type SystemTab = 'users' | 'feedback';
+type SystemTab = 'users' | 'feedback' | 'role-mappings';
 
 const TAB_LABEL: Record<SystemTab, string> = {
   users: 'Usuários',
   feedback: 'Erros reportados',
+  'role-mappings': 'Tags do Discord',
 };
 
 function isSystemTab(value: unknown): value is SystemTab {
-  return value === 'users' || value === 'feedback';
+  // Derivado de TAB_LABEL, não de lista paralela: acrescentar aba sem tocar
+  // aqui daria deep-link mudo (mesmo defeito já corrigido em moderacaoSubTabs).
+  return typeof value === 'string' && Object.hasOwn(TAB_LABEL, value);
 }
 
 export function SistemaSection() {
@@ -40,7 +44,7 @@ export function SistemaSection() {
       <PageHeader
         breadcrumb={['Gestão', 'Sistema']}
         title="Sistema"
-        description="Usuários, selo Covil do Lich e feedbacks técnicos reportados."
+        description="Usuários, selo Covil do Lich, feedbacks técnicos e as tags de role do Discord."
       />
 
       <div className="inline-flex flex-wrap rounded-lg border border-[var(--border)] bg-[var(--admin-surface)] p-1">
@@ -54,6 +58,7 @@ export function SistemaSection() {
       <SectionCard title={TAB_LABEL[tab]} bodyClassName="p-5">
         {tab === 'users' && <AdminUsersPanel />}
         {tab === 'feedback' && <DevFeedbackPanel />}
+        {tab === 'role-mappings' && <RoleMappingsPanel />}
       </SectionCard>
     </div>
   );

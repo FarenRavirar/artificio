@@ -7,6 +7,7 @@ import settingsRouter from './discord/settings.js';
 import draftsRouter from './discord/drafts.js';
 import messageParseRouter from './discord/messageParse.js';
 import messagesRouter from './discord/messages.js';
+import roleMappingsRouter from './discord/roleMappings.js';
 import parseBatchRouter from './discord/parse-batch.js';
 import discoveryRouter from './discord/discovery.js';
 import fetchRouter from './discord/fetch.js';
@@ -30,6 +31,8 @@ router.use('/duplicate-candidates', duplicateCandidatesRouter);
 router.use('/messages', messageParseRouter);
 router.use('/messages', parseBatchRouter);
 router.use('/messages', messagesRouter);
+// Spec 099: revisão dos ids de role/emoji que o parser aprendeu a observar.
+router.use('/role-mappings', roleMappingsRouter);
 router.use('/', syncRouter);
 router.use('/import-json', previewRouter);
 router.use('/import-json', importRouter);
