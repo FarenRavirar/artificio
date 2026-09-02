@@ -417,7 +417,17 @@ export function CatalogTree({
 
   // Filhos carregados sob demanda, por id de nó pai.
   const [remoteChildren, setRemoteChildren] = useState<Record<string, CatalogUiNode[]>>({});
+  // Falha de busca de filhos, por id de pai — SEPARADA de `remoteChildren`.
+  // `[]` ali significa "este nó não tem filhos", e é um resultado legítimo que o
+  // guard de cache usa para não repetir a requisição. Gravar `[]` numa falha de
+  // rede fundia as duas coisas e tornava o erro permanente (achado Codex,
+  // PR #304): o sistema aparecia para sempre como sem edições/variantes, e nem
+  // reselecioná-lo tentava de novo, até remontar o componente.
+  const [childFetchFailed, setChildFetchFailed] = useState<Record<string, boolean>>({});
   const childAbortRef = useRef<AbortController | null>(null);
+  // Sobe a cada pedido de retry: entra na dep do efeito para refazer a busca
+  // sem depender de o usuário alterar a navegação ou redigitar o termo.
+  const [retryTick, setRetryTick] = useState(0);
 
   // Refs para as fontes: o consumidor pode não memoizar as funções, e o efeito
   // de busca não deve refazer fetch por causa disso.
@@ -516,7 +526,7 @@ export function CatalogTree({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [search]);
+  }, [search, retryTick]);
 
   // Nunca deixar request órfão ao desmontar.
   useEffect(
@@ -562,16 +572,24 @@ export function CatalogTree({
           ...current,
           [parent.id]: normalizeNodes(children),
         }));
+        setChildFetchFailed((current) => {
+          if (!current[parent.id]) return current;
+          const next = { ...current };
+          delete next[parent.id];
+          return next;
+        });
       })
       .catch((error: unknown) => {
         if ((error as Error)?.name === 'AbortError') return;
-        // Lista vazia = "sem filhos", que é o contrato. Falha aqui degrada para
-        // "este nó não tem níveis abaixo" em vez de travar a navegação.
-        setRemoteChildren((current) => ({ ...current, [parent.id]: [] }));
+        // NÃO gravar `[]` aqui: ver o comentário de `childFetchFailed`. A falha
+        // fica no próprio mapa de falhas, o cache segue sem entrada para este
+        // pai, e a navegação para cá de novo (ou o botão de tentar de novo)
+        // refaz a requisição.
+        setChildFetchFailed((current) => ({ ...current, [parent.id]: true }));
       });
 
     return () => controller.abort();
-  }, [deepestNavId, effectiveNavPath, remoteChildren]);
+  }, [deepestNavId, effectiveNavPath, remoteChildren, retryTick]);
 
   const handleSelectAtLevel = (depth: number, node: CatalogUiNode) => {
     setPendingAddDepth(null);
@@ -612,6 +630,10 @@ export function CatalogTree({
 
   const canSuggest = normalizedSearch.length > 0 && onSuggest;
   const canCreateNow = role === 'admin' && normalizedSearch.length > 0 && onCreateNow;
+  // Falha de filhos do nível em que a navegação está agora: é a que o usuário
+  // consegue reagir nesta tela.
+  const childFetchFailedHere = deepestNavId !== null && childFetchFailed[deepestNavId] === true;
+
   // `searching`/`searchFailed` só ficam true no caminho server-side (G7). Sem
   // eles, buscar remotamente mostraria "nenhum resultado" durante o request e
   // depois a lista — o usuário leria "não existe" sobre algo que existe.
@@ -650,9 +672,21 @@ export function CatalogTree({
           Buscando sistemas...
         </output>
       )}
-      {searchFailed && (
-        <p className="text-xs text-[var(--state-danger-fg)]" role="alert">
-          Não foi possível buscar agora. Tente de novo em instantes.
+      {/* A mensagem pedia "tente de novo" sem oferecer COMO (achado Codex,
+          PR #304): o efeito de busca dependia só de `search`, então esperar ou
+          submeter o mesmo termo não refazia nada — durante uma indisponibilidade
+          transitória o seletor ficava inútil até o usuário apagar e redigitar a
+          consulta. O botão sobe `retryTick`, que está na dep dos dois efeitos. */}
+      {(searchFailed || childFetchFailedHere) && (
+        <p className="flex flex-wrap items-center gap-2 text-xs text-[var(--state-danger-fg)]" role="alert">
+          Não foi possível buscar agora.
+          <button
+            type="button"
+            className="underline underline-offset-2"
+            onClick={() => setRetryTick((tick) => tick + 1)}
+          >
+            Tentar de novo
+          </button>
         </p>
       )}
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
 import { useAuth } from '../contexts/useAuth';
 import { authGet, authPost, authPatch, authDelete } from '../utils/authenticatedFetch';
 
@@ -99,7 +99,20 @@ function normalizeLinkPayload(payload: unknown): UserLink | null {
  * seguem sem alteração. Os assinantes são notificados a cada escrita.
  */
 let sharedLinks: UserLink[] = [];
-const linkSubscribers = new Set<(links: UserLink[]) => void>();
+const linkSubscribers = new Set<() => void>();
+
+/**
+ * Dono do que está no store. O logout NÃO recarrega a página — `AuthContext`
+ * só limpa o estado React (`clearSession`), e um store de módulo sobrevive a
+ * isso. Sem dono, os links da conta anterior continuavam publicados: bastava o
+ * GET da conta nova falhar (rede, 500) para o `LinksManager` seguir mostrando
+ * o YouTube e o Twitch de OUTRA pessoa, com botão de remover ao lado.
+ * Achado do CodeRabbit na PR #304.
+ *
+ * `null` = store vazio/sem dono. A troca de dono limpa antes de qualquer
+ * requisição da conta nova responder.
+ */
+let sharedLinksOwner: string | null = null;
 
 /**
  * Geração do store: sobe a cada escrita autoritativa (mutação ou GET novo).
@@ -117,39 +130,70 @@ const linkSubscribers = new Set<(links: UserLink[]) => void>();
  */
 let linksGeneration = 0;
 
-function publishLinks(next: UserLink[]): void {
+function publishLinks(next: UserLink[], owner: string | null = sharedLinksOwner): void {
   linksGeneration += 1;
   sharedLinks = next;
-  for (const notify of linkSubscribers) notify(next);
+  sharedLinksOwner = owner;
+  for (const notify of linkSubscribers) notify();
+}
+
+/** Assinatura do store para o `useSyncExternalStore` (uma por instância). */
+function subscribeToLinks(onStoreChange: () => void): () => void {
+  linkSubscribers.add(onStoreChange);
+  return () => {
+    linkSubscribers.delete(onStoreChange);
+  };
+}
+
+/**
+ * Troca de dono: esvazia o store ANTES de qualquer requisição da conta nova.
+ *
+ * Roda no CORPO DO RENDER, não num efeito, porque efeito só executa depois da
+ * primeira pintura — e essa pintura já teria mostrado os links da conta
+ * anterior. Por isso a função NÃO notifica assinantes: avisar outro componente
+ * durante o render deste é o que o React proíbe. Ela só zera o módulo e sobe a
+ * geração (descartando GET da conta antiga ainda em voo); cada instância lê o
+ * store zerado no próprio render, que é o efeito desejado.
+ *
+ * Devolve `true` quando de fato limpou, para o chamador se realinhar.
+ */
+function resetLinksOwnerIfChanged(owner: string | null): boolean {
+  if (sharedLinksOwner === owner) return false;
+  linksGeneration += 1;
+  sharedLinks = [];
+  sharedLinksOwner = owner;
+  return true;
 }
 
 /** Publica só se a geração de origem ainda for a corrente (ver acima). */
-function publishLinksIfCurrent(next: UserLink[], generation: number): void {
+function publishLinksIfCurrent(next: UserLink[], generation: number, owner: string | null): void {
   if (generation !== linksGeneration) return;
-  publishLinks(next);
+  publishLinks(next, owner);
 }
 
 export function useLinks(): UseLinksReturn {
-  const { isAuthenticated } = useAuth();
-  const [links, setLocalLinks] = useState<UserLink[]>(sharedLinks);
+  const { isAuthenticated, user } = useAuth();
+  const owner = isAuthenticated ? user?.id ?? null : null;
+  // Antes de ler o store: se o dono mudou (login, logout, troca de conta), o
+  // que está lá é de outra pessoa e é esvaziado agora — não num efeito, que só
+  // roda depois de a lista alheia já ter sido pintada.
+  resetLinksOwnerIfChanged(owner);
+
+  // `useSyncExternalStore` é a primitiva do React para exatamente este caso:
+  // estado que vive FORA do React e é lido por várias instâncias. Substituiu um
+  // par `useState` + assinatura manual em que o valor do estado não era lido —
+  // o render usava o store direto, e o `useState` só servia de gatilho
+  // (achado do Sonar na PR #304: "useState não desestruturado em valor + setter").
+  //
+  // Lê-se o store, e não uma cópia local, porque toda escrita passa por
+  // `publishLinks`: ele atualiza `sharedLinks` ANTES de notificar, então o store
+  // nunca está atrás. Depois de uma troca de dono ele é o único dos dois que
+  // está certo — instâncias montadas antes da troca guardariam a lista da conta
+  // anterior, e o `LinksManager` seguiria pintando os links de outra pessoa até
+  // um GET responder, justamente no caso em que esse GET falha.
+  const visibleLinks = useSyncExternalStore(subscribeToLinks, () => sharedLinks);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Cada instância espelha o store; a escrita passa por `publishLinks`, que
-  // avisa todas as outras.
-  //
-  // Sem `setLocalLinks(sharedLinks)` aqui: o `useState` acima já inicializa com
-  // o valor do store, então repetir a leitura no efeito só encadearia um render
-  // extra em toda montagem (`react-hooks/set-state-in-effect`). Escrita entre a
-  // montagem e este efeito não se perde — ela passa por `publishLinks`, que
-  // atualiza `sharedLinks` antes de notificar, e o próximo assinante já lê o
-  // valor novo.
-  useEffect(() => {
-    linkSubscribers.add(setLocalLinks);
-    return () => {
-      linkSubscribers.delete(setLocalLinks);
-    };
-  }, []);
 
   const setLinks = useCallback(
     (update: UserLink[] | ((prev: UserLink[]) => UserLink[])) => {
@@ -160,7 +204,7 @@ export function useLinks(): UseLinksReturn {
 
   const fetchLinks = useCallback(async () => {
     if (!isAuthenticated) {
-      setLinks([]);
+      publishLinks([], null);
       setLoading(false);
       return;
     }
@@ -187,14 +231,14 @@ export function useLinks(): UseLinksReturn {
       }
 
       const data: unknown = await res.json();
-      publishLinksIfCurrent(normalizeLinksPayload(data), generation);
+      publishLinksIfCurrent(normalizeLinksPayload(data), generation, owner);
     } catch (err: unknown) {
       console.error('Error fetching links:', err);
       setError(getErrorMessage(err, 'Erro ao carregar links'));
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, setLinks]);
+  }, [isAuthenticated, owner]);
 
   useEffect(() => {
     void (async () => { await fetchLinks(); })();
@@ -284,12 +328,22 @@ export function useLinks(): UseLinksReturn {
           throw new Error(message);
         }
 
-        // Atualizar ordem local
-        const reordered = linkIds
-          .map((id) => links.find((link) => link.id === id))
-          .filter((link): link is UserLink => link !== undefined);
-
-        setLinks(reordered);
+        // Reordena a partir do estado CORRENTE, não do `links` capturado quando
+        // a requisição começou: um `addLink` que termine enquanto o reorder está
+        // em voo criaria um link cujo id não está em `linkIds`, e reconstruir a
+        // lista só a partir de `linkIds` o apagaria da tela — o mesmo sumiço
+        // silencioso que a geração resolveu para o GET atrasado. Os ids
+        // conhecidos assumem a ordem pedida; os que chegaram depois ficam no
+        // fim, preservados. Achado do CodeRabbit na PR #304.
+        setLinks((prev) => {
+          const byId = new Map(prev.map((link) => [link.id, link]));
+          const ordered = linkIds
+            .map((id) => byId.get(id))
+            .filter((link): link is UserLink => link !== undefined);
+          const orderedIds = new Set(ordered.map((link) => link.id));
+          const untouched = prev.filter((link) => !orderedIds.has(link.id));
+          return [...ordered, ...untouched];
+        });
         return true;
       } catch (err: unknown) {
         console.error('Error reordering links:', err);
@@ -297,7 +351,8 @@ export function useLinks(): UseLinksReturn {
         return false;
       }
     },
-    [isAuthenticated, links, setLinks]
+    // `links` saiu da dep: o updater lê o estado corrente por conta própria.
+    [isAuthenticated, setLinks]
   );
 
   const refresh = useCallback(async () => {
@@ -305,7 +360,7 @@ export function useLinks(): UseLinksReturn {
   }, [fetchLinks]);
 
   return {
-    links,
+    links: visibleLinks,
     loading,
     error,
     addLink,

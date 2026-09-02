@@ -16,13 +16,20 @@ let { useLinks } = await import('./useLinks');
  * sem recarregar" que o A12 promete. Achado do Codex na PR #304.
  */
 
-const { authGet, authPost } = vi.hoisted(() => ({
+const { authGet, authPost, authPatch } = vi.hoisted(() => ({
   authGet: vi.fn(),
   authPost: vi.fn(),
+  authPatch: vi.fn(),
 }));
 
-vi.mock('../utils/authenticatedFetch', () => ({ authGet, authPost, authDelete: vi.fn() }));
-vi.mock('../contexts/useAuth', () => ({ useAuth: () => ({ isAuthenticated: true }) }));
+const { authState } = vi.hoisted(() => ({
+  authState: { isAuthenticated: true, user: { id: 'user-a' } as { id: string } | null },
+}));
+
+vi.mock('../utils/authenticatedFetch', () => ({
+  authGet, authPost, authDelete: vi.fn(), authPatch,
+}));
+vi.mock('../contexts/useAuth', () => ({ useAuth: () => authState }));
 
 // Shape completo do `isUserLink` (useLinks.ts:60): faltando qualquer um destes
 // campos o payload é descartado na normalização, e o teste falharia por
@@ -45,7 +52,10 @@ const jsonOk = (data: unknown) => ({
 beforeEach(async () => {
   authGet.mockReset();
   authPost.mockReset();
+  authPatch.mockReset();
   authGet.mockResolvedValue(jsonOk([]));
+  authState.isAuthenticated = true;
+  authState.user = { id: 'user-a' };
 
   // O store é de MÓDULO: sem zerar, o que um teste publica vaza para o
   // seguinte e a ordem dos testes passa a importar — o segundo passaria por
@@ -114,5 +124,73 @@ describe('useLinks — GET atrasado não sobrescreve mutação (geração)', () 
     // O link criado sobrevive: a resposta velha não é mais autoritativa.
     expect(result.current.links).toHaveLength(1);
     expect(result.current.links[0].id).toBe('novo');
+  });
+});
+
+describe('useLinks — store é por CONTA, não global (troca de sessão)', () => {
+  it('links da conta anterior somem mesmo quando o GET da conta nova FALHA', async () => {
+    // O logout não recarrega a página: `AuthContext.clearSession` só mexe em
+    // estado React, e um store de módulo sobrevive a isso. Se a lista antiga
+    // continuasse publicada, bastaria o GET da conta nova falhar para o
+    // LinksManager mostrar os links de OUTRA pessoa — com botão de remover ao
+    // lado. Achado do CodeRabbit na PR #304.
+    authGet.mockResolvedValue(jsonOk([link('l1', 'https://youtube.com/@conta-a')]));
+
+    const { result, rerender } = renderHook(() => useLinks());
+    await waitFor(() => expect(result.current.links).toHaveLength(1));
+
+    // Troca de conta, e o GET da conta B falha.
+    authState.user = { id: 'user-b' };
+    authGet.mockRejectedValue(new Error('rede caiu'));
+    rerender();
+
+    // É esta asserção que falha com store global: sem dono, a lista de A
+    // permanece na tela de B.
+    expect(result.current.links).toHaveLength(0);
+    await waitFor(() => expect(result.current.error).toBeTruthy());
+    expect(result.current.links).toHaveLength(0);
+  });
+
+  it('logout esvazia o store', async () => {
+    authGet.mockResolvedValue(jsonOk([link('l1', 'https://youtube.com/@conta-a')]));
+    const { result, rerender } = renderHook(() => useLinks());
+    await waitFor(() => expect(result.current.links).toHaveLength(1));
+
+    authState.isAuthenticated = false;
+    authState.user = null;
+    rerender();
+
+    expect(result.current.links).toHaveLength(0);
+  });
+});
+
+describe('useLinks — reorder preserva link criado durante a requisição', () => {
+  it('addLink concluído com reorder em voo não some da lista', async () => {
+    authGet.mockResolvedValue(jsonOk([link('a', 'https://youtube.com/@a'), link('b', 'https://twitch.tv/b')]));
+    const { result } = renderHook(() => useLinks());
+    await waitFor(() => expect(result.current.links).toHaveLength(2));
+
+    // Reorder em voo: só conhece 'a' e 'b'.
+    let concluirReorder!: (r: unknown) => void;
+    authPatch.mockReturnValueOnce(new Promise((resolve) => { concluirReorder = resolve; }));
+    let reorderPromise!: Promise<boolean>;
+    act(() => {
+      reorderPromise = result.current.reorderLinks(['b', 'a']);
+    });
+
+    // Enquanto isso, um link novo é criado.
+    authPost.mockResolvedValue(jsonOk(link('c', 'https://spotify.com/c')));
+    await act(async () => {
+      await result.current.addLink('https://spotify.com/c');
+    });
+    expect(result.current.links).toHaveLength(3);
+
+    await act(async () => {
+      concluirReorder({ ok: true, headers: { get: () => 'application/json' }, json: async () => ({}) });
+      await reorderPromise;
+    });
+
+    // 'c' sobrevive: reconstruir a lista só a partir de `linkIds` o apagaria.
+    expect(result.current.links.map((l) => l.id)).toEqual(['b', 'a', 'c']);
   });
 });

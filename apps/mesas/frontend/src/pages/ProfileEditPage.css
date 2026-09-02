@@ -813,7 +813,12 @@
     overflow-y: hidden;
   }
 
+  /* `width: auto` derruba o `w-full` que os botões carregam do layout vertical
+     (ProfileEditorSidebar): sem isso, `flex: 0 0 auto` respeita a largura
+     declarada e CADA botão ocuparia a faixa inteira, um por vez, exigindo cinco
+     rolagens para ver as cinco partes. Achado do CodeRabbit na PR #304. */
   .profile-editor-parts-nav > * {
     flex: 0 0 auto;
+    width: auto;
   }
 }

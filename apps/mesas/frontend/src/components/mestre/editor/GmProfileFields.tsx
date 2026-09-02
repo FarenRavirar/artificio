@@ -11,12 +11,12 @@
  * Organização: uma seção `// ── Nome ──` por campo, na ordem do formulário.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button, Field, Select, TextInput, Textarea } from '@artificio/ui';
 import { TagInput } from '../../TagInput';
 import { SystemPicker } from '../../SystemPicker';
 import { useSystemsSearch } from '../../../hooks/useSystemsSearch';
-import type { SystemTreeNode } from '../../../types/systems';
+import { useResolvedSystemNodes } from '../../../hooks/useResolvedSystemNodes';
 import { MarkdownEditor } from '../../MarkdownEditor';
 import { normalizeSellingPoints } from '../../../hooks/useMestre';
 import { useProfileContext } from '../../../contexts/useProfileContext';
@@ -470,66 +470,13 @@ export function ClosedGroupSection({ value, onChange }: ClosedGroupSectionProps)
   // o catálogo inteiro só do "Sistemas que mestra" não teria adiantado nada —
   // esta seção continuaria baixando os 487.965 bytes na mesma tela, e a
   // economia medida seria zero para quem abre a aba.
-  const { fetchSystemOptions, fetchChildOptions, fetchSystemsByIds } = useSystemsSearch();
-  const [selectedNodes, setSelectedNodes] = useState<SystemTreeNode[]>([]);
-  // Guarda a CHAVE que falhou, não um booleano: o aviso some sozinho quando a
-  // seleção muda, sem setState no início do efeito.
-  const [failedKey, setFailedKey] = useState<string | null>(null);
-
-  // Ver a nota em UserSystemsSelector: a função entra por ref para o efeito não
-  // reentrar quando a identidade dela muda entre renders. A ESCRITA da ref vive
-  // dentro de um efeito, não no corpo do render — tocar `.current` durante o
-  // render é o que o `react-hooks/refs` proíbe, e com razão: em render
-  // interrompido o valor escrito pode não corresponder ao que foi comitado.
-  const fetchSystemsByIdsRef = useRef(fetchSystemsByIds);
-  useEffect(() => {
-    fetchSystemsByIdsRef.current = fetchSystemsByIds;
-  }, [fetchSystemsByIds]);
-
-  // Mesma mecânica do UserSystemsSelector: só os ids salvos são resolvidos,
-  // numa requisição, para nomear o que já foi escolhido.
-  const selectedKey = value.systems.join(',');
-  useEffect(() => {
-    const ids = selectedKey ? selectedKey.split(',') : [];
-    if (ids.length === 0) {
-      // Sem `setSelectedNodes([])` síncrono aqui: chamar setState direto no
-      // corpo do efeito encadeia um render extra a cada passagem
-      // (`react-hooks/set-state-in-effect`). A limpeza é derivada no render,
-      // logo abaixo, a partir de `selectedKey` — que é a fonte da verdade.
-      return;
-    }
-    const controller = new AbortController();
-    fetchSystemsByIdsRef.current(ids, controller.signal)
-      .then((nodes) => {
-        if (controller.signal.aborted) return;
-        setSelectedNodes(nodes);
-        // Limpa o aviso só quando uma resolução nova dá certo — zerar no
-        // início do efeito seria setState síncrono no corpo dele.
-        setFailedKey(null);
-      })
-      .catch((error: unknown) => {
-        // Resposta de uma seleção que já foi trocada não é falha desta tela:
-        // sem esta guarda, abortar por troca de seleção acendia o alerta.
-        if (controller.signal.aborted) return;
-        if ((error as Error)?.name === 'AbortError') return;
-        // Os ids seguem salvos; o que falta é só o NOME na etiqueta. Sem o
-        // aviso, a lista some e lê como "o site apagou meus sistemas" —
-        // mesmo tratamento do UserSystemsSelector.
-        setSelectedNodes([]);
-        setFailedKey(selectedKey);
-      });
-    return () => controller.abort();
-  }, [selectedKey]);
-
-  // Só avisa se a falha for da seleção ATUAL: uma falha antiga não pode acusar
-  // erro sobre uma seleção que já mudou.
-  const resolveFailed = failedKey !== null && failedKey === selectedKey;
-
-  // Derivado, não estado: enquanto a resolução do lote novo não chega, exibir
-  // nome de sistema que não está mais selecionado seria mostrar dado errado.
-  const visibleSelectedNodes = selectedKey
-    ? selectedNodes.filter((node) => value.systems.includes(node.id))
-    : [];
+  const { fetchSystemOptions, fetchChildOptions } = useSystemsSearch();
+  // A resolução dos nomes dos ids salvos vive no `useResolvedSystemNodes` (G6):
+  // era mecânica idêntica à do `UserSystemsSelector` — ref para não reentrar,
+  // chave estável da seleção, aviso amarrado à seleção atual. Extraída depois
+  // de o Sonar medir a duplicação na PR #304, não por antecipação.
+  const { nodes: visibleSelectedNodes, failed: resolveFailed } =
+    useResolvedSystemNodes(value.systems);
 
   return (
     <section className="form-section">

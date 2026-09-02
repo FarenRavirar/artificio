@@ -689,9 +689,8 @@ function TabMestre() {
   // Endereço público real (§13.15): a rota canônica é `/mestre/<slug>` — a que
   // tem os 5 consumidores no app, incluindo o "Ver perfil público" do topo
   // desta página. `/mestres/:masterId` existe mas tem 0 links.
-  const publicUrl = profile.gm?.slug
-    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/mestre/${profile.gm.slug}`
-    : null;
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const publicUrl = profile.gm?.slug ? `${origin}/mestre/${profile.gm.slug}` : null;
 
   return (
     <div className="profile-editor-shell">
