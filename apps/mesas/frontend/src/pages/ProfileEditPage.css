@@ -744,6 +744,17 @@
    documento contínuo (G3), e a lateral rola até elas por âncora.
    ============================================================================ */
 
+/* O editor ESCAPA do `max-width: 900px` do `.profile-edit-page`.
+   Aquele limite foi medido para uma coluna só de formulário; a fase G pôs uma
+   lateral de 300px + `--space-6` de gap DENTRO dele, e o que sobrava para os
+   campos caía a ~576px — mais estreito que antes de a lateral existir, que é o
+   oposto do que a fase pretendia. 1240px = 900 de conteúdo + 300 de lateral +
+   gap, então a coluna de campos volta à largura para a qual foi desenhada.
+   Achado do Codex na PR #304. */
+.profile-edit-page:has(> .profile-editor-shell) {
+  max-width: 1240px;
+}
+
 .profile-editor-shell {
   display: grid;
   /* 300px como no editor de mesa (TableEditor.css:70). Lá a medida vinha da

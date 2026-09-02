@@ -556,6 +556,14 @@ export function CatalogTree({
     // Já carregado: não refaz. O catálogo é estável dentro de uma sessão de
     // escolha, e refazer a cada re-render devolveria por outro caminho o
     // excesso de requisição que esta prop existe para evitar.
+    //
+    // O cache NÃO reage a `fetchChildOptions` deixar de existir (achado do
+    // CodeRabbit na PR #304, descartado): medido, os 4 consumidores
+    // (GmProfileFields, IdentityPart, SystemPicker, UserSystemsSelector)
+    // passam as duas props sempre presentes, vindas de `useSystemsSearch`.
+    // Nenhum alterna entre fonte remota e árvore local, então a transição não
+    // ocorre. Se um dia um consumidor passar a alternar, este guard e o de
+    // busca precisam reagir à presença da prop — não só ao id do nó.
     if (remoteChildren[deepestNavId]) return;
 
     const parent = effectiveNavPath[effectiveNavPath.length - 1];
@@ -679,7 +687,11 @@ export function CatalogTree({
           consulta. O botão sobe `retryTick`, que está na dep dos dois efeitos. */}
       {(searchFailed || childFetchFailedHere) && (
         <p className="flex flex-wrap items-center gap-2 text-xs text-[var(--state-danger-fg)]" role="alert">
-          Não foi possível buscar agora.
+          {/* `{' '}` explícito: sem ele o JSX colapsa a quebra de linha e fica
+              ambíguo se há espaço entre o texto e o botão (regra do Sonar
+              `no-ambiguous-spacing`). O `gap` do flex resolve o visual, mas o
+              leitor de tela lê a sequência sem separador. */}
+          Não foi possível buscar agora.{' '}
           <button
             type="button"
             className="underline underline-offset-2"

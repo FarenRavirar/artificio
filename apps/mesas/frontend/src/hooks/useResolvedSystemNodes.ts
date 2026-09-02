@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SystemTreeNode } from '../types/systems';
 import { useSystemsSearch } from './useSystemsSearch';
 
@@ -84,9 +84,18 @@ export function useResolvedSystemNodes(selectedIds: readonly string[]): {
 
   // Derivado, não estado: enquanto a resolução do lote novo não chega, exibir
   // nome de sistema que não está mais selecionado seria mostrar dado errado.
-  const nodes = selectedKey
-    ? resolvedNodes.filter((node) => selectedIds.includes(node.id))
-    : [];
+  //
+  // `useMemo` porque a IDENTIDADE do array atravessa três memos: `SystemPicker`
+  // memoiza `uiSelectedNodes` com `[selectedNodes]` e `UserSystemsSelector`
+  // memoiza `selectedSystems` com `[visibleSelectedNodes]`. Array novo a cada
+  // render invalida os dois e faz o `CatalogTree` receber `selectedNodes` novo
+  // sempre — os memos existem e não memoizam nada. Chave em `selectedKey`, não
+  // em `selectedIds`, porque o array de ids também é novo a cada render do pai;
+  // a string é estável. Achado do CodeRabbit na PR #304.
+  const nodes = useMemo(
+    () => (selectedKey ? resolvedNodes.filter((node) => selectedKey.split(',').includes(node.id)) : []),
+    [resolvedNodes, selectedKey],
+  );
 
   return { nodes, failed: failedKey !== null && failedKey === selectedKey };
 }

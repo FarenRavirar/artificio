@@ -56,7 +56,15 @@ function isCatalogUiNode(value: unknown): value is CatalogUiNode {
   return (
     typeof node.id === 'string' &&
     typeof node.name === 'string' &&
-    typeof node.canonical_slug === 'string'
+    typeof node.canonical_slug === 'string' &&
+    // `parent_id` e `node_type` são obrigatórios no tipo e TÊM consumidor:
+    // `CatalogExplorer` chama `nextChildType(parent.node_type)` ao descer um
+    // nível, e `undefined` ali quebra a navegação com o nó já em tela. Aceitar
+    // o nó incompleto aqui só adia o erro para longe da origem — e o valor vem
+    // de HTTP, onde o tipo é promessa de compilação, não garantia.
+    // Achado do CodeRabbit na PR #304.
+    (node.parent_id === null || typeof node.parent_id === 'string') &&
+    (node.node_type === 'system' || node.node_type === 'edition' || node.node_type === 'variant')
   );
 }
 

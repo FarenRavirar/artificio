@@ -195,11 +195,17 @@ export function useLinks(): UseLinksReturn {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Escrita amarrada ao DONO que a originou. `owner` entra na dep porque a
+  // mutação precisa saber de quem era a tela quando ela começou: sem isso, um
+  // `addLink` da conta A que resolva depois da troca publicaria o link de A na
+  // lista de B — a mesma classe de corrida que a geração já resolvia para o GET,
+  // deixada aberta para as mutações. Achado do CodeRabbit na PR #304.
   const setLinks = useCallback(
     (update: UserLink[] | ((prev: UserLink[]) => UserLink[])) => {
-      publishLinks(typeof update === 'function' ? update(sharedLinks) : update);
+      if (owner !== sharedLinksOwner) return;
+      publishLinks(typeof update === 'function' ? update(sharedLinks) : update, owner);
     },
-    [],
+    [owner],
   );
 
   const fetchLinks = useCallback(async () => {

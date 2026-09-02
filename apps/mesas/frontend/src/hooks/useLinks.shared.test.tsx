@@ -194,3 +194,35 @@ describe('useLinks — reorder preserva link criado durante a requisição', () 
     expect(result.current.links.map((l) => l.id)).toEqual(['b', 'a', 'c']);
   });
 });
+
+describe('useLinks — mutação em voo não publica na conta nova', () => {
+  it('addLink da conta A que resolve APÓS a troca não entra na lista de B', async () => {
+    // Mesma corrida que a geração resolvia para o GET, deixada aberta para as
+    // mutações: o POST de A responde depois de B assumir a tela, e o link de
+    // outra pessoa apareceria na lista de B — com botão de remover ao lado.
+    // Achado do CodeRabbit na PR #304.
+    const { result, rerender } = renderHook(() => useLinks());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let concluirPost!: (r: unknown) => void;
+    authPost.mockReturnValueOnce(new Promise((resolve) => { concluirPost = resolve; }));
+
+    let addPromise!: Promise<unknown>;
+    act(() => {
+      addPromise = result.current.addLink('https://youtube.com/@conta-a');
+    });
+
+    // Troca de conta ANTES de o POST responder.
+    authState.user = { id: 'user-b' };
+    rerender();
+    expect(result.current.links).toHaveLength(0);
+
+    await act(async () => {
+      concluirPost(jsonOk(link('de-a', 'https://youtube.com/@conta-a')));
+      await addPromise;
+    });
+
+    // É esta asserção que falha sem a guarda de dono no setLinks.
+    expect(result.current.links).toHaveLength(0);
+  });
+});
