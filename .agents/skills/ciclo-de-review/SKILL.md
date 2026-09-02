@@ -240,6 +240,21 @@ A configuração acima sempre dá certo. Se ao conferir ainda estiver em progres
 ou limitado: reagendar mais 40 min e **não comentar de novo** — comentar duas
 vezes na mesma janela é como ela se fecha.
 
+#### O Codex tem COTA DE CONTA, que espera nenhuma resolve
+
+Diferente do rate limit do CodeRabbit (janela temporal, reabre sozinha), o Codex
+pode responder ao disparo com:
+
+> You have reached your Codex usage limits for code reviews.
+
+Isso **não é janela**: é cota da conta, e não reabre por espera. Medido na PR
+#304, 04:06 local, depois de 5 disparos na mesma noite.
+
+Consequência para o laço: **não reagendar esperando o Codex voltar.** Se as
+outras três fontes estiverem limpas, encerrar dizendo que a revisão do Codex não
+foi obtida por limite de cota — é bloqueio, não conclusão. Quem decide se vale
+esperar o ciclo de cota ou pagar créditos é o mantenedor.
+
 #### Exceção 1: disparo RECUSADO — o relógio é o prazo anunciado
 
 Os 40 min pressupõem disparo **aceito**. Se o CodeRabbit responder ao comentário
