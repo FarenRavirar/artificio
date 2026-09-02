@@ -1,7 +1,7 @@
 // Sub-abas de /gestao/mesas. Vive fora de `ModeracaoSection.tsx` porque aquele
 // arquivo só pode exportar componentes (react-refresh/only-export-components), e
 // esta lógica precisa ser testável sem montar a árvore inteira de moderação.
-export type ModSubTab = 'mensagens' | 'rascunhos' | 'duplicatas' | 'descartados' | 'mesas';
+export type ModSubTab = 'mensagens' | 'rascunhos' | 'duplicatas' | 'descartados' | 'ignoradas' | 'mesas';
 
 // `tab` é o rótulo curto da fileira de botões; `title` é o cabeçalho do card e
 // difere de propósito ("Rascunhos" vs "Rascunhos de mesas"). Ficam juntos para a
@@ -26,6 +26,15 @@ export const SUB_TAB_CONTENT: Record<ModSubTab, { tab: string; title: string; de
     tab: 'Descartados',
     title: 'Descartados',
     description: 'Rascunhos rejeitados. Ver, restaurar (volta ao fluxo de revisão) ou apagar definitivamente.',
+  },
+  // A ORDEM desta lista é a ordem da fileira de botões (derivada por
+  // `Object.keys`), então "ignoradas" fica entre "descartados" e "mesas" de
+  // propósito: as duas primeiras são fila de trabalho, "mesas" é o resultado.
+  ignoradas: {
+    tab: 'Ignoradas',
+    title: 'Mensagens ignoradas',
+    description:
+      'Mensagens que o parser não reconheceu como mesa. Reprocessar (após melhorar o parser) ou apagar para poder reimportar o mesmo arquivo.',
   },
   // R5/R6 (spec 093): aba migrada da de catálogo. A referência fica no comentário —
   // "R5/R6" e "migrada da aba do catálogo" não dizem nada ao admin que lê a tela.

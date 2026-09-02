@@ -1,4 +1,6 @@
 import type { CoverQuality, ImportRawMessage, DiscordSlotsAmbiguity, ImportTableDraft, DiscordTableDraftTable, TableDraftType, TableDraftModality, TableDraftPriceType, TableDraftFrequency, TableDraftAgeRating, TableDraftExperienceLevel, TableDraftTableLevel } from './types.js';
+import { aplicarMapeamentos } from './roleMappings.js';
+import type { DiscordRoleMapping } from '../db/types.js';
 // T7.1b (spec 096): as quatro funções vinham de uma cópia local de 561 linhas
 // (`services/systemSuggestionCandidates.ts`) idêntica ao pacote — este arquivo
 // já importava `normalizeSettingStyles` do pacote na linha de baixo, ou seja,
@@ -39,27 +41,35 @@ export interface MatchEntry {
 }
 
 // Extrai texto dos embeds Discord quando content_raw está vazio
-function extractBodyFromEmbeds(embeds: unknown[]): string {
-  if (!embeds || embeds.length === 0) return '';
-  const parts: string[] = [];
-  for (const embed of embeds) {
-    if (typeof embed !== 'object' || embed === null) continue;
-    const e = embed as Record<string, unknown>;
-    if (typeof e.description === 'string' && e.description.trim()) {
-      parts.push(e.description.trim());
-    }
-    if (Array.isArray(e.fields)) {
-      for (const field of e.fields) {
-        if (typeof field === 'object' && field !== null) {
-          const f = field as Record<string, unknown>;
-          if (typeof f.name === 'string' && typeof f.value === 'string') {
-            parts.push(`${f.name}: ${f.value}`);
-          }
-        }
-      }
+/** Texto util dentro dos embeds. Exportada para que a OBSERVACAO de roles
+ * (`routes/discord/utils.ts`) veja o mesmo conteudo que o parser ve — anuncio
+ * de forum vive no embed, e sem isto ele nunca ensinaria role nenhuma. */
+/** `nome: valor` de UM campo de embed, ou `null` se o campo nao tiver os dois. */
+function textoDoCampoDeEmbed(field: unknown): string | null {
+  if (typeof field !== 'object' || field === null) return null;
+  const f = field as Record<string, unknown>;
+  if (typeof f.name !== 'string' || typeof f.value !== 'string') return null;
+  return `${f.name}: ${f.value}`;
+}
+
+/** Trechos uteis de UM embed: a description, depois cada campo. */
+function textosDeUmEmbed(embed: unknown): string[] {
+  if (typeof embed !== 'object' || embed === null) return [];
+  const e = embed as Record<string, unknown>;
+  const partes: string[] = [];
+  if (typeof e.description === 'string' && e.description.trim()) partes.push(e.description.trim());
+  if (Array.isArray(e.fields)) {
+    for (const field of e.fields) {
+      const texto = textoDoCampoDeEmbed(field);
+      if (texto) partes.push(texto);
     }
   }
-  return parts.join('\n');
+  return partes;
+}
+
+export function extractBodyFromEmbeds(embeds: unknown[]): string {
+  if (!embeds || embeds.length === 0) return '';
+  return embeds.flatMap(textosDeUmEmbed).join('\n');
 }
 
 function readStringField(value: Record<string, unknown>, key: string): string | null {
@@ -1476,7 +1486,26 @@ const DAY_TO_DEFINE_PATTERNS = [
   // (anúncio "Ameaça sob Otari", 2026-08-31): o interposto entre "dia" e "a
   // definir" fazia os padrões falharem e o dia caía em `null`, perdendo o
   // sentinela que o mestre JÁ tinha declarado no texto.
-  /\bdias?(?:\s+da\s+semana)?\s+(?:e\s+hor[aá]rios?\s+)?a\s+(?:decidir|combinar|definir)\b/,
+  // `(?:\s+da\s+(?:semana|mesa))?` + `:?` cobre o rótulo do modelo de anúncio
+  // mais usado: "Dias e horários DA MESA: A decidir, mande mensagem!" (draft
+  // 85f669da, 2026-09-02). O padrão anterior exigia "dias ... a decidir" sem
+  // nada entre eles, então o "da mesa:" interposto derrubava o casamento e o
+  // dia caía em `null` — a UI passava a pedir seleção de um dado que o mestre
+  // JÁ havia declarado como indefinido.
+  //
+  // A forma `\s*(?:e\s+…)?\s*:?\s*` era ReDoS REAL, nao alerta teorico: os tres `\s*`
+  // separados por opcionais repartem a mesma sequencia de espacos de N maneiras, e o
+  // motor testa todas antes de desistir. Medido em 2026-09-02 com "dias" + 5 mil
+  // espacos + "X": 27 SEGUNDOS de CPU. O texto vem de anuncio do Discord — entrada
+  // externa —, entao o custo e de quem quiser paga-lo. A forma abaixo e deterministica
+  // (`[\s:]*` como classe unica, e o `\s+` do opcional consumindo o proprio separador):
+  // 0,28 ms com 50 mil caracteres. Achado do Sonar.
+  // Dividido em DOIS padroes (o Sonar mediu complexidade 29 num so, limite 20). A
+  // lista ja e avaliada em `some`, entao duas entradas equivalem exatamente a uma com
+  // o ramo opcional — verificado em 13 frases reais, zero divergencia. Sem o `e
+  // horarios` opcional embutido, cada um fica legivel de ler de cima a baixo.
+  /\bdias?(?:\s+da\s+(?:semana|mesa))?[\s:]*a\s+(?:decidir|combinar|definir)\b/,
+  /\bdias?\s+e\s+hor[aá]rios?(?:\s+da\s+mesa)?[\s:]*a\s+(?:decidir|combinar|definir)\b/,
   /\bhor[aá]rios?\s+a\s+(?:decidir|combinar|definir)\b/,
   /\bdia(?:\s+da\s+semana)?\s+a\s+(?:decidir|combinar|definir)\b/,
   // "Sem dia fixo": forma negativa do mesmo sentinela, frequente nos anúncios
@@ -2123,11 +2152,60 @@ function extractHostDiscordId(text: string): string | null {
 // duplica lógica de parsing de label. Valor puramente de menção (`<@id>`
 // sozinho) ou vazio após limpar a menção não conta como nome de texto — isso
 // já é coberto por `extractHostDiscordId`.
+/**
+ * Sinais de que a linha JA NAO e o nome do mestre: chamada de inscricao, link de
+ * formulario, ou o rodape que a maioria dos anuncios traz depois do separador.
+ *
+ * Existe porque `stripSeparatorLines` remove os `▬▬▬` ANTES da extracao, entao a
+ * barreira visual que separava "Mestre: <@id>" do rodape desaparece e
+ * `collectLabelContinuation` agrega o rodape inteiro como continuacao do nome.
+ *
+ * Incidente real (mesa `alem-de-celestia-mtk69wt3`, producao, 2026-09-02): o campo
+ * "Mestre responsavel" na pagina publica exibia
+ * "Caso tenha interesse em participar, peco que preencha este formulario com atencao:
+ * https://forms.gle/... A sessao 0 ... sera neste Sabado as 18h." — duas linhas de
+ * instrucao no lugar de um nome, porque o valor real de `Mestre:` era so a mencao.
+ */
+// Lista, e nao uma regex unica: o Sonar mediu complexidade 24 (limite 20) na forma
+// monolitica, e a metrica so refletia o que ja incomodava na leitura — dez sentinelas
+// sem relacao entre si separadas por `|`, onde acrescentar a proxima exige contar
+// barras. Sao alternativas independentes avaliadas em `some`, entao o comportamento e
+// identico ao do `|`. Achado do Sonar.
+const GM_NAME_STOP_PATTERNS: readonly RegExp[] = [
+  /https?:\/\//i,
+  /forms\.gle/i,
+  /discord\.gg/i,
+  /\bcaso (?:tenha|voc[eê]|voc[eê]s|haja)\b/i,
+  /\binteresse em participar\b/i,
+  /\bpreencha\b/i,
+  /\bformul[aá]rio\b/i,
+  /\binscri[cç][aã]o\b/i,
+  // Com e sem acento: o anuncio real traz as duas grafias.
+  /\bsess[aã]o (?:zero|0)\b/i,
+];
+
+const ehLinhaDeParada = (linha: string): boolean =>
+  GM_NAME_STOP_PATTERNS.some((re) => re.test(linha));
+
 function extractHostName(text: string): string | null {
   const raw = extractLabelValue(text, ['mestre', 'gm', 'narrador', 'dm']);
   if (!raw) return null;
-  const withoutMention = raw.replace(/<@!?\d+>/g, '').trim();
+
+  // Corta na PRIMEIRA linha que deixa de ser nome. Linha a linha, e nao pelo texto
+  // inteiro, para nao descartar um nome legitimo so porque o rodape veio colado —
+  // "Mestre: Mariana" seguido do convite continua devolvendo "Mariana".
+  const linhas = raw.split(/\r?\n/);
+  const corte = linhas.findIndex(ehLinhaDeParada);
+  const nome = (corte === -1 ? linhas : linhas.slice(0, corte)).join(' ');
+
+  const withoutMention = nome.replace(/<@!?\d+>/g, '').replace(/\s+/g, ' ').trim();
   if (!withoutMention) return null;
+
+  // Nome de mestre e curto. Acima disto e texto que escapou do corte acima, e um
+  // paragrafo no lugar do nome e pior que nome ausente: `host_discord_id` ja cobre a
+  // identidade, e a pagina publica exibe o campo cru para o leitor.
+  if (withoutMention.length > 120) return null;
+
   return withoutMention;
 }
 
@@ -2290,6 +2368,32 @@ const PURE_GRAPHIC_MARKS_RE = /[▬▭►▶»«━─┃┅┄╍✦═⎯⸻]+
 // repetição inline e glifos puramente gráficos. NÃO mexe em mentions <@id>
 // nem em markdown de ênfase (**/~~/`), pois extractHostFromMentions,
 // extractRoleAndUserMentions etc. ainda precisam ler esses tokens crus do body.
+// Rótulo de ANEXO que sobra como linha própria depois de o separador cair.
+// No modelo de anúncio mais usado a última linha é "▬ Imagem ▬": o `▬` já era
+// removido acima, mas a palavra ficava e ia para a description do draft, onde
+// lê como se fizesse parte do texto do anúncio. Só casa a linha INTEIRA (com
+// dois-pontos opcional) — "Imagem" no meio de uma frase é conteúdo legítimo e
+// não é tocado. Achado do mantenedor (2026-09-02, draft 85f669da).
+// `[ \t:]*` como classe UNICA no lugar de `[ \t]*:?[ \t]*`: a forma anterior era
+// ReDoS real, nao alerta teorico — os dois `[ \t]*` separados pelo `:?` repartem a
+// mesma sequencia de espacos de N maneiras e o motor testa todas antes de desistir.
+// Medido em 2026-09-02 com "imagem" + 48 mil espacos + "X": 2,3 SEGUNDOS de CPU;
+// a forma abaixo faz 1 ms com 200 mil caracteres. O texto vem de anuncio do Discord
+// (entrada externa), entao o custo e de quem quiser paga-lo. A classe unica tambem
+// passa a aceitar "imagem::", que continua sendo linha decorativa sem conteudo — o
+// proposito do padrao. Achado do Sonar.
+const ATTACHMENT_LABEL_LINE_RE = /^[ \t]*(?:imagem|imagens|imagem da mesa|banner|capa|arte|thumbnail|anexo|anexos)[ \t:]*$/i;
+// Mesma regra aplicada a texto multi-linha (a description não passa por
+// `stripSeparatorLines`, que trabalha linha a linha). `m` para `^`/`$` casarem
+// por linha; o `\n?` final absorve a quebra que sobraria.
+// Mesmo ReDoS da de cima, e pior: 5,2 SEGUNDOS com 48 mil caracteres. So explode
+// com espaco e tab MISTURADOS (`"\t "` repetido) — com espacos puros ela media 0 ms,
+// e por isso quase passou por falso-positivo numa medicao fraca. `(?:[^\S\n]|:)*`
+// consome separador e dois-pontos numa alternancia unica, sem reparticao ambigua:
+// 3 ms com 200 mil caracteres. Achado do Sonar.
+const ATTACHMENT_LABEL_BLOCK_RE =
+  /^[^\S\n]*(?:imagens?|imagem da mesa|banner|capa|arte|thumbnail|anexos?)(?:[^\S\n]|:)*$\n?/gim;
+
 export function stripSeparatorLines(text: string): string {
   return text
     .split(/\r?\n/)
@@ -2303,6 +2407,10 @@ export function stripSeparatorLines(text: string): string {
       const leadingSpace = line.slice(0, line.length - trimmed.length);
       return `${leadingSpace}${withoutMarker}`.replace(/[^\S\n]+$/, '');
     })
+    // Rótulo de anexo vira linha vazia (não é removida da lista): apagar a linha
+    // deslocaria o índice das demais, e outras extrações contam com a posição
+    // relativa entre linhas do modelo de anúncio.
+    .map((line) => (ATTACHMENT_LABEL_LINE_RE.test(line.trim()) ? '' : line))
     .join('\n');
 }
 
@@ -2464,6 +2572,69 @@ export function stripNullBytes(text: string): string {
   return text.replace(NULL_BYTE_RE, '');
 }
 
+/**
+ * Emoji customizado do Discord: `<:nome:id>` ou `<a:nome:id>` (animado).
+ * Documentado em https://discord.com/developers/docs/reference#message-formatting
+ *
+ * Achado do mantenedor (2026-09-02, draft 85f669da): o parser não conhecia este
+ * formato, e ele vazava inteiro para o título e a descrição do draft — o título
+ * saía como ":emoji 19:1544085548493439017 o Reinado da Rainha-Dragão".
+ * `stripDecorativeMarkup` não resolvia: a whitelist dele preserva `:` e dígitos,
+ * então o marcador virava texto em vez de sumir.
+ */
+const CUSTOM_EMOJI_RE = /<(a?):([\w~]+):(\d{15,25})>/g;
+
+/**
+ * Emoji de LETRA vira a letra correspondente, em vez de sumir.
+ *
+ * Servidores usam emoji de letra como capitular decorativa, e a letra é parte
+ * da palavra: no mesmo draft, `<:emoji_15:…>ra uma vez` era "Era uma vez" e
+ * `<:emoji_16:…>ransformada` era "Transformada". Removendo o emoji sem repor a
+ * letra, o texto publicado perde a inicial de cada parágrafo.
+ *
+ * A dedução vem do NOME do emoji, nunca do id (que é por servidor): cobre os
+ * formatos que o Discord e os packs populares usam — `regional_indicator_e`,
+ * `letter_e`, `blue_letter_e`, `e_`. Nome que não casa vira remoção simples;
+ * `emoji_15` é exatamente esse caso, e nenhuma heurística de nome recupera a
+ * letra dele — só o pack de origem saberia.
+ */
+const LETTER_EMOJI_NAME_RE = /^(?:regional_indicator_|letter_|[a-z]+_letter_)?([a-z])_?$/i;
+
+function letraDeEmoji(nome: string): string | null {
+  const m = LETTER_EMOJI_NAME_RE.exec(nome);
+  return m ? m[1].toUpperCase() : null;
+}
+
+/**
+ * Regional Indicator (🇦-🇿) é emoji de letra do próprio Unicode: pares formam
+ * bandeiras, mas isolados são usados como capitular. U+1F1E6 é 'A'.
+ */
+function stripRegionalIndicators(text: string): string {
+  // Um `replace` só, alternando PAR antes de indicador solto: a regex tenta o par
+  // primeiro, então "🇧🇷" cai no primeiro ramo e volta intacto, enquanto um indicador
+  // isolado cai no segundo e vira letra.
+  //
+  // Sem isto o código contradizia o comentário acima e convertia bandeira também —
+  // "mesa 🇧🇷" saía como "mesa BR". Achado do CodeRabbit.
+  return text.replace(
+    /[\u{1F1E6}-\u{1F1FF}]{2}|[\u{1F1E6}-\u{1F1FF}]/gu,
+    (trecho) =>
+      [...trecho].length === 2
+        ? trecho
+        : String.fromCodePoint(65 + ((trecho.codePointAt(0) ?? 0) - 0x1f1e6)),
+  );
+}
+
+/**
+ * Converte emoji de letra na letra e remove o resto dos emojis customizados.
+ * Roda na ENTRADA do parser, antes de qualquer extração de campo.
+ */
+export function normalizeDiscordEmojis(text: string): string {
+  return stripRegionalIndicators(
+    text.replace(CUSTOM_EMOJI_RE, (_todo, _animado, nome: string) => letraDeEmoji(nome) ?? ''),
+  );
+}
+
 // Achado Codex (PR #168): stripNullBytes só cobre string_raw — embeds/
 // attachments do Discord (objetos/arrays aninhados) também podem carregar
 // 0x00 em campos de texto (description, field.value, filename) e quebram o
@@ -2488,6 +2659,12 @@ export function sanitizeJsonValue<T>(value: T): T {
 
 export function cleanDescriptionText(text: string): string {
   return text
+    // Rótulo de anexo em linha própria ("Imagem" no fim do modelo de anúncio):
+    // não é conteúdo, mas ia para a description e lia como parte do texto do
+    // mestre. Aqui e não em `stripSeparatorLines` porque a description NÃO passa
+    // por lá. Só a linha inteira casa — "Imagem de capa" no meio de uma frase é
+    // texto legítimo. Achado do mantenedor (2026-09-02, draft 85f669da).
+    .replace(ATTACHMENT_LABEL_BLOCK_RE, '\n')
     .replace(RAW_DISCORD_TOKEN_RE, '')
     .replace(LINE_PREFIX_MARKDOWN_RE, '')
     .replace(/\s*\[(?:form|forms|formul[aá]rio|inscri[cç][aã]o|link)\]\s*/gi, ' ')
@@ -2754,9 +2931,22 @@ export type HomebrewClass = 'discard' | 'review' | 'none';
  * de sistema não-fixo (ex. "Jogo do dia:") nunca acha o hint aqui, e um
  * sistema autoral/próprio anunciado sob esse rótulo escapa do descarte. */
 function getAnnouncementSystemHint(message: ImportRawMessage, labelAliasesSystem?: string[]): string | null {
-  const threadName = stripNullBytes(message.discord_thread_name ?? '');
-  const rawBody = stripNullBytes(message.content_raw ?? '');
-  const body = stripSeparatorLines(rawBody.trim() || extractBodyFromEmbeds(message.embeds ?? []));
+  const threadName = normalizeDiscordEmojis(stripNullBytes(message.discord_thread_name ?? ''));
+  // `normalizeDiscordEmojis` ANTES da extração: emoji de letra vira a letra e o resto
+  // some, em vez de virar `:emoji 19:154...` no hint de sistema.
+  // Sem `aplicarMapeamentos` aqui de propósito: esta função só extrai o HINT para decidir
+  // descarte por sistema autoral, e não recebe `roleMappings`. Uma role de sistema não
+  // traduzida vira hint nulo, que é o comportamento seguro — não descarta nada por engano.
+  const rawBody = normalizeDiscordEmojis(stripNullBytes(message.content_raw ?? ''));
+  // O fallback de embed passa pela MESMA normalizacao que `content_raw`. Antes
+  // entrava cru: um anuncio publicado so como embed (bot de divulgacao) chegava
+  // aqui com `<:emoji_15:1154>` no lugar da letra capitular e com byte nulo
+  // intacto, entao o rotulo "Sistema:" nao casava e o hint saia nulo — um sistema
+  // autoral escapava do descarte pelo FORMATO do anuncio, nao pelo conteudo.
+  // `parseDiscordAnnouncement` (L3032) ja aplicava `stripNullBytes` aos dois
+  // caminhos; aqui so um deles era tratado. Achado do CodeRabbit.
+  const corpoEmbeds = normalizeDiscordEmojis(stripNullBytes(extractBodyFromEmbeds(message.embeds ?? [])));
+  const body = stripSeparatorLines(rawBody.trim() || corpoEmbeds);
   if (!body.trim()) return null;
   const explicitSystem = normalizeTitle(extractLabelValue(body, [
     'sistema', 'jogo', 'rpg', 'sistema de jogo', 'sistema utilizado', ...(labelAliasesSystem ?? []),
@@ -2801,6 +2991,12 @@ export function parseDiscordAnnouncement(
   /** Fase A/B/C (spec 058): bancos de referência opcionais pra VTT/comunicação. */
   platforms?: { vtt?: MatchEntry[]; communication?: MatchEntry[]; scenarios?: MatchEntry[] },
   labelAliases?: Record<string, string[]>,
+  /**
+   * Mapeamentos CONFIRMADOS de role/emoji do servidor (spec 099). Entram como
+   * parâmetro, e não por consulta aqui dentro, porque esta função é síncrona e
+   * pura — quem chama carrega uma vez por lote e reusa. Ver `roleMappings.ts`.
+   */
+  roleMappings?: Map<string, DiscordRoleMapping>,
 ): ImportTableDraft | null {
   // Achado 2026-07-15: mensagem do Discord com caractere nulo (byte 0x00,
   // provável de colagem/emoji corrompido) sobrevivia até virar description/
@@ -2808,12 +3004,48 @@ export function parseDiscordAnnouncement(
   // learning feedback) com "invalid input syntax for type json" — Postgres
   // aceita 0x00 dentro de string JSON escapada, mas rejeita ao extrair/
   // re-inserir como texto. Sanitiza na entrada, antes de qualquer extração.
-  const threadName = stripNullBytes(message.discord_thread_name ?? '');
-  const rawBody = stripNullBytes(message.content_raw ?? '');
-  // Fóruns Discord frequentemente colocam o conteúdo em embeds em vez do campo content
-  // DEB-058-XX: linhas separadoras de seção (▬▬▬, ━━━, ═══) removidas ANTES de
-  // qualquer extração de campo — nunca contaminam título/sistema/descrição/vagas.
-  const body = stripSeparatorLines(rawBody.trim() || extractBodyFromEmbeds(message.embeds ?? []));
+  // ORDEM: mapeamento ANTES de `normalizeDiscordEmojis`.
+  //
+  // `normalizeDiscordEmojis` apaga todo emoji custom que não seja letra (vira `''`).
+  // Normalizar primeiro destruía o id de um emoji CONFIRMADO como tag antes de o mapa
+  // poder traduzi-lo: `<:emoji_15:123>` sumia e o mapeamento nunca casava. Vale igual
+  // para a capitular — o id precisa chegar inteiro em `aplicarMapeamentos`.
+  // Achado do Codex (P2); os testes cobriam `aplicarMapeamentos` isolada, nunca a ordem.
+  //
+  // Fóruns Discord frequentemente põem o conteúdo em embeds em vez de `content`, e o
+  // embed passa pelo mesmo tratamento: tem as mesmas roles que o corpo teria.
+  //
+  // O fallback compara os textos JÁ tratados, não os crus: `content_raw` com apenas um
+  // emoji custom não é vazio, mas vira '' na normalização — decidir pelo cru faria o
+  // anúncio virar draft de string vazia em vez de usar o embed (regressão coberta em
+  // `roleMappingsOrdem.test.ts`).
+  //
+  // Depois do mapa a normalização segue necessária para o que NÃO tem mapeamento: emoji
+  // de letra vira a letra (senão o parágrafo perde a inicial) e o resto some, em vez de
+  // virar `:emoji 19:154...` no título. Achado do mantenedor (draft 85f669da).
+  const tratar = (t: string) =>
+    normalizeDiscordEmojis(roleMappings ? aplicarMapeamentos(t, roleMappings) : t).trim();
+
+  // O thread name passa pelo MESMO tratamento do corpo: servidores põem a role de
+  // sistema no título do tópico ("<@&123>: Curse of Strahd"), e sem traduzir aqui o
+  // `splitThreadName` recebia o id cru e o hint de sistema saía vazio. Achado do
+  // CodeRabbit.
+  const threadName = tratar(stripNullBytes(message.discord_thread_name ?? ''));
+
+  // `stripNullBytes` nos DOIS caminhos: o embed é tão externo quanto o `content_raw`, e
+  // sanitizar só um deixava o `\x00` chegar ao draft justamente no caso de fórum, onde o
+  // embed é a única fonte de texto. Postgres recusa `\x00` em `text`. Achado do CodeRabbit.
+  const corpoNormalizado =
+    tratar(stripNullBytes(message.content_raw ?? '')) ||
+    tratar(stripNullBytes(extractBodyFromEmbeds(message.embeds ?? [])));
+
+  // DEB-058-XX: linhas separadoras de seção (▬▬▬, ━━━, ═══) removidas ANTES de qualquer
+  // extração de campo — nunca contaminam título/sistema/descrição/vagas.
+  //
+  // A partir daqui toda a extração funciona sem saber que houve tradução — inclusive o
+  // casamento com o catálogo. Servidores que usam role como tag (PlayRay, Império) não
+  // expõem o nome em lugar nenhum do export, então sem isto o dado se perdia. Spec 099.
+  const body = stripSeparatorLines(corpoNormalizado);
   // T-F1-05: sem corpo nem texto em embeds não há matéria-prima. Mesmo starters
   // de fórum agora retornam null em vez de fabricar draft a partir só do thread
   // name. Drafts vazios eram a maior fonte de needs_review imutável (spec 016

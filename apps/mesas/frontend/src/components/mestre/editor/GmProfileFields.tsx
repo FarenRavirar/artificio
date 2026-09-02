@@ -15,7 +15,11 @@ import { useRef, useState } from 'react';
 import { Button, Field, Select, TextInput, Textarea } from '@artificio/ui';
 import { TagInput } from '../../TagInput';
 import { SystemPicker } from '../../SystemPicker';
-import { useSystemsCatalog } from '../../../hooks/useSystemsCatalog';
+import { useSystemsSearch } from '../../../hooks/useSystemsSearch';
+import { useResolvedSystemNodes } from '../../../hooks/useResolvedSystemNodes';
+
+/** Estável de propósito: `[]` literal a cada render trocaria a identidade da prop. */
+const SEM_SISTEMAS: readonly string[] = [];
 import { MarkdownEditor } from '../../MarkdownEditor';
 import { normalizeSellingPoints } from '../../../hooks/useMestre';
 import { useProfileContext } from '../../../contexts/useProfileContext';
@@ -465,7 +469,22 @@ interface ClosedGroupSectionProps {
 }
 
 export function ClosedGroupSection({ value, onChange }: ClosedGroupSectionProps) {
-  const { tree, loading, error: catalogError } = useSystemsCatalog();
+  // G5b (spec 099): este é o SEGUNDO seletor de sistemas da aba Mestre. Tirar
+  // o catálogo inteiro só do "Sistemas que mestra" não teria adiantado nada —
+  // esta seção continuaria baixando os 487.965 bytes na mesma tela, e a
+  // economia medida seria zero para quem abre a aba.
+  const { fetchSystemOptions, fetchChildOptions } = useSystemsSearch();
+  // A resolução dos nomes dos ids salvos vive no `useResolvedSystemNodes` (G6):
+  // era mecânica idêntica à do `UserSystemsSelector` — ref para não reentrar,
+  // chave estável da seleção, aviso amarrado à seleção atual. Extraída depois
+  // de o Sonar medir a duplicação na PR #304, não por antecipação.
+  // Seleção VAZIA quando o grupo está desligado: o seletor só é renderizado sob
+  // `value.enabled` (abaixo), então resolver os ids com ele fechado dispara um
+  // `fetchSystemsByIds` cujo resultado ninguém vê — requisição paga por nada, em
+  // toda montagem da aba. Achado do CodeRabbit na PR #304.
+  const idsParaResolver = value.enabled ? value.systems : SEM_SISTEMAS;
+  const { nodes: visibleSelectedNodes, failed: resolveFailed, retry: retryResolve } =
+    useResolvedSystemNodes(idsParaResolver);
 
   return (
     <section className="form-section">
@@ -498,26 +517,41 @@ export function ClosedGroupSection({ value, onChange }: ClosedGroupSectionProps)
               label="Sistemas aceitos"
               hint="Sistemas que você mestra para grupos fechados. Escolha quantos quiser."
             >
-              {loading ? (
-                <p className="text-sm text-[var(--fg-muted)]">Carregando sistemas...</p>
-              ) : catalogError ? (
-                <p className="text-sm text-[var(--fg-muted)]" role="alert">
-                  {catalogError}
+              {/* B7: exceção documentada — o controle aqui é o CatalogTree do
+                  pacote (@artificio/catalog-ui), que não aceita prop de
+                  aria-describedby (interface medida em CatalogTree.tsx); a
+                  associação exigiria mudar o pacote, fora do escopo desta fase.
+
+                  G5b: não há mais estado de "carregando catálogo" antes do
+                  campo — nada é baixado até o mestre digitar. O que sumiu daqui
+                  foi a espera, não o tratamento de erro: a busca e a resolução
+                  de nomes reportam falha onde acontecem. */}
+              {resolveFailed && (
+                <p className="text-sm text-[var(--state-danger-fg)]" role="alert">
+                  Não foi possível carregar os nomes dos sistemas escolhidos. Eles continuam
+                  salvos.{' '}
+                  {/* Falha transitória só se recuperava trocando a seleção ou
+                      recarregando: o efeito depende de `selectedKey`, que não
+                      muda. Achado do Codex na PR #304. */}
+                  <button
+                    type="button"
+                    className="underline underline-offset-2"
+                    onClick={retryResolve}
+                  >
+                    Tentar de novo
+                  </button>
                 </p>
-              ) : (
-                // B7: exceção documentada — o controle aqui é o CatalogTree do
-                // pacote (@artificio/catalog-ui), que não aceita prop de
-                // aria-describedby (interface medida em CatalogTree.tsx); a
-                // associação exigiria mudar o pacote, fora do escopo desta fase.
-                <SystemPicker
-                  tree={tree}
-                  selectedIds={value.systems}
-                  onSelectionChange={(ids) => onChange({ systems: ids })}
-                  idPrefix="gm-closed-group-systems"
-                  mode="multi"
-                  role="user"
-                />
               )}
+              <SystemPicker
+                selectedIds={value.systems}
+                selectedNodes={visibleSelectedNodes}
+                fetchSystemOptions={fetchSystemOptions}
+                fetchChildOptions={fetchChildOptions}
+                onSelectionChange={(ids) => onChange({ systems: ids })}
+                idPrefix="gm-closed-group-systems"
+                mode="multi"
+                role="user"
+              />
             </Field>
 
             <div>

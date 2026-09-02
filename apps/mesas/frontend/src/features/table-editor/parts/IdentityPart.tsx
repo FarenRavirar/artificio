@@ -5,6 +5,7 @@ import type { CatalogUiNode } from '@artificio/catalog-ui';
 import { systemTreeNodeToUiNode } from '../../../utils/systemTreeNodeToUiNode';
 import { authGet } from '../../../utils/authenticatedFetch';
 import { normalizeSystemsResponse } from '../../../hooks/useSystemsCatalog';
+import { useSystemsSearch } from '../../../hooks/useSystemsSearch';
 import type { TableEditorApi } from '../hooks/useTableEditor';
 import { EditorField, ToggleButton } from './EditorField';
 import { ContentEditor } from '@artificio/content-editor';
@@ -17,15 +18,9 @@ import { ParsePreviewTextArea } from '../../create-table/components/ParsePreview
 import { ParserSignalsPanel } from '../components/ParserSignalsPanel';
 import { DESCRIPTION_MAX_LENGTH, EDITOR_TEXT_LIMITS } from '../utils/editorValidation';
 
-/**
- * Limite da busca server-side de sistemas (R18/A21). 5 é o número medido na
- * spec 096: `?search=vampiro&limit=5` devolve 423 bytes contra 503.907 do
- * `?view=tree` — o suficiente para uma coluna de opções sem despejar o
- * catálogo inteiro.
- */
-const SYSTEM_SEARCH_LIMIT = 5;
-/** Margem sobre o exibido: a resposta traz níveis que a coluna Sistema descarta. */
-const SYSTEM_SEARCH_FETCH_LIMIT = 25;
+// Os limites da busca (`SYSTEM_SEARCH_LIMIT` / `SYSTEM_SEARCH_FETCH_LIMIT`)
+// moraram aqui até a spec 099 G5b; hoje vivem em `useSystemsSearch`, junto das
+// chamadas que os usam.
 
 /**
  * Normaliza a resposta de busca server-side de sistemas (R18/A21) e converte
@@ -75,47 +70,26 @@ export function IdentityPart({
   const [scenarioRefreshKey, setScenarioRefreshKey] = useState(0);
 
 
-  // Fonte server-side do nível sistema (R18/A21): GET /systems?search=.
-  // useCallback estabiliza a referência — o componente guarda a função e não
-  // refaz a busca por re-render (contrato documentado no pacote).
+  // Fontes server-side do catálogo (R18/A21): `?search=` e `?parent_id=`.
+  // Moravam aqui; a spec 099 G5b as levou para `useSystemsSearch` quando o
+  // editor de PERFIL passou a precisar das mesmas duas chamadas — copiar seria
+  // a terceira cópia do conceito no app, e o que se copiaria são as correções
+  // caras (filtro de raízes, margem do limite), não o `fetch`.
+  // O comportamento aqui é idêntico: o hook devolve `SystemTreeNode`, e a
+  // conversão para o nó do pacote é a mesma de antes.
+  const { fetchSystemOptions: fetchSystemNodes, fetchChildOptions: fetchChildNodes } =
+    useSystemsSearch();
+
   const fetchSystemOptions = useCallback(
-    async (query: string, signal: AbortSignal): Promise<CatalogUiNode[]> => {
-      // O `limit` pedido é MAIOR que o exibido de propósito: o servidor corta
-      // antes de sabermos quais nós são raiz, e sem margem uma busca cujos
-      // primeiros resultados são edições devolveria a coluna vazia.
-      const params = new URLSearchParams({
-        search: query,
-        limit: String(SYSTEM_SEARCH_FETCH_LIMIT),
-      });
-      const response = await authGet(`/api/v1/systems?${params.toString()}`, { signal });
-      if (!response.ok) {
-        throw new Error('Falha ao buscar sistemas.');
-      }
-      const json: unknown = await response.json();
-      // Só RAÍZES nesta coluna: `?search=` achata a árvore filtrada
-      // (`flattenTree(filterCatalogTree(...))` em systems.ts), então a resposta
-      // mistura edições e variantes que casaram. Sem este filtro, buscar "5e"
-      // listava o nó de edição ao lado do D&D como se fosse sistema — escolhê-lo
-      // pulava um nível e a coluna "Edição" passava a exibir variantes.
-      return normalizeSystemsSearchResponse(json)
-        .filter((node) => node.parent_id === null)
-        .slice(0, SYSTEM_SEARCH_LIMIT);
-    },
-    [],
+    async (query: string, signal: AbortSignal): Promise<CatalogUiNode[]> =>
+      (await fetchSystemNodes(query, signal)).map(systemTreeNodeToUiNode),
+    [fetchSystemNodes],
   );
 
-  // Fonte server-side de filhos (R18/A21): GET /systems?parent_id=.
   const fetchChildOptions = useCallback(
-    async (parent: CatalogUiNode, signal: AbortSignal): Promise<CatalogUiNode[]> => {
-      const params = new URLSearchParams({ parent_id: parent.id });
-      const response = await authGet(`/api/v1/systems?${params.toString()}`, { signal });
-      if (!response.ok) {
-        throw new Error('Falha ao carregar opções do sistema.');
-      }
-      const json: unknown = await response.json();
-      return normalizeSystemsSearchResponse(json);
-    },
-    [],
+    async (parent: CatalogUiNode, signal: AbortSignal): Promise<CatalogUiNode[]> =>
+      (await fetchChildNodes(parent.id, signal)).map(systemTreeNodeToUiNode),
+    [fetchChildNodes],
   );
 
   /**

@@ -1,8 +1,14 @@
 import { Router, Response, Request } from 'express';
+import { carregarMapeamentos, observarIdsDoAnuncio, registrarObservacoes } from '../../discord/roleMappings.js';
 import { z } from 'zod';
 import type { Selectable } from 'kysely';
 import { db } from '../../db/index.js';
-import type { DiscordSourceChannelType, DiscordImportMessagesTable, NewDiscordImportRun } from '../../db/types.js';
+import type {
+  DiscordRoleMapping,
+  DiscordSourceChannelType,
+  DiscordImportMessagesTable,
+  NewDiscordImportRun,
+} from '../../db/types.js';
 import type { MatchEntry } from '../../discord/parseDiscordAnnouncement.js';
 import {
   normalizeDiscordTableDraft,
@@ -406,7 +412,7 @@ export async function recordImportRun(counts: {
 
 // ─── T-G7 — registra decisão shadow (o que o sistema teria autoaprovado?) ──
 
-import { classifyConfidence, isHomebrewSystem } from '../../discord/parseDiscordAnnouncement.js';
+import { classifyConfidence, isHomebrewSystem, extractBodyFromEmbeds } from '../../discord/parseDiscordAnnouncement.js';
 
 function buildShadowReason(
   tier: ReturnType<typeof classifyConfidence> | null,
@@ -599,7 +605,48 @@ export async function parseDiscordMessage(
     channel_id: raw.discord_channel_id || null,
     author_id: raw.discord_author_id || null,
   });
-  const parsed = parseDiscordAnnouncement(raw, sys, replyContext, { vtt: vttPlatforms, communication: communicationPlatforms, scenarios }, labelAliases);
+  // Spec 099 — role/emoji como tag. Duas coisas acontecem aqui, e são
+  // independentes de propósito:
+  //
+  // 1. OBSERVAR: registra o que cada id parece significar, a partir do rótulo
+  //    da linha e do texto ao lado. Isso alimenta a fila de revisão; nada entra
+  //    no draft por conta disso. Falha aqui não pode derrubar o parse — é
+  //    aprendizado, não requisito —, daí o catch silencioso.
+  // 2. APLICAR: traduz os ids já CONFIRMADOS antes da extração, para que
+  //    `Sistema: <@&123>` seja lido como `Sistema: D&D 2024`.
+  const guildId = raw.discord_guild_id || null;
+  const [roleMappings] = await Promise.all([
+    // Sem mapeamento o parse degrada para o comportamento antigo (id some do
+    // texto); com exceção, ele morreria. Recurso opcional não derruba o
+    // caminho principal.
+    carregarMapeamentos(guildId).catch((err: unknown) => {
+      console.warn('[roleMappings] falha ao carregar (parse segue sem tradução):', err);
+      return new Map<string, DiscordRoleMapping>();
+    }),
+    // Observa `content_raw` E os embeds, SOMADOS — não um ou outro. O parser escolhe uma
+    // fonte porque precisa de UM corpo; a observação não escolhe nada, ela só aprende
+    // ids, e todo id visto é evidência. Com `||`, mensagem que tem as duas coisas (corpo
+    // de uma linha + campos no embed, arranjo comum em fórum) nunca ensinava as roles do
+    // embed, e elas não chegavam à fila de revisão. `registrarObservacoes` já deduplica
+    // por id, então id repetido nas duas fontes continua virando uma linha só. Achado do
+    // CodeRabbit.
+    registrarObservacoes(
+      guildId,
+      observarIdsDoAnuncio(
+        [raw.content_raw?.trim() ?? '', extractBodyFromEmbeds(raw.embeds ?? [])]
+          .filter(Boolean)
+          .join('\n'),
+      ),
+      // Id da mensagem: sem ele o contador de ocorrencias nao distingue anuncio novo
+      // de reprocessamento do MESMO anuncio, e a fila de revisao ordena por ele.
+      // Achado do Codex (P2).
+      raw.discord_message_id ?? null,
+    ).catch((err: unknown) => {
+      console.warn('[roleMappings] falha ao registrar observação (parse segue):', err);
+    }),
+  ]);
+
+  const parsed = parseDiscordAnnouncement(raw, sys, replyContext, { vtt: vttPlatforms, communication: communicationPlatforms, scenarios }, labelAliases, roleMappings);
   if (!parsed) return null;
   const normalized = normalizeDiscordTableDraft(parsed, sys);
   return { parsed, normalized, systems: sys };

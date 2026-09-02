@@ -92,3 +92,13 @@
 .user-systems-selector-retry:hover {
   border-color: var(--artificio-brand);
 }
+
+/* Spec 099 G5b: falha ao resolver os NOMES dos sistemas já escolhidos. A
+   contagem acima continua correta (vem dos ids salvos), então o aviso precisa
+   dizer que nada se perdeu — lista vazia sem explicação leria como
+   "o site apagou meus sistemas". */
+.user-systems-selector-resolve-error {
+  margin: 0 0 var(--space-2) 0;
+  color: var(--state-danger-fg);
+  font-size: 0.8125rem;
+}

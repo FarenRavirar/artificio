@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Trash2, Video, Music, Radio, MessageCircle, FileText, Globe, Plus, Loader, Camera, Share2, Briefcase } from 'lucide-react';
 import { useLinks, type UserLink } from '../hooks/useLinks';
-import { useConfirm } from "@artificio/ui";
+import { TextInput, useConfirm } from "@artificio/ui";
 import { RECOMMENDED_GAIN } from './mestre/editor/profileEditorDomain';
 import './LinksManager.css';
 
@@ -101,7 +101,12 @@ export function LinksManager() {
 
       <form onSubmit={handleAddLink} className="links-add-form">
         <div className="links-add-input-wrapper">
-          <input
+          {/* Spec 099 G5/A15: `<input>` cru virou o primitivo do pacote. A
+              classe `.links-add-input` continua, mas perdeu `padding` e
+              `font-size` (LinksManager.css) — altura e respiro do controle são
+              do `artificio-control-md`; o que sobrou ali é o `flex: 1` e a cor,
+              que o primitivo não decide. */}
+          <TextInput
             type="url"
             value={newUrl}
             onChange={(e) => setNewUrl(e.target.value)}

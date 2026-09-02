@@ -1,7 +1,7 @@
 import { useRef, useState, type ChangeEvent } from 'react';
 import { ImageEditor } from '@artificio/image-editor';
 import '@artificio/image-editor/image-editor.css';
-import { Checkbox } from '@artificio/ui';
+import { Checkbox, TextInput } from '@artificio/ui';
 import {
   imageKindHint,
   imageKindSpec,
@@ -229,7 +229,13 @@ export function ImageUploader({
           <label htmlFor={manualUrlId} className="text-xs font-medium text-white/70">
             URL manual (fallback)
           </label>
-          <input
+          {/* Spec 099 G5/A15: `<input>` cru virou o primitivo do pacote. As
+              utilitárias de padding/fonte/altura saíram junto — quem governa a
+              escala do controle é `artificio-control-md` (§9.3 item 3), e
+              mantê-las aqui só recriaria por classe local o mesmo desvio que a
+              regra legada do CSS produzia por especificidade (§13.7). O que
+              fica é a largura, que o primitivo não decide. */}
+          <TextInput
             id={manualUrlId}
             type="url"
             value={value}
@@ -239,7 +245,7 @@ export function ImageUploader({
             }}
             onBlur={importUrlIfNeeded}
             placeholder="https://res.cloudinary.com/..."
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:border-[var(--color-artificio-orange)]/60 focus:ring-1 focus:ring-[var(--color-artificio-orange)]/30 transition-all"
+            className="w-full"
           />
           <label
             className="mt-2 inline-flex items-center gap-2 text-xs text-white/70"

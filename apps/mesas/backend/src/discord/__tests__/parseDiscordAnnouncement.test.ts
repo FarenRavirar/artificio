@@ -2324,6 +2324,29 @@ describe('parseDiscordAnnouncement', () => {
     expect(isHomebrewSystem(makeMessage({ content_raw: 'Sistema: Tormenta 20\nDia: sexta' }))).toBe(false);
   });
 
+  it('classifyHomebrew: anuncio SO-EMBED normaliza emoji igual ao caminho de content_raw', () => {
+    // O fallback `extractBodyFromEmbeds` entrava CRU, sem `normalizeDiscordEmojis`
+    // nem `stripNullBytes`, enquanto `content_raw` passava pelos dois. Anuncio
+    // publicado so como embed (bot de divulgacao) com emoji customizado de letra
+    // capitular chegava a classificacao com `:emoji_15:154...` no lugar da letra,
+    // e o hint de sistema saia corrompido — um sistema autoral escapava do
+    // descarte por causa do formato do anuncio, nao do conteudo dele.
+    // Achado do CodeRabbit.
+    const soEmbed = (texto: string) =>
+      makeMessage({ content_raw: '', embeds: [{ description: texto }] });
+
+    // `<:emoji_15:1154>` e a capitular de 'Proprio': normalizado vira 'P'.
+    expect(classifyHomebrew(soEmbed('Sistema: <:emoji_15:1154>roprio\nDia: sexta'))).toBe(
+      classifyHomebrew(makeMessage({ content_raw: 'Sistema: <:emoji_15:1154>roprio\nDia: sexta' })),
+    );
+    // Byte nulo no meio do rotulo: sem `stripNullBytes` o rotulo nao casa.
+    expect(classifyHomebrew(soEmbed('Sist\u0000ema: Proprio\nDia: sexta'))).toBe(
+      classifyHomebrew(makeMessage({ content_raw: 'Sist\u0000ema: Proprio\nDia: sexta' })),
+    );
+    // Sistema conhecido segue 'none' pelos dois caminhos (nao e so igualdade vazia).
+    expect(classifyHomebrew(soEmbed('Sistema: Tormenta 20\nDia: sexta'))).toBe('none');
+  });
+
   // ─── T-C6: Vagas informais ─────────────────────────────────────────────────
 
   it('extracts "3 de 5" as total=5, open=2 (T-C6)', () => {
@@ -3513,6 +3536,71 @@ describe('Fase 6 (spec 096) — fixtures do §Gap 4', () => {
       }),
     );
     expect(draft?.table.contact_discord).toBe('@ricardo');
+  });
+
+  // ── Achados do mantenedor no draft 85f669da (2026-09-02) ──────────────────
+  // Os tres vieram do mesmo anuncio real ("O Reinado da Rainha-Dragao").
+
+  it('emoji customizado <:nome:id> nao vaza para o titulo', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_thread_name: '',
+        content_raw: '# <:emoji_19:1544085548493439017> O Reinado da Rainha-Dragao\nSistema: Daggerheart',
+      }),
+    );
+    // Antes saia ":emoji 19:1544085548493439017 o Reinado da Rainha-Dragao":
+    // stripDecorativeMarkup preserva `:` e digitos, entao o marcador virava texto.
+    expect(draft?.table.title).not.toContain('emoji');
+    expect(draft?.table.title).not.toContain('1544085548493439017');
+    expect(draft?.table.title).toContain('Reinado da Rainha');
+  });
+
+  it('emoji de LETRA vira a letra, em vez de sumir com a inicial da palavra', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_thread_name: '',
+        content_raw:
+          'Titulo: Mesa\nSistema: Daggerheart\n<:regional_indicator_e:1544078433875927091>ra uma vez, na terra de Whelvia.',
+      }),
+    );
+    // Remover o emoji sem repor a letra publicaria "ra uma vez".
+    expect(draft?.table.description ?? '').toContain('Era uma vez');
+  });
+
+  it('"Imagem" sozinho no fim nao entra na descricao', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_thread_name: '',
+        content_raw: 'Titulo: Mesa\nSistema: Daggerheart\nVenha contar sua historia!\nImagem',
+      }),
+    );
+    const desc = draft?.table.description ?? '';
+    expect(desc).toContain('Venha contar sua historia');
+    // Rotulo do anexo, nao conteudo do anuncio.
+    expect(desc.trimEnd().endsWith('Imagem')).toBe(false);
+  });
+
+  it('"Imagem" no meio de uma frase e preservado (nao e rotulo)', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_thread_name: '',
+        content_raw: 'Titulo: Mesa\nSistema: Daggerheart\nImagem de capa feita pelo mestre.',
+      }),
+    );
+    expect(draft?.table.description ?? '').toContain('Imagem de capa');
+  });
+
+  it('"Dias e horarios da mesa: A decidir" cai em to_define, nao em null', () => {
+    const draft = parseDiscordAnnouncement(
+      makeMessage({
+        discord_thread_name: '',
+        content_raw:
+          'Titulo: Mesa\nSistema: Daggerheart\nDias e horarios da mesa: A decidir, mande mensagem!',
+      }),
+    );
+    // O "da mesa:" interposto derrubava o padrao, e o dia virava null — a UI
+    // pedia selecao de um dado que o mestre ja declarara como indefinido.
+    expect(draft?.table.day_of_week).toBe('to_define');
   });
 
   it('F4-c: menção <@id> em qualquer linha de contato vence @username de outra linha', () => {

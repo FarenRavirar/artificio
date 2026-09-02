@@ -13,6 +13,8 @@ interface MessagesToolbarProps {
   readonly onSourceFilterChange: (value: string) => void;
   readonly onWindowFilterChange: (value: MessageWindowOption) => void;
   readonly onStatusFilterChange: (value: DiscordImportMessageStatus | '') => void;
+  /** Esconde o seletor de status quando a aba já define o recorte (spec 099). */
+  readonly hideStatusFilter?: boolean;
   readonly onReload: () => void;
   readonly onParseBatch: () => void;
 }
@@ -20,7 +22,7 @@ interface MessagesToolbarProps {
 export function MessagesToolbar({
   sources, messageSourceFilter, messageWindowFilter, messageStatusFilter,
   parsingBatch, queueStats,
-  onSourceFilterChange, onWindowFilterChange, onStatusFilterChange,
+  onSourceFilterChange, onWindowFilterChange, onStatusFilterChange, hideStatusFilter,
   onReload, onParseBatch,
 }: MessagesToolbarProps) {
   return (
@@ -47,17 +49,22 @@ export function MessagesToolbar({
             <option key={option.value} value={option.value}>{option.label}</option>
           ))}
         </select>
-        <select
-          value={messageStatusFilter}
-          onChange={e => onStatusFilterChange(e.target.value as DiscordImportMessageStatus | '')}
-          aria-label="Filtrar por status"
-          className="app-select"
-        >
-          <option value="">Todos os status</option>
-          {(Object.keys(MESSAGE_STATUS_LABELS) as DiscordImportMessageStatus[]).map(s => (
-            <option key={s} value={s}>{MESSAGE_STATUS_LABELS[s]}</option>
-          ))}
-        </select>
+        {/* Escondido quando a aba já fixa o status (Ignoradas): deixar o seletor
+            livre ali permitiria sair do recorte sem sair da aba — ver `synced`
+            sob o título "Mensagens ignoradas". Origem/janela seguem valendo. */}
+        {!hideStatusFilter && (
+          <select
+            value={messageStatusFilter}
+            onChange={e => onStatusFilterChange(e.target.value as DiscordImportMessageStatus | '')}
+            aria-label="Filtrar por status"
+            className="app-select"
+          >
+            <option value="">Todos os status</option>
+            {(Object.keys(MESSAGE_STATUS_LABELS) as DiscordImportMessageStatus[]).map(s => (
+              <option key={s} value={s}>{MESSAGE_STATUS_LABELS[s]}</option>
+            ))}
+          </select>
+        )}
         <button
           onClick={onReload}
           className="px-3 py-2 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors"

@@ -47,14 +47,17 @@
   gap: 0.75rem;
 }
 
+/* Spec 099 G5/A15: `padding` e `font-size` saíram — a escala do controle vem
+   de `artificio-control-md` (packages/ui), e declará-la aqui recriaria por
+   classe local o desvio de 50px que a regra legada de ProfileEditPage.css
+   produzia por especificidade (§13.7). O que fica é o que o primitivo não
+   governa: crescer na linha, cor e transição. */
 .links-add-input {
   flex: 1;
-  padding: 0.75rem 1rem;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--fg);
-  font-size: 0.875rem;
   transition: all 0.2s;
 }
 

@@ -159,6 +159,9 @@ export function ModeracaoSection() {
         {subTab === 'descartados' && (
           <DiscordDraftReviewTable inboxApi={inboxDraftApi} onBeforeSync={handleBeforeSync} lockedStatus="rejected" />
         )}
+        {/* Mesma view das mensagens, travada em `ignored`: a aba não é uma lista
+            nova, é o mesmo acervo com outro recorte e outras ações. */}
+        {subTab === 'ignoradas' && <MessagesView lockedStatus="ignored" />}
         {subTab === 'duplicatas' && <TableDuplicatesPanel />}
         {subTab === 'mesas' && <AdminTablesPanel />}
       </SectionCard>

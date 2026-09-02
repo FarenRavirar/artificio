@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 291,
-    "uniqueEndpoints": 268,
+    "total": 299,
+    "uniqueEndpoints": 274,
     "byApp": {
       "accounts-frontend": {
         "total": 8,
@@ -38,15 +38,15 @@
         }
       },
       "mesas-frontend": {
-        "total": 173,
+        "total": 181,
         "byConfidence": {
-          "medium": 77,
-          "high": 96
+          "medium": 79,
+          "high": 102
         },
         "byPattern": {
           "unknown": 4,
-          "template-literal": 71,
-          "service-wrapper": 39,
+          "template-literal": 73,
+          "service-wrapper": 45,
           "literal": 59
         }
       },
@@ -1106,7 +1106,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.fetchMessages",
-      "line": 164
+      "line": 191
     },
     {
       "app": "mesas-frontend",
@@ -1166,7 +1166,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getMessages",
-      "line": 120
+      "line": 147
     },
     {
       "app": "mesas-frontend",
@@ -1176,7 +1176,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.updateMessage",
-      "line": 185
+      "line": 212
     },
     {
       "app": "mesas-frontend",
@@ -1186,7 +1186,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.diagnoseMessageContent",
-      "line": 215
+      "line": 242
     },
     {
       "app": "mesas-frontend",
@@ -1196,7 +1196,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.parseMessage",
-      "line": 199
+      "line": 226
     },
     {
       "app": "mesas-frontend",
@@ -1206,7 +1206,17 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.updateMessagesBatch",
-      "line": 289
+      "line": 316
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/hooks/useDiscordSync.ts",
+      "method": "DELETE",
+      "endpoint": "/api/v1/admin/discord/messages/batch",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.deleteMessagesBatch",
+      "line": 394
     },
     {
       "app": "mesas-frontend",
@@ -1216,7 +1226,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.parseBatch",
-      "line": 250
+      "line": 277
     },
     {
       "app": "mesas-frontend",
@@ -1237,6 +1247,36 @@
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getIntegrationMetrics",
       "line": 85
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/RoleMappingsPanel.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/admin/discord/role-mappings",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.listRoleMappings",
+      "line": 90
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/RoleMappingsPanel.tsx",
+      "method": "PATCH",
+      "endpoint": "/api/v1/admin/discord/role-mappings/:param",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.updateRoleMapping",
+      "line": 204
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/admin/components/RoleMappingsPanel.tsx",
+      "method": "DELETE",
+      "endpoint": "/api/v1/admin/discord/role-mappings/:param",
+      "confidence": "high",
+      "pattern": "service-wrapper",
+      "wrapper": "discordSyncApi.deleteRoleMapping",
+      "line": 220
     },
     {
       "app": "mesas-frontend",
@@ -1286,7 +1326,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.getSources",
-      "line": 101
+      "line": 128
     },
     {
       "app": "mesas-frontend",
@@ -1316,7 +1356,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "discordSyncApi.reingestForce",
-      "line": 233
+      "line": 260
     },
     {
       "app": "mesas-frontend",
@@ -2016,7 +2056,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 102
+      "line": 318
     },
     {
       "app": "mesas-frontend",
@@ -2026,7 +2066,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 137
+      "line": 363
     },
     {
       "app": "mesas-frontend",
@@ -2036,7 +2076,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 180
+      "line": 406
     },
     {
       "app": "mesas-frontend",
@@ -2046,7 +2086,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPatch",
-      "line": 205
+      "line": 431
     },
     {
       "app": "mesas-frontend",
@@ -2076,7 +2116,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 288
+      "line": 323
     },
     {
       "app": "mesas-frontend",
@@ -2250,6 +2290,16 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/features/discord-sync/api/discordSyncApi.ts",
+      "method": "GET",
+      "endpoint": "/api/v1/systems",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authenticatedFetch",
+      "line": 570
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/table-editor/hooks/useSelectedSystemNode.ts",
       "method": "GET",
       "endpoint": "/api/v1/systems",
@@ -2266,7 +2316,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authGet",
-      "line": 90
+      "line": 108
     },
     {
       "app": "mesas-frontend",
@@ -2277,6 +2327,16 @@
       "pattern": "literal",
       "wrapper": "authGet",
       "line": 87
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/hooks/useSystemsSearch.ts",
+      "method": "GET",
+      "endpoint": "/api/v1/systems",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authGet",
+      "line": 63
     },
     {
       "app": "mesas-frontend",
@@ -2636,7 +2696,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.createPage",
-      "line": 55
+      "line": 59
     },
     {
       "app": "site-admin",
@@ -2646,7 +2706,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.getPage",
-      "line": 36
+      "line": 40
     },
     {
       "app": "site-admin",
@@ -2656,7 +2716,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.updatePage",
-      "line": 55
+      "line": 59
     },
     {
       "app": "site-admin",
@@ -2686,7 +2746,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.createPost",
-      "line": 133
+      "line": 137
     },
     {
       "app": "site-admin",
@@ -2696,7 +2756,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.getPost",
-      "line": 67
+      "line": 71
     },
     {
       "app": "site-admin",
@@ -2706,7 +2766,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.updatePost",
-      "line": 133
+      "line": 137
     },
     {
       "app": "site-admin",
@@ -2736,7 +2796,7 @@
       "confidence": "high",
       "pattern": "service-wrapper",
       "wrapper": "api.createTerm",
-      "line": 154
+      "line": 163
     },
     {
       "app": "site-admin",
@@ -2756,7 +2816,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 271
+      "line": 382
     },
     {
       "app": "site-admin",
@@ -2766,7 +2826,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authFetch",
-      "line": 314
+      "line": 425
     }
   ]
 }

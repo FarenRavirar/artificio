@@ -233,6 +233,23 @@ export function ProfileProvider({ children }: ProfileProviderProps) {
       // `onConflict(...).doNothing()`), entao deixar o clique passar custa uma
       // requisicao a mais e devolve o que o usuario pediu — ao contrario de
       // engolir a acao, que ensina que o botao nao funciona.
+      // Descarrega o autosave pendente e espera a gravação (spec 099 G4).
+      // Reusa o pump existente em vez de gravar por fora: chamar a mutation
+      // direto daqui criaria um segundo caminho de escrita concorrente com o
+      // debounce, que é justamente o defeito que a B8 consertou.
+      flushGm: async (): Promise<boolean> => {
+        // Cancela a espera do debounce: o que estiver no buffer vai agora.
+        if (gmTimerRef.current) {
+          clearTimeout(gmTimerRef.current);
+          gmTimerRef.current = null;
+        }
+        flushGmBuffer();
+        // O pump só existe se havia o que gravar; sem ele, nada pendente.
+        await gmPumpRef.current;
+        // O pump devolve o patch ao buffer quando a gravação falha (e acende
+        // `saveError`). Buffer ainda cheio = não gravou: quem chamou não abre.
+        return gmBufferRef.current === null;
+      },
       addSystem: async (systemId, type = 'favorite') => {
         try {
           await addSystemMutation.mutateAsync({ systemId, type });

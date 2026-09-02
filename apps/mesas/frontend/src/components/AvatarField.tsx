@@ -2,7 +2,7 @@ import { useRef, useState, type ChangeEvent, type ReactNode } from 'react';
 import { ImageEditor } from '@artificio/image-editor';
 import '@artificio/image-editor/image-editor.css';
 import type { CropRect } from '@artificio/media/image-kinds';
-import { Button, Checkbox } from '@artificio/ui';
+import { Button, Checkbox, TextInput } from '@artificio/ui';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { useImageUrlImport } from '../hooks/useImageUrlImport';
 import { CroppedImage } from './CroppedImage';
@@ -218,7 +218,12 @@ export function AvatarField({
                 🔗 Usar URL manual
               </summary>
               <div className="avatar-manual-input">
-                <input
+                {/* Spec 099 G5/A15: `<input>` cru virou o primitivo do pacote.
+                    A altura vem de `artificio-control-md` — antes a regra
+                    legada `.form-group input[type='url']` (0,2,1) vencia a
+                    classe do primitivo (0,1,0) e desenhava 50px onde o design
+                    system manda 40 (§13.7). */}
+                <TextInput
                   type="url"
                   id={`${idPrefix}-url`}
                   value={value.url}

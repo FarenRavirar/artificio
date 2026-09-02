@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, openPreview, type PageFull, type MediaItem, type ContentId } from "../api";
+import { useRebuildProgress, RebuildIndicator } from "../useRebuildProgress";
 import { BlockEditor, type EditorHandle } from "../editor/BlockEditor";
 import { SeoPanel } from "../editor/SeoPanel";
 import { MediaPicker } from "../media/MediaPicker";
@@ -9,6 +10,8 @@ const EMPTY: PageFull = {
   title: "", slug: "", excerpt: "", content_html: "", block_doc: null, status: "draft",
   seo_title: null, seo_description: null, canonical: null, og_title: null, og_description: null, og_image: null, noindex: false,
 };
+
+
 
 export function PageEditor() {
   const { id } = useParams();
@@ -31,6 +34,7 @@ export function PageEditor() {
   };
 
   const note = (msg: string, isErr = false) => { setToast({ msg, err: isErr }); setTimeout(() => setToast(null), 3500); };
+  const rebuild = useRebuildProgress(note);
 
   useEffect(() => {
     if (id) api.getPage(id).then((p) => {
@@ -53,7 +57,12 @@ export function PageEditor() {
       const { html, blockDoc } = (await editorRef.current?.getContent()) ?? { html: page.content_html, blockDoc: page.block_doc };
       const body: Partial<PageFull> = { ...page, status, content_html: html, block_doc: blockDoc };
       const r = isNew ? await api.createPage(body) : await api.updatePage(id, body);
-      const msg = r.rebuild?.started ? `${okMsg} (rebuild disparado)` : r.rebuild?.busy ? `${okMsg} (rebuild já em curso)` : okMsg;
+      const msg = r.rebuild?.started || r.rebuild?.busy ? `${okMsg} Publicando no site...` : okMsg;
+      // O filtro usa o `startedAt` DO SERVIDOR, nunca um carimbo local: relógios
+      // dessincronizados fariam o polling ignorar o próprio job que acabou de criar.
+      // Com `busy` não há filtro — o job em curso começou antes e seria descartado.
+      if (r.rebuild?.started) rebuild.acompanhar(r.rebuild.startedAt);
+      else if (r.rebuild?.busy) rebuild.acompanhar(undefined);
       if (isNew) { note(msg); navigate(`/pages/${r.id}`, { replace: true }); return r.id; }
       setPage((p) => ({ ...p, status, slug: r.slug })); note(msg); return id;
     } catch (e) { setErr(String((e as Error).message)); note("Erro ao salvar.", true); return null; }
@@ -76,6 +85,7 @@ export function PageEditor() {
       <div className="row">
         <h2 className="title">{isNew ? "Nova página" : "Editar página"}</h2>
         <span className={`badge ${page.status}`}>{page.status}</span>
+        <RebuildIndicator rotulo={rebuild.rotulo} />
         <div className="spacer" />
         <button className="btn" onClick={() => setPicker("insert")} disabled={saving}>🖼 Inserir imagem</button>
         <button className="btn" onClick={preview} disabled={saving}>Pré-visualizar ↗</button>

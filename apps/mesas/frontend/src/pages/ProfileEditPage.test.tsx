@@ -1,8 +1,12 @@
 // @vitest-environment jsdom
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ProfileEditPage from './ProfileEditPage';
 import type { FullProfile } from '../types/profileTypes';
+import {
+  PROFILE_PARTS,
+  profilePartDomId,
+} from '../components/mestre/editor/profileEditorParts';
 
 /**
  * Página de edição de perfil — indicador de autosave (spec 099 B8) e remoção
@@ -75,6 +79,9 @@ const { mockCtx } = vi.hoisted(() => {
     updateProfile: vi.fn(),
     updatePlayer: vi.fn(),
     updateGm: vi.fn(),
+    // Fase G: a porta para o link oficial grava o pendente antes de abrir.
+    // `true` = gravou (ou nada havia pendente) e pode abrir.
+    flushGm: vi.fn(async () => true),
     addSystem: vi.fn(),
     removeSystem: vi.fn(),
   };
@@ -96,6 +103,21 @@ vi.mock('../components/UserSystemsSelector', () => ({
 
 vi.mock('../components/LinksManager', () => ({
   LinksManager: () => <div data-testid="links-manager" />,
+}));
+
+// A casca da fase G lê a contagem de links direto do hook (pendências da parte
+// "Onde te achar"), e não mais só pelo LinksManager mockado acima. Sem este
+// mock o hook chama `useAuth` e o harness quebra por falta de AuthProvider.
+vi.mock('../hooks/useLinks', () => ({
+  useLinks: () => ({
+    links: [],
+    loading: false,
+    error: null,
+    addLink: vi.fn(),
+    removeLink: vi.fn(),
+    reorderLinks: vi.fn(),
+    refresh: vi.fn(),
+  }),
 }));
 
 vi.mock('../components/AvatarField', () => ({
@@ -128,6 +150,18 @@ vi.mock('../utils/toast', () => ({
 vi.mock('../services/analytics', () => ({
   track: vi.fn(),
 }));
+
+// O contexto mockado é COMPARTILHADO (vi.hoisted) e vários testes escrevem
+// nele (tagline, experience_years, flushGm). Sem este reset a ordem dos testes
+// passa a importar e uma falha aparece no teste errado.
+beforeEach(() => {
+  mockCtx.saving = false;
+  mockCtx.saveError = null;
+  mockCtx.flushGm = vi.fn(async () => true);
+  mockCtx.profile.gm!.tagline = null;
+  mockCtx.profile.gm!.nickname = null;
+  mockCtx.profile.gm!.experience_years = null;
+});
 
 function renderPage() {
   return render(<ProfileEditPage />);
@@ -200,22 +234,184 @@ describe('ProfileEditPage — campo Preço Médio removido (spec 099 B9 / D4)', 
   });
 });
 
-describe('ProfileEditPage — prévia do perfil público (spec 099 B10)', () => {
-  it('renderiza o texto REAL do editor na prévia (tagline atual do profile.gm)', () => {
-    // Valor ATUAL dos campos do editor (nada de dado fake): o que o
-    // profile.gm carrega é o que a prévia deve espelhar.
+/**
+ * A prévia embutida (B10) foi SUBSTITUÍDA pela porta para o link oficial na
+ * fase G (spec §13.11, decisão do mantenedor 2026-09-01: "a prévia tem que
+ * direcionar como uma nova aba para onde vai ficar o link oficial").
+ *
+ * O teste antigo afirmava que a `MestreProfilePreview` renderizava o texto do
+ * editor dentro da aba. Ele não foi apagado por falhar: a asserção deixou de
+ * descrever o produto. O que o A13 exige agora é o oposto — endereço público
+ * real visível, aba nova, e NENHUM espelho dentro do editor.
+ */
+describe('ProfileEditPage — porta para o link oficial (spec 099 G4, §13.11)', () => {
+  it('mostra o endereço público real e não espelha a página dentro do editor', () => {
     mockCtx.profile.gm!.tagline = 'Aventuras épicas toda quinta';
     mockCtx.profile.gm!.nickname = null;
 
     renderPage();
     fireEvent.click(screen.getByRole('tab', { name: 'Mestre' }));
 
-    expect(screen.getByLabelText('Prévia do perfil')).toBeInTheDocument();
-    expect(screen.getByText('Aventuras épicas toda quinta')).toBeInTheDocument();
-    // Sem nickname, o display_name cai para o perfil do usuário (COALESCE do
-    // GET público: nickname → display_name → slug). Escopo na prévia: o h1 da
-    // página também mostra "Mago".
-    const preview = screen.getByLabelText('Prévia do perfil');
-    expect(within(preview).getByText('Mago')).toBeInTheDocument();
+    // A rota canônica é `/mestre/<slug>` (§13.15): a que tem consumidores no
+    // app. `/mestres/<id>` existe mas ninguém chega nela.
+    const slug = mockCtx.profile.gm!.slug;
+    expect(screen.getByText(new RegExp(`/mestre/${slug}$`))).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Abrir em nova aba' })).toBeInTheDocument();
+
+    // Espelho dentro do editor reprova A13.
+    expect(screen.queryByLabelText('Prévia do perfil')).not.toBeInTheDocument();
+  });
+
+  it('grava o pendente ANTES de navegar a aba', async () => {
+    // A gravação fica PENDENTE de propósito: é a única forma de provar a
+    // ordem. Com uma promise já resolvida, "abriu depois de salvar" e "abriu
+    // sem esperar" produzem o mesmo resultado no fim do teste.
+    let concluirGravacao!: (ok: boolean) => void;
+    mockCtx.flushGm = vi.fn(
+      () => new Promise<boolean>((resolve) => { concluirGravacao = resolve; }),
+    );
+
+    renderPage();
+    fireEvent.click(screen.getByRole('tab', { name: 'Mestre' }));
+
+    // A aba é aberta EM BRANCO dentro do clique (senão o bloqueador de pop-up
+    // barra a janela) e só NAVEGA depois da gravação.
+    const replace = vi.fn();
+    const tab = { location: { replace }, close: vi.fn(), opener: {} } as unknown as Window;
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab);
+
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Abrir em nova aba' }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(mockCtx.flushGm).toHaveBeenCalled();
+      // Sem `noopener,noreferrer`: com a flag o `window.open` devolve `null` e
+      // não haveria handle para navegar depois — a aba ficaria em branco. A
+      // proteção é reposta com `opener = null` logo após abrir.
+      expect(open).toHaveBeenCalledWith('', '_blank');
+      expect(tab.opener).toBeNull();
+      // Enquanto a gravação não termina, nada de navegar.
+      expect(replace).not.toHaveBeenCalled();
+
+      await act(async () => {
+        concluirGravacao(true);
+        await Promise.resolve();
+      });
+
+      expect(replace).toHaveBeenCalledWith(
+        expect.stringContaining(`/mestre/${mockCtx.profile.gm!.slug}`),
+      );
+    } finally {
+      open.mockRestore();
+    }
+  });
+
+  it('fecha a aba em branco quando a gravação falha', async () => {
+    mockCtx.flushGm = vi.fn(async () => false);
+
+    renderPage();
+    fireEvent.click(screen.getByRole('tab', { name: 'Mestre' }));
+
+    const replace = vi.fn();
+    const close = vi.fn();
+    const tab = { location: { replace }, close } as unknown as Window;
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab);
+
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Abrir em nova aba' }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Sem o close, a falha deixaria uma aba em branco órfã na cara do mestre.
+      expect(replace).not.toHaveBeenCalled();
+      expect(close).toHaveBeenCalled();
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+    } finally {
+      open.mockRestore();
+    }
+  });
+
+  it('avisa sem sugerir perda quando o navegador bloqueia a aba', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('tab', { name: 'Mestre' }));
+
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Abrir em nova aba' }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Aqui o conteúdo FOI salvo: dizer "não deu para salvar" seria mentira e
+      // faria o mestre reescrever o que já está gravado.
+      expect(screen.getByRole('alert')).toHaveTextContent(/salvas/i);
+    } finally {
+      open.mockRestore();
+    }
+  });
+
+  // O caso "gravação falha" é coberto por "fecha a aba em branco quando a
+  // gravação falha", acima. A asserção antiga (`open` nunca chamado) descrevia
+  // o desenho anterior, em que a aba só nascia depois do salvamento — o que o
+  // bloqueador de pop-up barrava.
+});
+
+/**
+ * As 5 partes de spec §13.5 e a lateral que navega entre elas (G1/G3/G4).
+ */
+describe('ProfileEditPage — casca do editor de mestre (spec 099 G1/G3/G4)', () => {
+  it('renderiza as 5 partes como seções tituladas de um documento contínuo', () => {
+    const { container } = renderPage();
+    fireEvent.click(screen.getByRole('tab', { name: 'Mestre' }));
+
+    for (const part of PROFILE_PARTS) {
+      expect(container.querySelector(`#${profilePartDomId(part.id)}`)).not.toBeNull();
+      // Todas montadas ao mesmo tempo: é âncora, não troca de view — o mestre
+      // continua podendo revisar livremente.
+      expect(screen.getByRole('region', { name: part.label })).toBeInTheDocument();
+    }
+  });
+
+  it('a lateral marca a parte ativa com aria-current="location"', () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('tab', { name: 'Mestre' }));
+
+    const nav = screen.getByRole('navigation', { name: 'Partes do perfil' });
+    const current = within(nav).getAllByRole('button', { current: 'location' });
+    // `location`, não `page`: a página não muda, só a posição no documento.
+    expect(current).toHaveLength(1);
+    expect(current[0]).toHaveTextContent(PROFILE_PARTS[0].label);
+  });
+
+  it('a lateral conta as pendências da parte e o número cai ao preencher', () => {
+    // "Quem é você" tem 2 recomendados (tagline, experienceYears).
+    mockCtx.profile.gm!.tagline = null;
+    mockCtx.profile.gm!.experience_years = null;
+
+    const { rerender } = renderPage();
+    fireEvent.click(screen.getByRole('tab', { name: 'Mestre' }));
+
+    // Escopo no BOTÃO da parte, não na nav inteira: outras partes têm as suas
+    // pendências (links vazios dão 1 em "Onde te achar"), e uma asserção pela
+    // nav casaria com a parte errada.
+    const nav = screen.getByRole('navigation', { name: 'Partes do perfil' });
+    const botaoQuem = () =>
+      within(nav).getByRole('button', { name: /Quem é você/ });
+    expect(
+      within(botaoQuem()).getByLabelText('2 campo(s) recomendado(s) por preencher'),
+    ).toBeInTheDocument();
+
+    // Preencher um deve derrubar a contagem na mesma sessão (A12).
+    act(() => {
+      mockCtx.profile.gm!.tagline = 'Aventuras épicas toda quinta';
+    });
+    rerender(<ProfileEditPage />);
+
+    expect(
+      within(botaoQuem()).getByLabelText('1 campo(s) recomendado(s) por preencher'),
+    ).toBeInTheDocument();
   });
 });

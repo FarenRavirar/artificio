@@ -7,7 +7,7 @@ import type { AuthenticatedRequest } from "@artificio/auth";
 import { cleanHtml, withToc, readingTime, slugify, uniqueSlug, excerptFromHtml } from "./lib/content.js";
 import { renderPreviewFromContent } from "./preview.js";
 import { storeUpload } from "./lib/media-store.js";
-import { runJob } from "./jobs.js";
+import { runJob, jobState } from "./jobs.js";
 import * as Posts from "../db/repo/posts.js";
 import * as Pages from "../db/repo/pages.js";
 import * as Tax from "../db/repo/taxonomies.js";
@@ -322,6 +322,14 @@ export function adminApi(requireAuth: RequestHandler, requireAdmin: RequestHandl
     res.status(out.started ? 202 : 409).json(out);
   });
 
+  // Estado do rebuild em curso, para o editor acompanhar depois de publicar.
+  // Separado de `/admin/status` de propósito: aquele roda quatro `count(*)` para montar
+  // as estatísticas do painel, e o editor consulta isto de 2 em 2 segundos enquanto o
+  // job corre — contar a tabela inteira a cada 2s durante um build inteiro é custo puro.
+  r.get("/rebuild/status", (_req, res) => {
+    res.json({ job: jobState() });
+  });
+
   return r;
 }
 
@@ -333,11 +341,18 @@ function isInternalPath(path: string): boolean {
 
 // Dispara rebuild SSG no servidor quando a mudança afeta o público (publicar OU despublicar).
 // Single-flight (jobs.ts); o cliente não precisa de uma 2ª requisição (corrige inconsistência DB↔SSG).
-function maybeRebuild(newStatus: string, prevStatus?: string): { started: boolean; busy?: boolean } {
+function maybeRebuild(
+  newStatus: string,
+  prevStatus?: string,
+): { started: boolean; busy?: boolean; startedAt?: string } {
   const affectsPublic = newStatus === "publish" || prevStatus === "publish";
   if (!affectsPublic) return { started: false };
   const r = runJob("rebuild", "rebuild");
-  return { started: r.started, busy: r.busy };
+  // `startedAt` VAI JUNTO: o editor usa este carimbo para reconhecer o job no polling.
+  // Sem ele o cliente carimbava a própria hora e comparava com a do servidor — um
+  // relógio adiantado no navegador descartaria o rebuild recém-disparado em todos os
+  // polls, até o timeout de 10 min. Achado do Codex (P2).
+  return { started: r.started, busy: r.busy, startedAt: r.job?.startedAt };
 }
 
 // Monta PostWrite a partir do body do editor (sanitiza HTML, toc, fallbacks, slug único).

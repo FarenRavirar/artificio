@@ -287,19 +287,37 @@
   font-size: 0.875rem;
 }
 
+/* Spec 099, fase G (G5) — esta regra PERDEU `padding`, `font-size` e
+   `min-height`, e a remoção é o conserto, não limpeza.
+   Medido em beta com `getComputedStyle` no campo "Anos de Experiência"
+   (§13.7): o controle desenhava 50px onde `.artificio-control-md` do pacote
+   manda 40px. A causa é especificidade — este seletor vale 0,2,1 (classe +
+   elemento + atributo) contra 0,1,0 da classe do primitivo, então ele vencia a
+   cascata e o primitivo virava decoração. O app estava reescrevendo o design
+   system por acidente de seletor.
+   As três propriedades agora vêm de `artificio-control-*` (packages/ui), que é
+   quem tem autoridade sobre altura, respiro e escala de texto do controle
+   (§9.3 item 3). O que fica aqui é só o que o pacote NÃO governa: largura de
+   bloco, borda, cor e transição.
+   CORREÇÃO (achado do Codex, PR #304): a versão anterior deste comentário
+   afirmava que os campos das abas Geral/Jogador "continuam usando esta casca"
+   — e afirmava errado. Medido: 3 `<input>` crus (`display_name`, `username`,
+   `location`) não tinham classe de controle nenhuma e herdavam a escala DESTA
+   regra por acidente de cascata; sem ela, cairiam para o tamanho default do
+   navegador. Os 3 foram migrados para o `TextInput` do pacote junto com esta
+   mudança. Os `<select>` da aba Jogador seguem servidos por `.app-select`
+   (index.css:150), que declara padding e font-size próprios.
+   Reintroduzir qualquer uma das três aqui reprova A15. */
 .form-group input[type='text'],
 .form-group input[type='number'],
 .form-group input[type='url'],
 .form-group select,
 .form-group textarea {
   width: 100%;
-  padding: 0.75rem;
   border: 1px solid var(--line-strong);
   background: var(--surface);
   color: var(--fg);
   border-radius: 8px;
-  font-size: 1rem;
-  min-height: 40px;
   transition: all 0.2s;
 }
 
@@ -603,21 +621,14 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Só a largura fica: o campo virou `TextInput` (@artificio/ui), e `padding`,
+   `border`, `background`, `color`, `border-radius` e `font-size` vêm de
+   `.artificio-control-md`. Esta regra vencia o primitivo por especificidade e
+   redefinia 8px/13px onde a escala compartilhada diz 9px/14px — a divergência
+   local que a migração existia para remover continuava de pé, no URL manual do
+   avatar Geral e do Mestre. Achado do Codex na PR #304. */
 .avatar-manual-input input[type='url'] {
   width: 100%;
-  padding: var(--space-2);
-  border: 1px solid var(--line-strong);
-  background: var(--surface);
-  color: var(--fg);
-  border-radius: 8px;
-  font-size: 0.8125rem;
-}
-
-.avatar-manual-input input[type='url']:focus {
-  outline: none;
-  border-color: var(--artificio-brand);
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
-  background: var(--surface);
 }
 
 .avatar-manual-input small {
@@ -695,5 +706,127 @@
   .avatar-premium-preview {
     width: 100px;
     height: 100px;
+  }
+}
+
+/* ============================================================================
+   Casca do editor de mestre (spec 099, fase G — G1/G3)
+   ----------------------------------------------------------------------------
+   O mantenedor recusou o resultado da fase F em beta: "ainda está centralizado,
+   sem etapas como nas laterais, que tem no atual editor de mesas". A fase B
+   entregou os campos sem a casca que `old_spec.md:495-503` já mandava aplicar.
+   Isto é a casca: grid de 300px + lateral com as 5 partes.
+
+   DUPLICAÇÃO DELIBERADA, REGISTRADA E DATADA (2026-09-01). O padrão vem de
+   `features/table-editor/TableEditor.css`, copiado de propósito e sem extrair
+   nada — o editor de mesa NÃO é tocado nesta task. A G6, última da fase,
+   compara as duas cascas existindo lado a lado e extrai só o que elas
+   comprovadamente compartilham; "não extrair" é resultado válido. Motivo no
+   plan: abstrair a partir de dois casos, sendo que o segundo ainda não existia,
+   é o fracasso público do DLS do Airbnb.
+
+   O QUE NÃO FOI COPIADO, E POR QUÊ: a casca imersiva do editor de anúncio
+   (`position: fixed; inset: 0; z-index: 60; height: 100dvh` —
+   TableEditor.css:36-56) fica de fora. Aquele editor toma a viewport inteira de
+   propósito e sai pelo "Voltar ao painel"; o perfil é página em fluxo dentro do
+   AppShell, com Header e Footer em volta. Herdar o `fixed` cobriria a navegação
+   do site e tiraria do mestre o caminho de volta.
+
+   Consequência de estar em fluxo: quem rola é a PÁGINA, não um documento
+   interno. Não há `overflow` próprio aqui — as partes são seções de um
+   documento contínuo (G3), e a lateral rola até elas por âncora.
+   ============================================================================ */
+
+/* O editor ESCAPA do `max-width: 900px` do `.profile-edit-page`.
+   Aquele limite foi medido para uma coluna só de formulário; a fase G pôs uma
+   lateral de 300px + `--space-6` de gap DENTRO dele, e o que sobrava para os
+   campos caía a ~576px — mais estreito que antes de a lateral existir, que é o
+   oposto do que a fase pretendia. 1240px = 900 de conteúdo + 300 de lateral +
+   gap, então a coluna de campos volta à largura para a qual foi desenhada.
+   Achado do Codex na PR #304. */
+/* SEM o combinador `>`: o shell não é filho direto — mora em
+   `.tab-content > #tab-panel-mestre` (ProfileEditPage.tsx:268,289,696). A
+   primeira versão desta regra usava `:has(> …)` e não casava com nada, deixando
+   o limite de 900px de pé. Achado do Codex na PR #304. */
+.profile-edit-page:has(.profile-editor-shell) {
+  max-width: 1240px;
+}
+
+.profile-editor-shell {
+  display: grid;
+  /* 300px como no editor de mesa (TableEditor.css:70). Lá a medida vinha da
+     largura mínima do card real da prévia; aqui ela carrega o endereço público
+     e os rótulos das partes, que precisam de largura semelhante para não
+     quebrar em duas linhas. */
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+/* `align-items: start` acima é o que permite o `sticky` da lateral funcionar:
+   item de grid estica por padrão (`stretch`), e um elemento esticado não tem
+   para onde grudar — o `position: sticky` vira no-op silencioso. */
+.profile-editor-aside {
+  position: sticky;
+  /* 104px é onde o header sticky do AppShell termina (`.artificio-header`,
+     `z-index: 50`, packages/ui/src/styles.css:236, ocupando top 0→104), mais
+     um respiro. Sem isto a lateral desliza para baixo do header. */
+  top: 6.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  /* A lateral não disputa altura com o documento: se as partes crescerem, ela
+     rola dentro de si em vez de esticar a página. */
+  max-height: calc(100dvh - 8rem);
+  overflow-y: auto;
+}
+
+.profile-editor-parts-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* Cada parte é uma seção de um documento contínuo (G3): o `scroll-margin-top` é
+   OBRIGATÓRIO, não estética. Sem ele o `scrollIntoView` encosta o título da
+   seção no topo do viewport, e o header sticky do AppShell (0→104px) desenha
+   por cima — o mestre clica na parte e cai num título invisível. Precedente na
+   mesma base: MestrePage.css:774. */
+.profile-editor-part {
+  scroll-margin-top: 7rem;
+}
+
+/* Tela estreita: abaixo de 720px a lateral de 300px tomaria a maior parte da
+   largura e sobraria quase nada para o formulário (mesma medição que motivou a
+   media query do editor de mesa, TableEditor.css:86-97: em 390px a lateral
+   comia 77% da tela). Ela deixa de ser coluna e vira FAIXA HORIZONTAL no topo —
+   faixa, não gaveta: a navegação entre partes continua visível o tempo todo,
+   sem um gesto a mais para descobrir onde se está. */
+@media (max-width: 719px) {
+  .profile-editor-shell {
+    grid-template-columns: 100%;
+  }
+
+  .profile-editor-aside {
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  /* Os botões das partes rolam na horizontal: empilhados, cinco deles comeriam
+     a tela inteira antes do primeiro campo. */
+  .profile-editor-parts-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  /* `width: auto` derruba o `w-full` que os botões carregam do layout vertical
+     (ProfileEditorSidebar): sem isso, `flex: 0 0 auto` respeita a largura
+     declarada e CADA botão ocuparia a faixa inteira, um por vez, exigindo cinco
+     rolagens para ver as cinco partes. Achado do CodeRabbit na PR #304. */
+  .profile-editor-parts-nav > * {
+    flex: 0 0 auto;
+    width: auto;
   }
 }

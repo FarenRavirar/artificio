@@ -26,6 +26,22 @@ export interface ProfileContextValue {
   }) => Promise<void>;
   updatePlayer: (data: Partial<PlayerProfile>) => Promise<void>;
   updateGm: (data: Partial<GmProfile>) => Promise<void>;
+  /**
+   * Descarrega AGORA o autosave pendente do perfil de mestre e espera a
+   * gravação terminar (spec 099, fase G — G4).
+   *
+   * Existe por causa da porta para o link oficial: a aba nova busca do servidor
+   * como qualquer visitante, então abrir com o debounce de 500ms ainda contando
+   * mostraria a versão anterior — o mestre escreveria, abriria, não veria a
+   * mudança e concluiria que quebrou. O botão cancela a espera, grava e só
+   * então abre.
+   *
+   * Devolve `true` quando não há nada pendente ou a gravação foi bem-sucedida,
+   * e `false` quando ela falhou — nesse caso quem chamou NÃO deve abrir a aba:
+   * levar o mestre a uma página que não tem o que ele acabou de escrever é
+   * exatamente o engano que este flush existe para evitar.
+   */
+  flushGm: () => Promise<boolean>;
   addSystem: (systemId: string, type?: 'favorite' | 'gm') => Promise<void>;
   removeSystem: (systemId: string) => Promise<void>;
 }

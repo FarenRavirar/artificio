@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { SystemPicker } from './SystemPicker';
-import { useSystemsCatalog } from '../hooks/useSystemsCatalog';
+import { useSystemsSearch } from '../hooks/useSystemsSearch';
+import { useResolvedSystemNodes } from '../hooks/useResolvedSystemNodes';
 import './UserSystemsSelector.css';
 
 interface UserSystemsSelectorProps {
@@ -12,6 +13,18 @@ interface UserSystemsSelectorProps {
 
 /**
  * Componente para selecionar sistemas favoritos ou sistemas que o usuário mestra.
+ *
+ * **Spec 099, fase G (G5b): carrega sob demanda.** Antes montava
+ * `useSystemsCatalog()`, que baixa a árvore inteira no primeiro render —
+ * medido na API de beta em 2026-09-01: **487.965 bytes** (1.289 nós) para
+ * escolher de 1 a 5 sistemas, contra **2.040** de uma busca. Agora a busca é
+ * server-side e só os sistemas JÁ selecionados são resolvidos, numa requisição
+ * por lista de ids.
+ *
+ * Continua `mode="multi"`: trocar pelo `CatalogSystemSelector` (que já tinha a
+ * busca sob demanda) seria regressão, porque ele é single-select e aqui se
+ * escolhe N sistemas. Foi para isso que o `CatalogTree` ganhou as fontes
+ * server-side na G7.
  */
 export const UserSystemsSelector = React.memo(function UserSystemsSelector({
   type,
@@ -19,21 +32,19 @@ export const UserSystemsSelector = React.memo(function UserSystemsSelector({
   onAdd,
   onRemove,
 }: UserSystemsSelectorProps) {
-  const { tree, flat, loading, error, forceRefresh } = useSystemsCatalog();
+  const { fetchSystemOptions, fetchChildOptions } = useSystemsSearch();
+  // A resolução dos nomes dos ids salvos vive no `useResolvedSystemNodes` (G6):
+  // era mecânica idêntica à do `GmProfileFields` — ref para não reentrar,
+  // chave estável da seleção, aviso amarrado à seleção atual. Extraída depois
+  // de o Sonar medir a duplicação na PR #304, não por antecipação.
+  const { nodes: visibleSelectedNodes, failed: resolveFailed, retry: retryResolve } =
+    useResolvedSystemNodes(selectedSystemIds);
 
-  // Spec 099 B9: além de contar, LISTAR os nomes dos sistemas selecionados.
-  // Nome resolve pelo catálogo (system_id → nó) — nunca se grava nome, só o
-  // id; id que não existe mais no catálogo é omitido da lista (a contagem
-  // continua sendo a verdade dos ids salvos no servidor).
-  const selectedSystems = useMemo(() => {
-    const byId = new Map(flat.map((node) => [node.id, node]));
-    const resolved: Array<{ id: string; name: string }> = [];
-    for (const id of selectedSystemIds) {
-      const node = byId.get(id);
-      if (node) resolved.push({ id, name: node.name });
-    }
-    return resolved;
-  }, [flat, selectedSystemIds]);
+
+  const selectedSystems = useMemo(
+    () => visibleSelectedNodes.map((node) => ({ id: node.id, name: node.name })),
+    [visibleSelectedNodes],
+  );
 
   const handleSelectionChange = useCallback((nextIds: string[]) => {
     for (const systemId of selectedSystemIds) {
@@ -49,31 +60,10 @@ export const UserSystemsSelector = React.memo(function UserSystemsSelector({
     }
   }, [selectedSystemIds, onAdd, onRemove]);
 
-  if (loading) {
-    return (
-      <div className="user-systems-selector-loading">
-        {/* Spinner do pacote: a F5 removeu `.spinner-small` de
-            `ProfileEditPage.css`, e esta classe so funcionava porque aquele CSS
-            estava carregado na mesma pagina (o Vite injeta global). A dependencia
-            era acidental e a div ficou 0x0, sem indicador nenhum enquanto o
-            catalogo de sistemas carrega. */}
-        <span className="artificio-button-spinner" aria-hidden="true"></span>
-        <p>Carregando sistemas...</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="user-systems-selector-loading" role="alert">
-        <p>{error}</p>
-        <button type="button" className="user-systems-selector-retry" onClick={() => void forceRefresh()}>
-          Tentar novamente
-        </button>
-      </div>
-    );
-  }
-
+  // G5b: não há mais estado de "carregando o catálogo" nem de "falhou ao
+  // carregar o catálogo" bloqueando a tela inteira — nada é baixado no primeiro
+  // render. O campo de busca aparece de imediato e o que pode falhar (a busca,
+  // a resolução dos nomes) se reporta no lugar onde acontece.
   return (
     <div className="user-systems-selector">
       <div className="systems-selector-header">
@@ -81,6 +71,18 @@ export const UserSystemsSelector = React.memo(function UserSystemsSelector({
           {selectedSystemIds.length} {type === 'favorite' ? 'favorito(s)' : 'sistema(s) que você mestra'}
         </p>
       </div>
+
+      {resolveFailed && (
+        <p className="user-systems-selector-resolve-error" role="alert">
+          Não foi possível carregar os nomes dos sistemas escolhidos. Eles continuam salvos.{' '}
+          {/* Sem o botão, falha transitória só se recuperava trocando a seleção
+              ou recarregando a página: o efeito depende de `selectedKey`, que
+              não muda. Achado do Codex na PR #304. */}
+          <button type="button" className="underline underline-offset-2" onClick={retryResolve}>
+            Tentar de novo
+          </button>
+        </p>
+      )}
 
       {selectedSystems.length > 0 && (
         <div className="selected-systems-list">
@@ -93,8 +95,10 @@ export const UserSystemsSelector = React.memo(function UserSystemsSelector({
       )}
 
       <SystemPicker
-        tree={tree}
         selectedIds={selectedSystemIds}
+        selectedNodes={visibleSelectedNodes}
+        fetchSystemOptions={fetchSystemOptions}
+        fetchChildOptions={fetchChildOptions}
         onSelectionChange={handleSelectionChange}
         idPrefix={`profile-${type}`}
         mode="multi"

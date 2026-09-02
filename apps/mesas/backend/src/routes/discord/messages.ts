@@ -19,6 +19,13 @@ const batchMessageSchema = z.object({
   status: z.enum(['pending', 'parsed', 'needs_review', 'synced', 'ignored', 'error']),
 });
 
+// Exclusão em lote é limitada aos MESMOS 200 ids do PATCH: o limite existe para
+// o admin não apagar a fila inteira num clique acidental, e afrouxá-lo aqui — na
+// operação irreversível — seria o inverso do razoável.
+const deleteBatchMessageSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(200),
+});
+
 const discordMessageDiagnosticSchema = z.object({
   id: z.string(),
   content: z.string().optional().default(''),
@@ -115,6 +122,49 @@ router.patch('/batch', requireAdmin, async (req: Request, res: Response) => {
   } catch (error: unknown) {
     console.error('[PATCH /admin/discord/messages/batch]', error);
     return res.status(500).json({ error: 'Erro ao atualizar mensagens em lote.' });
+  }
+});
+
+// ─── DELETE /messages/batch — apaga mensagens DEFINITIVAMENTE (spec 099)
+// Registrado ANTES de /:id pelo mesmo motivo do PATCH /batch: rota literal vence o param.
+//
+// Existe porque o importador NÃO reabre mensagem que já conhece: o
+// `ON CONFLICT ... DO UPDATE` de `chatExporterImportService.ts` só dispara
+// quando o `content_hash` muda, então reimportar o mesmo JSON não devolve nada
+// ao fluxo — a mensagem fica presa no status em que parou. Apagar é a única
+// forma de reimportar o mesmo arquivo do zero.
+//
+// `discord_import_table_drafts.discord_message_id` é ON DELETE CASCADE
+// (migration_115:64), então o draft vinculado vai junto — é o comportamento
+// desejado, e por isso a contagem de drafts afetados volta na resposta. O
+// aprendizado do parser (migration_136) é ON DELETE SET NULL: não se perde.
+router.delete('/batch', requireAdmin, async (req: Request, res: Response) => {
+  const parsed = deleteBatchMessageSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Dados inválidos.', details: z.flattenError(parsed.error) });
+  }
+
+  try {
+    // Conta os drafts ANTES de apagar: depois do CASCADE não há como saber
+    // quantos foram, e o admin precisa disso para conferir o que perdeu.
+    const drafts = await db
+      .selectFrom('discord_import_table_drafts')
+      .select(({ fn }) => [fn.countAll<number>().as('total')])
+      .where('discord_message_id', 'in', parsed.data.ids)
+      .executeTakeFirst();
+
+    const deleted = await db
+      .deleteFrom('discord_import_messages')
+      .where('id', 'in', parsed.data.ids)
+      .returning(['id'])
+      .execute();
+
+    return res.json({
+      data: { deleted: deleted.length, draftsRemoved: Number(drafts?.total ?? 0) },
+    });
+  } catch (error: unknown) {
+    console.error('[DELETE /admin/discord/messages/batch]', error);
+    return res.status(500).json({ error: 'Erro ao apagar mensagens.' });
   }
 });
 

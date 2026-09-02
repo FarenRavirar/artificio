@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api, openPreview, type PostFull, type Term, type MediaItem, type ContentId } from "../api";
+import { useRebuildProgress, RebuildIndicator } from "../useRebuildProgress";
 import { BlockEditor, type EditorHandle } from "../editor/BlockEditor";
 import { SeoPanel } from "../editor/SeoPanel";
 import { MediaPicker } from "../media/MediaPicker";
@@ -27,6 +28,8 @@ const idsOrDefault = (v: unknown): ContentId[] =>
 function normalizePostFull(p: PostFull): PostFull {
   return { ...EMPTY, ...p, cats: idsOrDefault(p.cats), tags: idsOrDefault(p.tags) };
 }
+
+
 
 export function PostEditor() {
   const { id } = useParams();
@@ -57,6 +60,7 @@ export function PostEditor() {
   };
 
   const note = (msg: string, isErr = false) => { setToast({ msg, err: isErr }); setTimeout(() => setToast(null), 3500); };
+  const rebuild = useRebuildProgress(note);
 
   useEffect(() => {
     // Falha aqui não bloqueia a edição (o post salva sem mexer em taxonomia), mas some com
@@ -131,7 +135,12 @@ export function PostEditor() {
     try {
       const body = await collect(status);
       const r = isNew ? await api.createPost(body) : await api.updatePost(id, body);
-      const msg = r.rebuild?.started ? `${okMsg} (rebuild disparado)` : r.rebuild?.busy ? `${okMsg} (rebuild já em curso)` : okMsg;
+      const msg = r.rebuild?.started || r.rebuild?.busy ? `${okMsg} Publicando no site...` : okMsg;
+      // O filtro usa o `startedAt` DO SERVIDOR, nunca um carimbo local: relógios
+      // dessincronizados fariam o polling ignorar o próprio job que acabou de criar.
+      // Com `busy` não há filtro — o job em curso começou antes e seria descartado.
+      if (r.rebuild?.started) rebuild.acompanhar(r.rebuild.startedAt);
+      else if (r.rebuild?.busy) rebuild.acompanhar(undefined);
       if (isNew) { note(msg); navigate(`/posts/${r.id}`, { replace: true }); return r.id; }
       setPost((p) => ({ ...p, status, slug: r.slug })); note(msg); return id;
     } catch (e) { setErr(String((e as Error).message)); note("Erro ao salvar.", true); return null; }
@@ -164,6 +173,7 @@ export function PostEditor() {
       <div className="row">
         <h2 className="title">{isNew ? "Novo post" : "Editar post"}</h2>
         <span className={`badge ${post.status}`}>{post.status}</span>
+        <RebuildIndicator rotulo={rebuild.rotulo} />
         <div className="spacer" />
         <button className="btn" onClick={() => setPicker("insert")} disabled={saving}>🖼 Inserir imagem</button>
         <button className="btn" onClick={preview} disabled={saving}>Pré-visualizar ↗</button>

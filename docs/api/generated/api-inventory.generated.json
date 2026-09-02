@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "total": 604,
+    "total": 610,
     "byApp": {
       "accounts": {
         "total": 56,
@@ -57,23 +57,23 @@
         }
       },
       "mesas": {
-        "total": 256,
+        "total": 261,
         "byMethod": {
-          "GET": 75,
+          "GET": 76,
           "POST": 74,
-          "USE": 53,
-          "PATCH": 25,
-          "DELETE": 18,
+          "USE": 54,
+          "PATCH": 26,
+          "DELETE": 20,
           "PUT": 11
         },
         "byConfidence": {
-          "high": 256
+          "high": 261
         }
       },
       "site": {
-        "total": 69,
+        "total": 70,
         "byMethod": {
-          "GET": 28,
+          "GET": 29,
           "POST": 18,
           "USE": 9,
           "PUT": 7,
@@ -81,7 +81,7 @@
           "PATCH": 2
         },
         "byConfidence": {
-          "high": 69
+          "high": 70
         }
       }
     },
@@ -2749,7 +2749,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 23,
+      "line": 24,
       "confidence": "high",
       "kind": "mount"
     },
@@ -2758,7 +2758,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 33,
+      "line": 36,
       "confidence": "high",
       "kind": "mount"
     },
@@ -2767,7 +2767,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord/automation",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 37,
+      "line": 40,
       "confidence": "high",
       "kind": "mount"
     },
@@ -2821,7 +2821,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord/discovery",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 22,
+      "line": 23,
       "confidence": "high",
       "kind": "mount"
     },
@@ -2857,15 +2857,6 @@
       "method": "USE",
       "path": "/api/v1/admin/discord/drafts",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 26,
-      "confidence": "high",
-      "kind": "mount"
-    },
-    {
-      "app": "mesas",
-      "method": "USE",
-      "path": "/api/v1/admin/discord/drafts",
-      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
       "line": 27,
       "confidence": "high",
       "kind": "mount"
@@ -2876,6 +2867,15 @@
       "path": "/api/v1/admin/discord/drafts",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
       "line": 28,
+      "confidence": "high",
+      "kind": "mount"
+    },
+    {
+      "app": "mesas",
+      "method": "USE",
+      "path": "/api/v1/admin/discord/drafts",
+      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
+      "line": 29,
       "confidence": "high",
       "kind": "mount"
     },
@@ -2983,7 +2983,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord/duplicate-candidates",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 29,
+      "line": 30,
       "confidence": "high",
       "kind": "mount"
     },
@@ -3019,7 +3019,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord/import-json",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 34,
+      "line": 37,
       "confidence": "high",
       "kind": "mount"
     },
@@ -3028,7 +3028,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord/import-json",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 35,
+      "line": 38,
       "confidence": "high",
       "kind": "mount"
     },
@@ -3073,18 +3073,9 @@
       "method": "GET",
       "path": "/api/v1/admin/discord/messages",
       "sourceFile": "apps/mesas/backend/src/routes/discord/messages.ts",
-      "line": 63,
+      "line": 70,
       "confidence": "high",
       "kind": "express-route"
-    },
-    {
-      "app": "mesas",
-      "method": "USE",
-      "path": "/api/v1/admin/discord/messages",
-      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 30,
-      "confidence": "high",
-      "kind": "mount"
     },
     {
       "app": "mesas",
@@ -3106,10 +3097,19 @@
     },
     {
       "app": "mesas",
+      "method": "USE",
+      "path": "/api/v1/admin/discord/messages",
+      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
+      "line": 33,
+      "confidence": "high",
+      "kind": "mount"
+    },
+    {
+      "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/admin/discord/messages/:id",
       "sourceFile": "apps/mesas/backend/src/routes/discord/messages.ts",
-      "line": 122,
+      "line": 172,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3118,7 +3118,7 @@
       "method": "POST",
       "path": "/api/v1/admin/discord/messages/:id/diagnose-content",
       "sourceFile": "apps/mesas/backend/src/routes/discord/messages.ts",
-      "line": 144,
+      "line": 194,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3133,10 +3133,19 @@
     },
     {
       "app": "mesas",
+      "method": "DELETE",
+      "path": "/api/v1/admin/discord/messages/batch",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/messages.ts",
+      "line": 141,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
       "method": "PATCH",
       "path": "/api/v1/admin/discord/messages/batch",
       "sourceFile": "apps/mesas/backend/src/routes/discord/messages.ts",
-      "line": 101,
+      "line": 108,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3163,7 +3172,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord/metrics",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 36,
+      "line": 39,
       "confidence": "high",
       "kind": "mount"
     },
@@ -3173,6 +3182,42 @@
       "path": "/api/v1/admin/discord/metrics/shadow",
       "sourceFile": "apps/mesas/backend/src/routes/discord/metrics.ts",
       "line": 85,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/admin/discord/role-mappings",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/roleMappings.ts",
+      "line": 41,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "USE",
+      "path": "/api/v1/admin/discord/role-mappings",
+      "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
+      "line": 35,
+      "confidence": "high",
+      "kind": "mount"
+    },
+    {
+      "app": "mesas",
+      "method": "DELETE",
+      "path": "/api/v1/admin/discord/role-mappings/:id",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/roleMappings.ts",
+      "line": 147,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "PATCH",
+      "path": "/api/v1/admin/discord/role-mappings/:id",
+      "sourceFile": "apps/mesas/backend/src/routes/discord/roleMappings.ts",
+      "line": 75,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3190,7 +3235,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord/settings",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 25,
+      "line": 26,
       "confidence": "high",
       "kind": "mount"
     },
@@ -3235,7 +3280,7 @@
       "method": "USE",
       "path": "/api/v1/admin/discord/sources",
       "sourceFile": "apps/mesas/backend/src/routes/adminDiscordSync.ts",
-      "line": 24,
+      "line": 25,
       "confidence": "high",
       "kind": "mount"
     },
@@ -5270,6 +5315,15 @@
       "path": "/api/admin/v1/rebuild",
       "sourceFile": "apps/site/server/admin-api.ts",
       "line": 320,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "site",
+      "method": "GET",
+      "path": "/api/admin/v1/rebuild/status",
+      "sourceFile": "apps/site/server/admin-api.ts",
+      "line": 329,
       "confidence": "high",
       "kind": "express-route"
     },

@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Button, LoadingState } from '@artificio/ui';
+import { Button, LoadingState, TextInput } from '@artificio/ui';
 import { useProfileContext } from '../contexts/useProfileContext';
 import type { PlayerProfile, GmProfile } from '../types/profileTypes';
 import { UserSystemsSelector } from '../components/UserSystemsSelector';
@@ -25,9 +25,18 @@ import {
   BioLongField,
   ExperienceYearsField,
 } from '../components/mestre/editor/GmProfileFields';
-// Spec 099 B10 (D5/D8): prévia do perfil público com os dados REAIS do editor.
-import { MestreProfilePreview } from '../components/mestre/editor/MestreProfilePreview';
-import { buildMestrePreviewData } from '../components/mestre/editor/profilePreviewMapping';
+// Spec 099 fase G: a casca do editor de mestre (lateral com as 5 partes,
+// pendências e a porta para o link oficial). A `MestreProfilePreview` que a
+// B10 montava aqui saiu: o espelho virou porta (§13.11).
+import { ProfileEditorSidebar } from '../components/mestre/editor/ProfileEditorSidebar';
+import {
+  PROFILE_PARTS,
+  profilePartDomId,
+  computeProfilePendingCounts,
+  computeProfileProgress,
+  type ProfilePartId,
+} from '../components/mestre/editor/profileEditorParts';
+import { useLinks } from '../hooks/useLinks';
 import { authPost } from '../utils/authenticatedFetch';
 import './ProfileEditPage.css';
 
@@ -137,6 +146,13 @@ export default function ProfileEditPage() {
     );
   }
 
+  // Estado do indicador de autosave, derivado UMA vez (achado do Sonar na
+  // PR #304: ternário aninhado). A prioridade — erro > salvando > salvo —
+  // estava escrita duas vezes, na classe e no corpo, o que deixava as duas
+  // livres para divergir numa edição futura. Agora a ordem dos `if` É a
+  // prioridade, e ela existe num lugar só.
+  const autosaveState = resolveAutosaveState({ saveError, saving, showSaved });
+
   return (
     <div className="profile-edit-page">
       {/* Header */}
@@ -187,25 +203,25 @@ export default function ProfileEditPage() {
                 o rola para fora. Estados: saving / saved / error, nesta
                 prioridade — `title` carrega o detalhe do erro. */}
             <div
-              className={`autosave-indicator ${saveError ? 'error' : saving ? 'saving' : showSaved ? 'saved' : ''}`}
+              className={`autosave-indicator ${autosaveState}`}
               role="status"
               aria-live="polite"
               aria-atomic="true"
               title={saveError ?? undefined}
             >
-              {saveError ? (
-                <span>Erro ao salvar</span>
-              ) : saving ? (
+              {autosaveState === 'error' && <span>Erro ao salvar</span>}
+              {autosaveState === 'saving' && (
                 <>
                   <span className="artificio-button-spinner" aria-hidden="true"></span>
                   <span>Salvando…</span>
                 </>
-              ) : showSaved ? (
+              )}
+              {autosaveState === 'saved' && (
                 <>
                   <span>✓</span>
                   <span>Salvo</span>
                 </>
-              ) : null}
+              )}
             </div>
           </div>
         </div>
@@ -282,6 +298,25 @@ export default function ProfileEditPage() {
   );
 }
 
+type AutosaveState = 'error' | 'saving' | 'saved' | '';
+
+/**
+ * Estado visível do indicador de autosave (spec 099 B8).
+ *
+ * Prioridade: erro > salvando > salvo. Erro vem primeiro de propósito — se a
+ * última gravação falhou, mostrar "Salvo" mentiria sobre o que está no
+ * servidor. A ordem dos `if` é a prioridade; não há ternário aninhado a ler de
+ * dentro para fora (achado do Sonar, PR #304).
+ */
+function resolveAutosaveState(
+  input: Readonly<{ saveError: string | null; saving: boolean; showSaved: boolean }>,
+): AutosaveState {
+  if (input.saveError) return 'error';
+  if (input.saving) return 'saving';
+  if (input.showSaved) return 'saved';
+  return '';
+}
+
 // O upload de arquivo vive em `useImageUpload`: o helper local daqui nao
 // enviava o `purpose`, entao o servidor cortava o avatar como banner de mesa.
 async function fetchGoogleAvatar(): Promise<string> {
@@ -335,7 +370,12 @@ function TabGeral() {
 
         <div className="form-group">
           <label htmlFor="display_name">Nome de Exibição</label>
-          <input
+          {/* Fase G/G5: os 3 inputs crus da aba Geral passam ao primitivo do
+              pacote. Enquanto a regra legada `.form-group input[...]` declarava
+              padding/font-size/min-height, eles herdavam a escala dela por
+              acidente de cascata; com a regra corrigida (§13.7) cairiam para o
+              tamanho default do navegador. Achado do Codex na PR #304. */}
+          <TextInput
             type="text"
             id="display_name"
             defaultValue={profile.profile?.display_name || ''}
@@ -346,7 +386,7 @@ function TabGeral() {
 
         <div className="form-group">
           <label htmlFor="username">Username (URL pública)</label>
-          <input
+          <TextInput
             type="text"
             id="username"
             defaultValue={profile.user.username || ''}
@@ -370,7 +410,7 @@ function TabGeral() {
 
         <div className="form-group">
           <label htmlFor="location">Localização</label>
-          <input
+          <TextInput
             type="text"
             id="location"
             defaultValue={profile.user.location || ''}
@@ -572,172 +612,294 @@ function TabJogador() {
 // As props `onDisconnectDiscord`/`disconnecting` e o estado `connecting` saíram
 // junto com a seção Discord (adiada em 2026-08-27) — só existiam para ela.
 function TabMestre() {
-  const { profile, updateGm, addSystem, removeSystem } = useProfileContext();
+  const { profile, updateGm, addSystem, removeSystem, flushGm } = useProfileContext();
+  const { links } = useLinks();
   const gmProfile = (profile?.gm || {}) as Partial<GmProfile>;
   const [bannerHasError, setBannerHasError] = useState(false);
 
+  // Casca do editor (spec 099, fase G): parte ativa da lateral. A troca é por
+  // ÂNCORA, não por view — todas as partes continuam montadas e o clique rola
+  // até a seção. O perfil é edição de dado existente, não funil: esconder o
+  // resto destruiria a revisão livre, que é a força do documento contínuo.
+  const [activePartId, setActivePartId] = useState<ProfilePartId>('quem');
+
+  const linkCount = Array.isArray(links) ? links.length : 0;
+  // Derivadas SEM `useMemo`, de propósito — o CodeRabbit sugeriu memoizar, e medido
+  // (2026-09-02) isso QUEBRA a tela: `ProfileEditPage.test.tsx` falha em achar
+  // "1 campo(s) recomendado(s) por preencher". O autosave do mestre acumula o patch em
+  // refs e não re-renderiza a cada tecla (ProfileContext, spec 099 B8), então `profile.gm`
+  // não muda de identidade enquanto se digita; presas a essa dependência, as duas
+  // contagens congelariam e a lateral pararia de acompanhar o preenchimento. São duas
+  // varreduras de um objeto pequeno — o custo real está na estabilidade da CALLBACK
+  // abaixo, essa sim prop de um componente `memo`.
+  const pendingCounts = computeProfilePendingCounts(profile?.gm, linkCount);
+  const progress = computeProfileProgress(profile?.gm, linkCount);
+
+  // `useCallback` aqui em cima, ANTES do `if (!profile) return null` lá embaixo: hook
+  // depois de retorno condicional muda a ordem entre renders e o React quebra.
+  // `ProfileEditorSidebar` é `memo` e esta é a única prop que era recriada a cada
+  // render, então sem isto o `memo` nunca segurava nada. Achado do CodeRabbit.
+  const handleSelectPart = useCallback((partId: ProfilePartId) => {
+    setActivePartId(partId);
+    const target = document.getElementById(profilePartDomId(partId));
+    // `scroll-margin-top` da seção (ProfileEditPage.css) tira o título de baixo
+    // do header sticky; sem ele o mestre clicaria e cairia num título invisível.
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  // Marca a parte ativa conforme o mestre rola: a lateral acompanha a leitura
+  // em vez de só responder a clique. `rootMargin` superior de -104px é a altura
+  // do header sticky do AppShell — sem ele, a seção contaria como visível
+  // enquanto ainda está escondida atrás do header.
+  const partsContainerRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const root = partsContainerRef.current;
+    if (!root || typeof IntersectionObserver === 'undefined') return;
+    const sections = PROFILE_PARTS.map((part) =>
+      root.querySelector<HTMLElement>(`#${profilePartDomId(part.id)}`),
+    ).filter((el): el is HTMLElement => el !== null);
+    if (sections.length === 0) return;
+
+    // Estado de visibilidade acumulado por seção. O callback recebe apenas as
+    // seções que MUDARAM de estado, não todas: decidir só com `entries` faz a
+    // parte ativa saltar para uma seção que apenas saiu de vista, enquanto a
+    // que continua visível — e é a resposta certa — não está na lista.
+    const visibility = new Map<string, DOMRectReadOnly | null>();
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          visibility.set(
+            entry.target.id,
+            entry.isIntersecting ? entry.boundingClientRect : null,
+          );
+        }
+
+        // A parte ativa é a mais alta entre as visíveis: rolando para baixo, a
+        // seguinte só assume quando de fato encosta no topo da leitura.
+        let topId: string | null = null;
+        let topOffset = Number.POSITIVE_INFINITY;
+        for (const [id, rect] of visibility) {
+          if (rect && rect.top < topOffset) {
+            topOffset = rect.top;
+            topId = id;
+          }
+        }
+        if (!topId) return;
+
+        const part = PROFILE_PARTS.find((p) => profilePartDomId(p.id) === topId);
+        if (part) setActivePartId(part.id);
+      },
+      { rootMargin: '-104px 0px -55% 0px', threshold: 0 },
+    );
+    for (const section of sections) observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
+
   if (!profile) return null;
 
-  // Spec 099 B10: prévia do perfil público — espelha o que o editor TEM AGORA
-  // (nada de dado fake). Sem perfil de mestre (profile.gm null) não há o que
-  // espelhar: a prévia não monta. display_name segue o COALESCE do GET público
-  // (nickname → display_name do usuário → slug), mesmo fallback do backend.
-  // 3o argumento: foto do perfil GERAL, usada so quando o mestre nao tem a
-  // propria — mesmo COALESCE do GET publico (backend gm.ts:147). Sem ele a
-  // previa mostrava placeholder enquanto o jogador via a foto geral.
-  const previewData = profile.gm
-    ? buildMestrePreviewData(profile.gm, profile.profile?.display_name, profile.profile)
-    : null;
+  // Endereço público real (§13.15): a rota canônica é `/mestre/<slug>` — a que
+  // tem os 5 consumidores no app, incluindo o "Ver perfil público" do topo
+  // desta página. `/mestres/:masterId` existe mas tem 0 links.
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const publicUrl = profile.gm?.slug ? `${origin}/mestre/${profile.gm.slug}` : null;
 
   return (
-    <div className="tab-mestre">
-      <section className="form-section">
-        <h2>Perfil de Mestre</h2>
-
-        {/* Spec 099 B6: anos de experiência — recomendado, com frase do ganho.
-            Componente extraído para GmProfileFields (mesmo markup de antes). */}
-        <ExperienceYearsField value={gmProfile.experience_years ?? null} />
-
-        {/* Spec 099 B9 / D4: o campo "Preço Médio" (average_price) saiu do
-            editor. Banco e PUT do backend intactos — o preço da mesa
-            (MestreFeaturedTable, table.price_value) e o do grupo fechado
-            (MestreClosedGroupSection, min_price_cents) continuam. */}
-
-        {/* Spec 099 B6: bio detalhada — recomendado, com frase do ganho.
-            Componente extraído para GmProfileFields (mesmo markup de antes). */}
-        <BioLongField value={gmProfile.bio_long ?? ''} />
-
-        {/* Spec 099 B1: slogan — encabeça as três cadeias (hero/OG/SEO, §2.3).
-            Grava via PUT /gm/profile, uma chamada por campo (padrão da página). */}
-        <TaglineField
-          value={gmProfile.tagline ?? ''}
-          onChange={(tagline) => updateGm({ tagline: tagline || null })}
+    <div className="profile-editor-shell">
+      <aside className="profile-editor-aside" aria-label="Partes do perfil de mestre">
+        <ProfileEditorSidebar
+          activePartId={activePartId}
+          pendingCounts={pendingCounts}
+          progress={progress}
+          onSelect={handleSelectPart}
+          publicUrl={publicUrl}
+          onBeforeOpen={flushGm}
         />
+      </aside>
 
-        {/* Spec 099 B5: faixa promocional — junto do slogan (os dois dividem a
-            dobra, §2.1); a exibição já existe no MestreHero (hero-promo-badge). */}
-        <PromoBadgeField value={gmProfile.promo_badge_text ?? ''} />
+      {/* Documento contínuo: as 5 partes de spec §13.5 como seções tituladas,
+          agrupadas pela PERGUNTA DO JOGADOR que respondem (§0), não por tipo de
+          campo. Nenhum campo foi reescrito — todos foram redistribuídos. */}
+      <div className="tab-mestre" ref={partsContainerRef}>
+        <ProfilePart id="quem">
+          {/* As duas imagens JUNTAS (achado do mantenedor, 2026-09-01): avatar e
+              banner são a mesma decisão visual — o mestre escolhe os dois
+              olhando um para o outro, e o banner é o fundo sobre o qual o nome
+              dele assenta. Separá-los obrigava a ir e voltar para julgar o
+              conjunto. A legenda de dimensão de cada um vem do `imageKindHint`
+              de packages/media, dentro dos próprios componentes (A14b). */}
+          <AvatarField
+            idPrefix="gm-avatar"
+            label="Foto de Mestre"
+            description="Esta é a sua foto como mestre. Ela aparece nas suas mesas e no seu perfil público de mestre. Se não definir, será usada a foto de perfil geral."
+            value={{
+              url: gmProfile.avatar_url || '',
+              crop: isCropRect(gmProfile.avatar_crop_data) ? gmProfile.avatar_crop_data : null,
+              width: gmProfile.avatar_width ?? null,
+              height: gmProfile.avatar_height ?? null,
+            }}
+            onChange={(next) =>
+              updateGm({
+                avatar_url: next.url,
+                avatar_crop_data: next.crop,
+                avatar_width: next.width,
+                avatar_height: next.height,
+              })
+            }
+            inheritedUrl={profile.profile?.avatar_url}
+            placeholderInitial={profile.profile?.display_name?.charAt(0).toUpperCase() || '?'}
+            onUseGooglePhoto={fetchGoogleAvatar}
+            onNotice={showSuccess}
+            onError={showError}
+            removeLabel="Remover foto de mestre"
+          />
 
-        {/* Spec 099 B3: specialties/languages/badges (string[], TagInput).
-            Gravação via updateGm vive dentro do componente (testada lá). */}
-        <ProfileTagsSection
-          specialties={gmProfile.specialties ?? []}
-          languages={gmProfile.languages ?? []}
-          badges={gmProfile.badges ?? []}
-        />
+          {/* O backend ja aceitava `banner_url` do mestre (`PUT /gm/profile`) e a
+              coluna existia, mas nenhuma tela oferecia o campo — por isso todo
+              perfil publico ficava com `banner_url: null` e caia no gradiente. */}
+          <ImageUploader
+            idPrefix="gm-banner"
+            manualInputId="gm_banner_url"
+            label="Banner do Perfil (opcional)"
+            kind="profile_banner"
+            value={gmProfile.banner_url || ''}
+            onChange={(url) => updateGm({ banner_url: url })}
+            onError={setBannerHasError}
+            hasError={bannerHasError}
+            initialCropData={isCropRect(gmProfile.banner_crop_data) ? gmProfile.banner_crop_data : null}
+            onCropChange={(crop) => updateGm({ banner_crop_data: crop })}
+            imageWidth={gmProfile.banner_width ?? null}
+            imageHeight={gmProfile.banner_height ?? null}
+            onDimensionsChange={(dimensions) =>
+              updateGm({ banner_width: dimensions?.width ?? null, banner_height: dimensions?.height ?? null })
+            }
+          />
 
-        {/* Spec 099 B4: selling_points — seleção entre os 14 ícones fechados
-            (nunca texto livre); item inválido fica no formulário com erro e
-            não é enviado. Gravação via updateGm dentro do componente. */}
-        <SellingPointsEditor value={gmProfile.selling_points} />
+          {/* Spec 099 B1: slogan — encabeça as três cadeias (hero/OG/SEO, §2.3).
+              Grava via PUT /gm/profile, uma chamada por campo (padrão da página). */}
+          <TaglineField
+            value={gmProfile.tagline ?? ''}
+            onChange={(tagline) => updateGm({ tagline: tagline || null })}
+          />
 
-        <AvatarField
-          idPrefix="gm-avatar"
-          label="Foto de Mestre"
-          description="Esta é a sua foto como mestre. Ela aparece nas suas mesas e no seu perfil público de mestre. Se não definir, será usada a foto de perfil geral."
-          value={{
-            url: gmProfile.avatar_url || '',
-            crop: isCropRect(gmProfile.avatar_crop_data) ? gmProfile.avatar_crop_data : null,
-            width: gmProfile.avatar_width ?? null,
-            height: gmProfile.avatar_height ?? null,
-          }}
-          onChange={(next) =>
-            updateGm({
-              avatar_url: next.url,
-              avatar_crop_data: next.crop,
-              avatar_width: next.width,
-              avatar_height: next.height,
-            })
-          }
-          inheritedUrl={profile.profile?.avatar_url}
-          placeholderInitial={profile.profile?.display_name?.charAt(0).toUpperCase() || '?'}
-          onUseGooglePhoto={fetchGoogleAvatar}
-          onNotice={showSuccess}
-          onError={showError}
-          removeLabel="Remover foto de mestre"
-        />
+          {/* Spec 099 B6: anos de experiência — recomendado, com frase do ganho.
+              Componente extraído para GmProfileFields (mesmo markup de antes). */}
+          <ExperienceYearsField value={gmProfile.experience_years ?? null} />
+        </ProfilePart>
 
-        {/* O backend ja aceitava `banner_url` do mestre (`PUT /gm/profile`) e a
-            coluna existia, mas nenhuma tela oferecia o campo — por isso todo
-            perfil publico ficava com `banner_url: null` e caia no gradiente. */}
-        <ImageUploader
-          idPrefix="gm-banner"
-          manualInputId="gm_banner_url"
-          label="Banner do Perfil (opcional)"
-          kind="profile_banner"
-          value={gmProfile.banner_url || ''}
-          onChange={(url) => updateGm({ banner_url: url })}
-          onError={setBannerHasError}
-          hasError={bannerHasError}
-          initialCropData={isCropRect(gmProfile.banner_crop_data) ? gmProfile.banner_crop_data : null}
-          onCropChange={(crop) => updateGm({ banner_crop_data: crop })}
-          imageWidth={gmProfile.banner_width ?? null}
-          imageHeight={gmProfile.banner_height ?? null}
-          onDimensionsChange={(dimensions) =>
-            updateGm({ banner_width: dimensions?.width ?? null, banner_height: dimensions?.height ?? null })
-          }
-        />
-      </section>
+        <ProfilePart id="como">
+          {/* Spec 099 B6: bio detalhada — recomendado, com frase do ganho.
+              Componente extraído para GmProfileFields (mesmo markup de antes). */}
+          <BioLongField value={gmProfile.bio_long ?? ''} />
 
-      {/* Spec 099 B10 (D5/D8): prévia do perfil público logo após os campos de
-          identidade — o mestre vê o texto real que digitou sobre a foto real
-          (aceite B10). O véu do banner é o scrim FIXO do MestreHero real (D8):
-          a prévia reusa o componente, não replica nem expõe opacidade. */}
-      {previewData && (
-        <section className="form-section">
-          <MestreProfilePreview profile={previewData} />
-        </section>
-      )}
+          {/* Spec 099 B3: specialties/languages/badges (string[], TagInput).
+              `languages` aparece aqui como parte do mesmo componente, mas
+              responde à pergunta de "Sua mesa" — dividir o componente por
+              parte seria reescrevê-lo, e a G3 redistribui, não reescreve.
+              Gravação via updateGm vive dentro do componente (testada lá). */}
+          <ProfileTagsSection
+            specialties={gmProfile.specialties ?? []}
+            languages={gmProfile.languages ?? []}
+            badges={gmProfile.badges ?? []}
+          />
 
-      <section className="form-section">
-        <h2>Sistemas que Mestra</h2>
-        <p className="section-description">
-          Sistemas que você tem experiência em mestrar
-        </p>
-        <UserSystemsSelector
-          type="gm"
-          selectedSystemIds={profile.systems.gm.map((s) => s.system_id)}
-          onAdd={(systemId) => addSystem(systemId, 'gm')}
-          onRemove={(id) => {
-            const system = profile.systems.gm.find((s) => s.system_id === id);
-            if (system) removeSystem(system.id);
-          }}
-        />
-      </section>
+          {/* Spec 099 B4: selling_points — seleção entre os 14 ícones fechados
+              (nunca texto livre); item inválido fica no formulário com erro e
+              não é enviado. Gravação via updateGm dentro do componente. */}
+          <SellingPointsEditor value={gmProfile.selling_points} />
+        </ProfilePart>
 
-      {/* Spec 099 B2: grupo fechado — os 4 campos + liga/desliga, todos via PUT
-          /gm/profile. Chave ausente no patch NÃO entra no updateGm: o
-          optimistic update espalha `...newData` sobre o cache e chave
-          `undefined` apagaria o valor salvo de um campo irmão. */}
-      <ClosedGroupSection
-        value={{
-          enabled: gmProfile.closed_group_enabled ?? false,
-          systems: gmProfile.closed_group_systems ?? [],
-          description: gmProfile.closed_group_description ?? '',
-          min_price_cents: gmProfile.closed_group_min_price_cents ?? null,
-        }}
-        onChange={(patch) => {
-          const data: Partial<GmProfile> = {};
-          if (patch.enabled !== undefined) data.closed_group_enabled = patch.enabled;
-          if (patch.systems !== undefined) data.closed_group_systems = patch.systems;
-          if (patch.description !== undefined) data.closed_group_description = patch.description;
-          if (patch.min_price_cents !== undefined) {
-            data.closed_group_min_price_cents = patch.min_price_cents;
-          }
-          updateGm(data);
-        }}
-      />
+        <ProfilePart id="mesa">
+          <h3 className="profile-part-subtitle">Sistemas que Mestra</h3>
+          <p className="section-description">
+            Sistemas que você tem experiência em mestrar
+          </p>
+          <UserSystemsSelector
+            type="gm"
+            selectedSystemIds={profile.systems.gm.map((s) => s.system_id)}
+            onAdd={(systemId) => addSystem(systemId, 'gm')}
+            onRemove={(id) => {
+              const system = profile.systems.gm.find((s) => s.system_id === id);
+              if (system) removeSystem(system.id);
+            }}
+          />
 
-      <section className="form-section">
-        <LinksManager />
-      </section>
+          {/* Spec 099 B2: grupo fechado — os 4 campos + liga/desliga, todos via
+              PUT /gm/profile. Chave ausente no patch NÃO entra no updateGm: o
+              optimistic update espalha `...newData` sobre o cache e chave
+              `undefined` apagaria o valor salvo de um campo irmão. */}
+          <ClosedGroupSection
+            value={{
+              enabled: gmProfile.closed_group_enabled ?? false,
+              systems: gmProfile.closed_group_systems ?? [],
+              description: gmProfile.closed_group_description ?? '',
+              min_price_cents: gmProfile.closed_group_min_price_cents ?? null,
+            }}
+            onChange={(patch) => {
+              const data: Partial<GmProfile> = {};
+              if (patch.enabled !== undefined) data.closed_group_enabled = patch.enabled;
+              if (patch.systems !== undefined) data.closed_group_systems = patch.systems;
+              if (patch.description !== undefined) data.closed_group_description = patch.description;
+              if (patch.min_price_cents !== undefined) {
+                data.closed_group_min_price_cents = patch.min_price_cents;
+              }
+              updateGm(data);
+            }}
+          />
+        </ProfilePart>
+
+        <ProfilePart id="prova">
+          {/* Spec 099 B5: faixa promocional — a prova que o mestre controla
+              hoje. Avaliações e selos são exibição da página pública (D3 mantém
+              o sistema de avaliações fora desta spec), então esta parte não tem
+              campo recomendado: sua contagem de pendências é legitimamente 0. */}
+          <PromoBadgeField value={gmProfile.promo_badge_text ?? ''} />
+        </ProfilePart>
+
+        <ProfilePart id="onde">
+          <LinksManager />
+        </ProfilePart>
+      </div>
 
       {/* Sem seção de Discord: a UI saiu em 2026-08-27 e o handler de retorno
           em 2026-09-01. A integração será REESCRITA do zero quando entrar de
           novo (decisão do mantenedor) — não é bloco a reintroduzir. O que
           sobrevive é do lado do servidor, intacto: rotas `/auth/discord/*` e os
           campos `discord_connected`/`discord_username`/`covil_verified`, ainda
-          exibidos no perfil público. Ver o comentário no topo deste arquivo. */}
+          exibidos no perfil público. Ver o comentário no topo deste arquivo.
+
+          Sem prévia embutida: a `MestreProfilePreview` saiu daqui na fase G
+          (§13.11). O espelho foi substituído pela PORTA para o link oficial, na
+          lateral — conferir o próprio perfil numa miniatura espremida é
+          conferir outra coisa, e o endereço, que é o que o mestre divulga,
+          ficava de fora. O componente continua existindo e em uso nas outras
+          telas que o consomem. */}
     </div>
+  );
+}
+
+/**
+ * Uma parte do editor: seção titulada de um documento contínuo (spec 099 G3).
+ *
+ * O título vem do registro (`PROFILE_PARTS`), então lateral e documento não
+ * podem divergir de rótulo. A pergunta do jogador aparece como subtítulo: é o
+ * critério que agrupou os campos (§0), e dizê-lo ao mestre explica por que
+ * aqueles campos estão juntos.
+ */
+function ProfilePart({
+  id,
+  children,
+}: Readonly<{ id: ProfilePartId; children: React.ReactNode }>) {
+  const meta = PROFILE_PARTS.find((part) => part.id === id);
+  return (
+    <section
+      id={profilePartDomId(id)}
+      className="form-section profile-editor-part"
+      aria-label={meta?.label ?? id}
+    >
+      <h2>{meta?.label ?? id}</h2>
+      {meta ? <p className="section-description">{meta.question}</p> : null}
+      {children}
+    </section>
   );
 }

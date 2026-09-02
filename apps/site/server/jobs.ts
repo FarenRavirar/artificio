@@ -1,10 +1,15 @@
 // Runner de jobs single-flight (rebuild SSG). Um job por vez (lock em memória).
-// rebuild = export(store->posts.json) + astro build + pagefind. Gatilho do SSG incremental (D006).
+// rebuild = export(store->posts.json) + astro build + pagefind + purga da borda.
+// Gatilho do SSG incremental (D006).
 import { spawn } from "node:child_process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { purgeCache, type PurgeResult } from "./purge-cache.js";
 
 const APP_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+/** Fases que o rebuild atravessa, na ordem em que o script as imprime. */
+export type JobPhase = "iniciando" | "exportando" | "build" | "busca" | "publicando" | "purgando" | "concluido";
 
 export interface JobState {
   name: string;
@@ -13,6 +18,10 @@ export interface JobState {
   ok?: boolean;
   code?: number | null;
   logTail?: string;
+  /** Onde o job está agora. O editor mostra isto enquanto espera. */
+  phase?: JobPhase;
+  /** Resultado da purga da borda. `ok: false` significa: site novo no disco, borda ainda velha. */
+  purge?: PurgeResult;
 }
 
 let current: JobState | null = null;
@@ -31,23 +40,78 @@ export interface StartResult {
   job?: JobState;
 }
 
+// O `rebuild.mjs` já imprime cada etapa; mapear a linha dele para uma fase evita inventar
+// um protocolo de progresso paralelo que sairia de sincronia com o script na primeira edição.
+const MARCADORES: ReadonlyArray<{ re: RegExp; phase: JobPhase }> = [
+  { re: /\[rebuild\] export store/, phase: "exportando" },
+  { re: /\[rebuild\] astro build/, phase: "build" },
+  { re: /\[rebuild\] pagefind/, phase: "busca" },
+  { re: /\[rebuild\] swap/, phase: "publicando" },
+];
+
 function spawnJob(name: string, script: string): StartResult {
-  current = { name, startedAt: new Date().toISOString() };
+  current = { name, startedAt: new Date().toISOString(), phase: "iniciando" };
   const child = spawn("pnpm", ["run", script], { cwd: APP_ROOT, shell: true });
   let log = "";
   const append = (d: Buffer) => {
     log += d.toString();
     if (log.length > 8000) log = log.slice(-8000);
+    if (current && !current.finishedAt) {
+      // Testa o LOG ACUMULADO, não o chunk: `spawn` entrega pedaços arbitrários e
+      // stdout/stderr são streams separados, então `[rebuild] astro build` pode chegar
+      // cortado ao meio e nenhum chunk isolado casaria — a fase ficaria congelada na
+      // anterior. Achado do CodeRabbit.
+      //
+      // Varre do fim para o começo e para no primeiro: os marcadores estão em ordem de
+      // execução, então o último presente no log é a fase atual. Testar na ordem direta
+      // deixaria a fase na PRIMEIRA que já apareceu — sempre "exportando".
+      for (let i = MARCADORES.length - 1; i >= 0; i--) {
+        if (MARCADORES[i].re.test(log)) { current.phase = MARCADORES[i].phase; break; }
+      }
+    }
   };
   child.stdout.on("data", append);
   child.stderr.on("data", append);
-  const finish = (ok: boolean, code: number | null, tail: string) => {
-    current = { name, startedAt: current!.startedAt, finishedAt: new Date().toISOString(), ok, code, logTail: tail };
-    // trailing rebuild se houve pedido durante a execução
+
+  // `error` e `close` NÃO são exclusivos: um spawn que falha (script ausente, permissão)
+  // emite os dois, nesta ordem. Sem a trava, `finish` roda duas vezes e a segunda é
+  // destrutiva de verdade — a primeira já disparou o rebuild enfileirado (fim desta
+  // função), e a segunda sobrescreve `current` com o estado TERMINAL do job velho por
+  // cima do job novo que acabou de começar. O painel então acompanha um "concluído"
+  // enquanto o rebuild real corre invisível, e o autor conclui que a publicação travou.
+  // Achado do CodeRabbit.
+  let encerrado = false;
+
+  const finish = async (ok: boolean, code: number | null, tail: string) => {
+    if (encerrado) return;
+    encerrado = true;
+
+    const base: JobState = {
+      name,
+      startedAt: current!.startedAt,
+      finishedAt: new Date().toISOString(),
+      ok,
+      code,
+      logTail: tail,
+      phase: "concluido",
+    };
+
+    // Purga só faz sentido depois de um rebuild que deu certo: com o build quebrado, o
+    // disco ainda tem o SSG anterior e derrubar a borda serviria a mesma coisa de novo,
+    // só que pagando origem. Rebuild bom sem purga é meio deploy (ver purge-cache.ts).
+    if (ok && name === "rebuild") {
+      current = { ...base, phase: "purgando", finishedAt: undefined };
+      const purge = await purgeCache();
+      current = { ...base, purge };
+    } else {
+      current = base;
+    }
+
     if (rerunRebuildPending) { rerunRebuildPending = false; spawnJob("rebuild", "rebuild"); }
   };
-  child.on("close", (code) => finish(code === 0, code, log.slice(-2000)));
-  child.on("error", (err) => finish(false, null, String(err)));
+
+  child.on("close", (code) => { void finish(code === 0, code, log.slice(-2000)); });
+  child.on("error", (err) => { void finish(false, null, String(err)); });
   return { started: true, job: current };
 }
 

@@ -36,6 +36,12 @@ services:
       # validando chamadas internas de mesas/glossario. Mesmo valor nos 3 .env prod.
       # Achado Codex (PR #145): faltava esta wiring no compose PROD (so tinha em beta).
       - CATALOG_INTERNAL_TOKEN=${CATALOG_INTERNAL_TOKEN:?CATALOG_INTERNAL_TOKEN is required}
+      # Purga do cache da borda ao fim do rebuild. Sem estas duas, o rebuild termina e a
+      # Cloudflare segue servindo o HTML antigo por até 2h (regra "Cache Everything — HTML",
+      # edge_ttl 7200 em override_origin) — o artigo publicado fica invisível na listagem.
+      # Ausentes: a purga vira no-op silencioso e o job reporta `attempted: false`.
+      - CLOUDFLARE_PURGE_TOKEN=${CLOUDFLARE_PURGE_TOKEN:-}
+      - CLOUDFLARE_ZONE_ID=${CLOUDFLARE_ZONE_ID:-}
       - PUBLIC_GA_ID=${PUBLIC_GA_ID:-G-2H50PCM950}
       - PUBLIC_SITE_URL=https://artificiorpg.com
       # T6.4 (spec 090) — fachada da conversa. A credencial de servico vive SO

@@ -1,6 +1,6 @@
 # Tasks 099 — Perfil do mestre
 
-**Status: fase A executada (A1–A3, gate A fechado); fase B executada (B0–B11, gate B fechado com 1 pendência nomeada); fase C merged em `dev` pela PR #302 (C1 e C3 entregues, C2 já concluída com B3; C4 e gate runtime pendentes); fase E executada em 2026-09-01 por incidente em produção (E1–E3 concluídas); fase F implementada e revisada (F0–F5 + F6 do achado de revisão), com aceite runtime de F1b/F2/F4 e a decisão dos 6 espaçamentos pendentes.** Decisões D1–D11 fechadas (`spec.md` §3).
+**Status: fase A executada (A1–A3, gate A fechado); fase B executada (B0–B11, gate B fechado com 1 pendência nomeada); fase C merged em `dev` pela PR #302 (C1 e C3 entregues, C2 já concluída com B3; C4 e gate runtime pendentes); fase E executada em 2026-09-01 por incidente em produção (E1–E3 concluídas); fase F implementada e revisada (F0–F5 + F6 do achado de revisão), com aceite runtime de F1b/F2/F4 e a decisão dos 6 espaçamentos pendentes; **fase G aberta em 2026-09-01** — o mantenedor recusou o editor em beta (casca centralizada, sem partes na lateral), nenhuma task iniciada, aguardando aprovação do desenho.** Decisões D1–D11 fechadas (`spec.md` §3).
 
 Ordem de execução: **A → B → C**, com a fase de forma (**F**) em paralelo — ver a colisão com a 098 em F0.
 Cada task só é dada como concluída com **medição citada** — comando rodado e o que voltou.
@@ -253,9 +253,89 @@ catálogo central. O 3D&T do relato estava gravado com id central válido e ativ
 
 ---
 
+## Fase G — A casca do editor de mestre (G1/G3/G4/G5/G7/G5b implementadas 2026-09-01; G4a fechada sem código; G6 pendente)
+
+**Origem:** o mantenedor recusou o editor em beta depois do deploy da Fase F — *"ainda
+está centralizado, sem etapas como nas laterais, que tem no atual editor de mesas"*.
+Não é requisito novo: `old_spec.md:495-503` já mandava aplicar ao perfil a casca do
+editor de mesa. Diagnóstico, pesquisa e critérios em **spec §13**; sequência e travas em
+**plan.md fase G**.
+
+**O que a investigação de código mudou no enquadramento** (spec §13.8): a fase B entregou
+os campos, a frase de ganho e a prévia — **o que falta é casca**, e o que sobra é
+duplicação dela. `EditorSidebar` depende só de `EDITOR_PARTS` + 4 props (nada de
+`TableEditorState`), então extrair é trocar constante por prop, não reescrever.
+
+| # | Fazer | LER ANTES | Aceite medido | Trava |
+|---|---|---|---|---|
+| **G1** ✅ | Casca **local no perfil** (lateral + grid), copiando o padrão do `TableEditor` sem extrair nada. Editor de mesa **não é tocado** | plan fase G (por que inverteu) · `TableEditor.tsx:264-283,480-550` · `TableEditor.css:70,88-92` | perfil renderiza com lateral; suíte do `table-editor` **intocada**; duplicação registrada e datada, com G6 aberta | duplicação **deliberada e temporária** — extrair de 2 casos (um inexistente) é abstração prematura, o fracasso público do DLS |
+| **G3** ✅ | 5 partes como **seções tituladas de um documento contínuo** (Quem é você · Como você mestra · Sua mesa · Prova · Onde te achar); a lateral rola até elas (`scrollIntoView`) e marca a ativa com **`aria-current="location"`** (não `"page"`: é âncora em documento contínuo, não troca de view). Campos redistribuídos — de `GmProfileFields` **e dos que moram em `ProfileEditPage.tsx`** (`AvatarField`, `ImageUploader`, `UserSystemsSelector`, `ClosedGroupSection`, `LinksManager`) | spec §13.5 · **§13.4e** (por que âncora, não troca de view) · `ProfileEditPage.tsx:271` | **A11**: cada seção ≤ 1 tela em 1366×768 (hoje: bloco de 2267px); voltar e editar continua possível sem trocar de view | **`scroll-margin-top` obrigatório**: o header do `AppShell` é sticky `z-index: 50` ocupando `top: 0→104` — sem ele o título da seção some sob o header. Precedente: `MestrePage.css:774` (`5rem`). Não mexer nas 3 abas (Geral/Jogador/Mestre) — decisão de produto não pedida |
+| **G4a** ✅ sem código | Decidir e implementar o que a **`MestrePage`** (rota canônica `/mestre/:slug`) mostra a mais para o dono. Hoje ela **não tem `isOwner` nenhum** | spec **§13.15** · `App.tsx:71` · `MestrePage.tsx` | dono autenticado abrindo a própria página vê o que é dele; visitante não | **muda de alvo pela §13.15**: `MasterProfilePage` (com o `TODO` de `currentUserId`) está na rota **morta**, com 0 links — o `TODO` nunca fechou porque ninguém chega lá. Não unificar as rotas nesta fase |
+| **G4** ✅ | Pendências por parte + a lateral mostra **`/mestre/<slug>`** (rota canônica, §13.15) e **abre a página em aba nova**, salvando o pendente antes de abrir. **Sem espelho dentro do editor** | spec **§13.11** (decisão do mantenedor: "direcionar como uma nova aba para onde vai ficar o link oficial") · `editorValidation.ts:131` | **Flush (V11)**: drenar o debounce de 500ms do autosave (B8) antes de abrir; **se a gravação falhar, não abrir** — avisar e manter o editor. **A12**: número cai ao preencher, sem recarregar. **A13**: com alteração não salva, clicar em abrir grava e a aba nova já traz o valor novo | some o requisito de injetar rascunho na página pública (achado C2 **resolvido por remoção**). `MestreProfilePreview` segue servindo `PainelMestrePage:717` e `MasterPart:170` |
+| **G5** ✅ | Os **5** `<input>` crus da aba Mestre adotam `EditorField`/primitivo (`AvatarField` 2, `ImageUploader` 2, `LinksManager` 1); a regra legada perde `padding`/`font-size`/`min-height` **nos quatro seletores** (`input[text|number|url]`, `select`, `textarea` — `ProfileEditPage.css:290-304`), não só nos `input` | spec §13.7 · **§13.13 (C8, D12)** · §9.3 item 3 · `ProfileEditPage.css:290-304` · `old_tasks.md:121` | **A15** por asserção no CSS de origem (a regra não declara mais as três propriedades) **+ uma medição manual em navegador** registrada no fechamento — `getComputedStyle` não resolve cascata em jsdom | **`AvatarField` é usado nas abas Geral (`:312`) e Mestre (`:634`)** — alterá-lo toca as duas; a trava "não mexer nas 3 abas" é sobre **estrutura de abas**, não impede corrigir componente compartilhado por elas. Fecha C6/C7 no nível que **A7** exige. Os 7 inputs de `ProfileEditPage.tsx:338-495` são das abas Geral/Jogador: **fora do escopo** |
+| **G5b** ✅ | "Sistemas que mestra" passa a carregar sob demanda, usando o `fetchSystemOptions` de G7, mantendo `mode="multi"` | spec §13.10 · `UserSystemsSelector.tsx` · **`SystemPicker.tsx` (camada do meio, §13.13 C6)** · `useSystemsCatalog.ts:87` | primeiro render **não** baixa o catálogo inteiro; busca dispara `?search=`. Medido em rede: hoje **487.965 bytes**, alvo na casa de centenas | **não trocar** pelo `CatalogSystemSelector`: ele é single-select e o perfil precisa de N sistemas — seria regressão |
+| **G7** ✅ | Fonte server-side atravessa a cadeia inteira: `CatalogTree` ganha `fetchSystemOptions`/`fetchChildOptions` (contrato que o `CatalogSystemSelector` já tem) **e o `SystemPicker` repassa as props** — hoje ele declara `tree` obrigatória e zero `fetch*` (`SystemPicker.tsx:9-22`), então furar só o `CatalogTree` não entrega G5b | spec **§13.10, §13.13 (C6)** · `CatalogTree.tsx:9-38` · `CatalogSystemSelector.tsx:93-107` · **`SystemPicker.tsx:9-22`** | os **4** consumidores de `SystemPicker` verdes sem alteração (`GmProfileFields:512`, `UserSystemsSelector:95`, `DraftEditorTab:372`, `OnboardingPage:308`) + `CatalogSystemsPage.tsx` do site-admin; A9 removendo o fetch → volta a baixar a árvore | **Reusar, não redeclarar**: `SYSTEM_SEARCH_DEBOUNCE_MS = 250` e os tipos `CatalogSystemSearchFetch`/`CatalogSystemChildrenFetch` já existem em `CatalogSystemSelector.tsx:9,93-107`. **`packages/catalog-ui`: aprovação nominal + impacto**. Props **aditivas e opcionais** nas duas camadas: sem elas, comportamento atual |
+| **G6** ⏳ | Comparar as duas cascas e extrair **só o que comprovadamente compartilham** para `features/editor-shell/`; `EditorField` deixa de exigir `TableEditorState` | plan fase G · spec §13.8d | suíte do `table-editor` verde com o **mesmo número de testes** antes e depois — linha de base medida em 2026-09-01: **10 arquivos, 259 testes**. Tirar `TableEditorState` do `EditorField` propaga para **6 parts** + teste (§13.13 C7); comentários de cicatriz (`:474` clique morto, `:286` pt 18→24px) viajam junto | **última** task da fase. "Não extrair" é resultado válido se compartilharem pouco |
+
+**Estado medido em 2026-09-01, após implementar** (`rtk pnpm vitest run` no `mesas-frontend`):
+
+- **1042/1042 testes** em 77 arquivos, `rtk tsc --noEmit` limpo, `rtk pnpm run lint` 12/12.
+- **Não-regressão do editor de mesa: 259/259 em 10 arquivos, antes e depois** — o número
+  exato da linha de base. O editor de mesa não foi tocado.
+- **A9 cumprido em dois contratos**: reintroduzi a divergência de registro de partes
+  (2 testes falharam) e o `min-height: 40px` na regra legada (1 teste falhou); restaurados,
+  verde de novo.
+- **Arquivos novos**: `profileEditorParts.ts` (+teste, 16 casos) e `ProfileEditorSidebar.tsx`.
+- **G4a fechou sem código** — a premissa da task estava errada (spec §13.17).
+
+**G7 + G5b, medidos em 2026-09-01** (aprovação nominal do mantenedor para o pacote):
+
+- `packages/catalog-ui`: **39/39** (31 da linha de base + 8 novos), `tsc` limpo. Os
+  consumidores existentes não mudaram: `site-admin` typecheck limpo, 31 testes antigos
+  intactos.
+- **Contrato de fetch deixou de ser duplicado**: os tipos e o `normalizeNodes` moravam no
+  `CatalogSystemSelector`, que **importa** do `CatalogTree` — importar de volta fecharia um
+  ciclo. Subiram para `catalogFetch.ts`, consumido pelos dois.
+- **Três achados no caminho, todos corrigidos** (detalhe em §13.18): o `CatalogTree` perderia
+  o NOME da seleção sem árvore local (daí `selectedNodes`); havia um **segundo** seletor de
+  sistemas na mesma aba (`ClosedGroupSection`) ainda baixando o catálogo inteiro, o que
+  zeraria a economia; e a busca `?search=` tinha um filtro de raízes caro que uma cópia
+  perderia em silêncio — virou `useSystemsSearch`, fonte única com o editor de mesa.
+- **Bug de loop de render introduzido e corrigido por mim**: com a função de busca na lista
+  de dependências do efeito, o ciclo render→efeito→setState→render fechava e a suíte
+  **travava sem terminar** (600s sem saída). A função entra por ref; há teste de regressão
+  que mata o worker se a dependência voltar.
+
+**O que falta medir em navegador** (jsdom não resolve cascata nem altura real):
+
+- **A11** — se cada seção cabe em uma tela de 1366×768. As duas candidatas a estourar
+  ("Como você mestra" e "Quem é você") continuam nomeadas, com a ordem de saída do plano.
+- **A15** — os 40px por `getComputedStyle` no build real. A asserção no CSS de origem já
+  está no teste; a medição visual é do fechamento.
+- **F2 mobile** e a faixa horizontal abaixo de 719px, que seguem sem medição (§13.16).
+
+**Ordem obrigatória:** G1 → G3 → **G4a → G4** → G5 → **G7 → G5b** → **G6 por último**. G7 (pacote) vem antes de G5b (app): o app consome o contrato que o pacote passa a oferecer. A extração fecha a fase, não
+a abre: só depois das duas cascas existirem é que se sabe o que de fato é comum. A G2
+anterior (generalizar `EditorField` antes de tudo) foi absorvida pela G6 pelo mesmo motivo.
+
+**→ Fechar o GATE G** (`plan.md`, fase G). Além dos aceites por task:
+
+- **A14**: todo campo recomendado exibe a frase de ganho, e a de campo que alimenta a
+  busca diz isso explicitamente (spec §13.4h — 99% das reservas vêm da busca, não do
+  perfil; o ganho é funcional, não motivacional).
+- **A14b**: todo campo de imagem exibe a legenda de `imageKindHint` (`packages/media`) —
+  dimensão escrita à mão na tela reprova (spec §13.5).
+- **A16**: em G6, extrai-se **só o comum medido**. A duplicação de G1 é deliberada e
+  datada; duplicação **sem registro** reprova, e "não extrair" é resultado válido se a
+  comparação mostrar pouco em comum.
+- **Aprovação nominal do mantenedor** para a fase — a autorização da Fase F não se
+  estende (AGENTS.md §Autorização: por ação, nunca por sessão).
+
+---
+
 ## Encerramento da spec
 
-Só depois de A, B, C e D fechados **e** o mantenedor dizer que não vem mais review:
+Só depois de A, B, C, D **e G** fechados **e** o mantenedor dizer que não vem mais review:
 
 - [ ] `rtk pnpm run lint` (repo-wide, sozinho)
 - [ ] `rtk pnpm run test` (repo-wide, sozinho — **nunca encadeado**)
@@ -276,7 +356,7 @@ esperando o anterior.
 |---|---|
 | causa do `selling_points: {}` | **beta medida** (hidratação `admin/sync/enrich`) → A1 fechada; **prod não medida** (39/48 `{}`, nascendo até 08-28; **hidratação/escrita manual no período descartada pelo mantenedor** 2026-08-31) — única via de medição: `log_statement=all` em prod (aprovação); **data fix do dado sujo de prod não decidido** (SQL write → aprovação) |
 | `aria-describedby` do `closed_group_systems` (B7) | campo tem hint sem associação — o controle é o `CatalogTree` do `@artificio/catalog-ui`, sem prop de aria (medido); corrigir exige aprovação de pacote |
-| mobile e tema claro | **parcialmente medidos no Chrome** → C4 continua aberta porque o beta acessível não contém as fases B/C; editor antigo em 719×900, escuro e claro, sem overflow horizontal; 2 overflows de texto e 13 alvos abaixo de 44px |
+| mobile e tema claro | **parcialmente medidos no Chrome** → C4 continua aberta porque **não foi remedida após o deploy de 2026-09-01** — o beta agora está em `b69f4c47`, com B/C/F no ar (VM confirmada); a medição anterior foi contra build defasado; editor antigo em 719×900, escuro e claro, sem overflow horizontal; 2 overflows de texto e 13 alvos abaixo de 44px |
 | perfil de controle preenchido | **não existe** — nenhum dos 20 |
 | nav global 22px | **não reproduz** no CSS do pacote → F3 |
 | custo do esquema de extração para bio | **medido e concluído em B11** — 4 atributos estritos, 4 arquivos de produção + 3 arquivos de teste, sem migration/lib/pacote compartilhado; cache exigiu generalização tipada |

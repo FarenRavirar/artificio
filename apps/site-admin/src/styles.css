@@ -136,3 +136,15 @@ textarea { resize: vertical; min-height: 64px; }
   .catalog-layout { grid-template-columns: 1fr; }
   .catalog-editor { position: static; }
 }
+
+/* Progresso do rebuild no cabeçalho do editor (incidente 2026-09-02: publicar não dava
+   sinal nenhum de andamento, e um build de minutos era indistinguível de uma falha). */
+.rebuild-progress { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #445; }
+.rebuild-spinner {
+  width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid #ccd; border-top-color: #4a5b8c;
+  animation: rebuild-spin .8s linear infinite;
+}
+@keyframes rebuild-spin { to { transform: rotate(360deg); } }
+/* Sem animação para quem pediu movimento reduzido: o texto da fase já informa tudo. */
+@media (prefers-reduced-motion: reduce) { .rebuild-spinner { animation: none; } }
