@@ -472,7 +472,9 @@ export function ClosedGroupSection({ value, onChange }: ClosedGroupSectionProps)
   // economia medida seria zero para quem abre a aba.
   const { fetchSystemOptions, fetchChildOptions, fetchSystemsByIds } = useSystemsSearch();
   const [selectedNodes, setSelectedNodes] = useState<SystemTreeNode[]>([]);
-  const [resolveFailed, setResolveFailed] = useState(false);
+  // Guarda a CHAVE que falhou, não um booleano: o aviso some sozinho quando a
+  // seleção muda, sem setState no início do efeito.
+  const [failedKey, setFailedKey] = useState<string | null>(null);
 
   // Ver a nota em UserSystemsSelector: a função entra por ref para o efeito não
   // reentrar quando a identidade dela muda entre renders. A ESCRITA da ref vive
@@ -503,18 +505,25 @@ export function ClosedGroupSection({ value, onChange }: ClosedGroupSectionProps)
         setSelectedNodes(nodes);
         // Limpa o aviso só quando uma resolução nova dá certo — zerar no
         // início do efeito seria setState síncrono no corpo dele.
-        setResolveFailed(false);
+        setFailedKey(null);
       })
       .catch((error: unknown) => {
+        // Resposta de uma seleção que já foi trocada não é falha desta tela:
+        // sem esta guarda, abortar por troca de seleção acendia o alerta.
+        if (controller.signal.aborted) return;
         if ((error as Error)?.name === 'AbortError') return;
         // Os ids seguem salvos; o que falta é só o NOME na etiqueta. Sem o
         // aviso, a lista some e lê como "o site apagou meus sistemas" —
         // mesmo tratamento do UserSystemsSelector.
         setSelectedNodes([]);
-        setResolveFailed(true);
+        setFailedKey(selectedKey);
       });
     return () => controller.abort();
   }, [selectedKey]);
+
+  // Só avisa se a falha for da seleção ATUAL: uma falha antiga não pode acusar
+  // erro sobre uma seleção que já mudou.
+  const resolveFailed = failedKey !== null && failedKey === selectedKey;
 
   // Derivado, não estado: enquanto a resolução do lote novo não chega, exibir
   // nome de sistema que não está mais selecionado seria mostrar dado errado.

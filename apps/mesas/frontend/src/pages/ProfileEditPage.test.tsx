@@ -277,7 +277,7 @@ describe('ProfileEditPage — porta para o link oficial (spec 099 G4, §13.11)',
     // A aba é aberta EM BRANCO dentro do clique (senão o bloqueador de pop-up
     // barra a janela) e só NAVEGA depois da gravação.
     const replace = vi.fn();
-    const tab = { location: { replace }, close: vi.fn() } as unknown as Window;
+    const tab = { location: { replace }, close: vi.fn(), opener: {} } as unknown as Window;
     const open = vi.spyOn(window, 'open').mockReturnValue(tab);
 
     try {
@@ -287,7 +287,11 @@ describe('ProfileEditPage — porta para o link oficial (spec 099 G4, §13.11)',
       });
 
       expect(mockCtx.flushGm).toHaveBeenCalled();
-      expect(open).toHaveBeenCalledWith('', '_blank', 'noopener,noreferrer');
+      // Sem `noopener,noreferrer`: com a flag o `window.open` devolve `null` e
+      // não haveria handle para navegar depois — a aba ficaria em branco. A
+      // proteção é reposta com `opener = null` logo após abrir.
+      expect(open).toHaveBeenCalledWith('', '_blank');
+      expect(tab.opener).toBeNull();
       // Enquanto a gravação não termina, nada de navegar.
       expect(replace).not.toHaveBeenCalled();
 

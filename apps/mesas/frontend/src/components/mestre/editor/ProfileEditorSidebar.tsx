@@ -44,7 +44,7 @@ export const ProfileEditorSidebar = memo(function ProfileEditorSidebar({
   return (
     <>
       <div>
-        <div className="mb-1.5 text-xs opacity-70">
+        <div className="mb-2 text-xs opacity-70">
           {Math.round(progress * 100)}% preenchido
         </div>
         {/* Barra decorativa: o valor já é anunciado pelo texto acima, então
@@ -85,7 +85,7 @@ export const ProfileEditorSidebar = memo(function ProfileEditorSidebar({
               <span className="flex-1 text-left">{part.label}</span>
               {pending > 0 ? (
                 <span
-                  className="min-w-5 rounded-full bg-[var(--state-danger-bg)] px-1.5 text-center text-[11px] text-[var(--state-danger-fg)]"
+                  className="min-w-5 rounded-full bg-[var(--state-danger-bg)] px-2 text-center text-[11px] text-[var(--state-danger-fg)]"
                   aria-label={`${pending} campo(s) recomendado(s) por preencher`}
                 >
                   {pending}
@@ -134,7 +134,17 @@ function PublicLinkDoor({
     // depois que a gravação confirma. Abrir depois do `await` perde o gesto do
     // usuário e o bloqueador de pop-up do navegador barra a janela — o mestre
     // clicaria em "Abrir", esperaria o salvamento e não veria aba nenhuma.
-    const tab = window.open('', '_blank', 'noopener,noreferrer');
+    //
+    // SEM `noopener,noreferrer` aqui, e isso é obrigatório para o fluxo
+    // funcionar: com a flag, o `window.open` devolve `null` na maioria dos
+    // navegadores (é justamente o que "sem opener" significa), e sem o handle
+    // não há como navegar a aba depois — ela ficaria em branco para sempre.
+    // A proteção é reposta na linha seguinte, à mão: `opener = null` corta o
+    // acesso da aba nova a esta janela, que é o risco real que a flag cobre.
+    // O destino é o próprio site (`/mestre/<slug>`), não um domínio de
+    // terceiro — para link externo o caminho continua sendo `safeExternalUrl`.
+    const tab = window.open('', '_blank');
+    if (tab) tab.opener = null;
     try {
       const saved = await onBeforeOpen();
       if (!saved) {
@@ -160,7 +170,7 @@ function PublicLinkDoor({
   };
 
   return (
-    <div className="flex flex-col gap-1.5 border-t border-[var(--line)] pt-3">
+    <div className="flex flex-col gap-2 border-t border-[var(--line)] pt-3">
       <p className="text-xs opacity-70">Seu endereço público</p>
       {/* O endereço fica VISÍVEL, não só embutido no botão: é o que o mestre
           cola no Discord, no grupo, na bio. `break-all` porque slug longo em

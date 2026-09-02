@@ -641,10 +641,14 @@ export function CatalogTree({
 
       {/* Estados da busca server-side (G7). No caminho local nenhum dos dois
           acende, então o markup é idêntico ao de antes para quem passa `tree`. */}
+      {/* `<output>` em vez de `<p role="status">` (achado do Sonar, PR #304):
+          o elemento JÁ tem esse papel implícito e é anunciado de forma mais
+          consistente entre leitores de tela, sobretudo em móvel. `block` porque
+          o default é `inline`. */}
       {searching && (
-        <p className="text-xs text-[var(--fg-muted)]" role="status">
+        <output className="block text-xs text-[var(--fg-muted)]">
           Buscando sistemas...
-        </p>
+        </output>
       )}
       {searchFailed && (
         <p className="text-xs text-[var(--state-danger-fg)]" role="alert">

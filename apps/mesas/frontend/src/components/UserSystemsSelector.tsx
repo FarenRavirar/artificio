@@ -34,13 +34,19 @@ export const UserSystemsSelector = React.memo(function UserSystemsSelector({
 }: UserSystemsSelectorProps) {
   const { fetchSystemOptions, fetchChildOptions, fetchSystemsByIds } = useSystemsSearch();
 
-  // A referência do fetch entra por REF, não por dependência do efeito. O hook
-  // devolve funções memoizadas, mas o efeito abaixo faz setState — e uma
+  // A referência do fetch entra por REF, não por dependência do efeito: o hook
+  // devolve funções memoizadas, mas o efeito abaixo faz setState, e uma
   // implementação (ou um mock de teste) que recrie a função a cada render
   // fecharia o ciclo render→efeito→setState→render. Medido: com a função na
   // lista de dependências, o teste do GmProfileFields travou sem terminar.
+  //
+  // A ESCRITA da ref vive em efeito, não no corpo do render — render descartado
+  // antes de comitar deixaria a ref apontando para o callback de um render que
+  // nunca existiu. Mesmo padrão do `GmProfileFields` e do `CatalogTree`.
   const fetchSystemsByIdsRef = useRef(fetchSystemsByIds);
-  fetchSystemsByIdsRef.current = fetchSystemsByIds;
+  useEffect(() => {
+    fetchSystemsByIdsRef.current = fetchSystemsByIds;
+  }, [fetchSystemsByIds]);
 
   // Spec 099 B9: além de contar, LISTAR os nomes dos sistemas selecionados.
   // Nome resolve pelo catálogo (system_id → nó) — nunca se grava nome, só o
@@ -50,7 +56,10 @@ export const UserSystemsSelector = React.memo(function UserSystemsSelector({
   // G5b: a resolução deixou de vir do catálogo inteiro e passa por
   // `?id=a,b,c`. Uma requisição, só os ids salvos.
   const [selectedNodes, setSelectedNodes] = useState<SystemTreeNode[]>([]);
-  const [resolveFailed, setResolveFailed] = useState(false);
+  // Guarda a CHAVE que falhou, não um booleano: assim o aviso desaparece
+  // sozinho quando a seleção muda, sem precisar de setState no início do
+  // efeito (que encadearia um render extra a cada passagem).
+  const [failedKey, setFailedKey] = useState<string | null>(null);
   const resolveAbortRef = useRef<AbortController | null>(null);
 
   // Chave estável da seleção: sem isto, o array novo a cada render do pai
@@ -59,11 +68,11 @@ export const UserSystemsSelector = React.memo(function UserSystemsSelector({
 
   useEffect(() => {
     resolveAbortRef.current?.abort();
-    setResolveFailed(false);
 
     const ids = selectedKey ? selectedKey.split(',') : [];
     if (ids.length === 0) {
-      setSelectedNodes([]);
+      // Sem `setSelectedNodes([])` síncrono: a lista visível é derivada de
+      // `selectedKey` no render, logo abaixo.
       return;
     }
 
@@ -74,24 +83,40 @@ export const UserSystemsSelector = React.memo(function UserSystemsSelector({
       .then((nodes) => {
         if (controller.signal.aborted) return;
         setSelectedNodes(nodes);
+        setFailedKey(null);
       })
       .catch((error: unknown) => {
+        // Resposta de uma seleção que já foi trocada não é falha desta tela.
+        if (controller.signal.aborted) return;
         if ((error as Error)?.name === 'AbortError') return;
         // A contagem continua correta (vem dos ids salvos); o que falha é só
         // exibir os nomes. Melhor dizer isso do que mostrar lista vazia, que
         // leria como "perdi seus sistemas".
         setSelectedNodes([]);
-        setResolveFailed(true);
+        setFailedKey(selectedKey);
       });
 
     return () => controller.abort();
   }, [selectedKey]);
 
+  // Só avisa se a falha for da seleção ATUAL: uma falha antiga não pode
+  // acusar erro sobre uma seleção que já mudou.
+  const resolveFailed = failedKey !== null && failedKey === selectedKey;
+
   useEffect(() => () => resolveAbortRef.current?.abort(), []);
 
+  // Derivado, não estado: filtra pelo que está selecionado AGORA. Enquanto a
+  // resolução do lote novo não chega — e no caso de seleção vazia, em que o
+  // efeito nem dispara —, exibir nome de sistema que já saiu seria mostrar
+  // dado errado. Mesmo padrão do `GmProfileFields`.
+  const visibleSelectedNodes = useMemo(
+    () => selectedNodes.filter((node) => selectedSystemIds.includes(node.id)),
+    [selectedNodes, selectedSystemIds],
+  );
+
   const selectedSystems = useMemo(
-    () => selectedNodes.map((node) => ({ id: node.id, name: node.name })),
-    [selectedNodes],
+    () => visibleSelectedNodes.map((node) => ({ id: node.id, name: node.name })),
+    [visibleSelectedNodes],
   );
 
   const handleSelectionChange = useCallback((nextIds: string[]) => {
@@ -138,7 +163,7 @@ export const UserSystemsSelector = React.memo(function UserSystemsSelector({
 
       <SystemPicker
         selectedIds={selectedSystemIds}
-        selectedNodes={selectedNodes}
+        selectedNodes={visibleSelectedNodes}
         fetchSystemOptions={fetchSystemOptions}
         fetchChildOptions={fetchChildOptions}
         onSelectionChange={handleSelectionChange}

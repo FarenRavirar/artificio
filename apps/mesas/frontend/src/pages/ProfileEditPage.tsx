@@ -146,6 +146,13 @@ export default function ProfileEditPage() {
     );
   }
 
+  // Estado do indicador de autosave, derivado UMA vez (achado do Sonar na
+  // PR #304: ternário aninhado). A prioridade — erro > salvando > salvo —
+  // estava escrita duas vezes, na classe e no corpo, o que deixava as duas
+  // livres para divergir numa edição futura. Agora a ordem dos `if` É a
+  // prioridade, e ela existe num lugar só.
+  const autosaveState = resolveAutosaveState({ saveError, saving, showSaved });
+
   return (
     <div className="profile-edit-page">
       {/* Header */}
@@ -196,25 +203,25 @@ export default function ProfileEditPage() {
                 o rola para fora. Estados: saving / saved / error, nesta
                 prioridade — `title` carrega o detalhe do erro. */}
             <div
-              className={`autosave-indicator ${saveError ? 'error' : saving ? 'saving' : showSaved ? 'saved' : ''}`}
+              className={`autosave-indicator ${autosaveState}`}
               role="status"
               aria-live="polite"
               aria-atomic="true"
               title={saveError ?? undefined}
             >
-              {saveError ? (
-                <span>Erro ao salvar</span>
-              ) : saving ? (
+              {autosaveState === 'error' && <span>Erro ao salvar</span>}
+              {autosaveState === 'saving' && (
                 <>
                   <span className="artificio-button-spinner" aria-hidden="true"></span>
                   <span>Salvando…</span>
                 </>
-              ) : showSaved ? (
+              )}
+              {autosaveState === 'saved' && (
                 <>
                   <span>✓</span>
                   <span>Salvo</span>
                 </>
-              ) : null}
+              )}
             </div>
           </div>
         </div>
@@ -289,6 +296,25 @@ export default function ProfileEditPage() {
       </div>
     </div>
   );
+}
+
+type AutosaveState = 'error' | 'saving' | 'saved' | '';
+
+/**
+ * Estado visível do indicador de autosave (spec 099 B8).
+ *
+ * Prioridade: erro > salvando > salvo. Erro vem primeiro de propósito — se a
+ * última gravação falhou, mostrar "Salvo" mentiria sobre o que está no
+ * servidor. A ordem dos `if` é a prioridade; não há ternário aninhado a ler de
+ * dentro para fora (achado do Sonar, PR #304).
+ */
+function resolveAutosaveState(
+  input: Readonly<{ saveError: string | null; saving: boolean; showSaved: boolean }>,
+): AutosaveState {
+  if (input.saveError) return 'error';
+  if (input.saving) return 'saving';
+  if (input.showSaved) return 'saved';
+  return '';
 }
 
 // O upload de arquivo vive em `useImageUpload`: o helper local daqui nao

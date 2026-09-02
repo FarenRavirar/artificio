@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useLinks } from './useLinks';
+// `let` porque cada teste reimporta o módulo para zerar o store (ver beforeEach).
+let { useLinks } = await import('./useLinks');
 
 /**
  * Estado compartilhado entre instâncias do `useLinks` (spec 099, fase G).
@@ -41,10 +42,17 @@ const jsonOk = (data: unknown) => ({
   json: async () => ({ data }),
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   authGet.mockReset();
   authPost.mockReset();
   authGet.mockResolvedValue(jsonOk([]));
+
+  // O store é de MÓDULO: sem zerar, o que um teste publica vaza para o
+  // seguinte e a ordem dos testes passa a importar — o segundo passaria por
+  // herdar o link do primeiro, não por mérito próprio. `resetModules` +
+  // reimportação dá a cada teste um store limpo.
+  vi.resetModules();
+  ({ useLinks } = await import('./useLinks'));
 });
 
 describe('useLinks — estado compartilhado entre instâncias (G)', () => {
@@ -68,7 +76,7 @@ describe('useLinks — estado compartilhado entre instâncias (G)', () => {
   });
 
   it('a lista inicial de uma instância nova já reflete o que o store tem', async () => {
-    authGet.mockResolvedValue(jsonOk([link('l1', 'https://youtube.com/@mestre')]));
+    authGet.mockResolvedValue(jsonOk([link('l2', 'https://twitch.tv/mestre')]));
 
     const primeira = renderHook(() => useLinks());
     await waitFor(() => expect(primeira.result.current.links).toHaveLength(1));
@@ -76,5 +84,35 @@ describe('useLinks — estado compartilhado entre instâncias (G)', () => {
     // Montada depois, a segunda não deve piscar vazia enquanto refaz o GET.
     const segunda = renderHook(() => useLinks());
     expect(segunda.result.current.links).toHaveLength(1);
+  });
+});
+
+describe('useLinks — GET atrasado não sobrescreve mutação (geração)', () => {
+  it('resposta de um GET anterior à mutação é descartada', async () => {
+    // Duas instâncias na mesma tela disparam dois GETs. Se um deles responder
+    // DEPOIS de um addLink bem-sucedido, publicar a lista antiga apagaria da
+    // tela o link recém-criado — sem erro nenhum, e o mestre só o veria de
+    // volta ao recarregar. Com estado local por instância isso não acontecia:
+    // o GET atrasado só sujava a própria cópia.
+    let concluirGetLento!: (r: unknown) => void;
+    authGet.mockReturnValueOnce(new Promise((resolve) => { concluirGetLento = resolve; }));
+
+    const { result } = renderHook(() => useLinks());
+
+    authPost.mockResolvedValue(jsonOk(link('novo', 'https://youtube.com/@mestre')));
+    await act(async () => {
+      await result.current.addLink('https://youtube.com/@mestre');
+    });
+    expect(result.current.links).toHaveLength(1);
+
+    // Só AGORA o GET antigo responde, com a lista de antes da mutação.
+    await act(async () => {
+      concluirGetLento(jsonOk([]));
+      await Promise.resolve();
+    });
+
+    // O link criado sobrevive: a resposta velha não é mais autoritativa.
+    expect(result.current.links).toHaveLength(1);
+    expect(result.current.links[0].id).toBe('novo');
   });
 });

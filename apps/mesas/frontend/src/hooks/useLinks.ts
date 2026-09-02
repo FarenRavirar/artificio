@@ -101,9 +101,32 @@ function normalizeLinkPayload(payload: unknown): UserLink | null {
 let sharedLinks: UserLink[] = [];
 const linkSubscribers = new Set<(links: UserLink[]) => void>();
 
+/**
+ * Geração do store: sobe a cada escrita autoritativa (mutação ou GET novo).
+ *
+ * Existe porque o estado agora é COMPARTILHADO e há mais de uma instância na
+ * mesma tela — o `LinksManager` e a lateral que conta. Cada uma dispara o
+ * próprio GET na montagem, e um GET lento que responde DEPOIS de um `addLink`
+ * bem-sucedido devolveria a lista antiga por cima da nova: o link que o mestre
+ * acabou de criar sumiria da tela sem erro nenhum, e ele só o veria de volta ao
+ * recarregar. Com estado local por instância isso não acontecia, porque o GET
+ * atrasado só sujava a própria cópia.
+ *
+ * Cada requisição guarda a geração em que nasceu e só publica se nada mais
+ * autoritativo tiver acontecido no meio.
+ */
+let linksGeneration = 0;
+
 function publishLinks(next: UserLink[]): void {
+  linksGeneration += 1;
   sharedLinks = next;
   for (const notify of linkSubscribers) notify(next);
+}
+
+/** Publica só se a geração de origem ainda for a corrente (ver acima). */
+function publishLinksIfCurrent(next: UserLink[], generation: number): void {
+  if (generation !== linksGeneration) return;
+  publishLinks(next);
 }
 
 export function useLinks(): UseLinksReturn {
@@ -142,6 +165,11 @@ export function useLinks(): UseLinksReturn {
       return;
     }
 
+    // Geração em que ESTE GET nasceu: se uma mutação (ou um GET mais novo)
+    // publicar enquanto ele está em voo, a resposta que chegar depois já não é
+    // autoritativa e é descartada — senão o link recém-criado sumiria da tela.
+    const generation = linksGeneration;
+
     try {
       setLoading(true);
       setError(null);
@@ -159,7 +187,7 @@ export function useLinks(): UseLinksReturn {
       }
 
       const data: unknown = await res.json();
-      setLinks(normalizeLinksPayload(data));
+      publishLinksIfCurrent(normalizeLinksPayload(data), generation);
     } catch (err: unknown) {
       console.error('Error fetching links:', err);
       setError(getErrorMessage(err, 'Erro ao carregar links'));
