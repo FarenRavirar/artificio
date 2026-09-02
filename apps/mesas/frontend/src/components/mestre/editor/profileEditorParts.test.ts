@@ -104,8 +104,10 @@ describe('computeProfilePendingCounts (A12)', () => {
   it('conta os recomendados por preencher, por parte', () => {
     const counts = computeProfilePendingCounts(null, 0);
     expect(counts.quem).toBe(2); // tagline, experienceYears
-    expect(counts.como).toBe(3); // bioLong, specialties, sellingPoints
-    expect(counts.mesa).toBe(1); // languages
+    // `languages` conta em "como" porque é lá que o campo aparece — contá-lo
+    // em "mesa" punha o badge numa seção sem o controle (achado do Codex).
+    expect(counts.como).toBe(4); // bioLong, specialties, sellingPoints, languages
+    expect(counts.mesa).toBe(0); // sistemas e grupo fechado são opcionais (§8)
     // "Prova" não tem recomendado editável: avaliações não se editam aqui (D3)
     // e os selos são opcionais (§8). Zero é o valor correto, não lacuna.
     expect(counts.prova).toBe(0);

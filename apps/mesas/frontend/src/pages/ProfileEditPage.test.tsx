@@ -262,11 +262,24 @@ describe('ProfileEditPage — porta para o link oficial (spec 099 G4, §13.11)',
     expect(screen.queryByLabelText('Prévia do perfil')).not.toBeInTheDocument();
   });
 
-  it('grava o pendente ANTES de abrir a aba', async () => {
+  it('grava o pendente ANTES de navegar a aba', async () => {
+    // A gravação fica PENDENTE de propósito: é a única forma de provar a
+    // ordem. Com uma promise já resolvida, "abriu depois de salvar" e "abriu
+    // sem esperar" produzem o mesmo resultado no fim do teste.
+    let concluirGravacao!: (ok: boolean) => void;
+    mockCtx.flushGm = vi.fn(
+      () => new Promise<boolean>((resolve) => { concluirGravacao = resolve; }),
+    );
+
     renderPage();
     fireEvent.click(screen.getByRole('tab', { name: 'Mestre' }));
 
-    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    // A aba é aberta EM BRANCO dentro do clique (senão o bloqueador de pop-up
+    // barra a janela) e só NAVEGA depois da gravação.
+    const replace = vi.fn();
+    const tab = { location: { replace }, close: vi.fn() } as unknown as Window;
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab);
+
     try {
       fireEvent.click(screen.getByRole('button', { name: 'Abrir em nova aba' }));
       await act(async () => {
@@ -274,37 +287,72 @@ describe('ProfileEditPage — porta para o link oficial (spec 099 G4, §13.11)',
       });
 
       expect(mockCtx.flushGm).toHaveBeenCalled();
-      expect(open).toHaveBeenCalledWith(
+      expect(open).toHaveBeenCalledWith('', '_blank', 'noopener,noreferrer');
+      // Enquanto a gravação não termina, nada de navegar.
+      expect(replace).not.toHaveBeenCalled();
+
+      await act(async () => {
+        concluirGravacao(true);
+        await Promise.resolve();
+      });
+
+      expect(replace).toHaveBeenCalledWith(
         expect.stringContaining(`/mestre/${mockCtx.profile.gm!.slug}`),
-        '_blank',
-        'noopener,noreferrer',
       );
     } finally {
       open.mockRestore();
     }
   });
 
-  it('NÃO abre a aba quando a gravação falha', async () => {
-    // Abrir aqui levaria o mestre a uma página sem o que ele acabou de
-    // escrever — exatamente o engano que o flush existe para evitar.
+  it('fecha a aba em branco quando a gravação falha', async () => {
     mockCtx.flushGm = vi.fn(async () => false);
 
     renderPage();
     fireEvent.click(screen.getByRole('tab', { name: 'Mestre' }));
 
-    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const replace = vi.fn();
+    const close = vi.fn();
+    const tab = { location: { replace }, close } as unknown as Window;
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab);
+
     try {
       fireEvent.click(screen.getByRole('button', { name: 'Abrir em nova aba' }));
       await act(async () => {
         await Promise.resolve();
       });
 
-      expect(open).not.toHaveBeenCalled();
+      // Sem o close, a falha deixaria uma aba em branco órfã na cara do mestre.
+      expect(replace).not.toHaveBeenCalled();
+      expect(close).toHaveBeenCalled();
       expect(screen.getByRole('alert')).toBeInTheDocument();
     } finally {
       open.mockRestore();
     }
   });
+
+  it('avisa sem sugerir perda quando o navegador bloqueia a aba', async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole('tab', { name: 'Mestre' }));
+
+    const open = vi.spyOn(window, 'open').mockReturnValue(null);
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Abrir em nova aba' }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Aqui o conteúdo FOI salvo: dizer "não deu para salvar" seria mentira e
+      // faria o mestre reescrever o que já está gravado.
+      expect(screen.getByRole('alert')).toHaveTextContent(/salvas/i);
+    } finally {
+      open.mockRestore();
+    }
+  });
+
+  // O caso "gravação falha" é coberto por "fecha a aba em branco quando a
+  // gravação falha", acima. A asserção antiga (`open` nunca chamado) descrevia
+  // o desenho anterior, em que a aba só nascia depois do salvamento — o que o
+  // bloqueador de pop-up barrava.
 });
 
 /**

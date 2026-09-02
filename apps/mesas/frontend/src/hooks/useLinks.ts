@@ -82,11 +82,58 @@ function normalizeLinkPayload(payload: unknown): UserLink | null {
   return isUserLink(data) ? data : null;
 }
 
+/**
+ * Estado COMPARTILHADO entre todas as instâncias do hook (spec 099, fase G).
+ *
+ * Antes cada `useLinks()` guardava a própria lista em `useState`, e
+ * `addLink`/`removeLink` atualizavam só a instância que chamou. Enquanto havia
+ * um consumidor por tela isso não aparecia; a fase G criou o segundo — a
+ * lateral do editor conta os links para a pendência de "Onde te achar",
+ * enquanto o `LinksManager` é quem adiciona. O mestre adicionava um link, a
+ * lista crescia e o contador ao lado não mexia até recarregar a página, que é
+ * exatamente o "número cai ao preencher, sem recarregar" que o A12 promete.
+ * Achado do Codex na PR #304.
+ *
+ * Store de módulo em vez de contexto novo: o contrato público do hook não
+ * muda, então os consumidores existentes (`LinksManager`, `PainelMestrePage`)
+ * seguem sem alteração. Os assinantes são notificados a cada escrita.
+ */
+let sharedLinks: UserLink[] = [];
+const linkSubscribers = new Set<(links: UserLink[]) => void>();
+
+function publishLinks(next: UserLink[]): void {
+  sharedLinks = next;
+  for (const notify of linkSubscribers) notify(next);
+}
+
 export function useLinks(): UseLinksReturn {
   const { isAuthenticated } = useAuth();
-  const [links, setLinks] = useState<UserLink[]>([]);
+  const [links, setLocalLinks] = useState<UserLink[]>(sharedLinks);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Cada instância espelha o store; a escrita passa por `publishLinks`, que
+  // avisa todas as outras.
+  //
+  // Sem `setLocalLinks(sharedLinks)` aqui: o `useState` acima já inicializa com
+  // o valor do store, então repetir a leitura no efeito só encadearia um render
+  // extra em toda montagem (`react-hooks/set-state-in-effect`). Escrita entre a
+  // montagem e este efeito não se perde — ela passa por `publishLinks`, que
+  // atualiza `sharedLinks` antes de notificar, e o próximo assinante já lê o
+  // valor novo.
+  useEffect(() => {
+    linkSubscribers.add(setLocalLinks);
+    return () => {
+      linkSubscribers.delete(setLocalLinks);
+    };
+  }, []);
+
+  const setLinks = useCallback(
+    (update: UserLink[] | ((prev: UserLink[]) => UserLink[])) => {
+      publishLinks(typeof update === 'function' ? update(sharedLinks) : update);
+    },
+    [],
+  );
 
   const fetchLinks = useCallback(async () => {
     if (!isAuthenticated) {
@@ -119,7 +166,7 @@ export function useLinks(): UseLinksReturn {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, setLinks]);
 
   useEffect(() => {
     void (async () => { await fetchLinks(); })();
@@ -167,7 +214,7 @@ export function useLinks(): UseLinksReturn {
         return { ok: false, error: getErrorMessage(err, 'Erro ao adicionar link') };
       }
     },
-    [isAuthenticated]
+    [isAuthenticated, setLinks]
   );
 
   const removeLink = useCallback(
@@ -192,7 +239,7 @@ export function useLinks(): UseLinksReturn {
         return false;
       }
     },
-    [isAuthenticated]
+    [isAuthenticated, setLinks]
   );
 
   const reorderLinks = useCallback(
@@ -222,7 +269,7 @@ export function useLinks(): UseLinksReturn {
         return false;
       }
     },
-    [isAuthenticated, links]
+    [isAuthenticated, links, setLinks]
   );
 
   const refresh = useCallback(async () => {

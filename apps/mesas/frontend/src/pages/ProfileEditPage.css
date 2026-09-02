@@ -298,8 +298,15 @@
    As três propriedades agora vêm de `artificio-control-*` (packages/ui), que é
    quem tem autoridade sobre altura, respiro e escala de texto do controle
    (§9.3 item 3). O que fica aqui é só o que o pacote NÃO governa: largura de
-   bloco, borda, cor e transição — mantidos para não regredir o visual dos
-   campos das abas Geral/Jogador, que continuam usando esta casca.
+   bloco, borda, cor e transição.
+   CORREÇÃO (achado do Codex, PR #304): a versão anterior deste comentário
+   afirmava que os campos das abas Geral/Jogador "continuam usando esta casca"
+   — e afirmava errado. Medido: 3 `<input>` crus (`display_name`, `username`,
+   `location`) não tinham classe de controle nenhuma e herdavam a escala DESTA
+   regra por acidente de cascata; sem ela, cairiam para o tamanho default do
+   navegador. Os 3 foram migrados para o `TextInput` do pacote junto com esta
+   mudança. Os `<select>` da aba Jogador seguem servidos por `.app-select`
+   (index.css:150), que declara padding e font-size próprios.
    Reintroduzir qualquer uma das três aqui reprova A15. */
 .form-group input[type='text'],
 .form-group input[type='number'],

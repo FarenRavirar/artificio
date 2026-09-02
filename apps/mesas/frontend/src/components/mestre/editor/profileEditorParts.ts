@@ -82,8 +82,17 @@ export const PROFILE_PART_RECOMMENDED_FIELDS: Readonly<
   Record<ProfilePartId, readonly string[]>
 > = {
   quem: ['tagline', 'experienceYears'],
-  como: ['bioLong', 'specialties', 'sellingPoints'],
-  mesa: ['languages'],
+  // `languages` conta AQUI porque é aqui que ele aparece: o campo mora dentro
+  // de `ProfileTagsSection`, renderizada nesta parte. Contá-lo em "Sua mesa"
+  // (onde ele responde melhor à pergunta do jogador) punha o badge numa seção
+  // que não tem o controle — o mestre clicava na pendência e caía num lugar
+  // onde não dá para resolvê-la. Achado do Codex, PR #304.
+  // Mover o campo para "Sua mesa" exigiria quebrar `ProfileTagsSection` em
+  // dois, o que é reescrever componente — e a G3 redistribui, não reescreve.
+  como: ['bioLong', 'specialties', 'sellingPoints', 'languages'],
+  // "Sua mesa" reúne sistemas e grupo fechado, que são opcionais por §8: sem
+  // campo recomendado, a contagem é legitimamente 0.
+  mesa: [],
   // "Prova" reúne avaliações e selos, que hoje não têm campo recomendado no
   // editor: os selos (`badges`) são opcionais por §8 e as avaliações não são
   // editáveis aqui (D3 mantém o sistema de avaliações fora da spec). A parte

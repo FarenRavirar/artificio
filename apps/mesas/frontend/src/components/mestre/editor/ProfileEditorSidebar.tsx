@@ -120,22 +120,40 @@ function PublicLinkDoor({
   onBeforeOpen,
 }: Readonly<{ url: string; onBeforeOpen: () => Promise<boolean> }>) {
   const [opening, setOpening] = useState(false);
-  const [failed, setFailed] = useState(false);
+  // Dois motivos distintos para não abrir, com consequências opostas para o
+  // mestre: 'save' significa que o conteúdo NÃO foi gravado; 'popup' significa
+  // que foi gravado e só a janela foi barrada. Uma mensagem só mentiria em um
+  // dos casos.
+  const [failure, setFailure] = useState<null | 'save' | 'popup'>(null);
 
   const handleOpen = async () => {
     if (opening) return;
     setOpening(true);
-    setFailed(false);
+    setFailure(null);
+    // A aba é aberta EM BRANCO agora, ainda dentro do clique, e só navega
+    // depois que a gravação confirma. Abrir depois do `await` perde o gesto do
+    // usuário e o bloqueador de pop-up do navegador barra a janela — o mestre
+    // clicaria em "Abrir", esperaria o salvamento e não veria aba nenhuma.
+    const tab = window.open('', '_blank', 'noopener,noreferrer');
     try {
       const saved = await onBeforeOpen();
       if (!saved) {
-        // Gravação falhou: NÃO abre. Levar o mestre a uma página sem o que ele
-        // acabou de escrever é o engano que este fluxo existe para evitar; o
-        // indicador de autosave já mostra o erro.
-        setFailed(true);
+        // Gravação falhou: NÃO navega, e fecha a aba em branco para não deixar
+        // janela órfã. Levar o mestre a uma página sem o que ele acabou de
+        // escrever é o engano que este fluxo existe para evitar; o indicador de
+        // autosave já mostra o erro.
+        tab?.close();
+        setFailure('save');
         return;
       }
-      window.open(url, '_blank', 'noopener,noreferrer');
+      if (!tab) {
+        // Bloqueador impediu a abertura: avisar em vez de falhar em silêncio.
+        // O conteúdo JÁ foi salvo, então a mensagem não pode sugerir perda —
+        // o endereço continua visível acima para abrir à mão.
+        setFailure('popup');
+        return;
+      }
+      tab.location.replace(url);
     } finally {
       setOpening(false);
     }
@@ -157,9 +175,11 @@ function PublicLinkDoor({
       >
         {opening ? 'Salvando…' : 'Abrir em nova aba'}
       </Button>
-      {failed ? (
+      {failure ? (
         <p className="text-xs text-[var(--state-danger-fg)]" role="alert">
-          Não deu para salvar agora — a página abriria sem a sua última mudança.
+          {failure === 'save'
+            ? 'Não deu para salvar agora — a página abriria sem a sua última mudança.'
+            : 'Suas mudanças foram salvas, mas o navegador bloqueou a nova aba. Abra o endereço acima à mão.'}
         </p>
       ) : null}
     </div>

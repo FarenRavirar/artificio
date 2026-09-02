@@ -61,7 +61,12 @@ describe('spec 099 phase F visual contracts', () => {
     const page = source('./ProfileEditPage.tsx');
     const css = source('./ProfileEditPage.css');
 
-    expect(page).toContain("import { Button, LoadingState } from '@artificio/ui'");
+    // Asserção pela ORIGEM, não pela lista exata de símbolos: a fase G
+    // acrescentou `TextInput` ao mesmo import (os 3 inputs crus da aba Geral,
+    // achado do Codex na PR #304), e casar a linha inteira transformava cada
+    // primitivo novo adotado do pacote — o comportamento desejado — em falha.
+    expect(page).toMatch(/import \{[^}]*\bButton\b[^}]*\} from '@artificio\/ui'/);
+    expect(page).toMatch(/import \{[^}]*\bLoadingState\b[^}]*\} from '@artificio\/ui'/);
     expect(css).toContain('var(--space-');
     expect(css).not.toMatch(/\.btn-(?:view-public-profile|connect-discord|disconnect-discord|avatar-action)/);
     expect(css).not.toContain('@keyframes spin');

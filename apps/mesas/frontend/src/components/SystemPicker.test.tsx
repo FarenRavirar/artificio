@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { SystemPicker } from './SystemPicker';
+import { SystemPicker, type SystemChildrenFetch } from './SystemPicker';
 import type { SystemTreeNode } from '../types/systems';
 
 // Comportamento de árvore em cascata/busca/multi-seleção é coberto em
@@ -139,7 +139,10 @@ describe('SystemPicker — fontes server-side (G7/G5b)', () => {
   });
 
   it('`fetchChildOptions` recebe o id do pai, não o nó do pacote', async () => {
-    const fetchChildOptions = vi.fn(async () => []);
+    // Tipar os parâmetros importa: com `vi.fn(async () => [])` o TS infere a
+    // lista de argumentos como tupla vazia, e ler `mock.calls[0][0]` vira erro
+    // no `tsc -b` do CI (TS2493) — mesmo com o teste passando no vitest.
+    const fetchChildOptions = vi.fn<SystemChildrenFetch>(async () => []);
 
     render(
       <SystemPicker

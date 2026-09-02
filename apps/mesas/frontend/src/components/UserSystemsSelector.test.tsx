@@ -3,6 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { UserSystemsSelector } from './UserSystemsSelector';
 import type { SystemTreeNode } from '../types/systems';
+import type { UseSystemsSearchReturn } from '../hooks/useSystemsSearch';
 
 /**
  * UserSystemsSelector — lista os NOMES dos sistemas selecionados (spec 099 B9).
@@ -44,7 +45,11 @@ const { tree } = vi.hoisted(() => {
 });
 
 const { fetchSystemsByIds } = vi.hoisted(() => ({
-  fetchSystemsByIds: vi.fn(async (ids: string[]) =>
+  // Tipado pela assinatura real do hook, sem NOMEAR o `signal`: o wrapper do
+  // `vi.mock` abaixo repassa os dois argumentos, então declarar só um quebrava
+  // o `tsc -b` do CI (TS2554); nomear um parâmetro não usado quebra o lint,
+  // porque este app não configura `argsIgnorePattern`.
+  fetchSystemsByIds: vi.fn<UseSystemsSearchReturn['fetchSystemsByIds']>(async (ids) =>
     // Espelha a rota: devolve só o que existe, id desconhecido some da resposta
     // em vez de virar erro (systems.ts:60-63).
     tree.filter((node) => ids.includes(node.id)),

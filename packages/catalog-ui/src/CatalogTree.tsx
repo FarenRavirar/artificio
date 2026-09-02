@@ -419,12 +419,22 @@ export function CatalogTree({
   const [remoteChildren, setRemoteChildren] = useState<Record<string, CatalogUiNode[]>>({});
   const childAbortRef = useRef<AbortController | null>(null);
 
-  // Refs atualizadas a cada render: o consumidor pode não memoizar as funções,
-  // e o efeito de busca não deve refazer fetch por causa disso.
+  // Refs para as fontes: o consumidor pode não memoizar as funções, e o efeito
+  // de busca não deve refazer fetch por causa disso.
+  //
+  // A ESCRITA vive em efeito, não no corpo do render: render interrompido (o
+  // React pode descartar um render antes de comitá-lo) deixaria a ref apontando
+  // para o callback de um render que nunca existiu, e o efeito seguinte usaria
+  // essa função. Declarados ANTES dos efeitos que leem as refs, para que a
+  // atualização aconteça primeiro na ordem de execução.
   const fetchSystemOptionsRef = useRef(fetchSystemOptions);
-  fetchSystemOptionsRef.current = fetchSystemOptions;
+  useEffect(() => {
+    fetchSystemOptionsRef.current = fetchSystemOptions;
+  }, [fetchSystemOptions]);
   const fetchChildOptionsRef = useRef(fetchChildOptions);
-  fetchChildOptionsRef.current = fetchChildOptions;
+  useEffect(() => {
+    fetchChildOptionsRef.current = fetchChildOptions;
+  }, [fetchChildOptions]);
 
   const handleAddAtLevel = (depth: number, parent: CatalogUiNode | null) => {
     setPendingAddDepth(depth);

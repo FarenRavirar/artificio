@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Button, LoadingState } from '@artificio/ui';
+import { Button, LoadingState, TextInput } from '@artificio/ui';
 import { useProfileContext } from '../contexts/useProfileContext';
 import type { PlayerProfile, GmProfile } from '../types/profileTypes';
 import { UserSystemsSelector } from '../components/UserSystemsSelector';
@@ -344,7 +344,12 @@ function TabGeral() {
 
         <div className="form-group">
           <label htmlFor="display_name">Nome de Exibição</label>
-          <input
+          {/* Fase G/G5: os 3 inputs crus da aba Geral passam ao primitivo do
+              pacote. Enquanto a regra legada `.form-group input[...]` declarava
+              padding/font-size/min-height, eles herdavam a escala dela por
+              acidente de cascata; com a regra corrigida (§13.7) cairiam para o
+              tamanho default do navegador. Achado do Codex na PR #304. */}
+          <TextInput
             type="text"
             id="display_name"
             defaultValue={profile.profile?.display_name || ''}
@@ -355,7 +360,7 @@ function TabGeral() {
 
         <div className="form-group">
           <label htmlFor="username">Username (URL pública)</label>
-          <input
+          <TextInput
             type="text"
             id="username"
             defaultValue={profile.user.username || ''}
@@ -379,7 +384,7 @@ function TabGeral() {
 
         <div className="form-group">
           <label htmlFor="location">Localização</label>
-          <input
+          <TextInput
             type="text"
             id="location"
             defaultValue={profile.user.location || ''}
@@ -609,16 +614,34 @@ function TabMestre() {
     ).filter((el): el is HTMLElement => el !== null);
     if (sections.length === 0) return;
 
+    // Estado de visibilidade acumulado por seção. O callback recebe apenas as
+    // seções que MUDARAM de estado, não todas: decidir só com `entries` faz a
+    // parte ativa saltar para uma seção que apenas saiu de vista, enquanto a
+    // que continua visível — e é a resposta certa — não está na lista.
+    const visibility = new Map<string, DOMRectReadOnly | null>();
+
     const observer = new IntersectionObserver(
       (entries) => {
+        for (const entry of entries) {
+          visibility.set(
+            entry.target.id,
+            entry.isIntersecting ? entry.boundingClientRect : null,
+          );
+        }
+
         // A parte ativa é a mais alta entre as visíveis: rolando para baixo, a
         // seguinte só assume quando de fato encosta no topo da leitura.
-        const visible = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        const first = visible[0]?.target.id;
-        if (!first) return;
-        const part = PROFILE_PARTS.find((p) => profilePartDomId(p.id) === first);
+        let topId: string | null = null;
+        let topOffset = Number.POSITIVE_INFINITY;
+        for (const [id, rect] of visibility) {
+          if (rect && rect.top < topOffset) {
+            topOffset = rect.top;
+            topId = id;
+          }
+        }
+        if (!topId) return;
+
+        const part = PROFILE_PARTS.find((p) => profilePartDomId(p.id) === topId);
         if (part) setActivePartId(part.id);
       },
       { rootMargin: '-104px 0px -55% 0px', threshold: 0 },

@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { CatalogTree } from './CatalogTree.js';
 import type { CatalogUiNode } from './types.js';
+import type { CatalogSystemSearchFetch } from './catalogFetch.js';
 
 /**
  * Fonte server-side no `CatalogTree` (spec 099, fase G — G7).
@@ -54,7 +55,15 @@ describe('CatalogTree — fonte server-side (G7)', () => {
   });
 
   it('busca no servidor e mostra o que voltou, sem árvore local', async () => {
-    const fetchSystemOptions = vi.fn(async () => [pathfinder]);
+    // Parâmetros tipados: com `vi.fn(async () => ...)` o TS infere a lista de
+    // argumentos como tupla vazia e `mock.calls[0][0]` vira erro de compilação
+    // (TS2493), mesmo com o teste passando no vitest. Os nomes não levam `_`
+    // porque este pacote não configura `argsIgnorePattern` — em vez de
+    // silenciar o lint, o `query` é usado para provar que a busca chega
+    // filtrada até a fonte.
+    const fetchSystemOptions = vi.fn<CatalogSystemSearchFetch>(async (query) =>
+      query ? [pathfinder] : [],
+    );
 
     render(
       <CatalogTree

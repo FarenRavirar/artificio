@@ -472,6 +472,7 @@ export function ClosedGroupSection({ value, onChange }: ClosedGroupSectionProps)
   // economia medida seria zero para quem abre a aba.
   const { fetchSystemOptions, fetchChildOptions, fetchSystemsByIds } = useSystemsSearch();
   const [selectedNodes, setSelectedNodes] = useState<SystemTreeNode[]>([]);
+  const [resolveFailed, setResolveFailed] = useState(false);
 
   // Ver a nota em UserSystemsSelector: a função entra por ref para o efeito não
   // reentrar quando a identidade dela muda entre renders. A ESCRITA da ref vive
@@ -498,12 +499,19 @@ export function ClosedGroupSection({ value, onChange }: ClosedGroupSectionProps)
     const controller = new AbortController();
     fetchSystemsByIdsRef.current(ids, controller.signal)
       .then((nodes) => {
-        if (!controller.signal.aborted) setSelectedNodes(nodes);
+        if (controller.signal.aborted) return;
+        setSelectedNodes(nodes);
+        // Limpa o aviso só quando uma resolução nova dá certo — zerar no
+        // início do efeito seria setState síncrono no corpo dele.
+        setResolveFailed(false);
       })
       .catch((error: unknown) => {
         if ((error as Error)?.name === 'AbortError') return;
-        // Os ids seguem salvos; o que falta é só o nome na etiqueta.
+        // Os ids seguem salvos; o que falta é só o NOME na etiqueta. Sem o
+        // aviso, a lista some e lê como "o site apagou meus sistemas" —
+        // mesmo tratamento do UserSystemsSelector.
         setSelectedNodes([]);
+        setResolveFailed(true);
       });
     return () => controller.abort();
   }, [selectedKey]);
@@ -554,6 +562,12 @@ export function ClosedGroupSection({ value, onChange }: ClosedGroupSectionProps)
                   campo — nada é baixado até o mestre digitar. O que sumiu daqui
                   foi a espera, não o tratamento de erro: a busca e a resolução
                   de nomes reportam falha onde acontecem. */}
+              {resolveFailed && (
+                <p className="text-sm text-[var(--state-danger-fg)]" role="alert">
+                  Não foi possível carregar os nomes dos sistemas escolhidos. Eles continuam
+                  salvos.
+                </p>
+              )}
               <SystemPicker
                 selectedIds={value.systems}
                 selectedNodes={visibleSelectedNodes}
