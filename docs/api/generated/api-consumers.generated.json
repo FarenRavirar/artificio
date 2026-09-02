@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 291,
-    "uniqueEndpoints": 268,
+    "total": 292,
+    "uniqueEndpoints": 269,
     "byApp": {
       "accounts-frontend": {
         "total": 8,
@@ -38,14 +38,14 @@
         }
       },
       "mesas-frontend": {
-        "total": 173,
+        "total": 174,
         "byConfidence": {
-          "medium": 77,
+          "medium": 78,
           "high": 96
         },
         "byPattern": {
           "unknown": 4,
-          "template-literal": 71,
+          "template-literal": 72,
           "service-wrapper": 39,
           "literal": 59
         }
@@ -2076,7 +2076,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 288
+      "line": 297
     },
     {
       "app": "mesas-frontend",
@@ -2266,7 +2266,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authGet",
-      "line": 90
+      "line": 108
     },
     {
       "app": "mesas-frontend",
@@ -2277,6 +2277,16 @@
       "pattern": "literal",
       "wrapper": "authGet",
       "line": 87
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/hooks/useSystemsSearch.ts",
+      "method": "GET",
+      "endpoint": "/api/v1/systems",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "authGet",
+      "line": 63
     },
     {
       "app": "mesas-frontend",

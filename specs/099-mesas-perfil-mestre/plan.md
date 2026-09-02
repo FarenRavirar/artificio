@@ -300,6 +300,198 @@ aprovação da ação — não apresentar o achado como bifurcação.
 
 ---
 
+## Fase G — A casca do editor de mestre (aberta em 2026-09-01, após recusa do mantenedor em beta)
+
+**Por que existe:** o mantenedor abriu `mesasbeta` depois do deploy da Fase F e recusou o
+resultado — *"está feio, desorganizado, bem diferente do conteúdo que embasou a spec"*,
+*"ainda está centralizado, sem etapas como nas laterais, que tem no atual editor de
+mesas"*. Diagnóstico completo em **spec §13**. Não é requisito novo: `old_spec.md:495-503`
+já mandava aplicar ao perfil a casca do editor de mesa, e a fase B entregou os campos sem
+a casca.
+
+**O que está medido antes de começar** (spec §13.2 e §13.8, medido em beta e no código):
+
+- editor de perfil: **5,2 telas** de rolagem, 1 `<h2>`, 19 rótulos corridos, sem lateral;
+- editor de mesa: 7 partes, aside de 300px, `pendingCounts`, prévia viva;
+- **já existe no perfil:** os 7 campos, frase de ganho (`profileEditorDomain.ts:31`),
+  `MestreProfilePreview` (reusada em 3 telas), abas Geral/Jogador/Mestre;
+- **duplicado:** duas constantes `RECOMMENDED_GAIN` no mesmo app, nomes iguais, chaves
+  diferentes — §9.5 se repetindo;
+- **acoplamento da casca é raso:** `EditorSidebar` (`TableEditor.tsx:480-550`) depende só
+  de `EDITOR_PARTS`, `EditorPartId` e 4 props — nada de `TableEditorState`. `fieldLevel`
+  já aceita `ctx?: FieldLevelContext`, não o estado inteiro.
+
+**Regra que governa a fase:** extrair e compartilhar, nunca copiar (A16). A terceira
+duplicação de casca reprova por §Compartilhado por padrão — depois de `RECOMMENDED_GAIN`
+e das 5 classes de §9.5, seria padrão, não acidente.
+
+**Trava de não-regressão:** o editor de mesa está **em produção**. A extração carrega
+junto as cicatrizes registradas em comentário — `TableEditor.tsx:474` (recriar a lista de
+botões mata o clique, bug T2.5 da spec 096) e `:286` (`pt` 18→24px, achado do mantenedor
+em 2026-08-26). Comentário que explica decisão **não se perde na extração**
+(AGENTS.md §Regras Gerais de Código). Suíte do `table-editor` verde antes e depois, com o
+mesmo número de testes, é condição de aceite — não cortesia. **Linha de base medida em
+2026-09-01** (`rtk pnpm vitest run src/features/table-editor`): **10 arquivos, 259 testes,
+259 passando**. E o custo de tirar `TableEditorState` do `EditorField` tem tamanho: **6
+parts** consomem o componente (§13.13 C7).
+
+**Moradias, por task:**
+
+- **G1 — Casca local no perfil, deliberadamente duplicada.** A lateral e o grid nascem
+  **dentro do perfil**, copiando o padrão do `TableEditor` sem extrair nada. O editor de
+  mesa **não é tocado**.
+
+  **O que copiar, delimitado:** o grid `300px minmax(0,1fr)` (`TableEditor.css:70`), o
+  `aside` e a nav de partes, e a media query de 719px que vira **faixa horizontal no topo**
+  (`:86-97`). **O que NÃO copiar:** a casca imersiva (`position: fixed; inset: 0;
+  z-index: 60`, `:36-56`) é do editor de anúncio, que toma a tela inteira — o perfil é
+  página em fluxo, dentro do `AppShell`, e herdar isso quebraria a navegação do site.
+
+  **Isto inverte o que este plano dizia até 2026-09-01, e a inversão é a decisão mais
+  importante da fase.** A versão anterior mandava extrair `EditorShell` primeiro e fazer
+  os dois editores consumirem. O caso público mais conhecido do DLS do Airbnb é
+  exatamente esse fracasso: o sistema inicial era rígido demais porque foi abstraído cedo,
+  e quando o produto cresceu *"o único caminho era ficar acrescentando estilo e lógica no
+  componente a cada nova variante"*
+  ([evolução do DLS](https://singhshubham.hashnode.dev/evolution-of-airbnbs-design-language-system)).
+  Extrair a partir de **dois** casos — sendo que o segundo ainda não existe — é abstração
+  prematura pelo livro.
+
+  A duplicação aqui é **temporária e nomeada**, não descuido: G6 a resolve depois que as
+  duas formas estiverem visíveis lado a lado e as diferenças reais aparecerem. Trocar
+  risco de regressão em produção (extrair código que está no ar, às cegas) por dívida
+  registrada e datada é a troca certa.
+
+- **G7 — Fonte server-side atravessando `CatalogTree` E `SystemPicker` (pacote + app).** Medido em
+  spec §13.10: o pacote hoje oferece **busca sob demanda OU seleção múltipla, nunca as
+  duas**. `CatalogSystemSelector` tem `fetchSystemOptions`/`fetchChildOptions`/`fetchNodePath`
+  e é single-select; `CatalogTree` faz multi e só aceita `tree` local. Quem precisa das duas
+  — o editor de perfil — paga **487.965 bytes** (1.289 nós) no primeiro render para escolher
+  de 1 a 5 sistemas, contra **816 bytes** da busca do editor de mesa. **598×.**
+
+  **A cadeia tem três camadas, não duas** (§13.13 C6, revisão de 2026-09-01):
+  `UserSystemsSelector → SystemPicker → CatalogTree`. `SystemPicker.tsx:9-22` declara
+  `tree` **obrigatória e zero `fetch*`** — furar só o `CatalogTree` **não entrega G5b**,
+  porque o wrapper não repassa nada. G7 mexe nas duas camadas.
+
+  As props novas são **opcionais** nas duas, no mesmo contrato que o `CatalogSystemSelector`
+  já define: sem elas, o comportamento atual continua e os consumidores existentes não mudam.
+
+  **Trava:** `packages/catalog-ui` exige **aprovação nominal + verificação de impacto nos
+  consumidores** (AGENTS.md §Autorização). Chegar com o conserto medido e pronto.
+
+- **G5b — o perfil consome G7.** `UserSystemsSelector` passa a carregar sob demanda,
+  **mantendo `mode="multi"`**. Não trocar pelo `CatalogSystemSelector`: ele é single-select
+  e o perfil precisa de N sistemas — a troca seria regressão, não unificação.
+
+- **G6 — Extração, depois que o padrão se provar.** Com o perfil funcionando, comparar as
+  duas cascas e extrair **só o que elas comprovadamente compartilham** para
+  `features/editor-shell/`. O que divergir fica em cada editor. Se a comparação mostrar
+  que compartilham pouco, **não extrair** é resultado válido — e aí a duplicação vira
+  decisão registrada, não dívida.
+
+- **G3 — Partes do perfil, por âncora e não por troca de view.** As cinco partes de spec
+  §13.5 (Quem é você · Como você mestra · Sua mesa · Prova · Onde te achar) viram
+  **seções tituladas de um documento contínuo**; a lateral rola até elas
+  (`scrollIntoView`) e marca a ativa por observação de rolagem. Os campos de
+  `GmProfileFields.tsx` são **redistribuídos**, não reescritos.
+
+  **Por que âncora e não troca de view** (spec §13.4e): a evidência a favor de página
+  única é que o usuário **volta e edita** — e o perfil é edição de dado existente, não
+  funil de conversão. Trocar a view esconde o resto e destrói exatamente essa força.
+  Âncora entrega o que falta (visão geral, pendências por parte, seção nomeada) **sem**
+  tirar a revisão livre. Cada seção continua tendo de caber numa tela (A11); a diferença é
+  que passar de uma para outra é rolagem, não navegação.
+
+- **G4a — FECHADA SEM CÓDIGO: a rota canônica já reconhece o dono (spec §13.17).**
+  Medido ao implementar: `gm.ts:216-217` monta `viewer_context.is_owner` comparando
+  `req.user?.userId` com `gm.user_id` **no servidor**, `useMestre.ts:224` deriva
+  `canSeeInsights` dele (mais `is_admin`), e `MestrePage.tsx:136,140` já gateia as métricas
+  do dono por essa flag. A task pedia menos do que já existe, e com comparação no cliente.
+
+  O que a §13.15 dizia — "a `MestrePage` não tem `isOwner` nenhum" — estava errado: a busca
+  foi por nome esperado (`isOwner`/`currentUserId`/`useAuth`) em vez de medir o contrato que
+  a página recebe. O `// TODO` de `MasterProfilePage:28-29` continua de pé, mas na rota
+  **morta** (0 links): código sem consumidor, fora do escopo desta fase.
+
+- **G4 — Pendências e prévia na lateral.** `isFieldFilled`/`pendingCounts` ganham
+  equivalente para o perfil (registro próprio, mesma mecânica de
+  `editorValidation.ts:131`).
+
+  **A prévia é porta, não espelho** (spec §13.11, decisão do mantenedor 2026-09-01: *"a
+  prévia tem que direcionar como uma nova aba para onde vai ficar o link oficial"*). A
+  lateral mostra o **endereço público real** e abre a página em **aba nova**, garantindo o
+  salvamento do que estiver pendente antes. Não há espelho dentro do editor: conferir numa
+  miniatura de 300px é conferir outra coisa, e o endereço — que é o que o mestre divulga —
+  ficaria de fora.
+
+  **Some um requisito:** sem espelho, não é preciso injetar estado não-salvo na página
+  pública. O achado C2 da 1ª revisão fica **resolvido por remoção**, e a prop
+  `masterOverride` sai do escopo.
+
+  **E some uma decisão pendente:** "a prévia acompanha a parte ativa ou fica no topo?"
+  deixa de existir — não há mais nada rolando junto para sincronizar.
+
+- **G5 — Campos adotam a escala (fecha C6/C7).** Os **5** `<input>` crus da aba Mestre
+  passam por `EditorField`/primitivo, e a regra legada `.form-group input[...]`
+  (`ProfileEditPage.css:290-304`) perde `padding`/`font-size`/`min-height` — é ela que
+  hoje vence `.artificio-control-md` por especificidade 0,2,1 × 0,1,0 e produz 50px
+  (spec §13.7). Fecha T12/T13 no nível que A7 exige: pacote + app, não "N valores do
+  `mesas`".
+
+**Ordem:** G1 → G3 → **G4a → G4** → G5 → **G7 → G5b** → **G6 por último**. G7 antes de G5b: o app consome o contrato que o pacote passa a oferecer. A extração é o **fim** da fase, não
+o começo: só depois das duas cascas existirem é que se sabe o que de fato é comum.
+
+**Fora desta fase, deliberadamente:**
+
+- **Moderação de perfil por terceiros** (moderador/admin ver ou editar o perfil de um
+  mestre). Medido em 2026-09-01, e o mantenedor decidiu manter fora: `PUT /gm/profile`
+  (`gmPanel.ts:392`) grava **sempre no perfil do usuário logado**, sem parâmetro de alvo —
+  não existe caminho para editar o de outro, nem por engano. Abrir esse caminho exigiria
+  rota com alvo, trilha de auditoria e, antes disso, resolver um desencontro de vocabulário:
+  `packages/auth` tem `user | moderator | admin`, o `mesas` tem
+  `visitor | player | gm | admin`, e `resolveEffectiveMesasRole` (`auth.ts:41-47`) rebaixa
+  quem chega como `moderator` — por decisão da spec 090, não por defeito. Nada disso
+  bloqueia a fase G, que trata da casca do editor do próprio dono.
+
+- **Não mexer nas 3 abas** (Geral / Jogador / Mestre). A casca de partes é *dentro* da
+  aba Mestre. Reorganizar as abas é decisão de produto que o mantenedor não pediu.
+- **Não fundir os dois `RECOMMENDED_GAIN`** em um registro só: os campos são diferentes.
+  O que se compartilha é o componente, não o vocabulário.
+- **Não tocar nos 6 espaçamentos** de decisão pendente do mantenedor.
+- **Não tornar o perfil buscável** (D6) — continua sendo a próxima spec, mesmo que 13.4h
+  mostre que é lá que o dado do mestre rende.
+
+### ── GATE G ──
+- [ ] A11: nenhuma parte passa de uma tela de rolagem em 1366×768, medido por
+      `scrollHeight` da parte ativa contra `innerHeight` (hoje: 5,2 telas)
+- [ ] A12: lateral mostra pendências por parte, e o número cai ao preencher sem recarregar
+- [x] G4a: **fechada sem código** — `viewer_context.is_owner` já vem do servidor
+      (`gm.ts:216`), `canSeeInsights` já gateia o que o dono vê a mais
+      (`MestrePage.tsx:136,140`). A premissa da task estava errada (spec §13.17)
+- [ ] A13: a lateral mostra **`/mestre/<slug>`** (a rota canônica, §13.15) e abre em aba
+      nova; com alteração não salva, clicar em abrir grava antes e a aba já traz o valor
+      novo. Espelho da página dentro do editor reprova
+- [ ] A14: todo campo recomendado exibe a frase de ganho; campo que alimenta a busca diz isso
+- [ ] A15: nenhum `<input>` cru com classe local; altura vinda de `artificio-control-*`,
+      medida por `getComputedStyle` no build real
+- [ ] A14b: todo campo de imagem exibe a legenda de `imageKindHint` (`packages/media`),
+      com os valores do pacote — dimensão escrita à mão na tela reprova
+- [ ] A16: em G6, o que for extraído é o que as duas cascas **comprovadamente**
+      compartilham — extrair o que só um usa reprova, e "não extrair" é resultado válido
+      se a comparação mostrar pouco em comum
+- [ ] a duplicação de G1 está registrada e datada, com G6 aberta — duplicação sem registro reprova
+- [ ] não-regressão: suíte do `table-editor` verde, mesmo número de testes, antes e depois
+- [ ] G7: **os 4 consumidores** de `SystemPicker` verdes sem alteração — `GmProfileFields:512`,
+      `UserSystemsSelector:95`, `DraftEditorTab:372`, `OnboardingPage:308` (props novas
+      opcionais). O "6" do comentário de `SystemPicker.tsx:25` está desatualizado: a
+      contagem real de `<SystemPicker` em 2026-09-01 é 4
+- [ ] G5b: primeiro render do perfil não baixa o catálogo inteiro — medido em rede
+- [ ] aprovação nominal do mantenedor para a fase **e, em separado, para `packages/catalog-ui`
+      em G7** (a autorização da Fase F não se estende)
+
+---
+
 ## O que este plano deliberadamente não faz
 
 - **Não cria campo, migration nem vocabulário novo** (D1).

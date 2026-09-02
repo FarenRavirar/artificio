@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { SystemPicker } from './SystemPicker';
 import type { SystemTreeNode } from '../types/systems';
@@ -83,5 +83,86 @@ describe('SystemPicker (wrapper mesas sobre @artificio/catalog-ui)', () => {
     fireEvent.click(screen.getByRole('button', { name: /Dungeons & Dragons/ }));
 
     expect(onSelectionChange).toHaveBeenCalledWith(['dnd']);
+  });
+});
+
+/**
+ * Fontes server-side atravessando o wrapper (spec 099, fase G — G7/G5b).
+ *
+ * O `SystemPicker` declarava `tree` obrigatória e zero `fetch*`: furar só o
+ * `CatalogTree` não teria entregado nada a quem passa por aqui. O que este
+ * bloco protege é a FRONTEIRA — o consumidor fala `SystemTreeNode` (com
+ * `slug`), o pacote recebe `CatalogUiNode` (com `canonical_slug`), e a
+ * conversão acontece aqui, igual `tree` sempre fez.
+ */
+describe('SystemPicker — fontes server-side (G7/G5b)', () => {
+  it('converte o resultado da busca para o contrato do pacote', async () => {
+    const fetchSystemOptions = vi.fn(async () => tree);
+
+    render(
+      <SystemPicker
+        selectedIds={[]}
+        onSelectionChange={vi.fn()}
+        idPrefix="systems"
+        mode="multi"
+        fetchSystemOptions={fetchSystemOptions}
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Buscar sistema...'), {
+      target: { value: 'Dungeons' },
+    });
+
+    await waitFor(() => expect(fetchSystemOptions).toHaveBeenCalled());
+    // Renderizar prova a conversão: sem ela o nó chega sem `canonical_slug` e
+    // o matcher do pacote quebraria em vez de listar.
+    await waitFor(() =>
+      expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument(),
+    );
+  });
+
+  it('funciona SEM `tree` — é o ponto da G5b', async () => {
+    render(
+      <SystemPicker
+        selectedIds={['dnd']}
+        selectedNodes={tree}
+        onSelectionChange={vi.fn()}
+        idPrefix="systems"
+        mode="multi"
+        fetchSystemOptions={async () => []}
+      />
+    );
+
+    // Nomeia a seleção salva sem baixar o catálogo: sem `selectedNodes` o
+    // usuário veria a contagem certa e os nomes sumidos.
+    expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument();
+  });
+
+  it('`fetchChildOptions` recebe o id do pai, não o nó do pacote', async () => {
+    const fetchChildOptions = vi.fn(async () => []);
+
+    render(
+      <SystemPicker
+        selectedIds={[]}
+        onSelectionChange={vi.fn()}
+        idPrefix="systems"
+        mode="multi"
+        fetchSystemOptions={async () => tree}
+        fetchChildOptions={fetchChildOptions}
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Buscar sistema...'), {
+      target: { value: 'Dungeons' },
+    });
+    await waitFor(() =>
+      expect(screen.getByText('Dungeons & Dragons')).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByText('Dungeons & Dragons'));
+
+    // A assinatura do app é `(parentId, signal)`: quem consome no `mesas` não
+    // deve precisar conhecer o formato de nó do pacote.
+    await waitFor(() => expect(fetchChildOptions).toHaveBeenCalled());
+    expect(fetchChildOptions.mock.calls[0][0]).toBe('dnd');
   });
 });

@@ -29,8 +29,8 @@ import type { SystemTreeNode } from '../../../types/systems';
  * para os conversores de preço que moram neste mesmo módulo. Casos e
  * asserções preservados dos arquivos originais, reorganizados em `describe`
  * por campo. O `useProfileContext` é mockado (o comportamento do TagInput é
- * exercitado aqui mesmo); `useSystemsCatalog` e `ContentEditor` são mockados
- * — o comportamento deles vive em useSystemsCatalog.test.ts e no pacote
+ * exercitado aqui mesmo); `useSystemsSearch` e `ContentEditor` são mockados
+ * — o comportamento deles vive em useSystemsSearch.test.ts e no pacote
  * @artificio/content-editor. O dicionário compartilhado vive em
  * MestreSellingPoints (fonte das 14 opções do Select).
  */
@@ -63,13 +63,16 @@ const systemNode: SystemTreeNode = {
   children: [],
 };
 
-vi.mock('../../../hooks/useSystemsCatalog', () => ({
-  useSystemsCatalog: () => ({
-    tree: [systemNode],
-    loading: false,
-    error: null,
-    flat: [],
-    forceRefresh: async () => undefined,
+// G5b (spec 099): a seção de grupos fechados deixou de baixar o catálogo
+// inteiro (`useSystemsCatalog`) e passou a buscar sob demanda. O que estes
+// testes afirmam — gravar o UUID, nunca o nome — não mudou; mudou de onde a
+// opção vem.
+vi.mock('../../../hooks/useSystemsSearch', () => ({
+  useSystemsSearch: () => ({
+    fetchSystemOptions: async () => [systemNode],
+    fetchChildOptions: async () => [],
+    fetchSystemsByIds: async (ids: string[]) =>
+      [systemNode].filter((node) => ids.includes(node.id)),
   }),
 }));
 
@@ -405,12 +408,14 @@ describe('ClosedGroupSection', () => {
     expect(screen.getByLabelText('Preço mínimo (R$)')).toBeTruthy();
   });
 
-  it('selecionar sistema grava o UUID, nunca o nome', () => {
+  it('selecionar sistema grava o UUID, nunca o nome', async () => {
     const { onChange } = renderClosedGroupSection({ enabled: true });
-    // O CatalogTree só mostra raízes com busca digitada.
+    // O CatalogTree só mostra raízes com busca digitada. G5b: a opção agora
+    // chega por busca server-side (debounce de 250ms no pacote), daí o waitFor.
     fireEvent.change(screen.getByLabelText('Buscar sistema...'), {
       target: { value: 'dungeons' },
     });
+    await waitFor(() => expect(screen.getByText('Dungeons & Dragons')).toBeTruthy());
     fireEvent.click(screen.getByText('Dungeons & Dragons'));
     expect(onChange).toHaveBeenCalledWith({ systems: [SYSTEM_ID] });
   });

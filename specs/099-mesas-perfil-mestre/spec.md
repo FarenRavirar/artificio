@@ -1,6 +1,6 @@
 # Spec 099 — Perfil do mestre: o que o mestre insere e o que o sistema expõe
 
-**App:** `mesas` · **Status:** fase A executada (A1–A3, gate A fechado); fase B executada (B0–B11, gate B fechado com 1 pendência nomeada); **fase C em execução** (C1 e C3 implementadas localmente, C2 concluída com B3, C4 e gate runtime pendentes); **fase E executada em 2026-09-01 por incidente em produção** (E1–E3 concluídas); **fase D/F implementada localmente** (F0–F5, gate D runtime pendente)
+**App:** `mesas` · **Status:** fases A, B e E executadas (gates A e B fechados; B7 com pendência nomeada); **fase C** merged em `dev` pela PR #302 — C1 com aceite runtime pendente e **C4 aberta**; **fase F** merged pela PR #303 (`b69f4c4`) e **deployada em beta em 2026-09-01** — F1b e F2 medidos no build novo em desktop, F4 com a ressalva de §13.7, **mobile do F2 não medido**; **fase G aberta em 2026-09-01, nenhuma task iniciada** (§13), aguardando aprovação do desenho
 **Escrita para implementar.** Investigação, medições e fontes que sustentam cada decisão
 estão em `old_spec.md` (temporário, será removido após conferência do mantenedor).
 
@@ -238,9 +238,9 @@ Não afirmar nada sobre estes pontos sem medir antes.
 | o quê | estado |
 |---|---|
 | causa de `selling_points` voltar `{}` — **beta medida** (hidratação `admin/sync/enrich` copiando de prod); **prod não medida** (39/48 `{}`, nascendo até 08-28; hidratação/escrita manual no período descartada pelo mantenedor) | bloqueio nomeado em §2.2 |
-| mobile (719px) | página pública medida em §11; editor autenticado medido parcialmente em C4 (§11.1), sem overflow horizontal, porém no build beta anterior às fases B/C |
-| tema claro | **medido parcialmente em C4** no editor antigo: sem overflow horizontal; tokens efetivos `#f4f6fb`/`#0b1220`. Build novo ainda pendente |
-| editor de perfil em runtime | desktop medido no baseline e 719×900 medido parcialmente em C4 (§11.1); comportamento pós-B/C ainda não medido porque o beta acessível está defasado |
+| mobile (719px) | página pública medida em §11; editor medido parcialmente em C4 (§11.1) sem overflow horizontal, **porém em build anterior a B/C/F — beta está em `b69f4c47` desde 2026-09-01 e não foi remedido**. O mobile do F2 (rodapé) também **não foi medido**: o `resize_window` não alterou o viewport (§13.14) |
+| tema claro | **medido parcialmente em C4** no editor antigo: sem overflow horizontal; tokens efetivos `#f4f6fb`/`#0b1220`. **Build novo já está em beta desde 2026-09-01; falta remedir** |
+| editor de perfil em runtime | desktop **medido em 2026-09-01 no build pós-B/C/F** (§13.2: `index-Bwn4PU-7.css`, 5,2 telas, bloco de 2267px); **719×900 ainda não remedido após o deploy** — a medição parcial de C4 (§11.1) foi contra build defasado |
 | comportamento com perfil cheio | **impossível hoje** — nenhum dos 20 preenchido |
 | nav global com alvo de 22px | **descartado por medição runtime (2026-09-01)**: links principais 42,6px (`min-height: 40px`), subnav 37,1px (`min-height: 36px`) e ações 40px; nenhum alvo de 22px |
 | custo do esquema de extração para bio | **medido em B11 (2026-09-01), conferido em revisão independente:** 4 atributos estritos (`experience_years`, `specialties`, `languages`, `badges`), endpoint autenticado sem escrita, painel local de confirmação e cache generalizado por schema. Sem migration, lib nova ou pacote compartilhado. Superfície final medida em `git status`: **4 arquivos de produção + 3 de teste**; validação e vetores verificados em `tasks.md` B11 |
@@ -463,7 +463,7 @@ Roda as 7, marca falha por linha, exit 1 se reprovar. **Discrimina** (verificado
 medidas à mão em §9.1. Não acusa cor literal automaticamente — §9.2 exige ler o contexto, e
 o script só informa a contagem.
 
-### 9.7 Fase F implementada localmente (2026-09-01)
+### 9.7 Fase F — merged e deployada em beta (2026-09-01)
 
 O baseline dirigido do editor reprovava 6 linhas: 0 imports do pacote, 0 usos da régua,
 5 ocorrências fora dela, 3 fora da grade de 4px, 5 classes que reimplementavam conceitos
@@ -715,3 +715,684 @@ B11 saiba que o caso existe em pelo menos 3 de 7 perfis.
 **Trava:** enquanto B11 não existir, o número da bio **fica como está**. Divergência entre
 prosa e coluna não é bug de dado — é o mestre falando, e a plataforma não corrige a fala
 dele.
+
+---
+
+## 13. A casca do editor de mestre — o que falta para a spec fazer jus a si mesma
+
+**Origem:** o mantenedor abriu `mesasbeta` depois do deploy da Fase F (2026-09-01) e
+recusou o resultado: *"está totalmente diferente da ideia que era reformular a
+experiência do mestre. Está feio, desorganizado. Bem diferente do conteúdo que
+embasou a spec"* — e, ao ver a tela, nomeou a causa: *"ainda está centralizado, sem
+etapas como nas laterais, que tem no atual editor de mesas"*.
+
+Ele tem razão, e a spec já dizia isso. Esta seção existe porque o defeito **não** é
+novo: é §2.12 desta spec não implementada, medida contra o que está no ar.
+
+### 13.1 O que a spec mandava, e não foi feito
+
+`old_spec.md:495-503`, que já estava escrito antes de qualquer fase começar:
+
+> "**o editor de mesa já resolveu o problema de interface que esta spec descreve.** Ele
+> tem `EditorField` sobre o `Field` do pacote, com três níveis marcados (obrigatório /
+> recomendado / opcional), frase de ganho por campo recomendado na linguagem do
+> jogador, prévia ao vivo (`CardPreview`) e **partes semânticas em vez de uma coluna
+> longa**. O editor de perfil não usa nada disso — nem os primitivos do pacote."
+>
+> "A fase B, em boa medida, **não é invenção: é aplicar ao perfil o que o editor de mesa
+> já faz a uma tela de distância.**"
+
+E `old_spec.md:734-749` fixava o critério de forma:
+
+> "Coleta progressiva, não formulário de 3,75 telas. […] 15 campos em 3 passos superam
+> 10 campos numa página só em **11-14%** de conclusão (098 §6.7). **O editor de perfil
+> hoje é o caso ruim: uma coluna de 3,75 telas.**"
+
+### 13.2 O que está no ar, medido (beta, 2026-09-01, build `index-Bwn4PU-7.css`)
+
+Medido em navegador autorizado, `/perfil?tab=mestre`, viewport 1815x962:
+
+| | editor de mesa (o modelo que a spec mandou copiar) | editor de perfil (entregue) |
+|---|---|---|
+| layout | `grid-template-columns: 300px minmax(0,1fr)` (`TableEditor.css:70`) | coluna centralizada, sem aside |
+| estrutura | **7 partes** (`editorParts.ts:27-33`: Identidade, Quando joga, Onde joga, Valores, Para quem é, Mestre e contato, Regras e extras) | **1 `<h2>`** "Perfil de Mestre" + 19 rótulos corridos |
+| prévia | `CardPreview` no aside, espelho vivo (`TableEditor.tsx:277`) | "Prévia do perfil" empilhada no meio da coluna |
+| pendências | `pendingCounts` por parte na nav (`TableEditor.tsx:273`) | nenhuma |
+| níveis de campo | `EditorField` com `data-ob=required/recommended/optional` + `RECOMMENDED_GAIN` | **existe, replicado**: `GmProfileFields.tsx` marca `data-ob` e usa um `RECOMMENDED_GAIN` **próprio** (`profileEditorDomain.ts:31`), não o do pacote de validação |
+| rolagem | parte troca sem rolar | **5,2 telas** (`scrollHeight` 4998 / viewport 962) |
+| primitivo de controle | `artificio-control` em `IdentityPart.tsx` | **0 dos 5** `<input>` crus da aba Mestre (§13.13 C8) |
+
+**A spec chamou 3,75 telas de "o caso ruim". A entrega tem 5,2.** O eixo que a spec
+nomeou como defeito central de forma piorou, porque os 7 campos que a fase B abriu
+(`tagline`, `specialties`, `languages`, `selling_points`, `badges`, `promo_badge_text`,
+`closed_group`) foram **empilhados na mesma coluna** em vez de entrarem em partes.
+
+O modelo de informação foi entregue — os sete campos sem porta ganharam porta, e isso é
+o núcleo da spec. **A experiência que justificava esses campos, não.**
+
+### 13.3 Por que a revisão fase a fase não pegou isto
+
+Registro honesto, porque é falha de método e vai se repetir se não ficar escrito: cada
+fase foi validada contra o próprio critério estreito (F1b: alvo de 24px; F2: rodapé;
+F4: largura do campo), **e nenhuma rodada mediu a página inteira contra §2.12 e §3.4**.
+Todas passaram; o conjunto reprova. A própria spec avisa disso em `old_spec.md:58-60`
+— *"Isto não é um problema de layout. A 098 tratava de forma. Aqui o defeito é de
+modelo de informação"* — e a revisão gastou as rodadas na camada que a spec descarta.
+
+**Consequência operacional:** o aceite de fase que toca o editor passa a exigir, junto,
+a medição de casca (13.6, A11-A13). Contrato de fonte e alvo de clique não substituem.
+
+### 13.4 O que as fontes dizem — pesquisa de 2026-09-01
+
+O recorte importa: **não é landing page genérica.** É a página de uma pessoa que vai
+conduzir 3-4 horas semanais da vida de estranhos. O que se desenha é **confiança
+verificável**, e a referência certa não é listicle de design — é caso de engenharia
+publicado por quem resolveu o mesmo problema em escala.
+
+**a. Airbnb, o caso mais próximo: a plataforma inteira existe para estranhos confiarem
+um no outro.** É o mesmo problema desta spec, com o mesmo formato — um perfil de pessoa
+que hospeda outra. Em [Designing for Trust](https://medium.com/airbnb-design/designing-for-trust-7ce268468d5b)
+(Airbnb Design) e no [estudo de caso do TED de Joe Gebbia](https://bambrick.com.au/blog/airbnb-designing-trust-case-study/),
+três achados aplicam direto:
+
+- **Reputação vence semelhança.** Gebbia: *"High reputation beats high similarity. The
+  right design can actually help us overcome one of our most deeply rooted biases."* O
+  desenho que expõe reputação verificável derruba o viés de escolher quem se parece com
+  a gente. Para o `mesas`: a seção de prova (avaliações, selos) não é enfeite — é o que
+  permite um mestre desconhecido competir com o amigo do amigo.
+- **A foto foi obrigatória, apesar do atrito.** O Airbnb impôs foto de perfil aceitando
+  perder gente no funil, porque ver o rosto *"deixa o usuário à vontade"*. Casa com a
+  recomendação do StartPlaying (fonte c) e com D8 desta spec.
+- **Esforço no perfil é sinal lido pelo outro lado.** A seção "About Me" preenchida
+  aumenta a chance de o anfitrião aceitar o hóspede: **preencher é o sinal**, não só o
+  conteúdo. Isso reordena o desenho — a casca deve tornar visível *o que ainda falta*
+  (A12), porque a completude em si comunica.
+
+**Ressalva medida:** a versão desse caso que circula em resumos atribui ao Airbnb a
+prática de *"sugerir o tamanho ideal da resposta pelo tamanho da caixa de entrada"* — o
+que seria a contraparte exata do defeito de §2.6 (802px para 2 dígitos). **Fui à fonte e
+ela não sustenta o detalhe**: o estudo de caso trata do porquê psicológico, sem dado
+sobre dimensionamento de campo. Registro como **não verificado** e não uso como
+fundamento; o argumento de dimensionamento continua vindo de Baymard, via 098 §6.2, que
+é medição controlada.
+
+**b. Airbnb DLS: componente como organismo, e o defeito de reimplementar o que existe.**
+[Building a Visual Language](https://medium.com/airbnb-design/building-a-visual-language-behind-the-scenes-of-our-airbnb-design-system-224748775e4e)
+(Karri Saarinen, Airbnb Design) — a peça que fundou o DLS em 2016. A tese, na fonte
+primária ([karrisaarinen.com/dls](https://karrisaarinen.com/dls/)): em vez de design
+atômico, tratar componentes como organismos que *"têm função e personalidade, são
+definidos por um conjunto de propriedades, coexistem com outros e podem evoluir (ou
+morrer) independentemente"*, com o sistema *"unificado para gerar eficiência por meio de
+componentes bem definidos, reutilizáveis e multiplataforma"*.
+
+Os quatro princípios do DLS — **Unificado, Universal, Icônico, Conversacional** — são o
+vocabulário que falta a esta spec para justificar 13.5 sem apelar a gosto. "Unificado"
+(cada peça contribui para o todo) é literalmente a regra pétrea §Compartilhado por
+padrão do AGENTS.md, escrita por outra casa e pelo mesmo motivo. E "Conversacional"
+sustenta o vocabulário de partes que o `TableEditor` já usa ("Quando joga", "Para quem
+é") contra rótulo genérico de CRUD.
+
+**Consequência direta:** §9.5 desta spec mediu 5 classes + 1 `@keyframes` reimplementados
+localmente sobre o que o pacote já exportava, e a F6 mediu 3 `.spinner` concorrentes no
+mesmo bundle. É exatamente a fragmentação que o DLS existe para impedir. A casca do
+editor cair na mesma armadilha — copiar o aside do `TableEditor` em vez de compartilhar —
+seria repetir o defeito mais caro já medido nesta spec (A16).
+
+**c. O concorrente direto organiza por seção nomeada, não por coluna.**
+[StartPlaying](https://startplaying.games/blog/posts/how-to-set-up-gm-profile) — a maior
+plataforma de mestres pagos — divide o perfil em **8 seções**: Imagens, Detalhes
+Pessoais (nome, pronomes, localização, idiomas), Sobre Você, **Estilo de Mestrar**,
+**Sua Mesa Ideal**, Preferências (sistemas, plataformas, temas), Social e Reserva.
+"Estilo de Mestrar" e "Mesa Ideal" são seções próprias, não parágrafos dentro de uma
+bio — a mesma tese de §2.4 (o mestre inventa estrutura dentro da caixa de texto porque
+não recebeu estrutura).
+
+A orientação editorial contraria "quanto mais, melhor": bio *"dois parágrafos no
+máximo"*; sobre especialidades, *"não se sinta pressionado a listar um monte de coisas
+que você mais ou menos conhece só para parecer impressionante"*; sobre foto, *"eles
+preferem perfis com rostos — dá a sensação de quem eles vão jogar junto"*. Valida D10
+(frase de ganho por campo) e reprova qualquer desenho que premie preenchimento total.
+
+**d. Progresso como checklist com estado, não barra de percentual.**
+O [onboarding do StartPlaying](https://intercom.help/startplaying/en/articles/8719131-gm-onboarding-progress-bar)
+usa 6 passos com três estados por item — **Draft / Awaiting Approval / Active** — e a
+documentação é explícita: *"em vez de mostrar um medidor de percentual, funciona como
+checklist"*. Casa com o `pendingCounts` que o `TableEditor` já implementa: o mestre vê
+**o que falta**, não um número abstrato.
+
+**e. Multi-passo bate página única — mas o número NÃO vale para este caso.**
+[Progressive disclosure](https://www.nngroup.com/videos/progressive-disclosure/) é padrão
+NN/g desde 1995, e as compilações de 2026
+([UXPin](https://www.uxpin.com/studio/blog/what-is-progressive-disclosure/),
+[Buildform](https://buildform.ai/blog/form-design-best-practices/)) medem **+14% de
+conclusão** em formulário multi-passo contra passo único.
+
+**Correção de uma afirmação que esta seção fazia até 2026-09-01, e que era minha:** usei
+esse número como fundamento do desenho. Ele **mede outro problema**. Todo o corpo de
+evidência de +14% (e o +86% que outras compilações citam) trata de **formulário de
+conversão, preenchido por quem chega novo e pode abandonar**. O editor de perfil é
+**edição de dado existente, por quem já é usuário e já está dentro** — não há abandono de
+funil a otimizar.
+
+E a literatura do caso certo aponta parcialmente para o outro lado:
+[uxmovement](https://uxmovement.com/forms/single-page-vs-multi-page-forms-when-to-use-which/)
+recomenda **página única** justamente quando *"editar é importante"* — o usuário volta e
+revisa — e quando *"o input de um campo depende do anterior"*, que é o mestre relendo a
+própria bio ao escrever o slogan. Uma
+[avaliação de tipos de rolagem](https://firstmonday.org/ojs/index.php/fm/article/download/10309/9400?inline=1)
+conclui que **nenhum método se destacou como mais usável**.
+
+**O que sustenta seções, medido:** o estudo mais próximo
+([Springer, navegação em formulários longos](https://link.springer.com/chapter/10.1007/978-3-319-22698-9_21))
+mediu memorabilidade, usabilidade, visão geral e preferência **piores com rolagem** que
+com abas, menus e blocos colapsáveis — **em smartphone** —, e registra que **até 10 campos
+a estrutura em abas não melhora significativamente**. A aba Mestre tem **15 campos** —
+contagem **runtime** (`document.querySelectorAll('input,select,textarea')` no build de
+beta), que a inspeção estática não reproduz porque subcampos de
+`ProfileTagsSection`/`ClosedGroupSection` dependem do estado. Acima do limiar de 10, sem
+folga.
+
+**Conclusão honesta:** o que justifica a mudança é a **densidade medida nesta tela** (5,2
+telas; um bloco de 2267px com 13 dos 15 campos) e a evidência de **mobile** — não ganho de
+conversão de formulário novo. O número de +14% sai do argumento.
+
+**Consequência de desenho, e ela é grande:** se a força da página única é *voltar e
+editar*, a casca não pode destruí-la. Partes que **trocam a view** escondem o resto do
+perfil; **âncoras que rolam** dentro de um documento contínuo dão a lateral, as pendências
+e a visão geral **sem** tirar do mestre a revisão livre. É o desenho adotado em §13.5.
+
+**f. Editor moderno é três painéis, e a largura tem faixa conhecida.**
+O padrão de 2026 para editor ([Elementor FSE](https://elementor.com/blog/wordpress-full/),
+[shadcn/ui settings](https://adminlte.io/blog/shadcn-ui-settings-templates/)) é
+navegação à esquerda + canvas central + prévia/ajustes, com a lateral **entre 200 e
+300px** ([alfdesigngroup](https://www.alfdesigngroup.com/post/improve-your-sidebar-design-for-web-apps)).
+Os 300px que o `TableEditor` já usa estão no topo dessa faixa — não é chute, e não
+precisa mudar.
+
+**g. Escuro em camadas, não preto chapado.**
+Para tema escuro ([NateBal](https://natebal.com/best-practices-for-dark-mode/),
+[tech-rz](https://www.tech-rz.com/blog/dark-mode-design-best-practices-in-2026/)): tons
+sobrepostos para hierarquia em vez de preto puro; botão com fundo elevado e borda sutil
+em vez de sombra; item ativo da lateral **inequívoco** — fundo na cor de marca ou borda
+lateral. O Artifício já tem o vocabulário (`--surface`, `--surface-subtle`,
+`--surface-strong`, `--line`, `--line-strong`, `--artificio-brand: #ff5722`), e o
+`TableEditor` já aplica (`bg-[var(--surface-subtle)]` + `border-r border-[var(--line)]`).
+**Nada aqui pede paleta nova** — pede usar a que existe, que é o princípio "Unificado"
+do item b.
+
+**h. O contexto que reordena tudo — e que quase inverteu esta seção.**
+[StartPlaying documenta](https://intercom.help/startplaying/en/articles/8719207-what-is-startplaying)
+que **99% das reservas vêm da busca, não da página de perfil**. Fui atrás disso
+esperando que enfraquecesse o caso do editor; ele o fortalece por outro caminho: se a
+descoberta acontece na busca, o valor do que o mestre preenche está em **virar atributo
+filtrável** (`specialties`, `languages`, sistemas), não em decorar uma página que poucos
+abrem. É o que §3.1 já argumentava, e a razão de D6 (busca por atributo) estar
+registrada como próxima spec. **Consequência de desenho:** a casca deve tornar óbvio
+*quais campos alimentam a busca* — o ganho declarado a cada campo é funcional, não
+motivacional.
+
+### 13.5 O desenho proposto — reusar a casca, não inventar uma
+
+A regra pétrea de AGENTS.md (§Compartilhado por padrão) e `old_spec.md:503` apontam para
+a mesma saída: **o `TableEditor` já é a resposta.** O que falta é extrair a casca e
+aplicá-la ao perfil.
+
+**Estrutura, em partes com vocabulário conversacional** — no padrão que `editorParts.ts`
+já estabeleceu ("Quando joga", "Para quem é"), nunca rótulo genérico de CRUD:
+
+| parte | o que entra | pergunta do jogador (§2.13) |
+|---|---|---|
+| **Quem é você** | avatar **e banner juntos**, nome, `tagline`, `experience_years` | "quem vai conduzir minha mesa?" |
+| **Como você mestra** | `bio_long`, `specialties`, `selling_points` | "o estilo dele combina comigo?" |
+| **Sua mesa** | `languages`, sistemas, `closed_group` | "eu caberia nessa mesa?" |
+| **Prova** | `badges`, avaliações, `promo_badge_text` | "por que eu confiaria?" |
+| **Onde te achar** | links e conteúdo | "consigo ver ele mestrando?" |
+
+Cinco partes, não sete: o perfil tem menos matéria que o anúncio. O agrupamento é por
+**pergunta do jogador**, que é o critério que governa a spec inteira (§0).
+
+**Lateral (aside 300px), reusando o que existe:**
+- nav das partes com pendências por parte (`pendingCounts`, já implementado);
+- item ativo com fundo de marca ou borda lateral, visível na renderização (fonte f);
+- **porta para o link oficial, não espelho**: a lateral mostra o endereço público real e
+  **abre a página em aba nova**, salvando o pendente antes. Desenho completo e motivo em
+  **§13.11**, que prevalece sobre qualquer descrição anterior. Três tentativas ficam
+  registradas como descartadas, na ordem em que erraram: "prévia do cartão da busca" (o
+  cartão não existe — é D6), "reposicionar a `MestreProfilePreview`" (reimplementa a página
+  pública, §9.5) e "espelho da página real dentro da lateral" (miniatura de 300px não é
+  conferência, e o endereço fica de fora);
+- em viewport estreito, vira **faixa horizontal no topo** (não drawer), no breakpoint que
+  `TableEditor.css:86-97` já define.
+
+**Campo, com os três níveis:** `EditorField` sobre o `Field` do pacote, com
+`RECOMMENDED_GAIN` na linguagem do jogador (D10 já decidiu). A frase diz o ganho
+**funcional** quando o campo alimenta a busca (fonte g).
+
+**Forma, obedecendo §9.3:** `artificio-control-md` nos campos — o que resolve junto o
+achado de 13.7 —, espaçamento de `--space-1..6`, cor de token.
+
+**As duas imagens ficam juntas, com a dimensão declarada** (achado do mantenedor,
+2026-09-01). Avatar e banner são a mesma decisão visual — o mestre escolhe os dois olhando
+um para o outro, e o banner é o fundo sobre o qual o nome dele assenta. Separá-los em
+partes distintas (o desenho anterior punha o banner em "Onde te achar") obriga a ir e
+voltar para julgar o conjunto.
+
+Cada campo de imagem carrega a legenda do `imageKindHint` de `packages/media`, como o
+editor de mesa já faz — **não** texto inventado nesta tela. Os valores vêm de
+`imageKinds.ts:103-132`:
+
+| campo | recomendado | mínimo | proporção |
+|---|---|---|---|
+| `profile_avatar` | 280 × 280 px | 140 × 140 px | **1:1, pétreo** (decisão do mantenedor, 2026-08-18) |
+| `profile_banner` | 1200 × 650 px | 600 × 325 px | 1200/650, igual ao `og:image` |
+
+A miniatura do banner no editor respeita a proporção real: desenhar fora dela ensinaria o
+enquadramento errado.
+
+### 13.6 Critérios de aceite desta seção
+
+Somam-se a A1-A10 (§4). Todos medidos em navegador contra build real, nunca por
+contrato de fonte:
+
+- **A11.** O editor tem partes semânticas navegáveis pela lateral, e **nenhuma parte exige
+  mais de uma tela de rolagem** em 1366×768 — medido por `scrollHeight` da seção contra
+  `innerHeight`. (Hoje a aba inteira tem 5,2 telas, com um bloco de 2267px.)
+
+  **Duas partes são candidatas a estourar, e o plano nomeia a saída** (achado V6 da 3ª
+  revisão): **"Como você mestra"** carrega o `MarkdownEditor` de altura 300
+  (`GmProfileFields.tsx:579`) mais o campo de especialidades e os 14 ícones de
+  `selling_points`; **"Quem é você"** carrega avatar e banner juntos (§13.5) mais três
+  campos. Se qualquer uma estourar na medição, a ordem de saída é, nesta sequência:
+
+  1. **Reduzir a altura do editor de bio** — 300px é escolha local, não contrato; a bio
+     recomendada tem "dois parágrafos no máximo" (§13.4c).
+  2. **Colapsar o secundário por padrão** — os 14 ícones de `selling_points` abrem sob
+     demanda, no lugar de ocupar a tela sempre.
+  3. **Só então dividir a parte em duas**, aceitando 6 em vez de 5.
+
+  **Nunca:** relaxar A11 para "quase uma tela". O limite é o critério; se ele não couber, o
+  agrupamento é que está errado.
+- **A12.** A lateral mostra, por parte, quantos campos recomendados faltam — e o número
+  cai ao preencher, na mesma sessão, sem recarregar.
+- **A13.** A lateral mostra o **endereço público real** e abre a página em **aba nova**,
+  garantindo o salvamento do que estiver pendente antes de abrir. Medida: com alteração
+  não salva, clicar em abrir grava e a aba nova já traz o valor novo. **Prévia que tente
+  espelhar a página dentro do editor reprova** (§13.11).
+- **A14.** Todo campo recomendado exibe a frase de ganho (D10), e a frase de campo que
+  alimenta a busca diz isso explicitamente.
+- **A14b.** Todo campo de imagem exibe a legenda de `imageKindHint` (`packages/media`),
+  com os valores do pacote — nunca dimensão escrita à mão na tela.
+- **A15.** Nenhum campo do editor usa `<input>` cru com classe local: todos passam por
+  `EditorField`/primitivo do pacote, com altura vinda de `artificio-control-*`
+  (§9.3 item 3). Medido por `getComputedStyle`, não por leitura de fonte.
+- **A16.** Ao **fim da fase** (G6), o que for extraído para `features/editor-shell/` é o
+  que as duas cascas **comprovadamente compartilham**, medido com as duas existindo.
+  Extrair o que só um usa reprova; **"não extrair" é resultado válido** se a comparação
+  mostrar pouco em comum.
+
+  **Reconciliação de uma contradição interna (2026-09-01).** Este critério dizia "casca
+  compartilhada, não copiada; duplicar reprova" — o que **reprovaria a G1**, que manda
+  duplicar de propósito. A contradição era real: o `plan.md` foi invertido e este critério
+  não. Vale a estratégia **duplicar → medir → extrair**, pelo motivo do §13.8d: abstrair a
+  partir de dois casos (um deles inexistente) é o fracasso público do DLS do Airbnb. A
+  duplicação de G1 é **deliberada, registrada e datada**; duplicação **sem registro**, ou
+  que sobreviva à fase sem G6 avaliá-la, reprova.
+
+### 13.7 Achado que esta medição produziu — primitivo neutralizado por especificidade
+
+Medido em beta, `getComputedStyle` no campo `Anos de Experiência`:
+
+`.form-group input[type='text']` (`ProfileEditPage.css:290-304`) tem especificidade
+**0,2,1** contra **0,1,0** de `.artificio-control-md`, e vence: aplica `padding: 0.75rem`
+e `font-size: 1rem` sobre o primitivo, que renderiza **50px** em vez de 40px. O
+`min-height: 40px` sobrevive nos dois caminhos — por isso a F4 passou no seu próprio
+critério.
+
+Os **50px são um dos valores que `old_spec.md:338,347` catalogou como defeito**
+("alturas distintas: 16, 38, 42, 48, 50, 300 — sem escala"). Extensão medida: dos 3
+`.artificio-control` visíveis na aba Mestre, **1 está neutralizado**; os outros dois
+renderizam 41px corretamente. E os **5** `<input>` crus da aba Mestre não usam `artificio-control` (§13.13 C8).
+
+Isto é C6/C7 (T12/T13) em aberto: `old_tasks.md:121` pedia **"adotar o existente"** com
+escopo *"pacote + `mesas`"*, e `old_spec.md:1078-1082` (A7) é explícito — *"entrega do
+tipo 'ajustei os N valores do `mesas`' reprova"*. A F4 corrigiu a largura (802px → 8rem,
+verificado: `max-width: 128px`), que é correção real, mas não a adoção da escala.
+
+**Resolve junto com 13.5:** ao passar os campos por `EditorField`, a regra legada
+`.form-group input[...]` perde razão de existir e sai — e o conserto fica no nível que
+impede a recorrência, como A7 exige.
+
+### 13.8 Investigação no código — o que já existe, o que falta, o que está duplicado
+
+Medido em 2026-09-01, antes de escrever as tasks. **Corrige uma impressão que 13.2
+poderia dar:** o problema não é falta de campo nem de conteúdo — a fase B entregou
+matéria. O que falta é **casca**, e o que sobra é **duplicação da casca alheia**.
+
+**a. Já existe no perfil, funcionando:**
+
+| peça | onde | situação |
+|---|---|---|
+| os 7 campos que não tinham porta | `GmProfileFields.tsx` (648 linhas) | entregues, com `data-ob` por nível |
+| frase de ganho por campo recomendado | `profileEditorDomain.ts:31` | entregue (D10 cumprido) |
+| prévia do perfil | `MestreProfilePreview.tsx` | existe e é **reusada em 3 telas** (`ProfileEditPage:688`, `PainelMestrePage:717`, `MasterPart:170`) |
+| abas | `ProfileEditPage.tsx:218-244` | Geral / Jogador / Mestre, com `aria-selected` e roving tabindex |
+
+A prévia ser consumida por três telas — inclusive pelo `MasterPart` do editor de mesa —
+é reuso correto e **não deve ser desfeito**. O problema dela não é existir: é **onde**
+está posicionada (empilhada no fim da coluna, `ProfileEditPage:688`, em vez de fixa na
+lateral, onde o mestre a vê enquanto digita).
+
+**b. O que está duplicado — §9.5 se repetindo:**
+
+Existem **duas constantes `RECOMMENDED_GAIN` no mesmo app**, com o mesmo nome e chaves
+diferentes:
+
+| | `editorValidation.ts:72` (editor de mesa) | `profileEditorDomain.ts:31` (perfil) |
+|---|---|---|
+| escopo | campos do anúncio | `tagline`, `bioLong`, `specialties`, `languages`, `sellingPoints`, `experienceYears`, `links` |
+
+O docstring de `GmProfileFields.tsx:52` é honesto sobre isso: *"**Replica** o padrão
+`EditorField` + `RECOMMENDED_GAIN` do editor de mesa"*. Replicar foi a decisão certa
+para entregar a fase B sem tocar no editor de mesa — mas é exatamente o defeito que
+§9.5 mediu (5 classes reimplementadas) e que o princípio "Unificado" do DLS (13.4b)
+existe para impedir. **Duas cópias divergem com o tempo**; a segunda já nasceu sem o
+mecanismo de nível condicional (`isConditionalField`) que a primeira tem.
+
+**c. O que de fato não existe no perfil:**
+
+- **Partes navegáveis.** A aba Mestre renderiza tudo de uma vez
+  (`ProfileEditPage.tsx:271`), sem `activePartId`. É a causa direta das 5,2 telas.
+- **Lateral.** Nenhum `<aside>`; layout é coluna centralizada.
+- **Contagem de pendências.** `isFieldFilled`/`pendingCounts` existem no editor de mesa
+  (`editorValidation.ts:131`) e não têm equivalente no perfil.
+- **`EditorField` como componente.** O perfil marca `data-ob` **à mão** em cada campo de
+  `GmProfileFields.tsx`, em vez de passar por um componente único.
+
+**d. Quão reusável é a casca do editor de mesa — medido, não suposto:**
+
+`EditorSidebar` (`TableEditor.tsx:480-550`) **não é componente extraído**: vive dentro do
+`TableEditor.tsx`. Mas o acoplamento é **raso** — depende de `EDITOR_PARTS` (importado de
+`editorParts.ts`), do tipo `EditorPartId`, e de 4 props (`activePartId`, `pendingCounts`,
+`progress`, `onSelect`). Nada de `TableEditorState`. **Generalizar é trocar a constante
+importada por prop**, não reescrever.
+
+`EditorField` (`parts/EditorField.tsx`) é mais acoplado: recebe `state: TableEditorState`
+e chama `fieldLevel(fieldId, state)`. Porém `fieldLevel` já aceita
+`ctx?: FieldLevelContext` (`editorValidation.ts:102`), não o estado inteiro — o
+acoplamento está na **assinatura do componente**, não na lógica. Também generalizável.
+
+`TableEditor.css:70` (`grid-template-columns: 300px minmax(0,1fr)`) e a media query de
+720px (`:88-92`) são regras de casca sem nada específico de anúncio.
+
+**Conclusão que isto impõe às tasks:** a casca deve ser **extraída para um lugar
+compartilhado e consumida pelos dois editores** (A16). Copiar o aside para o perfil
+entregaria a mesma tela e criaria a terceira duplicação — depois de `RECOMMENDED_GAIN`
+(b) e das 5 classes de §9.5. E extrair a casca **não pode regredir o editor de mesa**:
+ele está em produção, com cicatrizes registradas em comentário (`TableEditor.tsx:474`,
+o bug T2.5 em que recriar a lista de botões matava o clique; `:286`, o `pt` de 18→24px).
+Essas travas viajam junto com o código extraído, incluindo os comentários que as
+explicam (AGENTS.md §Regras Gerais de Código).
+
+### 13.10 Seletor de sistemas — medido, com correção de um diagnóstico meu
+
+**O mantenedor perguntou se a adição de sistemas funciona como no editor de mesa. Respondi
+antes de medir, e errei.** Registro porque a conclusão errada teria produzido uma task que
+quebrava funcionalidade.
+
+**O que eu afirmei:** que o perfil usa um `SystemPicker` *local*, duplicando o que o pacote
+já oferece. **Falso.** `SystemPicker.tsx:25` diz o contrário, e é explícito: *"Wrapper fino
+sobre `@artificio/catalog-ui#CatalogTree` — mantém a interface `SystemPickerProps` já
+consumida pelos **6 usos existentes** em mesas-frontend (I8.6, spec 062)"*. O perfil **já
+consome o pacote**; o wrapper só adapta `SystemTreeNode` → `CatalogUiNode` sem quebrar 6
+chamadores. Cheguei à conclusão olhando o `import` sem abrir o arquivo.
+
+**O que os dois de fato usam, medido:**
+
+| | editor de mesa | editor de perfil |
+|---|---|---|
+| componente do pacote | `CatalogSystemSelector` | `CatalogTree` (via `SystemPicker`) |
+| cardinalidade | **single** — uma mesa, um sistema | **multi** (`mode="multi"`) — N sistemas |
+| carga | server-side, `?search=`, limite 5 | árvore inteira, `?view=tree` |
+
+São **dois componentes distintos do mesmo pacote, para necessidades distintas** —
+`CatalogSystemSelector:86-88` documenta single-select; `CatalogTree:6` declara
+`mode: 'single' | 'multi'`. **Trocar o do perfil pelo do editor de mesa seria regressão:**
+o perfil precisa de N sistemas e o `CatalogSystemSelector` não faz multi.
+
+**A divergência real é de carga, e o custo está medido** (beta, 2026-09-01):
+
+| chamada | bytes |
+|---|---|
+| perfil, `GET /systems?view=tree` | **487.965** (1.289 nós, 697 raízes) |
+| editor de mesa, `GET /systems?search=tormenta&limit=5` | **816** |
+
+**598× mais dados** no primeiro render do perfil, para escolher de 1 a 5 sistemas.
+
+**A lacuna é do pacote, e é real:** `CatalogTreeProps` (`CatalogTree.tsx:9-38`) exige
+`tree: CatalogUiNode[]` e **não tem nenhuma prop `fetch*`** — não existe caminho
+server-side em `mode="multi"`. O `CatalogSystemSelector` tem os três
+(`fetchSystemOptions`, `fetchChildOptions`, `fetchNodePath`) e é single. Então hoje o
+monorepo oferece **busca sob demanda OU seleção múltipla, nunca as duas** — e quem precisa
+das duas (o perfil) paga 488 KB.
+
+Isto é `packages/catalog-ui`, não o `mesas`: corrigir só no app seria a exceção por app que
+§Compartilhado por padrão proíbe, e A7 reprova (*"ajustei os N valores do `mesas`"*).
+
+### 13.11 A prévia é a porta para o link oficial, não um espelho na lateral
+
+**Decisão do mantenedor, 2026-09-01, em três passos.** Primeiro: *"o preview tem que ser
+exatamente o link/slug dele"* — descartando o cartão que eu havia desenhado à parte.
+Depois, fechando a questão que estava em aberto: **"a prévia tem que direcionar como uma
+nova aba para onde vai ficar o link oficial"**.
+
+Isto não é ajuste do espelho: **é outra coisa no lugar dele.** A lateral deixa de tentar
+reproduzir a página e passa a **levar até ela**.
+
+**Como funciona, do ponto de vista de quem usa.** Na lateral, abaixo das partes, o mestre
+vê o **endereço público real** — `mesas.artificiorpg.com/mestre/<slug>` — com um retrato
+reduzido do que está lá e um botão que abre **a página de verdade, em aba nova**. É a mesma
+URL que ele vai colar no Discord, no grupo, na bio.
+
+**O que isso resolve, e que o espelho não resolvia:**
+
+- **A conferência acontece em tamanho real.** Julgar o próprio perfil por uma miniatura de
+  300px espremida numa coluna é julgar outra coisa. Na aba nova ele vê a largura real, a
+  rolagem real, a ordem real — do jeito que o jogador recebe.
+- **O endereço vira parte do que se confere.** O link é o que o mestre divulga; vê-lo (e
+  poder copiá-lo) é tão parte de "meu perfil está pronto?" quanto o conteúdo. Um espelho
+  sem endereço nunca comunicaria isso.
+- **Mata uma classe inteira de duplicação.** Sem espelho, não há segunda versão da página
+  para divergir da primeira — o defeito de §9.5 não tem por onde entrar.
+
+**A pergunta que estava pendente deixa de existir.** Ficava registrado aqui se a prévia
+deveria **acompanhar a parte ativa** ou **ficar no topo**. Com a prévia virando porta, não
+há mais nada rolando junto para sincronizar: **a decisão foi dissolvida, não adiada.**
+
+**O caso ruim que isto cria, e como se trata.** Aba nova mostra o que está **salvo no
+servidor**, não o que acabou de ser digitado. O autosave grava com 500ms de espera (B8),
+então quase sempre estará atualizado — mas "quase sempre" é o suficiente para o mestre
+escrever, abrir, não ver a mudança e concluir que quebrou.
+
+**Decisão:** o botão **garante o salvamento antes de abrir** — descarrega o que estiver
+pendente e só então abre a aba. O propósito do botão é conferir; conferir a versão errada
+anula o propósito. O custo é um instante de espera, e ele é honesto (o mestre entende que
+está salvando). As alternativas medidas e descartadas: *avisar que há mudança não salva*
+(transfere ao mestre um problema que é nosso) e *não tratar* (aceita o caso ruim justamente
+no momento em que ele está inseguro sobre o próprio trabalho).
+
+**O que sai do escopo com esta decisão.** Não há mais mecanismo de injeção de estado
+não-salvo na página pública: a aba nova busca do servidor como qualquer visitante. A prop
+`masterOverride` que esta seção especificava **não é mais necessária** e sai da G4 — o
+achado C2 da primeira revisão (prévia sem caminho de dados para o rascunho) fica **resolvido
+por remoção do requisito**, não por implementação.
+
+**Permissão não é problema aqui, e foi medido.** A página do mestre **já é pública**:
+`gm_profiles` não tem `is_public`, `published` nem `draft_status` (confirmado em
+`information_schema` na VM, §13.13), e o perfil não tem estado de rascunho — ao contrário
+do editor de mesa, que tem `draftStatus` e só escreve "No ar" quando publicada
+(`TableEditor.tsx:439`). Abrir em aba nova **não expõe nada que já não estivesse exposto**.
+
+**`isOwner` continua importando, por outro motivo.** A task **G4a** permanece: hoje
+`MasterProfilePage.tsx:28-29` tem `currentUserId = undefined` com `// TODO`, então
+`isOwner` é sempre `false` e os blocos de dono (`:101`, `:117`) nunca disparam para
+ninguém. Isso é **defeito de produção pré-existente** — quando o mestre abrir a própria
+página pela aba nova, ele deve ser reconhecido como dono. G4a não era só pré-requisito da
+prévia; é conserto que vale por si.
+
+**A11 vale sobre o documento do editor.** A lateral não tem mais altura de espelho para
+disputar espaço com as partes.
+
+### 13.13 Segunda revisão adversarial — o que ela mudou no plano (2026-09-01)
+
+Revisão nº 2 feita pelo mantenedor, com **leitura read-only da VM** além do código. As
+medições que sustentam a fase **não foram refutadas — foram reproduzidas no sistema real**:
+clone beta em `b69f4c47`, container servindo `index-Bwn4PU-7.css` (o hash citado em §13.2),
+`?view=tree` devolvendo **487.965 bytes** e `?search=` **816** na API beta, `systems` com
+**1.289 nós / 697 raízes**, e `information_schema` confirmando que `gm_profiles` não tem
+`is_public`/`published`/`draft_status` (§13.11). Prod ainda serve `index-BGWXUDjF.css` — a
+fase F está só em beta.
+
+O que a revisão encontrou é de outra natureza: **o plano subestimava a cadeia de
+componentes**. Três achados mudam tasks.
+
+**C6 — `SystemPicker` está no meio do caminho de G7, e estava fora do plano.** O caminho
+real do seletor do perfil é `UserSystemsSelector → SystemPicker → CatalogTree`, e
+`SystemPicker.tsx:9-22` declara `tree: SystemTreeNode[]` **obrigatória, com zero props
+`fetch*`**. Furar só o `CatalogTree` (G7) **não entrega G5b**: o fetch precisa atravessar o
+wrapper. Consequência: G7 passa a incluir as props no `SystemPicker` (aditivas, opcionais),
+e `SystemPicker.tsx` entra no "LER ANTES" de G5b.
+
+**C7 — o custo de G6 tem número.** `EditorField` é consumido por **6 parts**
+(`Identity`, `When`, `Where`, `Values`, `Audience`, `Master`). Tirar `TableEditorState` da
+assinatura propaga para os 6 chamadores mais teste. O acoplamento é raso, como §13.8d diz;
+o **número de pontos de mudança** é que não estava dimensionado.
+
+**C8 — a dimensão de G5 estava errada.** Os `<input>` crus **na aba Mestre** são **5**
+(`AvatarField` 2, `ImageUploader` 2, `LinksManager` 1). Os 7 de `ProfileEditPage.tsx:338-495`
+estão nas abas **Geral/Jogador**, fora do escopo. `GmProfileFields` e `UserSystemsSelector`
+não têm input cru. A contagem "10 campos" que eu usei **não é derivável do código** e sai
+das tasks: G5 cobre **os 5 da aba Mestre** e a remoção da regra legada.
+
+**Linha de base da trava de não-regressão, medida e não estimada:**
+`rtk pnpm vitest run src/features/table-editor` → **10 arquivos, 259 testes, 259 passando**
+(2026-09-01). O número que circulava antes ("71 em 3 arquivos") contava só três dos dez.
+
+**D12 — A9 de defeito visual precisa de veículo, e não tinha.** O aceite de G5 pedia "A9
+devolvendo a regra legada → 50px de volta", mas `getComputedStyle` não resolve cascata em
+jsdom e o baseline `ui:fidelity` não cobre especificidade de regra local. **Decisão:** o A9
+de G5 é feito por **asserção sobre o CSS de origem** — o contrato verifica que
+`.form-group input[...]` não declara mais `padding`/`font-size`/`min-height`, no mesmo
+padrão do `styles.contract.test.ts` do pacote — **mais** uma medição manual única em
+navegador registrada no fechamento da task. Contrato de fonte não vira prova de pixel; o
+que ele garante é que a regra não volta sem alguém notar.
+
+### 13.15 A rota canônica é `/mestre/<slug>` — e eu tinha fixado a errada
+
+**Achado da 3ª revisão adversarial, e o mais grave da série.** A §13.11 fixava
+`/mestres/<slug>` como "o endereço que o mestre divulga". **Está errado.** Existem duas
+rotas públicas de mestre (`App.tsx:71,73`) e a que eu citei é a morta:
+
+| rota | página | links no app |
+|---|---|---|
+| **`/mestre/:slug`** | `MestrePage` | **5** — `TableCard:187`, `MasterCard:146`, `TableMaster:64`, `MestreReviewsSection:120` e o próprio **"Ver perfil público" do editor** (`ProfileEditPage:172`) |
+| `/mestres/:masterId` | `MasterProfilePage` | **0** |
+
+Medido com `grep` por `/mestre/` e `/mestres/` em todo o `src`, excluindo teste.
+
+**O que isso corrige em cascata, e é bastante:**
+
+1. **O endereço que a lateral de G4 mostra é `/mestre/<slug>`.** É por ele que o jogador
+   chega hoje, de qualquer cartão de mesa, e é o que o botão do editor já abre.
+2. **O achado C1 muda de natureza.** Eu havia registrado que `isOwner` era sempre `false`
+   por causa de `MasterProfilePage.tsx:28-29` (`currentUserId = undefined`, com `// TODO`).
+   A causa real é outra: **ninguém alcança aquela página**. O `TODO` nunca foi fechado
+   porque a rota nunca foi usada. E a `MestrePage`, que é a viva, **não tem `isOwner`
+   nenhum** — nem a variável, nem o conceito.
+3. **G4a muda de alvo.** Deixa de ser "ligar `currentUserId` em `MasterProfilePage`" e
+   passa a ser: **decidir o que a `MestrePage` mostra a mais para o dono**, se é que mostra
+   algo. Como a rota morta nunca rodou, os blocos de dono de `MasterProfilePage:101,117`
+   nunca foram exercitados por ninguém — não são comportamento existente a preservar, são
+   código nunca executado.
+
+**Decisão de escopo:** a fase G **não unifica as duas rotas**. `/mestres/:masterId` e
+`MasterProfilePage` ficam onde estão; decidir se a rota morta é removida, redirecionada ou
+mantida é assunto de produto com alcance próprio (SEO, links externos já divulgados), e não
+bloqueia a casca do editor. O que a fase G faz é **apontar para a rota certa**.
+
+**Correção de método, não só de fato.** Eu li `MasterProfilePage`, encontrei `isOwner` no
+código e concluí que era a página do mestre — sem verificar **quem chega nela**. É o mesmo
+erro do `SystemPicker` (§13.10) e do próprio `isOwner` (§13.11): ler a estrutura e não
+medir o uso. Terceira vez na mesma spec.
+
+### 13.16 O que continua sem medição
+
+- **Mobile.** O aceite de F2 foi medido só em desktop (8/8 alvos a 24px). A tentativa de
+  medir em 390px falhou: `resize_window` não alterou o viewport (permaneceu 1815x962) e
+  forçar a largura do `<footer>` não mudou a largura dos links. **Registrado como não
+  medido**, não como aprovado — o SC 2.5.8 quebra justamente quando o texto disputa a
+  linha estreita.
+- **O número de conclusão das fontes de progressive disclosure** vem de material de
+  fornecedor (mesma ressalva de §3.4). O que sustenta a decisão é a convergência com a
+  medição independente de Baymard na 098 §6.7, não o número isolado.
+- **Nenhum perfil real foi preenchido com a casca nova**, porque ela não existe. A10
+  (medição nos 20 perfis) continua pendente para esta seção.
+
+### 13.17 G4a não precisa de código — a rota canônica já reconhece o dono
+
+**Medido em 2026-09-01, ao implementar a fase G.** A §13.15 registrou que a `MestrePage`
+"não tem `isOwner` nenhum — nem a variável, nem o conceito". **Está errado**, e o erro é o
+mesmo de sempre: busquei pelos nomes que eu esperava (`isOwner`, `currentUserId`,
+`useAuth`) em vez de medir o que a página de fato recebe.
+
+O que existe, e está no ar:
+
+| camada | medição |
+|---|---|
+| backend | `gm.ts:216-217` monta `viewer_context: { is_owner: req.user?.userId === gm.user_id, is_admin: req.user?.role === 'admin' }` e devolve em `:416` |
+| hook | `useMestre.ts:224` deriva `canSeeInsights = is_owner || is_admin` |
+| página | `MestrePage.tsx:136,140` só desenha métricas e recomendações quando `canSeeInsights` |
+
+Ou seja: o dono **já é reconhecido**, a decisão de "o que ele vê a mais" **já foi tomada**
+(as métricas do perfil), e a comparação é feita **no servidor**, contra o `user_id` real —
+não no cliente. É mais forte do que a G4a propunha.
+
+**Consequência para a fase:** G4a fecha **sem alteração de código**. O que ela pedia já está
+entregue por caminho melhor. O `currentUserId = undefined` de `MasterProfilePage:28-29`
+continua de pé, mas na rota **morta** (0 links, §13.15) — é código nunca executado, e mexer
+nele seria trabalho sem consumidor.
+
+**Quarta vez que o mesmo método falha nesta spec** (`SystemPicker`, `isOwner`, rota
+canônica, e agora isto). As três primeiras foram ler estrutura sem medir uso; esta foi
+buscar por nome esperado sem medir contrato. A correção operacional é a mesma: **medir o
+que a coisa recebe e devolve, não procurar o nome que eu imaginava que ela teria.**
+
+### 13.18 O que a implementação da G7/G5b encontrou
+
+Medido em 2026-09-01, ao implementar. Três achados que a spec não previa, os três
+corrigidos no mesmo trabalho.
+
+**1. Busca sob demanda apagaria o nome do que já está escolhido.** O bloco de seleção do
+`CatalogTree` monta o caminho a partir de `collectSelectedPaths(tree, ...)`: sem árvore
+local, ele teria o id salvo e nada para exibir. O mestre veria a contagem certa e os nomes
+sumidos — pior do que baixar o catálogo, que é justamente o que a fase evita. Daí a prop
+`selectedNodes` e o `?id=a,b,c` (a rota já aceitava lista: `systems.ts:105`), que resolve a
+seleção inteira numa requisição.
+
+**2. Havia um SEGUNDO seletor de sistemas na mesma aba.** `ClosedGroupSection`
+(`GmProfileFields.tsx:468`) também montava `useSystemsCatalog()`. Trocar só o "Sistemas que
+mestra" deixaria a mesma tela baixando os 487.965 bytes assim mesmo — a economia medida
+seria **zero** para quem abre a aba. A G5b só fecha com os dois.
+
+**3. A busca `?search=` carrega duas correções caras que uma cópia perderia.** O filtro de
+raízes (a rota achata a árvore e mistura níveis; sem ele, escolher "5e" na coluna Sistema
+pula um nível) e a margem do limite (pede 25, exibe 5, porque o servidor corta antes de
+sabermos quem é raiz). Copiar o bloco para o perfil seria a terceira cópia do conceito e
+perderia essas linhas em silêncio — o sintoma não é erro, é navegação errada. Virou
+`useSystemsSearch`, **fonte única com o editor de mesa** (`IdentityPart` passou a consumi-la).
+
+**Erro meu, medido e corrigido:** ao ligar a resolução de nomes, pus a função de busca na
+lista de dependências do efeito. Como o efeito faz `setState`, o ciclo
+render→efeito→setState→render fechou e a suíte **travou sem terminar** — 600s sem saída,
+a forma mais cara de falhar, porque não acusa erro. A função passou a entrar por ref, e há
+teste de regressão com identidade instável: com a dependência de volta, o worker do vitest
+morre.

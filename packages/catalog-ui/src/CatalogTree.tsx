@@ -1,13 +1,66 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Check, Edit2, Plus, Search, Send, X } from 'lucide-react';
 import type { CatalogUiNode } from './types.js';
 import { normalizeText } from './normalize.js';
+import {
+  SYSTEM_SEARCH_DEBOUNCE_MS,
+  normalizeNodes,
+  type CatalogSystemSearchFetch,
+  type CatalogSystemChildrenFetch,
+} from './catalogFetch.js';
 
 export type CatalogTreeMode = 'single' | 'multi';
 export type CatalogTreeRole = 'user' | 'admin';
 
 export type CatalogTreeProps = Readonly<{
-  tree: CatalogUiNode[];
+  /**
+   * Fonte local: árvore pronta, busca filtrada no cliente.
+   *
+   * Continua sendo o caminho padrão e o default (`[]`) preserva os
+   * consumidores existentes. Quando `fetchSystemOptions` é fornecida, a busca
+   * passa a ser server-side e esta árvore deixa de ser necessária para
+   * encontrar sistemas — mas ainda é ela que nomeia a seleção já existente,
+   * a menos que `selectedNodes` seja fornecida (ver abaixo).
+   */
+  tree?: CatalogUiNode[];
+  /**
+   * Fonte server-side do nível raiz (spec 099, fase G — G7).
+   *
+   * Mesmo contrato que `CatalogSystemSelector` já define e que o pacote já
+   * implementa: o consumidor monta a chamada real (ex.:
+   * `GET /systems?search=<query>`) e devolve os nós; o pacote não inventa HTTP.
+   * Quando fornecida, tem precedência sobre a busca local em `tree`.
+   *
+   * Por que existe: o `CatalogTree` fazia multi-select mas só aceitava árvore
+   * local, e o `CatalogSystemSelector` fazia busca sob demanda mas é
+   * single-select. Quem precisava das duas — o editor de perfil, que escolhe de
+   * 1 a 5 sistemas — pagava o catálogo inteiro no primeiro render: **487.965
+   * bytes** (1.289 nós) contra **2.040** de uma busca, medido na API de beta em
+   * 2026-09-01. A prop fecha essa lacuna sem forçar ninguém a migrar.
+   *
+   * Estabilizar com `useCallback` no consumidor — o componente guarda a
+   * referência e não refaz busca por causa de re-render.
+   */
+  fetchSystemOptions?: CatalogSystemSearchFetch;
+  /**
+   * Fonte server-side dos filhos de um nó (spec 099 G7), mesmo contrato do
+   * `CatalogSystemSelector`. Quando fornecida, descer um nível carrega sob
+   * demanda em vez de ler `node.children`; lista vazia = nível sem filhos.
+   */
+  fetchChildOptions?: CatalogSystemChildrenFetch;
+  /**
+   * Os nós já selecionados, resolvidos pelo consumidor (spec 099 G7).
+   *
+   * **Necessária quando não há `tree`.** O bloco de seleção mostra o caminho
+   * pelo NOME (`path.map(n => n.name)`), e sem árvore local não há de onde
+   * derivar isso: o componente teria o id salvo e nada para exibir — o usuário
+   * veria a contagem certa e os nomes sumidos, que é pior do que carregar o
+   * catálogo. Com ela, o consumidor entrega o que já sabe (ele precisa desses
+   * nomes de qualquer forma para a própria lista) e nada se perde.
+   *
+   * Quando ausente, o caminho é derivado de `tree`, como sempre foi.
+   */
+  selectedNodes?: CatalogUiNode[];
   selectedIds: string[];
   onSelectionChange: (selectedIds: string[]) => void;
   idPrefix: string;
@@ -83,10 +136,16 @@ const buildVisibleLevels = (
   visibleRoots: CatalogUiNode[],
   navPath: CatalogUiNode[],
   role: CatalogTreeRole,
+  // G7: filhos carregados sob demanda, por id de pai. Vazio quando o consumidor
+  // não usa fonte server-side — e aí `node.children` da árvore responde, como
+  // sempre respondeu.
+  remoteChildren: Record<string, CatalogUiNode[]> = {},
 ): TreeLevel[] => {
   const levels: TreeLevel[] = [{ depth: 0, nodes: visibleRoots }];
   navPath.forEach((node, index) => {
-    const children = node.children ?? [];
+    // O carregado sob demanda tem precedência: com fonte server-side, o nó vem
+    // da busca sem `children` preenchido, e ler a árvore aqui devolveria vazio.
+    const children = remoteChildren[node.id] ?? node.children ?? [];
     if (children.length > 0 || role === 'admin') {
       levels.push({ depth: index + 1, nodes: children });
     }
@@ -328,7 +387,7 @@ const renderLevelContent = ({
 };
 
 export function CatalogTree({
-  tree,
+  tree = [],
   selectedIds,
   onSelectionChange,
   idPrefix,
@@ -340,9 +399,32 @@ export function CatalogTree({
   onCreateNow,
   onEdit,
   onAddChildAtLevel,
+  fetchSystemOptions,
+  fetchChildOptions,
+  selectedNodes,
 }: CatalogTreeProps) {
   const [search, setSearch] = useState('');
   const [pendingAddDepth, setPendingAddDepth] = useState<number | null>(null);
+
+  // ── Fonte server-side (spec 099, fase G — G7) ────────────────────────────
+  // Toda a mecânica abaixo espelha a que o `CatalogSystemSelector` já usa:
+  // debounce compartilhado, um AbortController por busca, normalização do que
+  // volta do HTTP e silêncio quando não há termo digitado.
+  const [remoteRoots, setRemoteRoots] = useState<CatalogUiNode[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
+  const searchAbortRef = useRef<AbortController | null>(null);
+
+  // Filhos carregados sob demanda, por id de nó pai.
+  const [remoteChildren, setRemoteChildren] = useState<Record<string, CatalogUiNode[]>>({});
+  const childAbortRef = useRef<AbortController | null>(null);
+
+  // Refs atualizadas a cada render: o consumidor pode não memoizar as funções,
+  // e o efeito de busca não deve refazer fetch por causa disso.
+  const fetchSystemOptionsRef = useRef(fetchSystemOptions);
+  fetchSystemOptionsRef.current = fetchSystemOptions;
+  const fetchChildOptionsRef = useRef(fetchChildOptions);
+  fetchChildOptionsRef.current = fetchChildOptions;
 
   const handleAddAtLevel = (depth: number, parent: CatalogUiNode | null) => {
     setPendingAddDepth(depth);
@@ -350,7 +432,20 @@ export function CatalogTree({
   };
 
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
-  const selectedPaths = useMemo(() => collectSelectedPaths(tree, selectedIds), [tree, selectedIds]);
+  // O bloco de seleção mostra o caminho pelo NOME. Sem árvore local não há de
+  // onde derivá-lo, então o consumidor entrega os nós já selecionados
+  // (`selectedNodes`, G7) e cada um vira um caminho de um nível — é o que ele
+  // sabe, e é o que basta para nomear a seleção. Com árvore, nada muda.
+  const selectedPaths = useMemo(() => {
+    if (selectedNodes) {
+      const byId = new Map(selectedNodes.map((node) => [node.id, node]));
+      return selectedIds
+        .map((id) => byId.get(id))
+        .filter((node): node is CatalogUiNode => node !== undefined)
+        .map((node) => [node]);
+    }
+    return collectSelectedPaths(tree, selectedIds);
+  }, [tree, selectedIds, selectedNodes]);
 
   // Caminho de navegação: em modo single, é o caminho do nó selecionado.
   // Em modo multi, navegação é independente da seleção (só serve pra descer níveis e ver edições/variantes).
@@ -366,10 +461,107 @@ export function CatalogTree({
   // não selecionado. Níveis já navegados (edição/variante) sempre aparecem,
   // independente da busca — busca filtra só sistemas, não desfaz navegação em curso.
   const shouldShowRootLevel = normalizedSearch.length > 0;
-  const visibleRoots = useMemo(
-    () => (shouldShowRootLevel ? filterRoots(tree, search) : []),
-    [tree, search, shouldShowRootLevel],
+
+  // Busca server-side quando o consumidor fornece a fonte (G7); senão, filtra a
+  // árvore local exatamente como antes. A regra de "sem busca não mostra nada"
+  // vale nos dois caminhos — é ela que impede os 1.289 nós de vazarem a caixa.
+  useEffect(() => {
+    const fetchSystem = fetchSystemOptionsRef.current;
+    if (!fetchSystem) return;
+
+    searchAbortRef.current?.abort();
+    setSearchFailed(false);
+
+    const query = search.trim();
+    if (!query) {
+      setSearching(false);
+      setRemoteRoots([]);
+      return;
+    }
+
+    setSearching(true);
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+    const timer = setTimeout(() => {
+      fetchSystem(query, controller.signal)
+        .then((options) => {
+          if (controller.signal.aborted) return;
+          setRemoteRoots(normalizeNodes(options));
+        })
+        .catch((error: unknown) => {
+          if ((error as Error)?.name === 'AbortError') return;
+          // Falha de rede vira lista vazia MAIS aviso: sem o aviso, "não achei
+          // nada" e "não consegui buscar" ficam idênticos na tela, e o usuário
+          // conclui que o sistema não existe no catálogo.
+          setRemoteRoots([]);
+          setSearchFailed(true);
+        })
+        .finally(() => {
+          if (controller.signal.aborted) return;
+          setSearching(false);
+        });
+    }, SYSTEM_SEARCH_DEBOUNCE_MS);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [search]);
+
+  // Nunca deixar request órfão ao desmontar.
+  useEffect(
+    () => () => {
+      searchAbortRef.current?.abort();
+      childAbortRef.current?.abort();
+    },
+    [],
   );
+
+  const visibleRoots = useMemo(() => {
+    if (!shouldShowRootLevel) return [];
+    // Com fonte server-side, o servidor já filtrou: refiltrar no cliente
+    // esconderia resultado legítimo que casou por um campo que o matcher local
+    // não conhece.
+    if (fetchSystemOptions) return remoteRoots;
+    return filterRoots(tree, search);
+  }, [tree, search, shouldShowRootLevel, fetchSystemOptions, remoteRoots]);
+
+  // Filhos sob demanda (G7): ao descer um nível, busca os filhos do nó mais
+  // profundo do caminho. Sem `fetchChildOptions`, `node.children` da árvore
+  // continua sendo a fonte — consumidor existente não muda de comportamento.
+  const deepestNavId = effectiveNavPath[effectiveNavPath.length - 1]?.id ?? null;
+  useEffect(() => {
+    const fetchChildren = fetchChildOptionsRef.current;
+    if (!fetchChildren || !deepestNavId) return;
+    // Já carregado: não refaz. O catálogo é estável dentro de uma sessão de
+    // escolha, e refazer a cada re-render devolveria por outro caminho o
+    // excesso de requisição que esta prop existe para evitar.
+    if (remoteChildren[deepestNavId]) return;
+
+    const parent = effectiveNavPath[effectiveNavPath.length - 1];
+    if (!parent) return;
+
+    childAbortRef.current?.abort();
+    const controller = new AbortController();
+    childAbortRef.current = controller;
+
+    fetchChildren(parent, controller.signal)
+      .then((children) => {
+        if (controller.signal.aborted) return;
+        setRemoteChildren((current) => ({
+          ...current,
+          [parent.id]: normalizeNodes(children),
+        }));
+      })
+      .catch((error: unknown) => {
+        if ((error as Error)?.name === 'AbortError') return;
+        // Lista vazia = "sem filhos", que é o contrato. Falha aqui degrada para
+        // "este nó não tem níveis abaixo" em vez de travar a navegação.
+        setRemoteChildren((current) => ({ ...current, [parent.id]: [] }));
+      });
+
+    return () => controller.abort();
+  }, [deepestNavId, effectiveNavPath, remoteChildren]);
 
   const handleSelectAtLevel = (depth: number, node: CatalogUiNode) => {
     setPendingAddDepth(null);
@@ -410,12 +602,16 @@ export function CatalogTree({
 
   const canSuggest = normalizedSearch.length > 0 && onSuggest;
   const canCreateNow = role === 'admin' && normalizedSearch.length > 0 && onCreateNow;
-  const noRootResults = shouldShowRootLevel && visibleRoots.length === 0;
+  // `searching`/`searchFailed` só ficam true no caminho server-side (G7). Sem
+  // eles, buscar remotamente mostraria "nenhum resultado" durante o request e
+  // depois a lista — o usuário leria "não existe" sobre algo que existe.
+  const noRootResults =
+    shouldShowRootLevel && visibleRoots.length === 0 && !searching && !searchFailed;
   const shouldShowResults = shouldShowRootLevel || effectiveNavPath.length > 0;
 
   const levels = useMemo(
-    () => buildVisibleLevels(visibleRoots, effectiveNavPath, role),
-    [visibleRoots, effectiveNavPath, role],
+    () => buildVisibleLevels(visibleRoots, effectiveNavPath, role, remoteChildren),
+    [visibleRoots, effectiveNavPath, role, remoteChildren],
   );
 
   return (
@@ -432,6 +628,19 @@ export function CatalogTree({
           className="w-full rounded-lg border border-[var(--line)] bg-[var(--surface)] py-2.5 pl-9 pr-3 text-sm text-[var(--fg)] outline-none placeholder:text-[var(--fg-muted)] focus:border-[var(--artificio-brand)]"
         />
       </div>
+
+      {/* Estados da busca server-side (G7). No caminho local nenhum dos dois
+          acende, então o markup é idêntico ao de antes para quem passa `tree`. */}
+      {searching && (
+        <p className="text-xs text-[var(--fg-muted)]" role="status">
+          Buscando sistemas...
+        </p>
+      )}
+      {searchFailed && (
+        <p className="text-xs text-[var(--state-danger-fg)]" role="alert">
+          Não foi possível buscar agora. Tente de novo em instantes.
+        </p>
+      )}
 
       {shouldShowResults && (
         <div className="space-y-3">
