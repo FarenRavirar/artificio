@@ -176,6 +176,11 @@ function resetLinksOwnerIfChanged(owner: string | null): boolean {
   return true;
 }
 
+/** Este GET ainda é o mais novo e nada foi escrito por cima dele? */
+function linksFetchEhVigente(generation: number, token: number): boolean {
+  return generation === linksGeneration && token === linksFetchToken;
+}
+
 /**
  * Publica só se NADA mais novo tiver acontecido: nem escrita autoritativa
  * (`generation`), nem um GET disparado depois deste (`token`).
@@ -186,9 +191,28 @@ function publishLinksIfCurrent(
   token: number,
   owner: string | null,
 ): void {
-  if (generation !== linksGeneration) return;
-  if (token !== linksFetchToken) return;
+  if (!linksFetchEhVigente(generation, token)) return;
   publishLinks(next, owner);
+}
+
+/**
+ * GET vigente que FALHOU devolve o token, para que uma resposta boa ainda em voo
+ * possa publicar.
+ *
+ * Sem isto, duas instâncias montando juntas (o `LinksManager` e a lateral que
+ * conta) disparam dois GETs; se o mais NOVO falhar e o mais antigo trouxer os
+ * links corretamente, a resposta boa era descartada por `token !== linksFetchToken`
+ * e a falha não publicava alternativa nenhuma — numa abertura com o store vazio a
+ * lista e a contagem ficavam vazias apesar de o servidor ter respondido certo.
+ * Recuar o token restaura a autoridade de quem ainda pode entregar dado.
+ * Achado do Codex (P2).
+ *
+ * Só recua se este GET era mesmo o vigente: um GET obsoleto que falha não tem
+ * nada a devolver, e mexer no token ali reabriria a corrida que ele fecha.
+ */
+function releaseLinksFetchToken(generation: number, token: number): void {
+  if (!linksFetchEhVigente(generation, token)) return;
+  linksFetchToken -= 1;
 }
 
 export function useLinks(): UseLinksReturn {
@@ -263,8 +287,18 @@ export function useLinks(): UseLinksReturn {
       publishLinksIfCurrent(normalizeLinksPayload(data), generation, token, owner);
     } catch (err: unknown) {
       console.error('Error fetching links:', err);
+      // Falha TARDIA (de um GET que já não é o vigente) não escreve nada: ela
+      // sobrescreveria o erro — ou a ausência de erro — da requisição que a
+      // substituiu, mostrando "Erro ao carregar links" numa tela que carregou.
+      // Achado do CodeRabbit.
+      if (!linksFetchEhVigente(generation, token)) return;
+      releaseLinksFetchToken(generation, token);
       setError(getErrorMessage(err, 'Erro ao carregar links'));
     } finally {
+      // `loading` é estado LOCAL desta instância, não do store: cada hook dispara o
+      // próprio GET e só ele desliga o próprio spinner. Condicionar isto à vigência
+      // global deixaria a instância cujo GET perdeu a corrida girando para sempre,
+      // porque nenhuma outra tem como desligá-lo por ela.
       setLoading(false);
     }
   }, [isAuthenticated, owner]);

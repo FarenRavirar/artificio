@@ -81,6 +81,16 @@ export function normalizeNodes(value: unknown): CatalogUiNode[] {
   if (!Array.isArray(value)) return [];
   return value.filter(isCatalogUiNode).map((node) => ({
     ...node,
+    // Os tres campos de EDICAO passavam pelo spread sem checagem. `CatalogNodeForm`
+    // le cada um com `?? ''` e o entrega a um input controlado (CatalogNodeForm.tsx:31):
+    // um objeto vindo do HTTP no lugar da string vira `value={{}}`, que o React nao
+    // aceita como valor de input — e, se renderizasse, o admin salvaria `[object Object]`
+    // de volta no catalogo. Mesma regra ja aplicada a `name_pt`/`path_slug` logo abaixo.
+    // Achado do CodeRabbit.
+    description: typeof node.description === 'string' ? node.description : null,
+    official_website_url:
+      typeof node.official_website_url === 'string' ? node.official_website_url : null,
+    logo_media_id: typeof node.logo_media_id === 'string' ? node.logo_media_id : null,
     name_pt: typeof node.name_pt === 'string' ? node.name_pt : null,
     path_slug: typeof node.path_slug === 'string' ? node.path_slug : null,
     aliases: Array.isArray(node.aliases)

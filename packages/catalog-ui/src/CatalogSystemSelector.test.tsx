@@ -4,11 +4,17 @@ import { describe, expect, it, vi } from 'vitest';
 import { CatalogSystemSelector } from './CatalogSystemSelector.js';
 import type { CatalogUiNode } from './types.js';
 
+// `normalizeNodes` entrega os tres campos de edicao SEMPRE, como `null` quando
+// ausentes ou malformados (catalogFetch.ts). A fixture espelha o shape real que
+// chega ao componente: sem isso o teste fixaria um objeto que nao existe em runtime.
 const tree: CatalogUiNode[] = [
   {
     id: 'dnd',
     name: 'Dungeons & Dragons',
     name_pt: null,
+    description: null,
+    official_website_url: null,
+    logo_media_id: null,
     canonical_slug: 'dungeons-dragons',
     parent_id: null,
     node_type: 'system',
@@ -19,6 +25,9 @@ const tree: CatalogUiNode[] = [
         id: 'dnd-3-5',
         name: '3.5e',
         name_pt: null,
+        description: null,
+        official_website_url: null,
+        logo_media_id: null,
         canonical_slug: '3-5e',
         parent_id: 'dnd',
         node_type: 'edition',
@@ -30,6 +39,9 @@ const tree: CatalogUiNode[] = [
         id: 'dnd-5e',
         name: '5e',
         name_pt: '5ª edição',
+        description: null,
+        official_website_url: null,
+        logo_media_id: null,
         canonical_slug: '5e',
         parent_id: 'dnd',
         node_type: 'edition',
@@ -40,6 +52,9 @@ const tree: CatalogUiNode[] = [
             id: 'dnd-2024',
             name: '2024',
             name_pt: null,
+            description: null,
+            official_website_url: null,
+            logo_media_id: null,
             canonical_slug: '2024',
             parent_id: 'dnd-5e',
             node_type: 'variant',
@@ -55,6 +70,9 @@ const tree: CatalogUiNode[] = [
     id: 'vampiro',
     name: 'Vampire',
     name_pt: 'Vampiro',
+    description: null,
+    official_website_url: null,
+    logo_media_id: null,
     canonical_slug: 'vampire',
     parent_id: null,
     node_type: 'system',

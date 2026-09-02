@@ -637,6 +637,10 @@ export async function parseDiscordMessage(
           .filter(Boolean)
           .join('\n'),
       ),
+      // Id da mensagem: sem ele o contador de ocorrencias nao distingue anuncio novo
+      // de reprocessamento do MESMO anuncio, e a fila de revisao ordena por ele.
+      // Achado do Codex (P2).
+      raw.discord_message_id ?? null,
     ).catch((err: unknown) => {
       console.warn('[roleMappings] falha ao registrar observação (parse segue):', err);
     }),

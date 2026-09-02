@@ -98,3 +98,31 @@ ALTER TABLE discord_role_mappings
 
 COMMENT ON TABLE discord_role_mappings IS
   'Traduz id opaco do Discord (role usada como tag, emoji usado como capitular) para sistema/estilo/ambientacao/epoca/letra. Escopo por guild. Spec 099.';
+
+-- =============================================================================
+-- Quais MENSAGENS ja foram contabilizadas para cada mapeamento.
+--
+-- `occurrences` significa "apareceu em N anuncios distintos" — e a UI ordena a
+-- fila de revisao por ele, entao o numero decide o que o mantenedor olha
+-- primeiro. Sem registrar a origem, reparsear a MESMA mensagem incrementava o
+-- contador de novo: uma unica co-ocorrencia (que pode ser acidente) subia ao
+-- topo fingindo ser padrao repetido. O fluxo que expoe isso e o reprocessamento
+-- em lote da aba Ignoradas, onde reparsear varias vezes e a operacao normal.
+-- Achado do Codex (P2).
+--
+-- Tabela separada, e nao coluna: a relacao e N mensagens por mapeamento, e o
+-- `ON CONFLICT DO NOTHING` daqui e o que torna a contagem idempotente sem que o
+-- caminho de escrita precise consultar nada antes.
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS discord_role_mapping_observations (
+  mapping_id          UUID NOT NULL REFERENCES discord_role_mappings(id) ON DELETE CASCADE,
+  -- Id da mensagem do Discord, nao o `discord_import_messages.id`: a mensagem pode
+  -- ser apagada e reimportada (unica saida para reimportar o mesmo arquivo), e o
+  -- que nao pode recontar e o mesmo ANUNCIO, nao a mesma linha da tabela.
+  discord_message_id  TEXT NOT NULL,
+  observed_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (mapping_id, discord_message_id)
+);
+
+COMMENT ON TABLE discord_role_mapping_observations IS
+  'Mensagens ja contabilizadas em discord_role_mappings.occurrences. Impede que reparsear o mesmo anuncio infle o contador. Spec 099.';

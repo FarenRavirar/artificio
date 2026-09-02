@@ -975,6 +975,20 @@ export interface DiscordRoleMappingsTable {
   updated_at: Generated<Date>;
 }
 
+/**
+ * Mensagens ja contabilizadas em `discord_role_mappings.occurrences`.
+ *
+ * Existe para que reparsear o MESMO anuncio nao incremente o contador de novo — a
+ * fila de revisao ordena por ele, entao uma co-ocorrencia unica reparseada tres
+ * vezes se disfarcaria de padrao. Achado do Codex (P2).
+ */
+export interface DiscordRoleMappingObservationsTable {
+  mapping_id: string;
+  /** Id da mensagem NO DISCORD: sobrevive a apagar/reimportar a linha local. */
+  discord_message_id: string;
+  observed_at: Generated<Date>;
+}
+
 export type DiscordRoleMapping = Selectable<DiscordRoleMappingsTable>;
 export type NewDiscordRoleMapping = Insertable<DiscordRoleMappingsTable>;
 export type DiscordRoleMappingUpdate = Updateable<DiscordRoleMappingsTable>;
@@ -1275,6 +1289,7 @@ export interface Database {
   // Migration 136: Parser learning durável (Spec 058)
   discord_parse_cases: DiscordParseCasesTable;
   discord_role_mappings: DiscordRoleMappingsTable;
+  discord_role_mapping_observations: DiscordRoleMappingObservationsTable;
   discord_parse_feedback: DiscordParseFeedbackTable;
   discord_duplicate_candidates: DiscordDuplicateCandidatesTable;
   table_duplicate_candidates: TableDuplicateCandidatesTable;

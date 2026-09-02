@@ -76,7 +76,7 @@ export function MessageDetailPanel({
         </p>
       ) : (
         <label className="flex flex-col gap-1 text-xs text-white/60">
-          Status
+          <span>Status</span>
           <select
             value={message.status}
             onChange={(event) => onUpdateStatus(message, event.target.value as DiscordImportMessageStatus)}
@@ -152,7 +152,7 @@ export function MessageDetailPanel({
         </p>
       )}
 
-      {contentDiagnostic && contentDiagnostic.discord_message_id === message.discord_message_id && (
+      {contentDiagnostic?.discord_message_id === message.discord_message_id && (
         <div className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/70 space-y-1">
           <p className="font-semibold text-white">Diagnóstico API Discord</p>
           <p>DB content length: {contentDiagnostic.db_content_length}</p>

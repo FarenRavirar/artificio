@@ -129,6 +129,12 @@ export function RoleMappingsPanel() {
       setBuscando((atual) => (atual === itemId ? null : atual));
       return;
     }
+    // Achados da busca ANTERIOR saem da tela no ato: trocar "D&D" por "Pathfinder"
+    // deixava os resultados de D&D visiveis e CLICAVEIS durante o debounce e o fetch
+    // inteiros, e um clique ali gravava `systemId` de um sistema que nao corresponde
+    // ao texto no campo — vinculo errado confirmado sem nada indicar o descompasso.
+    // Achado do Codex (P2).
+    setAchados((prev) => ({ ...prev, [itemId]: [] }));
     setBuscando(itemId);
     const ctrl = new AbortController();
     buscaCtrl.current[itemId] = ctrl;

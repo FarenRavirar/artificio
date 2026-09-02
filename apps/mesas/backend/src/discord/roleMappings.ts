@@ -141,6 +141,7 @@ export function observarIdsDoAnuncio(body: string): ObservacaoDeId[] {
 export async function registrarObservacoes(
   guildId: string | null,
   observacoes: ObservacaoDeId[],
+  discordMessageId: string | null,
 ): Promise<void> {
   if (!guildId || observacoes.length === 0) return;
 
@@ -150,7 +151,7 @@ export async function registrarObservacoes(
 
   const agora = new Date();
   for (const o of unicos.values()) {
-    await db
+    const linha = await db
       .insertInto('discord_role_mappings')
       .values({
         guild_id: guildId,
@@ -186,7 +187,33 @@ export async function registrarObservacoes(
             .end(),
         })),
       )
-      .execute();
+      .returning(['id'])
+      .executeTakeFirst();
+
+    // Marca ESTA mensagem como já contabilizada. `DO NOTHING` devolve zero linhas
+    // quando o par já existe, e é isso que distingue anúncio novo de reprocessamento.
+    if (!linha || !discordMessageId) continue;
+    const nova = await db
+      .insertInto('discord_role_mapping_observations')
+      .values({ mapping_id: linha.id, discord_message_id: discordMessageId, observed_at: agora })
+      .onConflict((oc) => oc.columns(['mapping_id', 'discord_message_id']).doNothing())
+      .returning(['mapping_id'])
+      .executeTakeFirst();
+
+    // Reprocessamento do mesmo anúncio: desfaz o incremento que o `ON CONFLICT`
+    // acima já aplicou. Corrigir depois, e não condicionar antes, mantém o caminho
+    // do anúncio NOVO — o comum — em duas escritas, e evita ter de consultar a
+    // observação antes de saber se a linha do mapeamento sequer existe.
+    if (!nova) {
+      await db
+        .updateTable('discord_role_mappings')
+        .set((eb) => ({ occurrences: eb('discord_role_mappings.occurrences', '-', 1) }))
+        .where('id', '=', linha.id)
+        // Nunca abaixo de 1: a linha existe porque foi observada ao menos uma vez, e
+        // um contador zerado sumiria da fila de revisão sem ninguém ter decidido nada.
+        .where('occurrences', '>', 1)
+        .execute();
+    }
   }
 }
 

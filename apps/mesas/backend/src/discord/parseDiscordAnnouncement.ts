@@ -1500,7 +1500,12 @@ const DAY_TO_DEFINE_PATTERNS = [
   // externa —, entao o custo e de quem quiser paga-lo. A forma abaixo e deterministica
   // (`[\s:]*` como classe unica, e o `\s+` do opcional consumindo o proprio separador):
   // 0,28 ms com 50 mil caracteres. Achado do Sonar.
-  /\bdias?(?:\s+da\s+(?:semana|mesa))?(?:\s+e\s+hor[aá]rios?(?:\s+da\s+mesa)?)?[\s:]*a\s+(?:decidir|combinar|definir)\b/,
+  // Dividido em DOIS padroes (o Sonar mediu complexidade 29 num so, limite 20). A
+  // lista ja e avaliada em `some`, entao duas entradas equivalem exatamente a uma com
+  // o ramo opcional — verificado em 13 frases reais, zero divergencia. Sem o `e
+  // horarios` opcional embutido, cada um fica legivel de ler de cima a baixo.
+  /\bdias?(?:\s+da\s+(?:semana|mesa))?[\s:]*a\s+(?:decidir|combinar|definir)\b/,
+  /\bdias?\s+e\s+hor[aá]rios?(?:\s+da\s+mesa)?[\s:]*a\s+(?:decidir|combinar|definir)\b/,
   /\bhor[aá]rios?\s+a\s+(?:decidir|combinar|definir)\b/,
   /\bdia(?:\s+da\s+semana)?\s+a\s+(?:decidir|combinar|definir)\b/,
   // "Sem dia fixo": forma negativa do mesmo sentinela, frequente nos anúncios
@@ -2161,8 +2166,26 @@ function extractHostDiscordId(text: string): string | null {
  * https://forms.gle/... A sessao 0 ... sera neste Sabado as 18h." — duas linhas de
  * instrucao no lugar de um nome, porque o valor real de `Mestre:` era so a mencao.
  */
-const GM_NAME_STOP_RE =
-  /https?:\/\/|forms\.gle|discord\.gg|\bcaso (?:tenha|voc[e\u00ea]|voc[e\u00ea]s|haja)\b|\binteresse em participar\b|\bpreencha\b|\bformul[a\u00e1]rio\b|\binscri[c\u00e7][a\u00e3]o\b|\bsess\u00e3o (?:zero|0)\b|\bsessao (?:zero|0)\b/i;
+// Lista, e nao uma regex unica: o Sonar mediu complexidade 24 (limite 20) na forma
+// monolitica, e a metrica so refletia o que ja incomodava na leitura — dez sentinelas
+// sem relacao entre si separadas por `|`, onde acrescentar a proxima exige contar
+// barras. Sao alternativas independentes avaliadas em `some`, entao o comportamento e
+// identico ao do `|`. Achado do Sonar.
+const GM_NAME_STOP_PATTERNS: readonly RegExp[] = [
+  /https?:\/\//i,
+  /forms\.gle/i,
+  /discord\.gg/i,
+  /\bcaso (?:tenha|voc[eê]|voc[eê]s|haja)\b/i,
+  /\binteresse em participar\b/i,
+  /\bpreencha\b/i,
+  /\bformul[aá]rio\b/i,
+  /\binscri[cç][aã]o\b/i,
+  // Com e sem acento: o anuncio real traz as duas grafias.
+  /\bsess[aã]o (?:zero|0)\b/i,
+];
+
+const ehLinhaDeParada = (linha: string): boolean =>
+  GM_NAME_STOP_PATTERNS.some((re) => re.test(linha));
 
 function extractHostName(text: string): string | null {
   const raw = extractLabelValue(text, ['mestre', 'gm', 'narrador', 'dm']);
@@ -2172,7 +2195,7 @@ function extractHostName(text: string): string | null {
   // inteiro, para nao descartar um nome legitimo so porque o rodape veio colado —
   // "Mestre: Mariana" seguido do convite continua devolvendo "Mariana".
   const linhas = raw.split(/\r?\n/);
-  const corte = linhas.findIndex((l) => GM_NAME_STOP_RE.test(l));
+  const corte = linhas.findIndex(ehLinhaDeParada);
   const nome = (corte === -1 ? linhas : linhas.slice(0, corte)).join(' ');
 
   const withoutMention = nome.replace(/<@!?\d+>/g, '').replace(/\s+/g, ' ').trim();
@@ -2351,12 +2374,25 @@ const PURE_GRAPHIC_MARKS_RE = /[▬▭►▶»«━─┃┅┄╍✦═⎯⸻]+
 // lê como se fizesse parte do texto do anúncio. Só casa a linha INTEIRA (com
 // dois-pontos opcional) — "Imagem" no meio de uma frase é conteúdo legítimo e
 // não é tocado. Achado do mantenedor (2026-09-02, draft 85f669da).
-const ATTACHMENT_LABEL_LINE_RE = /^[ \t]*(?:imagem|imagens|imagem da mesa|banner|capa|arte|thumbnail|anexo|anexos)[ \t]*:?[ \t]*$/i;
+// `[ \t:]*` como classe UNICA no lugar de `[ \t]*:?[ \t]*`: a forma anterior era
+// ReDoS real, nao alerta teorico — os dois `[ \t]*` separados pelo `:?` repartem a
+// mesma sequencia de espacos de N maneiras e o motor testa todas antes de desistir.
+// Medido em 2026-09-02 com "imagem" + 48 mil espacos + "X": 2,3 SEGUNDOS de CPU;
+// a forma abaixo faz 1 ms com 200 mil caracteres. O texto vem de anuncio do Discord
+// (entrada externa), entao o custo e de quem quiser paga-lo. A classe unica tambem
+// passa a aceitar "imagem::", que continua sendo linha decorativa sem conteudo — o
+// proposito do padrao. Achado do Sonar.
+const ATTACHMENT_LABEL_LINE_RE = /^[ \t]*(?:imagem|imagens|imagem da mesa|banner|capa|arte|thumbnail|anexo|anexos)[ \t:]*$/i;
 // Mesma regra aplicada a texto multi-linha (a description não passa por
 // `stripSeparatorLines`, que trabalha linha a linha). `m` para `^`/`$` casarem
 // por linha; o `\n?` final absorve a quebra que sobraria.
+// Mesmo ReDoS da de cima, e pior: 5,2 SEGUNDOS com 48 mil caracteres. So explode
+// com espaco e tab MISTURADOS (`"\t "` repetido) — com espacos puros ela media 0 ms,
+// e por isso quase passou por falso-positivo numa medicao fraca. `(?:[^\S\n]|:)*`
+// consome separador e dois-pontos numa alternancia unica, sem reparticao ambigua:
+// 3 ms com 200 mil caracteres. Achado do Sonar.
 const ATTACHMENT_LABEL_BLOCK_RE =
-  /^[^\S\n]*(?:imagens?|imagem da mesa|banner|capa|arte|thumbnail|anexos?)[^\S\n]*:?[^\S\n]*$\n?/gim;
+  /^[^\S\n]*(?:imagens?|imagem da mesa|banner|capa|arte|thumbnail|anexos?)(?:[^\S\n]|:)*$\n?/gim;
 
 export function stripSeparatorLines(text: string): string {
   return text

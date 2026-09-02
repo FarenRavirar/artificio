@@ -66,6 +66,63 @@ beforeEach(async () => {
 });
 
 describe('useLinks — estado compartilhado entre instâncias (G)', () => {
+  it('GET novo que FALHA nao descarta a resposta boa do GET anterior', async () => {
+    // Duas instancias montam juntas e disparam dois GETs na mesma geracao. O mais
+    // NOVO falha; o mais antigo responde certo. Sem recuar o token, a resposta boa
+    // era barrada por `token !== linksFetchToken` e a falha nao publicava nada:
+    // numa abertura com store vazio, lista e contagem ficavam vazias apesar de o
+    // servidor ter respondido. Achado do Codex (P2).
+    let resolveAntigo: (v: unknown) => void = () => {};
+    const antigo = new Promise((r) => { resolveAntigo = r; });
+
+    authGet
+      .mockImplementationOnce(() => antigo)                       // GET 1 (mais antigo)
+      .mockImplementationOnce(() => Promise.reject(new Error('rede'))); // GET 2 (mais novo)
+
+    const a = renderHook(() => useLinks());
+    const b = renderHook(() => useLinks());
+
+    // O GET novo ja falhou; agora o antigo entrega os links corretos.
+    await waitFor(() => expect(b.result.current.loading).toBe(false));
+    await act(async () => {
+      resolveAntigo(jsonOk([link('l1', 'https://youtube.com/@mestre')]));
+      await antigo;
+    });
+
+    await waitFor(() => expect(a.result.current.links).toHaveLength(1));
+    expect(b.result.current.links).toHaveLength(1);
+  });
+
+  it('falha TARDIA nao pinta erro na instancia que ja tem a lista carregada', async () => {
+    // O `LinksManager` (instancia A) dispara um GET lento que vai falhar; a lateral
+    // (instancia B) dispara o seguinte, que responde certo e enche o store — a lista
+    // aparece nas DUAS, porque o store e compartilhado. Quando a falha tardia de A
+    // chegar, ela nao pode publicar erro: o `LinksManager` renderiza `error` numa
+    // caixa vermelha (LinksManager.tsx:96), que apareceria POR CIMA da lista que
+    // acabou de carregar. Achado do CodeRabbit.
+    let rejeitaAntigo: (e: unknown) => void = () => {};
+    const antigo = new Promise((_r, rej) => { rejeitaAntigo = rej; });
+
+    authGet
+      .mockImplementationOnce(() => antigo)
+      .mockImplementationOnce(() => Promise.resolve(jsonOk([link('l1', 'https://youtube.com/@m')])));
+
+    const a = renderHook(() => useLinks());
+    const b = renderHook(() => useLinks());
+
+    await waitFor(() => expect(b.result.current.links).toHaveLength(1));
+    // A ve a mesma lista: o store e compartilhado, o GET dele nem precisou responder.
+    expect(a.result.current.links).toHaveLength(1);
+
+    await act(async () => {
+      rejeitaAntigo(new Error('rede'));
+      await antigo.catch(() => {});
+    });
+
+    expect(a.result.current.links).toHaveLength(1);
+    expect(a.result.current.error).toBeNull();
+  });
+
   it('link adicionado numa instância aparece na outra, sem recarregar', async () => {
     // Duas instâncias, como na tela real: o LinksManager e a lateral que conta.
     const escritor = renderHook(() => useLinks());
