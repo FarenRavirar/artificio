@@ -2324,6 +2324,29 @@ describe('parseDiscordAnnouncement', () => {
     expect(isHomebrewSystem(makeMessage({ content_raw: 'Sistema: Tormenta 20\nDia: sexta' }))).toBe(false);
   });
 
+  it('classifyHomebrew: anuncio SO-EMBED normaliza emoji igual ao caminho de content_raw', () => {
+    // O fallback `extractBodyFromEmbeds` entrava CRU, sem `normalizeDiscordEmojis`
+    // nem `stripNullBytes`, enquanto `content_raw` passava pelos dois. Anuncio
+    // publicado so como embed (bot de divulgacao) com emoji customizado de letra
+    // capitular chegava a classificacao com `:emoji_15:154...` no lugar da letra,
+    // e o hint de sistema saia corrompido — um sistema autoral escapava do
+    // descarte por causa do formato do anuncio, nao do conteudo dele.
+    // Achado do CodeRabbit.
+    const soEmbed = (texto: string) =>
+      makeMessage({ content_raw: '', embeds: [{ description: texto }] });
+
+    // `<:emoji_15:1154>` e a capitular de 'Proprio': normalizado vira 'P'.
+    expect(classifyHomebrew(soEmbed('Sistema: <:emoji_15:1154>roprio\nDia: sexta'))).toBe(
+      classifyHomebrew(makeMessage({ content_raw: 'Sistema: <:emoji_15:1154>roprio\nDia: sexta' })),
+    );
+    // Byte nulo no meio do rotulo: sem `stripNullBytes` o rotulo nao casa.
+    expect(classifyHomebrew(soEmbed('Sist\u0000ema: Proprio\nDia: sexta'))).toBe(
+      classifyHomebrew(makeMessage({ content_raw: 'Sist\u0000ema: Proprio\nDia: sexta' })),
+    );
+    // Sistema conhecido segue 'none' pelos dois caminhos (nao e so igualdade vazia).
+    expect(classifyHomebrew(soEmbed('Sistema: Tormenta 20\nDia: sexta'))).toBe('none');
+  });
+
   // ─── T-C6: Vagas informais ─────────────────────────────────────────────────
 
   it('extracts "3 de 5" as total=5, open=2 (T-C6)', () => {

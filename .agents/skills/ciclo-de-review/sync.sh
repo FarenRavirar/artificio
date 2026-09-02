@@ -18,9 +18,30 @@ copia="$raiz/.claude/skills/ciclo-de-review/SKILL.md"
 # SKILL.md, passava nessa condicao e o script saia 0 sem sincronizar nada -
 # exatamente a falha silenciosa que ele existe para evitar. Resolver o alvo e
 # comparar com a fonte. Achado do CodeRabbit na PR #304.
+# `readlink -f` e GNU: o BSD do macOS nao tem a flag, e ali a L23 (sem `|| true`)
+# mataria o script sob `set -e` — falha de ambiente disfarcada de erro de skill.
+# Resolucao POSIX equivalente: seguir o link com `readlink` simples (que existe
+# nos dois) e canonizar o diretorio com `cd -P` + `pwd -P`, que e builtin.
+# Achado do CodeRabbit.
+resolver() {
+  local alvo="$1" dir base
+  # Um nivel de symlink basta aqui: a copia so pode apontar para a fonte ou nao.
+  if [[ -L "$alvo" ]]; then
+    local destino
+    destino="$(readlink "$alvo")" || return 1
+    # Destino relativo se resolve contra o diretorio do PROPRIO link.
+    [[ "$destino" = /* ]] || destino="$(dirname "$alvo")/$destino"
+    alvo="$destino"
+  fi
+  dir="$(dirname "$alvo")"
+  base="$(basename "$alvo")"
+  [[ -d "$dir" ]] || return 1
+  printf %s "$(cd "$dir" && pwd -P)/$base"
+}
+
 if [[ -L "$copia" ]]; then
-  alvo="$(readlink -f "$copia" 2>/dev/null || true)"
-  fonte_real="$(readlink -f "$fonte")"
+  alvo="$(resolver "$copia" || true)"
+  fonte_real="$(resolver "$fonte")"
   if [[ "$alvo" == "$fonte_real" ]]; then
     echo "ok - $copia e symlink para a fonte, nada a copiar"
     exit 0

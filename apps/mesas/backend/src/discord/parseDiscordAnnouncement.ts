@@ -2938,7 +2938,15 @@ function getAnnouncementSystemHint(message: ImportRawMessage, labelAliasesSystem
   // descarte por sistema autoral, e não recebe `roleMappings`. Uma role de sistema não
   // traduzida vira hint nulo, que é o comportamento seguro — não descarta nada por engano.
   const rawBody = normalizeDiscordEmojis(stripNullBytes(message.content_raw ?? ''));
-  const body = stripSeparatorLines(rawBody.trim() || extractBodyFromEmbeds(message.embeds ?? []));
+  // O fallback de embed passa pela MESMA normalizacao que `content_raw`. Antes
+  // entrava cru: um anuncio publicado so como embed (bot de divulgacao) chegava
+  // aqui com `<:emoji_15:1154>` no lugar da letra capitular e com byte nulo
+  // intacto, entao o rotulo "Sistema:" nao casava e o hint saia nulo — um sistema
+  // autoral escapava do descarte pelo FORMATO do anuncio, nao pelo conteudo.
+  // `parseDiscordAnnouncement` (L3032) ja aplicava `stripNullBytes` aos dois
+  // caminhos; aqui so um deles era tratado. Achado do CodeRabbit.
+  const corpoEmbeds = normalizeDiscordEmojis(stripNullBytes(extractBodyFromEmbeds(message.embeds ?? [])));
+  const body = stripSeparatorLines(rawBody.trim() || corpoEmbeds);
   if (!body.trim()) return null;
   const explicitSystem = normalizeTitle(extractLabelValue(body, [
     'sistema', 'jogo', 'rpg', 'sistema de jogo', 'sistema utilizado', ...(labelAliasesSystem ?? []),

@@ -93,6 +93,35 @@ describe('useLinks — estado compartilhado entre instâncias (G)', () => {
     expect(b.result.current.links).toHaveLength(1);
   });
 
+  it('resposta boa JA CONCLUIDA sobrevive a falha do GET mais novo', async () => {
+    // Mesma corrida do teste acima, ORDEM INVERTIDA: o GET antigo responde com
+    // sucesso ENQUANTO o novo ainda esta em voo, e so depois o novo falha. Recuar
+    // o token no `catch` nao basta aqui — quando ele recua, a resposta boa ja foi
+    // descartada por `publishLinksIfCurrent` e nao existe mais nada para publicar.
+    // A lista e a contagem ficavam vazias apesar de o servidor ter respondido
+    // certo. Achado do Codex (P2), segunda rodada.
+    let rejeitaNovo: (e: unknown) => void = () => {};
+    const novo = new Promise((_r, rej) => { rejeitaNovo = rej; });
+
+    authGet
+      .mockImplementationOnce(() => Promise.resolve(jsonOk([link('l1', 'https://youtube.com/@mestre')])))
+      .mockImplementationOnce(() => novo);
+
+    const a = renderHook(() => useLinks());
+    const b = renderHook(() => useLinks());
+
+    // O GET antigo ja concluiu com sucesso; so agora o mais novo falha.
+    await waitFor(() => expect(a.result.current.loading).toBe(false));
+    await act(async () => {
+      rejeitaNovo(new Error('rede'));
+      await novo.catch(() => {});
+    });
+
+    await waitFor(() => expect(b.result.current.loading).toBe(false));
+    expect(a.result.current.links).toHaveLength(1);
+    expect(b.result.current.links).toHaveLength(1);
+  });
+
   it('falha TARDIA nao pinta erro na instancia que ja tem a lista carregada', async () => {
     // O `LinksManager` (instancia A) dispara um GET lento que vai falhar; a lateral
     // (instancia B) dispara o seguinte, que responde certo e enche o store — a lista

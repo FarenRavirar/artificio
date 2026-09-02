@@ -124,7 +124,20 @@ emitir() {
 echo "== 1. checks de build que FALHARAM =="
 # Filtrar por FAILURE, NUNCA por != SUCCESS: medido, `!= SUCCESS` devolveu 7
 # linhas e nenhuma era falha (6 SKIPPED de modulo nao tocado + 1 IN_PROGRESS).
-out="$(gh pr checks "$pr" --json name,state,link --jq '.[] | select(.state=="FAILURE") | "  \(.name)\n    \(.link)"' 2>&1)"; rc=${PIPESTATUS[0]}
+#
+# `$?` e nao `${PIPESTATUS[0]}`: nao ha pipe nesta linha. PIPESTATUS so funcionava
+# porque o bash tambem o popula para comando simples — coincidencia de
+# implementacao, e contradizendo o que este proprio arquivo documenta na L50
+# ("PIPESTATUS nao atravessa `$( )`").
+#
+# Medido na PR #301 (1 check em FAILURE) o que o CodeRabbit apontou: `--json`
+# SOZINHO sai 1 com check falho, mas `--json ... --jq` sai 0 e lista o check
+# normalmente (3 de 3 tentativas). As tres consultas deste script usam `--jq`,
+# entao check em FAILURE nao vira FALHA de consulta — o rc!=0 que chega aqui e
+# erro de rede de verdade (medido: "dial tcp ... connectex"), que e exatamente
+# o que FALHAS existe para contar. A parte do achado sobre nao incrementar
+# FALHAS foi refutada pela medicao; so a captura do codigo estava errada.
+out="$(gh pr checks "$pr" --json name,state,link --jq '.[] | select(.state=="FAILURE") | "  \(.name)\n    \(.link)"' 2>&1)"; rc=$?
 emitir "$out" $rc
 
 echo

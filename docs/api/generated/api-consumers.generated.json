@@ -2056,7 +2056,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 274
+      "line": 318
     },
     {
       "app": "mesas-frontend",
@@ -2066,7 +2066,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 319
+      "line": 363
     },
     {
       "app": "mesas-frontend",
@@ -2076,7 +2076,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 362
+      "line": 406
     },
     {
       "app": "mesas-frontend",
@@ -2086,7 +2086,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPatch",
-      "line": 387
+      "line": 431
     },
     {
       "app": "mesas-frontend",

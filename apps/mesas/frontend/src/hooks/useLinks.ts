@@ -141,6 +141,21 @@ let linksGeneration = 0;
  */
 let linksFetchToken = 0;
 
+/**
+ * Último GET que respondeu BEM mas chegou obsoleto, retido em vez de jogado fora.
+ *
+ * Descartar de imediato só é seguro enquanto o GET que o tornou obsoleto de fato
+ * entrega alguma coisa. Quando ele FALHA, a resposta boa já não existe mais e a
+ * tela fica vazia apesar de o servidor ter respondido certo — recuar o token no
+ * `catch` não resolve, porque naquele momento não há mais nada para publicar.
+ * Guardá-la custa uma referência e é o único jeito de a falha ter a que recorrer.
+ * Achado do Codex (P2), segunda rodada.
+ *
+ * Amarrado à geração e ao dono em que nasceu: um snapshot de antes de uma
+ * mutação, ou da conta anterior, está errado e não pode voltar à tela.
+ */
+let ultimoSnapshotBom: { links: UserLink[]; generation: number; owner: string | null } | null = null;
+
 function publishLinks(next: UserLink[], owner: string | null = sharedLinksOwner): void {
   linksGeneration += 1;
   sharedLinks = next;
@@ -173,6 +188,11 @@ function resetLinksOwnerIfChanged(owner: string | null): boolean {
   linksGeneration += 1;
   sharedLinks = [];
   sharedLinksOwner = owner;
+  // O snapshot retido é da conta ANTERIOR. Sem descartá-lo aqui, um GET da conta
+  // nova que falhe o republicaria — os links de outra pessoa de volta na tela,
+  // com botão de remover ao lado, que é o mesmo defeito que a guarda de dono
+  // fechou para o store.
+  ultimoSnapshotBom = null;
   return true;
 }
 
@@ -184,6 +204,9 @@ function linksFetchEhVigente(generation: number, token: number): boolean {
 /**
  * Publica só se NADA mais novo tiver acontecido: nem escrita autoritativa
  * (`generation`), nem um GET disparado depois deste (`token`).
+ *
+ * Resposta boa que chega obsoleta não some: vira o snapshot de reserva acima,
+ * para o caso de o GET que a substituiu falhar.
  */
 function publishLinksIfCurrent(
   next: UserLink[],
@@ -191,28 +214,49 @@ function publishLinksIfCurrent(
   token: number,
   owner: string | null,
 ): void {
-  if (!linksFetchEhVigente(generation, token)) return;
+  if (!linksFetchEhVigente(generation, token)) {
+    // Só vale reter o que ainda é da geração/dono correntes: um GET anterior a
+    // uma mutação traz a lista de ANTES dela, e republicá-lo desfaria a escrita.
+    if (generation === linksGeneration && owner === sharedLinksOwner) {
+      ultimoSnapshotBom = { links: next, generation, owner };
+    }
+    return;
+  }
+  ultimoSnapshotBom = null;
   publishLinks(next, owner);
 }
 
 /**
- * GET vigente que FALHOU devolve o token, para que uma resposta boa ainda em voo
- * possa publicar.
+ * GET vigente que FALHOU cede a vez: devolve o token e, se já houver uma resposta
+ * boa retida, publica-a.
  *
- * Sem isto, duas instâncias montando juntas (o `LinksManager` e a lateral que
- * conta) disparam dois GETs; se o mais NOVO falhar e o mais antigo trouxer os
- * links corretamente, a resposta boa era descartada por `token !== linksFetchToken`
- * e a falha não publicava alternativa nenhuma — numa abertura com o store vazio a
- * lista e a contagem ficavam vazias apesar de o servidor ter respondido certo.
- * Recuar o token restaura a autoridade de quem ainda pode entregar dado.
- * Achado do Codex (P2).
+ * Duas instâncias montando juntas (o `LinksManager` e a lateral que conta)
+ * disparam dois GETs. Se o mais NOVO falhar, a resposta do mais antigo é a única
+ * verdade disponível, e ela pode estar em qualquer um dos dois estados:
  *
- * Só recua se este GET era mesmo o vigente: um GET obsoleto que falha não tem
- * nada a devolver, e mexer no token ali reabriria a corrida que ele fecha.
+ * - ainda EM VOO: recuar o token restaura a autoridade dela para quando chegar;
+ * - já CONCLUÍDA e retida em `ultimoSnapshotBom`: publicá-la agora, porque nada
+ *   mais vai chegar por ela.
+ *
+ * Só o primeiro caso era tratado, e por isso a ordem sucesso-antigo → falha-nova
+ * ainda deixava lista e contagem vazias com o servidor tendo respondido certo.
+ * Achado do Codex (P2), duas rodadas.
+ *
+ * Só age se este GET era mesmo o vigente: um GET obsoleto que falha não tem nada
+ * a devolver, e mexer no token ali reabriria a corrida que ele fecha.
  */
 function releaseLinksFetchToken(generation: number, token: number): void {
   if (!linksFetchEhVigente(generation, token)) return;
   linksFetchToken -= 1;
+
+  const retido = ultimoSnapshotBom;
+  // A geração é reconferida no momento da publicação, não no da retenção: uma
+  // mutação pode ter acontecido enquanto este GET falhava, e o snapshot de antes
+  // dela desfaria a escrita ao voltar para a tela.
+  if (retido && retido.generation === linksGeneration && retido.owner === sharedLinksOwner) {
+    ultimoSnapshotBom = null;
+    publishLinks(retido.links, retido.owner);
+  }
 }
 
 export function useLinks(): UseLinksReturn {

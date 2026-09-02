@@ -77,12 +77,33 @@ export function useRebuildProgress(note: (msg: string, isErr?: boolean) => void)
   const noteRef = useRef(note);
   useEffect(() => { noteRef.current = note; });
 
+  // Id do acompanhamento ATIVO. `trackRebuild` faz polling de ate 10 minutos
+  // (api.ts:337) e nao aceita cancelamento, entao a promessa de um acompanhamento
+  // substituido continua viva e ainda resolve. Sem esta guarda, duas coisas
+  // quebravam: um segundo "Publicar" durante o primeiro rebuild deixava o
+  // acompanhamento ANTIGO escrevendo `setFase` e disparando o toast final por cima
+  // do novo (o autor via "concluido" enquanto o rebuild em curso ainda rodava), e o
+  // unmount do editor nao impedia nenhum dos dois de escrever depois.
+  // Achado do CodeRabbit.
+  const execucaoRef = useRef(0);
+  useEffect(() => () => { execucaoRef.current = 0; }, []);
+
   const acompanhar = useCallback(
     (startedAt?: string) => {
+      const execucao = execucaoRef.current + 1;
+      execucaoRef.current = execucao;
+      // Vale para TODOS os callbacks abaixo: o acompanhamento que ja foi substituido
+      // (ou encerrado pelo unmount) nao escreve estado nem emite toast.
+      const vigente = () => execucaoRef.current === execucao;
+
       setFase("iniciando");
       void api
-        .trackRebuild((job) => setFase(job.phase ?? null), { startedAfter: startedAt })
+        .trackRebuild(
+          (job) => { if (vigente()) setFase(job.phase ?? null); },
+          { startedAfter: startedAt },
+        )
         .then((job) => {
+          if (!vigente()) return;
           // `null` = timeout do acompanhamento, NÃO falha do rebuild: o build segue no
           // servidor. Dizer "falhou" aqui mandaria o autor republicar sem necessidade.
           if (!job) {
@@ -94,7 +115,7 @@ export function useRebuildProgress(note: (msg: string, isErr?: boolean) => void)
           setFase(null);
           noteRef.current(msg, err);
         })
-        .catch(() => setFase(null));
+        .catch(() => { if (vigente()) setFase(null); });
     },
     [],
   );
