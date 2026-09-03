@@ -108,7 +108,7 @@
      literal para o caso de o CSS do pacote `ui` não estar carregado.
      Regra conjunta: textarea e espelho recebem a MESMA fonte — é o que mantém a
      quebra de linha idêntica nos dois e o destaque alinhado. */
-  font: 0.9375rem/1.6 var(--artificio-font-sans, "Inter", ui-sans-serif, system-ui, sans-serif);
+  font: 0.9375rem/1.6 var(--artificio-font-sans, "Inter", "Segoe UI", Roboto, ui-sans-serif, system-ui, sans-serif);
   box-sizing: border-box;
   white-space: pre-wrap;
   overflow-wrap: break-word;

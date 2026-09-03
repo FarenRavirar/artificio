@@ -70,8 +70,8 @@ export function VttPlatformsEditor({ selectedPlatforms, onSave }: VttPlatformsEd
 
   if (error && platforms.length === 0) {
     return (
-      <div className="p-6 rounded-[var(--radius-lg)] bg-red-500/10 border border-red-500/20">
-        <p className="text-red-400 text-[length:var(--text-support)] leading-[var(--leading-support)]">{error}</p>
+      <div className="p-6 rounded-[var(--radius-lg)] bg-[var(--state-danger-bg)] border border-[var(--state-danger-line)]">
+        <p className="text-[var(--state-danger-fg)] text-[length:var(--text-support)] leading-[var(--leading-support)]">{error}</p>
       </div>
     );
   }
@@ -145,8 +145,8 @@ export function VttPlatformsEditor({ selectedPlatforms, onSave }: VttPlatformsEd
       </div>
 
       {error && (
-        <div className="p-3 rounded-[var(--radius-md)] bg-red-500/10 border border-red-500/20">
-          <p className="text-red-400 text-[length:var(--text-support)] leading-[var(--leading-support)]">{error}</p>
+        <div className="p-3 rounded-[var(--radius-md)] bg-[var(--state-danger-bg)] border border-[var(--state-danger-line)]">
+          <p className="text-[var(--state-danger-fg)] text-[length:var(--text-support)] leading-[var(--leading-support)]">{error}</p>
         </div>
       )}
     </div>

@@ -135,7 +135,7 @@ export function MestreContactForm({ mestreSlug }: MestreContactFormProps) {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3 rounded-[var(--radius-md)] bg-purple-500 hover:bg-purple-600 disabled:bg-purple-500/50 text-[var(--fg)] font-[var(--weight-medium)] transition flex items-center justify-center gap-2"
+          className="w-full py-3 rounded-[var(--radius-md)] bg-[var(--special)] hover:brightness-90 disabled:opacity-50 text-[var(--on-solid-fg)] font-[var(--weight-medium)] transition flex items-center justify-center gap-2"
         >
           {loading ? (
             <>

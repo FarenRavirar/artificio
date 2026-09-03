@@ -100,6 +100,40 @@ describe("paleta de dados", () => {
     expect(regraPropria(".artificio-series-2")).toContain("45deg");
     expect(regraPropria(".artificio-series-4")).toContain("-45deg");
   });
+
+  it("mantém os padrões DISTINTOS em prefers-contrast: more", () => {
+    // Achado de review (PR #305): a primeira versão aplicava o mesmo gradiente
+    // de 45° às três séries no modo de alto contraste, apagando os pontos da 3
+    // e invertendo a diagonal da 4 — devolvendo a distinção à cor sozinha
+    // justamente para quem pediu mais contraste.
+    const bloco = styles.match(/@media \(prefers-contrast: more\)\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
+    expect(bloco, "bloco de alto contraste não encontrado").not.toBe("");
+    // Nenhum seletor agrupado: cada série intensifica o SEU padrão.
+    expect(bloco).not.toMatch(/\.artificio-series-\d,\s*\n?\s*\.artificio-series-\d/);
+    // A 3 continua pontilhada, a 4 continua na diagonal inversa.
+    expect(bloco).toContain("radial-gradient");
+    expect(bloco).toContain("-45deg");
+  });
+
+  it("dá ao rótulo dentro da barra um foreground que contrasta com a série", () => {
+    // Achado de review (PR #305): o valor dentro da barra usava `--fg`, que é
+    // quase-preto no claro (2,18–4,07 sobre as séries) e branco no escuro
+    // (1,86–3,00) — o número que deveria tornar a barra legível ficava
+    // ilegível. `--series-fg` inverte por tema.
+    const claroFg = styles.match(/--series-fg:\s*([^;]+);/)?.[1]?.trim() ?? "";
+    const todosFg = [...styles.matchAll(/--series-fg:\s*([^;]+);/g)].map((m) => m[1].trim());
+    expect(todosFg, "--series-fg deve existir nos dois temas").toHaveLength(2);
+    expect(claroFg).toBe("#ffffff");
+
+    // Texto claro sobre série escura (tema claro) e vice-versa: AA nos 8 casos.
+    const inkEscuro = "#0b1220";
+    for (const c of claro) {
+      expect(ratio("#ffffff", c), `texto sobre ${c} no tema claro`).toBeGreaterThanOrEqual(4.5);
+    }
+    for (const c of escuro) {
+      expect(ratio(inkEscuro, c), `texto sobre ${c} no tema escuro`).toBeGreaterThanOrEqual(4.5);
+    }
+  });
 });
 
 // Régua tipográfica (spec 100, Camada 2). O alvo do requisito 5 é ≤6 tamanhos e

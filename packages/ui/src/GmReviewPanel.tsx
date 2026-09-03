@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ContentEditor, MarkdownContent, contentCountLabel, contentOverflow } from "@artificio/content-editor";
+import { ContentEditor, MarkdownContent } from "@artificio/content-editor";
 import { Panel, Badge, Button } from "./primitives.js";
 
 export const GM_REVIEW_TAG_LABELS: Record<string, string> = {
@@ -140,7 +140,6 @@ export function GmReviewForm({ onSubmit, isSubmitting }: GmReviewFormProps) {
   const [rating, setRating] = useState(0);
   const [tags, setTags] = useState<string[]>([]);
   const [comment, setComment] = useState("");
-  const overflow = contentOverflow(comment, GM_REVIEW_COMMENT_MAX);
 
   const toggleTag = (tag: string) => {
     setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -206,15 +205,12 @@ export function GmReviewForm({ onSubmit, isSubmitting }: GmReviewFormProps) {
         maxLength={GM_REVIEW_COMMENT_MAX}
       />
 
-      {/* Avisa o excedente SEM bloquear (spec 100, D16 — padrão Twitter). Antes
-          era `slice(0, 2000)` no onChange: cortava em silêncio, e quem escrevia
-          um comentário longo perdia o final sem nunca ser avisado. O envio segue
-          permitido; quem decide é quem escreve. */}
-      {overflow > 0 && (
-        <p className="mt-2 text-xs text-[var(--state-warning-fg)]" role="status">
-          {contentCountLabel(comment, GM_REVIEW_COMMENT_MAX)}
-        </p>
-      )}
+      {/* O aviso de excedente vem do próprio `ContentEditor`, que já renderiza
+          `contentCountLabel` num `aria-live="polite"` (ContentEditor.tsx:266).
+          Uma versão anterior repetia a frase aqui num `role="status"`, e o
+          leitor de tela anunciava duas vezes (achado de review, PR #305).
+          O comportamento de D16 permanece: avisa sem bloquear, e o envio segue
+          permitido — o que mudou é só não duplicar o anúncio. */}
 
       <div className="mt-3">
         <Button onClick={handleSubmit} disabled={rating < 1 || isSubmitting}>

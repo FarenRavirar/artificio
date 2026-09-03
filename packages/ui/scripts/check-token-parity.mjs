@@ -195,7 +195,7 @@ const fails = [];
 // Normaliza para comparar as tres sintaxes: CSS escreve `"Inter", "Segoe UI"`,
 // tokens.ts escreve a mesma string, e o preset escreve array JS.
 const normFont = (s) =>
-  s ? s.replace(/["'\[\]]/g, "").split(",").map((p) => p.trim().toLowerCase()).filter(Boolean).join(",") : null;
+  s ? s.replace(/["'[\]]/g, "").split(",").map((p) => p.trim().toLowerCase()).filter(Boolean).join(",") : null;
 const grabFont = (src, re) => {
   const m = src.match(re);
   return m ? normFont(m[1]) : null;
@@ -203,12 +203,12 @@ const grabFont = (src, re) => {
 const fontRoles = {
   "font.sans": [
     grabFont(tokens, /\bsans:\s*'([^']+)'/),
-    grabFont(styles, /--artificio-font-sans:\s*([^;]+);/),
+    grabFont(styles, /--artificio-font-sans:([^;]+);/),
     grabFont(preset, /\bsans:\s*(\[[^\]]+\])/),
   ],
   "font.display": [
     grabFont(tokens, /\bdisplay:\s*'([^']+)'/),
-    grabFont(styles, /--artificio-font-display:\s*([^;]+);/),
+    grabFont(styles, /--artificio-font-display:([^;]+);/),
     grabFont(preset, /\bdisplay:\s*(\[[^\]]+\])/),
   ],
 };
@@ -221,7 +221,8 @@ for (const [role, vals] of Object.entries(fontRoles)) {
     continue;
   }
   if (new Set(present).size > 1) {
-    fails.push(`${role}: divergente -> ${vals.map((v, i) => `${labels[i]}=${v ?? "—"}`).join("  ")}`);
+    const detalhe = vals.map((v, i) => labels[i] + "=" + (v ?? "—")).join("  ");
+    fails.push(`${role}: divergente -> ${detalhe}`);
   }
 }
 
@@ -229,9 +230,9 @@ for (const [role, vals] of Object.entries(fontRoles)) {
 // concordar. Sem isto a Camada 2 pode ancorar em tres reguas diferentes.
 const textRoles = ["display", "title", "section", "body", "support", "label"];
 for (const papel of textRoles) {
-  const t = grab(tokens, new RegExp(`\\btext:\\s*\\{[^}]*?\\b${papel}:\\s*"([0-9]+px)"`, "s"));
-  const c = grab(styles, new RegExp(`--text-${papel}:\\s*([0-9]+px)`));
-  const p = grab(preset, new RegExp(`\\b${papel}:\\s*\\["([0-9]+px)"`));
+  const t = grab(tokens, new RegExp(String.raw`\btext:\s*\{[^}]*?\b${papel}:\s*"([0-9]+px)"`, "s"));
+  const c = grab(styles, new RegExp(String.raw`--text-${papel}:\s*([0-9]+px)`));
+  const p = grab(preset, new RegExp(String.raw`\b${papel}:\s*\["([0-9]+px)"`));
   const present = [t, c, p].filter((v) => v !== null);
   if (present.length < 3) {
     fails.push(`text.${papel}: ausente em ${[!t && "tokens.ts", !c && "styles.css", !p && "preset.js"].filter(Boolean).join(" + ")}`);
@@ -308,6 +309,11 @@ const bothThemeVars = [
   "--state-success-fg", "--state-warning-fg", "--state-danger-fg", "--state-info-fg",
   "--btn-primary-bg", "--btn-primary-fg", "--btn-primary-bg-hover",
   "--navy-block-bg", "--navy-block-fg",
+  // spec 100: texto sobre superficie cuja cor NAO vira por tema (botao de
+  // plataforma, barra de grafico). Precisam existir nos dois blocos: se
+  // sumirem de um, o texto cai em `currentColor` e some sobre o fundo.
+  "--on-solid-fg", "--series-fg",
+  "--series-1", "--series-2", "--series-3", "--series-4",
 ];
 // Grupo B: theme-agnósticos (rgba leve serve nos 2 fundos) → só :root, NÃO redefinir no dark.
 const lightOnlyVars = [

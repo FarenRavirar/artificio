@@ -98,7 +98,7 @@ export function MestreReviewsSection({ slug }: MestreReviewsSectionProps) {
           <div className="mb-3 flex gap-1" role="radiogroup" aria-label="Nota">
             {[1, 2, 3, 4, 5].map((value) => (
               <button key={value} type="button" role="radio" aria-checked={rating === value} onClick={() => setRating(value)} aria-label={`${value} estrela${value > 1 ? 's' : ''}`} className="text-[length:var(--text-title)] leading-[var(--leading-title)]">
-                <span className={rating >= value ? 'text-amber-300' : 'text-[var(--fg-muted)]'}>★</span>
+                <span className={rating >= value ? 'text-[var(--state-warning-fg)]' : 'text-[var(--fg-muted)]'}>★</span>
               </button>
             ))}
           </div>
@@ -131,7 +131,7 @@ export function MestreReviewsSection({ slug }: MestreReviewsSectionProps) {
             <div key={review.id} className="rounded-[var(--radius-lg)] border border-[var(--line)] bg-[var(--fill-subtle)] p-4">
               <div className="flex items-center gap-3">
                 {review.author_avatar ? <img src={review.author_avatar} alt={review.author_name} className="h-8 w-8 rounded-[var(--radius-pill)] object-cover" /> : <div className="h-8 w-8 rounded-[var(--radius-pill)] bg-[var(--fill)]" />}
-                <div><p className="text-[length:var(--text-support)] leading-[var(--leading-support)] font-[var(--weight-strong)] text-[var(--fg)]">{review.author_name}</p><p className="text-[length:var(--text-label)] leading-[var(--leading-label)] text-amber-300">{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</p></div>
+                <div><p className="text-[length:var(--text-support)] leading-[var(--leading-support)] font-[var(--weight-strong)] text-[var(--fg)]">{review.author_name}</p><p className="text-[length:var(--text-label)] leading-[var(--leading-label)] text-[var(--state-warning-fg)]">{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</p></div>
               </div>
               {review.tags.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5">{review.tags.map((tag) => <span key={tag} className="rounded-[var(--radius-pill)] border border-[var(--line)] px-2 py-1 text-[length:var(--text-label)] leading-[var(--leading-label)] text-[var(--fg-muted)]">{GM_REVIEW_TAG_LABELS[tag] ?? tag}</span>)}</div>}
               {review.comment && <MarkdownContent value={review.comment} className="mt-2 text-[length:var(--text-support)] leading-[var(--leading-support)] text-[var(--fg-muted)]" />}

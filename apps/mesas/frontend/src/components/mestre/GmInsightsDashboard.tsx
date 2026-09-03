@@ -257,7 +257,7 @@ export function GmInsightsDashboard() {
                                   className="artificio-series-1 h-full flex items-center justify-end pr-2"
                                   style={{ width: `${(table.click_breakdown.refactored_v4 / totalClicks) * 100}%` }}
                                 >
-                                  <span className="text-[length:var(--text-label)] leading-[var(--leading-label)] text-[var(--fg)] font-[var(--weight-medium)]">
+                                  <span className="text-[length:var(--text-label)] leading-[var(--leading-label)] text-[var(--series-fg)] font-[var(--weight-medium)]">
                                     {table.click_breakdown.refactored_v4}
                                   </span>
                                 </div>
@@ -276,7 +276,7 @@ export function GmInsightsDashboard() {
                                   className="artificio-series-2 h-full flex items-center justify-end pr-2"
                                   style={{ width: `${(table.click_breakdown.cta_entrar / totalClicks) * 100}%` }}
                                 >
-                                  <span className="text-[length:var(--text-label)] leading-[var(--leading-label)] text-[var(--fg)] font-[var(--weight-medium)]">
+                                  <span className="text-[length:var(--text-label)] leading-[var(--leading-label)] text-[var(--series-fg)] font-[var(--weight-medium)]">
                                     {table.click_breakdown.cta_entrar}
                                   </span>
                                 </div>
@@ -295,7 +295,7 @@ export function GmInsightsDashboard() {
                                   className="artificio-series-3 h-full flex items-center justify-end pr-2"
                                   style={{ width: `${(table.click_breakdown.link_vtt / totalClicks) * 100}%` }}
                                 >
-                                  <span className="text-[length:var(--text-label)] leading-[var(--leading-label)] text-[var(--fg)] font-[var(--weight-medium)]">
+                                  <span className="text-[length:var(--text-label)] leading-[var(--leading-label)] text-[var(--series-fg)] font-[var(--weight-medium)]">
                                     {table.click_breakdown.link_vtt}
                                   </span>
                                 </div>

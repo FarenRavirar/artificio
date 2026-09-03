@@ -241,7 +241,7 @@ export function ContactMethodsEditor({
                     onClick={() => removeContact(index)}
                     title="Remover"
                     aria-label="Remover contato"
-                    leftIcon={<Trash2 className="w-4 h-4 text-red-400" />}
+                    leftIcon={<Trash2 className="w-4 h-4 text-[var(--state-danger-fg)]" />}
                   />
                 </div>
               </div>
@@ -327,7 +327,7 @@ export function ContactMethodsEditor({
         </Button>
 
         {showAddMenu && (
-          <div className="absolute top-full mt-2 left-0 right-0 p-2 rounded-[var(--radius-md)] bg-[var(--surface-input)] border border-[var(--border)] shadow-xl z-10 grid grid-cols-2 gap-2">
+          <div className="absolute top-full mt-2 left-0 right-0 p-2 rounded-[var(--radius-md)] bg-[var(--surface-input)] border border-[var(--border)] shadow-[var(--shadow-float)] z-10 grid grid-cols-2 gap-2">
             {TABLE_CONTACT_CHANNELS.map((channel) => {
               const config = CONTACT_CHANNEL_META[channel];
               const Icon = config.icon;
@@ -370,8 +370,8 @@ export function ContactMethodsEditor({
       )}
 
       {(error || saveError) && (
-        <div className="p-3 rounded-[var(--radius-md)] bg-red-500/10 border border-red-500/20">
-          <p className="text-red-400 text-[length:var(--text-support)] leading-[var(--leading-support)]">{saveError ?? error}</p>
+        <div className="p-3 rounded-[var(--radius-md)] bg-[var(--state-danger-bg)] border border-[var(--state-danger-line)]">
+          <p className="text-[var(--state-danger-fg)] text-[length:var(--text-support)] leading-[var(--leading-support)]">{saveError ?? error}</p>
         </div>
       )}
     </div>

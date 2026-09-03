@@ -196,7 +196,7 @@ function ContactCard({ contact, gmSlug }: { contact: ContactMethod; gmSlug: stri
               onClick={handleAction}
               className={`
                 inline-flex items-center gap-2 px-4 py-2 rounded-[var(--radius-md)]
-                ${config.buttonColor} text-[var(--fg)] text-[length:var(--text-support)] leading-[var(--leading-support)] font-[var(--weight-medium)] transition
+                ${config.buttonColor} text-[var(--on-solid-fg)] text-[length:var(--text-support)] leading-[var(--leading-support)] font-[var(--weight-medium)] transition
               `}
             >
               {copied ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
@@ -210,7 +210,7 @@ function ContactCard({ contact, gmSlug }: { contact: ContactMethod; gmSlug: stri
               href={safeDiscordServerUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-[var(--radius-md)] bg-indigo-600 hover:bg-indigo-700 text-[var(--fg)] text-[length:var(--text-support)] leading-[var(--leading-support)] font-[var(--weight-medium)] transition"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-[var(--radius-md)] bg-indigo-600 hover:bg-indigo-700 text-[var(--on-solid-fg)] text-[length:var(--text-support)] leading-[var(--leading-support)] font-[var(--weight-medium)] transition"
             >
               <ExternalLink className="w-4 h-4" />
               Entrar no servidor

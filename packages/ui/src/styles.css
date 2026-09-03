@@ -199,8 +199,18 @@
      -------------------------------------------------------------------------- */
   --series-1: #00507E; /* azul     */
   --series-2: #B85C00; /* laranja  */
-  --series-3: #009E73; /* verde    */
+  --series-3: #00845F; /* verde    */
   --series-4: #A34600; /* vermelho */
+
+  /* Texto POR CIMA da série (rótulo dentro da barra). Não use `--fg` aqui: no
+     tema claro `--fg` é quase-preto e mede 2,18–4,07 sobre estas cores; no
+     escuro é branco e mede 1,86–3,00 — justamente os números que deveriam
+     tornar a barra legível ficariam ilegíveis (achado de review, PR #305).
+     Como as séries do tema claro são escuras, o texto sobre elas é claro — e
+     vice-versa no escuro. Medido: 4,60 a 8,58 no claro, 6,23 a 10,08 no
+     escuro. `--series-3` foi de #009E73 para #00845F pelo mesmo motivo: com o
+     valor anterior o texto branco media 3,42, abaixo de AA. */
+  --series-fg: #ffffff;
 
   /* estado "de marca" (filtro ativo, badge de destaque): mesma familia dos
      demais --state-*, sobre o laranja --artificio-brand. Existia solto como
@@ -251,6 +261,22 @@
      nos 2 temas; no escuro clareia p/ separar do --surface (que também é navy). NÃO vira laranja. */
   --navy-block-bg: var(--artificio-navy);
   --navy-block-fg: #ffffff;
+
+  /* Texto sobre FUNDO SÓLIDO SATURADO cuja cor não vira por tema: botão de
+     plataforma (Discord, Telegram, WhatsApp…), botão roxo de ação, qualquer
+     superfície que carrega cor de marca de terceiro (spec 100, achado de
+     review na PR #305).
+
+     Por que não `--fg`: `--fg` contrasta com o FUNDO DA PÁGINA, e no tema claro
+     é quase-preto — sobre indigo-600 mede 2,98 e sobre indigo-700 (hover) 2,37,
+     ambos reprovando AA. O texto aqui precisa contrastar com o BOTÃO, que é
+     escuro nos dois temas; por isso é branco fixo, como `--btn-danger-fg` e
+     `--navy-block-fg`, que já resolvem o mesmo problema neste arquivo.
+
+     Existe como token para o app não escrever `text-white` solto: a cor é a
+     mesma, mas o NOME diz por que ela não vira, e quem for auditar contraste
+     acha o papel em vez de encontrar branco anônimo espalhado. */
+  --on-solid-fg: #ffffff;
 }
 
 :root[data-theme="dark"] {
@@ -288,6 +314,10 @@
   --series-3: #33B591; /* verde    */
   --series-4: #E8743B; /* vermelho */
 
+  /* Invertido em relação ao claro: aqui as séries são cores CLARAS, então o
+     texto por cima é escuro. Medido: 6,23 a 10,08. */
+  --series-fg: var(--artificio-light-ink);
+
   /* botão primário no escuro: laranja sólido + texto navy */
   --btn-primary-bg: var(--artificio-brand);
   --btn-primary-fg: var(--artificio-ink);
@@ -316,6 +346,11 @@
   /* bloco navy no escuro: navy mais claro p/ destacar do surface; texto segue branco */
   --navy-block-bg: #2e4a7a;
   --navy-block-fg: #ffffff;
+
+  /* Branco nos DOIS temas: o botão de plataforma é escuro e saturado em
+     ambos, então o texto por cima não vira. Mesmo tratamento de
+     `--btn-danger-fg` e `--navy-block-fg`. */
+  --on-solid-fg: #ffffff;
 }
 
 /* ============================================================================
@@ -375,14 +410,30 @@
   );
 }
 
-/* Quem prefere movimento reduzido não é afetado (padrão é estático), mas quem
-   pede alto contraste ganha a textura mais marcada. */
+/* Alto contraste: cada padrão fica mais MARCADO, sem trocar de forma.
+   A primeira versão desta regra aplicava o mesmo gradiente de 45° às três
+   séries, apagando os pontos da 3 e invertendo a diagonal da 4 — o que
+   devolvia a distinção à cor sozinha justamente para quem pediu mais
+   contraste, o oposto do objetivo (achado de review, PR #305). */
 @media (prefers-contrast: more) {
-  .artificio-series-2,
-  .artificio-series-3,
-  .artificio-series-4 {
+  .artificio-series-2 {
     background-image: repeating-linear-gradient(
       45deg,
+      rgba(255, 255, 255, 0.5) 0,
+      rgba(255, 255, 255, 0.5) 3px,
+      transparent 3px,
+      transparent 7px
+    );
+  }
+
+  .artificio-series-3 {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.55) 1.8px, transparent 2px);
+    background-size: 6px 6px;
+  }
+
+  .artificio-series-4 {
+    background-image: repeating-linear-gradient(
+      -45deg,
       rgba(255, 255, 255, 0.5) 0,
       rgba(255, 255, 255, 0.5) 3px,
       transparent 3px,

@@ -813,7 +813,19 @@
    por cima — o mestre clica na parte e cai num título invisível. Precedente na
    mesma base: MestrePage.css:774. */
 .profile-editor-part {
+  /* 64px cobre o header de uma linha. Acima de 860px ele ganha a subnav e vai a
+     104px — `--space-16` sozinho deixaria o título atrás dele, que é o defeito
+     que este bloco existe para evitar. Não há degrau de 104px na escala (nem
+     deve haver: é altura de componente, não respiro de layout), então o valor
+     é literal e ancorado no header real. Regressão introduzida ao mapear os
+     `rem` para `--space-*`; achado de review, PR #305. */
   scroll-margin-top: var(--space-16);
+}
+
+@media (min-width: 861px) {
+  .profile-editor-part {
+    scroll-margin-top: 6.5rem;
+  }
 }
 
 /* Tela estreita: abaixo de 720px a lateral de 300px tomaria a maior parte da
