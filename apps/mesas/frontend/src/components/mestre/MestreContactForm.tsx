@@ -48,12 +48,12 @@ export function MestreContactForm({ mestreSlug }: MestreContactFormProps) {
 
   if (success) {
     return (
-      <section className="p-6 rounded-xl bg-green-500/10 border border-green-500/30">
+      <section className="p-6 rounded-[var(--radius-lg)] bg-green-500/10 border border-green-500/30">
         <div className="flex items-center gap-3 text-green-400">
           <CheckCircle className="w-6 h-6" />
           <div>
-            <h3 className="font-bold">Mensagem enviada!</h3>
-            <p className="text-sm text-green-300/80">
+            <h3 className="font-[var(--weight-strong)]">Mensagem enviada!</h3>
+            <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-green-300/80">
               O mestre receberá seu contato em breve.
             </p>
           </div>
@@ -63,16 +63,16 @@ export function MestreContactForm({ mestreSlug }: MestreContactFormProps) {
   }
 
   return (
-    <section className="p-6 rounded-xl bg-white/5 border border-white/10">
-      <h2 className="text-xl font-bold text-white mb-2">✉️ Envie uma Mensagem</h2>
-      <p className="text-sm text-white/60 mb-4">
+    <section className="p-6 rounded-[var(--radius-lg)] bg-[var(--fill-5)] border border-[var(--border)]">
+      <h2 className="text-[length:var(--text-title)] leading-[var(--leading-title)] font-[var(--weight-strong)] text-[var(--fg)] mb-2">✉️ Envie uma Mensagem</h2>
+      <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-[var(--fg-low)] mb-4">
         Preencha o formulário abaixo para entrar em contato diretamente com o mestre.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Nome */}
         <div>
-          <label htmlFor="contact-name" className="block text-sm font-medium text-white/80 mb-1">
+          <label htmlFor="contact-name" className="block text-[length:var(--text-support)] leading-[var(--leading-support)] font-[var(--weight-medium)] text-[var(--fg-muted)] mb-1">
             Seu nome *
           </label>
           <input
@@ -83,13 +83,13 @@ export function MestreContactForm({ mestreSlug }: MestreContactFormProps) {
             required
             maxLength={100}
             placeholder="Como você gostaria de ser chamado?"
-            className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder:text-white/40 focus:outline-none focus:border-purple-500/50"
+            className="w-full px-4 py-2 rounded-[var(--radius-md)] bg-[var(--fill-5)] border border-[var(--border)] text-[var(--fg)] placeholder:text-[var(--fg-ghost)] focus:outline-none focus:border-purple-500/50"
           />
         </div>
 
         {/* Email */}
         <div>
-          <label htmlFor="contact-email" className="block text-sm font-medium text-white/80 mb-1">
+          <label htmlFor="contact-email" className="block text-[length:var(--text-support)] leading-[var(--leading-support)] font-[var(--weight-medium)] text-[var(--fg-muted)] mb-1">
             Seu email *
           </label>
           <input
@@ -99,13 +99,13 @@ export function MestreContactForm({ mestreSlug }: MestreContactFormProps) {
             onChange={(e) => setEmail(e.target.value)}
             required
             placeholder="seu@email.com"
-            className="w-full px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder:text-white/40 focus:outline-none focus:border-purple-500/50"
+            className="w-full px-4 py-2 rounded-[var(--radius-md)] bg-[var(--fill-5)] border border-[var(--border)] text-[var(--fg)] placeholder:text-[var(--fg-ghost)] focus:outline-none focus:border-purple-500/50"
           />
         </div>
 
         {/* Mensagem */}
         <div>
-          <label htmlFor="contact-message" className="block text-sm font-medium text-white/80 mb-1">
+          <label htmlFor="contact-message" className="block text-[length:var(--text-support)] leading-[var(--leading-support)] font-[var(--weight-medium)] text-[var(--fg-muted)] mb-1">
             Mensagem *
           </label>
           <ContentEditor
@@ -126,8 +126,8 @@ export function MestreContactForm({ mestreSlug }: MestreContactFormProps) {
 
         {/* Erro */}
         {error && (
-          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-            <p className="text-red-400 text-sm">{error}</p>
+          <div className="p-3 rounded-[var(--radius-md)] bg-red-500/10 border border-red-500/20">
+            <p className="text-red-400 text-[length:var(--text-support)] leading-[var(--leading-support)]">{error}</p>
           </div>
         )}
 
@@ -135,11 +135,11 @@ export function MestreContactForm({ mestreSlug }: MestreContactFormProps) {
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3 rounded-lg bg-purple-500 hover:bg-purple-600 disabled:bg-purple-500/50 text-white font-medium transition flex items-center justify-center gap-2"
+          className="w-full py-3 rounded-[var(--radius-md)] bg-purple-500 hover:bg-purple-600 disabled:bg-purple-500/50 text-[var(--fg)] font-[var(--weight-medium)] transition flex items-center justify-center gap-2"
         >
           {loading ? (
             <>
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-[var(--border-strong)] border-t-white rounded-[var(--radius-pill)] animate-spin" />
               Enviando...
             </>
           ) : (

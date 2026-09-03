@@ -79,7 +79,7 @@ export function StyleFacetPicker({ facets, selected, onToggle }: StyleFacetPicke
           aria-pressed={selected.includes(style)}
           className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs transition-all whitespace-nowrap${ring} ${
             selected.includes(style)
-              ? 'border-orange-500 bg-orange-500/20 text-orange-100'
+              ? 'border-[var(--state-brand-line)] bg-[var(--state-brand-bg)] text-[var(--state-brand-fg)]'
               : 'border-transparent bg-[var(--surface)] text-[var(--fg-muted)] hover:border-transparent hover:bg-[var(--surface-strong)]'
           }`}
         >
@@ -102,7 +102,7 @@ export function StyleFacetPicker({ facets, selected, onToggle }: StyleFacetPicke
             aria-expanded={isOpen}
             className={`flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all whitespace-nowrap${ring} ${
               hasSelectedInOverflow
-                ? 'border-orange-500 bg-orange-500/20 text-orange-100'
+                ? 'border-[var(--state-brand-line)] bg-[var(--state-brand-bg)] text-[var(--state-brand-fg)]'
                 : 'border-transparent bg-[var(--surface)] text-[var(--fg-muted)] hover:border-transparent hover:bg-[var(--surface-strong)]'
             }`}
           >
@@ -140,7 +140,7 @@ export function StyleFacetPicker({ facets, selected, onToggle }: StyleFacetPicke
                       aria-pressed={selected.includes(style)}
                       className={`flex items-center justify-between rounded-lg px-2 py-1.5 text-left text-xs transition-colors${ring} ${
                         selected.includes(style)
-                          ? 'bg-orange-500/20 text-orange-100'
+                          ? 'bg-[var(--state-brand-bg)] text-[var(--state-brand-fg)]'
                           : 'text-[var(--fg)] hover:bg-[var(--surface-strong)]'
                       }`}
                     >

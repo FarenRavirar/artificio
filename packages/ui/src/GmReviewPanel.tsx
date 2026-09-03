@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Panel, Badge, Button, Textarea } from "./primitives.js";
+import { ContentEditor, MarkdownContent, contentCountLabel, contentOverflow } from "@artificio/content-editor";
+import { Panel, Badge, Button } from "./primitives.js";
 
 export const GM_REVIEW_TAG_LABELS: Record<string, string> = {
   pontual: "Pontual",
@@ -11,6 +12,13 @@ export const GM_REVIEW_TAG_LABELS: Record<string, string> = {
   organizado: "Organizado",
   recomendaria: "Recomendaria a outros",
 };
+
+/**
+ * Limite de referência do comentário de avaliação. É **aviso, não trava** (D16):
+ * passar dele mostra quanto excedeu e o envio continua permitido — quem corta é
+ * quem escreve, não o campo. Exportado para o consumidor exibir o mesmo número.
+ */
+export const GM_REVIEW_COMMENT_MAX = 2000;
 
 export interface GmReviewItem {
   id: string;
@@ -64,8 +72,12 @@ export function GmReviewSummary({ avgRating: rawAvgRating, reviewsCount: rawRevi
     );
   }
 
+  // Estrela em `--state-warning-fg` e não numa cor fixa (spec 100): o token vira
+  // por tema (#854d0e no claro, #fcd34d no escuro) e é o único jeito de passar AA
+  // nos dois. Medido: amber-300 dá 1,44 sobre branco; warningText fixo dá 2,08
+  // sobre o navy; o token dá 6,85 no claro e 9,86 no escuro.
   return (
-    <span className={`inline-flex items-center gap-1 text-sm font-semibold text-amber-300 ${className ?? ""}`.trim()}>
+    <span className={`inline-flex items-center gap-1 text-sm font-semibold text-[var(--state-warning-fg)] ${className ?? ""}`.trim()}>
       ★ {avgRating.toFixed(1)}
       <span className="text-xs font-normal text-[var(--fg-muted)]">({reviewsCount})</span>
     </span>
@@ -85,16 +97,16 @@ export function GmReviewList({ reviews }: GmReviewListProps) {
   return (
     <div className="space-y-4">
       {reviews.map((review) => (
-        <div key={review.id} className="rounded-xl border border-[var(--line)] bg-[var(--fill-subtle)] p-4">
+        <div key={review.id} className="rounded-[var(--radius-lg)] border border-[var(--line)] bg-[var(--fill-subtle)] p-4">
           <div className="flex items-center gap-3">
             {review.author_avatar ? (
-              <img src={review.author_avatar} alt={review.author_name} className="h-8 w-8 rounded-full object-cover" />
+              <img src={review.author_avatar} alt={review.author_name} className="h-8 w-8 rounded-[var(--radius-pill)] object-cover" />
             ) : (
-              <div className="h-8 w-8 rounded-full bg-[var(--fill)]" />
+              <div className="h-8 w-8 rounded-[var(--radius-pill)] bg-[var(--fill)]" />
             )}
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-[var(--fg)]">{review.author_name}</p>
-              <p className="text-xs text-amber-300">{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</p>
+              <p className="text-xs text-[var(--state-warning-fg)]">{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</p>
             </div>
           </div>
 
@@ -106,8 +118,11 @@ export function GmReviewList({ reviews }: GmReviewListProps) {
             </div>
           )}
 
+          {/* Markdown, não texto puro (spec 100, D15): as avaliações já publicadas
+              foram escritas em markdown pelo editor do app, e renderizá-las como
+              texto cru mostraria os asteriscos ao leitor. */}
           {review.comment && (
-            <p className="mt-2 text-sm text-[var(--fg-muted)] whitespace-pre-wrap">{review.comment}</p>
+            <MarkdownContent value={review.comment} className="mt-2 text-sm text-[var(--fg-muted)]" />
           )}
         </div>
       ))}
@@ -125,6 +140,7 @@ export function GmReviewForm({ onSubmit, isSubmitting }: GmReviewFormProps) {
   const [rating, setRating] = useState(0);
   const [tags, setTags] = useState<string[]>([]);
   const [comment, setComment] = useState("");
+  const overflow = contentOverflow(comment, GM_REVIEW_COMMENT_MAX);
 
   const toggleTag = (tag: string) => {
     setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -151,11 +167,16 @@ export function GmReviewForm({ onSubmit, isSubmitting }: GmReviewFormProps) {
             aria-label={`${value} estrela${value > 1 ? "s" : ""}`}
             className="text-2xl"
           >
-            <span className={rating >= value ? "text-amber-300" : "text-[var(--fg-muted)]"}>★</span>
+            <span className={rating >= value ? "text-[var(--state-warning-fg)]" : "text-[var(--fg-muted)]"}>★</span>
           </button>
         ))}
       </div>
 
+      {/* Tag selecionada usa os --state-brand-* (spec 100), tokens que já existem
+          para "filtro ativo / destaque de marca" e viram por tema. O literal
+          anterior (border-orange-500 / bg-orange-500/20 / text-orange-100) media
+          1,07:1 no tema claro — texto quase invisível. Medido depois: 5,17 sobre
+          surface clara, 4,84 sobre canvas claro, 6,79 e 8,28 no escuro. */}
       <div className="mb-3 flex flex-wrap gap-2">
         {Object.entries(GM_REVIEW_TAG_LABELS).map(([tag, label]) => (
           <button
@@ -163,9 +184,9 @@ export function GmReviewForm({ onSubmit, isSubmitting }: GmReviewFormProps) {
             type="button"
             aria-pressed={tags.includes(tag)}
             onClick={() => toggleTag(tag)}
-            className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
+            className={`rounded-[var(--radius-pill)] border px-3 py-1.5 text-xs transition-colors ${
               tags.includes(tag)
-                ? "border-orange-500 bg-orange-500/20 text-orange-100"
+                ? "border-[var(--state-brand-line)] bg-[var(--state-brand-bg)] text-[var(--state-brand-fg)]"
                 : "border-[var(--line)] bg-[var(--fill-subtle)] text-[var(--fg-muted)]"
             }`}
           >
@@ -174,12 +195,26 @@ export function GmReviewForm({ onSubmit, isSubmitting }: GmReviewFormProps) {
         ))}
       </div>
 
-      <Textarea
+      {/* `ContentEditor` e não `Textarea` (spec 100, D15): o app escreve avaliação
+          em markdown, então o pacote precisa escrever markdown também — senão
+          consumi-lo apagaria a formatação de tudo que já foi publicado. */}
+      <ContentEditor
         value={comment}
-        onChange={(e) => setComment(e.target.value.slice(0, 2000))}
+        onChange={setComment}
+        label="Comentário (opcional)"
         placeholder="Comentário (opcional)"
-        rows={3}
+        maxLength={GM_REVIEW_COMMENT_MAX}
       />
+
+      {/* Avisa o excedente SEM bloquear (spec 100, D16 — padrão Twitter). Antes
+          era `slice(0, 2000)` no onChange: cortava em silêncio, e quem escrevia
+          um comentário longo perdia o final sem nunca ser avisado. O envio segue
+          permitido; quem decide é quem escreve. */}
+      {overflow > 0 && (
+        <p className="mt-2 text-xs text-[var(--state-warning-fg)]" role="status">
+          {contentCountLabel(comment, GM_REVIEW_COMMENT_MAX)}
+        </p>
+      )}
 
       <div className="mt-3">
         <Button onClick={handleSubmit} disabled={rating < 1 || isSubmitting}>

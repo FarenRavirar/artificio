@@ -25,7 +25,7 @@ export function MestreProfilePreview({ profile }: Readonly<{ profile: MestrePubl
       className="mestre-profile-preview flex flex-col gap-2"
       aria-label="Prévia do perfil"
     >
-      <h3 className="text-xs font-semibold uppercase tracking-[0.04em] opacity-75">
+      <h3 className="text-[length:var(--text-label)] leading-[var(--leading-label)] font-[var(--weight-strong)] uppercase tracking-[0.04em] opacity-75">
         Prévia do perfil
       </h3>
       <div className="mestre-profile-preview-hero" inert>

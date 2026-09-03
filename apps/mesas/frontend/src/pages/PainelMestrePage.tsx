@@ -194,12 +194,12 @@ function DraftTableCard({
     <Panel tone="subtle" className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <Badge variant="warning">Rascunho</Badge>
-        <span className="text-xs opacity-60">
+        <span className="text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-60">
           {table.modality} · {table.system_name ?? 'Sistema livre'}
         </span>
       </div>
-      <p className="font-semibold line-clamp-2">{table.title}</p>
-      <p className="text-xs opacity-60">
+      <p className="font-[var(--weight-strong)] line-clamp-2">{table.title}</p>
+      <p className="text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-60">
         Não publicado — não aparece no catálogo. O rascunho segue você entre
         dispositivos, sem prazo.
       </p>
@@ -563,12 +563,12 @@ export const PainelMestrePage = () => {
     <main className="w-full">
       <div className="container mx-auto px-6 py-10">
         {loadingProfile ? (
-          <div className="flex justify-center py-20 animate-pulse text-white/40">Carregando painel...</div>
+          <div className="flex justify-center py-20 animate-pulse text-[var(--fg-ghost)]">Carregando painel...</div>
         ) : view === 'help' ? (
           <div className="space-y-6">
             <button
               onClick={() => setView('dashboard')}
-              className="text-white/40 hover:text-white transition-colors cursor-pointer text-sm"
+              className="text-[var(--fg-ghost)] hover:text-[var(--fg)] transition-colors cursor-pointer text-[length:var(--text-support)] leading-[var(--leading-support)]"
             >
               ← Voltar ao painel
             </button>
@@ -578,11 +578,11 @@ export const PainelMestrePage = () => {
           <div className="space-y-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h1 className="text-3xl font-extrabold">
+                <h1 className="text-[length:var(--text-display)] leading-[var(--leading-display)] font-[var(--weight-strong)]">
                   {gmProfile ? `Olá, ${gmProfile.nickname ?? `@${gmProfile.slug}`}` : 'Painel do Mestre'}
                 </h1>
                 {gmProfile && (
-                  <p className="text-white/40 mt-1 text-sm">
+                  <p className="text-[var(--fg-ghost)] mt-1 text-[length:var(--text-support)] leading-[var(--leading-support)]">
                     {gmProfile.tables_count} mesa{gmProfile.tables_count !== 1 ? 's' : ''} publicada{gmProfile.tables_count !== 1 ? 's' : ''}
                     {/* avg_rating já chega normalizado por normalizeGmProfile.
                         Condição truthy (não `!== null`): rating 0 significa "sem
@@ -595,10 +595,10 @@ export const PainelMestrePage = () => {
                 <button
                   id="btn-ajuda"
                   onClick={() => setView('help')}
-                  className="flex items-center gap-2 px-4 py-3 border border-white/20 hover:border-white/35 text-white font-semibold rounded-xl transition-colors cursor-pointer"
+                  className="flex items-center gap-2 px-4 py-3 border border-[var(--border-strong)] hover:border-[var(--border-strong)] text-[var(--fg)] font-[var(--weight-strong)] rounded-[var(--radius-lg)] transition-colors cursor-pointer"
                   title="Central de Ajuda"
                 >
-                  <span className="text-lg">❓</span>
+                  <span className="text-[length:var(--text-section)] leading-[var(--leading-section)]">❓</span>
                   Ajuda
                 </button>
                 {/* T4.0k (spec 096): entrada da tela "minhas sugestões"
@@ -607,7 +607,7 @@ export const PainelMestrePage = () => {
                 <button
                   id="btn-minhas-sugestoes"
                   onClick={() => navigate('/perfil/minhas-sugestoes')}
-                  className="flex items-center gap-2 px-4 py-3 border border-white/20 hover:border-white/35 text-white font-semibold rounded-xl transition-colors cursor-pointer"
+                  className="flex items-center gap-2 px-4 py-3 border border-[var(--border-strong)] hover:border-[var(--border-strong)] text-[var(--fg)] font-[var(--weight-strong)] rounded-[var(--radius-lg)] transition-colors cursor-pointer"
                   title="Minhas sugestões"
                 >
                   <Lightbulb className="w-4 h-4" />
@@ -617,7 +617,7 @@ export const PainelMestrePage = () => {
                   <button
                     id="btn-editar-perfil-mestre"
                     onClick={() => navigate('/perfil?tab=mestre')}
-                    className="flex items-center gap-2 px-4 py-3 border border-white/20 hover:border-white/35 text-white font-semibold rounded-xl transition-colors cursor-pointer"
+                    className="flex items-center gap-2 px-4 py-3 border border-[var(--border-strong)] hover:border-[var(--border-strong)] text-[var(--fg)] font-[var(--weight-strong)] rounded-[var(--radius-lg)] transition-colors cursor-pointer"
                   >
                     <PencilLine className="w-4 h-4" />
                     Editar perfil
@@ -629,7 +629,7 @@ export const PainelMestrePage = () => {
                     setEditingTableData(null);
                     setView('create-table');
                   }}
-                  className="flex items-center gap-2 px-5 py-3 bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] text-white font-semibold rounded-xl transition-colors cursor-pointer"
+                  className="flex items-center gap-2 px-5 py-3 bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] text-[var(--fg)] font-[var(--weight-strong)] rounded-[var(--radius-lg)] transition-colors cursor-pointer"
                 >
                   <PlusCircle className="w-5 h-5" />
                   Nova Mesa
@@ -641,8 +641,8 @@ export const PainelMestrePage = () => {
             {gmProfile && (
               <section className="space-y-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-white">📊 Insights das suas Mesas</h2>
-                  <p className="text-sm text-white/50 mt-1">
+                  <h2 className="text-[length:var(--text-title)] leading-[var(--leading-title)] font-[var(--weight-strong)] text-[var(--fg)]">📊 Insights das suas Mesas</h2>
+                  <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-[var(--fg-faint)] mt-1">
                     Acompanhe o desempenho e receba recomendações para otimizar suas mesas
                   </p>
                 </div>
@@ -656,10 +656,10 @@ export const PainelMestrePage = () => {
                 mestre não tem, tem que adicionar também". Salva no perfil via
                 PUT /gm/profile com authenticatedFetch (regra do repo). */}
             {gmProfile && (
-              <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <section className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--fill-5)] p-5">
                 <div className="mb-4">
-                  <h2 className="text-lg font-bold text-white">Formas de Contato</h2>
-                  <p className="text-sm text-white/60 mt-1">
+                  <h2 className="text-[length:var(--text-section)] leading-[var(--leading-section)] font-[var(--weight-strong)] text-[var(--fg)]">Formas de Contato</h2>
+                  <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-[var(--fg-low)] mt-1">
                     Configure como os jogadores podem entrar em contato com você.
                   </p>
                 </div>
@@ -686,7 +686,7 @@ export const PainelMestrePage = () => {
 
             {/* VTT Platforms Editor */}
             {gmProfile && (
-              <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <section className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--fill-5)] p-5">
                 <VttPlatformsEditor
                   selectedPlatforms={gmProfile.preferred_vtt_platforms || []}
                   onSave={async (platformIds) => {
@@ -701,7 +701,7 @@ export const PainelMestrePage = () => {
 
             {/* Links - Após contatos */}
             {gmProfile && (
-              <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <section className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--fill-5)] p-5">
                 <LinksManager />
               </section>
             )}
@@ -713,7 +713,7 @@ export const PainelMestrePage = () => {
                 está vazio (COALESCE do GET público). Véu do banner = scrim fixo
                 do MestreHero real (D8), sem controle de opacidade. */}
             {gmProfile && (
-              <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <section className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--fill-5)] p-5">
                 <MestreProfilePreview
                   profile={buildMestrePreviewData(gmProfile, user?.name, gmProfile.general_avatar)}
                 />
@@ -726,8 +726,8 @@ export const PainelMestrePage = () => {
                     painel, distinguida da que está no ar, com CTA de
                     continuar edição. */}
                 {draftTables.length > 0 && (
-                  <section className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4">
-                    <h2 className="text-lg font-bold inline-flex items-center gap-2">
+                  <section className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--fill-5)] p-5 space-y-4">
+                    <h2 className="text-[length:var(--text-section)] leading-[var(--leading-section)] font-[var(--weight-strong)] inline-flex items-center gap-2">
                       <PencilLine className="w-4 h-4 text-[var(--color-artificio-orange)]" />
                       Rascunhos
                     </h2>
@@ -749,8 +749,8 @@ export const PainelMestrePage = () => {
                     seção "Suas mesas" vazia logo abaixo dos rascunhos, como se
                     tivesse perdido as mesas. */}
                 {publishedTables.length > 0 && (
-                <section className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4">
-                  <h2 className="text-lg font-bold inline-flex items-center gap-2">
+                <section className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--fill-5)] p-5 space-y-4">
+                  <h2 className="text-[length:var(--text-section)] leading-[var(--leading-section)] font-[var(--weight-strong)] inline-flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-[var(--color-artificio-orange)]" />
                     Suas mesas
                   </h2>
@@ -775,10 +775,10 @@ export const PainelMestrePage = () => {
                 )}
               </>
             ) : (
-              <div className="text-center py-20 text-white/30 border border-dashed border-white/10 rounded-2xl">
+              <div className="text-center py-20 text-[var(--fg-ghost)] border border-dashed border-[var(--border)] rounded-[var(--radius-lg)]">
                 <MapPin className="w-10 h-10 mx-auto mb-4 opacity-30" />
-                <p className="text-lg font-medium">Nenhuma mesa ainda.</p>
-                <p className="text-sm mt-2">Clique em "Nova Mesa" para começar.</p>
+                <p className="text-[length:var(--text-section)] leading-[var(--leading-section)] font-[var(--weight-medium)]">Nenhuma mesa ainda.</p>
+                <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] mt-2">Clique em "Nova Mesa" para começar.</p>
               </div>
             )}
           </div>

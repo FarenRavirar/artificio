@@ -153,39 +153,39 @@ function ContactCard({ contact, gmSlug }: { contact: ContactMethod; gmSlug: stri
     : contact.value;
 
   return (
-    <div className={`p-5 rounded-xl bg-gradient-to-br ${config.color} border ${config.borderColor}`}>
+    <div className={`p-5 rounded-[var(--radius-lg)] bg-gradient-to-br ${config.color} border ${config.borderColor}`}>
       <div className="flex items-start gap-4">
         {/* Ícone */}
-        <div className={`flex-shrink-0 w-12 h-12 rounded-full bg-white/10 flex items-center justify-center`}>
+        <div className={`flex-shrink-0 w-12 h-12 rounded-[var(--radius-pill)] bg-[var(--fill-10)] flex items-center justify-center`}>
           <Icon className={`w-6 h-6 ${meta.iconClass}`} />
         </div>
 
         {/* Conteúdo */}
         <div className="flex-1 min-w-0">
-          <h3 className={`font-bold ${meta.iconClass} mb-1`}>
+          <h3 className={`font-[var(--weight-strong)] ${meta.iconClass} mb-1`}>
             {contact.label || meta.label}
           </h3>
 
           {/* Valor com botão de copiar inline (para Discord) */}
           {contact.channel === 'discord' ? (
             <div className="flex items-center gap-2 mb-3">
-              <p className="text-sm text-white/70 break-all flex-1">
+              <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-[var(--fg-soft)] break-all flex-1">
                 {displayValue}
               </p>
               <button
                 onClick={handleAction}
-                className="flex-shrink-0 p-1.5 rounded hover:bg-white/10 transition"
+                className="flex-shrink-0 p-1.5 rounded hover:bg-[var(--fill-10)] transition"
                 title="Copiar username"
               >
                 {copied ? (
                   <Check className="w-4 h-4 text-green-400" />
                 ) : (
-                  <Copy className="w-4 h-4 text-white/70" />
+                  <Copy className="w-4 h-4 text-[var(--fg-soft)]" />
                 )}
               </button>
             </div>
           ) : (
-            <p className="text-sm text-white/70 mb-3 break-all">
+            <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-[var(--fg-soft)] mb-3 break-all">
               {displayValue}
             </p>
           )}
@@ -195,8 +195,8 @@ function ContactCard({ contact, gmSlug }: { contact: ContactMethod; gmSlug: stri
             <button
               onClick={handleAction}
               className={`
-                inline-flex items-center gap-2 px-4 py-2 rounded-lg
-                ${config.buttonColor} text-white text-sm font-medium transition
+                inline-flex items-center gap-2 px-4 py-2 rounded-[var(--radius-md)]
+                ${config.buttonColor} text-[var(--fg)] text-[length:var(--text-support)] leading-[var(--leading-support)] font-[var(--weight-medium)] transition
               `}
             >
               {copied ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
@@ -210,7 +210,7 @@ function ContactCard({ contact, gmSlug }: { contact: ContactMethod; gmSlug: stri
               href={safeDiscordServerUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-[var(--radius-md)] bg-indigo-600 hover:bg-indigo-700 text-[var(--fg)] text-[length:var(--text-support)] leading-[var(--leading-support)] font-[var(--weight-medium)] transition"
             >
               <ExternalLink className="w-4 h-4" />
               Entrar no servidor
@@ -229,7 +229,7 @@ export function MestreContactMethods({ contacts, gmSlug }: MestreContactMethodsP
 
   return (
     <section className="space-y-4">
-      <h2 className="text-2xl font-bold text-white">📬 Entre em Contato</h2>
+      <h2 className="text-[length:var(--text-title)] leading-[var(--leading-title)] font-[var(--weight-strong)] text-[var(--fg)]">📬 Entre em Contato</h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {contacts.map((contact, index) => (

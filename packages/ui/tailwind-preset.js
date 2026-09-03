@@ -29,15 +29,34 @@ export default {
           "info-text": "#1D4ED8",
         },
       },
+      // Raio: aponta para os tokens em vez de repetir o valor (spec 100). `ui`
+      // continua existindo por compatibilidade e vale o mesmo que `md`.
       borderRadius: {
-        ui: "8px",
+        ui: "var(--radius-md)",
+        sm: "var(--radius-sm)",
+        md: "var(--radius-md)",
+        lg: "var(--radius-lg)",
+        pill: "var(--radius-pill)",
       },
       boxShadow: {
         ui: "0 1px 2px rgba(2, 7, 64, 0.08)",
       },
+      // Pilha canônica, idêntica a styles.css e tokens.ts (spec 100 T1.2): era a
+      // quarta declaração divergente da família de corpo, sem "Segoe UI" nem
+      // Roboto — as duas faces que de fato renderizam em Windows e Android,
+      // já que nenhum app carrega a Inter.
       fontFamily: {
-        display: ["Oswald", "Arial Narrow", "system-ui", "sans-serif"],
-        sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["Oswald", "Arial Narrow", "Roboto Condensed", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["Inter", "Segoe UI", "Roboto", "ui-sans-serif", "system-ui", "sans-serif"],
+      },
+      // Régua tipográfica da Camada 2 — os mesmos degraus dos `.artificio-text-*`.
+      fontSize: {
+        display: ["28px", { lineHeight: "1.2" }],
+        title: ["20px", { lineHeight: "1.25" }],
+        section: ["16px", { lineHeight: "1.25" }],
+        body: ["16px", { lineHeight: "1.5" }],
+        support: ["14px", { lineHeight: "1.43" }],
+        label: ["13px", { lineHeight: "1.3" }],
       },
     },
   },

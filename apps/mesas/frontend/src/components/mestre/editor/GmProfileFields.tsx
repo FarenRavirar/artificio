@@ -81,7 +81,7 @@ export function TaglineField({ value, onChange, error }: TaglineFieldProps) {
           aria-describedby="gm-tagline-description"
         />
       </Field>
-      <p className="text-xs opacity-75">Recomendado — {RECOMMENDED_GAIN.tagline}.</p>
+      <p className="text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-75">Recomendado — {RECOMMENDED_GAIN.tagline}.</p>
     </div>
   );
 }
@@ -180,7 +180,7 @@ export function ProfileTagsSection({ specialties, languages, badges }: ProfileTa
             describedBy="gm-specialties-description"
           />
         </Field>
-        <p className="text-xs opacity-75">Recomendado — {RECOMMENDED_GAIN.specialties}.</p>
+        <p className="text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-75">Recomendado — {RECOMMENDED_GAIN.specialties}.</p>
       </div>
 
       <div className="flex flex-col gap-2" data-ob="recommended" data-field="languages">
@@ -199,7 +199,7 @@ export function ProfileTagsSection({ specialties, languages, badges }: ProfileTa
             describedBy="gm-languages-description"
           />
         </Field>
-        <p className="text-xs opacity-75">Recomendado — {RECOMMENDED_GAIN.languages}.</p>
+        <p className="text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-75">Recomendado — {RECOMMENDED_GAIN.languages}.</p>
       </div>
 
       <div className="flex flex-col gap-2" data-ob="optional" data-field="badges">
@@ -381,7 +381,7 @@ export function SellingPointsEditor({ value }: SellingPointsEditorProps) {
         </Button>
       </div>
 
-      <p className="text-xs opacity-75">Recomendado — {RECOMMENDED_GAIN.sellingPoints}.</p>
+      <p className="text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-75">Recomendado — {RECOMMENDED_GAIN.sellingPoints}.</p>
     </div>
   );
 }
@@ -527,7 +527,7 @@ export function ClosedGroupSection({ value, onChange }: ClosedGroupSectionProps)
                   foi a espera, não o tratamento de erro: a busca e a resolução
                   de nomes reportam falha onde acontecem. */}
               {resolveFailed && (
-                <p className="text-sm text-[var(--state-danger-fg)]" role="alert">
+                <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-[var(--state-danger-fg)]" role="alert">
                   Não foi possível carregar os nomes dos sistemas escolhidos. Eles continuam
                   salvos.{' '}
                   {/* Falha transitória só se recuperava trocando a seleção ou
@@ -626,7 +626,7 @@ export function BioLongField({ value }: BioLongFieldProps) {
           if (!exists) updateGm({ [candidate.field]: [...current, candidate.value] });
         }}
       />
-      <p className="text-xs opacity-75">Recomendado — {RECOMMENDED_GAIN.bioLong}.</p>
+      <p className="text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-75">Recomendado — {RECOMMENDED_GAIN.bioLong}.</p>
     </div>
   );
 }
@@ -676,7 +676,7 @@ export function ExperienceYearsField({ value }: ExperienceYearsFieldProps) {
           className="experience-years-input"
         />
       </div>
-      <p className="text-xs opacity-75">Recomendado — {RECOMMENDED_GAIN.experienceYears}.</p>
+      <p className="text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-75">Recomendado — {RECOMMENDED_GAIN.experienceYears}.</p>
     </div>
   );
 }

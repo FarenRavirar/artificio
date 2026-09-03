@@ -44,13 +44,13 @@ export const ProfileEditorSidebar = memo(function ProfileEditorSidebar({
   return (
     <>
       <div>
-        <div className="mb-2 text-xs opacity-70">
+        <div className="mb-2 text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-70">
           {Math.round(progress * 100)}% preenchido
         </div>
         {/* Barra decorativa: o valor já é anunciado pelo texto acima, então
             `role="progressbar"` aqui duplicaria o anúncio no leitor de tela. */}
         <div
-          className="h-1.5 overflow-hidden rounded-full bg-[var(--fill)]"
+          className="h-1.5 overflow-hidden rounded-[var(--radius-pill)] bg-[var(--fill)]"
           aria-hidden="true"
         >
           <div
@@ -85,7 +85,7 @@ export const ProfileEditorSidebar = memo(function ProfileEditorSidebar({
               <span className="flex-1 text-left">{part.label}</span>
               {pending > 0 ? (
                 <span
-                  className="min-w-5 rounded-full bg-[var(--state-danger-bg)] px-2 text-center text-[11px] text-[var(--state-danger-fg)]"
+                  className="min-w-5 rounded-[var(--radius-pill)] bg-[var(--state-danger-bg)] px-2 text-center text-[11px] text-[var(--state-danger-fg)]"
                   aria-label={`${pending} campo(s) recomendado(s) por preencher`}
                 >
                   {pending}
@@ -183,11 +183,11 @@ function PublicLinkDoor({
 
   return (
     <div className="flex flex-col gap-2 border-t border-[var(--line)] pt-3">
-      <p className="text-xs opacity-70">Seu endereço público</p>
+      <p className="text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-70">Seu endereço público</p>
       {/* O endereço fica VISÍVEL, não só embutido no botão: é o que o mestre
           cola no Discord, no grupo, na bio. `break-all` porque slug longo em
           coluna de 300px estouraria a lateral. */}
-      <p className="break-all text-xs opacity-90">{displayUrl(url)}</p>
+      <p className="break-all text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-90">{displayUrl(url)}</p>
       <Button
         type="button"
         variant="secondary"
@@ -198,7 +198,7 @@ function PublicLinkDoor({
         {opening ? 'Salvando…' : 'Abrir em nova aba'}
       </Button>
       {failure ? (
-        <p className="text-xs text-[var(--state-danger-fg)]" role="alert">
+        <p className="text-[length:var(--text-label)] leading-[var(--leading-label)] text-[var(--state-danger-fg)]" role="alert">
           {failure === 'save'
             ? 'Não deu para salvar agora — a página abriria sem a sua última mudança.'
             : 'Suas mudanças foram salvas, mas o navegador bloqueou a nova aba. Abra o endereço acima à mão.'}

@@ -56,12 +56,38 @@ export const tokens = {
     lightStrong: "#E6EBF4", // superfície forte/realce
     lightInk: "#0B1220", // texto principal sobre light
   },
+  // Espelha `--artificio-font-*` de styles.css, que é a pilha canônica (spec 100
+  // T1.2). Havia QUATRO declarações divergentes de corpo no repo, cada uma com
+  // fallback próprio; como nenhum app carrega Inter de fato (medido: zero
+  // `@font-face`/`<link>`), o fallback era o que renderizava — e renderizava
+  // diferente em cada tela. `check-token-parity.mjs` reprova nova divergência.
   font: {
-    display: '"Oswald", "Arial Narrow", system-ui, sans-serif', // headings condensados
-    sans: '"Inter", ui-sans-serif, system-ui, sans-serif', // corpo
+    display: '"Oswald", "Arial Narrow", "Roboto Condensed", ui-sans-serif, system-ui, sans-serif', // headings condensados
+    sans: '"Inter", "Segoe UI", Roboto, ui-sans-serif, system-ui, sans-serif', // corpo
   },
+  // Régua tipográfica (Camada 2): 6 papéis, 5 tamanhos, 3 pesos. Os utilitários
+  // que a aplicam vivem em styles.css como `.artificio-text-*`.
+  text: {
+    display: "28px",
+    title: "20px",
+    section: "16px",
+    body: "16px",
+    support: "14px",
+    label: "13px",
+  },
+  weight: {
+    regular: 400,
+    medium: 500,
+    strong: 600,
+  },
+  // Espelha os --radius-* de styles.css, que é quem renderiza. Divergiam 2px no
+  // `sm` (4px aqui, 0.375rem lá) porque check-token-parity.mjs só cobria hexes;
+  // a spec 100 alinhou os dois valores e estendeu a trava a `radius`, para o
+  // drift não voltar em silêncio. `pill` fica de fora: 999px é "o máximo", não
+  // um degrau da escala.
   radius: {
-    sm: "4px",
+    sm: "6px",
     md: "8px",
+    lg: "12px",
   },
 } as const;

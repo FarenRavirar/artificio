@@ -45,8 +45,6 @@
   --border-soft:        rgba(255, 255, 255, 0.05);
   --border:             rgba(255, 255, 255, 0.10);
   --border-strong:      rgba(255, 255, 255, 0.20);
-  --border-orange:      rgba(255,87,34, 0.40);
-  --border-orange-soft: rgba(255,87,34, 0.20);
 
   /* Fills translúcidos */
   --fill-5:  rgba(255, 255, 255, 0.05);
@@ -71,8 +69,6 @@
   /* Sombras */
   --shadow-card:              0 10px 15px -3px rgba(0,0,0,0.30), 0 4px 6px -4px rgba(0,0,0,0.25);
   --shadow-lg:                0 25px 50px -12px rgba(0,0,0,0.50);
-  --shadow-glow-orange:       0 0 30px rgba(255,87,34,0.15);
-  --shadow-glow-orange-strong:0 0 60px rgba(255,87,34,0.25);
 
   /* Blur (painéis glassy) */
   --blur-md: 12px;
@@ -90,7 +86,11 @@
   body {
     background-color: var(--color-artificio-blue);
     color: white;
-    font-family: 'Inter', system-ui, sans-serif;
+    /* Deriva da pilha canônica do design system em vez de declarar a própria
+       (spec 100 T1.2). Era a quarta declaração divergente de Inter no repo, e a
+       mais curta: sem "Segoe UI" nem Roboto, caía direto em `system-ui` —
+       diferente do que o `packages/ui` renderizava na mesma tela. */
+    font-family: var(--artificio-font-sans, 'Inter', 'Segoe UI', Roboto, ui-sans-serif, system-ui, sans-serif);
     margin: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -125,20 +125,7 @@
   }
 
   /* Brilho laranja decorativo (hero + login) */
-  .orange-glow {
-    position: absolute;
-    pointer-events: none;
-    border-radius: 9999px;
-    background: var(--color-artificio-orange);
-    filter: blur(150px);
-    opacity: 0.10;
-    width: 600px;
-    height: 600px;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-  }
-
+  
   /* Painel glassy */
   .glass {
     background: rgba(255, 255, 255, 0.05);

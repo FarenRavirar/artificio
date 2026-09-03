@@ -16,8 +16,8 @@ export function MestreVttPlatforms({ platforms }: MestreVttPlatformsProps) {
   }
 
   return (
-    <section className="p-6 rounded-xl bg-white/5 border border-white/10">
-      <h2 className="text-xl font-bold text-white mb-4">🎮 Plataformas que uso</h2>
+    <section className="p-6 rounded-[var(--radius-lg)] bg-[var(--fill-5)] border border-[var(--border)]">
+      <h2 className="text-[length:var(--text-title)] leading-[var(--leading-title)] font-[var(--weight-strong)] text-[var(--fg)] mb-4">🎮 Plataformas que uso</h2>
       
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
         {platforms.map((platform) => (
@@ -27,9 +27,9 @@ export function MestreVttPlatforms({ platforms }: MestreVttPlatformsProps) {
             target={platform.website_url ? '_blank' : undefined}
             rel={platform.website_url ? 'noopener noreferrer' : undefined}
             className={`
-              flex flex-col items-center gap-2 p-3 rounded-lg
+              flex flex-col items-center gap-2 p-3 rounded-[var(--radius-md)]
               ${platform.website_url 
-                ? 'hover:bg-white/10 transition cursor-pointer' 
+                ? 'hover:bg-[var(--fill-10)] transition cursor-pointer' 
                 : 'cursor-default'
               }
             `}
@@ -43,10 +43,10 @@ export function MestreVttPlatforms({ platforms }: MestreVttPlatformsProps) {
               />
             ) : (
               <div className="h-12 flex items-center justify-center">
-                <span className="text-3xl">🎮</span>
+                <span className="text-[length:var(--text-display)] leading-[var(--leading-display)]">🎮</span>
               </div>
             )}
-            <span className="text-xs text-white/80 text-center font-medium">
+            <span className="text-[length:var(--text-label)] leading-[var(--leading-label)] text-[var(--fg-muted)] text-center font-[var(--weight-medium)]">
               {platform.name}
             </span>
           </a>

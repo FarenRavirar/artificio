@@ -5,7 +5,7 @@ export type PillTone = 'neutral' | 'brand' | 'success' | 'warn' | 'danger' | 'in
 
 const TONE: Record<PillTone, string> = {
   neutral: 'bg-[var(--admin-hover)] text-[var(--fg-low)] border-[var(--border)]',
-  brand: 'bg-[color-mix(in_srgb,var(--color-artificio-orange)_18%,transparent)] text-[var(--color-artificio-orange)] border-[var(--border-orange-soft)]',
+  brand: 'bg-[color-mix(in_srgb,var(--color-artificio-orange)_18%,transparent)] text-[var(--color-artificio-orange)] border-[color-mix(in_srgb,var(--color-artificio-orange)_20%,transparent)]',
   success: 'bg-[color-mix(in_srgb,var(--success)_16%,transparent)] text-[var(--success)] border-[color-mix(in_srgb,var(--success)_30%,transparent)]',
   warn: 'bg-[color-mix(in_srgb,var(--warn)_16%,transparent)] text-[var(--warn)] border-[color-mix(in_srgb,var(--warn)_30%,transparent)]',
   danger: 'bg-[color-mix(in_srgb,var(--danger)_16%,transparent)] text-[var(--danger-soft)] border-[color-mix(in_srgb,var(--danger)_30%,transparent)]',

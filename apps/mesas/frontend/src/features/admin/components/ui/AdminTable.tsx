@@ -229,7 +229,7 @@ export function AdminTable<T>({
 
       {/* Barra de lote */}
       {hasSelection && someSelected && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--border-orange-soft)] bg-[color-mix(in_srgb,var(--color-artificio-orange)_8%,transparent)] px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[color-mix(in_srgb,var(--color-artificio-orange)_20%,transparent)] bg-[color-mix(in_srgb,var(--color-artificio-orange)_8%,transparent)] px-3 py-2">
           <span className="text-sm text-[var(--fg-muted)]">{visibleSelectedIds.length} selecionado(s)</span>
           <div className="ml-auto flex items-center gap-2">
             {bulkActions.map((a) => (

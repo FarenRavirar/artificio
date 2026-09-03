@@ -74,7 +74,7 @@ export function MestreFeaturedTable({ table }: Props) {
                 href={table.vtt_platform.website_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="absolute bottom-3 right-3 h-9 min-w-9 px-2 rounded-lg bg-black/55 border border-white/20 backdrop-blur-sm inline-flex items-center justify-center hover:bg-black/70 hover:border-white/40 transition-colors"
+                className="absolute bottom-3 right-3 h-9 min-w-9 px-2 rounded-[var(--radius-md)] bg-black/55 border border-[var(--border-strong)] backdrop-blur-sm inline-flex items-center justify-center hover:bg-black/70 hover:border-[var(--border-strong)] transition-colors"
                 title={`${table.vtt_platform.name} - Abrir site oficial`}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -89,7 +89,7 @@ export function MestreFeaturedTable({ table }: Props) {
               </a>
             ) : (
               <span
-                className="absolute bottom-3 right-3 h-9 min-w-9 px-2 rounded-lg bg-black/55 border border-white/20 backdrop-blur-sm inline-flex items-center justify-center"
+                className="absolute bottom-3 right-3 h-9 min-w-9 px-2 rounded-[var(--radius-md)] bg-black/55 border border-[var(--border-strong)] backdrop-blur-sm inline-flex items-center justify-center"
                 title={table.vtt_platform.name}
               >
                 <img
@@ -112,7 +112,7 @@ export function MestreFeaturedTable({ table }: Props) {
                 name={table.system_name}
                 logoFilename={table.system_logo_filename}
                 websiteUrl={table.system_website_url}
-                className="!bg-transparent !border-white/20"
+                className="!bg-transparent !border-[var(--border-strong)]"
               />
             )}
             <span className="mestre-featured-table-tag">

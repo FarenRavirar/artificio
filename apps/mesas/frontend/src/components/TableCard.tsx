@@ -484,8 +484,8 @@ export function TableCardComponent({ table }: { table: TableCard }) {
               isFull
                 ? 'bg-gray-600 text-white/50 cursor-not-allowed opacity-50'
                 : primaryCTA.variant === 'primary'
-                  ? 'bg-orange-600 hover:bg-orange-700 text-white'
-                  : 'border-2 border-orange-600 text-orange-600 hover:bg-orange-600/10'
+                  ? 'bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] text-[var(--fg)]'
+                  : 'border-2 border-[var(--color-artificio-orange)] text-[var(--color-artificio-orange)] hover:bg-[color-mix(in_srgb,var(--color-artificio-orange)_10%,transparent)]'
             }`}>
               {isFull ? 'Mesa lotada' : primaryCTA.label}
             </div>

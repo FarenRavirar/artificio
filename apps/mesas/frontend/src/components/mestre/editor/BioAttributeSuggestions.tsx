@@ -108,23 +108,23 @@ export function BioAttributeSuggestions({ bio, onConfirm }: BioAttributeSuggesti
           {loading ? 'Analisando bio…' : 'Sugerir atributos da bio'}
         </Button>
       </div>
-      <p className="text-xs opacity-75">
+      <p className="text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-75">
         A análise apenas sugere. Nada é alterado até você confirmar cada item.
       </p>
-      {error && <p role="alert" className="text-sm text-error">{error}</p>}
+      {error && <p role="alert" className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-error">{error}</p>}
       {isStale && !loading && (
-        <p className="text-sm opacity-75">
+        <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] opacity-75">
           A bio mudou desde a última análise. Analise de novo para ver sugestões do texto atual.
         </p>
       )}
       {analyzed && !isStale && visibleCandidates.length === 0 && !error && (
-        <p className="text-sm opacity-75">Nenhum atributo novo encontrado.</p>
+        <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] opacity-75">Nenhum atributo novo encontrado.</p>
       )}
       {visibleCandidates.map((candidate, index) => (
         <div key={`${candidate.field}-${candidate.value}-${index}`} className="flex flex-col gap-2 rounded border p-3">
           <strong>{FIELD_LABELS[candidate.field]}: {String(candidate.value)}</strong>
-          <span className="text-sm">Trecho: “{candidate.evidence}”</span>
-          <span className="text-xs opacity-75">Confiança: {Math.round(candidate.confidence * 100)}%</span>
+          <span className="text-[length:var(--text-support)] leading-[var(--leading-support)]">Trecho: “{candidate.evidence}”</span>
+          <span className="text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-75">Confiança: {Math.round(candidate.confidence * 100)}%</span>
           <div>
             <Button type="button" size="sm" onClick={() => confirm(candidate)}>
               Confirmar e aplicar

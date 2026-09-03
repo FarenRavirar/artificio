@@ -43,8 +43,48 @@
   --artificio-light-strong: #e6ebf4;
   --artificio-light-ink: #0b1220;
 
+  /* Pilha CANÔNICA do monorepo (spec 100 T1.2). Havia quatro declarações
+     divergentes de corpo — `tokens.ts`, este arquivo, `tailwind-preset.js` e
+     `apps/mesas/frontend/src/index.css` — cada uma com fallback diferente. Esta
+     vence porque é a mais completa: `"Segoe UI"` e `Roboto` cobrem Windows e
+     Android, que é exatamente onde a diferença aparece. As outras três derivam
+     desta; `check-token-parity.mjs` reprova se voltarem a divergir.
+
+     Nota medida (spec 100): nenhum app carrega Inter ou Oswald por `<link>` ou
+     `@font-face` — `rtk rg "fonts.googleapis|@font-face"` em apps/ e packages/
+     devolve só fixtures de teste. Na prática o navegador SEMPRE cai no fallback,
+     e por isso o fallback divergente não era detalhe: era o que de fato
+     renderizava, diferente em cada tela. */
   --artificio-font-display: "Oswald", "Arial Narrow", "Roboto Condensed", ui-sans-serif, system-ui, sans-serif;
   --artificio-font-sans: "Inter", "Segoe UI", Roboto, ui-sans-serif, system-ui, sans-serif;
+
+  /* Régua tipográfica (spec 100, Camada 2): SEIS papéis sobre CINCO tamanhos e
+     TRÊS pesos — 16px serve seção e corpo, distinguidos só pelo peso. É o alvo
+     do requisito 5 (≤6 tamanhos, ≤3 pesos por tela), cruzado com a escala
+     pública do DLS do Airbnb, que o mantenedor deu como referência.
+
+     Antes disto o próprio pacote usava 15 tamanhos distintos, misturando px e
+     rem (`14px` 10×, `0.875rem` 4× — o mesmo valor escrito de duas formas). */
+  --text-display: 28px;
+  --text-title:   20px;
+  --text-section: 16px;
+  --text-body:    16px;
+  --text-support: 14px;
+  --text-label:   13px;
+
+  --leading-display: 1.2;
+  --leading-title:   1.25;
+  --leading-section: 1.25;
+  --leading-body:    1.5;
+  --leading-support: 1.43;
+  --leading-label:   1.3;
+
+  /* Três pesos, e só. 400 corpo, 500 rótulo, 600 ênfase/título. O `700` que o
+     pacote usa em 7 pontos não é um quarto degrau: é 600 escrito mais forte —
+     a Fase 2 o converte ao mapear as telas. */
+  --weight-regular: 400;
+  --weight-medium:  500;
+  --weight-strong:  600;
 
   /* Geometria — theme-agnóstica, por isso mora aqui e não nos blocos por tema.
      Codifica o que os pacotes já praticavam em literal: `8px`/`0.5rem` domina
@@ -54,16 +94,37 @@
      existiram no monorepo e caíam em fallback — a conversa desenhava por
      acidente uma escala própria (auditoria de 2026-08-17, spec 090 fase 7).
      Escala de espaço em passos de 4px: a mesma régua do Tailwind, que os apps
-     já usam em `px-4`/`mt-6`, para o pacote não divergir do host. */
+     já usam em `px-4`/`mt-6`, para o pacote não divergir do host — o número do
+     token é sempre px/4, e por isso 8 vale 2rem e não "o oitavo degrau".
+
+     `--radius-lg` e os degraus de espaço acima de 6 entraram na spec 100: sem
+     eles não havia token para cartão/painel (12px) nem para respiro de seção,
+     e o app contornava em literal — `MestrePage.css` escrevia
+     `calc(var(--space-6) * 2)` com o comentário "--space-6 é o topo da régua".
+     `--space-12` é esse valor com nome próprio. */
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
   --radius-pill: 999px;
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
   --space-4: 1rem;
+  --space-5: 1.25rem;
   --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* UMA sombra, e só para o que FLUTUA — modal, dropdown, barra fixa (spec 100,
+     requisito 8). Cartão que não flutua separa-se por filete de 1px, não por
+     sombra: é a diferença entre a página parecer projetada e parecer um monte
+     de caixas empilhadas. As telas de mestre tinham 15 declarações distintas,
+     nenhuma delas em elemento flutuante — eram brilho laranja e realce de
+     cartão, que é justamente o que a referência do Airbnb não faz. */
+  --shadow-float: 0 8px 24px rgba(2, 7, 64, 0.16);
 }
 
 /* ============================================================================
@@ -113,6 +174,34 @@
   --state-info-bg:      rgba(56, 189, 248, 0.16);
   --state-info-line:    rgba(56, 189, 248, 0.30);
   --state-info-fg:      var(--artificio-info-text);
+  /* --------------------------------------------------------------------------
+     Paleta de DADOS — separada dos --state-* de propósito (spec 100, D19).
+
+     Por que não reusar success/warning/danger/info: eles carregam SIGNIFICADO
+     ("deu certo", "cuidado", "erro"). Uma barra de "visualizações" não é um
+     aviso. É a mesma separação que a IBM (Carbon) documenta ao criar paleta de
+     dados própria, retirando dela os vermelhos e azuis semânticos.
+
+     Por que estes matizes: são os do palette de Wong, referência para
+     daltonismo — azul, laranja, verde-azulado e vermelhão continuam
+     distinguíveis em protanopia, deuteranopia e tritanopia.
+
+     Sobre contraste ENTRE as cores: medido, o pior par aqui é 1,33 no claro e
+     1,14 no escuro. Não é defeito — é o teto físico. O próprio palette de Wong
+     mede 1,13 no pior par, e nenhuma paleta de 4 cores escapa disso: exigir 3:1
+     entre quatro cores obriga a quarta a ter luminância 1,30, e o branco puro é
+     1,00. Por isso a distinção NÃO se apoia em cor sozinha: cada série leva
+     textura própria (`.artificio-series-*`) e rótulo com o valor — que é também
+     o que a WCAG 1.4.11 exige, e o que a dispensa quando o valor está em texto.
+
+     Cada cor vira por tema para manter ≥3:1 contra o fundo (3,42 a 8,58 no
+     claro; 4,74 a 7,66 no escuro), que é o contraste que faz a barra ser vista.
+     -------------------------------------------------------------------------- */
+  --series-1: #00507E; /* azul     */
+  --series-2: #B85C00; /* laranja  */
+  --series-3: #009E73; /* verde    */
+  --series-4: #A34600; /* vermelho */
+
   /* estado "de marca" (filtro ativo, badge de destaque): mesma familia dos
      demais --state-*, sobre o laranja --artificio-brand. Existia solto como
      rgba cru em .artificio-badge-brand; virou token no review da PR #214
@@ -191,6 +280,14 @@
      escuro; clareia p/ AA, mesmo tratamento dos outros estados. */
   --state-brand-fg:   #ffab91;
 
+  /* Paleta de dados no escuro: mesmos matizes de Wong, luminância subida para
+     manter ≥3:1 contra o navy (medido: 4,74 a 7,66). Os valores do tema claro
+     são escuros demais aqui — `--series-1` daria 2,74 sobre o navy. */
+  --series-1: #7FC7EE; /* azul     */
+  --series-2: #E69F00; /* laranja  */
+  --series-3: #33B591; /* verde    */
+  --series-4: #E8743B; /* vermelho */
+
   /* botão primário no escuro: laranja sólido + texto navy */
   --btn-primary-bg: var(--artificio-brand);
   --btn-primary-fg: var(--artificio-ink);
@@ -219,6 +316,144 @@
   /* bloco navy no escuro: navy mais claro p/ destacar do surface; texto segue branco */
   --navy-block-bg: #2e4a7a;
   --navy-block-fg: #ffffff;
+}
+
+/* ============================================================================
+   Séries de dados — cor + TEXTURA (spec 100, D19)
+
+   A textura não é enfeite: é o que torna as séries distinguíveis sem depender
+   de cor. Quatro cores quaisquer têm contraste baixo entre si (teto físico —
+   ver a nota em `--series-*`), então quem carrega a distinção para daltônicos,
+   para tela em escala de cinza e para impressão em P&B é o padrão, não o matiz.
+
+   Uso: `<div class="artificio-series-1">` na barra/fatia. O rótulo com o valor
+   continua obrigatório — é a terceira camada, e a que a WCAG 1.4.11 aceita como
+   alternativa conforme.
+   ============================================================================ */
+.artificio-series-1,
+.artificio-series-2,
+.artificio-series-3,
+.artificio-series-4 {
+  background-color: var(--series-1);
+  background-repeat: repeat;
+}
+
+/* 1 — lisa. A série principal fica sem padrão de propósito: é a linha de base
+   contra a qual as outras se leem. */
+.artificio-series-1 {
+  background-color: var(--series-1);
+}
+
+/* 2 — diagonal ascendente */
+.artificio-series-2 {
+  background-color: var(--series-2);
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.28) 0,
+    rgba(255, 255, 255, 0.28) 2px,
+    transparent 2px,
+    transparent 6px
+  );
+}
+
+/* 3 — pontilhada */
+.artificio-series-3 {
+  background-color: var(--series-3);
+  background-image: radial-gradient(rgba(255, 255, 255, 0.34) 1.2px, transparent 1.3px);
+  background-size: 6px 6px;
+}
+
+/* 4 — diagonal descendente, para não se confundir com a 2 */
+.artificio-series-4 {
+  background-color: var(--series-4);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.28) 0,
+    rgba(255, 255, 255, 0.28) 2px,
+    transparent 2px,
+    transparent 6px
+  );
+}
+
+/* Quem prefere movimento reduzido não é afetado (padrão é estático), mas quem
+   pede alto contraste ganha a textura mais marcada. */
+@media (prefers-contrast: more) {
+  .artificio-series-2,
+  .artificio-series-3,
+  .artificio-series-4 {
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.5) 0,
+      rgba(255, 255, 255, 0.5) 3px,
+      transparent 3px,
+      transparent 7px
+    );
+  }
+}
+
+/* ============================================================================
+   Régua tipográfica — utilitários (spec 100 T1.1)
+   Seis papéis, cinco tamanhos, três pesos. Existem para que app nenhum precise
+   escrever `font-size` literal: quem precisa de um tamanho novo está pedindo um
+   degrau novo AQUI, não uma exceção local (trava T3 do plan.md).
+
+   Família de CORPO em todos. `display` é papel de tamanho, não de face: quem
+   quer a face condensada compõe com `.artificio-face-display`, porque nem todo
+   título grande do produto é Oswald.
+   ============================================================================ */
+.artificio-text-display {
+  font-family: var(--artificio-font-sans);
+  font-size: var(--text-display);
+  line-height: var(--leading-display);
+  font-weight: var(--weight-strong);
+}
+
+.artificio-text-title {
+  font-family: var(--artificio-font-sans);
+  font-size: var(--text-title);
+  line-height: var(--leading-title);
+  font-weight: var(--weight-strong);
+}
+
+/* `section` e `body` compartilham 16px de propósito: o que os separa é o peso.
+   É o que mantém a régua em cinco tamanhos servindo seis papéis. */
+.artificio-text-section {
+  font-family: var(--artificio-font-sans);
+  font-size: var(--text-section);
+  line-height: var(--leading-section);
+  font-weight: var(--weight-strong);
+}
+
+.artificio-text-body {
+  font-family: var(--artificio-font-sans);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  font-weight: var(--weight-regular);
+}
+
+.artificio-text-support {
+  font-family: var(--artificio-font-sans);
+  font-size: var(--text-support);
+  line-height: var(--leading-support);
+  font-weight: var(--weight-regular);
+}
+
+/* Rótulo de campo — o requisito 6 exige UM tamanho só para todos eles. Medido
+   em beta: rótulos vizinhos do editor de perfil renderizavam 14px e 12px sem
+   regra ("Banner do Perfil" contra "URL manual"). */
+.artificio-text-label {
+  font-family: var(--artificio-font-sans);
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
+  font-weight: var(--weight-medium);
+}
+
+/* Face condensada, composta com qualquer degrau acima. Separada do tamanho
+   porque `--artificio-font-display` é a FACE do design system (Oswald), e o
+   papel "display" da régua é o TAMANHO — confundir os dois obrigaria todo
+   título grande a ser condensado. */
+.artificio-face-display {
+  font-family: var(--artificio-font-display);
 }
 
 .artificio-header {
@@ -270,7 +505,7 @@
 .artificio-header-search-input {
   background: var(--surface-subtle);
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--fg);
   font: inherit;
   min-height: 44px;
@@ -309,7 +544,7 @@
 .artificio-menu-toggle {
   background: transparent;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: inherit;
   cursor: pointer;
   display: none;
@@ -363,6 +598,9 @@
 
 .artificio-nav-link {
   border-bottom: 2px solid transparent;
+  /* Literal de propósito (spec 100): raio de dois cantos não é degrau da escala
+     — é a forma de aba, que só arredonda o topo. Tokenizar exigiria um token por
+     combinação de cantos, que é o oposto de ter escala. */
   border-radius: 6px 6px 0 0;
   color: var(--artificio-muted);
   display: inline-flex;
@@ -407,7 +645,7 @@
 .artificio-login-button {
   background: var(--artificio-ink);
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: #ffffff;
   cursor: pointer;
   font: inherit;
@@ -445,7 +683,7 @@
   align-items: center;
   background: transparent;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--artificio-ink);
   cursor: pointer;
   display: inline-flex;
@@ -463,7 +701,7 @@
   align-items: center;
   background: transparent;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--artificio-ink);
   cursor: pointer;
   display: inline-flex;
@@ -486,7 +724,7 @@
 
 .artificio-header-action-badge {
   background: #e5484d;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   height: 9px;
   position: absolute;
   right: 7px;
@@ -525,7 +763,9 @@
 .artificio-usermenu-dropdown {
   background: var(--artificio-surface);
   border: 1px solid var(--artificio-border, rgba(2, 7, 64, 0.12));
-  border-radius: 10px;
+  /* spec 100: era 10px, virou 12px (+2px) ao entrar no degrau `lg`. Um dos dois
+     únicos deltas reais do mapeamento — os outros 23 raios têm delta zero. */
+  border-radius: var(--radius-lg);
   box-shadow: 0 10px 30px rgba(2, 7, 64, 0.18);
   display: flex;
   flex-direction: column;
@@ -540,7 +780,7 @@
 .artificio-usermenu-item {
   background: transparent;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--artificio-ink);
   cursor: pointer;
   font: inherit;
@@ -563,7 +803,7 @@
 }
 
 .artificio-avatar {
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   display: inline-flex;
   height: 32px;
   width: 32px;
@@ -742,7 +982,7 @@
 .artificio-button {
   align-items: center;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   display: inline-flex;
   font: inherit;
@@ -837,7 +1077,7 @@
   animation: artificio-spin 760ms linear infinite;
   border: 2px solid currentColor;
   border-right-color: transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   height: 14px;
   width: 14px;
 }
@@ -872,7 +1112,7 @@
 .artificio-badge {
   align-items: center;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   display: inline-flex;
   font-size: 12px;
   font-weight: 700;
@@ -919,7 +1159,7 @@
 
 .artificio-banner {
   align-items: flex-start;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--state-success-line);
   display: flex;
   gap: 8px;
@@ -999,7 +1239,7 @@
 .artificio-control {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--fg);
   font: inherit;
   outline: none;
@@ -1118,7 +1358,7 @@ select option:checked,
 .artificio-panel {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--fg);
   overflow: hidden;
 }
@@ -1251,7 +1491,7 @@ select option:checked,
   animation: artificio-spin 760ms linear infinite;
   border: 3px solid var(--line-strong);
   border-top-color: var(--artificio-brand);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   height: 28px;
   width: 28px;
 }
@@ -1282,7 +1522,7 @@ select option:checked,
 }
 
 .artificio-modal {
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   left: 50%;
   max-height: min(86vh, 760px);
   max-width: min(92vw, 640px);
@@ -1320,7 +1560,7 @@ select option:checked,
   align-items: center;
   background: transparent;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   color: var(--fg);
   cursor: pointer;
   display: inline-flex;
@@ -1369,6 +1609,8 @@ select option:checked,
 }
 
 .artificio-drawer-bottom {
+  /* Literal de propósito (spec 100): dois cantos, mesma razão de
+     `.artificio-nav-link` — gaveta que sobe só arredonda o topo. */
   border-radius: 8px 8px 0 0;
   bottom: 0;
   height: auto;
@@ -1410,7 +1652,10 @@ select option:checked,
   animation: artificio-slide-up 0.3s ease-out;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 1rem;
+  /* spec 100: era 1rem (16px), virou 12px (−4px) ao entrar no degrau `lg`. É o
+     maior delta do mapeamento; o diálogo fica com o mesmo canto de cartão e
+     painel, que é o ponto de ter escala. */
+  border-radius: var(--radius-lg);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   max-width: 400px;
   padding: 2rem;
@@ -1431,6 +1676,9 @@ select option:checked,
 
 .artificio-confirm-icon {
   align-items: center;
+  /* Literal de propósito (spec 100): 50% é geometria (círculo perfeito, segue o
+     tamanho do elemento), não um degrau de raio. `--radius-pill` resolve pílula
+     de largura variável; círculo pede porcentagem. */
   border-radius: 50%;
   display: flex;
   flex-shrink: 0;
@@ -1484,7 +1732,7 @@ select option:checked,
 .artificio-confirm-btn-cancel,
 .artificio-confirm-btn-confirm {
   border: none;
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 0.9375rem;
   font-weight: 500;
@@ -1532,7 +1780,7 @@ select option:checked,
 
 .artificio-dropzone {
   border: 2px dashed var(--line);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
   padding: 1rem;
   position: relative;
   transition: border-color 0.2s, background-color 0.2s;
@@ -1564,7 +1812,7 @@ select option:checked,
 .artificio-dropzone-textarea {
   background: var(--surface-subtle);
   border: 1px solid var(--line);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
   color: var(--fg);
   min-height: 280px;
   padding: 0.75rem 0.75rem;
@@ -1738,7 +1986,7 @@ select option:checked,
   line-height: 1;
   min-width: 1rem;
   height: 1rem;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1755,7 +2003,7 @@ select option:checked,
   max-width: calc(100vw - 2rem);
   background: var(--artificio-canvas, white);
   border: 1px solid var(--artificio-border, #e2e8f0);
-  border-radius: 0.5rem;
+  border-radius: var(--radius-md);
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
   z-index: 50;
   overflow: hidden;
@@ -1830,7 +2078,7 @@ select option:checked,
   background: transparent;
   color: var(--artificio-muted, #94a3b8);
   cursor: pointer;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   display: flex;
   align-items: center;
   justify-content: center;
