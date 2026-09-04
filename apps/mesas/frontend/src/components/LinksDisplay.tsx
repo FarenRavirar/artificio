@@ -47,8 +47,10 @@ const CATEGORY_META: Record<string, { label: string; Icon: typeof Video }> = {
   authority: { label: 'Autoridade', Icon: BookOpen },
 };
 
+// `readonly`: props são entrada do componente, nunca destino de escrita — o
+// tipo passa a dizer isso (achado do Sonar, PR #306).
 interface LinksDisplayProps {
-  links: UserLink[];
+  readonly links: UserLink[];
   /**
    * Nível do título "Conteúdo & Redes". Configurável porque o nível certo
    * depende de ONDE o componente é montado: no perfil público ele vive dentro
@@ -56,7 +58,7 @@ interface LinksDisplayProps {
    * como irmãos na navegação por cabeçalhos (achado de review, PR #306).
    * Default `h2` preserva o comportamento de quem montar fora de um grupo.
    */
-  headingLevel?: 'h2' | 'h3';
+  readonly headingLevel?: 'h2' | 'h3';
 }
 
 export function LinksDisplay({ links, headingLevel: Heading = 'h2' }: LinksDisplayProps) {

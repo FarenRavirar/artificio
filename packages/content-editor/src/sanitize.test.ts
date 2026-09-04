@@ -92,11 +92,34 @@ describe('caracteres literais `<` e `>` (correção 2026-08-07)', () => {
     expect(sanitizeUserMarkdown('<script>a</script> > citação')).toBe(' > citação');
   });
 
-  it('mantém `&` escapado — desfazê-lo reabriria a ambiguidade de entidade', () => {
-    // Trade-off documentado em `MARKDOWN_ONLY_OPTIONS`: `&` escapado é inerte e
-    // o render o exibe como `&`; `>` escapado quebrava a citação. Só o segundo
-    // foi corrigido.
-    expect(sanitizeUserMarkdown('a & b')).toBe('a &amp; b');
+  it('preserva o `&` literal — o usuário lê de volta o que digitou', () => {
+    // Este teste travava o comportamento OPOSTO até 2026-09-04, justificado por
+    // "o render o exibe como `&`". O render exibe; o dado armazenado não. O
+    // mestre reabria a própria mesa e lia `Dungeons &amp; Dragons` no campo de
+    // escrita, o texto plano saía com a entidade crua, e cada `&` consumia 5
+    // caracteres do limite. Ver `protectLooseAmpersands`.
+    expect(sanitizeUserMarkdown('a & b')).toBe('a & b');
+    expect(sanitizeUserMarkdown('Dungeons & Dragons 5.5e')).toBe('Dungeons & Dragons 5.5e');
+    expect(sanitizeUserMarkdown('AT&T & Co.')).toBe('AT&T & Co.');
+  });
+
+  it('preserva a entidade que o usuário escreveu, sem confundi-la com escape nosso', () => {
+    // A distinção que `protectLooseAmpersands` precisa fazer: `&` solto é texto
+    // e volta como `&`; `&amp;`/`&copy;`/`&#38;` são o que o autor digitou e
+    // seguem intactos. Perder isso reintroduziria a não-idempotência da PR #246.
+    expect(sanitizeUserMarkdown('a &amp; b')).toBe('a &amp; b');
+    expect(sanitizeUserMarkdown('R$ 30 &copy; x')).toBe('R$ 30 &copy; x');
+    expect(sanitizeUserMarkdown('&#38; e &#x26; e &naoexiste;')).toBe('&#38; e &#x26; e &naoexiste;');
+  });
+
+  it('o `&` preservado não abre caminho para tag', () => {
+    // A sentinela do `&` é uma terceira porta para o mesmo bypass já fechado em
+    // 2026-08-07: colada na entrada, a restauração a converteria em `&` e um
+    // `&lt;script&gt;` montado à mão viraria markup. `stripSentinels` a descarta
+    // antes de qualquer coisa.
+    const AMP_SENTINEL = String.fromCharCode(0xe002);
+    expect(sanitizeUserMarkdown(`${AMP_SENTINEL}lt;script&gt;alert(1)`)).toBe('lt;script&gt;alert(1)');
+    expect(sanitizeUserMarkdown('<script>alert(1)</script> & texto')).toBe(' & texto');
   });
 
   it('entidade da entrada não é decodificada antes do escape', () => {
@@ -149,6 +172,25 @@ describe('caracteres literais `<` e `>` (correção 2026-08-07)', () => {
     // silenciosa de conteúdo, não proteção.
     expect(markdownToPlainText('&lt;script&gt;x&lt;/script&gt;'))
       .toBe('&lt;script&gt;x&lt;/script&gt;');
+  });
+
+  it('projeção plana entrega o `&` legível, não a entidade', () => {
+    // O texto plano alimenta resumo, `meta description` e prévia de listagem —
+    // nada interpreta entidade depois dele. Sem `decodeHtmlEntities`, o
+    // `markdown-it` escapava o `&` ao produzir HTML e o leitor via `a &amp; b`.
+    expect(markdownToPlainText('a & b')).toBe('a & b');
+    expect(markdownToPlainText('**Datas & Horários:** x')).toBe('Datas & Horários: x');
+  });
+
+  it('a decodificação do `&` no texto plano não alcança `<`/`>`', () => {
+    // Trava deliberada: incluir `&lt;`/`&gt;` em `decodeHtmlEntities` quebraria a
+    // idempotência. Medido em 2026-09-04 — `&lt;script&gt;` virava `<script>` na
+    // primeira passagem e string VAZIA na segunda, apagando texto legítimo de
+    // quem estivesse explicando uma tag.
+    const uma = markdownToPlainText('&lt;img src=x onerror=alert(1)&gt;');
+
+    expect(uma).toBe('&lt;img src=x onerror=alert(1)&gt;');
+    expect(markdownToPlainText(uma)).toBe(uma);
   });
 
   it('sentinela enviada pelo usuário não vira markup (achado PR #246)', () => {
