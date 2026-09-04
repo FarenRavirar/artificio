@@ -94,7 +94,12 @@
   position: relative;
   z-index: 10;
   width: 100%;
-  max-width: 1100px;
+  /* MESMA largura do `.container` do corpo (spec 100, medido em beta
+     2026-09-04): com 1100px fixo aqui e 1200px lá, o hero começava 100px à
+     esquerda de todo o resto — nome, selos e avatar desalinhados em relação
+     aos títulos de grupo logo abaixo. O número não se repete: os dois lados
+     leem `--page-max`, então mudar a medida do corpo move o hero junto. */
+  max-width: var(--page-max);
   margin: 0 auto;
   padding: var(--space-8) var(--space-6);
   /* Alinhado à esquerda (D5): centralizar texto longo obriga o olho a

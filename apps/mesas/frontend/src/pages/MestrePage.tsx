@@ -84,18 +84,22 @@ export const MestrePage = () => {
   }
 
   // Condição de conteúdo por grupo (D20). Espelha o que cada filho verifica
-  // internamente: `MestreBio` exige tagline OU bio; `MestreHighlights`, um dos
+  // internamente: `MestreBio` exige a BIO (a tagline saiu de lá — ela é o `h1`
+  // do hero e estava duplicada na página); `MestreHighlights`, um dos
   // três arrays; `MestreSellingPoints`, a lista; `MestreClosedGroupSection`,
   // o `enabled`. O grupo não consegue perguntar isso aos filhos — ver a nota
   // em `MestreSectionGroup` sobre `Children.toArray`.
   const temSobre =
-    !!profile.tagline?.trim() ||
+    // `tagline` NÃO entra: nenhum filho deste grupo a renderiza mais, então
+    // contá-la abriria o grupo "Sobre" vazio para quem só tem slogan — a mesma
+    // falha de D20 que o `hasContent` existe para impedir.
     !!profile.bio_long?.trim() ||
     (profile.specialties?.length ?? 0) > 0 ||
     (profile.languages?.length ?? 0) > 0 ||
     (profile.badges?.length ?? 0) > 0 ||
     (profile.selling_points?.length ?? 0) > 0 ||
-    (profile.preferred_vtt_platforms?.length ?? 0) > 0;
+    (profile.preferred_vtt_platforms?.length ?? 0) > 0 ||
+    (profile.preferred_communication_platforms?.length ?? 0) > 0;
 
   // `MestreTablesSection` renderiza SEMPRE — inclusive o estado "sem mesas
   // ativas", que é informação para o visitante, não vazio. Logo o grupo Mesas
@@ -139,6 +143,20 @@ export const MestrePage = () => {
             profile.preferred_vtt_platforms.length > 0 && (
               <section className="container">
                 <MestreVttPlatforms platforms={profile.preferred_vtt_platforms} />
+              </section>
+            )}
+
+          {/* migration_166: onde a conversa acontece, ao lado de onde a mesa
+              acontece. Mesmo componente, outro título — não há logo para estas
+              (a tabela não tem `logo_filename`), então cai no fallback da
+              inicial, que já é o comportamento do componente. */}
+          {profile.preferred_communication_platforms &&
+            profile.preferred_communication_platforms.length > 0 && (
+              <section className="container">
+                <MestreVttPlatforms
+                  platforms={profile.preferred_communication_platforms}
+                  title="Onde eu converso com a mesa"
+                />
               </section>
             )}
         </MestreSectionGroup>

@@ -12,6 +12,7 @@ import {
   validateImpliesInput,
   impliesInsertValues,
   applyImpliesUpdate,
+  aliasConflictMessage,
   IMPLIES_COLUMNS,
 } from '../utils/platformUtils.js';
 import { resolveActorName } from '../services/actorNameResolver.js';
@@ -331,6 +332,30 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req, res) => 
   }
 
   try {
+    // Mesma guarda do catálogo de comunicação (2026-09-04): nome/slug que já é
+    // APELIDO de outra plataforma não vira plataforma nova, senão o catálogo
+    // ganha duas entradas do mesmo conceito. Lá isso já aconteceu de fato
+    // (`Google Meet` + `Meet` em beta); aqui a lacuna era idêntica e ainda não
+    // tinha sido exercitada — corrigir só o catálogo que quebrou deixaria o
+    // outro esperando a vez.
+    const aliasExistente = await db
+      .selectFrom('vtt_platform_aliases as a')
+      .innerJoin('vtt_platforms as vp', 'vp.id', 'a.vtt_platform_id')
+      .select(['vp.name as platformName'])
+      .where((eb) =>
+        eb.or([
+          eb('a.alias', 'ilike', name),
+          eb('a.alias_slug', '=', slug),
+        ]),
+      )
+      .executeTakeFirst();
+
+    if (aliasExistente) {
+      return res.status(409).json({
+        error: aliasConflictMessage(name, aliasExistente.platformName),
+      });
+    }
+
     const websiteUrl = normalizeWebsiteUrl(payload.website_url);
     const logoFilename = normalizeLogoFilename(payload.logo_filename);
     const aliases = normalizeAliases(payload.aliases);

@@ -8,10 +8,17 @@ interface Props {
 
 export function MestreBio({ profile }: Props) {
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
-  const hasTagline = !!profile.tagline?.trim();
   const hasBio = !!profile.bio_long?.trim();
 
-  if (!hasTagline && !hasBio) return null;
+  // Sem a `tagline` (spec 100, medido em beta 2026-09-04): ela já é o `<h1>` do
+  // hero, e repeti-la aqui mostrava a MESMA frase duas vezes na página, 665px
+  // abaixo da primeira. O slogan é promessa de identidade e pertence ao topo,
+  // junto do nome — é o que a prática do mercado faz. Mesmo motivo que tirou os
+  // chips de especialidades/idiomas daqui em 2026-08-31 (spec 099 B3/C2).
+  //
+  // A condição de render passa a depender SÓ da bio: com `hasTagline` no lugar,
+  // um mestre com slogan e sem bio renderizaria esta seção vazia.
+  if (!hasBio) return null;
 
   return (
     <section className="mestre-bio-section">
@@ -45,11 +52,6 @@ export function MestreBio({ profile }: Props) {
                 idiomas, selos) vive agora em `MestreHighlights`, seção própria
                 logo depois desta — aqui os dois ficariam duplicados na página. */}
 
-            {hasTagline && (
-              <blockquote className="mestre-bio-tagline">
-                "{profile.tagline}"
-              </blockquote>
-            )}
           </div>
         </div>
       </div>

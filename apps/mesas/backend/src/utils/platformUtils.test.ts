@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   IMPLIES_COLUMNS,
+  aliasConflictMessage,
   validateImpliesInput,
   impliesInsertValues,
   applyImpliesUpdate,
@@ -89,5 +90,22 @@ describe('applyImpliesUpdate', () => {
     const updateData: Record<string, unknown> = {};
     applyImpliesUpdate({ implies_pc: false }, updateData);
     expect(updateData).toEqual({ implies_pc: false });
+  });
+});
+
+describe('aliasConflictMessage', () => {
+  // A duplicata real que originou a guarda: `Meet` foi criada como plataforma
+  // embora "Meet" já fosse apelido de `Google Meet` desde a migration_159
+  // (medido em beta, 2026-09-04).
+  it('nomeia a plataforma dona do apelido, não só recusa', () => {
+    const msg = aliasConflictMessage('Meet', 'Google Meet');
+    expect(msg).toContain('"Meet"');
+    expect(msg).toContain('"Google Meet"');
+  });
+
+  it('diz ao admin o que fazer em vez de criar', () => {
+    // Recusa sem saída deixa o admin sem ação possível: ele não sabe que a
+    // plataforma já existe sob outro nome.
+    expect(aliasConflictMessage('Meet', 'Google Meet')).toMatch(/Use essa plataforma/);
   });
 });

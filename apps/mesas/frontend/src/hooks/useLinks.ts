@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
 import { useAuth } from '../contexts/useAuth';
 import { authGet, authPost, authPatch, authDelete } from '../utils/authenticatedFetch';
+import { isAbortError } from '../services/apiClient';
 
 export interface UserLink {
   id: string;
@@ -330,6 +331,13 @@ export function useLinks(): UseLinksReturn {
       const data: unknown = await res.json();
       publishLinksIfCurrent(normalizeLinksPayload(data), generation, token, owner);
     } catch (err: unknown) {
+      // Abort não é falha: o dedup de GET do `apiClient` cancela a requisição
+      // anterior quando outra igual entra, e o StrictMode do dev dispara o
+      // efeito duas vezes. Logar isso como erro enchia o console de
+      // `AbortError` numa tela que carregou bem — e, pior, escondia erro de
+      // verdade no meio do ruído. Mesmo guard de `PainelMestrePage`,
+      // `useMestre` e `useFetchTables`.
+      if (isAbortError(err)) return;
       console.error('Error fetching links:', err);
       // Falha TARDIA (de um GET que já não é o vigente) não escreve nada: ela
       // sobrescreveria o erro — ou a ausência de erro — da requisição que a

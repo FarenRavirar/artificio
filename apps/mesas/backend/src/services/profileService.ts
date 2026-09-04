@@ -1,4 +1,5 @@
 import type { CropRect } from '@artificio/media/image-kinds';
+import { toJsonbParam } from '../db/jsonb.js';
 import { db } from '../db/index.js';
 import type {
   PlayerProfile,
@@ -240,6 +241,11 @@ export async function updateProfile(
   }
 ) {
   const sanitizedBio = sanitizeOptionalUserMarkdown(data.bio);
+  // `avatar_crop_data` é JSONB: sai do spread para ser serializado (ver
+  // `db/jsonb.ts`). Sem isto o driver `pg` mandava `[object Object]` e o
+  // recorte nunca chegava a gravar — medido em beta: 0 de 18 perfis com crop.
+  const { avatar_crop_data: rawCrop, ...restData } = data;
+  const cropParam = toJsonbParam(rawCrop);
   const exists = await db
     .selectFrom('profiles')
     .select('id')
@@ -250,7 +256,8 @@ export async function updateProfile(
     await db
       .updateTable('profiles')
       .set({
-        ...data,
+        ...restData,
+        avatar_crop_data: cropParam,
         bio: sanitizedBio,
         updated_at: new Date(),
       })
@@ -264,7 +271,7 @@ export async function updateProfile(
         display_name: data.display_name || 'Usuário',
         bio: sanitizedBio || null,
         avatar_url: data.avatar_url || null,
-        avatar_crop_data: data.avatar_crop_data ?? null,
+        avatar_crop_data: cropParam ?? null,
         avatar_width: data.avatar_width ?? null,
         avatar_height: data.avatar_height ?? null,
         languages: data.languages || [],

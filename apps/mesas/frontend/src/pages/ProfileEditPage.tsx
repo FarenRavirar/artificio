@@ -29,6 +29,7 @@ import {
 // pendências e a porta para o link oficial). A `MestreProfilePreview` que a
 // B10 montava aqui saiu: o espelho virou porta (§13.11).
 import { ProfileEditorSidebar } from '../components/mestre/editor/ProfileEditorSidebar';
+import { VttPlatformsEditor } from '../components/mestre/VttPlatformsEditor';
 import {
   PROFILE_PARTS,
   profilePartDomId,
@@ -844,6 +845,44 @@ function TabMestre() {
               updateGm(data);
             }}
           />
+
+          {/* VTT/comunicação (achado do mantenedor, 2026-09-04): o campo existia
+              SÓ no `/painel`, então quem editava o perfil aqui não achava onde
+              informar onde mestra — e a página pública já exibia a seção
+              (`MestreVttPlatforms`). Fica em "Sua mesa" porque responde à
+              pergunta desta parte ("eu caberia nessa mesa?": preciso de Foundry?
+              de Discord?).
+
+              Mesmo componente do painel, não uma segunda implementação — o que
+              muda é só como persiste: aqui entra pelo `updateGm` desta tela
+              (autosave com debounce), em vez do PUT direto com toast que o
+              painel usa. Duas cópias divergiriam. */}
+          <h3 className="profile-part-subtitle">Onde você mestra</h3>
+          <p className="section-description">
+            Plataformas de VTT e de comunicação que você usa nas suas mesas
+          </p>
+          <VttPlatformsEditor
+            selectedPlatforms={gmProfile.preferred_vtt_platforms ?? []}
+            onSave={async (platformIds) => {
+              updateGm({ preferred_vtt_platforms: platformIds });
+            }}
+          />
+
+          {/* Comunicação é a outra metade da resposta (migration_166): a mesa
+              acontece numa VTT, mas a conversa acontece no Discord/Meet/Teams —
+              e o rascunho da MESA já perguntava isso (`communication_platform_id`),
+              enquanto o perfil não tinha onde declarar. Mesmo componente da
+              grade acima, só com outro catálogo. */}
+          <VttPlatformsEditor
+            endpoint="/api/v1/communication-platforms"
+            title="Plataformas de comunicação que você usa"
+            description="Por onde você conversa com a mesa durante a sessão (Discord, Meet, Teams...)."
+            fallbackIcon="💬"
+            selectedPlatforms={gmProfile.preferred_communication_platforms ?? []}
+            onSave={async (platformIds) => {
+              updateGm({ preferred_communication_platforms: platformIds });
+            }}
+          />
         </ProfilePart>
 
         <ProfilePart id="prova">
@@ -896,7 +935,19 @@ function ProfilePart({
       aria-label={meta?.label ?? id}
     >
       <h2>{meta?.label ?? id}</h2>
-      {meta ? <p className="section-description">{meta.question}</p> : null}
+      {/* A `question` é a dúvida do VISITANTE, não uma instrução ao mestre
+          (spec 100). Como `.section-description` pura ela lia igual a
+          "Sistemas que você gosta de jogar" — o mestre a recebia como ordem, e
+          não como a pergunta que esta parte existe para responder. Atribuir a
+          fala a quem a diz é o padrão da indústria para este caso; aqui isso
+          é o rótulo "O visitante se pergunta:" mais o tratamento de citação
+          em `.section-question`. */}
+      {meta ? (
+        <p className="section-description section-question">
+          <span className="section-question-eyebrow">O visitante se pergunta:</span>
+          <q className="section-question-text">{meta.question}</q>
+        </p>
+      ) : null}
       {children}
     </section>
   );

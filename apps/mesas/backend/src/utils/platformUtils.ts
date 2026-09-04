@@ -44,6 +44,27 @@ export const getPlatformErrorMessage = (error: unknown): string => {
   return 'Erro interno';
 };
 
+/**
+ * Recusa a criação de plataforma cujo nome já é APELIDO de outra.
+ *
+ * Medido em beta (2026-09-04): o catálogo de comunicação tinha `Google Meet`
+ * E `Meet`, embora `communication_platform_aliases` já trouxesse "Meet" →
+ * `google-meet` desde a migration_159. A tabela de aliases existe para
+ * reconhecer a grafia alternativa; sem consultá-la na criação, a duplicata
+ * entra pela porta da frente e as duas passam a aparecer lado a lado na
+ * seleção. Produção estava limpa — era sujeira de beta —, mas nada impedia
+ * o mesmo em produção.
+ *
+ * Vive aqui, e não na rota, porque a regra é do conceito "plataforma" e vale
+ * igual para o catálogo de VTT (mesmo par tabela + aliases).
+ */
+export const aliasConflictMessage = (
+  name: string,
+  ownerPlatformName: string,
+): string =>
+  `"${name}" já é reconhecido como apelido de "${ownerPlatformName}". ` +
+  'Use essa plataforma em vez de criar uma nova.';
+
 // Achado Sonar (PR #287): a validação dos requisitos implicados nasceu
 // duplicada byte-a-byte nas duas rotas — 3 blocos no POST e 3 no PUT, ×2
 // arquivos. Mesma origem do achado da PR #145 que criou este util: a regra é

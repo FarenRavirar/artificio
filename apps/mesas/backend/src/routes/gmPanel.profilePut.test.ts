@@ -165,8 +165,15 @@ describe('PUT /api/v1/gm/profile — normalização dos campos livres (spec 099 
       });
 
     expect(res.status).toBe(200);
+    // Vai SERIALIZADO, não como array cru: `selling_points` é JSONB e o driver
+    // `pg` converteria um array JS para o literal de array do Postgres
+    // (`{"{...}"}`), que o banco recusa com `22P02`. A asserção anterior exigia
+    // o array cru — codificava o defeito que derrubou o PUT em beta com 500 na
+    // primeira gravação real (2026-09-04). Ver `db/jsonb.ts`.
     expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({
-      selling_points: [{ icon: 'clock', title: 'Pontual', description: 'Comeco no horario' }],
+      selling_points: JSON.stringify([
+        { icon: 'clock', title: 'Pontual', description: 'Comeco no horario' },
+      ]),
     }));
   });
 

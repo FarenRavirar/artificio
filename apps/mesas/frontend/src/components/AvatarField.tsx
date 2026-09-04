@@ -128,7 +128,16 @@ export function AvatarField({
 
   return (
     <div className="form-group">
-      <label htmlFor={`${idPrefix}-file-input`}>{label}</label>
+      {/* Rótulo do CAMPO, não gatilho do upload (spec 100, medido em beta
+          2026-09-04). Com `htmlFor` apontando para o input de arquivo, o
+          `<label>` é `display:block` e ocupava a largura inteira do formulário
+          (818px medidos): clicar em qualquer ponto vazio da faixa — bem longe
+          do texto — abria o seletor de arquivos sem o usuário ter pedido.
+          Quem dispara o upload é o botão "Enviar nova imagem", que já chama
+          `fileInputRef.current?.click()`. O vínculo com o input permanece por
+          `aria-labelledby`, então o leitor de tela continua anunciando o nome
+          do campo — o que se perde é só a ativação por clique acidental. */}
+      <span className="form-label" id={`${idPrefix}-label`}>{label}</span>
       {description && (
         <p className="field-description" id={descriptionId}>
           {description}
@@ -157,6 +166,7 @@ export function AvatarField({
               type="file"
               ref={fileInputRef}
               id={`${idPrefix}-file-input`}
+              aria-labelledby={`${idPrefix}-label`}
               accept="image/png,image/jpeg,image/webp"
               style={{ display: 'none' }}
               onChange={handleFileSelect}
@@ -215,7 +225,7 @@ export function AvatarField({
 
             <details className="avatar-manual-details">
               <summary className="artificio-button artificio-button-secondary artificio-button-sm">
-                🔗 Usar URL manual
+                🔗 Colar link de uma imagem
               </summary>
               <div className="avatar-manual-input">
                 {/* Spec 099 G5/A15: `<input>` cru virou o primitivo do pacote.
@@ -229,7 +239,7 @@ export function AvatarField({
                   value={value.url}
                   onChange={(event) => applyNewImage(event.target.value)}
                   onBlur={urlImport.importUrlIfNeeded}
-                  placeholder="https://exemplo.com/avatar.jpg"
+                  placeholder="Cole aqui um link direto de imagem (.jpg, .png ou .webp)"
                 />
                 <label className="avatar-direct-link-option" title={urlImport.directLinkTooltip}>
                   <Checkbox

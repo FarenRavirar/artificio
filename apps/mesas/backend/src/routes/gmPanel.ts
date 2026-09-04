@@ -1,4 +1,5 @@
 import { normalizeImageFramePatch } from '@artificio/media/image-kinds';
+import { toJsonbParam, toJsonbParamNotNull } from '../db/jsonb.js';
 import { Router, Request, Response } from 'express';
 import { sql, type Updateable, type Selectable } from 'kysely';
 import { db } from '../db/index.js';
@@ -107,6 +108,20 @@ const isSellingPoint = (point: unknown): point is SellingPoint => {
     typeof candidate.description === 'string'
   );
 };
+
+/**
+ * Lista de UUIDs vinda do corpo da requisição, filtrada.
+ *
+ * Existia inline em três lugares (systems do grupo fechado, VTTs, e agora as
+ * plataformas de comunicação) com a MESMA regex copiada — a quarta cópia seria
+ * a que divergiria. `undefined` quando o campo não veio: o contrato de três
+ * estados do PUT preserva o valor salvo em vez de apagá-lo.
+ */
+function sanitizeUuidList(value: unknown): string[] | undefined {
+  return Array.isArray(value)
+    ? value.filter((item) => typeof item === 'string' && /^[0-9a-fA-F-]{36}$/.test(item))
+    : undefined;
+}
 
 function normalizeNullableString(
   value: unknown,
@@ -289,11 +304,7 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
     ? selling_points.filter(isSellingPoint)
     : [];
   const safeClosedGroupEnabled = typeof closed_group_enabled === 'boolean' ? closed_group_enabled : false;
-  const safeClosedGroupSystems = Array.isArray(closed_group_systems)
-    ? closed_group_systems.filter(
-        (value) => typeof value === 'string' && /^[0-9a-fA-F-]{36}$/.test(value)
-      )
-    : [];
+  const safeClosedGroupSystems = sanitizeUuidList(closed_group_systems) ?? [];
   const safeBioLong = typeof bio_long === 'string' ? sanitizeUserMarkdown(bio_long) : null;
   const safeClosedGroupDescription =
     typeof closed_group_description === 'string'
@@ -327,14 +338,14 @@ router.post('/profile', authMiddleware, async (req: Request, res: Response) => {
         badges: safeBadges,
         tagline: safeTagline,
         promo_badge_text: safePromoBadgeText,
-        selling_points: safeSellingPoints,
+        selling_points: toJsonbParamNotNull(safeSellingPoints),
         closed_group_enabled: safeClosedGroupEnabled,
         closed_group_systems: safeClosedGroupSystems,
         closed_group_description: safeClosedGroupDescription,
         closed_group_min_price_cents: safeClosedGroupMinPriceCents,
         // undefined preserva o DEFAULT '[]' da coluna (gm_profiles.contact_methods,
         // migration_112) quando o chamador não envia contatos.
-        contact_methods: safeContactMethods === undefined ? undefined : JSON.stringify(safeContactMethods),
+        contact_methods: toJsonbParamNotNull(safeContactMethods),
       })
       .returning([
         'id',
@@ -409,6 +420,7 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
     closed_group_description,
     closed_group_min_price_cents,
     preferred_vtt_platforms,
+    preferred_communication_platforms,
     contact_methods,
   } = req.body;
 
@@ -439,11 +451,7 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
     ? selling_points.filter(isSellingPoint)
     : undefined;
   const safeClosedGroupEnabled = typeof closed_group_enabled === 'boolean' ? closed_group_enabled : undefined;
-  const safeClosedGroupSystems = Array.isArray(closed_group_systems)
-    ? closed_group_systems.filter(
-        (value) => typeof value === 'string' && /^[0-9a-fA-F-]{36}$/.test(value)
-      )
-    : undefined;
+  const safeClosedGroupSystems = sanitizeUuidList(closed_group_systems);
   const safeClosedGroupDescription = normalizeNullableString(
     closed_group_description,
     (value) => sanitizeUserMarkdown(value.trim()),
@@ -460,11 +468,8 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
   // inteiro >= 0 grava, `null` zera, ausente/outro tipo preserva o salvo.
   const safeExperienceYears = normalizeNullableNonNegativeInteger(experience_years);
   const safeAveragePrice = normalizeNullableNonNegativeInteger(average_price);
-  const safePreferredVttPlatforms = Array.isArray(preferred_vtt_platforms)
-    ? preferred_vtt_platforms.filter(
-        (value) => typeof value === 'string' && /^[0-9a-fA-F-]{36}$/.test(value)
-      )
-    : undefined;
+  const safePreferredVttPlatforms = sanitizeUuidList(preferred_vtt_platforms);
+  const safePreferredCommunicationPlatforms = sanitizeUuidList(preferred_communication_platforms);
   
   // D3/D8 (sessão de segurança 2026-08-03): compatibilidade de transporte do
   // HOTFIX é preservada, mas toda entrada — inclusive JSON-string — passa pelo
@@ -511,16 +516,16 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
         specialties: safeSpecialties,
         badges: safeBadges,
         avatar_url: avatar_url ?? undefined,
-        avatar_crop_data: avatarFrame.crop,
+        avatar_crop_data: toJsonbParam(avatarFrame.crop),
         avatar_width: avatarFrame.width,
         avatar_height: avatarFrame.height,
         banner_url: banner_url ?? undefined,
-        banner_crop_data: bannerFrame.crop,
+        banner_crop_data: toJsonbParam(bannerFrame.crop),
         banner_width: bannerFrame.width,
         banner_height: bannerFrame.height,
         tagline: safeTagline,
         promo_badge_text: safePromoBadgeText,
-        selling_points: safeSellingPoints,
+        selling_points: toJsonbParamNotNull(safeSellingPoints),
         closed_group_enabled: safeClosedGroupEnabled,
         closed_group_systems: safeClosedGroupSystems,
         closed_group_description: safeClosedGroupDescription,
@@ -528,7 +533,8 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
         experience_years: safeExperienceYears,
         average_price: safeAveragePrice,
         preferred_vtt_platforms: safePreferredVttPlatforms,
-        contact_methods: safeContactMethods === undefined ? undefined : JSON.stringify(safeContactMethods),
+        preferred_communication_platforms: safePreferredCommunicationPlatforms,
+        contact_methods: toJsonbParamNotNull(safeContactMethods),
       })
       .where('id', '=', gmProfile.id)
       .returning([

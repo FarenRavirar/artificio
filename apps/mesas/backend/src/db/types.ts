@@ -45,7 +45,8 @@ export interface ProfilesTable {
   display_name: string;
   bio: string | null;
   avatar_url: string | null;
-  avatar_crop_data: { x: number; y: number; width: number; height: number } | null;
+  /** JSONB: idem `gm_profiles.avatar_crop_data` — escrita serializada (ver `db/jsonb.ts`). */
+  avatar_crop_data: ColumnType<{ x: number; y: number; width: number; height: number } | null, string | null, string | null>;
   avatar_width: number | null;
   avatar_height: number | null;
   languages: Generated<string[]>;
@@ -106,11 +107,17 @@ export interface GmProfilesTable {
   nickname: string | null;
   bio_long: string | null;
   avatar_url: string | null;
-  avatar_crop_data: { x: number; y: number; width: number; height: number } | null;
+  /**
+   * JSONB: sai do banco parseado, entra serializado. O `ColumnType` obriga o
+   * `JSON.stringify` na escrita — mesmo padrão de `notification_outbox.snapshot`.
+   * Com o tipo antigo (objeto cru dos dois lados) esquecer de serializar
+   * compilava e o driver `pg` mandava `[object Object]` ao Postgres.
+   */
+  avatar_crop_data: ColumnType<{ x: number; y: number; width: number; height: number } | null, string | null, string | null>;
   avatar_width: number | null;
   avatar_height: number | null;
   banner_url: string | null;
-  banner_crop_data: { x: number; y: number; width: number; height: number } | null;
+  banner_crop_data: ColumnType<{ x: number; y: number; width: number; height: number } | null, string | null, string | null>;
   banner_width: number | null;
   banner_height: number | null;
   languages: Generated<string[]>;
@@ -131,19 +138,22 @@ export interface GmProfilesTable {
   experience_years: number | null;
   average_price: number | null;
   // Estilo de mestria (JSONB)
-  gm_style: unknown | null; // { narrative: number, tactical: number, sandbox: number, railroad: number }
-  tools: unknown | null; // string[] - ["Foundry VTT", "Discord", "Roll20"]
-  game_format: unknown | null; // { session_length: string, frequency: string, group_size: string }
+  gm_style: ColumnType<unknown, string | null, string | null>; // { narrative, tactical, sandbox, railroad }
+  tools: ColumnType<unknown, string | null, string | null>; // string[] - ["Foundry VTT", "Discord"]
+  game_format: ColumnType<unknown, string | null, string | null>; // { session_length, frequency, group_size }
   // Perfil público v2
   tagline: string | null;
   promo_badge_text: string | null;
-  selling_points: unknown; // JSONB: Array<{ icon, title, description, highlight? }>
+  selling_points: ColumnType<unknown, string | undefined, string | undefined>; // Array<{ icon, title, description, highlight? }>
   closed_group_enabled: Generated<boolean>;
   closed_group_systems: Generated<string[]>; // UUID[]
   closed_group_description: string | null;
   closed_group_min_price_cents: number | null;
   preferred_vtt_platforms: Generated<string[]>; // UUID[] - VTT platforms que o mestre usa/prefere
-  contact_methods: unknown; // JSONB - Array<{ channel: string, value: string, label?: string, discord_server_url?: string }>
+  /** UUID[] - communication_platforms do mestre (Discord, Meet, Teams). Par
+      simétrico de `preferred_vtt_platforms` (migration_166). */
+  preferred_communication_platforms: Generated<string[]>;
+  contact_methods: ColumnType<unknown, string | undefined, string | undefined>; // Array<{ channel, value, label?, discord_server_url? }>
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
 }

@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 298,
-    "uniqueEndpoints": 273,
+    "total": 297,
+    "uniqueEndpoints": 272,
     "byApp": {
       "accounts-frontend": {
         "total": 8,
@@ -38,16 +38,16 @@
         }
       },
       "mesas-frontend": {
-        "total": 180,
+        "total": 179,
         "byConfidence": {
           "medium": 78,
-          "high": 102
+          "high": 101
         },
         "byPattern": {
           "unknown": 4,
           "template-literal": 72,
           "service-wrapper": 45,
-          "literal": 59
+          "literal": 58
         }
       },
       "packages/auth": {
@@ -1756,7 +1756,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authGet",
-      "line": 183
+      "line": 191
     },
     {
       "app": "mesas-frontend",
@@ -2046,7 +2046,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authGet",
-      "line": 318
+      "line": 319
     },
     {
       "app": "mesas-frontend",
@@ -2056,7 +2056,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 363
+      "line": 371
     },
     {
       "app": "mesas-frontend",
@@ -2066,7 +2066,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authDelete",
-      "line": 406
+      "line": 414
     },
     {
       "app": "mesas-frontend",
@@ -2076,7 +2076,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPatch",
-      "line": 431
+      "line": 439
     },
     {
       "app": "mesas-frontend",
@@ -2106,7 +2106,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 322
+      "line": 323
     },
     {
       "app": "mesas-frontend",
@@ -2537,16 +2537,6 @@
       "pattern": "literal",
       "wrapper": "authPost",
       "line": 24
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/components/mestre/VttPlatformsEditor.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/vtt-platforms",
-      "confidence": "high",
-      "pattern": "literal",
-      "wrapper": "fetch",
-      "line": 27
     },
     {
       "app": "mesas-frontend",

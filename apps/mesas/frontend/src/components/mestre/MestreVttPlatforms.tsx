@@ -2,22 +2,35 @@ interface VttPlatform {
   id: string;
   name: string;
   slug: string;
-  logo_filename: string | null;
+  /** `communication_platforms` não tem esta coluna (migration_166). */
+  logo_filename?: string | null;
   website_url: string | null;
 }
 
 interface MestreVttPlatformsProps {
-  platforms: VttPlatform[];
+  readonly platforms: VttPlatform[];
+  /**
+   * Título da seção. Existe porque o perfil passou a exibir DUAS grades — as
+   * VTTs e as plataformas de comunicação (migration_166) — e as duas são a
+   * mesma lista de logo + nome. Uma segunda cópia do componente divergiria no
+   * primeiro ajuste.
+   */
+  readonly title?: string;
+  readonly logoBasePath?: string;
 }
 
-export function MestreVttPlatforms({ platforms }: MestreVttPlatformsProps) {
+export function MestreVttPlatforms({
+  platforms,
+  title = 'Plataformas que uso',
+  logoBasePath = '/vtt-logos',
+}: MestreVttPlatformsProps) {
   if (!platforms || platforms.length === 0) {
     return null;
   }
 
   return (
     <section className="p-6 rounded-[var(--radius-lg)] bg-[var(--fill-5)] border border-[var(--border)]">
-      <h3 className="text-[length:var(--text-title)] leading-[var(--leading-title)] font-[var(--weight-strong)] text-[var(--fg)] mb-4">Plataformas que uso</h3>
+      <h3 className="text-[length:var(--text-title)] leading-[var(--leading-title)] font-[var(--weight-strong)] text-[var(--fg)] mb-4">{title}</h3>
       
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
         {platforms.map((platform) => (
@@ -37,7 +50,7 @@ export function MestreVttPlatforms({ platforms }: MestreVttPlatformsProps) {
           >
             {platform.logo_filename ? (
               <img
-                src={`/vtt-logos/${platform.logo_filename}`}
+                src={`${logoBasePath}/${platform.logo_filename}`}
                 alt={platform.name}
                 className="h-12 w-auto object-contain"
               />

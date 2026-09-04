@@ -9,6 +9,7 @@ import {
   validateImpliesInput,
   impliesInsertValues,
   applyImpliesUpdate,
+  aliasConflictMessage,
   IMPLIES_COLUMNS,
 } from '../utils/platformUtils.js';
 
@@ -117,6 +118,31 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req: Request,
   }
 
   try {
+    // O nome/slug pedido já é APELIDO de outra plataforma? Então criar aqui
+    // produz duplicata do mesmo conceito (medido em beta, 2026-09-04: existiam
+    // `Google Meet` E `Meet`, embora `communication_platform_aliases` já
+    // trouxesse "Meet" → `google-meet` desde a migration_159). A tabela de
+    // aliases existe justamente para reconhecer a grafia alternativa; não
+    // consultá-la aqui deixava a duplicata entrar pela porta da frente, e
+    // depois as duas apareciam lado a lado na seleção do perfil.
+    const aliasExistente = await db
+      .selectFrom('communication_platform_aliases as a')
+      .innerJoin('communication_platforms as cp', 'cp.id', 'a.communication_platform_id')
+      .select(['cp.name as platformName'])
+      .where((eb) =>
+        eb.or([
+          eb('a.alias', 'ilike', name),
+          eb('a.alias_slug', '=', slug),
+        ]),
+      )
+      .executeTakeFirst();
+
+    if (aliasExistente) {
+      return res.status(409).json({
+        error: aliasConflictMessage(name, aliasExistente.platformName),
+      });
+    }
+
     const websiteUrl = normalizeWebsiteUrl(payload.website_url);
 
     const created = await db

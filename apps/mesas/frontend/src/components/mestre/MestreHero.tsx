@@ -48,8 +48,10 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
     (avgRating ?? 0) > 0 ||
     (profile.reviews_count ?? 0) > 0;
 
+  // `tables_count` saiu desta conta junto com o selo que o exibia (spec 100):
+  // deixá-lo aqui faria a linha inteira renderizar VAZIA para o mestre que só
+  // tem mesas ativas e nenhum outro selo — condição verdadeira, nenhum filho.
   const hasAnyTrust =
-    (profile.tables_count ?? 0) > 0 ||
     profile.covil_verified ||
     (profile.experience_years ?? 0) >= 3 ||
     (profile.years_on_platform ?? 0) >= 1 ||
@@ -225,12 +227,11 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
 
         {hasAnyTrust && (
           <div className="hero-trust-row">
-            {(profile.tables_count ?? 0) > 0 && (
-              <span className="trust-item">
-                <CheckCircle2 className="w-4 h-4" />
-                {profile.tables_count} {profile.tables_count === 1 ? 'mesa ativa' : 'mesas ativas'}
-              </span>
-            )}
+            {/* "N mesas ativas" saiu daqui (spec 100): a mesma `tables_count`
+                aparecia como selo de confiança E como número em `hero-stats`
+                logo abaixo — o visitante lia "8 mesas ativas" e "8 Mesas" na
+                mesma dobra. O dado ficou só na stat, que agora se rotula
+                "Mesas Ativas". Medido em beta 2026-09-04. */}
             {profile.covil_verified && (
               <span className="trust-item" data-testid="trust-covil">
                 <CheckCircle2 className="w-4 h-4" />
@@ -257,7 +258,7 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
             {(profile.tables_hosted_count ?? 0) > 0 && (
               <span className="trust-item">
                 <CheckCircle2 className="w-4 h-4" />
-                {profile.tables_hosted_count} {profile.tables_hosted_count === 1 ? 'mesa hospedada' : 'mesas hospedadas'}
+                {profile.tables_hosted_count} {profile.tables_hosted_count === 1 ? 'mesa publicada' : 'mesas publicadas'}
               </span>
             )}
           </div>
@@ -270,7 +271,7 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
                 <Users className="stat-icon" />
                 <span className="stat-value">{profile.tables_count}</span>
                 <span className="stat-label">
-                  {profile.tables_count === 1 ? 'Mesa' : 'Mesas'}
+                  {profile.tables_count === 1 ? 'Mesa Ativa' : 'Mesas Ativas'}
                 </span>
               </div>
             )}

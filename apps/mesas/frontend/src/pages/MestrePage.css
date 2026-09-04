@@ -16,6 +16,10 @@
   min-height: 100vh;
   background: var(--canvas);
   color: var(--fg);
+  /* Largura única da página: o `.container` do corpo E o `.hero-content`
+     (MestreHero.css) leem daqui, para o hero não voltar a divergir do resto
+     como divergia (1100 contra 1200, medido em beta 2026-09-04). */
+  --page-max: 1200px;
 }
 
 /* Spec 099 C3: uma única regra de proximidade para todos os blocos públicos.
@@ -37,8 +41,12 @@
   background: linear-gradient(to bottom, var(--canvas), var(--surface-subtle));
 }
 
-.container {
-  max-width: 1200px;
+/* Escopado a `.mestre-page` pelo mesmo motivo que `PlayerPage.css` (spec 100,
+   medido em beta 2026-09-04): as duas páginas definiam `.container` global no
+   mesmo bundle, com larguras diferentes (1200 aqui, 900 lá), e quem vencia era
+   ordem de carga — não a página em que o elemento estava. */
+.mestre-page .container {
+  max-width: var(--page-max);
   margin: 0 auto;
   padding: var(--space-6);
 }
@@ -408,18 +416,6 @@
 /* Os chips em si são o `Badge` do pacote (pill 999px, tokens de estado) —
    nenhuma regra local: reimplementar aqui seria o defeito que a spec §9.5
    mede. A composição de seção/grupo/rótulo acima é página, não primitivo. */
-
-.mestre-bio-tagline {
-  margin-top: var(--space-8);
-  padding: var(--space-5) var(--space-6);
-  border-left: 4px solid var(--artificio-brand);
-  background: var(--fill-subtle);
-  font-style: italic;
-  font-size: var(--text-section);
-  line-height: var(--leading-section);
-  color: var(--fg-muted);
-  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-}
 
 @media (max-width: 768px) {
   .mestre-bio-grid {

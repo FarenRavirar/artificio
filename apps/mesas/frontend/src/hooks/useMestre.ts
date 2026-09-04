@@ -68,6 +68,14 @@ export interface MestrePublicData {
     logo_filename: string | null;
     website_url: string | null;
   }>;
+  /** migration_166: Discord/Meet/Teams. Sem `logo_filename` — a tabela
+      `communication_platforms` não tem essa coluna. */
+  preferred_communication_platforms?: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    website_url: string | null;
+  }>;
   contact_methods?: Array<{
     channel: 'whatsapp' | 'email' | 'discord' | 'form';
     value: string;

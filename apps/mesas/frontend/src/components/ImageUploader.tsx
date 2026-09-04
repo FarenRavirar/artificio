@@ -176,9 +176,18 @@ export function ImageUploader({
 
   return (
     <section className="flex flex-col gap-3" aria-live="polite">
-      <label htmlFor={inputId} className="text-sm font-medium text-white/70">
+      {/* Rótulo do CAMPO, não gatilho do upload (spec 100, medido em beta
+          2026-09-04): como `<label for>` de um input de arquivo, a faixa
+          inteira (818px medidos) abria o seletor ao clique, inclusive no vazio
+          longe do texto. Quem dispara é o botão abaixo. O vínculo acessível
+          fica por `aria-labelledby` no input. Mesmo conserto de
+          `AvatarField.tsx`. */}
+      <span
+        id={`${idPrefix}-label`}
+        className="text-[length:var(--text-support)] font-[var(--weight-medium)] text-[var(--fg-muted)]"
+      >
         {label}
-      </label>
+      </span>
 
       <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -186,6 +195,7 @@ export function ImageUploader({
             ref={fileInputRef}
             id={inputId}
             type="file"
+            aria-labelledby={`${idPrefix}-label`}
             accept="image/png,image/jpeg,image/webp"
             onChange={handleFileSelect}
             className="hidden"
@@ -226,8 +236,12 @@ export function ImageUploader({
         </div>
 
         <div className="flex flex-col gap-1">
-          <label htmlFor={manualUrlId} className="text-xs font-medium text-white/70">
-            URL manual (fallback)
+          {/* "URL manual (fallback)" era jargão, e o placeholder mostrava uma
+              URL crua do Cloudinary — o mestre lia aquilo como código vazado e
+              não entendia o que devia digitar (achado do mantenedor,
+              2026-09-04). Rótulo e exemplo passam a dizer o que se espera dele. */}
+          <label htmlFor={manualUrlId} className="text-[length:var(--text-label)] font-[var(--weight-medium)] text-[var(--fg-muted)]">
+            Ou cole o link de uma imagem
           </label>
           {/* Spec 099 G5/A15: `<input>` cru virou o primitivo do pacote. As
               utilitárias de padding/fonte/altura saíram junto — quem governa a
@@ -244,7 +258,7 @@ export function ImageUploader({
               clearError();
             }}
             onBlur={importUrlIfNeeded}
-            placeholder="https://res.cloudinary.com/..."
+            placeholder="Cole aqui um link direto de imagem (.jpg, .png ou .webp)"
             className="w-full"
           />
           <label

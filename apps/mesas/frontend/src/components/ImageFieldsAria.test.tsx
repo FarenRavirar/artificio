@@ -126,3 +126,24 @@ describe('ImageUploader (banner) — aria-describedby (B7)', () => {
     expect(document.getElementById('gm-banner-error')).not.toBeNull();
   });
 });
+
+/**
+ * O rótulo do campo de imagem NÃO pode ser `<label for>` do input de arquivo.
+ * Como `display:block`, ele ocupava a largura inteira do formulário (818px
+ * medidos em beta, 2026-09-04) e qualquer clique na faixa — inclusive no vazio
+ * longe do texto — abria o seletor de arquivos. Quem dispara o upload é o
+ * botão; o vínculo acessível fica por `aria-labelledby`.
+ */
+describe('campos de imagem — o rótulo não dispara o seletor de arquivos', () => {
+  it('AvatarField: nenhum <label for> aponta para o input de arquivo', () => {
+    const { container } = render(
+      <AvatarField idPrefix="avatar" label="Foto de Mestre" value={avatarValue} onChange={() => {}} />,
+    );
+
+    const fileInput = container.querySelector('input[type="file"]')!;
+    expect(fileInput).not.toBeNull();
+    expect(container.querySelector(`label[for="${fileInput.id}"]`)).toBeNull();
+    const rotuloId = fileInput.getAttribute('aria-labelledby')!;
+    expect(document.getElementById(rotuloId)?.textContent).toBe('Foto de Mestre');
+  });
+});

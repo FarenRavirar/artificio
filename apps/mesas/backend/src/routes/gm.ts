@@ -195,6 +195,7 @@ router.get('/perfis/:slug', publicRateLimiter, optionalAuth, async (req: Request
         'gm.experience_years',
         'gm.average_price',
         'gm.preferred_vtt_platforms',
+        'gm.preferred_communication_platforms',
         'gm.contact_methods',
       ])
       // Nunca retornar deletehash — REGRA PÉTREA
@@ -382,6 +383,21 @@ router.get('/perfis/:slug', publicRateLimiter, optionalAuth, async (req: Request
         .execute();
     }
 
+    // Plataformas de comunicacao preferidas (migration_166) — mesmo padrao da
+    // VTT logo acima. `communication_platforms` nao tem `logo_filename`
+    // (medido no schema), entao o select difere so nessa coluna.
+    let preferredCommunicationPlatforms: Array<{ id: string; name: string; slug: string; website_url: string | null }> = [];
+    if (
+      Array.isArray(gm.preferred_communication_platforms) &&
+      gm.preferred_communication_platforms.length > 0
+    ) {
+      preferredCommunicationPlatforms = await db
+        .selectFrom('communication_platforms')
+        .select(['id', 'name', 'slug', 'website_url'])
+        .where('id', 'in', gm.preferred_communication_platforms as string[])
+        .execute();
+    }
+
     const closed_group = {
       enabled: !!gm.closed_group_enabled,
       systems: closedGroupSystems,
@@ -399,6 +415,7 @@ router.get('/perfis/:slug', publicRateLimiter, optionalAuth, async (req: Request
       'closed_group_description',
       'closed_group_min_price_cents',
       'preferred_vtt_platforms',
+      'preferred_communication_platforms',
     ]);
     const gmPublic = Object.fromEntries(
       Object.entries(gm).filter(([key]) => !omitFromGmPublic.has(key as keyof typeof gm)),
@@ -411,6 +428,7 @@ router.get('/perfis/:slug', publicRateLimiter, optionalAuth, async (req: Request
         bio_long: sanitizeNullableUserMarkdown(gm.bio_long),
         closed_group,
         preferred_vtt_platforms: preferredVttPlatforms,
+        preferred_communication_platforms: preferredCommunicationPlatforms,
         tables: tablesWithContacts,
         links: enrichedLinks,
         viewer_context,

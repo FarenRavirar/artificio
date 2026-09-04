@@ -1,4 +1,5 @@
 import { normalizeImageFramePatch, upgradeGoogleImageQuality } from '@artificio/media/image-kinds';
+import { toJsonbParam } from '../db/jsonb.js';
 import { Router, Request, Response } from 'express';
 import { authMiddleware } from '../middleware/auth.js';
 import { strictRateLimiter } from '../middleware/rateLimit.js';
@@ -183,11 +184,11 @@ async function updateGmProfileHandler(req: Request, res: Response) {
       nickname,
       bio_long,
       avatar_url,
-      avatar_crop_data: avatarFrame.crop,
+      avatar_crop_data: toJsonbParam(avatarFrame.crop),
       avatar_width: avatarFrame.width,
       avatar_height: avatarFrame.height,
       banner_url,
-      banner_crop_data: bannerFrame.crop,
+      banner_crop_data: toJsonbParam(bannerFrame.crop),
       banner_width: bannerFrame.width,
       banner_height: bannerFrame.height,
       languages,

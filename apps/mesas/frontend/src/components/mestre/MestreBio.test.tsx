@@ -9,20 +9,30 @@ import { makeMestreProfile } from '../../test/mestreFixtures';
  *
  * Em 2026-08-31 os chips de especialidades/idiomas saíram daqui para a seção
  * própria `MestreHighlights` (os três grupos juntos, sem duplicar na página).
- * Estes testes travam o contrato novo: bio não renderiza os chips, e a seção
- * só aparece quando há bio ou tagline.
+ * Em 2026-09-04 a `tagline` saiu pelo MESMO motivo (spec 100): ela é o `<h1>`
+ * do hero, e aparecia de novo aqui 665px abaixo — medido em beta.
+ *
+ * Estes testes travam o contrato: a bio não renderiza chips nem slogan, e a
+ * seção só existe quando há BIO — só slogan não a faz aparecer.
  */
 
 
 describe('MestreBio', () => {
-  it('renderiza bio e tagline quando presentes', () => {
+  it('renderiza a bio, e NÃO repete o slogan que já é o h1 do hero', () => {
     render(
       <MestreBio
         profile={makeMestreProfile({ bio_long: 'Texto da bio.', tagline: 'Aventuras épicas' })}
       />,
     );
     expect(screen.getByText('Texto da bio.')).toBeTruthy();
-    expect(screen.getByText('"Aventuras épicas"')).toBeTruthy();
+    expect(screen.queryByText(/Aventuras épicas/)).toBeNull();
+  });
+
+  it('só slogan, sem bio: não renderiza nada — senão a seção sairia vazia', () => {
+    const { container } = render(
+      <MestreBio profile={makeMestreProfile({ tagline: 'Aventuras épicas' })} />,
+    );
+    expect(container.innerHTML).toBe('');
   });
 
   it('não renderiza chips de especialidades/idiomas (moveram para MestreHighlights)', () => {
@@ -40,7 +50,7 @@ describe('MestreBio', () => {
     expect(screen.queryByText('Horror')).toBeNull();
   });
 
-  it('não renderiza nada quando só há specialties/languages (sem bio nem tagline)', () => {
+  it('não renderiza nada quando só há specialties/languages (sem bio)', () => {
     const { container } = render(
       <MestreBio
         profile={makeMestreProfile({ specialties: ['Horror'], languages: ['Português'] })}

@@ -5,16 +5,37 @@ interface VttPlatform {
   id: string;
   name: string;
   slug: string;
-  logo_filename: string | null;
+  logo_filename?: string | null;
   website_url: string | null;
 }
 
 interface VttPlatformsEditorProps {
   selectedPlatforms: string[]; // Array de UUIDs
   onSave: (platformIds: string[]) => Promise<void>;
+  /**
+   * Catálogo a carregar. Default é o de VTT — os parâmetros existem porque o
+   * perfil passou a declarar TAMBÉM as plataformas de comunicação
+   * (migration_166), e as duas telas são a mesma grade de seleção. Duplicar o
+   * componente faria duas cópias divergirem no primeiro ajuste de layout.
+   */
+  readonly endpoint?: string;
+  readonly title?: string;
+  readonly description?: string;
+  /** Pasta dos logos; `communication_platforms` não tem `logo_filename`. */
+  readonly logoBasePath?: string;
+  /** Emoji do fallback quando a plataforma não tem logo. */
+  readonly fallbackIcon?: string;
 }
 
-export function VttPlatformsEditor({ selectedPlatforms, onSave }: VttPlatformsEditorProps) {
+export function VttPlatformsEditor({
+  selectedPlatforms,
+  onSave,
+  endpoint = '/api/v1/vtt-platforms',
+  title = 'Plataformas VTT que você usa',
+  description = 'Selecione as plataformas virtuais que você utiliza para mestrar suas mesas online.',
+  logoBasePath = '/vtt-logos',
+  fallbackIcon = '🎮',
+}: VttPlatformsEditorProps) {
   const [platforms, setPlatforms] = useState<VttPlatform[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set(selectedPlatforms));
   const [loading, setLoading] = useState(true);
@@ -24,7 +45,7 @@ export function VttPlatformsEditor({ selectedPlatforms, onSave }: VttPlatformsEd
   useEffect(() => {
     const fetchPlatforms = async () => {
       try {
-        const res = await fetch('/api/v1/vtt-platforms');
+        const res = await fetch(endpoint);
         if (!res.ok) throw new Error('Erro ao carregar plataformas');
         const json = await res.json();
         setPlatforms(json.data || []);
@@ -36,7 +57,7 @@ export function VttPlatformsEditor({ selectedPlatforms, onSave }: VttPlatformsEd
     };
 
     fetchPlatforms();
-  }, []);
+  }, [endpoint]);
 
   const togglePlatform = (id: string) => {
     const newSelected = new Set(selected);
@@ -79,9 +100,9 @@ export function VttPlatformsEditor({ selectedPlatforms, onSave }: VttPlatformsEd
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-[length:var(--text-section)] leading-[var(--leading-section)] font-[var(--weight-strong)] text-[var(--fg)] mb-2">Plataformas VTT que você usa</h3>
+        <h3 className="text-[length:var(--text-section)] leading-[var(--leading-section)] font-[var(--weight-strong)] text-[var(--fg)] mb-2">{title}</h3>
         <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-[var(--fg-low)] mb-4">
-          Selecione as plataformas virtuais que você utiliza para mestrar suas mesas online.
+          {description}
         </p>
       </div>
 
@@ -112,13 +133,13 @@ export function VttPlatformsEditor({ selectedPlatforms, onSave }: VttPlatformsEd
               <div className="flex flex-col items-center gap-2">
                 {platform.logo_filename ? (
                   <img
-                    src={`/vtt-logos/${platform.logo_filename}`}
+                    src={`${logoBasePath}/${platform.logo_filename}`}
                     alt={platform.name}
                     className="h-12 w-auto object-contain"
                   />
                 ) : (
                   <div className="h-12 flex items-center justify-center">
-                    <span className="text-[length:var(--text-title)] leading-[var(--leading-title)]">🎮</span>
+                    <span className="text-[length:var(--text-title)] leading-[var(--leading-title)]">{fallbackIcon}</span>
                   </div>
                 )}
                 <span className="text-[length:var(--text-support)] leading-[var(--leading-support)] font-[var(--weight-medium)] text-[var(--fg)] text-center">
