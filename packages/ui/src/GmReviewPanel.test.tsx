@@ -5,8 +5,9 @@
 // o `renderMarkdown` sanitiza com DOMPurify, que precisa de `window`. Sob o
 // ambiente `node` o erro é `default.sanitize is not a function` — vale como
 // lembrete de que este componente exige DOM em runtime.
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   GM_REVIEW_COMMENT_MAX,
   GmReviewForm,
@@ -15,6 +16,10 @@ import {
   toFiniteNumber,
   type GmReviewItem,
 } from "./GmReviewPanel.js";
+
+// Sem cleanup, um `render` deixa a árvore anterior no DOM e as buscas por
+// papel/texto casam dois elementos de formulários diferentes.
+afterEach(cleanup);
 
 const review = (over: Partial<GmReviewItem> = {}): GmReviewItem => ({
   id: "r1",
@@ -119,25 +124,71 @@ describe("GmReviewList", () => {
 
 describe("GmReviewForm", () => {
   const noop = async () => {};
+  const botao = (c: HTMLElement) =>
+    [...c.querySelectorAll("button")].find((b) => /enviar/i.test(b.textContent ?? "")) as HTMLButtonElement;
 
-  it("avisa o excedente sem impedir o envio (D16)", () => {
+  it("não trunca nem avisa quando o texto está dentro do limite (D16)", () => {
     const html = renderToStaticMarkup(<GmReviewForm onSubmit={noop} />);
-    // Sem texto não há aviso...
+    // Sem texto não há aviso, e o botão está lá. O comportamento acima do
+    // limite — avisa, preserva o texto, mas não deixa enviar o que a rota
+    // recusaria — é o teste seguinte.
     expect(html).not.toContain("acima do limite");
-    // ...e o botão de envio nunca é escondido pelo tamanho do comentário.
     expect(html).toContain("Enviar avaliação");
   });
 
   it("passa o limite ao editor como aviso, não como corte", () => {
-    expect(GM_REVIEW_COMMENT_MAX).toBe(2000);
-    const html = renderToStaticMarkup(<GmReviewForm onSubmit={noop} />);
+    // Exercita o comportamento, não a constante: a versão anterior só assertava
+    // `GM_REVIEW_COMMENT_MAX === 2000`, o que passaria mesmo se o limite nunca
+    // chegasse ao editor (achado de review, PR #305).
+    const { container, getByText } = render(<GmReviewForm onSubmit={noop} />);
+
     // O campo é o editor de markdown do design system, não um textarea puro:
     // é o que preserva a formatação que o app já publica.
-    expect(html).toContain("artificio-content-editor");
+    expect(container.querySelector(".artificio-content-editor")).not.toBeNull();
+
+    const campo = container.querySelector("textarea") as HTMLTextAreaElement;
+
+    // Dentro do limite: o contador conta o que FALTA, e nada é cortado.
+    fireEvent.change(campo, { target: { value: "a".repeat(GM_REVIEW_COMMENT_MAX - 5) } });
+    expect(getByText(/Faltam 5 de 2000/)).toBeTruthy();
+
+    // Acima: avisa o excedente — e o texto do usuário continua inteiro.
+    fireEvent.change(campo, { target: { value: "a".repeat(GM_REVIEW_COMMENT_MAX + 7) } });
+    expect(getByText(/7 caracteres acima do limite/)).toBeTruthy();
+    expect(campo.value).toHaveLength(GM_REVIEW_COMMENT_MAX + 7);
   });
 
   it("não usa cor literal de acento no estado das tags", () => {
     const html = renderToStaticMarkup(<GmReviewForm onSubmit={noop} />);
     expect(html).not.toMatch(/amber-|orange-/);
+  });
+
+  it("não deixa enviar o que a rota recusaria com 400", async () => {
+    // Achado de review (PR #305): D16 manda avisar sem bloquear, mas
+    // `POST /api/v1/gm/perfis/:slug/reviews` recusa acima de 2000 caracteres
+    // (gm.ts:730). Liberar o envio produziria uma tentativa que SEMPRE falha,
+    // trocando o aviso claro da tela por um erro genérico do servidor.
+    const enviados: unknown[] = [];
+    const { container } = render(
+      <GmReviewForm onSubmit={async (d) => { enviados.push(d); }} />,
+    );
+
+    (container.querySelector('[aria-label="5 estrelas"]') as HTMLElement).click();
+    // Pelo elemento, não por rótulo: o `ContentEditor` usa o mesmo texto em
+    // label e placeholder, e a busca por texto casaria os dois.
+    const campo = container.querySelector("textarea") as HTMLTextAreaElement;
+    expect(campo).not.toBeNull();
+
+    // Dentro do limite: envia.
+    fireEvent.change(campo, { target: { value: "a".repeat(GM_REVIEW_COMMENT_MAX) } });
+    botao(container).click();
+    await waitFor(() => expect(enviados).toHaveLength(1));
+
+    // Acima do limite: o botão desabilita, e o texto do usuário NÃO é cortado.
+    (container.querySelector('[aria-label="5 estrelas"]') as HTMLElement).click();
+    const longo = "a".repeat(GM_REVIEW_COMMENT_MAX + 50);
+    fireEvent.change(campo, { target: { value: longo } });
+    expect(campo.value).toHaveLength(longo.length);
+    expect(botao(container).disabled).toBe(true);
   });
 });

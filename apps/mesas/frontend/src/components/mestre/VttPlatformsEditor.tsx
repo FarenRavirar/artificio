@@ -96,14 +96,14 @@ export function VttPlatformsEditor({ selectedPlatforms, onSave }: VttPlatformsEd
               className={`
                 relative p-4 rounded-[var(--radius-lg)] border-2 transition-all
                 ${isSelected
-                  ? 'border-purple-500 bg-purple-500/20'
+                  ? 'border-[var(--special)] bg-[color-mix(in_srgb,var(--special)_20%,transparent)]'
                   : 'border-[var(--border)] bg-[var(--fill-5)] hover:border-[var(--border-strong)]'
                 }
               `}
             >
               {/* Checkmark */}
               {isSelected && (
-                <div className="absolute top-2 right-2 w-5 h-5 rounded-[var(--radius-pill)] bg-purple-500 flex items-center justify-center">
+                <div className="absolute top-2 right-2 w-5 h-5 rounded-[var(--radius-pill)] bg-[var(--special)] flex items-center justify-center">
                   <Check className="w-3 h-3 text-[var(--fg)]" />
                 </div>
               )}
@@ -138,7 +138,7 @@ export function VttPlatformsEditor({ selectedPlatforms, onSave }: VttPlatformsEd
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-2 rounded-[var(--radius-md)] bg-purple-500 hover:bg-purple-600 disabled:bg-purple-500/50 text-[var(--fg)] font-[var(--weight-medium)] transition"
+          className="px-6 py-2 rounded-[var(--radius-md)] bg-[var(--special)] hover:brightness-90 disabled:opacity-50 text-[var(--fg)] font-[var(--weight-medium)] transition"
         >
           {saving ? 'Salvando...' : 'Salvar'}
         </button>

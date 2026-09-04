@@ -63,7 +63,7 @@ export const tokens = {
   // diferente em cada tela. `check-token-parity.mjs` reprova nova divergência.
   font: {
     display: '"Oswald", "Arial Narrow", "Roboto Condensed", ui-sans-serif, system-ui, sans-serif', // headings condensados
-    sans: '"Inter", "Segoe UI", Roboto, ui-sans-serif, system-ui, sans-serif', // corpo
+    sans: '"Inter", "Segoe UI", "Roboto", ui-sans-serif, system-ui, sans-serif', // corpo
   },
   // Régua tipográfica (Camada 2): 6 papéis, 5 tamanhos, 3 pesos. Os utilitários
   // que a aplicam vivem em styles.css como `.artificio-text-*`.

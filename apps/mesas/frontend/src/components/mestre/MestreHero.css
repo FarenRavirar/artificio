@@ -104,7 +104,7 @@
 
 .hero-badges {
   display: flex;
-  gap: 0.75rem;
+  gap: var(--space-3);
   justify-content: center;
   margin-bottom: var(--space-4);
   flex-wrap: wrap;
@@ -150,7 +150,7 @@
 
 .hero-stats {
   display: flex;
-  gap: 2rem;
+  gap: var(--space-8);
   justify-content: center;
   margin-bottom: var(--space-8);
   flex-wrap: wrap;
@@ -160,7 +160,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
+  gap: var(--space-1);
 }
 
 .stat-icon {
@@ -206,7 +206,7 @@
   line-height: var(--leading-display); }
   .hero-bio { font-size: var(--text-body);
   line-height: var(--leading-body); }
-  .hero-stats { gap: 1rem; }
+  .hero-stats { gap: var(--space-4); }
   .stat-value { font-size: var(--text-title);
   line-height: var(--leading-title); }
 }
@@ -217,7 +217,7 @@
 .hero-promo-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   margin-bottom: var(--space-4);
   border-radius: var(--radius-pill);
@@ -238,7 +238,7 @@
 
 .hero-ctas {
   display: flex;
-  gap: 1rem;
+  gap: var(--space-4);
   justify-content: center;
   flex-wrap: wrap;
   margin-top: var(--space-6);
@@ -279,7 +279,7 @@
 .hero-trust-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.25rem;
+  gap: var(--space-5);
   justify-content: center;
   margin: var(--space-2) 0 var(--space-6);
 }
@@ -287,7 +287,7 @@
 .trust-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--space-2);
   font-size: var(--text-support);
   line-height: var(--leading-support);
   color: var(--fg-muted);

@@ -595,7 +595,7 @@ export const PainelMestrePage = () => {
                 <button
                   id="btn-ajuda"
                   onClick={() => setView('help')}
-                  className="flex items-center gap-2 px-4 py-3 border border-[var(--border-strong)] hover:border-[var(--border-strong)] text-[var(--fg)] font-[var(--weight-strong)] rounded-[var(--radius-lg)] transition-colors cursor-pointer"
+                  className="flex items-center gap-2 px-4 py-3 border border-[var(--border)] hover:border-[var(--border-strong)] text-[var(--fg)] font-[var(--weight-strong)] rounded-[var(--radius-lg)] transition-colors cursor-pointer"
                   title="Central de Ajuda"
                 >
                   <span className="text-[length:var(--text-section)] leading-[var(--leading-section)]">❓</span>
@@ -607,7 +607,7 @@ export const PainelMestrePage = () => {
                 <button
                   id="btn-minhas-sugestoes"
                   onClick={() => navigate('/perfil/minhas-sugestoes')}
-                  className="flex items-center gap-2 px-4 py-3 border border-[var(--border-strong)] hover:border-[var(--border-strong)] text-[var(--fg)] font-[var(--weight-strong)] rounded-[var(--radius-lg)] transition-colors cursor-pointer"
+                  className="flex items-center gap-2 px-4 py-3 border border-[var(--border)] hover:border-[var(--border-strong)] text-[var(--fg)] font-[var(--weight-strong)] rounded-[var(--radius-lg)] transition-colors cursor-pointer"
                   title="Minhas sugestões"
                 >
                   <Lightbulb className="w-4 h-4" />
@@ -617,7 +617,7 @@ export const PainelMestrePage = () => {
                   <button
                     id="btn-editar-perfil-mestre"
                     onClick={() => navigate('/perfil?tab=mestre')}
-                    className="flex items-center gap-2 px-4 py-3 border border-[var(--border-strong)] hover:border-[var(--border-strong)] text-[var(--fg)] font-[var(--weight-strong)] rounded-[var(--radius-lg)] transition-colors cursor-pointer"
+                    className="flex items-center gap-2 px-4 py-3 border border-[var(--border)] hover:border-[var(--border-strong)] text-[var(--fg)] font-[var(--weight-strong)] rounded-[var(--radius-lg)] transition-colors cursor-pointer"
                   >
                     <PencilLine className="w-4 h-4" />
                     Editar perfil

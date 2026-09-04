@@ -101,6 +101,25 @@ describe("paleta de dados", () => {
     expect(regraPropria(".artificio-series-4")).toContain("-45deg");
   });
 
+  it("dá à textura uma cor que vira por tema", () => {
+    // Achado de review (PR #305): o traço era branco fixo, e no tema escuro ele
+    // caía sobre séries CLARAS — 1,26 a 1,39 de contraste contra a própria
+    // série. A camada criada para distinguir sem depender de cor era a que não
+    // se via. O traço inverte com o tema, como as séries.
+    const todos = [...styles.matchAll(/--series-pattern:\s*([^;]+);/g)].map((m) => m[1].trim());
+    expect(todos, "--series-pattern deve existir nos dois temas").toHaveLength(2);
+    expect(todos[0]).toContain("255, 255, 255"); // claro: séries escuras, traço claro
+    expect(todos[1]).toContain("11, 18, 32"); // escuro: séries claras, traço escuro
+
+    // Nenhuma regra de série escreve a cor do traço à mão.
+    for (const n of [2, 3, 4]) {
+      const regra = [...styles.matchAll(new RegExp(`\\n\\.artificio-series-${n}\\s*\\{([\\s\\S]*?)\\n\\}`, "g"))]
+        .map((m) => m[1])
+        .join("");
+      expect(regra, `série ${n} com cor de traço literal`).not.toMatch(/rgba\(\s*255/);
+    }
+  });
+
   it("mantém os padrões DISTINTOS em prefers-contrast: more", () => {
     // Achado de review (PR #305): a primeira versão aplicava o mesmo gradiente
     // de 45° às três séries no modo de alto contraste, apagando os pontos da 3

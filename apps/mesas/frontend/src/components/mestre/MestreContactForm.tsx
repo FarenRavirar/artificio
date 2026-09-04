@@ -48,12 +48,12 @@ export function MestreContactForm({ mestreSlug }: MestreContactFormProps) {
 
   if (success) {
     return (
-      <section className="p-6 rounded-[var(--radius-lg)] bg-green-500/10 border border-green-500/30">
-        <div className="flex items-center gap-3 text-green-400">
+      <section className="p-6 rounded-[var(--radius-lg)] bg-[var(--state-success-bg)] border border-[var(--state-success-line)]">
+        <div className="flex items-center gap-3 text-[var(--state-success-fg)]">
           <CheckCircle className="w-6 h-6" />
           <div>
             <h3 className="font-[var(--weight-strong)]">Mensagem enviada!</h3>
-            <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-green-300/80">
+            <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-[var(--state-success-fg)] opacity-80">
               O mestre receberá seu contato em breve.
             </p>
           </div>
@@ -83,7 +83,7 @@ export function MestreContactForm({ mestreSlug }: MestreContactFormProps) {
             required
             maxLength={100}
             placeholder="Como você gostaria de ser chamado?"
-            className="w-full px-4 py-2 rounded-[var(--radius-md)] bg-[var(--fill-5)] border border-[var(--border)] text-[var(--fg)] placeholder:text-[var(--fg-ghost)] focus:outline-none focus:border-purple-500/50"
+            className="w-full px-4 py-2 rounded-[var(--radius-md)] bg-[var(--fill-5)] border border-[var(--border)] text-[var(--fg)] placeholder:text-[var(--fg-ghost)] focus:outline-none focus:border-[var(--special)]"
           />
         </div>
 
@@ -99,7 +99,7 @@ export function MestreContactForm({ mestreSlug }: MestreContactFormProps) {
             onChange={(e) => setEmail(e.target.value)}
             required
             placeholder="seu@email.com"
-            className="w-full px-4 py-2 rounded-[var(--radius-md)] bg-[var(--fill-5)] border border-[var(--border)] text-[var(--fg)] placeholder:text-[var(--fg-ghost)] focus:outline-none focus:border-purple-500/50"
+            className="w-full px-4 py-2 rounded-[var(--radius-md)] bg-[var(--fill-5)] border border-[var(--border)] text-[var(--fg)] placeholder:text-[var(--fg-ghost)] focus:outline-none focus:border-[var(--special)]"
           />
         </div>
 
@@ -126,8 +126,8 @@ export function MestreContactForm({ mestreSlug }: MestreContactFormProps) {
 
         {/* Erro */}
         {error && (
-          <div className="p-3 rounded-[var(--radius-md)] bg-red-500/10 border border-red-500/20">
-            <p className="text-red-400 text-[length:var(--text-support)] leading-[var(--leading-support)]">{error}</p>
+          <div className="p-3 rounded-[var(--radius-md)] bg-[var(--state-danger-bg)] border border-[var(--state-danger-line)]">
+            <p className="text-[var(--state-danger-fg)] text-[length:var(--text-support)] leading-[var(--leading-support)]">{error}</p>
           </div>
         )}
 

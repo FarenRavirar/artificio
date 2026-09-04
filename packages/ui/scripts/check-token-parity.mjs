@@ -312,7 +312,7 @@ const bothThemeVars = [
   // spec 100: texto sobre superficie cuja cor NAO vira por tema (botao de
   // plataforma, barra de grafico). Precisam existir nos dois blocos: se
   // sumirem de um, o texto cai em `currentColor` e some sobre o fundo.
-  "--on-solid-fg", "--series-fg",
+  "--on-solid-fg", "--series-fg", "--series-pattern",
   "--series-1", "--series-2", "--series-3", "--series-4",
 ];
 // Grupo B: theme-agnósticos (rgba leve serve nos 2 fundos) → só :root, NÃO redefinir no dark.

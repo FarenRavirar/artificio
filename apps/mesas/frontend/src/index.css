@@ -90,7 +90,7 @@
        (spec 100 T1.2). Era a quarta declaração divergente de Inter no repo, e a
        mais curta: sem "Segoe UI" nem Roboto, caía direto em `system-ui` —
        diferente do que o `packages/ui` renderizava na mesma tela. */
-    font-family: var(--artificio-font-sans, 'Inter', 'Segoe UI', Roboto, ui-sans-serif, system-ui, sans-serif);
+    font-family: var(--artificio-font-sans, 'Inter', 'Segoe UI', 'Roboto', ui-sans-serif, system-ui, sans-serif);
     margin: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

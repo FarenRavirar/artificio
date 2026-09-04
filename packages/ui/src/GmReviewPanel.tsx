@@ -141,12 +141,26 @@ export function GmReviewForm({ onSubmit, isSubmitting }: GmReviewFormProps) {
   const [tags, setTags] = useState<string[]>([]);
   const [comment, setComment] = useState("");
 
+  /**
+   * D16 manda avisar sem bloquear, e o aviso aparece desde o primeiro caractere
+   * excedente. Mas `POST /api/v1/gm/perfis/:slug/reviews` recusa com 400 acima
+   * de 2000 (`gm.ts:730`), então liberar o envio produziria uma tentativa que
+   * SEMPRE falha — o usuário escreve, clica, e leva um erro genérico do
+   * servidor em vez do aviso que já estava na tela (achado de review, PR #305).
+   *
+   * O componente não pode alinhar isso sozinho: mexer no limite da rota é mudar
+   * contrato público, e esta spec declara backend fora de escopo. Então o aviso
+   * segue não-bloqueante (nada é truncado em silêncio, o texto do usuário é
+   * preservado inteiro) e só o BOTÃO respeita o limite que o servidor impõe.
+   */
+  const excedeu = comment.length > GM_REVIEW_COMMENT_MAX;
+
   const toggleTag = (tag: string) => {
     setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   };
 
   const handleSubmit = async () => {
-    if (rating < 1) return;
+    if (rating < 1 || excedeu) return;
     await onSubmit({ rating, tags, comment: comment.trim() });
     setRating(0);
     setTags([]);
@@ -213,7 +227,7 @@ export function GmReviewForm({ onSubmit, isSubmitting }: GmReviewFormProps) {
           permitido — o que mudou é só não duplicar o anúncio. */}
 
       <div className="mt-3">
-        <Button onClick={handleSubmit} disabled={rating < 1 || isSubmitting}>
+        <Button onClick={handleSubmit} disabled={rating < 1 || excedeu || isSubmitting}>
           Enviar avaliação
         </Button>
       </div>

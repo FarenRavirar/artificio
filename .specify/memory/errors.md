@@ -2,6 +2,26 @@
 
 > Registro de erros/regressões e suas soluções validadas. Antes de tentar de novo, procure aqui por `E###` ou pelo sintoma. Ao resolver algo novo e não trivial, registre.
 
+> **Este arquivo é o HISTÓRICO — o que aconteceu, quando, com que medição. A REGRA
+> (o que fazer antes de agir) vive em `docs/agents/deploy-flow.md`.**
+>
+> Os 22 incidentes abaixo são **5 famílias de causa raiz**, e três já tiveram
+> recorrência porque o procedimento vivia num arquivo e o incidente noutro — quem
+> lia um agia sem saber que faltava metade. Consolidado em 2026-09-03.
+>
+> | família | incidentes | regra |
+> |---|---|---|
+> | A — imagem de produção | E001 E002 E016 E017 E021 | `deploy-flow.md` §1 |
+> | B — resolução de dependência | E004 E008 | `deploy-flow.md` §2 |
+> | C — migration | E003 E010 E011 E012 E014 E015 E018 E020 | `deploy-flow.md` §3 |
+> | D — infra e borda | E005 E006 E007 E009 E013 | `deploy-flow.md` §4 |
+> | E — método do agente | E019 E022 | `deploy-flow.md` §5 |
+>
+> **Ao registrar erro novo:** descrever o incidente aqui (sintoma, medição, causa
+> raiz, solução) e, se ele muda o que se deve fazer antes de agir, atualizar a
+> seção correspondente do `deploy-flow.md`. Procedimento repetido nos dois lugares
+> é a fragmentação que esta consolidação desfez.
+
 ## Formato
 
 ```

@@ -34,10 +34,14 @@ export function GmInsightsDashboard() {
     setExpandedSection(expandedSection === section ? null : section);
   };
 
+  // `label` e não `icon`: os emojis 🔴🟡🟢 saíram porque mudam de desenho entre
+  // sistemas, mas deixá-los como string vazia fez a severidade depender SÓ de
+  // cor — o mesmo defeito que D19 corrigiu nas barras do gráfico, e que some
+  // para daltônicos e em escala de cinza (achado de review, PR #305).
   const severityConfig = {
-    high: { bg: 'bg-[var(--state-danger-bg)]', border: 'border-[var(--state-danger-line)]', text: 'text-[var(--state-danger-fg)]', icon: '' },
-    medium: { bg: 'bg-[var(--state-warning-bg)]', border: 'border-[var(--state-warning-line)]', text: 'text-[var(--state-warning-fg)]', icon: '' },
-    low: { bg: 'bg-[var(--state-info-bg)]', border: 'border-[var(--state-info-line)]', text: 'text-[var(--state-info-fg)]', icon: '' },
+    high: { bg: 'bg-[var(--state-danger-bg)]', border: 'border-[var(--state-danger-line)]', text: 'text-[var(--state-danger-fg)]', label: 'Alta' },
+    medium: { bg: 'bg-[var(--state-warning-bg)]', border: 'border-[var(--state-warning-line)]', text: 'text-[var(--state-warning-fg)]', label: 'Média' },
+    low: { bg: 'bg-[var(--state-info-bg)]', border: 'border-[var(--state-info-line)]', text: 'text-[var(--state-info-fg)]', label: 'Baixa' },
   };
 
   const quartileConfig = {
@@ -358,7 +362,12 @@ export function GmInsightsDashboard() {
                         className={`${config.bg} border ${config.border} rounded-[var(--radius-md)] p-4`}
                       >
                         <div className="flex items-start gap-3">
-                          <span className="text-[length:var(--text-title)] leading-[var(--leading-title)]">{config.icon}</span>
+                          <span
+                            className={`shrink-0 rounded-[var(--radius-sm)] border ${config.border} px-2 py-0.5 text-[length:var(--text-label)] leading-[var(--leading-label)] font-[var(--weight-medium)] ${config.text}`}
+                          >
+                            <span className="sr-only">Prioridade </span>
+                            {config.label}
+                          </span>
                           <div className="flex-1">
                             <Link
                               to={`/mesas/${rec.table_slug}`}

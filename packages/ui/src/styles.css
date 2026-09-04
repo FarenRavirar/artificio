@@ -56,7 +56,7 @@
      e por isso o fallback divergente não era detalhe: era o que de fato
      renderizava, diferente em cada tela. */
   --artificio-font-display: "Oswald", "Arial Narrow", "Roboto Condensed", ui-sans-serif, system-ui, sans-serif;
-  --artificio-font-sans: "Inter", "Segoe UI", Roboto, ui-sans-serif, system-ui, sans-serif;
+  --artificio-font-sans: "Inter", "Segoe UI", "Roboto", ui-sans-serif, system-ui, sans-serif;
 
   /* Régua tipográfica (spec 100, Camada 2): SEIS papéis sobre CINCO tamanhos e
      TRÊS pesos — 16px serve seção e corpo, distinguidos só pelo peso. É o alvo
@@ -277,6 +277,13 @@
      mesma, mas o NOME diz por que ela não vira, e quem for auditar contraste
      acha o papel em vez de encontrar branco anônimo espalhado. */
   --on-solid-fg: #ffffff;
+  /* Cor do TRAÇO da textura das séries — vira por tema, porque as séries
+     viram: no claro elas são escuras e o traço é claro; no escuro, o
+     inverso. Alpha alto de propósito: medido, 0,28 dava só 1,26–1,39 de
+     contraste contra a própria série no escuro, e a textura existe para ser
+     vista sem depender de cor (achado de review, PR #305). Com 0,7:
+     3,06–3,84 no claro, 3,99–4,72 no escuro. */
+  --series-pattern: rgba(255, 255, 255, 0.7);
 }
 
 :root[data-theme="dark"] {
@@ -351,6 +358,8 @@
      ambos, então o texto por cima não vira. Mesmo tratamento de
      `--btn-danger-fg` e `--navy-block-fg`. */
   --on-solid-fg: #ffffff;
+  /* Traço ESCURO: aqui as séries são claras. */
+  --series-pattern: rgba(11, 18, 32, 0.7);
 }
 
 /* ============================================================================
@@ -384,8 +393,8 @@
   background-color: var(--series-2);
   background-image: repeating-linear-gradient(
     45deg,
-    rgba(255, 255, 255, 0.28) 0,
-    rgba(255, 255, 255, 0.28) 2px,
+    var(--series-pattern) 0,
+    var(--series-pattern) 2px,
     transparent 2px,
     transparent 6px
   );
@@ -394,7 +403,7 @@
 /* 3 — pontilhada */
 .artificio-series-3 {
   background-color: var(--series-3);
-  background-image: radial-gradient(rgba(255, 255, 255, 0.34) 1.2px, transparent 1.3px);
+  background-image: radial-gradient(var(--series-pattern) 1.2px, transparent 1.3px);
   background-size: 6px 6px;
 }
 
@@ -403,8 +412,8 @@
   background-color: var(--series-4);
   background-image: repeating-linear-gradient(
     -45deg,
-    rgba(255, 255, 255, 0.28) 0,
-    rgba(255, 255, 255, 0.28) 2px,
+    var(--series-pattern) 0,
+    var(--series-pattern) 2px,
     transparent 2px,
     transparent 6px
   );
@@ -419,23 +428,23 @@
   .artificio-series-2 {
     background-image: repeating-linear-gradient(
       45deg,
-      rgba(255, 255, 255, 0.5) 0,
-      rgba(255, 255, 255, 0.5) 3px,
+      var(--series-pattern) 0,
+      var(--series-pattern) 3px,
       transparent 3px,
       transparent 7px
     );
   }
 
   .artificio-series-3 {
-    background-image: radial-gradient(rgba(255, 255, 255, 0.55) 1.8px, transparent 2px);
+    background-image: radial-gradient(var(--series-pattern) 1.8px, transparent 2px);
     background-size: 6px 6px;
   }
 
   .artificio-series-4 {
     background-image: repeating-linear-gradient(
       -45deg,
-      rgba(255, 255, 255, 0.5) 0,
-      rgba(255, 255, 255, 0.5) 3px,
+      var(--series-pattern) 0,
+      var(--series-pattern) 3px,
       transparent 3px,
       transparent 7px
     );

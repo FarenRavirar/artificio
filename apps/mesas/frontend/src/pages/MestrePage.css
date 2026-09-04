@@ -47,7 +47,7 @@
 .benefits-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 2rem;
+  gap: var(--space-8);
 }
 
 .benefit-card {
@@ -99,7 +99,7 @@
 .tables-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 2rem;
+  gap: var(--space-8);
 }
 
 .no-tables {
@@ -158,7 +158,7 @@
   list-style: none;
   padding: 0;
   display: grid;
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .mestre-private-item {
@@ -185,7 +185,7 @@
 .steps-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 2.5rem;
+  gap: var(--space-10);
   margin-bottom: var(--space-8);
 }
 
@@ -305,7 +305,7 @@
 .mestre-bio-grid {
   display: grid;
   grid-template-columns: 280px 1fr;
-  gap: 3rem;
+  gap: var(--space-12);
   align-items: start;
 }
 
@@ -381,7 +381,7 @@
 @media (max-width: 768px) {
   .mestre-bio-grid {
     grid-template-columns: 1fr;
-    gap: 2rem;
+    gap: var(--space-8);
   }
   .mestre-bio-photo {
     position: static;
@@ -438,7 +438,7 @@
   left: 1rem;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   background: var(--artificio-brand);
   color: #ffffff;
@@ -452,19 +452,19 @@
   padding: var(--space-8);
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: var(--space-5);
 }
 
 .mestre-featured-table-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--space-2);
 }
 
 .mestre-featured-table-tag {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
+  gap: var(--space-1);
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-sm);
   background: var(--surface-subtle);
@@ -497,13 +497,13 @@
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 0.6rem;
+  gap: var(--space-2);
 }
 
 .mestre-featured-table-features li {
   display: flex;
   align-items: start;
-  gap: 0.6rem;
+  gap: var(--space-2);
   color: var(--fg-muted);
   font-size: var(--text-support);
   line-height: var(--leading-support);
@@ -566,7 +566,7 @@
 .closed-group-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-pill);
   background: var(--state-warning-bg);
@@ -591,7 +591,7 @@
 .closed-group-subtitle {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   font-size: var(--text-label);
   line-height: var(--leading-label);
   font-weight: var(--weight-strong);
@@ -604,7 +604,7 @@
 .closed-group-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: var(--space-2);
   justify-content: center;
   margin-bottom: var(--space-8);
 }
@@ -623,7 +623,7 @@
 .closed-group-price {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   margin-bottom: var(--space-8);
   padding: var(--space-2) var(--space-5);
   border-radius: var(--radius-lg);
@@ -645,7 +645,7 @@
 .owner-only-banner {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-2);
   padding: var(--space-1) var(--space-3);
   margin-bottom: var(--space-4);
   border-radius: var(--radius-sm);
@@ -662,7 +662,7 @@
 .insights-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1rem;
+  gap: var(--space-4);
 }
 
 .insight-card {
@@ -691,14 +691,14 @@
 .insight-metrics {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
+  gap: var(--space-3);
 }
 
 .metric {
   display: flex;
   flex-direction: column;
   align-items: start;
-  gap: 0.1rem;
+  gap: var(--space-1);
   padding: var(--space-2);
   border-radius: var(--radius-md);
   background: var(--fill-subtle);
@@ -743,12 +743,12 @@
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 0.75rem;
+  gap: var(--space-3);
 }
 
 .recommendation-item {
   display: flex;
-  gap: 0.9rem;
+  gap: var(--space-4);
   padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -772,7 +772,7 @@
 .recommendation-body {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: var(--space-1);
 }
 
 .recommendation-label {
