@@ -33,7 +33,6 @@ import {
   PROFILE_PARTS,
   profilePartDomId,
   computeProfilePendingCounts,
-  computeProfileProgress,
   type ProfilePartId,
 } from '../components/mestre/editor/profileEditorParts';
 import { useLinks } from '../hooks/useLinks';
@@ -633,7 +632,10 @@ function TabMestre() {
   // varreduras de um objeto pequeno — o custo real está na estabilidade da CALLBACK
   // abaixo, essa sim prop de um componente `memo`.
   const pendingCounts = computeProfilePendingCounts(profile?.gm, linkCount);
-  const progress = computeProfileProgress(profile?.gm, linkCount);
+  // `computeProfileProgress` deixou de ser consumido aqui: a barra "N%
+  // preenchido" saiu na spec 100 (T4.5). O helper continua exportado e
+  // testado em `profileEditorParts.test.ts` — quem decide aposentá-lo é quem
+  // for mexer no editor de MESA, que usa a mesma leitura.
 
   // `useCallback` aqui em cima, ANTES do `if (!profile) return null` lá embaixo: hook
   // depois de retorno condicional muda a ordem entre renders e o React quebra.
@@ -710,7 +712,6 @@ function TabMestre() {
         <ProfileEditorSidebar
           activePartId={activePartId}
           pendingCounts={pendingCounts}
-          progress={progress}
           onSelect={handleSelectPart}
           publicUrl={publicUrl}
           onBeforeOpen={flushGm}
@@ -777,10 +778,7 @@ function TabMestre() {
 
           {/* Spec 099 B1: slogan — encabeça as três cadeias (hero/OG/SEO, §2.3).
               Grava via PUT /gm/profile, uma chamada por campo (padrão da página). */}
-          <TaglineField
-            value={gmProfile.tagline ?? ''}
-            onChange={(tagline) => updateGm({ tagline: tagline || null })}
-          />
+          <TaglineField value={gmProfile.tagline ?? ''} />
 
           {/* Spec 099 B6: anos de experiência — recomendado, com frase do ganho.
               Componente extraído para GmProfileFields (mesmo markup de antes). */}

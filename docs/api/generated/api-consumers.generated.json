@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 299,
-    "uniqueEndpoints": 274,
+    "total": 298,
+    "uniqueEndpoints": 273,
     "byApp": {
       "accounts-frontend": {
         "total": 8,
@@ -38,14 +38,14 @@
         }
       },
       "mesas-frontend": {
-        "total": 181,
+        "total": 180,
         "byConfidence": {
-          "medium": 79,
+          "medium": 78,
           "high": 102
         },
         "byPattern": {
           "unknown": 4,
-          "template-literal": 73,
+          "template-literal": 72,
           "service-wrapper": 45,
           "literal": 59
         }
@@ -1780,23 +1780,13 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/hooks/useMestreInsights.ts",
-      "method": "GET",
-      "endpoint": "/api/v1/gm/perfis/:param/insights",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "authGet",
-      "line": 54
-    },
-    {
-      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/components/mestre/MestreReviewsSection.tsx",
       "method": "GET",
       "endpoint": "/api/v1/gm/perfis/:param/reviews",
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 45
+      "line": 37
     },
     {
       "app": "mesas-frontend",
@@ -1806,7 +1796,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPost",
-      "line": 73
+      "line": 76
     },
     {
       "app": "mesas-frontend",
@@ -1816,7 +1806,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPost",
-      "line": 83
+      "line": 75
     },
     {
       "app": "mesas-frontend",
@@ -2116,7 +2106,7 @@
       "confidence": "high",
       "pattern": "literal",
       "wrapper": "authPost",
-      "line": 323
+      "line": 322
     },
     {
       "app": "mesas-frontend",

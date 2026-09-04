@@ -14,6 +14,12 @@ const pageCss = readFileSync(resolve(pageDir, 'MestrePage.css'), 'utf8');
 // fonte da página não prova o ritmo — foi assim que a margem residual de
 // `MestreReviewsSection` sobreviveu à primeira versão de C3 (achado de review,
 // PR #302), dando 96px antes de Avaliações onde a régua manda 48px.
+//
+// `MestreInsightsSection` e `MestreRecommendationsSection` saíram da lista na
+// spec 100 (T3.3): os dois deixaram de ser renderizados pelo perfil e os
+// arquivos foram removidos. Mantê-los aqui quebraria com ENOENT no
+// `readFileSync` — e mantê-los como arquivo órfão só para o teste continuar
+// verde seria vigiar código morto, que é o erro oposto.
 const FLOW_CHILDREN = [
   'MestreBio',
   'MestreHighlights',
@@ -24,14 +30,56 @@ const FLOW_CHILDREN = [
   'MestreTablesSection',
   'MestreReviewsSection',
   'MestreClosedGroupSection',
-  'MestreInsightsSection',
-  'MestreRecommendationsSection',
   'MestreFinalCta',
 ] as const;
 
 describe('MestrePage — ritmo vertical das seções (spec 099 C3)', () => {
   it('agrupa o conteúdo posterior ao hero num único fluxo', () => {
     expect(pageSource).toContain('<div className="mestre-section-flow">');
+  });
+
+  // D5a/T3.1a: o corpo tem três grupos, não onze blocos irmãos. Sem esta
+  // asserção, desfazer o agrupamento não quebraria teste nenhum.
+  it.each(['sobre', 'mesas', 'contato'])(
+    'monta o grupo %s no fluxo',
+    (id) => {
+      // Regex, não `toContain` da linha inteira: a montagem quebra em várias
+      // linhas quando o grupo ganha props (`hasContent`), e o teste passaria a
+      // reprovar por formatação em vez de por ausência do grupo.
+      expect(pageSource).toMatch(new RegExp(`<MestreSectionGroup[^]{0,120}id="${id}"`));
+    },
+  );
+
+  // T3.3: as duas seções saíram do perfil e migraram ao /painel (D4/D14).
+  // T3.1a + achado de review (PR #306): o título do grupo é o `h2`; os blocos
+  // dentro dele são `h3`. Antes todos eram `h2`, e o `MestreBio` repetia
+  // literalmente "Sobre {nome}" logo abaixo do grupo de mesmo nome — cabeçalho
+  // duplicado na navegação por leitor de tela e na tela.
+  it.each([
+    'MestreBio',
+    'MestreHighlights',
+    'MestreSellingPoints',
+    'MestreTablesSection',
+    'MestreReviewsSection',
+    'MestreClosedGroupSection',
+    'MestreContactMethods',
+    'MestreContactForm',
+    'MestreVttPlatforms',
+  ])('%s não usa h2 dentro de um grupo', (component) => {
+    const source = readFileSync(resolve(componentDir, `${component}.tsx`), 'utf8');
+    expect(source).not.toMatch(/<h2[\s>]/);
+  });
+
+  // `LinksDisplay` é montado dentro do grupo "Contato", que já é `h2`; sem o
+  // nível explícito ele renderizava outro `h2` e os dois apareciam como irmãos
+  // na navegação por cabeçalhos (achado de review, PR #306).
+  it('passa headingLevel h3 ao LinksDisplay dentro do grupo', () => {
+    expect(pageSource).toMatch(/<LinksDisplay[^]{0,80}headingLevel="h3"/);
+  });
+
+  it('não renderiza Insights nem Recomendações no perfil público', () => {
+    expect(pageSource).not.toContain('MestreInsightsSection');
+    expect(pageSource).not.toContain('MestreRecommendationsSection');
   });
 
   it('remove as margens inline que criavam vãos diferentes', () => {

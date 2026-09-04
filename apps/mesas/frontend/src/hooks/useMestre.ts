@@ -221,14 +221,15 @@ export function useMestre(slug?: string) {
     return mappedTables.reduce((acc, t) => acc + (t.slots_total - t.slots_filled), 0);
   }, [mappedTables]);
 
-  const canSeeInsights = !!profile?.viewer_context?.is_owner || !!profile?.viewer_context?.is_admin;
-
+  // `canSeeInsights` saiu daqui na spec 100 (T3.3): ele existia só para o
+  // perfil público decidir se renderizava Insights e Recomendações, e as duas
+  // seções passaram ao /painel, que autoriza pela própria rota autenticada.
+  // O tipo `viewer_context` fica — é contrato da API, não derivado desta tela.
   return {
     profile,
     links,
     mappedTables,
     totalOpenSlots,
-    canSeeInsights,
     loading,
     error,
   };

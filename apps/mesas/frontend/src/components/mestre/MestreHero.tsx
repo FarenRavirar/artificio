@@ -139,50 +139,56 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
           </div>
         )}
 
-        <div className="hero-avatar">
-          {isUsableImageSrc(profile.avatar_url) && !avatarFailed ? (
-            <img
-              src={profile.avatar_url}
-              alt={profile.display_name}
-              style={{
-                objectPosition: cropToObjectPosition(
-                  profile.avatar_crop_data,
-                  profile.avatar_width,
-                  profile.avatar_height,
-                ),
-              }}
-              onError={() => setAvatarFailure(profile.avatar_url ?? null)}
-            />
-          ) : (
-            <div className="hero-avatar-placeholder">
-              {profile.display_name.charAt(0).toUpperCase()}
+        {/* Faixa de identificação (T3.1/D5): foto ao lado de nome, título e
+            selos, em vez de foto centralizada acima de um título de landing. */}
+        <div className="hero-identity">
+          <div className="hero-avatar">
+            {isUsableImageSrc(profile.avatar_url) && !avatarFailed ? (
+              <img
+                src={profile.avatar_url}
+                alt={profile.display_name}
+                style={{
+                  objectPosition: cropToObjectPosition(
+                    profile.avatar_crop_data,
+                    profile.avatar_width,
+                    profile.avatar_height,
+                  ),
+                }}
+                onError={() => setAvatarFailure(profile.avatar_url ?? null)}
+              />
+            ) : (
+              <div className="hero-avatar-placeholder">
+                {profile.display_name.charAt(0).toUpperCase()}
+              </div>
+            )}
+          </div>
+
+          <div className="hero-headline">
+            {tagline && <p className="hero-master-name">{profile.display_name}</p>}
+
+            <h1 className="hero-title">
+              {tagline ? (
+                tagline
+              ) : (
+                <>
+                  Viva aventuras com{' '}
+                  <span className="hero-title-accent">{profile.display_name}</span>
+                </>
+              )}
+            </h1>
+
+            <div className="hero-badges">
+              <Badge variant="warning" className="gap-2">
+                <Crown className="w-4 h-4" /> Mestre
+              </Badge>
+              {profile.covil_verified && (
+                <Badge variant="warning" className="gap-2">
+                  <Award className="w-4 h-4" /> Mestre do Covil
+                </Badge>
+              )}
             </div>
-          )}
+          </div>
         </div>
-
-        <div className="hero-badges">
-          <Badge variant="warning" className="gap-2">
-            <Crown className="w-4 h-4" /> Mestre
-          </Badge>
-          {profile.covil_verified && (
-            <Badge variant="warning" className="gap-2">
-              <Award className="w-4 h-4" /> Mestre do Covil
-            </Badge>
-          )}
-        </div>
-
-        {tagline && <p className="hero-master-name">{profile.display_name}</p>}
-
-        <h1 className="hero-title">
-          {tagline ? (
-            tagline
-          ) : (
-            <>
-              Viva aventuras com{' '}
-              <span className="hero-title-accent">{profile.display_name}</span>
-            </>
-          )}
-        </h1>
 
         {bioSummary && <p className="hero-bio">{bioSummary}</p>}
 

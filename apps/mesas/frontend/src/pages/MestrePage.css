@@ -1,4 +1,11 @@
-/* MestrePage — Otimizada para Conversão.
+/* Densidade vertical (spec 100, T3.6): os paddings de seção caíram de
+   `--space-16` (64px) para `--space-6` (24px). Onze blocos com 64px em cima e
+   embaixo somavam ~1400px de espaço em branco — parte das 12,7 telas de
+   rolagem medidas na origem. O respiro entre blocos não sumiu: passou a ser
+   responsabilidade única do `gap` de `.mestre-group-body` e
+   `.mestre-section-flow`, em vez de padding de cada seção somando ao gap.
+
+   MestrePage — Otimizada para Conversão.
    Spec 022 T8: cores via vars canônicas (@artificio/ui), viram por [data-theme].
    Sem bloco de override [data-theme=light] (removido): tema vira só nas vars.
    Cards = superfície SÓLIDA (guia pétreo). Laranja de marca = CTA/ícone; laranja
@@ -26,7 +33,7 @@
 
 /* Why Section */
 .why-section {
-  padding: var(--space-16) var(--space-6);
+  padding: var(--space-6);
   background: linear-gradient(to bottom, var(--canvas), var(--surface-subtle));
 }
 
@@ -36,12 +43,44 @@
   padding: var(--space-6);
 }
 
+/* Título de bloco DENTRO de um grupo (T3.1a): o título do grupo é
+   `.mestre-group-title`, um degrau acima. Alinhado à esquerda (T3.4) — texto
+   centralizado obriga o olho a reencontrar a margem a cada linha — e com
+   `--space-4` no lugar de `--space-16`: 64px sob cada um dos onze títulos era
+   uma das origens das 12,7 telas de rolagem. */
 .section-title {
+  font-size: var(--text-title);
+  line-height: var(--leading-title);
+  font-weight: var(--weight-strong);
+  text-align: left;
+  margin-bottom: var(--space-4);
+}
+
+/* Grupos de seção — T3.1a / D5a
+   ============================
+   Três âncoras (Sobre, Mesas, Contato) no lugar de onze blocos irmãos. O
+   título do grupo é a hierarquia superior; os títulos dos filhos viram
+   subtítulos por contraste de tamanho, não por regra nova. */
+.mestre-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.mestre-group-title {
   font-size: var(--text-display);
   line-height: var(--leading-display);
   font-weight: var(--weight-strong);
-  text-align: center;
-  margin-bottom: var(--space-16);
+  color: var(--fg);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+/* O ritmo entre filhos do grupo é menor que entre grupos: são partes do mesmo
+   assunto. `--space-6` contra os 48px que separam grupos no `.mestre-section-flow`. */
+.mestre-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
 }
 
 .benefits-grid {
@@ -85,7 +124,7 @@
 
 /* Tables Section */
 .tables-section {
-  padding: var(--space-16) var(--space-6);
+  padding: var(--space-6);
 }
 
 .tables-subtitle {
@@ -93,7 +132,7 @@
   font-size: var(--text-section);
   line-height: var(--leading-section);
   color: var(--fg-muted);
-  margin-bottom: var(--space-12);
+  margin-bottom: var(--space-6);
 }
 
 .tables-grid {
@@ -104,7 +143,7 @@
 
 .no-tables {
   text-align: center;
-  padding: var(--space-16) var(--space-8);
+  padding: var(--space-6) var(--space-8);
   border-radius: var(--radius-lg);
   border: 1px dashed var(--line-strong);
   background: var(--surface);
@@ -125,7 +164,7 @@
 
 /* Insights & Recommendations Sections */
 .mestre-private-panel {
-  padding: var(--space-12) 0;
+  padding: var(--space-6) 0;
   border-top: 1px solid var(--line);
 }
 
@@ -178,7 +217,7 @@
 
 /* How It Works Section */
 .how-it-works-section {
-  padding: var(--space-16) var(--space-6);
+  padding: var(--space-6);
   background: var(--surface-subtle);
 }
 
@@ -238,7 +277,7 @@
 
 /* Final CTA Section */
 .final-cta-section {
-  padding: var(--space-16) var(--space-6);
+  padding: var(--space-6);
   background: linear-gradient(to bottom, var(--fill-subtle), var(--fill));
 }
 
@@ -246,7 +285,7 @@
   max-width: 600px;
   margin: 0 auto;
   text-align: center;
-  padding: var(--space-12) var(--space-8);
+  padding: var(--space-6) var(--space-8);
   border-radius: var(--radius-lg);
   background: var(--fill-subtle);
   border: 1px solid var(--line);
@@ -302,7 +341,7 @@
    Bio Section
    =========================================================== */
 .mestre-bio-section {
-  padding: var(--space-16) var(--space-6);
+  padding: var(--space-6);
   background: var(--surface-subtle);
 }
 
@@ -398,7 +437,7 @@
    Mesa em destaque (featured table)
    =========================================================== */
 .mestre-featured-table {
-  margin-bottom: var(--space-12);
+  margin-bottom: var(--space-6);
 }
 
 .mestre-featured-table-link {
@@ -561,7 +600,7 @@
    Closed Group Section
    =========================================================== */
 .closed-group-section {
-  padding: var(--space-16) var(--space-6);
+  padding: var(--space-6);
   background: var(--fill-subtle);
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);

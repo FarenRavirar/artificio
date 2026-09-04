@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, ChevronUp, Eye, MousePointerClick, MessageCircle, BarChart3, AlertCircle, Info } from 'lucide-react';
+import { ChevronDown, ChevronUp, Eye, MousePointerClick, MessageCircle, BarChart3, AlertCircle, Info, Heart, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useGmInsights } from '../../hooks/useGmInsights';
 
 export function GmInsightsDashboard() {
@@ -38,10 +38,14 @@ export function GmInsightsDashboard() {
   // sistemas, mas deixá-los como string vazia fez a severidade depender SÓ de
   // cor — o mesmo defeito que D19 corrigiu nas barras do gráfico, e que some
   // para daltônicos e em escala de cinza (achado de review, PR #305).
+  // `Icon` migrado do `SEVERITY_META` de `MestreRecommendationsSection` (D14/
+  // T3.2a): o rótulo textual já existia aqui, o ícone não. É o terceiro canal
+  // de leitura da severidade — cor, palavra e forma —, e o único que sobrevive
+  // à leitura periférica de uma lista longa.
   const severityConfig = {
-    high: { bg: 'bg-[var(--state-danger-bg)]', border: 'border-[var(--state-danger-line)]', text: 'text-[var(--state-danger-fg)]', label: 'Alta' },
-    medium: { bg: 'bg-[var(--state-warning-bg)]', border: 'border-[var(--state-warning-line)]', text: 'text-[var(--state-warning-fg)]', label: 'Média' },
-    low: { bg: 'bg-[var(--state-info-bg)]', border: 'border-[var(--state-info-line)]', text: 'text-[var(--state-info-fg)]', label: 'Baixa' },
+    high: { bg: 'bg-[var(--state-danger-bg)]', border: 'border-[var(--state-danger-line)]', text: 'text-[var(--state-danger-fg)]', label: 'Alta', Icon: AlertTriangle },
+    medium: { bg: 'bg-[var(--state-warning-bg)]', border: 'border-[var(--state-warning-line)]', text: 'text-[var(--state-warning-fg)]', label: 'Média', Icon: Info },
+    low: { bg: 'bg-[var(--state-info-bg)]', border: 'border-[var(--state-info-line)]', text: 'text-[var(--state-info-fg)]', label: 'Baixa', Icon: CheckCircle2 },
   };
 
   const quartileConfig = {
@@ -55,7 +59,7 @@ export function GmInsightsDashboard() {
   return (
     <div className="space-y-6">
       {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Views */}
         <div className="bg-[var(--fill-5)] border border-[var(--border)] rounded-[var(--radius-md)] p-6">
           <div className="flex items-center justify-between mb-2">
@@ -87,6 +91,21 @@ export function GmInsightsDashboard() {
             {overview.total_contacts.toLocaleString()}
           </div>
           <div className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-[var(--fg-low)]">Contatos</div>
+        </div>
+
+        {/* Favoritos — T3.2. O backend já devolvia `total_favorites`
+            (gmPanel.ts) e o hook já o declarava; faltava só renderizar. Era o
+            único dos quatro números do perfil que o painel não mostrava, e por
+            isso o que impedia remover o bloco de insights do perfil público
+            sem perder informação. */}
+        <div className="bg-[var(--fill-5)] border border-[var(--border)] rounded-[var(--radius-md)] p-6">
+          <div className="flex items-center justify-between mb-2">
+            <Heart className="w-5 h-5 text-[var(--series-4)]" />
+          </div>
+          <div className="text-[length:var(--text-display)] leading-[var(--leading-display)] font-[var(--weight-strong)] text-[var(--fg)] mb-1">
+            {overview.total_favorites.toLocaleString()}
+          </div>
+          <div className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-[var(--fg-low)]">Favoritos</div>
         </div>
 
         {/* CTR */}
@@ -155,11 +174,18 @@ export function GmInsightsDashboard() {
                         <th className="pb-3 pr-4 text-right">Cliques</th>
                         <th className="pb-3 pr-4 text-right">CTR</th>
                         <th className="pb-3 pr-4 text-right">Contatos</th>
+                        <th className="pb-3 pr-4 text-right">Favoritos</th>
                         <th className="pb-3 text-right">Posição</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {tables.map((table) => (
+                      {tables.map((table) => {
+                        // Heurística migrada de `MestreInsightsSection` (D14/T3.2a):
+                        // audiência sem retorno. Ela existia só no perfil público, e
+                        // é o que o painel não sabia dizer — a tabela mostrava os
+                        // números, mas não qual mesa precisa de atenção.
+                        const needsAttention = table.views >= 10 && table.contacts === 0;
+                        return (
                         <tr key={table.id} className="border-b border-[var(--border-soft)] last:border-0">
                           <td className="py-3 pr-4">
                             <Link
@@ -171,6 +197,15 @@ export function GmInsightsDashboard() {
                             {table.system_name && (
                               <div className="text-[length:var(--text-label)] leading-[var(--leading-label)] text-[var(--fg-ghost)] mt-1">
                                 {table.system_name}
+                              </div>
+                            )}
+                            {needsAttention && (
+                              // Ícone + texto, não só cor: a severidade some para
+                              // daltônicos e em escala de cinza se depender da cor
+                              // sozinha (mesmo motivo do `label` em `severityConfig`).
+                              <div className="inline-flex items-center gap-1 mt-1 text-[length:var(--text-label)] leading-[var(--leading-label)] text-[var(--state-warning-fg)]">
+                                <AlertTriangle className="w-3 h-3" />
+                                Views sem contato
                               </div>
                             )}
                           </td>
@@ -185,6 +220,9 @@ export function GmInsightsDashboard() {
                           </td>
                           <td className="py-3 pr-4 text-right text-[var(--fg)]">
                             {table.contacts}
+                          </td>
+                          <td className="py-3 pr-4 text-right text-[var(--fg)]">
+                            {table.favorites}
                           </td>
                           <td className="py-3 text-right">
                             {benchmarks.available && table.benchmark_position ? (
@@ -204,7 +242,8 @@ export function GmInsightsDashboard() {
                             )}
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -363,8 +402,9 @@ export function GmInsightsDashboard() {
                       >
                         <div className="flex items-start gap-3">
                           <span
-                            className={`shrink-0 rounded-[var(--radius-sm)] border ${config.border} px-2 py-0.5 text-[length:var(--text-label)] leading-[var(--leading-label)] font-[var(--weight-medium)] ${config.text}`}
+                            className={`inline-flex shrink-0 items-center gap-1 rounded-[var(--radius-sm)] border ${config.border} px-2 py-0.5 text-[length:var(--text-label)] leading-[var(--leading-label)] font-[var(--weight-medium)] ${config.text}`}
                           >
+                            <config.Icon className="w-3 h-3" aria-hidden="true" />
                             <span className="sr-only">Prioridade </span>
                             {config.label}
                           </span>

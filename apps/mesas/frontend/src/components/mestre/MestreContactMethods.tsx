@@ -229,7 +229,7 @@ export function MestreContactMethods({ contacts, gmSlug }: MestreContactMethodsP
 
   return (
     <section className="space-y-4">
-      <h2 className="text-[length:var(--text-title)] leading-[var(--leading-title)] font-[var(--weight-strong)] text-[var(--fg)]">📬 Entre em Contato</h2>
+      <h3 className="text-[length:var(--text-title)] leading-[var(--leading-title)] font-[var(--weight-strong)] text-[var(--fg)]">Entre em Contato</h3>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {contacts.map((contact, index) => (

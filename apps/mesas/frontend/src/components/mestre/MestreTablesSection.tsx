@@ -13,9 +13,13 @@ export function MestreTablesSection({ mappedTables }: Props) {
   const hasAny = mappedTables.length > 0;
 
   return (
-    <section id="mesas" className="tables-section">
+    // Sem `id="mesas"`: a âncora passou ao grupo "Mesas e avaliações" (T3.1a),
+    // que envolve esta seção e a de avaliações. Mantê-lo aqui duplicaria o id na
+    // página, e `getElementById` devolveria o primeiro elemento — rolando para
+    // dentro do grupo, abaixo do próprio título.
+    <section className="tables-section">
       <div className="container">
-        <h2 className="section-title">Mesas Disponíveis</h2>
+        <h3 className="section-title">Mesas Disponíveis</h3>
 
         {hasAny && others.length > 0 && (
           <p className="tables-subtitle">

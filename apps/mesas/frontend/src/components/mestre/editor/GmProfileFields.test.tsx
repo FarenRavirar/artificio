@@ -35,11 +35,60 @@ import type { SystemTreeNode } from '../../../types/systems';
  * MestreSellingPoints (fonte das 14 opções do Select).
  */
 
-const { updateGm, authPost } = vi.hoisted(() => ({ updateGm: vi.fn(), authPost: vi.fn() }));
+const { updateGm, flushGm, authPost } = vi.hoisted(() => ({
+  updateGm: vi.fn(),
+  flushGm: vi.fn(async () => true),
+  authPost: vi.fn(),
+}));
+
+/**
+ * Abre o modal de um campo que virou linha (spec 100, T4.1/D1).
+ *
+ * Os quatro campos curtos deixaram de ser input inline: a linha mostra o valor
+ * e a edição acontece no modal. Os testes abaixo continuam cobrindo os MESMOS
+ * campos e as mesmas regras — o que muda é o gesto que chega até eles.
+ */
+function abrirCampo(label: string) {
+  // Pelo gatilho da LINHA, não por papel/nome: aberto o modal, o título dele
+  // também casa o mesmo texto, e `getByRole('button', { name })` passaria a
+  // encontrar dois nós — o teste falharia por ambiguidade, não por regressão.
+  const linha = document.querySelector<HTMLElement>('.profile-field-row-trigger');
+  if (!linha) throw new Error(`linha do campo "${label}" não encontrada`);
+  fireEvent.click(linha);
+}
+
+/**
+ * Consultas restritas ao corpo do modal. O `Modal` do pacote repete o rótulo do
+ * campo no próprio título, então `screen.getByLabelText('Slogan')` encontra
+ * dois nós e falha por ambiguidade — que não é a regressão que estes testes
+ * vigiam.
+ */
+/** Abre a linha cujo rótulo é exatamente `label` (há mais de uma na tela). */
+function abrirCampoPorRotulo(label: string) {
+  const linha = [...document.querySelectorAll<HTMLElement>('.profile-field-row-trigger')].find(
+    (el) => el.querySelector('.profile-field-row-label')?.textContent === label,
+  );
+  if (!linha) throw new Error(`linha do campo "${label}" não encontrada`);
+  fireEvent.click(linha);
+}
+
+/** Descarta pelo X — uma das três vias de descarte do Modal (D2). */
+function fecharModalNoX() {
+  fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+}
+
+function noModal() {
+  const corpo = document.querySelector<HTMLElement>('.artificio-modal-body');
+  if (!corpo) throw new Error('modal não está aberto');
+  return within(corpo);
+}
 
 vi.mock('../../../contexts/useProfileContext', () => ({
   useProfileContext: () => ({
     updateGm,
+    // O modal de T4.2 chama `updateGm` e então `flushGm` no Salvar: sem os dois
+    // no mock, o clique rejeita e o teste falharia por motivo errado.
+    flushGm,
     profile: {
       gm: { experience_years: null, specialties: [], languages: ['Português'], badges: [] },
     },
@@ -91,34 +140,63 @@ vi.mock('@artificio/content-editor', () => ({
 }));
 
 describe('TaglineField', () => {
+  beforeEach(() => {
+    updateGm.mockReset();
+    flushGm.mockClear();
+  });
+
+  // T4.1/D21: a linha exibe o valor atual; vazia, convida com "Adicionar".
+  it('exibe o valor atual na linha', () => {
+    render(<TaglineField value="Mesas imersivas" />);
+    expect(screen.getByText('Mesas imersivas')).toBeTruthy();
+  });
+
+  it('linha sem valor exibe "Adicionar"', () => {
+    render(<TaglineField value="" />);
+    expect(screen.getByText('Adicionar')).toBeTruthy();
+  });
+
   it('renderiza o campo com rótulo associado ao controle', () => {
-    render(<TaglineField value="" onChange={() => {}} />);
-    expect(screen.getByLabelText('Slogan')).toBeTruthy();
+    render(<TaglineField value="" />);
+    abrirCampo('Slogan');
+    expect(noModal().getByLabelText('Slogan')).toBeTruthy();
   });
 
   it('marca o nível recomendado e mostra a frase do ganho', () => {
-    const { container } = render(<TaglineField value="" onChange={() => {}} />);
+    const { container } = render(<TaglineField value="" />);
     expect(container.querySelector('[data-ob="recommended"]')).not.toBeNull();
     expect(screen.getByText(`Recomendado — ${RECOMMENDED_GAIN.tagline}.`)).toBeTruthy();
   });
 
   it('limita a 200 caracteres, alinhado ao corte do PUT', () => {
-    render(<TaglineField value="" onChange={() => {}} />);
-    expect(screen.getByLabelText('Slogan')).toHaveAttribute('maxlength', '200');
+    render(<TaglineField value="" />);
+    abrirCampo('Slogan');
+    expect(noModal().getByLabelText('Slogan')).toHaveAttribute('maxlength', '200');
   });
 
-  it('chama onChange a cada digitação', () => {
-    const onChange = vi.fn();
-    render(<TaglineField value="" onChange={onChange} />);
-    fireEvent.change(screen.getByLabelText('Slogan'), {
+  // Substitui "chama onChange a cada digitação": digitar NÃO persiste mais (D2),
+  // e é justamente essa a garantia que precisa de teste — se `updateGm` voltasse
+  // a ser chamado na digitação, o descarte no X deixaria de descartar.
+  it('digitar no modal não persiste; só o Salvar grava', async () => {
+    render(<TaglineField value="" />);
+    abrirCampo('Slogan');
+
+    fireEvent.change(noModal().getByLabelText('Slogan'), {
       target: { value: 'Mesas imersivas' },
     });
-    expect(onChange).toHaveBeenCalledWith('Mesas imersivas');
+    expect(updateGm).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    await waitFor(() =>
+      expect(updateGm).toHaveBeenCalledWith({ tagline: 'Mesas imersivas' }),
+    );
+    expect(flushGm).toHaveBeenCalled();
   });
 
   it('exibe o erro quando informado', () => {
-    render(<TaglineField value="" onChange={() => {}} error="Slogan muito longo" />);
-    expect(screen.getByText('Slogan muito longo')).toBeTruthy();
+    render(<TaglineField value="" error="Slogan muito longo" />);
+    abrirCampo('Slogan');
+    expect(noModal().getByText('Slogan muito longo')).toBeTruthy();
   });
 });
 
@@ -178,11 +256,19 @@ describe('ProfileTagsSection', () => {
     updateGm.mockReset();
   });
 
+  // Especialidades e idiomas viraram linha + modal (T4.1); `badges` segue
+  // inline. Os três continuam devendo rótulo associado ao controle — o que
+  // muda é onde o controle mora.
   it('renderiza os três campos com rótulo associado ao controle', () => {
     renderTagsSection();
-    expect(screen.getByLabelText('Especialidades')).toBeTruthy();
-    expect(screen.getByLabelText('Idiomas')).toBeTruthy();
     expect(screen.getByLabelText('Selos')).toBeTruthy();
+
+    abrirCampoPorRotulo('Especialidades');
+    expect(noModal().getByLabelText('Especialidades')).toBeTruthy();
+    fecharModalNoX();
+
+    abrirCampoPorRotulo('Idiomas');
+    expect(noModal().getByLabelText('Idiomas')).toBeTruthy();
   });
 
   it('marca specialties e languages como recomendados (com frase do ganho) e badges como opcional (sem frase)', () => {
@@ -198,20 +284,26 @@ describe('ProfileTagsSection', () => {
     expect(screen.getByText(`Recomendado — ${RECOMMENDED_GAIN.languages}.`)).toBeTruthy();
   });
 
-  it('adicionar especialidade grava via updateGm({ specialties })', () => {
+  it('adicionar especialidade grava via updateGm({ specialties })', async () => {
     renderTagsSection();
-    const input = screen.getByLabelText('Especialidades');
+    abrirCampoPorRotulo('Especialidades');
+    const input = noModal().getByLabelText('Especialidades');
     fireEvent.change(input, { target: { value: 'Horror' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(updateGm).toHaveBeenCalledWith({ specialties: ['Horror'] });
+    // Digitar não grava mais (D2): a gravação é do Salvar.
+    expect(updateGm).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    await waitFor(() => expect(updateGm).toHaveBeenCalledWith({ specialties: ['Horror'] }));
   });
 
-  it('adicionar idioma grava via updateGm({ languages })', () => {
+  it('adicionar idioma grava via updateGm({ languages })', async () => {
     renderTagsSection();
-    const input = screen.getByLabelText('Idiomas');
+    abrirCampoPorRotulo('Idiomas');
+    const input = noModal().getByLabelText('Idiomas');
     fireEvent.change(input, { target: { value: 'Inglês' } });
     fireEvent.keyDown(input, { key: 'Enter' });
-    expect(updateGm).toHaveBeenCalledWith({ languages: ['Inglês'] });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    await waitFor(() => expect(updateGm).toHaveBeenCalledWith({ languages: ['Inglês'] }));
   });
 
   it('adicionar selo grava via updateGm({ badges })', () => {
@@ -222,10 +314,12 @@ describe('ProfileTagsSection', () => {
     expect(updateGm).toHaveBeenCalledWith({ badges: ['Streamer'] });
   });
 
-  it('remover especialidade grava o array sem ela', () => {
+  it('remover especialidade grava o array sem ela', async () => {
     renderTagsSection({ specialties: ['Horror', 'Intriga'] });
-    fireEvent.click(screen.getByRole('button', { name: 'Remover Horror' }));
-    expect(updateGm).toHaveBeenCalledWith({ specialties: ['Intriga'] });
+    abrirCampoPorRotulo('Especialidades');
+    fireEvent.click(noModal().getByRole('button', { name: 'Remover Horror' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    await waitFor(() => expect(updateGm).toHaveBeenCalledWith({ specialties: ['Intriga'] }));
   });
 });
 
@@ -661,28 +755,50 @@ describe('BioLongField e ExperienceYearsField (B6 — recomendados extraídos da
     ).toBeTruthy();
   });
 
-  it('experiência: digitar grava via updateGm({ experience_years }); vazio grava null', () => {
-    render(<ExperienceYearsField value={null} />);
-    const input = screen.getByLabelText('Anos de Experiência');
-    fireEvent.change(input, { target: { value: '12' } });
-    expect(updateGm).toHaveBeenCalledWith({ experience_years: 12 });
-    fireEvent.change(input, { target: { value: '' } });
-    expect(updateGm).toHaveBeenLastCalledWith({ experience_years: null });
+  it('experiência: salvar grava via updateGm({ experience_years }); vazio grava null', async () => {
+    const { unmount } = render(<ExperienceYearsField value={null} />);
+    abrirCampoPorRotulo('Anos de Experiência');
+    fireEvent.change(noModal().getByLabelText('Anos de Experiência'), { target: { value: '12' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    await waitFor(() => expect(updateGm).toHaveBeenCalledWith({ experience_years: 12 }));
+    unmount();
+
+    render(<ExperienceYearsField value={12} />);
+    abrirCampoPorRotulo('Anos de Experiência');
+    fireEvent.change(noModal().getByLabelText('Anos de Experiência'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    await waitFor(() => expect(updateGm).toHaveBeenLastCalledWith({ experience_years: null }));
   });
 
   // Achado de review (#297): `parseInt(v) || null` transformava o ZERO valido em
   // null (0 e falsy) e deixava passar decimal e negativo.
-  it('experiência: zero e valido; decimal e negativo nao gravam', () => {
+  it('experiência: zero e valido; decimal e negativo nao gravam', async () => {
     render(<ExperienceYearsField value={null} />);
-    const input = screen.getByLabelText('Anos de Experiência');
+    abrirCampoPorRotulo('Anos de Experiência');
+    const input = noModal().getByLabelText('Anos de Experiência');
 
     fireEvent.change(input, { target: { value: '0' } });
-    expect(updateGm).toHaveBeenLastCalledWith({ experience_years: 0 });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    await waitFor(() => expect(updateGm).toHaveBeenLastCalledWith({ experience_years: 0 }));
 
-    const chamadasAntes = updateGm.mock.calls.length;
-    fireEvent.change(input, { target: { value: '1.5' } });
-    fireEvent.change(input, { target: { value: '-3' } });
-    expect(updateGm.mock.calls.length).toBe(chamadasAntes);
+    // Entrada inválida RECUSA: nada vai ao servidor, o modal fica aberto e a
+    // mensagem aparece. Antes devolvia patch vazio, o modal fechava em silêncio
+    // e o mestre saía achando que salvou (achado de review, PR #306).
+    for (const invalido of ['1.5', '-3']) {
+      updateGm.mockClear();
+      abrirCampoPorRotulo('Anos de Experiência');
+      fireEvent.change(noModal().getByLabelText('Anos de Experiência'), {
+        target: { value: invalido },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+      await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+      expect(updateGm).not.toHaveBeenCalled();
+      expect(document.querySelector('.artificio-modal')).not.toBeNull();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+      await waitFor(() => expect(document.querySelector('.artificio-modal')).toBeNull());
+    }
   });
 });
 
@@ -697,8 +813,9 @@ describe('aria-describedby (B7) — controle aponta para o <p> de hint/erro do F
   });
 
   it('TaglineField: input aponta para o hint/erro do Field', () => {
-    render(<TaglineField value="" onChange={() => {}} />);
-    expect(screen.getByLabelText('Slogan')).toHaveAttribute(
+    render(<TaglineField value="" />);
+    abrirCampoPorRotulo('Slogan');
+    expect(noModal().getByLabelText('Slogan')).toHaveAttribute(
       'aria-describedby',
       'gm-tagline-description',
     );
@@ -716,14 +833,20 @@ describe('aria-describedby (B7) — controle aponta para o <p> de hint/erro do F
 
   it('ProfileTagsSection: os três inputs apontam para o hint do próprio Field', () => {
     renderTagsSection();
-    expect(screen.getByLabelText('Especialidades')).toHaveAttribute(
+    abrirCampoPorRotulo('Especialidades');
+    expect(noModal().getByLabelText('Especialidades')).toHaveAttribute(
       'aria-describedby',
       'gm-specialties-description',
     );
-    expect(screen.getByLabelText('Idiomas')).toHaveAttribute(
+    fecharModalNoX();
+
+    abrirCampoPorRotulo('Idiomas');
+    expect(noModal().getByLabelText('Idiomas')).toHaveAttribute(
       'aria-describedby',
       'gm-languages-description',
     );
+    fecharModalNoX();
+
     expect(screen.getByLabelText('Selos')).toHaveAttribute(
       'aria-describedby',
       'gm-badges-description',
@@ -767,6 +890,9 @@ describe('aria-describedby (B7) — controle aponta para o <p> de hint/erro do F
       </>,
     );
     expect(screen.getByLabelText('Bio detalhada')).not.toHaveAttribute('aria-describedby');
-    expect(screen.getByLabelText('Anos de Experiência')).not.toHaveAttribute('aria-describedby');
+    abrirCampoPorRotulo('Anos de Experiência');
+    expect(noModal().getByLabelText('Anos de Experiência')).not.toHaveAttribute(
+      'aria-describedby',
+    );
   });
 });

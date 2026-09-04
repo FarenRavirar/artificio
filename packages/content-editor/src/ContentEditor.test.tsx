@@ -262,6 +262,34 @@ describe('contentCountLabel', () => {
 });
 
 describe('renderMarkdown', () => {
+  it('respeita o Enter simples como quebra de linha', () => {
+    // O bug que motivou `breaks: true` (2026-09-04, descrição de mesa em
+    // produção): no CommonMark, `\n` solto dentro de parágrafo é separador de
+    // palavra, então as linhas saíam GRUDADAS e só duas quebras separavam algo.
+    // Ninguém escreve assim num campo de descrição ou numa caixa de comentário —
+    // e o render é o mesmo de `packages/comments`, `packages/ui`, `mesas` e
+    // `downloads`.
+    const output = renderMarkdown('**▬ Sistema:** D&D 5.5e\n**▬ Nível:** 20');
+
+    expect(output).toContain('<br>');
+    expect(output).not.toContain('5.5e\n<strong>▬ Nível');
+  });
+
+  it('não deixa a linha seguinte ser engolida por um item de lista', () => {
+    // Sem quebra, a linha após um item é continuação preguiçosa dele: o texto
+    // aparecia dentro do <li> anterior em vez de na própria linha.
+    const output = renderMarkdown('- Progressão por Epic Boons\n**▬ Estilo:** Épico');
+
+    expect(output).toContain('<br>');
+  });
+
+  it('exibe o `&` que o usuário digitou, não a entidade', () => {
+    const output = renderMarkdown('Dungeons & Dragons');
+
+    expect(output).toContain('Dungeons &amp; Dragons');
+    expect(output).not.toContain('&amp;amp;');
+  });
+
   it('renderiza recursos GFM disponíveis sem aceitar HTML cru ou protocolo executável', () => {
     const output = renderMarkdown('| A | B |\n|---|---|\n| 1 | 2 |\n\n~~fim~~ [x](javascript:alert(1))');
 

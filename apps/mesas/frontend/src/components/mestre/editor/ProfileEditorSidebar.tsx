@@ -8,7 +8,12 @@ import {
 
 /**
  * Lateral do editor de perfil de mestre (spec 099, fase G — G1/G3/G4):
- * progresso, as 5 partes com pendências, e a porta para o link oficial.
+ * as 5 partes com pendências e a porta para o link oficial.
+ *
+ * **Sem a barra "N% preenchido" (spec 100, T4.5).** Ela agregava num número o
+ * que agora cada linha do formulário diz por si: o valor atual ao lado do
+ * rótulo, ou "Adicionar" quando vazio (D21). Um percentual não informa QUAL
+ * campo falta — os contadores por parte, que permanecem, informam.
  *
  * Duplicação deliberada do padrão de `EditorSidebar` (TableEditor.tsx:480-550),
  * registrada e datada em `profileEditorParts.ts` — a G6 compara as duas e
@@ -22,7 +27,6 @@ import {
 type ProfileEditorSidebarProps = Readonly<{
   activePartId: ProfilePartId;
   pendingCounts: Record<ProfilePartId, number>;
-  progress: number;
   onSelect: (partId: ProfilePartId) => void;
   /** Endereço público real, já montado. `null` enquanto não há slug. */
   publicUrl: string | null;
@@ -36,30 +40,12 @@ type ProfileEditorSidebarProps = Readonly<{
 export const ProfileEditorSidebar = memo(function ProfileEditorSidebar({
   activePartId,
   pendingCounts,
-  progress,
   onSelect,
   publicUrl,
   onBeforeOpen,
 }: ProfileEditorSidebarProps) {
   return (
     <>
-      <div>
-        <div className="mb-2 text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-70">
-          {Math.round(progress * 100)}% preenchido
-        </div>
-        {/* Barra decorativa: o valor já é anunciado pelo texto acima, então
-            `role="progressbar"` aqui duplicaria o anúncio no leitor de tela. */}
-        <div
-          className="h-1.5 overflow-hidden rounded-[var(--radius-pill)] bg-[var(--fill)]"
-          aria-hidden="true"
-        >
-          <div
-            className="h-full bg-[var(--color-artificio-orange)] transition-[width]"
-            style={{ width: `${Math.round(progress * 100)}%` }}
-          />
-        </div>
-      </div>
-
       {/* `profile-editor-parts-nav`: gancho estável para a media query da casca
           (ProfileEditPage.css) virar esta lista em faixa horizontal abaixo de
           720px. Sem a classe, a regra dependeria do seletor de elemento e

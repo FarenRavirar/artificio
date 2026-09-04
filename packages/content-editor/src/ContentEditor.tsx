@@ -2,10 +2,31 @@ import DOMPurify from 'dompurify';
 import MarkdownIt from 'markdown-it';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
+/**
+ * `breaks: true` — Enter simples vira `<br>`, e não espaço.
+ *
+ * O CommonMark trata `\n` solto dentro de parágrafo como separador de palavra,
+ * então um texto escrito com uma linha por item saía **colado** num parágrafo
+ * único. Só duas quebras produziam separação visível, e ninguém escreve assim
+ * num campo de descrição ou numa caixa de comentário.
+ *
+ * Medido em 2026-09-04, na descrição de uma mesa em produção:
+ * `"**▬ Sistema:** …\n**▬ Nível:** 20\n- Progressão…"` renderizava as três
+ * linhas grudadas, e a linha `- Progressão` nem virava item de lista, porque
+ * sem quebra ela é continuação preguiçosa (lazy continuation) do parágrafo
+ * anterior.
+ *
+ * A opção é do renderizador compartilhado de propósito: este módulo alimenta
+ * `packages/comments` (comentários de `downloads`, `mesas` e `accounts`),
+ * `packages/ui` (avaliação de mestre, changelog) e as descrições/bios dos apps.
+ * Corrigir aqui vale para todos; corrigir por app seria a divergência que o
+ * monorepo existe para evitar.
+ */
 const markdown = new MarkdownIt({
   html: false,
   linkify: true,
   typographer: false,
+  breaks: true,
 });
 
 export function renderMarkdown(value: string): string {

@@ -18,9 +18,10 @@ import MarkdownIt from 'markdown-it';
  * Tag real continua removida (`allowedTags: []`): `<script>alert(1)</script>`
  * sai como string vazia, `<b>x</b>` sai como `x`.
  *
- * **`&` continua saindo como `&amp;`** — `a & b` grava `a &amp; b`. Diferente do
- * `>`, o `&` escapado não quebra marcação nenhuma: o render o exibe como `&`.
- * Desfazê-lo só reintroduziria ambiguidade sem resolver problema real.
+ * O `&` solto recebe o mesmo tratamento, por `protectLooseAmpersands` — ver a
+ * nota lá. A versão anterior deste comentário afirmava que escapá-lo era
+ * inofensivo "porque o render o exibe como `&`"; medido em 2026-09-04, isso é
+ * falso para todo consumidor que não passa por HTML.
  */
 const MARKDOWN_ONLY_OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: [],
@@ -45,9 +46,10 @@ const MARKDOWN_ONLY_OPTIONS: sanitizeHtml.IOptions = {
  */
 const LOOSE_LT = '';
 const LOOSE_GT = '';
+const LOOSE_AMP = '';
 
 /** Remove sentinela vinda da entrada — ver a nota acima. */
-const SENTINEL_RE = /[]/g;
+const SENTINEL_RE = /[]/g;
 
 /**
  * Descarta a sentinela que o usuário tenha enviado.
@@ -118,14 +120,80 @@ function restoreLooseAngleBrackets(value: string): string {
   return value.split(LOOSE_LT).join('<').split(LOOSE_GT).join('>');
 }
 
-/** Remove HTML preservando `<`/`>` soltos como texto. */
+/**
+ * `&` que **não** abre uma referência de entidade — o que o encoder do
+ * `sanitize-html` escaparia para `&amp;`.
+ *
+ * O casamento cobre as três formas que o encoder reconhece, medidas em
+ * 2026-09-04 contra `sanitize-html@2.17.7`: nomeada (`&copy;`, e também
+ * `&naoexiste;` — ele não valida contra a tabela), decimal (`&#38;`) e
+ * hexadecimal (`&#x26;`). Tudo isso passa intacto e **precisa** continuar
+ * passando: é texto que o usuário digitou.
+ */
+const ENTITY_REFERENCE_RE = /&(?:[a-zA-Z][a-zA-Z0-9]*|#[0-9]+|#[xX][0-9a-fA-F]+);/g;
+
+/**
+ * Troca por sentinela o `&` que está **fora** de uma entidade.
+ *
+ * ## O bug que isto corrige
+ *
+ * `a & b` era gravado no banco como `a &amp; b`. O comentário que justificava
+ * isso dizia que o render exibia `&` de volta — e o render de fato exibe, porque
+ * o `markdown-it` repassa a entidade e o browser a pinta. **Mas o dado
+ * armazenado está corrompido**, e todo consumidor que não termina em HTML mostra
+ * a entidade crua: texto plano (`markdownToPlainText`), `meta description`,
+ * e-mail, exportação. O campo de escrita também: o mestre reabria a própria mesa
+ * e lia `Dungeons &amp; Dragons` no lugar do que digitou (medido em produção,
+ * 2026-09-04). De quebra, cada `&` consumia 5 dos caracteres do limite.
+ *
+ * ## Por que sentinela, e não desescapar depois
+ *
+ * Mesma razão de `protectLooseAngleBrackets`: depois do encoder, o `&amp;` que
+ * veio de um `&` digitado e o `&amp;` que o usuário escreveu literalmente são
+ * **indistinguíveis**. Desfazer o escape na saída converteria o segundo caso a
+ * cada passagem, e a função deixaria de ser idempotente — exatamente a regressão
+ * da PR #246 descrita em `sanitizeUserMarkdown`. Rodando antes, sobre o texto
+ * original, os dois ainda são coisas diferentes.
+ */
+function protectLooseAmpersands(value: string): string {
+  let result = '';
+  let lastIndex = 0;
+
+  for (const match of value.matchAll(ENTITY_REFERENCE_RE)) {
+    result += value.slice(lastIndex, match.index).split('&').join(LOOSE_AMP);
+    result += match[0];
+    lastIndex = match.index + match[0].length;
+  }
+
+  return result + value.slice(lastIndex).split('&').join(LOOSE_AMP);
+}
+
+function restoreLooseAmpersands(value: string): string {
+  return value.split(LOOSE_AMP).join('&');
+}
+
+/** Remove HTML preservando `<`/`>`/`&` soltos como texto. */
 function sanitizeMarkdownText(value: string): string {
-  return restoreLooseAngleBrackets(
-    sanitizeHtml(protectLooseAngleBrackets(value), MARKDOWN_ONLY_OPTIONS),
+  return restoreLooseAmpersands(
+    restoreLooseAngleBrackets(
+      sanitizeHtml(
+        protectLooseAmpersands(protectLooseAngleBrackets(value)),
+        MARKDOWN_ONLY_OPTIONS,
+      ),
+    ),
   );
 }
 
-const markdownRenderer = new MarkdownIt({ html: false, linkify: false, typographer: false });
+// `breaks: true` acompanha o renderizador de `ContentEditor.tsx` — ver a nota
+// lá. Aqui a saída vira texto plano, onde `<br>` e `\n` colapsam no mesmo
+// espaço; manter a opção alinhada evita que o resumo e a página divirjam no dia
+// em que alguém trocar o pipeline de um dos dois.
+const markdownRenderer = new MarkdownIt({
+  html: false,
+  linkify: false,
+  typographer: false,
+  breaks: true,
+});
 
 const MARKDOWN_INLINE_LITERAL_RE = new RegExp(
   [
@@ -485,6 +553,29 @@ export function sanitizeLegacyCommentHtml(input: string): string {
   });
 }
 
+/**
+ * Desfaz **só o escape do `&`** no texto plano — não o de `<`/`>`.
+ *
+ * O `&` é o único cujo escape é visível como defeito: `a & b` chegava ao leitor
+ * como `a &amp; b` no resumo e na `meta description`.
+ *
+ * `&lt;`/`&gt;` ficam de fora **de propósito**, e a tentação de incluí-los foi
+ * medida em 2026-09-04: decodificá-los quebra a idempotência que
+ * `sanitizeUserMarkdown` exige. `&lt;script&gt;alert(1)&lt;/script&gt;` — texto
+ * legítimo, alguém explicando uma tag — virava `<script>alert(1)</script>` na
+ * primeira passagem e **string vazia** na segunda, porque aí o sanitizador o lê
+ * como tag de verdade. O conteúdo do usuário desapareceria sem erro nenhum.
+ *
+ * Entidade tipográfica (`&copy;`, `&nbsp;`) não precisa de tratamento: o
+ * `markdown-it` já a converte no caractere real antes deste ponto — medido,
+ * `&copy; z` chega como `© z`.
+ */
+const PLAIN_TEXT_AMPERSAND_RE = /&(?:amp|#38);/g;
+
+function decodeHtmlEntities(value: string): string {
+  return value.replace(PLAIN_TEXT_AMPERSAND_RE, '&');
+}
+
 export function markdownToPlainText(value: string, maxLength?: number): string {
   const rendered = markdownRenderer.render(sanitizeUserMarkdown(value));
   // `sanitizeHtml` direto, **sem** o pré-passo de sentinela: aqui a entrada é
@@ -492,7 +583,15 @@ export function markdownToPlainText(value: string, maxLength?: number): string {
   // `&gt;` remanescente foi escapado pelo renderizador — não é texto do usuário
   // que precise sobreviver. Proteger `<`/`>` neste ponto impediria a remoção das
   // próprias tags que se quer descartar para chegar ao texto puro.
-  const plain = sanitizeHtml(rendered, MARKDOWN_ONLY_OPTIONS)
+  //
+  // `decodeHtmlEntities` fecha o caminho: a saída daqui é TEXTO PLANO (resumo,
+  // `meta description`, prévia de listagem), e nada mais vai interpretar
+  // entidade depois deste ponto. Sem ele, `a & b` chegava ao usuário como
+  // `a &amp; b` — o `markdown-it` escapa o `&` ao produzir HTML, e nenhuma opção
+  // do `sanitize-html` desfaz isso (medido em 2026-09-04: `decodeEntities`
+  // true/false e `textFilter` dão o mesmo resultado, porque a opção governa o
+  // parser da ENTRADA, não a saída já escapada).
+  const plain = decodeHtmlEntities(sanitizeHtml(rendered, MARKDOWN_ONLY_OPTIONS))
     .replace(/\s+/g, ' ')
     .trim();
 

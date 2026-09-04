@@ -52,14 +52,36 @@ describe('limite de 10.000 caracteres (decisão 25)', () => {
     expect(result).toEqual({ ok: false, code: 'body_too_long' });
   });
 
-  it('a segunda checagem pega o que a canonicalização faz crescer', () => {
-    // `&` vira `&amp;`: cinco caracteres onde havia um. Entrada dentro do limite
-    // sai acima dele, e é o valor canônico que vai ao banco — sem esta checagem
-    // a falha apareceria como erro de `CHECK`, não como `422` com motivo.
-    const result = validateCommentBody('&'.repeat(COMMENT_BODY_MAX_LENGTH));
-    expect(result).toEqual({ ok: false, code: 'body_too_long' });
-    expect(result).not.toHaveProperty('bodyMarkdown');
+  it('a canonicalização não faz o corpo crescer — e a segunda checagem vigia isso', () => {
+    // Este teste MUDOU DE ALVO em 2026-09-04, e o motivo importa.
+    //
+    // Antes ele afirmava que `&` virava `&amp;` e estourava o limite: cinco
+    // caracteres onde havia um. Isso deixou de acontecer quando
+    // `protectLooseAmpersands` passou a preservar o `&` solto — o escape
+    // corrompia o dado armazenado para todo consumidor que não termina em HTML
+    // (texto plano, meta description, e-mail, e o próprio campo de escrita).
+    //
+    // Com `<`, `>` e `&` todos preservados, NENHUMA entrada conhecida cresce na
+    // canonicalização. Medido: `>`×10.000 sai `body_empty` (não tem conteúdo
+    // visível), e texto misturado com `<`, `>`, `&`, aspas e apóstrofo sai do
+    // mesmo tamanho que entrou.
+    //
+    // A segunda checagem CONTINUA no código, e de propósito: ela é a defesa
+    // contra uma regra de canonicalização futura que volte a expandir. O que
+    // este teste vigia agora é a premissa — se algum caractere voltar a crescer,
+    // ele falha e obriga a decidir conscientemente.
+    for (const amostra of ['>', '<', '&', '"', "'"]) {
+      const entrada = ('a' + amostra).repeat(COMMENT_BODY_MAX_LENGTH / 2);
+      const result = validateCommentBody(entrada) as {
+        ok: boolean;
+        bodyMarkdown?: string;
+      };
+
+      expect(result.ok).toBe(true);
+      expect(result.bodyMarkdown?.length).toBeLessThanOrEqual(COMMENT_BODY_MAX_LENGTH);
+    }
   });
+
 });
 
 describe('conteúdo visível (decisão 30)', () => {

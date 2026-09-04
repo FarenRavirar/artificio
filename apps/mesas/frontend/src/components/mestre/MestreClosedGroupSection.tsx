@@ -42,7 +42,7 @@ export function MestreClosedGroupSection({ closedGroup }: Props) {
           <span>Oferta especial</span>
         </div>
 
-        <h2 className="section-title">Disponível para grupos fechados</h2>
+        <h3 className="section-title">Disponível para grupos fechados</h3>
 
         {closedGroup.description ? (
           <MarkdownContent value={closedGroup.description} className="closed-group-description" />
@@ -52,9 +52,13 @@ export function MestreClosedGroupSection({ closedGroup }: Props) {
 
         {closedGroup.systems.length > 0 && (
           <div className="closed-group-systems">
-            <h3 className="closed-group-subtitle">
+            {/* `h4`: subseção DENTRO do bloco "Disponível para grupos
+                fechados", que já é `h3` sob o `h2` do grupo (achado de review,
+                PR #306). Os rótulos de item (selling point, cartão de contato)
+                seguem `h3` por serem irmãos entre si, não filhos deste. */}
+            <h4 className="closed-group-subtitle">
               <Dices className="w-4 h-4" /> Sistemas aceitos
-            </h3>
+            </h4>
             <div className="closed-group-chips">
               {closedGroup.systems.map((s) => (
                 <span key={s.id} className="closed-group-chip">
