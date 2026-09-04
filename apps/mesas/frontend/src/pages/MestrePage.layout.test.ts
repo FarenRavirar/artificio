@@ -43,7 +43,10 @@ describe('MestrePage — ritmo vertical das seções (spec 099 C3)', () => {
   it.each(['sobre', 'mesas', 'contato'])(
     'monta o grupo %s no fluxo',
     (id) => {
-      expect(pageSource).toContain(`<MestreSectionGroup id="${id}"`);
+      // Regex, não `toContain` da linha inteira: a montagem quebra em várias
+      // linhas quando o grupo ganha props (`hasContent`), e o teste passaria a
+      // reprovar por formatação em vez de por ausência do grupo.
+      expect(pageSource).toMatch(new RegExp(`<MestreSectionGroup[^]{0,120}id="${id}"`));
     },
   );
 

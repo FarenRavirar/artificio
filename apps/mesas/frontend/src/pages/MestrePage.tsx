@@ -83,6 +83,30 @@ export const MestrePage = () => {
     return <MestreError message={error ?? 'Não foi possível carregar este perfil.'} />;
   }
 
+  // Condição de conteúdo por grupo (D20). Espelha o que cada filho verifica
+  // internamente: `MestreBio` exige tagline OU bio; `MestreHighlights`, um dos
+  // três arrays; `MestreSellingPoints`, a lista; `MestreClosedGroupSection`,
+  // o `enabled`. O grupo não consegue perguntar isso aos filhos — ver a nota
+  // em `MestreSectionGroup` sobre `Children.toArray`.
+  const temSobre =
+    !!profile.tagline?.trim() ||
+    !!profile.bio_long?.trim() ||
+    (profile.specialties?.length ?? 0) > 0 ||
+    (profile.languages?.length ?? 0) > 0 ||
+    (profile.badges?.length ?? 0) > 0 ||
+    (profile.selling_points?.length ?? 0) > 0 ||
+    (profile.preferred_vtt_platforms?.length ?? 0) > 0;
+
+  // `MestreTablesSection` renderiza SEMPRE — inclusive o estado "sem mesas
+  // ativas", que é informação para o visitante, não vazio. Logo o grupo Mesas
+  // não some; a condição existe para não mentir sobre isso.
+  const temMesas = true;
+
+  const temContato =
+    (profile.contact_methods?.length ?? 0) > 0 ||
+    links.length > 0 ||
+    !!profile.closed_group?.enabled;
+
   return (
     <main className="mestre-page">
       <MestreHero
@@ -98,7 +122,11 @@ export const MestrePage = () => {
             A condição é resolvida aqui, e não dentro do grupo, porque o grupo
             só consegue descartar filho que já chega como `false`/`null`
             (D20: grupo sem filho visível some com o título junto). */}
-        <MestreSectionGroup id="sobre" title={`Sobre ${profile.display_name}`}>
+        <MestreSectionGroup
+          id="sobre"
+          title={`Sobre ${profile.display_name}`}
+          hasContent={temSobre}
+        >
           <MestreBio profile={profile} />
 
           {/* Spec 099 B3/C2: specialties/languages/badges — antes órfãos de
@@ -115,13 +143,13 @@ export const MestrePage = () => {
             )}
         </MestreSectionGroup>
 
-        <MestreSectionGroup id="mesas" title="Mesas e avaliações">
+        <MestreSectionGroup id="mesas" title="Mesas e avaliações" hasContent={temMesas}>
           <MestreTablesSection mappedTables={mappedTables} />
 
           {slug && <MestreReviewsSection slug={slug} />}
         </MestreSectionGroup>
 
-        <MestreSectionGroup id="contato" title="Contato">
+        <MestreSectionGroup id="contato" title="Contato" hasContent={temContato}>
           {profile.contact_methods && profile.contact_methods.length > 0 && (
             <section className="container">
               <MestreContactMethods
