@@ -184,6 +184,16 @@ describe("GmReviewForm", () => {
     botao(container).click();
     await waitFor(() => expect(enviados).toHaveLength(1));
 
+    // Espaço final não conta: o botão julga o mesmo texto que vai à rota.
+    // Antes media `comment` cru e enviava `comment.trim()`, então 2000
+    // caracteres + espaços bloqueava um envio que a rota aceitaria.
+    (container.querySelector('[aria-label="5 estrelas"]') as HTMLElement).click();
+    fireEvent.change(campo, { target: { value: "a".repeat(GM_REVIEW_COMMENT_MAX) + "   \n\n" } });
+    expect(botao(container).disabled).toBe(false);
+    botao(container).click();
+    await waitFor(() => expect(enviados).toHaveLength(2));
+    expect((enviados[1] as { comment: string }).comment).toHaveLength(GM_REVIEW_COMMENT_MAX);
+
     // Acima do limite: o botão desabilita, e o texto do usuário NÃO é cortado.
     (container.querySelector('[aria-label="5 estrelas"]') as HTMLElement).click();
     const longo = "a".repeat(GM_REVIEW_COMMENT_MAX + 50);

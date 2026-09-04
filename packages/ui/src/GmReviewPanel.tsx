@@ -153,7 +153,12 @@ export function GmReviewForm({ onSubmit, isSubmitting }: GmReviewFormProps) {
    * segue não-bloqueante (nada é truncado em silêncio, o texto do usuário é
    * preservado inteiro) e só o BOTÃO respeita o limite que o servidor impõe.
    */
-  const excedeu = comment.length > GM_REVIEW_COMMENT_MAX;
+  // Um valor só, medido e enviado: o botão precisa julgar exatamente o texto que
+  // vai à rota. Medir `comment` cru e enviar `comment.trim()` bloqueava um
+  // comentário de 2000 caracteres seguido de espaços — que a rota aceitaria,
+  // porque ela também recebe o texto já aparado (achado de review, PR #305).
+  const commentToSend = comment.trim();
+  const excedeu = commentToSend.length > GM_REVIEW_COMMENT_MAX;
 
   const toggleTag = (tag: string) => {
     setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
@@ -161,7 +166,7 @@ export function GmReviewForm({ onSubmit, isSubmitting }: GmReviewFormProps) {
 
   const handleSubmit = async () => {
     if (rating < 1 || excedeu) return;
-    await onSubmit({ rating, tags, comment: comment.trim() });
+    await onSubmit({ rating, tags, comment: commentToSend });
     setRating(0);
     setTags([]);
     setComment("");

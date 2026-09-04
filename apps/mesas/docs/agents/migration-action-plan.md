@@ -5,6 +5,13 @@
 **Escopo:** ambiente de agentes, documentação operacional e redução de dependência do SDD pesado  
 **Não escopo:** código de produto, migrations, deploy, banco de dados, runtime frontend/backend  
 
+> **OBSOLETO — não executar (verificado em 2026-09-03).** Este plano previa criar
+> `docs/agents/{skill-decision-matrix,skill-stack,issue-tracker,domain,triage-labels}.md`.
+> Nenhum foi criado, e a governança seguiu outro caminho: `AGENTS.md` como fonte
+> canônica, skills em `.claude/skills/` e `.agents/skills/`, e o contrato de deploy
+> em `docs/agents/deploy-flow.md`. Os caminhos citados abaixo **não existem** —
+> mantido como registro histórico da intenção, não como tarefa pendente.
+
 ---
 
 ## 1. Tese Executiva
