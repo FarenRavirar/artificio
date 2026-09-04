@@ -49,9 +49,17 @@ const CATEGORY_META: Record<string, { label: string; Icon: typeof Video }> = {
 
 interface LinksDisplayProps {
   links: UserLink[];
+  /**
+   * Nível do título "Conteúdo & Redes". Configurável porque o nível certo
+   * depende de ONDE o componente é montado: no perfil público ele vive dentro
+   * do grupo "Contato", que já é `h2`, e repetir `h2` aqui apresentava os dois
+   * como irmãos na navegação por cabeçalhos (achado de review, PR #306).
+   * Default `h2` preserva o comportamento de quem montar fora de um grupo.
+   */
+  headingLevel?: 'h2' | 'h3';
 }
 
-export function LinksDisplay({ links }: LinksDisplayProps) {
+export function LinksDisplay({ links, headingLevel: Heading = 'h2' }: LinksDisplayProps) {
   if (links.length === 0) return null;
 
   // Agrupar links por categoria
@@ -64,10 +72,10 @@ export function LinksDisplay({ links }: LinksDisplayProps) {
 
   return (
     <section className="links-display">
-      <h2 className="links-display-title">
+      <Heading className="links-display-title">
         <Mic2 className="inline-block mr-2 w-5 h-5" />
         Conteúdo & Redes
-      </h2>
+      </Heading>
       
       {Object.entries(groupedLinks).map(([category, categoryLinks]) => {
         if (categoryLinks.length === 0) return null;

@@ -70,6 +70,13 @@ describe('MestrePage — ritmo vertical das seções (spec 099 C3)', () => {
     expect(source).not.toMatch(/<h2[\s>]/);
   });
 
+  // `LinksDisplay` é montado dentro do grupo "Contato", que já é `h2`; sem o
+  // nível explícito ele renderizava outro `h2` e os dois apareciam como irmãos
+  // na navegação por cabeçalhos (achado de review, PR #306).
+  it('passa headingLevel h3 ao LinksDisplay dentro do grupo', () => {
+    expect(pageSource).toMatch(/<LinksDisplay[^]{0,80}headingLevel="h3"/);
+  });
+
   it('não renderiza Insights nem Recomendações no perfil público', () => {
     expect(pageSource).not.toContain('MestreInsightsSection');
     expect(pageSource).not.toContain('MestreRecommendationsSection');

@@ -168,7 +168,7 @@ export const MestrePage = () => {
           {links.length > 0 && (
             <section className="links-section">
               <div className="container">
-                <LinksDisplay links={links} />
+                <LinksDisplay links={links} headingLevel="h3" />
               </div>
             </section>
           )}

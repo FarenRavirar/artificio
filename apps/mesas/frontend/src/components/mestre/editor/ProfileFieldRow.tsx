@@ -90,6 +90,11 @@ export function ProfileFieldRow<T>({
     setOpen(true);
   };
 
+  const fechar = () => {
+    if (saving) return;
+    setOpen(false);
+  };
+
   const handleSave = async () => {
     // Duplo clique em Salvar: hoje seria inócuo por acaso (`updateGm` é merge
     // idempotente e `flushGm` com buffer vazio devolve `true`), mas depender de
@@ -142,10 +147,16 @@ export function ProfileFieldRow<T>({
       <Modal
         open={open}
         title={label}
-        onClose={() => setOpen(false)}
+        // Fechar é IGNORADO enquanto a gravação está em voo. As três vias do
+        // Modal (X, ESC, backdrop) e o Cancelar caem aqui: sem esse guarda, o
+        // mestre fecha durante o `saving`, `flushGm` devolve `false` logo
+        // depois, o modal já está fechado, e ao reabrir o `abrir` repõe o
+        // rascunho a partir de `value` — o texto dele some sem aviso (achado de
+        // review, PR #306).
+        onClose={fechar}
         footer={
           <>
-            <Button variant="ghost" onClick={() => setOpen(false)}>
+            <Button variant="ghost" onClick={fechar} disabled={saving}>
               Cancelar
             </Button>
             <Button onClick={() => void handleSave()} disabled={saving}>

@@ -181,6 +181,37 @@ describe('ProfileFieldRow — recusa de entrada', () => {
   });
 });
 
+describe('ProfileFieldRow — fechar durante a gravação', () => {
+  // Sem o guarda, fechar enquanto `saving` está em voo descartava o rascunho de
+  // uma gravação que ainda podia falhar: `flushGm` devolvia `false` com o modal
+  // já fechado, e ao reabrir o rascunho era reposto de `value` — o texto do
+  // mestre sumia sem aviso (achado de review, PR #306).
+  it.each([
+    ['botão X', () => fireEvent.click(screen.getByRole('button', { name: 'Fechar' }))],
+    ['tecla ESC', () => fireEvent.keyDown(document, { key: 'Escape' })],
+    ['Cancelar', () => fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))],
+  ])('ignora %s enquanto a gravação está em voo', async (_nome, fechar) => {
+    let liberar: (v: boolean) => void = () => {};
+    flushGm.mockImplementationOnce(
+      () => new Promise<boolean>((resolve) => { liberar = resolve; }),
+    );
+
+    renderRow();
+    abrir();
+    digitar('Texto em voo');
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    await waitFor(() => expect(flushGm).toHaveBeenCalled());
+    fechar();
+
+    // Ainda aberto: o fechamento foi ignorado.
+    expect(document.querySelector('.artificio-modal')).not.toBeNull();
+
+    liberar(true);
+    await waitFor(() => expect(document.querySelector('.artificio-modal')).toBeNull());
+  });
+});
+
 describe('ProfileFieldRow — as três vias de descarte (D2)', () => {
   const casos: Array<[string, () => void]> = [
     ['botão X', () => fireEvent.click(screen.getByRole('button', { name: 'Fechar' }))],
