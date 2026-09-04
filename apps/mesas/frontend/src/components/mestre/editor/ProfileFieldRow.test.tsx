@@ -131,6 +131,56 @@ describe('ProfileFieldRow — salvar', () => {
   });
 });
 
+describe('ProfileFieldRow — recusa de entrada', () => {
+  function renderComValidacao() {
+    return render(
+      <ProfileFieldRow<string>
+        label="Slogan"
+        displayValue="Valor original"
+        value="Valor original"
+        toPatch={(draft) =>
+          draft.trim() === 'invalido' ? { erro: 'Entrada inválida.' } : { tagline: draft }
+        }
+      >
+        {(draft, setDraft) => (
+          <input aria-label="Slogan" value={draft} onChange={(e) => setDraft(e.target.value)} />
+        )}
+      </ProfileFieldRow>,
+    );
+  }
+
+  // Sem esta via, `toPatch` só podia devolver patch vazio quando recusava a
+  // entrada: o modal fechava, nada era gravado e o mestre saía achando que
+  // salvou (achado de review, PR #306).
+  it('mantém o modal aberto e anuncia o motivo, sem tocar no servidor', async () => {
+    renderComValidacao();
+    abrir();
+    digitar('invalido');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('Entrada inválida.'));
+    expect(updateGm).not.toHaveBeenCalled();
+    expect(flushGm).not.toHaveBeenCalled();
+    expect(document.querySelector('.artificio-modal')).not.toBeNull();
+    expect(cache()?.tagline).toBe('Valor original');
+  });
+
+  it('corrigir a entrada limpa o aviso e grava', async () => {
+    renderComValidacao();
+    abrir();
+    digitar('invalido');
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+
+    digitar('Slogan válido');
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    await waitFor(() => expect(updateGm).toHaveBeenCalledWith({ tagline: 'Slogan válido' }));
+    await waitFor(() => expect(document.querySelector('.artificio-modal')).toBeNull());
+  });
+});
+
 describe('ProfileFieldRow — as três vias de descarte (D2)', () => {
   const casos: Array<[string, () => void]> = [
     ['botão X', () => fireEvent.click(screen.getByRole('button', { name: 'Fechar' }))],

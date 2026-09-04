@@ -928,3 +928,13 @@
   line-height: var(--leading-label);
   opacity: 0.75;
 }
+
+/* Recusa de entrada no modal (T4.2, achado de review PR #306). Não é decoração:
+   sem ela, valor inválido fechava o modal em silêncio e o mestre saía achando
+   que salvou. `role="alert"` no elemento faz o leitor de tela anunciar. */
+.profile-field-row-error {
+  margin-top: var(--space-3);
+  color: var(--state-danger-fg);
+  font-size: var(--text-support);
+  line-height: var(--leading-support);
+}

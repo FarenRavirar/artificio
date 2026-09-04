@@ -1,6 +1,20 @@
 import { useState, type ReactNode } from 'react';
 import { Button, Modal } from '@artificio/ui';
+import type { GmProfile } from '../../../types/profileTypes';
 import { useProfileContext } from '../../../contexts/useProfileContext';
+
+/**
+ * Resultado de `toPatch`: ou o patch a gravar, ou a recusa da entrada.
+ *
+ * União discriminada com `erro?: never` no lado do patch — sem isso o
+ * compilador não separa os dois casos, porque `Record<string, unknown>` admite
+ * a chave `erro` e `'erro' in x` não estreita nada. O patch é
+ * `Partial<GmProfile>` porque é o que `updateGm` aceita: tipar como `Record`
+ * genérico obrigaria um cast na chamada, que é onde o erro de campo passaria.
+ */
+export type ProfileFieldPatch =
+  | (Partial<GmProfile> & { readonly erro?: never })
+  | { readonly erro: string };
 
 interface ProfileFieldRowProps<T> {
   /** Rótulo da linha — o que o mestre lê antes de decidir se abre o modal. */
@@ -11,8 +25,15 @@ interface ProfileFieldRowProps<T> {
   readonly value: T;
   /** Editor do campo. Recebe o rascunho LOCAL do modal, não o valor do perfil. */
   readonly children: (draft: T, setDraft: (next: T) => void) => ReactNode;
-  /** Patch a persistir quando o mestre clica em Salvar. */
-  readonly toPatch: (draft: T) => Record<string, unknown>;
+  /**
+   * Patch a persistir quando o mestre clica em Salvar, ou a recusa da entrada.
+   *
+   * Devolver `{ erro }` mantém o modal aberto e mostra a mensagem. Sem essa
+   * via, um campo com validação (anos de experiência recusa decimal e
+   * negativo) só podia devolver patch vazio: o modal fechava, nada era gravado
+   * e o mestre saía achando que salvou (achado de review, PR #306).
+   */
+  readonly toPatch: (draft: T) => ProfileFieldPatch;
   /** Ganchos de nível do editor (`data-ob`/`data-field`), preservados da versão inline. */
   readonly obLevel?: string;
   readonly fieldName?: string;
@@ -53,6 +74,7 @@ export function ProfileFieldRow<T>({
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<T>(value);
   const [saving, setSaving] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
 
   // O rascunho nasce do valor do perfil NA ABERTURA, não a cada render:
   // sincronizar sempre sobrescreveria o que o mestre está digitando quando o
@@ -64,6 +86,7 @@ export function ProfileFieldRow<T>({
   // estado derivado de prop.
   const abrir = () => {
     setDraft(value);
+    setErro(null);
     setOpen(true);
   };
 
@@ -72,9 +95,19 @@ export function ProfileFieldRow<T>({
     // idempotente e `flushGm` com buffer vazio devolve `true`), mas depender de
     // acaso não é contrato — o botão sai de cena enquanto a escrita está em voo.
     if (saving) return;
+
+    const resultado = toPatch(draft);
+    if (typeof resultado.erro === 'string') {
+      // Entrada recusada: nada vai ao servidor e o modal fica aberto com o
+      // motivo. Fechar em silêncio ensinava que salvou (achado de review, #306).
+      setErro(resultado.erro);
+      return;
+    }
+
+    setErro(null);
     setSaving(true);
     try {
-      await updateGm(toPatch(draft));
+      await updateGm(resultado);
       // `flushGm` devolve `false` quando a gravação falhou: o provider devolve
       // o patch ao buffer e acende `saveError` (`ProfileContext.tsx` — "buffer
       // ainda cheio = não gravou: quem chamou não abre"). Fechar assim mesmo
@@ -122,6 +155,12 @@ export function ProfileFieldRow<T>({
         }
       >
         {children(draft, setDraft)}
+
+        {erro && (
+          <p className="profile-field-row-error" role="alert">
+            {erro}
+          </p>
+        )}
       </Modal>
     </div>
   );

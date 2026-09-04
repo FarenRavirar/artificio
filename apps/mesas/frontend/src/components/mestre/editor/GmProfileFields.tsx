@@ -707,8 +707,14 @@ export function ExperienceYearsField({ value }: ExperienceYearsFieldProps) {
         // `parseInt(v) || null` transformava o ZERO valido em null (0 e falsy),
         // e ainda aceitava "1.5" (parseInt trunca) e negativos apesar do
         // `min="0"` — o atributo so barra o spinner, nao a digitacao (achado de
-        // review, PR #297). Entrada inválida não vira patch nenhum.
-        if (!Number.isInteger(n) || n < 0) return {};
+        // review, PR #297).
+        //
+        // Entrada inválida RECUSA com mensagem, em vez de devolver patch vazio:
+        // o patch vazio fechava o modal sem gravar nada e sem dizer por quê, e
+        // o mestre saía achando que salvou (achado de review, PR #306).
+        if (!Number.isInteger(n) || n < 0) {
+          return { erro: 'Informe um número inteiro de anos, zero ou maior.' };
+        }
         return { experience_years: n };
       }}
       obLevel="recommended"

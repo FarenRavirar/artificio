@@ -781,19 +781,24 @@ describe('BioLongField e ExperienceYearsField (B6 — recomendados extraídos da
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     await waitFor(() => expect(updateGm).toHaveBeenLastCalledWith({ experience_years: 0 }));
 
-    // Entrada inválida vira patch VAZIO — `updateGm` até é chamado (o Salvar
-    // sempre chama), mas sem a chave, então nada sobrescreve o valor guardado.
-    // Antes o guard vivia no `onChange` e a chamada nem acontecia; a garantia
-    // que importa é a mesma: decimal e negativo não gravam `experience_years`.
-    abrirCampoPorRotulo('Anos de Experiência');
-    fireEvent.change(noModal().getByLabelText('Anos de Experiência'), { target: { value: '1.5' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
-    await waitFor(() => expect(updateGm).toHaveBeenLastCalledWith({}));
+    // Entrada inválida RECUSA: nada vai ao servidor, o modal fica aberto e a
+    // mensagem aparece. Antes devolvia patch vazio, o modal fechava em silêncio
+    // e o mestre saía achando que salvou (achado de review, PR #306).
+    for (const invalido of ['1.5', '-3']) {
+      updateGm.mockClear();
+      abrirCampoPorRotulo('Anos de Experiência');
+      fireEvent.change(noModal().getByLabelText('Anos de Experiência'), {
+        target: { value: invalido },
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
 
-    abrirCampoPorRotulo('Anos de Experiência');
-    fireEvent.change(noModal().getByLabelText('Anos de Experiência'), { target: { value: '-3' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
-    await waitFor(() => expect(updateGm).toHaveBeenLastCalledWith({}));
+      await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+      expect(updateGm).not.toHaveBeenCalled();
+      expect(document.querySelector('.artificio-modal')).not.toBeNull();
+
+      fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
+      await waitFor(() => expect(document.querySelector('.artificio-modal')).toBeNull());
+    }
   });
 });
 
