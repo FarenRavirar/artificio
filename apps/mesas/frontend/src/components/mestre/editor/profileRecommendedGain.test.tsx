@@ -78,7 +78,7 @@ vi.mock('@artificio/ui', async (importOriginal) => {
 function renderAllRecommendedFields() {
   return render(
     <>
-      <TaglineField value="" onChange={() => {}} />
+      <TaglineField value="" />
       <ProfileTagsSection specialties={[]} languages={[]} badges={[]} />
       <SellingPointsEditor value={[]} />
       <BioLongField value="" />

@@ -147,29 +147,29 @@ describe('TaglineField', () => {
 
   // T4.1/D21: a linha exibe o valor atual; vazia, convida com "Adicionar".
   it('exibe o valor atual na linha', () => {
-    render(<TaglineField value="Mesas imersivas" onChange={() => {}} />);
+    render(<TaglineField value="Mesas imersivas" />);
     expect(screen.getByText('Mesas imersivas')).toBeTruthy();
   });
 
   it('linha sem valor exibe "Adicionar"', () => {
-    render(<TaglineField value="" onChange={() => {}} />);
+    render(<TaglineField value="" />);
     expect(screen.getByText('Adicionar')).toBeTruthy();
   });
 
   it('renderiza o campo com rótulo associado ao controle', () => {
-    render(<TaglineField value="" onChange={() => {}} />);
+    render(<TaglineField value="" />);
     abrirCampo('Slogan');
     expect(noModal().getByLabelText('Slogan')).toBeTruthy();
   });
 
   it('marca o nível recomendado e mostra a frase do ganho', () => {
-    const { container } = render(<TaglineField value="" onChange={() => {}} />);
+    const { container } = render(<TaglineField value="" />);
     expect(container.querySelector('[data-ob="recommended"]')).not.toBeNull();
     expect(screen.getByText(`Recomendado — ${RECOMMENDED_GAIN.tagline}.`)).toBeTruthy();
   });
 
   it('limita a 200 caracteres, alinhado ao corte do PUT', () => {
-    render(<TaglineField value="" onChange={() => {}} />);
+    render(<TaglineField value="" />);
     abrirCampo('Slogan');
     expect(noModal().getByLabelText('Slogan')).toHaveAttribute('maxlength', '200');
   });
@@ -178,7 +178,7 @@ describe('TaglineField', () => {
   // e é justamente essa a garantia que precisa de teste — se `updateGm` voltasse
   // a ser chamado na digitação, o descarte no X deixaria de descartar.
   it('digitar no modal não persiste; só o Salvar grava', async () => {
-    render(<TaglineField value="" onChange={() => {}} />);
+    render(<TaglineField value="" />);
     abrirCampo('Slogan');
 
     fireEvent.change(noModal().getByLabelText('Slogan'), {
@@ -194,7 +194,7 @@ describe('TaglineField', () => {
   });
 
   it('exibe o erro quando informado', () => {
-    render(<TaglineField value="" onChange={() => {}} error="Slogan muito longo" />);
+    render(<TaglineField value="" error="Slogan muito longo" />);
     abrirCampo('Slogan');
     expect(noModal().getByText('Slogan muito longo')).toBeTruthy();
   });
@@ -808,7 +808,7 @@ describe('aria-describedby (B7) — controle aponta para o <p> de hint/erro do F
   });
 
   it('TaglineField: input aponta para o hint/erro do Field', () => {
-    render(<TaglineField value="" onChange={() => {}} />);
+    render(<TaglineField value="" />);
     abrirCampoPorRotulo('Slogan');
     expect(noModal().getByLabelText('Slogan')).toHaveAttribute(
       'aria-describedby',

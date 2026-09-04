@@ -778,10 +778,7 @@ function TabMestre() {
 
           {/* Spec 099 B1: slogan — encabeça as três cadeias (hero/OG/SEO, §2.3).
               Grava via PUT /gm/profile, uma chamada por campo (padrão da página). */}
-          <TaglineField
-            value={gmProfile.tagline ?? ''}
-            onChange={(tagline) => updateGm({ tagline: tagline || null })}
-          />
+          <TaglineField value={gmProfile.tagline ?? ''} />
 
           {/* Spec 099 B6: anos de experiência — recomendado, com frase do ganho.
               Componente extraído para GmProfileFields (mesmo markup de antes). */}

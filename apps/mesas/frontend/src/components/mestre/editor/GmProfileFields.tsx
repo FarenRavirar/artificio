@@ -47,9 +47,13 @@ import {
 
 // `readonly`: props de componente são entrada, nunca destino de escrita — o
 // tipo passa a dizer isso (achado do Sonar, PR #306).
+//
+// Sem `onChange`: quem persiste o slogan é o Salvar do modal, via `toPatch` do
+// `ProfileFieldRow` (D1/D2). A prop sobreviveu à conversão em linha+modal sem
+// nunca ser chamada — prop morta que finge contrato vivo, e o próximo a ler o
+// tipo suporia que digitar dispara alguma coisa (achado do Sonar, PR #306).
 interface TaglineFieldProps {
   readonly value: string;
-  readonly onChange: (value: string) => void;
   readonly error?: string;
 }
 
@@ -66,10 +70,9 @@ interface TaglineFieldProps {
 export function TaglineField({ value, error }: TaglineFieldProps) {
   return (
     // Linha + modal (spec 100, D1/T4.1): era campo inline com autosave por
-    // digitação. `onChange` da prop deixou de ser chamado a cada tecla — quem
-    // persiste agora é o Salvar do modal, via `toPatch`. A prop segue no tipo
-    // porque a página ainda a passa; ver ProfileFieldRow sobre por que escrever
-    // durante a digitação quebraria o descarte de D2.
+    // digitação. Quem persiste agora é o Salvar do modal, via `toPatch` — ver
+    // ProfileFieldRow sobre por que escrever durante a digitação quebraria o
+    // descarte de D2.
     <ProfileFieldRow<string>
       label="Slogan"
       displayValue={value.trim() || null}
