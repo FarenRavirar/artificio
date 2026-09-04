@@ -256,6 +256,11 @@
      (auditoria de 2026-08-17, spec 090). */
   --brand-solid: #cf4317;
   --brand-solid-fg: #ffffff;
+  /* Hover do papel sólido. Precisa manter AA tanto quanto o repouso: um hover
+     que escurece o fundo sem checar contraste é como o estado interativo passa
+     a reprovar sozinho. #b03a14 (brand-solid escurecido) mede 6.07:1 com o
+     branco. Achado de review, PR #305. */
+  --brand-solid-hover: #b03a14;
 
   /* bloco navy decorativo (header de modal, banner, ribbon de card): navy + texto branco
      nos 2 temas; no escuro clareia p/ separar do --surface (que também é navy). NÃO vira laranja. */
@@ -349,6 +354,8 @@
      #ff5722 dá 3.1:1, e navy dá 7.4:1. Mesmo par do --btn-primary no escuro. */
   --brand-solid: var(--artificio-brand);
   --brand-solid-fg: var(--artificio-ink);
+  /* Hover no escuro: brand-deep com o mesmo navy por cima mede 4.84:1. */
+  --brand-solid-hover: var(--artificio-brand-deep);
 
   /* bloco navy no escuro: navy mais claro p/ destacar do surface; texto segue branco */
   --navy-block-bg: #2e4a7a;

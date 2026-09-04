@@ -186,8 +186,12 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-4) var(--space-10);
-  background: var(--artificio-brand);
-  color: #ffffff;
+  /* `--brand-solid`, não `--artificio-brand`: branco sobre #ff5722 mede 3.16:1 e
+     reprova AA para texto. O par --brand-solid/--brand-solid-fg existe para isto
+     e vira por tema — 4.70:1 no claro (#cf4317 + branco) e 6.00:1 no escuro
+     (#ff5722 + navy). Achado de review, PR #305. */
+  background: var(--brand-solid);
+  color: var(--brand-solid-fg);
   font-weight: var(--weight-strong);
   font-size: var(--text-section);
   line-height: var(--leading-section);
@@ -197,7 +201,7 @@
 }
 
 .cta-button:hover {
-  background: var(--artificio-brand-deep);
+  background: var(--brand-solid-hover);
   transform: translateY(-2px);
 }
 
@@ -245,8 +249,11 @@
   margin-bottom: var(--space-6);
 }
 
+/* Mais específico que `.cta-button`: redefinir só o fundo aqui desfazia a
+   correção da base e devolvia o par que reprova AA. */
 .cta-button.cta-primary {
-  background: var(--artificio-brand);
+  background: var(--brand-solid);
+  color: var(--brand-solid-fg);
 }
 
 .cta-button.cta-secondary {

@@ -56,6 +56,13 @@ artifacts/
 # `docs/agents-internal/values.md`, aqui embaixo. Publicar o "como" sem o "o quê".
 /docs/agents-internal/
 
+# Lock de ferramenta local do mantenedor (servidor MCP do opencode). Fora do
+# workspace pnpm, do turbo e do CI — o repo não o instala. Versioná-lo só
+# arrastava a árvore transitiva dele para o Dependency Review: 4 CVEs high em
+# fast-uri reprovaram o check da PR #305 sem nada no produto usar o pacote.
+/docs/agents/opencode-mcp/package-lock.json
+/docs/agents/opencode-mcp/node_modules/
+
 # Editor
 .vscode/
 .idea/

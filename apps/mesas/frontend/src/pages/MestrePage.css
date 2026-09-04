@@ -199,8 +199,12 @@
   height: 60px;
   margin: 0 auto var(--space-6);
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--artificio-brand), #fb923c);
-  color: #ffffff;
+  /* Era um gradiente `--artificio-brand` → #fb923c com texto branco: o número
+     ficava em 3.16:1 na ponta escura e 2.26:1 na clara — reprova até o mínimo
+     de 3:1 de texto grande, e some contra fundo claro. Sólido de marca, que
+     vira por tema e é medido. Achado de review, PR #305. */
+  background: var(--brand-solid);
+  color: var(--brand-solid-fg);
   font-size: var(--text-display);
   line-height: var(--leading-display);
   font-weight: var(--weight-strong);
@@ -440,8 +444,9 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  background: var(--artificio-brand);
-  color: #ffffff;
+  /* Texto de 13px sobre marca: 3.16:1 reprova AA. Par sólido medido. */
+  background: var(--brand-solid);
+  color: var(--brand-solid-fg);
   border-radius: var(--radius-pill);
   font-size: var(--text-label);
   line-height: var(--leading-label);

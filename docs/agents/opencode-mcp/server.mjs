@@ -104,6 +104,12 @@ function runOpencode({ prompt, model, agent, cwd }) {
       windowsHide: true,
       shell: false,
       env: process.env,
+      // Grupo de processo próprio no POSIX: o `opencode` spawna filhos (rtk, git,
+      // tsc), e `child.kill()` alcançaria só o processo direto — no timeout os
+      // netos ficavam rodando órfãos, segurando lock e CPU. Com `detached`, o
+      // PID vira PGID e `kill(-pid)` derruba a árvore inteira. No Windows não
+      // existe grupo POSIX; lá o encerramento é por `taskkill /T` (ver timeout).
+      detached: process.platform !== "win32",
       // Fecha o stdin do filho. Sem isso, o Node deixa o stdin como pipe aberto
       // e o `opencode run` fica esperando EOF/input indefinidamente (travava).
       stdio: ["ignore", "pipe", "pipe"],
@@ -114,13 +120,41 @@ function runOpencode({ prompt, model, agent, cwd }) {
     child.stdout.on("data", (d) => (stdout += d.toString()));
     child.stderr.on("data", (d) => (stderr += d.toString()));
 
+    // `true` a partir do timeout: o `close` que vier depois é consequência do
+    // kill, não resultado do comando, e não deve resolver a promise com saída
+    // parcial nem rejeitar com "saiu com código null" por cima do erro real.
+    let expirou = false;
+
     const timer = setTimeout(() => {
-      child.kill();
-      reject(new Error(`opencode run excedeu o timeout de ${TIMEOUT_MS}ms`));
+      expirou = true;
+      const erro = new Error(`opencode run excedeu o timeout de ${TIMEOUT_MS}ms`);
+
+      // Espera o `close` antes de rejeitar: rejeitar de imediato devolvia o
+      // controle ao chamador com a árvore ainda morrendo, e o próximo `run`
+      // disputava o mesmo lock do opencode.
+      child.once("close", () => reject(erro));
+
+      if (process.platform === "win32") {
+        // Windows não tem grupo de processo POSIX: `taskkill /T` percorre a
+        // árvore pelo PID pai, e `/F` é necessário porque o opencode não
+        // responde a sinal de terminação amigável.
+        spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+          windowsHide: true,
+          stdio: "ignore",
+        }).on("error", () => child.kill("SIGKILL"));
+      } else {
+        // PID negativo = o grupo inteiro (ver `detached` no spawn).
+        try {
+          process.kill(-child.pid, "SIGKILL");
+        } catch {
+          child.kill("SIGKILL");
+        }
+      }
     }, TIMEOUT_MS);
 
     child.on("error", (err) => {
       clearTimeout(timer);
+      if (expirou) return; // erro provocado pelo kill; o timer já rejeita
       reject(
         new Error(
           `falha ao iniciar opencode (bin=${OPENCODE_BIN}): ${err.message}. ` +
@@ -131,6 +165,10 @@ function runOpencode({ prompt, model, agent, cwd }) {
 
     child.on("close", (code) => {
       clearTimeout(timer);
+      // Depois do timeout quem rejeita é o próprio `once("close")` do timer, com
+      // o erro de timeout. Seguir daqui reportaria "saiu com código null" — o
+      // sintoma do kill, não a causa — e mascararia o motivo real da falha.
+      if (expirou) return;
       const output = (stdout || "").trim();
       if (code !== 0) {
         const detail = (stderr || "").trim();

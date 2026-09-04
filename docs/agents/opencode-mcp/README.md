@@ -4,6 +4,14 @@ Servidor MCP (stdio) que expõe o **opencode/DeepSeek** ao **Claude Code**. O
 orquestrador (Claude) chama a ferramenta `deepseek` para delegar pesquisa,
 revisão crítica/contraditório de código ou implementação.
 
+> **O `package-lock.json` não é versionado** (`.gitignore`), embora o
+> `package.json` seja. Esta é ferramenta local do mantenedor: fora do workspace
+> pnpm, do turbo e do CI — o repositório não a instala nem a builda. Versionar o
+> lock levava a árvore transitiva dele para o Dependency Review do repositório,
+> e 4 CVEs high em `fast-uri` (dependência do SDK do MCP) reprovaram o check da
+> PR #305 sem que nada no produto usasse o pacote. Rodar `npm install` aqui
+> regenera o lock quando precisar.
+
 Diretório gitignored (`/docs/agents/*` em `.gitignore`) — ferramenta pessoal de
 orquestração, fora do fluxo de PR do repositório.
 

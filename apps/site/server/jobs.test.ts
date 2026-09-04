@@ -218,7 +218,12 @@ describe('runJob', () => {
     mocks.spawn.mockReturnValueOnce(primeiro).mockReturnValueOnce(segundo);
 
     jobs.runJob('rebuild', 'rebuild');
-    const inicioDoPrimeiro = jobs.jobState()?.startedAt;
+    // A REFERÊNCIA do objeto, não o `startedAt`: `spawnJob` troca `current` por um
+    // objeto novo, então a identidade distingue os dois jobs sem depender do relógio.
+    // Comparar timestamp deixava o teste flaky — os dois `spawn` caem no mesmo
+    // milissegundo quando o runner é rápido, e o CI falhou com
+    // `expected '...645Z' not to be '...645Z'` (run 33831373846).
+    const estadoDoPrimeiro = jobs.jobState();
 
     // Pedido durante o job em curso: fica pendente, roda no fim.
     expect(jobs.runJob('rebuild', 'rebuild')).toMatchObject({ started: false, queued: true });
@@ -230,7 +235,7 @@ describe('runJob', () => {
     expect(mocks.spawn).toHaveBeenCalledTimes(2);
     const emCurso = jobs.jobState();
     expect(emCurso?.finishedAt).toBeUndefined();
-    expect(emCurso?.startedAt).not.toBe(inicioDoPrimeiro);
+    expect(emCurso).not.toBe(estadoDoPrimeiro);
 
     // E o `close` atrasado do PRIMEIRO nao pode encerra-lo.
     primeiro.fecha(1);
@@ -238,6 +243,6 @@ describe('runJob', () => {
 
     expect(jobs.jobState()?.finishedAt).toBeUndefined();
     expect(jobs.jobBusy()).toBe(true);
-    expect(jobs.jobState()?.startedAt).toBe(emCurso?.startedAt);
+    expect(jobs.jobState()).toBe(emCurso);
   });
 });
