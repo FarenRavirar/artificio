@@ -149,15 +149,28 @@ export async function assertAliasLivre(
  * a listava.
  */
 export async function plataformaEstaEmAlgumPerfil(
-  dbOrTrx: Kysely<Database> | Transaction<Database>,
+  trx: Transaction<Database>,
   catalogo: CatalogoTabelas,
   platformId: string,
 ): Promise<boolean> {
+  // Trava a linha da PLATAFORMA antes de olhar os perfis. É o outro lado da
+  // serialização: `filtrarIdsDoCatalogo` pega a mesma linha em `FOR SHARE` ao
+  // gravar um perfil, então os dois não podem correr juntos — ou a exclusão
+  // espera a gravação (e depois enxerga o id no array), ou a gravação espera a
+  // exclusão (e o id já não existe no catálogo, sendo filtrado). Sem esta
+  // trava, a checagem via o array vazio, apagava, e o `PUT` gravava depois um
+  // id recém-excluído (achado de review, PR #307).
+  await sql`
+    SELECT id FROM ${sql.ref(catalogo.plataformas)}
+    WHERE id = ${sql.val(platformId)}::uuid
+    FOR UPDATE
+  `.execute(trx);
+
   const { rows } = await sql<{ id: string }>`
     SELECT id FROM gm_profiles
     WHERE ${sql.ref(catalogo.colunaPerfil)} @> ARRAY[${sql.val(platformId)}]::uuid[]
     LIMIT 1
-  `.execute(dbOrTrx);
+  `.execute(trx);
 
   return rows.length > 0;
 }
@@ -183,9 +196,18 @@ export async function filtrarIdsDoCatalogo(
 ): Promise<string[]> {
   if (ids.length === 0) return [];
 
+  // `FOR SHARE`: trava as linhas que este perfil vai referenciar até a
+  // transação terminar. É o que fecha a corrida com o `DELETE` administrativo,
+  // que trava a mesma linha com `FOR UPDATE` — sem isso, as duas guardas rodam
+  // em autocommit separado e cobrem só o caminho serial: a exclusão podia ver
+  // o array ainda vazio, apagar, e o `PUT` gravar depois um id já confirmado
+  // (achado de review, PR #307). `SHARE` e não `UPDATE` porque vários perfis
+  // podem referenciar a mesma plataforma ao mesmo tempo; só o `DELETE` precisa
+  // de exclusividade.
   const { rows } = await sql<{ id: string }>`
     SELECT id::text AS id FROM ${sql.ref(catalogo.plataformas)}
     WHERE id = ANY(${sql.val([...ids])}::uuid[])
+    FOR SHARE
   `.execute(dbOrTrx);
 
   const existentes = new Set(rows.map((r) => r.id));
@@ -205,6 +227,19 @@ export class AliasConflictError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'AliasConflictError';
+  }
+}
+
+/**
+ * Plataforma ainda referenciada (mesa ou perfil) na hora de excluir.
+ *
+ * Mesma razão do `AliasConflictError`: a checagem roda dentro da transação que
+ * trava a linha, e de lá não dá para responder `res.status(409)` — só abortar.
+ */
+export class PlatformInUseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PlatformInUseError';
   }
 }
 

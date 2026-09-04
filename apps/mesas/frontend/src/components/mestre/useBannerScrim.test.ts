@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { SCRIM_PADRAO, useBannerScrim } from './useBannerScrim';
+import { SCRIM_PADRAO, useBannerScrim, regiaoVisivel } from './useBannerScrim';
 
 /**
  * O véu do hero se dimensiona pela imagem que o mestre subiu. Estes testes
@@ -82,6 +82,56 @@ describe('scrim adaptativo do banner', () => {
 
   it('o padrão de fallback é o comportamento de hoje — falha de CORS não regride', () => {
     expect(SCRIM_PADRAO).toEqual({ top: 0.72, bottom: 0.88, left: 0.64, right: 0.36 });
+  });
+});
+
+/**
+ * `object-fit: cover` mostra só um recorte da foto. Medir a imagem INTEIRA
+ * classificava como escura uma imagem cuja faixa visível é clara — medido no
+ * banner real (2026-09-04): 41,2% da fonte aparece, e o p90 vai de 0,302 na
+ * inteira para 0,162 na visível (achado de review, PR #307).
+ */
+describe('regiaoVisivel — mesma geometria do CSS', () => {
+  // Caso real medido em beta: 493×280 exibido numa faixa de 1800×422.
+  const banner = { naturalWidth: 493, naturalHeight: 280 };
+
+  it('recorta o eixo excedente e centraliza com o padrão 50% 50%', () => {
+    const r = regiaoVisivel(banner, { largura: 1800, altura: 422 }, '50% 50%');
+
+    // A largura cabe inteira; sobra altura, que é cortada em cima e embaixo.
+    expect(Math.round(r.sw)).toBe(493);
+    expect(Math.round(r.sh)).toBe(116);
+    expect(Math.round(r.sx)).toBe(0);
+    expect(Math.round(r.sy)).toBe(Math.round((280 - r.sh) / 2));
+  });
+
+  it('honra o enquadramento escolhido pelo mestre', () => {
+    const topo = regiaoVisivel(banner, { largura: 1800, altura: 422 }, '50% 0%');
+    const base = regiaoVisivel(banner, { largura: 1800, altura: 422 }, '50% 100%');
+
+    expect(Math.round(topo.sy)).toBe(0);
+    expect(Math.round(base.sy)).toBe(Math.round(280 - base.sh));
+  });
+
+  it('mede menos que a imagem inteira — é o ponto da correção', () => {
+    const r = regiaoVisivel(banner, { largura: 1800, altura: 422 }, '50% 50%');
+    const fracao = (r.sw * r.sh) / (banner.naturalWidth * banner.naturalHeight);
+
+    expect(fracao).toBeLessThan(1);
+    expect(fracao).toBeCloseTo(0.412, 1);
+  });
+
+  it('cai na imagem inteira quando a caixa é degenerada', () => {
+    const r = regiaoVisivel(banner, { largura: 0, altura: 0 }, '50% 50%');
+
+    expect(r).toEqual({ sx: 0, sy: 0, sw: 493, sh: 280 });
+  });
+
+  it('`object-position` inválido não quebra a conta — cai no centro', () => {
+    const r = regiaoVisivel(banner, { largura: 1800, altura: 422 }, 'center top');
+
+    expect(Number.isFinite(r.sx)).toBe(true);
+    expect(Number.isFinite(r.sy)).toBe(true);
   });
 });
 

@@ -73,6 +73,13 @@ function mockPutFlow(updatedRow: unknown = UPDATED_ROW) {
   const updateChain = mockChain({ execute: vi.fn().mockResolvedValue([updatedRow]) });
   (db.selectFrom as Mock).mockReturnValue(selectChain);
   (db.updateTable as Mock).mockReturnValue(updateChain);
+  // O PUT passou a gravar dentro de uma transação (o `FOR SHARE` do filtro de
+  // catálogo precisa do mesmo escopo do UPDATE para travar a plataforma até o
+  // commit). O mock executa o callback com o próprio `db` mockado — o que se
+  // testa aqui é a normalização do payload, não a semântica transacional.
+  (db.transaction as Mock).mockReturnValue({
+    execute: (cb: (trx: typeof db) => unknown) => cb(db),
+  });
   return updateChain;
 }
 

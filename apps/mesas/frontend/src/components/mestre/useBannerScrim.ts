@@ -23,11 +23,13 @@ import { useEffect, useState } from 'react';
  * imagem: ele é recalculado toda vez que a foto carrega. O custo é uma leitura
  * de canvas 48×27 (1.296 pixels) numa imagem que o browser já baixou.
  *
- * Exige `crossOrigin="anonymous"` no `<img>`: sem isso o canvas fica *tainted*
- * e `getImageData` lança. Medido contra o Cloudinary (2026-09-04): com o
- * atributo, funciona; sem ele, `SecurityError`. Qualquer falha — CORS, imagem
- * fora do ar, browser sem canvas — cai no scrim padrão, que é o comportamento
- * de hoje.
+ * A medição usa `new Image()` PRÓPRIO com `crossOrigin="anonymous"` — sem o
+ * atributo o canvas fica *tainted* e `getImageData` lança `SecurityError`. O
+ * `<img>` visível do hero NÃO leva o atributo de propósito: nele, servidor sem
+ * `Access-Control-Allow-Origin` faz o browser recusar EXIBIR a foto (medido:
+ * `gstatic.com` exibe sem e quebra com), e o banner pode vir de qualquer
+ * origem porque o editor aceita link colado. Falha de medição cai no scrim
+ * padrão; falha de exibição não teria plano B.
  */
 export interface BannerScrim {
   readonly top: number;
@@ -38,6 +40,22 @@ export interface BannerScrim {
 
 /** O scrim de hoje: continua valendo enquanto a medição não chega ou falha. */
 export const SCRIM_PADRAO: BannerScrim = { top: 0.72, bottom: 0.88, left: 0.64, right: 0.36 };
+
+/**
+ * Geometria com que o hero exibe a foto — o que permite medir só a região que
+ * o visitante vê, em vez da imagem inteira. `objectPosition` é a string que o
+ * `cropToObjectPosition` já produz a partir do recorte salvo pelo mestre.
+ *
+ * Vem do elemento renderizado (`getBoundingClientRect`), não de constante: a
+ * altura do hero depende do conteúdo e a largura, da janela — fixar um valor
+ * aqui faria a região medida divergir da exibida justamente nos perfis com mais
+ * ou menos texto.
+ */
+export interface EnquadramentoDoHero {
+  readonly largura: number;
+  readonly altura: number;
+  readonly objectPosition: string;
+}
 
 /** Luminância relativa (WCAG 2.x, mesma fórmula usada no cálculo de contraste). */
 function luminanciaRelativa(r: number, g: number, b: number): number {
@@ -66,8 +84,53 @@ function opacidadeNecessaria(luminanciaRegiao: number, alvoContraste: number): n
   return Math.min(0.94, Math.max(0, a));
 }
 
+/**
+ * Região da imagem que o hero de fato mostra, no mesmo cálculo do CSS
+ * (`object-fit: cover` + `object-position`).
+ *
+ * Sem isto a medição lia a imagem INTEIRA, mas o hero mostra só um recorte —
+ * medido neste banner (2026-09-04): **41,2%** da fonte aparece, e o p90 cai de
+ * 0,302 (inteira) para 0,162 (visível). Aqui a diferença é conservadora, mas o
+ * inverso é o caso perigoso: faixa visível clara com o resto escuro faz o hook
+ * subestimar o véu e o texto perde o contraste pretendido (achado de review,
+ * PR #307).
+ */
+export function regiaoVisivel(
+  img: { naturalWidth: number; naturalHeight: number },
+  destino: { largura: number; altura: number },
+  objectPosition: string,
+): { sx: number; sy: number; sw: number; sh: number } {
+  const { naturalWidth: nw, naturalHeight: nh } = img;
+  if (!nw || !nh || destino.largura <= 0 || destino.altura <= 0) {
+    return { sx: 0, sy: 0, sw: nw, sh: nh };
+  }
+
+  // `cover`: a imagem é escalada até cobrir a caixa, e o excesso é cortado.
+  const escala = Math.max(destino.largura / nw, destino.altura / nh);
+  const sw = Math.min(nw, destino.largura / escala);
+  const sh = Math.min(nh, destino.altura / escala);
+
+  // `object-position` decide QUAL parte do excesso fica visível. O default do
+  // CSS é `50% 50%`, e `cropToObjectPosition` devolve percentuais.
+  const [xTexto = '50%', yTexto = '50%'] = objectPosition.split(/\s+/);
+  const fracao = (texto: string) => {
+    const n = Number.parseFloat(texto);
+    return Number.isFinite(n) ? Math.min(1, Math.max(0, n / 100)) : 0.5;
+  };
+
+  return {
+    sx: (nw - sw) * fracao(xTexto),
+    sy: (nh - sh) * fracao(yTexto),
+    sw,
+    sh,
+  };
+}
+
 /** Lê a imagem em baixa resolução e devolve a luminância do trecho mais claro. */
-function medirPiorCaso(img: HTMLImageElement): { claro: number; escuro: number } | null {
+function medirPiorCaso(
+  img: HTMLImageElement,
+  enquadramento?: EnquadramentoDoHero,
+): { claro: number; escuro: number } | null {
   const LARGURA = 48;
   const ALTURA = 27;
   const canvas = document.createElement('canvas');
@@ -77,7 +140,14 @@ function medirPiorCaso(img: HTMLImageElement): { claro: number; escuro: number }
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) return null;
 
-  ctx.drawImage(img, 0, 0, LARGURA, ALTURA);
+  // Amostra a região VISÍVEL quando o chamador informa a geometria; sem ela,
+  // cai na imagem inteira, que é o comportamento anterior.
+  if (enquadramento) {
+    const { sx, sy, sw, sh } = regiaoVisivel(img, enquadramento, enquadramento.objectPosition);
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, LARGURA, ALTURA);
+  } else {
+    ctx.drawImage(img, 0, 0, LARGURA, ALTURA);
+  }
 
   let dados: Uint8ClampedArray;
   try {
@@ -105,7 +175,10 @@ function medirPiorCaso(img: HTMLImageElement): { claro: number; escuro: number }
 /**
  * @param src URL do banner, ou `null`/vazio quando o mestre não tem foto.
  */
-export function useBannerScrim(src: string | null | undefined): BannerScrim {
+export function useBannerScrim(
+  src: string | null | undefined,
+  enquadramento?: EnquadramentoDoHero,
+): BannerScrim {
   // Guarda a MEDIÇÃO junto do `src` que a produziu, não o scrim final. Sem
   // banner não há o que medir, e o valor devolvido é derivado no return — assim
   // o efeito não precisa chamar `setState` de forma síncrona para "resetar"
@@ -126,7 +199,7 @@ export function useBannerScrim(src: string | null | undefined): BannerScrim {
 
     img.onload = () => {
       if (cancelado) return;
-      const medida = medirPiorCaso(img);
+      const medida = medirPiorCaso(img, enquadramento);
       if (!medida) {
         setMedido(null);
         return;
@@ -175,7 +248,7 @@ export function useBannerScrim(src: string | null | undefined): BannerScrim {
     return () => {
       cancelado = true;
     };
-  }, [src]);
+  }, [src, enquadramento?.largura, enquadramento?.altura, enquadramento?.objectPosition]);
 
   // Sem banner, sem medição, medição falhada (CORS/imagem fora do ar), ou
   // medição que pertence a OUTRO banner: o comportamento é o padrão

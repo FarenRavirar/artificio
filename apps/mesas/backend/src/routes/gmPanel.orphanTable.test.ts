@@ -250,6 +250,12 @@ describe('PUT /gm/profile — contactMethodsSchema unificado', () => {
     });
     (db.selectFrom as Mock).mockReturnValue(selectChain);
     (db.updateTable as Mock).mockReturnValue(updateChain);
+    // O PUT grava dentro de transação desde a PR #307 (o `FOR SHARE` do filtro
+    // de catálogo precisa do mesmo escopo do UPDATE). O mock roda o callback
+    // com o próprio `db` mockado.
+    (db.transaction as Mock).mockReturnValue({
+      execute: (cb: (trx: typeof db) => unknown) => cb(db),
+    });
 
     const res = await request(makeApp())
       .put('/api/v1/gm/profile')

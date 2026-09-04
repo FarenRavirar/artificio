@@ -15,6 +15,7 @@ import {
   AliasConflictError,
   assertAliasLivre,
   plataformaEstaEmAlgumPerfil,
+  PlatformInUseError,
   CATALOGO_VTT,
   IMPLIES_COLUMNS,
 } from '../utils/platformUtils.js';
@@ -571,36 +572,37 @@ router.delete('/admin/:id', authMiddleware, requireRole('admin'), async (req, re
   const { id } = req.params;
 
   try {
-    const inUse = await db
-      .selectFrom('tables')
-      .select('id')
-      .where('vtt_platform_id', '=', id)
-      .limit(1)
-      .executeTakeFirst();
+    // Checagens e DELETE na MESMA transação: `plataformaEstaEmAlgumPerfil`
+    // trava a linha da plataforma com `FOR UPDATE`, e o `PUT` de perfil pega a
+    // mesma linha em `FOR SHARE` ao gravar. Soltas, as guardas cobriam só o
+    // caminho serial — a exclusão via o array vazio, apagava, e o `PUT` gravava
+    // depois um id já excluído (achado de review, PR #307).
+    const deleted = await db.transaction().execute(async (trx) => {
+      if (await plataformaEstaEmAlgumPerfil(trx, CATALOGO_VTT, id)) {
+        throw new PlatformInUseError(
+          'Esta plataforma está selecionada em perfis de mestre. Desative-a em vez de remover.',
+        );
+      }
 
-    if (inUse) {
-      return res.status(409).json({
-        error: 'Esta plataforma está vinculada a mesas. Desative-a em vez de remover.',
-      });
-    }
+      const emMesa = await trx
+        .selectFrom('tables')
+        .select('id')
+        .where('vtt_platform_id', '=', id)
+        .limit(1)
+        .executeTakeFirst();
 
-    // `gm_profiles.preferred_vtt_platforms` é a segunda referência lógica e,
-    // por ser `UUID[]`, não tem FK que barre o `DELETE`. A lacuna existe desde
-    // a migration_111 e nunca foi exercitada; o catálogo de comunicação ganhou
-    // a mesma checagem hoje, e corrigir só um lado deixaria este esperando a
-    // vez. Sem ela, o UUID fica órfão no array: some da página pública e não
-    // dá mais para desmarcar, porque o catálogo já não lista a plataforma.
-    if (await plataformaEstaEmAlgumPerfil(db, CATALOGO_VTT, id)) {
-      return res.status(409).json({
-        error: 'Esta plataforma está selecionada em perfis de mestre. Desative-a em vez de remover.',
-      });
-    }
+      if (emMesa) {
+        throw new PlatformInUseError(
+          'Esta plataforma está vinculada a mesas. Desative-a em vez de remover.',
+        );
+      }
 
-    const deleted = await db
-      .deleteFrom('vtt_platforms')
-      .where('id', '=', id)
-      .returning(['id', 'name'])
-      .executeTakeFirst();
+      return trx
+        .deleteFrom('vtt_platforms')
+        .where('id', '=', id)
+        .returning(['id', 'name'])
+        .executeTakeFirst();
+    });
 
     if (!deleted) {
       return res.status(404).json({ error: 'Plataforma VTT não encontrada.' });
@@ -608,6 +610,10 @@ router.delete('/admin/:id', authMiddleware, requireRole('admin'), async (req, re
 
     return res.json({ data: deleted });
   } catch (error) {
+    if (error instanceof PlatformInUseError) {
+      return res.status(409).json({ error: error.message });
+    }
+
     console.error('[DELETE /vtt-platforms/admin/:id] Erro ao remover plataforma:', error);
     return res.status(500).json({ error: 'Erro ao remover plataforma VTT.' });
   }

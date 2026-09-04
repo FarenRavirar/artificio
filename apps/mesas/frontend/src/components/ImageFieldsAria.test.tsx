@@ -173,7 +173,7 @@ describe('campos de imagem — o botão de upload diz de qual campo é', () => {
           value=""
           onChange={() => {}}
           onError={() => {}}
-          kind="gm_banner"
+          kind="profile_banner"
         />
         <ImageUploader
           idPrefix="table-banner"

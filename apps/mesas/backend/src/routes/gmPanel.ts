@@ -487,15 +487,13 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
   // referência entra morta no array (`UUID[]` não tem FK). `undefined` continua
   // significando "campo não veio, preserva o salvo" — só a lista presente é
   // filtrada (achado de review, PR #307).
+  // A filtragem roda DENTRO da transação do UPDATE (abaixo), não aqui: só
+  // assim o `FOR SHARE` de `filtrarIdsDoCatalogo` segura a linha da plataforma
+  // até a gravação terminar, serializando contra o `DELETE` administrativo que
+  // a trava com `FOR UPDATE`. Soltas, as duas guardas cobriam só o caminho
+  // serial (achado de review, PR #307).
   const uuidsVtt = sanitizeUuidList(preferred_vtt_platforms);
-  const safePreferredVttPlatforms = uuidsVtt
-    ? await filtrarIdsDoCatalogo(db, CATALOGO_VTT, uuidsVtt)
-    : undefined;
-
   const uuidsComunicacao = sanitizeUuidList(preferred_communication_platforms);
-  const safePreferredCommunicationPlatforms = uuidsComunicacao
-    ? await filtrarIdsDoCatalogo(db, CATALOGO_COMUNICACAO, uuidsComunicacao)
-    : undefined;
   
   // D3/D8 (sessão de segurança 2026-08-03): compatibilidade de transporte do
   // HOTFIX é preservada, mas toda entrada — inclusive JSON-string — passa pelo
@@ -533,7 +531,17 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Perfil de mestre não encontrado.' });
     }
 
-    const [updated] = await db
+    // Transação: o filtro de catálogo (com `FOR SHARE`) e a gravação precisam
+    // do MESMO escopo para a trava valer até o commit.
+    const [updated] = await db.transaction().execute(async (trx) => {
+      const safePreferredVttPlatforms = uuidsVtt
+        ? await filtrarIdsDoCatalogo(trx, CATALOGO_VTT, uuidsVtt)
+        : undefined;
+      const safePreferredCommunicationPlatforms = uuidsComunicacao
+        ? await filtrarIdsDoCatalogo(trx, CATALOGO_COMUNICACAO, uuidsComunicacao)
+        : undefined;
+
+      return trx
       .updateTable('gm_profiles')
       .set({
         nickname: safeNickname,
@@ -590,7 +598,8 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
         'closed_group_min_price_cents',
         'updated_at',
       ])
-      .execute();
+        .execute();
+    });
 
     return res.json({
       data: {

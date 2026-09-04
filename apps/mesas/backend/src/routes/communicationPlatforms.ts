@@ -12,6 +12,7 @@ import {
   AliasConflictError,
   assertAliasLivre,
   plataformaEstaEmAlgumPerfil,
+  PlatformInUseError,
   CATALOGO_COMUNICACAO,
   IMPLIES_COLUMNS,
 } from '../utils/platformUtils.js';
@@ -272,36 +273,35 @@ router.delete('/admin/:id', authMiddleware, requireRole('admin'), async (req: Re
   const { id } = req.params;
 
   try {
-    const inUse = await db
-      .selectFrom('tables')
-      .select('id')
-      .where('communication_platform_id', '=', id)
-      .limit(1)
-      .executeTakeFirst();
+    // Checagens e DELETE na MESMA transação — ver o comentário equivalente em
+    // `vttPlatforms.ts`: `FOR UPDATE` aqui contra o `FOR SHARE` do `PUT` de
+    // perfil é o que serializa os dois (achado de review, PR #307).
+    const deleted = await db.transaction().execute(async (trx) => {
+      if (await plataformaEstaEmAlgumPerfil(trx, CATALOGO_COMUNICACAO, id)) {
+        throw new PlatformInUseError(
+          'Esta plataforma está selecionada em perfis de mestre. Desative-a em vez de remover.',
+        );
+      }
 
-    if (inUse) {
-      return res.status(409).json({
-        error: 'Esta plataforma está vinculada a mesas. Desative-a em vez de remover.',
-      });
-    }
+      const emMesa = await trx
+        .selectFrom('tables')
+        .select('id')
+        .where('communication_platform_id', '=', id)
+        .limit(1)
+        .executeTakeFirst();
 
-    // `gm_profiles.preferred_communication_platforms` é a SEGUNDA referência
-    // lógica à plataforma (migration_166) e, por ser `UUID[]`, não tem FK que
-    // barre o `DELETE`. Sem esta checagem, apagar uma plataforma escolhida
-    // apenas em perfis (nenhuma mesa) deixava o UUID órfão no array: sumia da
-    // página pública e ficava IMPOSSÍVEL de desmarcar no editor, porque o
-    // catálogo já não a lista (achado de review, PR #307).
-    if (await plataformaEstaEmAlgumPerfil(db, CATALOGO_COMUNICACAO, id)) {
-      return res.status(409).json({
-        error: 'Esta plataforma está selecionada em perfis de mestre. Desative-a em vez de remover.',
-      });
-    }
+      if (emMesa) {
+        throw new PlatformInUseError(
+          'Esta plataforma está vinculada a mesas. Desative-a em vez de remover.',
+        );
+      }
 
-    const deleted = await db
-      .deleteFrom('communication_platforms')
-      .where('id', '=', id)
-      .returning(['id', 'name'])
-      .executeTakeFirst();
+      return trx
+        .deleteFrom('communication_platforms')
+        .where('id', '=', id)
+        .returning(['id', 'name'])
+        .executeTakeFirst();
+    });
 
     if (!deleted) {
       return res.status(404).json({ error: 'Plataforma de comunicação não encontrada.' });
@@ -309,6 +309,10 @@ router.delete('/admin/:id', authMiddleware, requireRole('admin'), async (req: Re
 
     return res.json({ data: deleted });
   } catch (error) {
+    if (error instanceof PlatformInUseError) {
+      return res.status(409).json({ error: error.message });
+    }
+
     console.error('[DELETE /communication-platforms/admin/:id]', error);
     return res.status(500).json({ error: 'Erro ao remover plataforma de comunicação.' });
   }

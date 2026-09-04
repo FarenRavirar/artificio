@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useBannerScrim } from './useBannerScrim';
 import { CheckCircle2, Medal, Sparkles, Crown, Award, Users, Star, MessageSquare } from 'lucide-react';
 import type { TableCard } from '../../types/tables';
@@ -111,7 +111,46 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
   const hasHeroAttributes = heroAttributeGroups.some((group) => group.values.length > 0);
 
   const mostraBanner = isUsableImageSrc(profile.banner_url) && !bannerFailed;
-  const scrim = useBannerScrim(mostraBanner ? profile.banner_url : null);
+
+  // Enquadramento REAL do banner: `object-fit: cover` mostra só um recorte da
+  // foto, e medir a imagem inteira classificava como escura uma imagem cuja
+  // faixa visível é clara (medido neste banner: 41,2% da fonte aparece, e o p90
+  // vai de 0,302 na inteira para 0,162 na visível). A caixa vem do elemento
+  // porque a altura do hero depende do conteúdo e a largura, da janela.
+  const bannerRef = useRef<HTMLImageElement | null>(null);
+  const [caixaBanner, setCaixaBanner] = useState<{ largura: number; altura: number } | null>(null);
+
+  useEffect(() => {
+    const el = bannerRef.current;
+    if (!el) return;
+
+    const medir = () => {
+      const { width, height } = el.getBoundingClientRect();
+      setCaixaBanner((atual) =>
+        atual && atual.largura === width && atual.altura === height
+          ? atual
+          : { largura: width, altura: height },
+      );
+    };
+
+    medir();
+    const observer = new ResizeObserver(medir);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [mostraBanner]);
+
+  const bannerObjectPosition = cropToObjectPosition(
+    profile.banner_crop_data,
+    profile.banner_width,
+    profile.banner_height,
+  );
+
+  const scrim = useBannerScrim(
+    mostraBanner ? profile.banner_url : null,
+    caixaBanner
+      ? { ...caixaBanner, objectPosition: bannerObjectPosition }
+      : undefined,
+  );
   const scrimVars = {
     '--hero-scrim-top': scrim.top,
     '--hero-scrim-bottom': scrim.bottom,
@@ -147,13 +186,8 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
           // Enquadramento escolhido pelo mestre. Sem `object-position` o
           // `object-fit: cover` do CSS recorta sempre pelo centro geometrico,
           // sem que ninguem possa escolher o que fica visivel.
-          style={{
-            objectPosition: cropToObjectPosition(
-              profile.banner_crop_data,
-              profile.banner_width,
-              profile.banner_height,
-            ),
-          }}
+          ref={bannerRef}
+          style={{ objectPosition: bannerObjectPosition }}
           onError={() => setBannerFailure(profile.banner_url ?? null)}
         />
       ) : (
