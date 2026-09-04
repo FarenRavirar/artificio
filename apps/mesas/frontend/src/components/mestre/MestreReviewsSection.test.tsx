@@ -87,6 +87,8 @@ describe('MestreReviewsSection — gate de sessão', () => {
     );
 
     // Refetch: a montagem faz 1 GET, o envio bem-sucedido faz o segundo.
-    await waitFor(() => expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls.length).toBe(2));
+    await waitFor(() =>
+      expect((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls).toHaveLength(2),
+    );
   });
 });

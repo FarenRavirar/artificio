@@ -159,13 +159,11 @@ export const MestrePage = () => {
             </section>
           )}
 
-          {profile.contact_methods &&
-            profile.contact_methods.some((c) => c.channel === 'form') &&
-            slug && (
-              <section className="container">
-                <MestreContactForm mestreSlug={slug} />
-              </section>
-            )}
+          {profile.contact_methods?.some((c) => c.channel === 'form') && slug && (
+            <section className="container">
+              <MestreContactForm mestreSlug={slug} />
+            </section>
+          )}
 
           {links.length > 0 && (
             <section className="links-section">

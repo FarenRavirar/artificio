@@ -45,10 +45,12 @@ import {
 
 // ── TaglineField ──
 
+// `readonly`: props de componente são entrada, nunca destino de escrita — o
+// tipo passa a dizer isso (achado do Sonar, PR #306).
 interface TaglineFieldProps {
-  value: string;
-  onChange: (value: string) => void;
-  error?: string;
+  readonly value: string;
+  readonly onChange: (value: string) => void;
+  readonly error?: string;
 }
 
 /**
@@ -149,9 +151,9 @@ export function PromoBadgeField({ value }: PromoBadgeFieldProps) {
 // ── ProfileTagsSection ──
 
 interface ProfileTagsSectionProps {
-  specialties: string[];
-  languages: string[];
-  badges: string[];
+  readonly specialties: string[];
+  readonly languages: string[];
+  readonly badges: string[];
 }
 
 /**
@@ -673,7 +675,7 @@ export function BioLongField({ value }: BioLongFieldProps) {
 // ── ExperienceYearsField ──
 
 interface ExperienceYearsFieldProps {
-  value: number | null;
+  readonly value: number | null;
 }
 
 /**
