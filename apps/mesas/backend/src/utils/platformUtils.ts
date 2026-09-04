@@ -163,6 +163,36 @@ export async function plataformaEstaEmAlgumPerfil(
 }
 
 /**
+ * Descarta ids que não existem no catálogo, preservando a ordem dos válidos.
+ *
+ * Par de `plataformaEstaEmAlgumPerfil`: aquele impede apagar plataforma em uso,
+ * este impede gravar referência para plataforma que não existe. Sem os dois, a
+ * corrida entre um `DELETE` e um `PUT` concorrente deixa o UUID órfão no array
+ * — que some da página pública e não dá mais para desmarcar, porque o catálogo
+ * já não lista a plataforma (achado de review, PR #307).
+ *
+ * Filtra em vez de rejeitar o pedido inteiro: id inexistente no meio de uma
+ * seleção válida é lixo a descartar, não motivo para recusar a gravação do
+ * perfil e fazer o mestre perder o resto do que escolheu. Medido em produção
+ * (2026-09-04): 0 perfis com id órfão hoje — a checagem previne, não repara.
+ */
+export async function filtrarIdsDoCatalogo(
+  dbOrTrx: Kysely<Database> | Transaction<Database>,
+  catalogo: CatalogoTabelas,
+  ids: readonly string[],
+): Promise<string[]> {
+  if (ids.length === 0) return [];
+
+  const { rows } = await sql<{ id: string }>`
+    SELECT id::text AS id FROM ${sql.ref(catalogo.plataformas)}
+    WHERE id = ANY(${sql.val([...ids])}::uuid[])
+  `.execute(dbOrTrx);
+
+  const existentes = new Set(rows.map((r) => r.id));
+  return ids.filter((id) => existentes.has(id));
+}
+
+/**
  * Conflito de apelido detectado DENTRO da transação de criação.
  *
  * Existe porque a checagem precisa correr junto do insert para não perder a

@@ -1,5 +1,10 @@
 import { normalizeImageFramePatch } from '@artificio/media/image-kinds';
 import { toJsonbParam, toJsonbParamNotNull } from '../db/jsonb.js';
+import {
+  filtrarIdsDoCatalogo,
+  CATALOGO_VTT,
+  CATALOGO_COMUNICACAO,
+} from '../utils/platformUtils.js';
 import { Router, Request, Response } from 'express';
 import { sql, type Updateable, type Selectable } from 'kysely';
 import { db } from '../db/index.js';
@@ -478,8 +483,19 @@ router.put('/profile', authMiddleware, async (req: Request, res: Response) => {
   // inteiro >= 0 grava, `null` zera, ausente/outro tipo preserva o salvo.
   const safeExperienceYears = normalizeNullableNonNegativeInteger(experience_years);
   const safeAveragePrice = normalizeNullableNonNegativeInteger(average_price);
-  const safePreferredVttPlatforms = sanitizeUuidList(preferred_vtt_platforms);
-  const safePreferredCommunicationPlatforms = sanitizeUuidList(preferred_communication_platforms);
+  // Sintaxe de UUID não basta: o id precisa EXISTIR no catálogo, senão a
+  // referência entra morta no array (`UUID[]` não tem FK). `undefined` continua
+  // significando "campo não veio, preserva o salvo" — só a lista presente é
+  // filtrada (achado de review, PR #307).
+  const uuidsVtt = sanitizeUuidList(preferred_vtt_platforms);
+  const safePreferredVttPlatforms = uuidsVtt
+    ? await filtrarIdsDoCatalogo(db, CATALOGO_VTT, uuidsVtt)
+    : undefined;
+
+  const uuidsComunicacao = sanitizeUuidList(preferred_communication_platforms);
+  const safePreferredCommunicationPlatforms = uuidsComunicacao
+    ? await filtrarIdsDoCatalogo(db, CATALOGO_COMUNICACAO, uuidsComunicacao)
+    : undefined;
   
   // D3/D8 (sessão de segurança 2026-08-03): compatibilidade de transporte do
   // HOTFIX é preservada, mas toda entrada — inclusive JSON-string — passa pelo

@@ -17,6 +17,19 @@ vi.mock('../db/index.js', () => ({
   },
 }));
 
+// `filtrarIdsDoCatalogo` consulta o catálogo real de plataformas antes de
+// gravar (achado de review, PR #307). Aqui o alvo é a normalização do payload,
+// não a existência no banco: o mock devolve os ids como válidos, e o filtro
+// de catálogo tem cobertura própria em `platformUtils.test.ts`.
+const idsInexistentes = new Set<string>();
+vi.mock('../utils/platformUtils.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../utils/platformUtils.js')>()),
+  filtrarIdsDoCatalogo: vi.fn(
+    async (_db: unknown, _catalogo: unknown, ids: readonly string[]) =>
+      ids.filter((id) => !idsInexistentes.has(id)),
+  ),
+}));
+
 let mockUserId = 'gm-user-1';
 let mockRole: UserRole = 'gm';
 vi.mock('../middleware/auth.js', () => ({
@@ -200,6 +213,40 @@ describe('PUT /api/v1/gm/profile — normalização dos campos livres (spec 099 
     expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({
       preferred_vtt_platforms: [valido],
     }));
+  });
+
+  it('descarta UUID bem formado que não existe no catálogo', async () => {
+    // Sintaxe válida não basta: `UUID[]` não tem FK, então id inexistente
+    // entraria como referência morta — some da página pública e não dá para
+    // desmarcar, porque o catálogo não o lista. Par do guard que impede apagar
+    // plataforma em uso (achado de review, PR #307).
+    const updateChain = mockPutFlow();
+    const existe = '4a15a911-559e-46ca-99dc-1d8c74fa1c0d';
+    const naoExiste = '00000000-0000-0000-0000-000000000000';
+    idsInexistentes.add(naoExiste);
+
+    const res = await request(makeApp())
+      .put('/api/v1/gm/profile')
+      .send({ preferred_communication_platforms: [existe, naoExiste] });
+
+    expect(res.status).toBe(200);
+    expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({
+      preferred_communication_platforms: [existe],
+    }));
+    idsInexistentes.clear();
+  });
+
+  it('campo ausente preserva o salvo — o filtro não transforma em lista vazia', async () => {
+    const updateChain = mockPutFlow();
+
+    const res = await request(makeApp())
+      .put('/api/v1/gm/profile')
+      .send({ badges: ['selo-a'] });
+
+    expect(res.status).toBe(200);
+    const patch = updateChain.set.mock.calls[0][0] as Record<string, unknown>;
+    expect(patch.preferred_vtt_platforms).toBeUndefined();
+    expect(patch.preferred_communication_platforms).toBeUndefined();
   });
 
   it('badges persiste só as strings do array', async () => {

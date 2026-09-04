@@ -102,7 +102,7 @@ describe('ImageUploader (banner) — aria-describedby (B7)', () => {
         onError={() => {}}
       />,
     );
-    const button = screen.getByRole('button', { name: 'Selecionar imagem' });
+    const button = screen.getByRole('button', { name: /Selecionar imagem/ });
     expect(button).toHaveAttribute('aria-describedby', 'gm-banner-hint');
     expect(document.getElementById('gm-banner-hint')).not.toBeNull();
   });
@@ -119,7 +119,7 @@ describe('ImageUploader (banner) — aria-describedby (B7)', () => {
         hasError
       />,
     );
-    expect(screen.getByRole('button', { name: 'Selecionar imagem' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /Selecionar imagem/ })).toHaveAttribute(
       'aria-describedby',
       'gm-banner-hint gm-banner-error',
     );
@@ -145,5 +145,49 @@ describe('campos de imagem — o rótulo não dispara o seletor de arquivos', ()
     expect(container.querySelector(`label[for="${fileInput.id}"]`)).toBeNull();
     const rotuloId = fileInput.getAttribute('aria-labelledby')!;
     expect(document.getElementById(rotuloId)?.textContent).toBe('Foto de Mestre');
+  });
+});
+
+/**
+ * O botão VISÍVEL cita o campo no nome acessível. O `aria-labelledby` do input
+ * não resolve isso: ele é `display:none`/`hidden` e nunca recebe foco, então
+ * quem o leitor de tela anuncia é o botão. Com dois campos de imagem na mesma
+ * tela ("Foto de Mestre" e "Banner do Perfil"), sem isso saem dois botões de
+ * nome idêntico e indistinguível (achado de review, PR #307).
+ */
+describe('campos de imagem — o botão de upload diz de qual campo é', () => {
+  it('AvatarField: o nome do botão inclui o rótulo do campo', () => {
+    render(
+      <AvatarField idPrefix="avatar" label="Foto de Mestre" value={avatarValue} onChange={() => {}} />,
+    );
+
+    expect(screen.getByRole('button', { name: /Foto de Mestre/ })).toBeTruthy();
+  });
+
+  it('ImageUploader: idem, e dois campos na mesma tela ficam distinguíveis', () => {
+    render(
+      <>
+        <ImageUploader
+          idPrefix="gm-banner"
+          label="Banner do Perfil (opcional)"
+          value=""
+          onChange={() => {}}
+          onError={() => {}}
+          kind="gm_banner"
+        />
+        <ImageUploader
+          idPrefix="table-banner"
+          label="Banner da Mesa"
+          value=""
+          onChange={() => {}}
+          onError={() => {}}
+          kind="table_banner"
+        />
+      </>,
+    );
+
+    // Nomes distintos: a busca por cada rótulo devolve exatamente um botão.
+    expect(screen.getByRole('button', { name: /Banner do Perfil/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Banner da Mesa/ })).toBeTruthy();
   });
 });

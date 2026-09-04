@@ -221,6 +221,11 @@ export function ImageUploader({
             disabled={isUploading || isImportingUrl}
             className="min-h-[44px] px-4 py-2 rounded-lg bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
             aria-describedby={describedBy}
+            // Nome acessível cita o campo — mesma razão do `AvatarField`: o
+            // input é `hidden` e não recebe foco, então quem precisa do rótulo
+            // é este botão. Sem isso, dois campos de imagem na mesma tela
+            // produzem dois "Selecionar imagem" indistinguíveis.
+            aria-label={`${isUploading ? 'Enviando imagem' : 'Selecionar imagem'}: ${label}`}
           >
             {isUploading ? 'Enviando imagem...' : 'Selecionar imagem'}
           </button>

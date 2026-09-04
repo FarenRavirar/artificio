@@ -134,10 +134,16 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
           src={profile.banner_url}
           alt=""
           className="hero-banner"
-          // Obrigatório para a medição: sem ele o canvas fica *tainted* e
-          // `getImageData` lança `SecurityError`. Medido contra o Cloudinary
-          // (2026-09-04): com o atributo, a leitura funciona.
-          crossOrigin="anonymous"
+          // SEM `crossOrigin` aqui, de propósito. A medição do véu já usa um
+          // `new Image()` próprio com o atributo (`useBannerScrim`), então
+          // colocá-lo também no `<img>` VISÍVEL não acrescenta nada e ainda
+          // arrisca a exibição: o browser recusa desenhar imagem cujo servidor
+          // não manda `Access-Control-Allow-Origin`. Medido (2026-09-04):
+          // `gstatic.com` exibe sem o atributo e QUEBRA com ele. O banner pode
+          // vir de qualquer origem, porque o editor aceita "cole um link direto
+          // de imagem" — então o atributo aqui apagaria o banner de quem usa
+          // servidor sem CORS. Falha de medição já cai no scrim padrão; falha
+          // de exibição não tem plano B (achado de review, PR #307).
           // Enquadramento escolhido pelo mestre. Sem `object-position` o
           // `object-fit: cover` do CSS recorta sempre pelo centro geometrico,
           // sem que ninguem possa escolher o que fica visivel.

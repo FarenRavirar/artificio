@@ -179,6 +179,14 @@ export function AvatarField({
                 disabled={isUploading || urlImport.isImportingUrl}
                 onClick={() => fileInputRef.current?.click()}
                 aria-describedby={describedBy}
+                // O nome acessível cita o CAMPO, não só a ação: a tela tem dois
+                // campos de imagem ("Foto de Mestre" e "Banner do Perfil"), e
+                // sem isso o leitor de tela anuncia dois botões "Enviar nova
+                // imagem" idênticos, sem dizer qual é qual. O `aria-labelledby`
+                // do input não resolve — ele é `display:none` e nunca recebe
+                // foco; quem o usuário aciona é este botão (achado de review,
+                // PR #307).
+                aria-label={`${isUploading ? 'Enviando' : 'Enviar nova imagem'}: ${label}`}
               >
                 {isUploading ? 'Enviando...' : '📤 Enviar nova imagem'}
               </Button>

@@ -106,12 +106,16 @@ function medirPiorCaso(img: HTMLImageElement): { claro: number; escuro: number }
  * @param src URL do banner, ou `null`/vazio quando o mestre não tem foto.
  */
 export function useBannerScrim(src: string | null | undefined): BannerScrim {
-  // Guarda a MEDIÇÃO, não o scrim final: sem banner não há o que medir, e o
-  // valor devolvido é derivado no return. Assim o efeito não precisa chamar
-  // `setState` de forma síncrona para "resetar" quando o `src` some
-  // (`react-hooks/set-state-in-effect`) — a troca de banner já invalida a
-  // medida por dependência.
-  const [medido, setMedido] = useState<BannerScrim | null>(null);
+  // Guarda a MEDIÇÃO junto do `src` que a produziu, não o scrim final. Sem
+  // banner não há o que medir, e o valor devolvido é derivado no return — assim
+  // o efeito não precisa chamar `setState` de forma síncrona para "resetar"
+  // quando o `src` some (`react-hooks/set-state-in-effect`).
+  //
+  // O `src` no estado é o que impede reusar a medida do banner ANTERIOR: sem
+  // ele, trocar de foto mantinha o véu calculado para a antiga até o `onload`
+  // da nova — uma foto clara herdando o véu leve de uma escura ficaria com o
+  // texto ilegível na janela entre as duas (achado de review, PR #307).
+  const [medido, setMedido] = useState<{ src: string; scrim: BannerScrim } | null>(null);
 
   useEffect(() => {
     if (!src) return;
@@ -143,16 +147,19 @@ export function useBannerScrim(src: string | null | undefined): BannerScrim {
       const PISO = 0.28;
 
       setMedido({
-        // SEM `Math.max(SCRIM_PADRAO)`: era exatamente isso que anulava a
-        // medição. Medido nesta página (p90 ≈ 0,2): o véu necessário para 4.5:1
-        // é 0,09, e o fixo aplicava 0,88 — contraste de 12,72:1 onde 4,5
-        // bastava, ou seja, a foto que o mestre escolheu praticamente
-        // desaparecia. O scrim fixo estava calibrado para o pior caso (banner
-        // branco, que precisa de 0,82) e cobrava esse preço de todo mundo.
-        bottom: Math.max(PISO, base),
-        top: Math.max(PISO * 0.8, topo),
-        left: Math.max(PISO * 0.72, base * 0.72),
-        right: Math.max(PISO * 0.41, base * 0.41),
+        src,
+        scrim: {
+          // SEM `Math.max(SCRIM_PADRAO)`: era exatamente isso que anulava a
+          // medição. Medido nesta página (p90 ≈ 0,2): o véu necessário para
+          // 4.5:1 é 0,09, e o fixo aplicava 0,88 — contraste de 12,72:1 onde
+          // 4,5 bastava, ou seja, a foto que o mestre escolheu praticamente
+          // desaparecia. O scrim fixo estava calibrado para o pior caso (banner
+          // branco, que precisa de 0,82) e cobrava esse preço de todo mundo.
+          bottom: Math.max(PISO, base),
+          top: Math.max(PISO * 0.8, topo),
+          left: Math.max(PISO * 0.72, base * 0.72),
+          right: Math.max(PISO * 0.41, base * 0.41),
+        },
       });
     };
 
@@ -163,15 +170,15 @@ export function useBannerScrim(src: string | null | undefined): BannerScrim {
     img.src = src;
 
     // Só cancela a medição em voo. Zerar o estado aqui provocaria um render
-    // extra a cada desmontagem sem mudar o que se vê — e o caso que importa,
-    // trocar de banner, já é tratado: `onload` da imagem nova sobrescreve o
-    // valor, e o `cancelado` impede a antiga de escrever depois dela.
+    // extra a cada desmontagem sem mudar o que se vê — e a medida obsoleta já
+    // é descartada no return, pela comparação de `src`.
     return () => {
       cancelado = true;
     };
   }, [src]);
 
-  // Sem banner, sem medição, ou medição falhada (CORS/imagem fora do ar):
-  // o comportamento é exatamente o de hoje.
-  return medido ?? SCRIM_PADRAO;
+  // Sem banner, sem medição, medição falhada (CORS/imagem fora do ar), ou
+  // medição que pertence a OUTRO banner: o comportamento é o padrão
+  // conservador — véu forte, que é seguro para qualquer imagem.
+  return medido && medido.src === src ? medido.scrim : SCRIM_PADRAO;
 }

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
-import { describe, it, expect } from 'vitest';
-import { SCRIM_PADRAO } from './useBannerScrim';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { renderHook, act, waitFor } from '@testing-library/react';
+import { SCRIM_PADRAO, useBannerScrim } from './useBannerScrim';
 
 /**
  * O véu do hero se dimensiona pela imagem que o mestre subiu. Estes testes
@@ -81,5 +82,94 @@ describe('scrim adaptativo do banner', () => {
 
   it('o padrão de fallback é o comportamento de hoje — falha de CORS não regride', () => {
     expect(SCRIM_PADRAO).toEqual({ top: 0.72, bottom: 0.88, left: 0.64, right: 0.36 });
+  });
+});
+
+/**
+ * A medição pertence a UM `src`. Trocar de banner precisa cair no padrão
+ * conservador até a nova foto carregar — reusar o véu da anterior deixaria uma
+ * foto clara com o véu leve calculado para uma escura, e o texto ilegível na
+ * janela entre as duas (achado de review, PR #307).
+ */
+describe('useBannerScrim — a medida não sobrevive à troca de banner', () => {
+  const originalImage = globalThis.Image;
+  const originalGetContext = HTMLCanvasElement.prototype.getContext;
+
+  afterEach(() => {
+    globalThis.Image = originalImage;
+    HTMLCanvasElement.prototype.getContext = originalGetContext;
+    vi.restoreAllMocks();
+  });
+
+  /** `Image` de mentira: o teste decide QUANDO cada carga termina. */
+  function instrumentarImage() {
+    const pendentes: Array<{ src: string; disparar: () => void }> = [];
+    class FakeImage {
+      crossOrigin = '';
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      #src = '';
+      set src(valor: string) {
+        this.#src = valor;
+        pendentes.push({ src: valor, disparar: () => this.onload?.() });
+      }
+      get src() {
+        return this.#src;
+      }
+    }
+    globalThis.Image = FakeImage as unknown as typeof Image;
+    return pendentes;
+  }
+
+  /** Canvas de mentira devolvendo pixels de luminância uniforme. */
+  function instrumentarCanvas(valorRgb: number) {
+    const total = 48 * 27 * 4;
+    const dados = new Uint8ClampedArray(total);
+    for (let i = 0; i < total; i += 4) {
+      dados[i] = valorRgb;
+      dados[i + 1] = valorRgb;
+      dados[i + 2] = valorRgb;
+      dados[i + 3] = 255;
+    }
+    HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+      drawImage: vi.fn(),
+      getImageData: () => ({ data: dados }),
+    })) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+  }
+
+  it('devolve SCRIM_PADRAO até o onload, e a medida só vale para o src atual', async () => {
+    const pendentes = instrumentarImage();
+    instrumentarCanvas(0); // preto: véu deve cair ao piso
+
+    const { result, rerender } = renderHook(({ src }) => useBannerScrim(src), {
+      initialProps: { src: 'https://exemplo.test/escuro.jpg' },
+    });
+
+    // Antes da carga: padrão conservador.
+    expect(result.current).toEqual(SCRIM_PADRAO);
+
+    act(() => pendentes[0].disparar());
+    await waitFor(() => expect(result.current.bottom).toBeLessThan(SCRIM_PADRAO.bottom));
+    const medidaDoEscuro = result.current;
+
+    // Troca de banner: a medida anterior NÃO pode continuar valendo.
+    rerender({ src: 'https://exemplo.test/claro.jpg' });
+    expect(result.current).toEqual(SCRIM_PADRAO);
+    expect(result.current).not.toEqual(medidaDoEscuro);
+
+    // Só depois do segundo onload a nova medida entra.
+    instrumentarCanvas(255); // branco: véu forte
+    act(() => pendentes[1].disparar());
+    await waitFor(() =>
+      expect(result.current.bottom).toBeGreaterThanOrEqual(SCRIM_PADRAO.bottom - 0.01),
+    );
+  });
+
+  it('sem src devolve o padrão, sem tentar medir', () => {
+    const pendentes = instrumentarImage();
+    const { result } = renderHook(() => useBannerScrim(null));
+
+    expect(result.current).toEqual(SCRIM_PADRAO);
+    expect(pendentes).toHaveLength(0);
   });
 });
