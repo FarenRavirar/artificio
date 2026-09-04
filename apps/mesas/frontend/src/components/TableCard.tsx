@@ -24,7 +24,7 @@ const modalityLabels: Record<string, string> = {
 export function TableCardSkeleton() {
   // CORREÇÃO UX-SENIOR-05: Skeleton realista que imita layout do card
   return (
-    <div className="relative w-full min-h-[380px] rounded-2xl bg-[#1B2A4A] border border-white/10 overflow-hidden">
+    <div className="relative w-full min-h-[380px] rounded-[var(--radius-lg)] bg-[#1B2A4A] border border-white/10 overflow-hidden">
       {/* Cover placeholder */}
       <div className="absolute inset-0 bg-gradient-to-br from-[#2A3F6D] to-[#1B2A4A] animate-pulse" />
       
@@ -146,7 +146,7 @@ function VttPlatformBadge({ table }: { table: TableCard }) {
         href={table.vtt_platform.website_url}
         target="_blank"
         rel="noopener noreferrer"
-        className="pointer-events-auto absolute bottom-3 right-3 h-9 min-w-9 px-2 rounded-lg bg-black/55 border border-white/20 backdrop-blur-sm inline-flex items-center justify-center hover:bg-black/70 hover:border-white/40 transition-colors"
+        className="pointer-events-auto absolute bottom-3 right-3 h-9 min-w-9 px-2 rounded-[var(--radius-lg)] bg-black/55 border border-white/20 backdrop-blur-sm inline-flex items-center justify-center hover:bg-black/70 hover:border-white/40 transition-colors"
         title={`${table.vtt_platform.name} - Abrir site oficial`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -157,7 +157,7 @@ function VttPlatformBadge({ table }: { table: TableCard }) {
 
   return (
     <span
-      className="absolute bottom-3 right-3 h-9 min-w-9 px-2 rounded-lg bg-black/55 border border-white/20 backdrop-blur-sm inline-flex items-center justify-center"
+      className="absolute bottom-3 right-3 h-9 min-w-9 px-2 rounded-[var(--radius-lg)] bg-black/55 border border-white/20 backdrop-blur-sm inline-flex items-center justify-center"
       title={table.vtt_platform.name}
     >
       {logo}
@@ -175,10 +175,10 @@ function TableCardMasterRow({ table }: { table: TableCard }) {
         <img
           src={table.gm_avatar_url}
           alt={table.gm_display_name}
-          className="w-6 h-6 rounded-full border border-white/20"
+          className="w-6 h-6 rounded-[var(--radius-pill)] border border-white/20"
         />
       ) : (
-        <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs">
+        <div className="w-6 h-6 rounded-[var(--radius-pill)] bg-white/10 flex items-center justify-center text-[length:var(--text-label)]">
           👤
         </div>
       )}
@@ -186,12 +186,12 @@ function TableCardMasterRow({ table }: { table: TableCard }) {
         <Link
           to={`/mestre/${table.gm_slug}`}
           onClick={(e) => e.stopPropagation()}
-          className="pointer-events-auto inline-flex min-h-6 min-w-0 items-center truncate text-sm font-medium text-white/70 transition-colors hover:text-white hover:underline"
+          className="pointer-events-auto inline-flex min-h-6 min-w-0 items-center truncate text-[length:var(--text-support)] font-[var(--weight-medium)] text-white/70 transition-colors hover:text-white hover:underline"
         >
           {table.gm_display_name}
         </Link>
       ) : (
-        <span className="min-w-0 truncate text-sm font-medium text-white/70">
+        <span className="min-w-0 truncate text-[length:var(--text-support)] font-[var(--weight-medium)] text-white/70">
           {table.gm_display_name}
         </span>
       )}
@@ -210,12 +210,12 @@ function TableCardMasterRow({ table }: { table: TableCard }) {
 // Preço em destaque (T3.3) — extraído pra reduzir complexidade da função principal
 function TableCardPrice({ table }: { table: TableCard }) {
   if (table.price_type === 'gratuita') {
-    return <span className="shrink-0 text-lg font-black text-green-400">Gratuito</span>;
+    return <span className="shrink-0 text-[length:var(--text-section)] font-[var(--weight-strong)] text-green-400">Gratuito</span>;
   }
   if (table.price_value) {
     return (
-      <span className="flex shrink-0 items-baseline gap-1 whitespace-nowrap text-lg font-black text-yellow-400">
-        R$ {table.price_value}<span className="text-[10px] font-semibold text-white/50">/ sessão</span>
+      <span className="flex shrink-0 items-baseline gap-1 whitespace-nowrap text-[length:var(--text-section)] font-[var(--weight-strong)] text-yellow-400">
+        R$ {table.price_value}<span className="text-[length:var(--text-label)] font-[var(--weight-strong)] text-white/50">/ sessão</span>
       </span>
     );
   }
@@ -246,13 +246,13 @@ function TableCardSchedule({ table }: { table: TableCard }) {
   // o layout do card (altura mínima fixa do bloco de metadata).
   if (schedule.schedule_day_status === 'to_define') {
     return (
-      <span className="flex shrink-0 min-w-0 flex-col gap-0.5 text-[11px] font-semibold text-white/50">
+      <span className="flex shrink-0 min-w-0 flex-col gap-0.5 text-[length:var(--text-label)] font-[var(--weight-strong)] text-white/50">
         <span className="flex items-center gap-1">
           <Clock className="h-3 w-3 shrink-0" />
           Horário Personalizado
         </span>
         {typeof schedule.notes === 'string' && schedule.notes ? (
-          <span className="line-clamp-1 text-[11px] font-normal text-white/35">{schedule.notes}</span>
+          <span className="line-clamp-1 text-[length:var(--text-label)] font-[var(--weight-regular)] text-white/35">{schedule.notes}</span>
         ) : null}
       </span>
     );
@@ -274,7 +274,7 @@ function TableCardSchedule({ table }: { table: TableCard }) {
   const time = schedule.start_time.slice(0, 5);
 
   return (
-    <span className="flex shrink-0 items-center gap-1 text-[11px] font-semibold text-white/50">
+    <span className="flex shrink-0 items-center gap-1 text-[length:var(--text-label)] font-[var(--weight-strong)] text-white/50">
       <Clock className="h-3 w-3" />
       {dayLabel} {time}
     </span>
@@ -329,7 +329,7 @@ export function TableCardComponent({ table }: { table: TableCard }) {
 
   return (
     <article
-      className="group relative flex h-full min-h-[430px] w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#1B2A4A] shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-[var(--color-artificio-orange)]/40 hover:shadow-[0_0_30px_rgba(255,87,34,0.15)]"
+      className="group relative flex h-full min-h-[430px] w-full min-w-0 flex-col overflow-hidden rounded-[var(--radius-lg)] border border-white/10 bg-[#1B2A4A] shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-[var(--color-artificio-orange)]/40 hover:shadow-[0_0_30px_rgba(255,87,34,0.15)]"
       id={`table-card-${table.slug}`}
     >
       <Link
@@ -337,12 +337,12 @@ export function TableCardComponent({ table }: { table: TableCard }) {
         onClick={handleClick}
         onMouseEnter={handleMouseEnter}
         aria-label={cardLinkLabel}
-        className="peer/card-link absolute inset-0 z-0 rounded-2xl"
+        className="peer/card-link absolute inset-0 z-0 rounded-[var(--radius-lg)]"
       />
       <div
         data-card-focus-ring
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 z-20 rounded-2xl peer-focus-visible/card-link:outline peer-focus-visible/card-link:outline-[3px] peer-focus-visible/card-link:outline-offset-[-3px] peer-focus-visible/card-link:outline-[var(--artificio-focus)]"
+        className="pointer-events-none absolute inset-0 z-20 rounded-[var(--radius-lg)] peer-focus-visible/card-link:outline peer-focus-visible/card-link:outline-[3px] peer-focus-visible/card-link:outline-offset-[-3px] peer-focus-visible/card-link:outline-[var(--artificio-focus)]"
       />
       <div className="pointer-events-none relative z-10 flex h-full min-h-[430px] w-full min-w-0 flex-col">
       {/* BLOCO 1: HEADER (Imagem + Badges críticos) */}
@@ -370,16 +370,16 @@ export function TableCardComponent({ table }: { table: TableCard }) {
           <CertificationBadges is_covil={table.is_covil} is_ddal={table.is_ddal} />
           {/* T9.2 (spec 081): selo de mesa paga em destaque — cobrança é do GM, fora da plataforma */}
           {table.price_type === 'paga' && (
-            <span className="rounded-md bg-yellow-500 px-2 py-1 text-[11px] font-black tracking-wide text-black">
+            <span className="rounded-[var(--radius-md)] bg-yellow-500 px-2 py-1 text-[length:var(--text-label)] font-[var(--weight-strong)] tracking-wide text-black">
               💰 Paga
             </span>
           )}
           {isFull ? (
-            <span className="px-2 py-1 rounded-md text-[11px] font-black tracking-wide text-white bg-red-600 backdrop-blur-sm">
+            <span className="px-2 py-1 rounded-[var(--radius-md)] text-[length:var(--text-label)] font-[var(--weight-strong)] tracking-wide text-white bg-red-600 backdrop-blur-sm">
               Lotada
             </span>
           ) : (
-            <span className="rounded-md bg-[var(--surface-panel)]/85 px-2 py-1 text-[11px] font-bold text-[var(--fg)] backdrop-blur-sm">
+            <span className="rounded-[var(--radius-md)] bg-[var(--surface-panel)]/85 px-2 py-1 text-[length:var(--text-label)] font-[var(--weight-strong)] text-[var(--fg)] backdrop-blur-sm">
               {slotsLeft} {slotsLeft === 1 ? 'vaga' : 'vagas'}
             </span>
           )}
@@ -397,11 +397,14 @@ export function TableCardComponent({ table }: { table: TableCard }) {
                  uma regra de tema vencia a utility `text-white/90`, dando
                  3.67:1, escuro sobre escuro. O ramo restrito já era `text-white`
                  e não falhava; a divergência entre os dois ramos era o defeito. */
-              className={`rounded-md bg-black/55 px-2 py-1 text-[11px] !text-white backdrop-blur-sm ${
-                isRestrictedAgeRating(table.age_rating)
-                  ? 'font-black tracking-wide'
-                  : 'font-semibold tracking-wide'
-              }`}
+              /* Peso único nos dois ramos, sem ternário: antes eram
+                 `font-black` (restrito) e `font-semibold` (livre), e a régua de
+                 3 pesos da spec 100 colapsou os dois em `--weight-strong`. O
+                 ternário sobreviveu à conversão devolvendo o MESMO valor nos
+                 dois lados — condição morta que fingia uma distinção que já não
+                 existe (achado do Sonar, PR #307). O que separa os dois casos
+                 continua visível no conteúdo: "🔞" e o rótulo. */
+              className="rounded-[var(--radius-md)] bg-black/55 px-2 py-1 text-[length:var(--text-label)] font-[var(--weight-strong)] tracking-wide !text-white backdrop-blur-sm"
             >
               {isRestrictedAgeRating(table.age_rating)
                 ? `🔞 ${table.age_rating}`
@@ -417,13 +420,13 @@ export function TableCardComponent({ table }: { table: TableCard }) {
           disabled={isTogglingFavorite}
           aria-pressed={isFavorited}
           aria-label={isFavorited ? 'Remover dos favoritos' : 'Favoritar mesa'}
-            className="pointer-events-auto absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface-panel)]/85 backdrop-blur-sm transition-colors hover:bg-[var(--surface-panel)] hover:border-[var(--border-strong)] disabled:opacity-50"
+            className="pointer-events-auto absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--surface-panel)]/85 backdrop-blur-sm transition-colors hover:bg-[var(--surface-panel)] hover:border-[var(--border-strong)] disabled:opacity-50"
         >
           <Bookmark className={`h-4 w-4 ${isFavorited ? 'fill-[var(--color-artificio-orange)] text-[var(--color-artificio-orange)]' : 'text-[var(--fg)]'}`} />
         </button>
 
         {table.featured && (
-          <span className="absolute top-14 right-3 max-w-[45%] truncate rounded-md bg-[var(--color-artificio-orange)] px-2 py-1 text-xs font-bold text-white">
+          <span className="absolute top-14 right-3 max-w-[45%] truncate rounded-[var(--radius-md)] bg-[var(--color-artificio-orange)] px-2 py-1 text-[length:var(--text-label)] font-[var(--weight-strong)] text-white">
             ★ Destaque
           </span>
         )}
@@ -443,13 +446,13 @@ export function TableCardComponent({ table }: { table: TableCard }) {
               />
             </span>
           )}
-          <span className="shrink-0 whitespace-nowrap flex items-center gap-1 px-2 py-1 bg-[#13213f] rounded-md text-xs font-semibold text-white/80 border border-white/10">
+          <span className="shrink-0 whitespace-nowrap flex items-center gap-1 px-2 py-1 bg-[#13213f] rounded-[var(--radius-md)] text-[length:var(--text-label)] font-[var(--weight-strong)] text-white/80 border border-white/10">
             {table.modality === 'online' ? <Globe className="w-3 h-3" /> : <MapPin className="w-3 h-3" />}
             {modalityLabels[table.modality] ?? table.modality}
           </span>
         </div>
 
-        <h3 className="mb-4 min-h-[4.75rem] shrink-0 text-lg font-bold leading-tight text-white transition-colors line-clamp-3 group-hover:text-[var(--color-artificio-orange)]">
+        <h3 className="mb-4 min-h-[4.75rem] shrink-0 text-[length:var(--text-title)] font-[var(--weight-strong)] leading-tight text-white transition-colors line-clamp-3 group-hover:text-[var(--color-artificio-orange)]">
           {table.title}
         </h3>
 
@@ -469,7 +472,7 @@ export function TableCardComponent({ table }: { table: TableCard }) {
                   `text-white/40` media 3.76:1 no light — branco a 40% sobre
                   superfície clara. `--fg-muted` acompanha o tema e mede
                   6.07:1 sobre branco. */}
-              <span className="text-[11px] text-[var(--fg-muted)]">
+              <span className="text-[length:var(--text-label)] text-[var(--fg-muted)]">
                 {getSlotsVisualState(table).filled}/{getSlotsVisualState(table).total} preenchidas
               </span>
             </div>
@@ -480,7 +483,7 @@ export function TableCardComponent({ table }: { table: TableCard }) {
 
           {/* BLOCO 4: ACTION (CTA primário + secundário opcional) */}
           <div className="space-y-2">
-            <div className={`w-full py-2.5 rounded-lg text-sm font-bold text-center transition-all ${
+            <div className={`w-full py-2.5 rounded-[var(--radius-lg)] text-[length:var(--text-support)] font-[var(--weight-strong)] text-center transition-all ${
               isFull
                 ? 'bg-gray-600 text-white/50 cursor-not-allowed opacity-50'
                 : primaryCTA.variant === 'primary'

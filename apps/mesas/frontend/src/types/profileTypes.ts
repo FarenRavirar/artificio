@@ -80,6 +80,8 @@ export interface GmProfile {
     group_size?: string;
   } | null;
   preferred_vtt_platforms?: string[];
+  /** communication_platforms do mestre (Discord, Meet, Teams) — migration_166. */
+  preferred_communication_platforms?: string[];
   contact_methods?: Array<{
     channel: 'whatsapp' | 'email' | 'discord' | 'form';
     value: string;

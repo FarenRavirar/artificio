@@ -66,7 +66,7 @@ export function GmReviewSummary({ avgRating: rawAvgRating, reviewsCount: rawRevi
 
   if (reviewsCount === 0 || avgRating === null) {
     return (
-      <span className={`text-xs text-[var(--fg-muted)] ${className ?? ""}`.trim()}>
+      <span className={`text-[length:var(--text-label)] text-[var(--fg-muted)] ${className ?? ""}`.trim()}>
         Sem avaliações ainda
       </span>
     );
@@ -77,9 +77,9 @@ export function GmReviewSummary({ avgRating: rawAvgRating, reviewsCount: rawRevi
   // nos dois. Medido: amber-300 dá 1,44 sobre branco; warningText fixo dá 2,08
   // sobre o navy; o token dá 6,85 no claro e 9,86 no escuro.
   return (
-    <span className={`inline-flex items-center gap-1 text-sm font-semibold text-[var(--state-warning-fg)] ${className ?? ""}`.trim()}>
+    <span className={`inline-flex items-center gap-1 text-[length:var(--text-support)] font-[var(--weight-strong)] text-[var(--state-warning-fg)] ${className ?? ""}`.trim()}>
       ★ {avgRating.toFixed(1)}
-      <span className="text-xs font-normal text-[var(--fg-muted)]">({reviewsCount})</span>
+      <span className="text-[length:var(--text-label)] font-[var(--weight-regular)] text-[var(--fg-muted)]">({reviewsCount})</span>
     </span>
   );
 }
@@ -91,7 +91,7 @@ export interface GmReviewListProps {
 /** Lista completa de reviews individuais (T8.5) — usada no perfil público do mestre. */
 export function GmReviewList({ reviews }: GmReviewListProps) {
   if (reviews.length === 0) {
-    return <p className="text-sm text-[var(--fg-muted)]">Ainda não há avaliações para este mestre.</p>;
+    return <p className="text-[length:var(--text-support)] text-[var(--fg-muted)]">Ainda não há avaliações para este mestre.</p>;
   }
 
   return (
@@ -105,8 +105,8 @@ export function GmReviewList({ reviews }: GmReviewListProps) {
               <div className="h-8 w-8 rounded-[var(--radius-pill)] bg-[var(--fill)]" />
             )}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-[var(--fg)]">{review.author_name}</p>
-              <p className="text-xs text-[var(--state-warning-fg)]">{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</p>
+              <p className="truncate text-[length:var(--text-support)] font-[var(--weight-strong)] text-[var(--fg)]">{review.author_name}</p>
+              <p className="text-[length:var(--text-label)] text-[var(--state-warning-fg)]">{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</p>
             </div>
           </div>
 
@@ -122,7 +122,7 @@ export function GmReviewList({ reviews }: GmReviewListProps) {
               foram escritas em markdown pelo editor do app, e renderizá-las como
               texto cru mostraria os asteriscos ao leitor. */}
           {review.comment && (
-            <MarkdownContent value={review.comment} className="mt-2 text-sm text-[var(--fg-muted)]" />
+            <MarkdownContent value={review.comment} className="mt-2 text-[length:var(--text-support)] text-[var(--fg-muted)]" />
           )}
         </div>
       ))}
@@ -183,7 +183,12 @@ export function GmReviewForm({ onSubmit, isSubmitting }: GmReviewFormProps) {
             aria-checked={rating === value}
             onClick={() => setRating(value)}
             aria-label={`${value} estrela${value > 1 ? "s" : ""}`}
-            className="text-2xl"
+            /* Glifo no maior degrau da régua (20px, spec 100) — era `text-2xl`
+               (24px), o único desse tamanho na tela. O alvo de TOQUE não
+               encolhe junto: `min-h-11/min-w-11` são os 44px que o resto do
+               pacote já usa, senão reduzir a fonte reduziria a área de clique
+               de um controle de nota. */
+            className="inline-flex min-h-11 min-w-11 items-center justify-center text-[length:var(--text-title)]"
           >
             <span className={rating >= value ? "text-[var(--state-warning-fg)]" : "text-[var(--fg-muted)]"}>★</span>
           </button>
@@ -202,7 +207,7 @@ export function GmReviewForm({ onSubmit, isSubmitting }: GmReviewFormProps) {
             type="button"
             aria-pressed={tags.includes(tag)}
             onClick={() => toggleTag(tag)}
-            className={`rounded-[var(--radius-pill)] border px-3 py-1.5 text-xs transition-colors ${
+            className={`rounded-[var(--radius-pill)] border px-3 py-1.5 text-[length:var(--text-label)] transition-colors ${
               tags.includes(tag)
                 ? "border-[var(--state-brand-line)] bg-[var(--state-brand-bg)] text-[var(--state-brand-fg)]"
                 : "border-[var(--line)] bg-[var(--fill-subtle)] text-[var(--fg-muted)]"

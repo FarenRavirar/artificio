@@ -8,15 +8,16 @@
   margin-bottom: 1.5rem;
 }
 
+/* Sem `font-size`/`font-weight` próprios (2026-09-04): 1.25rem/700 renderizava
+   20px dentro de uma parte cujo `h2` tinha 16px — filho maior que o pai. O
+   degrau agora vem da regra de hierarquia em `ProfileEditPage.css`. */
 .links-manager-header h3 {
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
+  margin-bottom: var(--space-2);
 }
 
 .links-manager-subtitle {
   color: var(--fg-muted);
-  font-size: 0.875rem;
+  font-size: var(--text-support);
 }
 
 .links-manager-loading {
@@ -32,7 +33,7 @@
   padding: 1rem;
   background: var(--state-danger-bg);
   border: 1px solid var(--state-danger-line);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--state-danger-fg);
   margin-bottom: 1rem;
 }
@@ -56,7 +57,7 @@
   flex: 1;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--fg);
   transition: all 0.2s;
 }
@@ -80,8 +81,8 @@
   background: var(--artificio-brand);
   color: #ffffff;
   border: none;
-  border-radius: 8px;
-  font-weight: 600;
+  border-radius: var(--radius-md);
+  font-weight: var(--weight-strong);
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
@@ -99,13 +100,13 @@
 .links-add-error {
   margin-top: 0.5rem;
   color: var(--state-danger-fg);
-  font-size: 0.875rem;
+  font-size: var(--text-support);
 }
 
 .links-limit-warning {
   margin-top: 0.5rem;
   color: var(--state-warning-fg);
-  font-size: 0.875rem;
+  font-size: var(--text-support);
 }
 
 /* Links List */
@@ -121,7 +122,7 @@
   padding: 1rem;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   transition: all 0.2s;
 }
 
@@ -138,7 +139,7 @@
   align-items: center;
   justify-content: center;
   background: rgba(249, 115, 22, 0.1);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--artificio-brand);
 }
 
@@ -155,15 +156,15 @@
 }
 
 .link-item-type {
-  font-size: 0.75rem;
-  font-weight: 600;
+  font-size: var(--text-label);
+  font-weight: var(--weight-strong);
   color: var(--artificio-brand);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 .link-item-title {
-  font-weight: 600;
+  font-weight: var(--weight-strong);
   margin-bottom: 0.25rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -171,7 +172,7 @@
 }
 
 .link-item-description {
-  font-size: 0.875rem;
+  font-size: var(--text-support);
   color: var(--fg-muted);
   margin-bottom: 0.5rem;
   overflow: hidden;
@@ -182,7 +183,7 @@
 .link-item-url {
   align-items: center;
   display: inline-flex;
-  font-size: 0.75rem;
+  font-size: var(--text-label);
   min-height: 24px;
   color: var(--fg-muted);
   text-decoration: none;
@@ -205,7 +206,7 @@
   justify-content: center;
   background: transparent;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: var(--fg-muted);
   cursor: pointer;
   transition: all 0.2s;
@@ -225,7 +226,7 @@
   padding: 3rem 2rem;
   text-align: center;
   border: 1px dashed var(--line-strong);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
 }
 
 .links-empty-icon {
@@ -241,7 +242,7 @@
 }
 
 .links-empty-hint {
-  font-size: 0.875rem;
+  font-size: var(--text-support);
   color: var(--fg-muted);
 }
 

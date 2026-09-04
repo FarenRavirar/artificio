@@ -19,7 +19,20 @@ export interface ImageUploaderProps {
   onChange: (url: string) => void;
   onError: (hasError: boolean) => void;
   hasError?: boolean;
-  idPrefix?: string;
+  /**
+   * Obrigatório: dele saem SETE ids (`-label`, `-file`, `-url`, `-hint`,
+   * `-error`, `-select-file`, `-adjust-frame`, `-remove-image`), e dois deles
+   * são alvo de `aria-labelledby`/`aria-describedby`. Com o default anterior
+   * (`'image-uploader'`), duas instâncias na mesma tela produziam ids
+   * duplicados e os atributos ARIA passavam a apontar para o elemento errado —
+   * falha muda, que nada quebra visualmente e só aparece no leitor de tela.
+   *
+   * Os componentes irmãos com o mesmo padrão já exigiam (`AvatarField:29`,
+   * `CatalogAdvancedFilters:43`); este era o único outlier. Obrigatório, quem
+   * cobra é o compilador, não a memória de quem escrever a próxima chamada
+   * (achado de review, PR #307).
+   */
+  idPrefix: string;
   manualInputId?: string;
   fileInputId?: string;
   /**
@@ -68,7 +81,7 @@ export function ImageUploader({
   onChange,
   onError,
   hasError = false,
-  idPrefix = 'image-uploader',
+  idPrefix,
   manualInputId,
   fileInputId,
   kind = 'table_banner',
@@ -176,9 +189,18 @@ export function ImageUploader({
 
   return (
     <section className="flex flex-col gap-3" aria-live="polite">
-      <label htmlFor={inputId} className="text-sm font-medium text-white/70">
+      {/* Rótulo do CAMPO, não gatilho do upload (spec 100, medido em beta
+          2026-09-04): como `<label for>` de um input de arquivo, a faixa
+          inteira (818px medidos) abria o seletor ao clique, inclusive no vazio
+          longe do texto. Quem dispara é o botão abaixo. O vínculo acessível
+          fica por `aria-labelledby` no input. Mesmo conserto de
+          `AvatarField.tsx`. */}
+      <span
+        id={`${idPrefix}-label`}
+        className="text-[length:var(--text-support)] font-[var(--weight-medium)] text-[var(--fg-muted)]"
+      >
         {label}
-      </label>
+      </span>
 
       <div className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -186,6 +208,7 @@ export function ImageUploader({
             ref={fileInputRef}
             id={inputId}
             type="file"
+            aria-labelledby={`${idPrefix}-label`}
             accept="image/png,image/jpeg,image/webp"
             onChange={handleFileSelect}
             className="hidden"
@@ -198,6 +221,11 @@ export function ImageUploader({
             disabled={isUploading || isImportingUrl}
             className="min-h-[44px] px-4 py-2 rounded-lg bg-[var(--color-artificio-orange)] hover:bg-[var(--color-artificio-orange-hover)] disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
             aria-describedby={describedBy}
+            // Nome acessível cita o campo — mesma razão do `AvatarField`: o
+            // input é `hidden` e não recebe foco, então quem precisa do rótulo
+            // é este botão. Sem isso, dois campos de imagem na mesma tela
+            // produzem dois "Selecionar imagem" indistinguíveis.
+            aria-label={`${isUploading ? 'Enviando imagem' : 'Selecionar imagem'}: ${label}`}
           >
             {isUploading ? 'Enviando imagem...' : 'Selecionar imagem'}
           </button>
@@ -226,8 +254,12 @@ export function ImageUploader({
         </div>
 
         <div className="flex flex-col gap-1">
-          <label htmlFor={manualUrlId} className="text-xs font-medium text-white/70">
-            URL manual (fallback)
+          {/* "URL manual (fallback)" era jargão, e o placeholder mostrava uma
+              URL crua do Cloudinary — o mestre lia aquilo como código vazado e
+              não entendia o que devia digitar (achado do mantenedor,
+              2026-09-04). Rótulo e exemplo passam a dizer o que se espera dele. */}
+          <label htmlFor={manualUrlId} className="text-[length:var(--text-label)] font-[var(--weight-medium)] text-[var(--fg-muted)]">
+            Ou cole o link de uma imagem
           </label>
           {/* Spec 099 G5/A15: `<input>` cru virou o primitivo do pacote. As
               utilitárias de padding/fonte/altura saíram junto — quem governa a
@@ -244,7 +276,7 @@ export function ImageUploader({
               clearError();
             }}
             onBlur={importUrlIfNeeded}
-            placeholder="https://res.cloudinary.com/..."
+            placeholder="Cole aqui um link direto de imagem (.jpg, .png ou .webp)"
             className="w-full"
           />
           <label

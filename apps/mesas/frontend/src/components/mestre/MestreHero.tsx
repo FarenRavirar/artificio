@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useBannerScrim } from './useBannerScrim';
 import { CheckCircle2, Medal, Sparkles, Crown, Award, Users, Star, MessageSquare } from 'lucide-react';
 import type { TableCard } from '../../types/tables';
 import type { MestrePublicData } from '../../hooks/useMestre';
@@ -48,8 +49,10 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
     (avgRating ?? 0) > 0 ||
     (profile.reviews_count ?? 0) > 0;
 
+  // `tables_count` saiu desta conta junto com o selo que o exibia (spec 100):
+  // deixá-lo aqui faria a linha inteira renderizar VAZIA para o mestre que só
+  // tem mesas ativas e nenhum outro selo — condição verdadeira, nenhum filho.
   const hasAnyTrust =
-    (profile.tables_count ?? 0) > 0 ||
     profile.covil_verified ||
     (profile.experience_years ?? 0) >= 3 ||
     (profile.years_on_platform ?? 0) >= 1 ||
@@ -107,23 +110,84 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
   ];
   const hasHeroAttributes = heroAttributeGroups.some((group) => group.values.length > 0);
 
+  const mostraBanner = isUsableImageSrc(profile.banner_url) && !bannerFailed;
+
+  // Enquadramento REAL do banner: `object-fit: cover` mostra só um recorte da
+  // foto, e medir a imagem inteira classificava como escura uma imagem cuja
+  // faixa visível é clara (medido neste banner: 41,2% da fonte aparece, e o p90
+  // vai de 0,302 na inteira para 0,162 na visível). A caixa vem do elemento
+  // porque a altura do hero depende do conteúdo e a largura, da janela.
+  const bannerRef = useRef<HTMLImageElement | null>(null);
+  const [caixaBanner, setCaixaBanner] = useState<{ largura: number; altura: number } | null>(null);
+
+  useEffect(() => {
+    const el = bannerRef.current;
+    if (!el) return;
+
+    const medir = () => {
+      const { width, height } = el.getBoundingClientRect();
+      setCaixaBanner((atual) =>
+        atual && atual.largura === width && atual.altura === height
+          ? atual
+          : { largura: width, altura: height },
+      );
+    };
+
+    medir();
+    const observer = new ResizeObserver(medir);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [mostraBanner]);
+
+  const bannerObjectPosition = cropToObjectPosition(
+    profile.banner_crop_data,
+    profile.banner_width,
+    profile.banner_height,
+  );
+
+  const scrim = useBannerScrim(
+    mostraBanner ? profile.banner_url : null,
+    caixaBanner
+      ? { ...caixaBanner, objectPosition: bannerObjectPosition }
+      : undefined,
+  );
+  const scrimVars = {
+    '--hero-scrim-top': scrim.top,
+    '--hero-scrim-bottom': scrim.bottom,
+    '--hero-scrim-left': scrim.left,
+    '--hero-scrim-right': scrim.right,
+  } as CSSProperties;
+
   return (
-    <section className="hero-section">
+    <section
+      className="hero-section"
+      // O véu sobre a foto se dimensiona pela imagem que o mestre escolheu
+      // (`useBannerScrim`), em vez de um valor fixo que serve à foto escura e
+      // apaga o texto na clara. Recalculado a cada carga, porque o banner muda
+      // quando ele quiser. Sem banner, as variáveis não são escritas e o CSS
+      // usa os defaults de hoje.
+      style={scrimVars}
+    >
       {isUsableImageSrc(profile.banner_url) && !bannerFailed ? (
         <img
           src={profile.banner_url}
           alt=""
           className="hero-banner"
+          // SEM `crossOrigin` aqui, de propósito. A medição do véu já usa um
+          // `new Image()` próprio com o atributo (`useBannerScrim`), então
+          // colocá-lo também no `<img>` VISÍVEL não acrescenta nada e ainda
+          // arrisca a exibição: o browser recusa desenhar imagem cujo servidor
+          // não manda `Access-Control-Allow-Origin`. Medido (2026-09-04):
+          // `gstatic.com` exibe sem o atributo e QUEBRA com ele. O banner pode
+          // vir de qualquer origem, porque o editor aceita "cole um link direto
+          // de imagem" — então o atributo aqui apagaria o banner de quem usa
+          // servidor sem CORS. Falha de medição já cai no scrim padrão; falha
+          // de exibição não tem plano B (achado de review, PR #307).
           // Enquadramento escolhido pelo mestre. Sem `object-position` o
           // `object-fit: cover` do CSS recorta sempre pelo centro geometrico,
           // sem que ninguem possa escolher o que fica visivel.
-          style={{
-            objectPosition: cropToObjectPosition(
-              profile.banner_crop_data,
-              profile.banner_width,
-              profile.banner_height,
-            ),
-          }}
+          ref={bannerRef}
+          style={{ objectPosition: bannerObjectPosition }}
           onError={() => setBannerFailure(profile.banner_url ?? null)}
         />
       ) : (
@@ -225,12 +289,11 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
 
         {hasAnyTrust && (
           <div className="hero-trust-row">
-            {(profile.tables_count ?? 0) > 0 && (
-              <span className="trust-item">
-                <CheckCircle2 className="w-4 h-4" />
-                {profile.tables_count} {profile.tables_count === 1 ? 'mesa ativa' : 'mesas ativas'}
-              </span>
-            )}
+            {/* "N mesas ativas" saiu daqui (spec 100): a mesma `tables_count`
+                aparecia como selo de confiança E como número em `hero-stats`
+                logo abaixo — o visitante lia "8 mesas ativas" e "8 Mesas" na
+                mesma dobra. O dado ficou só na stat, que agora se rotula
+                "Mesas Ativas". Medido em beta 2026-09-04. */}
             {profile.covil_verified && (
               <span className="trust-item" data-testid="trust-covil">
                 <CheckCircle2 className="w-4 h-4" />
@@ -257,7 +320,14 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
             {(profile.tables_hosted_count ?? 0) > 0 && (
               <span className="trust-item">
                 <CheckCircle2 className="w-4 h-4" />
-                {profile.tables_hosted_count} {profile.tables_hosted_count === 1 ? 'mesa hospedada' : 'mesas hospedadas'}
+                {/* "no Artifício", não "publicadas" (decisão do mantenedor):
+                    `tables_hosted_count` é `COUNT(*)` SEM filtro de status
+                    (`gm.ts:180`), então inclui rascunho, cancelada e
+                    encerrada. Medido em produção: existe 1 rascunho, que já
+                    seria anunciado como publicado. O rótulo nomeia o total
+                    histórico do mestre na plataforma sem afirmar estado
+                    nenhum sobre as mesas (achado de review, PR #307). */}
+                {profile.tables_hosted_count} {profile.tables_hosted_count === 1 ? 'mesa no Artifício' : 'mesas no Artifício'}
               </span>
             )}
           </div>
@@ -270,7 +340,7 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
                 <Users className="stat-icon" />
                 <span className="stat-value">{profile.tables_count}</span>
                 <span className="stat-label">
-                  {profile.tables_count === 1 ? 'Mesa' : 'Mesas'}
+                  {profile.tables_count === 1 ? 'Mesa Ativa' : 'Mesas Ativas'}
                 </span>
               </div>
             )}

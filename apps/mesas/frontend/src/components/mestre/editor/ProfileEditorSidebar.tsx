@@ -71,7 +71,7 @@ export const ProfileEditorSidebar = memo(function ProfileEditorSidebar({
               <span className="flex-1 text-left">{part.label}</span>
               {pending > 0 ? (
                 <span
-                  className="min-w-5 rounded-[var(--radius-pill)] bg-[var(--state-danger-bg)] px-2 text-center text-[11px] text-[var(--state-danger-fg)]"
+                  className="min-w-5 rounded-[var(--radius-pill)] bg-[var(--state-danger-bg)] px-2 text-center text-[length:var(--text-label)] text-[var(--state-danger-fg)]"
                   aria-label={`${pending} campo(s) recomendado(s) por preencher`}
                 >
                   {pending}

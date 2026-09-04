@@ -12,6 +12,11 @@ import {
   validateImpliesInput,
   impliesInsertValues,
   applyImpliesUpdate,
+  AliasConflictError,
+  assertAliasLivre,
+  plataformaEstaEmAlgumPerfil,
+  PlatformInUseError,
+  CATALOGO_VTT,
   IMPLIES_COLUMNS,
 } from '../utils/platformUtils.js';
 import { resolveActorName } from '../services/actorNameResolver.js';
@@ -331,11 +336,39 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req, res) => 
   }
 
   try {
+    // Mesma guarda do catálogo de comunicação (2026-09-04): nome/slug que já é
+    // APELIDO de outra plataforma não vira plataforma nova, senão o catálogo
+    // ganha duas entradas do mesmo conceito. Lá isso já aconteceu de fato
+    // (`Google Meet` + `Meet` em beta); aqui a lacuna era idêntica e ainda não
+    // tinha sido exercitada — corrigir só o catálogo que quebrou deixaria o
+    // outro esperando a vez.
     const websiteUrl = normalizeWebsiteUrl(payload.website_url);
     const logoFilename = normalizeLogoFilename(payload.logo_filename);
     const aliases = normalizeAliases(payload.aliases);
 
     const created = await db.transaction().execute(async (trx) => {
+      // A guarda roda DENTRO da transação, e cobre também os aliases do
+      // payload (achado de review, PR #307). Três razões, todas medidas:
+      //
+      // 1. Fora da transação, dois pedidos concorrentes passavam os dois pela
+      //    checagem e criavam plataformas rivais para o mesmo apelido — o
+      //    `UNIQUE (vtt_platform_id, alias_slug)` da migration_159 é POR
+      //    plataforma, então não barra o mesmo alias em plataformas
+      //    diferentes.
+      // 2. Checar só `name`/`slug` deixava passar o caso principal: o handler
+      //    insere `payload.aliases` logo abaixo, e um deles podia já pertencer
+      //    a outra plataforma. Era justamente o que a guarda existia para
+      //    impedir.
+      // 3. `ILIKE` sobre o texto do alias trata `%` e `_` como curinga, e o
+      //    nome vem do corpo da requisição (medido em beta: `ILIKE '%'` casa 2
+      //    linhas). A comparação é por `alias_slug`, o campo já canonicalizado,
+      //    o que também resolve caixa ("MEET" = "meet").
+      await assertAliasLivre(trx, CATALOGO_VTT, [
+        slugify(name),
+        slug,
+        ...aliases.map((a) => a.alias_slug),
+      ]);
+
       const platform = await trx
         .insertInto('vtt_platforms')
         .values({
@@ -368,6 +401,12 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req, res) => 
 
     return res.status(201).json({ data: created });
   } catch (error) {
+    // Conflito de apelido não é falha: é a guarda funcionando. Vem como
+    // exceção porque a checagem roda dentro da transação, onde não há `res`.
+    if (error instanceof AliasConflictError) {
+      return res.status(409).json({ error: error.message });
+    }
+
     console.error('[POST /vtt-platforms/admin] Erro ao criar plataforma:', error);
 
     const errorMessage = getErrorMessage(error);
@@ -533,24 +572,37 @@ router.delete('/admin/:id', authMiddleware, requireRole('admin'), async (req, re
   const { id } = req.params;
 
   try {
-    const inUse = await db
-      .selectFrom('tables')
-      .select('id')
-      .where('vtt_platform_id', '=', id)
-      .limit(1)
-      .executeTakeFirst();
+    // Checagens e DELETE na MESMA transação: `plataformaEstaEmAlgumPerfil`
+    // trava a linha da plataforma com `FOR UPDATE`, e o `PUT` de perfil pega a
+    // mesma linha em `FOR SHARE` ao gravar. Soltas, as guardas cobriam só o
+    // caminho serial — a exclusão via o array vazio, apagava, e o `PUT` gravava
+    // depois um id já excluído (achado de review, PR #307).
+    const deleted = await db.transaction().execute(async (trx) => {
+      if (await plataformaEstaEmAlgumPerfil(trx, CATALOGO_VTT, id)) {
+        throw new PlatformInUseError(
+          'Esta plataforma está selecionada em perfis de mestre. Desative-a em vez de remover.',
+        );
+      }
 
-    if (inUse) {
-      return res.status(409).json({
-        error: 'Esta plataforma está vinculada a mesas. Desative-a em vez de remover.',
-      });
-    }
+      const emMesa = await trx
+        .selectFrom('tables')
+        .select('id')
+        .where('vtt_platform_id', '=', id)
+        .limit(1)
+        .executeTakeFirst();
 
-    const deleted = await db
-      .deleteFrom('vtt_platforms')
-      .where('id', '=', id)
-      .returning(['id', 'name'])
-      .executeTakeFirst();
+      if (emMesa) {
+        throw new PlatformInUseError(
+          'Esta plataforma está vinculada a mesas. Desative-a em vez de remover.',
+        );
+      }
+
+      return trx
+        .deleteFrom('vtt_platforms')
+        .where('id', '=', id)
+        .returning(['id', 'name'])
+        .executeTakeFirst();
+    });
 
     if (!deleted) {
       return res.status(404).json({ error: 'Plataforma VTT não encontrada.' });
@@ -558,6 +610,10 @@ router.delete('/admin/:id', authMiddleware, requireRole('admin'), async (req, re
 
     return res.json({ data: deleted });
   } catch (error) {
+    if (error instanceof PlatformInUseError) {
+      return res.status(409).json({ error: error.message });
+    }
+
     console.error('[DELETE /vtt-platforms/admin/:id] Erro ao remover plataforma:', error);
     return res.status(500).json({ error: 'Erro ao remover plataforma VTT.' });
   }

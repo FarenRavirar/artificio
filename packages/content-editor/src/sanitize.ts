@@ -130,7 +130,7 @@ function restoreLooseAngleBrackets(value: string): string {
  * hexadecimal (`&#x26;`). Tudo isso passa intacto e **precisa** continuar
  * passando: é texto que o usuário digitou.
  */
-const ENTITY_REFERENCE_RE = /&(?:[a-zA-Z][a-zA-Z0-9]*|#[0-9]+|#[xX][0-9a-fA-F]+);/g;
+const ENTITY_REFERENCE_RE = /&(?:[a-zA-Z][a-zA-Z\d]*|#\d+|#[xX][\da-fA-F]+);/g;
 
 /**
  * Troca por sentinela o `&` que está **fora** de uma entidade.

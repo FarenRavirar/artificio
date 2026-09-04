@@ -73,12 +73,36 @@
   background: transparent;
 }
 
-/* Banner custom (foto): scrim navy garante AA do texto claro sobre a imagem nos 2 temas.
-   Spec 099 D8: o scrim é FIXO — a prévia mostra este véu, não um controle de opacidade. */
+/* Banner custom (foto): scrim que se ADAPTA à imagem que o mestre escolheu.
+   Spec 099 D8 mantida — o scrim continua fixo do ponto de vista do mestre (não
+   há controle de opacidade, e a prévia mostra o que ele verá). O que passou a
+   variar é a INTENSIDADE, calculada da luminância real da imagem
+   (`useBannerLuminance`), porque um valor único não serve para todas:
+
+   - Banner escuro (luminância medida deste: 0,118): o navy leve basta, e
+     escurecer mais só apaga a foto que o mestre escolheu.
+   - Banner claro/branco: com o scrim antigo o texto branco caía para perto de
+     3:1 e sumia. Precisa de véu bem mais forte.
+
+   Os literais navy viraram `--hero-scrim-*`, escritos pelo componente. A última
+   parada fecha em `--canvas`: no tema claro o hero terminava em rgb(42,51,72)
+   contra um corpo de rgb(244,246,251) — degrau de 11,66:1 separado por 1px de
+   borda. No escuro o corte não aparecia, porque o corpo já é escuro; a
+   transição vem de TOKEN, que vira com o tema (achado do mantenedor,
+   2026-09-04). */
 .hero-section:has(.hero-banner) .hero-overlay {
   background:
-    linear-gradient(to bottom, rgba(15, 24, 48, 0.72), rgba(15, 24, 48, 0.88)),
-    linear-gradient(to right, rgba(15, 24, 48, 0.64), rgba(15, 24, 48, 0.36));
+    linear-gradient(
+      to bottom,
+      rgba(15, 24, 48, var(--hero-scrim-top, 0.72)) 0%,
+      rgba(15, 24, 48, var(--hero-scrim-bottom, 0.88)) 88%,
+      var(--canvas) 100%
+    ),
+    linear-gradient(
+      to right,
+      rgba(15, 24, 48, var(--hero-scrim-left, 0.64)),
+      rgba(15, 24, 48, var(--hero-scrim-right, 0.36))
+    );
 }
 .hero-section:has(.hero-banner) .hero-title,
 .hero-section:has(.hero-banner) .stat-value {
@@ -94,7 +118,12 @@
   position: relative;
   z-index: 10;
   width: 100%;
-  max-width: 1100px;
+  /* MESMA largura do `.container` do corpo (spec 100, medido em beta
+     2026-09-04): com 1100px fixo aqui e 1200px lá, o hero começava 100px à
+     esquerda de todo o resto — nome, selos e avatar desalinhados em relação
+     aos títulos de grupo logo abaixo. O número não se repete: os dois lados
+     leem `--page-max`, então mudar a medida do corpo move o hero junto. */
+  max-width: var(--page-max);
   margin: 0 auto;
   padding: var(--space-8) var(--space-6);
   /* Alinhado à esquerda (D5): centralizar texto longo obriga o olho a

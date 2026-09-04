@@ -17,6 +17,19 @@ vi.mock('../db/index.js', () => ({
   },
 }));
 
+// `filtrarIdsDoCatalogo` consulta o catálogo real de plataformas antes de
+// gravar (achado de review, PR #307). Aqui o alvo é a normalização do payload,
+// não a existência no banco: o mock devolve os ids como válidos, e o filtro
+// de catálogo tem cobertura própria em `platformUtils.test.ts`.
+const idsInexistentes = new Set<string>();
+vi.mock('../utils/platformUtils.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../utils/platformUtils.js')>()),
+  filtrarIdsDoCatalogo: vi.fn(
+    async (_db: unknown, _catalogo: unknown, ids: readonly string[]) =>
+      ids.filter((id) => !idsInexistentes.has(id)),
+  ),
+}));
+
 let mockUserId = 'gm-user-1';
 let mockRole: UserRole = 'gm';
 vi.mock('../middleware/auth.js', () => ({
@@ -60,6 +73,13 @@ function mockPutFlow(updatedRow: unknown = UPDATED_ROW) {
   const updateChain = mockChain({ execute: vi.fn().mockResolvedValue([updatedRow]) });
   (db.selectFrom as Mock).mockReturnValue(selectChain);
   (db.updateTable as Mock).mockReturnValue(updateChain);
+  // O PUT passou a gravar dentro de uma transação (o `FOR SHARE` do filtro de
+  // catálogo precisa do mesmo escopo do UPDATE para travar a plataforma até o
+  // commit). O mock executa o callback com o próprio `db` mockado — o que se
+  // testa aqui é a normalização do payload, não a semântica transacional.
+  (db.transaction as Mock).mockReturnValue({
+    execute: (cb: (trx: typeof db) => unknown) => cb(db),
+  });
   return updateChain;
 }
 
@@ -165,9 +185,75 @@ describe('PUT /api/v1/gm/profile — normalização dos campos livres (spec 099 
       });
 
     expect(res.status).toBe(200);
+    // Vai SERIALIZADO, não como array cru: `selling_points` é JSONB e o driver
+    // `pg` converteria um array JS para o literal de array do Postgres
+    // (`{"{...}"}`), que o banco recusa com `22P02`. A asserção anterior exigia
+    // o array cru — codificava o defeito que derrubou o PUT em beta com 500 na
+    // primeira gravação real (2026-09-04). Ver `db/jsonb.ts`.
     expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({
-      selling_points: [{ icon: 'clock', title: 'Pontual', description: 'Comeco no horario' }],
+      selling_points: JSON.stringify([
+        { icon: 'clock', title: 'Pontual', description: 'Comeco no horario' },
+      ]),
     }));
+  });
+
+  it('recusa UUID malformado que só tem 36 caracteres permitidos', async () => {
+    // A validação anterior era `/^[0-9a-fA-F-]{36}$/`, que aceita 36 hífens e
+    // 36 letras sem hífen nenhum. Medido: `'---…'::uuid` faz o Postgres
+    // devolver `22P02`, ou seja, a string atravessava a guarda e derrubava o
+    // PUT com 500 (achado de review, PR #307).
+    const updateChain = mockPutFlow();
+    const valido = '4a15a911-559e-46ca-99dc-1d8c74fa1c0d';
+
+    const res = await request(makeApp())
+      .put('/api/v1/gm/profile')
+      .send({
+        preferred_vtt_platforms: [
+          valido,
+          '------------------------------------',
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          '4a15a911559e46ca99dc1d8c74fa1c0d----',
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({
+      preferred_vtt_platforms: [valido],
+    }));
+  });
+
+  it('descarta UUID bem formado que não existe no catálogo', async () => {
+    // Sintaxe válida não basta: `UUID[]` não tem FK, então id inexistente
+    // entraria como referência morta — some da página pública e não dá para
+    // desmarcar, porque o catálogo não o lista. Par do guard que impede apagar
+    // plataforma em uso (achado de review, PR #307).
+    const updateChain = mockPutFlow();
+    const existe = '4a15a911-559e-46ca-99dc-1d8c74fa1c0d';
+    const naoExiste = '00000000-0000-0000-0000-000000000000';
+    idsInexistentes.add(naoExiste);
+
+    const res = await request(makeApp())
+      .put('/api/v1/gm/profile')
+      .send({ preferred_communication_platforms: [existe, naoExiste] });
+
+    expect(res.status).toBe(200);
+    expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({
+      preferred_communication_platforms: [existe],
+    }));
+    idsInexistentes.clear();
+  });
+
+  it('campo ausente preserva o salvo — o filtro não transforma em lista vazia', async () => {
+    const updateChain = mockPutFlow();
+
+    const res = await request(makeApp())
+      .put('/api/v1/gm/profile')
+      .send({ badges: ['selo-a'] });
+
+    expect(res.status).toBe(200);
+    const patch = updateChain.set.mock.calls[0][0] as Record<string, unknown>;
+    expect(patch.preferred_vtt_platforms).toBeUndefined();
+    expect(patch.preferred_communication_platforms).toBeUndefined();
   });
 
   it('badges persiste só as strings do array', async () => {

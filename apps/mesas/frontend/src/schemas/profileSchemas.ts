@@ -188,6 +188,20 @@ export const gmProfileSchema = z.object({
     .min(0, 'Preço mínimo deve ser positivo')
     .optional()
     .nullable(),
+  // Plataformas de VTT e de comunicação (migration_111 e migration_166).
+  // Declaradas aqui pela MESMA razão dos campos acima: `z.object` descarta
+  // chave desconhecida no parse, e `updateGm` passa o patch por
+  // `validateOrThrow(gmProfileSchema, …)` (`useProfileQuery.ts:197`) — sem
+  // estas duas linhas a seleção do mestre era silenciosamente removida do
+  // patch e o PUT nunca recebia nada (achado de review, PR #307). Terceira vez
+  // que esta lição aparece no arquivo: antes foi tagline/promo_badge_text,
+  // depois o grupo fechado.
+  //
+  // `.optional()` sem `.nullable()`, igual a `badges`/`selling_points`: as
+  // colunas são `UUID[] DEFAULT '{}'` e o PUT ignora `null`. Para esvaziar, o
+  // editor manda array vazio.
+  preferred_vtt_platforms: z.array(z.string()).optional(),
+  preferred_communication_platforms: z.array(z.string()).optional(),
   avatar_url: imageUrlSchema,
   avatar_crop_data: cropRectSchema,
   avatar_width: imageDimensionSchema,

@@ -260,8 +260,25 @@
   margin-bottom: 0;
 }
 
+/* Título da PARTE: um degrau acima dos blocos que ela contém (achado do
+   mantenedor, 2026-09-04). Era `--text-section` (16px) enquanto o `h3` do
+   `LinksManager` renderizava 20px/700 dentro dela — o filho maior e mais
+   pesado que o pai, invertendo na tela a hierarquia da navegação. */
 .form-section h2 {
   margin: 0 0 var(--space-3) 0;
+  font-size: var(--text-title);
+  line-height: var(--leading-title);
+  color: var(--fg);
+  font-weight: var(--weight-strong);
+}
+
+/* Subtítulo de bloco DENTRO de uma parte: um degrau abaixo do `h2` acima.
+   Vale para os `h3` das partes e para o do `LinksManager`, que antes decidia
+   o próprio tamanho por literal. */
+.form-section h3,
+.profile-part-subtitle,
+.links-manager-header h3 {
+  margin: 0 0 var(--space-2) 0;
   font-size: var(--text-section);
   line-height: var(--leading-section);
   color: var(--fg);
@@ -273,6 +290,34 @@
   color: var(--fg-muted);
   font-size: var(--text-support);
   line-height: var(--leading-support);
+}
+
+/* A pergunta do VISITANTE, distinta de uma instrução ao mestre (spec 100).
+   Sem tamanho, peso ou raio novos — a distinção vem de atribuição ("O
+   visitante se pergunta:"), filete lateral e itálico da citação, não de um
+   degrau extra que reprovaria a régua. */
+.section-question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--line);
+}
+
+.section-question-eyebrow {
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
+  font-weight: var(--weight-medium);
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* `<q>` já insere as aspas do idioma; o reset evita aspas duplicadas quando o
+   navegador as soma às do conteúdo. */
+.section-question-text {
+  font-style: italic;
+  color: var(--fg);
 }
 
 .field-description {
@@ -292,7 +337,12 @@
   margin-bottom: 0;
 }
 
-.form-group label {
+/* `.form-label` entra junto do `label` (spec 100): o rótulo do campo de imagem
+   deixou de ser `<label for>` — que transformava a faixa inteira em gatilho de
+   upload — e virou `<span class="form-label">`, mas deve continuar idêntico
+   aos demais rótulos do formulário. Ver `AvatarField.tsx`. */
+.form-group label,
+.form-group .form-label {
   display: block;
   margin-bottom: var(--space-2);
   font-weight: var(--weight-medium);

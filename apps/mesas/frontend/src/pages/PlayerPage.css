@@ -7,7 +7,14 @@
   padding-bottom: 4rem;
 }
 
-.container {
+/* Escopado a `.player-page` (spec 100, medido em beta 2026-09-04).
+   `.container` e `.section-title` eram globais aqui E em `MestrePage.css`, no
+   mesmo bundle (sem lazy em `App.tsx`) e com a mesma especificidade — vencia
+   quem carregasse por último, que era este arquivo. O efeito na página do
+   mestre: os `h3` de bloco renderizavam 32px/900, MAIORES que o `h2` do grupo
+   que os contém (28px/600), invertendo na tela a hierarquia que a fase 3
+   criou. Mesma colisão que o `.spinner` já documentado abaixo. */
+.player-page .container {
   max-width: 900px;
   margin: 0 auto;
   padding: 1.5rem;
@@ -139,7 +146,7 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.section-title {
+.player-page .section-title {
   font-size: 2rem;
   font-weight: 900;
   margin-bottom: 2rem;

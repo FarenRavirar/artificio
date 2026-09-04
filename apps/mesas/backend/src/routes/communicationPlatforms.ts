@@ -9,6 +9,11 @@ import {
   validateImpliesInput,
   impliesInsertValues,
   applyImpliesUpdate,
+  AliasConflictError,
+  assertAliasLivre,
+  plataformaEstaEmAlgumPerfil,
+  PlatformInUseError,
+  CATALOGO_COMUNICACAO,
   IMPLIES_COLUMNS,
 } from '../utils/platformUtils.js';
 
@@ -117,23 +122,53 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req: Request,
   }
 
   try {
+    // O nome/slug pedido já é APELIDO de outra plataforma? Então criar aqui
+    // produz duplicata do mesmo conceito (medido em beta, 2026-09-04: existiam
+    // `Google Meet` E `Meet`, embora `communication_platform_aliases` já
+    // trouxesse "Meet" → `google-meet` desde a migration_159). A tabela de
+    // aliases existe justamente para reconhecer a grafia alternativa; não
+    // consultá-la aqui deixava a duplicata entrar pela porta da frente, e
+    // depois as duas apareciam lado a lado na seleção do perfil.
+    //
+    // Compara SLUG canônico dos dois lados, nunca `ILIKE` sobre o texto do
+    // alias: em `ILIKE`, `%` e `_` são curingas do padrão, e o nome vem do
+    // corpo da requisição. Medido em beta: `alias ILIKE '%'` casa 2 linhas e
+    // `'_eet'` casa 1 — um admin criando plataforma chamada "%" levaria 409
+    // citando uma plataforma que nada tem a ver (achado de review, PR #307).
+    // `slugifyPlatformName` também resolve a caixa, então "MEET" e "meet"
+    // batem no mesmo `alias_slug`, que é o campo já canonicalizado da tabela.
+    //
+    // Checagem e insert na MESMA transação: soltos, dois pedidos concorrentes
+    // passavam os dois pela guarda e criavam plataformas rivais para o mesmo
+    // apelido — o `UNIQUE` da migration_159 é por plataforma e não barra isso.
     const websiteUrl = normalizeWebsiteUrl(payload.website_url);
+    const aliasSlugPedido = slugify(name);
 
-    const created = await db
-      .insertInto('communication_platforms')
-      .values({
-        name,
-        slug,
-        website_url: websiteUrl,
-        sort_order: sortOrder,
-        is_active: payload.is_active ?? true,
-        ...impliesInsertValues(payload),
-      })
-      .returning(ADMIN_COLUMNS)
-      .executeTakeFirst();
+    const created = await db.transaction().execute(async (trx) => {
+      await assertAliasLivre(trx, CATALOGO_COMUNICACAO, [aliasSlugPedido, slug]);
+
+      return trx
+        .insertInto('communication_platforms')
+        .values({
+          name,
+          slug,
+          website_url: websiteUrl,
+          sort_order: sortOrder,
+          is_active: payload.is_active ?? true,
+          ...impliesInsertValues(payload),
+        })
+        .returning(ADMIN_COLUMNS)
+        .executeTakeFirst();
+    });
 
     return res.status(201).json({ data: created });
   } catch (error) {
+    // Conflito de apelido é a guarda funcionando, não falha: vem como exceção
+    // porque a checagem roda dentro da transação, onde não existe `res`.
+    if (error instanceof AliasConflictError) {
+      return res.status(409).json({ error: error.message });
+    }
+
     console.error('[POST /communication-platforms/admin]', error);
 
     const message = getErrorMessage(error);
@@ -238,24 +273,35 @@ router.delete('/admin/:id', authMiddleware, requireRole('admin'), async (req: Re
   const { id } = req.params;
 
   try {
-    const inUse = await db
-      .selectFrom('tables')
-      .select('id')
-      .where('communication_platform_id', '=', id)
-      .limit(1)
-      .executeTakeFirst();
+    // Checagens e DELETE na MESMA transação — ver o comentário equivalente em
+    // `vttPlatforms.ts`: `FOR UPDATE` aqui contra o `FOR SHARE` do `PUT` de
+    // perfil é o que serializa os dois (achado de review, PR #307).
+    const deleted = await db.transaction().execute(async (trx) => {
+      if (await plataformaEstaEmAlgumPerfil(trx, CATALOGO_COMUNICACAO, id)) {
+        throw new PlatformInUseError(
+          'Esta plataforma está selecionada em perfis de mestre. Desative-a em vez de remover.',
+        );
+      }
 
-    if (inUse) {
-      return res.status(409).json({
-        error: 'Esta plataforma está vinculada a mesas. Desative-a em vez de remover.',
-      });
-    }
+      const emMesa = await trx
+        .selectFrom('tables')
+        .select('id')
+        .where('communication_platform_id', '=', id)
+        .limit(1)
+        .executeTakeFirst();
 
-    const deleted = await db
-      .deleteFrom('communication_platforms')
-      .where('id', '=', id)
-      .returning(['id', 'name'])
-      .executeTakeFirst();
+      if (emMesa) {
+        throw new PlatformInUseError(
+          'Esta plataforma está vinculada a mesas. Desative-a em vez de remover.',
+        );
+      }
+
+      return trx
+        .deleteFrom('communication_platforms')
+        .where('id', '=', id)
+        .returning(['id', 'name'])
+        .executeTakeFirst();
+    });
 
     if (!deleted) {
       return res.status(404).json({ error: 'Plataforma de comunicação não encontrada.' });
@@ -263,6 +309,10 @@ router.delete('/admin/:id', authMiddleware, requireRole('admin'), async (req: Re
 
     return res.json({ data: deleted });
   } catch (error) {
+    if (error instanceof PlatformInUseError) {
+      return res.status(409).json({ error: error.message });
+    }
+
     console.error('[DELETE /communication-platforms/admin/:id]', error);
     return res.status(500).json({ error: 'Erro ao remover plataforma de comunicação.' });
   }

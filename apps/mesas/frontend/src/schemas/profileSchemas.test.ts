@@ -135,6 +135,34 @@ describe('gmProfileSchema', () => {
     expect(parsed).not.toHaveProperty('game_format');
   });
 
+  it('aceita as plataformas de VTT e de comunicação que o PUT grava', () => {
+    // `updateGm` passa o patch por este schema antes do PUT
+    // (`useProfileQuery.ts:197`), e `z.object` descarta chave não declarada.
+    // Sem as duas linhas no schema, a seleção do mestre sumia do patch e o
+    // servidor nunca recebia nada — o botão "Salvar" terminava em no-op
+    // silencioso (achado de review, PR #307).
+    const vtt = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+    const comunicacao = '11111111-2222-3333-4444-555555555555';
+
+    const parsed = gmProfileSchema.parse({
+      preferred_vtt_platforms: [vtt],
+      preferred_communication_platforms: [comunicacao],
+    });
+
+    expect(parsed.preferred_vtt_platforms).toEqual([vtt]);
+    expect(parsed.preferred_communication_platforms).toEqual([comunicacao]);
+  });
+
+  it('array vazio sobrevive ao parse — é como o editor desmarca tudo', () => {
+    const parsed = gmProfileSchema.parse({
+      preferred_vtt_platforms: [],
+      preferred_communication_platforms: [],
+    });
+
+    expect(parsed.preferred_vtt_platforms).toEqual([]);
+    expect(parsed.preferred_communication_platforms).toEqual([]);
+  });
+
   it('aceita os campos de grupo fechado que o PUT grava', () => {
     const parsed = gmProfileSchema.parse({
       closed_group_enabled: true,

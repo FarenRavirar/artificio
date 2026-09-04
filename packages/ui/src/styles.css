@@ -672,7 +672,7 @@
   color: var(--artificio-muted);
   display: inline-flex;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   min-height: 40px;
   padding: 10px 12px;
   text-decoration: none;
@@ -687,7 +687,7 @@
 .artificio-nav-link[aria-current="page"] {
   border-bottom-color: var(--artificio-brand);
   color: var(--artificio-ink);
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
 
 .artificio-session {
@@ -716,7 +716,7 @@
   color: #ffffff;
   cursor: pointer;
   font: inherit;
-  font-weight: 600;
+  font-weight: var(--weight-strong);
   min-height: 40px;
   padding: 0 18px;
   transition: background 120ms ease;
@@ -804,7 +804,7 @@
   color: #ffffff;
   display: inline-flex;
   font-size: 10px;
-  font-weight: 700;
+  font-weight: var(--weight-strong);
   height: 18px;
   justify-content: center;
   line-height: 1;
@@ -883,13 +883,13 @@
   border: 1px solid var(--artificio-brand-deep);
   color: var(--artificio-ink);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: var(--weight-strong);
   justify-content: center;
 }
 
 .artificio-user-name {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: var(--weight-strong);
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -939,7 +939,7 @@
   display: block;
   font-family: var(--artificio-font-display);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: var(--weight-strong);
   letter-spacing: 0.08em;
   margin-bottom: 12px;
   text-transform: uppercase;
@@ -996,7 +996,7 @@
   border-bottom: 1px solid transparent;
   color: var(--artificio-ink);
   display: inline-flex;
-  font-weight: 600;
+  font-weight: var(--weight-strong);
   min-height: 24px;
   text-decoration: none;
 }
@@ -1027,7 +1027,7 @@
 .artificio-footer-brand {
   color: var(--artificio-ink);
   font-family: var(--artificio-font-display);
-  font-weight: 600;
+  font-weight: var(--weight-strong);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -1053,7 +1053,7 @@
   cursor: pointer;
   display: inline-flex;
   font: inherit;
-  font-weight: 700;
+  font-weight: var(--weight-strong);
   gap: 8px;
   justify-content: center;
   line-height: 1;
@@ -1181,8 +1181,12 @@
   border: 1px solid transparent;
   border-radius: var(--radius-pill);
   display: inline-flex;
-  font-size: 12px;
-  font-weight: 700;
+  /* Degraus da régua (spec 100): 12px e 700 eram o último tamanho e o último
+     peso fora dos seis tamanhos e três pesos do sistema — medido na página do
+     mestre em beta (2026-09-04), onde `.artificio-badge` era a ÚNICA origem
+     de ambos. `min-height` fica em 24px: é alvo de toque, não tipografia. */
+  font-size: var(--text-label);
+  font-weight: var(--weight-strong);
   line-height: 1;
   min-height: 24px;
   padding: 0 9px;
@@ -1284,7 +1288,7 @@
 .artificio-field-label {
   color: var(--fg);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: var(--weight-strong);
 }
 
 .artificio-field-required,
@@ -1777,7 +1781,7 @@ select option:checked,
 .artificio-confirm-title {
   color: var(--fg);
   font-size: 1.25rem;
-  font-weight: 600;
+  font-weight: var(--weight-strong);
   margin: 0 0 0.5rem 0;
 }
 
@@ -1802,7 +1806,7 @@ select option:checked,
   border-radius: var(--radius-md);
   cursor: pointer;
   font-size: 0.9375rem;
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   outline: none;
   padding: 0.75rem 1.5rem;
   transition: all 0.2s;
@@ -1873,7 +1877,7 @@ select option:checked,
 .artificio-dropzone-overlay-text {
   color: var(--state-success-fg);
   font-size: 0.875rem;
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
 
 .artificio-dropzone-textarea {
@@ -1916,7 +1920,7 @@ select option:checked,
 .artificio-dropzone-clickarea-title {
   color: var(--fg);
   font-size: 0.875rem;
-  font-weight: 700;
+  font-weight: var(--weight-strong);
 }
 
 .artificio-dropzone-clickarea-hint {
@@ -2049,7 +2053,7 @@ select option:checked,
   background: var(--brand-solid);
   color: var(--brand-solid-fg);
   font-size: 0.625rem;
-  font-weight: 700;
+  font-weight: var(--weight-strong);
   line-height: 1;
   min-width: 1rem;
   height: 1rem;
@@ -2127,7 +2131,7 @@ select option:checked,
 }
 
 .artificio-notification-dropdown-item.unread .artificio-notification-dropdown-text {
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
 
 .artificio-notification-dropdown-time {
