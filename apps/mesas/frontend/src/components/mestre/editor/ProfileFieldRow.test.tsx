@@ -101,6 +101,23 @@ describe('ProfileFieldRow — salvar', () => {
     await waitFor(() => expect(document.querySelector('.artificio-modal')).toBeNull());
   });
 
+  // `flushGm` devolve `false` quando a gravação falha e o patch volta ao buffer
+  // do provider. Fechar mesmo assim jogaria fora o rascunho na falha de rede —
+  // justamente quando o mestre mais precisa dele (achado de review, PR #306).
+  it('gravação que falha mantém o modal aberto com o texto na tela', async () => {
+    flushGm.mockResolvedValueOnce(false);
+    renderRow();
+    abrir();
+    digitar('Texto que não pôde ser salvo');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+
+    await waitFor(() => expect(flushGm).toHaveBeenCalled());
+    expect(document.querySelector('.artificio-modal')).not.toBeNull();
+    const corpo = document.querySelector<HTMLElement>('.artificio-modal-body')!;
+    expect(within(corpo).getByLabelText('Slogan')).toHaveValue('Texto que não pôde ser salvo');
+  });
+
   it('duplo clique em Salvar não grava duas vezes', async () => {
     renderRow();
     abrir();

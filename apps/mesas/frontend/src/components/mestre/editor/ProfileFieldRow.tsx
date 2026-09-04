@@ -75,8 +75,14 @@ export function ProfileFieldRow<T>({
     setSaving(true);
     try {
       await updateGm(toPatch(draft));
-      await flushGm();
-      setOpen(false);
+      // `flushGm` devolve `false` quando a gravação falhou: o provider devolve
+      // o patch ao buffer e acende `saveError` (`ProfileContext.tsx` — "buffer
+      // ainda cheio = não gravou: quem chamou não abre"). Fechar assim mesmo
+      // jogaria fora o rascunho numa falha de rede, que é exatamente quando o
+      // mestre mais precisa dele. O modal fica aberto, o texto continua na tela
+      // e o Salvar pode ser tentado de novo (achado de review, PR #306).
+      const gravou = await flushGm();
+      if (gravou) setOpen(false);
     } finally {
       setSaving(false);
     }
