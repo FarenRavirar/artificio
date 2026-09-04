@@ -1,17 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Check } from 'lucide-react';
-
-interface VttPlatform {
-  id: string;
-  name: string;
-  slug: string;
-  logo_filename?: string | null;
-  website_url: string | null;
-}
+import { normalizePlatforms, type VttPlatform } from './normalizePlatforms';
 
 interface VttPlatformsEditorProps {
-  selectedPlatforms: string[]; // Array de UUIDs
-  onSave: (platformIds: string[]) => Promise<void>;
+  /** UUIDs já selecionados. `readonly` porque props são entrada, nunca destino
+      de escrita — as 5 props abaixo já eram, e deixar estas duas de fora era
+      inconsistência da conversão (achado do Sonar, PR #307). */
+  readonly selectedPlatforms: readonly string[];
+  readonly onSave: (platformIds: string[]) => Promise<void>;
   /**
    * Catálogo a carregar. Default é o de VTT — os parâmetros existem porque o
    * perfil passou a declarar TAMBÉM as plataformas de comunicação
@@ -47,8 +43,8 @@ export function VttPlatformsEditor({
       try {
         const res = await fetch(endpoint);
         if (!res.ok) throw new Error('Erro ao carregar plataformas');
-        const json = await res.json();
-        setPlatforms(json.data || []);
+        const json: unknown = await res.json();
+        setPlatforms(normalizePlatforms(json));
       } catch (err: unknown) {
         setError(err instanceof Error && err.message ? err.message : 'Erro ao carregar plataformas');
       } finally {

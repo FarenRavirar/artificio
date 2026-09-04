@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   IMPLIES_COLUMNS,
+  CATALOGO_VTT,
+  CATALOGO_COMUNICACAO,
   aliasConflictMessage,
   validateImpliesInput,
   impliesInsertValues,
@@ -90,6 +92,35 @@ describe('applyImpliesUpdate', () => {
     const updateData: Record<string, unknown> = {};
     applyImpliesUpdate({ implies_pc: false }, updateData);
     expect(updateData).toEqual({ implies_pc: false });
+  });
+});
+
+describe('catálogos (achado Sonar, PR #307: 96% de duplicação entre as rotas)', () => {
+  // O que separava os dois arquivos era só o NOME de tabela/coluna. Estes
+  // testes travam esses nomes: errar um deles produz SQL que compila e falha
+  // em runtime, porque as guardas montam a query por `sql.ref`.
+  it('VTT aponta para as tabelas e a coluna de perfil do catálogo de VTT', () => {
+    expect(CATALOGO_VTT).toEqual({
+      aliases: 'vtt_platform_aliases',
+      plataformas: 'vtt_platforms',
+      fk: 'vtt_platform_id',
+      colunaPerfil: 'preferred_vtt_platforms',
+    });
+  });
+
+  it('comunicação aponta para as suas', () => {
+    expect(CATALOGO_COMUNICACAO).toEqual({
+      aliases: 'communication_platform_aliases',
+      plataformas: 'communication_platforms',
+      fk: 'communication_platform_id',
+      colunaPerfil: 'preferred_communication_platforms',
+    });
+  });
+
+  it('os dois catálogos não compartilham nenhum nome — troca silenciosa não passa', () => {
+    const vtt = Object.values(CATALOGO_VTT);
+    const com = Object.values(CATALOGO_COMUNICACAO);
+    expect(vtt.filter((v) => com.includes(v))).toEqual([]);
   });
 });
 

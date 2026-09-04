@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
+import { useBannerScrim } from './useBannerScrim';
 import { CheckCircle2, Medal, Sparkles, Crown, Award, Users, Star, MessageSquare } from 'lucide-react';
 import type { TableCard } from '../../types/tables';
 import type { MestrePublicData } from '../../hooks/useMestre';
@@ -109,13 +110,34 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
   ];
   const hasHeroAttributes = heroAttributeGroups.some((group) => group.values.length > 0);
 
+  const mostraBanner = isUsableImageSrc(profile.banner_url) && !bannerFailed;
+  const scrim = useBannerScrim(mostraBanner ? profile.banner_url : null);
+  const scrimVars = {
+    '--hero-scrim-top': scrim.top,
+    '--hero-scrim-bottom': scrim.bottom,
+    '--hero-scrim-left': scrim.left,
+    '--hero-scrim-right': scrim.right,
+  } as CSSProperties;
+
   return (
-    <section className="hero-section">
+    <section
+      className="hero-section"
+      // O véu sobre a foto se dimensiona pela imagem que o mestre escolheu
+      // (`useBannerScrim`), em vez de um valor fixo que serve à foto escura e
+      // apaga o texto na clara. Recalculado a cada carga, porque o banner muda
+      // quando ele quiser. Sem banner, as variáveis não são escritas e o CSS
+      // usa os defaults de hoje.
+      style={scrimVars}
+    >
       {isUsableImageSrc(profile.banner_url) && !bannerFailed ? (
         <img
           src={profile.banner_url}
           alt=""
           className="hero-banner"
+          // Obrigatório para a medição: sem ele o canvas fica *tainted* e
+          // `getImageData` lança `SecurityError`. Medido contra o Cloudinary
+          // (2026-09-04): com o atributo, a leitura funciona.
+          crossOrigin="anonymous"
           // Enquadramento escolhido pelo mestre. Sem `object-position` o
           // `object-fit: cover` do CSS recorta sempre pelo centro geometrico,
           // sem que ninguem possa escolher o que fica visivel.
@@ -258,7 +280,14 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
             {(profile.tables_hosted_count ?? 0) > 0 && (
               <span className="trust-item">
                 <CheckCircle2 className="w-4 h-4" />
-                {profile.tables_hosted_count} {profile.tables_hosted_count === 1 ? 'mesa publicada' : 'mesas publicadas'}
+                {/* "no Artifício", não "publicadas" (decisão do mantenedor):
+                    `tables_hosted_count` é `COUNT(*)` SEM filtro de status
+                    (`gm.ts:180`), então inclui rascunho, cancelada e
+                    encerrada. Medido em produção: existe 1 rascunho, que já
+                    seria anunciado como publicado. O rótulo nomeia o total
+                    histórico do mestre na plataforma sem afirmar estado
+                    nenhum sobre as mesas (achado de review, PR #307). */}
+                {profile.tables_hosted_count} {profile.tables_hosted_count === 1 ? 'mesa no Artifício' : 'mesas no Artifício'}
               </span>
             )}
           </div>

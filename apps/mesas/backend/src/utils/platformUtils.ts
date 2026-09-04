@@ -1,3 +1,6 @@
+import { sql, type Kysely, type Transaction } from 'kysely';
+import type { Database } from '../db/types.js';
+
 // Achado Sonar (PR #145): slugify/normalizeWebsiteUrl/isUniqueViolation/
 // getErrorMessage duplicados identicamente entre communicationPlatforms.ts
 // e vttPlatforms.ts. Extraido para util compartilhado.
@@ -58,6 +61,123 @@ export const getPlatformErrorMessage = (error: unknown): string => {
  * Vive aqui, e não na rota, porque a regra é do conceito "plataforma" e vale
  * igual para o catálogo de VTT (mesmo par tabela + aliases).
  */
+/**
+ * Guardas de catálogo compartilhadas entre `vttPlatforms` e
+ * `communicationPlatforms` (achado do Sonar na PR #307: os dois arquivos
+ * ficaram ~96% duplicados depois que a mesma correção foi aplicada aos dois).
+ *
+ * O que muda entre os catálogos são só os NOMES de tabela e coluna; a regra é
+ * idêntica. Parametrizar aqui é o que impede a próxima correção de consertar
+ * um lado e esquecer o outro — foi exatamente o que aconteceu com a checagem
+ * de alias, ausente nos dois até esta PR.
+ *
+ * `sql.ref`/`sql.val` em vez de interpolar texto: os identificadores e o id
+ * vão como parâmetro, não concatenados na query.
+ */
+type CatalogoTabelas = {
+  /** Ex.: `vtt_platform_aliases` */
+  readonly aliases: string;
+  /** Ex.: `vtt_platforms` */
+  readonly plataformas: string;
+  /** FK de alias → plataforma. Ex.: `vtt_platform_id` */
+  readonly fk: string;
+  /** Coluna `UUID[]` em `gm_profiles`. Ex.: `preferred_vtt_platforms` */
+  readonly colunaPerfil: string;
+};
+
+export const CATALOGO_VTT: CatalogoTabelas = {
+  aliases: 'vtt_platform_aliases',
+  plataformas: 'vtt_platforms',
+  fk: 'vtt_platform_id',
+  colunaPerfil: 'preferred_vtt_platforms',
+};
+
+export const CATALOGO_COMUNICACAO: CatalogoTabelas = {
+  aliases: 'communication_platform_aliases',
+  plataformas: 'communication_platforms',
+  fk: 'communication_platform_id',
+  colunaPerfil: 'preferred_communication_platforms',
+};
+
+/**
+ * Recusa criar plataforma cujo nome/slug/apelido já pertence a outra.
+ *
+ * Roda DENTRO da transação de escrita e com `FOR UPDATE`: solta, dois pedidos
+ * concorrentes passavam os dois pela checagem e criavam plataformas rivais
+ * para o mesmo apelido — o `UNIQUE (plataforma, alias_slug)` da migration_159
+ * é por plataforma e não barra isso.
+ *
+ * Compara `alias_slug` canônico, nunca `ILIKE` sobre o texto: em `ILIKE`, `%` e
+ * `_` são curingas, e o nome vem do corpo da requisição (medido em beta:
+ * `alias ILIKE '%'` casa 2 linhas).
+ */
+export async function assertAliasLivre(
+  trx: Transaction<Database>,
+  catalogo: CatalogoTabelas,
+  slugsPedidos: readonly string[],
+): Promise<void> {
+  const slugs = [...new Set(slugsPedidos)];
+
+  // `sql` cru em vez do query builder tipado: os nomes de tabela/coluna são
+  // dados do catálogo, e o builder exige literais do schema. Todo valor entra
+  // por `sql.val`/parâmetro; só identificadores vêm de `sql.ref`, que o
+  // Kysely escapa.
+  const { rows } = await sql<{ platformName: string; aliasConflitante: string }>`
+    SELECT p.name AS "platformName", a.alias AS "aliasConflitante"
+    FROM ${sql.ref(catalogo.aliases)} a
+    JOIN ${sql.ref(catalogo.plataformas)} p ON p.id = a.${sql.ref(catalogo.fk)}
+    WHERE a.alias_slug = ANY(${sql.val(slugs)}::text[])
+    LIMIT 1
+    FOR UPDATE OF p
+  `.execute(trx);
+
+  const conflito = rows[0];
+  if (conflito) {
+    throw new AliasConflictError(
+      aliasConflictMessage(conflito.aliasConflitante, conflito.platformName),
+    );
+  }
+}
+
+/**
+ * Recusa apagar plataforma ainda escolhida em algum perfil de mestre.
+ *
+ * `gm_profiles.preferred_*_platforms` é `UUID[]` e não tem FK que barre o
+ * `DELETE` — o guard só olhava `tables`. Sem esta checagem, apagar uma
+ * plataforma escolhida apenas em perfis deixava o UUID órfão no array: sumia
+ * da página pública e ficava impossível de desmarcar, porque o catálogo já não
+ * a listava.
+ */
+export async function plataformaEstaEmAlgumPerfil(
+  dbOrTrx: Kysely<Database> | Transaction<Database>,
+  catalogo: CatalogoTabelas,
+  platformId: string,
+): Promise<boolean> {
+  const { rows } = await sql<{ id: string }>`
+    SELECT id FROM gm_profiles
+    WHERE ${sql.ref(catalogo.colunaPerfil)} @> ARRAY[${sql.val(platformId)}]::uuid[]
+    LIMIT 1
+  `.execute(dbOrTrx);
+
+  return rows.length > 0;
+}
+
+/**
+ * Conflito de apelido detectado DENTRO da transação de criação.
+ *
+ * Existe porque a checagem precisa correr junto do insert para não perder a
+ * corrida entre dois pedidos concorrentes (o `UNIQUE` da migration_159 é por
+ * plataforma, então não barra o mesmo alias em plataformas diferentes) — e de
+ * dentro da transação não dá para responder `res.status(409)`: só abortar. O
+ * catch da rota reconhece este tipo e devolve 409 em vez de 500.
+ */
+export class AliasConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AliasConflictError';
+  }
+}
+
 export const aliasConflictMessage = (
   name: string,
   ownerPlatformName: string,

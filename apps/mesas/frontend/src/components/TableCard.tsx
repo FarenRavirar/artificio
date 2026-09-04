@@ -397,11 +397,14 @@ export function TableCardComponent({ table }: { table: TableCard }) {
                  uma regra de tema vencia a utility `text-white/90`, dando
                  3.67:1, escuro sobre escuro. O ramo restrito já era `text-white`
                  e não falhava; a divergência entre os dois ramos era o defeito. */
-              className={`rounded-[var(--radius-md)] bg-black/55 px-2 py-1 text-[length:var(--text-label)] !text-white backdrop-blur-sm ${
-                isRestrictedAgeRating(table.age_rating)
-                  ? 'font-[var(--weight-strong)] tracking-wide'
-                  : 'font-[var(--weight-strong)] tracking-wide'
-              }`}
+              /* Peso único nos dois ramos, sem ternário: antes eram
+                 `font-black` (restrito) e `font-semibold` (livre), e a régua de
+                 3 pesos da spec 100 colapsou os dois em `--weight-strong`. O
+                 ternário sobreviveu à conversão devolvendo o MESMO valor nos
+                 dois lados — condição morta que fingia uma distinção que já não
+                 existe (achado do Sonar, PR #307). O que separa os dois casos
+                 continua visível no conteúdo: "🔞" e o rótulo. */
+              className="rounded-[var(--radius-md)] bg-black/55 px-2 py-1 text-[length:var(--text-label)] font-[var(--weight-strong)] tracking-wide !text-white backdrop-blur-sm"
             >
               {isRestrictedAgeRating(table.age_rating)
                 ? `🔞 ${table.age_rating}`

@@ -864,7 +864,14 @@ function TabMestre() {
           <VttPlatformsEditor
             selectedPlatforms={gmProfile.preferred_vtt_platforms ?? []}
             onSave={async (platformIds) => {
+              // `updateGm` só ENFILEIRA (autosave com debounce): sem o flush, a
+              // promessa resolvia antes da gravação e o botão "Salvar" do
+              // componente dizia sucesso mesmo com a rede fora. O `throw` leva a
+              // falha ao `catch` do próprio editor, que já sabe exibi-la —
+              // mesmo defeito e mesma correção do `ProfileFieldRow` (219839a,
+              // achado de review na PR #306).
               updateGm({ preferred_vtt_platforms: platformIds });
+              if (!(await flushGm())) throw new Error('Não deu para salvar agora. Tente de novo.');
             }}
           />
 
@@ -881,6 +888,7 @@ function TabMestre() {
             selectedPlatforms={gmProfile.preferred_communication_platforms ?? []}
             onSave={async (platformIds) => {
               updateGm({ preferred_communication_platforms: platformIds });
+              if (!(await flushGm())) throw new Error('Não deu para salvar agora. Tente de novo.');
             }}
           />
         </ProfilePart>

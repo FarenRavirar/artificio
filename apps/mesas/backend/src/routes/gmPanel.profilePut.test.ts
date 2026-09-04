@@ -177,6 +177,31 @@ describe('PUT /api/v1/gm/profile — normalização dos campos livres (spec 099 
     }));
   });
 
+  it('recusa UUID malformado que só tem 36 caracteres permitidos', async () => {
+    // A validação anterior era `/^[0-9a-fA-F-]{36}$/`, que aceita 36 hífens e
+    // 36 letras sem hífen nenhum. Medido: `'---…'::uuid` faz o Postgres
+    // devolver `22P02`, ou seja, a string atravessava a guarda e derrubava o
+    // PUT com 500 (achado de review, PR #307).
+    const updateChain = mockPutFlow();
+    const valido = '4a15a911-559e-46ca-99dc-1d8c74fa1c0d';
+
+    const res = await request(makeApp())
+      .put('/api/v1/gm/profile')
+      .send({
+        preferred_vtt_platforms: [
+          valido,
+          '------------------------------------',
+          'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          '4a15a911559e46ca99dc1d8c74fa1c0d----',
+        ],
+      });
+
+    expect(res.status).toBe(200);
+    expect(updateChain.set).toHaveBeenCalledWith(expect.objectContaining({
+      preferred_vtt_platforms: [valido],
+    }));
+  });
+
   it('badges persiste só as strings do array', async () => {
     const updateChain = mockPutFlow();
 

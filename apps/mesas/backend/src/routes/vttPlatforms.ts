@@ -12,7 +12,10 @@ import {
   validateImpliesInput,
   impliesInsertValues,
   applyImpliesUpdate,
-  aliasConflictMessage,
+  AliasConflictError,
+  assertAliasLivre,
+  plataformaEstaEmAlgumPerfil,
+  CATALOGO_VTT,
   IMPLIES_COLUMNS,
 } from '../utils/platformUtils.js';
 import { resolveActorName } from '../services/actorNameResolver.js';
@@ -338,29 +341,33 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req, res) => 
     // (`Google Meet` + `Meet` em beta); aqui a lacuna era idêntica e ainda não
     // tinha sido exercitada — corrigir só o catálogo que quebrou deixaria o
     // outro esperando a vez.
-    const aliasExistente = await db
-      .selectFrom('vtt_platform_aliases as a')
-      .innerJoin('vtt_platforms as vp', 'vp.id', 'a.vtt_platform_id')
-      .select(['vp.name as platformName'])
-      .where((eb) =>
-        eb.or([
-          eb('a.alias', 'ilike', name),
-          eb('a.alias_slug', '=', slug),
-        ]),
-      )
-      .executeTakeFirst();
-
-    if (aliasExistente) {
-      return res.status(409).json({
-        error: aliasConflictMessage(name, aliasExistente.platformName),
-      });
-    }
-
     const websiteUrl = normalizeWebsiteUrl(payload.website_url);
     const logoFilename = normalizeLogoFilename(payload.logo_filename);
     const aliases = normalizeAliases(payload.aliases);
 
     const created = await db.transaction().execute(async (trx) => {
+      // A guarda roda DENTRO da transação, e cobre também os aliases do
+      // payload (achado de review, PR #307). Três razões, todas medidas:
+      //
+      // 1. Fora da transação, dois pedidos concorrentes passavam os dois pela
+      //    checagem e criavam plataformas rivais para o mesmo apelido — o
+      //    `UNIQUE (vtt_platform_id, alias_slug)` da migration_159 é POR
+      //    plataforma, então não barra o mesmo alias em plataformas
+      //    diferentes.
+      // 2. Checar só `name`/`slug` deixava passar o caso principal: o handler
+      //    insere `payload.aliases` logo abaixo, e um deles podia já pertencer
+      //    a outra plataforma. Era justamente o que a guarda existia para
+      //    impedir.
+      // 3. `ILIKE` sobre o texto do alias trata `%` e `_` como curinga, e o
+      //    nome vem do corpo da requisição (medido em beta: `ILIKE '%'` casa 2
+      //    linhas). A comparação é por `alias_slug`, o campo já canonicalizado,
+      //    o que também resolve caixa ("MEET" = "meet").
+      await assertAliasLivre(trx, CATALOGO_VTT, [
+        slugify(name),
+        slug,
+        ...aliases.map((a) => a.alias_slug),
+      ]);
+
       const platform = await trx
         .insertInto('vtt_platforms')
         .values({
@@ -393,6 +400,12 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req, res) => 
 
     return res.status(201).json({ data: created });
   } catch (error) {
+    // Conflito de apelido não é falha: é a guarda funcionando. Vem como
+    // exceção porque a checagem roda dentro da transação, onde não há `res`.
+    if (error instanceof AliasConflictError) {
+      return res.status(409).json({ error: error.message });
+    }
+
     console.error('[POST /vtt-platforms/admin] Erro ao criar plataforma:', error);
 
     const errorMessage = getErrorMessage(error);
@@ -568,6 +581,18 @@ router.delete('/admin/:id', authMiddleware, requireRole('admin'), async (req, re
     if (inUse) {
       return res.status(409).json({
         error: 'Esta plataforma está vinculada a mesas. Desative-a em vez de remover.',
+      });
+    }
+
+    // `gm_profiles.preferred_vtt_platforms` é a segunda referência lógica e,
+    // por ser `UUID[]`, não tem FK que barre o `DELETE`. A lacuna existe desde
+    // a migration_111 e nunca foi exercitada; o catálogo de comunicação ganhou
+    // a mesma checagem hoje, e corrigir só um lado deixaria este esperando a
+    // vez. Sem ela, o UUID fica órfão no array: some da página pública e não
+    // dá mais para desmarcar, porque o catálogo já não lista a plataforma.
+    if (await plataformaEstaEmAlgumPerfil(db, CATALOGO_VTT, id)) {
+      return res.status(409).json({
+        error: 'Esta plataforma está selecionada em perfis de mestre. Desative-a em vez de remover.',
       });
     }
 

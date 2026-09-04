@@ -19,7 +19,20 @@ export interface ImageUploaderProps {
   onChange: (url: string) => void;
   onError: (hasError: boolean) => void;
   hasError?: boolean;
-  idPrefix?: string;
+  /**
+   * Obrigatório: dele saem SETE ids (`-label`, `-file`, `-url`, `-hint`,
+   * `-error`, `-select-file`, `-adjust-frame`, `-remove-image`), e dois deles
+   * são alvo de `aria-labelledby`/`aria-describedby`. Com o default anterior
+   * (`'image-uploader'`), duas instâncias na mesma tela produziam ids
+   * duplicados e os atributos ARIA passavam a apontar para o elemento errado —
+   * falha muda, que nada quebra visualmente e só aparece no leitor de tela.
+   *
+   * Os componentes irmãos com o mesmo padrão já exigiam (`AvatarField:29`,
+   * `CatalogAdvancedFilters:43`); este era o único outlier. Obrigatório, quem
+   * cobra é o compilador, não a memória de quem escrever a próxima chamada
+   * (achado de review, PR #307).
+   */
+  idPrefix: string;
   manualInputId?: string;
   fileInputId?: string;
   /**
@@ -68,7 +81,7 @@ export function ImageUploader({
   onChange,
   onError,
   hasError = false,
-  idPrefix = 'image-uploader',
+  idPrefix,
   manualInputId,
   fileInputId,
   kind = 'table_banner',

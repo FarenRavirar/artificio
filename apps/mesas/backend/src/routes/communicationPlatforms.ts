@@ -9,7 +9,10 @@ import {
   validateImpliesInput,
   impliesInsertValues,
   applyImpliesUpdate,
-  aliasConflictMessage,
+  AliasConflictError,
+  assertAliasLivre,
+  plataformaEstaEmAlgumPerfil,
+  CATALOGO_COMUNICACAO,
   IMPLIES_COLUMNS,
 } from '../utils/platformUtils.js';
 
@@ -125,41 +128,46 @@ router.post('/admin', authMiddleware, requireRole('admin'), async (req: Request,
     // aliases existe justamente para reconhecer a grafia alternativa; não
     // consultá-la aqui deixava a duplicata entrar pela porta da frente, e
     // depois as duas apareciam lado a lado na seleção do perfil.
-    const aliasExistente = await db
-      .selectFrom('communication_platform_aliases as a')
-      .innerJoin('communication_platforms as cp', 'cp.id', 'a.communication_platform_id')
-      .select(['cp.name as platformName'])
-      .where((eb) =>
-        eb.or([
-          eb('a.alias', 'ilike', name),
-          eb('a.alias_slug', '=', slug),
-        ]),
-      )
-      .executeTakeFirst();
-
-    if (aliasExistente) {
-      return res.status(409).json({
-        error: aliasConflictMessage(name, aliasExistente.platformName),
-      });
-    }
-
+    //
+    // Compara SLUG canônico dos dois lados, nunca `ILIKE` sobre o texto do
+    // alias: em `ILIKE`, `%` e `_` são curingas do padrão, e o nome vem do
+    // corpo da requisição. Medido em beta: `alias ILIKE '%'` casa 2 linhas e
+    // `'_eet'` casa 1 — um admin criando plataforma chamada "%" levaria 409
+    // citando uma plataforma que nada tem a ver (achado de review, PR #307).
+    // `slugifyPlatformName` também resolve a caixa, então "MEET" e "meet"
+    // batem no mesmo `alias_slug`, que é o campo já canonicalizado da tabela.
+    //
+    // Checagem e insert na MESMA transação: soltos, dois pedidos concorrentes
+    // passavam os dois pela guarda e criavam plataformas rivais para o mesmo
+    // apelido — o `UNIQUE` da migration_159 é por plataforma e não barra isso.
     const websiteUrl = normalizeWebsiteUrl(payload.website_url);
+    const aliasSlugPedido = slugify(name);
 
-    const created = await db
-      .insertInto('communication_platforms')
-      .values({
-        name,
-        slug,
-        website_url: websiteUrl,
-        sort_order: sortOrder,
-        is_active: payload.is_active ?? true,
-        ...impliesInsertValues(payload),
-      })
-      .returning(ADMIN_COLUMNS)
-      .executeTakeFirst();
+    const created = await db.transaction().execute(async (trx) => {
+      await assertAliasLivre(trx, CATALOGO_COMUNICACAO, [aliasSlugPedido, slug]);
+
+      return trx
+        .insertInto('communication_platforms')
+        .values({
+          name,
+          slug,
+          website_url: websiteUrl,
+          sort_order: sortOrder,
+          is_active: payload.is_active ?? true,
+          ...impliesInsertValues(payload),
+        })
+        .returning(ADMIN_COLUMNS)
+        .executeTakeFirst();
+    });
 
     return res.status(201).json({ data: created });
   } catch (error) {
+    // Conflito de apelido é a guarda funcionando, não falha: vem como exceção
+    // porque a checagem roda dentro da transação, onde não existe `res`.
+    if (error instanceof AliasConflictError) {
+      return res.status(409).json({ error: error.message });
+    }
+
     console.error('[POST /communication-platforms/admin]', error);
 
     const message = getErrorMessage(error);
@@ -274,6 +282,18 @@ router.delete('/admin/:id', authMiddleware, requireRole('admin'), async (req: Re
     if (inUse) {
       return res.status(409).json({
         error: 'Esta plataforma está vinculada a mesas. Desative-a em vez de remover.',
+      });
+    }
+
+    // `gm_profiles.preferred_communication_platforms` é a SEGUNDA referência
+    // lógica à plataforma (migration_166) e, por ser `UUID[]`, não tem FK que
+    // barre o `DELETE`. Sem esta checagem, apagar uma plataforma escolhida
+    // apenas em perfis (nenhuma mesa) deixava o UUID órfão no array: sumia da
+    // página pública e ficava IMPOSSÍVEL de desmarcar no editor, porque o
+    // catálogo já não a lista (achado de review, PR #307).
+    if (await plataformaEstaEmAlgumPerfil(db, CATALOGO_COMUNICACAO, id)) {
+      return res.status(409).json({
+        error: 'Esta plataforma está selecionada em perfis de mestre. Desative-a em vez de remover.',
       });
     }
 

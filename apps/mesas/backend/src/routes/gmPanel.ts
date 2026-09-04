@@ -117,9 +117,19 @@ const isSellingPoint = (point: unknown): point is SellingPoint => {
  * a que divergiria. `undefined` quando o campo não veio: o contrato de três
  * estados do PUT preserva o valor salvo em vez de apagá-lo.
  */
+/**
+ * Sintaxe canônica, não "36 caracteres permitidos" (achado de review, PR #307).
+ * A forma anterior — herdada das três cópias inline — aceitava 36 hífens e
+ * `aaaa…` sem hífen nenhum. Medido: `'------------------------------------'::uuid`
+ * é recusado pelo Postgres com `22P02`, ou seja, a entrada malformada
+ * atravessava a validação e derrubava o PUT com 500 — a mesma classe de falha
+ * que esta PR corrige em `db/jsonb.ts`.
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function sanitizeUuidList(value: unknown): string[] | undefined {
   return Array.isArray(value)
-    ? value.filter((item) => typeof item === 'string' && /^[0-9a-fA-F-]{36}$/.test(item))
+    ? value.filter((item) => typeof item === 'string' && UUID_RE.test(item))
     : undefined;
 }
 
