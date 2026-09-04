@@ -19,7 +19,7 @@ export function MestreTablesSection({ mappedTables }: Props) {
     // dentro do grupo, abaixo do próprio título.
     <section className="tables-section">
       <div className="container">
-        <h2 className="section-title">Mesas Disponíveis</h2>
+        <h3 className="section-title">Mesas Disponíveis</h3>
 
         {hasAny && others.length > 0 && (
           <p className="tables-subtitle">

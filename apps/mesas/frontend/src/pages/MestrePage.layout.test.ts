@@ -51,6 +51,25 @@ describe('MestrePage — ritmo vertical das seções (spec 099 C3)', () => {
   );
 
   // T3.3: as duas seções saíram do perfil e migraram ao /painel (D4/D14).
+  // T3.1a + achado de review (PR #306): o título do grupo é o `h2`; os blocos
+  // dentro dele são `h3`. Antes todos eram `h2`, e o `MestreBio` repetia
+  // literalmente "Sobre {nome}" logo abaixo do grupo de mesmo nome — cabeçalho
+  // duplicado na navegação por leitor de tela e na tela.
+  it.each([
+    'MestreBio',
+    'MestreHighlights',
+    'MestreSellingPoints',
+    'MestreTablesSection',
+    'MestreReviewsSection',
+    'MestreClosedGroupSection',
+    'MestreContactMethods',
+    'MestreContactForm',
+    'MestreVttPlatforms',
+  ])('%s não usa h2 dentro de um grupo', (component) => {
+    const source = readFileSync(resolve(componentDir, `${component}.tsx`), 'utf8');
+    expect(source).not.toMatch(/<h2[\s>]/);
+  });
+
   it('não renderiza Insights nem Recomendações no perfil público', () => {
     expect(pageSource).not.toContain('MestreInsightsSection');
     expect(pageSource).not.toContain('MestreRecommendationsSection');

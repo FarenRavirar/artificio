@@ -42,7 +42,7 @@ export function MestreClosedGroupSection({ closedGroup }: Props) {
           <span>Oferta especial</span>
         </div>
 
-        <h2 className="section-title">Disponível para grupos fechados</h2>
+        <h3 className="section-title">Disponível para grupos fechados</h3>
 
         {closedGroup.description ? (
           <MarkdownContent value={closedGroup.description} className="closed-group-description" />

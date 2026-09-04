@@ -28,7 +28,7 @@ export function MestreHighlights({ profile }: MestreHighlightsProps) {
   return (
     <section className="mestre-highlights-section">
       <div className="container">
-        <h2 className="section-title">Em resumo</h2>
+        <h3 className="section-title">Em resumo</h3>
         <div className="mestre-highlights-groups">
           {specialties.length > 0 && (
             <div className="mestre-highlights-group">

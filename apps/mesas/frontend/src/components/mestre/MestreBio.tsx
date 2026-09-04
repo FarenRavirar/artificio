@@ -16,8 +16,12 @@ export function MestreBio({ profile }: Props) {
   return (
     <section className="mestre-bio-section">
       <div className="container">
-        <h2 className="section-title">Sobre {profile.display_name}</h2>
-
+        {/* Sem título próprio (spec 100, T3.1a): o grupo que envolve esta seção
+            já é "Sobre {nome}", e repetir a mesma frase logo abaixo duplicava o
+            cabeçalho na navegação por leitor de tela e na tela (achado de
+            review, PR #306). Os irmãos deste grupo mantêm os seus, porque são
+            frases distintas ("Em resumo", "O que eu ofereço") e funcionam como
+            subtítulo — este era literalmente o mesmo texto. */}
         <div className="mestre-bio-grid">
           {profile.avatar_url && !avatarLoadFailed && (
             <div className="mestre-bio-photo">

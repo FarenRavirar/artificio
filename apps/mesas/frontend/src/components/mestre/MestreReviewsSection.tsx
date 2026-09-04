@@ -90,9 +90,9 @@ export function MestreReviewsSection({ slug }: MestreReviewsSectionProps) {
     // outras três e somava 48px ao `gap`, dando 96px só antes de Avaliações
     // (achado de review, PR #302).
     <section className="container">
-      <h2 className="text-[length:var(--text-title)] leading-[var(--leading-title)] font-[var(--weight-strong)] text-[var(--fg)] mb-4">
+      <h3 className="text-[length:var(--text-title)] leading-[var(--leading-title)] font-[var(--weight-strong)] text-[var(--fg)] mb-4">
         Avaliações
-      </h2>
+      </h3>
 
       {isAuthenticated ? (
         <div className="mb-6">

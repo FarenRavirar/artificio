@@ -19,7 +19,7 @@ export function MestreSellingPoints({ sellingPoints }: Props) {
   return (
     <section className="why-section">
       <div className="container">
-        <h2 className="section-title">O que eu ofereço</h2>
+        <h3 className="section-title">O que eu ofereço</h3>
         <div className="benefits-grid">
           {sellingPoints.map((sp, idx) => {
             const Icon = resolveSellingPointIcon(sp.icon);

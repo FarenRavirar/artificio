@@ -64,7 +64,7 @@ export function MestreContactForm({ mestreSlug }: MestreContactFormProps) {
 
   return (
     <section className="p-6 rounded-[var(--radius-lg)] bg-[var(--fill-5)] border border-[var(--border)]">
-      <h2 className="text-[length:var(--text-title)] leading-[var(--leading-title)] font-[var(--weight-strong)] text-[var(--fg)] mb-2">Envie uma Mensagem</h2>
+      <h3 className="text-[length:var(--text-title)] leading-[var(--leading-title)] font-[var(--weight-strong)] text-[var(--fg)] mb-2">Envie uma Mensagem</h3>
       <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-[var(--fg-low)] mb-4">
         Preencha o formulário abaixo para entrar em contato diretamente com o mestre.
       </p>

@@ -17,7 +17,7 @@ export function MestreVttPlatforms({ platforms }: MestreVttPlatformsProps) {
 
   return (
     <section className="p-6 rounded-[var(--radius-lg)] bg-[var(--fill-5)] border border-[var(--border)]">
-      <h2 className="text-[length:var(--text-title)] leading-[var(--leading-title)] font-[var(--weight-strong)] text-[var(--fg)] mb-4">Plataformas que uso</h2>
+      <h3 className="text-[length:var(--text-title)] leading-[var(--leading-title)] font-[var(--weight-strong)] text-[var(--fg)] mb-4">Plataformas que uso</h3>
       
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
         {platforms.map((platform) => (

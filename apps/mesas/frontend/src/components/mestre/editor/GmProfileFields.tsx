@@ -244,9 +244,6 @@ export function ProfileTagsSection({ specialties, languages, badges }: ProfileTa
       </ProfileFieldRow>
       {/* `badges` segue inline: campo opcional, sem frase de ganho (§8). */}
       <div className="flex flex-col gap-2" data-ob="optional" data-field="badges">
-      </div>
-
-      <div className="flex flex-col gap-2" data-ob="optional" data-field="badges">
         <Field
           id="gm-badges"
           label="Selos"
