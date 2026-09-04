@@ -24,6 +24,7 @@ import { MarkdownEditor } from '../../MarkdownEditor';
 import { normalizeSellingPoints } from '../../../hooks/useMestre';
 import { useProfileContext } from '../../../contexts/useProfileContext';
 import { BioAttributeSuggestions } from './BioAttributeSuggestions';
+import { ProfileFieldRow } from './ProfileFieldRow';
 // Vocabulário fechado de `selling_points` (spec 099 §2.2): o dicionário vive
 // no módulo `../sellingPointIcons` (fonte única entre exibição e editor —
 // módulo `.ts` porque `react-refresh/only-export-components` proíbe exportar
@@ -60,29 +61,43 @@ interface TaglineFieldProps {
  * (default do `TextInput`), espaçamento só de `--space-1..6` (gap-2).
  * `maxLength` 200 alinhado ao corte do PUT (`safeTagline`, gmPanel.ts).
  */
-export function TaglineField({ value, onChange, error }: TaglineFieldProps) {
+export function TaglineField({ value, error }: TaglineFieldProps) {
   return (
-    <div className="flex flex-col gap-2" data-ob="recommended" data-field="tagline">
-      <Field
-        id="gm-tagline"
-        label="Slogan"
-        hint="Uma frase que resume o que o jogador encontra nas suas mesas."
-        error={error}
-      >
-        <TextInput
+    // Linha + modal (spec 100, D1/T4.1): era campo inline com autosave por
+    // digitação. `onChange` da prop deixou de ser chamado a cada tecla — quem
+    // persiste agora é o Salvar do modal, via `toPatch`. A prop segue no tipo
+    // porque a página ainda a passa; ver ProfileFieldRow sobre por que escrever
+    // durante a digitação quebraria o descarte de D2.
+    <ProfileFieldRow<string>
+      label="Slogan"
+      displayValue={value.trim() || null}
+      value={value}
+      toPatch={(draft) => ({ tagline: draft.trim() || null })}
+      obLevel="recommended"
+      fieldName="tagline"
+      hint={`Recomendado — ${RECOMMENDED_GAIN.tagline}.`}
+    >
+      {(draft, setDraft) => (
+        <Field
           id="gm-tagline"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          maxLength={200}
-          invalid={!!error}
-          placeholder="Ex: Aventuras épicas com regras claras e histórias imersivas"
-          // B7: o `Field` renderiza hint/erro no `<p id="${id}-description">`
-          // mas não associa o controle — a associação é trabalho do formulário.
-          aria-describedby="gm-tagline-description"
-        />
-      </Field>
-      <p className="text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-75">Recomendado — {RECOMMENDED_GAIN.tagline}.</p>
-    </div>
+          label="Slogan"
+          hint="Uma frase que resume o que o jogador encontra nas suas mesas."
+          error={error}
+        >
+          <TextInput
+            id="gm-tagline"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            maxLength={200}
+            invalid={!!error}
+            placeholder="Ex: Aventuras épicas com regras claras e histórias imersivas"
+            // B7: o `Field` renderiza hint/erro no `<p id="${id}-description">`
+            // mas não associa o controle — a associação é trabalho do formulário.
+            aria-describedby="gm-tagline-description"
+          />
+        </Field>
+      )}
+    </ProfileFieldRow>
   );
 }
 
@@ -164,42 +179,66 @@ export function ProfileTagsSection({ specialties, languages, badges }: ProfileTa
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2" data-ob="recommended" data-field="specialties">
-        <Field
-          id="gm-specialties"
-          label="Especialidades"
-          hint="Estilos e temas que você mestra bem. Digite e pressione Enter para adicionar."
-        >
-          <TagInput
+      {/* Especialidades e idiomas viraram linha + modal (D1/T4.1). `badges`
+          segue inline logo abaixo: D1 nomeia quatro campos curtos, e ele não é
+          um deles. */}
+      <ProfileFieldRow<string[]>
+        label="Especialidades"
+        displayValue={specialties.length > 0 ? specialties.join(', ') : null}
+        value={specialties}
+        toPatch={(draft) => ({ specialties: draft })}
+        obLevel="recommended"
+        fieldName="specialties"
+        hint={`Recomendado — ${RECOMMENDED_GAIN.specialties}.`}
+      >
+        {(draft, setDraft) => (
+          <Field
             id="gm-specialties"
-            ariaLabel="Especialidades"
-            value={specialties}
-            onChange={(next) => updateGm({ specialties: next })}
-            placeholder="Ex: Horror, intriga política"
-            // B7: associação ao hint do `Field` (ver TaglineField).
-            describedBy="gm-specialties-description"
-          />
-        </Field>
-        <p className="text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-75">Recomendado — {RECOMMENDED_GAIN.specialties}.</p>
-      </div>
+            label="Especialidades"
+            hint="Estilos e temas que você mestra bem. Digite e pressione Enter para adicionar."
+          >
+            <TagInput
+              id="gm-specialties"
+              ariaLabel="Especialidades"
+              value={draft}
+              onChange={setDraft}
+              placeholder="Ex: Horror, intriga política"
+              // B7: associação ao hint do `Field` (ver TaglineField).
+              describedBy="gm-specialties-description"
+            />
+          </Field>
+        )}
+      </ProfileFieldRow>
 
-      <div className="flex flex-col gap-2" data-ob="recommended" data-field="languages">
-        <Field
-          id="gm-languages"
-          label="Idiomas"
-          hint="Idiomas em que você mestra. Digite e pressione Enter para adicionar."
-        >
-          <TagInput
+      <ProfileFieldRow<string[]>
+        label="Idiomas"
+        displayValue={languages.length > 0 ? languages.join(', ') : null}
+        value={languages}
+        toPatch={(draft) => ({ languages: draft })}
+        obLevel="recommended"
+        fieldName="languages"
+        hint={`Recomendado — ${RECOMMENDED_GAIN.languages}.`}
+      >
+        {(draft, setDraft) => (
+          <Field
             id="gm-languages"
-            ariaLabel="Idiomas"
-            value={languages}
-            onChange={(next) => updateGm({ languages: next })}
-            placeholder="Ex: Português, Inglês"
-            // B7: associação ao hint do `Field` (ver TaglineField).
-            describedBy="gm-languages-description"
-          />
-        </Field>
-        <p className="text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-75">Recomendado — {RECOMMENDED_GAIN.languages}.</p>
+            label="Idiomas"
+            hint="Idiomas em que você mestra. Digite e pressione Enter para adicionar."
+          >
+            <TagInput
+              id="gm-languages"
+              ariaLabel="Idiomas"
+              value={draft}
+              onChange={setDraft}
+              placeholder="Ex: Português, Inglês"
+              // B7: associação ao hint do `Field` (ver TaglineField).
+              describedBy="gm-languages-description"
+            />
+          </Field>
+        )}
+      </ProfileFieldRow>
+      {/* `badges` segue inline: campo opcional, sem frase de ganho (§8). */}
+      <div className="flex flex-col gap-2" data-ob="optional" data-field="badges">
       </div>
 
       <div className="flex flex-col gap-2" data-ob="optional" data-field="badges">
@@ -647,36 +686,44 @@ interface ExperienceYearsFieldProps {
  * BioLongField).
  */
 export function ExperienceYearsField({ value }: ExperienceYearsFieldProps) {
-  const { updateGm } = useProfileContext();
-
   return (
-    <div data-ob="recommended" data-field="experienceYears">
-      <div className="form-group">
-        <label htmlFor="experience_years">Anos de Experiência</label>
-        <TextInput
-          type="number"
-          id="experience_years"
-          min="0"
-          defaultValue={value ?? ''}
-          // `parseInt(v) || null` transformava o ZERO valido em null (0 e
-          // falsy), e ainda aceitava "1.5" (parseInt trunca) e negativos apesar
-          // do `min="0"` — o atributo so barra o spinner, nao a digitacao
-          // (achado de review, PR #297). Campo vazio continua null.
-          onChange={(e) => {
-            const bruto = e.target.value.trim();
-            if (bruto === '') {
-              updateGm({ experience_years: null });
-              return;
-            }
-            const n = Number(bruto);
-            if (!Number.isInteger(n) || n < 0) return;
-            updateGm({ experience_years: n });
-          }}
-          placeholder="Quantos anos você mestra?"
-          className="experience-years-input"
-        />
-      </div>
-      <p className="text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-75">Recomendado — {RECOMMENDED_GAIN.experienceYears}.</p>
-    </div>
+    // Linha + modal (D1/T4.1). O rascunho é STRING, não número: o campo
+    // precisa representar "vazio" e estados intermediários da digitação, que
+    // `number | null` não distingue de zero. A conversão para o patch é onde a
+    // validação mora — e ela é a mesma de antes.
+    <ProfileFieldRow<string>
+      label="Anos de Experiência"
+      displayValue={value == null ? null : String(value)}
+      value={value == null ? '' : String(value)}
+      toPatch={(draft) => {
+        const bruto = draft.trim();
+        if (bruto === '') return { experience_years: null };
+        const n = Number(bruto);
+        // `parseInt(v) || null` transformava o ZERO valido em null (0 e falsy),
+        // e ainda aceitava "1.5" (parseInt trunca) e negativos apesar do
+        // `min="0"` — o atributo so barra o spinner, nao a digitacao (achado de
+        // review, PR #297). Entrada inválida não vira patch nenhum.
+        if (!Number.isInteger(n) || n < 0) return {};
+        return { experience_years: n };
+      }}
+      obLevel="recommended"
+      fieldName="experienceYears"
+      hint={`Recomendado — ${RECOMMENDED_GAIN.experienceYears}.`}
+    >
+      {(draft, setDraft) => (
+        <div className="form-group">
+          <label htmlFor="experience_years">Anos de Experiência</label>
+          <TextInput
+            type="number"
+            id="experience_years"
+            min="0"
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="Quantos anos você mestra?"
+            className="experience-years-input"
+          />
+        </div>
+      )}
+    </ProfileFieldRow>
   );
 }

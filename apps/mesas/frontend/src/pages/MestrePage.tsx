@@ -7,9 +7,8 @@ import { MestreError } from '../components/mestre/MestreError';
 import { MestreFinalCta } from '../components/mestre/MestreFinalCta';
 import { MestreHero } from '../components/mestre/MestreHero';
 import { MestreHighlights } from '../components/mestre/MestreHighlights';
-import { MestreInsightsSection } from '../components/mestre/MestreInsightsSection';
 import { MestreNotFound } from '../components/mestre/MestreNotFound';
-import { MestreRecommendationsSection } from '../components/mestre/MestreRecommendationsSection';
+import { MestreSectionGroup } from '../components/mestre/MestreSectionGroup';
 import { MestreSellingPoints } from '../components/mestre/MestreSellingPoints';
 import { MestreSkeleton } from '../components/mestre/MestreSkeleton';
 import { MestreTablesSection } from '../components/mestre/MestreTablesSection';
@@ -19,7 +18,6 @@ import { MestreContactForm } from '../components/mestre/MestreContactForm';
 import { MestreReviewsSection } from '../components/mestre/MestreReviewsSection';
 import { applySeo } from '../utils/seo';
 import { useMestre } from '../hooks/useMestre';
-import { useMestreInsights } from '../hooks/useMestreInsights';
 import './MestrePage.css';
 
 import { authPost } from '../services/apiClient';
@@ -32,15 +30,9 @@ export const MestrePage = () => {
     links,
     mappedTables,
     totalOpenSlots,
-    canSeeInsights,
     loading,
     error,
   } = useMestre(slug);
-
-  const { metrics, recommendations, insightsLoading } = useMestreInsights({
-    slug,
-    canSeeInsights,
-  });
 
   useEffect(() => {
     applySeo(
@@ -100,55 +92,63 @@ export const MestrePage = () => {
       />
 
       <div className="mestre-section-flow">
-        <MestreBio profile={profile} />
+        {/* Três grupos (D5a/T3.1a), não onze blocos empilhados. Cada filho
+            recebe a MESMA condição que tinha quando era irmão direto do fluxo —
+            o que muda é a agregação, não o que se mostra (requisito 11a).
+            A condição é resolvida aqui, e não dentro do grupo, porque o grupo
+            só consegue descartar filho que já chega como `false`/`null`
+            (D20: grupo sem filho visível some com o título junto). */}
+        <MestreSectionGroup id="sobre" title={`Sobre ${profile.display_name}`}>
+          <MestreBio profile={profile} />
 
-        {/* Spec 099 B3/C2: specialties/languages/badges — antes órfãos de
-            exibição (`badges` nunca renderizou). Só renderiza quando há dado. */}
-        <MestreHighlights profile={profile} />
+          {/* Spec 099 B3/C2: specialties/languages/badges — antes órfãos de
+              exibição (`badges` nunca renderizou). Só renderiza quando há dado. */}
+          <MestreHighlights profile={profile} />
 
-        <MestreSellingPoints sellingPoints={profile.selling_points ?? []} />
+          <MestreSellingPoints sellingPoints={profile.selling_points ?? []} />
 
-        {/* PRIORIDADE: Contato é o principal - ANTES de Mesas Disponíveis */}
-        {profile.contact_methods && profile.contact_methods.length > 0 && (
-          <section className="container">
-            <MestreContactMethods contacts={profile.contact_methods} gmSlug={slug || ''} />
-          </section>
-        )}
+          {profile.preferred_vtt_platforms &&
+            profile.preferred_vtt_platforms.length > 0 && (
+              <section className="container">
+                <MestreVttPlatforms platforms={profile.preferred_vtt_platforms} />
+              </section>
+            )}
+        </MestreSectionGroup>
 
-        {profile.preferred_vtt_platforms && profile.preferred_vtt_platforms.length > 0 && (
-          <section className="container">
-            <MestreVttPlatforms platforms={profile.preferred_vtt_platforms} />
-          </section>
-        )}
+        <MestreSectionGroup id="mesas" title="Mesas e avaliações">
+          <MestreTablesSection mappedTables={mappedTables} />
 
-        {profile.contact_methods && profile.contact_methods.some(c => c.channel === 'form') && slug && (
-          <section className="container">
-            <MestreContactForm mestreSlug={slug} />
-          </section>
-        )}
+          {slug && <MestreReviewsSection slug={slug} />}
+        </MestreSectionGroup>
 
-        <MestreTablesSection mappedTables={mappedTables} />
+        <MestreSectionGroup id="contato" title="Contato">
+          {profile.contact_methods && profile.contact_methods.length > 0 && (
+            <section className="container">
+              <MestreContactMethods
+                contacts={profile.contact_methods}
+                gmSlug={slug || ''}
+              />
+            </section>
+          )}
 
-        {slug && <MestreReviewsSection slug={slug} />}
+          {profile.contact_methods &&
+            profile.contact_methods.some((c) => c.channel === 'form') &&
+            slug && (
+              <section className="container">
+                <MestreContactForm mestreSlug={slug} />
+              </section>
+            )}
 
-        <MestreClosedGroupSection closedGroup={profile.closed_group} />
+          {links.length > 0 && (
+            <section className="links-section">
+              <div className="container">
+                <LinksDisplay links={links} />
+              </div>
+            </section>
+          )}
 
-        {canSeeInsights && (insightsLoading || metrics.length > 0) && (
-          <MestreInsightsSection insightsLoading={insightsLoading} metrics={metrics} />
-        )}
-
-        {canSeeInsights && recommendations.length > 0 && (
-          <MestreRecommendationsSection recommendations={recommendations} />
-        )}
-
-        {/* Links - Após contatos */}
-        {links.length > 0 && (
-          <section id="contato" className="links-section">
-            <div className="container">
-              <LinksDisplay links={links} />
-            </div>
-          </section>
-        )}
+          <MestreClosedGroupSection closedGroup={profile.closed_group} />
+        </MestreSectionGroup>
 
         {mappedTables.length > 0 && (
           <MestreFinalCta

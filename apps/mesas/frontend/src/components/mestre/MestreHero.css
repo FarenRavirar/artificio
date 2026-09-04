@@ -9,13 +9,45 @@
    que permanece em MestrePage.css). Nada aqui foi alterado além da casa do
    arquivo. */
 
-/* Hero Section */
-.hero-section {
-  position: relative;
-  min-height: 320px;
+/* Faixa de identificação — T3.1/D5
+   ================================
+   O hero deixou de ser landing centralizada e virou ficha: uma coluna com
+   ritmo único (`gap`), e dentro dela uma linha que põe foto e identidade lado
+   a lado. O ritmo vive aqui, e não em `margin-bottom` de cada filho, porque
+   quase todo filho é condicional — com margem por filho, o vão mudava conforme
+   o mestre tivesse ou não tagline, selo ou promo. */
+.hero-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  align-items: flex-start;
+}
+
+/* Foto + nome/selos na mesma linha. `align-items: center` centraliza a coluna
+   de texto CONTRA a foto (eixo transversal) — não centraliza o texto, que
+   segue à esquerda por `.hero-content`. */
+.hero-identity {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: var(--space-5);
+  width: 100%;
+}
+
+.hero-headline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* Hero Section */
+/* Faixa de identificação, não landing (D5, T3.1). Era `min-height: 320px` com
+   `align-items/justify-content: center`: o hero ocupava a dobra inteira e
+   empurrava o conteúdo real para fora da primeira tela. Agora a altura é a do
+   conteúdo, e o alinhamento passa a ser à esquerda (ver `.hero-content`). */
+.hero-section {
+  position: relative;
+  display: flex;
   overflow: hidden;
   border-bottom: 1px solid var(--line);
 }
@@ -61,19 +93,26 @@
 .hero-content {
   position: relative;
   z-index: 10;
-  max-width: 800px;
+  width: 100%;
+  max-width: 1100px;
   margin: 0 auto;
-  padding: var(--space-12) var(--space-6);
-  text-align: center;
+  padding: var(--space-8) var(--space-6);
+  /* Alinhado à esquerda (D5): centralizar texto longo obriga o olho a
+     reencontrar a margem a cada linha. O centro era o que fazia o hero ler
+     como landing em vez de ficha de identificação. */
+  text-align: left;
 }
 
+/* Item da faixa de identificação (T3.1), não bloco centralizado: 96px em vez
+   de 140px, `flex-shrink: 0` para não achatar ao lado do nome, e sem
+   `margin: 0 auto` — quem posiciona agora é `.hero-identity`. */
 .hero-avatar {
-  width: 140px;
-  height: 140px;
-  margin: 0 auto var(--space-6);
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
   border-radius: 50%;
   overflow: hidden;
-  border: 4px solid var(--line-strong);
+  border: 2px solid var(--line-strong);
   background: var(--fill);
 }
 
@@ -105,22 +144,21 @@
 .hero-badges {
   display: flex;
   gap: var(--space-3);
-  justify-content: center;
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-2);
   flex-wrap: wrap;
 }
 
 .hero-title {
   font-size: var(--text-display);
   font-weight: var(--weight-strong);
-  margin-bottom: var(--space-4);
-  line-height: 1.1;
+  margin-bottom: 0;
+  line-height: var(--leading-display);
   /* sem text-shadow no hero gradiente (halo escuro atrapalha no light); o shadow
      entra só sobre foto de banner (.hero-section:has(.hero-banner) .hero-title). */
 }
 
 .hero-master-name {
-  margin-bottom: var(--space-2);
+  margin-bottom: 0;
   color: var(--fg-muted);
   font-size: var(--text-support);
   line-height: var(--leading-support);
@@ -130,37 +168,33 @@
 }
 
 .hero-bio {
-  font-size: var(--text-section);
+  font-size: var(--text-body);
   color: var(--fg-muted);
-  margin-bottom: var(--space-8);
-  line-height: 1.6;
-  max-width: 600px;
-  margin-left: auto;
-  margin-right: auto;
+  margin-bottom: 0;
+  line-height: var(--leading-body);
+  max-width: 62ch;
 }
 
 .hero-attributes {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
   gap: var(--space-2);
-  max-width: 600px;
-  margin: 0 auto var(--space-6);
+  margin: 0;
 }
 
 .hero-stats {
   display: flex;
   gap: var(--space-8);
-  justify-content: center;
-  margin-bottom: var(--space-8);
+  margin-bottom: 0;
   flex-wrap: wrap;
 }
 
+/* Em linha (T3.1): a coluna centralizada por número somava altura à faixa e
+   repetia o alinhamento que D5 tirou do hero. */
 .stat {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
+  align-items: baseline;
+  gap: var(--space-2);
 }
 
 .stat-icon {
@@ -223,7 +257,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
-  margin-bottom: var(--space-4);
+  margin-bottom: 0;
   border-radius: var(--radius-pill);
   background: var(--state-warning-bg);
   border: 1px solid var(--state-warning-line);
@@ -243,10 +277,8 @@
 .hero-ctas {
   display: flex;
   gap: var(--space-4);
-  justify-content: center;
   flex-wrap: wrap;
-  margin-top: var(--space-6);
-  margin-bottom: var(--space-6);
+  margin: 0;
 }
 
 /* Mais específico que `.cta-button`: redefinir só o fundo aqui desfazia a
@@ -287,8 +319,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-5);
-  justify-content: center;
-  margin: var(--space-2) 0 var(--space-6);
+  margin: 0;
 }
 
 .trust-item {

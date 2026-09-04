@@ -14,6 +14,12 @@ const pageCss = readFileSync(resolve(pageDir, 'MestrePage.css'), 'utf8');
 // fonte da página não prova o ritmo — foi assim que a margem residual de
 // `MestreReviewsSection` sobreviveu à primeira versão de C3 (achado de review,
 // PR #302), dando 96px antes de Avaliações onde a régua manda 48px.
+//
+// `MestreInsightsSection` e `MestreRecommendationsSection` saíram da lista na
+// spec 100 (T3.3): os dois deixaram de ser renderizados pelo perfil e os
+// arquivos foram removidos. Mantê-los aqui quebraria com ENOENT no
+// `readFileSync` — e mantê-los como arquivo órfão só para o teste continuar
+// verde seria vigiar código morto, que é o erro oposto.
 const FLOW_CHILDREN = [
   'MestreBio',
   'MestreHighlights',
@@ -24,14 +30,27 @@ const FLOW_CHILDREN = [
   'MestreTablesSection',
   'MestreReviewsSection',
   'MestreClosedGroupSection',
-  'MestreInsightsSection',
-  'MestreRecommendationsSection',
   'MestreFinalCta',
 ] as const;
 
 describe('MestrePage — ritmo vertical das seções (spec 099 C3)', () => {
   it('agrupa o conteúdo posterior ao hero num único fluxo', () => {
     expect(pageSource).toContain('<div className="mestre-section-flow">');
+  });
+
+  // D5a/T3.1a: o corpo tem três grupos, não onze blocos irmãos. Sem esta
+  // asserção, desfazer o agrupamento não quebraria teste nenhum.
+  it.each(['sobre', 'mesas', 'contato'])(
+    'monta o grupo %s no fluxo',
+    (id) => {
+      expect(pageSource).toContain(`<MestreSectionGroup id="${id}"`);
+    },
+  );
+
+  // T3.3: as duas seções saíram do perfil e migraram ao /painel (D4/D14).
+  it('não renderiza Insights nem Recomendações no perfil público', () => {
+    expect(pageSource).not.toContain('MestreInsightsSection');
+    expect(pageSource).not.toContain('MestreRecommendationsSection');
   });
 
   it('remove as margens inline que criavam vãos diferentes', () => {

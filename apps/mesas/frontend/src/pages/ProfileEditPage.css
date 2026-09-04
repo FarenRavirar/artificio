@@ -862,3 +862,69 @@
     width: auto;
   }
 }
+
+/* Linha de campo + modal — spec 100, T4.1/D1
+   =========================================
+   Os quatro campos curtos (slogan, especialidades, idiomas, anos de
+   experiência) deixaram de ser input inline e viraram linha clicável com o
+   VALOR ATUAL à direita. A linha inteira é o alvo do clique — não um "editar"
+   discreto no canto —, porque o gesto é "abrir este campo", não "acionar um
+   controle dentro dele". */
+.profile-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.profile-field-row-trigger {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-3) 0;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.profile-field-row-trigger:hover {
+  background: var(--fill-5);
+}
+
+.profile-field-row-label {
+  font-size: var(--text-support);
+  line-height: var(--leading-support);
+  font-weight: var(--weight-medium);
+  color: var(--fg);
+}
+
+/* O valor pode ser longo (lista de especialidades): trunca numa linha em vez
+   de empurrar o rótulo, e o texto completo continua no modal. */
+.profile-field-row-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-support);
+  line-height: var(--leading-support);
+  color: var(--fg-muted);
+}
+
+/* D21: "Adicionar" é convite, não estado neutro — por isso cor de ação e
+   sublinhado, não o cinza de `--fg-muted` usado no valor preenchido. */
+.profile-field-row-empty {
+  font-size: var(--text-support);
+  line-height: var(--leading-support);
+  color: var(--brand-solid);
+  text-decoration: underline;
+}
+
+.profile-field-row-hint {
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
+  opacity: 0.75;
+}

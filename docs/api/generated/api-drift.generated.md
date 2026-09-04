@@ -10,12 +10,12 @@
 
 | Estado | Quantidade | Bloqueia? |
 |--------|-----------|:---------:|
-| ✅ OK | 202 | ❌ |
+| ✅ OK | 201 | ❌ |
 | ⚠️ CODE_ONLY | 0 | ✅ (se novo) |
 | 📄 CONTRACT_ONLY | 5 | ❌ |
 | 🔍 CONSUMER_ONLY | 9 | ✅ (se new + high) |
 | 🕳️ UNUSED_ROUTE | 174 | ❌ |
-| 👻 ORPHAN_SUSPECT | 68 | ❌ |
+| 👻 ORPHAN_SUSPECT | 69 | ❌ |
 | ❓ UNCERTAIN | 0 | ❌ |
 
 ## Detalhamento por app
@@ -334,7 +334,7 @@
 | GET | `/api/v1/gm/insights` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/gm/me` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/gm/perfis/:slug` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
-| GET | `/api/v1/gm/perfis/:slug/insights` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/gm/perfis/:slug/insights` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/gm/perfis/:slug/reviews` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/gm/tables` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/gm/tables/:id` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
@@ -601,11 +601,12 @@ Rotas existentes no código/OpenAPI, sem consumidor detectado e sem classificaç
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
 | GET | `/api/systems/catalog-health` | ✅ | public | Sem consumidor e scope não justifica |
-### mesas (4 rota(s))
+### mesas (5 rota(s))
 
 | Method | Path | Tem OpenAPI? | Scope | Razão |
 |--------|------|:-----------:|-------|-------|
 | DELETE | `/auth/discord/disconnect` | ✅ | public | Sem consumidor e scope não justifica |
+| GET | `/api/v1/gm/perfis/:slug/insights` | ✅ | public | Sem consumidor e scope não justifica |
 | PATCH | `/api/v1/profile/gm` | ✅ | public | Sem consumidor e scope não justifica |
 | PATCH | `/api/v1/profile/me/gm` | ✅ | public | Sem consumidor e scope não justifica |
 | PATCH | `/api/v1/profile/me/player` | ✅ | public | Sem consumidor e scope não justifica |

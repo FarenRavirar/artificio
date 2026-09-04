@@ -17,7 +17,7 @@ export function MestreVttPlatforms({ platforms }: MestreVttPlatformsProps) {
 
   return (
     <section className="p-6 rounded-[var(--radius-lg)] bg-[var(--fill-5)] border border-[var(--border)]">
-      <h2 className="text-[length:var(--text-title)] leading-[var(--leading-title)] font-[var(--weight-strong)] text-[var(--fg)] mb-4">🎮 Plataformas que uso</h2>
+      <h2 className="text-[length:var(--text-title)] leading-[var(--leading-title)] font-[var(--weight-strong)] text-[var(--fg)] mb-4">Plataformas que uso</h2>
       
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
         {platforms.map((platform) => (
@@ -42,8 +42,13 @@ export function MestreVttPlatforms({ platforms }: MestreVttPlatformsProps) {
                 className="h-12 w-auto object-contain"
               />
             ) : (
+              // Sem logo: a inicial da plataforma, não emoji (T3.4). O emoji
+              // renderiza na fonte do SO e muda de desenho entre plataformas,
+              // então o mesmo perfil não fica igual para dois visitantes.
               <div className="h-12 flex items-center justify-center">
-                <span className="text-[length:var(--text-display)] leading-[var(--leading-display)]">🎮</span>
+                <span className="text-[length:var(--text-title)] leading-[var(--leading-title)] font-[var(--weight-strong)] text-[var(--fg-muted)]">
+                  {platform.name.charAt(0).toUpperCase()}
+                </span>
               </div>
             )}
             <span className="text-[length:var(--text-label)] leading-[var(--leading-label)] text-[var(--fg-muted)] text-center font-[var(--weight-medium)]">
