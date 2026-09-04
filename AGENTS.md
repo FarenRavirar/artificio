@@ -46,7 +46,8 @@ Pacotes compartilhados: `auth`, `ui`, `analytics`, `config`, `content`, `crossli
 - **Escopo documental explícito prevalece.** Se o mantenedor nomear quais arquivos/trechos ler ou alterar, ler e alterar somente esses. Não abrir documentos correlatos por associação, retomada ou “contexto útil”.
 - Retomar spec/trabalho em andamento → ler somente os arquivos/trechos da spec nomeados pelo mantenedor. `project-state.md`, `decisions.md`, `specs/backlog.md`, sessões e outras specs **não entram automaticamente**; exigem pedido nominal próprio.
 - `sessoes/` — checar sessão ativa incompleta/retomar só quando o mantenedor pedir explicitamente ("retoma a sessão", "continua de onde parou") ou quando não houver spec cobrindo o trabalho. Codificação hoje passa por spec madura (`specs/*/spec.md,plan.md,tasks.md`), que já carrega o contexto de retomada — não abrir/escanear `sessoes/` por padrão todo chat novo. Quando `sessoes/` for tocado (por pedido ou por falta de spec), registrar antes de alterar: o que vai fazer, o que falta, o que já foi feito.
-- Infra/deploy/CI/CD/VM/DNS/banco → `docs/agents/deploy-runbook.md`, §VM/Banco/Infra e §Deploy e Infra de CI/CD deste arquivo.
+- Infra/deploy/CI/CD/VM/DNS/banco → **`docs/agents/deploy-flow.md`** (contrato único), depois `deploy-runbook.md` para detalhe operacional.
+- **Trava por arquivo:** editar `Dockerfile`, `pnpm-lock.yaml`/`package.json`, `migration_*.sql` ou `.github/workflows/*` exige ler a seção correspondente de `deploy-flow.md` antes. **O hook `deploy-contract-gate` cobra isso automaticamente** — dispara no `Edit`/`Write`, uma vez por família por sessão, e o motivo do bloqueio já diz qual seção ler. Existe porque os 22 incidentes de `errors.md` são 5 famílias e três recorreram **com o procedimento já escrito**: regra que depende de memória falha.
 - Specs → limitar leitura e escrita aos arquivos/trechos nomeados pelo mantenedor. Trabalhar numa spec não autoriza abrir `specs/README.md`, `specs/backlog.md`, `project-state.md`, `decisions.md`, sessões ou specs relacionadas.
 - Diagnóstico de código/API antes de editar → §Ferramentas MCP/Agentes (LSP, codebase-memory-mcp, artificio-api-governance) + comandos abaixo.
 - Erro/regressão conhecida → `.specify/memory/errors.md`.
@@ -277,13 +278,14 @@ Estas falhas já aconteceram e viraram regra operacional. Todo agente deve trat�
 
 ## Deploy e Infra de CI/CD
 
+**Contrato completo: `docs/agents/deploy-flow.md` §6** — fluxo, workflows, manifesto, casos por módulo e os comandos de dispatch.
+
+Duas travas que se afirmam aqui porque governam **afirmação**, não só execução:
+
+- **`deploy.yml` só deploya se `deploy_paths` do manifesto mudar.** Docs, specs e governança nunca disparam deploy real.
+- **`promote-prod-fast-forward.yml` NUNCA dispara deploy de prod** — só move o ponteiro Git. Depois de qualquer promote aprovado, **nunca declarar "promovido" ou "em produção" sem disparar e confirmar o deploy**: Git atualizado ≠ prod atualizado.
+
 Mecânica de branch/PR/commit/push: §Regras Pétreas → PR, Commit e Push.
-
-**Deploy/código canônico:** entrega normal passa por GitHub (branch/PR/checks/workflow_dispatch/Actions/secrets) e a VM faz `git fetch/reset` no clone. Acesso SSH direto à VM é exceção para bootstrap do clone, instalar utilitários operacionais, conexão, diagnóstico ou rollback aprovado — não é caminho normal de deploy/codificação. Se GitHub cobre a ação, use GitHub para rastreabilidade e branch safety.
-
-**⚠️ Alerta: `deploy.yml` só deploya se `deploy_paths` do manifesto mudar.** Docs/specs/reviews/governança nunca disparam deploy real. CI roda, deploy=false. Para verificar: `gh run view <RUN_ID> --log | grep "deploy="`. Para forçar manual: `gh workflow run deploy.yml --ref dev -f module=mesas -f mode=deploy -f env=beta`.
-
-**⚠️ TRAVA PÉTREA — `promote-prod-fast-forward.yml` NUNCA dispara deploy de prod.** Promote só move o ponteiro Git (`main` fast-forward pra `dev`); não chama `deploy.yml`, não builda, não sobe container. **Prod só atualiza com `workflow_dispatch` manual explícito**: `gh workflow run deploy.yml --ref main -f module=<modulo> -f mode=deploy -f env=prod`. Regra dura: depois de qualquer `promote` aprovado, **nunca declarar "promovido" ou "em produção" sem também disparar e confirmar esse deploy** — Git atualizado ≠ prod atualizado. Verificar sempre com `gh run list --workflow=deploy.yml --branch=main --limit=5` antes de afirmar que prod está no ar com a mudança.
 
 ---
 
@@ -306,58 +308,9 @@ Worktree **não é fallback automático**. Antes de qualquer `git worktree add|m
 - Nunca registrar, expor ou versionar token, PAT, segredo ou credencial. Segredos vivem em `.env` (gitignored) e nos secrets do Actions/Cloudflare.
 - Acesso DB da VM por linha de comando local/PowerShell via `ssh faren` é **read-only por padrão** (`psql SELECT`, `pg_dump`, `docker exec` read-only). Escrita no banco da VM = aprovação.
 
-### Migrations (TRAVA PÉTREA — checklist obrigatório antes de commitar QUALQUER `migration_*.sql`)
+### Migrations e Dockerfile de produção
 
-**Referência completa:** `apps/mesas/migrations_guide.md` (guia canônico do framework, aplica a todo módulo que o usa) + `docs/agents/deploy-runbook.md` §Migrations (mapa por módulo) + `.specify/memory/errors.md` `E009`/`E010`/`E011`/`E012`/`E014` (incidentes reais e comandos validados). Este resumo cobre o que é preciso saber pra não quebrar deploy; ir na referência antes de qualquer intervenção manual/emergência.
-
-**1. Header obrigatório (5 campos, valida `scripts/deploy/lib_migrations.sh:parse_header`).** Sem isso o CI passa verde mas o deploy aborta na VM com `falhou na validacao de campos do cabecalho` (E011):
-```sql
--- @class: online-safe        # online-safe | manual-risk (obrigatório)
--- @requires-backup: false    # true | false (obrigatório; true exige class=manual-risk)
--- @author: spec-NNN          # obrigatório, não-vazio
--- @created: AAAA-MM-DD        # obrigatório, não-vazio
--- @description: ...           # obrigatório, não-vazio
-```
-- `@migration: N` é decorativo — **não** conta como um dos 5.
-- Campos lidos só nas **primeiras 20 linhas**; header no topo, antes do SQL.
-- `@requires-backup: true` **exige** `@class: manual-risk`.
-- `online-safe` **não pode** conter DDL destrutivo de objeto (`DROP TABLE/COLUMN/...`, `TRUNCATE`, `DELETE FROM`) — só `manual-risk` (guard E010; `DROP NOT NULL/CONSTRAINT/DEFAULT` são permitidos em `online-safe`).
-- Migration só em diretório allowlisted (`apps/*/database/`) — `_enforce-migration-dir.yml` bloqueia fora disso.
-- Antes de dizer "pronto": validar copiando o header do vizinho verde mais recente (maior `migration_NNN` já em prod) e conferir os 5 campos.
-
-**2. Idempotência obrigatória.** Toda migration roda 2x sem erro: `IF NOT EXISTS`/`IF EXISTS` em `ALTER`/`CREATE`/`DROP`; `ADD CONSTRAINT` não aceita `IF NOT EXISTS` no Postgres 16 — envolver em `DO $$ ... END $$` checando `pg_constraint` antes. Se uma migration já aplicada falhar/rodar pela metade, **nunca reescrever o arquivo original** — criar migration nova de correção.
-
-**2.1. Não fatiar em várias migrations o schema de uma mesma spec/feature no mesmo diff/PR.** Se as tabelas/colunas novas nascem juntas na mesma sessão de trabalho e uma depende logicamente da outra (ex.: tabela nova + FK que aponta pra ela + tabela de log relacionada), isso é **uma migration só**, não 2-3 arquivos separados por tabela. Fatiar sem necessidade não ajuda reversão (o guard `MAX_AUTO_PENDING=5` conta cada arquivo como uma migration pendente) e só multiplica header/arquivo pra revisar. Migrations diferentes se justificam quando entram em PRs/sessões diferentes, ou quando uma é reversível/independente da outra em produção — não pela conveniência de "uma tabela por arquivo".
-
-**3. Fluxo padrão:** criar `migration_XXX_descricao.sql` em `./database/` → commit/PR pra `dev` → CI valida header/diretório/drift → merge em `dev`/`main` aplica via `apply_required_migrations.sh` antes de re-subir a aplicação. Nunca aplicar manualmente como primeira tentativa.
-
-**4. Guard `MAX_AUTO_PENDING=5` (E012).** Deploy aborta com `Muitas migrations pendentes (N > 5)` se acumular >5 migrations sem promote (ou 1º deploy de módulo novo com todas as migrations de uma vez) — rollback automático preserva o estado, sem dano, mas não é bug, é proteção funcionando. Solução: aplicar manualmente com o MESMO script oficial, ajustando `MAX_AUTO_PENDING` pro total pendente (nunca fatiar em lotes — o script compara tudo de uma vez):
-```bash
-cd /opt/artificio-beta   # ou /opt/artificio em prod
-cp apps/<modulo>/.env.<env> apps/<modulo>/.env   # docker compose só lê .env
-COMPOSE_PROJECT=<projeto-compose> MAX_AUTO_PENDING=<N> \
-  bash scripts/deploy/apply_required_migrations.sh \
-  apps/<modulo>/docker-compose.<env>.yml <db-service> <db-name> <db-user> apps/<modulo>/database
-rm -f apps/<modulo>/.env   # remover cópia temporária
-```
-`pg_dump` (snapshot) sempre antes, mesmo em banco "vazio" — é o rollback manual se algo falhar no meio.
-
-**5. Drift/reconciliação.** Hotfix manual via SSH que altera schema sem passar pelo framework causa drift reverso (banco tem migration que o disco não tem) e bloqueia o próximo deploy automático. Depois de qualquer intervenção manual, reconciliar: `bash scripts/deploy/reconcile_migrations.sh --mark-applied migration_XXX_descricao.sql docker-compose.<env>.yml <db-service>`.
-
-**6. Rotação de senha em volume Postgres já existente (E009).** `POSTGRES_PASSWORD` só grava em `pg_authid` na **primeira init** do volume — trocar no `.env` depois não reescreve nada. Sintoma: `28P01 password authentication failed` em loop mesmo com `.env` "correto"; `psql -h 127.0.0.1` engana (localhost é `trust`, aceita qualquer senha — testar sempre pela rede docker). Fix: DB vazio → recriar volume; DB com dado → `ALTER USER admin PASSWORD '<senha do .env>'` + `docker restart`.
-
-**7. Por módulo (mapa completo em `docs/agents/deploy-runbook.md` §Migrations):** mesas e downloads usam o framework padrão em `apps/<mod>/database/`; site migra no entrypoint do container (`db/migrations/`), não pela esteira; glossário tem migrations legadas em `apps/glossario/database/legacy/` (fora do glob do runner, no-op até baseline explícita).
-
-**8. Procedimento de emergência (migration `manual-risk` bloqueada ou drift `BLOCKED`):** acessar VM só após aprovação explícita, seguir gates de `PRE_DEPLOY_CHECKLIST.md`, disparar com `ALLOW_MANUAL_MIGRATIONS=true` (exige backup) quando for `manual-risk` legítima, reconciliar depois (item 5).
-
-### Dockerfile de produção — incidente recorrente (E016/E017, `.specify/memory/errors.md`)
-
-Já aconteceu 2 vezes: pacote `@artificio/*` novo vira dependency de um app, mas o `Dockerfile` do stage `production` não copia o `dist`/`dist-cjs` dele — build/CI passam verdes, container sobe e crasha só depois, com `MODULE_NOT_FOUND`, direto em beta/prod.
-
-**Regra simples:** toda vez que adicionar/trocar import `from '@artificio/<pacote>'` num app com `Dockerfile` de produção (`apps/*/backend/Dockerfile`, `apps/*/frontend/Dockerfile`), antes de disparar deploy real:
-1. Listar todos os `@artificio/*` importados pelo `src` do app (grep).
-2. Conferir que cada um tem `COPY --from=builder .../dist` (e `dist-cjs` se o `package.json` do pacote tiver `main`/`require`) no Dockerfile.
-3. Se Docker Desktop estiver rodando, `docker build --target production` local antes do deploy real.
+As duas maiores famílias de incidente do projeto (8 e 5 dos 22 de `errors.md`, com três recorrências entre elas). O procedimento vive em **`docs/agents/deploy-flow.md` §3 e §1** — leitura obrigatória antes de tocar em `migration_*.sql` ou em `Dockerfile`, conforme a trava por arquivo em §T1.
 
 ---
 
@@ -464,8 +417,10 @@ Seção lida pelo Codex code-review (GitHub App, `chatgpt-codex-connector`) em P
 | Tipo | Fonte |
 |---|---|
 | Governança operacional | `AGENTS.md` |
+| **Contrato de deploy** (Dockerfile, migration, lockfile, workflow, infra) | **`docs/agents/deploy-flow.md`** ⃰ — leitura obrigatória por arquivo tocado, ver §T1 |
+| Detalhe operacional de deploy (comandos, por módulo) | `docs/agents/deploy-runbook.md` ⃰ |
 | Estado atual (fase/gate) | `.specify/memory/project-state.md` |
-| Erros conhecidos | `.specify/memory/errors.md` |
+| Erros conhecidos (**histórico**; a regra está no contrato acima) | `.specify/memory/errors.md` |
 | Contexto de retomada | `docs/agents/context-capsule.md` ⃰ |
 | Sessões | `sessoes/index.md` + `sessoes/*.md` |
 | Specs SDD | `specs/README.md` + `specs/backlog.md` + `specs/*/{spec.md,plan.md,tasks.md}` |
@@ -511,7 +466,7 @@ As ferramentas locais abaixo foram adotadas para reduzir retrabalho, detectar er
 **Forçamento automático (instalado 2026-07-27, após ~50 esquecimentos na semana).** A regra deixou de depender da memória do agente. Três camadas, em ordem de execução:
 
 1. **`rtk hook claude`** (`PreToolUse` em `Bash`, config global do Claude Code) — reescreve o comando cru para o equivalente `rtk` de forma transparente. Cobre `cat`/`head`/`grep`/`rg`/`find`/`git`/`gh`/`tsc`/`eslint`/`vitest`/`jest`/`ls`/`npx …`/`pnpm run …`. **Não é opcional nem visível**: quando funciona, o agente nem percebe.
-2. **`rtk-enforce.js`** (`PreToolUse` em `Bash`, roda logo depois) — **bloqueia** (`permissionDecision: deny`) o que a camada 1 deixa passar: `pnpm <script>` sem `run` (`pnpm verify:api`, `pnpm test`) e `pnpm --filter <pkg> <script>` não são reescritos. O deny devolve o comando corrigido pronto, então o custo é reemitir na mesma volta. Conferir a cobertura real com `rtk hook check`.
+2. **`rtk-enforce.js`** (`PreToolUse` em `Bash`, roda logo depois) — **bloqueia** (`permissionDecision: deny`) o que a camada 1 deixa passar: `pnpm <script>` sem `run` (`pnpm verify:api`, `pnpm test`) e `pnpm --filter <pkg> <script>` não são reescritos. O deny devolve o comando corrigido pronto, então o custo é reemitir na mesma volta. Conferir se um comando específico é reescrito: `rtk hook check "<comando>"` — **dry-run, exige o comando como argumento** desde a 0.47.0 (antes era checagem geral de cobertura); sem argumento devolve `No rewrite for:` vazio, que é a nova sintaxe, não erro.
 3. **`rtk-read-gate.js`** (`PreToolUse` em `Read`) — o hook do rtk **só intercepta o tool `Bash`**; `Read`/`Grep`/`Glob` são nativos e passam por fora dele, que é por onde "esqueci o `rtk read`" escapava. O gate bloqueia leitura **integral** de arquivo com mais de 600 linhas e de lockfile, sempre sugerindo `rtk read`, `offset`/`limit` ou LSP. Leitura com `offset`/`limit` passa direto — ler trecho de arquivo grande é o comportamento desejado, não a violação.
 
 Consequência prática: **não existe mais "esqueci"**. Ou o comando é reescrito sem o agente notar, ou é bloqueado com a correção no motivo. O que o agente ainda precisa fazer por conta própria é escolher LSP/`codebase-memory-mcp` antes de busca textual — isso nenhum hook decide.

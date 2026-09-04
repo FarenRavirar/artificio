@@ -484,8 +484,12 @@ export function TableCardComponent({ table }: { table: TableCard }) {
               isFull
                 ? 'bg-gray-600 text-white/50 cursor-not-allowed opacity-50'
                 : primaryCTA.variant === 'primary'
-                  ? 'bg-orange-600 hover:bg-orange-700 text-white'
-                  : 'border-2 border-orange-600 text-orange-600 hover:bg-orange-600/10'
+                  // Par sólido de marca, não laranja cru + `--fg`: o fundo era fixo
+                  // e a cor do texto virava por tema, então um dos dois lados sempre
+                  // reprovava (branco sobre #ff5722 mede 3.16:1). O par
+                  // --brand-solid/--brand-solid-fg vira junto — 4.70:1 e 6.00:1.
+                  ? 'bg-[var(--brand-solid)] hover:bg-[var(--brand-solid-hover)] text-[var(--brand-solid-fg)]'
+                  : 'border-2 border-[var(--color-artificio-orange)] text-[var(--color-artificio-orange)] hover:bg-[color-mix(in_srgb,var(--color-artificio-orange)_10%,transparent)]'
             }`}>
               {isFull ? 'Mesa lotada' : primaryCTA.label}
             </div>

@@ -27,6 +27,11 @@ import type { TableContactChannel } from '../../types/tables';
  * Ícones: lucide-react 1.21 não tem ícones de marca — Facebook usa ThumbsUp e
  * Instagram usa Camera (mesmo pictograma do editor antigo).
  */
+// Cor de IDENTIDADE DE PLATAFORMA, não cor de tema (spec 100): o verde do
+// WhatsApp e o roxo do Discord são a marca de terceiro — trocá-los por token
+// semântico tiraria justamente o que identifica o canal. É a mesma exceção que
+// o `#5865f2` do Discord e o `#4285f4` do Google já têm no `ProfileEditPage.css`.
+// Por isso NÃO contam como violação do gate de cor literal.
 export interface ContactChannelMeta {
   icon: typeof MessageCircle;
   label: string;

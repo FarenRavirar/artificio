@@ -1,6 +1,6 @@
 body {
   background: #f7f9fc;
-  font-family: Inter, Roboto, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--artificio-font-sans, "Inter", "Segoe UI", Roboto, ui-sans-serif, system-ui, sans-serif);
   margin: 0;
 }
 

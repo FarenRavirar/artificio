@@ -47,14 +47,21 @@ tmp/
 artifacts/
 .DS_Store
 
-# Docs internas de operação — NÃO publicar (recon de infra: containers, rotas, cofre)
-# Mantidas só localmente + em C:\projetos\artificiobackup\docs-agents-internal-*
-# Nota: usar /docs/agents/* (não docs/agents/) para permitir exceção de arquivo
-# abaixo — padrão de diretório puro bloqueia negação (!) de arquivos dentro dele.
-/docs/agents/*
-# Exceção: fluxo Supervisor do OpenCode não tem recon de infra, é governança
-# de agente pura — referenciado publicamente por AGENTS.md, precisa ser versionado.
-!/docs/agents/opencode-supervisor-flow.md
+# Docs internas de operação — NÃO publicar (recon de infra: containers, rotas,
+# subnet, nomes de secret, mapa de acesso). Mantidas só localmente + em
+# C:\projetos\artificiobackup\docs-agents-internal-*
+#
+# `docs/agents/` PASSOU A SER VERSIONADO em 2026-09-03: o procedimento ali usa
+# placeholder (`<CLONE_PROD>`, `<ACCOUNTS_DB>`) e a tradução vive só em
+# `docs/agents-internal/values.md`, aqui embaixo. Publicar o "como" sem o "o quê".
+/docs/agents-internal/
+
+# Lock de ferramenta local do mantenedor (servidor MCP do opencode). Fora do
+# workspace pnpm, do turbo e do CI — o repo não o instala. Versioná-lo só
+# arrastava a árvore transitiva dele para o Dependency Review: 4 CVEs high em
+# fast-uri reprovaram o check da PR #305 sem nada no produto usar o pacote.
+/docs/agents/opencode-mcp/package-lock.json
+/docs/agents/opencode-mcp/node_modules/
 
 # Editor
 .vscode/

@@ -62,16 +62,16 @@ export function VttPlatformsEditor({ selectedPlatforms, onSave }: VttPlatformsEd
 
   if (loading) {
     return (
-      <div className="p-6 rounded-xl bg-white/5 border border-white/10">
-        <p className="text-white/60 text-sm animate-pulse">Carregando plataformas...</p>
+      <div className="p-6 rounded-[var(--radius-lg)] bg-[var(--fill-5)] border border-[var(--border)]">
+        <p className="text-[var(--fg-low)] text-[length:var(--text-support)] leading-[var(--leading-support)] animate-pulse">Carregando plataformas...</p>
       </div>
     );
   }
 
   if (error && platforms.length === 0) {
     return (
-      <div className="p-6 rounded-xl bg-red-500/10 border border-red-500/20">
-        <p className="text-red-400 text-sm">{error}</p>
+      <div className="p-6 rounded-[var(--radius-lg)] bg-[var(--state-danger-bg)] border border-[var(--state-danger-line)]">
+        <p className="text-[var(--state-danger-fg)] text-[length:var(--text-support)] leading-[var(--leading-support)]">{error}</p>
       </div>
     );
   }
@@ -79,8 +79,8 @@ export function VttPlatformsEditor({ selectedPlatforms, onSave }: VttPlatformsEd
   return (
     <div className="space-y-4">
       <div>
-        <h3 className="text-lg font-bold text-white mb-2">Plataformas VTT que você usa</h3>
-        <p className="text-sm text-white/60 mb-4">
+        <h3 className="text-[length:var(--text-section)] leading-[var(--leading-section)] font-[var(--weight-strong)] text-[var(--fg)] mb-2">Plataformas VTT que você usa</h3>
+        <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-[var(--fg-low)] mb-4">
           Selecione as plataformas virtuais que você utiliza para mestrar suas mesas online.
         </p>
       </div>
@@ -94,17 +94,17 @@ export function VttPlatformsEditor({ selectedPlatforms, onSave }: VttPlatformsEd
               key={platform.id}
               onClick={() => togglePlatform(platform.id)}
               className={`
-                relative p-4 rounded-xl border-2 transition-all
+                relative p-4 rounded-[var(--radius-lg)] border-2 transition-all
                 ${isSelected
-                  ? 'border-purple-500 bg-purple-500/20'
-                  : 'border-white/10 bg-white/5 hover:border-white/20'
+                  ? 'border-[var(--special)] bg-[color-mix(in_srgb,var(--special)_20%,transparent)]'
+                  : 'border-[var(--border)] bg-[var(--fill-5)] hover:border-[var(--border-strong)]'
                 }
               `}
             >
               {/* Checkmark */}
               {isSelected && (
-                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center">
-                  <Check className="w-3 h-3 text-white" />
+                <div className="absolute top-2 right-2 w-5 h-5 rounded-[var(--radius-pill)] bg-[var(--special)] flex items-center justify-center">
+                  <Check className="w-3 h-3 text-[var(--fg)]" />
                 </div>
               )}
 
@@ -118,10 +118,10 @@ export function VttPlatformsEditor({ selectedPlatforms, onSave }: VttPlatformsEd
                   />
                 ) : (
                   <div className="h-12 flex items-center justify-center">
-                    <span className="text-2xl">🎮</span>
+                    <span className="text-[length:var(--text-title)] leading-[var(--leading-title)]">🎮</span>
                   </div>
                 )}
-                <span className="text-sm font-medium text-white text-center">
+                <span className="text-[length:var(--text-support)] leading-[var(--leading-support)] font-[var(--weight-medium)] text-[var(--fg)] text-center">
                   {platform.name}
                 </span>
               </div>
@@ -131,22 +131,22 @@ export function VttPlatformsEditor({ selectedPlatforms, onSave }: VttPlatformsEd
       </div>
 
       {/* Botão salvar */}
-      <div className="flex items-center justify-between pt-4 border-t border-white/10">
-        <p className="text-sm text-white/60">
+      <div className="flex items-center justify-between pt-4 border-t border-[var(--border)]">
+        <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-[var(--fg-low)]">
           {selected.size} {selected.size === 1 ? 'plataforma selecionada' : 'plataformas selecionadas'}
         </p>
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-2 rounded-lg bg-purple-500 hover:bg-purple-600 disabled:bg-purple-500/50 text-white font-medium transition"
+          className="px-6 py-2 rounded-[var(--radius-md)] bg-[var(--special)] hover:brightness-90 disabled:opacity-50 text-[var(--fg)] font-[var(--weight-medium)] transition"
         >
           {saving ? 'Salvando...' : 'Salvar'}
         </button>
       </div>
 
       {error && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-          <p className="text-red-400 text-sm">{error}</p>
+        <div className="p-3 rounded-[var(--radius-md)] bg-[var(--state-danger-bg)] border border-[var(--state-danger-line)]">
+          <p className="text-[var(--state-danger-fg)] text-[length:var(--text-support)] leading-[var(--leading-support)]">{error}</p>
         </div>
       )}
     </div>

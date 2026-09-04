@@ -184,6 +184,102 @@ const roles = {
 
 const labels = ["tokens.ts", "styles.css", "preset.js"];
 const fails = [];
+
+// --- Tipografia: familia e regua (spec 100) --------------------------------
+// Mesma trava dos hexes, aplicada a FONTE. Existe porque havia quatro
+// declaracoes divergentes da familia de corpo (tokens.ts, styles.css,
+// preset.js e o index.css do mesas) e nada acusava: o parity so olhava cor.
+// Como nenhum app carrega Inter por @font-face, o fallback divergente era o
+// que de fato renderizava — telas vizinhas em faces diferentes.
+//
+// Normaliza para comparar as tres sintaxes: CSS escreve `"Inter", "Segoe UI"`,
+// tokens.ts escreve a mesma string, e o preset escreve array JS.
+const normFont = (s) =>
+  s ? s.replace(/["'[\]]/g, "").split(",").map((p) => p.trim().toLowerCase()).filter(Boolean).join(",") : null;
+const grabFont = (src, re) => {
+  const m = src.match(re);
+  return m ? normFont(m[1]) : null;
+};
+const fontRoles = {
+  "font.sans": [
+    grabFont(tokens, /\bsans:\s*'([^']+)'/),
+    grabFont(styles, /--artificio-font-sans:([^;]+);/),
+    grabFont(preset, /\bsans:\s*(\[[^\]]+\])/),
+  ],
+  "font.display": [
+    grabFont(tokens, /\bdisplay:\s*'([^']+)'/),
+    grabFont(styles, /--artificio-font-display:([^;]+);/),
+    grabFont(preset, /\bdisplay:\s*(\[[^\]]+\])/),
+  ],
+};
+for (const [role, vals] of Object.entries(fontRoles)) {
+  const present = vals.filter((v) => v !== null);
+  if (present.length < 3) {
+    fails.push(
+      `${role}: nao encontrado em ${vals.map((v, i) => (v === null ? labels[i] : null)).filter(Boolean).join(" + ")}`,
+    );
+    continue;
+  }
+  if (new Set(present).size > 1) {
+    const detalhe = vals.map((v, i) => labels[i] + "=" + (v ?? "—")).join("  ");
+    fails.push(`${role}: divergente -> ${detalhe}`);
+  }
+}
+
+// Regua tipografica: os degraus de tokens.ts, styles.css e preset.js devem
+// concordar. Sem isto a Camada 2 pode ancorar em tres reguas diferentes.
+const textRoles = ["display", "title", "section", "body", "support", "label"];
+for (const papel of textRoles) {
+  const t = grab(tokens, new RegExp(String.raw`\btext:\s*\{[^}]*?\b${papel}:\s*"([0-9]+px)"`, "s"));
+  const c = grab(styles, new RegExp(String.raw`--text-${papel}:\s*([0-9]+px)`));
+  const p = grab(preset, new RegExp(String.raw`\b${papel}:\s*\["([0-9]+px)"`));
+  const present = [t, c, p].filter((v) => v !== null);
+  if (present.length < 3) {
+    fails.push(`text.${papel}: ausente em ${[!t && "tokens.ts", !c && "styles.css", !p && "preset.js"].filter(Boolean).join(" + ")}`);
+    continue;
+  }
+  if (new Set(present).size > 1) {
+    fails.push(`text.${papel}: divergente -> tokens.ts=${t}  styles.css=${c}  preset.js=${p}`);
+  }
+}
+
+// --- Geometria: raio (spec 100) --------------------------------------------
+// Mesma trava dos hexes, mas comparando COMPRIMENTO, não cor: tokens.ts escreve
+// px e styles.css escreve rem, então normaliza-se em px (1rem = 16px) antes de
+// comparar. Existe porque `sm` divergia 2px entre os dois arquivos (4px vs
+// 0.375rem) sem nada acusar — a trava anterior só olhava hex, e a régua de raio
+// da spec 100 depende de as duas fontes concordarem.
+const toPx = (v) => {
+  if (!v) return null;
+  const m = v.match(/^([0-9.]+)(px|rem)$/);
+  if (!m) return null;
+  return m[2] === "rem" ? Number(m[1]) * 16 : Number(m[1]);
+};
+const radiusRoles = {
+  "radius.sm": [
+    grab(tokens, /\bradius:\s*\{[^}]*?\bsm:\s*"([0-9.]+(?:px|rem))"/s),
+    grab(styles, /--radius-sm:\s*([0-9.]+(?:px|rem))/),
+  ],
+  "radius.md": [
+    grab(tokens, /\bradius:\s*\{[^}]*?\bmd:\s*"([0-9.]+(?:px|rem))"/s),
+    grab(styles, /--radius-md:\s*([0-9.]+(?:px|rem))/),
+  ],
+  "radius.lg": [
+    grab(tokens, /\bradius:\s*\{[^}]*?\blg:\s*"([0-9.]+(?:px|rem))"/s),
+    grab(styles, /--radius-lg:\s*([0-9.]+(?:px|rem))/),
+  ],
+};
+for (const [role, [tokenVal, cssVal]] of Object.entries(radiusRoles)) {
+  if (tokenVal === null || cssVal === null) {
+    fails.push(
+      `${role}: ausente em ${[!tokenVal && "tokens.ts", !cssVal && "styles.css"].filter(Boolean).join(" + ")}`,
+    );
+    continue;
+  }
+  if (toPx(tokenVal) !== toPx(cssVal)) {
+    fails.push(`${role}: divergente -> tokens.ts=${tokenVal}  styles.css=${cssVal}`);
+  }
+}
 for (const [role, vals] of Object.entries(roles)) {
   const present = vals.filter((v) => v !== null);
   if (present.length === 0) {
@@ -213,6 +309,11 @@ const bothThemeVars = [
   "--state-success-fg", "--state-warning-fg", "--state-danger-fg", "--state-info-fg",
   "--btn-primary-bg", "--btn-primary-fg", "--btn-primary-bg-hover",
   "--navy-block-bg", "--navy-block-fg",
+  // spec 100: texto sobre superficie cuja cor NAO vira por tema (botao de
+  // plataforma, barra de grafico). Precisam existir nos dois blocos: se
+  // sumirem de um, o texto cai em `currentColor` e some sobre o fundo.
+  "--on-solid-fg", "--series-fg", "--series-pattern",
+  "--series-1", "--series-2", "--series-3", "--series-4",
 ];
 // Grupo B: theme-agnósticos (rgba leve serve nos 2 fundos) → só :root, NÃO redefinir no dark.
 const lightOnlyVars = [

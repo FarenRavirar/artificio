@@ -14,8 +14,10 @@
      cabem em tela estreita e o último ("Link") vazava 15px para fora da
      viewport em 390px — medido no editor de anúncio do mesas. Envolver é o
      comportamento correto para uma barra de ferramentas; encolher os botões
-     comprometeria o alvo de toque. Vale para os três consumidores do pacote
-     (mesas, downloads, site). */
+     comprometeria o alvo de toque. Vale para todos os consumidores do pacote —
+     mesas, downloads, site e accounts, mais o `packages/comments`, que o embute
+     (o comentário dizia "três" desde antes de accounts e comments entrarem;
+     corrigido na spec 100, que mediu a lista). */
   flex-wrap: wrap;
   gap: 0.25rem;
   border-bottom: 1px solid var(--line, rgba(148, 163, 184, 0.35));
@@ -98,7 +100,15 @@
   display: block;
   width: 100%;
   padding: 0.875rem;
-  font: 0.9375rem/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
+  /* Família de CORPO, não monoespaçada (spec 100): o que se digita aqui é bio e
+     comentário, texto de leitura — a monoespaçada dava ao editor cara de campo
+     de código e destoava de todo o resto da tela. Editor de código pediria
+     `ui-monospace` de volta; este não é.
+     A pilha vem do design system (`--artificio-font-sans`), com o fallback
+     literal para o caso de o CSS do pacote `ui` não estar carregado.
+     Regra conjunta: textarea e espelho recebem a MESMA fonte — é o que mantém a
+     quebra de linha idêntica nos dois e o destaque alinhado. */
+  font: 0.9375rem/1.6 var(--artificio-font-sans, "Inter", "Segoe UI", Roboto, ui-sans-serif, system-ui, sans-serif);
   box-sizing: border-box;
   white-space: pre-wrap;
   overflow-wrap: break-word;

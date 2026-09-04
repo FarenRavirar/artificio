@@ -390,7 +390,6 @@ export const CatalogoPage = () => {
           Fase 2 (spec 094, R1): a busca saiu do hero — busca geral é UMA, na
           barra do catálogo. Hero mantém só o chamado de anúncio. */}
       <section className="relative w-full overflow-hidden bg-[var(--color-artificio-blue)] text-white py-10 lg:py-12">
-        <div className="orange-glow" />
         <div className="container relative z-10 mx-auto space-y-4 px-6 text-center">
           <p className="eyebrow">
             ◆ {totalCount}+ mesas abertas · comunidade Artifício RPG
@@ -495,8 +494,8 @@ export const CatalogoPage = () => {
         {/* LINHA DE CONTEXTO */}
         <div className="mb-6 space-y-4">
           {isRefreshing && (
-            <div className="rounded-lg border border-orange-500/40 bg-orange-500/10 px-4 py-2 text-orange-200 text-sm flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--fill-5)] px-4 py-2 text-[var(--fg-muted)] text-sm flex items-center gap-2">
+              <div className="w-4 h-4 border-2 border-[var(--color-artificio-orange)] border-t-transparent rounded-full animate-spin" />
               Atualizando resultados...
             </div>
           )}
@@ -550,7 +549,7 @@ export const CatalogoPage = () => {
             {!isLoading && tables.length > 0 && hasMore && (
               <div ref={sentinelRef} className="mt-8 flex justify-center pb-20 md:pb-0">
                 {isRefreshing ? (
-                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--color-artificio-orange)] border-t-transparent" />
                 ) : (
                   <button
                     type="button"

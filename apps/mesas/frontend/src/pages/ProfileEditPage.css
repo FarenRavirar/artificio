@@ -6,7 +6,7 @@
 .profile-edit-page {
   max-width: 900px;
   margin: 0 auto;
-  padding: 1.5rem;
+  padding: var(--space-6);
   min-height: 100vh;
 }
 
@@ -29,7 +29,7 @@
   padding: var(--space-6);
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   margin-bottom: var(--space-6);
   justify-content: space-between;
 }
@@ -56,8 +56,9 @@
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #ffffff;
-  font-size: 2rem;
-  font-weight: bold;
+  font-size: var(--text-display);
+  line-height: var(--leading-display);
+  font-weight: var(--weight-strong);
 }
 
 .profile-info {
@@ -82,19 +83,21 @@
 
 .profile-info h1 {
   margin: 0;
-  font-size: 1.625rem;
+  font-size: var(--text-title);
+  line-height: var(--leading-title);
   color: var(--fg);
-  font-weight: 700;
+  font-weight: var(--weight-strong);
   letter-spacing: -0.01em;
 }
 
 .profile-role-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0.25rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
+  font-weight: var(--weight-strong);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -102,26 +105,26 @@
 .profile-role-badge.badge-gm {
   background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
   color: #ffffff;
-  box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
 }
 
 .profile-role-badge.badge-admin {
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
   color: #ffffff;
-  box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
 }
 
 .profile-email {
   margin: 0;
   color: var(--fg-muted);
-  font-size: 0.875rem;
+  font-size: var(--text-support);
+  line-height: var(--leading-support);
 }
 
 .profile-username {
   margin: 0;
   color: var(--artificio-brand);
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: var(--text-support);
+  line-height: var(--leading-support);
+  font-weight: var(--weight-medium);
 }
 
 .profile-meta {
@@ -131,22 +134,29 @@
   flex-wrap: wrap;
 }
 
+/* Laranja SOBREVIVE aqui de propósito (spec 100, D6/D7): este é um link, e a
+   decisão recolhe a marca a botão primário, link e anel de foco. Nas telas de
+   mestre os outros usos — fundo de painel, borda de cartão, gradiente de CTA,
+   hover decorativo — foram para `--fill-subtle`/`--line`. Os que ficam usam
+   `color-mix` sobre o token da marca, não rgba literal, para acompanharem
+   qualquer mudança futura da cor. */
 .profile-public-link {
   display: inline-block;
-  margin: 0.5rem 0 0 0;
-  padding: 0.5rem 1rem;
-  background: rgba(255, 87, 34, 0.1);
-  border: 1px solid rgba(255, 87, 34, 0.3);
-  border-radius: 8px;
+  margin: var(--space-2) 0 0 0;
+  padding: var(--space-2) var(--space-4);
+  background: color-mix(in srgb, var(--color-artificio-orange) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-artificio-orange) 30%, transparent);
+  border-radius: var(--radius-md);
   color: var(--artificio-brand);
-  font-size: 0.75rem;
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
   text-decoration: none;
   transition: all 0.2s;
   word-break: break-all;
 }
 
 .profile-public-link:hover {
-  background: rgba(255, 87, 34, 0.2);
+  background: color-mix(in srgb, var(--color-artificio-orange) 20%, transparent);
   border-color: var(--artificio-brand);
 }
 
@@ -165,8 +175,9 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  border-radius: 6px;
-  font-size: 0.8125rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
   transition: all 0.3s ease;
 }
 
@@ -206,13 +217,14 @@
 }
 
 .tab {
-  padding: 0.75rem 1.25rem;
+  padding: var(--space-3) var(--space-5);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--fg-muted);
-  font-size: 0.9375rem;
-  font-weight: 500;
+  font-size: var(--text-support);
+  line-height: var(--leading-support);
+  font-weight: var(--weight-medium);
   cursor: pointer;
   transition: all 0.2s;
   margin-bottom: -2px;
@@ -227,15 +239,15 @@
 .tab.active {
   color: var(--artificio-brand);
   border-bottom-color: var(--artificio-brand);
-  background: rgba(255, 87, 34, 0.08);
-  font-weight: 600;
+  background: color-mix(in srgb, var(--color-artificio-orange) 8%, transparent);
+  font-weight: var(--weight-strong);
 }
 
 /* Tab Content */
 .tab-content {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: var(--space-6);
 }
 
@@ -250,23 +262,24 @@
 
 .form-section h2 {
   margin: 0 0 var(--space-3) 0;
-  font-size: 1.125rem;
+  font-size: var(--text-section);
+  line-height: var(--leading-section);
   color: var(--fg);
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
 
 .section-description {
   margin: 0 0 var(--space-3) 0;
   color: var(--fg-muted);
-  font-size: 0.875rem;
-  line-height: 1.5;
+  font-size: var(--text-support);
+  line-height: var(--leading-support);
 }
 
 .field-description {
   margin: 0 0 var(--space-3) 0;
   color: var(--fg-muted);
-  font-size: 0.8125rem;
-  line-height: 1.4;
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
   font-style: italic;
 }
 
@@ -282,9 +295,10 @@
 .form-group label {
   display: block;
   margin-bottom: var(--space-2);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
   color: var(--fg);
-  font-size: 0.875rem;
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
 }
 
 /* Spec 099, fase G (G5) — esta regra PERDEU `padding`, `font-size` e
@@ -317,7 +331,7 @@
   border: 1px solid var(--line-strong);
   background: var(--surface);
   color: var(--fg);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   transition: all 0.2s;
 }
 
@@ -325,7 +339,7 @@
 .form-group select option {
   background: var(--surface);
   color: var(--fg);
-  padding: 0.5rem;
+  padding: var(--space-2);
 }
 
 .form-group select option:checked {
@@ -338,7 +352,8 @@
   background: var(--fill-subtle);
   color: var(--fg);
   padding: var(--space-2) var(--space-3);
-  font-size: 0.875rem;
+  font-size: var(--text-support);
+  line-height: var(--leading-support);
   min-height: 40px;
 }
 
@@ -354,7 +369,7 @@
 .form-group textarea:focus {
   outline: none;
   border-color: var(--artificio-brand);
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-artificio-orange) 25%, transparent);
   background: var(--surface);
 }
 
@@ -362,7 +377,8 @@
   display: block;
   margin-top: var(--space-2);
   color: var(--fg-muted);
-  font-size: 0.75rem;
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
 }
 
 .form-group textarea {
@@ -384,12 +400,12 @@
   background: var(--surface-subtle);
   border: 1px solid var(--line);
   padding: var(--space-3);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   transition: all 0.2s;
 }
 
 .playstyle-item:hover {
-  border-color: rgba(255, 87, 34, 0.3);
+  border-color: var(--line-strong);
   background: var(--surface-strong);
 }
 
@@ -397,18 +413,19 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.8125rem;
-  font-weight: 500;
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
+  font-weight: var(--weight-medium);
   color: var(--fg);
   letter-spacing: 0.02em;
   opacity: 0.9;
-  margin-bottom: 0.25rem;
+  margin-bottom: var(--space-1);
 }
 
 .playstyle-item input[type='range'] {
   width: 100%;
   height: 4px;
-  border-radius: 3px;
+  border-radius: var(--radius-sm);
   background: var(--fill-strong);
   outline: none;
   -webkit-appearance: none;
@@ -424,7 +441,6 @@
   background: var(--artificio-brand);
   cursor: pointer;
   transition: transform 0.2s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .playstyle-item input[type='range']::-webkit-slider-thumb:hover {
@@ -439,7 +455,6 @@
   cursor: pointer;
   border: none;
   transition: transform 0.2s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .playstyle-item input[type='range']::-moz-range-thumb:hover {
@@ -447,9 +462,10 @@
 }
 
 .playstyle-item span {
-  font-weight: 700;
+  font-weight: var(--weight-strong);
   color: var(--artificio-brand);
-  font-size: 1rem;
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
   min-width: 1.5rem;
   text-align: right;
 }
@@ -473,7 +489,7 @@
 /* Error text */
 .error-text {
   color: var(--state-danger-fg);
-  font-weight: 500;
+  font-weight: var(--weight-medium);
 }
 
 /* Responsive */
@@ -488,7 +504,7 @@
 
 /* User Systems Selector */
 .user-systems-selector {
-  margin-top: 1rem;
+  margin-top: var(--space-4);
 }
 
 .user-systems-selector-loading {
@@ -498,16 +514,18 @@
   padding: var(--space-6);
   justify-content: center;
   color: var(--fg-muted);
-  font-size: 0.875rem;
+  font-size: var(--text-support);
+  line-height: var(--leading-support);
 }
 
 .systems-selector-header {
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-4);
 }
 
 .systems-count {
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: var(--text-support);
+  line-height: var(--leading-support);
+  font-weight: var(--weight-strong);
   color: var(--special);
   margin: 0;
 }
@@ -519,7 +537,7 @@
   gap: var(--space-6);
   padding: var(--space-4);
   background: var(--surface-subtle);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--line);
 }
 
@@ -529,9 +547,8 @@
   border-radius: 50%;
   overflow: hidden;
   flex-shrink: 0;
-  border: 2px solid rgba(255, 87, 34, 0.25);
+  border: 1px solid var(--line);
   background: var(--surface);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .avatar-premium-preview img {
@@ -550,7 +567,8 @@
 
 .avatar-source-hint {
   color: var(--fg-muted);
-  font-size: 0.8125rem;
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
   font-style: italic;
 }
 
@@ -566,13 +584,12 @@
   background: #4285f4;
   color: #ffffff;
   border: 1px solid transparent;
-  font-weight: 600;
+  font-weight: var(--weight-strong);
 }
 
 .avatar-google-action:hover {
   background: #357ae8;
   transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(66, 133, 244, 0.3);
 }
 
 .avatar-button-row {
@@ -633,7 +650,8 @@
 
 .avatar-manual-input small {
   color: var(--fg-muted);
-  font-size: 0.75rem;
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
 }
 
 .avatar-direct-link-option {
@@ -641,7 +659,8 @@
   align-items: center;
   gap: var(--space-2);
   color: var(--fg-muted);
-  font-size: 0.75rem;
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
   cursor: help;
 }
 
@@ -676,8 +695,9 @@
   justify-content: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: #ffffff;
-  font-size: 3rem;
-  font-weight: bold;
+  font-size: var(--text-display);
+  line-height: var(--leading-display);
+  font-weight: var(--weight-strong);
 }
 
 .avatar-input-wrapper {
@@ -793,7 +813,19 @@
    por cima — o mestre clica na parte e cai num título invisível. Precedente na
    mesma base: MestrePage.css:774. */
 .profile-editor-part {
-  scroll-margin-top: 7rem;
+  /* 64px cobre o header de uma linha. Acima de 860px ele ganha a subnav e vai a
+     104px — `--space-16` sozinho deixaria o título atrás dele, que é o defeito
+     que este bloco existe para evitar. Não há degrau de 104px na escala (nem
+     deve haver: é altura de componente, não respiro de layout), então o valor
+     é literal e ancorado no header real. Regressão introduzida ao mapear os
+     `rem` para `--space-*`; achado de review, PR #305. */
+  scroll-margin-top: var(--space-16);
+}
+
+@media (min-width: 861px) {
+  .profile-editor-part {
+    scroll-margin-top: 6.5rem;
+  }
 }
 
 /* Tela estreita: abaixo de 720px a lateral de 300px tomaria a maior parte da

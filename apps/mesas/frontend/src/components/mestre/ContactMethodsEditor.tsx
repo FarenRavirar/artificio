@@ -205,13 +205,13 @@ export function ContactMethodsEditor({
           const validationError = validateContactMethod(contact);
 
           return (
-            <div key={`${idPrefix}-contact-${index}`} className="rounded-xl border border-white/10 bg-white/5 p-4 space-y-3">
+            <div key={`${idPrefix}-contact-${index}`} className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--fill-5)] p-4 space-y-3">
               {/* Cabeçalho com tipo e ações (ordenar é por setas ↑↓, sem
                   arrastar — decisão revogada pelo mantenedor em 2026-08-24). */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Icon className={`w-5 h-5 ${config.iconClass}`} aria-hidden="true" />
-                  <span className="font-medium text-white">{editorChannelLabel(contact.channel)}</span>
+                  <span className="font-[var(--weight-medium)] text-[var(--fg)]">{editorChannelLabel(contact.channel)}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Button
@@ -241,7 +241,7 @@ export function ContactMethodsEditor({
                     onClick={() => removeContact(index)}
                     title="Remover"
                     aria-label="Remover contato"
-                    leftIcon={<Trash2 className="w-4 h-4 text-red-400" />}
+                    leftIcon={<Trash2 className="w-4 h-4 text-[var(--state-danger-fg)]" />}
                   />
                 </div>
               </div>
@@ -272,7 +272,7 @@ export function ContactMethodsEditor({
                     regra SEMPRE visível (capacidade do ContactsFormBlock que
                     não pode se perder, T4.0r). */}
                 {URL_VALUE_CHANNELS.has(contact.channel) && (
-                  <p className="text-xs text-white/50">{URL_CHANNEL_HINT}</p>
+                  <p className="text-[length:var(--text-label)] leading-[var(--leading-label)] text-[var(--fg-faint)]">{URL_CHANNEL_HINT}</p>
                 )}
 
                 <Field id={`${idPrefix}-label-${index}`} label="Label personalizado (opcional)">
@@ -327,7 +327,7 @@ export function ContactMethodsEditor({
         </Button>
 
         {showAddMenu && (
-          <div className="absolute top-full mt-2 left-0 right-0 p-2 rounded-lg bg-[var(--surface-input)] border border-white/10 shadow-xl z-10 grid grid-cols-2 gap-2">
+          <div className="absolute top-full mt-2 left-0 right-0 p-2 rounded-[var(--radius-md)] bg-[var(--surface-input)] border border-[var(--border)] shadow-[var(--shadow-float)] z-10 grid grid-cols-2 gap-2">
             {TABLE_CONTACT_CHANNELS.map((channel) => {
               const config = CONTACT_CHANNEL_META[channel];
               const Icon = config.icon;
@@ -353,8 +353,8 @@ export function ContactMethodsEditor({
           aqui (A20: a única escrita mesa→perfil é o botão de sincronizar do
           MasterPart, e ela nunca passa por este componente). */}
       {isPanel && (
-        <div className="flex items-center justify-between pt-4 border-t border-white/10">
-          <p className="text-sm text-white/60">
+        <div className="flex items-center justify-between pt-4 border-t border-[var(--border)]">
+          <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-[var(--fg-low)]">
             {current.length} {current.length === 1 ? 'contato' : 'contatos'}
           </p>
           <Button
@@ -370,8 +370,8 @@ export function ContactMethodsEditor({
       )}
 
       {(error || saveError) && (
-        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20">
-          <p className="text-red-400 text-sm">{saveError ?? error}</p>
+        <div className="p-3 rounded-[var(--radius-md)] bg-[var(--state-danger-bg)] border border-[var(--state-danger-line)]">
+          <p className="text-[var(--state-danger-fg)] text-[length:var(--text-support)] leading-[var(--leading-support)]">{saveError ?? error}</p>
         </div>
       )}
     </div>
