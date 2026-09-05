@@ -72,6 +72,65 @@ A escala `--space-1..6` do pacote é 4/8/12/16/24 — **exatamente a escala do A
 - Duas das nove seções (Insights, Recomendações) só o dono vê e pertencem ao `/painel`.
 - O editor **já tem** navegação lateral e 5 seções (`ProfileEditorSidebar` + 15 usos de `ProfilePart`, entregues pela spec 099) — a estrutura existe. O que falta é a apresentação: dentro de cada seção os **19 campos** seguem empilhados como formulário. A referência que o mantenedor forneceu (`midias/pagina_perfil.png`) mostra lista de linhas com o valor atual ao lado, e edição em modal de um campo por vez. A mudança é de apresentação dentro das seções, não de arquitetura de navegação.
 
+### 8. O que o mestre preenche não chega ao visitante (medido em 2026-09-05, produção)
+
+Os sete problemas acima são de **régua visual**. Este é de outra natureza — e por isso vira as Fases 6 e 7 em vez de entrar nos requisitos numéricos: o mestre preenche campos que a página pública descarta, esconde ou nunca consulta. Levantado pelo mantenedor conferindo o próprio perfil em beta, medido contra `GET /api/v1/gm/perfis/farenravirar` e o código.
+
+**8a — O topo corta sem dizer que corta.** `MestreHero.tsx:88-110` monta três grupos e aplica `.slice(0, 2)` em cada: especialidades, pontos fortes e idiomas. Com 4 especialidades gravadas, o mestre vê 2. `MestreHighlights.tsx` exibe todas mais abaixo, mas nada no topo sinaliza que há continuação — e resumo silencioso é indistinguível de dado perdido para quem preencheu.
+
+**8b — Três categorias distintas num grid sem rótulo.** No mesmo hero, especialidade, ponto forte e idioma viram uma fileira contínua de chips, separados só por `variant` de cor. Foi o que fez "O Nome do Vento" (um **ponto forte**) parecer uma especialidade fora de lugar. Cor sozinha não é rótulo, e falha em daltonismo.
+
+**8c — O hero decapita o destaque (ponto forte).** *Nota de terminologia, para não repetir a confusão que custou uma rodada: no produto, **destaque** = `selling_points` (tem `title` + `description`, os dois obrigatórios) e **selo** = `badges` (`TEXT[]`, string solta, sem descrição). O texto "Título e descrição são obrigatórios para salvar o destaque" (`GmProfileFields.tsx:341`) é do destaque.* `MestreHero.tsx:101-103` faz `.map(point => point.title)`. `isValidSellingPoint` (`profileEditorDomain.ts:47-49`) **exige** `description` preenchida para gravar; o topo mostra só o título. A descrição existe e é exibida em `MestreSellingPoints.tsx:29-30`, sob "O que eu ofereço" — mas quem olha o topo vê um campo obrigatório pela metade.
+
+**8d — Os sistemas que o mestre mestra não saem do banco.** O campo existe (`ProfileEditPage.tsx:811-824`, "Sistemas que Mestra", `UserSystemsSelector type="gm"`) e grava na tabela `user_systems`. A rota pública `GET /gm/perfis/:slug` devolve 37 chaves e **nenhuma vem dessa tabela**. Grava e some da vista — o que lê como "não salva".
+
+**8e — O catálogo de sistemas tem irmãos duplicados, e isso cega toda resolução.** `Dungeons & Dragons` tem **duas edições "5e"** (`8b1402c4` e `405ff13e`), cada uma com sua linhagem paralela de variantes — 2024 aparece nas duas, com nomes diferentes (`2024` e `Dungeons & Dragons 2024`). Mesmo padrão em `Vampire`/`Vampiro`.
+
+A causa é `createSystemNode` (`systemSuggestionsAdmin.ts:259-298`): valida **só o tipo do pai**, e a única defesa contra duplicata é o `PATH_SLUG_CONFLICT` do catálogo central, que compara **slug**. `2024` e `Dungeons & Dragons 2024` geram slugs diferentes e passam como nós distintos.
+
+**⚠ Correção de 2026-09-05 (revisão adversarial R2): isto é condição EXCLUSIVA DE BETA.** A medição dos dois ambientes (39 nós cada) mostra **produção limpa** — uma só edição "5e" sob D&D, um só nó `2024` (`c3d31503`, exatamente o `new_id` da migration 148). **A migration funcionou.** As duplicatas de beta nasceram depois, no ambiente onde se aprovam sugestões de teste. A narrativa de "seis tentativas frustradas" vale para o sintoma em beta, não para produção, e a guarda em `createSystemNode` é conserto **preventivo**, não bloqueio.
+
+**Consequência medida em BETA:** o parser do draft de importação — o caminho que "funciona" — **também não resolve**. Rodando `parseDiscordAnnouncement` real contra o catálogo real de beta, `D&D 5e 2024` para em `Dungeons & Dragons(system)`, na raiz, sem descer à variante. Os candidatos mostram as duas "5e" empatadas em `0.49`, e `findSystemMatch:587` (`if (children[1]?.score === children[0].score) break;`) para no empate **de propósito** — guarda anti-ambiguidade.
+
+**⚠ Não afirmar qual trava dispara sem instrumentar (R3).** Existe uma **segunda** guarda logo abaixo, `parseDiscordAnnouncement.ts:589-593` (`duplicatedAtDeeperLevel`), que trata duplicação em nível mais profundo. A investigação leu só a primeira e atribuiu o sintoma a ela. Pode ser 587, pode ser 593, podem ser as duas em sequência — **medir antes de mexer no scoring**.
+
+**E "nenhum algoritmo pode acertar" é falso como afirmação de engenharia.** Com `path_slug` distinto e nomes distintos (`2024` vs `Dungeons & Dragons 2024`), **há** informação suficiente para desempatar; o algoritmo escolhe não usar. Isso é decisão de produto (preferir ambiguidade a chute), não impossibilidade — e é revisável.
+
+No draft o dano fica invisível porque um humano revisa no `SystemPicker` antes de publicar. No perfil não há essa etapa. Enquanto existirem duas "5e" irmãs, **nenhum algoritmo pode acertar, porque não há resposta certa** — e é por isso que atacar a resolução (migration 148 inclusive, que remapeia UUIDs que nem existem mais no catálogo atual) nunca resolveu.
+
+**8f — O campo de imagem devolve a URL crua ao mestre.** O placeholder intuitivo chegou a produção (medido: o bundle que beta serve tem 2 ocorrências de "Cole aqui um link direto" e zero do texto antigo; `dev` == `main` == `0c8531b`). Mas placeholder só aparece em campo vazio: depois do upload, o mestre encara a URL do Cloudinary como texto editável. A correção anterior tratou metade do caso.
+
+**8g — Conceito visual do editor.** Os blocos de atributos da bio não se leem como editáveis, e o campo de slogan não comunica o destaque que ele tem no perfil publicado. Levantado pelo mantenedor como problema de **forma**, não de texto: acrescentar legenda explicativa é a correção errada. O mantenedor foi explícito quanto ao alcance: *"os conceitos visuais de TUDO que to te reportando não estão legais"* — vale para todo item deste §8, não só para os blocos de atributo.
+
+**8h — Uma seção do editor sem hierarquia nenhuma (medido).** `ProfileEditPage.tsx:789-809`, o `ProfilePart id="como"`, empilha **quatro coisas de natureza diferente sem um único subtítulo entre elas**:
+
+| linha | bloco | natureza |
+|---|---|---|
+| 792 | `BioLongField` | campo de texto livre |
+| dentro de 792 | `BioAttributeSuggestions` (`GmProfileFields.tsx:657`) | **ferramenta de IA** — botão "Sugerir atributos da bio", cartões de candidato com evidência e % de confiança |
+| 799 | `ProfileTagsSection` | Especialidades, Idiomas, Selos |
+| 808 | `SellingPointsEditor` | pontos fortes |
+
+O contraste é interno à própria página: o `ProfilePart id="mesa"` usa `<h3 className="profile-part-subtitle">` em cada bloco (linhas 812, 860). O `id="como"` **não usa nenhum**. Daí a leitura de sopa contínua que o mantenedor descreveu, com "Recomendado — …" repetido três vezes sem nada que ancore a qual campo pertence.
+
+Medição da tipografia, para separar o que é problema do que não é: o bloco de sugestões usa **só tokens** (`--text-label`, `--text-support`) e a escala do editor inteiro tem **2 tamanhos**, dentro da régua. **O defeito não é a fonte — é a ausência de hierarquia estrutural.** Registrado porque a queixa original citou "as fontes de Sugerir atributos da bio", e medir mostrou que a causa é outra.
+
+**8h-bis — A medição das cinco partes (2026-09-05).** `id="como"` foi onde a queixa caiu, mas a varredura das outras quatro mostra que o defeito é da página, não daquela seção:
+
+| parte | linha | blocos | subtítulos | veredito |
+|---|---|---|---|---|
+| `quem` | 726 | 4 — avatar, banner, **slogan**, anos de experiência | **0** | 4 sem âncora |
+| `como` | 789 | 4 — bio, ferramenta de IA, tags, pontos fortes | **0** | 4 sem âncora |
+| `mesa` | 811 | 3 — sistemas, grupo fechado, onde mestra | 2 (812, 860) | grupo fechado sem âncora |
+| `prova` | 896 | 1 — faixa promocional | 0 | ok (bloco único) |
+| `onde` | 904 | 1 — `LinksManager` | 0 | ok (bloco único) |
+
+**9 dos 13 blocos não têm subtítulo.** `prova` e `onde` estão corretos por terem um bloco só — subtítulo ali seria redundante com o `<h2>` que `ProfilePart` já emite (`ProfileEditPage.tsx:945`).
+
+**Isto explica o item do slogan (§8g) por medição, não por impressão.** `TaglineField` está em `ProfileEditPage.tsx:782`, entre o banner e "anos de experiência", sem nenhuma âncora — enquanto o comentário do próprio código (linha 780) registra que o slogan "encabeça as três cadeias (hero/OG/SEO)". É o campo de maior alcance da parte, com a menor hierarquia da página. A correção de §8g e a de §8h são a mesma correção.
+
+**8i — A ferramenta de IA não se distingue do formulário.** `BioAttributeSuggestions` renderiza botão, uma frase de garantia ("A análise apenas sugere. Nada é alterado até você confirmar cada item.") e cartões com trecho da bio e % de confiança — tudo no mesmo fluxo visual dos campos que o mestre preenche à mão, dentro do campo de bio. Sugestão de máquina e conteúdo autoral do mestre ficam indistinguíveis.
+
 ## Decisões do mantenedor (2026-09-03)
 
 Todas levantadas e respondidas antes desta spec ser escrita.
@@ -100,6 +159,18 @@ Todas levantadas e respondidas antes desta spec ser escrita.
 | D15 | Markdown nas avaliações | **Sobe para o pacote.** O app escreve e renderiza avaliações em markdown (`MarkdownEditor` + `MarkdownContent`); o pacote usa `Textarea` e texto puro (zero markdown). Consumir o pacote como está apagaria markdown já publicado — então `GmReviewForm`/`GmReviewList` ganham `ContentEditor`/`MarkdownContent` |
 | D16 | Limite de 2000 caracteres na avaliação | **Avisar sem bloquear** (padrão Twitter). Nem o app (bloqueia o botão) nem o pacote (trunca em silêncio): o contador mostra quanto passou e o envio segue permitido. `contentCountLabel` do `content-editor` já produz a frase "N caracteres acima do limite" |
 | D14 | Destino de `MestreInsightsSection` / `MestreRecommendationsSection` | **Reaproveitar sem duplicar, não apagar.** Custaram token e aprendizado; o que neles é único migra ao painel, o que duplica o `GmInsightsDashboard` é absorvido por ele |
+
+## Decisões do mantenedor (2026-09-05, Fases 6/7)
+
+- **D25 — Sistema é a PRIMEIRA pergunta do jogador.** A ordem em que o jogador decide é: **que sistema se joga → qual VTT → qual plataforma de comunicação**. O perfil ganha campo próprio de sistemas, posicionado **acima ou ao lado dos VTTs**, seguindo essa ordem. Não se deriva das mesas publicadas: um mestre mestra sistemas que não estão anunciados no momento, e a resposta não pode depender de haver mesa ativa.
+- **D26 — Os resumos têm de aparecer.** Idioma, estilo/especialidade, ponto forte e selos são exibição obrigatória no perfil, não conteúdo opcional a esconder atrás de corte. Isto encerra a pergunta de F6.1e: **ponto forte fica**, e o que muda é a forma de apresentá-lo, não a presença.
+- **D27 — A descrição do DESTAQUE (`selling_points`) aparece como texto visível e persistente; clicar leva à seção.** Resolvida em 2026-09-05 com o mantenedor: o campo é o **destaque/ponto forte**, não o selo — o texto "Título e descrição são obrigatórios para salvar o destaque" é do `SellingPointsEditor` (`GmProfileFields.tsx:341`), e `badges` segue sendo `TagInput` de string sem descrição. **Nenhuma migration é necessária.**
+  **Tooltip está descartado, e popover também** (pesquisa em `plan.md` §D-H): tooltip esconde por padrão e não existe em toque, e o Primer é explícito — *"never be used to convey critical information"*. Como **D26** classificou os destaques como exibição obrigatória, a descrição é informação **essencial**, e essencial não fica atrás de gesto. Popover resolveria acessibilidade mas continuaria escondendo — contradiz D26 igual.
+- **D28 — Indicador de continuação é clicável.** O corte no topo pode ficar, mas o indicador navega até a seção, não é rótulo morto.
+- **D29 — O topo não esconde o que a seção exibe.** Vale para os **quatro** grupos de D26 (idioma, especialidade, destaque, selo), não só para selo: o resumo do topo resume — não substitui — e tudo que ele omite tem de estar alcançável a partir dele.
+- **D30 — REVOGADA em 2026-09-05. A ordem passa a ser: produção primeiro.** A regra "guarda antes de limpeza" foi decidida sobre a premissa de que o catálogo de produção estava corrompido, e a medição mostrou que **não está** (a migration 148 funcionou; as duplicatas são só de beta). Ordem nova, decidida pelo mantenedor: **1)** F6.3c — a rota pública não lê `user_systems`, único defeito medido em produção que apaga dado do mestre; **2)** hero e destaques; **3)** guarda em `createSystemNode`, conserto de fonte preventivo; **4)** consolidação das duplicatas de beta. O `plan.md` fazia o trabalho de produção esperar pelo de beta.
+- **D31 — O grupo fechado sai da sequência de decisão.** No editor, `ClosedGroupSection` (`ProfileEditPage.tsx:830`) está **entre** sistemas e VTT, quebrando a ordem de D25. Move-se para **depois** de VTT/comunicação: sistema → VTT → comunicação ficam juntos e na ordem em que o jogador decide; preço/grupo fechado vem em seguida, como detalhe comercial.
+- **D32 — Rótulo de categoria no hero é obrigatório, não incremental.** Medido (`plan.md` §D-I): os três `variant` do `Badge` têm contraste **1,01:1** entre `info` e `brand` (idioma × ponto forte) e ~1,25:1 nos outros pares — cor **não** distingue os grupos hoje, nem para quem enxerga bem. O rótulo é o único separador que existiria. Consolidar duplicatas antes de impedir a criação de novas é a sétima tentativa. `createSystemNode` ganha a guarda primeiro.
 
 ## Requisitos
 

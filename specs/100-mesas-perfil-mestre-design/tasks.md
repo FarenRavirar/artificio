@@ -204,3 +204,206 @@ A investigação os listou como fora de escopo; a medição mostra que movem a t
 | `severityConfig` com `text-red-400`, `yellow-400`, `blue-400` literais | **T3.5** (escopo ampliado) | Cor literal na superfície que a Fase 3 reorganiza (D4). T3.5 cobria só os quartis; passa a cobrir também `severityConfig` e o bloco de erro (linhas 20-22) |
 | `tokens.ts` `radius.sm` 4px vs `styles.css` 6px | **T0.1a** | Verdade que ninguém lê `tokens.ts.radius` em runtime — mas a Fase 1 ancora a régua nele. Divergência entre as duas fontes faz as Fases 0 e 1 trabalharem contra referências diferentes |
 | `--space-5` ausente | **T0.1c** | Sem ele o requisito 7 ("zero `rem` literal") é incumprível para respiro de seção |
+
+---
+
+## Fase 6 — dado do mestre que se perde (produção, 2026-09-05)
+
+> **⚠ LEIA ANTES DE IMPLEMENTAR — terminologia e estado da doc.**
+>
+> **Os quatro campos, e o que cada um é no banco.** Confundi dois deles e custou uma rodada inteira; não repita:
+>
+> | termo no produto | coluna | forma | descrição? |
+> |---|---|---|---|
+> | **Destaque** / ponto forte | `selling_points` | JSONB `{icon, title, description}` | **sim, obrigatória** (`profileEditorDomain.ts:47-49`) |
+> | **Selo** | `badges` | `TEXT[]` | **não existe** (`migration_01_base_schema.sql:97`) |
+> | Especialidade | `specialties` | `TEXT[]` | não |
+> | Idioma | `languages` | `TEXT[]` | não |
+>
+> "Destaque" e "ponto forte" são **o mesmo campo** (`selling_points`) — o editor rotula "Destaque", o texto antigo desta spec diz "ponto forte". **Selo nunca teve descrição**; se alguma linha sugerir o contrário, ela está errada e prevalece esta tabela.
+>
+> **Decisões que governam esta fase:** D25 (ordem sistema→VTT→comunicação), D26 (os quatro aparecem), D27 (descrição do destaque é texto visível — **nunca tooltip nem popover**), D28/D29 (indicador clicável; o topo não esconde), **D30 REVOGADA** (a ordem é produção primeiro), D31 (grupo fechado sai da sequência), D32 (rótulo de categoria obrigatório — cor não distingue, medido 1,01:1).
+>
+> **Verificação de 2026-09-05:** as **25 citações `arquivo:linha`** desta fase e da Fase 7 foram conferidas uma a uma contra o código; todas exatas. O que já foi refutado está marcado `[x]` com a refutação — **não reabrir**.
+
+
+
+**Origem:** conferência do mantenedor em produção (`mesas.artificiorpg.com/perfil?tab=mestre` e página pública do mestre), depois de 099/100/101 subirem. Não são regressões de estilo: são campos que o mestre preenche e o produto **descarta ou nunca exibe**. Por isso vêm antes da Fase 7, que é de percepção.
+
+**Medição citada pelo mantenedor (não verificada ainda — cada task começa medindo):** gravou em Especialidades "Intriga Política, Investigação, Exploração, Imersão" e em Idiomas "Português"; a página do mestre mostrou "Intriga Polícia / Investigação / O Nome do Vento / Português" — dois itens sumiram e entrou um item de outro campo.
+
+### F6.1 — resumos do topo truncados sem indicador
+
+**INVESTIGADO 2026-09-05. O diagnóstico da hipótese inicial estava errado em dois dos três pontos** — registrado aqui porque a correção muda de natureza.
+
+**Onde o mantenedor viu a perda:** no **hero**, `MestreHero.tsx:88-110`, não numa lista de especialidades. O hero monta um grid de três grupos e corta cada um em dois:
+
+| grupo | linha | fonte | o que apareceu |
+|---|---|---|---|
+| `specialties` | `MestreHero.tsx:96` | 4 gravadas | "Intriga Política", "Investigação" |
+| `selling_points` | `MestreHero.tsx:101-103` | pontos fortes, `.map(p => p.title)` | **"O Nome do Vento"** |
+| `languages` | `MestreHero.tsx:108` | 1 gravada | "Português" |
+
+Isso reproduz exatamente a sequência relatada ("Intriga Polícia / Investigação / O Nome do Vento / Português").
+
+**Os três achados, medidos:**
+
+1. **O corte é deliberado, não um bug de truncamento.** `MestreHero.tsx:85-87` documenta a decisão: *"A dobra é um resumo… As seções abaixo continuam exibindo tudo."* O `.slice(0, 2)` é intencional. **O defeito real é a ausência de indicador de continuação** — nada na tela diz que existem mais 2 especialidades adiante, então o mestre lê como dado descartado. Um resumo silencioso é indistinguível de perda de dado, do ponto de vista de quem preencheu.
+2. **"O Nome do Vento" NÃO é dado na coluna errada — a hipótese do antigo F6.1b está refutada.** É o `title` de um **ponto forte** (`selling_points`), renderizado no mesmo grid visual das especialidades **sem rótulo que separe as três categorias**. A mistura é de apresentação, não de gravação. Nenhuma consulta ao banco é necessária: `MestreHero.tsx:99-103` prova a origem.
+3. **A lista completa existe na página, mais abaixo.** `MestreHighlights.tsx` renderiza `.map` completo, sem `slice` (linhas 33-80), e está montado em `MestrePage.tsx:138` dentro do grupo "Sobre", que abre porque `temSobre` (`MestrePage.tsx:92-102`) é verdadeiro com `specialties` preenchidas. Ou seja: os 4 itens **são** exibidos — só que num ponto da página que o mestre não associou ao que preencheu.
+
+**Medição de que o código faz o que diz:** `rtk vitest run MestreHighlights.test.tsx MestreHero.test.tsx` → **13/13 PASS**. Não há implementação quebrada. É decisão de produto que produz percepção de perda.
+
+**Consequência para a correção:** não se corrige com "deixar de truncar". As tasks abaixo substituem as originais.
+
+- [x] F6.1a — ~~Medir onde a lista é cortada~~ → **feito**: `MestreHero.tsx:96,101-103,108`, `.slice(0, 2)` em três grupos.
+- [x] F6.1b — ~~Medir se "O Nome do Vento" vem de outro campo~~ → **feito, hipótese refutada**: é `selling_points[].title`, gravado na coluna certa, exibido em grid sem rótulo de categoria.
+- [ ] F6.1c — **Indicador de continuação no hero, clicável (D28).** O corte pode ficar, mas precisa dizer que corta, e **o indicador leva à seção correspondente** — não é rótulo morto. · feito quando: com 4 especialidades gravadas, o hero mostra 2 e o indicador navega até "Em resumo".
+- [ ] F6.1c2 — **O hero não esconde o que a seção exibe (D29).** Vale para os **quatro** grupos de D26 — idioma, especialidade, destaque e selo —, não só selo: o topo resume, não substitui, e tudo que ele omite tem de estar alcançável a partir dele. · feito quando: com os quatro grupos preenchidos, nada exibido nas seções fica inacessível a partir do topo.
+- [ ] F6.1d — **Rótulo de categoria no grid do hero — OBRIGATÓRIO, não incremental (D32).** Medido (`plan.md` §D-I): `info`×`brand` (idioma × ponto forte) tem contraste **1,01:1**, luminâncias 0,5323 e 0,5243 — são **a mesma cor** na prática; os outros pares ficam em ~1,25:1. A suposição original desta task ("o `variant` já difere") está **refutada**: cor não distingue os grupos hoje, nem para quem enxerga bem. O rótulo é o único separador que existiria. · feito quando: o visitante distingue especialidade de destaque de idioma sem passar o mouse e sem depender de cor.
+- [ ] F6.1d2 — **O indicador de continuação aponta para DUAS seções, não uma (R6).** `MestreHighlights` renderiza só `specialties`/`languages`/`badges` (linhas 20-22); destaque vai para `MestreSellingPoints`, seção e título diferentes. O "+N" de cada grupo leva ao destino daquele grupo. · feito quando: cada grupo cortado no hero leva à sua própria seção.
+- [ ] F6.1d3 — **Medir o custo em altura no mobile antes de aplicar (R6).** `MestreHero.css:207` (`.hero-attributes`) é `flex-wrap:wrap` sem regra no `@media (max-width:768px)` (271): os chips já quebram em várias linhas no celular, e o rótulo custa altura exatamente onde o argumento de D2 ("não empurrar o CTA para fora da primeira tela") é mais forte. · feito quando: a altura do hero no mobile foi medida antes e depois.
+- [x] F6.1e — **DECIDIDO (D26, 2026-09-05): ponto forte FICA.** Idioma, estilo/especialidade, ponto forte e selos são exibição obrigatória — não são conteúdo opcional a esconder atrás de corte. O que muda é a **forma** de apresentar, não a presença. Consequência para F6.1c/F6.1d: o corte não pode fazer nenhum dos quatro sumir sem caminho de volta (D22/D23).
+- [ ] F6.1f — Teste que trava a regressão: N itens gravados com N > 2 → hero mostra 2 **e** o indicador de continuação. · feito quando: falha ao reverter a correção.
+
+### F6.2 — descrição do destaque decapitada no topo
+
+**INVESTIGADO 2026-09-05. A formulação original desta task estava errada: `badges` não tem descrição nenhuma.** Registrado porque a correção incide em outro campo.
+
+**Medições:**
+
+1. **`badges` é `TEXT[]`** — `migration_01_base_schema.sql:97` (`badges TEXT[] DEFAULT '{}'`). Uma string por selo, sem campo de descrição. O editor (`GmProfileFields.tsx:246-261`) é um `TagInput` simples, rótulo "Selos", e **não exige descrição de coisa alguma**. `MestreHighlights.tsx:65-78` exibe todos, sem corte.
+2. **O campo que exige descrição é `selling_points`** — "pontos fortes", `isValidSellingPoint` em `profileEditorDomain.ts:47-49`: só grava com `title` **e** `description` preenchidos. Botão "Adicionar ponto forte" (`GmProfileFields.tsx:421`).
+3. **A descrição É exibida na página** — `MestreSellingPoints.tsx:29-30` renderiza `<h3>{sp.title}</h3>` e `<p>{sp.description}</p>`, sob o título "O que eu ofereço". Montado em `MestrePage.tsx:140`.
+4. **Onde a descrição some: no hero.** `MestreHero.tsx:101-103` faz `.slice(0, 2).map(point => point.title)` — descarta `description` e mostra só o título, num chip, ao lado de especialidades e idiomas. Foi isso que o mantenedor viu como "exige descrição e não mostra nada da descrição": no topo da página, o ponto forte aparece decapitado.
+
+**Conclusão:** não existe campo obrigatório órfão de consumidor. O defeito é o **hero exibir `selling_points` como se fosse chip de categoria**, perdendo a metade que justifica o campo ser obrigatório — e é o mesmo defeito de F6.1 achado 2, visto pelo outro lado. **D26 fechou os dois de uma vez: ponto forte fica, e a correção é de forma.**
+
+- [x] F6.2a — ~~Provar ausência de consumidor de `badges`~~ → **feito, premissa refutada**: `badges` não tem descrição; quem tem é `selling_points`, e ela É exibida em `MestreSellingPoints.tsx:29-30`. O que perde a descrição é o hero (`MestreHero.tsx:101-103`).
+- [x] F6.2b — **RESOLVIDO (D27, 2026-09-05): o campo é o DESTAQUE (`selling_points`), não o selo.** O mantenedor colou o texto real do editor — "Título e descrição são obrigatórios para salvar o destaque" — que está no `SellingPointsEditor` (`GmProfileFields.tsx:341`, com os placeholders de 371 e 396). `badges` segue `TagInput` de string. **Nenhuma migration é necessária**, e o registro anterior ("DECIDIDO pelo mantenedor: tooltip" sobre `badges`) era transcrição errada minha.
+- [x] F6.2b2 — **RESOLVIDO (D27): tooltip E popover descartados; a descrição vai como texto visível e persistente.** Pesquisa em `plan.md` §D-H: o Primer é explícito — tooltip *"should never be used to convey critical information"*, esconde por padrão e não existe em toque. Como D26 tornou os destaques exibição obrigatória, a descrição é **essencial**; popover resolveria acessibilidade mas continuaria escondendo, contradizendo D26 do mesmo jeito. Efeito colateral favorável: **nenhum primitivo novo em `packages/ui`**, logo nenhuma aprovação de pacote compartilhado.
+- [x] F6.2c — **Sem trabalho de exibição na seção:** `MestreSellingPoints.tsx:29-30` já renderiza `<h3>{title}</h3><p>{description}</p>`. O defeito nunca foi a seção — é o **hero** decapitar com `.map(p => p.title)` (`MestreHero.tsx:101-103`). A correção está em F6.1, não aqui.
+- [ ] F6.2d — **O destaque no hero vira controle real** (`button`/`a`), não `div` com `onClick`, para alcançar teclado e leitor de tela. · feito quando: navegável por teclado, com nome acessível.
+- [ ] F6.2e — Clicar no destaque no hero navega até "O que eu ofereço", onde a descrição está (D27/D28). · feito quando: a âncora funciona e o destino recebe foco.
+
+### F6.3 — sistema de jogo não seleciona nem exibe
+
+**REINVESTIGADO 2026-09-05 após correção do mantenedor.** A primeira investigação desta task concluiu "não existe campo de sistema no perfil" — **estava errada**. O mantenedor apontou que o draft de importação de mesas funciona com o mesmo catálogo, e que o problema já teve ~6 tentativas de correção sem resolver. Seguir esse fio deu a causa raiz que a busca anterior não alcançou.
+
+**O erro da primeira passagem:** procurei coluna em `gm_profiles`, não achei, e parei. O campo **existe** e grava em outro lugar.
+
+**Medições:**
+
+1. **O campo existe: "Sistemas que Mestra".** `ProfileEditPage.tsx:811-824`, componente `UserSystemsSelector type="gm"`, gravando por `addSystem(systemId, 'gm')`. Não é coluna de `gm_profiles` — é a tabela de ligação **`user_systems`** (`user_id`, `system_id`, `type`, com `UNIQUE(user_id, system_id, type)` citado na migration 148).
+2. **A API pública não devolve esse dado.** `GET /api/v1/gm/perfis/farenravirar` traz 37 chaves e nenhuma vem de `user_systems`. A gravação tem casa; a **leitura pública não consulta a tabela**. É por isso que o visitante não vê — e por isso "não salva" é percepção: salva, mas some da vista.
+3. **O catálogo está corrompido na raiz, e não é o duplicado de julho.** Árvore reconstruída a partir de `GET /api/v1/systems?q=5e` (39 nós): `Dungeons & Dragons` tem **duas edições "5e" distintas**, cada uma com sua linhagem paralela de variantes:
+
+   | edição | id | variantes |
+   |---|---|---|
+   | "5e" | `8b1402c4` | 2014, **2024** (`fc682df5`), Next |
+   | "5e" | `405ff13e` | Dungeons & Dragons 2014, **Dungeons & Dragons 2024** (`230bed63`) |
+
+   O mesmo padrão em `Vampire` vs `Vampiro` (dois sistemas irmãos para a mesma coisa).
+4. **A migration 148 não cobre estes nós.** `migration_148_remap_dnd_2024_variant.sql` remapeia `ac74d486…` → `c3d31503…`. **Nenhum dos dois UUIDs existe** no catálogo que beta serve hoje. Os duplicados atuais (`fc682df5`, `230bed63`) são **novos**, criados depois de 2026-07-14. Isso explica as tentativas repetidas: cada uma remapeou *instâncias*, e a fonte seguiu produzindo mais.
+5. **A fonte: `createSystemNode` não checa irmão duplicado.** `systemSuggestionsAdmin.ts:259-298` valida **só o tipo do pai** (`assertValidChainParent`, linha 278) e delega a `createCatalogNode` → `packages/catalog-client/src/index.ts:193` → `POST /api/admin/v1/catalog/nodes` no site. A única defesa é `PATH_SLUG_CONFLICT` (linha 295), que compara **slug**, não identidade semântica: `2024` e `Dungeons & Dragons 2024` geram slugs diferentes e passam como nós distintos. Duas edições "5e" sob o mesmo pai passam pelo mesmo furo.
+
+**Conclusão:** três defeitos independentes, um deles a causa das seis tentativas frustradas.
+
+- [x] F6.3a — ~~D&D 5e 2024 não selecionável~~ → **existe, duplicado em duas linhagens paralelas**; a duplicação é sintoma, não causa.
+- [x] F6.3b — ~~Medir por que edições/variantes não salvam~~ → **salvam**, em `user_systems` via `UserSystemsSelector type="gm"`. A primeira investigação desta task afirmou o contrário e estava errada.
+- [ ] F6.3c — **A rota pública não lê `user_systems`.** Fazer `GET /gm/perfis/:slug` devolver os sistemas do mestre e exibi-los na ficha do visitante. Este é o defeito que responde à queixa "não exibe no perfil que o visitante vê". · feito quando: os sistemas gravados aparecem na página pública.
+- [ ] F6.3c2 — **Posição: acima ou ao lado dos VTTs (D25).** A ordem é **sistema → VTT → plataforma de comunicação**, porque é a sequência em que o jogador decide. **Medido na revisão (R4): o EDITOR já obedece D25** — "Sistemas que Mestra"(811-816) vem antes de VTT(860), com 45 linhas de folga. **Só o perfil público precisa mudar:** `MestrePage.tsx` vai `MestreBio`(134) → `MestreHighlights`(138) → `MestreSellingPoints`(140) → `MestreVttPlatforms`(142) e não tem sistemas; o campo entra **antes da linha 142**. · feito quando: o perfil público exibe sistemas antes dos VTTs.
+- [ ] F6.3c4 — **Achado lateral (R4):** pela lógica de D25, `ClosedGroupSection`(`ProfileEditPage.tsx:830`) está **entre** sistemas e VTT no editor. Se a ordem é a da decisão do jogador, preço/grupo fechado não pertence ali. · feito quando: o mantenedor decidiu se o grupo fechado sai da sequência.
+- [ ] F6.3c3 — **Derivar dos sistemas das mesas publicadas está DESCARTADO (D25).** Registro de que a alternativa foi oferecida por mim e é ruim: o mestre mestra sistemas que não estão anunciados no momento, e amarrar a resposta à existência de mesa ativa deixaria o perfil mudo justamente quando não há mesa aberta — na primeira pergunta que o jogador faz. · feito quando: nenhuma implementação deriva sistema de mesa.
+- [ ] F6.3d — **Guarda contra irmão duplicado em `createSystemNode`.** Recusar nó cujo nome (normalizado, sem acento/caixa, e considerando aliases) já exista sob o mesmo pai — hoje só o `path_slug` protege, e ele não vê `2024` e `Dungeons & Dragons 2024` como o mesmo. **É a correção que impede a sétima tentativa:** sem ela, qualquer limpeza é desfeita pela próxima sugestão aprovada. · feito quando: criar irmão equivalente é recusado, com teste.
+- [x] F6.3e-medicao — **PRODUÇÃO ESTÁ LIMPA (medido 2026-09-05).** `GET /api/v1/systems?q=5e` nos dois ambientes, 39 nós cada, comparando irmãos de mesmo pai por nome normalizado:
+
+  | ambiente | duplicatas de irmão | nós "2024" |
+  |---|---|---|
+  | **produção** | **nenhuma** | 1 — `c3d31503`, filho de `c324b0de` |
+  | beta | `5e` x2 sob `Dungeons & Dragons` (`8b1402c4`, `405ff13e`) | 2 — `fc682df5` e `230bed63` |
+
+  `c3d31503` é **exatamente o `new_id` da migration 148**: ela funcionou em produção e o estado lá é o correto. As duplicatas de beta nasceram **depois**, no ambiente onde se aprovam sugestões de sistema — o que confirma `createSystemNode` como a fábrica e não a migration como falha.
+
+  **Consequência prática:** F6.3e é limpeza **de beta**, não SQL write em produção — o custo e o risco caem, e a aprovação nominal necessária é a de escrita em beta. Também vale como alerta: sem F6.3d, produção pode receber o mesmo defeito na próxima sugestão aprovada lá.
+- [ ] F6.3e — **Limpar as duplicatas de beta.** Consolidar as duas edições "5e" de D&D e os dois "2024", usando produção como referência do estado correto. **Só depois de F6.3d** — limpar antes deixa a fonte aberta. · feito quando: beta bate com produção e a consolidação foi aprovada.
+**MEDIÇÃO NO DRAFT (2026-09-05, a pedido do mantenedor — segunda correção nesta task).** Rodei `parseDiscordAnnouncement` **real** contra o catálogo **real** de beta (39 nós), via probe temporário com o `makeMessage` da suíte existente. Resultado:
+
+| texto | system_id resolvido | cadeia |
+|---|---|---|
+| `D&D 5e 2024` | `5092ddb4…` | **Dungeons & Dragons(system)** — para na RAIZ |
+| `Dungeons & Dragons 5e 2024` | `5092ddb4…` | **para na RAIZ** |
+| `D&D 2024` | `5092ddb4…` | **para na RAIZ** |
+| `D&D 5e 2014` | `5092ddb4…` | **para na RAIZ** |
+| `DnD 5e` | `405ff13e…` | 5e(edition) ← D&D — desce um nível, **escolhendo uma das duas "5e" arbitrariamente** |
+| `Vampiro 5e` | `c8fc6863…` | Vampire 5e(edition) ← Vampiro |
+
+**O draft NÃO resolve o caso.** A premissa de "copiar como o draft faz" não se sustenta, e é melhor saber agora: os candidatos mostram **duas edições "5e" empatadas em `0.49`**, e `findSystemMatch` (`parseDiscordAnnouncement.ts:587`) tem `if (children[1]?.score === children[0].score) break;` — **para no empate, de propósito**. É a guarda anti-ambiguidade que impede descer até a variante `2024`. A árvore trava um nível acima do que o mestre quer.
+
+Ou seja: a duplicata do catálogo **cega os dois caminhos**, o draft inclusive. No draft o dano é menos visível porque um humano revisa e corrige no `SystemPicker` antes de publicar; no perfil não há essa etapa.
+
+**O que o draft tem e o perfil não** — e isto sim é aproveitável:
+- `_system_candidates`: guarda a lista pontuada, não só o vencedor, e o `SystemPicker` do `DraftEditorTab.tsx:372-384` deixa o humano escolher com `onSuggest`/`onCreateNow`.
+- `findUniqueExactEditionAlias` (`:551`): alias exato de edição salta níveis, mas **só quando é único** — mesma trava de ambiguidade.
+
+**Conclusão que fecha a sequência de tentativas:** enquanto houver duas "5e" irmãs, nenhum algoritmo de resolução pode acertar, porque não há resposta certa. **F6.3d (guarda) e F6.3e (consolidação) são pré-requisito de tudo** — inclusive de melhorar o draft. Toda tentativa anterior atacou a resolução, que é o sintoma.
+
+- [ ] F6.3g — **Corrigir o draft junto.** Consolidadas as duplicatas, remedir esta tabela: `D&D 5e 2024` deve resolver até a variante, não parar na raiz. Se continuar parando, o defeito é do scoring e não do catálogo. · feito quando: a tabela acima foi remedida após F6.3e, com os valores novos citados.
+- [ ] F6.3f — Teste de ida e volta: sistema/edição/variante gravados no editor aparecem na resposta pública. · feito quando: verde e falha ao reverter.
+
+### F6.4 — "placeholder" do banner com URL crua do Cloudinary
+
+**INVESTIGADO 2026-09-05. Não é placeholder, não é deploy pendente, não é bug de código.** A hipótese registrada estava errada nas três frentes.
+
+**Medições:**
+
+1. **O texto correto está no código, em `dev` e em `main`.** `ImageUploader.tsx:279` e `AvatarField.tsx:250`: `placeholder="Cole aqui um link direto de imagem (.jpg, .png ou .webp)"`. Introduzido em `83ec390`, que `git merge-base --is-ancestor 83ec390 origin/main` confirma estar em `main`.
+2. **`dev` e `main` estão no MESMO commit** (`0c8531b`), com `git rev-list --count origin/main..origin/dev` = 0. Não há promoção pendente.
+3. **O beta serve o bundle com o texto novo.** `curl` do `index-J4YoIp7N.js` que o HTML de beta referencia: **2 ocorrências** de "Cole aqui um link direto" e **0** do texto antigo. O deploy aconteceu.
+4. **O que o mantenedor viu é o VALOR GRAVADO, não o placeholder.** A API devolve `banner_url: "https://res.cloudinary.com/dnln0btbo/image/upload/v1788537783/artificio_profile_banners/khmxivtocytsah6o0pap.jpg"` — o banner real que ele subiu. Placeholder só aparece em campo vazio; com valor, o input mostra o valor.
+
+**O defeito real, e ele existe:** o campo devolve ao mestre a URL crua do Cloudinary como conteúdo editável. Depois de fazer upload por arquivo, ele encara uma string de 100 caracteres que parece código vazado — exatamente a queixa original ("o cara acha que aquilo é código vazado"), que o placeholder resolvia **só enquanto o campo estivesse vazio**. A correção anterior tratou metade do caso.
+
+- [x] F6.4a — ~~Medir se a correção chegou~~ → **feito**: chegou; código em `main`, bundle de beta com o texto novo, `dev` == `main` == `0c8531b`.
+- [x] F6.4b — ~~Distinguir bug de deploy pendente~~ → **feito: nenhum dos dois.** É o valor gravado sendo exibido cru.
+- [ ] F6.4c — **Não mostrar URL crua para imagem que veio de upload.** Depois do upload, o campo de URL deve exibir a imagem (prévia + "trocar"/"remover"), não a string. A entrada por URL manual continua para quem cola link. · feito quando: mestre que subiu arquivo não vê URL crua.
+- [ ] F6.4d — Teste: valor gravado por upload → campo não expõe a URL como texto editável. · feito quando: falha ao reverter.
+
+---
+
+## Fase 7 — conceito visual do editor de perfil
+
+**O que o mantenedor apontou:** não é falta de texto explicativo. Os blocos não se leem como editáveis nem comunicam o peso que cada campo tem no perfil publicado. Acrescentar legenda é a correção errada — a Fase 7 mexe em forma, affordance e hierarquia.
+
+**Trava:** vale a mesma régua da Fase 2 (≤6 tamanhos, ≤3 pesos, tokens em vez de literais) e o gate `T5.0d`. Fase de percepção não é licença para inventar escala nova.
+
+### F7.1 — affordance de edição nos atributos da bio
+- [ ] F7.1a — Medir o estado atual dos blocos "Especialidades", "Idiomas", "Selos" e "Destaques" (`selling_points`): o que sinaliza que são clicáveis (cursor, borda, hover, ícone) e o que não sinaliza. **Hover não conta como afordância única** — não existe em toque (§D-C/§D-H). · feito quando: a lista do que falta está escrita por bloco.
+- [ ] F7.1b — Pesquisar o padrão de mercado para editor de atributos em linha (chips editáveis, campo com estado vazio acionável) antes de desenhar. · feito quando: a referência está citada.
+- [ ] F7.1c — Aplicar affordance consistente aos quatro blocos, dentro da régua. · feito quando: os quatro se leem como editáveis sem legenda.
+
+### F7.2 — o campo de slogan não se lê como destaque
+- [x] F7.2a — **MEDIDO**: `TaglineField` em `ProfileEditPage.tsx:782`, entre o banner e "anos de experiência", **sem âncora nenhuma** — enquanto o comentário da linha 780 registra que o slogan encabeça hero, OG e SEO. Maior alcance da parte, menor hierarquia da página.
+- [ ] F7.2b — Dar ao campo forma proporcional ao destaque que ele ocupa na página pública — preferir prévia do resultado a rótulo explicativo. **Resolve junto com F7.5d:** a falta de hierarquia do slogan é a mesma falta de subtítulo do `ProfilePart id="quem"`. · feito quando: a intenção do campo se lê sem texto de apoio.
+
+### F7.3 — bloco "Sugerir atributos da bio"
+- [ ] F7.3a — Medir o que o bloco comunica hoje sobre o que é sugestão, o que é obrigatório e o que já está preenchido. · feito quando: os três estados estão distinguíveis ou provados indistinguíveis.
+- [ ] F7.3b — Separar visualmente sugestão de conteúdo real do mestre. · feito quando: o mestre distingue os dois sem ler a legenda.
+
+### F7.5 — hierarquia da seção "como" (achado medido 2026-09-05, ver `spec.md` §8h)
+- [ ] F7.5a — Dar subtítulo aos quatro blocos do `ProfilePart id="como"` (`ProfileEditPage.tsx:789-809`), no mesmo padrão `profile-part-subtitle` que o `id="mesa"` já usa nas linhas 812 e 860. · feito quando: cada bloco tem âncora própria e "Recomendado — …" não aparece órfão.
+- [x] F7.5b — **MEDIDO 2026-09-05** (tabela em `spec.md` §8h-bis): **9 dos 13 blocos sem subtítulo**. `quem` (4 blocos, 0 subtítulos), `como` (4 blocos, 0), `mesa` (3 blocos, 2 — grupo fechado sem âncora). `prova` e `onde` têm bloco único e estão corretos.
+- [ ] F7.5d — **Corrigir `quem` junto com `como`.** São 8 dos 9 blocos órfãos, e é onde o slogan mora. · feito quando: os dois têm subtítulo por bloco.
+- [ ] F7.5e — **Subtítulo no grupo fechado** (`ProfilePart id="mesa"`), o único bloco órfão de uma parte que já usa o padrão nos vizinhos (812, 860). · feito quando: os três blocos de `mesa` têm âncora.
+- [ ] F7.5f — **Não acrescentar subtítulo em `prova` e `onde`.** Bloco único já é titulado pelo `<h2>` do `ProfilePart` (`ProfileEditPage.tsx:945`); subtítulo ali seria ruído. · feito quando: as duas seguem sem subtítulo, por decisão registrada e não por omissão.
+- [ ] F7.5c — **Não é problema de fonte.** Medido: o editor usa 2 tamanhos, ambos tokens (`--text-label`, `--text-support`), dentro da régua. Corrigir com tamanho novo violaria o requisito 5. · feito quando: a correção de F7.5a não introduziu tamanho novo.
+
+### F7.6 — a ferramenta de IA parece formulário (ver `spec.md` §8i)
+- [ ] F7.6a — Distinguir visualmente `BioAttributeSuggestions` do formulário: é sugestão de máquina dentro do campo de bio, no mesmo fluxo do que o mestre escreve. · feito quando: o mestre distingue sugestão de conteúdo próprio sem ler a frase de garantia.
+- [ ] F7.6b — Os cartões de candidato (trecho + % de confiança) precisam de forma que comunique "proposta pendente", não "dado salvo". · feito quando: um candidato não confirmado não se confunde com campo preenchido.
+
+### F7.7 — varredura do alcance declarado pelo mantenedor
+- [ ] F7.7 — O mantenedor disse *"os conceitos visuais de TUDO que to te reportando não estão legais"*. Antes de fechar a Fase 7, revisar a forma de **cada** item do `spec.md` §8 — inclusive 8a-8f, que foram tratados como defeito de dado. · feito quando: cada item de §8 tem veredito de forma, não só de dado.
+
+### F7.4 — fechamento da fase
+- [ ] F7.4 — Rodar o roteiro da Fase 5 (T5.0a…T5.6). Conferência visual do mantenedor é obrigatória: nenhuma task desta fase fecha só com teste verde. · feito quando: o mantenedor confirmou nos dois temas.

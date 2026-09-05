@@ -189,6 +189,217 @@ O autosave segue intacto para os campos que permanecem inline (bio, imagens), qu
 
 Isso preserva o trabalho da 099 em vez de desfazê-lo, e dá ao modal a semântica que a referência tem.
 
+### Camada 5 — o dado do mestre chega ao visitante (Fases 6/7)
+
+As camadas 1-4 tratam régua e estrutura. Esta trata **perda de informação**, e tem ordem própria porque uma parte dela é pré-requisito das outras.
+
+**⚠ A ordem abaixo foi REVISADA em 2026-09-05 (D30 revogada).** A versão anterior punha a guarda de catálogo em primeiro lugar, sob a premissa de que o catálogo de **produção** estava corrompido. **A medição mostrou que não está:** produção tem uma só edição "5e" e um só nó `2024` (`c3d31503`, o `new_id` da migration 148 — ela funcionou). As duplicatas são **exclusivas de beta**. A ordem correta ataca primeiro o que apaga dado em produção:
+
+1. **Leitura pública dos sistemas** — `GET /gm/perfis/:slug` passa a devolver o que está em `user_systems`, e a ficha do visitante exibe. **É o único defeito medido em produção que apaga dado do mestre**, é conserto local em `gm.ts`, não depende de nada e responde à queixa literal ("grava e some").
+2. **Hero honesto e destaque não decapitado** — também produção, também visível ao jogador.
+3. **Guarda contra irmão duplicado** — `createSystemNode` (`systemSuggestionsAdmin.ts:259-298`) passa a recusar nó cujo nome normalizado (sem acento/caixa, considerando aliases) já exista sob o mesmo pai. Hoje só o `path_slug` protege, e ele não vê `2024` e `Dungeons & Dragons 2024` como o mesmo. Conserto de fonte legítimo, mas **preventivo**: não bloqueia nada em produção hoje.
+4. **Consolidação das duplicatas de BETA** — só depois do passo 3, usando produção como referência do estado correto. **Não exige SQL write em produção**, ao contrário do que a versão anterior deste plano assumia.
+5. **Remedir o draft** — com o catálogo de beta consolidado, `D&D 5e 2024` deve descer até a variante. **Antes de concluir que o defeito é do scoring, instrumentar QUAL trava dispara:** há duas guardas anti-ambiguidade, `parseDiscordAnnouncement.ts:587` (empate de score) e `:589-593` (`duplicatedAtDeeperLevel`) — a investigação original leu só a primeira.
+6. **Hero honesto** — indicador de continuação clicável (D28), rótulo de categoria obrigatório (D32, §8b) e o destaque deixando de ser decapitado no topo (§8c).
+7. **Descrição do destaque como texto visível** (D27 — nunca tooltip nem popover, ver §D-H) e campo de imagem que não devolve URL crua (§8f).
+8. **Conceito visual do editor** (§8g) — Fase 7, por último: é percepção, e não adianta refinar a forma de um campo cujo dado ainda se perde.
+
+**O que esta camada aproveita do draft, e o que não.** Aproveita `_system_candidates`: guardar a lista pontuada inteira e deixar o humano escolher, em vez de gravar um vencedor arbitrário. **Não** aproveita a resolução automática — foi medida falhando no mesmo catálogo.
+
+**Trava:** a Fase 7 obedece à mesma régua das camadas 1-4 (≤6 tamanhos, ≤3 pesos, tokens em vez de literais). Fase de percepção não autoriza escala nova.
+
+### Pesquisa por demanda (2026-09-05) — o que a prática do mercado diz
+
+Levantada a pedido do mantenedor, que pediu referência de produto com reputação em facilidade de uso, **não** genérico. Cada demanda tem a fonte e o que ela decide. Onde a fonte não confirmou um número que apareceu em busca, está dito.
+
+---
+
+**D-A · Corte silencioso no hero** (§8a) — *progressive disclosure*
+
+O padrão tem nome e é do próprio Nielsen (1995): pôr no primeiro nível o que serve à maioria das tarefas e diferir o resto **para um segundo nível claramente rotulado**. A literatura registra ganho de 30-50% no tempo de primeira tarefa quando o diferimento é bem feito — e nomeia o modo de falha: **esconder o que o usuário precisa com frequência**.
+
+O nosso caso está no modo de falha, com um agravante: não há *segundo nível rotulado*. O `.slice(0, 2)` corta sem link, sem "+2", sem nada. Não é progressive disclosure — é truncamento. **Decide F6.1c/F6.1f:** o indicador não é enfeite, é o que separa o padrão do defeito.
+
+Fonte: [NN/g — Progressive Disclosure](https://www.nngroup.com/videos/progressive-disclosure/) · [UXPin (2026)](https://www.uxpin.com/studio/blog/what-is-progressive-disclosure/)
+
+---
+
+**D-B · Três categorias num grid sem rótulo** (§8b) — *trust signals com peso visual*
+
+O Airbnb é a referência pedida, e o que ele faz é o oposto do nosso hero: sinal de confiança aparece **em cada momento de decisão**, com peso visual calibrado — a contagem de avaliações carrega peso equivalente ao do preço, deliberadamente, para dizer que a opinião da comunidade pesa tanto quanto o custo. Categorias distintas não se misturam num fluxo indiferenciado; cada uma tem seu lugar e seu peso.
+
+**Decide F6.1d:** rótulo por categoria não é redundância, é o que permite o visitante atribuir peso ao que lê. Hoje especialidade, ponto forte e idioma chegam com o mesmo peso visual e sem fonte declarada.
+
+Fonte: [Airbnb UX case study — trust in peer-to-peer](https://rockpaperscissors.studio/airbnb-ux-design-case-study-building-trust-in-peer-to-peer-travel/) · [Cornell Tech — hospitable language inspires trust](https://tech.cornell.edu/news/hospitable-language-inspires-trust-in-airbnb-customers/)
+
+---
+
+**D-C · Blocos que não se leem como editáveis** (§8g, §8h) — *inline edit affordance*
+
+A descoberta de que um campo é editável é **problema documentado, não impressão**: sem indicação, o usuário não descobre que o campo abre ao clique — descobre por acidente ou porque alguém contou. Os dois padrões em uso na indústria:
+
+| abordagem | quem usa | custo |
+|---|---|---|
+| ícone no hover | LinkedIn | invisível até passar o mouse — inútil em toque |
+| ícone sempre visível | Tumblr | descobre sem hover, ao custo de ruído |
+
+**O achado que decide o nosso caso** vem do teste do Fluid Project: **4 de 4 usuários não leram ou não entenderam a mensagem de instrução no topo da tela**. É evidência direta contra "resolver com legenda explicativa" — que é exatamente o que o mantenedor disse ("não estou falando de explicação"). A afordância tem de estar **na forma do campo**, não num texto ao lado.
+
+Ressalva de honestidade: um número de "80% dos usuários percebem a editabilidade" apareceu na busca como critério de sucesso do Fluid, mas **não consegui confirmá-lo na fonte** (a página de resultados não abriu com o conteúdo). Não usar esse número como meta até verificar.
+
+Fonte: [Fluid Project — Inline Edit User Testing Round 2](https://wiki.fluidproject.org/display/Infusion13/Simple+Text+Inline+Edit+User+Testing+-+Round+2) · [The Inline Edit Design Pattern — Andrew Coyle](https://medium.com/nextux/the-inline-edit-design-pattern-e6d46c933804) · [WebAppHuddle — inline edit design](https://webapphuddle.com/inline-edit-design/)
+
+---
+
+**D-D · Sugestão de IA indistinguível do formulário** (§8i) — *AI transparency*
+
+O consenso 2025-2026 tem três regras, e nós violamos a primeira: **marcar visualmente o que é gerado por máquina**, com atribuição de origem, explicação em linguagem simples e medida de confiança. A Apple formalizou isso numa gramática visual própria (contorno shimmer + princípio de deferência + atribuição de fonte).
+
+Duas travas que a literatura destaca, e que valem para nós:
+- **Não é para ser teatral.** Sparkle e brilho em tudo é o erro comum; o padrão pede deferência, não decoração.
+- **O risco real é o output confiante.** Quando a sugestão chega com a autoridade da interface, o usuário assume que está certa. Daí a exigência de dar visibilidade do *porquê* e caminho fácil de corrigir/descartar.
+
+**A favor da nossa implementação:** `BioAttributeSuggestions` já mostra o trecho de evidência e o % de confiança — os dois itens que a literatura pede. **Contra:** não há marcação visual que o separe do formulário, e ele mora *dentro* do campo de bio. **Decide F7.6:** o conserto é a marcação e o isolamento, não acrescentar informação.
+
+Fonte: [Designing for Apple Intelligence — AI UI patterns 2026](https://artofstyleframe.com/blog/designing-for-apple-intelligence-ui-2026/) · [Designing interfaces for AI products (2025)](https://www.parallelhq.com/blog/designing-interfaces-ai-products)
+
+---
+
+**D-E · URL crua no campo de imagem** (§8f) — *upload feedback*
+
+Consenso direto: o retorno de um upload é **a miniatura**, não a string. A prévia serve para o usuário confirmar que subiu o arquivo certo, e a confirmação visual evita que ele reenvie por não saber se funcionou. Nenhuma fonte trata devolver a URL como aceitável — ela é detalhe de implementação vazando para a tela.
+
+**Decide F6.4c:** prévia + trocar/remover, com a entrada por URL manual preservada para quem cola link.
+
+Fonte: [Uploadcare — file uploader UX best practices](https://uploadcare.com/blog/file-uploader-ux-best-practices/) · [UX Patterns for Developers — image upload](https://uxpatterns.dev/patterns/media/image-upload)
+
+---
+
+**D-F · Catálogo com irmãos duplicados** (§8e) — *entity resolution*
+
+O vocabulário certo para o nosso problema é **canonicalização**: converter representações múltiplas da mesma entidade numa forma única, com um *golden record* por entidade. `2024` e `Dungeons & Dragons 2024` são duas representações de uma entidade só, e o `path_slug` — que compara string, não identidade — nunca as reconheceria.
+
+**O princípio, que continua valendo mesmo com D30 revogada:** resolver **no momento da escrita** impede o usuário de criar dado ruim; a alternativa é limpar depois, para sempre. É a diferença entre a guarda (F6.3d) e a sétima tentativa de limpeza.
+
+Ressalva: a literatura de entity resolution trata de MDM em escala, com *blocking*, *matching* e *clustering*. **Nós não precisamos disso** — a nossa checagem é entre irmãos do mesmo pai, um conjunto de poucas dezenas. O que importa é o princípio (canonicalizar na escrita), não o maquinário.
+
+Fonte: [Things Solver — deduplication & entity resolution](https://thingsolver.com/blog/data-deduplication-and-entity-resolution/) · [Modern Data — entity resolution at scale](https://www.moderndata101.com/blogs/entity-resolution-at-scale-deduplication-strategies-for-knowledge-graph-construction)
+
+---
+
+**D-G · Slogan sem peso** (§8g) — sem fonte externa nova
+
+Não precisa: a medição interna já decide (`spec.md` §8h-bis). O campo de maior alcance da parte — hero, OG e SEO, pelo comentário do próprio código — é o de menor hierarquia da página. O princípio aplicável é o mesmo de D-B (peso visual proporcional à importância), e a correção é a mesma de F7.5d.
+
+---
+
+**D-H · Como exibir a descrição do destaque (2026-09-05)** — *pesquisa cobrada pelo mantenedor, que desconfiou de popover como resposta*
+
+A desconfiança estava certa: **a pesquisa derruba tanto o tooltip quanto o popover como escolha primária.**
+
+**O que a fonte de referência diz.** O Primer (design system do GitHub) dá três razões para evitar tooltip, e a primeira decide o nosso caso: *"Tooltips are hidden by default making it easy to miss, so they should never be used to convey critical information."* Some-se: são **inteiramente indisponíveis em toque** (touchscreen não tem hover), e em elemento não-interativo não alcançam teclado nem leitor de tela. A regra que eles fecham é dura: *"Only include tooltips on other components as a last resort"*, e nunca em `div`/`span`/`p`.
+
+A literatura WCAG 2.1 converge: tooltip serve para **informação suplementar curta**; instrução, requisito, erro e qualquer coisa essencial vão em **texto visível e persistente**.
+
+**Por que isto decide, e não é preferência.** **D26 já classificou** idioma, estilo, ponto forte e selos como **exibição obrigatória**. Logo a descrição do destaque é informação **essencial** — e essencial atrás de qualquer coisa que esconda por padrão é contradição interna da spec. Isso elimina:
+- **tooltip** — esconde por padrão, morre em toque;
+- **popover/disclosure** — continua escondendo por padrão. Resolve acessibilidade (um controle serve mouse, teclado e toque), **não resolve D26**;
+- **tooltip no desktop + inline no mobile** — duas verdades sobre o mesmo dado, e o dobro de código.
+
+**Decisão: texto visível e persistente.** A descrição do destaque aparece, sem gesto para revelá-la. Efeitos colaterais medidos, ambos favoráveis:
+- **Zero primitivo novo.** `packages/ui` não tem `Tooltip` (verificado: zero ocorrências), e construir um acessível + touch-friendly exigiria aprovação de pacote compartilhado (`AGENTS.md` §Autorização) — trabalho que deixa de existir.
+- **`MestreSellingPoints.tsx:29-30` já faz isso** (`<h3>{title}</h3><p>{description}</p>`). O defeito nunca foi a seção; foi o **hero** decapitar com `.map(p => p.title)` (`MestreHero.tsx:101-103`).
+
+**O que continua valendo de D27/D28:** clicar no destaque leva à seção onde a descrição está. Isso não é o mecanismo de exibição — é navegação entre o resumo do topo e o conteúdo completo, e permanece.
+
+Fonte: [Primer — Tooltip alternatives](https://primer.style/guides/accessibility/tooltip-alternatives) · [Primer — Accessibility: tooltip alternatives](https://primer.style/design/accessibility/tooltip-alternatives/) · [Sarah Higley — Tooltips in the time of WCAG 2.1](https://sarahmhigley.com/writing/tooltips-in-wcag-21/) · [Are Tooltips Accessible? WCAG tips](https://flook.co/blog/posts/are-tooltips-accessible)
+
+---
+
+**D-I · Cor não distingue os três grupos do hero — medido (2026-09-05)**
+
+F6.1d supunha que o `variant` já separava as categorias e que faltava só rótulo. **A conta desmente.** Cores de texto dos três variants no tema escuro (`packages/ui/src/styles.css:314-319`), contraste WCAG 2.x entre si:
+
+| par | contraste | leitura |
+|---|---|---|
+| `info` × `brand` (idioma × ponto forte) | **1,01:1** | praticamente a **mesma cor** |
+| `warning` × `info` | 1,25:1 | indistinguíveis |
+| `warning` × `brand` | 1,27:1 | indistinguíveis |
+
+Luminâncias: `warning` 0,6782 · `info` 0,5323 · `brand` 0,5243. É o mesmo defeito que **D19** já registrou nesta spec para `warning`×`info` (`spec.md:151`, contraste 1,00) — agora medido também para o par `info`×`brand`, que é justamente **idioma contra ponto forte**.
+
+**Consequência:** o rótulo de categoria (F6.1d) não é melhoria incremental sobre a cor — é o **único** separador que existiria. Hoje, em escala de cinza ou para quem tem daltonismo, os três grupos do hero são uma fileira homogênea de chips. Corrigir só a cor não resolve; o rótulo é obrigatório.
+
+---
+
+**As duas pendências desta pesquisa foram DECIDIDAS pelo mantenedor (2026-09-05), e uma delas corrige um erro meu:**
+
+- **D26 — ponto forte fica** (fechou F6.1e). Idioma, estilo, ponto forte e selos são exibição obrigatória. A pergunta "ponto forte deve aparecer?" estava mal colocada: o que se decide é a **forma**, nunca a presença.
+- **D25 — campo próprio de sistemas, acima ou ao lado dos VTTs** (fechou F6.3c). **A alternativa que ofereci — derivar dos sistemas das mesas publicadas — é ruim e está descartada.** Sistema é a **primeira** pergunta que o jogador faz (sistema → VTT → comunicação, nessa ordem); um mestre mestra sistemas que não estão anunciados no momento, e amarrar a resposta à existência de mesa ativa deixaria o perfil mudo exatamente quando não há mesa aberta.
+
+Isto tem consequência sobre D-A: **o corte no hero não pode fazer nenhum dos quatro resumos desaparecer sem caminho de volta.** Progressive disclosure aqui significa segundo nível rotulado e alcançável (D22/D23), nunca omissão.
+
+### Revisão adversarial do diff (2026-09-05) — o que ela derrubou
+
+Rodada por agente independente, com verificação contra código, catálogo real dos dois ambientes, git e testes. **As citações `arquivo:linha` do diff foram checadas uma a uma e nenhuma é inventada** — o problema estava nas conclusões, não nas medições. Os itens abaixo já foram reconferidos e corrigidos aqui; os dois primeiros continuam abertos porque dependem do mantenedor.
+
+**⚠ R1 — D27 (ex-D21) manda exibir tooltip de um campo que não existe.** O diff mede que `badges` é `TEXT[]` sem descrição (`migration_01_base_schema.sql:97`, editor `TagInput` puro em `GmProfileFields.tsx:246-261`) e registra a refutação em F6.2a — e na linha seguinte escreve "a descrição do selo passa a ser exibida em tooltip", com F6.2c mandando "preservar a descrição gravada". **Não há descrição gravada em `badges`. F6.2c é inexecutável contra o schema atual.**
+
+Duas leituras possíveis, com custos muito diferentes:
+- **"selo" = `selling_points`** (ponto forte): já tem `description` obrigatória (`profileEditorDomain.ts:47-49`) e já é exibida em `MestreSellingPoints.tsx:29-30`. Trabalho: apresentação.
+- **"selo" = `badges`** de fato: exige **migration nova** (coluna de descrição) + editor + API + página. Nenhuma task cobre isso.
+
+**Violação de `AGENTS.md` §Bug achado/débito**, que proíbe registrar "decisão do mantenedor" não dada: F6.2b foi escrita como "DECIDIDO pelo mantenedor: tooltip" sobre um campo que não existe — ou a fala dele foi mal transcrita, ou a decisão foi inferida. **Nenhuma task de F6.2 executa até ele dizer qual dos dois campos.**
+
+**⚠ R2 — A causa raiz de F6.3 é condição SÓ DE BETA, e o diagnóstico foi escrito como se produção estivesse quebrada.** Medido nos dois ambientes (39 nós cada):
+
+| ambiente | árvore D&D | duplicatas |
+|---|---|---|
+| **produção** | `D&D(36698ed7)` → **um** `5e(c324b0de)` → `2024(c3d31503)`, `2014`, `Next` | **nenhuma** |
+| beta | `D&D(5092ddb4)` → `5e(405ff13e)` **e** `5e(8b1402c4)`, cada uma com seu `2024`; mais `Vampire` **e** `Vampiro` | 2 famílias |
+
+`c3d31503` é o `new_id` da migration 148 — **ela funcionou em produção**. Consequências que derrubam texto já escrito:
+
+- §8e afirma sem qualificação "o catálogo está corrompido na raiz". Verdade em beta, **falso em produção**.
+- A medição 4 de F6.3 diz "nenhum dos dois UUIDs da migration 148 existe" — verdade em beta, falso em produção, onde `c3d31503` está servindo.
+- **A narrativa de "~6 tentativas frustradas" e "sétima tentativa" desmonta:** a última tentativa funcionou onde importa. As duplicatas de beta nasceram depois, em ambiente onde se aprovam sugestões de teste.
+- **D30 (ex-D24, "guarda antes de limpeza") perdeu a premissa.** A guarda continua sendo conserto legítimo de fonte, mas **não bloqueia nada em produção** — e a Camada 5 do `plan.md` hoje faz o trabalho de produção esperar pelo de beta. Pendente de decisão do mantenedor.
+
+**R3 — "Nenhum algoritmo pode acertar" é falso; há uma segunda trava não lida.** O diff cita `parseDiscordAnnouncement.ts:587` (`if (children[1]?.score === children[0].score) break;`) e generaliza. Mas **as linhas 589-593 do mesmo arquivo têm uma SEGUNDA guarda** (`duplicatedAtDeeperLevel`), que trata duplicação em nível mais profundo. O diff mediu o sintoma e atribuiu a 587 **sem instrumentar qual das duas dispara** — pode ser uma, outra, ou as duas em sequência. F6.3g partiria de diagnóstico não medido.
+
+E a generalização é falsa como engenharia: com `path_slug` distinto e nomes distintos (`2024` vs `Dungeons & Dragons 2024`), **há** informação para desempatar. O algoritmo escolhe não usar — é decisão de produto (preferir ambiguidade a chute), não impossibilidade.
+
+**R4 — O editor JÁ obedece D25; só o perfil público não.** Medido:
+- **Perfil público** (`MestrePage.tsx`): `MestreBio`(134) → `MestreHighlights`(138) → `MestreSellingPoints`(140) → `MestreVttPlatforms`(142-147) → comunicação(153-161). **Sistemas não existe.** Para D25, o campo entra **antes da linha 142**.
+- **Editor** (`ProfileEditPage.tsx`): "Sistemas que Mestra"(811-816) → grupo fechado(830) → VTT+comunicação(860-893). **Já está na ordem de D25**, com 45 linhas de folga.
+
+F6.3c2 mandava mudar os dois lugares sem ter aberto o arquivo — que estava citado três linhas acima. **Achado lateral:** pela lógica de D25, o `ClosedGroupSection`(830) está **entre** sistemas e VTT no editor; se a ordem é a da decisão do jogador, preço/grupo fechado não pertence ali.
+
+**R5 — O tooltip de D27 não funciona em toque, e não há primitivo.** Verificado: **`packages/ui` não tem componente `Tooltip`** (busca devolve zero). Os únicos tooltips do `mesas` são `title=` nativo, que não abre em toque nem por teclado. Num produto onde o jogador procura mesa pelo celular, "a descrição aparece no hover" significa "a descrição não aparece".
+
+Construir tooltip acessível + touch-friendly é trabalho em `packages/ui`, que por `AGENTS.md` §Autorização **exige aprovação + verificação de impacto nos consumidores** — nenhuma task registra isso. **E D27 colide com D26:** D26 diz "selos são exibição obrigatória", D27 diz "aparece escondido atrás de hover". Alternativa melhor sustentada pela literatura e não avaliada: **popover/disclosure clicável** (mesmo controle serve mouse, teclado e toque), ou exibir direto na seção.
+
+**R6 — O perfil público foi medido com muito menos rigor que o editor.**
+- **Mobile não medido.** `MestreHero.css`: `.hero-attributes`(207) é `flex-wrap:wrap` sem nenhuma regra no `@media (max-width:768px)`(271). Os chips já quebram em várias linhas no celular — o argumento de D2 ("dois por categoria para não empurrar o CTA para fora da primeira tela") **é mais forte no mobile**, e o rótulo que F6.1d pede custa altura exatamente onde ela é mais cara. Trade-off não reconhecido em task nenhuma.
+- **Tema claro não medido.** F6.1d diz que os `variant` diferem (`warning`/`brand`/`info`), mas **D19 desta mesma spec** (`spec.md:151`) já mediu `warning`×`info` com **contraste 1,00 entre si, luminância idêntica**. Se os tokens do `Badge` partilham essa raiz, os três chips podem ser indistinguíveis **mesmo com cor** — o que agrava F6.1d em vez de resolvê-la com rótulo.
+- **`MestreHighlights` NÃO renderiza `selling_points`** (verificado: linhas 20-22 leem só `specialties`, `languages`, `badges`). F6.1 achado 3 afirma "a lista completa existe mais abaixo" — verdade para especialidade e idioma, **falso para ponto forte**, que vai para outra seção com outro título. Importa para F6.1c: o indicador de continuação aponta para **duas** seções distintas conforme o grupo cortado, não uma.
+
+**R7 — "37 chaves" está errado; são 36.** Medido em produção. A **conclusão continua sólida** e foi confirmada por dois caminhos: nenhuma das 36 vem de `user_systems`, e `rtk rg "user_systems" apps/mesas/backend/src/routes/gm.ts` devolve **zero**. §8d/F6.3c segue sendo o achado mais firme do diff. O número errado fica registrado porque é exatamente o tipo de dado que o mantenedor não tem como auditar.
+
+**R8 — Colisão de numeração (CORRIGIDA).** O bloco novo criou um segundo **D21**, com `spec.md:149` já usando esse código para "Linha de campo vazio no editor → Adicionar". Renumerados: D21→**D27**, D22→**D28**, D23→**D29**, D24→**D30**. D25 e D26 mantidos.
+
+**R9 — `F7.2a` duplicada (CORRIGIDA).** Aparecia duas vezes, aberta e fechada, no mesmo arquivo — empilhamento proibido por `AGENTS.md`, em escala pequena. A versão aberta foi removida.
+
+**R10 — Caminho de migration citado sem diretório.** É `apps/mesas/database/`, não `backend/migrations/`. As linhas citadas estão certas.
+
+**R11 — F7.7 é escopo aberto disfarçado de task.** Nove itens sem critério objetivo, fechando por julgamento. O alcance que o mantenedor declarou é real; falta quebrar em vereditos com dono.
+
+---
+
+**O que a revisão confirmou como CERTO** (verificado, não precisa reolhar): todas as citações de `MestreHero.tsx` (85-87, 88-110, 96, 101-103, 108) e o render em 259-268, que confirma a fileira única sem rótulo; `MestreHighlights` sem `slice`; `MestreSellingPoints.tsx:29-30`; `MestrePage.tsx:138,140,92-102`; `profileEditorDomain.ts:47-49`; **toda a tabela §8h-bis** (5 partes, 13 blocos, 9 sem subtítulo) linha a linha; `systemSuggestionsAdmin.ts:259-298`; `parseDiscordAnnouncement.ts:551,587`; **F6.4 inteira** (`83ec390` ancestral de `main`, `dev`==`main`==`0c8531b`, contagem 0); 13/13 testes.
+
+Duas nuances menores: `systemSuggestionsAdmin.ts:295` casa `message.includes('duplicate')` genérico, não slug explicitamente — o diagnóstico procede, a mecânica é mais frouxa que o descrito. E **F7.5f é a task mais bem-feita do conjunto**: decide o *não-fazer* com razão medida e exige a decisão registrada em vez de omissão.
+
 ## Arquivos afetados
 
 ### `packages/ui`
