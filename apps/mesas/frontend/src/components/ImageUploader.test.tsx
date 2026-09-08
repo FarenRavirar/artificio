@@ -103,6 +103,20 @@ describe('ImageUploader — URL de imagem hospedada (F6.4c/F6.4d)', () => {
     expect(campo.value).toBe(externa);
   });
 
+  it('não confunde nome de ARQUIVO com nome de pasta', () => {
+    // A primeira versão do predicado procurava a pasta em qualquer segmento do
+    // caminho — então um arquivo chamado `artificio_profile_banners` passava por
+    // upload nosso. O teste anterior usava só `/foto.jpg` e não exercitava essa
+    // colisão (achado de review, PR #310, segunda passagem).
+    const externa =
+      'https://res.cloudinary.com/outra-conta/image/upload/v1/fotos/artificio_profile_banners';
+    const { container } = renderUploader(externa);
+
+    const campo = container.querySelector('#teste-banner-url') as HTMLInputElement;
+    expect(campo).toBeTruthy();
+    expect(campo.value).toBe(externa);
+  });
+
   it('mantém visível o link externo que o próprio mestre digitou', () => {
     // Link mantido por "Manter link direto": ele reconhece a URL porque a
     // digitou, e escondê-la tiraria a única forma de conferi-la.

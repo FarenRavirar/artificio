@@ -154,10 +154,26 @@ export function isImageKind(value: unknown): value is ImageKind {
  * Usar o mesmo predicado para as duas perguntas escondia o link de terceiro
  * como se fosse upload nosso (achado de review, PR #310).
  *
- * O critério é a PASTA, não o cloud name: `folder` já é a fonte única de onde
- * cada tipo de imagem é gravado (`IMAGE_KINDS` abaixo), e o backend a escolhe —
- * o frontend não precisa conhecer credencial nenhuma nem depender de env que
- * pode faltar no build. Pasta nova entra aqui junto com o `kind`, num lugar só.
+ * O critério é a PASTA, **na posição em que o nosso upload a grava**: logo
+ * depois de `image/upload/`, tolerando o segmento de versão (`v123…`) e nada
+ * mais. `folder` já é a fonte única de onde cada tipo de imagem é gravado
+ * (`IMAGE_KINDS` abaixo) e o backend a escolhe, então pasta nova entra aqui
+ * junto com o `kind`, num lugar só.
+ *
+ * **Por que não o cloud name** (achado de review, PR #310, segunda passagem): o
+ * cloud name da conta vive só no backend (`process.env.CLOUDINARY_CLOUD_NAME`,
+ * sem prefixo `VITE_`). Medido: `VITE_CLOUDINARY_CLOUD_NAME` existe como
+ * build-arg no Dockerfile e nos compose, mas **nenhuma linha de `src/` a lê** e
+ * **nenhum workflow a valida** — um predicado de render que dependesse dela se
+ * comportaria diferente conforme o build, e um build sem a env esconderia o
+ * campo de todo mundo. Isso é pior que a colisão que resta.
+ *
+ * **A colisão que resta, dita por inteiro:** um terceiro que hospede em
+ * `<outra-conta>/image/upload/artificio_profile_banners/…` ainda passa. O dano é
+ * limitado à exibição (o campo de link fica escondido atrás de um clique, com a
+ * prévia mostrando a imagem certa); nada é gravado, importado ou apagado por
+ * causa disso. Fechar de vez exige o cloud name no frontend, que é mudança de
+ * build — decisão do mantenedor, não inferência minha.
  */
 export function isArtificioHostedImage(url: string): boolean {
   let parsed: URL;
@@ -171,11 +187,20 @@ export function isArtificioHostedImage(url: string): boolean {
     parsed.hostname === "res.cloudinary.com" || parsed.hostname.endsWith(".cloudinary.com");
   if (!isCloudinary) return false;
 
-  // O caminho do Cloudinary é `/<cloud>/image/upload/<transform?>/<folder>/<id>`;
-  // procurar o segmento em qualquer posição evita depender do formato exato da
-  // versão ou das transformações que podem aparecer no meio.
-  const segmentos = new Set(parsed.pathname.split("/").filter(Boolean));
-  return Object.values(IMAGE_KINDS).some((spec) => segmentos.has(spec.folder));
+  // `/<cloud>/image/upload/<v123?>/<folder>/<id>`. A primeira versão desta
+  // função procurava a pasta em QUALQUER segmento, o que aceitava `<id>` ou um
+  // parâmetro de transformação com o mesmo nome. Aqui a posição é exigida: o
+  // segmento seguinte a `upload`, pulando só a versão.
+  const segmentos = parsed.pathname.split("/").filter(Boolean);
+  const posUpload = segmentos.indexOf("upload");
+  if (posUpload === -1) return false;
+
+  let posPasta = posUpload + 1;
+  if (/^v\d+$/.test(segmentos[posPasta] ?? "")) posPasta += 1;
+
+  const pasta = segmentos[posPasta];
+  if (!pasta) return false;
+  return Object.values(IMAGE_KINDS).some((spec) => spec.folder === pasta);
 }
 
 export function imageKindSpec(kind: unknown): ImageKindSpec {

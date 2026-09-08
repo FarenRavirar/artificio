@@ -334,6 +334,81 @@ describe('createNode — irmão semanticamente equivalente (spec 100 F6.3d)', ()
     }
   }, 20_000);
 
+  it('reconhece o prefixo do pai pelo `name_pt` dele, não só pelo `name`', async () => {
+    const db = new PGlite();
+    activeDb = db;
+    try {
+      await db.exec(readFileSync(new URL('../migrations/006_catalog_foundation.sql', import.meta.url), 'utf8'));
+      // Pai canônico depois da migration 013: `Vampire` / `Vampiro`.
+      await db.query(
+        `INSERT INTO catalog_nodes (id, node_type, canonical_slug, path_slug, name, name_pt)
+         VALUES ('vamp', 'system', 'vampire', 'vampire', 'Vampire', 'Vampiro')`,
+      );
+      await db.query(
+        `INSERT INTO catalog_nodes (id, parent_id, node_type, canonical_slug, path_slug, name)
+         VALUES ('vamp5e', 'vamp', 'edition', '5e', 'vampire/5e', '5e')`,
+      );
+
+      // `Vampiro 5e` usa a tradução como prefixo. Comparando só contra o `name`
+      // do pai, sobrava `vampiro 5e` contra `5e` e a linhagem paralela nascia.
+      await expect(
+        createNode(
+          {
+            parent_id: 'vamp',
+            node_type: 'edition',
+            name: 'Vampiro 5e',
+            name_pt: null,
+            description: null,
+            official_website_url: null,
+            logo_media_id: null,
+            aliases: [],
+          },
+          'admin-1',
+        ),
+      ).rejects.toThrow('duplicate_sibling_node');
+    } finally {
+      activeDb = null;
+      await db.close();
+    }
+  }, 20_000);
+
+  it('reconhece o prefixo do pai por um ALIAS dele', async () => {
+    const db = new PGlite();
+    activeDb = db;
+    try {
+      await db.exec(readFileSync(new URL('../migrations/006_catalog_foundation.sql', import.meta.url), 'utf8'));
+      await db.query(
+        `INSERT INTO catalog_nodes (id, node_type, canonical_slug, path_slug, name)
+         VALUES ('dd', 'system', 'dungeons-dragons', 'dungeons-dragons', 'Dungeons & Dragons')`,
+      );
+      await db.query("INSERT INTO catalog_aliases (node_id, alias) VALUES ('dd', 'DnD')");
+      await db.query(
+        `INSERT INTO catalog_nodes (id, parent_id, node_type, canonical_slug, path_slug, name)
+         VALUES ('dd5e', 'dd', 'edition', '5e', 'dungeons-dragons/5e', '5e')`,
+      );
+
+      // Quem sugere escreve "DnD 5e" tanto quanto "Dungeons & Dragons 5e".
+      await expect(
+        createNode(
+          {
+            parent_id: 'dd',
+            node_type: 'edition',
+            name: 'DnD 5e',
+            name_pt: null,
+            description: null,
+            official_website_url: null,
+            logo_media_id: null,
+            aliases: [],
+          },
+          'admin-1',
+        ),
+      ).rejects.toThrow('duplicate_sibling_node');
+    } finally {
+      activeDb = null;
+      await db.close();
+    }
+  }, 20_000);
+
   it('o mesmo nome sob OUTRO pai continua válido — "5e" existe em vários sistemas', async () => {
     const db = new PGlite();
     activeDb = db;

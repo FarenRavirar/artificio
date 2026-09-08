@@ -10,7 +10,7 @@ import { writeRateLimiter } from '../middleware/rateLimit';
 import { emitNotification } from '../services/notify';
 import { deliverPendingNotifications } from '../services/notificationOutboxDelivery';
 import { logModerationAudit } from '../services/moderationAuditLog';
-import { archiveCatalogNode } from '@artificio/catalog-client';
+import { archiveCatalogNode, DUPLICATE_SIBLING_MESSAGE, isDuplicateSiblingError } from '@artificio/catalog-client';
 import { loadCatalogSystemsFlat, createCatalogNode, addCatalogNodeAlias, resolveTaxonomyIds, type FlatCatalogSystem } from '../services/catalogClient';
 
 const router = Router();
@@ -301,11 +301,8 @@ function resolveErrorResponse(res: Response, error: unknown) {
       // resolver" onde a resposta correta é "esse nó já existe". A mesma
       // tradução existe no `mesas`, pelo mesmo motivo: a guarda é do catálogo,
       // e vale para todo app que cria nó.
-      if (message.includes('duplicate_sibling_node')) {
-        return res.status(409).json({
-          error:
-            'Já existe um nó equivalente sob o mesmo pai (mesmo nome ou apelido, ignorando acento, caixa e o nome do pai). Use o existente ou acrescente um apelido a ele.',
-        });
+      if (isDuplicateSiblingError(error)) {
+        return res.status(409).json({ error: DUPLICATE_SIBLING_MESSAGE });
       }
       console.error('[POST /admin/system-suggestions/:id/resolve]', error);
       return res.status(500).json({ error: 'Erro ao resolver sugestão.' });

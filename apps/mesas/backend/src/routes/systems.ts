@@ -10,6 +10,7 @@ import {
   type MesasSystemNode,
 } from '../services/catalogClient.js';
 import { getSystemCatalogProvider } from '../services/systemCatalogProvider.js';
+import { DUPLICATE_SIBLING_MESSAGE, isDuplicateSiblingError } from '@artificio/catalog-client';
 
 export { slugifyCatalogSegment as slugify } from '../services/catalogClient.js';
 
@@ -286,6 +287,10 @@ async function countLocalTables(systemId: string): Promise<number> {
 function handleCatalogWriteError(error: unknown, res: Response, scope: string) {
   const message = error instanceof Error ? error.message : 'Erro no catálogo central.';
   if (message.includes('parent_not_found')) return res.status(404).json({ error: 'Sistema pai não encontrado.' });
+  // Antes do reconhecedor compartilhado, `duplicate` cobria os dois conflitos e
+  // dizia "este slug" — errado para o irmão equivalente, cujo slug pode ser
+  // DISTINTO (é o furo que a guarda fecha). Achado de review, PR #310.
+  if (isDuplicateSiblingError(error)) return res.status(409).json({ error: DUPLICATE_SIBLING_MESSAGE });
   if (message.includes('duplicate')) return res.status(409).json({ error: 'Já existe um sistema com este slug.' });
   if (message.includes('só pode ser filho')) return res.status(400).json({ error: message });
   console.error(`${scope} central catalog failed`, error);

@@ -246,6 +246,7 @@ async function createLocalNode(input: CatalogNodeInput): Promise<MesasSystemNode
         .executeTakeFirst()
       : null;
     assertLocalParent(input, parent ?? null);
+    await assertNoEquivalentLocalSibling(trx, input);
 
     const segment = slugifyCatalogSegment(input.name);
     if (!segment) throw new Error('slug_required');
@@ -273,6 +274,123 @@ async function createLocalNode(input: CatalogNodeInput): Promise<MesasSystemNode
   });
 
   return requireLocalNode(createdId);
+}
+
+/**
+ * Recusa irmão semanticamente equivalente no catálogo LOCAL (spec 100 F6.3d,
+ * achado de review na PR #310).
+ *
+ * **Este é o caminho que produziu o defeito.** `resolveSystemCatalogSource`
+ * manda `APP_ENV=beta` para o provider local (linha 50), e
+ * `docker-compose.beta.yml:57` define exatamente isso — então a guarda que
+ * entrou no catálogo central (`apps/site/db/repo/catalog.ts`) protegia
+ * produção, que a medição de F6.3e já mostrara **limpa**, e deixava aberta
+ * justamente a fábrica de beta, onde nasceram as duas edições "5e" irmãs.
+ * Guardar só um dos dois lados era guardar o lado errado.
+ *
+ * A comparação espelha `assertNoEquivalentSibling` de
+ * `apps/site/db/repo/catalog.ts`. Espelho deliberado, não pacote compartilhado:
+ * o site é o DONO do catálogo e os outros apps puxam dele — fazer o dono
+ * importar um pacote do lado consumidor inverteria a direção da dependência.
+ *
+ * **Serialização:** o `SELECT ... FOR UPDATE` sobre o pai trava a linha até o
+ * commit, então duas aprovações simultâneas sob o mesmo pai não passam ambas
+ * pela leitura antes de qualquer inserção. Para nó raiz (`parent_id` nulo) não
+ * há linha a travar; o risco de corrida ali é menor (sistema novo é raro e
+ * revisado), e travar a tabela inteira custaria mais do que resolve.
+ */
+async function assertNoEquivalentLocalSibling(
+  trx: LocalTransaction,
+  input: CatalogNodeInput,
+): Promise<void> {
+  const parentId = input.parent_id ?? null;
+
+  if (parentId) {
+    await trx.selectFrom('systems')
+      .select('id')
+      .where('id', '=', parentId)
+      .forUpdate()
+      .execute();
+  }
+
+  const irmaos = await trx.selectFrom('systems')
+    .select(['id', 'name', 'name_pt'])
+    .where((eb) => (parentId ? eb('parent_id', '=', parentId) : eb('parent_id', 'is', null)))
+    .where('catalog_status', '=', 'active')
+    .execute();
+
+  if (irmaos.length === 0) return;
+
+  const idsParaAlias = parentId ? [...irmaos.map((n) => n.id), parentId] : irmaos.map((n) => n.id);
+  const aliasRows = await trx.selectFrom('system_aliases')
+    .select(['system_id', 'alias'])
+    .where('system_id', 'in', idsParaAlias)
+    .execute();
+
+  const aliasesPorNo = new Map<string, string[]>();
+  for (const row of aliasRows) {
+    const lista = aliasesPorNo.get(row.system_id);
+    if (lista) lista.push(row.alias);
+    else aliasesPorNo.set(row.system_id, [row.alias]);
+  }
+
+  const pai = parentId
+    ? await trx.selectFrom('systems')
+      .select(['id', 'name', 'name_pt'])
+      .where('id', '=', parentId)
+      .executeTakeFirst()
+    : undefined;
+
+  // Prefixos do mais longo para o mais curto: com "Vampire" e "Vampiro" na
+  // lista, tirar o errado primeiro deixaria resto que não casa com nada.
+  const chavesDoPai = pai
+    ? [pai.name, pai.name_pt ?? '', ...(aliasesPorNo.get(pai.id) ?? [])]
+      .map(normalizarIdentidadeDeCatalogo)
+      .filter((chave) => chave.length > 0)
+      .sort((a, b) => b.length - a.length)
+    : [];
+
+  const semPrefixoDoPai = (valor: string): string => {
+    const chave = normalizarIdentidadeDeCatalogo(valor);
+    for (const chaveDoPai of chavesDoPai) {
+      if (chave === chaveDoPai) return chave;
+      if (chave.startsWith(`${chaveDoPai} `)) return chave.slice(chaveDoPai.length + 1);
+    }
+    return chave;
+  };
+
+  const candidatas = new Set(
+    [input.name, input.name_pt ?? '', ...(input.aliases ?? [])]
+      .map(semPrefixoDoPai)
+      .filter((chave) => chave.length > 0),
+  );
+  if (candidatas.size === 0) return;
+
+  for (const irmao of irmaos) {
+    const existentes = [irmao.name, irmao.name_pt ?? '', ...(aliasesPorNo.get(irmao.id) ?? [])]
+      .map(semPrefixoDoPai);
+    if (existentes.some((chave) => chave.length > 0 && candidatas.has(chave))) {
+      throw new Error('duplicate_sibling_node');
+    }
+  }
+}
+
+/**
+ * Identidade comparável de um nome de catálogo: minúsculas, sem acento e sem
+ * pontuação. É o que faz `Vampiro` e `vampiro`, ou `D&D` e `d d`, colidirem.
+ *
+ * Espelha `normalizeCatalogIdentity` de `apps/site/db/repo/catalog.ts`, e a
+ * duplicação é deliberada: o site é o DONO do catálogo e o `mesas` mantém um
+ * espelho local para beta. Fazer o site importar um pacote do lado consumidor
+ * inverteria a direção da dependência.
+ */
+function normalizarIdentidadeDeCatalogo(valor: string): string {
+  return valor
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 }
 
 async function updateLocalNode(id: string, input: CatalogNodeInput): Promise<MesasSystemNode | null> {

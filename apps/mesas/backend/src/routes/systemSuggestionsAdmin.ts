@@ -31,6 +31,7 @@ import {
   type MesasSystemNode,
 } from '../services/catalogClient.js';
 import { getSystemCatalogProvider } from '../services/systemCatalogProvider.js';
+import { DUPLICATE_SIBLING_MESSAGE, isDuplicateSiblingError } from '@artificio/catalog-client';
 
 const loadCatalogFlat = () => getSystemCatalogProvider().loadFlat();
 const createCatalogNode = (input: CatalogNodeInput) => getSystemCatalogProvider().createNode(input);
@@ -296,7 +297,7 @@ async function createSystemNode(
     // equivalente, não só slug repetido. São causas diferentes e o admin
     // precisa ler a certa — "já existe com este caminho" mandaria ele procurar
     // um slug que não é o problema.
-    if (message.includes('duplicate_sibling_node')) {
+    if (isDuplicateSiblingError(error)) {
       throw new Error('DUPLICATE_SIBLING_NODE', { cause: error });
     }
     if (message.includes('duplicate')) throw new Error('PATH_SLUG_CONFLICT', { cause: error });
@@ -404,7 +405,7 @@ async function performApprove(
     // equivalente, não só slug repetido. São causas diferentes e o admin
     // precisa ler a certa — "já existe com este caminho" mandaria ele procurar
     // um slug que não é o problema.
-    if (message.includes('duplicate_sibling_node')) {
+    if (isDuplicateSiblingError(error)) {
       throw new Error('DUPLICATE_SIBLING_NODE', { cause: error });
     }
     if (message.includes('duplicate')) throw new Error('PATH_SLUG_CONFLICT', { cause: error });
@@ -507,10 +508,7 @@ router.patch('/system-suggestions/:id/approve', async (req: Request, res: Respon
     // e o admin leria "erro ao aprovar" onde a resposta correta é "esse nó já
     // existe".
     if (message === 'DUPLICATE_SIBLING_NODE') {
-      return res.status(409).json({
-        error:
-          'Já existe um nó equivalente sob o mesmo pai (mesmo nome ou apelido, ignorando acento, caixa e o nome do pai). Use o existente ou acrescente um apelido a ele.',
-      });
+      return res.status(409).json({ error: DUPLICATE_SIBLING_MESSAGE });
     }
 
     return res.status(500).json({ error: 'Erro ao aprovar sugestão.' });
@@ -1138,10 +1136,7 @@ function resolveErrorResponse(res: Response, error: unknown) {
     case 'PATH_SLUG_CONFLICT':
       return res.status(409).json({ error: 'Já existe um sistema com este caminho.' });
     case 'DUPLICATE_SIBLING_NODE':
-      return res.status(409).json({
-        error:
-          'Já existe um nó equivalente sob o mesmo pai (mesmo nome ou apelido, ignorando acento, caixa e o nome do pai). Use o existente ou acrescente um apelido a ele.',
-      });
+      return res.status(409).json({ error: DUPLICATE_SIBLING_MESSAGE });
     case 'CHAIN_INVALID':
       return res.status(400).json({ error: 'Cadeia de sugestão inválida.' });
     case 'SIMILAR_EXISTS': {

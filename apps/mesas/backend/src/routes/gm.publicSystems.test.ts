@@ -133,6 +133,29 @@ describe('GET /api/v1/gm/perfis/:slug — sistemas do mestre (spec 100 F6.3c/F6.
     expect(res.body.data.gm_systems).toEqual([{ id: 'pf2e', name: 'Pathfinder 2e' }]);
   });
 
+  it('falha do NOSSO banco vira 500, não perfil com lista vazia', async () => {
+    // A tolerância existe para o catálogo, que é dependência externa. Falha da
+    // nossa própria tabela devolvendo 200 com `[]` seria indistinguível de
+    // "este mestre não cadastrou sistema" — o defeito de F6.3c reaparecendo
+    // como silêncio (achado de review, PR #310).
+    (db.selectFrom as Mock).mockImplementation((table: string) => {
+      const chain: Record<string, unknown> = {};
+      for (const metodo of ['innerJoin', 'leftJoin', 'select', 'where', 'orderBy']) {
+        chain[metodo] = vi.fn().mockReturnValue(chain);
+      }
+      chain.executeTakeFirst = vi.fn().mockResolvedValue(table.startsWith('gm_profiles') ? PERFIL : undefined);
+      chain.execute = vi.fn(async () => {
+        if (table === 'user_systems') throw new Error('conexão perdida');
+        return [];
+      });
+      return chain;
+    });
+
+    const res = await request(makeApp()).get('/api/v1/gm/perfis/mestre-teste');
+
+    expect(res.status).toBe(500);
+  });
+
   it('catálogo indisponível não derruba o perfil inteiro', async () => {
     // Mesma escolha de `hydrateTableSystemFields`: o resto da ficha é útil sem
     // a lista de sistemas, e 500 aqui apagaria o perfil por uma dependência

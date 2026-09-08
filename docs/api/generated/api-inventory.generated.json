@@ -913,7 +913,7 @@
       "method": "POST",
       "path": "/api/v1/admin/system-suggestions/:id/resolve",
       "sourceFile": "apps/downloads/backend/src/routes/systemSuggestionsAdmin.ts",
-      "line": 320,
+      "line": 317,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3505,7 +3505,7 @@
       "method": "GET",
       "path": "/api/v1/admin/system-suggestions",
       "sourceFile": "apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts",
-      "line": 337,
+      "line": 338,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3514,7 +3514,7 @@
       "method": "PATCH",
       "path": "/api/v1/admin/system-suggestions/:id/approve",
       "sourceFile": "apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts",
-      "line": 472,
+      "line": 473,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3523,7 +3523,7 @@
       "method": "GET",
       "path": "/api/v1/admin/system-suggestions/:id/candidates",
       "sourceFile": "apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts",
-      "line": 341,
+      "line": 342,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3532,7 +3532,7 @@
       "method": "PATCH",
       "path": "/api/v1/admin/system-suggestions/:id/reject",
       "sourceFile": "apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts",
-      "line": 521,
+      "line": 519,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -3541,7 +3541,7 @@
       "method": "POST",
       "path": "/api/v1/admin/system-suggestions/:id/resolve",
       "sourceFile": "apps/mesas/backend/src/routes/systemSuggestionsAdmin.ts",
-      "line": 1162,
+      "line": 1157,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4099,7 +4099,7 @@
       "method": "POST",
       "path": "/api/v1/gm/perfis/:slug/contact",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 600,
+      "line": 605,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4108,7 +4108,7 @@
       "method": "POST",
       "path": "/api/v1/gm/perfis/:slug/contact-click",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 672,
+      "line": 677,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4117,7 +4117,7 @@
       "method": "GET",
       "path": "/api/v1/gm/perfis/:slug/insights",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 547,
+      "line": 552,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4126,7 +4126,7 @@
       "method": "GET",
       "path": "/api/v1/gm/perfis/:slug/reviews",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 718,
+      "line": 723,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4135,7 +4135,7 @@
       "method": "POST",
       "path": "/api/v1/gm/perfis/:slug/reviews",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 766,
+      "line": 771,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4144,7 +4144,7 @@
       "method": "POST",
       "path": "/api/v1/gm/perfis/:slug/view",
       "sourceFile": "apps/mesas/backend/src/routes/gm.ts",
-      "line": 479,
+      "line": 484,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4621,7 +4621,7 @@
       "method": "GET",
       "path": "/api/v1/systems",
       "sourceFile": "apps/mesas/backend/src/routes/systems.ts",
-      "line": 28,
+      "line": 29,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4639,7 +4639,7 @@
       "method": "POST",
       "path": "/api/v1/systems/admin",
       "sourceFile": "apps/mesas/backend/src/routes/systems.ts",
-      "line": 142,
+      "line": 143,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4648,7 +4648,7 @@
       "method": "DELETE",
       "path": "/api/v1/systems/admin/:id",
       "sourceFile": "apps/mesas/backend/src/routes/systems.ts",
-      "line": 198,
+      "line": 199,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4657,7 +4657,7 @@
       "method": "PUT",
       "path": "/api/v1/systems/admin/:id",
       "sourceFile": "apps/mesas/backend/src/routes/systems.ts",
-      "line": 168,
+      "line": 169,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4666,7 +4666,7 @@
       "method": "GET",
       "path": "/api/v1/systems/health",
       "sourceFile": "apps/mesas/backend/src/routes/systems.ts",
-      "line": 18,
+      "line": 19,
       "confidence": "high",
       "kind": "express-route"
     },

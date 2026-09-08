@@ -5,6 +5,7 @@ import {
   createCatalogNode,
   updateCatalogNode,
   slugifyCatalogSegment,
+  isDuplicateSiblingError,
 } from './index.js';
 
 describe('catalogFetch', () => {
@@ -260,5 +261,31 @@ describe('createCatalogNode / updateCatalogNode', () => {
     await updateCatalogNode('node-1', { name: 'D&D', node_type: 'system', aliases: [] });
 
     expect(bodyOf(spy).aliases).toEqual([]);
+  });
+});
+
+describe('isDuplicateSiblingError', () => {
+  // `catalogFetch` embrulha a resposta na mensagem do `Error`; sem um
+  // reconhecedor único, cada app testava isso por conta própria e errava de
+  // forma diferente — o `glossario` chegava a devolver 503 para uma duplicata
+  // determinística (achado de review, PR #310).
+  it('reconhece o erro como `catalogFetch` o entrega', () => {
+    expect(
+      isDuplicateSiblingError(
+        new Error('catalog_409: {"error":"duplicate_sibling_node"}'),
+      ),
+    ).toBe(true);
+  });
+
+  it('não confunde com o conflito de slug, que é outro caso e outra mensagem', () => {
+    expect(
+      isDuplicateSiblingError(new Error('catalog_409: {"error":"duplicate_catalog_node"}')),
+    ).toBe(false);
+  });
+
+  it('tolera entrada que não é Error', () => {
+    expect(isDuplicateSiblingError(null)).toBe(false);
+    expect(isDuplicateSiblingError(undefined)).toBe(false);
+    expect(isDuplicateSiblingError('duplicate_sibling_node')).toBe(true);
   });
 });

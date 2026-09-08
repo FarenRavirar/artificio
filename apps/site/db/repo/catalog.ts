@@ -336,10 +336,15 @@ export async function updateNode(id: string, input: Partial<CatalogNodeWrite>, a
  * `Dungeons & Dragons 2024`) — que é precisamente o que esta guarda acrescenta
  * ao índice. Os dois testes de `catalog.test.ts` fixam a diferença.
  */
+
+/**
+ * Identidade comparável de um nome de catálogo: minúsculas, sem acento e sem
+ * pontuação. É o que faz `Vampiro` e `vampiro`, ou `D&D` e `d d`, colidirem.
+ */
 function normalizeCatalogIdentity(value: string): string {
   return value
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
@@ -371,15 +376,45 @@ async function assertNoEquivalentSibling(client: DbClient, input: CatalogNodeWri
   // O nome do pai como prefixo é ruído, não identidade: sob "Dungeons &
   // Dragons", o nó se chama "2024" ou "Dungeons & Dragons 2024" conforme quem
   // sugeriu, e os dois nomeiam a mesma edição.
-  const parentName = parentId
-    ? (await client.query<{ name: string }>("SELECT name FROM catalog_nodes WHERE id = $1", [parentId])).rows[0]?.name
+  //
+  // **TODAS as identidades do pai, não só `name`** (achado de review, PR #310,
+  // segunda passagem): o pai canônico de hoje é `name: 'Vampire'`,
+  // `name_pt: 'Vampiro'`. Com um irmão `5e` existente, `Vampiro 5e` comparava
+  // `vampiro 5e` contra `5e` e PASSAVA — a linhagem paralela que a
+  // `migration_013` consolidou, reaberta pelo prefixo traduzido. Aliases entram
+  // pelo mesmo motivo: quem sugere escreve "DnD 5e" tanto quanto
+  // "Dungeons & Dragons 5e".
+  const parentRow = parentId
+    ? (
+        await client.query<{ name: string; name_pt: string | null; aliases: string[] }>(
+          `SELECT n.name,
+                  n.name_pt,
+                  COALESCE(ARRAY_AGG(a.alias) FILTER (WHERE a.alias IS NOT NULL), '{}') AS aliases
+             FROM catalog_nodes n
+             LEFT JOIN catalog_aliases a ON a.node_id = n.id
+            WHERE n.id = $1
+            GROUP BY n.name, n.name_pt`,
+          [parentId],
+        )
+      ).rows[0]
     : null;
-  const parentKey = parentName ? normalizeCatalogIdentity(parentName) : "";
+
+  // Prefixos do mais longo para o mais curto: com "Vampire" e "Vampiro" na
+  // lista, tirar o errado primeiro deixaria resto que não casa com nada.
+  const parentKeys = parentRow
+    ? [parentRow.name, parentRow.name_pt ?? "", ...(parentRow.aliases ?? [])]
+        .map(normalizeCatalogIdentity)
+        .filter((key) => key.length > 0)
+        .sort((a, b) => b.length - a.length)
+    : [];
 
   const stripParent = (value: string): string => {
     const key = normalizeCatalogIdentity(value);
-    if (!parentKey || key === parentKey) return key;
-    return key.startsWith(`${parentKey} `) ? key.slice(parentKey.length + 1) : key;
+    for (const parentKey of parentKeys) {
+      if (key === parentKey) return key;
+      if (key.startsWith(`${parentKey} `)) return key.slice(parentKey.length + 1);
+    }
+    return key;
   };
 
   const candidates = new Set(

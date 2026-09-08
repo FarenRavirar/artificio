@@ -380,19 +380,24 @@ router.get('/perfis/:slug', publicRateLimiter, optionalAuth, async (req: Request
     //
     // `composeSystemDisplayName` é o mesmo compositor que `hydrateTableSystemFields`
     // usa nas mesas: a folha sozinha ("2024") não identifica sistema nenhum.
-    // Falha do catálogo não derruba o perfil inteiro — cai para lista vazia,
-    // como `hydrateTableSystemFields` já faz, porque o resto da ficha é útil sem
-    // ela.
-    let gmSystems: Array<{ id: string; name: string }> = [];
-    try {
-      const gmSystemRows = await db
-        .selectFrom('user_systems')
-        .select('system_id')
-        .where('user_id', '=', gm.user_id)
-        .where('type', '=', 'gm')
-        .execute();
+    // A leitura da NOSSA tabela fica FORA do try (achado de review, PR #310): a
+    // tolerância abaixo existe para o catálogo, que é dependência externa e cai
+    // sozinha. Falha do nosso próprio banco não pode virar 200 com lista vazia —
+    // seria indistinguível de "este mestre não cadastrou sistema", que é
+    // exatamente o defeito de F6.3c reaparecendo como silêncio. Deixando o erro
+    // subir, o `catch` da rota devolve 500, que é o status honesto.
+    const gmSystemRows = await db
+      .selectFrom('user_systems')
+      .select('system_id')
+      .where('user_id', '=', gm.user_id)
+      .where('type', '=', 'gm')
+      .execute();
 
-      if (gmSystemRows.length > 0) {
+    // Só a resolução dos NOMES tolera falha, e cai para lista vazia como
+    // `hydrateTableSystemFields` já faz: o resto da ficha é útil sem ela.
+    let gmSystems: Array<{ id: string; name: string }> = [];
+    if (gmSystemRows.length > 0) {
+      try {
         const flat = await getSystemCatalogProvider().loadFlat();
         const byId = new Map(flat.map((node) => [node.id, node]));
         gmSystems = gmSystemRows
@@ -402,9 +407,9 @@ router.get('/perfis/:slug', publicRateLimiter, optionalAuth, async (req: Request
           })
           .filter((system): system is { id: string; name: string } => system !== null)
           .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+      } catch (error) {
+        console.error('[GET /gm/perfis/:slug] Falha ao resolver sistemas do mestre:', error);
       }
-    } catch (error) {
-      console.error('[GET /gm/perfis/:slug] Falha ao resolver sistemas do mestre:', error);
     }
 
     // Buscar VTT platforms preferidas do mestre
