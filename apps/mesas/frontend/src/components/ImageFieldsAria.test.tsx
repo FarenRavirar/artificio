@@ -23,7 +23,12 @@ vi.mock('../hooks/useImageUpload', () => ({
   }),
 }));
 
-vi.mock('../hooks/useImageUrlImport', () => ({
+// `importOriginal` e não objeto literal: o módulo passou a exportar
+// `isCloudinaryUrl` (spec 100 F6.4c), que o `ImageUploader` chama no render —
+// um mock que só declara o hook apaga a função e o componente quebra antes de
+// qualquer asserção. Só o hook precisa ser falso aqui; o predicado é puro.
+vi.mock('../hooks/useImageUrlImport', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../hooks/useImageUrlImport')>()),
   useImageUrlImport: () => ({
     isImportingUrl: false,
     importUrlIfNeeded: vi.fn(),

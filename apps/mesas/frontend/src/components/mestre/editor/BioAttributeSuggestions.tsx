@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { z } from 'zod';
+import { Sparkles } from 'lucide-react';
 import { Button } from '@artificio/ui';
 import { authPost } from '../../../services/apiClient';
 
@@ -102,15 +103,29 @@ export function BioAttributeSuggestions({ bio, onConfirm }: BioAttributeSuggesti
   };
 
   return (
-    <div className="flex flex-col gap-2" aria-live="polite">
+    /*
+     * F7.6a (spec 100): o bloco vivia solto no fluxo do campo de bio, sem
+     * moldura própria — sugestão de máquina e conteúdo autoral do mestre ficavam
+     * indistinguíveis, num editor cujo resto é "o que você escreveu".
+     *
+     * A separação é de forma, não de legenda: moldura própria, título com
+     * ícone e o pontilhado que já se usa no repo para "ainda não é definitivo"
+     * (o `+N` do hero, spec 100 F6.1c). Nenhum tamanho ou peso novo — a régua
+     * do editor tem 2 tamanhos e o requisito 5 os fecha; medido em §8h, o
+     * defeito nunca foi a fonte.
+     */
+    <section className="bio-suggestions" aria-live="polite">
+      <h4 className="bio-suggestions-title">
+        <Sparkles className="w-4 h-4" aria-hidden="true" /> Sugestões automáticas
+      </h4>
+      <p className="bio-suggestions-note">
+        A análise apenas sugere. Nada é alterado até você confirmar cada item.
+      </p>
       <div>
         <Button type="button" variant="secondary" size="sm" onClick={analyze} disabled={loading}>
           {loading ? 'Analisando bio…' : 'Sugerir atributos da bio'}
         </Button>
       </div>
-      <p className="text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-75">
-        A análise apenas sugere. Nada é alterado até você confirmar cada item.
-      </p>
       {error && <p role="alert" className="text-[length:var(--text-support)] leading-[var(--leading-support)] text-error">{error}</p>}
       {isStale && !loading && (
         <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] opacity-75">
@@ -121,7 +136,15 @@ export function BioAttributeSuggestions({ bio, onConfirm }: BioAttributeSuggesti
         <p className="text-[length:var(--text-support)] leading-[var(--leading-support)] opacity-75">Nenhum atributo novo encontrado.</p>
       )}
       {visibleCandidates.map((candidate, index) => (
-        <div key={`${candidate.field}-${candidate.value}-${index}`} className="flex flex-col gap-2 rounded border p-3">
+        // F7.6b: cartão de PROPOSTA, não de dado salvo. A borda pontilhada é o
+        // que carrega a diferença — o mesmo vocabulário do indicador de
+        // continuação do hero — e o rótulo "Proposta" a nomeia sem depender de
+        // cor. `border` genérico não dizia nada: lia como campo já gravado.
+        <article
+          key={`${candidate.field}-${candidate.value}-${index}`}
+          className="bio-suggestion-card"
+        >
+          <span className="bio-suggestion-tag">Proposta</span>
           <strong>{FIELD_LABELS[candidate.field]}: {String(candidate.value)}</strong>
           <span className="text-[length:var(--text-support)] leading-[var(--leading-support)]">Trecho: “{candidate.evidence}”</span>
           <span className="text-[length:var(--text-label)] leading-[var(--leading-label)] opacity-75">Confiança: {Math.round(candidate.confidence * 100)}%</span>
@@ -130,8 +153,8 @@ export function BioAttributeSuggestions({ bio, onConfirm }: BioAttributeSuggesti
               Confirmar e aplicar
             </Button>
           </div>
-        </div>
+        </article>
       ))}
-    </div>
+    </section>
   );
 }

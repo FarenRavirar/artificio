@@ -294,6 +294,19 @@ function resolveErrorResponse(res: Response, error: unknown) {
     case 'NODE_TYPE_INVALID':
       return res.status(400).json({ error: 'node_type inválido. Use edition ou variant.' });
     default:
+      // Spec 100 F6.3d: o catálogo central passou a recusar irmão
+      // semanticamente equivalente. `catalogFetch` embrulha a resposta na
+      // mensagem (`catalog_409: {"error":"duplicate_sibling_node"}`), então o
+      // teste é por conteúdo — sem isto a recusa vira 500 e o admin lê "erro ao
+      // resolver" onde a resposta correta é "esse nó já existe". A mesma
+      // tradução existe no `mesas`, pelo mesmo motivo: a guarda é do catálogo,
+      // e vale para todo app que cria nó.
+      if (message.includes('duplicate_sibling_node')) {
+        return res.status(409).json({
+          error:
+            'Já existe um nó equivalente sob o mesmo pai (mesmo nome ou apelido, ignorando acento, caixa e o nome do pai). Use o existente ou acrescente um apelido a ele.',
+        });
+      }
       console.error('[POST /admin/system-suggestions/:id/resolve]', error);
       return res.status(500).json({ error: 'Erro ao resolver sugestão.' });
   }

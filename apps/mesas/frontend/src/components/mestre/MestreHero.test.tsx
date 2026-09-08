@@ -106,7 +106,11 @@ describe('MestreHero — dobra escrita pelo mestre (spec 099 C1)', () => {
     expect(screen.getByText(`${'a'.repeat(140)}…`)).toBeTruthy();
   });
 
-  it('leva para a dobra somente specialties, selling_points e languages', () => {
+  // D26 (spec 100) revogou a exclusão de `badges` da dobra: idioma,
+  // especialidade, destaque e SELO são exibição obrigatória. O teste anterior
+  // travava `expect(queryByText('Streamer')).toBeNull()`, que era exatamente a
+  // regra revogada — trocado, não removido.
+  it('leva para a dobra os quatro grupos obrigatórios, dois itens cada (D26)', () => {
     const profile = makeMestreProfile({
       specialties: ['Horror', 'Intriga', 'Exploração'],
       selling_points: [
@@ -127,9 +131,79 @@ describe('MestreHero — dobra escrita pelo mestre (spec 099 C1)', () => {
     expect(screen.getByText('Português')).toBeTruthy();
     expect(screen.getByText('Inglês')).toBeTruthy();
 
+    expect(screen.getByText('Streamer')).toBeTruthy();
+
     expect(screen.queryByText('Exploração')).toBeNull();
     expect(screen.queryByText('Regras claras')).toBeNull();
     expect(screen.queryByText('Espanhol')).toBeNull();
-    expect(screen.queryByText('Streamer')).toBeNull();
+  });
+
+  // F6.1f — a regressão que esta suíte não pegava: o corte é deliberado
+  // (`.slice(0, 2)`), mas sem indicador ele é indistinguível de dado perdido
+  // para quem preencheu. Falha ao reverter o indicador.
+  it('mostra rótulo de categoria e indicador clicável para o que foi cortado (F6.1c/F6.1d)', () => {
+    const profile = makeMestreProfile({
+      specialties: ['Horror', 'Intriga', 'Exploração', 'Investigação'],
+      selling_points: [
+        { icon: 'clock', title: 'Ritmo pontual', description: 'Começa na hora.' },
+        { icon: 'heart', title: 'Mesa acolhedora', description: 'Espaço seguro.' },
+        { icon: 'book', title: 'Regras claras', description: 'Acordos explícitos.' },
+      ],
+      languages: ['Português'],
+      badges: [],
+    });
+
+    render(<MestreHero profile={profile} mappedTables={[]} totalOpenSlots={0} />);
+
+    // D32: o rótulo é o separador — cor mede 1,01:1 entre dois destes grupos.
+    expect(screen.getByText('Especialidades')).toBeTruthy();
+    expect(screen.getByText('Destaques')).toBeTruthy();
+    expect(screen.getByText('Idiomas')).toBeTruthy();
+    // Grupo vazio não rende rótulo órfão.
+    expect(screen.queryByText('Selos')).toBeNull();
+
+    // D28/D29: 4 especialidades, 2 exibidas, indicador leva à seção que exibe
+    // a lista inteira.
+    const maisEspecialidades = screen.getByRole('button', {
+      name: 'Ver todos os 4 itens de Especialidades em Em resumo',
+    });
+    expect(maisEspecialidades.textContent).toBe('+2');
+
+    // F6.1d2: o destaque aponta para OUTRA seção, não para "Em resumo".
+    expect(
+      screen.getByRole('button', {
+        name: 'Ver todos os 3 itens de Destaques em O que eu ofereço',
+      }),
+    ).toBeTruthy();
+
+    // Um só idioma: nada foi cortado, logo nenhum indicador.
+    expect(
+      screen.queryByRole('button', { name: /itens de Idiomas/ }),
+    ).toBeNull();
+  });
+
+  // F6.2d/F6.2e — `selling_points` exige `description` para gravar e o hero
+  // mostra só o `title`. O chip vira controle real que leva à descrição.
+  it('faz do chip de destaque um controle de teclado que leva à descrição (F6.2d/F6.2e)', () => {
+    const profile = makeMestreProfile({
+      specialties: ['Horror'],
+      selling_points: [
+        { icon: 'clock', title: 'Ritmo pontual', description: 'Começa na hora.' },
+      ],
+      languages: ['Português'],
+      badges: [],
+    });
+
+    render(<MestreHero profile={profile} mappedTables={[]} totalOpenSlots={0} />);
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Ritmo pontual — ver a descrição em O que eu ofereço',
+      }),
+    ).toBeTruthy();
+
+    // Os outros grupos não têm segunda metade a alcançar: chip clicável que
+    // não leva a nada seria pior que chip inerte.
+    expect(screen.queryByRole('button', { name: /^Horror —/ })).toBeNull();
   });
 });

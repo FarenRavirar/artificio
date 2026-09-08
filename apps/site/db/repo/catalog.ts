@@ -199,6 +199,7 @@ export async function createNode(input: CatalogNodeWrite, actorId: string | null
     await client.query("BEGIN");
     const normalized = normalizeCatalogWrite(input);
     await assertCatalogHierarchy(client, normalized.node_type, normalized.parent_id ?? null);
+    await assertNoEquivalentSibling(client, normalized);
     const row = await insertNode(client, normalized, actorId);
     await bumpVersion(client, "catalog_node_created", actorId, row.id, { node_type: row.node_type });
     await client.query("COMMIT");
@@ -272,6 +273,82 @@ export async function updateNode(id: string, input: Partial<CatalogNodeWrite>, a
     throw error;
   } finally {
     client.release();
+  }
+}
+
+/**
+ * Recusa irmão semanticamente equivalente (spec 100, F6.3d).
+ *
+ * **O furo que isto fecha.** A única defesa contra duplicata era a UNIQUE de
+ * `path_slug`, que compara **slug**, não identidade: sob `Dungeons & Dragons`,
+ * um nó chamado `2024` e outro `Dungeons & Dragons 2024` geram slugs distintos
+ * e entram como nós diferentes — e foi assim que o catálogo de beta ganhou
+ * **duas edições "5e"** irmãs, cada uma com sua linhagem paralela de variantes.
+ *
+ * **Por que isso importa além da estética.** Com duas "5e" empatadas, nenhum
+ * algoritmo de resolução pode acertar, porque não há resposta certa: medido em
+ * 2026-09-05, `parseDiscordAnnouncement` resolvendo `D&D 5e 2024` contra o
+ * catálogo real de beta **para na raiz**, porque `findSystemMatch` interrompe
+ * no empate de propósito (guarda anti-ambiguidade). Seis tentativas anteriores
+ * atacaram a resolução — o sintoma. A fábrica é aqui.
+ *
+ * **Comparação.** Nome e aliases, minúsculas, sem acento e sem pontuação, e
+ * também com o nome do pai removido do começo: é o que faz `2024` e
+ * `Dungeons & Dragons 2024` colidirem sob o mesmo pai. Raiz (`parent_id` nulo)
+ * entra igual — `Vampire` e `Vampiro` são irmãos de raiz e são o mesmo sistema.
+ *
+ * Só vale para CRIAÇÃO. `updateNode` não passa por aqui de propósito: a
+ * consolidação das duplicatas que já existem (F6.3e) precisa poder renomear nó
+ * para o nome canônico enquanto o duplicado ainda não foi removido.
+ */
+function normalizeCatalogIdentity(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+async function assertNoEquivalentSibling(client: DbClient, input: CatalogNodeWrite): Promise<void> {
+  const parentId = input.parent_id ?? null;
+
+  const siblings = (await client.query<{ id: string; name: string; aliases: string[] }>(
+    `SELECT n.id,
+            n.name,
+            COALESCE(ARRAY_AGG(a.alias) FILTER (WHERE a.alias IS NOT NULL), '{}') AS aliases
+       FROM catalog_nodes n
+       LEFT JOIN catalog_aliases a ON a.node_id = n.id
+      WHERE n.parent_id IS NOT DISTINCT FROM $1
+      GROUP BY n.id, n.name`,
+    [parentId],
+  )).rows;
+
+  if (siblings.length === 0) return;
+
+  // O nome do pai como prefixo é ruído, não identidade: sob "Dungeons &
+  // Dragons", o nó se chama "2024" ou "Dungeons & Dragons 2024" conforme quem
+  // sugeriu, e os dois nomeiam a mesma edição.
+  const parentName = parentId
+    ? (await client.query<{ name: string }>("SELECT name FROM catalog_nodes WHERE id = $1", [parentId])).rows[0]?.name
+    : null;
+  const parentKey = parentName ? normalizeCatalogIdentity(parentName) : "";
+
+  const stripParent = (value: string): string => {
+    const key = normalizeCatalogIdentity(value);
+    if (!parentKey || key === parentKey) return key;
+    return key.startsWith(`${parentKey} `) ? key.slice(parentKey.length + 1) : key;
+  };
+
+  const candidates = new Set(
+    [input.name, ...(input.aliases ?? [])].map(stripParent).filter((key) => key.length > 0),
+  );
+
+  for (const sibling of siblings) {
+    const existing = [sibling.name, ...(sibling.aliases ?? [])].map(stripParent);
+    if (existing.some((key) => key.length > 0 && candidates.has(key))) {
+      throw new Error("duplicate_sibling_node");
+    }
   }
 }
 

@@ -16,8 +16,11 @@ interface Props {
 export function MestreSellingPoints({ sellingPoints }: Props) {
   if (!Array.isArray(sellingPoints) || sellingPoints.length === 0) return null;
 
+  // `id="destaques"`: alvo do indicador de continuação do hero (spec 100
+  // F6.1d2/D28). O "+N" dos destaques leva a ESTA seção, não à "Em resumo" —
+  // são listas diferentes, sob títulos diferentes.
   return (
-    <section className="why-section">
+    <section className="why-section" id="destaques">
       <div className="container">
         <h3 className="section-title">O que eu ofereço</h3>
         <div className="benefits-grid">

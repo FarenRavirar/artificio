@@ -164,7 +164,16 @@ const EMPTY_SYSTEM_FIELDS: TableSystemFields = {
   system_website_url: null,
 };
 
-function composeSystemDisplayName(node: MesasSystemNode, byId: Map<string, MesasSystemNode>): string {
+/**
+ * Nome do sistema com a cadeia inteira ("Dungeons & Dragons 5e 2024"), não só a
+ * folha ("2024"), que sozinha não identifica nada.
+ *
+ * Exportada na spec 100 F6.3c: o perfil público do mestre passou a exibir os
+ * sistemas de `user_systems` e precisa do MESMO nome que a mesa já mostra —
+ * duas composições diferentes para a mesma entidade seria a divergência por
+ * superfície que o monorepo existe para evitar.
+ */
+export function composeSystemDisplayName(node: MesasSystemNode, byId: Map<string, MesasSystemNode>): string {
   const chain = [node.name];
   const visited = new Set([node.id]);
   let parentId = node.parent_id;

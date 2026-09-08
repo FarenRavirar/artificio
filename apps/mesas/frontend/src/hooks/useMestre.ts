@@ -61,6 +61,10 @@ export interface MestrePublicData {
   experience_years?: number | null;
   average_price?: number | null;
   links?: UserLink[];
+  /** Spec 100 F6.3c/D25: sistemas que o mestre mestra (`user_systems type='gm'`),
+      com o nome composto pela cadeia inteira ("Dungeons & Dragons 5e 2024").
+      Primeira pergunta do jogador, logo vem ANTES dos VTTs na página. */
+  gm_systems?: Array<{ id: string; name: string }>;
   preferred_vtt_platforms?: Array<{
     id: string;
     name: string;
@@ -127,6 +131,28 @@ export function normalizeSellingPoints(input: unknown): SellingPoint[] {
 }
 
 /**
+ * Normaliza `gm_systems` (spec 100 F6.3c) antes de entrar no estado.
+ *
+ * Mesmo motivo de `normalizeSellingPoints`: o payload chega por cast, sem
+ * validacao, e o consumidor faz `.map`. Item sem `id`/`name` de string nao
+ * vazia e descartado; entrada nao-array vira `[]`. Nao lanca nunca.
+ */
+export function normalizeGmSystems(input: unknown): Array<{ id: string; name: string }> {
+  if (!Array.isArray(input)) return [];
+
+  const systems: Array<{ id: string; name: string }> = [];
+  for (const raw of input) {
+    if (typeof raw !== 'object' || raw === null) continue;
+    const item = raw as Record<string, unknown>;
+    const { id, name } = item;
+    if (typeof id !== 'string' || id.length === 0) continue;
+    if (typeof name !== 'string' || name.trim().length === 0) continue;
+    systems.push({ id, name });
+  }
+  return systems;
+}
+
+/**
  * Normaliza o enquadramento antes de o perfil entrar no estado do React.
  *
  * O corpo da resposta e `unknown` na pratica: o tipo declarado e promessa, e o
@@ -155,6 +181,7 @@ export function normalizeMestreProfile(data: MestrePublicData | null | undefined
     // sem isso `MestrePage` passaria `{}` adiante e `MestreSellingPoints`
     // renderizaria lixo no lugar da secao.
     selling_points: normalizeSellingPoints(data.selling_points),
+    gm_systems: normalizeGmSystems(data.gm_systems),
     // `avg_rating` é NUMERIC(3,2) e o parser default do `pg` entrega string.
     // O payload chega por cast (`as GmProfilePayload`), sem validação, então o
     // tipo `number | null` não garante nada em runtime. Converter aqui, na

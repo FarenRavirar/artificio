@@ -16,7 +16,7 @@ vi.mock('../connection.js', () => ({
   }),
 }));
 
-import { addAliases, replaceAliases, updateNode, validateCatalogHierarchyShape } from './catalog';
+import { addAliases, createNode, replaceAliases, updateNode, validateCatalogHierarchyShape } from './catalog';
 
 describe('validateCatalogHierarchyShape', () => {
   it.each([
@@ -135,6 +135,117 @@ describe('addAliases — acréscimo atômico (DEB-088-04)', () => {
       await replaceAliases(client as never, 'dd5e', ['Só Este'], 'admin-1');
       expect(await aliasesOf(db)).toEqual(['Só Este']);
     } finally {
+      await db.close();
+    }
+  }, 20_000);
+});
+
+/**
+ * F6.3d (spec 100) — a guarda que impede a sétima tentativa.
+ *
+ * O catálogo de beta ganhou DUAS edições "5e" irmãs sob `Dungeons & Dragons`,
+ * cada uma com sua linhagem paralela de variantes, porque a única defesa contra
+ * duplicata era a UNIQUE de `path_slug` — e `2024` e `Dungeons & Dragons 2024`
+ * têm slugs diferentes. Consequência medida: `parseDiscordAnnouncement`
+ * resolvendo `D&D 5e 2024` PARA NA RAIZ, porque não há resposta certa com dois
+ * irmãos empatados. Seis tentativas anteriores atacaram a resolução; a fábrica
+ * é o `createNode`.
+ *
+ * Contra Postgres real, como os vizinhos: a guarda lê irmãos e aliases do banco.
+ */
+describe('createNode — irmão semanticamente equivalente (spec 100 F6.3d)', () => {
+  async function seedArvore(db: PGlite) {
+    await db.exec(readFileSync(new URL('../migrations/006_catalog_foundation.sql', import.meta.url), 'utf8'));
+    await db.query(
+      `INSERT INTO catalog_nodes (id, node_type, canonical_slug, path_slug, name)
+       VALUES ('dd', 'system', 'dungeons-dragons', 'dungeons-dragons', 'Dungeons & Dragons')`,
+    );
+    await db.query(
+      `INSERT INTO catalog_nodes (id, parent_id, node_type, canonical_slug, path_slug, name)
+       VALUES ('dd5e', 'dd', 'edition', '5e', 'dungeons-dragons/5e', '5e')`,
+    );
+  }
+
+  const edicao = (name: string, aliases: string[] = []) => ({
+    parent_id: 'dd',
+    node_type: 'edition' as const,
+    name,
+    name_pt: null,
+    description: null,
+    official_website_url: null,
+    logo_media_id: null,
+    aliases,
+  });
+
+  it('recusa a segunda edição "5e" sob o mesmo pai', async () => {
+    const db = new PGlite();
+    activeDb = db;
+    try {
+      await seedArvore(db);
+      await expect(createNode(edicao('5e'), 'admin-1')).rejects.toThrow('duplicate_sibling_node');
+    } finally {
+      activeDb = null;
+      await db.close();
+    }
+  }, 20_000);
+
+  it('recusa o irmão que só difere pelo nome do pai no começo — o caso que passou pelo path_slug', async () => {
+    const db = new PGlite();
+    activeDb = db;
+    try {
+      await seedArvore(db);
+      // Slug distinto (`dungeons-dragons-5e` ≠ `5e`), logo a UNIQUE deixaria
+      // passar. É exatamente como nasceu a segunda linhagem em beta.
+      await expect(createNode(edicao('Dungeons & Dragons 5e'), 'admin-1')).rejects.toThrow(
+        'duplicate_sibling_node',
+      );
+    } finally {
+      activeDb = null;
+      await db.close();
+    }
+  }, 20_000);
+
+  it('recusa quando a colisão está num APELIDO do nó existente', async () => {
+    const db = new PGlite();
+    activeDb = db;
+    try {
+      await seedArvore(db);
+      await db.query("INSERT INTO catalog_aliases (node_id, alias) VALUES ('dd5e', 'Quinta Edição')");
+      await expect(createNode(edicao('quinta edicao'), 'admin-1')).rejects.toThrow(
+        'duplicate_sibling_node',
+      );
+    } finally {
+      activeDb = null;
+      await db.close();
+    }
+  }, 20_000);
+
+  it('deixa passar irmão de fato diferente', async () => {
+    const db = new PGlite();
+    activeDb = db;
+    try {
+      await seedArvore(db);
+      const row = await createNode(edicao('4e'), 'admin-1');
+      expect(row.name).toBe('4e');
+    } finally {
+      activeDb = null;
+      await db.close();
+    }
+  }, 20_000);
+
+  it('o mesmo nome sob OUTRO pai continua válido — "5e" existe em vários sistemas', async () => {
+    const db = new PGlite();
+    activeDb = db;
+    try {
+      await seedArvore(db);
+      await db.query(
+        `INSERT INTO catalog_nodes (id, node_type, canonical_slug, path_slug, name)
+         VALUES ('vamp', 'system', 'vampiro', 'vampiro', 'Vampiro')`,
+      );
+      const row = await createNode({ ...edicao('5e'), parent_id: 'vamp' }, 'admin-1');
+      expect(row.parent_id).toBe('vamp');
+    } finally {
+      activeDb = null;
       await db.close();
     }
   }, 20_000);

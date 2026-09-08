@@ -204,11 +204,65 @@
   max-width: 62ch;
 }
 
+/* Grupos rotulados (spec 100 D32/F6.1d): a fileira contínua de chips virou
+   colunas por categoria, porque a cor não separava — `info` × `brand` mede
+   1,01:1. `column-gap` maior que `row-gap` para o olho ler "colunas", não uma
+   grade. */
 .hero-attributes {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--space-2) var(--space-6);
   margin: 0;
+}
+
+.hero-attribute-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.hero-attribute-label {
+  font-size: var(--text-support);
+  line-height: var(--leading-support);
+  font-weight: var(--weight-strong);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.hero-attribute-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* `+N` e o chip de destaque são `button` (F6.2d): o reset zera a aparência de
+   botão, mas o foco visível fica — é o que dá o alvo de teclado que o `div`
+   com `onClick` não tinha. */
+.hero-attribute-chip-action,
+.hero-attribute-more {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  border-radius: var(--radius-pill);
+}
+
+.hero-attribute-more {
+  padding: var(--space-1) var(--space-3);
+  border: 1px dashed var(--border);
+  color: var(--fg-muted);
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
+  font-weight: var(--weight-medium);
+}
+
+.hero-attribute-more:hover,
+.hero-attribute-chip-action:hover {
+  color: var(--fg);
+  border-color: var(--fg-muted);
 }
 
 .hero-stats {
@@ -274,6 +328,13 @@
   .hero-bio { font-size: var(--text-body);
   line-height: var(--leading-body); }
   .hero-stats { gap: var(--space-4); }
+  /* F6.1d3 — o rótulo custa altura exatamente onde D2 ("não empurrar o CTA
+     para fora da primeira tela") é mais forte. Medido: `.hero-attributes`
+     já era `flex-wrap: wrap` sem regra no mobile, e os chips quebravam em
+     várias linhas. Com 4 grupos rotulados em coluna, o empilhamento vertical
+     somaria ~4 linhas de rótulo; `column-gap` menor mantém mais grupos por
+     linha, e o rótulo em `--text-support` é o menor degrau da régua. */
+  .hero-attributes { gap: var(--space-2) var(--space-4); }
   .stat-value { font-size: var(--text-title);
   line-height: var(--leading-title); }
 }

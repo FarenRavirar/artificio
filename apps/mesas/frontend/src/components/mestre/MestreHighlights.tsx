@@ -25,8 +25,10 @@ export function MestreHighlights({ profile }: MestreHighlightsProps) {
     return null;
   }
 
+  // `id="em-resumo"`: alvo do indicador de continuação do hero (spec 100
+  // F6.1c/D28) — especialidades, idiomas e selos cortados no topo levam aqui.
   return (
-    <section className="mestre-highlights-section">
+    <section className="mestre-highlights-section" id="em-resumo">
       <div className="container">
         <h3 className="section-title">Em resumo</h3>
         <div className="mestre-highlights-groups">

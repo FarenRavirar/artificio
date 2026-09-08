@@ -292,6 +292,13 @@ async function createSystemNode(
     return { id: created.id, name: created.name, path_slug: created.path_slug ?? '' };
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
+    // Spec 100 F6.3d: o catálogo central passou a recusar irmão semanticamente
+    // equivalente, não só slug repetido. São causas diferentes e o admin
+    // precisa ler a certa — "já existe com este caminho" mandaria ele procurar
+    // um slug que não é o problema.
+    if (message.includes('duplicate_sibling_node')) {
+      throw new Error('DUPLICATE_SIBLING_NODE', { cause: error });
+    }
     if (message.includes('duplicate')) throw new Error('PATH_SLUG_CONFLICT', { cause: error });
     throw error;
   }
@@ -393,6 +400,13 @@ async function performApprove(
     newSystem = { id: created.id, name: created.name, path_slug: created.path_slug ?? '' };
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
+    // Spec 100 F6.3d: o catálogo central passou a recusar irmão semanticamente
+    // equivalente, não só slug repetido. São causas diferentes e o admin
+    // precisa ler a certa — "já existe com este caminho" mandaria ele procurar
+    // um slug que não é o problema.
+    if (message.includes('duplicate_sibling_node')) {
+      throw new Error('DUPLICATE_SIBLING_NODE', { cause: error });
+    }
     if (message.includes('duplicate')) throw new Error('PATH_SLUG_CONFLICT', { cause: error });
     throw error;
   }
@@ -488,6 +502,15 @@ router.patch('/system-suggestions/:id/approve', async (req: Request, res: Respon
     }
     if (message === 'PATH_SLUG_CONFLICT') {
       return res.status(409).json({ error: 'Já existe um sistema com este caminho.' });
+    }
+    // Spec 100 F6.3d — sem este ramo a recusa do catálogo central viraria 500,
+    // e o admin leria "erro ao aprovar" onde a resposta correta é "esse nó já
+    // existe".
+    if (message === 'DUPLICATE_SIBLING_NODE') {
+      return res.status(409).json({
+        error:
+          'Já existe um nó equivalente sob o mesmo pai (mesmo nome ou apelido, ignorando acento, caixa e o nome do pai). Use o existente ou acrescente um apelido a ele.',
+      });
     }
 
     return res.status(500).json({ error: 'Erro ao aprovar sugestão.' });
@@ -1114,6 +1137,11 @@ function resolveErrorResponse(res: Response, error: unknown) {
       return res.status(400).json({ error: 'Hierarquia inválida para o tipo de nó escolhido.' });
     case 'PATH_SLUG_CONFLICT':
       return res.status(409).json({ error: 'Já existe um sistema com este caminho.' });
+    case 'DUPLICATE_SIBLING_NODE':
+      return res.status(409).json({
+        error:
+          'Já existe um nó equivalente sob o mesmo pai (mesmo nome ou apelido, ignorando acento, caixa e o nome do pai). Use o existente ou acrescente um apelido a ele.',
+      });
     case 'CHAIN_INVALID':
       return res.status(400).json({ error: 'Cadeia de sugestão inválida.' });
     case 'SIMILAR_EXISTS': {

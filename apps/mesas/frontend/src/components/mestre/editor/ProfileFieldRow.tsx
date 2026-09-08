@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { Pencil } from 'lucide-react';
 import { Button, Modal } from '@artificio/ui';
 import type { GmProfile } from '../../../types/profileTypes';
 import { useProfileContext } from '../../../contexts/useProfileContext';
@@ -132,14 +133,26 @@ export function ProfileFieldRow<T>({
         type="button"
         className="profile-field-row-trigger"
         onClick={abrir}
+        // Nome acessível diz a AÇÃO, não só o campo: "Especialidades" sozinho
+        // lê como rótulo de texto, e o mestre que usa leitor de tela não sabia
+        // que a linha abre um editor (F7.1c).
+        aria-label={`Editar ${label}`}
       >
         <span className="profile-field-row-label">{label}</span>
-        {displayValue ? (
-          <span className="profile-field-row-value">{displayValue}</span>
-        ) : (
-          // D21: convite à ação, não "—". O vazio precisa dizer o que fazer.
-          <span className="profile-field-row-empty">Adicionar</span>
-        )}
+        <span className="profile-field-row-content">
+          {displayValue ? (
+            <span className="profile-field-row-value">{displayValue}</span>
+          ) : (
+            // D21: convite à ação, não "—". O vazio precisa dizer o que fazer.
+            <span className="profile-field-row-empty">Adicionar</span>
+          )}
+          {/* F7.1c (spec 100): a linha PREENCHIDA não sinalizava nada em
+              repouso — valor em `--fg-muted`, indistinguível de texto morto — e
+              a única pista era o `:hover`, que **não existe em toque**
+              (§D-C/§D-H). O lápis é a afordância permanente, presente nos dois
+              estados e nos dois temas, sem depender de gesto nem de cor. */}
+          <Pencil className="profile-field-row-icon" aria-hidden="true" />
+        </span>
       </button>
 
       {hint && <p className="profile-field-row-hint">{hint}</p>}
