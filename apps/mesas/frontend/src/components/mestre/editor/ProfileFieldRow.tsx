@@ -133,10 +133,13 @@ export function ProfileFieldRow<T>({
         type="button"
         className="profile-field-row-trigger"
         onClick={abrir}
-        // Nome acessível diz a AÇÃO, não só o campo: "Especialidades" sozinho
-        // lê como rótulo de texto, e o mestre que usa leitor de tela não sabia
-        // que a linha abre um editor (F7.1c).
-        aria-label={`Editar ${label}`}
+        // Nome acessível diz a AÇÃO **e o estado**: "Especialidades" sozinho lê
+        // como rótulo de texto, e quem usa leitor de tela não sabia que a linha
+        // abre um editor (F7.1c). Mas `aria-label` SUBSTITUI o conteúdo — a
+        // primeira versão desta linha dizia só "Editar Especialidades" e apagou
+        // do anúncio o valor que o `<span>` interno trazia. O valor volta aqui,
+        // com o vazio nomeado explicitamente em vez de virar silêncio.
+        aria-label={`Editar ${label}: ${displayValue ?? 'vazio'}`}
       >
         <span className="profile-field-row-label">{label}</span>
         <span className="profile-field-row-content">

@@ -233,6 +233,43 @@ describe('createNode — irmão semanticamente equivalente (spec 100 F6.3d)', ()
     }
   }, 20_000);
 
+  it('nó merged não bloqueia por IDENTIDADE — quem ainda bloqueia é a UNIQUE de slug', async () => {
+    const db = new PGlite();
+    activeDb = db;
+    try {
+      await seedArvore(db);
+      // Estado em que a consolidação de F6.3e deixa o duplicado. A projeção
+      // pública serve só `status = 'active'`, então ele não existe para
+      // consumidor nenhum e não deve reservar identidade.
+      await db.query("UPDATE catalog_nodes SET status = 'merged' WHERE id = 'dd5e'");
+
+      // Slug DIFERENTE (`dungeons-dragons-5e` ≠ `5e`): é o caso que só a guarda
+      // de identidade alcança, e é justamente onde ela deve deixar passar.
+      const row = await createNode(edicao('Dungeons & Dragons 5e'), 'admin-1');
+      expect(row.name).toBe('Dungeons & Dragons 5e');
+    } finally {
+      activeDb = null;
+      await db.close();
+    }
+  }, 20_000);
+
+  it('nó merged com o MESMO slug segue barrado pela UNIQUE, não pela guarda', async () => {
+    const db = new PGlite();
+    activeDb = db;
+    try {
+      await seedArvore(db);
+      await db.query("UPDATE catalog_nodes SET status = 'merged' WHERE id = 'dd5e'");
+      // `idx_catalog_nodes_parent_slug` (migration 006, linha 44) NÃO filtra
+      // status: o nó merged continua ocupando o slug no banco. Registrado como
+      // teste para que a diferença entre as duas defesas fique explícita —
+      // afrouxar a guarda de identidade não afrouxa o índice.
+      await expect(createNode(edicao('5e'), 'admin-1')).rejects.toThrow('duplicate key');
+    } finally {
+      activeDb = null;
+      await db.close();
+    }
+  }, 20_000);
+
   it('o mesmo nome sob OUTRO pai continua válido — "5e" existe em vários sistemas', async () => {
     const db = new PGlite();
     activeDb = db;

@@ -149,6 +149,11 @@ export function ImageUploader({
         // retângulo antigo aplicaria coordenadas de outra imagem.
         onCropChange?.(null);
         onDimensionsChange?.(null);
+        // O link colado virou imagem hospedada aqui: fecha o campo, senão o
+        // mestre que pediu "trocar por um link" fica encarando a URL crua do
+        // Cloudinary — o mesmo defeito que F6.4c fecha, reaberto pela porta ao
+        // lado (achado de review, PR #310).
+        setMostrarCampoDeLink(false);
         clearError();
       },
       onError: setError,
@@ -190,6 +195,9 @@ export function ImageUploader({
     try {
       const uploaded = await uploadFile(file);
       onChange(uploaded.url);
+      // Mesmo motivo do `onImported`: subir arquivo com o campo de link aberto
+      // repunha a URL crua na tela.
+      setMostrarCampoDeLink(false);
       // Imagem nova zera crop E dimensoes juntos. Preservar as dimensoes
       // antigas quando o servidor nao as devolve deixaria numeros de OUTRA
       // imagem no estado, e o proximo recorte seria convertido pela escala

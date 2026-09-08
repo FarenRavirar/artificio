@@ -199,6 +199,19 @@ export async function createNode(input: CatalogNodeWrite, actorId: string | null
     await client.query("BEGIN");
     const normalized = normalizeCatalogWrite(input);
     await assertCatalogHierarchy(client, normalized.node_type, normalized.parent_id ?? null);
+    // Serializa por PAI antes de checar irmãos. Sem isto, duas aprovações
+    // simultâneas sob o mesmo pai leem a lista de irmãos ANTES de qualquer das
+    // duas inserir, ambas passam, e as duas gravam — e a UNIQUE de `path_slug`
+    // não socorre, porque slug distinto para o mesmo nome é exatamente o furo
+    // que `assertNoEquivalentSibling` existe para fechar (spec 100 F6.3d).
+    //
+    // `pg_advisory_xact_lock` (e não `pg_advisory_lock`): solta sozinho no
+    // COMMIT/ROLLBACK, então não vaza se a inserção falhar. `hashtext` dá um
+    // int estável a partir do UUID — colisão de hash só custa serializar dois
+    // pais sem relação, nunca correção.
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `catalog_sibling:${normalized.parent_id ?? "root"}`,
+    ]);
     await assertNoEquivalentSibling(client, normalized);
     const row = await insertNode(client, normalized, actorId);
     await bumpVersion(client, "catalog_node_created", actorId, row.id, { node_type: row.node_type });
@@ -300,6 +313,19 @@ export async function updateNode(id: string, input: Partial<CatalogNodeWrite>, a
  * Só vale para CRIAÇÃO. `updateNode` não passa por aqui de propósito: a
  * consolidação das duplicatas que já existem (F6.3e) precisa poder renomear nó
  * para o nome canônico enquanto o duplicado ainda não foi removido.
+ *
+ * **`rejected` e `merged` não reservam identidade.** Medido: a projeção pública
+ * serve apenas `status = 'active'` (linhas 149 e 187), então esses nós não
+ * existem para consumidor nenhum — e são exatamente o resultado de uma
+ * consolidação. Contá-los faria a limpeza de F6.3e travar a recriação do nome
+ * que ela própria acabou de liberar.
+ *
+ * O alcance disto é menor do que parece, e vale registrar para ninguém supor
+ * demais: `idx_catalog_nodes_parent_slug` (migration 006:44) **não filtra
+ * status**, então nó merged continua ocupando o SLUG. A exclusão aqui só muda o
+ * caso em que o slug difere e a identidade coincide (`2024` vs
+ * `Dungeons & Dragons 2024`) — que é precisamente o que esta guarda acrescenta
+ * ao índice. Os dois testes de `catalog.test.ts` fixam a diferença.
  */
 function normalizeCatalogIdentity(value: string): string {
   return value
@@ -320,6 +346,7 @@ async function assertNoEquivalentSibling(client: DbClient, input: CatalogNodeWri
        FROM catalog_nodes n
        LEFT JOIN catalog_aliases a ON a.node_id = n.id
       WHERE n.parent_id IS NOT DISTINCT FROM $1
+        AND n.status NOT IN ('rejected', 'merged')
       GROUP BY n.id, n.name`,
     [parentId],
   )).rows;

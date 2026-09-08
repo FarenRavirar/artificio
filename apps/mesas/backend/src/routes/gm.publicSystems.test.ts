@@ -27,13 +27,19 @@ vi.mock('../middleware/rateLimit.js', () => ({
   authRateLimiter: (_req: Request, _res: Response, next: NextFunction) => next(),
 }));
 
-const catalogo = [
-  { id: 'dd', name: 'Dungeons & Dragons', parent_id: null },
-  { id: 'dd5e', name: '5e', parent_id: 'dd' },
-  { id: 'dd5e2024', name: '2024', parent_id: 'dd5e' },
-  { id: 'pf2e', name: 'Pathfinder 2e', parent_id: null },
-];
-const loadFlat = vi.fn(async () => catalogo);
+// `vi.hoisted` porque `vi.mock` é ICADO acima destas declarações: a fábrica
+// referenciar um `const` do escopo do módulo só não estoura em TDZ por acidente
+// (a fábrica é `async` e o acesso acontece dentro do arrow, depois da
+// inicialização). Robustez por desenho, não por ordem de avaliação.
+const { catalogo, loadFlat } = vi.hoisted(() => {
+  const nodes = [
+    { id: 'dd', name: 'Dungeons & Dragons', parent_id: null },
+    { id: 'dd5e', name: '5e', parent_id: 'dd' },
+    { id: 'dd5e2024', name: '2024', parent_id: 'dd5e' },
+    { id: 'pf2e', name: 'Pathfinder 2e', parent_id: null },
+  ];
+  return { catalogo: nodes, loadFlat: vi.fn(async () => nodes) };
+});
 
 vi.mock('../services/systemCatalogProvider.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../services/systemCatalogProvider.js')>()),
