@@ -141,6 +141,43 @@ export function isImageKind(value: unknown): value is ImageKind {
 }
 
 /** Spec do tipo informado; cai em `table_banner` quando a origem não é confiável. */
+/**
+ * A imagem está hospedada na conta Cloudinary DO ARTIFÍCIO?
+ *
+ * Distinta de "é uma URL do Cloudinary" (`isCloudinaryUrl`, em
+ * `useImageUrlImport`), e a diferença importa: aquele predicado decide
+ * **importar ou não** — e uma URL de Cloudinary de terceiro não é reimportada,
+ * de propósito. Este decide **exibir a URL ou escondê-la**, e aí a resposta é
+ * outra: a URL de terceiro é um link externo que o mestre colou, e a spec 100
+ * (F6.4c) manda mantê-la visível, porque é a única forma de ele conferi-la.
+ *
+ * Usar o mesmo predicado para as duas perguntas escondia o link de terceiro
+ * como se fosse upload nosso (achado de review, PR #310).
+ *
+ * O critério é a PASTA, não o cloud name: `folder` já é a fonte única de onde
+ * cada tipo de imagem é gravado (`IMAGE_KINDS` abaixo), e o backend a escolhe —
+ * o frontend não precisa conhecer credencial nenhuma nem depender de env que
+ * pode faltar no build. Pasta nova entra aqui junto com o `kind`, num lugar só.
+ */
+export function isArtificioHostedImage(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+
+  const isCloudinary =
+    parsed.hostname === "res.cloudinary.com" || parsed.hostname.endsWith(".cloudinary.com");
+  if (!isCloudinary) return false;
+
+  // O caminho do Cloudinary é `/<cloud>/image/upload/<transform?>/<folder>/<id>`;
+  // procurar o segmento em qualquer posição evita depender do formato exato da
+  // versão ou das transformações que podem aparecer no meio.
+  const segmentos = new Set(parsed.pathname.split("/").filter(Boolean));
+  return Object.values(IMAGE_KINDS).some((spec) => segmentos.has(spec.folder));
+}
+
 export function imageKindSpec(kind: unknown): ImageKindSpec {
   return IMAGE_KINDS[isImageKind(kind) ? kind : "table_banner"];
 }

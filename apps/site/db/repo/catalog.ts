@@ -305,10 +305,19 @@ export async function updateNode(id: string, input: Partial<CatalogNodeWrite>, a
  * no empate de propósito (guarda anti-ambiguidade). Seis tentativas anteriores
  * atacaram a resolução — o sintoma. A fábrica é aqui.
  *
- * **Comparação.** Nome e aliases, minúsculas, sem acento e sem pontuação, e
- * também com o nome do pai removido do começo: é o que faz `2024` e
- * `Dungeons & Dragons 2024` colidirem sob o mesmo pai. Raiz (`parent_id` nulo)
- * entra igual — `Vampire` e `Vampiro` são irmãos de raiz e são o mesmo sistema.
+ * **Comparação.** Nome, **nome localizado (`name_pt`)** e aliases, minúsculas,
+ * sem acento e sem pontuação, e também com o nome do pai removido do começo: é
+ * o que faz `2024` e `Dungeons & Dragons 2024` colidirem sob o mesmo pai. Raiz
+ * (`parent_id` nulo) entra igual — `Vampire` e `Vampiro` são irmãos de raiz e
+ * são o mesmo sistema.
+ *
+ * **`name_pt` não é detalhe** (achado de review, PR #310): o nó canônico de
+ * hoje é `name: 'Vampire'`, `name_pt: 'Vampiro'`, e essa fusão custou a
+ * `migration_013_merge_vampire_localized_duplicate.sql`, classificada
+ * `manual-risk` e `requires-backup`. Comparando só `name`, criar `Vampiro` de
+ * novo passaria — reabrindo exatamente a duplicação que aquela migration
+ * consolidou. Vale nos dois sentidos: o candidato traz `name_pt`, e o irmão
+ * existente também.
  *
  * Só vale para CRIAÇÃO. `updateNode` não passa por aqui de propósito: a
  * consolidação das duplicatas que já existem (F6.3e) precisa poder renomear nó
@@ -339,15 +348,21 @@ function normalizeCatalogIdentity(value: string): string {
 async function assertNoEquivalentSibling(client: DbClient, input: CatalogNodeWrite): Promise<void> {
   const parentId = input.parent_id ?? null;
 
-  const siblings = (await client.query<{ id: string; name: string; aliases: string[] }>(
+  const siblings = (await client.query<{
+    id: string;
+    name: string;
+    name_pt: string | null;
+    aliases: string[];
+  }>(
     `SELECT n.id,
             n.name,
+            n.name_pt,
             COALESCE(ARRAY_AGG(a.alias) FILTER (WHERE a.alias IS NOT NULL), '{}') AS aliases
        FROM catalog_nodes n
        LEFT JOIN catalog_aliases a ON a.node_id = n.id
       WHERE n.parent_id IS NOT DISTINCT FROM $1
         AND n.status NOT IN ('rejected', 'merged')
-      GROUP BY n.id, n.name`,
+      GROUP BY n.id, n.name, n.name_pt`,
     [parentId],
   )).rows;
 
@@ -368,11 +383,15 @@ async function assertNoEquivalentSibling(client: DbClient, input: CatalogNodeWri
   };
 
   const candidates = new Set(
-    [input.name, ...(input.aliases ?? [])].map(stripParent).filter((key) => key.length > 0),
+    [input.name, input.name_pt ?? "", ...(input.aliases ?? [])]
+      .map(stripParent)
+      .filter((key) => key.length > 0),
   );
 
   for (const sibling of siblings) {
-    const existing = [sibling.name, ...(sibling.aliases ?? [])].map(stripParent);
+    const existing = [sibling.name, sibling.name_pt ?? "", ...(sibling.aliases ?? [])].map(
+      stripParent,
+    );
     if (existing.some((key) => key.length > 0 && candidates.has(key))) {
       throw new Error("duplicate_sibling_node");
     }

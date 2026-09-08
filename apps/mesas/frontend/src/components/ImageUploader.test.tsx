@@ -7,8 +7,11 @@ const URL_HOSPEDADA = vi.hoisted(
     'https://res.cloudinary.com/dnln0btbo/image/upload/v1788537783/artificio_profile_banners/khmxivtocytsah6o0pap.jpg',
 );
 
+// Precisa carregar a PASTA do Artifício: é ela, não o host, que distingue
+// upload nosso de Cloudinary de terceiro (`isArtificioHostedImage`).
 const URL_IMPORTADA = vi.hoisted(
-  () => 'https://res.cloudinary.com/dnln0btbo/image/upload/v1/importada.jpg',
+  () =>
+    'https://res.cloudinary.com/dnln0btbo/image/upload/v1/artificio_profile_banners/importada.jpg',
 );
 
 // Os dois caminhos que produzem uma URL hospedada batem na API; aqui o alvo é o
@@ -64,7 +67,7 @@ describe('ImageUploader — URL de imagem hospedada (F6.4c/F6.4d)', () => {
     expect(screen.queryByDisplayValue(URL_HOSPEDADA)).toBeNull();
   });
 
-  it('oferece caminho de volta para trocar por link', () => {
+  it('oferece caminho de volta para trocar por link, e leva o foco junto', () => {
     const { container } = renderUploader(URL_HOSPEDADA);
 
     fireEvent.click(screen.getByRole('button', { name: 'Trocar por um link de imagem' }));
@@ -72,6 +75,10 @@ describe('ImageUploader — URL de imagem hospedada (F6.4c/F6.4d)', () => {
     const campo = container.querySelector('#teste-banner-url');
     expect(campo).toBeTruthy();
     expect((campo as HTMLInputElement).value).toBe(URL_HOSPEDADA);
+    // O botão DESMONTA ao ser clicado: sem mover o foco, ele cai no `<body>` e
+    // quem navega por teclado recomeça do topo da página, na ação que acabou de
+    // pedir (achado de review, PR #310).
+    expect(document.activeElement).toBe(campo);
   });
 
   it('mantém o campo de link visível em campo vazio', () => {
@@ -81,6 +88,19 @@ describe('ImageUploader — URL de imagem hospedada (F6.4c/F6.4d)', () => {
     expect(
       screen.queryByRole('button', { name: 'Trocar por um link de imagem' }),
     ).toBeNull();
+  });
+
+  it('mantém visível o Cloudinary DE TERCEIRO mantido como link direto', () => {
+    // `isCloudinaryUrl` (que governa a importação) diz `true` para qualquer
+    // `*.cloudinary.com`, e usá-lo aqui escondia o link de terceiro como se
+    // fosse upload nosso. A exibição olha a PASTA, que só o nosso backend
+    // escreve (achado de review, PR #310).
+    const externa = 'https://res.cloudinary.com/outra-conta/image/upload/v1/foto.jpg';
+    const { container } = renderUploader(externa);
+
+    const campo = container.querySelector('#teste-banner-url') as HTMLInputElement;
+    expect(campo).toBeTruthy();
+    expect(campo.value).toBe(externa);
   });
 
   it('mantém visível o link externo que o próprio mestre digitou', () => {

@@ -6,14 +6,17 @@ export const DIRECT_LINK_TOOLTIP =
   'Ao ativar esta opção, a imagem será exibida a partir do endereço informado, sem cópia para nossa hospedagem. Se esse link sair do ar ou expirar, a imagem poderá deixar de aparecer.';
 
 /**
- * A imagem já está na hospedagem do Artifício?
+ * URL do Cloudinary — de QUALQUER conta.
  *
- * Exportada na spec 100 (F6.4c): o `ImageUploader` usa o MESMO critério para
- * decidir se mostra o campo de link ou a prévia. Duas noções de "hospedada" em
- * lugares diferentes divergiriam no primeiro ajuste — e é justamente a URL que
- * este predicado reconhece que o mestre encarava como código vazado.
+ * Governa só a IMPORTAÇÃO: já está num CDN de imagem, não vale reenviar.
+ * Deliberadamente amplo, e por isso **não serve para decidir exibição**: o
+ * Cloudinary de terceiro que o mestre colou é link externo dele, e some do campo
+ * se tratado como upload nosso. Quem responde essa outra pergunta é
+ * `isArtificioHostedImage` (`@artificio/media/image-kinds`), que olha a pasta —
+ * achado de review, PR #310, depois de esta função ter sido exportada para os
+ * dois usos e confundi-los.
  */
-export function isCloudinaryUrl(url: string): boolean {
+function isCloudinaryUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
     return parsed.hostname === 'res.cloudinary.com' || parsed.hostname.endsWith('.cloudinary.com');

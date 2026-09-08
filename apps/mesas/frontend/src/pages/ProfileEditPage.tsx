@@ -922,11 +922,14 @@ function TabMestre() {
               Mestra" e "Onde você mestra", quebrando a ordem em que o jogador
               decide — sistema → VTT → comunicação (D25). Preço e grupo fechado
               são detalhe comercial e vêm DEPOIS da sequência, não no meio dela.
-              Só a posição mudou; o componente e a gravação são os mesmos. */}
-          <h3 className="profile-part-subtitle">Grupo fechado</h3>
-          <p className="section-description">
-            Mesa recorrente por assinatura, para quem já joga com você
-          </p>
+              Só a posição mudou; o componente e a gravação são os mesmos.
+
+              **Sem `profile-part-subtitle` aqui, ao contrário dos irmãos:**
+              `ClosedGroupSection` já emite título E descrição próprios
+              (`GmProfileFields.tsx:532-535`). Acrescentar o par por fora dava
+              dois títulos para o mesmo conteúdo — o subtítulo que F7.5e pedia
+              já existia dentro do componente, e o que faltava era o NÍVEL dele
+              (achado de review, PR #310). */}
           {/* Spec 099 B2: os 4 campos + liga/desliga, todos via PUT
               /gm/profile. Chave ausente no patch NÃO entra no updateGm: o
               optimistic update espalha `...newData` sobre o cache e chave

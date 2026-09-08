@@ -529,7 +529,13 @@ export function ClosedGroupSection({ value, onChange }: ClosedGroupSectionProps)
 
   return (
     <section className="form-section">
-      <h2>Grupos fechados</h2>
+      {/* `h3`, não `h2` (F7.5e + achado de review PR #310): o `ProfilePart` que
+          hospeda este bloco já emite o `h2` da parte
+          (`ProfileEditPage.tsx:945`), então um `h2` aqui competia com ele e
+          quebrava a escada — os blocos irmãos ("Sistemas que Mestra", "Onde
+          você mestra") são `h3`. A classe `profile-part-subtitle` é a mesma que
+          eles usam; `.form-section h3` já lhe dava o tamanho certo. */}
+      <h3 className="profile-part-subtitle">Grupos fechados</h3>
       <p className="section-description">
         Ofereça campanhas exclusivas para grupos de amigos que já se conhecem.
       </p>

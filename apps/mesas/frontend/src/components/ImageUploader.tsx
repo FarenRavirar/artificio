@@ -5,11 +5,12 @@ import { Checkbox, TextInput } from '@artificio/ui';
 import {
   imageKindHint,
   imageKindSpec,
+  isArtificioHostedImage,
   type CropRect,
   type ImageKind,
 } from '@artificio/media/image-kinds';
 import bannerPlaceholder from '../assets/banner_placeholder.webp';
-import { isCloudinaryUrl, useImageUrlImport } from '../hooks/useImageUrlImport';
+import { useImageUrlImport } from '../hooks/useImageUrlImport';
 import { useImageUpload } from '../hooks/useImageUpload';
 import { CroppedImage } from './CroppedImage';
 
@@ -96,6 +97,14 @@ export function ImageUploader({
   const inputId = fileInputId || `${idPrefix}-file`;
   const manualUrlId = manualInputId || `${idPrefix}-url`;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Foco a mover para o campo de URL quando ele aparece por ação do mestre
+  // (F6.4c, achado de review PR #310): o botão "Trocar por um link" DESMONTA ao
+  // ser clicado, e sem isso o foco cai no `<body>` — quem navega por teclado
+  // perde o lugar exatamente na ação que pediu, e o próximo Tab recomeça do
+  // topo da página. Só quando o mestre pede: montagem por dado que chega (o
+  // valor deixar de ser hospedado aqui) não deve roubar o foco de onde ele
+  // estiver.
+  const focarCampoDeLinkRef = useRef(false);
   const spec = imageKindSpec(kind);
   const isAvatar = kind === 'profile_avatar';
   const fallbackImage = placeholderSrc ?? (isAvatar ? '' : bannerPlaceholder);
@@ -125,8 +134,16 @@ export function ImageUploader({
    * (que já existia, abaixo) mais o convite a trocar. Link externo mantido por
    * "Manter link direto" CONTINUA visível: aquela URL o mestre digitou, ele a
    * reconhece, e escondê-la tiraria a única forma de conferi-la.
+   *
+   * `isArtificioHostedImage` e NÃO `isCloudinaryUrl`: os dois predicados
+   * respondem perguntas diferentes. `isCloudinaryUrl` decide **importar**, e
+   * trata qualquer `*.cloudinary.com` como hospedada para não reimportar; usá-lo
+   * aqui escondia também o Cloudinary DE TERCEIRO que o mestre colou e manteve
+   * como link direto — justamente o caso que o parágrafo acima manda preservar
+   * (achado de review, PR #310). O predicado de exibição olha a pasta, que só o
+   * nosso backend escreve.
    */
-  const imagemHospedadaAqui = isCloudinaryUrl(value.trim());
+  const imagemHospedadaAqui = isArtificioHostedImage(value.trim());
   const campoDeLinkVisivel = !imagemHospedadaAqui || mostrarCampoDeLink;
 
   const clearError = () => {
@@ -288,7 +305,10 @@ export function ImageUploader({
           <button
             type="button"
             id={`${idPrefix}-show-url`}
-            onClick={() => setMostrarCampoDeLink(true)}
+            onClick={() => {
+              focarCampoDeLinkRef.current = true;
+              setMostrarCampoDeLink(true);
+            }}
             className="text-[length:var(--text-label)] text-[var(--fg-muted)] hover:text-[var(--fg)] underline underline-offset-2 text-left transition-colors"
           >
             Trocar por um link de imagem
@@ -311,6 +331,16 @@ export function ImageUploader({
               regra legada do CSS produzia por especificidade (§13.7). O que
               fica é a largura, que o primitivo não decide. */}
           <TextInput
+            // Callback ref, não `useEffect`: dispara na montagem do input, sem
+            // o render extra que a lint deste repo reprova
+            // (`react-hooks/set-state-in-effect`), e sem precisar de dependência
+            // que descreva "acabou de aparecer".
+            ref={(node) => {
+              if (node && focarCampoDeLinkRef.current) {
+                focarCampoDeLinkRef.current = false;
+                node.focus();
+              }
+            }}
             id={manualUrlId}
             type="url"
             value={value}

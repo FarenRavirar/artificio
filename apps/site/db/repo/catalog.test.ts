@@ -270,6 +270,70 @@ describe('createNode — irmão semanticamente equivalente (spec 100 F6.3d)', ()
     }
   }, 20_000);
 
+  it('recusa irmão cujo nome bate com o `name_pt` do existente — o caso Vampire/Vampiro', async () => {
+    const db = new PGlite();
+    activeDb = db;
+    try {
+      await db.exec(readFileSync(new URL('../migrations/006_catalog_foundation.sql', import.meta.url), 'utf8'));
+      // Estado real do catálogo depois da migration 013, que fundiu os dois nós
+      // sob classificação `manual-risk` + `requires-backup`.
+      await db.query(
+        `INSERT INTO catalog_nodes (id, node_type, canonical_slug, path_slug, name, name_pt)
+         VALUES ('vamp', 'system', 'vampire', 'vampire', 'Vampire', 'Vampiro')`,
+      );
+
+      await expect(
+        createNode(
+          {
+            parent_id: null,
+            node_type: 'system',
+            name: 'Vampiro',
+            name_pt: null,
+            description: null,
+            official_website_url: null,
+            logo_media_id: null,
+            aliases: [],
+          },
+          'admin-1',
+        ),
+      ).rejects.toThrow('duplicate_sibling_node');
+    } finally {
+      activeDb = null;
+      await db.close();
+    }
+  }, 20_000);
+
+  it('recusa também no sentido inverso — o `name_pt` do CANDIDATO bate com o nome do irmão', async () => {
+    const db = new PGlite();
+    activeDb = db;
+    try {
+      await db.exec(readFileSync(new URL('../migrations/006_catalog_foundation.sql', import.meta.url), 'utf8'));
+      await db.query(
+        `INSERT INTO catalog_nodes (id, node_type, canonical_slug, path_slug, name)
+         VALUES ('vamp', 'system', 'vampiro', 'vampiro', 'Vampiro')`,
+      );
+
+      await expect(
+        createNode(
+          {
+            parent_id: null,
+            node_type: 'system',
+            name: 'Vampire',
+            name_pt: 'Vampiro',
+            description: null,
+            official_website_url: null,
+            logo_media_id: null,
+            aliases: [],
+          },
+          'admin-1',
+        ),
+      ).rejects.toThrow('duplicate_sibling_node');
+    } finally {
+      activeDb = null;
+      await db.close();
+    }
+  }, 20_000);
+
   it('o mesmo nome sob OUTRO pai continua válido — "5e" existe em vários sistemas', async () => {
     const db = new PGlite();
     activeDb = db;

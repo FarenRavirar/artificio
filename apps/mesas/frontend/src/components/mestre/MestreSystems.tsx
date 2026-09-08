@@ -36,7 +36,13 @@ export function MestreSystems({ systems }: MestreSystemsProps) {
 
       <div className="flex flex-wrap gap-2">
         {systems.map((system) => (
-          <Badge key={system.id} variant="brand">
+          // `neutral`, não `brand`: `brand` pinta `--state-brand-*`, que é o
+          // laranja de marca (`rgba(255, 87, 34, …)`), e D6/requisito 10
+          // reservam o laranja para AÇÃO — botão primário, link, anel de foco.
+          // Estes chips são texto informativo, sem destino nenhum (achado de
+          // review, PR #310). O `brand` que sobrevive no hero está num chip que
+          // É ação: leva à descrição do destaque.
+          <Badge key={system.id} variant="neutral">
             {system.name}
           </Badge>
         ))}
