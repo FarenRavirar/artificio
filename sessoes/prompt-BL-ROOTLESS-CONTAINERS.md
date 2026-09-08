@@ -66,7 +66,7 @@ fechar o item BL-ROOTLESS-CONTAINERS no backlog.md.
 
 ### Documentação atualizada
 - `specs/backlog.md` — `BL-ROOTLESS-CONTAINERS` → `fechado`
-- `specs/013-links-regras-restore/tasks.md` — C3 cross-app marcado concluído
+- `specs/olds/013-links-regras-restore/tasks.md` — C3 cross-app marcado concluído
 - `.specify/memory/project-state.md` — log entry adicionada
 - Esta sessão — evidência de execução
 

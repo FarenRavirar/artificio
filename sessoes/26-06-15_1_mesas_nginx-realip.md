@@ -2,7 +2,7 @@
 
 - Data: 2026-06-15
 - Escopo: infra + apps/mesas + apps/glossario + apps/accounts + apps/site
-- Spec: `specs/023-infra-real-ip-contract/`
+- Spec: `specs/olds/023-infra-real-ip-contract/`
 - Tipo: SDD Completo (contrato compartilhado de ingress/infra; sem VM write/deploy)
 - Gate: D
 - Estado: concluída
@@ -42,7 +42,7 @@ Corrigir D-NGINX2 e elevar para contrato unico: todo `*.artificiorpg.com` na VM 
 - `.specify/memory/decisions.md`
 - `.specify/memory/errors.md`
 - `.specify/memory/project-state.md`
-- `specs/023-infra-real-ip-contract/{spec.md,plan.md,tasks.md}`
+- `specs/olds/023-infra-real-ip-contract/{spec.md,plan.md,tasks.md}`
 - `sessoes/index.md`
 - esta sessao
 

@@ -4,7 +4,7 @@
 - **Tipo:** SDD Completo (vai tocar `packages/ui` + app piloto)
 - **Modulo/Pacote:** `packages/ui` (theme) + 1 piloto (`glossario` ou `mesas`, a decidir)
 - **Gate relacionado:** nenhum. WP raiz/DNS/VM/deploy/producao fora de escopo.
-- **Spec vinculada:** `specs/020-ui-theme-artificio-padrao/` (R4, R8, R9/R10, T4, B6/B7)
+- **Spec vinculada:** `specs/olds/020-ui-theme-artificio-padrao/` (R4, R8, R9/R10, T4, B6/B7)
 - **Estado:** aberta — T4 (checklist) feito; piloto + navy aguardam decisao do mantenedor antes de codar
 
 ## Objetivo
@@ -22,7 +22,7 @@ Referencia de CSS por variante: `apps/accounts/frontend/src/styles.css` e `apps/
 ja usam `[data-theme="dark"]`.
 
 ## T4 — Checklist de variant-readiness (FEITO)
-Criado `specs/020-ui-theme-artificio-padrao/dark-readiness-checklist.md`: criterio objetivo e simetrico
+Criado `specs/olds/020-ui-theme-artificio-padrao/dark-readiness-checklist.md`: criterio objetivo e simetrico
 (contraste AA texto/foco/disabled, estados hover/active/selected, forms/select/validacao, modais/drawers/toasts,
 header/footer/toggle, mobile, troca claro↔escuro sem flash, evidencia + builds). Gate de fechamento explicito.
 Marcar T4 done em tasks.md.
@@ -182,7 +182,7 @@ Decisao tecnica:
 - Lacuna real era documental: nomes, papeis, aliases temporarios e limites do contrato nao estavam reunidos em uma pagina canonica.
 
 Edicao planejada:
-- Criar `specs/020-ui-theme-artificio-padrao/token-contract.md`.
+- Criar `specs/olds/020-ui-theme-artificio-padrao/token-contract.md`.
 - Marcar T3 como fechado apontando para esse contrato.
 - Registrar lacunas futuras: estados semanticos, spacing/shadow completos e tokens dark estruturados continuam em primitives/recipes/T14, nao bloqueiam T3.
 
@@ -202,7 +202,7 @@ Decisao tecnica:
 - Fechar T5 por documento canonico e deixar a remocao real da duplicacao em `accounts`/`site` para T14 ou fatia futura autorizada.
 
 Edicao feita:
-- Criado `specs/020-ui-theme-artificio-padrao/theme-consolidation.md`.
+- Criado `specs/olds/020-ui-theme-artificio-padrao/theme-consolidation.md`.
 - Marcado T5 como fechado em `tasks.md`.
 
 Validacao planejada:
@@ -226,7 +226,7 @@ Decisao tecnica:
 - Corrigir comentario obsoleto do `GlossarioHeader` (documentacao inline), sem alterar runtime.
 
 Edicao feita:
-- Criado `specs/020-ui-theme-artificio-padrao/header-nav-actions.md`.
+- Criado `specs/olds/020-ui-theme-artificio-padrao/header-nav-actions.md`.
 - Marcado T6 como fechado em `tasks.md`.
 - Atualizado comentario em `apps/glossario/frontend/src/components/GlossarioHeader.tsx`.
 
@@ -250,7 +250,7 @@ Decisao tecnica:
 - B4 fica parcial: contrato pronto, implementacao pendente em T14/fatia propria.
 
 Edicao feita:
-- Criado `specs/020-ui-theme-artificio-padrao/primitives-form-state.md`.
+- Criado `specs/olds/020-ui-theme-artificio-padrao/primitives-form-state.md`.
 - Marcado T7 como fechado em `tasks.md`.
 - Marcado B4 como parcial em `tasks.md`.
 
@@ -275,7 +275,7 @@ Decisao tecnica:
 - `EditorialPage` precisa continuar static-friendly para Astro/zero-JS; isso conversa com T9, mas nao resolve T9.
 
 Edicao feita:
-- Criado `specs/020-ui-theme-artificio-padrao/page-recipes.md`.
+- Criado `specs/olds/020-ui-theme-artificio-padrao/page-recipes.md`.
 - Marcado T8 como fechado em `tasks.md`.
 - Marcado B5 como fechado em `tasks.md`.
 
@@ -311,7 +311,7 @@ Decisao tecnica:
 - Debito novo registrado: build T9 confirmou `output: static`, 45 paginas + Pagefind; aviso CSS antigo `@import rules must precede all rules` (font import depois de regra) nao quebra T9, mas deve virar limpeza futura (**B12 / D-CSS1**).
 
 Edicao feita:
-- Criado `specs/020-ui-theme-artificio-padrao/astro-zero-js.md`.
+- Criado `specs/olds/020-ui-theme-artificio-padrao/astro-zero-js.md`.
 - Marcado T9 como fechado em `tasks.md`.
 - Marcado B2 como parcial em `tasks.md`.
 - Registrado B12 em `tasks.md` e D-CSS1 no backlog de debitos.
@@ -336,7 +336,7 @@ Decisao tecnica:
 - B6/B7 continuam parciais ate E2E autenticado com dados; B2/T11 continuam abertos ate export/paridade static; T14 continua para implementacao compartilhada futura.
 
 Edicao feita:
-- Criado `specs/020-ui-theme-artificio-padrao/rollout-pilots.md`.
+- Criado `specs/olds/020-ui-theme-artificio-padrao/rollout-pilots.md`.
 - Marcado T10 como fechado em `tasks.md`.
 
 Validacao:
@@ -362,7 +362,7 @@ Decisao tecnica:
 - Manter o site sem React island no publico; Header/Footer seguem Astro.
 
 Edicao feita:
-- Criado `specs/020-ui-theme-artificio-padrao/brand-static-shell.md`.
+- Criado `specs/olds/020-ui-theme-artificio-padrao/brand-static-shell.md`.
 - `tasks.md`: T11 revisado, mas aberto; B2 segue parcial com referencia ao novo documento.
 
 Validacao documental:
@@ -388,7 +388,7 @@ Decisao tecnica:
 - B7 continua parcial: light do mesas ja esta promovido, mas falta E2E autenticado das telas operacionais.
 
 Edicao feita:
-- Criado `specs/020-ui-theme-artificio-padrao/backlog-b2-b7-review.md`.
+- Criado `specs/olds/020-ui-theme-artificio-padrao/backlog-b2-b7-review.md`.
 - Atualizado `tasks.md` para refletir status real de B2-B7 e corrigir B6/B7 de "local/sem commit" para "implementado/promovido + residual E2E".
 
 Validacao documental:

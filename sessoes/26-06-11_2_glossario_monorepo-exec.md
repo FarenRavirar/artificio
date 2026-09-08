@@ -1,6 +1,6 @@
 # Sessão 26-06-11_2 — execução spec 012 (glossário → monorepo)
 
-- **Data:** 2026-06-11 · **Módulo:** apps/glossario (novo) · **Gate:** D · **Spec:** `specs/012-glossario-monorepo/`
+- **Data:** 2026-06-11 · **Módulo:** apps/glossario (novo) · **Gate:** D · **Spec:** `specs/olds/012-glossario-monorepo/`
 - **Objetivo:** T1–T4 locais (import, build, UI G1, deploy artifacts); T5+ (VM/deploy) com aprovação por ação.
 
 ## Plano
@@ -72,7 +72,7 @@ Tasks T1–T10 da spec 012 fechadas com evidência; `project-state.md` atualizad
 - `.env.beta` existe em `/opt/artificio-beta/apps/glossario/.env.beta` com permissão `600`; `POSTGRES_PASSWORD` igual ao segredo do volume legado beta e `JWT_SECRET` igual ao `apps/accounts/.env.beta` do mesmo clone. Segredos não devem ser impressos.
 - Rota Cloudflare BETA criada: `glossariobeta.artificiorpg.com` -> `http://glossario-beta-app:80`; rota pública validada antes do deploy (`/` e `/api/terms` = 200). `glossariorpg.artificiorpg.com` foi depois esclarecido pelo mantenedor como alias histórico pré-monorepo, não rota ativa.
 - Pendência antes de qualquer git/push/merge/deploy: atualizar documentação canônica do repositório com pré-requisitos, volumes, rotas Tunnel, ordem de deploy, caveat de login/JWT e observação de DNS Oracle.
-- Documentação local atualizada nesta retomada: `README.md`, `apps/glossario/README.md`, `docs/agents/{deploy-runbook,deploy-flow,infra-map,github-actions-secrets,access-registry,context-capsule,roadmap}.md`, `specs/012-glossario-monorepo/{spec,plan,tasks}.md`, `project-state.md` e `sessoes/index.md`.
+- Documentação local atualizada nesta retomada: `README.md`, `apps/glossario/README.md`, `docs/agents/{deploy-runbook,deploy-flow,infra-map,github-actions-secrets,access-registry,context-capsule,roadmap}.md`, `specs/olds/012-glossario-monorepo/{spec,plan,tasks}.md`, `project-state.md` e `sessoes/index.md`.
 
 ## Deploy BETA autorizado (2026-06-11)
 - Mantenedor: "pode seguir" para `gh workflow run deploy-glossario.yml --ref dev -f mode=deploy` + smoke read-only.

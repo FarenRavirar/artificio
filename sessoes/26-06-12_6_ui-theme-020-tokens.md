@@ -4,7 +4,7 @@
 - **Tipo:** SDD Completo (toca `packages/ui`)
 - **Modulo/Pacote:** `packages/ui` (consumidores validados em build)
 - **Gate relacionado:** nenhum. WP raiz/DNS/VM/deploy/producao fora de escopo.
-- **Spec vinculada:** `specs/020-ui-theme-artificio-padrao/` (T1, T2, T13 Fase B)
+- **Spec vinculada:** `specs/olds/020-ui-theme-artificio-padrao/` (T1, T2, T13 Fase B)
 - **Estado:** concluída (commits `a48a518`+`d9c6d8a` em `dev`; betas no ar com `#FF5722`)
 
 ## Commit + deploy dev (autorizado)

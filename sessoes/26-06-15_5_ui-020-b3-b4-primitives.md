@@ -9,8 +9,8 @@
 
 ## Contexto lido
 - `specs/backlog.md`: `BL-UI-B3-HEADERACTION` e `BL-UI-B4-PRIMITIVES` abertos.
-- `specs/020-ui-theme-artificio-padrao/header-nav-actions.md`: `HeaderAction` deve ser visual-only; dados/fetch/modal por app.
-- `specs/020-ui-theme-artificio-padrao/primitives-form-state.md`: contrato de `Button`, `Field`, controles, `Badge`, `Panel`, `Toolbar`, `State`, `Modal`, `Drawer`, `HeaderAction`.
+- `specs/olds/020-ui-theme-artificio-padrao/header-nav-actions.md`: `HeaderAction` deve ser visual-only; dados/fetch/modal por app.
+- `specs/olds/020-ui-theme-artificio-padrao/primitives-form-state.md`: contrato de `Button`, `Field`, controles, `Badge`, `Panel`, `Toolbar`, `State`, `Modal`, `Drawer`, `HeaderAction`.
 
 ## Plano proposto
 - [x] Triar proximo debito aberto da trilha UI.

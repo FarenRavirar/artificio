@@ -18,7 +18,7 @@ Ver `specs/080-search-console-opengraph-indexacao/plan.md`. Fase 0 = investigaç
 - **Retomada Codex 2026-07-17:** objetivo nominal = terminar spec 080. Próximo bloco: concluir dual publish `config/content`, implementar sitemaps Mesas/Glossário, OG dinâmico Glossário, fallback OG Site; depois validações locais/repo-wide e levantar somente gates externos GSC/smoke humano. Arquivo alheio `.claude/settings.local.json` preservado.
 
 - Spec criada (spec.md + plan.md + tasks.md), sem commit.
-- Branch atual (`fix/mesas-import-texto-fase6`) tem mudança pendente não commitada em `specs/079-mesas-import-texto-polimento/tasks.md` (correção de doc do T6.3, fora do escopo desta sessão) — não tocar, não é desta spec.
+- Branch atual (`fix/mesas-import-texto-fase6`) tem mudança pendente não commitada em `specs/olds/079-mesas-import-texto-polimento/tasks.md` (correção de doc do T6.3, fora do escopo desta sessão) — não tocar, não é desta spec.
 - **Fase 0 (investigação) concluída** via curl real + browser (site/mesas em produção). Achados:
   - Site: sitemap (`sitemap-index.xml`) e OG já funcionam de fato. `/sitemap.xml` puro é 404 mas não é bug — `robots.txt` já referencia o nome certo. `BL-SITE-PRINCIPAL-GAPS` item D parece não ser mais problema real.
   - Mesas: OG já funciona de fato (nginx detecta bot por UA, roteia pro backend `og.ts`, confirmado com `curl -A Discordbot`). Sitemap real (`/sitemap.xml`) ainda é gap — SPA fallback, não XML.

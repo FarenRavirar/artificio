@@ -3,7 +3,7 @@
 - **Data:** 2026-06-16
 - **Escopo:** infra / CI-CD / `.github/workflows/*`
 - **Gate:** D (esteira por modulo)
-- **Spec:** `specs/026-infra-workflows-audit/`
+- **Spec:** `specs/olds/026-infra-workflows-audit/`
 - **Autorizacao:** mantenedor pediu **levantamento/investigacao sem chute**; direcao-alvo
   escolhida via AskUserQuestion (accounts→`_deploy-module`; manifesto+matrix). SEM commit/
   push/deploy. SEM editar workflow.
@@ -31,7 +31,7 @@ T1 infra: `AGENTS.md` (Git/Branch/Deploy, Aprovacao), `deploy-flow.md`, `deploy-
 
 ## Executado
 
-- Criados `specs/026-infra-workflows-audit/{spec,plan,tasks}.md` (auditoria + roadmap F1-F9).
+- Criados `specs/olds/026-infra-workflows-audit/{spec,plan,tasks}.md` (auditoria + roadmap F1-F9).
 - T1-T4 da spec marcados feitos (inventario/redundancia/seguranca/direcao-alvo).
 - Backlog: aberta linha `BL-INFRA-WORKFLOWS-026` (guarda-chuva); itens de infra existentes
   mapeados as fatias F1-F9.

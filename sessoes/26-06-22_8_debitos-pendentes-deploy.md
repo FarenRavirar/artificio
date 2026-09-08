@@ -4,7 +4,7 @@
 - **Objetivo:** Abrir spec onde cada task = resolver 1 dos 5 débitos "🟡 Local". Etapa = **só investigação + documentação** (sem código, sem commit, sem avanço de fase).
 - **Escopo:** transversal — accounts, links, workflows, .gitignore, backlog.
 - **Gate:** Gate D (links/accounts em prod).
-- **Vínculos:** `specs/045-debitos-pendentes-deploy/`, specs 035/038, decisões D042/D080/D085.
+- **Vínculos:** `specs/olds/045-debitos-pendentes-deploy/`, specs 035/038, decisões D042/D080/D085.
 
 ## Plano
 1. T0 completo (project-state + capsule + decisions) ✅
@@ -31,9 +31,9 @@
 - Linha SPEC-045 a adicionar no backlog quando a reconciliação (T5) rodar.
 
 ## Arquivos criados
-- `specs/045-debitos-pendentes-deploy/spec.md`
-- `specs/045-debitos-pendentes-deploy/investigacao.md`
-- `specs/045-debitos-pendentes-deploy/tasks.md`
+- `specs/olds/045-debitos-pendentes-deploy/spec.md`
+- `specs/olds/045-debitos-pendentes-deploy/investigacao.md`
+- `specs/olds/045-debitos-pendentes-deploy/tasks.md`
 - esta sessão
 
 ## Critério de conclusão (desta etapa)

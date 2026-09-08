@@ -3,7 +3,7 @@
 - **Data:** 2026-06-11
 - **Módulo:** apps/glossario (+ migration DB glossario_v2; consome `@artificio/auth` sem alterar pacote)
 - **Gate:** D (fecha Gate D do glossário)
-- **Spec:** `specs/015-glossario-sso-compat/` (spec.md / plan.md / tasks.md)
+- **Spec:** `specs/olds/015-glossario-sso-compat/` (spec.md / plan.md / tasks.md)
 - **Nível SDD:** Completo (auth/SSO + migration + dados pessoais)
 
 ## Vínculos

@@ -14,7 +14,7 @@
 - [x] Atualizar backlog/sessao.
 
 ## Arquivos provaveis
-- `specs/020-ui-theme-artificio-padrao/primitive-consumers-pilot.md`
+- `specs/olds/020-ui-theme-artificio-padrao/primitive-consumers-pilot.md`
 - `specs/backlog.md`
 - `sessoes/26-06-15_6_ui-primitives-consumers-spec.md`
 - `sessoes/index.md`
@@ -28,7 +28,7 @@
 ## Execucao
 - 2026-06-15 — Lido `apps/site-admin` completo relevante: `styles.css`, `App`, listas, editores, media, feedback.
 - 2026-06-15 — Validado baseline: `pnpm --filter @artificio/site-admin typecheck` OK; `pnpm --filter @artificio/site-admin build` OK, com aviso existente de chunk >500 kB.
-- 2026-06-15 — Criado `specs/020-ui-theme-artificio-padrao/primitive-consumers-pilot.md`.
+- 2026-06-15 — Criado `specs/olds/020-ui-theme-artificio-padrao/primitive-consumers-pilot.md`.
 - 2026-06-15 — Backlog `BL-UI-PRIMITIVES-CONSUMERS` atualizado para apontar para a spec e para fatia 1 `PostsList`/`PagesList`.
 
 ## Achados

@@ -12,7 +12,7 @@ Registrar uma nova spec para arquitetura escalavel de aprendizado do parser de i
 
 ## Plano desta sessao
 
-- Criar `specs/058-mesas-parser-learning-deepseek/`.
+- Criar `specs/olds/058-mesas-parser-learning-deepseek/`.
 - Escrever `spec.md`, `plan.md` e `tasks.md` como proposta arquitetural pre-implementacao.
 - Registrar backlog/status documental minimo.
 - Nao commitar, nao pushar, nao implementar migration/rota/pipeline agora.
@@ -24,7 +24,7 @@ Registrar uma nova spec para arquitetura escalavel de aprendizado do parser de i
 
 ## Resultado
 
-- Criada spec `specs/058-mesas-parser-learning-deepseek/`.
+- Criada spec `specs/olds/058-mesas-parser-learning-deepseek/`.
 - Criados `spec.md`, `plan.md`, `tasks.md`.
 - Atualizados mapas: `specs/README.md`, `specs/backlog.md`, `.specify/memory/project-state.md`, `sessoes/index.md`.
 - Estado da spec: planejada/pre-implementacao; implementacao bloqueada ate revisao 5.5 altissimo.
@@ -53,7 +53,7 @@ Registrar uma nova spec para arquitetura escalavel de aprendizado do parser de i
 
 ### Resultado da Fase 0
 
-- Criado `specs/058-mesas-parser-learning-deepseek/reviews.md`.
+- Criado `specs/olds/058-mesas-parser-learning-deepseek/reviews.md`.
 - Veredito: a direcao geral esta correta, mas o MVP nao deve ser DeepSeek. Primeiro precisa memoria imutavel e baseline.
 - Gaps principais registrados:
   - `import_corrections` tem `draft_id ON DELETE CASCADE`, logo nao serve como fonte duravel de aprendizado.
@@ -102,7 +102,7 @@ Registrar uma nova spec para arquitetura escalavel de aprendizado do parser de i
   - `routes/discord/drafts.ts`: registra feedback de rejeicao em lote.
   - `discord/syncHelpers.ts`: registra feedback de sync/publicacao.
   - `routes/inbox/import.ts`: registra casos para texto colado/manual paste.
-- Baseline offline registrado em `specs/058-mesas-parser-learning-deepseek/baseline.md`:
+- Baseline offline registrado em `specs/olds/058-mesas-parser-learning-deepseek/baseline.md`:
   - `D:\teste.json`: 50 total, 43 drafts, 7 descartes, 25 pagas, 3 gratuitas, 15 unknown, todos drafts `needs_review`.
 - Validacao:
   - `pnpm --filter @artificio/mesas-backend build` ✅
@@ -505,7 +505,7 @@ Draft real ("Ruins of Gauntlight") não detectou sistema "Pathfinder 2e" apesar 
 
 ### Registro
 
-- Criado `specs/058-mesas-parser-learning-deepseek/debitos.md` com DEB-058-04 (3 sub-achados: parser não cobre layout label-newline-valor; UX de `<select>` sem busca; sugestão automática depende do fix do hint).
+- Criado `specs/olds/058-mesas-parser-learning-deepseek/debitos.md` com DEB-058-04 (3 sub-achados: parser não cobre layout label-newline-valor; UX de `<select>` sem busca; sugestão automática depende do fix do hint).
 - Nenhum código alterado nesta investigação — aguardando decisão do mantenedor (perguntas feitas via AskUserQuestion no mesmo turno).
 
 ### Decisões nominais do mantenedor (2026-07-02, via pergunta)
@@ -517,7 +517,7 @@ Draft real ("Ruins of Gauntlight") não detectou sistema "Pathfinder 2e" apesar 
 
 ### Estado
 
-Plano registrado em `specs/058-mesas-parser-learning-deepseek/tasks.md` (Fase 9) e `debitos.md` (DEB-058-04). Pronto pra iniciar implementação — aguarda próximo turno/autorização de início de código.
+Plano registrado em `specs/olds/058-mesas-parser-learning-deepseek/tasks.md` (Fase 9) e `debitos.md` (DEB-058-04). Pronto pra iniciar implementação — aguarda próximo turno/autorização de início de código.
 
 ### Escopo fechado após rodada de perguntas (2026-07-02)
 
@@ -542,7 +542,7 @@ Nenhum código alterado ainda. Próximo passo: atualizar `debitos.md`/`tasks.md`
 
 ### Revisão adversarial do plano ampliado (agente g1-governance-reviewer, 2026-07-02)
 
-Escrito `specs/058-mesas-parser-learning-deepseek/auto-preenchimento-draft.md` (visão ampliada pós-pedido do
+Escrito `specs/olds/058-mesas-parser-learning-deepseek/auto-preenchimento-draft.md` (visão ampliada pós-pedido do
 mantenedor de "auto-preenchimento máximo perfeito possível" cobrindo TODOS os campos do form, não só sistema).
 Mapeamento contra schema real confirmou gap maior que o previsto: `TablesTable` (mesa publicada) tem
 `vtt_platform_id`, `communication_platform_id`, `age_rating`, `content_warnings`, `safety_tools`,
@@ -599,7 +599,7 @@ código.
   original do mantenedor ("o usuario do discord se tiver nada") que não estava coberto na 1ª versão do doc.
 - Perguntas 3-6 fechadas com resposta objetiva (schema/AGENTS.md/código já respondiam).
 
-Nenhum código alterado. Doc `specs/058-mesas-parser-learning-deepseek/auto-preenchimento-draft.md` pronto
+Nenhum código alterado. Doc `specs/olds/058-mesas-parser-learning-deepseek/auto-preenchimento-draft.md` pronto
 pra revisão final do mantenedor antes de fechar escopo de implementação.
 
 ### Simulação real contra 3 JSONs reais fornecidos pelo mantenedor (2026-07-02)

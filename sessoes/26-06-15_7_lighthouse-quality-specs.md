@@ -24,8 +24,8 @@
 - Todos os relatorios avisam extensoes/storage interferindo. Decisao: score bruto e alarme, nao baseline final. Primeiro debito = harness limpo.
 
 ## Specs/debitos criados
-- Spec guarda-chuva: `specs/025-quality-lighthouse-program/`.
-- Achados detalhados: `specs/025-quality-lighthouse-program/lighthouse-findings.md`.
+- Spec guarda-chuva: `specs/olds/025-quality-lighthouse-program/`.
+- Achados detalhados: `specs/olds/025-quality-lighthouse-program/lighthouse-findings.md`.
 - Backlog atualizado com:
   - `BL-QA-LH-HARNESS`
   - `BL-QA-SITE-IMAGES`
@@ -50,10 +50,10 @@
 - Backlog atualizado: sim.
 
 ## Arquivos provaveis
-- `specs/025-quality-lighthouse-program/spec.md`
-- `specs/025-quality-lighthouse-program/plan.md`
-- `specs/025-quality-lighthouse-program/tasks.md`
-- `specs/025-quality-lighthouse-program/lighthouse-findings.md`
+- `specs/olds/025-quality-lighthouse-program/spec.md`
+- `specs/olds/025-quality-lighthouse-program/plan.md`
+- `specs/olds/025-quality-lighthouse-program/tasks.md`
+- `specs/olds/025-quality-lighthouse-program/lighthouse-findings.md`
 - `specs/backlog.md`
 - `sessoes/index.md`
 - `.specify/memory/project-state.md` se mudar estado operacional/documental relevante.

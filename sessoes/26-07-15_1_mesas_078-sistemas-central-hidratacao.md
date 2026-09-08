@@ -26,7 +26,7 @@ Criar spec dedicada e plano completo. Nenhuma implementação runtime nesta aber
 
 ## Artefatos
 
-- `specs/078-mesas-sistemas-central-hidratacao/` completo.
+- `specs/olds/078-mesas-sistemas-central-hidratacao/` completo.
 - T0 (`project-state`, `decisions`), backlog, README, índice de sessões.
 - Nota de superação parcial na Spec 062.
 

@@ -4,7 +4,7 @@
 - Objetivo: retomada da Spec 077 (dedupe de mesas ativas) pedida pelo mantenedor após o ciclo de deploy do fix de null-byte (PR #168) e libexpat (PR #169). Três pedidos em sequência na mesma retomada.
 - Escopo: `apps/mesas/frontend` (card de rascunho) + `apps/mesas/backend` (trigger automático de scan). Sem tocar `packages/*`.
 - Gate: D (mesas).
-- Vínculos: `specs/077-mesas-dedupe-mesas-ativas/` (Fase 0 já fechada em 26-07-14; scanner batch `scanTableDuplicateCandidates`/`buildDraftCandidates`/rota `POST /admin/tables/duplicates/scan` já implementados e em produção antes desta sessão).
+- Vínculos: `specs/olds/077-mesas-dedupe-mesas-ativas/` (Fase 0 já fechada em 26-07-14; scanner batch `scanTableDuplicateCandidates`/`buildDraftCandidates`/rota `POST /admin/tables/duplicates/scan` já implementados e em produção antes desta sessão).
 
 ## Pedidos do mantenedor (verbatim, ordem cronológica)
 
@@ -37,7 +37,7 @@ Se o mantenedor quiser scan automático nesses fluxos também, é ampliação de
 - [x] Adicionar botões Revisar/Rejeitar por linha no card de rascunho (pedido 2).
 - [ ] Disparar `scanTableDuplicateCandidates()` fire-and-forget ao final do import de arquivo DiscordChatExporter (pedido 3), só nas rotas `POST /` e `POST /file` de `routes/discord/import.ts`.
 - [ ] Validar: `tsc --noEmit` backend, `pnpm run lint`.
-- [ ] Atualizar `specs/077-mesas-dedupe-mesas-ativas/tasks.md` com o trigger automático implementado.
+- [ ] Atualizar `specs/olds/077-mesas-dedupe-mesas-ativas/tasks.md` com o trigger automático implementado.
 - [ ] Perguntar ao mantenedor antes de commitar/abrir branch (regra pétrea — nenhuma autorização de commit dada ainda nesta sessão).
 
 ## Arquivos modificados/previstos
@@ -48,7 +48,7 @@ Se o mantenedor quiser scan automático nesses fluxos também, é ampliação de
 - `apps/mesas/backend/src/discord/__tests__/parseDiscordAnnouncement.test.ts` (feito)
 - `sessoes/26-07-16_2_mesas_077-badge-duplicata-e-botoes-rascunho.md` (este arquivo)
 - `sessoes/index.md` (feito)
-- `specs/077-mesas-dedupe-mesas-ativas/tasks.md` (feito)
+- `specs/olds/077-mesas-dedupe-mesas-ativas/tasks.md` (feito)
 
 ## Pedido 4 — bug de inferência requires_pc/requires_microphone (2026-07-16)
 
@@ -270,4 +270,4 @@ refletir a nova regra de contato.
 
 ## Critério de conclusão
 
-Botões Revisar/Rejeitar validados por tsc+lint (feito). Scan automático implementado e validado por tsc+lint no backend, sem regressão nas rotas de import (feito). Inferência requires_pc/requires_microphone por VTT/Discord implementada e validada por tsc + suíte discord completa (feito). 500 real em /correction (confirmed_fields/jsonb) corrigido e provado por reprodução real com Docker (feito). Faixa etária >18→+18, day_of_week "to_define" por texto e slots_total default 5 implementados e testados (feito). 429/texto original/campo apagando no fluxo de import por texto corrigidos e validados por build+lint+testes (feito). Campo de URL de capa (CDN) adicionado (feito). Auditoria das 11 colunas `ColumnType<unknown,unknown,unknown>` restantes concluída — nenhuma vulnerável (feito). Commit/push/PR/merge/deploy beta/promote/deploy prod de U8-U13 concluídos com autorização nominal (feito). Review Sonar+Codex da PR #170 corrigido e validado (feito). Badge duplicata clicável, botões sumidos, filtro de contato (link real), fuzzy matching de plataforma, label "Época" e rótulo de experience_level no WhatsApp corrigidos e validados por tsc+testes (feito, U17). `specs/077-mesas-dedupe-mesas-ativas/tasks.md` atualizado com U8-U18 (feito). Commit/push/PR de U17 (U18) ainda não solicitado pelo mantenedor.
+Botões Revisar/Rejeitar validados por tsc+lint (feito). Scan automático implementado e validado por tsc+lint no backend, sem regressão nas rotas de import (feito). Inferência requires_pc/requires_microphone por VTT/Discord implementada e validada por tsc + suíte discord completa (feito). 500 real em /correction (confirmed_fields/jsonb) corrigido e provado por reprodução real com Docker (feito). Faixa etária >18→+18, day_of_week "to_define" por texto e slots_total default 5 implementados e testados (feito). 429/texto original/campo apagando no fluxo de import por texto corrigidos e validados por build+lint+testes (feito). Campo de URL de capa (CDN) adicionado (feito). Auditoria das 11 colunas `ColumnType<unknown,unknown,unknown>` restantes concluída — nenhuma vulnerável (feito). Commit/push/PR/merge/deploy beta/promote/deploy prod de U8-U13 concluídos com autorização nominal (feito). Review Sonar+Codex da PR #170 corrigido e validado (feito). Badge duplicata clicável, botões sumidos, filtro de contato (link real), fuzzy matching de plataforma, label "Época" e rótulo de experience_level no WhatsApp corrigidos e validados por tsc+testes (feito, U17). `specs/olds/077-mesas-dedupe-mesas-ativas/tasks.md` atualizado com U8-U18 (feito). Commit/push/PR de U17 (U18) ainda não solicitado pelo mantenedor.

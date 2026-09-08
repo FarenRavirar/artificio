@@ -9,7 +9,7 @@
 ---
 
 ## Vínculos
-- Spec: `specs/041-ui-shell-nav-unification/{spec.md,plan.md,tasks.md}`
+- Spec: `specs/olds/041-ui-shell-nav-unification/{spec.md,plan.md,tasks.md}`
 - Débitos: `BL-SHELL-B13`, `D-SHELL1` (alvo de fechamento via 041); `BL-UI-THEME-TOGGLE-SITE-REGRESSION`, `BL-UI-THEME-REACT-HEADER-VARIANT` (resolvidos por construção); `D-PROMOTE-033-UPGRADES-REGRESSION` (dependência).
 - Sessão relacionada: `sessoes/26-06-21_3_theme-regression.md`.
 
@@ -27,7 +27,7 @@
 3. **Padronizar menu de conta:** Perfil Artifício (accounts global) + Conta &lt;Serviço&gt; (local) + extras do app.
 
 ## Entregue nesta sessão
-- `specs/041-ui-shell-nav-unification/spec.md` (contexto leigo, achados file:line, requisitos R1-R10, aceite, fora de escopo, riscos, perguntas abertas).
+- `specs/olds/041-ui-shell-nav-unification/spec.md` (contexto leigo, achados file:line, requisitos R1-R10, aceite, fora de escopo, riscos, perguntas abertas).
 - `plan.md` (arquitetura "uma fonte, dois renderizadores", mudanças por camada, ordem, armadilhas).
 - `tasks.md` (T0-T5 implementável por outra IA; tabela T-ROTAS a preencher com mantenedor).
 - `specs/backlog.md`: `BL-SHELL-B13` e `D-SHELL1` linkados à spec 041.

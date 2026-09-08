@@ -4,7 +4,7 @@
 - **App/escopo:** monorepo (raiz `pnpm-workspace.yaml` overrides + `apps/mesas/frontend`).
 - **Gate:** D (higiene de segurança transversal).
 - **Modo:** SDD Lite.
-- **Vínculos:** `specs/039-sec-audit-deps/`, débito `BL-SEC-AUDIT-DEPS`, `BL-AUDIT-033`, spec 034 (xlsx).
+- **Vínculos:** `specs/olds/039-sec-audit-deps/`, débito `BL-SEC-AUDIT-DEPS`, `BL-AUDIT-033`, spec 034 (xlsx).
 
 ## Baseline (pnpm audit 2026-06-21)
 16 advisories: 6 HIGH, 6 MOD, 4 LOW.

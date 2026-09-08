@@ -3,7 +3,7 @@
 - **Data:** 2026-06-30
 - **App/escopo:** apps/mesas (frontend admin + contrato API admin)
 - **Gate:** D (mesas)
-- **Spec:** `specs/057-mesas-gestao-redesign/`
+- **Spec:** `specs/olds/057-mesas-gestao-redesign/`
 - **Modo:** SDD Completo — esta abertura = **investigação + plano primeiro** (decisão do mantenedor)
 - **Objetivo:** repensar e reorganizar completamente a UX de `/gestao` (hoje "cara de gambiarra"); criar spec nova só com isso.
 

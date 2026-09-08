@@ -4,7 +4,7 @@
 - **Objetivo:** Auditar e corrigir `arquiteture.md` + docs que alimentam memorias Serena (spec 046)
 - **App/Projeto:** governanca documental
 - **Gate:** nenhum
-- **Spec:** `specs/046-arquiteture-docs-sync/`
+- **Spec:** `specs/olds/046-arquiteture-docs-sync/`
 
 ## Vínculos
 

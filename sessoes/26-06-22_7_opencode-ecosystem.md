@@ -7,7 +7,7 @@
 **Modo:** SDD Completo (toca AGENTS.md + opencode.json + ferramentas externas)
 
 ## Vinculos
-- Spec: `specs/044-opencode-ecosystem/`
+- Spec: `specs/olds/044-opencode-ecosystem/`
 - Backlog: `specs/backlog.md`
 - Project-state: `.specify/memory/project-state.md`
 - AGENTS.md: raiz
@@ -29,7 +29,7 @@
 - [ ] Specs/README.md atualizado
 
 ## Arquivos a modificar
-- `specs/044-opencode-ecosystem/*` (criados)
+- `specs/olds/044-opencode-ecosystem/*` (criados)
 - `specs/backlog.md` (adicionar spec 044)
 - `specs/README.md` (adicionar linha spec 044)
 - `.specify/memory/project-state.md` (adicionar spec 044 ao proximo passo)

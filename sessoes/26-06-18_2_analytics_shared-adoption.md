@@ -4,7 +4,7 @@
 - **Objetivo:** convergir GA4 dos apps novos para 1 property (D020) + facilitar trackeamento/BI de gestão
 - **Módulo/Pacote:** packages/analytics + apps/site + apps/glossario + apps/mesas
 - **Gate:** nenhum (consolidação compartilhada; SDD Completo por tocar `packages/*`)
-- **Vínculos:** `specs/032-analytics-shared-adoption/{spec,plan,tasks}.md`; `BL-ANALYTICS`; `BL-QA-THIRD-PARTY`; D020; origem `specs/019` B5/FSU-008
+- **Vínculos:** `specs/olds/032-analytics-shared-adoption/{spec,plan,tasks}.md`; `BL-ANALYTICS`; `BL-QA-THIRD-PARTY`; D020; origem `specs/019` B5/FSU-008
 - **Divisão de papéis:** investigação + documentação + planejamento = Claude. Execução de código = opencode (fatia por app, PR isolado).
 
 ## Plano
@@ -34,9 +34,9 @@ Métodos: leitura do código (read-only), `ssh faren` printenv read-only, `curl`
 
 ## Arquivos modificados nesta sessão (doc-only)
 
-- `specs/032-analytics-shared-adoption/spec.md` (novo)
-- `specs/032-analytics-shared-adoption/plan.md` (novo)
-- `specs/032-analytics-shared-adoption/tasks.md` (novo)
+- `specs/olds/032-analytics-shared-adoption/spec.md` (novo)
+- `specs/olds/032-analytics-shared-adoption/plan.md` (novo)
+- `specs/olds/032-analytics-shared-adoption/tasks.md` (novo)
 - `specs/backlog.md` (BL-ANALYTICS + BL-QA-THIRD-PARTY atualizados)
 - `sessoes/index.md` (linha desta sessão)
 - `.specify/memory/decisions.md` (nota em D020)

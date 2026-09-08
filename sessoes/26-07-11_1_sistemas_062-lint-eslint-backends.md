@@ -8,7 +8,7 @@
 
 ## Vínculos
 - PR #145 (branch `feat/062-catalogo-consumidores-integrais` → `dev`)
-- `specs/062-sistemas-catalogo-canonico/`
+- `specs/olds/062-sistemas-catalogo-canonico/`
 
 ## O que houve (resumo)
 1. Aplicadas mais 3 levas de achados de review na PR #145: schema write duplicado (zod `.omit`/base schema compartilhado), Dependabot (sem fix disponível, não é código), Sonar duplicação de `catalogClient.ts` (mesas/glossario) — resolvido extraindo `catalogNodeBaseSchema` reusado por árvore e resposta de escrita, dentro de cada arquivo (não virou pacote compartilhado).
@@ -51,7 +51,7 @@
 - `tsc --noEmit` limpo nos dois.
 - `pnpm run build` e `pnpm run lint` repo-wide verdes.
 - Nenhuma supressão de lint (`eslint-disable`/`@ts-ignore`) introduzida.
-- `specs/062-sistemas-catalogo-canonico/debitos.md` sem necessidade de nova entrada (este item foi corrigido, não postergado).
+- `specs/olds/062-sistemas-catalogo-canonico/debitos.md` sem necessidade de nova entrada (este item foi corrigido, não postergado).
 
 ## FECHAMENTO (retomada pós-corte)
 

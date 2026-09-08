@@ -21,7 +21,7 @@
 ## Arquivos a modificar
 - `scripts/quality/lighthouse-harness.mjs`
 - `package.json`
-- `specs/025-quality-lighthouse-program/*`
+- `specs/olds/025-quality-lighthouse-program/*`
 - `specs/backlog.md`
 - `.specify/memory/project-state.md`
 - `sessoes/index.md`
@@ -61,9 +61,9 @@
 
 ## Backlog/project-state
 - `BL-QA-LH-HARNESS` marcado como fechado somente apos smoke real.
-- T2 marcado fechado apos baseline completo e doc `specs/025-quality-lighthouse-program/baseline-2026-06-16.md`.
+- T2 marcado fechado apos baseline completo e doc `specs/olds/025-quality-lighthouse-program/baseline-2026-06-16.md`.
 - Backlog reordenado por evidencia limpa: `BL-QA-SHELL-CLS` e `BL-QA-GLOSSARIO-PERF` antes de `BL-QA-SITE-IMAGES`.
-- `specs/025-quality-lighthouse-program/tasks.md` T1 marcado como fechado.
+- `specs/olds/025-quality-lighthouse-program/tasks.md` T1 marcado como fechado.
 - `.specify/memory/project-state.md` atualizado com T1 fechado e proximo T2 dependente de prover/instalar `lighthouse`.
 - Nada novo no backlog alem da dependencia operacional ja registrada: execucao real exige `LIGHTHOUSE_BIN` ou adicionar `lighthouse` como devDependency com aprovacao.
 

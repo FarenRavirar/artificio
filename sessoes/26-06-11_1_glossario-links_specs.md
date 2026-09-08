@@ -2,7 +2,7 @@
 
 - **Data:** 2026-06-11 · **Módulo:** glossario / links / packages-ui · **Gate:** D (glossário, links)
 - **Objetivo:** investigar e especificar: (1) glossário → monorepo + `glossario.artificiorpg.com`; (2) restaurar `links.` + `regras.`; (3) nav principal item "WhatsApp"; (4) SSO accounts no glossário com compat do login antigo.
-- **Vínculos:** `specs/012-glossario-monorepo/`, `specs/013-links-regras-restore/`, `specs/014-ui-nav-whatsapp/`, `specs/015-glossario-sso-compat/`.
+- **Vínculos:** `specs/olds/012-glossario-monorepo/`, `specs/olds/013-links-regras-restore/`, `specs/olds/014-ui-nav-whatsapp/`, `specs/olds/015-glossario-sso-compat/`.
 
 ## Decisões do mantenedor nesta sessão
 - Glossário está NO AR em `glossariorpg.` mas alvo é **`glossario.artificiorpg.com`** (rename de hostname; registrar D0NN ao executar 012).

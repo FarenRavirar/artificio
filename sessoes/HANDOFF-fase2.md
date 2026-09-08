@@ -13,7 +13,7 @@ Este chat é a **continuação direta** do trabalho do Artifício RPG. As Fases 
 4. `AGENTS.md` — governança/regras pétreas.
 5. `.specify/arquiteture.md` — contratos (por seção).
 6. `docs/agents/token-economy.md` — modo de trabalho.
-7. **`specs/003-fase2-monorepo-sso/{spec,plan,tasks}.md`** — o que vais executar.
+7. **`specs/olds/003-fase2-monorepo-sso/{spec,plan,tasks}.md`** — o que vais executar.
 8. `sessoes/26-06-04_3_monorepo_fase2-sso.md` — sessão ativa.
 
 ## O projeto (resumo)
@@ -28,7 +28,7 @@ Este chat é a **continuação direta** do trabalho do Artifício RPG. As Fases 
 **Tu (Opus) ORQUESTRAS; o Codex EXECUTA — delega por default.** O Codex provou-se confiável e pegou coisas que o Opus não pegou. Tu: desenhas/refinas specs, defines tarefas `CDX-*` auto-contidas (com `✓ Validar`), e **validas** a saída. Não rodes comando na VM nem escrevas boilerplate que o Codex faça (e o classifier bloqueia Opus em write na VM prod). Gatilho do mantenedor pro Codex: **"realize as tarefas para codex na sessão"**. O mantenedor cola a saída; tu validas e avanças. Saída de agentes em caveman.
 
 ## Tua missão — Fase 2 (→ Gate B)
-Executar `specs/003-fase2-monorepo-sso` (tasks CDX-301..306):
+Executar `specs/olds/003-fase2-monorepo-sso` (tasks CDX-301..306):
 1. Scaffold monorepo (pnpm-workspace, turbo, tsconfig base) + `packages/config`.
 2. `packages/auth` — contrato de sessão (verifyToken, requireAuth, useSession, redirectToLogin).
 3. `packages/ui` — design sóbrio (Nielsen/ISO), Header/Nav/Footer.

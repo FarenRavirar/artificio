@@ -7,7 +7,7 @@
 **Modo:** SDD Lite (investigação, sem alteração de código)
 
 ## Vínculos
-- Spec: `specs/043-links-visual-audit/`
+- Spec: `specs/olds/043-links-visual-audit/`
 - Backlog: `specs/backlog.md`
 - Project-state: `.specify/memory/project-state.md`
 
@@ -24,7 +24,7 @@
 - [x] Sessão indexada
 
 ## Arquivos a modificar
-- `specs/043-links-visual-audit/*` (criados + 2 relatórios)
+- `specs/olds/043-links-visual-audit/*` (criados + 2 relatórios)
 - `specs/backlog.md` (atualizado BL-LINKS-VISUAL-AUDIT-043)
 - `.specify/memory/project-state.md` (atualizado)
 - `sessoes/index.md` (atualizado)
@@ -67,7 +67,7 @@
   - DEB-001 a DEB-014 registrados no backlog
   - Descrições atualizadas: BL-CLOUDINARY-SHARED, BL-LINKS-013, BL-DEPLOY-SSH-KEEPALIVE, BL-033-SECRET-BLOCK
   - backlog-audit-map.md sincronizado (BL-SHELL-B13/D-SHELL1 fechado, BL-AUDIT-033 absorvido, header atualizado)
-  - 43 specs escaneadas. Apenas `specs/043-links-visual-audit/debitos.md` usa IDs DEB-* (exclusivo). IDs D-* reais: 43 (18 alto nível + 14 D-LNK-* + 21 D-041-*), todos refletidos no backlog.
+  - 43 specs escaneadas. Apenas `specs/olds/043-links-visual-audit/debitos.md` usa IDs DEB-* (exclusivo). IDs D-* reais: 43 (18 alto nível + 14 D-LNK-* + 21 D-041-*), todos refletidos no backlog.
 - 2026-06-22 08:30 — **Auditoria linha a linha do backlog.md + backlog-audit-map.md.** 190 linhas de backlog, 134 linhas de audit-map auditadas uma por uma:
   - **3 itens fechados:** BL-CI-ESLINT-FLAT-CONFIG (spec 037 concluiu, 16/16 pacotes com eslint.config.js, continue-on-error removido), D-DOCKERFILE-LONGLINES (commitado em `bfa98be` spec 037), D-PROMOTE-033-UPGRADES-REGRESSION (causa = Cloudflare cache, não código)
   - **4 descrições corrigidas:** BL-NAV-LINKS-014 (deploy prod concluído), BL-ROOTLESS-CONTAINERS (USER node commitado nos 5 Dockerfiles), BL-SITE-MEDIA-ERR-SERIAL (commit `4b0d073` PR #50), BL-DEP-MESAS-AUTO-PUSH (PR #76 mergeada)

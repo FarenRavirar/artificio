@@ -4,7 +4,7 @@
 **Objetivo:** Investigar estado real dos 4 apps Express e documentar tudo que um implementador precisa saber para executar a Fase 1 (estrutura de contrato/docs OpenAPI) e Fase 2 (inventário estático de rotas - `api:inventory`).
 **App/Projeto:** Transversal — accounts, mesas, glossario, links
 **Gate:** D (governança transversal)
-**Origem:** `specs/055-api-governance-executavel/`
+**Origem:** `specs/olds/055-api-governance-executavel/`
 
 ---
 
@@ -110,8 +110,8 @@
 ## Arquivos modificados nesta sessão (documentação apenas)
 
 1. `.opencode/artificio-flow/state.md` — atualizado com sessão spec 055 + Fases 1 a 6
-2. `specs/055-api-governance-executavel/tasks.md` — Fases 0-6 com contexto completo (Fase 6: órfãs, duplicatas, scoring, thresholds, 9 tasks)
-3. `specs/055-api-governance-executavel/debitos.md` — DEB-055-07 a DEB-055-11 adicionados
+2. `specs/olds/055-api-governance-executavel/tasks.md` — Fases 0-6 com contexto completo (Fase 6: órfãs, duplicatas, scoring, thresholds, 9 tasks)
+3. `specs/olds/055-api-governance-executavel/debitos.md` — DEB-055-07 a DEB-055-11 adicionados
 4. `sessoes/26-06-27_3_api-governance-055_investigacao-fase1.md` — esta sessão (Fases 1+2+3+4+5+6)
 5. `.specify/memory/project-state.md` — entrada spec 055 atualizada
 
@@ -167,7 +167,7 @@ Objetivo: fechar os 2 itens de infra/CI da spec 055.
 
 Feito:
 - `.github/workflows/ci.yml`: `api-governance` agora roda `pnpm api:traffic:smoke` e `pnpm api:traffic` antes de `pnpm api:check --strict`.
-- `specs/055-api-governance-executavel/debitos.md`: DEB-055-21 marcado como resolvido; DEB-055-22 marcado como resolvido com evidência da branch protection.
+- `specs/olds/055-api-governance-executavel/debitos.md`: DEB-055-21 marcado como resolvido; DEB-055-22 marcado como resolvido com evidência da branch protection.
 - GitHub branch protection de `dev` verificada via `gh api`: required checks = `lint + build + test` e `api-governance`; `strict=true`.
 
 Validação:
@@ -188,7 +188,7 @@ Feito:
 - `scripts/api/generate-openapi.ts`: OpenAPI agora gera `requestBody` JSON genérico para `POST`/`PUT`/`PATCH` e responses JSON genéricos/erros comuns; também classifica escopos explícitos para OAuth/browser/SSR/mídia/autoatendimento/telemetria/legacy.
 - `scripts/api/check-api.ts`, `redocly.yaml`, `scripts/api/lint-openapi.ts`: escopos novos aceitos e tratados como classificados quando não exigem consumidor JS direto.
 - Artefatos `docs/api/generated/*` e `docs/api/openapi/*.yaml` regenerados.
-- `specs/055-api-governance-executavel/debitos.md`: DEB-055-02 e DEB-055-03 atualizados para resolvidos.
+- `specs/olds/055-api-governance-executavel/debitos.md`: DEB-055-02 e DEB-055-03 atualizados para resolvidos.
 
 Validação:
 - `pnpm verify:api` exit 0.

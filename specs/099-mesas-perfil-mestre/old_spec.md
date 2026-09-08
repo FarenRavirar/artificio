@@ -350,7 +350,7 @@ de dois dígitos recebe **802px**. É a violação de Baymard de §6.2 da 098, r
 
 A caixa de seleção de **16px** reprova WCAG 2.2 SC 2.5.8 (24×24, nível AA) — e é o mesmo
 controle `Manter link direto` que a 098 já havia listado no editor de anúncio
-(`specs/098-mesas-usabilidade-editor/spec.md`, na lista de alvos abaixo do piso, ao lado do
+(`specs/olds/098-mesas-usabilidade-editor/spec.md`, na lista de alvos abaixo do piso, ao lado do
 `×` das tags de estilo). **O mesmo defeito, no mesmo componente, em duas telas** —
 verificado por busca na 098, não inferido.
 
@@ -1045,7 +1045,7 @@ fica pendente de re-medição (C5b). **Decisão de escopo (2026-08-27):** a 099 
 consertos (T11-T13), **independente da 098** — sem coordenação nem dependência entre as
 duas specs. **Medido (2026-08-30), não mais inferência:** a 098 **cita** `Manter link
 direto` na sua lista de alvos abaixo do piso
-(`specs/098-mesas-usabilidade-editor/spec.md`). Logo, as duas specs tocam os mesmos
+(`specs/olds/098-mesas-usabilidade-editor/spec.md`). Logo, as duas specs tocam os mesmos
 componentes (`AvatarField`, `ImageUploader`, `ProfileEditPage.css`).
 
 **Consequência operacional:** T11 e a 098 **não devem ser executadas em paralelo** sem

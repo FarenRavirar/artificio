@@ -2,7 +2,7 @@
 
 - **Data:** 2026-06-04 · **Módulo:** `mesas` + `accounts` allowlist · **Gate:** D mesas
 - **Objetivo:** integrar `mesas.artificiorpg.com` ao SSO central (`accounts.`), validar E2E browser e fechar 1º Gate D.
-- **Spec:** `specs/004-mesas-sso-gate-d/{spec,plan,tasks}.md`
+- **Spec:** `specs/olds/004-mesas-sso-gate-d/{spec,plan,tasks}.md`
 - **Dependências:** CDX-307 ✅ (design system real / D038) conforme pedido do mantenedor.
 
 ## Escopo
