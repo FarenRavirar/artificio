@@ -54,7 +54,7 @@
 
 ## Alteracoes documentais feitas
 
-- Criada spec `specs/059-mesas-copiar-anuncio-whatsapp-og/`.
+- Criada spec `specs/olds/059-mesas-copiar-anuncio-whatsapp-og/`.
 - Atualizados `specs/README.md`, `specs/backlog.md`, `.specify/memory/project-state.md`.
 
 ## Checklist de fechamento desta fase
@@ -139,7 +139,7 @@
 ## Revisao externa registrada — 2026-07-08
 
 - Comentario CodeRabbit em `tasks.md` linhas da Fase 2 procedia: matriz de testes do formatter nao citava explicitamente `age_rating`, apesar de faixa etaria dedicada ser decisao central da Fase 1.
-- Ajuste aplicado localmente em `specs/059-mesas-copiar-anuncio-whatsapp-og/tasks.md`:
+- Ajuste aplicado localmente em `specs/olds/059-mesas-copiar-anuncio-whatsapp-og/tasks.md`:
   - casos minimos agora incluem `age_rating=livre` -> `Livre`, `age_rating=+16` preserva `+16` e `age_rating=null` mantem `Faixa Etaria:` vazia;
   - T2.3 agora exige cobertura de `age_rating`.
 - Nao responder ao bot no PR; regra do projeto manda registrar/fixar em docs, nao comentar em revisor externo.
@@ -281,11 +281,11 @@ nas tasks abaixo).
 
 ### Duas specs precisam terminar e ter deploy
 
-- **Spec 059** (`specs/059-mesas-copiar-anuncio-whatsapp-og/`): Fases
+- **Spec 059** (`specs/olds/059-mesas-copiar-anuncio-whatsapp-og/`): Fases
   0-5 concluídas (`tasks.md` marcado `[x]`). Faltam **Fase 6 (Open
   Graph, `routes/og.ts`, `type==='mesas'`)** e **Fase 7 (validação
   final: build, testes, `verify:api`, smoke beta)**.
-- **Spec 060** (`specs/060-mesas-gestao-mesas-importadas/`): backend +
+- **Spec 060** (`specs/olds/060-mesas-gestao-mesas-importadas/`): backend +
   listagem admin já em prod. Falta commitar o botão "Publicar mesa"
   (acima) e fechar T7/T8/T9 da `tasks.md` (lint+build final, smoke
   manual completo, atualizar backlog/project-state).
@@ -360,7 +360,7 @@ real pra não perder tempo re-descobrindo.
 
 ### Estado real
 
-- **Spec 059** (`specs/059-mesas-copiar-anuncio-whatsapp-og/`): Fases
+- **Spec 059** (`specs/olds/059-mesas-copiar-anuncio-whatsapp-og/`): Fases
   1-5 prontas, feitas por outro agente em paralelo (Codex). Faltam:
   - **Fase 6** — OG de mesa (`apps/mesas/backend/src/routes/og.ts`,
     tratar `type === 'mesas'`, banner/cover como `og:image`, ver
@@ -368,7 +368,7 @@ real pra não perder tempo re-descobrindo.
     acima).
   - **Fase 7** — validação final (build, testes, `verify:api`, smoke
     beta).
-- **Spec 060** (`specs/060-mesas-gestao-mesas-importadas/`): infra já
+- **Spec 060** (`specs/olds/060-mesas-gestao-mesas-importadas/`): infra já
   em prod — PR #137 merged em `dev` (`867f523`), promovido pra `main`,
   deploy prod confirmado (`28954221364`) e beta (`28954185363`).
   **Mas o botão "Publicar mesa" que resolve o pedido original do

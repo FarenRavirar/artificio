@@ -17,7 +17,7 @@ Mestres de RPG divulgam suas mesas em texto livre em servidores Discord (via bot
 5. Toda correção manual deveria alimentar um sistema de aprendizado (`discord_field_learning`, `discord_learning_rules`) que evita repetir o mesmo erro em mensagens futuras parecidas — **sem gastar chamada de IA**.
 6. DeepSeek entra como **assistente opcional sob demanda** (auditoria de completude, botão manual no editor) — não como pipeline automático hoje em prod/beta (ver seção 4).
 
-Princípio central do produto (spec 058, `specs/058-mesas-parser-learning-deepseek/spec.md`): **conservadorismo**. Ausência de evidência clara no texto nunca vira valor inventado — o campo fica `null` e vai para `missing_fields`, esperando revisão humana. É proibido "chutar" (ex.: preço sem sinal nunca vira `gratuita`).
+Princípio central do produto (spec 058, `specs/olds/058-mesas-parser-learning-deepseek/spec.md`): **conservadorismo**. Ausência de evidência clara no texto nunca vira valor inventado — o campo fica `null` e vai para `missing_fields`, esperando revisão humana. É proibido "chutar" (ex.: preço sem sinal nunca vira `gratuita`).
 
 ---
 
@@ -31,7 +31,7 @@ Princípio central do produto (spec 058, `specs/058-mesas-parser-learning-deepse
 - **Requisitos técnicos** (requires_pc/camera/microphone, ~L1650-1665): os mais fracos do arquivo hoje — cobrem só frase explícita ("obrigatório") e (após esta sessão) inferência a partir de VTT/plataforma de comunicação detectada. Ver seção 5 para o que ainda falta.
 - **Sistema de "rótulos aprendidos" (`labelAliases`)**: `extractLabelValue`/`findEntryMatch` recebem uma lista extra de labels reconhecidos vinda do banco (aprendida por correção humana — ver seção 3), permitindo que o parser reconheça variações de rótulo sem precisar de código novo a cada anúncio diferente.
 
-**Princípio estrutural que rege o arquivo (violado historicamente, corrigido em rodadas de review):** um extractor deve seguir **cascata por força de sinal**, não "caça-palavra-chave". Ordem correta: label explícito (`Valor: 30,00`) > frase estruturada de texto livre > ausência de sinal → `null` explícito. Nunca decidir por keyword solta sem checar se há sinal mais forte competindo, e nunca inventar valor quando há **conflito real** de sinais — nesse caso, marca `_algo_ambiguity: true` e entra em `missing_fields`, nunca decide sozinho. Isso já rendeu uma reescrita completa de `extractPrice` (ver `specs/058-mesas-parser-learning-deepseek/debitos.md`, DEB-058-05) depois que o mantenedor rejeitou um fix "tapa-buraco" pontual e exigiu a correção estrutural em todos os extractors.
+**Princípio estrutural que rege o arquivo (violado historicamente, corrigido em rodadas de review):** um extractor deve seguir **cascata por força de sinal**, não "caça-palavra-chave". Ordem correta: label explícito (`Valor: 30,00`) > frase estruturada de texto livre > ausência de sinal → `null` explícito. Nunca decidir por keyword solta sem checar se há sinal mais forte competindo, e nunca inventar valor quando há **conflito real** de sinais — nesse caso, marca `_algo_ambiguity: true` e entra em `missing_fields`, nunca decide sozinho. Isso já rendeu uma reescrita completa de `extractPrice` (ver `specs/olds/058-mesas-parser-learning-deepseek/debitos.md`, DEB-058-05) depois que o mantenedor rejeitou um fix "tapa-buraco" pontual e exigiu a correção estrutural em todos os extractors.
 
 **Teste real de regressão:** `apps/mesas/backend/src/discord/__tests__/parseDiscordAnnouncement.test.ts`, 134 casos, muitos citando o anúncio real de origem do bug (`D:\teste.json`, corpus de 50 mensagens reais usado como baseline/regressão desde a Fase 1 da spec 058). Qualquer mudança de extractor deve rodar contra esse arquivo.
 
@@ -52,7 +52,7 @@ Superset do anterior, com 6 tipos de regra (`field_value`, `label_alias`, `class
 
 **Status de consumo confirmado por leitura de código (2026-07-14):** ambos os tipos de regra **já são lidos de volta corretamente**. `label_alias` é injetado sempre, incondicionalmente, em `parseDiscordMessage` (`routes/discord/utils.ts` ~L510). `field_value` é lido via `lookupLearningRules`/`lookupFieldLearning` em `enrichDraftWithLlm` (`routes/discord/utils.ts` ~L590-591) — **fora e antes** do gate de modo IA (`isAiAssistEnabled`, linha ~614), ou seja, roda mesmo sem DeepSeek habilitado.
 
-**⚠️ Atenção ao ler `specs/058-mesas-parser-learning-deepseek/debitos.md`:** esse arquivo documenta `DEB-058-07` como bug crítico não corrigido ("aprendizado grava mas nunca é consumido, porque `lookupLearningRules`/`lookupFieldLearning` estavam dentro do `if (isAiAssistEnabled)`"). **Isso já foi corrigido no código atual** — a chamada está antes do gate, como o próprio débito pedia. O documento da spec está desatualizado nesse ponto específico; **confie no código, não no `debitos.md`, para esse item**. `tasks.md` Fase 10 (T10.11/T10.12) ainda mostra checkbox `[ ]` (não marcada) mas o código já reflete o fix — provavelmente foi corrigido numa sessão que não atualizou a task. Recomendo, ao concluir a tarefa de handoff, marcar essa task como feita/atualizar o débito, para não confundir o próximo agente.
+**⚠️ Atenção ao ler `specs/olds/058-mesas-parser-learning-deepseek/debitos.md`:** esse arquivo documenta `DEB-058-07` como bug crítico não corrigido ("aprendizado grava mas nunca é consumido, porque `lookupLearningRules`/`lookupFieldLearning` estavam dentro do `if (isAiAssistEnabled)`"). **Isso já foi corrigido no código atual** — a chamada está antes do gate, como o próprio débito pedia. O documento da spec está desatualizado nesse ponto específico; **confie no código, não no `debitos.md`, para esse item**. `tasks.md` Fase 10 (T10.11/T10.12) ainda mostra checkbox `[ ]` (não marcada) mas o código já reflete o fix — provavelmente foi corrigido numa sessão que não atualizou a task. Recomendo, ao concluir a tarefa de handoff, marcar essa task como feita/atualizar o débito, para não confundir o próximo agente.
 
 ### 3.3 DeepSeek — 2 modos de uso bem distintos, não confundir
 
@@ -76,7 +76,7 @@ Como o Modo A está desligado em prod (env var ausente), esse `ContextPack` rico
 
 ## 5. Extractors com fraqueza estrutural confirmada — pontos reais de melhoria de detecção
 
-Do `specs/058-mesas-parser-learning-deepseek/debitos.md` (DEB-058-04, DEB-058-05) + descobertas desta sessão (2026-07-14):
+Do `specs/olds/058-mesas-parser-learning-deepseek/debitos.md` (DEB-058-04, DEB-058-05) + descobertas desta sessão (2026-07-14):
 
 1. **Requisitos técnicos (`requires_pc`/`requires_camera`/`requires_microphone`, ~L1650-1670):** historicamente só regex de frase explícita ("obrigatório"). Nesta sessão, ampliado vocabulário (câmera/microfone "ligada"/"necessária"/"precisa de"/"funcionando") e adicionadas 2 inferências por contexto: VTT detectado (Roll20/Foundry/etc., todo o catálogo é ferramenta desktop-first) → infere `requires_pc=true`; comunicação = Discord → infere `requires_microphone=true` (Discord é comunicação por voz por padrão). **Zero cobertura de teste automatizado para esses 3 campos antes desta sessão** — ainda não há fixture regression test cobrindo os textos reais que motivaram a mudança. Ponto real de melhoria: extrair mais sinais implícitos parecidos (ex.: "câmera" citada perto de "opcional"/"não obrigatória" deveria produzir `false` explícito, não `null`; hoje o parser só produz `true` ou `null`, nunca `false` — não há como o mestre dizer "câmera NÃO é obrigatória" e isso ser registrado como tal).
 
@@ -105,7 +105,7 @@ Regras pétreas do repositório (`AGENTS.md`), resumidas para este escopo:
 
 ## 7. Perguntas em aberto registradas na própria spec (não redecidir sem contexto)
 
-De `specs/058-mesas-parser-learning-deepseek/spec.md`, seção final ("Perguntas para revisão 5.5 altíssimo") — ainda relevantes para orientar onde focar esforço de melhoria:
+De `specs/olds/058-mesas-parser-learning-deepseek/spec.md`, seção final ("Perguntas para revisão 5.5 altíssimo") — ainda relevantes para orientar onde focar esforço de melhoria:
 
 - Quais casos humanos reais ainda não estão cobertos pelo modelo de aprendizado atual?
 - Como evitar overfitting de regra aprendida por guild/canal pequeno (poucos exemplos)?
@@ -117,10 +117,10 @@ De `specs/058-mesas-parser-learning-deepseek/spec.md`, seção final ("Perguntas
 
 ## 8. Arquivos-chave para o próximo agente ler primeiro (ordem sugerida)
 
-1. `specs/058-mesas-parser-learning-deepseek/spec.md` — modelo conceitual e princípios (R1-R15).
+1. `specs/olds/058-mesas-parser-learning-deepseek/spec.md` — modelo conceitual e princípios (R1-R15).
 2. `apps/mesas/backend/src/discord/parseDiscordAnnouncement.ts` — parser determinístico completo.
 3. `apps/mesas/backend/src/discord/learningRules.ts` + `fieldLearning.ts` — as 2 camadas de aprendizado.
 4. `apps/mesas/backend/src/routes/discord/utils.ts` (`enrichDraftWithLlm`, `parseDiscordMessage`) — onde tudo se conecta.
 5. `apps/mesas/backend/src/discord/llmAssist.ts` + `llmContextPack.ts` + `parseRetrieval.ts` — os dois modos de uso de DeepSeek.
-6. `specs/058-mesas-parser-learning-deepseek/debitos.md` — histórico de bugs reais encontrados por revisão de corpus real (ler com ceticismo no item DEB-058-07, já corrigido no código).
+6. `specs/olds/058-mesas-parser-learning-deepseek/debitos.md` — histórico de bugs reais encontrados por revisão de corpus real (ler com ceticismo no item DEB-058-07, já corrigido no código).
 7. `apps/mesas/backend/src/discord/__tests__/parseDiscordAnnouncement.test.ts` — 134 casos de regressão, muitos com anúncio real de origem citado na descrição do teste.

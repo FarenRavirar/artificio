@@ -71,7 +71,7 @@ editar local → build/tsc verde → validar (preview se observável) → aprova
 - Backlog futuro preservado: CSS dark de glossário/mesas → habilitar `showThemeToggle` nos headers deles.
 
 ### D-MARCA1 — terminologia "projetos" ✅ (entregue em beta/prod)
-- Spec **018** criada (`specs/018-ui-terminologia-projetos/`) por tocar `packages/ui` + docs.
+- Spec **018** criada (`specs/olds/018-ui-terminologia-projetos/`) por tocar `packages/ui` + docs.
 - `packages/ui` Footer/Header: linguagem pública "Projetos do Artifício", "Hub de projetos..." e comentários de props ajustados.
 - `packages/content`: descrição SEO pública ajustada para "Hub de projetos...".
 - Site Astro espelhado (`SiteHeader`, `SiteFooter`, `content.ts`): aria/title/tagline/comentário ajustados.

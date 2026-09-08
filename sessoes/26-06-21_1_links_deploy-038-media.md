@@ -21,7 +21,7 @@ Subir o deploy prod do links (3 falhas anteriores) e registrar débitos de mídi
 - **Bug B (grupos sem logo):** 13 grupos com `logo_url: null` → todo card cai no `/placeholder.svg` (válido, mas vazio). → spec 038 (Fatia A/B)/T13.
 
 ## Spec 038 criada
-`specs/038-links-group-media-report/` (spec+plan+tasks). Escopo: R1 extrair og:image do convite WhatsApp → R2 upload Cloudinary (`@artificio/media`, signed/backend) → R3 reidratação em lote → R4 botão admin reidratar → R5 cron domingo → R6 botão Reportar nos cards → R7 propagar nav. SDD Completo (media/ui compartilhados, Cloudinary, cron, schema). Tudo por branch+PR.
+`specs/olds/038-links-group-media-report/` (spec+plan+tasks). Escopo: R1 extrair og:image do convite WhatsApp → R2 upload Cloudinary (`@artificio/media`, signed/backend) → R3 reidratação em lote → R4 botão admin reidratar → R5 cron domingo → R6 botão Reportar nos cards → R7 propagar nav. SDD Completo (media/ui compartilhados, Cloudinary, cron, schema). Tudo por branch+PR.
 
 ## Checklist de fechamento
 - [x] Deploy links prod funcional (smoke 200/200/200/401)
@@ -82,7 +82,7 @@ Deploy de ajustes/bugs falhou: `#18 [13/13] RUN chown -R node:node /repo` → **
 
 **Fragilidade de fundo (grave, descoberta na revisão):** deploy acoplado à sessão SSH. Ordem do script remoto: `snapshot→migrations→down→build→up→health→smoke`. Broken pipe ocorreu no build (#18), **após `down`, antes do `up`** → serviço DOWN; e `trap rollback ERR` **não pega SIGHUP** → rollback não dispara. Num módulo já em prod = outage sem rollback. Keepalive sozinho só reduz probabilidade (mantém caminho feliz).
 
-**Fix → spec 040** (`specs/040-infra-deploy-ssh-keepalive/`, spec+plan+tasks **atualizadas p/ caminho robusto**, 2026-06-21). **Decisão mantenedor: não implementar agora.**
+**Fix → spec 040** (`specs/olds/040-infra-deploy-ssh-keepalive/`, spec+plan+tasks **atualizadas p/ caminho robusto**, 2026-06-21). **Decisão mantenedor: não implementar agora.**
 - **Núcleo robusto:** execução remota destacada (`setsid`+logfile+sentinela exit code) + poll do runner + `trap` estendido `ERR INT TERM HUP EXIT` idempotente → queda de SSH não aborta/derruba deploy.
 - **Camada 1 (mitigação):** keepalive `ServerAliveInterval=30`/`CountMax=10` em `ssh_base`+`scp` — **aplicado no workdir, NÃO commitado** (decidir manter/reverter com o núcleo).
 - SDD Completo, validar em **beta** antes de prod, branch+PR.

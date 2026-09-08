@@ -4,7 +4,7 @@
 - **App/escopo:** apps/mesas (frontend + backend)
 - **Gate:** D (mesas em prod) · alvo beta
 - **Modo:** SDD Completo (contrato de API novo)
-- **Spec:** [056-mesas-moderacao-batch-acoes](../specs/056-mesas-moderacao-batch-acoes/)
+- **Spec:** [056-mesas-moderacao-batch-acoes](../specs/olds/056-mesas-moderacao-batch-acoes/)
 - **Branch:** `feat/mesas-moderacao-batch`
 - **Vínculos:** estende a Moderação entregue na spec 054.
 

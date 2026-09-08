@@ -7,7 +7,7 @@
 - **Tipo:** SDD Completo (revisão pós-implementação)
 
 ## Vínculos
-- Spec: `specs/054-mesas-gestao-ia-sidebar/`
+- Spec: `specs/olds/054-mesas-gestao-ia-sidebar/`
 - Tasks: `tasks.md`
 - Reviews: `reviews.md` (itens 001-025)
 - Branch: `feat/054-gestao-ia-sidebar`

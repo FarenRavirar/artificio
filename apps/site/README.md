@@ -1,6 +1,6 @@
 # `@artificio/site` — portal + blog (Astro SSG)
 
-Módulo `site` do Artifício RPG. Blog estático (SSG). Spec: `specs/008-site-foundation/`.
+Módulo `site` do Artifício RPG. Blog estático (SSG). Spec: `specs/olds/008-site-foundation/`.
 
 > **Importador WordPress removido em 2026-07-27.** Era one-shot e descartável por desenho; o cutover terminou (D074/spec 029), o WP saiu do ar e o store Postgres é a fonte de verdade. Saíram `importer/` inteiro, os scripts `import`/`inventory`/`prep`, a rota `POST /admin/import` e as env `WP_BASE`/`SITE_IMPORT_ON_START`. Os helpers de HTML que moravam em `importer/sanitize.ts` **não** eram do importador (servem o runtime) e viraram `server/lib/content-html.ts`.
 

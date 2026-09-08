@@ -31,7 +31,7 @@ Auditar a spec 080 contra código, Git e produção; abrir spec completa com tud
 - **Inferência suportada:** frontend nginx/build está vivo; backend/DB/API não está saudável ou não está acessível ao frontend. A causa provável já registrada em 2026-07-20 é volume Compose divergente + migrations ausentes, mas precisa confirmação read-only na VM.
 - **Não declarado:** submissão, moderação, publicação, download, painel, storage, health 200 e 401. Não foram comprovados nesta inspeção porque o catálogo já falhou e o endpoint de health não pôde ser aberto pela camada do navegador.
 - Evidência adicional do mantenedor: dark predominantemente navy; light altera só Header. Código confirma `AppShell` com fundo/texto fixos e amplo uso de `text-white`/`border-white` nas telas Downloads. Registrado em 082; nenhuma correção aplicada.
-- `specs/076-downloads-g-infra-deploy/tasks.md`: T5.1–T5.3 e T6.1–T6.3 permanecem unchecked.
+- `specs/olds/076-downloads-g-infra-deploy/tasks.md`: T5.1–T5.3 e T6.1–T6.3 permanecem unchecked.
 - `sessoes/26-07-20_1_analytics_ga4-property-por-app.md`: falha real de deploy Beta de Downloads e serviço unhealthy.
 
 ## Regra de encerramento

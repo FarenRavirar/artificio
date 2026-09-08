@@ -7,7 +7,7 @@
 
 ## Vínculos
 - Débito: `specs/backlog.md` D-DEP2 (apt/Node/pnpm/imagens/deps) + D-DEP1/BL-MESAS-EXPRESS5-016 (Express 5)
-- Spec: `specs/033-infra-toolchain-update/` (spec.md, plan.md, tasks.md)
+- Spec: `specs/olds/033-infra-toolchain-update/` (spec.md, plan.md, tasks.md)
 - Pesquisa: `sessoes/26-06-12_2_debitos_ux-marca.md:163-170`
 - Spec 026 F8/F9: referência cruzada
 
@@ -49,7 +49,7 @@ Smoke prod completo com toolchain alinhado (1 versão de Node, Express 5 em todo
 - Débito: `BL-DEP-MESAS-AUTO-PUSH` (auto_deploy_on_push:true)
 
 ## T5b executado (2026-06-18) — investigação read-only de breaking changes
-- Deliverable: `specs/033-infra-toolchain-update/breaking-changes.md` (11 majors, arquivos reais por dep via rg/grep). Path no tasks.md corrigido de `artifacts/033/` → `specs/033-...` (mantenedor: material da spec fica na spec).
+- Deliverable: `specs/olds/033-infra-toolchain-update/breaking-changes.md` (11 majors, arquivos reais por dep via rg/grep). Path no tasks.md corrigido de `artifacts/033/` → `specs/033-...` (mantenedor: material da spec fica na spec).
 - Risco rebaixado p/ 🟢: **zod 3→4** (sem `.email()`/`errorMap` no código, só `.url()` que segue válido), **dotenv**, **express-rate-limit**, **multer** — bumps sem mudança de código.
 - 🔴 estrutural só em: **tailwind 3→4** (glossario CSS-first) e **eslint flat** (glossario).
 - **ACHADO/bug** → `BL-033-GLOSSARIO-LINT-NEVER-RAN`: `apps/glossario/frontend` não tem config ESLint nenhum (sem `.eslintrc*`/`eslint.config.js`); lint nunca rodaria sob ESLint 8. T64a cria do zero, não "migra legado". Registrado em `specs/backlog.md` (P2) + tasks.md T5b.
@@ -811,7 +811,7 @@ security: {
 - `XLSX.utils.json_to_sheet()` + `XLSX.writeFile()` → `write-excel-file` + `Blob` download
 - CSV: verificar suporte nativo do `read-excel-file` ou fallback vanilla/papaparse
 
-**Spec completa:** `specs/034-glossario-xlsx-replace/{spec,plan,tasks}.md` (13 tasks, ~3-4h estimado).
+**Spec completa:** `specs/olds/034-glossario-xlsx-replace/{spec,plan,tasks}.md` (13 tasks, ~3-4h estimado).
 
 ### Merge PR #70 (2026-06-19)
 

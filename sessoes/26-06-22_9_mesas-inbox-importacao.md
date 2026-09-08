@@ -4,7 +4,7 @@
 - **Projeto:** mesas
 - **Gate:** D fechado; trabalho somente local/beta
 - **Objetivo atual:** Fase B1 — revisão pré-deploy do backend mínimo da Inbox
-- **Vínculos:** `specs/047-mesas-inbox-importacao/`
+- **Vínculos:** `specs/olds/047-mesas-inbox-importacao/`
 
 ## Estado recebido
 
@@ -26,7 +26,7 @@
 ## Arquivos previstos
 
 - Código local já alterado sob `apps/mesas/backend/` e `apps/mesas/database/`.
-- Documentação `specs/047-mesas-inbox-importacao/`.
+- Documentação `specs/olds/047-mesas-inbox-importacao/`.
 - Esta sessão.
 
 ## Critério de saída da B1

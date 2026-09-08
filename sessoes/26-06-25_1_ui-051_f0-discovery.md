@@ -5,7 +5,7 @@
 - **Gate:** nenhum (qualidade transversal)
 - **Objetivo:** executar F0 (discovery) da spec 051 — mapear duplicação REAL antes de extrair, fechar escopo final de F4/F5/F6. Sem código de produção.
 - **Implementação posterior:** DeepSeek (ondas A-D), sob autorização nominal.
-- **Vínculos:** `specs/051-ui-changelog-nav-active/{spec,plan,tasks}.md`, `specs/051-.../f0-discovery.md` (entregável)
+- **Vínculos:** `specs/olds/051-ui-changelog-nav-active/{spec,plan,tasks}.md`, `specs/051-.../f0-discovery.md` (entregável)
 
 ## Plano
 1. Inventariar wrappers changelog (F4), primitivas admin mesas (F5), schemas Zod (F6).

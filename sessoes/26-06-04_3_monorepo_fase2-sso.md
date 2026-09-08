@@ -2,10 +2,10 @@
 
 - **Data:** 2026-06-04 · **Módulo:** monorepo/`apps/accounts`/`packages/*` · **Gate:** B
 - **Objetivo:** erguer o monorepo + SSO (`accounts.artificiorpg.com`) + `packages/{config,auth,ui}`. Fechar Gate B.
-- **Spec:** `specs/003-fase2-monorepo-sso/{spec,plan,tasks}.md` · **Decisões:** D001, D003, D007, D017, D018
+- **Spec:** `specs/olds/003-fase2-monorepo-sso/{spec,plan,tasks}.md` · **Decisões:** D001, D003, D007, D017, D018
 
 ## Tarefas para Codex
-> Fonte: `specs/003-fase2-monorepo-sso/tasks.md` (CDX-301..306 + 2 passos do mantenedor). Cada CDX com `✓ Validar`. Modo: **Opus orquestra, Codex executa.**
+> Fonte: `specs/olds/003-fase2-monorepo-sso/tasks.md` (CDX-301..306 + 2 passos do mantenedor). Cada CDX com `✓ Validar`. Modo: **Opus orquestra, Codex executa.**
 
 | CDX | O quê | Estado |
 |---|---|---|

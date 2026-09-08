@@ -3,12 +3,12 @@
 - **Data:** 2026-06-24
 - **App/escopo:** infra / `scripts/deploy/` (guard de migration)
 - **Gate:** D (mesas)
-- **Spec:** `specs/050-infra-migration-guard-online-safe/`
+- **Spec:** `specs/olds/050-infra-migration-guard-online-safe/`
 - **Objetivo:** planejar correção do falso-positivo do guard `online-safe` que abortou o deploy prod de mesas + tratar o débito de duplicação do guard. **Claude planeja; DeepSeek implementa.**
 
 ## Vínculos
 - Origem: deploy prod mesas `run 28125222995` (rollback automático).
-- Débito de duplicação já registrado: `BL-DEP-MESAS-LEGACY-SCRIPTS` (backlog) + `specs/035-infra-small-debts/` R0/T6.
+- Débito de duplicação já registrado: `BL-DEP-MESAS-LEGACY-SCRIPTS` (backlog) + `specs/olds/035-infra-small-debts/` R0/T6.
 - Novo débito: `BL-MESAS-MIGRATION-GUARD-FALSE-POSITIVE`.
 
 ## O que foi feito (planejamento + registro)

@@ -4,7 +4,7 @@
 - **Tipo:** Sem SDD (validacao/evidencia — ZERO codigo se passar)
 - **Modulo/Pacote:** `apps/glossario` (dark) + `apps/mesas` (light) — somente verificacao em PROD
 - **Gate relacionado:** nenhum. WP raiz/DNS/VM/deploy/producao fora de escopo. Sem commit/push/deploy.
-- **Spec vinculada:** `specs/020-ui-theme-artificio-padrao/` (B6, B7), checklist `dark-readiness-checklist.md` (T4)
+- **Spec vinculada:** `specs/olds/020-ui-theme-artificio-padrao/` (B6, B7), checklist `dark-readiness-checklist.md` (T4)
 - **Estado:** ABERTA para B6/residuais historicos; B7 fechado depois por validacao do mantenedor em 2026-06-15.
 
 ## Objetivo
@@ -47,7 +47,7 @@ faltante passa o checklist nas telas reais com dados. Se passar = ZERO codigo. S
 4. Fecho B6/B7 se todos os itens obrigatorios passarem; senao registro achado.
 
 ## Checklist de fechamento (T4 — itens obrigatorios)
-Ver `specs/020-ui-theme-artificio-padrao/dark-readiness-checklist.md`:
+Ver `specs/olds/020-ui-theme-artificio-padrao/dark-readiness-checklist.md`:
 1. Contraste texto AA (corpo/muted/card/sobre laranja)
 2. Estados interativos (hover/active/focus/disabled/selected)
 3. Formularios (input/select+dropdown/check-radio/validacao/label)
@@ -174,7 +174,7 @@ branco+ink, cta-secondary navy-alpha+ink, badge-mestre `#c2410c`, featured-price
 - **Plano de edicao:** padronizar `/perfil` light para usar `--artificio-light-*`/semanticos centrais; fortalecer hero light com overlay seguro sobre imagens reais, preservando contraste AA sobre banners custom.
 - **Debito novo pedido, sem corrigir agora:** nav/footer do `apps/glossario` destoa de `beta.artificiorpg.com` e `mesas`; registrar debito para unificar shell (nav+footer) de todos os modulos via fonte compartilhada, sem implementacao nesta fatia.
 - **Mudancas locais:** `ProfileEditPage.css` recebeu bloco `[data-theme="light"]` com `--artificio-light-*`/semanticos (`success/info/dangerText`) para header, tabs, tab-content, labels, inputs, hints, avatar actions e discord/playstyle. `MestrePage.css` recebeu regra light especifica para `.hero-section:has(.hero-banner)`: scrim dark forte + texto/CTA em `--artificio-dark-text`, preservando contraste sobre banner custom.
-- **Debito criado:** D-SHELL1 em `sessoes/26-06-12_2_debitos_ux-marca.md` + B13 em `specs/020-ui-theme-artificio-padrao/tasks.md`. Sem alteracao no glossario.
+- **Debito criado:** D-SHELL1 em `sessoes/26-06-12_2_debitos_ux-marca.md` + B13 em `specs/olds/020-ui-theme-artificio-padrao/tasks.md`. Sem alteracao no glossario.
 - **Validacao local:** `pnpm --filter=@artificio/mesas-frontend build` OK; `node packages/ui/scripts/check-token-parity.mjs` OK (31 papeis); `git diff --check` OK (somente avisos CRLF). Browser sintético com CSS buildado: perfil light mostra header/tab-content/input em `rgb(255,255,255)` + ink `rgb(11,18,32)`; hints `rgba(11,18,32,.62)`; hero com banner custom usa texto `rgb(238,241,248)`/bio `.88`/stat `.72` e CTA dark-safe. Interacao: input preenchido com `Faren Ajustado`, foco/borda brand e texto ink.
 - **Limite:** `/perfil` real beta/prod e banner real precisam revalidacao autenticada apos deploy. Sem commit/push/deploy nesta fatia.
 - **Ajuste pedido pelo mantenedor:** o bloco novo de `ProfileEditPage.css` deve respeitar integralmente os tokens compartilhados. Refino local: substituir alphas hardcoded do bloco light por aliases locais derivados de `--artificio-light-*`, `--artificio-brand`, `--artificio-brand-deep`, `--artificio-success/danger/info` e variantes `*Text`.

@@ -4,7 +4,7 @@
 - Objetivo: executar a Spec 077, começando pela Fase 0 obrigatória.
 - Escopo: `apps/mesas` backend + frontend; documentação da spec/sessão/backlog/T0.
 - Gate: D (mesas).
-- Vínculos: `specs/077-mesas-dedupe-mesas-ativas/`.
+- Vínculos: `specs/olds/077-mesas-dedupe-mesas-ativas/`.
 
 ## Estado de entrada
 
@@ -27,8 +27,8 @@
 
 - `sessoes/26-07-14_1_mesas_077-dedupe-mesas-ativas.md`
 - `sessoes/index.md`
-- `specs/077-mesas-dedupe-mesas-ativas/plan.md`
-- `specs/077-mesas-dedupe-mesas-ativas/tasks.md`
+- `specs/olds/077-mesas-dedupe-mesas-ativas/plan.md`
+- `specs/olds/077-mesas-dedupe-mesas-ativas/tasks.md`
 - `specs/backlog.md`
 - `.specify/memory/project-state.md`
 
@@ -54,7 +54,7 @@ bloqueada até decisão nominal do mantenedor.
   0.75.
 - Produção read-only: `SELECT count(*) FROM tables WHERE status='active'`
   retornou **31** em 2026-07-14.
-- `specs/077-mesas-dedupe-mesas-ativas/exploratory-active-pairs.sql` executado
+- `specs/olds/077-mesas-dedupe-mesas-ativas/exploratory-active-pairs.sql` executado
   contra produção, read-only. 465 pares possíveis; 3 candidatos fortes:
   `a-voz-nas-cartas-*`, `ecos-bastardos-*`, `mascaras-de-nyarlathotep-*`.
   Todos: título 1.000 + descrição 1.000. Dois: `system_id` diferente.

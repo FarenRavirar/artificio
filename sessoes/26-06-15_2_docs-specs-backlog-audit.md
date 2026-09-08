@@ -2,7 +2,7 @@
 
 - Data: 2026-06-15
 - Escopo: governanca documental, specs, backlog, sessoes
-- Spec: `specs/024-docs-specs-backlog-audit/`
+- Spec: `specs/olds/024-docs-specs-backlog-audit/`
 - Tipo: SDD Lite documental
 - Gate: nenhum
 - Estado: concluída
@@ -20,7 +20,7 @@ Auditar `specs/backlog.md`, `tasks.md`, `specs/README.md`, `project-state.md` e 
 ## Arquivos a modificar
 - `specs/backlog.md`
 - `specs/README.md`
-- `specs/024-docs-specs-backlog-audit/*`
+- `specs/olds/024-docs-specs-backlog-audit/*`
 - `sessoes/26-06-15_2_docs-specs-backlog-audit.md`
 - `sessoes/index.md`
 - `.specify/memory/project-state.md`, se necessario

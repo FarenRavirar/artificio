@@ -29,7 +29,7 @@ Abrir a Spec 061 como investigação e definição do produto `downloads`, sem c
 
 ## Alterações
 
-- Criados `specs/061-downloads-definicao-produto/{spec,plan,tasks}.md`.
+- Criados `specs/olds/061-downloads-definicao-produto/{spec,plan,tasks}.md`.
 - Registrada D089; descrição antiga “materiais traduzidos” superada.
 - Atualizados README, roadmap, mapa de specs, backlog e project-state.
 - Definidas 7 fases de investigação e 12 specs filhas candidatas em ordem de dependência.

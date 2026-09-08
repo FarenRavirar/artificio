@@ -2,7 +2,7 @@
 
 - **Data:** 2026-06-04 · **Módulo:** infra · **Gate:** pós-A
 - **Objetivo:** VM nova 200GB, limpa, centrada no Artifício (sem telegram). Restaurar glossário+mesas do backup.
-- **Spec:** `specs/002-fase1-instancia/` · **Decisões:** D034, D035 · **Backup:** `C:\projetos\artificiobackup\2026-06-04\`
+- **Spec:** `specs/olds/002-fase1-instancia/` · **Decisões:** D034, D035 · **Backup:** `C:\projetos\artificiobackup\2026-06-04\`
 
 ## Parâmetros
 - Alias SSH: `faren` · chave nova: `<chave/segredo local fora do git>` · IP novo: **<mantenedor preenche>**

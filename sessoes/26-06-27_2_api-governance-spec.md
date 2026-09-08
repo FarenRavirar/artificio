@@ -25,11 +25,11 @@ O problema real não é falta de Markdown; é falta de trava executável. A spec
 
 ## Arquivos modificados
 
-- `specs/055-api-governance-executavel/spec.md`
-- `specs/055-api-governance-executavel/plan.md`
-- `specs/055-api-governance-executavel/tasks.md`
-- `specs/055-api-governance-executavel/debitos.md`
-- `specs/055-api-governance-executavel/reviews.md`
+- `specs/olds/055-api-governance-executavel/spec.md`
+- `specs/olds/055-api-governance-executavel/plan.md`
+- `specs/olds/055-api-governance-executavel/tasks.md`
+- `specs/olds/055-api-governance-executavel/debitos.md`
+- `specs/olds/055-api-governance-executavel/reviews.md`
 - `specs/README.md`
 - `specs/backlog.md`
 - `.specify/memory/project-state.md`

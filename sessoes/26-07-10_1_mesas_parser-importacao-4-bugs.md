@@ -246,7 +246,7 @@ Sem commit/push/PR nesta sessão — aguardando autorização.
 
 - Antes de cada avanço, persistir descobertas e aprendizados na Spec 077.
 - Ampliação, requisitos, baseline dos dois corpora e checkpoint P0 registrados em
-  `specs/077-mesas-dedupe-mesas-ativas/{spec,plan,tasks}.md` antes de continuar.
+  `specs/olds/077-mesas-dedupe-mesas-ativas/{spec,plan,tasks}.md` antes de continuar.
 
 ### Resultado final da retomada 2026-07-14
 

@@ -4,7 +4,7 @@
 Criar página pública de termos de uso e direitos autorais a partir do Markdown do mantenedor e adicionar resumo com link no rodapé universal dos projetos.
 
 ## Vínculos
-- Spec: `specs/027-ui-copyright-usage/`
+- Spec: `specs/olds/027-ui-copyright-usage/`
 - Backlog relacionado: `BL-SHELL-B13` / shell e footer compartilhado
 - Modelo de origem: `C:\Users\paulo\Desktop\Termos de uso e direitos autorais.md`
 
@@ -27,7 +27,7 @@ Criar página pública de termos de uso e direitos autorais a partir do Markdown
 - `packages/ui/src/styles.css`
 - `apps/site/src/components/SiteFooter.astro`
 - `apps/site/src/pages/termos-de-uso-e-direitos-autorais.astro`
-- `specs/027-ui-copyright-usage/*`
+- `specs/olds/027-ui-copyright-usage/*`
 - `specs/backlog.md`
 - `.specify/memory/project-state.md`
 - `sessoes/index.md`

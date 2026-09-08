@@ -6,7 +6,7 @@
 - **Tipo:** SDD Completo (Fases A-D investigação + Fase E refatoração + Fase F verificação)
 
 ## Vínculos
-- Spec: `specs/049-mesas-revisao-gestao/`
+- Spec: `specs/olds/049-mesas-revisao-gestao/`
 - Branch: `feat/049-revisao-gestao`
 - Commits: `774c462`, `cfe6a96`, `a4d2fb5`
 
@@ -71,10 +71,10 @@ apps/mesas/frontend/src/features/discord-sync/components/FileDropzone.tsx
 apps/mesas/frontend/src/features/discord-sync/components/MessagesToolbar.tsx
 apps/mesas/frontend/src/features/discord-sync/hooks/useDiscordSync.ts
 apps/mesas/frontend/src/features/discord-sync/hooks/useJsonImport.ts
-specs/049-mesas-revisao-gestao/auditoria-antes-commit.md
-specs/049-mesas-revisao-gestao/debitos.md
-specs/049-mesas-revisao-gestao/reviews.md
-specs/049-mesas-revisao-gestao/tasks.md
+specs/olds/049-mesas-revisao-gestao/auditoria-antes-commit.md
+specs/olds/049-mesas-revisao-gestao/debitos.md
+specs/olds/049-mesas-revisao-gestao/reviews.md
+specs/olds/049-mesas-revisao-gestao/tasks.md
 ```
 
 ## Critério de conclusão

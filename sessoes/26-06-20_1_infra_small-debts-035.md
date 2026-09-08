@@ -3,7 +3,7 @@
 - **Data:** 2026-06-20
 - **Escopo:** infra — `apps/accounts`, `.github/`, `packages/auth`, `packages/content`, `apps/mesas/scripts/`
 - **Gate:** D
-- **Spec:** `specs/035-infra-small-debts/`
+- **Spec:** `specs/olds/035-infra-small-debts/`
 - **Autorização:** mantenedor pediu spec 035 + iniciar por BL-ACCOUNTS-PORT. Sem commit/push/deploy sem aprovação nominal.
 
 ## Objetivo

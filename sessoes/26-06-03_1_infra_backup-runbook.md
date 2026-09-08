@@ -5,7 +5,7 @@
 - **Objetivo:** produzir a spec/runbook de backup total e executá-lo até fechar o Gate A.
 
 ## Vínculos
-- Spec: `specs/001-infra-backup-runbook/{spec,plan,tasks}.md`
+- Spec: `specs/olds/001-infra-backup-runbook/{spec,plan,tasks}.md`
 - Decisões: D004, D008, D009, D010, D012, D017
 - Constituição: §VII (backup antes de destruir)
 
@@ -22,7 +22,7 @@
 WP é **externo** → T3 (Ramo B) precisa das credenciais do painel de hospedagem do `artificiorpg.com` (DB host/user/pass/name + acesso a `wp-content/uploads`). Mantenedor precisa fornecer ou apontar onde o WP está hospedado.
 
 ## Arquivos que serão modificados
-- `specs/001-infra-backup-runbook/*` (criados)
+- `specs/olds/001-infra-backup-runbook/*` (criados)
 - `.specify/memory/project-state.md` (Gate A no fim)
 - `sessoes/index.md`
 - Fora do repo: `C:\projetos\artificiobackup\<DATA>\*`
@@ -32,7 +32,7 @@ Todos os critérios de aceite do `spec.md` ✅, checksums batem, restore-test pa
 
 ## Estado atual — SESSÃO CONCLUÍDA (backup completo)
 **Gate A APROVADO (D031).** Backup G1 **100% completo e validado** (2026-06-04): CDX-001..006 ✅. DBs (dumps+volumes) + secrets (`secrets.7z`) + **deploy dirs** (`opt-dirs/`, fecha gap glossário não-git) = 14 arquivos, 14/14 checksums OK em `artificiobackup\2026-06-04`. Restore-test real OK (14 tabelas). `MANIFEST.md` gerado.
-**VM pode ser destruída.** Próximo = Fase 1 (`specs/002-fase1-instancia`). Pendência segurança: rotacionar PAT GitHub vazado + creds. Mover esta sessão p/ `encerradas/` quando autorizado.
+**VM pode ser destruída.** Próximo = Fase 1 (`specs/olds/002-fase1-instancia`). Pendência segurança: rotacionar PAT GitHub vazado + creds. Mover esta sessão p/ `encerradas/` quando autorizado.
 
 ## Log Codex
 - 2026-06-04 — Codex retomou pelo T0 (`project-state`, `context-capsule`, `decisions`) + sessão ativa. Próximo passo: executar CDX-001..005 em ordem após aprovação explícita do mantenedor para escrita na VM/cópia off-VM e após obter `wp-hostinger.env` fora do git.

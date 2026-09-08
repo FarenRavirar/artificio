@@ -6,7 +6,7 @@ Fechar a spec 053: CI CJS, tema accounts, a11y/UI da gestão, doc herdado e deci
 
 ## Escopo
 
-- `specs/053-mesas-ui-ci-debitos-consolidados/`
+- `specs/olds/053-mesas-ui-ci-debitos-consolidados/`
 - `apps/accounts/frontend`
 - `apps/mesas/frontend`
 - `packages/ui`

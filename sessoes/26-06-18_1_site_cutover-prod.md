@@ -218,7 +218,7 @@ Decisao do mantenedor: **prod = fonte de verdade canonica, beta = staging que se
 
 ## Spec 031 criada
 
-Arquivos: `specs/031-site-prod-data-fluxo/{spec.md,plan.md,tasks.md}`
+Arquivos: `specs/olds/031-site-prod-data-fluxo/{spec.md,plan.md,tasks.md}`
 
 Fases:
 1. Seed bootstrap beta→prod (pg_dump → psql, VM write)
@@ -277,9 +277,9 @@ Resultado: 4MB restore sem erro. FK circular resolvida. Rollback limpo. Prod man
 
 ## Arquivos atualizados
 
-- `specs/031-site-prod-data-fluxo/spec.md` — R0a-R0e (seguranca), R1 refinado, R7 reordenado, riscos atualizados
-- `specs/031-site-prod-data-fluxo/plan.md` — pre-condicoes verificadas, Fase 0 adicionada, F1c simulacao, F1d comando exato, F1e reset sequences, Fase 3 reordenada, sync definido, rollback expandido
-- `specs/031-site-prod-data-fluxo/tasks.md` — T0a/T0b adicionados, T1a/T1a-bis/T1a-ter marcados ✅, T1c comando exato com sequence reset, T2b clarificado doc-only, T3b/T3c invertidos, notas expandidas
+- `specs/olds/031-site-prod-data-fluxo/spec.md` — R0a-R0e (seguranca), R1 refinado, R7 reordenado, riscos atualizados
+- `specs/olds/031-site-prod-data-fluxo/plan.md` — pre-condicoes verificadas, Fase 0 adicionada, F1c simulacao, F1d comando exato, F1e reset sequences, Fase 3 reordenada, sync definido, rollback expandido
+- `specs/olds/031-site-prod-data-fluxo/tasks.md` — T0a/T0b adicionados, T1a/T1a-bis/T1a-ter marcados ✅, T1c comando exato com sequence reset, T2b clarificado doc-only, T3b/T3c invertidos, notas expandidas
 
 ## Pronto para execucao
 

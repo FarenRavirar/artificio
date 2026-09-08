@@ -8,7 +8,7 @@
 
 ## Vínculos
 
-- Spec: `specs/042-duplicate-code-refactor/`
+- Spec: `specs/olds/042-duplicate-code-refactor/`
 - Backlog: `specs/backlog.md` — `BL-DUPLICATE-042`
 - Ferramenta: `cpd` 5.0.11
 

@@ -8,7 +8,7 @@ Continuação direta de `C:\projetos\artificio` (**Artifício RPG**). Você é o
 3. `.specify/memory/decisions.md`
 4. `AGENTS.md`
 5. `sessoes/26-06-06_1_site_cms-authoring.md`
-6. `specs/011-site-cms-authoring/{spec.md,plan.md,tasks.md}` (foco: **T20**)
+6. `specs/olds/011-site-cms-authoring/{spec.md,plan.md,tasks.md}` (foco: **T20**)
 
 Não redecida arquitetura fechada. Gate C adiado; WordPress raiz e DNS raiz intocáveis.
 

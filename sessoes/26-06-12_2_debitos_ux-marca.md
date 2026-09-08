@@ -9,7 +9,7 @@
 
 ## Atualização 2026-06-13
 - Pedido do mantenedor: ajustar governança para comunicação padrão em **caveman ultra**, registrar débitos urgentes de changelog, corrigir o débito da logo responsiva, adicionar arquivamento de mesas e replicar feedback bug/melhoria para site+glossário.
-- Arquivos a modificar: `AGENTS.md`, `.specify/memory/decisions.md`, `docs/agents/context-capsule.md`, `.specify/memory/project-state.md`, `specs/020-ui-theme-artificio-padrao/tasks.md`, `sessoes/26-06-12_7_ui-theme-020-dark-readiness.md` e esta sessão.
+- Arquivos a modificar: `AGENTS.md`, `.specify/memory/decisions.md`, `docs/agents/context-capsule.md`, `.specify/memory/project-state.md`, `specs/olds/020-ui-theme-artificio-padrao/tasks.md`, `sessoes/26-06-12_7_ui-theme-020-dark-readiness.md` e esta sessão.
 - Critério de conclusão: buscas por `caveman`, `changelog`, `arquivar`, `reportar` e `dinamismo` refletem o novo estado sem criar spec paralela.
 
 ### D-CONT1 execução
@@ -77,7 +77,7 @@
 - **Nível SDD:** SDD Lite se restrito ao `apps/mesas`; SDD Completo se tocar shared, CI/CD/cron compartilhado ou migration produtiva.
 
 ## D-FEEDBACK1 — Site principal e glossário com ferramenta de reportar bug/sugerir melhoria
-- **Status:** ✅ implementado LOCAL em 2026-06-13 — **Spec 021** (`specs/021-feedback-site-glossario/`), sessão `26-06-13_2`. **SEM commit/push/deploy.** Decisão (AskUserQuestion): **Híbrido B+** (contrato data-only `@artificio/ui/feedback` + port por app), **island vanilla no site** (zero-JS D048 preservado), **paridade total de dados**. Glossário: tabela `dev_feedback` (migration_16 D059), `POST /api/feedback` público + admin + `AdminFeedbackPage`. Site: tabela via migration 005 (descoberto que `site/server` TEM Postgres), `POST /api/feedback` + island `FeedbackWidget.astro` + triagem no `site-admin`. mesas inalterado. Validação `turbo` 13/13 + vitest glossário 22/22 + site static + parity + diff-check limpos. Changelog glossário migration_17. **Pendências p/ publicar:** PR→dev, migrations, env Cloudinary por app (degrada sem), smokes — tudo sob autorização nominal.
+- **Status:** ✅ implementado LOCAL em 2026-06-13 — **Spec 021** (`specs/olds/021-feedback-site-glossario/`), sessão `26-06-13_2`. **SEM commit/push/deploy.** Decisão (AskUserQuestion): **Híbrido B+** (contrato data-only `@artificio/ui/feedback` + port por app), **island vanilla no site** (zero-JS D048 preservado), **paridade total de dados**. Glossário: tabela `dev_feedback` (migration_16 D059), `POST /api/feedback` público + admin + `AdminFeedbackPage`. Site: tabela via migration 005 (descoberto que `site/server` TEM Postgres), `POST /api/feedback` + island `FeedbackWidget.astro` + triagem no `site-admin`. mesas inalterado. Validação `turbo` 13/13 + vitest glossário 22/22 + site static + parity + diff-check limpos. Changelog glossário migration_17. **Pendências p/ publicar:** PR→dev, migrations, env Cloudinary por app (degrada sem), smokes — tudo sob autorização nominal.
 - **O quê:** levar para `site` e `glossario` a mesma ferramenta que o `mesas` já tem para **reportar bug** e **sugerir melhoria**.
 - **Referência:** `apps/mesas/frontend/src/features/dev-feedback/FeedbackButton.tsx`, `FeedbackModal.tsx` e painel/admin correspondente.
 - **Escopo desejado:** experiência e linguagem iguais entre projetos; persistência pode ser por app no começo, mas avaliar se deve virar fonte única em `packages/ui`/backend compartilhado antes de duplicar.

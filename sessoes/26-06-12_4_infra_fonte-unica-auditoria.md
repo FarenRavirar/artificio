@@ -4,7 +4,7 @@
 - **Tipo:** investigacao/spec SDD Completo (sem implementacao)
 - **Modulo/Pacote:** monorepo inteiro (`apps/*`, `packages/*`, `.github`, scripts, docs tecnicos relevantes)
 - **Gate relacionado:** nenhum. Gate C/WP raiz/DNS/VM/deploy/producao fora de escopo.
-- **Spec vinculada:** `specs/019-infra-fonte-unica-auditoria/`
+- **Spec vinculada:** `specs/olds/019-infra-fonte-unica-auditoria/`
 - **Estado:** concluida (investigacao/spec; sem implementacao)
 
 ## Objetivo
@@ -25,7 +25,7 @@ Investigar o debito **D-INFRA2** registrado em `sessoes/26-06-12_2_debitos_ux-ma
 ## Arquivos a consultar
 - T0: `.specify/memory/project-state.md`, `docs/agents/context-capsule.md`, `.specify/memory/decisions.md`.
 - Backlog: `sessoes/index.md`, `sessoes/26-06-12_2_debitos_ux-marca.md`.
-- Padrao recente: `specs/017-ui-shared-marca-ux/`, `specs/018-ui-terminologia-projetos/`.
+- Padrao recente: `specs/olds/017-ui-shared-marca-ux/`, `specs/olds/018-ui-terminologia-projetos/`.
 - Codigo alvo: `apps/*`, `packages/*`, `.github/workflows`, `scripts`, `docker-compose*`, configs/env examples.
 
 ## Plano
@@ -48,7 +48,7 @@ Investigar o debito **D-INFRA2** registrado em `sessoes/26-06-12_2_debitos_ux-ma
 ## Evidencias de busca
 - T0 lido: `.specify/memory/project-state.md`, `docs/agents/context-capsule.md`, `.specify/memory/decisions.md`.
 - Backlog lido: `sessoes/index.md`, `sessoes/26-06-12_2_debitos_ux-marca.md`.
-- Padrao recente lido: `specs/017-ui-shared-marca-ux/{spec,plan,tasks}.md`, `specs/018-ui-terminologia-projetos/{spec,plan,tasks}.md`.
+- Padrao recente lido: `specs/olds/017-ui-shared-marca-ux/{spec,plan,tasks}.md`, `specs/olds/018-ui-terminologia-projetos/{spec,plan,tasks}.md`.
 - Arquivos listados via `rg --files apps packages .github scripts --glob '!**/node_modules/**' --glob '!**/dist/**' --glob '!**/.turbo/**'`.
 - Assets/brand: `rg -n -S "favicon|brandLogo|data:image|Logo|logo" apps packages ...`; trechos lidos em `packages/ui/src/brand.ts`, `apps/site/src/data/brand.json`, `apps/site/scripts/prep-fixtures.mjs`.
 - Tema/shell: `rg -n -S "artificio_theme|data-theme|ThemeToggle|ThemeIcon|applyTheme|setTheme|theme-toggle|Tema claro|Tema escuro|dark|light" ...`; trechos lidos em `packages/ui/src/theme.tsx`, `apps/accounts/frontend/src/main.tsx`, `SiteHeader.astro`, `SiteFooter.astro`, `GlossarioHeader.tsx`, `AppShell.tsx`.
@@ -62,8 +62,8 @@ Investigar o debito **D-INFRA2** registrado em `sessoes/26-06-12_2_debitos_ux-ma
 - Complemento adicional: auditar cores e estrutura de paginas. Evidencias lidas: `apps/glossario/frontend/src/App.tsx:113-149`, `AdminActivityPage.tsx:130-153`, `NotificationsPage.tsx:226-340`, `ProfilePage.tsx:30-78`; `apps/mesas/frontend/src/components/AppShell.tsx:31-44`, `HomePage.tsx:53-208`, `CatalogoPage.tsx:271-379` e `430-522`, `ProfileEditPage.css:1-176`; `apps/site/src/styles/global.css:47-190`; `apps/accounts/frontend/src/styles.css:46-93`; `apps/site-admin/src/App.tsx:10-33`, `styles.css:14-63`; `packages/ui/src/tokens.ts:11-24`; `packages/ui/tailwind-preset.js:7-18`.
 
 ## Resultado
-- Spec 019 criada em `specs/019-infra-fonte-unica-auditoria/`.
-- Inventario com 21 achados em `specs/019-infra-fonte-unica-auditoria/plan.md`.
+- Spec 019 criada em `specs/olds/019-infra-fonte-unica-auditoria/`.
+- Inventario com 21 achados em `specs/olds/019-infra-fonte-unica-auditoria/plan.md`.
 - Backlog recomendado em ordem no `plan.md` e resumido em `tasks.md`.
 - Nenhuma mudanca funcional em codigo.
 - Nenhum commit/push/deploy/VM/DNS/WP.
@@ -76,13 +76,13 @@ M docs/agents/context-capsule.md
 M sessoes/26-06-12_2_debitos_ux-marca.md
 M sessoes/26-06-12_3_ui-marca_debitos-exec.md
 M sessoes/index.md
-M specs/017-ui-shared-marca-ux/plan.md
-M specs/017-ui-shared-marca-ux/spec.md
-M specs/017-ui-shared-marca-ux/tasks.md
-M specs/018-ui-terminologia-projetos/plan.md
-M specs/018-ui-terminologia-projetos/tasks.md
+M specs/olds/017-ui-shared-marca-ux/plan.md
+M specs/olds/017-ui-shared-marca-ux/spec.md
+M specs/olds/017-ui-shared-marca-ux/tasks.md
+M specs/olds/018-ui-terminologia-projetos/plan.md
+M specs/olds/018-ui-terminologia-projetos/tasks.md
 ?? sessoes/26-06-12_4_infra_fonte-unica-auditoria.md
-?? specs/019-infra-fonte-unica-auditoria/
+?? specs/olds/019-infra-fonte-unica-auditoria/
 ```
 
 Observacao: varios arquivos ja estavam modificados antes desta investigacao (estado herdado das specs 017/018). Nesta sessao foram criados/alterados apenas docs de sessao/spec 019, `sessoes/index.md` e a nota minima em `.specify/memory/project-state.md`.

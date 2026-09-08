@@ -3,7 +3,7 @@
 - **Data:** 2026-06-20
 - **Escopo:** `packages/media` (novo), `apps/links`, `apps/site`, `apps/mesas/backend`
 - **Gate:** D (SDD Completo cross-cutting `packages/*`)
-- **Spec:** `specs/036-media-shared/`
+- **Spec:** `specs/olds/036-media-shared/`
 - **Autorização:** mantenedor pediu SDD Completo no prompt `sessoes/prompt-BL-CLOUDINARY-SHARED.md`. **Zero commit/push.**
 
 ## T0/T1 lidos
@@ -34,7 +34,7 @@ Extrair padrão Cloudinary duplicado em 3 apps → `packages/media` (`@artificio
 - `package.json`: `@artificio/media: workspace:*` adicionado
 
 ### Spec
-- `specs/036-media-shared/{spec.md,plan.md,tasks.md}` criados
+- `specs/olds/036-media-shared/{spec.md,plan.md,tasks.md}` criados
 
 ## Validação
 - `pnpm --filter @artificio/media build` ✅

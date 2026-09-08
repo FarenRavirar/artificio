@@ -6,7 +6,7 @@ Começar a spec 052 pelo Bloco A local: ingestão operacional de pasta monitorad
 
 ## Escopo
 
-- `specs/052-mesas-automacao-inteligente/`
+- `specs/olds/052-mesas-automacao-inteligente/`
 - `apps/mesas/backend`
 - Sem VM write, sem cron, sem segredo, sem deploy.
 
@@ -40,7 +40,7 @@ Começar a spec 052 pelo Bloco A local: ingestão operacional de pasta monitorad
 - `apps/mesas/backend/src/discord/chatExporterCliRunner.ts` criado.
 - `apps/mesas/backend/src/scripts/importDiscordChatExporterFolder.ts` criado.
 - `apps/mesas/backend/src/scripts/exportDiscordChatExporter.ts` criado.
-- `specs/052-mesas-automacao-inteligente/operacao-bloco-a.md` criado.
+- `specs/olds/052-mesas-automacao-inteligente/operacao-bloco-a.md` criado.
 - Scripts `discord:import-folder` e `discord:import-folder:dev` adicionados.
 - Sem VM write, sem cron, sem segredo, sem deploy.
 

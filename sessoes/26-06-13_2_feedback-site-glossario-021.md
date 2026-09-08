@@ -4,7 +4,7 @@
 - **Tipo:** SDD Completo (toca `packages/ui` + contrato compartilhado + migration glossário)
 - **Módulo/Pacote:** packages/ui · apps/site · apps/site/server · apps/site-admin · apps/glossario (front/back/db)
 - **Gate relacionado:** nenhum (SDD Completo por `packages/*`/contrato).
-- **Spec vinculada:** `specs/021-feedback-site-glossario/` (spec.md, plan.md, tasks.md)
+- **Spec vinculada:** `specs/olds/021-feedback-site-glossario/` (spec.md, plan.md, tasks.md)
 - **Débito:** D-FEEDBACK1 (`sessoes/26-06-12_2_debitos_ux-marca.md`)
 - **Estado:** ABERTA — spec criada e confirmada; aguardando início da implementação (T1).
 
@@ -31,7 +31,7 @@ e `apps/glossario`, com experiência e linguagem iguais. accounts fora de escopo
 - Cloudinary = credencial por app; screenshot degrada sem ela (já é não-fatal no mesas).
 
 ## Plano de execução
-Ver `specs/021-feedback-site-glossario/tasks.md` (T1–T15). Ordem: contrato `packages/ui` →
+Ver `specs/olds/021-feedback-site-glossario/tasks.md` (T1–T15). Ordem: contrato `packages/ui` →
 glossário (back+front) → site (persistência+island+admin) → validação/changelog/fechamento.
 
 ## Restrições

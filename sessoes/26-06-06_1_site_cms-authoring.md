@@ -1,6 +1,6 @@
 # Sessão 26-06-06_1 — site / CMS-authoring (spec 011)
 
-- **Spec:** `specs/011-site-cms-authoring/` (spec + plan + tasks)
+- **Spec:** `specs/olds/011-site-cms-authoring/` (spec + plan + tasks)
 - **Módulo:** `apps/site` (+ possível `packages/auth`/`packages/ui` → SDD Completo)
 - **Origem:** mantenedor pediu paridade WordPress de autoria (inserir/editar posts, slug+sugestão, OG, mídia img/áudio/vídeo, snippets, links, categorias, resumos, arquivar, usuários editores, "tudo que o WP faz") + levantamento/pesquisa → super spec.
 
@@ -54,7 +54,7 @@
 7. **Portal/operação:** dashboard (R44), curadoria portal/hub (área K), redirects UI e auditoria.
 
 ## Handoff de revisão
-- Inventário completo (arquivos novos/modificados, o que foi verificado, como rodar) em `specs/011-site-cms-authoring/handoff-review.md` — base para a revisão de código do Codex.
+- Inventário completo (arquivos novos/modificados, o que foi verificado, como rodar) em `specs/olds/011-site-cms-authoring/handoff-review.md` — base para a revisão de código do Codex.
 
 ## Estudo pós-deploy — funcionalidade mínima vs WordPress
 - **Conclusão:** o admin está minimamente funcional para autoria técnica de posts/páginas, mas não deve ser considerado paridade WordPress. A tela atual vista pelo mantenedor (lista simples + botão "+ Novo post") é esperada para Fase 1, porém insuficiente para administrar o acervo como no WP.

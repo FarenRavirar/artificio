@@ -1,7 +1,7 @@
 # Sessão — 2026-06-23 — Spec 048 DiscordChatExporter JSON
 
 - **Módulo:** `apps/mesas`
-- **Spec:** `specs/048-mesas-discord-chat-exporter-json/`
+- **Spec:** `specs/olds/048-mesas-discord-chat-exporter-json/`
 - **Objetivo:** criar spec de continuação da 047 para importar JSON real do Tyrrrz/DiscordChatExporter.
 - **Escopo autorizado:** documentação/spec; leitura dos JSONs locais; sem implementação, commit, push, PR, deploy, migration, VM write ou Chrome.
 
@@ -66,7 +66,7 @@
 ## Retomada após stash da Spec 048
 
 - Em 2026-06-23, durante correção separada da PR #90, os arquivos untracked da Spec 048 foram guardados em `stash@{0}` (`wip-048-before-fix-pr90`).
-- Sintoma observado: `specs/README.md` ainda citava a Spec 048, mas a pasta `specs/048-mesas-discord-chat-exporter-json/` não aparecia no working tree.
+- Sintoma observado: `specs/README.md` ainda citava a Spec 048, mas a pasta `specs/olds/048-mesas-discord-chat-exporter-json/` não aparecia no working tree.
 - Ação executada nesta sessão: restaurados apenas os artefatos documentais da Spec 048 e a sessão a partir de `stash@{0}^3`.
 - Não foram restaurados como entrega da Spec 048 os arquivos de código experimentais do stash (`deepseek.ts`, E2E Playwright, script `discord-export.sh` etc.).
 
@@ -132,11 +132,11 @@
 
 ## Artefatos criados
 
-- `specs/048-mesas-discord-chat-exporter-json/spec.md`
-- `specs/048-mesas-discord-chat-exporter-json/plan.md`
-- `specs/048-mesas-discord-chat-exporter-json/tasks.md`
-- `specs/048-mesas-discord-chat-exporter-json/debitos.md`
-- `specs/048-mesas-discord-chat-exporter-json/reviews.md`
+- `specs/olds/048-mesas-discord-chat-exporter-json/spec.md`
+- `specs/olds/048-mesas-discord-chat-exporter-json/plan.md`
+- `specs/olds/048-mesas-discord-chat-exporter-json/tasks.md`
+- `specs/olds/048-mesas-discord-chat-exporter-json/debitos.md`
+- `specs/olds/048-mesas-discord-chat-exporter-json/reviews.md`
 
 ## Artefatos atualizados
 

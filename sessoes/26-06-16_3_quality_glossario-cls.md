@@ -22,7 +22,7 @@
 - `packages/ui/src/Footer.tsx`
 - `packages/ui/src/styles.css`
 - `apps/glossario/frontend/src/**`
-- `specs/025-quality-lighthouse-program/*`
+- `specs/olds/025-quality-lighthouse-program/*`
 - `specs/backlog.md`
 
 ## Execucao

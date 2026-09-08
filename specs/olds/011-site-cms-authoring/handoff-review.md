@@ -65,7 +65,7 @@ Próxima implementação recomendada: **Fase 2A — operações editoriais bási
 - `apps/site/src/pages/blog/[slug].astro`, `apps/site/src/pages/[slug].astro` — repassam SEO/OG.
 - `packages/content/src/{types.ts,meta.ts}` — `buildMeta` aditivo (ogTitle/ogDescription/twitterCard/noindex).
 - `.github/workflows/deploy-site.yml` — paths incluem `apps/site-admin/**`.
-- Docs: `decisions.md`, `project-state.md`, `roadmap.md`, `sessoes/index.md`, `specs/010-ui-nav-logo/tasks.md`.
+- Docs: `decisions.md`, `project-state.md`, `roadmap.md`, `sessoes/index.md`, `specs/olds/010-ui-nav-logo/tasks.md`.
 
 ## Contratos relevantes
 - Auth: `@artificio/auth` `requireAuth` + cookie `artificio_session`. Toda rota de escrita do admin passa por `requireAuth`+`requireAdmin`.

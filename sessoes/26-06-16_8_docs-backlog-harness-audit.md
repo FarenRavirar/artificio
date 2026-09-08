@@ -29,7 +29,7 @@ Arquivos conferidos:
 - `sessoes/index.md`
 - `specs/backlog.md`
 - `specs/README.md`
-- `specs/025-quality-lighthouse-program/tasks.md`
+- `specs/olds/025-quality-lighthouse-program/tasks.md`
 - sessoes recentes `26-06-16_*`
 - sessoes historicas com drift evidente: `26-06-04_3`, `26-06-04_5`, `26-06-05_1`, `26-06-12_7`, `26-06-13_1`
 
