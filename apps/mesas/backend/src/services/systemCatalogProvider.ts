@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Transaction } from 'kysely';
+import { sql, type Transaction } from 'kysely';
 import { db } from '../db/index.js';
 import type { Database, SystemNodeType } from '../db/types.js';
 import {
@@ -293,17 +293,27 @@ async function createLocalNode(input: CatalogNodeInput): Promise<MesasSystemNode
  * o site é o DONO do catálogo e os outros apps puxam dele — fazer o dono
  * importar um pacote do lado consumidor inverteria a direção da dependência.
  *
- * **Serialização:** o `SELECT ... FOR UPDATE` sobre o pai trava a linha até o
- * commit, então duas aprovações simultâneas sob o mesmo pai não passam ambas
- * pela leitura antes de qualquer inserção. Para nó raiz (`parent_id` nulo) não
- * há linha a travar; o risco de corrida ali é menor (sistema novo é raro e
- * revisado), e travar a tabela inteira custaria mais do que resolve.
+ * **Serialização:** `pg_advisory_xact_lock` sobre a chave do conjunto de irmãos,
+ * a MESMA que o dono usa (`catalog_sibling:<pai|root>`, `apps/site/db/repo/catalog.ts`).
+ * O `SELECT ... FOR UPDATE` no pai continua, porque também protege contra o pai
+ * ser arquivado no meio da transação — mas ele sozinho não bastava: com
+ * `parent_id` nulo não existe linha a travar, e o lock da rota de aprovação é
+ * por `suggestion_id` (`systemSuggestionsAdmin.ts`), que não serializa DUAS
+ * sugestões distintas. Duas aprovações simultâneas de "Vampire" e "Vampiro" na
+ * raiz liam os mesmos irmãos antes de qualquer inserção, e como os slugs
+ * diferem a unicidade de slug também não barrava — exatamente a duplicata que
+ * esta guarda existe para impedir (achado de review na PR #310).
  */
 async function assertNoEquivalentLocalSibling(
   trx: LocalTransaction,
   input: CatalogNodeInput,
 ): Promise<void> {
   const parentId = input.parent_id ?? null;
+
+  // Trava o CONJUNTO de irmãos, não a linha do pai: é o que cobre a raiz, onde
+  // não há pai para travar. Chave idêntica à do dono, em `apps/site`.
+  await sql`select pg_advisory_xact_lock(hashtext(${`catalog_sibling:${parentId ?? 'root'}`}))`
+    .execute(trx);
 
   if (parentId) {
     await trx.selectFrom('systems')
