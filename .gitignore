@@ -72,7 +72,8 @@ opencode.json
 # Astro auto-generated types
 .astro/
 
-# Indice local legado (nao versionado)
+# Indice local legado (Serena removido do projeto em 2026-09-10; a entrada fica
+# so para nao reversionar sobra de instalacao antiga em maquina que ainda a tenha)
 .serena/
 # .codex/ e local, EXCETO a config de governanca que precisa valer para todo
 # ambiente (spec 101 F0.7): os agentes e os hooks que espelham .claude/hooks/.

@@ -185,7 +185,6 @@
       "Bash(curl -s -o /dev/null -w \"health HTTP %{http_code}\\\\n\" https://mesasbeta.artificiorpg.com/api/v1/health)",
       "Bash(curl -s -o /dev/null -w \"root HTTP %{http_code}\\\\n\" https://mesasbeta.artificiorpg.com/)",
       "mcp__artificio-api-governance__get_api_bundle_summary",
-      "mcp__serena__initial_instructions",
       "WebFetch(domain:github.com)",
       "Bash(rtk --version)",
       "Bash(echo \"---exit:$?\")",

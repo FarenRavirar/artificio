@@ -147,8 +147,6 @@ permission:
     'ssh faren "psql*TRUNCATE*': deny
     'ssh faren "psql*ALTER*': deny
   task: deny
-  "serena_*": allow
-  "mcp__serena__*": allow
   "codebase-memory*": allow
   "codebase_memory*": allow
   "mcp__codebase_memory__*": allow
@@ -182,7 +180,7 @@ Investigue:
 - riscos de escopo
 - se a missão nomear um arquivo de saída (ex.: relatório na pasta da spec), escrever o relatório completo nesse arquivo ao final
 
-Use LSP, Serena MCP e codebase-memory-mcp quando disponíveis. Se não estiverem disponíveis, use `rg`, `find`, `git diff`, leitura direta e registre limitação.
+Use LSP e codebase-memory-mcp quando disponíveis. Se não estiverem disponíveis, use `rg`, `find`, `git diff`, leitura direta e registre limitação.
 
 ## Contrato de retorno para o orquestrador
 

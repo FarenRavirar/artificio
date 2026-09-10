@@ -13,7 +13,7 @@ Atualize `.opencode/artificio-flow/state.md` com fase `investigação`, escopo e
 Delegue ao `artificio-investigador` uma investigação read-only.
 
 Permissões herdadas:
-- pode usar LSP, Serena MCP e codebase-memory-mcp;
+- pode usar LSP e codebase-memory-mcp;
 - pode usar `rg`, leitura de arquivos, `git status`, `git diff` e `git log`;
 - não pode editar;
 - não pode implementar;

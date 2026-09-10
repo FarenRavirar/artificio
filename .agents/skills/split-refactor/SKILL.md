@@ -40,7 +40,7 @@ Use em ordem de precisão:
 
    * recuperar padrões, decisões e refatorações anteriores.
 
-2. Serena + LSP
+2. LSP
 
    * mapear símbolos, referências, imports, exports, consumidores e diagnósticos;
    * confirmar impacto antes de mover código.
@@ -117,7 +117,7 @@ Se surgir necessidade maior, registrar débito e parar.
 
 Após a alteração:
 
-* usar Serena/LSP para confirmar referências;
+* usar LSP para confirmar referências;
 * conferir imports e exports;
 * revisar `git diff`;
 * rodar lint, build e testes relevantes;
@@ -172,7 +172,7 @@ Depois da resposta do mantenedor: registrar em `tasks.md` + sessão, com evidên
 -
 
 ## Validação
-- Serena/LSP:
+- LSP:
 - `pnpm run lint`:
 - `pnpm run build`:
 - `pnpm run test`:

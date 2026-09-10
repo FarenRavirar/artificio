@@ -79,8 +79,6 @@ permission:
     "ssh *": ask
     "scp *": ask
   task: deny
-  "serena_*": allow
-  "mcp__serena__*": allow
   "codebase-memory*": allow
   "codebase_memory*": allow
   "mcp__codebase_memory__*": allow
