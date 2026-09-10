@@ -4,6 +4,7 @@
 - **Gate relacionado:** nenhum
 - **Origem:** o mantenedor avaliou o resultado da spec 099 em `mesasbeta` (2026-09-03) e reprovou o acabamento visual: "design feio, desorganizado, com letras ruins". Referência de destino dada por ele: Airbnb (3 capturas em `midias/airbnb_*.png` e `midias/pagina_perfil*.png`).
 - **Depende de:** spec 092 (criou `--radius-*` e `--space-*` em `packages/ui`; frentes F e G seguem bloqueadas lá e **não** são resolvidas aqui).
+- **Status:** implementação **encerrada em 2026-09-10**. Fases 0 a 7 merged (PR #310, `main` = `dev` = `31ff668`) e em produção nos quatro módulos afetados. Aberto só o que depende do mantenedor: conferência visual (T5.4/F7.4), reescolha do sistema no painel, e T0.4c. Estado medido e pendências em `tasks.md` §Estado.
 
 ## Problema
 

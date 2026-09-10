@@ -1,5 +1,25 @@
 # Tasks — 100
 
+## Estado: implementação encerrada (2026-09-10)
+
+Todas as fases (0 a 7) estão implementadas, merged e **em produção**. `main` = `dev` = `31ff668` (PR #310), e os quatro módulos com mudança pendente foram deployados nos dois ambientes: `mesas` e `site` (beta e prod), `glossario` e `downloads` (beta e prod) — os quatro runs `success`, com smoke das rotas críticas do manifesto batendo em cada etapa.
+
+Validação repo-wide na `dev` antes da promoção: build **26/26**, test **43/43** (1160 testes), lint **0 erros** (1 warning conhecido, `useBannerScrim.ts:251`), `verify:api` **breaking=0** nos 6 apps.
+
+O catálogo — causa raiz da Fase 6 — está **sem duplicata ativa nos dois ambientes**: 0 em beta (1287 nós) e 0 no catálogo central de produção (1326 nós), após as consolidações de F6.3e.
+
+**O que resta não é código.** Três itens, todos dependentes do mantenedor:
+
+| item | o que falta |
+|---|---|
+| T5.4 / F7.4 | conferência visual nos dois temas, obrigatória nas quatro telas sem teste |
+| F6.3g (parte do mestre) | reescolher o sistema no painel descendo até `2024` — o perfil grava a raiz nua porque foi assim que o dado entrou, não por defeito de código |
+| T0.4c | bloqueada por decisão do mantenedor, sem relação com este trabalho |
+
+Além disso, §Pendente ao final da Fase 6 lista defeitos de **nome** herdados da importação (não duplicatas), que mudam texto público e por isso não foram tocados.
+
+---
+
 **Entrega: uma PR por fase** (D10, revisto em 2026-09-03 — às vezes duas, conforme o volume de arquivos; o mantenedor decide por fase). A versão anterior dizia "uma PR só", o que tornava impossível o gate de medição em beta por fase (achado C7).
 
 Cada fase mede **no dev server local** (`getComputedStyle` roda igual e não depende de deploy); beta serve à conferência visual do mantenedor depois do merge daquela fase. Cada commit e cada PR exige autorização nominal própria (`AGENTS.md` §Autorização) — autorização de uma fase não vale para a seguinte.
@@ -362,7 +382,13 @@ Isso reproduz exatamente a sequência relatada ("Intriga Polícia / Investigaç�
   `c3d31503` é **exatamente o `new_id` da migration 148**: ela funcionou em produção e o estado lá é o correto. As duplicatas de beta nasceram **depois**, no ambiente onde se aprovam sugestões de sistema — o que confirma `createSystemNode` como a fábrica e não a migration como falha.
 
   **Consequência prática:** F6.3e é limpeza **de beta**, não SQL write em produção — o custo e o risco caem, e a aprovação nominal necessária é a de escrita em beta. Também vale como alerta: sem F6.3d, produção pode receber o mesmo defeito na próxima sugestão aprovada lá.
-- [ ] F6.3e — **Limpar as duplicatas de beta.** Consolidar as duas edições "5e" de D&D e os dois "2024", usando produção como referência do estado correto. **Só depois de F6.3d** — limpar antes deixa a fonte aberta. · feito quando: beta bate com produção e a consolidação foi aprovada.
+- [x] F6.3e — **FEITO (2026-09-10), e o estrago era maior do que esta task supunha.** Consolidação aprovada nominalmente pelo mantenedor, com dump prévio e dry-run em transação revertida antes de cada `COMMIT`.
+
+  **Em beta:** `5e` e `4e` duplicados sob D&D — dois ramos com convenções de nome divergentes (`dungeons-dragons/5e` e `dungeons-dragons/dungeons-dragons-5e`). Sobreviveu o ramo em uso; o descartado tinha **0 mesas e 0 `user_systems`**, nele e em todos os filhos. Resultado: 3 aliases migrados, 2 filhos → `archived`, 2 nós → `merged`. Duplicatas ativas: **0** em 1287 nós; mesas (19) e `user_systems` (14) intactos.
+
+  **A premissa "produção é a referência correta" estava ERRADA — medido.** O catálogo central em produção (`site-prod-db`, `catalog_nodes`) tinha `Werewolf 1e` e `2e` **duplicados**, na fonte canônica que todos os apps consomem. Sobreviveu o ramo com filhos e com `catalog_legacy_mappings` apontando para ele; o descartado tinha 0 filhos, 0 aliases, 0 redirects, 0 sugestões, 0 uso. Duplicatas ativas em produção: **0** em 1326 nós.
+
+  Dois erros meus, ambos barrados pelo dry-run antes de tocar dado: usei `catalog_status='rejected'` (a constraint aceita `active|archived|merged`) e assumi `id uuid` no site, onde a coluna é `text`.
 **MEDIÇÃO NO DRAFT (2026-09-05, a pedido do mantenedor — segunda correção nesta task).** Rodei `parseDiscordAnnouncement` **real** contra o catálogo **real** de beta (39 nós), via probe temporário com o `makeMessage` da suíte existente. Resultado:
 
 | texto | system_id resolvido | cadeia |
@@ -384,7 +410,20 @@ Ou seja: a duplicata do catálogo **cega os dois caminhos**, o draft inclusive. 
 
 **Conclusão que fecha a sequência de tentativas:** enquanto houver duas "5e" irmãs, nenhum algoritmo de resolução pode acertar, porque não há resposta certa. **F6.3d (guarda) e F6.3e (consolidação) são pré-requisito de tudo** — inclusive de melhorar o draft. Toda tentativa anterior atacou a resolução, que é o sintoma.
 
-- [ ] F6.3g — **Corrigir o draft junto.** Consolidadas as duplicatas, remedir esta tabela: `D&D 5e 2024` deve resolver até a variante, não parar na raiz. Se continuar parando, o defeito é do scoring e não do catálogo. · feito quando: a tabela acima foi remedida após F6.3e, com os valores novos citados.
+- [x] F6.3g — **FEITO — o defeito era do catálogo, não do scoring.** Tabela remedida em 2026-09-10, com `parseDiscordAnnouncement` **real** contra o catálogo **real** de beta, já consolidado (probe no próprio container `mesas-beta-api`, sobre o `dist` que serve beta):
+
+  | texto | system_id | cadeia |
+  |---|---|---|
+  | `D&D 5e 2024` | `fc682df5…` | **Dungeons & Dragons 5e 2024** — desce até a VARIANTE |
+  | `Dungeons & Dragons 5e 2024` | `fc682df5…` | **Dungeons & Dragons 5e 2024** |
+  | `D&D 5e 2014` | `5a752aeb…` | Dungeons & Dragons 5e 2014 |
+  | `DnD 5e` | `8b1402c4…` | Dungeons & Dragons 5e — sem escolha arbitrária, só existe uma |
+  | `D&D 2024` | `5092ddb4…` | Dungeons & Dragons — ainda para na raiz |
+  | `Vampiro 5e` | `c8fc6863…` | Vampiro Vampire 5e |
+
+  Quatro dos seis casos que paravam na raiz agora resolvem. **Nenhuma linha de `findSystemMatch` mudou** — o `break` no empate (`:587`) continua lá e estava certo: sem duas "5e" irmãs, não há empate para ele barrar. Confirma a conclusão de F6.3e: toda tentativa anterior atacava a resolução, que era o sintoma.
+
+  **`D&D 2024` continua na raiz, e isso não é regressão:** pular o nível da edição exigiria adivinhar qual "2024" (existem sob `5e` e sob outros sistemas), que é justamente a ambiguidade que a guarda protege. `Vampiro Vampire 5e` repete a identidade porque o nó de beta se chama `Vampire 5e` sob a raiz `Vampiro` — defeito de nome de importação, listado abaixo em §Pendente.
 - [x] F6.3f — **FEITO.** `gm.publicSystems.test.ts`, **5 casos**: sistemas gravados saem com a cadeia inteira; mestre sem sistema devolve `[]`; id fantasma é descartado em vez de virar nome nulo; catálogo fora do ar não derruba o perfil; **e falha do NOSSO banco vira 500, não 200 com lista vazia** — este último veio da quarta rodada de review: o `try` que eu escrevera para tolerar o catálogo (dependência externa) englobava também a consulta a `user_systems`, então falha de DB ficaria indistinguível de "este mestre não cadastrou sistema", que é o defeito de F6.3c reaparecendo como silêncio. A leitura da nossa tabela saiu do `try`; só a resolução dos nomes tolera falha.
 
 ### F6.4 — "placeholder" do banner com URL crua do Cloudinary
@@ -421,6 +460,19 @@ Ou seja: a duplicata do catálogo **cega os dois caminhos**, o draft inclusive. 
 
   **Recusado, com medição:** restringir `isCloudinaryUrl` ao cloud name do Artifício. `VITE_CLOUDINARY_CLOUD_NAME` existe como build-arg (Dockerfile, compose de beta e prod) mas **não é lido por nenhuma linha de `src/`** — `rtk rg "VITE_CLOUDINARY" apps/mesas/frontend/src` devolve zero, então restringir exigiria ligar a env ao frontend e um build sem ela quebraria todo mundo. Além disso o predicado decide **importar**, não confiar (`useImageUrlImport:61`: URL do Cloudinary não é reimportada), então estreitá-lo mudaria o fluxo de upload, não a exibição. Se o mantenedor quiser fechar isso, é trabalho próprio: expor a env e restringir **na importação**.
 - [x] F6.4d — **FEITO.** `ImageUploader.test.tsx`, **8 casos** — arquivo novo, o componente não tinha teste algum. Os 5 últimos vieram das rodadas de review: os dois caminhos de troca com o campo aberto, o Cloudinary de terceiro, a colisão nome-de-arquivo × nome-de-pasta, e a asserção de foco. Todos verificados por reversão.
+
+### §Pendente — defeitos de NOME herdados da importação
+
+Achados ao remedir o catálogo em 2026-09-10, depois de F6.3e. **Não são duplicatas** — a guarda de F6.3d não os alcança, porque cada um é um nó único cujo *nome* está errado. Ficaram de fora porque corrigir muda **texto público exibido**, o que é decisão de produto (§Autorização), não conserto de agente.
+
+| defeito | onde | uso |
+|---|---|---|
+| Raiz `Vampiro` paralela à `Vampire`, com edições nomeadas `Vampire 1e/2e/5e` e a variante grafada "Masquarade" — gera `Vampiro Vampire 2e The Masquarade` | **só beta** (produção tem só `Vampire`, com `1e/2e/5e` e "The Masquerade" correto) | 1 mesa |
+| Edição `Advanced Dungeons & Dragons` sob D&D — gera `Dungeons & Dragons Advanced Dungeons & Dragons` | beta e produção | 1 mesa em beta |
+| Edições `The Masquerade` e `The Masquerade 5e` soltas sob `Vampire`, quando nas outras edições "The Masquerade" é variante | produção | 0 |
+| 5 nós cujo nome repete o do pai: `2024 > 2024`, `Anniversary > Anniversary` (×2 em beta, ×3 em prod), `Essentials > Essentials`, `Time > Time Again` | beta e produção | 0 |
+
+Beta divergiu de produção no caso `Vampiro` porque a projeção local **pode criar** (D33) — alguém criou lá um ramo que o Central não tem. É o comportamento pretendido, não regressão.
 
 ---
 
