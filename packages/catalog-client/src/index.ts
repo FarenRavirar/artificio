@@ -162,6 +162,30 @@ function toCatalogNodeBody(input: CatalogNodeCreateInput): Record<string, unknow
  * gerava slug diferente para o mesmo nome — divergência resolvida aqui, no dono
  * do contrato.
  */
+/**
+ * O catálogo central recusou o nó porque um irmão equivalente já existe?
+ *
+ * `catalogFetch` embrulha a resposta na mensagem do `Error`
+ * (`catalog_409: {"error":"duplicate_sibling_node"}`), então cada app testava
+ * isso por conta própria — e errava de formas diferentes. Medido na PR #310:
+ * `mesas/routes/systems.ts` respondia 409 dizendo "já existe um sistema com
+ * este slug", quando os slugs podem ser **distintos** (é o furo que a guarda
+ * fecha); `glossario/systemController.ts` engolia tudo num `catch` genérico e
+ * devolvia **503 "Catálogo central indisponível"** — duplicata determinística
+ * lida como falha de infra, que o admin retenta para sempre.
+ *
+ * Reconhecedor único aqui, no pacote por onde todos os apps passam, para não
+ * haver uma terceira tradução errada no próximo app.
+ */
+export function isDuplicateSiblingError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '');
+  return message.includes('duplicate_sibling_node');
+}
+
+/** Mensagem única ao admin para o conflito acima. Um texto só, em todo app. */
+export const DUPLICATE_SIBLING_MESSAGE =
+  'Já existe um nó equivalente sob o mesmo pai (mesmo nome ou apelido, ignorando acento, caixa e o nome do pai). Use o existente ou acrescente um apelido a ele.';
+
 export function slugifyCatalogSegment(value: string): string {
   const collapsed = value
     .normalize('NFD')

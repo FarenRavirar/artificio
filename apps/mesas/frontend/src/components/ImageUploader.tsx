@@ -5,6 +5,7 @@ import { Checkbox, TextInput } from '@artificio/ui';
 import {
   imageKindHint,
   imageKindSpec,
+  isArtificioHostedImage,
   type CropRect,
   type ImageKind,
 } from '@artificio/media/image-kinds';
@@ -96,15 +97,54 @@ export function ImageUploader({
   const inputId = fileInputId || `${idPrefix}-file`;
   const manualUrlId = manualInputId || `${idPrefix}-url`;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Foco a mover para o campo de URL quando ele aparece por ação do mestre
+  // (F6.4c, achado de review PR #310): o botão "Trocar por um link" DESMONTA ao
+  // ser clicado, e sem isso o foco cai no `<body>` — quem navega por teclado
+  // perde o lugar exatamente na ação que pediu, e o próximo Tab recomeça do
+  // topo da página. Só quando o mestre pede: montagem por dado que chega (o
+  // valor deixar de ser hospedado aqui) não deve roubar o foco de onde ele
+  // estiver.
+  const focarCampoDeLinkRef = useRef(false);
   const spec = imageKindSpec(kind);
   const isAvatar = kind === 'profile_avatar';
   const fallbackImage = placeholderSrc ?? (isAvatar ? '' : bannerPlaceholder);
 
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [editorSrc, setEditorSrc] = useState<string | null>(null);
+  // F6.4c (spec 100): quem subiu arquivo não vê a URL crua, mas pode pedir o
+  // campo de volta para trocar por link. Estado, não `value`, porque a
+  // intenção é do mestre e não do dado.
+  const [mostrarCampoDeLink, setMostrarCampoDeLink] = useState(false);
   const { isUploading, uploadFile, validateFile } = useImageUpload(kind);
 
   const previewSource = value.trim() || fallbackImage;
+
+  /**
+   * F6.4c (spec 100) — a metade do caso que a correção anterior não tratou.
+   *
+   * O placeholder intuitivo ("Cole aqui um link direto de imagem") chegou a
+   * produção e resolve o campo VAZIO. Mas depois do upload o campo passa a
+   * exibir o `value`, e o mestre encara a URL do Cloudinary — 100 caracteres
+   * de `res.cloudinary.com/.../khmxivtocytsah6o0pap.jpg` como texto editável,
+   * que foi exatamente a queixa original ("o cara acha que aquilo é código
+   * vazado"). Medido em produção 2026-09-05: `banner_url` devolvido pela API é
+   * o banner real que ele subiu, não placeholder algum.
+   *
+   * Com imagem já hospedada aqui, o campo de link some e o que fica é a prévia
+   * (que já existia, abaixo) mais o convite a trocar. Link externo mantido por
+   * "Manter link direto" CONTINUA visível: aquela URL o mestre digitou, ele a
+   * reconhece, e escondê-la tiraria a única forma de conferi-la.
+   *
+   * `isArtificioHostedImage` e NÃO `isCloudinaryUrl`: os dois predicados
+   * respondem perguntas diferentes. `isCloudinaryUrl` decide **importar**, e
+   * trata qualquer `*.cloudinary.com` como hospedada para não reimportar; usá-lo
+   * aqui escondia também o Cloudinary DE TERCEIRO que o mestre colou e manteve
+   * como link direto — justamente o caso que o parágrafo acima manda preservar
+   * (achado de review, PR #310). O predicado de exibição olha a pasta, que só o
+   * nosso backend escreve.
+   */
+  const imagemHospedadaAqui = isArtificioHostedImage(value.trim());
+  const campoDeLinkVisivel = !imagemHospedadaAqui || mostrarCampoDeLink;
 
   const clearError = () => {
     setUploadError(null);
@@ -126,6 +166,11 @@ export function ImageUploader({
         // retângulo antigo aplicaria coordenadas de outra imagem.
         onCropChange?.(null);
         onDimensionsChange?.(null);
+        // O link colado virou imagem hospedada aqui: fecha o campo, senão o
+        // mestre que pediu "trocar por um link" fica encarando a URL crua do
+        // Cloudinary — o mesmo defeito que F6.4c fecha, reaberto pela porta ao
+        // lado (achado de review, PR #310).
+        setMostrarCampoDeLink(false);
         clearError();
       },
       onError: setError,
@@ -167,6 +212,9 @@ export function ImageUploader({
     try {
       const uploaded = await uploadFile(file);
       onChange(uploaded.url);
+      // Mesmo motivo do `onImported`: subir arquivo com o campo de link aberto
+      // repunha a URL crua na tela.
+      setMostrarCampoDeLink(false);
       // Imagem nova zera crop E dimensoes juntos. Preservar as dimensoes
       // antigas quando o servidor nao as devolve deixaria numeros de OUTRA
       // imagem no estado, e o proximo recorte seria convertido pela escala
@@ -253,6 +301,21 @@ export function ImageUploader({
           <span className="text-xs text-white/60" id={hintId}>{imageKindHint(kind)}</span>
         </div>
 
+        {!campoDeLinkVisivel && (
+          <button
+            type="button"
+            id={`${idPrefix}-show-url`}
+            onClick={() => {
+              focarCampoDeLinkRef.current = true;
+              setMostrarCampoDeLink(true);
+            }}
+            className="text-[length:var(--text-label)] text-[var(--fg-muted)] hover:text-[var(--fg)] underline underline-offset-2 text-left transition-colors"
+          >
+            Trocar por um link de imagem
+          </button>
+        )}
+
+        {campoDeLinkVisivel && (
         <div className="flex flex-col gap-1">
           {/* "URL manual (fallback)" era jargão, e o placeholder mostrava uma
               URL crua do Cloudinary — o mestre lia aquilo como código vazado e
@@ -268,6 +331,16 @@ export function ImageUploader({
               regra legada do CSS produzia por especificidade (§13.7). O que
               fica é a largura, que o primitivo não decide. */}
           <TextInput
+            // Callback ref, não `useEffect`: dispara na montagem do input, sem
+            // o render extra que a lint deste repo reprova
+            // (`react-hooks/set-state-in-effect`), e sem precisar de dependência
+            // que descreva "acabou de aparecer".
+            ref={(node) => {
+              if (node && focarCampoDeLinkRef.current) {
+                focarCampoDeLinkRef.current = false;
+                node.focus();
+              }
+            }}
             id={manualUrlId}
             type="url"
             value={value}
@@ -293,6 +366,7 @@ export function ImageUploader({
             Desativado por padrão: links externos são importados para a hospedagem do Artifício ao sair do campo.
           </p>
         </div>
+        )}
       </div>
 
       <div
@@ -325,6 +399,9 @@ export function ImageUploader({
                 onChange('');
                 onCropChange?.(null);
                 onDimensionsChange?.(null);
+                // Sem imagem não há o que esconder: o campo de link volta a ser
+                // o caminho padrão, como em campo novo.
+                setMostrarCampoDeLink(false);
                 clearError();
               }}
               className="text-xs text-red-200 hover:text-red-100 transition-colors text-left"

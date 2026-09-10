@@ -23,7 +23,13 @@ vi.mock('../hooks/useImageUpload', () => ({
   }),
 }));
 
-vi.mock('../hooks/useImageUrlImport', () => ({
+// `importOriginal` e não objeto literal: mock que declara só o hook apaga
+// qualquer outro export do módulo, e o componente quebra antes de qualquer
+// asserção — foi o que aconteceu quando `isCloudinaryUrl` foi exportado por um
+// tempo (spec 100 F6.4c). Hoje o módulo exporta só o hook, mas a forma
+// resistente é esta: acrescentar export lá não volta a quebrar este teste.
+vi.mock('../hooks/useImageUrlImport', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../hooks/useImageUrlImport')>()),
   useImageUrlImport: () => ({
     isImportingUrl: false,
     importUrlIfNeeded: vi.fn(),

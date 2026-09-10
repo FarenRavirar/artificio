@@ -205,6 +205,14 @@ function handleCatalogWriteError(error: unknown, res: { status: (code: number) =
     res.status(400).json({ error: message });
     return;
   }
+  // `duplicate_sibling_node` (spec 100 F6.3d) é 409 como a UNIQUE de
+  // `path_slug`: as duas dizem "esse nó já existe", só que uma compara slug e a
+  // outra identidade semântica — `2024` e `Dungeons & Dragons 2024` sob o mesmo
+  // pai passavam pela primeira e são o mesmo nó.
+  if (message === "duplicate_sibling_node") {
+    res.status(409).json({ error: "duplicate_sibling_node" });
+    return;
+  }
   if (message.includes("duplicate key")) {
     res.status(409).json({ error: "duplicate_catalog_node" });
     return;

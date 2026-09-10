@@ -730,6 +730,16 @@ function TabMestre() {
               dele assenta. Separá-los obrigava a ir e voltar para julgar o
               conjunto. A legenda de dimensão de cada um vem do `imageKindHint`
               de packages/media, dentro dos próprios componentes (A14b). */}
+          {/* F7.5d (spec 100): 9 dos 13 blocos do editor não tinham subtítulo —
+              inclusive os 4 desta parte. O padrão `profile-part-subtitle` já
+              existia e era usado só em `id="mesa"` (linhas 812/860), o que
+              produzia a leitura de sopa contínua que o mantenedor descreveu.
+              Nenhum tamanho ou peso novo: o degrau já está na régua (requisito
+              5), e o defeito era ausência de hierarquia, não fonte. */}
+          <h3 className="profile-part-subtitle">Sua foto de mestre</h3>
+          <p className="section-description">
+            Aparece nas suas mesas e no topo do seu perfil público
+          </p>
           <AvatarField
             idPrefix="gm-avatar"
             label="Foto de Mestre"
@@ -759,6 +769,10 @@ function TabMestre() {
           {/* O backend ja aceitava `banner_url` do mestre (`PUT /gm/profile`) e a
               coluna existia, mas nenhuma tela oferecia o campo — por isso todo
               perfil publico ficava com `banner_url: null` e caia no gradiente. */}
+          <h3 className="profile-part-subtitle">Banner do perfil</h3>
+          <p className="section-description">
+            O fundo sobre o qual o seu nome assenta na página pública
+          </p>
           <ImageUploader
             idPrefix="gm-banner"
             manualInputId="gm_banner_url"
@@ -778,17 +792,40 @@ function TabMestre() {
           />
 
           {/* Spec 099 B1: slogan — encabeça as três cadeias (hero/OG/SEO, §2.3).
-              Grava via PUT /gm/profile, uma chamada por campo (padrão da página). */}
+              Grava via PUT /gm/profile, uma chamada por campo (padrão da página).
+
+              F7.2b/F7.5d (spec 100): é o campo de MAIOR alcance da parte e
+              estava com a MENOR hierarquia — sem âncora nenhuma, entre o banner
+              e "anos de experiência". O subtítulo diz onde ele aparece, que é o
+              que faltava para o mestre entender o peso do que digita ali; a
+              queixa era de forma, não de falta de legenda explicativa. */}
+          <h3 className="profile-part-subtitle">Seu slogan</h3>
+          <p className="section-description">
+            É o título grande do seu perfil e o que aparece no Google e nos links compartilhados
+          </p>
           <TaglineField value={gmProfile.tagline ?? ''} />
 
           {/* Spec 099 B6: anos de experiência — recomendado, com frase do ganho.
               Componente extraído para GmProfileFields (mesmo markup de antes). */}
+          <h3 className="profile-part-subtitle">Anos de experiência</h3>
+          <p className="section-description">
+            Aparece como "Declara N+ anos" — é autodeclarado, não verificado pela plataforma
+          </p>
           <ExperienceYearsField value={gmProfile.experience_years ?? null} />
         </ProfilePart>
 
         <ProfilePart id="como">
           {/* Spec 099 B6: bio detalhada — recomendado, com frase do ganho.
               Componente extraído para GmProfileFields (mesmo markup de antes). */}
+          {/* F7.5a (spec 100): esta parte empilhava QUATRO coisas de natureza
+              diferente — texto livre, ferramenta de IA, tags e destaques — sem
+              um único subtítulo entre elas, com "Recomendado — …" repetido três
+              vezes sem nada que ancorasse a qual campo pertencia. O contraste
+              era interno à própria página: `id="mesa"` já usava o padrão. */}
+          <h3 className="profile-part-subtitle">Sua bio</h3>
+          <p className="section-description">
+            O texto que o jogador lê para decidir se a sua mesa é para ele
+          </p>
           <BioLongField value={gmProfile.bio_long ?? ''} />
 
           {/* Spec 099 B3: specialties/languages/badges (string[], TagInput).
@@ -796,6 +833,10 @@ function TabMestre() {
               responde à pergunta de "Sua mesa" — dividir o componente por
               parte seria reescrevê-lo, e a G3 redistribui, não reescreve.
               Gravação via updateGm vive dentro do componente (testada lá). */}
+          <h3 className="profile-part-subtitle">Especialidades, idiomas e selos</h3>
+          <p className="section-description">
+            Aparecem no topo do perfil e na seção "Em resumo"
+          </p>
           <ProfileTagsSection
             specialties={gmProfile.specialties ?? []}
             languages={gmProfile.languages ?? []}
@@ -805,6 +846,14 @@ function TabMestre() {
           {/* Spec 099 B4: selling_points — seleção entre os 14 ícones fechados
               (nunca texto livre); item inválido fica no formulário com erro e
               não é enviado. Gravação via updateGm dentro do componente. */}
+          {/* O subtítulo diz onde o destaque aparece porque o título vai para o
+              topo do perfil e a descrição para "O que eu ofereço" (F6.2/D27) —
+              o mestre preenche os dois campos obrigatórios sem saber que eles
+              vão a lugares diferentes. */}
+          <h3 className="profile-part-subtitle">Seus destaques</h3>
+          <p className="section-description">
+            O título aparece no topo do perfil; a descrição, na seção "O que eu ofereço"
+          </p>
           <SellingPointsEditor value={gmProfile.selling_points} />
         </ProfilePart>
 
@@ -820,29 +869,6 @@ function TabMestre() {
             onRemove={(id) => {
               const system = profile.systems.gm.find((s) => s.system_id === id);
               if (system) removeSystem(system.id);
-            }}
-          />
-
-          {/* Spec 099 B2: grupo fechado — os 4 campos + liga/desliga, todos via
-              PUT /gm/profile. Chave ausente no patch NÃO entra no updateGm: o
-              optimistic update espalha `...newData` sobre o cache e chave
-              `undefined` apagaria o valor salvo de um campo irmão. */}
-          <ClosedGroupSection
-            value={{
-              enabled: gmProfile.closed_group_enabled ?? false,
-              systems: gmProfile.closed_group_systems ?? [],
-              description: gmProfile.closed_group_description ?? '',
-              min_price_cents: gmProfile.closed_group_min_price_cents ?? null,
-            }}
-            onChange={(patch) => {
-              const data: Partial<GmProfile> = {};
-              if (patch.enabled !== undefined) data.closed_group_enabled = patch.enabled;
-              if (patch.systems !== undefined) data.closed_group_systems = patch.systems;
-              if (patch.description !== undefined) data.closed_group_description = patch.description;
-              if (patch.min_price_cents !== undefined) {
-                data.closed_group_min_price_cents = patch.min_price_cents;
-              }
-              updateGm(data);
             }}
           />
 
@@ -889,6 +915,41 @@ function TabMestre() {
             onSave={async (platformIds) => {
               updateGm({ preferred_communication_platforms: platformIds });
               if (!(await flushGm())) throw new Error('Não deu para salvar agora. Tente de novo.');
+            }}
+          />
+
+          {/* D31/F6.3c4 (spec 100): o grupo fechado estava ENTRE "Sistemas que
+              Mestra" e "Onde você mestra", quebrando a ordem em que o jogador
+              decide — sistema → VTT → comunicação (D25). Preço e grupo fechado
+              são detalhe comercial e vêm DEPOIS da sequência, não no meio dela.
+              Só a posição mudou; o componente e a gravação são os mesmos.
+
+              **Sem `profile-part-subtitle` aqui, ao contrário dos irmãos:**
+              `ClosedGroupSection` já emite título E descrição próprios
+              (`GmProfileFields.tsx:532-535`). Acrescentar o par por fora dava
+              dois títulos para o mesmo conteúdo — o subtítulo que F7.5e pedia
+              já existia dentro do componente, e o que faltava era o NÍVEL dele
+              (achado de review, PR #310). */}
+          {/* Spec 099 B2: os 4 campos + liga/desliga, todos via PUT
+              /gm/profile. Chave ausente no patch NÃO entra no updateGm: o
+              optimistic update espalha `...newData` sobre o cache e chave
+              `undefined` apagaria o valor salvo de um campo irmão. */}
+          <ClosedGroupSection
+            value={{
+              enabled: gmProfile.closed_group_enabled ?? false,
+              systems: gmProfile.closed_group_systems ?? [],
+              description: gmProfile.closed_group_description ?? '',
+              min_price_cents: gmProfile.closed_group_min_price_cents ?? null,
+            }}
+            onChange={(patch) => {
+              const data: Partial<GmProfile> = {};
+              if (patch.enabled !== undefined) data.closed_group_enabled = patch.enabled;
+              if (patch.systems !== undefined) data.closed_group_systems = patch.systems;
+              if (patch.description !== undefined) data.closed_group_description = patch.description;
+              if (patch.min_price_cents !== undefined) {
+                data.closed_group_min_price_cents = patch.min_price_cents;
+              }
+              updateGm(data);
             }}
           />
         </ProfilePart>

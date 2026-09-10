@@ -199,6 +199,20 @@ export async function createNode(input: CatalogNodeWrite, actorId: string | null
     await client.query("BEGIN");
     const normalized = normalizeCatalogWrite(input);
     await assertCatalogHierarchy(client, normalized.node_type, normalized.parent_id ?? null);
+    // Serializa por PAI antes de checar irmãos. Sem isto, duas aprovações
+    // simultâneas sob o mesmo pai leem a lista de irmãos ANTES de qualquer das
+    // duas inserir, ambas passam, e as duas gravam — e a UNIQUE de `path_slug`
+    // não socorre, porque slug distinto para o mesmo nome é exatamente o furo
+    // que `assertNoEquivalentSibling` existe para fechar (spec 100 F6.3d).
+    //
+    // `pg_advisory_xact_lock` (e não `pg_advisory_lock`): solta sozinho no
+    // COMMIT/ROLLBACK, então não vaza se a inserção falhar. `hashtext` dá um
+    // int estável a partir do UUID — colisão de hash só custa serializar dois
+    // pais sem relação, nunca correção.
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [
+      `catalog_sibling:${normalized.parent_id ?? "root"}`,
+    ]);
+    await assertNoEquivalentSibling(client, normalized);
     const row = await insertNode(client, normalized, actorId);
     await bumpVersion(client, "catalog_node_created", actorId, row.id, { node_type: row.node_type });
     await client.query("COMMIT");
@@ -272,6 +286,150 @@ export async function updateNode(id: string, input: Partial<CatalogNodeWrite>, a
     throw error;
   } finally {
     client.release();
+  }
+}
+
+/**
+ * Recusa irmão semanticamente equivalente (spec 100, F6.3d).
+ *
+ * **O furo que isto fecha.** A única defesa contra duplicata era a UNIQUE de
+ * `path_slug`, que compara **slug**, não identidade: sob `Dungeons & Dragons`,
+ * um nó chamado `2024` e outro `Dungeons & Dragons 2024` geram slugs distintos
+ * e entram como nós diferentes — e foi assim que o catálogo de beta ganhou
+ * **duas edições "5e"** irmãs, cada uma com sua linhagem paralela de variantes.
+ *
+ * **Por que isso importa além da estética.** Com duas "5e" empatadas, nenhum
+ * algoritmo de resolução pode acertar, porque não há resposta certa: medido em
+ * 2026-09-05, `parseDiscordAnnouncement` resolvendo `D&D 5e 2024` contra o
+ * catálogo real de beta **para na raiz**, porque `findSystemMatch` interrompe
+ * no empate de propósito (guarda anti-ambiguidade). Seis tentativas anteriores
+ * atacaram a resolução — o sintoma. A fábrica é aqui.
+ *
+ * **Comparação.** Nome, **nome localizado (`name_pt`)** e aliases, minúsculas,
+ * sem acento e sem pontuação, e também com o nome do pai removido do começo: é
+ * o que faz `2024` e `Dungeons & Dragons 2024` colidirem sob o mesmo pai. Raiz
+ * (`parent_id` nulo) entra igual — `Vampire` e `Vampiro` são irmãos de raiz e
+ * são o mesmo sistema.
+ *
+ * **`name_pt` não é detalhe** (achado de review, PR #310): o nó canônico de
+ * hoje é `name: 'Vampire'`, `name_pt: 'Vampiro'`, e essa fusão custou a
+ * `migration_013_merge_vampire_localized_duplicate.sql`, classificada
+ * `manual-risk` e `requires-backup`. Comparando só `name`, criar `Vampiro` de
+ * novo passaria — reabrindo exatamente a duplicação que aquela migration
+ * consolidou. Vale nos dois sentidos: o candidato traz `name_pt`, e o irmão
+ * existente também.
+ *
+ * Só vale para CRIAÇÃO. `updateNode` não passa por aqui de propósito: a
+ * consolidação das duplicatas que já existem (F6.3e) precisa poder renomear nó
+ * para o nome canônico enquanto o duplicado ainda não foi removido.
+ *
+ * **`rejected` e `merged` não reservam identidade.** Medido: a projeção pública
+ * serve apenas `status = 'active'` (linhas 149 e 187), então esses nós não
+ * existem para consumidor nenhum — e são exatamente o resultado de uma
+ * consolidação. Contá-los faria a limpeza de F6.3e travar a recriação do nome
+ * que ela própria acabou de liberar.
+ *
+ * O alcance disto é menor do que parece, e vale registrar para ninguém supor
+ * demais: `idx_catalog_nodes_parent_slug` (migration 006:44) **não filtra
+ * status**, então nó merged continua ocupando o SLUG. A exclusão aqui só muda o
+ * caso em que o slug difere e a identidade coincide (`2024` vs
+ * `Dungeons & Dragons 2024`) — que é precisamente o que esta guarda acrescenta
+ * ao índice. Os dois testes de `catalog.test.ts` fixam a diferença.
+ */
+
+/**
+ * Identidade comparável de um nome de catálogo: minúsculas, sem acento e sem
+ * pontuação. É o que faz `Vampiro` e `vampiro`, ou `D&D` e `d d`, colidirem.
+ */
+function normalizeCatalogIdentity(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+async function assertNoEquivalentSibling(client: DbClient, input: CatalogNodeWrite): Promise<void> {
+  const parentId = input.parent_id ?? null;
+
+  const siblings = (await client.query<{
+    id: string;
+    name: string;
+    name_pt: string | null;
+    aliases: string[];
+  }>(
+    `SELECT n.id,
+            n.name,
+            n.name_pt,
+            COALESCE(ARRAY_AGG(a.alias) FILTER (WHERE a.alias IS NOT NULL), '{}') AS aliases
+       FROM catalog_nodes n
+       LEFT JOIN catalog_aliases a ON a.node_id = n.id
+      WHERE n.parent_id IS NOT DISTINCT FROM $1
+        AND n.status NOT IN ('rejected', 'merged')
+      GROUP BY n.id, n.name, n.name_pt`,
+    [parentId],
+  )).rows;
+
+  if (siblings.length === 0) return;
+
+  // O nome do pai como prefixo é ruído, não identidade: sob "Dungeons &
+  // Dragons", o nó se chama "2024" ou "Dungeons & Dragons 2024" conforme quem
+  // sugeriu, e os dois nomeiam a mesma edição.
+  //
+  // **TODAS as identidades do pai, não só `name`** (achado de review, PR #310,
+  // segunda passagem): o pai canônico de hoje é `name: 'Vampire'`,
+  // `name_pt: 'Vampiro'`. Com um irmão `5e` existente, `Vampiro 5e` comparava
+  // `vampiro 5e` contra `5e` e PASSAVA — a linhagem paralela que a
+  // `migration_013` consolidou, reaberta pelo prefixo traduzido. Aliases entram
+  // pelo mesmo motivo: quem sugere escreve "DnD 5e" tanto quanto
+  // "Dungeons & Dragons 5e".
+  const parentRow = parentId
+    ? (
+        await client.query<{ name: string; name_pt: string | null; aliases: string[] }>(
+          `SELECT n.name,
+                  n.name_pt,
+                  COALESCE(ARRAY_AGG(a.alias) FILTER (WHERE a.alias IS NOT NULL), '{}') AS aliases
+             FROM catalog_nodes n
+             LEFT JOIN catalog_aliases a ON a.node_id = n.id
+            WHERE n.id = $1
+            GROUP BY n.name, n.name_pt`,
+          [parentId],
+        )
+      ).rows[0]
+    : null;
+
+  // Prefixos do mais longo para o mais curto: com "Vampire" e "Vampiro" na
+  // lista, tirar o errado primeiro deixaria resto que não casa com nada.
+  const parentKeys = parentRow
+    ? [parentRow.name, parentRow.name_pt ?? "", ...(parentRow.aliases ?? [])]
+        .map(normalizeCatalogIdentity)
+        .filter((key) => key.length > 0)
+        .sort((a, b) => b.length - a.length)
+    : [];
+
+  const stripParent = (value: string): string => {
+    const key = normalizeCatalogIdentity(value);
+    for (const parentKey of parentKeys) {
+      if (key === parentKey) return key;
+      if (key.startsWith(`${parentKey} `)) return key.slice(parentKey.length + 1);
+    }
+    return key;
+  };
+
+  const candidates = new Set(
+    [input.name, input.name_pt ?? "", ...(input.aliases ?? [])]
+      .map(stripParent)
+      .filter((key) => key.length > 0),
+  );
+
+  for (const sibling of siblings) {
+    const existing = [sibling.name, sibling.name_pt ?? "", ...(sibling.aliases ?? [])].map(
+      stripParent,
+    );
+    if (existing.some((key) => key.length > 0 && candidates.has(key))) {
+      throw new Error("duplicate_sibling_node");
+    }
   }
 }
 

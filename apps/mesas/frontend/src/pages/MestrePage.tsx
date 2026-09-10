@@ -12,6 +12,7 @@ import { MestreSectionGroup } from '../components/mestre/MestreSectionGroup';
 import { MestreSellingPoints } from '../components/mestre/MestreSellingPoints';
 import { MestreSkeleton } from '../components/mestre/MestreSkeleton';
 import { MestreTablesSection } from '../components/mestre/MestreTablesSection';
+import { MestreSystems } from '../components/mestre/MestreSystems';
 import { MestreVttPlatforms } from '../components/mestre/MestreVttPlatforms';
 import { MestreContactMethods } from '../components/mestre/MestreContactMethods';
 import { MestreContactForm } from '../components/mestre/MestreContactForm';
@@ -98,6 +99,7 @@ export const MestrePage = () => {
     (profile.languages?.length ?? 0) > 0 ||
     (profile.badges?.length ?? 0) > 0 ||
     (profile.selling_points?.length ?? 0) > 0 ||
+    (profile.gm_systems?.length ?? 0) > 0 ||
     (profile.preferred_vtt_platforms?.length ?? 0) > 0 ||
     (profile.preferred_communication_platforms?.length ?? 0) > 0;
 
@@ -138,6 +140,15 @@ export const MestrePage = () => {
           <MestreHighlights profile={profile} />
 
           <MestreSellingPoints sellingPoints={profile.selling_points ?? []} />
+
+          {/* Spec 100 F6.3c/D25: sistema é a PRIMEIRA pergunta do jogador —
+              sistema → VTT → comunicação. Por isso entra antes das duas grades
+              de plataforma, e não depois. */}
+          {profile.gm_systems && profile.gm_systems.length > 0 && (
+            <section className="container">
+              <MestreSystems systems={profile.gm_systems} />
+            </section>
+          )}
 
           {profile.preferred_vtt_platforms &&
             profile.preferred_vtt_platforms.length > 0 && (

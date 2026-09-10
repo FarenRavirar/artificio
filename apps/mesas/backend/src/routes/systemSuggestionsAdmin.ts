@@ -26,11 +26,13 @@ import { sanitizeNullableUserMarkdown } from '../utils/userMarkdown.js';
 // Postgres local so cobre system_suggestions/notifications/activity_log e
 // o relink de drafts Discord, nunca mais systems/system_aliases.
 import {
+  archiveCatalogNode,
   invalidateCatalogCache,
   type CatalogNodeInput,
   type MesasSystemNode,
 } from '../services/catalogClient.js';
 import { getSystemCatalogProvider } from '../services/systemCatalogProvider.js';
+import { DUPLICATE_SIBLING_MESSAGE, isDuplicateSiblingError } from '@artificio/catalog-client';
 
 const loadCatalogFlat = () => getSystemCatalogProvider().loadFlat();
 const createCatalogNode = (input: CatalogNodeInput) => getSystemCatalogProvider().createNode(input);
@@ -292,8 +294,44 @@ async function createSystemNode(
     return { id: created.id, name: created.name, path_slug: created.path_slug ?? '' };
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
+    // Spec 100 F6.3d: o catálogo central passou a recusar irmão semanticamente
+    // equivalente, não só slug repetido. São causas diferentes e o admin
+    // precisa ler a certa — "já existe com este caminho" mandaria ele procurar
+    // um slug que não é o problema.
+    if (isDuplicateSiblingError(error)) {
+      throw new Error('DUPLICATE_SIBLING_NODE', { cause: error });
+    }
     if (message.includes('duplicate')) throw new Error('PATH_SLUG_CONFLICT', { cause: error });
     throw error;
+  }
+}
+
+/**
+ * Desfaz nós já criados no catálogo quando um passo POSTERIOR da mesma
+ * aprovação falha (achado de review na PR #310).
+ *
+ * Por que virou necessário agora: com a guarda de irmão equivalente (spec 100
+ * F6.3d), o segundo nó de uma cadeia pode ser recusado por um irmão que o
+ * admin não vê no formulário. Antes disso, o único jeito de o segundo passo
+ * falhar era conflito de slug, que o front já barrava. Sem compensação, o
+ * primeiro nó fica no catálogo, a sugestão continua `pending`, e o retry topa
+ * com o órfão que a própria tentativa anterior deixou — a guarda passa a
+ * recusar a cadeia inteira por um nó que ninguém pediu.
+ *
+ * Compensa em ordem INVERSA (filho antes do pai): arquivar o pai primeiro
+ * deixaria o filho pendurado num nó rejeitado. `archiveCatalogNode` marca
+ * `status=rejected`, e a guarda de irmãos ignora `rejected`/`merged` — então o
+ * retry encontra o terreno limpo. Falha da própria compensação só é logada: o
+ * erro que importa para o admin é o original, e mascará-lo por um problema de
+ * limpeza trocaria a mensagem certa por uma pior.
+ */
+async function rollbackCreatedCatalogNodes(ids: string[]): Promise<void> {
+  for (const nodeId of [...ids].reverse()) {
+    try {
+      await archiveCatalogNode(nodeId);
+    } catch (error) {
+      console.error('[systemSuggestionsAdmin] rollback do nó %s falhou', nodeId, error);
+    }
   }
 }
 
@@ -393,6 +431,13 @@ async function performApprove(
     newSystem = { id: created.id, name: created.name, path_slug: created.path_slug ?? '' };
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
+    // Spec 100 F6.3d: o catálogo central passou a recusar irmão semanticamente
+    // equivalente, não só slug repetido. São causas diferentes e o admin
+    // precisa ler a certa — "já existe com este caminho" mandaria ele procurar
+    // um slug que não é o problema.
+    if (isDuplicateSiblingError(error)) {
+      throw new Error('DUPLICATE_SIBLING_NODE', { cause: error });
+    }
     if (message.includes('duplicate')) throw new Error('PATH_SLUG_CONFLICT', { cause: error });
     throw error;
   }
@@ -488,6 +533,12 @@ router.patch('/system-suggestions/:id/approve', async (req: Request, res: Respon
     }
     if (message === 'PATH_SLUG_CONFLICT') {
       return res.status(409).json({ error: 'Já existe um sistema com este caminho.' });
+    }
+    // Spec 100 F6.3d — sem este ramo a recusa do catálogo central viraria 500,
+    // e o admin leria "erro ao aprovar" onde a resposta correta é "esse nó já
+    // existe".
+    if (message === 'DUPLICATE_SIBLING_NODE') {
+      return res.status(409).json({ error: DUPLICATE_SIBLING_MESSAGE });
     }
 
     return res.status(500).json({ error: 'Erro ao aprovar sugestão.' });
@@ -779,29 +830,37 @@ async function resolveCreateChain(ctx: ResolveContext): Promise<ResolveOutcome> 
   const createdByIndex = new Map<number, { id: string; name: string; path_slug: string | null }>();
   const createdNodes: Array<{ suggestion_id: string; system_id: string; name: string; path_slug: string | null }> = [];
 
-  for (let index = 0; index < chainRows.length; index += 1) {
-    const row = chainRows[index];
-    const parentFromSuggestion = row.parent_suggestion_index === null
-      ? null
-      : createdByIndex.get(row.parent_suggestion_index);
-    if (row.parent_suggestion_index !== null && !parentFromSuggestion) {
-      throw new Error('CHAIN_INVALID');
-    }
+  try {
+    for (let index = 0; index < chainRows.length; index += 1) {
+      const row = chainRows[index];
+      const parentFromSuggestion = row.parent_suggestion_index === null
+        ? null
+        : createdByIndex.get(row.parent_suggestion_index);
+      if (row.parent_suggestion_index !== null && !parentFromSuggestion) {
+        throw new Error('CHAIN_INVALID');
+      }
 
-    const created = await createSystemNode({
-      name: row.name,
-      namePt: row.name_pt,
-      nodeType: row.node_type,
-      parentId: row.parent_id ?? parentFromSuggestion?.id ?? null,
-      description: row.description,
-    });
-    createdByIndex.set(row.batch_index ?? index, created);
-    createdNodes.push({
-      suggestion_id: row.id,
-      system_id: created.id,
-      name: created.name,
-      path_slug: created.path_slug,
-    });
+      const created = await createSystemNode({
+        name: row.name,
+        namePt: row.name_pt,
+        nodeType: row.node_type,
+        parentId: row.parent_id ?? parentFromSuggestion?.id ?? null,
+        description: row.description,
+      });
+      createdByIndex.set(row.batch_index ?? index, created);
+      createdNodes.push({
+        suggestion_id: row.id,
+        system_id: created.id,
+        name: created.name,
+        path_slug: created.path_slug,
+      });
+    }
+  } catch (error) {
+    // Cadeia é tudo-ou-nada no catálogo: sem isto, um elo recusado pela guarda
+    // de irmão equivalente deixaria os anteriores criados e o retry esbarraria
+    // neles. Ver `rollbackCreatedCatalogNodes`.
+    await rollbackCreatedCatalogNodes(createdNodes.map((node) => node.system_id));
+    throw error;
   }
 
   const lastCreated = createdNodes[createdNodes.length - 1];
@@ -1012,15 +1071,22 @@ async function resolveCreateSystem(ctx: ResolveContext): Promise<ResolveOutcome>
   let createdNode: { id: string; name: string; path_slug: string | null } = newSystem;
   let createdEditionId: string | null = null;
   if (editionName) {
-    const editionCreated = await createSystemNode({
-      name: editionName,
-      namePt: null,
-      nodeType: 'edition',
-      parentId: newSystem.id,
-      description,
-    });
-    createdEditionId = editionCreated.id;
-    createdNode = editionCreated;
+    try {
+      const editionCreated = await createSystemNode({
+        name: editionName,
+        namePt: null,
+        nodeType: 'edition',
+        parentId: newSystem.id,
+        description,
+      });
+      createdEditionId = editionCreated.id;
+      createdNode = editionCreated;
+    } catch (error) {
+      // "Sistema + edição" é um ato só para o admin: edição recusada não pode
+      // deixar a raiz solta no catálogo. Ver `rollbackCreatedCatalogNodes`.
+      await rollbackCreatedCatalogNodes([newSystem.id]);
+      throw error;
+    }
   }
 
   const resolvedSystemName = editionName ? `${newSystem.name} ${editionName}` : newSystem.name;
@@ -1114,6 +1180,8 @@ function resolveErrorResponse(res: Response, error: unknown) {
       return res.status(400).json({ error: 'Hierarquia inválida para o tipo de nó escolhido.' });
     case 'PATH_SLUG_CONFLICT':
       return res.status(409).json({ error: 'Já existe um sistema com este caminho.' });
+    case 'DUPLICATE_SIBLING_NODE':
+      return res.status(409).json({ error: DUPLICATE_SIBLING_MESSAGE });
     case 'CHAIN_INVALID':
       return res.status(400).json({ error: 'Cadeia de sugestão inválida.' });
     case 'SIMILAR_EXISTS': {

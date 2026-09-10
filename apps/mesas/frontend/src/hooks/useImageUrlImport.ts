@@ -5,6 +5,17 @@ export type ImageImportPurpose = 'table_banner' | 'profile_avatar' | 'profile_ba
 export const DIRECT_LINK_TOOLTIP =
   'Ao ativar esta opção, a imagem será exibida a partir do endereço informado, sem cópia para nossa hospedagem. Se esse link sair do ar ou expirar, a imagem poderá deixar de aparecer.';
 
+/**
+ * URL do Cloudinary — de QUALQUER conta.
+ *
+ * Governa só a IMPORTAÇÃO: já está num CDN de imagem, não vale reenviar.
+ * Deliberadamente amplo, e por isso **não serve para decidir exibição**: o
+ * Cloudinary de terceiro que o mestre colou é link externo dele, e some do campo
+ * se tratado como upload nosso. Quem responde essa outra pergunta é
+ * `isArtificioHostedImage` (`@artificio/media/image-kinds`), que olha a pasta —
+ * achado de review, PR #310, depois de esta função ter sido exportada para os
+ * dois usos e confundi-los.
+ */
 function isCloudinaryUrl(url: string): boolean {
   try {
     const parsed = new URL(url);

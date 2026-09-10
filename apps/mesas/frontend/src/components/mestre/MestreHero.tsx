@@ -58,8 +58,17 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
     (profile.years_on_platform ?? 0) >= 1 ||
     (profile.tables_hosted_count ?? 0) > 0;
 
+  // Rola E move o foco (spec 100 F6.1c/F6.2e). `scrollIntoView` sozinho deixa o
+  // foco no botão do topo: quem navega por teclado ou leitor de tela continua
+  // lendo o hero enquanto a tela mostra outra seção, e o próximo Tab volta para
+  // o começo. `tabIndex = -1` torna a seção focável sem entrar na ordem de
+  // tabulação, e `preventScroll` evita que o foco desfaça a rolagem suave.
   const scrollTo = (id: string) => () => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+    const alvo = document.getElementById(id);
+    if (!alvo) return;
+    alvo.scrollIntoView({ behavior: 'smooth' });
+    if (!alvo.hasAttribute('tabindex')) alvo.setAttribute('tabindex', '-1');
+    alvo.focus({ preventScroll: true });
   };
 
   // Guarda a URL que falhou (nao um booleano): assim o reset e automatico
@@ -83,32 +92,78 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
   const bioSummary = summarizeBio(profile.bio_long);
 
   // A dobra é um resumo, não a morada completa dos atributos: dois valores por
-  // categoria preservam as três categorias fechadas de D2 sem empurrar CTA e
-  // prova para fora da primeira tela. As seções abaixo continuam exibindo tudo.
+  // categoria preservam as categorias fechadas de D2 sem empurrar CTA e prova
+  // para fora da primeira tela. As seções abaixo continuam exibindo tudo.
+  //
+  // Spec 100, Fase 6 — três correções que andam juntas:
+  //
+  // 1. **Rótulo de categoria (D32, F6.1d).** O grid antes separava os grupos só
+  //    por `variant` de cor, e a medição derrubou essa suposição: `info` × `brand`
+  //    dá contraste **1,01:1** (luminâncias 0,5323 e 0,5243 — a mesma cor na
+  //    prática) e os outros pares ~1,25:1. Cor não distinguia nada, nem para quem
+  //    enxerga bem — foi assim que "O Nome do Vento" (um DESTAQUE) leu como
+  //    especialidade fora de lugar. O rótulo é o único separador que existe.
+  // 2. **Indicador de continuação clicável (D28/D29, F6.1c/F6.1c2/F6.1d2).** O
+  //    corte fica, mas passa a dizer que corta, e o "+N" leva à seção DAQUELE
+  //    grupo: especialidade/idioma/selo vão para "Em resumo" (`#em-resumo`),
+  //    destaque vai para "O que eu ofereço" (`#destaques`) — são listas
+  //    diferentes, sob títulos diferentes. Resumo silencioso é indistinguível de
+  //    dado perdido para quem preencheu.
+  // 3. **Selo entra no topo (D26, F6.1c2).** `badges` era o único dos quatro
+  //    grupos de exibição obrigatória ausente da dobra.
   const heroAttributeGroups: Array<{
-    key: 'specialties' | 'selling_points' | 'languages';
+    key: 'specialties' | 'selling_points' | 'languages' | 'badges';
+    label: string;
     variant: BadgeVariant;
     values: string[];
-  }> = [
-    {
-      key: 'specialties',
-      variant: 'warning',
-      values: (Array.isArray(profile.specialties) ? profile.specialties : []).slice(0, 2),
-    },
-    {
-      key: 'selling_points',
-      variant: 'brand',
-      values: (Array.isArray(profile.selling_points) ? profile.selling_points : [])
-        .slice(0, 2)
-        .map((point) => point.title),
-    },
-    {
-      key: 'languages',
-      variant: 'info',
-      values: (Array.isArray(profile.languages) ? profile.languages : []).slice(0, 2),
-    },
-  ];
-  const hasHeroAttributes = heroAttributeGroups.some((group) => group.values.length > 0);
+    total: number;
+    /** Seção que exibe a lista completa deste grupo (D28/D29). */
+    targetId: string;
+    targetLabel: string;
+  }> = (
+    [
+      {
+        key: 'specialties' as const,
+        label: 'Especialidades',
+        variant: 'warning' as BadgeVariant,
+        all: Array.isArray(profile.specialties) ? profile.specialties : [],
+        targetId: 'em-resumo',
+        targetLabel: 'Em resumo',
+      },
+      {
+        key: 'selling_points' as const,
+        label: 'Destaques',
+        variant: 'brand' as BadgeVariant,
+        all: (Array.isArray(profile.selling_points) ? profile.selling_points : []).map(
+          (point) => point.title,
+        ),
+        targetId: 'destaques',
+        targetLabel: 'O que eu ofereço',
+      },
+      {
+        key: 'languages' as const,
+        label: 'Idiomas',
+        variant: 'info' as BadgeVariant,
+        all: Array.isArray(profile.languages) ? profile.languages : [],
+        targetId: 'em-resumo',
+        targetLabel: 'Em resumo',
+      },
+      {
+        key: 'badges' as const,
+        label: 'Selos',
+        variant: 'neutral' as BadgeVariant,
+        all: Array.isArray(profile.badges) ? profile.badges : [],
+        targetId: 'em-resumo',
+        targetLabel: 'Em resumo',
+      },
+    ]
+  ).map(({ all, ...group }) => ({
+    ...group,
+    values: all.slice(0, 2),
+    total: all.length,
+  }));
+  const visibleAttributeGroups = heroAttributeGroups.filter((group) => group.values.length > 0);
+  const hasHeroAttributes = visibleAttributeGroups.length > 0;
 
   const mostraBanner = isUsableImageSrc(profile.banner_url) && !bannerFailed;
 
@@ -258,13 +313,56 @@ export function MestreHero({ profile, mappedTables }: MestreHeroProps) {
 
         {hasHeroAttributes && (
           <div className="hero-attributes" aria-label="Atributos principais do mestre">
-            {heroAttributeGroups.flatMap((group) =>
-              group.values.map((value, index) => (
-                <Badge key={`${group.key}-${index}-${value}`} variant={group.variant}>
-                  {value}
-                </Badge>
-              )),
-            )}
+            {visibleAttributeGroups.map((group) => {
+              const restantes = group.total - group.values.length;
+              return (
+                <div className="hero-attribute-group" key={group.key}>
+                  {/* D32: o rótulo é o separador — não a cor, que mede 1,01:1
+                      entre dois destes grupos. */}
+                  <span className="hero-attribute-label">{group.label}</span>
+                  <div className="hero-attribute-chips">
+                    {group.values.map((value, index) =>
+                      // F6.2e/D27: o DESTAQUE é o único grupo cujo chip esconde
+                      // metade do campo — `selling_points` exige `description`
+                      // para gravar (`profileEditorDomain.ts:47-49`) e aqui só o
+                      // `title` cabe. O chip vira controle real e leva a "O que
+                      // eu ofereço", onde a descrição está por extenso. Os
+                      // outros três grupos não têm segunda metade a alcançar, e
+                      // um chip clicável que não leva a nada seria pior.
+                      group.key === 'selling_points' ? (
+                        <button
+                          type="button"
+                          key={`${group.key}-${index}-${value}`}
+                          className="hero-attribute-chip-action"
+                          onClick={scrollTo(group.targetId)}
+                          aria-label={`${value} — ver a descrição em ${group.targetLabel}`}
+                        >
+                          <Badge variant={group.variant}>{value}</Badge>
+                        </button>
+                      ) : (
+                        <Badge key={`${group.key}-${index}-${value}`} variant={group.variant}>
+                          {value}
+                        </Badge>
+                      ),
+                    )}
+                    {restantes > 0 && (
+                      // `button`, não `div` com `onClick` (F6.2d): o indicador é
+                      // controle real, alcançável por teclado e nomeado para
+                      // leitor de tela. `aria-label` diz o destino, porque "+2"
+                      // sozinho não informa nada fora do contexto visual.
+                      <button
+                        type="button"
+                        className="hero-attribute-more"
+                        onClick={scrollTo(group.targetId)}
+                        aria-label={`Ver todos os ${group.total} itens de ${group.label} em ${group.targetLabel}`}
+                      >
+                        +{restantes}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 

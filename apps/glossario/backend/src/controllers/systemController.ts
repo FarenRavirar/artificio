@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { db } from '../config/database.js';
 import { slugify } from '../utils/slugify.js';
 import type { AuthedRequest } from '../types/express.js';
+import { DUPLICATE_SIBLING_MESSAGE, isDuplicateSiblingError } from '@artificio/catalog-client';
 import {
   archiveCatalogNode,
   checkCatalogHealth,
@@ -67,6 +68,13 @@ export const createSystem = async (req: AuthedRequest, res: Response) => {
     });
     res.status(201).json(system);
   } catch (err) {
+    // Duplicata é determinística, não indisponibilidade: sem este ramo o
+    // `catch` genérico devolvia 503 "Catálogo central indisponível" e o admin
+    // retentava para sempre uma criação que nunca vai passar (achado de review,
+    // PR #310).
+    if (isDuplicateSiblingError(err)) {
+      return res.status(409).json({ message: DUPLICATE_SIBLING_MESSAGE });
+    }
     console.error('[glossario/catalog] create system failed', err);
     res.status(503).json({ message: 'Erro ao criar sistema no catálogo central.' });
   }
@@ -158,6 +166,13 @@ export const createEdition = async (req: AuthedRequest, res: Response) => {
     });
     res.status(201).json(edition);
   } catch (err) {
+    // Duplicata é determinística, não indisponibilidade: sem este ramo o
+    // `catch` genérico devolvia 503 "Catálogo central indisponível" e o admin
+    // retentava para sempre uma criação que nunca vai passar (achado de review,
+    // PR #310).
+    if (isDuplicateSiblingError(err)) {
+      return res.status(409).json({ message: DUPLICATE_SIBLING_MESSAGE });
+    }
     console.error('[glossario/catalog] create edition failed', err);
     res.status(503).json({ message: 'Erro ao criar edição no catálogo central.' });
   }
