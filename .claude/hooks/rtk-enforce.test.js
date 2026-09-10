@@ -61,6 +61,25 @@ const CASES = [
   // Os demais pacotes NÃO são agregadores: `-p tsconfig.json` continua válido.
   { cmd: `cd apps/mesas/backend && rtk tsc -p tsconfig.json --noEmit`, deny: false },
   { cmd: `cd packages/catalog-ui && rtk tsc -p tsconfig.json --noEmit`, deny: false },
+
+  // --- rtk-grep-em-diretorio (spec 101 F3.0) ---
+  // Medido: `rtk grep "AGENTS" specs` -> "grep: specs: Is a directory".
+  { cmd: `rtk grep "termo" apps`, deny: true },
+  { cmd: `rtk grep "padrao" packages/ui`, deny: true },
+  // Com -r o grep nativo funciona: nao e o caso que o gate mira.
+  { cmd: `rtk grep -r "termo" apps`, deny: false },
+  { cmd: `rtk grep -rn "termo" apps`, deny: false },
+  // Arquivo unico e uso legitimo do grep, mas sem -r o gate nao distingue
+  // arquivo de diretorio; `rtk rg` cobre os dois, entao a correcao serve igual.
+  { cmd: `rtk rg "termo" apps`, deny: false },
+
+  // --- rtk-diff-solto (spec 101 F3.0) ---
+  { cmd: `rtk diff AGENTS.md`, deny: true },
+  { cmd: `rtk diff`, deny: true },
+  { cmd: `rtk git diff AGENTS.md`, deny: false },
+  { cmd: `rtk git diff --stat`, deny: false },
+  // Falso-positivo a evitar: mencionar a regra nao dispara a regra.
+  { cmd: `rtk rg "rtk diff" AGENTS.md`, deny: false },
 ];
 
 let failed = 0;

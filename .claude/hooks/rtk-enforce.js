@@ -141,6 +141,29 @@ const RULES = [
     fix: (cmd) => cmd.replace(/(^|[;&|]\s*)pnpm\s+/, '$1rtk pnpm run '),
     why: 'pnpm <script> sem `run` não é reescrito pelo hook do rtk (lacuna medida em rtk 0.44.0).',
   },
+  {
+    // Spec 101 F3.0: era pegadinha documentada no AGENTS.md, agora é gate.
+    // Regra que depende de o agente lembrar falha; medido nesta base.
+    name: 'rtk-grep-em-diretorio',
+    // `rtk grep <padrão> <dir>` sem -r/-R: o `grep` do rtk é proxy pro grep
+    // NATIVO, não pro ripgrep. Medido: `rtk grep "AGENTS" specs` devolve
+    // "grep: specs: Is a directory" e a busca não acontece.
+    test: /(^|[;&|]\s*)rtk\s+grep\s+/,
+    // `-r` pode vir em qualquer posição e agrupado (`-rn`, `-ri`): casar a
+    // flag em todo o resto do comando, não só depois do padrão.
+    allow: /(^|[;&|]\s*)rtk\s+grep\b[^;&|]*\s-[a-zA-Z]*[rR]/,
+    fix: (cmd) => cmd.replace(/(^|[;&|]\s*)rtk\s+grep\s+/, '$1rtk rg '),
+    why: '`rtk grep` é proxy pro grep nativo (não ripgrep): sem `-r` falha em diretório com "Is a directory". `rtk rg` faz busca recursiva.',
+  },
+  {
+    name: 'rtk-diff-solto',
+    // `rtk diff <arquivo>` não é o uso certo — o subcomando de diff do git
+    // é `rtk git diff`. AGENTS.md §rtk registra a pegadinha desde 2026-07.
+    test: /(^|[;&|]\s*)rtk\s+diff\b/,
+    allow: /(^|[;&|]\s*)rtk\s+git\s+diff\b/,
+    fix: (cmd) => cmd.replace(/(^|[;&|]\s*)rtk\s+diff\b/, '$1rtk git diff'),
+    why: '`rtk diff` solto não é o uso certo; o diff do git é `rtk git diff <arquivo>`.',
+  },
 ];
 
 let raw = '';

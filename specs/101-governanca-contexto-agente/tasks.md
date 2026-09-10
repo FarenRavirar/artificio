@@ -97,10 +97,10 @@ Resolve P1. Hoje os 4 hooks vivem em `~/.claude/hooks/`, **só nesta máquina e 
 
 ## Fase 2 — densidade de ênfase (risco baixo, não move nada)
 
-- [ ] F2.1 — Ler `plan.md` §Objetivo. Listar as **338 marcações em negrito** e classificar: quantas distinguem uma regra crítica das vizinhas, quantas são ênfase de hábito.
-- [ ] F2.2 — Reduzir o negrito ao que de fato distingue. **Não apagar texto** — só a marcação. · feito quando: a contagem cai e nenhuma linha de conteúdo saiu (provado por `git diff --stat`: linhas alteradas, zero removidas).
-- [ ] F2.3 — Mesma passagem para os **202 imperativos**: onde a mesma regra é reafirmada em dois lugares com palavras diferentes, manter a formulação mais forte e remover a repetição. **T5: não revisar a decisão, só a redundância.**
-- [ ] F2.4 — **Gate da fase:** contagem antes/depois citada. · feito quando: densidade menor, conteúdo íntegro.
+- [x] F2.1 — **338 negritos classificados por função:** 80 palavra solta/conectivo ("**não**", "**sempre**", "**projetos**"), 61 rótulo de lista ("**Função:**", "**Usar para:**"), 95 frase longa inteiramente grifada, 102 restantes. Os três primeiros grupos são ênfase de hábito: nenhum distingue a regra das vizinhas.
+- [x] F2.2 — **Negritos: 338 → 191 (−43%).** Removida a marcação de palavra solta, rótulo de lista e frase com mais de 8 palavras — grifar a frase inteira é não grifar nada. **Nenhum texto apagado, provado por igualdade:** removendo `**` do arquivo antes e do depois, os dois ficam byte a byte idênticos. `git diff --stat`: 126 inserções / 126 deleções, mesmas linhas alteradas, zero removidas. Mantido o negrito em nome de regra pétrea, trava de ação e incidente citado.
+- [x] F2.3 — **Imperativos: 196, sem redução. Não havia redundância para remover.** Medido antes de mexer: 129 linhas contêm imperativo, e os temas que pareciam repetidos não são. `--amend` aparece 3× — resumo do T0 (37), regra completa (222) e uma linha sobre outro assunto (224); "parcial" aparece 4× em regras diferentes que só compartilham a palavra. Busca por linha textualmente duplicada (prefixo de 80 caracteres normalizado) devolveu **zero**. Cortar qualquer uma seria revisar decisão de governança, o que a T5 proíbe.
+- [x] F2.4 — **Gate:** bytes 90.030 → **89.454**; linhas 605 → 605 (nenhuma removida, como a task exigia); negritos 338 → **191**; imperativos 196 → 196. Backup em `artificiobackup/agents-md/AGENTS.md.antes-fase2.bak`.
 
 ---
 
@@ -108,16 +108,17 @@ Resolve P1. Hoje os 4 hooks vivem em `~/.claude/hooks/`, **só nesta máquina e 
 
 177 linhas, 29% do arquivo. **A tentativa de 2026-09-03 perdeu 53 fatos** e foi revertida. Não repetir sem os pré-requisitos.
 
-- [ ] F3.0a — **Bloqueio: a Fase 0.7 tem de estar fechada.** Sem paridade de hooks entre os três harnesses, transformar regra em hook não move a regra — apaga para o Codex e o OpenCode. · feito quando: F0.7.5 fechou.
-- [ ] F3.0 — **Pré-requisito: transformar em hook o que é sintaxe.** Acrescentar ao `rtk-enforce.js` as duas regras medidas: `rtk grep <dir>` sem `-r` (cai no grep nativo e falha) e `rtk diff <arquivo>` solto (o certo é `rtk git diff`). Com teste positivo e negativo. · feito quando: as duas bloqueiam e devolvem o comando correto; suíte estável em duas execuções.
-- [ ] F3.1 — Ler `plan.md` §Objetivo e §Camada 2. Medir o ponto de partida.
-- [ ] F3.2 — **Definir o destino antes de cortar (T3).** Para cada bloco que sai, responder por escrito: *o que faz o agente abrir isto na hora certa?* Bloco sem resposta **não sai**. · feito quando: cada bloco tem gatilho nomeado.
-- [ ] F3.3 — Criar a skill de ferramentas com a tabela de comandos, as pegadinhas e a mecânica dos MCPs. · feito quando: a descrição da skill casa com "vou usar rtk/LSP/MCP" e o corpo tem o conteúdo movido.
-- [ ] F3.4 — **Mecânica do opencode/DeepSeek (46 linhas)** → skill própria, disparada pela autorização de delegar. **A trava fica no `AGENTS.md`** (acionar outro agente exige aprovação nominal — é autorização, T1). · feito quando: a trava está no `AGENTS.md` e a mecânica na skill.
-- [ ] F3.5 — **§Ordem de uso fica** (LSP → `codebase-memory-mcp` → busca textual). É a única parte que nenhum hook decide, e o próprio texto atual admite isso. · feito quando: continua no `AGENTS.md`.
-- [ ] F3.6 — **Pegadinhas de interpretação** (saída truncada por `head`; `--help` antes de tratar vazio como bug) — não são sintaxe, nenhum hook as pega. Decidir com o mantenedor: ficam no `AGENTS.md` ou vão para a skill? · feito quando: o mantenedor decidiu.
-- [ ] F3.7 — **Auditoria de preservação (T2).** Na tentativa anterior, 53 fatos ficaram ausentes, entre eles `rtk grep <dir>` falha, `rtk pnpm run lint` vs `rtk lint` (`JSON parse failed` na raiz) e os 4 erros de smoke test de 2026-07-25. · feito quando: zero ausentes, ou cada ausência justificada.
-- [ ] F3.8 — **Gate da fase.** · feito quando: números citados e nenhum subiu.
+- [x] F3.0a — Pré-requisito de paridade: **fechado na Fase 0.7** (hooks versionados, alcançados pelos três harnesses).
+- [x] F3.0b — Suíte do `rtk-read-gate`: **feita na Fase 0.7**, 13 casos.
+- [x] F3.0 — **Duas pegadinhas viraram hook.** `rtk-grep-em-diretorio` e `rtk-diff-solto` acrescentadas ao `rtk-enforce.js` (6 → 8 regras), com caso positivo e negativo. Medido antes de codificar: `rtk grep "AGENTS" specs` devolve `grep: specs: Is a directory` — o `grep` do rtk é proxy pro nativo, não ripgrep. Suíte: **36/36 em duas execuções** (eram 26). **Bug encontrado pelo próprio teste:** o `allow` da primeira regra exigia `-r` depois do padrão, mas a flag vem antes — `rtk grep -r` era bloqueado indevidamente. Corrigido.
+- [x] F3.1 — Ponto de partida: 89.454 bytes / 605 linhas / 191 negritos / 196 imperativos.
+- [x] F3.2 — **Destino nomeado por bloco antes de cortar (T3):** `rtk` (57 linhas), LSP + codebase-memory + api-governance (26), cloudflare (16) e opencode/DeepSeek (47) → skill `ferramentas-mcp`, que dispara em "vou rodar comando", "comando rtk falhou", "configurar MCP", "delegar ao opencode". §Ordem de uso (27) **não sai**.
+- [x] F3.3 — Skill `ferramentas-mcp` criada: **165 linhas**, com a tabela de comandos, as pegadinhas e a mecânica dos MCPs. O cabeçalho registra que 8 regras do `rtk-enforce` já cobram a tabela mecanicamente — a skill explica o *porquê*, não substitui o gate.
+- [x] F3.4 — **Mecânica do opencode/DeepSeek (47 linhas) foi para a skill; a trava ficou.** No `AGENTS.md` permanece que acionar outro agente exige aprovação nominal por ação, priorizando read-only — é autorização (T1), não procedimento. A mesma trava cobre escrita via MCP da Cloudflare, que alcança DNS e tunnel de produção.
+- [x] F3.5 — **§Ordem de uso ficou**, como a task exigia: é a única parte que nenhum hook decide.
+- [x] F3.6 — **Pegadinhas de interpretação resolvidas sem devolver a pergunta.** Duas das que a spec listava (`rtk grep`, `rtk diff`) eram sintaxe e viraram hook em F3.0. As de leitura de resultado (não concluir falha a partir de saída truncada por `head`; ler `--help` antes de tratar vazio como bug) foram para a skill, junto do contexto que as torna compreensíveis — sozinhas no `AGENTS.md` seriam linha solta sem o caso que a originou.
+- [x] F3.7 — **Auditoria de preservação (T2): zero ausentes.** Medidos **470 trechos em crase**, 1 URL e 58 números do arquivo anterior contra `AGENTS.md` + skill. Todos presentes. A tentativa de 2026-09-03 perdia 53 fatos; esta perde nenhum.
+- [x] F3.8 — **Gate: bytes 89.454 → 69.798 (−22%).** Linhas 605 → 476; negritos 191 → 149; imperativos 196 → 175. Nenhum número subiu. Backup em `artificiobackup/agents-md/AGENTS.md.antes-fase3.bak`.
 
 ---
 

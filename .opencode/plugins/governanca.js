@@ -48,6 +48,14 @@ export const GovernancaArtificio = async ({ directory }) => ({
         saida = execFileSync("node", [hookPath], {
           input: montarPayload(tool, output?.args ?? {}),
           encoding: "utf8",
+          // Sem timeout, um hook que trave (I/O em rede, arquivo enorme, laço)
+          // segura a chamada de ferramenta para sempre e o agente fica parado
+          // sem sinal. Os quatro hooks são locais e respondem em milissegundos;
+          // 5s é folga de uma ordem de grandeza.
+          timeout: 5000,
+          // SIGKILL, não o SIGTERM padrão: processo que ignora o sinal
+          // continuaria vivo e o timeout não teria efeito nenhum.
+          killSignal: "SIGKILL",
         });
       } catch {
         // Hook indisponível ou quebrado não pode travar o trabalho: um gate que

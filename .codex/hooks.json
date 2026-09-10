@@ -1,5 +1,5 @@
 {
-  "$comment": "Hooks de governanca do Artificio RPG para o Codex CLI. Spec 101, Fase 0.7 (D14). Sao os mesmos 4 hooks versionados em .claude/hooks/: o payload do PreToolUse do Codex e identico ao do Claude Code (tool_name, tool_input.command) e o deny usa o mesmo hookSpecificOutput/permissionDecision, entao o script roda nos dois sem alteracao. Antes disso, regra que virasse hook existia so no Claude Code — mover governanca para hook APAGAVA a regra neste harness em vez de move-la. Caminho relativo de proposito: o Codex nao expoe variavel de diretorio de projeto (medido no binario 0.153.3 — CODEX_PROJECT_DIR nao existe), e hooks de projeto so carregam com a camada .codex/ confiavel, a partir da raiz do repo.",
+  "$comment": "Hooks de governanca do Artificio RPG para o Codex CLI. Spec 101, Fase 0.7 (D14). Sao os mesmos 4 hooks versionados em .claude/hooks/: o payload do PreToolUse do Codex e identico ao do Claude Code (tool_name, tool_input.command) e o deny usa o mesmo hookSpecificOutput/permissionDecision, entao o script roda nos dois sem alteracao. O caminho resolve a raiz por 'git rev-parse --show-toplevel' porque o Codex nao expoe variavel de diretorio de projeto (medido no binario 0.153.3: CODEX_PROJECT_DIR nao existe) e a sessao pode comecar num subdiretorio — com caminho relativo o hook nao carrega e a governanca desliga em silencio (medido de apps/mesas: MODULE_NOT_FOUND).",
   "hooks": {
     "PreToolUse": [
       {
@@ -7,11 +7,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ./.claude/hooks/rtk-enforce.js"
+            "command": "node \"$(git rev-parse --show-toplevel)/.claude/hooks/rtk-enforce.js\""
           },
           {
             "type": "command",
-            "command": "node ./.claude/hooks/git-commit-msg-gate.js"
+            "command": "node \"$(git rev-parse --show-toplevel)/.claude/hooks/git-commit-msg-gate.js\""
           }
         ]
       },
@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ./.claude/hooks/rtk-read-gate.js"
+            "command": "node \"$(git rev-parse --show-toplevel)/.claude/hooks/rtk-read-gate.js\""
           }
         ]
       },
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ./.claude/hooks/deploy-contract-gate.js"
+            "command": "node \"$(git rev-parse --show-toplevel)/.claude/hooks/deploy-contract-gate.js\""
           }
         ]
       }
