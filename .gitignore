@@ -74,7 +74,12 @@ opencode.json
 
 # Indice local legado (nao versionado)
 .serena/
-.codex/
+# .codex/ e local, EXCETO a config de governanca que precisa valer para todo
+# ambiente (spec 101 F0.7): os agentes e os hooks que espelham .claude/hooks/.
+# Sem estas excecoes a paridade entre harnesses existiria so nesta maquina.
+.codex/*
+!.codex/agents/
+!.codex/hooks.json
 /spec047-backup
 # Amostras reais de import (dado real — nunca commitar). Ver specs/048 ambiente de teste.
 temp/

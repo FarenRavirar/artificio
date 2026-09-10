@@ -297,16 +297,15 @@ Worktree **não é fallback automático**. Antes de qualquer `git worktree add|m
 
 ### Acesso à VM (Oracle)
 
-- Acesso direto por alias SSH configurado em `~/.ssh/config` local (**não versionado**; host/IP/chave fora do git). Mapa de infra: doc interna fora do repositório público (`docs/agents/`, gitignored).
+- Acesso direto por alias SSH configurado em `~/.ssh/config` local (**não versionado**; host/IP/chave fora do git). Mapa de infra em `docs/agents/`.
 - A chave privada (`*.key`) é segredo: gitignored, nunca commitar/expor/imprimir.
 
 ### Banco, Infra e Segredos
 
 - Qualquer SQL write direto (fora do framework de migration) em produção exige aprovação explícita + simulação/dry-run/plano de rollback registrados. Operação destrutiva (`DROP`, `TRUNCATE`, `DELETE` massivo, `ALTER` destrutivo) só com permissão nominal + dump prévio + checklist.
 - Cada app/projeto tem seu schema/banco lógico isolado; SSO/usuários é o único cross-cutting.
-- Nunca criar tunnel/container `cloudflared` paralelo.
-- Nunca registrar, expor ou versionar token, PAT, segredo ou credencial. Segredos vivem em `.env` (gitignored) e nos secrets do Actions/Cloudflare.
 - Acesso DB da VM por linha de comando local/PowerShell via `ssh faren` é **read-only por padrão** (`psql SELECT`, `pg_dump`, `docker exec` read-only). Escrita no banco da VM = aprovação.
+- Tunnel `cloudflared` paralelo e segredo versionado: procedimento em `deploy-flow.md` §Segredos; o TruffleHog (`secret-scan.yml`) barra o segundo.
 
 ### Migrations e Dockerfile de produção
 
@@ -319,10 +318,10 @@ As duas maiores famílias de incidente do projeto (8 e 5 dos 22 de `errors.md`, 
 - Compromissos inegociáveis: gratuidade, sem anúncios, sem coleta desnecessária de dados.
 - **Google OAuth é o único login.** Sessão única em cookie `Domain=.artificiorpg.com`. E-mail/senha só com autorização explícita. Exceção controlada: fluxo legado de migração do glossário (D061) pode verificar vínculo antigo sem criar sessão por e-mail/senha.
 - **SEO é inegociável no site:** slugs e redirects 301 preservados, sem merge que cause regressão de meta/sitemap/canonical. Manter compatível com exigências de Search Console e Lighthouse.
-- Toda mudança de interface respeita as **10 Heurísticas de Nielsen** e **ISO 9241-11** (eficácia, eficiência, satisfação) antes do merge. Checklist na sessão.
+- Toda mudança de interface respeita as **10 Heurísticas de Nielsen** e **ISO 9241-11** antes do merge. O procedimento está nas skills, que disparam pela tarefa: `nielsen-heuristics-audit` (usabilidade), `wcag-accessibility-audit` (acessibilidade), `ui-fidelity-audit` (design system), `ui-design-review` (visual), `ux-audit-rethink` (repensar fluxo).
 - Design sóbrio/minimalista com sobriedade de Google-suite (Docs/Gmail), sem copiar marca Google. Cores, logo e padrões vêm de `packages/ui`. Não divergir do design system por app/projeto sem aprovação.
 - Analytics (GA4) cobre rotas públicas via `packages/analytics`. Toda página/rota pública nova é instrumentada. Admin/operacional só instrumenta eventos úteis, sem coletar dado desnecessário.
-- Upload e processamento de imagem ocorrem sempre no Backend, via Cloudinary com signed preset. Nunca hardcodar credencial Cloudinary.
+- Upload e processamento de imagem ocorrem sempre no Backend, via Cloudinary com signed preset. Credencial hardcoded é barrada pelo TruffleHog (`secret-scan.yml`).
 
 ---
 
@@ -404,11 +403,9 @@ Travas do formato:
 
 ## Review guidelines
 
-Seção lida pelo Codex code-review (GitHub App, `chatgpt-codex-connector`) em PRs — convenção própria do produto, não um filtro de path garantido como `.coderabbit.yaml` (`path_filters`). É instrução textual best-effort: o bot pode ainda ler o diff completo, só é pedido pra não focar comentário/achado nesses casos. Não existe `.codexignore` (feature só em discussão, não implementada em 2026-07 — ver `openai/codex` discussion #3456).
+**Não é instrução para o agente — é o único lugar onde o bot Codex code-review (`chatgpt-codex-connector`) lê o escopo de revisão.** Não existe `.codexignore`; por isso fica aqui e não vira skill (bot não carrega skill). O CodeRabbit já expressa o mesmo em `.coderabbit.yaml` (`path_filters`), que é executável; este bloco é best-effort textual.
 
-- Não revisar/comentar mudanças só em `.md` (documentação, specs, sessões) — cobertura de conteúdo/redação é responsabilidade do mantenedor, não do bot.
-- Não revisar/comentar `docs/api/generated/**` nem `docs/api/openapi/**` — artefatos auto-gerados por `pnpm verify:api`/`pnpm api:bundle`, nunca editados à mão.
-- Focar em `apps/**`, `packages/**`, `scripts/**` e config de infra/CI (lógica, contrato, segurança) — mesmo escopo já usado pelo CodeRabbit (`.coderabbit.yaml`).
+Escopo pedido aos revisores: focar em `apps/**`, `packages/**`, `scripts/**` e config de infra/CI (lógica, contrato, segurança). Não focar achado em `.md` nem em `docs/api/generated/**` e `docs/api/openapi/**`, que são gerados por `pnpm verify:api`.
 
 ---
 
@@ -427,7 +424,7 @@ Seção lida pelo Codex code-review (GitHub App, `chatgpt-codex-connector`) em P
 | Subagentes | `.claude/agents/` |
 | Skills/playbooks locais | `.agents/skills/` |
 
-⃰ `docs/agents/*` = docs internas de operação, **fora do repositório público** (gitignored, só local + backup do mantenedor).
+⃰ `docs/agents/*` = docs internas de operação, **versionadas** desde 2026-09-03 (`.gitignore:54`) — o procedimento de deploy precisa ser revisável em PR. Só `docs/agents-internal/` continua fora do repositório.
 
 ## Ferramentas MCP / Agentes
 
@@ -573,7 +570,7 @@ O watcher dispara em **"parou"**, não em "terminou com sucesso" — fim normal,
 
 **O orquestrador é submantenedor, não executor.** Se ele está investigando, medindo, aprovando permissão a permissão ou construindo ferramenta para vigiar a sessão, está gastando o token que a delegação existia para poupar — e fazendo o trabalho que era do outro agente. O trabalho é do subagente: ele investiga, decide, implementa e valida. Ao orquestrador cabem o prompt, a trava de ação perigosa (commit/push/deploy/SQL seguem exigindo aprovação nominal do mantenedor, §Autorização) e o relato final. Corolário prático: **nunca construir auto-aprovador de permissão** — permissão travando é sintoma de allowlist errada ou `agent:` ausente, e o conserto é a config, não uma babá.
 
-**Wrapper local (`opencode-deepseek`) — fallback.** Código em `docs/agents/opencode-mcp/` (`server.mjs` + `README.md`), **gitignored** (`/docs/agents/*`), fora do fluxo de PR. Spawna o binário nativo (`%APPDATA%\npm\node_modules\opencode-ai\bin\opencode.exe`) com `shell: false` e **stdin fechado** (`stdio: ["ignore","pipe","pipe"]`): sem shell por causa do quoting/encoding do Windows, com stdin fechado porque `opencode run` trava esperando EOF se o stdin fica como pipe aberto. Duas armadilhas já pagas, documentadas no `README.md` — ir lá antes de mexer.
+**Wrapper local (`opencode-deepseek`) — fallback.** Código em `docs/agents/opencode-mcp/` (`server.mjs` + `README.md`), versionado. Spawna o binário nativo (`%APPDATA%\npm\node_modules\opencode-ai\bin\opencode.exe`) com `shell: false` e **stdin fechado** (`stdio: ["ignore","pipe","pipe"]`): sem shell por causa do quoting/encoding do Windows, com stdin fechado porque `opencode run` trava esperando EOF se o stdin fica como pipe aberto. Duas armadilhas já pagas, documentadas no `README.md` — ir lá antes de mexer.
 
 **A armadilha que vale para os dois, e que quase passou:** o `opencode.json` da raiz declara `permission: { edit: "ask", bash: "ask" }`. Em modo headless não há quem responda, e o opencode **auto-rejeita toda chamada de ferramenta**, abortando com **exit 0 e stdout vazio** — falha que se disfarça de sucesso. Prompt trivial ("responda PING") funciona, porque não usa ferramenta nenhuma; só uma tarefa que precise **ler arquivo** expõe o problema. O wrapper passa `--auto` sempre e trata exit 0 sem saída como erro. Consequência para quem valida qualquer um dos dois: **`tools/list` não prova nada** — o smoke que vale é uma chamada real que obrigue o DeepSeek a ler arquivo.
 

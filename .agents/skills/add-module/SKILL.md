@@ -13,11 +13,13 @@ Criar `specs/NNN-<modulo>-bootstrap/` com `spec.md`, `plan.md`, `tasks.md`. Defi
 ## 2. Estrutura
 ```
 apps/<modulo>/
-  package.json          # @artificio/<modulo>, stack canônica
-  vite.config.ts        # base: '/'  (root próprio, sem basename)
+  package.json                 # @artificio/<modulo>, stack canônica
+  vite.config.ts               # base: '/'  (root próprio, sem basename)
   src/
   Dockerfile
-  module.manifest.ts    # o contrato (ver abaixo)
+  docker-compose.beta.yml      # um compose por ambiente, dentro do app
+  docker-compose.prod.yml
+  module.manifest.ts           # o contrato (ver §3)
 ```
 
 ## 3. module.manifest.ts (o contrato)
@@ -32,29 +34,46 @@ export const manifest = {
 }
 ```
 
-## 4. Conectar compartilhados (packages/*)
+Hoje só `apps/mesas/module.manifest.ts` existe — é o modelo a copiar.
+
+## 4. Registrar no nav cross-app
+Adicionar entrada em `packages/ui/src/modules.ts` (`defaultNavItems`) — **fonte única da nav, não per-app**:
+```ts
+{ label: 'Novo Módulo', href: 'https://novo.artificiorpg.com' }
+```
+O `navLabel`/`navIcon` do manifesto descrevem o módulo; a nav compartilhada é montada aqui.
+
+## 5. Conectar compartilhados (packages/*)
 - `@artificio/auth` — consumir a sessão SSO. Login redireciona p/ `accounts.artificiorpg.com/login?return=<url>`; valida JWT do cookie `.artificiorpg.com`. Nunca implementar login próprio.
 - `@artificio/ui` — Header/Nav/Footer e design tokens. Nav = URLs absolutas pros outros subdomínios. Não divergir do design system.
 - `@artificio/analytics` — instrumentar com `track()` e o `analyticsNamespace`. GA4 com `cookie_domain` raiz (D020).
 - `@artificio/config` — tsconfig/eslint/env schema compartilhados. **Host/credencial só via env**, nunca hardcoded.
 - `@artificio/content` — helpers de SEO (meta, canonical, JSON-LD, sitemap) se o módulo tem conteúdo público.
 
-## 5. Rede / DNS (subdomínio)
+## 6. Rede / DNS (subdomínio)
 - Adicionar regra de ingress no **Cloudflare Tunnel**: `hostname: <sub>.artificiorpg.com → service: http://<container>:<porta>`. Um só `cloudflared`; cert wildcard `*.artificiorpg.com` cobre.
 - DNS: registro CNAME do subdomínio apontando ao tunnel (proxied).
 - Nada de porta exposta no firewall.
+- **DNS/tunnel de produção exige aprovação nominal do mantenedor** (AGENTS.md §Autorização).
 
-## 6. Deploy
-- Dockerfile + serviço no `docker-compose.beta.yml` (rede externa compartilhada).
-- Imagem GHCR; Turborepo builda só este módulo (affected graph).
-- Workflow: entra no `deploy-beta.yml`. Smoke próprio (health no subdomínio).
+## 7. Deploy — entrar no manifesto
+O deploy é **declarativo**: `deploy.yml` lê `.github/deploy-manifest.json` e chama `_deploy-module.yml` por módulo. Não existe workflow por app.
 
-## 7. Checklist de aceite (Gate D do módulo)
+- Acrescentar o bloco do módulo em `.github/deploy-manifest.json` (campos como em `mesas`): `module`, `compose_file`, `compose_file_beta`, `compose_project`, `compose_project_beta`, `db_service`, `db_service_beta`, `db_name`, `db_user`, `auto_deploy_on_push`.
+- Compose por ambiente em `apps/<modulo>/docker-compose.<env>.yml` (rede externa compartilhada).
+- **Imagem buildada na VM, não GHCR.** Turborepo builda só este módulo (affected graph).
+- `deploy.yml` só dispara se os `deploy_paths` do manifesto mudarem — doc e spec não deployam.
+- Smoke próprio (health no subdomínio).
+
+**Antes de tocar em `Dockerfile`, `migration_*.sql`, lockfile ou workflow: ler a seção correspondente de `docs/agents/deploy-flow.md`** (o hook `deploy-contract-gate` cobra isso).
+
+## 8. Checklist de aceite (Gate D do módulo)
 - [ ] `https://<sub>.artificiorpg.com` responde (health + home).
 - [ ] Login SSO funciona (se requiresAuth): redirect p/ accounts., volta logado, sessão válida nos outros módulos (cookie raiz).
 - [ ] Nav unificada lista o módulo; visual consistente com `packages/ui`.
 - [ ] GA4 registra page_view no namespace (cross-subdomínio ok).
 - [ ] `/sitemap.xml` + `/robots.txt` servidos; SEO básico ok (rodar `seo-usability-auditor`). Search Console = Domain property cobre o subdomínio.
+- [ ] Módulo no `deploy-manifest.json`, com compose beta e prod.
 - [ ] Smoke verde em beta.
 - [ ] Nenhum host/credencial hardcoded (tudo env).
 - [ ] `project-state.md` atualizado.

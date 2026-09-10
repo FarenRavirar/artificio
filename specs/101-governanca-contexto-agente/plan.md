@@ -6,7 +6,7 @@
 
 O critério de sucesso tem duas metades, e a segunda é a que importa:
 
-> `AGENTS.md` abaixo de 500 linhas, com os imperativos no topo e no fim.
+> `AGENTS.md` abaixo de **32.768 bytes** (cap do Codex), com os imperativos no topo e no fim.
 > **E nenhuma regra perdida** — toda regra que sai tem gatilho que a traz de volta na hora certa.
 
 Cortar sem a segunda metade não é progresso: é trocar um agente que esquece por um agente que nunca soube.
@@ -15,11 +15,24 @@ Cortar sem a segunda metade não é progresso: é trocar um agente que esquece p
 
 | medida | hoje | alvo |
 |---|---|---|
-| linhas do `AGENTS.md` | **608** | **< 500** |
-| imperativos (`nunca`/`sempre`/`pétreo`/`obrigatório`/`exige`) | **202** | queda medida e citada |
+| **bytes do `AGENTS.md`** | **90.220** | **< 32.768** — cap do Codex, medido no binário (R8) |
+| linhas do `AGENTS.md` | **608** | consequência, não critério |
+| imperativos — regex canônica (abaixo) | **100 linhas / 200 ocorrências** | queda medida e citada |
 | marcações em negrito | **338** | queda medida e citada |
 | fatos perdidos por frente | — | **0** (ou ausência justificada item a item) |
-| hooks com suíte positiva **e** negativa | 4 de 4 | mantém 100% |
+| hooks com suíte positiva **e** negativa | **3 de 4** (`rtk-read-gate.js` não tem) | 4 de 4 |
+| skills com gatilho explícito na descrição | ~~7 de 19~~ → **20 de 20** ✓ (2026-09-10) | atingido: universo foi 19 → 28 (consolidação) → 20 (remoção do `cavekit`) |
+| harnesses em que a regra movida continua existindo | **1 de 3** (hook só no Claude Code) | 3 de 3 antes de mover regra crítica |
+
+### Revisão 2026-09-10 — três premissas caíram
+
+Medição do ambiente real, posterior à redação. Detalhe em `spec.md` §Revisão 2026-09-10.
+
+1. **O alvo era em linhas; o limite real é em bytes.** O Codex lê no máximo **32.768 bytes** de `AGENTS.md` (`project_doc_max_bytes`, medido no binário `codex-cli 0.153.3`) e **trunca em silêncio** — a mensagem é *"project doc exceeds remaining budget; truncating"*, não erro. Com 90.220 bytes, cerca de dois terços da governança **não chegam ao Codex hoje**. O mantenedor recusou elevar o cap ("sem analgésico", D6): o alvo passa a ser < 32.768 bytes por reorganização real.
+2. **O leitor não é um só.** `AGENTS.md` é lido por Claude Code, Codex/GPT e OpenCode/DeepSeek. Os 4 hooks existem **só para o Claude Code** — mover regra crítica para hook, hoje, **apaga a regra** para os outros dois. P1 vira pré-requisito.
+3. **As skills-destino não disparam.** 7 de 19 têm gatilho explícito na descrição. A segunda metade do problema — **não havia fonte de verdade**, com skills espalhadas por três pastas e 5 delas invisíveis para dois harnesses — foi **resolvida em 2026-09-10** (D15/A7): `.agents/skills/` é canônica, com 28 skills; as outras 12 dizem o que a skill é, não quando usá-la. Regra em skill que não dispara **não existe**, e o sintoma é idêntico ao de esquecimento. Nasce a **Fase 0.5**, antes de qualquer corte.
+
+**T6 — destino tem que existir nos três harnesses.** Extensão natural de T3: não basta ter gatilho; o gatilho precisa existir onde o arquivo é lido. **Medido em 2026-09-10:** `.agents/skills/` é lido pelos três (o OpenCode também o carrega), então **skill é destino válido**; **hook, hoje, só no Claude Code** — o que a **Fase 0.7** (D14) existe para resolver antes de qualquer corte que dependa de hook. T6 morde em hook, não em skill.
 
 ### Cinco travas
 
@@ -67,7 +80,7 @@ Não é planejamento: é o que existe e prova o mecanismo.
 
 - 22 incidentes de `errors.md` → **5 famílias de causa raiz**;
 - `deploy-flow.md` → contrato único por ação (441 linhas), com `migrations_guide.md` absorvido (186 → 53);
-- `deploy-contract-gate.js` → 4 famílias de arquivo, 11 testes, cobra uma vez por família por sessão;
+- `deploy-contract-gate.js` → 4 famílias de arquivo, 11 testes, cobra uma vez por família por sessão — **e só no Claude Code**, até a Fase 0.7;
 - `AGENTS.md` → 667 → 608.
 
 **A medição que importa:** as 96 linhas de migration **não estão** no contexto do agente, e mesmo assim são cobradas quando ele edita um `migration_*.sql`.
@@ -109,12 +122,18 @@ Do mais seguro ao mais arriscado (D4). Uma frente por sessão, com medição e c
 
 | # | frente | linhas | risco | por quê |
 |---|---|---|---|---|
+| **0.4** | **medir de que ponta o Codex trunca** (D13) | 0 movidas | baixo | decide a ordem: se o corte é no início, o T0 já está invisível hoje |
+| **0.5** | **skills confiáveis** — ~~consolidar em pasta única~~ **(feito, D15)**; reescrever as descrições sem gatilho; **remover as 8 do `cavekit`** (D12) | 0 movidas · −680 de skill | baixo | **pré-requisito de (B)**: skill que não dispara é regra que some |
+| **0.6** | **conflito `CLAUDE.md` × `AGENTS.md`** | 26 (arquivo inteiro) | baixo | instrução contraditória já ativa, custo medido por R9 |
+| **0.7** | **versionar os hooks** (D14) | 0 movidas | médio | **pré-requisito das frentes 3 e 4**: sem paridade, hook apaga a regra em vez de movê-la |
 | 1 | Camada 4 — apontar skills que já existem | ~56 | baixo | os destinos já existem e funcionam |
 | 2 | Camada 5 — densidade de ênfase | 0 movidas | baixo | não move nada de lugar |
 | 3 | Camada 2 — ferramentas | 177 | **alto** | já falhou uma vez; T2 é obrigatório |
 | 4 | Camada 3 — aprovação | ~80 de 117 | **alto** | mexe em autorização |
 
-Frente 3 depende de as duas regras de `rtk` virarem hook antes — senão o corte perde regra sem substituto.
+Frente 3 depende de as duas regras de `rtk` virarem hook antes — senão o corte perde regra sem substituto. **E depende de P1 (paridade de hooks entre harnesses):** sem ela, transformar regra em hook não move a regra, apaga-a para Codex e OpenCode.
+
+**Risco declarado que a revisão não resolve:** caber em 32.768 bytes com T1 intacta provavelmente não fecha — são 90.220 hoje, e as ~350 linhas de governança sem gatilho são justamente as que T1 protege. Ou a paridade de hooks converte regra sem gatilho em regra com gatilho, ou o mantenedor terá de escolher entre o teto e uma regra. Registrado agora, não na Fase 4.
 
 ---
 
@@ -123,9 +142,16 @@ Frente 3 depende de as duas regras de `rtk` virarem hook antes — senão o cort
 **Por frente, antes de fechar:**
 
 ```bash
-# 1. tamanho e densidade
-wc -l AGENTS.md
-rtk rg -c "nunca|sempre|proibido|obrigatóri|exige|pétre" AGENTS.md
+# 1. tamanho (bytes = critério primário) e densidade
+wc -c AGENTS.md   # alvo < 32768 (criterio primario)
+wc -l AGENTS.md   # acompanhamento
+
+# imperativos — REGEX CANONICA, nao alterar entre medicoes (H4).
+# Linha de base remedida em 2026-09-10: 100 linhas / 200 ocorrencias.
+# O "202" da redacao original nao e reproduzivel por nenhuma das duas regexes
+# que a spec citava; usar sempre as duas formas abaixo, e citar as duas.
+rtk rg -c "nunca|sempre|proibido|obrigatóri|exige|pétre" AGENTS.md          # linhas
+grep -ioE "nunca|sempre|proibido|obrigatóri|exige|pétre" AGENTS.md | wc -l  # ocorrencias
 
 # 2. auditoria de preservação (T2) — o que saiu existe no destino?
 git diff AGENTS.md | grep "^-" | grep -v "^---" > /tmp/saiu.txt
@@ -139,7 +165,7 @@ node ~/.claude/hooks/<nome>.test.js   # 2x, para provar que não é flaky
 
 ### Procedência das medições
 
-**Medido em 2026-09-03**, nesta sessão: as 608 linhas / 202 imperativos / 338 negritos; a classificação das 14 seções; os 3% de linhas que citam app; as 19 skills e 4 hooks; os 17 e 53 fatos perdidos nas duas auditorias; e todos os números do piloto de deploy.
+**Medido em 2026-09-03**, nesta sessão: as 608 linhas / 202 imperativos / 338 negritos; a classificação das 14 seções; os 3% de linhas que citam app; as 19 skills e 4 hooks (a suíte de teste de 3 deles — o quarto foi medido em 2026-09-10); os 17 e 53 fatos perdidos nas duas auditorias; e todos os números do piloto de deploy.
 
 **Da literatura, não do repositório** (fontes em `spec.md` §Referências, R1–R7): o
 limite de linhas (**<150** em R2, medido sobre 2.500+ repositórios, com +20–23%
@@ -153,6 +179,11 @@ e corpo ativado (~2.000) de uma skill (R1).
 
 ## Rollback
 
-Documentação em git: reverter é `git revert` do commit da frente. Hooks vivem em `~/.claude/hooks/` (fora do repositório) — remover do `settings.json` desliga sem apagar.
+Rollback é **por fase**, porque o mecanismo muda no meio da spec:
+
+- **Documentação** (Fases 0.6, 1–4): `git revert` do commit da frente.
+- **Skills** (Fase 0.5): idem — `.agents/skills/` e `.claude/skills/` estão versionados.
+- **Hooks, antes da Fase 0.7:** vivem em `~/.claude/hooks/`, fora do repositório — remover do `settings.json` desliga sem apagar.
+- **Hooks, depois da Fase 0.7:** passam a ser versionados; o rollback vira `git revert` mais desligar em cada harness onde foram ligados. A instrução anterior deixa de valer.
 
 O risco real não é técnico: é regra que sai e cujo gatilho não dispara. É o que T2 e a validação final existem para pegar.

@@ -1,0 +1,38 @@
+{
+  "$comment": "Hooks de governanca do Artificio RPG para o Codex CLI. Spec 101, Fase 0.7 (D14). Sao os mesmos 4 hooks versionados em .claude/hooks/: o payload do PreToolUse do Codex e identico ao do Claude Code (tool_name, tool_input.command) e o deny usa o mesmo hookSpecificOutput/permissionDecision, entao o script roda nos dois sem alteracao. Antes disso, regra que virasse hook existia so no Claude Code — mover governanca para hook APAGAVA a regra neste harness em vez de move-la. Caminho relativo de proposito: o Codex nao expoe variavel de diretorio de projeto (medido no binario 0.153.3 — CODEX_PROJECT_DIR nao existe), e hooks de projeto so carregam com a camada .codex/ confiavel, a partir da raiz do repo.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./.claude/hooks/rtk-enforce.js"
+          },
+          {
+            "type": "command",
+            "command": "node ./.claude/hooks/git-commit-msg-gate.js"
+          }
+        ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./.claude/hooks/rtk-read-gate.js"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node ./.claude/hooks/deploy-contract-gate.js"
+          }
+        ]
+      }
+    ]
+  }
+}
