@@ -147,30 +147,17 @@ Nunca executar sem aprovação explícita do mantenedor:
 - Copiar/sobrescrever arquivos em produção
 - Usar Chrome do mantenedor para verificação/autenticação (`Chrome` plugin, perfil logado, cookies/sessão reais) sem autorização explícita. Preferir validação read-only por HTTP, Browser interno sem sessão real, logs ou artefatos locais quando suficiente. Chrome só entra quando o mantenedor autorizar nominalmente e a tarefa precisar de sessão/perfil real.
 - Acionar outro agente de IA em nome do mantenedor (ex.: Claude Code ↔ OpenCode via MCP `opencode`/DeepSeek). Nenhum agente ativa o outro, inicia subprocessos, roda comandos, altera arquivos/configurações ou faz chamadas de ferramenta em nome do outro sem aprovação nominal. Comunicação entre agentes prioriza read-only (análise, inspeção, revisão, diagnóstico); o agente informa qual ferramenta/MCP vai usar antes de acionar. Comandos documentados são referência, não autorização permanente.
-- Criar, mover ou remover `git worktree`; fazer checkout de branch em diretório temporário/paralelo (`C:\tmp`, `../artificio-*` ou qualquer caminho fora do cwd); ou transferir diff/trabalho entre worktrees. **Sempre exige aprovação nominal prévia**, mesmo quando a branch em si poderia ser criada automaticamente, mesmo para contornar `cherry-pick`/rebase/merge/checkout bloqueado, preservar estado alheio ou permitir trabalho paralelo. O agente primeiro explica por que o cwd não pode ser usado, o caminho exato, o que será criado/removido e como o trabalho volta ao cwd. `git worktree list` e inspeção read-only continuam livres.
+- Criar, mover ou remover `git worktree`; fazer checkout de branch em diretório temporário/paralelo (`C:\tmp`, `../artificio-*` ou qualquer caminho fora do cwd); ou transferir diff/trabalho entre worktrees. **Sempre exige aprovação nominal prévia**, mesmo para contornar `cherry-pick`/rebase/merge/checkout bloqueado, preservar estado alheio ou permitir trabalho paralelo. `git worktree list` e inspeção read-only continuam livres. O que o pedido precisa responder: skill `pedir-aprovacao`.
 
 *(item "modificar arquivos fora do escopo solicitado" saiu desta lista — cobertura única em §Regras Pétreas → Escopo.)*
 
 Read-only é SEMPRE permitido (pétrea), nunca exige aprovação por ação — local ou via PowerShell/`ssh faren`: `docker ps|logs|stats|inspect|images|system df`, `df`, `ls`, `cat`, `rg`/`grep`, `find`, `head`, `tail`, `curl -s` GET, `psql` com `SELECT`, `pg_dump` (read-only no DB), `git status|diff|log|show`, e qualquer subcomando de inspeção/diagnóstico que não muta estado (vale igual local e via VM/`ssh faren`). Inspeção read-only na VM é barata e **deve preceder** qualquer correção de infra "no chute" (anti-retrabalho). Não inferir necessidade de aprovação por ser "na VM/prod": ler estado nunca é ação de mérito. Única obrigação: filtrar segredos da saída (nunca imprimir `*PASSWORD*|*TOKEN*|*SECRET*`). Se uma ferramenta/harness bloquear um comando comprovadamente read-only, tratar como falso-bloqueio: explicar ao mantenedor e pedir liberação pontual — não é motivo para pular a inspeção nem para inferir que precisa de aprovação de mérito. Só a **escrita** na VM exige aprovação nominal: `docker stop|rm|up|restart`, escrever/copiar arquivo, migration, `scp/rsync`, subir/derrubar serviço, mexer no tunnel.
 
-Pacotes apt ausentes e libs/frameworks novos (dependência de app/pacote): o agente pode usar lib nova ou pacote `apt` quando a tarefa precisar — a barreira não é "nunca sem aprovação prévia", é "nunca sem perguntar primeiro". Antes de instalar/adicionar, o agente **sempre para e pergunta** ao mantenedor (formato de pergunta simples, não precisa do bloco de APROVAÇÃO NECESSÁRIA completo salvo se for `apt`/infra de VM): qual pacote/lib, por que é necessário, alternativa já existente no repo (se houver) e tamanho/impacto aproximado. Só instala depois da resposta. Isso vale tanto para dependência de app/projeto quanto para `apt` (ex.: `git`, `jq`, `tree`, `p7zip-full`, `postgresql-client`, `curl`, `ca-certificates`). Pra `apt` especificamente, comando após aprovação: `sudo apt-get update && sudo apt-get install -y <pacote>`. Proibido usar aprovação de uma lib/pacote pra instalar serviço persistente novo, alterar arquitetura, mexer em DNS/tunnel, ou executar deploy — isso continua exigindo aprovação própria e nominal. Novo framework/lib pesada num app/projeto segue a mesma trava: agente pode introduzir, mas sempre pergunta antes, e se a lib diverge da stack canônica ou é redundante com algo já usado no repo, aponta isso na própria pergunta.
+Pacote `apt` ausente e lib/framework novo: o agente pode introduzir quando a tarefa precisar — a barreira não é "nunca sem aprovação prévia", é **"nunca sem perguntar primeiro"**. Só instala depois da resposta. Proibido usar a aprovação de uma lib/pacote para instalar serviço persistente novo, alterar arquitetura, mexer em DNS/tunnel ou executar deploy — cada um exige aprovação própria e nominal. O que a pergunta precisa conter: skill `pedir-aprovacao`.
 
-Formato obrigatório para pedir aprovação:
+Formato do pedido (`## APROVAÇÃO NECESSÁRIA` — Ação / Motivo / Risco / Rollback / Escopo / Comandos): skill `pedir-aprovacao`, que dispara ao pedir autorização ou quando um gate bloqueia. Opção oferecida no bloco é opção medida (§Evidência item 3).
 
-```text
-## APROVAÇÃO NECESSÁRIA
-
-Ação: [o que será feito]
-Motivo: [por que]
-Risco: [o que pode dar errado]
-Rollback: [como desfazer]
-Escopo: [qual app/projeto/pacote/gate]
-
-Comandos:
-1. ...
-
-Posso prosseguir?
-```
+**Cumprimento mecânico (2026-09-10, spec 101 F4):** a lista acima deixou de depender de memória. Cada harness carrega as regras declarativas (`permissions.deny`/`ask` no Claude Code, `.codex/rules/governanca.rules` no Codex, `permission.bash` no OpenCode) e os três rodam o hook `autorizacao-gate.js`, que alcança o que elas não alcançam — caminho absoluto, `git -C`, comando aninhado em `bash -lc`. Desligar a VM e `--amend` são `deny` (bloqueio sem prompt); commit, worktree, escrita na VM, SQL write e pacote novo são `ask`. Push e abertura de PR ficaram liberados por decisão do mantenedor: o commit é onde o conteúdo entra na história.
 
 - Sessão com escopo num app/projeto (ex: `apps/srd`) **não toca** outro `apps/*` nem `packages/*` sem aprovação explícita e ampliação de escopo.
 - Mudança de código em `packages/auth` exige aprovação + SDD Completo + smoke de todos os apps que consomem SSO. Auth é sagrado: nunca quebrar a sessão compartilhada. Mudança só documental em `packages/auth` exige sessão + evidência, mas não smoke runtime por padrão.

@@ -16,7 +16,7 @@ import path from "node:path";
 
 // Mapa tool do OpenCode -> hooks que o Claude Code/Codex rodam no evento equivalente.
 const HOOKS = {
-  bash: ["rtk-enforce.js", "git-commit-msg-gate.js"],
+  bash: ["rtk-enforce.js", "git-commit-msg-gate.js", "autorizacao-gate.js"],
   read: ["rtk-read-gate.js"],
   edit: ["deploy-contract-gate.js"],
   write: ["deploy-contract-gate.js"],
@@ -57,20 +57,52 @@ export const GovernancaArtificio = async ({ directory }) => ({
           // continuaria vivo e o timeout não teria efeito nenhum.
           killSignal: "SIGKILL",
         });
-      } catch {
-        // Hook indisponível ou quebrado não pode travar o trabalho: um gate que
-        // derruba o turno é desligado na primeira vez que atrapalha, e aí não
-        // protege mais nada. Falha aberta, deliberadamente.
-        continue;
+      } catch (erro) {
+        // Falha closed (achado de review, 2026-09-10). Antes daqui saía um
+        // `continue`: hook que não roda deixava a chamada seguir sem gate nenhum
+        // — e em silêncio, que é o pior dos dois, porque o turno continuava
+        // parecendo protegido.
+        //
+        // O comentário anterior argumentava que gate que derruba o turno acaba
+        // desligado na primeira vez que atrapalha. O argumento continua de pé, e
+        // é por isso que o bloqueio aqui é NOMEADO e traz a saída de escape no
+        // motivo: o mantenedor lê o que quebrou e decide, em vez de descobrir
+        // depois que o gate estava aberto o tempo todo.
+        //
+        // Alcança só falha de INFRAESTRUTURA (spawn, timeout, hook ausente).
+        // Hook que roda e cala segue liberando — medido em 2026-09-10: os 5
+        // hooks sinalizam "não é comigo" com exit 0 e saída vazia, então tratar
+        // silêncio como falha bloquearia toda chamada benigna.
+        const motivo = erro?.killed
+          ? "esgotou o timeout de 5s"
+          : `não pôde ser executado (${erro?.code || erro?.message || "erro desconhecido"})`;
+        throw new Error(
+          `[governanca/hook-indisponivel] O gate ${arquivo} ${motivo}, então esta chamada de ` +
+            `${tool} não foi verificada. Falha closed: sem gate, não passa.
+
+` +
+            `Reproduza com o payload no stdin: node .claude/hooks/${arquivo}
+` +
+            "Conserte o hook, ou peça ao mantenedor autorização nominal para seguir sem ele.",
+        );
       }
 
+      // Saída vazia = "não é comigo". É como os 5 hooks sinalizam ausência de
+      // veredito; não é falha, e por isso não fecha.
       if (!saida.trim()) continue;
 
       let decisao;
       try {
         decisao = JSON.parse(saida).hookSpecificOutput;
       } catch {
-        continue;
+        // Hook falou, mas o que saiu não é JSON válido: pode ser um deny cujo
+        // texto se corrompeu. Das duas leituras possíveis, interpretar como
+        // liberação é a perigosa. Fecha.
+        throw new Error(
+          `[governanca/resposta-invalida] O gate ${arquivo} devolveu saída que não é JSON ` +
+            "válido, então não dá para saber se era deny. Falha closed.\n\n" +
+            `Saída recebida (240 primeiros chars): ${saida.trim().slice(0, 240)}`,
+        );
       }
 
       if (decisao?.permissionDecision === "deny") {

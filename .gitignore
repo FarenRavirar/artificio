@@ -67,6 +67,11 @@ artifacts/
 .vscode/
 .idea/
 .claude/launch.json
+# Config de maquina, nao de projeto: carrega env do proxy local de contexto
+# (ANTHROPIC_BASE_URL), caminho absoluto de binario do usuario e as regras de
+# permissao acumuladas por sessao. Nenhum outro clone consegue usar, e o repo e
+# publico. Estava versionado por acidente ate 2026-09-10 (spec 101, A8.6).
+.claude/settings.local.json
 opencode.json
 
 # Astro auto-generated types

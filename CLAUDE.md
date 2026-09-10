@@ -10,14 +10,21 @@ modelo gasta raciocínio decidindo qual vence antes de agir.
 
 ## Específico do Claude Code
 
-- **Skills:** `.agents/skills/` é a pasta única do repo (20 skills, todas com gatilho
+- **Skills:** `.agents/skills/` é a pasta única do repo (22 skills, todas com gatilho
   na descrição). Não criar skill em `.claude/skills/` — essa pasta foi consolidada e
   removida em 2026-09-10.
-- **Hooks ativos** (`~/.claude/hooks/`, só neste harness até a spec 101 versioná-los):
-  `rtk-enforce` reescreve/bloqueia comando cru; `rtk-read-gate` bloqueia leitura
-  integral de arquivo grande; `git-commit-msg-gate` bloqueia `-m @'` e `--amend`;
-  `deploy-contract-gate` cobra a seção de `deploy-flow.md` ao editar `Dockerfile`,
-  lockfile, `migration_*.sql` ou workflow.
+- **Hooks ativos** (`.claude/hooks/`, versionados e rodando nos três harnesses
+  desde a spec 101 F0.7): `rtk-enforce` reescreve/bloqueia comando cru;
+  `rtk-read-gate` bloqueia leitura integral de arquivo grande;
+  `git-commit-msg-gate` bloqueia `-m @'` e `--amend`; `deploy-contract-gate` cobra
+  a seção de `deploy-flow.md` ao editar `Dockerfile`, lockfile, `migration_*.sql`
+  ou workflow; `autorizacao-gate` cobra a §Autorização nas formas que as regras
+  declarativas não alcançam (caminho absoluto, `git -C`, `bash -lc` aninhado).
+- **Regras de permissão** (`permissions` em `.claude/settings.json`, spec 101 F4):
+  `deny` no que não tem exceção (desligar a VM, `--amend`, `push --force`); `ask`
+  no que exige autorização por ação (commit, worktree, escrita na VM, SQL write,
+  pacote novo). Push e abertura de PR ficaram liberados por decisão do mantenedor.
+  Equivalentes: `.codex/rules/governanca.rules` e `permission.bash` no `opencode.json`.
 - **`ast-grep` roda cru** — busca estrutural (`ast-grep -p "PADRAO" --lang ts`). O hook
   do `rtk` não o reescreve (medido: `No rewrite for`), diferente de `rg`/`git`/`pnpm`.
 - **Ferramentas de navegação:** LSP para diagnóstico semântico e `codebase-memory-mcp`

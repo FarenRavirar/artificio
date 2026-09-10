@@ -15,14 +15,14 @@ Cortar sem a segunda metade não é progresso: é trocar um agente que esquece p
 
 | medida | hoje | alvo |
 |---|---|---|
-| **bytes do `AGENTS.md`** | **90.220** | **< 32.768** — cap do Codex, medido no binário (R8) |
-| linhas do `AGENTS.md` | **608** | consequência, não critério |
-| imperativos — regex canônica (abaixo) | **100 linhas / 200 ocorrências** | queda medida e citada |
-| marcações em negrito | **338** | queda medida e citada |
+| **bytes do `AGENTS.md`** | 90.220 → **69.496** (2026-09-10, fases 1-4) | **< 32.768** — cap do Codex, medido no binário (R8). **Não atingido: faltam 36.728.** Motivo e opções medidas: F5.3 |
+| linhas do `AGENTS.md` | 608 → **463** | consequência, não critério |
+| imperativos — regex canônica (abaixo) | 200 → **154 ocorrências** | queda medida e citada |
+| marcações em negrito | 338 → **154** (−54%) | queda medida e citada |
 | fatos perdidos por frente | — | **0** (ou ausência justificada item a item) |
-| hooks com suíte positiva **e** negativa | **3 de 4** (`rtk-read-gate.js` não tem) | 4 de 4 |
+| hooks com suíte positiva **e** negativa | **5 de 5** ✓ (117 casos: 36+9+11+13+48) | atingido |
 | skills com gatilho explícito na descrição | ~~7 de 19~~ → **20 de 20** ✓ (2026-09-10) | atingido: universo foi 19 → 28 (consolidação) → 20 (remoção do `cavekit`) |
-| harnesses em que a regra movida continua existindo | **1 de 3** (hook só no Claude Code) | 3 de 3 antes de mover regra crítica |
+| harnesses em que a regra movida continua existindo | **3 de 3** ✓ (hooks na F0.7; regras de autorização na F4) | 3 de 3 antes de mover regra crítica |
 
 ### Revisão 2026-09-10 — três premissas caíram
 
@@ -122,14 +122,14 @@ Do mais seguro ao mais arriscado (D4). Uma frente por sessão, com medição e c
 
 | # | frente | linhas | risco | por quê |
 |---|---|---|---|---|
-| **0.4** | **medir de que ponta o Codex trunca** (D13) | 0 movidas | baixo | decide a ordem: se o corte é no início, o T0 já está invisível hoje |
-| **0.5** | **skills confiáveis** — ~~consolidar em pasta única~~ **(feito, D15)**; reescrever as descrições sem gatilho; **remover as 8 do `cavekit`** (D12) | 0 movidas · −680 de skill | baixo | **pré-requisito de (B)**: skill que não dispara é regra que some |
-| **0.6** | **conflito `CLAUDE.md` × `AGENTS.md`** | 26 (arquivo inteiro) | baixo | instrução contraditória já ativa, custo medido por R9 |
-| **0.7** | **versionar os hooks** (D14) | 0 movidas | médio | **pré-requisito das frentes 3 e 4**: sem paridade, hook apaga a regra em vez de movê-la |
-| 1 | Camada 4 — apontar skills que já existem | ~56 | baixo | os destinos já existem e funcionam |
-| 2 | Camada 5 — densidade de ênfase | 0 movidas | baixo | não move nada de lugar |
-| 3 | Camada 2 — ferramentas | 177 | **alto** | já falhou uma vez; T2 é obrigatório |
-| 4 | Camada 3 — aprovação | ~80 de 117 | **alto** | mexe em autorização |
+| ✓ **0.4** | **medir de que ponta o Codex trunca** (D13) | 0 movidas | baixo | decide a ordem: se o corte é no início, o T0 já está invisível hoje |
+| ✓ **0.5** | **skills confiáveis** — ~~consolidar em pasta única~~ **(feito, D15)**; reescrever as descrições sem gatilho; **remover as 8 do `cavekit`** (D12) | 0 movidas · −680 de skill | baixo | **pré-requisito de (B)**: skill que não dispara é regra que some |
+| ✓ **0.6** | **conflito `CLAUDE.md` × `AGENTS.md`** | 26 (arquivo inteiro) | baixo | instrução contraditória já ativa, custo medido por R9 |
+| ✓ **0.7** | **versionar os hooks** (D14) | 0 movidas | médio | **pré-requisito das frentes 3 e 4**: sem paridade, hook apaga a regra em vez de movê-la |
+| ✓ 1 | Camada 4 — apontar skills que já existem | ~56 | baixo | os destinos já existem e funcionam |
+| ✓ 2 | Camada 5 — densidade de ênfase | 0 movidas | baixo | não move nada de lugar |
+| ✓ 3 | Camada 2 — ferramentas | 177 | **alto** | já falhou uma vez; T2 é obrigatório |
+| ✓ 4 | Camada 3 — aprovação | ~2.300 bytes de procedimento + 3 camadas de mecanismo | **alto** | mexe em autorização |
 
 Frente 3 depende de as duas regras de `rtk` virarem hook antes — senão o corte perde regra sem substituto. **E depende de P1 (paridade de hooks entre harnesses):** sem ela, transformar regra em hook não move a regra, apaga-a para Codex e OpenCode.
 
