@@ -1,7 +1,6 @@
 import { MessageCircle, MessageSquare, Mail, FileText, ExternalLink, HelpCircle, type LucideIcon } from 'lucide-react';
 import type { TableContact } from '../../../types/tables';
 import {
-  toDiscordUserId,
   toSafeDiscordInviteUrl,
   toSafeHttpsUrl,
   toSafeMailtoUrl,
@@ -49,7 +48,6 @@ function ContactButton({ contact }: { contact: TableContact }) {
   // Discord: tratamento especial (username + servidor)
   if (contact.channel === 'discord') {
     const safeDiscordServerUrl = toSafeDiscordInviteUrl(contact.discord_server_url);
-    const discordUserId = toDiscordUserId(contact.value);
     return (
       <div className="space-y-2">
         {/* Botão principal: servidor Discord (se disponível) */}
@@ -89,32 +87,20 @@ function ContactButton({ contact }: { contact: TableContact }) {
           </div>
         )}
 
-        {/* Informação secundária: username/ID. Achado do mantenedor 2026-07-08:
-            valor puro sem link não dá pra localizar no Discord — snowflake
-            (ID numérico) vira link https://discord.com/users/:id (abre perfil/DM
-            no client/web se logado); username (não-numérico) fica só como texto,
-            Discord não expõe URL de perfil por username.
-            Achado de 2026-07-07 (portado de TableContacts.tsx, removido nesta
-            branch): a menção `<@id>` / `<@!id>` extraída de texto importado
-            carrega o mesmo snowflake e também é ID de usuário — nunca vira
-            discord.gg/<id>, que seria convite de servidor inexistente. */}
+        {/* Informação secundária: username/ID, sempre como TEXTO, nunca link.
+            Achado do mantenedor 2026-09-11 (spec 102): `https://discord.com/users/:id`
+            NÃO abre o perfil — o link não funciona, e o campo guarda o user de
+            exibição, não um identificador navegável. A versão anterior (achado de
+            2026-07-08) linkava quando o valor era snowflake ou menção `<@id>`;
+            eram 6 dos 33 contatos em produção, todos levando a link quebrado.
+            O Discord não expõe URL pública de perfil — nem por username, nem por
+            ID. Para contato, o caminho válido é o convite de servidor
+            (`discord_server_url`), tratado acima. */}
         <div className="flex items-start gap-2 px-2 text-sm text-white/70">
           <span className="text-white/50">👤</span>
           <div className="space-y-0.5">
             <p>
-              Username:{' '}
-              {discordUserId ? (
-                <a
-                  href={`https://discord.com/users/${discordUserId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-orange-400 font-medium underline hover:text-orange-300"
-                >
-                  {contact.value}
-                </a>
-              ) : (
-                <span className="text-orange-400 font-medium">{contact.value}</span>
-              )}
+              Username: <span className="text-orange-400 font-medium">{contact.value}</span>
             </p>
             <p className="text-xs text-white/50">
               {safeDiscordServerUrl
