@@ -18,7 +18,7 @@ import { catalogMaterialTypesAdminApi } from "./catalog-material-types-admin-api
 import { communityApi } from "./community-api.js";
 import { communityModerationApi } from "./community-moderation-api.js";
 import { renderPreview } from "./preview.js";
-import { reloadRedirects, lookupRedirect } from "./redirect-cache.js";
+import { reloadRedirects, lookupRedirect, withOriginalQuery } from "./redirect-cache.js";
 import { UPLOADS_DIR, storeUpload } from "./lib/media-store.js";
 import { parseFeedbackInput, decodeScreenshotDataUri } from "./lib/feedback-validator.js";
 import * as Feedback from "../db/repo/feedback.js";
@@ -291,7 +291,8 @@ setInterval(() => void reloadRedirects(), 30_000).unref?.();
 app.use((req, res, next) => {
   if (req.method !== "GET" && req.method !== "HEAD") return next();
   const hit = lookupRedirect(req.path);
-  if (hit && hit.to !== req.path) { res.redirect(hit.code, hit.to); return; }
+  // `withOriginalQuery` reanexa a query string, que `req.path` descarta (T2.1 defeito 2).
+  if (hit && hit.to !== req.path) { res.redirect(hit.code, withOriginalQuery(hit.to, req.originalUrl)); return; }
   next();
 });
 

@@ -82,6 +82,75 @@ export function isPublicTable(table: {
   return table.status === 'active' && !table.archived_at && !isImportedTableExpired(table);
 }
 
+/**
+ * Resposta pública devida a um slug de mesa. Nomeia o ESTADO, não o número:
+ * quem traduz para HTTP é cada rota, e as duas (`routes/tables.ts`, JSON, e
+ * `routes/og.ts`, HTML para crawler) têm de traduzir igual.
+ */
+export type TablePublicDisposition = 'ok' | 'gone' | 'not_found';
+
+/**
+ * T1.2/T1.3 (spec 102) — classificação única do slug pedido.
+ *
+ * ## Por que virou função em vez de ficar em `routes/tables.ts`
+ *
+ * A matriz dos seis estados de `table_status` já existia lá, correta, e era
+ * aplicada só à API JSON. O SSR de `routes/og.ts` — que é o que o Googlebot, o
+ * WhatsApp e o Discord leem — respondia `200` com "Mesa não encontrada" para
+ * TODOS os casos, inclusive mesa inexistente. Isso é soft-404: o Google exclui
+ * a URL do índice e ainda gasta crawl budget do domínio nela. Medido na spec
+ * 102: 51 de 92 URLs do sitemap do `mesas` nesse estado.
+ *
+ * Copiar a matriz para o `og.ts` teria criado a QUARTA escrita da mesma regra
+ * (detalhe, Open Graph, sitemap, espelho do frontend) — o defeito que este
+ * módulo existe para evitar, e que já causou três divergências em produção.
+ * Então a matriz subiu para cá e os dois consumidores passaram a derivar dela.
+ *
+ * ## A matriz, e o porquê de cada ramo
+ *
+ * Slug inexistente NÃO entra aqui: a função recebe mesa carregada, e quem não
+ * achou linha nenhuma já respondeu `404` antes de chamar. Exigir não-nulo (em
+ * vez de aceitar `null` e devolver `not_found`) preserva o narrowing de tipo no
+ * chamador — com o parâmetro opcional, o TypeScript não sabia que `table`
+ * existe no ramo `gone`, e o código precisaria de `!` para compilar.
+ *
+ *   draft, pending_review     → `not_found`. Nunca esteve no ar. `410` afirmaria
+ *                               que existiu e confirmaria a existência do
+ *                               rascunho a quem chutou a URL.
+ *   full                      → `ok`. Mesa lotada segue pública e visível; só
+ *                               não aceita mais gente.
+ *   ended, cancelled          → `gone`. Estado terminal explícito.
+ *   active + arquivada/expirada → `gone`. Saiu do ar sem mudar de status.
+ *
+ * `410` em vez de `404` para os encerrados é escolha de **semântica**, não de
+ * velocidade de deindexação — a doc do Google é explícita que todos os `4xx`
+ * exceto `429` são tratados igual. O ganho é diagnóstico: no Search Console
+ * `404` passa a significar "slug errado" e `410`, "mesa encerrada", que são
+ * dois defeitos com causas e correções diferentes.
+ *
+ * Listar os terminais em vez de negar `isPublicTable` mantém o mesmo
+ * falha-fechado do resto do módulo: um valor novo no enum cai em `not_found`,
+ * e não vira "encerrada" por omissão.
+ */
+export function classifyTablePublicDisposition(
+  table: TableLifecycleInput,
+): TablePublicDisposition {
+  if (NEVER_PUBLIC_STATUSES.has(table.status)) return 'not_found';
+
+  const saiuDoAr = table.archived_at != null || isImportedTableExpired(table);
+  if (TERMINAL_STATUSES.has(table.status)) return 'gone';
+  if (table.status === 'active' && saiuDoAr) return 'gone';
+
+  // `full` arquivada/expirada também saiu do ar: sem esta linha ela cairia no
+  // `not_found` final, contradizendo o `gone` que a mesma mesa recebe em
+  // `active`. O estado observável é idêntico — a vaga cheia não muda o fato de
+  // a divulgação ter sido retirada.
+  if (table.status === 'full' && saiuDoAr) return 'gone';
+  if (table.status === 'full') return 'ok';
+
+  return isPublicTable(table) ? 'ok' : 'not_found';
+}
+
 /** Forma mínima que as duas funções de comentário consultam. */
 export interface TableLifecycleInput {
   status: string;

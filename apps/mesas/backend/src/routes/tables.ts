@@ -6,6 +6,7 @@ import { logDatabaseError } from '../middleware/requestLogger.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
 import { serializeContact, serializeContacts } from '../utils/contactSerializer.js';
 import {
+  classifyTablePublicDisposition,
   importedTableExpiryDate,
   importedTableIsCurrentSql,
   isImportedTableExpired,
@@ -702,32 +703,24 @@ router.get('/:slug', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Mesa não encontrada.' });
     }
 
-    // O 410 é para mesa ENCERRADA, e "não pública" é um conjunto maior que
-    // isso. `table_status` tem 6 valores e cada grupo responde diferente:
-    //
-    //   draft, pending_review  → 404. Nunca esteve no ar; 410 afirmaria que
-    //                            existiu e exporia o rascunho a quem chutou a URL.
-    //   full                   → segue o fluxo normal (200). Mesa lotada continua
-    //                            pública e visível — só não aceita mais gente.
-    //   ended, cancelled       → 410, estado terminal explícito.
-    //   active + arquivada/expirada → 410, saiu do ar sem mudar de status.
-    //
-    // Listar os terminais em vez de negar `isPublicTable` evita que um estado
-    // novo no enum caia em "encerrada" por omissão.
-    const TERMINAL_STATUSES = new Set(['ended', 'cancelled']);
-    const saiuDoAr = table.archived_at != null || isImportedTableExpired(table);
-    const encerrada = TERMINAL_STATUSES.has(table.status) || (table.status === 'active' && saiuDoAr);
+    // A matriz dos seis estados de `table_status` vive em
+    // `utils/tableVisibility.ts` (`classifyTablePublicDisposition`), não aqui.
+    // Ela subiu para lá na spec 102 T1.2/T1.3 porque o SSR de `routes/og.ts`
+    // — o que Googlebot, WhatsApp e Discord leem — precisava da MESMA decisão e
+    // respondia `200` para todos os casos, produzindo soft-404. Duplicar a
+    // matriz nos dois arquivos seria a quarta escrita da regra; o motivo
+    // completo de cada ramo está no comentário da função.
+    const disposicao = classifyTablePublicDisposition(table);
 
-    if (encerrada) {
+    if (disposicao === 'not_found') {
+      return res.status(404).json({ error: 'Mesa não encontrada.' });
+    }
+
+    if (disposicao === 'gone') {
       return res.status(410).json({
         error: 'Mesa encerrada.',
         data: await buildClosedTablePayload(table),
       });
-    }
-
-    // Sobra do conjunto não-público: rascunho e revisão pendente.
-    if (!isPublicTable(table) && table.status !== 'full') {
-      return res.status(404).json({ error: 'Mesa não encontrada.' });
     }
 
     const [tableWithSystem] = await hydrateTableSystemFields([table]);
