@@ -1,6 +1,6 @@
 ---
 name: spec-audit
-description: Audita specs SDD e documentação operacional do Artifício RPG, cruzando spec.md, plan.md, tasks.md, backlog, sessões e project-state com código real usando Serena, LSP, codebase-memory-mcp e ferramentas locais. Use antes de implementar, antes de merge ou para revisar consistência documental.
+description: Audita specs SDD e documentação operacional do Artifício RPG, cruzando spec.md, plan.md, tasks.md, backlog, sessões e project-state com código real usando LSP, codebase-memory-mcp e ferramentas locais. Use antes de implementar, antes de merge ou para revisar consistência documental.
 ---
 
 # Auditoria de spec SDD
@@ -43,10 +43,10 @@ Use as ferramentas disponíveis em ordem de precisão.
    * Use para recuperar contexto histórico, ADRs, decisões, specs relacionadas e estado anterior.
    * Não escreva novas memórias sem necessidade explícita.
 
-2. Serena + LSP
+2. LSP
 
    * Use para navegar símbolos, referências, dependências, diagnósticos e impacto entre módulos.
-   * Prefira Serena/LSP quando a dúvida depender de relação real entre código e uso.
+   * Prefira LSP quando a dúvida depender de relação real entre código e uso.
 
 3. Busca estrutural e textual
 
@@ -113,7 +113,7 @@ Verifique se:
 * registra impacto em consumidores;
 * define rollback;
 * define validação verificável;
-* considera impacto real encontrado via Serena/LSP.
+* considera impacto real encontrado via LSP.
 
 ### tasks.md
 

@@ -2,6 +2,40 @@
   "enabledPlugins": {
     "typescript-lsp@claude-plugins-official": false
   },
+  "permissions": {
+    "deny": [
+      "Bash(*shutdown*)",
+      "Bash(*reboot*)",
+      "Bash(*poweroff*)",
+      "Bash(*systemctl poweroff*)",
+      "Bash(*systemctl reboot*)",
+      "Bash(*commit --amend*)",
+      "Bash(*push --force*)",
+      "Bash(*push -f *)"
+    ],
+    "ask": [
+      "Bash(git commit:*)",
+      "Bash(git worktree:*)",
+      "Bash(git merge:*)",
+      "Bash(git reset:*)",
+      "Bash(git rebase:*)",
+      "Bash(git cherry-pick:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh workflow run:*)",
+      "Bash(gh run rerun:*)",
+      "Bash(*apt-get install*)",
+      "Bash(*apt install*)",
+      "Bash(*ssh faren*)",
+      "Bash(*docker restart*)",
+      "Bash(*docker stop*)",
+      "Bash(*docker rm*)",
+      "Bash(*docker compose up*)",
+      "Bash(*docker compose down*)",
+      "Bash(*docker cp*)",
+      "Bash(*scp *)",
+      "Bash(*rsync *)"
+    ]
+  },
   "hooks": {
     "PostToolUse": [
       {
@@ -23,6 +57,43 @@
             "type": "command",
             "command": "cat >/dev/null || true; git rev-parse --git-dir >/dev/null 2>&1 || { echo 'Not a git repo, skipping'; exit 0; }; command -v uvx >/dev/null 2>&1 || exit 0; PYTHONUTF8=1 uvx code-review-graph@2.3.7 status --repo \"$(git rev-parse --show-toplevel 2>/dev/null)\" || true",
             "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/rtk-read-gate.js\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/rtk-enforce.js\""
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/git-commit-msg-gate.js\""
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/autorizacao-gate.js\""
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PROJECT_DIR}/.claude/hooks/deploy-contract-gate.js\""
           }
         ]
       }

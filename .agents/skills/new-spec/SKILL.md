@@ -1,6 +1,6 @@
 ---
 name: new-spec
-description: Cria uma spec SDD do Artifício RPG em specs/NNN-modulo-slug/ com spec.md, plan.md e tasks.md. Use ao iniciar trabalho SDD Completo.
+description: Cria o esqueleto de uma spec SDD do Artifício RPG em specs/NNN-modulo-slug/ com spec.md, plan.md e tasks.md a partir dos templates. Use ao iniciar qualquer trabalho SDD Completo (compartilhado, infra, migration, auth, importador, SEO, feature grande).
 ---
 
 # Nova spec SDD
@@ -23,6 +23,7 @@ Use em trabalho SDD Completo: `packages/*`, infra, tunnel/DNS, `accounts.`, SSO,
 * **Requisito recebe ID (`R1`, `R2`…) e é citado nominalmente** pela task que o implementa e pelo gate que o valida. Requisito sem ID não é rastreável; task que não cita requisito nenhum é suspeita de estar fora do escopo aprovado.
 * **Correção de review de bot é documentada em comentário NO PRÓPRIO CÓDIGO, referenciando a origem** — não em sessão, não em arquivo de review. Ver §Review de bot abaixo.
 * Nunca responder, comentar, resolver thread ou reagir no PR (`AGENTS.md`: o agente não escreve na conversa do PR; isso é do mantenedor).
+* **Levantar decisões de arquitetura/produto ANTES de escrever os três arquivos.** Se a spec tem ponto que muda o raio da implementação (rota, pacote compartilhado, fórmula/cálculo, escopo de sort/filtro), perguntar via `AskUserQuestion` (lotes de até 4) **na hora**, antes de redigir. **Spec só está pronta quando zero decisão de produto/arquitetura ficou em aberto** — "decisão pendente" dentro do arquivo final é sinal de spec incompleta, não de spec entregável. Exceção: achado técnico que só aparece **durante** a investigação pode gerar pergunta nova a qualquer momento — mas sai do "pendente" assim que respondida.
 * Débito acionável que sair desta spec vai pra `specs/backlog.md`.
 * **Débito ou achado que toca frontend/backend do escopo da spec é resolvido NA PRÓPRIA SPEC**, não empurrado pra backlog "pra depois". O agente não decide adiar; na dúvida, pergunta ao mantenedor (regra do mantenedor, 2026-07-25). Backlog é pra o que o mantenedor mandou sair, ou pro que é genuinamente de outra frente.
 * Atualize sessão em `sessoes/`.
@@ -112,12 +113,15 @@ Se já houver spec relacionada, avise e pergunte antes de duplicar.
 ## Passos
 
 1. Descobrir o próximo `NNN` sequencial global em `specs/`.
-2. Criar `specs/NNN-<modulo>-<slug>/`.
+2. **Levantar as decisões de arquitetura/produto** (ver §Regras) — nenhum arquivo é escrito com opção A/B sem escolha registrada.
+3. Criar `specs/NNN-<modulo>-<slug>/`.
 3. Criar:
 
-   * `spec.md`
-   * `plan.md`
+   * `spec.md` — inclui **Requisitos numerados (`R1`…`Rn`), testáveis**, Critérios de aceite, Fora de escopo, Riscos e impacto em outros módulos.
+   * `plan.md` — inclui Arquitetura da solução, **Arquivos afetados (por módulo/pacote)**, **Contratos/interfaces tocados** (auth/accounts? subdomínio/DNS? schema?), **Impacto em consumidores** (quem mais usa o que vou mexer), Rollback, Validação.
    * `tasks.md`
+4. Abrir/atualizar a sessão em `sessoes/` vinculando a spec.
+5. Atualizar `project-state.md` **só se** mudar o estado operacional.
 4. Abrir ou atualizar sessão em `sessoes/` vinculando a spec.
 5. Atualizar `specs/backlog.md` se houver débito ou pendência acionável.
 6. Atualizar `project-state.md` se houver mudança operacional.
@@ -252,6 +256,12 @@ quem implementa tende a ficar preso na checklist.
 **Ordem das fases importa:** <dependência real entre fases, se houver>.
 
 ---
+
+**Toda fase abre com estas 3 tasks fixas, nesta ordem, antes de qualquer task de conteúdo** — não é boilerplate decorativo, é ordem de execução real:
+
+- [ ] TN.0a — Ler `AGENTS.md` inteiro (T0 pétreo — obrigatório toda sessão/toda fase nova, mesmo se já lido antes nesta mesma sessão) antes de agir nesta fase. · feito quando: leitura confirmada, gate/regra pétrea relevante à fase identificada.
+- [ ] TN.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase (`rtk git status/diff/log`, `rtk rg`, `rtk read`, `rtk pnpm`, `rtk tsc`, `rtk lint`, `rtk <test-runner>`). · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
+- [ ] TN.0c — Comunicação com o mantenedor nesta fase em português. · feito quando: mensagens da fase seguem o registro.
 
 ## Fase 0 — Decisões de escopo (bloqueante, sem código)
 
