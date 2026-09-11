@@ -7,8 +7,10 @@ ordem, decisão técnica por frente, e o que cada task precisa saber antes de co
 
 ## 1. Ordem de execução e por quê
 
-Três frentes independentes. A ordem proposta segue severidade documentada, não
-conveniência de implementação.
+**Cinco frentes**, listadas na tabela abaixo (a versão anterior dizia "três" e não
+batia com as próprias linhas). Elas são independentes **entre si** — dentro de cada
+uma há ordem própria, registrada no `tasks.md`. A ordem proposta segue severidade
+medida, não conveniência de implementação.
 
 | Ordem | Frente | Achado | Por que nesta posição |
 |---|---|---|---|
@@ -59,17 +61,26 @@ expirada, com canonical auto-referente. Duas correções:
 2. **Sem canonical auto-referente** na resposta de erro — declarar-se canônica
    sendo inexistente é o pior dos dois mundos.
 
-**Mesa expirada é decisão de produto, não do agente** (`spec.md` §3):
+**Mesa expirada — DECIDIDO (2026-09-11): `410 Gone` com página útil.** Slug
+inexistente devolve `404` (T1.2). Raciocínio completo e aceite: `tasks.md` T1.3.
 
-| Opção | Efeito no Google | Efeito no usuário |
-|---|---|---|
-| `404` | Sai do índice, crawl liberado | Link antigo do WhatsApp → erro |
-| `410 Gone` | Sai mais rápido (Google trata igual 404) | Idem |
-| `301` para listagem do sistema | Transfere autoridade | Link antigo → lista de mesas parecidas |
+| Opção | Efeito no Google | Efeito no usuário | Veredito |
+|---|---|---|---|
+| `404` | Sai do índice | Link antigo → erro | Correto, mas mistura "slug errado" com "mesa encerrada" |
+| **`410 Gone`** | Sai do índice (Google trata **igual** a 404) | Página lista mesas vigentes do mesmo sistema | **Escolhido** |
+| `301` para listagem do sistema | **Soft-404** — Mueller nomeia redirect de item expirado para categoria | Lista genérica | Descartado por medição |
 
-Recomendação do agente: **`410` para expirada** (é remoção deliberada por regra de
-negócio, não erro) e **`404` para slug inexistente**. Mas a escolha muda o que o
-usuário vê e por isso é do mantenedor.
+O `301` caiu por dado, não por gosto: das **47** mesas expiradas em produção,
+**0** têm outra mesa vigente do mesmo mestre — não existe destino "essencialmente
+equivalente", que é a condição de mercado para 301. Redirecionar para a listagem do
+sistema recriaria o soft-404 que esta spec existe para eliminar. Idade 6–27 dias
+também descarta o argumento de preservar autoridade acumulada.
+
+`410` em vez de `404` é escolha de **semântica**, não de velocidade (*"All `4xx`
+errors, except `429`, are treated the same"*): separa "mesa existiu e encerrou" de
+"slug errado", mantendo o Search Console legível. A camada de UX (corpo com mesas do
+mesmo sistema, título da mesa encerrada, busca) é obrigatória — status correto e
+página prestativa não são excludentes.
 
 ### 2.3 Sitemap
 
@@ -108,18 +119,20 @@ das URLs antigas do WordPress e serve para **gerar e testar** o mapa.
 
 ### 3.2 Onde implementar o redirect
 
-O `site` é Astro SSG servido por container. Duas camadas possíveis:
+**Decidido em 2026-09-11 (T2.1): nem Cloudflare, nem nginx — o mecanismo já existe
+no repo.** A comparação "Cloudflare × container" que ocupava esta seção partia de uma
+premissa falsa. Medido: o `site` tem um subsistema de redirect 301 completo e em
+produção — tabela `redirects` (`db/migrations/001_init.sql:75-81`), repo
+(`db/repo/redirects.ts`), cache (`server/redirect-cache.ts`), middleware que roda
+antes do estático (`server/server.ts:291-296`) e CRUD no admin. Está ligado e
+**vazio** (`SELECT COUNT(*) FROM redirects` → 0). Foi construído para este cutover:
+*"Mapa de redirects 301 (slug/URL WP -> nova rota). Ativa só no cutover (D047)."*
 
-| Camada | Prós | Contras |
-|---|---|---|
-| Cloudflare (Bulk Redirects / Rules) | Borda, sem deploy, rápido | Fora do repo, não versionado, não testável em CI |
-| Container do site (nginx/entrypoint) | Versionado, revisável em PR, testável | Exige deploy |
-
-**Recomendação: no container, versionado.** `AGENTS.md` trata deploy como contrato
-revisável; redirect de SEO é regra de produto de longo prazo (mantida ≥ 1 ano
-segundo a documentação do Google) e não deve viver só no painel. Confirmar com o
-mantenedor antes de implementar — toca `Dockerfile`/infra e portanto exige leitura
-de `docs/agents/deploy-flow.md` §1 (trava por arquivo).
+Consequência: a F2 é `INSERT` em tabela + correção de dois defeitos no middleware
+(barra final e query string, detalhados em T2.1), **não** mudança de infra. Não toca
+`Dockerfile`, nginx nem Cloudflare, e portanto não dispara a trava de
+`docs/agents/deploy-flow.md` §1. As aprovações nominais de infra saem da lista;
+resta a do `INSERT` (T2.2).
 
 ### 3.3 Exigências do redirect (da pesquisa)
 
@@ -199,10 +212,27 @@ Meta-ExternalAgent. Eles buscam o HTML bruto e vão embora. Para todos, o `mesas
   not a recommended solution, because it creates additional complexities and resource
   requirements."* (verificado na fonte 2026-09-11; a página **não cita o ano 2022** —
   a versão anterior desta spec atribuía a data sem respaldo).
-- ~92% das respostas de busca do ChatGPT vêm do índice do Bing, cuja renderização de
-  JS é limitada — o app arrisca sumir do Bing e dos crawlers diretos ao mesmo tempo.
+- **Claim removido em 2026-09-11 (revisão adversarial):** a versão anterior afirmava
+  que "~92% das respostas de busca do ChatGPT vêm do índice do Bing", citando
+  `asklantern.com`. A página é renderizada por JS e o fetch não devolveu conteúdo —
+  **não foi possível verificar**. Era apoio lateral, não sustentava conclusão: o
+  argumento de SSR se apoia no experimento do SEL 485228 (GPTBot rastreou 759 páginas
+  do grupo HTML e **0** do grupo JS; ClaudeBot e PerplexityBot idem), esse sim medido.
 
 Fontes consultadas em 2026-09-11:
+- https://developers.google.com/search/docs/crawling-indexing/http-network-errors
+  (*"All `4xx` errors, except `429`, are treated the same"* — 410 não deindexa mais
+  rápido que 404; sustenta T1.3)
+- https://www.searchenginejournal.com/the-essential-guide-to-managing-expired-content/318417/
+  e https://www.botify.com/blog/expired-content-seo (301 só com substituto
+  equivalente; redirect de item expirado para categoria = soft-404, por Mueller)
+- https://www.searchviu.com/en/schema-markup-and-ai-in-2025-what-chatgpt-claude-perplexity-gemini-really-see/
+  (experimento controlado, 30/10/2025: preço só em JSON-LD → **0 de 5** sistemas de
+  IA extraíram; só HTML visível foi extraído. Sustenta T4.2 e recalibra T4.4)
+- https://developers.google.com/search/docs/appearance/structured-data/sd-policies
+  (alcance da ação manual: perde rich result, **não** afeta ranking)
+- https://www.seroundtable.com/chatgpt-perplexity-structured-data-text-40862.html
+  (experimento contrário — LLM tokeniza JSON-LD como texto cru, não como estrutura)
 - https://searchengineland.com/google-no-longer-recommends-using-dynamic-rendering-for-google-search-387054
 - https://www.asklantern.com/blogs/ai-crawlers-do-not-render-javascript
 - https://searchoptimo.com/blog/do-ai-crawlers-render-javascript
@@ -222,11 +252,11 @@ frescor é diferente.
 
 **Dependência para T4.2 (medida).** `og.ts` **não faz join com `table_contacts`**;
 mesmo o HTML que hoje vai ao Googlebot não tem dado de contato, necessário para
-`Offer`. E os normalizadores (`getWhatsAppUrl` em `tableViewMapper.ts:30`,
+`Offer`. E os normalizadores (`getWhatsAppUrl` em `apps/mesas/frontend/src/features/table/mappers/tableViewMapper.ts:79`,
 `toSafeDiscordInviteUrl`) vivem só no frontend. Por §"Compartilhado por padrão",
 sobem para pacote compartilhado — não se reimplementam no backend.
 
-### 5.2 Schema — `Product`+`Offer` elegível **e** `Event` para IA, no mesmo `@graph`
+### 5.2 Schema — `Product`+`Offer` no `@graph`, sem `Event`
 
 **Premissa anterior desta seção estava FALSA.** A versão de 2026-09-11 afirmava que
 "o Google **exige** `VirtualLocation` para evento só-online". Verificado na fonte em
@@ -251,10 +281,25 @@ independentes: é virtual sem componente físico, e passa por seleção do mestr
 Isso **elimina** a opção "emitir `Event` só onde houver componente físico": cobriria
 0 de 168 mesas.
 
-**Decisão do mantenedor (2026-09-11):** *"tudo que puder fazer pessoas chegarem nos
-sites, é válido"* — busca generativa é objetivo de produto, não só o Google.
+**Decisão do mantenedor (2026-09-11, final): emitir só `Product`+`Offer`.** Houve
+decisão intermediária de emitir `Event` assim mesmo (*"tudo que puder fazer pessoas
+chegarem nos sites, é válido"*), sob a premissa de que crawlers de IA leem `Event`.
+A premissa foi refutada por medição no mesmo dia; a decisão foi revista com os
+estudos na mão. Raciocínio completo: `tasks.md` T4.4.
 
-**Entrega: um `@graph` com os dois tipos.**
+**A medição que virou a decisão.** Experimento controlado SearchVIU (30/10/2025 —
+5 sistemas, 8 variantes de entrega do mesmo preço, 5 repetições cada): o preço
+presente **só em JSON-LD** foi extraído por **0 de 5** sistemas (ChatGPT, Claude,
+Perplexity, Gemini, Google AI Mode), antes e depois de indexar. O mesmo preço em
+HTML visível foi extraído por 3 de 5. Conclusão textual: *"Current AI chatbots do NOT
+use JSON-LD Schema Markup in direct retrieval"*. Ou seja, o público-alvo do `Event`
+não o consome — o benefício que justificava o risco não existe na fase medida.
+
+E o risco recai sobre o que funciona: ação manual de structured data **retira
+elegibilidade a rich result** (não afeta ranking — `sd-policies`), logo ameaçaria o
+próprio `Product`+`Offer`.
+
+**Entrega: um `@graph` com um tipo.**
 
 ```json
 {
@@ -262,45 +307,30 @@ sites, é válido"* — busca generativa é objetivo de produto, não só o Goog
   "@graph": [
     { "@type": "Product",
       "name": "<título>",
-      "offers": { "@type": "Offer", "price": 0, "priceCurrency": "BRL",
-                  "availability": "https://schema.org/InStock",
-                  "url": "https://mesas.artificiorpg.com/mesas/<slug>" } },
-    { "@type": "Event",
-      "name": "<título>",
-      "eventAttendanceMode": "<derivado de modality>",
-      "location": { "@type": "VirtualLocation", "url": "…/mesas/<slug>" },
-      "startDate": "<ISO-8601 com offset>" }
+      "description": "<por mesa, ver T4.5>",
+      "image": "<≥720px>",
+      "offers": { "@type": "Offer",
+                  "price": "<de price_value>", "priceCurrency": "BRL",
+                  "availability": "<InStock|SoldOut, de slots_total/slots_filled>",
+                  "url": "https://mesas.artificiorpg.com/mesas/<slug>" } }
   ]
 }
 ```
 
-**Divisão de papéis, explícita:**
+**Regra pétrea: nenhum fato só no JSON-LD.** Preço, vagas e data têm de estar no
+**HTML visível** da mesa. É o que os crawlers de IA leem (0 de 5 leram JSON-LD puro;
+3 de 5 leram HTML visível) e é o critério pelo qual a ação manual é aplicada —
+*"Don't mark up content that is not visible to readers of the page"* (`sd-policies`).
+Markup que espelha a página não é punível e alcança IA; markup escondido falha nas
+duas pontas.
 
-| Tipo | Quem consome | Rich result no Google? |
-|---|---|---|
-| `Product`+`Offer` | Google (elegível) | sim |
-| `Event` | crawlers de IA, schema.org | **não, e é esperado** |
+**Onde o objetivo de busca generativa é atendido:** §5.1 (HTML-first/SSR, T4.2) e
+`description` por mesa (T4.5) — não no tipo de schema. Sem SSR, nenhum schema
+entrega nada para IA, porque nenhum crawler de IA executa JS em fetch direto.
 
-**Por que isto não é spam de dados estruturados.** Ação manual pune markup que
-**contradiz a página**. Mesa online com vaga, preço e data é honestamente descrita
-pelos dois tipos; o Google descarta o `Event` por inelegibilidade e usa o `Product`.
-Risco não é zero e **não foi medido** — não há dado público sobre a taxa. É
-julgamento, marcado como tal. O MesaQuest emite `Event`+`VirtualLocation` e não foi
-penalizado até 2026-09-11, o que é indício, não prova.
-
-**`eventAttendanceMode` sai de `modality`, nunca literal no código.** Hoje as 168
-mesas são `online` e o mapa produziria sempre `OnlineEventAttendanceMode` — mas o
-enum já aceita `presencial`/`hibrida`, e o produto permite escolher. Fixar o literal
-faria a primeira mesa presencial emitir dado falso:
-
-| `modality` | `eventAttendanceMode` | `location` |
-|---|---|---|
-| `online` | `OnlineEventAttendanceMode` | `VirtualLocation` |
-| `presencial` | `OfflineEventAttendanceMode` | `Place` + `PostalAddress` |
-| `hibrida` | `MixedEventAttendanceMode` | array dos dois |
-
-Mesa presencial **é** elegível a rich result de `Event` — se aparecer, ela ganha o
-que as online não podem ter. Uma linha de mapeamento em vez de um literal.
+**Se o catálogo ganhar mesa presencial** (hoje `online | 168`, zero presenciais),
+`Event` volta a ser discutível — aí há componente real-world e a inelegibilidade cai.
+Condição de reabertura e mapa `modality`→`eventAttendanceMode`: `tasks.md` T4.4.
 
 **Regra de preço, por medição.** `price` sai de `price_value`/`price_type`, **nunca**
 do rótulo do contato: "Ticket / Inscrição" aparece em 106 contatos, mas 101 dessas
@@ -329,10 +359,15 @@ ClaudeBot. **Permitir não basta**: eles não executam JS (medido em `spec.md` �
 sustentado por estudo da Vercel e experimento do Search Engine Land). O ganho real
 vem do HTML-first de 5.1; nomear os bots no robots é cosmético por si só.
 
-Decisão de produto, não técnica: **queremos** ser citados por busca generativa? Se
-sim, 5.1 é o que entrega. Se o mantenedor quiser explicitar como o MesaQuest
-(`GPTBot`, `Claude-Web`, `PerplexityBot`, `Google-Extended` nomeados), é uma linha —
-mas sem 5.1 não muda nada de fato.
+**Fechado em 2026-09-11: sim, queremos ser citados por busca generativa** — e a
+pergunta sai daqui. Não é escolha em aberto: `spec.md` §2.5 registra a comparação
+medida com o MesaQuest, e o próprio objetivo da spec é recuperar descoberta de
+conteúdo. O que estava de fato em aberto era o *meio*, e ele já está decidido: HTML-
+first (§5.1/T4.2) é o que entrega; nomear os agentes no `robots.txt` é o passo
+complementar, executado em T4.6 na ordem T4.1 → T4.2 → T4.3 → T4.6.
+
+A redação anterior devolvia ao mantenedor uma pergunta que a própria spec já
+respondia — corrigido para não ser redecidido a cada retomada.
 
 ---
 
@@ -340,10 +375,12 @@ mas sem 5.1 não muda nada de fato.
 
 ### 6.1 Facetas de filtro (`?system=`)
 
-Não medido em profundidade nesta investigação — o exemplo do Search Console
-(`https://mesas.artificiorpg.com/?system=castles-crusades`) indica que parâmetros de
-filtro são rastreados. Primeira task da frente é **medir** quantas variações existem
-e se emitem canonical. Correção provável: canonical para a URL limpa.
+**Medido em 2026-09-11 (detalhe e aceite em `tasks.md` T5.1).** São **10 parâmetros**
+serializados em `catalogFilters.ts:85-104`, com 1.269 sistemas cadastrados e apenas
+**73** com mesa — 1.196 facetas de `?system=` renderizariam catálogo vazio. Decidido:
+**canonical para a URL limpa em todas as facetas, nenhuma indexável.** Faceta com
+demanda de busca comprovada viraria rota própria (`/sistemas/<slug>`), não parâmetro
+indexável, e em outra spec.
 
 ### 6.2 Guards (impedir reintrodução)
 

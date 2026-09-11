@@ -48,8 +48,25 @@ que **segue divergente**.
 
 **Escopo revisto desta task:**
 1. ~~Criar o helper~~ — já existia; era "ligar o SQL ao sitemap" (feito em T1.4).
-2. Teste de equivalência objeto↔SQL (não existe).
-3. Unificar o espelho do frontend em `packages/*` (não feito).
+2. Teste de equivalência objeto↔SQL, em arquivo novo
+   `apps/mesas/backend/src/utils/tableVisibility.equivalence.test.ts`. Roda contra o
+   banco de teste do `mesas`: monta um conjunto de mesas cobrindo os limites de
+   `LEAST(COALESCE(starts_at, created_at + INTERVAL '5 days'), created_at + INTERVAL '5 days')`
+   (antes, exatamente no limite, depois, e `starts_at` nulo), seleciona por
+   `importedTableIsCurrentSql` e filtra o mesmo conjunto em memória por
+   `isImportedTableExpired`, e falha se os dois ids não baterem. Executável já, sem
+   depender do item 3.
+3. Unificar o espelho do frontend — **não é executável nesta spec e não bloqueia as
+   demais tasks.** Medido em 2026-09-11: `ls packages/` devolve `analytics, auth,
+   catalog-client, catalog-matching, catalog-ui, changelog, comments, config, content,
+   content-editor, email, feedback, image-editor, media, ui` — **não existe pacote de
+   domínio/visibilidade**. Subir a regra significa **criar pacote novo**, que exige
+   aprovação nominal própria (§Autorização) e não foi pedida. Enquanto não houver, o
+   espelho `apps/mesas/frontend/src/utils/tableVisibility.ts` segue divergente; o item
+   fica nomeado aqui como bloqueio, não como pendência silenciosa.
+
+**Aceite desta task:** item 2 passando. O item 3 não entra no aceite — está bloqueado
+em autorização, não em trabalho.
 
 **Validação do que foi feito.** `rtk tsc -b` → No errors found; `rtk vitest run`
 (`tableVisibility.test.ts` + `tables.visibility.test.ts`) → **37/37 PASS**. Esses 37
@@ -74,10 +91,16 @@ domínio.
 
 ---
 
-### [!] T1.3 — Destino da mesa expirada (404 / 410 / 301)
+### [ ] T1.3 — Destino da mesa expirada — DECIDIDO (2026-09-11): `410 Gone` + página útil
 
-**Ainda bloqueada: decisão de produto.** Muda o que o usuário vê ao abrir link antigo
-compartilhado (WhatsApp, Discord), portanto não é call do agente (§Bug achado → exceção 2).
+**Decisão do mantenedor (2026-09-11):** seguir a recomendação medida — *"decisões de
+produto também são pesquisáveis sobre a melhor eficácia, o que o mercado melhor
+entende ou as melhores práticas para SEO e usuário"*. A opção foi escolhida com o
+catálogo medido e a prática de mercado citada, não por preferência do agente.
+
+**Entrega: `410 Gone` com corpo útil.** O status é de remoção deliberada; o corpo
+não é uma página de erro seca. Ver "Camada de UX" abaixo — é ela que resolve a parte
+"usuário" da decisão, e sem ela o `410` sozinho seria pior que o estado atual.
 
 **Resolvido em 2026-09-11: a regra de expiração de 5 dias está CORRETA e permanece.**
 O mantenedor confirmou o porquê: *"mesas normalmente fecham em 2, 3 dias as vagas,
@@ -88,22 +111,79 @@ não construir fluxo de lembrete (ele marcou como não prioritário).
 Isso **fecha uma bifurcação**: a correção era o sitemap parar de anunciar as expiradas
 (T1.4, feito), não afrouxar o prazo.
 
-**O que resta decidir:** qual status a mesa expirada devolve.
+**Por que `410` e não `301` — medido no catálogo de produção (2026-09-11).**
 
-| Opção | Google | Usuário |
-|---|---|---|
-| `404` | sai do índice | link antigo → erro |
-| `410 Gone` | sai do índice; **não** é mais rápido que 404 | link antigo → erro |
-| `301` → listagem do sistema | transfere autoridade | link antigo → mesas parecidas |
+A prática de mercado é unânime no critério, não no código: **301 só quando existe
+substituto genuinamente equivalente**; sem ele, `404`/`410` é melhor do que redirect
+para algo irrelevante. John Mueller é explícito que redirecionar item expirado para
+home ou categoria genérica faz o Google tratar como **soft-404** — exatamente o
+defeito que esta spec existe para eliminar (achado C). Seria trocar um soft-404 por
+outro.
 
-**Recomendação do agente:** `410` para expirada (remoção deliberada por regra de
-negócio, não erro) e `404` para inexistente (T1.2).
+Medição que decide (`mesas-db`, `archived_at IS NULL AND status='active'`),
+**tirada em 2026-09-11**:
 
-**Correção 2026-09-11 (achado de auditoria):** a versão anterior dizia que "410 sai
-mais rápido do índice". **Sem base na fonte** — a documentação do Google trata todos
-os 4xx (exceto 429) da mesma forma. A escolha entre 404 e 410 é de **semântica**
-("não existe" vs. "existiu e foi removido"), não de velocidade. Não usar velocidade
-como critério de decisão aqui.
+**Sobre os dois números que aparecem na spec (47 e 51).** Não é inconsistência: o
+catálogo rotaciona — mesa expira em ≤ 5 dias e mesa nova entra todo dia. `51 de 92` é
+a varredura do sitemap servido (§2.2 da `spec.md`), de uma data anterior; `47 de 88` é
+a consulta ao banco de 2026-09-11. **A canônica para decidir T1.3 é a de 2026-09-11**,
+porque é a que mede o substituto do mesmo mestre. A proporção não se move (53% × 55%),
+que é o que sustenta a decisão; o valor absoluto de qualquer nova medição será
+diferente outra vez, e isso é esperado.
+
+| Métrica | Valor |
+|---|---|
+| Mesas expiradas pela regra | **47** de 88 ativas (53%) |
+| Expiradas **com outra mesa vigente do mesmo mestre** | **0** |
+| Expiradas com mesa vigente do mesmo sistema | 23 |
+| Idade das expiradas | 6 a 27 dias |
+
+**0 de 47** têm substituto do mesmo mestre — o único destino que seria de fato
+"essencialmente a mesma coisa". Redirecionar para a listagem do sistema (23 casos)
+é redirect para categoria: é o caso que Mueller nomeia como soft-404. Logo o `301`
+está descartado **por medição**, não por preferência.
+
+Dois fatores reforçam: as expiradas têm 6–27 dias (sem tempo de acumular backlink,
+então não há autoridade a preservar — o outro motivo clássico de 301), e a
+rotatividade é alta (53% do catálogo expira), o que tornaria redirect em massa para
+poucos destinos um padrão que a própria literatura marca como suspeito.
+
+**Por que `410` e não `404`.** Não é velocidade de deindexação: a doc do Google diz
+que *"All `4xx` errors, except `429`, are treated the same"* (verificado 2026-09-11,
+`http-network-errors`). O critério é **semântica honesta**: a mesa **existiu** e foi
+removida por regra de negócio conhecida (5 dias / data do evento), não é URL
+inexistente. `410` é o código que descreve isso, e a separação deixa o Search Console
+legível — `404` passa a significar "slug errado" (T1.2) e `410`, "mesa encerrada".
+São dois defeitos diferentes, e misturá-los num código só cega o diagnóstico.
+
+**Camada de UX — obrigatória, é o que torna a decisão boa para o usuário.** Status
+de erro e página útil não são excludentes: serve-se corpo prestativo **com** o código
+correto. O link antigo no WhatsApp/Discord não pode terminar em beco sem saída. A
+página de `410` mostra:
+
+1. Que aquela mesa específica encerrou (com o título, para a pessoa reconhecer o que
+   procurava — não "página não encontrada" genérico);
+2. Mesas vigentes do **mesmo sistema** (23 das 47 têm; é conteúdo relacionado legítimo
+   aqui, porque é sugestão visível ao usuário, não redirect invisível ao crawler);
+3. Busca/atalho para o catálogo.
+
+Essa é a diferença entre `301` e `410`+sugestões: no `301` o Google vê afirmação
+falsa de equivalência; no `410`+página, a pessoa recebe a alternativa **e** o índice
+recebe a verdade.
+
+**Correção 2026-09-11 (achado de auditoria), preservada:** a versão anterior dizia
+que "410 sai mais rápido do índice". **Sem base na fonte** — todos os 4xx (exceto
+429) são tratados igual. Não usar velocidade como critério aqui.
+
+**Aceite.**
+
+1. `curl -s -o /dev/null -w '%{http_code}' /mesas/<slug-expirada>` → **410**.
+2. `curl -s -o /dev/null -w '%{http_code}' /mesas/nao-existe-zzz` → **404** (T1.2).
+3. Resposta `410` **não** emite `<link rel=canonical>` auto-referente (mesmo critério
+   do aceite C2 — canonical em página removida reafirma a URL que se quer remover).
+4. Corpo do `410` lista mesas vigentes do mesmo sistema quando houver, e nunca é
+   página vazia.
+5. Nenhuma mesa expirada no sitemap (já garantido por T1.4, commit `826b44f`).
 
 **`eventStatus` saiu da lista** — T4.4 descartou `Event`, então não há status de
 evento para carregar.
@@ -155,7 +235,7 @@ sitemap era um **terceiro leitor nunca ligado à fonte única**.
 
 ## F2 — `site`: 301 dos prefixos legados do WordPress
 
-### [x] T2.1 — Camada do redirect — RESOLVIDA: o mecanismo JÁ EXISTE no repo
+### [ ] T2.1 — Camada do redirect — decidida (mecanismo do repo), com 2 defeitos a corrigir
 
 **Correção de 2026-09-11 (achado de auditoria).** Esta task perguntava "nginx do
 container ou Cloudflare?". A pergunta era **falsa**: o `site` já tem um subsistema de
@@ -188,6 +268,52 @@ está vazio.
 **Consequência:** as aprovações nominais antes previstas para `Dockerfile`/nginx e
 Cloudflare **saem** da lista da F2. Resta a autorização de `INSERT` (T2.2).
 
+**Dois defeitos do mecanismo, medidos em 2026-09-11 — reabrem trabalho de código.**
+O subsistema existe e está ligado, mas popular a tabela não basta: nas duas formas
+abaixo o 301 não acontece. Ambos são correção em `apps/site/server/`, sem infra.
+
+*Defeito 1 — match exato, sem normalização de barra final.* `redirect-cache.ts:15-16`:
+
+```ts
+export function lookupRedirect(path: string): { to: string; code: number } | undefined {
+  return map.get(path);
+}
+```
+
+`Map.get` é igualdade estrita. Com `from_path = '/noticias/x/'` gravado, a requisição
+a `/noticias/x` (sem barra) não casa e cai em **404** — e é essa a forma que sobrevive
+em link externo e backlink antigo, que é justamente o que a F2 quer recuperar.
+Astro usa `trailingSlash: "always"`, então as duas formas precisam resolver.
+
+*Defeito 2 — a query string é descartada.* `server.ts:291-296`:
+
+```js
+const hit = lookupRedirect(req.path);
+if (hit && hit.to !== req.path) { res.redirect(hit.code, hit.to); return; }
+```
+
+`req.path` **exclui** a query string, e `res.redirect` recebe só `hit.to`. Resultado:
+`/noticias/x/?utm_source=fb` redireciona para `/blog/x/` sem os UTMs — a atribuição de
+campanha some do GA4 em todo tráfego legado. O próprio arquivo já conhece a distinção:
+`server.ts:87-92` usa `req.originalUrl` em vez de `req.path` para `/admin/assets/`.
+
+**Entrega de código desta task:**
+
+1. Normalizar barra final no `lookupRedirect` — tentar a chave como veio e, se não
+   casar, a forma alternada (com/sem `/`). Normalizar na escrita **e** na leitura, para
+   não depender de como a linha foi gravada.
+2. Preservar a query string no destino: anexar ao `hit.to` a parte de `req.originalUrl`
+   a partir de `?`, quando houver. Se `hit.to` já tiver query própria, mesclar sem
+   duplicar chave.
+
+**Aceite (substitui D1/D2, que só testavam a forma com barra):**
+
+1. `/noticias/<slug>/` → 301 → `/blog/<slug>/` → 200.
+2. `/noticias/<slug>` (**sem** barra) → 301 → `/blog/<slug>/` → 200.
+3. `/noticias/<slug>/?utm_source=fb&utm_medium=social` → 301 com `Location` contendo
+   `utm_source=fb` e `utm_medium=social`.
+4. Nenhuma cadeia: o `Location` de cada caso devolve 200 direto, não outro 301.
+
 ---
 
 ### [ ] T2.2 — Popular a tabela `redirects` com os prefixos legados
@@ -198,19 +324,40 @@ divergente, sem cadeia, `code = 301`.
 **Fonte dos pares.** Derivados do banco, não digitados:
 
 ```sql
-SELECT canonical AS from_path,
-       'https://artificiorpg.com/blog/' || slug || '/' AS to_path
+SELECT regexp_replace(canonical, '^https?://[^/]+', '') AS from_path,
+       '/blog/' || slug || '/'                          AS to_path
 FROM posts
 WHERE canonical IS NOT NULL
-  AND canonical <> 'https://artificiorpg.com/blog/' || slug || '/';
--- 105 linhas
+  AND regexp_replace(canonical, '^https?://[^/]+', '') <> '/blog/' || slug || '/';
+-- esperado: 105 linhas
 ```
+
+O predicado é o **mesmo** `regexp_replace` usado em T3.2 e nas medições de §2 — de
+propósito. Comparar a URL absoluta literal daria contagem diferente se algum canonical
+tiver `http://` em vez de `https://`, e as duas tasks operam sobre o mesmo conjunto de
+105 linhas. Predicados divergentes aqui produziriam redirect para post cujo canonical
+T3.2 não limpou, ou o inverso.
 
 Prefixos cobertos (medido, 2026-09-11): `/noticias/` 64, `/blog/<categoria>/` 38,
 `/dnd/` 18, `/downloads/` 3, `/entrevistas/` 2. Os 20 já corretos **não** entram.
 
-**`from_path` precisa ser o caminho, não a URL absoluta** — `lookupRedirect(req.path)`
-compara com `req.path`. Normalizar removendo esquema+host antes do `INSERT`.
+**105 é o número certo, mesmo com 994 URLs em 404 no GSC — não reabrir.** A diferença
+já foi investigada e explicada em `spec.md` §2.4.2: as URLs do WP carregavam categoria
+na rota (média 2,42 segmentos, máx. 5, em **122** pastas distintas) e somavam páginas
+de arquivo (`/category/`, `/tag/`, `/author/`, `/feed/`, paginação), todas medidas hoje
+como 404. O redirect é **por post**, não por URL de arquivo.
+
+O que **não** entra, por decisão fundamentada e não por omissão:
+- Arquivos de categoria/tag/autor do WP — não têm destino 1:1; redirecioná-los para a
+  listagem seria soft-404, o defeito que a F1 corrige.
+- `/magia/`, `/doc/`, `/dd/` — seções nunca migradas (apenas **1** post casa com
+  `%magia%`). Não é URL errada, é conteúdo ausente; 404 é a resposta correta.
+- Fundamento oficial: *"The `4xx` status codes, except `429`, have no effect on crawl
+  rate"* — 404 não penaliza ranking nem consome orçamento de rastreio.
+
+**`from_path` é caminho, não URL absoluta** — `lookupRedirect(req.path)` compara com
+`req.path`. A `SELECT` acima já entrega normalizado; `to_path` também é relativo, pelo
+mesmo motivo.
 
 **Exigências de SEO (da pesquisa, confirmadas na fonte):**
 - 301 (permanente), nunca 302 — *"301 redirects don't cause a loss in PageRank"*.
@@ -218,14 +365,23 @@ compara com `req.path`. Normalizar removendo esquema+host antes do `INSERT`.
 - Manter no ar **≥ 1 ano** — *"at least 1 year"*.
 - `trailingSlash: "always"` no Astro: destino termina em `/`.
 
-**Depende de.** T3.1 (corrigir a origem no importador). Sem isso o importador volta a
-gravar canonical legado e a F2 vira trabalho recorrente.
+**Não depende de T3.1.** A dependência registrada aqui até 2026-09-11 ("sem isso o
+importador volta a gravar canonical legado") caiu com a refutação da premissa de
+T3.1: o importador foi removido em 2026-07-27 (`server.ts:167-169`). Não há
+reimportação para regravar nada; as duas tasks são independentes.
 
 **Autorização nominal necessária.** `INSERT` de 105 linhas em `site` (produção).
 Rollback: `DELETE FROM redirects WHERE from_path IN (…)`, reversível.
 
-**Aceite.** `SELECT COUNT(*) FROM redirects` → 105, e cada `from_path` devolve **301**
-para o `to_path`, que devolve **200**.
+**Idempotência medida.** `addRedirect` (`apps/site/db/repo/redirects.ts:9`) usa
+`ON CONFLICT (from_path) DO UPDATE SET to_path = EXCLUDED.to_path, code = EXCLUDED.code`.
+Reexecutar a carga não duplica linha nem falha — o aceite pode rodar duas vezes.
+
+**Aceite.**
+
+1. `SELECT COUNT(*) FROM redirects` → 105, e cada `from_path` devolve **301** para o
+   `to_path`, que devolve **200**.
+2. Rodar a carga uma segunda vez mantém a contagem em 105 (guarda de idempotência).
 
 ---
 
@@ -240,19 +396,46 @@ antigas do WP), testa cada uma das 105 URLs legadas e afirma 301 → 200 sem cad
 
 ## F3 — `site`: canonical legado
 
-### [ ] T3.1 — Corrigir a origem no importador
+### [ ] T3.1 — Fechar a origem do canonical divergente — REESCRITA (2026-09-11): não há importador
 
-**Problema.** O importador do WordPress grava `posts.canonical` com a URL antiga do
-WP. `db/export.ts:66` a propaga para `posts.json`, e `[slug].astro:21` a emite como
-autoridade. Medido: 105 de 126 posts (83%) com canonical apontando para 404.
+**Premissa anterior refutada.** A task dizia "importador para de gravar canonical do
+WP". Medido em `apps/site/server/server.ts:167-169`, verbatim:
 
-**Entrega.** Importador para de gravar canonical do WP. **Preservar** a capacidade
-de override editorial via admin (`[slug].astro:21` continua honrando
-`post.seo.canonical`) — o recurso é legítimo; o dado é que está errado.
+```
+// POST /admin/import (re-import do WP -> store) foi REMOVIDA em 2026-07-27 junto com o importador.
+// Disparava pnpm run import, script que deixou de existir — manter a rota daria 500 em vez de 404,
+// e o WP que ela importava está fora do ar desde o cutover (D074/spec 029).
+```
+
+Não existe importador para corrigir. Os 105 canonicals divergentes são **dado
+legado congelado**, não fluxo ativo: nada no stack atual regrava `posts.canonical`
+com URL do WP.
+
+**Consequência na ordem das tasks.** A dependência T2.2→T3.1 é **falsa como estava
+escrita** — não há risco de reimportação regravar o que T3.2 limpar. T3.2 pode rodar
+sem esperar T2.2.
+
+**Único caminho de escrita restante:** o override editorial via admin. `[slug].astro:21`
+honra `post.seo.canonical` quando presente; o editor pode preencher pelo admin. O
+recurso é legítimo e **se preserva** — o problema nunca foi o mecanismo, foi o dado
+que o importador removido deixou para trás.
 
 **Medido para descartar risco:** `SELECT count(*) … canonical NOT LIKE 'https://artificiorpg.com%'`
 → **0**. Nenhum canonical aponta para domínio externo; não há sindicação legítima a
 preservar. Os 21 "corretos" são posts nascidos no stack novo, não override editorial.
+
+**Entrega desta task (documental + guarda):**
+
+1. Registrar no código do admin/editor que canonical vazio é o default correto — só
+   se preenche para sindicação real, nunca "por completude".
+2. Guarda de regressão: teste que falha se qualquer canonical persistido apontar para
+   host diferente de `artificiorpg.com`.
+
+**Aceite:**
+
+1. `rtk rg "run import" apps/site` → 0 ocorrências de script de importação vivo.
+2. Teste da guarda falha ao inserir canonical com host externo e passa com `NULL`.
+3. Nenhuma linha da spec afirma que T3.2 depende de T2.2.
 
 ---
 
@@ -276,7 +459,10 @@ Com `canonical` nulo, `[slug].astro:21` cai no fallback correto
 **Rollback.** `pg_dump` da tabela `posts` antes; a coluna é restaurável isoladamente.
 Não destrói conteúdo — só metadado de SEO já comprovadamente errado.
 
-**Depende de.** T3.1 (senão a próxima importação regrava).
+**Não depende de T3.1.** "Senão a próxima importação regrava" pressupunha um
+importador que não existe desde 2026-07-27 (`server.ts:167-169`). T3.2 pode rodar
+assim que a autorização nominal do `UPDATE` sair; T3.1 é guarda de regressão, não
+pré-condição.
 
 ---
 
@@ -291,6 +477,41 @@ atualizado".
 
 **Aceite.** Varredura dos 126 posts: `<link rel=canonical>` == URL servida em
 **126/126** (hoje: 21/126).
+
+---
+
+### [ ] T3.4 — `lastmod` no sitemap do `site`
+
+**Problema, medido em 2026-09-11:**
+
+```
+curl -s https://artificiorpg.com/sitemap-0.xml | grep -c "lastmod"   →  0
+```
+
+Cada `<url>` do sitemap do `site` traz só `<loc>`. O do `mesas` já emite `lastmod`; o
+`site`, não. `apps/site/astro.config.mjs:20` usa `@astrojs/sitemap` com config padrão,
+que não deriva data.
+
+**Por que entra nesta spec.** É a única alavanca barata para o Google **redescobrir**
+os 126 posts depois que T3.2/T3.3 corrigirem o canonical. Sem `lastmod`, nada no
+sitemap sinaliza que o conteúdo mudou, e a redescoberta fica dependendo do ritmo
+natural de recrawl — as "semanas a meses" do `plan.md` §9. Google recomenda `lastmod`
+explicitamente para conteúdo atualizado, e o usa quando a data é consistente e
+confiável (data inventada ou igual para todas as URLs é ignorada).
+
+**Entrega.** `serialize` do `@astrojs/sitemap` preenchendo `lastmod` a partir da data
+real de atualização do post (`posts.updated_at`, propagada via `export.ts` →
+`posts.json`), não da data do build. Para páginas sem data própria (home, `/blog/`),
+omitir o campo em vez de inventar.
+
+**Aceite:**
+
+1. `curl -s https://artificiorpg.com/sitemap-0.xml | grep -c "lastmod"` → ≥ 126.
+2. Duas URLs de posts com datas de edição diferentes têm `lastmod` diferentes (guarda
+   contra "data do build para todas").
+3. Nenhuma URL sem data real recebe `lastmod`.
+
+**Depende de.** T3.3 (mesmo ciclo de export + build + deploy) — cabe no mesmo deploy.
 
 ---
 
@@ -338,7 +559,7 @@ fetching e deploy. Precisa de autorização nominal antes de começar.
 
 **Nota para T4.2.** `og.ts` **não faz join com `table_contacts`** — mesmo o HTML que
 hoje vai ao Googlebot não tem dado de contato, necessário para `Offer` (T4.4). E os
-normalizadores (`getWhatsAppUrl` em `tableViewMapper.ts:30`, `toSafeDiscordInviteUrl`)
+normalizadores (`getWhatsAppUrl` em `apps/mesas/frontend/src/features/table/mappers/tableViewMapper.ts:79`, `toSafeDiscordInviteUrl`)
 vivem só no frontend. Por §"Compartilhado por padrão", sobem para pacote compartilhado
 — não se reimplementam no backend.
 
@@ -349,14 +570,57 @@ vivem só no frontend. Por §"Compartilhado por padrão", sobem para pacote comp
 **Entrega.** Conteúdo e schema no HTML inicial, **iguais para todo user-agent**.
 Elimina por construção a divergência bot↔usuário que produziu B, C e E.
 
-**Depende de.** T4.1.
+**Mecanismo — decidido em 2026-09-11 por pesquisa, não deixado em aberto.** T4.1
+decidiu *SSR universal*; faltava **como**. Medido no repo
+(`apps/mesas/frontend/package.json`): `react-router-dom` `^7.18.0`, `react` `^19.2.7`,
+`vite` `^8.0.16`, nenhum adapter SSR, `"dev": "vite"`.
 
-**Aceite.** `curl -A GPTBot/1.1` e `-A ClaudeBot/1.0` devolvem HTML com o conteúdo
-real da mesa (hoje: 3.328 B de casca) e `grep -c 'ld+json'` → ≥ 1.
+**Recomendação: React Router v7 em framework mode**, e não Next.js/Remix/Astro:
+
+- É o **mesmo pacote já instalado**. Framework mode é modo de operação do
+  `react-router` 7, ativado por `react-router.config.ts` com `{ ssr: true }` — não é
+  dependência nova, o que evita a aprovação de lib nova (§Autorização) e a troca de
+  stack. O time do React Router declara framework mode como o caminho pretendido para
+  a maioria dos apps, SSR ou não.
+- Preserva Vite, que já é o bundler do app.
+- Servidor Express próprio via `createRequestHandler` de `@react-router/express`,
+  servindo `build/client` estático — encaixa no container atual do `mesas` sem trocar
+  o modelo de deploy.
+
+**Custos medidos na experiência pública de quem migrou, para não descobrir no meio:**
+
+1. Imports mudam de `react-router-dom` para `react-router` (pacote unificado).
+2. Código só-de-browser (`window`, `localStorage`) precisa sair do render e ir para
+   `clientLoader`/`clientAction` — é a causa mais citada de quebra na migração.
+3. Dependência CJS/ESM mal empacotada quebra no SSR; o contorno é `ssr.noExternal`.
+4. Tipagem de loader muda; `react-router typegen` gera os tipos.
+
+A migração **não é mecânica** — os relatos de "uma tarde" são de apps v6→v7 sem SSR.
+Tratar como obra, com autorização nominal própria (já registrada em T4.1).
+
+**Escopo das rotas.** Duas famílias públicas, não uma: `/mesas/<slug>` **e** o perfil
+de mestre. T4.3 define schema só para mesa; **o perfil de mestre não recebe schema
+nesta spec** — entra em HTML-first (conteúdo visível para crawler), que é o que
+resolve B/C/E. Schema de `Person`/`ProfilePage` para mestre fica fora de escopo,
+declarado aqui para não virar improviso do implementador.
+
+**Nota de dado (de T4.1).** `og.ts` não faz join com `table_contacts` — o HTML que
+hoje chega ao Googlebot já nasce sem os contatos. O SSR precisa incluir esse join,
+senão troca uma casca por outra.
+
+**Depende de.** T4.1. **Exige autorização nominal** (obra de arquitetura).
+
+**Aceite.**
+
+1. `curl -A GPTBot/1.1` e `-A ClaudeBot/1.0` devolvem HTML com o conteúdo real da
+   mesa (hoje: 3.328 B de casca) e `grep -c 'ld+json'` → ≥ 1.
+2. Mesma medição na rota de perfil de mestre: conteúdo real, não casca.
+3. Navegador e crawler recebem **o mesmo** HTML — `diff` entre as duas respostas
+   vazio fora de nonce/timestamp. É o fim do dynamic rendering, não sua ampliação.
 
 ---
 
-### [ ] T4.3 — Schema `Product`+`Offer` **e** `Event` no mesmo `@graph`
+### [ ] T4.3 — Schema `Product`+`Offer` no `@graph` (sem `Event` — ver T4.4)
 
 **Correção de premissa (2026-09-11).** A versão anterior desta task dizia que o
 Google **exige** `VirtualLocation` para evento só-online. **Falso** — verificado na
@@ -365,45 +629,81 @@ que ela diz é mais forte: *"Virtual experiences with no real-world component ar
 supported."* Mesa online **não é elegível** a rich result de `Event`, ponto. Detalhe
 e citações em `plan.md` §5.2.
 
-**Entrega.** Um `@graph` com dois tipos, papéis distintos:
+**Entrega.** Um `@graph` com **um** tipo. Decisão de 2026-09-11 (T4.4): `Event`
+descartado.
 
-- **`Product` + `Offer`** — para o Google. `name`, `description` (T4.5), `image`
-  (≥720px, ideal 1920px), `offers.price`, `priceCurrency` `"BRL"`, `availability`
+- **`Product` + `Offer`** — `name`, `description` (T4.5), `image` (quando houver;
+  ver regra 3 abaixo), `offers.price`, `priceCurrency` `"BRL"`, `availability`
   (`InStock`/`SoldOut` de `slots_total`/`slots_filled`), `url`.
-- **`Event`** — para crawlers de IA e schema.org, **sem esperar rich result**.
-  `name`, `startDate` (ISO-8601 com offset), `eventAttendanceMode`, `location`.
 
-**Decisão do mantenedor (2026-09-11):** *"tudo que puder fazer pessoas chegarem nos
-sites, é válido"*. O `Event` existe para busca generativa, não para o Google.
+**Regra pétrea desta task — nenhum fato existe só no JSON-LD.** Toda propriedade
+emitida (preço, vagas, data, modalidade) tem de estar no **HTML visível** da mesa.
+Duas razões medidas, e as duas apontam para a mesma regra:
+
+- É o que os crawlers de IA de fato leem. No experimento SearchVIU (30/10/2025),
+  preço presente só em JSON-LD foi extraído por **0 de 5** sistemas; em HTML visível,
+  por 3 de 5. O JSON-LD sozinho entrega zero para busca generativa.
+- É o critério pelo qual a ação manual é aplicada: *"Don't mark up content that is
+  not visible to readers of the page"* (`sd-policies`). Markup que espelha a página
+  não é punível.
 
 **Duas regras obrigatórias, ambas por medição:**
 
-1. **`eventAttendanceMode` deriva de `modality`, nunca literal.** Hoje o catálogo é
-   100% `online` (`online | 168`, zero presencial/híbrida), mas o enum aceita as
-   outras e o produto permite escolher. Literal faria a primeira mesa presencial
-   emitir dado falso. Mapa: `online`→`OnlineEventAttendanceMode`+`VirtualLocation`;
-   `presencial`→`OfflineEventAttendanceMode`+`Place`; `hibrida`→`Mixed…`+ambos.
-2. **`price` sai de `price_value`/`price_type`, nunca do rótulo do contato.**
-   "Ticket / Inscrição" aparece em 106 contatos, mas 101 dessas mesas são `gratuita`
-   — derivar do rótulo geraria preço falso em 95% dos casos.
+1. **`price` sai de `price_value`/`price_type`, nunca do rótulo do contato.**
+   "Ticket / Inscrição" aparece em ~106 contatos (`label ILIKE '%ticket%' OR
+   '%inscri%'` → **107** em 2026-09-11; o número oscila com a rotação do catálogo),
+   mas 101 dessas mesas são `gratuita` — derivar do rótulo geraria preço falso em
+   ~95% dos casos. O que decide é a proporção, não o valor absoluto.
+
+   Não confundir com `channel = 'form'` → 108 (citado em T4.4): são consultas
+   diferentes — uma sobre o **rótulo**, outra sobre o **canal** — que por coincidência
+   caem perto. Números próximos, fontes distintas.
+2. **`availability` deriva de `slots_total`/`slots_filled`, nunca literal.**
+   `InStock` com mesa lotada contradiz a página e é exatamente o que a ação manual
+   pune.
+3. **`image`: `banner_url` primeiro, `cover_url` como fallback, omitir se nenhuma.**
+   Decidido por medição (2026-09-11), não por preferência:
+
+   ```
+   SELECT count(*) total, count(cover_url), count(banner_url) FROM tables;
+   -- 168 | 90 | 145
+   SELECT count(*) FILTER (WHERE banner_url IS NULL AND cover_url IS NULL) FROM tables;
+   -- 23
+   ```
+
+   `banner_url` cobre 145 de 168 (86%) contra 90 de `cover_url` (54%) — por isso é a
+   primeira escolha. Ambas são `is_nullable = YES`, e **23 mesas não têm nenhuma**.
+
+   Para essas 23, a regra é **omitir `image`**, nunca emitir placeholder. Medido na
+   fonte (`product-snippet`): as propriedades obrigatórias de `Product` são `name` e
+   pelo menos um de `offers`/`review`/`aggregateRating` — **`image` não é required**.
+   Omitir custa, no pior caso, um snippet menos rico; emitir imagem genérica que não
+   está na página viola *"Don't mark up content that is not visible to readers"* e
+   cai na regra pétrea desta task.
+
+*(A regra antiga nº 1, `eventAttendanceMode` derivado de `modality`, saiu junto com o
+`Event`. O princípio que a motivava — nunca emitir literal onde o dado existe no
+banco — está preservado nas duas regras acima. Se `Event` voltar algum dia, a regra
+volta com ele: `online`→`OnlineEventAttendanceMode`+`VirtualLocation`;
+`presencial`→`OfflineEventAttendanceMode`+`Place`; `hibrida`→`Mixed…`+ambos.)*
 
 **Depende de.** T4.2/T4.1 (SSR). Schema injetado por JS é invisível para crawler de
-IA — nenhum executa JavaScript. Sem SSR esta task entrega zero.
+IA — nenhum executa JavaScript em fetch direto. Sem SSR esta task entrega zero.
 
 **Aceite — SUBSTITUI o aceite F2 anterior, que era inválido.** O anterior verificava
 `VirtualLocation` como exigência do Google; testava regra inexistente.
 
-1. Rich Results Test: **`Product` sem erro crítico**. `Event` ignorado pelo Google é
-   resultado **esperado**, não falha.
-2. `@graph` contém os dois tipos: `grep -c '"@type": "Event"'` → 1 e
-   `grep -c '"@type": "Product"'` → 1 no HTML inicial.
+1. Rich Results Test: **`Product` sem erro crítico**.
+2. `grep -c '"@type": "Product"'` → 1 no HTML inicial, e
+   `grep -c '"@type": "Event"'` → **0** (garante que a decisão T4.4 não regrediu).
 3. `curl -A ClaudeBot/1.0` devolve o JSON-LD completo (hoje: 3.328 B de casca).
 4. `price` conferido contra `price_value` em uma mesa gratuita e uma paga.
-5. `eventAttendanceMode` conferido contra `modality` — hoje todas `Online…`.
+5. **Espelhamento:** cada valor do JSON-LD (preço, vagas, data) aparece no HTML
+   visível da mesma página. Sem isso a task não fecha — é a regra pétrea acima.
 
 ---
 
-### [x] T4.4 — Elegibilidade de `Event` — DECIDIDO: inelegível, emitir mesmo assim para IA
+### [x] T4.4 — Elegibilidade de `Event` — DECIDIDO (2026-09-11): descartado, só `Product`+`Offer`
 
 **Duas razões independentes tornam toda mesa do acervo inelegível a rich result de
 `Event`** — verificadas na documentação do Google em 2026-09-11, não de memória:
@@ -414,31 +714,126 @@ IA — nenhum executa JavaScript. Sem SSR esta task entrega zero.
 2. **Passa por seleção.** *"Events that require membership, invitation or prior
    purchasing of a ticket for attending the event are ineligible."* Regra de produto
    do mantenedor: *"ele vai direto para onde o mestre definiu: link do google forms,
-   site, link do whatsapp…"* — o mestre continua filtrando. Medido: 108 contatos são
-   Google Forms, que é candidatura, não reserva. Confirmado em `uiHelpers.ts:39-51`.
+   site, link do whatsapp…"* — o mestre continua filtrando. Medido no banco
+   (`SELECT channel, count(*) FROM table_contacts GROUP BY channel`):
+   `form 108 | whatsapp 46 | discord 33 | email 1`. **108 contatos são formulário**,
+   que é candidatura, não reserva.
+
+   *Citação corrigida em 2026-09-11:* a versão anterior atribuía esse número a
+   `uiHelpers.ts:39-51`. **Refutado** — aquele trecho é handler de CTA, não a fonte do
+   dado. O número está certo; a referência estava errada e a fonte é o banco.
 
 **Correção do registro anterior.** A versão de 2026-09-11 descartou `Event` citando
 só a razão 2, e afirmava que o Google **exige** `VirtualLocation` para evento online.
 Essa exigência **não existe** — é de março/2020 (COVID) e saiu da doc. O descarte
 estava certo; a justificativa, incompleta e parcialmente falsa.
 
-**Decisão: emitir `Event` assim mesmo**, junto de `Product`+`Offer` no mesmo `@graph`
-(T4.3). Razão do mantenedor: *"tudo que puder fazer pessoas chegarem nos sites, é
-válido"*. Crawlers de IA e schema.org leem `Event`; não aplicam política do Google.
+**Decisão intermediária, já superada — mantida só para explicar o porquê da virada.**
+Houve uma decisão de *emitir `Event` assim mesmo* junto de `Product`+`Offer`, sob a
+razão *"tudo que puder fazer pessoas chegarem nos sites, é válido"* e sob a premissa
+de que *"crawlers de IA e schema.org leem `Event`; não aplicam política do Google"*.
+Essa premissa foi **refutada por medição** horas depois (ver bloco seguinte), e o
+veredito final está no fim desta task: **`Event` descartado**.
 
-**Opção descartada por medição:** "emitir `Event` só onde houver componente físico"
-cobriria **0 de 168** mesas.
+**Opção também descartada por medição:** "emitir `Event` só onde houver componente
+físico" cobriria **0 de 168** mesas — o catálogo é `online | 168`.
 
-**Risco, não medido e assumido.** Markup inelegível pode gerar ação manual de spam de
-dados estruturados, que atinge o domínio inteiro. Mitigação: o markup não mente —
-mesa online com vaga, preço e data é honestamente descrita pelos dois tipos, e ação
-manual pune markup que contradiz a página. Não há dado público sobre a taxa; é
-julgamento. O MesaQuest emite `Event`+`VirtualLocation` sem penalidade até
-2026-09-11 — indício, não prova.
+**Risco e benefício — ambos medidos em 2026-09-11 (pesquisa de mercado). A premissa
+da decisão anterior caiu.**
 
-**Consequência para T1.3.** `eventStatus` volta a ser possível (há `Event` no
-`@graph`), mas **não resolve** o destino da mesa expirada: o Google ignora esse
-`Event`, então o status não afeta o índice. T1.3 segue entre `404`, `410` e `301`.
+A decisão de emitir `Event` se apoiava em uma frase: *"Crawlers de IA e schema.org
+leem `Event`; não aplicam política do Google."* A primeira metade é **falsa** na
+prática, e é o benefício inteiro da task.
+
+**1. O benefício não existe no fetch direto — medido em experimento controlado.**
+Estudo SearchVIU (30/10/2025, 5 sistemas, 8 variantes de entrega do mesmo preço,
+5 repetições por sistema). O preço presente **somente em JSON-LD**, invisível na
+página, foi encontrado por **0 de 5** sistemas (ChatGPT, Claude, Perplexity, Gemini,
+Google AI Mode) — antes e depois da indexação. Idem JSON-LD injetado por JS e
+Microdata oculto: falha universal. Já o preço em HTML visível foi extraído por
+ChatGPT, Gemini e AI Mode. Conclusão dos autores, textual: *"Current AI chatbots do
+NOT use JSON-LD Schema Markup in direct retrieval"*; extraem *"exclusively visible
+HTML content"*. Resultado por sistema: Gemini 4/8, ChatGPT 3/8, Claude **0/8**,
+Perplexity 1/8 após indexar, AI Mode 2/8 após indexar. **Visibilidade, não formato
+de markup, previu a extração.**
+
+Um segundo experimento (Mark Williams-Cook, fev/2026) encontrou o oposto — ChatGPT e
+Perplexity extraíram endereço presente só em JSON-LD inventado — mas a explicação
+dos próprios autores reforça o ponto: os LLMs **tokenizam JSON-LD como texto cru**,
+destruindo a estrutura semântica. Não é *"crawler de IA lê `Event`"*; é *"o bloco
+`<script>` entra no texto"*. Nessa hipótese, o mesmo conteúdo em HTML visível serve
+igual ou melhor, sem nenhum custo de política.
+
+Ressalva honesta: o estudo SearchVIU limita o achado à fase de **fetch direto**, e
+admite que schema pode contar na indexação, no treino e em sistemas acoplados a
+índice (AI Overviews, Copilot). Ou seja: o `Event` não é inútil — mas o ganho
+específico que justificava assumir risco de domínio **não foi demonstrado por
+ninguém**, e foi refutado na única fase testada.
+
+**2. O risco é menor do que a versão anterior deste bloco afirmou.** Correção da
+correção: escrevi acima que a ação manual *"atinge o domínio inteiro"*. Medido na
+fonte primária (`sd-policies`), o Google é explícito quanto ao alcance:
+*"A structured data manual action means that a page loses eligibility for appearance
+as a rich result"* e, na mesma frase, *"it doesn't affect how the page ranks in
+Google web search."* A doc de `Event` confirma: *"If you received a structured data
+manual action against a page, structured data on the page will be ignored (although
+the page can still appear in Google Search results)."*
+
+Consequência real, então: perda de elegibilidade a rich result (inclusive do
+`Product`+`Offer`, que é o que **de fato** funciona no Google) e necessidade de
+pedido de reconsideração. **Não** é queda de ranking. O risco continua existindo —
+as guidelines dizem *"Virtual experiences that have no real-world component aren't
+supported"* contra um catálogo `online | 168`, e *"Google may take manual action"* —
+mas o dano se concentra exatamente na feature que o `Event` não conseguiria obter de
+todo modo, e ameaça a que já está garantida.
+
+**DECISÃO DO MANTENEDOR (2026-09-11): emitir só `Product`+`Offer`. `Event`
+descartado.** Instrução literal: *"siga a recomendação e o que os estudos mais
+recentes apontam como melhor"*. Esta decisão **substitui** a de emitir `Event`,
+tomada mais cedo no mesmo dia sobre a premissa — depois refutada — de que crawlers de
+IA leem `Event`.
+
+O raciocínio não é conservadorismo: a alternativa perdia o que funciona para comprar
+algo que a medição mostra não funcionar. Arriscar a elegibilidade a rich result do
+`Product` — único caminho comprovado no Google — em troca de um `Event` que 0 de 5
+sistemas de IA leram no fetch direto é trocar benefício medido por benefício não
+demonstrado.
+
+**O objetivo original do mantenedor não foi abandonado, foi realocado.** *"Tudo que
+puder fazer pessoas chegarem nos sites, é válido"* segue valendo; o que mudou é onde
+esse ganho é obtido — em T4.2 (HTML-first) e T4.5 (`description` por mesa), não no
+tipo de schema. Ver a regra de espelhamento em T4.3, que é o mecanismo concreto.
+
+**O objetivo do mantenedor (*"tudo que puder fazer pessoas chegarem nos sites, é
+válido"*) continua atendido, e por caminho mais forte:** o que move busca generativa
+é HTML-first (T4.2) + `description` por mesa (T4.5), consistente com o experimento
+SEL 485228 (GPTBot rastreou 759 páginas do grupo HTML e **0** do grupo JS) e com o
+SearchVIU (só HTML visível é extraído). Nenhum crawler de IA executa JS em fetch
+direto. **Sem T4.2, nem `Event` nem `Product` entregam qualquer coisa para IA** — é
+lá que está o ganho, não no tipo de schema.
+
+**Regra que sobrevive às duas evidências contraditórias, e que vale para T4.3/T4.5:**
+nunca deixar um fato existir **apenas** no JSON-LD. Toda propriedade emitida
+(data, preço, vagas, modalidade) precisa estar no HTML visível da mesa. Isso entrega
+o dado ao crawler de IA na única fase medida, e simultaneamente satisfaz a guideline
+*"Don't mark up content that is not visible to readers of the page"* — que é o
+critério pelo qual a ação manual é de fato aplicada.
+
+**Task fechada.** A decisão está tomada e implementada na especificação de T4.3
+(`@graph` com `Product`+`Offer`, regra de espelhamento, aceite nº 2 exigindo
+`grep -c '"@type": "Event"'` → **0** como guarda de regressão). Nada aqui bloqueia
+implementação.
+
+**Se o `Event` voltar à mesa no futuro** (ex.: catálogo passar a ter mesas
+presenciais, hoje `online | 168` e zero presenciais), a condição de reabertura é:
+componente real-world existente + regra de espelhamento mantida + `eventAttendanceMode`
+derivado de `modality`, nunca literal.
+
+**Consequência para T1.3.** Sem `Event` no `@graph`, `eventStatus` fica fora —
+consistente com `tasks.md` T1.2 (linha 108). Não muda nada em T1.3: mesmo quando o
+`Event` esteve na mesa, o Google o ignoraria por inelegibilidade, e o status não
+afetaria o índice. O destino da mesa expirada segue decidido por status HTTP —
+T1.3 continua entre `404`, `410` e `301`, e é decisão de produto do mantenedor.
 
 ---
 
@@ -495,16 +890,50 @@ devolve HTML com conteúdo real da mesa.
 
 ### [ ] T5.1 — Medir e tratar facetas de filtro
 
-**Não medido ainda.** O Search Console lista
+**Problema.** O Search Console lista
 `https://mesas.artificiorpg.com/?system=castles-crusades` como afetada. Sem canonical
 (medido: `grep -c 'rel="canonical"'` no HTML do navegador → 0), cada combinação de
 filtro é URL distinta com conteúdo idêntico.
 
-**Primeira etapa é medição**, não correção: quantos parâmetros existem, quantas
-combinações o Google já rastreou, se alguma tem valor de busca próprio.
+**Medido em 2026-09-11 — a combinatória, que antes estava só como "não medido":**
 
-**Correção provável.** Canonical para a URL limpa. Se alguma faceta tiver valor de
-busca real (ex.: `?system=dnd-5e`), a decisão de mantê-la indexável é de produto.
+`apps/mesas/frontend/src/utils/catalogFilters.ts:85-104` serializa **10 parâmetros**:
+`search`, `system`, `modality`, `price_type`, `experience_level`, `type`, `seal`,
+`styles` (multivalorado, separado por vírgula), `sort`, `page`.
+
+```
+SELECT count(*) FROM systems;                                    -- 1269
+SELECT count(DISTINCT system_id) FROM tables WHERE system_id IS NOT NULL;  -- 73
+```
+
+O espaço de URLs é combinatório sobre 10 eixos, com 1.269 valores possíveis só em
+`system`. Nenhuma poda é viável por enumeração.
+
+**Decisão (2026-09-11): canonical para a URL limpa em todas as facetas — nenhuma
+indexável.** Não é preferência; sai da própria medição:
+
+- Dos 1.269 sistemas, **73** têm ao menos uma mesa. Os outros 1.196 produziriam
+  `?system=<slug>` com **catálogo vazio** — que é conteúdo fino, exatamente o perfil
+  de página que o Google exclui. Indexar a faceta significaria indexar, na maioria
+  esmagadora dos casos, uma página sem resultado.
+- Os 73 restantes rotacionam: mesa expira em ≤ 5 dias (regra de T1.1), então uma
+  faceta hoje povoada fica vazia em uma semana. Indexável e instável é o pior par.
+- `search` é entrada livre — indexá-la abre URL infinita gerada por usuário.
+
+**Reabre se, e só se,** houver demanda de busca medida para uma faceta específica
+(volume real em `system`), caso em que a saída é **página própria com rota limpa**
+(`/sistemas/<slug>`) e conteúdo curado, não parâmetro indexável. Isso é trabalho de
+outra spec.
+
+**Entrega.** `<link rel="canonical">` apontando para a URL sem query em toda rota de
+catálogo com parâmetro. Depende de T4.2 (canonical injetado por JS não é lido).
+
+**Aceite:**
+
+1. `curl -s 'https://mesas.artificiorpg.com/?system=castles-crusades' | grep canonical`
+   → canonical para `https://mesas.artificiorpg.com/`.
+2. Mesma verificação com 3 parâmetros combinados → mesmo canonical limpo.
+3. `curl -s https://mesas.artificiorpg.com/ | grep -c canonical` → 1, auto-referente.
 
 ---
 
@@ -541,6 +970,90 @@ ingresso pago em 95% dos casos.
 
 **Depende de.** F1, F3 e F4 verdes (endurecer gate só depois do verde comprovado —
 §Bug achado / débito).
+
+---
+
+## F6 — Operação no Search Console (depois do deploy das correções)
+
+Frente acrescentada em 2026-09-11. As F1–F5 corrigem o que o Google vê; nenhuma delas
+**avisa** o Google. Sem esta fase, a recuperação fica inteiramente no ritmo natural de
+recrawl. Todas as tasks aqui são operação manual do mantenedor no painel — o agente
+não tem acesso ao Search Console.
+
+### [ ] T6.1 — Validação dos fixes nos relatórios do GSC
+
+**Entrega.** Depois do deploy de cada frente, abrir o relatório correspondente no
+Search Console e acionar **Validate Fix**:
+
+| Relatório | O que valida | Fecha qual frente | Propriedade |
+|---|---|---|---|
+| Page indexing → "Soft 404" | as URLs de mesa expirada agora devolvem 410 | F1 | **não existe** |
+| Page indexing → "Not found (404)" | os prefixos legados agora devolvem 301 | F2 | `artificiorpg.com` |
+| Page indexing → "Alternate page with proper canonical tag" | canonical auto-referente correto | F3 | `artificiorpg.com` |
+
+**Bloqueio medido (2026-09-11): a F1 não é validável hoje.** A única propriedade no
+Search Console é `https://artificiorpg.com/` (prefixo de URL);
+`mesas.artificiorpg.com` **não está cadastrado**, então os soft-404 do `mesas` nunca
+apareceram em relatório algum — foram medidos por `curl` direto (`spec.md` §2.4.3).
+
+Sem a propriedade, a linha da F1 nesta tabela é inexecutável, e não existe linha de
+base anterior ao deploy para comparar depois.
+
+**Pré-requisito, ação do mantenedor.** Criar propriedade de **Domínio**
+(`artificiorpg.com`), que cobre todos os subdomínios de uma vez — incluindo `mesas.`,
+`glossario.` e os futuros. Exige verificação por registro DNS, que é mudança em DNS de
+produção (§Autorização). Deve preceder o deploy da F1; feito depois, perde-se a
+comparação antes/depois.
+
+**Aceite.**
+1. Propriedade de Domínio `artificiorpg.com` existe e reporta o subdomínio `mesas.`.
+2. Cada validação entra em estado "Started"/"Passed"; nenhuma volta a "Failed" com as
+   mesmas URLs.
+3. Enquanto (1) não existir, a linha da F1 fica declarada **bloqueada**, nunca
+   marcada como concluída por ausência de dado.
+
+**Baseline registrado antes de qualquer deploy** (`artificiorpg.com`, dados de
+03/09/2026): 404 → **994**; Rastreada não indexada → **723**; Alternativa com
+canônica → **235**; 5xx → **1**; indexadas → **92**. É contra estes números que a
+recuperação se mede.
+
+### [ ] T6.2 — Request Indexing das URLs de maior valor
+
+**Regra medida (`ask-google-to-recrawl`), que define o escopo desta task:**
+
+- *"Keep in mind that there's a quota for submitting individual URLs"* — não dá para
+  submeter os 126 posts um a um.
+- *"requesting a recrawl multiple times for the same URL won't get it crawled any faster"*
+  — reenviar não acelera; só queima cota.
+- *"Crawling can take anywhere from a few days to a few weeks."*
+- *"If you have large numbers of URLs, submit a sitemap."*
+- *"Requesting a crawl does not guarantee that inclusion in search results will happen instantly or even at all."*
+
+**Entrega.** Inspeção manual + Request Indexing de **até 10 URLs**, escolhidas por
+valor, não por ordem: a home, `/blog/`, e os posts com mais backlink/tráfego histórico
+(o de Chris Perkins entre eles, por ser o que originou o relato). O restante dos 126
+fica por conta do sitemap + `lastmod` (T3.4) — que é literalmente o método que a doc
+recomenda para volume.
+
+**Aceite.** As URLs submetidas aparecem como "URL is on Google" na inspeção, ou o
+motivo do contrário está registrado. Nenhuma URL é resubmetida.
+
+### [ ] T6.3 — Removals: posição registrada (não usar)
+
+**Decisão: não usar a ferramenta de Removals nesta recuperação.** Medido na doc
+`remove-information`: *"Requests made in Removals tool last about 6 months."* — é
+remoção **temporária** de exibição, e a própria página aponta que remoção permanente
+se faz pelo conteúdo, por senha ou por `noindex`, não por ela.
+
+Aplicado ao caso: as URLs de mesa expirada passam a devolver **410** (T1.3), que é
+exatamente o sinal de remoção permanente pelo caminho correto. Usar Removals por cima
+esconderia por 6 meses o sintoma que queremos ver desaparecer nos relatórios, e ao
+fim do prazo as URLs voltariam se o 410 não estivesse no ar — trocando uma métrica
+real por uma temporária.
+
+**Fica registrado aqui para não ser redecidido.** Reabre só se surgir necessidade de
+tirar do ar com urgência conteúdo indevidamente publicado, que é o caso de uso real
+da ferramenta e nada tem a ver com esta spec.
 
 ---
 
@@ -604,14 +1117,35 @@ autorizar.
 
 ## Ações que exigem aprovação nominal (nenhuma executada)
 
-1. `UPDATE posts SET canonical = NULL` nos 105 divergentes, em `site` (T3.2).
-2. `INSERT` de 105 linhas em `redirects`, em `site` (T2.2). Rollback: `DELETE` pelos
-   `from_path` inseridos.
-3. Deploy do `mesas` — status HTTP é comportamento observável (T1.2/T1.3), e é o que
-   leva o sitemap corrigido (T1.4) ao Google.
-4. Export + rebuild + deploy do `site` (T3.3).
-5. Mudança de arquitetura de renderização do `mesas` para SSR (T4.1/T4.2) — altera
-   build e deploy. **Decisão tomada** (2026-09-11); falta autorizar a execução.
+Cada uma com rollback próprio — as cinco, não só duas (corrigido em 2026-09-11).
+
+1. **`UPDATE posts SET canonical = NULL`** nos 105 divergentes, em `site` (T3.2).
+   *Rollback:* `pg_dump` só da tabela `posts` **antes** do `UPDATE`; a coluna é
+   restaurável isoladamente por `UPDATE … FROM` sobre o dump. Não destrói conteúdo —
+   só metadado de SEO já medido como errado.
+2. **`INSERT` de 105 linhas em `redirects`**, em `site` (T2.2).
+   *Rollback:* `DELETE FROM redirects WHERE from_path IN (…)` pelos `from_path`
+   inseridos. O cache recarrega a cada 30 s (`redirect-cache.ts`), então a reversão
+   vale sem restart.
+3. **Deploy do `mesas`** — status HTTP é comportamento observável (T1.2/T1.3), e é o
+   que leva o sitemap corrigido (T1.4) ao Google.
+   *Rollback:* redeploy da imagem anterior (tag do commit prévio), pelo fluxo de
+   `deploy-flow.md`. Sem migration envolvida: nada a reverter no banco.
+4. **Export + rebuild + deploy do `site`** (T3.3, e T3.4 no mesmo ciclo).
+   *Rollback:* redeploy da imagem anterior. O `posts.json` é artefato de build,
+   regerado do banco — reverter o item 1 e reexportar restaura o estado anterior por
+   completo.
+5. **Mudança de arquitetura de renderização do `mesas` para SSR** (T4.1/T4.2).
+   *Rollback:* é o **mais caro dos cinco** e precisa ser dito antes de começar — o
+   estado anterior (Vite client-only + dynamic rendering no nginx) só volta por
+   redeploy da imagem anterior, e a migração muda imports, entry point e deploy no
+   repositório. Reverter em produção é um redeploy; reverter no código é `git revert`
+   de uma obra inteira. Mitigação: a branch só sobe depois de os três aceites de T4.2
+   passarem em beta. **Decisão tomada** (2026-09-11); falta autorizar a execução.
+
+**Fora desta lista, por não exigirem autorização:** as tasks de F6 são operação manual
+do mantenedor no Search Console (o agente não tem acesso) e não têm rollback técnico —
+Request Indexing não se desfaz, apenas não se repete (T6.2).
 
 **Saíram da lista em 2026-09-11** (achado de auditoria, T2.1): `Dockerfile`/nginx para
 os 301 e mudança em Cloudflare. O mecanismo de redirect já existe no repo

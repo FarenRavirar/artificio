@@ -32,6 +32,8 @@
 
 'use strict';
 
+const { lerPayload } = require(require('node:path').join(__dirname, 'ler-payload.js'));
+
 // Normaliza o texto antes de testar, para que o padrao nao precise antecipar
 // cada forma de escrever o mesmo comando. Sem isto, cada regra viraria uma
 // regex barroca e as evasoes passariam pelo que ela esquecesse.
@@ -126,9 +128,7 @@ const REGRAS = [
   },
 ];
 
-let raw = '';
-process.stdin.on('data', (chunk) => { raw += chunk; });
-process.stdin.on('end', () => {
+lerPayload((raw) => {
   let command = '';
   try {
     command = JSON.parse(raw)?.tool_input?.command ?? '';
