@@ -18,6 +18,8 @@
 // Um Read integral de arquivo grande não tem escapatória silenciosa: é bloqueado
 // com o comando pronto no motivo.
 
+
+const { lerPayload } = require(require('node:path').join(__dirname, 'ler-payload.js'));
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -29,9 +31,7 @@ const MAX_LINES = 600;
 // próprio Read).
 const SKIP_EXT = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.pdf', '.ipynb', '.lock']);
 
-let raw = '';
-process.stdin.on('data', (chunk) => { raw += chunk; });
-process.stdin.on('end', () => {
+lerPayload((raw) => {
   let input;
   try {
     input = JSON.parse(raw)?.tool_input ?? {};

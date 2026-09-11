@@ -24,6 +24,8 @@
 // Ordem importa: este hook roda DEPOIS do `rtk hook claude` no array de hooks,
 // então só vê comando que o rtk já decidiu não reescrever.
 
+
+const { lerPayload } = require(require('node:path').join(__dirname, 'ler-payload.js'));
 const CWD_MARKER = /(^|\s)(cd\s+\S+\s*&&\s*)?/;
 
 // Cada regra: se `test` casa e `allow` não casa, bloqueia com `fix`.
@@ -166,9 +168,7 @@ const RULES = [
   },
 ];
 
-let raw = '';
-process.stdin.on('data', (chunk) => { raw += chunk; });
-process.stdin.on('end', () => {
+lerPayload((raw) => {
   let command = '';
   try {
     command = JSON.parse(raw)?.tool_input?.command ?? '';

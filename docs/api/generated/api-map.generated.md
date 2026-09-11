@@ -590,7 +590,7 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | USE | `/og` | ✅ high | `apps/mesas/backend/src/server.ts` | 159 |
 | GET | `/og/:type/:slug` | ✅ high | `apps/mesas/backend/src/routes/og.ts` | 133 |
 | GET | `/og/{*splat}` | ✅ high | `apps/mesas/backend/src/routes/og.ts` | 272 |
-| GET | `/sitemap.xml` | ✅ high | `apps/mesas/backend/src/routes/sitemap.ts` | 8 |
+| GET | `/sitemap.xml` | ✅ high | `apps/mesas/backend/src/routes/sitemap.ts` | 9 |
 
 ## site
 

@@ -25,6 +25,8 @@
 // bloqueia `rg "git commit --amend" AGENTS.md` — falso-positivo observado no
 // primeiro minuto de vida do hook (2026-07-29): buscar a regra no doc disparava a
 // regra. `git` no início do comando ou depois de `&&`/`;`/`|`/`(`.
+
+const { lerPayload } = require(require('node:path').join(__dirname, 'ler-payload.js'));
 const GIT_COMMIT = String.raw`(?:^|[;&|(]\s*|\s&&\s*)git\s+commit\b`;
 
 const RULES = [
@@ -62,9 +64,7 @@ const RULES = [
   },
 ];
 
-let raw = '';
-process.stdin.on('data', (chunk) => { raw += chunk; });
-process.stdin.on('end', () => {
+lerPayload((raw) => {
   let command = '';
   try {
     command = JSON.parse(raw)?.tool_input?.command ?? '';

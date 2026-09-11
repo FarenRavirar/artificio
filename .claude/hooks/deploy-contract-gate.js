@@ -25,6 +25,8 @@
 // Ler a seção citada. O gate só cobra uma vez por sessão e por família: depois
 // de ler, as edições seguintes daquela família passam direto.
 
+
+const { lerPayload } = require(require('node:path').join(__dirname, 'ler-payload.js'));
 const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
@@ -96,10 +98,7 @@ function registrar(sessionId, familia) {
   }
 }
 
-let bruto = "";
-process.stdin.setEncoding("utf8");
-process.stdin.on("data", (c) => (bruto += c));
-process.stdin.on("end", () => {
+lerPayload((bruto) => {
   let entrada;
   try {
     entrada = JSON.parse(bruto);
