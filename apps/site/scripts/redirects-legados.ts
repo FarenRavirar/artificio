@@ -128,7 +128,10 @@ async function fetchComTimeout(url: URL): Promise<Response> {
     // `AbortError` cru não diz qual URL nem quanto esperou; a mensagem abaixo é o que aparece
     // no relatório da varredura.
     if (err instanceof Error && err.name === "TimeoutError") {
-      throw new Error(`timeout após ${FETCH_TIMEOUT_MS}ms`);
+      // `cause` preserva o `TimeoutError` original: a mensagem acima é para o relatório, mas
+      // descartar o erro de origem apagaria o stack de quem for depurar (regra
+      // `preserve-caught-error`).
+      throw new Error(`timeout após ${FETCH_TIMEOUT_MS}ms`, { cause: err });
     }
     throw err;
   }
