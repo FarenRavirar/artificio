@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink } from 'react-router';
 import { BookOpen, ClipboardList, DownloadCloud, LayoutDashboard, Settings, Users } from 'lucide-react';
 import { cn } from './ui/cn';
 

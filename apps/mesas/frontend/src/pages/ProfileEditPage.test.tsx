@@ -93,7 +93,7 @@ vi.mock('../contexts/useProfileContext', () => ({
   useProfileContext: () => mockCtx,
 }));
 
-vi.mock('react-router-dom', () => ({
+vi.mock('react-router', () => ({
   useSearchParams: () => [new URLSearchParams(''), vi.fn()],
 }));
 

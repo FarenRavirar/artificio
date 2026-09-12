@@ -76,6 +76,9 @@ opencode.json
 
 # Astro auto-generated types
 .astro/
+# Gerado pelo `react-router typegen` (framework mode, spec 102 T4.2), reescrito
+# a cada build — mesma natureza do `.astro/` acima.
+.react-router/
 
 # Indice local legado (Serena removido do projeto em 2026-09-10; a entrada fica
 # so para nao reversionar sobra de instalacao antiga em maquina que ainda a tenha)

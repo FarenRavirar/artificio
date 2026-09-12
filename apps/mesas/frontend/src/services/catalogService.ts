@@ -1,6 +1,7 @@
 import type { TablesResponse } from '../types/tables';
 import type { TableTypeOption } from '../utils/catalogFilterOptions';
 import { normalizeStyles } from '../utils/catalogFilterOptions';
+import { apiUrl } from '../lib/apiUrl';
 
 // Tipos fortes para filtros
 // Sorts finais por D0.4 (spec 094): `ending_soon` saiu do contrato enquanto não
@@ -89,7 +90,11 @@ export function mapFiltersToQueryParams(filters: CatalogFilters): URLSearchParam
  */
 export async function fetchCatalogTables(filters: CatalogFilters, signal?: AbortSignal): Promise<TablesResponse> {
   const params = mapFiltersToQueryParams(filters);
-  const response = await fetch(`/api/v1/tables?${params.toString()}`, { signal });
+  // `apiUrl` resolve para o container da API quando esta função roda no SSR
+  // (spec 102 T4.2) e mantém o caminho relativo no navegador. É a MESMA função
+  // nos dois lados de propósito: duas implementações poderiam divergir de
+  // filtro, e aí o HTML do crawler mostraria um catálogo diferente do usuário.
+  const response = await fetch(apiUrl(`/api/v1/tables?${params.toString()}`), { signal });
 
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}`);

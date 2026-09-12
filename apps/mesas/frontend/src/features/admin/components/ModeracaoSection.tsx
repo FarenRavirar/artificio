@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import type { DiscordDraft } from '../../../features/discord-sync/types';
 import type { DraftApiOperations } from '../../../features/discord-sync/types';
 import type { InboxDraft } from '../../../features/inbox/types';

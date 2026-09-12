@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useLoaderData, useParams } from 'react-router';
 import { Compass, Megaphone } from 'lucide-react';
 import type { TableDetail } from '../types/tables';
-import { applySeo } from '../utils/seo';
 import { useTableViewModel } from '../features/table/hooks/useTableViewModel';
 import { TableActionPanel } from '../features/table/components/TableActionPanel';
 import { TableHero } from '../features/table/components/TableHero';
@@ -20,106 +19,27 @@ import { TableConversation } from '../components/TableConversation';
 // 2026-08-16: `react-refresh/only-export-components` recusa arquivo de
 // componente que também exporta função, e a separação deixa o normalizador
 // testável sem router nem API mockada.
-import { describeClosure, normalizeClosedTable, type ClosedTable } from './closedTable';
+import { describeClosure, type ClosedTable } from './closedTable';
+import type { MesaLoaderData } from '../routes/mesa';
 
 export const MesaPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const { user } = useAuth(); // CORREÇÃO DT-026: Obter usuário autenticado
-  const [table, setTable] = useState<TableDetail | null>(null);
-  const [closed, setClosed] = useState<ClosedTable | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const controller = new AbortController();
-
-    const loadTable = async () => {
-      if (!slug) {
-        setError('Mesa inválida.');
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-      // Limpar junto de `error`: sem isto, navegar de uma mesa encerrada para
-      // outra ativa manteria a tela de encerramento sobre a mesa nova.
-      setClosed(null);
-
-      try {
-        const res = await fetch(`/api/v1/tables/${slug}`, { signal: controller.signal });
-
-        if (res.status === 404) {
-          setError('Mesa não encontrada.');
-          setTable(null);
-          setLoading(false);
-          return;
-        }
-
-        // 410 Gone: a mesa existiu e foi encerrada (relato de produção
-        // 2026-08-11 — antes disso o backend devolvia 404 e o visitante via
-        // "Mesa não encontrada", sem saber que a mesa existiu, quando saiu do ar
-        // nem por quê). O corpo traz título, data, motivo e autor quando houver.
-        if (res.status === 410) {
-          const json: unknown = await res.json().catch(() => null);
-          setClosed(normalizeClosedTable(json));
-          setTable(null);
-          setLoading(false);
-          return;
-        }
-
-        // CORREÇÃO B-CRIT-01: Tratamento específico para erros de servidor
-        if (res.status === 500) {
-          setError('Serviço temporariamente indisponível. Nossa equipe já foi notificada. Tente novamente em alguns minutos.');
-          setTable(null);
-          setLoading(false);
-          return;
-        }
-
-        if (res.status === 503) {
-          setError('Sistema em manutenção. Voltaremos em breve.');
-          setTable(null);
-          setLoading(false);
-          return;
-        }
-
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const json = await res.json();
-        setTable(json.data ?? null);
-      } catch (err: unknown) {
-        if (err instanceof DOMException && err.name === 'AbortError') return;
-        setError('Não foi possível carregar esta mesa no momento.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadTable();
-    return () => controller.abort();
-  }, [slug]);
-
-  useEffect(() => {
-    // Mesa encerrada tem título próprio: manter "Mesa | Artifício Mesas" faria
-    // a aba e o compartilhamento prometerem uma mesa que não existe mais.
-    if (closed) {
-      applySeo(
-        `Mesa encerrada | Artifício Mesas`,
-        `${closed.title} não está mais recebendo inscrições. Veja outras mesas abertas no Artifício Mesas.`,
-      );
-      return;
-    }
-
-    if (!table) {
-      applySeo('Mesa | Artifício Mesas', 'Detalhes de uma mesa de RPG no portal Artifício Mesas.');
-      return;
-    }
-
-    applySeo(
-      `${table.title} | Artifício Mesas`,
-      table.description?.slice(0, 150) || `Conheça os detalhes da mesa ${table.title} no Artifício Mesas.`
-    );
-  }, [table, closed]);
+  // T4.2 (spec 102): o dado vem do `loader`, não mais de `useEffect`.
+  //
+  // O fetch em efeito não roda no servidor: o HTML saía com "Carregando
+  // aventura..." e era isso que Googlebot e os crawlers de IA — que não executam
+  // JS — recebiam no lugar da mesa. Com o `loader`, título, preço e vagas já
+  // estão no HTML do primeiro byte, que é o que a regra pétrea de T4.3 exige.
+  //
+  // Os estados 404/410/500 deixaram de virar `useState` aqui porque agora são
+  // status HTTP da própria página (ver `routes/mesa.tsx`) — o crawler precisa do
+  // status, não de um `200` com texto de erro, que é exatamente o soft-404 que
+  // abriu esta spec.
+  const loaderData = useLoaderData() as MesaLoaderData;
+  const table: TableDetail | null = loaderData.kind === 'ok' ? loaderData.table : null;
+  const closed: ClosedTable | null = loaderData.kind === 'gone' ? loaderData.closed : null;
 
   // Tracking: incrementar visualizações
   useEffect(() => {
@@ -158,14 +78,6 @@ export const MesaPage = () => {
   // usando o que houver disponível (nome do mestre responsável, sem perfil/slug).
   const masterCardName = isAnnouncerTable ? (vm?.actualGmName ?? vm?.masterName) : vm?.masterName;
   const showMasterCard = Boolean(masterCardName);
-
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-[var(--color-artificio-blue)] text-white flex items-center justify-center">
-        <p className="animate-pulse text-white/70">Carregando aventura...</p>
-      </main>
-    );
-  }
 
   // Mesa encerrada: estado próprio, antes do erro genérico. Diz o que
   // aconteceu, quando e por quem — em vez de "Ops! Mesa não encontrada", que
@@ -220,12 +132,12 @@ export const MesaPage = () => {
     );
   }
 
-  if (error || !table) {
+  if (!table) {
     return (
       <main className="min-h-screen bg-[var(--color-artificio-blue)] text-white flex items-center justify-center px-6">
         <div className="max-w-lg w-full rounded-2xl border border-white/10 bg-white/5 p-6 text-center">
           <h1 className="text-2xl font-bold mb-2">Ops!</h1>
-          <p className="text-white/70 mb-5">{error ?? 'Mesa não encontrada.'}</p>
+          <p className="text-white/70 mb-5">Mesa não encontrada.</p>
           <Link
             to="/catalogo"
             id="mesa-link-voltar-catalogo"

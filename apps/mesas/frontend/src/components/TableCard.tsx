@@ -1,5 +1,5 @@
 import { cropToObjectPosition } from '@artificio/media/image-kinds';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Globe, MapPin, Bookmark, Clock } from 'lucide-react';

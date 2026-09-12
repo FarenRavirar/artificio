@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router';
 
 /**
  * Configuração do hook useUrlState
@@ -88,11 +88,41 @@ export function useUrlState<T>({
 
   // Ações explícitas criam histórico por padrão. Atualizações técnicas podem
   // optar por replace; a normalização silenciosa acima sempre substitui.
+  //
+  // `pendingRef` encadeia chamadas dentro do mesmo tick (spec 102 T4.2). Trocar
+  // `experience` e `type` seguidos no painel avançado produzia só o segundo
+  // filtro: ambas as chamadas liam o mesmo estado e a segunda sobrescrevia a
+  // primeira. Medido com sonda no serialize — o updater do `setSearchParams` do
+  // React Router v7 **não** encadeia no mesmo tick: a segunda chamada recebe
+  // `prev` ainda vazio, não o resultado pendente da primeira. Com `MemoryRouter`
+  // a navegação era síncrona e escondia a corrida; o router de dados do framework
+  // mode navega de forma assíncrona e a expôs.
+  //
+  // O pendente é descartado assim que a URL alcança o valor que ele previa, para
+  // que a próxima ação parta do estado real e não de um encadeamento obsoleto.
+  //
+  // É `useState` e não `useRef`: ler e escrever um ref durante o render quebra o
+  // contrato de pureza do React (`react-hooks/refs`) e, com renderização
+  // concorrente, o valor lido pode ser de uma passagem descartada. O padrão
+  // suportado para "ajustar estado quando uma prop derivada muda" é comparar
+  // durante o render e chamar o setter, que o React trata reiniciando o render
+  // antes de pintar — nunca um efeito, que só rodaria depois da pintura.
+  const [pending, setPending] = useState<{ serialized: string; state: T } | null>(null);
+
+  const currentSerialized = searchParams.toString();
+  const activePending = pending && pending.serialized !== currentSerialized ? pending : null;
+
+  if (pending && pending.serialized === currentSerialized) {
+    setPending(null);
+  }
+
   const setState: UrlStateSetter<T> = (value, options) => {
-    const nextState = typeof value === 'function' 
-      ? (value as (prev: T) => T)(state)
+    const baseState = activePending?.state ?? state;
+    const nextState = typeof value === 'function'
+      ? (value as (prev: T) => T)(baseState)
       : value;
     const params = serialize(nextState);
+    setPending({ serialized: params.toString(), state: nextState });
     setSearchParams(params, { replace: options?.replace ?? false });
   };
 

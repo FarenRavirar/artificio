@@ -23,6 +23,10 @@ export interface Post {
   toc: TocItem[];
   date: string;
   dateFmt: string;
+  /** Data real da última edição (ISO) — alimenta o <lastmod> do sitemap.
+   *  Opcional porque o snapshot versionado em `src/data/posts.json` pode ser anterior ao
+   *  export que passou a emitir o campo; sem data real, o sitemap omite `<lastmod>`. */
+  updated?: string;
   readingTime: number;
   image: string;
   cats: Term[];

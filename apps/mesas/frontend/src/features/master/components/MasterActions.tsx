@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import type { MasterViewModel } from '../types/masterView.types';
 
 interface MasterActionsProps {

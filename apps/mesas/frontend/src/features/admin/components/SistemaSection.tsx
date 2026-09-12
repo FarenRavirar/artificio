@@ -1,4 +1,4 @@
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import { AdminUsersPanel } from './AdminUsersPanel';
 import { PageHeader, SectionCard, tabButtonClass } from './ui';
 import { DevFeedbackPanel } from '../dev-feedback/DevFeedbackPanel';

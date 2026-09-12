@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLoaderData, useNavigate, useSearchParams } from 'react-router';
+import type { CatalogoLoaderData } from '../routes/catalogo';
 import { Megaphone } from 'lucide-react';
 import { TableCardComponent, TableCardSkeleton } from '../components/TableCard';
 import { FilterDrawer } from '../components/FilterDrawer';
@@ -8,7 +9,6 @@ import { CatalogAdvancedFilters } from '../components/CatalogAdvancedFilters';
 import { ResultsHeader } from '../components/ResultsHeader';
 import { D20Glyph } from '../components/D20Glyph';
 import type { CatalogSeal, TableCard } from '../types/tables';
-import { applySeo } from '../utils/seo';
 import { useInfiniteCatalogTables } from '../hooks/useInfiniteCatalogTables';
 import { useCatalogFilters } from '../hooks/useCatalogFilters';
 import { useStyleFacets } from '../hooks/useStyleFacets';
@@ -139,7 +139,19 @@ export const CatalogoPage = () => {
   // DATA - React Query
   // ============================================================================
   
-  const { tables, pagination, isLoading, isRefreshing, error } = useInfiniteCatalogTables(filters, searchParams.toString());
+  // T4.2 (spec 102): página 1 vem do `loader`, então o HTML do servidor já sai
+  // com os cards e com os links `/mesas/<slug>` que o crawler precisa seguir.
+  // Só semeia quando a URL é a MESMA que o servidor buscou: filtro aplicado no
+  // cliente tem outra chave e deve buscar de verdade, não reusar a página 1.
+  const loaderData = useLoaderData() as CatalogoLoaderData | undefined;
+  const initialData =
+    loaderData && loaderData.queryKey === searchParams.toString() ? loaderData.initial : null;
+
+  const { tables, pagination, isLoading, isRefreshing, error } = useInfiniteCatalogTables(
+    filters,
+    searchParams.toString(),
+    initialData,
+  );
 
   const totalCount = useMemo(() => {
     if (!pagination) return 0;
@@ -343,13 +355,8 @@ export const CatalogoPage = () => {
   // EFFECTS
   // ============================================================================
   
-  // SEO
-  useEffect(() => {
-    applySeo(
-      'Catálogo de Mesas | Artifício Mesas',
-      'Explore mesas de RPG com filtros por sistema, modalidade, preço, nível de experiência e selos DDAL/Covil do Lich.'
-    );
-  }, []);
+  // SEO: título e description saem do `meta` da rota (spec 102 T4.2). Em efeito
+  // eles não existiriam para o crawler, que não executa JS.
 
   // Scroll to top quando filtros mudam (não na paginação)
   useEffect(() => {

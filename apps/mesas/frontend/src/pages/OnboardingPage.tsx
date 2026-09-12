@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router';
 import { CheckCircle2, ChevronLeft, ChevronRight, Compass, Sparkles } from 'lucide-react';
 import { ContentEditor } from '@artificio/content-editor';
 import { useAuth } from '../contexts/useAuth';
