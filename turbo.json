@@ -8,8 +8,24 @@
     "lint": {
       "dependsOn": ["^lint"]
     },
+    // `env` aqui é o que faz o resultado do teste depender das variáveis que decidem
+    // QUAIS testes rodam. Sem isso, `--env-mode=loose` entrega a variável ao processo mas
+    // NÃO a inclui no hash do cache: um resultado gravado quando ela estava ausente — com
+    // o teste caindo em `describe.skipIf` e a suíte passando vazia — vira cache hit no
+    // gate pré-deploy, que então aprova a regressão sem nunca executar a verificação
+    // (medido em `@artificio/mesas-backend#test`: antes desta declaração o hash não mudava
+    // com a variável; depois vai a `d02e6e78` sem ela e `eaed91dd` com ela — achado de
+    // review, PR #315).
+    //
+    // Vale para toda variável que liga/desliga suíte, não só a do `mesas`: as três abaixo
+    // guardam testes que exigem Postgres real e que, sem elas, passam em silêncio.
     "test": {
-      "dependsOn": ["^build"]
+      "dependsOn": ["^build"],
+      "env": [
+        "MESAS_TEST_DATABASE_URL",
+        "COMMUNITY_TEST_DATABASE_URL",
+        "MIGRATION_POSTGRES_TEST_URL"
+      ]
     },
     // Checa o que o `build` não checa: os arquivos de teste dos pacotes.
     //

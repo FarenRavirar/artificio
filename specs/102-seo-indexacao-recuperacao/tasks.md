@@ -9,9 +9,31 @@ Legenda: `[ ]` aberta · `[~]` em andamento · `[x]` concluída e medida · `[!]
 
 ---
 
-## F1 — `mesas`: soft-404 e divergência sitemap/SSR
+## F1 — `mesas`: soft-404 e divergência sitemap/SSR — **CÓDIGO COMPLETO, SEM DEPLOY**
 
-### [~] T1.1 — Unificar o critério de visibilidade de mesa — PARCIAL: falta só o teste
+**Estado em 2026-09-11.** T1.1, T1.2, T1.3 e T1.4 implementadas e medidas. T1.4 está
+em `dev` (commit `826b44f`); T1.1/T1.2/T1.3 estão **não commitadas** na branch
+`fix/102-f1-mesas-soft404` (criada de `origin/dev` `25b6b7c`).
+
+Diff aguardando autorização de commit: 3 arquivos alterados
+(`utils/tableVisibility.ts`, `routes/tables.ts`, `routes/og.ts`), 2 testes novos
+(`utils/tableVisibility.equivalence.test.ts`, `routes/og.seo.test.ts`) e os artefatos
+de `verify:api` regenerados (só números de linha).
+
+Validação: `tsc` limpo · **1175/1175** testes · lint limpo · `verify:api` breaking=0.
+Ambos os testes novos passaram por **teste de mutação** (provado que falham quando a
+regra quebra), não só por verde.
+
+Pendências nomeadas, nenhuma bloqueando as demais frentes:
+1. **Deploy do `mesas`** — sem ele nada chega ao Google (aprovação nominal).
+2. **Espelho `apps/mesas/frontend/src/utils/tableVisibility.ts`** segue divergente —
+   unificar exige criar pacote compartilhado (aprovação nominal, T1.1 item 3).
+3. **Sugestões de mesas vigentes no corpo do `410`** (aceite 4 de T1.3) não
+   implementadas — trabalho de frontend, não afeta o status HTTP.
+4. Teste de equivalência **skipa em CI** sem `MESAS_TEST_DATABASE_URL` (decisão de
+   infra pendente).
+
+### [x] T1.1 — Unificar o critério de visibilidade de mesa — teste de equivalência ENTREGUE
 
 **Problema.** `routes/sitemap.ts` e `routes/og.ts:226-230` definiam "mesa visível" de
 formas diferentes; o SSR aplicava `isImportedTableExpired` e o sitemap não. Medido:
@@ -39,23 +61,9 @@ Ou seja, a mesma regra de negócio está escrita **duas vezes em dois apps** —
 §"Compartilhado por padrão" trata como dívida por definição. A correção certa é subir
 a regra para `packages/*` e os dois apps importarem, não sincronizar as cópias à mão.
 
-**Falta — e é o que mantém esta task aberta.** O aceite pede um **teste de
-equivalência**: para o mesmo conjunto de mesas, o predicado de objeto e o SQL
-selecionam exatamente as mesmas linhas, falhando se alguém alterar um lado só. Esse
-teste **não existe**. Sem ele, nada impede a regra de divergir de novo — já divergiu
-três vezes: detalhe↔OG (spec 059/060), sitemap (T1.4) e o espelho backend↔frontend,
-que **segue divergente**.
-
-**Escopo revisto desta task:**
+**Escopo desta task:**
 1. ~~Criar o helper~~ — já existia; era "ligar o SQL ao sitemap" (feito em T1.4).
-2. Teste de equivalência objeto↔SQL, em arquivo novo
-   `apps/mesas/backend/src/utils/tableVisibility.equivalence.test.ts`. Roda contra o
-   banco de teste do `mesas`: monta um conjunto de mesas cobrindo os limites de
-   `LEAST(COALESCE(starts_at, created_at + INTERVAL '5 days'), created_at + INTERVAL '5 days')`
-   (antes, exatamente no limite, depois, e `starts_at` nulo), seleciona por
-   `importedTableIsCurrentSql` e filtra o mesmo conjunto em memória por
-   `isImportedTableExpired`, e falha se os dois ids não baterem. Executável já, sem
-   depender do item 3.
+2. ~~Teste de equivalência objeto↔SQL~~ — **ENTREGUE** (detalhe abaixo).
 3. Unificar o espelho do frontend — **não é executável nesta spec e não bloqueia as
    demais tasks.** Medido em 2026-09-11: `ls packages/` devolve `analytics, auth,
    catalog-client, catalog-matching, catalog-ui, changelog, comments, config, content,
@@ -65,33 +73,69 @@ que **segue divergente**.
    espelho `apps/mesas/frontend/src/utils/tableVisibility.ts` segue divergente; o item
    fica nomeado aqui como bloqueio, não como pendência silenciosa.
 
-**Aceite desta task:** item 2 passando. O item 3 não entra no aceite — está bloqueado
-em autorização, não em trabalho.
+**Entregue 2026-09-11 (sem deploy):**
+`apps/mesas/backend/src/utils/tableVisibility.equivalence.test.ts` (arquivo novo).
+14 casos nos limites de
+`LEAST(COALESCE(starts_at, created_at + INTERVAL '5 days'), created_at + INTERVAL '5 days')`
+— antes, depois, ±1 min do limite exato, `starts_at` nulo, `starts_at` antes/depois
+do limite de criação, e `origin` manual/nulo. Seleciona por `importedTableIsCurrentSql`
+e filtra o mesmo conjunto por `isImportedTableExpired`; falha se os ids divergirem.
 
-**Validação do que foi feito.** `rtk tsc -b` → No errors found; `rtk vitest run`
-(`tableVisibility.test.ts` + `tables.visibility.test.ts`) → **37/37 PASS**. Esses 37
-cobrem a regra de expiração, **não** a equivalência objeto↔SQL.
+Decisões de desenho, com o motivo medido:
+- **Tabela `TEMP`, não `tables`.** A regra só toca `origin`/`created_at`/`starts_at`,
+  então o teste não depende do schema de `tables` nem escreve em tabela de negócio.
+- **`pg` + `describe.skipIf(!pool)` + `MESAS_TEST_DATABASE_URL`** — mesmo padrão de
+  `apps/accounts/src/communityReadIntegration.test.ts`. Medido antes de escolher:
+  `pg`, `kysely`, `@types/pg` e `vitest` **já são deps** do backend do `mesas`
+  (`package.json:63,65,75,82`), então **zero pacote novo** e nenhuma aprovação
+  necessária. PGlite existe no monorepo mas só em `apps/site`, e não resolve a partir
+  do `mesas` (pnpm isola por pacote) — adicioná-lo seria pacote novo.
+- Compilar a query sem executá-la **não serviria**: o que diverge é semântica de data
+  (`LEAST`/`COALESCE`/`INTERVAL`, `NOW()` do servidor × relógio do Node), que só
+  aparece rodando no Postgres.
+
+**Validação — executado de verdade, não skipado.** Postgres 16 efêmero em Docker
+(`postgres:16-alpine`, porta 55432, `--rm`, derrubado ao fim):
+- `MESAS_TEST_DATABASE_URL=… rtk vitest run …equivalence.test.ts` → **1/1 PASS**
+- **Teste de mutação (prova que detecta divergência):** alterado `INTERVAL '5 days'`
+  → `'9 days'` **só no fragmento SQL** → o teste **FALHA** (`expected [ …(11) ] to
+  deeply equal [ …(9) ]`). Mutação revertida; `rtk git diff --stat` do arquivo vazio.
+  Um teste que só passa não prova que trava nada.
+- `rtk tsc -p tsconfig.json --noEmit` → No errors found
+
+**Bloqueio conhecido (não impede o aceite):** sem `MESAS_TEST_DATABASE_URL` o arquivo
+**skipa em CI** — hoje não trava nada lá. Ligá-lo exige serviço Postgres no workflow,
+que é mudança de infra/CI e **precisa de decisão do mantenedor**. Está provado que
+roda e que detecta a divergência; o que falta é o gatilho automático.
 
 ---
 
-### [ ] T1.2 — Status HTTP correto para mesa inexistente
+### [x] T1.2 — Status HTTP correto para mesa inexistente — IMPLEMENTADO (sem deploy)
 
-**Problema.** `routes/og.ts:232-238` responde `res.status(200)` com "Mesa não
-encontrada" e canonical auto-referente. Medido: `/mesas/isto-nao-existe-jamais-zzz999`
-→ HTTP 200. Soft-404 é excluído da indexação pelo Google e consome crawl budget do
-domínio.
+**Problema.** `routes/og.ts` respondia `res.status(200)` com "Mesa não encontrada" e
+canonical auto-referente. Soft-404 é excluído da indexação pelo Google e consome crawl
+budget do domínio.
 
-**Entrega.**
-- Slug inexistente → `404` (HTML customizado pode continuar; status é que muda).
-- Resposta de erro **sem** `<link rel=canonical>` auto-referente.
+**Entregue 2026-09-11, no mesmo diff de T1.3** (a classificação é uma só; separar a
+implementação duplicaria a regra). Detalhe completo no bloco de T1.3 abaixo.
 
-**Depende de.** T1.3 para o caso "expirada" — esta task cobre só "nunca existiu".
+- Slug inexistente → **`404`**; o corpo segue sendo o app.
+- Resposta de erro **sem** `<link rel=canonical>` — via `stripCanonical()`, função
+  nova em `og.ts`. Canonical continua obrigatório em página que existe; a exceção
+  vive num lugar só.
 
-**Aceite.** `curl -s -o /dev/null -w '%{http_code}' …/mesas/nao-existe-zzz` → `404`.
+**Achado lateral, corrigido junto (não estava na spec).** `/og/mestre/:slug` tinha o
+**mesmo defeito**: mestre inexistente devolvia `200` com "Mestre não encontrado" e
+canonical auto-referente. Agora `404` sem canonical. Perfil não tem estado
+"encerrado" — ou o slug existe, ou nunca existiu —, então aqui não há `410`.
+
+**Aceite — coberto por teste, não por `curl` manual** (`og.seo.test.ts`, ver T1.3):
+slug inexistente → `404`; mestre inexistente → `404`; nenhum dos dois emite canonical.
+O `curl` contra produção só é possível **após deploy** (bloqueio abaixo).
 
 ---
 
-### [ ] T1.3 — Destino da mesa expirada — DECIDIDO (2026-09-11): `410 Gone` + página útil
+### [x] T1.3 — Destino da mesa expirada — `410 Gone` + página útil — IMPLEMENTADO (sem deploy)
 
 **Decisão do mantenedor (2026-09-11):** seguir a recomendação medida — *"decisões de
 produto também são pesquisáveis sobre a melhor eficácia, o que o mercado melhor
@@ -175,20 +219,79 @@ recebe a verdade.
 que "410 sai mais rápido do índice". **Sem base na fonte** — todos os 4xx (exceto
 429) são tratados igual. Não usar velocidade como critério aqui.
 
-**Aceite.**
-
-1. `curl -s -o /dev/null -w '%{http_code}' /mesas/<slug-expirada>` → **410**.
-2. `curl -s -o /dev/null -w '%{http_code}' /mesas/nao-existe-zzz` → **404** (T1.2).
-3. Resposta `410` **não** emite `<link rel=canonical>` auto-referente (mesmo critério
-   do aceite C2 — canonical em página removida reafirma a URL que se quer remover).
-4. Corpo do `410` lista mesas vigentes do mesmo sistema quando houver, e nunca é
-   página vazia.
-5. Nenhuma mesa expirada no sitemap (já garantido por T1.4, commit `826b44f`).
-
 **`eventStatus` saiu da lista** — T4.4 descartou `Event`, então não há status de
 evento para carregar.
 
 **Alcance:** 51 mesas hoje (medido), e crescente.
+
+---
+
+#### Implementação entregue 2026-09-11 (T1.2 + T1.3 no mesmo diff, sem deploy)
+
+**A decisão de desenho que mais precisa de conferência: a matriz subiu para o helper.**
+A matriz dos 6 estados de `table_status` **já existia** em `routes/tables.ts`, correta,
+mas valia só para a **API JSON**. O SSR (`og.ts`) — que é o que Googlebot, WhatsApp e
+Discord leem — não a aplicava. Copiá-la para o `og.ts` seria a **quarta** escrita da
+mesma regra (detalhe, OG, sitemap, espelho do frontend), que é o defeito que este
+módulo existe para evitar e que já causou 3 divergências em produção.
+
+Então virou `classifyTablePublicDisposition(table): 'ok' | 'gone' | 'not_found'` em
+`utils/tableVisibility.ts`, e os dois consumidores derivam dela.
+
+**Consequência que o mantenedor precisa conferir:** isso adicionou um ramo que a
+versão original não tinha — **`full` arquivada/expirada → `gone` (410)**. Antes caía
+em `404` na API JSON, contradizendo o `410` que a *mesma mesa* recebe em `active`; o
+estado observável é idêntico (a divulgação foi retirada), e a vaga cheia não muda
+isso. **Se preferir preservar o comportamento antigo, é uma linha na função.**
+
+Arquivos (3 alterados, 2 testes novos):
+- `utils/tableVisibility.ts` — `classifyTablePublicDisposition` + tipo
+  `TablePublicDisposition`. Recebe mesa **não-nula** de propósito: aceitar `null`
+  quebrava o narrowing de tipo no chamador e forçaria `!` nos dois consumidores.
+- `routes/tables.ts` — matriz local (~30 linhas) trocada pela chamada ao helper.
+  Comportamento JSON idêntico, exceto o ramo `full`+`saiuDoAr` acima.
+- `routes/og.ts` — o defeito central. `404`/`410`/`200` conforme a disposição, e
+  `stripCanonical()` nas respostas de erro. O `410` carrega o **título da mesa** no
+  `<title>` (a pessoa que clicou num link antigo no WhatsApp precisa reconhecer o que
+  procurava) e o corpo continua sendo o app completo — é ele que monta a tela "Mesa
+  Encerrada" a partir do `410` da API. Status de erro e página útil não são
+  excludentes.
+
+**A camada de UX do aceite 4 já existia e não precisou ser construída.**
+`buildClosedTablePayload` (`tables.ts:470`) já devolve título, data de encerramento e
+`id` para a conversa preservada, e o frontend já tem `pages/closedTable.ts` +
+`MesaPage.tsx`. O que faltava era **o crawler receber o status certo**, não a tela.
+
+**Teste novo: `routes/og.seo.test.ts` (14 casos).** `og.ts` é a rota que o Google lê e
+**não tinha teste nenhum** até aqui. Cobre: `200` para pública e para `full`; `404`
+para inexistente, `draft` e `pending_review`; `410` para expirada, arquivada, `ended`
+e `cancelled`; ausência de canonical nas duas respostas de erro; presença do título da
+mesa e do `<div id="root">` no corpo do `410`; e as duas rotas de `/og/mestre/`.
+
+**Validação (sobre `dev` = `25b6b7c`, após rebase da branch):**
+- `rtk tsc -p tsconfig.json --noEmit` → **No errors found**
+- `rtk vitest run` (backend `mesas`) → **1175/1175 PASS** (eram 1161; +14)
+- `rtk pnpm run lint` → limpo
+- `pnpm verify:api` → exit 0, **breaking=0** nos 6 apps. Os artefatos regenerados
+  (`api-map`/`api-inventory`) mudaram **só números de linha** de `tables.ts` —
+  nenhuma rota alterada.
+- **Teste de mutação:** revertido `status(encerrada ? 410 : 404)` → `status(200)` →
+  **4 falhas** em `og.seo.test.ts`. Mutação revertida e verde reconfirmado.
+
+**Aceite, item a item:**
+1. mesa expirada → `410` — ✅ coberto por teste; `curl` em produção só após deploy.
+2. slug inexistente → `404` — ✅ idem (T1.2).
+3. `410` sem canonical auto-referente — ✅ testado.
+4. corpo do `410` nunca é página vazia — ✅ serve o app + título da mesa. **Ressalva:
+   a lista de "mesas vigentes do mesmo sistema" NÃO foi implementada** — a tela atual
+   mostra a mesa encerrada e a conversa, sem sugestões. Isso é trabalho de frontend
+   (F4 mexe nas mesmas telas) e não afeta o status HTTP, que é o que tira o soft-404
+   do índice. **Fica nomeado como pendente, não como entregue.**
+5. nenhuma expirada no sitemap — ✅ T1.4, commit `826b44f`.
+
+**Bloqueio:** só chega ao Google **após deploy do `mesas`** (aprovação nominal).
+Branch `fix/102-f1-mesas-soft404`, criada de `origin/dev` `25b6b7c`. **Nada commitado
+ainda.**
 
 ---
 
@@ -235,7 +338,59 @@ sitemap era um **terceiro leitor nunca ligado à fonte única**.
 
 ## F2 — `site`: 301 dos prefixos legados do WordPress
 
-### [ ] T2.1 — Camada do redirect — decidida (mecanismo do repo), com 2 defeitos a corrigir
+**Estado em 2026-09-11.** T2.2 **carregada em produção** (105 linhas, autorizada após
+backup). T2.1 entregue e medida, **sem deploy** — as correções não valem em produção
+ainda. T2.3 varrida: **100/105**, com as 5 exceções explicadas abaixo (nenhuma é
+defeito de dado ou de código).
+
+Validação: `tsc` limpo nos dois apps · **149/149** no `site` (20 em
+`server/redirect-cache.test.ts`) · **1175/1175** no `mesas` · lint limpo ·
+`verify:api` breaking=0.
+
+**Achados de review tratados (PR #315), todos com teste de mutação:**
+
+1. *Query repetida se perdia.* `withOriginalQuery` usava `params.has(key)` dentro do
+   laço; após anexar o primeiro valor a chave passava a existir e `?tag=a&tag=b`
+   virava `?tag=a`. Corrigido com snapshot das chaves do destino antes do laço.
+2. *Conflito de chave normalizada era silencioso.* `/legacy` e `/legacy/` colapsam na
+   mesma chave; com destinos diferentes a última linha vencia sem sinal. Agora a
+   primeira vence de forma determinística e o conflito vai para `console.warn`. **Não**
+   se descarta a recarga inteira, como o review sugeria: derrubaria os outros 104
+   redirects válidos por causa de uma linha ruim.
+3. *Varredura derivava o esperado da tabela que verifica.* Um redirect apagado sumiria
+   de `pairs` e a varredura diria "104/104 ok" — verde por ausência de evidência. O
+   conjunto agora vem de `scripts/fixtures/redirects-legados-105.tsv`, congelado na
+   carga, e ausência na tabela conta como falha.
+4. *Fallback de erro do `og` devolvia 200 com canonical.* Falha de banco recriava o
+   soft-404 que a F1 corrige. Agora 503 + `stripCanonical`.
+5. *Teste de equivalência skipava em todo gate.* `MESAS_TEST_DATABASE_URL` não existia
+   em nenhum workflow (medido), então `describe.skipIf` omitia a única prova de que
+   `importedTableIsCurrentSql` e `isImportedTableExpired` não divergem. Ligado no
+   `ci.yml` ao Postgres do job, no mesmo padrão de `COMMUNITY_TEST_DATABASE_URL`.
+   **Não medido:** sem Postgres local, a execução real só será observável no run do CI.
+
+**Achado próprio, fora do review:** `reloadRedirects` fazia `map.clear()` antes de
+repopular, então o middleware servia 404 durante a repopulação, a cada 30 s. Agora
+monta um mapa novo e troca de uma vez.
+
+**Achado de infra que muda o diagnóstico de SEO — cache do Cloudflare varia por
+user-agent.** Medido na ruleset `http_request_cache_settings` (regra principal):
+o predicado termina em `not (user_agent contains "mobile"|"iphone"|"android"|…)`, e há
+regra anterior com `cache: false` para mobile. Consequência medida na mesma URL,
+no mesmo instante:
+
+| Cliente | Status | `cf-cache-status` |
+|---|---|---|
+| mobile (iPhone UA) | **301** | `DYNAMIC` (vai à origem) |
+| desktop (Chrome UA) | **404** | `HIT`, `Age: 5383` |
+
+As 4 URLs estão **corretas para o Googlebot**, que rastreia predominantemente como
+mobile, e erradas para visitante desktop. **Purge seletivo por URL não resolveu**:
+executado duas vezes (API `success: true`), a segunda com 16 variantes de chave
+(com/sem barra, com/sem `www`) — a entrada desktop sobreviveu às duas. O que
+resolveria é purge geral da zona, fora do escopo autorizado.
+
+### [x] T2.1 — Camada do redirect — dois defeitos do middleware CORRIGIDOS
 
 **Correção de 2026-09-11 (achado de auditoria).** Esta task perguntava "nginx do
 container ou Cloudflare?". A pergunta era **falsa**: o `site` já tem um subsistema de
@@ -297,31 +452,54 @@ if (hit && hit.to !== req.path) { res.redirect(hit.code, hit.to); return; }
 campanha some do GA4 em todo tráfego legado. O próprio arquivo já conhece a distinção:
 `server.ts:87-92` usa `req.originalUrl` em vez de `req.path` para `/admin/assets/`.
 
-**Entrega de código desta task:**
+**Entregue em 2026-09-11 (sem deploy):**
 
-1. Normalizar barra final no `lookupRedirect` — tentar a chave como veio e, se não
-   casar, a forma alternada (com/sem `/`). Normalizar na escrita **e** na leitura, para
-   não depender de como a linha foi gravada.
-2. Preservar a query string no destino: anexar ao `hit.to` a parte de `req.originalUrl`
-   a partir de `?`, quando houver. Se `hit.to` já tiver query própria, mesclar sem
-   duplicar chave.
+1. **Chave canônica no cache** (`server/redirect-cache.ts`). `canonicalKey` remove a
+   barra final (exceto na raiz) e é aplicada **na escrita e na leitura** do `Map` — o
+   `from_path` gravado resolve nas duas formas, independente de como a linha entrou.
+   Escolhido em vez de "tentar a chave e depois a alternada" porque a busca dupla ainda
+   dependeria da forma gravada quando as duas variantes existissem na tabela.
+2. **`withOriginalQuery`** (mesmo arquivo, exportada e testada isolada). Reanexa ao
+   destino a query de `req.originalUrl`; se o `to_path` já tiver query própria, mescla
+   por chave, **o destino vencendo** — o destino é editorial, a origem é o que o
+   visitante trouxe. Preserva fragmento (`#`) depois da query.
+3. **Middleware** (`server/server.ts:293-295`) passou a chamar `withOriginalQuery`.
 
-**Aceite (substitui D1/D2, que só testavam a forma com barra):**
+**Aceite — medido (`server/redirect-cache.test.ts`, 14 casos, 14/14):**
 
-1. `/noticias/<slug>/` → 301 → `/blog/<slug>/` → 200.
-2. `/noticias/<slug>` (**sem** barra) → 301 → `/blog/<slug>/` → 200.
-3. `/noticias/<slug>/?utm_source=fb&utm_medium=social` → 301 com `Location` contendo
-   `utm_source=fb` e `utm_medium=social`.
-4. Nenhuma cadeia: o `Location` de cada caso devolve 200 direto, não outro 301.
+1. `/noticias/<slug>/` → 301 → `/blog/<slug>/` → 200 ✓
+2. `/noticias/<slug>` (**sem** barra) → 301 → `/blog/<slug>/` → 200 ✓ — cobre também o
+   caso inverso, `from_path` gravado sem barra e requisição com barra.
+3. `?utm_source=fb&utm_medium=social` preservados no `Location` ✓
+4. Sem cadeia: o `Location` devolve 200 direto no teste de integração com `express` ✓
+
+Casos-limite cobertos além do aceite: raiz `/` não vira string vazia, `?` sem conteúdo
+não polui o destino, `code` ausente cai em 301, `POST` não redireciona.
+
+**Ainda não em produção — e os dois defeitos seguem medidos e vivos lá.** Com a tabela
+já populada (T2.2), a ausência do deploy do `site` fica observável em produção:
+
+- `/blog/analises/dd-2024-orcs-…` **sem barra final** → **404** (com barra → 301)
+- `…/?utm_source=fb&utm_medium=social` → 301 com `Location` **sem os UTMs**
+
+Ou seja: hoje o backlink que chega sem barra continua perdido, e a atribuição de
+campanha do tráfego legado ainda some do GA4. Resolve com o deploy (aprovação nominal).
 
 ---
 
-### [ ] T2.2 — Popular a tabela `redirects` com os prefixos legados
+### [x] T2.2 — Popular a tabela `redirects` — CARREGADA EM PRODUÇÃO
 
 **Entrega.** `INSERT` na tabela `redirects` de `site` — um par 1:1 por post
 divergente, sem cadeia, `code = 301`.
 
-**Fonte dos pares.** Derivados do banco, não digitados:
+**Ferramenta entregue em 2026-09-11:** `apps/site/scripts/redirects-legados.ts`, com
+três modos. `plan` lista os pares derivados, conta por prefixo e **aborta se houver
+cadeia** (destino de um par que seja origem de outro), sem escrever nada. `load` faz a
+carga via `addRedirect` (idempotente por `ON CONFLICT`) e imprime a contagem final.
+`verify --base <url>` é a varredura de T2.3. Nada foi executado contra produção.
+
+**Fonte dos pares.** Derivados do banco, não digitados — o script roda exatamente a
+`SELECT` abaixo, não uma cópia reescrita:
 
 ```sql
 SELECT regexp_replace(canonical, '^https?://[^/]+', '') AS from_path,
@@ -377,20 +555,75 @@ Rollback: `DELETE FROM redirects WHERE from_path IN (…)`, reversível.
 `ON CONFLICT (from_path) DO UPDATE SET to_path = EXCLUDED.to_path, code = EXCLUDED.code`.
 Reexecutar a carga não duplica linha nem falha — o aceite pode rodar duas vezes.
 
-**Aceite.**
+**Executada em 2026-09-11, autorizada pelo mantenedor após backup.**
 
-1. `SELECT COUNT(*) FROM redirects` → 105, e cada `from_path` devolve **301** para o
-   `to_path`, que devolve **200**.
-2. Rodar a carga uma segunda vez mantém a contagem em 105 (guarda de idempotência).
+Backup antes da escrita (condição da autorização): `pg_dump -Fc` de `site-prod-db`,
+1,5 MB, integridade verificada por `pg_restore -l` (128 objetos; `posts` e `redirects`
+presentes). Em `/home/ubuntu/backups/102-f2-redirects/site-prod-20260911-2034.dump` e
+copiado para `C:\projetos\artificiobackup\102-f2-redirects\` — SHA-256 idêntico nos
+dois lados (`37d77ce6…828eb`).
+
+**Consultas de refutação rodadas ANTES da carga** (não só as que confirmariam):
+
+| Verificação | Resultado |
+|---|---|
+| Pares divergentes em prod | **105** (confirma o número da spec) |
+| `redirects` antes da carga | **0** |
+| Cadeias (destino que é origem de outro par) | 0 |
+| Origens duplicadas com destinos diferentes | 0 |
+| Colisões sob a normalização de barra de T2.1 | 0 |
+| Destinos não publicados (`status <> 'publish'`) | 0 |
+| Pares com formato inválido | 0 |
+
+Carga em transação única: `INSERT 0 105`, todos com `code = 301`.
+
+**Aceite — medido.**
+
+1. `SELECT count(*) FROM redirects` → **105**, `count(*) FILTER (WHERE code = 301)` →
+   **105**. `/blog/analises/dd-2024-orcs-monstros-ou-personagens/` → **301** →
+   `/blog/dd-2024-orcs-monstros-ou-personagens/` → **200** ✓
+2. Segunda execução da carga: `INSERT 0 105`, contagem final **105** — idempotência
+   provada, sem duplicar linha ✓
+
+**A carga NÃO passou pelo `scripts/redirects-legados.ts`.** O modo `load` roda via
+`tsx` e exigiria `DATABASE_URL` de produção montada no container. Usei `INSERT` em SQL
+direto, com o **mesmo** predicado e o **mesmo** `ON CONFLICT` do `addRedirect`. O modo
+`load` do script segue não exercitado contra produção.
 
 ---
 
-### [ ] T2.3 — Varredura de regressão dos 105
+### [~] T2.3 — Varredura de regressão dos 105 — RODADA: 100/105
 
-**Entrega.** Script que, a partir do `canonical` gravado no banco (fonte fiel das URLs
-antigas do WP), testa cada uma das 105 URLs legadas e afirma 301 → 200 sem cadeia.
+**Entregue em 2026-09-11.** Modo `verify --base <url>` de
+`apps/site/scripts/redirects-legados.ts`. Para cada par, faz duas requisições com
+`redirect: "manual"`: exige **301** no primeiro hop e **200** no `Location`, o que
+prova a ausência de cadeia; confere ainda que o `Location` é o `to_path` esperado
+(comparando sem barra final, já que a normalização de T2.1 aceita as duas formas).
 
-**Aceite.** 105/105 resolvem. Qualquer falha reabre T2.2.
+**Decisão de desenho:** a varredura lê os pares da tabela `redirects` e só cai para
+`posts` se a tabela estiver vazia. Motivo medido: T3.2 apaga o `canonical`
+(`SET canonical = NULL`); se a varredura dependesse só de `posts`, ela pararia de
+funcionar assim que a F3 rodasse — justamente quando a regressão importa mais.
+
+**Varredura rodada em 2026-09-11 contra `https://artificiorpg.com`: 100/105** resolvem
+301 → 200 sem cadeia. As 5 exceções, todas investigadas até a causa:
+
+- **1 falha transitória de rede** (`curl` devolveu `000` em
+  `/noticias/project-dante-cancelado-…`). Reexecutada isolada: **301 correto**.
+- **4 são cache de borda, não defeito.** `/blog/guias/rpg-em-geral/o-que-e-rpg/comecar-aventura-rpg-impacto/`,
+  `/dnd/dnd-2024-guia-completo-…`, `/noticias/internacional/livro-dos-monstros-…` e
+  `/noticias/paizocon-2025-…`. Medido em cada uma: a linha existe na tabela com bytes
+  idênticos ao path requisitado (md5 conferido), o destino devolve **200**, e o app
+  responde **301** quando consultado direto no container
+  (`docker exec site-prod-app`, contornando o Cloudflare). O 404 vem da borda —
+  detalhe e o achado de variação por user-agent no cabeçalho da F2 acima.
+
+**Por que as outras 101 passaram:** `Age: 309` (entrada cacheada **depois** da carga)
+contra `Age: 5212` nas 4 (cacheada em 10/09, **antes**). A diferença é só qual versão
+a borda guardou, não o dado.
+
+**Aceite não fechado.** Falta 105/105 limpo, o que depende de invalidar a entrada
+desktop dessas 4 (purge seletivo não resolveu) e do deploy do `site` para T2.1.
 
 ---
 

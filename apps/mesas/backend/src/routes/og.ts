@@ -4,7 +4,7 @@ import { sql } from 'kysely';
 import escapeHtmlLib from 'escape-html';
 import { db } from '../db/index.js';
 import { upgradeGoogleImageQuality } from '@artificio/media/image-kinds';
-import { isImportedTableExpired } from '../utils/tableVisibility.js';
+import { classifyTablePublicDisposition } from '../utils/tableVisibility.js';
 import { sanitizePublicImageUrl } from '../utils/publicImageUrl.js';
 import { hydrateTableSystemFields } from '../services/systemCatalogProvider.js';
 import { buildTableDescription, buildGmDescription } from '../utils/ogDescription.js';
@@ -100,6 +100,23 @@ function injectMetaTags(html: string, meta: MetaFields): string {
   return output;
 }
 
+/**
+ * Remove o `<link rel=canonical>` do HTML servido em resposta de erro
+ * (spec 102, T1.2/T1.3).
+ *
+ * `injectMetaTags` emite canonical sempre, porque para página existente ele é
+ * obrigatório. Em `404`/`410` ele é ativamente nocivo: a página se declara a
+ * versão canônica da própria URL que está sendo removida do índice, reafirmando
+ * ao crawler o endereço que o status manda esquecer.
+ *
+ * Retirar aqui, e não tornar o campo opcional em `MetaFields`, mantém canonical
+ * como padrão não-negociável — só o caminho de erro abre exceção, e ela fica
+ * visível num lugar só.
+ */
+function stripCanonical(html: string): string {
+  return html.replace(/\s*<link\s+rel="canonical"[^>]*>/gi, '');
+}
+
 function toAbsoluteSiteUrl(value: string | null | undefined): string | null {
   if (!value) return null;
   const trimmed = value.trim();
@@ -159,12 +176,18 @@ router.get('/:type/:slug', async (req: Request, res: Response) => {
           .executeTakeFirst();
 
         if (!gm) {
-          const htmlNotFound = injectMetaTags(html, {
-            ...getFallbackMeta(`/mestre/${slug}`),
-            title: 'Mestre não encontrado — Artifício Mesas',
-          });
+          // Mesmo soft-404 das mesas (T1.2): slug de mestre inexistente
+          // devolvia `200` com "Mestre não encontrado" e canonical
+          // auto-referente. Perfil não tem estado "encerrado" — ou o slug
+          // existe, ou nunca existiu —, então aqui só há `404`, sem `410`.
+          const htmlNotFound = stripCanonical(
+            injectMetaTags(html, {
+              ...getFallbackMeta(`/mestre/${encodeURIComponent(slug)}`),
+              title: 'Mestre não encontrado — Artifício Mesas',
+            }),
+          );
 
-          return res.status(200).type('html').send(htmlNotFound);
+          return res.status(404).type('html').send(htmlNotFound);
         }
 
         const displayName = gm.display_name || 'Mestre de RPG';
@@ -223,19 +246,64 @@ router.get('/:type/:slug', async (req: Request, res: Response) => {
 
       const table = rawTable ? (await hydrateTableSystemFields([rawTable]))[0] : rawTable;
 
-      const isVisible =
-        !!table &&
-        table.status === 'active' &&
-        !table.archived_at &&
-        !isImportedTableExpired(table);
+      // T1.2/T1.3 (spec 102). Antes, este ramo respondia `200` para tudo que
+      // não fosse visível — inclusive slug inexistente. Isso é soft-404: o
+      // Google não indexa a URL E segue gastando crawl budget do domínio nela.
+      // Medido em produção: 51 das 92 URLs do sitemap do `mesas` devolviam
+      // `200` com "Mesa não encontrada", que é a origem das 736 páginas em
+      // "Rastreada, mas não indexada" que abriu esta spec.
+      //
+      // A classificação é a MESMA de `routes/tables.ts` de propósito — ambas
+      // chamam `classifyTablePublicDisposition`. Crawler e API divergirem sobre
+      // o que é uma mesa encerrada foi o defeito que criou o problema.
+      // Sem `<link rel=canonical>` auto-referente nas respostas de erro abaixo:
+      // a URL declarar-se canônica enquanto é removida reafirma ao índice
+      // exatamente o endereço que o status manda esquecer. `injectMetaTags`
+      // sempre emite canonical, então a remoção é explícita.
+      const renderErro = (title: string, description?: string): string =>
+        stripCanonical(
+          injectMetaTags(html, {
+            ...getFallbackMeta(`/mesas/${encodeURIComponent(slug)}`),
+            title,
+            ...(description ? { description } : {}),
+          }),
+        );
 
-      if (!isVisible) {
-        const htmlNotFound = injectMetaTags(html, {
-          ...getFallbackMeta(`/mesas/${encodeURIComponent(slug)}`),
-          title: 'Mesa não encontrada — Artifício Mesas',
-        });
+      if (!table) {
+        return res
+          .status(404)
+          .type('html')
+          .send(renderErro('Mesa não encontrada — Artifício Mesas'));
+      }
 
-        return res.status(200).type('html').send(htmlNotFound);
+      const disposicao = classifyTablePublicDisposition(table);
+
+      if (disposicao !== 'ok') {
+        const encerrada = disposicao === 'gone';
+
+        const htmlErro = encerrada
+          ? renderErro(
+              `${table.title} — mesa encerrada | ${SITE_NAME}`,
+              `Esta mesa foi encerrada e não recebe mais inscrições. Veja outras mesas de RPG abertas no ${SITE_NAME}.`,
+            )
+          : renderErro('Mesa não encontrada — Artifício Mesas');
+
+        // `410 Gone` para mesa que existiu e saiu do ar; `404` para slug que
+        // nunca existiu. O Google trata todos os `4xx` (exceto `429`) igual,
+        // então a escolha é de SEMÂNTICA, não de velocidade: no Search Console
+        // `404` passa a significar "slug errado" e `410`, "mesa encerrada" —
+        // dois defeitos com causas diferentes, que num código só ficariam
+        // indistinguíveis.
+        //
+        // O corpo segue sendo o app completo: o `index.html` monta a tela "Mesa
+        // Encerrada" a partir do `410` da API (`buildClosedTablePayload`), com
+        // título, data e a conversa preservada. Status de erro e página útil
+        // não são excludentes — o link antigo no WhatsApp/Discord não pode
+        // terminar em beco sem saída.
+        return res
+          .status(encerrada ? 410 : 404)
+          .type('html')
+          .send(htmlErro);
       }
 
       const title = `${table.title} — Mesa de RPG | ${SITE_NAME}`;
@@ -260,9 +328,12 @@ router.get('/:type/:slug', async (req: Request, res: Response) => {
     console.error('[GET /og/:type/:slug]', { type, slug }, error);
 
     try {
+      // Falha de banco/query cai aqui. Responder 200 com canonical auto-referente é o soft-404
+      // que esta spec corrige: o Google indexaria a página de erro como se fosse a mesa. 503 diz
+      // "tente de novo" e não consome orçamento de rastreio (achado de review, PR #315).
       const html = await loadIndexHtml();
-      const output = injectMetaTags(html, getFallbackMeta(`/${type}/${slug}`));
-      return res.status(200).type('html').send(output);
+      const output = stripCanonical(injectMetaTags(html, getFallbackMeta(`/${type}/${slug}`)));
+      return res.status(503).type('html').send(output);
     } catch {
       return res.status(500).send('Internal error');
     }
