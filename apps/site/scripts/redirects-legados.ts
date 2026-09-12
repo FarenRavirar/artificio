@@ -48,8 +48,14 @@ const MANIFEST = resolve(
   "fixtures/redirects-legados-105.tsv",
 );
 
+// O manifesto é a única defesa contra "verde por ausência" — mas ele mesmo precisa ser
+// verificado, senão o defeito só muda de lugar: truncado a 80 linhas, a varredura reportaria
+// "80/80 ok" com a mesma confiança (achado de review, PR #315). Origem duplicada é igualmente
+// grave: dois pares para o mesmo `from_path` inflariam o denominador sem cobrir URL nova.
+const MANIFEST_PAIRS = 105;
+
 function pairsFromManifest(): Pair[] {
-  return readFileSync(MANIFEST, "utf8")
+  const pairs = readFileSync(MANIFEST, "utf8")
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean)
@@ -58,6 +64,19 @@ function pairsFromManifest(): Pair[] {
       if (!from_path || !to_path) throw new Error(`linha inválida no manifesto: ${line}`);
       return { from_path, to_path };
     });
+
+  if (pairs.length !== MANIFEST_PAIRS) {
+    throw new Error(
+      `manifesto tem ${pairs.length} pares, esperado ${MANIFEST_PAIRS} — varredura abortada`,
+    );
+  }
+  const origens = new Set(pairs.map((p) => p.from_path));
+  if (origens.size !== MANIFEST_PAIRS) {
+    throw new Error(
+      `manifesto tem ${origens.size} origens únicas, esperado ${MANIFEST_PAIRS} — há from_path duplicado`,
+    );
+  }
+  return pairs;
 }
 
 function assertNoChain(pairs: Pair[]): string[] {
@@ -94,6 +113,27 @@ async function load(): Promise<void> {
   console.log(`redirects na tabela após a carga: ${rows[0]?.n ?? 0}`);
 }
 
+// `fetch` sem sinal herda o timeout do runtime, que no Node é longo o bastante para a varredura
+// parecer travada: uma URL que pendura segurava as 105 indefinidamente, sem saída nem sinal de
+// qual par parou (achado de review, PR #315). 10s é folgado para um 301 servido por CDN.
+const FETCH_TIMEOUT_MS = 10_000;
+
+async function fetchComTimeout(url: URL): Promise<Response> {
+  try {
+    return await fetch(url, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+  } catch (err) {
+    // `AbortError` cru não diz qual URL nem quanto esperou; a mensagem abaixo é o que aparece
+    // no relatório da varredura.
+    if (err instanceof Error && err.name === "TimeoutError") {
+      throw new Error(`timeout após ${FETCH_TIMEOUT_MS}ms`);
+    }
+    throw err;
+  }
+}
+
 async function verify(base: string): Promise<void> {
   // Fonte é o manifesto congelado, não a tabela verificada nem `posts` (que T3.2 limpa).
   const pairs = pairsFromManifest();
@@ -112,21 +152,29 @@ async function verify(base: string): Promise<void> {
 
   let fails = 0;
   for (const p of pairs) {
-    const hop1 = await fetch(new URL(p.from_path, base), { redirect: "manual" });
-    const location = hop1.headers.get("location") ?? "";
-    if (hop1.status !== 301) {
-      console.log(`✗ ${p.from_path} → ${hop1.status} (esperado 301)`);
-      fails++;
-      continue;
-    }
-    const hop2 = await fetch(new URL(location, base), { redirect: "manual" });
-    if (hop2.status !== 200) {
-      console.log(`✗ ${p.from_path} → 301 → ${location} → ${hop2.status} (esperado 200, sem cadeia)`);
-      fails++;
-      continue;
-    }
-    if (location.replace(/\/$/, "") !== p.to_path.replace(/\/$/, "")) {
-      console.log(`✗ ${p.from_path} → ${location} (esperado ${p.to_path})`);
+    try {
+      const hop1 = await fetchComTimeout(new URL(p.from_path, base));
+      const location = hop1.headers.get("location") ?? "";
+      if (hop1.status !== 301) {
+        console.log(`✗ ${p.from_path} → ${hop1.status} (esperado 301)`);
+        fails++;
+        continue;
+      }
+      const hop2 = await fetchComTimeout(new URL(location, base));
+      if (hop2.status !== 200) {
+        console.log(`✗ ${p.from_path} → 301 → ${location} → ${hop2.status} (esperado 200, sem cadeia)`);
+        fails++;
+        continue;
+      }
+      if (location.replace(/\/$/, "") !== p.to_path.replace(/\/$/, "")) {
+        console.log(`✗ ${p.from_path} → ${location} (esperado ${p.to_path})`);
+        fails++;
+      }
+    } catch (err) {
+      // Falha de rede é falha da varredura, não motivo para abortá-la: sem este catch, um
+      // `ECONNRESET` no par 12 derrubava o processo e os outros 93 nunca eram testados — o
+      // relatório saía incompleto sem dizer que estava incompleto (achado de review, PR #315).
+      console.log(`✗ ${p.from_path} → ${err instanceof Error ? err.message : String(err)}`);
       fails++;
     }
   }
