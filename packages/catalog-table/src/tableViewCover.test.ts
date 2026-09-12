@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { cropToObjectPosition } from '@artificio/media/image-kinds';
-import { mapTableToView } from './tableViewMapper';
-import type { TableDetail } from '../../../types/tables';
+import { mapTableToView } from './tableViewMapper.js';
+import type { TableDetail } from './types.js';
 
 const BASE = {
   id: 'tbl-1',

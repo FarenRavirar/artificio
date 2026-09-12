@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, Clock3, Database, FileClock, LayoutDashboard } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { NavLink } from 'react-router';
 import { ActivityPanel } from '../activity/components/ActivityPanel';
 import { useAdminDashboardMetrics } from '../hooks/useAdminDashboardMetrics';
 import { useAdminPendencias } from '../hooks/useAdminPendencias';

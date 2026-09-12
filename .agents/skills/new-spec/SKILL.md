@@ -61,6 +61,31 @@ O gate **nomeia** o que reler — nunca "revisar a spec" genérico, que não é 
 
 **Cobertura de teste.** A última fase também audita, por tabela, que cada arquivo novo/alterado tem `.test` correspondente, separando **novos** de **estendidos** e nomeando o caminho de cada um. Arquivo tocado sem teste = task reaberta.
 
+## Registro anti-compactação (obrigatório em toda fase)
+
+**Por que existe.** Sessão longa é compactada: o histórico vira resumo e o agente seguinte — ou o mesmo agente, depois do corte — perde o que não estiver escrito em arquivo. O que se perde primeiro é justamente o mais caro de redescobrir: a **medição que derrubou uma hipótese** e a **armadilha que já custou uma volta**. A checklist sobrevive; o "por que não é do jeito óbvio" não. Resultado medido nesta base (spec 102 T4.2): três defeitos de proxy foram encontrados, corrigidos e **reencontrados** depois da compactação, porque só estavam no chat.
+
+**Regra.** O achado vai para arquivo **no mesmo turno** em que é medido — nunca "depois, quando fechar a fase". Dois destinos, e a escolha não é livre:
+
+| O achado | Vai para |
+|---|---|
+| Explica por que o **código** é assim | Comentário no próprio código, no ponto exato |
+| Muda o **estado ou o contrato** da task | Bloco da task em `tasks.md` (reescrito, não anexado) |
+
+Na dúvida, os dois: o comentário sobrevive ao refactor, o `tasks.md` sobrevive ao `git checkout`.
+
+**O que obriga registro, sem exceção:**
+
+* **Forma óbvia que não funciona.** A que o próximo agente vai tentar primeiro. Escrever o que ela produz de errado, não só qual é a certa — senão ele "corrige" de volta. Ex.: `app.use('/api', proxy)` remove o prefixo e o backend recebe `/v1/health`.
+* **Medição que contradiz o que a spec dizia.** A correção entra no lugar do texto errado, marcando que o registro anterior estava errado. Não apagar em silêncio: o próximo agente precisa saber que aquilo já foi tentado.
+* **Valor que parece constante e não é.** Env, CIDR, nome de container, porta — com prod e beta lado a lado quando divergem. Ex.: `API_UPSTREAM` é `mesas-api` em prod e `mesas-beta-api` em beta; hardcodar o primeiro faz o beta escrever no banco de produção.
+* **Bug latente achado de passagem**, com a medição que o revelou e o que aconteceria se não fosse corrigido — em especial o que **falha em silêncio**, sem erro de boot.
+* **Decisão de não fazer algo**, com o motivo medido. Sem isso o próximo agente "completa" o trabalho e quebra o que estava intencionalmente de pé.
+
+**Trava de qualidade do registro:** vale o que é **verificável** — comando rodado e o que devolveu, `arquivo:linha`, contagem. "Cuidado com o proxy" não é registro; "`pathFilter` em array recusa glob misturado com caminho plano (medido em `dist/path-filter.js`), e o sintoma é não casar nada" é.
+
+**Como não inchar o arquivo** (`AGENTS.md` §Conclusão de Tarefas: doc descreve estado, não histórico): reescrever o bloco da task, nunca anexar "estado em <data>" embaixo do anterior. Medir com `rtk git diff --stat` ao fechar — doc de estado só com inserções é sinal de empilhamento.
+
 ## Review de bot: comentário no código, não em documento
 
 Correção vinda de revisor automático (CodeRabbit, Codex, Sonar, Amazon Q, Snyk, GitHub Advanced Security) é documentada **no próprio código, no ponto corrigido**, referenciando a origem. Não vira registro em sessão nem em arquivo de review.
@@ -262,6 +287,7 @@ quem implementa tende a ficar preso na checklist.
 - [ ] TN.0a — Ler `AGENTS.md` inteiro (T0 pétreo — obrigatório toda sessão/toda fase nova, mesmo se já lido antes nesta mesma sessão) antes de agir nesta fase. · feito quando: leitura confirmada, gate/regra pétrea relevante à fase identificada.
 - [ ] TN.0b — Usar `rtk` no lugar de comando cru equivalente durante toda a fase (`rtk git status/diff/log`, `rtk rg`, `rtk read`, `rtk pnpm`, `rtk tsc`, `rtk lint`, `rtk <test-runner>`). · feito quando: nenhum comando cru rodado onde `rtk` cobria o caso.
 - [ ] TN.0c — Comunicação com o mantenedor nesta fase em português. · feito quando: mensagens da fase seguem o registro.
+- [ ] TN.0d — **Registro anti-compactação contínuo:** todo achado medido nesta fase vai para arquivo **no mesmo turno** — comentário no código se explica o código, bloco da task em `tasks.md` se muda estado/contrato. Obrigatório para: forma óbvia que não funciona (com o sintoma), medição que contradiz o que a spec dizia, valor que varia entre prod e beta, bug latente que falha em silêncio, e decisão de **não** fazer algo. · feito quando: nenhum achado da fase existe só no chat, e `rtk git diff --stat` do `tasks.md` mostra bloco reescrito, não anexado.
 
 ## Fase 0 — Decisões de escopo (bloqueante, sem código)
 

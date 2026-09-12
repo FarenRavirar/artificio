@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { createMemoryRouter, RouterProvider } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CatalogoPage } from './CatalogoPage';
 import { useInfiniteCatalogTables } from '../hooks/useInfiniteCatalogTables';
@@ -120,12 +120,36 @@ afterEach(() => {
   window.matchMedia = originalMatchMedia;
 });
 
+/**
+ * T4.2 (spec 102): a página passou a ler `useLoaderData`, então precisa de uma
+ * rota de verdade, não só de um provedor de contexto. `createMemoryRouter` é o
+ * que fornece as duas coisas — com `MemoryRouter` + componente solto, o
+ * `useLoaderData` não teria rota à qual se ancorar.
+ *
+ * `loader` devolve `initial: null` de propósito: aqui se testa o comportamento
+ * de filtro/URL, e semear dados mudaria o que cada caso exercita.
+ */
 function renderPage(initialUrl = '/') {
-  return render(
-    <MemoryRouter initialEntries={[initialUrl]}>
-      <CatalogoPage />
-    </MemoryRouter>
+  const router = createMemoryRouter(
+    [
+      {
+        id: 'catalogo',
+        path: '*',
+        element: <CatalogoPage />,
+        loader: () => ({ initial: null, queryKey: '' }),
+      },
+    ],
+    {
+      initialEntries: [initialUrl],
+      // `hydrationData` faz o primeiro render já sair com o dado, que é como a
+      // página se comporta de verdade sob SSR. Sem isso o router resolveria o
+      // `loader` de forma assíncrona e o render inicial viria vazio, quebrando
+      // asserções que são síncronas por natureza.
+      hydrationData: { loaderData: { catalogo: { initial: null, queryKey: '' } } },
+    },
   );
+
+  return render(<RouterProvider router={router} />);
 }
 
 describe('CatalogoPage — busca geral única (R1/D0.3)', () => {

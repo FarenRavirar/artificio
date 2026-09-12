@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLoaderData, useParams } from 'react-router';
 import { LinksDisplay } from '../components/LinksDisplay';
 import { MestreBio } from '../components/mestre/MestreBio';
 import { MestreClosedGroupSection } from '../components/mestre/MestreClosedGroupSection';
@@ -17,14 +17,20 @@ import { MestreVttPlatforms } from '../components/mestre/MestreVttPlatforms';
 import { MestreContactMethods } from '../components/mestre/MestreContactMethods';
 import { MestreContactForm } from '../components/mestre/MestreContactForm';
 import { MestreReviewsSection } from '../components/mestre/MestreReviewsSection';
-import { applySeo } from '../utils/seo';
 import { useMestre } from '../hooks/useMestre';
+import type { MestreLoaderData } from '../routes/mestre';
 import './MestrePage.css';
 
 import { authPost } from '../services/apiClient';
 
 export const MestrePage = () => {
   const { slug } = useParams<{ slug: string }>();
+
+  // T4.2 (spec 102): o perfil vem do `loader`, que já o buscou no servidor.
+  // O `useMestre` recebe o dado pronto e não refaz o request; o título e a
+  // description agora saem do `meta` da rota, não de `applySeo` em efeito —
+  // efeito não roda para crawler que não executa JS.
+  const { profile: seeded } = useLoaderData() as MestreLoaderData;
 
   const {
     profile,
@@ -33,20 +39,7 @@ export const MestrePage = () => {
     totalOpenSlots,
     loading,
     error,
-  } = useMestre(slug);
-
-  useEffect(() => {
-    applySeo(
-      profile
-        ? `${profile.display_name} | Mestre | Artifício Mesas`
-        : 'Mestre | Artifício Mesas',
-      // Seleção não-branca (classe: cadeia `a || b || fallback` trata só-whitespace
-      // como conteúdo); write path normaliza, a leitura é defensiva.
-      [profile?.tagline, profile?.bio_long?.slice(0, 150)].find(
-        (candidate) => candidate != null && candidate.trim() !== ''
-      ) ?? 'Landing pública de mestre com mesas ativas e especialidades.'
-    );
-  }, [profile]);
+  } = useMestre(slug, seeded);
 
   useEffect(() => {
     if (!slug || loading || !profile) return;

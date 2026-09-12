@@ -65,8 +65,10 @@ const app = express();
 app.disable("x-powered-by");
 const port = process.env.PORT || 3000;
 
-// Atras do nginx na artificio_net: confia somente no proxy interno definido por
-// TRUSTED_PROXY_CIDR. O nginx ja validou CF-Connecting-IP e repassa $remote_addr.
+// Atras do mesas-app na artificio_net: confia somente no proxy interno definido
+// por TRUSTED_PROXY_CIDR. Era o nginx quem validava CF-Connecting-IP; desde a
+// spec 102 T4.2 quem encaminha e o Express do frontend (`frontend/server.js`,
+// `xfwd: true`), que repassa X-Forwarded-For do visitante ja validado.
 app.set('trust proxy', process.env.TRUSTED_PROXY_CIDR || '172.18.0.0/16');
 
 app.use(cors({

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router';
 import { PlusCircle, MapPin, Sparkles, PencilLine, Lightbulb } from 'lucide-react';
 import { useAuth } from '../contexts/useAuth';
 import { useConfirm, Badge, Button, Panel, toFiniteNumber } from '@artificio/ui';

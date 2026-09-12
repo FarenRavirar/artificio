@@ -1,5 +1,5 @@
 import { cropToObjectPosition } from '@artificio/media/image-kinds';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { CheckCircle2, Star, Globe, MapPin } from 'lucide-react';
 import type { TableCard } from '../../types/tables';
 import { SlotsIndicator } from '../SlotsIndicator';

@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import { ChevronDown, Eye, Pencil, Search, X } from 'lucide-react';
 import { cn } from './cn';
 

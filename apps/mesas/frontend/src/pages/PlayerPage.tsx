@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router';
 import { User, Clock, DollarSign, Gamepad2, Star } from 'lucide-react';
 import { LoadingState } from '@artificio/ui';
 import { applySeo } from '../utils/seo';

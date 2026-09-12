@@ -9,29 +9,77 @@ Legenda: `[ ]` aberta · `[~]` em andamento · `[x]` concluída e medida · `[!]
 
 ---
 
+## ⚠️ Registro anti-compactação — vale para TODAS as fases desta spec
+
+**Por que está no topo.** Esta spec atravessa várias sessões e já sofreu
+compactações. O que a compactação apaga primeiro é o mais caro de redescobrir: a
+medição que **derrubou** uma hipótese e a armadilha que já custou uma volta. A
+checklist sobrevive; o "por que não é do jeito óbvio" não. Aconteceu aqui: os
+três defeitos de proxy de T4.2 foram achados, corrigidos e **reencontrados**
+depois do corte de contexto, porque só existiam no chat.
+
+**Regra, em qualquer fase:** achado medido vai para arquivo **no mesmo turno**.
+Comentário no código quando explica o código; bloco da task aqui quando muda
+estado ou contrato. Na dúvida, os dois — o comentário sobrevive ao refactor, o
+`tasks.md` sobrevive ao `git checkout`.
+
+**Obriga registro, sem exceção:**
+
+1. **Forma óbvia que não funciona** — a que o próximo agente tentará primeiro.
+   Registrar o **sintoma**, não só a forma certa, senão ele "corrige" de volta.
+2. **Medição que contradiz o que esta spec dizia** — a correção substitui o texto
+   errado e diz que o registro anterior estava errado. Nunca apagar em silêncio.
+3. **Valor que parece constante e não é** — env, porta, nome de container, CIDR,
+   com prod e beta lado a lado quando divergem.
+4. **Bug latente achado de passagem**, principalmente o que **falha em silêncio**,
+   sem erro de boot.
+5. **Decisão de NÃO fazer algo**, com o motivo medido — senão o próximo agente
+   "completa" o trabalho e derruba o que estava intencionalmente de pé.
+
+**Só vale registro verificável:** comando e o que devolveu, `arquivo:linha`,
+contagem. "Cuidado com o proxy" não é registro.
+
+**Cumprimento não depende de o agente lembrar disto.** O hook
+`.claude/hooks/registro-anti-compactacao.js` (`Stop`, suíte com 19 casos) fecha o
+turno que fez ≥4 medições sem escrever em doc de spec/governança, e devolve os 5
+gatilhos acima no motivo. Medido contra o transcript real em 2026-09-12: 20
+medições detectadas, `exit 2`, `decision: block`. Escrever na spec libera; turno
+de rotina não é cobrado; `stop_hook_active` corta o laço.
+
+Duas armadilhas medidas ao escrever esse hook, para quem for mexer nele:
+`hookSpecificOutput{hookEventName:"Stop"}` **não funciona** — `Stop` não é membro
+da união do CC (`security_reminder_hook.py:242-255`), a linha reprova a validação
+e o motivo vaza como JSON cru; o canal certo é `exit 2` + stderr. E o
+`transcript_path` pode chegar com o turno atual ainda incompleto (lag medido:
+3,7 s), mas as chamadas de ferramenta já estão gravadas — o aviso da doc vale
+para a última mensagem do assistente, não para o que o gate lê.
+
+Mesma regra na skill `new-spec` (§Registro anti-compactação), para toda spec nova.
+
+---
+
 ## F1 — `mesas`: soft-404 e divergência sitemap/SSR — **CÓDIGO COMPLETO, SEM DEPLOY**
 
-**Estado em 2026-09-11.** T1.1, T1.2, T1.3 e T1.4 implementadas e medidas. T1.4 está
-em `dev` (commit `826b44f`); T1.1/T1.2/T1.3 estão **não commitadas** na branch
-`fix/102-f1-mesas-soft404` (criada de `origin/dev` `25b6b7c`).
+**Estado em 2026-09-12: T1.1 a T1.4 estão em `origin/dev`.** A PR #315 foi mergeada
+(2026-09-12, 16 arquivos) e `tableVisibility.equivalence.test.ts` e `og.seo.test.ts`
+existem na árvore de `dev` — medido com `git ls-tree origin/dev`. O que falta nesta
+frente é **deploy**, não código nem commit.
 
-Diff aguardando autorização de commit: 3 arquivos alterados
-(`utils/tableVisibility.ts`, `routes/tables.ts`, `routes/og.ts`), 2 testes novos
-(`utils/tableVisibility.equivalence.test.ts`, `routes/og.seo.test.ts`) e os artefatos
-de `verify:api` regenerados (só números de linha).
-
-Validação: `tsc` limpo · **1175/1175** testes · lint limpo · `verify:api` breaking=0.
-Ambos os testes novos passaram por **teste de mutação** (provado que falham quando a
-regra quebra), não só por verde.
+Validação (remedida em 2026-09-12): `tsc` limpo · **1175 testes** (1 skip por
+desenho, abaixo) · lint limpo · `verify:api` breaking=0. Os dois testes novos
+passaram por **teste de mutação** — provado que falham quando a regra quebra, não
+só que estão verdes.
 
 Pendências nomeadas, nenhuma bloqueando as demais frentes:
-1. **Deploy do `mesas`** — sem ele nada chega ao Google (aprovação nominal).
+1. **Deploy do `mesas`** — sem ele nada chega ao Google (aprovação nominal). Sobe
+   junto com F3 e F4, num único deploy.
 2. **Espelho `apps/mesas/frontend/src/utils/tableVisibility.ts`** segue divergente —
    unificar exige criar pacote compartilhado (aprovação nominal, T1.1 item 3).
 3. **Sugestões de mesas vigentes no corpo do `410`** (aceite 4 de T1.3) não
    implementadas — trabalho de frontend, não afeta o status HTTP.
-4. Teste de equivalência **skipa em CI** sem `MESAS_TEST_DATABASE_URL` (decisão de
-   infra pendente).
+4. Teste de equivalência **skipa sem `MESAS_TEST_DATABASE_URL`** — é o 1 skip da
+   contagem acima, por `describe.skipIf(!db)`. Comportamento desenhado, não falha;
+   ligar em CI é decisão de infra pendente.
 
 ### [x] T1.1 — Unificar o critério de visibilidade de mesa — teste de equivalência ENTREGUE
 
@@ -629,122 +677,150 @@ desktop dessas 4 (purge seletivo não resolveu) e do deploy do `site` para T2.1.
 
 ## F3 — `site`: canonical legado
 
-### [ ] T3.1 — Fechar a origem do canonical divergente — REESCRITA (2026-09-11): não há importador
+### [x] T3.1 — Guarda contra canonical de host externo — FEITO (2026-09-11)
 
-**Premissa anterior refutada.** A task dizia "importador para de gravar canonical do
-WP". Medido em `apps/site/server/server.ts:167-169`, verbatim:
+Não há importador para corrigir: a rota `POST /admin/import` e o script saíram em
+2026-07-27 (`apps/site/server/server.ts:167-169`). Os 105 canonicals divergentes são
+dado legado congelado. **T3.2 não depende de T2.2.**
 
-```
-// POST /admin/import (re-import do WP -> store) foi REMOVIDA em 2026-07-27 junto com o importador.
-// Disparava pnpm run import, script que deixou de existir — manter a rota daria 500 em vez de 404,
-// e o WP que ela importava está fora do ar desde o cutover (D074/spec 029).
-```
+O único caminho de escrita restante é o override editorial via admin, que continua
+existindo de propósito — serve a sindicação real.
 
-Não existe importador para corrigir. Os 105 canonicals divergentes são **dado
-legado congelado**, não fluxo ativo: nada no stack atual regrava `posts.canonical`
-com URL do WP.
+**Entregue.**
 
-**Consequência na ordem das tasks.** A dependência T2.2→T3.1 é **falsa como estava
-escrita** — não há risco de reimportação regravar o que T3.2 limpar. T3.2 pode rodar
-sem esperar T2.2.
+- `packages/content/src/canonical.ts` — `normalizeCanonical`/`isCanonicalSafe`, no
+  pacote compartilhado. Vazio → `null` (fallback auto-referente, o default correto);
+  domínio canônico → normalizado para `https` + trailing slash; outro host →
+  rejeitado com motivo.
+- `apps/site/server/admin-api.ts` — `rejectBadCanonical` nos 4 handlers de escrita
+  (`POST`/`PUT` de posts e pages) → `400 bad_canonical`; grava o valor normalizado.
+  Rejeita em vez de descartar calado, senão o editor não sabe que o valor dele não foi
+  gravado.
 
-**Único caminho de escrita restante:** o override editorial via admin. `[slug].astro:21`
-honra `post.seo.canonical` quando presente; o editor pode preencher pelo admin. O
-recurso é legítimo e **se preserva** — o problema nunca foi o mecanismo, foi o dado
-que o importador removido deixou para trás.
+**Aceite — medido.**
 
-**Medido para descartar risco:** `SELECT count(*) … canonical NOT LIKE 'https://artificiorpg.com%'`
-→ **0**. Nenhum canonical aponta para domínio externo; não há sindicação legítima a
-preservar. Os 21 "corretos" são posts nascidos no stack novo, não override editorial.
+1. `rtk rg "run import" apps/site` → 1 ocorrência, e é o comentário que documenta a
+   remoção. Nenhum script vivo.
+2. `vitest run src/canonical.test.ts` → **10/10** (host externo, formato do WP, vazio
+   → `null`, URL relativa, quase-match `evilartificiorpg.com`).
+3. Nenhuma linha da spec diz que T3.2 depende de T2.2.
 
-**Entrega desta task (documental + guarda):**
-
-1. Registrar no código do admin/editor que canonical vazio é o default correto — só
-   se preenche para sindicação real, nunca "por completude".
-2. Guarda de regressão: teste que falha se qualquer canonical persistido apontar para
-   host diferente de `artificiorpg.com`.
-
-**Aceite:**
-
-1. `rtk rg "run import" apps/site` → 0 ocorrências de script de importação vivo.
-2. Teste da guarda falha ao inserir canonical com host externo e passa com `NULL`.
-3. Nenhuma linha da spec afirma que T3.2 depende de T2.2.
+**Validação.** `packages/content` 22/22; `apps/site` 155/155; `tsc --noEmit` e lint
+limpos nos dois.
 
 ---
 
-### [!] T3.2 — Limpar os 105 canonicals divergentes em produção
+### [x] T3.2 — Limpar os 105 canonicals divergentes em produção — FEITO (2026-09-12)
 
-**Bloqueada: SQL write em produção exige aprovação nominal** (§Autorização), com
-dry-run e rollback registrados.
+Autorizado nominalmente pelo mantenedor em 2026-09-12.
 
-**Comando pretendido** (não executado):
+**Executado** em `site-prod-db`:
 
 ```sql
 UPDATE posts SET canonical = NULL
  WHERE canonical IS NOT NULL
    AND regexp_replace(canonical,'^https?://[^/]+','') <> '/blog/'||slug||'/';
--- esperado: UPDATE 105
 ```
 
-Com `canonical` nulo, `[slug].astro:21` cai no fallback correto
-(`${SITE.origin}/blog/${post.slug}/`).
+→ `UPDATE 105`.
 
-**Rollback.** `pg_dump` da tabela `posts` antes; a coluna é restaurável isoladamente.
-Não destrói conteúdo — só metadado de SEO já comprovadamente errado.
+**Antes → depois** (mesmo `SELECT` nos dois lados): 126 posts, 125 com canonical, **105
+divergentes** → 126 posts, **20** com canonical, **0** divergentes. Os 20 restantes são
+auto-referentes e foram preservados.
 
-**Não depende de T3.1.** "Senão a próxima importação regrava" pressupunha um
-importador que não existe desde 2026-07-27 (`server.ts:167-169`). T3.2 pode rodar
-assim que a autorização nominal do `UPDATE` sair; T3.1 é guarda de regressão, não
-pré-condição.
+**Dry-run.** O mesmo `UPDATE` sob `BEGIN … ROLLBACK` devolveu `UPDATE 105` e 0
+divergentes restantes antes da execução real.
+
+**Backup, verificado nos dois lados.** `pg_dump -t posts --data-only --column-inserts`
+→ `~/backups/spec102/posts_pre_t32_20260912_021453.sql` na VM, copiado para
+`C:\projetos\artificiobackup\spec102\`. 3.824.421 bytes e 126 `INSERT INTO` idênticos
+na VM e off-VM; dump íntegro. *Rollback:* `UPDATE … FROM` da coluna `canonical` sobre o
+dump — não destrói conteúdo, só metadado de SEO.
+
+**Por que nenhum dos 105 era sindicação legítima.** Todos os 125 canonicals estavam em
+`https://artificiorpg.com` — nenhum host externo. Os divergentes apontavam para
+caminhos legados do WP: `noticias` (64), `blog/<categoria>/` (18), `dnd` (18),
+`downloads` (3), `entrevistas` (2). Verificado por `curl` que esses caminhos **já
+respondem 301** para `/blog/<slug>/`, que serve 200 — o canonical apontava para uma URL
+que redireciona, que é exatamente o defeito A.
+
+**Não aparece em produção ainda.** O HTML servido vem do `dist` buildado; a correção só
+fica visível após o rebuild do container (T3.3).
 
 ---
 
-### [ ] T3.3 — Export + rebuild + deploy do site
+### [!] T3.3 — Export + rebuild + deploy do `site` — BLOQUEADA
 
-**Por que é task própria.** `posts.canonical` → `export.ts` → `posts.json` → build
-Astro → HTML estático. **Corrigir o banco não muda produção** sem export + build +
-deploy. "Banco atualizado ≠ prod atualizado", mesma lógica de "Git atualizado ≠ prod
-atualizado".
+Deploy **autorizado** pelo mantenedor em 2026-09-12; **não executável ainda**.
 
-**Depende de.** T3.2. **Exige aprovação nominal** (deploy).
+**Bloqueio, atualizado em 2026-09-12.** `deploy.yml` roda com `--ref main` e a VM faz
+`git reset --hard origin/<branch>` (`deploy-flow.md` §6), então só chega a produção o
+que estiver em `main`. O código de T3.4 saiu do working tree e entrou no commit desta
+branch — o bloqueio deixou de ser "não commitado" e passou a ser **a distância até
+`main`**: falta PR → merge em `dev` → promote `dev`→`main` → dispatch.
 
-**Aceite.** Varredura dos 126 posts: `<link rel=canonical>` == URL servida em
-**126/126** (hoje: 21/126).
+Deployar `main` antes disso corrigiria o canonical (o entrypoint reexporta do banco,
+onde T3.2 já limpou) mas emitiria **0 `lastmod`**, falhando o aceite 2 — o `main` de
+hoje não tem o código de T3.4.
+
+**Destrava com:** PR → `dev` → promote → `dev`→`main` → dispatch. Cada passo exige
+autorização nominal própria (§Autorização).
+
+**Por que é task própria.** `posts.canonical` → `export.ts` → `posts.json` → build Astro
+→ HTML. Corrigir o banco não muda produção: o container serve o `dist` do último build.
+"Banco atualizado ≠ prod atualizado".
+
+**O que entra neste mesmo ciclo.** O `lastmod` (T3.4) é exercido pelo mesmo export +
+build — o `updated` só aparece no `posts.json` quando o export roda contra o banco real.
+Um ciclo resolve canonical e `lastmod`.
+
+**Comando.** `gh workflow run deploy.yml --ref main -f module=site -f mode=deploy -f env=prod`
+
+**Aceite.**
+
+1. Varredura dos 126 posts: `<link rel=canonical>` == URL servida em **126/126**
+   (hoje: 21/126).
+2. `curl -s https://artificiorpg.com/sitemap-0.xml | grep -c "lastmod"` → ≥ 126
+   (aceite 1 de T3.4, só mensurável aqui).
 
 ---
 
-### [ ] T3.4 — `lastmod` no sitemap do `site`
+### [x] T3.4 — `lastmod` no sitemap do `site` — FEITO (2026-09-11)
 
-**Problema, medido em 2026-09-11:**
+Medido em 2026-09-11: `curl -s https://artificiorpg.com/sitemap-0.xml | grep -c
+"lastmod"` → **0**. É a alavanca barata para o Google redescobrir os 126 posts depois
+que T3.2/T3.3 corrigirem o canonical.
 
-```
-curl -s https://artificiorpg.com/sitemap-0.xml | grep -c "lastmod"   →  0
-```
+**Entregue.**
 
-Cada `<url>` do sitemap do `site` traz só `<loc>`. O do `mesas` já emite `lastmod`; o
-`site`, não. `apps/site/astro.config.mjs:20` usa `@astrojs/sitemap` com config padrão,
-que não deriva data.
+- `apps/site/db/export.ts` — `posts.updated_at` sai no `posts.json` como `updated`.
+- `apps/site/src/lib/sitemap-lastmod.ts` — `buildLastmodIndex` + `serializeWithLastmod`.
+- `apps/site/astro.config.mjs` — `sitemap({ serialize })` ligado.
 
-**Por que entra nesta spec.** É a única alavanca barata para o Google **redescobrir**
-os 126 posts depois que T3.2/T3.3 corrigirem o canonical. Sem `lastmod`, nada no
-sitemap sinaliza que o conteúdo mudou, e a redescoberta fica dependendo do ritmo
-natural de recrawl — as "semanas a meses" do `plan.md` §9. Google recomenda `lastmod`
-explicitamente para conteúdo atualizado, e o usa quando a data é consistente e
-confiável (data inventada ou igual para todas as URLs é ignorada).
+Duas travas, porque o Google ignora `lastmod` que parece inventado: a data vem da
+edição real, nunca do build; URL sem data própria (home, `/blog/`, taxonomias, busca)
+não recebe o campo.
 
-**Entrega.** `serialize` do `@astrojs/sitemap` preenchendo `lastmod` a partir da data
-real de atualização do post (`posts.updated_at`, propagada via `export.ts` →
-`posts.json`), não da data do build. Para páginas sem data própria (home, `/blog/`),
-omitir o campo em vez de inventar.
+**Armadilha — não desfazer.** O `astro.config.mjs` roda fora do pipeline do Vite. Ele
+**não pode** importar `src/lib/content.ts`, que puxa `@artificio/ui/static` →
+`_logo.png`: o build morre com `Unable to load your Astro config / Unknown file
+extension ".png"`. Por isso o config lê `posts.json` direto e `sitemap-lastmod.ts` não
+depende de assets. Comentado nos dois arquivos.
 
-**Aceite:**
+**Aceite — medido.**
 
-1. `curl -s https://artificiorpg.com/sitemap-0.xml | grep -c "lastmod"` → ≥ 126.
-2. Duas URLs de posts com datas de edição diferentes têm `lastmod` diferentes (guarda
-   contra "data do build para todas").
-3. Nenhuma URL sem data real recebe `lastmod`.
+1. Ponta a ponta: snapshot de teste com 3 posts com data real → build → **3 `lastmod`
+   distintos**; as outras 43 URLs sem o campo. Snapshot versionado restaurado
+   (`git status` limpo em `src/data/posts.json`).
+2. Datas diferentes → `lastmod` diferentes: teste dedicado.
+3. URL sem data real não recebe `lastmod`: teste dedicado.
+4. `vitest run src/lib/sitemap-lastmod.test.ts` → **6/6**.
 
-**Depende de.** T3.3 (mesmo ciclo de export + build + deploy) — cabe no mesmo deploy.
+**Pendente de produção.** `curl … | grep -c "lastmod"` → ≥ 126 só é mensurável depois
+do deploy (T3.3). Até lá o `posts.json` versionado (8 posts, nenhum com `updated`)
+gera 0 `lastmod` — é o "não inventar data" funcionando, não falha.
+
+**Depende de.** T3.3 — mesmo ciclo de export + build + deploy.
 
 ---
 
@@ -752,15 +828,33 @@ omitir o campo em vez de inventar.
 
 Frente nova (Achado E, `spec.md` §2.5). Entrou por comparação medida com o MesaQuest.
 
-### [x] T4.1 — Arquitetura de renderização do `mesas` — DECIDIDA: SSR universal
+### [x] T4.1 — Arquitetura de renderização do `mesas` — DECIDIDA E FECHADA: SSR universal
 
 **Decisão do mantenedor (2026-09-11): caminho 2, SSR universal.** Motivo dado por
 ele: *"o catálogo precisa ser sempre fresco"*. Isso elimina SSG/prerender, que
 serviria HTML do momento do build — vaga preenchida apareceria como aberta até o
 rebuild seguinte.
 
-Nota: a recomendação anterior do agente era o caminho 1 (SSG). Ela partia de custo
-de implementação, não do requisito de frescor, que só o mantenedor tinha.
+**Critério de decisão do mantenedor, literal (2026-09-11):** *"NÃO EXISTE CUSTO,
+TEM QUE SER ROBUSTO E ESCALONÁVEL."* Custo de implementação — número de arquivos
+tocados, esforço de migração, pacote novo — **não é critério** nesta spec e não se
+apresenta como argumento. O que decide é robustez e escalabilidade da solução.
+
+**NÃO REABRIR.** Esta task está fechada. O agente que chegar aqui implementa SSR
+universal; não propõe alternativa, não pede escolha entre caminhos, não traz
+comparação de custo. Três propostas já foram rejeitadas pelo mantenedor, todas pelo
+mesmo motivo (partiam de custo de implementação, não de robustez):
+
+| Proposta rejeitada | Por que não |
+|---|---|
+| SSG/prerender | serve HTML do build — viola "sempre fresco" |
+| SSR só das rotas públicas | **não existe**: React Router v7 não tem toggle `ssr` por rota (medido na doc oficial `reactrouter.com/how-to/pre-rendering`: a flag é app-level) |
+| Estender `og.ts` com HTML em string | duplica os 3.024 LOC de `features/table` em string no backend; não é escalonável |
+
+**Medições que sustentam o fechamento (2026-09-11, `apps/mesas/frontend`):** 378
+arquivos em `src`; 37 importam `react-router-dom`; 58 usam `window`/`localStorage`/
+`document`; `features/table` soma 3.024 LOC sem teste. Esses números descrevem a
+obra — **não** são argumento contra ela.
 
 **Problema que isto resolve.** O `mesas` serve HTML diferente por user-agent
 (`nginx.conf:5-22` + `@og_proxy`) — *dynamic rendering*, que o Google deixou de
@@ -798,7 +892,23 @@ vivem só no frontend. Por §"Compartilhado por padrão", sobem para pacote comp
 
 ---
 
-### [ ] T4.2 — HTML-first nas rotas públicas de mesa e mestre
+### [~] T4.2 — HTML-first nas rotas públicas de mesa e mestre — CÓDIGO COMPLETO, VALIDADO E COMMITADO; falta deploy
+
+**Estado em 2026-09-12 (reescrever este bloco, não anexar abaixo):**
+
+| item | estado |
+|---|---|
+| 1. `Dockerfile` do frontend | **escrito**, asserção de runtime 7/7 |
+| 2. `server.js` + 2 composes + `nginx.conf` removido | **aplicado e medido** — ver §Contrato do `server.js` |
+| 3. Código morto (`App.tsx`, `main.tsx`, `index.html`) | **removido e validado** — `tsc -b` limpo, `BackendStatusScreen.test.tsx` 2/2, suíte 84/1139 |
+| Ingress `:80` → `:3000` (prod + beta) | **pendente de autorização nominal** — item 6 da §Ações |
+
+**O código desta task está fechado.** O único item aberto é a porta do ingress,
+que é escrita em tunnel de produção e roda no momento do deploy (§Autorização),
+não antes.
+
+Nada commitado. `pnpm-lock.yaml` e `Dockerfile` modificados → o
+`deploy-contract-gate` cobra `deploy-flow.md` §1 no commit.
 
 **Entrega.** Conteúdo e schema no HTML inicial, **iguais para todo user-agent**.
 Elimina por construção a divergência bot↔usuário que produziu B, C e E.
@@ -808,7 +918,8 @@ decidiu *SSR universal*; faltava **como**. Medido no repo
 (`apps/mesas/frontend/package.json`): `react-router-dom` `^7.18.0`, `react` `^19.2.7`,
 `vite` `^8.0.16`, nenhum adapter SSR, `"dev": "vite"`.
 
-**Recomendação: React Router v7 em framework mode**, e não Next.js/Remix/Astro:
+**DECIDIDO — React Router v7 em framework mode**, e não Next.js/Remix/Astro. Não é
+recomendação em aberto; é o mecanismo desta task. Razões:
 
 - É o **mesmo pacote já instalado**. Framework mode é modo de operação do
   `react-router` 7, ativado por `react-router.config.ts` com `{ ssr: true }` — não é
@@ -829,7 +940,28 @@ decidiu *SSR universal*; faltava **como**. Medido no repo
 4. Tipagem de loader muda; `react-router typegen` gera os tipos.
 
 A migração **não é mecânica** — os relatos de "uma tarde" são de apps v6→v7 sem SSR.
-Tratar como obra, com autorização nominal própria (já registrada em T4.1).
+Tratar como obra. **Autorização já concedida pelo mantenedor em 2026-09-11** ("autorizado",
+mais *"code o que der para codar, pois vou deployar, depois vou desbloquear tudo em 1
+deploy só"*). Não pedir de novo a autorização da obra; as ações perigosas de sempre
+(commit, push, deploy, escrita na VM) seguem exigindo palavra por ação, como em
+qualquer task.
+
+**`ssr: true` vale para o app inteiro — medido na doc oficial.** Não existe
+`export const ssr = false` por rota no React Router v7; a flag é app-level e a
+granularidade vem de `prerender` (build-time, incompatível com "sempre fresco") e
+`clientLoader`. Consequência prática para o implementador: **as rotas autenticadas
+entram no SSR junto**, e os 58 arquivos com código só-de-browser precisam sair do
+render para `clientLoader`/`clientAction` ou ficar atrás de guarda de ambiente. Isso
+é parte da obra, não desvio dela.
+
+**Ordem de deploy (decidida pelo mantenedor em 2026-09-11).** F1, F3 e F4 sobem num
+**único deploy**. O código se escreve todo antes; nada nesta frente espera deploy de
+outra. Medição de produção **não serve de linha de base** para esta task enquanto o
+deploy único não acontecer: produção roda o código pré-F1/F3, então `curl` contra
+`mesas.artificiorpg.com` mede o estado antigo. Medido em 2026-09-11: 47 das 88 URLs
+de mesa do sitemap devolvem "Mesa não encontrada" ao Googlebot, e 0 devolvem
+"encerrada" — é o Achado B original com T1.2/T1.3/T1.4 ainda não deployadas, **não**
+regressão nova. A linha de base desta task é o código do repositório.
 
 **Escopo das rotas.** Duas famílias públicas, não uma: `/mesas/<slug>` **e** o perfil
 de mestre. T4.3 define schema só para mesa; **o perfil de mestre não recebe schema
@@ -837,23 +969,646 @@ nesta spec** — entra em HTML-first (conteúdo visível para crawler), que é o
 resolve B/C/E. Schema de `Person`/`ProfilePage` para mestre fica fora de escopo,
 declarado aqui para não virar improviso do implementador.
 
-**Nota de dado (de T4.1).** `og.ts` não faz join com `table_contacts` — o HTML que
-hoje chega ao Googlebot já nasce sem os contatos. O SSR precisa incluir esse join,
-senão troca uma casca por outra.
+**Nota de dado (de T4.1), corrigida por medição em 2026-09-12.** A falta do join com
+`table_contacts` é **só do `og.ts`**, que o SSR substitui. O endpoint que o `loader`
+consome já devolve os contatos (`backend/src/routes/tables.ts:728-733` e `:764`) —
+não há trabalho de backend aqui. Ver item 6 do estado de execução.
+
+**`tableViewMapper` é puro e se reusa — não reimplementar (medido 2026-09-11).**
+`apps/mesas/frontend/src/features/table/mappers/tableViewMapper.ts` (359 LOC) não
+importa React nem toca `window`/`document`/`localStorage` (`rtk rg` → 0 ocorrências);
+só depende de `@artificio/media/image-kinds` e de utilitários locais. Ele deriva
+preço, vagas, selos, urgência e CTA a partir do dado cru. Por §"Compartilhado por
+padrão", sobe para pacote compartilhado e serve SSR e cliente **pela mesma função** —
+é o que garante que o JSON-LD de T4.3 e o HTML visível não possam divergir, que é a
+regra pétrea daquela task. Reimplementar essa derivação no backend é o defeito, não
+a solução.
+
+Mesma medição nos componentes de conteúdo: `TableContent`, `TableSchedules`,
+`TableTechnical` e `MasterCard` não têm estado nem handler (0 ocorrências de
+`useState|useEffect|useRef|onClick|window\.|localStorage`); só `TableHero` tem (2).
+A árvore de render das rotas públicas é quase toda apresentação pura — renderiza no
+servidor sem adaptação.
+
+**Estado da execução (2026-09-11): pacote compartilhado ENTREGUE e verde;
+nenhum código de SSR escrito ainda.**
+
+**1. `packages/catalog-table` criado — a fundação de T4.3.** Autorizado nominalmente
+pelo mantenedor em 2026-09-11. Reúne o que SSR e cliente precisam derivar **pela
+mesma função**, que é o que torna impossível o JSON-LD divergir do HTML visível:
+
+| Módulo do pacote | Origem no app | O que entrega |
+|---|---|---|
+| `tableViewMapper.ts` | `features/table/mappers/` | preço, vagas, urgência, CTA, selos |
+| `contactUrls.ts` | `utils/safeExternalUrl.ts` | WhatsApp/Discord/e-mail para `Offer` |
+| `ageRating.ts` | `utils/ageRating.ts` | faixa etária |
+| `types.ts` | `types/tables.ts` | contrato de domínio (`TableDetail`, `TableContact`) |
+| `viewModel.types.ts` | `features/table/types/` | `TableViewModel` |
+
+`openSafeExternalUrl` **não** subiu: usa `window.open`. `TablesResponse` também não:
+é paginação de API, não domínio de mesa. A divisão é explícita para ninguém importar
+o pacote no servidor e descobrir a quebra em runtime.
+
+Os 5 módulos antigos do app viraram **re-export** do pacote em vez de serem
+reescritos nos 84 arquivos que os importam — fonte única sem churn. Testes migraram
+junto (`tableViewMapper`, `tableViewCover`, `ageRating`).
+
+**Validação medida:** pacote `tsc --noEmit` limpo, **26/26** testes, build ESM+CJS
+gerando `dist` sem teste dentro. App `mesas/frontend`: `tsc -b` limpo, **83 arquivos
+/ 1122 testes** passando. Os 12 avisos `Could not parse CSS stylesheet` são os já
+documentados em `App.tsx`, não regressão.
+
+**2. Dependências de SSR instaladas** (linha `7.18.3`, fixada de propósito:
+`pnpm add` sem versão resolveu `@react-router/dev@8.3.1`, major à frente do
+`react-router-dom@^7.18.0` do app):
+`@react-router/dev` (dev), `@react-router/node`, `@react-router/express`,
+`react-router`, `isbot` (resolveu `5.2.2`).
+
+**Armadilha do lockfile — conferir `@babel/core` antes de qualquer commit deste
+lock.** O primeiro `pnpm add` produziu +200/−49 com `@babel/core@7.29.7`
+**removido**, o mesmo defeito de 2026-09-03 que quebrou o teste do `apps/site` no CI
+(`deploy-flow.md` §2). Restaurado com `git checkout origin/dev -- pnpm-lock.yaml` e
+refeito com `pnpm install --lockfile-only`. Estado atual do lock: **+412/−42**, com
+`@babel/core@7.29.7` presente em **51** referências e a entrada base existindo nas
+duas seções. As remoções são a variante `(supports-color@5.5.0)` colapsando na
+entrada base — dedup de peer, não poda (busca negativa: nenhuma remoção fora de
+`@babel`/`supports-color`).
+
+**3. Framework mode LIGADO e servindo — SSR roda, mas ainda sem dados.**
+Escrito e verde nesta sessão:
+
+| Arquivo | Papel |
+|---|---|
+| `react-router.config.ts` | `{ ssr: true, appDirectory: 'src' }` |
+| `src/routes.ts` | as 23 rotas do antigo `<Routes>` |
+| `src/root.tsx` | documento HTML + providers (era o `App.tsx`) |
+| `src/entry.server.tsx` | render no servidor, `isbot` decide o despacho |
+| `src/entry.client.tsx` | hidratação + o que só existe no browser |
+| `src/routes/*.tsx` | 18 módulos de rota |
+| `server.js` | Express com `createRequestHandler` |
+
+`ssr: true` e `appDirectory` confirmados no **tipo instalado**
+(`@react-router/dev/dist/config.d.ts:154` e `:77`), não na documentação — é o que
+permitiu manter o código em `src/` em vez de mover tudo para `app/`.
+
+O `isbot` no `entry.server.tsx` **não é dynamic rendering**: o conteúdo é idêntico
+nos dois caminhos, muda só o momento do despacho (`onAllReady` para bot, que não
+executa JS e abandonaria stream incompleto; `onShellReady` para navegador).
+
+**Medição do que o crawler recebe (servidor local, 2026-09-11):**
+
+| User-agent | Antes | Agora |
+|---|---|---|
+| ClaudeBot / GPTBot / Googlebot / navegador | 3.328 B de casca (só ClaudeBot medido) | **33.005 B, idênticos entre si** |
+
+Texto visível no HTML: **1.126 caracteres** (era 0). `Conectando ao backend` →
+**0 ocorrências**. HTTP 200. Bytes iguais para todos os user-agents é o fim do
+dynamic rendering medido, não sua ampliação — critério 3 do aceite.
+
+**4. Health-check saiu do caminho do render.** `App.tsx` devolvia
+`<BackendStatusScreen status="loading" />` enquanto `backendHealthy === null`; como
+`useEffect` não roda no servidor, **todo request renderizaria a tela de espera** e
+era isso que o crawler receberia. Agora a aplicação renderiza sempre e o aviso de
+indisponibilidade só cobre a página quando o `/health` de fato falhou — o humano
+continua vendo "Atualização sendo executada" durante deploy.
+
+**5. Duplicata de instância do router — corrigida com override.** O app passou a
+depender de `react-router@7.18.3` direto; `@artificio/analytics` arrastava
+`react-router@7.18.0` por dentro de `react-router-dom@^7.18.0`. As duas cópias no
+bundle do servidor derrubavam **toda** rota com
+`useLocation() may be used only in the context of a <Router> component` (500 medido
+em `/`). Override `"react-router@<7.18.3": ">=7.18.3 <8"` em `pnpm-workspace.yaml`,
+mesmo mecanismo já usado para `prosemirror-model`/`prosemirror-view` e pelo mesmo
+motivo. Depois: HTTP 200.
+
+**Validação:** build SSR gera `build/client` + `build/server/index.js`; suíte do app
+**83 arquivos / 1122 testes** passando.
+
+**6. `loader` + `meta` escritos nas três rotas públicas — itens 1 e 2 da ordem
+anterior estão FEITOS.** `tsc -b` limpo. O que cada um resolve:
+
+| Rota | `loader` | Decisão que o código carrega |
+|---|---|---|
+| `routes/mesa.tsx` | `GET /api/v1/tables/:slug` | `410` é **resposta de sucesso** desta rota (a tela de encerramento é conteúdo legítimo); `404`/`5xx` são `throw` para o status chegar ao crawler |
+| `routes/mestre.tsx` | `GET /api/v1/gm/perfis/:slug` | **sem credencial de propósito** — mandar o cookie do visitante para a API abriria a porta para o HTML de um usuário ser servido a outro por cache |
+| `routes/catalogo.tsx` | `fetchCatalogTables` | falha de API **não** derruba a página: é a URL mais indexável e a origem de todos os links `/mesas/` |
+
+**Correção de rota medida (o `plan.md` e este bloco diziam o contrário).** A "Nota de
+dado" acima afirma que o SSR precisa incluir o join de `table_contacts`. Medido em
+`apps/mesas/backend/src/routes/tables.ts:728-733` e `:764`: o endpoint `GET /:slug`
+**já** consulta `table_contacts` e devolve `contacts: serializeContacts(contacts)`.
+A lacuna existe só no `og.ts`, que o SSR substitui. **Nenhuma mudança de backend é
+necessária em T4.2.**
+
+`lib/apiFetch.server.ts` é o que torna o fetch no servidor possível: no browser a URL
+fica relativa e o nginx faz proxy; no servidor não existe origin, e `fetch('/api/...')`
+lança `Failed to parse URL`. Resolve para `http://mesas-api:3000` reusando
+`API_UPSTREAM` — **a mesma variável do `nginx.conf:49`**, para que renomear o serviço
+não separe frontend e nginx.
+
+`features/table/seo/tableMeta.ts` entrega T4.3 e T4.5 junto: `description` com a cauda
+de facetas dentro do orçamento de 160 caracteres, e `@graph` com `Product`+`Offer` —
+`price: "0"` quando gratuita, nunca ausência (ausência lê como preço desconhecido).
+Preço deriva de `price_value`/`price_type`, **nunca** do rótulo do contato (medido:
+"Ticket / Inscrição" aparece em 106 contatos, mas 101 dessas mesas são `gratuita`).
+
+**7. Regressão do agente, achada por medição e corrigida.** `grep` por
+`BackendStatusScreen|backendHealthy` em `root.tsx`/`entry.client.tsx` devolveu **0**:
+o overlay de health-check foi perdido quando `root.tsx` substituiu `App.tsx` no item 3
+desta mesma sessão. Sem ele, uma promoção beta→prod não mostraria aviso nenhum ao
+visitante. Extraído para `components/BackendStatusScreen.tsx` e religado como overlay
+não-bloqueante.
+
+**8. Split `react-router-dom` / `react-router` em 33 arquivos — a mesma classe de bug
+do item 5, em outro lugar.** `useUrlState.ts:51` quebrava com
+`useLocation() may be used only in the context of a <Router>` porque a página importava
+de `react-router` e o hook de `react-router-dom`: duas instâncias, contexto não
+atravessa. Migrados os 33 arquivos; `rtk rg` → 0 restantes; `tsc -b` limpo.
+
+**9. Medição de custo do SSR com dado REAL (2026-09-12) — a lacuna que o
+mantenedor apontou, agora fechada do lado do catálogo.** Sem backend local, subi
+um stub servindo os payloads de produção (`/api/v1/tables` com 24 mesas / 76 KB e
+`/api/v1/tables/<slug>` com 93 campos), para o render exercitar o mesmo trabalho
+que fará no ar.
+
+| Rota | Antes dos `loader` | Com `loader` + dado real |
+|---|---|---|
+| `/catalogo` | 35.889 B, 0 links `/mesas/` | **258.951 B, 24 links `/mesas/`** |
+| Tempo | 2,28 s | **0,42 s** |
+| `<title>` | ausente | presente |
+| `Carregando` | presente | **0** |
+| `"@type":"Event"` | — | **0** |
+
+**Os 2,28 s anteriores NÃO eram CPU de render — eram timeout** do `loader`
+tentando `http://mesas-api:3000` sem backend no ar (estáveis em 5 repetições, o
+que denuncia espera de rede, não trabalho). O custo real do catálogo inteiro no
+primeiro request, sem cache, é **0,42 s**.
+
+**Rajada de 880 renders (10 × as 88 URLs do sitemap), que é o número que decide a
+folga da VM.** Todas as 880 responderam `200`.
+
+| Métrica | Medido |
+|---|---|
+| Throughput | **~28 req/s** (constante da 1ª à 10ª rodada) |
+| ms/render | média **33**, p50 34, p95 50, máx 58 |
+| RSS em regime | **368 MB** (estabilizado) |
+
+A memória **não vaza**: 122 MB → 173 → 276 → **caiu para 167** na 4ª rodada (GC do
+V8) → subiu e parou em 368 MB nas rodadas 9 e 10, com throughput inalterado. A
+curva crescente das 3 primeiras rodadas é heap antes do primeiro GC maior, não
+retenção — medir só 3 rodadas teria produzido a conclusão errada de vazamento.
+
+**Contra a VM (24 GB / 4 OCPU): 368 MB sobre ~21 GB livres = 1,7% da folga.** Para
+comparação medida na mesma VM, `site-prod-app` (Astro Node SSR, análogo já em
+produção) ocupa 238,9 MB. Uma varredura completa do Googlebot nas 88 URLs custa
+**~3 s de uma OCPU**. CPU e RAM não são o risco.
+
+**10. `renderMarkdown` quebrava o SSR — `/mesas/<slug>` respondia `500`.**
+`packages/content-editor/src/ContentEditor.tsx:42` chamava `DOMPurify.sanitize`;
+o DOMPurify sanitiza pelo DOM real e, sem `window`, o import devolve fábrica não
+ligada (`TypeError: DOMPurify.sanitize is not a function`). Atingia a rota central
+da spec.
+
+Corrigido **sem lib nova**: a `sanitize-html@2.17.7` já era dependência do pacote,
+roda nos dois lados e já tinha política medida contra 10 vetores
+(`LEGACY_COMMENT_HTML_OPTIONS`). O mantenedor havia autorizado `jsdom` como
+runtime dependency; a medição mostrou que **não é preciso** — `jsdom` foi
+descartado e nada novo entrou no `package.json`. Nova
+`sanitizeRenderedMarkdown` em `sanitize.ts`, com allowlist própria para o
+`<input type="checkbox" disabled>` das task lists (qualquer outro `<input>` é
+descartado). `packages/content-editor`: **120/120 testes passando**.
+
+A `sanitize-html` serializa void element na forma XHTML (`<br />`,
+`<input ... />`) onde o DOMPurify emitia `<br>` e `disabled=""`. O parser HTML do
+navegador produz a mesma árvore para as duas formas, e é a árvore que precisa
+bater na hidratação — as asserções foram atualizadas para a forma real
+(`sanitize.test.ts` já esperava `<br />` antes desta spec). **Armadilha medida:**
+`selfClosing: []` faz a lib FECHAR void element (`<input></input>`, HTML
+inválido) — não repetir.
+
+**`/mesas/<slug>` responde `200`** (37.074 B em 0,43 s) e cumpre os critérios da
+T4.3: `<title>` presente, 1 bloco `ld+json` com `@graph` → `Product` + `Offer`
+(`price: "0"`, `InStock`, derivado de `price_value`), `"@type":"Event"` = 0,
+`Carregando` = 0.
+
+**Pegadinha de build que custou uma volta:** o `mesas` consome o `dist/` compilado
+do `content-editor`, não o `src/`. Corrigir o pacote e rebuildar só o app mantém o
+`500` — o `dist/` seguia com o `DOMPurify` de 04/09. Ordem obrigatória:
+`pnpm build` no pacote, depois no app.
+
+**Todas as 5 rotas medidas no SSR, nenhum erro no log:** `/catalogo` `200`
+(258.951 B), `/mesas/<slug>` `200` (37.074 B), `/perfil` `200`, `/busca` `302`,
+`/mestre/<inexistente>` `404`. O código do SSR está **completo e verde** — o que
+falta é imagem e borda, não aplicação.
+
+**O QUE FALTA PARA T4.2 FECHAR — tudo é infra, o código do SSR está pronto.**
+
+**1. [x] `apps/mesas/frontend/Dockerfile` — nginx-estático → Node. ESCRITO.**
+Multi-stage no molde de `apps/mesas/backend/Dockerfile` (mesmo app, mesmo
+compose): `builder` roda o `turbo build` e `production` é `FROM node:24-alpine`
+com `CMD ["node","server.js"]`, `USER node`, `EXPOSE 3000`.
+
+**Aceite passou:** `node scripts/ci/check_dockerfile_workspace_deps.mjs` →
+**7 imagens conferidas** (antes 6), `apps/mesas/frontend (12 pacotes)`, nenhum
+faltando. O gate passou a cobrir esta imagem **sozinho**, sem editar o script: ele
+pula imagem cujo último `FROM` é `nginx` (linha 212), porque ali o Vite bundlou
+tudo no estático. Trocar a base ligou a checagem.
+
+Medição que sustenta o `pnpm install --prod` (é o que evita repetir [[E021]]): **o
+bundle do servidor NÃO embute as dependências** — `build/server/index.js` as
+importa em runtime (`react`, `react-dom/server`, `react-router`,
+`@react-router/express`, `express`, `isbot`, `@tanstack/react-query`,
+`lucide-react`, `zod`, `dompurify`, `html2canvas-pro`). Imagem sem `node_modules`
+de produção compila verde e crasha com `MODULE_NOT_FOUND` no primeiro request.
+
+12 pacotes no fecho transitivo, 7 deles com dependency externa própria
+(`auth`→jsonwebtoken, `catalog-ui`→lucide-react, `comments`/`config`→zod,
+`content-editor`→sanitize-html/markdown-it, `image-editor`→react-image-crop,
+`media`→cloudinary) — cada um precisa do SEU `--filter`, senão o `.pnpm` é podado.
+**`changelog` não aparece em nenhum import do `src`**: entra só por
+transitividade, que é exatamente o vetor do E021 — conferir import direto não o
+encontraria.
+
+**2. `nginx.conf` + os dois composes — (b) APLICADO e commitado em 2026-09-12.**
+`server.js` reescrito (84 linhas), `docker-compose.prod.yml` e
+`docker-compose.beta.yml` editados (+8/−9 cada), `nginx.conf` removido via
+`git rm` (147 linhas). Validação no fim deste item.
+
+O item estava subespecificado como "remover 3 diretivas". Medido, o
+`nginx.conf` faz **seis** coisas, e só uma morre com o SSR:
+
+| o que faz | destino sob (b) |
+|---|---|
+| `map $is_crawler` + `error_page 418` + `@og_proxy` | **morre** — dynamic rendering |
+| `set_real_ip_from` + `CF-Connecting-IP` (IP real) | `app.set('trust proxy')` — **padrão já rodando em 6 apps** |
+| `client_max_body_size 12m` (upload de banner) | **config do proxy**, NÃO `express.json` (ver §Contrato do `server.js`) |
+| `proxy_pass /api/` → `mesas-api:3000` | **proxy no Node** (ver §Proxy interno) |
+| `proxy_pass = /auth/google` + `= /auth/google/callback` | idem |
+| `proxy_pass = /auth/discord/connect` + `= /auth/discord/callback` | idem |
+| `proxy_pass = /sitemap.xml` → backend | idem |
+| `= /robots.txt` (`try_files`, não proxy) | `express.static` já serve — T4.6 |
+
+**São 7 `proxy_pass`, não 3** (medido: `grep -n proxy_pass nginx.conf` → linhas
+49, 64, 73, 83, 92, 115, 138). O registro anterior omitia
+`/auth/discord/connect` e `/auth/discord/callback` (`nginx.conf:82,91`), do fluxo
+OAuth do `discord-sync`: se ficarem de fora, conectar Discord quebra em produção.
+
+**O mesmo vale para o beta.** `docker-compose.beta.yml:32,34,96` tem o `cp`
+idêntico e o volume `frontend_dist_beta`. O item 2 são **dois** composes.
+
+**Incidente que qualquer opção precisa preservar:** `client_max_body_size` existe
+porque banner >1 MB foi cortado com `413` em produção (2026-08-27), antes de
+chegar ao backend — o usuário só via "não carrega". Perder esse limite reintroduz
+o bug.
+
+**O que mudou nos dois composes** (idêntico em prod e beta): `expose` 80 → 3000,
+healthcheck `127.0.0.1:80` → `:3000`, `command` do nginx removido, volume
+`frontend_dist_*` desmontado do `mesas-app`, e `TRUSTED_REAL_IP_FROM` trocado por
+`TRUSTED_PROXY_CIDR`.
+
+**A troca da env era um bug latente, achado ao editar.** O `mesas-app` só
+declarava `TRUSTED_REAL_IP_FROM` (`prod:27`/`beta:28`), que era do
+`set_real_ip_from` do nginx. Quem lê o CIDR agora é
+`app.set('trust proxy', process.env.TRUSTED_PROXY_CIDR || …)` — nome diferente.
+Sem a troca o `trust proxy` cairia no default **silenciosamente**, sem erro de
+boot. `TRUSTED_PROXY_CIDR` já existia no compose, mas só no `mesas-api`
+(`prod:84`/`beta:83`).
+
+**O volume `frontend_dist_*` continua montado no `mesas-api`** (`prod:105`,
+`beta:95`) — só saiu do `mesas-app`, que era quem o populava. Ver DEB-102-1: sem
+o `cp`, ele fica vazio, mas `og.ts` lê sob demanda dentro de `loadIndexHtml()`,
+não no boot (medido em `og.ts:29`), então o backend sobe normalmente. Desmontar o
+volume do `mesas-api` também quebraria o boot se alguém religasse o `og` — por
+isso ficou.
+
+Também corrigido: o comentário de `backend/src/server.ts:68` dizia "Atras do
+nginx na artificio_net", o que deixou de ser verdade no mesmo commit.
+
+**3. Código morto removido** (`git rm`): `src/App.tsx`, `src/main.tsx`,
+`index.html`, `src/App.test.tsx`. Busca por referência restante devolveu **0**.
+`index.html` já não participava do build — medido: `build/client/index.html` não
+existe, e o `Dockerfile` não o copia.
+
+Antes de apagar, conferido item a item que tudo que `main.tsx`/`index.html`
+faziam tem destino: `installDiagnostics`, `applyFavicon`, `initGtag` e o tema por
+cookie em `entry.client.tsx:11-26`; os 3 imports de CSS em `root.tsx:11-13`; o
+script anti-flash de tema inline em `root.tsx:43-47`. Essa conferência existe
+porque o item 7 desta mesma task já perdeu o `BackendStatusScreen` numa migração
+sem ela.
+
+`App.test.tsx` **migrou**, não foi apagado: virou
+`src/components/BackendStatusScreen.test.tsx`, apontando para o módulo novo. O
+componente continua sendo o que o visitante vê durante deploy.
+
+**Bug de SEO achado ao remover o `index.html`, corrigido no mesmo trabalho.** O
+`index.html` dava `<title>` e `description` a TODAS as rotas; no framework mode
+só herda quem não define o seu, e o `root.tsx` não tinha `meta`. Medido com o
+SSR de pé (`PORT=3999 node server.js` + `curl`): `/` devolvia
+`<title>Artifício Mesas — Encontre mesas de RPG online</title>`, mas **`/login` e
+`/jogador/alguem` devolviam nenhum `<title>`** — aba sem nome, e rota pública
+indexável sem título no resultado de busca. São 21 rotas sem `meta` próprio.
+Corrigido com `export function meta()` em `root.tsx`, com o título e a descrição
+que o `index.html` trazia. As rotas com identidade própria (`catalogo`, `mesa`,
+`mestre`) continuam sobrescrevendo.
+
+**Validação deste item RODOU em 2026-09-12:** `rtk tsc -b` limpo,
+`BackendStatusScreen.test.tsx` **2/2**, `rtk pnpm build` gerando
+`build/server/index.js` (2.094 kB) e `build/client` completo. Medido no SSR local
+(`PORT=3994`): `/` responde `200` com `<title>` do `meta` default de `root.tsx`, e
+`/mesas/<slug>` responde `200` com o `<title>` da própria mesa — o default pegou
+sem regredir quem já tinha o seu.
+
+**Fragilidade medida, não bloqueante:** `apps/mesas/frontend/src/utils/sanitize.ts`
+ainda usa `DOMPurify` e quebraria no SSR pelo mesmo motivo do item 10. Hoje **não
+é alcançado**: seu único consumidor (`useProfileQuery`) só roda sob
+`ProfileProvider`, montado apenas em `/perfil` — rota sem `loader` e com
+`enabled: isAuthenticated`, que no servidor é falso. Confirmado por medição:
+`/perfil` responde `200`. Vira `500` no dia em que alguém puser `loader` nessa
+rota ou `ProfileProvider` no `root.tsx`.
+
+**DECISÃO TOMADA (mantenedor, 2026-09-12): opção (b), só o Node.** Critério que
+ele nomeou, textual: "escalonável, que realmente funcione para como o repositório
+está e robusto". Aplicado às opções medidas abaixo, (b) ganha nos três.
+
+**O padrão do repositório, medido em 2026-09-12 — é o que decide entre as
+opções.** Levantados os 9 `Dockerfile` de app (última linha `FROM` + `CMD`):
+**nenhum container roda nginx e Node juntos**; cada imagem tem um processo só.
+
+| padrão | apps |
+|---|---|
+| Node puro (`CMD ["node", ...]`) | `accounts`, `site`, `links`, `mesas/backend`, `downloads/backend`, `glossario/backend` |
+| nginx puro (`CMD ["nginx", ...]`) | `glossario/frontend`, `downloads/frontend` |
+
+nginx aparece **só onde o frontend é estático** — que é o que o `mesas/frontend`
+deixa de ser nesta task.
+
+E o IP real atrás do Cloudflare **já é problema resolvido em Express**: 6 apps
+rodam a mesma linha, `app.set('trust proxy', process.env.TRUSTED_PROXY_CIDR ||
+'172.18.0.0/16')` (`site/server/server.ts:32`, `links/server/server.ts:28`,
+`accounts/src/app.ts:215`, `mesas/backend/src/server.ts:70`,
+`downloads/backend/src/server.ts:67`, `glossario/backend/src/index.ts:34`).
+**Zero usam `http-proxy-middleware`** — e a medição de por que (abaixo) é o que
+define o contrato do `server.js`.
+
+O análogo mais próximo do que o `mesas/frontend` vira agora é o `site`
+(Astro Node SSR): `site-prod-app` é **Node puro recebendo direto do tunnel**, sem
+nginx no compose, fazendo `trust proxy`, `express.json({ limit })`, rate limit e
+CSRF no próprio Express.
+
+**(a) Manter o nginx na frente do Node.** Container roda os dois; nginx escuta 80
+e faz `proxy_pass` para `127.0.0.1:3000` no lugar do `try_files`. **Seria a nona
+variante de topologia do repo e o único container com dois processos** — caso
+particular, que o AGENTS.md trata como dívida até prova em contrário.
+
+**(b) — ESCOLHIDA. Só o Node, no padrão dos 6 apps Express.**
+Contra os três critérios do mantenedor: *como o repo está* — é o padrão de 6 dos
+9 apps, enquanto (a) seria a nona variante; *escalonável* — app novo copia o
+`server.js`, não ganha nginx e config próprios; *robusto* — um processo por
+container, contra dois pontos de falha em (a), onde o healthcheck do nginx passa
+com o Node morto.
+
+### Contrato do `server.js` sob (b) — medido em 2026-09-12
+
+**Por que o `mesas` precisa de proxy e o `site`/`links` não.** Os dois montam a
+API no mesmo Express (`site/server/server.ts:239,248`; `links/server/server.ts:71,455`)
+porque **não têm `backend/`** — medido por `ls apps/site/`, `ls apps/links/`: um
+`server/`, um container, um processo. O `mesas` tem `apps/mesas/backend/` com
+container (`mesas-api:3000`), banco e cron próprios. Fundir seria unir dois
+deploys, escopo muito maior que T4.2. Logo `/api/` **atravessa container**, e em
+Express isso é `http-proxy-middleware`.
+
+**O frontend chama a API por caminho relativo, mesma origem.** `apiClient.ts:4`
+→ `API_BASE = import.meta.env.VITE_API_URL || ''`; `:85` → `${API_BASE}${endpoint}`.
+`VITE_API_URL` está **vazia em produção**: o bundle servido hoje
+(`index-Cnat_Kks.js`, 1,49 MB) não contém nenhuma URL absoluta de `/api/` — as 11
+ocorrências de `/api/v1` são relativas. Confirmado end-to-end:
+`curl https://mesas.artificiorpg.com/api/v1/health` → **200**, atravessando o
+`proxy_pass` do nginx. **O proxy não é resíduo: carrega todo o tráfego de API.**
+
+Descartada a via de URL absoluta (`VITE_API_URL=https://mesas.../api`): quebraria
+o cookie de sessão `.artificiorpg.com` em cross-origin e exigiria CORS novo —
+mexe em auth, que o AGENTS.md trata como sagrado.
+
+**O que o `server.js` tem — ESCRITO em 2026-09-12** (`frontend/server.js`, 84
+linhas):
+
+1. `app.set('trust proxy', process.env.TRUSTED_PROXY_CIDR || '172.18.0.0/16')` —
+   linha idêntica à dos 5 outros apps (medido: `links/server/server.ts:28`,
+   `site:32`, `downloads/backend/src/server.ts:67`, `glossario:34`,
+   `mesas/backend:70`).
+2. Um `createProxyMiddleware` para as **6 rotas**, montado na raiz.
+3. **NÃO leva `express.json`.** Num app que só faz proxy, parsear o body o
+   **consome**, e o upload multipart de banner (12 MB) chegaria vazio ao backend.
+   Quem parseia JSON é o `mesas-api`, que já tem o seu
+   `express.json({ limit: '12mb' })` — e é lá que o limite de tamanho fica. Sem
+   body parser o corpo passa direto, sem bufferizar, então não há teto a
+   configurar no proxy.
+
+**O alvo é `${API_UPSTREAM}:3000`, NÃO `mesas-api:3000` fixo.** Correção do que
+esta seção registrava: prod define `API_UPSTREAM=mesas-api`, beta define
+`mesas-beta-api` (`docker-compose.*.yml:23`). Hardcodar faria **o beta proxiar
+para o banco de produção**. O `server.js` lê a mesma env que o `nginx.conf` lia.
+
+**São 6 rotas no `server.js`, não 7.** Os 7 `proxy_pass` do nginx incluíam o
+`@og_proxy` (`nginx.conf:138`), que morre com o dynamic rendering. As 6 que
+migram: `/api/` (prefixo) e `/auth/google`, `/auth/google/callback`,
+`/auth/discord/connect`, `/auth/discord/callback`, `/sitemap.xml` (exatas).
+
+**Três defeitos medidos antes de chegarem a produção — armadilhas para o próximo
+agente**, todas encontradas com um backend de eco que devolve `req.originalUrl`:
+
+1. **`app.use('/api', proxy)` corrompe o path.** O Express **remove** o prefixo
+   do `req.url` antes do middleware: `/api/v1/health` chegava ao backend como
+   `/v1/health`. Seria `404` em toda a API. Por isso o proxy é montado na raiz
+   (`app.use(apiProxy)`) com `pathFilter`, e não num prefixo.
+2. **`pathFilter` em array não aceita glob misturado com caminho plano.**
+   `['/api/**', '/auth/google']` lança `HPM_INVALID_PATH_FILTER_ARRAY_CONFIG`
+   (medido em `dist/path-filter.js`) e o resultado observado é **pior que o
+   defeito 1**: nada casa, e a API inteira cai no SSR.
+3. **Caminho plano casa por prefixo, não por igualdade** (`indexOf(…) === 0`).
+   `/auth/google` capturaria `/auth/googlezinho`. O nginx usava `location =`
+   (exato) em 5 das 6 rotas; só `/api/` era prefixo.
+
+A forma que sobreviveu às três é `pathFilter` **em função**:
+`pathname === '/api' || pathname.startsWith('/api/') || EXACT_ROUTES.has(pathname)`.
+
+**Validação do roteamento: 13/13 casos** contra o backend de eco — 7 proxiados
+com o path íntegro (incluindo query string) e 6 corretamente ao SSR, entre eles
+`/auth/googlezinho`, `/apitoken` e `/sitemap.xml.bak`, que não vazam para a API.
+
+Demais opções do `createProxyMiddleware`, com o que cada uma substitui:
+`changeOrigin: false` (era `proxy_set_header Host $host`), `xfwd: true`
+(`X-Forwarded-For`/`-Proto`), `proxyTimeout`/`timeout` 60 s
+(`proxy_read_timeout 60s`).
+
+**Validação de T4.2 item 2** (2026-09-12): `rtk tsc -b` verde em
+`mesas/frontend` e `mesas/backend`; `docker compose config` **exit 0** nos dois
+composes (a falha inicial era segredo ausente na máquina local —
+`SERVICE_CREDENTIAL`, `CATALOG_INTERNAL_TOKEN` —, nenhum erro no `mesas-app`);
+`og.seo.test.ts` **15/15**.
+
+**(c) Mover as rotas de borda para o tunnel.** Custo: mexe em tunnel de produção
+(§Autorização) e espalha a topologia entre repo e painel — o `nginx.conf` é
+revisável em PR, a rota no painel não.
+
+**Medição do tunnel — FEITA em 2026-09-12 (MCP Cloudflare, read-only).** Tunnel
+único `Artificio` (`6417d3a0-b98b-42ed-97da-3fb9f6ecfac2`), `healthy`, 4
+conexões. Config **remota** (`source: "cloudflare"`, versão 26), sem `config.yml`
+na VM: o `cloudflared` roda `tunnel run --token`.
+
+**O ingress tem 11 regras e `path: null` em TODAS as 11 — não existe rota por
+path no tunnel.** Cada regra é hostname → um serviço:
+
+```
+mesas.artificiorpg.com      → http://mesas-app:80
+mesasbeta.artificiorpg.com  → http://mesas-beta-app:80
+(catch-all)                 → http_status:404
+```
+
+**Consequência, e ela corrige o registro anterior desta seção:** o tunnel manda
+*todo* o tráfego de `mesas.` para um container só. Quem separa `/api/`,
+`/auth/*` e `/sitemap.xml` é o nginx **dentro** do container — o tunnel nunca
+soube que essas rotas existem. A versão anterior deste bloco afirmava que as
+rotas "precisam de entrada no ingress do painel, ação do mantenedor"; **isso
+estava errado, e foi afirmado sem ler o ingress**. Sob (b) o roteamento continua
+dentro do container, só troca de nginx para Express, e o mantenedor **não tem
+ação a fazer no painel** além da porta (abaixo).
+
+Custo real de (b) no tunnel: **uma linha**, `mesas-app:80` → `mesas-app:3000`
+(mais a do beta). Não é opcional — `USER node` não abre porta <1024.
+
+**PACOTE NOVO AUTORIZADO E INSTALADO (mantenedor, 2026-09-12):**
+`http-proxy-middleware@4.2.0` em `apps/mesas/frontend/package.json:38`, **+9
+pacotes** no `pnpm-lock.yaml`. O lockfile mudou → a trava de `deploy-flow.md` §1
+vale no commit.
+
+**Correção de registro:** ao pedir a autorização, o agente afirmou que o pacote
+"já estava na árvore como transitivo, usado pelo Vite". **Falso** — medido depois:
+`grep -c http-proxy-middleware pnpm-lock.yaml` → **0** antes da instalação. O
+custo foi apresentado menor do que era. A escolha do pacote continua sustentada
+pelas medições acima; o argumento de "já está lá" não existia.
+
+**ORDEM DE DEPLOY — inverter derruba `mesas.` por mais tempo.** O ingress aponta
+hoje para `:80`, onde o nginx ouve. Trocar para `:3000` antes do container novo
+subir faz o `cloudflared` bater em porta sem ouvinte: **502 imediato**, e a
+config é remota, propaga em segundos, sem janela de graça.
+
+1. Código local (`server.js`, os dois composes, `nginx.conf` removido)
+2. PR → review → merge
+3. Deploy: `mesas-app` sobe como Node em 3000 — **`mesas.` cai aqui**, ingress
+   ainda em 80
+4. Ingress `80` → `3000` (prod e beta) — volta
+
+Entre 3 e 4 há downtime real, segundos a ~1 min. **Não é eliminável trocando a
+ordem**: fazer o ingress primeiro só antecipa e alonga a queda. O passo 4 é
+escrita em tunnel de produção (§Autorização) — aprovação nominal, no momento do
+deploy, não antes.
+
+Alternativa que zera o downtime e foi **descartada**: `server.js` ouvir em 80 via
+`CAP_NET_BIND_SERVICE` ou root-drop. Diverge dos 6 apps Express, que ouvem em
+3000/4322/4324 e nunca em 80 — reintroduz o caso particular que (b) elimina. A
+queda de segundos é o mesmo perfil de qualquer `docker compose up -d`, que
+reinicia o container no passo 3 de todo jeito.
+
+**Aviso operacional para o próximo agente:** `docker inspect` neste container
+imprime o token do tunnel em claro — `Config.Cmd` **é** a credencial. Nunca pedir
+`{{json .Config.Cmd}}` aqui; usar `--format` de campo específico. Já aconteceu
+nesta sessão (token completo, 184 chars, foi para o log do `rtk` e para o
+transcript). Mantenedor avaliou e dispensou limpeza: a preocupação é commit, e
+nada com o token está rastreado no git.
+
+**Volume `frontend_dist_*` — saiu do `mesas-app` em 2026-09-12; segue no
+`mesas-api`, vazio.** Detalhe e motivo em DEB-102-1. Removido o `@og_proxy`,
+**nada mais chama `/og/*`**. `grep -rn "/og/" apps packages scripts .github`
+devolve 7 ocorrências e nenhuma é chamador de produção:
+`nginx.conf:137` (o `rewrite`, único real), 10 linhas de `og.seo.test.ts`
+(`supertest`), a string de `console.error` em `og.ts:328` e seu compilado em
+`dist/`, e `scripts/api/{generate-openapi,inventory}.ts` (geração de OpenAPI).
+
+O cron **não** lê o `index.html`: `og:cron` → `cronRunner.js`, que só dispara
+`og:worker` (`processLinkMetadataJobs`) e `og:cleanup`
+(`cleanupLinkMetadataCache`) — cache de metadata de **link externo**, não Open
+Graph do site; o prefixo `og:` engana. `grep -rn "INDEX_HTML\|frontend-dist\|
+readFile" apps/mesas/backend/src/scripts/` devolve 4 hits, todos import de
+JSON/markdown, nenhum do `index.html`.
+
+Logo `INDEX_HTML_PATH` (`og.ts:17`) fica **sem leitor** em produção, e o volume
+(`frontend_dist_prod` / `frontend_dist_beta`) não alimenta mais nada.
+
+**`routes/og.ts` NÃO é removido nesta task** (decisão do mantenedor,
+2026-09-12). F1/F2 desta mesma spec acabaram de corrigi-lo (`404`/`410`,
+canonical, 14 casos em `og.seo.test.ts`). Fica órfão e registrado como débito no
+fim deste arquivo.
+
+**Lint do `mesas/frontend` estava vermelho e foi corrigido (2026-09-12): 55 erros
+→ 0.** A migração para framework mode introduziu os cinco defeitos abaixo; nenhum
+foi silenciado com `eslint-disable`.
+
+| defeito | correção |
+|---|---|
+| 40 erros em `.react-router/` | diretório **gerado** pelo `typegen`: entrou em `globalIgnores` do eslint e no `.gitignore` (junto de `.astro/`) |
+| 8 `only-export-components` em `root.tsx`/`routes/*` | rota **tem** que exportar `loader`/`meta` ao lado do componente — exceção por caminho, a regra segue valendo no resto do app |
+| `entry.server.tsx:25` `_loadContext` | `argsIgnorePattern: '^_'`, mesmo padrão de `apps/accounts/eslint.config.js:24`; é parâmetro posicional da assinatura do React Router |
+| 4 `react-hooks/refs` em `useUrlState.ts` | `useRef` lido/escrito durante o render → `useState` com ajuste no render |
+| `useMestre.ts:256` `set-state-in-effect` | efeito → ajuste durante o render com chave de identidade |
+
+**Dois eram bug real, não só ruído de lint:**
+
+1. **Tema piscava no cookie errado.** `root.tsx:68` tinha `\s` dentro de template
+   string, que colapsa para `s` literal: a regex chegava ao browser como
+   `(?:^|;s*)` e **não casava `; artificio_theme=…`** — a forma como o browser
+   serializa todo cookie depois do primeiro. Quem tivesse qualquer outro cookie
+   antes deste caía no default e via o flash de tema que o script inline existe
+   para evitar. Corrigido para `\\s`.
+2. **Perfil do mestre anterior aparecia por um quadro.** O `useEffect` que
+   sincronizava `seeded` só roda depois da pintura, então navegar entre mestres
+   no cliente mostrava o perfil antigo sob a URL nova até o efeito rodar. O
+   ajuste durante o render faz o React descartar e refazer antes de pintar.
+
+**Suítes verdes (2026-09-12):** `mesas/frontend` **84 arquivos / 1139 testes**
+(+1 arquivo, +17 casos: `tableMeta.test.ts`, de T4.3/T4.5); `content-editor`
+120/120. Build SSR gera `build/server/index.js` (2.094 kB).
+
+**Isomorphic rendering — pergunta do mantenedor (2026-09-12), respondida por
+medição.** IR **é** o que a T4.1 decidiu: "SSR universal" e "isomorphic
+rendering" são o mesmo mecanismo (a comunidade React trocou o termo por volta de
+2016). Não é alternativa pendente. Verificado no código, não presumido: 3
+`loader` isomórficos nas rotas públicas, **0** `clientLoader` (que quebraria o
+modelo servindo dado só no cliente), e guarda de ambiente concentrada em um único
+módulo (`lib/apiUrl.ts`, 2 ocorrências de `typeof document`).
+
+`lib/apiFetch.server.ts` foi renomeado para `lib/apiUrl.ts`: o sufixo `.server` é
+convenção que o React Router **impõe** para módulo inalcançável pelo cliente, e o
+build falhava com `Server-only module referenced by client` — o módulo é
+isomórfico por natureza e a separação correta é em runtime, não em build.
+
+O que IR **não** resolve, e segue sendo o risco a medir: o primeiro request custa
+CPU de render. A alternativa que zeraria isso é SSG/`prerender` (build-time), já
+descartada por servir dado congelado — incompatível com vagas e preço, que a
+regra pétrea de T4.3 exige no HTML visível.
 
 **Depende de.** T4.1. **Exige autorização nominal** (obra de arquitetura).
 
-**Aceite.**
+**Aceite — MEDIDO em 2026-09-12** (SSR local `PORT=3994`, stub servindo payload de
+mesa paga com 3 de 5 vagas):
 
-1. `curl -A GPTBot/1.1` e `-A ClaudeBot/1.0` devolvem HTML com o conteúdo real da
-   mesa (hoje: 3.328 B de casca) e `grep -c 'ld+json'` → ≥ 1.
-2. Mesma medição na rota de perfil de mestre: conteúdo real, não casca.
-3. Navegador e crawler recebem **o mesmo** HTML — `diff` entre as duas respostas
-   vazio fora de nonce/timestamp. É o fim do dynamic rendering, não sua ampliação.
+| item | medição |
+|---|---|
+| 1. crawler recebe conteúdo real | `ClaudeBot/1.0` e `GPTBot/1.1` → `200`, **26.602 B**, `ld+json` = **1** (era 3.328 B de casca) |
+| 3. crawler ≡ navegador | `diff` bot/navegador e bot/GPTBot: **idênticos**, byte a byte |
+
+Item 2 (perfil de mestre) medido na rodada anterior desta task: `/mestre/<inexistente>`
+→ `404`, `/perfil` → `200`, conteúdo real e não casca.
+
+**Armadilha de medição, para o próximo agente não repetir:** `getServerApiBase()`
+lê `API_UPSTREAM_PORT` (default `3000`), não só `API_UPSTREAM`. Stub local em
+outra porta sem essa env produz `ECONNREFUSED` e a rota devolve `500` — que lê
+como defeito do SSR e não é. O `500` é o comportamento correto: erro de upstream
+não pode virar `200` com página vazia.
 
 ---
 
-### [ ] T4.3 — Schema `Product`+`Offer` no `@graph` (sem `Event` — ver T4.4)
+### [~] T4.3 — Schema `Product`+`Offer` no `@graph` — APLICADO E MEDIDO; falta só Rich Results Test (pós-deploy)
 
 **Correção de premissa (2026-09-11).** A versão anterior desta task dizia que o
 Google **exige** `VirtualLocation` para evento só-online. **Falso** — verificado na
@@ -923,16 +1678,38 @@ volta com ele: `online`→`OnlineEventAttendanceMode`+`VirtualLocation`;
 **Depende de.** T4.2/T4.1 (SSR). Schema injetado por JS é invisível para crawler de
 IA — nenhum executa JavaScript em fetch direto. Sem SSR esta task entrega zero.
 
-**Aceite — SUBSTITUI o aceite F2 anterior, que era inválido.** O anterior verificava
-`VirtualLocation` como exigência do Google; testava regra inexistente.
+**Estado em 2026-09-12: APLICADO, coberto por teste e commitado.**
+`features/table/seo/tableMeta.ts:79` (`buildTableJsonLd`) emite o `@graph` com um
+`Product`+`Offer`, derivado do **mesmo** `TableViewModel` que a página renderiza —
+não de uma segunda leitura do dado cru. É a derivação única que torna o
+espelhamento impossível de quebrar por edição futura, e não a disciplina de quem
+edita.
 
-1. Rich Results Test: **`Product` sem erro crítico**.
-2. `grep -c '"@type": "Product"'` → 1 no HTML inicial, e
-   `grep -c '"@type": "Event"'` → **0** (garante que a decisão T4.4 não regrediu).
-3. `curl -A ClaudeBot/1.0` devolve o JSON-LD completo (hoje: 3.328 B de casca).
-4. `price` conferido contra `price_value` em uma mesa gratuita e uma paga.
-5. **Espelhamento:** cada valor do JSON-LD (preço, vagas, data) aparece no HTML
-   visível da mesma página. Sem isso a task não fecha — é a regra pétrea acima.
+**A regra 3 já estava satisfeita pelo backend, e a leitura anterior desta task
+errava o alvo.** Medido em `apps/mesas/backend/src/routes/tables.ts:50`:
+`sql\`t.banner_url\`.as('cover_url')` — o `cover_url` do payload **é** o
+`banner_url` do banco, nas colunas compartilhadas pelos dois `select` (`:336`
+detalhe, `:763` lista). Logo `vm.coverUrl` já entrega a cobertura de 145/168 que a
+regra pedia; não há fallback a escrever no frontend. As 23 mesas sem imagem
+nenhuma caem no ramo que **omite** `image`, nunca em placeholder.
+
+**Aceite medido** (`tableMeta.test.ts`, 11 casos + SSR local em `PORT=3994` com
+payload real, 2026-09-12):
+
+| item do aceite | medição |
+|---|---|
+| 2. um `Product`, zero `Event` | `"@type":"Product"` → **1**; `"@type":"Event"` → **0** |
+| 3. `ClaudeBot` recebe o JSON-LD | `200`, **26.602 B**, `ld+json` → **1** (era 3.328 B de casca) |
+| 4. `price` de `price_value` | mesa paga → `"price":"50.00"`; gratuita → `"0"`, nunca ausência |
+| 5. **espelhamento** | `InStock` no JSON-LD **e** `R$ 50,00` + `3 de 5 vagas` no HTML visível, da mesma página |
+
+O espelhamento é asserido em teste contra o ViewModel, não só medido no HTML:
+`TableActionPanel.tsx:44` renderiza o preço e `:178` as vagas do mesmo `vm` que
+alimenta o schema. Teste cobre também preço vindo de rótulo de contato ("Ticket /
+Inscrição" com mesa `gratuita` → `price` continua `"0"`), que é o defeito de 95%
+dos casos que a regra 1 previne.
+
+**Falta.** Rich Results Test (item 1) — exige URL pública, roda depois do deploy.
 
 ---
 
@@ -1070,7 +1847,7 @@ T1.3 continua entre `404`, `410` e `301`, e é decisão de produto do mantenedor
 
 ---
 
-### [ ] T4.5 — `description` por mesa — é o texto que a IA cita
+### [x] T4.5 — `description` por mesa — APLICADO E COMMITADO
 
 **Problema.** Toda URL do app repete a description institucional ("Plataforma gratuita
 para encontrar mesas de RPG…"). Medido: idêntica em `/`, `/mesas/<slug>` e
@@ -1090,32 +1867,47 @@ mesa específica.
 
 **Depende de.** T4.1/T4.2 — `description` injetada por JS não é lida por crawler de IA.
 
-**Aceite.** Duas mesas distintas → duas descriptions distintas; nenhuma igual à
-institucional.
+**Estado em 2026-09-12: APLICADO, coberto por teste e commitado.**
+`features/table/seo/tableMeta.ts:22` (`buildTableDescription`) monta
+`<sinopse truncada> | <sistema> • <modalidade> • <nível> • <preço> • <vagas>` a
+partir do mesmo `TableViewModel` que a página renderiza. O orçamento de 160
+caracteres corta a **sinopse**, nunca a cauda de facetas: a cauda é o dado que a
+pessoa procura, a sinopse é o que sobra.
+
+**Aceite medido** (`tableMeta.test.ts`, 6 casos): duas mesas distintas produzem
+descriptions distintas; nenhuma contém a frase institucional; a cauda carrega
+sistema, modalidade, preço e vagas; o truncamento respeita 160 caracteres
+preservando a cauda; mesa sem sinopse não produz string vazia.
 
 ---
 
-### [ ] T4.6 — `robots.txt`: nomear crawlers de IA — DEIXOU DE SER COSMÉTICO
+### [x] T4.6 — `robots.txt`: nomear crawlers de IA — APLICADO E COMMITADO
 
-**Repriorizada em 2026-09-11.** A versão anterior classificava esta task como
-cosmética. Com a decisão do mantenedor — *"tudo que puder fazer pessoas chegarem nos
-sites, é válido"* — busca generativa virou objetivo de produto, e esta task passa a
-fazer parte da entrega, não do enfeite.
+**Entregue em 2026-09-12.** `apps/mesas/frontend/public/robots.txt` (76 B → 789 B)
+nomeia **cinco** agentes com `Allow: /`: `GPTBot`, `OAI-SearchBot`, `ClaudeBot`,
+`PerplexityBot`, `Google-Extended`.
 
-**Estado atual.** Nosso `robots.txt` é `User-agent: * / Allow: /` — GPTBot e ClaudeBot
-**já estão permitidos** pelo curinga. Nomear explicitamente (como o MesaQuest faz, com
-`GPTBot`, `Claude-Web`, `PerplexityBot`, `Google-Extended` sob `# AI search engine
-crawlers`) não muda a permissão; **documenta a intenção** e protege contra um
-`Disallow` futuro escrito sem perceber o efeito.
+São cinco e não os quatro do aceite original: `OAI-SearchBot` é o agente de busca
+da OpenAI, distinto do `GPTBot` de treino — nomear só um dos dois deixaria metade
+do tráfego da OpenAI dependendo do curinga, que é justamente o que esta task
+existe para não fazer. `Claude-Web` do MesaQuest foi substituído por `ClaudeBot`,
+que é o agente que a Anthropic de fato envia (e o que a medição de T4.1 mediu
+recebendo casca).
 
-**Continua dependente de T4.1/T4.2.** Permitir acesso a conteúdo que não existe no HTML
-não entrega nada: nenhum crawler de IA executa JavaScript. Medido: ClaudeBot recebe
-3.328 B de casca.
+**Aceite medido (SSR local, `PORT=3994`, 2026-09-12):**
 
-**Ordem correta:** T4.1 (SSR) → T4.2 (HTML-first) → T4.3 (schema) → T4.6 (robots).
+| medição | resultado |
+|---|---|
+| `curl -A GPTBot/1.1 /robots.txt` | `200`, 789 B, 5 agentes nomeados |
+| `curl -A GPTBot/1.1 /mesas/<slug>` | `200`, **26.602 B** com conteúdo real (era 3.328 B de casca) |
+| `build/client/robots.txt` | 789 B, idêntico ao `public/` — o Vite copia, o `express.static` serve |
 
-**Aceite.** `robots.txt` nomeia os quatro agentes com `Allow: /`, e `curl -A GPTBot/1.1`
-devolve HTML com conteúdo real da mesa.
+Nomear não muda a permissão (o curinga já permitia): documenta a intenção e
+protege contra um `Disallow` futuro sob `User-agent: *` que os derrubaria sem
+ninguém perceber o efeito colateral. O que dá conteúdo a estas linhas é o SSR de
+T4.2 — nenhum destes agentes executa JavaScript.
+
+**Depende de.** T4.1 → T4.2 → T4.3 → T4.6 (cumprida nesta ordem).
 
 ---
 
@@ -1348,14 +2140,55 @@ autorizar.
 
 ---
 
-## Ações que exigem aprovação nominal (nenhuma executada)
+## Débito registrado (a mando do mantenedor, 2026-09-12)
 
-Cada uma com rollback próprio — as cinco, não só duas (corrigido em 2026-09-11).
+### DEB-102-1 — `routes/og.ts` fica órfão depois de T4.2
 
-1. **`UPDATE posts SET canonical = NULL`** nos 105 divergentes, em `site` (T3.2).
-   *Rollback:* `pg_dump` só da tabela `posts` **antes** do `UPDATE`; a coluna é
-   restaurável isoladamente por `UPDATE … FROM` sobre o dump. Não destrói conteúdo —
-   só metadado de SEO já medido como errado.
+**O que é.** Com o SSR, o `@og_proxy` do `nginx.conf` morre e **nenhum caminho de
+produção chama `/og/*`**. `og.ts` (montado em `/og`, `backend/src/server.ts:159`)
+continua no código, compilado e testado, sem tráfego.
+
+**Medição que sustenta** (2026-09-12): `grep -rn "/og/" apps packages scripts
+.github` → 7 ocorrências, zero chamadores de produção (única real:
+`nginx.conf:137`; resto é teste, `console.error` e geração de OpenAPI). O cron
+não toca: `og:worker`/`og:cleanup` são cache de metadata de **link externo**.
+
+**Por que não foi removido agora.** Decisão do mantenedor. F1/F2 **desta mesma
+spec** acabaram de corrigi-lo (`404`/`410`, canonical, 14 casos em
+`og.seo.test.ts`); jogar fora esse trabalho na mesma spec que o produziu é
+escopo que ele não pediu.
+
+**O que arrasta junto, se um dia sair:** `INDEX_HTML_PATH` (`og.ts:17`), os
+volumes `frontend_dist_prod`/`frontend_dist_beta`, `og.seo.test.ts`, e as
+entradas de `/og/` em `scripts/api/{generate-openapi,inventory}.ts`.
+
+**Risco de deixar:** baixo e contido. Código morto que responde só a quem chamar
+`/og/` diretamente. **Não é bug**: o comportamento dele está correto, apenas sem
+consumidor.
+
+**Estado do volume depois de T4.2 item 2 (aplicado em 2026-09-12).** O volume
+`frontend_dist_*` **saiu do `mesas-app`** (quem o populava, via `cp` do nginx) e
+**continua montado no `mesas-api`** (`prod:105`, `beta:95`). Fica vazio: nada
+mais escreve nele. Correção do que este bloco registrava — ele não "sai em T4.2"
+por completo, e desmontá-lo do `mesas-api` seria pior, porque `og.ts` voltaria a
+quebrar no dia em que alguém religasse a rota.
+
+O backend **sobe normalmente** com o volume vazio: `og.ts:29` lê o `index.html`
+dentro de `loadIndexHtml()`, por request, não no boot (medido). A consequência é
+a já aceita — `/og/*` responde erro em vez de HTML, e ninguém chama.
+
+---
+
+## Ações que exigem aprovação nominal
+
+Cada uma com rollback próprio. **Uma executada** (item 1); as outras quatro pendentes.
+
+1. ✅ **`UPDATE posts SET canonical = NULL`** nos 105 divergentes, em `site` (T3.2).
+   **Executada em 2026-09-12** com autorização nominal: `UPDATE 105`, 105 → 0
+   divergentes. *Rollback:* dump pré-escrita em
+   `~/backups/spec102/posts_pre_t32_20260912_021453.sql` (VM) e em
+   `C:\projetosrtificiobackup\spec102\`, verificado nos dois lados. A coluna é
+   restaurável isoladamente por `UPDATE … FROM` sobre o dump.
 2. **`INSERT` de 105 linhas em `redirects`**, em `site` (T2.2).
    *Rollback:* `DELETE FROM redirects WHERE from_path IN (…)` pelos `from_path`
    inseridos. O cache recarrega a cada 30 s (`redirect-cache.ts`), então a reversão
@@ -1365,6 +2198,9 @@ Cada uma com rollback próprio — as cinco, não só duas (corrigido em 2026-09
    *Rollback:* redeploy da imagem anterior (tag do commit prévio), pelo fluxo de
    `deploy-flow.md`. Sem migration envolvida: nada a reverter no banco.
 4. **Export + rebuild + deploy do `site`** (T3.3, e T3.4 no mesmo ciclo).
+   **Autorizado em 2026-09-12, não executado:** o deploy lê de `main` e o código da
+   T3.4 não está commitado (`git log origin/dev..HEAD` → 0). Destrava com commit +
+   push + PR + promote, cada um com autorização própria.
    *Rollback:* redeploy da imagem anterior. O `posts.json` é artefato de build,
    regerado do banco — reverter o item 1 e reexportar restaura o estado anterior por
    completo.
@@ -1375,6 +2211,13 @@ Cada uma com rollback próprio — as cinco, não só duas (corrigido em 2026-09
    repositório. Reverter em produção é um redeploy; reverter no código é `git revert`
    de uma obra inteira. Mitigação: a branch só sobe depois de os três aceites de T4.2
    passarem em beta. **Decisão tomada** (2026-09-11); falta autorizar a execução.
+
+6. **Ingress do tunnel: `mesas-app:80` → `mesas-app:3000`** (T4.2, e o par do beta).
+   Escrita em tunnel de produção, config remota versão 26. **Passo 4 da ordem de
+   deploy de T4.2** — nunca antes do container novo subir, sob pena de `502` mais
+   longo. Uma linha por ambiente, via MCP Cloudflare ou painel.
+   *Rollback:* reescrever a porta de volta para `80`, mesma chamada. A config é
+   versionada pela Cloudflare, e o estado anterior está registrado aqui.
 
 **Fora desta lista, por não exigirem autorização:** as tasks de F6 são operação manual
 do mantenedor no Search Console (o agente não tem acesso) e não têm rollback técnico —

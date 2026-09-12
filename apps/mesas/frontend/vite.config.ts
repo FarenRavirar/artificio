@@ -1,27 +1,17 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-
+import { reactRouter } from '@react-router/dev/vite'
 import tailwindcss from '@tailwindcss/vite'
 
-// https://vite.dev/config/
+// SSR universal (spec 102 T4.2). O plugin `reactRouter()` substitui
+// `@vitejs/plugin-react`: ele já inclui o transform do React e é quem lê
+// `react-router.config.ts` e `src/routes.ts` para montar os dois bundles
+// (cliente e servidor).
+//
+// `manualChunks` saiu: no framework mode o particionamento é por rota, feito
+// pelo próprio plugin. Forçar chunk de vendor aqui brigaria com isso.
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [reactRouter(), tailwindcss()],
   build: {
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          // Vendor chunks
-          if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-              return 'vendor-react';
-            }
-            if (id.includes('@tanstack/react-query')) {
-              return 'vendor-query';
-            }
-          }
-        },
-      },
-    },
     chunkSizeWarningLimit: 500,
     assetsInlineLimit: 0,
   },
