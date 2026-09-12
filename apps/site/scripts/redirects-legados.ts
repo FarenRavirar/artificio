@@ -12,6 +12,7 @@
 // Uso:
 //   tsx scripts/redirects-legados.ts plan            # lista os pares, não escreve nada
 //   tsx scripts/redirects-legados.ts load            # INSERT idempotente (exige autorização)
+//   tsx scripts/redirects-legados.ts restore         # reinsere do manifesto (exige autorização)
 //   tsx scripts/redirects-legados.ts verify --base https://artificiorpg.com
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -107,6 +108,26 @@ async function plan(): Promise<Pair[]> {
 
 async function load(): Promise<void> {
   const pairs = await plan();
+  await inserirPares(pairs);
+}
+
+// `load` deriva de `posts.canonical`, que T3.2 zera (`SET canonical = NULL`) — depois dela
+// `plan()` devolve zero pares e `load` não reinsere nada. Isso deixava a varredura sem conserto:
+// `verify` acusaria o redirect ausente e o único comando de carga documentado não conseguiria
+// restaurá-lo, mantendo a URL em 404 (achado de review, PR #315). `restore` fecha o ciclo lendo
+// o mesmo manifesto congelado que `verify` usa como referência — e, por vir de `pairsFromManifest`,
+// herda a validação dos 105 pares e das 105 origens únicas.
+async function restore(): Promise<void> {
+  const pairs = pairsFromManifest();
+  console.log(`restaurando ${pairs.length} pares do manifesto congelado`);
+  const chains = assertNoChain(pairs);
+  for (const c of chains) console.log(`✗ CADEIA: ${c}`);
+  if (chains.length > 0) throw new Error(`${chains.length} cadeia(s) — restauração abortada`);
+  await inserirPares(pairs);
+}
+
+// `addRedirect` é idempotente, então rodar `restore` com a tabela íntegra não duplica nada.
+async function inserirPares(pairs: Pair[]): Promise<void> {
   for (const p of pairs) await addRedirect(p.from_path, p.to_path, 301);
   const db = await getDb();
   const { rows } = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM redirects`);
@@ -194,6 +215,7 @@ async function main(): Promise<void> {
   const [mode, ...rest] = process.argv.slice(2);
   if (mode === "plan") { await plan(); return; }
   if (mode === "load") { await load(); return; }
+  if (mode === "restore") { await restore(); return; }
   if (mode === "verify") {
     const at = rest.indexOf("--base");
     const base = at === -1 ? undefined : rest[at + 1];
@@ -201,7 +223,7 @@ async function main(): Promise<void> {
     await verify(base);
     return;
   }
-  throw new Error("uso: plan | load | verify --base <url>");
+  throw new Error("uso: plan | load | restore | verify --base <url>");
 }
 
 main()
