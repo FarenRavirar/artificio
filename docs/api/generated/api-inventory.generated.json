@@ -4936,7 +4936,7 @@
       "method": "GET",
       "path": "/og/{*splat}",
       "sourceFile": "apps/mesas/backend/src/routes/og.ts",
-      "line": 340,
+      "line": 343,
       "confidence": "high",
       "kind": "express-route"
     },

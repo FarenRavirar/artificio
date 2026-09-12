@@ -43,6 +43,60 @@ describe('lookupRedirect — normalização de barra final', () => {
     expect(lookupRedirect('')).toBeUndefined();
   });
 
+  it('conflito de chave normalizada: a primeira linha vence e o conflito é avisado', async () => {
+    // `/legacy` e `/legacy/` colapsam na mesma chave; com destinos diferentes, a última
+    // venceria em silêncio antes desta correção (achado de review, PR #315).
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    repoMocks.listRedirects.mockResolvedValue([
+      { id: 1, from_path: '/legacy', to_path: '/blog/a/', code: 301 },
+      { id: 2, from_path: '/legacy/', to_path: '/blog/b/', code: 301 },
+    ]);
+    await reloadRedirects();
+
+    expect(lookupRedirect('/legacy')?.to).toBe('/blog/a/');
+    expect(lookupRedirect('/legacy/')?.to).toBe('/blog/a/');
+    expect(warn).toHaveBeenCalledOnce();
+    warn.mockRestore();
+  });
+
+  it('duplicata idêntica não é tratada como conflito', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    repoMocks.listRedirects.mockResolvedValue([
+      { id: 1, from_path: '/legacy', to_path: '/blog/a/', code: 301 },
+      { id: 2, from_path: '/legacy/', to_path: '/blog/a/', code: 301 },
+    ]);
+    await reloadRedirects();
+
+    expect(lookupRedirect('/legacy')?.to).toBe('/blog/a/');
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('uma linha conflitante não derruba os demais redirects', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    repoMocks.listRedirects.mockResolvedValue([
+      { id: 1, from_path: '/legacy', to_path: '/blog/a/', code: 301 },
+      { id: 2, from_path: '/legacy/', to_path: '/blog/b/', code: 301 },
+      { id: 3, from_path: '/noticias/ok/', to_path: '/blog/ok/', code: 301 },
+    ]);
+    await reloadRedirects();
+
+    expect(lookupRedirect('/noticias/ok/')?.to).toBe('/blog/ok/');
+    warn.mockRestore();
+  });
+
+  it('recarga que falha mantém o mapa anterior servindo', async () => {
+    repoMocks.listRedirects.mockResolvedValue([
+      { id: 1, from_path: '/noticias/x/', to_path: '/blog/x/', code: 301 },
+    ]);
+    await reloadRedirects();
+
+    repoMocks.listRedirects.mockRejectedValue(new Error('DB fora'));
+    await reloadRedirects();
+
+    expect(lookupRedirect('/noticias/x/')?.to).toBe('/blog/x/');
+  });
+
   it('não casa caminho não cadastrado', async () => {
     repoMocks.listRedirects.mockResolvedValue([
       { id: 1, from_path: '/noticias/x/', to_path: '/blog/x/', code: 301 },
@@ -80,6 +134,18 @@ describe('withOriginalQuery', () => {
   it('preserva o fragmento do destino depois da query', () => {
     expect(withOriginalQuery('/blog/x/#comentarios', '/noticias/x/?utm_source=fb'))
       .toBe('/blog/x/?utm_source=fb#comentarios');
+  });
+
+  it('preserva TODOS os valores de uma chave repetida na origem', () => {
+    // Sem o snapshot das chaves do destino, `params.has` vira true após o primeiro valor e
+    // o segundo se perde (achado de review, PR #315).
+    expect(withOriginalQuery('/blog/x/', '/noticias/x/?tag=a&tag=b'))
+      .toBe('/blog/x/?tag=a&tag=b');
+  });
+
+  it('chave repetida na origem é suprimida inteira quando o destino já tem a chave', () => {
+    expect(withOriginalQuery('/blog/x/?tag=destino', '/noticias/x/?tag=a&tag=b'))
+      .toBe('/blog/x/?tag=destino');
   });
 
   it('ignora "?" sem conteúdo', () => {

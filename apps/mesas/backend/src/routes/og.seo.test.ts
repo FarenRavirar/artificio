@@ -108,6 +108,18 @@ describe('GET /og/mesas/:slug — status HTTP para o crawler', () => {
     expect(response.text).toContain('<link rel="canonical"');
   });
 
+  // Falha de banco caía no fallback devolvendo 200 com canonical auto-referente — o mesmo
+  // soft-404 que esta spec corrige, só que disparado por indisponibilidade (achado de
+  // review, PR #315). 503 diz "tente de novo" sem convidar o Google a indexar o erro.
+  it('devolve 503 sem canonical quando a consulta falha', async () => {
+    dbMocks.executeTakeFirst.mockRejectedValue(new Error('DB fora do ar'));
+
+    const response = await request(makeApp()).get('/og/mesas/mesa-publica');
+
+    expect(response.status).toBe(503);
+    expect(response.text).not.toContain('<link rel="canonical"');
+  });
+
   it('devolve 404 para slug que nunca existiu', async () => {
     dbMocks.executeTakeFirst.mockResolvedValue(undefined);
 

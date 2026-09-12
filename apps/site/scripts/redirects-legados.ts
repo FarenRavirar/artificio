@@ -13,6 +13,9 @@
 //   tsx scripts/redirects-legados.ts plan            # lista os pares, não escreve nada
 //   tsx scripts/redirects-legados.ts load            # INSERT idempotente (exige autorização)
 //   tsx scripts/redirects-legados.ts verify --base https://artificiorpg.com
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { getDb } from "../db/connection.js";
 import { addRedirect } from "../db/repo/redirects.js";
 
@@ -35,13 +38,26 @@ async function pairsFromPosts(): Promise<Pair[]> {
   return (await db.query<Pair>(PAIRS_SQL)).rows;
 }
 
-async function pairsFromRedirects(): Promise<Pair[]> {
-  const db = await getDb();
-  return (
-    await db.query<Pair>(
-      `SELECT from_path, to_path FROM redirects WHERE to_path LIKE '/blog/%' ORDER BY from_path`,
-    )
-  ).rows;
+// Manifesto dos 105 pares da migração, congelado na carga de 2026-09-11. A varredura NÃO pode
+// derivar o conjunto esperado da tabela que ela verifica: se um redirect fosse apagado, ele
+// sumiria de `pairs` e a varredura reportaria "104/104 ok" — verde por ausência da evidência
+// (achado de review, PR #315). Também isola a migração de redirects internos criados depois,
+// por troca de slug no admin, que não fazem parte deste conjunto.
+const MANIFEST = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "fixtures/redirects-legados-105.tsv",
+);
+
+function pairsFromManifest(): Pair[] {
+  return readFileSync(MANIFEST, "utf8")
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [from_path, to_path] = line.split("\t");
+      if (!from_path || !to_path) throw new Error(`linha inválida no manifesto: ${line}`);
+      return { from_path, to_path };
+    });
 }
 
 function assertNoChain(pairs: Pair[]): string[] {
@@ -79,11 +95,20 @@ async function load(): Promise<void> {
 }
 
 async function verify(base: string): Promise<void> {
-  // Prefere os pares da tabela: depois de T3.2 o canonical some, e a varredura tem que
-  // continuar rodando. Cai para `posts` só se a tabela ainda estiver vazia.
-  let pairs = await pairsFromRedirects();
-  if (pairs.length === 0) pairs = await pairsFromPosts();
+  // Fonte é o manifesto congelado, não a tabela verificada nem `posts` (que T3.2 limpa).
+  const pairs = pairsFromManifest();
   console.log(`varrendo ${pairs.length} URLs contra ${base}`);
+
+  // Um redirect apagado da tabela é falha da migração, não item a ignorar. Sem esta checagem
+  // a URL sumida simplesmente não seria testada.
+  const db = await getDb();
+  const presentes = new Set(
+    (await db.query<{ from_path: string }>(`SELECT from_path FROM redirects`)).rows.map(
+      (r) => r.from_path,
+    ),
+  );
+  const ausentes = pairs.filter((p) => !presentes.has(p.from_path));
+  for (const p of ausentes) console.log(`✗ ${p.from_path} AUSENTE da tabela redirects`);
 
   let fails = 0;
   for (const p of pairs) {
@@ -105,8 +130,13 @@ async function verify(base: string): Promise<void> {
       fails++;
     }
   }
-  console.log(`${pairs.length - fails}/${pairs.length} resolvem 301 → 200 sem cadeia`);
-  if (fails > 0) throw new Error(`${fails} falha(s) — reabre T2.2`);
+  // Denominador é o manifesto (105), nunca o que a tabela tem hoje — senão apagar um redirect
+  // faria a varredura "passar" com um total menor.
+  const total = pairs.length;
+  const falhas = fails + ausentes.length;
+  console.log(`${total - falhas}/${total} resolvem 301 → 200 sem cadeia`);
+  if (ausentes.length > 0) console.log(`  (${ausentes.length} ausente(s) da tabela)`);
+  if (falhas > 0) throw new Error(`${falhas} falha(s) — reabre T2.2`);
 }
 
 async function main(): Promise<void> {

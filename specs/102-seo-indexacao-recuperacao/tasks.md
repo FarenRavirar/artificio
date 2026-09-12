@@ -343,8 +343,35 @@ backup). T2.1 entregue e medida, **sem deploy** — as correções não valem em
 ainda. T2.3 varrida: **100/105**, com as 5 exceções explicadas abaixo (nenhuma é
 defeito de dado ou de código).
 
-Validação do `site`: `tsc` limpo · **143/143** testes (14 novos em
-`server/redirect-cache.test.ts`) · lint limpo · `verify:api` breaking=0.
+Validação: `tsc` limpo nos dois apps · **149/149** no `site` (20 em
+`server/redirect-cache.test.ts`) · **1175/1175** no `mesas` · lint limpo ·
+`verify:api` breaking=0.
+
+**Achados de review tratados (PR #315), todos com teste de mutação:**
+
+1. *Query repetida se perdia.* `withOriginalQuery` usava `params.has(key)` dentro do
+   laço; após anexar o primeiro valor a chave passava a existir e `?tag=a&tag=b`
+   virava `?tag=a`. Corrigido com snapshot das chaves do destino antes do laço.
+2. *Conflito de chave normalizada era silencioso.* `/legacy` e `/legacy/` colapsam na
+   mesma chave; com destinos diferentes a última linha vencia sem sinal. Agora a
+   primeira vence de forma determinística e o conflito vai para `console.warn`. **Não**
+   se descarta a recarga inteira, como o review sugeria: derrubaria os outros 104
+   redirects válidos por causa de uma linha ruim.
+3. *Varredura derivava o esperado da tabela que verifica.* Um redirect apagado sumiria
+   de `pairs` e a varredura diria "104/104 ok" — verde por ausência de evidência. O
+   conjunto agora vem de `scripts/fixtures/redirects-legados-105.tsv`, congelado na
+   carga, e ausência na tabela conta como falha.
+4. *Fallback de erro do `og` devolvia 200 com canonical.* Falha de banco recriava o
+   soft-404 que a F1 corrige. Agora 503 + `stripCanonical`.
+5. *Teste de equivalência skipava em todo gate.* `MESAS_TEST_DATABASE_URL` não existia
+   em nenhum workflow (medido), então `describe.skipIf` omitia a única prova de que
+   `importedTableIsCurrentSql` e `isImportedTableExpired` não divergem. Ligado no
+   `ci.yml` ao Postgres do job, no mesmo padrão de `COMMUNITY_TEST_DATABASE_URL`.
+   **Não medido:** sem Postgres local, a execução real só será observável no run do CI.
+
+**Achado próprio, fora do review:** `reloadRedirects` fazia `map.clear()` antes de
+repopular, então o middleware servia 404 durante a repopulação, a cada 30 s. Agora
+monta um mapa novo e troca de uma vez.
 
 **Achado de infra que muda o diagnóstico de SEO — cache do Cloudflare varia por
 user-agent.** Medido na ruleset `http_request_cache_settings` (regra principal):

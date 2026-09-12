@@ -328,9 +328,12 @@ router.get('/:type/:slug', async (req: Request, res: Response) => {
     console.error('[GET /og/:type/:slug]', { type, slug }, error);
 
     try {
+      // Falha de banco/query cai aqui. Responder 200 com canonical auto-referente é o soft-404
+      // que esta spec corrige: o Google indexaria a página de erro como se fosse a mesa. 503 diz
+      // "tente de novo" e não consome orçamento de rastreio (achado de review, PR #315).
       const html = await loadIndexHtml();
-      const output = injectMetaTags(html, getFallbackMeta(`/${type}/${slug}`));
-      return res.status(200).type('html').send(output);
+      const output = stripCanonical(injectMetaTags(html, getFallbackMeta(`/${type}/${slug}`)));
+      return res.status(503).type('html').send(output);
     } catch {
       return res.status(500).send('Internal error');
     }

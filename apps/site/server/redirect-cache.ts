@@ -16,8 +16,28 @@ function canonicalKey(path: string): string {
 export async function reloadRedirects(): Promise<void> {
   try {
     const rows = await listRedirects();
+    const next = new Map<string, { to: string; code: number }>();
+    for (const r of rows) {
+      const key = canonicalKey(r.from_path);
+      const entry = { to: r.to_path, code: r.code || 301 };
+      const existing = next.get(key);
+      // `/legacy` e `/legacy/` colapsam na mesma chave. Se as duas linhas apontarem para
+      // destinos diferentes, a última venceria em silêncio e uma das URLs passaria a redirecionar
+      // para o lugar errado sem nenhum sinal. Não descartamos a recarga inteira — isso derrubaria
+      // os outros redirects válidos por causa de uma linha ruim — mas a primeira linha (ordenada
+      // por `from_path`) vence de forma determinística e o conflito fica registrado.
+      if (existing && (existing.to !== entry.to || existing.code !== entry.code)) {
+        console.warn(
+          `[redirect-cache] conflito na chave "${key}": mantendo ${existing.code} -> ${existing.to}, ` +
+          `ignorando ${entry.code} -> ${entry.to} (from_path "${r.from_path}")`,
+        );
+        continue;
+      }
+      next.set(key, entry);
+    }
+    // Troca atômica: o middleware nunca enxerga o mapa parcialmente preenchido.
     map.clear();
-    for (const r of rows) map.set(canonicalKey(r.from_path), { to: r.to_path, code: r.code || 301 });
+    for (const [k, v] of next) map.set(k, v);
   } catch { /* DB indisponível: mantém o que tem, tenta de novo no próximo tick */ }
 }
 
@@ -43,8 +63,12 @@ export function withOriginalQuery(to: string, originalUrl: string): string {
   const toPath = toQueryAt === -1 ? toNoHash : toNoHash.slice(0, toQueryAt);
   const params = new URLSearchParams(toQueryAt === -1 ? "" : toNoHash.slice(toQueryAt + 1));
 
+  // Snapshot das chaves do destino ANTES do laço: `params.has` passaria a ser true depois do
+  // primeiro valor anexado, e uma query repetida na origem (`?tag=a&tag=b`) perderia tudo a
+  // partir do segundo valor.
+  const destinationKeys = new Set(params.keys());
   for (const [key, value] of new URLSearchParams(incoming)) {
-    if (!params.has(key)) params.append(key, value);
+    if (!destinationKeys.has(key)) params.append(key, value);
   }
 
   const merged = params.toString();
