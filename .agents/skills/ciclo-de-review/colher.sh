@@ -24,6 +24,14 @@ repo="$(gh repo view --json nameWithOwner --jq .nameWithOwner)"
 owner="${repo%%/*}"
 nome="${repo##*/}"
 FALHAS=0
+# Contador SEPARADO de `FALHAS`. As duas coisas travam o laco, mas por motivos
+# opostos: `FALHAS` e "nao consegui perguntar" (rede, jq, formato mudado), e a
+# saida manda repetir a colheita; `RECUSAS` e "perguntei, e o bot se recusou a
+# revisar" — repetir nao muda nada, so reduzir a PR. Somar as duas no mesmo
+# numero faz o rodape dizer "N consultas FALHARAM" sobre uma consulta que
+# funcionou perfeitamente, e manda o agente investigar a fonte errada. Achado do
+# CodeRabbit na PR #317.
+RECUSAS=0
 
 # Falha de rede/parse NAO pode virar "(nenhum)": a colheita reportaria "sem
 # achado" quando nao conseguiu nem perguntar, e o laco encerraria com achado por
@@ -161,7 +169,12 @@ emitir "$out" $rc
 # na PR #316 (2026-09-12): `SUCCESS - Review skipped: 123 files exceed the limit
 # of 100`. Sem esta trava o agente fecha o laco tratando PR NAO REVISADA como PR
 # aprovada. `FALHAS` conta, para o rodape parar de dizer que a colheita fechou.
-if [[ $rc -eq 0 ]] && printf %s "$out" | grep -qiE 'review skipped|exceed the limit'; then
+# `$out` carrega "  <STATE> - <description>", entao o padrao ancora o SUCCESS: sem
+# isso um check PENDING ou FAILURE cujo texto mencione o limite contaria como
+# recusa CONSUMADA, e o agente pararia de esperar uma review que ainda pode sair.
+# Recusa por tamanho so e definitiva quando o check ja concluiu. Achado do
+# CodeRabbit na PR #317.
+if [[ $rc -eq 0 ]] && printf %s "$out" | grep -qiE '^[[:space:]]*SUCCESS[[:space:]]+-.*(review skipped|exceed the limit)'; then
   echo "  !! O CodeRabbit NAO revisou (recusa, nao aprovacao) - NAO concluir que a PR esta limpa."
   # NAO sugerir recomentar: `@coderabbitai review` sobre recusa por TAMANHO nao
   # ignora o limite - so gasta a janela e devolve a mesma recusa. A contagem de
@@ -171,7 +184,7 @@ if [[ $rc -eq 0 ]] && printf %s "$out" | grep -qiE 'review skipped|exceed the li
   echo "     Ausencia de achado aqui e ausencia de REVIEW. Recomentar NAO resolve."
   echo "       Reduzir a PR a <=100 arquivos ou trocar a base - decisao do mantenedor."
   echo "       Ver SKILL.md, secao 'As tres recusas nao se tratam igual'."
-  FALHAS=$((FALHAS + 1))
+  RECUSAS=$((RECUSAS + 1))
 fi
 
 echo
@@ -285,9 +298,18 @@ out="$(printf '%s' "$SAIDA_FILTRO" | grep -oiE 'Actionable comments posted: [0-9
 emitir "$out" $RC_FILTRO
 
 echo
+# As duas categorias sao reportadas em separado, e qualquer uma sai 1: o laco nao
+# pode fechar nem com consulta falha nem com PR nao revisada. O que muda e o que
+# o agente faz a seguir — repetir a colheita, ou reduzir a PR.
 if [[ $FALHAS -gt 0 ]]; then
   echo "!! $FALHAS consulta(s) FALHARAM - a colheita esta INCOMPLETA."
   echo "   Nao encerrar o laco com base nela; repetir depois de investigar."
+fi
+if [[ $RECUSAS -gt 0 ]]; then
+  echo "!! $RECUSAS recusa(s) de review - as consultas funcionaram, mas o bot NAO revisou."
+  echo "   Repetir a colheita nao muda nada: a PR precisa ser reduzida (ver acima)."
+fi
+if [[ $FALHAS -gt 0 || $RECUSAS -gt 0 ]]; then
   exit 1
 fi
-echo "colheita completa (nenhuma consulta falhou)."
+echo "colheita completa (nenhuma consulta falhou, nenhuma recusa)."

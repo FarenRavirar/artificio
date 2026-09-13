@@ -2266,7 +2266,8 @@ Commits da #317, na branch `chore/102-imports-react-router`:
 | `7ed7782` | import unificado `react-router` (39 arquivos) + `package.json`/override/`eslint.config.js` que o build exigiu + este registro |
 | `58305fb` | canonical do site + `lastmod` no sitemap (14 arquivos), vindo da #318 por `cherry-pick` |
 | `57270d0` | DOMPurify de volta no rich text (3 camadas), credencial barrada no canonical, override `qs@6.16.0`, hook de registro trazido do `4bb3108`, `AGENTS.md` enxugado (13 arquivos). **Quebrou o build de todos os frontends e introduziu 10 CVEs — corrigido pelo commit seguinte, não usar como referência** |
-| `5c8c3e5` | `jsdom` fora do bundle (`createRequire` + `devDependencies`), overrides de `undici` nas duas majors, e os 2 achados do Codex: comentário do `ContentEditor.tsx` que descrevia implementação removida, e 2 testes do hook que passavam por acidente (7 arquivos) |
+| `5c8c3e5` | overrides de `undici` nas duas majors e os 2 achados do Codex (comentário do `ContentEditor.tsx`, 2 testes do hook que passavam por acidente). **A tentativa de tirar o `jsdom` do bundle por `createRequire` NÃO funcionou — levou de 4 para 7 checks vermelhos** |
+| `892c22d` | separação por entrada: `sanitizeServer.ts` server-only com DOMPurify+JSDOM, `sanitize.ts` puro. É o commit que de fato fecha o problema — `pnpm build` 26/26 e `pnpm lint` 26/26 rodados antes de pushar (9 arquivos) |
 
 **Validação medida antes de cada commit:** `mesas/frontend` 1148/1148 (86 arquivos),
 `site` 155/155, `content` 22/22, `content-editor` 120/120, `tsc` limpo, lint 0 erros,
@@ -2533,6 +2534,35 @@ decidir durante a implementação.
 consumido por `useProfileQuery.ts` em 4 pontos (L43, L89, L128, L196). Sob SSR ele
 quebra pelo mesmo motivo do `renderMarkdown` — `sanitize is not a function`. **A PR 3
 precisa tratar este arquivo**, senão troca um `500` por outro, agora no perfil.
+
+**FALSO-POSITIVO do Sonar, não investigar de novo:**
+`INFO | packages/content-editor/src/sanitize.ts:735 | Complete the task associated to
+this "TODO" comment`. Não existe TODO no pacote — o Sonar casa a palavra **portuguesa
+"TODOS"** com o marcador. Medido: 5 ocorrências em `sanitize.ts`, `sanitizeServer.ts`,
+`commentLinks.test.ts` e `sanitize.test.ts`, todas em frases como "TODOS os apps" e
+"TODOS os frontends". Vai reaparecer a cada colheita enquanto os comentários
+estiverem em português.
+
+**Achados do CodeRabbit RECUSADOS (2026-09-13), com o motivo medido** — registrados
+para não voltarem a ser investigados:
+
+- **`sanitize.ts:725` — acrescentar `src`/`alt`/`title` ao `ALLOWED_ATTR` do
+  DOMPurify, "para preservar imagem de markdown".** Premissa falsa: `img` **não** está
+  no `allowedTags` da política (`sanitize-html.defaults` não o inclui, e
+  `RENDERED_MARKDOWN_OPTIONS` só acrescenta `input`), então a camada 1 descarta a
+  imagem antes de o DOMPurify vê-la. Medido: `<p><img src="..." alt="gato"></p>` sai
+  como `<p></p>`. Acrescentar o atributo não faria imagem nenhuma aparecer — a
+  mudança teria de ser no `allowedTags`, e isso é decisão de produto (UGC com imagem
+  remota), não ajuste de sanitizador.
+- **`ModeracaoSection.tsx` — "rodar o build do frontend antes do merge".** Já rodado:
+  `pnpm build` repo-wide 26/26, que inclui `tsc -b && vite build` do `mesas-frontend`.
+
+**CORRIGIDO no `colher.sh` (2026-09-13):** a detecção de recusa por tamanho testava
+`rc -eq 0` — status da CONSULTA, não do check. Um check `PENDING` ou `FAILURE` cuja
+descrição mencionasse o limite contaria como recusa consumada, e o agente pararia de
+esperar uma review que ainda podia sair. O padrão passou a ancorar `SUCCESS` no início
+da linha. Validado contra os quatro casos (SUCCESS+skipped conta; PENDING, FAILURE e
+SUCCESS+completed não).
 
 **CORRIGIDOS na #317** (2026-09-12):
 
