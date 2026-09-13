@@ -2746,10 +2746,104 @@ componente compartilhado (`BackendStatusScreen`) e é mudança de UI, que o `AGE
 manda passar pela auditoria `wcag-accessibility-audit`. **Pendente de decisão do
 mantenedor**, não descartado.
 
+**Quarto ciclo de review na #319 (sobre o commit `abd773c`) — 3 achados do Codex.
+Dois são defeitos de `packages/ui`, não do `mesas`:** o `mesas` foi o primeiro app a
+virar SSR de verdade e por isso o primeiro a expô-los. Corrigidos no pacote por
+decisão do mantenedor ("então corrija o pacote"), com os 6 consumidores revalidados.
+
+- **`packages/ui/src/theme.tsx:120` — `getServerThemeSnapshot()` era `"light"` fixo,
+  e o script inline pinta `dark`.** O script do `root.tsx` lê o cookie
+  `artificio_theme` e, sem cookie, escreve `data-theme="dark"` ANTES da primeira
+  pintura; o snapshot `light` fazia `Header` e `Footer` saírem do servidor com
+  `data-variant="light"` e logo navy sobre página escura, acertando só depois da
+  hidratação — o flash que o script inline existe para evitar. Snapshot agora é
+  `dark`, o mesmo default do script. Para quem tem cookie `light`, o
+  `MutationObserver` de `subscribeToTheme` corrige no primeiro commit sem flash de
+  conteúdo: o `data-theme` do `<html>` já está certo, ajusta-se só o `data-variant`
+  do chrome. **A alternativa correta — servidor ler o cookie da requisição e injetar
+  o tema — NÃO foi feita:** exige passar o cookie até o hook por contexto de
+  requisição, mudança de contrato nos 6 apps consumidores. Pendência registrada no
+  comentário do próprio `theme.tsx`.
+- **`packages/ui/src/hooks.ts:6` — `useChangelogBadge` divergia entre servidor e
+  primeiro render.** Lia `localStorage` no inicializador do `useState`: o servidor
+  devolvia `false` (sem `window`) e o cliente devolvia `true` já no primeiro render,
+  então `Header.tsx:314` acrescentava um `<span>` que o HTML do servidor não tinha —
+  recuperação de hidratação na primeira visita e a cada versão nova, que são os casos
+  comuns. A leitura foi para `useEffect`: o badge acende um quadro depois, preço
+  correto para não quebrar a hidratação da página inteira.
+- **`routes/redirect.tsx` — REGRESSÃO INTRODUZIDA PELA PRÓPRIA MIGRAÇÃO F4.** As 6
+  rotas legadas usavam `<Navigate replace />` em `App.tsx`
+  (`49ac4b1`, linhas 60/69/89/98/99/101); a troca por `redirect()` perdeu o `replace`
+  em silêncio e o alias passou a EMPILHAR histórico. Medido: buscar
+  (`AppShell.tsx:41`, `navigate('/busca')`) → `/catalogo` → Voltar → `/busca` →
+  redireciona de novo, e o visitante não consegue voltar à página anterior. Corrigido
+  com o helper `replace()` do React Router (`index.d.ts:2`, `ap as replace`), com 4
+  testes novos — **não havia nenhum**, que foi o que deixou a regressão passar.
+
+**Recusado no quarto ciclo:** o achado do CodeRabbit em `useUrlState.ts` (manter o
+estado pendente num `ref` para updates funcionais no mesmo tick). **O arquivo não está
+no diff desta PR**, e o defeito já está corrigido em `:110-127` — com `useState`, que
+é deliberado e documentado em `:104-109`: ler e escrever ref durante o render quebra
+`react-hooks/refs` e, sob renderização concorrente, pode devolver valor de uma
+passagem descartada. A sugestão desfaria a versão melhor.
+
+**Quinto ciclo de review na #319 — 1 achado do CodeRabbit procede, 3 recusados.**
+
+- **`packages/catalog-table/src/contactUrls.ts:114` — o DDD 55 era confundido com o
+  código do país.** `digits.startsWith('55')` marcava como "já tem país" qualquer
+  número começando em 55, e o **DDD 55 é real**: Santa Maria e Passo Fundo, região
+  central do RS. `(55) 99999-9999` tem 11 dígitos, era lido como já prefixado e saía
+  `wa.me/55999999999` — número de 11 dígitos sem país, que abre conversa errada ou
+  nenhuma. Nada falhava em log. Agora quem decide é o COMPRIMENTO: 10-11 dígitos é
+  local brasileiro (fixo ou celular com DDD), 12-13 já traz o país; o `+` explícito
+  continua mandando. 7 testes novos, incluindo os dois casos de DDD 55 (celular e
+  fixo).
+- **`formatWhatsAppDisplay` na mesma linha NÃO tem o defeito análogo — sondado, não
+  presumido.** A regex `^(?:\+?55)?(\d{2})(\d{8,9})$` é ancorada nas duas pontas,
+  então o grupo opcional só consome o prefixo quando sobram exatamente 10-11 dígitos
+  para o resto. Medido: `55999999999` devolve `DDD=55 numero=999999999` e
+  `5532221234` devolve `DDD=55 numero=32221234`, ambos corretos. Nenhuma edição.
+
+**Recusados no quinto ciclo, com a medição que sustenta cada recusa:**
+
+- **Loader SSR em `/mestres/:masterId`** — a rota **não é indexável**. Medido:
+  `sitemap.ts:28-29` publica só a raiz e `/mesas/:slug`. A rota pública de mestre é
+  `/mestre/:slug`, que JÁ tem loader SSR e é a canônica que o `og.ts:210` emite.
+  `/mestres/:masterId` é rota por ID, fora do sitemap e sem link interno — nenhum
+  crawler chega nela. Adicionar loader é escopo novo, não correção de review.
+- **Extrair o ramo de mesa encerrada do `MesaPage` (complexidade 16 > 15)** — é
+  limiar de manutenibilidade do Sonar, não defeito. Extrair componente mexe no render
+  de página pública em cima de cinco ciclos de review, por 1 ponto de métrica.
+- **`useUrlState.ts` com `ref` (segunda e terceira vez que o CodeRabbit pede)** — o
+  arquivo **não está no diff desta PR**, e o comportamento pedido já existe em
+  `:110-127`, feito com `useState`. A versão `useRef` foi REJEITADA e está registrada
+  em `:1592` desta spec como um dos 55 erros de lint corrigidos
+  (`react-hooks/refs`: ler/escrever ref durante o render quebra a pureza e, sob
+  renderização concorrente, devolve valor de passagem descartada). Aceitar a sugestão
+  desfaria a correção. **Se o bot pedir de novo, a resposta é esta — não reinvestigar.**
+
+**Armadilhas medidas no ambiente de teste do `packages/ui`** (custaram 2 rodadas
+vermelhas; quem for escrever teste com DOM aqui precisa das três):
+
+- **`window.localStorage` do jsdom 29 deste pacote é objeto liso** — sondado:
+  `proto: Object`, `setItem: undefined`, `clear: undefined`. `Storage` existe como
+  função global mas não está ligado a essa instância, então espiar `Storage.prototype`
+  também não a alcança. O teste instala o próprio por `Object.defineProperty`.
+- **Sem `setupFiles`, o auto-cleanup do testing-library não é registrado** — o DOM
+  acumula entre casos e `getByTestId` falha com "Found multiple elements". `cleanup()`
+  explícito no `afterEach`. A ausência de `setupFiles` é decisão registrada no
+  `vitest.config.ts` do pacote, não descuido.
+- **O header que o helper `replace()` emite é `X-Remix-Replace: 'true'`**, não
+  `'yes'` — afirmei `'yes'` sem medir, e o teste falhou por isso.
+
 Estado em 2026-09-13, na branch `feat/102-f4-mesas-ssr`:
 
 | arquivo | achado | estado |
 |---|---|---|
+| `packages/catalog-table/src/contactUrls.ts:114` | DDD 55 (Santa Maria/RS) confundido com código de país | **corrigido** — decisão por comprimento (10-11 local, 12-13 com país), 7 testes |
+| `packages/ui/src/theme.tsx:120` | snapshot SSR `"light"` fixo contra `dark` do script inline | **corrigido** — snapshot `dark`; leitura do cookie na requisição fica como pendência |
+| `packages/ui/src/hooks.ts:6` | badge lia `localStorage` no primeiro render, divergindo do servidor | **corrigido** — leitura movida para `useEffect` |
+| `src/routes/redirect.tsx` | `redirect()` empilhava histórico; era `<Navigate replace />` antes da F4 | **corrigido** — helper `replace()`, 4 testes novos |
 | `src/lib/apiUrl.ts:25` | dev local resolve `mesas-api`, que não existe fora do Docker | **corrigido** — padrão por `import.meta.env.DEV` |
 | `src/features/table/seo/tableMeta.ts:88` | mesa paga sem preço publicava `"0.00"` | **corrigido** — `Offer` omitida quando não há preço publicável |
 | `src/pages/MesaPage.tsx:100`, `TableSchedules.tsx:88` | data sem `timeZone` diverge entre SSR e hidratação | **corrigido** — `utils/formatDate.ts` com `America/Sao_Paulo` |
@@ -2763,9 +2857,14 @@ Estado em 2026-09-13, na branch `feat/102-f4-mesas-ssr`:
 | `packages/catalog-table/src/contactUrls.ts:164` | complexidade de regex 21 > 20 | pendente — mexe em pacote compartilhado |
 | `Dockerfile:76,111` | fundir `RUN` consecutivos | **RECUSADO — pediria para reintroduzir defeito já corrigido.** O próprio arquivo registra na L118: *"Asserção separada do install de propósito (achado de review, PR #268): no encadeamento `pnpm install && test … \|\| echo ERRO`, falha de rede ou de lockfile caía no mesmo `\|\|` e era reportada como 'dependência ausente' — diagnóstico errado num build que quebra por outro motivo."* O par L76/L82 tem motivo análogo: fundir `apk add` com `corepack enable` invalida a camada de patch de segurança a cada troca de versão do pnpm |
 
-Validação dos corrigidos: `mesas-frontend` **1146/1146** em 85 arquivos (eram
-1139 antes dos 7 testes novos do terceiro ciclo), `build` do pacote verde, lint 0
-erros (1 aviso pré-existente em `useBannerScrim.ts`, não tocado), `verify:api` exit 0
+Validação dos corrigidos, por pacote — o quarto ciclo tocou `packages/ui` e o quinto
+tocou `packages/catalog-table`, então o blast radius inteiro foi rodado:
+`packages/ui` **85/85** (eram 79), `packages/catalog-table` **36/36** (eram 29),
+`mesas-frontend` **1150/1150** em 86 arquivos (eram 1139 no início dos ciclos),
+`downloads-frontend` **315/315**, `accounts` **602/602** (52 skipped pré-existentes),
+`site` **155/155**, `glossario-frontend` **37/37**. `site-admin` e `links` têm `test`
+stub (`echo`), sem suíte a rodar. Lint 0 erros nos pacotes tocados (1 aviso
+pré-existente em `useBannerScrim.ts`, não tocado), `build` verde, `verify:api` exit 0
 com breaking=0 nos 6 apps.
 
 **Snyk — `qs@6.15.2` (2 CVE médios): CORRIGIDO na #317.** `CVE-2026-82562` (CWE-770,

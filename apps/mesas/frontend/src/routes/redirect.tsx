@@ -1,4 +1,4 @@
-import { redirect } from 'react-router';
+import { replace } from 'react-router';
 import type { LoaderFunctionArgs } from 'react-router';
 
 /**
@@ -11,11 +11,19 @@ import type { LoaderFunctionArgs } from 'react-router';
  *
  * `:sub?`, quando existe, é preservado: deep link antigo de
  * `/gestao/moderacao/rascunhos` precisa chegar na aba certa.
+ *
+ * `replace` e NÃO `redirect`: o alias SUBSTITUI a entrada no histórico em vez de
+ * empilhar outra. Com `redirect`, clicar em buscar (`AppShell.tsx:41`,
+ * `navigate('/busca')`) levava a `/catalogo`, e o Voltar caía em `/busca`, que
+ * redirecionava de novo — o visitante não conseguia voltar à página anterior.
+ * As 6 rotas legadas usavam `<Navigate replace />` antes da migração para
+ * framework mode (`App.tsx` em `49ac4b1`); trocar por `redirect` perdeu o
+ * `replace` junto. Achado do Codex (P2) na PR #319.
  */
 export function redirectTo(to: string) {
   return function loader({ params }: LoaderFunctionArgs) {
     const sub = params.sub ? `/${params.sub}` : '';
-    return redirect(`${to}${sub}`);
+    return replace(`${to}${sub}`);
   };
 }
 

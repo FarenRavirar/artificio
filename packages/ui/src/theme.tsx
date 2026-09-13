@@ -117,8 +117,32 @@ function getThemeSnapshot(): Theme {
   return resolveTheme();
 }
 
+/**
+ * Tema do SSR: `dark`, o mesmo default do script inline que roda antes da
+ * primeira pintura.
+ *
+ * Era `"light"` fixo, e sob SSR real isso divergia por construção. O script
+ * inline do documento (`apps/mesas/frontend/src/root.tsx`) lê o cookie
+ * `artificio_theme` e, sem cookie, escreve `data-theme="dark"` — então o
+ * documento já está escuro quando o React hidrata, enquanto `Header` e `Footer`
+ * chegavam do servidor com `data-variant="light"` e o logo navy. O primeiro
+ * quadro misturava página escura com chrome claro, e só acertava depois da
+ * hidratação: exatamente o flash que o script inline existe para evitar.
+ *
+ * `dark` porque é o default operacional dos módulos com SSR e o que o script
+ * inline aplica na ausência de cookie — o caso da primeira visita, que é quando
+ * o crawler e o visitante novo chegam. Para quem tem cookie `light`, o
+ * `MutationObserver` de `subscribeToTheme` corrige no primeiro commit, sem
+ * flash de conteúdo: o `data-theme` do `<html>` já está certo antes de qualquer
+ * pintura, e o que se ajusta é só o `data-variant` do chrome.
+ *
+ * O caminho definitivo é o servidor ler o cookie da requisição e injetar o tema
+ * no HTML, o que elimina a suposição. Isso exige passar o cookie até este hook
+ * (contexto por requisição), mudança de contrato em 6 apps consumidores —
+ * registrada como pendência, não feita aqui. Achado do Codex (P2) na PR #319.
+ */
 function getServerThemeSnapshot(): Theme {
-  return "light";
+  return "dark";
 }
 
 export function useTheme() {

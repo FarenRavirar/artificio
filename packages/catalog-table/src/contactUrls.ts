@@ -102,6 +102,14 @@ export function toSafeDiscordInviteUrl(value: string | null | undefined): string
  * (EUA) virava `wa.me/5514155552671`, abrindo conversa com outra pessoa.
  * O prefixo 55 só entra em número local, que é o formato que o mestre
  * brasileiro digita sem pensar (`(11) 99999-9999`).
+ *
+ * Quem decide "já tem país" é o COMPRIMENTO, não o prefixo `55`. Testar
+ * `digits.startsWith('55')` quebrava o DDD 55, que é real — Santa Maria e Passo
+ * Fundo, região central do RS: `(55) 99999-9999` tem 11 dígitos, era lido como
+ * já prefixado e saía `wa.me/55999999999`, um número de 11 dígitos sem país,
+ * que abre conversa errada ou nenhuma. Número brasileiro local é 10 (fixo com
+ * DDD) ou 11 (celular com DDD); com o 55 na frente vira 12 ou 13. Achado do
+ * CodeRabbit na PR #319.
  */
 export function toWhatsAppUrl(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -111,7 +119,8 @@ export function toWhatsAppUrl(value: string | null | undefined): string | null {
   if (digits.length < 10 || digits.length > 13) return null;
 
   const hasExplicitCountryCode = trimmed.startsWith('+');
-  const withCountry = hasExplicitCountryCode || digits.startsWith('55') ? digits : `55${digits}`;
+  const jaTemCodigoDePais = hasExplicitCountryCode || digits.length >= 12;
+  const withCountry = jaTemCodigoDePais ? digits : `55${digits}`;
   return `https://wa.me/${withCountry}`;
 }
 
