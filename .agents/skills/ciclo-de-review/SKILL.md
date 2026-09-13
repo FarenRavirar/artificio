@@ -75,6 +75,8 @@ onde a anterior terminou:
   o CodeRabbit revisou?
         ├── PENDING ................ aceitou; não recomentar o CodeRabbit
         ├── "rate limited" ......... não recomentar; a janela reabre sozinha
+        ├── "Review skipped" ....... recusou por tamanho; NÃO reabre sozinha,
+        │                            esperar não resolve → comentar para destravar
         └── não revisou ............ comentar
         ↓
   o Codex NUNCA revisa por push → comentar sempre que a review dele
@@ -151,6 +153,27 @@ Medido, não estimado:
   visível: o check passa e a descrição diz `Review rate limited`. **Falha que se
   disfarça de sucesso**, exatamente a classe de erro que o `AGENTS.md` §Evidência
   existe para pegar — por isso se lê a `description`, sempre.
+- **O CodeRabbit também recusa PR grande**, e essa é a pior das duas porque três
+  sinais concordam em dizer "limpo": o check sai `SUCCESS`, a seção de achados
+  inline imprime `(nenhum)` com razão (não há achado porque ninguém revisou), e o
+  rodapé declarava `colheita completa`. Medido na PR #316 (2026-09-12):
+  `SUCCESS - Review skipped: 123 files exceed the limit of 100`. O `colher.sh`
+  passou a contar isso como falha — o rodapé agora diz `INCOMPLETA` e sai 1 —,
+  mas a trava do script não dispensa ler a `description`: ela existe justamente
+  porque um laço autônomo fecharia a volta tratando PR não revisada como aprovada.
+- **Os `path_filters` já entram na conta do bot.** Na #316: 133 arquivos no diff,
+  menos os 10 filtrados por `.coderabbit.yaml` (4 `.md`, 3 `.claude/`, 3
+  `docs/api/`), dá exatamente os 123 que ele relatou. Não há corte fácil por aí —
+  ampliar os filtros para caber no teto é enganar a contagem, não reduzir o que
+  precisa de review.
+- **Dividir PR grande custa mais do que parece, e o limite é o build.** Medido na
+  #316: 92 dos 123 arquivos são um app só (`apps/mesas/frontend`), então nenhuma
+  divisão por app resolve. O corte que existe é por dependência — `packages/*` novo
+  vai numa PR anterior, o app que o consome na seguinte —, e ele para onde a branch
+  deixaria de compilar: `src/routes/` sem `routes.ts`/`root.tsx`/`entry.server.tsx`
+  não builda, e **PR que não builda não é revisável**. Antes de propor divisão,
+  medir `git diff --name-status origin/dev...HEAD` e achar o pacote novo (`A` em
+  `packages/*` com `package.json` próprio); sem um, provavelmente não há corte bom.
 - Os **40 min** cobrem a janela do CodeRabbit com folga e o scan do Sonar (~40 min)
   na mesma espera. É o número da configuração, não uma estimativa a refinar.
 - **Sonar leva ~40 min** para o scan chegar ao comentário, e depois de várias
@@ -200,6 +223,7 @@ Passados os 7 minutos, o resultado desencadeia o que já se sabe:
 | algum check `FAILURE` | Passo 5 — corrigir, e a volta recomeça no Passo 1 |
 | CodeRabbit `PENDING — Review in progress` | **não comentar**; ele aceitou, esperar e colher |
 | CodeRabbit `SUCCESS — Review rate limited` | Passo 2 — ler o prazo, agendar, e comentar só quando a janela abrir |
+| CodeRabbit `SUCCESS — Review skipped: N files exceed the limit` | **não revisou, e não reabre sozinho** — esperar não resolve; ver abaixo |
 | CodeRabbit `SUCCESS` com revisão publicada | Passo 6 — colher |
 | nenhuma linha do CodeRabbit | ainda não registrou; esperar mais um pouco, não concluir nada |
 
@@ -221,7 +245,24 @@ O que cada resposta significa, medido na PR #304:
 |---|---|---|
 | `PENDING — Review in progress` | aceitou, está revisando | **não comentar**; esperar e colher |
 | `SUCCESS — Review rate limited` | **não revisou**; teto atingido | ler o prazo (abaixo) e reagendar |
+| `SUCCESS — Review skipped: N files exceed the limit of 100` | **não revisou**; PR grande demais | **não adianta recomentar** — reduzir a PR a ≤100 arquivos ou trocar a base; é decisão do mantenedor |
+| `SUCCESS — ... usage credits or metered capacity aren't available` | **não revisou**; cota da conta | parar e avisar o mantenedor: é no painel de billing, não no repositório |
 | (nenhuma linha) | check ainda não registrado | esperar; ainda não dá para concluir |
+
+**As três recusas não se tratam igual.** `rate limited` reabre sozinho, e por isso
+a regra é esperar sem recomentar. `Review skipped` **nunca** reabre: o número de
+arquivos da PR não diminui com o tempo, então cada volta do laço vai reencontrar
+a mesma recusa até alguém agir. Confundir as duas é ficar esperando uma janela
+que não existe.
+
+**A linha de "usage credits" acompanha a de tamanho e NÃO é um segundo problema.**
+Medido na PR #316 (2026-09-12): o mesmo comentário trouxe `Too many files!` e
+`This review couldn't start because sufficient usage credits or metered capacity
+aren't available`, com o rodapé `Upgrade to a paid plan to raise the limit`. A
+conta do projeto é **gratuita** — decisão do mantenedor —, então a segunda linha é
+o convite a pagar que sempre acompanha o teto, não uma cota que se recarregue. Ler
+as duas como causas independentes leva a mandar o mantenedor conferir um billing
+que não existe; **o único caminho é reduzir a PR a ≤100 arquivos.**
 
 Comentar `@coderabbitai full review` sobre uma revisão que já está `PENDING` é
 pedir de novo o que já está sendo feito — e é assim que a próxima rodada

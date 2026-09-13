@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router';
 import { Bot, FileJson, FileText, Sparkles } from 'lucide-react';
 import { DiscordSettingsPanel } from '../../../features/discord-sync/components/DiscordSettingsPanel';
 import { DiscordSourceList } from '../../../features/discord-sync/components/DiscordSourceList';

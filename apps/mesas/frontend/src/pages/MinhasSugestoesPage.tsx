@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router';
 import { ArrowLeft, Lightbulb } from 'lucide-react';
 import { Button } from '@artificio/ui';
 import { SuggestionsView } from '../features/suggestions/SuggestionsView';

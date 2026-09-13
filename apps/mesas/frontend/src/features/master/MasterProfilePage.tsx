@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link } from 'react-router';
 import { Compass } from 'lucide-react';
 import type { MasterResponse } from './types/masterView.types';
 import { useMasterViewModel } from './hooks/useMasterViewModel';

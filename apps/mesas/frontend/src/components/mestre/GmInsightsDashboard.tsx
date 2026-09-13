@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { ChevronDown, ChevronUp, Eye, MousePointerClick, MessageCircle, BarChart3, AlertCircle, Info, Heart, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useGmInsights } from '../../hooks/useGmInsights';
 

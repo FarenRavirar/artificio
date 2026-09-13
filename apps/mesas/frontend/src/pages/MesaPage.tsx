@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router';
 import { Compass, Megaphone } from 'lucide-react';
 import type { TableDetail } from '../types/tables';
 import { applySeo } from '../utils/seo';

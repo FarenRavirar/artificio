@@ -154,6 +154,20 @@ echo "== 2. CodeRabbit (veredito) =="
 # SUCCESS sozinho NAO prova revisao - so a description separa revisao de recusa.
 out="$(gh pr checks "$pr" --json name,state,description --jq '.[] | select(.name|test("CodeRabbit";"i")) | "  \(.state) - \(.description)"' 2>&1)"; rc=$?
 emitir "$out" $rc
+# Recusa por tamanho e o pior desfecho possivel desta colheita, porque os TRES
+# sinais concordam em dizer "limpo": o check sai SUCCESS (a consulta funcionou,
+# entao `emitir` nao conta falha), a secao 2+3 imprime `(nenhum)` com razao (nao
+# ha achado porque ninguem revisou) e o rodape declara "colheita completa". Medido
+# na PR #316 (2026-09-12): `SUCCESS - Review skipped: 123 files exceed the limit
+# of 100`. Sem esta trava o agente fecha o laco tratando PR NAO REVISADA como PR
+# aprovada. `FALHAS` conta, para o rodape parar de dizer que a colheita fechou.
+if [[ $rc -eq 0 ]] && printf %s "$out" | grep -qiE 'review skipped|exceed the limit'; then
+  echo "  !! O CodeRabbit NAO revisou (recusa, nao aprovacao) - NAO concluir que a PR esta limpa."
+  echo "     Ausencia de achado aqui e ausencia de REVIEW. Destravar antes de seguir:"
+  echo "       comentar '@coderabbitai review' na PR forca a review ignorando o limite,"
+  echo "       ou dividir a PR. Ver SKILL.md, Excecao 1."
+  FALHAS=$((FALHAS + 1))
+fi
 
 echo
 echo "== 2+3. achados inline (CodeRabbit, Codex) =="

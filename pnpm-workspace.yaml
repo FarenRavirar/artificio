@@ -95,6 +95,17 @@ overrides:
   #
   # Faixas declaradas na árvore: `^1.0.0`, `^1.9.10`, `^1.32.4`, sem teto.
   "prosemirror-view@<1.42.2": ">=1.42.2 <2"
+  # NÃO é CVE: é duplicata de instância. O `mesas` passou a declarar
+  # `react-router@^7.18.3` direto (o import sem `-dom`, spec 102), enquanto
+  # `@artificio/analytics` arrasta `react-router@7.18.0` por dentro do
+  # `react-router-dom@^7.18.0`. Com as duas cópias na árvore, o contexto do Router
+  # não atravessa de uma para a outra: `useLocation() may be used only in the
+  # context of a <Router> component` — medido em 2026-09-11 com `500` em TODA rota
+  # renderizada no servidor, depois que o SSR entrou.
+  #
+  # O piso é a mais alta das duas já presentes e satisfaz o `^7.18.0` que todos os
+  # consumidores declaram; o teto `<8` evita o major que o app não suporta.
+  "react-router@<7.18.3": ">=7.18.3 <8"
 patchedDependencies:
   "@types/express-serve-static-core@5.1.1": patches/@types__express-serve-static-core@5.1.1.patch
 allowBuilds:
