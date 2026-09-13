@@ -2334,12 +2334,33 @@ Composição: 24 em `src/routes/`, 14 no `catalog-table`, 9 na raiz do frontend
 `catalog-table`, e 12 de resto.
 
 **ARMADILHA QUE FALHA EM SILÊNCIO — o `4bb3108` é ANTERIOR ao trabalho de segurança
-da #317.** Trazer o diff inteiro contra `dev` (98 arquivos) **reverteria** o DOMPurify
-e a rejeição de credencial no canonical, sem erro nenhum: os arquivos simplesmente
-voltariam à versão velha. Medido: `sanitizeServer.ts` **não existe** no `4bb3108`, e
-o `canonical.ts` de lá tem 0 ocorrências de "credencial embutida". **Excluir sempre
-`packages/content` e `packages/content-editor`** ao montar esta PR — são 9 arquivos, e
-os de `dev` são os bons.
+da #317.** Trazer o diff inteiro contra `dev` **reverteria**, sem erro nenhum, tudo o
+que entrou depois: os arquivos simplesmente voltam à versão velha.
+
+São **18 arquivos**, em três grupos, e cada grupo foi descoberto DEPOIS do anterior —
+o terceiro só apareceu quando o Snyk reclamou na PR já aberta:
+
+| grupo | arquivos | prova medida |
+|---|---|---|
+| `packages/content` + `content-editor` | 9 | `sanitizeServer.ts` **não existe** no `4bb3108`; `canonical.ts` de lá tem 0 ocorrências de "credencial embutida" |
+| governança | 7 — `AGENTS.md`, `.gitignore`, os 2 do hook `registro-anti-compactacao`, `ciclo-de-review/{SKILL.md,colher.sh}` | `AGENTS.md` tinha **10.076 palavras** contra **6.781** em `dev`; o hook voltava ao limiar 4; o `colher.sh` perdia `RECUSAS` |
+| **resolução de dependência** | 2 — `pnpm-workspace.yaml`, `pnpm-lock.yaml` | **reverteu 3 overrides de CVE**: `qs` 6.16.0 → **6.15.2** (2 CVEs), `undici` 7.29.1 → **7.29.0** e 8.10.2 → **8.10.0** (10 CVEs, uma **CVSS 9.1 crítica** de validação de certificado) |
+
+**Conferir "arquivo por arquivo" NÃO basta — foi o que falhou.** O grupo 3 passou
+mesmo depois de o grupo 2 ter sido pego, porque a conferência foi por lista nomeada e
+o lock não estava na lista. O certo é `git diff --cached origin/dev --stat` e olhar
+**tudo** que difere, sem lista prévia.
+
+**E o lock de `dev` não serve puro:** ele não conhece pacote novo criado na branch
+(`packages/catalog-table` → 0 ocorrências). Restaurar de `dev` e **regenerar** com
+`pnpm install --lockfile-only`, conferindo depois que os overrides sobreviveram
+(`grep -nE "^  (qs|undici)@"`) e que `@babel/core` continua com as entradas base
+(canário do E021).
+
+**E `git add` de novo depois de editar arquivo já staged.** Medido nesta PR: as 4
+correções do Sonar foram escritas DEPOIS do `git add`, e o commit `b7a03ed` levou a
+versão anterior a elas. Quem pegou foi o `pre-push` (`verify:api` acusou arquivos
+versionados alterados e recusou o push), não o commit — que saiu verde.
 
 Duas outras armadilhas medidas ao montar a lista:
 
@@ -2623,6 +2644,55 @@ Procedimento: criar a PR 3 de `origin/dev` já mergeado, trazer os arquivos com
 `git checkout 4bb3108 -- <caminhos>`, **aplicar as correções da tabela abaixo** e só
 então pushar.
 
+**Achados do Codex na #319 — 3 bugs, todos invisíveis em log:**
+
+- **`lib/queryClient.ts` — cache VAZANDO ENTRE VISITANTES no SSR.** O `QueryClient`
+  era singleton de módulo, e sob SSR o módulo vive no processo Node inteiro — não na
+  requisição. Como `initialData` do React Query só inicializa entrada **ausente**, a
+  partir do segundo acesso o HTML saía com mesas, vagas e preços **de quem acessou
+  antes**, por até os 10 min de `gcTime`, ignorando o que o `loader` acabara de
+  buscar. E o cliente recebia `loader` data diferente do HTML, quebrando a hidratação
+  — o React descarta o HTML do servidor, que é o conteúdo que o crawler lê. Agora:
+  `obterQueryClient()` cria um por requisição no servidor e mantém singleton no
+  navegador; o export `queryClient` continua para os 3 consumidores fora do React
+  (`broadcastChannel`, `useProfileQuery`, `ProfileContext`), que só rodam após a
+  hidratação.
+- **`root.tsx` — o overlay de indisponibilidade cobriria a aplicação INTEIRA com o
+  backend saudável.** O health check batia em `/health`, mas o `server.js` encaminha
+  ao backend só `/api`, as rotas de auth e `/sitemap.xml` — a chamada caía no
+  catch-all do React Router e voltava **404**, `healthy` virava `false`. O endpoint
+  real é `/api/v1/health` (`backend/src/server.ts:99`).
+- **`routes/catalogo.tsx` — canonical duplicado.** `/` e `/catalogo` servem a mesma
+  página (`routes.ts:11,16`) e cada alias declarava canonical autorreferente: duas
+  URLs idênticas competindo, sinais não consolidados — o oposto do objetivo desta
+  spec. Fixado na raiz, que é o que menu e links internos usam.
+
+**Achados do CodeRabbit na #319 — 2 eram BUGS REAIS que falhavam em silêncio:**
+
+- **`routes/mesa.tsx` — a tela de mesa encerrada perdia TODOS os campos.** O loader
+  desembrulhava `json.data` antes de passar a `normalizeClosedTable`, que lê
+  `root.data` internamente (`closedTable.ts:55`). Com o envelope já aberto, `data`
+  virava `{}` lá dentro e todo campo caía no fallback: `id: null`,
+  `title: 'Esta mesa'`, `closedAt: null`, `reason: 'unknown'`. Quem chegasse pelo link
+  antigo via uma página de encerramento sem data e sem motivo — e nada errava no log.
+  **Passar o envelope inteiro.**
+- **`catalog-table/tableViewMapper.ts` — WhatsApp abria conversa com a PESSOA ERRADA.**
+  O helper local `getWhatsAppUrl` prefixava `55` em qualquer número, então
+  `+14155552671` (EUA) virava `wa.me/5514155552671`. O `toWhatsAppUrl` do próprio
+  pacote já trata o `+` explícito e documenta esse caso — era a "exceção por app" que
+  o `AGENTS.md` chama de defeito. Número inválido também saía como `https://123`, link
+  que não abre; agora devolve `null` e o CTA vira o seletor de contato.
+  **O CTA de WhatsApp não tinha UM teste sequer** — foi o que deixou o defeito passar.
+  Três casos novos cobrem código de país, número local e número inválido.
+
+**Timeout nos 3 loaders SSR** (`mesa`, `mestre`, `catalogo`): `request.signal` aborta
+quando o VISITANTE desiste, não quando o backend aceita a conexão e não responde —
+nesse caso o render ficava preso indefinidamente e o Googlebot desistia antes,
+registrando a URL como lenta. `AbortSignal.any([request.signal,
+AbortSignal.timeout(LOADER_TIMEOUT_MS)])` põe o teto sem perder o cancelamento do
+visitante. A constante (8s) vive em `lib/apiUrl.ts`, que é o módulo isomórfico já
+compartilhado pelos loaders.
+
 Estado em 2026-09-13, na branch `feat/102-f4-mesas-ssr`:
 
 | arquivo | achado | estado |
@@ -2634,7 +2704,7 @@ Estado em 2026-09-13, na branch `feat/102-f4-mesas-ssr`:
 | `server.js:20` | "IP `172.18.0.0/16` hardcoded" | **RECUSADO — falso-positivo.** Medido: a linha é `process.env.TRUSTED_PROXY_CIDR \|\| '172.18.0.0/16'`, env var com fallback, e o CIDR é o da rede interna do Docker. Mesma linha dos outros 6 apps Express do monorepo. É hotspot, não defeito |
 | `src/pages/MesaPage.tsx:25` | complexidade cognitiva 16 > 15 | pendente — refatoração de função |
 | `packages/catalog-table/src/contactUrls.ts:164` | complexidade de regex 21 > 20 | pendente — mexe em pacote compartilhado |
-| `Dockerfile:44,45,111` | fundir `RUN` consecutivos | pendente — tocar `Dockerfile` dispara a trava de `deploy-flow.md` §1 |
+| `Dockerfile:76,111` | fundir `RUN` consecutivos | **RECUSADO — pediria para reintroduzir defeito já corrigido.** O próprio arquivo registra na L118: *"Asserção separada do install de propósito (achado de review, PR #268): no encadeamento `pnpm install && test … \|\| echo ERRO`, falha de rede ou de lockfile caía no mesmo `\|\|` e era reportada como 'dependência ausente' — diagnóstico errado num build que quebra por outro motivo."* O par L76/L82 tem motivo análogo: fundir `apk add` com `corepack enable` invalida a camada de patch de segurança a cada troca de versão do pnpm |
 
 Validação dos corrigidos: `pnpm build` repo-wide **27/27**, `mesas-frontend` **1139/1139**
 e `tsc -b` limpo, lint 0 erros, `verify:api` exit 0 com breaking=0.

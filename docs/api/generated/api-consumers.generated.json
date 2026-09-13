@@ -1980,6 +1980,16 @@
     },
     {
       "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/root.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/health",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "fetch",
+      "line": 114
+    },
+    {
+      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/features/master/MasterProfilePage.tsx",
       "method": "GET",
       "endpoint": "/api/v1/masters/:param",
@@ -2537,16 +2547,6 @@
       "pattern": "literal",
       "wrapper": "authPost",
       "line": 161
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/root.tsx",
-      "method": "GET",
-      "endpoint": "/health",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "fetch",
-      "line": 108
     },
     {
       "app": "packages/auth",

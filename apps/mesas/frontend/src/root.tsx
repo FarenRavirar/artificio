@@ -4,7 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import { ConfirmProvider } from '@artificio/ui';
 import { useAnalyticsPageviews } from '@artificio/analytics/react';
-import { queryClient } from './lib/queryClient';
+import { obterQueryClient } from './lib/queryClient';
 import { AuthProvider } from './contexts/AuthContext';
 import { AppShell } from './components/AppShell';
 import { BackendStatusScreen } from './components/BackendStatusScreen';
@@ -104,8 +104,14 @@ function BackendHealthGate() {
   useEffect(() => {
     const check = async () => {
       try {
+        // `/api/v1/health`, e não `/health`: o `server.js` encaminha ao backend
+        // só `/api`, as rotas de auth e `/sitemap.xml` — `/health` cai no
+        // catch-all do React Router e devolve 404. Com `VITE_API_URL` vazio isso
+        // fazia `healthy` virar `false` e o overlay de indisponibilidade cobrir a
+        // aplicação INTEIRA depois da hidratação, com o backend saudável. Achado
+        // do Codex (P1) na PR #319; o endpoint real é `backend/src/server.ts:99`.
         const apiUrl = import.meta.env.VITE_API_URL || '';
-        const response = await fetch(`${apiUrl}/health`, {
+        const response = await fetch(`${apiUrl}/api/v1/health`, {
           method: 'GET',
           signal: AbortSignal.timeout(5000),
         });
@@ -128,7 +134,7 @@ function BackendHealthGate() {
 
 export default function Root() {
   return (
-    <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={obterQueryClient()}>
       <AnalyticsPageviews />
       <BackendHealthGate />
       <AuthProvider>

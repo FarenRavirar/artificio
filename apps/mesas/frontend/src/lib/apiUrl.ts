@@ -41,3 +41,20 @@ export function apiUrl(path: string): string {
   if (typeof document !== 'undefined') return path;
   return `${getServerApiBase()}${path}`;
 }
+
+/**
+ * Teto de espera do `fetch` dentro de `loader` (spec 102 T4.2).
+ *
+ * `request.signal` sozinho não protege o SSR: ele aborta quando o VISITANTE
+ * desiste, mas backend que aceita a conexão e nunca responde segura o render
+ * indefinidamente — o processo fica preso com o crawler esperando, e o Googlebot
+ * desiste antes, registrando a URL como lenta ou inacessível.
+ *
+ * 8s é folgado para uma chamada dentro da rede Docker (o `p99` medido do
+ * catálogo é da ordem de centenas de ms) e curto o bastante para o crawler não
+ * desistir primeiro. Combinar com `AbortSignal.any` preserva o cancelamento do
+ * visitante — usar só o timeout tornaria o render insensível a quem fechou a aba.
+ *
+ * Achado do CodeRabbit na PR #319.
+ */
+export const LOADER_TIMEOUT_MS = 8_000;

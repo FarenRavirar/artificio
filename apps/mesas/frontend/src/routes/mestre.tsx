@@ -3,7 +3,7 @@ import type { LoaderFunctionArgs, MetaArgs } from 'react-router';
 // `export … from`, e não `import` + `export default`: o re-export direto não cria
 // binding local que só existe para ser reexportado. Achado do Sonar na PR #316.
 export { MestrePage as default } from '../pages/MestrePage';
-import { apiUrl } from '../lib/apiUrl';
+import { apiUrl, LOADER_TIMEOUT_MS } from '../lib/apiUrl';
 import { normalizeMestreProfile, type MestrePublicData } from '../hooks/useMestre';
 import { MODULE_ORIGINS } from '@artificio/config';
 
@@ -29,7 +29,9 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   }
 
   const res = await fetch(apiUrl(`/api/v1/gm/perfis/${encodeURIComponent(slug)}`), {
-    signal: request.signal,
+    // Teto de espera no SSR — mesma razão de `routes/mesa.tsx`: `request.signal`
+    // cobre o visitante que desiste, não o backend que aceita e não responde.
+    signal: AbortSignal.any([request.signal, AbortSignal.timeout(LOADER_TIMEOUT_MS)]),
     headers: { accept: 'application/json' },
   });
 

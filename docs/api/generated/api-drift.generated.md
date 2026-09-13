@@ -44,7 +44,7 @@
 | GET | `/api/v1/notifications/unread-count` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/conta` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/conta/notificacoes` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| GET | `/health` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
+| GET | `/health` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/internal/users/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/internal/v1/comments` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/internal/v1/comments/:id/versions` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
@@ -119,7 +119,7 @@
 | GET | `/api/v1/creators/me` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/destinations/:id` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/favorites` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
-| GET | `/api/v1/health` | 🕳️ UNUSED_ROUTE | ✅ | ❌ | 🆕 Novo (não bloqueante) |
+| GET | `/api/v1/health` | ✅ OK | ✅ | ✅ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/material-metadata/:materialId` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/materials` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |
 | GET | `/api/v1/materials/:slug` | 👻 ORPHAN_SUSPECT | ✅ | ❌ | 🆕 Novo (não bloqueante) |

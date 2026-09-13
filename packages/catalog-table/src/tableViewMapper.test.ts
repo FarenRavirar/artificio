@@ -140,3 +140,33 @@ describe('mapTableToView — tableRules (T7.2b)', () => {
     expect(vm.tableRules).toBe('Regras da mesa');
   });
 });
+
+// O CTA de WhatsApp não tinha teste nenhum, e foi por isso que o defeito do
+// código de país sobreviveu: o helper local prefixava `55` em QUALQUER número,
+// então `+14155552671` (EUA) abria conversa com outra pessoa. Achado do
+// CodeRabbit na PR #319.
+describe('CTA de WhatsApp — código de país e número inválido', () => {
+  const comWhatsApp = (value: string) =>
+    mapTableToView(
+      makeTableDetail({
+        contacts: [{ channel: 'whatsapp', value, label: null, discord_server_url: null, sort_order: 0 }],
+      }),
+    ).cta;
+
+  it('respeita o código de país explícito em vez de prefixar 55', () => {
+    const cta = comWhatsApp('+14155552671');
+    expect(cta.actionUrl).toBe('https://wa.me/14155552671');
+    expect(cta.actionUrl).not.toContain('5514155552671');
+  });
+
+  it('prefixa 55 em número local brasileiro, que é o que o mestre digita', () => {
+    expect(comWhatsApp('(11) 99999-9999').actionUrl).toBe('https://wa.me/5511999999999');
+  });
+
+  it('número inválido cai no seletor de contato, não em link quebrado', () => {
+    // Antes devolvia `https://123` como `actionUrl` — link que não abre.
+    const cta = comWhatsApp('123');
+    expect(cta.label).toBe('🎲 Escolher como entrar');
+    expect(cta.action).toBe('scroll-contact');
+  });
+});

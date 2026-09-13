@@ -1,5 +1,6 @@
 import { normalizeImageFrame } from '@artificio/media/image-kinds';
 import { normalizeAgeRating } from './ageRating.js';
+import { toWhatsAppUrl } from './contactUrls.js';
 import type { TableContact, TableDetail } from './types.js';
 import type { TableViewModel, TableCertifications, CTAConfig, UrgencyConfig, VisibilityConfig } from './viewModel.types.js';
 
@@ -53,14 +54,22 @@ function generateCTAConfig(table: TableDetail, slotsLeft: number, contacts: Tabl
       };
     }
     if (primaryContact.channel === 'whatsapp') {
-      const url = getWhatsAppUrl(primaryContact.value);
-      return {
-        label: '💬 Enviar WhatsApp',
-        disabled: false,
-        variant: 'primary',
-        action: 'external-link',
-        actionUrl: url,
-      };
+      // `toWhatsAppUrl` do próprio pacote, e não um helper local: o helper
+      // ignorava o `+` de código de país explícito, e `+14155552671` (EUA)
+      // virava `wa.me/5514155552671` — abrindo conversa com OUTRA PESSOA.
+      // Número que ele não valida devolve `null`, e aí o CTA correto é o
+      // seletor de contato, não um link que não abre. Achado do CodeRabbit na
+      // PR #319.
+      const url = toWhatsAppUrl(primaryContact.value);
+      if (url) {
+        return {
+          label: '💬 Enviar WhatsApp',
+          disabled: false,
+          variant: 'primary',
+          action: 'external-link',
+          actionUrl: url,
+        };
+      }
     }
   }
 
@@ -71,24 +80,6 @@ function generateCTAConfig(table: TableDetail, slotsLeft: number, contacts: Tabl
     variant: 'primary',
     action: 'scroll-contact',
   };
-}
-
-/**
- * Helper: formata número WhatsApp para wa.me
- */
-function getWhatsAppUrl(value: string): string {
-  if (value.startsWith('http://') || value.startsWith('https://')) {
-    return value;
-  }
-  if (value.startsWith('wa.me')) {
-    return `https://${value}`;
-  }
-  const cleanNumber = value.replace(/\D/g, '');
-  if (cleanNumber.length >= 10) {
-    const fullNumber = cleanNumber.startsWith('55') ? cleanNumber : `55${cleanNumber}`;
-    return `https://wa.me/${fullNumber}`;
-  }
-  return `https://${value}`;
 }
 
 /**

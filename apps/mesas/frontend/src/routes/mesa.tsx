@@ -3,7 +3,7 @@ import type { LoaderFunctionArgs, MetaArgs } from 'react-router';
 // `export … from`, e não `import` + `export default`: o re-export direto não cria
 // binding local que só existe para ser reexportado. Achado do Sonar na PR #316.
 export { MesaPage as default } from '../pages/MesaPage';
-import { apiUrl } from '../lib/apiUrl';
+import { apiUrl, LOADER_TIMEOUT_MS } from '../lib/apiUrl';
 import { normalizeClosedTable, type ClosedTable } from '../pages/closedTable';
 import type { TableDetail } from '../types/tables';
 import { buildTableMeta } from '../features/table/seo/tableMeta';
@@ -34,7 +34,12 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   }
 
   const res = await fetch(apiUrl(`/api/v1/tables/${encodeURIComponent(slug)}`), {
-    signal: request.signal,
+    // `request.signal` sozinho não basta no SSR: ele aborta quando o VISITANTE
+    // desiste, mas backend que aceita a conexão e nunca responde segura o render
+    // indefinidamente — o processo fica preso com o crawler esperando. O timeout
+    // dá o teto; `AbortSignal.any` preserva o cancelamento do visitante.
+    // Achado do CodeRabbit na PR #319.
+    signal: AbortSignal.any([request.signal, AbortSignal.timeout(LOADER_TIMEOUT_MS)]),
     headers: { accept: 'application/json' },
   });
 
@@ -43,12 +48,14 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   // atravessa para o crawler porque é ele que tira a URL do índice sem fingir
   // que a mesa nunca existiu.
   if (res.status === 410) {
+    // O ENVELOPE inteiro, não `json.data`: `normalizeClosedTable` lê `root.data`
+    // internamente (`closedTable.ts:55`). Desembrulhar aqui fazia `data` virar
+    // `{}` lá dentro e TODO campo cair no fallback — `id: null`,
+    // `title: 'Esta mesa'`, `closedAt: null`, `reason: 'unknown'` —, apagando a
+    // data e o motivo do encerramento na tela. Achado do CodeRabbit na PR #319.
     const json: unknown = await res.json().catch(() => null);
-    const payload = json && typeof json === 'object' && 'data' in json
-      ? (json as { data: unknown }).data
-      : json;
     return data<MesaLoaderData>(
-      { kind: 'gone', closed: normalizeClosedTable(payload) },
+      { kind: 'gone', closed: normalizeClosedTable(json) },
       { status: 410 },
     );
   }
