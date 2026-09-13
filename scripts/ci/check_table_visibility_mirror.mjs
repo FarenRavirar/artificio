@@ -9,14 +9,15 @@
 //   2. o `importedTableIsCurrentSql` do mesmo arquivo      — predicado dentro do `where`
 //   3. `apps/mesas/frontend/src/utils/tableVisibility.ts` — ESPELHO no frontend
 //
-// A dupla 1↔2 já tem trava: `tableVisibility.equivalence.test.ts`, que executa as duas
-// contra Postgres real. **O espelho (3) não é comparado por ninguém**, e o próprio
-// arquivo admite estar divergente ("segue divergente porque unificá-lo exige um pacote
-// compartilhado que ainda não existe").
+// A dupla 1↔2 já tem trava ATIVA: `tableVisibility.equivalence.test.ts` executa as duas
+// contra Postgres real, e o `ci.yml` fornece `MESAS_TEST_DATABASE_URL` no passo "Mesas
+// visibility equivalence on PostgreSQL 16" — o `describe.skipIf` só desliga o teste
+// localmente, nunca no CI. Isso foi um achado de review da PR #315 e já está resolvido.
 //
-// E a trava existente tem um limite medido: ela é `describe.skipIf(!MESAS_TEST_DATABASE_URL)`.
-// No CI, que não sobe banco para o `mesas`, ela se declara ausente em vez de falhar —
-// então hoje NENHUM gate obrigatório compara as formas da regra.
+// **O que NENHUM gate cobria é o espelho (3)**, e só ele: vive em outra raiz de build e
+// o próprio arquivo admite estar divergente ("segue divergente porque unificá-lo exige
+// um pacote compartilhado que ainda não existe"). Este guard cobre esse lado, e não
+// substitui nem duplica o teste de equivalência.
 //
 // A regra já divergiu TRÊS vezes em produção:
 //   - detalhe ↔ Open Graph (achado CodeRabbit, spec 059/060)
@@ -53,6 +54,31 @@ const FRONTEND = "apps/mesas/frontend/src/utils/tableVisibility.ts";
  */
 const FUNCOES_ESPELHADAS = ["importedTableExpiryDate", "isImportedTableExpired"];
 
+/**
+ * Identificadores que os corpos espelhados podem chamar sem que este guard exija prova.
+ *
+ * Tudo o que NÃO está aqui e é chamado no corpo precisa ser, ele mesmo, uma função
+ * espelhada e comparada — senão a comparação de texto vira teatro: dois corpos
+ * idênticos delegando a helpers locais que devolvem valores diferentes passam verdes.
+ *
+ * **Furo real, reproduzido antes de existir esta lista** (achado P2 do Codex na PR
+ * #320): extraindo `limite5Dias.getDate() + 5` para um `expiryDays()` local em cada
+ * raiz — `5` no backend, `7` no frontend — os corpos ficam iguais ao byte e o guard
+ * saía `G-E OK`, exit 0. A regra divergia em 2 dias sem nada falhar.
+ *
+ * Globais de plataforma entram porque são idênticos por definição nas duas raízes.
+ */
+const CHAMADAS_PERMITIDAS = new Set([
+  "Date",
+  "Number",
+  "isNaN",
+  "getTime",
+  "getDate",
+  "setDate",
+  // Espelhada e comparada por este mesmo guard — delegar a ela é seguro.
+  "importedTableExpiryDate",
+]);
+
 const failures = [];
 
 function lerArquivo(caminhoRelativo) {
@@ -87,40 +113,74 @@ function lerArquivo(caminhoRelativo) {
  * Então: fecha a lista de parâmetros contando parênteses, pula o tipo de retorno, e
  * só a `{` seguinte é o corpo.
  */
+/**
+ * Índice do delimitador que FECHA o par aberto em `inicio`, ou `-1`.
+ *
+ * Os dois passos de `extrairCorpo` — fechar a lista de parâmetros e fechar o corpo —
+ * são o mesmo algoritmo com delimitadores diferentes. Mantê-los duplicados inline era
+ * o que levava a complexidade cognitiva de `extrairCorpo` a 18 (achado do Sonar,
+ * PR #320): dois laços com `if`/`else if`/`if` aninhados, um deles com `break`.
+ */
+function indiceDoFechamento(fonte, inicio, abertura, fechamento) {
+  let profundidade = 0;
+  for (let i = inicio; i < fonte.length; i += 1) {
+    if (fonte[i] === abertura) profundidade += 1;
+    else if (fonte[i] === fechamento) {
+      profundidade -= 1;
+      if (profundidade === 0) return i;
+    }
+  }
+  return -1;
+}
+
 function extrairCorpo(fonte, nome) {
-  const assinatura = new RegExp(`export function ${nome}\\s*\\(`);
+  // `String.raw` para o padrão não virar escape duplo (`\\s` lido como `\s`) — a forma
+  // com barras duplicadas funciona, mas é onde se erra ao editar depois.
+  const assinatura = new RegExp(String.raw`export function ${nome}\s*\(`);
   const inicio = fonte.search(assinatura);
   if (inicio === -1) return null;
 
   const abreParen = fonte.indexOf("(", inicio);
   if (abreParen === -1) return null;
 
-  let paren = 0;
-  let fimParams = -1;
-  for (let i = abreParen; i < fonte.length; i += 1) {
-    if (fonte[i] === "(") paren += 1;
-    else if (fonte[i] === ")") {
-      paren -= 1;
-      if (paren === 0) {
-        fimParams = i;
-        break;
-      }
-    }
-  }
+  const fimParams = indiceDoFechamento(fonte, abreParen, "(", ")");
   if (fimParams === -1) return null;
 
   const abre = fonte.indexOf("{", fimParams);
   if (abre === -1) return null;
 
-  let profundidade = 0;
-  for (let i = abre; i < fonte.length; i += 1) {
-    if (fonte[i] === "{") profundidade += 1;
-    else if (fonte[i] === "}") {
-      profundidade -= 1;
-      if (profundidade === 0) return fonte.slice(abre, i + 1);
-    }
+  const fecha = indiceDoFechamento(fonte, abre, "{", "}");
+  return fecha === -1 ? null : fonte.slice(abre, fecha + 1);
+}
+
+/**
+ * Identificadores chamados como função dentro do corpo, menos os permitidos.
+ *
+ * Roda sobre o corpo JÁ SEM COMENTÁRIO — senão `isImportedTableExpired` citado em
+ * prosa viraria falso-positivo. O padrão casa `nome(` e `.metodo(`; `new Date(...)`
+ * entra como `Date`, que está na lista de permitidos.
+ *
+ * Deliberadamente grosseiro: não é parser de TypeScript. Falso-positivo aqui custa uma
+ * entrada em CHAMADAS_PERMITIDAS, com o motivo escrito ao lado — e esse custo é o
+ * ponto, porque obriga quem adiciona a justificar por que aquela chamada não precisa
+ * ser comparada. Falso-NEGATIVO é o que este guard existe para não ter.
+ */
+function chamadasNaoVerificadas(corpo) {
+  const semComentario = corpo.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+  const encontradas = new Set();
+
+  for (const [, nome] of semComentario.matchAll(/\.?\b([A-Za-z_$][\w$]*)\s*\(/g)) {
+    if (!CHAMADAS_PERMITIDAS.has(nome)) encontradas.add(nome);
   }
-  return null;
+
+  // `if`/`for`/`return`/`switch`/`while`/`catch` casam o padrão mas são palavras-chave,
+  // não chamadas. Listá-las aqui em vez de em CHAMADAS_PERMITIDAS mantém aquela lista
+  // como o que ela é: decisão sobre REGRA, não sobre sintaxe.
+  for (const palavraChave of ["if", "for", "return", "switch", "while", "catch", "typeof"]) {
+    encontradas.delete(palavraChave);
+  }
+
+  return [...encontradas];
 }
 
 /**
@@ -158,6 +218,23 @@ if (fonteBackend && fonteFrontend) {
           `(atualize este guard) ou o espelho foi perdido.`,
       );
       continue;
+    }
+
+    // Delegação a helper não verificado torna a comparação de texto inútil (ver
+    // CHAMADAS_PERMITIDAS). Checa os DOIS lados: basta um deles delegar para que
+    // corpos idênticos deixem de provar regra idêntica.
+    for (const [raiz, corpo] of [
+      [BACKEND, corpoBackend],
+      [FRONTEND, corpoFrontend],
+    ]) {
+      for (const chamada of chamadasNaoVerificadas(corpo)) {
+        failures.push(
+          `${nome} (${raiz}): chama \`${chamada}(…)\`, que este guard não compara.\n` +
+            `    Corpo idêntico ao do outro lado NÃO prova regra idêntica quando parte dela\n` +
+            `    vive num helper local. Ou espelhe \`${chamada}\` e adicione-a a\n` +
+            `    FUNCOES_ESPELHADAS, ou — se for global de plataforma — a CHAMADAS_PERMITIDAS.`,
+        );
+      }
     }
 
     if (normalizar(corpoBackend) !== normalizar(corpoFrontend)) {

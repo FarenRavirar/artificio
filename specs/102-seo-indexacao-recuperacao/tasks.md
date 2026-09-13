@@ -2096,21 +2096,44 @@ review — foi por isso que sobreviveram. Guard que falha o CI se voltarem:
 **G-E — `scripts/ci/check_table_visibility_mirror.mjs`, ligado no `ci.yml` como
 `pnpm smoke:visibility-mirror`.**
 
-A medição que definiu o escopo dele, e que contradiz a suposição original desta task:
-**a trava objeto↔SQL JÁ EXISTIA** (`tableVisibility.equivalence.test.ts`, contra
-Postgres real) — mas é `describe.skipIf(!MESAS_TEST_DATABASE_URL)`, e o CI não sobe
-banco para o `mesas`. Ela se declara ausente em vez de falhar, então **nenhum gate
-obrigatório comparava as formas da regra**. O guard novo cobre estaticamente o lado
-que ninguém cobria: backend ↔ espelho do frontend.
+**Correção de afirmação minha, apontada pelo CodeRabbit na PR #320.** Eu havia escrito
+aqui, no guard, no `ci.yml` e na mensagem do `fc2f617` que "nenhum gate obrigatório
+compara as formas da regra". **Falso.** O `ci.yml:173-176` tem o passo "Mesas
+visibility equivalence on PostgreSQL 16", que fornece `MESAS_TEST_DATABASE_URL` e roda
+`tableVisibility.equivalence.test.ts` — a trava objeto↔SQL está ATIVA, e o comentário
+ao lado dela registra que isso foi resolvido por achado de review da PR #315.
+
+O erro foi de meia medição: li o `describe.skipIf` no arquivo de teste e **não medi se
+o CI provê a variável**. O `skipIf` só desliga o teste localmente.
+
+**O escopo real de G-E é o espelho, e só ele:** backend ↔ frontend, o único lado sem
+gate. Não substitui nem duplica o teste de equivalência.
 
 Compara o TEXTO NORMALIZADO de `importedTableExpiryDate` e `isImportedTableExpired`
 nas duas raízes (comentário e espaço fora; nome, operador e literal dentro). Não
 valida semântica — isso é do teste contra Postgres; valida que as duas cópias
 continuam sendo a mesma cópia, que é o que falhou 3×.
 
-**Provado nos dois sentidos, não só no verde:** sabotando o espelho (`+ 5` → `+ 7`
-dias) o guard sai com **exit 1** nomeando a função; restaurado, volta a **exit 0**.
-Gancho que só passa não é guard (AGENTS.md §Compartilhado por padrão).
+**Provado em 3 cenários de sabotagem, não só no verde** (gancho que só passa não é
+guard — AGENTS.md §Compartilhado por padrão). Todos saem **exit 1**; o código limpo,
+**exit 0**:
+
+1. divergência direta no corpo (`+ 5` → `+ 7` dias)
+2. **delegação a helper local** — `expiryDays()` em cada raiz devolvendo 5 e 7, com os
+   corpos idênticos ao byte
+3. função renomeada/removida do espelho
+
+**O cenário 2 era um furo real, achado pelo Codex (P2) na PR #320 e reproduzido aqui.**
+A versão do `fc2f617` comparava só o texto dos dois corpos nomeados, então qualquer
+refatoração que movesse parte da regra para um helper passava verde com a regra
+divergindo em 2 dias. A correção é a lista `CHAMADAS_PERMITIDAS`: chamada que o guard
+não compara vira falha, com a instrução de espelhar a função ou justificar a exceção.
+Falso-positivo ali custa uma entrada com motivo escrito; falso-negativo é o que este
+guard existe para não ter.
+
+**Também do review da mesma PR** (Sonar): complexidade cognitiva de `extrairCorpo` era
+18 > 15 — os dois laços de contagem eram o mesmo algoritmo duplicado inline, extraído
+para `indiceDoFechamento`; e a regex da assinatura passou a usar `String.raw`.
 
 **Defeito do próprio guard, corrigido antes de entrar:** ele nasceu vermelho porque o
 extrator pegava a primeira `{` depois da assinatura — que abre o **tipo inline do
@@ -2941,14 +2964,24 @@ expostos sem motivo.
 
 ### Armadilhas de git já pagas nesta entrega
 
-- **`git switch -c <nova> origin/dev` ABORTA** com este `tasks.md` modificado no
-  working tree (`Please commit your changes or stash them before you switch
-  branches`). É a primeira coisa que o próximo agente tentará.
-- **`git stash pop` depois do switch CONFLITA:** `tasks.md` tinha **1388 linhas em
-  `origin/dev`** contra **2231 em `4bb3108`**. O stash nasce sobre a versão nova e
-  tenta aplicar sobre a antiga → 3 conflitos (`UU`), um deles de 119 linhas. Resolver
-  os marcadores à mão reconstrói a spec errada. **Saída medida:**
-  `git checkout <commit> -- specs/.../tasks.md` e reaplicar as edições por cima.
+- **`git switch -c <nova> origin/dev` aborta SÓ quando a branch nova nasce em commit
+  DIFERENTE do HEAD** (`Please commit your changes or stash them before you switch
+  branches`). A advertência aqui era absoluta e não é: **medido em 2026-09-13, com
+  `tasks.md` e mais 4 arquivos modificados, `git switch -c chore/102-t52-…` levou
+  tudo intacto** — porque `origin/dev` (`a7ea7e1`) já contém o trabalho mergeado, e a
+  branch nasce no mesmo ponto do HEAD. Não há árvore para reescrever, logo não há o
+  que conflitar.
+
+  **Consequência prática: NÃO stashar.** Com `dev` atualizada, a saída é só
+  `git switch -c <nova>` — omitindo o `origin/dev`, que é redundante quando o HEAD já
+  está lá. Stashar por precaução é o que leva ao item seguinte.
+
+- **`git stash pop` depois do switch CONFLITA** quando o switch de fato muda de
+  commit: `tasks.md` tinha **1388 linhas em `origin/dev`** contra **2231 em
+  `4bb3108`**. O stash nasce sobre a versão nova e tenta aplicar sobre a antiga → 3
+  conflitos (`UU`), um deles de 119 linhas. Resolver os marcadores à mão reconstrói a
+  spec errada. **Saída medida:** `git checkout <commit> -- specs/.../tasks.md` e
+  reaplicar as edições por cima.
 - **`git add -A` sobre `apps/mesas/frontend` leva o `.react-router/` gerado** (27
   arquivos) mesmo ele estando no `.gitignore`, porque o `-A` sobre caminho explícito
   vence o ignore. Conferir `git diff --cached --name-only` antes de commitar.
