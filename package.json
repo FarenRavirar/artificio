@@ -33,6 +33,7 @@
     "smoke:cjs-exports": "node scripts/ci/check-cjs-workspace-exports.cjs",
     "smoke:test-typecheck-coverage": "node scripts/check-test-typecheck-coverage.mjs",
     "smoke:db-proxy": "node scripts/ci/check-db-proxy-callable-modules.mjs",
+    "smoke:visibility-mirror": "node scripts/ci/check_table_visibility_mirror.mjs",
     "prepare": "node scripts/git-hooks/install-hooks.mjs || true"
   },
   "devDependencies": {

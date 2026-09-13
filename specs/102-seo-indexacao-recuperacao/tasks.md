@@ -795,9 +795,10 @@ que estiver em `main`. O código de T3.4 já está commitado — o bloqueio deix
 "não commitado" e passou a ser **a distância até `main`**: falta PR → merge em `dev` →
 promote `dev`→`main` → dispatch.
 
-O caminho até `dev` mudou: T3.4 entra pela **PR #317** (commit `58305fb`), não mais
-pela PR #316 (§Entrega de F1+F3+F4). Como a #317 não depende da migração SSR do
-`mesas`, T3.3 destrava com o merge dela — sem esperar a PR 3.
+**A #317 MERGEOU em 2026-09-13 (`49ac4b1`), e a #319 também (`a7ea7e1`).** T3.4 entrou
+por `58305fb`, dentro da #317. O bloqueio deixou de ser "falta chegar em `dev`" — o
+código está em `dev`. **Resta só a distância até `main`:** promote `dev`→`main` +
+dispatch. Nenhuma PR pendente destrava nada aqui.
 
 Deployar `main` antes disso corrigiria o canonical (o entrypoint reexporta do banco,
 onde T3.2 já limpou) mas emitiria **0 `lastmod`**, falhando o aceite 2 — o `main` de
@@ -941,15 +942,60 @@ vivem só no frontend. Por §"Compartilhado por padrão", sobem para pacote comp
 | 1. `Dockerfile` do frontend | **escrito**, asserção de runtime 7/7 |
 | 2. `server.js` + 2 composes + `nginx.conf` removido | **aplicado e medido** — ver §Contrato do `server.js` |
 | 3. Código morto (`App.tsx`, `main.tsx`, `index.html`) | **removido e validado** — `tsc -b` limpo, `BackendStatusScreen.test.tsx` 2/2, suíte 84/1139 |
-| Ingress `:80` → `:3000` (prod + beta) | **pendente de autorização nominal** — item 6 da §Ações |
+| Ingress `:80` → `:3000` — **beta** | **FEITO em 2026-09-13.** Tunnel `Artificio` v26 → **v27**; `mesasbeta` → `mesas-beta-app:3000`. Prod conferido intacto na resposta da API |
+| Ingress `:80` → `:3000` — **prod** | **pendente de autorização nominal** — item 6 da §Ações |
 
-**O código desta task está fechado.** O único item aberto é a porta do ingress,
-que é escrita em tunnel de produção e roda no momento do deploy (§Autorização),
+**O código desta task está fechado.** O único item aberto é a porta do ingress de
+PROD, que é escrita em tunnel de produção e roda no momento do deploy (§Autorização),
 não antes.
 
-Commitado e pushado na **PR #319** (branch `feat/102-f4-mesas-ssr`, 5 commits de
-`b7a03ed` a `57abff8`), **ainda não mergeada**. `pnpm-lock.yaml` e `Dockerfile`
-entraram no `b7a03ed`, com o `deploy-contract-gate` cobrando `deploy-flow.md` §1.
+**ARMADILHA DE SEQUÊNCIA — o primeiro deploy do `mesas` FALHA O SMOKE POR
+CONSTRUÇÃO, e vai falhar igual em prod.** Medido em beta, run `34778898181`
+(2026-09-13):
+
+```
+healthy_mesas-beta-api=true
+healthy_mesas-beta-app=true
+ERRO: smoke home esperava 200 recebeu 502   → exit 1
+```
+
+**Não é container quebrado.** Os três containers ficaram `Up (healthy)` na VM, e
+dentro do `mesas-beta-app` o SSR já respondia: `localhost:3000` devolvia o HTML
+completo, `localhost:80` devolvia `Connection refused`. O tunnel ainda entregava em
+`:80`, onde o container novo não escuta — `USER node` não abre porta <1024
+(`docker-compose.beta.yml:16` registra isso no próprio arquivo).
+
+A esteira roda o smoke contra o **hostname público**, então ela mede o tunnel, não o
+container. E a ordem não pode ser invertida — trocar o ingress antes do container
+novo subir só alonga o `502`. Logo: **a run vermelha é o estado esperado do primeiro
+deploy; o ingress é o passo seguinte, não a correção de um defeito.**
+
+Consequência para prod: depois do dispatch, a run vai acusar `ERRO: smoke home`. Não
+diagnosticar container, não fazer rollback — aplicar o item 6 da §Ações e remedir.
+Custo em beta: `502` por ~4 minutos entre o fim do deploy e a troca do ingress.
+
+**Aceites de T4.2/T4.3/T4.5 medidos em beta depois da troca (v27):**
+
+| aceite | medido |
+|---|---|
+| smokes do manifesto | home **200**, `private_no_cookie` **401**, `auth_redirect` **302** com o `location` exato |
+| HTML da home | 3.328 → **193.502** bytes (58×) |
+| URL de mesa | **200**, com `ld+json`, `canonical` e `og:title` no fonte |
+| JSON-LD | `Product` + **`offers`** + `price "10.00"` + `InStock` — a propriedade qualificadora que o `3d6ff5c` corrigiu, agora provada em runtime |
+| `description` | **152** chars, abaixo do limite de 160 do `3d6ff5c` |
+| **bot ↔ navegador** | JSON-LD, `title`, `canonical` e `description` **idênticos** — a divergência que originou a spec acabou |
+
+O `canonical` em beta aponta para `mesas.artificiorpg.com` (prod), correto: beta não
+disputa indexação.
+
+**Não medido:** o HTML difere em 1.094 bytes entre Googlebot e navegador (44.956 vs
+46.050) com todos os metadados idênticos. Não é dynamic rendering; a origem do delta
+não foi investigada.
+
+**MERGEADA em 2026-09-13** — PR #319 (branch `feat/102-f4-mesas-ssr`, 7 commits de
+`b7a03ed` a `32da301`), merge `a7ea7e1`. `origin/dev` já serve este código.
+`pnpm-lock.yaml` e `Dockerfile` entraram no `b7a03ed`, com o `deploy-contract-gate`
+cobrando `deploy-flow.md` §1.
 
 **Entrega.** Conteúdo e schema no HTML inicial, **iguais para todo user-agent**.
 Elimina por construção a divergência bot↔usuário que produziu B, C e E.
@@ -994,6 +1040,25 @@ granularidade vem de `prerender` (build-time, incompatível com "sempre fresco")
 entram no SSR junto**, e os 58 arquivos com código só-de-browser precisam sair do
 render para `clientLoader`/`clientAction` ou ficar atrás de guarda de ambiente. Isso
 é parte da obra, não desvio dela.
+
+**Comando do deploy BETA — medido em 2026-09-13, não estava registrado em lugar
+nenhum desta spec** (só havia o de prod, em T3.3):
+
+```bash
+gh workflow run deploy.yml --ref dev -f module=mesas -f mode=deploy -f env=beta
+```
+
+Três medições que o sustentam, todas no `deploy.yml`:
+
+- **O beta sai de `dev`, sem promote.** `deploy.yml:209` — env vazio faz o
+  `_deploy-module` derivar do ref (`dev`→beta, senão prod); o `env=beta` explícito é
+  override (D044). Validar em beta **não exige tocar em `main`**, o que importa
+  porque o rollback do SSR é o mais caro dos cinco (§Ações item 5).
+- **O bloqueio de `env=beta` alcança `accounts` E `links`** (`deploy.yml:184`) — o
+  `mesas` não é afetado. O `deploy-flow.md` §Casos por módulo cita só o `accounts`;
+  o workflow barra os dois. Divergência doc↔código: o código prevalece.
+- **`mesasbeta.artificiorpg.com` responde `200`** (medido antes do dispatch). O
+  hostname existe no tunnel, então falha de smoke em beta será código, não DNS.
 
 **Ordem de deploy (decidida pelo mantenedor em 2026-09-11).** F1, F3 e F4 sobem num
 **único deploy**. O código se escreve todo antes; nada nesta frente espera deploy de
@@ -1954,7 +2019,7 @@ T4.2 — nenhum destes agentes executa JavaScript.
 
 ## F5 — Facetas e guards
 
-### [ ] T5.1 — Medir e tratar facetas de filtro
+### [x] T5.1 — Medir e tratar facetas de filtro — ENTREGUE POR CONSEQUÊNCIA DE T4.2 (medido em beta, 2026-09-13)
 
 **Problema.** O Search Console lista
 `https://mesas.artificiorpg.com/?system=castles-crusades` como afetada. Sem canonical
@@ -1992,14 +2057,25 @@ indexável.** Não é preferência; sai da própria medição:
 outra spec.
 
 **Entrega.** `<link rel="canonical">` apontando para a URL sem query em toda rota de
-catálogo com parâmetro. Depende de T4.2 (canonical injetado por JS não é lido).
+catálogo com parâmetro.
 
-**Aceite:**
+**Esta task não teve código próprio — foi entregue pelo SSR de T4.2.** A dependência
+registrada aqui ("canonical injetado por JS não é lido") era a causa inteira: o
+canonical já era o certo, mas chegava por JS e o crawler não o via. Com o SSR, ele
+sai no HTML inicial e os três aceites passam sem uma linha nova. **Não abrir esta
+task como trabalho pendente.**
 
-1. `curl -s 'https://mesas.artificiorpg.com/?system=castles-crusades' | grep canonical`
-   → canonical para `https://mesas.artificiorpg.com/`.
-2. Mesma verificação com 3 parâmetros combinados → mesmo canonical limpo.
-3. `curl -s https://mesas.artificiorpg.com/ | grep -c canonical` → 1, auto-referente.
+**Aceite — medido em 2026-09-13 contra `mesasbeta`** (mesmo código de prod; o
+canonical emitido aponta para `mesas.`, que é o correto — beta não disputa índice):
+
+| aceite | comando | resultado |
+|---|---|---|
+| 1 | `curl 'https://mesasbeta…/?system=castles-crusades'` | `<link rel="canonical" href="https://mesas.artificiorpg.com/"/>` ✅ |
+| 2 | idem com `&modality=online&price=gratuita` (3 params) | mesmo canonical limpo ✅ |
+| 3 | `curl 'https://mesasbeta…/' \| grep -c canonical` | **1**, auto-referente ✅ |
+
+Revalidar contra `mesas.artificiorpg.com` depois do deploy de prod é confirmação, não
+nova implementação.
 
 ---
 
@@ -2008,14 +2084,45 @@ catálogo com parâmetro. Depende de T4.2 (canonical injetado por JS não é lid
 Nenhum dos defeitos desta spec quebra teste algum e todos são invisíveis em code
 review — foi por isso que sobreviveram. Guard que falha o CI se voltarem:
 
-| Guard | Trava |
-|---|---|
-| G-A | post com canonical ≠ URL real (sobre `posts.json` gerado) |
-| G-B | URL do sitemap que o SSR nega (equivalência sitemap ↔ crawler) |
-| G-C | slug inexistente sob `/mesas/` respondendo 200 |
-| G-D | rota pública de mesa sem conteúdo/schema no HTML inicial (varre com UA de crawler de IA) |
-| G-E | regra de visibilidade duplicada: predicado objeto ≠ SQL, ou espelho frontend ≠ backend |
-| G-F | `price` do schema ≠ `price_value` do banco (trava a derivação pelo rótulo do contato) |
+| Guard | Trava | estado |
+|---|---|---|
+| G-A | post com canonical ≠ URL real (sobre `posts.json` gerado) | pendente — ver medição abaixo, o escopo mudou |
+| G-B | URL do sitemap que o SSR nega (equivalência sitemap ↔ crawler) | pendente |
+| G-C | slug inexistente sob `/mesas/` respondendo 200 | pendente |
+| G-D | rota pública de mesa sem conteúdo/schema no HTML inicial (varre com UA de crawler de IA) | pendente |
+| **G-E** | regra de visibilidade duplicada: predicado objeto ≠ SQL, ou espelho frontend ≠ backend | ✅ **FEITO em 2026-09-13** |
+| G-F | `price` do schema ≠ `price_value` do banco (trava a derivação pelo rótulo do contato) | pendente |
+
+**G-E — `scripts/ci/check_table_visibility_mirror.mjs`, ligado no `ci.yml` como
+`pnpm smoke:visibility-mirror`.**
+
+A medição que definiu o escopo dele, e que contradiz a suposição original desta task:
+**a trava objeto↔SQL JÁ EXISTIA** (`tableVisibility.equivalence.test.ts`, contra
+Postgres real) — mas é `describe.skipIf(!MESAS_TEST_DATABASE_URL)`, e o CI não sobe
+banco para o `mesas`. Ela se declara ausente em vez de falhar, então **nenhum gate
+obrigatório comparava as formas da regra**. O guard novo cobre estaticamente o lado
+que ninguém cobria: backend ↔ espelho do frontend.
+
+Compara o TEXTO NORMALIZADO de `importedTableExpiryDate` e `isImportedTableExpired`
+nas duas raízes (comentário e espaço fora; nome, operador e literal dentro). Não
+valida semântica — isso é do teste contra Postgres; valida que as duas cópias
+continuam sendo a mesma cópia, que é o que falhou 3×.
+
+**Provado nos dois sentidos, não só no verde:** sabotando o espelho (`+ 5` → `+ 7`
+dias) o guard sai com **exit 1** nomeando a função; restaurado, volta a **exit 0**.
+Gancho que só passa não é guard (AGENTS.md §Compartilhado por padrão).
+
+**Defeito do próprio guard, corrigido antes de entrar:** ele nasceu vermelho porque o
+extrator pegava a primeira `{` depois da assinatura — que abre o **tipo inline do
+parâmetro**, não o corpo. Comparava declaração de tipo e acusava divergência onde a
+diferença é legítima (`DateValue` no backend, `string` no frontend, que recebe JSON).
+Corrigido fechando a lista de parâmetros por contagem de parênteses; o motivo está
+comentado no arquivo.
+
+**Medição que muda G-A:** `apps/site/src/data/posts.json` tem **8 posts** e o objeto
+`seo` só carrega `description` — **zero canonicals emitidos**. É o estado pós-T3.2,
+que limpou os 105 divergentes no banco. G-A segue válido, mas nasce verde e a trava
+real é *"canonical presente E diferente da URL"*, não *"canonical ≠ URL"*.
 
 **G-B é o mais valioso:** trava a classe inteira de "sitemap anuncia o que o SSR
 nega" — o defeito que ninguém veria sem esta investigação.
@@ -2245,15 +2352,20 @@ a já aceita — `/og/*` responde erro em vez de HTML, e ninguém chama.
 > `src/routes/*`, `contactUrls.ts`) **não sumiu** — está no `4bb3108`, aguardando a
 > PR 3. Nunca concluir perda a partir de um `ls` numa branch parcial.
 
-**Confiar na PR #317. É a única válida.** A #316 e a #318 estão superadas — mas
-**a #316 NÃO pode ser fechada nem deletada** até a PR 3 existir e conter tudo: ela é
-hoje o único lugar com os 133 arquivos juntos.
+**A #317 e a #319 mergearam. `origin/dev` está em `a7ea7e1`** (merge da #319,
+2026-09-13). A trava que impedia fechar a #316 — "não fechar até a PR 3 existir e
+conter tudo" — **está cumprida e medida**: `git diff origin/dev 4bb3108
+--name-status` devolve 44 arquivos e **nenhum deles é conteúdo que falte em `dev`**.
+São 9 `D` (arquivos que existem em `dev` e não no `4bb3108`: `formatDate.ts`,
+`redirect.test.ts`, `contactUrls.test.ts`, `hidratacao.test.tsx`, `sanitizeServer.ts`
+e testes) e 35 `M` em que a versão do `4bb3108` é a **anterior** às correções.
 
 | PR | estado | conteúdo | arquivos |
 |---|---|---|---|
-| **#317** | **ABERTA, é esta que vale** | 5 commits: imports **+ canonical/`lastmod`** + DOMPurify/segurança | **69** (62 contra o teto) |
+| **#319** | **MERGED** (`a7ea7e1`) | a PR 3: `catalog-table` + SSR do `mesas` + 7 commits de review | 88 |
+| **#317** | **MERGED** (`49ac4b1`) | imports + canonical/`lastmod` + DOMPurify/segurança | 69 |
 | #318 | aberta, **sem conteúdo próprio** | `comm -23` contra a #317 devolve vazio | 14 |
-| #316 | aberta, **NÃO FECHAR** | o monólito de 133 arquivos; fonte da PR 3 | 133 |
+| #316 | aberta, **já pode fechar** | o monólito; `4bb3108` está contido em `dev` | 133 |
 
 **O plano de 3 PRs deixou de existir na prática (2026-09-13).** Era: (1) imports,
 (2) canonical/`lastmod`, (3) SSR. O mantenedor pediu que o conteúdo da #318 fosse
@@ -2293,6 +2405,7 @@ Commits da PR **#319**, na branch `feat/102-f4-mesas-ssr` (criada de `origin/dev
 | `abd773c` | 3 achados do terceiro ciclo (dev local quebrado, preço zero em mesa paga, data sem fuso no SSR) + a linha do `.react-router/` que faltava no `.gitignore` — 11 arquivos |
 | `57abff8` | 4 achados do quarto e quinto ciclos, **2 deles em `packages/ui`** (snapshot de tema e badge do changelog, ambos divergindo na hidratação), o `replace()` nos 6 aliases e o DDD 55 no WhatsApp — 8 arquivos |
 | `3d6ff5c` | `description` estourando 160 com cauda longa, `Product` sem propriedade qualificadora (correção de uma correção do `abd773c`) e o smoke de ingress morto por `ENOENT` desde `b7a03ed` + a reescrita desta seção (−207/+109) — 4 arquivos |
+| `32da301` | o `null` que o `3d6ff5c` introduziu em `buildTableJsonLd` quebrou o `typecheck` do CI (13 × `TS18047`, run `34776296657`): helper do teste devolvia `null` sem ninguém estreitar. Passou local porque `vitest` não checa tipo — 2 arquivos |
 
 **Validação medida antes de cada commit:** `mesas/frontend` 1148/1148 (86 arquivos),
 `site` 155/155, `content` 22/22, `content-editor` 120/120, `tsc` limpo, lint 0 erros,
@@ -2334,7 +2447,39 @@ por `react-router`: duas instâncias, e `useLocation() may be used only in the c
 of a <Router> component` em 2 testes. **Ou todo o app importa do mesmo pacote, ou
 nenhum** — não há corte parcial. Por isso 39 arquivos, não 33.
 
-### O que falta — CHECKLIST EXECUTÁVEL DA PR 3
+### CHECKLIST DA PR 3 — EXECUTADO E MERGEADO (`a7ea7e1`)
+
+**Os 7 itens abaixo estão cumpridos. Nada aqui é trabalho pendente.** O registro
+permanece porque as armadilhas que ele mede continuam valendo para quem tocar estes
+caminhos — não porque falte executá-las.
+
+**A medição que responde "falta algo do monólito em `dev`?" em uma linha:**
+
+```
+git diff origin/dev 4bb3108 --diff-filter=A --name-status   # devolve 0
+```
+
+`A` lista o que existe no `4bb3108` e **não** existe em `dev`. Zero. Conferido também
+por presença direta (`git cat-file -e origin/dev:<arquivo>`) nos 10 arquivos mais
+caros da migração — `server.js`, `entry.server.tsx`, `entry.client.tsx`, `routes.ts`,
+`tableMeta.ts`, `contactUrls.ts`, `tableViewMapper.ts`, `sanitizeServer.ts`,
+`formatDate.ts` — todos presentes, mais **25** arquivos em `src/routes/` e **15** em
+`packages/catalog-table/`.
+
+**Use SEMPRE o `--diff-filter=A`, e não o diff cru, para responder essa pergunta.** O
+diff sem filtro devolve 44 e já foi lido ao contrário duas vezes: ele mostra 35 `M`
+que são o `4bb3108` desatualizado, não `dev` incompleta.
+
+**NÃO EXISTE PR 4, e trazer o `4bb3108` para uma branch nova é DESTRUTIVO.** Medido
+em 2026-09-13, depois do merge: `git diff origin/dev 4bb3108 --name-status` = 44
+arquivos, **todos na direção errada** — o monólito é anterior a tudo que entrou pelas
+#317/#319. Trazê-los reverteria em silêncio os 3 overrides de CVE
+(`qs` 6.16.0 → 6.15.2, `undici` 7.29.1 → 7.29.0 e 8.10.2 → 8.10.0, uma **CVSS 9.1**)
+e as 13 correções de review: `tableMeta.ts` sem o limite de 160 e sem o `null`,
+`contactUrls.ts` com o bug do DDD 55, `theme.tsx` com snapshot `light`, o smoke de
+ingress lendo o `nginx.conf` já removido, `AGENTS.md` de volta a 10.076 palavras.
+É a própria armadilha descrita logo abaixo, agora com a direção confirmada por
+medição em vez de prevista.
 
 **PR 3 — branch `feat/102-f4-mesas-ssr`, criada de `origin/dev` (`49ac4b1`, merge da
 #317) em 2026-09-13: 88 arquivos, 80 contra o teto.**
@@ -2390,31 +2535,31 @@ nesta spec; quem criar a PR 3 executa a lista, não a redescobre. A ordem import
 os itens 1 e 2 são os que fazem a PR builda/subir, o 3 é o que impede o Sonar de
 reencontrar os mesmos achados e queimar outra janela de review.
 
-- [ ] **1. Criar a branch de `origin/dev` JÁ COM A #317 MERGEADA.** Trazer os
+- [x] **1. Criar a branch de `origin/dev` JÁ COM A #317 MERGEADA.** Trazer os
       arquivos com `git checkout 4bb3108 -- <caminhos>` (nunca mover: o `4bb3108` é
       a fonte e fica intacto).
-- [ ] **2. `apps/mesas/frontend/src/utils/sanitize.ts` — BUG LATENTE, quebra o SSR.**
+- [x] **2. `apps/mesas/frontend/src/utils/sanitize.ts` — BUG LATENTE, quebra o SSR.**
       Importa `dompurify` **puro** (L1) e é consumido por `useProfileQuery.ts` em 4
       pontos (L43, L89, L128, L196). No servidor: `sanitize is not a function` →
       `500` no perfil. **Nenhum bot apontou isto**; sem tratar, a PR 3 troca um `500`
       por outro. A correção depende da decisão do item 3 (mesmo sanitizador).
-- [ ] **3. Fechar a decisão do DOMPurify** (§"Estudo do caminho de sanitização").
+- [x] **3. Fechar a decisão do DOMPurify** (§"Estudo do caminho de sanitização").
       Recomendação do agente: **opção (a)**, manter DOMPurify e corrigir a
       inicialização no SSR. Se (a) for escolhida, junto vem:
       `test -d packages/*/node_modules/jsdom` no Dockerfile do app que passar a
       depender de `isomorphic-dompurify` — dependência de 2º nível podada por
       `pnpm install --prod --filter` é o que derrubou o SSO por 5h (E016/E017).
-- [ ] **4. Reparar os 11 achados do Sonar** da tabela "Ficam para a PR 3" (abaixo),
+- [x] **4. Reparar os 11 achados do Sonar** da tabela "Ficam para a PR 3" (abaixo),
       **antes de pedir review**. São arquivos que só existem no `4bb3108`:
       `server.js`, `MesaPage.tsx`, `entry.client.tsx`, `root.tsx`, as 3 rotas,
       `Dockerfile` (2x), `tableMeta.ts`, `contactUrls.ts`.
-- [ ] **5. Conferir que o hook de registro veio junto:**
+- [x] **5. Conferir que o hook de registro veio junto:**
       `grep -c registro-anti-compactacao .claude/settings.json` deve devolver **1**,
       e `.claude/hooks/registro-anti-compactacao.js` deve existir. Eles viveram
       apenas no `4bb3108` até 2026-09-12 (ver §Registro anti-compactação).
-- [ ] **6. Conferir o override `qs@<6.16.0`** no `pnpm-workspace.yaml` (entrou pela
+- [x] **6. Conferir o override `qs@<6.16.0`** no `pnpm-workspace.yaml` (entrou pela
       #317; se a base mudar, confirmar que sobreviveu ao merge).
-- [ ] **7. Validar antes de pushar:** `mesas/frontend` (suíte + `tsc -b` + build
+- [x] **7. Validar antes de pushar:** `mesas/frontend` (suíte + `tsc -b` + build
       SSR), `catalog-table`, `verify:api`. Conferir a contagem de arquivos contra o
       teto de 100 ANTES de abrir (`git diff --name-only origin/dev...HEAD | grep -cvE '\.md$|^\.claude/'`).
 - [ ] **8. Abrir UMA PR e esperar a review sair** antes de qualquer outra. Abrir duas
@@ -2753,13 +2898,13 @@ correção está: **em commit pushado** ou **só no working tree** (não commita
 |---|---|---|
 | `src/features/table/seo/tableMeta.ts:41` | `description` estourava 160 com cauda longa: o piso de 60 para a sinopse era incondicional. Medido com dado real — "Little Fears – The Role-playing Game of Childhood Terror" (56 chars, um dos 682 sistemas) + modalidade/nível/preço/vagas dá cauda 108 e description **172**. O teste que existia usava `Dungeons & Dragons` (18 chars) e nunca chegava lá | `3d6ff5c` — piso só vale enquanto cabe; cauda longa trunca a sinopse até sumir. Medido depois: 172 → 108, nenhum caso estoura |
 | `scripts/ci/check_ingress_realip_contract.mjs:9` | guard morria com `ENOENT` desde `b7a03ed` (lia o `nginx.conf` removido), anulando 14 asserções | `3d6ff5c` — inspeciona `server.js`; medido `ENOENT` → `smoke OK` |
-| `src/features/table/seo/tableMeta.ts` | omitir só a `Offer` deixava `Product` sem propriedade qualificadora — inválido no Rich Results | `3d6ff5c` — sem preço publicável não sai JSON-LD nenhum. O `null` no retorno é o que quebrou o `typecheck` do CI (ver armadilha acima); teste corrigido no working tree |
+| `src/features/table/seo/tableMeta.ts` | omitir só a `Offer` deixava `Product` sem propriedade qualificadora — inválido no Rich Results | `3d6ff5c` — sem preço publicável não sai JSON-LD nenhum. O `null` no retorno é o que quebrou o `typecheck` do CI (ver armadilha acima); teste corrigido em `32da301` |
 | `packages/catalog-table/src/contactUrls.ts:114` | DDD 55 (Santa Maria/RS) confundido com código de país | `57abff8` — decisão por comprimento (10-11 local, 12-13 com país), 7 testes |
 | `packages/ui/src/theme.tsx:120` | snapshot SSR `"light"` fixo contra `dark` do script inline | `57abff8` — snapshot `dark`; leitura do cookie na requisição segue pendente |
 | `packages/ui/src/hooks.ts:6` | badge lia `localStorage` no primeiro render, divergindo do servidor | `57abff8` — leitura movida para `useEffect` |
 | `src/routes/redirect.tsx` | `redirect()` empilhava histórico; era `<Navigate replace />` antes da F4 | `57abff8` — helper `replace()`, 4 testes novos |
 | `src/lib/apiUrl.ts:25` | dev local resolve `mesas-api`, que não existe fora do Docker | `abd773c` — padrão por `import.meta.env.DEV` |
-| `src/features/table/seo/tableMeta.ts:88` | mesa paga sem preço publicava `"0.00"` | `abd773c` — corrigido pela metade; refeito no working tree (ver 2ª linha) |
+| `src/features/table/seo/tableMeta.ts:88` | mesa paga sem preço publicava `"0.00"` | `abd773c` — corrigido pela metade; refeito em `3d6ff5c` (ver 2ª linha) |
 | `src/pages/MesaPage.tsx:100`, `TableSchedules.tsx:88` | data sem `timeZone` diverge entre SSR e hidratação | `abd773c` — `utils/formatDate.ts` com `America/Sao_Paulo` |
 | `src/root.tsx:129` | overlay sem foco contido nem semântica modal | **pendente de decisão** — ver pendência 1 acima |
 | `src/entry.client.tsx:23` | usar `RegExp.exec()` | `b75a224` |
@@ -2829,9 +2974,11 @@ Cada uma com rollback próprio. **Uma executada** (item 1); as outras quatro pen
    *Rollback:* redeploy da imagem anterior (tag do commit prévio), pelo fluxo de
    `deploy-flow.md`. Sem migration envolvida: nada a reverter no banco.
 4. **Export + rebuild + deploy do `site`** (T3.3, e T3.4 no mesmo ciclo).
-   **Autorizado em 2026-09-12, não executado:** o deploy lê de `main` e o código da
-   T3.4 não está commitado (`git log origin/dev..HEAD` → 0). Destrava com commit +
-   push + PR + promote, cada um com autorização própria.
+   **Autorizado em 2026-09-12, não executado.** O motivo do bloqueio MUDOU: o código
+   da T3.4 está em `dev` desde o merge da #317 (`49ac4b1`, commit `58305fb`). O
+   deploy lê de `main` (`deploy-flow.md:373` — `--ref main … -f env=prod`), então
+   **resta só promote `dev`→`main` + dispatch**, cada um com autorização própria.
+   Não falta mais commit, push nem PR.
    *Rollback:* redeploy da imagem anterior. O `posts.json` é artefato de build,
    regerado do banco — reverter o item 1 e reexportar restaura o estado anterior por
    completo.
@@ -2843,12 +2990,16 @@ Cada uma com rollback próprio. **Uma executada** (item 1); as outras quatro pen
    de uma obra inteira. Mitigação: a branch só sobe depois de os três aceites de T4.2
    passarem em beta. **Decisão tomada** (2026-09-11); falta autorizar a execução.
 
-6. **Ingress do tunnel: `mesas-app:80` → `mesas-app:3000`** (T4.2, e o par do beta).
-   Escrita em tunnel de produção, config remota versão 26. **Passo 4 da ordem de
-   deploy de T4.2** — nunca antes do container novo subir, sob pena de `502` mais
-   longo. Uma linha por ambiente, via MCP Cloudflare ou painel.
+6. **Ingress do tunnel: `mesas-app:80` → `mesas-app:3000`** (T4.2).
+   **O par do beta JÁ FOI FEITO** em 2026-09-13 (autorizado nominalmente): config
+   remota v26 → **v27**, `mesasbeta` → `mesas-beta-app:3000`. **Resta só a linha de
+   prod.** **Passo 4 da ordem de deploy de T4.2** — nunca antes do container novo
+   subir, sob pena de `502` mais longo; e o smoke da esteira falha ANTES dele (ver
+   a armadilha de sequência em T4.2). Uma linha, via MCP Cloudflare ou painel.
    *Rollback:* reescrever a porta de volta para `80`, mesma chamada. A config é
    versionada pela Cloudflare, e o estado anterior está registrado aqui.
+   **Cuidado medido:** o `PUT` de configuração SUBSTITUI o ingress inteiro — as 11
+   regras precisam ser reenviadas juntas; omitir uma a apaga.
 
 **Fora desta lista, por não exigirem autorização:** as tasks de F6 são operação manual
 do mantenedor no Search Console (o agente não tem acesso) e não têm rollback técnico —
