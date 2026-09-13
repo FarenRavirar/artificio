@@ -39,7 +39,15 @@ function isAllowedHost(host: string): boolean {
  * viu no formulário.
  */
 export function normalizeCanonical(input: unknown): CanonicalValidation {
-  const raw = (input == null ? "" : String(input)).trim();
+  // Só `string` é coerção segura aqui. `String(input)` sobre objeto devolve
+  // "[object Object]", que chega ao `new URL()` como lixo e produz a mensagem de
+  // "URL absoluta" — culpando o formato quando o problema é o tipo. O valor entra por
+  // JSON do admin (`unknown` de verdade), então não-string é entrada malformada e
+  // precisa dizer isso. Achado do Sonar na PR #316.
+  if (input != null && typeof input !== "string") {
+    return { value: null, error: "canonical deve ser texto" };
+  }
+  const raw = (input ?? "").trim();
   if (!raw) return { value: null };
 
   let url: URL;
@@ -54,6 +62,17 @@ export function normalizeCanonical(input: unknown): CanonicalValidation {
 
   if (url.protocol !== "https:" && url.protocol !== "http:") {
     return { value: null, error: `canonical com protocolo não suportado: ${url.protocol}` };
+  }
+
+  // Credencial embutida é rejeitada ANTES da validação de host, senão
+  // `https://banco.example@evil.example/x` passaria: o `hostname` do WHATWG é
+  // `evil.example` (o que vem antes do `@` é userinfo), mas o leitor humano lê o
+  // primeiro nome como sendo o destino. E `https://user:senha@artificiorpg.com/x`
+  // passava por host permitido e `url.toString()` gravava a senha no canonical —
+  // credencial persistida em campo público. `commentLinks.test.ts:104-105` já
+  // barra esta forma no outro caminho do monorepo; aqui era divergência.
+  if (url.username !== "" || url.password !== "") {
+    return { value: null, error: "canonical não pode conter credencial embutida (user:senha@)" };
   }
 
   if (!isAllowedHost(url.hostname)) {

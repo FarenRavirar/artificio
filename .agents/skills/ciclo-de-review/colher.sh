@@ -163,9 +163,14 @@ emitir "$out" $rc
 # aprovada. `FALHAS` conta, para o rodape parar de dizer que a colheita fechou.
 if [[ $rc -eq 0 ]] && printf %s "$out" | grep -qiE 'review skipped|exceed the limit'; then
   echo "  !! O CodeRabbit NAO revisou (recusa, nao aprovacao) - NAO concluir que a PR esta limpa."
-  echo "     Ausencia de achado aqui e ausencia de REVIEW. Destravar antes de seguir:"
-  echo "       comentar '@coderabbitai review' na PR forca a review ignorando o limite,"
-  echo "       ou dividir a PR. Ver SKILL.md, Excecao 1."
+  # NAO sugerir recomentar: `@coderabbitai review` sobre recusa por TAMANHO nao
+  # ignora o limite - so gasta a janela e devolve a mesma recusa. A contagem de
+  # arquivos nao muda com o tempo nem com insistencia. Achado do Codex (P2) na PR
+  # #317, sobre a primeira versao desta mensagem, que dizia o contrario do que a
+  # propria SKILL.md ja registrava em §"As tres recusas nao se tratam igual".
+  echo "     Ausencia de achado aqui e ausencia de REVIEW. Recomentar NAO resolve."
+  echo "       Reduzir a PR a <=100 arquivos ou trocar a base - decisao do mantenedor."
+  echo "       Ver SKILL.md, secao 'As tres recusas nao se tratam igual'."
   FALHAS=$((FALHAS + 1))
 fi
 

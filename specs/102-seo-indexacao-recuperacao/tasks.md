@@ -41,10 +41,38 @@ contagem. "Cuidado com o proxy" não é registro.
 
 **Cumprimento não depende de o agente lembrar disto.** O hook
 `.claude/hooks/registro-anti-compactacao.js` (`Stop`, suíte com 19 casos) fecha o
-turno que fez ≥4 medições sem escrever em doc de spec/governança, e devolve os 5
-gatilhos acima no motivo. Medido contra o transcript real em 2026-09-12: 20
-medições detectadas, `exit 2`, `decision: block`. Escrever na spec libera; turno
-de rotina não é cobrado; `stop_hook_active` corta o laço.
+turno que fez **≥1 medição** sem escrever em doc de spec/governança, e devolve os 5
+gatilhos acima no motivo. Escrever na spec libera; turno sem medição nenhuma não é
+cobrado; `stop_hook_active` corta o laço.
+
+**O limiar é 1 desde 2026-09-12, e era 4.** Determinação do mantenedor, literal:
+*"to falando a cada etapa"*. O raciocínio antigo — "1 `ls` é rotina, cobrar seria
+hostil" — está medido como errado: o limiar 4 deixava passar justamente o turno que
+descobre **uma coisa só**, e uma coisa só é o tamanho típico do achado caro. Naquela
+sessão, três achados que custaram horas foram **uma medição cada**: `react-router`
+ausente da árvore do `mesas` (o `tsc` acusando `Cannot find module` em 33 arquivos),
+o CodeRabbit recusando a #316 por tamanho, e o próprio hook existindo só num commit.
+Os três passariam batido sob o limiar 4. O custo de um falso-positivo é uma frase
+("medição de rotina, nada a registrar", que o motivo do bloqueio já autoriza); o do
+falso-negativo é trabalho perdido.
+
+**BUG LATENTE, corrigido em 2026-09-12 — a trava vivia num só commit.** O hook e a
+declaração `"Stop"` dele no `.claude/settings.json` existiam **apenas no commit
+`4bb3108`** (branch da PR #316). Não estavam em `origin/dev`, nem na branch da #317,
+nem em `~/.claude/hooks/` (medido: `grep -rln` nos três settings não achou a
+declaração; `git log --all` achou só o `4bb3108`). Consequência: fechar ou perder a
+#316 apagava silenciosamente o único mecanismo que cobra registro — e a falha seria
+invisível, porque hook ausente não dá erro, só deixa de cobrar. Ambos foram trazidos
+para a branch da #317. **Ao criar a PR 3, conferir que os dois seguem lá**
+(`grep registro-anti-compactacao .claude/settings.json` deve devolver 1).
+
+Ao mexer no limiar, a suíte cobre os três caminhos: turno sem medição libera; **uma**
+medição sem registro cobra; uma medição **com** escrita em `specs/*/tasks.md` libera.
+Rodar `node .claude/hooks/registro-anti-compactacao.test.js` (19/19) e, porque a
+mudança passa pelo `settings.json`, as outras quatro suítes de hook —
+`git-commit-msg-gate` 9/9, `autorizacao-gate` 56/56, `deploy-contract-gate` 11,
+`rtk-enforce` 36/36. JSON quebrado ali derruba **todas** as travas do repo de uma vez,
+inclusive as de autorização.
 
 Duas armadilhas medidas ao escrever esse hook, para quem for mexer nele:
 `hookSpecificOutput{hookEventName:"Stop"}` **não funciona** — `Stop` não é membro
@@ -759,9 +787,9 @@ que estiver em `main`. O código de T3.4 já está commitado — o bloqueio deix
 "não commitado" e passou a ser **a distância até `main`**: falta PR → merge em `dev` →
 promote `dev`→`main` → dispatch.
 
-O caminho até `dev` mudou: T3.4 entra pela **PR 2** (`apps/site` + `packages/content`),
-não mais pela PR #316, que será refeita em três (§Entrega de F1+F3+F4). A PR 2 não
-depende das outras duas, então T3.3 destrava sem esperar a migração SSR.
+O caminho até `dev` mudou: T3.4 entra pela **PR #317** (commit `58305fb`), não mais
+pela PR #316 (§Entrega de F1+F3+F4). Como a #317 não depende da migração SSR do
+`mesas`, T3.3 destrava com o merge dela — sem esperar a PR 3.
 
 Deployar `main` antes disso corrigiria o canonical (o entrypoint reexporta do banco,
 onde T3.2 já limpou) mas emitiria **0 `lastmod`**, falhando o aceite 2 — o `main` de
@@ -2183,72 +2211,319 @@ a já aceita — `/og/*` responde erro em vez de HTML, e ninguém chama.
 
 ---
 
-## Entrega de F1+F3+F4: três PRs, não uma — o CodeRabbit recusa acima de 100 arquivos
+## Entrega de F1+F3+F4 — estado real das PRs
 
-**Estado em 2026-09-12.** O commit `4bb3108` na branch `fix/102-f3-canonical-lastmod`
-(PR #316, base `dev`, **não mergeada**) reúne F1+F3+F4 em 133 arquivos. O CodeRabbit
-**não revisou**, e não vai:
+> ## ⛔ NADA DESTE TRABALHO PODE SER PERDIDO
+>
+> São horas de trabalho do mantenedor. **Antes de qualquer `git` que descarte estado**
+> — `reset --hard`, `checkout -f`, `clean`, `stash drop`, `branch -D`, `push --force`,
+> fechar ou deletar branch remota — **parar e perguntar**. Não existe caso nesta spec
+> em que descartar seja a saída óbvia.
+>
+> **Onde o trabalho vive, medido em 2026-09-12:**
+>
+> | conteúdo | onde está | como recuperar |
+> |---|---|---|
+> | **os 133 arquivos completos** (F1+F3+F4) | commit **`4bb3108`**, branch `fix/102-f3-canonical-lastmod`, **PR #316 aberta no GitHub** | `git checkout 4bb3108 -- <caminho>` |
+> | imports + canonical/lastmod | commits `7ed7782` e `58305fb`, branch `chore/102-imports-react-router`, **PR #317**, pushada | já no remoto |
+> | duplicata do canonical/lastmod | branch `fix/102-f3-site-canonical-lastmod`, **PR #318** | já no remoto |
+>
+> **Nada está em `git stash`.** A divisão foi feita COPIANDO do `4bb3108`
+> (`git checkout <commit> -- <arquivos>`), nunca movendo: o commit original está
+> intacto e no remoto. `origin/dev` segue em `bcfe722`, intocado.
+>
+> Arquivo que "não existe nesta branch" (`server.js`, `entry.client.tsx`,
+> `src/routes/*`, `contactUrls.ts`) **não sumiu** — está no `4bb3108`, aguardando a
+> PR 3. Nunca concluir perda a partir de um `ls` numa branch parcial.
 
-```
-SUCCESS - Review skipped: 123 files exceed the limit of 100
-```
+**Confiar na PR #317. É a única válida.** A #316 e a #318 estão superadas — mas
+**a #316 NÃO pode ser fechada nem deletada** até a PR 3 existir e conter tudo: ela é
+hoje o único lugar com os 133 arquivos juntos.
 
-**Por que 123 e não 133:** os `path_filters` do `.coderabbit.yaml` já descontam 10
-(4 `.md`, 3 `.claude/`, 3 `docs/api/`). A conta do bot bate exatamente. Ampliar
-esses filtros para caber no teto seria enganar a contagem, não reduzir o que precisa
-de review — **não é caminho**.
-
-**A conta é gratuita** (decisão do mantenedor). A linha
-`usage credits or metered capacity aren't available`, que vem no mesmo comentário,
-é o convite a pagar que sempre acompanha o teto — **não** uma cota que se recarregue,
-e não há billing a conferir. O único caminho é reduzir a PR.
-
-**Dividir em duas não resolve:** medido, a segunda ficaria com **109** arquivos,
-ainda 9 acima do teto. São três.
-
-| PR | conteúdo | arquivos | depende de |
+| PR | estado | conteúdo | arquivos |
 |---|---|---|---|
-| 1 | troca de import `react-router-dom` → `react-router` + este registro | 33 + doc | — |
-| 2 | `apps/site` + `packages/content` + `content-editor` (F3) | 12 | — |
-| 3 | `packages/catalog-table` + migração SSR do `mesas` (F1+F4) | 76 | PR 1 mergeada |
+| **#317** | **ABERTA, é esta que vale** | 2 commits: imports unificados + canonical/`lastmod` | **60** (56 contra o teto) |
+| #318 | aberta, **redundante — pode fechar** | duplicata: tudo que ela tem está na #317 | 14 |
+| #316 | aberta, **NÃO FECHAR** | o monólito de 133 arquivos; fonte da PR 3 | 133 |
 
-**Por que o corte é este.** Dos 95 arquivos do `mesas`, **33 mudam exatamente uma
-linha** — só o import (`git diff --numstat` → `1 1`), e o conteúdo é sempre
-`-import { X } from 'react-router-dom'` / `+import { X } from 'react-router'`.
-Inflam a contagem sem conter revisão. `react-router@7.18.0` **já está no lock de
-`dev`** como pacote próprio (medido: `git show origin/dev:pnpm-lock.yaml`), porque
-`react-router-dom@7` apenas o re-exporta — então a PR 1 compila sozinha, antes da
-migração. Verificado no diff staged: **33 inserções, 33 deleções, 0 linhas fora de
-`react-router`**.
+**Provado, não afirmado** (2026-09-12): `comm -23` entre as listas de arquivos das
+branches da #318 e da #317 devolveu **vazio** — não existe um arquivo sequer na #318
+fora da #317. Fechá-la não perde nada. E `origin/dev` continua em `bcfe722`, o mesmo
+commit do início da sessão: **nada disto chegou perto de `dev`**.
 
-A PR 2 é outra frente: busca negativa por `catalog-table|mesas` em
-`sitemap-lastmod.ts` e `canonical.ts` → **nenhuma ocorrência**. Independente.
+Commits da #317, na branch `chore/102-imports-react-router`:
 
-**Ordem obrigatória:** PR 1 → merge em `dev` → PR 3 **rebasada** sobre `dev`. Sem o
-merge da 1 antes, os 33 imports reaparecem no diff da 3 e ela volta a 109 — o teto
-de novo. A PR 2 é paralela e não depende de ninguém.
+| commit | o quê |
+|---|---|
+| `7ed7782` | import unificado `react-router` (39 arquivos) + `package.json`/override/`eslint.config.js` que o build exigiu + este registro |
+| `58305fb` | canonical do site + `lastmod` no sitemap (14 arquivos), vindo da #318 por `cherry-pick` |
 
-**Armadilha medida (2026-09-12): `git switch -c <nova> origin/dev` ABORTA** enquanto
-este `tasks.md` estiver modificado no working tree — `Please commit your changes or
-stash them before you switch branches. Aborting`. É a primeira coisa que o próximo
-agente tentará, porque é o que este plano manda fazer.
+**Validação medida antes de cada commit:** `mesas/frontend` 1148/1148 (86 arquivos),
+`site` 155/155, `content` 22/22, `content-editor` 120/120, `tsc` limpo, lint 0 erros,
+`verify:api` exit 0 com breaking=0 nos 6 apps.
 
-**E o `git stash pop` depois do switch CONFLITA**, o que é a armadilha de verdade:
-`tasks.md` tem **1388 linhas em `origin/dev`** contra **2231 em `4bb3108`** (985
-inserções de diferença, F4 inteiro). O stash foi criado sobre a versão nova e tenta
-aplicar sobre a antiga → 3 conflitos (`UU`), incluindo um de 119 linhas. Resolver os
-marcadores à mão reconstruiria a spec errada. **A saída medida:**
-`git checkout 4bb3108 -- specs/.../tasks.md` (traz a versão completa, 0 marcadores) e
-reaplicar as edições do registro por cima. O registro da spec entra na **PR 1**, que
-é a primeira a chegar em `dev` — decisão do mantenedor (2026-09-12).
+### Por que a divisão existiu
 
-**Onde a divisão PARA, e por quê.** 76 tem margem, mas se for preciso cortar mais, o
-próximo corte dentro do `mesas` é ruim: `src/routes/` (24 arquivos novos) não builda
-sem `routes.ts`, `root.tsx` e `entry.server.tsx`, que **são** a migração. **PR que
-não builda não é revisável** — perde-se a review de novo, por outro motivo.
+A #316 reunia F1+F3+F4 em 133 arquivos e foi recusada:
+`SUCCESS - Review skipped: 123 files exceed the limit of 100`. Os `path_filters` do
+`.coderabbit.yaml` já descontam 10 (`.md`, `.claude/`, `docs/api/`), por isso 123 e
+não 133 — ampliar esses filtros para caber no teto seria enganar a contagem, **não é
+caminho**.
 
-**Não há nada a reverter.** É 1 commit (`4bb3108`), branch não mergeada. As três
-branches saem de `origin/dev`; `dev` não é tocado, sem `--force`, sem `git revert`.
+### Três erros de execução medidos — não repetir
+
+**1. Abrir duas PRs em sequência queima a janela do CodeRabbit.** Medido: a #317 saiu
+`Review completed`, a #318 caiu em `SUCCESS - Review rate limited`, com
+`Next included review available in 55 minutes`. **Abrir UMA PR por vez e esperar a
+review sair** antes da seguinte. Foi o erro que custou uma review inteira e o tempo
+do mantenedor.
+
+**2. A conta roda na cota open-source, não no plano da organização.** O próprio bot
+disse: *"This review ran on the open-source allowance, not this organization's plan,
+because the pull request author doesn't have an assigned seat. Waiting won't change
+this"*. É isso que aperta o teto. A saída é atribuir um seat no painel do CodeRabbit
+— **ação do mantenedor**, fora do alcance do agente. Esperar não resolve.
+
+**3. Estar no lockfile NÃO é estar resolvível.** O plano dizia que a troca de import
+compilava sozinha porque `react-router@7.18.0` estava no lock de `dev`. Falso: o pnpm
+isola por workspace e `node_modules/react-router` **não existia** no `mesas` — `tsc`
+acusou `Cannot find module 'react-router'` em 33 arquivos. Foi preciso declarar a
+dependência no `package.json` e o override `react-router@<7.18.3` no
+`pnpm-workspace.yaml`, senão `@artificio/analytics` arrasta a 7.18.0 pela transitiva.
+
+**4. O corte por "uma linha de diff" parte o grafo de contexto do Router.**
+`useUrlState.ts`, `App.tsx`, `CatalogoPage`, `MesaPage` e `MestrePage` têm diff maior
+que uma linha e ficaram de fora, mas o teste de `useCatalogFilters` já criava o router
+por `react-router`: duas instâncias, e `useLocation() may be used only in the context
+of a <Router> component` em 2 testes. **Ou todo o app importa do mesmo pacote, ou
+nenhum** — não há corte parcial. Por isso 39 arquivos, não 33.
+
+### O que falta — CHECKLIST EXECUTÁVEL DA PR 3
+
+**PR 3 — `packages/catalog-table` + migração SSR do `mesas`** (~76 arquivos), a ser
+criada **de `origin/dev` depois do merge da #317**. Antes disso não: os 39 imports
+reapareceriam no diff dela e ela voltaria a ultrapassar o teto.
+
+**Nada aqui é opcional e nada se descobre sozinho.** Cada item abaixo foi medido
+nesta spec; quem criar a PR 3 executa a lista, não a redescobre. A ordem importa:
+os itens 1 e 2 são os que fazem a PR builda/subir, o 3 é o que impede o Sonar de
+reencontrar os mesmos achados e queimar outra janela de review.
+
+- [ ] **1. Criar a branch de `origin/dev` JÁ COM A #317 MERGEADA.** Trazer os
+      arquivos com `git checkout 4bb3108 -- <caminhos>` (nunca mover: o `4bb3108` é
+      a fonte e fica intacto).
+- [ ] **2. `apps/mesas/frontend/src/utils/sanitize.ts` — BUG LATENTE, quebra o SSR.**
+      Importa `dompurify` **puro** (L1) e é consumido por `useProfileQuery.ts` em 4
+      pontos (L43, L89, L128, L196). No servidor: `sanitize is not a function` →
+      `500` no perfil. **Nenhum bot apontou isto**; sem tratar, a PR 3 troca um `500`
+      por outro. A correção depende da decisão do item 3 (mesmo sanitizador).
+- [ ] **3. Fechar a decisão do DOMPurify** (§"Estudo do caminho de sanitização").
+      Recomendação do agente: **opção (a)**, manter DOMPurify e corrigir a
+      inicialização no SSR. Se (a) for escolhida, junto vem:
+      `test -d packages/*/node_modules/jsdom` no Dockerfile do app que passar a
+      depender de `isomorphic-dompurify` — dependência de 2º nível podada por
+      `pnpm install --prod --filter` é o que derrubou o SSO por 5h (E016/E017).
+- [ ] **4. Reparar os 11 achados do Sonar** da tabela "Ficam para a PR 3" (abaixo),
+      **antes de pedir review**. São arquivos que só existem no `4bb3108`:
+      `server.js`, `MesaPage.tsx`, `entry.client.tsx`, `root.tsx`, as 3 rotas,
+      `Dockerfile` (2x), `tableMeta.ts`, `contactUrls.ts`.
+- [ ] **5. Conferir que o hook de registro veio junto:**
+      `grep -c registro-anti-compactacao .claude/settings.json` deve devolver **1**,
+      e `.claude/hooks/registro-anti-compactacao.js` deve existir. Eles viveram
+      apenas no `4bb3108` até 2026-09-12 (ver §Registro anti-compactação).
+- [ ] **6. Conferir o override `qs@<6.16.0`** no `pnpm-workspace.yaml` (entrou pela
+      #317; se a base mudar, confirmar que sobreviveu ao merge).
+- [ ] **7. Validar antes de pushar:** `mesas/frontend` (suíte + `tsc -b` + build
+      SSR), `catalog-table`, `verify:api`. Conferir a contagem de arquivos contra o
+      teto de 100 ANTES de abrir (`git diff --name-only origin/dev...HEAD | grep -cvE '\.md$|^\.claude/'`).
+- [ ] **8. Abrir UMA PR e esperar a review sair** antes de qualquer outra. Abrir duas
+      em sequência queima a janela do CodeRabbit — medido nesta spec: a segunda saiu
+      `rate limited`, `Next included review available in 55 minutes`.
+
+**Onde a divisão PARA.** Se 76 ainda for demais, o próximo corte dentro do `mesas` é
+ruim: `src/routes/` (24 arquivos novos) não builda sem `routes.ts`, `root.tsx` e
+`entry.server.tsx`, que **são** a migração. **PR que não builda não é revisável** —
+perde-se a review de novo, por outro motivo. Nesse caso a decisão do corte é do
+mantenedor, não do agente.
+
+### Achados de review em aberto — onde cada um entra
+
+Sonar e Snyk rodaram sobre o commit `4bb3108` (o monólito da #316), então a lista
+cobre arquivos das DUAS entregas. O que decide o destino é **em qual branch o arquivo
+existe hoje**, não onde o bot o encontrou.
+
+**Achados do Codex na #317 (2026-09-12) — 2 corrigidos, 1 é decisão do mantenedor:**
+
+| achado | destino |
+|---|---|
+| **P2 — `sanitize.ts`: links relativos e `mailto:` apagados.** `RENDERED_MARKDOWN_OPTIONS` reusava o `transformTags.a` do sanitizador LEGADO, que exige HTTPS **absoluto** (`isHttpsUrl`): `[b](/rota)` virava âncora sem `href` e `mailto:` sumia, apesar de os dois estarem em `allowedSchemes`. O legado trata comentário importado do WordPress, onde só há link externo; este caminho é o markdown de TODOS os apps, onde link interno é a norma (`commentLinks.test.ts:108-113` e `:169` definem root-relative como válido) | **CORRIGIDO** — `classificarHrefRenderizado` próprio: HTTPS e `mailto:` como externos (com `rel`/`target`), root-relative como interno (sem `target`, que arrancaria o leitor da SPA), e descarte de `http:`, protocol-relative (inclusive `/\` e `/%2f`) e relativo sem barra. Coberto por 11 casos novos, idempotência inclusa |
+| **P2 — `colher.sh` contradizia a própria `SKILL.md`.** A mensagem de recusa por tamanho mandava comentar `@coderabbitai review` "para forçar a review ignorando o limite"; a `SKILL.md`, no mesmo commit, registra o oposto — recomentar não adianta, só gasta a janela | **CORRIGIDO** — a saída agora diz "Recomentar NAO resolve" e aponta reduzir a PR ou trocar a base. **Bug meu, introduzido nesta sessão**: escrevi a orientação certa na skill e a errada no script |
+| **P1 — `ContentEditor.tsx`: DOMPurify removido do caminho de rich text.** O `AGENTS.md` é literal: *"HTML de conteúdo de usuário/rich-text é hostil: sanitizar sempre (DOMPurify)"*. A troca por `sanitize-html` foi necessária porque o DOMPurify quebra no SSR (`DOMPurify.sanitize is not a function`, `500` em `/mesas/<slug>`) | **PENDENTE — decisão do mantenedor.** Estudo do código feito (abaixo); **recomendação: opção (a), manter DOMPurify.** Não escolher sozinho |
+
+#### Estudo do caminho de sanitização (2026-09-12) — a recomendação MUDOU
+
+A primeira recomendação do agente foi **(b)**: manter `sanitize-html` e alterar a
+linha do `AGENTS.md`. **Medido como errado.** O que o código mostra:
+
+**1. Três lugares declaram que a última defesa do conteúdo legado é EXATAMENTE o
+DOMPurify que foi removido.** O comentário importado do WordPress **entra sem
+sanitização na escrita** — decisão registrada, para não arrastar `content-editor`
+para a imagem do `accounts` (E016/E017, SSO fora 5h) — e é sanitizado **só no
+render**:
+
+- `apps/accounts/src/communityCommentRead.ts:77` — *"essa defesa é o
+  `DOMPurify.sanitize()` com que `renderMarkdown` termina"*
+- `packages/comments/src/conversation.ts:166` — *"a 'defesa adicional na saída sem
+  regravar' que `spec.md:444` exige é o `DOMPurify.sanitize()` de `renderMarkdown`"*
+- `packages/ui/src/GmReviewPanel.test.tsx:5` — *"este componente exige DOM em
+  runtime"* (sob ambiente `node`: `default.sanitize is not a function`)
+
+Trocar o sanitizador ali não é mudar implementação: é trocar a **única** defesa de um
+acervo inteiro, em três apps, por uma que nunca foi auditada para esse conteúdo.
+
+**2. O repo já resolveu este mesmo problema, e o precedente é o oposto de (b).**
+`apps/downloads/backend/src/services/sanitizeRichHtml.ts` roda em backend puro e usa
+`isomorphic-dompurify` — adotado por achado P2 do Codex na PR #203, cobrando esta
+mesma política. E precisou de hook próprio: *"`ALLOWED_URI_REGEXP` do DOMPurify não
+cobre `img[src]` neste build — `data:image/...` sobrevive à sanitização"*. Essa
+fronteira já custou uma rodada de descoberta de vetor real; a `sanitize-html` posta no
+lugar nunca passou por isso.
+
+**3. Aceitar (b) seria transformar erro de execução em mudança de política.** O
+DOMPurify foi removido por um problema de **inicialização** no SSR, e a proposta era
+reescrever a regra do repo para caber na solução — caminho feliz, nomeado assim pelo
+mantenedor.
+
+**Custo real de (a), medido no lock:** `isomorphic-dompurify@3.22.0` arrasta
+**`jsdom@30.0.1`**. Peso em imagem de produção, e o `Dockerfile` do `accounts`
+(L52-103) mostra que dependência de segundo nível podada por
+`pnpm install --prod --filter` é precisamente o que derrubou o SSO por 5h. Então (a)
+exige um `test -d packages/*/node_modules/jsdom` novo no Dockerfile — custo conhecido,
+com procedimento escrito, não risco de segurança.
+
+#### RESOLVIDO (2026-09-13): DOMPurify de volta, em cadeia de TRÊS passagens
+
+Forma 3, escolhida pelo mantenedor: `DOMPurify(new JSDOM('').window)`, sem pacote
+novo e sem adotar o `isomorphic-dompurify` depreciado. `jsdom` movido de
+`devDependencies` para `dependencies` em `packages/content-editor` — vai ao bundle de
+produção de quem renderiza no servidor. `purify` é criado UMA vez no módulo: `new
+JSDOM()` por chamada custa caro num caminho que roda a cada render.
+
+`sanitizeRenderedMarkdown` = `sanitize-html` → `DOMPurify` → `sanitize-html`. **Nenhuma
+das três é redundante**, e quem remover uma reabre um defeito:
+
+1. Política: quais tags passam, o `<input>` de task list, e o `transformTags.a` que
+   decide destino de link. O DOMPurify não faz isso — não reescreve atributo por regra
+   de negócio.
+2. Segurança pelo DOM real: mutation XSS, namespace SVG/MathML, entidade que só vira
+   tag depois do parse. É o que o `AGENTS.md` exige para rich text.
+3. Serialização: o DOMPurify normaliza `<br />` → `<br>` e `disabled` → `disabled=""`,
+   e essa forma foi escolhida para a hidratação (`ContentEditor.test.tsx:274`). HTML do
+   servidor diferente do cliente faz o React **descartar o do servidor** — o conteúdo
+   que o crawler lê. A terceira passagem só re-serializa árvore já limpa.
+
+**ARMADILHA MEDIDA — `ALLOWED_URI_REGEXP` estraga atributo que não é URI.** O
+DOMPurify aplica esse regex a todo atributo que considera URI-like, não só ao `href`:
+com ele, `target="_blank"` e `type="checkbox"` reprovam e **são removidos** (sonda
+direta: sem o regex os dois sobrevivem, com ele somem). Não usar — o default já aceita
+`https:` e `mailto:`, e quem decide destino de link é a camada 1. Foi o que quebrou 5
+testes na primeira tentativa, e o sintoma (atributo sumindo) não aponta para a causa.
+
+`input` **não** está no `allowedTags` default da `sanitize-html`, então precisa entrar
+nas duas allowlists.
+
+Validação: `content-editor` 132/132 (2 casos novos travam as camadas 2 e 3), `content`
+26/26, `tsc` limpo. XSS conferido na sonda: `onerror`, `<script>` e `svg onbegin` saem
+como string vazia.
+
+**A FORMA ÓBVIA DE (a) NÃO SERVE COMO ESTÁ — medido no lock (2026-09-12).** Copiar o
+precedente do `downloads` (`isomorphic-dompurify@3.22.0`) traz um pacote que o próprio
+registro marca como **`deprecated`**: *"Raised the minimum Node.js version (breaking)
+without a major bump. Use 4.x for the same code with correct semver, or pin 3.19.0 for
+Node < 22.22.2"*. E ele declara `engines: node ^22.22.2 || ^24.15.0 || >=26.0.0`.
+
+Ou seja, (a) tem **três formas** e elas não são equivalentes — escolher no meio da
+implementação seria decidir por conta própria:
+
+1. `isomorphic-dompurify@3.22.0` — igual ao `downloads`, mas depreciado e com piso de
+   Node que precisa bater com a imagem de produção.
+2. `isomorphic-dompurify@^4` — o próprio upstream aponta como a versão com semver
+   correto; diverge do que o `downloads` usa hoje (duas versões do mesmo pacote no
+   monorepo, que é o defeito que `prosemirror-*` e `react-router` já custaram).
+3. `DOMPurify(new JSDOM('').window)` direto, sem o wrapper — `jsdom` já é
+   devDependency de `content-editor`; viraria dependência de runtime. Mais código
+   próprio, menos camada de terceiro.
+
+**Antes de implementar, medir as três** (versão de Node das imagens, o que o
+`downloads` passaria a resolver, peso real) e trazer a escolha ao mantenedor. Não
+decidir durante a implementação.
+
+**BUG LATENTE que nenhum bot apontou e que a PR 3 vai disparar:**
+`apps/mesas/frontend/src/utils/sanitize.ts:1` importa `dompurify` **puro** e é
+consumido por `useProfileQuery.ts` em 4 pontos (L43, L89, L128, L196). Sob SSR ele
+quebra pelo mesmo motivo do `renderMarkdown` — `sanitize is not a function`. **A PR 3
+precisa tratar este arquivo**, senão troca um `500` por outro, agora no perfil.
+
+**CORRIGIDOS na #317** (2026-09-12):
+
+| arquivo | achado | natureza |
+|---|---|---|
+| `packages/content/src/canonical.ts:42` | `String(input)` produzia `[object Object]` para objeto, e o erro culpava o formato da URL quando o problema era o tipo. Agora não-string é rejeitado com `"canonical deve ser texto"` | **comportamento** — único da lista que não é estilo |
+| `packages/content/src/canonical.test.ts:13` | 3 testes de host externo viraram `it.each`; acrescentado caso para entrada não-string | estilo + cobertura |
+| `packages/content/src/canonical.ts:63` | **credencial embutida era persistida.** `https://user:senha@artificiorpg.com/x` passava: `hostname` é o domínio permitido, `isAllowedHost` aprovava, e `url.toString()` gravava a senha no canonical — campo público. Rejeição agora vem ANTES da validação de host, e cobre também `https://artificiorpg.com@evil.example/x`, onde o `@` disfarça o destino real. Divergência entre pacotes: `commentLinks.test.ts:104-105` já barrava a mesma forma no outro caminho. Achado do CodeRabbit | **bug latente, falhava em silêncio** |
+| `pnpm-workspace.yaml` | override `qs@<6.16.0` — os 2 CVE do Snyk (ver abaixo) | segurança |
+
+**Sem validação rodada**: o mantenedor determinou não gastar tokens em teste/lint/tsc
+nesta rodada (2026-09-12). As três correções entram sem suíte executada; o CI da PR é
+quem mede.
+
+**Ficam para a PR 3 — REPARAR ASSIM QUE A #317 FOR MERGEADA.** Decisão do mantenedor
+(2026-09-12). Estes arquivos não existem na branch da #317: eles vivem no commit
+`4bb3108` e só reaparecem quando a PR 3 for criada. **Primeira coisa a fazer depois do
+merge da #317**, antes de pedir review da PR 3 — senão o Sonar reencontra os mesmos 11
+achados e queima outra janela de review.
+
+Procedimento: criar a PR 3 de `origin/dev` já mergeado, trazer os arquivos com
+`git checkout 4bb3108 -- <caminhos>`, **aplicar as correções da tabela abaixo** e só
+então pushar.
+
+| arquivo | achado |
+|---|---|
+| `apps/mesas/frontend/server.js:20` | IP `172.18.0.0/16` hardcoded (hotspot de segurança) |
+| `apps/mesas/frontend/src/pages/MesaPage.tsx:25` | complexidade cognitiva 16 > 15 |
+| `apps/mesas/frontend/src/entry.client.tsx:23` | usar `RegExp.exec()` |
+| `apps/mesas/frontend/src/root.tsx:73` | usar `String.raw` no lugar do escape |
+| `apps/mesas/frontend/src/routes/{catalogo,mesa,mestre}.tsx` | `export…from` para re-exportar `default` |
+| `apps/mesas/frontend/Dockerfile:76,111` | fundir `RUN` consecutivos |
+| `apps/mesas/frontend/src/features/table/seo/tableMeta.ts:31` | optional chain |
+| `packages/catalog-table/src/contactUrls.ts:164` | complexidade de regex 21 > 20 |
+
+**Snyk — `qs@6.15.2` (2 CVE médios): CORRIGIDO na #317.** `CVE-2026-82562` (CWE-770,
+CVSS 6.3, parser sem limite efetivo) e `CVE-2026-82417` (CWE-248, CVSS 6.9, exceção
+não capturada derruba o processo), ambos com PoC público, corrigidos em `qs@6.16.0`.
+
+Medido antes: `qs@6.15.2` resolvido no lock; `qs@6.16.0` publicado como `latest`.
+
+Override `"qs@<6.16.0": ">=6.16.0 <7"` no `pnpm-workspace.yaml`. **Entrou na #317 e
+não na PR 3** por decisão do mantenedor (2026-09-12): `qs` é transitiva de
+`express@5.2.1`, que alcança **todo backend do monorepo** — não só o `mesas/frontend`,
+onde o `express` só chega com o SSR. O override na raiz vale para todos os
+consumidores, presentes e futuros, então adiá-lo para a PR 3 deixaria os outros apps
+expostos sem motivo.
+
+### Armadilhas de git já pagas nesta entrega
+
+- **`git switch -c <nova> origin/dev` ABORTA** com este `tasks.md` modificado no
+  working tree (`Please commit your changes or stash them before you switch
+  branches`). É a primeira coisa que o próximo agente tentará.
+- **`git stash pop` depois do switch CONFLITA:** `tasks.md` tinha **1388 linhas em
+  `origin/dev`** contra **2231 em `4bb3108`**. O stash nasce sobre a versão nova e
+  tenta aplicar sobre a antiga → 3 conflitos (`UU`), um deles de 119 linhas. Resolver
+  os marcadores à mão reconstrói a spec errada. **Saída medida:**
+  `git checkout <commit> -- specs/.../tasks.md` e reaplicar as edições por cima.
+- **`git add -A` sobre `apps/mesas/frontend` leva o `.react-router/` gerado** (27
+  arquivos) mesmo ele estando no `.gitignore`, porque o `-A` sobre caminho explícito
+  vence o ignore. Conferir `git diff --cached --name-only` antes de commitar.
 
 ---
 

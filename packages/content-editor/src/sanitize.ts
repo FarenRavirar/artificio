@@ -1,5 +1,7 @@
 import sanitizeHtml from 'sanitize-html';
 import MarkdownIt from 'markdown-it';
+import createDOMPurify from 'dompurify';
+import { JSDOM } from 'jsdom';
 
 /**
  * Remoção de HTML **sem escapar `<` e `>` que sobrevivem como texto**.
@@ -568,6 +570,46 @@ export function sanitizeLegacyCommentHtml(input: string): string {
  * saída: a caixa é indicador de estado, não controle — e `type` é limitado a
  * `checkbox` para que nenhum outro tipo de campo entre por aqui.
  */
+/**
+ * `href` que o markdown renderizado aceita, e se é de terceiro.
+ *
+ * `null` = não navega, o `href` sai. Três formas passam, e só elas:
+ *
+ * - **HTTPS absoluto** — link externo, ganha `rel`/`target`.
+ * - **`mailto:`** — está em `allowedSchemes` e é uso legítimo em bio/descrição.
+ *   Tratado como externo: abrir cliente de e-mail tira o leitor da página.
+ * - **root-relative (`/rota`)** — link interno da plataforma, sem `target`.
+ *
+ * Fica de fora, de propósito: `http:` (a plataforma é HTTPS-only), relativo sem
+ * barra inicial (`../admin` depende da rota do leitor, não do autor) e
+ * protocol-relative (`//evil.example`, que o navegador resolve como externo).
+ *
+ * `//` é testado ANTES do `URL`: `new URL('//x', base)` resolveria para host
+ * externo em vez de caminho — a armadilha que `commentLinks.test.ts:86-89` já
+ * registra como `protocol_relative`.
+ */
+function classificarHrefRenderizado(
+  value: string | undefined,
+): { href: string; externo: boolean } | null {
+  if (!value) return null;
+  const v = value.trim();
+  if (v === '') return null;
+
+  // Barra invertida conta como barra no parser WHATWG: `/\evil.example` e
+  // `/%2fevil.example` são protocol-relative disfarçado (mesmos casos do teste).
+  if (/^[/\\]{2}/.test(v) || /^\/%2f/i.test(v)) return null;
+  if (v.startsWith('/')) return { href: v, externo: false };
+
+  try {
+    const url = new URL(v);
+    if (url.protocol === 'https:') return { href: v, externo: true };
+    if (url.protocol === 'mailto:') return { href: v, externo: true };
+    return null;
+  } catch {
+    return null; // relativo sem barra, âncora vazia, lixo
+  }
+}
+
 const RENDERED_MARKDOWN_OPTIONS: sanitizeHtml.IOptions = {
   allowedTags: [...sanitizeHtml.defaults.allowedTags, 'input'],
   allowedAttributes: {
@@ -584,7 +626,36 @@ const RENDERED_MARKDOWN_OPTIONS: sanitizeHtml.IOptions = {
   // inválido — medido. A forma `<br />` que ela emite é XHTML, mas o parser HTML
   // do navegador a trata como `<br>`, então a árvore reidratada é a mesma.
   transformTags: {
-    ...LEGACY_COMMENT_HTML_OPTIONS.transformTags,
+    // `a` PRÓPRIO, e não o de `LEGACY_COMMENT_HTML_OPTIONS`: aquele usa
+    // `isHttpsUrl`, que exige HTTPS **absoluto**, e apaga o `href` de tudo mais.
+    // Reusá-lo aqui destruía `[b](/rota)` — âncora sem navegação — e `mailto:`,
+    // apesar de os dois estarem em `allowedSchemes` logo acima. O legado sanitiza
+    // comentário importado do WordPress, onde só existe link externo absoluto;
+    // este caminho é o markdown de TODOS os apps, onde link interno é a norma
+    // (`commentLinks.test.ts:108-113` define `/material/123` como válido e
+    // `:169` afirma o mesmo de `[b](/rota)`). Achado do Codex (P2) na PR #317.
+    //
+    // O esquema é checado aqui, e não só por `allowedSchemes`, pela ordem de
+    // execução medida em 2026-08-09: `transformTags` roda ANTES da filtragem de
+    // esquema, então `javascript:` chegaria com `href` presente, ganharia
+    // `rel`/`target`, e só depois perderia o `href` — quebrando a idempotência.
+    a: (tagName, attribs) => {
+      const destino = classificarHrefRenderizado(attribs.href);
+      if (destino === null) return { tagName, attribs: {} };
+      // Link interno não é de terceiro: `target="_blank"` arrancaria o leitor da
+      // SPA e `rel="ugc nofollow"` pediria ao buscador para não seguir a própria
+      // plataforma. Externo mantém as duas proteções (reverse tabnabbing + UGC).
+      return destino.externo
+        ? {
+            tagName,
+            attribs: {
+              href: destino.href,
+              rel: 'ugc nofollow noopener noreferrer',
+              target: '_blank',
+            } as sanitizeHtml.Attributes,
+          }
+        : { tagName, attribs: { href: destino.href } as sanitizeHtml.Attributes };
+    },
     // Só a caixa de tarefa passa; qualquer outro `<input>` é descartado — é a
     // diferença entre indicador de estado e campo de formulário em UGC.
     //
@@ -599,19 +670,47 @@ const RENDERED_MARKDOWN_OPTIONS: sanitizeHtml.IOptions = {
 };
 
 /**
+ * `DOMPurify` ligado a um DOM que existe nos dois ambientes.
+ *
+ * No browser é o `window` real. No servidor o import devolve uma fábrica não
+ * ligada — `TypeError: DOMPurify.sanitize is not a function`, que respondeu
+ * `500` em `/mesas/<slug>` no SSR —, então a fábrica recebe uma janela do
+ * `jsdom`. É por isso que `jsdom` é `dependencies` e não `devDependencies`
+ * neste pacote: sai no bundle de produção de quem renderiza no servidor.
+ *
+ * Criada UMA vez, no módulo: `new JSDOM()` por chamada custa caro num caminho
+ * que roda a cada render de comentário.
+ *
+ * `globalThis.window` e não `typeof window`: sob SSR o segundo dá `undefined`
+ * e cairia no ramo certo, mas o primeiro também cobre ambiente de teste que
+ * injeta `window` parcial.
+ */
+const purify = (() => {
+  const janela = (globalThis as { window?: unknown }).window;
+  if (janela && typeof (janela as { document?: unknown }).document === 'object') {
+    return createDOMPurify(janela as unknown as Parameters<typeof createDOMPurify>[0]);
+  }
+  return createDOMPurify(new JSDOM('').window as unknown as Parameters<typeof createDOMPurify>[0]);
+})();
+
+/**
  * Sanitiza o HTML já renderizado pelo `markdown-it` — o caminho do SSR.
  *
- * Existe porque o `DOMPurify` que `renderMarkdown` usava **não funciona no
- * servidor**: ele sanitiza pelo DOM real e, sem `window`, o import devolve uma
- * fábrica não ligada. Medido no SSR do `mesas`:
- * `TypeError: DOMPurify.sanitize is not a function`, respondendo `500` em
- * `/mesas/<slug>` — a rota central da spec 102.
+ * DUAS camadas, e a ordem importa:
  *
- * A `sanitize-html` já era dependência deste pacote e roda nos dois lados, então
- * a correção é usar UMA função para servidor e cliente, e não trocar de
- * sanitizador por ambiente: políticas diferentes produziriam HTML diferente na
- * hidratação, e o React descartaria o HTML do servidor — perdendo exatamente o
- * conteúdo que o crawler precisa ler.
+ * 1. `sanitize-html` aplica a POLÍTICA — quais tags passam, o `<input>` de task
+ *    list, e o `transformTags.a` que decide destino de link (HTTPS e `mailto:`
+ *    como externos com `rel`/`target`; root-relative como interno sem `target`).
+ *    Essa parte o DOMPurify não faz: ele não reescreve atributo por regra de
+ *    negócio.
+ * 2. `DOMPurify` fecha como camada final, que é o que o `AGENTS.md` exige para
+ *    HTML de usuário/rich-text. Não é redundância: ele sanitiza pelo DOM real,
+ *    então pega o que um sanitizador de string erra — mutation XSS, namespace
+ *    de SVG/MathML, e entidade que só vira tag depois do parse do navegador.
+ *
+ * `ALLOWED_*` repete a allowlist da camada 1 de propósito: se o DOMPurify usasse
+ * o default dele, seria mais permissivo que a política e a segunda passagem
+ * devolveria tag que a primeira tinha removido.
  *
  * Sem o pré-passo de sentinela de `sanitizeUserMarkdown`, pelo mesmo motivo já
  * documentado em `markdownToPlainText`: aqui a entrada é HTML gerado pelo
@@ -619,7 +718,25 @@ const RENDERED_MARKDOWN_OPTIONS: sanitizeHtml.IOptions = {
  * escapado antes.
  */
 export function sanitizeRenderedMarkdown(html: string): string {
-  return sanitizeHtml(html, { ...RENDERED_MARKDOWN_OPTIONS, parser: { decodeEntities: false } });
+  const opcoes = { ...RENDERED_MARKDOWN_OPTIONS, parser: { decodeEntities: false } };
+  const pelaPolitica = sanitizeHtml(html, opcoes);
+  const peloDom = purify.sanitize(pelaPolitica, {
+    ALLOWED_TAGS: RENDERED_MARKDOWN_OPTIONS.allowedTags as string[],
+    ALLOWED_ATTR: ['href', 'rel', 'target', 'class', 'type', 'disabled', 'checked'],
+    // SEM `ALLOWED_URI_REGEXP`. Medido em 2026-09-13: o DOMPurify aplica esse
+    // regex a TODO atributo que considera URI-like, não só ao `href` — com ele,
+    // `target="_blank"` e `type="checkbox"` reprovam e são REMOVIDOS. O default
+    // já aceita `https:` e `mailto:`, e quem decide destino de link é o
+    // `transformTags.a` da camada 1.
+  });
+  // Terceira passagem, e não é redundância: o DOMPurify normaliza a
+  // serialização (`<br />` vira `<br>`, `disabled` vira `disabled=""`), e essa
+  // forma foi escolhida de propósito para a hidratação — HTML do servidor
+  // diferente do HTML do cliente faz o React DESCARTAR o do servidor, que é
+  // justamente o conteúdo que o crawler precisa ler (o objetivo da spec 102).
+  // Devolver o passo final à `sanitize-html` restaura a forma sem reabrir nada:
+  // ela só re-serializa uma árvore que o DOMPurify já limpou.
+  return sanitizeHtml(peloDom, opcoes);
 }
 
 /**

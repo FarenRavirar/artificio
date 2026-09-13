@@ -5,6 +5,7 @@ import {
   sanitizeLegacyCommentHtml,
   sanitizeNullableUserMarkdown,
   sanitizeOptionalUserMarkdown,
+  sanitizeRenderedMarkdown,
   sanitizeUserMarkdown,
 } from './sanitize.js';
 // A asserção de neutralização no render precisa do renderizador real, não de uma
@@ -355,5 +356,86 @@ describe('sanitizeLegacyCommentHtml (T2.5)', () => {
     // reprocessar tudo.
     expect(LEGACY_COMMENT_SANITIZER_POLICY).toBe('site-comment-html');
     expect(LEGACY_COMMENT_SANITIZER_VERSION).toBe(1);
+  });
+});
+
+describe('sanitizeRenderedMarkdown — destino dos links (achado Codex P2, PR #317)', () => {
+  // A primeira versão reusava o `transformTags.a` do sanitizador LEGADO, que
+  // aceita só HTTPS absoluto: `[b](/rota)` e `mailto:` saíam como âncora sem
+  // `href`, apesar de `allowedSchemes` listar `mailto`. Regressão em TODOS os
+  // consumidores do pacote (mesas, downloads, comentários, avaliações), onde
+  // link interno é a norma — não a exceção como no comentário importado do WP.
+  const href = (html: string) => /href="([^"]*)"/.exec(html)?.[1] ?? null;
+
+  it('preserva caminho root-relative sem transformá-lo em link externo', () => {
+    const saida = sanitizeRenderedMarkdown('<p><a href="/material/123">x</a></p>');
+    expect(href(saida)).toBe('/material/123');
+    // Interno não é de terceiro: `target=_blank` arrancaria o leitor da SPA e
+    // `nofollow` pediria ao buscador para não seguir a própria plataforma.
+    expect(saida).not.toContain('target=');
+    expect(saida).not.toContain('nofollow');
+  });
+
+  it('preserva mailto:, que está em allowedSchemes', () => {
+    const saida = sanitizeRenderedMarkdown('<p><a href="mailto:a@exemplo.com">m</a></p>');
+    expect(href(saida)).toBe('mailto:a@exemplo.com');
+  });
+
+  it('mantém HTTPS externo com rel e target', () => {
+    const saida = sanitizeRenderedMarkdown('<p><a href="https://exemplo.com/x">e</a></p>');
+    expect(href(saida)).toBe('https://exemplo.com/x');
+    expect(saida).toContain('rel="ugc nofollow noopener noreferrer"');
+    expect(saida).toContain('target="_blank"');
+  });
+
+  it.each([
+    ['javascript:', '<p><a href="javascript:alert(1)">x</a></p>'],
+    ['http: (plataforma é HTTPS-only)', '<p><a href="http://exemplo.com">x</a></p>'],
+    ['protocol-relative', '<p><a href="//evil.example/x">x</a></p>'],
+    ['protocol-relative com barra invertida', '<p><a href="/\\evil.example">x</a></p>'],
+    ['protocol-relative percent-encoded', '<p><a href="/%2fevil.example">x</a></p>'],
+    ['relativo sem barra inicial', '<p><a href="../admin">x</a></p>'],
+  ])('descarta href que não navega com segurança — %s', (_caso, entrada) => {
+    const saida = sanitizeRenderedMarkdown(entrada);
+    expect(href(saida)).toBeNull();
+    expect(saida).toContain('x'); // o texto do link é preservado
+  });
+
+  // A cadeia tem TRÊS passagens (sanitize-html → DOMPurify → sanitize-html) e
+  // nenhuma é redundante. Sem estes casos, alguém lê "sanitiza duas vezes com a
+  // mesma lib" e remove uma — reabrindo o vetor ou quebrando a hidratação.
+  it('DOMPurify neutraliza o que sanitizador de string erra', () => {
+    const saida = sanitizeRenderedMarkdown(
+      '<img src=x onerror=alert(1)><svg><animate onbegin=alert(2)></svg>',
+    );
+    expect(saida).not.toContain('onerror');
+    expect(saida).not.toContain('onbegin');
+    expect(saida).not.toContain('animate');
+  });
+
+  it('a serialização sobrevive à passagem do DOMPurify', () => {
+    // O DOMPurify normaliza `<br />` para `<br>` e `disabled` para `disabled=""`.
+    // A terceira passagem restaura a forma que a hidratação do React exige — sem
+    // ela o servidor emite HTML diferente do cliente e o React descarta o do
+    // servidor, que é o conteúdo que o crawler lê (objetivo da spec 102).
+    const saida = sanitizeRenderedMarkdown(
+      '<p>a<br />b</p><ul><li class="task-list-item"><input type="checkbox" disabled checked> x</li></ul>',
+    );
+    expect(saida).toContain('<br />');
+    expect(saida).toContain('<input type="checkbox" disabled checked />');
+    expect(saida).not.toContain('disabled=""');
+  });
+
+  it('é idempotente nos três destinos aceitos', () => {
+    // `f(f(x)) === f(x)`: a segunda passagem não pode ver a âncora já tratada e
+    // desmontá-la — o defeito que a ordem de `transformTags` produziu em 2026-08-09.
+    for (const entrada of [
+      '<p><a href="/rota">i</a></p>',
+      '<p><a href="mailto:a@exemplo.com">m</a></p>',
+      '<p><a href="https://exemplo.com/x">e</a></p>',
+    ]) {
+      const uma = sanitizeRenderedMarkdown(entrada);
+      expect(sanitizeRenderedMarkdown(uma)).toBe(uma);
+    }
   });
 });

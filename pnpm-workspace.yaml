@@ -106,6 +106,14 @@ overrides:
   # O piso é a mais alta das duas já presentes e satisfaz o `^7.18.0` que todos os
   # consumidores declaram; o teto `<8` evita o major que o app não suporta.
   "react-router@<7.18.3": ">=7.18.3 <8"
+  # Snyk SNYK-JS-QS-19432017 / CVE-2026-82562 (CWE-770, CVSS 6.3): o parser aceita
+  # corpo sem limite efetivo. E SNYK-JS-QS-19432019 / CVE-2026-82417 (CWE-248,
+  # CVSS 6.9): exceção não capturada derruba o processo. Ambos com PoC público.
+  #
+  # Transitiva de `express@5.2.1` — chega a todo backend do monorepo, não só ao
+  # `mesas`. O 6.16.0 é a correção nomeada pelo Snyk e satisfaz o `^6.14.0` que o
+  # express 5 declara, então entra sem quebrar semver.
+  "qs@<6.16.0": ">=6.16.0 <7"
 patchedDependencies:
   "@types/express-serve-static-core@5.1.1": patches/@types__express-serve-static-core@5.1.1.patch
 allowBuilds:
