@@ -6,3 +6,4 @@ export { renderJsonLd, organizationLd, websiteLd, articleLd, breadcrumbLd } from
 export { sitemapXml } from "./sitemap.js";
 export { robotsTxt, type RobotsOptions } from "./robots.js";
 export { normalizeOgDescription, type NormalizeOgDescriptionOptions } from "./description.js";
+export { normalizeCanonical, isCanonicalSafe, type CanonicalValidation } from "./canonical.js";
