@@ -2292,6 +2292,7 @@ Commits da PR **#319**, na branch `feat/102-f4-mesas-ssr` (criada de `origin/dev
 | `1b666d7` | 7 achados dos dois ciclos de review, 5 deles bugs invisíveis em log (ver blocos acima) + os overrides de `qs`/`undici` restaurados — 13 arquivos |
 | `abd773c` | 3 achados do terceiro ciclo (dev local quebrado, preço zero em mesa paga, data sem fuso no SSR) + a linha do `.react-router/` que faltava no `.gitignore` — 11 arquivos |
 | `57abff8` | 4 achados do quarto e quinto ciclos, **2 deles em `packages/ui`** (snapshot de tema e badge do changelog, ambos divergindo na hidratação), o `replace()` nos 6 aliases e o DDD 55 no WhatsApp — 8 arquivos |
+| `3d6ff5c` | `description` estourando 160 com cauda longa, `Product` sem propriedade qualificadora (correção de uma correção do `abd773c`) e o smoke de ingress morto por `ENOENT` desde `b7a03ed` + a reescrita desta seção (−207/+109) — 4 arquivos |
 
 **Validação medida antes de cada commit:** `mesas/frontend` 1148/1148 (86 arquivos),
 `site` 155/155, `content` 22/22, `content-editor` 120/120, `tsc` limpo, lint 0 erros,
@@ -2721,6 +2722,16 @@ resposta estável — se o achado voltar, a resposta é esta, sem reinvestigar:
    e muda contrato nos 6 apps consumidores**. Pendência também no comentário do
    próprio `theme.tsx`.
 
+**Armadilha de validação que derrubou o CI da #319 (run `34776296657`): `pnpm test`
+verde NÃO implica `typecheck` verde.** O `vitest` não checa tipo, e o script
+`typecheck` do `mesas-frontend` é `react-router typegen && tsc -b`, que **inclui os
+arquivos de teste**. O `3d6ff5c` foi pushado com `1152/1152` e build verde, e o CI
+reprovou com **13 erros `TS18047`** em `tableMeta.test.ts` — o helper `jsonLdOf`
+devolvia `{ product: null, offer: null }` desde que `buildTableJsonLd` passou a poder
+devolver `null`, e nenhum `expect` estreitava. Corrigido fazendo o helper lançar: o
+ramo sem markup tem teste próprio, que chama `buildTableJsonLd` direto. **Rodar
+`typecheck` além de `test`/`lint`/`build` antes de pushar mudança de assinatura.**
+
 **Armadilhas do ambiente de teste do `packages/ui`** (custaram 2 rodadas vermelhas;
 quem for escrever teste com DOM aqui precisa das três):
 
@@ -2740,9 +2751,9 @@ correção está: **em commit pushado** ou **só no working tree** (não commita
 
 | arquivo | achado | estado |
 |---|---|---|
-| `src/features/table/seo/tableMeta.ts:41` | `description` estourava 160 com cauda longa: o piso de 60 para a sinopse era incondicional. Medido com dado real — "Little Fears – The Role-playing Game of Childhood Terror" (56 chars, um dos 682 sistemas) + modalidade/nível/preço/vagas dá cauda 108 e description **172**. O teste que existia usava `Dungeons & Dragons` (18 chars) e nunca chegava lá | **working tree** — piso só vale enquanto cabe; cauda longa trunca a sinopse até sumir. Medido depois: 172 → 108, nenhum caso estoura |
-| `scripts/ci/check_ingress_realip_contract.mjs:9` | guard morria com `ENOENT` desde `b7a03ed` (lia o `nginx.conf` removido), anulando 14 asserções | **working tree** — inspeciona `server.js`; medido `ENOENT` → `smoke OK` |
-| `src/features/table/seo/tableMeta.ts` | omitir só a `Offer` deixava `Product` sem propriedade qualificadora — inválido no Rich Results | **working tree** — sem preço publicável não sai JSON-LD nenhum |
+| `src/features/table/seo/tableMeta.ts:41` | `description` estourava 160 com cauda longa: o piso de 60 para a sinopse era incondicional. Medido com dado real — "Little Fears – The Role-playing Game of Childhood Terror" (56 chars, um dos 682 sistemas) + modalidade/nível/preço/vagas dá cauda 108 e description **172**. O teste que existia usava `Dungeons & Dragons` (18 chars) e nunca chegava lá | `3d6ff5c` — piso só vale enquanto cabe; cauda longa trunca a sinopse até sumir. Medido depois: 172 → 108, nenhum caso estoura |
+| `scripts/ci/check_ingress_realip_contract.mjs:9` | guard morria com `ENOENT` desde `b7a03ed` (lia o `nginx.conf` removido), anulando 14 asserções | `3d6ff5c` — inspeciona `server.js`; medido `ENOENT` → `smoke OK` |
+| `src/features/table/seo/tableMeta.ts` | omitir só a `Offer` deixava `Product` sem propriedade qualificadora — inválido no Rich Results | `3d6ff5c` — sem preço publicável não sai JSON-LD nenhum. O `null` no retorno é o que quebrou o `typecheck` do CI (ver armadilha acima); teste corrigido no working tree |
 | `packages/catalog-table/src/contactUrls.ts:114` | DDD 55 (Santa Maria/RS) confundido com código de país | `57abff8` — decisão por comprimento (10-11 local, 12-13 com país), 7 testes |
 | `packages/ui/src/theme.tsx:120` | snapshot SSR `"light"` fixo contra `dark` do script inline | `57abff8` — snapshot `dark`; leitura do cookie na requisição segue pendente |
 | `packages/ui/src/hooks.ts:6` | badge lia `localStorage` no primeiro render, divergindo do servidor | `57abff8` — leitura movida para `useEffect` |

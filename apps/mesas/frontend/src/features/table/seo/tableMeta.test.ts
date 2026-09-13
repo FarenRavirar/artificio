@@ -64,9 +64,17 @@ function makeTableDetail(overrides: Partial<TableDetail> = {}): TableDetail {
   };
 }
 
+/**
+ * Extrai `product`/`offer` do JSON-LD, e FALHA se não houver markup.
+ *
+ * O ramo sem JSON-LD (mesa paga sem preço) tem teste próprio, que chama
+ * `buildTableJsonLd` direto. Devolver `null` daqui só empurrava o estreitamento
+ * para cada `expect`, e o `tsc -b` — que inclui os testes — reprovava com
+ * TS18047 em 13 linhas enquanto o vitest passava, porque runtime não checa tipo.
+ */
 function jsonLdOf(detail: TableDetail) {
   const jsonLd = buildTableJsonLd(mapTableToView(detail));
-  if (!jsonLd) return { product: null, offer: null };
+  if (!jsonLd) throw new Error('esperava JSON-LD, e buildTableJsonLd devolveu null');
   const graph = jsonLd['@graph'] as Record<string, unknown>[];
   const product = graph[0];
   return { product, offer: product.offers as Record<string, unknown> };
