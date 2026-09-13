@@ -1,8 +1,10 @@
 // @ts-check
+import { readFileSync } from "node:fs";
 import { defineConfig } from "astro/config";
 import sitemap from "@astrojs/sitemap";
 import react from "@astrojs/react";
 import tailwindcss from "@tailwindcss/vite";
+import { buildLastmodIndex, serializeWithLastmod } from "./src/lib/sitemap-lastmod.ts";
 
 // Site público (blog) — SSG. Domínio via PUBLIC_SITE_URL (env) p/ beta/prod distintos (spec 030 R11).
 
@@ -14,10 +16,21 @@ import tailwindcss from "@tailwindcss/vite";
 // (ou o que) fosse direto nele. Um sitemap é um convite explícito a rastrear; beta não emite.
 const noindex = process.env.SITE_NOINDEX === "true";
 
+// <lastmod> a partir da data REAL de edicao do post (posts.updated_at -> posts.json), nunca da
+// data do build (spec 102 T3.4). URL sem data propria — home, /blog/, taxonomias — fica sem o
+// campo: lastmod inventado ou uniforme e ignorado pelo Google, e queima a confianca no sitemap.
+// Le o snapshot direto, sem passar por src/lib/content.ts: aquele modulo importa assets
+// (@artificio/ui/static -> _logo.png) e o astro.config roda FORA do pipeline do Vite, onde .png
+// nao tem loader — medido: "Unable to load your Astro config / Unknown file extension .png".
+const posts = JSON.parse(readFileSync(new URL("./src/data/posts.json", import.meta.url), "utf8"));
+const lastmodIndex = buildLastmodIndex(posts);
+
 export default defineConfig({
   site: process.env.PUBLIC_SITE_URL || "https://artificiorpg.com",
   trailingSlash: "always",
-  integrations: noindex ? [react()] : [sitemap(), react()],
+  integrations: noindex
+    ? [react()]
+    : [sitemap({ serialize: (item) => serializeWithLastmod(item, lastmodIndex) }), react()],
   // Site sem markdown — desabilita syntax highlighting (remove warning CSP/Shiki)
   markdown: { syntaxHighlight: false },
   vite: {

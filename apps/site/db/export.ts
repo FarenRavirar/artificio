@@ -12,7 +12,7 @@ const PAGES_OUT = resolve(here, "../src/data/pages.json");
 
 interface PostRow {
   id: number; slug: string; title: string; excerpt: string; content_html: string;
-  toc: unknown; published_at: string | Date | null; reading_time: number;
+  toc: unknown; published_at: string | Date | null; updated_at: string | Date | null; reading_time: number;
   featured_url: string | null; seo_title: string | null; seo_description: string | null;
   canonical: string | null; og_title: string | null; og_description: string | null;
   og_image: string | null; twitter_card: string | null; noindex: boolean | null;
@@ -25,7 +25,7 @@ const fmt = (d: Date): string =>
 async function main() {
   const db = await getDb();
   const posts = (await db.query<PostRow>(
-    `SELECT id, slug, title, excerpt, content_html, toc, published_at, reading_time, featured_url,
+    `SELECT id, slug, title, excerpt, content_html, toc, published_at, updated_at, reading_time, featured_url,
             seo_title, seo_description, canonical, og_title, og_description, og_image, twitter_card, noindex
      FROM posts WHERE status = 'publish' ORDER BY published_at DESC NULLS LAST`,
   )).rows;
@@ -43,6 +43,9 @@ async function main() {
 
   const out = posts.map((p) => {
     const d = p.published_at ? new Date(p.published_at) : null;
+    // `updated` alimenta o <lastmod> do sitemap (spec 102 T3.4). Vem da data real de edição do
+    // post, nunca da data do build: lastmod idêntico para todas as URLs é ignorado pelo Google.
+    const u = p.updated_at ? new Date(p.updated_at) : null;
     const terms = byPost.get(p.id) ?? { cats: [], tags: [] };
     return {
       id: p.id,
@@ -53,6 +56,7 @@ async function main() {
       toc: Array.isArray(p.toc) ? p.toc : JSON.parse((p.toc as string) || "[]"),
       date: d ? d.toISOString() : "",
       dateFmt: d ? fmt(d) : "",
+      updated: u ? u.toISOString() : "",
       readingTime: p.reading_time,
       image: p.featured_url ?? "",
       cats: terms.cats,

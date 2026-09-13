@@ -1,5 +1,5 @@
-import DOMPurify from 'dompurify';
 import MarkdownIt from 'markdown-it';
+import { sanitizeRenderedMarkdown } from './sanitize.js';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
 /**
@@ -39,7 +39,12 @@ export function renderMarkdown(value: string): string {
     (_match, paragraph: string | undefined, state: string) =>
       `<li class="task-list-item">${paragraph ?? ''}<input type="checkbox" disabled${state === ' ' ? '' : ' checked'}> `,
   );
-  return DOMPurify.sanitize(rendered);
+  // `sanitize-html` e não `DOMPurify` (spec 102 T4.2): o DOMPurify sanitiza pelo
+  // DOM real e, sem `window`, o import devolve fábrica não ligada — o SSR
+  // respondia `500` com `DOMPurify.sanitize is not a function`. A `sanitize-html`
+  // já era dependência deste pacote e roda igual nos dois lados, que é o que
+  // impede o HTML do servidor de divergir do HTML do cliente na hidratação.
+  return sanitizeRenderedMarkdown(rendered);
 }
 
 export interface MarkdownContentProps {
