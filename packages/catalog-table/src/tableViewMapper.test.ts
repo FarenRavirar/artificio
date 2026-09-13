@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeNumeric, mapTableToView } from './tableViewMapper';
-import type { TableDetail } from '../../../types/tables';
+import { normalizeNumeric, mapTableToView } from './tableViewMapper.js';
+import type { TableDetail } from './types.js';
 
 // normalizeNumeric é a fronteira que converte NUMERIC do pg (string sem parser
 // para o OID 1700) no view model da página da mesa. Estrito por tipo: boolean,

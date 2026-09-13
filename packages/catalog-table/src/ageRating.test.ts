@@ -4,7 +4,7 @@ import {
   isRestrictedAgeRating,
   normalizeAgeRating,
   RESTRICTED_AGE_RATINGS,
-} from './ageRating';
+} from './ageRating.js';
 
 // R24/A27 (spec 096): a faixa etária aparece para o jogador — inclusive 'livre',
 // que exibe o marcador "Livre" discreto (decisão do mantenedor 2026-08-24:

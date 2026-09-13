@@ -2250,9 +2250,20 @@ hoje o único lugar com os 133 arquivos juntos.
 
 | PR | estado | conteúdo | arquivos |
 |---|---|---|---|
-| **#317** | **ABERTA, é esta que vale** | 2 commits: imports unificados + canonical/`lastmod` | **60** (56 contra o teto) |
-| #318 | aberta, **redundante — pode fechar** | duplicata: tudo que ela tem está na #317 | 14 |
+| **#317** | **ABERTA, é esta que vale** | 5 commits: imports **+ canonical/`lastmod`** + DOMPurify/segurança | **69** (62 contra o teto) |
+| #318 | aberta, **sem conteúdo próprio** | `comm -23` contra a #317 devolve vazio | 14 |
 | #316 | aberta, **NÃO FECHAR** | o monólito de 133 arquivos; fonte da PR 3 | 133 |
+
+**O plano de 3 PRs deixou de existir na prática (2026-09-13).** Era: (1) imports,
+(2) canonical/`lastmod`, (3) SSR. O mantenedor pediu que o conteúdo da #318 fosse
+para a #317 por `cherry-pick`, e o agente executou **sem avisar que isso desmontava
+a separação que ele mesmo propusera** — o mantenedor só descobriu ao pedir "prepare a
+PR 2" e não haver PR 2. Medido: os 9 arquivos de `apps/site` + `packages/content`
+estão dentro da #317, e a #318 não tem um arquivo sequer que a #317 não tenha.
+
+A separação existia por causa do teto de 100 arquivos do CodeRabbit, e a #317 cumpre
+esse objetivo com 62. **Resta uma PR, não duas:** a PR 3 (`catalog-table` + migração
+SSR do `mesas`), com **71 arquivos** depois de descontar o que já está na #317.
 
 **Provado, não afirmado** (2026-09-12): `comm -23` entre as listas de arquivos das
 branches da #318 e da #317 devolveu **vazio** — não existe um arquivo sequer na #318
@@ -2268,6 +2279,7 @@ Commits da #317, na branch `chore/102-imports-react-router`:
 | `57270d0` | DOMPurify de volta no rich text (3 camadas), credencial barrada no canonical, override `qs@6.16.0`, hook de registro trazido do `4bb3108`, `AGENTS.md` enxugado (13 arquivos). **Quebrou o build de todos os frontends e introduziu 10 CVEs — corrigido pelo commit seguinte, não usar como referência** |
 | `5c8c3e5` | overrides de `undici` nas duas majors e os 2 achados do Codex (comentário do `ContentEditor.tsx`, 2 testes do hook que passavam por acidente). **A tentativa de tirar o `jsdom` do bundle por `createRequire` NÃO funcionou — levou de 4 para 7 checks vermelhos** |
 | `892c22d` | separação por entrada: `sanitizeServer.ts` server-only com DOMPurify+JSDOM, `sanitize.ts` puro. É o commit que de fato fecha o problema — `pnpm build` 26/26 e `pnpm lint` 26/26 rodados antes de pushar (9 arquivos) |
+| `db59da8` | `colher.sh`: contador `RECUSAS` separado de `FALHAS` (recusa de review não é consulta que falhou), e registro do falso-positivo do Sonar e dos 2 achados recusados (2 arquivos) |
 
 **Validação medida antes de cada commit:** `mesas/frontend` 1148/1148 (86 arquivos),
 `site` 155/155, `content` 22/22, `content-editor` 120/120, `tsc` limpo, lint 0 erros,
@@ -2311,9 +2323,33 @@ nenhum** — não há corte parcial. Por isso 39 arquivos, não 33.
 
 ### O que falta — CHECKLIST EXECUTÁVEL DA PR 3
 
-**PR 3 — `packages/catalog-table` + migração SSR do `mesas`** (~76 arquivos), a ser
-criada **de `origin/dev` depois do merge da #317**. Antes disso não: os 39 imports
-reapareceriam no diff dela e ela voltaria a ultrapassar o teto.
+**PR 3 — branch `feat/102-f4-mesas-ssr`, criada de `origin/dev` (`49ac4b1`, merge da
+#317) em 2026-09-13: 88 arquivos, 80 contra o teto.**
+
+Composição: 24 em `src/routes/`, 14 no `catalog-table`, 9 na raiz do frontend
+(`Dockerfile`, `server.js`, `vite.config`, `react-router.config`), 14 em
+`pages`/`hooks`/`features`/`utils`/`services`/`components`, 4 de entrypoint, 3 de infra
+(`docker-compose` prod+beta, `backend/src/server.ts`), 4 deleções da migração
+(`index.html`, `nginx.conf`, `App.tsx`, `main.tsx`), 4 renames de teste para o
+`catalog-table`, e 12 de resto.
+
+**ARMADILHA QUE FALHA EM SILÊNCIO — o `4bb3108` é ANTERIOR ao trabalho de segurança
+da #317.** Trazer o diff inteiro contra `dev` (98 arquivos) **reverteria** o DOMPurify
+e a rejeição de credencial no canonical, sem erro nenhum: os arquivos simplesmente
+voltariam à versão velha. Medido: `sanitizeServer.ts` **não existe** no `4bb3108`, e
+o `canonical.ts` de lá tem 0 ocorrências de "credencial embutida". **Excluir sempre
+`packages/content` e `packages/content-editor`** ao montar esta PR — são 9 arquivos, e
+os de `dev` são os bons.
+
+Duas outras armadilhas medidas ao montar a lista:
+
+- `git diff origin/dev...4bb3108` (três pontos) devolve **133**; o número real é o de
+  **dois pontos** (`origin/dev 4bb3108`), que compara conteúdo e devolve 98. Três
+  pontos lista tudo desde o ancestral comum, inclusive o que já entrou por outra PR.
+- `git checkout <sha> -- <lista>` **aborta o lote inteiro** se qualquer caminho for
+  deleção ou origem de rename. Separar: `awk '$1=="D"{next} $1 ~ /^R/{print $3} ...'`
+  para os que existem, `git rm` para as 4 deleções da migração e para as 4 origens dos
+  renames que vieram de `dev`.
 
 **Nada aqui é opcional e nada se descobre sozinho.** Cada item abaixo foi medido
 nesta spec; quem criar a PR 3 executa a lista, não a redescobre. A ordem importa:
@@ -2587,16 +2623,21 @@ Procedimento: criar a PR 3 de `origin/dev` já mergeado, trazer os arquivos com
 `git checkout 4bb3108 -- <caminhos>`, **aplicar as correções da tabela abaixo** e só
 então pushar.
 
-| arquivo | achado |
-|---|---|
-| `apps/mesas/frontend/server.js:20` | IP `172.18.0.0/16` hardcoded (hotspot de segurança) |
-| `apps/mesas/frontend/src/pages/MesaPage.tsx:25` | complexidade cognitiva 16 > 15 |
-| `apps/mesas/frontend/src/entry.client.tsx:23` | usar `RegExp.exec()` |
-| `apps/mesas/frontend/src/root.tsx:73` | usar `String.raw` no lugar do escape |
-| `apps/mesas/frontend/src/routes/{catalogo,mesa,mestre}.tsx` | `export…from` para re-exportar `default` |
-| `apps/mesas/frontend/Dockerfile:76,111` | fundir `RUN` consecutivos |
-| `apps/mesas/frontend/src/features/table/seo/tableMeta.ts:31` | optional chain |
-| `packages/catalog-table/src/contactUrls.ts:164` | complexidade de regex 21 > 20 |
+Estado em 2026-09-13, na branch `feat/102-f4-mesas-ssr`:
+
+| arquivo | achado | estado |
+|---|---|---|
+| `src/entry.client.tsx:23` | usar `RegExp.exec()` | **corrigido** |
+| `src/root.tsx:73` | usar `String.raw` | **corrigido** — de quebra elimina a pegadinha do `\\s`, que já custara um bug de tema piscando |
+| `src/routes/{catalogo,mesa,mestre}.tsx` | `export…from` para re-exportar `default` | **corrigido** nos três |
+| `src/features/table/seo/tableMeta.ts:31` | optional chain | **corrigido** (`parte?.trim()`) |
+| `server.js:20` | "IP `172.18.0.0/16` hardcoded" | **RECUSADO — falso-positivo.** Medido: a linha é `process.env.TRUSTED_PROXY_CIDR \|\| '172.18.0.0/16'`, env var com fallback, e o CIDR é o da rede interna do Docker. Mesma linha dos outros 6 apps Express do monorepo. É hotspot, não defeito |
+| `src/pages/MesaPage.tsx:25` | complexidade cognitiva 16 > 15 | pendente — refatoração de função |
+| `packages/catalog-table/src/contactUrls.ts:164` | complexidade de regex 21 > 20 | pendente — mexe em pacote compartilhado |
+| `Dockerfile:44,45,111` | fundir `RUN` consecutivos | pendente — tocar `Dockerfile` dispara a trava de `deploy-flow.md` §1 |
+
+Validação dos corrigidos: `pnpm build` repo-wide **27/27**, `mesas-frontend` **1139/1139**
+e `tsc -b` limpo, lint 0 erros, `verify:api` exit 0 com breaking=0.
 
 **Snyk — `qs@6.15.2` (2 CVE médios): CORRIGIDO na #317.** `CVE-2026-82562` (CWE-770,
 CVSS 6.3, parser sem limite efetivo) e `CVE-2026-82417` (CWE-248, CVSS 6.9, exceção
