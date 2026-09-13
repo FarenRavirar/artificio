@@ -554,6 +554,75 @@ export function sanitizeLegacyCommentHtml(input: string): string {
 }
 
 /**
+ * Política do HTML que o `markdown-it` acabou de produzir (spec 102 T4.2).
+ *
+ * Parte dos defaults da `sanitize-html` pelo mesmo motivo medido em
+ * `LEGACY_COMMENT_HTML_OPTIONS`: eles neutralizam os 10 vetores testados sem
+ * configuração, e recortar a lista faria sumir em silêncio marcação legítima.
+ * As duas regras próprias são as mesmas, e pela mesma razão — todo link aqui é
+ * de terceiro (`rel` contra reverse tabnabbing) e a plataforma é HTTPS-only.
+ *
+ * O acréscimo é o `<input type="checkbox" disabled>` das task lists, que
+ * `renderMarkdown` injeta ao traduzir `- [x]`. Sem ele na allowlist o item de
+ * tarefa perderia a caixa e viraria texto solto. `disabled` é obrigatório na
+ * saída: a caixa é indicador de estado, não controle — e `type` é limitado a
+ * `checkbox` para que nenhum outro tipo de campo entre por aqui.
+ */
+const RENDERED_MARKDOWN_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: [...sanitizeHtml.defaults.allowedTags, 'input'],
+  allowedAttributes: {
+    ...sanitizeHtml.defaults.allowedAttributes,
+    a: ['href', 'rel', 'target'],
+    li: ['class'],
+    input: ['type', 'disabled', 'checked'],
+  },
+  allowedSchemes: ['https', 'mailto'],
+  allowedSchemesAppliedToAttributes: ['href'],
+  disallowedTagsMode: 'discard',
+  // Mantém o `selfClosing` default da lib (`index.js:1030`): esvaziá-lo faz a
+  // `sanitize-html` FECHAR os void elements (`<input ...></input>`), que é HTML
+  // inválido — medido. A forma `<br />` que ela emite é XHTML, mas o parser HTML
+  // do navegador a trata como `<br>`, então a árvore reidratada é a mesma.
+  transformTags: {
+    ...LEGACY_COMMENT_HTML_OPTIONS.transformTags,
+    // Só a caixa de tarefa passa; qualquer outro `<input>` é descartado — é a
+    // diferença entre indicador de estado e campo de formulário em UGC.
+    //
+    // `disabled`/`checked` saem com valor vazio para casar com o que o DOM
+    // produz para atributo booleano; `disabled="disabled"` seria outra diferença
+    // de hidratação pelo mesmo motivo do `selfClosing`.
+    input: (tagName, attribs) =>
+      attribs.type === 'checkbox'
+        ? { tagName, attribs: { type: 'checkbox', disabled: '', ...(attribs.checked === undefined ? {} : { checked: '' }) } }
+        : { tagName: '', attribs: {} },
+  },
+};
+
+/**
+ * Sanitiza o HTML já renderizado pelo `markdown-it` — o caminho do SSR.
+ *
+ * Existe porque o `DOMPurify` que `renderMarkdown` usava **não funciona no
+ * servidor**: ele sanitiza pelo DOM real e, sem `window`, o import devolve uma
+ * fábrica não ligada. Medido no SSR do `mesas`:
+ * `TypeError: DOMPurify.sanitize is not a function`, respondendo `500` em
+ * `/mesas/<slug>` — a rota central da spec 102.
+ *
+ * A `sanitize-html` já era dependência deste pacote e roda nos dois lados, então
+ * a correção é usar UMA função para servidor e cliente, e não trocar de
+ * sanitizador por ambiente: políticas diferentes produziriam HTML diferente na
+ * hidratação, e o React descartaria o HTML do servidor — perdendo exatamente o
+ * conteúdo que o crawler precisa ler.
+ *
+ * Sem o pré-passo de sentinela de `sanitizeUserMarkdown`, pelo mesmo motivo já
+ * documentado em `markdownToPlainText`: aqui a entrada é HTML gerado pelo
+ * renderizador, onde toda tag é estrutura real e o `<` do usuário já foi
+ * escapado antes.
+ */
+export function sanitizeRenderedMarkdown(html: string): string {
+  return sanitizeHtml(html, { ...RENDERED_MARKDOWN_OPTIONS, parser: { decodeEntities: false } });
+}
+
+/**
  * Desfaz **só o escape do `&`** no texto plano — não o de `<`/`>`.
  *
  * O `&` é o único cujo escape é visível como defeito: `a & b` chegava ao leitor
