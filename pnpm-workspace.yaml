@@ -10,7 +10,15 @@ packages:
   - "scripts"
 overrides:
   "form-data@<4.0.6": ">=4.0.6"
-  "undici@<7.28.0": ">=7.28.0 <8"
+  # 10 CVEs medidas pelo Snyk em 2026-09-13, a pior CVE-2026-84961 (CWE-295,
+  # CVSS 9.1 crítica): validação imprópria de certificado. Junto vêm smuggling
+  # de request, cookie persistente com dado sensível e 3 de exceção não
+  # capturada. O teto `<8` mantém a major que os consumidores declaram.
+  "undici@<7.29.1": ">=7.29.1 <8"
+  # A faixa 8.x precisa de entrada PRÓPRIA: o teto `<8` acima não a alcança, e
+  # `downloads/backend` declara `undici@^8.10.0` direto — sem esta linha as 10
+  # CVEs seguiriam abertas lá. Mesmo padrão do `nanoid@<3.3.17` desta lista.
+  "undici@>=8.0.0 <8.10.2": ">=8.10.2 <9"
   "@opentelemetry/core@<2.8.0": ">=2.8.0"
   "nanoid@>=4.0.0 <5.0.9": ">=5.0.9"
   "uuid@<11.1.1": ">=11.1.1"

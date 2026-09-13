@@ -56,19 +56,27 @@ Os três passariam batido sob o limiar 4. O custo de um falso-positivo é uma fr
 ("medição de rotina, nada a registrar", que o motivo do bloqueio já autoriza); o do
 falso-negativo é trabalho perdido.
 
-**BUG LATENTE, corrigido em 2026-09-12 — a trava vivia num só commit.** O hook e a
-declaração `"Stop"` dele no `.claude/settings.json` existiam **apenas no commit
-`4bb3108`** (branch da PR #316). Não estavam em `origin/dev`, nem na branch da #317,
-nem em `~/.claude/hooks/` (medido: `grep -rln` nos três settings não achou a
-declaração; `git log --all` achou só o `4bb3108`). Consequência: fechar ou perder a
-#316 apagava silenciosamente o único mecanismo que cobra registro — e a falha seria
-invisível, porque hook ausente não dá erro, só deixa de cobrar. Ambos foram trazidos
-para a branch da #317. **Ao criar a PR 3, conferir que os dois seguem lá**
-(`grep registro-anti-compactacao .claude/settings.json` deve devolver 1).
+**BUG LATENTE, resolvido — a trava vivia num só commit.** O hook e a declaração
+`"Stop"` dele no `.claude/settings.json` existiam **apenas no commit `4bb3108`**
+(branch da PR #316): não estavam em `origin/dev`, nem na branch da #317, nem em
+`~/.claude/hooks/`. Fechar ou perder a #316 apagaria em silêncio o único mecanismo que
+cobra registro — hook ausente não dá erro, só deixa de cobrar. Os dois estão
+commitados em `57270d0` (PR #317). **Ao criar a PR 3, conferir que seguem lá**
+(`grep -c registro-anti-compactacao .claude/settings.json` deve devolver 1).
 
 Ao mexer no limiar, a suíte cobre os três caminhos: turno sem medição libera; **uma**
 medição sem registro cobra; uma medição **com** escrita em `specs/*/tasks.md` libera.
-Rodar `node .claude/hooks/registro-anti-compactacao.test.js` (19/19) e, porque a
+
+**Bug latente achado pelo Codex na #317 e corrigido:** baixar o limiar para 1 deixou
+DOIS testes afirmando o oposto da regra — `NÃO cobra turno de rotina` e
+`só conta o ÚLTIMO turno` usavam um `bash` solto no turno atual, que sob limiar 1
+**tem** que bloquear. Eles passavam **por acidente**, e um teste verde que afirma o
+contrário da regra é pior que teste ausente: garantiria silêncio no dia em que o
+limiar voltasse a subir. O primeiro virou `cobra turno com UM comando solto`; o
+segundo passou a provar o corte com um turno atual **sem** medição, que é o único
+caminho que ainda distingue "contou o anterior" de "contou o atual".
+
+Rodar `node .claude/hooks/registro-anti-compactacao.test.js` (21/21) e, porque a
 mudança passa pelo `settings.json`, as outras quatro suítes de hook —
 `git-commit-msg-gate` 9/9, `autorizacao-gate` 56/56, `deploy-contract-gate` 11,
 `rtk-enforce` 36/36. JSON quebrado ali derruba **todas** as travas do repo de uma vez,
@@ -2257,6 +2265,7 @@ Commits da #317, na branch `chore/102-imports-react-router`:
 |---|---|
 | `7ed7782` | import unificado `react-router` (39 arquivos) + `package.json`/override/`eslint.config.js` que o build exigiu + este registro |
 | `58305fb` | canonical do site + `lastmod` no sitemap (14 arquivos), vindo da #318 por `cherry-pick` |
+| `57270d0` | DOMPurify de volta no rich text (3 camadas), credencial barrada no canonical, override `qs@6.16.0`, hook de registro trazido do `4bb3108`, `AGENTS.md` enxugado (13 arquivos) |
 
 **Validação medida antes de cada commit:** `mesas/frontend` 1148/1148 (86 arquivos),
 `site` 155/155, `content` 22/22, `content-editor` 120/120, `tsc` limpo, lint 0 erros,
@@ -2404,10 +2413,41 @@ com procedimento escrito, não risco de segurança.
 #### RESOLVIDO (2026-09-13): DOMPurify de volta, em cadeia de TRÊS passagens
 
 Forma 3, escolhida pelo mantenedor: `DOMPurify(new JSDOM('').window)`, sem pacote
-novo e sem adotar o `isomorphic-dompurify` depreciado. `jsdom` movido de
-`devDependencies` para `dependencies` em `packages/content-editor` — vai ao bundle de
-produção de quem renderiza no servidor. `purify` é criado UMA vez no módulo: `new
-JSDOM()` por chamada custa caro num caminho que roda a cada render.
+novo e sem adotar o `isomorphic-dompurify` depreciado. `purify` é criado UMA vez no
+módulo: `new JSDOM()` por chamada custa caro num caminho que roda a cada render.
+
+**O `jsdom` entra por `createRequire`, NUNCA por `import` — e `jsdom` fica em
+`devDependencies`.** Medido no CI da #317 (2026-09-13, run 34737392287): com
+`import { JSDOM } from 'jsdom'` e `jsdom` em `dependencies`, o build de **TODOS os
+frontends** quebra em `Cannot find module '../data/patch.json'`. A cadeia é
+`app → @artificio/ui → @artificio/content-editor → jsdom → css-tree`, e o `css-tree`
+carrega esse JSON por require relativo que não sobrevive ao bundle. `createRequire` é
+opaco para o bundler: resolve em runtime, só no ramo do servidor.
+
+Os três checks de build da #317 caíram por esta única causa — `lint + build + test`,
+`CI links` e `CI site`, todos com `Cannot find module '../data/patch.json'`.
+
+**O quarto vermelho, `security/snyk`, era a mesma raiz com dano maior: 10 CVEs de
+`undici`**, todas `Introduced through @artificio/content-editor` — o `jsdom` em
+`dependencies` arrastava `undici` para os frontends. A pior é `CVE-2026-84961`
+(CWE-295, **CVSS 9.1 crítica**), validação imprópria de certificado; junto vêm
+smuggling de request, cookie persistente com dado sensível e três de exceção não
+capturada.
+
+**BUG LATENTE ACHADO NO CAMINHO, independente do erro acima:** o override
+`undici@<7.28.0` que já existia trava numa versão **anterior** à correção das 10 CVEs,
+e `apps/downloads/backend` declara `undici@^8.10.0` **direto** — faixa que o teto `<8`
+daquele override nem alcança. Ou seja, as 10 CVEs estavam abertas no `downloads`
+**antes** desta spec, e o override dava impressão de cobertura. Corrigido com DUAS
+entradas, porque uma não cobre as duas majors: `undici@<7.29.1` e
+`undici@>=8.0.0 <8.10.2`. Mesmo padrão do `nanoid@<3.3.17` da mesma lista.
+
+**Armadilha de diagnóstico, medida:** `pnpm --filter <pacote> test` e o build dos
+PACOTES passam — o defeito só aparece no build dos APPS. Validar mudança em
+`packages/*` rodando só a suíte do pacote é o erro que produziu isto; a matriz de
+impacto nos consumidores (§Escopo) existe exatamente para este caso. Ao mexer em
+dependência de `content-editor`, rodar `build` de `links`, `mesas-frontend`,
+`downloads-frontend` e `ui` antes de pushar.
 
 `sanitizeRenderedMarkdown` = `sanitize-html` → `DOMPurify` → `sanitize-html`. **Nenhuma
 das três é redundante**, e quem remover uma reabre um defeito:

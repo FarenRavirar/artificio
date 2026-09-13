@@ -147,9 +147,14 @@ t("escrita SÓ em código não conta como registro", () => {
   assert(bloqueou(r), "código não preserva estado da spec através da compactação");
 });
 
-t("NÃO cobra turno de rotina (poucas medições)", () => {
+// Era "NÃO cobra turno de rotina (poucas medições)", afirmando que um comando
+// solto não é investigação. Premissa do limiar 4, derrubada em 2026-09-12: com
+// `MINIMO_DE_MEDICOES = 1` esse turno cobra, e é o desenho — "a cada etapa". O
+// teste antigo passava por acidente e garantiria silêncio se o limiar voltasse
+// a subir. Achado do Codex (P2) na PR #317.
+t("cobra turno com UM comando solto (limiar 1)", () => {
   const r = roda([promptHumano("qual a branch?"), bash("git branch --show-current")]);
-  assert(!bloqueou(r), "um comando solto não é investigação");
+  assert(bloqueou(r), "uma medição sem registro é exatamente o que o gate pega");
 });
 
 t("NÃO cobra turno sem medição nenhuma", () => {
@@ -180,11 +185,14 @@ t("Grep e MCP de grafo contam como medição", () => {
   assert(bloqueou(r), "busca estrutural é medição tanto quanto Bash");
 });
 
+// O corte por turno continua valendo; o que mudou é a prova. Com limiar 1, um
+// `bash` no turno atual cobra sozinho, então ele não distingue mais "contou o
+// anterior" de "contou o atual". A prova do corte é o turno atual SEM medição:
+// se o anterior contaminasse, as 5 medições dele bloqueariam.
 t("só conta o ÚLTIMO turno", () => {
   const r = roda([
     ...turnoQueMediu, // turno anterior: mediu e não registrou
     promptHumano("agora só me diz oi"),
-    bash("echo oi"),
   ]);
   assert(!bloqueou(r), "turno anterior não contamina o atual");
 });

@@ -1,7 +1,7 @@
 import sanitizeHtml from 'sanitize-html';
 import MarkdownIt from 'markdown-it';
 import createDOMPurify from 'dompurify';
-import { JSDOM } from 'jsdom';
+import { createRequire } from 'node:module';
 
 /**
  * Remoção de HTML **sem escapar `<` e `>` que sobrevivem como texto**.
@@ -674,9 +674,15 @@ const RENDERED_MARKDOWN_OPTIONS: sanitizeHtml.IOptions = {
  *
  * No browser é o `window` real. No servidor o import devolve uma fábrica não
  * ligada — `TypeError: DOMPurify.sanitize is not a function`, que respondeu
- * `500` em `/mesas/<slug>` no SSR —, então a fábrica recebe uma janela do
- * `jsdom`. É por isso que `jsdom` é `dependencies` e não `devDependencies`
- * neste pacote: sai no bundle de produção de quem renderiza no servidor.
+ * `500` em `/mesas/<slug>` no SSR —, então a fábrica recebe uma janela do `jsdom`.
+ *
+ * O `jsdom` entra por `createRequire`, e NUNCA por `import`. Medido em 2026-09-13:
+ * com `import { JSDOM } from 'jsdom'` o bundler de browser segue a cadeia
+ * `app → @artificio/ui → content-editor → jsdom → css-tree` e o build de TODOS os
+ * frontends quebra em `Cannot find module '../data/patch.json'` (o `css-tree`
+ * carrega esse JSON por require relativo). `createRequire` é opaco para o
+ * bundler: a resolução acontece em runtime, só no ramo do servidor, e o `jsdom`
+ * volta a ser `devDependencies` — nenhum frontend o empacota.
  *
  * Criada UMA vez, no módulo: `new JSDOM()` por chamada custa caro num caminho
  * que roda a cada render de comentário.
@@ -690,7 +696,9 @@ const purify = (() => {
   if (janela && typeof (janela as { document?: unknown }).document === 'object') {
     return createDOMPurify(janela as unknown as Parameters<typeof createDOMPurify>[0]);
   }
-  return createDOMPurify(new JSDOM('').window as unknown as Parameters<typeof createDOMPurify>[0]);
+  const exigir = createRequire(import.meta.url);
+  const { JSDOM } = exigir('jsdom') as { JSDOM: new (html: string) => { window: unknown } };
+  return createDOMPurify(new JSDOM('').window as Parameters<typeof createDOMPurify>[0]);
 })();
 
 /**

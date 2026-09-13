@@ -39,11 +39,18 @@ export function renderMarkdown(value: string): string {
     (_match, paragraph: string | undefined, state: string) =>
       `<li class="task-list-item">${paragraph ?? ''}<input type="checkbox" disabled${state === ' ' ? '' : ' checked'}> `,
   );
-  // `sanitize-html` e não `DOMPurify` (spec 102 T4.2): o DOMPurify sanitiza pelo
-  // DOM real e, sem `window`, o import devolve fábrica não ligada — o SSR
-  // respondia `500` com `DOMPurify.sanitize is not a function`. A `sanitize-html`
-  // já era dependência deste pacote e roda igual nos dois lados, que é o que
-  // impede o HTML do servidor de divergir do HTML do cliente na hidratação.
+  // Três camadas, e nenhuma é dispensável (detalhe em `sanitize.ts`):
+  // `sanitize-html` aplica a política → `DOMPurify` cobre o que sanitizador de
+  // string erra (mutation XSS, SVG/MathML), como o AGENTS.md exige para rich
+  // text → `sanitize-html` devolve a serialização, porque o DOMPurify normaliza
+  // `<br />` para `<br>` e essa forma foi escolhida para a hidratação.
+  //
+  // No servidor o DOMPurify recebe uma janela do `jsdom`, carregada por
+  // `createRequire` para não entrar no bundle do navegador. Achado do Codex (P2)
+  // na PR #317: o comentário anterior dizia "sanitize-html e não DOMPurify",
+  // descrevendo uma implementação que já não existia — documentar o inverso do
+  // código num caminho de segurança convida a próxima manutenção a remover uma
+  // camada obrigatória.
   return sanitizeRenderedMarkdown(rendered);
 }
 
