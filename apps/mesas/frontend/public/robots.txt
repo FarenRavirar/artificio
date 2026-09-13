@@ -1,4 +1,28 @@
 User-agent: *
 Allow: /
 
+# Crawlers de busca generativa (spec 102 T4.6).
+#
+# O curinga acima já os permitia — nomeá-los não muda a permissão. O que muda é
+# que a intenção passa a estar escrita: um `Disallow` futuro sob `User-agent: *`
+# deixaria de derrubá-los sem que ninguém percebesse o efeito colateral.
+#
+# Permitir, sozinho, não entregava nada: nenhum destes executa JavaScript, e até
+# a spec 102 T4.2 este app servia casca vazia (3.328 B, sem título de mesa e sem
+# ld+json). É o SSR isomórfico daquela task que dá conteúdo a estas linhas.
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
 Sitemap: https://mesas.artificiorpg.com/sitemap.xml

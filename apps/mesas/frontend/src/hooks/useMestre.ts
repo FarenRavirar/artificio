@@ -196,12 +196,24 @@ interface GmProfilePayload {
   data: MestrePublicData;
 }
 
-export function useMestre(slug?: string) {
-  const [profile, setProfile] = useState<MestrePublicData | null>(null);
-  const [loading, setLoading] = useState(true);
+/**
+ * T4.2 (spec 102): `seeded` é o perfil que o `loader` já buscou no servidor.
+ *
+ * Quando ele existe, o hook nasce com o dado pronto e NÃO refaz o fetch — é o
+ * que põe o conteúdo do mestre no HTML do primeiro byte, em vez de "carregando"
+ * para o crawler, que não executa JS. Sem `seeded` (nenhuma rota hoje), o
+ * comportamento antigo de buscar por efeito continua valendo.
+ */
+export function useMestre(slug?: string, seeded?: MestrePublicData | null) {
+  const [profile, setProfile] = useState<MestrePublicData | null>(seeded ?? null);
+  const [loading, setLoading] = useState(!seeded);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Perfil semeado pelo `loader` já é o dado final desta rota; refazer o
+    // request no cliente só produziria um segundo GET idêntico por navegação.
+    if (seeded) return;
+
     const controller = new AbortController();
 
     const loadProfile = async () => {
@@ -237,7 +249,23 @@ export function useMestre(slug?: string) {
 
     loadProfile();
     return () => controller.abort();
-  }, [slug]);
+  }, [slug, seeded]);
+
+  // Navegar de um mestre para outro no cliente troca `seeded` sem desmontar o
+  // componente: sem isto, a página manteria o perfil anterior sob o slug novo.
+  //
+  // Ajuste durante o render e não `useEffect` (`react-hooks/set-state-in-effect`):
+  // o efeito só roda DEPOIS da pintura, então havia um quadro em que a tela já
+  // mostrava o mestre anterior sob a URL nova. Comparando aqui, o React descarta
+  // o render e refaz com o dado certo antes de pintar — o perfil errado nunca
+  // chega à tela.
+  const [seededShown, setSeededShown] = useState(seeded ?? null);
+  if (seeded && seeded !== seededShown) {
+    setSeededShown(seeded);
+    setProfile(seeded);
+    setError(null);
+    setLoading(false);
+  }
 
   const links = useMemo(() => profile?.links ?? [], [profile]);
 

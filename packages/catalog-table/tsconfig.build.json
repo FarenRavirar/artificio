@@ -1,0 +1,8 @@
+// Projeto de EMIT, separado do `tsconfig.json` pelo mesmo motivo que em
+// `catalog-matching`: o lint type-aware precisa que teste esteja DENTRO de um
+// projeto, e o `dist` (copiado para as imagens de produção) precisa que teste
+// fique FORA — teste compilado importaria `vitest`, ausente em produção.
+{
+  "extends": "./tsconfig.json",
+  "exclude": ["src/**/*.test.ts"]
+}

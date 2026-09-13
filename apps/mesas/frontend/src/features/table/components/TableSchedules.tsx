@@ -1,5 +1,6 @@
 import type { TableViewModel } from '../types/tableView.types';
 import { Calendar, Clock, Repeat } from 'lucide-react';
+import { formatarDataCurta } from '../../../utils/formatDate';
 
 const dayAbbrev: Record<string, string> = {
   segunda: 'SEG',
@@ -85,7 +86,8 @@ export function TableSchedules({ vm }: TableSchedulesProps) {
 
           {vm.startsAt && (
             <p className="mt-4 text-sm text-white/60">
-              Início: {new Date(vm.startsAt).toLocaleDateString('pt-BR')}
+              {/* Fuso fixo — renderizado no SSR; ver `utils/formatDate.ts`. */}
+              Início: {formatarDataCurta(vm.startsAt)}
             </p>
           )}
         </>

@@ -374,8 +374,8 @@ mesa e do `<div id="root">` no corpo do `410`; e as duas rotas de `/og/mestre/`.
 5. nenhuma expirada no sitemap — ✅ T1.4, commit `826b44f`.
 
 **Bloqueio:** só chega ao Google **após deploy do `mesas`** (aprovação nominal).
-Branch `fix/102-f1-mesas-soft404`, criada de `origin/dev` `25b6b7c`. **Nada commitado
-ainda.**
+Mergeado em `origin/dev` pela **PR #315** (2026-09-12); a branch
+`fix/102-f1-mesas-soft404` foi a origem.
 
 ---
 
@@ -947,8 +947,9 @@ vivem só no frontend. Por §"Compartilhado por padrão", sobem para pacote comp
 que é escrita em tunnel de produção e roda no momento do deploy (§Autorização),
 não antes.
 
-Nada commitado. `pnpm-lock.yaml` e `Dockerfile` modificados → o
-`deploy-contract-gate` cobra `deploy-flow.md` §1 no commit.
+Commitado e pushado na **PR #319** (branch `feat/102-f4-mesas-ssr`, 5 commits de
+`b7a03ed` a `57abff8`), **ainda não mergeada**. `pnpm-lock.yaml` e `Dockerfile`
+entraram no `b7a03ed`, com o `deploy-contract-gate` cobrando `deploy-flow.md` §1.
 
 **Entrega.** Conteúdo e schema no HTML inicial, **iguais para todo user-agent**.
 Elimina por construção a divergência bot↔usuário que produziu B, C e E.
@@ -1586,7 +1587,7 @@ foi silenciado com `eslint-disable`.
 
 | defeito | correção |
 |---|---|
-| 40 erros em `.react-router/` | diretório **gerado** pelo `typegen`: entrou em `globalIgnores` do eslint e no `.gitignore` (junto de `.astro/`) |
+| 40 erros em `.react-router/` | diretório **gerado** pelo `typegen`: entrou em `globalIgnores` do eslint (`eslint.config.js:14`). **A linha do `.gitignore` só entrou em 2026-09-13** — este registro afirmava as duas desde o início, mas `git check-ignore` devolvia "NAO IGNORADO" e os 29 arquivos apareciam em todo `git add -A`, que é o que a armadilha do fim deste documento descreve |
 | 8 `only-export-components` em `root.tsx`/`routes/*` | rota **tem** que exportar `loader`/`meta` ao lado do componente — exceção por caminho, a regra segue valendo no resto do app |
 | `entry.server.tsx:25` `_loadContext` | `argsIgnorePattern: '^_'`, mesmo padrão de `apps/accounts/eslint.config.js:24`; é parâmetro posicional da assinatura do React Router |
 | 4 `react-hooks/refs` em `useUrlState.ts` | `useRef` lido/escrito durante o render → `useState` com ajuste no render |
@@ -2250,9 +2251,20 @@ hoje o único lugar com os 133 arquivos juntos.
 
 | PR | estado | conteúdo | arquivos |
 |---|---|---|---|
-| **#317** | **ABERTA, é esta que vale** | 2 commits: imports unificados + canonical/`lastmod` | **60** (56 contra o teto) |
-| #318 | aberta, **redundante — pode fechar** | duplicata: tudo que ela tem está na #317 | 14 |
+| **#317** | **ABERTA, é esta que vale** | 5 commits: imports **+ canonical/`lastmod`** + DOMPurify/segurança | **69** (62 contra o teto) |
+| #318 | aberta, **sem conteúdo próprio** | `comm -23` contra a #317 devolve vazio | 14 |
 | #316 | aberta, **NÃO FECHAR** | o monólito de 133 arquivos; fonte da PR 3 | 133 |
+
+**O plano de 3 PRs deixou de existir na prática (2026-09-13).** Era: (1) imports,
+(2) canonical/`lastmod`, (3) SSR. O mantenedor pediu que o conteúdo da #318 fosse
+para a #317 por `cherry-pick`, e o agente executou **sem avisar que isso desmontava
+a separação que ele mesmo propusera** — o mantenedor só descobriu ao pedir "prepare a
+PR 2" e não haver PR 2. Medido: os 9 arquivos de `apps/site` + `packages/content`
+estão dentro da #317, e a #318 não tem um arquivo sequer que a #317 não tenha.
+
+A separação existia por causa do teto de 100 arquivos do CodeRabbit, e a #317 cumpre
+esse objetivo com 62. **Resta uma PR, não duas:** a PR 3 (`catalog-table` + migração
+SSR do `mesas`), com **71 arquivos** depois de descontar o que já está na #317.
 
 **Provado, não afirmado** (2026-09-12): `comm -23` entre as listas de arquivos das
 branches da #318 e da #317 devolveu **vazio** — não existe um arquivo sequer na #318
@@ -2268,6 +2280,19 @@ Commits da #317, na branch `chore/102-imports-react-router`:
 | `57270d0` | DOMPurify de volta no rich text (3 camadas), credencial barrada no canonical, override `qs@6.16.0`, hook de registro trazido do `4bb3108`, `AGENTS.md` enxugado (13 arquivos). **Quebrou o build de todos os frontends e introduziu 10 CVEs — corrigido pelo commit seguinte, não usar como referência** |
 | `5c8c3e5` | overrides de `undici` nas duas majors e os 2 achados do Codex (comentário do `ContentEditor.tsx`, 2 testes do hook que passavam por acidente). **A tentativa de tirar o `jsdom` do bundle por `createRequire` NÃO funcionou — levou de 4 para 7 checks vermelhos** |
 | `892c22d` | separação por entrada: `sanitizeServer.ts` server-only com DOMPurify+JSDOM, `sanitize.ts` puro. É o commit que de fato fecha o problema — `pnpm build` 26/26 e `pnpm lint` 26/26 rodados antes de pushar (9 arquivos) |
+| `db59da8` | `colher.sh`: contador `RECUSAS` separado de `FALHAS` (recusa de review não é consulta que falhou), e registro do falso-positivo do Sonar e dos 2 achados recusados (2 arquivos) |
+
+Commits da PR **#319**, na branch `feat/102-f4-mesas-ssr` (criada de `origin/dev`
+`49ac4b1`, o merge da #317):
+
+| commit | o quê |
+|---|---|
+| `b7a03ed` | a migração SSR: `catalog-table`, 24 rotas, entrypoints, `server.js`, Dockerfile, composes na porta 3000, e as 4 deleções (`index.html`, `nginx.conf`, `App.tsx`, `main.tsx`) — 83 arquivos. **NÃO levou as 4 correções do Sonar**: foram editadas depois do `git add` e ficaram de fora |
+| `b75a224` | as 4 correções do Sonar que faltaram (`RegExp.exec`, `String.raw`, `export…from` nas 3 rotas, optional chain). Quem pegou o buraco foi o `pre-push`, não o commit |
+| `1b666d7` | 7 achados dos dois ciclos de review, 5 deles bugs invisíveis em log (ver blocos acima) + os overrides de `qs`/`undici` restaurados — 13 arquivos |
+| `abd773c` | 3 achados do terceiro ciclo (dev local quebrado, preço zero em mesa paga, data sem fuso no SSR) + a linha do `.react-router/` que faltava no `.gitignore` — 11 arquivos |
+| `57abff8` | 4 achados do quarto e quinto ciclos, **2 deles em `packages/ui`** (snapshot de tema e badge do changelog, ambos divergindo na hidratação), o `replace()` nos 6 aliases e o DDD 55 no WhatsApp — 8 arquivos |
+| `3d6ff5c` | `description` estourando 160 com cauda longa, `Product` sem propriedade qualificadora (correção de uma correção do `abd773c`) e o smoke de ingress morto por `ENOENT` desde `b7a03ed` + a reescrita desta seção (−207/+109) — 4 arquivos |
 
 **Validação medida antes de cada commit:** `mesas/frontend` 1148/1148 (86 arquivos),
 `site` 155/155, `content` 22/22, `content-editor` 120/120, `tsc` limpo, lint 0 erros,
@@ -2311,9 +2336,54 @@ nenhum** — não há corte parcial. Por isso 39 arquivos, não 33.
 
 ### O que falta — CHECKLIST EXECUTÁVEL DA PR 3
 
-**PR 3 — `packages/catalog-table` + migração SSR do `mesas`** (~76 arquivos), a ser
-criada **de `origin/dev` depois do merge da #317**. Antes disso não: os 39 imports
-reapareceriam no diff dela e ela voltaria a ultrapassar o teto.
+**PR 3 — branch `feat/102-f4-mesas-ssr`, criada de `origin/dev` (`49ac4b1`, merge da
+#317) em 2026-09-13: 88 arquivos, 80 contra o teto.**
+
+Composição: 24 em `src/routes/`, 14 no `catalog-table`, 9 na raiz do frontend
+(`Dockerfile`, `server.js`, `vite.config`, `react-router.config`), 14 em
+`pages`/`hooks`/`features`/`utils`/`services`/`components`, 4 de entrypoint, 3 de infra
+(`docker-compose` prod+beta, `backend/src/server.ts`), 4 deleções da migração
+(`index.html`, `nginx.conf`, `App.tsx`, `main.tsx`), 4 renames de teste para o
+`catalog-table`, e 12 de resto.
+
+**ARMADILHA QUE FALHA EM SILÊNCIO — o `4bb3108` é ANTERIOR ao trabalho de segurança
+da #317.** Trazer o diff inteiro contra `dev` **reverteria**, sem erro nenhum, tudo o
+que entrou depois: os arquivos simplesmente voltam à versão velha.
+
+São **18 arquivos**, em três grupos, e cada grupo foi descoberto DEPOIS do anterior —
+o terceiro só apareceu quando o Snyk reclamou na PR já aberta:
+
+| grupo | arquivos | prova medida |
+|---|---|---|
+| `packages/content` + `content-editor` | 9 | `sanitizeServer.ts` **não existe** no `4bb3108`; `canonical.ts` de lá tem 0 ocorrências de "credencial embutida" |
+| governança | 7 — `AGENTS.md`, `.gitignore`, os 2 do hook `registro-anti-compactacao`, `ciclo-de-review/{SKILL.md,colher.sh}` | `AGENTS.md` tinha **10.076 palavras** contra **6.781** em `dev`; o hook voltava ao limiar 4; o `colher.sh` perdia `RECUSAS` |
+| **resolução de dependência** | 2 — `pnpm-workspace.yaml`, `pnpm-lock.yaml` | **reverteu 3 overrides de CVE**: `qs` 6.16.0 → **6.15.2** (2 CVEs), `undici` 7.29.1 → **7.29.0** e 8.10.2 → **8.10.0** (10 CVEs, uma **CVSS 9.1 crítica** de validação de certificado) |
+
+**Conferir "arquivo por arquivo" NÃO basta — foi o que falhou.** O grupo 3 passou
+mesmo depois de o grupo 2 ter sido pego, porque a conferência foi por lista nomeada e
+o lock não estava na lista. O certo é `git diff --cached origin/dev --stat` e olhar
+**tudo** que difere, sem lista prévia.
+
+**E o lock de `dev` não serve puro:** ele não conhece pacote novo criado na branch
+(`packages/catalog-table` → 0 ocorrências). Restaurar de `dev` e **regenerar** com
+`pnpm install --lockfile-only`, conferindo depois que os overrides sobreviveram
+(`grep -nE "^  (qs|undici)@"`) e que `@babel/core` continua com as entradas base
+(canário do E021).
+
+**E `git add` de novo depois de editar arquivo já staged.** Medido nesta PR: as 4
+correções do Sonar foram escritas DEPOIS do `git add`, e o commit `b7a03ed` levou a
+versão anterior a elas. Quem pegou foi o `pre-push` (`verify:api` acusou arquivos
+versionados alterados e recusou o push), não o commit — que saiu verde.
+
+Duas outras armadilhas medidas ao montar a lista:
+
+- `git diff origin/dev...4bb3108` (três pontos) devolve **133**; o número real é o de
+  **dois pontos** (`origin/dev 4bb3108`), que compara conteúdo e devolve 98. Três
+  pontos lista tudo desde o ancestral comum, inclusive o que já entrou por outra PR.
+- `git checkout <sha> -- <lista>` **aborta o lote inteiro** se qualquer caminho for
+  deleção ou origem de rename. Separar: `awk '$1=="D"{next} $1 ~ /^R/{print $3} ...'`
+  para os que existem, `git rm` para as 4 deleções da migração e para as 4 origens dos
+  renames que vieram de `dev`.
 
 **Nada aqui é opcional e nada se descobre sozinho.** Cada item abaixo foi medido
 nesta spec; quem criar a PR 3 executa a lista, não a redescobre. A ordem importa:
@@ -2577,26 +2647,139 @@ SUCCESS+completed não).
 nesta rodada (2026-09-12). As três correções entram sem suíte executada; o CI da PR é
 quem mede.
 
-**Ficam para a PR 3 — REPARAR ASSIM QUE A #317 FOR MERGEADA.** Decisão do mantenedor
-(2026-09-12). Estes arquivos não existem na branch da #317: eles vivem no commit
-`4bb3108` e só reaparecem quando a PR 3 for criada. **Primeira coisa a fazer depois do
-merge da #317**, antes de pedir review da PR 3 — senão o Sonar reencontra os mesmos 11
-achados e queima outra janela de review.
+**Condição cumprida — nada pendente aqui.** Estes arquivos ficaram para a PR 3 por
+decisão do mantenedor (2026-09-12), a serem restaurados de `4bb3108` assim que a #317
+mergeasse. A #317 mergeou em 2026-09-13 (`49ac4b1`), a PR 3 é a **#319**, e os arquivos
+entraram nela pelo commit `b7a03ed`. O bloco fica como registro da armadilha, não como
+instrução a executar.
 
-Procedimento: criar a PR 3 de `origin/dev` já mergeado, trazer os arquivos com
-`git checkout 4bb3108 -- <caminhos>`, **aplicar as correções da tabela abaixo** e só
-então pushar.
+### Achados de review da #319 — o que ainda decide alguma coisa
 
-| arquivo | achado |
-|---|---|
-| `apps/mesas/frontend/server.js:20` | IP `172.18.0.0/16` hardcoded (hotspot de segurança) |
-| `apps/mesas/frontend/src/pages/MesaPage.tsx:25` | complexidade cognitiva 16 > 15 |
-| `apps/mesas/frontend/src/entry.client.tsx:23` | usar `RegExp.exec()` |
-| `apps/mesas/frontend/src/root.tsx:73` | usar `String.raw` no lugar do escape |
-| `apps/mesas/frontend/src/routes/{catalogo,mesa,mestre}.tsx` | `export…from` para re-exportar `default` |
-| `apps/mesas/frontend/Dockerfile:76,111` | fundir `RUN` consecutivos |
-| `apps/mesas/frontend/src/features/table/seo/tableMeta.ts:31` | optional chain |
-| `packages/catalog-table/src/contactUrls.ts:164` | complexidade de regex 21 > 20 |
+Seis rodadas de review (Codex, CodeRabbit, Sonar, Snyk). O *porquê* de cada correção
+vive no comentário do código que ela tocou, com o achado e a PR citados — aqui fica só
+o que a doc precisa guardar: o que entregou, o que bloqueia e o que precisa da sua
+conferência. A tabela de estado abaixo lista os arquivos, um por linha.
+
+**O padrão que se repetiu, e é o aprendizado transferível:** dos 13 defeitos
+corrigidos, **10 falhavam em silêncio** — nenhum erro em log, nenhum teste vermelho.
+Cache vazando entre visitantes, WhatsApp abrindo conversa com a pessoa errada, tela de
+mesa encerrada sem nenhum campo, overlay cobrindo a aplicação com o backend saudável,
+oferta gratuita publicada para mesa paga. O que os une: **eram caminhos sem teste
+nenhum**. O CTA de WhatsApp não tinha um único caso; os aliases de rota não tinham; o
+JSON-LD sem preço não tinha. Review de bot encontrou o que o CI não tinha como
+encontrar.
+
+**Dois foram regressões introduzidas pela própria migração F4**, não defeitos
+herdados: o `replace` perdido nos 6 aliases de rota (`<Navigate replace />` virou
+`redirect()`, que empilha histórico e prende o Voltar) e o smoke de ingress morto por
+`ENOENT` (a F4 removeu o `nginx.conf` que o script lia na primeira linha, anulando 14
+asserções de `accounts`, `site`, `glossario` e dos dois backends).
+
+**Um foi correção de correção:** ao tirar o preço `"0.00"` de mesa paga sem valor,
+deixei um `Product` sem `offers` — e `Product` exige `name` MAIS uma propriedade
+qualificadora (`offers`/`review`/`aggregateRating`); `brand` e `image` não servem.
+Trocar preço errado por markup inválido é troca ruim. A saída é não emitir JSON-LD
+nesse estado.
+
+**Recusas, com a medição que sustenta cada uma.** Estão aqui porque a tabela de
+estado não as carrega, e porque bot que repete o pedido a cada rodada precisa de uma
+resposta estável — se o achado voltar, a resposta é esta, sem reinvestigar:
+
+- **`useUrlState.ts` com `ref` (o CodeRabbit pediu três vezes).** O arquivo **não está
+  no diff desta PR** e o comportamento pedido já existe em `:110-127`, feito com
+  `useState`. A versão `useRef` foi REJEITADA e consta em `:1592` desta spec como um
+  dos 55 erros de lint corrigidos (`react-hooks/refs`: ler/escrever ref durante o
+  render quebra a pureza e, sob renderização concorrente, devolve valor de passagem
+  descartada). Aceitar desfaria a correção.
+- **Loader SSR em `/mestres/:masterId`.** A rota **não é indexável**: `sitemap.ts:28-29`
+  publica só a raiz e `/mesas/:slug`. A rota pública de mestre é `/mestre/:slug`, que
+  já tem loader e é a canônica que o `og.ts:210` emite. Rota por ID, fora do sitemap,
+  sem link interno — nenhum crawler chega nela. Escopo novo, não correção de review.
+- **Snapshot de tema derivado do cookie da requisição.** O Codex afirmou que fixar
+  `dark` regrediu o `site` via `client:idle`. **Medido: não regrediu.**
+  `SiteHeader.astro:10` emite `class="artificio-header"` SEM `data-variant` e traz os
+  dois logos alternados por CSS (`.logo-navy`/`.logo-neg`); o `ThemeToggle` só existe
+  dentro da ilha. No `site` o chrome sempre dependeu do `data-theme` do `<html>`,
+  nunca do snapshot. O fundo do achado continua válido para o `mesas` — ver pendências.
+- **`formatWhatsAppDisplay` com o mesmo defeito do DDD 55** — sondado, não presumido:
+  a regex é ancorada nas duas pontas, então `55999999999` devolve
+  `DDD=55 numero=999999999` e `5532221234` devolve `DDD=55 numero=32221234`, ambos
+  corretos. Nenhuma edição.
+- **Fundir os `RUN` do `Dockerfile` (Sonar)** e **o CIDR `172.18.0.0/16` "hardcoded"
+  no `server.js:20`** — os dois recusados com medição na tabela de estado abaixo.
+
+**Pendências que precisam de decisão do mantenedor** (nenhuma é bloqueio de merge):
+
+1. **Foco não contido no overlay de indisponibilidade** (`root.tsx:129`). Procede: não
+   há `role`, `aria-modal`, `inert` nem focus trap, e o teclado tabula por controles
+   invisíveis sob a camada. Não entrou como remendo porque mexe em comportamento de
+   foco de componente compartilhado (`BackendStatusScreen`) e é mudança de UI, que o
+   `AGENTS.md` manda passar pela `wcag-accessibility-audit`.
+2. **Snapshot de tema no SSR** (`packages/ui/src/theme.tsx`). Fixar `dark` — o default
+   do script inline sem cookie — resolve para quem não tem cookie e inverte o público
+   afetado para quem tem `light`, em vez de eliminar a divergência. A saída definitiva
+   é o markup inicial não depender do snapshot, o que **exige contexto por requisição
+   e muda contrato nos 6 apps consumidores**. Pendência também no comentário do
+   próprio `theme.tsx`.
+
+**Armadilha de validação que derrubou o CI da #319 (run `34776296657`): `pnpm test`
+verde NÃO implica `typecheck` verde.** O `vitest` não checa tipo, e o script
+`typecheck` do `mesas-frontend` é `react-router typegen && tsc -b`, que **inclui os
+arquivos de teste**. O `3d6ff5c` foi pushado com `1152/1152` e build verde, e o CI
+reprovou com **13 erros `TS18047`** em `tableMeta.test.ts` — o helper `jsonLdOf`
+devolvia `{ product: null, offer: null }` desde que `buildTableJsonLd` passou a poder
+devolver `null`, e nenhum `expect` estreitava. Corrigido fazendo o helper lançar: o
+ramo sem markup tem teste próprio, que chama `buildTableJsonLd` direto. **Rodar
+`typecheck` além de `test`/`lint`/`build` antes de pushar mudança de assinatura.**
+
+**Armadilhas do ambiente de teste do `packages/ui`** (custaram 2 rodadas vermelhas;
+quem for escrever teste com DOM aqui precisa das três):
+
+- **`window.localStorage` do jsdom 29 deste pacote é objeto liso** — sondado:
+  `proto: Object`, `setItem: undefined`, `clear: undefined`. `Storage` existe como
+  função global mas não está ligado a essa instância, então espiar `Storage.prototype`
+  também não a alcança. O teste instala o próprio por `Object.defineProperty`.
+- **Sem `setupFiles`, o auto-cleanup do testing-library não é registrado** — o DOM
+  acumula entre casos e `getByTestId` falha com "Found multiple elements". `cleanup()`
+  explícito no `afterEach`. A ausência de `setupFiles` é decisão registrada no
+  `vitest.config.ts` do pacote, não descuido.
+- **O header que o helper `replace()` emite é `X-Remix-Replace: 'true'`**, não
+  `'yes'` — afirmei `'yes'` sem medir, e o teste falhou por isso.
+
+Estado em 2026-09-13, na branch `feat/102-f4-mesas-ssr`. A coluna diz onde cada
+correção está: **em commit pushado** ou **só no working tree** (não commitada).
+
+| arquivo | achado | estado |
+|---|---|---|
+| `src/features/table/seo/tableMeta.ts:41` | `description` estourava 160 com cauda longa: o piso de 60 para a sinopse era incondicional. Medido com dado real — "Little Fears – The Role-playing Game of Childhood Terror" (56 chars, um dos 682 sistemas) + modalidade/nível/preço/vagas dá cauda 108 e description **172**. O teste que existia usava `Dungeons & Dragons` (18 chars) e nunca chegava lá | `3d6ff5c` — piso só vale enquanto cabe; cauda longa trunca a sinopse até sumir. Medido depois: 172 → 108, nenhum caso estoura |
+| `scripts/ci/check_ingress_realip_contract.mjs:9` | guard morria com `ENOENT` desde `b7a03ed` (lia o `nginx.conf` removido), anulando 14 asserções | `3d6ff5c` — inspeciona `server.js`; medido `ENOENT` → `smoke OK` |
+| `src/features/table/seo/tableMeta.ts` | omitir só a `Offer` deixava `Product` sem propriedade qualificadora — inválido no Rich Results | `3d6ff5c` — sem preço publicável não sai JSON-LD nenhum. O `null` no retorno é o que quebrou o `typecheck` do CI (ver armadilha acima); teste corrigido no working tree |
+| `packages/catalog-table/src/contactUrls.ts:114` | DDD 55 (Santa Maria/RS) confundido com código de país | `57abff8` — decisão por comprimento (10-11 local, 12-13 com país), 7 testes |
+| `packages/ui/src/theme.tsx:120` | snapshot SSR `"light"` fixo contra `dark` do script inline | `57abff8` — snapshot `dark`; leitura do cookie na requisição segue pendente |
+| `packages/ui/src/hooks.ts:6` | badge lia `localStorage` no primeiro render, divergindo do servidor | `57abff8` — leitura movida para `useEffect` |
+| `src/routes/redirect.tsx` | `redirect()` empilhava histórico; era `<Navigate replace />` antes da F4 | `57abff8` — helper `replace()`, 4 testes novos |
+| `src/lib/apiUrl.ts:25` | dev local resolve `mesas-api`, que não existe fora do Docker | `abd773c` — padrão por `import.meta.env.DEV` |
+| `src/features/table/seo/tableMeta.ts:88` | mesa paga sem preço publicava `"0.00"` | `abd773c` — corrigido pela metade; refeito no working tree (ver 2ª linha) |
+| `src/pages/MesaPage.tsx:100`, `TableSchedules.tsx:88` | data sem `timeZone` diverge entre SSR e hidratação | `abd773c` — `utils/formatDate.ts` com `America/Sao_Paulo` |
+| `src/root.tsx:129` | overlay sem foco contido nem semântica modal | **pendente de decisão** — ver pendência 1 acima |
+| `src/entry.client.tsx:23` | usar `RegExp.exec()` | `b75a224` |
+| `src/root.tsx:73` | usar `String.raw` | `b75a224` — de quebra elimina a pegadinha do `\\s`, que já custara um bug de tema piscando |
+| `src/routes/{catalogo,mesa,mestre}.tsx` | `export…from` para re-exportar `default` | `b75a224` nos três |
+| `src/features/table/seo/tableMeta.ts:31` | optional chain | `b75a224` (`parte?.trim()`) |
+| `server.js:20` | "IP `172.18.0.0/16` hardcoded" | **RECUSADO — falso-positivo.** Medido: a linha é `process.env.TRUSTED_PROXY_CIDR \|\| '172.18.0.0/16'`, env var com fallback, e o CIDR é o da rede interna do Docker. Mesma linha dos outros 6 apps Express do monorepo. É hotspot, não defeito |
+| `src/pages/MesaPage.tsx:25` | complexidade cognitiva 16 > 15 | pendente — refatoração de função |
+| `packages/catalog-table/src/contactUrls.ts:164` | complexidade de regex 21 > 20 | pendente — mexe em pacote compartilhado |
+| `Dockerfile:76,111` | fundir `RUN` consecutivos | **RECUSADO — pediria para reintroduzir defeito já corrigido.** O próprio arquivo registra na L118: *"Asserção separada do install de propósito (achado de review, PR #268): no encadeamento `pnpm install && test … \|\| echo ERRO`, falha de rede ou de lockfile caía no mesmo `\|\|` e era reportada como 'dependência ausente' — diagnóstico errado num build que quebra por outro motivo."* O par L76/L82 tem motivo análogo: fundir `apk add` com `corepack enable` invalida a camada de patch de segurança a cada troca de versão do pnpm |
+
+Validação, por pacote — as correções alcançaram `packages/ui` e
+`packages/catalog-table`, então o blast radius inteiro foi rodado: `packages/ui`
+**85/85** (eram 79), `packages/catalog-table` **36/36** (eram 29), `mesas-frontend`
+**1152/1152** em 86 arquivos (eram 1139), `downloads-frontend` **315/315**, `accounts`
+**602/602** (52 skipped pré-existentes), `site` **155/155**, `glossario-frontend`
+**37/37**. `site-admin` e `links` têm `test` stub (`echo`), sem suíte a rodar. Lint 0
+erros nos pacotes tocados (1 aviso pré-existente em `useBannerScrim.ts`, não tocado),
+`build` verde, `verify:api` exit 0 com breaking=0 nos 6 apps,
+`smoke:ingress-realip` OK.
 
 **Snyk — `qs@6.15.2` (2 CVE médios): CORRIGIDO na #317.** `CVE-2026-82562` (CWE-770,
 CVSS 6.3, parser sem limite efetivo) e `CVE-2026-82417` (CWE-248, CVSS 6.9, exceção

@@ -5,8 +5,15 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const readRepoFile = (path) => readFileSync(resolve(repoRoot, path), 'utf8');
 
+// O `mesas` NÃO tem mais nginx: a spec 102 F4 trocou o container por Express
+// (`apps/mesas/frontend/server.js`), e o `nginx.conf` foi removido em `b7a03ed`.
+// Este script continuava lendo o arquivo e morria com ENOENT na primeira linha,
+// derrubando junto as 14 asserções de `accounts`, `site`, `glossario` e dos dois
+// backends — guard que falha na leitura não protege nada, e falha por motivo que
+// não é violação de contrato. O `glossario` segue com nginx e continua checado
+// pela função `checkNginx`.
 const files = {
-  mesasNginx: readRepoFile('apps/mesas/frontend/nginx.conf'),
+  mesasFrontendServer: readRepoFile('apps/mesas/frontend/server.js'),
   mesasProdCompose: readRepoFile('apps/mesas/docker-compose.prod.yml'),
   mesasBetaCompose: readRepoFile('apps/mesas/docker-compose.beta.yml'),
   glossarioNginx: readRepoFile('apps/glossario/frontend/nginx.conf.template'),
@@ -83,12 +90,31 @@ function checkComposeEnv(name, content, envName) {
   );
 }
 
-checkNginx('mesas nginx', files.mesasNginx);
 checkNginx('glossario nginx', files.glossarioNginx);
 
+// O ingress do `mesas` agora é o Express do `server.js`, não o nginx: o contrato
+// equivalente é o `trust proxy` lendo o mesmo CIDR interno. O `xfwd: true` do
+// proxy para a API é o par do `proxy_set_header X-Forwarded-For` que o nginx
+// fazia; sem ele o backend perderia o IP do visitante.
+expect(
+  files.mesasFrontendServer.includes(
+    "app.set('trust proxy', process.env.TRUSTED_PROXY_CIDR || '172.18.0.0/16');"
+  ),
+  'mesas frontend (Express): deve usar TRUSTED_PROXY_CIDR no trust proxy.'
+);
+expect(
+  !files.mesasFrontendServer.includes("app.set('trust proxy', 1);"),
+  'mesas frontend (Express): nao deve usar trust proxy = 1.'
+);
+expect(
+  files.mesasFrontendServer.includes('xfwd: true'),
+  'mesas frontend (Express): o proxy para a API deve emitir X-Forwarded-For (xfwd).'
+);
+
+// `TRUSTED_REAL_IP_FROM` é do nginx e sobrevive só onde há nginx — hoje, o
+// `glossario`. O `mesas` migrou para `TRUSTED_PROXY_CIDR`, checado no loop final
+// junto dos demais serviços Express.
 for (const [name, content] of [
-  ['mesas prod compose', files.mesasProdCompose],
-  ['mesas beta compose', files.mesasBetaCompose],
   ['glossario prod compose', files.glossarioProdCompose],
   ['glossario beta compose', files.glossarioBetaCompose],
 ]) {

@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 297,
-    "uniqueEndpoints": 272,
+    "total": 295,
+    "uniqueEndpoints": 270,
     "byApp": {
       "accounts-frontend": {
         "total": 8,
@@ -38,14 +38,14 @@
         }
       },
       "mesas-frontend": {
-        "total": 179,
+        "total": 177,
         "byConfidence": {
-          "medium": 78,
+          "medium": 76,
           "high": 101
         },
         "byPattern": {
           "unknown": 4,
-          "template-literal": 72,
+          "template-literal": 70,
           "service-wrapper": 45,
           "literal": 58
         }
@@ -1756,7 +1756,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authGet",
-      "line": 218
+      "line": 230
     },
     {
       "app": "mesas-frontend",
@@ -1806,7 +1806,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "authPost",
-      "line": 76
+      "line": 69
     },
     {
       "app": "mesas-frontend",
@@ -1977,6 +1977,16 @@
       "pattern": "template-literal",
       "wrapper": "authPatch",
       "line": 424
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/root.tsx",
+      "method": "GET",
+      "endpoint": "/api/v1/health",
+      "confidence": "medium",
+      "pattern": "template-literal",
+      "wrapper": "fetch",
+      "line": 114
     },
     {
       "app": "mesas-frontend",
@@ -2390,16 +2400,6 @@
     },
     {
       "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/services/catalogService.ts",
-      "method": "GET",
-      "endpoint": "/api/v1/tables",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "fetch",
-      "line": 92
-    },
-    {
-      "app": "mesas-frontend",
       "consumerFile": "apps/mesas/frontend/src/components/TableCard.tsx",
       "method": "GET",
       "endpoint": "/api/v1/tables/:param",
@@ -2417,16 +2417,6 @@
       "pattern": "template-literal",
       "wrapper": "authGet",
       "line": 44
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/pages/MesaPage.tsx",
-      "method": "GET",
-      "endpoint": "/api/v1/tables/:param",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "fetch",
-      "line": 50
     },
     {
       "app": "mesas-frontend",
@@ -2496,7 +2486,7 @@
       "confidence": "medium",
       "pattern": "template-literal",
       "wrapper": "fetch",
-      "line": 138
+      "line": 59
     },
     {
       "app": "mesas-frontend",
@@ -2557,16 +2547,6 @@
       "pattern": "literal",
       "wrapper": "authPost",
       "line": 161
-    },
-    {
-      "app": "mesas-frontend",
-      "consumerFile": "apps/mesas/frontend/src/App.tsx",
-      "method": "GET",
-      "endpoint": "/health",
-      "confidence": "medium",
-      "pattern": "template-literal",
-      "wrapper": "fetch",
-      "line": 153
     },
     {
       "app": "packages/auth",
