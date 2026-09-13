@@ -1,7 +1,5 @@
 import sanitizeHtml from 'sanitize-html';
 import MarkdownIt from 'markdown-it';
-import createDOMPurify from 'dompurify';
-import { createRequire } from 'node:module';
 
 /**
  * Remoção de HTML **sem escapar `<` e `>` que sobrevivem como texto**.
@@ -670,55 +668,26 @@ const RENDERED_MARKDOWN_OPTIONS: sanitizeHtml.IOptions = {
 };
 
 /**
- * `DOMPurify` ligado a um DOM que existe nos dois ambientes.
+ * Opções da POLÍTICA do markdown renderizado, exportadas para `sanitizeServer.ts`.
  *
- * No browser é o `window` real. No servidor o import devolve uma fábrica não
- * ligada — `TypeError: DOMPurify.sanitize is not a function`, que respondeu
- * `500` em `/mesas/<slug>` no SSR —, então a fábrica recebe uma janela do `jsdom`.
- *
- * O `jsdom` entra por `createRequire`, e NUNCA por `import`. Medido em 2026-09-13:
- * com `import { JSDOM } from 'jsdom'` o bundler de browser segue a cadeia
- * `app → @artificio/ui → content-editor → jsdom → css-tree` e o build de TODOS os
- * frontends quebra em `Cannot find module '../data/patch.json'` (o `css-tree`
- * carrega esse JSON por require relativo). `createRequire` é opaco para o
- * bundler: a resolução acontece em runtime, só no ramo do servidor, e o `jsdom`
- * volta a ser `devDependencies` — nenhum frontend o empacota.
- *
- * Criada UMA vez, no módulo: `new JSDOM()` por chamada custa caro num caminho
- * que roda a cada render de comentário.
- *
- * `globalThis.window` e não `typeof window`: sob SSR o segundo dá `undefined`
- * e cairia no ramo certo, mas o primeiro também cobre ambiente de teste que
- * injeta `window` parcial.
+ * A camada DOMPurify vive lá e não aqui: este módulo é importado por
+ * `ContentEditor.tsx`, que `packages/ui` puxa e TODOS os frontends empacotam.
+ * Qualquer referência a módulo Node neste arquivo entra no grafo de browser —
+ * medido três vezes na PR #317, com `import`, com `createRequire(import.meta.url)`
+ * e com `createRequire` importado de `node:module`; as três quebraram o build.
  */
-const purify = (() => {
-  const janela = (globalThis as { window?: unknown }).window;
-  if (janela && typeof (janela as { document?: unknown }).document === 'object') {
-    return createDOMPurify(janela as unknown as Parameters<typeof createDOMPurify>[0]);
-  }
-  const exigir = createRequire(import.meta.url);
-  const { JSDOM } = exigir('jsdom') as { JSDOM: new (html: string) => { window: unknown } };
-  return createDOMPurify(new JSDOM('').window as Parameters<typeof createDOMPurify>[0]);
-})();
+export const RENDERED_MARKDOWN_SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  ...RENDERED_MARKDOWN_OPTIONS,
+  parser: { decodeEntities: false },
+};
 
 /**
- * Sanitiza o HTML já renderizado pelo `markdown-it` — o caminho do SSR.
+ * Sanitiza o HTML já renderizado pelo `markdown-it` — política, sem DOM.
  *
- * DUAS camadas, e a ordem importa:
- *
- * 1. `sanitize-html` aplica a POLÍTICA — quais tags passam, o `<input>` de task
- *    list, e o `transformTags.a` que decide destino de link (HTTPS e `mailto:`
- *    como externos com `rel`/`target`; root-relative como interno sem `target`).
- *    Essa parte o DOMPurify não faz: ele não reescreve atributo por regra de
- *    negócio.
- * 2. `DOMPurify` fecha como camada final, que é o que o `AGENTS.md` exige para
- *    HTML de usuário/rich-text. Não é redundância: ele sanitiza pelo DOM real,
- *    então pega o que um sanitizador de string erra — mutation XSS, namespace
- *    de SVG/MathML, e entidade que só vira tag depois do parse do navegador.
- *
- * `ALLOWED_*` repete a allowlist da camada 1 de propósito: se o DOMPurify usasse
- * o default dele, seria mais permissivo que a política e a segunda passagem
- * devolveria tag que a primeira tinha removido.
+ * Roda igual no browser e no servidor: só `sanitize-html`, que é string-based.
+ * Quem renderiza no SERVIDOR deve usar `sanitizeRenderedMarkdownServer` de
+ * `@artificio/content-editor/sanitize-server`, que acrescenta a camada DOMPurify
+ * exigida pelo `AGENTS.md` para rich text.
  *
  * Sem o pré-passo de sentinela de `sanitizeUserMarkdown`, pelo mesmo motivo já
  * documentado em `markdownToPlainText`: aqui a entrada é HTML gerado pelo
@@ -726,25 +695,7 @@ const purify = (() => {
  * escapado antes.
  */
 export function sanitizeRenderedMarkdown(html: string): string {
-  const opcoes = { ...RENDERED_MARKDOWN_OPTIONS, parser: { decodeEntities: false } };
-  const pelaPolitica = sanitizeHtml(html, opcoes);
-  const peloDom = purify.sanitize(pelaPolitica, {
-    ALLOWED_TAGS: RENDERED_MARKDOWN_OPTIONS.allowedTags as string[],
-    ALLOWED_ATTR: ['href', 'rel', 'target', 'class', 'type', 'disabled', 'checked'],
-    // SEM `ALLOWED_URI_REGEXP`. Medido em 2026-09-13: o DOMPurify aplica esse
-    // regex a TODO atributo que considera URI-like, não só ao `href` — com ele,
-    // `target="_blank"` e `type="checkbox"` reprovam e são REMOVIDOS. O default
-    // já aceita `https:` e `mailto:`, e quem decide destino de link é o
-    // `transformTags.a` da camada 1.
-  });
-  // Terceira passagem, e não é redundância: o DOMPurify normaliza a
-  // serialização (`<br />` vira `<br>`, `disabled` vira `disabled=""`), e essa
-  // forma foi escolhida de propósito para a hidratação — HTML do servidor
-  // diferente do HTML do cliente faz o React DESCARTAR o do servidor, que é
-  // justamente o conteúdo que o crawler precisa ler (o objetivo da spec 102).
-  // Devolver o passo final à `sanitize-html` restaura a forma sem reabrir nada:
-  // ela só re-serializa uma árvore que o DOMPurify já limpou.
-  return sanitizeHtml(peloDom, opcoes);
+  return sanitizeHtml(html, RENDERED_MARKDOWN_SANITIZE_OPTIONS);
 }
 
 /**

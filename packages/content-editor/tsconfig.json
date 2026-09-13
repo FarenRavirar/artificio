@@ -8,7 +8,13 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "types": ["vitest/globals"]
+    // `node` junto de `vitest/globals`: a lista `types` SOBRESCREVE o default, e
+    // sem ela o `node:module` do `createRequire` em `sanitize.ts` não resolve —
+    // `TS2591: Cannot find name 'node:module'` no `build`, que derrubou os 7
+    // checks da PR #317. O `typecheck` passava, então a diferença só aparece em
+    // `tsconfig.build.json` (que herda daqui): rodar `build` do pacote, não só
+    // `typecheck`.
+    "types": ["vitest/globals", "node"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]
 }

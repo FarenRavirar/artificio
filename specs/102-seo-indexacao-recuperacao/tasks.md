@@ -2265,7 +2265,8 @@ Commits da #317, na branch `chore/102-imports-react-router`:
 |---|---|
 | `7ed7782` | import unificado `react-router` (39 arquivos) + `package.json`/override/`eslint.config.js` que o build exigiu + este registro |
 | `58305fb` | canonical do site + `lastmod` no sitemap (14 arquivos), vindo da #318 por `cherry-pick` |
-| `57270d0` | DOMPurify de volta no rich text (3 camadas), credencial barrada no canonical, override `qs@6.16.0`, hook de registro trazido do `4bb3108`, `AGENTS.md` enxugado (13 arquivos) |
+| `57270d0` | DOMPurify de volta no rich text (3 camadas), credencial barrada no canonical, override `qs@6.16.0`, hook de registro trazido do `4bb3108`, `AGENTS.md` enxugado (13 arquivos). **Quebrou o build de todos os frontends e introduziu 10 CVEs — corrigido pelo commit seguinte, não usar como referência** |
+| `5c8c3e5` | `jsdom` fora do bundle (`createRequire` + `devDependencies`), overrides de `undici` nas duas majors, e os 2 achados do Codex: comentário do `ContentEditor.tsx` que descrevia implementação removida, e 2 testes do hook que passavam por acidente (7 arquivos) |
 
 **Validação medida antes de cada commit:** `mesas/frontend` 1148/1148 (86 arquivos),
 `site` 155/155, `content` 22/22, `content-editor` 120/120, `tsc` limpo, lint 0 erros,
@@ -2416,13 +2417,42 @@ Forma 3, escolhida pelo mantenedor: `DOMPurify(new JSDOM('').window)`, sem pacot
 novo e sem adotar o `isomorphic-dompurify` depreciado. `purify` é criado UMA vez no
 módulo: `new JSDOM()` por chamada custa caro num caminho que roda a cada render.
 
-**O `jsdom` entra por `createRequire`, NUNCA por `import` — e `jsdom` fica em
-`devDependencies`.** Medido no CI da #317 (2026-09-13, run 34737392287): com
-`import { JSDOM } from 'jsdom'` e `jsdom` em `dependencies`, o build de **TODOS os
-frontends** quebra em `Cannot find module '../data/patch.json'`. A cadeia é
-`app → @artificio/ui → @artificio/content-editor → jsdom → css-tree`, e o `css-tree`
-carrega esse JSON por require relativo que não sobrevive ao bundle. `createRequire` é
-opaco para o bundler: resolve em runtime, só no ramo do servidor.
+**NENHUM truque de import resolve — a separação tem de ser de ENTRADA. Três formas
+medidas, três falhas (2026-09-13, PR #317):**
+
+| forma | sintoma |
+|---|---|
+| `import { JSDOM } from 'jsdom'` + `jsdom` em `dependencies` | `Cannot find module '../data/patch.json'` em TODOS os frontends (cadeia `app → @artificio/ui → content-editor → jsdom → css-tree`, que carrega o JSON por require relativo). 4 checks vermelhos |
+| `createRequire(import.meta.url)` | `TS1343` — `import.meta` não existe sob `module: CommonJS`, e `sanitize.ts` entra no build CJS (`tsconfig.cjs.json`) que `accounts` e `downloads` consomem. Build do PACOTE quebra, e com ele **7** checks |
+| `createRequire(process.cwd())` com `import { createRequire } from 'node:module'` | `"createRequire" is not exported by "__vite-browser-external"` — o bundler externaliza `node:module` e o símbolo vira `undefined`. Trocar um import Node por outro não muda nada |
+
+**A raiz:** `packages/ui/src/GmReviewPanel.tsx:2` importa `content-editor` no topo, e
+`ui` é consumido por todos os frontends. Qualquer referência a módulo Node nesse
+arquivo entra no grafo de browser, seja ela `import`, `createRequire` ou `eval`.
+
+**RESOLVIDO com separação por entrada**, que é o que o Codex apontou no achado P2 e
+foi ignorado por três tentativas de import:
+
+- `sanitize.ts` voltou a ser puro — só `sanitize-html`, string-based, roda nos dois
+  lados. É o que `ContentEditor.tsx` (e portanto `packages/ui` e todos os frontends)
+  importa.
+- `sanitizeServer.ts` é novo e **server-only**: carrega DOMPurify + JSDOM e exporta
+  `sanitizeRenderedMarkdownServer`. Entra em `exports` como `./sanitize-server` e no
+  `tsconfig.cjs.json` (backend consome por `require`). **NÃO** é reexportado por
+  `index.ts` nem por `sanitize.ts` — é essa ausência que tira o `jsdom` do bundle.
+
+Os dois testes das camadas DOMPurify passaram a chamar
+`sanitizeRenderedMarkdownServer`: contra `sanitizeRenderedMarkdown` eles passariam
+pelo motivo errado (a política sozinha já remove `onerror`) e o nome mentiria sobre o
+que provam — mesmo defeito que o Codex pegou nos testes do hook.
+
+Validação com os comandos que o CI roda: `pnpm build` **26/26**, `pnpm lint` **26/26
+com 0 erros**, `content-editor` 132/132 e build ESM+CJS limpos.
+
+**Erro de método que produziu as três voltas:** validar com `test` e `typecheck` em
+vez de `build`. O `typecheck` usa `tsconfig.json`; o `build` usa
+`tsconfig.build.json` + `tsconfig.cjs.json`, e só ele reproduz o CI. Rodar `build` do
+pacote E dos apps consumidores antes de pushar.
 
 Os três checks de build da #317 caíram por esta única causa — `lint + build + test`,
 `CI links` e `CI site`, todos com `Cannot find module '../data/patch.json'`.

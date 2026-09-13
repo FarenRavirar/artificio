@@ -18,5 +18,9 @@
   // final da política de link e precisa importá-la no servidor. Declarar o
   // `require` no `exports` sem compilar aqui produziria MODULE_NOT_FOUND em
   // runtime com o build verde — mesmo modo de falha de E016/E017.
-  "include": ["src/sanitize.ts", "src/commentLinks.ts"]
+  // `sanitizeServer.ts` entra aqui porque a camada DOMPurify+JSDOM é consumida
+  // por backend (que compila CommonJS). Ele NÃO entra no grafo dos frontends:
+  // não é reexportado por `index.ts` nem por `sanitize.ts`, e é justamente essa
+  // separação por entrada que tira o `jsdom` do bundle de browser (PR #317).
+  "include": ["src/sanitize.ts", "src/commentLinks.ts", "src/sanitizeServer.ts"]
 }

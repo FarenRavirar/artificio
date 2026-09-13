@@ -11,6 +11,9 @@ import {
 // A asserção de neutralização no render precisa do renderizador real, não de uma
 // reimplementação: é ele que os consumidores usam.
 import { renderMarkdown } from './ContentEditor.js';
+// Entrada server-only: é ela que carrega a camada DOMPurify (com `jsdom`), e por
+// isso NÃO é reexportada por `index.ts` — nenhum frontend a empacota.
+import { sanitizeRenderedMarkdownServer } from './sanitizeServer.js';
 
 describe('sanitizeUserMarkdown', () => {
   it.each([
@@ -404,8 +407,12 @@ describe('sanitizeRenderedMarkdown — destino dos links (achado Codex P2, PR #3
   // A cadeia tem TRÊS passagens (sanitize-html → DOMPurify → sanitize-html) e
   // nenhuma é redundante. Sem estes casos, alguém lê "sanitiza duas vezes com a
   // mesma lib" e remove uma — reabrindo o vetor ou quebrando a hidratação.
+  // Estes dois exercitam a entrada SERVER (`sanitizeRenderedMarkdownServer`), a
+  // única que tem a camada DOMPurify. Chamá-los contra `sanitizeRenderedMarkdown`
+  // passaria — a política sozinha já remove `onerror` — e o nome do teste mentiria
+  // sobre o que prova, o mesmo defeito que o Codex pegou nos testes do hook.
   it('DOMPurify neutraliza o que sanitizador de string erra', () => {
-    const saida = sanitizeRenderedMarkdown(
+    const saida = sanitizeRenderedMarkdownServer(
       '<img src=x onerror=alert(1)><svg><animate onbegin=alert(2)></svg>',
     );
     expect(saida).not.toContain('onerror');
@@ -418,7 +425,7 @@ describe('sanitizeRenderedMarkdown — destino dos links (achado Codex P2, PR #3
     // A terceira passagem restaura a forma que a hidratação do React exige — sem
     // ela o servidor emite HTML diferente do cliente e o React descarta o do
     // servidor, que é o conteúdo que o crawler lê (objetivo da spec 102).
-    const saida = sanitizeRenderedMarkdown(
+    const saida = sanitizeRenderedMarkdownServer(
       '<p>a<br />b</p><ul><li class="task-list-item"><input type="checkbox" disabled checked> x</li></ul>',
     );
     expect(saida).toContain('<br />');

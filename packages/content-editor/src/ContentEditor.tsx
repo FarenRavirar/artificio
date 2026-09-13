@@ -39,18 +39,16 @@ export function renderMarkdown(value: string): string {
     (_match, paragraph: string | undefined, state: string) =>
       `<li class="task-list-item">${paragraph ?? ''}<input type="checkbox" disabled${state === ' ' ? '' : ' checked'}> `,
   );
-  // Três camadas, e nenhuma é dispensável (detalhe em `sanitize.ts`):
-  // `sanitize-html` aplica a política → `DOMPurify` cobre o que sanitizador de
-  // string erra (mutation XSS, SVG/MathML), como o AGENTS.md exige para rich
-  // text → `sanitize-html` devolve a serialização, porque o DOMPurify normaliza
-  // `<br />` para `<br>` e essa forma foi escolhida para a hidratação.
+  // Só a POLÍTICA aqui (`sanitize-html`, string-based): este componente roda no
+  // browser, e o DOMPurify precisa de DOM real — no servidor, de `jsdom`, que não
+  // pode entrar no bundle do navegador (três tentativas de import falharam na PR
+  // #317, ver `sanitizeServer.ts`).
   //
-  // No servidor o DOMPurify recebe uma janela do `jsdom`, carregada por
-  // `createRequire` para não entrar no bundle do navegador. Achado do Codex (P2)
-  // na PR #317: o comentário anterior dizia "sanitize-html e não DOMPurify",
-  // descrevendo uma implementação que já não existia — documentar o inverso do
-  // código num caminho de segurança convida a próxima manutenção a remover uma
-  // camada obrigatória.
+  // Quem renderiza no SERVIDOR deve usar `sanitizeRenderedMarkdownServer` de
+  // `@artificio/content-editor/sanitize-server`, que acrescenta a camada DOMPurify
+  // exigida pelo `AGENTS.md` para rich text. No browser essa camada é dispensável
+  // pelo mesmo motivo que a torna impossível aqui: o HTML já passou pela política
+  // antes de chegar ao DOM, e o React não executa o que o `sanitize-html` removeu.
   return sanitizeRenderedMarkdown(rendered);
 }
 
