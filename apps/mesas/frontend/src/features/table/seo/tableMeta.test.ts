@@ -86,6 +86,35 @@ describe('buildTableJsonLd — preço (regra 1 de T4.3)', () => {
     expect(offer.price).toBe('50.00');
   });
 
+  it('mesa PAGA sem price_value não publica oferta, em vez de emitir "0.00"', () => {
+    // Estado alcançável: `validateDraftForSync` (syncHelpers.ts:157) valida
+    // `price_type` e NÃO `price_value`, e o update preserva o status de mesa já
+    // publicada. O fallback antigo (`(vm.price ?? 0).toFixed(2)`) publicava uma
+    // oferta gratuita que a página não mostra — markup divergente do HTML, que é
+    // o que a ação manual de structured data pune. Achado do Codex (P2) PR #319.
+    const { product } = jsonLdOf(makeTableDetail({ price_type: 'paga', price_value: null }));
+
+    expect(product.offers).toBeUndefined();
+    expect(JSON.stringify(product)).not.toContain('0.00');
+  });
+
+  it('mesa PAGA com price_value zero também não publica oferta', () => {
+    // `0` numa mesa paga é dado inconsistente, não gratuidade: quem é gratuito
+    // tem `price_type: 'gratuita'`.
+    const { product } = jsonLdOf(makeTableDetail({ price_type: 'paga', price_value: 0 }));
+
+    expect(product.offers).toBeUndefined();
+  });
+
+  it('o Product continua válido sem Offer — name e brand seguem lá', () => {
+    const { product } = jsonLdOf(
+      makeTableDetail({ price_type: 'paga', price_value: null, gm_display_name: 'Mestre Teste' }),
+    );
+
+    expect(product.name).toBe('Mesa teste');
+    expect(product.brand).toEqual({ '@type': 'Person', name: 'Mestre Teste' });
+  });
+
   it('preço não vem do rótulo do contato', () => {
     // "Ticket / Inscrição" aparece em ~106 contatos, mas 101 dessas mesas são
     // gratuitas: derivar do rótulo geraria preço falso em ~95% dos casos.

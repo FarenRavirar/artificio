@@ -20,6 +20,7 @@ import { TableConversation } from '../components/TableConversation';
 // componente que também exporta função, e a separação deixa o normalizador
 // testável sem router nem API mockada.
 import { describeClosure, type ClosedTable } from './closedTable';
+import { formatarDataLonga } from '../utils/formatDate';
 import type { MesaLoaderData } from '../routes/mesa';
 
 export const MesaPage = () => {
@@ -96,12 +97,12 @@ export const MesaPage = () => {
           {closed.closedAt && (
             <p className="text-white/50 text-sm mb-5">
               Encerrada em{' '}
+              {/* Fuso fixo: esta tela é renderizada no SERVIDOR (o `loader`
+                  resolve o 410), e formatar sem `timeZone` faria o HTML e a
+                  hidratação divergirem para quem está em outro fuso. Ver
+                  `utils/formatDate.ts`. */}
               <time dateTime={closed.closedAt.toISOString()}>
-                {closed.closedAt.toLocaleDateString('pt-BR', {
-                  day: '2-digit',
-                  month: 'long',
-                  year: 'numeric',
-                })}
+                {formatarDataLonga(closed.closedAt)}
               </time>
             </p>
           )}

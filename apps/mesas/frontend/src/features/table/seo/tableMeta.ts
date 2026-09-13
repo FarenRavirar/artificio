@@ -76,28 +76,54 @@ function describeSlots(vm: TableViewModel): string | null {
  * segunda leitura do dado cru. É isso que torna impossível o JSON-LD divergir do
  * HTML visível, em vez de deixar a coerência por conta de quem editar depois.
  */
+/**
+ * Preço publicável no JSON-LD, ou `null` quando não há um.
+ *
+ * Mesa gratuita é `"0"`, não ausência de preço: omitir faria o consumidor tratar
+ * como "preço desconhecido", que é outra coisa.
+ *
+ * Mesa PAGA sem `price_value` devolve `null`, e não `"0.00"`. O estado é
+ * alcançável: `validateDraftForSync` (`syncHelpers.ts:157`) valida `price_type` e
+ * NÃO `price_value`, e o update preserva o status de mesa já publicada — então
+ * existe mesa `paga` com `price_value` nulo, que `normalizeNumeric`
+ * (`tableViewMapper.ts:261`) traduz em `vm.price === undefined`. O fallback
+ * anterior publicava uma oferta gratuita que a página não mostra, que é
+ * exatamente o markup divergente do HTML que a ação manual de structured data
+ * pune. Achado do Codex (P2) na PR #319.
+ */
+function priceForJsonLd(vm: TableViewModel): string | null {
+  if (vm.priceType === 'gratuita') return '0';
+  if (typeof vm.price === 'number' && Number.isFinite(vm.price) && vm.price > 0) {
+    return vm.price.toFixed(2);
+  }
+  return null;
+}
+
 export function buildTableJsonLd(vm: TableViewModel): Record<string, unknown> {
   const url = `${SITE_URL}/mesas/${vm.slug}`;
-
-  const offer: Record<string, unknown> = {
-    '@type': 'Offer',
-    url,
-    priceCurrency: 'BRL',
-    // Mesa gratuita é `price: "0"`, não ausência de preço: omitir faria o
-    // consumidor tratar como "preço desconhecido", que é outra coisa.
-    price: vm.priceType === 'gratuita' ? '0' : (vm.price ?? 0).toFixed(2),
-    availability: vm.isFull
-      ? 'https://schema.org/SoldOut'
-      : 'https://schema.org/InStock',
-  };
+  const price = priceForJsonLd(vm);
 
   const product: Record<string, unknown> = {
     '@type': 'Product',
     name: vm.title,
     description: buildTableDescription(vm),
     url,
-    offers: offer,
   };
+
+  // Sem preço publicável, a `Offer` INTEIRA sai. `Product` continua elegível
+  // por `name` + `brand`/`image`; emitir `Offer` sem `price` seria oferta
+  // incompleta, que o validador reprova — e inventar um preço é pior.
+  if (price !== null) {
+    product.offers = {
+      '@type': 'Offer',
+      url,
+      priceCurrency: 'BRL',
+      price,
+      availability: vm.isFull
+        ? 'https://schema.org/SoldOut'
+        : 'https://schema.org/InStock',
+    };
+  }
 
   if (vm.coverUrl) product.image = vm.coverUrl;
   if (vm.masterName) product.brand = { '@type': 'Person', name: vm.masterName };

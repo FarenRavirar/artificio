@@ -22,7 +22,16 @@
  * Cloudflare estiver com problema, e evita um salto de rede por request.
  */
 export function getServerApiBase(): string {
-  const upstream = process.env.API_UPSTREAM ?? 'mesas-api';
+  // Em DESENVOLVIMENTO o alvo é `localhost`, não `mesas-api`: o nome do
+  // container só resolve dentro da rede Docker, e no `react-router dev` o
+  // `loader` roda no processo SSR local — `mesas-api:3000` falha no DNS e as três
+  // rotas com loader (`/`, `/mesas/:slug`, `/mestre/:slug`) respondem 500,
+  // enquanto o catálogo degrada para vazio. Achado do Codex (P2) na PR #319.
+  //
+  // `import.meta.env.DEV` e não `NODE_ENV`: é o Vite quem define o modo, e o
+  // `server.js` de produção roda o build, onde `DEV` é `false`.
+  const padrao = import.meta.env.DEV ? 'localhost' : 'mesas-api';
+  const upstream = process.env.API_UPSTREAM ?? padrao;
   const port = process.env.API_UPSTREAM_PORT ?? '3000';
   return `http://${upstream}:${port}`;
 }

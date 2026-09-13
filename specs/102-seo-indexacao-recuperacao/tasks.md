@@ -1586,7 +1586,7 @@ foi silenciado com `eslint-disable`.
 
 | defeito | correção |
 |---|---|
-| 40 erros em `.react-router/` | diretório **gerado** pelo `typegen`: entrou em `globalIgnores` do eslint e no `.gitignore` (junto de `.astro/`) |
+| 40 erros em `.react-router/` | diretório **gerado** pelo `typegen`: entrou em `globalIgnores` do eslint (`eslint.config.js:14`). **A linha do `.gitignore` só entrou em 2026-09-13** — este registro afirmava as duas desde o início, mas `git check-ignore` devolvia "NAO IGNORADO" e os 29 arquivos apareciam em todo `git add -A`, que é o que a armadilha do fim deste documento descreve |
 | 8 `only-export-components` em `root.tsx`/`routes/*` | rota **tem** que exportar `loader`/`meta` ao lado do componente — exceção por caminho, a regra segue valendo no resto do app |
 | `entry.server.tsx:25` `_loadContext` | `argsIgnorePattern: '^_'`, mesmo padrão de `apps/accounts/eslint.config.js:24`; é parâmetro posicional da assinatura do React Router |
 | 4 `react-hooks/refs` em `useUrlState.ts` | `useRef` lido/escrito durante o render → `useState` com ajuste no render |
@@ -2281,6 +2281,15 @@ Commits da #317, na branch `chore/102-imports-react-router`:
 | `892c22d` | separação por entrada: `sanitizeServer.ts` server-only com DOMPurify+JSDOM, `sanitize.ts` puro. É o commit que de fato fecha o problema — `pnpm build` 26/26 e `pnpm lint` 26/26 rodados antes de pushar (9 arquivos) |
 | `db59da8` | `colher.sh`: contador `RECUSAS` separado de `FALHAS` (recusa de review não é consulta que falhou), e registro do falso-positivo do Sonar e dos 2 achados recusados (2 arquivos) |
 
+Commits da PR **#319**, na branch `feat/102-f4-mesas-ssr` (criada de `origin/dev`
+`49ac4b1`, o merge da #317):
+
+| commit | o quê |
+|---|---|
+| `b7a03ed` | a migração SSR: `catalog-table`, 24 rotas, entrypoints, `server.js`, Dockerfile, composes na porta 3000, e as 4 deleções (`index.html`, `nginx.conf`, `App.tsx`, `main.tsx`) — 83 arquivos. **NÃO levou as 4 correções do Sonar**: foram editadas depois do `git add` e ficaram de fora |
+| `b75a224` | as 4 correções do Sonar que faltaram (`RegExp.exec`, `String.raw`, `export…from` nas 3 rotas, optional chain). Quem pegou o buraco foi o `pre-push`, não o commit |
+| `1b666d7` | 7 achados dos dois ciclos de review, 5 deles bugs invisíveis em log (ver blocos acima) + os overrides de `qs`/`undici` restaurados — 13 arquivos |
+
 **Validação medida antes de cada commit:** `mesas/frontend` 1148/1148 (86 arquivos),
 `site` 155/155, `content` 22/22, `content-editor` 120/120, `tsc` limpo, lint 0 erros,
 `verify:api` exit 0 com breaking=0 nos 6 apps.
@@ -2693,10 +2702,58 @@ AbortSignal.timeout(LOADER_TIMEOUT_MS)])` põe o teto sem perder o cancelamento 
 visitante. A constante (8s) vive em `lib/apiUrl.ts`, que é o módulo isomórfico já
 compartilhado pelos loaders.
 
+**Terceiro ciclo de review na #319 (commit `1b666d7`) — 3 achados do Codex, todos
+procedem e todos invisíveis em log:**
+
+- **`lib/apiUrl.ts` — as 3 rotas com loader quebram no desenvolvimento local.** No
+  `react-router dev` o `loader` roda no processo SSR, `typeof document === 'undefined'`,
+  e `getServerApiBase()` devolvia `http://mesas-api:3000` — nome de container que só
+  resolve dentro da rede Docker. `/mesas/:slug` e `/mestre/:slug` respondiam 500 por
+  falha de DNS e o catálogo degradava para vazio em silêncio. O Codex apontou o
+  `vite.config.local.ts`, mas **esse arquivo está órfão**: último commit `be7fafd`
+  (PR #113), e o `dev` do `package.json` virou `react-router dev`, que não o lê. A
+  correção é `import.meta.env.DEV ? 'localhost' : 'mesas-api'` como padrão —
+  `import.meta.env.DEV` e não `NODE_ENV` porque quem define o modo é o Vite, e o
+  `server.js` de produção roda o build, onde `DEV` é `false`. `API_UPSTREAM` e
+  `API_UPSTREAM_PORT` documentados no `.env.example`.
+- **`features/table/seo/tableMeta.ts` — mesa PAGA sem preço publicava oferta
+  GRATUITA no JSON-LD.** O fallback `(vm.price ?? 0).toFixed(2)` emitia `"0.00"`
+  quando `vm.price` era `undefined`. O estado é alcançável, medido:
+  `validateDraftForSync` (`syncHelpers.ts:157`) valida `price_type` e **não**
+  `price_value`, e o update preserva o status de mesa já publicada;
+  `normalizeNumeric` (`tableViewMapper.ts:261`) traduz `price_value` nulo em
+  `undefined`. O crawler recebia uma oferta que o HTML não mostra — markup divergente
+  da página, que é o que a ação manual de structured data pune. Agora a `Offer`
+  INTEIRA sai quando não há preço publicável; `Product` continua elegível por `name` +
+  `brand`/`image`. Emitir `Offer` sem `price` seria oferta incompleta, e inventar
+  preço é pior.
+- **`MesaPage.tsx:100` e `TableSchedules.tsx:88` — data do SSR divergia da
+  hidratação.** `toLocaleDateString('pt-BR')` sem `timeZone` usa o fuso do processo
+  Node no servidor e o do sistema operacional no cliente. Para timestamp perto da
+  virada do dia e visitante em outro fuso, o HTML saía com um dia e a hidratação
+  calculava outro: o React descarta o trecho do servidor, e o crawler indexa data
+  diferente da que o visitante vê. Ambos os pontos renderizam no servidor (o ramo
+  `closed` é resolvido pelo loader). Novo `utils/formatDate.ts` fixa
+  `America/Sao_Paulo`, **o mesmo fuso que o backend já aplica** em
+  `parseDiscordAnnouncement.ts:1625` — um fuso só nos dois lados faz servidor e
+  cliente concordarem por construção, não por coincidência de ambiente.
+
+**Recusado neste ciclo:** `root.tsx:129`, foco não contido no overlay de
+indisponibilidade. O achado procede tecnicamente — não há `role`, `aria-modal`,
+`inert` nem focus trap, então o teclado continua tabulando por controles invisíveis
+sob a camada. Não entra como remendo de review: mexe em comportamento de foco de um
+componente compartilhado (`BackendStatusScreen`) e é mudança de UI, que o `AGENTS.md`
+manda passar pela auditoria `wcag-accessibility-audit`. **Pendente de decisão do
+mantenedor**, não descartado.
+
 Estado em 2026-09-13, na branch `feat/102-f4-mesas-ssr`:
 
 | arquivo | achado | estado |
 |---|---|---|
+| `src/lib/apiUrl.ts:25` | dev local resolve `mesas-api`, que não existe fora do Docker | **corrigido** — padrão por `import.meta.env.DEV` |
+| `src/features/table/seo/tableMeta.ts:88` | mesa paga sem preço publicava `"0.00"` | **corrigido** — `Offer` omitida quando não há preço publicável |
+| `src/pages/MesaPage.tsx:100`, `TableSchedules.tsx:88` | data sem `timeZone` diverge entre SSR e hidratação | **corrigido** — `utils/formatDate.ts` com `America/Sao_Paulo` |
+| `src/root.tsx:129` | overlay sem foco contido nem semântica modal | **pendente de decisão** — procede, mas é mudança de UI em pacote compartilhado; pede `wcag-accessibility-audit` |
 | `src/entry.client.tsx:23` | usar `RegExp.exec()` | **corrigido** |
 | `src/root.tsx:73` | usar `String.raw` | **corrigido** — de quebra elimina a pegadinha do `\\s`, que já custara um bug de tema piscando |
 | `src/routes/{catalogo,mesa,mestre}.tsx` | `export…from` para re-exportar `default` | **corrigido** nos três |
@@ -2706,8 +2763,10 @@ Estado em 2026-09-13, na branch `feat/102-f4-mesas-ssr`:
 | `packages/catalog-table/src/contactUrls.ts:164` | complexidade de regex 21 > 20 | pendente — mexe em pacote compartilhado |
 | `Dockerfile:76,111` | fundir `RUN` consecutivos | **RECUSADO — pediria para reintroduzir defeito já corrigido.** O próprio arquivo registra na L118: *"Asserção separada do install de propósito (achado de review, PR #268): no encadeamento `pnpm install && test … \|\| echo ERRO`, falha de rede ou de lockfile caía no mesmo `\|\|` e era reportada como 'dependência ausente' — diagnóstico errado num build que quebra por outro motivo."* O par L76/L82 tem motivo análogo: fundir `apk add` com `corepack enable` invalida a camada de patch de segurança a cada troca de versão do pnpm |
 
-Validação dos corrigidos: `pnpm build` repo-wide **27/27**, `mesas-frontend` **1139/1139**
-e `tsc -b` limpo, lint 0 erros, `verify:api` exit 0 com breaking=0.
+Validação dos corrigidos: `mesas-frontend` **1146/1146** em 85 arquivos (eram
+1139 antes dos 7 testes novos do terceiro ciclo), `build` do pacote verde, lint 0
+erros (1 aviso pré-existente em `useBannerScrim.ts`, não tocado), `verify:api` exit 0
+com breaking=0 nos 6 apps.
 
 **Snyk — `qs@6.15.2` (2 CVE médios): CORRIGIDO na #317.** `CVE-2026-82562` (CWE-770,
 CVSS 6.3, parser sem limite efetivo) e `CVE-2026-82417` (CWE-248, CVSS 6.9, exceção
