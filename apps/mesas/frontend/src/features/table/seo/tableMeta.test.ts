@@ -65,7 +65,9 @@ function makeTableDetail(overrides: Partial<TableDetail> = {}): TableDetail {
 }
 
 function jsonLdOf(detail: TableDetail) {
-  const graph = buildTableJsonLd(mapTableToView(detail))['@graph'] as Record<string, unknown>[];
+  const jsonLd = buildTableJsonLd(mapTableToView(detail));
+  if (!jsonLd) return { product: null, offer: null };
+  const graph = jsonLd['@graph'] as Record<string, unknown>[];
   const product = graph[0];
   return { product, offer: product.offers as Record<string, unknown> };
 }
@@ -86,33 +88,39 @@ describe('buildTableJsonLd — preço (regra 1 de T4.3)', () => {
     expect(offer.price).toBe('50.00');
   });
 
-  it('mesa PAGA sem price_value não publica oferta, em vez de emitir "0.00"', () => {
+  it('mesa PAGA sem price_value NÃO emite JSON-LD nenhum', () => {
     // Estado alcançável: `validateDraftForSync` (syncHelpers.ts:157) valida
     // `price_type` e NÃO `price_value`, e o update preserva o status de mesa já
-    // publicada. O fallback antigo (`(vm.price ?? 0).toFixed(2)`) publicava uma
-    // oferta gratuita que a página não mostra — markup divergente do HTML, que é
-    // o que a ação manual de structured data pune. Achado do Codex (P2) PR #319.
-    const { product } = jsonLdOf(makeTableDetail({ price_type: 'paga', price_value: null }));
-
-    expect(product.offers).toBeUndefined();
-    expect(JSON.stringify(product)).not.toContain('0.00');
+    // publicada. Duas saídas erradas já foram tentadas aqui: `(vm.price ?? 0)`
+    // publicava uma oferta GRATUITA que a página não mostra; omitir só a `Offer`
+    // deixava um `Product` órfão, e `Product` exige `name` MAIS uma propriedade
+    // qualificadora (`offers`/`review`/`aggregateRating`) — `brand` e `image` não
+    // servem. A saída certa é não emitir markup. Achado do Codex (P2) PR #319,
+    // duas rodadas sobre o mesmo ponto.
+    expect(buildTableJsonLd(mapTableToView(makeTableDetail({ price_type: 'paga', price_value: null })))).toBeNull();
   });
 
-  it('mesa PAGA com price_value zero também não publica oferta', () => {
+  it('mesa PAGA com price_value zero também não emite JSON-LD', () => {
     // `0` numa mesa paga é dado inconsistente, não gratuidade: quem é gratuito
     // tem `price_type: 'gratuita'`.
-    const { product } = jsonLdOf(makeTableDetail({ price_type: 'paga', price_value: 0 }));
-
-    expect(product.offers).toBeUndefined();
+    expect(buildTableJsonLd(mapTableToView(makeTableDetail({ price_type: 'paga', price_value: 0 })))).toBeNull();
   });
 
-  it('o Product continua válido sem Offer — name e brand seguem lá', () => {
-    const { product } = jsonLdOf(
-      makeTableDetail({ price_type: 'paga', price_value: null, gm_display_name: 'Mestre Teste' }),
-    );
+  it('sem JSON-LD válido, a tag ld+json não entra nas meta tags', () => {
+    // `{'script:ld+json': null}` viraria `<script …>null</script>`: markup
+    // inválido, que o validador reprova em vez de ignorar. A mesa segue
+    // indexável pelo HTML e pelas meta tags.
+    const meta = buildTableMeta({
+      kind: 'ok',
+      table: makeTableDetail({ price_type: 'paga', price_value: null }),
+    });
 
-    expect(product.name).toBe('Mesa teste');
-    expect(product.brand).toEqual({ '@type': 'Person', name: 'Mestre Teste' });
+    expect(meta.some((tag) => 'script:ld+json' in tag)).toBe(false);
+    expect(meta).toContainEqual({
+      tagName: 'link',
+      rel: 'canonical',
+      href: 'https://mesas.artificiorpg.com/mesas/mesa-teste',
+    });
   });
 
   it('preço não vem do rótulo do contato', () => {
@@ -232,6 +240,60 @@ describe('buildTableDescription — T4.5', () => {
     expect(description).toContain('online');
     expect(description).toContain('Gratuita');
     expect(description).toContain('4 vagas');
+  });
+
+  // O nome de sistema é o único componente da cauda sem tamanho limitado:
+  // `modality`, `experience`, preço e vagas são enums ou números curtos. Este é
+  // o mais longo dos 682 sistemas do catálogo (56 caracteres) — dado real, não
+  // fabricado para o teste.
+  const SISTEMA_MAIS_LONGO = 'Little Fears – The Role-playing Game of Childhood Terror';
+
+  it('respeita o orçamento de 160 caracteres mesmo com a cauda mais longa do catálogo', () => {
+    // Regressão medida: o piso de 60 caracteres para a sinopse era
+    // incondicional, então com cauda de 108 a description saía com **172**. O
+    // teste antigo usava `Dungeons & Dragons` (18 chars) e nunca chegava lá.
+    const description = buildTableDescription(
+      mapTableToView(
+        makeTableDetail({
+          description: 'Lorem ipsum dolor sit amet. '.repeat(40),
+          system_name: SISTEMA_MAIS_LONGO,
+          modality: 'presencial',
+          price_type: 'paga',
+          price_value: 100,
+          slots_total: 12,
+          slots_filled: 0,
+          slots_open: 12,
+        }),
+      ),
+    );
+
+    expect(description.length).toBeLessThanOrEqual(160);
+    // A cauda sobrevive inteira: é o dado que a pessoa procura.
+    expect(description).toContain('12 vagas');
+    expect(description).toContain(SISTEMA_MAIS_LONGO);
+  });
+
+  it('sem espaço para uma sinopse útil, entrega só a cauda', () => {
+    // Sinopse de 20 caracteres não informa nada e ainda rouba espaço das
+    // facetas; o limiar é 60.
+    const description = buildTableDescription(
+      mapTableToView(
+        makeTableDetail({
+          description: 'Uma aventura épica no norte gelado com muitos perigos.',
+          system_name: SISTEMA_MAIS_LONGO,
+          modality: 'presencial',
+          price_type: 'paga',
+          price_value: 100,
+          slots_total: 12,
+          slots_filled: 0,
+          slots_open: 12,
+        }),
+      ),
+    );
+
+    expect(description.length).toBeLessThanOrEqual(160);
+    expect(description).not.toContain('|');
+    expect(description).toContain(SISTEMA_MAIS_LONGO);
   });
 
   it('respeita o orçamento de 160 caracteres truncando a sinopse, não a cauda', () => {

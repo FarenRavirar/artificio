@@ -19,6 +19,18 @@ type MetaDescriptor = Record<string, unknown>;
  * Os mesmos valores aparecem no HTML visível da página. Isso não é redundância:
  * é a regra pétrea de T4.3 — nenhum fato pode existir só no metadado.
  */
+/** 160 caracteres é o ponto em que o Google passa a truncar o snippet. */
+const LIMITE_DESCRIPTION = 160;
+const SEPARADOR = ' | ';
+/** Abaixo disto a sinopse não informa nada; melhor entregar só as facetas. */
+const MINIMO_DE_SINOPSE = 60;
+
+/** Corta no limite preservando o `…`, que conta para o total. */
+function truncarNoLimite(texto: string, limite: number): string {
+  if (texto.length <= limite) return texto;
+  return `${texto.slice(0, limite - 1).trimEnd()}…`;
+}
+
 export function buildTableDescription(vm: TableViewModel): string {
   const sinopse = (vm.description ?? vm.narrative ?? '').replace(/\s+/g, ' ').trim();
 
@@ -30,19 +42,28 @@ export function buildTableDescription(vm: TableViewModel): string {
     describeSlots(vm),
   ].filter((parte): parte is string => Boolean(parte?.trim()));
 
-  const cauda = facetas.join(' • ');
+  const cauda = truncarNoLimite(facetas.join(' • '), LIMITE_DESCRIPTION);
 
   if (!sinopse) {
     return cauda || `Mesa de RPG no ${SITE_NAME}.`;
   }
 
-  // 160 caracteres é o ponto em que o Google passa a truncar; a cauda de facetas
-  // é o que menos se pode perder, então a sinopse é que cede espaço.
-  const espacoParaSinopse = Math.max(60, 157 - cauda.length - 3);
-  const sinopseTruncada =
-    sinopse.length > espacoParaSinopse ? `${sinopse.slice(0, espacoParaSinopse).trimEnd()}…` : sinopse;
+  // A cauda de facetas é o que menos se pode perder — é o dado que a pessoa
+  // procura —, então a sinopse cede espaço primeiro, e cede até sumir. Só uma
+  // cauda que sozinha não cabe em 160 é truncada, acima.
+  //
+  // O piso de 60 caracteres vale só ENQUANTO couber: era um `Math.max(60, …)`
+  // incondicional, e com cauda longa o piso vencia e a soma estourava o limite.
+  // Medido com dado real do catálogo: "Little Fears – The Role-playing Game of
+  // Childhood Terror" (56 chars, um dos 682 sistemas cadastrados) mais
+  // modalidade, nível, preço e vagas dá cauda de 108 e description de **172**.
+  // O teste que existia usava `Dungeons & Dragons` (18 chars) e nunca exercitou
+  // cauda longa. Achado do CodeRabbit na PR #319.
+  const espacoDisponivel = LIMITE_DESCRIPTION - cauda.length - SEPARADOR.length;
+  if (espacoDisponivel < MINIMO_DE_SINOPSE) return cauda;
 
-  return cauda ? `${sinopseTruncada} | ${cauda}` : sinopseTruncada;
+  const sinopseTruncada = truncarNoLimite(sinopse, espacoDisponivel);
+  return `${sinopseTruncada}${SEPARADOR}${cauda}`;
 }
 
 function describePrice(vm: TableViewModel): string | null {
@@ -99,22 +120,28 @@ function priceForJsonLd(vm: TableViewModel): string | null {
   return null;
 }
 
-export function buildTableJsonLd(vm: TableViewModel): Record<string, unknown> {
+export function buildTableJsonLd(vm: TableViewModel): Record<string, unknown> | null {
   const url = `${SITE_URL}/mesas/${vm.slug}`;
   const price = priceForJsonLd(vm);
+
+  // Sem preço publicável NÃO SAI JSON-LD NENHUM, e não um `Product` sem oferta.
+  // `Product` exige `name` MAIS uma propriedade qualificadora — uma de
+  // `offers`/`review`/`aggregateRating`; `brand` e `image` não substituem
+  // nenhuma delas. A correção anterior omitia só a `Offer` e deixava o
+  // `Product` órfão, que é erro crítico no Rich Results Test: trocava preço
+  // errado por markup inválido, e o aceite de T4.3 exige markup válido.
+  //
+  // A mesa segue indexável pelo HTML e pelas meta tags — o que se perde é a
+  // elegibilidade a rich result, que ela já não teria com markup reprovado.
+  // Achado do Codex (P2) na PR #319, segunda rodada sobre o mesmo ponto.
+  if (price === null) return null;
 
   const product: Record<string, unknown> = {
     '@type': 'Product',
     name: vm.title,
     description: buildTableDescription(vm),
     url,
-  };
-
-  // Sem preço publicável, a `Offer` INTEIRA sai. `Product` continua elegível
-  // por `name` + `brand`/`image`; emitir `Offer` sem `price` seria oferta
-  // incompleta, que o validador reprova — e inventar um preço é pior.
-  if (price !== null) {
-    product.offers = {
+    offers: {
       '@type': 'Offer',
       url,
       priceCurrency: 'BRL',
@@ -122,8 +149,8 @@ export function buildTableJsonLd(vm: TableViewModel): Record<string, unknown> {
       availability: vm.isFull
         ? 'https://schema.org/SoldOut'
         : 'https://schema.org/InStock',
-    };
-  }
+    },
+  };
 
   if (vm.coverUrl) product.image = vm.coverUrl;
   if (vm.masterName) product.brand = { '@type': 'Person', name: vm.masterName };
@@ -167,7 +194,7 @@ export function buildTableMeta(loaderData: MesaLoaderData | undefined): MetaDesc
   const description = buildTableDescription(vm);
   const image = vm.coverUrl ?? `${SITE_URL}/og-default.png`;
 
-  return [
+  const tags: MetaDescriptor[] = [
     { title },
     { name: 'description', content: description },
     { tagName: 'link', rel: 'canonical', href: url },
@@ -183,7 +210,14 @@ export function buildTableMeta(loaderData: MesaLoaderData | undefined): MetaDesc
     { name: 'twitter:title', content: title },
     { name: 'twitter:description', content: description },
     { name: 'twitter:image', content: image },
-
-    { 'script:ld+json': buildTableJsonLd(vm) },
   ];
+
+  // A tag só existe se houver JSON-LD válido. Emitir `{'script:ld+json': null}`
+  // produziria um `<script type="application/ld+json">null</script>`, que é
+  // markup inválido — pior que a ausência, porque o validador o reprova em vez
+  // de ignorar.
+  const jsonLd = buildTableJsonLd(vm);
+  if (jsonLd) tags.push({ 'script:ld+json': jsonLd });
+
+  return tags;
 }
