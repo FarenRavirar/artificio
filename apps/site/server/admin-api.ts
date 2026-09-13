@@ -16,6 +16,7 @@ import * as Media from "../db/repo/media.js";
 import * as Feedback from "../db/repo/feedback.js";
 import { deleteStoredMedia } from "./lib/media-store.js";
 import { reloadRedirects } from "./redirect-cache.js";
+import { normalizeCanonical } from "@artificio/content";
 
 const REDIRECT_CODES = [301, 302, 307, 308];
 
@@ -75,6 +76,7 @@ export function adminApi(requireAuth: RequestHandler, requireAdmin: RequestHandl
   });
 
   r.post("/posts", async (req, res) => {
+    if (rejectBadCanonical(req.body, res)) return;
     const built = await buildPost(req.body, undefined, authorOf(req));
     const id = await Posts.createPost(built.write);
     await Posts.setPostTaxonomies(id, built.cats, built.tags);
@@ -87,6 +89,7 @@ export function adminApi(requireAuth: RequestHandler, requireAdmin: RequestHandl
     if (id == null) { res.status(400).json({ error: "bad_id" }); return; }
     const existing = await Posts.getPost(id);
     if (!existing) { res.status(404).json({ error: "not_found" }); return; }
+    if (rejectBadCanonical(req.body, res)) return;
     const built = await buildPost(req.body, id, existing.author_id ?? authorOf(req));
     // slug mudou em post publicado -> 301 do caminho antigo
     if (existing.slug !== built.write.slug && existing.status === "publish") {
@@ -136,6 +139,7 @@ export function adminApi(requireAuth: RequestHandler, requireAdmin: RequestHandl
     res.json(p);
   });
   r.post("/pages", async (req, res) => {
+    if (rejectBadCanonical(req.body, res)) return;
     const w = await buildPage(req.body, undefined, authorOf(req));
     const id = await Pages.createPage(w);
     res.status(201).json({ id, slug: w.slug, rebuild: maybeRebuild(w.status) });
@@ -145,6 +149,7 @@ export function adminApi(requireAuth: RequestHandler, requireAdmin: RequestHandl
     if (id == null) { res.status(400).json({ error: "bad_id" }); return; }
     const existing = await Pages.getPage(id);
     if (!existing) { res.status(404).json({ error: "not_found" }); return; }
+    if (rejectBadCanonical(req.body, res)) return;
     const w = await buildPage(req.body, id, existing.author_id ?? authorOf(req));
     if (existing.slug !== w.slug && existing.status === "publish") {
       await Redirects.addRedirect(`/${existing.slug}/`, `/${w.slug}/`);
@@ -372,7 +377,7 @@ async function buildPost(body: Record<string, unknown>, id: number | undefined, 
     featured_url: strOrNull(body.featured_url),
     seo_title: strOrNull(body.seo_title) ?? title,
     seo_description: strOrNull(body.seo_description) ?? excerpt.slice(0, 160),
-    canonical: strOrNull(body.canonical),
+    canonical: normalizeCanonical(body.canonical).value,
     og_title: strOrNull(body.og_title) ?? title,
     og_description: strOrNull(body.og_description) ?? excerpt.slice(0, 200),
     og_image: strOrNull(body.og_image) ?? strOrNull(body.featured_url),
@@ -395,7 +400,7 @@ async function buildPage(body: Record<string, unknown>, id: number | undefined, 
     published_at: status === "publish" ? (body.published_at ? String(body.published_at) : new Date().toISOString()) : null,
     seo_title: strOrNull(body.seo_title) ?? title,
     seo_description: strOrNull(body.seo_description) ?? excerpt.slice(0, 160),
-    canonical: strOrNull(body.canonical),
+    canonical: normalizeCanonical(body.canonical).value,
     og_title: strOrNull(body.og_title) ?? title,
     og_description: strOrNull(body.og_description) ?? excerpt.slice(0, 200),
     og_image: strOrNull(body.og_image),
@@ -407,5 +412,18 @@ async function buildPage(body: Record<string, unknown>, id: number | undefined, 
 const strOrNull = (v: unknown): string | null => {
   const s = (v == null ? "" : String(v)).trim(); return s || null;
 };
+
+// Canonical vazio é o DEFAULT CORRETO: a página cai no fallback auto-referente
+// (`[slug].astro`). Só se preenche para sindicação real, nunca "por completude" — foi
+// exatamente o canonical preenchido por completude, herdado do importador removido em
+// 2026-07-27, que tirou 105 dos 126 posts do índice do Google (spec 102 F3).
+// Host externo é rejeitado com 400 em vez de descartado em silêncio: descarte silencioso
+// esconderia do editor que o valor dele não foi gravado.
+function rejectBadCanonical(body: unknown, res: Response): boolean {
+  const raw = (body as Record<string, unknown> | undefined)?.canonical;
+  const { error } = normalizeCanonical(raw);
+  if (error) { res.status(400).json({ error: "bad_canonical", detail: error }); return true; }
+  return false;
+}
 const toIntArray = (v: unknown): number[] =>
   Array.isArray(v) ? v.map((x) => Number(x)).filter((n) => Number.isFinite(n)) : [];

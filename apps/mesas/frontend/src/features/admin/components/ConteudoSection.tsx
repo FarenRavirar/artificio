@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router';
 import { SystemsAdminView } from '../../../pages/SystemsAdminView';
 import { ScenariosAdminView } from '../../../pages/ScenariosAdminView';
 import { PlatformsPage } from '../platforms/PlatformsPage';

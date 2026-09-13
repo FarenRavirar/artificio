@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'react-router';
 import { LinksDisplay } from '../components/LinksDisplay';
 import { MestreBio } from '../components/mestre/MestreBio';
 import { MestreClosedGroupSection } from '../components/mestre/MestreClosedGroupSection';

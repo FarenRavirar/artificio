@@ -271,7 +271,11 @@ describe('renderMarkdown', () => {
     // `downloads`.
     const output = renderMarkdown('**▬ Sistema:** D&D 5.5e\n**▬ Nível:** 20');
 
-    expect(output).toContain('<br>');
+    // `<br />` e não `<br>`: a `sanitize-html` serializa void element na forma
+    // XHTML (spec 102 T4.2, troca do DOMPurify por sanitizante sem DOM para o
+    // SSR). O parser HTML do navegador trata as duas formas como o mesmo nó, e
+    // é a árvore que precisa bater na hidratação — não o texto.
+    expect(output).toContain('<br />');
     expect(output).not.toContain('5.5e\n<strong>▬ Nível');
   });
 
@@ -280,7 +284,7 @@ describe('renderMarkdown', () => {
     // aparecia dentro do <li> anterior em vez de na própria linha.
     const output = renderMarkdown('- Progressão por Epic Boons\n**▬ Estilo:** Épico');
 
-    expect(output).toContain('<br>');
+    expect(output).toContain('<br />');
   });
 
   it('exibe o `&` que o usuário digitou, não a entidade', () => {
@@ -301,15 +305,15 @@ describe('renderMarkdown', () => {
   it('renderiza task lists GFM como checkboxes desabilitados', () => {
     const output = renderMarkdown('- [x] Feito\n- [ ] Pendente');
 
-    expect(output).toContain('<input type="checkbox" disabled="" checked="">');
-    expect(output).toContain('<input type="checkbox" disabled="">');
+    expect(output).toContain('<input type="checkbox" disabled checked />');
+    expect(output).toContain('<input type="checkbox" disabled />');
   });
 
   it('renderiza checkboxes também em lista solta, onde o item vem embrulhado em <p>', () => {
     const output = renderMarkdown('- [x] Feito\n\n- [ ] Pendente');
 
-    expect(output).toContain('<input type="checkbox" disabled="" checked="">');
-    expect(output).toContain('<input type="checkbox" disabled="">');
+    expect(output).toContain('<input type="checkbox" disabled checked />');
+    expect(output).toContain('<input type="checkbox" disabled />');
     expect(output).not.toMatch(/\[[ xX]\]/);
   });
 });

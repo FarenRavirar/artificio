@@ -554,6 +554,151 @@ export function sanitizeLegacyCommentHtml(input: string): string {
 }
 
 /**
+ * Política do HTML que o `markdown-it` acabou de produzir (spec 102 T4.2).
+ *
+ * Parte dos defaults da `sanitize-html` pelo mesmo motivo medido em
+ * `LEGACY_COMMENT_HTML_OPTIONS`: eles neutralizam os 10 vetores testados sem
+ * configuração, e recortar a lista faria sumir em silêncio marcação legítima.
+ * As duas regras próprias são as mesmas, e pela mesma razão — todo link aqui é
+ * de terceiro (`rel` contra reverse tabnabbing) e a plataforma é HTTPS-only.
+ *
+ * O acréscimo é o `<input type="checkbox" disabled>` das task lists, que
+ * `renderMarkdown` injeta ao traduzir `- [x]`. Sem ele na allowlist o item de
+ * tarefa perderia a caixa e viraria texto solto. `disabled` é obrigatório na
+ * saída: a caixa é indicador de estado, não controle — e `type` é limitado a
+ * `checkbox` para que nenhum outro tipo de campo entre por aqui.
+ */
+/**
+ * `href` que o markdown renderizado aceita, e se é de terceiro.
+ *
+ * `null` = não navega, o `href` sai. Três formas passam, e só elas:
+ *
+ * - **HTTPS absoluto** — link externo, ganha `rel`/`target`.
+ * - **`mailto:`** — está em `allowedSchemes` e é uso legítimo em bio/descrição.
+ *   Tratado como externo: abrir cliente de e-mail tira o leitor da página.
+ * - **root-relative (`/rota`)** — link interno da plataforma, sem `target`.
+ *
+ * Fica de fora, de propósito: `http:` (a plataforma é HTTPS-only), relativo sem
+ * barra inicial (`../admin` depende da rota do leitor, não do autor) e
+ * protocol-relative (`//evil.example`, que o navegador resolve como externo).
+ *
+ * `//` é testado ANTES do `URL`: `new URL('//x', base)` resolveria para host
+ * externo em vez de caminho — a armadilha que `commentLinks.test.ts:86-89` já
+ * registra como `protocol_relative`.
+ */
+function classificarHrefRenderizado(
+  value: string | undefined,
+): { href: string; externo: boolean } | null {
+  if (!value) return null;
+  const v = value.trim();
+  if (v === '') return null;
+
+  // Barra invertida conta como barra no parser WHATWG: `/\evil.example` e
+  // `/%2fevil.example` são protocol-relative disfarçado (mesmos casos do teste).
+  if (/^[/\\]{2}/.test(v) || /^\/%2f/i.test(v)) return null;
+  if (v.startsWith('/')) return { href: v, externo: false };
+
+  try {
+    const url = new URL(v);
+    if (url.protocol === 'https:') return { href: v, externo: true };
+    if (url.protocol === 'mailto:') return { href: v, externo: true };
+    return null;
+  } catch {
+    return null; // relativo sem barra, âncora vazia, lixo
+  }
+}
+
+const RENDERED_MARKDOWN_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: [...sanitizeHtml.defaults.allowedTags, 'input'],
+  allowedAttributes: {
+    ...sanitizeHtml.defaults.allowedAttributes,
+    a: ['href', 'rel', 'target'],
+    li: ['class'],
+    input: ['type', 'disabled', 'checked'],
+  },
+  allowedSchemes: ['https', 'mailto'],
+  allowedSchemesAppliedToAttributes: ['href'],
+  disallowedTagsMode: 'discard',
+  // Mantém o `selfClosing` default da lib (`index.js:1030`): esvaziá-lo faz a
+  // `sanitize-html` FECHAR os void elements (`<input ...></input>`), que é HTML
+  // inválido — medido. A forma `<br />` que ela emite é XHTML, mas o parser HTML
+  // do navegador a trata como `<br>`, então a árvore reidratada é a mesma.
+  transformTags: {
+    // `a` PRÓPRIO, e não o de `LEGACY_COMMENT_HTML_OPTIONS`: aquele usa
+    // `isHttpsUrl`, que exige HTTPS **absoluto**, e apaga o `href` de tudo mais.
+    // Reusá-lo aqui destruía `[b](/rota)` — âncora sem navegação — e `mailto:`,
+    // apesar de os dois estarem em `allowedSchemes` logo acima. O legado sanitiza
+    // comentário importado do WordPress, onde só existe link externo absoluto;
+    // este caminho é o markdown de TODOS os apps, onde link interno é a norma
+    // (`commentLinks.test.ts:108-113` define `/material/123` como válido e
+    // `:169` afirma o mesmo de `[b](/rota)`). Achado do Codex (P2) na PR #317.
+    //
+    // O esquema é checado aqui, e não só por `allowedSchemes`, pela ordem de
+    // execução medida em 2026-08-09: `transformTags` roda ANTES da filtragem de
+    // esquema, então `javascript:` chegaria com `href` presente, ganharia
+    // `rel`/`target`, e só depois perderia o `href` — quebrando a idempotência.
+    a: (tagName, attribs) => {
+      const destino = classificarHrefRenderizado(attribs.href);
+      if (destino === null) return { tagName, attribs: {} };
+      // Link interno não é de terceiro: `target="_blank"` arrancaria o leitor da
+      // SPA e `rel="ugc nofollow"` pediria ao buscador para não seguir a própria
+      // plataforma. Externo mantém as duas proteções (reverse tabnabbing + UGC).
+      return destino.externo
+        ? {
+            tagName,
+            attribs: {
+              href: destino.href,
+              rel: 'ugc nofollow noopener noreferrer',
+              target: '_blank',
+            } as sanitizeHtml.Attributes,
+          }
+        : { tagName, attribs: { href: destino.href } as sanitizeHtml.Attributes };
+    },
+    // Só a caixa de tarefa passa; qualquer outro `<input>` é descartado — é a
+    // diferença entre indicador de estado e campo de formulário em UGC.
+    //
+    // `disabled`/`checked` saem com valor vazio para casar com o que o DOM
+    // produz para atributo booleano; `disabled="disabled"` seria outra diferença
+    // de hidratação pelo mesmo motivo do `selfClosing`.
+    input: (tagName, attribs) =>
+      attribs.type === 'checkbox'
+        ? { tagName, attribs: { type: 'checkbox', disabled: '', ...(attribs.checked === undefined ? {} : { checked: '' }) } }
+        : { tagName: '', attribs: {} },
+  },
+};
+
+/**
+ * Opções da POLÍTICA do markdown renderizado, exportadas para `sanitizeServer.ts`.
+ *
+ * A camada DOMPurify vive lá e não aqui: este módulo é importado por
+ * `ContentEditor.tsx`, que `packages/ui` puxa e TODOS os frontends empacotam.
+ * Qualquer referência a módulo Node neste arquivo entra no grafo de browser —
+ * medido três vezes na PR #317, com `import`, com `createRequire(import.meta.url)`
+ * e com `createRequire` importado de `node:module`; as três quebraram o build.
+ */
+export const RENDERED_MARKDOWN_SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  ...RENDERED_MARKDOWN_OPTIONS,
+  parser: { decodeEntities: false },
+};
+
+/**
+ * Sanitiza o HTML já renderizado pelo `markdown-it` — política, sem DOM.
+ *
+ * Roda igual no browser e no servidor: só `sanitize-html`, que é string-based.
+ * Quem renderiza no SERVIDOR deve usar `sanitizeRenderedMarkdownServer` de
+ * `@artificio/content-editor/sanitize-server`, que acrescenta a camada DOMPurify
+ * exigida pelo `AGENTS.md` para rich text.
+ *
+ * Sem o pré-passo de sentinela de `sanitizeUserMarkdown`, pelo mesmo motivo já
+ * documentado em `markdownToPlainText`: aqui a entrada é HTML gerado pelo
+ * renderizador, onde toda tag é estrutura real e o `<` do usuário já foi
+ * escapado antes.
+ */
+export function sanitizeRenderedMarkdown(html: string): string {
+  return sanitizeHtml(html, RENDERED_MARKDOWN_SANITIZE_OPTIONS);
+}
+
+/**
  * Desfaz **só o escape do `&`** no texto plano — não o de `<`/`>`.
  *
  * O `&` é o único cujo escape é visível como defeito: `a & b` chegava ao leitor

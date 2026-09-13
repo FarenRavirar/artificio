@@ -10,7 +10,15 @@ packages:
   - "scripts"
 overrides:
   "form-data@<4.0.6": ">=4.0.6"
-  "undici@<7.28.0": ">=7.28.0 <8"
+  # 10 CVEs medidas pelo Snyk em 2026-09-13, a pior CVE-2026-84961 (CWE-295,
+  # CVSS 9.1 crítica): validação imprópria de certificado. Junto vêm smuggling
+  # de request, cookie persistente com dado sensível e 3 de exceção não
+  # capturada. O teto `<8` mantém a major que os consumidores declaram.
+  "undici@<7.29.1": ">=7.29.1 <8"
+  # A faixa 8.x precisa de entrada PRÓPRIA: o teto `<8` acima não a alcança, e
+  # `downloads/backend` declara `undici@^8.10.0` direto — sem esta linha as 10
+  # CVEs seguiriam abertas lá. Mesmo padrão do `nanoid@<3.3.17` desta lista.
+  "undici@>=8.0.0 <8.10.2": ">=8.10.2 <9"
   "@opentelemetry/core@<2.8.0": ">=2.8.0"
   "nanoid@>=4.0.0 <5.0.9": ">=5.0.9"
   "uuid@<11.1.1": ">=11.1.1"
@@ -95,6 +103,25 @@ overrides:
   #
   # Faixas declaradas na árvore: `^1.0.0`, `^1.9.10`, `^1.32.4`, sem teto.
   "prosemirror-view@<1.42.2": ">=1.42.2 <2"
+  # NÃO é CVE: é duplicata de instância. O `mesas` passou a declarar
+  # `react-router@^7.18.3` direto (o import sem `-dom`, spec 102), enquanto
+  # `@artificio/analytics` arrasta `react-router@7.18.0` por dentro do
+  # `react-router-dom@^7.18.0`. Com as duas cópias na árvore, o contexto do Router
+  # não atravessa de uma para a outra: `useLocation() may be used only in the
+  # context of a <Router> component` — medido em 2026-09-11 com `500` em TODA rota
+  # renderizada no servidor, depois que o SSR entrou.
+  #
+  # O piso é a mais alta das duas já presentes e satisfaz o `^7.18.0` que todos os
+  # consumidores declaram; o teto `<8` evita o major que o app não suporta.
+  "react-router@<7.18.3": ">=7.18.3 <8"
+  # Snyk SNYK-JS-QS-19432017 / CVE-2026-82562 (CWE-770, CVSS 6.3): o parser aceita
+  # corpo sem limite efetivo. E SNYK-JS-QS-19432019 / CVE-2026-82417 (CWE-248,
+  # CVSS 6.9): exceção não capturada derruba o processo. Ambos com PoC público.
+  #
+  # Transitiva de `express@5.2.1` — chega a todo backend do monorepo, não só ao
+  # `mesas`. O 6.16.0 é a correção nomeada pelo Snyk e satisfaz o `^6.14.0` que o
+  # express 5 declara, então entra sem quebrar semver.
+  "qs@<6.16.0": ">=6.16.0 <7"
 patchedDependencies:
   "@types/express-serve-static-core@5.1.1": patches/@types__express-serve-static-core@5.1.1.patch
 allowBuilds:

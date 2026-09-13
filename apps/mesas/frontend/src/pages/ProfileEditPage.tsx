@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router';
 import { Button, LoadingState, TextInput } from '@artificio/ui';
 import { useProfileContext } from '../contexts/useProfileContext';
 import type { PlayerProfile, GmProfile } from '../types/profileTypes';

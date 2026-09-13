@@ -6,7 +6,11 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // `.react-router` é gerado por `react-router typegen` (tipos das rotas). Lintar
+  // saída de gerador é ruído: medido nesta branch, 40 erros e todos ali dentro
+  // (`no-namespace` nos `+types/*.ts`), zero em código autoral. Corrigir o gerado
+  // não é possível — ele é reescrito a cada typegen.
+  globalIgnores(['dist', '.react-router']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

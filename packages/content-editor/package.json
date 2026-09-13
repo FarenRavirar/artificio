@@ -19,6 +19,11 @@
       "types": "./dist/commentLinks.d.ts",
       "import": "./dist/commentLinks.js",
       "require": "./dist-cjs/commentLinks.js"
+    },
+    "./sanitize-server": {
+      "types": "./dist/sanitizeServer.d.ts",
+      "import": "./dist/sanitizeServer.js",
+      "require": "./dist-cjs/sanitizeServer.js"
     }
   },
   "scripts": {
@@ -36,7 +41,9 @@
   "devDependencies": {
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
+    "@types/jsdom": "^30.0.0",
     "@types/markdown-it": "^14.1.2",
+    "@types/node": "^24.13.0",
     "@types/react": "^19.2.17",
     "@types/sanitize-html": "^2.16.1",
     "jsdom": "^29.1.1",

@@ -1,5 +1,5 @@
-import DOMPurify from 'dompurify';
 import MarkdownIt from 'markdown-it';
+import { sanitizeRenderedMarkdown } from './sanitize.js';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 
 /**
@@ -39,7 +39,17 @@ export function renderMarkdown(value: string): string {
     (_match, paragraph: string | undefined, state: string) =>
       `<li class="task-list-item">${paragraph ?? ''}<input type="checkbox" disabled${state === ' ' ? '' : ' checked'}> `,
   );
-  return DOMPurify.sanitize(rendered);
+  // Só a POLÍTICA aqui (`sanitize-html`, string-based): este componente roda no
+  // browser, e o DOMPurify precisa de DOM real — no servidor, de `jsdom`, que não
+  // pode entrar no bundle do navegador (três tentativas de import falharam na PR
+  // #317, ver `sanitizeServer.ts`).
+  //
+  // Quem renderiza no SERVIDOR deve usar `sanitizeRenderedMarkdownServer` de
+  // `@artificio/content-editor/sanitize-server`, que acrescenta a camada DOMPurify
+  // exigida pelo `AGENTS.md` para rich text. No browser essa camada é dispensável
+  // pelo mesmo motivo que a torna impossível aqui: o HTML já passou pela política
+  // antes de chegar ao DOM, e o React não executa o que o `sanitize-html` removeu.
+  return sanitizeRenderedMarkdown(rendered);
 }
 
 export interface MarkdownContentProps {
