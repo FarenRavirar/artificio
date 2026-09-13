@@ -1,6 +1,8 @@
 import { data } from 'react-router';
 import type { LoaderFunctionArgs, MetaArgs } from 'react-router';
-import { MestrePage } from '../pages/MestrePage';
+// `export … from`, e não `import` + `export default`: o re-export direto não cria
+// binding local que só existe para ser reexportado. Achado do Sonar na PR #316.
+export { MestrePage as default } from '../pages/MestrePage';
 import { apiUrl } from '../lib/apiUrl';
 import { normalizeMestreProfile, type MestrePublicData } from '../hooks/useMestre';
 import { MODULE_ORIGINS } from '@artificio/config';
@@ -97,4 +99,3 @@ export function meta({ data: loaderData }: MetaArgs<typeof loader>) {
   ];
 }
 
-export default MestrePage;

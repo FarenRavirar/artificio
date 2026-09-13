@@ -28,7 +28,7 @@ export function buildTableDescription(vm: TableViewModel): string {
     vm.experience,
     describePrice(vm),
     describeSlots(vm),
-  ].filter((parte): parte is string => Boolean(parte && parte.trim()));
+  ].filter((parte): parte is string => Boolean(parte?.trim()));
 
   const cauda = facetas.join(' • ');
 

@@ -1,7 +1,10 @@
 import { data } from 'react-router';
 import type { LoaderFunctionArgs, MetaArgs } from 'react-router';
 import { MODULE_ORIGINS } from '@artificio/config';
-import { CatalogoPage } from '../pages/CatalogoPage';
+// `export … from` no fim do arquivo, e não `import` + `export default`: o
+// re-export direto não cria binding local que só existe para ser reexportado.
+// Achado do Sonar na PR #316.
+export { CatalogoPage as default } from '../pages/CatalogoPage';
 import { fetchCatalogTables } from '../services/catalogService';
 import { parseCatalogFilters } from '../utils/catalogFilters';
 import type { TablesResponse } from '../types/tables';
@@ -68,4 +71,3 @@ export function meta({ location }: MetaArgs<typeof loader>) {
   ];
 }
 
-export default CatalogoPage;

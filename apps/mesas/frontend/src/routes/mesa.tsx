@@ -1,6 +1,8 @@
 import { data } from 'react-router';
 import type { LoaderFunctionArgs, MetaArgs } from 'react-router';
-import { MesaPage } from '../pages/MesaPage';
+// `export … from`, e não `import` + `export default`: o re-export direto não cria
+// binding local que só existe para ser reexportado. Achado do Sonar na PR #316.
+export { MesaPage as default } from '../pages/MesaPage';
 import { apiUrl } from '../lib/apiUrl';
 import { normalizeClosedTable, type ClosedTable } from '../pages/closedTable';
 import type { TableDetail } from '../types/tables';
@@ -85,4 +87,3 @@ export function meta({ data: loaderData }: MetaArgs<typeof loader>) {
   return buildTableMeta(loaderData as MesaLoaderData | undefined);
 }
 
-export default MesaPage;

@@ -70,7 +70,13 @@ export function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
             // casa `; artificio_theme=…`, a forma como o próprio browser
             // serializa cookie depois do primeiro. Quem tivesse qualquer outro
             // cookie antes deste caía no default e via o tema piscar.
-            __html: `(function(){try{var m=document.cookie.match(/(?:^|;\\s*)artificio_theme=(dark|light)/);document.documentElement.dataset.theme=m?m[1]:'dark';}catch(e){document.documentElement.dataset.theme='dark';}})();`,
+            // `String.raw` e não template comum: com template, `\s` colapsa para
+            // `s` literal e a regex chega ao browser como `(?:^|;s*)`, que não
+            // casa `; artificio_theme=…` — quem tivesse outro cookie antes deste
+            // via o tema piscar. Antes isso exigia escrever `\\s`; `String.raw`
+            // dispensa o escape duplo e tira a pegadinha do caminho. Achado do
+            // Sonar na PR #316.
+            __html: String.raw`(function(){try{var m=/(?:^|;\s*)artificio_theme=(dark|light)/.exec(document.cookie);document.documentElement.dataset.theme=m?m[1]:'dark';}catch(e){document.documentElement.dataset.theme='dark';}})();`,
           }}
         />
       </head>
