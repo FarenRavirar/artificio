@@ -3,6 +3,13 @@ import type { NavItem } from "./modules.js";
 export interface NavProps {
   items: NavItem[];
   currentHref?: string;
+  /**
+   * Chamado ao ativar um link. Existe para o painel mobile se fechar na navegação:
+   * o handler fica no `<a>`, que é interativo de nascença (teclado, toque e mouse de
+   * graça), em vez de num `<div>` com `onClick` — elemento não-interativo com handler
+   * não tem equivalente por teclado (Sonar S6847/S1082).
+   */
+  onNavigate?: () => void;
 }
 
 function normalizeHref(href: string | undefined): string | null {
@@ -19,7 +26,7 @@ function normalizeHref(href: string | undefined): string | null {
   }
 }
 
-export function Nav({ items, currentHref }: NavProps) {
+export function Nav({ items, currentHref, onNavigate }: Readonly<NavProps>) {
   const normalizedCurrent = normalizeHref(currentHref);
 
   return (
@@ -34,6 +41,7 @@ export function Nav({ items, currentHref }: NavProps) {
                 aria-current={isCurrent ? "page" : undefined}
                 className="artificio-nav-link"
                 href={item.href}
+                onClick={onNavigate}
               >
                 {item.label}
               </a>

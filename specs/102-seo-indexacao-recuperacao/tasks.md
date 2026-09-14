@@ -1804,13 +1804,23 @@ como esperado**, congelando o bug. Condição passou a espelhar o que cada filho
 o teste foi corrigido e ganhou 3 casos (busca embutida sozinha, com changelog, e
 `showChangelog` sem handler).
 
-**Sonar — `onClick` em `<div>` não-interativo, nos DOIS headers.** O painel mobile
-fechava por `onClick` no container (S1082/S6847: sem equivalente por teclado). Corrigido
-por delegação a partir de um `<a>` real (`onClickCapture` + `onKeyUp`), não com
-`role`+`tabIndex`, que inventaria um controle inexistente. **O padrão veio de
-`packages/ui/src/Header.tsx:401`** — eu o copiei para a ilha do `site`; corrigir só o app
-deixaria 6 apps com o defeito. Também aplicado `Readonly<Props>` na ilha (convenção que o
-repo ainda não usa em `Nav`/`Header`; não varri o resto).
+**Sonar — handler de evento em `<div>` não-interativo, nos DOIS headers.** O painel
+mobile fechava por `onClick` no container (S1082/S6847: sem equivalente por teclado). **O
+padrão veio de `packages/ui/src/Header.tsx:401`** — eu o copiei para a ilha do `site`;
+corrigir só o app deixaria 6 apps com o defeito.
+
+**A primeira correção NÃO resolveu, e o Sonar reincidiu.** Troquei `onClick` por
+`onClickCapture` + `onKeyUp` no mesmo `<div>`, achando que o problema era a falta do
+caminho por teclado. Errado: **a regra é sobre existir handler no elemento
+não-interativo, não sobre qual handler** — reapareceu em `Header.tsx:411` e
+`SiteHeaderIsland.tsx:317`.
+
+**A correção que vale: o `<div>` não escuta nada.** Quem fecha o painel é o próprio
+link, por `onNavigate` — prop nova e opcional do `Nav` (`packages/ui/src/Nav.tsx`), e
+terceiro parâmetro do `renderNavList` na ilha. O `<a>` é interativo de nascença (teclado,
+toque e mouse), enquanto `role`+`tabIndex` num `<div>` inventaria um controle que não
+existe. Também aplicado `Readonly<Props>` na ilha e no `Nav` (convenção que o repo ainda
+não usa em `Header`; não varri o resto).
 
 **T3.5f — tirar `Painel` da esquerda do `mesas` (`apps/mesas`). ENTRA NESTA SPEC** —
 escopo ampliado pelo mantenedor em 2026-09-14 (*"T3.5F É NESSE ESCOPO"*). Remover do

@@ -1,6 +1,6 @@
 import { getAccountsOrigin, logout, redirectToLogin, useSession } from "@artificio/auth/client";
 import { NotificationBell, StaticChangelogModal, ThemeToggle, applyHeaderVariant, useChangelogBadge, useTheme, CHANGELOG_UPDATE_MARKERS } from "@artificio/ui";
-import { useState, useRef, useEffect, type SyntheticEvent } from "react";
+import { useState, useRef, useEffect } from "react";
 import rawChangelogs from "../data/changelogs.json";
 
 export interface SiteNavItem {
@@ -92,10 +92,6 @@ export function SiteHeaderIsland({
     });
   };
 
-  /** Fecha o painel mobile quando a ativação partiu de um link dentro dele. */
-  const fecharAoNavegar = (event: SyntheticEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement).closest("a")) setNavOpen(false);
-  };
 
   const { hasNewUpdate, markSeen } = useChangelogBadge("site_last_seen_update", CHANGELOG_UPDATE_MARKERS.site);
   const { theme } = useTheme();
@@ -153,7 +149,7 @@ export function SiteHeaderIsland({
      rótulo. NÃO trocar por `currentHref`: nenhuma rota do site passa essa prop
      (medido), e o atributo simplesmente sumiria do nav — foi o que aconteceu na
      primeira versão de T3.5d. */
-  function renderNavList(items: SiteNavItem[], ariaLabel: string) {
+  function renderNavList(items: SiteNavItem[], ariaLabel: string, onNavigate?: () => void) {
     return (
       <nav aria-label={ariaLabel}>
         <ul className="artificio-nav-list">
@@ -163,6 +159,7 @@ export function SiteHeaderIsland({
                 className="artificio-nav-link"
                 href={item.href}
                 aria-current={isCurrent(item) ? "page" : undefined}
+                onClick={onNavigate}
               >
                 {item.label}
               </a>
@@ -307,16 +304,16 @@ export function SiteHeaderIsland({
           `styles.css:2022` esconde os navs inline. Só aparece com o toggle aberto;
           `.artificio-mobile-nav` já tem estilo pronto no `packages/ui`.
 
-          O fechamento escuta no <nav>, por delegação a partir de um <a> real, e não um
-          `onClick` no <div>: handler de clique em elemento não-interativo é inacessível
-          por teclado (Sonar S1082/S6847) e maquiá-lo com `role`+`tabIndex` inventaria um
-          controle que não existe. Quem fecha o painel é a navegação do link, que já é
-          acionável por Enter — o `keyUp` cobre o caso do teclado, onde o clique não
-          dispara antes de o browser sair da página. */}
+          O <div> NÃO escuta evento (Sonar S6847/S1082): quem fecha é o próprio link, pelo
+          `onNavigate` passado ao `renderNavList`. O `<a>` é interativo de nascença —
+          teclado, toque e mouse de graça —, enquanto `role`+`tabIndex` num <div>
+          inventaria um controle que não existe. Primeira tentativa trocou `onClick` por
+          `onClickCapture`+`onKeyUp` e o Sonar seguiu acusando, com razão: a regra é sobre
+          haver handler no elemento não-interativo, não sobre qual. */}
       {navOpen ? (
-        <div className="artificio-mobile-nav" onClickCapture={fecharAoNavegar} onKeyUp={fecharAoNavegar}>
-          {renderNavList(modules, "Projetos do Artifício (menu)")}
-          {renderNavList(sections, "Seções do blog (menu)")}
+        <div className="artificio-mobile-nav">
+          {renderNavList(modules, "Projetos do Artifício (menu)", () => setNavOpen(false))}
+          {renderNavList(sections, "Seções do blog (menu)", () => setNavOpen(false))}
         </div>
       ) : null}
 

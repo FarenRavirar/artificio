@@ -1,7 +1,7 @@
 import { getAccountsOrigin, logout, redirectToLogin, useSession } from "@artificio/auth/client";
 import type { User } from "@artificio/auth";
 import { BRAND_ORIGIN } from "@artificio/config";
-import { useEffect, useRef, useState, type ReactNode, type SyntheticEvent } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { brandLogoNavy, brandLogoNeg } from "./brand.js";
 import { defaultNavItems, type NavItem } from "./modules.js";
 import { Nav } from "./Nav.js";
@@ -152,10 +152,6 @@ export function Header({
     });
   };
 
-  /** Fecha o painel mobile quando a ativação partiu de um link dentro dele. */
-  const fecharAoNavegar = (event: SyntheticEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement).closest("a")) setNavOpen(false);
-  };
 
   useEffect(() => {
     if (!open) return;
@@ -402,16 +398,21 @@ export function Header({
         </div>
       ) : null}
 
-      {/* Fechamento por delegação a partir de um <a> real, não `onClick` no <div>:
-          handler de clique em elemento não-interativo não tem equivalente por teclado
-          (Sonar S1082/S6847), e pôr `role`+`tabIndex` aqui inventaria um controle que
-          não existe. O `keyUp` cobre o Enter, em que o clique não chega a disparar antes
-          da navegação. Mesma correção aplicada na ilha própria do `site`. */}
+      {/* O <div> do painel NÃO escuta evento (Sonar S6847/S1082): quem fecha é o próprio
+          link, via `onNavigate` do `Nav`. O `<a>` é interativo de nascença — teclado,
+          toque e mouse de graça —, enquanto `role`+`tabIndex` num <div> inventaria um
+          controle que não existe. Primeira tentativa trocou `onClick` por
+          `onClickCapture`+`onKeyUp` e o Sonar seguiu acusando, com razão: a regra é sobre
+          haver handler no elemento não-interativo, não sobre qual. */}
       {navOpen ? (
-        <div className="artificio-mobile-nav" onClickCapture={fecharAoNavegar} onKeyUp={fecharAoNavegar}>
-          <Nav currentHref={currentHref} items={navItems} />
+        <div className="artificio-mobile-nav">
+          <Nav currentHref={currentHref} items={navItems} onNavigate={() => setNavOpen(false)} />
           {hasModuleNav ? (
-            <Nav currentHref={moduleCurrentHref} items={moduleNav as NavItem[]} />
+            <Nav
+              currentHref={moduleCurrentHref}
+              items={moduleNav as NavItem[]}
+              onNavigate={() => setNavOpen(false)}
+            />
           ) : null}
         </div>
       ) : null}
