@@ -30,7 +30,10 @@
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { extrairCorpo, extrairObjeto } from "./_fonte-ts.mjs";
+import {
+  parseFonte, acharFuncao, propriedadesDiretas, valorDaPropriedadeDireta,
+  lePropriedade, condicoesLiterais, variavelQueRecebe,
+} from "./_fonte-ts.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -80,7 +83,9 @@ const fonteMeta = lerArquivo(TABLE_META);
 const fonteMapper = lerArquivo(MAPPER);
 
 if (fonteMeta) {
-  const corpo = extrairCorpo(fonteMeta, "priceForJsonLd");
+  const sfMeta = parseFonte(fonteMeta);
+  const fnPreco = acharFuncao(sfMeta, "priceForJsonLd");
+  const corpo = fnPreco?.body?.getText() ?? null;
 
   if (!corpo) {
     failures.push(
@@ -110,14 +115,14 @@ if (fonteMeta) {
     // passar `if (vm.priceType === 'gratuita') return '0'; return '99.00'` — o
     // `vm.priceType` sobrevivia no corpo e o check passava verde com preço fixo em
     // toda mesa paga (achado do CodeRabbit, PR #320).
-    if (!/\bvm\.priceType\b/.test(codigo)) {
+    if (!lePropriedade(fnPreco, "vm", "priceType")) {
       failures.push(
         `priceForJsonLd: não lê \`vm.priceType\`. É ele que separa mesa gratuita ` +
           `(\`'0'\`) de mesa paga — sem essa leitura, o ramo gratuito virou constante.`,
       );
     }
 
-    if (!/\bvm\.price\b(?!Type)/.test(codigo)) {
+    if (!lePropriedade(fnPreco, "vm", "price")) {
       failures.push(
         `priceForJsonLd: não lê \`vm.price\`. O valor da mesa PAGA tem de sair do ` +
           `TableViewModel, que o deriva de price_value.\n` +
@@ -132,7 +137,7 @@ if (fonteMeta) {
     //
     // Condição literal no caminho do preço é sempre defeito: ou o dado decide, ou o
     // valor é fixo e o schema mente sobre a mesa.
-    for (const [, literal] of codigo.matchAll(/\bif\s*\(\s*(true|false)\s*[)&|]/g)) {
+    for (const literal of condicoesLiterais(fnPreco)) {
       failures.push(
         `priceForJsonLd: tem \`if (${literal})\` — o preço deixou de ser decidido pelo ` +
           `dado.\n` +
@@ -147,19 +152,15 @@ if (fonteMeta) {
 
   // A função certa pode existir e o JSON-LD alimentar `offers.price` por outro caminho.
   // Sem isto, o guard travaria a derivação e deixaria passar o desvio no ponto de uso.
-  const jsonLd = extrairCorpo(fonteMeta, "buildTableJsonLd");
+  const jsonLd = acharFuncao(sfMeta, "buildTableJsonLd");
   if (!jsonLd) {
     failures.push(`buildTableJsonLd: não encontrada em ${TABLE_META}.`);
   } else {
-    const codigoJsonLd = semComentario(jsonLd);
-
     // Presença da chamada NÃO prova que o valor chega ao schema: mantendo
     // `const price = priceForJsonLd(vm)` e trocando só a propriedade por
     // `price: '999'`, este check passava verde com preço fixo publicado (achado P2 do
     // Codex, PR #320, reproduzido). Então são duas verificações, origem e destino.
-    const capturaDoPreco = /(?:const|let)\s+(\w+)\s*=\s*priceForJsonLd\(\s*vm\s*\)/.exec(
-      codigoJsonLd,
-    );
+    const capturaDoPreco = variavelQueRecebe(jsonLd, "priceForJsonLd");
 
     if (!capturaDoPreco) {
       failures.push(
@@ -168,22 +169,18 @@ if (fonteMeta) {
           `derivação errada volta sem quebrar teste.`,
       );
     } else {
-      const variavel = capturaDoPreco[1];
+      const variavel = capturaDoPreco;
 
-      // A busca precisa acontecer DENTRO do objeto `offers`, não no corpo inteiro.
-      // Procurando no corpo todo, qualquer `price` solto satisfazia o check: medido
-      // com `const decoy = { price }` ao lado de `offers.price: '999'` — guard devolvia
-      // `G-F OK` exit 0 publicando preço fixo (achado P2 do Codex, PR #320, reproduzido).
-      const oferta = extrairObjeto(codigoJsonLd, "offers");
+      // `price` tem de ser propriedade DIRETA de `offers`. "Direta" é a palavra operante:
+      // a versão por regex varria o objeto recortado inteiro, aninhados incluídos, e
+      // `offers: { decoy: { price } }` — sem `price` na oferta — devolvia `G-F OK` exit 0
+      // com a oferta publicando valor errado (achado P2 do Codex, PR #320, reproduzido).
+      // Por AST, neto não é filho, e a pergunta é exata por construção.
+      const diretas = propriedadesDiretas(jsonLd, "offers");
+      const valorDoPreco = valorDaPropriedadeDireta(jsonLd, "offers", "price");
+      const chegaNaOferta = valorDoPreco === variavel;
 
-      // Aceita `price,` (shorthand) e `price: <variavel>`, e nada além disso.
-      const chegaNaOferta =
-        oferta !== null &&
-        new RegExp(String.raw`price\s*(?::\s*${variavel}\s*)?[,}]`).test(
-          oferta.replace(/priceCurrency\s*:[^,}]*/g, ""),
-        );
-
-      if (oferta === null) {
+      if (diretas === null) {
         failures.push(
           `buildTableJsonLd: não foi possível isolar o objeto \`offers\`. O guard compara ` +
             `o preço DENTRO da oferta — se a estrutura mudou, atualize-o; não o remova.`,

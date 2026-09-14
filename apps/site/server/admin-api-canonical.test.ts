@@ -118,6 +118,24 @@ describe('canonical no caminho de escrita do admin', () => {
     expect(postsMocks.createPost).not.toHaveBeenCalled();
   });
 
+  it('RECUSA outro subdomínio do domínio permitido — é outra URL, não esta página', async () => {
+    // `normalizeCanonical` aceita qualquer host sob `artificiorpg.com`, então
+    // `accounts.` passava na validação de forma. A comparação antiga descartava a
+    // autoridade inteira e comparava só `/blog/meu-post/` — canonical gravado para uma
+    // página que não existe (achado P2 do Codex, PR #320).
+    const res = await call('/posts', post({ canonical: 'https://accounts.artificiorpg.com/blog/meu-post/' }));
+    expect(res.status).toBe(400);
+    const corpo = await res.json();
+    expect(corpo.detail).toContain('origem');
+    expect(postsMocks.createPost).not.toHaveBeenCalled();
+  });
+
+  it('RECUSA porta não padrão — `:444` é outra origem', async () => {
+    const res = await call('/posts', post({ canonical: 'https://artificiorpg.com:444/blog/meu-post/' }));
+    expect(res.status).toBe(400);
+    expect(postsMocks.createPost).not.toHaveBeenCalled();
+  });
+
   it('RECUSA host externo — comportamento que já existia, preservado', async () => {
     const res = await call('/posts', post({ canonical: 'https://outro-site.com/blog/meu-post/' }));
     expect(res.status).toBe(400);

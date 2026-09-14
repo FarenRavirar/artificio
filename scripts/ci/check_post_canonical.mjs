@@ -98,26 +98,38 @@ function lerArquivo(caminhoRelativo) {
 }
 
 /**
- * Caminho de uma URL absoluta ou relativa, sempre com barra inicial.
+ * Partes de um canonical absoluto, via `new URL()` — nunca por recorte de string.
  *
- * NÃO descarta query/fragmento — devolve-os separados para que o chamador os rejeite.
- * Descartar silenciosamente fazia `…/blog/foo/?variant=wrong` comparar igual a
- * `/blog/foo/` e passar verde (achado P2 do Codex, PR #320, reproduzido: o guard
- * devolvia `G-A OK` exit 0). E passar era errado: `normalizeCanonical`
- * (`packages/content/src/canonical.ts:41`) valida protocolo, host, credencial e barra
- * final, mas nunca toca em `url.search` — `url.toString()` preserva a query, e
- * `[slug].astro:21,43` publica o valor literal. A página se declarava canônica para
- * uma variante que não é a URL real.
+ * Duas coisas que o recorte errava, ambas medidas (achados P2 do Codex, PR #320):
+ *
+ *   1. Descartar query/fragmento fazia `…/blog/foo/?variant=wrong` comparar igual a
+ *      `/blog/foo/` e o guard devolvia `G-A OK` exit 0. E passar era errado:
+ *      `normalizeCanonical` (`packages/content/src/canonical.ts:41`) nunca toca em
+ *      `url.search`, e `[slug].astro:21,43` publica o valor literal — a página se
+ *      declarava canônica para uma variante que não é a URL real.
+ *   2. `replace(/^https?:\/\/[^/]+/i, "")` descartava a AUTORIDADE inteira, então
+ *      `https://accounts.artificiorpg.com/blog/x/` e `https://artificiorpg.com:444/blog/x/`
+ *      passavam como se fossem `/blog/x/` — canonical para URL que não existe.
+ *
+ * `URL` resolve as duas por construção: `origin` carrega esquema, host e porta, e
+ * `search`/`hash` vêm separados em vez de sumirem.
+ *
+ * O guard NÃO compara origem contra uma allowlist fixa: `PUBLIC_SITE_URL` difere entre
+ * prod e beta, e um canonical `https://beta.…` em beta é a configuração legítima. O que
+ * ele compara é CAMINHO, e quem valida a origem é o caminho de escrita
+ * (`apps/site/server/admin-api.ts`), que conhece o `SITE.origin` do próprio ambiente.
  */
 function partesDe(url) {
-  const semProtocolo = url.replace(/^https?:\/\/[^/]+/i, "");
-  const corte = semProtocolo.search(/[?#]/);
-  const caminhoCru = corte === -1 ? semProtocolo : semProtocolo.slice(0, corte);
-  const sufixo = corte === -1 ? "" : semProtocolo.slice(corte);
-  const comBarra = caminhoCru.startsWith("/") ? caminhoCru : `/${caminhoCru}`;
+  let u;
+  try {
+    u = new URL(url);
+  } catch {
+    return null;
+  }
   return {
-    caminho: comBarra.endsWith("/") ? comBarra : `${comBarra}/`,
-    sufixo,
+    origem: u.origin,
+    caminho: u.pathname.endsWith("/") ? u.pathname : `${u.pathname}/`,
+    sufixo: `${u.search}${u.hash}`,
   };
 }
 
@@ -166,7 +178,12 @@ if (cru) {
       }
 
       const esperado = `${PREFIXO_DA_ROTA}/${slug}/`;
-      const { caminho: encontrado, sufixo } = partesDe(canonical);
+      const partes = partesDe(canonical);
+      if (!partes) {
+        failures.push(`${slug}: \`seo.canonical\` não é uma URL válida (${canonical}).`);
+        continue;
+      }
+      const { caminho: encontrado, sufixo } = partes;
 
       // Query/fragmento no canonical é sempre defeito, mesmo com o caminho certo: a
       // página se declara canônica para uma VARIANTE dela mesma, e o Google segue a

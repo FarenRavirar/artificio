@@ -39,7 +39,9 @@
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { extrairCorpo } from "./_fonte-ts.mjs";
+import {
+  parseFonte, acharFuncao, identificadoresLivres, corpoNormalizado,
+} from "./_fonte-ts.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -80,42 +82,10 @@ const CHAMADAS_PERMITIDAS = new Set([
   "importedTableExpiryDate",
 ]);
 
-/**
- * Sintaxe da linguagem, não dependência. Fica separado de CHAMADAS_PERMITIDAS de
- * propósito: aquela lista é decisão sobre REGRA (o que pode ficar fora da comparação),
- * esta é só ruído do parser grosseiro. Misturar as duas faria a lista de regra crescer
- * com entradas que ninguém precisa justificar.
- */
-const PALAVRAS_CHAVE = new Set([
-  "if",
-  "else",
-  "for",
-  "of",
-  "in",
-  "return",
-  "switch",
-  "case",
-  "while",
-  "do",
-  "try",
-  "catch",
-  "finally",
-  "throw",
-  "typeof",
-  "instanceof",
-  "new",
-  "const",
-  "let",
-  "var",
-  "function",
-  "true",
-  "false",
-  "null",
-  "undefined",
-]);
-
-/** Único parâmetro das funções espelhadas; não é dependência externa. */
-const PARAMETRO = "table";
+// A lista de PALAVRAS_CHAVE e a constante PARAMETRO saíram na reescrita para AST: eram
+// compensação do parser por texto, que não distinguia sintaxe de identificador nem
+// parâmetro de referência externa. O percurso por nó resolve os dois por construção —
+// `identificadoresLivres` conhece o escopo real, incluindo os parâmetros da função.
 
 const failures = [];
 
@@ -173,78 +143,33 @@ function lerArquivo(caminhoRelativo) {
  * ponto, porque obriga quem adiciona a justificar por que aquela chamada não precisa
  * ser comparada. Falso-NEGATIVO é o que este guard existe para não ter.
  */
-function chamadasNaoVerificadas(corpo) {
-  const semComentario = corpo.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
-  const encontradas = new Set();
-
-  for (const [, nome] of semComentario.matchAll(/\.?\b([A-Za-z_$][\w$]*)\s*\(/g)) {
-    if (!CHAMADAS_PERMITIDAS.has(nome)) encontradas.add(nome);
-  }
-
-  // Identificador NÃO chamado divergia igual: extraindo o prazo para um `EXPIRY_DAYS`
-  // local em cada raiz (5 no backend, 7 no frontend), os corpos ficavam idênticos e o
-  // guard passava verde — a checagem só olhava `nome(`. Achado P2 do Codex na PR #320,
-  // segunda rodada sobre a mesma classe de furo (a primeira foi o helper chamado).
-  //
-  // Qualquer identificador livre que não seja declarado no corpo, parâmetro, propriedade
-  // (`x.y`), palavra-chave ou permitido é dependência externa não verificada.
-  const declaradosNoCorpo = new Set();
-  for (const [, nome] of semComentario.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)/g)) {
-    declaradosNoCorpo.add(nome);
-  }
-
-  // Literal de string é conteúdo, não identificador: `table.origin !== 'imported'` fazia
-  // o guard exigir que `imported` fosse espelhado. Sai antes da varredura, junto com as
-  // propriedades (`x.y`), que também não são referência livre.
-  const semLiterais = semComentario
-    .replace(/'(?:[^'\\]|\\.)*'/g, "''")
-    .replace(/"(?:[^"\\]|\\.)*"/g, '""')
-    .replace(/`(?:[^`\\]|\\.)*`/g, "``");
-
-  const semPropriedades = semLiterais.replace(/\.\s*[A-Za-z_$][\w$]*/g, "");
-  for (const [, nome] of semPropriedades.matchAll(/\b([A-Za-z_$][\w$]*)\b/g)) {
-    if (PALAVRAS_CHAVE.has(nome)) continue;
-    if (declaradosNoCorpo.has(nome)) continue;
-    if (nome === PARAMETRO) continue;
-    if (CHAMADAS_PERMITIDAS.has(nome)) continue;
-    encontradas.add(nome);
-  }
-
-  // `if`/`for`/`return`/`switch`/`while`/`catch` casam o padrão mas são palavras-chave,
-  // não chamadas. Listá-las aqui em vez de em CHAMADAS_PERMITIDAS mantém aquela lista
-  // como o que ela é: decisão sobre REGRA, não sobre sintaxe.
-  for (const palavraChave of ["if", "for", "return", "switch", "while", "catch", "typeof"]) {
-    encontradas.delete(palavraChave);
-  }
-
-  return [...encontradas];
+function chamadasNaoVerificadas(fn) {
+  // Por AST: identificador livre é o que o corpo referencia e não declara. Substitui a
+  // varredura por regex, que tinha dois furos medidos — apagava o template literal
+  // inteiro (levando junto o que estava em `${...}`: `EXPIRY_DAYS` divergente usado assim
+  // passava verde, achado P2 do Codex na PR #320) e não distinguia propriedade de
+  // referência sem uma lista de casos especiais que nunca fechava.
+  return identificadoresLivres(fn).filter((nome) => !CHAMADAS_PERMITIDAS.has(nome));
 }
 
-/**
- * Normaliza o que é legitimamente diferente entre as duas raízes, e só isso.
- *
- * Comentários saem porque cada lado explica o próprio contexto (o do frontend cita o
- * botão "Copiar anúncio"; o do backend, a rota pública). Espaço colapsa porque
- * formatação não é semântica. O que NÃO se normaliza é nome de variável, operador,
- * ordem de comparação ou literal — é exatamente aí que a divergência mora.
- */
-function normalizar(corpo) {
-  return corpo
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/\/\/[^\n]*/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+// A comparação dos corpos usa `corpoNormalizado` (`_fonte-ts.mjs`): o texto vem do nó da
+// AST, então só resta colapsar espaço. Nome de variável, operador, ordem de comparação e
+// literal continuam íntegros — é exatamente aí que a divergência mora.
 
 const fonteBackend = lerArquivo(BACKEND);
 const fonteFrontend = lerArquivo(FRONTEND);
 
 if (fonteBackend && fonteFrontend) {
+  const sfBackend = parseFonte(fonteBackend);
+  const sfFrontend = parseFonte(fonteFrontend);
+
   for (const nome of FUNCOES_ESPELHADAS) {
     // `exportada: true`: as funções espelhadas são `export function` nos dois lados, e
     // exigir o `export` evita casar uma homônima interna que não é a regra comparada.
-    const corpoBackend = extrairCorpo(fonteBackend, nome, { exportada: true });
-    const corpoFrontend = extrairCorpo(fonteFrontend, nome, { exportada: true });
+    const fnBackend = acharFuncao(sfBackend, nome, { exportada: true });
+    const fnFrontend = acharFuncao(sfFrontend, nome, { exportada: true });
+    const corpoBackend = corpoNormalizado(fnBackend);
+    const corpoFrontend = corpoNormalizado(fnFrontend);
 
     if (!corpoBackend) {
       failures.push(`${nome}: não encontrada em ${BACKEND}.`);
@@ -262,11 +187,11 @@ if (fonteBackend && fonteFrontend) {
     // Delegação a helper não verificado torna a comparação de texto inútil (ver
     // CHAMADAS_PERMITIDAS). Checa os DOIS lados: basta um deles delegar para que
     // corpos idênticos deixem de provar regra idêntica.
-    for (const [raiz, corpo] of [
-      [BACKEND, corpoBackend],
-      [FRONTEND, corpoFrontend],
+    for (const [raiz, fn] of [
+      [BACKEND, fnBackend],
+      [FRONTEND, fnFrontend],
     ]) {
-      for (const chamada of chamadasNaoVerificadas(corpo)) {
+      for (const chamada of chamadasNaoVerificadas(fn)) {
         failures.push(
           `${nome} (${raiz}): depende de \`${chamada}\`, que este guard não compara.\n` +
             `    Corpo idêntico ao do outro lado NÃO prova regra idêntica quando parte dela\n` +
@@ -278,7 +203,7 @@ if (fonteBackend && fonteFrontend) {
       }
     }
 
-    if (normalizar(corpoBackend) !== normalizar(corpoFrontend)) {
+    if (corpoBackend !== corpoFrontend) {
       failures.push(
         `${nome}: corpo DIVERGE entre backend e o espelho do frontend.\n` +
           `    backend:  ${BACKEND}\n` +

@@ -16,7 +16,7 @@ import * as Media from "../db/repo/media.js";
 import * as Feedback from "../db/repo/feedback.js";
 import { deleteStoredMedia } from "./lib/media-store.js";
 import { reloadRedirects } from "./redirect-cache.js";
-import { normalizeCanonical } from "@artificio/content";
+import { normalizeCanonical, SITE } from "@artificio/content";
 
 const REDIRECT_CODES = [301, 302, 307, 308];
 
@@ -432,17 +432,26 @@ const strOrNull = (v: unknown): string | null => {
 // que diz ao Google "o original não sou eu" e tira a URL do índice em silêncio.
 //
 // Por isso `caminhoEsperado`: o canonical persistido tem de bater com a URL da própria
-// página. Compara CAMINHO, não URL inteira, porque `PUBLIC_SITE_URL` difere entre
-// ambientes (`artificiorpg.com` em prod, `beta.artificiorpg.com` em beta) — mesma decisão
-// do guard `scripts/ci/check_post_canonical.mjs`.
-function caminhoCanonico(url: string): { caminho: string; sufixo: string } {
-  const semProtocolo = url.replace(/^https?:\/\/[^/]+/i, "");
-  const corte = semProtocolo.search(/[?#]/);
-  const cru = corte === -1 ? semProtocolo : semProtocolo.slice(0, corte);
-  const comBarra = cru.startsWith("/") ? cru : `/${cru}`;
+// página.
+//
+// **Compara ORIGEM e caminho, via `new URL()` — não por recorte de string.** A versão
+// anterior fazia `replace(/^https?:\/\/[^/]+/i, "")`, o que descartava a autoridade
+// inteira: medido (2026-09-14), `https://accounts.artificiorpg.com/blog/meu-post/` e
+// `https://artificiorpg.com:444/blog/meu-post/` eram comparados como `/blog/meu-post/` e
+// gravados sem erro — canonical para uma URL que não existe, repetindo a regressão de
+// indexação por outro caminho (achado P2 do Codex, PR #320).
+//
+// A origem própria do ambiente basta como allowlist: `SITE.origin` já é
+// `PUBLIC_SITE_URL` (prod `https://artificiorpg.com`, beta
+// `https://beta.artificiorpg.com`), então o canonical auto-referente é válido nos dois
+// sem exceção escrita à mão, e qualquer outro subdomínio ou porta é recusado.
+function partesCanonicas(url: string): { origem: string; caminho: string; sufixo: string } | null {
+  let u: URL;
+  try { u = new URL(url); } catch { return null; }
   return {
-    caminho: comBarra.endsWith("/") ? comBarra : `${comBarra}/`,
-    sufixo: corte === -1 ? "" : semProtocolo.slice(corte),
+    origem: u.origin,
+    caminho: u.pathname.endsWith("/") ? u.pathname : `${u.pathname}/`,
+    sufixo: `${u.search}${u.hash}`,
   };
 }
 
@@ -453,7 +462,22 @@ function rejectBadCanonical(body: unknown, res: Response, caminhoEsperado: strin
   // Vazio é o caso correto e majoritário: a página cai no fallback auto-referente.
   if (value == null) return false;
 
-  const { caminho, sufixo } = caminhoCanonico(value);
+  const partes = partesCanonicas(value);
+  if (!partes) {
+    res.status(400).json({ error: "bad_canonical", detail: `canonical não é uma URL válida: ${value}` });
+    return true;
+  }
+
+  const { origem, caminho, sufixo } = partes;
+  if (origem !== SITE.origin) {
+    res.status(400).json({
+      error: "bad_canonical",
+      detail: `canonical aponta para a origem ${origem}, e este site é ${SITE.origin}. `
+        + `Subdomínio ou porta diferente é outra URL — o canonical apontaria para uma `
+        + `página que não existe. Para canonical auto-referente, deixe o campo VAZIO.`,
+    });
+    return true;
+  }
   // Query/fragmento faz a página se declarar canônica para uma VARIANTE dela mesma —
   // `?utm_source=` colado por engano é o caso real, e `normalizeCanonical` preserva.
   if (sufixo) {

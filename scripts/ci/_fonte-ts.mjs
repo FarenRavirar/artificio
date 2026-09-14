@@ -1,150 +1,271 @@
-// Leitura estrutural de fonte TypeScript para os guards de CI.
+// Leitura ESTRUTURAL de fonte TypeScript para os guards de CI, via AST.
 //
-// ## Por que existe
+// ## Por que AST, e não regex
 //
-// Três guards (`check_post_canonical`, `check_jsonld_price_source`,
-// `check_table_visibility_mirror`) precisam recortar uma função ou um objeto literal do
-// código e inspecionar o texto. Cada um nasceu com a própria cópia do algoritmo, e as
-// cópias divergiram: `fecharPar` e `indiceDoFechamento` eram a MESMA função com nomes
-// diferentes, e `neutralizarNaoCodigo` foi duplicada byte a byte em dois arquivos
-// (medido: 39 linhas idênticas; Sonar acusou 14,4% e 13,9% de duplicação).
+// Estes helpers já existiram como casamento de texto, e a abordagem não convergiu.
+// Medido em 2026-09-14, três rodadas do Codex na PR #320, todas na mesma classe de furo:
 //
-// O problema não é o número do Sonar — é o que a duplicação fez antes. O bug que estas
-// funções corrigem (contar `}` dentro de comentário) existia nos DOIS guards, e foi
-// corrigido em um e esquecido no outro até alguém medir. Helper duplicado é regra
-// duplicada, e regra duplicada diverge: é a mesma razão pela qual
-// `check_table_visibility_mirror` existe.
+//   1ª  `price` procurado no corpo inteiro de `buildTableJsonLd`  → recortei `offers`
+//   2ª  `}` dentro de comentário fechava o corpo cedo             → neutralizei literais
+//   3ª  `price` dentro de objeto ANINHADO em `offers`             → (seria outra regex)
 //
-// ## O que estas funções NÃO são
+// O padrão era o método, não o descuido: cada correção era uma regex mais específica, e
+// a rodada seguinte achava o caso que ela não cobria. Reproduzido antes desta reescrita:
+// `offers: { decoy: { price } }` devolvia `G-F OK` exit 0; e `EXPIRY_DAYS` divergente
+// usado via `${...}` em template literal passava pelo G-E, porque a neutralização apagava
+// o literal inteiro, interpolação junto.
 //
-// Não são um parser de TypeScript. Cobrem comentário de linha, comentário de bloco,
-// aspas simples/duplas e template literal — o que os arquivos inspecionados usam hoje.
-// Regex literal (`/.../`) não é tratada: não ocorre nos alvos atuais, e se passar a
-// ocorrer, o caminho é um parser de verdade, não um remendo aqui.
+// A causa era responder perguntas ESTRUTURAIS com texto: "esta propriedade é filha
+// DIRETA de `offers`?", "este identificador é referência livre?", "onde termina o corpo
+// desta função?". Cada resposta correta exigia mais um caso especial, e o espaço de casos
+// não é finito.
+//
+// Com AST as três viram exatas por construção: propriedade direta é filha do
+// `ObjectLiteralExpression`, identificador livre sai do escopo real, e o corpo é o nó.
+//
+// `typescript` já é devDependency de `scripts/` — não é pacote novo. O mesmo recurso já é
+// usado por `scripts/check-test-typecheck-coverage.test.mjs`.
+
+import { createRequire } from "node:module";
+
+const ts = createRequire(import.meta.url)("typescript");
 
 /**
- * Índice do delimitador que FECHA o par aberto em `inicio`, ou `-1`.
+ * AST de um arquivo TS/TSX. `isTsx` importa para `.tsx`, onde `<T>` é JSX, não cast.
  *
- * Conta profundidade de `abertura`/`fechamento` a partir de `inicio`. Roda sobre a
- * fonte NEUTRALIZADA — passar a fonte crua é o defeito que este módulo existe para
- * evitar.
+ * Sem type-checker de propósito: o programa completo exigiria resolver o projeto inteiro
+ * (tsconfig, node_modules, paths) por guard, e nenhuma pergunta aqui precisa de tipos —
+ * todas são sintáticas.
  */
-export function fecharPar(fonte, inicio, abertura, fechamento) {
-  let profundidade = 0;
-  for (let i = inicio; i < fonte.length; i += 1) {
-    if (fonte[i] === abertura) profundidade += 1;
-    else if (fonte[i] === fechamento) {
-      profundidade -= 1;
-      if (profundidade === 0) return i;
-    }
-  }
-  return -1;
+export function parseFonte(codigo, { isTsx = false } = {}) {
+  return ts.createSourceFile(
+    isTsx ? "fonte.tsx" : "fonte.ts",
+    codigo,
+    ts.ScriptTarget.Latest,
+    /* setParentNodes */ true,
+    isTsx ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+}
+
+/** Percorre todos os nós descendentes, incluindo o próprio. */
+function* percorrer(node) {
+  yield node;
+  for (const filho of node.getChildren()) yield* percorrer(filho);
 }
 
 /**
- * Mesma fonte, com comentários e literais substituídos por espaço — posições e
- * comprimento preservados, para que todo índice calculado aqui valha na fonte original.
+ * Declaração da função `nome`, ou `null`.
  *
- * Por que existe: contar chaves na fonte crua faz uma `}` dentro de comentário ou string
- * fechar o corpo cedo, e o guard passa a inspecionar um PEDAÇO da função. Medido nos
- * dois guards (achado P2 do Codex, PR #320, reproduzido): com `// }` presente e uma
- * divergência real depois do corte, ambos devolviam OK com exit 0 — inoperantes em
- * silêncio, que é o pior modo de falha para um guard.
- *
- * Preservar posição é o ponto: quem chama calcula índices aqui e fatia a fonte original,
- * então o texto devolvido ao guard continua sendo o código real, com comentários.
+ * `exportada: true` exige o modificador `export` — evita casar uma homônima interna que
+ * não é a regra comparada.
  */
-export function neutralizarNaoCodigo(fonte) {
-  const saida = fonte.split("");
-  let i = 0;
-  const apagarAte = (fim) => {
-    for (; i < fim && i < fonte.length; i += 1) {
-      if (fonte[i] !== "\n") saida[i] = " ";
+export function acharFuncao(sourceFile, nome, { exportada = false } = {}) {
+  for (const node of percorrer(sourceFile)) {
+    if (!ts.isFunctionDeclaration(node)) continue;
+    if (node.name?.text !== nome) continue;
+    if (exportada) {
+      const temExport = node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
+      if (!temExport) continue;
     }
-  };
+    return node;
+  }
+  return null;
+}
 
-  while (i < fonte.length) {
-    const c = fonte[i];
-    const prox = fonte[i + 1];
+/**
+ * Texto do corpo (`{ … }`) da função `nome`, ou `null`.
+ *
+ * Substitui a contagem de chaves: o corpo é o nó `body`, então `}` em comentário ou
+ * string não fecha nada cedo, e o tipo inline do parâmetro (`table: { … }`) nunca é
+ * confundido com o corpo — era um defeito real da versão por texto.
+ */
+export function extrairCorpo(codigo, nome, { exportada = false, isTsx = false } = {}) {
+  const fn = acharFuncao(parseFonte(codigo, { isTsx }), nome, { exportada });
+  return fn?.body ? fn.body.getText() : null;
+}
 
-    if (c === "/" && prox === "/") {
-      const fim = fonte.indexOf("\n", i);
-      apagarAte(fim === -1 ? fonte.length : fim);
-      continue;
+/**
+ * Nomes das propriedades DIRETAS do objeto literal atribuído a `propriedade`.
+ *
+ * "Direta" é a palavra operante, e é o que a regex não sabia dizer: em
+ * `offers: { decoy: { price } }` o `price` é neto, não filho, e a versão por texto o
+ * aceitava como se fosse a propriedade da oferta (medido: `G-F OK` exit 0 com a oferta
+ * publicando valor errado).
+ *
+ * Devolve `null` quando a propriedade não existe ou não é objeto literal — quem chama
+ * distingue "estrutura mudou" de "propriedade ausente".
+ */
+export function propriedadesDiretas(node, propriedade) {
+  const objeto = acharObjetoDe(node, propriedade);
+  if (!objeto) return null;
+
+  const nomes = new Set();
+  for (const prop of objeto.properties) {
+    if (ts.isPropertyAssignment(prop) && prop.name) nomes.add(prop.name.getText());
+    else if (ts.isShorthandPropertyAssignment(prop)) nomes.add(prop.name.getText());
+  }
+  return nomes;
+}
+
+/**
+ * Valor atribuído à propriedade DIRETA `nome` dentro do objeto de `propriedade`.
+ *
+ * `price: precoDerivado` devolve o texto `precoDerivado`; `price` (shorthand) devolve
+ * `price`. `null` quando a propriedade direta não existe.
+ */
+export function valorDaPropriedadeDireta(node, propriedade, nome) {
+  const objeto = acharObjetoDe(node, propriedade);
+  if (!objeto) return null;
+
+  for (const prop of objeto.properties) {
+    if (ts.isPropertyAssignment(prop) && prop.name?.getText() === nome) {
+      return prop.initializer.getText();
     }
-    if (c === "/" && prox === "*") {
-      const fim = fonte.indexOf("*/", i + 2);
-      apagarAte(fim === -1 ? fonte.length : fim + 2);
-      continue;
+    if (ts.isShorthandPropertyAssignment(prop) && prop.name.getText() === nome) {
+      return prop.name.getText();
     }
-    if (c === '"' || c === "'" || c === "`") {
-      const aspas = c;
-      let j = i + 1;
-      while (j < fonte.length) {
-        if (fonte[j] === "\\") j += 2;
-        else if (fonte[j] === aspas) break;
-        else j += 1;
+  }
+  return null;
+}
+
+/** Primeiro objeto literal atribuído a `propriedade` dentro de `node`. */
+function acharObjetoDe(node, propriedade) {
+  for (const n of percorrer(node)) {
+    if (!ts.isPropertyAssignment(n)) continue;
+    if (n.name?.getText() !== propriedade) continue;
+    if (ts.isObjectLiteralExpression(n.initializer)) return n.initializer;
+  }
+  return null;
+}
+
+/**
+ * Identificadores LIVRES do corpo: referências a algo declarado fora dele.
+ *
+ * Substitui a varredura por regex, que tinha dois furos medidos: apagava o template
+ * literal inteiro (levando junto o que estava em `${...}` — uma constante divergente
+ * usada assim passava despercebida) e não distinguía propriedade de referência.
+ *
+ * Aqui, o percurso é por nó: `x.y` só conta `x`, `{ price }` em shorthand conta `price`,
+ * `` `${EXPIRY_DAYS}` `` conta `EXPIRY_DAYS`, e o que é declarado dentro do corpo
+ * (`const`/`let`/`var`, parâmetros, funções locais) é excluído por escopo, não por lista.
+ */
+export function identificadoresLivres(fn) {
+  const declarados = new Set();
+
+  for (const p of fn.parameters) {
+    for (const n of percorrer(p.name)) {
+      if (ts.isIdentifier(n)) declarados.add(n.text);
+    }
+  }
+
+  const corpo = fn.body;
+  if (!corpo) return [];
+
+  for (const node of percorrer(corpo)) {
+    if (ts.isVariableDeclaration(node) && node.name) {
+      for (const n of percorrer(node.name)) {
+        if (ts.isIdentifier(n)) declarados.add(n.text);
       }
-      apagarAte(Math.min(j + 1, fonte.length));
-      continue;
     }
-    i += 1;
+    if (ts.isFunctionDeclaration(node) && node.name) declarados.add(node.name.text);
   }
 
-  return saida.join("");
+  const livres = new Set();
+  for (const node of percorrer(corpo)) {
+    if (!ts.isIdentifier(node)) continue;
+
+    const pai = node.parent;
+    // `x.y` → só `x` é referência; `y` é nome de propriedade.
+    if (pai && ts.isPropertyAccessExpression(pai) && pai.name === node) continue;
+    // `{ y: … }` → `y` é nome, não referência. O shorthand `{ y }` É referência.
+    if (pai && ts.isPropertyAssignment(pai) && pai.name === node) continue;
+    // Nome do próprio binding (`const y = …`, parâmetro, função local).
+    if (pai && ts.isVariableDeclaration(pai) && pai.name === node) continue;
+    if (pai && ts.isParameter(pai) && pai.name === node) continue;
+    // Tipos não são valores: `table: DateValue` não é dependência de runtime.
+    if (pai && ts.isTypeReferenceNode(pai)) continue;
+
+    if (declarados.has(node.text)) continue;
+    livres.add(node.text);
+  }
+
+  return [...livres];
 }
 
 /**
- * Corpo da função `nome` (`{ … }` incluído), ou `null`.
+ * Texto do corpo normalizado para comparação estrutural entre duas raízes.
  *
- * `exportada: true` exige `export function`; `false` aceita qualquer `function`.
- *
- * **A primeira `{` depois da assinatura NÃO é o corpo** quando o parâmetro tem tipo
- * inline (`table: { created_at: DateValue; … }`): pegá-la faz o guard comparar
- * DECLARAÇÃO DE TIPO em vez de lógica, e acusar divergência legítima — o backend recebe
- * `Date | string` do Kysely, o frontend recebe JSON e sempre `string`. Por isso fecha a
- * lista de parâmetros contando parênteses, pula o tipo de retorno, e só a `{` seguinte
- * é o corpo.
+ * O `getText()` de cada nó já vem sem comentário quando se reconstrói a partir da AST —
+ * então o que resta normalizar é só espaço. Nome de variável, operador, ordem de
+ * comparação e literal continuam íntegros: é exatamente aí que a divergência mora.
  */
-export function extrairCorpo(fonte, nome, { exportada = false } = {}) {
-  const busca = neutralizarNaoCodigo(fonte);
-
-  // `String.raw` para o padrão não virar escape duplo (`\\s` lido como `\s`) — a forma
-  // com barras duplicadas funciona, mas é onde se erra ao editar depois.
-  const prefixo = exportada ? "export function" : "function";
-  const assinatura = new RegExp(String.raw`${prefixo} ${nome}\s*\(`);
-  const inicio = busca.search(assinatura);
-  if (inicio === -1) return null;
-
-  const abreParen = busca.indexOf("(", inicio);
-  if (abreParen === -1) return null;
-
-  const fimParams = fecharPar(busca, abreParen, "(", ")");
-  if (fimParams === -1) return null;
-
-  const abre = busca.indexOf("{", fimParams);
-  if (abre === -1) return null;
-
-  const fecha = fecharPar(busca, abre, "{", "}");
-  return fecha === -1 ? null : fonte.slice(abre, fecha + 1);
+export function corpoNormalizado(fn) {
+  if (!fn?.body) return null;
+  return fn.body
+    .getText()
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/[^\n]*/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /**
- * Corpo do objeto literal atribuído a `propriedade` (`{ … }`), ou `null`.
+ * `true` quando o corpo tem `if (true)` ou `if (false)` — condição literal.
  *
- * Existe porque procurar uma chave no corpo inteiro de uma função aceita qualquer
- * ocorrência solta: medido em `buildTableJsonLd` com `const decoy = { price }` ao lado
- * de `offers.price: '999'` — o guard devolvia OK com preço fixo publicado.
+ * Por nó, não por regex: `if (true)` escrito dentro de uma string ou comentário não
+ * conta, e `if (true && x)` conta, porque o literal está na raiz da condição.
  */
-export function extrairObjeto(fonte, propriedade) {
-  const busca = neutralizarNaoCodigo(fonte);
-  const chave = new RegExp(String.raw`\b${propriedade}\s*:\s*\{`);
-  const inicio = busca.search(chave);
-  if (inicio === -1) return null;
+export function condicoesLiterais(fn) {
+  const achadas = [];
+  if (!fn?.body) return achadas;
 
-  const abre = busca.indexOf("{", inicio);
-  if (abre === -1) return null;
+  for (const node of percorrer(fn.body)) {
+    if (!ts.isIfStatement(node)) continue;
+    const cond = node.expression;
+    const literal = (e) =>
+      e.kind === ts.SyntaxKind.TrueKeyword || e.kind === ts.SyntaxKind.FalseKeyword;
 
-  const fecha = fecharPar(busca, abre, "{", "}");
-  return fecha === -1 ? null : fonte.slice(abre, fecha + 1);
+    if (literal(cond)) achadas.push(cond.getText());
+    else if (ts.isBinaryExpression(cond) && (literal(cond.left) || literal(cond.right))) {
+      achadas.push(literal(cond.left) ? cond.left.getText() : cond.right.getText());
+    }
+  }
+  return achadas;
 }
+
+/**
+ * `true` se o corpo lê `objeto.propriedade` em algum ponto.
+ *
+ * Por nó: uma menção em comentário ou string não conta, e `vm.price` não é confundido
+ * com `vm.priceType` — a versão por regex precisava de lookahead para isso.
+ */
+export function lePropriedade(fn, objeto, propriedade) {
+  if (!fn?.body) return false;
+
+  for (const node of percorrer(fn.body)) {
+    if (!ts.isPropertyAccessExpression(node)) continue;
+    if (node.expression.getText() !== objeto) continue;
+    if (node.name.text === propriedade) return true;
+  }
+  return false;
+}
+
+/**
+ * Nome da variável que recebe `chamada(...)` dentro do corpo, ou `null`.
+ *
+ * `const price = priceForJsonLd(vm)` → `"price"`.
+ */
+export function variavelQueRecebe(fn, chamada) {
+  if (!fn?.body) return null;
+
+  for (const node of percorrer(fn.body)) {
+    if (!ts.isVariableDeclaration(node)) continue;
+    const init = node.initializer;
+    if (!init || !ts.isCallExpression(init)) continue;
+    if (init.expression.getText() !== chamada) continue;
+    return node.name.getText();
+  }
+  return null;
+}
+
+export { ts };
