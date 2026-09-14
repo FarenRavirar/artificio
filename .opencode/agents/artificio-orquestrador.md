@@ -35,6 +35,13 @@ permission:
     "rtk cat *": deny
     "sed -n *": deny
     "rtk sed -n *": deny
+    # Leitura filtrada e a unica investigacao que e do orquestrador: ele precisa
+    # ler spec/frontmatter para montar a delegacao (secao Papel). Estava so no
+    # bloco `task`, onde a chave e nome de subagente e este padrao nunca casava —
+    # entao caia no "*": ask e todo `rtk read` virava prompt. Medido em 2026-09-14:
+    # o `rtk-read-gate` bloqueia Read integral acima de 600 linhas (spec.md tem 644)
+    # e a saida de escape que ele sugere e justamente `rtk read`, que estava travada.
+    "rtk read *": allow
     "git status*": allow
     "rtk git status*": allow
     "git diff*": allow
@@ -76,7 +83,6 @@ permission:
     "scp *": ask
   task:
     "*": deny
-    "rtk read *": allow
     "artificio-investigador": allow
     "artificio-registrador": allow
     "artificio-implementador": allow

@@ -79,6 +79,11 @@ export function related(p: Post, n = 3): Post[] {
 export const MODULES: { label: string; href: string }[] = defaultNavItems;
 
 // Nav secundário (2ª linha): categorias principais do blog. Não substitui o nav do portal.
+//
+// Não existe item "Blog" em nav nenhum, e isso é coerente: o site TODO é o blog. O nav do
+// portal (`defaultNavItems`, `packages/ui/src/modules.ts`) lista os outros projetos
+// (Glossário, Mesas, Downloads, Esferas, SRD, WhatsApps) — o conteúdo editorial é a própria
+// raiz, não um item ao lado deles. Medido em 2026-09-14; não procurar "link do blog faltando".
 export const SECTIONS: { label: string; href: string }[] = [
   { label: "Notícias", href: "/blog/categoria/noticias/" },
   { label: "Análises", href: "/blog/categoria/analises/" },

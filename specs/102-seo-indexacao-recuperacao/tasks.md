@@ -795,9 +795,10 @@ que estiver em `main`. O código de T3.4 já está commitado — o bloqueio deix
 "não commitado" e passou a ser **a distância até `main`**: falta PR → merge em `dev` →
 promote `dev`→`main` → dispatch.
 
-O caminho até `dev` mudou: T3.4 entra pela **PR #317** (commit `58305fb`), não mais
-pela PR #316 (§Entrega de F1+F3+F4). Como a #317 não depende da migração SSR do
-`mesas`, T3.3 destrava com o merge dela — sem esperar a PR 3.
+**A #317 MERGEOU em 2026-09-13 (`49ac4b1`), e a #319 também (`a7ea7e1`).** T3.4 entrou
+por `58305fb`, dentro da #317. O bloqueio deixou de ser "falta chegar em `dev`" — o
+código está em `dev`. **Resta só a distância até `main`:** promote `dev`→`main` +
+dispatch. Nenhuma PR pendente destrava nada aqui.
 
 Deployar `main` antes disso corrigiria o canonical (o entrypoint reexporta do banco,
 onde T3.2 já limpou) mas emitiria **0 `lastmod`**, falhando o aceite 2 — o `main` de
@@ -861,6 +862,1059 @@ do deploy (T3.3). Até lá o `posts.json` versionado (8 posts, nenhum com `updat
 gera 0 `lastmod` — é o "não inventar data" funcionando, não falha.
 
 **Depende de.** T3.3 — mesmo ciclo de export + build + deploy.
+
+---
+
+### [ ] T3.5 — Raiz do `site` se declara duplicata de `/blog/` — BLOQUEIA O DEPLOY
+
+**É da spec, e será resolvido ANTES do deploy** (determinação do mantenedor,
+2026-09-14). Nasceu como "achado lateral" e foi promovido a task: o mesmo defeito do
+Achado A, na URL mais valiosa do domínio. Deployar T3.3 sem isto publica a correção dos
+126 posts e deixa a home fora do índice.
+
+**Origem.** Pergunta do mantenedor: *"o artificiorpg.com é um blog, com possibilidades
+de páginas. tem que resolver isso"* — depois de estranhar que ainda se falasse de
+`/blog/` "sendo que esse projeto já foi abandonado". O WordPress foi abandonado; a rota
+não.
+
+**Medido em produção, `curl`:**
+
+| | `/` (vitrine) | `/blog/` (arquivo) |
+|---|---|---|
+| `<title>` | Artifício RPG — Blog | Blog — Artifício RPG |
+| `canonical` | **`…/blog/`** ❌ | `…/blog/` ✅ |
+| `og:url` | **`…/blog/`** ❌ | — |
+| posts listados | 10 | 126 |
+| HTML | 34.927 B | 184.714 B |
+| `h1` | **0** | 1 |
+| `h2` / `h3` | 2 / 10 | 1 / 126 |
+| JSON-LD | `WebSite` + `Organization` | **nenhum** |
+| texto próprio | hero + 9 cards | **nenhum**: kicker + h1 + pílulas + cards |
+| links internos p/ ela | — | **4** (ver abaixo) |
+| no sitemap | sim (1ª) | sim (2ª) |
+
+**Correção de 2026-09-14 — a versão anterior desta tabela dizia "zero links internos
+(só o Ver tudo → da home)", que é contraditório e estava errado.** A medição que
+sustentava era `rtk rg 'href="/blog/"'`, que devolveu vazio: o padrão com `/` e aspas
+não casou. Refeito com busca literal em Node, são **4** links internos para `/blog/`:
+
+| arquivo | papel |
+|---|---|
+| `pages/index.astro:21` | o "Ver tudo →" |
+| `pages/blog/[slug].astro:54` | breadcrumb de todo post |
+| `pages/blog/categoria/[slug].astro:22` | breadcrumb de categoria |
+| `pages/blog/tag/[slug].astro:22` | breadcrumb de tag |
+
+Isso muda o peso do item 3 da correção: `/blog/` não é folha esquecida — é o nó do
+breadcrumb de **todas** as 126 páginas de post e das 81 taxonomias. Foi uma das
+medições que derrubaram a proposta de `noindex` (ver item 3): tirar do índice a página
+que costura 207 URLs seria retirar o próprio mapa do acervo.
+
+A raiz declara outra página como sua autoridade em **dois** sinais, em
+`apps/site/src/pages/index.astro:13`. É o **Erro nº 4** do Google em *"5 common mistakes
+with rel=canonical"*: listagem que canonicaliza para outra de conteúdo parecido — e a
+consequência documentada é que **a página que aponta não aparece nos resultados de
+busca**.
+
+**Falha em silêncio:** nenhum teste quebra, nenhum build falha, a página abre normal no
+navegador. O dano acontece inteiro dentro do índice.
+
+**Contradiz o que esta spec afirmava.** `spec.md` §2.6 listava o sitemap do `site` como
+"medido e CORRETO, descartado como causa", com as 221 URLs sendo "todas sob `/blog/` e
+páginas institucionais". Falso: `/` é a primeira entrada. Corrigido lá, não apagado.
+
+**Três formas óbvias que NÃO funcionam:**
+
+1. **Só trocar a string do `canonical`.** Conserta o sinal e deixa a canibalização de
+   pé: as duas seguem competindo pela mesma consulta.
+2. **Canonicalizar páginas 2+ para a página 1.** **Erro nº 1** do mesmo post do Google;
+   contraria a doc de paginação (*"Don't use the first page of a paginated sequence as
+   the canonical page"*). Corta o caminho até os posts profundos.
+3. **Fundir as duas — raiz virar o arquivo, ou 301 de `/blog/` para `/`.** **Era a
+   proposta anterior deste bloco, e estava errada.** Barrada pelo mantenedor:
+   *"hoje tem o design que tem exatamente para as pessoas poderem entrar e chamar a
+   atenção, além de ter os posts mais recentes. aplicar o /blog/ como raiz é tampar
+   buraco NOVAMENTE"*. A tabela acima confirma: **propósitos diferentes**, não uma sobra
+   da outra.
+
+   **Por que a doc do Google desautoriza fundir** (redação corrigida em 2026-09-14 —
+   ver aviso abaixo): o `canonical` serve para *"duplicate or very similar pages"*
+   (literal, [Consolidate duplicate URLs](https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls)),
+   que não é o caso aqui. E o **Erro nº 4** do post de 2013 é exatamente este cenário —
+   uma página de categoria/listagem apontando `canonical` para um artigo — cuja
+   consequência é a própria página de listagem deixar de aparecer nos resultados.
+   Fundir mata o design que existe de propósito.
+
+   > **⚠️ Citação fabricada, removida em 2026-09-14.** Este parágrafo afirmava, entre
+   > aspas e como se fosse do Google, que *"pages serving two very different purposes
+   > should not include canonical links to the other"*. **A frase não existe** — nem na
+   > doc atual nem na versão arquivada de 2023 (verificado na fonte). Também dizia que o
+   > Google **"ignora"** canonical de conteúdo diferente; a doc é menos categórica —
+   > ela diz que o Google *"identify which version of the URL is objectively the best
+   > version to show to users"*, e o post de 2013 fala em não aceitar o sinal. A
+   > substância do argumento se sustenta pelas fontes reais citadas acima; o que caiu
+   > foi a letra inventada. **Não reintroduzir aspas sem fonte.**
+
+**Correção — nada é fundido, o design fica intocado.** Cada página declara o que é:
+
+1. **Raiz**: `canonical` e `og:url` auto-referentes (`https://artificiorpg.com/`).
+2. **Raiz ganha `h1`** — hoje o heading mais alto é o `h2` "Mais recentes".
+3. **`/blog/` CONTINUA INDEXADA.** Mantém o canonical próprio, que já está correto.
+   Nada mais muda nela nesta task — ver "Dois itens descartados" abaixo.
+
+   **Correção de 2026-09-14: a versão anterior desta task recomendava `noindex` aqui, e
+   estava ERRADA.** Derrubada por pergunta do mantenedor — *"PORQUE O BLOG NÃO
+   RECEBERIA? PREJUDICA ALGO? LÁ NÃO TEM LINKS E PROPOSTAS DIFERENTES? O HOME É O
+   CONVIDATIVO, O /BLOG NÃO É O CATALOGO?"* — e pela medição que ela obrigou:
+
+   | | home | `/blog/` |
+   |---|---|---|
+   | posts linkados (únicos) | 10 | **126** |
+   | taxonomias linkadas | 4 (do menu) | **12** |
+   | pílulas de categoria com contagem | **0** | **12** |
+
+   As 12 pílulas trazem o tamanho de cada seção (Notícias 60, DnD 54, Internacional 47,
+   Análises 45, Lançamentos 39, Nacional 33, Guias 15, Downloads 13, RPG em Geral 9,
+   O que é RPG 7, Entrevistas 5, Crônicas 1). **Isso É contexto próprio** — diz a forma
+   e o tamanho do acervo, informação que a home não dá em lugar nenhum.
+
+   O erro do agente foi aplicar o critério "lista sem texto corrido = página fina" sem
+   medir o que a página oferece de navegação. `/blog/` é a maior concentração de links
+   do domínio (126 + 12) e o mapa que melhor expõe a estrutura ao rastreador.
+   `noindex` ali retiraria do índice justamente essa página, e **prejudica**:
+   a) some o catálogo, que responde a intenção de busca que a vitrine não responde;
+   b) o `nofollow` que o código emite junto cortaria a passagem de sinal pelos 138
+   links dela.
+
+   Consequência prática: **some o item 4 (mexer no sitemap), some a mudança em
+   `packages/content`, some o risco nos breadcrumbs.** A correção encolhe para o
+   defeito real, que é só o canonical da raiz.
+4. **Sitemap permanece como está** — nada sai dele. O item que mandava excluir `/blog/`
+   caiu junto com o `noindex`.
+
+   **Registrado porque quase virou trabalho inútil:** o `@astrojs/sitemap` v3 **não** lê
+   `robots noindex` (doc: *"All pages are included in your sitemap by default"*), então
+   excluir exigiria um `filter` novo no `astro.config.mjs:33`, que hoje só passa
+   `serialize`. Se alguém reabrir essa ideia, saiba que é trabalho de config **e** que
+   mexer ali arrisca desfazer o `serialize` do `lastmod` (T3.4) e a trava de
+   `SITE_NOINDEX`.
+5. **Botão "Todos os Posts" — em DOIS lugares, e o do fim é o que importa.** Pedido do
+   mantenedor em 2026-09-14 (*"algo como um botão, que faça juz, que tenha alinhamento,
+   que seja realmente bonito e sóbrio"*) e cobrado de novo no mesmo dia: *"E O BOTÃO
+   PARA VER MAIS? HOJE O USUARIO MAL SABE ONDE VER TODOS OS POSTS"*.
+
+   **Medido na home de produção, e é pior do que a versão anterior desta task
+   registrava:** `href="/blog/"` aparece **1 vez** na home inteira. É o "Ver tudo →"
+   de 14px, e ele fica **ANTES** dos 10 cards, no `.section-head`. Depois do último
+   card vem `</a> </section> </main>` — **nada**. O leitor rola os 10 cards, chega ao
+   fim e não tem saída; precisa rolar de volta ao topo e reparar num texto pequeno ao
+   lado de um `h2`. O rodapé não cobre: os 7 links dele vão para os outros projetos
+   (Glossário, Mesas, Downloads, Esferas, SRD, WhatsApps, Portal), nenhum para o
+   acervo.
+
+   **Forma óbvia que NÃO resolve:** só trocar o estilo do `.see-all` existente. Deixa o
+   fim da home vazio do mesmo jeito, que é exatamente onde o leitor está quando termina
+   o que a vitrine ofereceu. O botão do fim é o padrão de blog há décadas justamente
+   por isso: o convite aparece quando o usuário tem motivo para aceitá-lo.
+
+   Então são dois, com papéis distintos:
+
+   - **Fim da home, depois da grade** — o botão que resolve o problema medido acima.
+   - **Topo (`.section-head`)** — o "Ver tudo →" atual vira botão sóbrio, para quem já
+     sabe o que quer.
+
+   **Forma — o design system JÁ TEM o botão.** Determinação do mantenedor, 2026-09-14:
+   *"ONDE FOR 'VER TUDO', SUBSTITUI POR UM BOTÃO, BEM ORGANIZADO, USANDO AS CORES DO
+   ARTIFICIO 'Todos os Posts' (…) bonito, organizado, que faça jus, alinhado, sem
+   exageros mas que aplique as melhores práticas"*.
+
+   **Correção: a versão anterior deste item propunha reusar `.cat-pill`, e estava
+   errada.** Pílula é controle de filtro (categoria), não ação — usá-la como botão
+   confunde dois papéis distintos. Medido em `packages/ui/src/styles.css`: já existe
+   `.artificio-button` (linha 1049) com variantes de tamanho (`-sm` 32px, `-md` 40px,
+   `-lg` 48px) e de estilo (`-primary`, `-secondary`, `-ghost`), e o `focus-visible`
+   resolvido na linha 1418 (`outline: 3px solid var(--artificio-focus)`).
+
+   **Especificação:** `.artificio-button .artificio-button-secondary
+   .artificio-button-md`, rótulo **"Todos os Posts"**.
+
+   - **Secundária, não primária.** A ação principal da home é ler um post — são os
+     cards. O botão é caminho para o acervo: importante, subordinado. Laranja sólido
+     (`--artificio-brand` #ff5722) competiria com os cards numa página que se quer
+     sóbria. A secundária usa `--surface` com borda `--line`, e o hover é **neutro**
+     (`--surface-subtle` + `--line-strong`, `styles.css:1104`) — sem cor de marca em
+     nenhum estado, que é o "sem exageros" pedido.
+   - **`-md` (40px):** alvo de toque adequado sem inchar a página.
+   - **Cores da marca, medidas:** `--artificio-brand` #ff5722 (D064),
+     `--artificio-brand-deep` #e64a19, `--artificio-ink` #020740,
+     `--artificio-focus` #e64a19.
+   - **`.see-all` sai do `global.css:69`** — regra órfã não fica no CSS.
+   - **`.section-head`: `align-items` de `baseline` para `center`.** Com `h2` em Oswald
+     22px e o link virando caixa com padding, baseline desalinha opticamente.
+
+   "Ver tudo" existe em **um** lugar hoje (`index.astro:21`, medido) — mas a regra do
+   mantenedor é *onde for*: se aparecer outro, recebe o mesmo botão.
+
+   **O hover do botão FUNCIONA — premissa anterior refutada por medição (2026-09-14).**
+   Lembrete do mantenedor (*"tem 2 cores, light e dark, e tem que funcionar para mobile
+   também"*) levou à medição. A versão anterior deste bloco afirmava "BUG LATENTE — o
+   hover MORRE em silêncio", com a causa "os tokens não existem no site". **A causa
+   estava errada, e o trabalho que ela criava era desnecessário.**
+
+   **Por que a afirmação anterior era falsa.** Ela mediu um arquivo (`global.css`) e
+   concluiu sobre o site. Mas `global.css:8` faz `@import "@artificio/ui/styles.css"`
+   **antes de tudo**, e é esse arquivo que define os dois tokens — as únicas definições
+   do repo (medido: `rtk rg -- "--surface-subtle:|--line-strong:" apps packages` só casa
+   `packages/ui/src/styles.css`, linhas 148/153 light e 300/304 dark). O `:root` do site
+   (`global.css:17-30`) redefine `--bg`/`--surface`/`--fg`/`--muted`/`--line`/`--chip-*`
+   e **nunca** os dois de hover. Custom property não redefinida mantém o valor da
+   cascata anterior, logo `var(--surface-subtle)` resolve normalmente.
+
+   ```css
+   .artificio-button-secondary:hover {   /* styles.css:1104 */
+     background: var(--surface-subtle);  /* resolve: #eef2f8 light / #16223e dark */
+     border-color: var(--line-strong);   /* resolve: rgba(2,7,64,.24) / rgba(255,255,255,.20) */
+   }
+   ```
+
+   **A hipótese de purge do Lightning CSS também está morta** — era a única ressalva que
+   a refutação deixou em aberto, e foi medida no bundle servido
+   (`apps/site/dist/_astro/Base.DBUI5Cpc.css`, build de 13/09):
+
+   ```
+   --surface-subtle:var(--artificio-light-subtle)
+   --surface-subtle:var(--artificio-dark-subtle)
+   --line-strong:#0207403d      ← rgba(2,7,64,.24) minificado
+   --line-strong:#fff3          ← rgba(255,255,255,.20) minificado
+   ```
+
+   Os quatro valores estão no CSS final, nos dois temas. Não é preciso navegador para
+   concluir: o hover responde.
+
+   **O que resta fazer (opcional, não é conserto).** Definir os dois no `global.css` é
+   **blindagem** contra mudança futura de ordem de import ou purge mais agressivo — não
+   corrige defeito nenhum. Se for feito, usar os valores do design system:
+
+   | token | light | dark |
+   |---|---|---|
+   | `--surface-subtle` | `#eef2f8` | `#16223e` |
+   | `--line-strong` | `rgba(2,7,64,.24)` | `rgba(255,255,255,.20)` |
+
+   **Lição de método (a razão de este bloco continuar aqui depois de refutado):** medir
+   a ausência de um token em UM arquivo não mede a ausência dele no site. Onde há
+   `@import`, a cascata atravessa arquivos — a medição válida é no bundle final.
+
+   **Dark funciona**, confirmado: site e design system usam o mesmo seletor
+   `:root[data-theme="dark"]`, então o tema troca junto. Site light `--surface`
+   `#ffffff` / dark `#1b2a4a`; `--line` `#e6e8ef` / `rgba(255,255,255,.12)`. O que
+   faltava eram só os dois tokens de hover — nos dois temas.
+
+   **Mobile — dois pontos que nenhum breakpoint cobre hoje** (medido: os `@media` de
+   900px e 600px em `global.css:217,225` não tocam `.section-head`):
+
+   1. `.section-head` é `flex` com `justify-content: space-between`, sem `wrap`. Com
+      `h2` Oswald 22px + botão de 40px em tela de 360px (`.container` deixa 312px
+      úteis, `padding: 32px 24px`), os dois disputam a linha: o botão comprime ou
+      estoura. Precisa de `flex-wrap: wrap` + `gap`, e empilhar em ≤600px.
+   2. O botão do fim da grade precisa de tratamento próprio em mobile — largura total
+      ou centralizado, nunca encostado à esquerda por herança do fluxo.
+
+   **⚠️ DEFEITO MAIOR, achado pelo mantenedor em 2026-09-14:** *"o artificio nunca traz
+   os módulos mesas, links, downloads, glossário. o usuário mobile não tem acesso a
+   isso"*.
+
+   **Medido em produção.** O HTML da home tem **11** `artificio-nav-link`: 7 do nav de
+   projetos (Portal, Glossário, Mesas, Downloads, Esferas, SRD, WhatsApps) e 4 do
+   subnav de categorias (Notícias, Análises, Guias, Downloads). E `menu-toggle`:
+   **0 ocorrências**.
+
+   `packages/ui/src/styles.css:2022-2024`, em telas ≤860px:
+
+   ```css
+   .artificio-header-main > nav,
+   .artificio-subnav { display: none; }
+   ```
+
+   **Os 11 links somem e NADA aparece no lugar.** O usuário mobile do
+   `artificiorpg.com` perde acesso a todos os outros projetos e a todas as categorias
+   do blog — em `/`, em `/blog/`, nos 126 posts e nas 81 taxonomias. Toda página.
+
+   **Por que só o `site`.** O `Header.tsx` do design system TEM o toggle
+   (`packages/ui/src/Header.tsx:326`) e um `.artificio-mobile-nav` que abre com os
+   links. Quem usa esse componente está coberto: `glossario`, `mesas`, `downloads`,
+   `links`, `accounts`, `site-admin` (medido por import). O `site` é o **único** com
+   header próprio — `SiteHeader.astro` — e copiou a marcação do nav **sem** copiar o
+   toggle. O CSS que esconde vem do pacote compartilhado; o botão que compensa, não.
+
+   É o caso exato de AGENTS.md §"Compartilhado por padrão": a pergunta não é "por que
+   este quebrou", é "por que os outros não quebraram" — e a resposta é que os outros
+   usam o componente, o `site` reimplementou.
+
+   **Gravidade maior que a do botão "Todos os Posts".** Aquele é um caminho ruim para o
+   acervo; este é navegação **inexistente** em mobile, onde está a maior parte do
+   tráfego de blog.
+
+   **Como um webdesigner resolve — pesquisado em 2026-09-14**, a pedido do mantenedor
+   (*"como um webdesigner resolveria? não confie no contexto, pesquise"*). A pesquisa
+   **contradiz a primeira proposta do agente**, que era só replicar o hambúrguer do
+   `Header.tsx`:
+
+   - **Hambúrguer puro custa descoberta.** NN/g, teste quantitativo com 179 pessoas:
+     *"discoverability is cut almost in half by hiding a website's main navigation"*;
+     quem usa navegação escondida usa **mais tarde** na tarefa, com tempo maior e
+     dificuldade percebida maior. Pesquisa mais recente mostra que o ícone hoje é
+     reconhecido, mas o **custo de interação** do passo extra permanece.
+   - **O padrão híbrido é recomendação explícita da NN/g**, não inferência: *"Use a
+     combination navigation where some options are exposed and the rest are
+     collapsed"*. No mesmo estudo, o melhor desempenho era híbrido: *"People used the
+     navigation significantly more on SupermarketHQ (89% usage) than on Bloomberg (44%
+     usage)"* — e o BBC, também híbrido, teve o menor tempo até a navegação (21s).
+     *(Correção 2026-09-14: a versão anterior citava "BBC 84% de uso". Esse número não
+     está na prosa do artigo — só no gráfico. Removido; o 89% do SupermarketHQ, esse
+     literal, já sustenta o ponto.)* **Números primários do estudo** (179 participantes, 6 sites,
+     2016): desktop **39% mais lento** com navegação escondida, mobile **15% mais
+     lento**; navegação visível usada **~2× mais** no desktop e **1,5× mais** no mobile;
+     dificuldade percebida **+21%**.
+
+     **⚠️ Removido por falta de fonte (2026-09-14): "elevou descoberta em 30%+ e
+     acelerou a tarefa em 40%".** Pesquisado na origem: o número circula em blogs de
+     agência que citam "múltiplos estudos de caso" sem identificar nenhum, e a NN/g —
+     que é a fonte primária do assunto — mede grandezas diferentes (as acima). Não
+     reintroduzir. Os números primários já sustentam a decisão sozinhos.
+   - **Rótulo importa:** citação literal da NN/g (2025), *"A label is especially helpful
+     for less-experienced users or when introducing the pattern in unfamiliar
+     contexts"*. *(Correção 2026-09-14: a versão anterior dizia "prejudica mais quem tem
+     +40 anos". O artigo **não menciona idade** — fala em "less-experienced users".
+     Número inventado, removido.)*
+
+   **Aplicado a este site**, que tem 7 projetos + 4 categorias = 11 itens: esconder os
+   11 atrás de um ícone repete o erro que a pesquisa desaconselha. O que fica visível
+   se decide pela **regra de acesso** (ver auditoria adiante), não por "qual é mais
+   importante": as ferramentas públicas pertencem à esquerda, e é dela que se escolhe os
+   3–5 itens que permanecem visíveis em mobile. O restante vai para o painel, e o toggle
+   leva rótulo textual, não só ícone. **A porta de entrada da sessão — o botão "Entrar"
+   — é a exceção: pública, mas fica na direita** (ver item 15).
+
+   **Requisitos de acessibilidade do toggle, não negociáveis** (WCAG, pesquisado):
+   `aria-expanded` refletindo o estado; `aria-label` que muda com o estado ("Abrir
+   menu" / "Fechar menu"); **Escape fecha**; foco navegável e com saída (sem armadilha
+   de foco); botão de fechar como **primeiro elemento focável** dentro do painel; alvo
+   de toque **44×44px** (WCAG 2.5.5); e respeitar `prefers-reduced-motion` na animação.
+
+   **O `links` JÁ RESOLVEU, e é o modelo — medido em 2026-09-14.** O mantenedor pediu
+   revisão do mobile de todos (*"seria importante revisar o mobile de todos… é um site
+   só com subdomínios, mas conectam pelo site"*), e a varredura dos 7 subdomínios
+   mostrou que o `site` é o único Astro quebrado:
+
+   | subdomínio | tipo | toggle no HTML | nav no HTML | situação |
+   |---|---|---|---|---|
+   | `artificiorpg.com` (site) | Astro SSG | **0** | 11 | **quebrado** — nav some, nada no lugar |
+   | `links` | Astro + ilha React | **1** | 7 | **correto** |
+   | `glossario` | SPA React | 0 | 0 | casca vazia (2.789 B) |
+   | `mesas` | SPA React | 0 | 0 | casca vazia (3.327 B) |
+   | `downloads` | SPA React | 0 | 0 | casca vazia (3.073 B) |
+   | `accounts` | SPA React | 0 | 0 | casca vazia (1.349 B) |
+   | `srd`, `esferas` | — | — | — | **HTTP 000** |
+
+   **`apps/links/src/components/PortalHeader.astro` monta `<LinksHeader client:load />`**
+   — o Astro pré-renderiza o componente React no build, e o toggle mais os 7 links
+   **saem no HTML** (medido: 42.741 B, 37 `astro-island`). O `site` é Astro igual e
+   reimplementou o header à mão em `SiteHeader.astro`. **A correção do `site` não é
+   inventar navegação mobile: é fazer o que o app irmão já faz.** Isso muda a escolha
+   entre as duas saídas abaixo — a 1 deixa de ser "escrever do zero".
+
+   1. `SiteHeader.astro` monta o `Header` do design system como ilha, no padrão do
+      `links`. Contido no `site`, sem tocar pacote compartilhado. **Atenção:** herda o
+      hambúrguer-puro que a pesquisa acima desaconselha — aceitável como correção
+      imediata do defeito, com o híbrido ficando para revisão do pacote.
+   2. Revisar o padrão mobile **no `packages/ui`**, aplicando o híbrido (3–5 itens
+      visíveis + hambúrguer para o secundário). Corrige `site` e os 6 apps de uma vez,
+      mas é pacote compartilhado: §Autorização exige aprovação + verificação de impacto
+      nos consumidores.
+
+   **Achado lateral com impacto em TODO o portal: dois itens do menu compartilhado são
+   links mortos.** `packages/ui/src/modules.ts:8-16` lista 7 projetos, mas `apps/` tem
+   `accounts`, `downloads`, `glossario`, `links`, `mesas`, `site`, `site-admin` —
+   **não existem `srd` nem `esferas`**, e os dois subdomínios devolvem **HTTP 000**
+   (falha de conexão, não 502). Todo app que usa o nav compartilhado publica esses dois
+   links. Por AGENTS.md §"Não lançado ≠ não deve subir" isso é deploy pendente, não
+   rota indevida — mas o usuário que clica hoje bate em erro de conexão. **DECIDIDO
+   em 2026-09-14: ficam no menu** (*"fica para depois"*). Não remover do
+   `modules.ts` por conta própria; a pergunta está respondida.
+
+   **NÃO MEDIDO — os 4 SPAs.** `glossario`, `mesas`, `downloads` e `accounts` entregam
+   casca vazia por `curl` (1.349–3.327 B, `id="root"`, um `type="module"`): o nav só
+   existe depois do JS hidratar, então **`curl` não avalia o mobile deles**. Precisa de
+   navegador real. Não afirmar que estão corretos nem que estão quebrados — não foi
+   medido.
+
+   **A divisão esquerda/direita é REGRA DE ACESSO, não de tipo de conteúdo.** Regra do
+   mantenedor, 2026-09-14, na formulação final e definitiva: *"esquerda o que não
+   precisa estar logado, direita o que precisa estar. no sentido de ferramentas e
+   opções"*.
+
+   A primeira formulação que ele deu (*"esquerda é do módulo em si… direita são as
+   opções do usuário"*) descrevia **onde as coisas estão hoje**; o critério real é
+   **exige sessão ou não**. O agente registrou a descrição como se fosse o critério —
+   erro corrigido aqui. Consequência prática: item público na direita ou item que
+   exige login na esquerda está no lado errado, mesmo que "pareça" do módulo ou do
+   usuário.
+
+   Medido: o `Header.tsx` já implementa exatamente três faixas —
+
+   | faixa | prop | o que carrega HOJE | onde renderiza |
+   |---|---|---|---|
+   | esquerda (linha topo) | `navItems` | os 7 projetos do portal | `Nav`, linha 256 |
+   | esquerda (2ª linha) | `moduleNav` | links do módulo | `.artificio-subnav`, linha 342 |
+   | direita | `.artificio-session` | busca, changelog, tema, botão "Entrar", avatar + `userMenu` | linhas 285–323 |
+
+   **Atenção:** a coluna acima descreve o estado ATUAL, que não segue a regra de
+   acesso — e é resumo, não inventário: a direita carrega ainda a prop `actions` e o
+   `menu-toggle` (`Header.tsx:320-336`). **Três** itens estão no lado errado (busca,
+   changelog e tema); o "Entrar" é público mas fica na direita por ser a porta de
+   entrada da sessão. Ver a auditoria logo abaixo, que é o que vale para a
+   implementação.
+
+   **O defeito:** `.artificio-mobile-nav` (linha 347) renderiza `navItems` **e**
+   `moduleNav`, mas **NÃO o `userMenu`**. Em ≤860px, `.artificio-header-main > nav` e
+   `.artificio-subnav` somem (`styles.css:2022`) e o painel devolve só as duas faixas
+   esquerdas. **As opções do usuário não têm painel mobile** — dependem do avatar, que
+   fica no `.artificio-session` e sobrevive ao breakpoint. Funciona para quem está
+   logado; para o resto, a faixa direita simplesmente não existe em mobile.
+
+   **Estado do `moduleNav` por app — a faixa esquerda de conteúdo quase não é usada:**
+
+   | app | `moduleNav` | observação |
+   |---|---|---|
+   | `mesas` | ✅ `Catálogo`, `Painel` | única implementação de referência |
+   | `downloads` | ❌ | tinha e **saiu por decisão**: spec 086 T10.2/T10.3 moveu "Sobre e uso" para o footer (institucional, não catálogo), com teste em `AppShell.test.tsx:52` |
+   | `glossario` | ❌ | nunca teve |
+   | `links` | ❌ | nunca teve |
+   | `accounts` | ❌ | nunca teve |
+   | `site` | ❌ | header próprio; tem `SECTIONS` (4 categorias) que **é** a faixa esquerda, mas montada à mão fora do contrato |
+
+   **Leitura:** a regra do mantenedor não é desenho novo — é o contrato que o
+   `Header.tsx` já expressa e que os apps deixaram de preencher. O `site` chega a ter o
+   conteúdo certo (`SECTIONS` = categorias do blog) no lugar certo (2ª linha), só que
+   fora do componente compartilhado, o que é como ele perdeu o toggle.
+
+   **DECIDIDO pelo mantenedor em 2026-09-14 — não reabrir:**
+
+   - **`accounts`, `glossario` e `links` NÃO ganham `moduleNav`.** Literal: *"accounts
+     não ganha. não tem. glossario e links também não precisa"*. O `accounts` é fluxo
+     de sessão, sem conteúdo próprio para navegar; `glossario` e `links` têm superfície
+     única. **Não "completar" isso depois achando que é lacuna** — a faixa esquerda de
+     conteúdo só existe onde há conteúdo a navegar, hoje `mesas` (Catálogo/Painel) e
+     `site` (as 4 categorias do blog).
+   - **`srd` e `esferas` ficam no menu**, como estão. Literal: *"fica para depois"*. Os
+     dois seguem dando HTTP 000 e sem app em `apps/` — é deploy pendente, coerente com
+     AGENTS.md §"Não lançado ≠ não deve subir". Não remover do
+     `packages/ui/src/modules.ts` por conta própria.
+
+   **EM ABERTO, pendente de decisão de desenho:** o painel do celular
+   (`.artificio-mobile-nav`) hoje recebe `navItems` + `moduleNav` e **não** o
+   `userMenu` ("Meu Perfil", "Painel", "Gestão"). Essas seguem atrás do avatar, que não
+   some no breakpoint — não está quebrado para quem está logado.
+
+   Depois de T3.5e o painel passa a carregar também busca, changelog e tema, que migram
+   para a esquerda ("Entrar" permanece na direita — ver item 15). A pergunta que resta é
+   se o `userMenu` ganha lugar nele ou continua só no avatar. Escolha de desenho, não
+   conserto, e mexe em `packages/ui` (§Autorização).
+
+   ---
+
+   #### Auditoria da regra de acesso — o código NÃO segue a regra
+
+   Medido em 2026-09-14 contra o critério do mantenedor (*"se não precisa de login,
+   então é esquerda; se precisa, é direita"*). O que existe hoje é **"navegação à
+   esquerda, ferramentas à direita"** — organização por TIPO. A regra do mantenedor é
+   por ACESSO. São critérios diferentes, e o código segue o outro.
+
+   **Uma exceção, fixada pelo mantenedor em 2026-09-14** (*"na direita tem que ter ao
+   menos o login. login é publico, senão não tem como o cara entrar"*): o botão
+   "Entrar" é público mas **fica na direita**. Aplicar o critério ao pé da letra o
+   mandaria para a esquerda e tiraria o login do lugar onde o usuário o procura — o
+   mesmo lugar onde o avatar aparece depois de logar. A formulação precisa da regra é:
+   ***ferramenta pública à esquerda; a sessão e a porta para ela, à direita.***
+
+   **Direita (`.artificio-session`) — 3 de 6 itens estão no lado errado.** A auditoria
+   original dizia "4 de 5" e errava nas duas pontas: contava o "Entrar" como item a
+   mover (correção do mantenedor, ver abaixo) e ignorava o `menu-toggle`, que também
+   vive nessa div (`Header.tsx:324-336`).
+
+   | item | origem | exige login? | veredito |
+   |---|---|---|---|
+   | Busca | `showSearch`, `Header.tsx:285` | não | ❌ mover p/ esquerda |
+   | Changelog | `showChangelog`, `Header.tsx:299` | não | ❌ mover p/ esquerda |
+   | Tema | `showThemeToggle`, `Header.tsx:319` | não | ❌ mover p/ esquerda |
+   | Botão "Entrar" | `renderSession()`, `Header.tsx:225` | não | ✅ **fica** — é a porta de entrada da sessão |
+   | `actions` (prop) | `Header.tsx:320-322` | depende do app | ✅ fica — conteúdo do consumidor |
+   | `menu-toggle` | `Header.tsx:324-336` | não | ✅ fica — controle do painel mobile |
+   | Avatar + `userMenu` | `renderSession()`, `Header.tsx:181` | **sim** | ✅ fica |
+
+   Os três primeiros são renderizados **sem nenhuma condição de sessão** — medido: não
+   há `user`/`loading` no caminho deles.
+
+   **Esquerda — uma violação:**
+
+   | faixa | conteúdo | exige login? | veredito |
+   |---|---|---|---|
+   | `navItems` | 7 projetos do portal | não | ✅ |
+   | `moduleNav` (`mesas`) | `Catálogo` | não | ✅ |
+   | `moduleNav` (`mesas`) | **`Painel`** | **sim** | ❌ sai da esquerda |
+
+   `mesas` põe `Painel` nos DOIS lados (`AppShell.tsx:16` no `userMenu`,
+   `AppShell.tsx:22` no `moduleNav`). `routes.ts:30` declara `/painel` entre as
+   "Autenticadas" e `PainelMestrePage.tsx:254` faz `if (!user || !isAuthenticated)` →
+   redireciona. É o único app com `moduleNav`, logo o único candidato a essa violação.
+
+   **`userMenu` — tudo exige login, está certo.** `Header.tsx:170-174` concatena
+   `globalMenuItems` (Perfil Artifício, conta de serviço) com os itens do app,
+   filtrando `adminOnly` por `user?.role === "admin"`. Só renderiza dentro de
+   `if (user)`.
+
+   **Alcance por app (medido):**
+
+   | app | ferramentas públicas na direita | `Painel` duplicado |
+   |---|---|---|
+   | `site` | 4 — changelog, busca, **sino de notificação**, tema (`SiteHeaderIsland.tsx:62-94`) | não |
+   | `mesas` | 3 (busca, changelog, tema) | **sim** |
+   | `downloads` | 3 | não (sem `moduleNav`) |
+   | `glossario` | 3 | não |
+   | `links` | 3 | não |
+
+   `accounts` fora da tabela de propósito: é fluxo de sessão, sem navegação de conteúdo
+   — o mantenedor já o tirou de discussão em 2026-09-14 (*"accounts não ganha. não
+   tem"*). Não reintroduzir em auditoria de navegação.
+
+   O `site` tem um item a mais: `<NotificationBell sourceApp="site" />`. **Medido: o
+   sino EXIGE sessão** — `packages/ui/src/NotificationBell.tsx:266` faz
+   `if (!user) return null`, e a busca de notificações (linha 166) também aborta sem
+   `user`. Pela regra de acesso, **fica na direita** junto com o avatar. É a única
+   ferramenta do header que não se move.
+
+---
+
+#### Subfases propostas — NÃO implementar sem autorização por ação
+
+**Escopo autorizado pelo mantenedor em 2026-09-14:** as 7 subfases entram nesta spec,
+incluindo `packages/ui` (T3.5e) e `apps/mesas` (T3.5f). Autorização de **escopo**, não
+de ação: cada `git commit`/`push` segue exigindo pedido nomeado (AGENTS.md
+§Autorização).
+
+Ordem deliberada: cada uma é independente e reversível sozinha, e as que tocam
+`packages/ui` vêm por último porque têm o maior raio de impacto — se algo regredir, o
+que já estiver verde não entra na investigação. **Exceção:** T3.5d e T3.5g são o mesmo
+trabalho (ver aviso em T3.5g).
+
+**T3.5a — canonical, `h1` e `title` da raiz (`apps/site`).** O defeito de indexação que
+originou esta task. Não depende de nada abaixo. Três correções em
+`apps/site/src/pages/index.astro`:
+
+1. `canonical` (linha 13) passa de `https://artificiorpg.com/blog/` para
+   `https://artificiorpg.com/`. **`og:url` vem junto sozinho** — ele não existe no
+   `index.astro`: é derivado do `canonical` em `packages/content/src/meta.ts:16`
+   (`{ property: "og:url", content: input.canonical }`), via `Base.astro` → `buildMeta`.
+   Não há segunda edição a fazer.
+2. Ganha um `h1` (hoje o primeiro heading é o `h2` "Mais recentes", linha 20).
+3. **`title` e `description` distintos dos de `/blog/`** (decisão do mantenedor,
+   2026-09-14). Hoje a raiz declara `title="Artifício RPG — Blog"` (linha 12) e
+   `/blog/` declara `"Blog — Artifício RPG"`: corrigir só o canonical deixaria as duas
+   páginas disputando a mesma consulta no SERP, que é o defeito que esta subfase existe
+   para resolver. **Título definido pelo mantenedor:**
+   `Artifício RPG - Artigos sobre RPG, Traduções, Dicas e Materiais`.
+
+*Aceite:* itens 1–3 do Aceite geral.
+
+**T3.5b — botão "Todos os Posts" (`apps/site`).** Dois botões, topo e fim da grade,
+`.artificio-button-secondary`, e o `.section-head` responsivo. **Não inclui mais
+definir `--surface-subtle`/`--line-strong`:** a premissa de que o hover morria foi
+refutada por medição no bundle (2026-09-14, ver bloco acima). Definir os dois no
+`global.css` continua sendo blindagem legítima contra mudança de ordem de import, mas é
+opcional e não bloqueia esta subfase.
+*Aceite:* itens 7–12.
+
+**T3.5c — paginação de `/blog/` (`apps/site`).** Fatias com URL e canonical próprios,
+paginador numerado (`1 2 3 … N`, com primeira/última), links `<a href>` reais.
+
+**DEFINIDO em 2026-09-14 — não reabrir:**
+
+1. **URL das fatias: `/blog/2/`, `/blog/3/`…** Determinação do mantenedor, literal:
+   *"URL É BLOG/2"*. `/blog/` continua sendo a fatia 1 (não existe `/blog/1/`).
+2. **Fatia de 24 posts** → **6 páginas** para os 126 atuais. O mantenedor mandou
+   escolher pela melhor prática de indexação (*"A ESCOLHA DA FATIA É A MELHOR PRÁTICA
+   PARA INDEXAR NO GOOGLE"*). **A pesquisa abaixo sustenta PAGINAR, não o número 24** —
+   nenhuma fonte do Google recomenda quantidade de itens por página (medido). O 24 é
+   decisão de engenharia: peso do HTML por fatia e paginador que cabe na tela do
+   celular. *(Correção 2026-09-14: a redação anterior dizia "a pesquisa abaixo é o que
+   sustenta o número", contradizendo o que o próprio bloco admite adiante.)*
+
+**⚠️ A "recomendação de 24–48 do Google" NÃO EXISTE na fonte.** Várias páginas de
+agência atribuem essa faixa à documentação de e-commerce do Google. Fui à doc primária
+(`developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading`)
+e ela **não menciona número nenhum** — nem faixa, nem limite, nem velocidade como
+restrição. Não citar essa faixa como oficial.
+
+**O critério que o Google de fato dá**, citação literal da doc: *"URLs in a paginated
+sequence are treated as separate pages by Google."* A doc **não** usa "crawl budget",
+**não** diz que as páginas "competem" por nada e **não** recomenda número de itens por
+página (verificado na fonte primária em 2026-09-14; a versão anterior deste bloco
+atribuía "compete por crawl budget" à doc, o que ela não diz). Ser página separada
+significa que cada fatia é indexável por si — que é o **benefício** buscado aqui, não um
+custo. *(A redação anterior emendava "mais fatias = mais URLs a rastrear e indexar pelo
+mesmo acervo", mantendo pela porta dos fundos o enquadramento de risco de rastreio que o
+estudo logo abaixo enfraquece.)*
+
+**⚠️ O estudo dos "67% / 0,3%" existe, mas conclui o CONTRÁRIO do que esta spec
+insinuava.** Fonte localizada em 2026-09-14: Glenn Gabe (GSQi), 07/10/2021,
+[*What happens to crawling and Google search rankings when 67% of a site's indexed urls
+are pagination?*](https://www.gsqi.com/marketing-blog/pagination-indexing-levels-seo-case-study/).
+Os números conferem — 67% das URLs indexadas eram paginação, gerando 0,3% dos cliques
+(5.000 de 1,62M em três meses). Mas a conclusão do autor é que **não houve dano**:
+*"Yes, your site can be fine SEO-wise with a lot of pagination indexed"* e *"Google has
+a long history of handling pagination and it typically will not cause many problems
+across a site rankings-wise"* — a performance do site foi estável por anos, atravessando
+vários core updates. **Não citar este estudo como risco de paginar.** Ele sustenta, no
+máximo, que paginação indexada rende pouco clique direto — não que prejudique o site.
+Isso enfraquece o argumento "menos fatias = menos desperdício": a escolha de 24 se
+sustenta pelo peso do HTML e pela usabilidade do paginador, não por risco de rastreio.
+
+**Medido no `/blog/` de produção (2026-09-14):** 1.347 B por card, 14.419 B de
+estrutura fixa (header + 12 pílulas + footer). Os pesos da tabela são **medidos**, não
+derivados da fórmula — a conta `24 × 1.347 + 14.419` dá 46.747, e a medição deu 46.756.
+A diferença de 4–18 B por linha é arredondamento da medida. **Não "corrigir" a tabela
+para bater com a fórmula.**
+
+| fatia | páginas | peso medido |
+|---|---|---|
+| 12 | 11 | 30.587 B |
+| **24 (escolhida)** | **6** | **46.756 B** |
+| 48 | 3 | 79.093 B |
+
+**Por que 24, neste caso concreto:** 6 páginas mantêm o número de URLs baixo; o peso
+cai de 184.714 B para ~46 KB (um quarto); e o paginador numerado (`1 2 3 4 5 6`) cabe
+inteiro na tela do celular sem reticências. Com 12 seriam 11 URLs pelo mesmo acervo
+para economizar 16 KB. Com 48, a primeira fatia já nasce com 79 KB.
+
+**⚠️ MECANISMO — o `paginate()` nativo do Astro NÃO serve aqui.** Ele gera `/blog/1/`,
+exatamente a URL que o item 6 do Aceite proíbe (a fatia 1 é `/blog/`). E hoje **não
+existe paginação nenhuma** no app — `apps/site/src/pages/blog/` tem só `[slug].astro`,
+`index.astro`, `categoria/` e `tag/`; nada gera `/blog/2/`. A implementação precisa de:
+
+- `index.astro` continua sendo a fatia 1, passando a renderizar só os 24 primeiros
+  (hoje: `posts.map(...)` sem recorte, linha 23);
+- **uma rota nova `[...page].astro` — com spread (`...`), não `[page].astro`** — com
+  `getStaticPaths()` **manual** emitindo apenas as páginas 2–6;
+- o paginador numerado compartilhado entre as duas, com `<a href>` reais e
+  `aria-current="page"` no número da fatia atual (padrão já usado no repo:
+  `packages/ui/src/Nav.tsx:34`, com estilo em `styles.css:687`).
+
+**Cada fatia precisa de identidade própria — title, description, `h1` e canonical.**
+Se `[...page].astro` reusar os valores de `blog/index.astro:9-11,16` (`"Blog — Artifício
+RPG"`, `"Todos os artigos do Artifício RPG: notícias, análises, guias e traduções."`,
+`<h1>Todos os artigos</h1>`), as 6 fatias nascem idênticas entre si — e o Google trata
+cada URL paginada como página separada (a doc citada acima). Seria o mesmo defeito de
+duplicata que esta task existe para corrigir, reintroduzido na paginação.
+
+O mecanismo é a prop do `Base.astro` — uma só, que resolve canonical e `og:url` juntos
+(`Base.astro:11-14` declara `title`/`description`/`canonical`; a linha 50 emite o
+`<link rel="canonical">` e a 40 passa por `buildMeta`, que deriva `og:url` em
+`packages/content/src/meta.ts:16`):
+
+```astro
+<Base
+  title={`Todos os artigos — Página ${page} de 6 — Artifício RPG`}
+  description={`Página ${page} de 6 do acervo do Artifício RPG: notícias, análises, guias e traduções.`}
+  canonical={`https://artificiorpg.com/blog/${page}/`}
+>
+  <h1>Todos os artigos — Página {page} de 6</h1>
+```
+
+A fatia 1 (`/blog/`) mantém os valores atuais, sem sufixo de página.
+
+**`lastmod` das fatias: nada a fazer.** `sitemap-lastmod.ts:63-66` resolve `/blog/2/`
+como slug `"2"`, que não existe no índice de posts, e devolve o item sem `lastmod` —
+que é o comportamento correto (URL sem data própria não recebe data inventada, trava
+deliberada de T3.4).
+
+**Por que spread e não `[page].astro`** (medido em `astro@6.4.8`,
+`dist/core/routing/priority.js`): o `routeComparator` ordena rotas de mesmo tamanho
+primeiro por estática > dinâmica > spread; entre duas dinâmicas puras o desempate é
+`a.route.localeCompare(b.route)`, e `/blog/[page]` < `/blog/[slug]`. **`[page]` venceria
+o `[slug]` no primeiro match**, e em `astro dev` todo post (`/blog/<slug>/`) seria
+servido pela página de paginação — `page="meu-post"` → `NaN` → lista vazia. Produção
+(SSG) não é afetada, porque os arquivos já estão gerados e nada roteia em runtime; o
+estrago é no ambiente de quem implementa. O spread resolve na raiz: `aHasSpread → 1`
+ordena `[...page]` **depois** de `[slug]`, e a fatia 1 continua sendo `/blog/` por
+construção (sem `params.page`).
+
+**Guard obrigatório no `getStaticPaths`: pular número que colida com slug real.** Se um
+post tiver slug `"2"`, as duas rotas escrevem `blog/2/index.html` e o pipeline **não
+avisa** — `generate.js` só checa conflito com `publicDir`, e o último write vence em
+silêncio. Hoje não há colisão (medido: `SELECT slug FROM posts WHERE slug ~ '^[0-9]+$'`
+→ 0 de 126 em produção; 0 de 8 no `posts.json` versionado), mas o guard evita que um
+post futuro derrube uma fatia sem erro de build.
+
+**O 404 de `/blog/1/` e `/blog/7/` está garantido.** O site é SSG puro
+(`astro.config.mjs`: sem `output`, `trailingSlash: "always"`) e o `getStaticPaths`
+manual não gera esses arquivos. O servidor de produção não faz fallback SPA: uma URL
+inexistente sob `/blog/` já responde 404 hoje (medido ao vivo). Não confundir com o
+`(catch-all) → http_status:404` do tunnel — aquele é por hostname não mapeado e não
+diz nada sobre path dentro de um container.
+
+*Aceite:* item 6.
+
+**T3.5d — navegação mobile do `site` (`apps/site`).** Corrige os 11 links que somem
+em ≤860px. Contido no app.
+
+**Medido: o `site` JÁ monta ilha React** — `SiteHeader.astro:30` tem
+`<SiteHeaderIsland client:idle />`. Não é "adotar um padrão novo": a marcação do
+nav é que foi escrita à mão em Astro puro, fora da ilha, e por isso ficou sem o
+toggle. **Duas diferenças a decidir na implementação:**
+
+- **Onde o nav é montado.** Hoje o `SiteHeader.astro` renderiza `MODULES` e
+  `SECTIONS` como HTML estático; o toggle precisa de estado, logo o nav precisa
+  entrar na ilha (ou ganhar uma ilha própria).
+- **`client:idle` vs `client:load`.** O `site` usa `idle`, o `links` usa `load`.
+  `idle` hidrata quando o navegador fica ocioso — um toggle que só responde depois
+  disso é pior que o de hoje em conexão lenta. Medir antes de escolher.
+
+*Aceite:* item 13.
+
+**T3.5e — regra de acesso no `packages/ui`. ESCOPO AUTORIZADO pelo mantenedor em
+2026-09-14** (*"PODE TOCAR no compartilhado"*). Move para a **esquerda**: busca,
+changelog e tema — as ferramentas públicas. Fica na **direita**: avatar, `userMenu`, o
+**sino de notificação** (medido: exige sessão), o **botão "Entrar"** e o `menu-toggle`.
+Muda o header de todos os apps de uma vez.
+
+**O "Entrar" fica na direita mesmo sendo público** (correção do mantenedor,
+2026-09-14): é o acesso à sessão, e ocupa o lugar onde o avatar aparece depois do login.
+A regra é *"ferramenta pública à esquerda; sessão — e a porta para ela — à direita"*,
+não *"tudo que é público à esquerda"*.
+
+**A autorização é de ESCOPO, não de ação.** Editar `packages/ui` está liberado; o
+`git commit`/`push` continua exigindo autorização nomeada a cada vez (AGENTS.md
+§Autorização). E segue valendo a verificação de impacto nos consumidores — é o que o
+aceite 16 cobra.
+*Aceite:* itens 14–16.
+
+**T3.5f — tirar `Painel` da esquerda do `mesas` (`apps/mesas`). ENTRA NESTA SPEC** —
+escopo ampliado pelo mantenedor em 2026-09-14 (*"T3.5F É NESSE ESCOPO"*). Remover do
+`moduleNav` (`AppShell.tsx:22`); ele já está no `userMenu` (`AppShell.tsx:16`).
+`/painel` é rota autenticada (`routes.ts:30`, `PainelMestrePage.tsx:254` redireciona
+sem sessão), logo pertence só à direita.
+*Aceite:* item 17.
+
+**T3.5g — regra de acesso no `site` (`apps/site`). SEM ELA A REGRA NÃO ALCANÇA O
+PRÓPRIO APP DESTA SPEC.**
+
+> **⚠️ T3.5d e T3.5g mexem NOS MESMOS DOIS ARQUIVOS** — `SiteHeader.astro` e
+> `SiteHeaderIsland.tsx`. T3.5d move o nav para dentro da ilha (para o toggle ter
+> estado); T3.5g redistribui os itens entre esquerda e direita. Feitas em separado, a
+> segunda reescreve o que a primeira acabou de montar. **Implementar as duas no mesmo
+> trabalho, T3.5d primeiro** (define onde o nav vive), T3.5g em seguida (define o que
+> vai em cada lado). Os aceites continuam separados: item 13 para uma, 18–19 para a
+> outra. T3.5e cobre `packages/ui/src/Header.tsx`, e o `site` **não
+usa** esse componente: ele tem `SiteHeaderIsland.tsx` próprio, com os mesmos itens
+públicos na direita (medido, linhas 62-94 e 146-152):
+
+| item no `SiteHeaderIsland` | exige login? | destino |
+|---|---|---|
+| Changelog (linha 62) | não | **esquerda** |
+| Busca (linha 80) | não | **esquerda** |
+| Tema (`ThemeToggle`, linha 94) | não | **esquerda** |
+| Botão "Entrar" (linhas 146-152) | não | **direita** — porta de entrada da sessão (ver item 15) |
+| `NotificationBell` (linha 93) | **sim** (`NotificationBell.tsx:266`) | direita |
+| Avatar + dropdown (Admin / Perfil / Sair), linhas 98-144 | **sim** | direita |
+
+Mesma regra, código diferente. Fazer T3.5e sem T3.5g corrige 5 apps e deixa de fora
+exatamente aquele que esta spec existe para corrigir.
+*Aceite:* itens 18–19.
+
+**Os itens 4 e 5 do Aceite não pertencem a subfase nenhuma — são travas contra
+regressão.** O 4 (`/blog/` sem `robots`) e o 5 (nada removido do sitemap) verificam que
+ninguém reintroduziu o `noindex` nem mexeu no sitemap, ideias que esta task descartou
+por medição. Valem para **toda** subfase: a que os quebrar está errada, mesmo cumprindo
+o próprio aceite.
+
+**Fontes de navegação mobile:**
+[NN/g — Hamburger Menus and Hidden Navigation Hurt UX Metrics](https://www.nngroup.com/articles/hamburger-menus/) ·
+[NN/g — Beyond the Hamburger: What Makes Navigation Discoverable on Mobile](https://www.nngroup.com/articles/find-navigation-mobile-even-hamburger/) ·
+[NN/g — The Hamburger-Menu Icon Today: Is it Recognizable?](https://www.nngroup.com/articles/hamburger-menu-icon-recognizability/) ·
+[WCAG 2.1.1 Keyboard Accessibility (2026)](https://www.uxpin.com/studio/blog/wcag-211-keyboard-accessibility-explained/) ·
+[Mobile Navigation UX Best Practices 2026](https://www.designstudiouiux.com/blog/mobile-navigation-ux/)
+
+Posts seguem em `/blog/<slug>/`, categorias e tags intactas (D047/D019). **Sem 301, sem
+fusão.**
+
+**O botão e a paginação NÃO se substituem.** O botão resolve *chegar* ao acervo (item 5
+da correção); o paginador resolve *navegar* dentro dele. Implementar um sem o outro
+deixa metade do problema de pé.
+
+**Dois itens DESCARTADOS em 2026-09-14 — eram proposta do agente, não defeito.** O
+mantenedor cobrou o valor de cada item ("qual os valores que agregam ao usuário, ao
+indexador e pagerank"), e estes não se sustentaram. Registrado para não voltarem como
+"plano aprovado":
+
+- **Schema `CollectionPage`/`ItemList` em `/blog/`.** Invisível ao usuário; não gera
+  rich result para lista de posts; **não medido** que mude ranking. Custo > ganho.
+- **Trocar o `h1` de `/blog/`.** Já existe `h1` ("Todos os artigos") e já é claro.
+  Trocar palavra não move indexação e é texto de tela, decisão do mantenedor.
+
+**Melhoria editorial, também não bloqueante:** um parágrafo de abertura em `/blog/`
+reforçaria o que as pílulas já entregam. Não é pré-requisito para indexar — o contexto
+próprio já existe na forma de navegação (126 + 12 links, 12 pílulas com contagem). É
+trabalho do mantenedor, não do agente.
+
+**PAGINAR `/blog/` — é isto, e não era decisão em aberto.** Determinação do mantenedor,
+2026-09-14: *"COMO OS BLOGS RESOLVEM MUITOS LINKS? COM A PORRA DO BOTÃO PARA VER AS
+MAIS ANTIGAS E MAIS RECENTES, NO RECORTE DE UM TEMPO. É UM BLOG, UMA DAS COISAS MAIS
+ANTIGAS DA INTERNET, E VOCE TÁ INVENTANDO MODA"*.
+
+**O agente tratou paginação de blog como problema aberto de arquitetura. Não é.** É a
+solução padrão desde que blog existe: recorte por tempo, mais recentes primeiro, com
+navegação entre as fatias. O "risco de profundidade de clique" que a versão anterior
+deste bloco levantava **também já tem resposta padrão** — paginador **numerado**
+(`1 2 3 4 5 6`, com primeira/última), não só "próxima". Com números no paginador,
+nenhuma **fatia** fica a mais de 2 cliques da home; o risco de 4+ cliques só existe em
+paginação sequencial pura, que ninguém usa em blog.
+
+**Ressalva honesta sobre profundidade (achado de revisão, 2026-09-14):** a frase acima
+vale para as *fatias*, não para todo *post*. Um post na fatia 6 passa de 2 para 3
+cliques da home (home → `/blog/` → `/blog/6/` → post). É o custo aceito da paginação, e
+a literatura citada o aceita — mas não se deve afirmar paridade total com o estado
+atual.
+
+Medido em produção (2026-09-14):
+
+| | medido |
+|---|---|
+| `/blog/` | 126 links de post + 12 de categoria num HTML de **184.714 B** (valor canônico desta spec), 130 `<img>` (126 com `loading="lazy"`) |
+| post individual | linka só **3** relacionados |
+| home | linka 10 posts + 4 taxonomias |
+| profundidade de todo post | **2 cliques** da home (home → `/blog/` → post) |
+
+O que a paginação resolve, nos três destinatários:
+
+- **Usuário:** 126 cards em rolagem única, sem recorte, não é navegação — é despejo. O
+  `lazy` poupa banda de imagem, mas o HTML de 184 KB chega inteiro. Fatias de 24
+  com paginador numerado e as pílulas de categoria no topo é o "bonito e organizado"
+  que o mantenedor pediu.
+- **PageRank:** cada link divide a autoridade da página. Hoje `/blog/` reparte entre
+  138 destinos; fatiado, cada página concentra em ~24. **Não existe limite numérico** —
+  a doc do Google é literal: *"There's no magical ideal number of links a given page
+  should contain. However, if you think it's too much, then it probably is"*
+  ([Links crawlability](https://developers.google.com/search/docs/crawling-indexing/links-crawlable)).
+  A diluição de autoridade entre links é teoria SEO convencional, não afirmação do
+  Google — vale como razão de desenho, não como dado.
+
+  *(Correção 2026-09-14: a versão anterior atribuía a John Mueller, entre aspas, a frase
+  "milhares são aceitáveis se a estrutura ajuda o usuário". A substância é atribuível a
+  ele em office-hours, mas a redação exata não foi localizada em fonte primária —
+  citação literal sem fonte. Substituída pela doc oficial acima, que diz o mesmo e é
+  verificável.)*
+- **Indexador:** **não piora**, com paginador numerado. Cada fatia fica a 2 cliques da
+  home, igual a hoje, e passa a ter URL própria indexável — o Google descobre o acervo
+  por 6 páginas rasas em vez de uma só enorme.
+
+**Regras da doc do Google para a implementação** (já citadas acima, repetidas aqui
+porque é onde serão aplicadas): URL única por fatia; **canonical auto-referente em cada
+uma** — canonicalizar as fatias para a primeira é o Erro nº 1; links entre fatias com
+`<a href>` real, nunca fragmento `#`; e paginador **numerado**, não só "próxima", que é
+o que mantém a profundidade baixa.
+
+O tamanho da fatia (12, 24) e o formato da URL são escolha do mantenedor.
+
+**Fonte desatualizada, a descartar:** textos que apresentam `rel="next"`/`rel="prev"`
+como recomendação oficial — inclusive o artigo do Search Engine Journal. **Google
+abandonou esses atributos como sinal de indexação em março de 2019**; hoje o caminho é
+descoberto pelo link interno. Qualquer texto que os recomende é pré-2019.
+
+**Não é cópia do WordPress.** Determinação do mantenedor: *"não é uma copia do
+wordpress. se fosse para ser wordpress, eu usaria"*. `/blog/` como listagem só existe
+porque no WP o blog era seção dentro de um site institucional. Aqui o blog é o site, e
+as institucionais (`/sobre-nos/`, `/contato/`…) convivem como exceção — medido: as 4
+testadas já têm canonical auto-referente correto.
+
+**Dois defeitos próprios medidos junto, ambos falham em silêncio:**
+
+- **A raiz não tem `h1` nenhum** (`grep -c '<h1'` → **0**). Confirmado na fonte, não só
+  no HTML: `index.astro` tem um `h2` ("Mais recentes", linha 20) e o hero é `Card big`,
+  que emite `h3` (`Card.astro:32`) — não existe caminho em que o hero vire `h1`. A
+  página mais importante do domínio não declara do que trata. Pesa no ranking
+  tradicional e, plausivelmente, na citação por IA.
+
+  **⚠️ Removido por falta de fonte (2026-09-14): "a hierarquia de heading é o sinal
+  primário dos motores generativos".** Pesquisado: os números que circulam ("2,8× mais
+  citações", "+63%") rastreiam até posts de agência que citam uns aos outros, sem
+  estudo, dataset, amostra ou metodologia publicados — a página que seria a origem
+  responde 404. **Não citar como fato.** A correção do `h1` continua justificada pelo
+  motivo sólido e verificável: a raiz não declara do que trata, o que é defeito de
+  hierarquia de documento independentemente de qualquer efeito sobre IA.
+- **`/blog/` não emite JSON-LD nenhum**, enquanto a raiz emite `WebSite` +
+  `Organization`.
+
+**As 81 taxonomias, que a versão anterior desta task ignorava.** Medido em produção:
+12 categorias + 69 tags no sitemap, **todas com canonical auto-referente correto e sem
+`robots`** — ou seja, indexáveis. Elas têm o mesmo perfil de `/blog/`: lista de posts
+sem texto próprio. **Esta task NÃO as altera**, e a decisão é deliberada: são 81 URLs
+com recorte temático (`/blog/categoria/dnd/` responde a uma intenção de busca real que
+a home não responde), enquanto `/blog/` é "todos os artigos", que é exatamente o que a
+raiz já é. Se o Search Console mostrar as taxonomias como "Duplicada sem canônica
+selecionada pelo usuário", aí vira trabalho próprio — não se antecipa sem o dado.
+
+**Atenção do próximo agente — números de produção ≠ local.** A tabela acima é de
+produção (126 posts). O `posts.json` versionado tem **8** (medido). Build local da raiz
+e de `/blog/` renderiza 8 e 8, e a diferença "10 vs 126" **não reproduz** sem export
+contra o banco. Valide canonical, `og:url`, `h1` e `robots` — que independem da
+contagem —, nunca o número de cards.
+
+**Achado menor, junto:** `apps/site/src/pages/404.astro:4` emite
+`canonical="https://artificiorpg.com/404"` — sem barra final, contra
+`trailingSlash: "always"`. Página de erro não deveria declarar canonical.
+
+**Aceite.**
+
+1. `curl -s https://artificiorpg.com/ | grep -o '<link rel="canonical"[^>]*>'` →
+   `https://artificiorpg.com/` (hoje: `…/blog/`).
+2. Mesmo para `og:url`.
+3. `curl -s https://artificiorpg.com/ | grep -c '<h1'` → **1** (hoje: 0), e a ordem dos
+   headings é `h1 → h2 → h3` (não basta a contagem: `h1` seguido de `h3` sem `h2`
+   quebra a hierarquia que o item existe para garantir). Verificar também que `title` e
+   `description` da raiz são os definidos em T3.5a e **diferentes** dos de `/blog/`.
+4. `curl -s https://artificiorpg.com/blog/ | grep -c '<meta name="robots"'` → **0**.
+   `/blog/` continua indexável — se aparecer `robots` ali, alguém reintroduziu o
+   `noindex` que esta task descartou por medição.
+5. **Nada é REMOVIDO do sitemap:** `/`, `/blog/` e as 81 taxonomias (12 categoria + 69
+   tag) continuam presentes, e `lastmod` em ≥126 URLs — prova de que T3.4 seguiu de pé.
+   **As 5 URLs novas de paginação ENTRAM** — `/blog/2/` a `/blog/6/`; `/blog/` já está
+   lá. Elas são indexáveis e têm canonical auto-referente, então excluí-las contradiria
+   o próprio item 6. Nenhuma mudança de código é necessária — `astro.config.mjs:33` usa
+   `sitemap()` sem `filter`, e o `@astrojs/sitemap` inclui toda rota SSG por padrão.
+6. `/blog/` paginada em fatias de **24 posts** → **6 páginas** para os 126 atuais:
+   - `curl -s https://artificiorpg.com/blog/2/` responde **200** e emite
+     `<link rel="canonical" href="https://artificiorpg.com/blog/2/">` — a própria URL,
+     nunca a de `/blog/` (canonicalizar para a fatia 1 é o Erro nº 1 do Google).
+   - `/blog/1/` **não existe** (404): a fatia 1 é `/blog/`.
+   - **Cada fatia tem `title`, `description` e `h1` próprios**, com o número da página —
+     nunca iguais aos de `/blog/`:
+     `curl -s https://artificiorpg.com/blog/2/ | grep -o '<title>[^<]*</title>'` →
+     contém `Página 2 de 6`, e o mesmo para o `h1`. Fatias com title idêntico
+     reintroduzem no acervo a duplicata que esta task corrige na raiz.
+   - `curl -s https://artificiorpg.com/blog/ | grep -o 'href="/blog/[0-9]\+/"' | sort -u`
+     → as 5 fatias seguintes, com `<a href>` real (paginador **numerado**, não só
+     "próxima"), o que mantém toda fatia a ≤2 cliques da home. **`[0-9]\+`, não
+     `[0-9]*`:** o asterisco casa zero dígitos e `href="/blog/"` entraria no resultado,
+     reprovando o aceite sem defeito real.
+   - `/blog/7/` → **404** (não gerar fatia vazia além da última). Garantido: SSG sem
+     `output`, o `getStaticPaths` manual não emite o arquivo, e o servidor de produção
+     não faz fallback — URL inexistente sob `/blog/` já devolve 404 hoje (medido ao
+     vivo).
+7. `curl -s https://artificiorpg.com/ | grep -o 'href="/blog/"' | wc -l` → **2**
+   (hoje: 1), e o segundo aparece DEPOIS do fechamento da grade de cards — não adianta
+   ter dois no topo. **`grep -o … | wc -l`, não `grep -c`:** `-c` conta *linhas* com
+   ocorrência, e o Astro não garante uma tag por linha no HTML servido — dois links na
+   mesma linha devolveriam 1.
+8. Os dois botões com rótulo exato **"Todos os Posts"**, classe
+   `.artificio-button .artificio-button-secondary .artificio-button-md` (não
+   `.cat-pill`, não classe nova), o do topo alinhado ao `h2` (`.section-head` em
+   `center`), e `.see-all` removida do `global.css`.
+9. Foco visível ao navegar por teclado nos dois (herdado de
+   `.artificio-button:focus-visible`, `styles.css:1418`).
+10. **RETIRADO — premissa refutada por medição (2026-09-14).** Este item exigia definir
+    `--surface-subtle`/`--line-strong` no `global.css` porque "sem isso o hover é
+    descartado em silêncio". Falso: os dois tokens chegam ao site pelo
+    `@import "@artificio/ui/styles.css"` do `global.css:8` e estão presentes no bundle
+    servido, nos dois temas (medido em `dist/_astro/Base.DBUI5Cpc.css`). O hover
+    funciona sem trabalho nenhum. Não reintroduzir este item; se alguém quiser a
+    blindagem no `global.css`, é melhoria opcional, não aceite.
+11. Hover verificado no navegador em light **e** dark — fundo e borda mudam nos dois.
+    Screenshot não serve: não captura hover.
+12. Em 360px de largura: `.section-head` não estoura (título e botão empilham ou
+    quebram com `gap`), e o botão do fim ocupa largura total ou fica centralizado.
+13. `curl -s https://artificiorpg.com/ | grep -c 'menu-toggle'` → ≥1 (hoje: **0**), e
+    em ≤860px os 7 links de projeto + 4 de categoria continuam alcançáveis. Hoje os 11
+    somem sem substituto.
+
+    **E os 11 links continuam no HTML SERVIDO:**
+    `curl -s https://artificiorpg.com/ | grep -c 'artificio-nav-link'` → **11**. Esta
+    linha não é redundante — é o que protege o SEO. Hoje os links são HTML estático do
+    `SiteHeader.astro` (linhas 18-21 e 35-38), **fora** da ilha; T3.5d os move para
+    dentro dela. Uma implementação com `client:only`, ou que condicione o render à
+    hidratação, sumiria com os 11 links para o crawler **e ainda passaria no aceite do
+    parágrafo anterior**, porque o toggle estaria lá. Sem esta verificação, o item 13
+    aprova a própria regressão que a task existe para evitar.
+
+    **`client:idle` vs `client:load` — decidido por precedente, não por medição nova.**
+    A dúvida registrada em T3.5d pode ser fechada: `NotificationBell` e `ThemeToggle` já
+    hidratam com `client:idle` na ilha atual (`SiteHeader.astro:30`) e funcionam. Manter
+    `idle`. Se ainda assim for medir, o critério de aceite é objetivo: o toggle responde
+    ao primeiro toque em 3G throttled — não "parece rápido".
+
+**Aceite de T3.5e** (regra de acesso no `packages/ui` — escopo autorizado):
+
+14. Busca, changelog e tema renderizam **fora** de `.artificio-session`, em todos os
+    apps que os ligam. Hoje os três estão dentro (`Header.tsx:285-323`). **O botão
+    "Entrar" NÃO se move** — ver item 15.
+15. `.artificio-session` contém avatar + `userMenu` + `NotificationBell` — os três
+    exigem sessão (medido: `Header.tsx:181`, `NotificationBell.tsx:266`) — **e mais
+    três itens que permanecem na direita, cada um por um motivo diferente:**
+
+    | item hoje em `.artificio-session` | destino | por quê |
+    |---|---|---|
+    | busca, changelog, `ThemeToggle` | **esquerda** | ferramentas públicas: é a regra desta task |
+    | **botão "Entrar"** | **FICA na direita** | é público, mas é a **porta de entrada da sessão**: fica onde o avatar aparecerá depois de logar. Mandá-lo para a esquerda deixa o usuário sem o lugar convencional de procurar login |
+    | `actions` (prop) | **fica na direita** | conteúdo do app consumidor, não da regra — `mesas` injeta `NotificationBell` por ela (`AppShell.tsx:73`, `Header.tsx:320-322`), que exige sessão |
+    | `artificio-menu-toggle` | **fica na direita** | controle do painel mobile; o lugar convencional é a extremidade da barra |
+
+    **A regra desta task não é "tudo que é público vai para a esquerda"** — é *"o que é
+    ferramenta pública vai para a esquerda; o que pertence à sessão, incluindo o acesso
+    a ela, fica na direita"*. Correção do mantenedor, 2026-09-14: *"na direita tem que
+    ter ao menos o login. login é publico, senão não tem como o cara entrar"*. A versão
+    anterior mandava "Entrar" para a esquerda por aplicar a regra ao pé da letra, e
+    quebrava o acesso à conta.
+
+    *(A versão anterior também dizia "apenas avatar + userMenu + NotificationBell" e
+    ignorava o toggle e a prop `actions`, ambos medidos em `Header.tsx:320-336`. Como
+    escrito, o aceite reprovaria uma implementação correta.)*
+16. Smoke visual em `mesas`, `downloads`, `glossario`, `links` **e `site-admin`**:
+    header não quebra em desktop nem em ≤860px. Os quatro primeiros são os consumidores
+    do `Header.tsx` que ligam ferramentas (3 cada). **`site-admin` entrou na lista em
+    2026-09-14:** `apps/site-admin/src/App.tsx:20` monta `<Header sticky={false} />` e
+    estava fora do smoke — não liga ferramentas, então o risco é baixo, mas é consumidor
+    do componente alterado. `accounts` liga só tema; conferir que não regride.
+
+**Aceite de T3.5f** (`apps/mesas` — escopo autorizado, entra nesta spec):
+
+17. `rtk rg "Painel" apps/mesas/frontend/src/components/AppShell.tsx` → **1**
+    ocorrência (hoje: 2). Sai do `moduleNav`, permanece no `userMenu`.
+
+**Aceite de T3.5g** (regra de acesso no `site` — o app desta spec):
+
+18. `curl -s https://artificiorpg.com/` → changelog, busca e tema renderizam **fora**
+    de `.artificio-session`. Hoje os três estão dentro
+    (`SiteHeaderIsland.tsx:62-94`). **"Entrar" NÃO se move** — item 19.
+19. `.artificio-session` do `site` contém `NotificationBell` + avatar com seu dropdown
+    (Admin / Perfil Artifício / Sair) — todos exigem sessão — **mais o botão "Entrar"
+    (`SiteHeaderIsland.tsx:146-152`) e o `menu-toggle`**, pelas mesmas razões do item 15:
+    "Entrar" é a porta de entrada da sessão e ocupa o lugar onde o avatar aparece depois
+    do login; o toggle é o controle do painel mobile.
+
+**Depende de.** Mesmo ciclo de export + build + deploy de T3.3 — não adianta corrigir o
+código sem o rebuild, porque produção serve o `dist`.
+
+**Nenhuma decisão pendente.** As duas que estavam aqui (`noindex` sim/não; separar
+`noindex` de `nofollow` em `packages/content`) foram **respondidas e fechadas** em
+2026-09-14 pela medição do item 3: `/blog/` é o catálogo, continua indexada, e nada
+disso é mais necessário. Não reabrir sem dado novo do Search Console.
+
+**Fontes — primárias do Google, não convenção de CMS.** O agente primeiro afirmou de
+memória, depois pesquisou "o que WordPress/Yoast/Ghost fazem", e só então mediu na
+fonte:
+[Pagination and incremental page loading](https://developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading) ·
+[5 common mistakes with rel=canonical](https://developers.google.com/search/blog/2013/04/5-common-mistakes-with-relcanonical) ·
+[Consolidate duplicate URLs](https://developers.google.com/search/docs/crawling-indexing/consolidate-duplicate-urls) ·
+[rel=prev/next abandonado em 2019](https://yoast.com/google-doesnt-use-rel-prev-next-for-pagination/)
 
 ---
 
@@ -941,15 +1995,60 @@ vivem só no frontend. Por §"Compartilhado por padrão", sobem para pacote comp
 | 1. `Dockerfile` do frontend | **escrito**, asserção de runtime 7/7 |
 | 2. `server.js` + 2 composes + `nginx.conf` removido | **aplicado e medido** — ver §Contrato do `server.js` |
 | 3. Código morto (`App.tsx`, `main.tsx`, `index.html`) | **removido e validado** — `tsc -b` limpo, `BackendStatusScreen.test.tsx` 2/2, suíte 84/1139 |
-| Ingress `:80` → `:3000` (prod + beta) | **pendente de autorização nominal** — item 6 da §Ações |
+| Ingress `:80` → `:3000` — **beta** | **FEITO em 2026-09-13.** Tunnel `Artificio` v26 → **v27**; `mesasbeta` → `mesas-beta-app:3000`. Prod conferido intacto na resposta da API |
+| Ingress `:80` → `:3000` — **prod** | **pendente de autorização nominal** — item 6 da §Ações |
 
-**O código desta task está fechado.** O único item aberto é a porta do ingress,
-que é escrita em tunnel de produção e roda no momento do deploy (§Autorização),
+**O código desta task está fechado.** O único item aberto é a porta do ingress de
+PROD, que é escrita em tunnel de produção e roda no momento do deploy (§Autorização),
 não antes.
 
-Commitado e pushado na **PR #319** (branch `feat/102-f4-mesas-ssr`, 5 commits de
-`b7a03ed` a `57abff8`), **ainda não mergeada**. `pnpm-lock.yaml` e `Dockerfile`
-entraram no `b7a03ed`, com o `deploy-contract-gate` cobrando `deploy-flow.md` §1.
+**ARMADILHA DE SEQUÊNCIA — o primeiro deploy do `mesas` FALHA O SMOKE POR
+CONSTRUÇÃO, e vai falhar igual em prod.** Medido em beta, run `34778898181`
+(2026-09-13):
+
+```
+healthy_mesas-beta-api=true
+healthy_mesas-beta-app=true
+ERRO: smoke home esperava 200 recebeu 502   → exit 1
+```
+
+**Não é container quebrado.** Os três containers ficaram `Up (healthy)` na VM, e
+dentro do `mesas-beta-app` o SSR já respondia: `localhost:3000` devolvia o HTML
+completo, `localhost:80` devolvia `Connection refused`. O tunnel ainda entregava em
+`:80`, onde o container novo não escuta — `USER node` não abre porta <1024
+(`docker-compose.beta.yml:16` registra isso no próprio arquivo).
+
+A esteira roda o smoke contra o **hostname público**, então ela mede o tunnel, não o
+container. E a ordem não pode ser invertida — trocar o ingress antes do container
+novo subir só alonga o `502`. Logo: **a run vermelha é o estado esperado do primeiro
+deploy; o ingress é o passo seguinte, não a correção de um defeito.**
+
+Consequência para prod: depois do dispatch, a run vai acusar `ERRO: smoke home`. Não
+diagnosticar container, não fazer rollback — aplicar o item 6 da §Ações e remedir.
+Custo em beta: `502` por ~4 minutos entre o fim do deploy e a troca do ingress.
+
+**Aceites de T4.2/T4.3/T4.5 medidos em beta depois da troca (v27):**
+
+| aceite | medido |
+|---|---|
+| smokes do manifesto | home **200**, `private_no_cookie` **401**, `auth_redirect` **302** com o `location` exato |
+| HTML da home | 3.328 → **193.502** bytes (58×) |
+| URL de mesa | **200**, com `ld+json`, `canonical` e `og:title` no fonte |
+| JSON-LD | `Product` + **`offers`** + `price "10.00"` + `InStock` — a propriedade qualificadora que o `3d6ff5c` corrigiu, agora provada em runtime |
+| `description` | **152** chars, abaixo do limite de 160 do `3d6ff5c` |
+| **bot ↔ navegador** | JSON-LD, `title`, `canonical` e `description` **idênticos** — a divergência que originou a spec acabou |
+
+O `canonical` em beta aponta para `mesas.artificiorpg.com` (prod), correto: beta não
+disputa indexação.
+
+**Não medido:** o HTML difere em 1.094 bytes entre Googlebot e navegador (44.956 vs
+46.050) com todos os metadados idênticos. Não é dynamic rendering; a origem do delta
+não foi investigada.
+
+**MERGEADA em 2026-09-13** — PR #319 (branch `feat/102-f4-mesas-ssr`, 7 commits de
+`b7a03ed` a `32da301`), merge `a7ea7e1`. `origin/dev` já serve este código.
+`pnpm-lock.yaml` e `Dockerfile` entraram no `b7a03ed`, com o `deploy-contract-gate`
+cobrando `deploy-flow.md` §1.
 
 **Entrega.** Conteúdo e schema no HTML inicial, **iguais para todo user-agent**.
 Elimina por construção a divergência bot↔usuário que produziu B, C e E.
@@ -994,6 +2093,25 @@ granularidade vem de `prerender` (build-time, incompatível com "sempre fresco")
 entram no SSR junto**, e os 58 arquivos com código só-de-browser precisam sair do
 render para `clientLoader`/`clientAction` ou ficar atrás de guarda de ambiente. Isso
 é parte da obra, não desvio dela.
+
+**Comando do deploy BETA — medido em 2026-09-13, não estava registrado em lugar
+nenhum desta spec** (só havia o de prod, em T3.3):
+
+```bash
+gh workflow run deploy.yml --ref dev -f module=mesas -f mode=deploy -f env=beta
+```
+
+Três medições que o sustentam, todas no `deploy.yml`:
+
+- **O beta sai de `dev`, sem promote.** `deploy.yml:209` — env vazio faz o
+  `_deploy-module` derivar do ref (`dev`→beta, senão prod); o `env=beta` explícito é
+  override (D044). Validar em beta **não exige tocar em `main`**, o que importa
+  porque o rollback do SSR é o mais caro dos cinco (§Ações item 5).
+- **O bloqueio de `env=beta` alcança `accounts` E `links`** (`deploy.yml:184`) — o
+  `mesas` não é afetado. O `deploy-flow.md` §Casos por módulo cita só o `accounts`;
+  o workflow barra os dois. Divergência doc↔código: o código prevalece.
+- **`mesasbeta.artificiorpg.com` responde `200`** (medido antes do dispatch). O
+  hostname existe no tunnel, então falha de smoke em beta será código, não DNS.
 
 **Ordem de deploy (decidida pelo mantenedor em 2026-09-11).** F1, F3 e F4 sobem num
 **único deploy**. O código se escreve todo antes; nada nesta frente espera deploy de
@@ -1954,7 +3072,7 @@ T4.2 — nenhum destes agentes executa JavaScript.
 
 ## F5 — Facetas e guards
 
-### [ ] T5.1 — Medir e tratar facetas de filtro
+### [x] T5.1 — Medir e tratar facetas de filtro — ENTREGUE POR CONSEQUÊNCIA DE T4.2 (medido em beta, 2026-09-13)
 
 **Problema.** O Search Console lista
 `https://mesas.artificiorpg.com/?system=castles-crusades` como afetada. Sem canonical
@@ -1992,14 +3110,25 @@ indexável.** Não é preferência; sai da própria medição:
 outra spec.
 
 **Entrega.** `<link rel="canonical">` apontando para a URL sem query em toda rota de
-catálogo com parâmetro. Depende de T4.2 (canonical injetado por JS não é lido).
+catálogo com parâmetro.
 
-**Aceite:**
+**Esta task não teve código próprio — foi entregue pelo SSR de T4.2.** A dependência
+registrada aqui ("canonical injetado por JS não é lido") era a causa inteira: o
+canonical já era o certo, mas chegava por JS e o crawler não o via. Com o SSR, ele
+sai no HTML inicial e os três aceites passam sem uma linha nova. **Não abrir esta
+task como trabalho pendente.**
 
-1. `curl -s 'https://mesas.artificiorpg.com/?system=castles-crusades' | grep canonical`
-   → canonical para `https://mesas.artificiorpg.com/`.
-2. Mesma verificação com 3 parâmetros combinados → mesmo canonical limpo.
-3. `curl -s https://mesas.artificiorpg.com/ | grep -c canonical` → 1, auto-referente.
+**Aceite — medido em 2026-09-13 contra `mesasbeta`** (mesmo código de prod; o
+canonical emitido aponta para `mesas.`, que é o correto — beta não disputa índice):
+
+| aceite | comando | resultado |
+|---|---|---|
+| 1 | `curl 'https://mesasbeta…/?system=castles-crusades'` | `<link rel="canonical" href="https://mesas.artificiorpg.com/"/>` ✅ |
+| 2 | idem com `&modality=online&price=gratuita` (3 params) | mesmo canonical limpo ✅ |
+| 3 | `curl 'https://mesasbeta…/' \| grep -c canonical` | **1**, auto-referente ✅ |
+
+Revalidar contra `mesas.artificiorpg.com` depois do deploy de prod é confirmação, não
+nova implementação.
 
 ---
 
@@ -2008,14 +3137,141 @@ catálogo com parâmetro. Depende de T4.2 (canonical injetado por JS não é lid
 Nenhum dos defeitos desta spec quebra teste algum e todos são invisíveis em code
 review — foi por isso que sobreviveram. Guard que falha o CI se voltarem:
 
-| Guard | Trava |
-|---|---|
-| G-A | post com canonical ≠ URL real (sobre `posts.json` gerado) |
-| G-B | URL do sitemap que o SSR nega (equivalência sitemap ↔ crawler) |
-| G-C | slug inexistente sob `/mesas/` respondendo 200 |
-| G-D | rota pública de mesa sem conteúdo/schema no HTML inicial (varre com UA de crawler de IA) |
-| G-E | regra de visibilidade duplicada: predicado objeto ≠ SQL, ou espelho frontend ≠ backend |
-| G-F | `price` do schema ≠ `price_value` do banco (trava a derivação pelo rótulo do contato) |
+| Guard | Trava | estado |
+|---|---|---|
+| **G-A** | post com canonical ≠ URL real (sobre `posts.json` gerado) | ✅ **FEITO em 2026-09-13** — `smoke:post-canonical` |
+| G-B | URL do sitemap que o SSR nega (equivalência sitemap ↔ crawler) | pendente — exige HTTP, ver nota abaixo |
+| G-C | slug inexistente sob `/mesas/` respondendo 200 | pendente — exige HTTP |
+| G-D | rota pública de mesa sem conteúdo/schema no HTML inicial (varre com UA de crawler de IA) | pendente — exige HTTP |
+| **G-E** | regra de visibilidade duplicada: predicado objeto ≠ SQL, ou espelho frontend ≠ backend | ✅ **FEITO em 2026-09-13** — `smoke:visibility-mirror` |
+| **G-F** | `price` do schema ≠ `price_value` do banco (trava a derivação pelo rótulo do contato) | ✅ **FEITO em 2026-09-13** — `smoke:jsonld-price-source` |
+
+**Os três estáticos estão prontos; os três restantes são de outra natureza.** G-B, G-C
+e G-D exigem requisição HTTP contra a aplicação rodando. **Não dependem de deploy** — o
+job pode buildar e subir `node server.js` em `127.0.0.1`, e isso é preferível a apontar
+para beta: gate que chama a rede fica vermelho quando a rede cai, sem defeito nenhum.
+O que eles exigem de fato é **banco com dado** (o sitemap sai de query), que é desenho
+próprio e ainda não foi feito.
+
+**G-F — `scripts/ci/check_jsonld_price_source.mjs`.** Verifica que `priceForJsonLd` lê
+`vm.price`/`vm.priceType` e nada de contato/rótulo, que `buildTableJsonLd` alimenta
+`offers.price` por ela (e não inline), e que o mapper segue derivando de
+`price_value` — a ponta de origem. Estático de propósito: o defeito é de ORIGEM DO
+DADO, e fixture provaria o valor de hoje, não de onde ele vem.
+
+Detecta 5 sabotagens (todas exit 1; limpo exit 0): preço pelo rótulo do contato;
+`offers.price` montado inline; **condição literal** (`if (true) return '0'`); mapper
+lendo outro campo; e **`offers.price` recebendo literal com a chamada intacta**.
+
+> O último era furo da primeira versão (achado P2 do Codex, PR #320, reproduzido):
+> mantendo `const price = priceForJsonLd(vm)` e trocando só a propriedade por
+> `price: '999'`, o guard saía exit 0 com preço fixo publicado. Verificar que a chamada
+> EXISTE não prova que o valor CHEGA ao schema — agora são duas checagens, origem e
+> destino, ligadas pelo nome da variável capturada.
+
+> O cenário da condição literal **passou verde na primeira versão** e obrigou a
+> acrescentar um check: `codigo.includes('vm.price')` prova que o texto existe, não que
+> o dado decide — com `if (true)` as menções sobrevivem no corpo e o preço já é
+> constante. Mesma classe do furo que o Codex achou no G-E (helper local), encontrada
+> aqui por sabotagem própria antes de ir a review.
+
+**G-A — `scripts/ci/check_post_canonical.mjs`.** A trava é *"canonical presente **E**
+com caminho diferente do post"*: ausência é o caso CORRETO, porque
+`blog/[slug].astro:21` (`post.seo.canonical || …`) cai no fallback auto-referente.
+Canonical explícito **vence** o fallback, então canonical errado no dado é emitido como
+está — por isso a trava é sobre `posts.json`, não sobre o template.
+
+> **A primeira versão deste guard estava INVERTIDA** (achado P2 do Codex, PR #320,
+> reproduzido): comparava contra `/<slug>/` e apontava para `pages/[slug].astro`, que é
+> a rota **institucional** (sobre, contato, políticas) e nem consome `posts.json` — ela
+> lê `pages` de `lib/content.ts`. Medido: canonical CORRETO (`/blog/x/`) saía **exit 1**
+> e o ERRADO (`/x/`) saía **exit 0**. O guard reprovava o certo e aprovava o defeito que
+> existe para travar.
+>
+> A rota de post é `/blog/<slug>/`, preservada no cutover do WordPress (D047/D019). **A
+> spec já tinha a resposta e eu não a li antes de escrever:** `spec.md:36` cita
+> literalmente `apps/site/src/pages/blog/[slug].astro:21` como ponto de emissão, e
+> `spec.md:58` traz o critério em SQL — `regexp_replace(canonical,'^https?://[^/]+','')
+> <> '/blog/'||slug||'/'`, a mesma query que mediu os 105 divergentes.
+
+**Compara CAMINHO, não host**, porque `SITE.origin` vem de `PUBLIC_SITE_URL` e difere
+entre beta e prod. Validado: canonical auto-referente apontando para
+`beta.artificiorpg.com` **passa** (configuração legítima), enquanto caminho divergente
+falha.
+
+Detecta 4 sabotagens: canonical para outro caminho (o defeito dos 105); `posts.json`
+vazio (export não rodou — lista vazia passaria verde provando nada); template perdendo
+o fallback; e o caso de beta, que corretamente **não** falha.
+
+Estado hoje, medido: **8 posts, zero canonicals emitidos** — pós-T3.2. O guard nasce
+verde e existe para a 106ª ocorrência não voltar em silêncio.
+
+**G-E — `scripts/ci/check_table_visibility_mirror.mjs`, ligado no `ci.yml` como
+`pnpm smoke:visibility-mirror`.**
+
+**Correção de afirmação minha, apontada pelo CodeRabbit na PR #320.** Eu havia escrito
+aqui, no guard, no `ci.yml` e na mensagem do `fc2f617` que "nenhum gate obrigatório
+compara as formas da regra". **Falso.** O `ci.yml:173-176` tem o passo "Mesas
+visibility equivalence on PostgreSQL 16", que fornece `MESAS_TEST_DATABASE_URL` e roda
+`tableVisibility.equivalence.test.ts` — a trava objeto↔SQL está ATIVA, e o comentário
+ao lado dela registra que isso foi resolvido por achado de review da PR #315.
+
+O erro foi de meia medição: li o `describe.skipIf` no arquivo de teste e **não medi se
+o CI provê a variável**. O `skipIf` só desliga o teste localmente.
+
+**O escopo real de G-E é o espelho, e só ele:** backend ↔ frontend, o único lado sem
+gate. Não substitui nem duplica o teste de equivalência.
+
+Compara o TEXTO NORMALIZADO de `importedTableExpiryDate` e `isImportedTableExpired`
+nas duas raízes (comentário e espaço fora; nome, operador e literal dentro). Não
+valida semântica — isso é do teste contra Postgres; valida que as duas cópias
+continuam sendo a mesma cópia, que é o que falhou 3×.
+
+**Provado em 3 cenários de sabotagem, não só no verde** (gancho que só passa não é
+guard — AGENTS.md §Compartilhado por padrão). Todos saem **exit 1**; o código limpo,
+**exit 0**:
+
+1. divergência direta no corpo (`+ 5` → `+ 7` dias)
+2. **delegação a helper local** — `expiryDays()` em cada raiz devolvendo 5 e 7, com os
+   corpos idênticos ao byte
+3. função renomeada/removida do espelho
+
+**O cenário 2 era um furo real, achado pelo Codex (P2) na PR #320 e reproduzido aqui.**
+A versão do `fc2f617` comparava só o texto dos dois corpos nomeados, então qualquer
+refatoração que movesse parte da regra para um helper passava verde com a regra
+divergindo em 2 dias. A correção é a lista `CHAMADAS_PERMITIDAS`: chamada que o guard
+não compara vira falha, com a instrução de espelhar a função ou justificar a exceção.
+Falso-positivo ali custa uma entrada com motivo escrito; falso-negativo é o que este
+guard existe para não ter.
+
+**E teve um 4º cenário, da MESMA classe, numa segunda rodada do Codex:** corrigido o
+helper CHAMADO, o identificador **não chamado** continuava passando — extraindo o prazo
+para uma constante local `EXPIRY_DAYS` (5 no backend, 7 no frontend), os corpos ficavam
+idênticos ao byte e o guard saía exit 0. Agora a varredura é de identificador livre, não
+só de `nome(`: o que não for declarado no corpo, parâmetro, propriedade, palavra-chave
+ou permitido é dependência não verificada.
+
+Dois falso-positivos meus nessa mudança, ambos medidos e corrigidos antes de entrar:
+palavras-chave (`const`, `new`, `return`) entrando como identificador — separadas numa
+lista própria, porque são ruído de parser e não decisão sobre regra; e **literal de
+string** (`table.origin !== 'imported'` fazia o guard exigir que `imported` fosse
+espelhado) — literais saem antes da varredura.
+
+**Também do review da mesma PR** (Sonar): complexidade cognitiva de `extrairCorpo` era
+18 > 15 — os dois laços de contagem eram o mesmo algoritmo duplicado inline, extraído
+para `indiceDoFechamento`; e a regex da assinatura passou a usar `String.raw`.
+
+**Defeito do próprio guard, corrigido antes de entrar:** ele nasceu vermelho porque o
+extrator pegava a primeira `{` depois da assinatura — que abre o **tipo inline do
+parâmetro**, não o corpo. Comparava declaração de tipo e acusava divergência onde a
+diferença é legítima (`DateValue` no backend, `string` no frontend, que recebe JSON).
+Corrigido fechando a lista de parâmetros por contagem de parênteses; o motivo está
+comentado no arquivo.
+
+**Medição que muda G-A:** `apps/site/src/data/posts.json` tem **8 posts** e o objeto
+`seo` só carrega `description` — **zero canonicals emitidos**. É o estado pós-T3.2,
+que limpou os 105 divergentes no banco. G-A segue válido, mas nasce verde e a trava
+real é *"canonical presente E diferente da URL"*, não *"canonical ≠ URL"*.
 
 **G-B é o mais valioso:** trava a classe inteira de "sitemap anuncia o que o SSR
 nega" — o defeito que ninguém veria sem esta investigação.
@@ -2124,6 +3380,15 @@ da ferramenta e nada tem a ver com esta spec.
 ---
 
 ## Achado lateral (fora do escopo da spec, registrado por medição)
+
+### Raiz do `site` se declara duplicata de `/blog/` — MOVIDO PARA T3.5 (F3)
+
+Nasceu aqui como achado lateral e foi promovido a task por determinação do mantenedor
+(2026-09-14): *"É DA SPEC, E SERÁ RESOLVIDO ANTES DO DEPLOY"*. O registro completo —
+medição, formas que não funcionam, correção proposta e aceite — vive em **T3.5**, na
+fase F3 (`site`: canonical legado). Não duplicar aqui.
+
+---
 
 ### Discord: link de perfil quebrado — CORRIGIDO (sem deploy)
 
@@ -2245,15 +3510,20 @@ a já aceita — `/og/*` responde erro em vez de HTML, e ninguém chama.
 > `src/routes/*`, `contactUrls.ts`) **não sumiu** — está no `4bb3108`, aguardando a
 > PR 3. Nunca concluir perda a partir de um `ls` numa branch parcial.
 
-**Confiar na PR #317. É a única válida.** A #316 e a #318 estão superadas — mas
-**a #316 NÃO pode ser fechada nem deletada** até a PR 3 existir e conter tudo: ela é
-hoje o único lugar com os 133 arquivos juntos.
+**A #317 e a #319 mergearam. `origin/dev` está em `a7ea7e1`** (merge da #319,
+2026-09-13). A trava que impedia fechar a #316 — "não fechar até a PR 3 existir e
+conter tudo" — **está cumprida e medida**: `git diff origin/dev 4bb3108
+--name-status` devolve 44 arquivos e **nenhum deles é conteúdo que falte em `dev`**.
+São 9 `D` (arquivos que existem em `dev` e não no `4bb3108`: `formatDate.ts`,
+`redirect.test.ts`, `contactUrls.test.ts`, `hidratacao.test.tsx`, `sanitizeServer.ts`
+e testes) e 35 `M` em que a versão do `4bb3108` é a **anterior** às correções.
 
 | PR | estado | conteúdo | arquivos |
 |---|---|---|---|
-| **#317** | **ABERTA, é esta que vale** | 5 commits: imports **+ canonical/`lastmod`** + DOMPurify/segurança | **69** (62 contra o teto) |
+| **#319** | **MERGED** (`a7ea7e1`) | a PR 3: `catalog-table` + SSR do `mesas` + 7 commits de review | 88 |
+| **#317** | **MERGED** (`49ac4b1`) | imports + canonical/`lastmod` + DOMPurify/segurança | 69 |
 | #318 | aberta, **sem conteúdo próprio** | `comm -23` contra a #317 devolve vazio | 14 |
-| #316 | aberta, **NÃO FECHAR** | o monólito de 133 arquivos; fonte da PR 3 | 133 |
+| #316 | aberta, **já pode fechar** | o monólito; `4bb3108` está contido em `dev` | 133 |
 
 **O plano de 3 PRs deixou de existir na prática (2026-09-13).** Era: (1) imports,
 (2) canonical/`lastmod`, (3) SSR. O mantenedor pediu que o conteúdo da #318 fosse
@@ -2293,6 +3563,7 @@ Commits da PR **#319**, na branch `feat/102-f4-mesas-ssr` (criada de `origin/dev
 | `abd773c` | 3 achados do terceiro ciclo (dev local quebrado, preço zero em mesa paga, data sem fuso no SSR) + a linha do `.react-router/` que faltava no `.gitignore` — 11 arquivos |
 | `57abff8` | 4 achados do quarto e quinto ciclos, **2 deles em `packages/ui`** (snapshot de tema e badge do changelog, ambos divergindo na hidratação), o `replace()` nos 6 aliases e o DDD 55 no WhatsApp — 8 arquivos |
 | `3d6ff5c` | `description` estourando 160 com cauda longa, `Product` sem propriedade qualificadora (correção de uma correção do `abd773c`) e o smoke de ingress morto por `ENOENT` desde `b7a03ed` + a reescrita desta seção (−207/+109) — 4 arquivos |
+| `32da301` | o `null` que o `3d6ff5c` introduziu em `buildTableJsonLd` quebrou o `typecheck` do CI (13 × `TS18047`, run `34776296657`): helper do teste devolvia `null` sem ninguém estreitar. Passou local porque `vitest` não checa tipo — 2 arquivos |
 
 **Validação medida antes de cada commit:** `mesas/frontend` 1148/1148 (86 arquivos),
 `site` 155/155, `content` 22/22, `content-editor` 120/120, `tsc` limpo, lint 0 erros,
@@ -2334,7 +3605,39 @@ por `react-router`: duas instâncias, e `useLocation() may be used only in the c
 of a <Router> component` em 2 testes. **Ou todo o app importa do mesmo pacote, ou
 nenhum** — não há corte parcial. Por isso 39 arquivos, não 33.
 
-### O que falta — CHECKLIST EXECUTÁVEL DA PR 3
+### CHECKLIST DA PR 3 — EXECUTADO E MERGEADO (`a7ea7e1`)
+
+**Os 7 itens abaixo estão cumpridos. Nada aqui é trabalho pendente.** O registro
+permanece porque as armadilhas que ele mede continuam valendo para quem tocar estes
+caminhos — não porque falte executá-las.
+
+**A medição que responde "falta algo do monólito em `dev`?" em uma linha:**
+
+```
+git diff origin/dev 4bb3108 --diff-filter=A --name-status   # devolve 0
+```
+
+`A` lista o que existe no `4bb3108` e **não** existe em `dev`. Zero. Conferido também
+por presença direta (`git cat-file -e origin/dev:<arquivo>`) nos 10 arquivos mais
+caros da migração — `server.js`, `entry.server.tsx`, `entry.client.tsx`, `routes.ts`,
+`tableMeta.ts`, `contactUrls.ts`, `tableViewMapper.ts`, `sanitizeServer.ts`,
+`formatDate.ts` — todos presentes, mais **25** arquivos em `src/routes/` e **15** em
+`packages/catalog-table/`.
+
+**Use SEMPRE o `--diff-filter=A`, e não o diff cru, para responder essa pergunta.** O
+diff sem filtro devolve 44 e já foi lido ao contrário duas vezes: ele mostra 35 `M`
+que são o `4bb3108` desatualizado, não `dev` incompleta.
+
+**NÃO EXISTE PR 4, e trazer o `4bb3108` para uma branch nova é DESTRUTIVO.** Medido
+em 2026-09-13, depois do merge: `git diff origin/dev 4bb3108 --name-status` = 44
+arquivos, **todos na direção errada** — o monólito é anterior a tudo que entrou pelas
+#317/#319. Trazê-los reverteria em silêncio os 3 overrides de CVE
+(`qs` 6.16.0 → 6.15.2, `undici` 7.29.1 → 7.29.0 e 8.10.2 → 8.10.0, uma **CVSS 9.1**)
+e as 13 correções de review: `tableMeta.ts` sem o limite de 160 e sem o `null`,
+`contactUrls.ts` com o bug do DDD 55, `theme.tsx` com snapshot `light`, o smoke de
+ingress lendo o `nginx.conf` já removido, `AGENTS.md` de volta a 10.076 palavras.
+É a própria armadilha descrita logo abaixo, agora com a direção confirmada por
+medição em vez de prevista.
 
 **PR 3 — branch `feat/102-f4-mesas-ssr`, criada de `origin/dev` (`49ac4b1`, merge da
 #317) em 2026-09-13: 88 arquivos, 80 contra o teto.**
@@ -2390,31 +3693,31 @@ nesta spec; quem criar a PR 3 executa a lista, não a redescobre. A ordem import
 os itens 1 e 2 são os que fazem a PR builda/subir, o 3 é o que impede o Sonar de
 reencontrar os mesmos achados e queimar outra janela de review.
 
-- [ ] **1. Criar a branch de `origin/dev` JÁ COM A #317 MERGEADA.** Trazer os
+- [x] **1. Criar a branch de `origin/dev` JÁ COM A #317 MERGEADA.** Trazer os
       arquivos com `git checkout 4bb3108 -- <caminhos>` (nunca mover: o `4bb3108` é
       a fonte e fica intacto).
-- [ ] **2. `apps/mesas/frontend/src/utils/sanitize.ts` — BUG LATENTE, quebra o SSR.**
+- [x] **2. `apps/mesas/frontend/src/utils/sanitize.ts` — BUG LATENTE, quebra o SSR.**
       Importa `dompurify` **puro** (L1) e é consumido por `useProfileQuery.ts` em 4
       pontos (L43, L89, L128, L196). No servidor: `sanitize is not a function` →
       `500` no perfil. **Nenhum bot apontou isto**; sem tratar, a PR 3 troca um `500`
       por outro. A correção depende da decisão do item 3 (mesmo sanitizador).
-- [ ] **3. Fechar a decisão do DOMPurify** (§"Estudo do caminho de sanitização").
+- [x] **3. Fechar a decisão do DOMPurify** (§"Estudo do caminho de sanitização").
       Recomendação do agente: **opção (a)**, manter DOMPurify e corrigir a
       inicialização no SSR. Se (a) for escolhida, junto vem:
       `test -d packages/*/node_modules/jsdom` no Dockerfile do app que passar a
       depender de `isomorphic-dompurify` — dependência de 2º nível podada por
       `pnpm install --prod --filter` é o que derrubou o SSO por 5h (E016/E017).
-- [ ] **4. Reparar os 11 achados do Sonar** da tabela "Ficam para a PR 3" (abaixo),
+- [x] **4. Reparar os 11 achados do Sonar** da tabela "Ficam para a PR 3" (abaixo),
       **antes de pedir review**. São arquivos que só existem no `4bb3108`:
       `server.js`, `MesaPage.tsx`, `entry.client.tsx`, `root.tsx`, as 3 rotas,
       `Dockerfile` (2x), `tableMeta.ts`, `contactUrls.ts`.
-- [ ] **5. Conferir que o hook de registro veio junto:**
+- [x] **5. Conferir que o hook de registro veio junto:**
       `grep -c registro-anti-compactacao .claude/settings.json` deve devolver **1**,
       e `.claude/hooks/registro-anti-compactacao.js` deve existir. Eles viveram
       apenas no `4bb3108` até 2026-09-12 (ver §Registro anti-compactação).
-- [ ] **6. Conferir o override `qs@<6.16.0`** no `pnpm-workspace.yaml` (entrou pela
+- [x] **6. Conferir o override `qs@<6.16.0`** no `pnpm-workspace.yaml` (entrou pela
       #317; se a base mudar, confirmar que sobreviveu ao merge).
-- [ ] **7. Validar antes de pushar:** `mesas/frontend` (suíte + `tsc -b` + build
+- [x] **7. Validar antes de pushar:** `mesas/frontend` (suíte + `tsc -b` + build
       SSR), `catalog-table`, `verify:api`. Conferir a contagem de arquivos contra o
       teto de 100 ANTES de abrir (`git diff --name-only origin/dev...HEAD | grep -cvE '\.md$|^\.claude/'`).
 - [ ] **8. Abrir UMA PR e esperar a review sair** antes de qualquer outra. Abrir duas
@@ -2753,13 +4056,13 @@ correção está: **em commit pushado** ou **só no working tree** (não commita
 |---|---|---|
 | `src/features/table/seo/tableMeta.ts:41` | `description` estourava 160 com cauda longa: o piso de 60 para a sinopse era incondicional. Medido com dado real — "Little Fears – The Role-playing Game of Childhood Terror" (56 chars, um dos 682 sistemas) + modalidade/nível/preço/vagas dá cauda 108 e description **172**. O teste que existia usava `Dungeons & Dragons` (18 chars) e nunca chegava lá | `3d6ff5c` — piso só vale enquanto cabe; cauda longa trunca a sinopse até sumir. Medido depois: 172 → 108, nenhum caso estoura |
 | `scripts/ci/check_ingress_realip_contract.mjs:9` | guard morria com `ENOENT` desde `b7a03ed` (lia o `nginx.conf` removido), anulando 14 asserções | `3d6ff5c` — inspeciona `server.js`; medido `ENOENT` → `smoke OK` |
-| `src/features/table/seo/tableMeta.ts` | omitir só a `Offer` deixava `Product` sem propriedade qualificadora — inválido no Rich Results | `3d6ff5c` — sem preço publicável não sai JSON-LD nenhum. O `null` no retorno é o que quebrou o `typecheck` do CI (ver armadilha acima); teste corrigido no working tree |
+| `src/features/table/seo/tableMeta.ts` | omitir só a `Offer` deixava `Product` sem propriedade qualificadora — inválido no Rich Results | `3d6ff5c` — sem preço publicável não sai JSON-LD nenhum. O `null` no retorno é o que quebrou o `typecheck` do CI (ver armadilha acima); teste corrigido em `32da301` |
 | `packages/catalog-table/src/contactUrls.ts:114` | DDD 55 (Santa Maria/RS) confundido com código de país | `57abff8` — decisão por comprimento (10-11 local, 12-13 com país), 7 testes |
 | `packages/ui/src/theme.tsx:120` | snapshot SSR `"light"` fixo contra `dark` do script inline | `57abff8` — snapshot `dark`; leitura do cookie na requisição segue pendente |
 | `packages/ui/src/hooks.ts:6` | badge lia `localStorage` no primeiro render, divergindo do servidor | `57abff8` — leitura movida para `useEffect` |
 | `src/routes/redirect.tsx` | `redirect()` empilhava histórico; era `<Navigate replace />` antes da F4 | `57abff8` — helper `replace()`, 4 testes novos |
 | `src/lib/apiUrl.ts:25` | dev local resolve `mesas-api`, que não existe fora do Docker | `abd773c` — padrão por `import.meta.env.DEV` |
-| `src/features/table/seo/tableMeta.ts:88` | mesa paga sem preço publicava `"0.00"` | `abd773c` — corrigido pela metade; refeito no working tree (ver 2ª linha) |
+| `src/features/table/seo/tableMeta.ts:88` | mesa paga sem preço publicava `"0.00"` | `abd773c` — corrigido pela metade; refeito em `3d6ff5c` (ver 2ª linha) |
 | `src/pages/MesaPage.tsx:100`, `TableSchedules.tsx:88` | data sem `timeZone` diverge entre SSR e hidratação | `abd773c` — `utils/formatDate.ts` com `America/Sao_Paulo` |
 | `src/root.tsx:129` | overlay sem foco contido nem semântica modal | **pendente de decisão** — ver pendência 1 acima |
 | `src/entry.client.tsx:23` | usar `RegExp.exec()` | `b75a224` |
@@ -2796,14 +4099,24 @@ expostos sem motivo.
 
 ### Armadilhas de git já pagas nesta entrega
 
-- **`git switch -c <nova> origin/dev` ABORTA** com este `tasks.md` modificado no
-  working tree (`Please commit your changes or stash them before you switch
-  branches`). É a primeira coisa que o próximo agente tentará.
-- **`git stash pop` depois do switch CONFLITA:** `tasks.md` tinha **1388 linhas em
-  `origin/dev`** contra **2231 em `4bb3108`**. O stash nasce sobre a versão nova e
-  tenta aplicar sobre a antiga → 3 conflitos (`UU`), um deles de 119 linhas. Resolver
-  os marcadores à mão reconstrói a spec errada. **Saída medida:**
-  `git checkout <commit> -- specs/.../tasks.md` e reaplicar as edições por cima.
+- **`git switch -c <nova> origin/dev` aborta SÓ quando a branch nova nasce em commit
+  DIFERENTE do HEAD** (`Please commit your changes or stash them before you switch
+  branches`). A advertência aqui era absoluta e não é: **medido em 2026-09-13, com
+  `tasks.md` e mais 4 arquivos modificados, `git switch -c chore/102-t52-…` levou
+  tudo intacto** — porque `origin/dev` (`a7ea7e1`) já contém o trabalho mergeado, e a
+  branch nasce no mesmo ponto do HEAD. Não há árvore para reescrever, logo não há o
+  que conflitar.
+
+  **Consequência prática: NÃO stashar.** Com `dev` atualizada, a saída é só
+  `git switch -c <nova>` — omitindo o `origin/dev`, que é redundante quando o HEAD já
+  está lá. Stashar por precaução é o que leva ao item seguinte.
+
+- **`git stash pop` depois do switch CONFLITA** quando o switch de fato muda de
+  commit: `tasks.md` tinha **1388 linhas em `origin/dev`** contra **2231 em
+  `4bb3108`**. O stash nasce sobre a versão nova e tenta aplicar sobre a antiga → 3
+  conflitos (`UU`), um deles de 119 linhas. Resolver os marcadores à mão reconstrói a
+  spec errada. **Saída medida:** `git checkout <commit> -- specs/.../tasks.md` e
+  reaplicar as edições por cima.
 - **`git add -A` sobre `apps/mesas/frontend` leva o `.react-router/` gerado** (27
   arquivos) mesmo ele estando no `.gitignore`, porque o `-A` sobre caminho explícito
   vence o ignore. Conferir `git diff --cached --name-only` antes de commitar.
@@ -2829,9 +4142,11 @@ Cada uma com rollback próprio. **Uma executada** (item 1); as outras quatro pen
    *Rollback:* redeploy da imagem anterior (tag do commit prévio), pelo fluxo de
    `deploy-flow.md`. Sem migration envolvida: nada a reverter no banco.
 4. **Export + rebuild + deploy do `site`** (T3.3, e T3.4 no mesmo ciclo).
-   **Autorizado em 2026-09-12, não executado:** o deploy lê de `main` e o código da
-   T3.4 não está commitado (`git log origin/dev..HEAD` → 0). Destrava com commit +
-   push + PR + promote, cada um com autorização própria.
+   **Autorizado em 2026-09-12, não executado.** O motivo do bloqueio MUDOU: o código
+   da T3.4 está em `dev` desde o merge da #317 (`49ac4b1`, commit `58305fb`). O
+   deploy lê de `main` (`deploy-flow.md:373` — `--ref main … -f env=prod`), então
+   **resta só promote `dev`→`main` + dispatch**, cada um com autorização própria.
+   Não falta mais commit, push nem PR.
    *Rollback:* redeploy da imagem anterior. O `posts.json` é artefato de build,
    regerado do banco — reverter o item 1 e reexportar restaura o estado anterior por
    completo.
@@ -2843,12 +4158,16 @@ Cada uma com rollback próprio. **Uma executada** (item 1); as outras quatro pen
    de uma obra inteira. Mitigação: a branch só sobe depois de os três aceites de T4.2
    passarem em beta. **Decisão tomada** (2026-09-11); falta autorizar a execução.
 
-6. **Ingress do tunnel: `mesas-app:80` → `mesas-app:3000`** (T4.2, e o par do beta).
-   Escrita em tunnel de produção, config remota versão 26. **Passo 4 da ordem de
-   deploy de T4.2** — nunca antes do container novo subir, sob pena de `502` mais
-   longo. Uma linha por ambiente, via MCP Cloudflare ou painel.
+6. **Ingress do tunnel: `mesas-app:80` → `mesas-app:3000`** (T4.2).
+   **O par do beta JÁ FOI FEITO** em 2026-09-13 (autorizado nominalmente): config
+   remota v26 → **v27**, `mesasbeta` → `mesas-beta-app:3000`. **Resta só a linha de
+   prod.** **Passo 4 da ordem de deploy de T4.2** — nunca antes do container novo
+   subir, sob pena de `502` mais longo; e o smoke da esteira falha ANTES dele (ver
+   a armadilha de sequência em T4.2). Uma linha, via MCP Cloudflare ou painel.
    *Rollback:* reescrever a porta de volta para `80`, mesma chamada. A config é
    versionada pela Cloudflare, e o estado anterior está registrado aqui.
+   **Cuidado medido:** o `PUT` de configuração SUBSTITUI o ingress inteiro — as 11
+   regras precisam ser reenviadas juntas; omitir uma a apaga.
 
 **Fora desta lista, por não exigirem autorização:** as tasks de F6 são operação manual
 do mantenedor no Search Console (o agente não tem acesso) e não têm rollback técnico —
