@@ -147,8 +147,14 @@ if (cru) {
 const template = lerArquivo(TEMPLATE);
 if (template) {
   const codigo = template.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
-  const atribuicao =
-    /const\s+canonical\s*=\s*post\.seo\.canonical\s*\|\|\s*`\$\{SITE\.origin\}\/blog\/\$\{post\.slug\}\/`/;
+  // O prefixo sai de `PREFIXO_DA_ROTA`, não literal: com `/blog/` escrito aqui, mudar a
+  // constante deixaria o check do dado e o do template medindo rotas diferentes — e o
+  // template passaria verde apontando para a rota antiga (achado do CodeRabbit, PR #320).
+  const prefixoNaRegex = PREFIXO_DA_ROTA.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const atribuicao = new RegExp(
+    String.raw`const\s+canonical\s*=\s*post\.seo\.canonical\s*\|\|\s*` +
+      String.raw`\`\$\{SITE\.origin\}${prefixoNaRegex}\/\$\{post\.slug\}\/\``,
+  );
 
   if (!atribuicao.test(codigo)) {
     failures.push(

@@ -11,7 +11,12 @@
  *     code: 'MODULE_NOT_FOUND'
  *     ... prepare: Done
  *
- * A linha `Done` é a prova de que o `|| true` cumpriu o papel. **Isto não é falha
+ * Atenção ao ler esse log: `|| true` engole QUALQUER exit≠0, então a linha `Done`
+ * prova apenas que o `prepare` não derrubou o build — não prova que o erro foi o
+ * `MODULE_NOT_FOUND` acima. Para distinguir o caso esperado de uma falha real de
+ * instalação de hook (permissão negada no `chmod`, `git config` recusado), é o texto
+ * do erro que decide: `MODULE_NOT_FOUND` no caminho deste arquivo é o caso conhecido;
+ * qualquer outra mensagem é defeito e se investiga. **Isto não é falha
  * de deploy e não se conserta copiando `scripts/` para a imagem** — seria inchar a
  * imagem para rodar um instalador de git hooks num container que não tem `.git`.
  * Se um dia o ruído incomodar, a saída é `--ignore-scripts` no install dos

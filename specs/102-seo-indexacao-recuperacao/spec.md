@@ -451,10 +451,17 @@ Para não desperdiçar trabalho em hipótese já refutada:
 - **On-page do blog** — `Base.astro` emite `canonical`, OG completo, Twitter card,
   `description`, JSON-LD. `[slug].astro:27-38` emite `articleLd` + `breadcrumbLd`,
   `<h1>`, imagem com `width`/`height`. Bem construído.
-- **Sitemap do site** — 221 URLs, todas sob `/blog/` e páginas institucionais.
-  Medido: `curl -s .../sitemap-0.xml | grep -c '<loc>'` → 221.
+- **Sitemap do site** — 221 URLs. Medido: `curl -s .../sitemap-0.xml | grep -c '<loc>'`
+  → 221.
+  **Correção de 2026-09-14: a descrição anterior — "todas sob `/blog/` e páginas
+  institucionais" — estava errada, e o erro escondia um defeito.** As duas primeiras
+  entradas são `https://artificiorpg.com/` e `https://artificiorpg.com/blog/`, e a raiz
+  declara `/blog/` como seu canonical. Ou seja: este item listava como *correto* um
+  sitemap que convida a rastrear uma URL que se declara duplicata de outra. O sitemap em
+  si segue bem formado — o defeito é o canonical da raiz, registrado em `tasks.md`
+  §Achado lateral → "Raiz do `site` se declara duplicata de `/blog/`".
 - **`noindex` acidental** — ausente. `curl -sI` na página do Chris Perkins não traz
-  `X-Robots-Tag`; HTTP 200 limpo; `SITE_NOINDEX` só afeta beta (`astro.config.mjs:15`).
+  `X-Robots-Tag`; HTTP 200 limpo; `SITE_NOINDEX` só afeta beta (`astro.config.mjs:17`).
   Correção 2026-09-11: `SITE_NOINDEX` hoje faz mais que o header — ele **remove a
   integração de sitemap** do build (`integrations: noindex ? [react()] : [sitemap(), react()]`)
   e o `robots.txt` emite `Disallow: /`. Beta não gera sitemap; produção gera.

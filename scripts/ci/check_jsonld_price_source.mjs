@@ -141,10 +141,24 @@ if (fonteMeta) {
       }
     }
 
-    if (!codigo.includes("vm.price") && !codigo.includes("vm.priceType")) {
+    // São DOIS ramos, e cada um precisa do seu dado. `vm.priceType` decide gratuita
+    // (`'0'`); `vm.price` produz o valor da mesa paga. Aceitar um OU outro deixava
+    // passar `if (vm.priceType === 'gratuita') return '0'; return '99.00'` — o
+    // `vm.priceType` sobrevivia no corpo e o check passava verde com preço fixo em
+    // toda mesa paga (achado do CodeRabbit, PR #320).
+    if (!/\bvm\.priceType\b/.test(codigo)) {
       failures.push(
-        `priceForJsonLd: não lê \`vm.price\` nem \`vm.priceType\`. O preço do schema ` +
-          `precisa vir do TableViewModel, que o deriva de price_value.`,
+        `priceForJsonLd: não lê \`vm.priceType\`. É ele que separa mesa gratuita ` +
+          `(\`'0'\`) de mesa paga — sem essa leitura, o ramo gratuito virou constante.`,
+      );
+    }
+
+    if (!/\bvm\.price\b(?!Type)/.test(codigo)) {
+      failures.push(
+        `priceForJsonLd: não lê \`vm.price\`. O valor da mesa PAGA tem de sair do ` +
+          `TableViewModel, que o deriva de price_value.\n` +
+          `    Ler só \`vm.priceType\` cobre o ramo gratuito e publica valor fixo em ` +
+          `toda mesa paga.`,
       );
     }
 
