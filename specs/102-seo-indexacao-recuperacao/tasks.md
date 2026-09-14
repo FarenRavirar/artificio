@@ -2086,12 +2086,53 @@ review — foi por isso que sobreviveram. Guard que falha o CI se voltarem:
 
 | Guard | Trava | estado |
 |---|---|---|
-| G-A | post com canonical ≠ URL real (sobre `posts.json` gerado) | pendente — ver medição abaixo, o escopo mudou |
-| G-B | URL do sitemap que o SSR nega (equivalência sitemap ↔ crawler) | pendente |
-| G-C | slug inexistente sob `/mesas/` respondendo 200 | pendente |
-| G-D | rota pública de mesa sem conteúdo/schema no HTML inicial (varre com UA de crawler de IA) | pendente |
-| **G-E** | regra de visibilidade duplicada: predicado objeto ≠ SQL, ou espelho frontend ≠ backend | ✅ **FEITO em 2026-09-13** |
-| G-F | `price` do schema ≠ `price_value` do banco (trava a derivação pelo rótulo do contato) | pendente |
+| **G-A** | post com canonical ≠ URL real (sobre `posts.json` gerado) | ✅ **FEITO em 2026-09-13** — `smoke:post-canonical` |
+| G-B | URL do sitemap que o SSR nega (equivalência sitemap ↔ crawler) | pendente — exige HTTP, ver nota abaixo |
+| G-C | slug inexistente sob `/mesas/` respondendo 200 | pendente — exige HTTP |
+| G-D | rota pública de mesa sem conteúdo/schema no HTML inicial (varre com UA de crawler de IA) | pendente — exige HTTP |
+| **G-E** | regra de visibilidade duplicada: predicado objeto ≠ SQL, ou espelho frontend ≠ backend | ✅ **FEITO em 2026-09-13** — `smoke:visibility-mirror` |
+| **G-F** | `price` do schema ≠ `price_value` do banco (trava a derivação pelo rótulo do contato) | ✅ **FEITO em 2026-09-13** — `smoke:jsonld-price-source` |
+
+**Os três estáticos estão prontos; os três restantes são de outra natureza.** G-B, G-C
+e G-D exigem requisição HTTP contra a aplicação rodando. **Não dependem de deploy** — o
+job pode buildar e subir `node server.js` em `127.0.0.1`, e isso é preferível a apontar
+para beta: gate que chama a rede fica vermelho quando a rede cai, sem defeito nenhum.
+O que eles exigem de fato é **banco com dado** (o sitemap sai de query), que é desenho
+próprio e ainda não foi feito.
+
+**G-F — `scripts/ci/check_jsonld_price_source.mjs`.** Verifica que `priceForJsonLd` lê
+`vm.price`/`vm.priceType` e nada de contato/rótulo, que `buildTableJsonLd` alimenta
+`offers.price` por ela (e não inline), e que o mapper segue derivando de
+`price_value` — a ponta de origem. Estático de propósito: o defeito é de ORIGEM DO
+DADO, e fixture provaria o valor de hoje, não de onde ele vem.
+
+Detecta 4 sabotagens (todas exit 1; limpo exit 0): preço pelo rótulo do contato;
+`offers.price` montado inline; **condição literal** (`if (true) return '0'`); mapper
+lendo outro campo.
+
+> O cenário da condição literal **passou verde na primeira versão** e obrigou a
+> acrescentar um check: `codigo.includes('vm.price')` prova que o texto existe, não que
+> o dado decide — com `if (true)` as menções sobrevivem no corpo e o preço já é
+> constante. Mesma classe do furo que o Codex achou no G-E (helper local), encontrada
+> aqui por sabotagem própria antes de ir a review.
+
+**G-A — `scripts/ci/check_post_canonical.mjs`.** A trava é *"canonical presente **E**
+com caminho diferente do post"*: ausência é o caso CORRETO, porque
+`[slug].astro:16` (`page.seo.canonical || …`) cai no fallback auto-referente. Canonical
+explícito **vence** o fallback, então canonical errado no dado é emitido como está —
+por isso a trava é sobre `posts.json`, não sobre o template.
+
+**Compara CAMINHO, não host**, porque `SITE.origin` vem de `PUBLIC_SITE_URL` e difere
+entre beta e prod. Validado: canonical auto-referente apontando para
+`beta.artificiorpg.com` **passa** (configuração legítima), enquanto caminho divergente
+falha.
+
+Detecta 4 sabotagens: canonical para outro caminho (o defeito dos 105); `posts.json`
+vazio (export não rodou — lista vazia passaria verde provando nada); template perdendo
+o fallback; e o caso de beta, que corretamente **não** falha.
+
+Estado hoje, medido: **8 posts, zero canonicals emitidos** — pós-T3.2. O guard nasce
+verde e existe para a 106ª ocorrência não voltar em silêncio.
 
 **G-E — `scripts/ci/check_table_visibility_mirror.mjs`, ligado no `ci.yml` como
 `pnpm smoke:visibility-mirror`.**

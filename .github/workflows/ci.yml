@@ -109,6 +109,21 @@ jobs:
       - name: Espelho da regra de visibilidade de mesa (G-E)
         run: pnpm smoke:visibility-mirror
 
+      # G-F (spec 102, T5.2): o `price` do JSON-LD tem de vir de `price_value`, nunca do
+      # rotulo do contato. Medido na investigacao: "Ticket / Inscricao" esta em 106
+      # contatos e 101 dessas mesas sao gratuitas — derivar do rotulo publicaria ingresso
+      # pago em ~95% dos casos, divergente do HTML visivel, que e' o que a acao manual de
+      # structured data pune. O JSON-LD continuaria valido; so mentiria.
+      - name: Origem do preco no JSON-LD de mesa (G-F)
+        run: pnpm smoke:jsonld-price-source
+
+      # G-A (spec 102, T5.2): canonical de post apontando para outra URL tira a pagina
+      # real do indice. Eram 105 dos 126 posts (T3.2), heranca do WordPress, limpos por
+      # UPDATE em producao. Nenhum teste quebrava e a pagina abria normal — o dano
+      # acontecia inteiro dentro do indice de busca.
+      - name: Canonical dos posts do site (G-A)
+        run: pnpm smoke:post-canonical
+
       # Confere que o passo seguinte tem o que checar: pacote com teste que
       # nenhum `tsc` alcança falha aqui. Sem isto, a cobertura dependeria de
       # cada autor lembrar de criar a tarefa `typecheck` ao adicionar pacote —

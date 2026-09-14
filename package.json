@@ -34,6 +34,8 @@
     "smoke:test-typecheck-coverage": "node scripts/check-test-typecheck-coverage.mjs",
     "smoke:db-proxy": "node scripts/ci/check-db-proxy-callable-modules.mjs",
     "smoke:visibility-mirror": "node scripts/ci/check_table_visibility_mirror.mjs",
+    "smoke:jsonld-price-source": "node scripts/ci/check_jsonld_price_source.mjs",
+    "smoke:post-canonical": "node scripts/ci/check_post_canonical.mjs",
     "prepare": "node scripts/git-hooks/install-hooks.mjs || true"
   },
   "devDependencies": {
