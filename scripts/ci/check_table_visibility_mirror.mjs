@@ -170,23 +170,84 @@ function indiceDoFechamento(fonte, inicio, abertura, fechamento) {
   return -1;
 }
 
+/**
+ * Mesma fonte, com comentários e literais substituídos por espaço — posições e
+ * comprimento preservados, para que todo índice calculado aqui valha na fonte original.
+ *
+ * Por que existe: `indiceDoFechamento` conta caracteres crus, então uma `}` dentro de
+ * comentário ou string fecha o corpo cedo e o guard passa a comparar um PEDAÇO das
+ * funções. Medido (achado P2 do Codex, PR #320, reproduzido): com `// }` nos dois lados
+ * e a divergência real `>=` vs `>` depois do corte, o guard devolvia `G-E OK` exit 0 —
+ * inoperante em silêncio, que é o pior modo de falha para um guard que existe porque a
+ * regra já divergiu 3 vezes em produção.
+ *
+ * Não é um parser: cobre `//`, comentário de bloco, aspas simples/duplas e template
+ * literal, que é o que este par de arquivos usa. Regex literal não é tratada porque não
+ * ocorre aqui — se passar a ocorrer, este guard precisa de um parser de verdade.
+ */
+function neutralizarNaoCodigo(fonte) {
+  const saida = fonte.split("");
+  let i = 0;
+  const apagarAte = (fim) => {
+    for (; i < fim && i < fonte.length; i += 1) {
+      if (fonte[i] !== "\n") saida[i] = " ";
+    }
+  };
+
+  while (i < fonte.length) {
+    const c = fonte[i];
+    const prox = fonte[i + 1];
+
+    if (c === "/" && prox === "/") {
+      const fim = fonte.indexOf("\n", i);
+      apagarAte(fim === -1 ? fonte.length : fim);
+      continue;
+    }
+    if (c === "/" && prox === "*") {
+      const fim = fonte.indexOf("*/", i + 2);
+      apagarAte(fim === -1 ? fonte.length : fim + 2);
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") {
+      const aspas = c;
+      let j = i + 1;
+      while (j < fonte.length) {
+        if (fonte[j] === "\\") j += 2;
+        else if (fonte[j] === aspas) break;
+        else j += 1;
+      }
+      apagarAte(Math.min(j + 1, fonte.length));
+      continue;
+    }
+    i += 1;
+  }
+
+  return saida.join("");
+}
+
 function extrairCorpo(fonte, nome) {
+  // Todo índice é calculado sobre a fonte NEUTRALIZADA (comentários e literais viram
+  // espaço, posições preservadas) e usado para fatiar a fonte ORIGINAL. Sem isso, uma
+  // `}` em comentário ou string fecha o corpo cedo e o guard compara só um pedaço —
+  // medido: `// }` nos dois lados escondia a divergência e devolvia `G-E OK` exit 0.
+  const busca = neutralizarNaoCodigo(fonte);
+
   // `String.raw` para o padrão não virar escape duplo (`\\s` lido como `\s`) — a forma
   // com barras duplicadas funciona, mas é onde se erra ao editar depois.
   const assinatura = new RegExp(String.raw`export function ${nome}\s*\(`);
-  const inicio = fonte.search(assinatura);
+  const inicio = busca.search(assinatura);
   if (inicio === -1) return null;
 
-  const abreParen = fonte.indexOf("(", inicio);
+  const abreParen = busca.indexOf("(", inicio);
   if (abreParen === -1) return null;
 
-  const fimParams = indiceDoFechamento(fonte, abreParen, "(", ")");
+  const fimParams = indiceDoFechamento(busca, abreParen, "(", ")");
   if (fimParams === -1) return null;
 
-  const abre = fonte.indexOf("{", fimParams);
+  const abre = busca.indexOf("{", fimParams);
   if (abre === -1) return null;
 
-  const fecha = indiceDoFechamento(fonte, abre, "{", "}");
+  const fecha = indiceDoFechamento(busca, abre, "{", "}");
   return fecha === -1 ? null : fonte.slice(abre, fecha + 1);
 }
 

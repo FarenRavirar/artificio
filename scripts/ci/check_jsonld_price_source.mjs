@@ -78,17 +78,90 @@ function lerArquivo(caminhoRelativo) {
  * corpo. Esse foi um defeito real do G-E, corrigido na PR #320 — mesma armadilha aqui.
  */
 function extrairCorpo(fonte, nome) {
+  // Índices calculados sobre a fonte NEUTRALIZADA e usados para fatiar a ORIGINAL.
+  // `semComentario` não resolve isto: ele roda sobre o corpo JÁ extraído, tarde demais.
+  // Uma `}` em comentário ou string fecha o corpo cedo e o guard passa a inspecionar um
+  // pedaço da função — mesmo modo de falha medido no G-E (achado P2 do Codex, PR #320).
+  const busca = neutralizarNaoCodigo(fonte);
+
   const assinatura = new RegExp(String.raw`function ${nome}\s*\(`);
-  const inicio = fonte.search(assinatura);
+  const inicio = busca.search(assinatura);
   if (inicio === -1) return null;
 
-  const abreParen = fonte.indexOf("(", inicio);
+  const abreParen = busca.indexOf("(", inicio);
   if (abreParen === -1) return null;
 
-  const fimParams = fecharPar(fonte, abreParen, "(", ")");
+  const fimParams = fecharPar(busca, abreParen, "(", ")");
   if (fimParams === -1) return null;
 
-  const abre = fonte.indexOf("{", fimParams);
+  const abre = busca.indexOf("{", fimParams);
+  if (abre === -1) return null;
+
+  const fecha = fecharPar(busca, abre, "{", "}");
+  return fecha === -1 ? null : fonte.slice(abre, fecha + 1);
+}
+
+/**
+ * Mesma fonte, com comentários e literais substituídos por espaço — posições e
+ * comprimento preservados, para que índices calculados aqui valham na fonte original.
+ *
+ * Não é um parser: cobre `//`, comentário de bloco, aspas simples/duplas e template
+ * literal, que é o que estes arquivos usam.
+ */
+function neutralizarNaoCodigo(fonte) {
+  const saida = fonte.split("");
+  let i = 0;
+  const apagarAte = (fim) => {
+    for (; i < fim && i < fonte.length; i += 1) {
+      if (fonte[i] !== "\n") saida[i] = " ";
+    }
+  };
+
+  while (i < fonte.length) {
+    const c = fonte[i];
+    const prox = fonte[i + 1];
+
+    if (c === "/" && prox === "/") {
+      const fim = fonte.indexOf("\n", i);
+      apagarAte(fim === -1 ? fonte.length : fim);
+      continue;
+    }
+    if (c === "/" && prox === "*") {
+      const fim = fonte.indexOf("*/", i + 2);
+      apagarAte(fim === -1 ? fonte.length : fim + 2);
+      continue;
+    }
+    if (c === '"' || c === "'" || c === "`") {
+      const aspas = c;
+      let j = i + 1;
+      while (j < fonte.length) {
+        if (fonte[j] === "\\") j += 2;
+        else if (fonte[j] === aspas) break;
+        else j += 1;
+      }
+      apagarAte(Math.min(j + 1, fonte.length));
+      continue;
+    }
+    i += 1;
+  }
+
+  return saida.join("");
+}
+
+/**
+ * Corpo do objeto literal atribuído a `propriedade` (`{ … }`), ou `null`.
+ *
+ * Existe porque procurar `price` no corpo inteiro de `buildTableJsonLd` aceitava
+ * qualquer `price` solto: medido com `const decoy = { price }` ao lado de
+ * `offers.price: '999'` — o guard devolvia `G-F OK` com preço fixo publicado (achado P2
+ * do Codex, PR #320). O preço só prova alguma coisa DENTRO da oferta.
+ */
+function extrairObjeto(fonte, propriedade) {
+  const chave = new RegExp(String.raw`\b${propriedade}\s*:\s*\{`);
+  const inicio = fonte.search(chave);
+  if (inicio === -1) return null;
+
+  const abre = fonte.indexOf("{", inicio);
   if (abre === -1) return null;
 
   const fecha = fecharPar(fonte, abre, "{", "}");
@@ -205,12 +278,26 @@ if (fonteMeta) {
       );
     } else {
       const variavel = capturaDoPreco[1];
-      // Aceita `price,` (shorthand) e `price: <variavel>`, e nada além disso.
-      const chegaNaOferta = new RegExp(
-        String.raw`price\s*(?::\s*${variavel}\s*)?[,}]`,
-      ).test(codigoJsonLd.replace(/priceCurrency\s*:[^,}]*/g, ""));
 
-      if (!chegaNaOferta) {
+      // A busca precisa acontecer DENTRO do objeto `offers`, não no corpo inteiro.
+      // Procurando no corpo todo, qualquer `price` solto satisfazia o check: medido
+      // com `const decoy = { price }` ao lado de `offers.price: '999'` — guard devolvia
+      // `G-F OK` exit 0 publicando preço fixo (achado P2 do Codex, PR #320, reproduzido).
+      const oferta = extrairObjeto(codigoJsonLd, "offers");
+
+      // Aceita `price,` (shorthand) e `price: <variavel>`, e nada além disso.
+      const chegaNaOferta =
+        oferta !== null &&
+        new RegExp(String.raw`price\s*(?::\s*${variavel}\s*)?[,}]`).test(
+          oferta.replace(/priceCurrency\s*:[^,}]*/g, ""),
+        );
+
+      if (oferta === null) {
+        failures.push(
+          `buildTableJsonLd: não foi possível isolar o objeto \`offers\`. O guard compara ` +
+            `o preço DENTRO da oferta — se a estrutura mudou, atualize-o; não o remova.`,
+        );
+      } else if (!chegaNaOferta) {
         failures.push(
           `buildTableJsonLd: chama \`priceForJsonLd\` e guarda em \`${variavel}\`, mas ` +
             `\`offers.price\` NÃO recebe essa variável.\n` +

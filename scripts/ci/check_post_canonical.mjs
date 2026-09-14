@@ -38,6 +38,36 @@
 // por código nenhum adiante — é emitido como está. É por isso que a trava precisa ser
 // sobre o dado (`posts.json`), e não sobre o template.
 //
+// ## ⚠️ LIMITE DE ALCANCE — este guard NÃO vê o conteúdo de produção
+//
+// Medido em 2026-09-14: `ci.yml:125` roda `pnpm smoke:post-canonical`, e **nenhum
+// workflow executa `db/export.ts`**. O `posts.json` versionado é seed congelado de 8
+// posts (`apps/site/Dockerfile:62-64`), enquanto o banco tem 125 — o conteúdo real só
+// é gerado no entrypoint do container, depois do CI. Consequência: um canonical
+// divergente persistido pelo admin entra no próximo rebuild de produção sem tocar este
+// arquivo, e este guard continua verde.
+//
+// O que ele trava de fato: regressão introduzida no dado VERSIONADO (seed, fixture, ou
+// alguém recommitando export). O que ele NÃO trava: o caminho de escrita do admin, que
+// é justamente por onde vieram os 105 canonicals errados da T3.2.
+//
+// A validação de escrita JÁ EXISTE e está ligada — só não cobre este caso. Medido em
+// 2026-09-14: `apps/site/server/admin-api.ts:422` (`rejectBadCanonical`) roda nas quatro
+// rotas de escrita (`POST /posts`, `PUT /posts/:id`, `POST /pages`, `PUT /pages/:id`,
+// linhas 79/92/142/152) e devolve 400 quando `normalizeCanonical` acusa erro. Mas
+// `normalizeCanonical` (`packages/content/src/canonical.ts:41`) valida FORMA — protocolo,
+// host permitido, credencial embutida, barra final — e nunca IGUALDADE com a URL do
+// post. Medido: ela aceita `https://artificiorpg.com/blog/OUTRO-POST/` e
+// `https://artificiorpg.com/qualquer/coisa/` como válidos.
+//
+// Ou seja: o admin barra canonical para host externo, e deixa passar canonical para
+// outra página do próprio site — que é exatamente a forma dos 105 canonicals da T3.2.
+//
+// Fechar isso é decisão do mantenedor, porque muda comportamento do admin: acrescentar
+// a `rejectBadCanonical` a checagem "canonical != URL do próprio post → 400" (o slug já
+// está em mãos nas quatro rotas). A alternativa — rodar este guard contra o export real
+// — exige banco no CI. Achado P2 do Codex, PR #320, reproduzido antes de registrar.
+//
 // O `origin` vem de `PUBLIC_SITE_URL` (env), diferente em beta e prod, então o guard
 // **não compara host**: compara o CAMINHO. Canonical de post apontando para outro
 // caminho é defeito em qualquer ambiente; apontar para o mesmo caminho em outro host é
@@ -67,12 +97,28 @@ function lerArquivo(caminhoRelativo) {
   }
 }
 
-/** Caminho de uma URL absoluta ou relativa, sempre com barra inicial e sem query/hash. */
-function caminhoDe(url) {
+/**
+ * Caminho de uma URL absoluta ou relativa, sempre com barra inicial.
+ *
+ * NÃO descarta query/fragmento — devolve-os separados para que o chamador os rejeite.
+ * Descartar silenciosamente fazia `…/blog/foo/?variant=wrong` comparar igual a
+ * `/blog/foo/` e passar verde (achado P2 do Codex, PR #320, reproduzido: o guard
+ * devolvia `G-A OK` exit 0). E passar era errado: `normalizeCanonical`
+ * (`packages/content/src/canonical.ts:41`) valida protocolo, host, credencial e barra
+ * final, mas nunca toca em `url.search` — `url.toString()` preserva a query, e
+ * `[slug].astro:21,43` publica o valor literal. A página se declarava canônica para
+ * uma variante que não é a URL real.
+ */
+function partesDe(url) {
   const semProtocolo = url.replace(/^https?:\/\/[^/]+/i, "");
-  const semQuery = semProtocolo.split(/[?#]/)[0];
-  const comBarra = semQuery.startsWith("/") ? semQuery : `/${semQuery}`;
-  return comBarra.endsWith("/") ? comBarra : `${comBarra}/`;
+  const corte = semProtocolo.search(/[?#]/);
+  const caminhoCru = corte === -1 ? semProtocolo : semProtocolo.slice(0, corte);
+  const sufixo = corte === -1 ? "" : semProtocolo.slice(corte);
+  const comBarra = caminhoCru.startsWith("/") ? caminhoCru : `/${caminhoCru}`;
+  return {
+    caminho: comBarra.endsWith("/") ? comBarra : `${comBarra}/`,
+    sufixo,
+  };
 }
 
 const cru = lerArquivo(POSTS);
@@ -120,7 +166,22 @@ if (cru) {
       }
 
       const esperado = `${PREFIXO_DA_ROTA}/${slug}/`;
-      const encontrado = caminhoDe(canonical);
+      const { caminho: encontrado, sufixo } = partesDe(canonical);
+
+      // Query/fragmento no canonical é sempre defeito, mesmo com o caminho certo: a
+      // página se declara canônica para uma VARIANTE dela mesma, e o Google segue a
+      // declaração. `?utm_source=` colado pelo admin é o caso real.
+      if (sufixo) {
+        failures.push(
+          `${slug}: canonical carrega \`${sufixo}\` — canonical auto-referente não tem ` +
+            `query nem fragmento.\n` +
+            `    \`normalizeCanonical\` preserva os dois e o template publica literal, ` +
+            `então a página\n` +
+            `    aponta para uma variante em vez da própria URL. Remova o sufixo (ou o ` +
+            `canonical inteiro,\n` +
+            `    se a intenção é auto-referente).`,
+        );
+      }
 
       if (encontrado !== esperado) {
         failures.push(
