@@ -39,6 +39,7 @@
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { extrairCorpo } from "./_fonte-ts.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -151,105 +152,14 @@ function lerArquivo(caminhoRelativo) {
  * só a `{` seguinte é o corpo.
  */
 /**
- * Índice do delimitador que FECHA o par aberto em `inicio`, ou `-1`.
+ * `extrairCorpo` vem de `_fonte-ts.mjs` — compartilhado com os outros guards.
  *
- * Os dois passos de `extrairCorpo` — fechar a lista de parâmetros e fechar o corpo —
- * são o mesmo algoritmo com delimitadores diferentes. Mantê-los duplicados inline era
- * o que levava a complexidade cognitiva de `extrairCorpo` a 18 (achado do Sonar,
- * PR #320): dois laços com `if`/`else if`/`if` aninhados, um deles com `break`.
+ * Estas funções viveram duplicadas aqui e no `check_jsonld_price_source` (medido: 39
+ * linhas idênticas byte a byte; Sonar acusou 13,9% de duplicação). O custo real não foi
+ * o número: o bug de contar `}` dentro de comentário existia nos DOIS, e foi corrigido
+ * em um e esquecido no outro até alguém medir. Helper duplicado é regra duplicada — a
+ * mesma razão pela qual ESTE guard existe.
  */
-function indiceDoFechamento(fonte, inicio, abertura, fechamento) {
-  let profundidade = 0;
-  for (let i = inicio; i < fonte.length; i += 1) {
-    if (fonte[i] === abertura) profundidade += 1;
-    else if (fonte[i] === fechamento) {
-      profundidade -= 1;
-      if (profundidade === 0) return i;
-    }
-  }
-  return -1;
-}
-
-/**
- * Mesma fonte, com comentários e literais substituídos por espaço — posições e
- * comprimento preservados, para que todo índice calculado aqui valha na fonte original.
- *
- * Por que existe: `indiceDoFechamento` conta caracteres crus, então uma `}` dentro de
- * comentário ou string fecha o corpo cedo e o guard passa a comparar um PEDAÇO das
- * funções. Medido (achado P2 do Codex, PR #320, reproduzido): com `// }` nos dois lados
- * e a divergência real `>=` vs `>` depois do corte, o guard devolvia `G-E OK` exit 0 —
- * inoperante em silêncio, que é o pior modo de falha para um guard que existe porque a
- * regra já divergiu 3 vezes em produção.
- *
- * Não é um parser: cobre `//`, comentário de bloco, aspas simples/duplas e template
- * literal, que é o que este par de arquivos usa. Regex literal não é tratada porque não
- * ocorre aqui — se passar a ocorrer, este guard precisa de um parser de verdade.
- */
-function neutralizarNaoCodigo(fonte) {
-  const saida = fonte.split("");
-  let i = 0;
-  const apagarAte = (fim) => {
-    for (; i < fim && i < fonte.length; i += 1) {
-      if (fonte[i] !== "\n") saida[i] = " ";
-    }
-  };
-
-  while (i < fonte.length) {
-    const c = fonte[i];
-    const prox = fonte[i + 1];
-
-    if (c === "/" && prox === "/") {
-      const fim = fonte.indexOf("\n", i);
-      apagarAte(fim === -1 ? fonte.length : fim);
-      continue;
-    }
-    if (c === "/" && prox === "*") {
-      const fim = fonte.indexOf("*/", i + 2);
-      apagarAte(fim === -1 ? fonte.length : fim + 2);
-      continue;
-    }
-    if (c === '"' || c === "'" || c === "`") {
-      const aspas = c;
-      let j = i + 1;
-      while (j < fonte.length) {
-        if (fonte[j] === "\\") j += 2;
-        else if (fonte[j] === aspas) break;
-        else j += 1;
-      }
-      apagarAte(Math.min(j + 1, fonte.length));
-      continue;
-    }
-    i += 1;
-  }
-
-  return saida.join("");
-}
-
-function extrairCorpo(fonte, nome) {
-  // Todo índice é calculado sobre a fonte NEUTRALIZADA (comentários e literais viram
-  // espaço, posições preservadas) e usado para fatiar a fonte ORIGINAL. Sem isso, uma
-  // `}` em comentário ou string fecha o corpo cedo e o guard compara só um pedaço —
-  // medido: `// }` nos dois lados escondia a divergência e devolvia `G-E OK` exit 0.
-  const busca = neutralizarNaoCodigo(fonte);
-
-  // `String.raw` para o padrão não virar escape duplo (`\\s` lido como `\s`) — a forma
-  // com barras duplicadas funciona, mas é onde se erra ao editar depois.
-  const assinatura = new RegExp(String.raw`export function ${nome}\s*\(`);
-  const inicio = busca.search(assinatura);
-  if (inicio === -1) return null;
-
-  const abreParen = busca.indexOf("(", inicio);
-  if (abreParen === -1) return null;
-
-  const fimParams = indiceDoFechamento(busca, abreParen, "(", ")");
-  if (fimParams === -1) return null;
-
-  const abre = busca.indexOf("{", fimParams);
-  if (abre === -1) return null;
-
-  const fecha = indiceDoFechamento(busca, abre, "{", "}");
-  return fecha === -1 ? null : fonte.slice(abre, fecha + 1);
-}
 
 /**
  * Identificadores chamados como função dentro do corpo, menos os permitidos.
@@ -331,8 +241,10 @@ const fonteFrontend = lerArquivo(FRONTEND);
 
 if (fonteBackend && fonteFrontend) {
   for (const nome of FUNCOES_ESPELHADAS) {
-    const corpoBackend = extrairCorpo(fonteBackend, nome);
-    const corpoFrontend = extrairCorpo(fonteFrontend, nome);
+    // `exportada: true`: as funções espelhadas são `export function` nos dois lados, e
+    // exigir o `export` evita casar uma homônima interna que não é a regra comparada.
+    const corpoBackend = extrairCorpo(fonteBackend, nome, { exportada: true });
+    const corpoFrontend = extrairCorpo(fonteFrontend, nome, { exportada: true });
 
     if (!corpoBackend) {
       failures.push(`${nome}: não encontrada em ${BACKEND}.`);

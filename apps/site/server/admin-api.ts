@@ -76,8 +76,11 @@ export function adminApi(requireAuth: RequestHandler, requireAdmin: RequestHandl
   });
 
   r.post("/posts", async (req, res) => {
-    if (rejectBadCanonical(req.body, res)) return;
+    // Depois do `buildPost`: é ele que resolve o slug definitivo (`uniqueSlug` pode
+    // devolver `base-2` numa colisão), e o canonical é comparado com a URL REAL da
+    // página, não com o slug que o editor digitou.
     const built = await buildPost(req.body, undefined, authorOf(req));
+    if (rejectBadCanonical(req.body, res, `/blog/${built.write.slug}/`)) return;
     const id = await Posts.createPost(built.write);
     await Posts.setPostTaxonomies(id, built.cats, built.tags);
     const rebuild = maybeRebuild(built.write.status);
@@ -89,8 +92,8 @@ export function adminApi(requireAuth: RequestHandler, requireAdmin: RequestHandl
     if (id == null) { res.status(400).json({ error: "bad_id" }); return; }
     const existing = await Posts.getPost(id);
     if (!existing) { res.status(404).json({ error: "not_found" }); return; }
-    if (rejectBadCanonical(req.body, res)) return;
     const built = await buildPost(req.body, id, existing.author_id ?? authorOf(req));
+    if (rejectBadCanonical(req.body, res, `/blog/${built.write.slug}/`)) return;
     // slug mudou em post publicado -> 301 do caminho antigo
     if (existing.slug !== built.write.slug && existing.status === "publish") {
       await Redirects.addRedirect(`/blog/${existing.slug}/`, `/blog/${built.write.slug}/`);
@@ -139,8 +142,9 @@ export function adminApi(requireAuth: RequestHandler, requireAdmin: RequestHandl
     res.json(p);
   });
   r.post("/pages", async (req, res) => {
-    if (rejectBadCanonical(req.body, res)) return;
     const w = await buildPage(req.body, undefined, authorOf(req));
+    // Página institucional vive na raiz (`pages/[slug].astro`), sem o prefixo `/blog/`.
+    if (rejectBadCanonical(req.body, res, `/${w.slug}/`)) return;
     const id = await Pages.createPage(w);
     res.status(201).json({ id, slug: w.slug, rebuild: maybeRebuild(w.status) });
   });
@@ -149,8 +153,8 @@ export function adminApi(requireAuth: RequestHandler, requireAdmin: RequestHandl
     if (id == null) { res.status(400).json({ error: "bad_id" }); return; }
     const existing = await Pages.getPage(id);
     if (!existing) { res.status(404).json({ error: "not_found" }); return; }
-    if (rejectBadCanonical(req.body, res)) return;
     const w = await buildPage(req.body, id, existing.author_id ?? authorOf(req));
+    if (rejectBadCanonical(req.body, res, `/${w.slug}/`)) return;
     if (existing.slug !== w.slug && existing.status === "publish") {
       await Redirects.addRedirect(`/${existing.slug}/`, `/${w.slug}/`);
       await reloadRedirects();
@@ -419,10 +423,55 @@ const strOrNull = (v: unknown): string | null => {
 // 2026-07-27, que tirou 105 dos 126 posts do índice do Google (spec 102 F3).
 // Host externo é rejeitado com 400 em vez de descartado em silêncio: descarte silencioso
 // esconderia do editor que o valor dele não foi gravado.
-function rejectBadCanonical(body: unknown, res: Response): boolean {
+//
+// `normalizeCanonical` valida FORMA — protocolo, host permitido, credencial embutida,
+// barra final. Ela NÃO valida para onde o canonical aponta: medido (2026-09-14), aceita
+// `https://artificiorpg.com/blog/OUTRO-POST/` e `https://artificiorpg.com/qualquer/coisa/`.
+// Era o buraco que sobrava: o admin barrava domínio externo e deixava passar exatamente a
+// forma dos 105 canonicals da T3.2 — página apontando para OUTRA página do próprio site,
+// que diz ao Google "o original não sou eu" e tira a URL do índice em silêncio.
+//
+// Por isso `caminhoEsperado`: o canonical persistido tem de bater com a URL da própria
+// página. Compara CAMINHO, não URL inteira, porque `PUBLIC_SITE_URL` difere entre
+// ambientes (`artificiorpg.com` em prod, `beta.artificiorpg.com` em beta) — mesma decisão
+// do guard `scripts/ci/check_post_canonical.mjs`.
+function caminhoCanonico(url: string): { caminho: string; sufixo: string } {
+  const semProtocolo = url.replace(/^https?:\/\/[^/]+/i, "");
+  const corte = semProtocolo.search(/[?#]/);
+  const cru = corte === -1 ? semProtocolo : semProtocolo.slice(0, corte);
+  const comBarra = cru.startsWith("/") ? cru : `/${cru}`;
+  return {
+    caminho: comBarra.endsWith("/") ? comBarra : `${comBarra}/`,
+    sufixo: corte === -1 ? "" : semProtocolo.slice(corte),
+  };
+}
+
+function rejectBadCanonical(body: unknown, res: Response, caminhoEsperado: string): boolean {
   const raw = (body as Record<string, unknown> | undefined)?.canonical;
-  const { error } = normalizeCanonical(raw);
+  const { value, error } = normalizeCanonical(raw);
   if (error) { res.status(400).json({ error: "bad_canonical", detail: error }); return true; }
+  // Vazio é o caso correto e majoritário: a página cai no fallback auto-referente.
+  if (value == null) return false;
+
+  const { caminho, sufixo } = caminhoCanonico(value);
+  // Query/fragmento faz a página se declarar canônica para uma VARIANTE dela mesma —
+  // `?utm_source=` colado por engano é o caso real, e `normalizeCanonical` preserva.
+  if (sufixo) {
+    res.status(400).json({
+      error: "bad_canonical",
+      detail: `canonical não pode ter query nem fragmento (${sufixo}); a URL canônica é ${caminhoEsperado}`,
+    });
+    return true;
+  }
+  if (caminho !== caminhoEsperado) {
+    res.status(400).json({
+      error: "bad_canonical",
+      detail: `canonical aponta para ${caminho}, e esta página é ${caminhoEsperado}. `
+        + `Apontar para outra página do site tira esta do índice do Google. `
+        + `Para canonical auto-referente, deixe o campo VAZIO.`,
+    });
+    return true;
+  }
   return false;
 }
 const toIntArray = (v: unknown): number[] =>

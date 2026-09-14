@@ -30,6 +30,7 @@
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { extrairCorpo, extrairObjeto } from "./_fonte-ts.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -68,116 +69,6 @@ function lerArquivo(caminhoRelativo) {
     );
     return null;
   }
-}
-
-/**
- * Corpo de `function <nome>(...) { ... }`, com ou sem `export`.
- *
- * Fecha a lista de parâmetros contando parênteses ANTES de procurar a `{` do corpo: a
- * primeira chave depois da assinatura costuma abrir o tipo inline do parâmetro, não o
- * corpo. Esse foi um defeito real do G-E, corrigido na PR #320 — mesma armadilha aqui.
- */
-function extrairCorpo(fonte, nome) {
-  // Índices calculados sobre a fonte NEUTRALIZADA e usados para fatiar a ORIGINAL.
-  // `semComentario` não resolve isto: ele roda sobre o corpo JÁ extraído, tarde demais.
-  // Uma `}` em comentário ou string fecha o corpo cedo e o guard passa a inspecionar um
-  // pedaço da função — mesmo modo de falha medido no G-E (achado P2 do Codex, PR #320).
-  const busca = neutralizarNaoCodigo(fonte);
-
-  const assinatura = new RegExp(String.raw`function ${nome}\s*\(`);
-  const inicio = busca.search(assinatura);
-  if (inicio === -1) return null;
-
-  const abreParen = busca.indexOf("(", inicio);
-  if (abreParen === -1) return null;
-
-  const fimParams = fecharPar(busca, abreParen, "(", ")");
-  if (fimParams === -1) return null;
-
-  const abre = busca.indexOf("{", fimParams);
-  if (abre === -1) return null;
-
-  const fecha = fecharPar(busca, abre, "{", "}");
-  return fecha === -1 ? null : fonte.slice(abre, fecha + 1);
-}
-
-/**
- * Mesma fonte, com comentários e literais substituídos por espaço — posições e
- * comprimento preservados, para que índices calculados aqui valham na fonte original.
- *
- * Não é um parser: cobre `//`, comentário de bloco, aspas simples/duplas e template
- * literal, que é o que estes arquivos usam.
- */
-function neutralizarNaoCodigo(fonte) {
-  const saida = fonte.split("");
-  let i = 0;
-  const apagarAte = (fim) => {
-    for (; i < fim && i < fonte.length; i += 1) {
-      if (fonte[i] !== "\n") saida[i] = " ";
-    }
-  };
-
-  while (i < fonte.length) {
-    const c = fonte[i];
-    const prox = fonte[i + 1];
-
-    if (c === "/" && prox === "/") {
-      const fim = fonte.indexOf("\n", i);
-      apagarAte(fim === -1 ? fonte.length : fim);
-      continue;
-    }
-    if (c === "/" && prox === "*") {
-      const fim = fonte.indexOf("*/", i + 2);
-      apagarAte(fim === -1 ? fonte.length : fim + 2);
-      continue;
-    }
-    if (c === '"' || c === "'" || c === "`") {
-      const aspas = c;
-      let j = i + 1;
-      while (j < fonte.length) {
-        if (fonte[j] === "\\") j += 2;
-        else if (fonte[j] === aspas) break;
-        else j += 1;
-      }
-      apagarAte(Math.min(j + 1, fonte.length));
-      continue;
-    }
-    i += 1;
-  }
-
-  return saida.join("");
-}
-
-/**
- * Corpo do objeto literal atribuído a `propriedade` (`{ … }`), ou `null`.
- *
- * Existe porque procurar `price` no corpo inteiro de `buildTableJsonLd` aceitava
- * qualquer `price` solto: medido com `const decoy = { price }` ao lado de
- * `offers.price: '999'` — o guard devolvia `G-F OK` com preço fixo publicado (achado P2
- * do Codex, PR #320). O preço só prova alguma coisa DENTRO da oferta.
- */
-function extrairObjeto(fonte, propriedade) {
-  const chave = new RegExp(String.raw`\b${propriedade}\s*:\s*\{`);
-  const inicio = fonte.search(chave);
-  if (inicio === -1) return null;
-
-  const abre = fonte.indexOf("{", inicio);
-  if (abre === -1) return null;
-
-  const fecha = fecharPar(fonte, abre, "{", "}");
-  return fecha === -1 ? null : fonte.slice(abre, fecha + 1);
-}
-
-function fecharPar(fonte, inicio, abertura, fechamento) {
-  let profundidade = 0;
-  for (let i = inicio; i < fonte.length; i += 1) {
-    if (fonte[i] === abertura) profundidade += 1;
-    else if (fonte[i] === fechamento) {
-      profundidade -= 1;
-      if (profundidade === 0) return i;
-    }
-  }
-  return -1;
 }
 
 /** Remove comentário para não acusar termo citado em prosa explicativa. */
