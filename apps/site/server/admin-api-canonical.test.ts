@@ -18,6 +18,19 @@
 
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { SITE } from '@artificio/content';
+
+/**
+ * A origem vem de `SITE.origin`, não de literal: é exatamente o valor que
+ * `rejectBadCanonical` compara, e ele muda por ambiente (`PUBLIC_SITE_URL` é
+ * `artificiorpg.com` em prod e `beta.artificiorpg.com` em beta). Com literal, o teste
+ * provaria o caso de hoje e passaria a falhar em qualquer execução com a env definida —
+ * acusando o teste, não o código.
+ *
+ * Os casos NEGATIVOS seguem literais de propósito (`accounts.`, `:444`, host externo):
+ * neles o ponto é justamente ser uma origem diferente da do site.
+ */
+const ORIGEM = SITE.origin;
 
 const postsMocks = vi.hoisted(() => ({
   // O parâmetro é declarado E USADO. Declarado porque o teste do caso "canonical vazio"
@@ -82,6 +95,18 @@ const post = (extra: Record<string, unknown>) => ({
   title: 'Meu post', slug: 'meu-post', content_html: '<p>x</p>', status: 'draft', ...extra,
 });
 
+/**
+ * Os casos ficam como `it` separados, e NÃO em `it.each` parametrizado.
+ *
+ * O Sonar pede a parametrização (achado "Replace these 3 tests with a single
+ * Parameterized one", 2026-09-14) e ela foi descartada de propósito: as asserções
+ * diferem entre si — o caso de "outro post" verifica o `detail` da resposta, os outros
+ * dois só o status e a não-gravação — e o NOME de cada teste carrega o defeito que ele
+ * trava ("a forma dos 105 da T3.2"). Numa tabela de entradas, o que sobra é
+ * `canonical → 400`, e some a razão de o teste existir.
+ *
+ * Consistência de forma não paga esse custo aqui. Não parametrizar.
+ */
 describe('canonical no caminho de escrita do admin', () => {
   it('aceita canonical VAZIO — é o default correto, a página cai no auto-referente', async () => {
     const res = await call('/posts', post({ canonical: '' }));
@@ -91,12 +116,12 @@ describe('canonical no caminho de escrita do admin', () => {
   });
 
   it('aceita canonical apontando para a PRÓPRIA página', async () => {
-    const res = await call('/posts', post({ canonical: 'https://artificiorpg.com/blog/meu-post/' }));
+    const res = await call('/posts', post({ canonical: `${ORIGEM}/blog/meu-post/` }));
     expect(res.status).toBe(201);
   });
 
   it('RECUSA canonical apontando para outro post — a forma dos 105 da T3.2', async () => {
-    const res = await call('/posts', post({ canonical: 'https://artificiorpg.com/blog/outro-post/' }));
+    const res = await call('/posts', post({ canonical: `${ORIGEM}/blog/outro-post/` }));
     expect(res.status).toBe(400);
     const corpo = await res.json();
     expect(corpo).toMatchObject({ error: 'bad_canonical' });
@@ -105,13 +130,13 @@ describe('canonical no caminho de escrita do admin', () => {
   });
 
   it('RECUSA canonical para caminho fora do blog', async () => {
-    const res = await call('/posts', post({ canonical: 'https://artificiorpg.com/qualquer/coisa/' }));
+    const res = await call('/posts', post({ canonical: `${ORIGEM}/qualquer/coisa/` }));
     expect(res.status).toBe(400);
     expect(postsMocks.createPost).not.toHaveBeenCalled();
   });
 
   it('RECUSA query string — a página se declararia canônica para uma variante dela mesma', async () => {
-    const res = await call('/posts', post({ canonical: 'https://artificiorpg.com/blog/meu-post/?utm_source=x' }));
+    const res = await call('/posts', post({ canonical: `${ORIGEM}/blog/meu-post/?utm_source=x` }));
     expect(res.status).toBe(400);
     const corpo = await res.json();
     expect(corpo.detail).toContain('query');
@@ -146,7 +171,7 @@ describe('canonical no caminho de escrita do admin', () => {
     // `uniqueSlug` devolve `meu-post-2` quando o slug já existe. O canonical que bate com
     // o slug DIGITADO passa a divergir da URL real — e é a URL real que o Google lê.
     postsMocks.slugExists.mockImplementationOnce(async () => true);
-    const res = await call('/posts', post({ canonical: 'https://artificiorpg.com/blog/meu-post/' }));
+    const res = await call('/posts', post({ canonical: `${ORIGEM}/blog/meu-post/` }));
     expect(res.status).toBe(400);
     const corpo = await res.json();
     expect(corpo.detail).toContain('/blog/meu-post-2/');
@@ -155,7 +180,7 @@ describe('canonical no caminho de escrita do admin', () => {
   it('página institucional vive na raiz, sem o prefixo /blog/', async () => {
     const res = await call('/pages', {
       title: 'Sobre', slug: 'sobre', content_html: '<p>x</p>', status: 'draft',
-      canonical: 'https://artificiorpg.com/sobre/',
+      canonical: `${ORIGEM}/sobre/`,
     });
     expect(res.status).toBe(201);
   });
@@ -163,9 +188,45 @@ describe('canonical no caminho de escrita do admin', () => {
   it('RECUSA página institucional com canonical de post', async () => {
     const res = await call('/pages', {
       title: 'Sobre', slug: 'sobre', content_html: '<p>x</p>', status: 'draft',
-      canonical: 'https://artificiorpg.com/blog/sobre/',
+      canonical: `${ORIGEM}/blog/sobre/`,
     });
     expect(res.status).toBe(400);
     expect(pagesMocks.createPage).not.toHaveBeenCalled();
+  });
+
+  // As rotas de EDIÇÃO chamam a mesma validação, e é por elas que o canonical de um post
+  // já publicado seria alterado — o caso real dos 105 da T3.2, que vieram de conteúdo
+  // existente, não de criação. Cobrir só o POST deixaria o caminho mais provável sem
+  // trava.
+  it('PUT /posts/:id aceita canonical auto-referente', async () => {
+    const res = await call('/posts/1', post({ canonical: `${ORIGEM}/blog/meu-post/` }), 'PUT');
+    expect(res.status).toBe(200);
+    expect(postsMocks.updatePost).toHaveBeenCalledOnce();
+  });
+
+  it('PUT /posts/:id RECUSA canonical de outro post, ANTES de gravar', async () => {
+    const res = await call('/posts/1', post({ canonical: `${ORIGEM}/blog/outro-post/` }), 'PUT');
+    expect(res.status).toBe(400);
+    const corpo = await res.json();
+    expect(corpo).toMatchObject({ error: 'bad_canonical' });
+    expect(postsMocks.updatePost).not.toHaveBeenCalled();
+  });
+
+  it('PUT /pages/:id aceita canonical auto-referente', async () => {
+    const res = await call('/pages/2', {
+      title: 'Sobre', slug: 'sobre', content_html: '<p>x</p>', status: 'draft',
+      canonical: `${ORIGEM}/sobre/`,
+    }, 'PUT');
+    expect(res.status).toBe(200);
+    expect(pagesMocks.updatePage).toHaveBeenCalledOnce();
+  });
+
+  it('PUT /pages/:id RECUSA canonical divergente, ANTES de gravar', async () => {
+    const res = await call('/pages/2', {
+      title: 'Sobre', slug: 'sobre', content_html: '<p>x</p>', status: 'draft',
+      canonical: `${ORIGEM}/outra-pagina/`,
+    }, 'PUT');
+    expect(res.status).toBe(400);
+    expect(pagesMocks.updatePage).not.toHaveBeenCalled();
   });
 });

@@ -231,7 +231,7 @@ if (template) {
   const prefixoNaRegex = PREFIXO_DA_ROTA.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const atribuicao = new RegExp(
     String.raw`const\s+canonical\s*=\s*post\.seo\.canonical\s*\|\|\s*` +
-      String.raw`\`\$\{SITE\.origin\}${prefixoNaRegex}\/\$\{post\.slug\}\/\``,
+      String.raw`\`\$\{SITE\.origin\}${prefixoNaRegex}/\$\{post\.slug\}/\``,
   );
 
   if (!atribuicao.test(codigo)) {

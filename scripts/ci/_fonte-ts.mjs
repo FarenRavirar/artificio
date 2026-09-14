@@ -96,15 +96,31 @@ export function extrairCorpo(codigo, nome, { exportada = false, isTsx = false } 
  * distingue "estrutura mudou" de "propriedade ausente".
  */
 export function propriedadesDiretas(node, propriedade) {
+  const props = filhasDiretas(node, propriedade);
+  if (!props) return null;
+  return new Set(props.map(([nome]) => nome));
+}
+
+/**
+ * Pares `[nome, valor]` das propriedades DIRETAS do objeto de `propriedade`, ou `null`.
+ *
+ * Fonte única de `propriedadesDiretas` e `valorDaPropriedadeDireta`, que antes repetiam
+ * o acesso ao objeto e o percurso das propriedades.
+ */
+function filhasDiretas(node, propriedade) {
   const objeto = acharObjetoDe(node, propriedade);
   if (!objeto) return null;
 
-  const nomes = new Set();
+  const pares = [];
   for (const prop of objeto.properties) {
-    if (ts.isPropertyAssignment(prop) && prop.name) nomes.add(prop.name.getText());
-    else if (ts.isShorthandPropertyAssignment(prop)) nomes.add(prop.name.getText());
+    if (ts.isPropertyAssignment(prop) && prop.name) {
+      pares.push([prop.name.getText(), prop.initializer.getText()]);
+    } else if (ts.isShorthandPropertyAssignment(prop)) {
+      // `{ price }` é atalho de `{ price: price }` — nome e valor coincidem.
+      pares.push([prop.name.getText(), prop.name.getText()]);
+    }
   }
-  return nomes;
+  return pares;
 }
 
 /**
@@ -114,18 +130,8 @@ export function propriedadesDiretas(node, propriedade) {
  * `price`. `null` quando a propriedade direta não existe.
  */
 export function valorDaPropriedadeDireta(node, propriedade, nome) {
-  const objeto = acharObjetoDe(node, propriedade);
-  if (!objeto) return null;
-
-  for (const prop of objeto.properties) {
-    if (ts.isPropertyAssignment(prop) && prop.name?.getText() === nome) {
-      return prop.initializer.getText();
-    }
-    if (ts.isShorthandPropertyAssignment(prop) && prop.name.getText() === nome) {
-      return prop.name.getText();
-    }
-  }
-  return null;
+  const props = filhasDiretas(node, propriedade);
+  return props?.find(([chave]) => chave === nome)?.[1] ?? null;
 }
 
 /** Primeiro objeto literal atribuído a `propriedade` dentro de `node`. */
@@ -150,46 +156,60 @@ function acharObjetoDe(node, propriedade) {
  * (`const`/`let`/`var`, parâmetros, funções locais) é excluído por escopo, não por lista.
  */
 export function identificadoresLivres(fn) {
-  const declarados = new Set();
-
-  for (const p of fn.parameters) {
-    for (const n of percorrer(p.name)) {
-      if (ts.isIdentifier(n)) declarados.add(n.text);
-    }
-  }
-
   const corpo = fn.body;
   if (!corpo) return [];
 
-  for (const node of percorrer(corpo)) {
-    if (ts.isVariableDeclaration(node) && node.name) {
-      for (const n of percorrer(node.name)) {
-        if (ts.isIdentifier(n)) declarados.add(n.text);
-      }
-    }
-    if (ts.isFunctionDeclaration(node) && node.name) declarados.add(node.name.text);
-  }
-
+  const declarados = nomesDeclarados(fn, corpo);
   const livres = new Set();
+
   for (const node of percorrer(corpo)) {
     if (!ts.isIdentifier(node)) continue;
-
-    const pai = node.parent;
-    // `x.y` → só `x` é referência; `y` é nome de propriedade.
-    if (pai && ts.isPropertyAccessExpression(pai) && pai.name === node) continue;
-    // `{ y: … }` → `y` é nome, não referência. O shorthand `{ y }` É referência.
-    if (pai && ts.isPropertyAssignment(pai) && pai.name === node) continue;
-    // Nome do próprio binding (`const y = …`, parâmetro, função local).
-    if (pai && ts.isVariableDeclaration(pai) && pai.name === node) continue;
-    if (pai && ts.isParameter(pai) && pai.name === node) continue;
-    // Tipos não são valores: `table: DateValue` não é dependência de runtime.
-    if (pai && ts.isTypeReferenceNode(pai)) continue;
-
+    if (!ehReferenciaDeValor(node)) continue;
     if (declarados.has(node.text)) continue;
     livres.add(node.text);
   }
 
   return [...livres];
+}
+
+/** Nomes que o próprio corpo declara: parâmetros, `const`/`let`/`var` e funções locais. */
+function nomesDeclarados(fn, corpo) {
+  const declarados = new Set();
+
+  const adicionarIdentificadores = (raiz) => {
+    for (const n of percorrer(raiz)) {
+      if (ts.isIdentifier(n)) declarados.add(n.text);
+    }
+  };
+
+  for (const p of fn.parameters) adicionarIdentificadores(p.name);
+
+  for (const node of percorrer(corpo)) {
+    if (ts.isVariableDeclaration(node) && node.name) adicionarIdentificadores(node.name);
+    if (ts.isFunctionDeclaration(node) && node.name) declarados.add(node.name.text);
+  }
+
+  return declarados;
+}
+
+/**
+ * `false` para identificador que é NOME, não referência a um valor.
+ *
+ * São os quatro casos que fariam o guard exigir espelho de algo que não é dependência:
+ * o `y` de `x.y`, a chave de `{ y: … }` (o shorthand `{ y }` É referência), o nome do
+ * próprio binding, e anotação de tipo — `table: DateValue` não existe em runtime.
+ */
+function ehReferenciaDeValor(node) {
+  const pai = node.parent;
+  if (!pai) return true;
+
+  if (ts.isPropertyAccessExpression(pai) && pai.name === node) return false;
+  if (ts.isPropertyAssignment(pai) && pai.name === node) return false;
+  if (ts.isVariableDeclaration(pai) && pai.name === node) return false;
+  if (ts.isParameter(pai) && pai.name === node) return false;
+  if (ts.isTypeReferenceNode(pai)) return false;
+
+  return true;
 }
 
 /**
