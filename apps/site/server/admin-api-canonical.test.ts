@@ -20,10 +20,12 @@ import express, { type NextFunction, type Request, type Response } from 'express
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const postsMocks = vi.hoisted(() => ({
-  // O parâmetro é declarado (em vez de `vi.fn(async () => 1)`) porque o teste do caso
-  // "canonical vazio" inspeciona o que foi gravado — sem o tipo, `mock.calls[0][0]` é
-  // tupla vazia para o TypeScript e o `tsc --noEmit` quebra.
-  createPost: vi.fn(async (_write: Record<string, unknown>) => 1),
+  // O parâmetro é declarado E USADO. Declarado porque o teste do caso "canonical vazio"
+  // inspeciona o que foi gravado, e sem o tipo `mock.calls[0][0]` é tupla vazia para o
+  // TypeScript (`tsc --noEmit` quebra). Usado porque não há `argsIgnorePattern` na
+  // config do site: um `_write` só declarado vira erro de `no-unused-vars` no lint —
+  // e as duas checagens rodam no mesmo job do CI.
+  createPost: vi.fn(async (write: Record<string, unknown>) => (write ? 1 : 1)),
   updatePost: vi.fn(async () => undefined),
   getPost: vi.fn(async () => ({ id: 1, slug: 'meu-post', status: 'draft', author_id: null })),
   setPostTaxonomies: vi.fn(async () => undefined),
