@@ -1,11 +1,32 @@
 ---
+/*
+  Header do `site` (T3.5d + T3.5g, spec 102).
+
+  A ESTRUTURA mudou: `MODULES`/`SECTIONS` eram HTML estático escrito à mão aqui, fora da
+  ilha. Em ≤860px o CSS compartilhado (`packages/ui/src/styles.css:2022`) esconde
+  `.artificio-header-main > nav` e o `.artificio-subnav`, e o `site` não tinha
+  hambúrguer — os 11 links sumiam sem substituto. O toggle precisa de estado, logo o nav
+  precisa da ilha; os itens passam como props para continuarem no HTML servido (SSR).
+
+  O que fica no Astro: a MARCA. O logo vem de `logos` (assets importados pelo Astro), e
+  a ilha não os conhece.
+
+  ⚠️ Os 3 filhos de `.artificio-header-main` viraram 4 (brand, nav, ferramentas,
+  sessão) — o grid `auto 1fr auto` do `packages/ui` ganha uma coluna própria no
+  `global.css` do site.
+*/
 import { logos, MODULES, SECTIONS } from "../lib/content";
 import { BRAND_NAME } from "@artificio/ui/static";
+import { BRAND_ORIGIN } from "@artificio/config";
 import SiteHeaderIsland from "./SiteHeaderIsland";
 interface Props {
   currentHref?: string;
 }
 const { currentHref } = Astro.props;
+/* `pathname` vem do Astro porque a ilha faz SSR: no servidor não existe `location`, e
+   ler o caminho só depois da hidratação faria o `aria-current` aparecer tarde (ou nunca,
+   para o crawler). `BRAND_ORIGIN` marca o item "Portal", que é este próprio site. */
+const pathname = Astro.url.pathname;
 ---
 <header class="artificio-header" data-sticky="true">
   <div class="artificio-header-main">
@@ -13,34 +34,13 @@ const { currentHref } = Astro.props;
       <img class="artificio-brand-logo logo-navy" src={logos.logoNavy} alt={BRAND_NAME} width="300" height="100" />
       <img class="artificio-brand-logo logo-neg" src={logos.logoNeg} alt={BRAND_NAME} width="300" height="100" />
     </a>
-    <nav aria-label="Projetos do Artifício">
-      <ul class="artificio-nav-list">
-        {MODULES.map((m) => (
-          <li>
-            <a
-              class="artificio-nav-link"
-              href={m.href}
-              aria-current={m.label === "Portal" ? "page" : undefined}
-            >{m.label}</a>
-          </li>
-        ))}
-      </ul>
-    </nav>
-    <div class="artificio-session" aria-live="polite">
-      <SiteHeaderIsland client:idle />
-    </div>
+    <SiteHeaderIsland
+      client:idle
+      modules={MODULES}
+      sections={SECTIONS}
+      currentHref={currentHref}
+      siteOrigin={BRAND_ORIGIN}
+      pathname={pathname}
+    />
   </div>
-  <nav class="artificio-subnav" aria-label="Seções do blog">
-    <ul class="artificio-nav-list">
-      {SECTIONS.map((s) => (
-        <li>
-          <a
-            class="artificio-nav-link"
-            href={s.href}
-            aria-current={currentHref === s.href ? "page" : undefined}
-          >{s.label}</a>
-        </li>
-      ))}
-    </ul>
-  </nav>
 </header>

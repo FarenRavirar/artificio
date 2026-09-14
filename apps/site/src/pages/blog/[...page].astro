@@ -1,0 +1,80 @@
+---
+/*
+  Fatias 2..N do acervo (T3.5c, spec 102).
+
+  ⚠️ SPREAD (`[...page]`), NÃO `[page]` — e isto não é estilo.
+  Medido em astro@6.4.8 (`dist/core/routing/priority.js`): entre duas rotas dinâmicas
+  puras de mesmo tamanho o desempate é `a.route.localeCompare(b.route)`, e
+  `/blog/[page]` < `/blog/[slug]`. Com `[page].astro`, esta rota venceria o `[slug]` no
+  primeiro match e, em `astro dev`, TODO post (`/blog/<slug>/`) seria servido por aqui —
+  `page="meu-post"` → NaN → lista vazia. O spread ordena depois (`aHasSpread → 1`).
+  Produção (SSG) não é afetada, mas o estrago é no ambiente de quem implementa.
+
+  O `paginate()` nativo do Astro também não serve: ele gera `/blog/1/`, exatamente a URL
+  que o aceite 6 proíbe. A fatia 1 é `/blog/`, por construção — sem `params.page`.
+*/
+import Base from "../../layouts/Base.astro";
+import Card from "../../components/Card.astro";
+import Paginador from "../../components/Paginador.astro";
+import { postsDaFatia, totalFatias, slugsNumericos } from "../../lib/content";
+
+export function getStaticPaths() {
+  const total = totalFatias();
+  const colisoes = slugsNumericos();
+
+  /* Só 2..N: a fatia 1 é `/blog/` (o `index.astro`), e `/blog/1/` deve dar 404.
+
+     Colisão QUEBRA O BUILD, não é pulada. A primeira versão deste guard fazia
+     `continue`, o que trocava um silêncio por outro: a fatia sumia sem aviso e os posts
+     dela ficavam inalcançáveis pelo paginador — mesma classe de dano que o guard existe
+     para impedir (as duas rotas escreveriam `blog/<n>/index.html` e o último write
+     venceria). Um post com slug numérico é conflito de contrato de URL e precisa de
+     decisão humana: renomear o slug, ou mudar o padrão das fatias. */
+  const paginas = [];
+  for (let page = 2; page <= total; page++) {
+    const numero = String(page);
+    if (colisoes.has(numero)) {
+      throw new Error(
+        `[blog] Colisão de URL: existe um post com slug "${numero}", que ocupa a mesma ` +
+          `rota da fatia /blog/${numero}/ da paginação. As duas escreveriam ` +
+          `blog/${numero}/index.html e uma sobrescreveria a outra em silêncio. ` +
+          `Renomeie o slug do post (spec 102 T3.5c).`,
+      );
+    }
+    paginas.push({ params: { page: numero }, props: { page } });
+  }
+  return paginas;
+}
+
+interface Props {
+  page: number;
+}
+const { page } = Astro.props;
+const total = totalFatias();
+const fatia = postsDaFatia(page);
+
+/* Identidade própria por fatia — title, description, h1 e canonical (aceite 6).
+   Reusar os valores de `/blog/` faria as 6 fatias nascerem idênticas entre si, e o
+   Google trata cada URL paginada como página separada: seria reintroduzir na paginação
+   a mesma duplicata que esta task corrige na raiz.
+   O canonical é auto-referente — canonicalizar para a fatia 1 é o Erro nº 1 do Google
+   ("Don't use the first page of a paginated sequence as the canonical page"). */
+const canonical = `https://artificiorpg.com/blog/${page}/`;
+---
+<Base
+  title={`Todos os artigos — Página ${page} de ${total} — Artifício RPG`}
+  canonical={canonical}
+  description={`Página ${page} de ${total} do acervo do Artifício RPG: notícias, análises, guias e traduções.`}
+>
+  <main class="container">
+    <nav class="breadcrumb" aria-label="Trilha">
+      <a href="/">Início</a> <span>/</span> <a href="/blog/">Blog</a> <span>/</span> <span>Página {page}</span>
+    </nav>
+    <header class="archive-head">
+      <span class="kicker">Blog</span>
+      <h1>Todos os artigos — Página {page} de {total}</h1>
+    </header>
+    <section class="grid">{fatia.map((p) => <Card post={p} />)}</section>
+    <Paginador current={page} total={total} />
+  </main>
+</Base>

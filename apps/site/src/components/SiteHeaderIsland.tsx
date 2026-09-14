@@ -3,6 +3,24 @@ import { NotificationBell, StaticChangelogModal, ThemeToggle, applyHeaderVariant
 import { useState, useRef, useEffect } from "react";
 import rawChangelogs from "../data/changelogs.json";
 
+export interface SiteNavItem {
+  label: string;
+  href: string;
+}
+
+export interface SiteHeaderIslandProps {
+  /** Projetos do portal (MODULES). Vem do Astro como dado estático — ver nota de SSR abaixo. */
+  modules?: SiteNavItem[];
+  /** Categorias do blog (SECTIONS), 2ª linha no desktop. */
+  sections?: SiteNavItem[];
+  /** Href da seção ativa, para o `aria-current` da subnav. */
+  currentHref?: string;
+  /** Origem pública do site (`BRAND_ORIGIN`): marca o item "Portal" como página atual. */
+  siteOrigin?: string;
+  /** Caminho da página sendo renderizada, para destacar a categoria ativa na subnav. */
+  pathname?: string;
+}
+
 function getInitials(name: string) {
   return name
     .split(" ")
@@ -12,11 +30,69 @@ function getInitials(name: string) {
     .join("");
 }
 
-export function SiteHeaderIsland() {
+/*
+  Header do `site` (T3.5d + T3.5g, spec 102).
+
+  O `site` NÃO usa `packages/ui/src/Header.tsx` — tem marcação própria. As duas subfases
+  foram implementadas no mesmo trabalho porque mexem nos mesmos arquivos: T3.5d move o
+  nav para dentro da ilha (o toggle do mobile precisa de estado), T3.5g redistribui os
+  itens entre esquerda e direita. Feitas em separado, a segunda reescreveria a primeira.
+
+  ⚠️ Os 11 links do nav PRECISAM continuar no HTML servido (aceite 13). Eles chegam como
+  props de dado estático e são renderizados no SSR do React — `client:idle` hidrata
+  depois, mas a marcação já saiu no HTML. NÃO trocar por `client:only` nem condicionar o
+  render à hidratação: o toggle passaria no aceite e os 11 links sumiriam para o crawler,
+  que é exatamente a regressão que o item 13 existe para impedir.
+
+  Regra de acesso (T3.5g): ferramenta pública à esquerda; a sessão — e a porta para ela —
+  à direita. Por isso "Entrar" fica na direita apesar de público: é onde o avatar aparece
+  depois do login. O sino exige sessão (`NotificationBell.tsx:266`), então também fica.
+*/
+export function SiteHeaderIsland({
+  modules = [],
+  sections = [],
+  currentHref,
+  siteOrigin,
+  pathname,
+}: Readonly<SiteHeaderIslandProps>) {
+  /* Seção ativa da subnav. `currentHref` continua aceito (o `Base.astro` o repassa),
+     mas nenhuma rota o preenche hoje — medido. O fallback pelo pathname faz a categoria
+     atual destacar sem exigir que cada página passe a prop, que é o defeito que deixava
+     a subnav inteira sem `aria-current` em produção. */
+  function isCurrent(item: SiteNavItem): boolean {
+    if (currentHref && currentHref === item.href) return true;
+    /* "Portal" aponta para a origem do próprio site: é a página atual em toda rota. */
+    if (siteOrigin && item.href === siteOrigin) return true;
+    if (!pathname) return false;
+    return item.href.startsWith("/") && item.href !== "/" && pathname.startsWith(item.href);
+  }
+
   const { user, loading } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  /* Exclusão mútua dos dois painéis (mesma regra do `packages/ui/src/Header.tsx`):
+     menu do avatar e painel mobile não abrem juntos. O dropdown é absoluto sobre a
+     barra e o painel mobile é irmão em fluxo — sobrepostos, disputam a mesma
+     extremidade. O clique-fora do avatar já o fechava ao tocar no hambúrguer; faltava
+     o sentido inverso. */
+  const toggleUserMenu = () => {
+    setMenuOpen((v) => {
+      if (!v) setNavOpen(false);
+      return !v;
+    });
+  };
+
+  const toggleNav = () => {
+    setNavOpen((v) => {
+      if (!v) setMenuOpen(false);
+      return !v;
+    });
+  };
+
+
   const { hasNewUpdate, markSeen } = useChangelogBadge("site_last_seen_update", CHANGELOG_UPDATE_MARKERS.site);
   const { theme } = useTheme();
 
@@ -57,8 +133,46 @@ export function SiteHeaderIsland() {
     };
   }, [menuOpen]);
 
-  return (
-    <>
+  useEffect(() => {
+    if (!navOpen) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setNavOpen(false);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [navOpen]);
+
+  /* `aria-current` do nav de PROJETOS: o item "Portal" aponta para `BRAND_ORIGIN`
+     (`packages/ui/src/modules.ts:9`), que é a origem deste próprio site — logo ele é a
+     página atual em qualquer rota daqui. A versão anterior deste header comparava
+     `label === "Portal"`; a comparação por href diz a mesma coisa sem depender do
+     rótulo. NÃO trocar por `currentHref`: nenhuma rota do site passa essa prop
+     (medido), e o atributo simplesmente sumiria do nav — foi o que aconteceu na
+     primeira versão de T3.5d. */
+  function renderNavList(items: SiteNavItem[], ariaLabel: string, onNavigate?: () => void) {
+    return (
+      <nav aria-label={ariaLabel}>
+        <ul className="artificio-nav-list">
+          {items.map((item) => (
+            <li key={item.href}>
+              <a
+                className="artificio-nav-link"
+                href={item.href}
+                aria-current={isCurrent(item) ? "page" : undefined}
+                onClick={onNavigate}
+              >
+                {item.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    );
+  }
+
+  /* Ferramentas públicas — esquerda (T3.5g). Não exigem sessão: nenhuma delas lê `user`. */
+  const ferramentasPublicas = (
+    <div className="artificio-header-tools">
       <button
         type="button"
         className="artificio-header-action"
@@ -90,18 +204,22 @@ export function SiteHeaderIsland() {
           <path d="m21 21-4.3-4.3" />
         </svg>
       </button>
-      <NotificationBell sourceApp="site" />
       <ThemeToggle />
-      {(() => {
-        if (loading) return <span className="artificio-session-muted">Carregando</span>;
-        if (user) return (
+    </div>
+  );
+
+  /* Sessão — direita (T3.5g): avatar, menu, sino e o botão "Entrar". */
+  const sessao = (() => {
+    if (loading) return <span className="artificio-session-muted">Carregando</span>;
+    if (user) {
+      return (
         <div className="artificio-usermenu" ref={menuRef}>
           <button
             type="button"
             className="artificio-avatar-link"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((v) => !v)}
+            onClick={toggleUserMenu}
           >
             {user.avatar ? (
               <img alt="" className="artificio-avatar" src={user.avatar} />
@@ -115,11 +233,7 @@ export function SiteHeaderIsland() {
           {menuOpen ? (
             <div className="artificio-usermenu-dropdown" role="menu">
               {user.role === "admin" ? (
-                <a
-                  role="menuitem"
-                  className="artificio-usermenu-item"
-                  href="/admin/"
-                >
+                <a role="menuitem" className="artificio-usermenu-item" href="/admin/">
                   Admin
                 </a>
               ) : null}
@@ -141,17 +255,68 @@ export function SiteHeaderIsland() {
               </button>
             </div>
           ) : null}
-        </div>);
-        return (
+        </div>
+      );
+    }
+    return (
+      <button
+        className="artificio-login-button"
+        type="button"
+        onClick={() => redirectToLogin()}
+      >
+        Entrar
+      </button>
+    );
+  })();
+
+  /* A marca (logo) NÃO vive aqui: as imagens são assets importados pelo Astro
+     (`logos` em `lib/content.ts`), e o `SiteHeader.astro` continua dono dela. A ilha
+     entra depois do brand, como irmã dele dentro de `.artificio-header-main`. */
+  return (
+    <>
+      {renderNavList(modules, "Projetos do Artifício")}
+      {ferramentasPublicas}
+      <div className="artificio-session" aria-live="polite">
+        <NotificationBell sourceApp="site" />
+        {sessao}
         <button
-          className="artificio-login-button"
           type="button"
-          onClick={() => redirectToLogin()}
+          className="artificio-menu-toggle"
+          aria-label="Menu"
+          aria-expanded={navOpen}
+          onClick={toggleNav}
         >
-          Entrar
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
         </button>
-        );
-      })()}
+      </div>
+
+      {/* 2ª linha (desktop): categorias do blog. `styles.css:2023` a esconde em ≤860px —
+          os links continuam alcançáveis pelo painel mobile abaixo. */}
+      <div className="artificio-subnav">
+        {renderNavList(sections, "Seções do blog")}
+      </div>
+
+      {/* Painel mobile (T3.5d): é o que devolve os 11 links em ≤860px, onde
+          `styles.css:2022` esconde os navs inline. Só aparece com o toggle aberto;
+          `.artificio-mobile-nav` já tem estilo pronto no `packages/ui`.
+
+          O <div> NÃO escuta evento (Sonar S6847/S1082): quem fecha é o próprio link, pelo
+          `onNavigate` passado ao `renderNavList`. O `<a>` é interativo de nascença —
+          teclado, toque e mouse de graça —, enquanto `role`+`tabIndex` num <div>
+          inventaria um controle que não existe. Primeira tentativa trocou `onClick` por
+          `onClickCapture`+`onKeyUp` e o Sonar seguiu acusando, com razão: a regra é sobre
+          haver handler no elemento não-interativo, não sobre qual. */}
+      {navOpen ? (
+        <div className="artificio-mobile-nav">
+          {renderNavList(modules, "Projetos do Artifício (menu)", () => setNavOpen(false))}
+          {renderNavList(sections, "Seções do blog (menu)", () => setNavOpen(false))}
+        </div>
+      ) : null}
+
       <StaticChangelogModal isOpen={changelogOpen} onClose={() => setChangelogOpen(false)} rawChangelogs={rawChangelogs} />
     </>
   );

@@ -45,6 +45,15 @@
 .artificio-header[data-variant="dark"] .logo-neg,
 .artificio-footer[data-variant="dark"] .logo-neg { display: block; }
 
+/* Header do site: nenhuma regra própria (T3.5d/T3.5g/T3.5e, spec 102).
+
+   O site não usa `packages/ui/src/Header.tsx` — tem ilha própria —, mas monta a MESMA
+   estrutura: brand, nav, `.artificio-header-tools`, `.artificio-session`. O grid de 4
+   colunas e o colapso em ≤860px vieram para `packages/ui/src/styles.css` em T3.5e e
+   chegam aqui pelo `@import` da linha 8. Duplicar a definição por app é exatamente a
+   divergência que o monorepo existe para evitar: se a regra mudar no pacote, a cópia
+   local venceria em silêncio. */
+
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body {
@@ -64,9 +73,29 @@ img { max-width: 100%; height: auto; display: block; }
 }
 .dot { color: var(--muted); margin: 0 6px; }
 
-.section-head { display: flex; align-items: baseline; justify-content: space-between; margin: 8px 0 18px; }
+/* `h1` da raiz (T3.5a, spec 102). A home não tinha h1 nenhum — o primeiro heading era
+   o h2 "Mais recentes", quebrando a hierarquia que o aceite 3 exige (h1 → h2 → h3).
+   Escopado como as demais (.article-head/.archive-head): não existe regra de h1 global. */
+.home-title {
+  font-family: var(--display); font-weight: 700; font-size: 32px; line-height: 1.1;
+  letter-spacing: -.01em; margin: 0 0 24px;
+}
+
+/* `h2` de seção fora do `.section-head` (o "Destaque" do hero, T3.5a). Mesmo tratamento
+   tipográfico do `.section-head h2` para as duas seções da home lerem como par. */
+.section-title { font-family: var(--display); font-size: 22px; letter-spacing: .02em; margin: 0 0 18px; }
+
+/* `wrap` + `gap` (T3.5b): o botão substituiu o link "Ver tudo →", que era texto curto.
+   Com `space-between` e sem quebra, título e botão colidem em 360px (aceite 12). */
+.section-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px; margin: 8px 0 18px;
+}
 .section-head h2 { font-family: var(--display); font-size: 22px; letter-spacing: .02em; margin: 0; }
-.see-all { color: var(--accent-deep); text-decoration: none; font-weight: 600; font-size: 14px; }
+
+/* Botão do fim da grade: centralizado, largura total no estreito (aceite 12). */
+.all-posts-end { display: flex; justify-content: center; margin: 40px 0 0; }
+.all-posts-end .artificio-button { min-width: 220px; }
 
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
 .card {
@@ -207,6 +236,24 @@ img { max-width: 100%; height: auto; display: block; }
   --pagefind-ui-background: #1b2a4a;
   --pagefind-ui-border: rgba(255, 255, 255, 0.14);
   --pagefind-ui-tag: rgba(255, 87, 34, 0.16);
+}
+
+/* Paginador do acervo (T3.5c, spec 102). `flex-wrap` para o paginador numerado não
+   estourar no celular; alvo de 40px de lado atende o mínimo de área tocável. */
+.paginador { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 48px 0 0; }
+.paginador-lista { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.paginador-numero,
+.paginador-passo {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 40px; min-height: 40px; padding: 0 12px;
+  border: 1px solid var(--line); border-radius: 10px;
+  color: inherit; text-decoration: none; font-weight: 600; font-size: 14px;
+  background: var(--surface);
+}
+.paginador-numero:hover,
+.paginador-passo:hover { border-color: var(--accent); color: var(--accent-deep); }
+.paginador-numero[aria-current="page"] {
+  background: var(--accent); border-color: var(--accent); color: #fff; cursor: default;
 }
 
 .notfound { text-align: center; padding: 96px 24px 120px; }

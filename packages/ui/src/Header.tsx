@@ -129,6 +129,30 @@ export function Header({
   const [navOpen, setNavOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  /* Exclusão mútua dos dois painéis do header: menu do avatar e painel mobile.
+     Só um pode estar aberto — o dropdown é `position:absolute; z-index:50`
+     (`styles.css:842-856`) e o painel mobile é irmão em fluxo normal, então abertos
+     juntos eles se sobrepõem na mesma extremidade da barra.
+
+     Não bastava o clique-fora que já existia: ele fecha o avatar ao clicar no
+     hambúrguer (o toggle está fora do `menuRef`), mas o caminho inverso não tinha
+     nada — o painel mobile só escutava `Escape`, então abrir o avatar com ele aberto
+     deixava os dois. Fechar pelo setter cobre os dois sentidos numa regra só. */
+  const toggleUserMenu = () => {
+    setOpen((value) => {
+      if (!value) setNavOpen(false);
+      return !value;
+    });
+  };
+
+  const toggleNav = () => {
+    setNavOpen((value) => {
+      if (!value) setOpen(false);
+      return !value;
+    });
+  };
+
+
   useEffect(() => {
     if (!open) return;
     function onDocClick(event: MouseEvent) {
@@ -185,7 +209,7 @@ export function Header({
             className="artificio-avatar-link"
             aria-haspopup="menu"
             aria-expanded={open}
-            onClick={() => setOpen((value) => !value)}
+            onClick={toggleUserMenu}
           >
             {user.avatar ? (
               <img alt="" className="artificio-avatar" src={user.avatar} />
@@ -281,42 +305,73 @@ export function Header({
             />
           </label>
         ) : null}
+        {/*
+          Ferramentas PÚBLICAS — esquerda (T3.5e, spec 102). Busca, changelog e tema
+          não exigem sessão: nenhuma delas lê `user`/`loading`. Estavam dentro de
+          `.artificio-session`, que é a faixa da sessão, por uma organização antiga por
+          TIPO ("navegação à esquerda, ferramentas à direita"). A regra do mantenedor é
+          por ACESSO: ferramenta pública à esquerda; a sessão — e a porta para ela — à
+          direita.
+
+          Container próprio mesmo quando vazio não é criado: sem nenhuma das três
+          ligadas, o app não ganha coluna sobrando no grid.
+
+          A condição espelha o que cada filho de fato renderiza, e não as props soltas:
+          `showSearch` com `onSearchChange` liga a busca EMBUTIDA, que vive fora daqui
+          (`hasEmbeddedSearch` desliga a lupa). Checar `showSearch` sozinho criava a
+          coluna vazia justamente no consumidor com busca embutida e nenhuma outra
+          ferramenta — o `mesas`.
+        */}
+        {(showSearch && !hasEmbeddedSearch && onSearch) ||
+        (showChangelog && onOpenChangelog) ||
+        showThemeToggle ? (
+          <div className="artificio-header-tools">
+            {showSearch && !hasEmbeddedSearch && onSearch ? (
+              <button
+                type="button"
+                className="artificio-header-action"
+                aria-label="Buscar"
+                title="Buscar"
+                onClick={onSearch}
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" />
+                </svg>
+              </button>
+            ) : null}
+            {showChangelog && onOpenChangelog ? (
+              <button
+                type="button"
+                className="artificio-header-action"
+                aria-label="Changelog"
+                title="Changelog"
+                onClick={onOpenChangelog}
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M8.56 3.69a9 9 0 0 0-2.92 1.95" />
+                  <path d="M3.69 8.56A9 9 0 0 0 3 12" />
+                  <path d="M8.56 20.31A9 9 0 0 0 12 21" />
+                  <path d="M20.31 15.44A9 9 0 0 0 21 12" />
+                  <polygon points="13 2 13 13 18 11 13 13 13 2" />
+                </svg>
+                {changelogHasBadge ? (
+                  <span className="artificio-header-action-badge" aria-label="Novidade" />
+                ) : null}
+              </button>
+            ) : null}
+            {showThemeToggle ? <ThemeToggle /> : null}
+          </div>
+        ) : null}
         <div className="artificio-session" aria-live="polite">
-          {showSearch && !hasEmbeddedSearch && onSearch ? (
-            <button
-              type="button"
-              className="artificio-header-action"
-              aria-label="Buscar"
-              title="Buscar"
-              onClick={onSearch}
-            >
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.3-4.3" />
-              </svg>
-            </button>
-          ) : null}
-          {showChangelog && onOpenChangelog ? (
-            <button
-              type="button"
-              className="artificio-header-action"
-              aria-label="Changelog"
-              title="Changelog"
-              onClick={onOpenChangelog}
-            >
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M8.56 3.69a9 9 0 0 0-2.92 1.95" />
-                <path d="M3.69 8.56A9 9 0 0 0 3 12" />
-                <path d="M8.56 20.31A9 9 0 0 0 12 21" />
-                <path d="M20.31 15.44A9 9 0 0 0 21 12" />
-                <polygon points="13 2 13 13 18 11 13 13 13 2" />
-              </svg>
-              {changelogHasBadge ? (
-                <span className="artificio-header-action-badge" aria-label="Novidade" />
-              ) : null}
-            </button>
-          ) : null}
-          {showThemeToggle ? <ThemeToggle /> : null}
+          {/*
+            Fica na direita, cada um por um motivo diferente (aceite 15):
+            `actions` é conteúdo do app consumidor (o `mesas` injeta o sino por ela, e o
+            sino exige sessão); `renderSession()` cobre avatar+menu (exige sessão) e o
+            botão "Entrar", que é público mas é a PORTA da sessão — vai onde o avatar
+            aparecerá depois do login; o `menu-toggle` é o controle do painel mobile, e
+            a extremidade da barra é o lugar convencional dele.
+          */}
           {actions ? (
             <div className="artificio-header-actions">{actions}</div>
           ) : null}
@@ -326,7 +381,7 @@ export function Header({
             className="artificio-menu-toggle"
             aria-label="Menu"
             aria-expanded={navOpen}
-            onClick={() => setNavOpen((value) => !value)}
+            onClick={toggleNav}
           >
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <line x1="3" y1="6" x2="21" y2="6" />
@@ -343,11 +398,21 @@ export function Header({
         </div>
       ) : null}
 
+      {/* O <div> do painel NÃO escuta evento (Sonar S6847/S1082): quem fecha é o próprio
+          link, via `onNavigate` do `Nav`. O `<a>` é interativo de nascença — teclado,
+          toque e mouse de graça —, enquanto `role`+`tabIndex` num <div> inventaria um
+          controle que não existe. Primeira tentativa trocou `onClick` por
+          `onClickCapture`+`onKeyUp` e o Sonar seguiu acusando, com razão: a regra é sobre
+          haver handler no elemento não-interativo, não sobre qual. */}
       {navOpen ? (
-        <div className="artificio-mobile-nav" onClick={() => setNavOpen(false)}>
-          <Nav currentHref={currentHref} items={navItems} />
+        <div className="artificio-mobile-nav">
+          <Nav currentHref={currentHref} items={navItems} onNavigate={() => setNavOpen(false)} />
           {hasModuleNav ? (
-            <Nav currentHref={moduleCurrentHref} items={moduleNav as NavItem[]} />
+            <Nav
+              currentHref={moduleCurrentHref}
+              items={moduleNav as NavItem[]}
+              onNavigate={() => setNavOpen(false)}
+            />
           ) : null}
         </div>
       ) : null}

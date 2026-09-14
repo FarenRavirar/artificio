@@ -543,7 +543,9 @@
   align-items: center;
   display: grid;
   gap: 16px;
-  grid-template-columns: auto 1fr auto;
+  /* 4 colunas desde T3.5e: brand, nav, ferramentas públicas, sessão. A 3ª é `auto` e
+     colapsa para zero nos apps que não ligam busca/changelog/tema. */
+  grid-template-columns: auto 1fr auto auto;
   min-height: 64px;
   padding: 0 24px;
 }
@@ -688,6 +690,16 @@
   border-bottom-color: var(--artificio-brand);
   color: var(--artificio-ink);
   font-weight: var(--weight-strong);
+}
+
+/* Ferramentas públicas — 4ª coluna, à esquerda da faixa de sessão (T3.5e, spec 102).
+   Busca, changelog e tema saíram de `.artificio-session` pela regra de acesso; a coluna
+   só existe quando o app liga ao menos uma das três (o Header não renderiza o container
+   vazio), e o grid abaixo a declara como `auto`, que colapsa para zero sem elas. */
+.artificio-header-tools {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
 }
 
 .artificio-session {
@@ -2004,13 +2016,17 @@ select option:checked,
 }
 
 @media (max-width: 860px) {
+  /* 3 colunas, não 2: a nav inline some (regra abaixo), mas brand, ferramentas
+     públicas e sessão continuam na linha. Com `1fr auto` — o valor anterior a T3.5e,
+     quando as ferramentas viviam dentro de `.artificio-session` — o 3º filho cairia em
+     coluna implícita e a faixa de sessão era empurrada para fora da área visível. */
   .artificio-header-main {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr auto auto;
     padding: 8px 16px;
   }
 
   .artificio-header-main[data-has-search="true"] {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr auto auto;
   }
 
   .artificio-header-main[data-has-search="true"] .artificio-header-search {

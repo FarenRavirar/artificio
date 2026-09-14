@@ -8,20 +8,49 @@ const [hero, ...rest] = posts;
 const recent = rest.slice(0, 9);
 const jsonld = [websiteLd(), organizationLd()];
 ---
+<!--
+  canonical auto-referente (T3.5a, spec 102). Antes apontava para `/blog/`: a raiz
+  declarava outra página como sua autoridade e saía do índice (Erro nº 4 do Google em
+  "5 common mistakes with rel=canonical"). `/` e `/blog/` são páginas com propósitos
+  diferentes — vitrine e arquivo —, não uma sobra da outra; por isso canonical próprio
+  e `title`/`description` distintos dos de `/blog/`, senão as duas disputam a mesma
+  consulta no SERP. `og:url` acompanha sozinho: é derivado do canonical em
+  `packages/content/src/meta.ts:16`.
+-->
 <Base
-  title="Artifício RPG — Blog"
-  canonical="https://artificiorpg.com/blog/"
-  description="Conteúdo de RPG em português: notícias, análises, guias e traduções de D&D e além."
+  title="Artifício RPG - Artigos sobre RPG, Traduções, Dicas e Materiais"
+  canonical="https://artificiorpg.com/"
+  description="Artigos de RPG em português: notícias, análises, guias, traduções e materiais para D&D e outros sistemas."
   jsonld={jsonld}
 >
   <main class="container">
+    <h1 class="home-title">Artifício RPG</h1>
+    {/*
+      O `h2` do destaque existe para a hierarquia, não por decoração: o card do hero
+      emite um `h3` (Card.astro), e sem um `h2` antes dele a ordem da home ficava
+      `h1 → h3 → h2` — medido no dist. O aceite 3 cobra `h1 → h2 → h3`, e diz
+      explicitamente que a contagem de `h1` não basta.
+    */}
+    <h2 class="section-title">Destaque</h2>
     <section class="hero"><Card post={hero} big /></section>
     <div class="section-head">
       <h2>Mais recentes</h2>
-      <a class="see-all" href="/blog/">Ver tudo →</a>
+      <a class="artificio-button artificio-button-secondary artificio-button-md" href="/blog/">Todos os Posts</a>
     </div>
     <section class="grid">
       {recent.map((p) => <Card post={p} />)}
     </section>
+    {/*
+      Segundo botão DEPOIS da grade (T3.5b): o do topo não resolve chegar ao acervo
+      para quem rolou os 9 cards.
+
+      Comentário em chaves (`{/* *\/}`), não `<!-- -->`: comentário HTML vai para o
+      arquivo servido, e o aceite 7 conta ocorrências da string do link no HTML por
+      grep. Um comentário que citasse essa string literal seria contado como um
+      terceiro link e reprovaria o aceite sem defeito real — medido no dist.
+    */}
+    <div class="all-posts-end">
+      <a class="artificio-button artificio-button-secondary artificio-button-md" href="/blog/">Todos os Posts</a>
+    </div>
   </main>
 </Base>

@@ -1426,6 +1426,23 @@ originou esta task. Não depende de nada abaixo. Três correções em
 
 *Aceite:* itens 1–3 do Aceite geral.
 
+**Estado: implementada e verificada no `dist` (2026-09-14).** `index.astro` com
+canonical `https://artificiorpg.com/`, `title` definido pelo mantenedor, `description`
+distinta da de `/blog/`. Medido no build: canonical e `og:url` auto-referentes, 1 `h1`,
+ordem `h1 h2 h3 h2 h3`.
+
+**O `h1` sozinho REPROVAVA o aceite 3 — a ordem ficava `h1 → h3 → h2`.** `Card.astro`
+emite `h3` no título do card, e o hero vem antes do `h2` "Mais recentes": pôr só o `h1`
+no topo deixa um `h3` entre ele e o primeiro `h2`. Por isso a home ganhou também um `h2`
+"Destaque" antes do hero (`.section-title` no `global.css`). A contagem de `h1` passava
+nos dois casos — é exatamente o que o aceite 3 previne ao cobrar a ordem, não o número.
+
+**Achado menor do bloco, corrigido junto:** `404.astro` passou a
+`canonical="https://artificiorpg.com/404/"` (com barra, conforme `trailingSlash`) e
+ganhou `noindex`. **Efeito a conferir:** `buildMeta` (`packages/content/src/meta.ts:24`)
+emite `noindex,nofollow` juntos — não há como pedir um sem o outro. Em página de erro
+não há link a preservar, mas foi efeito não medido antes da edição.
+
 **T3.5b — botão "Todos os Posts" (`apps/site`).** Dois botões, topo e fim da grade,
 `.artificio-button-secondary`, e o `.section-head` responsivo. **Não inclui mais
 definir `--surface-subtle`/`--line-strong`:** a premissa de que o hover morria foi
@@ -1433,6 +1450,19 @@ refutada por medição no bundle (2026-09-14, ver bloco acima). Definir os dois 
 `global.css` continua sendo blindagem legítima contra mudança de ordem de import, mas é
 opcional e não bloqueia esta subfase.
 *Aceite:* itens 7–12.
+
+**Estado: itens 7 e 8 verificados no `dist` (2026-09-14).** Dois botões
+`.artificio-button .artificio-button-secondary .artificio-button-md`, o segundo depois
+do fechamento da grade; `.see-all` removida do `global.css` (era a única ocorrência no
+repo — medido: `rtk rg "see-all" apps packages` devolvia só a definição);
+`.section-head` com `flex-wrap`/`gap` e `.all-posts-end` centralizado. Itens 9, 11 e 12
+(foco visível, hover nos dois temas, 360px) exigem navegador — não medidos.
+
+**⚠️ Comentário HTML (`<!-- -->`) na home REPROVA o aceite 7 sem defeito real.** O
+aceite conta ocorrências de `href="/blog/"` no HTML servido por grep, e comentário HTML
+vai para o arquivo. Um comentário que cite a string literal do link é contado como um
+terceiro: medido, deu 3. Comentário na home que precise citar o link usa `{/* */}`, que
+o Astro não emite. Vale para qualquer edição futura do `index.astro`.
 
 **T3.5c — paginação de `/blog/` (`apps/site`).** Fatias com URL e canonical próprios,
 paginador numerado (`1 2 3 … N`, com primeira/última), links `<a href>` reais.
@@ -1564,6 +1594,19 @@ diz nada sobre path dentro de um container.
 
 *Aceite:* item 6.
 
+**Estado: implementada, NÃO verificada.** `apps/site/src/pages/blog/[...page].astro`
+(spread + `getStaticPaths` manual 2..N + guard de slug numérico),
+`components/Paginador.astro` (compartilhado entre a fatia 1 e as 2..N, `<a href>` reais,
+`aria-current="page"`), `lib/content.ts` (`POSTS_POR_FATIA`, `totalFatias`,
+`postsDaFatia`, `slugsNumericos`) e `blog/index.astro` recortado para 24.
+
+**O aceite 6 não é verificável localmente, e isto não é pendência de implementação.** O
+`posts.json` versionado tem 8 posts → `totalFatias()` = 1: o `getStaticPaths` não emite
+`/blog/2/` e o `Paginador` não renderiza (`total > 1` falso). Build medido em
+2026-09-14: 47 páginas, sem erro, `/blog/` com os 8 cards, `blog/1/` inexistente. As
+6 fatias e todo o item 6 só se provam com os 126 posts — mesmo ciclo export + build +
+deploy de T3.3. Não declarar T3.5c concluída antes disso.
+
 **T3.5d — navegação mobile do `site` (`apps/site`).** Corrige os 11 links que somem
 em ≤860px. Contido no app.
 
@@ -1580,6 +1623,48 @@ toggle. **Duas diferenças a decidir na implementação:**
   disso é pior que o de hoje em conexão lenta. Medir antes de escolher.
 
 *Aceite:* item 13.
+
+**Estado de T3.5d+g: implementadas juntas, aceite 13 verificado no `dist` (2026-09-14).**
+`SiteHeader.astro` ficou só com a marca; `SiteHeaderIsland.tsx` recebe `modules`,
+`sections`, `siteOrigin` e `pathname` por prop e monta nav, ferramentas públicas,
+sessão, subnav e painel mobile. Medido nas 4 páginas do build (home, `/blog/`,
+categoria, post): **11 `artificio-nav-link` e 1 `artificio-menu-toggle`** em todas —
+antes eram 11 e **0**. `tsc --noEmit` e `eslint` exit 0. CSS: nenhuma regra nova de
+toggle/painel foi preciso escrever — `.artificio-menu-toggle` e `.artificio-mobile-nav`
+já existem em `packages/ui/src/styles.css:611-638` e `2027-2035`.
+
+**A causa dos 11 links sumirem estava no CSS COMPARTILHADO, não no app.**
+`packages/ui/src/styles.css:2022` esconde `.artificio-header-main > nav` em ≤860px —
+filho direto. A nav do `site` era filha direta (`SiteHeader.astro:16`), então sumia pela
+regra de um pacote que o app nem sabia estar seguindo, e sem hambúrguer não havia
+substituto. Não procurar a causa no `global.css` do site: ele não tem override de header
+nenhum (medido).
+
+**T3.5g NÃO era só reordenar itens dentro do TSX — a spec descrevia a estrutura errada.**
+A ilha INTEIRA estava dentro de `.artificio-session` (`SiteHeader.astro:29-31`, versão
+anterior): o wrapper era do Astro e envolvia tudo que o TSX renderizava. Mover busca,
+changelog e tema "para a esquerda" exigiu tirar o wrapper do `.astro` e a ilha passar a
+renderizar como fragmento, com `.artificio-session` criada dentro dela em volta apenas
+de sino + sessão + toggle. As ferramentas públicas ficaram em `.artificio-header-tools`
+(classe nova; não existia no repo — medido), 4ª coluna do grid do header no `global.css`.
+
+**⚠️ Regressão introduzida e corrigida no mesmo trabalho — `aria-current` do nav.** Ao
+mover o nav para a ilha, a condição `m.label === "Portal"` virou
+`currentHref === item.href`, e o atributo sumiu de TODAS as páginas (medido no dist: 0
+ocorrências). Causa: **nenhuma rota do `site` passa `currentHref`** — só o `Base.astro`
+declara e repassa a prop, ninguém a preenche (medido: `rtk rg "currentHref"
+apps/site/src/pages` → exit 1). O item "Portal" aponta para `BRAND_ORIGIN`
+(`modules.ts:9`), que é a origem deste próprio site, então a comparação correta é por
+href contra a origem. A ilha agora recebe `siteOrigin` e `pathname` do Astro e resolve o
+destaque no SSR.
+
+**Achado preexistente, corrigido junto:** a subnav de categorias NUNCA destacou a seção
+ativa — dependia do mesmo `currentHref` que ninguém passa. O fallback por `pathname`
+(prefixo da URL da categoria) resolve sem exigir que cada página passe prop.
+
+**`client:idle` mantido** (precedente do aceite 13: `NotificationBell`/`ThemeToggle` já
+hidratam assim e funcionam). Os 11 links não dependem da hidratação — vêm do SSR do
+React, medido no HTML servido.
 
 **T3.5e — regra de acesso no `packages/ui`. ESCOPO AUTORIZADO pelo mantenedor em
 2026-09-14** (*"PODE TOCAR no compartilhado"*). Move para a **esquerda**: busca,
@@ -1598,12 +1683,171 @@ não *"tudo que é público à esquerda"*.
 aceite 16 cobra.
 *Aceite:* itens 14–16.
 
+**Estado: implementada; aceites 14–15 verificados em código, aceite 16 PENDENTE.**
+`Header.tsx`: busca, changelog e tema saíram de `.artificio-session` para um
+`.artificio-header-tools` novo, renderizado antes dela e só quando o app liga ao menos
+uma das três (sem container vazio, sem coluna sobrando). Ficaram na direita `actions`,
+`renderSession()` (avatar + menu + o botão "Entrar") e o `menu-toggle` — exatamente a
+lista do aceite 15. `styles.css` ganhou `.artificio-header-tools` e a 4ª coluna do grid.
+
+**Validação medida (2026-09-14):** `packages/ui` — `tsc` exit 0, `eslint` exit 0, build
+exit 0, **20 arquivos / 85 testes** passando. Consumidores: `mesas` **86/1152**,
+`downloads` **54/315** (é o que inspeciona o header real em `AppShell.test.tsx`),
+`glossario` **4/37**, `site` **16/170**, todos passando; `tsc` exit 0 em `links`,
+`site-admin`, `glossario/frontend` e `accounts/frontend`. `links` não tem suíte
+(`"(links) no tests"`).
+
+**⚠️ O mobile quebraria: o grid de ≤860px estava fixo em 2 colunas.**
+`styles.css:2019` declarava `grid-template-columns: 1fr auto` — suficiente enquanto as
+ferramentas viviam DENTRO de `.artificio-session` (2 filhos visíveis: brand e sessão).
+Com o container novo são 3, e o terceiro cairia em coluna implícita, empurrando a faixa
+de sessão para fora da área visível. Corrigido para `1fr auto auto`, na regra normal e
+na `[data-has-search="true"]`. Este é o risco real do aceite 16: **é layout, e nenhum
+teste de unidade o pega** — a suíte inteira passou com o valor errado.
+
+**Dedup: o `global.css` do `site` não tem mais regra de header.** T3.5d/g haviam criado
+`.artificio-header-tools` e o grid de 4 colunas no app; com T3.5e a definição subiu para
+`packages/ui/src/styles.css` e chega ao site pelo `@import` (`global.css:8`). Manter as
+duas seria a divergência-por-app que o AGENTS.md trata como defeito: a cópia local
+venceria em silêncio se a regra do pacote mudasse. Medido no CSS emitido do site: as 2
+regras de `.artificio-header-main` (desktop `auto 1fr auto auto`, mobile `1fr auto
+auto`) vêm só do pacote, e o aceite 18 continua verde.
+
+**O aceite 16 exige navegador** — "header não quebra em desktop nem em ≤860px", em
+`mesas`, `downloads`, `glossario`, `links`, `site-admin` e `accounts`. Nada disso foi
+verificado visualmente. Não declarar T3.5e concluída antes do smoke.
+
+**Achado do mantenedor, FORA do previsto por esta spec: os dois painéis do header
+abriam juntos.** Pergunta dele em 2026-09-14 (*"quando clica no direita ou esquerda, o
+outro tem que fechar, só um pode exibir"*). Medido: menu do avatar (`open`) e painel
+mobile (`navOpen`) eram estados independentes, nos DOIS headers — `Header.tsx:128-129` e
+`SiteHeaderIsland.tsx:65-66`. O clique-fora do avatar (`Header.tsx:134`) o fechava ao
+tocar no hambúrguer, porque o toggle está fora do `menuRef`; **o sentido inverso não
+tinha nada** — o painel mobile só escutava `Escape`, então abrir o avatar com ele aberto
+deixava os dois. Sobrepostos: o dropdown é `position:absolute; z-index:50`
+(`styles.css:842-856`) e o painel mobile é irmão em fluxo normal, na mesma extremidade.
+
+**Não é regressão de T3.5** — os estados sempre foram independentes; o defeito é
+anterior. T3.5e apenas aproximou o toggle da faixa de sessão, tornando o encontro mais
+provável. Corrigido nos dois componentes com setters que fecham o outro painel ao abrir
+(`toggleUserMenu`/`toggleNav`), porque o comportamento é do contrato compartilhado e não
+de um app — corrigir só o `site` deixaria 6 apps com a sobreposição.
+
+#### Cobertura de teste que faltava (pergunta do mantenedor, 2026-09-14)
+
+Auditados os arquivos tocados por T3.5: **`Header.tsx` tinha suíte que não cobria a
+mudança, e `content.ts` não tinha nenhuma.** Três arquivos novos:
+
+- **`apps/site/src/lib/content.test.ts`** — a guarda que faltava para T3.5c. O aceite 6
+  não roda local (8 posts → 1 fatia), então sem teste unitário a paginação só seria
+  exercitada em produção. Cobre: 126 posts → 6 fatias, divisão exata sem fatia vazia,
+  sobra na última, vazio além da última (o que sustenta o 404 de `/blog/7/`), nenhum post
+  repetido entre fatias, acervo inteiro sem buraco, e o guard de slug numérico. Sem
+  jsdom, seguindo o precedente registrado em `PostConversation.test.ts` (o `site` não tem
+  a dependência, e adicioná-la é decisão do mantenedor).
+- **`packages/ui/src/Header.acesso.test.tsx`** — aceites 14/15. O `Header.test.tsx`
+  existente cobre só busca embutida vs. lupa legada e **passava verde com os três itens
+  públicos dentro de `.artificio-session`**, que é o defeito que T3.5e corrigiu. Agora
+  trava: ferramentas fora da faixa, "Entrar"/`menu-toggle`/`actions` dentro dela, e a
+  coluna que não se cria quando o app não liga ferramenta nenhuma.
+- **`packages/ui/src/Header.paineis.test.tsx`** — exclusão mútua, com jsdom por arquivo
+  (padrão do pacote). Cobre os dois sentidos, alternância repetida e o segundo clique
+  fechando o próprio painel.
+
+**Erro na primeira versão da suíte de acesso, corrigido:** a asserção
+`not.toContain('aria-label="Buscar"')` foi copiada do `Header.test.tsx`, onde o
+`searchLabel` era customizado. Com o default, esse rótulo pertence ao **input embutido** —
+o teste reprovava um render correto. Passou a asserir a ausência do *botão* de lupa.
+
+**O que continua sem teste, e por quê:** `SiteHeaderIsland.tsx` (o `site` não tem jsdom;
+a lógica equivalente está coberta no `packages/ui`) e `AppShell.tsx` do `mesas` (o
+`downloads` tem precedente, mas o aceite 17 é grep e o `mesas` não tem suíte de shell —
+criar uma é decisão do mantenedor, não pendência inferida).
+
+**BLOQUEIO: `Header.paineis.test.tsx` passa, mas NÃO foi provado que reprova o código
+antigo.** A verificação padrão desta branch — sabotar o fonte, rodar, confirmar o
+vermelho, reverter (precedente: commit `8573ed5`, *"tres guards passavam verde em
+sabotagem, todos reproduzidos"*) — foi barrada pelo classificador do harness como
+escrita destrutiva local. Sem ela, a suíte cobre o comportamento correto mas não está
+demonstrado que pega o defeito: um teste que acompanha o bug em vez de travá-lo passaria
+igual. **Não tratar a cobertura de T3.5 como completa até rodar a sabotagem** —
+restaurar `onClick={() => setOpen((value) => !value)}` e
+`onClick={() => setNavOpen((value) => !value)}` em `packages/ui/src/Header.tsx` deve
+derrubar os 4 testes de exclusão mútua (os 2 de "abre sozinho" seguiriam verdes).
+
+**Entregue em 2026-09-14:** commit `93b325f`, branch `feat/102-t35-indexacao-raiz-header`,
+PR #321 contra `dev`, 16 arquivos (+1083/−99). `verify:api` exit 0, zero breaking nos 6
+apps. Nenhuma subfase declarada concluída exceto T3.5f — o resto aguarda deploy.
+
+#### Achados de review na PR #321, todos corrigidos (2026-09-14)
+
+**CodeRabbit 1 — o teste de `content.ts` provava a CÓPIA, não o código.** A primeira
+versão de `content.test.ts` reimplementava `fatiasDe`/`recorte` no próprio arquivo:
+passaria verde mesmo com o recorte de produção errado, que é o oposto do que a suíte
+existe para fazer. As três funções passaram a aceitar a lista por parâmetro (default =
+acervo real) e o teste chama `totalFatias`/`postsDaFatia`/`slugsNumericos` de verdade,
+com fixture de 126 posts. **Não é ponto de extensão da API** — é o que permite exercitar
+com 126 posts o que o snapshot de 8 nunca alcança.
+
+**CodeRabbit 2 — o guard de slug numérico trocava um silêncio por outro.** O `continue`
+pulava a fatia colidente: os posts dela ficavam inalcançáveis pelo paginador, sem aviso
+— mesma classe de dano que o guard existe para impedir. Agora `getStaticPaths` **quebra
+o build** nomeando o slug conflitante. Provado com fixture: com um post de slug `"2"`
+entre 126, lança; sem colisão, gera as 5 fatias normalmente.
+
+**CodeRabbit 3 — a coluna de ferramentas nascia VAZIA com busca embutida.** A condição
+do wrapper checava `showSearch` solto, mas `hasEmbeddedSearch` desliga a lupa: com busca
+embutida e nenhuma outra ferramenta (caso do `mesas`), saía
+`<div class="artificio-header-tools"></div>` — a coluna sobrando no grid que o próprio
+comentário dizia evitar. Pior: **meu `Header.acesso.test.tsx` assertava esse HTML vazio
+como esperado**, congelando o bug. Condição passou a espelhar o que cada filho renderiza;
+o teste foi corrigido e ganhou 3 casos (busca embutida sozinha, com changelog, e
+`showChangelog` sem handler).
+
+**Sonar — handler de evento em `<div>` não-interativo, nos DOIS headers.** O painel
+mobile fechava por `onClick` no container (S1082/S6847: sem equivalente por teclado). **O
+padrão veio de `packages/ui/src/Header.tsx:401`** — eu o copiei para a ilha do `site`;
+corrigir só o app deixaria 6 apps com o defeito.
+
+**A primeira correção NÃO resolveu, e o Sonar reincidiu.** Troquei `onClick` por
+`onClickCapture` + `onKeyUp` no mesmo `<div>`, achando que o problema era a falta do
+caminho por teclado. Errado: **a regra é sobre existir handler no elemento
+não-interativo, não sobre qual handler** — reapareceu em `Header.tsx:411` e
+`SiteHeaderIsland.tsx:317`.
+
+**A correção que vale: o `<div>` não escuta nada.** Quem fecha o painel é o próprio
+link, por `onNavigate` — prop nova e opcional do `Nav` (`packages/ui/src/Nav.tsx`), e
+terceiro parâmetro do `renderNavList` na ilha. O `<a>` é interativo de nascença (teclado,
+toque e mouse), enquanto `role`+`tabIndex` num `<div>` inventaria um controle que não
+existe. Também aplicado `Readonly<Props>` na ilha e no `Nav` (convenção que o repo ainda
+não usa em `Header`; não varri o resto).
+
 **T3.5f — tirar `Painel` da esquerda do `mesas` (`apps/mesas`). ENTRA NESTA SPEC** —
 escopo ampliado pelo mantenedor em 2026-09-14 (*"T3.5F É NESSE ESCOPO"*). Remover do
 `moduleNav` (`AppShell.tsx:22`); ele já está no `userMenu` (`AppShell.tsx:16`).
 `/painel` é rota autenticada (`routes.ts:30`, `PainelMestrePage.tsx:254` redireciona
 sem sessão), logo pertence só à direita.
 *Aceite:* item 17.
+
+**Estado: concluída e verificada localmente (2026-09-14).** É a ÚNICA subfase de T3.5
+cujo aceite fecha sem deploy — o item 17 é grep no fonte, não `curl` em produção.
+Medido: `rtk rg "Painel" apps/mesas/frontend/src/components/AppShell.tsx` → **1**
+ocorrência (linha 16, no `userMenu`), contra 2 antes. Validação do app: `tsc --noEmit`
+exit 0, `eslint` exit 0 (1 warning preexistente em `useBannerScrim.ts:251`, arquivo não
+tocado), suíte completa **86 arquivos / 1152 testes, todos passando**.
+
+**⚠️ Comentário que cita o rótulo REPROVA o aceite 17 — mesma classe de erro do aceite
+7.** O item conta ocorrências de `Painel` por grep no arquivo inteiro, então explicar a
+decisão citando o rótulo (ou o nome do componente `PainelMestrePage`) infla a contagem:
+medido 3, depois 2, antes de a redação parar de nomeá-los. O comentário no arquivo
+registra a restrição para a próxima edição. Vale a regra geral: **em arquivo cujo aceite
+é grep textual, o comentário não pode conter o termo medido.**
+
+**Não foi criado teste code-level.** O `downloads` tem precedente para esta mesma classe
+de mudança (`AppShell.test.tsx`, spec 086 T10.4, prova que o item saiu do `moduleNav`) e
+o `mesas` não tem `AppShell.test.tsx` — 51 arquivos de teste, nenhum do shell. O aceite
+17 pede só o grep; criar a suíte do shell do `mesas` é trabalho além do pedido, e fica
+como decisão do mantenedor, não como pendência inferida.
 
 **T3.5g — regra de acesso no `site` (`apps/site`). SEM ELA A REGRA NÃO ALCANÇA O
 PRÓPRIO APP DESTA SPEC.**
