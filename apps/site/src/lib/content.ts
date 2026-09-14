@@ -116,11 +116,20 @@ function aggregate(key: "cats" | "tags"): TermAgg[] {
    cabe na tela do celular sem reticências. */
 export const POSTS_POR_FATIA = 24;
 
-export const totalFatias = (): number => Math.max(1, Math.ceil(posts.length / POSTS_POR_FATIA));
+/* As três funções abaixo aceitam a lista por parâmetro, com o acervo real como default.
+   Não é ponto de extensão: é o que permite exercitá-las com 126 posts no teste, já que
+   o snapshot versionado tem 8 e `/blog/2/` nunca é gerado localmente (T3.5c). A
+   alternativa — reimplementar a aritmética no arquivo de teste — provaria a cópia, não
+   o código que roda no build. */
+export const totalFatias = (lista: readonly unknown[] = posts): number =>
+  Math.max(1, Math.ceil(lista.length / POSTS_POR_FATIA));
 
 /** Posts da fatia `page` (1-based). A fatia 1 é `/blog/`; não existe `/blog/1/`. */
-export const postsDaFatia = (page: number): Post[] =>
-  posts.slice((page - 1) * POSTS_POR_FATIA, page * POSTS_POR_FATIA);
+export function postsDaFatia(page: number): Post[];
+export function postsDaFatia<T>(page: number, lista: readonly T[]): T[];
+export function postsDaFatia(page: number, lista: readonly unknown[] = posts): unknown[] {
+  return lista.slice((page - 1) * POSTS_POR_FATIA, page * POSTS_POR_FATIA);
+}
 
 /** Slugs puramente numéricos, que colidiriam com a URL de uma fatia.
  *
@@ -129,8 +138,8 @@ export const postsDaFatia = (page: number): Post[] =>
  *  conflito com `publicDir`, e o último write vence em silêncio. Hoje não há colisão
  *  (medido: 0 de 126 em produção, 0 de 8 no snapshot versionado), mas sem este guard um
  *  post futuro derrubaria uma fatia sem erro de build. */
-export const slugsNumericos = (): Set<string> =>
-  new Set(posts.filter((p) => /^\d+$/.test(p.slug)).map((p) => p.slug));
+export const slugsNumericos = (lista: readonly { slug: string }[] = posts): Set<string> =>
+  new Set(lista.filter((p) => /^\d+$/.test(p.slug)).map((p) => p.slug));
 
 export const allCategories = (): TermAgg[] => aggregate("cats");
 export const allTags = (): TermAgg[] => aggregate("tags");

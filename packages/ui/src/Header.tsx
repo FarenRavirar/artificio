@@ -1,7 +1,7 @@
 import { getAccountsOrigin, logout, redirectToLogin, useSession } from "@artificio/auth/client";
 import type { User } from "@artificio/auth";
 import { BRAND_ORIGIN } from "@artificio/config";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode, type SyntheticEvent } from "react";
 import { brandLogoNavy, brandLogoNeg } from "./brand.js";
 import { defaultNavItems, type NavItem } from "./modules.js";
 import { Nav } from "./Nav.js";
@@ -150,6 +150,11 @@ export function Header({
       if (!value) setOpen(false);
       return !value;
     });
+  };
+
+  /** Fecha o painel mobile quando a ativação partiu de um link dentro dele. */
+  const fecharAoNavegar = (event: SyntheticEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest("a")) setNavOpen(false);
   };
 
   useEffect(() => {
@@ -314,8 +319,16 @@ export function Header({
 
           Container próprio mesmo quando vazio não é criado: sem nenhuma das três
           ligadas, o app não ganha coluna sobrando no grid.
+
+          A condição espelha o que cada filho de fato renderiza, e não as props soltas:
+          `showSearch` com `onSearchChange` liga a busca EMBUTIDA, que vive fora daqui
+          (`hasEmbeddedSearch` desliga a lupa). Checar `showSearch` sozinho criava a
+          coluna vazia justamente no consumidor com busca embutida e nenhuma outra
+          ferramenta — o `mesas`.
         */}
-        {showSearch || showChangelog || showThemeToggle ? (
+        {(showSearch && !hasEmbeddedSearch && onSearch) ||
+        (showChangelog && onOpenChangelog) ||
+        showThemeToggle ? (
           <div className="artificio-header-tools">
             {showSearch && !hasEmbeddedSearch && onSearch ? (
               <button
@@ -389,8 +402,13 @@ export function Header({
         </div>
       ) : null}
 
+      {/* Fechamento por delegação a partir de um <a> real, não `onClick` no <div>:
+          handler de clique em elemento não-interativo não tem equivalente por teclado
+          (Sonar S1082/S6847), e pôr `role`+`tabIndex` aqui inventaria um controle que
+          não existe. O `keyUp` cobre o Enter, em que o clique não chega a disparar antes
+          da navegação. Mesma correção aplicada na ilha própria do `site`. */}
       {navOpen ? (
-        <div className="artificio-mobile-nav" onClick={() => setNavOpen(false)}>
+        <div className="artificio-mobile-nav" onClickCapture={fecharAoNavegar} onKeyUp={fecharAoNavegar}>
           <Nav currentHref={currentHref} items={navItems} />
           {hasModuleNav ? (
             <Nav currentHref={moduleCurrentHref} items={moduleNav as NavItem[]} />

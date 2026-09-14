@@ -23,12 +23,25 @@ export function getStaticPaths() {
   const colisoes = slugsNumericos();
 
   /* Só 2..N: a fatia 1 é `/blog/` (o `index.astro`), e `/blog/1/` deve dar 404.
-     O guard pula o número cujo slug exista como post real — as duas rotas escreveriam
-     `blog/<n>/index.html` e o último write venceria em silêncio, sem erro de build. */
+
+     Colisão QUEBRA O BUILD, não é pulada. A primeira versão deste guard fazia
+     `continue`, o que trocava um silêncio por outro: a fatia sumia sem aviso e os posts
+     dela ficavam inalcançáveis pelo paginador — mesma classe de dano que o guard existe
+     para impedir (as duas rotas escreveriam `blog/<n>/index.html` e o último write
+     venceria). Um post com slug numérico é conflito de contrato de URL e precisa de
+     decisão humana: renomear o slug, ou mudar o padrão das fatias. */
   const paginas = [];
   for (let page = 2; page <= total; page++) {
-    if (colisoes.has(String(page))) continue;
-    paginas.push({ params: { page: String(page) }, props: { page } });
+    const numero = String(page);
+    if (colisoes.has(numero)) {
+      throw new Error(
+        `[blog] Colisão de URL: existe um post com slug "${numero}", que ocupa a mesma ` +
+          `rota da fatia /blog/${numero}/ da paginação. As duas escreveriam ` +
+          `blog/${numero}/index.html e uma sobrescreveria a outra em silêncio. ` +
+          `Renomeie o slug do post (spec 102 T3.5c).`,
+      );
+    }
+    paginas.push({ params: { page: numero }, props: { page } });
   }
   return paginas;
 }

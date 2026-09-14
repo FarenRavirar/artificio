@@ -123,8 +123,44 @@ describe("regra de acesso do header (T3.5e)", () => {
     // `searchLabel` e pertence legitimamente ao input embutido. Procurá-lo solto reprova
     // o render correto — foi o que esta suíte fez na primeira versão.
     expect(html).not.toContain('class="artificio-header-action" aria-label="Buscar"');
-    // E a coluna de ferramentas não ganha botão: com busca embutida, `hasEmbeddedSearch`
-    // desliga a lupa e nenhuma outra ferramenta está ligada aqui.
-    expect(html).toContain('<div class="artificio-header-tools"></div>');
+    // E a coluna NÃO nasce vazia: com busca embutida a lupa é desligada, e sem outra
+    // ferramenta ligada não há o que pôr nela. A primeira versão desta suíte assertava
+    // `<div class="artificio-header-tools"></div>`, congelando como esperado o container
+    // vazio que deixava uma coluna sobrando no grid (achado do CodeRabbit, PR #321).
+    expect(html).not.toContain("artificio-header-tools");
+  });
+
+  it("não cria a coluna vazia quando só a busca embutida está ligada", () => {
+    // Caso real do `mesas`: busca embutida e nenhuma outra ferramenta.
+    const html = renderToStaticMarkup(
+      <Header showSearch onSearchChange={() => undefined} sessionOverride={deslogado} />,
+    );
+
+    expect(html).toContain('type="search"');
+    expect(html).not.toContain("artificio-header-tools");
+  });
+
+  it("cria a coluna quando a busca é embutida mas há changelog", () => {
+    const html = renderToStaticMarkup(
+      <Header
+        showSearch
+        onSearchChange={() => undefined}
+        showChangelog
+        onOpenChangelog={() => undefined}
+        sessionOverride={deslogado}
+      />,
+    );
+
+    expect(html).toContain("artificio-header-tools");
+    expect(html).toContain('aria-label="Changelog"');
+  });
+
+  it("não cria a coluna quando `showChangelog` vem sem handler", () => {
+    // O filho só renderiza com `onOpenChangelog`; a condição do wrapper espelha isso.
+    const html = renderToStaticMarkup(
+      <Header showChangelog sessionOverride={deslogado} />,
+    );
+
+    expect(html).not.toContain("artificio-header-tools");
   });
 });

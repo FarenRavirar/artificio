@@ -10,16 +10,14 @@
 // (`components/comments/PostConversation.test.ts`) registra que adicioná-la é decisão do
 // mantenedor. Aqui não faz falta — o que se testa é aritmética de fatia, não render.
 import { describe, expect, it } from "vitest";
-import { POSTS_POR_FATIA } from "./content.js";
+import { POSTS_POR_FATIA, postsDaFatia, slugsNumericos, totalFatias } from "./content.js";
 
-/** Reimplementa o recorte sobre uma lista arbitrária, para exercitar contagens que o
- *  snapshot versionado não tem. As funções exportadas por `content.ts` fecham sobre o
- *  `posts` real; a regra que elas aplicam é esta. */
-const fatiasDe = (total: number) => Math.max(1, Math.ceil(total / POSTS_POR_FATIA));
-const recorte = <T>(itens: T[], page: number) =>
-  itens.slice((page - 1) * POSTS_POR_FATIA, page * POSTS_POR_FATIA);
-
+/* As funções são chamadas DIRETO, com a lista passada por parâmetro. A primeira versão
+   desta suíte reimplementava a aritmética aqui e testava a cópia — passaria verde mesmo
+   com o recorte de produção errado (achado do CodeRabbit, PR #321). */
 const listaDe = (n: number) => Array.from({ length: n }, (_, i) => `post-${i + 1}`);
+const fatiasDe = (n: number) => totalFatias(listaDe(n));
+const recorte = <T>(itens: T[], page: number) => postsDaFatia(page, itens);
 
 describe("POSTS_POR_FATIA", () => {
   it("é 24 — o número que o mantenedor fixou em T3.5c", () => {
@@ -87,7 +85,7 @@ describe("postsDaFatia", () => {
 });
 
 describe("slugsNumericos", () => {
-  const numericos = (slugs: string[]) => new Set(slugs.filter((s) => /^\d+$/.test(s)));
+  const numericos = (slugs: string[]) => slugsNumericos(slugs.map((slug) => ({ slug })));
 
   it("pega o slug que colidiria com a URL de uma fatia", () => {
     // `/blog/2/` como post e como fatia escrevem o mesmo `blog/2/index.html`, e o

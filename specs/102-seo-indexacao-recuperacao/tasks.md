@@ -1764,6 +1764,54 @@ a lógica equivalente está coberta no `packages/ui`) e `AppShell.tsx` do `mesas
 `downloads` tem precedente, mas o aceite 17 é grep e o `mesas` não tem suíte de shell —
 criar uma é decisão do mantenedor, não pendência inferida).
 
+**BLOQUEIO: `Header.paineis.test.tsx` passa, mas NÃO foi provado que reprova o código
+antigo.** A verificação padrão desta branch — sabotar o fonte, rodar, confirmar o
+vermelho, reverter (precedente: commit `8573ed5`, *"tres guards passavam verde em
+sabotagem, todos reproduzidos"*) — foi barrada pelo classificador do harness como
+escrita destrutiva local. Sem ela, a suíte cobre o comportamento correto mas não está
+demonstrado que pega o defeito: um teste que acompanha o bug em vez de travá-lo passaria
+igual. **Não tratar a cobertura de T3.5 como completa até rodar a sabotagem** —
+restaurar `onClick={() => setOpen((value) => !value)}` e
+`onClick={() => setNavOpen((value) => !value)}` em `packages/ui/src/Header.tsx` deve
+derrubar os 4 testes de exclusão mútua (os 2 de "abre sozinho" seguiriam verdes).
+
+**Entregue em 2026-09-14:** commit `93b325f`, branch `feat/102-t35-indexacao-raiz-header`,
+PR #321 contra `dev`, 16 arquivos (+1083/−99). `verify:api` exit 0, zero breaking nos 6
+apps. Nenhuma subfase declarada concluída exceto T3.5f — o resto aguarda deploy.
+
+#### Achados de review na PR #321, todos corrigidos (2026-09-14)
+
+**CodeRabbit 1 — o teste de `content.ts` provava a CÓPIA, não o código.** A primeira
+versão de `content.test.ts` reimplementava `fatiasDe`/`recorte` no próprio arquivo:
+passaria verde mesmo com o recorte de produção errado, que é o oposto do que a suíte
+existe para fazer. As três funções passaram a aceitar a lista por parâmetro (default =
+acervo real) e o teste chama `totalFatias`/`postsDaFatia`/`slugsNumericos` de verdade,
+com fixture de 126 posts. **Não é ponto de extensão da API** — é o que permite exercitar
+com 126 posts o que o snapshot de 8 nunca alcança.
+
+**CodeRabbit 2 — o guard de slug numérico trocava um silêncio por outro.** O `continue`
+pulava a fatia colidente: os posts dela ficavam inalcançáveis pelo paginador, sem aviso
+— mesma classe de dano que o guard existe para impedir. Agora `getStaticPaths` **quebra
+o build** nomeando o slug conflitante. Provado com fixture: com um post de slug `"2"`
+entre 126, lança; sem colisão, gera as 5 fatias normalmente.
+
+**CodeRabbit 3 — a coluna de ferramentas nascia VAZIA com busca embutida.** A condição
+do wrapper checava `showSearch` solto, mas `hasEmbeddedSearch` desliga a lupa: com busca
+embutida e nenhuma outra ferramenta (caso do `mesas`), saía
+`<div class="artificio-header-tools"></div>` — a coluna sobrando no grid que o próprio
+comentário dizia evitar. Pior: **meu `Header.acesso.test.tsx` assertava esse HTML vazio
+como esperado**, congelando o bug. Condição passou a espelhar o que cada filho renderiza;
+o teste foi corrigido e ganhou 3 casos (busca embutida sozinha, com changelog, e
+`showChangelog` sem handler).
+
+**Sonar — `onClick` em `<div>` não-interativo, nos DOIS headers.** O painel mobile
+fechava por `onClick` no container (S1082/S6847: sem equivalente por teclado). Corrigido
+por delegação a partir de um `<a>` real (`onClickCapture` + `onKeyUp`), não com
+`role`+`tabIndex`, que inventaria um controle inexistente. **O padrão veio de
+`packages/ui/src/Header.tsx:401`** — eu o copiei para a ilha do `site`; corrigir só o app
+deixaria 6 apps com o defeito. Também aplicado `Readonly<Props>` na ilha (convenção que o
+repo ainda não usa em `Nav`/`Header`; não varri o resto).
+
 **T3.5f — tirar `Painel` da esquerda do `mesas` (`apps/mesas`). ENTRA NESTA SPEC** —
 escopo ampliado pelo mantenedor em 2026-09-14 (*"T3.5F É NESSE ESCOPO"*). Remover do
 `moduleNav` (`AppShell.tsx:22`); ele já está no `userMenu` (`AppShell.tsx:16`).

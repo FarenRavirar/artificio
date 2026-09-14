@@ -1,6 +1,6 @@
 import { getAccountsOrigin, logout, redirectToLogin, useSession } from "@artificio/auth/client";
 import { NotificationBell, StaticChangelogModal, ThemeToggle, applyHeaderVariant, useChangelogBadge, useTheme, CHANGELOG_UPDATE_MARKERS } from "@artificio/ui";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type SyntheticEvent } from "react";
 import rawChangelogs from "../data/changelogs.json";
 
 export interface SiteNavItem {
@@ -48,7 +48,13 @@ function getInitials(name: string) {
   à direita. Por isso "Entrar" fica na direita apesar de público: é onde o avatar aparece
   depois do login. O sino exige sessão (`NotificationBell.tsx:266`), então também fica.
 */
-export function SiteHeaderIsland({ modules = [], sections = [], currentHref, siteOrigin, pathname }: SiteHeaderIslandProps) {
+export function SiteHeaderIsland({
+  modules = [],
+  sections = [],
+  currentHref,
+  siteOrigin,
+  pathname,
+}: Readonly<SiteHeaderIslandProps>) {
   /* Seção ativa da subnav. `currentHref` continua aceito (o `Base.astro` o repassa),
      mas nenhuma rota o preenche hoje — medido. O fallback pelo pathname faz a categoria
      atual destacar sem exigir que cada página passe a prop, que é o defeito que deixava
@@ -84,6 +90,11 @@ export function SiteHeaderIsland({ modules = [], sections = [], currentHref, sit
       if (!v) setMenuOpen(false);
       return !v;
     });
+  };
+
+  /** Fecha o painel mobile quando a ativação partiu de um link dentro dele. */
+  const fecharAoNavegar = (event: SyntheticEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest("a")) setNavOpen(false);
   };
 
   const { hasNewUpdate, markSeen } = useChangelogBadge("site_last_seen_update", CHANGELOG_UPDATE_MARKERS.site);
@@ -294,9 +305,16 @@ export function SiteHeaderIsland({ modules = [], sections = [], currentHref, sit
 
       {/* Painel mobile (T3.5d): é o que devolve os 11 links em ≤860px, onde
           `styles.css:2022` esconde os navs inline. Só aparece com o toggle aberto;
-          `.artificio-mobile-nav` já tem estilo pronto no `packages/ui`. */}
+          `.artificio-mobile-nav` já tem estilo pronto no `packages/ui`.
+
+          O fechamento escuta no <nav>, por delegação a partir de um <a> real, e não um
+          `onClick` no <div>: handler de clique em elemento não-interativo é inacessível
+          por teclado (Sonar S1082/S6847) e maquiá-lo com `role`+`tabIndex` inventaria um
+          controle que não existe. Quem fecha o painel é a navegação do link, que já é
+          acionável por Enter — o `keyUp` cobre o caso do teclado, onde o clique não
+          dispara antes de o browser sair da página. */}
       {navOpen ? (
-        <div className="artificio-mobile-nav" onClick={() => setNavOpen(false)}>
+        <div className="artificio-mobile-nav" onClickCapture={fecharAoNavegar} onKeyUp={fecharAoNavegar}>
           {renderNavList(modules, "Projetos do Artifício (menu)")}
           {renderNavList(sections, "Seções do blog (menu)")}
         </div>
