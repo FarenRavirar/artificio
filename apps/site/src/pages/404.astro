@@ -1,7 +1,13 @@
 ---
 import Base from "../layouts/Base.astro";
 ---
-<Base title="Página não encontrada — Artifício RPG" canonical="https://artificiorpg.com/404">
+<!--
+  `noindex` + canonical com barra (achado menor de T3.5, spec 102). O canonical era
+  `…/404` sem barra final, contra o `trailingSlash: "always"` do astro.config.mjs —
+  declarava como autoridade uma URL que o site não serve. Página de erro não disputa
+  índice: `noindex` resolve a causa; a barra alinha ao contrato de URL do app.
+-->
+<Base title="Página não encontrada — Artifício RPG" canonical="https://artificiorpg.com/404/" noindex>
   <main class="container notfound">
     <h1>404</h1>
     <p>Esta página não existe ou foi movida.</p>

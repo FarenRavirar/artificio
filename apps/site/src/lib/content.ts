@@ -106,6 +106,32 @@ function aggregate(key: "cats" | "tags"): TermAgg[] {
   return [...map.values()].sort((a, b) => b.count - a.count);
 }
 
+/* ---- paginação de `/blog/` (T3.5c, spec 102) ----
+
+   24 por fatia → 6 páginas para os 126 posts atuais. O número é decisão de engenharia,
+   NÃO recomendação do Google: a doc primária de paginação não menciona quantidade de
+   itens por página (medido em 2026-09-14; a "faixa de 24–48" atribuída ao Google por
+   páginas de agência não existe na fonte). O que sustenta o 24 é o peso do HTML por
+   fatia (184.714 B em `/blog/` inteiro → ~46 KB, medido) e um paginador numerado que
+   cabe na tela do celular sem reticências. */
+export const POSTS_POR_FATIA = 24;
+
+export const totalFatias = (): number => Math.max(1, Math.ceil(posts.length / POSTS_POR_FATIA));
+
+/** Posts da fatia `page` (1-based). A fatia 1 é `/blog/`; não existe `/blog/1/`. */
+export const postsDaFatia = (page: number): Post[] =>
+  posts.slice((page - 1) * POSTS_POR_FATIA, page * POSTS_POR_FATIA);
+
+/** Slugs puramente numéricos, que colidiriam com a URL de uma fatia.
+ *
+ *  `/blog/2/` (fatia) e `/blog/2/` (post de slug "2") escrevem o MESMO
+ *  `blog/2/index.html`, e o pipeline do Astro não avisa: `generate.js` só checa
+ *  conflito com `publicDir`, e o último write vence em silêncio. Hoje não há colisão
+ *  (medido: 0 de 126 em produção, 0 de 8 no snapshot versionado), mas sem este guard um
+ *  post futuro derrubaria uma fatia sem erro de build. */
+export const slugsNumericos = (): Set<string> =>
+  new Set(posts.filter((p) => /^\d+$/.test(p.slug)).map((p) => p.slug));
+
 export const allCategories = (): TermAgg[] => aggregate("cats");
 export const allTags = (): TermAgg[] => aggregate("tags");
 export const postsByCat = (slug: string): Post[] => posts.filter((p) => p.cats.some((c) => c.slug === slug));

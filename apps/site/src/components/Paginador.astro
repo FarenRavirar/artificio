@@ -1,0 +1,52 @@
+---
+/*
+  Paginador numerado de `/blog/` (T3.5c, spec 102).
+
+  Compartilhado entre a fatia 1 (`blog/index.astro`) e as fatias 2..N
+  (`blog/[...page].astro`) para que as duas emitam a MESMA marcação — se cada rota
+  montasse a sua, a fatia 1 divergiria em silêncio na primeira edição.
+
+  Links são `<a href>` reais, nunca botão com JS: o aceite 6 cobra que as 5 fatias
+  seguintes apareçam no HTML servido (`grep -o 'href="/blog/[0-9]\+/"'`), e é isso que
+  mantém toda fatia a ≤2 cliques da home para o crawler.
+
+  Numerado, não só "próxima/anterior": com 6 páginas o paginador inteiro cabe na tela do
+  celular sem reticências — foi um dos critérios da escolha da fatia de 24.
+
+  `aria-current="page"` no número da fatia atual segue o padrão já usado no repo
+  (`packages/ui/src/Nav.tsx:34`).
+*/
+interface Props {
+  current: number;
+  total: number;
+}
+const { current, total } = Astro.props;
+
+/** A fatia 1 é `/blog/` — não existe `/blog/1/` (determinação do mantenedor: "URL É BLOG/2"). */
+function hrefFor(page: number): string {
+  return page === 1 ? "/blog/" : `/blog/${page}/`;
+}
+
+const pages = Array.from({ length: total }, (_, i) => i + 1);
+---
+{total > 1 && (
+  <nav class="paginador" aria-label="Paginação do acervo">
+    {current > 1 && (
+      <a class="paginador-passo" href={hrefFor(current - 1)} rel="prev">← Anterior</a>
+    )}
+    <ul class="paginador-lista">
+      {pages.map((page) => (
+        <li>
+          <a
+            class="paginador-numero"
+            href={hrefFor(page)}
+            aria-current={page === current ? "page" : undefined}
+          >{page}</a>
+        </li>
+      ))}
+    </ul>
+    {current < total && (
+      <a class="paginador-passo" href={hrefFor(current + 1)} rel="next">Próxima →</a>
+    )}
+  </nav>
+)}

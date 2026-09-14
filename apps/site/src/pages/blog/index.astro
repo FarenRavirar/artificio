@@ -1,9 +1,16 @@
 ---
 import Base from "../../layouts/Base.astro";
 import Card from "../../components/Card.astro";
-import { posts, allCategories } from "../../lib/content";
+import Paginador from "../../components/Paginador.astro";
+import { postsDaFatia, totalFatias, allCategories } from "../../lib/content";
 
 const cats = allCategories();
+/* Fatia 1 do acervo (T3.5c). Antes renderizava os 126 posts de uma vez — 184.714 B.
+   `/blog/` continua sendo a página 1: não existe `/blog/1/`, por determinação do
+   mantenedor ("URL É BLOG/2"), e por isso mantém title/description/h1 SEM sufixo de
+   página — quem ganha sufixo são as fatias 2..N. */
+const fatia = postsDaFatia(1);
+const total = totalFatias();
 ---
 <Base
   title="Blog — Artifício RPG"
@@ -20,6 +27,7 @@ const cats = allCategories();
         ))}
       </nav>
     </header>
-    <section class="grid">{posts.map((p) => <Card post={p} />)}</section>
+    <section class="grid">{fatia.map((p) => <Card post={p} />)}</section>
+    <Paginador current={1} total={total} />
   </main>
 </Base>

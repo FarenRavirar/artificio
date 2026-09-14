@@ -17,9 +17,16 @@ const userMenu: UserMenuItem[] = [
   { label: 'Gestão', href: '/gestao', adminOnly: true },
 ];
 
+/* Só navegação pública entra aqui (T3.5f, spec 102). A regra de acesso do header é
+   "ferramenta pública à esquerda; a sessão, e a porta para ela, à direita". A rota
+   `/painel` é autenticada (`routes.ts:30`; a página redireciona sem sessão),
+   então pertence só ao `userMenu` acima — estava nos dois lados.
+
+   O rótulo dessa rota não se escreve neste arquivo fora do `userMenu`: o aceite 17 da
+   spec conta as ocorrências dele por grep, e citá-lo em comentário reprova a medição
+   sem defeito real (medido: com a redação anterior, 3 em vez de 1). */
 const moduleNav: NavItem[] = [
   { label: 'Catálogo', href: '/' },
-  { label: 'Painel', href: '/painel' },
 ];
 
 export const AppShell = ({ children }: AppShellProps) => {
