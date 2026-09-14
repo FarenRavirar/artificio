@@ -79,6 +79,43 @@ const CHAMADAS_PERMITIDAS = new Set([
   "importedTableExpiryDate",
 ]);
 
+/**
+ * Sintaxe da linguagem, não dependência. Fica separado de CHAMADAS_PERMITIDAS de
+ * propósito: aquela lista é decisão sobre REGRA (o que pode ficar fora da comparação),
+ * esta é só ruído do parser grosseiro. Misturar as duas faria a lista de regra crescer
+ * com entradas que ninguém precisa justificar.
+ */
+const PALAVRAS_CHAVE = new Set([
+  "if",
+  "else",
+  "for",
+  "of",
+  "in",
+  "return",
+  "switch",
+  "case",
+  "while",
+  "do",
+  "try",
+  "catch",
+  "finally",
+  "throw",
+  "typeof",
+  "instanceof",
+  "new",
+  "const",
+  "let",
+  "var",
+  "function",
+  "true",
+  "false",
+  "null",
+  "undefined",
+]);
+
+/** Único parâmetro das funções espelhadas; não é dependência externa. */
+const PARAMETRO = "table";
+
 const failures = [];
 
 function lerArquivo(caminhoRelativo) {
@@ -173,6 +210,35 @@ function chamadasNaoVerificadas(corpo) {
     if (!CHAMADAS_PERMITIDAS.has(nome)) encontradas.add(nome);
   }
 
+  // Identificador NÃO chamado divergia igual: extraindo o prazo para um `EXPIRY_DAYS`
+  // local em cada raiz (5 no backend, 7 no frontend), os corpos ficavam idênticos e o
+  // guard passava verde — a checagem só olhava `nome(`. Achado P2 do Codex na PR #320,
+  // segunda rodada sobre a mesma classe de furo (a primeira foi o helper chamado).
+  //
+  // Qualquer identificador livre que não seja declarado no corpo, parâmetro, propriedade
+  // (`x.y`), palavra-chave ou permitido é dependência externa não verificada.
+  const declaradosNoCorpo = new Set();
+  for (const [, nome] of semComentario.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)/g)) {
+    declaradosNoCorpo.add(nome);
+  }
+
+  // Literal de string é conteúdo, não identificador: `table.origin !== 'imported'` fazia
+  // o guard exigir que `imported` fosse espelhado. Sai antes da varredura, junto com as
+  // propriedades (`x.y`), que também não são referência livre.
+  const semLiterais = semComentario
+    .replace(/'(?:[^'\\]|\\.)*'/g, "''")
+    .replace(/"(?:[^"\\]|\\.)*"/g, '""')
+    .replace(/`(?:[^`\\]|\\.)*`/g, "``");
+
+  const semPropriedades = semLiterais.replace(/\.\s*[A-Za-z_$][\w$]*/g, "");
+  for (const [, nome] of semPropriedades.matchAll(/\b([A-Za-z_$][\w$]*)\b/g)) {
+    if (PALAVRAS_CHAVE.has(nome)) continue;
+    if (declaradosNoCorpo.has(nome)) continue;
+    if (nome === PARAMETRO) continue;
+    if (CHAMADAS_PERMITIDAS.has(nome)) continue;
+    encontradas.add(nome);
+  }
+
   // `if`/`for`/`return`/`switch`/`while`/`catch` casam o padrão mas são palavras-chave,
   // não chamadas. Listá-las aqui em vez de em CHAMADAS_PERMITIDAS mantém aquela lista
   // como o que ela é: decisão sobre REGRA, não sobre sintaxe.
@@ -229,10 +295,12 @@ if (fonteBackend && fonteFrontend) {
     ]) {
       for (const chamada of chamadasNaoVerificadas(corpo)) {
         failures.push(
-          `${nome} (${raiz}): chama \`${chamada}(…)\`, que este guard não compara.\n` +
+          `${nome} (${raiz}): depende de \`${chamada}\`, que este guard não compara.\n` +
             `    Corpo idêntico ao do outro lado NÃO prova regra idêntica quando parte dela\n` +
-            `    vive num helper local. Ou espelhe \`${chamada}\` e adicione-a a\n` +
-            `    FUNCOES_ESPELHADAS, ou — se for global de plataforma — a CHAMADAS_PERMITIDAS.`,
+            `    vive num helper OU numa constante local — medido nos dois casos, com os\n` +
+            `    corpos iguais ao byte e os valores divergindo (5 vs 7 dias).\n` +
+            `    Ou espelhe \`${chamada}\` e adicione-a a FUNCOES_ESPELHADAS, ou — se for\n` +
+            `    global de plataforma — a CHAMADAS_PERMITIDAS.`,
         );
       }
     }

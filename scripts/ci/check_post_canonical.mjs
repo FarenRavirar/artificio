@@ -23,13 +23,20 @@
 //
 // ## Como a URL real é montada, e por que o guard replica isso
 //
-// `apps/site/src/pages/[slug].astro:16`:
+// **A rota de post é `/blog/<slug>/`, não `/<slug>/`.** `apps/site/src/pages/blog/[slug].astro:21`:
 //
-//     const canonical = page.seo.canonical || `${n.origin}/${page.slug}/`;
+//     const canonical = post.seo.canonical || `${SITE.origin}/blog/${post.slug}/`;
 //
-// Ou seja: canonical explícito VENCE o fallback. Um canonical errado no dado não é
-// corrigido por código nenhum adiante — é emitido como está. É exatamente por isso que
-// a trava precisa ser sobre o dado (`posts.json`), e não sobre o template.
+// A primeira versão deste guard comparava contra `/<slug>/` e apontava para
+// `pages/[slug].astro` — que é a rota INSTITUCIONAL (sobre, contato, políticas) e nem
+// consome `posts.json`: ele lê `pages` de `lib/content.ts`. Resultado medido: o guard
+// **reprovava o canonical CORRETO** (`/blog/x/` → exit 1) e **aprovava o errado**
+// (`/x/` → exit 0), ou seja, travava exatamente ao contrário. Achado P2 do Codex na
+// PR #320, reproduzido antes de corrigir.
+//
+// Canonical explícito VENCE o fallback. Um canonical errado no dado não é corrigido
+// por código nenhum adiante — é emitido como está. É por isso que a trava precisa ser
+// sobre o dado (`posts.json`), e não sobre o template.
 //
 // O `origin` vem de `PUBLIC_SITE_URL` (env), diferente em beta e prod, então o guard
 // **não compara host**: compara o CAMINHO. Canonical de post apontando para outro
@@ -41,7 +48,10 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const POSTS = "apps/site/src/data/posts.json";
-const TEMPLATE = "apps/site/src/pages/[slug].astro";
+/** Rota que de fato consome `posts.json`. A institucional (`pages/[slug].astro`) não. */
+const TEMPLATE = "apps/site/src/pages/blog/[slug].astro";
+/** Prefixo da rota de post, preservado no cutover do WordPress (D047/D019). */
+const PREFIXO_DA_ROTA = "/blog";
 
 const failures = [];
 
@@ -109,7 +119,7 @@ if (cru) {
         continue;
       }
 
-      const esperado = `/${slug}/`;
+      const esperado = `${PREFIXO_DA_ROTA}/${slug}/`;
       const encontrado = caminhoDe(canonical);
 
       if (encontrado !== esperado) {
@@ -129,13 +139,28 @@ if (cru) {
 
 // O guard acima é sobre o dado. Se o template deixar de usar o fallback auto-referente,
 // post sem canonical passa a não ter canonical nenhum — e o dado limpo deixa de bastar.
+//
+// Casa a ATRIBUIÇÃO INTEIRA, com comentário removido antes: `includes("post.seo.canonical ||")`
+// sozinho aceitaria o texto sobrevivendo num comentário depois de a atribuição sumir, e
+// aceitaria também um fallback apontando para outro caminho (achado do CodeRabbit,
+// PR #320). O prefixo da rota entra no padrão porque é ele que define a URL correta.
 const template = lerArquivo(TEMPLATE);
-if (template && !template.includes("page.seo.canonical ||")) {
-  failures.push(
-    `${TEMPLATE}: perdeu o fallback \`page.seo.canonical || …\`. Com ele, post sem ` +
-      `canonical explícito recebe o auto-referente; sem ele, fica sem canonical — e ` +
-      `este guard, que valida só o dado, não acusaria.`,
-  );
+if (template) {
+  const codigo = template.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+  const atribuicao =
+    /const\s+canonical\s*=\s*post\.seo\.canonical\s*\|\|\s*`\$\{SITE\.origin\}\/blog\/\$\{post\.slug\}\/`/;
+
+  if (!atribuicao.test(codigo)) {
+    failures.push(
+      `${TEMPLATE}: não tem mais a atribuição\n` +
+        "    `const canonical = post.seo.canonical || `${SITE.origin}/blog/${post.slug}/`;`\n" +
+        `    Com o fallback, post sem canonical explícito recebe o auto-referente; sem ` +
+        `ele, fica\n` +
+        `    sem canonical — e este guard, que valida o dado, não acusaria. Se a rota ` +
+        `mudou,\n` +
+        `    atualize PREFIXO_DA_ROTA aqui junto.`,
+    );
+  }
 }
 
 if (failures.length > 0) {

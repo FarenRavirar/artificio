@@ -172,12 +172,41 @@ if (fonteMeta) {
   const jsonLd = extrairCorpo(fonteMeta, "buildTableJsonLd");
   if (!jsonLd) {
     failures.push(`buildTableJsonLd: não encontrada em ${TABLE_META}.`);
-  } else if (!semComentario(jsonLd).includes("priceForJsonLd(")) {
-    failures.push(
-      `buildTableJsonLd: não chama \`priceForJsonLd\`. O \`offers.price\` tem de vir ` +
-        `dela — montar o preço inline no objeto do schema é o caminho pelo qual a ` +
-        `derivação errada volta sem quebrar teste.`,
+  } else {
+    const codigoJsonLd = semComentario(jsonLd);
+
+    // Presença da chamada NÃO prova que o valor chega ao schema: mantendo
+    // `const price = priceForJsonLd(vm)` e trocando só a propriedade por
+    // `price: '999'`, este check passava verde com preço fixo publicado (achado P2 do
+    // Codex, PR #320, reproduzido). Então são duas verificações, origem e destino.
+    const capturaDoPreco = /(?:const|let)\s+(\w+)\s*=\s*priceForJsonLd\(\s*vm\s*\)/.exec(
+      codigoJsonLd,
     );
+
+    if (!capturaDoPreco) {
+      failures.push(
+        `buildTableJsonLd: não chama \`priceForJsonLd(vm)\`. O \`offers.price\` tem de ` +
+          `vir dela — montar o preço inline no objeto do schema é o caminho pelo qual a ` +
+          `derivação errada volta sem quebrar teste.`,
+      );
+    } else {
+      const variavel = capturaDoPreco[1];
+      // Aceita `price,` (shorthand) e `price: <variavel>`, e nada além disso.
+      const chegaNaOferta = new RegExp(
+        String.raw`price\s*(?::\s*${variavel}\s*)?[,}]`,
+      ).test(codigoJsonLd.replace(/priceCurrency\s*:[^,}]*/g, ""));
+
+      if (!chegaNaOferta) {
+        failures.push(
+          `buildTableJsonLd: chama \`priceForJsonLd\` e guarda em \`${variavel}\`, mas ` +
+            `\`offers.price\` NÃO recebe essa variável.\n` +
+            `    Derivar o preço e publicar outro valor é pior que não derivar: o schema ` +
+            `mente\n` +
+            `    com a aparência de estar correto, e a chamada intacta engana quem ler o ` +
+            `código.`,
+        );
+      }
+    }
   }
 }
 

@@ -2106,9 +2106,15 @@ próprio e ainda não foi feito.
 `price_value` — a ponta de origem. Estático de propósito: o defeito é de ORIGEM DO
 DADO, e fixture provaria o valor de hoje, não de onde ele vem.
 
-Detecta 4 sabotagens (todas exit 1; limpo exit 0): preço pelo rótulo do contato;
+Detecta 5 sabotagens (todas exit 1; limpo exit 0): preço pelo rótulo do contato;
 `offers.price` montado inline; **condição literal** (`if (true) return '0'`); mapper
-lendo outro campo.
+lendo outro campo; e **`offers.price` recebendo literal com a chamada intacta**.
+
+> O último era furo da primeira versão (achado P2 do Codex, PR #320, reproduzido):
+> mantendo `const price = priceForJsonLd(vm)` e trocando só a propriedade por
+> `price: '999'`, o guard saía exit 0 com preço fixo publicado. Verificar que a chamada
+> EXISTE não prova que o valor CHEGA ao schema — agora são duas checagens, origem e
+> destino, ligadas pelo nome da variável capturada.
 
 > O cenário da condição literal **passou verde na primeira versão** e obrigou a
 > acrescentar um check: `codigo.includes('vm.price')` prova que o texto existe, não que
@@ -2118,9 +2124,22 @@ lendo outro campo.
 
 **G-A — `scripts/ci/check_post_canonical.mjs`.** A trava é *"canonical presente **E**
 com caminho diferente do post"*: ausência é o caso CORRETO, porque
-`[slug].astro:16` (`page.seo.canonical || …`) cai no fallback auto-referente. Canonical
-explícito **vence** o fallback, então canonical errado no dado é emitido como está —
-por isso a trava é sobre `posts.json`, não sobre o template.
+`blog/[slug].astro:21` (`post.seo.canonical || …`) cai no fallback auto-referente.
+Canonical explícito **vence** o fallback, então canonical errado no dado é emitido como
+está — por isso a trava é sobre `posts.json`, não sobre o template.
+
+> **A primeira versão deste guard estava INVERTIDA** (achado P2 do Codex, PR #320,
+> reproduzido): comparava contra `/<slug>/` e apontava para `pages/[slug].astro`, que é
+> a rota **institucional** (sobre, contato, políticas) e nem consome `posts.json` — ela
+> lê `pages` de `lib/content.ts`. Medido: canonical CORRETO (`/blog/x/`) saía **exit 1**
+> e o ERRADO (`/x/`) saía **exit 0**. O guard reprovava o certo e aprovava o defeito que
+> existe para travar.
+>
+> A rota de post é `/blog/<slug>/`, preservada no cutover do WordPress (D047/D019). **A
+> spec já tinha a resposta e eu não a li antes de escrever:** `spec.md:36` cita
+> literalmente `apps/site/src/pages/blog/[slug].astro:21` como ponto de emissão, e
+> `spec.md:58` traz o critério em SQL — `regexp_replace(canonical,'^https?://[^/]+','')
+> <> '/blog/'||slug||'/'`, a mesma query que mediu os 105 divergentes.
 
 **Compara CAMINHO, não host**, porque `SITE.origin` vem de `PUBLIC_SITE_URL` e difere
 entre beta e prod. Validado: canonical auto-referente apontando para
@@ -2171,6 +2190,19 @@ divergindo em 2 dias. A correção é a lista `CHAMADAS_PERMITIDAS`: chamada que
 não compara vira falha, com a instrução de espelhar a função ou justificar a exceção.
 Falso-positivo ali custa uma entrada com motivo escrito; falso-negativo é o que este
 guard existe para não ter.
+
+**E teve um 4º cenário, da MESMA classe, numa segunda rodada do Codex:** corrigido o
+helper CHAMADO, o identificador **não chamado** continuava passando — extraindo o prazo
+para uma constante local `EXPIRY_DAYS` (5 no backend, 7 no frontend), os corpos ficavam
+idênticos ao byte e o guard saía exit 0. Agora a varredura é de identificador livre, não
+só de `nome(`: o que não for declarado no corpo, parâmetro, propriedade, palavra-chave
+ou permitido é dependência não verificada.
+
+Dois falso-positivos meus nessa mudança, ambos medidos e corrigidos antes de entrar:
+palavras-chave (`const`, `new`, `return`) entrando como identificador — separadas numa
+lista própria, porque são ruído de parser e não decisão sobre regra; e **literal de
+string** (`table.origin !== 'imported'` fazia o guard exigir que `imported` fosse
+espelhado) — literais saem antes da varredura.
 
 **Também do review da mesma PR** (Sonar): complexidade cognitiva de `extrairCorpo` era
 18 > 15 — os dois laços de contagem eram o mesmo algoritmo duplicado inline, extraído
