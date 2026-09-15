@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Header, useTheme, useChangelogBadge, CHANGELOG_UPDATE_MARKERS, type UserMenuItem } from '@artificio/ui';
+import { Header, useChangelogBadge, CHANGELOG_UPDATE_MARKERS, type UserMenuItem } from '@artificio/ui';
 import type { User as ArtificioUser } from '@artificio/auth';
 import { PlusCircle } from 'lucide-react';
 import { MODULE_ORIGINS } from '@artificio/config';
@@ -12,7 +12,6 @@ export function GlossarioHeader() {
   const { user, logout, loading } = useAuth();
   const { openAddTerm } = useUI();
   const navigate = useNavigate();
-  const { theme } = useTheme();
   const { hasNewUpdate, markSeen } = useChangelogBadge('glossario_last_seen_update', CHANGELOG_UPDATE_MARKERS.glossario);
 
   const [changelogOpen, setChangelogOpen] = useState(false);
@@ -52,7 +51,6 @@ export function GlossarioHeader() {
       <Header
         brandHref={MODULE_ORIGINS.glossario}
         currentHref={MODULE_ORIGINS.glossario}
-        variant={theme === 'dark' ? 'dark' : 'light'}
         sessionOverride={{ user: sessionUser, loading }}
         userMenu={userMenu}
         showThemeToggle

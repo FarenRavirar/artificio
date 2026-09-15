@@ -48,17 +48,129 @@ describe("header em ≤860px", () => {
     expect(regra).toContain("clip-path: inset(50%)");
   });
 
-  it("colapsa o grid do header para 3 colunas", () => {
-    // A nav inline some (regra abaixo) e sobram brand, ferramentas e sessão. Com
-    // `1fr auto` — o valor anterior a T3.5e — o 3º filho caía em coluna implícita e
-    // empurrava a faixa de sessão para fora da área visível.
-    expect(regraNoMedia860(".artificio-header-main")).toContain("grid-template-columns: 1fr auto auto");
+  it("colapsa o grid do header para os 4 slots", () => {
+    // [☰público] [marca] [🔍] [☰sessão] — T7.1, spec 102. A nav inline some (regra
+    // abaixo). Antes de T7.1 eram 3 colunas (`1fr auto auto`) e o header media 394px
+    // logado / 406px deslogado, estourando em 360, 375 e 390 (achado P1 do Codex na
+    // PR #322). Com `auto 1fr auto auto` só a marca é elástica: 290px em 320.
+    expect(regraNoMedia860(".artificio-header-main")).toContain("grid-template-columns: auto 1fr auto auto");
     // O seletor é multi-linha no CSS (`> nav` e `.artificio-subnav` em linhas separadas),
     // então o recorte vai do primeiro seletor até a chave, tolerando o que houver entre eles.
     const navEscondida = media860.match(
       /\.artificio-header-main > nav,\s*\.artificio-subnav\s*\{([^}]*)\}/,
     )?.[1] ?? "";
     expect(navEscondida).toContain("display: none");
+  });
+});
+
+// T7.4 (spec 102) — o chrome escurece por TEMA, não só por prop.
+//
+// Antes: só `[data-variant="dark"]` pintava header/footer, e o atributo era escrito por
+// JS. No `site` isso só acontecia depois do `client:idle`, enquanto o corpo já havia
+// escurecido pelo script inline que roda antes da primeira pintura — o FOUC relatado
+// pelo mantenedor ("o site sempre carrega o branco e troca para o escuro, a cada F5").
+//
+// Nenhum teste de comportamento pega uma regressão aqui: jsdom não aplica CSS, e o
+// atributo continuaria sendo escrito do mesmo jeito. Por isso o guard é sobre o TEXTO
+// das regras, como o de `.artificio-user-name` acima.
+// T7.1 (spec 102) — os 4 slots do header em ≤860px.
+//
+// jsdom não aplica media query nem `:has()`, então NENHUM teste de comportamento pega
+// uma regressão aqui: os guards são sobre o texto das regras, como o de
+// `.artificio-user-name`. O que eles NÃO provam é pixel — isso é o smoke visual.
+describe("4 slots do header em ≤860px (T7.1)", () => {
+  // `regraNoMedia860` e `cssRule` JÁ escapam o seletor que recebem — passar escape
+  // manual aqui casa nada e o guard vira falso-verde. Errei assim na 1ª versão destes
+  // testes; eles falharam com "expected '' to contain", que é a assinatura do seletor
+  // que não casou (a regra existia no CSS).
+  it("expõe SÓ a busca na barra; changelog e tema descem para o painel", () => {
+    // Aceite 2 de T7.1. A regra é por exclusão para que ferramenta nova também desça:
+    // o default seguro numa barra de 320px é sair, não entrar.
+    const escondidos = regraNoMedia860('.artificio-header-tools > *:not([aria-label="Buscar"])');
+    expect(escondidos).toContain("display: none");
+  });
+
+  it("esconde o container de ferramentas quando não sobrou busca nele", () => {
+    // Caso real do `accounts`, que liga só o tema: sem isto fica um `<div>` vazio
+    // cobrando os 2×16px de `gap` do grid — 32px dos 30px de folga em 320px.
+    const vazio = regraNoMedia860('.artificio-header-tools:not(:has([aria-label="Buscar"]))');
+    expect(vazio).toContain("display: none");
+  });
+
+  it("mostra o hambúrguer público em ≤860px, e nenhum no desktop", () => {
+    // Aceite 1/3: o público é o 1º slot. No desktop ambos somem porque a nav inline
+    // dá conta.
+    //
+    // Sem `cssRule` na regra base: há um COMENTÁRIO entre `.artificio-nav-toggle,` e
+    // `.artificio-menu-toggle {`, e nenhum recorte por seletor atravessa isso. A
+    // asserção é sobre o texto do arquivo, que é o que de fato precisa estar lá.
+    expect(
+      /\.artificio-nav-toggle,[\s\S]{0,120}?\.artificio-menu-toggle\s*\{[^}]*display: none/.test(styles),
+      "regra base: os dois hambúrgueres têm de nascer `display: none`",
+    ).toBe(true);
+
+    expect(regraNoMedia860(".artificio-nav-toggle")).toContain("display: inline-flex");
+  });
+
+  it("NÃO mostra dois hambúrgueres idênticos — o de sessão espera T7.3", () => {
+    // Os dois chamam `toggleNav` hoje (medido em `Header.tsx`): o da direita só passa
+    // a ser painel de sessão em T7.3. Mostrar ambos daria ao usuário dois controles
+    // com o mesmo efeito, um ao lado do outro, e o 4º slot já tem o avatar/"Entrar".
+    //
+    // Este guard é TEMPORÁRIO por construção: T7.3 o substitui ao reativar o botão.
+    expect(regraNoMedia860(".artificio-menu-toggle")).toContain("display: none");
+  });
+
+  it("mantém o desktop em 4 colunas — T7.1 não mexe nele", () => {
+    // O grid de `:root` é anterior a T7.1 e continua `auto 1fr auto auto`: brand, nav,
+    // ferramentas, sessão. Coincidência de valor, papéis diferentes.
+    expect(cssRule(".artificio-header-main")).toContain("grid-template-columns: auto 1fr auto auto");
+  });
+});
+
+describe("chrome escuro por tema (T7.4)", () => {
+  /** Toda regra cujo seletor menciona `[data-variant="dark"]`. */
+  const regrasDeVariant = [
+    ...styles.matchAll(/([^}]*\[data-variant="dark"\][^{]*)\{/g),
+  ].map((m) => m[1]);
+
+  it("pareia TODA regra de `data-variant=dark` com a de `data-theme=dark`", () => {
+    // Uma regra que escureça só por prop deixa aquele detalhe claro no tema escuro —
+    // exatamente o defeito que o dropdown do avatar tinha (fundo branco sobre navy).
+    expect(regrasDeVariant.length).toBeGreaterThan(0);
+
+    const semPar = regrasDeVariant.filter(
+      (seletor) => !seletor.includes('data-theme="dark"'),
+    );
+    expect(semPar, `regras que só escurecem por prop:\n${semPar.join("\n")}`).toEqual([]);
+  });
+
+  it("deixa `variant=\"light\"` VENCER o tema escuro", () => {
+    // É o que mantém a prop útil: header claro sobre um documento escuro. Sem o
+    // `:not()`, a porta do tema venceria e a prop viraria decoração.
+    const porTema = [...styles.matchAll(/:root\[data-theme="dark"\] \.artificio-(header|footer)([^{,]*)/g)];
+    expect(porTema.length).toBeGreaterThan(0);
+    for (const [trecho] of porTema) {
+      expect(trecho, `sem escape de \`variant="light"\`: ${trecho}`).toContain(
+        ':not([data-variant="light"])',
+      );
+    }
+  });
+
+  it("dá ao dropdown do avatar um fundo que vira por tema", () => {
+    // Ele nasce dentro do header e usava `--artificio-surface` (`#ffffff` FIXO, sem
+    // versão em `[data-theme=dark]`), então abria um retângulo branco sobre o navy.
+    // Só aparece depois do clique no avatar — nenhum smoke o pegava.
+    const regra = cssRule(':root[data-theme="dark"] .artificio-usermenu-dropdown');
+    expect(regra).not.toBe("");
+    expect(regra).toContain("--artificio-dark-surface");
+  });
+
+  it("alterna a marca por CSS, e no pacote — não em JS nem por app", () => {
+    // `Header`/`Footer` emitem as DUAS `<img>`; escolher em JS exigiria saber o tema
+    // antes de hidratar, que é o que não existe quando o escuro vem do documento.
+    expect(cssRule(".logo-neg")).toContain("display: none");
+    expect(styles).toContain(':root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .logo-neg');
   });
 });
 

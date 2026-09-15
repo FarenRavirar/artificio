@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Header, StaticChangelogModal, useChangelogBadge, useTheme, CHANGELOG_UPDATE_MARKERS, type UserMenuItem } from "@artificio/ui";
+import { Header, StaticChangelogModal, useChangelogBadge, CHANGELOG_UPDATE_MARKERS, type UserMenuItem } from "@artificio/ui";
 import { MODULE_ORIGINS } from "@artificio/config";
 import rawChangelogs from "../data/changelogs.json";
 
@@ -10,7 +10,6 @@ const userMenu: UserMenuItem[] = [
 export function LinksHeader() {
   const [changelogOpen, setChangelogOpen] = useState(false);
   const { hasNewUpdate, markSeen } = useChangelogBadge("links_last_seen_update", CHANGELOG_UPDATE_MARKERS.links);
-  const { theme } = useTheme();
 
   const openChangelog = () => {
     setChangelogOpen(true);
@@ -21,7 +20,6 @@ export function LinksHeader() {
     <>
       <Header
         currentHref={MODULE_ORIGINS.links}
-        variant={theme === "dark" ? "dark" : "light"}
         loginLabel="Entrar"
         userMenu={userMenu}
         showThemeToggle

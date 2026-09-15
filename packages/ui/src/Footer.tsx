@@ -32,26 +32,36 @@ export interface FooterProps {
 }
 
 export function Footer({
-  variant = "light",
+  variant,
   navItems = defaultNavItems,
   brandHref = BRAND_ORIGIN,
   copyrightHref = `${BRAND_ORIGIN}/termos-de-uso-e-direitos-autorais/`,
   moduleLinks,
 }: FooterProps) {
-  const logo = variant === "dark" ? brandLogoNeg : brandLogoNavy;
   const year = new Date().getFullYear();
 
   return (
+    /* Mesma regra do `Header` (T7.4, spec 102): sem `variant` o atributo é OMITIDO,
+       e o footer segue `:root[data-theme="dark"]`. Um `data-variant="light"` literal
+       venceria o seletor de tema e travaria o footer claro no tema escuro. */
     <footer className="artificio-footer" data-variant={variant}>
       <div className="artificio-footer-inner">
         <div className="artificio-footer-brand-col">
           <a className="artificio-footer-brand-link" href={brandHref}>
+            {/* As duas marcas no HTML, o CSS mostra uma — ver a nota em `Header.tsx`. */}
             <img
-              alt={logo.alt}
-              className="artificio-footer-logo"
-              height={logo.height}
-              src={logo.src}
-              width={logo.width}
+              alt={brandLogoNavy.alt}
+              className="artificio-footer-logo logo-navy"
+              height={brandLogoNavy.height}
+              src={brandLogoNavy.src}
+              width={brandLogoNavy.width}
+            />
+            <img
+              alt={brandLogoNeg.alt}
+              className="artificio-footer-logo logo-neg"
+              height={brandLogoNeg.height}
+              src={brandLogoNeg.src}
+              width={brandLogoNeg.width}
             />
           </a>
           <p className="artificio-footer-tagline">{FOOTER_TAGLINE}</p>

@@ -38,12 +38,14 @@
   --chip-fg: #ffb486;
 }
 
-/* troca de logo por variante (navy sobre claro, negativo branco sobre dark) */
-.logo-neg { display: none; }
-.artificio-header[data-variant="dark"] .logo-navy,
-.artificio-footer[data-variant="dark"] .logo-navy { display: none; }
-.artificio-header[data-variant="dark"] .logo-neg,
-.artificio-footer[data-variant="dark"] .logo-neg { display: block; }
+/* Troca de logo por variante: as regras vivem em `packages/ui/src/styles.css`
+   (`.logo-navy`/`.logo-neg`), importado por este app, e valem para o header e o
+   footer do site tanto quanto para os dos apps SPA.
+
+   A cópia que existia aqui foi removida em T7.4 (spec 102): ela só reagia a
+   `data-variant`, então ao passar o chrome a escurecer por `:root[data-theme]`
+   a duplicata divergiria da do pacote no próximo ajuste — que é a definição de
+   exceção por app. */
 
 /* Header do site: nenhuma regra própria (T3.5d/T3.5g/T3.5e, spec 102).
 

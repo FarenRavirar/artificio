@@ -1,5 +1,5 @@
 import { getAccountsOrigin, logout, redirectToLogin, useSession } from "@artificio/auth/client";
-import { NotificationBell, StaticChangelogModal, ThemeToggle, applyHeaderVariant, useChangelogBadge, useTheme, CHANGELOG_UPDATE_MARKERS } from "@artificio/ui";
+import { NotificationBell, StaticChangelogModal, ThemeToggle, useChangelogBadge, CHANGELOG_UPDATE_MARKERS } from "@artificio/ui";
 import { useState, useRef, useEffect } from "react";
 import rawChangelogs from "../data/changelogs.json";
 
@@ -103,11 +103,14 @@ export function SiteHeaderIsland({
 
 
   const { hasNewUpdate, markSeen } = useChangelogBadge("site_last_seen_update", CHANGELOG_UPDATE_MARKERS.site);
-  const { theme } = useTheme();
 
-  useEffect(() => {
-    applyHeaderVariant(theme);
-  }, [theme]);
+  /* NÃO voltar a chamar `applyHeaderVariant(theme)` daqui (T7.4, spec 102).
+     Essa chamada era a causa do FOUC que o mantenedor relatava ("o site sempre
+     carrega o branco e troca para o escuro, do nada, a cada F5"): ela só rodava
+     depois do `client:idle`, enquanto o corpo já havia escurecido pelo script
+     inline do `Base.astro`, que roda antes da primeira pintura. O header ficava
+     branco no intervalo. Agora ele escurece por CSS, junto com o corpo —
+     `:root[data-theme="dark"] .artificio-header:not([data-variant="light"])`. */
 
   const openChangelog = () => {
     setChangelogOpen(true);

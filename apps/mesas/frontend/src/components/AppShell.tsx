@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import { Footer, Header, useTheme, useChangelogBadge, CHANGELOG_UPDATE_MARKERS, type NavItem, type UserMenuItem } from '@artificio/ui';
+import { Footer, Header, useChangelogBadge, CHANGELOG_UPDATE_MARKERS, type NavItem, type UserMenuItem } from '@artificio/ui';
 import { FeedbackButton } from '../features/dev-feedback/FeedbackButton';
 import { HeaderActions } from './HeaderActions';
 import { getMesasPublicOrigin } from '../utils/auth';
@@ -34,7 +34,6 @@ export const AppShell = ({ children }: AppShellProps) => {
   const { user, isLoading, logout } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
-  const { theme } = useTheme();
   const { hasNewUpdate, markSeen } = useChangelogBadge('mesas_last_seen_update', CHANGELOG_UPDATE_MARKERS.mesas);
 
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
@@ -50,8 +49,9 @@ export const AppShell = ({ children }: AppShellProps) => {
 
   return (
     <div className="min-h-screen bg-[var(--color-artificio-blue)] text-white flex flex-col">
+      {/* Sem `variant`: o chrome segue `:root[data-theme]` por CSS, antes da
+          hidratação (T7.4, spec 102). */}
       <Header
-        variant={theme === 'light' ? 'light' : 'dark'}
         brandHref={publicOrigin}
         currentHref={publicOrigin}
         moduleNav={moduleNav}
@@ -82,7 +82,7 @@ export const AppShell = ({ children }: AppShellProps) => {
       <div className="flex-1 pt-6">
         {children}
       </div>
-      <Footer variant={theme === 'light' ? 'light' : 'dark'} />
+      <Footer />
       <FeedbackButton />
       <ChangelogModal isOpen={isChangelogOpen} onClose={() => setIsChangelogOpen(false)} />
     </div>
