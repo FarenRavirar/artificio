@@ -95,8 +95,15 @@ Achado do mantenedor no beta; causa medida: ao hidratar, o Astro injeta um `<sty
 guard de estrutura com 6 testes. Detalhe completo e tabela de validação em `tasks.md`,
 bloco T3.5e.
 
-**Estado: commitado na PR #322** (`0b65434`, branch `fix/102-header-mobile-estrutura`,
-base `origin/dev` = `1c833b5`, 10 arquivos). **NÃO mergeada, NÃO deployada.** Produção
+**Estado: commitado na PR #322**, branch `fix/102-header-mobile-estrutura`, base
+`origin/dev` = `1c833b5`. Dois commits: `0b65434` (correção do header, 10 arquivos) e
+`af85545` (achados de review do Codex e do CodeRabbit, 5 arquivos). **NÃO mergeada, NÃO
+deployada.**
+
+**⚠️ HÁ TRABALHO NÃO COMMITADO na árvore (2026-09-15):** `tasks.md` (+461, a F7 inteira e
+as correções do bloco de diagnóstico em T3.5e) e este `mapa-deploys.md`. Só documentação
+— nenhum código. Conferir com `rtk git status --short` antes de qualquer commit; um
+`git add -A` levaria os dois junto. Produção
 segue com o header quebrado no celular até: merge da #322 → promote `dev`→`main` → novo
 Deploy B. Cada passo com autorização nominal própria.
 
@@ -225,6 +232,24 @@ curl -s -A GPTBot/1.1 https://mesas.artificiorpg.com/mesas/<slug> | grep -c 'ld+
 # F2 — Rich Results Test (manual): Product sem erro crítico
 curl -s https://mesas.artificiorpg.com/mesas/<slug> | grep -c '"@type": "Event"'       # 0
 ```
+
+## F7 — header mobile (fase nova, 2026-09-15) · **não afeta os critérios A1…H1**
+
+Criada a pedido do mantenedor depois do achado P1 do Codex na #322: o header estoura
+abaixo de ~400px (394px logado / 406px deslogado, contra 360/375/390 reais) e **já está
+em produção no `site`** — chegou pelo Deploy B, que levou T3.5e. `mesas` e `glossario`
+ainda servem o CSS anterior.
+
+**Nenhum critério A1…H1 depende dela.** É layout e tema, não indexação — exceto **T7.7**
+(`/busca/` do `site` está no sitemap sem `noindex`), que é SEO puro e pode sair sozinha.
+
+**PR própria** (decisão do mantenedor), separada da #322. Toca `packages/ui`, logo exige
+aprovação nominal e verificação de impacto nos 6 consumidores. Detalhe, aceites e custo
+medido: `tasks.md` §F7.
+
+**Não deployar `mesas`, `glossario`, `downloads`, `links` ou `accounts` sem antes decidir
+sobre a F7.** Qualquer deploy desses apps leva o header de T3.5e — com o estouro — para
+produção, pelo mesmo caminho que o Deploy B levou no `site`.
 
 ## O que fecha a spec
 

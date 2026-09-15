@@ -41,6 +41,16 @@ const metaTags = buildMeta({ title, description, canonical, type: ogType, image:
 const lds = jsonld ? (Array.isArray(jsonld) ? jsonld : [jsonld]) : [];
 ---
 <!doctype html>
+<!-- `data-theme="light"` é só o VALOR SERVIDO, e o script inline logo abaixo o
+     substitui pelo tema real (cookie → localStorage → preferência do SO) antes da
+     primeira pintura. Não dá para resolver no servidor: o site é estático, gerado no
+     build, sem acesso ao cookie da requisição.
+
+     Até T7.4 (spec 102) isso bastava para o corpo e não para o header: `--bg` reage a
+     `data-theme`, mas o fundo do header era `--artificio-surface` (`#ffffff` fixo) e só
+     `data-variant` o escurecia — aplicado por JS depois do `client:idle`. Daí o relato
+     "carrega o branco e troca para o escuro, a cada F5". Agora o header segue
+     `:root[data-theme="dark"]` por CSS, junto com o corpo. -->
 <html lang="pt-BR" data-theme="light">
   <head>
     <meta charset="utf-8" />

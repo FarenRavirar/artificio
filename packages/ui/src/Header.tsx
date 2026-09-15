@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { brandLogoNavy, brandLogoNeg } from "./brand.js";
 import { defaultNavItems, type NavItem } from "./modules.js";
 import { Nav } from "./Nav.js";
+import { NavToggle } from "./NavToggle.js";
 import { ThemeToggle } from "./theme.js";
 
 export interface UserMenuItem {
@@ -25,7 +26,17 @@ export interface HeaderProps {
   moduleNav?: NavItem[];
   /** Href ativo do nav de projeto (ex.: pathname). Highlight do subnav. */
   moduleCurrentHref?: string;
-  /** "light" (padrão, logo navy sobre branco) ou "dark" (sobre charcoal). */
+  /**
+   * FORÇA o chrome claro ou escuro, ignorando o tema do documento.
+   *
+   * ⚠️ Não passar é o caso normal (T7.4, spec 102). Sem esta prop o header segue
+   * `:root[data-theme="dark"]`, que o script inline de cada app já aplica antes da
+   * primeira pintura — sem JS, sem esperar hidratação. Passar `variant={theme}`,
+   * como os 6 apps faziam até 2026-09-15, é reimplementar em JS o que o CSS faz
+   * antes, e foi a causa do FOUC: o corpo escurecia na hora e o header só depois.
+   *
+   * Existe para header/footer sobre o navy do hero num documento claro.
+   */
   variant?: "light" | "dark";
   /** Header fixo no topo ao rolar (default true). */
   sticky?: boolean;
@@ -98,7 +109,7 @@ export function Header({
   navItems = defaultNavItems,
   moduleNav,
   moduleCurrentHref,
-  variant = "light",
+  variant,
   sticky = true,
   brandHref = BRAND_ORIGIN,
   userMenu,
@@ -121,7 +132,11 @@ export function Header({
 }: HeaderProps) {
   const session = useSession();
   const { user, loading } = sessionOverride ?? session;
-  const logo = variant === "dark" ? brandLogoNeg : brandLogoNavy;
+  /* As DUAS marcas saem no HTML e o CSS mostra uma (`.logo-navy`/`.logo-neg`,
+     `styles.css`). Escolher em JS — como era até 2026-09-15 — só funcionava com
+     `variant` explícito: quando o escuro vem do tema do documento, o React não tem
+     como saber antes de hidratar, e o wordmark navy ficava sobre o navy. É o mesmo
+     padrão que `apps/site` já usava no seu header próprio. */
   const hasModuleNav = Boolean(moduleNav && moduleNav.length > 0);
   const hasEmbeddedSearch = showSearch && Boolean(onSearchChange);
 
@@ -264,17 +279,47 @@ export function Header({
   return (
     <header
       className="artificio-header"
+      /* `undefined` OMITE o atributo, e a omissão é o contrato (T7.4): o CSS casa
+         `:root[data-theme="dark"] .artificio-header:not([data-variant="light"])`, que
+         um `data-variant="light"` literal bloquearia. Emitir o default — como era até
+         2026-09-15 — deixava os 5 apps SPA permanentemente claros mesmo no tema escuro. */
       data-variant={variant}
       data-sticky={sticky ? "true" : undefined}
     >
       <div className="artificio-header-main" data-has-search={hasEmbeddedSearch ? "true" : undefined}>
+        {/*
+          Hambúrguer PÚBLICO — 1º slot em ≤860px (T7.1, spec 102). Abre o painel com a
+          navegação entre módulos, as opções do módulo atual e o rodapé de ferramentas
+          (changelog e tema), que T7.2 preenche.
+
+          É filho DIRETO do grid e vem antes da marca no DOM porque a ordem do documento
+          é a ordem do leitor de tela e do Tab — e na tela ele está à esquerda de tudo.
+          Posicioná-lo por `order` do CSS divergiria as duas, que é o defeito que o
+          `order` costuma introduzir.
+
+          `display: none` no desktop (regra base de `.artificio-nav-toggle`): a nav
+          inline dá conta ali, e o painel só existe abaixo de 860px.
+        */}
+        <NavToggle
+          className="artificio-nav-toggle"
+          label="Menu de navegação"
+          expanded={navOpen}
+          onClick={toggleNav}
+        />
         <a className="artificio-brand" href={brandHref}>
           <img
-            alt={logo.alt}
-            className="artificio-brand-logo"
-            height={logo.height}
-            src={logo.src}
-            width={logo.width}
+            alt={brandLogoNavy.alt}
+            className="artificio-brand-logo logo-navy"
+            height={brandLogoNavy.height}
+            src={brandLogoNavy.src}
+            width={brandLogoNavy.width}
+          />
+          <img
+            alt={brandLogoNeg.alt}
+            className="artificio-brand-logo logo-neg"
+            height={brandLogoNeg.height}
+            src={brandLogoNeg.src}
+            width={brandLogoNeg.width}
           />
         </a>
         <Nav currentHref={currentHref} items={navItems} />
@@ -376,19 +421,12 @@ export function Header({
             <div className="artificio-header-actions">{actions}</div>
           ) : null}
           {renderSession()}
-          <button
-            type="button"
+          <NavToggle
             className="artificio-menu-toggle"
-            aria-label="Menu"
-            aria-expanded={navOpen}
+            label="Menu"
+            expanded={navOpen}
             onClick={toggleNav}
-          >
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
+          />
         </div>
       </div>
 

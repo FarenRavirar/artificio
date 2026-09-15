@@ -508,7 +508,6 @@ function AdminSecretsPanel() {
 }
 
 function App() {
-  const { theme } = useTheme();
   const rawPath = globalThis.location.pathname;
   // Barra final não deve cair no default (LoginView): "/conta/notificacoes/"
   // batia só em "/conta/notificacoes" na comparação exata (achado CodeRabbit).
@@ -531,12 +530,14 @@ function App() {
 
   return (
     <>
+      {/* Sem `variant`: o chrome segue `:root[data-theme]` por CSS, antes da
+          hidratação (T7.4, spec 102). Era `variant={theme}` — o único consumidor
+          que passava o tema cru, sem normalizar. */}
       <Header
         brandHref={PORTAL_URL}
         currentHref={PORTAL_URL}
         showThemeToggle
         sticky={false}
-        variant={theme}
       />
       <main className="accounts-page">
         {page}

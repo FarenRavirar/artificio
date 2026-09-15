@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Footer, Header, NotificationBell, useTheme, useChangelogBadge, CHANGELOG_UPDATE_MARKERS, type NavItem, type UserMenuItem } from '@artificio/ui';
+import { Footer, Header, NotificationBell, useChangelogBadge, CHANGELOG_UPDATE_MARKERS, type NavItem, type UserMenuItem } from '@artificio/ui';
 import { ChangelogModal } from './ChangelogModal';
 
 interface AppShellProps {
@@ -24,7 +24,6 @@ const SEARCH_DEBOUNCE_MS = 300;
 export const AppShell = ({ children }: AppShellProps) => {
   const { pathname, search } = useLocation();
   const navigate = useNavigate();
-  const { theme } = useTheme();
   const { hasNewUpdate, markSeen } = useChangelogBadge('downloads_last_seen_update', CHANGELOG_UPDATE_MARKERS.downloads);
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
   const urlSearchValue = new URLSearchParams(search).get('q') ?? '';
@@ -69,8 +68,9 @@ export const AppShell = ({ children }: AppShellProps) => {
 
   return (
     <div className="min-h-screen bg-[var(--canvas)] text-[var(--fg)] flex flex-col">
+      {/* Sem `variant`: o chrome segue `:root[data-theme]` por CSS, antes da
+          hidratação (T7.4, spec 102). */}
       <Header
-        variant={theme === 'light' ? 'light' : 'dark'}
         brandHref="/"
         currentHref={pathname}
         userMenu={userMenu}
@@ -87,7 +87,7 @@ export const AppShell = ({ children }: AppShellProps) => {
         actions={<NotificationBell sourceApp="downloads" />}
       />
       <main className="flex-1">{children}</main>
-      <Footer variant={theme === 'light' ? 'light' : 'dark'} moduleLinks={footerModuleLinks} />
+      <Footer moduleLinks={footerModuleLinks} />
       <ChangelogModal isOpen={isChangelogOpen} onClose={() => setIsChangelogOpen(false)} />
     </div>
   );

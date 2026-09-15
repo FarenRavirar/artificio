@@ -48,17 +48,289 @@ describe("header em ≤860px", () => {
     expect(regra).toContain("clip-path: inset(50%)");
   });
 
-  it("colapsa o grid do header para 3 colunas", () => {
-    // A nav inline some (regra abaixo) e sobram brand, ferramentas e sessão. Com
-    // `1fr auto` — o valor anterior a T3.5e — o 3º filho caía em coluna implícita e
-    // empurrava a faixa de sessão para fora da área visível.
-    expect(regraNoMedia860(".artificio-header-main")).toContain("grid-template-columns: 1fr auto auto");
+  it("colapsa o grid do header para os 4 slots", () => {
+    // [☰público] [marca] [🔍] [☰sessão] — T7.1, spec 102. A nav inline some (regra
+    // abaixo). Antes de T7.1 eram 3 colunas (`1fr auto auto`) e o header media 394px
+    // logado / 406px deslogado, estourando em 360, 375 e 390 (achado P1 do Codex na
+    // PR #322). Com `auto 1fr auto auto` só a marca é elástica: 290px em 320.
+    expect(regraNoMedia860(".artificio-header-main")).toContain("grid-template-columns: auto 1fr auto auto");
+  });
+
+  it("faz a soma das faixas caber em 320px de verdade", () => {
+    // ⚠️ O guard que faltava, e sem o qual a aritmética do comentário mentiu (achado
+    // P1 do Codex na PR #323). A 1ª versão contou 40px para a faixa de sessão sem
+    // reduzir o `min-width: 96px` da regra base: a soma real era 346px e o header
+    // estourava 26px em 320 — a largura que T7.1 existe para suportar.
+    //
+    // Cada parcela é medida do CSS, não do comentário. Se alguém subir um piso, a
+    // soma estoura aqui antes de estourar na tela.
+    const px = (regra: string, prop: string) =>
+      Number(new RegExp(`${prop}:\\s*(\\d+)px`).exec(regra)?.[1] ?? NaN);
+
+    // Sem comentários: a regra base dos hambúrgueres tem um `/* ... */` ENTRE os dois
+    // seletores, e passá-lo dentro do seletor para `cssRule` não casa nada (errei assim
+    // na 1ª versão deste guard, e a parcela virou NaN).
+    const semComentarios = styles.replace(/\/\*[\s\S]*?\*\//g, "");
+    const toggle = px(
+      /\.artificio-nav-toggle,\s*\.artificio-menu-toggle\s*\{([^}]*)\}/.exec(semComentarios)?.[1] ?? "",
+      "min-width",
+    );
+    const pisoSessao = px(regraNoMedia860(".artificio-session"), "min-width");
+    const acao = px(cssRule(".artificio-header-action"), "min-width");
+    // `padding: 8px 16px` — o lateral é o 2º valor, e é ele que entra na soma.
+    const lateral = Number(
+      /padding:\s*\d+px\s+(\d+)px/.exec(regraNoMedia860(".artificio-header-main"))?.[1] ?? NaN,
+    );
+    const avatar = px(cssRule(".artificio-avatar"), "width");
+
+    // Nenhuma parcela pode ter vindo de uma leitura que falhou: NaN passaria calado
+    // por qualquer comparação `<=`.
+    expect(
+      [toggle, pisoSessao, acao, lateral, avatar].some(Number.isNaN),
+      `parcela não lida do CSS: toggle=${toggle} piso=${pisoSessao} acao=${acao} lateral=${lateral} avatar=${avatar}`,
+    ).toBe(false);
+
+    expect(pisoSessao, "min-width da faixa de sessão em ≤860px").toBe(40);
+    expect(acao, "min-width do botão de ação (a lupa)").toBe(40);
+
+    // ⚠️ A FAIXA DE SESSÃO NÃO MEDE `min-width` — ela mede o CONTEÚDO (achado P1 do
+    // Codex em `fc5a4fe`). Reduzir o piso para 40px não a limita a 40px: logado,
+    // `mesas`, `downloads`, `glossario` e `site` põem ali o `NotificationBell` (um
+    // `.artificio-header-action` de 40px) ao lado do avatar (32px). A versão anterior
+    // deste guard somava o PISO e certificava 290px enquanto a tela renderizava mais.
+    //
+    // Aqui a faixa entra pelo maior conteúdo real que algum consumidor produz.
+    const sessaoLogada = acao + avatar; // sino + avatar, sem gap declarado na faixa
+    const sessao = Math.max(pisoSessao, sessaoLogada);
+
+    // ☰público + marca + lupa + sessão + 3 gaps + padding dos dois lados.
+    const MARCA_MINIMA = 90;
+    const GAP = 16;
+    const soma = toggle + MARCA_MINIMA + acao + sessao + 3 * GAP + 2 * lateral;
+
+    // ⚠️ TETO CONHECIDO, NÃO O ALVO. Hoje a soma dá 322px e a tela alvo tem 320: o
+    // header estoura 2px quando o usuário está logado num dos 4 apps com sino. Quem
+    // conserta é **T7.3**, que move sino e avatar para o painel de sessão — está
+    // registrado como bloqueador no cabeçalho daquela task.
+    //
+    // O número fica aqui, e não numa promessa em comentário, justamente porque foi um
+    // comentário otimista que deixou passar os dois estouros anteriores. A asserção
+    // trava "não piora"; quando T7.3 entrar, a faixa cai para 40px, a soma vai a 290 e
+    // este teto desce junto — é o sinal de que a task fechou.
+    const TETO_CONHECIDO = 322;
+    expect(
+      soma,
+      `soma das faixas = ${soma}px. Alvo 320; teto conhecido ${TETO_CONHECIDO} até T7.3 tirar sino e avatar da barra.`,
+    ).toBeLessThanOrEqual(TETO_CONHECIDO);
     // O seletor é multi-linha no CSS (`> nav` e `.artificio-subnav` em linhas separadas),
     // então o recorte vai do primeiro seletor até a chave, tolerando o que houver entre eles.
     const navEscondida = media860.match(
       /\.artificio-header-main > nav,\s*\.artificio-subnav\s*\{([^}]*)\}/,
     )?.[1] ?? "";
     expect(navEscondida).toContain("display: none");
+  });
+});
+
+// T7.4 (spec 102) — o chrome escurece por TEMA, não só por prop.
+//
+// Antes: só `[data-variant="dark"]` pintava header/footer, e o atributo era escrito por
+// JS. No `site` isso só acontecia depois do `client:idle`, enquanto o corpo já havia
+// escurecido pelo script inline que roda antes da primeira pintura — o FOUC relatado
+// pelo mantenedor ("o site sempre carrega o branco e troca para o escuro, a cada F5").
+//
+// Nenhum teste de comportamento pega uma regressão aqui: jsdom não aplica CSS, e o
+// atributo continuaria sendo escrito do mesmo jeito. Por isso o guard é sobre o TEXTO
+// das regras, como o de `.artificio-user-name` acima.
+// T7.1 (spec 102) — os 4 slots do header em ≤860px.
+//
+// jsdom não aplica media query nem `:has()`, então NENHUM teste de comportamento pega
+// uma regressão aqui: os guards são sobre o texto das regras, como o de
+// `.artificio-user-name`. O que eles NÃO provam é pixel — isso é o smoke visual.
+describe("4 slots do header em ≤860px (T7.1)", () => {
+  // `regraNoMedia860` e `cssRule` JÁ escapam o seletor que recebem — passar escape
+  // manual aqui casa nada e o guard vira falso-verde. Errei assim na 1ª versão destes
+  // testes; eles falharam com "expected '' to contain", que é a assinatura do seletor
+  // que não casou (a regra existia no CSS).
+  it("expõe SÓ a busca na barra; changelog e tema descem para o painel", () => {
+    // Aceite 2 de T7.1. A regra é por exclusão para que ferramenta nova também desça:
+    // o default seguro numa barra de 320px é sair, não entrar.
+    const escondidos = regraNoMedia860('.artificio-header-tools > *:not([aria-label="Buscar"])');
+    expect(escondidos).toContain("display: none");
+  });
+
+  it("esconde o container de ferramentas quando não sobrou busca nele", () => {
+    // Caso real do `accounts`, que liga só o tema: sem isto fica um `<div>` vazio
+    // cobrando os 2×16px de `gap` do grid — 32px dos 30px de folga em 320px.
+    const vazio = regraNoMedia860('.artificio-header-tools:not(:has([aria-label="Buscar"]))');
+    expect(vazio).toContain("display: none");
+  });
+
+  it("mostra o hambúrguer público em ≤860px, e nenhum no desktop", () => {
+    // Aceite 1/3: o público é o 1º slot. No desktop ambos somem porque a nav inline
+    // dá conta.
+    //
+    // Sem `cssRule` na regra base: há um COMENTÁRIO entre `.artificio-nav-toggle,` e
+    // `.artificio-menu-toggle {`, e nenhum recorte por seletor atravessa isso. A
+    // asserção é sobre o texto do arquivo, que é o que de fato precisa estar lá.
+    expect(
+      /\.artificio-nav-toggle,[\s\S]{0,120}?\.artificio-menu-toggle\s*\{[^}]*display: none/.test(styles),
+      "regra base: os dois hambúrgueres têm de nascer `display: none`",
+    ).toBe(true);
+
+    expect(regraNoMedia860(".artificio-nav-toggle")).toContain("display: inline-flex");
+  });
+
+  it("NÃO mostra dois hambúrgueres idênticos — o de sessão espera T7.3", () => {
+    // Os dois chamam `toggleNav` hoje (medido em `Header.tsx`): o da direita só passa
+    // a ser painel de sessão em T7.3. Mostrar ambos daria ao usuário dois controles
+    // com o mesmo efeito, um ao lado do outro, e o 4º slot já tem o avatar/"Entrar".
+    //
+    // Este guard é TEMPORÁRIO por construção: T7.3 o substitui ao reativar o botão.
+    //
+    // ⚠️ Esconder o `menu-toggle` só é seguro porque TODO consumidor deste CSS tem o
+    // `.artificio-nav-toggle`. O `apps/site` tem header próprio e não tinha: ficou sem
+    // controle de navegação nenhum em ≤860px (P1 do Codex na PR #323). O guard daquele
+    // lado é `SiteHeader.estrutura.test.tsx`; ao mexer nesta regra, conferir lá também.
+    expect(regraNoMedia860(".artificio-menu-toggle")).toContain("display: none");
+  });
+
+  it("mantém o desktop em 4 colunas — T7.1 não mexe nele", () => {
+    // O grid de `:root` é anterior a T7.1 e continua `auto 1fr auto auto`: brand, nav,
+    // ferramentas, sessão. Coincidência de valor, papéis diferentes.
+    expect(cssRule(".artificio-header-main")).toContain("grid-template-columns: auto 1fr auto auto");
+  });
+});
+
+describe("chrome escuro por tema (T7.4)", () => {
+  /** Toda regra cujo seletor menciona `[data-variant="dark"]`. */
+  const regrasDeVariant = [
+    ...styles.matchAll(/([^}]*\[data-variant="dark"\][^{]*)\{/g),
+  ].map((m) => m[1]);
+
+  it("pareia TODA regra de `data-variant=dark` com a de `data-theme=dark`", () => {
+    // Uma regra que escureça só por prop deixa aquele detalhe claro no tema escuro —
+    // exatamente o defeito que o dropdown do avatar tinha (fundo branco sobre navy).
+    expect(regrasDeVariant.length).toBeGreaterThan(0);
+
+    const semPar = regrasDeVariant.filter(
+      (seletor) => !seletor.includes('data-theme="dark"'),
+    );
+    expect(semPar, `regras que só escurecem por prop:\n${semPar.join("\n")}`).toEqual([]);
+  });
+
+  it("deixa `variant=\"light\"` VENCER o tema escuro", () => {
+    // É o que mantém a prop útil: header claro sobre um documento escuro. Sem o
+    // `:not()`, a porta do tema venceria e a prop viraria decoração.
+    const porTema = [...styles.matchAll(/:root\[data-theme="dark"\] \.artificio-(header|footer)([^{,]*)/g)];
+    expect(porTema.length).toBeGreaterThan(0);
+    for (const [trecho] of porTema) {
+      expect(trecho, `sem escape de \`variant="light"\`: ${trecho}`).toContain(
+        ':not([data-variant="light"])',
+      );
+    }
+  });
+
+  it("pareia TODA regra de `data-theme=dark` do CHROME com a de `data-variant=dark`", () => {
+    // O sentido INVERSO do guard acima, e o buraco que deixou passar o achado do
+    // CodeRabbit na PR #323: as 5 regras do dropdown escureciam só por tema, então um
+    // consumidor com `variant="dark"` sob documento CLARO tinha header navy e menu
+    // branco dentro. O guard anterior varre "variant sem tema" e não via isso.
+    //
+    // Escopo: só o chrome (header/footer e o que vive dentro deles). Regras de tema de
+    // componentes de página não têm por que seguir a prop do header.
+    const cssSemComentarios = styles.replace(/\/\*[\s\S]*?\*\//g, "");
+    const porTema = [
+      ...cssSemComentarios.matchAll(
+        /:root\[data-theme="dark"\]\s+\.artificio-(?:header|footer)[^{]*\{/g,
+      ),
+    ].map((m) => m[0]);
+
+    expect(porTema.length).toBeGreaterThan(0);
+
+    // Cada regra de tema do chrome tem de citar o alvo também pela prop. A asserção é
+    // sobre o BLOCO de seletores (eles vêm agrupados por vírgula), não regra a regra.
+    const semPar = porTema.filter((bloco) => !bloco.includes('[data-variant="dark"]'));
+    expect(
+      semPar,
+      `regras de chrome que escurecem só por tema:\n${semPar.join("\n")}`,
+    ).toEqual([]);
+  });
+
+  it("dá ao dropdown do avatar um fundo que vira por tema", () => {
+    // Ele nasce dentro do header e usava `--artificio-surface` (`#ffffff` FIXO, sem
+    // versão em `[data-theme=dark]`), então abria um retângulo branco sobre o navy.
+    // Só aparece depois do clique no avatar — nenhum smoke o pegava.
+    // `cssRule` não serve aqui: ele casa `seletor\s*\{`, e este seletor é o PRIMEIRO de
+    // um grupo — vem seguido de vírgula, não de chave. Foi o que quebrou este guard ao
+    // parear a regra com a porta da prop.
+    const regra = /\.artificio-header:not\(\[data-variant="light"\]\) \.artificio-usermenu-dropdown\s*,[^{]*\{([^}]*)\}/
+      .exec(styles)?.[1] ?? "";
+    expect(regra).not.toBe("");
+    expect(regra).toContain("--artificio-dark-surface");
+  });
+
+  it("faz o menu do avatar honrar `variant=\"light\"`, como o resto do header", () => {
+    // Achado do Codex na PR #323 (P2): as regras do dropdown casavam
+    // `:root[data-theme="dark"] .artificio-usermenu-*` SOLTO, sem passar pelo header.
+    // Num consumidor com `variant="light"` sob documento escuro — caso suportado por
+    // `HeaderProps` — o header ficava claro e o menu dentro dele, escuro.
+    // Duas armadilhas, as duas medidas aqui em 2026-09-15:
+    //
+    // 1. `\s+\.artificio-usermenu` tem de vir IMEDIATAMENTE após o `:root[...]`. Um
+    //    `[^{]*` no meio atravessa o `.artificio-header:not(...)` e casa a versão
+    //    CORRIGIDA — o teste reprovaria a própria correção que deve aprovar.
+    // 2. Varredura sobre o CSS cru casa dentro de COMENTÁRIO. O comentário acima destas
+    //    regras cita o seletor errado como exemplo, e a regex enganchava nele. Por isso
+    //    os comentários saem antes: um guard que lê texto tem de ler só o que o
+    //    navegador lê.
+    const cssSemComentarios = styles.replace(/\/\*[\s\S]*?\*\//g, "");
+    const soltas = [
+      ...cssSemComentarios.matchAll(/:root\[data-theme="dark"\]\s+\.artificio-usermenu[^{,]*\{/g),
+    ].map((m) => m[0]);
+
+    expect(
+      soltas,
+      `regra de menu sem passar pelo header:\n${soltas.join("\n")}`,
+    ).toEqual([]);
+  });
+
+  it("alterna a marca por CSS, e no pacote — não em JS nem por app", () => {
+    // `Header`/`Footer` emitem as DUAS `<img>`; escolher em JS exigiria saber o tema
+    // antes de hidratar, que é o que não existe quando o escuro vem do documento.
+    expect(styles).toContain(':root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .artificio-brand-logo.logo-navy');
+  });
+
+  it("faz a ocultação da marca VENCER o `display: block` das imagens", () => {
+    // ⚠️ O guard que faltava (achado P1 do Codex na PR #323). A 1ª versão assertava
+    // `cssRule(".logo-neg")` — que só prova que a regra EXISTE, não que ela ganha.
+    //
+    // `.logo-neg` sozinho tem especificidade (0,1,0), igual a `.artificio-brand-logo`
+    // e `.artificio-footer-logo`, que declaram `display: block` DEPOIS no arquivo e
+    // venciam pela ordem da cascata. As duas marcas renderizavam no tema claro: a do
+    // header ia de 90px para 180px e o total batia 380px, estourando os 320px que
+    // T7.1 existe para caber — e o guard antigo passava verde.
+    //
+    // A regra passou a casar a classe da IMAGEM junto, subindo para (0,2,0). Este
+    // teste trava as duas pontas: a especificidade e a ausência da forma frágil.
+    const semComentarios = styles.replace(/\/\*[\s\S]*?\*\//g, "");
+
+    // A forma frágil não pode voltar: `.logo-neg`/`.logo-navy` como seletor SOZINHO,
+    // sem a classe da imagem antes.
+    const frageis = [
+      ...semComentarios.matchAll(/(^|[,{}\s])\.logo-(?:neg|navy)\s*[,{]/gm),
+    ].map((m) => m[0].trim());
+    expect(
+      frageis,
+      `seletor de marca sem a classe da imagem (perde para o \`display: block\`):\n${frageis.join("\n")}`,
+    ).toEqual([]);
+
+    // E a ocultação do tema claro existe na forma forte. Sem `cssRule`: ele escapa o
+    // seletor inteiro e não casa grupo multi-linha — a 3ª vez que tropecei nisso neste
+    // arquivo, e a razão de os guards daqui usarem regex sobre o texto.
+    expect(
+      /\.artificio-brand-logo\.logo-neg,\s*\.artificio-footer-logo\.logo-neg\s*\{[^}]*display: none/.test(semComentarios),
+      "a marca negativa precisa nascer escondida, na forma que vence a cascata",
+    ).toBe(true);
   });
 });
 

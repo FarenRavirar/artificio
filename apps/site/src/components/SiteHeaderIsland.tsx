@@ -1,5 +1,5 @@
 import { getAccountsOrigin, logout, redirectToLogin, useSession } from "@artificio/auth/client";
-import { NotificationBell, StaticChangelogModal, ThemeToggle, applyHeaderVariant, useChangelogBadge, useTheme, CHANGELOG_UPDATE_MARKERS } from "@artificio/ui";
+import { NavToggle, NotificationBell, StaticChangelogModal, ThemeToggle, useChangelogBadge, CHANGELOG_UPDATE_MARKERS } from "@artificio/ui";
 import { useState, useRef, useEffect } from "react";
 import rawChangelogs from "../data/changelogs.json";
 
@@ -103,11 +103,14 @@ export function SiteHeaderIsland({
 
 
   const { hasNewUpdate, markSeen } = useChangelogBadge("site_last_seen_update", CHANGELOG_UPDATE_MARKERS.site);
-  const { theme } = useTheme();
 
-  useEffect(() => {
-    applyHeaderVariant(theme);
-  }, [theme]);
+  /* NÃO voltar a chamar `applyHeaderVariant(theme)` daqui (T7.4, spec 102).
+     Essa chamada era a causa do FOUC que o mantenedor relatava ("o site sempre
+     carrega o branco e troca para o escuro, do nada, a cada F5"): ela só rodava
+     depois do `client:idle`, enquanto o corpo já havia escurecido pelo script
+     inline do `Base.astro`, que roda antes da primeira pintura. O header ficava
+     branco no intervalo. Agora ele escurece por CSS, junto com o corpo —
+     `:root[data-theme="dark"] .artificio-header:not([data-variant="light"])`. */
 
   const openChangelog = () => {
     setChangelogOpen(true);
@@ -308,6 +311,28 @@ export function SiteHeaderIsland({
   return (
     <header className="artificio-header" data-sticky="true">
       <div className="artificio-header-main">
+        {/*
+          Hambúrguer PÚBLICO — 1º slot em ≤860px (T7.1, spec 102). Mesma marcação do
+          `packages/ui/src/Header.tsx`: o CSS é compartilhado, e é ele que esconde este
+          botão no desktop e o mostra abaixo de 860px.
+
+          ⚠️ O site TEM de ter este botão, não só o `.artificio-menu-toggle` da direita.
+          A primeira versão de T7.1 escondeu o `menu-toggle` em ≤860px (ele duplicava o
+          público no `Header` do pacote) e o site ficou SEM NENHUM controle de navegação
+          no celular: os 11 links de projetos e as categorias do blog viraram
+          inalcançáveis, porque o mesmo `@media` também esconde os navs inline. Achado do
+          Codex na PR #323 (P1). O site é consumidor divergente do CSS compartilhado —
+          toda regra nova de ≤860px precisa ser conferida aqui também.
+
+          Vem ANTES da marca no DOM pelo mesmo motivo do pacote: ordem do documento é a
+          ordem do leitor de tela e do Tab, e na tela ele está à esquerda de tudo.
+        */}
+        <NavToggle
+          className="artificio-nav-toggle"
+          label="Menu de navegação"
+          expanded={navOpen}
+          onClick={toggleNav}
+        />
         <a className="artificio-brand" href="/">
           <img className="artificio-brand-logo logo-navy" src={logoNavy} alt={brandName} width="300" height="100" />
           <img className="artificio-brand-logo logo-neg" src={logoNeg} alt={brandName} width="300" height="100" />
@@ -317,19 +342,10 @@ export function SiteHeaderIsland({
         <div className="artificio-session" aria-live="polite">
           <NotificationBell sourceApp="site" />
           {sessao}
-          <button
-            type="button"
-            className="artificio-menu-toggle"
-            aria-label="Menu"
-            aria-expanded={navOpen}
-            onClick={toggleNav}
-          >
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
+          {/* O `.artificio-menu-toggle` que ficava aqui saiu em T7.1: ele era o ÚNICO
+              controle de navegação do site e agora vive como `.artificio-nav-toggle`, no
+              1º slot. Mantê-lo aqui além do público daria dois hambúrgueres idênticos.
+              T7.3 é quem cria o painel de SESSÃO neste slot, com conta e notificações. */}
         </div>
       </div>
 

@@ -1854,6 +1854,226 @@ passou verde com a regra errada, porque jsdom não aplica media query. Teste de
 comportamento não alcança regra de CSS; o guard novo (`styles.contract.test.ts`, 2 testes)
 assere sobre o CSS emitido.
 
+**⚠️ ESTE BLOCO É DIAGNÓSTICO, NÃO ESPECIFICAÇÃO — não implementar a partir dele.**
+Avaliado em 2026-09-15 a pedido do mantenedor ("veja se a spec está definindo bem para um
+implementador conseguir implementar"): **não está.** Os defeitos, medidos na própria
+leitura:
+
+1. **Lugar errado.** Vive dentro de T3.5e, na F3 (`site`: canonical legado). Quem procura
+   "header mobile" não acha. O mantenedor pediu fase nova; **a F7 ainda não existe**.
+2. **Sem tasks.** Nenhum `T7.x`, nenhum critério de aceite, nenhuma ordem de execução.
+3. **Duas aritméticas conflitantes convivem** sem dizer qual vale: a de **318/306px**
+   (estrutura anterior, descartada pelo mantenedor) e a de **290px** (estrutura decidida).
+4. **Decisões já tomadas aparecem como pergunta aberta:** "Adicionar Sugestão fica
+   exposto" está decidido, mas a tabela de `actions` ainda o lista como problema; a
+   exclusão mútua foi respondida ("quando um entra, outro tem que fechar") e o texto
+   ainda pergunta.
+5. **Falta o essencial para implementar:** onde ficam changelog e tema DENTRO do painel
+   público; o que acontece com a subnav de módulo em mobile; se o `site` ganha lupa ou
+   campo; como o `downloads` (campo embutido, sem `/busca`) se encaixa nos 4 slots.
+6. **Duas decisões do mantenedor seguem pendentes e bloqueiam:** tokens (renomear os 4
+   para `--artificio-*` ou estender o guard aos apps) e a busca do `downloads`.
+
+O material medido abaixo é válido e deve ser MOVIDO para a F7 ao criá-la, não recopiado.
+
+**⚠️ ABERTO — o header estoura abaixo de ~400px, e JÁ ESTÁ EM PRODUÇÃO.** Achado P1 do
+Codex na #322, confirmado por aritmética sobre os valores medidos no CSS:
+
+| item | largura | origem |
+|---|---:|---|
+| logo | 90px | PNG 300×100 a `height:30px`, `flex-shrink:0` |
+| 3 ferramentas | 128px | 3 × `min-width:40px` + 2 × `gap:4px` |
+| sessão (logado) | 112px | sino 40 + avatar 32 + hambúrguer 40 |
+| sessão (deslogado) | 124px | "Entrar" (`padding:0 18px` + texto) + hambúrguer 40 |
+| gaps + padding | 64px | 2 × `gap:16px` + `padding:8px 16px` |
+| **total** | **394px logado · 406px deslogado** | |
+
+Estoura em 360, 375 e 390 — as larguras mais comuns. Nada encolhe: `min-width:40px` nos
+botões, `flex-shrink:0` no logo, e as colunas `auto` do grid não cedem.
+
+**Não foi a #322 que introduziu.** `grid-template-columns: 1fr auto auto` e
+`.artificio-header-tools` já estavam em `origin/dev` desde T3.5e (`93b325f`); o diff da
+#322 no `@media` só acrescenta a regra do `user-name`. Com o CSS anterior (`1fr auto`) a
+soma dava **378px** — já estourava em 360 e 375. T3.5e piorou em 16px (um gap a mais).
+
+**Está no ar só no `site`.** Medido no CSS servido: `artificiorpg.com` tem
+`1fr auto auto` + `header-tools` (chegou pelo Deploy B); `mesas` e `glossario` ainda
+servem `1fr auto`, versão pré-T3.5e. Os outros 4 apps recebem quando forem deployados.
+
+**Duas soluções óbvias NÃO servem — pesquisadas e descartadas por medição:**
+
+- **`minmax(0, 1fr)` / `min-width: 0`** é a resposta canônica para *grid blowout*, mas
+  vale quando o conteúdo PODE encolher. Aqui não pode: `min-width:40px` em cada
+  `.artificio-header-action` e `.artificio-menu-toggle`, `flex-shrink:0` no logo. A
+  própria fonte que documenta a técnica (defensivecss.dev) diz não cobrir o caso de
+  conteúdo com mínimo maior que a viewport.
+- **`overflow: hidden`** mascara sem corrigir e esconde botão interativo — desaconselhado
+  explicitamente pelas fontes.
+
+**A solução estabelecida, convergente entre Material Design 3 e headers reais:** o que não
+cabe vai para o overflow/drawer, e as ações mais usadas ficam na barra. O painel do
+hambúrguer já existe (`.artificio-mobile-nav`).
+
+**Aritmética da correção** (mesmos valores medidos acima), tirando busca e changelog da
+barra e mantendo o tema:
+
+| estado | largura | 360px |
+|---|---:|---|
+| deslogado: logo + tema + Entrar + hambúrguer | **318px** | cabe |
+| logado: logo + tema + sino + avatar + hambúrguer | **306px** | cabe |
+
+**ESTRUTURA DECIDIDA PELO MANTENEDOR em 2026-09-15** (só ≤860px; desktop intacto):
+
+> hambúrguer público à ESQUERDA (nav + changelog + tema) · logo · busca · hambúrguer de
+> SESSÃO à direita (login quando deslogado; conta + **notificações** quando logado).
+> "Isso tem que ser padrão para todos os apps."
+
+O sino fica dentro do hambúrguer de sessão por ser notificação de quem está logado.
+
+**Aritmética: 290px** (4 slots × 40/90px + 3 gaps + padding) — cabe em **320px** com 30px
+de folga. É a melhor das opções medidas.
+
+**⚠️ Três apps injetam conteúdo próprio na direita via `actions` e precisam mudar junto**,
+senão o conteúdo fica solto na barra e a conta estoura de novo — mas **não é sino nos
+três**, ao contrário do que esta linha dizia antes (medido em 2026-09-15):
+
+| app | o que passa em `actions` | é notificação? |
+|---|---|---|
+| `downloads/AppShell.tsx:87` | `NotificationBell` | sim |
+| `mesas/AppShell.tsx:80` | `HeaderActions` → `NotificationBell` com gate próprio (`useAuth`) | sim |
+| `glossario/GlossarioHeader.tsx:68` | botão **"Adicionar Sugestão"** (`PlusCircle`) | **não** — ação do app, exige login |
+
+**⚠️ Mapa da busca nos 4 apps — medido em 2026-09-15.** A linha anterior deste bloco dizia
+que `downloads` E `mesas` usavam campo embutido; errado, só o `downloads` usa:
+
+| app | modo | destino da lupa |
+|---|---|---|
+| `mesas` | lupa (`onSearch`) | `navigate('/busca')` |
+| `glossario` | lupa (`onSearch`) | `navigate('/busca')` |
+| `site` | lupa própria na ilha | modal Pagefind; fallback `window.location.assign('/busca/')` |
+| `downloads` | **campo embutido** (`onSearchChange`) | **não navega** — filtra a listagem atual por `?q=`, com debounce; não existe página `/busca` |
+
+O campo embutido é o único que precisa da 2ª linha em ≤860px (`grid-column: 1 / -1;
+grid-row: 2`). O `downloads` é caso legítimo, não divergência a corrigir: a busca dele
+filtra a página em que o usuário está, não leva a outra.
+
+**Determinação do mantenedor (2026-09-15):** o header do `mesas` é o modelo — logo +
+sessão + menu. A lupa no mobile **direciona para a página de busca daquele módulo**. O
+`site` precisa ganhar busca explícita na home, que hoje não tem. O botão "Adicionar
+Sugestão" do `glossario` **fica exposto**, não entra no hambúrguer de sessão.
+
+**⚠️ CORREÇÃO DE UMA OPÇÃO QUE O AGENTE OFERECEU E PREJUDICA SEO.** Na pergunta sobre a
+busca do `downloads`, o mantenedor escolheu "vira lupa + cria página `/busca`". Medido
+depois: **essa opção colide com decisão de SEO deliberada** e não deveria ter sido
+oferecida sem essa ressalva.
+
+- `CatalogoPage.tsx:49` tem `useCanonicalUrl('/')` com comentário próprio: as query
+  strings são recortes da MESMA listagem, e consolidar tudo em `/` é o que preserva o
+  sinal de indexação — "apontar cada recorte pra si mesmo diluiria o domínio entre dezenas
+  de URLs equivalentes". Uma página `/busca` real seria mais uma URL disputando a mesma
+  autoridade, o oposto do que esta spec faz.
+- **O `mesas`, que o mantenedor aprovou como modelo, NÃO tem página de busca:**
+  `apps/mesas/frontend/src/routes/busca.tsx` tem **3 linhas** e é redirect `replace` para
+  `/catalogo` (`routes/redirect.tsx`, spec 102 T4.2 — `replace` e não `redirect` para o
+  Voltar não cair em loop, achado do Codex na #319).
+- `glossario` é o único com página real (`BuscaPage.tsx`, 96 linhas) — e ali faz sentido:
+  a busca dele consulta a API de termos, não filtra uma listagem já existente.
+
+**Forma correta para o `downloads`, alinhada ao modelo aprovado e ao SEO:** rota `/busca`
+que **redireciona** (`replace`) para `/catalogo`, preservando `?q=`. Zero URL nova
+indexável, canonical de `/` intocado, e o comportamento no celular fica idêntico ao do
+`mesas`. **Confirmar com o mantenedor antes de implementar** — a escolha registrada foi
+"criar página".
+
+**⚠️ ACHADO PREEXISTENTE, SILENCIOSO: `/busca/` do `site` É INDEXÁVEL.** Medido em
+2026-09-15 no que está no ar:
+
+| medição | resultado |
+|---|---|
+| `<meta name="robots">` na página | **ausente** |
+| `X-Robots-Tag` no header HTTP | **ausente** |
+| no `sitemap-0.xml` | **presente** (`<loc>https://artificiorpg.com/busca/</loc>`) |
+| canonical | auto-referente (`/busca/`) |
+
+É página de resultado de busca interna, anunciada no sitemap e sem bloqueio. A doc do
+Google é explícita: páginas de busca interna são de baixa qualidade e devem levar
+`noindex` — "if you can't limit the indexable search results pages, noindex or robot all
+of the search pages". Uma URL sem conteúdo próprio competindo por autoridade é exatamente
+a classe de problema que esta spec existe para corrigir.
+
+**Correção, com o mecanismo que já existe no repo:** `Base.astro` já aceita `noindex`
+(prop → `buildMeta` → `packages/content/src/meta.ts:23`, que emite
+`robots: noindex,nofollow`); `404.astro`, `[slug].astro` e `blog/[slug].astro` já usam.
+Basta `noindex` em `pages/busca/index.astro`. Para tirá-la do sitemap,
+`@astrojs/sitemap` aceita `filter(page)` (`dist/index.d.ts:9`), hoje não usado em
+`astro.config.mjs`.
+
+**Não é do escopo da F7** (header), mas é da spec 102 e está em produção. Task própria a
+criar.
+
+**⚠️ CAUSA DA DIVERGÊNCIA VISUAL ENTRE APPS — medida em 2026-09-15.** O mantenedor
+observou que "os estilos estão dispersos" e perguntou por que o pacote compartilhado não
+evita isso. O pacote existe e **nenhum app sobrescreve classe de header** (medido: `rg -c
+"artificio-header|artificio-nav|artificio-subnav|artificio-session"` → **0** em
+`mesas/index.css`, `glossario/index.css`, `downloads/index.css`). A divergência entra por
+outro caminho: **o header lê 20 tokens de DUAS famílias**.
+
+| família | quantos | quem define |
+|---|---:|---|
+| `--artificio-*` (`ink`, `surface`, `line`, `brand`, `navy`, `canvas`, `focus`, `muted`, `border`, `brand-deep`, `font-sans`) | 12 | só `packages/ui`; **0 sobrescritas** nos apps |
+| **sem prefixo** — `--fg`, `--fg-muted`, `--line`, `--surface-subtle` | 4 | **cada app, no próprio `:root`** |
+| estruturais (`--radius-*`, `--weight-*`) | 4 | pacote |
+
+`mesas/index.css:21` define `--fg: #FFFFFF` + superfícies escuras próprias; `glossario`
+define `--fg` a partir de outra origem; `site` tem os seus. O header compartilhado herda a
+cor de cada app **sem ninguém ter tocado numa classe dele**.
+
+**O guard não alcança:** `check-token-parity.mjs` compara `tokens.ts` × `styles.css` ×
+`tailwind-preset.js` DENTRO do pacote; nunca olha `apps/*`. Um app pode definir `--fg`
+divergente e nada acusa.
+
+**Não é falta de fallback — é CASCATA.** O pacote JÁ define os quatro em `:root`
+(`styles.css:142-152`, com `--fg: var(--artificio-light-ink)`). Os apps importam
+`@artificio/ui/styles.css` ANTES do próprio `index.css` (`glossario/main.tsx:6-7`,
+`downloads/main.tsx:7-11`, `mesas/root.tsx:11`), e redefinem os mesmos nomes em `:root`
+puro — mesma especificidade, quem vem depois vence.
+
+**⚠️ MAS ISSO NÃO É A CAUSA DA DIVERGÊNCIA DO HEADER — medido em 2026-09-15, na
+conferência independente da F7.** A afirmação acima ("o header inteiro fica branco naquele
+app") estava **errada**. Medição por extração das declarações de cada classe:
+
+- As classes estruturais (`.artificio-header`, `-main`, `-nav-link`, `-subnav`,
+  `-session`, `-header-tools`, `-header-action`, `-menu-toggle`, `-mobile-nav`,
+  `-usermenu*`) usam **só `--artificio-*`** — e **nenhum app redefine esses** (`rg
+  "--artificio-[a-z-]*:" apps` → 0).
+- Os 4 tokens sem prefixo aparecem em **4 lugares, todos na busca embutida**
+  (`.artificio-header-search`, `-search-input`, `-input::placeholder`).
+
+**A causa real é `data-variant`**, e está detalhada em **T7.4 (F7)**: 25 regras de CSS
+dependem dele, cada app o calcula de um jeito, e o `site` não o passa — aplica por JS
+depois de hidratar. Não reabrir a hipótese dos tokens sem antes remedir.
+
+**Subnav de módulo sem diferenciação.** Só o `mesas` passa `moduleNav`; o `site` monta a
+própria subnav na ilha; `glossario` e `downloads` não usam. O CSS é um só
+(`styles.css:597` — `border-top` + fonte 13px), sem distinguir visualmente o que é
+navegação COMPARTILHADA do que é opção DAQUELE módulo. O mantenedor pediu diferenciação
+maior; é mudança no pacote, atinge os consumidores de `moduleNav`.
+
+**NÃO IMPLEMENTADO NA #322 — decisão de escopo do agente, a confirmar.** A #322 corrige o
+defeito de acessibilidade e a estrutura do grid, ambos medidos e testados. A estrutura
+acima é redesenho do header mobile: `packages/ui/src/Header.tsx` (menu do avatar vira
+hambúrguer de sessão), `SiteHeaderIsland.tsx` (código próprio, mesma mudança),
+`styles.css` (4 slots), os 3 apps consumidores, mais guards. 6 arquivos em 4 pacotes, com
+smoke visual que só navegador resolve.
+
+**Questão aberta que muda a implementação, não medida:** os dois hambúrgueres abrem o
+MESMO painel (um, com duas seções) ou dois painéis independentes? Dois painéis exigem
+exclusão mútua entre si — que é exatamente o bug já reportado pelo mantenedor neste header
+("quando clica no direita ou esquerda, o outro tem que fechar").
+
+Breakpoint: o estouro não ocorre em 860px, só abaixo de ~400. Precedente de breakpoint
+menor no repo: `packages/comments/src/styles.css:314` (`max-width: 480px`).
+
 **DESCARTADO: `aria-label` no botão do avatar** (sugestão do CodeRabbit na #322). A
 sugestão parte de o nome estar escondido, o que valia no commit revisado (`0b65434`, com
 `display: none`) mas não depois da correção. Medido na regra atual: não tem `display:
@@ -3916,6 +4136,511 @@ da ferramenta e nada tem a ver com esta spec.
 
 ---
 
+## F7 — Header mobile unificado nos 6 apps · **PR PRÓPRIA**
+
+**Origem.** Achado P1 do Codex na PR #322 (header estoura abaixo de ~400px, já em
+produção) + determinações do mantenedor em 2026-09-15 sobre a estrutura do header no
+celular. O diagnóstico medido que sustenta esta fase está em T3.5e (F3), no bloco marcado
+"ESTE BLOCO É DIAGNÓSTICO, NÃO ESPECIFICAÇÃO"; **não repetir as medições aqui** — esta
+fase é o que fazer, aquele bloco é por quê.
+
+**Escopo:** header mobile + tokens + subnav, numa PR só (decisão do mantenedor). Desktop
+**não muda** em nenhuma task.
+
+**Estrutura alvo em ≤860px** (decisão do mantenedor; o desktop permanece como está):
+
+```
+┌──────────────────────────────────┐
+│ [☰púb]  logo  [🔍]  [☰sessão]   │   4 slots, 290px mínimo
+└──────────────────────────────────┘
+```
+
+- **`☰púb`** (esquerda): nav entre módulos + subnav do módulo + rodapé com changelog e tema
+- **`logo`**: centro
+- **`🔍`**: navega para a busca daquele módulo
+- **`☰sessão`** (direita): "Entrar" quando deslogado; conta + **notificações** quando logado
+
+**Exclusão mútua:** abrir um fecha o outro. O mecanismo já existe entre avatar e painel
+(`Header.tsx:141-153`, `toggleUserMenu`/`toggleNav`) — **estender, não reescrever**.
+
+**Custo medido em 2026-09-15** (o mantenedor perguntou antes de autorizar):
+
+| onde | arquivos | tamanho |
+|---|---|---|
+| `packages/ui` | `Header.tsx` · `styles.css` · `theme.tsx` | 421 · 2240 · 155 linhas |
+| `site` | `SiteHeaderIsland.tsx` · `SiteHeader.astro` · `Base.astro` · `busca/index.astro` · `astro.config.mjs` | 367 · 45 · 126 linhas |
+| consumidores | `mesas` 90 · `glossario` 85 · `downloads` 94 + `App.tsx` 106 · `links` 39 · `accounts` 552 | só tiram o cálculo de `variant`; `downloads` ganha a rota |
+| guards | `styles.contract` 16 testes · `Header.paineis` 6 · `Header.acesso` 11 · `SiteHeader.estrutura` 6 | estendidos |
+
+**Validação automatizada:** **6 suítes, 2.400 testes** — `mesas` **1152** · `accounts`
+**602** (+52 skipped, 87s) · `downloads` **315** · `site` **190** (18s) · `ui` **104**
+(5s) · `glossario` **37**. Um comando por vez (trava do T0).
+
+O `accounts` entra porque consome o `Header` (`main.tsx:539`, `variant={theme}`) e é o
+app com **menos rede de segurança** aqui: nenhum dos seus 602 testes toca o header
+(medido — os arquivos que citam `Header` são de credencial e rotas de comunidade).
+
+**O custo real é o smoke visual, e é do mantenedor:** 6 apps × 4 larguras
+(320/360/375/390) × logado/deslogado × claro/escuro = **96 combinações**. Guard de CSS
+prova regra, guard de árvore prova estrutura; **nenhum prova pixel**.
+
+**Ganho, para comparar:** header de 394px (logado) / 406px (deslogado) passa a **290px**,
+cabendo em 320. O FOUC do tema some. `/busca/` sai do índice. Seis escritas de
+`data-variant` viram uma.
+
+**Duas formas de baratear, se o smoke de 96 combinações for caro demais de uma vez:**
+T7.4 sozinha primeiro reduz a conferência a "o header ficou igual nos 6?", sem misturar
+com mudança de estrutura; e **T7.7 é independente de tudo** — 2 linhas, sem smoke visual.
+
+**Aritmética que valida:** 40+90+40+40 (slots) + 3×16 (gaps) + 32 (padding) = **290px**,
+cabe em 320px com 30px de folga. Hoje: 394px logado / 406px deslogado, estourando em 360,
+375 e 390.
+
+---
+
+### [x] T7.1 — Estrutura de 4 slots no `packages/ui` — **FEITA (2026-09-15)**
+
+`Header.tsx` + `styles.css`. O grid de ≤860px passou de `1fr auto auto` para
+`auto 1fr auto auto`. A marca é o único item elástico; os três controles ficam em `auto`,
+do tamanho do alvo de toque.
+
+**Entregue.**
+- **Hambúrguer público** (`.artificio-nav-toggle`), filho direto do grid e **antes da
+  marca no DOM** — ordem do documento é a do leitor de tela e do Tab, e ele está à
+  esquerda na tela. Resolver por `order` do CSS divergiria as duas ordens. Nasce
+  `display: none`; aparece só em ≤860px. Hoje abre o painel atual (`toggleNav`); T7.2 é
+  quem lhe dá os três blocos de conteúdo.
+- **Só a busca exposta** na barra. Changelog e tema descem por
+  `.artificio-header-tools > *:not([aria-label="Buscar"])` — regra por EXCLUSÃO, para que
+  ferramenta futura também desça: o default seguro numa barra de 320px é sair, não entrar.
+- **Container de ferramentas some junto** quando não sobrou busca nele
+  (`:not(:has(...))`). Caso real do `accounts`, que liga só o tema: esconder apenas os
+  filhos deixaria um `<div>` vazio cobrando os 2×16px de `gap`, ou seja 32px dos 30px de
+  folga que a aritmética de 320px tem.
+- **Desktop inalterado**: a regra de `:root` continua `auto 1fr auto auto`. Mesmo valor do
+  mobile por coincidência — os papéis das faixas são outros (lá: brand, nav, ferramentas,
+  sessão).
+
+**⚠️ Desvio do aceite 2, deliberado — o hambúrguer de SESSÃO fica escondido em ≤860px.**
+Os dois botões chamam o mesmo `toggleNav` (medido em `Header.tsx`), porque só **T7.3**
+converte o da direita em painel de sessão. Mostrar ambos agora daria ao usuário dois
+controles idênticos lado a lado, e o 4º slot já tem o avatar (ou o "Entrar"), que é a
+porta da conta. A regra `.artificio-menu-toggle { display: none }` dentro do `@media` é
+**o ponto de entrada de T7.3**, que a reativa com `display: inline-flex` e troca o
+`onClick`. Há guard travando o estado atual, e ele é temporário por construção.
+
+**Aceite — medido em 2026-09-15.**
+1. ✅ `grid-template-columns: auto 1fr auto auto` no `@media`; guard existente reescrito
+   (ele pegou a mudança, que é a função dele).
+2. ⚠️ Cumprido para changelog e tema; o hambúrguer de sessão saiu da barra em vez de
+   ficar — ver o desvio acima.
+3. ✅ Desktop intacto, com guard próprio.
+4. ✅ `tsc` 0, `eslint` 0, **121 testes** no `packages/ui` (eram 104 antes da F7).
+5. ✅ **Guard novo de contagem de slots**: `Header.slots.test.tsx` renderiza e conta os
+   filhos DIRETOS do grid, no padrão de `SiteHeader.estrutura.test.tsx` do `site`. O
+   aceite 1 prova as faixas; este prova os filhos. As duas metades juntas é que impedem a
+   volta de T3.5e (5 filhos para 4 faixas empurra a sessão para fora da tela).
+6. ⬜ **Smoke visual pendente** — 320/360/375/390px. Guard de CSS prova regra, guard de
+   árvore prova estrutura; nenhum prova pixel.
+
+**Regressão conferida nos consumidores:** `site` 191 · `mesas` 1152 · `accounts` 602 ·
+`downloads` 315 · `glossario` 37, todas verdes.
+
+#### Achados de review na PR #323, corrigidos no mesmo trabalho
+
+**P1 (2ª rodada) — a aritmética de 320px do comentário estava errada, e o header
+estourava.** O comentário do `@media` contava 40px para a faixa de sessão, que é o
+tamanho do BOTÃO. Medido depois do apontamento: `.artificio-session` tem
+`min-width: 96px` na regra base (`styles.css`) e o `@media` **não o ajustava**. A soma
+real, nos consumidores com lupa: 40 (☰) + 90 (marca) + 40 (🔍) + **96** (sessão) + 3×16
+(gaps) + 32 (padding) = **346px** — estourando 26px justamente em 320, a largura que
+T7.1 existe para suportar.
+
+Duas correções: o `min-width` da sessão cai para 40px no `@media` (o conteúdo lá é o
+avatar de 32px ou o "Entrar"), e o texto de carregamento ganha `max-width` + reticência
+— "Verificando acesso…" em 14px passa de 130px sozinho e esticava a faixa acima de
+qualquer piso enquanto a sessão não resolvia.
+
+**⚠️ O guard que faltava:** a aritmética vivia só num comentário, e comentário não
+falha. Agora `styles.contract.test.ts` **soma as parcelas lidas do CSS** e reprova se
+passar de 320 — se alguém subir um piso, estoura no teste antes de estourar na tela.
+Cada parcela é validada contra `NaN`, porque leitura que falha passaria calada por uma
+comparação `<=`.
+
+**Duplicação (Sonar): o mesmo botão em três lugares.** 6,6% em código novo, 44% no
+`Header.tsx`, 46% no island. Medido: a marcação do hambúrguer (botão + SVG de 3 linhas)
+estava idêntica em `Header.tsx` (público e sessão) e no `SiteHeaderIsland`. Extraída
+para `packages/ui/src/NavToggle.tsx` e consumida nos três pontos — é a regra de
+compartilhado do `AGENTS.md`, não cosmética de métrica: com três cópias, mudar o ícone
+deixa duas para trás em silêncio.
+
+**⚠️ Editar o barrel do `packages/ui` NÃO basta para os consumidores.** O
+`package.json` do pacote aponta `exports` para `./dist/index.d.ts`, então o `site`
+consome o BUILD, não o fonte. Sintoma medido: `tsc` do `site` deu
+`TS2305: Module '@artificio/ui' has no exported member 'NavToggle'` com o export já
+escrito no `index.ts`, e a suíte do `site` quebrou junto — enquanto o `packages/ui`
+passava verde nos seus 121 testes. A correção é `pnpm --filter @artificio/ui build`
+antes de rodar os consumidores. **Vale para toda task da F7 que exporte símbolo novo
+do pacote.**
+
+#### Achados do Codex em `fc5a4fe`
+
+**P1 — a faixa de sessão mede o CONTEÚDO, não o `min-width`, e o guard certificava o
+piso.** O commit anterior baixou `.artificio-session` para `min-width: 40px` no `@media`
+e deu a conta por fechada em 290px. Medido depois do apontamento: logado, `mesas`,
+`downloads`, `glossario` e `site` põem naquela faixa o `NotificationBell` — que renderiza
+um `.artificio-header-action` de 40px — ao lado do avatar de 32px. A faixa mede **72px**,
+não 40, e a soma real é **322px**: o header estoura 2px em 320.
+
+**⚠️ O guard passava porque somava a parcela errada.** Ele lia `min-width` da faixa, que
+é um PISO, e o que ocupa a coluna é o conteúdo. Um guard que mede a grandeza errada é
+pior que nenhum: ele certifica o número e cala a dúvida. Agora a faixa entra pelo maior
+conteúdo real (`acao + avatar`), e o guard carrega `TETO_CONHECIDO = 322` — o estado
+medido, não o desejado.
+
+**Decisão: não esconder o sino no mobile como atalho.** Seria repetir o P2 desta mesma
+PR — ocultar função antes de o destino existir. O destino é o painel de sessão de
+**T7.3**, e o estouro está registrado como bloqueador no cabeçalho daquela task, com o
+teto de 322 devendo cair para 320 lá.
+
+#### Achados do Codex em `f15346f`
+
+**P1 — regra de CSS compartilhado deixou o `site` sem navegação no celular.** O commit
+`f15346f` escondeu `.artificio-menu-toggle` em ≤860px porque, no `Header` do pacote, ele
+duplicava o hambúrguer público. Medido depois do relato: `apps/site` tem header PRÓPRIO,
+com **0 ocorrências** de `.artificio-nav-toggle` e só aquele botão acionando `toggleNav`.
+Com o mesmo `@media` já escondendo os navs inline, os 11 links de projetos e as categorias
+do blog ficaram **inalcançáveis no mobile do `artificiorpg.com`**.
+
+Correção: o `SiteHeaderIsland` ganhou o `.artificio-nav-toggle` no 1º slot e perdeu o
+`menu-toggle` da faixa de sessão — alinhando com o pacote, que é a direção da F7 e o que
+T7.2 vai exigir de qualquer forma.
+
+**⚠️ Por que passou:** as **6 suítes estavam verdes**. Nenhuma perguntava se um app
+consumidor ainda tinha controle de navegação depois do colapso — falha em silêncio, sem
+erro de tipo nem de lint. O guard que faltava agora existe em
+`SiteHeader.estrutura.test.tsx` ("tem um controle de navegação que sobrevive ao colapso de
+≤860px"), e há nota cruzada no `styles.contract.test.ts`: **toda regra nova de ≤860px
+precisa ser conferida contra o `site`**, que é consumidor divergente do CSS compartilhado.
+
+**P2 — o menu do avatar não seguia o header, e faltava nos DOIS sentidos.** As 5 regras
+de tema escuro do dropdown foram escritas sem passar pelo header, e cada revisor viu uma
+metade do mesmo defeito:
+
+- **Codex:** casavam `:root[data-theme="dark"] .artificio-usermenu-*` solto. Num
+  consumidor com `variant="light"` sob documento escuro — caso suportado por
+  `HeaderProps` — o header ficava claro e o menu dentro dele, escuro.
+- **CodeRabbit:** faltava também a porta da prop. Medido antes de corrigir:
+  `data-variant="dark"` + `usermenu` = **0 ocorrências**. Um app com `variant="dark"`
+  sob documento CLARO teria header navy com o dropdown branco — o espelho exato do
+  anterior.
+
+Corrigido com as duas portas, como no resto do chrome:
+`:root[data-theme="dark"] .artificio-header:not([data-variant="light"])` **e**
+`.artificio-header[data-variant="dark"]`.
+
+**O buraco era do guard, e foi fechado.** O guard "pareia TODA regra de `data-variant`
+com a de `data-theme`" varre num sentido só — regra de prop sem tema. Regra de tema sem
+prop passava batido, que é exatamente o caso do dropdown. Agora existe o guard do sentido
+inverso, restrito ao chrome (`header`/`footer` e o que vive dentro deles): componente de
+página não tem por que seguir a prop do header.
+
+**Aprendizado do guard (custou duas tentativas):** varredura por regex sobre o CSS cru
+**casa dentro de comentário**. O comentário que escrevi acima dessas regras cita o seletor
+errado como exemplo, e o guard enganchava nele, reprovando a própria correção que deveria
+aprovar. Guard que lê texto de CSS tem de remover os comentários antes
+(`styles.replace(/\/\*[\s\S]*?\*\//g, "")`) — ler só o que o navegador lê.
+
+#### Achados do Codex em `1ed9e42`
+
+**P1 — a ocultação da marca perdia na CASCATA, e as duas apareciam.** `.logo-neg` tem
+especificidade (0,1,0), igual a `.artificio-brand-logo{display:block}` e
+`.artificio-footer-logo{display:block}`, que estão **depois** no arquivo (linhas ~690 e
+~1029) e venciam por ordem. Com `Header`/`Footer` emitindo as duas `<img>` desde T7.4, as
+duas renderizavam no tema claro: a marca do header ia de 90px para **180px** e o total
+batia **380px** — estourando os mesmos 320px que a correção anterior tinha acabado de
+consertar, e duplicando a área do logo no rodapé.
+
+Corrigido casando a classe da imagem junto (`.artificio-brand-logo.logo-neg`), o que sobe
+para (0,2,0). **Especificidade, não reordenação**: mover o bloco para o fim do arquivo
+funciona hoje e quebra na próxima regra que alguém acrescentar abaixo.
+
+**⚠️ Por que passou, e é o mesmo padrão de novo:** a regra funcionava enquanto morava em
+`apps/site/src/styles/global.css`, importado DEPOIS do pacote — ganhava por acaso de
+ordem. Ao subir para `packages/ui` em T7.4, perdeu o acaso que a sustentava. **Toda regra
+promovida de app para pacote muda de posição na cascata**, e o que a fazia vencer pode
+não existir mais.
+
+O guard antigo assertava `cssRule(".logo-neg")`, que prova que a regra EXISTE e não que
+ela GANHA — passava verde com as duas marcas na tela. Agora ele proíbe a forma frágil
+(seletor de marca sem a classe da imagem) e exige a forte.
+
+**P2 — changelog e tema ficaram inacessíveis no celular.** Registrado como bloqueador no
+cabeçalho de **T7.2**, que é quem conserta, por decisão do mantenedor.
+
+### [ ] T7.2 — Hambúrguer público (esquerda) com nav + subnav + rodapé
+
+> 🚩 **BLOQUEADOR EM PRODUÇÃO ABERTO POR T7.1 — esta task é o conserto.**
+>
+> T7.1 tirou changelog e tema da barra em ≤860px (`.artificio-header-tools > *:not(...)`),
+> mas o painel que deveria recebê-los **ainda não existe**: `Header.tsx` e
+> `SiteHeaderIsland.tsx` renderizam só `Nav` dentro de `.artificio-mobile-nav`.
+> Medido a partir do commit `1ed9e42`: **no celular, changelog e tema estão inacessíveis
+> nos 6 apps**, e no `accounts` — que liga só `showThemeToggle` — o usuário perde o
+> ÚNICO jeito de trocar para escuro. Achado P2 do Codex na PR #323.
+>
+> **Decisão do mantenedor (2026-09-15):** deixar para T7.2 resolver, em vez de reverter
+> a ocultação ou antecipar o rodapé para a PR da T7.1. A dívida é conhecida e tem dono.
+>
+> Enquanto T7.2 não entrar, **o header mobile é uma regressão de uso**: nenhum deploy
+> dos 6 apps deve ser tratado como "T7.1 pronta" sem esta task junto.
+
+O painel (`.artificio-mobile-nav`) ganha três blocos, nesta ordem: navegação entre
+módulos · **opções daquele módulo** (a `moduleNav`, que hoje some no mobile) · rodapé
+separado por linha com "Novidades" e alternador de tema.
+
+**Os dois headers precisam do rodapé**, não só o do pacote: o `apps/site` tem marcação
+própria (`SiteHeaderIsland.tsx`) e é consumidor divergente do mesmo CSS — foi assim que
+o P1 da navegação passou. Fazer só um lado repete o erro.
+
+**Aceite.**
+1. Com `moduleNav` preenchido, o painel renderiza os três blocos; sem ela, dois.
+2. O rodapé é irmão dos navs, com separador visual — não item de lista.
+3. Changelog e tema **não** aparecem na barra em ≤860px (já é o estado desde T7.1).
+4. **Changelog e tema ESTÃO no painel, nos dois headers** — é o que fecha o bloqueador
+   acima. Guard que abra o painel e encontre os dois controles, em `Header.paineis.test.tsx`
+   e no guard do `site`.
+5. `accounts` recupera o controle de tema no celular: abrir o painel e achar o toggle.
+
+### [ ] T7.3 — Hambúrguer de sessão (direita) absorve avatar e notificações
+
+> 🚩 **O HEADER ESTOURA 2px EM 320 ENQUANTO ESTA TASK NÃO ENTRAR — ela é o conserto.**
+>
+> Medido a partir de `fc5a4fe` (achado P1 do Codex na PR #323): a faixa de sessão **não
+> mede o `min-width`, mede o conteúdo**. T7.1 baixou o piso para 40px, mas logado
+> `mesas`, `downloads`, `glossario` e `site` põem ali o `NotificationBell`
+> (`.artificio-header-action`, 40px) ao lado do avatar (32px) = **72px**.
+>
+> Soma real: 40 (☰) + 90 (marca) + 40 (🔍) + **72** (sessão) + 3×16 + 32 = **322px**.
+>
+> T7.3 move sino e avatar para o painel: a faixa volta a 40px e a soma cai para 290px.
+> **O guard `styles.contract.test.ts` tem um `TETO_CONHECIDO = 322` que deve cair para
+> 320 nesta task** — é o sinal mecânico de que ela fechou.
+>
+> **Não esconder o sino no mobile como atalho:** seria repetir o P2 (changelog e tema
+> ocultados antes de o destino existir). O destino é este painel.
+
+O menu do avatar vira o painel de sessão. **Dentro dele:** itens de conta, notificações
+(`NotificationBell`) e "Sair"; deslogado, o botão "Entrar".
+
+**Também vale para o `apps/site`**, que tem header próprio (`SiteHeaderIsland.tsx`) e
+injeta o sino direto na faixa — não por `actions`. Fazer só o pacote deixa o `site`
+estourando, que é como o P1 da navegação passou.
+
+**Aceite.**
+1. Logado: o sino está DENTRO do painel de sessão, não na barra.
+2. Deslogado: só "Entrar"; nenhum item de conta no DOM.
+3. **Exclusão mútua medida:** abrir o público fecha o de sessão e vice-versa — teste com
+   clique real (jsdom), no padrão de `Header.paineis.test.tsx`.
+4. O nome do usuário continua nomeando o botão (nome acessível), sem `display:none`.
+
+### [x] T7.4 — Unificar `data-variant`, que é o que diverge de fato — **FEITA (2026-09-15)**
+
+**Decisão do mantenedor:** header idêntico nos 6 apps.
+
+**⚠️ A causa NÃO são os tokens sem prefixo — medido em 2026-09-15, corrigindo a primeira
+versão desta task.** As classes estruturais do header usam **só `--artificio-*`**
+(`surface`, `line`, `ink`, `muted`, `brand`, `navy`, `focus`), e **nenhum app redefine
+esses**. Os 4 tokens sem prefixo (`--fg`, `--fg-muted`, `--line`, `--surface-subtle`)
+aparecem em **4 lugares, todos dentro da busca embutida** (`.artificio-header-search*`) —
+não afetam a cor do header. Trocá-los, como a versão anterior mandava, ainda **quebraria o
+tema escuro**: `--fg-muted` é `rgba(11,18,32,0.66)` no claro e `--artificio-dark-muted` no
+escuro, enquanto `--artificio-muted` é `#5a6172` fixo.
+
+**A causa real é `data-variant`**, que troca fundo para `--artificio-navy`, texto para
+branco e o acento dos links (**25 regras** em `styles.css` dependem dele). Cada app
+escreve o mesmo contrato de um jeito:
+
+| app | como passa | forma |
+|---|---|---|
+| `mesas` | `variant={theme === 'light' ? 'light' : 'dark'}` | prop |
+| `downloads` | `variant={theme === 'light' ? 'light' : 'dark'}` | prop |
+| `glossario` | `variant={theme === 'dark' ? 'dark' : 'light'}` | prop, condição invertida |
+| `links` | `variant={theme === "dark" ? "dark" : "light"}` | prop |
+| `accounts` | `variant={theme}` | prop, sem normalizar |
+| **`site`** | **não passa** — `SiteHeader.astro` renderiza sem `data-variant`; o island chama `applyHeaderVariant(theme)` por JS (`SiteHeaderIsland.tsx:109`) | **efeito colateral** |
+
+Seis escritas do mesmo contrato, incluindo uma que só existe depois da hidratação. O
+default do `Header.tsx` é `variant = "light"` (linha 101).
+
+**⚠️ E há um FOUC em produção pela mesma causa — relato do mantenedor em 2026-09-15:** "o
+site sempre carrega o branco e troca para o escuro, do nada, a cada F5". Medido:
+
+| medição | valor |
+|---|---|
+| script de tema no `<head>` servido | pos **2380** (antes do CSS) |
+| CSS (`Base.C_mgSmoV.css`) | pos **5712** |
+| o que o script aplica | só `document.documentElement.dataset.theme` |
+| `--bg` do body (site) | reage ao tema: `#f6f7fa` → `#131d33` |
+| `--artificio-surface` (fundo do header) | **`#ffffff`, sem redefinição em `[data-theme="dark"]`** |
+| quem pinta o header escuro | **só** `data-variant="dark"` — 25 regras |
+| quem aplica `data-variant` no site | `applyHeaderVariant` no island, **após `client:idle`** |
+
+São duas causas somadas: (a) o header não reage a `data-theme`, só a `data-variant`; e
+(b) no `site` o `data-variant` só chega depois da hidratação. Resultado: com tema escuro,
+o corpo escurece imediatamente e o header fica branco até o JS rodar.
+
+`applyHeaderVariant` (`theme.tsx:54-60`) ainda **remove** o atributo no tema claro
+(`delete dataset.variant`), então no claro ele nunca existe no DOM — consistente com o
+medido em produção.
+
+**Escopo:** derivar `data-variant` do tema dentro do `packages/ui` (o `useTheme` já existe
+lá), em vez de cada app calcular. A prop continua aceita para quem precisar forçar. **No
+`site`, o atributo tem de sair no HTML SERVIDO** — o mesmo script inline que já define
+`data-theme` antes do paint pode marcar o header, ou o header passa a reagir a
+`[data-theme="dark"]` diretamente. Sem isso o FOUC continua, mesmo com a prop unificada.
+
+**Entregue — e a FORMA mudou em relação ao previsto acima.**
+
+A spec deixava duas saídas para o FOUC ("o mesmo script inline pode marcar o header,
+**ou** o header passa a reagir a `[data-theme="dark"]` diretamente"). Foi a segunda, por
+uma medição que só apareceu na implementação: o CSS **já tinha** um bloco
+`:root[data-theme="dark"]` (`styles.css:294`) com `--fg`/`--surface`/`--line` virando por
+tema desde a spec 022, e o header simplesmente não consumia nenhum deles — usava
+`--artificio-surface` (`#ffffff` fixo). O tema correto já chega no `<html>` antes da
+primeira pintura em todos os 6 apps; faltava só o CSS do chrome reagir.
+
+Escolhida por ser CSS puro: resolve os 6 apps de uma vez, sem JS e sem esperar
+hidratação — que era a causa. A alternativa (marcar o header pelo script inline) só
+serviria ao `site` e manteria o mecanismo em JS.
+
+**Duas portas, com precedência:**
+- `:root[data-theme="dark"] .artificio-header:not([data-variant="light"])` — o tema.
+- `[data-variant="dark"]` — força o chrome escuro num documento claro. A prop continua.
+
+O `:not([data-variant="light"])` é o que deixa a prop vencer o tema nos dois sentidos.
+
+**Correções na raiz que a implementação exigiu** (sem elas a mudança não funcionaria):
+- `Header`/`Footer` emitiam `data-variant="light"` LITERAL por default. Bloqueava o
+  seletor de tema nos 5 apps SPA. `variant` virou opcional de verdade — sem a prop, o
+  atributo é omitido.
+- O logo era escolhido em JS (`variant === "dark" ? neg : navy`). Sem `variant`, o React
+  não sabe o tema antes de hidratar e o wordmark navy ficava sobre o navy. Passou a ser
+  as duas `<img>` + CSS, padrão que o `site` já usava. As regras subiram para o pacote e
+  a cópia do `apps/site/global.css` foi removida.
+- **Bug achado e corrigido junto:** o dropdown do avatar tinha o mesmo defeito — fundo
+  `--artificio-surface` fixo e texto `--artificio-ink` fixo, abrindo um retângulo branco
+  sobre o navy no tema escuro. Nenhum smoke o pegava: só existe depois do clique. O
+  vermelho do "Sair" (`#b3261e`, 3,4:1 sobre navy) também clareou para AA.
+- `SiteHeaderIsland` não chama mais `applyHeaderVariant` — era a chamada pós-`client:idle`
+  que causava o FOUC no `site`.
+
+**Aceite — medido em 2026-09-15.**
+1. ✅ `rg "variant=\{theme" apps` → **0** (a única ocorrência é dentro de um comentário).
+2. ⚠️ **Prejudicado, e de propósito.** Pedia `data-variant` no HTML servido do `site`.
+   Com a solução por CSS o atributo deixou de ser o mecanismo: o header escurece por
+   `data-theme`, que o script inline do `Base.astro` já escreve antes do CSS carregar
+   (medido antes: script na pos. 2380, CSS na 5712). Exigir o atributo agora seria
+   travar a implementação antiga. O que substitui este aceite é o item 5.
+3. ✅ Guard novo em `styles.contract.test.ts` varre **todas** as regras `data-variant` e
+   reprova qualquer uma sem par por tema — mais forte que conferir as 25 à mão.
+4. ✅ **2.404 testes verdes**, `tsc` 0 e `eslint` 0 nos 6: `ui` 108 · `site` 190 ·
+   `mesas` 1152 · `accounts` 602 · `downloads` 315 · `glossario` 37. (`links` não tem
+   suíte — o script `test` é um `echo`.) O warning de `react-hooks/exhaustive-deps` no
+   `mesas` é preexistente: o arquivo não está no diff e sua última mudança é `463dc65`.
+5. ⬜ **Smoke visual pendente — exige o mantenedor.** F5 com tema escuro nos 6 apps: o
+   header tem de nascer escuro, sem piscar branco. É o que prova a correção do FOUC, e
+   nenhum guard alcança.
+
+### [ ] T7.5 — Subnav de módulo com diferenciação visual
+
+Hoje o CSS é um só (`styles.css:597`: `border-top` + fonte 13px) e não distingue navegação
+COMPARTILHADA de opção DAQUELE módulo. Dar tratamento próprio à `moduleNav`, no desktop e
+dentro do painel público.
+
+**Aceite.**
+1. `.artificio-subnav` tem tratamento visual distinto do nav de módulos (não só tamanho de
+   fonte), verificável no `styles.contract.test.ts`.
+2. Dentro do painel público, o bloco do módulo tem rótulo próprio.
+3. `mesas` (único consumidor de `moduleNav` hoje) sem regressão: suíte verde.
+
+### [ ] T7.6 — Busca uniforme: lupa navega para a busca do módulo
+
+**Estado medido (2026-09-15):** `mesas` e `glossario` já usam lupa (`onSearch`); o `site`
+usa lupa própria na ilha; o `downloads` é o único com campo embutido.
+
+- **`downloads`:** ganha rota `/busca` que **redireciona** para `/catalogo` preservando
+  `?q=`. **Não criar página própria:** `CatalogoPage.tsx:49` tem `useCanonicalUrl('/')`
+  deliberado, e uma URL nova diluiria o sinal de indexação. O campo embutido continua no
+  desktop.
+
+  **⚠️ Mecanismo diferente do `mesas` — medido, corrigindo a primeira versão desta task.**
+  O `mesas` usa React Router em framework mode com `loader` (`routes/redirect.tsx` →
+  `replace()`); o `downloads` usa `<BrowserRouter>` + `<Routes>` clássico, onde `loader`
+  não existe. Ali a forma é `<Route path="/busca" element={<Navigate to="/catalogo"
+  replace />} />`, padrão que o próprio app já usa em `App.tsx:91`. O `replace` é o que
+  importa nos dois casos: sem ele, o Voltar cai em `/busca` e redireciona de novo (achado
+  do Codex na #319).
+- **`site`:** ganha busca explícita na home, que hoje não tem.
+
+**Aceite.**
+1. Os 4 apps: lupa no header em ≤860px leva à busca do próprio módulo.
+2. `downloads`: `/busca?q=x` resolve em `/catalogo?q=x` com `replace` (o Voltar não
+   cai em loop — achado do Codex na #319).
+3. `downloads`: canonical de `/catalogo` continua `/`; **nenhuma URL nova no sitemap**.
+4. `site`: busca alcançável a partir da home.
+
+### [ ] T7.7 — `/busca/` do `site` sai do índice
+
+**Achado preexistente, em produção** (medido em T3.5e): a página não tem `robots` nem
+`X-Robots-Tag`, e **está no `sitemap-0.xml`**. Doc do Google: página de busca interna deve
+levar `noindex`.
+
+**Aceite.**
+1. `curl -s https://artificiorpg.com/busca/ | grep -c 'noindex'` → ≥ 1 (via prop
+   `noindex` do `Base.astro`, mesmo padrão do `404.astro`).
+2. `curl -s …/sitemap-0.xml | grep -c '/busca/'` → **0** (via `filter` do
+   `@astrojs/sitemap`, hoje não usado).
+3. Nenhuma outra URL sai do sitemap: contagem de `<loc>` cai em exatamente 1.
+
+---
+
+**Estado (2026-09-15):** T7.4 e T7.1 FEITAS e entregues na **PR #323**
+(`feat/102-f7-header-mobile-unificado`, commit `f15346f`, base `dev`). Faltam o smoke
+visual das duas e as 5 tasks restantes.
+
+**T7.3 tem um débito herdado de T7.1:** o hambúrguer de sessão está escondido em ≤860px
+(`.artificio-menu-toggle { display: none }` no `@media`) porque duplicava o público. T7.3
+o reativa e troca o `onClick` — ver o desvio registrado em T7.1.
+
+**⚠️ Branch nova desta fase: conferir o upstream antes do `push`.** `git switch -c <nome>
+origin/dev` deixa o upstream apontando para **`origin/dev`**, não para a branch nova.
+`git push` sem argumento tenta então empurrar para `dev`, que só aceita merge de PR.
+Medido na entrega de T7.1: `git rev-parse --abbrev-ref @{u}` devolveu `origin/dev` numa
+branch recém-criada. A forma correta é `git push -u origin HEAD`, que cria a branch remota
+com o nome dela e corrige o rastreamento. Vale para T7.2, T7.3, T7.5, T7.6 e T7.7.
+
+**Ordem sugerida:** ~~**T7.4** (`data-variant` + FOUC)~~ → ~~**T7.1** (estrutura)~~ → **T7.2** e
+**T7.3** (painéis) → **T7.5** (subnav) → **T7.6** (busca) → **T7.7** (noindex).
+
+T7.4 primeiro por dois motivos: ela resolve o FOUC que o mantenedor vê a cada F5 (ganho
+imediato, independente do resto), e mudar cor depois de mexer na estrutura misturaria duas
+causas no mesmo smoke visual. **T7.7 pode sair a qualquer momento** — não depende de
+nenhuma outra e não tem smoke visual.
+
+**Arquivos previstos:** `packages/ui/src/Header.tsx` · `packages/ui/src/styles.css` ·
+`apps/site/src/components/SiteHeaderIsland.tsx` (código próprio, mesma mudança) ·
+`apps/site/src/pages/busca/index.astro` · `apps/site/astro.config.mjs` ·
+`apps/downloads/frontend/src/` (rota `/busca` + header) · `apps/mesas` e `apps/glossario`
+(só se `actions` precisar mudar) · guards em `styles.contract.test.ts`,
+`Header.paineis.test.tsx` e `SiteHeader.estrutura.test.tsx`.
+
+**O que NÃO está medido e exige o mantenedor:** o layout renderizado em navegador a 320,
+360, 375 e 390px, nos 6 apps, logado e deslogado. Guard de CSS e de árvore prova
+estrutura, não pixel.
+
+---
+
 ## Achado lateral (fora do escopo da spec, registrado por medição)
 
 ### Raiz do `site` se declara duplicata de `/blog/` — MOVIDO PARA T3.5 (F3)
@@ -4714,5 +5439,12 @@ Request Indexing não se desfaz, apenas não se repete (T6.2).
 os 301 e mudança em Cloudflare. O mecanismo de redirect já existe no repo
 (`server.ts:287-294` + tabela `redirects`), então a F2 é `INSERT`, não mudança de
 infra — e não aciona a trava de `deploy-flow.md` §1.
+
+7. **F7 — header mobile unificado, em PR PRÓPRIA** (decisão do mantenedor, 2026-09-15).
+   Toca `packages/ui` (pacote compartilhado: §Autorização exige aprovação + verificação
+   de impacto nos consumidores) e os 4 apps que consomem o header. *Rollback:* `git
+   revert` da PR — é mudança de CSS e markup, sem migration nem estado persistido. O
+   risco real não é reverter, é o smoke visual: guard de árvore e de CSS prova estrutura,
+   não pixel, e só o mantenedor pode conferir em navegador a 320/360/375/390px nos 6 apps.
 
 Aprovação é por ação e não acumula (§Autorização).
