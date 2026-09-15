@@ -273,8 +273,40 @@ describe("chrome escuro por tema (T7.4)", () => {
   it("alterna a marca por CSS, e no pacote — não em JS nem por app", () => {
     // `Header`/`Footer` emitem as DUAS `<img>`; escolher em JS exigiria saber o tema
     // antes de hidratar, que é o que não existe quando o escuro vem do documento.
-    expect(cssRule(".logo-neg")).toContain("display: none");
-    expect(styles).toContain(':root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .logo-neg');
+    expect(styles).toContain(':root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .artificio-brand-logo.logo-navy');
+  });
+
+  it("faz a ocultação da marca VENCER o `display: block` das imagens", () => {
+    // ⚠️ O guard que faltava (achado P1 do Codex na PR #323). A 1ª versão assertava
+    // `cssRule(".logo-neg")` — que só prova que a regra EXISTE, não que ela ganha.
+    //
+    // `.logo-neg` sozinho tem especificidade (0,1,0), igual a `.artificio-brand-logo`
+    // e `.artificio-footer-logo`, que declaram `display: block` DEPOIS no arquivo e
+    // venciam pela ordem da cascata. As duas marcas renderizavam no tema claro: a do
+    // header ia de 90px para 180px e o total batia 380px, estourando os 320px que
+    // T7.1 existe para caber — e o guard antigo passava verde.
+    //
+    // A regra passou a casar a classe da IMAGEM junto, subindo para (0,2,0). Este
+    // teste trava as duas pontas: a especificidade e a ausência da forma frágil.
+    const semComentarios = styles.replace(/\/\*[\s\S]*?\*\//g, "");
+
+    // A forma frágil não pode voltar: `.logo-neg`/`.logo-navy` como seletor SOZINHO,
+    // sem a classe da imagem antes.
+    const frageis = [
+      ...semComentarios.matchAll(/(^|[,{}\s])\.logo-(?:neg|navy)\s*[,{]/gm),
+    ].map((m) => m[0].trim());
+    expect(
+      frageis,
+      `seletor de marca sem a classe da imagem (perde para o \`display: block\`):\n${frageis.join("\n")}`,
+    ).toEqual([]);
+
+    // E a ocultação do tema claro existe na forma forte. Sem `cssRule`: ele escapa o
+    // seletor inteiro e não casa grupo multi-linha — a 3ª vez que tropecei nisso neste
+    // arquivo, e a razão de os guards daqui usarem regex sobre o texto.
+    expect(
+      /\.artificio-brand-logo\.logo-neg,\s*\.artificio-footer-logo\.logo-neg\s*\{[^}]*display: none/.test(semComentarios),
+      "a marca negativa precisa nascer escondida, na forma que vence a cascata",
+    ).toBe(true);
   });
 });
 

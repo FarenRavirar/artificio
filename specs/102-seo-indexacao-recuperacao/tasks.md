@@ -4331,17 +4331,66 @@ errado como exemplo, e o guard enganchava nele, reprovando a própria correção
 aprovar. Guard que lê texto de CSS tem de remover os comentários antes
 (`styles.replace(/\/\*[\s\S]*?\*\//g, "")`) — ler só o que o navegador lê.
 
+#### Achados do Codex em `1ed9e42`
+
+**P1 — a ocultação da marca perdia na CASCATA, e as duas apareciam.** `.logo-neg` tem
+especificidade (0,1,0), igual a `.artificio-brand-logo{display:block}` e
+`.artificio-footer-logo{display:block}`, que estão **depois** no arquivo (linhas ~690 e
+~1029) e venciam por ordem. Com `Header`/`Footer` emitindo as duas `<img>` desde T7.4, as
+duas renderizavam no tema claro: a marca do header ia de 90px para **180px** e o total
+batia **380px** — estourando os mesmos 320px que a correção anterior tinha acabado de
+consertar, e duplicando a área do logo no rodapé.
+
+Corrigido casando a classe da imagem junto (`.artificio-brand-logo.logo-neg`), o que sobe
+para (0,2,0). **Especificidade, não reordenação**: mover o bloco para o fim do arquivo
+funciona hoje e quebra na próxima regra que alguém acrescentar abaixo.
+
+**⚠️ Por que passou, e é o mesmo padrão de novo:** a regra funcionava enquanto morava em
+`apps/site/src/styles/global.css`, importado DEPOIS do pacote — ganhava por acaso de
+ordem. Ao subir para `packages/ui` em T7.4, perdeu o acaso que a sustentava. **Toda regra
+promovida de app para pacote muda de posição na cascata**, e o que a fazia vencer pode
+não existir mais.
+
+O guard antigo assertava `cssRule(".logo-neg")`, que prova que a regra EXISTE e não que
+ela GANHA — passava verde com as duas marcas na tela. Agora ele proíbe a forma frágil
+(seletor de marca sem a classe da imagem) e exige a forte.
+
+**P2 — changelog e tema ficaram inacessíveis no celular.** Registrado como bloqueador no
+cabeçalho de **T7.2**, que é quem conserta, por decisão do mantenedor.
+
 ### [ ] T7.2 — Hambúrguer público (esquerda) com nav + subnav + rodapé
+
+> 🚩 **BLOQUEADOR EM PRODUÇÃO ABERTO POR T7.1 — esta task é o conserto.**
+>
+> T7.1 tirou changelog e tema da barra em ≤860px (`.artificio-header-tools > *:not(...)`),
+> mas o painel que deveria recebê-los **ainda não existe**: `Header.tsx` e
+> `SiteHeaderIsland.tsx` renderizam só `Nav` dentro de `.artificio-mobile-nav`.
+> Medido a partir do commit `1ed9e42`: **no celular, changelog e tema estão inacessíveis
+> nos 6 apps**, e no `accounts` — que liga só `showThemeToggle` — o usuário perde o
+> ÚNICO jeito de trocar para escuro. Achado P2 do Codex na PR #323.
+>
+> **Decisão do mantenedor (2026-09-15):** deixar para T7.2 resolver, em vez de reverter
+> a ocultação ou antecipar o rodapé para a PR da T7.1. A dívida é conhecida e tem dono.
+>
+> Enquanto T7.2 não entrar, **o header mobile é uma regressão de uso**: nenhum deploy
+> dos 6 apps deve ser tratado como "T7.1 pronta" sem esta task junto.
 
 O painel (`.artificio-mobile-nav`) ganha três blocos, nesta ordem: navegação entre
 módulos · **opções daquele módulo** (a `moduleNav`, que hoje some no mobile) · rodapé
 separado por linha com "Novidades" e alternador de tema.
 
+**Os dois headers precisam do rodapé**, não só o do pacote: o `apps/site` tem marcação
+própria (`SiteHeaderIsland.tsx`) e é consumidor divergente do mesmo CSS — foi assim que
+o P1 da navegação passou. Fazer só um lado repete o erro.
+
 **Aceite.**
 1. Com `moduleNav` preenchido, o painel renderiza os três blocos; sem ela, dois.
 2. O rodapé é irmão dos navs, com separador visual — não item de lista.
-3. Changelog e tema **não** aparecem na barra em ≤860px.
-4. Guard em `Header.paineis.test.tsx`.
+3. Changelog e tema **não** aparecem na barra em ≤860px (já é o estado desde T7.1).
+4. **Changelog e tema ESTÃO no painel, nos dois headers** — é o que fecha o bloqueador
+   acima. Guard que abra o painel e encontre os dois controles, em `Header.paineis.test.tsx`
+   e no guard do `site`.
+5. `accounts` recupera o controle de tema no celular: abrir o painel e achar o toggle.
 
 ### [ ] T7.3 — Hambúrguer de sessão (direita) absorve avatar e notificações
 

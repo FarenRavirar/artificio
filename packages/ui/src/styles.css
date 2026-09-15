@@ -658,21 +658,36 @@
    no pacote, porque agora o `Header` compartilhado depende delas — `apps/site` tinha
    uma cópia própria em `global.css` por ter header próprio, e ela continua válida
    para a marca do seu `SiteFooter.astro`. */
-.logo-neg {
+/* ⚠️ A ocultação casa a CLASSE DA IMAGEM junto (`.artificio-brand-logo.logo-neg`),
+   e não `.logo-neg` sozinho. Achado P1 do Codex na PR #323, medido: `.logo-neg`
+   tem especificidade (0,1,0), igual a `.artificio-brand-logo{display:block}` da
+   linha ~690 e `.artificio-footer-logo{display:block}` da ~1029 — que vêm DEPOIS e
+   venciam pela ordem da cascata. As duas marcas renderizavam no tema claro: a do
+   header ia de 90px para 180px e o total batia 380px, estourando os 320px que T7.1
+   existe para caber.
+
+   Isto NÃO aparecia enquanto a regra morava em `apps/site/src/styles/global.css`:
+   lá ela é importada depois do pacote e ganhava por ordem. Ao subir para cá, perdeu
+   o acaso que a sustentava — o tipo de coisa que só aparece ao compartilhar.
+
+   Especificidade em vez de reordenar: mover o bloco para o fim do arquivo funciona
+   hoje e quebra na próxima regra que alguém acrescentar abaixo. */
+.artificio-brand-logo.logo-neg,
+.artificio-footer-logo.logo-neg {
   display: none;
 }
 
-:root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .logo-navy,
-:root[data-theme="dark"] .artificio-footer:not([data-variant="light"]) .logo-navy,
-.artificio-header[data-variant="dark"] .logo-navy,
-.artificio-footer[data-variant="dark"] .logo-navy {
+:root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .artificio-brand-logo.logo-navy,
+:root[data-theme="dark"] .artificio-footer:not([data-variant="light"]) .artificio-footer-logo.logo-navy,
+.artificio-header[data-variant="dark"] .artificio-brand-logo.logo-navy,
+.artificio-footer[data-variant="dark"] .artificio-footer-logo.logo-navy {
   display: none;
 }
 
-:root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .logo-neg,
-:root[data-theme="dark"] .artificio-footer:not([data-variant="light"]) .logo-neg,
-.artificio-header[data-variant="dark"] .logo-neg,
-.artificio-footer[data-variant="dark"] .logo-neg {
+:root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .artificio-brand-logo.logo-neg,
+:root[data-theme="dark"] .artificio-footer:not([data-variant="light"]) .artificio-footer-logo.logo-neg,
+.artificio-header[data-variant="dark"] .artificio-brand-logo.logo-neg,
+.artificio-footer[data-variant="dark"] .artificio-footer-logo.logo-neg {
   display: block;
 }
 
