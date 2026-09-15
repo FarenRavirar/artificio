@@ -118,6 +118,11 @@ describe("4 slots do header em ≤860px (T7.1)", () => {
     // com o mesmo efeito, um ao lado do outro, e o 4º slot já tem o avatar/"Entrar".
     //
     // Este guard é TEMPORÁRIO por construção: T7.3 o substitui ao reativar o botão.
+    //
+    // ⚠️ Esconder o `menu-toggle` só é seguro porque TODO consumidor deste CSS tem o
+    // `.artificio-nav-toggle`. O `apps/site` tem header próprio e não tinha: ficou sem
+    // controle de navegação nenhum em ≤860px (P1 do Codex na PR #323). O guard daquele
+    // lado é `SiteHeader.estrutura.test.tsx`; ao mexer nesta regra, conferir lá também.
     expect(regraNoMedia860(".artificio-menu-toggle")).toContain("display: none");
   });
 
@@ -157,13 +162,68 @@ describe("chrome escuro por tema (T7.4)", () => {
     }
   });
 
+  it("pareia TODA regra de `data-theme=dark` do CHROME com a de `data-variant=dark`", () => {
+    // O sentido INVERSO do guard acima, e o buraco que deixou passar o achado do
+    // CodeRabbit na PR #323: as 5 regras do dropdown escureciam só por tema, então um
+    // consumidor com `variant="dark"` sob documento CLARO tinha header navy e menu
+    // branco dentro. O guard anterior varre "variant sem tema" e não via isso.
+    //
+    // Escopo: só o chrome (header/footer e o que vive dentro deles). Regras de tema de
+    // componentes de página não têm por que seguir a prop do header.
+    const cssSemComentarios = styles.replace(/\/\*[\s\S]*?\*\//g, "");
+    const porTema = [
+      ...cssSemComentarios.matchAll(
+        /:root\[data-theme="dark"\]\s+\.artificio-(?:header|footer)[^{]*\{/g,
+      ),
+    ].map((m) => m[0]);
+
+    expect(porTema.length).toBeGreaterThan(0);
+
+    // Cada regra de tema do chrome tem de citar o alvo também pela prop. A asserção é
+    // sobre o BLOCO de seletores (eles vêm agrupados por vírgula), não regra a regra.
+    const semPar = porTema.filter((bloco) => !bloco.includes('[data-variant="dark"]'));
+    expect(
+      semPar,
+      `regras de chrome que escurecem só por tema:\n${semPar.join("\n")}`,
+    ).toEqual([]);
+  });
+
   it("dá ao dropdown do avatar um fundo que vira por tema", () => {
     // Ele nasce dentro do header e usava `--artificio-surface` (`#ffffff` FIXO, sem
     // versão em `[data-theme=dark]`), então abria um retângulo branco sobre o navy.
     // Só aparece depois do clique no avatar — nenhum smoke o pegava.
-    const regra = cssRule(':root[data-theme="dark"] .artificio-usermenu-dropdown');
+    // `cssRule` não serve aqui: ele casa `seletor\s*\{`, e este seletor é o PRIMEIRO de
+    // um grupo — vem seguido de vírgula, não de chave. Foi o que quebrou este guard ao
+    // parear a regra com a porta da prop.
+    const regra = /\.artificio-header:not\(\[data-variant="light"\]\) \.artificio-usermenu-dropdown\s*,[^{]*\{([^}]*)\}/
+      .exec(styles)?.[1] ?? "";
     expect(regra).not.toBe("");
     expect(regra).toContain("--artificio-dark-surface");
+  });
+
+  it("faz o menu do avatar honrar `variant=\"light\"`, como o resto do header", () => {
+    // Achado do Codex na PR #323 (P2): as regras do dropdown casavam
+    // `:root[data-theme="dark"] .artificio-usermenu-*` SOLTO, sem passar pelo header.
+    // Num consumidor com `variant="light"` sob documento escuro — caso suportado por
+    // `HeaderProps` — o header ficava claro e o menu dentro dele, escuro.
+    // Duas armadilhas, as duas medidas aqui em 2026-09-15:
+    //
+    // 1. `\s+\.artificio-usermenu` tem de vir IMEDIATAMENTE após o `:root[...]`. Um
+    //    `[^{]*` no meio atravessa o `.artificio-header:not(...)` e casa a versão
+    //    CORRIGIDA — o teste reprovaria a própria correção que deve aprovar.
+    // 2. Varredura sobre o CSS cru casa dentro de COMENTÁRIO. O comentário acima destas
+    //    regras cita o seletor errado como exemplo, e a regex enganchava nele. Por isso
+    //    os comentários saem antes: um guard que lê texto tem de ler só o que o
+    //    navegador lê.
+    const cssSemComentarios = styles.replace(/\/\*[\s\S]*?\*\//g, "");
+    const soltas = [
+      ...cssSemComentarios.matchAll(/:root\[data-theme="dark"\]\s+\.artificio-usermenu[^{,]*\{/g),
+    ].map((m) => m[0]);
+
+    expect(
+      soltas,
+      `regra de menu sem passar pelo header:\n${soltas.join("\n")}`,
+    ).toEqual([]);
   });
 
   it("alterna a marca por CSS, e no pacote — não em JS nem por app", () => {

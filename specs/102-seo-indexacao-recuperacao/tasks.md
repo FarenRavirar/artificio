@@ -4235,7 +4235,7 @@ porta da conta. A regra `.artificio-menu-toggle { display: none }` dentro do `@m
 2. ⚠️ Cumprido para changelog e tema; o hambúrguer de sessão saiu da barra em vez de
    ficar — ver o desvio acima.
 3. ✅ Desktop intacto, com guard próprio.
-4. ✅ `tsc` 0, `eslint` 0, **118 testes** no `packages/ui` (eram 104 antes da F7).
+4. ✅ `tsc` 0, `eslint` 0, **119 testes** no `packages/ui` (eram 104 antes da F7).
 5. ✅ **Guard novo de contagem de slots**: `Header.slots.test.tsx` renderiza e conta os
    filhos DIRETOS do grid, no padrão de `SiteHeader.estrutura.test.tsx` do `site`. O
    aceite 1 prova as faixas; este prova os filhos. As duas metades juntas é que impedem a
@@ -4243,8 +4243,56 @@ porta da conta. A regra `.artificio-menu-toggle { display: none }` dentro do `@m
 6. ⬜ **Smoke visual pendente** — 320/360/375/390px. Guard de CSS prova regra, guard de
    árvore prova estrutura; nenhum prova pixel.
 
-**Regressão conferida nos consumidores:** `site` 190 · `mesas` 1152 · `accounts` 602 ·
+**Regressão conferida nos consumidores:** `site` 191 · `mesas` 1152 · `accounts` 602 ·
 `downloads` 315 · `glossario` 37, todas verdes.
+
+#### Achados do Codex na PR #323, corrigidos no mesmo trabalho
+
+**P1 — regra de CSS compartilhado deixou o `site` sem navegação no celular.** O commit
+`f15346f` escondeu `.artificio-menu-toggle` em ≤860px porque, no `Header` do pacote, ele
+duplicava o hambúrguer público. Medido depois do relato: `apps/site` tem header PRÓPRIO,
+com **0 ocorrências** de `.artificio-nav-toggle` e só aquele botão acionando `toggleNav`.
+Com o mesmo `@media` já escondendo os navs inline, os 11 links de projetos e as categorias
+do blog ficaram **inalcançáveis no mobile do `artificiorpg.com`**.
+
+Correção: o `SiteHeaderIsland` ganhou o `.artificio-nav-toggle` no 1º slot e perdeu o
+`menu-toggle` da faixa de sessão — alinhando com o pacote, que é a direção da F7 e o que
+T7.2 vai exigir de qualquer forma.
+
+**⚠️ Por que passou:** as **6 suítes estavam verdes**. Nenhuma perguntava se um app
+consumidor ainda tinha controle de navegação depois do colapso — falha em silêncio, sem
+erro de tipo nem de lint. O guard que faltava agora existe em
+`SiteHeader.estrutura.test.tsx` ("tem um controle de navegação que sobrevive ao colapso de
+≤860px"), e há nota cruzada no `styles.contract.test.ts`: **toda regra nova de ≤860px
+precisa ser conferida contra o `site`**, que é consumidor divergente do CSS compartilhado.
+
+**P2 — o menu do avatar não seguia o header, e faltava nos DOIS sentidos.** As 5 regras
+de tema escuro do dropdown foram escritas sem passar pelo header, e cada revisor viu uma
+metade do mesmo defeito:
+
+- **Codex:** casavam `:root[data-theme="dark"] .artificio-usermenu-*` solto. Num
+  consumidor com `variant="light"` sob documento escuro — caso suportado por
+  `HeaderProps` — o header ficava claro e o menu dentro dele, escuro.
+- **CodeRabbit:** faltava também a porta da prop. Medido antes de corrigir:
+  `data-variant="dark"` + `usermenu` = **0 ocorrências**. Um app com `variant="dark"`
+  sob documento CLARO teria header navy com o dropdown branco — o espelho exato do
+  anterior.
+
+Corrigido com as duas portas, como no resto do chrome:
+`:root[data-theme="dark"] .artificio-header:not([data-variant="light"])` **e**
+`.artificio-header[data-variant="dark"]`.
+
+**O buraco era do guard, e foi fechado.** O guard "pareia TODA regra de `data-variant`
+com a de `data-theme`" varre num sentido só — regra de prop sem tema. Regra de tema sem
+prop passava batido, que é exatamente o caso do dropdown. Agora existe o guard do sentido
+inverso, restrito ao chrome (`header`/`footer` e o que vive dentro deles): componente de
+página não tem por que seguir a prop do header.
+
+**Aprendizado do guard (custou duas tentativas):** varredura por regex sobre o CSS cru
+**casa dentro de comentário**. O comentário que escrevi acima dessas regras cita o seletor
+errado como exemplo, e o guard enganchava nele, reprovando a própria correção que deveria
+aprovar. Guard que lê texto de CSS tem de remover os comentários antes
+(`styles.replace(/\/\*[\s\S]*?\*\//g, "")`) — ler só o que o navegador lê.
 
 ### [ ] T7.2 — Hambúrguer público (esquerda) com nav + subnav + rodapé
 
@@ -4431,13 +4479,20 @@ levar `noindex`.
 
 ---
 
-**Estado (2026-09-15):** T7.4 e T7.1 FEITAS, na branch
-`feat/102-f7-header-mobile-unificado`, sem commit. Faltam o smoke visual das duas e as 5
-tasks restantes.
+**Estado (2026-09-15):** T7.4 e T7.1 FEITAS e entregues na **PR #323**
+(`feat/102-f7-header-mobile-unificado`, commit `f15346f`, base `dev`). Faltam o smoke
+visual das duas e as 5 tasks restantes.
 
 **T7.3 tem um débito herdado de T7.1:** o hambúrguer de sessão está escondido em ≤860px
 (`.artificio-menu-toggle { display: none }` no `@media`) porque duplicava o público. T7.3
 o reativa e troca o `onClick` — ver o desvio registrado em T7.1.
+
+**⚠️ Branch nova desta fase: conferir o upstream antes do `push`.** `git switch -c <nome>
+origin/dev` deixa o upstream apontando para **`origin/dev`**, não para a branch nova.
+`git push` sem argumento tenta então empurrar para `dev`, que só aceita merge de PR.
+Medido na entrega de T7.1: `git rev-parse --abbrev-ref @{u}` devolveu `origin/dev` numa
+branch recém-criada. A forma correta é `git push -u origin HEAD`, que cria a branch remota
+com o nome dela e corrige o rastreamento. Vale para T7.2, T7.3, T7.5, T7.6 e T7.7.
 
 **Ordem sugerida:** ~~**T7.4** (`data-variant` + FOUC)~~ → ~~**T7.1** (estrutura)~~ → **T7.2** e
 **T7.3** (painéis) → **T7.5** (subnav) → **T7.6** (busca) → **T7.7** (noindex).

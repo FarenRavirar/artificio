@@ -107,15 +107,35 @@ describe("estrutura do header do site (contrato do grid)", () => {
     expect(dentroDoGrid("<astro-island")).toBe(false);
   });
 
-  it("o grid tem exatamente os 4 filhos que o CSS declara em colunas", () => {
+  it("o grid tem exatamente os filhos que o CSS declara em colunas", () => {
     // `grid-template-columns: auto 1fr auto auto` (packages/ui/src/styles.css).
     // Um filho a mais cai em coluna implícita; um a menos desalinha o resto.
+    //
+    // A `nav` some por `display: none` em ≤860px, então lá os 4 slots cobrem
+    // [☰público] [marca] [ferramentas] [sessão] — ver T7.1 da spec 102.
     expect(filhos.map((f) => `${f.tag}.${f.classe}`)).toEqual([
+      "button.artificio-nav-toggle",
       "a.artificio-brand",
       "nav.",
       "div.artificio-header-tools",
       "div.artificio-session",
     ]);
+  });
+
+  it("tem um controle de navegação que sobrevive ao colapso de ≤860px", () => {
+    // ⚠️ O GUARD QUE FALTAVA, e cuja ausência deixou passar um P1 (Codex, PR #323).
+    //
+    // T7.1 escondeu `.artificio-menu-toggle` em ≤860px porque, no `Header` do pacote,
+    // ele duplicava o hambúrguer público. O site é consumidor DIVERGENTE do mesmo CSS
+    // e tinha só aquele botão: ficou sem nenhum controle capaz de abrir o painel, com
+    // os navs inline já escondidos pelo mesmo `@media`. Os 11 links de projetos e as
+    // categorias do blog viraram inalcançáveis no celular — e as 6 suítes passaram
+    // verdes, porque nenhuma perguntava isto.
+    //
+    // A asserção é pela classe que o CSS MOSTRA em ≤860px, não por um botão qualquer:
+    // é a ponte entre a marcação daqui e a regra que vive no pacote.
+    expect(html).toContain("artificio-nav-toggle");
+    expect(html).toContain('aria-label="Menu de navegação"');
   });
 
   it("ferramentas públicas ficam no grid, com changelog, busca e tema", () => {

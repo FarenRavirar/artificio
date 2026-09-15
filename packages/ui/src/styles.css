@@ -919,28 +919,46 @@
    `--artificio-surface` (`#ffffff` fixo) e texto em `--artificio-ink` (navy fixo),
    nenhum dos dois com versão em `[data-theme="dark"]`. Como ele nasce dentro do
    header, no tema escuro abria um retângulo branco sobre o navy. Não aparecia no
-   smoke porque só existe depois do clique no avatar, e nenhum teste de tema o abre. */
-:root[data-theme="dark"] .artificio-usermenu-dropdown {
+   smoke porque só existe depois do clique no avatar, e nenhum teste de tema o abre.
+
+   AS DUAS PORTAS, como no resto do chrome — o dropdown segue o HEADER, não o
+   documento:
+
+   - `:root[data-theme="dark"] .artificio-header:not([data-variant="light"])` — tema,
+     com escape para quem força o chrome claro sob documento escuro.
+   - `.artificio-header[data-variant="dark"]` — prop, para quem força o chrome escuro
+     sob documento claro.
+
+   Faltavam as duas na 1ª versão, e cada metade foi apontada por um revisor diferente
+   na PR #323: o Codex viu o menu escuro dentro de header forçado a claro (regra solta,
+   sem passar pelo header); o CodeRabbit viu o inverso — header navy por `variant="dark"`
+   com o dropdown branco, porque só o tema o escurecia. */
+:root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .artificio-usermenu-dropdown,
+.artificio-header[data-variant="dark"] .artificio-usermenu-dropdown {
   background: var(--artificio-dark-surface);
   border-color: rgba(255, 255, 255, 0.14);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
 }
 
-:root[data-theme="dark"] .artificio-usermenu-item {
+:root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .artificio-usermenu-item,
+.artificio-header[data-variant="dark"] .artificio-usermenu-item {
   color: var(--artificio-dark-text);
 }
 
-:root[data-theme="dark"] .artificio-usermenu-item:hover {
+:root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .artificio-usermenu-item:hover,
+.artificio-header[data-variant="dark"] .artificio-usermenu-item:hover {
   background: rgba(255, 255, 255, 0.08);
 }
 
-:root[data-theme="dark"] .artificio-usermenu-item-danger {
+:root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .artificio-usermenu-item-danger,
+.artificio-header[data-variant="dark"] .artificio-usermenu-item-danger {
   /* `#b3261e` mede 3,4:1 sobre o navy — abaixo do AA. Mesmo tratamento dos
      `--state-*-fg`, que clareiam no escuro pela mesma razão. */
   color: #fca5a5;
 }
 
-:root[data-theme="dark"] .artificio-usermenu-item-danger:hover {
+:root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .artificio-usermenu-item-danger:hover,
+.artificio-header[data-variant="dark"] .artificio-usermenu-item-danger:hover {
   background: rgba(252, 165, 165, 0.12);
 }
 
