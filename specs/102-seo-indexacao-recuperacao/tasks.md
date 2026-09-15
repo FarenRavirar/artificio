@@ -4235,7 +4235,7 @@ porta da conta. A regra `.artificio-menu-toggle { display: none }` dentro do `@m
 2. ⚠️ Cumprido para changelog e tema; o hambúrguer de sessão saiu da barra em vez de
    ficar — ver o desvio acima.
 3. ✅ Desktop intacto, com guard próprio.
-4. ✅ `tsc` 0, `eslint` 0, **119 testes** no `packages/ui` (eram 104 antes da F7).
+4. ✅ `tsc` 0, `eslint` 0, **121 testes** no `packages/ui` (eram 104 antes da F7).
 5. ✅ **Guard novo de contagem de slots**: `Header.slots.test.tsx` renderiza e conta os
    filhos DIRETOS do grid, no padrão de `SiteHeader.estrutura.test.tsx` do `site`. O
    aceite 1 prova as faixas; este prova os filhos. As duas metades juntas é que impedem a
@@ -4246,7 +4246,44 @@ porta da conta. A regra `.artificio-menu-toggle { display: none }` dentro do `@m
 **Regressão conferida nos consumidores:** `site` 191 · `mesas` 1152 · `accounts` 602 ·
 `downloads` 315 · `glossario` 37, todas verdes.
 
-#### Achados do Codex na PR #323, corrigidos no mesmo trabalho
+#### Achados de review na PR #323, corrigidos no mesmo trabalho
+
+**P1 (2ª rodada) — a aritmética de 320px do comentário estava errada, e o header
+estourava.** O comentário do `@media` contava 40px para a faixa de sessão, que é o
+tamanho do BOTÃO. Medido depois do apontamento: `.artificio-session` tem
+`min-width: 96px` na regra base (`styles.css`) e o `@media` **não o ajustava**. A soma
+real, nos consumidores com lupa: 40 (☰) + 90 (marca) + 40 (🔍) + **96** (sessão) + 3×16
+(gaps) + 32 (padding) = **346px** — estourando 26px justamente em 320, a largura que
+T7.1 existe para suportar.
+
+Duas correções: o `min-width` da sessão cai para 40px no `@media` (o conteúdo lá é o
+avatar de 32px ou o "Entrar"), e o texto de carregamento ganha `max-width` + reticência
+— "Verificando acesso…" em 14px passa de 130px sozinho e esticava a faixa acima de
+qualquer piso enquanto a sessão não resolvia.
+
+**⚠️ O guard que faltava:** a aritmética vivia só num comentário, e comentário não
+falha. Agora `styles.contract.test.ts` **soma as parcelas lidas do CSS** e reprova se
+passar de 320 — se alguém subir um piso, estoura no teste antes de estourar na tela.
+Cada parcela é validada contra `NaN`, porque leitura que falha passaria calada por uma
+comparação `<=`.
+
+**Duplicação (Sonar): o mesmo botão em três lugares.** 6,6% em código novo, 44% no
+`Header.tsx`, 46% no island. Medido: a marcação do hambúrguer (botão + SVG de 3 linhas)
+estava idêntica em `Header.tsx` (público e sessão) e no `SiteHeaderIsland`. Extraída
+para `packages/ui/src/NavToggle.tsx` e consumida nos três pontos — é a regra de
+compartilhado do `AGENTS.md`, não cosmética de métrica: com três cópias, mudar o ícone
+deixa duas para trás em silêncio.
+
+**⚠️ Editar o barrel do `packages/ui` NÃO basta para os consumidores.** O
+`package.json` do pacote aponta `exports` para `./dist/index.d.ts`, então o `site`
+consome o BUILD, não o fonte. Sintoma medido: `tsc` do `site` deu
+`TS2305: Module '@artificio/ui' has no exported member 'NavToggle'` com o export já
+escrito no `index.ts`, e a suíte do `site` quebrou junto — enquanto o `packages/ui`
+passava verde nos seus 121 testes. A correção é `pnpm --filter @artificio/ui build`
+antes de rodar os consumidores. **Vale para toda task da F7 que exporte símbolo novo
+do pacote.**
+
+#### Achados do Codex em `f15346f`
 
 **P1 — regra de CSS compartilhado deixou o `site` sem navegação no celular.** O commit
 `f15346f` escondeu `.artificio-menu-toggle` em ≤860px porque, no `Header` do pacote, ele

@@ -54,6 +54,50 @@ describe("header em ≤860px", () => {
     // logado / 406px deslogado, estourando em 360, 375 e 390 (achado P1 do Codex na
     // PR #322). Com `auto 1fr auto auto` só a marca é elástica: 290px em 320.
     expect(regraNoMedia860(".artificio-header-main")).toContain("grid-template-columns: auto 1fr auto auto");
+  });
+
+  it("faz a soma das faixas caber em 320px de verdade", () => {
+    // ⚠️ O guard que faltava, e sem o qual a aritmética do comentário mentiu (achado
+    // P1 do Codex na PR #323). A 1ª versão contou 40px para a faixa de sessão sem
+    // reduzir o `min-width: 96px` da regra base: a soma real era 346px e o header
+    // estourava 26px em 320 — a largura que T7.1 existe para suportar.
+    //
+    // Cada parcela é medida do CSS, não do comentário. Se alguém subir um piso, a
+    // soma estoura aqui antes de estourar na tela.
+    const px = (regra: string, prop: string) =>
+      Number(new RegExp(`${prop}:\\s*(\\d+)px`).exec(regra)?.[1] ?? NaN);
+
+    // Sem comentários: a regra base dos hambúrgueres tem um `/* ... */` ENTRE os dois
+    // seletores, e passá-lo dentro do seletor para `cssRule` não casa nada (errei assim
+    // na 1ª versão deste guard, e a parcela virou NaN).
+    const semComentarios = styles.replace(/\/\*[\s\S]*?\*\//g, "");
+    const toggle = px(
+      /\.artificio-nav-toggle,\s*\.artificio-menu-toggle\s*\{([^}]*)\}/.exec(semComentarios)?.[1] ?? "",
+      "min-width",
+    );
+    const sessao = px(regraNoMedia860(".artificio-session"), "min-width");
+    const acao = px(cssRule(".artificio-header-action"), "min-width");
+    // `padding: 8px 16px` — o lateral é o 2º valor, e é ele que entra na soma.
+    const lateral = Number(
+      /padding:\s*\d+px\s+(\d+)px/.exec(regraNoMedia860(".artificio-header-main"))?.[1] ?? NaN,
+    );
+
+    // Nenhuma parcela pode ter vindo de uma leitura que falhou: NaN passaria calado
+    // por qualquer comparação `<=`.
+    expect(
+      [toggle, sessao, acao, lateral].some(Number.isNaN),
+      `parcela não lida do CSS: toggle=${toggle} sessao=${sessao} acao=${acao} lateral=${lateral}`,
+    ).toBe(false);
+
+    expect(sessao, "min-width da faixa de sessão em ≤860px").toBe(40);
+    expect(acao, "min-width do botão de ação (a lupa)").toBe(40);
+
+    // ☰público + marca + lupa + sessão + 3 gaps + padding dos dois lados.
+    const MARCA_MINIMA = 90;
+    const GAP = 16;
+    const soma = toggle + MARCA_MINIMA + acao + sessao + 3 * GAP + 2 * lateral;
+
+    expect(soma, `soma das faixas = ${soma}px, e a tela alvo tem 320`).toBeLessThanOrEqual(320);
     // O seletor é multi-linha no CSS (`> nav` e `.artificio-subnav` em linhas separadas),
     // então o recorte vai do primeiro seletor até a chave, tolerando o que houver entre eles.
     const navEscondida = media860.match(

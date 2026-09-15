@@ -3,6 +3,8 @@ export { Footer } from "./Footer.js";
 export type { FooterProps } from "./Footer.js";
 export { Header } from "./Header.js";
 export { Nav } from "./Nav.js";
+export { NavToggle } from "./NavToggle.js";
+export type { NavToggleProps } from "./NavToggle.js";
 export {
   Badge,
   Banner,

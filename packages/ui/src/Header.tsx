@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { brandLogoNavy, brandLogoNeg } from "./brand.js";
 import { defaultNavItems, type NavItem } from "./modules.js";
 import { Nav } from "./Nav.js";
+import { NavToggle } from "./NavToggle.js";
 import { ThemeToggle } from "./theme.js";
 
 export interface UserMenuItem {
@@ -299,19 +300,12 @@ export function Header({
           `display: none` no desktop (regra base de `.artificio-nav-toggle`): a nav
           inline dá conta ali, e o painel só existe abaixo de 860px.
         */}
-        <button
-          type="button"
+        <NavToggle
           className="artificio-nav-toggle"
-          aria-label="Menu de navegação"
-          aria-expanded={navOpen}
+          label="Menu de navegação"
+          expanded={navOpen}
           onClick={toggleNav}
-        >
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="18" x2="21" y2="18" />
-          </svg>
-        </button>
+        />
         <a className="artificio-brand" href={brandHref}>
           <img
             alt={brandLogoNavy.alt}
@@ -427,19 +421,12 @@ export function Header({
             <div className="artificio-header-actions">{actions}</div>
           ) : null}
           {renderSession()}
-          <button
-            type="button"
+          <NavToggle
             className="artificio-menu-toggle"
-            aria-label="Menu"
-            aria-expanded={navOpen}
+            label="Menu"
+            expanded={navOpen}
             onClick={toggleNav}
-          >
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
+          />
         </div>
       </div>
 

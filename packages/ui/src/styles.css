@@ -2147,10 +2147,18 @@ select option:checked,
      tamanho do alvo de toque. A marca é o único item elástico, então ela absorve a
      sobra e os controles nunca são espremidos.
 
-     Aritmética que sustenta o valor (medida em T7.1): 40 (☰púb) + 40 (🔍) + 40 (☰ses)
-     + 90 (marca mínima) + 3×16 (gaps) + 32 (padding) = 290px, cabendo em 320px com
-     30px de folga. O valor anterior (`1fr auto auto`, 3 colunas) media 394px logado e
-     406px deslogado, estourando em 360, 375 e 390 — achado P1 do Codex na PR #322.
+     Aritmética que sustenta o valor, CORRIGIDA em 2026-09-15 (achado P1 do Codex na
+     PR #323): 40 (☰púb) + 90 (marca mínima) + 40 (🔍) + 40 (faixa de sessão)
+     + 3×16 (gaps) + 32 (padding) = 290px, cabendo em 320px com 30px de folga.
+
+     ⚠️ A 1ª versão usou 40px para a sessão SEM reduzir o `min-width: 96px` da regra
+     base de `.artificio-session` — o número do comentário era o do botão, não o da
+     faixa. A conta real dava 346px e o header estourava 26px justamente em 320, a
+     largura que a mudança existia para suportar. A regra que reduz está logo abaixo,
+     e há guard travando as duas pontas.
+
+     O valor anterior (`1fr auto auto`, 3 colunas) media 394px logado e 406px
+     deslogado, estourando em 360, 375 e 390 — achado P1 do Codex na PR #322.
 
      ⚠️ Coluna `auto` NÃO encolhe. Um 5º filho direto aqui cai em coluna implícita e
      empurra a sessão para fora da área visível, que é exatamente o defeito corrigido
@@ -2178,6 +2186,26 @@ select option:checked,
   /* A marca centraliza entre o hambúrguer público e a busca. */
   .artificio-brand {
     justify-content: center;
+  }
+
+  /* A faixa de sessão cede os 96px do desktop (regra base) e fica no tamanho do alvo
+     de toque. Os 96px existem para ela não colapsar enquanto a sessão carrega; aqui
+     o conteúdo é só o avatar (32px) ou o "Entrar", e manter o piso do desktop punha
+     56px a mais na conta de 320px — era o que fazia o header estourar 26px (achado
+     P1 do Codex na PR #323, medido). */
+  .artificio-session {
+    min-width: 40px;
+  }
+
+  /* E o texto de carregamento não estica a faixa: "Verificando acesso…" em 14px passa
+     de 130px sozinho, acima de qualquer piso, e o grid cresce enquanto a sessão não
+     resolve. Vira reticência dentro do alvo de toque — o `aria-busy` e o `aria-live`
+     do container continuam anunciando o estado a quem usa leitor de tela. */
+  .artificio-session-loading {
+    max-width: 40px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* SÓ A BUSCA fica exposta na barra (aceite 2 de T7.1). Changelog e tema descem para
