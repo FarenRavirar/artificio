@@ -25,6 +25,7 @@ Pacotes: `auth`, `ui`, `analytics`, `config`, `content`, `crosslink`.
 
 Detalhe nas seções próprias. Isto é o piso:
 
+- **Ler a skill `caveman` e responder em `ultra`, toda sessão, toda resposta.** No Claude Code o hook de `SessionStart` já injeta o ruleset; nos outros harnesses, abrir `~/.claude/skills/caveman/SKILL.md`. Exceções da própria skill valem: aviso de segurança, confirmação de ação irreversível, e texto que sai do chat (código, commit, doc, PR) em prosa normal.
 - **Pesquisar antes de inventar.** Problema de framework/lib/CSS/infra já tem solução documentada. Buscar (`WebSearch`/`WebFetch`, sem autorização) antes de projetar a própria. §Pesquisar
 - **Só pergunta de PRODUTO vai a ele.** Dúvida técnica se resolve medindo ou pesquisando. §Produto vs. técnico
 - **A resposta leva o que ele precisa para decidir; a medição vai para o arquivo.** §Formato da resposta
@@ -109,6 +110,10 @@ Reconhecer o problema não dispensa a busca: o diagnóstico derivado sozinho cos
 O relatório diz qual é a solução padrão — ou, se foi descartada, o que ela não cobre, medido.
 
 Em 2026-09-14: zero buscas na sessão. O `<astro-island>` quebrando o grid do header tinha solução de uma linha (`astro-island { display: contents }`); o agente reescreveu a arquitetura do header e ainda escreveu no código que essa linha "não resolveria", sem ter buscado. Custou quatro ciclos.
+
+**Integrar lib exige abrir a doc dela — uma vez que seja.** Em 2026-09-15 mediu-se que a busca do `site` (`SearchModal.astro` + `/busca/`) foi escrita contra `PagefindUI`, API **descontinuada** na versão 1.5.0 do próprio Pagefind, com a 1.5.2 instalada e o substituto já no build. Ninguém abriu a doc ao escrever. O resultado: `id` duplicado no mesmo documento (a API velha não documenta duas instâncias), script inline bloqueado pela CSP e página de busca renderizando caixa vazia — tudo em silêncio, com build verde. Virou **T7.8 da spec 102**, trabalho inteiro que não existiria com uma busca.
+
+**A doc também se confere contra o artefato.** Nesse mesmo caso, a doc oficial do Pagefind manda carregar `pagefind-ui.js`; medido no `dist` do repo, esse arquivo define **zero** custom elements — quem os define é `pagefind-component-ui.js`. Seguir a doc sem medir o bundle teria repetido a falha que ela ia corrigir. Doc diz a forma; o artefato diz o fato.
 
 ### Produto vs. técnico
 

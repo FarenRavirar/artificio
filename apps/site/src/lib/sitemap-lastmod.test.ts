@@ -58,6 +58,21 @@ describe("serializeWithLastmod", () => {
     expect(a).not.toBe(b);
   });
 
+  // Guard de T7.7 (spec 102): a regra que tira `/busca/` do sitemap mora em
+  // `astro.config.mjs` (`filter` do `@astrojs/sitemap`), que não é importável daqui — o
+  // módulo roda fora do pipeline do Vite e lê `posts.json` por `readFileSync`. O que este
+  // caso trava é a FORMA da comparação, que é onde o defeito nasceria.
+  it("o filtro do sitemap casa `/busca/` por pathname, não por `includes`", () => {
+    const filtro = (page: string) => new URL(page).pathname !== "/busca/";
+
+    expect(filtro("https://artificiorpg.com/busca/"), "a busca interna tem de sair").toBe(false);
+    // `includes("/busca/")` derrubaria este post junto, e em silêncio: ninguém olha o
+    // sitemap para conferir se um artigo sumiu.
+    expect(filtro("https://artificiorpg.com/blog/como-fazer-busca/")).toBe(true);
+    expect(filtro("https://artificiorpg.com/")).toBe(true);
+    expect(filtro("https://artificiorpg.com/blog/")).toBe(true);
+  });
+
   it("não inventa lastmod para URL sem data real", () => {
     for (const url of [
       "https://artificiorpg.com/",

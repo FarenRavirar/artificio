@@ -10,6 +10,28 @@ export interface NavProps {
    * não tem equivalente por teclado (Sonar S6847/S1082).
    */
   onNavigate?: () => void;
+  /**
+   * Nome acessível do `<nav>` (T7.5, spec 102).
+   *
+   * O default descreve o nav de PROJETOS, que é o uso original. A `moduleNav` passa o
+   * nome do módulo: até aqui ela herdava o mesmo rótulo, e o `mesas` anunciava
+   * "Catálogo" sob o nome "Modulos do Artificio". Pior no painel mobile, onde os dois
+   * navs renderizam juntos — duas regiões de navegação com nome acessível IDÊNTICO, que
+   * o leitor de tela não tem como distinguir (WCAG 2.4.1 / técnica ARIA11).
+   *
+   * O default também corrige a grafia: era `"Modulos do Artificio"`, sem acento.
+   */
+  label?: string;
+  /**
+   * `id` de um elemento VISÍVEL que já nomeia este nav (T7.5, spec 102).
+   *
+   * Preferido ao `label` quando o rótulo está na tela — caso do bloco de módulo dentro
+   * do painel público. Repetir o texto num `aria-label` criaria duas fontes para o mesmo
+   * nome, que saem de sincronia na primeira edição; `aria-labelledby` aponta para a que
+   * o usuário lê. Tem precedência sobre `aria-label` na própria especificação ARIA, e por
+   * isso os dois nunca saem juntos aqui.
+   */
+  labelledBy?: string;
 }
 
 function normalizeHref(href: string | undefined): string | null {
@@ -26,11 +48,19 @@ function normalizeHref(href: string | undefined): string | null {
   }
 }
 
-export function Nav({ items, currentHref, onNavigate }: Readonly<NavProps>) {
+export function Nav({
+  items,
+  currentHref,
+  onNavigate,
+  label = "Módulos do Artifício",
+  labelledBy,
+}: Readonly<NavProps>) {
   const normalizedCurrent = normalizeHref(currentHref);
 
   return (
-    <nav aria-label="Modulos do Artificio">
+    /* Um nome, nunca dois: com `aria-labelledby` presente o `aria-label` é ignorado pelo
+       navegador, e emitir os dois só deixaria texto morto no HTML para divergir depois. */
+    <nav aria-label={labelledBy ? undefined : label} aria-labelledby={labelledBy}>
       <ul className="artificio-nav-list">
         {items.map((item) => {
           const isCurrent = normalizedCurrent !== null && normalizeHref(item.href) === normalizedCurrent;

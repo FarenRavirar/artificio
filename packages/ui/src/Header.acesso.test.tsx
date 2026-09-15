@@ -57,7 +57,11 @@ describe("regra de acesso do header (T3.5e)", () => {
     const faixa = faixaDeSessao(html);
 
     expect(faixa).not.toContain('aria-label="Buscar"');
-    expect(faixa).not.toContain('aria-label="Changelog"');
+    // "Novidades", não "Changelog": T7.2 unificou o rótulo com o do `apps/site` ao
+    // extrair `ChangelogButton`. É o mesmo controle, e o nome acessível é o que o
+    // usuário ouve — dois nomes para um botão é a divergência por app que a regra de
+    // compartilhado do `AGENTS.md` trata como dívida.
+    expect(faixa).not.toContain('aria-label="Novidades"');
     expect(faixa).not.toContain("artificio-theme-toggle");
   });
 
@@ -80,8 +84,15 @@ describe("regra de acesso do header (T3.5e)", () => {
     expect(faixaDeSessao(html)).toContain("artificio-menu-toggle");
   });
 
-  it("mantém a prop `actions` na direita — é conteúdo do app consumidor", () => {
-    // O `mesas` injeta o sino por ela, e o sino exige sessão.
+  it("não deixa `actions` na barra — ele vive dentro do painel de sessão (T7.3)", () => {
+    // Era o inverso até T7.2: `actions` renderizava como `.artificio-header-actions`,
+    // IRMÃO do avatar na faixa, e a fazia medir 72px em vez de 40px — o estouro de 2px
+    // em 320. A decisão do mantenedor na F7 é que notificação mora dentro do menu de
+    // quem está logado; `actions` inteiro desceu junto, porque é slot extensível.
+    //
+    // Aqui o render é DESLOGADO, então `actions` não aparece em lugar nenhum. Onde ele
+    // renderiza quando há sessão é assunto de `Header.sessao.test.tsx`, que abre o painel
+    // com clique real — `renderToStaticMarkup` nunca vê o menu aberto.
     const html = renderToStaticMarkup(
       <Header
         {...comFerramentas}
@@ -90,7 +101,8 @@ describe("regra de acesso do header (T3.5e)", () => {
       />,
     );
 
-    expect(faixaDeSessao(html)).toContain("artificio-header-actions");
+    expect(html).not.toContain("artificio-header-actions");
+    expect(html).not.toContain("acao-do-app");
   });
 
   it("não cria a coluna de ferramentas quando o app não liga nenhuma", () => {
@@ -152,7 +164,7 @@ describe("regra de acesso do header (T3.5e)", () => {
     );
 
     expect(html).toContain("artificio-header-tools");
-    expect(html).toContain('aria-label="Changelog"');
+    expect(html).toContain('aria-label="Novidades"');
   });
 
   it("não cria a coluna quando `showChangelog` vem sem handler", () => {

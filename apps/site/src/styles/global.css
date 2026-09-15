@@ -93,6 +93,33 @@ img { max-width: 100%; height: auto; display: block; }
   letter-spacing: -.01em; margin: 0 0 24px;
 }
 
+/* Busca da home (T7.6, spec 102). Entrada explícita para a busca, que até aqui só existia
+   na lupa do header — descoberta só por quem já sabia dela.
+
+   Tokens (`--surface`, `--line`, `--fg`, `--muted`), nunca cor literal: eles já são
+   redefinidos no `:root[data-theme="dark"]` deste arquivo, então o bloco acompanha o tema
+   escuro sem regra própria. Cor fixa aqui repetiria o defeito de `--artificio-canvas` em
+   T7.5, que precisou de par manual por ser fixa nos dois temas.
+
+   `flex-wrap` + `min-width` no campo: em 360px o botão desce para baixo do input em vez de
+   espremê-lo — mesma razão do `wrap` em `.section-head` (aceite 12). */
+.home-search { margin: 0 0 32px; }
+.home-search-label {
+  display: block; font-family: var(--display); font-size: 13px; font-weight: 600;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px;
+}
+.home-search-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.home-search-input {
+  flex: 1 1 260px; min-width: 0; min-height: 44px; padding: 0 16px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 999px;
+  color: var(--fg); font: inherit;
+}
+.home-search-input::placeholder { color: var(--muted); }
+.home-search-input:focus-visible {
+  border-color: var(--accent); outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
 /* `h2` de seção fora do `.section-head` (o "Destaque" do hero, T3.5a). Mesmo tratamento
    tipográfico do `.section-head h2` para as duas seções da home lerem como par. */
 .section-title { font-family: var(--display); font-size: 22px; letter-spacing: .02em; margin: 0 0 18px; }

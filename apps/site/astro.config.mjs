@@ -30,7 +30,23 @@ export default defineConfig({
   trailingSlash: "always",
   integrations: noindex
     ? [react()]
-    : [sitemap({ serialize: (item) => serializeWithLastmod(item, lastmodIndex) }), react()],
+    : [
+        sitemap({
+          // `/busca/` fora do sitemap (T7.7, spec 102). Busca interna não é conteúdo, e a
+          // doc do Google manda mantê-la fora do índice. A página leva `noindex`
+          // (`pages/busca/index.astro`); sem tirá-la daqui o site emitiria sinal
+          // contraditório — o sitemap convidando a rastrear o que a meta nega.
+          //
+          // `filter` e não remoção da página: a busca continua existindo e alcançável
+          // pela lupa do header e pela home (T7.6). O que sai é o convite ao crawler.
+          //
+          // Compara com `URL.pathname`, não `includes("/busca/")`: um post cujo slug
+          // contivesse esse trecho (`/blog/como-fazer-busca/`) sairia junto, calado.
+          filter: (page) => new URL(page).pathname !== "/busca/",
+          serialize: (item) => serializeWithLastmod(item, lastmodIndex),
+        }),
+        react(),
+      ],
   // Site sem markdown — desabilita syntax highlighting (remove warning CSP/Shiki)
   markdown: { syntaxHighlight: false },
   vite: {

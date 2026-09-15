@@ -88,3 +88,60 @@ describe('AppShell', () => {
     }, { timeout: 1000 });
   });
 });
+
+// Guard de T7.6 (spec 102): no celular o `downloads` usa LUPA, como os outros 4 apps.
+//
+// Os casos acima rodam todos como desktop — o mock de `matchMedia` em `test/setup.ts`
+// devolve `matches: false` fixo. Sem forçar `true` aqui, a lupa nunca seria exercitada e
+// a suíte passaria verde com o comportamento do celular quebrado.
+describe('AppShell — busca no celular (T7.6)', () => {
+  const matchMediaOriginal = window.matchMedia;
+
+  /** Força ≤860px, onde o header do pacote colapsa nos 4 slots. */
+  function colapsarHeader() {
+    window.matchMedia = ((query: string) => ({
+      matches: query.includes('860'),
+      media: query,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => false,
+    })) as unknown as typeof window.matchMedia;
+  }
+
+  afterEach(() => {
+    window.matchMedia = matchMediaOriginal;
+  });
+
+  it('troca o campo embutido pela lupa', () => {
+    // As duas formas são EXCLUSIVAS no `Header` compartilhado: `hasEmbeddedSearch`
+    // desliga a lupa. Ter as duas na tela seria dois controles para a mesma ação.
+    colapsarHeader();
+    renderShell('/');
+
+    expect(screen.getByRole('button', { name: 'Buscar' })).toBeInTheDocument();
+    expect(screen.queryByRole('searchbox', { name: 'Buscar materiais' })).not.toBeInTheDocument();
+  });
+
+  it('a lupa leva à busca do módulo', () => {
+    colapsarHeader();
+    renderShell('/materiais/material-1');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Buscar' }));
+
+    // `/busca` é alias de `/catalogo` (`App.tsx`), mas aqui só o `AppShell` está montado:
+    // o que este guard prova é o DESTINO da lupa, não o redirect — esse tem guard próprio
+    // em `App.routes.test.tsx`.
+    expect(screen.getByTestId('location')).toHaveTextContent('/busca');
+  });
+
+  it('no desktop continua com o campo embutido, sem lupa', () => {
+    // O mock global devolve `matches: false`: é o caso desktop, que não pode regredir.
+    renderShell('/');
+
+    expect(screen.getByRole('searchbox', { name: 'Buscar materiais' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Buscar' })).not.toBeInTheDocument();
+  });
+});

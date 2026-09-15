@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useAnalyticsPageviews } from '@artificio/analytics/react';
 import { SobreEUsoPage } from './pages/SobreEUsoPage';
@@ -43,6 +43,31 @@ function AnalyticsPageviews() {
   return null;
 }
 
+/**
+ * `/busca` é ALIAS de `/catalogo`, não página própria (T7.6, spec 102).
+ *
+ * A lupa do header em ≤860px precisa de um destino, e o mesmo destino em todos os
+ * módulos. Aqui ele não pode ser uma página de resultados: `CatalogoPage` declara
+ * `useCanonicalUrl('/')` (`CatalogoPage.tsx:49`, decisão de 2026-07-26) justamente para
+ * consolidar em `/` a autoridade de todos os recortes da mesma listagem. Uma `/busca`
+ * indexável seria mais uma URL disputando essa autoridade — o oposto do que a spec 102
+ * faz. O `mesas`, modelo aprovado para o header, resolve igual: `routes/busca.tsx` tem 3
+ * linhas e redireciona para `/catalogo`.
+ *
+ * `to` é OBJETO, não a string `"/catalogo"`. `<Navigate to="/catalogo" />` descarta
+ * `location.search`, e `/busca?q=mapa` chegaria ao catálogo sem o termo — a busca do
+ * usuário sumiria no meio do caminho, sem erro nenhum. O objeto `{ pathname, search }`
+ * é o que carrega o `?q=` adiante.
+ *
+ * `replace` e não push: sem ele o Voltar cai em `/busca`, que redireciona de novo, e o
+ * visitante fica preso sem conseguir sair da página (achado do Codex na PR #319, mesmo
+ * defeito que `routes/redirect.tsx` do `mesas` documenta).
+ */
+function BuscaRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={{ pathname: '/catalogo', search }} replace />;
+}
+
 // T4.1 (spec 073) — rotas publicas de descoberta. Painel (074) e gestao (075)
 // entram em specs seguintes; /usuarios/:username aponta ao perfil comunitario
 // compartilhado (fora do escopo desta spec, placeholder de redirect por ora).
@@ -52,6 +77,7 @@ export function AppRoutes() {
       <Route path="/" element={<CatalogoPage />} />
       <Route path="/sobre-e-uso" element={<SobreEUsoPage />} />
       <Route path="/catalogo" element={<CatalogoPage />} />
+      <Route path="/busca" element={<BuscaRedirect />} />
       <Route path="/materiais/:materialSlug" element={<MaterialPage />} />
       <Route path="/criadores/:slug" element={<CreatorPage />} />
       <Route path="/ir/:destinationId" element={<RedirectDestinationPage />} />

@@ -1,5 +1,5 @@
 import { getAccountsOrigin, logout, redirectToLogin, useSession } from "@artificio/auth/client";
-import { NavToggle, NotificationBell, StaticChangelogModal, ThemeToggle, useChangelogBadge, CHANGELOG_UPDATE_MARKERS } from "@artificio/ui";
+import { ChangelogButton, NavToggle, NotificationBell, StaticChangelogModal, ThemeToggle, useChangelogBadge, CHANGELOG_UPDATE_MARKERS } from "@artificio/ui";
 import { useState, useRef, useEffect } from "react";
 import rawChangelogs from "../data/changelogs.json";
 
@@ -185,24 +185,7 @@ export function SiteHeaderIsland({
   /* Ferramentas públicas — esquerda (T3.5g). Não exigem sessão: nenhuma delas lê `user`. */
   const ferramentasPublicas = (
     <div className="artificio-header-tools">
-      <button
-        type="button"
-        className="artificio-header-action"
-        aria-label="Novidades"
-        title="Novidades"
-        onClick={openChangelog}
-      >
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M8.56 3.69a9 9 0 0 0-2.92 1.95" />
-          <path d="M3.69 8.56A9 9 0 0 0 3 12" />
-          <path d="M8.56 20.31A9 9 0 0 0 12 21" />
-          <path d="M20.31 15.44A9 9 0 0 0 21 12" />
-          <polygon points="13 2 13 13 18 11 13 13 13 2" />
-        </svg>
-        {hasNewUpdate ? (
-          <span className="artificio-header-action-badge" aria-label="Novidade" />
-        ) : null}
-      </button>
+      <ChangelogButton hasBadge={hasNewUpdate} onClick={openChangelog} />
       <button
         type="button"
         className="artificio-header-action"
@@ -244,6 +227,15 @@ export function SiteHeaderIsland({
           </button>
           {menuOpen ? (
             <div className="artificio-usermenu-dropdown" role="menu">
+              {/* PAINEL DE SESSÃO (T7.3, spec 102) — o sino saiu da faixa e entrou aqui,
+                  igual ao `packages/ui/src/Header.tsx`. Decisão do mantenedor na F7:
+                  "notificação fica dentro do direito, pois é notificação de quem fica
+                  logado". Aqui ele era filho DIRETO de `.artificio-session`, não vinha por
+                  `actions` — o site tem header próprio —, então dividia a faixa com o
+                  avatar e a fazia medir 72px em vez de 40px. */}
+              <div className="artificio-usermenu-actions">
+                <NotificationBell sourceApp="site" />
+              </div>
               {user.role === "admin" ? (
                 <a role="menuitem" className="artificio-usermenu-item" href="/admin/">
                   Admin
@@ -340,7 +332,10 @@ export function SiteHeaderIsland({
         {renderNavList(modules, "Projetos do Artifício")}
         {ferramentasPublicas}
         <div className="artificio-session" aria-live="polite">
-          <NotificationBell sourceApp="site" />
+          {/* ⚠️ O `NotificationBell` saiu daqui em T7.3 e vive dentro do dropdown do
+              avatar (`.artificio-usermenu-actions`). Aqui ele era filho DIRETO da faixa e
+              a fazia medir 72px (sino de 40 + avatar de 32) em vez de 40px — o estouro de
+              2px em 320. Só a porta da sessão fica na barra. */}
           {sessao}
           {/* O `.artificio-menu-toggle` que ficava aqui saiu em T7.1: ele era o ÚNICO
               controle de navegação do site e agora vive como `.artificio-nav-toggle`, no
@@ -372,6 +367,24 @@ export function SiteHeaderIsland({
         <div className="artificio-mobile-nav">
           {renderNavList(modules, "Projetos do Artifício (menu)", () => setNavOpen(false))}
           {renderNavList(sections, "Seções do blog (menu)", () => setNavOpen(false))}
+          {/* Rodapé de ferramentas públicas (T7.2, spec 102) — IGUAL ao do
+              `packages/ui/src/Header.tsx`, e pelo mesmo motivo: a regra de ≤860px que tira
+              changelog e tema da barra vive no CSS COMPARTILHADO e alcança este header
+              também. Fazer só o lado do pacote deixaria o `artificiorpg.com` sem os dois
+              no celular — é a repetição exata do P1 que o `menu-toggle` causou em T7.1.
+
+              A busca NÃO desce: ela continua exposta na barra em ≤860px (aceite 2 de
+              T7.1), então repeti-la aqui daria dois controles para a mesma ação. */}
+          <div className="artificio-mobile-nav-footer">
+            <ChangelogButton
+              hasBadge={hasNewUpdate}
+              onClick={() => {
+                setNavOpen(false);
+                openChangelog();
+              }}
+            />
+            <ThemeToggle />
+          </div>
         </div>
       ) : null}
 
