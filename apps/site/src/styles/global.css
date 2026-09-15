@@ -47,12 +47,22 @@
 
 /* Header do site: nenhuma regra própria (T3.5d/T3.5g/T3.5e, spec 102).
 
-   O site não usa `packages/ui/src/Header.tsx` — tem ilha própria —, mas monta a MESMA
-   estrutura: brand, nav, `.artificio-header-tools`, `.artificio-session`. O grid de 4
-   colunas e o colapso em ≤860px vieram para `packages/ui/src/styles.css` em T3.5e e
-   chegam aqui pelo `@import` da linha 8. Duplicar a definição por app é exatamente a
-   divergência que o monorepo existe para evitar: se a regra mudar no pacote, a cópia
-   local venceria em silêncio. */
+   O site não usa `packages/ui/src/Header.tsx` — tem ilha própria. O grid de 4 colunas e
+   o colapso em ≤860px vivem em `packages/ui/src/styles.css` e chegam aqui pelo `@import`
+   da linha 8. Duplicar a definição por app é a divergência que o monorepo existe para
+   evitar: se a regra mudar no pacote, a cópia local venceria em silêncio.
+
+   A estrutura do site casa com o contrato do grid desde 2026-09-14, e a ilha é quem
+   garante isso: `SiteHeaderIsland.tsx` renderiza o `<header>` inteiro, com marca, nav,
+   `.artificio-header-tools` e `.artificio-session` como os 4 FILHOS DIRETOS de
+   `.artificio-header-main`, e subnav/painel mobile como IRMÃOS do grid.
+
+   ⚠️ Não devolver o `<header>` ou o `.artificio-header-main` para o `.astro`. Foi assim
+   até T3.5 e quebrava o mobile: o Astro injeta um `<style>` e um `<script>` ao lado do
+   componente hidratado, e os dois viram itens do grid. Medido no beta: 5 itens para 4
+   colunas (3 em ≤860px), com as ferramentas públicas fora da área visível — mais a
+   subnav, que dentro do grid vira coluna em vez de 2ª linha. O porquê completo está no
+   `return` de `SiteHeaderIsland.tsx`; o guard, em `SiteHeaderIsland.estrutura.test.tsx`. */
 
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }

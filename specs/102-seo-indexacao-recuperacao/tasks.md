@@ -785,9 +785,40 @@ fica visível após o rebuild do container (T3.3).
 
 ---
 
-### [!] T3.3 — Export + rebuild + deploy do `site` — BLOQUEADA
+### [x] T3.3 — Export + rebuild + deploy do `site` — FEITO (2026-09-14)
 
-Deploy **autorizado** pelo mantenedor em 2026-09-12; **não executável ainda**.
+**Deploy B executado: promote `dev`→`main` (run `34907438221`) + `deploy.yml` prod (run
+`34907514215`), ambos `success`.** `main` = `1c833b5`, distância para `dev` = 0.
+Rollback, se precisar: `main` estava em `31ff668`.
+
+**Aceites medidos em `artificiorpg.com`, todos verdes:**
+
+| critério | alvo | medido |
+|---|---|---|
+| A2 canonical == URL servida | 0 mismatch | **30/30** (amostra do sitemap) |
+| D1 prefixo legado → 301 correto | 301 | **12/12** |
+| D2 sem cadeia (1 hop até 200) | 1 hop | **12/12** |
+| D3 forma sem barra final | 301 | **6/6** |
+| D4 query preservada | mantém | **`?utm_source=fb&utm_campaign=teste` intacto** |
+| D5 `lastmod` no sitemap | ≥ 126 | **126** (226 `<loc>` no total) |
+| posts no sitemap | 126 | **126** |
+| recorte das fatias | 5×24 + 6 | **126 cards** |
+| raiz: `h1`, canonical, title | próprios | **`<h1>Artifício RPG</h1>`, canonical para si** |
+| raiz: "Todos os Posts" | 2 | **2** |
+
+**⚠️ ARMADILHA DE MEDIÇÃO — `grep -c` MENTE neste sitemap.** O XML vem em **uma linha
+só**, e `grep -c` conta LINHAS, não ocorrências: devolve `1` (ou `0`) mesmo com 126
+`lastmod` presentes. O aceite 2 abaixo e o `plan.md` §7 usam `grep -c` e **estão
+errados como escritos**. A forma correta é `grep -o "<lastmod>" | wc -l`. Esta
+armadilha já produziu dois relatos falsos de "D5 = 0" nesta spec — um em beta, um em
+prod, os dois meus.
+
+**Segunda armadilha, medida no mesmo dia: cache de borda do Cloudflare.** Logo após o
+deploy, `curl` sem cache-buster devolveu canonical antigo na raiz (`cf-cache-status:
+HIT`, `Age: 6472`, `Cache-Control: public, max-age=7200`) e `/blog/2/` como 404, enquanto
+`/blog/3..6/` já serviam 200 — mistura de versões que parece deploy pela metade e não é.
+**Toda conferência pós-deploy deste app exige `?cb=$(date +%s%N)`**, senão mede um build
+de até 2 h atrás.
 
 **Bloqueio, atualizado em 2026-09-12.** `deploy.yml` roda com `--ref main` e a VM faz
 `git reset --hard origin/<branch>` (`deploy-flow.md` §6), então só chega a produção o
@@ -817,12 +848,40 @@ Um ciclo resolve canonical e `lastmod`.
 
 **Comando.** `gh workflow run deploy.yml --ref main -f module=site -f mode=deploy -f env=prod`
 
+**Ensaio em beta feito — Deploy A, run `34903089436`, `success` em 2026-09-14.** O ciclo
+export → `posts.json` → build rodou contra banco real e o recorte da paginação saiu
+correto: `/blog/` e as fatias 2–5 com **24 cards** cada, fatia 6 com **5**, `/blog/1/` e
+`/blog/7/` com **404**. O risco que esta task carregava — descobrir erro de recorte só em
+prod — está eliminado.
+
+**Dois valores DIVERGEM entre beta e prod, medidos no mesmo dia:**
+
+| | `site-beta-db` | `site-prod-db` |
+|---|---:|---:|
+| posts `status='publish'` | **125** | **126** |
+
+O beta serviu 125 posts (5×24 + 5 = 125 cards, conferido por `class="card"`), que é
+exatamente o conteúdo do banco dele. **Não há post perdido no pipeline** — descartadas
+por medição as hipóteses de filtro por status, slug numérico (0), slug duplicado (0),
+`published_at` nulo (0) e `noindex` (0). São bancos com conteúdo diferente.
+
+Consequência para o aceite: em prod a aritmética dá **6 fatias** (126 = 5×24 + 6), a
+mesma contagem de fatias do beta. O recorte não muda. Mas **o número "126" que esta spec
+usa em 9 lugares é do banco de prod**; ao conferir beta, o alvo é 125. Não tratar 125 em
+beta como falha.
+
+**`lastmod` (D5) NÃO é medível em beta — por desenho, não por falha.** `astro.config.mjs`
+só carrega a integração `sitemap` quando `SITE_NOINDEX !== "true"` (achado do mantenedor,
+PR #271: beta não emite convite a rastrear). Medido: `/sitemap-0.xml`, `/sitemap.xml` e
+`/sitemap-index.xml` devolvem **404** em beta, e `robots.txt` serve `Disallow: /`. O
+aceite 2 abaixo só tem valor em prod.
+
 **Aceite.**
 
-1. Varredura dos 126 posts: `<link rel=canonical>` == URL servida em **126/126**
-   (hoje: 21/126).
+1. Varredura dos posts: `<link rel=canonical>` == URL servida em **126/126** em prod
+   (hoje: 21/126). Em beta o alvo é 125/125 — bancos diferentes, ver tabela acima.
 2. `curl -s https://artificiorpg.com/sitemap-0.xml | grep -c "lastmod"` → ≥ 126
-   (aceite 1 de T3.4, só mensurável aqui).
+   (aceite 1 de T3.4). **Só em prod:** beta não gera sitemap.
 
 ---
 
@@ -857,9 +916,19 @@ depende de assets. Comentado nos dois arquivos.
 3. URL sem data real não recebe `lastmod`: teste dedicado.
 4. `vitest run src/lib/sitemap-lastmod.test.ts` → **6/6**.
 
-**Pendente de produção.** `curl … | grep -c "lastmod"` → ≥ 126 só é mensurável depois
-do deploy (T3.3). Até lá o `posts.json` versionado (8 posts, nenhum com `updated`)
-gera 0 `lastmod` — é o "não inventar data" funcionando, não falha.
+**FECHADO EM PRODUÇÃO — 2026-09-14, Deploy B (run `34907514215`).** Medido:
+`curl -s "https://artificiorpg.com/sitemap-0.xml?cb=$(date +%s)" | grep -o "<lastmod>" |
+wc -l` → **126**. O sitemap tem 226 `<loc>` (126 posts + fatias + taxonomias).
+
+**Use `grep -o … | wc -l`, NUNCA `grep -c`** — o XML é uma linha só, e `grep -c` conta
+linhas: devolve `1` com 126 `lastmod` presentes. Ver a armadilha completa em T3.3.
+
+**Beta nunca vai medir isto, por desenho.** `/sitemap-0.xml`, `/sitemap.xml` e
+`/sitemap-index.xml` devolvem **404** em `beta.artificiorpg.com`, e `robots.txt` serve
+`Disallow: /`. Causa em `astro.config.mjs`: a integração `sitemap` só entra quando
+`SITE_NOINDEX !== "true"` — beta não emite convite a rastrear (achado do mantenedor,
+PR #271). Localmente, o `posts.json` versionado (46 posts, nenhum com `updated`) gera 0
+`lastmod` por motivo diferente: "não inventar data".
 
 **Depende de.** T3.3 — mesmo ciclo de export + build + deploy.
 
@@ -1714,8 +1783,203 @@ regras de `.artificio-header-main` (desktop `auto 1fr auto auto`, mobile `1fr au
 auto`) vêm só do pacote, e o aceite 18 continua verde.
 
 **O aceite 16 exige navegador** — "header não quebra em desktop nem em ≤860px", em
-`mesas`, `downloads`, `glossario`, `links`, `site-admin` e `accounts`. Nada disso foi
-verificado visualmente. Não declarar T3.5e concluída antes do smoke.
+`mesas`, `downloads`, `glossario`, `links`, `site-admin` e `accounts`. Não declarar
+T3.5e concluída antes do smoke.
+
+**O SMOKE ACONTECEU E FALHOU — achado do mantenedor em `beta.artificiorpg.com`,
+2026-09-14, depois do Deploy A (run `34903089436`).** Relato: *"site beta mobile: não tem
+as funções do desktop. Não tem changelog nem mudar para escuro. O nome do usuário ficou
+muito feio ao lado."* Três defeitos de layout, todos confirmados por medição no CSS e no
+HTML servidos. **O aceite 16 está REPROVADO no `site`** — o único dos 6 apps que tem
+deploy nesta spec.
+
+**CORRIGIDO em 2026-09-14, com guard. Ainda NÃO deployado.**
+
+**Causa raiz dos dois primeiros: a ilha do `site` NÃO montava a estrutura que o grid do
+pacote espera.** O comentário do `global.css` afirmava que montava "a MESMA estrutura";
+era falso. Medido:
+
+- `Header.tsx` põe brand, nav, `.artificio-header-tools` e `.artificio-session` como os
+  **4 filhos diretos** de `.artificio-header-main` — casa com `auto 1fr auto auto`.
+- `SiteHeader.astro` abria o grid e punha a ilha dentro. Ao hidratar, o Astro injeta um
+  `<style>` e um `<script>` como **irmãos** do `<astro-island>`, no mesmo pai — os dois
+  são filhos diretos do grid e ocupam coluna. **Medido no HTML do beta (`1c833b5`):**
+  dentro do grid estavam `<style>`, `<script>`, `<astro-island>`, nav e tools — **5
+  itens para 4 colunas**, 3 em ≤860px. A subnav, que é 2ª linha do header, também caía
+  na barra.
+
+**O `<astro-island>` NÃO era o problema — e a primeira versão deste bloco dizia que era.**
+O Astro emite `astro-island,astro-slot,astro-static-slot{display:contents}` por conta
+própria (conferido no HTML servido de beta e prod), então o elemento é transparente ao
+layout. O agente viu 2 filhos no DOM, concluiu que o grid via 2 colunas e escreveu isso
+no código e aqui, sem verificar se aquele elemento gerava caixa — e sem pesquisar, embora
+o comportamento do `<style>`/`<script>` injetados seja documentado pela comunidade Astro.
+A correção adotada acerta por remover os três de dentro do grid; o diagnóstico registrado
+é que estava errado. Não adicionar `display:contents` ao CSS do projeto achando que
+corrige: já está lá, e não alcança os irmãos nem a subnav.
+
+Em ≤860px o pacote reduz para `1fr auto auto` contando que a nav suma e sobrem 3 filhos
+diretos. Com 2, o encaixe era outro e as ferramentas públicas saíam da área visível. **O
+aceite 18 (dedup do CSS) continua verde e não causou isto** — o CSS estava certo; o
+markup do consumidor é que divergia do contrato.
+
+**A correção: a ilha virou dona do `<header>` inteiro.** `SiteHeader.astro` é só a ponte
+(resolve assets da marca + dados de nav e repassa por prop, incluindo `logoNavy`/
+`logoNeg`/`brandName`); `SiteHeaderIsland.tsx` renderiza `<header>` → grid com os 4
+filhos diretos → subnav e painel mobile como **irmãos** do grid. É o padrão de
+`apps/links` (`PortalHeader.astro` → `<LinksHeader client:load />`), o único outro header
+por ilha do repo — e o único que **não** tinha o defeito (medido em produção).
+
+**`display: contents` no `<astro-island>` foi descartado, e o motivo importa:** resolveria
+a coluna, mas não a subnav. Ela é 2ª LINHA do header (`.artificio-header` é
+`flex-direction: column`, com `border-top` próprio) e precisa ser IRMÃ do grid, não
+filha. Um Fragment não produz filhos em dois níveis diferentes da árvore.
+
+**Terceiro defeito, corrigido no pacote:** `.artificio-user-name` ganhou `display: none`
+dentro do `@media (max-width: 860px)` de `packages/ui/src/styles.css`. Vale para todos os
+consumidores, não só o `site`. A regra base (desktop) segue intacta — medido no CSS
+emitido: 3 ocorrências, `max-width:160px` no desktop, `color:#fff` no dark,
+`display:none` só no media.
+
+**RESOLVIDO em 2026-09-15 pela Container API do Astro — nenhuma dependência nova, lock
+intocado, `--frozen-lockfile` exit 0.** O bloco abaixo registra por que o caminho anterior
+foi abandonado; ele não descreve mais o estado do código.
+
+A primeira versão do guard usava `renderToStaticMarkup` do React e exigia
+`@types/react-dom` no `apps/site` (`tsc` → TS7016). Isso levou ao impasse do lockfile
+descrito adiante. O caminho certo era outro, e só apareceu **porque o agente foi buscar**
+(§Pesquisar antes de inventar): a Container API (`astro/container` +
+`loadRenderers` de `astro:container`) renderiza o `.astro` REAL, com `<astro-island>` e as
+tags que o Astro injeta. É estritamente melhor que o React isolado — o defeito vivia
+justamente na fronteira `.astro`/`.tsx`, que o guard anterior não enxergava.
+
+**`pnpm install --lockfile-only` produziu +26/−23, e o lock foi restaurado.** Só **3
+linhas** eram o link novo; as outras 46 rearranjavam `supports-color` em `@babel/core`,
+`eslint-plugin-react-hooks` e `http-proxy-middleware` — `@babel/core@7.29.7(supports-color@5.5.0)`
+virava `@babel/core@7.29.7`. É exatamente a poda que `deploy-flow.md` §2 proíbe, e
+`@babel/core` removido do lock foi o que quebrou o `apps/site` no CI em 2026-09-03.
+Baseline medido: sem esta dep, o mesmo comando deixa o lock **intacto** — o rearranjo é
+consequência dela, não ruído preexistente.
+
+Estado final: lock idêntico a `origin/dev` (hash `7478ba57` nos dois), `package.json` com
+a linha, `tsc` do site **exit 0 e zero TS7016**, `@types/react-dom@19.2.3` resolvendo a
+partir do site porque já está no store por outros workspaces.
+
+**⚠️ MEDIDO, E O ESTADO ATUAL NÃO PASSA NO CI.** `ci.yml:70` e `:229` rodam
+`pnpm install --frozen-lockfile`. Controle isolando a variável: **com** a dep declarada →
+**exit 1**; **sem** ela → **exit 0**. As 3 últimas runs de CI em `dev` deram `success`,
+então o gate funciona e é a declaração nova que ele rejeita. Declarar a dep sem regenerar
+o lock **não é viável**, ao contrário do que a primeira versão deste bloco supôs.
+
+**As saídas medidas, nenhuma boa:**
+
+| caminho | resultado |
+|---|---|
+| declarar a dep, lock intocado | CI falha (`--frozen-lockfile` exit 1) |
+| `pnpm install --lockfile-only` | +26/−23 com poda de `@babel/core`, contra `deploy-flow` §2 |
+| `--lockfile-only --filter @artificio/site` | mesmo +26/−23 — **39 linhas** de babel/supports-color contra **1** de react-dom; o filtro não isola |
+| `declare module "react-dom/server"` | `tsc` exit 0, mas vira `any` — mascaramento que §Bug achado proíbe |
+
+**⚠️ Enquanto a dep estiver declarada sem o lock regenerado, TODO comando `pnpm` suja o
+lock sozinho** — `test`, `lint`, `exec`, `smoke:*`. Cada um dispara install implícito e
+reintroduz os +26/−23; medido três vezes em 2026-09-15. Consequência prática: `git status`
+mostra `pnpm-lock.yaml` modificado sem ninguém ter editado, e um `git add -A` o levaria
+junto para o commit em silêncio. Restaurar com `rtk git checkout HEAD -- pnpm-lock.yaml`
+e conferir por CONTEÚDO (`git diff --exit-code`), não por `git status` — o status mostra
+`M` por stat cache mesmo com o conteúdo idêntico.
+
+O rearranjo é **determinístico** (26/23 em duas rodadas) e **não é preexistente**: sem a
+dep, `--lockfile-only` deixa o lock intacto. Ele é consequência de acrescentar
+`@types/react-dom` ao `site` — o pnpm recalcula peers e move `supports-color` de
+`@babel/core`/`eslint-plugin-react-hooks` para `http-proxy-middleware`.
+
+**Nenhuma dessas saídas foi tomada — a Container API dispensou a dep inteira.** O impasse
+existia só porque o guard fora escrito com a ferramenta errada. Estado final medido em
+2026-09-15: `pnpm-lock.yaml` idêntico ao HEAD, `apps/site/package.json` idêntico ao HEAD,
+`pnpm install --frozen-lockfile` **exit 0** (o mesmo comando dava exit 1 com a dep
+declarada), site **190/190**, `tsc` exit 0, `eslint` exit 0, gate de typecheck-coverage ✓.
+
+**Arquivos novos:** `apps/site/vitest.config.ts` (`getViteConfig`, que torna
+`astro:container` resolvível), `apps/site/src/ambient.d.ts` (`declare module "*.astro"` —
+`astro/client` declara `*.png`/`*.gif` mas não `.astro`) e o guard
+`SiteHeader.estrutura.test.tsx`, com 6 asserções por posição no HTML.
+
+**Duas armadilhas medidas ao montar, ambas documentadas no próprio guard:** o ambiente
+`jsdom` do vitest quebra a Container API com `Invariant violation: new
+TextEncoder().encode("") instanceof Uint8Array` (vitest#5685/#4043), então o teste roda em
+`node`; e `getViteConfig` não tipa a chave `test`, o que reprova o exemplo oficial do
+Astro em `tsc --noEmit` (withastro/astro#12791, fechada como "not planned") — resolvido
+com cast tipado, não `any`.
+
+**Guard novo: `apps/site/src/components/SiteHeaderIsland.estrutura.test.tsx` (6 testes).**
+Afirma a árvore que o CSS exige: `<header>` como raiz da ilha, exatamente 4 filhos
+diretos na ordem certa, ferramentas como filha direta, subnav irmã do grid, os 11 links
+no HTML servido e a marca com assets por prop. **Nenhum teste pegava o defeito antes** —
+`tsc`, `eslint` e as 184 unidades passavam verdes com o header quebrado, porque o defeito
+vivia na FRONTEIRA entre o `.astro` e o `.tsx`, cada lado correto isoladamente.
+
+**Validação medida (2026-09-14):**
+
+| alvo | resultado |
+|---|---|
+| `site` — `tsc --noEmit` | exit 0 |
+| `site` — `eslint` | exit 0 |
+| `site` — suíte | **190/190** (184 + 6 do guard) |
+| `site` — `astro build` | 47 páginas, exit 0 |
+| dist: filhos diretos do grid | **4** (brand, nav, tools, session) — via jsdom |
+| dist: subnav é irmã do grid | **sim** |
+| dist: `<header>` dentro do island | **sim** (island por fora, como no `links`) |
+| dist: `artificio-nav-link` | **11** + 1 toggle, em `/` e `/blog/` (aceite 13) |
+| `packages/ui` — `tsc`/`eslint`/suíte | exit 0 · exit 0 · **102/102** |
+| `mesas` | **1152/1152** e 1175/1176 (1 skip preexistente) |
+| `downloads-frontend` | **315/315** |
+| `glossario-frontend` | **37/37** |
+| `accounts` | **602/602** (52 skips preexistentes) |
+| `tsc` dos consumidores | exit 0 em `downloads-frontend`, `glossario-frontend`, `site-admin`, `links`, `accounts` |
+
+`site-admin` não tem suíte (`"test": "echo (site-admin) test TODO"`).
+
+**Não medido, e não afirmo:** o layout renderizado em navegador real a ≤860px. O guard
+prova a ÁRVORE que o CSS exige, não o pixel. O aceite 16 pede navegador, e nos outros 5
+apps segue pendente — nenhum deles tem deploy nesta spec.
+
+**Agravante medido — `client:idle`.** `curl` na raiz de beta: `grep -c changelog` no HTML
+→ **0**, enquanto o bundle do island traz `Novidades` ×3 e `artificio_theme`. Changelog,
+busca e tema só existem **depois da hidratação**. Em mobile isso soma ao defeito de grid:
+antes de hidratar não há o que posicionar, e depois já não há coluna.
+
+**Terceiro defeito — nome do usuário.** `.artificio-user-name` tem `max-width:160px` +
+`ellipsis`, em `inline-flex` com `gap:10px` ao lado do avatar, e **nenhuma regra o
+esconde em ≤860px**. Disputa espaço com o hambúrguer e com `.artificio-session`
+(`min-width:96px`). O padrão em mobile é só o avatar.
+
+**Quarto achado do mantenedor — "não consigo acessar nada da minha conta no beta" — NÃO
+é regressão de T3.5, e o `accounts` está correto.** Medido: CORS de
+`accounts.artificiorpg.com` devolve `access-control-allow-origin:
+https://beta.artificiorpg.com` com `allow-credentials: true`; `isAllowedReturnUrl`
+(`apps/accounts/src/app.ts:170`) aceita qualquer subdomínio https de `artificiorpg.com`;
+`/api/auth/refresh` sem cookie → **401**, que é o correto para anônimo; `accounts-api` up
+há 2 semanas (healthy). **Bug latente que falha em silêncio:** o island importa
+`useSession` de `ContentEditor.BNTIvaGk.js` (283 KB), e esse chunk **não está entre os 6
+`<script>` do HTML** — carrega só por import dinâmico após `client:idle`. Até lá a faixa
+de sessão não sabe se há usuário. Não medi com cookie de sessão real (exige navegador
+autenticado, §Autorização), então **não afirmo** que é a causa única do relato.
+
+**`/api/auth/me` no `site` devolve 404 — e isso é correto, não defeito.** A sessão vem do
+`accounts`, não do site; a rota nunca existiu ali. Registrado porque a medição parece
+falha e não é — não reinvestigar.
+
+**E nenhum deploy desta spec entrega o aceite 16 — medido no manifesto em 2026-09-14.**
+`deploy_paths` de cada módulo lista apenas `apps/*` (`site` → `apps/site` +
+`apps/site-admin`; `mesas` → `apps/mesas`; etc.). **`packages/*` não aparece em módulo
+algum.** Como T3.5e/g vivem em `packages/ui`, o merge desta PR não dispara deploy de
+nada, e o header novo chega a cada app só quando aquele app for deployado por outro
+motivo — o build do app é que resolve o pacote. Consequência para o planejamento: o
+deploy do `site` (T3.3) leva o header a `artificiorpg.com` e mais nada; `downloads`,
+`glossario`, `links`, `site-admin` e `accounts` continuam servindo o header antigo até
+terem deploy próprio, que esta spec não prevê. O smoke do aceite 16 em 5 dos 6 apps não
+tem, hoje, deploy que o torne medível em produção. Mapa completo dos deploys, do que
+cada um fecha e do que destrava: `mapa-deploys.md` nesta mesma pasta.
 
 **Achado do mantenedor, FORA do previsto por esta spec: os dois painéis do header
 abriam juntos.** Pergunta dele em 2026-09-14 (*"quando clica no direita ou esquerda, o
@@ -3380,6 +3644,15 @@ nova implementação.
 
 Nenhum dos defeitos desta spec quebra teste algum e todos são invisíveis em code
 review — foi por isso que sobreviveram. Guard que falha o CI se voltarem:
+
+**Esta task é uma das duas que NENHUM deploy fecha — medido em 2026-09-14 ao montar
+`mapa-deploys.md`.** O critério **G1** do `spec.md` §4 ("guard automatizado cobre A1,
+C1, B1 e F1") depende de G-B/G-C/G-D, e os três **não dependem de deploy**: o job pode
+subir `node server.js` em `127.0.0.1`. O que falta é **banco com dado em CI**, que é
+desenho próprio e não existe. Consequência para o fechamento da spec: mesmo com os
+deploys de `site` e `mesas` em prod e todos os `curl` verdes, G1 continua aberto — e com
+ele a classe inteira de "sitemap anuncia o que o SSR nega", que volta sem quebrar teste
+algum. Não contar G1 como consequência de deploy em planejamento nenhum.
 
 | Guard | Trava | estado |
 |---|---|---|

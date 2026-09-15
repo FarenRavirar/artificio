@@ -2049,6 +2049,17 @@ select option:checked,
   .artificio-mobile-nav {
     display: flex;
   }
+
+  /* Só o avatar em telas estreitas (achado do mantenedor em beta, 2026-09-14: "o nome
+     do usuário ficou muito feio ao lado"). O nome tem `max-width: 160px` + ellipsis e
+     divide a faixa de sessão com o sino, o avatar e o hambúrguer — em ≤860px sobra
+     espaço para um nome truncado em duas letras, que não informa nada e ainda empurra o
+     toggle. O avatar (ou as iniciais) já identifica a conta, e o nome inteiro continua
+     no dropdown. Esconder por `display:none` em vez de reduzir a largura: truncar mais
+     não resolve, só encolhe o lixo visual. */
+  .artificio-user-name {
+    display: none;
+  }
 }
 
 /* ==========================================================================

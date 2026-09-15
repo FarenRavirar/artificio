@@ -19,6 +19,12 @@ export interface SiteHeaderIslandProps {
   siteOrigin?: string;
   /** Caminho da página sendo renderizada, para destacar a categoria ativa na subnav. */
   pathname?: string;
+  /* A marca vem por prop porque os arquivos são assets do pipeline do Astro (hash no
+     nome, resolvidos em build). A ilha renderiza o `<a class="artificio-brand">` para
+     ele ser FILHO DIRETO do grid — ver a nota extensa no `return`. */
+  logoNavy?: string;
+  logoNeg?: string;
+  brandName?: string;
 }
 
 function getInitials(name: string) {
@@ -54,6 +60,9 @@ export function SiteHeaderIsland({
   currentHref,
   siteOrigin,
   pathname,
+  logoNavy = "",
+  logoNeg = "",
+  brandName = "Artifício RPG",
 }: Readonly<SiteHeaderIslandProps>) {
   /* Seção ativa da subnav. `currentHref` continua aceito (o `Base.astro` o repassa),
      mas nenhuma rota o preenche hoje — medido. O fallback pelo pathname faz a categoria
@@ -269,40 +278,73 @@ export function SiteHeaderIsland({
     );
   })();
 
-  /* A marca (logo) NÃO vive aqui: as imagens são assets importados pelo Astro
-     (`logos` em `lib/content.ts`), e o `SiteHeader.astro` continua dono dela. A ilha
-     entra depois do brand, como irmã dele dentro de `.artificio-header-main`. */
+  /* A ILHA É DONA DO `<header>` INTEIRO — e isto é o contrato, não preferência de
+     organização (correção do aceite 16, 2026-09-14).
+
+     Antes, `SiteHeader.astro` abria `<header>` + `.artificio-header-main` e a ilha
+     renderizava um Fragment com nav/ferramentas/sessão/subnav dentro. Parecia
+     equivalente e não era, por dois motivos medidos no beta (2026-09-14):
+
+     1. Ao hidratar um componente, o Astro injeta um `<style>` e um `<script>` como
+        IRMÃOS do `<astro-island>`, dentro do mesmo pai. Eles são filhos diretos do
+        grid e ocupam coluna. Medido: os itens eram `<style>`, `<script>`, nav e tools
+        — 5 para as 4 colunas de `styles.css`, 3 em ≤860px. As ferramentas públicas
+        caíam fora da área visível ("não tem changelog nem mudar para escuro").
+     2. A subnav é 2ª LINHA do header (`.artificio-header` é `flex-direction: column`,
+        e ela tem `border-top` próprio). Dentro do grid ela vira coluna.
+
+     O `<astro-island>` em si NÃO era o problema: o Astro já emite
+     `astro-island,astro-slot,astro-static-slot{display:contents}` por conta própria
+     (conferido no HTML servido), então ele é transparente ao layout. Não adicionar essa
+     regra ao CSS do projeto achando que corrige — ela já está lá, e não alcança o
+     `<style>`/`<script>` irmãos nem a subnav.
+
+     É também o padrão do único outro header por ilha que funciona: `apps/links`
+     (`PortalHeader.astro` → `<LinksHeader client:load />`), onde o `<astro-island>` fica
+     FORA do `<header>` e não interfere em grid nenhum.
+
+     A marca continua vindo do Astro por prop (`logoNavy`/`logoNeg`): os arquivos são
+     assets importados pelo pipeline do Astro, com hash no nome, e a ilha não os conhece. */
   return (
-    <>
-      {renderNavList(modules, "Projetos do Artifício")}
-      {ferramentasPublicas}
-      <div className="artificio-session" aria-live="polite">
-        <NotificationBell sourceApp="site" />
-        {sessao}
-        <button
-          type="button"
-          className="artificio-menu-toggle"
-          aria-label="Menu"
-          aria-expanded={navOpen}
-          onClick={toggleNav}
-        >
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="18" x2="21" y2="18" />
-          </svg>
-        </button>
+    <header className="artificio-header" data-sticky="true">
+      <div className="artificio-header-main">
+        <a className="artificio-brand" href="/">
+          <img className="artificio-brand-logo logo-navy" src={logoNavy} alt={brandName} width="300" height="100" />
+          <img className="artificio-brand-logo logo-neg" src={logoNeg} alt={brandName} width="300" height="100" />
+        </a>
+        {renderNavList(modules, "Projetos do Artifício")}
+        {ferramentasPublicas}
+        <div className="artificio-session" aria-live="polite">
+          <NotificationBell sourceApp="site" />
+          {sessao}
+          <button
+            type="button"
+            className="artificio-menu-toggle"
+            aria-label="Menu"
+            aria-expanded={navOpen}
+            onClick={toggleNav}
+          >
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+        </div>
       </div>
 
-      {/* 2ª linha (desktop): categorias do blog. `styles.css:2023` a esconde em ≤860px —
-          os links continuam alcançáveis pelo painel mobile abaixo. */}
+      {/* 2ª linha (desktop): categorias do blog. IRMÃ do `.artificio-header-main`, porque
+          `.artificio-header` é `flex-direction: column` e a subnav tem `border-top`
+          próprio — dentro do grid ela virava uma coluna, não uma linha.
+          `styles.css:2039` a esconde em ≤860px; os links seguem no painel mobile. */}
       <div className="artificio-subnav">
         {renderNavList(sections, "Seções do blog")}
       </div>
 
       {/* Painel mobile (T3.5d): é o que devolve os 11 links em ≤860px, onde
           `styles.css:2022` esconde os navs inline. Só aparece com o toggle aberto;
-          `.artificio-mobile-nav` já tem estilo pronto no `packages/ui`.
+          `.artificio-mobile-nav` já tem estilo pronto no `packages/ui`. Também irmão do
+          grid, pelo mesmo motivo da subnav.
 
           O <div> NÃO escuta evento (Sonar S6847/S1082): quem fecha é o próprio link, pelo
           `onNavigate` passado ao `renderNavList`. O `<a>` é interativo de nascença —
@@ -318,7 +360,7 @@ export function SiteHeaderIsland({
       ) : null}
 
       <StaticChangelogModal isOpen={changelogOpen} onClose={() => setChangelogOpen(false)} rawChangelogs={rawChangelogs} />
-    </>
+    </header>
   );
 }
 

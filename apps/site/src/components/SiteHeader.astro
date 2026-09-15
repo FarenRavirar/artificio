@@ -2,18 +2,22 @@
 /*
   Header do `site` (T3.5d + T3.5g, spec 102).
 
-  A ESTRUTURA mudou: `MODULES`/`SECTIONS` eram HTML estático escrito à mão aqui, fora da
-  ilha. Em ≤860px o CSS compartilhado (`packages/ui/src/styles.css:2022`) esconde
-  `.artificio-header-main > nav` e o `.artificio-subnav`, e o `site` não tinha
-  hambúrguer — os 11 links sumiam sem substituto. O toggle precisa de estado, logo o nav
-  precisa da ilha; os itens passam como props para continuarem no HTML servido (SSR).
+  Este arquivo é só a PONTE: resolve os assets da marca e os dados de navegação no build
+  do Astro e entrega tudo para a ilha, que é dona do `<header>` inteiro.
 
-  O que fica no Astro: a MARCA. O logo vem de `logos` (assets importados pelo Astro), e
-  a ilha não os conhece.
+  ⚠️ NÃO reabrir `<header>` nem `.artificio-header-main` aqui. Foi assim até 2026-09-14 e
+  quebrava o layout mobile: junto do componente hidratado o Astro injeta um `<style>` e um
+  `<script>` como IRMÃOS dele, dentro do mesmo pai. Medido no beta: com o grid aberto aqui,
+  os itens eram `<style>`, `<script>`, nav e tools — 5 para 4 colunas (3 em ≤860px), e as
+  ferramentas públicas caíam fora da área visível no celular. A nota completa está no
+  `return` de `SiteHeaderIsland.tsx`.
 
-  ⚠️ Os 3 filhos de `.artificio-header-main` viraram 4 (brand, nav, ferramentas,
-  sessão) — o grid `auto 1fr auto` do `packages/ui` ganha uma coluna própria no
-  `global.css` do site.
+  Mesmo padrão de `apps/links` (`PortalHeader.astro` → `<LinksHeader client:load />`), o
+  único outro header por ilha do repo e o único que não tinha o defeito.
+
+  ⚠️ Os 11 links do nav PRECISAM continuar no HTML servido (aceite 13). Eles chegam como
+  props de dado estático e são renderizados no SSR do React — `client:idle` hidrata
+  depois, mas a marcação já saiu no HTML. NÃO trocar por `client:only`.
 */
 import { logos, MODULES, SECTIONS } from "../lib/content";
 import { BRAND_NAME } from "@artificio/ui/static";
@@ -28,19 +32,14 @@ const { currentHref } = Astro.props;
    para o crawler). `BRAND_ORIGIN` marca o item "Portal", que é este próprio site. */
 const pathname = Astro.url.pathname;
 ---
-<header class="artificio-header" data-sticky="true">
-  <div class="artificio-header-main">
-    <a class="artificio-brand" href="/">
-      <img class="artificio-brand-logo logo-navy" src={logos.logoNavy} alt={BRAND_NAME} width="300" height="100" />
-      <img class="artificio-brand-logo logo-neg" src={logos.logoNeg} alt={BRAND_NAME} width="300" height="100" />
-    </a>
-    <SiteHeaderIsland
-      client:idle
-      modules={MODULES}
-      sections={SECTIONS}
-      currentHref={currentHref}
-      siteOrigin={BRAND_ORIGIN}
-      pathname={pathname}
-    />
-  </div>
-</header>
+<SiteHeaderIsland
+  client:idle
+  modules={MODULES}
+  sections={SECTIONS}
+  currentHref={currentHref}
+  siteOrigin={BRAND_ORIGIN}
+  pathname={pathname}
+  logoNavy={logos.logoNavy}
+  logoNeg={logos.logoNeg}
+  brandName={BRAND_NAME}
+/>

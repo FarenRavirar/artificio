@@ -1,447 +1,351 @@
 # AGENTS.md — Governança de Agentes de IA · Artifício RPG
 
-Projeto: Artifício RPG — plataforma modular (monorepo)
-Fonte canônica de governança operacional. Em conflito com qualquer documento operacional, este arquivo prevalece.
+Fonte canônica de governança. Em conflito com qualquer documento operacional, este prevalece.
 
-Regra zero, pétrea e omnipresente: todo chat novo, todo agente, antes de qualquer análise, plano, comando, edição ou resposta de mérito, deve ler o T0 completo (`agents.md` + a spec atual. se não saber, perguntar.). Sem T0 lido, o agente não está autorizado a dizer que entendeu o estado do projeto nem a agir. Isto não é contexto opcional; é o mecanismo de continuidade do projeto longo multi-chat.
+**Regra zero:** ler este arquivo inteiro antes de agir, toda sessão, todo agente. Mais a spec atual — se não souber qual, perguntar.
 
-Regra zero-b, simétrica e igualmente pétrea: sem medição citada, o agente não está autorizado a afirmar causa, estado, impossibilidade ou conclusão — nem sobre código, nem sobre banco, nem sobre infra, nem sobre o próprio trabalho. A regra zero protege o agente de agir sem contexto; esta protege o mantenedor de decidir sobre afirmação não verificada, que é o dano que nenhuma trava de autorização deste arquivo alcança. Detalhe operacional: §Regras Pétreas → Evidência.
+**Regra zero-b:** sem medição citada, não afirmar causa, estado, impossibilidade ou conclusão. Nem sobre código, nem sobre banco, nem sobre infra, nem sobre o próprio trabalho.
 
-Toda comunicação com o mantenedor é em português. Nomes de arquivos, comandos, funções e identificadores permanecem no formato original.
+Comunicação em português. Nomes de arquivo, comando, função e identificador ficam no original.
 
 ---
 
 ## O que é o Artifício RPG
 
-Suite de projetos públicos em subdomínios sob `*.artificiorpg.com` (D017), login Google único (SSO via `accounts.artificiorpg.com`), leve (TypeScript/React/Express/Postgres), SEO forte. Monorepo `artificio` com `apps/*` (unidades técnicas: frontend/backend/deploy) e `packages/*` (compartilhados). O usuário vê projetos; o repositório organiza apps. Cada app é plugável, no próprio subdomínio/deploy isolado, mas compartilha auth, design e analytics.
+Projetos públicos em subdomínios de `*.artificiorpg.com`, login Google único (SSO via `accounts.artificiorpg.com`), TypeScript/React/Express/Postgres, SEO forte. Monorepo com `apps/*` (unidades técnicas) e `packages/*` (compartilhados). Cada app tem subdomínio e deploy próprios, mas compartilha auth, design e analytics.
 
-`G1` é só analogia/codinome técnico interno ao modelo de hub interconectado do portal de notícias G1; não é nome do produto. Produto público = Artifício RPG. Modelo Google-suite (`docs.`/`mail.`).
+Apps: `site` (portal+blog), `glossario`, `mesas`, `downloads`, `esferas`, `srd`, `links`.
+Pacotes: `auth`, `ui`, `analytics`, `config`, `content`, `crosslink`.
 
-Projetos/apps: `site` (portal+blog), `glossario`, `mesas`, `downloads`, `esferas` (Spheres of Power, multi-sistema), `srd` (DnD 5.2.1), `links`.
-Pacotes compartilhados: `auth`, `ui`, `analytics`, `config`, `content`, `crosslink`.
+`G1` é codinome interno do modelo de hub interconectado, não nome de produto.
 
 ---
 
-## Leitura Mínima de Retomada (Tier 0 — todo chat, todo agente)
+## T0 — Resumo inegociável
 
-Pétrea: projeto longo, multi-chat, multi-agente. T0 não é "um toque de contexto" — é o piso que garante que o agente não redecide, não finge conclusão e não age sem saber o que é inegociável. T0 é curto de propósito; o resto (diagnóstico local, LSP/MCP, infra, specs) é T1: consultado sob demanda, quando a tarefa tocar aquele assunto — não lido toda sessão.
+Detalhe nas seções próprias. Isto é o piso:
 
-T0 obrigatório, toda sessão, antes de agir:
-1. Este arquivo (`AGENTS.md`) inteiro, uma vez por sessão.
-
-Resumo inegociável (detalhe completo em §Regras Pétreas → Evidência/Autorização/Escopo/PR, Commit e Push):
-- Afirmação sobre causa, estado, impossibilidade ou completude vem com o comando que mediu; sem medição, dizer "não medi".
-- "Investigou?" se responde com a lista de comandos, nunca com "sim".
-- Opção oferecida ao mantenedor é opção medida.
-- Autorização é por ação, nunca por sessão/PR — não acumula, não se infere de frase genérica.
-- Escopo (o que entra em qual PR/branch/commit) é call do mantenedor, não inferência do agente.
-- `git commit`/`git push`/merge/deploy/write em VM: só com autorização nomeada explícita, a cada vez.
-- Ação destrutiva ou difícil de reverter (DNS/tunnel prod, recriar infra): aprovação nominal no formato "APROVAÇÃO NECESSÁRIA".
-- A VM Oracle nunca é desligada, reiniciada ou suspensa — nem pelo painel/API da Oracle, que nenhum hook alcança. "Desligar o pc/a máquina" é sempre a máquina Windows local.
-- Bug ou débito achado se corrige no mesmo trabalho; débito só se registra quando o mantenedor mandar.
-- Validação repo-wide é o último passo, só quando ele disser que não vem mais review; até lá, só o pacote afetado.
-- `test`, `lint` e `build` repo-wide: um de cada vez, nunca encadeados nem em paralelo — a máquina do mantenedor trava.
-- Pesquisar em `spec.md`/`plan.md`/`tasks.md` antes de perguntar, abrindo a seção inteira e não a linha do grep.
+- **Pesquisar antes de inventar.** Problema de framework/lib/CSS/infra já tem solução documentada. Buscar (`WebSearch`/`WebFetch`, sem autorização) antes de projetar a própria. §Pesquisar
+- **Só pergunta de PRODUTO vai a ele.** Dúvida técnica se resolve medindo ou pesquisando. §Produto vs. técnico
+- **A resposta leva o que ele precisa para decidir; a medição vai para o arquivo.** §Formato da resposta
+- **Afirmação vem com o comando que mediu**, e opção oferecida é opção medida. Sem medição: "não medi". §Evidência
+- **Autorização é por ação, nomeada, a cada vez** — `commit`/`push`/merge/deploy/write na VM. Não acumula, não se infere de frase genérica. Destrutivo: bloco `## APROVAÇÃO NECESSÁRIA`. §Autorização
+- A VM Oracle nunca é desligada, reiniciada ou suspensa — nem pelo painel da Oracle. "Desligar a máquina" é sempre o Windows local.
+- Escopo (o que entra em qual PR) é dele. Bug achado se corrige no mesmo trabalho; débito só se registra quando ele mandar.
+- Validação repo-wide só no fim, e um comando por vez — `test`/`lint`/`build` em paralelo trava a máquina dele.
+- Pesquisar em `spec.md`/`plan.md`/`tasks.md` antes de perguntar, abrindo a seção inteira.
 - `rtk` no lugar do comando cru, sempre.
 
-Escalada T1 (consultar quando a tarefa exigir, não por padrão):
-- Ler e alterar somente os arquivos que o mantenedor nomear. `project-state.md`, `decisions.md`, `backlog.md`, sessões e outras specs exigem pedido próprio — não entram por associação nem por "contexto útil".
-- `sessoes/` só quando ele pedir ("retoma a sessão") ou quando não houver spec cobrindo o trabalho; ao tocar, registrar antes o que vai fazer e o que falta.
-- Infra/deploy/CI/CD/VM/DNS/banco → `docs/agents/deploy-flow.md`, depois `deploy-runbook.md`.
-- Editar `Dockerfile`, `pnpm-lock.yaml`/`package.json`, `migration_*.sql` ou `.github/workflows/*` exige ler a seção correspondente de `deploy-flow.md` antes.
-- Diagnóstico de código/API antes de editar → §Ferramentas MCP/Agentes.
+### T1 — consultar quando a tarefa exigir
+
+- Ler e alterar só o que ele nomear. `project-state.md`, `decisions.md`, `backlog.md`, sessões e outras specs exigem pedido próprio.
+- `sessoes/` só quando ele pedir, ou quando não houver spec cobrindo o trabalho.
+- Infra/deploy/CI/VM/DNS/banco → `docs/agents/deploy-flow.md`, depois `deploy-runbook.md`.
+- Tocar `Dockerfile`, `pnpm-lock.yaml`/`package.json`, `migration_*.sql` ou `.github/workflows/*` exige ler a seção correspondente de `deploy-flow.md` antes.
 - Erro/regressão conhecida → `.specify/memory/errors.md`.
 
-Se a tarefa tocar um desses temas e o T1 pertinente não foi lido, não afirmar que está resolvida.
+Tarefa que tocou um desses temas sem o T1 lido não se declara resolvida.
 
-Anti-retrabalho: fluxo estranho/contraditório/perigoso (CI/CD, deploy, branch, DNS/tunnel, auth, banco, SEO, importador, pacote compartilhado) não se corrige no chute — pesquisar o T1 relevante primeiro, identificar se é decisão histórica, exceção temporária ou bug real, só então corrigir. Critério de parada da pesquisa e obrigação de citar o que foi medido: §Regras Pétreas → Evidência.
+Fluxo estranho ou perigoso (CI/CD, deploy, branch, DNS, auth, banco, SEO, pacote compartilhado) não se corrige no chute: ler o T1, identificar se é decisão histórica, exceção temporária ou bug, e só então corrigir.
 
+Falha de processo descoberta: reportar e perguntar onde registrar. Nunca abrir outra fonte documental por conta própria.
 
-Falha de processo descoberta: reportar e perguntar onde registrar. Nunca escolher nem abrir sozinho outra fonte documental. Regra operacional durável só entra na fonte canônica autorizada nominalmente pelo mantenedor.
+### Diagnóstico local
 
-### Diagnóstico local (T1 — antes de editar código)
-
-- `rg "termo" apps packages -n` / `rg -l "termo" apps packages` (só arquivos) / `rg --files apps packages`
-- `ast-grep -p "PADRAO" --lang ts` — busca estrutural
-- `pnpm run lint|test|build` — default é o pacote afetado; CI cobre o repo. Trava completa no T0.
-- `pnpm verify:api` — obrigatório em mudanças de `apps/`, `packages/`, `scripts/api/`, `docs/api/openapi/`
-- Descoberta de rota de API: fonte primária é `docs/api/generated/artificio-api.bundle.json` (+ `api-index.generated.md`), nunca memória de chat. Detalhe: `docs/api/README.md`.
-- Não ler o repositório inteiro nem abrir arquivo grande sem justificar; procurar símbolo/rota/import antes de editar.
-
-LSP: ver §Ferramentas MCP/Agentes → LSP.
+- `rtk rg "termo" apps packages -n` · `ast-grep -p "PADRAO" --lang ts` (estrutural)
+- `pnpm run lint|test|build` — default é o pacote afetado; CI cobre o repo.
+- `pnpm verify:api` — obrigatório ao mudar `apps/`, `packages/`, `scripts/api/`, `docs/api/openapi/`.
+- Rota de API: fonte é `docs/api/generated/artificio-api.bundle.json` + `api-index.generated.md`, nunca memória de chat. Detalhe: `docs/api/README.md`.
+- Não abrir arquivo grande sem justificar; procurar símbolo/rota/import antes de editar.
 
 ---
 
-## Gates do Programa (regra pétrea de sequência)
+## Gates do Programa
 
-O Artifício RPG avança por gates. Nenhum gate é pulado. Cada gate exige aprovação explícita do mantenedor. O status operacional detalhado vive em `.specify/memory/project-state.md`; aqui ficam a sequência e as travas duráveis. Gates ativos neste ciclo: A, B e D. Gate C encerrado: site Astro em produção na raiz `artificiorpg.com`.
+Nenhum gate é pulado; cada um exige aprovação explícita. Status detalhado em `.specify/memory/project-state.md`.
 
-| Gate | Status operacional | Libera | Pré-condição / trava |
+| Gate | Status | Libera | Trava |
 |---|---|---|---|
-| A | aprovado; guardrail continua | Recriar/destruir instância Oracle | Backups completos, verificados e copiados off-VM (`C:\projetos\artificiobackup`) |
-| B | aprovado; guardrail continua | Importar conteúdo / construir projetos | SSO (`accounts.`) funcionando + 1º projeto no ar em subdomínio |
-| C | ✅ encerrado | Site Astro em produção na raiz `artificiorpg.com` | — |
+| A | aprovado | Recriar/destruir instância Oracle | Backups verificados off-VM (`C:\projetos\artificiobackup`) |
+| B | aprovado | Importar conteúdo / construir projetos | SSO + 1º projeto no ar |
+| C | ✅ encerrado | Site Astro na raiz `artificiorpg.com` | — |
 | D | ativo por projeto | Próximo projeto | Projeto atual passou smoke |
 
-Topologia (subdomínio-por-projeto):
+Cada projeto no próprio subdomínio, root próprio, sem basename; blog em `beta.` (staging) e na raiz (produção); SSO em `accounts.`. Cloudflare Tunnel mapeia hostname→container.
 
-- Cada projeto/app fica no próprio subdomínio (`glossario.`, `mesas.`, `downloads.`, `esferas.`, `srd.`, `links.`), root próprio, sem basename.
-- Linguagem pública usa projetos; `app` é unidade técnica em `apps/*`; `módulo` só aparece em contexto técnico/histórico.
-- Blog em `beta.artificiorpg.com` (staging) e em produção na raiz `artificiorpg.com` (site Astro).
-- SSO central em `accounts.artificiorpg.com`.
-- Une tudo: cookie `.artificiorpg.com` + nav + design. Cloudflare Tunnel mapeia hostname→container.
+**"Não lançado" ≠ "não deve subir" (pétrea).** Projeto não divulgado é deployado normalmente.
 
-"Não lançado" ≠ "não deve subir" (pétrea). Projeto não divulgado é deployado em produção normalmente; "não lançado" diz só que o público sabe que ainda não está pronto. O agente não pode inverter isso por conta própria:
+- `502`/`503` em subdomínio não anunciado é deploy pendente — o remédio é deployar, nunca remover rota de tunnel, DNS ou container.
+- Ausência de container/banco de produção é deploy que não aconteceu, não decisão de produto.
+- Migration, guard, backup, smoke e revisão valem igual em projeto não anunciado.
+- Adiar produção é decisão dele, dita explicitamente. Silêncio não autoriza inferir adiamento.
 
-- Nunca propor remover rota de tunnel, DNS ou container "porque não foi lançado". `502`/`503` em subdomínio não anunciado é deploy pendente, não rota indevida — o remédio é deployar.
-- Ausência de container/volume/banco de produção é deploy que não aconteceu, não decisão de produto.
-- Prioridade menor não vira licença pra afrouxar. Migration, guard de deploy, backup, smoke e revisão valem igual em projeto não anunciado: o dado que entra ali é real desde o primeiro deploy, e o primeiro público chega sem aviso prévio ao agente.
-- Se o mantenedor quiser adiar produção de um projeto específico, ele diz. Silêncio sobre lançamento não autoriza inferir adiamento.
-
-DNS raiz de `artificiorpg.com` exige aprovação explícita do mantenedor pra qualquer mudança, como qualquer DNS/tunnel de produção. `artificiorpg.com` é `CNAME` pro Cloudflare Tunnel (`<tunnel-id>.cfargotunnel.com`), roteando pro container `site-prod-app:4322`. Antes de mexer, sempre checar registro DNS real do hostname raiz no painel — pode ser qualquer registro (R2, MX, etc.) conflitando com o nome.
+**DNS raiz** exige aprovação, como qualquer DNS/tunnel de produção. `artificiorpg.com` é `CNAME` para `<tunnel-id>.cfargotunnel.com`, roteando para `site-prod-app:4322`. Checar o registro real no painel antes de mexer — pode haver R2, MX ou outro registro conflitando com o nome.
 
 ---
 
 ## Regras Pétreas
 
-### Evidência (pétrea — governa todas as outras desta seção)
+### Evidência
 
-O poder de decisão do mantenedor é limitado pela profundidade da investigação do agente. Não é retórica: quando o agente para de investigar cedo, ele não economiza esforço — ele estreita em silêncio o conjunto de opções que o mantenedor consegue escolher, enquanto o mantenedor segue achando que escolhe entre alternativas reais. Investigação rasa é decisão tomada pelo agente e entregue com a etiqueta de decisão do mantenedor. Todas as demais regras deste arquivo guardam ação (commit, deploy, DNS, SQL); esta guarda afirmação, que é por onde o dano passou repetidamente sem violar nenhuma outra.
+Investigação rasa é decisão tomada pelo agente e entregue com a etiqueta de decisão do mantenedor.
 
-1. Afirmação exige medição citada, na mesma mensagem. Toda afirmação sobre causa, estado, impossibilidade, completude ou impacto vem com o comando que a sustenta e o que ele devolveu. Não "verifiquei que não há trigger" — mas "`pg_trigger` para essas 6 tabelas devolveu 0". Não "a investigação está completa" — mas a lista do que foi medido. Sem medição, escrever "não medi" e seguir assim mesmo; frase honesta de ignorância custa uma linha, afirmação errada custa horas. Inferência plausível não é medição; "faz sentido" e "deve ser" não são evidência.
+1. **Afirmação exige medição citada, na mesma mensagem.** Não "verifiquei que não há trigger", mas "`pg_trigger` nessas 6 tabelas devolveu 0". Sem medição: "não medi". "Faz sentido" não é evidência. "Investigou?" se responde com a lista de comandos.
+2. **Opção oferecida é opção medida.** A não medida sai da lista ou vai marcada "não medi a viabilidade".
+3. **Rodar a consulta que mataria a hipótese**, antes de afirmá-la. A investigação termina quando as opções dele estão medidas, não quando o agente se convence.
+4. **Ler schema/contrato/assinatura da fonte** (`information_schema`, `\d`, o tipo, `--help`), nunca da memória.
+5. **O maior risco é logo depois da cobrança dele.** A próxima mensagem começa medindo, não agindo.
+6. **Concordar também é afirmação.** Quando ele aponta um fato técnico, medir antes de confirmar.
+7. **Explicar o próprio erro não é corrigi-lo, e nunca vem antes.** Ordem: medir, corrigir, relatar.
+8. **Citar o comando não prova que ele mediu o que se pensa** — checar o instrumento. `grep -c` conta linhas (XML de uma linha devolve 1 com 126 ocorrências; usar `grep -o | wc -l`); URL lembrada de cabeça dá 404 correto e parece bug; filtro de segredo por NOME não pega senha dentro do valor (`DATABASE_URL`); `curl` em domínio com CDN mede cache, não origem (usar `?cb=$(date +%s%N)`). Os quatro em 2026-09-14, todos com medição citada. Zero e "não encontrado" exigem um segundo comando: ausência de saída pode ser ausência de medição.
+9. **Quem detecta o erro do agente é o mantenedor, um bot ou um teste — não o agente.** A confiança é a mesma na afirmação certa e na errada, então ele não tem como distinguir. Nunca escrever que algo "está garantido"; ao retomar assunto já afirmado, remedir.
 
-2. "Investiguei?" se responde com comandos, nunca com "sim". Quando o mantenedor pergunta se o agente investigou, pesquisou ou verificou, a resposta é a lista do que foi rodado e do que voltou. "Sim" é irrespondível — o mantenedor não tem como auditar, e é exatamente a forma que o engano assume quando o agente está convencido de si. Se a lista for curta demais para sustentar a conclusão, a resposta correta é "não o suficiente para afirmar isso".
+### Pesquisar antes de inventar (pétrea)
 
-3. Opção oferecida ao mantenedor é opção verificada. Nunca listar alternativa, caminho ou custo que não foi medido — ele gasta decisão real num caminho que não existe e descobre pelo erro. A que não foi medida sai da lista ou vai marcada "não medi o custo/viabilidade".
+Problema com coisa de fora — framework, lib, protocolo, browser, CSS, Postgres, Cloudflare, Git, CI — já foi resolvido por outra pessoa. Buscar a solução estabelecida antes de projetar uma: doc oficial, issues do projeto, changelog. `WebSearch`/`WebFetch` não exigem autorização.
 
-4. A investigação termina quando as opções do mantenedor estão medidas, não quando o agente se convence. "Achei uma explicação que encaixa" é o critério de parada errado.
+Reconhecer o problema não dispensa a busca: o diagnóstico derivado sozinho costuma acertar a causa e errar o remédio.
 
-5. Antes de afirmar a hipótese, rodar a consulta que a mataria. Buscar confirmação encontra confirmação; a consulta obrigatória é a que derruba a explicação atual.
+O relatório diz qual é a solução padrão — ou, se foi descartada, o que ela não cobre, medido.
 
-6. Ler o schema/contrato/assinatura antes de consultar — nome de coluna, campo, flag ou parâmetro se lê da fonte (`information_schema`, `\d`, tipo, `--help`), nunca da memória.
+Em 2026-09-14: zero buscas na sessão. O `<astro-island>` quebrando o grid do header tinha solução de uma linha (`astro-island { display: contents }`); o agente reescreveu a arquitetura do header e ainda escreveu no código que essa linha "não resolveria", sem ter buscado. Custou quatro ciclos.
 
-7. O momento de maior risco é logo depois da cobrança do mantenedor. O impulso é mostrar serviço rápido, e o agente acelera onde devia desacelerar — produzindo o mesmo erro em cima da bronca que o nomeou. Cobrança sobre investigação obriga a investigar mais fundo; a próxima mensagem começa medindo, não agindo.
+### Produto vs. técnico
 
-8. Concordar também é afirmação. "Você está certo" por reflexo vale tanto quanto "investiguei" por reflexo. Quando ele apontar um fato técnico, medir e mostrar a medição — inclusive quando confirma.
+Ele não escreve código. Decisão técnica levada a ele é decisão que ele não tem como avaliar — e ele responde mesmo assim, porque quem pergunta parece saber o que pergunta.
 
-9. Explicar o próprio erro não é corrigi-lo, e nunca vem antes. A ordem é: medir, corrigir, relatar. Análise de causa própria e distinção de intenção ("não foi proposital") não entram.
+**Dele:** o que o produto faz, o que o usuário vê, prioridade, prazo, escopo, risco de negócio, custo operacional, e toda ação de §Autorização.
 
-Por que isto é pétreo: a investigação que faltou custava uma consulta; o que ela evitaria custou 5h de SSO fora do ar (E021) e um `500` em produção. Nem urgência, nem contexto compactado, nem "é óbvio", nem pedido de velocidade suspendem esta seção — sem tempo de medir, a saída é dizer o que não foi medido.
+**Do agente, sem perguntar:** como implementar, qual padrão seguir, onde mora o código, nomes, estrutura de teste, forma de correção, ferramenta, redação de doc interna.
+
+Três filtros antes de escrever qualquer pergunta:
+
+1. **Cabe em medição?** `rtk rg`, LSP, `psql` read-only, schema, `--help`, comparar com outro app. Então é medição pendente, não pergunta.
+2. **Cabe em pesquisa?** Doc oficial, changelog, fonte da lib, WebSearch. Não saber é motivo para pesquisar, nunca para perguntar.
+3. **Sobrou escolha de produto?** Só então pergunta — opções medidas, trade-off em uma linha, recomendação.
+
+Sobrando técnico, o agente decide, aplica e diz em uma linha o que decidiu, para ele reverter se quiser.
 
 ### Autorização
 
-Aprovação vale por ação, nunca por sessão ou PR/branch. Não acumula — mesmo em branch já pushada, mesmo no mesmo PR, mesmo após autorização anterior na mesma conversa, mesmo pra "ajuste" relacionado. "Commite" autoriza só aquele commit. Editar arquivo local dentro do escopo não precisa de aprovação; commit/push/merge/deploy/write na VM sempre precisam, a cada vez.
+Não acumula — nem em branch já pushada, nem no mesmo PR, nem após autorização anterior na mesma conversa. "Commite" autoriza só aquele commit. Editar arquivo local é livre.
 
-Não inferir autorização de frase genérica ("pode seguir", "corrija", "ajuste", "resolve isso", "faz o resto", "termina") — essas autorizam no máximo editar arquivo local. Autorização nomeia a ação perigosa (`commite`, `faça push`, `suba para dev/main`, `merge`, deploy, comando VM). Instrução sobre a *forma* do commit não autoriza o commit em si.
+Frase genérica não autoriza ("pode seguir", "corrija", "resolve isso", "termina"). Autorização nomeia a ação: `commite`, `faça push`, `suba para dev/main`, `merge`, deploy, comando na VM.
 
-Nunca executar sem aprovação explícita do mantenedor:
+**Nunca sem aprovação explícita:**
 
-- Escrita ou mutação na VM Oracle, incluindo `build` no servidor e copiar/sobrescrever arquivo em produção.
+- Escrita ou mutação na VM Oracle, incluindo `build` no servidor.
 - `git push origin dev|main`; `git push --delete`.
-- Mudança em registro DNS/Tunnel de produção, inclusive a raiz `artificiorpg.com`.
+- Mudança em DNS/Tunnel de produção.
 - Recriar/redimensionar instância Oracle, mexer em volume ou tunnel.
-- Usar o Chrome do mantenedor (perfil logado, cookies/sessão reais). Preferir HTTP read-only, browser interno sem sessão, logs ou artefatos locais.
-- Acionar outro agente de IA em nome do mantenedor (Claude Code ↔ OpenCode/DeepSeek). Comunicação entre agentes prioriza read-only; informar qual MCP vai usar antes.
+- Usar o Chrome do mantenedor (perfil logado). Preferir HTTP read-only ou browser sem sessão.
+- Acionar outro agente de IA em nome dele (Claude Code ↔ OpenCode/DeepSeek).
 - Checkout de branch fora do cwd. `git worktree list` é livre.
+- Lib/pacote novo: perguntar antes, instalar só depois da resposta.
 
-Read-only é SEMPRE permitido (pétrea), local ou via `ssh faren`: `docker ps|logs|inspect`, `ls`, `cat`, `rg`, `find`, `curl -s` GET, `psql` com `SELECT`, `pg_dump`, `git status|diff|log|show`, e qualquer inspeção que não muta estado. Ler estado nunca é ação de mérito — não inferir aprovação por ser "na VM/prod", e a inspeção deve preceder correção de infra no chute. Única obrigação: filtrar segredos (`*PASSWORD*|*TOKEN*|*SECRET*`). Harness bloqueando comando read-only é falso-bloqueio: pedir liberação pontual, não pular a inspeção.
+**Read-only é sempre permitido**, local ou via `ssh faren`: `docker ps|logs|inspect`, `docker exec` read-only, `ls`, `cat`, `rg`, `find`, `curl -s` GET, `psql SELECT`, `pg_dump`, `git status|diff|log|show`. Única obrigação: filtrar `*PASSWORD*|*TOKEN*|*SECRET*` — e por conteúdo, não só por nome de variável (§Evidência item 10). Harness bloqueando read-only é falso-bloqueio: pedir liberação, não pular a inspeção.
 
-Lib/pacote novo: nunca sem perguntar primeiro — só instala depois da resposta. A aprovação de uma lib não autoriza serviço persistente, mudança de arquitetura, DNS/tunnel ou deploy.
+**Pacotes compartilhados:**
 
-Formato do pedido (`## APROVAÇÃO NECESSÁRIA` — Ação / Motivo / Risco / Rollback / Escopo / Comandos): skill `pedir-aprovacao`, que dispara ao pedir autorização ou quando um gate bloqueia. Opção oferecida no bloco é opção medida (§Evidência item 3).
+- `packages/auth` (código): aprovação + SDD completo + smoke de todos os consumidores SSO. Nunca quebrar a sessão compartilhada.
+- `packages/ui`/`packages/catalog-ui`/outros: aprovação + verificação de impacto nos consumidores, proporcional ao blast radius.
+- Sessão com escopo num app não toca outro `apps/*` nem `packages/*` sem ampliação explícita.
 
-Push e abertura de PR ficaram liberados por decisão do mantenedor; o commit é onde o conteúdo entra na história.
+Formato do pedido: skill `pedir-aprovacao` (Ação / Motivo / Risco / Rollback / Escopo / Comandos).
 
-- Sessão com escopo num app/projeto (ex: `apps/srd`) não toca outro `apps/*` nem `packages/*` sem aprovação explícita e ampliação de escopo.
-- Mudança de código em `packages/auth` exige aprovação + SDD Completo + smoke de todos os apps que consomem SSO. Auth é sagrado: nunca quebrar a sessão compartilhada. Mudança só documental em `packages/auth` exige sessão + evidência, mas não smoke runtime por padrão.
-- Mudança de código em `packages/ui`/`packages/catalog-ui`/outros pacotes compartilhados (exceto `auth`/`accounts.`, que seguem trava própria acima) exige aprovação + verificação de impacto nos consumidores afetados, proporcional ao risco/blast radius real — não exige `spec.md`/`plan.md`/`tasks.md` por padrão; o mantenedor decide na hora se o caso pede SDD Completo.
-
-Mecânica completa de commit/PR/push (fluxo branch→dev→main, doc-only, `verify:api`, bots de review, travas de sequência): §PR, Commit e Push.
-
-Ver também §Regras Pétreas → Escopo.
+Push e abertura de PR ficaram liberados por decisão dele. O commit não.
 
 ### Escopo
 
-- Não existe "fora de escopo": o monorepo é um projeto só. Erro ou regressão achado em qualquer app/pacote é responsabilidade de quem achou — corrigir no mesmo turno, nunca empurrar para "outro fazer". Separar em PR própria é organização rastreável, não abandono.
-- Escopo (o quê) é call do mantenedor, não inferência do agente. Não decidir sozinho o que pertence a qual PR/branch/commit; não modificar arquivo fora do escopo sem ampliação explícita. Não estando claro, listar ANTES de executar. Isolamento de app é sobre não quebrar código alheio, não licença para ignorar problema alheio. Vale também pro conteúdo de um commit já autorizado.
+- **Não existe "fora de escopo":** o monorepo é um projeto só. Erro achado em qualquer app é de quem achou — corrigir no mesmo turno. Separar em PR própria é organização, não abandono.
+- **Escopo é call dele.** Não decidir sozinho o que pertence a qual PR/branch/commit. Não estando claro, listar antes de executar.
+- **Decisão técnica se decide por:** robusto, escalonável, e que funcione para como o repositório está. Custo de implementação não é critério.
 
-- Toda decisão técnica se decide por: robusto, escalonável e que funcione para como o repositório está. Custo de implementação não é critério e não entra como argumento.
-
-Isolamento de App/Projeto (pétrea do monorepo) — matriz mínima de smoke (quando o mantenedor pedir smoke; não é trava obrigatória por padrão fora de auth/accounts):
-- `packages/auth` código: login/me/logout e todos os consumidores SSO — obrigatório.
-- `packages/ui`/outros pacotes código: consumidores visuais afetados + app de referência, quando aplicável.
-- `accounts.` código: login/me/logout, allowlist de retorno e pelo menos um app consumidor — obrigatório.
-- Doc-only: sem smoke runtime por padrão; registrar busca/evidência documental.
+Smoke mínimo, quando ele pedir: `packages/auth` → login/me/logout em todos os consumidores (obrigatório). `accounts.` → login/me/logout + allowlist + um app consumidor (obrigatório). Outros pacotes → consumidores visuais afetados. Doc-only → sem smoke.
 
 ### Bug achado / débito
 
-Regra padrão: achou, conserta. Bug, regressão, falha de validação, contrato quebrado, smoke que falha, defeito de ferramenta/harness/CI, teste frágil — dentro ou fora do escopo da tarefa, com relação ou nenhuma com o que está sendo feito. O agente corrige no mesmo trabalho e relata depois, com a medição junto (§Evidência). Ignorar, guardar só no chat ou empurrar pra "outro fazer" continua proibido; o que mudou é o destino do achado: conserto, não pergunta.
+**Achou, conserta** — dentro ou fora do escopo, com ou sem relação com a tarefa. Corrige no mesmo trabalho e relata depois, com a medição.
 
-Débito só existe se o mantenedor mandar registrar. O agente nunca propõe registrar débito como alternativa ao conserto, nem escreve em `specs/backlog.md`, `tasks.md`, `project-state.md`, sessão ou qualquer documento por conta própria. Perguntar "corrijo agora ou registro?" a cada achado lateral devolve ao mantenedor uma decisão que era do agente e transforma cada entrega numa fila de perguntas — foi o que motivou esta regra substituir a anterior. Quando ele mandar registrar, o registro leva evidência concreta (comando, run, arquivo, trecho, métrica ou URL) e vai somente no destino que ele nomear.
+**Débito só existe se ele mandar registrar.** O agente nunca propõe registrar como alternativa ao conserto, nem escreve em `backlog.md`/`tasks.md`/`project-state.md` por conta própria.
 
-As duas únicas exceções — aí sim, para e pergunta:
+Duas exceções — aí para e pergunta:
 
-1. A correção exige ação de aprovação nominal (§Autorização): commit, push, deploy, escrita na VM, SQL write, DNS/tunnel, lib/pacote novo. O agente chega com o conserto medido e pronto, e pede a aprovação da ação — não apresenta o próprio achado como bifurcação.
-2. A correção mudaria regra de produto, contrato público ou custo operacional. Aqui a decisão é de fato do mantenedor, não do agente: alterar comportamento observável, quebrar contrato com consumidor, escolher entre políticas igualmente defensáveis. Nesse caso o agente mede as opções antes de apresentar (§Evidência item 3) e diz qual recomenda.
+1. A correção exige ação de §Autorização. O agente chega com o conserto pronto e pede só a aprovação.
+2. A correção mudaria regra de produto, contrato público ou custo operacional. Mede as opções antes de apresentar e diz qual recomenda.
 
-Fora dessas duas, corrigir é o caminho. Na dúvida sobre em qual lado o achado cai, o critério é: *a correção é a mesma sob qualquer resposta do mantenedor?* Se sim, é conserto — não pergunta.
+Critério na dúvida: *a correção é a mesma sob qualquer resposta dele?* Se sim, é conserto, não pergunta.
 
-Achado de spec/investigação segue a mesma regra, com um acréscimo. Lacuna, risco operacional ou incerteza técnica descoberta durante pesquisa: pesquisar e resolver, não perguntar. O que continua absolutamente proibido é escrever "decisão do mantenedor" — em `spec.md`, `Fora de escopo`, `tasks.md` ou onde for — sem que ele tenha de fato respondido. Inferência do agente nunca vira decisão registrada; se algo precisa mesmo da resposta dele, marcar como inferência a confirmar, nunca como decidido.
-- Nunca mascarar erro nem adiar com risco de esquecer. Proibido silenciar lint/tipo/teste/build pra "fazer passar" (`eslint-disable`/`@ts-ignore`/`continue-on-error`/`.skip`/`xfail`/flag advisory sem justificativa inline rastreável, ou "depois eu vejo"). Erro descoberto = corrigir agora; se genuinamente não der (bloqueio de ambiente, autorização ou dependência externa), parar e nomear o bloqueio — nunca oferecer "registrar como débito" para escapar do conserto. Endurecer gate (remover `continue-on-error`, subir severidade, tornar check obrigatório) só DEPOIS do verde comprovado localmente — nunca antes, senão transfere a falha mascarada pro próximo PR.
+**Nunca escrever "decisão do mantenedor" sem que ele tenha respondido** — em `spec.md`, `Fora de escopo`, `tasks.md` ou onde for. Inferência não vira decisão registrada; marcar como "inferência a confirmar".
+
+**Nunca mascarar erro.** Proibido `eslint-disable`/`@ts-ignore`/`continue-on-error`/`.skip`/`xfail` para fazer passar. Não dando para corrigir (bloqueio de ambiente, autorização, dependência externa), nomear o bloqueio. Endurecer gate só depois do verde comprovado localmente.
 
 ### PR, Commit e Push
 
-Fluxo: `<tipo>/<escopo>` → `dev`/Beta → `main`/Produção. Tipos: `feat/*`, `fix/*`, `chore/*`, `docs/*`, `infra/*` (escolhido pelo trabalho, não pelo agente). Ex.: `feat/srd-001-tooltips`, `fix/glossario-login-guard`, `docs/020-theme-review`.
+Fluxo: `<tipo>/<escopo>` → `dev`/beta → `main`/produção. Tipos: `feat/`, `fix/`, `chore/`, `docs/`, `infra/`.
 
-Branch nova SEMPRE parte de `dev` atualizado, nunca de outra branch de trabalho. `git fetch origin && git switch -c <tipo>/<escopo> origin/dev`, nunca em cima do HEAD de uma branch já existente (mesmo "relacionada") — branch-sobre-branch herda commits da base e vira PR com múltiplos commits/conflito/diff errado pro bot de review.
+- Branch nova SEMPRE de `dev` atualizado: `git fetch origin && git switch -c <tipo>/<escopo> origin/dev`. Nunca sobre outra branch de trabalho.
+- Nada commita direto em `dev`/`main` — tudo entra por branch + PR, inclusive doc-only. Branch protection exige `lint + build + test` verde.
+- PR nova: ready for review (não draft), base `dev`. Se já existe em outra base, não retargetar sem pedido.
+- **Depois de abrir/atualizar a PR, o agente para.** Push + `gh pr create` são a mesma ação. Não acompanhar checks, não rodar `gh pr view`/`gh run watch`, sem polling — salvo pedido explícito.
+- Correção de commit é commit novo em cima, com push fast-forward.
+- Commit tocando `apps/`, `packages/`, `scripts/api/` ou `docs/api/openapi/`: rodar `pnpm verify:api` antes do `git add`.
+- Conteúdo do commit: todo o diff, salvo exclusão explícita dele. Separar por conta própria é inferência de escopo proibida.
+- Nunca `git checkout` entre `dev`/`main` durante deploy — usar `git fetch`/`rev-parse`/`log`.
 
-Nada commita direto em `dev`/`main` — tudo, inclusive doc-only, entra por branch + PR (`git switch -c` → push → `gh pr create --base dev`). Branch protection exige check `lint + build + test` verde. Na dúvida se algo "impacta lógica", tratar como código.
+Mensagem multi-linha: `git commit -F - <<'EOF'` no Bash tool (here-string só no PowerShell tool). Conferir com `git log -1 --format=%B` antes de declarar pronto — erro de sintaxe cria commit corrompido com exit 0.
 
-PR nova sempre pronta e contra `dev`. Ao abrir PR nova: ready for review (não draft), base `dev`, salvo pedido explícito diferente — revisores automáticos (CodeRabbit/Codex/Amazon Q) são configurados pra `dev`; PR contra branch intermediária pode sair sem review. Se a PR já existe em base diferente, não retargetar sem pedido explícito.
+Quem autoriza: branch e push de branch → automático para código autorizado. `push origin dev` → só via merge de PR. `push origin main` e merge → aprovação explícita. `commit` → sempre nominal.
 
-Depois de abrir/atualizar a PR, o agente para. `git push` de branch autorizada + abertura da PR (`gh pr create`) são a MESMA ação, feitas em sequência sem nova autorização. O que trava é o que vem depois: não acompanhar PR, não esperar checks, não rodar `gh pr view`/`gh run watch`/`gh run view`, sem polling/sleep, nem consultar status após aberta/atualizada — salvo pedido explícito de acompanhar. Pedido foi "commit + push" → fez push (+ PR se aplicável) e encerra.
+**Nunca escrever na conversa do PR.** Não responder, comentar, resolver thread, reagir nem disparar (`@q`, `@codex`, `@coderabbit`) revisores e bots. Análise de revisão vive só na documentação que ele indicar; fix que procede vira commit normal. Resposta a revisor é sempre dele.
 
-Correção de commit é commit novo em cima, com push fast-forward. Se o mantenedor disser "corrige o commit", perguntar se é isso ou reescrita por outro método.
+**Doc-only:** commit/push/PR só com pedido explícito. Entra por branch + PR igual código (pode pegar carona no PR que a motiva). Promoção `dev→main` é fast-forward, sem merge commit.
 
-Mensagem multi-linha: heredoc POSIX no Bash tool, here-string só na PowerShell tool — nunca misturar.
+### Erros que não podem se repetir
 
-```bash
-git commit -F - <<'EOF'
-fix(escopo): titulo
-
-Corpo.
-EOF
-```
-
-Verificar sempre depois de commitar mensagem multi-linha: `git log -1 --format=%B` antes de declarar o commit pronto ou pushar. Erro de sintaxe de mensagem não falha o comando — o commit é criado corrompido, com exit 0.
-
-Default de conteúdo do commit: todo o diff, salvo exclusão explícita do mantenedor. Arquivo modificado de outra frente, sessão anterior ou não tocado nesta tarefa entra por padrão — separar por conta própria é a inferência de escopo proibida em §Escopo. Na dúvida sobre um arquivo específico (parece segredo, lock de outro processo, artefato gerado), perguntar antes; não excluir preventivamente.
-
-Ações e quem autoriza:
-- Criar branch de trabalho: automático, exceto doc-only acumulado que fica local.
-- `git push origin <branch-de-trabalho>`: automático pra código/feature autorizada; doc-only segue regra própria abaixo.
-- Abrir PR pra `dev`: automático pra código/feature autorizada (ready for review, não draft); doc-only não abre PR sozinho.
-- `git push origin dev`: bloqueado por branch protection — só via merge de PR (check verde). Vale pra código e doc-only; push direto falha.
-- `git push origin main`: aprovação explícita.
-- Merge de PR: só com autorização explícita.
-- `git commit`/`git push`: nunca por interpretação ou inércia — precisa nomear a ação ("commite", "faça push", "suba pra dev/main"). Cada commit/push exige autorização própria, mesmo em branch já pushada/mesmo PR/mesma conversa. Ver §Autorização.
-- Nunca `git checkout` entre `dev`/`main` durante deploy — usar `git fetch`/`git rev-parse`/`git log origin/main...origin/dev`/`gh run` sem checkout.
-
-Commit tocando `apps/`, `packages/`, `scripts/api/` ou `docs/api/openapi/`: rodar `pnpm verify:api` antes do `git add`, senão os artefatos regenerados ficam fora do commit.
-
-NUNCA responder, comentar, resolver thread, reagir ou disparar (`@q`, `@codex`, `@coderabbit`) revisores externos/bots no PR (amazon-q-developer, chatgpt-codex-connector, coderabbit, Snyk, Sonar, github-advanced-security). O agente não escreve nada na conversa do PR. Análise de revisão (procede/descarta/registrar) vive somente na documentação indicada pelo mantenedor. Fix que procede vira commit normal (branch/PR); resto vira débito no destino autorizado. Resposta a revisor no PR é sempre do mantenedor.
-
-Doc-only:
-- `git commit`/`git push`/PR/promoção exigem aprovação explícita por ação, mesmo com diff só de documentação.
-- Mudança só de documentação não vai sozinha; commit/push/PR só com pedido explícito ("documentar/commitar/pushar docs agora").
-- Sem ff/push direto de doc-only pra `dev` (proteção bloqueia) — entra por branch + PR, igual código (pode pegar carona no PR de código que motiva, ou PR doc-only próprio).
-- Promoção `dev→main` (código ou docs) é fast-forward, sem merge commit/squash.
-- Se o GitHub sugerir PR de `dev`, verificar `origin/main...origin/dev` e o conteúdo antes de agir.
-
-### Erros que não podem se repetir — outros
-
-Estas falhas já aconteceram e viraram regra operacional. Todo agente deve tratá-las como bloqueios de conclusão:
-
-- Nunca fechar tarefa executável só com dry-run, plano ou documentação. Se o aceite diz "comando/script executável", rodar o comando real mínimo. Se falhar, reabrir task/backlog e corrigir ou registrar bloqueio.
-- Nunca declarar "resolvido" quando falta dependência necessária para rodar. Pacote npm/devDependency local necessário para validação deve ser instalado quando permitido pelo escopo; se houver dúvida de aprovação, pedir antes e deixar a task aberta, não fechada.
-- Nunca confundir "local", "parcial", "validado em dist local" ou "falta deploy" com concluído. Status correto vai somente para o documento autorizado; conclusão só após o critério de aceite completo.
-- Nunca tocar governança/infra/qualidade transversal sem T1 pertinente e nominalmente autorizado. Se a tarefa envolve ou questiona `AGENTS.md`, specs, infra, CI/CD, deploy, VM, DNS/tunnel, banco, auth, SEO/Lighthouse ou pacote compartilhado, ler somente os documentos/seções pedidos pelo mantenedor. Se faltar fonte indispensável, parar e pedir ampliação de leitura; nunca ampliar sozinho.
-- Aprendizado que muda operação exige decisão do mantenedor sobre destino documental. Não abrir nem atualizar automaticamente `project-state.md`, `decisions.md`, backlog, sessão, `context-capsule.md` ou outro T1.
-- Nunca deixar tarefa "fechada" após uma validação real provar que ela não roda. Reabrir imediatamente, registrar o erro e só fechar depois do comando real passar.
-- Nunca deixar servidor/processo auxiliar rodando ao final. Encerrar dev server, preview, servidor estático e helpers iniciados pelo agente, salvo pedido explícito do mantenedor para manter.
-- Nunca esconder erro com justificativa de economia de contexto. O T0 é obrigatório; T1 é obrigatório quando o assunto exige. Economia de token serve a continuidade do projeto, não a atalhos.
-- Nunca confiar em documentação sem verificar o código — numa auditoria/investigação, código é a verdade material. Documentação pode estar desatualizada, docs de spec podem registrar intenção não executada, e spec pode listar item como "pendente de decisão" quando o código já decidiu e implementou. Toda claim documental sobre estado de código, contrato ou decisão implementada deve ser verificada contra o código real (arquivos, imports, git log, consumidores). Se doc e código divergem, o código prevalece; o achado vira débito documental, não débito de implementação.
-- Lixo produzido pelo agente é o agente que limpa — nunca vira "decisão do mantenedor". Dado sujo, arquivo temporário, estado inconsistente que ele criou: o agente chega com a limpeza medida e pronta e pede só a aprovação da ação perigosa, se houver. Não apresenta o próprio erro como bifurcação de produto nem o registra como pendência do mantenedor. Decisão de produto/risco/escopo é dele sempre; consequência de erro de execução do agente nunca é.
-- Mismatch de tipo/teste que o agente introduziu é dele corrigir, sem exceção — "já existia antes" não justifica deixar passar, e corrigir é na raiz (fixture do schema real), não no sintoma. Vale igual com chat compactado no meio da tarefa.
+- Aceite que pede comando executável só fecha rodando o comando — nunca com dry-run, plano ou doc. Faltando dependência para rodar, a task fica aberta.
+- "Local", "parcial", "validado no dist" e "falta deploy" não são concluído.
+- Nunca tocar governança/infra/qualidade transversal sem o T1 pertinente e autorização nominal. Faltando fonte, parar e pedir — nunca ampliar sozinho.
+- Nunca atualizar `project-state.md`, `decisions.md`, backlog, sessão ou `context-capsule.md` automaticamente.
+- Nunca deixar dev server, preview ou helper rodando ao final.
+- **Código é a verdade material**, não a doc. Doc pode registrar intenção não executada, ou dar como "pendente de decisão" o que o código já implementou. Divergindo, o código prevalece e o achado vira débito documental.
+- **Lixo do agente é o agente que limpa.** Dado sujo, arquivo temporário, estado inconsistente: chega com a limpeza pronta e pede só a aprovação, se houver. Erro de execução do agente nunca vira pendência do mantenedor — inclusive mismatch de tipo/teste que ele introduziu, corrigido na raiz. "Já existia antes" não justifica.
 
 ---
 
-## Deploy e Infra de CI/CD
+## Deploy e Infra
 
-Contrato completo: `docs/agents/deploy-flow.md` §6 — fluxo, workflows, manifesto, casos por módulo e os comandos de dispatch.
+Contrato completo: `docs/agents/deploy-flow.md` §6.
 
-Duas travas que se afirmam aqui porque governam afirmação, não só execução:
+- `deploy.yml` só deploya se um `deploy_paths` do manifesto mudar. Docs, specs e governança nunca disparam deploy.
+- `promote-prod-fast-forward.yml` NUNCA deploya — só move o ponteiro Git. **Git atualizado ≠ prod atualizado**: depois do promote, nunca declarar "em produção" sem disparar e confirmar o deploy.
 
-- `deploy.yml` só deploya se `deploy_paths` do manifesto mudar. Docs, specs e governança nunca disparam deploy real.
-- `promote-prod-fast-forward.yml` NUNCA dispara deploy de prod — só move o ponteiro Git. Depois de qualquer promote aprovado, nunca declarar "promovido" ou "em produção" sem disparar e confirmar o deploy: Git atualizado ≠ prod atualizado.
+### VM (Oracle)
 
-Mecânica de branch/PR/commit/push: §Regras Pétreas → PR, Commit e Push.
+- Acesso por alias SSH em `~/.ssh/config` local (não versionado). Mapa de infra em `docs/agents/`.
+- Chave privada (`*.key`) é segredo: nunca commitar, expor ou imprimir.
+- Worktree: `add|move|remove` exige aprovação nominal, inclusive para escapar de operação Git inacabada. Informar o caminho antes de criar; nunca checkout na pasta onde outro agente roda; nunca `--force` por inferência.
 
----
+### Banco e Segredos
 
-## VM, Banco e Infra
-
-### Worktrees locais (multi-agente paralelo)
-
-Worktree não é fallback automático — `add|move|remove` exige aprovação nominal (§Autorização), inclusive para escapar de operação Git inacabada. Sem aprovação: parar, reportar o estado que bloqueia o cwd e perguntar. Aprovado, informar o caminho exato antes de criar (`git worktree add ../artificio-<escopo> <branch>`), nunca checkout na mesma pasta onde outro agente roda. Remover só após confirmar trabalho preservado em commit ou stash identificado; nunca `--force` por inferência.
-
-### Acesso à VM (Oracle)
-
-- Acesso direto por alias SSH configurado em `~/.ssh/config` local (não versionado; host/IP/chave fora do git). Mapa de infra em `docs/agents/`.
-- A chave privada (`*.key`) é segredo: gitignored, nunca commitar/expor/imprimir.
-
-### Banco, Infra e Segredos
-
-- Qualquer SQL write direto (fora do framework de migration) em produção exige aprovação explícita + simulação/dry-run/plano de rollback registrados. Operação destrutiva (`DROP`, `TRUNCATE`, `DELETE` massivo, `ALTER` destrutivo) só com permissão nominal + dump prévio + checklist.
-- Cada app/projeto tem seu schema/banco lógico isolado; SSO/usuários é o único cross-cutting.
-- Acesso DB da VM por linha de comando local/PowerShell via `ssh faren` é read-only por padrão (`psql SELECT`, `pg_dump`, `docker exec` read-only). Escrita no banco da VM = aprovação.
-- Tunnel `cloudflared` paralelo e segredo versionado: procedimento em `deploy-flow.md` §Segredos; o TruffleHog (`secret-scan.yml`) barra o segundo.
-
-### Migrations e Dockerfile de produção
-
-As duas maiores famílias de incidente do projeto (8 e 5 dos 22 de `errors.md`, com três recorrências entre elas). O procedimento vive em `docs/agents/deploy-flow.md` §3 e §1 — leitura obrigatória antes de tocar em `migration_*.sql` ou em `Dockerfile`, conforme a trava por arquivo em §T1.
+- SQL write direto em produção exige aprovação + dry-run + plano de rollback. Operação destrutiva (`DROP`, `TRUNCATE`, `DELETE` massivo, `ALTER`) exige também dump prévio.
+- Acesso ao DB da VM é read-only por padrão. Escrita exige aprovação.
+- Cada app tem schema isolado; SSO/usuários é o único cross-cutting.
+- Credencial hardcoded e segredo versionado são barrados pelo TruffleHog (`secret-scan.yml`). Tunnel `cloudflared` paralelo: procedimento em `deploy-flow.md` §Segredos.
+- Migration e Dockerfile são as duas maiores famílias de incidente (13 dos 22 de `errors.md`). Procedimento em `deploy-flow.md` §3 e §1, leitura obrigatória antes de tocar.
 
 ---
 
-## Regras de Produto e SEO
+## Produto e SEO
 
-- Compromissos inegociáveis: gratuidade, sem anúncios, sem coleta desnecessária de dados.
-- Google OAuth é o único login. Sessão única em cookie `Domain=.artificiorpg.com`. E-mail/senha só com autorização explícita. Exceção controlada: fluxo legado de migração do glossário (D061) pode verificar vínculo antigo sem criar sessão por e-mail/senha.
-- SEO é inegociável no site: slugs e redirects 301 preservados, sem merge que cause regressão de meta/sitemap/canonical. Manter compatível com exigências de Search Console e Lighthouse.
-- Toda mudança de interface respeita as 10 Heurísticas de Nielsen e ISO 9241-11 antes do merge. O procedimento está nas skills, que disparam pela tarefa: `nielsen-heuristics-audit` (usabilidade), `wcag-accessibility-audit` (acessibilidade), `ui-fidelity-audit` (design system), `ui-design-review` (visual), `ux-audit-rethink` (repensar fluxo).
-- Design sóbrio/minimalista com sobriedade de Google-suite (Docs/Gmail), sem copiar marca Google. Cores, logo e padrões vêm de `packages/ui`. Não divergir do design system por app/projeto sem aprovação.
-- Analytics (GA4) cobre rotas públicas via `packages/analytics`. Toda página/rota pública nova é instrumentada. Admin/operacional só instrumenta eventos úteis, sem coletar dado desnecessário.
-- Upload e processamento de imagem ocorrem sempre no Backend, via Cloudinary com signed preset. Credencial hardcoded é barrada pelo TruffleHog (`secret-scan.yml`).
+- Inegociável: gratuito, sem anúncios, sem coleta desnecessária de dados.
+- Google OAuth é o único login. Cookie `Domain=.artificiorpg.com`. E-mail/senha só com autorização explícita (exceção: migração legada do glossário, D061).
+- SEO é inegociável no `site`: slugs e 301 preservados, sem regressão de meta/sitemap/canonical.
+- Mudança de interface respeita as 10 Heurísticas de Nielsen e ISO 9241-11 antes do merge. Skills: `nielsen-heuristics-audit`, `wcag-accessibility-audit`, `ui-fidelity-audit`, `ui-design-review`, `ux-audit-rethink`.
+- Design sóbrio, tipo Google-suite, sem copiar a marca. Cores e padrões vêm de `packages/ui`; não divergir por app sem aprovação.
+- GA4 cobre rotas públicas via `packages/analytics`. Toda rota pública nova é instrumentada.
+- Upload e processamento de imagem sempre no backend, via Cloudinary com signed preset.
 
 ---
 
-## Regras Gerais de Código
-
-### O mantenedor não é programador — pergunta técnica se responde medindo (pétrea)
-
-O mantenedor não escreve código. Pergunta sobre *como o sistema é* — qual campo, qual formato, de onde vem o dado, o que já existe — se responde pelo código, pela doc ou pela VM, nunca por ele. Antes de escrever uma pergunta: ela cabe em `rtk rg`, `psql` read-only, leitura de schema, comparação entre apps? Se cabe, não é pergunta, é medição pendente — e "seria mais rápido confirmar" é falso, porque ele responderia sobre um sistema que só o agente mediu.
-
-Isto não afrouxa §Autorização: decisão de produto, risco, escopo e toda ação perigosa continuam indo a ele. Sobrando escolha real entre caminhos válidos depois de medir, aí sim pergunta — com as opções medidas e a recomendação.
+## Código
 
 ### Compartilhado por padrão; exceção por app é o defeito (pétrea)
 
-O monorepo existe para que os apps compartilhem contrato, tipo, schema e comportamento. Toda divergência por app é dívida até prova em contrário, mesmo quando compila, mesmo quando o app isolado funciona.
+Toda divergência por app é dívida até prova em contrário, mesmo quando compila.
 
-- Buscar o que já existe antes de escrever. Pacote em `packages/*` que já resolve o problema é a resposta; escrever versão local do mesmo conceito é o erro. Quando dois apps precisam da mesma coisa, ela sobe para o pacote — não se copia.
-- Contrato do pacote é a autoridade. App que manda formato diferente do que `packages/*` define está errado mesmo que não quebre: quebra no consumidor, camadas adiante, com erro opaco.
-- Guard/validação compartilhada precisa estar LIGADA, não só existir. Gancho escrito e não chamado é pior que ausente: passa impressão de cobertura que não existe.
-- Ao corrigir defeito num app, cruzar com os outros que fazem a mesma coisa. A pergunta não é "por que este quebrou", é "por que os outros não quebraram" — e a resposta costuma ser "aquele caminho nunca foi exercitado", não "está certo".
-- Identidade, formato e vocabulário atravessam apps. Um id é o mesmo id em todo o monorepo. App que mantém representação paralela da mesma entidade cria tradução, e toda tradução é uma chance de divergir. Preferir sempre a chave que o dono do dado emite.
-- Solução dinâmica, não caso particular. Corrigir com condicional por app (`if (app === 'mesas')`), lista fixa ou exceção pontual é sinal de que a correção está no lugar errado: ela pertence ao contrato compartilhado, onde vale para todos, inclusive para o próximo app que ainda não existe.
+- Buscar o que já existe antes de escrever. Dois apps precisando da mesma coisa → ela sobe para o pacote, não se copia.
+- Contrato do pacote é a autoridade. App que manda formato diferente está errado mesmo sem quebrar.
+- Guard compartilhado precisa estar LIGADO. Gancho escrito e não chamado é pior que ausente.
+- Ao corrigir defeito num app, cruzar com os outros que fazem o mesmo. A pergunta é "por que os outros não quebraram".
+- Um id é o mesmo id em todo o monorepo. Representação paralela cria tradução, e tradução diverge.
+- Solução dinâmica, não caso particular. `if (app === 'mesas')` é sinal de correção no lugar errado.
 
-- "Solução mínima" é proibida como critério de correção. Bug ou achado de review se resolve na causa raiz, por completo (schema/tipo/contrato incluídos) — não na menor edição que faz o sintoma sumir. Escopo mínimo vale para abrangência (não mexer em código não relacionado), nunca para profundidade.
-- Stack canônica única: Frontend React 19/TS/Vite/Tailwind; Backend Node/Express 5/TS/Kysely/Postgres 16; auth via JWT no backend.
-- Python só para scripts fora do runtime principal.
-- Normalização obrigatória: todo dado de API/banco/JSON/JSONB/query/localStorage/integração externa é `unknown` até passar por normalizador tipado antes de entrar em estado React, props ou render.
-- Proibido `.map/.filter/.reduce/.forEach`, spread de array ou `.length` sobre payload externo sem `Array.isArray`/schema/fallback explícito.
-- HTML de conteúdo de usuário/rich-text é hostil: sanitizar sempre (DOMPurify) antes de persistir/renderizar.
-- Comentário que explica decisão não se apaga em edit/fix subsequente. Ao editar trecho comentado, preservar ou reescrever o comentário para explicar a decisão atual, citando a origem (achado de review, spec, comportamento observado) — para que outro agente entenda sem reconstruir o histórico do chat.
+### Regras gerais
+
+- **"Solução mínima" é proibida como critério.** Bug se resolve na causa raiz, schema e contrato incluídos. Escopo mínimo vale para abrangência, nunca para profundidade.
+- Stack: React 19/TS/Vite/Tailwind · Node/Express 5/TS/Kysely/Postgres 16 · JWT no backend. Python só fora do runtime principal.
+- Todo dado externo (API/banco/JSONB/query/localStorage) é `unknown` até passar por normalizador tipado.
+- Proibido `.map/.filter/.reduce/.forEach`, spread ou `.length` sobre payload externo sem `Array.isArray`/schema/fallback.
+- HTML de usuário é hostil: sanitizar com DOMPurify antes de persistir ou renderizar.
+- Comentário que explica decisão não se apaga ao editar o trecho: preservar ou reescrever, citando a origem.
 
 ---
 
-## Erros Conhecidos
+## Conclusão e registro
 
-Ao encontrar erro/regressão: (1) parar tentativas repetidas; (2) consultar `.specify/memory/errors.md` por código `E###` ou sintoma; (3) se houver solução documentada, aplicar e registrar evidência; (4) se não, diagnosticar e registrar aprendizado validado.
+Conclusão é afirmação, e exige medição. Concluída só quando a busca final retorna o esperado, o comando real executou (se o aceite exige execução), nenhum arquivo ficou parcial. Nunca declarar conclusão com "parcial", "restante" ou percentual.
 
-## Conclusão de Tarefas
+Validação real provando que a tarefa não roda → reabrir imediatamente.
 
-Conclusão é afirmação, e exige medição citada. Concluída só quando: a busca final retorna o esperado; o comando/teste real executou, se a tarefa promete executabilidade; nenhum arquivo parcialmente modificado; validação registrada somente no documento autorizado. Não atualizar `project-state.md`, `backlog.md`, sessão ou `tasks.md` sem ser nomeado. Nunca declarar conclusão com "parcial", "restante", "maioria", "principais" ou percentual — status parcial se registra no destino autorizado, nunca como conclusão.
+Rotina de fechamento não autoriza ampliar escopo documental. Registrar só onde ele mandar.
 
-Se uma validação real expõe que a tarefa "fechada" ainda não roda, reabrir a task/backlog imediatamente, corrigir o artefato até ficar usável ou registrar bloqueio concreto. Dry-run, plano ou documentação não fecham tarefa cujo aceite exige execução real.
+**Atualizar documentação é REESCREVER o bloco existente, nunca anexar (pétrea).** Doc de spec descreve estado atual, não histórico de sessões.
 
-Proibido ampliar escopo documental por rotina de fechamento. Spec nova, retomada, fechamento, review, bug ou pendência não autorizam verificar ou atualizar backlog, estado, decisões, sessão ou outro arquivo. Reportar ao mantenedor; registrar apenas onde ele mandar.
+- Localizar o bloco antes de escrever: `rtk rg "T<N> —" <arquivo>`, abrir a região inteira.
+- Uma task tem UM bloco de estado. Retomada em sessão nova reescreve, não duplica.
+- Trabalho merged encolhe: o porquê vive no comentário do código; a doc guarda o que foi entregue, o bloqueio que resta e o que precisa de conferência.
+- Medir o delta ao terminar (`rtk git diff --stat`). Diff só de inserções em doc de estado é sinal de empilhamento.
+- Nunca se apaga: decisão dele, bloqueio aberto, achado pendente de resposta, erro do próprio agente já registrado.
 
-Atualizar documentação é REESCREVER o bloco existente, nunca anexar bloco novo (pétrea). Doc de spec descreve estado atual, não histórico de sessões. Anexar "estado em <data>" abaixo do anterior vira log cronológico: cresce sem limite, e o agente seguinte lê camadas contraditórias sem saber qual vale.
+### Formato da resposta
 
-Regras operacionais, sem exceção:
+**Não há teto de linhas — fixar um é o erro.** Entra o que ele precisa para decidir; o resto vai para o `tasks.md` ou comentário no código. Uma decisão pendente cabe em três palavras; cinco decisões pedem cinco linhas.
 
-- Localizar o bloco da task ANTES de escrever. `rtk rg "T<N> —" <arquivo>` e abrir a região inteira. Escrever sem ler o que já existe é o que produz empilhamento.
-- Uma task tem UM bloco de estado. Task retomada em sessão nova → o bloco é reescrito, não duplicado. Não existe "estado em 2026-08-05" convivendo com "estado em 2026-08-07" da mesma task.
-- Trabalho já merged encolhe. Enquanto a task está aberta, o bloco carrega o detalhe que sustenta a retomada. Depois do merge, o *porquê* de cada decisão vive no comentário do próprio código (§Regras Gerais de Código — comentário explicativo não se perde), e a doc guarda só: o que foi entregue, o bloqueio que resta, e a decisão que precisa de conferência. Narrar de novo, na spec, o que o código já explica é duplicação que envelhece sozinha.
-- Medir e reportar o delta. Ao terminar, `rtk git diff --stat <arquivo>`. Um diff só de inserções em doc de estado é sinal de empilhamento — releia antes de entregar. O relatório ao mantenedor diz o delta ("−43 linhas, mesma informação"), não só "documentei".
-- O que nunca se apaga: decisão do mantenedor, bloqueio ainda aberto, achado lateral pendente de resposta, e erro do próprio agente já registrado (§Formato do relatório → não esconder erro próprio). Condensar é remover redundância e narrativa de processo — não remover fato que ainda decide alguma coisa.
+Sem tabela, seção, bullet ou cabeçalho, salvo pedido explícito. Exceção: `## APROVAÇÃO NECESSÁRIA`.
 
-### Formato do relatório final ao mantenedor (obrigatório)
+A medição é obrigatória (§Evidência) e vai para o arquivo. Repetir a prova junto da conclusão faz ele não ler nenhuma das duas.
 
-Vale pra toda entrega de mérito (commit/push/PR, correção de achado de bot, investigação, decisão técnica); não pra resposta curta de pergunta direta.
+"Explica"/"resume"/"não entendi" pede MENOS texto, nunca mais estrutura.
 
-1. Resultado em uma linha: SHA, número da PR, contagem de arquivos, ou o fato central. Sem preâmbulo.
-2. Números reais de validação: `N/N` por app, lint, `tsc`, `verify:api`. Nunca "tudo verde" sem número. Comando que não rodou se declara.
-3. O que foi corrigido, por achado — o problema resolvido e a consequência real, não o arquivo tocado.
-4. O que foi descartado, com motivo curto. Silêncio sobre item descartado lê como esquecimento.
-5. A decisão que mais precisa de conferência, em bloco próprio, com o trade-off e a alternativa se o mantenedor discordar. É onde o agente devolve uma decisão que ele não sabia estar tomando.
-6. Achado lateral já corrigido e medido — não como pergunta (§Bug achado / débito).
-7. Bloqueio e encerramento: o que ficou aberto e por quê, nomeado como bloqueio, nunca como conclusão parcial.
+Sem emoji decorativo, sem barra de progresso, sem elogiar a própria entrega. Erro próprio se diz em uma linha, sem análise de causa.
 
-Travas: sem emoji decorativo nem barra de progresso; não elogiar a própria entrega; não esconder erro próprio (se o agente introduziu o defeito, diz na primeira linha do item); seção vazia se omite.
+---
+
+## Erros conhecidos
+
+Ao encontrar erro: parar de repetir tentativas; consultar `.specify/memory/errors.md` por `E###` ou sintoma; aplicar a solução documentada, ou diagnosticar e registrar o aprendizado validado.
+
+---
+
+## Ferramentas
+
+Mecânica completa na skill `ferramentas-mcp`. Ordem de uso:
+
+1. `artificio-api-governance` para qualquer pergunta de API.
+2. LSP para diagnóstico e impacto semântico — `workspaceSymbol`/`goToDefinition` (onde está), `findReferences` (quem usa), `goToImplementation`, `hover` (tipo). Checar diagnostics depois de editar.
+3. `codebase-memory-mcp` para mapa estrutural e dependências.
+4. `ast-grep`, `rtk rg`, `rtk read`, `git`, validação CLI.
+
+`rtk rg` para texto literal (comentário, string, config, YAML/Dockerfile) ou onde o LSP não cobre.
+
+**Trava (pétrea):** acionar outro agente de IA exige aprovação nominal por ação, priorizando read-only. Ter o MCP disponível não é autorização. Vale igual para escrita via MCP da Cloudflare, que alcança DNS e tunnel de produção — leitura livre, escrita segue §Autorização. Delegação autorizada usa `mcp__opencode__*`; `mcp__opencode-deepseek__deepseek` só se o oficial não responder.
+
+`rtk-enforce.js` reescreve ou bloqueia comando cru automaticamente. Config de MCP por cliente: skill `ferramentas-mcp`. O fluxo de orquestrador do OpenCode não vale para o Claude Code — `docs/agents/opencode-supervisor-flow.md`.
+
+---
+
+## Documentação canônica
+
+| Tipo | Fonte |
+|---|---|
+| Governança | `AGENTS.md` |
+| Contrato de deploy | `docs/agents/deploy-flow.md` |
+| Comandos de deploy por módulo | `docs/agents/deploy-runbook.md` |
+| Estado atual (fase/gate) | `.specify/memory/project-state.md` |
+| Erros conhecidos | `.specify/memory/errors.md` |
+| Contexto de retomada | `docs/agents/context-capsule.md` |
+| Sessões | `sessoes/index.md` |
+| Specs SDD | `specs/README.md`, `specs/backlog.md`, `specs/*/` |
+| Subagentes | `.claude/agents/` |
+| Skills | `.agents/skills/` |
+
+`docs/agents/*` é versionado desde 2026-09-03 (`.gitignore:54`) — o procedimento de deploy precisa ser revisável em PR. Só `docs/agents-internal/` fica fora do repositório.
 
 ---
 
 ## Review guidelines
 
-Não é instrução para o agente — é o único lugar onde o bot Codex code-review (`chatgpt-codex-connector`) lê o escopo de revisão. Não existe `.codexignore`; por isso fica aqui e não vira skill (bot não carrega skill). O CodeRabbit já expressa o mesmo em `.coderabbit.yaml` (`path_filters`), que é executável; este bloco é best-effort textual.
+Não é instrução para o agente — é o único lugar onde o bot Codex code-review (`chatgpt-codex-connector`) lê o escopo de revisão, já que não existe `.codexignore`. O CodeRabbit expressa o mesmo em `.coderabbit.yaml` (`path_filters`), que é executável; este bloco é best-effort textual.
 
-Escopo pedido aos revisores: focar em `apps/`, `packages/`, `scripts/` e config de infra/CI (lógica, contrato, segurança). Não focar achado em `.md` nem em `docs/api/generated/` e `docs/api/openapi/`, que são gerados por `pnpm verify:api`.
-
----
-
-## Documentação Canônica
-
-| Tipo | Fonte |
-|---|---|
-| Governança operacional | `AGENTS.md` |
-| Contrato de deploy (Dockerfile, migration, lockfile, workflow, infra) | `docs/agents/deploy-flow.md` ⃰ — leitura obrigatória por arquivo tocado, ver §T1 |
-| Detalhe operacional de deploy (comandos, por módulo) | `docs/agents/deploy-runbook.md` ⃰ |
-| Estado atual (fase/gate) | `.specify/memory/project-state.md` |
-| Erros conhecidos (histórico; a regra está no contrato acima) | `.specify/memory/errors.md` |
-| Contexto de retomada | `docs/agents/context-capsule.md` ⃰ |
-| Sessões | `sessoes/index.md` + `sessoes/*.md` |
-| Specs SDD | `specs/README.md` + `specs/backlog.md` + `specs/*/{spec.md,plan.md,tasks.md}` |
-| Subagentes | `.claude/agents/` |
-| Skills/playbooks locais | `.agents/skills/` |
-
-⃰ `docs/agents/*` = docs internas de operação, versionadas desde 2026-09-03 (`.gitignore:54`) — o procedimento de deploy precisa ser revisável em PR. Só `docs/agents-internal/` continua fora do repositório.
-
-## Ferramentas MCP / Agentes
-
-Mecânica completa na skill `ferramentas-mcp` — tabela de comandos do `rtk`,
-pegadinhas medidas, e o detalhe de cada MCP (LSP, `codebase-memory-mcp`,
-`artificio-api-governance`, cloudflare, opencode/DeepSeek). Ela dispara quando a
-tarefa é rodar comando, diagnosticar MCP ou delegar trabalho.
-
-O que fica aqui é o que governa autorização:
-
-Trava de autorização (pétrea): acionar outro agente de IA em nome do
-mantenedor — Claude Code ↔ OpenCode/DeepSeek — exige aprovação nominal por ação,
-priorizando read-only (análise, inspeção, revisão, diagnóstico). Ter o MCP
-disponível não é autorização para usá-lo. Vale igual para escrita via MCP da
-Cloudflare, que alcança o DNS e o tunnel de produção: leitura é livre, qualquer
-escrita segue §Autorização.
-
-Cumprimento mecânico: o `rtk-enforce.js` tem 8 regras que bloqueiam o comando
-cru e devolvem a forma correta no motivo do deny. Não existe "esqueci o `rtk`" —
-ou o comando é reescrito sem o agente notar, ou é bloqueado com a correção junto.
-
-
-### Ordem de uso
-
-1. `artificio-api-governance` para qualquer pergunta/mudança de API.
-2. LSP para diagnóstico automático de arquivos tocados e impacto semântico.
-3. `codebase-memory-mcp` para mapa estrutural, dependências, chamadas e arquitetura.
-4. `ast-grep`, `rtk rg`, `rtk read`, `git`, leitura direta e validação CLI.
-
-Para delegar ao opencode/DeepSeek (só com aprovação nominal): `mcp__opencode__*` (oficial); `mcp__opencode-deepseek__deepseek` só se o oficial não responder. Detalhe e medição: §opencode/DeepSeek.
-
-Mapeamento operação → ferramenta:
-
-- Onde X está definido → LSP `workspaceSymbol`/`goToDefinition`.
-- Quem usa/chama X → LSP `findReferences` ou `codebase-memory-mcp`.
-- Interface → implementação concreta → LSP `goToImplementation`.
-- Tipo/assinatura sem abrir arquivo inteiro → LSP `hover`.
-- Depois de escrever/editar código → checar diagnostics do LSP e corrigir antes de prosseguir (trava completa: §LSP).
-- Grep/`rtk rg` para texto/padrão literal (comentário, string, config, YAML/JSON/Dockerfile/shell) ou quando LSP não cobre a linguagem/arquivo.
-
-Config local pode diferir entre clientes:
-- OpenCode: `opencode.json`.
-- Claude Code: MCP local em `.claude.json`/config Claude do usuário; MCP vindo de plugin fica sob `plugin:<nome>:<servidor>` e aparece em `claude mcp list`. Plugin recém-instalado só expõe as ferramentas após `/reload-plugins` ou reinício da sessão.
-- Claude Desktop: `%APPDATA%\Claude\claude_desktop_config.json`, bloco `mcpServers`. Exige reinício do app.
-- Codex (CLI e Desktop): `C:\Users\paulo\.codex\config.toml`, blocos `[mcp_servers.<nome>]` — config compartilhada entre os dois; registrar uma vez vale para ambos. `codex mcp list` mostra o status de OAuth por servidor.
-
-Não acionar outro agente em nome do mantenedor sem aprovação nominal; usar MCPs locais de leitura/navegação não muda esta regra.
-
-Fluxo de orquestrador/fases específico do OpenCode (agente único `artificio-orquestrador`, fases fix→registro→investigação→implementação→doc→commit) não se aplica ao Claude Code — ver `docs/agents/opencode-supervisor-flow.md`.
+Escopo pedido aos revisores: focar em `apps/`, `packages/`, `scripts/` e config de infra/CI — lógica, contrato, segurança. Não focar achado em `.md` nem em `docs/api/generated/` e `docs/api/openapi/`, que são gerados.
