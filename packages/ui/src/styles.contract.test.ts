@@ -8,6 +8,60 @@ function cssRule(selector: string) {
   return styles.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
 }
 
+/** Corpo do `@media (max-width: 860px)`, onde o header colapsa. */
+const media860 = (() => {
+  const inicio = styles.indexOf("@media (max-width: 860px)");
+  if (inicio < 0) return "";
+  // Casa a chave do próprio `@media`, contando aninhamento até fechá-la.
+  let profundidade = 0;
+  for (let i = styles.indexOf("{", inicio); i < styles.length; i++) {
+    if (styles[i] === "{") profundidade++;
+    else if (styles[i] === "}" && --profundidade === 0) return styles.slice(inicio, i);
+  }
+  return "";
+})();
+
+/** Regra de um seletor DENTRO do media de 860px. */
+function regraNoMedia860(selector: string) {
+  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return media860.match(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
+}
+
+describe("header em ≤860px", () => {
+  it("esconde o nome do usuário SEM tirá-lo da árvore de acessibilidade", () => {
+    // O `<span class="artificio-user-name">` é o único texto dentro do
+    // `<button aria-haspopup="menu">` do avatar (`Header.tsx`, `SiteHeaderIsland.tsx`);
+    // a `<img>` ao lado tem `alt=""` por ser decorativa. Com `display: none` o botão
+    // fica sem nome acessível — WCAG 4.1.2, achado do Codex na PR #322.
+    //
+    // Este guard existe porque NENHUM teste de comportamento pega a regressão:
+    // `Header.paineis.test.tsx` acha o avatar por `getByRole("button", { name: /fulano/i })`
+    // — que depende exatamente desse nome acessível — e passa verde com a regra errada,
+    // porque jsdom não aplica media query.
+    const regra = regraNoMedia860(".artificio-user-name");
+
+    expect(regra).not.toBe("");
+    expect(regra).not.toContain("display: none");
+    expect(regra).not.toContain("visibility: hidden");
+    // Ocultação visual: sai da tela, permanece no acessível.
+    expect(regra).toContain("position: absolute");
+    expect(regra).toContain("clip-path: inset(50%)");
+  });
+
+  it("colapsa o grid do header para 3 colunas", () => {
+    // A nav inline some (regra abaixo) e sobram brand, ferramentas e sessão. Com
+    // `1fr auto` — o valor anterior a T3.5e — o 3º filho caía em coluna implícita e
+    // empurrava a faixa de sessão para fora da área visível.
+    expect(regraNoMedia860(".artificio-header-main")).toContain("grid-template-columns: 1fr auto auto");
+    // O seletor é multi-linha no CSS (`> nav` e `.artificio-subnav` em linhas separadas),
+    // então o recorte vai do primeiro seletor até a chave, tolerando o que houver entre eles.
+    const navEscondida = media860.match(
+      /\.artificio-header-main > nav,\s*\.artificio-subnav\s*\{([^}]*)\}/,
+    )?.[1] ?? "";
+    expect(navEscondida).toContain("display: none");
+  });
+});
+
 describe("shared target-size contracts", () => {
   it("keeps the checkbox itself at least 24 by 24 pixels", () => {
     const rule = cssRule(".artificio-checkbox");

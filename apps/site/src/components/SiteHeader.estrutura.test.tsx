@@ -122,9 +122,13 @@ describe("estrutura do header do site (contrato do grid)", () => {
     expect(dentroDoGrid("artificio-header-tools")).toBe(true);
     expect(dentroDoGrid('aria-label="Novidades"')).toBe(true);
     expect(dentroDoGrid('aria-label="Buscar"')).toBe(true);
-    // O ThemeToggle vem de `packages/ui` e é o 3º botão da coluna.
-    const tools = grid.slice(grid.indexOf("artificio-header-tools"), fimDoGrid);
-    expect((tools.match(/<button/g) ?? []).length).toBeGreaterThanOrEqual(3);
+    // O ThemeToggle vem de `packages/ui` e é o 3º botão DESTA coluna. O recorte para no
+    // início da faixa de sessão: indo até `fimDoGrid` ele engoliria o avatar e o
+    // hambúrguer, e a contagem passaria mesmo sem o toggle (achado do CodeRabbit, #322).
+    const inicioTools = grid.indexOf("artificio-header-tools");
+    const inicioSessao = grid.indexOf('artificio-session"', inicioTools);
+    const tools = grid.slice(inicioTools, inicioSessao > -1 ? inicioSessao : fimDoGrid);
+    expect(tools.match(/<button/g) ?? []).toHaveLength(3);
   });
 
   it("subnav é IRMÃ do grid, não filha", () => {
@@ -136,7 +140,7 @@ describe("estrutura do header do site (contrato do grid)", () => {
   it("mantém os 11 links do nav no HTML servido (aceite 13)", () => {
     // Vêm do SSR, antes da hidratação — é o que o crawler lê. `client:only` quebraria
     // isto em silêncio.
-    expect((html.match(/artificio-nav-link/g) ?? []).length).toBe(11);
+    expect(html.match(/artificio-nav-link/g) ?? []).toHaveLength(11);
   });
 
   it("a ilha é dona do <header>, e o island fica por fora dele", () => {

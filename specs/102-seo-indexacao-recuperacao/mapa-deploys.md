@@ -95,8 +95,10 @@ Achado do mantenedor no beta; causa medida: ao hidratar, o Astro injeta um `<sty
 guard de estrutura com 6 testes. Detalhe completo e tabela de validação em `tasks.md`,
 bloco T3.5e.
 
-**Estado: o código está corrigido na árvore de trabalho, NÃO commitado e NÃO deployado.**
-Produção segue com o header quebrado até um novo ciclo PR → merge → promote → Deploy B.
+**Estado: commitado na PR #322** (`0b65434`, branch `fix/102-header-mobile-estrutura`,
+base `origin/dev` = `1c833b5`, 10 arquivos). **NÃO mergeada, NÃO deployada.** Produção
+segue com o header quebrado no celular até: merge da #322 → promote `dev`→`main` → novo
+Deploy B. Cada passo com autorização nominal própria.
 
 **Isto é defeito de layout, não de indexação — nenhum critério A1…H1 depende dele.**
 

@@ -2055,10 +2055,28 @@ select option:checked,
      divide a faixa de sessão com o sino, o avatar e o hambúrguer — em ≤860px sobra
      espaço para um nome truncado em duas letras, que não informa nada e ainda empurra o
      toggle. O avatar (ou as iniciais) já identifica a conta, e o nome inteiro continua
-     no dropdown. Esconder por `display:none` em vez de reduzir a largura: truncar mais
-     não resolve, só encolhe o lixo visual. */
+     no dropdown.
+
+     ⚠️ OCULTAÇÃO VISUAL, NUNCA `display: none` (achado do Codex na PR #322). Este
+     `<span>` é o único texto dentro do `<button aria-haspopup="menu">` do avatar: a
+     `<img>` ao lado tem `alt=""` de propósito (decorativa), então o nome acessível do
+     botão vem daqui. Com `display: none` o elemento sai da árvore de acessibilidade e o
+     leitor de tela anuncia um botão de menu sem identificação — WCAG 4.1.2. A técnica
+     abaixo tira da tela e mantém no acessível.
+
+     Nenhum teste pega isto: `Header.paineis.test.tsx:44` localiza o avatar por
+     `getByRole("button", { name: /fulano/i })` e passa mesmo com a regra errada, porque
+     jsdom não aplica media query. */
   .artificio-user-name {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
   }
 }
 

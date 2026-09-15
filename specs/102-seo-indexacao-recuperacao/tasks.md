@@ -1835,11 +1835,31 @@ a coluna, mas não a subnav. Ela é 2ª LINHA do header (`.artificio-header` é
 `flex-direction: column`, com `border-top` próprio) e precisa ser IRMÃ do grid, não
 filha. Um Fragment não produz filhos em dois níveis diferentes da árvore.
 
-**Terceiro defeito, corrigido no pacote:** `.artificio-user-name` ganhou `display: none`
-dentro do `@media (max-width: 860px)` de `packages/ui/src/styles.css`. Vale para todos os
-consumidores, não só o `site`. A regra base (desktop) segue intacta — medido no CSS
-emitido: 3 ocorrências, `max-width:160px` no desktop, `color:#fff` no dark,
-`display:none` só no media.
+**Terceiro defeito, corrigido no pacote:** em `@media (max-width: 860px)`,
+`.artificio-user-name` sai da tela por **ocultação visual** (`position:absolute` +
+`clip-path: inset(50%)`), não por `display: none`. Vale para todos os consumidores. A
+regra base (desktop) segue intacta.
+
+**A primeira versão usava `display: none` e quebrava acessibilidade — achado do Codex na
+PR #322, confirmado por medição.** O `<span>` do nome é o único texto dentro do
+`<button aria-haspopup="menu">` do avatar (`Header.tsx:221` e `SiteHeaderIsland.tsx:240`);
+a `<img>` ao lado tem `alt=""` por ser decorativa. Com `display: none` o elemento sai da
+árvore de acessibilidade e o leitor de tela anuncia um botão de menu sem identificação —
+WCAG 4.1.2. No caso do fallback sem avatar o texto das iniciais sobrevive, mas o nome
+acessível vira "FT", que também não identifica.
+
+**Nenhum teste pegava.** `Header.paineis.test.tsx:44` localiza o avatar por
+`getByRole("button", { name: /fulano/i })` — depende exatamente desse nome acessível — e
+passou verde com a regra errada, porque jsdom não aplica media query. Teste de
+comportamento não alcança regra de CSS; o guard novo (`styles.contract.test.ts`, 2 testes)
+assere sobre o CSS emitido.
+
+**DESCARTADO: `aria-label` no botão do avatar** (sugestão do CodeRabbit na #322). A
+sugestão parte de o nome estar escondido, o que valia no commit revisado (`0b65434`, com
+`display: none`) mas não depois da correção. Medido na regra atual: não tem `display:
+none` nem `visibility: hidden`, então o `<span>` permanece na árvore de acessibilidade e
+já nomeia o botão. Um `aria-label` sobrescreveria o conteúdo com o mesmo valor —
+redundante. Não reabrir sem antes medir a regra vigente.
 
 **RESOLVIDO em 2026-09-15 pela Container API do Astro — nenhuma dependência nova, lock
 intocado, `--frozen-lockfile` exit 0.** O bloco abaixo registra por que o caminho anterior
