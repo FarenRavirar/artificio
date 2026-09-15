@@ -2162,9 +2162,15 @@ select option:checked,
      tamanho do alvo de toque. A marca é o único item elástico, então ela absorve a
      sobra e os controles nunca são espremidos.
 
-     Aritmética que sustenta o valor, CORRIGIDA em 2026-09-15 (achado P1 do Codex na
-     PR #323): 40 (☰púb) + 90 (marca mínima) + 40 (🔍) + 40 (faixa de sessão)
-     + 3×16 (gaps) + 32 (padding) = 290px, cabendo em 320px com 30px de folga.
+     Aritmética, CORRIGIDA DUAS VEZES em 2026-09-15 (dois achados P1 do Codex na
+     PR #323). Deslogado: 40 (☰púb) + 90 (marca mínima) + 40 (🔍) + 40 (faixa de
+     sessão) + 3×16 (gaps) + 32 (padding) = 290px, cabendo em 320px.
+
+     ⚠️ LOGADO ainda são 322px, e o header estoura 2px em 320. A faixa de sessão não
+     mede o `min-width` abaixo — mede o CONTEÚDO, e nos 4 apps com sino ela tem o
+     `NotificationBell` (40px) ao lado do avatar (32px) = 72px, não 40. Quem conserta é
+     T7.3, movendo os dois para o painel de sessão; o guard tem `TETO_CONHECIDO = 322`
+     esperando cair para 320 lá.
 
      ⚠️ A 1ª versão usou 40px para a sessão SEM reduzir o `min-width: 96px` da regra
      base de `.artificio-session` — o número do comentário era o do botão, não o da

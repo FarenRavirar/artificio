@@ -4283,6 +4283,26 @@ passava verde nos seus 121 testes. A correção é `pnpm --filter @artificio/ui 
 antes de rodar os consumidores. **Vale para toda task da F7 que exporte símbolo novo
 do pacote.**
 
+#### Achados do Codex em `fc5a4fe`
+
+**P1 — a faixa de sessão mede o CONTEÚDO, não o `min-width`, e o guard certificava o
+piso.** O commit anterior baixou `.artificio-session` para `min-width: 40px` no `@media`
+e deu a conta por fechada em 290px. Medido depois do apontamento: logado, `mesas`,
+`downloads`, `glossario` e `site` põem naquela faixa o `NotificationBell` — que renderiza
+um `.artificio-header-action` de 40px — ao lado do avatar de 32px. A faixa mede **72px**,
+não 40, e a soma real é **322px**: o header estoura 2px em 320.
+
+**⚠️ O guard passava porque somava a parcela errada.** Ele lia `min-width` da faixa, que
+é um PISO, e o que ocupa a coluna é o conteúdo. Um guard que mede a grandeza errada é
+pior que nenhum: ele certifica o número e cala a dúvida. Agora a faixa entra pelo maior
+conteúdo real (`acao + avatar`), e o guard carrega `TETO_CONHECIDO = 322` — o estado
+medido, não o desejado.
+
+**Decisão: não esconder o sino no mobile como atalho.** Seria repetir o P2 desta mesma
+PR — ocultar função antes de o destino existir. O destino é o painel de sessão de
+**T7.3**, e o estouro está registrado como bloqueador no cabeçalho daquela task, com o
+teto de 322 devendo cair para 320 lá.
+
 #### Achados do Codex em `f15346f`
 
 **P1 — regra de CSS compartilhado deixou o `site` sem navegação no celular.** O commit
@@ -4394,8 +4414,28 @@ o P1 da navegação passou. Fazer só um lado repete o erro.
 
 ### [ ] T7.3 — Hambúrguer de sessão (direita) absorve avatar e notificações
 
+> 🚩 **O HEADER ESTOURA 2px EM 320 ENQUANTO ESTA TASK NÃO ENTRAR — ela é o conserto.**
+>
+> Medido a partir de `fc5a4fe` (achado P1 do Codex na PR #323): a faixa de sessão **não
+> mede o `min-width`, mede o conteúdo**. T7.1 baixou o piso para 40px, mas logado
+> `mesas`, `downloads`, `glossario` e `site` põem ali o `NotificationBell`
+> (`.artificio-header-action`, 40px) ao lado do avatar (32px) = **72px**.
+>
+> Soma real: 40 (☰) + 90 (marca) + 40 (🔍) + **72** (sessão) + 3×16 + 32 = **322px**.
+>
+> T7.3 move sino e avatar para o painel: a faixa volta a 40px e a soma cai para 290px.
+> **O guard `styles.contract.test.ts` tem um `TETO_CONHECIDO = 322` que deve cair para
+> 320 nesta task** — é o sinal mecânico de que ela fechou.
+>
+> **Não esconder o sino no mobile como atalho:** seria repetir o P2 (changelog e tema
+> ocultados antes de o destino existir). O destino é este painel.
+
 O menu do avatar vira o painel de sessão. **Dentro dele:** itens de conta, notificações
 (`NotificationBell`) e "Sair"; deslogado, o botão "Entrar".
+
+**Também vale para o `apps/site`**, que tem header próprio (`SiteHeaderIsland.tsx`) e
+injeta o sino direto na faixa — não por `actions`. Fazer só o pacote deixa o `site`
+estourando, que é como o P1 da navegação passou.
 
 **Aceite.**
 1. Logado: o sino está DENTRO do painel de sessão, não na barra.
