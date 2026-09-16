@@ -56,6 +56,7 @@ export const AppShell = ({ children }: AppShellProps) => {
         currentHref={publicOrigin}
         moduleNav={moduleNav}
         moduleCurrentHref={pathname}
+        moduleLabel="Mesas"
         userMenu={userMenu}
         showThemeToggle
         showSearch

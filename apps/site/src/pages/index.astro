@@ -31,6 +31,47 @@ const jsonld = [websiteLd(), organizationLd()];
       `h1 → h3 → h2` — medido no dist. O aceite 3 cobra `h1 → h2 → h3`, e diz
       explicitamente que a contagem de `h1` não basta.
     */}
+    {/*
+      Busca explícita na home (T7.6, spec 102). Até aqui o único acesso à busca no `site`
+      era a lupa do header — descoberta só por quem já sabe que ela existe. A determinação
+      do mantenedor (2026-09-15) é que a home tenha entrada própria.
+
+      `<form action="/busca/">` e NÃO um botão que só dispara evento: assim a busca funciona
+      sem JavaScript e para o crawler, submetendo para a página real. O `?q=` não é lido por
+      `/busca/` hoje (o Pagefind monta vazio), mas o destino é correto e a pessoa continua
+      na busca — degradar para "campo morto" seria pior.
+
+      ⚠️ SEM `<script is:inline>` aqui, e isso é decisão medida, não esquecimento. A primeira
+      versão desta busca interceptava o `submit` para abrir o modal Pagefind sem recarregar.
+      O script saía BLOQUEADO pela CSP: `astro.config.mjs` só hasheia o que o Astro bundla, e
+      `is:inline` exige hash escrito à mão na lista `scriptDirective.hashes`. Medido no dist:
+      `sha256-qGZj+hwSRu0W+0iEeWl7IyDdB876cg39TlKNROI/wFM=` ausente do `content-security-policy`
+      emitido. O modo de falhar era silencioso — o `<form>` navegava igual, e só o modal não
+      abria. Registrar o hash resolveria uma vez e quebraria na primeira edição do script, que
+      é o que o próprio comentário da config avisa.
+
+      Navegar para `/busca/` é o comportamento inteiro: a página monta o mesmo Pagefind.
+
+      ⚠️ NÃO reusar `id="search-toggle"` aqui: `id` é único por documento, e o listener do
+      modal casa `target.closest("#search-toggle")` — dois elementos com o mesmo id deixariam
+      o comportamento dependente da ordem do DOM. ⚠️ NÃO montar outro `PagefindUI`: o host
+      `#pagefind-search` já existe no modal e em `/busca/`, e um terceiro com o mesmo id
+      colidiria na inicialização.
+    */}
+    <form class="home-search" action="/busca/" method="get" role="search">
+      <label class="home-search-label" for="home-search-input">Buscar no blog</label>
+      <div class="home-search-row">
+        <input
+          class="home-search-input"
+          id="home-search-input"
+          type="search"
+          name="q"
+          placeholder="Buscar artigos, traduções, guias…"
+          autocomplete="off"
+        />
+        <button class="artificio-button artificio-button-primary artificio-button-md" type="submit">Buscar</button>
+      </div>
+    </form>
     <h2 class="section-title">Destaque</h2>
     <section class="hero"><Card post={hero} big /></section>
     <div class="section-head">

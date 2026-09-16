@@ -2,7 +2,24 @@
 import Base from "../../layouts/Base.astro";
 const canonical = new URL("/busca/", Astro.site).toString();
 ---
-<Base title="Buscar — Artifício RPG" canonical={canonical}>
+{/*
+  `noindex` (T7.7, spec 102). Achado preexistente, medido em produção: esta página não
+  tinha `robots` nem `X-Robots-Tag` e ainda estava no `sitemap-0.xml` — o site convidava
+  o Google a indexar a própria busca interna, que a doc dele manda manter fora do índice
+  (resultado de busca interna não é conteúdo, e dilui o acervo real no SERP).
+
+  A prop vira `<meta name="robots" content="noindex,nofollow">` em
+  `packages/content/src/meta.ts:23`. Mesmo padrão do `404.astro:10`.
+
+  O canonical FICA: ele identifica a página para quem chegar por link, e `noindex` já
+  resolve a indexação. Os dois não conflitam — o que conflitaria é canonical apontando
+  para outra URL, que é o defeito que T3.5a corrigiu na raiz.
+
+  ⚠️ `noindex` sozinho não basta: URL em sitemap com `noindex` é sinal contraditório
+  (o sitemap pede rastreio, a meta nega). A saída do sitemap é o `filter` em
+  `astro.config.mjs`, e as duas metades andam juntas.
+*/}
+<Base title="Buscar — Artifício RPG" canonical={canonical} noindex>
   <article class="prose">
     <h1>Buscar no Blog</h1>
     <div id="pagefind-search"></div>

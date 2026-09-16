@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Footer, Header, NotificationBell, useChangelogBadge, CHANGELOG_UPDATE_MARKERS, type NavItem, type UserMenuItem } from '@artificio/ui';
 import { ChangelogModal } from './ChangelogModal';
@@ -20,6 +20,49 @@ const userMenu: UserMenuItem[] = [
 // spec 086 T10.1). Rota /sobre-e-uso preservada no router (SEO, sem 404).
 const footerModuleLinks: NavItem[] = [{ label: 'Sobre e uso', href: '/sobre-e-uso' }];
 const SEARCH_DEBOUNCE_MS = 300;
+
+/**
+ * Onde o header colapsa para os 4 slots — o MESMO valor de
+ * `@media (max-width: 860px)` em `packages/ui/src/styles.css` (T7.1, spec 102).
+ *
+ * Divergir daqui abre uma faixa de larguras sem busca nenhuma: o CSS já teria mandado o
+ * campo embutido para a 2ª linha (ou escondido), e a lupa ainda não teria aparecido.
+ */
+const HEADER_COLLAPSE_QUERY = '(max-width: 860px)';
+
+/**
+ * `true` em ≤860px, onde o header do pacote colapsa (T7.6, spec 102).
+ *
+ * Existe porque o `Header` compartilhado trata lupa e campo embutido como EXCLUSIVOS:
+ * `hasEmbeddedSearch = showSearch && Boolean(onSearchChange)` (`Header.tsx:163`) desliga
+ * a lupa, e três guards do pacote travam essa exclusão de propósito
+ * (`Header.test.tsx`, `Header.acesso.test.tsx`, `Header.slots.test.tsx`). Fazer os dois
+ * coexistirem mudaria o componente dos 5 consumidores para resolver um caso de um app —
+ * o app escolhe QUAL das duas props passa, e o pacote fica intocado.
+ *
+ * `matchMedia` direto, sem hook novo no `packages/ui`: é o precedente do repo
+ * (`CatalogFiltersBar.tsx:134` no `mesas`), e o barrel do pacote não exporta nada do tipo.
+ *
+ * SSR e jsdom sem a API caem no `false` — desktop, o comportamento que já existia. O
+ * `subscribe` devolve no-op nesse caso, senão `useSyncExternalStore` chamaria um
+ * `addEventListener` inexistente no primeiro render.
+ */
+function useHeaderColapsado(): boolean {
+  const subscribe = useCallback((notificar: () => void) => {
+    const mql = globalThis.matchMedia?.(HEADER_COLLAPSE_QUERY);
+    // `addEventListener` falta no mock de `test/setup.ts` de alguns apps e no Safari < 14.
+    if (!mql?.addEventListener) return () => undefined;
+    mql.addEventListener('change', notificar);
+    return () => mql.removeEventListener('change', notificar);
+  }, []);
+
+  return useSyncExternalStore(
+    subscribe,
+    () => globalThis.matchMedia?.(HEADER_COLLAPSE_QUERY).matches ?? false,
+    // Snapshot do servidor: sem `window`, o header nasce em modo desktop.
+    () => false,
+  );
+}
 
 export const AppShell = ({ children }: AppShellProps) => {
   const { pathname, search } = useLocation();
@@ -66,6 +109,20 @@ export const AppShell = ({ children }: AppShellProps) => {
     markSeen();
   };
 
+  const headerColapsado = useHeaderColapsado();
+
+  /**
+   * Lupa do celular (T7.6, spec 102): leva à busca do módulo, como nos outros 4 apps.
+   *
+   * `/busca` é alias de `/catalogo` (`App.tsx`), então o destino é o catálogo com o termo
+   * preservado. O que já foi digitado vai junto: quem começou a busca no desktop, girou o
+   * aparelho e tocou na lupa não perde o termo.
+   */
+  const handleSearch = () => {
+    const termo = searchDraft.trim();
+    void navigate({ pathname: '/busca', search: termo ? `?q=${encodeURIComponent(termo)}` : '' });
+  };
+
   return (
     <div className="min-h-screen bg-[var(--canvas)] text-[var(--fg)] flex flex-col">
       {/* Sem `variant`: o chrome segue `:root[data-theme]` por CSS, antes da
@@ -76,10 +133,20 @@ export const AppShell = ({ children }: AppShellProps) => {
         userMenu={userMenu}
         showThemeToggle
         showSearch
-        searchValue={searchDraft}
-        onSearchChange={setSearchDraft}
-        searchPlaceholder="Buscar por título, autor ou sistema"
-        searchLabel="Buscar materiais"
+        /* Lupa no celular, campo no desktop — nunca os dois (T7.6, spec 102).
+           O `Header` compartilhado trata as duas formas como exclusivas
+           (`hasEmbeddedSearch` em `Header.tsx:163` desliga a lupa), e é o app que escolhe
+           qual passar: assim os outros 4 consumidores ficam intocados. Em ≤860px o campo
+           embutido ocupava a 2ª linha do grid; a lupa devolve essa linha ao conteúdo e
+           padroniza o gesto com `mesas`, `glossario`, `links` e `site`. */
+        {...(headerColapsado
+          ? { onSearch: handleSearch }
+          : {
+              searchValue: searchDraft,
+              onSearchChange: setSearchDraft,
+              searchPlaceholder: 'Buscar por título, autor ou sistema',
+              searchLabel: 'Buscar materiais',
+            })}
         showChangelog
         onOpenChangelog={openChangelog}
         changelogHasBadge={hasNewUpdate}

@@ -3,6 +3,7 @@ import type { User } from "@artificio/auth";
 import { BRAND_ORIGIN } from "@artificio/config";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { brandLogoNavy, brandLogoNeg } from "./brand.js";
+import { ChangelogButton } from "./ChangelogButton.js";
 import { defaultNavItems, type NavItem } from "./modules.js";
 import { Nav } from "./Nav.js";
 import { NavToggle } from "./NavToggle.js";
@@ -26,6 +27,18 @@ export interface HeaderProps {
   moduleNav?: NavItem[];
   /** Href ativo do nav de projeto (ex.: pathname). Highlight do subnav. */
   moduleCurrentHref?: string;
+  /**
+   * Nome do módulo, usado como rótulo da `moduleNav` (T7.5, spec 102).
+   *
+   * Nomeia a região no desktop (`aria-label` do `<nav>` da subnav) e titula o bloco
+   * dentro do painel público, onde os dois navs aparecem empilhados e nada dizia de
+   * quem era cada um. Sem esta prop os dois `<nav>` do painel saíam com o MESMO nome
+   * acessível — duas regiões de navegação indistinguíveis para o leitor de tela.
+   *
+   * O default é genérico de propósito: `moduleNav` sem `moduleLabel` continua válido e
+   * ganha um nome distinto do nav de projetos, que é o defeito que esta prop corrige.
+   */
+  moduleLabel?: string;
   /**
    * FORÇA o chrome claro ou escuro, ignorando o tema do documento.
    *
@@ -109,6 +122,7 @@ export function Header({
   navItems = defaultNavItems,
   moduleNav,
   moduleCurrentHref,
+  moduleLabel = "Neste módulo",
   variant,
   sticky = true,
   brandHref = BRAND_ORIGIN,
@@ -138,6 +152,14 @@ export function Header({
      como saber antes de hidratar, e o wordmark navy ficava sobre o navy. É o mesmo
      padrão que `apps/site` já usava no seu header próprio. */
   const hasModuleNav = Boolean(moduleNav && moduleNav.length > 0);
+  /* O rodapé do painel só existe se houver ferramenta para pôr nele (T7.2). A condição
+     espelha o que cada filho de fato renderiza — `showChangelog` sem handler não vira
+     botão —, pela mesma razão do wrapper de `.artificio-header-tools`: container vazio
+     aqui cobraria o `border-top` do separador sem nada abaixo dele.
+
+     A BUSCA não entra: ela continua exposta na barra em ≤860px (aceite 2 de T7.1), e
+     repeti-la daria dois controles para a mesma ação. */
+  const hasPanelTools = Boolean((showChangelog && onOpenChangelog) || showThemeToggle);
   const hasEmbeddedSearch = showSearch && Boolean(onSearchChange);
 
   const [open, setOpen] = useState(false);
@@ -237,6 +259,28 @@ export function Header({
           </button>
           {open ? (
             <div className="artificio-usermenu-dropdown" role="menu">
+              {/*
+                PAINEL DE SESSÃO (T7.3, spec 102) — o que era irmão do avatar na barra
+                passa a viver aqui dentro.
+
+                Decisão do mantenedor, dada na F7: "notificação fica dentro do direito,
+                pois é notificação de quem fica logado". O código não a implementava: o
+                sino entrava por `actions` e virava `.artificio-header-actions`, IRMÃO de
+                `renderSession()`, ocupando a faixa ao lado do avatar.
+
+                ⚠️ `actions` é slot EXTENSÍVEL, não "o sino". Medido em 2026-09-15:
+                `mesas` passa `<HeaderActions />` (sino com gate próprio), `downloads`
+                passa o sino direto e `glossario` passa um botão "Adicionar Sugestão" e
+                NENHUM sino. Contar quantos itens cabem na faixa é o erro — a lista cresce
+                com o tempo, e a barra de 320px não acompanha. No celular ela desce inteira
+                para cá e rola, como qualquer menu.
+
+                Fica ANTES dos itens de conta: é o conteúdo que o módulo injeta, e o
+                usuário chega nele primeiro. `Sair` continua por último.
+              */}
+              {actions ? (
+                <div className="artificio-usermenu-actions">{actions}</div>
+              ) : null}
               {items.map((item) => (
                 <a
                   key={`${item.href}:${item.label}`}
@@ -386,40 +430,27 @@ export function Header({
               </button>
             ) : null}
             {showChangelog && onOpenChangelog ? (
-              <button
-                type="button"
-                className="artificio-header-action"
-                aria-label="Changelog"
-                title="Changelog"
-                onClick={onOpenChangelog}
-              >
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M8.56 3.69a9 9 0 0 0-2.92 1.95" />
-                  <path d="M3.69 8.56A9 9 0 0 0 3 12" />
-                  <path d="M8.56 20.31A9 9 0 0 0 12 21" />
-                  <path d="M20.31 15.44A9 9 0 0 0 21 12" />
-                  <polygon points="13 2 13 13 18 11 13 13 13 2" />
-                </svg>
-                {changelogHasBadge ? (
-                  <span className="artificio-header-action-badge" aria-label="Novidade" />
-                ) : null}
-              </button>
+              <ChangelogButton hasBadge={changelogHasBadge} onClick={onOpenChangelog} />
             ) : null}
             {showThemeToggle ? <ThemeToggle /> : null}
           </div>
         ) : null}
         <div className="artificio-session" aria-live="polite">
           {/*
-            Fica na direita, cada um por um motivo diferente (aceite 15):
-            `actions` é conteúdo do app consumidor (o `mesas` injeta o sino por ela, e o
-            sino exige sessão); `renderSession()` cobre avatar+menu (exige sessão) e o
-            botão "Entrar", que é público mas é a PORTA da sessão — vai onde o avatar
-            aparecerá depois do login; o `menu-toggle` é o controle do painel mobile, e
-            a extremidade da barra é o lugar convencional dele.
+            Só a PORTA da sessão fica na faixa (T7.3, spec 102): o avatar, que abre o
+            painel, ou o "Entrar" quando deslogado.
+
+            ⚠️ `actions` saiu daqui. Era `.artificio-header-actions`, IRMÃO de
+            `renderSession()`, e é o que fazia a faixa medir 72px (sino de 40 + avatar de
+            32) em vez de 40px — o estouro de 2px em 320. Agora vive dentro do dropdown,
+            em `.artificio-usermenu-actions`. Não devolver para cá: a faixa é de largura
+            fixa e `actions` é slot extensível, então o que cresce tem de crescer no
+            painel, que rola.
+
+            O `menu-toggle` continua no DOM e escondido em ≤860px (`styles.css`): o
+            controle do painel de sessão é o próprio avatar, e um hambúrguer ao lado dele
+            seria um segundo controle para a mesma gaveta.
           */}
-          {actions ? (
-            <div className="artificio-header-actions">{actions}</div>
-          ) : null}
           {renderSession()}
           <NavToggle
             className="artificio-menu-toggle"
@@ -432,7 +463,14 @@ export function Header({
 
       {hasModuleNav ? (
         <div className="artificio-subnav">
-          <Nav currentHref={moduleCurrentHref} items={moduleNav as NavItem[]} />
+          {/* `label` nomeia a REGIÃO (T7.5): sem ele este `<nav>` herdava "Módulos do
+              Artifício", o nome do nav de projetos, e o `mesas` anunciava "Catálogo" sob
+              o rótulo dos subdomínios. */}
+          <Nav
+            currentHref={moduleCurrentHref}
+            items={moduleNav as NavItem[]}
+            label={moduleLabel}
+          />
         </div>
       ) : null}
 
@@ -445,12 +483,56 @@ export function Header({
       {navOpen ? (
         <div className="artificio-mobile-nav">
           <Nav currentHref={currentHref} items={navItems} onNavigate={() => setNavOpen(false)} />
+          {/* 2º bloco do painel — as rotas DESTE módulo (T7.5, spec 102).
+
+              Os dois navs empilham sem separação, e até aqui saíam com o MESMO nome
+              acessível: duas regiões de navegação que o leitor de tela não distinguia
+              (WCAG 2.4.1). O rótulo visível resolve os dois lados de uma vez — ele titula
+              o bloco na tela e vira o nome acessível do `<nav>` por `aria-labelledby`,
+              em vez de repetir o texto num `aria-label` que sairia da sincronia. */}
           {hasModuleNav ? (
-            <Nav
-              currentHref={moduleCurrentHref}
-              items={moduleNav as NavItem[]}
-              onNavigate={() => setNavOpen(false)}
-            />
+            <>
+              <p className="artificio-mobile-nav-module-label" id="artificio-module-nav-label">
+                {moduleLabel}
+              </p>
+              <Nav
+                currentHref={moduleCurrentHref}
+                items={moduleNav as NavItem[]}
+                labelledBy="artificio-module-nav-label"
+                onNavigate={() => setNavOpen(false)}
+              />
+            </>
+          ) : null}
+          {/*
+            3º bloco do painel — o RODAPÉ de ferramentas públicas (T7.2, spec 102).
+
+            Ele fecha o bloqueador aberto por T7.1: a regra
+            `.artificio-header-tools > *:not([aria-label="Buscar"])` tirou changelog e tema
+            da barra em ≤860px, e até aqui não havia destino — nos 6 apps os dois ficaram
+            inalcançáveis no celular, e no `accounts` (que liga só `showThemeToggle`) o
+            usuário perdia o ÚNICO jeito de trocar para escuro.
+
+            É IRMÃO dos navs, com separador próprio, e não um item de lista: os navs são
+            navegação e estes são controles de ferramenta — enfiá-los num `<ul>` de links
+            anunciaria "item 3 de 12" para um botão que não navega.
+
+            Os mesmos componentes da barra, não cópias: `ChangelogButton` e `ThemeToggle`
+            renderizam aqui e lá. O painel só existe em ≤860px, onde a barra já os
+            escondeu, então nunca há dois controles ativos na tela ao mesmo tempo.
+          */}
+          {hasPanelTools ? (
+            <div className="artificio-mobile-nav-footer">
+              {showChangelog && onOpenChangelog ? (
+                <ChangelogButton
+                  hasBadge={changelogHasBadge}
+                  onClick={() => {
+                    setNavOpen(false);
+                    onOpenChangelog();
+                  }}
+                />
+              ) : null}
+              {showThemeToggle ? <ThemeToggle /> : null}
+            </div>
           ) : null}
         </div>
       ) : null}

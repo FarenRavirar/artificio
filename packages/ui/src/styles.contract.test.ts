@@ -93,35 +93,34 @@ describe("header em ≤860px", () => {
     expect(pisoSessao, "min-width da faixa de sessão em ≤860px").toBe(40);
     expect(acao, "min-width do botão de ação (a lupa)").toBe(40);
 
-    // ⚠️ A FAIXA DE SESSÃO NÃO MEDE `min-width` — ela mede o CONTEÚDO (achado P1 do
-    // Codex em `fc5a4fe`). Reduzir o piso para 40px não a limita a 40px: logado,
-    // `mesas`, `downloads`, `glossario` e `site` põem ali o `NotificationBell` (um
-    // `.artificio-header-action` de 40px) ao lado do avatar (32px). A versão anterior
-    // deste guard somava o PISO e certificava 290px enquanto a tela renderizava mais.
+    // A faixa de sessão mede o CONTEÚDO, não o `min-width` (achado P1 do Codex em
+    // `fc5a4fe`). Até T7.2 o conteúdo era sino + avatar = 72px, e a soma dava 322px.
     //
-    // Aqui a faixa entra pelo maior conteúdo real que algum consumidor produz.
-    const sessaoLogada = acao + avatar; // sino + avatar, sem gap declarado na faixa
-    const sessao = Math.max(pisoSessao, sessaoLogada);
+    // T7.3 tirou dali tudo que não é a porta da sessão: `actions` — o sino, e o que mais
+    // o módulo injetar — foi para dentro do painel. Sobrou o avatar de 32px, abaixo do
+    // piso de 40px, que volta a ser quem manda na faixa.
+    //
+    // ⚠️ Somar `acao + avatar` de novo aqui congelaria o estado ANTERIOR. Este guard mede
+    // o CSS; quem prova que `actions` não voltou para a barra é `Header.sessao.test.tsx`,
+    // que é sobre a árvore.
+    const sessao = Math.max(pisoSessao, avatar);
 
     // ☰público + marca + lupa + sessão + 3 gaps + padding dos dois lados.
     const MARCA_MINIMA = 90;
     const GAP = 16;
     const soma = toggle + MARCA_MINIMA + acao + sessao + 3 * GAP + 2 * lateral;
 
-    // ⚠️ TETO CONHECIDO, NÃO O ALVO. Hoje a soma dá 322px e a tela alvo tem 320: o
-    // header estoura 2px quando o usuário está logado num dos 4 apps com sino. Quem
-    // conserta é **T7.3**, que move sino e avatar para o painel de sessão — está
-    // registrado como bloqueador no cabeçalho daquela task.
+    // T7.3 FECHOU O ESTOURO: o teto era 322 e caiu para 320, a largura de tela alvo.
+    // Era um teto "conhecido" porque a faixa media sino + avatar; agora `actions` vive no
+    // painel e ela mede só o avatar, abaixo do piso de 40px.
     //
-    // O número fica aqui, e não numa promessa em comentário, justamente porque foi um
-    // comentário otimista que deixou passar os dois estouros anteriores. A asserção
-    // trava "não piora"; quando T7.3 entrar, a faixa cai para 40px, a soma vai a 290 e
-    // este teto desce junto — é o sinal de que a task fechou.
-    const TETO_CONHECIDO = 322;
+    // O número fica aqui, e não numa promessa em comentário, porque foi um comentário
+    // otimista que deixou passar os dois estouros anteriores.
+    const LARGURA_ALVO = 320;
     expect(
       soma,
-      `soma das faixas = ${soma}px. Alvo 320; teto conhecido ${TETO_CONHECIDO} até T7.3 tirar sino e avatar da barra.`,
-    ).toBeLessThanOrEqual(TETO_CONHECIDO);
+      `soma das faixas = ${soma}px, acima dos ${LARGURA_ALVO}px de tela alvo. A faixa de sessão voltou a carregar conteúdo além do avatar?`,
+    ).toBeLessThanOrEqual(LARGURA_ALVO);
     // O seletor é multi-linha no CSS (`> nav` e `.artificio-subnav` em linhas separadas),
     // então o recorte vai do primeiro seletor até a chave, tolerando o que houver entre eles.
     const navEscondida = media860.match(
@@ -192,6 +191,41 @@ describe("4 slots do header em ≤860px (T7.1)", () => {
     // controle de navegação nenhum em ≤860px (P1 do Codex na PR #323). O guard daquele
     // lado é `SiteHeader.estrutura.test.tsx`; ao mexer nesta regra, conferir lá também.
     expect(regraNoMedia860(".artificio-menu-toggle")).toContain("display: none");
+  });
+
+  it("distingue a subnav do nav de projetos por SUPERFÍCIE, não só por fonte", () => {
+    // Aceite 1 de T7.5. Até aqui a subnav só redefinia `font-size`, `min-height` e
+    // `padding`: dois navs do mesmo desenho empilhados, e nada dizia que o de cima cruza
+    // subdomínios enquanto o de baixo anda dentro do módulo. Tamanho sozinho lê como
+    // hierarquia tipográfica, não como "outro tipo de navegação".
+    //
+    // O guard é sobre o que DIFERENCIA, não sobre o valor exato: trocar o tom do fundo é
+    // decisão de design e não deve quebrar teste; remover a diferença, sim.
+    const subnav = cssRule(".artificio-subnav");
+    expect(subnav).toContain("background:");
+
+    // O item ativo se marca por PÍLULA, não pela "aba" de `border-bottom` do nav de
+    // projetos — dois sublinhados laranja a poucos pixels um do outro não distinguem
+    // "estou no módulo Mesas" de "estou no Catálogo dentro dele".
+    const ativo = cssRule('.artificio-subnav .artificio-nav-link[aria-current="page"]');
+    expect(ativo).toContain("background:");
+    expect(ativo).toContain("border-bottom-color: transparent");
+  });
+
+  it("dá à subnav um par escuro — `--artificio-canvas` NÃO vira por tema", () => {
+    // `--artificio-canvas`, como `--artificio-muted`/`--artificio-line`/`--artificio-surface`,
+    // é declarado UMA vez no `:root` e o bloco `[data-theme="dark"]` não o redefine (quem
+    // vira é a pilha `--surface`/`--fg`/`--line`). Sem o par abaixo, o fundo novo da
+    // subnav sairia `#f6f7fa` cruzando o header navy no escuro.
+    //
+    // As DUAS portas: o guard genérico de `data-variant` (abaixo, T7.4) já reprova regra
+    // que escureça só por prop; este reprova a AUSÊNCIA da regra, que aquele não vê.
+    expect(
+      styles.includes(
+        ':root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .artificio-subnav',
+      ),
+      "a subnav ganhou fundo próprio sem par no tema escuro",
+    ).toBe(true);
   });
 
   it("mantém o desktop em 4 colunas — T7.1 não mexe nele", () => {
@@ -267,6 +301,26 @@ describe("chrome escuro por tema (T7.4)", () => {
       .exec(styles)?.[1] ?? "";
     expect(regra).not.toBe("");
     expect(regra).toContain("--artificio-dark-surface");
+  });
+
+  it("dá ao painel de sessão teto de altura e rolagem própria", () => {
+    // Achado do Codex na PR #324 (P2): o painel é `position: absolute` dentro do header
+    // `sticky top: 0`, e nasceu sem `max-height`/`overflow`. Nada o rola, então o que
+    // passa da viewport fica INALCANÇÁVEL — em landscape de celular isso enterra "Ver
+    // todas" e "Sair". Falha silenciosa: sem erro, sem barra de rolagem, e o conteúdo
+    // cresce por dois caminhos sem teto próprio (os `items` do app e o slot `actions`,
+    // onde o dropdown do sino vira `static` e passa a empurrar).
+    //
+    // O guard existe porque a regra é APAGÁVEL sem quebrar nada visível no desktop, que
+    // é onde ela é editada. Em tela alta o painel cabe, e o bug só reaparece no celular.
+    const cssSemComentarios = styles.replace(/\/\*[\s\S]*?\*\//g, "");
+    const regra = /\.artificio-usermenu-dropdown\s*\{([^}]*)\}/.exec(cssSemComentarios)?.[1] ?? "";
+
+    expect(regra).not.toBe("");
+    // `dvh` e não `vh`: no mobile a barra do navegador entra e sai, e `vh` congela na
+    // altura MAIOR — o teto ficaria grande demais justamente onde a tela é menor.
+    expect(regra, "teto do painel tem de acompanhar a viewport dinâmica").toMatch(/max-height:\s*calc\(100dvh/);
+    expect(regra, "sem rolagem própria o teto só CORTA o conteúdo").toMatch(/overflow-y:\s*auto/);
   });
 
   it("faz o menu do avatar honrar `variant=\"light\"`, como o resto do header", () => {

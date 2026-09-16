@@ -593,8 +593,22 @@
   outline: none;
 }
 
-/* 2ª linha: nav interno do módulo (Catálogo/Painel). */
+/* 2ª linha: nav interno do módulo (Catálogo/Painel).
+
+   T7.5 (spec 102) — a subnav se distingue do nav de PROJETOS por SUPERFÍCIE, não só por
+   tamanho de fonte. Até aqui a única diferença eram `font-size`, `min-height` e `padding`:
+   dois navs do mesmo desenho empilhados, e nada dizia que o de cima cruza subdomínios
+   (`glossario`, `mesas`, `downloads`…) enquanto o de baixo anda dentro deste módulo.
+   Tamanho sozinho lê como hierarquia tipográfica, não como "outro tipo de navegação".
+
+   ⚠️ O fundo NÃO pode sair de `--artificio-canvas` sozinho: esse token, como
+   `--artificio-muted`, `--artificio-line` e `--artificio-surface`, é declarado UMA vez no
+   `:root` (linhas 5-8) e o bloco `:root[data-theme="dark"]` não o redefine — quem vira por
+   tema é a pilha `--surface`/`--fg`/`--line`. Um `#f6f7fa` fixo aqui viraria uma faixa
+   quase branca atravessando o header navy no escuro. O par dark entra por baixo, pelas
+   DUAS portas (tema do documento e prop `data-variant`), como o separador de T7.2. */
 .artificio-subnav {
+  background: var(--artificio-canvas);
   border-top: 1px solid var(--artificio-line);
   padding: 0 24px;
 }
@@ -603,10 +617,22 @@
   gap: 2px;
 }
 
+/* Sem a "aba" do nav de projetos: o item ativo se marca por PÍLULA preenchida, não pelo
+   `border-bottom` de 2px. Os dois navs ficam a poucos pixels um do outro, e repetir o
+   sublinhado laranja em ambos dava dois itens ativos com a mesma marca — o usuário não
+   distingue "estou no módulo Mesas" de "estou no Catálogo dentro dele". */
 .artificio-subnav .artificio-nav-link {
+  border-bottom-color: transparent;
+  border-radius: var(--radius-pill);
   font-size: 13px;
   min-height: 36px;
   padding: 8px 10px;
+}
+
+.artificio-subnav .artificio-nav-link[aria-current="page"] {
+  background: var(--artificio-ink);
+  border-bottom-color: transparent;
+  color: var(--artificio-surface);
 }
 
 /* Hambúrguer PÚBLICO (esquerda) — 1º slot em ≤860px, escondido no desktop (T7.1).
@@ -643,6 +669,21 @@
 .artificio-mobile-nav .artificio-nav-list {
   flex-direction: column;
   gap: 2px;
+}
+
+/* Rodapé do painel público (T7.2, spec 102): changelog e tema, que a barra de ≤860px
+   esconde. É IRMÃO dos navs e tem separador PRÓPRIO (`border-top`), não um item de
+   lista — os navs navegam, estes são controles de ferramenta.
+
+   O separador é do rodapé e não do último nav: a `moduleNav` é opcional (`hasModuleNav`),
+   então prender a linha ao nav de cima a faria sumir justamente nos apps sem subnav. */
+.artificio-mobile-nav-footer {
+  align-items: center;
+  border-top: 1px solid var(--artificio-line);
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
 }
 
 .artificio-brand {
@@ -797,11 +838,11 @@
   text-decoration: none;
 }
 
-.artificio-header-actions {
-  align-items: center;
-  display: inline-flex;
-  gap: 4px;
-}
+/* `.artificio-header-actions` foi REMOVIDA em T7.3 (spec 102), não esquecida. Era o
+   wrapper de `actions` dentro da faixa de sessão, e é o que fazia a faixa medir 72px
+   (sino de 40 + avatar de 32) em vez de 40px. `actions` agora renderiza em
+   `.artificio-usermenu-actions`, dentro do painel. Nenhum arquivo emite mais esta classe
+   — medido com `rtk rg` ao remover. */
 
 .artificio-header-action {
   align-items: center;
@@ -903,6 +944,56 @@
   right: 0;
   top: calc(100% + 8px);
   z-index: 50;
+  /* Teto pela viewport + rolagem própria (achado do Codex na PR #324, P2).
+     O painel é `absolute` dentro do header `sticky top: 0`, então nada o rola: o que
+     passa da tela fica INALCANÇÁVEL, sem barra e sem erro. Falha silenciosa.
+
+     O conteúdo cresce por dois caminhos e nenhum tem teto próprio aqui: os itens de
+     conta (`items`, que o app define) e o slot `actions`. Com o sino dentro de
+     `.artificio-usermenu-actions` o dropdown dele vira `position: static` (ver regra
+     abaixo) e passa a EMPURRAR — só a lista dele já vale `max-height: 20rem`, mais o
+     rodapé "Ver todas". Em landscape de celular (~375px de altura) isso enterra "Ver
+     todas" e "Sair" fora da tela.
+
+     `100dvh` e não `100vh`: no mobile a barra do navegador entra e sai, e `vh` congela
+     na altura MAIOR — o teto ficaria grande demais justamente onde a tela é menor.
+     `64px` é o `min-height` do `.artificio-header-main` (linha 549), que é o que fica
+     acima do painel; `16px` é a folga para o painel não encostar na borda de baixo. */
+  max-height: calc(100dvh - 64px - 16px);
+  overflow-y: auto;
+}
+
+/* Ações do módulo dentro do painel de sessão (T7.3, spec 102): o sino, e o que mais o
+   app injetar por `actions`. Separado dos itens de conta por uma linha, porque são
+   controles do módulo e não navegação da conta. */
+.artificio-usermenu-actions {
+  align-items: center;
+  border-bottom: 1px solid var(--artificio-line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+  padding-bottom: 6px;
+}
+
+/* ⚠️ O dropdown do SINO vira fluxo normal aqui dentro.
+   `.artificio-notification-dropdown` é `position: absolute; top: 100%; right: 0;
+   width: 22rem` — dimensionado para pendurar na barra do header. Dentro do painel de
+   sessão, que já é um dropdown absoluto de `min-width: 200px`, ele penduraria para fora
+   do menu e sairia da tela à direita no celular. Aqui ele passa a empurrar o conteúdo,
+   que é o comportamento de um menu que cresce. */
+.artificio-usermenu-actions .artificio-notification-dropdown {
+  position: static;
+  width: auto;
+  max-width: none;
+  margin-top: 4px;
+  box-shadow: none;
+}
+
+/* E o sino ocupa a largura toda do painel, para o dropdown dele ter onde crescer. */
+.artificio-usermenu-actions .artificio-notification-bell {
+  display: block;
+  width: 100%;
 }
 
 .artificio-usermenu-item {
@@ -2142,10 +2233,16 @@ select option:checked,
   color: #ffffff;
 }
 
+/* O separador do rodapé do painel (T7.2) entra AQUI junto, pelas DUAS portas: a do tema
+   do documento e a da prop `data-variant`. Escrever só a primeira deixaria a linha clara
+   num consumidor com `variant="dark"` sob documento claro — o defeito P2 que o dropdown
+   do avatar teve nesta mesma PR. */
 :root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .artificio-subnav,
 :root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .artificio-mobile-nav,
+:root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .artificio-mobile-nav-footer,
 .artificio-header[data-variant="dark"] .artificio-subnav,
-.artificio-header[data-variant="dark"] .artificio-mobile-nav {
+.artificio-header[data-variant="dark"] .artificio-mobile-nav,
+.artificio-header[data-variant="dark"] .artificio-mobile-nav-footer {
   border-color: rgba(255, 255, 255, 0.1);
 }
 
@@ -2154,6 +2251,47 @@ select option:checked,
 .artificio-header[data-variant="dark"] .artificio-nav-toggle:hover,
 .artificio-header[data-variant="dark"] .artificio-menu-toggle:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+/* A SUPERFÍCIE da subnav no escuro (T7.5), pelas duas portas.
+   `--artificio-canvas` é `#f6f7fa` FIXO nos dois temas (declarado uma vez no `:root`, e o
+   bloco `[data-theme="dark"]` não o redefine — só a pilha `--surface`/`--fg`/`--line`
+   vira). Sem este par, a faixa da subnav sairia quase branca cruzando o header navy.
+   Um degrau acima do navy, não abaixo: a subnav precisa se destacar do header, e escurecer
+   ainda mais a aproximaria do fundo da página. */
+:root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .artificio-subnav,
+.artificio-header[data-variant="dark"] .artificio-subnav {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* O item ativo: pílula preenchida, como no claro, invertendo as cores. No claro é navy
+   sobre canvas; aqui, branco sobre navy — o `--artificio-ink` do claro É o navy do header
+   escuro, e repeti-lo aqui deixaria a pílula invisível. */
+:root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .artificio-subnav .artificio-nav-link[aria-current="page"],
+.artificio-header[data-variant="dark"] .artificio-subnav .artificio-nav-link[aria-current="page"] {
+  background: #ffffff;
+  border-bottom-color: transparent;
+  color: var(--artificio-ink);
+}
+
+/* Rótulo do bloco de módulo dentro do painel público (T7.5, aceite 2).
+   Só existe no painel: no desktop quem nomeia a região é o `aria-label` do `<nav>`, e a
+   subnav já se distingue pela própria superfície. Aqui os dois navs empilham sem nenhuma
+   separação visual, e o usuário não tem como saber onde termina "outros projetos" e
+   começa "este módulo". */
+.artificio-mobile-nav-module-label {
+  color: var(--artificio-muted);
+  font-size: 11px;
+  font-weight: var(--weight-strong);
+  letter-spacing: 0.08em;
+  margin: 8px 0 2px;
+  padding: 0 10px;
+  text-transform: uppercase;
+}
+
+:root[data-theme="dark"] .artificio-header:not([data-variant="light"]) .artificio-mobile-nav-module-label,
+.artificio-header[data-variant="dark"] .artificio-mobile-nav-module-label {
+  color: rgba(255, 255, 255, 0.6);
 }
 
 @media (max-width: 860px) {

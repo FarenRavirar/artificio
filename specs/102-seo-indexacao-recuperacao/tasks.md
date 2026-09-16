@@ -4378,71 +4378,159 @@ ela GANHA — passava verde com as duas marcas na tela. Agora ele proíbe a form
 **P2 — changelog e tema ficaram inacessíveis no celular.** Registrado como bloqueador no
 cabeçalho de **T7.2**, que é quem conserta, por decisão do mantenedor.
 
-### [ ] T7.2 — Hambúrguer público (esquerda) com nav + subnav + rodapé
+### [x] T7.2 — Hambúrguer público (esquerda) com nav + subnav + rodapé — **FEITA (2026-09-15)**
 
-> 🚩 **BLOQUEADOR EM PRODUÇÃO ABERTO POR T7.1 — esta task é o conserto.**
->
-> T7.1 tirou changelog e tema da barra em ≤860px (`.artificio-header-tools > *:not(...)`),
-> mas o painel que deveria recebê-los **ainda não existe**: `Header.tsx` e
-> `SiteHeaderIsland.tsx` renderizam só `Nav` dentro de `.artificio-mobile-nav`.
-> Medido a partir do commit `1ed9e42`: **no celular, changelog e tema estão inacessíveis
-> nos 6 apps**, e no `accounts` — que liga só `showThemeToggle` — o usuário perde o
-> ÚNICO jeito de trocar para escuro. Achado P2 do Codex na PR #323.
->
-> **Decisão do mantenedor (2026-09-15):** deixar para T7.2 resolver, em vez de reverter
-> a ocultação ou antecipar o rodapé para a PR da T7.1. A dívida é conhecida e tem dono.
->
-> Enquanto T7.2 não entrar, **o header mobile é uma regressão de uso**: nenhum deploy
-> dos 6 apps deve ser tratado como "T7.1 pronta" sem esta task junto.
+**O bloqueador aberto por T7.1 está fechado.** Changelog e tema voltaram a ser
+alcançáveis no celular nos 6 apps: a barra continua sem eles em ≤860px (regra de T7.1),
+e o destino agora existe — o rodapé do painel público.
 
-O painel (`.artificio-mobile-nav`) ganha três blocos, nesta ordem: navegação entre
-módulos · **opções daquele módulo** (a `moduleNav`, que hoje some no mobile) · rodapé
-separado por linha com "Novidades" e alternador de tema.
+> **Decisão do mantenedor (2026-09-15), preservada:** deixar T7.2 resolver, em vez de
+> reverter a ocultação de T7.1 ou antecipar o rodapé para a PR daquela task. Foi o que
+> se cumpriu aqui. O bloqueador que ela cobria — changelog e tema inacessíveis no
+> celular nos 6 apps, e o `accounts` sem nenhum jeito de trocar para escuro (achado P2
+> do Codex na PR #323) — está medido como fechado no aceite 4 abaixo.
 
-**Os dois headers precisam do rodapé**, não só o do pacote: o `apps/site` tem marcação
-própria (`SiteHeaderIsland.tsx`) e é consumidor divergente do mesmo CSS — foi assim que
-o P1 da navegação passou. Fazer só um lado repete o erro.
+**Entregue.**
+- **Rodapé do painel** (`.artificio-mobile-nav-footer`) nos DOIS headers: o do pacote
+  (`Header.tsx`) e o próprio do `site` (`SiteHeaderIsland.tsx`). Fazer só o lado do
+  pacote repetiria o P1 da navegação, porque a regra que esconde os controles vive no
+  CSS compartilhado e alcança o `site` também.
+- **Irmão dos navs, com separador próprio.** O `border-top` é do rodapé e não do último
+  nav: a `moduleNav` é opcional, então prender a linha ao nav de cima a faria sumir
+  justamente nos apps sem subnav.
+- **`ChangelogButton` extraído para o pacote.** A marcação (botão + SVG + badge) estava
+  em `Header.tsx` e no island; T7.2 precisaria do mesmo botão na barra e no painel de
+  cada um, levando duas cópias a quatro. Mesma razão do `NavToggle` em T7.1.
+- **Rótulo unificado em "Novidades".** O pacote dizia "Changelog" e o `site` dizia
+  "Novidades" para o mesmo controle. O nome acessível é o que o usuário ouve, e dois
+  nomes para um botão é a divergência por app que a regra de compartilhado trata como
+  dívida. Dois guards ajustados junto.
+- **O rodapé fecha o painel ao abrir o changelog.** O modal do app abre sobre a tela;
+  deixar o painel atrás empilharia duas camadas na mesma extremidade da barra.
+- **A busca NÃO desce para o painel:** ela continua exposta na barra (aceite 2 de T7.1),
+  e repeti-la daria dois controles para a mesma ação.
+- **Sem rodapé quando não há ferramenta**, e sem rodapé quando `showChangelog` vem sem
+  handler — a condição espelha o que de fato renderiza, como o wrapper da barra. Container
+  vazio cobraria o separador sem nada abaixo dele.
 
-**Aceite.**
-1. Com `moduleNav` preenchido, o painel renderiza os três blocos; sem ela, dois.
-2. O rodapé é irmão dos navs, com separador visual — não item de lista.
-3. Changelog e tema **não** aparecem na barra em ≤860px (já é o estado desde T7.1).
-4. **Changelog e tema ESTÃO no painel, nos dois headers** — é o que fecha o bloqueador
-   acima. Guard que abra o painel e encontre os dois controles, em `Header.paineis.test.tsx`
-   e no guard do `site`.
-5. `accounts` recupera o controle de tema no celular: abrir o painel e achar o toggle.
+**Aceite — medido em 2026-09-15.**
+1. ✅ Três blocos com `moduleNav`, dois sem ela.
+2. ✅ Rodapé irmão dos navs, com separador. Guard assere o pai (`.artificio-mobile-nav`)
+   e que ele não está dentro de `<ul>`.
+3. ✅ Estado herdado de T7.1, inalterado.
+4. ✅ **Changelog e tema no painel, nos dois headers.** 6 casos novos em
+   `Header.paineis.test.tsx`.
+5. ✅ `accounts` recupera o tema no celular — caso próprio no guard, porque é o app que
+   liga só `showThemeToggle`.
+6. ⬜ **Smoke visual pendente** — 320/360/375/390px. Guard prova estrutura, não pixel.
 
-### [ ] T7.3 — Hambúrguer de sessão (direita) absorve avatar e notificações
+**⚠️ O guard tinha de olhar DENTRO do painel.** Com o painel aberto existem dois botões
+"Novidades" na árvore — o da barra e o do rodapé — e só o CSS de ≤860px esconde o
+primeiro. Como jsdom não aplica media query, `getByRole` global acha os dois e o teste
+morre com "Found multiple elements" (medido). Mais importante: `expect(html).toContain(...)`
+passaria verde com o painel VAZIO, porque o botão da barra basta para a asserção — seria
+certificar o estado quebrado que este guard existe para reprovar. A busca parte do
+rodapé.
 
-> 🚩 **O HEADER ESTOURA 2px EM 320 ENQUANTO ESTA TASK NÃO ENTRAR — ela é o conserto.**
+**Validação:** `ui` **128** (eram 121) · `site` **191** · `mesas` **1152** · `accounts`
+**602** · `downloads` **315** · `glossario` **37**, todas verdes. `tsc` 0 e `eslint` 0 no
+pacote; `tsc` 0 no `site`. Um comando por vez.
+
+**⚠️ `pnpm --filter @artificio/ui build` antes dos consumidores** — o `ChangelogButton` é
+símbolo novo do barrel, e o `site` consome o `dist`, não o fonte (regra medida em T7.1).
+
+### [x] T7.3 — Hambúrguer de sessão (direita) absorve avatar e notificações — **FEITA (2026-09-15)**
+
+> ✅ **O estouro de 2px em 320 está fechado.** `TETO_CONHECIDO = 322` caiu para
+> `LARGURA_ALVO = 320` em `styles.contract.test.ts` — o sinal mecânico que esta task
+> devia produzir.
 >
 > Medido a partir de `fc5a4fe` (achado P1 do Codex na PR #323): a faixa de sessão **não
 > mede o `min-width`, mede o conteúdo**. T7.1 baixou o piso para 40px, mas logado
 > `mesas`, `downloads`, `glossario` e `site` põem ali o `NotificationBell`
 > (`.artificio-header-action`, 40px) ao lado do avatar (32px) = **72px**.
 >
+> **O sino dentro do menu de sessão é DECISÃO DO MANTENEDOR**, dada na especificação da
+> F7: *"notificação fica dentro do direito, pois é notificação de quem fica logado"*. O
+> código ainda não a implementa.
+>
+> Medido em 2026-09-15: no pacote o sino entra por `actions` e vira
+> `.artificio-header-actions` (`Header.tsx:421`), **irmão** de `renderSession()`
+> (`:423`) — o dropdown do avatar é outro nó (`:239`). No `site` é igual:
+> `NotificationBell` é filho direto de `.artificio-session`
+> (`SiteHeaderIsland.tsx:343`), com o dropdown em `:246`.
+>
+> Ou seja: **o estouro de 322px é sintoma da decisão não implementada.** O slot tem dois
+> controles porque o sino ainda não foi para dentro do menu. Ajustar largura de CSS só
+> empurra o problema — o conserto é cumprir o que já estava definido.
+>
 > Soma real: 40 (☰) + 90 (marca) + 40 (🔍) + **72** (sessão) + 3×16 + 32 = **322px**.
 >
-> T7.3 move sino e avatar para o painel: a faixa volta a 40px e a soma cai para 290px.
-> **O guard `styles.contract.test.ts` tem um `TETO_CONHECIDO = 322` que deve cair para
-> 320 nesta task** — é o sinal mecânico de que ela fechou.
+> **`actions` inteiro desce, não só o sino — decisão do mantenedor (2026-09-15).**
+> `actions` é slot EXTENSÍVEL: cada módulo põe o que precisar, e a lista cresce com o
+> tempo. Medido hoje: `mesas` passa `<HeaderActions />` (gate próprio + `NotificationBell`),
+> `downloads` passa `<NotificationBell sourceApp="downloads" />`, `glossario` passa um botão
+> "Adicionar Sugestão" (`GlossarioHeader.tsx:66-78`) e **nenhum sino** —
+> `rtk rg "NotificationBell" apps/glossario` devolve 0. No `site` o sino é filho direto de
+> `.artificio-session`, por ser header próprio.
+>
+> Contar quantos itens cabem na faixa é o erro: a barra de 320px não acomoda lista que
+> cresce. No celular ela desce inteira para o painel e rola ali, como qualquer menu.
+>
+> Por isso `TETO_CONHECIDO` cai para **320** e passa a ser teto de verdade: a faixa deixa
+> de depender do que o módulo injeta e mede só o avatar (ou o "Entrar").
 >
 > **Não esconder o sino no mobile como atalho:** seria repetir o P2 (changelog e tema
 > ocultados antes de o destino existir). O destino é este painel.
 
-O menu do avatar vira o painel de sessão. **Dentro dele:** itens de conta, notificações
-(`NotificationBell`) e "Sair"; deslogado, o botão "Entrar".
+O menu do avatar virou o painel de sessão. **Dentro dele:** as ações do módulo
+(`actions`), os itens de conta e "Sair"; deslogado, só o botão "Entrar".
 
-**Também vale para o `apps/site`**, que tem header próprio (`SiteHeaderIsland.tsx`) e
-injeta o sino direto na faixa — não por `actions`. Fazer só o pacote deixa o `site`
-estourando, que é como o P1 da navegação passou.
+**Entregue.**
+- **`actions` inteiro desceu**, não só o sino — renderiza em
+  `.artificio-usermenu-actions`, dentro do dropdown, antes dos itens de conta. Vem
+  primeiro porque é o conteúdo do módulo, que o usuário procura antes das rotas de conta.
+- **`.artificio-header-actions` foi REMOVIDA** do `Header.tsx` e do `styles.css`. Era o
+  wrapper irmão do avatar, e é o que fazia a faixa medir 72px. Classe sem emissor é
+  código morto e convida a devolver `actions` para a barra — medido com `rtk rg` antes de
+  remover: zero ocorrências restantes.
+- **O `site` também**, que injetava o `NotificationBell` direto na faixa por ter header
+  próprio. Fazer só o pacote o deixaria estourando, como no P1 da navegação.
+- **O dropdown do sino vira fluxo normal dentro do painel.**
+  `.artificio-notification-dropdown` é `position: absolute; right: 0; width: 22rem`,
+  dimensionado para pendurar na barra. Dentro de outro dropdown absoluto de
+  `min-width: 200px` ele penduraria para fora do menu e sairia da tela à direita no
+  celular. Regra própria o põe em `position: static`.
+- **O `menu-toggle` continua escondido em ≤860px.** O controle do painel de sessão é o
+  próprio avatar; um hambúrguer ao lado dele seria um segundo controle para a mesma
+  gaveta. A regra de T7.1 que o escondia previa ser reativada aqui — não foi, e o motivo
+  fica registrado no CSS.
 
-**Aceite.**
-1. Logado: o sino está DENTRO do painel de sessão, não na barra.
-2. Deslogado: só "Entrar"; nenhum item de conta no DOM.
-3. **Exclusão mútua medida:** abrir o público fecha o de sessão e vice-versa — teste com
-   clique real (jsdom), no padrão de `Header.paineis.test.tsx`.
-4. O nome do usuário continua nomeando o botão (nome acessível), sem `display:none`.
+**Aceite — medido em 2026-09-15.**
+1. ✅ Logado: `actions` (o sino incluso) dentro do painel, não na barra.
+2. ✅ Deslogado: só "Entrar"; nenhum item de conta nem `actions` no DOM.
+3. ✅ Exclusão mútua com clique real (jsdom), nos dois sentidos.
+4. ✅ O nome do usuário continua nomeando o botão; a ocultação visual de ≤860px segue
+   guardada em `styles.contract.test.ts`.
+5. ✅ **A faixa só tem o avatar:** guard lista os filhos diretos de `.artificio-session` e
+   exige exatamente `artificio-usermenu` + `artificio-menu-toggle`.
+6. ⬜ **Smoke visual pendente** — 320/360/375/390px, logado e deslogado. Guard prova
+   árvore e regra, nenhum prova pixel.
+
+**Guard novo:** `Header.sessao.test.tsx`, 7 casos, jsdom. **Por que jsdom e não
+`renderToStaticMarkup`:** o painel só existe depois do clique no avatar. O HTML servido
+mostra a barra e nunca o menu aberto — foi assim que o estado anterior passou verde em
+todas as suítes.
+
+**⚠️ O guard é sobre ONDE `actions` renderiza, não sobre "o sino".** `actions` é slot
+extensível: cada módulo põe o que precisar e a lista cresce. Medido hoje — `mesas` passa
+`<HeaderActions />` (sino com gate próprio por `useAuth`), `downloads` passa o sino
+direto, `glossario` passa "Adicionar Sugestão" e nenhum sino, `site` tem o sino como
+filho direto da faixa. `links` e `accounts` não passam a prop.
+
+**Validação:** `ui` **135** (eram 128) · `site` **191** · `mesas` **1152** · `accounts`
+**602** · `downloads` **315** · `glossario` **37**, todas verdes. `tsc` 0 e `eslint` 0 no
+pacote; `tsc` 0 no `site`. Um comando por vez.
 
 ### [x] T7.4 — Unificar `data-variant`, que é o que diverge de fato — **FEITA (2026-09-15)**
 
@@ -4552,27 +4640,95 @@ O `:not([data-variant="light"])` é o que deixa a prop vencer o tema nos dois se
    header tem de nascer escuro, sem piscar branco. É o que prova a correção do FOUC, e
    nenhum guard alcança.
 
-### [ ] T7.5 — Subnav de módulo com diferenciação visual
+### [x] T7.5 — Subnav de módulo com diferenciação visual · FEITA (2026-09-15)
 
-Hoje o CSS é um só (`styles.css:597`: `border-top` + fonte 13px) e não distingue navegação
-COMPARTILHADA de opção DAQUELE módulo. Dar tratamento próprio à `moduleNav`, no desktop e
-dentro do painel público.
+A subnav diferia do nav de projetos só por `font-size`, `min-height` e `padding`: dois navs
+do mesmo desenho empilhados, e nada dizia que o de cima cruza subdomínios enquanto o de
+baixo anda dentro do módulo. Tamanho sozinho lê como hierarquia tipográfica, não como
+"outro tipo de navegação".
+
+**Defeito de acessibilidade encontrado junto, e corrigido aqui.** `Nav.tsx` tinha
+`aria-label="Modulos do Artificio"` FIXO (e sem acento), e a `moduleNav` o herdava: o
+`mesas` anunciava "Catálogo" sob o nome dos subdomínios. Dentro do painel público os dois
+navs renderizam empilhados, então saíam DUAS regiões de navegação com nome acessível
+idêntico — indistinguíveis para o leitor de tela (WCAG 2.4.1, técnica ARIA11). O `Nav`
+ganhou `label` (nome da região) e `labelledBy` (aponta para o rótulo visível, quando há
+um); o `Header` ganhou `moduleLabel`, que o `mesas` passa como `"Mesas"`.
+
+**Uma fonte para o nome, não duas.** No painel o rótulo é visível e o `<nav>` o referencia
+por `aria-labelledby`, em vez de repetir o texto num `aria-label`. Com `aria-labelledby`
+presente o `aria-label` é ignorado pelo navegador, então emitir os dois só deixaria texto
+morto no HTML para divergir na primeira edição.
+
+**⚠️ O fundo novo exigiu par escuro pelas duas portas.** `--artificio-canvas` é declarado
+UMA vez no `:root` (`styles.css:8`) e o bloco `:root[data-theme="dark"]` não o redefine —
+quem vira por tema é a pilha `--surface`/`--fg`/`--line`. Sem o par, a faixa da subnav
+sairia `#f6f7fa` cruzando o header navy no escuro. Mesmo cuidado do separador de T7.2.
 
 **Aceite.**
-1. `.artificio-subnav` tem tratamento visual distinto do nav de módulos (não só tamanho de
-   fonte), verificável no `styles.contract.test.ts`.
-2. Dentro do painel público, o bloco do módulo tem rótulo próprio.
-3. `mesas` (único consumidor de `moduleNav` hoje) sem regressão: suíte verde.
+1. ✅ `.artificio-subnav` tem tratamento visual distinto do nav de módulos: superfície
+   própria (`background`) e item ativo por PÍLULA preenchida, não pela "aba" de
+   `border-bottom` — dois sublinhados laranja a poucos pixels um do outro não distinguem
+   "estou no módulo Mesas" de "estou no Catálogo dentro dele". Dois guards novos em
+   `styles.contract.test.ts`: um sobre a distinção, outro cobrando o par escuro.
+2. ✅ Dentro do painel público, o bloco do módulo tem rótulo próprio
+   (`.artificio-mobile-nav-module-label`), que é ao mesmo tempo o nome acessível do
+   `<nav>`. Guard: `Header.subnav.test.tsx`, 6 casos em jsdom — o painel só existe depois
+   do clique, e `renderToStaticMarkup` nunca vê o menu aberto.
+3. ✅ `mesas` (único consumidor de `moduleNav` — medido: 2 ocorrências em `apps/`, ambas
+   no `AppShell.tsx` dele) sem regressão: **1152 testes verdes**.
+4. ✅ Os 6 apps verdes, `tsc` 0 e `eslint` 0: `ui` 143 (eram 135) · `site` 191 ·
+   `mesas` 1152 · `accounts` 602 (+52 skipped, preexistentes) · `downloads` 315 ·
+   `glossario` 37. `tsc` 0 também no `site`.
+5. ⬜ **Smoke visual pendente — exige o mantenedor.** A subnav só existe no `mesas`
+   (desktop) e no `site` (categorias do blog); o rótulo do painel, só em ≤860px. Guard de
+   CSS prova a regra, não o pixel.
 
-### [ ] T7.6 — Busca uniforme: lupa navega para a busca do módulo
+### [x] T7.6 — Busca uniforme: lupa navega para a busca do módulo · FEITA (2026-09-15)
 
-**Estado medido (2026-09-15):** `mesas` e `glossario` já usam lupa (`onSearch`); o `site`
-usa lupa própria na ilha; o `downloads` é o único com campo embutido.
+**FEITA (2026-09-15).** As três partes entregues: rota `/busca` do `downloads` (alias de
+`/catalogo`), lupa dele no celular, e busca explícita na home do `site`. `packages/ui`
+**não foi tocado** — os outros 4 consumidores do header seguem intactos.
 
-- **`downloads`:** ganha rota `/busca` que **redireciona** para `/catalogo` preservando
-  `?q=`. **Não criar página própria:** `CatalogoPage.tsx:49` tem `useCanonicalUrl('/')`
-  deliberado, e uma URL nova diluiria o sinal de indexação. O campo embutido continua no
-  desktop.
+**Validação, um comando por vez.** `downloads` 321 testes (eram 315), `tsc` exit 0,
+`eslint` exit 0 · `site` 191 testes, `tsc` exit 0, `build` exit 0 (Pagefind indexou 8
+páginas). 6 guards novos: 3 em `App.routes.test.tsx`, 3 em `AppShell.test.tsx`.
+
+**Estado medido (2026-09-15):** são **CINCO** headers com lupa, não quatro. A tabela de
+`:1949` e o aceite 1 diziam "os 4 apps" e omitiam o `links` — medido: ele navega para
+`/busca` em `LinksHeader.tsx:31` e a rota existe (`apps/links/src/pages/busca/index.astro`,
+`LinksSearch client:load`). Ele **já cumpre o aceite 1 sem alteração**; entra na
+verificação, não no trabalho.
+
+| app | modo hoje | destino da lupa | precisa mudar? |
+|---|---|---|---|
+| `mesas` | lupa (`onSearch`) | `navigate('/busca')` → redirect `replace` para `/catalogo` | não |
+| `glossario` | lupa (`onSearch`) | `navigate('/busca')` → `BuscaPage` real (API de termos) | não |
+| `links` | lupa (`onSearch`) | `location.href = '/busca'` → página real | não — **omitido da spec até aqui** |
+| `site` | lupa própria na ilha | modal Pagefind; fallback `/busca/` | só a home |
+| `downloads` | **campo embutido** (`onSearchChange`) | não navega | **sim — é a task** |
+
+- **`downloads` — rota FEITA (2026-09-15).** Decisão do mantenedor, dada nesta sessão:
+  *"TEM QUE ESCOLHER O QUE RENDE MELHOR PARA O SEO"* — ou seja, alias, não página própria.
+  `/busca` virou `<Route path="/busca" element={<BuscaRedirect />} />` em `App.tsx`,
+  redirecionando para `/catalogo` com `replace`. Zero URL nova, canonical de `/` intocado.
+
+  **⚠️ `to` é OBJETO, não string — bug latente que falha calado.**
+  `<Navigate to="/catalogo" replace />` **descarta `location.search`**: `/busca?q=mapa`
+  chegaria ao catálogo sem termo nenhum, sem erro, sem log, e a busca do usuário sumiria
+  no meio do caminho. A forma correta lê `useLocation()` e passa
+  `to={{ pathname: '/catalogo', search }}`. É a mesma classe do achado do Codex na #319
+  (lá era o `replace` perdido na migração), e por isso o guard assere o `?q=` explicitamente,
+  não só o destino.
+
+  **⚠️ Medido: hoje o `downloads` NÃO TEM LUPA em ≤860px, em nenhuma largura.**
+  `Header.tsx:414` só renderiza o botão quando `!hasEmbeddedSearch`, e
+  `hasEmbeddedSearch` é `showSearch && Boolean(onSearchChange)` (`:163`) — o `downloads`
+  passa `onSearchChange`, então a lupa é suprimida por construção. O que o CSS faz em
+  ≤860px é mandar `.artificio-header-search` para `grid-column: 1 / -1; grid-row: 2`
+  (`styles.css:2317`): o campo **desce para uma segunda linha**, não vira lupa. Ou seja,
+  o aceite 1 exige mudança no `packages/ui` — lupa e campo embutido nunca coexistiram —,
+  e isso alcança os 5 consumidores do header compartilhado.
 
   **⚠️ Mecanismo diferente do `mesas` — medido, corrigindo a primeira versão desta task.**
   O `mesas` usa React Router em framework mode com `loader` (`routes/redirect.tsx` →
@@ -4581,37 +4737,326 @@ usa lupa própria na ilha; o `downloads` é o único com campo embutido.
   replace />} />`, padrão que o próprio app já usa em `App.tsx:91`. O `replace` é o que
   importa nos dois casos: sem ele, o Voltar cai em `/busca` e redireciona de novo (achado
   do Codex na #319).
-- **`site`:** ganha busca explícita na home, que hoje não tem.
+
+  **⚠️ Mecanismo diferente do `mesas` — medido, corrigindo a primeira versão desta task.**
+  O `mesas` usa React Router em framework mode com `loader` (`routes/redirect.tsx` →
+  `replace()`); o `downloads` usa `<BrowserRouter>` + `<Routes>` clássico, onde `loader`
+  não existe. Ali a forma é `<Route path="/busca" element={<Navigate to="/catalogo"
+  replace />} />`, padrão que o próprio app já usa em `App.tsx:91`. O `replace` é o que
+  importa nos dois casos: sem ele, o Voltar cai em `/busca` e redireciona de novo (achado
+  do Codex na #319).
+- **`site` — FEITA (2026-09-15).** A home ganhou `<form class="home-search"
+  action="/busca/">` com campo e botão, acima do "Destaque". Até aqui o único acesso à
+  busca era a lupa do header — descoberta só por quem já sabia dela.
+
+  **`<form>` e não botão que só dispara evento:** assim a busca funciona sem JavaScript e
+  para o crawler, submetendo para a página real. Com JavaScript, o `submit` é interceptado
+  e abre o mesmo modal Pagefind do header (`artificio:open-search`, escutado em
+  `SearchModal.astro:81`), sem recarregar.
+
+  **⚠️ Decisão: NÃO reusar `id="search-toggle"` nem montar outro `PagefindUI` na home.**
+  `id` é único por documento e o listener do modal casa `target.closest("#search-toggle")`
+  (`SearchModal.astro:76`) — um segundo elemento com esse id deixaria o comportamento
+  dependente da ordem do DOM. O host `#pagefind-search` já existe no modal e em
+  `/busca/`; um terceiro com o mesmo id colidiria na inicialização. Medido no dist:
+  `search-modal`, `pagefind-search` e `search-toggle` aparecem **1 vez cada**.
+
+  **⚠️ Bug latente aceito, com motivo:** `/busca/` **não lê `?q=`** hoje — monta o
+  PagefindUI vazio (`pages/busca/index.astro:25`). O `<form>` manda o termo mesmo assim,
+  porque sem JavaScript o destino correto é a busca, não lugar nenhum; a pessoa chega na
+  página certa e redigita. Ler o `?q=` ali é melhoria própria, fora do aceite 4.
+
+  **⚠️ ERRO DO AGENTE, introduzido e corrigido nesta sessão: `<script is:inline>` na home
+  sai BLOQUEADO pela CSP.** A 1ª versão desta busca interceptava o `submit` para abrir o
+  modal Pagefind sem recarregar. Medido no dist: o hash do script
+  (`sha256-qGZj+hwSRu0W+0iEeWl7IyDdB876cg39TlKNROI/wFM=`) **não estava** no
+  `content-security-policy` emitido — o Astro 6 só hasheia o que ele bundla, e `is:inline`
+  exige hash escrito à mão em `scriptDirective.hashes` (`astro.config.mjs`, que avisa
+  disso no próprio comentário).
+
+  **Falhava em silêncio**, e é esse o ponto: o `<form>` navegava para `/busca/` igual,
+  nada quebrava na tela, e só o modal não abria. `build` exit 0, 191 testes verdes e grep
+  do `action` presente — nenhum sinal existente pegaria. Quem pega é hashear cada
+  `<script>` inline do dist e conferir contra a meta emitida.
+
+  Correção: o script SAIU, em vez de registrar o hash. Navegar para `/busca/` já entrega o
+  mesmo Pagefind, e um hash manual quebraria na primeira edição do script.
+
+  **Vale para toda página do `site` que ganhar `<script is:inline>`** — o mesmo defeito
+  espera qualquer task futura da spec.
 
 **Aceite.**
-1. Os 4 apps: lupa no header em ≤860px leva à busca do próprio módulo.
-2. `downloads`: `/busca?q=x` resolve em `/catalogo?q=x` com `replace` (o Voltar não
-   cai em loop — achado do Codex na #319).
+1. ✅ Os **5** apps com header (`mesas`, `glossario`, `links`, `site`, `downloads`): lupa
+   no header em ≤860px leva à busca do próprio módulo. Os quatro primeiros já cumpriam;
+   o `downloads` ganhou a lupa nesta task, com 3 guards em `AppShell.test.tsx`.
+2. ✅ `downloads`: `/busca?q=x` resolve em `/catalogo?q=x` com `replace` (o Voltar não
+   cai em loop — achado do Codex na #319). 3 guards em `App.routes.test.tsx`.
 3. `downloads`: canonical de `/catalogo` continua `/`; **nenhuma URL nova no sitemap**.
-4. `site`: busca alcançável a partir da home.
+   Medido: o sitemap é montado à mão em `apps/downloads/backend/src/routes/publicSeo.ts:41`
+   (`/catalogo` + os slugs publicados), **não** derivado da tabela de rotas — logo uma
+   rota `/busca` no front não entra no sitemap sozinha. O aceite continua valendo como
+   guard contra alguém acrescentá-la depois.
+4. ✅ `site`: busca alcançável a partir da home. Medido no HTML servido
+   (`apps/site/dist/index.html`): `action="/busca/"` presente, 1 ocorrência. **Sem
+   regressão do aceite 7 de T3.5b** — `href="/blog/"` continua em **2** (contado com
+   `grep -o | wc -l`, não `grep -c`: HTML minificado põe tudo numa linha e `-c` devolveria
+   1 para qualquer número de ocorrências).
 
-### [ ] T7.7 — `/busca/` do `site` sai do índice
+**A escolha de `:1985` foi SUPERADA pelo mantenedor (2026-09-15).** Aquele registro dizia
+"vira lupa + cria página `/busca`", e o bloco seguinte mandava confirmar antes de
+implementar, porque a opção colidia com o `useCanonicalUrl('/')` de `CatalogoPage.tsx:49`.
+Confirmado nesta sessão: o critério é o SEO, logo **alias**, não página. `:1985` fica como
+histórico da pergunta; vale o que está aqui.
 
-**Achado preexistente, em produção** (medido em T3.5e): a página não tem `robots` nem
-`X-Robots-Tag`, e **está no `sitemap-0.xml`**. Doc do Google: página de busca interna deve
-levar `noindex`.
+**Lupa no celular — FEITA (2026-09-15).** Decisão do mantenedor: *"padronizado, e igual os
+outros"*. O `downloads` passa `onSearch` em ≤860px e `onSearchChange` acima disso.
 
-**Aceite.**
-1. `curl -s https://artificiorpg.com/busca/ | grep -c 'noindex'` → ≥ 1 (via prop
-   `noindex` do `Base.astro`, mesmo padrão do `404.astro`).
-2. `curl -s …/sitemap-0.xml | grep -c '/busca/'` → **0** (via `filter` do
-   `@astrojs/sitemap`, hoje não usado).
-3. Nenhuma outra URL sai do sitemap: contagem de `<loc>` cai em exatamente 1.
+**⚠️ O pacote NÃO foi tocado, e isso é decisão, não economia.** `Header.tsx:163` define
+`hasEmbeddedSearch = showSearch && Boolean(onSearchChange)`, e `:414` só renderiza a lupa
+com `!hasEmbeddedSearch`: as duas formas são exclusivas por construção. Três guards travam
+essa exclusão de propósito — `Header.test.tsx:43`, `Header.acesso.test.tsx:137` e
+`Header.slots.test.tsx` —, e o de `acesso` documenta que a coluna vazia foi achado do
+CodeRabbit na PR #321. Fazer lupa e campo coexistirem mudaria o componente dos **5**
+consumidores e desfaria aquele achado, para resolver um caso de **1** app. Quem escolhe a
+forma é o app; o pacote fica intocado.
+
+Medido antes: em ≤860px o campo embutido **não sumia** — `styles.css:2317` o mandava para
+`grid-column: 1 / -1; grid-row: 2`. A lupa devolve essa 2ª linha ao conteúdo.
+
+Sem hook novo no `packages/ui`: o barrel não exporta nada de media query (medido), e o
+precedente do repo é `window.matchMedia` no componente (`CatalogFiltersBar.tsx:134`, no
+`mesas`), com fallback quando a API falta (`theme.tsx:38`). `useSyncExternalStore` com
+`subscribe` no-op cobre SSR e ambiente sem `addEventListener`.
+
+**⚠️ BUG LATENTE, e por isso o guard força a largura.** `src/test/setup.ts:40` mocka
+`matchMedia` devolvendo **`matches: false` fixo**, sem `addEventListener` funcional: a
+suíte inteira do `downloads` roda como DESKTOP. Um teste de lupa escrito sem sobrescrever
+esse mock passaria verde com o comportamento do celular quebrado — mesma classe do defeito
+de T7.2, onde os guards não abriam o painel. `AppShell.test.tsx` troca o mock por
+`matches: query.includes('860')` e restaura no `afterEach`.
+
+**Falta só a busca explícita na home do `site`** (aceite 4). Não depende de resposta.
+
+### [x] T7.7 — `/busca/` do `site` sai do índice · FEITA (2026-09-15)
+
+**Achado preexistente, em produção** (medido em T3.5e): a página não tinha `robots` nem
+`X-Robots-Tag`, e **estava no `sitemap-0.xml`**. Doc do Google: página de busca interna
+deve levar `noindex`.
+
+**Entregue.** `noindex` na prop do `Base.astro` (`pages/busca/index.astro`, mesmo padrão
+do `404.astro:10` — vira `<meta name="robots" content="noindex,nofollow">` em
+`packages/content/src/meta.ts:23`), e `filter` do `@astrojs/sitemap` em
+`astro.config.mjs`, que não era usado.
+
+O canonical FICA: ele identifica a página para quem chega por link, e `noindex` resolve a
+indexação. `noindex` sozinho não bastaria — URL em sitemap com `noindex` é sinal
+contraditório, o sitemap pedindo rastreio e a meta negando. As duas metades andam juntas.
+
+**⚠️ O `filter` compara `URL.pathname`, não `includes("/busca/")`.** Um post com esse
+trecho no slug (`/blog/como-fazer-busca/`) sairia do sitemap junto, calado — ninguém abre
+o sitemap para conferir se um artigo sumiu. Guard em `sitemap-lastmod.test.ts` trava a
+forma da comparação, que é onde o defeito nasceria (a regra vive no `astro.config.mjs`,
+que não é importável do teste: roda fora do pipeline do Vite e lê `posts.json` por
+`readFileSync`).
+
+**Aceite — medido em 2026-09-15 no `dist`, não em produção** (a branch não foi deployada).
+1. ✅ `noindex` presente na página construída: **1** ocorrência (era 0).
+2. ✅ `/busca/` fora do sitemap: **0** ocorrências (era 1).
+3. ✅ Nenhuma outra URL saiu: `<loc>` caiu de **46 para 45**, exatamente 1.
+
+**⚠️ Instrumento: o `grep -c` dos aceites 1 e 2 acima está errado e foi trocado na
+medição.** `grep -c` conta LINHAS, e HTML/XML minificado é uma linha só — devolveria `1`
+para qualquer número de ocorrências, inclusive 126. Medido com `grep -o | wc -l`. O texto
+original do aceite fica registrado aqui porque o comando errado passaria como verde.
+
+**Validação:** `site` **192** testes (eram 191), `build` exit 0.
+
+#### ⚠️ Achado herdado na `/busca/`, NÃO corrigido — aguarda decisão de escopo
+
+Descoberto ao medir a CSP nesta task. **Não bloqueia T7.6 nem T7.7**, que estão verdes.
+
+**Sintoma medido no `dist`:** a página tem **dois** `<div id="pagefind-search">` — o
+próprio (offset 16055) e o do `SearchModal` (18447, dentro de `#search-modal`). `id`
+duplicado no mesmo documento. `getElementById` devolve o primeiro, então os dois loaders
+apontam para o host da página. E o `<script is:inline>` da página sai **bloqueado pela
+CSP**: hash `sha256-mTq/ZV1YFuqWHEoXXXkNlwgeW397PNAWjFI2IofpjPc=` ausente da meta emitida.
+Resultado: `/busca/` renderiza caixa vazia, e um clique na lupa ali faria o Pagefind do
+modal desenhar resultado no CORPO da página.
+
+**Escopo medido:** 47 páginas no `dist`, **só `/busca/`** tem host duplicado. O modal está
+em todas, com host único. (Minha afirmação anterior de que a colisão existia em todas as
+páginas estava errada — medida depois.)
+
+**⚠️ A API que o repo usa foi DESCONTINUADA, e isso muda o conserto.** Pesquisado (não
+estava medido antes): `PagefindUI`/`pagefind-ui.js` foi **substituído** pelo Component UI
+na **Pagefind 1.5.0**; a versão instalada é **1.5.2** (lockfile; `package.json` declara
+`^1.3.0`). A doc do `PagefindUI` **não documenta** duas instâncias — não existe forma
+canônica nele para modal e página conviverem, que é a origem da colisão. O Component UI
+resolve por desenho, com `instance`: `<pagefind-modal instance="overlay">` no layout e
+`<pagefind-input instance="search-page">` + `<pagefind-results instance="search-page">` na
+página. Sem script inline, logo sem hash manual de CSP. **Os arquivos já estão no build**
+(`dist/pagefind/pagefind-component-ui.js`, 171 KB, e `.css`) — zero pacote novo.
+
+**SEO, corrigido pela doc do Google:** página `noindex` **continua sendo rastreada**, só
+não entra no índice. A colisão não é inofensiva "por ser `noindex`" — é de baixo impacto
+porque a página não ranqueia, mas o crawler passa lá.
+
+**Decisão do mantenedor (2026-09-15): migrar para a API nova.** Virou **T7.8**, abaixo.
+
+Fontes: `pagefind.app/docs/ui/` · `pagefind.app/docs/components/` ·
+`pagefind.app/docs/components/modal/` ·
+`developers.google.com/search/docs/crawling-indexing/block-indexing`.
 
 ---
 
-**Estado (2026-09-15):** T7.4 e T7.1 FEITAS e entregues na **PR #323**
-(`feat/102-f7-header-mobile-unificado`, commit `f15346f`, base `dev`). Faltam o smoke
-visual das duas e as 5 tasks restantes.
+### [ ] T7.8 — Busca do `site` migra para o Component UI do Pagefind
 
-**T7.3 tem um débito herdado de T7.1:** o hambúrguer de sessão está escondido em ≤860px
-(`.artificio-menu-toggle { display: none }` no `@media`) porque duplicava o público. T7.3
-o reativa e troca o `onClick` — ver o desvio registrado em T7.1.
+> **Esta task existe por falta de pesquisa do agente, não por mudança de requisito.**
+> O `SearchModal.astro` e a `/busca/` foram escritos contra `PagefindUI`
+> (`pagefind-ui.js`) sem que a doc do Pagefind fosse aberta uma única vez. A API já
+> estava descontinuada. O mantenedor apontou: *"isso foi falta de pesquisa"*. A regra
+> pétrea correspondente está em `AGENTS.md` §Pesquisar, com este caso registrado.
+
+**Estado medido (2026-09-15), tudo no `dist` e no fonte:**
+
+| fato | medição |
+|---|---|
+| Versão instalada | `pagefind@1.5.2` (lockfile; `package.json` declara `^1.3.0`) |
+| API em uso | `PagefindUI`, **substituída** pelo Component UI na **1.5.0** |
+| `pagefind-ui.js` (117 KB) | define **0** custom elements |
+| `pagefind-component-ui.js` (171 KB) | define **13**: `pagefind-input`, `pagefind-results`, `pagefind-modal`, `pagefind-modal-trigger`, `pagefind-modal-header/body/footer`, `pagefind-config`, `pagefind-searchbox`, `pagefind-summary`, `pagefind-filter-dropdown`, `pagefind-filter-pane`, `pagefind-keyboard-hints` |
+| Pacote novo | **nenhum** — os dois arquivos já saem no build (`dist/pagefind/`) |
+| Host duplicado | 47 páginas no `dist`; **só `/busca/`** tem 2× `id="pagefind-search"` |
+| Script da `/busca/` | bloqueado pela CSP (`sha256-mTq/ZV1YFuqWHEoXXXkNlwgeW397PNAWjFI2IofpjPc=` ausente da meta) |
+| Pontos da API antiga | `SearchModal.astro:37,39` · `pages/busca/index.astro:36,39` · 7 variáveis em `global.css:264-277` |
+
+**⚠️ A DOC OFICIAL DÁ O ARQUIVO ERRADO PARA O NOSSO CASO.** `pagefind.app/docs/components/input/`
+manda carregar `/pagefind/pagefind-ui.js` — que aqui define **zero** custom elements
+(medido com `grep -c 'customElements.define'`). O correto é
+`/pagefind/pagefind-component-ui.js` com `type="module"`, mais
+`/pagefind/pagefind-component-ui.css`. **Copiar a doc sem medir o bundle repetiria a falha
+que criou esta task.**
+
+**⚠️ O TEMA DA MARCA SOME EM SILÊNCIO SE A MIGRAÇÃO FOR LITERAL.** O prefixo mudou de
+`--pagefind-ui-*` para **`--pf-*`** (46 variáveis distintas, 242 ocorrências no CSS novo).
+As 7 declaradas em `global.css:264-277` viram **lixo morto**: nada quebra, nada avisa, e a
+busca passa a usar o cinza padrão do Pagefind sobre o navy da marca. Mesma classe de
+defeito do `--artificio-canvas` em T7.5.
+
+**⚠️ O ESCURO NÃO HERDA SOZINHO.** O CSS novo tem **0** ocorrências de
+`prefers-color-scheme`; o escuro vem só de `[data-pf-theme="dark"]` (2 ocorrências, redefinindo
+`--pf-text`, `--pf-background`, `--pf-border` e outras). O `site` usa
+`:root[data-theme="dark"]`. Sem uma ponte explícita entre os dois, o modal fica claro sobre
+o corpo escuro.
+
+**Forma.** `<pagefind-config lang="pt-br">` para o stemming/tradução (o índice é `pt-br`, e
+o modal atual passa `translations` à mão). Modal no `Base.astro` com
+`<pagefind-modal instance="overlay">` + `<pagefind-modal-trigger>`; a `/busca/` com
+`<pagefind-input instance="search-page">` + `<pagefind-results instance="search-page">`.
+`instance` distinto é o que acaba com a colisão de `id` **por desenho** — a API antiga não
+documenta duas instâncias, que é a origem do defeito.
+
+Sem `<script is:inline>` em nenhum dos dois: o `type="module"` é bundlado e hasheado pelo
+Astro, então some junto o hash manual de CSP (a armadilha registrada em T7.6).
+
+**Aceite.**
+1. `dist`: **0** ocorrências de `pagefind-ui.js` e `pagefind-ui.css` no HTML servido; os
+   dois pontos de carregamento passam a ser `pagefind-component-ui.*`.
+2. `dist`: nenhuma página com `id="pagefind-search"` duplicado — contagem por página ≤ 1
+   nas 47.
+3. Nenhum `<script>` inline sem hash: hashear cada inline do `dist` e conferir contra a
+   meta emitida devolve **0 MISSING** (o instrumento que achou o defeito).
+4. Tema: as 7 `--pagefind-ui-*` saem de `global.css`, substituídas pelas `--pf-*`
+   correspondentes, com par no escuro ligado a `:root[data-theme="dark"]`.
+5. `/busca/` continua com `noindex` e fora do sitemap (T7.7 não regride): `<loc>` segue 45.
+6. Suíte do `site` verde e `build` exit 0.
+
+**Fora do escopo:** ler `?q=` na `/busca/` (bug latente registrado em T7.6). O Component UI
+pode resolver de graça — medir na implementação, não assumir.
+
+---
+
+**Estado (2026-09-15):** T7.4 e T7.1 entregues na **PR #323**
+(`feat/102-f7-header-mobile-unificado`, commit `f15346f`, base `dev`).
+
+T7.2, T7.3, T7.5, T7.6 e T7.7 entregues na **PR #324**
+(`feat/102-f7-busca-uniforme`, commit `a3e1b0b`, base `dev`, criada de `origin/dev` em
+`5f3f4b3`, 24 arquivos, +1607/−190). `verify:api` exit 0 no pre-commit, zero breaking nos
+6 apps. **T7.8 está registrada na PR como aberta, não implementada.**
+
+**Revisão da PR #324 — três achados dos bots, um procedente (medido em 2026-09-15).**
+Registrado aqui porque os dois improcedentes VÃO voltar: o bot relê o mesmo diff a cada
+push, e sem o veredicto escrito a medição se perde e a hipótese fica.
+
+1. **Codex P2, painel de sessão sem teto de altura — PROCEDENTE, corrigido.**
+   `.artificio-usermenu-dropdown` aparece em 3 lugares do `packages/ui/src/styles.css`
+   (a base e as duas do tema escuro) e **nenhum** definia `max-height` ou `overflow`. O
+   painel é `position: absolute` dentro do header `sticky top: 0`: nada o rola, e o que
+   passa da viewport fica inalcançável, sem barra e sem erro. Com o sino dentro de
+   `.artificio-usermenu-actions` o dropdown dele vira `position: static` e passa a
+   EMPURRAR — só a lista vale `max-height: 20rem`, mais o rodapé "Ver todas". Em
+   landscape de celular isso enterra "Ver todas" e "Sair". Correção:
+   `max-height: calc(100dvh - 64px - 16px)` + `overflow-y: auto`, onde `64px` é o
+   `min-height` medido do `.artificio-header-main`, não número escolhido. `dvh` porque
+   `vh` congela na altura MAIOR no mobile (Baseline Widely Available desde 2025-06; o
+   repo não tem `browserslist` — busca repo-wide: zero arquivos). Guard novo em
+   `styles.contract.test.ts`, porque a regra é apagável sem quebrar nada no desktop,
+   que é onde ela seria editada.
+
+2. **CodeRabbit, "ler `?q=` no `PagefindUI` da home" — IMPROCEDENTE, o bot leu errado.**
+   `apps/site/src/pages/index.astro:61` não inicializa `PagefindUI` nenhum: é
+   `<form action="/busca/" method="get">`, HTML puro, sem script — e a ausência de script
+   é decisão medida, registrada no comentário do próprio arquivo (CSP bloqueia
+   `<script is:inline>` sem hash à mão). Não há o que corrigir onde ele aponta. O
+   sintoma real por trás — `/busca/` não lê `?q=` — é a **T7.8**: a página usa
+   `PagefindUI`, API descontinuada na 1.5.0. Escrever o `q` agora seria mais código
+   contra a API morta.
+
+3. **CodeRabbit, "fallback para `addListener` legado" — IMPROCEDENTE.**
+   `addListener` está deprecado; `addEventListener` em `MediaQueryList` existe desde
+   **Safari 14**, e antes disso `MediaQueryList` não herdava de `EventTarget`. Sem
+   `browserslist` e sem `build.target` no `vite.config.ts` do `downloads`, o alvo é o
+   default do Vite (ES modules nativo), todo posterior a Safari 14. O fallback pedido já
+   existe e é melhor: `if (!mql?.addEventListener) return () => undefined` degrada para
+   desktop em vez de assinar API deprecada. O teste pedido também já existe — o mock de
+   `src/test/setup.ts:46-49` expõe `addListener` E `addEventListener`, e é por causa de
+   mocks assim que a guarda foi escrita.
+
+Validação da correção do item 1, os 5 consumidores do `Header`, um comando por vez:
+`ui` 144 (era 143, +1 do guard) · `site` 192 · `downloads` 321 · `glossario` 37 ·
+`mesas` 1152 · `accounts` 602 (+52 skipped, preexistente). `tsc` e `eslint` exit 0 no
+`packages/ui`. `packages/ui` exporta `"./styles.css": "./src/styles.css"` — os
+consumidores leem a FONTE, então editar o CSS não exige `build` do pacote, diferente de
+exportar símbolo novo.
+
+⚠️ **Flake medido, não regressão:** a primeira execução da suíte do `ui` falhou 2 casos em
+`NotificationBell.test.tsx` (`waitFor` em `findByRole`, `environment 224s`). O arquivo
+isolado passou 4/4, a suíte cheia repetida passou 144/144, e o baseline sem as edições deu
+143/143. Ficou aqui porque "2 falhas no `ui`" reaparece e custa a mesma investigação.
+
+Esta atualização do parágrafo é POSTERIOR ao commit `a3e1b0b` e ficou fora da PR #324.
+
+**⚠️ O upstream da branch nova nasceu apontando para `origin/dev`** — `git switch -c <nome>
+origin/dev` rastreia a base, não a branch criada, e `git push` sem argumento tentaria
+empurrar para `dev`, que só aceita merge de PR. Medido de novo aqui, como em T7.1.
+`git push -u origin HEAD` corrige o rastreamento junto com o primeiro push.
+
+**T7.1 a T7.7 estão FEITAS.** T7.6 nas três partes: rota `/busca` do `downloads` como alias
+de `/catalogo` (decisão do mantenedor, critério SEO), lupa dele no celular igual aos outros
+apps (decisão do mantenedor: *"padronizado, e igual os outros"*) e busca explícita na home
+do `site`. T7.7 com `noindex` + `filter` do sitemap, `<loc>` 46→45.
+
+**T7.8 ABERTA** — migrar a busca do `site` para o Component UI do Pagefind. Nasceu de falta
+de pesquisa do agente (API descontinuada usada sem abrir a doc), não de requisito novo; a
+decisão de migrar é do mantenedor (2026-09-15). Não bloqueia nada do que já está feito.
+
+**Resta o smoke visual das sete tasks feitas** — 320/360/375/390px, logado e deslogado,
+claro e escuro. Guard prova regra e estrutura, nunca pixel.
+
+**T7.3 resolveu o débito herdado de T7.1 por outro caminho.** O hambúrguer de sessão
+continua escondido em ≤860px (`.artificio-menu-toggle { display: none }`): o avatar É o
+controle do painel de sessão, e um hambúrguer ao lado dele seria um segundo controle para
+a mesma gaveta. O desvio está registrado no CSS e no bloco de T7.3.
 
 **⚠️ Branch nova desta fase: conferir o upstream antes do `push`.** `git switch -c <nome>
 origin/dev` deixa o upstream apontando para **`origin/dev`**, não para a branch nova.
@@ -4628,12 +5073,18 @@ imediato, independente do resto), e mudar cor depois de mexer na estrutura mistu
 causas no mesmo smoke visual. **T7.7 pode sair a qualquer momento** — não depende de
 nenhuma outra e não tem smoke visual.
 
-**Arquivos previstos:** `packages/ui/src/Header.tsx` · `packages/ui/src/styles.css` ·
+**Arquivos das tasks FEITAS (T7.1–T7.5):** `packages/ui/src/Header.tsx` ·
+`packages/ui/src/styles.css` · `packages/ui/src/Nav.tsx` (rótulo da região, T7.5) ·
+`packages/ui/src/ChangelogButton.tsx` (extraído em T7.2) ·
 `apps/site/src/components/SiteHeaderIsland.tsx` (código próprio, mesma mudança) ·
-`apps/site/src/pages/busca/index.astro` · `apps/site/astro.config.mjs` ·
-`apps/downloads/frontend/src/` (rota `/busca` + header) · `apps/mesas` e `apps/glossario`
-(só se `actions` precisar mudar) · guards em `styles.contract.test.ts`,
-`Header.paineis.test.tsx` e `SiteHeader.estrutura.test.tsx`.
+`apps/mesas/frontend/src/components/AppShell.tsx` (`moduleLabel`, T7.5) ·
+`packages/ui/preview/static.html` (rótulo antigo do nav) · guards em
+`styles.contract.test.ts`, `Header.paineis.test.tsx`, `Header.acesso.test.tsx`,
+`Header.sessao.test.tsx` (T7.3), `Header.subnav.test.tsx` (T7.5) e
+`SiteHeader.estrutura.test.tsx`.
+
+**Arquivos previstos para T7.6 e T7.7:** `apps/site/src/pages/busca/index.astro` ·
+`apps/site/astro.config.mjs` · `apps/downloads/frontend/src/` (rota `/busca` + header).
 
 **O que NÃO está medido e exige o mantenedor:** o layout renderizado em navegador a 320,
 360, 375 e 390px, nos 6 apps, logado e deslogado. Guard de CSS e de árvore prova
