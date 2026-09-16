@@ -157,6 +157,24 @@ de `.artificio-session`.
 **Já rodado** em 2026-09-13 (run `34778898181`) + ingress beta `:80`→`:3000` (tunnel
 v26→v27). E1, F1, F5 e os aceites de T4.2/T4.3/T4.5 medidos ali.
 
+**Rodado de novo em 2026-09-16** (run `35106228138`, `success`, 4m22s), levando a F7 —
+o header mobile de `packages/ui` chega pelo build do app, já que `packages/*` não está em
+`deploy_paths`.
+
+### Rodada de betas de 2026-09-16 — o que ficou de fora
+
+Dois betas verdes neste dia: `site` (run `35105075773`, 6m38s) e `mesas`
+(run `35106228138`). `glossario` e `downloads` **não foram disparados**.
+
+**⚠️ Os dois rodaram ANTES do commit `b73029d` (PR #326) e NÃO levam o que ele corrige.**
+Quem ler "beta verde" vai supor o contrário. O que falta nesses ambientes:
+`connect-src` do GA4 (analytics segue mudo lá), `img-src` das capas, o template de
+resultado da busca com capa/categoria/data, a coluna de 680px da `/busca/` e as entradas
+novas de changelog nos 5 apps. Novo dispatch depois que a #326 entrar em `dev`.
+
+A CSP é `<meta>` gerada no build: enquanto o deploy não rodar, o ambiente serve a diretiva
+antiga, por mais que o `dist` local esteja correto.
+
 ### Deploy D — `mesas` prod
 
 Pré: promote `dev`→`main`. `-f module=mesas -f mode=deploy -f env=prod`.

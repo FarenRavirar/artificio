@@ -5213,6 +5213,51 @@ achado 2 da revisão da PR #324, que estava esperando esta migração.
    fallback nunca dispararia. A primeira correção trocou por `isOpen` mantendo o timer de
    100ms, e **isso era outro defeito** — ver a revisão da PR #325 abaixo.
 
+**Revisão da PR #326 — achado do CodeRabbit: changelog prometia o que 2 apps não
+entregam. PROCEDENTE (medido em 2026-09-16).**
+
+O bullet "Seções destacadas" entrou nas 5 entradas de changelog por copiar o texto base
+entre apps, sem conferir app por app o que cada um renderiza. A subnav só existe quando o
+consumidor passa `moduleNav` ao `Header` — `Header.tsx:154` calcula
+`hasModuleNav = Boolean(moduleNav && moduleNav.length > 0)` e sem ela a barra não
+renderiza. Medido `moduleNav=` como prop: `mesas` **1**, `downloads` **0**,
+`glossario` **0**, `links` **0**. Em `downloads` e `glossario` a palavra só aparece em
+comentário e teste, nunca como prop.
+
+Bullet removido de `downloads` e `glossario` (1 linha por arquivo). **Mantido em `mesas`**
+(passa `moduleNav`) e em `site`, que não usa `moduleNav` do pacote mas renderiza
+`.artificio-subnav` na própria ilha (`SiteHeaderIsland.tsx:371`), com fundo e
+`aria-current` vindos de `styles.css:610-632`. `links` nunca teve o bullet — confirmado 0
+ocorrências, como o bot dizia.
+
+**A regra que isto quebra:** changelog descreve o que o usuário VAI sentir naquele app.
+Texto compartilhado entre apps precisa ser conferido contra o que cada app passa ao
+componente, não contra o que o componente sabe fazer. Um bullet a mais é promessa que o
+produto não cumpre.
+
+**Revisão da PR #326 — achado do Codex no commit `b73029d`: PROCEDENTE no fonte,
+IMPROCEDENTE no efeito descrito (medido em 2026-09-16).**
+
+O bot apontou que `pages/busca/index.astro` abria `<main class="busca-wrap">` (linha 53) e
+fechava com `</article>` (linha 93), sem nenhum `</main>` — erro do agente ao trocar a tag
+de abertura e esquecer a de fechamento. **A tag descasada é real e foi corrigida.**
+
+**O efeito previsto não se confirmou.** O bot afirmou que o `<main>` ficaria aberto e que
+rodapé, modal e widget renderizados depois do `<slot />` virariam descendentes de
+`.busca-wrap`, presos na coluna de 680px, com landmarks incorretos. Medido no `dist`
+gerado **antes** da correção: `<main>` **1**, `</main>` **1**, `<article>` e `</article>`
+**0**, com `</main>` na posição 17095 e `<footer>` na 17103 — o rodapé sempre esteve
+**fora** do `main`. O parser do Astro normaliza a tag órfã no build.
+
+**Corrigido mesmo assim, e o motivo é a regra:** fonte com tags descasadas funciona por
+normalização de build, não por contrato. Basta o parser mudar de comportamento para o
+defeito aparecer — é bug latente sem sintoma hoje. Depois da correção: `<main>` 1,
+`</main>` 1, `</article>` 0, rodapé fora do `main`, `site` **192** testes verdes.
+
+**Lição de instrumento:** conferir tag casada no FONTE, nunca no `dist` — o `dist` mostra
+o HTML já normalizado e esconde o descasamento. O inverso do que a §Evidência costuma
+cobrar (código é a verdade material), porque aqui o artefato é mais permissivo que a fonte.
+
 **Revisão da PR #325 — dois achados do Codex no commit `b22ec7e`, um procedente
 (medido em 2026-09-16).**
 
