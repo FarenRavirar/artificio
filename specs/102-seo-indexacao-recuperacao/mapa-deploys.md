@@ -16,10 +16,11 @@ este arquivo quando um deploy rodar, nunca anexar bloco novo.
   chega ao app pelo build do app, no deploy que aquele app tiver por outro motivo.
 - `accounts` e `links` são prod-only (`env_override: prod`); dispatch `env=beta` neles
   é bloqueado pelo `build-matrix`.
-- **Distância até prod:** `origin/main..origin/dev` = **49 commits** (medido 2026-09-14,
-  após o merge da #321 — `1c833b5`). F1, F3 e F4 estão inteiras em `dev`; nada delas está
-  em `main`. Diff por módulo: `apps/site`+`apps/site-admin` **24 arquivos**, `apps/mesas`
-  **114**, `packages/ui` **11**.
+- **Distância até prod:** `origin/main..origin/dev` = **9 commits** (medido 2026-09-15).
+  `main` segue em `1c833b5` (merge da #321); o promote de 2026-09-14 levou os 40 commits
+  anteriores, e o que sobrou são os 7 da F7 mais os 2 merges das #322/#323. Diff por
+  módulo: `packages/ui` **7 arquivos**, `apps/site` **7**, `apps/mesas` **1**,
+  `apps/downloads` **1**, `apps/glossario` **1**, `apps/site-admin` **0**.
 
 ## Tabela-mestra: qual deploy fecha qual critério
 
@@ -95,16 +96,11 @@ Achado do mantenedor no beta; causa medida: ao hidratar, o Astro injeta um `<sty
 guard de estrutura com 6 testes. Detalhe completo e tabela de validação em `tasks.md`,
 bloco T3.5e.
 
-**Estado: commitado na PR #322**, branch `fix/102-header-mobile-estrutura`, base
-`origin/dev` = `1c833b5`. Dois commits: `0b65434` (correção do header, 10 arquivos) e
-`af85545` (achados de review do Codex e do CodeRabbit, 5 arquivos). **NÃO mergeada, NÃO
-deployada.**
+**Estado: PR #322 MERGEADA em `dev`** (2026-09-15 14:47Z), commits `0b65434` (correção do
+header, 10 arquivos) e `af85545` (achados de review do Codex e do CodeRabbit, 5 arquivos).
+**NÃO deployada** — merge em `dev` não deploya nada (`auto_deploy_on_push: false`).
 
-**⚠️ HÁ TRABALHO NÃO COMMITADO na árvore (2026-09-15):** `tasks.md` (+461, a F7 inteira e
-as correções do bloco de diagnóstico em T3.5e) e este `mapa-deploys.md`. Só documentação
-— nenhum código. Conferir com `rtk git status --short` antes de qualquer commit; um
-`git add -A` levaria os dois junto. Produção
-segue com o header quebrado no celular até: merge da #322 → promote `dev`→`main` → novo
+Produção segue com o header quebrado no celular até: promote `dev`→`main` → novo
 Deploy B. Cada passo com autorização nominal própria.
 
 **Isto é defeito de layout, não de indexação — nenhum critério A1…H1 depende dele.**
@@ -233,23 +229,45 @@ curl -s -A GPTBot/1.1 https://mesas.artificiorpg.com/mesas/<slug> | grep -c 'ld+
 curl -s https://mesas.artificiorpg.com/mesas/<slug> | grep -c '"@type": "Event"'       # 0
 ```
 
-## F7 — header mobile (fase nova, 2026-09-15) · **não afeta os critérios A1…H1**
+## F7 — header mobile e busca uniforme (2026-09-15) · **não afeta os critérios A1…H1**
 
-Criada a pedido do mantenedor depois do achado P1 do Codex na #322: o header estoura
-abaixo de ~400px (394px logado / 406px deslogado, contra 360/375/390 reais) e **já está
-em produção no `site`** — chegou pelo Deploy B, que levou T3.5e. `mesas` e `glossario`
-ainda servem o CSS anterior.
+Criada a pedido do mantenedor depois do achado P1 do Codex na #322: o header estourava
+abaixo de ~400px (394px logado / 406px deslogado, contra 360/375/390 reais) e **foi para
+produção no `site`** pelo Deploy B, que levou T3.5e.
 
-**Nenhum critério A1…H1 depende dela.** É layout e tema, não indexação — exceto **T7.7**
-(`/busca/` do `site` está no sitemap sem `noindex`), que é SEO puro e pode sair sozinha.
+**T7.1 a T7.8 estão IMPLEMENTADAS**, mas T7.8 ainda não entrou em PR nenhuma. Duas PRs:
 
-**PR própria** (decisão do mantenedor), separada da #322. Toca `packages/ui`, logo exige
-aprovação nominal e verificação de impacto nos 6 consumidores. Detalhe, aceites e custo
-medido: `tasks.md` §F7.
+| PR | tasks | estado | commits |
+|---|---|---|---|
+| #323 | T7.1, T7.2, T7.3, T7.4 | **MERGEADA** em `dev` 2026-09-15 21:04Z | `f15346f`, `c8fc650`, `1ed9e42`, `fc5a4fe`, `9042497` |
+| #324 | T7.2, T7.3, T7.5, T7.6, T7.7 | **ABERTA**, base `dev` | `a3e1b0b`, `bab9031` |
 
-**Não deployar `mesas`, `glossario`, `downloads`, `links` ou `accounts` sem antes decidir
-sobre a F7.** Qualquer deploy desses apps leva o header de T3.5e — com o estouro — para
-produção, pelo mesmo caminho que o Deploy B levou no `site`.
+`bab9031` é o P2 do Codex na revisão da #324: o painel de sessão não tinha `max-height`
+nem `overflow`, e o que passava da viewport ficava inalcançável em landscape de celular.
+Dos outros achados, o do `?q=` ignorado em `/busca/` era PROCEDENTE e foi corrigido em
+T7.8; os demais ficaram improcedentes, com o motivo medido em `tasks.md` §F7 — não reabrir
+sem remedir.
+
+**Nenhum critério A1…H1 depende da F7.** É layout e tema, não indexação — exceto **T7.7**
+(`/busca/` fora do sitemap e com `noindex`), que é SEO puro, já implementada e ainda **não
+deployada**: o efeito só existe em prod, depois de promote + Deploy B.
+
+**T7.8 IMPLEMENTADA em 2026-09-16, ainda não deployada:** a busca do `site` saiu do
+`PagefindUI` (API descontinuada na 1.5.0, com a 1.5.2 instalada) para o Component UI, e a
+`/busca/` passou a ler o `?q=` da home. Em produção ela ainda renderiza caixa vazia — o
+conserto só existe lá depois de merge + promote + Deploy B. Aceites medidos e as três
+armadilhas da implementação: `tasks.md` T7.8.
+
+**⚠️ A F7 inteira vive em `packages/ui`, que não está em `deploy_paths` de módulo algum.**
+Nenhum deploy a leva sozinha: ela chega a cada app pelo build daquele app, no deploy que
+ele tiver por outro motivo. Os 5 apps SPA (`mesas`, `glossario`, `downloads`, `links`,
+`accounts`) seguem servindo o header anterior até terem deploy próprio — que esta spec
+não prevê.
+
+**O aviso de "não deployar antes de decidir sobre a F7" está SUPERADO.** Ele existia
+enquanto a fase era proposta; agora o header corrigido está em `dev`, e um deploy desses
+apps levaria a correção, não o estouro. O que resta é o smoke visual, que nenhum teste
+alcança.
 
 ## O que fecha a spec
 
@@ -272,10 +290,11 @@ não tráfego imediato.
 
    ⚠️ **A branch `feat/102-t35-indexacao-raiz-header` está ESGOTADA — não commitar nela.**
    Medido em 2026-09-15: `git branch -r --contains HEAD` devolve `origin/dev` E
-   `origin/main`; o HEAD local (`d181ebf`) está 1 commit atrás de `origin/dev`. Commitar
-   aqui viola a regra de branch-sobre-branch (§PR, Commit e Push) e produz PR com diff
-   errado para os bots. Trabalho novo desta spec sai de `git switch -c <tipo>/<escopo>
-   origin/dev`.
+   `origin/main`. Commitar aqui viola a regra de branch-sobre-branch (§PR, Commit e Push)
+   e produz PR com diff errado para os bots. Trabalho novo desta spec sai de
+   `git switch -c <tipo>/<escopo> origin/dev` — foi assim que nasceram
+   `feat/102-f7-header-mobile-unificado` (#323, mergeada) e `feat/102-f7-busca-uniforme`
+   (#324, aberta).
 2. ~~Deploy A (`site` beta).~~ ✅ run `34903089436`, `success`, 2026-09-14. Recorte,
    canonical e header medidos; ver o bloco do Deploy A acima.
 3. ~~Criar propriedade de Domínio no Search Console.~~ ✅ já existe e está verificada

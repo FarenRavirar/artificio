@@ -1,93 +1,93 @@
 ---
-// Busca estática Pagefind. Os assets /pagefind/* são gerados no postbuild (pagefind --site dist),
-// então a busca funciona no build/preview (não no `astro dev`). Lazy-load no 1º open.
+// Busca estática Pagefind, Component UI (custom elements), não o `PagefindUI` da API
+// antiga. Os assets /pagefind/* são gerados no postbuild (pagefind --site dist), então a
+// busca funciona no build/preview, não no `astro dev`.
+//
+// ⚠️ A DOC OFICIAL DÁ O ARQUIVO ERRADO PARA ESTE REPO.
+// `pagefind.app/docs/components/input/` manda carregar `/pagefind/pagefind-ui.js`, que
+// aqui define ZERO custom elements (medido: `grep -o 'customElements.define'` devolve 0
+// nele e 13 em `pagefind-component-ui.js`). Quem define `pagefind-modal` e companhia é
+// `pagefind-component-ui.js`. Copiar a doc sem medir o bundle repetiria a falha que criou
+// esta task (T7.8, spec 102): o código anterior foi escrito contra `PagefindUI`, API
+// substituída pelo Component UI na Pagefind 1.5.0, com a 1.5.2 instalada.
+//
+// ⚠️ O bundle é IIFE, não ES module: termina em `window.PagefindComponents=...`. A doc
+// oferece `import '@pagefind/component-ui'`, que aqui NÃO funciona — o arquivo servido em
+// `/pagefind/` não exporta nada. O acesso programático é pela global.
+//
+// `lang="pt-br"`: o Component UI monta os candidatos `pt-BR` e depois `pt` (medido no
+// bundle), e `translations/pt.json` existe. Por isso não passamos `translations` à mão,
+// como a versão anterior fazia.
+//
+// `instance="overlay"` distingue esta busca da `/busca/` (`instance="search-page"`).
+// Instâncias distintas não compartilham termo nem resultado — é o que resolve, por
+// desenho, a colisão de `id="pagefind-search"` que a API antiga produzia por não
+// documentar duas instâncias no mesmo documento.
 ---
-<div id="search-modal" class="search-modal" hidden>
-  <div class="search-backdrop" data-close></div>
-  <div class="search-panel" role="dialog" aria-modal="true" aria-label="Buscar no blog">
-    <button class="search-close" data-close aria-label="Fechar busca">✕</button>
-    <div id="pagefind-search"></div>
-  </div>
-</div>
+<link rel="stylesheet" href="/pagefind/pagefind-component-ui.css" />
 
+<pagefind-config instance="overlay" lang="pt-br"></pagefind-config>
+<pagefind-modal id="search-modal" instance="overlay" reset-on-close></pagefind-modal>
+
+{/*
+  `<script>` sem `is:inline`: o Astro bundla e hasheia sozinho para a CSP
+  (`astro.config.mjs` §security.csp). Inline exigiria hash à mão na config, que é a
+  armadilha registrada em T7.6 — foi ela que deixou a `/busca/` com o script bloqueado.
+*/}
 <script>
   (function () {
-    var modal = document.getElementById("search-modal");
-    if (!modal) return;
-    var inited = false;
+    var COMPONENT_UI = "/pagefind/pagefind-component-ui.js";
+    var loading: Promise<void> | null = null;
 
-    function loadCss(href) {
-      var l = document.createElement("link");
-      l.rel = "stylesheet";
-      l.href = href;
-      document.head.appendChild(l);
-    }
-    function loadScript(src) {
-      return new Promise(function (res, rej) {
-        var s = document.createElement("script");
-        s.src = src;
-        s.onload = res;
-        s.onerror = rej;
-        document.head.appendChild(s);
+    // A lupa vive na ilha React do header (`SiteHeaderIsland.tsx`), que dispara
+    // `artificio:open-search`. Por isso NÃO usamos `<pagefind-modal-trigger>`: ele
+    // desenharia um segundo botão de busca no documento.
+    function loadComponentUI() {
+      if (loading) return loading;
+      loading = new Promise<void>(function (resolve, reject) {
+        var script = document.createElement("script");
+        script.src = COMPONENT_UI;
+        script.onload = function () {
+          resolve();
+        };
+        script.onerror = function () {
+          reject(new Error("falha ao carregar " + COMPONENT_UI));
+        };
+        document.head.appendChild(script);
       });
+      return loading;
     }
-    async function ensureUI() {
-      if (inited) return;
-      inited = true;
-      loadCss("/pagefind/pagefind-ui.css");
+
+    async function open() {
+      var modal = document.getElementById("search-modal");
+      if (!modal) return;
       try {
-        await loadScript("/pagefind/pagefind-ui.js");
-        // eslint-disable-next-line no-undef
-        new PagefindUI({
-          element: "#pagefind-search",
-          showImages: false,
-          showSubResults: true,
-          translations: {
-            placeholder: "Buscar artigos…",
-            clear_search: "Limpar",
-            load_more: "Carregar mais resultados",
-            search_label: "Buscar no blog",
-            zero_results: "Nada encontrado para [SEARCH_TERM]",
-            many_results: "[COUNT] resultados para [SEARCH_TERM]",
-            one_result: "[COUNT] resultado para [SEARCH_TERM]",
-          },
-        });
-      } catch (e) {
-        document.getElementById("pagefind-search").innerHTML =
-          '<p class="pagefind-fallback">Busca disponível no site publicado (índice Pagefind gerado no build).</p>';
+        await loadComponentUI();
+        // `customElements.whenDefined` porque o upgrade do elemento já presente no DOM
+        // acontece depois do `onload` do script, não junto com ele: chamar `open()` antes
+        // do upgrade chamaria um método que ainda não existe.
+        await customElements.whenDefined("pagefind-modal");
+        (modal as HTMLElement & { open?: () => void }).open?.();
+      } catch (error) {
+        console.error("Busca indisponível", error);
       }
     }
-    function open() {
-      modal.hidden = false;
-      document.body.style.overflow = "hidden";
-      ensureUI();
-      setTimeout(function () {
-        var input = modal.querySelector("input");
-        if (input) input.focus();
-      }, 50);
-    }
-    function close() {
-      modal.hidden = true;
-      document.body.style.overflow = "";
-    }
+
     document.addEventListener("click", function (e) {
       var target = e.target;
       if (!(target instanceof Element)) return;
-      if (target.id === "search-toggle" || target.closest("#search-toggle")) {
-        open();
-      }
-      if (target.hasAttribute("data-close")) close();
+      if (target.id === "search-toggle" || target.closest("#search-toggle")) open();
     });
     document.addEventListener("artificio:open-search", open);
+
+    // Atalhos `/` e Ctrl/Cmd+K. O Component UI registra `Esc` para fechar sozinho
+    // (medido na classe do `pagefind-modal`), então só a abertura fica aqui.
     document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape" && !modal.hidden) close();
-      if ((e.key === "/" || (e.key === "k" && (e.metaKey || e.ctrlKey))) && modal.hidden) {
-        var tag = (document.activeElement && document.activeElement.tagName) || "";
-        if (tag !== "INPUT" && tag !== "TEXTAREA") {
-          e.preventDefault();
-          open();
-        }
-      }
+      if (e.key !== "/" && !(e.key === "k" && (e.metaKey || e.ctrlKey))) return;
+      var tag = (document.activeElement && document.activeElement.tagName) || "";
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      e.preventDefault();
+      open();
     });
   })();
 </script>

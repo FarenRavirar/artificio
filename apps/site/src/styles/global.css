@@ -245,36 +245,62 @@ img { max-width: 100%; height: auto; display: block; }
 .cat-pill:hover { border-color: var(--accent); color: var(--accent-deep); }
 .cat-pill span { color: var(--muted); font-size: 12px; }
 
-/* ---- busca (Pagefind modal) ---- */
-.search-modal { position: fixed; inset: 0; z-index: 100; }
-.search-modal[hidden] { display: none; }
-.search-backdrop { position: absolute; inset: 0; background: rgba(2, 7, 64, 0.55); backdrop-filter: blur(2px); }
-.search-panel {
-  position: relative; max-width: 640px; margin: 8vh auto 0; background: var(--surface);
-  border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 24px 70px rgba(2, 7, 64, .35);
-  padding: 20px; max-height: 80vh; overflow: auto;
-}
-.search-close {
-  position: absolute; top: 12px; right: 14px; background: transparent; border: 0;
-  color: var(--muted); font-size: 18px; cursor: pointer; line-height: 1; padding: 4px;
-}
-.search-close:hover { color: var(--fg); }
-/* tema Pagefind = marca */
-:root {
-  --pagefind-ui-primary: #020740;
-  --pagefind-ui-text: #020740;
-  --pagefind-ui-background: #ffffff;
-  --pagefind-ui-border: #e6e8ef;
-  --pagefind-ui-tag: #fff1e8;
-  --pagefind-ui-border-radius: 10px;
-  --pagefind-ui-font: var(--sans);
+/* ---- busca (Pagefind Component UI) ----
+   O modal é o `<pagefind-modal>` do Pagefind (T7.8, spec 102), não mais um painel nosso:
+   as classes `.search-modal`, `.search-backdrop`, `.search-panel` e `.search-close` saíram
+   junto com o markup que as usava.
+
+   ⚠️ O prefixo das variáveis mudou de `--pagefind-ui-*` para `--pf-*` na 1.5.0. As 7
+   antigas ficavam aqui como LIXO MORTO depois da migração: nada quebra, nada avisa, e a
+   busca passa a usar o cinza padrão do Pagefind sobre o navy da marca. Mesma classe de
+   defeito do `--artificio-canvas` em T7.5 — por isso a troca entra junto com o markup,
+   não depois.
+
+   ⚠️ O escuro do Component UI NÃO herda sozinho: o CSS dele tem ZERO ocorrências de
+   `prefers-color-scheme` (medido), e o tema escuro vive só em `[data-pf-theme="dark"]`.
+   O site usa `:root[data-theme="dark"]`. Sem esta ponte o modal ficaria claro sobre o
+   corpo escuro. Redefinimos as `--pf-*` no nosso seletor em vez de marcar
+   `data-pf-theme` por JS: o tema do site já é resolvido em CSS desde T7.4, e um segundo
+   caminho por JS traria de volta o piscar de tema que aquela task apagou.
+
+   ⚠️ `:root:root` NO CLARO, e isso não é enfeite. O `pagefind-component-ui.css` é
+   carregado pelo `<link>` do componente, DEPOIS deste arquivo (medido no preview:
+   `document.styleSheets` traz `Base.*.css` antes de `pagefind-component-ui.css`). Ele
+   declara as mesmas variáveis em `:root`, mesma especificidade — então o último vence e
+   o tema claro da marca some. O escuro escapava por acidente, porque
+   `:root[data-theme="dark"]` já pesa mais. Medido antes da correção: `--pf-text`
+   devolvia `#1a1a1a`, o cinza padrão do Pagefind, e não o navy `#020740`. Repetir o
+   seletor sobe a especificidade sem depender da ordem de carregamento, que não
+   controlamos. */
+:root:root {
+  --pf-text: #020740;
+  --pf-text-secondary: #4a5578;
+  --pf-text-muted: #6b7394;
+  --pf-background: #ffffff;
+  --pf-border: #e6e8ef;
+  --pf-border-focus: #020740;
+  --pf-hover: #f5f6fa;
+  --pf-mark: #020740;
+  --pf-outline-focus: #ff5722;
+  --pf-border-radius: 10px;
+  --pf-font: var(--sans);
 }
 :root[data-theme="dark"] {
-  --pagefind-ui-primary: #ffffff;
-  --pagefind-ui-text: #eef1f8;
-  --pagefind-ui-background: #1b2a4a;
-  --pagefind-ui-border: rgba(255, 255, 255, 0.14);
-  --pagefind-ui-tag: rgba(255, 87, 34, 0.16);
+  --pf-text: #eef1f8;
+  --pf-text-secondary: #b9c2da;
+  --pf-text-muted: #98a2c0;
+  --pf-background: #1b2a4a;
+  --pf-border: rgba(255, 255, 255, 0.14);
+  --pf-border-focus: rgba(255, 255, 255, 0.4);
+  --pf-hover: rgba(255, 255, 255, 0.06);
+  --pf-mark: #ffffff;
+  --pf-skeleton: #24365c;
+  --pf-skeleton-shine: #2d4170;
+  --pf-scroll-shadow: rgba(255, 255, 255, 0.1);
+  --pf-modal-backdrop: rgba(2, 7, 64, 0.7);
+  --pf-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --pf-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --pf-shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5);
 }
 
 /* Paginador do acervo (T3.5c, spec 102). `flex-wrap` para o paginador numerado não
@@ -312,9 +338,6 @@ img { max-width: 100%; height: auto; display: block; }
   .grid { grid-template-columns: 1fr; }
   .prose { font-size: 18px; }
 }
-
-/* Pagefind fallback (busca indisponível no dev) */
-.pagefind-fallback { color: var(--muted); }
 
 /* ---- conversa pública (spec 090) ----
    A classe já existia no markup de `PostConversation` sem nenhuma regra, e o

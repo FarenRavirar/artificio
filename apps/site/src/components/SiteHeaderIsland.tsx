@@ -117,11 +117,23 @@ export function SiteHeaderIsland({
     markSeen();
   };
 
+  /* Fallback para `/busca/` quando o modal não abre (assets do Pagefind ausentes, como no
+     `astro dev`, onde o índice só existe depois do postbuild).
+
+     ⚠️ A checagem NÃO pode ser `modal.hidden`. Até T7.8 o modal era um `<div hidden>`
+     nosso; agora é `<pagefind-modal>`, que abre um `<dialog>` interno e nunca usa o
+     atributo `hidden` — `modal.hidden` seria sempre `false` e o fallback nunca
+     dispararia. A propriedade pública do elemento é `isOpen` (medida na classe do
+     bundle), e ela só existe depois do upgrade do custom element: elemento presente mas
+     ainda não atualizado devolve `undefined`, que também conta como "não abriu".
+
+     Os 100ms cobrem o carregamento do bundle de 171 KB partindo do cache; sem cache o
+     primeiro clique pode cair no fallback e levar para `/busca/`, que é a mesma busca. */
   const openSearch = () => {
     document.dispatchEvent(new CustomEvent("artificio:open-search"));
     window.setTimeout(() => {
-      const modal = document.getElementById("search-modal");
-      if (!(modal instanceof HTMLElement) || modal.hidden) {
+      const modal = document.getElementById("search-modal") as (HTMLElement & { isOpen?: boolean }) | null;
+      if (!modal?.isOpen) {
         window.location.assign("/busca/");
       }
     }, 100);
