@@ -1,5 +1,13 @@
 [
   {
+    "id": "2026-09-16-mobile-refeito",
+    "title": "Navegação no celular refeita",
+    "body": "O cabeçalho foi reconstruído para telas pequenas:\n\n- **Tudo cabe na tela** - O topo era mais largo que o próprio aparelho e empurrava botões para fora da área visível. Agora cabe até em telas de 320px, as menores em uso\n- **Menu de navegação à esquerda** - Um botão de menu abre os links para os outros projetos do Artifício, que antes ficavam inalcançáveis\n- **Sua conta reunida num painel** - Tocar no avatar abre um painel com novidades, tema e sair, em vez de disputarem espaço na barra estreita\n- **Painel que rola** - Com o celular deitado, o conteúdo que passava da tela ficava inalcançável; agora o painel rola por conta própria\n- **Seções destacadas** - A barra de seções ganhou fundo próprio e marca a página atual, em vez de se confundir com o menu principal\n- **Sem piscada branca no tema escuro** - O topo aparecia branco e virava escuro só depois; agora já nasce escuro\n- **Menu da conta no tema certo** - O painel do avatar abria branco sobre o fundo escuro, e o link de sair tinha contraste baixo demais para leitura\n- **Lupa busca dentro do Glossário** - A busca do cabeçalho passou a procurar termos, em vez de levar para fora do projeto\n\n_Atualização publicada em 16/09/2026_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-09-16T18:00:00-03:00"
+  },
+  {
     "id": "2026-08-17-conta-unica-e-manutencao",
     "title": "Login unificado entre projetos e melhorias de estabilidade",
     "body": "Manutenção com foco em deixar o Glossário afinado com o resto do Artifício:\n\n- **Permissões de conta unificadas** - Seu acesso e suas permissões passaram a ser reconhecidos igualmente em todos os projetos, sem precisar entrar de novo em cada um\n- **Compartilhamento com prévia correta** - Ao compartilhar um link do Glossário, a imagem de prévia agora é a do próprio projeto (antes aparecia a imagem de outro projeto)\n- **Buscas mais previsíveis** - Correção em endereços de busca que, em certos formatos, podiam devolver resultado de outra consulta\n- **Correções de estabilidade** - Ajustes internos de segurança e desempenho, sem mudança no uso do dia a dia\n\n_Atualização publicada em 17/08/2026_",

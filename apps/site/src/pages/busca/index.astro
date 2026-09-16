@@ -30,14 +30,66 @@ const canonical = new URL("/busca/", Astro.site).toString();
   documento sem colidir — o que a API antiga não permitia, por não documentar duas
   instâncias. Era daí que vinham os dois `id="pagefind-search"` desta página.
 */}
+{/*
+  A página usava `<article class="prose">` solto, e `.prose` só define tipografia — nenhuma
+  largura. Medido no preview a 1857px de viewport: título, campo e cards com **1842px** e
+  `left: 0`, colados nas bordas, `max-width: none` em todos.
+
+  Defeito PREEXISTENTE da página, não da migração para o Component UI — ficava invisível
+  enquanto a busca renderizava caixa vazia, porque não havia conteúdo para esticar.
+
+  ⚠️ A correção NÃO é `.container` (1100px), que é o contêiner das páginas de GRADE do site.
+  Resultado de busca é coluna de leitura, e o padrão de mercado é bem mais estreito.
+  Medido no mesmo viewport de 1857px, em dois motores independentes:
+  DuckDuckGo serve a coluna em **672px** (`left: 158`), Bing em **648px** (`left: 160`) —
+  os dois ALINHADOS À ESQUERDA, não centralizados, porque a varredura de resultado é em F e
+  eye-tracking mostra que conteúdo além de ~600px à direita quase não é lido.
+  Bate com a recomendação de comprimento de linha da Baymard (50–75 caracteres,
+  `max-width` de ~`70ch`): o snippet do DuckDuckGo mede ~78 caracteres por linha.
+
+  Daí `--busca-col: 680px`, e não um número escolhido por gosto.
+*/}
 <Base title="Buscar — Artifício RPG" canonical={canonical} noindex>
-  <article class="prose">
-    <h1>Buscar no Blog</h1>
+  <main class="busca-wrap">
+    <h1 class="busca-titulo">Buscar no Blog</h1>
     <link rel="stylesheet" href="/pagefind/pagefind-component-ui.css" />
     <pagefind-config instance="search-page" lang="pt-br" preload></pagefind-config>
     <pagefind-input instance="search-page" autofocus></pagefind-input>
     <pagefind-summary instance="search-page"></pagefind-summary>
-    <pagefind-results instance="search-page"></pagefind-results>
+    {/*
+      `show-images` é `false` POR PADRÃO no `<pagefind-results>` (doc do componente). Sem o
+      atributo, o acervo — que tem capa 1200×630 em todo post — era servido como lista de
+      texto puro. Foi metade do "design horrível" medido no beta em 2026-09-16.
+
+      O template é o mecanismo OFICIAL para o resultado ter a forma do produto
+      (`pagefind.app/docs/components/results/`), em vez de espremer o layout de
+      documentação com CSS por cima. Reaproveita as classes que o bundle já estiliza:
+      `.pf-result-card` traz borda, raio, padding, hover e — via
+      `.pf-result-link::after {position:absolute; inset:0}` — a área clicável inteira com um
+      único link no accessibility tree. Reescrever isso em CSS próprio seria refazer o que o
+      componente entrega pronto.
+
+      `{{+ excerpt +}}` com as chaves-mais preserva o `<mark>` do trecho casado; `{{ }}`
+      simples escaparia a tag e o destaque viraria texto literal. `url | safeUrl` é o filtro
+      que a doc exige no href.
+
+      `.busca-result-meta` é a ÚNICA regra nossa: o card do Pagefind não prevê linha de
+      categoria + data, que é o que faz o resultado ler igual ao card do acervo.
+    */}
+    <pagefind-results instance="search-page" show-images>
+      <script type="text/pagefind-template">
+        {`<li class="pf-result">
+          <div class="pf-result-card">
+            <img class="pf-result-image" src="{{ meta.image }}" alt="" loading="lazy" />
+            <div class="pf-result-content">
+              <p class="busca-result-meta">{{ meta.categoria }} · {{ meta.data }}</p>
+              <h2 class="pf-result-title"><a class="pf-result-link" href="{{ url | safeUrl }}">{{ meta.title }}</a></h2>
+              <p class="pf-result-excerpt">{{+ excerpt +}}</p>
+            </div>
+          </div>
+        </li>`}
+      </script>
+    </pagefind-results>
   </article>
 </Base>
 {/*

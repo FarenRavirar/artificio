@@ -284,6 +284,74 @@ img { max-width: 100%; height: auto; display: block; }
   --pf-outline-focus: #ff5722;
   --pf-border-radius: 10px;
   --pf-font: var(--sans);
+
+  /* ---- escala e proporção (achado do beta em 2026-09-16) ----
+     O default do Component UI é de lista de documentação e INVERTE a hierarquia do site:
+     título de resultado 14px e excerto 13px, contra um campo de busca de 16px e corpo de
+     16px — o conteúdo encontrado lê menor que a caixa que o procurou.
+
+     Os valores abaixo não são escolha nova: são os do card do acervo (`.card-title` 18px
+     `--display`, `.card-excerpt` 15px, `.card-meta` 13px), que é a referência da marca
+     para "item com título, resumo e imagem". Um resultado de busca e um card do blog
+     passam a ler igual.
+
+     A imagem segue o 16/9 do `.card-media` (o default 64×48 é 4:3 e corta a capa, que é
+     1200×630). Só largura e altura são variáveis; o `object-fit: cover` já vem do bundle. */
+  --pf-result-title-font-size: 18px;
+  --pf-result-excerpt-font-size: 15px;
+  --pf-summary-font-size: 13px;
+  --pf-image-width: 128px;
+  --pf-image-height: 72px;
+  --pf-results-gap: 16px;
+}
+
+/* ---- coluna da `/busca/` (T7.8) ----
+   Resultado de busca é coluna de leitura, não grade: por isso NÃO usa o `.container` de
+   1100px das páginas de acervo. A largura vem de medição do padrão de mercado, no mesmo
+   viewport de 1857px — DuckDuckGo **672px**, Bing **648px**, os dois alinhados à esquerda
+   (`left` ~160), não centralizados. A varredura de resultado é em F, e conteúdo além de
+   ~600px à direita quase não é lido. Casa com a faixa de 50–75 caracteres por linha da
+   Baymard (`max-width` ~`70ch`).
+
+   `padding` e `margin` seguem o `.container` para a página não destoar do resto do site. */
+.busca-wrap {
+  max-width: var(--busca-col, 680px);
+  margin: 0 auto; padding: 32px 24px 64px;
+}
+.busca-titulo {
+  font-family: var(--display); font-weight: 700; font-size: 32px; line-height: 1.1;
+  letter-spacing: -.01em; margin: 0 0 24px;
+}
+
+/* Linha de categoria + data do resultado (T7.8). Espelha `.card-meta`, que é como o acervo
+   apresenta o mesmo par. O card do Pagefind não prevê esta linha — é a única regra própria
+   que a busca precisa, e existe porque o template a introduz. */
+.busca-result-meta {
+  color: var(--pf-text-muted); font-size: 13px; margin: 0 0 4px;
+  font-family: var(--display); letter-spacing: .03em; text-transform: uppercase;
+}
+/* O excerto vem truncado em 1 linha por CSS do bundle (`white-space: nowrap; overflow:
+   hidden; text-overflow: ellipsis`), o que esvazia o resumo num acervo editorial. Nenhuma
+   variável `--pf-*` desliga isso.
+
+   ⚠️ Esta regra precisou de DUAS correções de especificidade, e a segunda é a que importa.
+   Com `.pf-result-excerpt` simples, `getComputedStyle` devolvia `white-space: nowrap` e
+   `-webkit-line-clamp: none` — o bundle prefixa cada regra com `:is(*, #\#)` TRÊS vezes,
+   somando especificidade de 3 ids (300) sem mudar o que casa.
+
+   Repetir `:is(*, #\#)` três vezes EMPATA, e empate se decide pela ordem de carregamento —
+   que aqui é contra nós: o `<link>` de `pagefind-component-ui.css` está no corpo da página,
+   depois deste arquivo. Medido nesse estado intermediário: `-webkit-line-clamp` passou a
+   valer (o bundle não declara essa propriedade, então não havia disputa) mas `white-space`
+   continuou `nowrap` (o bundle declara, empatou, e a ordem venceu). Resultado enganoso:
+   metade do efeito aplicado, o excerto ainda em 1 linha com ~170 caracteres.
+
+   QUATRO repetições desempatam sem `!important`, que travaria ajuste futuro de quem
+   consumir a classe. */
+:is(*, #\#):is(*, #\#):is(*, #\#):is(*, #\#) .pf-result-excerpt {
+  white-space: normal;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden; text-overflow: unset;
 }
 :root[data-theme="dark"] {
   --pf-text: #eef1f8;

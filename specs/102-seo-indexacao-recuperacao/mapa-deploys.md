@@ -16,11 +16,27 @@ este arquivo quando um deploy rodar, nunca anexar bloco novo.
   chega ao app pelo build do app, no deploy que aquele app tiver por outro motivo.
 - `accounts` e `links` são prod-only (`env_override: prod`); dispatch `env=beta` neles
   é bloqueado pelo `build-matrix`.
-- **Distância até prod:** `origin/main..origin/dev` = **9 commits** (medido 2026-09-15).
-  `main` segue em `1c833b5` (merge da #321); o promote de 2026-09-14 levou os 40 commits
-  anteriores, e o que sobrou são os 7 da F7 mais os 2 merges das #322/#323. Diff por
-  módulo: `packages/ui` **7 arquivos**, `apps/site` **7**, `apps/mesas` **1**,
-  `apps/downloads` **1**, `apps/glossario` **1**, `apps/site-admin` **0**.
+- **Distância até prod:** `origin/main..origin/dev` = **15 commits** (medido 2026-09-16,
+  após o merge da #325 — `8c2bbe1`). `main` segue em `1c833b5` (merge da #321); o promote
+  de 2026-09-14 levou os 40 commits anteriores, e o que sobrou é a F7 inteira mais os
+  merges das #322/#323/#324/#325. Diff por módulo, medido com
+  `git diff --name-only origin/main origin/dev -- <path> | wc -l` (2026-09-16):
+  `packages/ui` **14 arquivos**, `apps/site` **12**, `apps/downloads` **4**,
+  `apps/mesas` **1**, `apps/glossario` **1**, `apps/links` **1**, `apps/accounts` **1**,
+  `apps/site-admin` **0**. A contagem anterior deste bloco somava **1 a mais por app**:
+  veio de `--stat`, cuja última linha é o rodapé `N files changed`, não um arquivo.
+  `--name-only | wc -l` é o instrumento certo.
+
+- **Cada um dos 5 apps não-`site` tem arquivo próprio em `apps/*` no diff** — `mesas`
+  `frontend/src/components/AppShell.tsx`, `glossario` `GlossarioHeader.tsx`, `downloads`
+  `App.tsx` + `AppShell.tsx` + 2 testes, `links` `LinksHeader.tsx`, `accounts`
+  `main.tsx`. Logo o gate de `deploy_paths` **passa** em todos: um dispatch de cada app
+  leva junto, pelo build, a correção de header em `packages/ui`. O que `packages/ui` não
+  faz é **disparar** deploy sozinha; ela não fica presa quando o app tem deploy próprio.
+
+- **Beta existe para 4 módulos apenas:** `site`, `mesas`, `glossario`, `downloads`.
+  `links` e `accounts` têm `env_override: "prod"` no manifesto — o `build-matrix` bloqueia
+  dispatch `env=beta` neles, e o header corrigido só chega nesses dois por deploy prod.
 
 ## Tabela-mestra: qual deploy fecha qual critério
 
@@ -235,12 +251,13 @@ Criada a pedido do mantenedor depois do achado P1 do Codex na #322: o header est
 abaixo de ~400px (394px logado / 406px deslogado, contra 360/375/390 reais) e **foi para
 produção no `site`** pelo Deploy B, que levou T3.5e.
 
-**T7.1 a T7.8 estão IMPLEMENTADAS**, mas T7.8 ainda não entrou em PR nenhuma. Duas PRs:
+**A F7 inteira (T7.1 a T7.8) está MERGEADA em `dev` e NÃO deployada.** Três PRs:
 
 | PR | tasks | estado | commits |
 |---|---|---|---|
-| #323 | T7.1, T7.2, T7.3, T7.4 | **MERGEADA** em `dev` 2026-09-15 21:04Z | `f15346f`, `c8fc650`, `1ed9e42`, `fc5a4fe`, `9042497` |
-| #324 | T7.2, T7.3, T7.5, T7.6, T7.7 | **ABERTA**, base `dev` | `a3e1b0b`, `bab9031` |
+| #323 | T7.1, T7.2, T7.3, T7.4 | **MERGEADA** em `dev` 2026-09-15 18:04 (`5f3f4b3`) | `f15346f`, `c8fc650`, `1ed9e42`, `fc5a4fe`, `9042497` |
+| #324 | T7.2, T7.3, T7.5, T7.6, T7.7 | **MERGEADA** em `dev` 2026-09-16 00:36 (`24bf887`) | `a3e1b0b`, `bab9031` |
+| #325 | T7.8 | **MERGEADA** em `dev` 2026-09-16 10:46 (`8c2bbe1`) | `b22ec7e`, `287f279` |
 
 `bab9031` é o P2 do Codex na revisão da #324: o painel de sessão não tinha `max-height`
 nem `overflow`, e o que passava da viewport ficava inalcançável em landscape de celular.
@@ -248,21 +265,38 @@ Dos outros achados, o do `?q=` ignorado em `/busca/` era PROCEDENTE e foi corrig
 T7.8; os demais ficaram improcedentes, com o motivo medido em `tasks.md` §F7 — não reabrir
 sem remedir.
 
+`287f279` é o P2 do Codex na revisão da #325: o fallback da lupa esperava 100ms fixos e
+então checava `isOpen`, mas o bundle do Component UI tem 171 KB — sem cache ele ainda
+está baixando aos 100ms, e o carregamento em andamento era lido como falha, abortando o
+modal que ia abrir. Passou a esperar evento (`artificio:search-opened` /
+`artificio:search-unavailable`), sem timer. O segundo achado dessa revisão, sobre o atalho
+`/` e Shadow DOM, ficou improcedente com a medição em `tasks.md` §F7 — o bundle tem zero
+`attachShadow`.
+
 **Nenhum critério A1…H1 depende da F7.** É layout e tema, não indexação — exceto **T7.7**
 (`/busca/` fora do sitemap e com `noindex`), que é SEO puro, já implementada e ainda **não
 deployada**: o efeito só existe em prod, depois de promote + Deploy B.
 
-**T7.8 IMPLEMENTADA em 2026-09-16, ainda não deployada:** a busca do `site` saiu do
-`PagefindUI` (API descontinuada na 1.5.0, com a 1.5.2 instalada) para o Component UI, e a
-`/busca/` passou a ler o `?q=` da home. Em produção ela ainda renderiza caixa vazia — o
-conserto só existe lá depois de merge + promote + Deploy B. Aceites medidos e as três
-armadilhas da implementação: `tasks.md` T7.8.
+**T7.8 mergeada em `dev`, NÃO deployada:** a busca do `site` saiu do `PagefindUI` (API
+descontinuada na 1.5.0, com a 1.5.2 instalada) para o Component UI, e a `/busca/` passou a
+ler o `?q=` da home. **Em produção ela ainda renderiza caixa vazia** — o conserto só existe
+lá depois de promote + Deploy B, e merge em `dev` não deploya nada
+(`auto_deploy_on_push: false`). Aceites medidos e as armadilhas da implementação:
+`tasks.md` T7.8.
 
-**⚠️ A F7 inteira vive em `packages/ui`, que não está em `deploy_paths` de módulo algum.**
-Nenhum deploy a leva sozinha: ela chega a cada app pelo build daquele app, no deploy que
-ele tiver por outro motivo. Os 5 apps SPA (`mesas`, `glossario`, `downloads`, `links`,
-`accounts`) seguem servindo o header anterior até terem deploy próprio — que esta spec
-não prevê.
+**⚠️ A F7 tem duas metades com gatilhos de deploy DIFERENTES, e confundi-las erra o
+diagnóstico de "por que prod não mudou".**
+
+A parte de header e tema vive em `packages/ui`, que **não está em `deploy_paths` de módulo
+algum** (medido em `.github/deploy-manifest.json`: os 6 módulos listam só caminhos
+`apps/*`). Nenhum deploy a leva sozinha: ela chega a cada app pelo build daquele app, no
+deploy que ele tiver por outro motivo. Os 5 apps SPA (`mesas`, `glossario`, `downloads`,
+`links`, `accounts`) seguem servindo o header anterior até terem deploy próprio — que esta
+spec não prevê.
+
+T7.6, T7.7 e T7.8 são a outra metade: vivem em **`apps/site`**, que ESTÁ em `deploy_paths`
+(módulo `2`, junto com `apps/site-admin`). Um Deploy B do `site` as leva sozinho, sem
+depender de nenhum outro app. São 13 arquivos de `apps/site` entre `main` e `dev`.
 
 **O aviso de "não deployar antes de decidir sobre a F7" está SUPERADO.** Ele existia
 enquanto a fase era proposta; agora o header corrigido está em `dev`, e um deploy desses
