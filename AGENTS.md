@@ -193,7 +193,7 @@ Fluxo: `<tipo>/<escopo>` → `dev`/beta → `main`/produção. Tipos: `feat/`, `
 - Nada commita direto em `dev`/`main` — tudo entra por branch + PR, inclusive doc-only. Branch protection exige `lint + build + test` verde.
 - PR nova: ready for review (não draft), base `dev`. Se já existe em outra base, não retargetar sem pedido.
 - **Depois de abrir/atualizar a PR, o agente para.** Push + `gh pr create` são a mesma ação. Não acompanhar checks, não rodar `gh pr view`/`gh run watch`, sem polling — salvo pedido explícito.
-- Correção de commit é commit novo em cima, com push fast-forward.
+- Correção de commit é commit novo em cima, com push fast-forward — e **exige autorização nova**, como qualquer commit. Achado de bot ou de revisor não autoriza nada: ele diz o que corrigir, nunca que se pode commitar. O agente chega com a correção pronta na árvore, relata o veredicto medido de cada achado, e para. Vale igual quando o fix é óbvio, quando o achado é procedente e quando a PR é a mesma que ele acabou de autorizar.
 - Commit tocando `apps/`, `packages/`, `scripts/api/` ou `docs/api/openapi/`: rodar `pnpm verify:api` antes do `git add`.
 - Conteúdo do commit: todo o diff, salvo exclusão explícita dele. Separar por conta própria é inferência de escopo proibida.
 - Nunca `git checkout` entre `dev`/`main` durante deploy — usar `git fetch`/`rev-parse`/`log`.

@@ -37,9 +37,9 @@ const jsonld = [websiteLd(), organizationLd()];
       do mantenedor (2026-09-15) é que a home tenha entrada própria.
 
       `<form action="/busca/">` e NÃO um botão que só dispara evento: assim a busca funciona
-      sem JavaScript e para o crawler, submetendo para a página real. O `?q=` não é lido por
-      `/busca/` hoje (o Pagefind monta vazio), mas o destino é correto e a pessoa continua
-      na busca — degradar para "campo morto" seria pior.
+      sem JavaScript e para o crawler, submetendo para a página real. Desde T7.8 a `/busca/`
+      lê o `?q=` e já chega com o termo buscado — antes ela montava vazia e a pessoa tinha de
+      redigitar.
 
       ⚠️ SEM `<script is:inline>` aqui, e isso é decisão medida, não esquecimento. A primeira
       versão desta busca interceptava o `submit` para abrir o modal Pagefind sem recarregar.
@@ -54,9 +54,9 @@ const jsonld = [websiteLd(), organizationLd()];
 
       ⚠️ NÃO reusar `id="search-toggle"` aqui: `id` é único por documento, e o listener do
       modal casa `target.closest("#search-toggle")` — dois elementos com o mesmo id deixariam
-      o comportamento dependente da ordem do DOM. ⚠️ NÃO montar outro `PagefindUI`: o host
-      `#pagefind-search` já existe no modal e em `/busca/`, e um terceiro com o mesmo id
-      colidiria na inicialização.
+      o comportamento dependente da ordem do DOM. Uma busca a mais no documento, essa sim,
+      é permitida desde T7.8: os componentes do Pagefind isolam estado por `instance`, e
+      duas instâncias distintas não colidem. Era a API antiga que não documentava isso.
     */}
     <form class="home-search" action="/busca/" method="get" role="search">
       <label class="home-search-label" for="home-search-input">Buscar no blog</label>

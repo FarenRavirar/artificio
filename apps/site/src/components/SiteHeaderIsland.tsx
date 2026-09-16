@@ -117,14 +117,34 @@ export function SiteHeaderIsland({
     markSeen();
   };
 
+  /* Fallback para `/busca/` quando o modal não abre (assets do Pagefind ausentes, como no
+     `astro dev`, onde o índice só existe depois do postbuild).
+
+     ⚠️ O fallback espera o EVENTO `artificio:search-unavailable`, emitido pelo
+     `SearchModal.astro` quando o carregamento falha — nunca um prazo fixo. A primeira
+     versão desta task esperava 100ms e então checava `isOpen`: o bundle do Pagefind tem
+     171 KB, e num primeiro clique sem cache ele ainda está baixando aos 100ms. O
+     carregamento em andamento era lido como falha, e a navegação abortava o modal que
+     estava prestes a abrir. Qualquer tempo que cobrisse uma conexão lenta seria longo
+     demais para uma rápida; o evento não tem esse trade-off.
+
+     Os listeners são registrados no `openSearch` e removidos na primeira resposta, em vez
+     de viverem num `useEffect`: assim um aviso atrasado de um clique anterior não navega
+     sozinho enquanto a pessoa lê a página. O modal responde sempre — `search-opened` no
+     caso feliz, `search-unavailable` no fracasso —, e é o `search-opened` que impede o
+     listener de ficar pendurado quando a busca abre normalmente, que é o comum. */
   const openSearch = () => {
+    const cleanup = () => {
+      document.removeEventListener("artificio:search-unavailable", onUnavailable);
+      document.removeEventListener("artificio:search-opened", cleanup);
+    };
+    const onUnavailable = () => {
+      cleanup();
+      window.location.assign("/busca/");
+    };
+    document.addEventListener("artificio:search-unavailable", onUnavailable);
+    document.addEventListener("artificio:search-opened", cleanup);
     document.dispatchEvent(new CustomEvent("artificio:open-search"));
-    window.setTimeout(() => {
-      const modal = document.getElementById("search-modal");
-      if (!(modal instanceof HTMLElement) || modal.hidden) {
-        window.location.assign("/busca/");
-      }
-    }, 100);
   };
 
   useEffect(() => {

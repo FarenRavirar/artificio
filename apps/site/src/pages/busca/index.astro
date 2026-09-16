@@ -19,36 +19,59 @@ const canonical = new URL("/busca/", Astro.site).toString();
   (o sitemap pede rastreio, a meta nega). A saída do sitemap é o `filter` em
   `astro.config.mjs`, e as duas metades andam juntas.
 */}
+{/*
+  Busca em Component UI (T7.8, spec 102), não no `PagefindUI` da API antiga, descontinuada
+  na Pagefind 1.5.0 com a 1.5.2 instalada. O detalhe de por que `pagefind-component-ui.js`
+  e não `pagefind-ui.js` está no comentário de `SearchModal.astro`, que carrega o mesmo
+  bundle.
+
+  `instance="search-page"` difere do `"overlay"` do modal. Instâncias distintas mantêm
+  termo e resultado próprios, então a busca da página e a do modal convivem no mesmo
+  documento sem colidir — o que a API antiga não permitia, por não documentar duas
+  instâncias. Era daí que vinham os dois `id="pagefind-search"` desta página.
+*/}
 <Base title="Buscar — Artifício RPG" canonical={canonical} noindex>
   <article class="prose">
     <h1>Buscar no Blog</h1>
-    <div id="pagefind-search"></div>
+    <link rel="stylesheet" href="/pagefind/pagefind-component-ui.css" />
+    <pagefind-config instance="search-page" lang="pt-br" preload></pagefind-config>
+    <pagefind-input instance="search-page" autofocus></pagefind-input>
+    <pagefind-summary instance="search-page"></pagefind-summary>
+    <pagefind-results instance="search-page"></pagefind-results>
   </article>
 </Base>
-<script is:inline>
+{/*
+  `<script>` sem `is:inline`: o Astro bundla e hasheia para a CSP sozinho. A versão
+  anterior usava `is:inline`, que o Astro NÃO hasheia — o script saía bloqueado pela CSP e
+  a página renderizava caixa vazia (medido em T7.6).
+*/}
+<script>
   (function () {
-    var loaded = false;
-    function loadSearch() {
-      if (loaded) return;
-      loaded = true;
-      var css = document.createElement("link");
-      css.rel = "stylesheet";
-      css.href = "/pagefind/pagefind-ui.css";
-      document.head.appendChild(css);
-      var s = document.createElement("script");
-      s.src = "/pagefind/pagefind-ui.js";
-      s.onload = function () {
-        try {
-          new PagefindUI({ element: "#pagefind-search" });
-        } catch (error) {
-          console.error("Falha ao inicializar PagefindUI", error);
-          var host = document.getElementById("pagefind-search");
-          if (host) host.textContent = "Não foi possível carregar a busca agora.";
-        }
-      };
-      document.head.appendChild(s);
+    var COMPONENT_UI = "/pagefind/pagefind-component-ui.js";
+
+    // `?q=` vindo do formulário da home (T7.6). Nenhum componente do Pagefind lê a query
+    // string sozinho — confirmado na doc do Component UI. Sem estas linhas, quem envia a
+    // busca da home chega aqui com a caixa vazia e redigita tudo.
+    function applyQueryTerm() {
+      var term = new URLSearchParams(window.location.search).get("q");
+      if (!term) return;
+      var components = (window as unknown as { PagefindComponents?: { getInstanceManager?: () => { getInstance: (name: string) => { triggerSearch: (term: string) => void } } } }).PagefindComponents;
+      var manager = components?.getInstanceManager?.();
+      if (!manager) return;
+      manager.getInstance("search-page").triggerSearch(term);
     }
-    if (document.readyState === "complete") loadSearch();
-    else window.addEventListener("load", loadSearch, { once: true });
+
+    var script = document.createElement("script");
+    script.src = COMPONENT_UI;
+    script.onload = function () {
+      // O upgrade dos elementos já no DOM acontece depois do `onload`, não junto: sem o
+      // `whenDefined` a instância ainda não existe e o termo se perde em silêncio.
+      customElements.whenDefined("pagefind-input").then(applyQueryTerm);
+    };
+    script.onerror = function () {
+      var host = document.querySelector("pagefind-results");
+      if (host) host.textContent = "Não foi possível carregar a busca agora.";
+    };
+    document.head.appendChild(script);
   })();
 </script>

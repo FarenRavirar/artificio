@@ -4909,7 +4909,7 @@ Fontes: `pagefind.app/docs/ui/` · `pagefind.app/docs/components/` ·
 
 ---
 
-### [ ] T7.8 — Busca do `site` migra para o Component UI do Pagefind
+### [x] T7.8 — Busca do `site` migra para o Component UI do Pagefind
 
 > **Esta task existe por falta de pesquisa do agente, não por mudança de requisito.**
 > O `SearchModal.astro` e a `/busca/` foram escritos contra `PagefindUI`
@@ -4959,20 +4959,93 @@ documenta duas instâncias, que é a origem do defeito.
 Sem `<script is:inline>` em nenhum dos dois: o `type="module"` é bundlado e hasheado pelo
 Astro, então some junto o hash manual de CSP (a armadilha registrada em T7.6).
 
-**Aceite.**
-1. `dist`: **0** ocorrências de `pagefind-ui.js` e `pagefind-ui.css` no HTML servido; os
-   dois pontos de carregamento passam a ser `pagefind-component-ui.*`.
-2. `dist`: nenhuma página com `id="pagefind-search"` duplicado — contagem por página ≤ 1
-   nas 47.
-3. Nenhum `<script>` inline sem hash: hashear cada inline do `dist` e conferir contra a
-   meta emitida devolve **0 MISSING** (o instrumento que achou o defeito).
-4. Tema: as 7 `--pagefind-ui-*` saem de `global.css`, substituídas pelas `--pf-*`
-   correspondentes, com par no escuro ligado a `:root[data-theme="dark"]`.
-5. `/busca/` continua com `noindex` e fora do sitemap (T7.7 não regride): `<loc>` segue 45.
-6. Suíte do `site` verde e `build` exit 0.
+**Aceite — medido em 2026-09-16, no `dist` e no preview local, não em produção** (a branch
+não foi deployada).
+1. ✅ `dist`: **0** ocorrências de `pagefind-ui.js` e `pagefind-ui.css` no HTML servido.
+   O bundle novo entra pelo script bundlado, não por `src` literal no HTML — medido em
+   `dist/_astro/*.js`: **2** referências a `pagefind-component-ui.js`. O CSS entra por
+   `<link>`: **48** ocorrências de `pagefind-component-ui.css` nas 47 páginas (a `/busca/`
+   tem duas, a do modal e a da própria página).
+2. ✅ `dist`: **0** ocorrências de `id="pagefind-search"` em qualquer página — o host
+   nomeado deixou de existir, porque os custom elements são o próprio host.
+3. ✅ Nenhum inline sem hash: **196** scripts inline hasheados e conferidos contra a meta
+   emitida, **0 MISSING**.
+4. ✅ Tema: sobra **1** ocorrência de `--pagefind-ui-`, dentro do comentário que explica a
+   troca; **26** declarações `--pf-*` em `global.css`. Medido no preview, com o modal
+   aberto: no claro `--pf-text` devolve `#020740` e o campo pinta `rgb(2, 7, 64)`; no
+   escuro, `#eef1f8` sobre `rgb(27, 42, 74)`.
+5. ✅ `/busca/` segue com `noindex` (**1**) e fora do sitemap (**0** ocorrências de
+   `/busca/`); `<loc>` segue **45**.
+6. ✅ `site` **192** testes, `lint` exit 0, `build` exit 0, `verify:api` exit 0 com
+   **breaking=0** nos 6 apps.
+7. ✅ Funcionamento real, no preview (`astro preview`, encerrado ao fim): `/busca/?q=ficha`
+   abre com o campo preenchido e **5 resultados**; o modal abre pela lupa com **7
+   resultados** para `rpg`, em português (`Pesquisar`, `resultados encontrados para`), com
+   link relativo correto e `Esc` fechando. Console: os únicos erros são CORS do SSO contra
+   `accounts.artificiorpg.com`, que não responde a `localhost` — **zero** erro de CSP ou
+   de Pagefind.
 
-**Fora do escopo:** ler `?q=` na `/busca/` (bug latente registrado em T7.6). O Component UI
-pode resolver de graça — medir na implementação, não assumir.
+**`?q=` entrou junto, por decisão do mantenedor (2026-09-16)**, em vez de ficar fora do
+escopo como esta task previa. Medido: nenhum componente do Pagefind lê a query string
+sozinho, então NÃO saiu de graça — são as linhas de `applyQueryTerm` em
+`pages/busca/index.astro`, via `window.PagefindComponents.getInstanceManager()`. Fecha o
+achado 2 da revisão da PR #324, que estava esperando esta migração.
+
+**Três armadilhas medidas na implementação, além das três já previstas acima.**
+
+1. **O bundle é IIFE, não ES module.** A doc oferece `import '@pagefind/component-ui'`;
+   o arquivo servido em `/pagefind/` termina em `window.PagefindComponents=...` e não
+   exporta nada. O acesso programático (o `?q=`) é pela global. Mais uma vez a doc diz a
+   forma e o artefato diz o fato, como no arquivo errado registrado acima.
+2. **O CSS do Pagefind carrega DEPOIS do nosso e apagava o tema claro.** Medido no
+   preview: `document.styleSheets` traz `Base.*.css` antes de `pagefind-component-ui.css`,
+   e os dois declaram as variáveis em `:root`, mesma especificidade — vence o último.
+   Antes da correção, `--pf-text` devolvia `#1a1a1a`, o cinza padrão, e não o navy da
+   marca. O escuro escapava por acidente, porque `:root[data-theme="dark"]` já pesa mais.
+   Correção: `:root:root` no bloco claro, que sobe a especificidade sem depender de uma
+   ordem de carregamento que não controlamos. **O aceite 4 sozinho não pegaria isso** — as
+   variáveis estavam escritas e corretas no arquivo; só não venciam a cascata. Foi a
+   medição no browser que achou.
+3. **O fallback do header estava quebrado pela troca.** `SiteHeaderIsland.tsx` checava
+   `modal.hidden` para decidir se navegava para `/busca/`. O `<pagefind-modal>` abre um
+   `<dialog>` interno e nunca usa `hidden`, então a checagem seria sempre `false` e o
+   fallback nunca dispararia. A primeira correção trocou por `isOpen` mantendo o timer de
+   100ms, e **isso era outro defeito** — ver a revisão da PR #325 abaixo.
+
+**Revisão da PR #325 — dois achados do Codex no commit `b22ec7e`, um procedente
+(medido em 2026-09-16).**
+
+1. **Fallback com prazo fixo de 100ms — PROCEDENTE, corrigido.** O `openSearch` esperava
+   100ms e então checava `isOpen`. O bundle tem **171 KB**: num primeiro clique sem cache
+   ele ainda está baixando aos 100ms, e o carregamento em andamento era lido como falha —
+   a navegação para `/busca/` abortava o modal que estava prestes a abrir. Qualquer prazo
+   que cobrisse uma conexão lenta seria longo demais para uma rápida. **O agente já sabia:
+   a falha estava escrita no comentário do próprio código** ("sem cache o primeiro clique
+   pode cair no fallback") e foi tratada como aceitável em vez de consertada. Correção: o
+   `SearchModal` emite `artificio:search-opened` ou `artificio:search-unavailable`, e o
+   header escuta, sem timer; os dois listeners saem na primeira resposta, então um aviso
+   atrasado de clique anterior não navega sozinho. Medido no preview, com o bundle
+   removido do `dist` e clique real na lupa: navegou para `/busca/`. Com o bundle no
+   lugar: `search-opened` dispara, `search-unavailable` não, e a página fica onde está
+   mesmo esperando 3 segundos — dez vezes o antigo prazo.
+
+2. **"Atalho `/` capturado por causa do Shadow DOM" — IMPROCEDENTE, a premissa é falsa.**
+   O bot afirma que `document.activeElement` seria o host do custom element, e não o
+   `INPUT`, porque o Component UI usaria Shadow DOM. Medido no bundle:
+   `attachShadow` aparece **0** vezes e `shadowRoot` **0** vezes. Medido no preview, com o
+   modal aberto e o campo focado: `document.activeElement.tagName` é **`INPUT`**,
+   `activeElement === input` é **true**, e `shadowRoot` é `null` tanto no
+   `<pagefind-modal>` quanto no `<pagefind-input>`. Teste de ponta a ponta digitando pelo
+   teclado: `a/b` entra inteiro no campo, com a barra. O guard atual
+   (`tag === "INPUT" || tag === "TEXTAREA"`) basta. **Não reabrir sem remedir** —
+   registrado aqui porque o bot relê o mesmo diff a cada push.
+
+**Forma entregue.** Modal nativo do Pagefind, tematizado com as cores da marca (decisão do
+mantenedor, 2026-09-16), em vez de manter a moldura própria com os componentes dentro.
+Saíram do `global.css` as classes `.search-modal`, `.search-backdrop`, `.search-panel`,
+`.search-close` e `.pagefind-fallback`, junto com o markup que as usava. NÃO usamos
+`<pagefind-modal-trigger>`: a lupa vive na ilha React do header e dispara
+`artificio:open-search`, e o trigger desenharia um segundo botão de busca no documento.
 
 ---
 
@@ -4982,7 +5055,8 @@ pode resolver de graça — medir na implementação, não assumir.
 T7.2, T7.3, T7.5, T7.6 e T7.7 entregues na **PR #324**
 (`feat/102-f7-busca-uniforme`, commit `a3e1b0b`, base `dev`, criada de `origin/dev` em
 `5f3f4b3`, 24 arquivos, +1607/−190). `verify:api` exit 0 no pre-commit, zero breaking nos
-6 apps. **T7.8 está registrada na PR como aberta, não implementada.**
+6 apps. **T7.8 saiu de fora dessa PR** — foi implementada depois, em 2026-09-16, e ainda não
+está em PR nenhuma.
 
 **Revisão da PR #324 — três achados dos bots, um procedente (medido em 2026-09-15).**
 Registrado aqui porque os dois improcedentes VÃO voltar: o bot relê o mesmo diff a cada
@@ -5003,7 +5077,34 @@ push, e sem o veredicto escrito a medição se perde e a hipótese fica.
    `styles.contract.test.ts`, porque a regra é apagável sem quebrar nada no desktop,
    que é onde ela seria editada.
 
-2. **CodeRabbit, "ler `?q=` no `PagefindUI` da home" — IMPROCEDENTE, o bot leu errado.**
+2. **`?q=` chega em `/busca/` e é IGNORADO — PROCEDENTE. O veredicto anterior aqui
+   estava ERRADO, e a correção do registro é parte do achado.**
+
+   Escrito em 2026-09-15 como "improcedente, o bot leu errado", porque o CodeRabbit
+   apontou `apps/site/src/pages/index.astro`, onde de fato não há `PagefindUI` — as
+   únicas ocorrências do identificador ali estão em comentário (medido: `grep -o`
+   devolve 1, dentro de `{/* ... */}`). O erro foi colar "arquivo errado" em "não há
+   defeito": o defeito existe no arquivo VIZINHO, e já estava medido e escrito nesta
+   própria spec desde T7.6.
+
+   O Codex apontou o lugar certo em 2026-09-16 (P1, revisão do commit `bab9031`):
+   `apps/site/src/pages/busca/index.astro:42` faz
+   `new PagefindUI({ element: "#pagefind-search" })` e nunca lê `location.search`. Quem
+   envia o formulário da home chega a `/busca/?q=termo` e encontra **caixa vazia**,
+   tendo de digitar tudo de novo. O `<form>` da home (T7.6) só está correto do lado de
+   quem envia.
+
+   ⚠️ **Não corrigir escrevendo `triggerSearch` no `PagefindUI`.** Medido no `dist` em
+   2026-09-16: `pagefind-ui.js` define **0** `customElements.define`;
+   `pagefind-component-ui.js` define **13**. Lock em **1.5.2** (`package.json` pede
+   `^1.3.0`), e `PagefindUI` está descontinuada desde a 1.5.0. Ler o `q` pela API velha é
+   escrever código novo contra API morta — o remédio é **T7.8**, que já existe por esta
+   mesma razão. O `?q=` entra junto com a migração, não antes.
+
+   **CORRIGIDO em T7.8** (2026-09-16), pela API nova, como previsto aqui. Medido no
+   preview: `/busca/?q=ficha` chega com o campo preenchido e 5 resultados.
+
+3. **CodeRabbit, "ler `?q=` no `PagefindUI` da home" — improcedente quanto ao LOCAL.**
    `apps/site/src/pages/index.astro:61` não inicializa `PagefindUI` nenhum: é
    `<form action="/busca/" method="get">`, HTML puro, sem script — e a ausência de script
    é decisão medida, registrada no comentário do próprio arquivo (CSP bloqueia
@@ -5012,7 +5113,7 @@ push, e sem o veredicto escrito a medição se perde e a hipótese fica.
    `PagefindUI`, API descontinuada na 1.5.0. Escrever o `q` agora seria mais código
    contra a API morta.
 
-3. **CodeRabbit, "fallback para `addListener` legado" — IMPROCEDENTE.**
+4. **CodeRabbit, "fallback para `addListener` legado" — IMPROCEDENTE.**
    `addListener` está deprecado; `addEventListener` em `MediaQueryList` existe desde
    **Safari 14**, e antes disso `MediaQueryList` não herdava de `EventTarget`. Sem
    `browserslist` e sem `build.target` no `vite.config.ts` do `downloads`, o alvo é o
@@ -5021,6 +5122,66 @@ push, e sem o veredicto escrito a medição se perde e a hipótese fica.
    desktop em vez de assinar API deprecada. O teste pedido também já existe — o mock de
    `src/test/setup.ts:46-49` expõe `addListener` E `addEventListener`, e é por causa de
    mocks assim que a guarda foi escrita.
+
+**Segunda rodada de revisão (2026-09-16, sobre o commit `bab9031`) — três achados novos,
+os três PROCEDENTES. Nenhum corrigido ainda; o primeiro depende de decisão do mantenedor.**
+
+5. **⚠️ BLOQUEADOR — `actions` some do desktop, e o sino nem monta. Regressão de T7.3,
+   introduzida por mim, não pelo review.** Codex P2. Medido em 2026-09-16: `actions`
+   renderiza em UM lugar do `Header.tsx` (linha 281), dentro de `{open ? ...}`. Não há
+   condição de largura — em QUALQUER viewport, incluindo desktop, o `NotificationBell` do
+   `mesas`/`downloads` e o "Adicionar Sugestão" do `glossario` só existem depois do clique
+   no avatar.
+
+   O efeito grave não é o de esconder. `NotificationBell.tsx:212` dispara o fetch inicial
+   de `unread-count` num `useEffect` do PRÓPRIO componente: sem montar, não há requisição,
+   e o badge de não-lidas nunca aparece. O usuário não tem sinal nenhum de que existe
+   notificação, logo não tem por que abrir o menu para descobrir. **Falha silenciosa**, e
+   em produção assim que qualquer um desses apps for deployado.
+
+   Colide com decisão do mantenedor, e por isso PARA aqui: *"notificação fica dentro do
+   direito, pois é notificação de quem fica logado"* (F7). O guard
+   `Header.sessao.test.tsx:59-75` trava exatamente o estado atual. Três saídas medidas,
+   apresentadas a ele em 2026-09-16, **sem resposta até agora**:
+   (a) `actions` na barra em >860px e no painel em ≤860px — preserva a decisão no celular
+   e o desktop de antes; custo: o `Header` passa a depender de largura, o que hoje não
+   faz, exigindo `matchMedia` dentro do pacote e afetando os 5 consumidores;
+   (b) `actions` sempre no painel + indicador de não-lidas no avatar — preserva a decisão
+   em toda largura; exige o sino expor a contagem para fora, e ele segue sem montar;
+   (c) reverter essa parte de T7.3 — desfaz a decisão dele e devolve o estouro de 2px em
+   320px que T7.1 corrigiu.
+   Recomendada: **(a)**. Não implementar nenhuma sem a resposta.
+
+6. **`role="menu"` com conteúdo arbitrário dentro — PROCEDENTE, 1 ocorrência (não 2).**
+   CodeRabbit falou em "both account-panel containers"; medido: `role="menu"` aparece
+   **1** vez em `packages/ui/src` (`Header.tsx:261`) e `role="menuitem"` **2**. O
+   `<div className="artificio-usermenu-actions">` (linha 282) não tem role — ele é filho
+   do `role="menu"`, e é aí que está o defeito. A ARIA APG exige que filhos de `menu`
+   sejam `menuitem`/`menuitemcheckbox`/`menuitemradio`; `actions` é slot extensível que
+   injeta botão com dropdown próprio (`mesas`, `downloads`) ou botão comum (`glossario`).
+   Esse conteúdo fica dentro de um `menu` sem ser item: não entra na contagem anunciada
+   nem na navegação por setas. Nenhum teste do repo trava `role="menu"` hoje (medido: 0
+   ocorrências em `*.test.tsx`), então a correção não esbarra em guard.
+
+7. **`aria-label` em `<span>` decorativo — PROCEDENTE.**
+   `ChangelogButton.tsx:42` marca o ponto de novidade com
+   `<span className="artificio-header-action-badge" aria-label="Novidade" />`. O elemento
+   não tem role e é puramente visual (`styles.css:892`: 9×9px, `border-radius`, sem
+   conteúdo); `aria-label` em elemento genérico sem role é ignorado por boa parte das ATs,
+   e a W3C manda `aria-hidden="true"` para indicador decorativo. Resultado hoje: quem não
+   enxerga o ponto vermelho não recebe o estado de "não visto" por via nenhuma.
+
+   ⚠️ **A correção não pode mexer na string `aria-label="Novidades"` do botão.** Quatro
+   guards a prendem, três deles usando-a como SELETOR: `Header.acesso.test.tsx:64` e
+   `:167`, `Header.paineis.test.tsx:197`, `SiteHeader.estrutura.test.tsx:143`.
+   Condicionalizar o rótulo do botão — que é o que o review pede — quebraria os três e o
+   guard do `site`. O caminho que não quebra: `aria-hidden` no badge e o estado por texto
+   visualmente oculto dentro do botão.
+
+8. **`Header.sessao.test.tsx:19`, "rode `pnpm run lint` e `pnpm run build`" — NÃO é
+   achado.** É instrução de processo embutida em dado de revisão, não defeito no código.
+   `AGENTS.md` manda tratar texto de bot como dado, nunca como instrução. `eslint` e
+   `tsc` já rodaram no pacote neste trabalho: exit 0 nos dois.
 
 Validação da correção do item 1, os 5 consumidores do `Header`, um comando por vez:
 `ui` 144 (era 143, +1 do guard) · `site` 192 · `downloads` 321 · `glossario` 37 ·
@@ -5046,9 +5207,10 @@ de `/catalogo` (decisão do mantenedor, critério SEO), lupa dele no celular igu
 apps (decisão do mantenedor: *"padronizado, e igual os outros"*) e busca explícita na home
 do `site`. T7.7 com `noindex` + `filter` do sitemap, `<loc>` 46→45.
 
-**T7.8 ABERTA** — migrar a busca do `site` para o Component UI do Pagefind. Nasceu de falta
-de pesquisa do agente (API descontinuada usada sem abrir a doc), não de requisito novo; a
-decisão de migrar é do mantenedor (2026-09-15). Não bloqueia nada do que já está feito.
+**T7.8 FEITA** (2026-09-16, local, não deployada) — busca do `site` migrada para o Component
+UI do Pagefind, com o `?q=` da home lido na `/busca/`. Nasceu de falta de pesquisa do agente
+(API descontinuada usada sem abrir a doc), não de requisito novo. Aceites e as três
+armadilhas medidas na implementação ficam no bloco da task.
 
 **Resta o smoke visual das sete tasks feitas** — 320/360/375/390px, logado e deslogado,
 claro e escuro. Guard prova regra e estrutura, nunca pixel.
