@@ -55,12 +55,23 @@ const jsonld = [
       {cat && (<><span>/</span> <a href={catHref}>{cat.name}</a></>)}
     </nav>
     <article class="article" data-pagefind-body>
+      {/*
+        `data-pagefind-meta` (T7.8, spec 102): expõe categoria e data como CAMPO no índice,
+        não só como texto. Sem isto o `<script type="text/pagefind-template">` da `/busca/`
+        não tem como escrever `{{ meta.categoria }}` — os dois já apareciam no corpo
+        indexado, mas como palavra solta no meio do conteúdo, inalcançável pelo template.
+
+        Atributo puro: não muda o que é renderizado nem o texto que o Pagefind indexa, então
+        não mexe em SEO nem no visual do post. `meta.title` e `meta.image` NÃO entram aqui —
+        o Pagefind já os deriva sozinho do `<h1>` e da primeira imagem do `data-pagefind-body`
+        (medido: a capa está dentro do `<article>`, logo abaixo).
+      */}
       <header class="article-head">
-        {cat && <a class="chip" href={catHref}>{cat.name}</a>}
+        {cat && <a class="chip" href={catHref} data-pagefind-meta={`categoria:${cat.name}`}>{cat.name}</a>}
         <h1>{post.title}</h1>
         <div class="article-meta">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
-          <span>{post.readingTime} min de leitura</span><span class="dot">·</span><span>{post.dateFmt}</span>
+          <span>{post.readingTime} min de leitura</span><span class="dot">·</span><span data-pagefind-meta={`data:${post.dateFmt}`}>{post.dateFmt}</span>
         </div>
       </header>
       {post.image && (

@@ -4978,12 +4978,213 @@ não foi deployada).
    `/busca/`); `<loc>` segue **45**.
 6. ✅ `site` **192** testes, `lint` exit 0, `build` exit 0, `verify:api` exit 0 com
    **breaking=0** nos 6 apps.
-7. ✅ Funcionamento real, no preview (`astro preview`, encerrado ao fim): `/busca/?q=ficha`
+7. ⚠️ Funcionamento real, no preview (`astro preview`, encerrado ao fim): `/busca/?q=ficha`
    abre com o campo preenchido e **5 resultados**; o modal abre pela lupa com **7
    resultados** para `rpg`, em português (`Pesquisar`, `resultados encontrados para`), com
    link relativo correto e `Esc` fechando. Console: os únicos erros são CORS do SSO contra
-   `accounts.artificiorpg.com`, que não responde a `localhost` — **zero** erro de CSP ou
-   de Pagefind.
+   `accounts.artificiorpg.com`, que não responde a `localhost`.
+
+   **O "zero erro de CSP" deste aceite valia só para o preview, e o preview não podia
+   medi-lo.** No `localhost` não há Cloudflare injetando script na borda e o GA4 não
+   dispara contra host de teste — as duas coisas que quebram em beta. Ver o bloco de
+   deploy beta abaixo. Aceite reaberto: só fecha com console limpo em `beta.`, não em
+   `localhost`.
+
+**Deploy beta de 2026-09-16 (run `35105075773`, `success`) — três achados que o preview
+não alcançava.** Medições com `?cb=$(date +%s%N)`.
+
+Fechou o que dependia só do HTML servido: `/busca/` responde **200**, traz `noindex`, e os
+custom elements (`pagefind-config`, `pagefind-input`, `pagefind-modal`, `pagefind-results`,
+`pagefind-summary`) estão no HTML inicial com `pagefind-component-ui.css`. **Armadilha de
+instrumento:** `grep -o 'pagefind[a-z-]*\.js'` no HTML devolve **zero** e parece ausência do
+bundle — ele carrega dinâmico pelo script bundlado, não por `<script src>`. Medir pelos
+custom elements, não pelo nome do arquivo.
+
+1. **`connect-src` mata o GA4 em silêncio — o pior dos três.** A diretiva lista
+   `https://www.google-analytics.com`, mas o GA4 também envia para `analytics.google.com` e
+   `www.google.com`. Medido no console do mantenedor em `beta.artificiorpg.com/busca/?q=artigo`:
+   `Refused to connect because it violates the document's Content Security Policy` em
+   **6** requisições, incluindo `en=view_search_results`, `en=page_view` e `en=scroll`.
+   Efeito: **a busca não gera nenhuma métrica no GA4**, e nada na página indica falha.
+   Vale para toda rota do `site`, não só `/busca/` — `page_view` é global. Não é regressão
+   da T7.8: a diretiva já era incompleta; foi a busca que deu volume de evento suficiente
+   para aparecer.
+
+   **Corrigido na árvore, medido no `dist`:** a meta emitida traz
+   `connect-src 'self' https://accounts.artificiorpg.com https://www.google-analytics.com
+   https://analytics.google.com https://www.google.com https://cloudflareinsights.com`.
+   **⚠️ Só vale depois de deploy** — a CSP é `<meta>` gerada no build, então beta e prod
+   seguem servindo a diretiva antiga e o GA4 continua mudo lá até o `site` ser deployado.
+   "CSP corrigida" ≠ "analytics funcionando"; a segunda exige remedir o console no
+   ambiente, não o `dist`.
+
+   **O Search Console NÃO é afetado por nada disto, nos dois sentidos.** Ele lê o HTML como
+   crawler e não executa `fetch` do browser, então `connect-src` nunca o alcançou; e o
+   `enable_js: false` aplicado na zona mexe em detecção de bot, não em indexação. H1 segue
+   sendo ação manual do mantenedor (Validate Fix em 3 linhas), pós-Deploy B e pós-Deploy D,
+   como o `mapa-deploys.md` registra. Não contar estas correções como avanço de critério
+   de SEO.
+
+   **Instrumento:** `grep -o "connect-src[^;\"]*"` no HTML devolve **vazio** e parece
+   diretiva ausente — as diretivas vivem dentro do atributo `content="..."` da meta, com
+   aspas que quebram a âncora. Extrair a meta e separar por `;`.
+2. **O inline bloqueado NÃO é nosso, é do Cloudflare — e a solução oficial não se aplica
+   a este projeto.** O hash cobrado pelo console
+   (`sha256-6ovEpXBIcfL85cUyN492lUgtD7CGUeXEgRaUcD+JKnY=`) não existe em página alguma do
+   `dist`. Medido: o HTML servido em beta traz um quinto inline
+   (`sha256-855uKVt1ahoQEILk8R/ap3UCzj3kEdZ0YyxzYu3llf4=`, 921 B) com
+   `window.__CF$cv$params` e `/cdn-cgi/challenge-platform/scripts/jsd/main.js`, ausente do
+   `dist` local (`grep -c '__CF$cv$params'` → **0**). É o **JavaScript Detections**
+   (`bot_management.enable_js: true` na zona `70b679c1…`, medido pela API); o hash cobrado
+   vem do script que ele cria por `innerHTML`.
+
+   **Hash fixo na CSP não resolve:** o conteúdo carrega token rotativo (`r:`, `t:`), muda a
+   cada resposta.
+
+   **⚠️ A saída que a doc da Cloudflare recomenda está FECHADA para o `site`, e é preciso
+   medir antes de tentar.** A doc manda usar `nonce`: *"If your CSP uses a `nonce` for
+   script tags, Cloudflare will add these nonces to the scripts it injects by parsing your
+   CSP **response header**"*. Logo abaixo, a restrição que decide o caso:
+   *"JavaScript Detections is not supported with `nonce` set via `<meta>` tags."* O `site` é
+   SSG e emite a CSP **só** por `<meta http-equiv>` — medido em beta: **zero** header
+   `content-security-policy` na resposta. Tentar nonce sem migrar para header seria refazer
+   a T7.6 (script bloqueado porque o mecanismo de hash/nonce não alcançava o inline).
+
+   A doc também **não** oferece desativação por rota: *"does not mention any mechanism to
+   disable JavaScript Detections on a per-route basis"* — o toggle é da zona inteira.
+
+   **Auditoria da zona (API, 2026-09-16) — o sinal é coletado e ninguém lê.** Varridas as
+   regras de `http_request_firewall_custom`, `http_request_firewall_managed`,
+   `http_ratelimit` e os transforms: **zero** expressões referenciam
+   `cf.bot_management.js_detection.passed`. As duas custom são `Bloquear XML-RPC` e
+   `Bypass Browser Integrity Check para crawlers de link preview (OG)`. A doc confirma que
+   o sinal não bloqueia sozinho: *"Enforcement against bots does **not** occur even if the
+   cookie is flagged false"* — só vale com regra WAF custom sobre aquele campo, que não
+   existe aqui.
+
+   **Existe infra de header já rodando, se um dia a CSP precisar migrar.** Ruleset
+   `eeb76392…` (`http_response_headers_transform`), regra `sec-headers-baseline` com
+   `expression: true`, hoje setando `X-Frame-Options`, `X-Content-Type-Options`,
+   `Referrer-Policy` e `Permissions-Policy`; mais `sec-hsts-zone` com HSTS. A CSP caberia
+   ali. **Custo não medido:** migrar os 9 hashes tira a política do repositório (some do
+   diff e da revisão de PR) e, enquanto o `<meta>` existir, as duas se aplicam por
+   INTERSEÇÃO — divergência silenciosa entre painel e código quebra página sem aviso.
+
+   Opção recomendada ao mantenedor: `enable_js: false`, reversível numa chamada, sem perda
+   de proteção em uso. **Escrita em produção, pendente de autorização nominal — não
+   executada.**
+3. **A `/busca/` roda o `<pagefind-results>` no modo default de documentação — não é
+   falta de tema, é o componente sem configurar.** Achado visual do mantenedor no beta:
+   *"design horrível, nada dentro dos padrões de uso geral"*. Procede, e a causa medida é
+   mais rasa do que tematizar CSS:
+
+   **A capa nunca aparece.** `show-images` é **`false` por padrão** (doc do componente
+   `results`), e `pages/busca/index.astro:40` declara `<pagefind-results
+   instance="search-page">` sem nenhum atributo. O acervo é editorial, com capa 1200×630
+   em todo post — a busca mostra lista de texto puro.
+
+   **O excerto é truncado em UMA linha, por CSS do próprio bundle.** Medido em
+   `pagefind-component-ui.css`: `.pf-result-excerpt` tem
+   `white-space: nowrap; overflow: hidden; text-overflow: ellipsis`. Nenhuma variável
+   `--pf-*` desliga isso.
+
+   **A escala default inverte a hierarquia do site.** `--pf-result-title-font-size` **14px**
+   e `--pf-result-excerpt-font-size` **13px**, contra `--pf-input-font-size` **16px** e
+   corpo do site **16px**: o conteúdo encontrado lê menor que a caixa que o procurou. A
+   referência da marca para "item com título, resumo e imagem" é o card do acervo —
+   `.card-title` 18px `--display`, `.card-excerpt` 15px, `.card-meta` 13px.
+
+   **⚠️ O que NÃO precisa ser construído.** `.pf-result-card` já traz borda, raio, padding,
+   `gap`, hover com `border-color` + `box-shadow`, e `.pf-result-link::after {position:
+   absolute; inset: 0}` — a técnica canônica de card inteiramente clicável com um único
+   link no accessibility tree. **Reescrever isso em CSS próprio seria refazer o que o
+   componente já entrega**; o que falta é alimentá-lo.
+
+   **Caminho oficial, da doc (`pagefind.app/docs/components/results/`):
+   `<script type="text/pagefind-template">` dentro do componente.** Aceita
+   `{{ meta.title }}`, `{{+ excerpt +}}`, `{{ url | safeUrl }}`, `meta.*` customizado e
+   `sub_results`. É o mecanismo previsto para um resultado ter a forma do produto. Medido
+   no fonte: `blog/[slug].astro:66-68` põe o `<img>` da capa DENTRO do
+   `data-pagefind-body`, então `meta.image` já existe no índice sem trabalho novo;
+   categoria e data estão indexadas como texto, mas **não** como `meta` — não há um único
+   `data-pagefind-meta` no `apps/site/src` (medido: 0 ocorrências). Para o resultado
+   exibir categoria/data como campo, elas precisam virar `data-pagefind-meta`.
+
+   **Erro de método do agente, registrado porque se repetiu nesta mesma task.** A primeira
+   tentativa de conserto escreveu 17 variáveis `--pf-*` com valores tirados de julgamento
+   próprio (18px, gap 20px, 96×72, modal 640px) **antes** de abrir a doc do componente — a
+   mesma falta de pesquisa que criou a T7.8, dentro da correção da T7.8. O mantenedor
+   apontou: *"você gosta de reinventar o que já está estudado ou construído"*. O bloco foi
+   revertido (`git checkout` em `global.css`) sem chegar a commit. **A doc do componente
+   vem antes do CSS: ela mostrou que o problema era `show-images` e template, não valor de
+   variável.**
+
+   **Instrumento:** o aceite 4 media **presença** de `--pf-*` (26 declarações), não
+   **cobertura** nem configuração do componente — por isso passou verde com a busca em
+   modo default. Contar declarações do nosso lado não mede nada; medir contra o que o
+   bundle expõe e contra os atributos do componente.
+
+   **Validação da correção (2026-09-16), com as 4 alterações de código na árvore e NADA
+   commitado:** `site` **192** testes passando (18 arquivos), `lint` exit 0, `verify:api`
+   exit 0 com **breaking=0** nos 6 apps. Delta: `astro.config.mjs` (+14), `busca/index.astro`
+   (+58), `blog/[slug].astro` (+15), `global.css` (+68).
+
+   **Correção aplicada (2026-09-16), medida no preview a 1857px de viewport:**
+   template com `show-images`, `data-pagefind-meta` de categoria e data no
+   `blog/[slug].astro`, e a coluna da página. Resultados: largura **1842px → 680px**;
+   excerto **1 linha / ~170 caracteres → 3 linhas / ~57**, dentro da faixa 50–75 da
+   Baymard; título 18px; `<mark>` do termo preservado; `.busca-result-meta` rendendo
+   "Crônicas · 09 de janeiro de 2026"; 7 resultados para `rpg`; console de **16 erros → 2**
+   (os 2 são CORS do SSO contra `localhost`, que não responde a host de teste).
+
+   **A largura NÃO é `.container` (1100px), e não foi escolhida por gosto.** Medido no
+   mesmo viewport, em dois motores independentes: DuckDuckGo serve a coluna de resultados em
+   **672px** (`left: 158`), Bing em **648px** (`left: 160`) — os dois **alinhados à
+   esquerda**, não centralizados. Daí `--busca-col: 680px`.
+
+   **Centralizada (`margin: 0 auto`) por decisão do mantenedor em 2026-09-16**, contra o
+   alinhamento à esquerda dos dois motores: *"pode manter centralizado, faz jus ao resto do
+   site"*. A largura segue a medição; só o alinhamento diverge, e por coerência com o
+   acervo. Não reabrir como achado.
+
+   **⚠️ Duas armadilhas de especificidade na mesma regra, a segunda quase invisível.**
+   O bundle prefixa cada regra com `:is(*, #\#)` TRÊS vezes (especificidade de 3 ids, sem
+   mudar o que casa). Com seletor simples, nada aplicava. Com três repetições — empate — o
+   resultado foi **meio certo e parecia pronto**: `-webkit-line-clamp: 3` passou a valer
+   (o bundle não declara essa propriedade, não houve disputa) mas `white-space` continuou
+   `nowrap`, porque aí o bundle declara, empata, e vence pela ordem — o `<link>` do
+   Pagefind carrega DEPOIS do CSS do Astro. Só quatro repetições desempatam. **Conferir
+   `getComputedStyle` de cada propriedade, não só de uma: metade aplicada lê como
+   aplicada.**
+
+   **`img-src` da CSP não cobria as capas — corrigido.** Ligar `show-images` expôs 14
+   violações de `img-src` no preview, uma por capa. A diretiva listava só `'self'`,
+   `data:`, `res.cloudinary.com` e `*.googleusercontent.com`. Em prod `'self'` cobre o
+   próprio domínio por acaso, mas em `beta.` a origem difere e a imagem é bloqueada.
+   Corrigido no `astro.config.mjs` com `https://artificiorpg.com`.
+
+   **⚠️ ARMADILHA DE AMBIENTE: o `dist` local NÃO é o acervo — não tirar conclusão sobre
+   produção a partir dele.** Depois da correção da CSP a imagem seguia vazia
+   (`naturalWidth` = 0), e `curl` mostrou **404** em 3 de 3 URLs
+   `/wp-content/uploads/...` — 43 distintas no `dist`. O agente registrou "todas as capas
+   do acervo estão em 404, atinge o site inteiro". **Falso, e medido como falso na
+   pergunta seguinte do mantenedor** (*"as imagens não vão funcionar quando deployado em
+   prod?"*):
+
+   - o mesmo post em `artificiorpg.com` serve
+     `res.cloudinary.com/dnln0btbo/image/upload/.../burnout-*.webp`, e tem **zero**
+     ocorrências de `wp-content`;
+   - `/blog/` em prod: **122** referências a `res.cloudinary.com`, **0** a `wp-content`;
+   - as capas do Cloudinary respondem **200**.
+
+   As URLs `/wp-content/` existem só no build local, que sai do **banco local
+   desatualizado** — o mesmo desencontro já registrado no Deploy A (beta 125 posts × prod
+   126). O build local indexa **8** páginas, contra 126 em prod. **`show-images` funciona
+   em produção; não há achado de capa quebrada.**
+
+   A regra que isto reforça: medição em ambiente local só fala do ambiente local.
+   Afirmação sobre prod exige medir prod — foi o que a §Evidência item 8 chama de conferir
+   o instrumento, e o instrumento aqui era o ambiente errado.
 
 **`?q=` entrou junto, por decisão do mantenedor (2026-09-16)**, em vez de ficar fora do
 escopo como esta task previa. Medido: nenhum componente do Pagefind lê a query string
@@ -5011,6 +5212,72 @@ achado 2 da revisão da PR #324, que estava esperando esta migração.
    `<dialog>` interno e nunca usa `hidden`, então a checagem seria sempre `false` e o
    fallback nunca dispararia. A primeira correção trocou por `isOpen` mantendo o timer de
    100ms, e **isso era outro defeito** — ver a revisão da PR #325 abaixo.
+
+**Revisão da PR #326 — separador órfão no resultado sem categoria. Codex, PROCEDENTE
+(medido em 2026-09-16).**
+
+O template escrevia `{{ meta.categoria }} · {{ meta.data }}` incondicionalmente, mas
+`[slug].astro:70` só emite `data-pagefind-meta="categoria:…"` quando `post.cats[0]`
+existe. Resultado sem categoria abria a linha com " · " solto antes da data.
+
+Medido no `dist`: **2 de 8** posts indexados não têm o meta —
+`mudanca-de-linha-editorial-mesmo-compromisso` e `old-school-vs-new-school-rules-vs-rulings`,
+os dois slugs que o bot citou.
+
+Correção: `{{#if meta.categoria}}…{{/if}}` envolvendo **a categoria E o separador**, não só
+a categoria. Sintaxe confirmada na doc do componente antes de escrever (`{{#if}}`/`{{/if}}`,
+com `and()`/`eq()` disponíveis) — a doc do Pagefind já deu arquivo errado nesta mesma task,
+então a forma foi medida no browser, não assumida.
+
+Validado no preview: busca por `rulings` devolve o post sem categoria com
+`"25 de janeiro de 2026"` — sem separador inicial e sem `{{` literal, provando que o
+bundle interpreta o `if`. Busca por `rpg`: **7** resultados, **6** com `categoria · data`,
+**1** só com data, **0** órfãos. `site` **192** testes verdes.
+
+**Revisão da PR #326 — achado do CodeRabbit: changelog prometia o que 2 apps não
+entregam. PROCEDENTE (medido em 2026-09-16).**
+
+O bullet "Seções destacadas" entrou nas 5 entradas de changelog por copiar o texto base
+entre apps, sem conferir app por app o que cada um renderiza. A subnav só existe quando o
+consumidor passa `moduleNav` ao `Header` — `Header.tsx:154` calcula
+`hasModuleNav = Boolean(moduleNav && moduleNav.length > 0)` e sem ela a barra não
+renderiza. Medido `moduleNav=` como prop: `mesas` **1**, `downloads` **0**,
+`glossario` **0**, `links` **0**. Em `downloads` e `glossario` a palavra só aparece em
+comentário e teste, nunca como prop.
+
+Bullet removido de `downloads` e `glossario` (1 linha por arquivo). **Mantido em `mesas`**
+(passa `moduleNav`) e em `site`, que não usa `moduleNav` do pacote mas renderiza
+`.artificio-subnav` na própria ilha (`SiteHeaderIsland.tsx:371`), com fundo e
+`aria-current` vindos de `styles.css:610-632`. `links` nunca teve o bullet — confirmado 0
+ocorrências, como o bot dizia.
+
+**A regra que isto quebra:** changelog descreve o que o usuário VAI sentir naquele app.
+Texto compartilhado entre apps precisa ser conferido contra o que cada app passa ao
+componente, não contra o que o componente sabe fazer. Um bullet a mais é promessa que o
+produto não cumpre.
+
+**Revisão da PR #326 — achado do Codex no commit `b73029d`: PROCEDENTE no fonte,
+IMPROCEDENTE no efeito descrito (medido em 2026-09-16).**
+
+O bot apontou que `pages/busca/index.astro` abria `<main class="busca-wrap">` (linha 53) e
+fechava com `</article>` (linha 93), sem nenhum `</main>` — erro do agente ao trocar a tag
+de abertura e esquecer a de fechamento. **A tag descasada é real e foi corrigida.**
+
+**O efeito previsto não se confirmou.** O bot afirmou que o `<main>` ficaria aberto e que
+rodapé, modal e widget renderizados depois do `<slot />` virariam descendentes de
+`.busca-wrap`, presos na coluna de 680px, com landmarks incorretos. Medido no `dist`
+gerado **antes** da correção: `<main>` **1**, `</main>` **1**, `<article>` e `</article>`
+**0**, com `</main>` na posição 17095 e `<footer>` na 17103 — o rodapé sempre esteve
+**fora** do `main`. O parser do Astro normaliza a tag órfã no build.
+
+**Corrigido mesmo assim, e o motivo é a regra:** fonte com tags descasadas funciona por
+normalização de build, não por contrato. Basta o parser mudar de comportamento para o
+defeito aparecer — é bug latente sem sintoma hoje. Depois da correção: `<main>` 1,
+`</main>` 1, `</article>` 0, rodapé fora do `main`, `site` **192** testes verdes.
+
+**Lição de instrumento:** conferir tag casada no FONTE, nunca no `dist` — o `dist` mostra
+o HTML já normalizado e esconde o descasamento. O inverso do que a §Evidência costuma
+cobrar (código é a verdade material), porque aqui o artefato é mais permissivo que a fonte.
 
 **Revisão da PR #325 — dois achados do Codex no commit `b22ec7e`, um procedente
 (medido em 2026-09-16).**

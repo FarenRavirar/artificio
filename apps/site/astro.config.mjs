@@ -63,10 +63,20 @@ export default defineConfig({
       directives: [
         "default-src 'self'",
         // *.googleusercontent.com: avatar do usuário logado via SSO Google (ex.: lh3.googleusercontent.com).
-        "img-src 'self' data: https://res.cloudinary.com https://*.googleusercontent.com",
+        // artificiorpg.com: as capas do acervo são URLs ABSOLUTAS do domínio de produção
+        // (legado WordPress, `/wp-content/uploads/...`). Em prod `'self'` cobriria por acaso,
+        // mas em `beta.` a origem é outra e a imagem é bloqueada — medido no preview com a
+        // busca em `show-images`: 14 violações de `img-src`, uma por capa de resultado.
+        // O `<img>` do corpo do post não expunha isso porque ninguém media o console da busca.
+        "img-src 'self' data: https://artificiorpg.com https://res.cloudinary.com https://*.googleusercontent.com",
         "media-src 'self' https://res.cloudinary.com",
         // cloudflareinsights.com: beacon do Cloudflare Web Analytics (RUM) envia métricas via fetch.
-        "connect-src 'self' https://accounts.artificiorpg.com https://www.google-analytics.com https://cloudflareinsights.com",
+        // analytics.google.com e www.google.com: o GA4 NÃO usa só `www.google-analytics.com`.
+        // Ele espelha cada hit em `/g/collect` nesses dois hosts (medido em beta 2026-09-16:
+        // 6 requisições recusadas no console, entre elas `en=page_view`, `en=view_search_results`
+        // e `en=scroll`). Sem os três, o evento morre em silêncio: a página não quebra, nada
+        // avisa, e o dado simplesmente não chega ao GA4 — em TODA rota, não só na busca.
+        "connect-src 'self' https://accounts.artificiorpg.com https://www.google-analytics.com https://analytics.google.com https://www.google.com https://cloudflareinsights.com",
       ],
       scriptDirective: {
         // 'wasm-unsafe-eval': Pagefind (busca do nav) compila WebAssembly; sem isso o CSP bloqueia o WASM e a busca não funciona.

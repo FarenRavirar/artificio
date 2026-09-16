@@ -1,5 +1,13 @@
 [
   {
+    "id": "2026-09-16-mobile-refeito-e-busca",
+    "title": "Navegação no celular refeita",
+    "body": "O cabeçalho foi reconstruído para telas pequenas:\n\n- **Tudo cabe na tela** - O topo era mais largo que o próprio aparelho e empurrava botões para fora da área visível. Agora cabe até em telas de 320px, as menores em uso\n- **Menu de navegação à esquerda** - Um botão de menu abre os links para Portal, Glossário, Mesas, Downloads, Esferas e SRD, que antes ficavam inalcançáveis\n- **Sua conta reunida num painel** - Tocar no avatar abre um painel com novidades, tema e sair, em vez de disputarem espaço na barra estreita\n- **Painel que rola** - Com o celular deitado, o conteúdo que passava da tela ficava inalcançável; agora o painel rola por conta própria\n- **Sem piscada branca no tema escuro** - O topo aparecia branco e virava escuro só depois; agora já nasce escuro\n- **Menu da conta no tema certo** - O painel do avatar abria branco sobre o fundo escuro, e o link de sair tinha contraste baixo demais para leitura\n\n_Atualização publicada em 16/09/2026_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-09-16T18:00:00-03:00"
+  },
+  {
     "id": "2026-06-21-shell-unificado",
     "title": "Navegacao unificada e busca rapida entre projetos",
     "body": "O Links agora compartilha a mesma navegacao de todos os projetos do Artificio:\n\n• **Cabecalho unificado** - Links para Portal, Glossario, Mesas, Downloads, Esferas e SRD direto no topo\n• **Busca rapida** - Icone de lupa no cabecalho para buscar grupos e links\n• **Tema claro/escuro consistente** - O alternador de tema mantem sua preferencia entre projetos\n• **Menu de conta padronizado** - Perfil Artificio e saida com o mesmo visual dos outros projetos\n• **Rodape alinhado** - Informacoes de copyright, termos e contato padronizados\n• **Indicador de novidades** - Sino de atualizacoes no cabecalho mostra quando ha novidades nao lidas\n\n_Atualizacao publicada em 21/06/2026_",

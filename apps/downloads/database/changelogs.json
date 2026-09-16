@@ -1,5 +1,13 @@
 [
   {
+    "id": "2026-09-16-mobile-refeito",
+    "title": "Navegação no celular refeita",
+    "body": "O cabeçalho foi reconstruído para telas pequenas:\n\n- **Tudo cabe na tela** - O topo era mais largo que o próprio aparelho e empurrava botões para fora da área visível. Agora cabe até em telas de 320px, as menores em uso\n- **Menu de navegação à esquerda** - Um botão de menu abre os links para os outros projetos do Artifício, que antes ficavam inalcançáveis\n- **Sua conta reunida num painel** - Tocar no avatar abre um painel com notificações, novidades, tema e sair, em vez de disputarem espaço na barra estreita\n- **Painel que rola** - Com o celular deitado, o conteúdo que passava da tela ficava inalcançável; agora o painel rola por conta própria\n- **Sem piscada branca no tema escuro** - O topo aparecia branco e virava escuro só depois; agora já nasce escuro\n- **Menu da conta no tema certo** - O painel do avatar abria branco sobre o fundo escuro, e o link de sair tinha contraste baixo demais para leitura\n- **Lupa busca dentro dos Downloads** - A busca do cabeçalho passou a procurar no catálogo, preservando o que você digitou\n\n_Atualização publicada em 16/09/2026_",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-09-16T18:00:00-03:00"
+  },
+  {
     "id": "2026-08-17-comentarios-denuncia-e-editor",
     "title": "Comentários nos materiais, editor de descrição e ferramenta de denúncia",
     "body": "A maior atualização do Downloads até aqui:\n\n- **Comentários nos materiais** - Cada material agora tem espaço de conversa, com respostas encadeadas e moderação\n- **Sino de notificações** - Aviso no topo quando alguém responde você, atualizado ao voltar para a aba\n- **Editor de descrição rico** - A descrição do material passou a aceitar formatação (negrito, listas, links) em vez de texto puro\n- **Denúncia unificada** - Uma única ferramenta para reportar problema em material, com acompanhamento e caminho de contestação\n- **Triagem de sistemas** - Sugestões de sistema enviadas pela comunidade agora passam por uma tela de triagem, com aprovação, fusão ou recusa\n- **Capas mais seguras** - O envio de capa ficou mais rigoroso quanto a formato e nome de arquivo\n- **Compartilhamento com prévia** - Páginas de material ganharam título, descrição e imagem próprios ao serem compartilhadas\n\n_Atualização publicada em 17/08/2026_",
