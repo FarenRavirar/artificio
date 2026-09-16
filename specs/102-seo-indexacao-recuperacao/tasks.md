@@ -5213,6 +5213,27 @@ achado 2 da revisão da PR #324, que estava esperando esta migração.
    fallback nunca dispararia. A primeira correção trocou por `isOpen` mantendo o timer de
    100ms, e **isso era outro defeito** — ver a revisão da PR #325 abaixo.
 
+**Revisão da PR #326 — separador órfão no resultado sem categoria. Codex, PROCEDENTE
+(medido em 2026-09-16).**
+
+O template escrevia `{{ meta.categoria }} · {{ meta.data }}` incondicionalmente, mas
+`[slug].astro:70` só emite `data-pagefind-meta="categoria:…"` quando `post.cats[0]`
+existe. Resultado sem categoria abria a linha com " · " solto antes da data.
+
+Medido no `dist`: **2 de 8** posts indexados não têm o meta —
+`mudanca-de-linha-editorial-mesmo-compromisso` e `old-school-vs-new-school-rules-vs-rulings`,
+os dois slugs que o bot citou.
+
+Correção: `{{#if meta.categoria}}…{{/if}}` envolvendo **a categoria E o separador**, não só
+a categoria. Sintaxe confirmada na doc do componente antes de escrever (`{{#if}}`/`{{/if}}`,
+com `and()`/`eq()` disponíveis) — a doc do Pagefind já deu arquivo errado nesta mesma task,
+então a forma foi medida no browser, não assumida.
+
+Validado no preview: busca por `rulings` devolve o post sem categoria com
+`"25 de janeiro de 2026"` — sem separador inicial e sem `{{` literal, provando que o
+bundle interpreta o `if`. Busca por `rpg`: **7** resultados, **6** com `categoria · data`,
+**1** só com data, **0** órfãos. `site` **192** testes verdes.
+
 **Revisão da PR #326 — achado do CodeRabbit: changelog prometia o que 2 apps não
 entregam. PROCEDENTE (medido em 2026-09-16).**
 

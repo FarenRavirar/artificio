@@ -75,6 +75,12 @@ const canonical = new URL("/busca/", Astro.site).toString();
 
       `.busca-result-meta` é a ÚNICA regra nossa: o card do Pagefind não prevê linha de
       categoria + data, que é o que faz o resultado ler igual ao card do acervo.
+
+      ⚠️ `{{#if meta.categoria}}` envolve o separador, não só a categoria. `[slug].astro`
+      só emite `data-pagefind-meta="categoria:…"` quando `post.cats[0]` existe, e há posts
+      sem categoria — medido no `dist`: 2 de 8 (`mudanca-de-linha-editorial-mesmo-compromisso`
+      e `old-school-vs-new-school-rules-vs-rulings`). Sem o `if`, esses resultados abrem a
+      linha com " · " órfão antes da data. Achado do Codex na PR #326.
     */}
     <pagefind-results instance="search-page" show-images>
       <script type="text/pagefind-template">
@@ -82,7 +88,7 @@ const canonical = new URL("/busca/", Astro.site).toString();
           <div class="pf-result-card">
             <img class="pf-result-image" src="{{ meta.image }}" alt="" loading="lazy" />
             <div class="pf-result-content">
-              <p class="busca-result-meta">{{ meta.categoria }} · {{ meta.data }}</p>
+              <p class="busca-result-meta">{{#if meta.categoria}}{{ meta.categoria }} · {{/if}}{{ meta.data }}</p>
               <h2 class="pf-result-title"><a class="pf-result-link" href="{{ url | safeUrl }}">{{ meta.title }}</a></h2>
               <p class="pf-result-excerpt">{{+ excerpt +}}</p>
             </div>
