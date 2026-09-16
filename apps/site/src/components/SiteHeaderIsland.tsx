@@ -120,23 +120,31 @@ export function SiteHeaderIsland({
   /* Fallback para `/busca/` quando o modal não abre (assets do Pagefind ausentes, como no
      `astro dev`, onde o índice só existe depois do postbuild).
 
-     ⚠️ A checagem NÃO pode ser `modal.hidden`. Até T7.8 o modal era um `<div hidden>`
-     nosso; agora é `<pagefind-modal>`, que abre um `<dialog>` interno e nunca usa o
-     atributo `hidden` — `modal.hidden` seria sempre `false` e o fallback nunca
-     dispararia. A propriedade pública do elemento é `isOpen` (medida na classe do
-     bundle), e ela só existe depois do upgrade do custom element: elemento presente mas
-     ainda não atualizado devolve `undefined`, que também conta como "não abriu".
+     ⚠️ O fallback espera o EVENTO `artificio:search-unavailable`, emitido pelo
+     `SearchModal.astro` quando o carregamento falha — nunca um prazo fixo. A primeira
+     versão desta task esperava 100ms e então checava `isOpen`: o bundle do Pagefind tem
+     171 KB, e num primeiro clique sem cache ele ainda está baixando aos 100ms. O
+     carregamento em andamento era lido como falha, e a navegação abortava o modal que
+     estava prestes a abrir. Qualquer tempo que cobrisse uma conexão lenta seria longo
+     demais para uma rápida; o evento não tem esse trade-off.
 
-     Os 100ms cobrem o carregamento do bundle de 171 KB partindo do cache; sem cache o
-     primeiro clique pode cair no fallback e levar para `/busca/`, que é a mesma busca. */
+     Os listeners são registrados no `openSearch` e removidos na primeira resposta, em vez
+     de viverem num `useEffect`: assim um aviso atrasado de um clique anterior não navega
+     sozinho enquanto a pessoa lê a página. O modal responde sempre — `search-opened` no
+     caso feliz, `search-unavailable` no fracasso —, e é o `search-opened` que impede o
+     listener de ficar pendurado quando a busca abre normalmente, que é o comum. */
   const openSearch = () => {
+    const cleanup = () => {
+      document.removeEventListener("artificio:search-unavailable", onUnavailable);
+      document.removeEventListener("artificio:search-opened", cleanup);
+    };
+    const onUnavailable = () => {
+      cleanup();
+      window.location.assign("/busca/");
+    };
+    document.addEventListener("artificio:search-unavailable", onUnavailable);
+    document.addEventListener("artificio:search-opened", cleanup);
     document.dispatchEvent(new CustomEvent("artificio:open-search"));
-    window.setTimeout(() => {
-      const modal = document.getElementById("search-modal") as (HTMLElement & { isOpen?: boolean }) | null;
-      if (!modal?.isOpen) {
-        window.location.assign("/busca/");
-      }
-    }, 100);
   };
 
   useEffect(() => {

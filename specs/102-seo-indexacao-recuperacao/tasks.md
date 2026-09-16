@@ -5009,9 +5009,36 @@ achado 2 da revisão da PR #324, que estava esperando esta migração.
 3. **O fallback do header estava quebrado pela troca.** `SiteHeaderIsland.tsx` checava
    `modal.hidden` para decidir se navegava para `/busca/`. O `<pagefind-modal>` abre um
    `<dialog>` interno e nunca usa `hidden`, então a checagem seria sempre `false` e o
-   fallback nunca dispararia. Passou a usar `isOpen`, a propriedade pública do elemento
-   (medida na classe do bundle), que também devolve `undefined` enquanto o custom element
-   não sofreu upgrade — que é exatamente o caso "bundle não carregou".
+   fallback nunca dispararia. A primeira correção trocou por `isOpen` mantendo o timer de
+   100ms, e **isso era outro defeito** — ver a revisão da PR #325 abaixo.
+
+**Revisão da PR #325 — dois achados do Codex no commit `b22ec7e`, um procedente
+(medido em 2026-09-16).**
+
+1. **Fallback com prazo fixo de 100ms — PROCEDENTE, corrigido.** O `openSearch` esperava
+   100ms e então checava `isOpen`. O bundle tem **171 KB**: num primeiro clique sem cache
+   ele ainda está baixando aos 100ms, e o carregamento em andamento era lido como falha —
+   a navegação para `/busca/` abortava o modal que estava prestes a abrir. Qualquer prazo
+   que cobrisse uma conexão lenta seria longo demais para uma rápida. **O agente já sabia:
+   a falha estava escrita no comentário do próprio código** ("sem cache o primeiro clique
+   pode cair no fallback") e foi tratada como aceitável em vez de consertada. Correção: o
+   `SearchModal` emite `artificio:search-opened` ou `artificio:search-unavailable`, e o
+   header escuta, sem timer; os dois listeners saem na primeira resposta, então um aviso
+   atrasado de clique anterior não navega sozinho. Medido no preview, com o bundle
+   removido do `dist` e clique real na lupa: navegou para `/busca/`. Com o bundle no
+   lugar: `search-opened` dispara, `search-unavailable` não, e a página fica onde está
+   mesmo esperando 3 segundos — dez vezes o antigo prazo.
+
+2. **"Atalho `/` capturado por causa do Shadow DOM" — IMPROCEDENTE, a premissa é falsa.**
+   O bot afirma que `document.activeElement` seria o host do custom element, e não o
+   `INPUT`, porque o Component UI usaria Shadow DOM. Medido no bundle:
+   `attachShadow` aparece **0** vezes e `shadowRoot` **0** vezes. Medido no preview, com o
+   modal aberto e o campo focado: `document.activeElement.tagName` é **`INPUT`**,
+   `activeElement === input` é **true**, e `shadowRoot` é `null` tanto no
+   `<pagefind-modal>` quanto no `<pagefind-input>`. Teste de ponta a ponta digitando pelo
+   teclado: `a/b` entra inteiro no campo, com a barra. O guard atual
+   (`tag === "INPUT" || tag === "TEXTAREA"`) basta. **Não reabrir sem remedir** —
+   registrado aqui porque o bot relê o mesmo diff a cada push.
 
 **Forma entregue.** Modal nativo do Pagefind, tematizado com as cores da marca (decisão do
 mantenedor, 2026-09-16), em vez de manter a moldura própria com os componentes dentro.

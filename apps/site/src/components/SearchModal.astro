@@ -58,18 +58,43 @@
       return loading;
     }
 
+    // Avisa quem pediu a busca que ela não vai abrir. O header escuta para navegar até
+    // `/busca/` (`SiteHeaderIsland.tsx`). O sinal é um EVENTO e não um prazo: o bundle tem
+    // 171 KB, e qualquer tempo fixo que cubra uma conexão lenta seria longo demais para
+    // uma rápida — foi o defeito da primeira versão desta task, que esperava 100ms fixos e
+    // abandonava um carregamento ainda em andamento.
+    function announceUnavailable() {
+      document.dispatchEvent(new CustomEvent("artificio:search-unavailable"));
+    }
+
+    // O par do aviso acima: sem ele, quem escuta o fracasso ficaria escutando para sempre
+    // no caso feliz, que é o comum.
+    function announceOpened() {
+      document.dispatchEvent(new CustomEvent("artificio:search-opened"));
+    }
+
     async function open() {
       var modal = document.getElementById("search-modal");
-      if (!modal) return;
+      if (!modal) {
+        announceUnavailable();
+        return;
+      }
       try {
         await loadComponentUI();
         // `customElements.whenDefined` porque o upgrade do elemento já presente no DOM
         // acontece depois do `onload` do script, não junto com ele: chamar `open()` antes
         // do upgrade chamaria um método que ainda não existe.
         await customElements.whenDefined("pagefind-modal");
-        (modal as HTMLElement & { open?: () => void }).open?.();
+        var element = modal as HTMLElement & { open?: () => void; isOpen?: boolean };
+        element.open?.();
+        // O upgrade pode definir o elemento sem que ele abra (`open` ausente numa versão
+        // futura do bundle, por exemplo). Confirmar o estado, não presumir pela ausência
+        // de exceção.
+        if (element.isOpen) announceOpened();
+        else announceUnavailable();
       } catch (error) {
         console.error("Busca indisponível", error);
+        announceUnavailable();
       }
     }
 
