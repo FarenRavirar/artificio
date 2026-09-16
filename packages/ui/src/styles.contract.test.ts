@@ -303,6 +303,26 @@ describe("chrome escuro por tema (T7.4)", () => {
     expect(regra).toContain("--artificio-dark-surface");
   });
 
+  it("dá ao painel de sessão teto de altura e rolagem própria", () => {
+    // Achado do Codex na PR #324 (P2): o painel é `position: absolute` dentro do header
+    // `sticky top: 0`, e nasceu sem `max-height`/`overflow`. Nada o rola, então o que
+    // passa da viewport fica INALCANÇÁVEL — em landscape de celular isso enterra "Ver
+    // todas" e "Sair". Falha silenciosa: sem erro, sem barra de rolagem, e o conteúdo
+    // cresce por dois caminhos sem teto próprio (os `items` do app e o slot `actions`,
+    // onde o dropdown do sino vira `static` e passa a empurrar).
+    //
+    // O guard existe porque a regra é APAGÁVEL sem quebrar nada visível no desktop, que
+    // é onde ela é editada. Em tela alta o painel cabe, e o bug só reaparece no celular.
+    const cssSemComentarios = styles.replace(/\/\*[\s\S]*?\*\//g, "");
+    const regra = /\.artificio-usermenu-dropdown\s*\{([^}]*)\}/.exec(cssSemComentarios)?.[1] ?? "";
+
+    expect(regra).not.toBe("");
+    // `dvh` e não `vh`: no mobile a barra do navegador entra e sai, e `vh` congela na
+    // altura MAIOR — o teto ficaria grande demais justamente onde a tela é menor.
+    expect(regra, "teto do painel tem de acompanhar a viewport dinâmica").toMatch(/max-height:\s*calc\(100dvh/);
+    expect(regra, "sem rolagem própria o teto só CORTA o conteúdo").toMatch(/overflow-y:\s*auto/);
+  });
+
   it("faz o menu do avatar honrar `variant=\"light\"`, como o resto do header", () => {
     // Achado do Codex na PR #323 (P2): as regras do dropdown casavam
     // `:root[data-theme="dark"] .artificio-usermenu-*` SOLTO, sem passar pelo header.

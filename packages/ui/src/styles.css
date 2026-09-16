@@ -944,6 +944,23 @@
   right: 0;
   top: calc(100% + 8px);
   z-index: 50;
+  /* Teto pela viewport + rolagem própria (achado do Codex na PR #324, P2).
+     O painel é `absolute` dentro do header `sticky top: 0`, então nada o rola: o que
+     passa da tela fica INALCANÇÁVEL, sem barra e sem erro. Falha silenciosa.
+
+     O conteúdo cresce por dois caminhos e nenhum tem teto próprio aqui: os itens de
+     conta (`items`, que o app define) e o slot `actions`. Com o sino dentro de
+     `.artificio-usermenu-actions` o dropdown dele vira `position: static` (ver regra
+     abaixo) e passa a EMPURRAR — só a lista dele já vale `max-height: 20rem`, mais o
+     rodapé "Ver todas". Em landscape de celular (~375px de altura) isso enterra "Ver
+     todas" e "Sair" fora da tela.
+
+     `100dvh` e não `100vh`: no mobile a barra do navegador entra e sai, e `vh` congela
+     na altura MAIOR — o teto ficaria grande demais justamente onde a tela é menor.
+     `64px` é o `min-height` do `.artificio-header-main` (linha 549), que é o que fica
+     acima do painel; `16px` é a folga para o painel não encostar na borda de baixo. */
+  max-height: calc(100dvh - 64px - 16px);
+  overflow-y: auto;
 }
 
 /* Ações do módulo dentro do painel de sessão (T7.3, spec 102): o sino, e o que mais o

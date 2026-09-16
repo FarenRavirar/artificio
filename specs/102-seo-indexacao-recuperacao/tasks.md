@@ -4977,9 +4977,69 @@ pode resolver de graça — medir na implementação, não assumir.
 ---
 
 **Estado (2026-09-15):** T7.4 e T7.1 entregues na **PR #323**
-(`feat/102-f7-header-mobile-unificado`, commit `f15346f`, base `dev`). T7.2, T7.3 e T7.5
-FEITAS na mesma branch, **ainda não commitadas**. Faltam **T7.6** e **T7.7**, mais o smoke
-visual das cinco.
+(`feat/102-f7-header-mobile-unificado`, commit `f15346f`, base `dev`).
+
+T7.2, T7.3, T7.5, T7.6 e T7.7 entregues na **PR #324**
+(`feat/102-f7-busca-uniforme`, commit `a3e1b0b`, base `dev`, criada de `origin/dev` em
+`5f3f4b3`, 24 arquivos, +1607/−190). `verify:api` exit 0 no pre-commit, zero breaking nos
+6 apps. **T7.8 está registrada na PR como aberta, não implementada.**
+
+**Revisão da PR #324 — três achados dos bots, um procedente (medido em 2026-09-15).**
+Registrado aqui porque os dois improcedentes VÃO voltar: o bot relê o mesmo diff a cada
+push, e sem o veredicto escrito a medição se perde e a hipótese fica.
+
+1. **Codex P2, painel de sessão sem teto de altura — PROCEDENTE, corrigido.**
+   `.artificio-usermenu-dropdown` aparece em 3 lugares do `packages/ui/src/styles.css`
+   (a base e as duas do tema escuro) e **nenhum** definia `max-height` ou `overflow`. O
+   painel é `position: absolute` dentro do header `sticky top: 0`: nada o rola, e o que
+   passa da viewport fica inalcançável, sem barra e sem erro. Com o sino dentro de
+   `.artificio-usermenu-actions` o dropdown dele vira `position: static` e passa a
+   EMPURRAR — só a lista vale `max-height: 20rem`, mais o rodapé "Ver todas". Em
+   landscape de celular isso enterra "Ver todas" e "Sair". Correção:
+   `max-height: calc(100dvh - 64px - 16px)` + `overflow-y: auto`, onde `64px` é o
+   `min-height` medido do `.artificio-header-main`, não número escolhido. `dvh` porque
+   `vh` congela na altura MAIOR no mobile (Baseline Widely Available desde 2025-06; o
+   repo não tem `browserslist` — busca repo-wide: zero arquivos). Guard novo em
+   `styles.contract.test.ts`, porque a regra é apagável sem quebrar nada no desktop,
+   que é onde ela seria editada.
+
+2. **CodeRabbit, "ler `?q=` no `PagefindUI` da home" — IMPROCEDENTE, o bot leu errado.**
+   `apps/site/src/pages/index.astro:61` não inicializa `PagefindUI` nenhum: é
+   `<form action="/busca/" method="get">`, HTML puro, sem script — e a ausência de script
+   é decisão medida, registrada no comentário do próprio arquivo (CSP bloqueia
+   `<script is:inline>` sem hash à mão). Não há o que corrigir onde ele aponta. O
+   sintoma real por trás — `/busca/` não lê `?q=` — é a **T7.8**: a página usa
+   `PagefindUI`, API descontinuada na 1.5.0. Escrever o `q` agora seria mais código
+   contra a API morta.
+
+3. **CodeRabbit, "fallback para `addListener` legado" — IMPROCEDENTE.**
+   `addListener` está deprecado; `addEventListener` em `MediaQueryList` existe desde
+   **Safari 14**, e antes disso `MediaQueryList` não herdava de `EventTarget`. Sem
+   `browserslist` e sem `build.target` no `vite.config.ts` do `downloads`, o alvo é o
+   default do Vite (ES modules nativo), todo posterior a Safari 14. O fallback pedido já
+   existe e é melhor: `if (!mql?.addEventListener) return () => undefined` degrada para
+   desktop em vez de assinar API deprecada. O teste pedido também já existe — o mock de
+   `src/test/setup.ts:46-49` expõe `addListener` E `addEventListener`, e é por causa de
+   mocks assim que a guarda foi escrita.
+
+Validação da correção do item 1, os 5 consumidores do `Header`, um comando por vez:
+`ui` 144 (era 143, +1 do guard) · `site` 192 · `downloads` 321 · `glossario` 37 ·
+`mesas` 1152 · `accounts` 602 (+52 skipped, preexistente). `tsc` e `eslint` exit 0 no
+`packages/ui`. `packages/ui` exporta `"./styles.css": "./src/styles.css"` — os
+consumidores leem a FONTE, então editar o CSS não exige `build` do pacote, diferente de
+exportar símbolo novo.
+
+⚠️ **Flake medido, não regressão:** a primeira execução da suíte do `ui` falhou 2 casos em
+`NotificationBell.test.tsx` (`waitFor` em `findByRole`, `environment 224s`). O arquivo
+isolado passou 4/4, a suíte cheia repetida passou 144/144, e o baseline sem as edições deu
+143/143. Ficou aqui porque "2 falhas no `ui`" reaparece e custa a mesma investigação.
+
+Esta atualização do parágrafo é POSTERIOR ao commit `a3e1b0b` e ficou fora da PR #324.
+
+**⚠️ O upstream da branch nova nasceu apontando para `origin/dev`** — `git switch -c <nome>
+origin/dev` rastreia a base, não a branch criada, e `git push` sem argumento tentaria
+empurrar para `dev`, que só aceita merge de PR. Medido de novo aqui, como em T7.1.
+`git push -u origin HEAD` corrige o rastreamento junto com o primeiro push.
 
 **T7.1 a T7.7 estão FEITAS.** T7.6 nas três partes: rota `/busca` do `downloads` como alias
 de `/catalogo` (decisão do mantenedor, critério SEO), lupa dele no celular igual aos outros
