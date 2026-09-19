@@ -4,7 +4,7 @@
 > Bundle machine-readable: `docs/api/generated/artificio-api.bundle.json`.
 > Não editar à mão. Regenerar com `pnpm api:bundle` (faz parte de `pnpm verify:api`).
 
-Total: **501 operações**.
+Total: **502 operações**.
 
 ## accounts (53)
 
@@ -259,7 +259,7 @@ Total: **501 operações**.
 | GET | `/grupo/{slug}` | public-page | none | active | — | Consulta grupo slug |
 | GET | `/healthz` | internal | none | active | — | Consulta healthz |
 
-## mesas (210)
+## mesas (211)
 
 | Método | Path | Scope | Auth | Status | Consumidores | Resumo |
 |--------|------|-------|------|--------|--------------|--------|
@@ -455,6 +455,7 @@ Total: **501 operações**.
 | POST | `/api/v1/tables/{slug}/favorite` | telemetry | none | active | — | Cria ou executa api v1 tables slug favorite |
 | POST | `/api/v1/tables/{slug}/report` | public | user | active | — | Cria ou executa api v1 tables slug report |
 | POST | `/api/v1/tables/{slug}/view` | telemetry | none | active | — | Cria ou executa api v1 tables slug view |
+| GET | `/api/v1/tables/schedule-facets` | public | none | active | — | Consulta api v1 tables schedule-facets |
 | GET | `/api/v1/tables/style-facets` | public | none | active | — | Consulta api v1 tables style-facets |
 | POST | `/api/v1/upload` | public | user | active | — | Cria ou executa api v1 upload |
 | POST | `/api/v1/upload/url` | public | user | active | — | Cria ou executa api v1 upload url |

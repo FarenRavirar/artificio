@@ -73,6 +73,14 @@ const canonical = new URL("/busca/", Astro.site).toString();
       simples escaparia a tag e o destaque viraria texto literal. `url | safeUrl` é o filtro
       que a doc exige no href.
 
+      ⚠️ O corpo do template é HTML CRU, sem `{` de expressão do Astro em volta. Um
+      `<script>` que carregue qualquer atributo além de `src` — aqui o `type` — é
+      `is:inline` implícito, e o Astro NÃO avalia expressão dentro de script inline. A
+      versão anterior envolvia o corpo em `` {`…`} ``: medido no `dist` de 2026-09-16, a
+      linha saía como `` {`<li class="pf-result"> `` e o usuário lia a backtick e a chave
+      na tela. As chaves DUPLAS (`{{ }}`) não são Astro, são a sintaxe do próprio Pagefind,
+      resolvida no browser pelo componente — ficam.
+
       `.busca-result-meta` é a ÚNICA regra nossa: o card do Pagefind não prevê linha de
       categoria + data, que é o que faz o resultado ler igual ao card do acervo.
 
@@ -84,7 +92,7 @@ const canonical = new URL("/busca/", Astro.site).toString();
     */}
     <pagefind-results instance="search-page" show-images>
       <script type="text/pagefind-template">
-        {`<li class="pf-result">
+        <li class="pf-result">
           <div class="pf-result-card">
             <img class="pf-result-image" src="{{ meta.image }}" alt="" loading="lazy" />
             <div class="pf-result-content">
@@ -93,7 +101,7 @@ const canonical = new URL("/busca/", Astro.site).toString();
               <p class="pf-result-excerpt">{{+ excerpt +}}</p>
             </div>
           </div>
-        </li>`}
+        </li>
       </script>
     </pagefind-results>
   </main>

@@ -1,6 +1,6 @@
 import type { TablesResponse } from '../types/tables';
-import type { TableTypeOption } from '../utils/catalogFilterOptions';
-import { normalizeStyles } from '../utils/catalogFilterOptions';
+import type { DaypartOption, TableTypeOption, WeekdayOption } from '../utils/catalogFilterOptions';
+import { normalizeEnumMulti, normalizeStyles, WEEKDAY_VALUES, DAYPART_VALUES } from '../utils/catalogFilterOptions';
 import { apiUrl } from '../lib/apiUrl';
 
 // Tipos fortes para filtros
@@ -32,6 +32,11 @@ export interface CatalogFilters {
   // `audience`, `state` e `city` foram reprovadas e ficam fora do contrato do
   // frontend até haver dados; `featured` nunca entra (D0.2).
   type: TableTypeOption | '';
+  // Agenda (spec 103, §6): multivalor com semântica OU, como `styles`. Dia e
+  // faixa marcados juntos casam na MESMA sessão — ver o `EXISTS` único em
+  // routes/tables.ts.
+  weekdays: WeekdayOption[];
+  dayparts: DaypartOption[];
   sort: SortOption;
   page: number;
   limit: number;
@@ -75,6 +80,16 @@ export function mapFiltersToQueryParams(filters: CatalogFilters): URLSearchParam
       params.set('styles', normalizedStyles.map((style) => encodeURIComponent(style)).join(','));
     }
   }
+
+  // Agenda: dia e faixa. Normalizados pela ordem canônica (calendário e
+  // cronologia), então a mesma seleção produz sempre a mesma query e a cache key
+  // não diverge por ordem de clique — mesma garantia de R11 para estilos.
+  // O dia leva acento; `URLSearchParams` faz o percent-encoding ao serializar.
+  const weekdays = normalizeEnumMulti(filters.weekdays ?? [], WEEKDAY_VALUES);
+  if (weekdays.length > 0) params.set('weekday', weekdays.join(','));
+
+  const dayparts = normalizeEnumMulti(filters.dayparts ?? [], DAYPART_VALUES);
+  if (dayparts.length > 0) params.set('daypart', dayparts.join(','));
 
   // Ordenação (não adicionar se for padrão)
   if (filters.sort && filters.sort !== 'popular') {

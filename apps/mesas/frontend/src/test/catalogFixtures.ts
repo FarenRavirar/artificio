@@ -10,6 +10,8 @@ export function makeCatalogFilters(overrides: Partial<CatalogFilters> = {}): Cat
     seal: '',
     styles: [],
     type: '',
+    weekdays: [],
+    dayparts: [],
     sort: 'popular',
     page: 1,
     limit: 24,

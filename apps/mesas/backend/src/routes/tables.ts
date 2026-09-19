@@ -79,6 +79,51 @@ export function parseStylesQuery(styles: unknown): string[] {
   });
 }
 
+/**
+ * Dias válidos — o MESMO literal dos dois CHECK do banco, com acento:
+ * `table_schedules.day_of_week` (`migration_12_table_schedules.sql:16`) e
+ * `tables.schedule_day_hint` (`migration_124_table_schedule_tbd.sql:46`). Não
+ * traduzir para código numérico: o banco guarda texto, e um id paralelo criaria
+ * tradução entre URL, query e coluna.
+ */
+const WEEKDAY_VALUES = ['segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'] as const;
+type WeekdayValue = (typeof WEEKDAY_VALUES)[number];
+
+/**
+ * Faixas de horário — 06/12/18/00 (D5, spec 103 §6.5). Convenção brasileira de
+ * período do dia; `start` inclusivo e `end` exclusivo, cobrindo 24 h sem
+ * sobreposição e sem buraco.
+ *
+ * `madrugada` é a única faixa que NÃO cruza a meia-noite neste corte, então
+ * todas viram um intervalo simples `>= start AND < end` — nenhum caso precisa de
+ * `OR` circular. Mudar o corte de forma que uma faixa atravesse 00:00 exigiria
+ * tratar o wrap; o teste de bordas cobre isso.
+ */
+const DAYPART_RANGES = {
+  madrugada: { start: '00:00:00', end: '06:00:00' },
+  manha: { start: '06:00:00', end: '12:00:00' },
+  tarde: { start: '12:00:00', end: '18:00:00' },
+  noite: { start: '18:00:00', end: '24:00:00' },
+} as const;
+type DaypartValue = keyof typeof DAYPART_RANGES;
+
+/**
+ * Multivalor de enum fechado: valor fora do registro é descartado em silêncio
+ * (`weekday=funday` → filtro vazio, não 400 nem 500), e a chave repetida cai no
+ * mesmo `[]` de `parseStylesQuery` — Express entrega array, que não é `string`.
+ */
+function parseEnumCsvQuery<T extends string>(raw: unknown, valid: readonly T[]): T[] {
+  if (typeof raw !== 'string') return [];
+  const decoded = raw.split(',').filter(Boolean).map((item) => {
+    try {
+      return decodeURIComponent(item);
+    } catch {
+      return item;
+    }
+  });
+  return valid.filter((option) => decoded.includes(option));
+}
+
 type PublicTableContact = {
   channel: string;
   value: string;
@@ -256,6 +301,87 @@ router.get('/', async (req: Request, res: Response) => {
       if (styleArray.length > 0) {
         // Filtrar mesas que contenham QUALQUER um dos estilos selecionados
         query = query.where(sql<boolean>`t.setting_styles && ARRAY[${sql.join(styleArray.map(s => sql.lit(s)))}]::text[]`);
+      }
+    }
+
+    /**
+     * Filtro de agenda: dia da semana e faixa de horário (spec 103, §6).
+     *
+     * Quatro decisões, cada uma com o defeito medido que ela evita:
+     *
+     * 1. DUAS FONTES. 21 das 88 mesas ativas não têm linha em `table_schedules`,
+     *    porque a linha exige dia E horário (as duas colunas são `NOT NULL`,
+     *    migration 12) e `deriveSchedule` grava zero linhas quando falta um eixo,
+     *    guardando o conhecido em `tables.schedule_*_hint` (migration 124).
+     *    Medido em produção (2026-09-18): filtrar só `table_schedules` esconderia
+     *    9 mesas cujo dia está na tela. Filtro que oculta resultado válido é pior
+     *    que filtro ausente.
+     *
+     * 2. `EXISTS`, NÃO JOIN. Join duplica a linha da mesa com mais de um horário:
+     *    o `COUNT(DISTINCT t.id)` esconderia a duplicata na contagem, mas o
+     *    `SELECT` a devolveria repetida. Medido: hoje nenhuma mesa ativa tem 2
+     *    linhas (67 sessões / 67 mesas), então o erro é latente — e o schema
+     *    existe justamente para múltiplas sessões por mesa (comentário da
+     *    migration 12). Escrito contra o schema, não contra a amostra de hoje.
+     *
+     * 3. UM `EXISTS` SÓ para dia e faixa. As duas condições descrevem a MESMA
+     *    sessão. Em `EXISTS` separados, mesa que joga sexta de manhã e domingo à
+     *    noite satisfaria `weekday=sexta` num e `daypart=noite` no outro, e
+     *    entraria num resultado onde não deveria estar.
+     *
+     * 4. ANTES DA CONTAGEM. O `COUNT` da linha ~321 reusa esta query; filtro
+     *    aplicado depois da paginação deixa buraco na página — mesma armadilha já
+     *    registrada em `importedTableIsCurrentSql`.
+     *
+     * No ramo do hint, mesa com os DOIS eixos marcados nunca entra: o `CHECK`
+     * `tables_schedule_tbd_hint_check` só permite hint no eixo `defined`, logo
+     * uma mesa só-hint conhece um eixo. Se o horário é desconhecido, ela não pode
+     * satisfazer um filtro de horário — ausência de dado não é correspondência.
+     */
+    {
+      const weekdays = parseEnumCsvQuery<WeekdayValue>(req.query.weekday, WEEKDAY_VALUES);
+      const dayparts = parseEnumCsvQuery<DaypartValue>(
+        req.query.daypart,
+        Object.keys(DAYPART_RANGES) as readonly DaypartValue[],
+      );
+
+      if (weekdays.length > 0 || dayparts.length > 0) {
+        const dayList = sql.join(weekdays.map((day) => sql.lit(day)));
+
+        // Faixas selecionadas viram um OU de intervalos sobre a coluna dada.
+        const daypartRangesFor = (column: ReturnType<typeof sql.raw>) =>
+          sql.join(
+            dayparts.map((part) => {
+              const { start, end } = DAYPART_RANGES[part];
+              // `end` de 'noite' é 24:00:00, que `TIME` não aceita: a faixa vai
+              // até o fim do dia, então o limite superior é dispensado.
+              return end === '24:00:00'
+                ? sql<boolean>`${column} >= ${sql.lit(start)}::time`
+                : sql<boolean>`(${column} >= ${sql.lit(start)}::time AND ${column} < ${sql.lit(end)}::time)`;
+            }),
+            sql` OR `,
+          );
+
+        // Sessão completa: dia e faixa conferidos na mesma linha de table_schedules.
+        const scheduleConditions = [
+          ...(weekdays.length > 0 ? [sql<boolean>`ts.day_of_week IN (${dayList})`] : []),
+          ...(dayparts.length > 0 ? [sql<boolean>`(${daypartRangesFor(sql.raw('ts.start_time'))})`] : []),
+        ];
+
+        // Agenda parcial: o eixo filtrado tem de estar no hint da própria `tables`.
+        const hintConditions = [
+          ...(weekdays.length > 0 ? [sql<boolean>`t.schedule_day_hint IN (${dayList})`] : []),
+          ...(dayparts.length > 0 ? [sql<boolean>`(${daypartRangesFor(sql.raw('t.schedule_time_hint'))})`] : []),
+        ];
+
+        query = query.where(sql<boolean>`(
+          EXISTS (
+            SELECT 1 FROM table_schedules ts
+            WHERE ts.table_id = t.id
+              AND ${sql.join(scheduleConditions, sql` AND `)}
+          )
+          OR (${sql.join(hintConditions, sql` AND `)})
+        )`);
       }
     }
 
@@ -450,6 +576,80 @@ router.get('/style-facets', async (_req: Request, res: Response) => {
   } catch (error) {
     console.error('[GET /tables/style-facets]', error);
     res.status(500).json({ error: 'Erro ao buscar estilos.' });
+  }
+});
+
+/**
+ * GET /api/v1/tables/schedule-facets — dias e faixas em uso + contagem.
+ *
+ * Existe porque a UI exibe o contador de cada opção e desabilita a vazia, em vez
+ * de removê-la da lista (decisão do mantenedor, 2026-09-18, spec 103 §6.6/D6):
+ * lista fechada de 7 dias e 4 faixas com um item ausente parece controle
+ * quebrado, e o NN/g recomenda mostrar a faceta vazia com o contador em vez de
+ * escondê-la. As listas `PUBLIC_*_OPTIONS` do frontend resolvem o caso oposto
+ * (lista aberta e longa) com filtro hardcoded, e não servem aqui.
+ *
+ * Conta `DISTINCT t.id` nas DUAS fontes de agenda — `table_schedules` e os hints
+ * de `tables` — pelo mesmo motivo do filtro da lista: só `table_schedules`
+ * esconde 9 mesas ativas cujo dia é conhecido (spec 103 §6.2). Medido em
+ * produção (2026-09-18): sábado dá 15 por `table_schedules` e 23 pelas duas.
+ *
+ * Reusa os mesmos predicados de visibilidade da lista (`status='active'`,
+ * `archived_at IS NULL`, `importedTableIsCurrentSql`), senão o contador promete
+ * resultado que o catálogo não mostra.
+ */
+router.get('/schedule-facets', async (_req: Request, res: Response) => {
+  try {
+    const daypartCaseSql = sql<string>`CASE
+      WHEN agenda.start_time >= '00:00:00'::time AND agenda.start_time < '06:00:00'::time THEN 'madrugada'
+      WHEN agenda.start_time >= '06:00:00'::time AND agenda.start_time < '12:00:00'::time THEN 'manha'
+      WHEN agenda.start_time >= '12:00:00'::time AND agenda.start_time < '18:00:00'::time THEN 'tarde'
+      ELSE 'noite'
+    END`;
+
+    // Uma passada só: a agenda de cada mesa vem da linha de table_schedules ou,
+    // na sua ausência, do hint. `UNION ALL` + `DISTINCT t.id` na contagem evita
+    // que mesa com duas sessões no mesmo dia conte duas vezes.
+    const result = await sql<{ kind: string; value: string; count: string | number }>`
+      WITH agenda AS (
+        SELECT t.id AS table_id, ts.day_of_week, ts.start_time
+        FROM tables t
+        JOIN table_schedules ts ON ts.table_id = t.id
+        WHERE t.status = 'active' AND t.archived_at IS NULL
+          AND ${importedTableIsCurrentSql('t')}
+        UNION ALL
+        SELECT t.id, t.schedule_day_hint, t.schedule_time_hint
+        FROM tables t
+        WHERE t.status = 'active' AND t.archived_at IS NULL
+          AND ${importedTableIsCurrentSql('t')}
+          AND (t.schedule_day_hint IS NOT NULL OR t.schedule_time_hint IS NOT NULL)
+      )
+      SELECT 'weekday' AS kind, agenda.day_of_week AS value, COUNT(DISTINCT agenda.table_id) AS count
+      FROM agenda
+      WHERE agenda.day_of_week IS NOT NULL
+      GROUP BY agenda.day_of_week
+      UNION ALL
+      SELECT 'daypart' AS kind, ${daypartCaseSql} AS value, COUNT(DISTINCT agenda.table_id) AS count
+      FROM agenda
+      WHERE agenda.start_time IS NOT NULL
+      GROUP BY ${daypartCaseSql}
+    `.execute(db);
+
+    // Opção sem nenhuma mesa não volta do GROUP BY; a UI completa o zero a partir
+    // do seu registro canônico de valores, que é quem define a lista e a ordem.
+    res.json({
+      data: {
+        weekdays: result.rows
+          .filter((row) => row.kind === 'weekday')
+          .map((row) => ({ value: row.value, count: Number(row.count) })),
+        dayparts: result.rows
+          .filter((row) => row.kind === 'daypart')
+          .map((row) => ({ value: row.value, count: Number(row.count) })),
+      },
+    });
+  } catch (error) {
+    console.error('[GET /tables/schedule-facets]', error);
+    res.status(500).json({ error: 'Erro ao buscar agenda das mesas.' });
   }
 });
 

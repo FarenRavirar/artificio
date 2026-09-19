@@ -12,6 +12,7 @@ import type { CatalogSeal, TableCard } from '../types/tables';
 import { useInfiniteCatalogTables } from '../hooks/useInfiniteCatalogTables';
 import { useCatalogFilters } from '../hooks/useCatalogFilters';
 import { useStyleFacets } from '../hooks/useStyleFacets';
+import { useScheduleFacets } from '../hooks/useScheduleFacets';
 import { useSystemsCatalog } from '../hooks/useSystemsCatalog';
 import { trackFilterSistema } from '@artificio/analytics';
 import { useAuth } from '../contexts/useAuth';
@@ -26,7 +27,9 @@ import type {
 import {
   SORT_VALUES,
   activeCatalogFiltersCount,
+  type DaypartOption,
   type TableTypeOption,
+  type WeekdayOption,
 } from '../utils/catalogFilterOptions';
 
 function pickOption<T extends string>(value: string, validOptions: readonly T[], fallback: T): T {
@@ -44,7 +47,20 @@ const updateFilter = <K extends keyof CatalogFilters>(
   setFilters((prev) => ({ ...prev, [key]: value, ...(key === 'page' ? {} : { page: 1 }) }));
 };
 
-type AdvancedFiltersDraft = Pick<CatalogFilters, 'experience' | 'type' | 'seal' | 'styles'>;
+type AdvancedFiltersDraft = Pick<
+  CatalogFilters,
+  'experience' | 'type' | 'seal' | 'styles' | 'weekdays' | 'dayparts'
+>;
+
+/** Estado vazio do draft — uma definição só, usada no "Limpar" e na comparação. */
+const EMPTY_ADVANCED_DRAFT: AdvancedFiltersDraft = {
+  experience: '',
+  type: '',
+  seal: '',
+  styles: [],
+  weekdays: [],
+  dayparts: [],
+};
 
 function advancedFiltersFrom(filters: CatalogFilters): AdvancedFiltersDraft {
   return {
@@ -52,6 +68,8 @@ function advancedFiltersFrom(filters: CatalogFilters): AdvancedFiltersDraft {
     type: filters.type,
     seal: filters.seal,
     styles: [...filters.styles],
+    weekdays: [...filters.weekdays],
+    dayparts: [...filters.dayparts],
   };
 }
 
@@ -96,6 +114,9 @@ export const CatalogoPage = () => {
 
   // Estilos reais em uso, por frequência (não é lista fixa)
   const { facets: styleFacets } = useStyleFacets();
+  // Contagem por dia e faixa: a opção sem mesa aparece com (0) e desabilitada
+  // (spec 103, D6), então o número vem do banco, não de lista hardcoded.
+  const { counts: scheduleFacets } = useScheduleFacets();
 
   // STATE - Árvore de sistemas
   const {
@@ -215,6 +236,8 @@ export const CatalogoPage = () => {
       seal: '',
       styles: [],
       type: '',
+      weekdays: [],
+      dayparts: [],
       sort: 'popular',
       page: 1,
       limit: 24,
@@ -226,6 +249,20 @@ export const CatalogoPage = () => {
       setFilters(prev => ({
         ...prev,
         styles: prev.styles.filter((s) => s !== value),
+        page: 1,
+      }));
+    } else if (key === 'weekdays' && value) {
+      // Chip de dia remove só aquele dia (E7); sem este ramo o `else` abaixo
+      // atribuiria `''` ao campo, trocando a lista por string e quebrando o tipo.
+      setFilters(prev => ({
+        ...prev,
+        weekdays: prev.weekdays.filter((weekday) => weekday !== value),
+        page: 1,
+      }));
+    } else if (key === 'dayparts' && value) {
+      setFilters(prev => ({
+        ...prev,
+        dayparts: prev.dayparts.filter((daypart) => daypart !== value),
         page: 1,
       }));
     } else {
@@ -255,6 +292,35 @@ export const CatalogoPage = () => {
     }));
   };
 
+  /** Marca/desmarca um valor numa lista multivalor, preservando os outros. */
+  const toggleInList = <T,>(list: readonly T[], value: T): T[] =>
+    list.includes(value) ? list.filter((item) => item !== value) : [...list, value];
+
+  // Desktop aplica direto (comportamento dos outros controles); o mobile mexe no
+  // draft e só aplica no botão. A ordem canônica é imposta no parser/builder, não
+  // aqui: o estado guarda a ordem de clique e a URL sai normalizada.
+  const toggleWeekday = (weekday: WeekdayOption) => {
+    setFilters(prev => ({ ...prev, weekdays: toggleInList(prev.weekdays, weekday), page: 1 }));
+  };
+
+  const toggleDaypart = (daypart: DaypartOption) => {
+    setFilters(prev => ({ ...prev, dayparts: toggleInList(prev.dayparts, daypart), page: 1 }));
+  };
+
+  const toggleMobileWeekday = (weekday: WeekdayOption) => {
+    setMobileAdvancedDraft((previous) => ({
+      ...previous,
+      weekdays: toggleInList(previous.weekdays, weekday),
+    }));
+  };
+
+  const toggleMobileDaypart = (daypart: DaypartOption) => {
+    setMobileAdvancedDraft((previous) => ({
+      ...previous,
+      dayparts: toggleInList(previous.dayparts, daypart),
+    }));
+  };
+
   const handleModalityChange = (value: ModalityOption | '') => {
     updateFilter(setFilters, 'modality', value);
   };
@@ -277,7 +343,9 @@ export const CatalogoPage = () => {
   };
 
   const clearMobileAdvancedFilters = () => {
-    setMobileAdvancedDraft({ experience: '', type: '', seal: '', styles: [] });
+    // Objeto compartilhado: repetir a lista aqui é como dia e faixa
+    // sobreviveriam ao "Limpar" sem ninguém notar (E6).
+    setMobileAdvancedDraft({ ...EMPTY_ADVANCED_DRAFT });
   };
 
   const applyMobileAdvancedFilters = () => {
@@ -462,7 +530,10 @@ export const CatalogoPage = () => {
         onTypeChange={handleTypeChange}
         onSealToggle={toggleSeal}
         onStyleToggle={toggleStyle}
+        onWeekdayToggle={toggleWeekday}
+        onDaypartToggle={toggleDaypart}
         styleFacets={styleFacets}
+        scheduleFacets={scheduleFacets}
         advancedCount={advancedCount}
         systemName={selectedSystemName}
         onRemoveFilter={removeFilter}
@@ -481,17 +552,15 @@ export const CatalogoPage = () => {
         isApplying={isRefreshing}
       >
         <CatalogAdvancedFilters
-          filters={{
-            experience: mobileAdvancedDraft.experience,
-            type: mobileAdvancedDraft.type,
-            seal: mobileAdvancedDraft.seal,
-            styles: mobileAdvancedDraft.styles,
-          }}
+          filters={mobileAdvancedDraft}
           styleFacets={styleFacets}
+          scheduleFacets={scheduleFacets}
           onExperienceChange={(experience) => setMobileAdvancedDraft((previous) => ({ ...previous, experience }))}
           onTypeChange={(type) => setMobileAdvancedDraft((previous) => ({ ...previous, type }))}
           onSealToggle={toggleMobileSeal}
           onStyleToggle={toggleMobileStyle}
+          onWeekdayToggle={toggleMobileWeekday}
+          onDaypartToggle={toggleMobileDaypart}
           idPrefix="catalog-advanced-mobile"
         />
       </FilterDrawer>
