@@ -6811,6 +6811,35 @@ paths:
           description: Sem permissão
         "500":
           description: Erro interno
+  /api/v1/tables/schedule-facets:
+    get:
+      operationId: getapi_v1_tables_schedule_facets
+      summary: "Consulta api v1 tables schedule-facets"
+      x-artificio-owner: mesas
+      x-artificio-scope: public
+      x-artificio-status: active
+      x-artificio-auth: none
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "400":
+          description: Requisição inválida
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+        "500":
+          description: Erro interno
   /api/v1/tables/style-facets:
     get:
       operationId: getapi_v1_tables_style_facets

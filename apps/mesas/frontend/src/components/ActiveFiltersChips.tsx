@@ -1,12 +1,14 @@
 import { X } from 'lucide-react';
 import type { CatalogSeal } from '../types/tables';
 import {
+  DAYPART_OPTIONS,
   EXPERIENCE_LEVEL_OPTIONS,
   MODALITY_OPTIONS,
   PRICE_TYPE_OPTIONS,
   SEAL_OPTIONS,
   SORT_OPTIONS,
   TABLE_TYPE_OPTIONS,
+  WEEKDAY_OPTIONS,
 } from '../utils/catalogFilterOptions';
 
 interface ActiveFilter {
@@ -25,6 +27,8 @@ interface ActiveFiltersChipsProps {
     type?: string;
     seal?: CatalogSeal;
     styles?: string[];
+    weekdays?: string[];
+    dayparts?: string[];
     sort?: string;
   };
   systemName?: string;
@@ -71,6 +75,28 @@ export function ActiveFiltersChips({ filters, systemName, onRemove }: ActiveFilt
   if (filters.styles && filters.styles.length > 0) {
     filters.styles.forEach((style) => {
       activeFilters.push({ key: 'styles', label: style, value: style });
+    });
+  }
+
+  // Um chip por dia e um por faixa (E7): o clique remove só aquele valor, não o
+  // filtro inteiro — `removeFilter` trata as duas chaves em ramo próprio.
+  if (filters.weekdays && filters.weekdays.length > 0) {
+    filters.weekdays.forEach((weekday) => {
+      activeFilters.push({
+        key: 'weekdays',
+        label: optionLabel(WEEKDAY_OPTIONS, weekday) || weekday,
+        value: weekday,
+      });
+    });
+  }
+
+  if (filters.dayparts && filters.dayparts.length > 0) {
+    filters.dayparts.forEach((daypart) => {
+      activeFilters.push({
+        key: 'dayparts',
+        label: optionLabel(DAYPART_OPTIONS, daypart) || daypart,
+        value: daypart,
+      });
     });
   }
 

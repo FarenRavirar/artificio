@@ -2,15 +2,36 @@ import type {
   CatalogFilters,
   StyleOption,
 } from '../services/catalogService';
+import type { DaypartOption, WeekdayOption } from './catalogFilterOptions';
 import {
+  DAYPART_VALUES,
   EXPERIENCE_LEVEL_VALUES,
   MODALITY_VALUES,
+  normalizeEnumMulti,
   normalizeStyles,
   PRICE_TYPE_VALUES,
   SEAL_VALUES,
   SORT_VALUES,
   TABLE_TYPE_VALUES,
+  WEEKDAY_VALUES,
 } from './catalogFilterOptions';
+
+/**
+ * Lista multivalor separada por vírgula, com decode por item — mesma forma de
+ * `styles` (o valor pode conter acento, e o dia contém: `sábado`, `terça`).
+ */
+function parseCsvParam(raw: string): string[] {
+  return raw
+    .split(',')
+    .filter(Boolean)
+    .map((item) => {
+      try {
+        return decodeURIComponent(item);
+      } catch {
+        return item; // decode inválido não quebra o parser
+      }
+    });
+}
 
 // Helper genérico para parsing de enums
 function parseEnum<T extends string>(
@@ -49,15 +70,20 @@ export function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
   const type = parseEnum(params.get('type') || '', [...TABLE_TYPE_VALUES, ''] as const, '');
 
   // Styles: normalizar (decode + trim + dedupe + sort) — ver normalizeStyles.
-  const stylesParam = params.get('styles') || '';
-  const stylesArray = stylesParam.split(',').filter(Boolean).map(s => {
-    try {
-      return decodeURIComponent(s);
-    } catch {
-      return s; // Fallback se decode falhar
-    }
-  });
-  const styles: StyleOption[] = normalizeStyles(stylesArray);
+  const styles: StyleOption[] = normalizeStyles(parseCsvParam(params.get('styles') || ''));
+
+  // Agenda (spec 103): valor fora do registro canônico é descartado em silêncio,
+  // igual aos enums escalares — `weekday=funday` cai no vazio, não quebra a
+  // página. `normalizeEnumMulti` também deduplica e reordena pela ordem de
+  // calendário/cronologia, então a URL é estável qualquer que seja a ordem.
+  const weekdays: WeekdayOption[] = normalizeEnumMulti(
+    parseCsvParam(params.get('weekday') || ''),
+    WEEKDAY_VALUES,
+  );
+  const dayparts: DaypartOption[] = normalizeEnumMulti(
+    parseCsvParam(params.get('daypart') || ''),
+    DAYPART_VALUES,
+  );
 
   return {
     search: params.get('search') || '',
@@ -68,6 +94,8 @@ export function parseCatalogFilters(params: URLSearchParams): CatalogFilters {
     seal,
     styles,
     type,
+    weekdays,
+    dayparts,
     sort,
     page,
     limit: 24,
@@ -99,6 +127,18 @@ export function buildCatalogParams(filters: CatalogFilters): URLSearchParams {
       params.set('styles', normalizedStyles.map(s => encodeURIComponent(s)).join(','));
     }
   }
+  // Agenda: ordem canônica antes do encode, para o round-trip parse→build ser
+  // estável (E4/E5 da spec 103). O `encodeURIComponent` por item protege o
+  // acento de `sábado`/`terça` da vírgula delimitadora.
+  const weekdays = normalizeEnumMulti(filters.weekdays ?? [], WEEKDAY_VALUES);
+  if (weekdays.length > 0) {
+    params.set('weekday', weekdays.map((day) => encodeURIComponent(day)).join(','));
+  }
+  const dayparts = normalizeEnumMulti(filters.dayparts ?? [], DAYPART_VALUES);
+  if (dayparts.length > 0) {
+    params.set('daypart', dayparts.join(','));
+  }
+
   if (filters.sort && filters.sort !== 'popular') {
     params.set('sort', filters.sort);
   }

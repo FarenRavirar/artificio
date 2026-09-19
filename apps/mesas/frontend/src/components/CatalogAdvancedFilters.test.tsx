@@ -23,12 +23,17 @@ const baseProps = {
     type: '' as CatalogFilters['type'],
     seal: '' as CatalogFilters['seal'],
     styles: [] as CatalogFilters['styles'],
+    weekdays: [] as CatalogFilters['weekdays'],
+    dayparts: [] as CatalogFilters['dayparts'],
   },
   styleFacets,
+  scheduleFacets: { weekdays: {}, dayparts: {}, loaded: false },
   onExperienceChange: vi.fn(),
   onTypeChange: vi.fn(),
   onSealToggle: vi.fn(),
   onStyleToggle: vi.fn(),
+  onWeekdayToggle: vi.fn(),
+  onDaypartToggle: vi.fn(),
   idPrefix: 'catalog-advanced-desktop',
 };
 

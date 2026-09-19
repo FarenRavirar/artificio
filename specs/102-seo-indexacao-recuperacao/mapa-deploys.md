@@ -16,16 +16,24 @@ este arquivo quando um deploy rodar, nunca anexar bloco novo.
   chega ao app pelo build do app, no deploy que aquele app tiver por outro motivo.
 - `accounts` e `links` são prod-only (`env_override: prod`); dispatch `env=beta` neles
   é bloqueado pelo `build-matrix`.
-- **Distância até prod:** `origin/main..origin/dev` = **15 commits** (medido 2026-09-16,
-  após o merge da #325 — `8c2bbe1`). `main` segue em `1c833b5` (merge da #321); o promote
-  de 2026-09-14 levou os 40 commits anteriores, e o que sobrou é a F7 inteira mais os
-  merges das #322/#323/#324/#325. Diff por módulo, medido com
-  `git diff --name-only origin/main origin/dev -- <path> | wc -l` (2026-09-16):
-  `packages/ui` **14 arquivos**, `apps/site` **12**, `apps/downloads` **4**,
-  `apps/mesas` **1**, `apps/glossario` **1**, `apps/links` **1**, `apps/accounts` **1**,
-  `apps/site-admin` **0**. A contagem anterior deste bloco somava **1 a mais por app**:
+- **Distância até prod:** `origin/main..origin/dev` = **19 commits** (medido 2026-09-16,
+  após o merge da #326 — `dev` em `93d5533`). `main` segue em `1c833b5` (merge da #321);
+  o promote de 2026-09-14 levou os 40 commits anteriores, e o que sobrou é a F7 inteira
+  mais os merges das #322/#323/#324/#325/#326. **Fast-forward confirmado:**
+  `git merge-base origin/main origin/dev` == `origin/main`, então o promote não cria
+  merge commit. Diff por módulo, medido com
+  `git diff --name-only origin/main origin/dev -- <path> | grep -c .` (2026-09-16):
+  `packages/ui` **15 arquivos**, `apps/site` **15**, `apps/downloads` **6**,
+  `apps/mesas` **3**, `apps/glossario` **3**, `apps/links` **3**, `apps/accounts` **2**,
+  `apps/site-admin` **0**. Uma contagem anterior deste bloco somava **1 a mais por app**:
   veio de `--stat`, cuja última linha é o rodapé `N files changed`, não um arquivo.
-  `--name-only | wc -l` é o instrumento certo.
+  `--name-only` contado por linha é o instrumento certo.
+
+- **Gate E012 (migration) não entra neste promote.** `git diff --name-only origin/main
+  origin/dev | grep -iE "\.sql$"` devolve **zero** (2026-09-16). Os três
+  `*/database/changelogs.json` que aparecem no diff (`mesas`, `glossario`, `downloads`)
+  são as entradas de changelog da F7 — dado de conteúdo, não DDL. Não confundir o
+  diretório `database/` com migration: o gate olha `.sql`.
 
 - **Cada um dos 5 apps não-`site` tem arquivo próprio em `apps/*` no diff** — `mesas`
   `frontend/src/components/AppShell.tsx`, `glossario` `GlossarioHeader.tsx`, `downloads`
@@ -157,36 +165,106 @@ de `.artificio-session`.
 **Já rodado** em 2026-09-13 (run `34778898181`) + ingress beta `:80`→`:3000` (tunnel
 v26→v27). E1, F1, F5 e os aceites de T4.2/T4.3/T4.5 medidos ali.
 
-**Rodado de novo em 2026-09-16** (run `35106228138`, `success`, 4m22s), levando a F7 —
-o header mobile de `packages/ui` chega pelo build do app, já que `packages/*` não está em
-`deploy_paths`.
+**Rodado duas vezes em 2026-09-16:** run `35106228138` (`success`, 4m22s), que levou a F7
+— o header mobile de `packages/ui` chega pelo build do app, já que `packages/*` não está
+em `deploy_paths` — e depois a run `35119177098`, já com a #326. **A válida é a segunda**;
+ver a rodada dos 4 betas abaixo.
 
-### Rodada de betas de 2026-09-16 — o que ficou de fora
+### Rodada de betas de 2026-09-16 — os 4 módulos com beta, pós-#326
 
-Dois betas verdes neste dia: `site` (run `35105075773`, 6m38s) e `mesas`
-(run `35106228138`). `glossario` e `downloads` **não foram disparados**.
+A #326 entrou em `dev` (merge `93d5533`, contendo `b73029d` e `e9c49d9`) e os **4 módulos
+que têm beta** foram deployados em sequência, todos `success`:
 
-**⚠️ Os dois rodaram ANTES do commit `b73029d` (PR #326) e NÃO levam o que ele corrige.**
-Quem ler "beta verde" vai supor o contrário. O que falta nesses ambientes:
-`connect-src` do GA4 (analytics segue mudo lá), `img-src` das capas, o template de
-resultado da busca com capa/categoria/data, a coluna de 680px da `/busca/` e as entradas
-novas de changelog nos 5 apps. Novo dispatch depois que a #326 entrar em `dev`.
+| módulo | run | ambiente | smoke |
+|---|---|---|---|
+| `site` | `35118401318` (5m39s) | `beta.artificiorpg.com` | 200 |
+| `mesas` | `35119177098` | `mesasbeta.artificiorpg.com` | 200 |
+| `glossario` | `35120654608` | `glossariobeta.artificiorpg.com` | 200 |
+| `downloads` | `35121138771` | `downloadsbeta.artificiorpg.com` | 200 |
 
-A CSP é `<meta>` gerada no build: enquanto o deploy não rodar, o ambiente serve a diretiva
-antiga, por mais que o `dist` local esteja correto.
+Smoke medido com `curl -o /dev/null -w '%{http_code}'` e `?cb=$(date +%s%N)`. Foi o
+**primeiro beta de `glossario` e de `downloads`** — nenhum dos dois falhou no bootstrap.
 
-### Deploy D — `mesas` prod
+**A CSP da #326 chegou**, medida no `beta.artificiorpg.com` com cache-buster:
+`connect-src` traz `https://www.google-analytics.com` e `https://analytics.google.com`
+(GA4 deixa de ser mudo no beta); `img-src` traz `https://res.cloudinary.com` (capas).
+A CSP é `<meta>` gerada no build — antes deste deploy o ambiente servia a diretiva antiga
+por mais que o `dist` local estivesse correto. As runs anteriores (`35105075773` do `site`
+e `35106228138` do `mesas`) são as que rodaram ANTES de `b73029d`; estão superadas.
 
-Pré: promote `dev`→`main`. `-f module=mesas -f mode=deploy -f env=prod`.
+**`links` NÃO tem beta e ficou de fora, por decisão do mantenedor** ("rode só que tem
+beta", 2026-09-16). Medido em `deploy.yml:184-187`: dispatch `env=beta` para `links` ou
+`accounts` sai com `exit 1` ("ERRO: $m nao tem realm beta"), e o manifesto ainda tem
+`env_override: "prod"` + `push_branches: ["main"]` nos dois. Deploy de `links` é
+necessariamente produção, a partir de `main`, e exige promote + autorização própria.
 
-**⚠️ A run falha o smoke por construção.** O container novo escuta `:3000` (`USER node`
-não abre <1024) e o ingress de prod ainda aponta `:80` → `ERRO: smoke home esperava 200
-recebeu 502`. **Não é defeito; não fazer rollback.** Passo seguinte: trocar o ingress de
-prod para `mesas-app:3000` (uma linha, aprovação nominal) e remedir. Em beta o `502`
-durou ~4 min.
+**O smoke visual** do header em ≤860px e da `/busca/` exige navegador — nenhum teste
+alcança, e nenhum `curl` acima o cobre. Segue pendente em beta e em prod.
 
-**Fecha 8 critérios:** C1, C2, B1, E1 (confirmação), F1, F2 (com o Rich Results Test),
-F3, F4, F5.
+### Rodada de prod de 2026-09-16 — ✅ COMPLETA, 6 de 6
+
+Mantenedor autorizou os **6 módulos** ("todos", 2026-09-16), depois de recusar o recorte
+de 4, e autorizou a troca de ingress do `mesas` no mesmo turno. **Tudo em produção.**
+
+**Promote `dev`→`main`:** run `35122671173`, `success`. `main` `1c833b5` → **`93d5533`**,
+fast-forward. **ROLLBACK: `main` estava em `1c833b5`.** O dispatch exige
+`-f confirm=PROMOTE_DEV_TO_MAIN`; sem esse input a API devolve
+`HTTP 422: Required input 'confirm' not provided` e nada roda.
+
+| # | módulo | run | resultado | smoke prod |
+|---|---|---|---|---|
+| 1 | `site` | `35122756009` | ✅ `success` | `/` `/blog/` `/busca/` = 200 |
+| 2 | `mesas` | `35123517986` | ❌ `failure` (502 previsto) | 200 **após ingress v28** |
+| 3 | `glossario` | `35124797975` | ✅ `success` | 200 |
+| 4 | `downloads` | `35125372846` | ✅ `success` | 200/200/401 |
+| 5 | `links` | `35126396653` | ✅ `success` | 200 |
+| 6 | `accounts` | `35127277894` | ✅ `success` | 200/200/401/401 |
+
+**`site` prod medido** com cache-buster: `grep -o "<lastmod>" | grep -c .` no
+`sitemap-0.xml` = **126**, igual ao Deploy B. Nenhuma regressão de SEO; a `/busca/` do
+Component UI (T7.8) está no ar.
+
+**`mesas`: a run falhou como previsto e o ingress resolveu.** Log confirmado palavra por
+palavra: `ERRO: smoke home esperava 200 recebeu 502`. **Troca feita via MCP Cloudflare**
+(escrita autorizada nominalmente): tunnel `6417d3a0-b98b-42ed-97da-3fb9f6ecfac2`,
+`PUT /cfd_tunnel/{id}/configurations`, **v27 → v28**, só a regra
+`mesas.artificiorpg.com` de `http://mesas-app:80` para `http://mesas-app:3000`, as outras
+10 preservadas. Depois: home 200 (3 medições), `/api/v1/me/options` **401**,
+`/mesas/nao-existe-zzz` **404** → **critério C1 fechado em produção**, `/sitemap.xml` 200.
+**ROLLBACK do ingress: voltar a regra para `http://mesas-app:80`.**
+
+**O beta já estava em `:3000` desde 2026-09-13** (regra `mesasbeta` no mesmo ingress) —
+era a prova de que `:3000` é o alvo certo, disponível por leitura antes de escrever.
+
+**Duas armadilhas de medição desta rodada:**
+1. `gh run view --log-failed | grep ERRO` devolve primeiro as linhas do **script ecoado**
+   (`echo "ERRO: ..."`, com prefixo ANSI `^[[36;1m`), não a falha. A linha real vem sem
+   escape de cor, no fim da saída. Filtrar por `grep -E "ERRO: smoke|Error: Process"`.
+2. `curl /api/v1/auth/google` no `downloads` devolve **404, e isso é correto** — o app não
+   expõe essa rota (`rtk rg "auth/google" apps/downloads --type ts` = **zero**). O 404 foi
+   lido como regressão por um instante; o contrato de smoke dele é
+   `/api/v1/health`, `/` e `/api/v1/materials/mine`, medidos 200/200/401. Conferir o
+   manifesto antes de inventar rota de smoke.
+
+### Deploy D — `mesas` prod ✅ FEITO
+
+Run `35123517986` (`failure` no smoke, previsto) + ingress v27→v28. Detalhe da execução na
+rodada de prod acima. **Medido em `mesas.artificiorpg.com` depois do ingress:**
+
+| critério | medição | resultado |
+|---|---|---|
+| C1 | `/mesas/nao-existe-zzz` | **404** ✅ |
+| C2 | `grep -c 'rel="canonical"'` no corpo do 404 | **0** ✅ |
+| B1 | 44 URLs do `/sitemap.xml`, todas via `curl` | **0 não-200** ✅ |
+| F1 | `curl -A GPTBot/1.1 <mesa> \| wc -c` | **37.330 B** (era 3.328) ✅ |
+| F2 | `grep -c '"@type": "Event"'` | **0** ✅ |
+| F5 | `grep -c 'ld+json'` com UA de crawler | **1** ✅ |
+
+**Fecha 7 dos 8:** C1, C2, B1, E1 (confirmação), F1, F2, F5. **F3 e F4 não foram medidos
+aqui** — F3 (`Offer` com preço/moeda/disponibilidade) e F4 (`description` por mesa) exigem
+inspecionar o JSON-LD campo a campo, e **F2 só fecha de verdade com o Rich Results Test**,
+que é manual. O `grep` acima prova apenas a ausência de `Event`, não a validade do
+`Product`.
 
 **Destrava:** H1 linha F1 (Soft 404). Sem pré-requisito pendente — a propriedade de
 Domínio já está verificada e cobre `mesas.`.
@@ -199,9 +277,11 @@ Domínio já está verificada e cobre `mesas.`.
   classe inteira de "sitemap anuncia o que o SSR nega" volta sem quebrar teste.
 - **Aceite 16 de T3.5** (header em `mesas`, `downloads`, `glossario`, `links`,
   `site-admin`, `accounts`, desktop e ≤860px). É `packages/ui`: nenhum `deploy_paths` o
-  cobre. O Deploy B leva o header a `artificiorpg.com` e mais nada; os outros 5 apps
-  seguem com o header antigo até terem deploy próprio, **que esta spec não prevê**.
-  Além disso é layout — exige navegador, nenhum teste alcança.
+  cobre, então ele nunca **dispara** deploy — chega a cada app pelo build daquele app.
+  **Em beta isto deixou de ser bloqueio** para `mesas`, `glossario` e `downloads`: os três
+  foram deployados em 2026-09-16 e servem o header novo (runs na rodada de betas acima).
+  Segue aberto em **prod nos 5 apps** e em **`links`/`accounts` em qualquer ambiente**,
+  que não têm beta. Além disso é layout — exige navegador, nenhum teste alcança.
 - **Espelho `apps/mesas/frontend/src/utils/tableVisibility.ts`** segue divergente (B2
   fecha pelo backend). Unificar exige pacote compartilhado, aprovação nominal.
 - **Aceite 4 de T1.3** — sugestões de mesas vigentes no corpo do `410`. Frontend, não
@@ -323,13 +403,18 @@ alcança.
 
 ## O que fecha a spec
 
-Os 19 critérios de `spec.md` §4. Hoje: **3 fechados** (A1, B2, e E1 em beta), **1 parcial**
-(G1), **15 pendentes**. Depois de A+B+D e da troca de ingress, fecham 14 dos 19.
+Os 19 critérios de `spec.md` §4. Depois de A+B+D e da troca de ingress (2026-09-16):
+**15 fechados e medidos em produção** — A1, A2, B1, B2, C1, C2, D1, D2, D3, D4, D5, E1,
+F1, F2 (parcial: só ausência de `Event`), F5. **1 parcial** (G1). **3 pendentes**: F3,
+F4, H1.
 
-**Ficam abertos mesmo com todos os deploys feitos:**
-1. **G1** — faltam G-B/G-C/G-D, que precisam de banco com dado em CI, não de deploy.
+**Ficam abertos, e nenhum depende de novo deploy:**
+1. **G1** — faltam G-B/G-C/G-D, que precisam de banco com dado em CI.
 2. **H1** — manual no GSC (Validate Fix em 3 linhas). Não é mais bloqueio: a propriedade
-   de Domínio está verificada. É ação sua, pós-Deploy B e pós-Deploy D.
+   de Domínio está verificada. É ação sua, agora liberada — o Deploy B e o D já rodaram.
+3. **F3 e F4, e a validação real de F2** — exigem inspecionar o JSON-LD de uma mesa campo
+   a campo (`Offer` com preço/moeda/disponibilidade, `description` por mesa) e passar a
+   URL no **Rich Results Test**, que é manual. O código está em produção; falta a medição.
 
 **E não medir sucesso pela semana seguinte** (`plan.md` §9): reindexação leva semanas a
 meses. O sinal é a queda de "Rastreada, mas não indexada" contra o baseline de 03/09,
@@ -358,9 +443,16 @@ não tráfego imediato.
    — o promote não exige mais autorização própria quando um deploy que o requer foi
    pedido.
 5. ~~Deploy B (`site` prod).~~ ✅ run `34907514215`, `success`. A2, D1–D5 e os aceites de
-   T3.5 medidos e verdes. **Pendente aqui: o header mobile foi para prod quebrado.**
-6. Deploy D (`mesas` prod) → smoke falha → trocar ingress prod → medir C1, C2, B1, F1–F5.
-7. H1: Validate Fix nas 3 linhas do GSC. T6.2: Request Indexing de ≤10 URLs.
-8. G-B/G-C/G-D quando houver banco com dado em CI — independe de deploy.
+   T3.5 medidos e verdes. O header mobile quebrado que este deploy levou foi corrigido e
+   **está em prod desde a rodada de 2026-09-16** (run `35122756009`).
+6. ~~Deploy D (`mesas` prod) → smoke falha → trocar ingress prod.~~ ✅ feito 2026-09-16.
+   C1, C2, B1, F1, F2, F5 medidos verdes; ingress em v28. **F3 e F4 seguem sem medição.**
+7. ~~Rodada de prod dos 6 módulos.~~ ✅ feita 2026-09-16 — ver a tabela de runs acima.
+8. **Agora:** H1 (Validate Fix nas 3 linhas do GSC) e T6.2 (Request Indexing de ≤10 URLs).
+   Os dois estavam bloqueados por deploy; não estão mais.
+9. **Agora:** F3, F4 e o Rich Results Test numa URL de mesa — manual, sem dependência.
+10. **Smoke visual pendente, nenhum teste alcança:** header em ≤860px e `/busca/` nos 6
+    apps em produção. Exige navegador.
+11. G-B/G-C/G-D quando houver banco com dado em CI — independe de deploy.
 
 Cada passo com autorização nominal própria. Autorização de um não vale para o seguinte.

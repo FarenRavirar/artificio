@@ -30,6 +30,31 @@ import type { CatalogSeal } from '../types/tables';
 export type TableTypeOption = 'campanha' | 'one-shot' | 'oneshot-serie' | 'aberta';
 export type AudienceOption = 'livre' | 'adultos';
 
+/**
+ * Dia da semana (spec 103, §6.4). O valor de URL é o MESMO texto gravado no
+ * banco, com acento — `table_schedules.day_of_week` e `tables.schedule_day_hint`
+ * compartilham o domínio literal ('segunda'..'domingo'), verificado nos dois
+ * CHECK: `migration_12_table_schedules.sql:16` e
+ * `migration_124_table_schedule_tbd.sql:46`. Um código numérico paralelo criaria
+ * tradução entre URL e banco, e tradução diverge (AGENTS.md §Compartilhado por
+ * padrão). O encode da URL cuida do acento.
+ */
+export type WeekdayOption =
+  | 'segunda'
+  | 'terça'
+  | 'quarta'
+  | 'quinta'
+  | 'sexta'
+  | 'sábado'
+  | 'domingo';
+
+/**
+ * Faixa de horário (spec 103, §6.5). Ao contrário do dia, a faixa **não** existe
+ * no banco: é derivada de `start_time` em runtime, então o valor de URL é nosso e
+ * vai sem acento (`manha`), com o acento apenas no label.
+ */
+export type DaypartOption = 'manha' | 'tarde' | 'noite' | 'madrugada';
+
 /** Sorts finais aprovados (D0.4 / R13). `ending_soon` não existe no contrato. */
 export const SORT_OPTIONS: readonly { value: SortOption; label: string }[] = [
   { value: 'popular', label: 'Mais relevantes' },
@@ -75,6 +100,54 @@ export const AUDIENCE_OPTIONS: readonly { value: AudienceOption; label: string }
 ];
 
 /**
+ * Ordem da semana começando na segunda — a ordem do calendário, não a do volume
+ * de mesas. Ordenar por popularidade faria a lista se reordenar sozinha conforme
+ * o acervo muda, e o usuário procura "sábado" onde sábado sempre esteve.
+ */
+export const WEEKDAY_OPTIONS: readonly { value: WeekdayOption; label: string }[] = [
+  { value: 'segunda', label: 'Segunda' },
+  { value: 'terça', label: 'Terça' },
+  { value: 'quarta', label: 'Quarta' },
+  { value: 'quinta', label: 'Quinta' },
+  { value: 'sexta', label: 'Sexta' },
+  { value: 'sábado', label: 'Sábado' },
+  { value: 'domingo', label: 'Domingo' },
+];
+
+/**
+ * Limites das quatro faixas — 06/12/18/00 (D5, respondida em 2026-09-18).
+ *
+ * O corte não foi escolhido por preferência: é a convenção brasileira de período
+ * do dia (madrugada 0–6, manhã 6–12, tarde 12–18, noite 18–24), registrada no
+ * Manual de Comunicação do Senado, e coincide com o corte que plataformas de
+ * reserva por período usam em produto (hotelSlots: Morning 6AM–12PM, Afternoon
+ * 12PM–6PM, Evening 6PM–12AM, Overnight 12AM–6AM).
+ *
+ * `startHour` inclusivo, `endHour` exclusivo. As quatro cobrem 24 h sem
+ * sobreposição e sem buraco — requisito técnico, não escolha: faixa sobreposta
+ * faz a mesma mesa aparecer em duas, e buraco faz mesa sumir de todas. O teste
+ * catalogFilterOptions.test.ts assere a cobertura.
+ *
+ * A faixa se decide pelo INÍCIO da sessão: `start_time` é `NOT NULL`
+ * (`migration_12_table_schedules.sql:17`) e `end_time` é nullable (linha 18).
+ * Mesa que começa 23h e varre a madrugada conta como noite, não como duas.
+ */
+export const DAYPART_RANGES: Readonly<Record<DaypartOption, { startHour: number; endHour: number }>> = {
+  madrugada: { startHour: 0, endHour: 6 },
+  manha: { startHour: 6, endHour: 12 },
+  tarde: { startHour: 12, endHour: 18 },
+  noite: { startHour: 18, endHour: 24 },
+};
+
+/** Ordem cronológica do dia, não por volume — mesmo motivo de WEEKDAY_OPTIONS. */
+export const DAYPART_OPTIONS: readonly { value: DaypartOption; label: string }[] = [
+  { value: 'manha', label: 'Manhã' },
+  { value: 'tarde', label: 'Tarde' },
+  { value: 'noite', label: 'Noite' },
+  { value: 'madrugada', label: 'Madrugada' },
+];
+
+/**
  * Opções visíveis após a medição pública T0.2a/R22 de 2026-08-21. O contrato
  * completo acima continua aceitando URLs legadas; estas listas controlam apenas
  * o que pode ser oferecido como escolha enquanto houver resultado público.
@@ -103,6 +176,8 @@ export const EXPERIENCE_LEVEL_VALUES: readonly ExperienceLevelOption[] = EXPERIE
 export const SEAL_VALUES: ReadonlyArray<Exclude<CatalogSeal, ''>> = SEAL_OPTIONS.map((option) => option.value);
 export const TABLE_TYPE_VALUES: readonly TableTypeOption[] = TABLE_TYPE_OPTIONS.map((option) => option.value);
 export const AUDIENCE_VALUES: readonly AudienceOption[] = AUDIENCE_OPTIONS.map((option) => option.value);
+export const WEEKDAY_VALUES: readonly WeekdayOption[] = WEEKDAY_OPTIONS.map((option) => option.value);
+export const DAYPART_VALUES: readonly DaypartOption[] = DAYPART_OPTIONS.map((option) => option.value);
 
 // Type guards derivados das mesmas listas (sem segunda fonte de valores).
 export function isSortOption(value: string): value is SortOption {
@@ -133,13 +208,31 @@ export function isAudienceOption(value: string): value is AudienceOption {
   return (AUDIENCE_VALUES as readonly string[]).includes(value);
 }
 
+export function isWeekdayOption(value: string): value is WeekdayOption {
+  return (WEEKDAY_VALUES as readonly string[]).includes(value);
+}
+
+export function isDaypartOption(value: string): value is DaypartOption {
+  return (DAYPART_VALUES as readonly string[]).includes(value);
+}
+
 export function pickOptional<T extends string>(value: string, valid: readonly T[]): T | '' {
   return value !== '' && (valid as readonly string[]).includes(value) ? (value as T) : '';
 }
 
 type ActiveCatalogFilters = Pick<
   CatalogFilters,
-  'search' | 'system' | 'modality' | 'priceType' | 'experience' | 'type' | 'seal' | 'styles' | 'sort'
+  | 'search'
+  | 'system'
+  | 'modality'
+  | 'priceType'
+  | 'experience'
+  | 'type'
+  | 'seal'
+  | 'styles'
+  | 'weekdays'
+  | 'dayparts'
+  | 'sort'
 >;
 
 function activeCatalogScalarValues(filters: ActiveCatalogFilters): string[] {
@@ -159,11 +252,19 @@ function activeCatalogScalarValues(filters: ActiveCatalogFilters): string[] {
 export function activeCatalogFiltersCount(filters: ActiveCatalogFilters): number {
   const scalarCount = activeCatalogScalarValues(filters)
     .reduce((count, value) => count + Number(Boolean(value)), 0);
-  return scalarCount + filters.styles.length;
+  return scalarCount + activeCatalogMultiLength(filters);
 }
 
 export function hasActiveCatalogFilters(filters: ActiveCatalogFilters): boolean {
-  return activeCatalogScalarValues(filters).some(Boolean) || filters.styles.length > 0;
+  return activeCatalogScalarValues(filters).some(Boolean) || activeCatalogMultiLength(filters) > 0;
+}
+
+/**
+ * Cada dia e cada faixa marcados contam como um filtro, igual a cada estilo —
+ * é o que o badge `advancedCount` já comunica para estilos (E8 da spec 103).
+ */
+function activeCatalogMultiLength(filters: ActiveCatalogFilters): number {
+  return filters.styles.length + filters.weekdays.length + filters.dayparts.length;
 }
 
 /**
@@ -176,6 +277,25 @@ export function hasActiveCatalogFilters(filters: ActiveCatalogFilters): boolean 
  * vindo do backend; a validação real é o filtro SQL). Mantido aqui para não
  * afrouxar o descarte de lixo que já existia.
  */
+/**
+ * Normalização multivalor de enum fechado (dia e faixa): descarta valor fora do
+ * registro, deduplica e ordena pela ORDEM CANÔNICA da lista de opções — não
+ * alfabética.
+ *
+ * Alfabética seria errada aqui: `normalizeStyles` ordena por `localeCompare`
+ * porque estilo é campo livre sem ordem natural, mas dia tem ordem de calendário
+ * e faixa tem ordem cronológica. Ordenar `sexta,segunda` como `segunda,sexta`
+ * mantém a URL estável qualquer que seja a ordem de clique — mesma garantia que
+ * R11 dá aos estilos, com o critério certo para lista ordenada.
+ */
+export function normalizeEnumMulti<T extends string>(
+  values: readonly string[],
+  canonical: readonly T[],
+): T[] {
+  const selected = new Set(values.map((value) => value.trim()));
+  return canonical.filter((option) => selected.has(option));
+}
+
 export function normalizeStyles(styles: readonly string[]): string[] {
   return [
     ...new Set(

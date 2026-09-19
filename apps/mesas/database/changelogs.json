@@ -1,5 +1,13 @@
 [
   {
+    "id": "2026-09-18-filtro-dia-horario",
+    "title": "Filtre mesas por dia da semana e horário",
+    "body": "O catálogo agora deixa você procurar mesa pelo horário que você tem livre:\n\n- **Dia da semana** - Marque os dias em que você pode jogar. Pode marcar mais de um: o catálogo mostra as mesas que jogam em qualquer um deles\n- **Faixa de horário** - Manhã, tarde, noite ou madrugada, pelo horário em que a sessão começa\n- **Os dois juntos** - Marcando \"sexta\" e \"noite\", aparecem as mesas que jogam sexta à noite, não as que jogam sexta de manhã ou domingo à noite\n- **Quantas mesas em cada opção** - Cada dia e cada faixa mostra o número de mesas, então você vê onde há mais opção antes de filtrar\n- **No computador e no celular** - Os mesmos filtros nas duas telas\n\nO filtro por dia da semana veio de uma sugestão enviada por um usuário pelo formulário de reporte do site. Obrigado pela ideia — continue mandando.",
+    "type": "app",
+    "published": true,
+    "created_at": "2026-09-18T21:00:00-03:00"
+  },
+  {
     "id": "2026-09-16-mobile-refeito",
     "title": "Navegação no celular refeita",
     "body": "O cabeçalho foi reconstruído para telas pequenas:\n\n- **Tudo cabe na tela** - O topo era mais largo que o próprio aparelho e empurrava botões para fora da área visível. Agora cabe até em telas de 320px, as menores em uso\n- **Menu de navegação à esquerda** - Um botão de menu abre os links para os outros projetos do Artifício, que antes ficavam inalcançáveis\n- **Sua conta reunida num painel** - Tocar no avatar abre um painel com notificações, novidades, tema e sair, em vez de disputarem espaço na barra estreita\n- **Painel que rola** - Com o celular deitado, o conteúdo que passava da tela ficava inalcançável; agora o painel rola por conta própria\n- **Seções destacadas** - A barra de seções ganhou fundo próprio e marca a página atual, em vez de se confundir com o menu principal\n- **Sem piscada branca no tema escuro** - O topo aparecia branco e virava escuro só depois; agora já nasce escuro\n- **Menu da conta no tema certo** - O painel do avatar abria branco sobre o fundo escuro, e o link de sair tinha contraste baixo demais para leitura\n- **Lupa busca dentro das Mesas** - A busca do cabeçalho passou a procurar mesas, em vez de levar para fora do projeto\n\n_Atualização publicada em 16/09/2026_",

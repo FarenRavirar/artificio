@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "total": 295,
-    "uniqueEndpoints": 270,
+    "total": 296,
+    "uniqueEndpoints": 271,
     "byApp": {
       "accounts-frontend": {
         "total": 8,
@@ -38,16 +38,16 @@
         }
       },
       "mesas-frontend": {
-        "total": 177,
+        "total": 178,
         "byConfidence": {
           "medium": 76,
-          "high": 101
+          "high": 102
         },
         "byPattern": {
           "unknown": 4,
           "template-literal": 70,
           "service-wrapper": 45,
-          "literal": 58
+          "literal": 59
         }
       },
       "packages/auth": {
@@ -2487,6 +2487,16 @@
       "pattern": "template-literal",
       "wrapper": "fetch",
       "line": 59
+    },
+    {
+      "app": "mesas-frontend",
+      "consumerFile": "apps/mesas/frontend/src/hooks/useScheduleFacets.ts",
+      "method": "GET",
+      "endpoint": "/api/v1/tables/schedule-facets",
+      "confidence": "high",
+      "pattern": "literal",
+      "wrapper": "fetch",
+      "line": 72
     },
     {
       "app": "mesas-frontend",

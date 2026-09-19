@@ -7,10 +7,10 @@
     "downloads": 108,
     "glossario": 50,
     "links": 22,
-    "mesas": 210,
+    "mesas": 211,
     "site": 58
   },
-  "total": 501,
+  "total": 502,
   "operations": [
     {
       "app": "accounts",
@@ -5244,6 +5244,18 @@
       "auth": "none",
       "consumers": [],
       "operationId": "postapi_v1_tables_slug_view"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/tables/schedule-facets",
+      "summary": "Consulta api v1 tables schedule-facets",
+      "owner": "mesas",
+      "scope": "public",
+      "status": "active",
+      "auth": "none",
+      "consumers": [],
+      "operationId": "getapi_v1_tables_schedule_facets"
     },
     {
       "app": "mesas",
