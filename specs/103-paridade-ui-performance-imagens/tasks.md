@@ -247,7 +247,9 @@ contrato de `packages/ui` e alcança os 6 apps: exige aprovação nominal.
 
 ### Revisão da PR #327 — veredicto medido de cada achado
 
-Codex e CodeRabbit, commit `fca55ef`. Correções na árvore, não commitadas.
+Duas rodadas. Achados 1-7 são de Codex e CodeRabbit sobre o commit `fca55ef`,
+corrigidos no commit `4031ddc`, pushado na PR #327. Achados 11-12 são das duas
+ferramentas sobre o `4031ddc`, corrigidos na árvore e ainda não commitados.
 
 **Procedem, corrigidos:**
 
@@ -290,9 +292,31 @@ Codex e CodeRabbit, commit `fca55ef`. Correções na árvore, não commitadas.
    proposta tentava alcançar — o placeholder — já é coberto pelo gate de status do
    item 1. Aplicar mudaria resultado sem defeito medido.
 
-Validação: backend 1190 testes (era 1189), frontend 1188 (era 1186), lint 0 erros
-nos dois (1 warning pré-existente em `useBannerScrim.ts`), `tsc -b` sem erros,
-`verify:api` breaking=0.
+**Segunda rodada, sobre o `4031ddc` — procedem, corrigidos:**
+
+11. **Payload malformado marcava a agenda como carregada** (P2 Codex,
+    `useScheduleFacets.ts`). Resposta 200 sem `data`, ou com uma das listas fora
+    de array, fazia `normalizeFacetList` devolver `{}`; `withExplicitZeros`
+    convertia isso em zero para toda opção do registro e `loaded` virava `true`
+    do mesmo jeito. `ScheduleFacetPicker.tsx:105` desabilita a opção com
+    contador zero, então a lista inteira ficava inerte em cima de contagem que
+    nunca foi medida. Agora a forma inválida é falha: `throw` antes do
+    `setCounts`, o que cai no `catch` que já mantinha tudo clicável com
+    `loaded: false`. Guard novo em `useScheduleFacets.test.ts` (5 casos),
+    visto vermelho: removido o `Array.isArray`, os 2 casos de lista malformada
+    falham.
+12. **Scroll não resetava em mudança só de agenda** (CodeRabbit,
+    `CatalogoPage.tsx:440`). A lista de dependências do efeito de scroll é
+    campo por campo e não tinha `weekdays`/`dayparts` — mesma raiz do achado 2.
+    Filtrar por dia com `page` em 1 deixava o usuário no meio da lista antiga.
+    Os dois campos entraram na lista.
+
+Validação da segunda rodada: frontend 1193 testes em 89 arquivos (era 1188),
+`tsc --noEmit` sem erros.
+
+Validação da primeira rodada: backend 1190 testes (era 1189), frontend 1188
+(era 1186), lint 0 erros nos dois (1 warning pré-existente em
+`useBannerScrim.ts`), `tsc -b` sem erros, `verify:api` breaking=0.
 
 ### SonarQube — 4 achados de manutenibilidade
 

@@ -77,9 +77,20 @@ export function useScheduleFacets() {
         const data = typeof json === 'object' && json !== null
           ? (json as Record<string, unknown>).data
           : undefined;
-        const payload = typeof data === 'object' && data !== null
-          ? (data as Record<string, unknown>)
-          : {};
+        if (typeof data !== 'object' || data === null) {
+          throw new Error('Envelope da agenda sem `data`');
+        }
+        const payload = data as Record<string, unknown>;
+        // `loaded` só vira `true` com as DUAS listas em forma de array: o zero
+        // de `withExplicitZeros` significa "opção sem mesa", e o picker
+        // desabilita a opção com zero. Payload malformado produz o mesmo zero
+        // sem nenhuma contagem ter sido medida, o que desabilitaria a lista
+        // inteira em cima de dado que não existe (achado P2 do Codex na PR
+        // #327). Forma inválida é falha, e falha cai no `catch`, onde tudo
+        // segue clicável.
+        if (!Array.isArray(payload.weekdays) || !Array.isArray(payload.dayparts)) {
+          throw new Error('Agenda sem as listas `weekdays` e `dayparts`');
+        }
 
         setCounts({
           weekdays: withExplicitZeros(

@@ -446,6 +446,8 @@ export const CatalogoPage = () => {
     filters.type,
     filters.styles,
     filters.seal,
+    filters.weekdays,
+    filters.dayparts,
     filters.sort,
     filters.page,
   ]);
