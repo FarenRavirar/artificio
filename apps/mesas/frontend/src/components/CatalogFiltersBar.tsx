@@ -18,6 +18,8 @@ import type {
 } from '../services/catalogService';
 import type { CatalogSeal } from '../types/tables';
 import type { SystemTreeNode } from '../types/systems';
+import type { ScheduleFacetCounts } from '../hooks/useScheduleFacets';
+import type { DaypartOption, WeekdayOption } from '../utils/catalogFilterOptions';
 import {
   PUBLIC_MODALITY_OPTIONS,
   PUBLIC_SHORTCUT_OPTIONS,
@@ -60,9 +62,12 @@ export type CatalogFiltersBarProps = Readonly<{
   onTypeChange: (value: CatalogFilters['type']) => void;
   onSealToggle: (seal: CatalogSeal) => void;
   onStyleToggle: (style: StyleOption) => void;
+  onWeekdayToggle: (weekday: WeekdayOption) => void;
+  onDaypartToggle: (daypart: DaypartOption) => void;
   styleFacets: StyleFacet[];
-  /** Quantidade de filtros avançados ativos (experiência, tipo, selo, estilos)
-   * — badge do botão "Mais filtros". */
+  scheduleFacets: ScheduleFacetCounts;
+  /** Quantidade de filtros avançados ativos (experiência, tipo, selo, estilos,
+   * dia da semana e faixa de horário) — badge do botão "Mais filtros". */
   advancedCount: number;
   systemName?: string;
   onRemoveFilter: (key: string, value?: string) => void;
@@ -88,7 +93,10 @@ export function CatalogFiltersBar({
   onTypeChange,
   onSealToggle,
   onStyleToggle,
+  onWeekdayToggle,
+  onDaypartToggle,
   styleFacets,
+  scheduleFacets,
   advancedCount,
   systemName,
   onRemoveFilter,
@@ -325,17 +333,15 @@ export function CatalogFiltersBar({
             className="mt-4 rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4"
           >
             <CatalogAdvancedFilters
-              filters={{
-                experience: filters.experience,
-                type: filters.type,
-                seal: filters.seal,
-                styles: filters.styles,
-              }}
+              filters={filters}
               styleFacets={styleFacets}
+              scheduleFacets={scheduleFacets}
               onExperienceChange={onExperienceChange}
               onTypeChange={onTypeChange}
               onSealToggle={onSealToggle}
               onStyleToggle={onStyleToggle}
+              onWeekdayToggle={onWeekdayToggle}
+              onDaypartToggle={onDaypartToggle}
               idPrefix="catalog-advanced-desktop"
             />
           </div>
@@ -354,6 +360,12 @@ export function CatalogFiltersBar({
                 type: filters.type,
                 seal: pickOptional(filters.seal, SEAL_VALUES),
                 styles: filters.styles,
+                // Sem estes dois, o chip de agenda nunca aparecia e os ramos de
+                // remoção individual em `CatalogoPage.removeFilter` ficavam
+                // inalcançáveis: só "Limpar tudo" desfazia a seleção de dia ou
+                // faixa (achado P2 do Codex na PR #327).
+                weekdays: filters.weekdays,
+                dayparts: filters.dayparts,
                 sort: filters.sort,
               }}
               systemName={systemName}

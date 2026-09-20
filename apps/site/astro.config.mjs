@@ -68,6 +68,13 @@ export default defineConfig({
         // mas em `beta.` a origem é outra e a imagem é bloqueada — medido no preview com a
         // busca em `show-images`: 14 violações de `img-src`, uma por capa de resultado.
         // O `<img>` do corpo do post não expunha isso porque ninguém media o console da busca.
+        //
+        // ⚠️ A CSP libera o host, mas o ARQUIVO não existe: medido em 2026-09-19 com
+        // cache-buster, 3 capas de `/wp-content/uploads/` devolvem 404 em produção, com o
+        // HTML do post em 200. Não há `wp-content` no `dist` nem em `public/` — o WordPress
+        // foi desligado e os arquivos não vieram. Liberar o host aqui é necessário e NÃO é
+        // suficiente; não reinvestigar a CSP quando a capa não aparecer. Rastreado na
+        // T2.5 da spec 103, bloqueada em decisão de produto (onde as capas passam a morar).
         "img-src 'self' data: https://artificiorpg.com https://res.cloudinary.com https://*.googleusercontent.com",
         "media-src 'self' https://res.cloudinary.com",
         // cloudflareinsights.com: beacon do Cloudflare Web Analytics (RUM) envia métricas via fetch.

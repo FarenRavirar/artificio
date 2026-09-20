@@ -48,7 +48,10 @@ const baseProps = {
   onTypeChange: vi.fn(),
   onSealToggle: vi.fn(),
   onStyleToggle: vi.fn(),
+  onWeekdayToggle: vi.fn(),
+  onDaypartToggle: vi.fn(),
   styleFacets: [],
+  scheduleFacets: { weekdays: {}, dayparts: {}, loaded: false },
   advancedCount: 0,
   systemName: undefined,
   onRemoveFilter: vi.fn(),
@@ -213,6 +216,23 @@ describe('CatalogFiltersBar — chips e limpar tudo (R10)', () => {
 
     expect(screen.getByRole('button', { name: /Remover filtro Mais vagas/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Limpar tudo/ })).toBeInTheDocument();
+  });
+});
+
+describe('CatalogFiltersBar — filtros de agenda chegam aos chips (PR #327)', () => {
+  it('dia e faixa selecionados viram chip removível', () => {
+    // O objeto de `ActiveFiltersChips` é montado campo por campo: esquecer um
+    // não quebra tipo nem teste, só apaga o chip em silêncio e torna o ramo de
+    // remoção inalcançável (achado P2 do Codex).
+    render(
+      <CatalogFiltersBar
+        {...baseProps}
+        filters={{ ...baseProps.filters, weekdays: ['sábado'], dayparts: ['noite'] }}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /Remover filtro Sábado/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Remover filtro Noite/i })).toBeInTheDocument();
   });
 });
 

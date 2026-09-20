@@ -1,6 +1,8 @@
 import { ShieldCheck, Star } from 'lucide-react';
 import { SealToggle } from './SealToggle';
 import { StyleFacetPicker } from './StyleFacetPicker';
+import { ScheduleFacetPicker } from './ScheduleFacetPicker';
+import type { ScheduleFacetCounts } from '../hooks/useScheduleFacets';
 import type {
   CatalogFilters,
   ExperienceLevelOption,
@@ -14,7 +16,7 @@ import {
   PUBLIC_TABLE_TYPE_OPTIONS,
   pickOptional,
 } from '../utils/catalogFilterOptions';
-import type { TableTypeOption } from '../utils/catalogFilterOptions';
+import type { DaypartOption, TableTypeOption, WeekdayOption } from '../utils/catalogFilterOptions';
 
 /**
  * Filtros secundários do catálogo (spec 094, R4/R6/R11/R12/R22) — UMA definição
@@ -32,12 +34,17 @@ import type { TableTypeOption } from '../utils/catalogFilterOptions';
  */
 
 export type CatalogAdvancedFiltersProps = Readonly<{
-  filters: Pick<CatalogFilters, 'experience' | 'type' | 'seal' | 'styles'>;
+  filters: Pick<CatalogFilters, 'experience' | 'type' | 'seal' | 'styles' | 'weekdays' | 'dayparts'>;
   styleFacets: StyleFacet[];
+  /** Contagem por dia e por faixa: a opção sem mesa aparece com (0) e
+   * desabilitada (spec 103, D6), então a UI precisa do número real. */
+  scheduleFacets: ScheduleFacetCounts;
   onExperienceChange: (value: ExperienceLevelOption | '') => void;
   onTypeChange: (value: TableTypeOption | '') => void;
   onSealToggle: (seal: CatalogSeal) => void;
   onStyleToggle: (style: StyleOption) => void;
+  onWeekdayToggle: (weekday: WeekdayOption) => void;
+  onDaypartToggle: (daypart: DaypartOption) => void;
   /** Prefixo de IDs — desktop e mobile passam valores distintos para garantir
    * unicidade de DOM caso as duas superfícies coexistam. */
   idPrefix: string;
@@ -46,14 +53,28 @@ export type CatalogAdvancedFiltersProps = Readonly<{
 export function CatalogAdvancedFilters({
   filters,
   styleFacets,
+  scheduleFacets,
   onExperienceChange,
   onTypeChange,
   onSealToggle,
   onStyleToggle,
+  onWeekdayToggle,
+  onDaypartToggle,
   idPrefix,
 }: CatalogAdvancedFiltersProps) {
   return (
     <div className="space-y-5">
+      {/* Agenda primeiro: "quando eu posso jogar" filtra mais gente que nível de
+          experiência ou tipo de mesa, e foi o pedido original do usuário. */}
+      <ScheduleFacetPicker
+        weekdays={filters.weekdays}
+        dayparts={filters.dayparts}
+        counts={scheduleFacets}
+        onWeekdayToggle={onWeekdayToggle}
+        onDaypartToggle={onDaypartToggle}
+        idPrefix={idPrefix}
+      />
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="min-w-0">
           <label htmlFor={`${idPrefix}-experience`} className="mb-1.5 block text-xs font-semibold text-[var(--fg-muted)]">

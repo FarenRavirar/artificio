@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "total": 610,
+    "total": 611,
     "byApp": {
       "accounts": {
         "total": 56,
@@ -57,9 +57,9 @@
         }
       },
       "mesas": {
-        "total": 261,
+        "total": 262,
         "byMethod": {
-          "GET": 76,
+          "GET": 77,
           "POST": 74,
           "USE": 54,
           "PATCH": 26,
@@ -67,7 +67,7 @@
           "PUT": 11
         },
         "byConfidence": {
-          "high": 261
+          "high": 262
         }
       },
       "site": {
@@ -4675,7 +4675,7 @@
       "method": "GET",
       "path": "/api/v1/tables",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 99,
+      "line": 148,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4693,7 +4693,7 @@
       "method": "GET",
       "path": "/api/v1/tables/:slug",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 566,
+      "line": 798,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4702,7 +4702,7 @@
       "method": "POST",
       "path": "/api/v1/tables/:slug/click",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 840,
+      "line": 1072,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4711,7 +4711,7 @@
       "method": "GET",
       "path": "/api/v1/tables/:slug/favorite",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 906,
+      "line": 1138,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4720,7 +4720,7 @@
       "method": "POST",
       "path": "/api/v1/tables/:slug/favorite",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 938,
+      "line": 1170,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4729,7 +4729,7 @@
       "method": "POST",
       "path": "/api/v1/tables/:slug/report",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 1004,
+      "line": 1236,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4738,7 +4738,16 @@
       "method": "POST",
       "path": "/api/v1/tables/:slug/view",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 800,
+      "line": 1032,
+      "confidence": "high",
+      "kind": "express-route"
+    },
+    {
+      "app": "mesas",
+      "method": "GET",
+      "path": "/api/v1/tables/schedule-facets",
+      "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
+      "line": 624,
       "confidence": "high",
       "kind": "express-route"
     },
@@ -4747,7 +4756,7 @@
       "method": "GET",
       "path": "/api/v1/tables/style-facets",
       "sourceFile": "apps/mesas/backend/src/routes/tables.ts",
-      "line": 433,
+      "line": 582,
       "confidence": "high",
       "kind": "express-route"
     },

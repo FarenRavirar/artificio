@@ -23,9 +23,9 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | downloads | 134 | 134 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | glossario | 66 | 66 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | links | 23 | 23 | 0 | 0 | DELETE, GET, PATCH, POST, USE |
-| mesas | 261 | 261 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
+| mesas | 262 | 262 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
 | site | 70 | 70 | 0 | 0 | DELETE, GET, PATCH, POST, PUT, USE |
-| **Total** | **610** | 610 | 0 | 0 | |
+| **Total** | **611** | 611 | 0 | 0 | |
 
 ## accounts
 
@@ -560,15 +560,16 @@ Para informação granular (auth exata, rate-limit, payload), consulte os contra
 | DELETE | `/api/v1/systems/admin/:id` | ✅ high | `apps/mesas/backend/src/routes/systems.ts` | 199 |
 | PUT | `/api/v1/systems/admin/:id` | ✅ high | `apps/mesas/backend/src/routes/systems.ts` | 169 |
 | GET | `/api/v1/systems/health` | ✅ high | `apps/mesas/backend/src/routes/systems.ts` | 19 |
-| GET | `/api/v1/tables` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 99 |
+| GET | `/api/v1/tables` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 148 |
 | USE | `/api/v1/tables` | ✅ high | `apps/mesas/backend/src/server.ts` | 125 |
-| GET | `/api/v1/tables/:slug` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 566 |
-| POST | `/api/v1/tables/:slug/click` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 840 |
-| GET | `/api/v1/tables/:slug/favorite` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 906 |
-| POST | `/api/v1/tables/:slug/favorite` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 938 |
-| POST | `/api/v1/tables/:slug/report` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 1004 |
-| POST | `/api/v1/tables/:slug/view` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 800 |
-| GET | `/api/v1/tables/style-facets` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 433 |
+| GET | `/api/v1/tables/:slug` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 798 |
+| POST | `/api/v1/tables/:slug/click` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 1072 |
+| GET | `/api/v1/tables/:slug/favorite` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 1138 |
+| POST | `/api/v1/tables/:slug/favorite` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 1170 |
+| POST | `/api/v1/tables/:slug/report` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 1236 |
+| POST | `/api/v1/tables/:slug/view` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 1032 |
+| GET | `/api/v1/tables/schedule-facets` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 624 |
+| GET | `/api/v1/tables/style-facets` | ✅ high | `apps/mesas/backend/src/routes/tables.ts` | 582 |
 | POST | `/api/v1/upload` | ✅ high | `apps/mesas/backend/src/routes/upload.ts` | 35 |
 | POST | `/api/v1/upload/url` | ✅ high | `apps/mesas/backend/src/routes/upload.ts` | 86 |
 | GET | `/api/v1/vtt-platforms` | ✅ high | `apps/mesas/backend/src/routes/vttPlatforms.ts` | 145 |

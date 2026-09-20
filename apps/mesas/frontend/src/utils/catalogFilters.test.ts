@@ -14,6 +14,8 @@ describe('parseCatalogFilters — defaults', () => {
       seal: '',
       styles: [],
       type: '',
+      weekdays: [],
+      dayparts: [],
       sort: 'popular',
       page: 1,
       limit: 24,
